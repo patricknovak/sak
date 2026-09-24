@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useLeague } from '../lib/store';
-import { supabase } from '../lib/supabase';
+import { selectAll } from '../lib/supabase';
 import { fmtDate, fmtMoney, fmtPts } from '../lib/format';
 import { Section, TeamBadge, TeamName } from '../components/ui';
 import { SEASONS } from '../data/history';
@@ -67,7 +67,7 @@ export default function Standings() {
   const { standings, team, me, league, online } = useLeague();
   const [daily, setDaily] = useState<Daily[]>([]);
   useEffect(() => {
-    supabase.from('team_daily').select('team_id,date,points').order('date').then(({ data }) => setDaily((data ?? []) as Daily[]));
+    selectAll<Daily>('team_daily', 'team_id,date,points', 1000, ['date', 'team_id']).then(setDaily, () => {});
   }, [standings]);
   const table = useMemo(() => [...standings].sort((a, b) => a.rank - b.rank), [standings]);
   const pool = (league?.entry_fee ?? 200) - (league?.sak_fee ?? 25);

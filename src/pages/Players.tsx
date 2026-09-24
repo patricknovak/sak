@@ -38,7 +38,7 @@ export default function Players() {
         <h1 className="h-display text-2xl">Players</h1>
         <div className="text-xs text-mute">Roster {used}/{Object.entries(league?.roster ?? {}).reduce((t, [k, v]) => t + (k === 'IR' ? 0 : v), 0)} {league?.phase !== 'season' && '· pickups open after the draft'}</div>
       </div>
-      <div className="sticky top-12 z-20 -mx-3 space-y-2 border-b border-line bg-ice/95 px-3 py-2 backdrop-blur lg:top-0">
+      <div className="sticky top-[calc(3rem+var(--banner,0px))] z-20 -mx-3 space-y-2 border-b border-line bg-ice/95 px-3 py-2 backdrop-blur lg:top-[var(--banner,0px)]">
         <input className="input" placeholder="Search name or NHL team (e.g. TOR)" value={q} onChange={(e) => setQ(e.target.value)} />
         <div className="scroll-x flex items-center gap-1">
           {(['ALL', 'C', 'LW', 'RW', 'D', 'G'] as const).map((x) => <button key={x} className={`tab px-2.5 py-1 ${pos === x ? 'tab-on' : 'bg-boards'}`} onClick={() => setPos(x)}>{x}</button>)}

@@ -121,8 +121,9 @@ export function Layout({ children }: { children: ReactNode }) {
 
   const isActive = (to: string) => (to === '/' ? loc.pathname === '/' : loc.pathname.startsWith(to));
 
+  const banner = draft?.status === 'live' && !!current && !loc.pathname.startsWith('/draft');
   return (
-    <div className="lg:flex">
+    <div className="lg:flex" style={{ '--banner': banner ? '2.25rem' : '0px' } as React.CSSProperties}>
       {/* desktop sidebar */}
       <aside className="sticky top-0 hidden h-dvh w-60 shrink-0 flex-col border-r border-line bg-rink/60 p-4 lg:flex">
         <button onClick={() => nav('/')} className="mb-6 flex items-center gap-2">
@@ -162,8 +163,8 @@ export function Layout({ children }: { children: ReactNode }) {
         </header>
 
         {/* you're on the clock */}
-        {draft?.status === 'live' && current && !loc.pathname.startsWith('/draft') && (
-          <button onClick={() => nav('/draft')} className={`sticky top-12 z-20 flex w-full items-center justify-center gap-2 px-3 py-2 text-sm font-semibold lg:top-0 ${myTurn ? 'bg-goal text-white' : 'bg-sky-500 text-ice'}`}>
+        {banner && current && (
+          <button onClick={() => nav('/draft')} className={`sticky top-12 z-20 flex h-9 w-full items-center justify-center gap-2 truncate px-3 text-sm font-semibold lg:top-0 ${myTurn ? 'bg-goal text-white' : 'bg-sky-500 text-ice'}`}>
             {myTurn ? '⏰ You’re on the clock!' : '🟢 Draft is live'} · Pick #{current.overall} · {countdown(remaining)} → Draft room
           </button>
         )}

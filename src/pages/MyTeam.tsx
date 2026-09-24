@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { Fragment, useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { useLeague, useNow } from '../lib/store';
 import { rpc, supabase } from '../lib/supabase';
@@ -28,6 +28,7 @@ export default function MyTeam() {
 
   const roster = useMemo(() => rosters.filter((r) => r.team_id === teamId).map((r) => ({ r, p: players.get(r.player_id)! })).filter((x) => x.p), [rosters, players, teamId]);
 
+  const rosterKey = roster.map((x) => x.p.id).join(',');
   useEffect(() => {
     if (!roster.length) return;
     const load = () => supabase.from('player_games').select('player_id,fpts,stats').eq('date', etToday()).in('player_id', roster.map((x) => x.p.id))
@@ -35,7 +36,7 @@ export default function MyTeam() {
     load();
     const i = setInterval(load, 60_000);
     return () => clearInterval(i);
-  }, [roster.length, teamId]);
+  }, [rosterKey, teamId]);
 
   useEffect(() => {
     if (!teamId) return;
@@ -162,21 +163,21 @@ export default function MyTeam() {
       <div className="grid gap-4 lg:grid-cols-2">
         {(!offseason || anyStarter) && (
           <Section title="Starters">
-            <div className="card divide-y divide-line overflow-hidden">{rows.map((r, i) => <Row key={i} slot={r.slot} x={r.x} />)}</div>
+            <div className="card divide-y divide-line overflow-hidden">{rows.map((r, i) => <Fragment key={i}>{Row({ slot: r.slot, x: r.x })}</Fragment>)}</div>
           </Section>
         )}
         <div className="space-y-4">
           <Section title={offseason && !anyStarter ? `Roster (${bench.length})` : `Bench (${bench.length}/${cap.BN ?? 12})`}>
             <div className="card divide-y divide-line overflow-hidden">
-              {bench.map((x) => <Row key={x.p.id} slot="BN" x={x} />)}
-              {selected && selected.r.slot !== 'BN' && <Row slot="BN" />}
+              {bench.map((x) => <Fragment key={x.p.id}>{Row({ slot: 'BN', x })}</Fragment>)}
+              {selected && selected.r.slot !== 'BN' && Row({ slot: 'BN' })}
               {bench.length === 0 && !selected && <div className="p-3 text-sm text-mute">Empty bench.</div>}
             </div>
           </Section>
           <Section title={`IR (${ir.length}/${cap.IR ?? 2})`}>
             <div className="card divide-y divide-line overflow-hidden">
-              {ir.map((x) => <Row key={x.p.id} slot="IR" x={x} />)}
-              {selected && selected.r.slot !== 'IR' && ir.length < (cap.IR ?? 2) && <Row slot="IR" />}
+              {ir.map((x) => <Fragment key={x.p.id}>{Row({ slot: 'IR', x })}</Fragment>)}
+              {selected && selected.r.slot !== 'IR' && ir.length < (cap.IR ?? 2) && Row({ slot: 'IR' })}
               {ir.length === 0 && !selected && <div className="p-3 text-xs text-mute">Injured players only (honour system; the commish is watching).</div>}
             </div>
           </Section>

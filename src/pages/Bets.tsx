@@ -1,6 +1,6 @@
-import { useEffect, useMemo, useState } from 'react';
+import { Fragment, useEffect, useMemo, useState } from 'react';
 import { useLeague, useNow } from '../lib/store';
-import { rpc, realtimeChannel, supabase } from '../lib/supabase';
+import { rpc, realtimeChannel, supabase, selectAll } from '../lib/supabase';
 import type { Bet, CoinBalance, CoinEntry } from '../lib/types';
 import { ago, etToday, fmtDate, fmtMoney, fmtPts } from '../lib/format';
 import { Empty, Section, Sheet, TeamBadge, TeamName, useAction } from '../components/ui';
@@ -31,7 +31,7 @@ export default function Bets() {
   };
   useEffect(() => {
     load();
-    supabase.from('team_daily').select('team_id,date,points').then(({ data }) => setDaily((data ?? []) as Daily[]));
+    selectAll<Daily>('team_daily', 'team_id,date,points', 1000, ['date', 'team_id']).then(setDaily, () => {});
     const ch = realtimeChannel('bets-page')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'bets' }, load)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'coin_ledger' }, load)
@@ -182,12 +182,12 @@ export default function Bets() {
           </div>
         </Section>
       )}
-      {groups.open.length > 0 && <Section title="Open challenges"><div className="grid gap-2 sm:grid-cols-2">{groups.open.map((b) => <BetCard key={b.id} b={b} />)}</div></Section>}
+      {groups.open.length > 0 && <Section title="Open challenges"><div className="grid gap-2 sm:grid-cols-2">{groups.open.map((b) => <Fragment key={b.id}>{BetCard({ b })}</Fragment>)}</div></Section>}
       <Section title="Live bets">
         {groups.live.length === 0 ? <div className="card"><Empty icon="🎲" title="No live bets">Challenge someone. You know who.</Empty></div>
-          : <div className="grid gap-2 sm:grid-cols-2">{groups.live.map((b) => <BetCard key={b.id} b={b} />)}</div>}
+          : <div className="grid gap-2 sm:grid-cols-2">{groups.live.map((b) => <Fragment key={b.id}>{BetCard({ b })}</Fragment>)}</div>}
       </Section>
-      {groups.settled.length > 0 && <Section title="Settled"><div className="grid gap-2 sm:grid-cols-2">{groups.settled.map((b) => <BetCard key={b.id} b={b} />)}</div></Section>}
+      {groups.settled.length > 0 && <Section title="Settled"><div className="grid gap-2 sm:grid-cols-2">{groups.settled.map((b) => <Fragment key={b.id}>{BetCard({ b })}</Fragment>)}</div></Section>}
 
       <Sheet open={open} onClose={() => setOpen(false)} title="New side bet">
         <div className="space-y-3">

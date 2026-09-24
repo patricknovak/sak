@@ -5,15 +5,30 @@ import type { DraftPick, Player, Pos as PosT } from '../lib/types';
 import { countdown, fmtDateTime, fmtPts } from '../lib/format';
 import { ChatPanel } from '../components/ChatPanel';
 import { PlayerRow, PlayerSheet } from '../components/PlayerCard';
-import { Headshot, Pos, TeamBadge, TeamName, Toggle, useAction } from '../components/ui';
+import { Headshot, Pos, TeamBadge, TeamName, Toggle, useAction, useToast } from '../components/ui';
 
 type Tab = 'players' | 'board' | 'queue' | 'team' | 'chat';
 const POSITIONS: ('ALL' | PosT)[] = ['ALL', 'C', 'LW', 'RW', 'D', 'G'];
 
+// render just one layout (phone tabs or the desktop grid) instead of hiding the other with CSS
+function useWide() {
+  const mq = '(min-width: 1024px)';
+  const [wide, setWide] = useState(() => window.matchMedia(mq).matches);
+  useEffect(() => {
+    const m = window.matchMedia(mq);
+    const on = () => setWide(m.matches);
+    m.addEventListener('change', on);
+    return () => m.removeEventListener('change', on);
+  }, []);
+  return wide;
+}
+
 export default function Draft() {
   const { me, league, teams, team, players, rosters, owner, picks, draft, online, refresh } = useLeague();
-  const now = useNow(250);
+  const now = useNow(500);
   const { busy, run: runRaw } = useAction();
+  const toast = useToast();
+  const wide = useWide();
   const run = (fn: () => Promise<unknown>, ok?: string) => runRaw(async () => { await fn(); await refresh(['draft', 'picks', 'league', 'rosters', 'teams']); }, ok);
   const [tab, setTab] = useState<Tab>('players');
   const [q, setQ] = useState('');
@@ -40,11 +55,24 @@ export default function Draft() {
     setQueue((data ?? []).map((r) => r.player_id));
   }, []);
   useEffect(() => { loadQueue(); }, [loadQueue, made]);
+  // quick taps would race delete+insert, so saves run one at a time and always write the latest queue
+  const pendingQueue = useRef<number[] | null>(null);
+  const savingQueue = useRef(false);
   const saveQueue = async (ids: number[]) => {
     setQueue(ids);
     if (!me) return;
-    await supabase.from('draft_queue').delete().eq('team_id', me.id);
-    if (ids.length) await supabase.from('draft_queue').insert(ids.map((player_id, i) => ({ team_id: me.id, player_id, pos: i })));
+    pendingQueue.current = ids;
+    if (savingQueue.current) return;
+    savingQueue.current = true;
+    try {
+      while (pendingQueue.current) {
+        const next = pendingQueue.current;
+        pendingQueue.current = null;
+        const del = await supabase.from('draft_queue').delete().eq('team_id', me.id);
+        const ins = next.length ? await supabase.from('draft_queue').insert(next.map((player_id, i) => ({ team_id: me.id, player_id, pos: i }))) : { error: null };
+        if (del.error || ins.error) toast('Couldn’t save your queue. Try again.', 'err');
+      }
+    } finally { savingQueue.current = false; }
   };
   const toggleQueue = (id: number) => saveQueue(queue.includes(id) ? queue.filter((x) => x !== id) : [...queue, id]);
 
@@ -65,8 +93,9 @@ export default function Draft() {
   const banned = useMemo(() => {
     const best = new Map<number, { id: number; fp: number }>();
     if (league?.top_scorer_rule) for (const r of rosters) {
+      if (r.prev_fp == null) continue;
       const b = best.get(r.team_id);
-      if (!b || (r.prev_fp ?? 0) > b.fp) best.set(r.team_id, { id: r.player_id, fp: r.prev_fp ?? 0 });
+      if (!b || r.prev_fp > b.fp || (r.prev_fp === b.fp && r.player_id < b.id)) best.set(r.team_id, { id: r.player_id, fp: r.prev_fp });
     }
     return new Set([...best.values()].map((b) => b.id));
   }, [rosters, league?.top_scorer_rule]);
@@ -329,14 +358,14 @@ export default function Draft() {
       </div>
 
       {/* phone: one tab at a time; desktop: players | board+queue | chat */}
-      <div className="flex min-h-0 flex-1 lg:hidden">
+      {!wide && <div className="flex min-h-0 flex-1">
         {tab === 'players' && PlayersTab}
         {tab === 'board' && BoardTab}
         {tab === 'queue' && QueueTab}
         {tab === 'team' && TeamTab}
         {tab === 'chat' && <ChatPanel channel="draft" compact className="flex-1" />}
-      </div>
-      <div className="hidden min-h-0 flex-1 gap-3 pt-3 lg:grid lg:grid-cols-[360px_1fr_320px]">
+      </div>}
+      {wide && <div className="grid min-h-0 flex-1 grid-cols-[360px_1fr_320px] gap-3 pt-3">
         <div className="card flex min-h-0 flex-col overflow-hidden">{PlayersTab}</div>
         <div className="flex min-h-0 flex-col gap-3">
           <div className="card flex min-h-0 flex-[3] flex-col overflow-hidden">{BoardTab}</div>
@@ -349,7 +378,7 @@ export default function Draft() {
           </div>
         </div>
         <div className="card flex min-h-0 flex-col overflow-hidden"><div className="border-b border-line px-3 py-2 text-sm font-semibold">💬 Draft chat</div><ChatPanel channel="draft" compact className="flex-1" /></div>
-      </div>
+      </div>}
 
       {/* pick announcement */}
       {flash && (() => {

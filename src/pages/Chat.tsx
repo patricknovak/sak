@@ -18,7 +18,7 @@ export default function Chat() {
   const cur = channels.find((x) => x.c === channel);
 
   return (
-    <div className="-mx-3 -my-3 flex h-[calc(100dvh-7rem-env(safe-area-inset-bottom)-env(safe-area-inset-top))] flex-col sm:-mx-5 lg:m-0 lg:h-[calc(100dvh-3rem)] lg:flex-row lg:gap-3">
+    <div className="-mx-3 -my-3 flex h-[calc(100dvh-7rem-env(safe-area-inset-bottom)-env(safe-area-inset-top)-var(--banner,0px))] flex-col sm:-mx-5 lg:m-0 lg:h-[calc(100dvh-3rem-var(--banner,0px))] lg:flex-row lg:gap-3">
       <div className="scroll-x flex shrink-0 gap-1 border-b border-line px-2 py-2 lg:card lg:w-56 lg:flex-col lg:overflow-y-auto lg:p-2">
         {channels.map((x) => (
           <button key={x.c} onClick={() => setParams({ c: x.c })}

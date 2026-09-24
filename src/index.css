@@ -30,7 +30,7 @@ body { overscroll-behavior-y: none; }
 @utility btn-primary { @apply btn bg-goal text-white hover:bg-rose-500; }
 @utility btn-blue { @apply btn bg-sky-500 text-ice hover:bg-sky-400; }
 @utility btn-ghost { @apply btn border border-line bg-boards/60 text-slate-200 hover:bg-boards; }
-@utility btn-sm { @apply px-2.5! py-1! text-xs! rounded-lg!; }
+@utility btn-sm { @apply px-2.5! py-1! text-xs! rounded-lg! min-h-8 min-w-8; }
 @utility input { @apply w-full rounded-xl border border-line bg-ice px-3 py-2 text-[16px] text-white outline-none placeholder:text-mute focus:border-sky-400; }
 @utility chip { @apply inline-flex items-center gap-1 rounded-full border border-line bg-boards px-2 py-0.5 text-[11px] font-semibold text-slate-300; }
 @utility h-display { @apply font-display font-bold uppercase tracking-wide; }

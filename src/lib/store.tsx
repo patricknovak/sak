@@ -144,17 +144,27 @@ export function LeagueProvider({ children }: { children: ReactNode }) {
     };
   }, [session, loaders, refresh]);
 
-  // presence: who's online right now
+  // presence: who's online right now. Everyone must share the 'online' topic, so wait for any
+  // previous copy (a quick sign-out/in) to finish leaving before joining again.
   useEffect(() => {
     if (!me) return;
-    const ch = supabase.channel('online', { config: { presence: { key: String(me.id) } } });
-    ch.on('presence', { event: 'sync' }, () => {
-      setOnline(new Set([me.id, ...Object.keys(ch.presenceState()).map(Number)]));
-    }).subscribe(async (status) => {
-      if (status === 'SUBSCRIBED') await ch.track({ at: Date.now() });
-    });
-    supabase.rpc('touch_seen');
-    return () => { supabase.removeChannel(ch); };
+    let ch: ReturnType<typeof supabase.channel> | null = null;
+    let cancelled = false;
+    (async () => {
+      try {
+        await Promise.all(supabase.getChannels().filter((c) => c.topic === 'realtime:online').map((c) => supabase.removeChannel(c)));
+        if (cancelled) return;
+        const c = supabase.channel('online', { config: { presence: { key: String(me.id) } } });
+        ch = c;
+        c.on('presence', { event: 'sync' }, () => {
+          setOnline(new Set([me.id, ...Object.keys(c.presenceState()).map(Number)]));
+        }).subscribe(async (status) => {
+          if (status === 'SUBSCRIBED') await c.track({ at: Date.now() });
+        });
+      } catch (e) { console.warn('presence unavailable', e); }
+    })();
+    supabase.rpc('touch_seen').then(() => {}, () => {});
+    return () => { cancelled = true; if (ch) supabase.removeChannel(ch); };
   }, [me?.id]);
 
   // safety net for flaky phone connections: poll the draft while it's live

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { Fragment, useEffect, useMemo, useState } from 'react';
 import { useLeague, useNow } from '../lib/store';
 import { supabase } from '../lib/supabase';
 import type { NewsItem } from '../lib/types';
@@ -44,7 +44,7 @@ export default function News() {
       <Section title="🩹 Your team">
         <div className="card divide-y divide-line">
           {mine.length === 0 ? <div className="p-4 text-sm text-mute">Nobody on your roster is hurt or suspended. Knock on wood.</div>
-            : mine.map((p) => <Hurt key={p.id} id={p.id} />)}
+            : mine.map((p) => <Fragment key={p.id}>{Hurt({ id: p.id })}</Fragment>)}
         </div>
       </Section>
 
@@ -59,13 +59,13 @@ export default function News() {
             {byTeam.map(({ t, list }) => (
               <div key={t.id} className="card overflow-hidden">
                 <div className="flex items-center gap-2 border-b border-line px-3 py-2"><TeamBadge team={t} size={22} /><TeamName team={t} /><span className="ml-auto text-xs text-mute">{list.length}</span></div>
-                <div className="divide-y divide-line">{list.map((p) => <Hurt key={p.id} id={p.id} />)}</div>
+                <div className="divide-y divide-line">{list.map((p) => <Fragment key={p.id}>{Hurt({ id: p.id })}</Fragment>)}</div>
               </div>
             ))}
           </div>
         ) : (
           <div className="card divide-y divide-line">
-            {fa.length === 0 ? <div className="p-4 text-sm text-mute">No notable injured free agents.</div> : fa.map((p) => <Hurt key={p.id} id={p.id} />)}
+            {fa.length === 0 ? <div className="p-4 text-sm text-mute">No notable injured free agents.</div> : fa.map((p) => <Fragment key={p.id}>{Hurt({ id: p.id })}</Fragment>)}
           </div>
         )}
       </Section>

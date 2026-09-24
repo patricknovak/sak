@@ -3,7 +3,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import { useLeague, useNow } from '../lib/store';
 import { realtimeChannel, supabase } from '../lib/supabase';
 import type { Bet, Message, Trade } from '../lib/types';
-import { ago, countdown, fmtDateTime, fmtPts, ordinal } from '../lib/format';
+import { ago, countdown, fmtDateTime, fmtPts, ordinal, etToday } from '../lib/format';
 import { Section, Stat, TeamBadge, TeamName } from '../components/ui';
 import { PlayerRow, usePlayerSheet } from '../components/PlayerCard';
 import { SEASONS } from '../data/history';
@@ -34,7 +34,7 @@ export default function Home() {
   // today's live fantasy points per player
   useEffect(() => {
     if (league?.phase !== 'season') return;
-    const load = () => supabase.from('player_games').select('player_id,fpts').eq('date', new Date(now).toLocaleDateString('en-CA', { timeZone: 'America/New_York' }))
+    const load = () => supabase.from('player_games').select('player_id,fpts').eq('date', etToday())
       .then(({ data }) => setTodayPts(new Map((data ?? []).map((r) => [r.player_id, Number(r.fpts)]))));
     load();
     const i = setInterval(load, 60_000);

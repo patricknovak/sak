@@ -153,7 +153,7 @@ export function useAction() {
 
 export function Toggle({ on, onChange, label }: { on: boolean; onChange: (v: boolean) => void; label?: ReactNode }) {
   return (
-    <button type="button" onClick={() => onChange(!on)} className="flex items-center gap-2 text-sm">
+    <button type="button" onClick={() => onChange(!on)} className="flex min-h-10 items-center gap-2 text-sm">
       <span className={`relative h-6 w-10 rounded-full transition ${on ? 'bg-emerald-500' : 'bg-boards border border-line'}`}>
         <span className={`absolute top-0.5 h-5 w-5 rounded-full bg-white shadow transition ${on ? 'left-[18px]' : 'left-0.5'}`} />
       </span>

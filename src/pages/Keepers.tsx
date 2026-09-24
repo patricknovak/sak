@@ -18,7 +18,10 @@ export default function Keepers() {
   const mine = useMemo(() => rosters.filter((r) => r.team_id === me?.id)
     .map((r) => ({ r, p: players.get(r.player_id)! })).filter((x) => x.p)
     .sort((a, b) => (b.r.prev_fp ?? 0) - (a.r.prev_fp ?? 0)), [rosters, players, me]);
-  const top = league?.top_scorer_rule ? mine[0]?.r.player_id : undefined;
+  // same rule as the server's top_scorer(): highest 2025-26 points, ties to the lower player id
+  const top = league?.top_scorer_rule
+    ? mine.filter((x) => x.r.prev_fp != null).sort((a, b) => b.r.prev_fp! - a.r.prev_fp! || a.p.id - b.p.id)[0]?.r.player_id
+    : undefined;
 
   useEffect(() => {
     setSel(new Set(mine.filter((x) => x.r.keeper).map((x) => x.r.player_id)));
@@ -72,7 +75,7 @@ export default function Keepers() {
         )}
       </div>
 
-      <div className="sticky top-12 z-20 -mx-3 flex items-center gap-3 border-y border-line bg-ice/95 px-3 py-2 backdrop-blur lg:top-0">
+      <div className="sticky top-[calc(3rem+var(--banner,0px))] z-20 -mx-3 flex items-center gap-3 border-y border-line bg-ice/95 px-3 py-2 backdrop-blur lg:top-[var(--banner,0px)]">
         <div className="flex gap-1">
           {Array.from({ length: max }).map((_, i) => (
             <span key={i} className={`h-3 w-6 rounded-full ${i < sel.size ? 'bg-emerald-400' : 'bg-boards'}`} />

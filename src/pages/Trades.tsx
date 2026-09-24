@@ -91,7 +91,7 @@ export default function Trades() {
             <TradeCard key={t.id} t={t}>
               <button className="btn-primary" disabled={busy} onClick={() => run(async () => { await rpc('respond_trade', { p_trade: t.id, p_accept: true }); load(); }, 'Accepted! Off to the commish.')}>Accept</button>
               <button className="btn-ghost" disabled={busy} onClick={() => run(async () => { await rpc('respond_trade', { p_trade: t.id, p_accept: false }); load(); }, 'Declined')}>Decline</button>
-              <button className="btn-ghost" onClick={() => setParams({ with: String(t.from_team) })}>Counter</button>
+              <button className="btn-ghost" onClick={() => { setParams({ with: String(t.from_team) }); setGet(new Set()); setGetPicks(new Set()); }}>Counter</button>
             </TradeCard>
           ))}</div>
         </Section>

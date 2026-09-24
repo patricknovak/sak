@@ -34,13 +34,15 @@ export default function Commish() {
       max_acquisitions: league.max_acquisitions, keepers: league.keepers, top_scorer_rule: league.top_scorer_rule, phase: league.phase,
     });
     setNote(league.commish_note ?? '');
-  }, [league?.updated_at]);
+  }, [league?.updated_at, league?.phase]); // draft reset/undo change the phase without touching updated_at
 
   const seasonPicks = useMemo(() => picks.filter((p) => p.season === draft?.season), [picks, draft]);
+  // key on the actual order so a re-randomize shows up here before anyone taps "Save this order"
+  const r1 = seasonPicks.filter((p) => p.round === 1 && p.overall).sort((a, b) => a.overall! - b.overall!).map((p) => p.original_team);
+  const r1Key = r1.join(',');
   useEffect(() => {
-    const r1 = seasonPicks.filter((p) => p.round === 1 && p.overall).sort((a, b) => a.overall! - b.overall!).map((p) => p.original_team);
     setOrder(r1.length ? r1 : teams.map((t) => t.id));
-  }, [seasonPicks.length, draft?.order_set, teams.length]);
+  }, [r1Key, teams.length]);
 
   if (!me?.is_commish) return <div className="card p-6 text-center text-sm text-mute">Commissioner only. Nice try. 🤡</div>;
 
