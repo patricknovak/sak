@@ -5,9 +5,12 @@
 //   ?task=players      (daily) current NHL rosters: trades, call-ups, sweater numbers, headshots
 //   ?task=injuries     (hourly) injury / suspension status from ESPN's public injury report
 //   ?task=news         (every 2 hours) NHL headlines, tagged with the players they mention
-//   ?task=daily        (late morning ET) auto-set lineups for teams that opted in
+//   ?task=daily        (late morning ET) lineup auto-pilot for teams that turned it on (day / week / season mode)
+//   ?task=lineups-late (before puck drop) the auto-pilot again, for late scratches and injuries; skips any team
+//                      whose GM moved players by hand today
 import { createClient } from 'jsr:@supabase/supabase-js@2';
 import { etDate, gameRow, gameStats, NHL, STARTED } from '../_shared/nhl.ts';
+import { optimize, weekEndOf, type Basis, type LPlayer, type LSeason, type Mode } from '../_shared/lineup.ts';
 
 const db = createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!, {
   auth: { persistSession: false },
@@ -27,7 +30,7 @@ const check = <T>({ data, error }: { data: T; error: unknown }) => {
   if (error) throw error;
   return data;
 };
-const norm = (s: string) => s.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().replace(/[^a-z]/g, '');
+const norm = (s: string) => s.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/[^a-z]/g, '');
 
 // faceoffs need the (large) play-by-play feed, so only fetch it when the league scores them
 async function needsPbp() {
@@ -115,10 +118,12 @@ async function players() {
 
 async function nameIndex() {
   const all: { id: number; name: string }[] = [];
-  for (let from = 0; ; from += 1000) {
-    const chunk = check(await db.from('players').select('id,name').range(from, from + 999)) as typeof all;
+  // stable order, or pages can overlap and a player looks like two
+  for (let from = 0; from < 20000;) {
+    const chunk = check(await db.from('players').select('id,name').order('id').range(from, from + 999)) as typeof all;
+    if (!chunk.length) break;
     all.push(...chunk);
-    if (chunk.length < 1000) break;
+    from += chunk.length;
   }
   const byName = new Map<string, number[]>();
   for (const p of all) byName.set(norm(p.name), [...(byName.get(norm(p.name)) ?? []), p.id]);
@@ -165,6 +170,42 @@ async function news() {
   return { articles: rows.length, tagged: rows.filter((r: any) => r.player_ids.length).length };
 }
 
+// the lineup auto-pilot: the same exact optimizer the site's "Optimize" button uses
+async function autoLineups() {
+  const { data: league } = await db.from('league').select('phase,roster').single();
+  if (league?.phase !== 'season') return { skipped: league?.phase };
+  const today = etDate(new Date());
+  const teams = check(await db.from('teams').select('id,auto_mode,auto_basis,lineup_touched').neq('auto_mode', 'off')) as
+    { id: number; auto_mode: Mode; auto_basis: Basis; lineup_touched: string | null }[];
+  const todo = teams.filter((t) => t.lineup_touched !== today);
+  if (!todo.length) return { teams: 0, skipped_manual: teams.length };
+  const rows = check(await db.from('rosters').select('team_id,player_id,slot,pin').in('team_id', todo.map((t) => t.id))) as
+    { team_id: number; player_id: number; slot: string; pin: string | null }[];
+  const ids = rows.map((r) => r.player_id);
+  const players = new Map<number, LPlayer>(), season = new Map<number, LSeason>();
+  for (let i = 0; i < ids.length; i += 300) {
+    const chunk = ids.slice(i, i + 300);
+    const [ps, ss] = await Promise.all([
+      db.from('players').select('id,pos,elig,proj,nhl_team,injury_status').in('id', chunk),
+      db.from('player_season').select('player_id,gp,fpts,gp14,fpts14').in('player_id', chunk),
+    ]);
+    for (const p of check(ps) ?? []) players.set(p.id, { ...p, proj: Number(p.proj) });
+    for (const x of check(ss) ?? []) season.set(x.player_id, { gp: Number(x.gp), fpts: Number(x.fpts), gp14: Number(x.gp14 ?? 0), fpts14: x.fpts14 == null ? null : Number(x.fpts14) });
+  }
+  const weekEnd = weekEndOf(today);
+  const games = check(await db.from('games').select('home,away,date,start_utc,state').gte('date', today).lte('date', weekEnd));
+  const ctx = { today, weekEnd, now: Date.now(), games: games ?? [], season, caps: league.roster as Record<string, number> };
+  const out: Record<number, number | string> = {};
+  for (const t of todo) {
+    const plan = optimize(rows.filter((r) => r.team_id === t.id), players, t.auto_mode, t.auto_basis, ctx);
+    if (!plan.moves.length) { out[t.id] = 0; continue; }
+    const { error } = await db.rpc('apply_auto_lineup', { p_team: t.id, p_slots: Object.fromEntries(plan.moves.map((m) => [m.player_id, m.to])) });
+    out[t.id] = error ? `error: ${error.message}` : plan.moves.length;
+    if (error) console.error('auto lineup', t.id, error);
+  }
+  return { teams: todo.length, skipped_manual: teams.length - todo.length, moves: out };
+}
+
 Deno.serve(async (req) => {
   const task = new URL(req.url).searchParams.get('task') ?? 'scores';
   try {
@@ -174,7 +215,7 @@ Deno.serve(async (req) => {
       : task === 'corrections' ? await corrections()
       : task === 'injuries' ? await injuries()
       : task === 'news' ? await news()
-      : task === 'daily' ? { lineups: check(await db.rpc('run_auto_lineups')) }
+      : task === 'daily' || task === 'lineups-late' ? { lineups: await autoLineups() }
       : await scores();
     return Response.json({ task, ok: true, ...result });
   } catch (e) {

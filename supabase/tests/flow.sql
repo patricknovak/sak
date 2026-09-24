@@ -199,3 +199,47 @@ exception when others then if sqlerrm not like '%locked%' then raise; end if; en
 reset role;
 select 'messages', count(*) from messages;
 select body from messages where kind = 'system' order by id desc limit 6;
+
+-- ── lineup tools: set_lineup applies atomically, pins, prefs, manual-change marker
+select pg_temp.as_team(6);
+set role authenticated;
+select set_lineup_prefs('week', 'form');
+do $$
+declare pid int; bad boolean := false;
+begin
+  select r.player_id into pid from rosters r join players p on p.id = r.player_id
+    where r.team_id = 6 and p.pos <> 'G' and not player_locked(r.player_id) and r.slot = 'BN' limit 1;
+  perform set_pin(pid, 'start');
+  -- swap with whoever holds Util now (both moves land together)
+  perform set_lineup(jsonb_build_object(pid::text, 'Util') || coalesce((select jsonb_build_object(player_id::text, 'BN')
+    from rosters where team_id = 6 and slot = 'Util' and player_id <> pid limit 1), '{}'));
+  -- a goalie can't play C, and nothing should change when one move is invalid
+  begin
+    perform set_lineup(jsonb_build_object(pid::text, 'BN',
+      (select r.player_id from rosters r join players p on p.id = r.player_id where r.team_id = 6 and p.pos = 'G' limit 1)::text, 'C'));
+  exception when others then bad := true; end;
+  if not bad then raise exception 'goalie at C was allowed'; end if;
+  if (select slot from rosters where player_id = pid) <> 'Util' then raise exception 'failed lineup was partially applied'; end if;
+end $$;
+reset role;
+select 'lineup prefs', auto_mode, auto_basis, lineup_touched = today_et() as touched_today from teams where id = 6;
+select 'pins', count(*) from rosters where team_id = 6 and pin = 'start';
+
+-- ── Garry's private channel is private
+select pg_temp.as_team(2);
+set role authenticated;
+insert into messages (channel, team_id, body) values ('garry:2', 2, 'garry, who is winning?');
+do $$ begin
+  insert into messages (channel, team_id, body) values ('garry:3', 2, 'sneaky');
+  raise exception 'posted into someone else''s Garry channel';
+exception when insufficient_privilege or check_violation then null;
+  when others then if sqlerrm like '%row-level security%' then null; else raise; end if;
+end $$;
+reset role;
+select pg_temp.as_team(3);
+set role authenticated;
+do $$ begin
+  if exists (select 1 from messages where channel = 'garry:2') then raise exception 'team 3 can read team 2''s Garry channel'; end if;
+end $$;
+reset role;
+select 'garry channel ok';

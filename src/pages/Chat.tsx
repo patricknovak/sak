@@ -13,6 +13,7 @@ export default function Chat() {
   const channels = [
     { c: 'general', label: '🔥 Trash Talk' },
     { c: 'draft', label: '📋 Draft' },
+    ...(me ? [{ c: `garry:${me.id}`, label: '🎙️ Ask Garry' }] : []),
     ...teams.filter((t) => t.id !== me?.id).map((t) => ({ c: dm(t.id), label: t.gm_name, team: t })),
   ];
   const cur = channels.find((x) => x.c === channel);
@@ -31,7 +32,7 @@ export default function Chat() {
         ))}
       </div>
       <div className="flex min-h-0 flex-1 flex-col lg:card lg:overflow-hidden">
-        <div className="hidden border-b border-line px-4 py-2 text-sm font-semibold lg:block">{cur?.label}{channel.startsWith('dm:') && <span className="ml-2 text-xs font-normal text-mute">private</span>}</div>
+        <div className="hidden border-b border-line px-4 py-2 text-sm font-semibold lg:block">{cur?.label}{(channel.startsWith('dm:') || channel.startsWith('garry:')) && <span className="ml-2 text-xs font-normal text-mute">private</span>}</div>
         <ChatPanel key={channel} channel={channel} className="flex-1" />
       </div>
     </div>

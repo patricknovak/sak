@@ -8,6 +8,12 @@ import { SendHorizontal } from 'lucide-react';
 import { Link } from 'react-router-dom';
 
 const REACTIONS = ['🔥', '😂', '🤡', '👏', '💀', '🍺', '🚨', '🪣'];
+const ASK_GARRY = ['Who’s winning?', 'How’s my lineup?', 'Who should I pick up?', 'How do trades work?', 'What’s the prize money?', 'When’s the draft?', 'How do keepers work?', 'What’s the scoring?'];
+// Garry points at pages with "👉 #/path"; those become buttons
+const LINK_LABEL: [string, string][] = [['/player/', 'Player page'], ['/team', 'My lineup'], ['/standings', 'Standings'], ['/trades', 'Trades'], ['/players', 'Players'],
+  ['/keepers', 'Keepers'], ['/draft', 'Draft room'], ['/bets', 'Side bets'], ['/profile', 'Profile'], ['/news', 'News'], ['/league?t=money', 'Prize money'], ['/league', 'Rulebook']];
+const linkLabel = (path: string) => LINK_LABEL.find(([p]) => path.startsWith(p))?.[1] ?? 'Open';
+
 const CHIRPS = ['🚨 REACH!', 'Steal of the draft 🥷', 'Enjoy the Peter 🪣', 'Sell me that guy 💰', 'Who? 🤔', 'Lock it in 🔒', 'GG 🍺', 'Scoreboard. 📈'];
 
 export function ChatPanel({ channel, compact, className = '' }: { channel: string; compact?: boolean; className?: string }) {
@@ -103,9 +109,28 @@ export function ChatPanel({ channel, compact, className = '' }: { channel: strin
   const suggestions = mention !== undefined ? [...teams.map((t) => t.gm_name), 'Garry', 'everyone'].filter((n) => n.toLowerCase().startsWith(mention.toLowerCase())) : [];
 
   const highlight = (body: string) =>
-    body.split(/(@\w+)/g).map((part, i) => part.startsWith('@')
+    body.split(/(👉\s*#\/\S+|@\w+)/gu).map((part, i) => part.startsWith('👉')
+      ? <Link key={i} to={part.replace(/^👉\s*#/u, '').replace(/[.,!?)]+$/, '')} className="mx-0.5 inline-flex items-center gap-1 rounded-full bg-emerald-400/20 px-2 py-0.5 text-xs font-bold text-emerald-200 ring-1 ring-inset ring-emerald-400/40 hover:bg-emerald-400/30">👉 {linkLabel(part.replace(/^👉\s*#/u, ''))}</Link>
+      : part.startsWith('@')
       ? <span key={i} className={`font-semibold ${me && part.slice(1).toLowerCase() === me.gm_name.toLowerCase() ? 'rounded bg-amber-400/30 px-0.5 text-amber-200' : 'text-sky-300'}`}>{part}</span>
       : <Fragment key={i}>{part}</Fragment>);
+
+  // Garry is "typing" for a bit after someone asks him something
+  const isGarry = channel.startsWith('garry:');
+  const last = msgs[msgs.length - 1];
+  const asked = !!last && last.kind === 'user' && last.team_id === me?.id && (isGarry || /\bgarry\b/i.test(last.body));
+  const [, tick] = useState(0);
+  useEffect(() => { if (!asked) return; const t = setTimeout(() => tick((n) => n + 1), 25_000); return () => clearTimeout(t); }, [asked, last?.id]);
+  const garryTyping = asked && Date.now() - new Date(last!.created_at).getTime() < 25_000;
+  // don't rely on realtime alone for his answer: poll briefly while he's "typing"
+  useEffect(() => {
+    if (!garryTyping || !last) return;
+    const i = setInterval(async () => {
+      const { data } = await supabase.from('messages').select('*').eq('channel', channel).gt('id', last.id).order('id');
+      if (data?.length) setMsgs((m) => [...m, ...(data as Message[]).filter((x) => !m.some((y) => y.id === x.id))]);
+    }, 3000);
+    return () => clearInterval(i);
+  }, [garryTyping, last?.id, channel]); // eslint-disable-line react-hooks/exhaustive-deps
 
   return (
     <div className={`flex min-h-0 flex-col ${className}`}>
@@ -114,7 +139,14 @@ export function ChatPanel({ channel, compact, className = '' }: { channel: strin
         {older && msgs.length >= 80 && (
           <button className="btn-ghost btn-sm mx-auto mb-2 flex" onClick={() => { stick.current = false; load(msgs[0]?.id); }}>Load older</button>
         )}
-        {msgs.length === 0 && <div className="py-10 text-center text-sm text-mute">No messages yet. Fire the first shot. 🏒</div>}
+        {msgs.length === 0 && !isGarry && <div className="py-10 text-center text-sm text-mute">No messages yet. Fire the first shot. 🏒</div>}
+        {isGarry && msgs.length === 0 && (
+          <div className="px-3 py-8 text-center">
+            <div className="mx-auto grid h-16 w-16 place-items-center rounded-full bg-emerald-500/15 text-4xl ring-1 ring-emerald-400/30">🎙️</div>
+            <div className="mt-2 font-semibold">Your private line to Garry</div>
+            <div className="mx-auto mt-1 max-w-sm text-sm text-mute">Ask about standings, your lineup, any player, tonight’s games, trades, pickups, the draft, bets, rules or the prize money. Only you can see this. He’s cheeky, but he knows his stuff.</div>
+          </div>
+        )}
         {msgs.map((m, i) => {
           if (m.kind === 'system') {
             return (
@@ -178,7 +210,15 @@ export function ChatPanel({ channel, compact, className = '' }: { channel: strin
         })}
       </div>
 
+      {garryTyping && (
+        <div className="flex items-center gap-2 px-4 pb-1 text-xs text-emerald-300"><span className="animate-pulse">🎙️</span> Garry is typing…</div>
+      )}
       <div className="border-t border-white/[.07] bg-[#0b1222]/70 p-2 backdrop-blur-xl">
+        {isGarry && !text && (
+          <div className="scroll-x mb-1 flex gap-1">
+            {ASK_GARRY.map((q) => <button key={q} className="chip shrink-0 py-1 text-xs" onClick={() => send(q)}>{q}</button>)}
+          </div>
+        )}
         {replyTo && (
           <div className="mb-1 flex items-center gap-2 rounded-lg bg-boards px-2 py-1 text-xs">
             <span className="flex-1 truncate">↩︎ {team(replyTo.team_id)?.gm_name}: {replyTo.body}</span>
@@ -199,7 +239,7 @@ export function ChatPanel({ channel, compact, className = '' }: { channel: strin
           <button type="button" className="btn-ghost h-10 w-10 shrink-0 p-0 text-lg" onClick={() => setShowChirps(!showChirps)} title="Quick chirps">🗯️</button>
           <textarea
             className="input max-h-32 min-h-10 flex-1 resize-none py-2" rows={1} value={text} maxLength={2000}
-            placeholder={channel === 'draft' ? 'Chirp the picks…' : 'Talk trash…'}
+            placeholder={isGarry ? 'Ask Garry anything…' : channel === 'draft' ? 'Chirp the picks…' : 'Talk trash… (say “Garry” to ask him something)'}
             onChange={(e) => setText(e.target.value)}
             onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send(text); } }}
           />

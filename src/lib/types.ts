@@ -16,6 +16,7 @@ export interface Team {
   id: number; name: string; abbrev: string; gm_name: string; login_email: string; user_id: string | null;
   color: string; emoji: string; motto: string | null; fav_nhl: string | null; is_commish: boolean;
   joined_season: string | null; auto_lineup: boolean; autodraft: boolean; keepers_submitted: boolean; last_seen: string | null;
+  auto_mode: 'off' | 'day' | 'week' | 'season'; auto_basis: 'proj' | 'form' | 'season'; lineup_touched: string | null;
 }
 
 export interface Player {
@@ -27,6 +28,7 @@ export interface Player {
 
 export interface Roster {
   player_id: number; team_id: number; slot: Slot; acquired: string; acquired_at: string; keeper: boolean; prev_fp: number | null;
+  pin: 'start' | 'bench' | null;
 }
 
 export interface DraftPick {
@@ -55,7 +57,7 @@ export interface Standing {
   team_id: number; points: number; today: number; yesterday: number; last7: number; games: number; rank: number; moves: number;
 }
 
-export interface PlayerSeason { player_id: number; gp: number; fpts: number; fpts14: number | null; totals: Record<string, number | null> }
+export interface PlayerSeason { player_id: number; gp: number; fpts: number; fpts14: number | null; gp14: number | null; totals: Record<string, number | null> }
 
 export interface Trade {
   id: number; season: string; from_team: number; to_team: number;
