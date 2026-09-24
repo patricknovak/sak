@@ -11,7 +11,7 @@ import { SEASONS } from '../data/history';
 import { PushCard } from '../components/PushCard';
 
 export default function Home() {
-  const { me, league, teams, team, standings, rosters, players, draft, picks, gamesByTeam, online } = useLeague();
+  const { me, league, teams, team, standings: regular, playoffs, rosters, players, draft, picks, gamesByTeam, online } = useLeague();
   const now = useNow(1000);
   const nav = useNavigate();
   const { open, sheet } = usePlayerSheet();
@@ -43,6 +43,9 @@ export default function Home() {
     return () => clearInterval(i);
   }, [league?.phase]);
 
+  // once NHL playoff games are being scored, Home follows the playoff race
+  const inPlayoffs = playoffs.some((t) => Number(t.points) !== 0);
+  const standings = inPlayoffs ? playoffs : regular;
   const table = useMemo(() => [...standings].sort((a, b) => a.rank - b.rank), [standings]);
   const mine = standings.find((s) => s.team_id === me?.id);
   const leader = table[0];
@@ -107,8 +110,8 @@ export default function Home() {
           )}
           {phase === 'season' && mine && (
             <div className="grid grid-cols-3 gap-2 sm:col-span-2">
-              <Stat label="Rank" value={ordinal(mine.rank)} sub={`of ${teams.length}`} />
-              <Stat label="Points" value={fmtPts(mine.points)} sub={leader && leader.team_id !== me?.id ? `${fmtPts(leader.points - mine.points)} back` : 'Leading 👑'} />
+              <Stat label={inPlayoffs ? 'Playoff rank' : 'Rank'} value={ordinal(mine.rank)} sub={`of ${teams.length}`} />
+              <Stat label={inPlayoffs ? 'Playoff pts' : 'Points'} value={fmtPts(mine.points)} sub={leader && leader.team_id !== me?.id ? `${fmtPts(leader.points - mine.points)} back` : 'Leading 👑'} />
               <Stat label="Today" value={fmtPts(myStarters.reduce((t, x) => t + (todayPts.get(x.p.id) ?? 0), 0))} sub={`${playingTonight.length} playing`} />
             </div>
           )}
@@ -154,7 +157,7 @@ export default function Home() {
       )}
 
       <div className="grid gap-5 lg:grid-cols-2">
-        <Section icon={<Trophy size={17} className="text-gold" />} title={phase === 'season' ? 'Standings' : `${SEASONS[0].season} final standings`} right={<More to="/standings" label="All" />}>
+        <Section icon={<Trophy size={17} className="text-gold" />} title={phase === 'season' ? (inPlayoffs ? '🏆 Playoff standings' : 'Standings') : `${SEASONS[0].season} final standings`} right={<More to="/standings" label="All" />}>
           <div className="card divide-y divide-white/[.06] overflow-hidden">
             {phase === 'season'
               ? table.map((s) => {

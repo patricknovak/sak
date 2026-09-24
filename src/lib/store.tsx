@@ -19,6 +19,7 @@ interface Store {
   picks: DraftPick[];
   draft: DraftState | null;
   standings: Standing[];
+  playoffs: Standing[];         // NHL-playoff games only, a separate table and prize pot
   season: Map<number, PlayerSeason>;
   games: Game[];               // today + upcoming week
   gamesByTeam: (nhl: string | null | undefined, date?: string) => Game | undefined;
@@ -42,6 +43,7 @@ export function LeagueProvider({ children }: { children: ReactNode }) {
   const [picks, setPicks] = useState<DraftPick[]>([]);
   const [draft, setDraft] = useState<DraftState | null>(null);
   const [standings, setStandings] = useState<Standing[]>([]);
+  const [playoffs, setPlayoffs] = useState<Standing[]>([]);
   const [season, setSeason] = useState<Map<number, PlayerSeason>>(new Map());
   const [games, setGames] = useState<Game[]>([]);
   const [notifications, setNotifications] = useState<Notification[]>([]);
@@ -72,7 +74,11 @@ export function LeagueProvider({ children }: { children: ReactNode }) {
     rosters: async () => setRosters(await selectAll<Roster>('rosters')),
     picks: async () => setPicks(await selectAll<DraftPick>('draft_picks')),
     draft: async () => { const { data } = await supabase.from('draft_state').select('*').single(); if (data) setDraft(data as DraftState); },
-    standings: async () => { const { data } = await supabase.from('standings').select('*'); if (data) setStandings(data as Standing[]); },
+    standings: async () => {
+      const [{ data }, { data: po }] = await Promise.all([supabase.from('standings').select('*'), supabase.from('playoff_standings').select('*')]);
+      if (data) setStandings(data as Standing[]);
+      if (po) setPlayoffs((po as Standing[]).map((r) => ({ ...r, moves: 0 })));
+    },
     season: async () => {
       const rows = await selectAll<PlayerSeason>('player_season');
       setSeason(new Map(rows.map((r) => [r.player_id, r])));
@@ -185,7 +191,7 @@ export function LeagueProvider({ children }: { children: ReactNode }) {
 
   const value: Store = {
     ready: authReady && (!session || loaded), session, me, league, teams, team, players, rosters, owner, picks, draft,
-    standings, season, games, gamesByTeam, notifications, online, refresh, serverOffset,
+    standings, playoffs, season, games, gamesByTeam, notifications, online, refresh, serverOffset,
   };
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
 }

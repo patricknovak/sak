@@ -197,7 +197,7 @@ export const RULES: { title: string; items: string[] }[] = [
     'Play fair, play hard and play to win. Those are SaK GM qualities.',
   ] },
   { title: 'Format', items: [
-    'Season-long points league. No playoffs: most fantasy points at the end of the regular season wins.',
+    'Season-long points league: most fantasy points at the end of the NHL regular season wins the regular-season pot. From 2026-27 the season carries on through the NHL playoffs as a second, separate race for the playoff pot.',
     'Rosters: C, C, LW, LW, RW, RW, D, D, D, Util, G, G plus 12 bench and 2 IR spots.',
     'Daily lineups. A player locks when his NHL game starts; only starters (not BN/IR) score.',
     'Live standard (snake) draft with a pick clock. Draft picks can be traded.',
@@ -214,7 +214,9 @@ export const RULES: { title: string; items: string[] }[] = [
     'Trade deadline matches the NHL trade deadline.',
   ] },
   { title: 'Money', items: [
-    'Entry $200 per team, of which $25 goes to the SaK Fund. Prize pool split 60 / 30 / 10.',
+    'Entry $200 per team, of which $25 goes to the SaK Fund; the other $175 per team is the prize pool.',
+    'From 2026-27 the prize pool is split 60% regular season and 40% playoffs. Each pot pays 1st / 2nd / 3rd 60 / 30 / 10.',
+    'The playoffs use the same rosters: only fantasy points from NHL playoff games count toward the separate playoff table.',
     'The Peter Punishment: last place pays $1 per point behind second-last into the SaK Fund.',
     'Get SaK’ed: $5 per game your player is suspended (max $50 per player, $100 per team per season), all to the SaK Fund.',
     'The SaK Fund is shared equally and is for future GM fun (a GM trip to the draft, etc.). A GM who leaves forfeits their share; if the league disbands, remaining GMs split it.',

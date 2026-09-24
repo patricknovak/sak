@@ -168,8 +168,28 @@ insert into games (id, date, start_utc, home, away, state)
 select 'snapshots', take_snapshots();
 insert into player_games (game_id, player_id, date, stats)
   select 1, id, today_et(), '{"g":2,"a":1,"pm":2,"sog":5,"ppp":1,"hit":1,"blk":0,"pim":2,"gwg":1}' from players where name = 'Connor McDavid';
-select 'mcdavid fpts (expect 9.7)', fpts from player_games where game_id = 1;
+select 'mcdavid fpts (expect 7.2)', fpts from player_games where game_id = 1;
+update league set season_start = today_et() - 1 where id = 1;
 select 'standings', s.team_id, s.points, s.today, s.rank from standings s order by rank limit 3;
+
+-- playoffs: a playoff game (type 03 in the NHL id) scores into the playoff table, not the regular one
+insert into games (id, date, start_utc, home, away, state)
+  select 2026030111, today_et(), now() - interval '1 hour', p.nhl_team, 'YYY', 'LIVE' from players p where p.name = 'Connor McDavid';
+select 'playoff snapshots', take_snapshots();
+insert into player_games (game_id, player_id, date, stats)
+  select 2026030111, id, today_et(), '{"g":1,"a":1,"sog":3}' from players where name = 'Connor McDavid';
+do $$
+declare tm int := (select team_id from rosters where player_id = (select id from players where name = 'Connor McDavid'));
+begin
+  if (select game_type from games where id = 2026030111) <> 3 then raise exception 'playoff game not tagged'; end if;
+  if (select points from playoff_standings where team_id = tm) <> 3.1 then
+    raise exception 'playoff points wrong: %', (select points from playoff_standings where team_id = tm);
+  end if;
+  if (select points from standings where team_id = tm) <> 7.2 then
+    raise exception 'regular standings picked up playoff points: %', (select points from standings where team_id = tm);
+  end if;
+end $$;
+select 'playoff standings', team_id, points, rank from playoff_standings order by rank limit 2;
 select pg_temp.as_team(5);
 set role authenticated;
 do $$ begin

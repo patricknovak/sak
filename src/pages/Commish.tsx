@@ -4,6 +4,7 @@ import { rpc } from '../lib/supabase';
 import { fmtDateTime } from '../lib/format';
 import { Section, TeamBadge, useAction, PageHeader } from '../components/ui';
 import { Wrench } from 'lucide-react';
+import { MoneySettings } from '../components/MoneySettings';
 import { ScoringEditor } from '../components/ScoringEditor';
 
 // datetime-local <-> ISO in the viewer's zone
@@ -151,6 +152,10 @@ export default function Commish() {
           <div className="sm:col-span-2"><button className="btn-primary" disabled={busy} onClick={save}>Save settings</button>
             <span className="ml-2 text-xs text-mute">Times shown in your time zone. Draft currently {league?.draft_at ? fmtDateTime(league.draft_at) : 'unscheduled'}.</span></div>
         </div>
+      </Section>
+
+      <Section title="💰 Money & payouts">
+        <MoneySettings />
       </Section>
 
       <Section title="🔁 Roster moves">

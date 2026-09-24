@@ -58,7 +58,7 @@ async function syncGames(ids: number[]) {
 async function scores() {
   const now = new Date();
   const days = [etDate(new Date(now.getTime() - 86400000)), etDate(now)];
-  const games = (await Promise.all(days.map((d) => get(`/score/${d}`)))).flatMap((j) => j.games ?? []).filter((g: any) => g.gameType === 2); // regular season only
+  const games = (await Promise.all(days.map((d) => get(`/score/${d}`)))).flatMap((j) => j.games ?? []).filter((g: any) => g.gameType === 2 || g.gameType === 3); // regular season and playoffs (no preseason)
   if (games.length) check(await db.from('games').upsert(games.map(gameRow)));
   const snaps = check(await db.rpc('take_snapshots'));
   const { data: open } = await db.from('games').select('id,state').in('date', days).eq('final_synced', false);
@@ -81,7 +81,7 @@ async function schedule() {
   const weeks = [etDate(now), etDate(new Date(now.getTime() + 7 * 86400000))];
   const rows = (await Promise.all(weeks.map((d) => get(`/schedule/${d}`))))
     .flatMap((j) => j.gameWeek ?? [])
-    .flatMap((w: any) => (w.games ?? []).filter((g: any) => g.gameType === 2).map((g: any) => ({ ...g, gameDate: w.date })))
+    .flatMap((w: any) => (w.games ?? []).filter((g: any) => g.gameType === 2 || g.gameType === 3).map((g: any) => ({ ...g, gameDate: w.date })))
     .map(gameRow);
   // don't clobber live scores with schedule placeholders
   const { data: started } = await db.from('games').select('id').in('id', rows.map((r) => r.id)).neq('state', 'FUT');

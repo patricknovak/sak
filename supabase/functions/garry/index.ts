@@ -81,7 +81,8 @@ async function base() {
 
 // ─────────────── daily ───────────────
 async function daily() {
-  const { league, teams, byId, standings } = await base();
+  const { league, teams, byId, standings: regStandings } = await base();
+  let standings = regStandings;
   const today = etDate(new Date());
   const yesterday = etDate(new Date(Date.now() - 86400000));
 
@@ -106,8 +107,18 @@ async function daily() {
   if (league.phase !== 'season') return { skipped: league.phase };
   if (await alreadyPosted('recap', yesterday)) return { skipped: 'already posted' };
 
-  const { data: daily } = await db.from('team_daily').select('*').eq('date', yesterday);
+  // regular season first; once the NHL playoffs start, yesterday's points live in the playoff table
+  let { data: daily } = await db.from('team_daily').select('*').eq('date', yesterday);
+  let playoffs = false;
+  if (!daily?.length) {
+    const { data: po } = await db.from('playoff_daily').select('*').eq('date', yesterday);
+    if (po?.length) { daily = po; playoffs = true; }
+  }
   if (!daily || daily.length === 0) return { skipped: 'no games yesterday' };
+  if (playoffs) {
+    const { data: ps } = await db.from('playoff_standings').select('*');
+    standings = (ps ?? []) as any[];
+  }
   const { data: snaps } = await db.from('lineup_snapshots').select('team_id,player_id,slot').eq('date', yesterday);
   const ids = [...new Set((snaps ?? []).map((s) => s.player_id))];
   const [{ data: pgs }, { data: players }] = await Promise.all([
@@ -137,20 +148,21 @@ async function daily() {
     date: yesterday, day_scores: dayTable, season_standings: season,
     top_performers: active.slice(0, 3), worst_starters: active.slice(-2).reverse(), left_on_bench: benchRegret,
     daily_bonus: { gm: byId.get(winner.team_id)?.gm_name, coins: DAILY_BONUS },
-    peter_watch: season.at(-1), quiet_in_chat_this_week: lurkers,
+    stage: playoffs ? `SaK playoffs (NHL playoff games only; separate table and ${league.playoff_share ?? 40}% of the prize pool)` : 'regular season',
+    peter_watch: playoffs ? null : season.at(-1), quiet_in_chat_this_week: lurkers,
   };
   const top = active[0];
   const fallback = [
-    `🎙️ Garry's morning skate, ${yesterday}.`,
+    `🎙️ Garry's ${playoffs ? 'playoff ' : ''}morning skate, ${yesterday}.`,
     `Yesterday: ${dayTable.map((d) => `${d.gm} ${f1(d.points)}`).join(' · ')}.`,
     `${dayTable[0].gm} takes the day ${pick(['and the bragging rights', 'like it was a beer-league final', 'with zero humility'])} and pockets ${DAILY_BONUS} ☘️ coins.`,
     top ? `Star of the night: ${top.player} with ${f1(top.fpts)} for @${top.gm}.` : '',
     benchRegret[0] ? `Meanwhile @${benchRegret[0].gm} left ${benchRegret[0].player} (${f1(benchRegret[0].fpts)} pts) on the bench. Set your lineup, buddy.` : '',
-    `Peter watch: @${season.at(-1)?.gm} sitting in the basement at ${f1(season.at(-1)?.points ?? 0)}.`,
+    playoffs ? `Playoff table: ${season.slice(0, 3).map((x) => `${x.rank}. @${x.gm} ${f1(x.points)}`).join(', ')}.` : `Peter watch: @${season.at(-1)?.gm} sitting in the basement at ${f1(season.at(-1)?.points ?? 0)}.`,
     lurkers.length ? `Haven't heard a peep this week from ${lurkers.map((n) => '@' + n).join(', ')}. Say something.` : '',
     pick(['Who wants to put 100 ☘️ on tonight?', 'Trade offers are free. Your dignity isn\'t.', 'Set your lineups before puck drop.']),
   ].filter(Boolean).join(' ');
-  const body = await write("Write this morning's recap of yesterday's SaK results for the league chat.", facts, fallback, 220);
+  const body = await write(`Write this morning's recap of yesterday's SaK ${playoffs ? 'playoff ' : ''}results for the league chat.`, facts, fallback, 220);
   await post(body, { type: 'recap', date: yesterday });
   return { posted: 'recap', bonus: facts.daily_bonus };
 }
