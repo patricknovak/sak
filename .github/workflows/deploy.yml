@@ -2,7 +2,7 @@ name: Deploy site
 
 on:
   push:
-    branches: [main, 'claude/**']
+    branches: [main]
     paths-ignore: ['supabase/**', 'data/**', 'scripts/**', '**.md']
   workflow_dispatch:
 

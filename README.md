@@ -32,6 +32,22 @@ your home screen like an app.
   projection. `data/yahoo-rosters-2025-26.json` holds the end-of-season Yahoo rosters the keepers come from.
 - **History**: `src/data/history.ts`, transcribed from the league spreadsheet. Edit and push to update.
 
+## Going live (one-time)
+
+1. **Settings → General → Danger Zone → Change visibility → Public** (free GitHub Pages needs a public repo).
+2. **Settings → Pages → Build and deployment → Source: GitHub Actions**.
+3. **Actions → Deploy site → Run workflow** (on `main`). The site appears at
+   `https://patricknovak.github.io/sak/`.
+
+No passwords or secret keys live in this repo. The Supabase key in `.env` is the public "anon" key;
+row-level security and the database functions decide what each GM can see and do.
+
+## Signing in
+
+Each GM taps their team on the sign-in screen and enters their password. The commissioner hands out
+starting passwords privately; GMs change theirs under **More → My Profile**, and the commissioner can
+reset anyone's under **More → Commissioner**.
+
 ## Running locally
 
 ```bash
