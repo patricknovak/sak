@@ -1,13 +1,14 @@
 // Garry: the SaK League's resident chirper.
 //   ?task=daily  (late morning ET) yesterday's recap + standings + daily coin bonus; keeper/draft hype off-season
 //   ?task=nudge  (late afternoon ET) calls out GMs with sloppy lineups before puck drop
-//   ?task=reply  (on "@Garry" in chat, via a database trigger) answers back
+//   ?task=reply  (when a GM says "Garry" in chat, or anything in their Ask Garry channel) answers with real info
 //   ?task=draft  (when the last pick lands) grades every team's draft
 // Writes with Claude when the ANTHROPIC_API_KEY secret is set; otherwise uses built-in templates.
 import { createClient } from 'jsr:@supabase/supabase-js@2';
 import Anthropic from 'npm:@anthropic-ai/sdk';
 import { etDate } from '../_shared/nhl.ts';
 import { gradeTeams, type GP } from '../_shared/grades.ts';
+import { answer } from './answer.ts';
 
 const db = createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!, {
   auth: { persistSession: false },
@@ -211,27 +212,17 @@ async function nudge() {
 }
 
 // ─────────────── reply ───────────────
+// answers anyone who says "Garry" in a public channel, and everything in their private garry:<team> channel
 async function reply(messageId: number) {
   const { data: m } = await db.from('messages').select('*').eq('id', messageId).single();
   if (!m || m.kind !== 'user') return { skipped: 'not a user message' };
-  const { league, byId, standings } = await base();
-  const { data: recent } = await db.from('messages').select('team_id,kind,body').eq('channel', m.channel).lt('id', messageId).order('id', { ascending: false }).limit(12);
-  const asker = byId.get(m.team_id);
-  const facts = {
-    asked_by: asker?.gm_name, asker_team: asker?.name, question: m.body, league_phase: league.phase,
-    standings: [...standings].sort((a, b) => a.rank - b.rank).map((s) => ({ rank: s.rank, gm: byId.get(s.team_id)?.gm_name, points: Number(s.points) })),
-    recent_chat: (recent ?? []).reverse().map((r) => `${r.kind === 'user' ? byId.get(r.team_id)?.gm_name : 'league'}: ${r.body.slice(0, 200)}`),
-  };
-  const fb = pick([
-    `@${asker?.gm_name} I'd answer that but I'm busy watching your goalie let in another one.`,
-    `@${asker?.gm_name} bold words from a guy whose bench outscored his starters last week.`,
-    `@${asker?.gm_name} put some ☘️ coins on it and we'll talk.`,
-    `@${asker?.gm_name} I've seen better takes at a Zamboni driver convention.`,
-  ]);
-  const body = await write('A GM just tagged you in the chat. Reply to them directly in 1-3 sentences.', facts, fb, 70);
-  const { error } = await db.from('messages').insert({ channel: m.channel, kind: 'bot', body, reply_to: m.id, meta: { bot: 'garry', type: 'reply' } });
+  const ans = await answer(db, m.body, m.team_id);
+  const body = await write(
+    'A GM just asked you something in the league chat. Answer them directly. Keep every fact, number and every "👉 #/..." link from draft_answer (the links become buttons), be sassy but genuinely useful, 1-4 sentences.',
+    { question: m.body, draft_answer: ans.text, topic: ans.topic, ...ans.facts }, ans.text, 110);
+  const { error } = await db.from('messages').insert({ channel: m.channel, kind: 'bot', body, reply_to: m.id, meta: { bot: 'garry', type: 'reply', topic: ans.topic } });
   if (error) throw error;
-  return { replied: true };
+  return { replied: true, topic: ans.topic };
 }
 
 

@@ -6,7 +6,8 @@ import type { Player, Roster, Slot, Transaction } from '../lib/types';
 import { ago, etToday, fmtPts, ordinal } from '../lib/format';
 import { PlayerRow } from '../components/PlayerCard';
 import { TeamScout } from '../components/TeamScout';
-import { Pos, Section, TeamBadge, TeamName, Toggle, useAction } from '../components/ui';
+import { LineupTools, useOptimizer } from '../components/LineupTools';
+import { Pos, Section, TeamBadge, TeamName, useAction } from '../components/ui';
 
 const STARTERS: Slot[] = ['C', 'LW', 'RW', 'D', 'Util', 'G'];
 
@@ -27,8 +28,17 @@ export default function MyTeam() {
   const [today, setToday] = useState<Map<number, { fpts: number; stats: Record<string, number> }>>(new Map());
   const [tx, setTx] = useState<Transaction[]>([]);
   const [view, setView] = useState<'scout' | 'lineup'>('scout');
+  const [tools, setTools] = useState(false);
 
   const roster = useMemo(() => rosters.filter((r) => r.team_id === teamId).map((r) => ({ r, p: players.get(r.player_id)! })).filter((x) => x.p), [rosters, players, teamId]);
+
+  const opt = useOptimizer(roster);
+  const PIN_NEXT: Record<string, 'start' | 'bench' | null> = { none: 'start', start: 'bench', bench: null };
+  const cyclePin = (x: { r: Roster; p: Player }) => {
+    const next = PIN_NEXT[x.r.pin ?? 'none'];
+    run(async () => { await rpc('set_pin', { p_player: x.p.id, p_pin: next }); await refresh(['rosters']); },
+      next === 'start' ? `📌 ${x.p.name} always starts when he plays` : next === 'bench' ? `🚫 ${x.p.name} stays on the bench` : `${x.p.name} unpinned`);
+  };
 
   const rosterKey = roster.map((x) => x.p.id).join(',');
   useEffect(() => {
@@ -118,6 +128,13 @@ export default function MyTeam() {
           <>
             <div className="min-w-0 flex-1"><PlayerRow p={x.p} dim={slot !== 'BN' && slot !== 'IR' && !g} /></div>
             {lk && <span title="Locked: game started" className="text-xs">🔒</span>}
+            {mine && !offseason && (
+              <button aria-label={`Pin ${x.p.name}`} title={x.r.pin === 'start' ? 'Pinned: always start' : x.r.pin === 'bench' ? 'Pinned: never start' : 'Pin: tap to always start / never start'}
+                onClick={(e) => { e.stopPropagation(); cyclePin(x); }}
+                className={`grid h-7 w-7 shrink-0 place-items-center rounded-lg text-xs transition hover:bg-white/10 ${x.r.pin ? '' : 'opacity-30'}`}>
+                {x.r.pin === 'start' ? '📌' : x.r.pin === 'bench' ? '🚫' : '📍'}
+              </button>
+            )}
             <div className="min-w-14 shrink-0 text-right">
               <div className={`text-sm font-semibold ${tp && tp.fpts > 0 ? 'text-emerald-300' : ''}`}>{tp ? fmtPts(tp.fpts, 1) : g ? '–' : ''}</div>
               {offseason
@@ -155,11 +172,24 @@ export default function MyTeam() {
             {benchedWithGames.length > 0 && <div className="text-xs text-amber-300">⚠️ {benchedWithGames.length} benched player{benchedWithGames.length > 1 ? 's' : ''} playing today</div>}
             {emptyStarters > 0 && <div className="text-xs text-amber-300">⚠️ {emptyStarters} empty starting slot{emptyStarters > 1 ? 's' : ''}</div>}
           </div>
-          <button className="btn-blue" disabled={busy} onClick={() => run(async () => { await rpc('auto_lineup'); await refresh(['rosters']); }, 'Lineup optimized for today ✨')}>✨ Auto-set today</button>
-          <Toggle on={!!me?.auto_lineup} label={<span className="text-xs text-mute">Auto-set daily</span>}
-            onChange={(v) => run(async () => { await rpc('update_my_team', { p_name: me!.name, p_motto: me!.motto, p_color: me!.color, p_emoji: me!.emoji, p_fav_nhl: me!.fav_nhl, p_auto_lineup: v }); await refresh(['teams']); }, v ? 'We’ll set your lineup every morning' : 'Daily auto-set off')} />
+          <div className="flex flex-wrap items-center gap-2">
+            <button className="btn-blue" disabled={busy || opt.busy} onClick={() => opt.apply(opt.plan('day'), 'today')}>✨ Optimize today</button>
+            <button className="btn-ghost" onClick={() => setTools(true)}>⚙️ Lineup tools</button>
+          </div>
+          <div className="w-full text-xs text-mute">
+            Auto-pilot: <button className="font-semibold text-sky-300 hover:underline" onClick={() => setTools(true)}>{me?.auto_mode && me.auto_mode !== 'off' ? `${me.auto_mode} mode · ${{ proj: 'projection', form: 'hot hand', season: 'season avg' }[me.auto_basis ?? 'proj']}` : 'off'}</button>
+            {roster.some((x) => x.r.pin) && <> · {roster.filter((x) => x.r.pin).length} pinned</>}
+          </div>
         </div>
       )}
+      {mine && league?.phase !== 'season' && league?.phase !== 'keepers' && (
+        <button className="card flex w-full items-center gap-3 p-3 text-left text-sm" onClick={() => setTools(true)}>
+          <span className="text-2xl">⚙️</span>
+          <span className="flex-1"><span className="font-semibold">Lineup tools</span><span className="block text-xs text-mute">Auto-pilot {me?.auto_mode && me.auto_mode !== 'off' ? `on (${me.auto_mode} mode)` : 'off'}: set it now and it takes over on opening night</span></span>
+          <span className="text-mute">›</span>
+        </button>
+      )}
+      {mine && <LineupTools open={tools} onClose={() => setTools(false)} roster={roster} />}
       {league?.phase === 'keepers' && mine && (
         <Link to="/keepers" className="card block bg-amber-500/10 p-3 text-sm text-amber-100">🔒 It’s keeper season: this is your 2025-26 roster. Pick who you keep →</Link>
       )}
