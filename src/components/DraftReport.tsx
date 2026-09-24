@@ -46,7 +46,7 @@ export function DraftReport({ onPlayer }: { onPlayer?: (id: number) => void }) {
                 <span className="num w-5 text-center font-display text-lg text-mute">{g.rank}</span>
                 <TeamBadge team={team(g.team)} size={32} />
                 <div className="min-w-0 flex-1">
-                  <TeamName team={team(g.team)} className="block truncate text-sm" />
+                  <TeamName link team={team(g.team)} className="block truncate text-sm" />
                   <div className="truncate text-[11px] text-mute">{fmtPts(g.starterPts, 0)} proj starters{best ? ` · best pick: ${best.player.last_name} #${best.overall}` : ''}</div>
                 </div>
                 <div className={`h-display text-3xl ${gradeColor(g.grade)}`}>{g.grade}</div>

@@ -1,17 +1,18 @@
 import { Fragment, useEffect, useMemo, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useLeague, useNow } from '../lib/store';
 import { supabase } from '../lib/supabase';
 import type { NewsItem } from '../lib/types';
 import { ago, injuryBadge } from '../lib/format';
-import { PlayerRow, PlayerSheet } from '../components/PlayerCard';
+import { PlayerRow } from '../components/PlayerCard';
 import { Section, TeamBadge, TeamName, PageHeader } from '../components/ui';
 import { Newspaper } from 'lucide-react';
 
 export default function News() {
+  const nav = useNavigate();
   const { players, owner, teams, me } = useLeague();
   const now = useNow(60_000);
   const [news, setNews] = useState<NewsItem[]>([]);
-  const [detail, setDetail] = useState<number | null>(null);
   const [scope, setScope] = useState<'rostered' | 'all'>('rostered');
 
   useEffect(() => {
@@ -28,7 +29,7 @@ export default function News() {
     const p = players.get(id)!;
     const b = injuryBadge(p.injury_status);
     return (
-      <div className="px-3 py-2" onClick={() => setDetail(p.id)}>
+      <div className="px-3 py-2" onClick={() => nav(`/player/${p.id}`)}>
         <PlayerRow p={p} right={<span className={`chip ${b?.cls}`}>{p.injury_status}</span>} />
         {p.injury_note && <p className="mt-1 line-clamp-2 pl-12 text-xs text-slate-400">{p.injury_note}</p>}
       </div>
@@ -56,7 +57,7 @@ export default function News() {
             {byTeam.length === 0 && <div className="card p-4 text-sm text-mute">No injured players on any SaK roster.</div>}
             {byTeam.map(({ t, list }) => (
               <div key={t.id} className="card overflow-hidden">
-                <div className="flex items-center gap-2 border-b border-line px-3 py-2"><TeamBadge team={t} size={22} /><TeamName team={t} /><span className="ml-auto text-xs text-mute">{list.length}</span></div>
+                <div className="flex items-center gap-2 border-b border-line px-3 py-2"><TeamBadge team={t} size={22} /><TeamName link team={t} /><span className="ml-auto text-xs text-mute">{list.length}</span></div>
                 <div className="divide-y divide-white/[.06]">{list.map((p) => <Fragment key={p.id}>{Hurt({ id: p.id })}</Fragment>)}</div>
               </div>
             ))}
@@ -83,7 +84,7 @@ export default function News() {
               {n.player_ids.length > 0 && (
                 <div className="scroll-x flex gap-1.5 border-t border-line px-3 py-2">
                   {n.player_ids.map((id) => players.get(id)).filter(Boolean).map((p) => (
-                    <button key={p!.id} className="chip shrink-0" onClick={() => setDetail(p!.id)}>
+                    <button key={p!.id} className="chip shrink-0" onClick={() => nav(`/player/${p!.id}`)}>
                       {p!.name}{owner.get(p!.id) ? ` · ${teams.find((t) => t.id === owner.get(p!.id)!.team_id)?.abbrev}` : ' · FA'}
                     </button>
                   ))}
@@ -94,7 +95,6 @@ export default function News() {
           {news.length === 0 && <div className="card p-4 text-sm text-mute">No headlines yet.</div>}
         </div>
       </Section>
-      <PlayerSheet id={detail} onClose={() => setDetail(null)} />
     </div>
   );
 }

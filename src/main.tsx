@@ -26,6 +26,7 @@ const Commish = lazy(() => import('./pages/Commish'));
 const Profile = lazy(() => import('./pages/Profile'));
 const News = lazy(() => import('./pages/News'));
 const Mock = lazy(() => import('./pages/Mock'));
+const PlayerPage = lazy(() => import('./pages/PlayerPage'));
 
 function Loading() {
   return <div className="grid min-h-[50dvh] place-items-center"><Spinner className="h-8 w-8" /></div>;
@@ -86,6 +87,7 @@ function App() {
           <Route path="/profile" element={<Profile />} />
           <Route path="/news" element={<News />} />
           <Route path="/mock" element={<Mock />} />
+          <Route path="/player/:id" element={<PlayerPage />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </Suspense>

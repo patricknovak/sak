@@ -162,7 +162,7 @@ export default function Draft() {
               <th className="w-7" />
               {order.map((t) => (
                 <th key={t} className="w-28 px-1 py-1 text-left">
-                  <div className="flex items-center gap-1"><TeamBadge team={team(t)} size={18} /><span className="truncate">{team(t)?.gm_name}</span></div>
+                  <Link to={`/team/${t}`} className="flex items-center gap-1 hover:underline"><TeamBadge team={team(t)} size={18} /><span className="truncate">{team(t)?.gm_name}</span></Link>
                 </th>
               ))}
             </tr>

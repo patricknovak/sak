@@ -5,6 +5,7 @@ import type { Message, Reaction } from '../lib/types';
 import { ago, readable } from '../lib/format';
 import { TeamBadge, useToast } from './ui';
 import { SendHorizontal } from 'lucide-react';
+import { Link } from 'react-router-dom';
 
 const REACTIONS = ['🔥', '😂', '🤡', '👏', '💀', '🍺', '🚨', '🪣'];
 const CHIRPS = ['🚨 REACH!', 'Steal of the draft 🥷', 'Enjoy the Peter 🪣', 'Sell me that guy 💰', 'Who? 🤔', 'Lock it in 🔒', 'GG 🍺', 'Scoreboard. 📈'];
@@ -146,10 +147,10 @@ export function ChatPanel({ channel, compact, className = '' }: { channel: strin
           const parent = m.reply_to ? byId.get(m.reply_to) : undefined;
           return (
             <div key={m.id} className={`flex gap-2 ${mine ? 'flex-row-reverse' : ''} ${grouped ? '' : 'pt-2'}`}>
-              <div className="w-7 shrink-0">{!grouped && !mine && <TeamBadge team={t} size={28} />}</div>
+              <div className="w-7 shrink-0">{!grouped && !mine && t && <Link to={`/team/${t.id}`} aria-label={t.name}><TeamBadge team={t} size={28} /></Link>}</div>
               <div className={`flex max-w-[80%] flex-col ${mine ? 'items-end' : 'items-start'}`}>
                 {!grouped && !mine && (
-                  <div className="mb-0.5 px-1 text-[11px]"><span className="font-semibold" style={{ color: readable(t?.color ?? '#888') }}>{t?.gm_name}</span> <span className="text-mute">· {ago(m.created_at, now)}</span></div>
+                  <div className="mb-0.5 px-1 text-[11px]"><Link to={`/team/${t?.id}`} className="font-semibold hover:underline" style={{ color: readable(t?.color ?? '#888') }}>{t?.gm_name}</Link> <span className="text-mute">· {ago(m.created_at, now)}</span></div>
                 )}
                 <button onClick={() => setPicker(picker === m.id ? null : m.id)}
                   className={`rounded-2xl px-3 py-1.5 text-left text-[15px] leading-snug transition active:scale-[.98] ${m.deleted ? 'italic text-mute' : ''} ${mine ? 'rounded-br-md text-white shadow-[inset_0_1px_0_rgba(255,255,255,.2)]' : 'rounded-bl-md border border-white/[.07] bg-white/[.06]'}`}

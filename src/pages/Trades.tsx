@@ -16,9 +16,10 @@ export default function Trades() {
   const [trades, setTrades] = useState<Trade[]>([]);
   const partner = params.get('with') ? Number(params.get('with')) : null;
   const [give, setGive] = useState<Set<number>>(new Set());
-  const [get, setGet] = useState<Set<number>>(new Set(params.get('get') ? [Number(params.get('get'))] : []));
+  const ids = (k: string) => (params.get(k) ?? '').split(',').filter(Boolean).map(Number);
+  const [get, setGet] = useState<Set<number>>(new Set(ids('get')));
   const [givePicks, setGivePicks] = useState<Set<number>>(new Set());
-  const [getPicks, setGetPicks] = useState<Set<number>>(new Set());
+  const [getPicks, setGetPicks] = useState<Set<number>>(new Set(ids('getPicks')));
   const [note, setNote] = useState('');
 
   const load = () => supabase.from('trades').select('*, trade_items(*)').order('id', { ascending: false }).limit(60)
@@ -67,7 +68,7 @@ export default function Trades() {
       <div className="grid grid-cols-2 gap-3">
         {[t.from_team, t.to_team].map((side) => (
           <div key={side}>
-            <div className="mb-1 flex items-center gap-1.5 text-sm"><TeamBadge team={team(side)} size={20} /><TeamName team={team(side)} className="truncate" /></div>
+            <div className="mb-1 flex items-center gap-1.5 text-sm"><TeamBadge team={team(side)} size={20} /><TeamName link team={team(side)} className="truncate" /></div>
             <div className="text-xs text-mute">sends</div>
             <ul className="text-sm">{describe(t, side).map((d) => <li key={d}>• {d}</li>)}{describe(t, side).length === 0 && <li className="text-mute">nothing</li>}</ul>
           </div>
@@ -145,6 +146,18 @@ export default function Trades() {
                     </div>
                   ))}
                 </div>
+                {give.size + get.size + givePicks.size + getPicks.size > 0 && (
+                  <div className="grid grid-cols-2 gap-2 rounded-xl border border-white/10 bg-black/25 p-2.5 text-xs">
+                    {[{ who: 'You send', ps: give, ks: givePicks }, { who: `${team(partner)?.gm_name} sends`, ps: get, ks: getPicks }].map((side) => (
+                      <div key={side.who}>
+                        <div className="label mb-1">{side.who}</div>
+                        {[...side.ps].map((id) => <div key={id} className="truncate font-semibold">{players.get(id)?.name}</div>)}
+                        {[...side.ks].map((id) => { const k = picks.find((x) => x.id === id); return k ? <div key={`k${id}`} className="truncate text-gold">📋 {k.season} R{k.round}{k.original_team !== k.team_id ? ` (via ${team(k.original_team)?.abbrev})` : ''}</div> : null; })}
+                        {side.ps.size + side.ks.size === 0 && <div className="text-mute">Nothing yet</div>}
+                      </div>
+                    ))}
+                  </div>
+                )}
                 <input className="input" placeholder="Sweeten it with a message (optional)" value={note} onChange={(e) => setNote(e.target.value)} />
                 <button className="btn-primary w-full" disabled={busy || give.size + get.size + givePicks.size + getPicks.size === 0} onClick={propose}>Send offer to {team(partner)?.name}</button>
               </>

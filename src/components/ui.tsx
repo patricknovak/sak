@@ -1,4 +1,5 @@
 import { createContext, useCallback, useContext, useEffect, useState, type ReactNode } from 'react';
+import { Link } from 'react-router-dom';
 import type { Player, Team } from '../lib/types';
 import { NHL_COLORS, readable, teamLogo } from '../lib/format';
 
@@ -19,8 +20,16 @@ export function TeamBadge({ team, size = 32, ring }: { team?: Team; size?: numbe
   );
 }
 
-export function TeamName({ team, className = '' }: { team?: Team; className?: string }) {
+// a team's name in its colour; with `link` it opens that team's page
+export function TeamName({ team, className = '', link }: { team?: Team; className?: string; link?: boolean }) {
   if (!team) return <span className={className}>Free agent</span>;
+  if (link) {
+    return (
+      <Link to={`/team/${team.id}`} onClick={(e) => e.stopPropagation()} className={`font-semibold underline-offset-2 hover:underline ${className}`} style={{ color: readable(team.color) }}>
+        {team.name}
+      </Link>
+    );
+  }
   return <span className={`font-semibold ${className}`} style={{ color: readable(team.color) }}>{team.name}</span>;
 }
 

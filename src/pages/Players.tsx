@@ -1,20 +1,21 @@
 import { useMemo, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useLeague } from '../lib/store';
 import type { Pos as PosT } from '../lib/types';
 import { fmtPts } from '../lib/format';
-import { PlayerRow, PlayerSheet } from '../components/PlayerCard';
+import { PlayerRow } from '../components/PlayerCard';
 import { TeamBadge, PageHeader } from '../components/ui';
 import { Search } from 'lucide-react';
 
 type SortKey = 'season' | 'last14' | 'proj' | 'last_fp';
 
 export default function Players() {
+  const nav = useNavigate();
   const { players, owner, team, season, league, me, rosters } = useLeague();
   const [q, setQ] = useState('');
   const [pos, setPos] = useState<'ALL' | PosT>('ALL');
   const [who, setWho] = useState<'avail' | 'all' | 'taken'>('avail');
   const [sort, setSort] = useState<SortKey>(league?.phase === 'season' ? 'season' : 'proj');
-  const [detail, setDetail] = useState<number | null>(null);
   const [limit, setLimit] = useState(100);
 
   const val = (id: number, k: SortKey) => {
@@ -56,7 +57,7 @@ export default function Players() {
         {list.slice(0, limit).map((p, i) => {
           const r = owner.get(p.id);
           return (
-            <div key={p.id} className="flex items-center gap-2 px-2.5 py-2" onClick={() => setDetail(p.id)}>
+            <div key={p.id} className="flex items-center gap-2 px-2.5 py-2" onClick={() => nav(`/player/${p.id}`)}>
               <span className="w-6 text-center text-[11px] text-mute">{i + 1}</span>
               <div className="min-w-0 flex-1"><PlayerRow p={p} /></div>
               {r && <TeamBadge team={team(r.team_id)} size={22} />}
@@ -70,7 +71,6 @@ export default function Players() {
         {list.length === 0 && <div className="p-6 text-center text-sm text-mute">No players match.</div>}
       </div>
       {list.length > limit && <button className="btn-ghost w-full" onClick={() => setLimit(limit + 100)}>Show more</button>}
-      <PlayerSheet id={detail} onClose={() => setDetail(null)} />
     </div>
   );
 }

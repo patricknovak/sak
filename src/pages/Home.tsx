@@ -100,7 +100,7 @@ export default function Home() {
           {(draft?.status === 'live' || draft?.status === 'paused') && (
             <div className="rounded-2xl border border-white/10 bg-black/25 p-3.5 backdrop-blur sm:col-span-2">
               <div className="label flex items-center gap-1.5 text-white/70"><Radio size={12} className="text-goal" /> {draft.status === 'paused' ? 'Draft paused' : 'Live: on the clock'}</div>
-              <div className="mt-2 flex items-center gap-2 text-xl font-bold"><TeamBadge team={team(current?.team_id)} size={32} /><TeamName team={team(current?.team_id)} /></div>
+              <div className="mt-2 flex items-center gap-2 text-xl font-bold"><TeamBadge team={team(current?.team_id)} size={32} /><TeamName link team={team(current?.team_id)} /></div>
               <div className="mt-1 text-xs text-white/60">Pick #{current?.overall} · your next: {myPicks[0] ? `#${myPicks[0].overall}` : '—'}</div>
               <Link to="/draft" className="btn-primary pulse-ring mt-3 w-full">Enter the draft room</Link>
             </div>

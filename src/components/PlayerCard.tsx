@@ -39,27 +39,26 @@ export function PlayerRow({ p, right, onClick, sub, dim }: { p: Player; right?: 
   );
 }
 
+// tapping a player opens his full page
 export function usePlayerSheet() {
-  const [id, setId] = useState<number | null>(null);
-  return { open: (pid: number) => setId(pid), sheet: <PlayerSheet id={id} onClose={() => setId(null)} /> };
+  const nav = useNavigate();
+  return { open: (pid: number) => nav(`/player/${pid}`), sheet: null };
 }
 
 interface GameLine { game_id: number; date: string; nhl_team: string; stats: Record<string, number>; fpts: number }
 
 export function PlayerSheet({ id, onClose, actions }: { id: number | null; onClose: () => void; actions?: ReactNode }) {
-  const { players, owner, team, me, league, season, rosters, refresh } = useLeague();
+  const { players, owner, team, league, season } = useLeague();
   const nav = useNavigate();
   const p = id ? players.get(id) : undefined;
   const r = id ? owner.get(id) : undefined;
   const [log, setLog] = useState<GameLine[]>([]);
-  const [dropPick, setDropPick] = useState(false);
   const [career, setCareer] = useState<Record<string, number | string>[] | null>(null);
   const [news, setNews] = useState<NewsItem[]>([]);
   const [tab, setTab] = useState<'overview' | 'career' | 'news'>('overview');
-  const { busy, run } = useAction();
 
   useEffect(() => {
-    setLog([]); setDropPick(false); setCareer(null); setNews([]); setTab('overview');
+    setLog([]); setCareer(null); setNews([]); setTab('overview');
     if (!id) return;
     supabase.from('player_games').select('game_id,date,nhl_team,stats,fpts').eq('player_id', id).order('date', { ascending: false }).limit(15)
       .then(({ data }) => setLog((data ?? []) as GameLine[]));
@@ -77,24 +76,6 @@ export function PlayerSheet({ id, onClose, actions }: { id: number | null; onClo
   const s = season.get(p.id);
   const isGoalie = p.pos === 'G';
   const keys = isGoalie ? ['gp', 'gs', 'w', 'l', 'otl', 'ga', 'sa', 'sv', 'sho'] : ['gp', 'g', 'a', 'pts', 'pm', 'pim', 'ppg', 'ppp', 'shp', 'gwg', 'sog', 'fow', 'hit', 'blk'];
-  const mine = r && me && r.team_id === me.id;
-  const inSeason = league?.phase === 'season';
-  const myRoster = rosters.filter((x) => x.team_id === me?.id && x.slot !== 'IR');
-  const full = myRoster.length >= Object.entries(league?.roster ?? {}).filter(([k]) => k !== 'IR').reduce((t, [, v]) => t + v, 0);
-
-  const add = (drop?: number, fee = false) => run(async () => {
-    try {
-      await rpc('add_player', { p_add: p.id, p_drop: drop ?? null, p_accept_fee: fee });
-    } catch (e) {
-      const m = (e as Error).message;
-      if (m.startsWith('ACQ_LIMIT') && confirm(m.replace('ACQ_LIMIT: ', '') + '\n\nPay the fee and make the pickup?')) {
-        await rpc('add_player', { p_add: p.id, p_drop: drop ?? null, p_accept_fee: true });
-      } else throw e;
-    }
-    await refresh(['rosters', 'standings']);
-    onClose();
-  }, `${p.name} added`);
-
   return (
     <Sheet open={!!id} onClose={onClose} title={<span className="flex items-center gap-2"><NhlLogo abbr={p.nhl_team} size={22} />{NHL_TEAMS[p.nhl_team ?? ''] ?? 'Player'}</span>}>
       <div className="card-hero -mx-1 flex items-center gap-4 p-4" style={{ '--tc': NHL_COLORS[p.nhl_team ?? ''] ?? '#4cc3ff' } as React.CSSProperties}>
@@ -108,7 +89,7 @@ export function PlayerSheet({ id, onClose, actions }: { id: number | null; onClo
             <span className="chip">{NHL_TEAMS[p.nhl_team ?? ''] ?? 'Free agent (NHL)'}</span>
           </div>
           <div className="mt-2 flex items-center gap-2 text-sm">
-            {r ? (<><TeamBadge team={team(r.team_id)} size={22} /><TeamName team={team(r.team_id)} /><Pos p={r.slot} /></>)
+            {r ? (<><TeamBadge team={team(r.team_id)} size={22} /><TeamName link team={team(r.team_id)} /><Pos p={r.slot} /></>)
               : <span className="text-emerald-300 font-semibold">Available</span>}
           </div>
         </div>
@@ -213,17 +194,52 @@ export function PlayerSheet({ id, onClose, actions }: { id: number | null; onClo
 
       <div className="mt-4 flex flex-wrap gap-2">
         {actions}
+        <button className="btn-blue" onClick={() => { onClose(); nav(`/player/${p.id}`); }}>📇 Full player page</button>
+      </div>
+      <PlayerActions p={p} onDone={onClose} />
+    </Sheet>
+  );
+}
+
+// add / drop / trade buttons for a player, used by the quick-view sheet and the player page
+export function PlayerActions({ p, onDone }: { p: Player; onDone?: () => void }) {
+  const { owner, me, league, rosters, players, refresh } = useLeague();
+  const nav = useNavigate();
+  const { busy, run } = useAction();
+  const [dropPick, setDropPick] = useState(false);
+  const r = owner.get(p.id);
+  const mine = r && me && r.team_id === me.id;
+  const inSeason = league?.phase === 'season';
+  const myRoster = rosters.filter((x) => x.team_id === me?.id && x.slot !== 'IR');
+  const full = myRoster.length >= Object.entries(league?.roster ?? {}).filter(([k]) => k !== 'IR').reduce((t, [, v]) => t + v, 0);
+
+  const add = (drop?: number, fee = false) => run(async () => {
+    try {
+      await rpc('add_player', { p_add: p.id, p_drop: drop ?? null, p_accept_fee: fee });
+    } catch (e) {
+      const m = (e as Error).message;
+      if (m.startsWith('ACQ_LIMIT') && confirm(m.replace('ACQ_LIMIT: ', '') + '\n\nPay the fee and make the pickup?')) {
+        await rpc('add_player', { p_add: p.id, p_drop: drop ?? null, p_accept_fee: true });
+      } else throw e;
+    }
+    await refresh(['rosters', 'standings']);
+    onDone?.();
+  }, `${p.name} added`);
+
+  return (
+    <>
+      <div className="mt-4 flex flex-wrap gap-2">
         {!r && inSeason && me && !dropPick && (
           <button className="btn-primary" disabled={busy} onClick={() => (full ? setDropPick(true) : add())}>➕ Add {full ? '(drop someone)' : ''}</button>
         )}
         {mine && ['season', 'predraft'].includes(league?.phase ?? '') && (
           <button className="btn-ghost text-red-300" disabled={busy}
-            onClick={() => confirm(`Drop ${p.name}?`) && run(async () => { await rpc('drop_player', { p_player: p.id }); await refresh(['rosters']); onClose(); }, `${p.name} dropped`)}>
+            onClick={() => confirm(`Drop ${p.name}?`) && run(async () => { await rpc('drop_player', { p_player: p.id }); await refresh(['rosters']); onDone?.(); }, `${p.name} dropped`)}>
             Drop
           </button>
         )}
         {r && me && !mine && (
-          <button className="btn-ghost" onClick={() => { onClose(); nav(`/trades?with=${r.team_id}&get=${p.id}`); }}>🔄 Propose trade</button>
+          <button className="btn-ghost" onClick={() => { onDone?.(); nav(`/trades?with=${r.team_id}&get=${p.id}`); }}>🔄 Propose trade</button>
         )}
       </div>
 
@@ -240,6 +256,6 @@ export function PlayerSheet({ id, onClose, actions }: { id: number | null; onClo
           </div>
         </div>
       )}
-    </Sheet>
+    </>
   );
 }
