@@ -109,14 +109,16 @@ create or replace function public.rescore_all() returns void
 language plpgsql security definer set search_path = public as $$
 begin
   perform _commish();
-  update player_games set fpts = calc_fpts(stats);
+  update player_games set fpts = calc_fpts(stats)
+  where true;
 end $$;
 
 create or replace view public.team_daily as
   select s.team_id, s.date, round(sum(pg.fpts), 2) as points, count(*) as games
   from lineup_snapshots s
   join player_games pg on pg.game_id = s.game_id and pg.player_id = s.player_id
-  where s.slot not in ('BN', 'IR')
+  join league l on l.id = 1
+  where s.slot not in ('BN', 'IR') and s.date >= coalesce(l.season_start, s.date) and l.phase = 'season'
   group by s.team_id, s.date;
 
 create or replace view public.standings as
@@ -301,8 +303,10 @@ begin
   insert into transactions (season, type, team_id, player_id, note)
     select l.season, 'keeper', team_id, player_id, 'Kept for ' || l.season from rosters where keeper;
   delete from rosters where not keeper;
-  update rosters set acquired = 'keeper', slot = 'BN', keeper = false;
-  update league set phase = 'predraft', updated_at = now();
+  update rosters set acquired = 'keeper', slot = 'BN', keeper = false
+  where true;
+  update league set phase = 'predraft', updated_at = now()
+  where id = 1;
   for t in select id, name from teams order by id loop
     msg := msg || E'\n' || t.name || ': ' || coalesce((
       select string_agg(p.name, ', ' order by r.prev_fp desc nulls last)
@@ -342,7 +346,8 @@ begin
       where season = st.season and round = r and original_team = t and player_id is null;
     end loop;
   end loop;
-  update draft_state set order_set = true, current_overall = 1, updated_at = now();
+  update draft_state set order_set = true, current_overall = 1, updated_at = now()
+  where id = 1;
   perform _sys('draft', '🎲 Draft order set: ' || (
     select string_agg(format('%s. %s', o, _tname(x)), '  ' order by o) from unnest(p_order) with ordinality u(x, o)),
     jsonb_build_object('order', to_jsonb(p_order)));
@@ -368,8 +373,10 @@ begin
   select * into nxt from draft_picks where season = st.season and player_id is null and overall is not null
     order by overall limit 1;
   if not found then
-    update draft_state set status = 'done', current_overall = null, deadline = null, updated_at = now();
-    update league set phase = 'season', updated_at = now();
+    update draft_state set status = 'done', current_overall = null, deadline = null, updated_at = now()
+  where id = 1;
+    update league set phase = 'season', updated_at = now()
+  where id = 1;
     for t in select id from teams loop perform _auto_lineup(t); end loop;
     perform _sys('draft', '🏁 The draft is complete! Lineups have been auto-set; tweak yours on My Team. Let the chirping begin.');
     perform _sys('general', '🏁 The draft is complete! Rosters are live.');
@@ -377,7 +384,8 @@ begin
   end if;
   update draft_state set current_overall = nxt.overall,
     deadline = now() + make_interval(secs => case when (select autodraft from teams where id = nxt.team_id) then 4 else l.pick_seconds end),
-    updated_at = now();
+    updated_at = now()
+  where id = 1;
   perform _notify(nxt.team_id, 'draft', format('You''re on the clock! Pick #%s', nxt.overall), '/draft');
 end $$;
 
@@ -443,12 +451,15 @@ begin
   select * into st from draft_state for update;
   if not st.order_set then raise exception 'Set the draft order first'; end if;
   if st.status = 'live' then return; end if;
-  update league set phase = 'draft', updated_at = now();
-  update draft_state set status = 'live', started_at = coalesce(started_at, now()), updated_at = now();
+  update league set phase = 'draft', updated_at = now()
+  where id = 1;
+  update draft_state set status = 'live', started_at = coalesce(started_at, now()), updated_at = now()
+  where id = 1;
   perform _sys('draft', '🟢 THE DRAFT IS LIVE! Good luck, and may the best GM win.');
   perform _sys('general', '🟢 The draft is live. Get in the draft room!');
   -- _advance() sets the clock for the first open pick
-  update draft_state set current_overall = null;
+  update draft_state set current_overall = null
+  where id = 1;
   perform _advance();
 end $$;
 
@@ -486,7 +497,8 @@ begin
   delete from transactions where type = 'draft' and player_id = pk.player_id and season = pk.season;
   update draft_picks set player_id = null, picked_at = null, auto = false where id = pk.id;
   update draft_state set status = case when status = 'done' then 'live' else status end,
-    current_overall = pk.overall, deadline = now() + make_interval(secs => l.pick_seconds), updated_at = now();
+    current_overall = pk.overall, deadline = now() + make_interval(secs => l.pick_seconds), updated_at = now()
+  where id = 1;
   update league set phase = 'draft' where phase = 'season';
   perform _sys('draft', format('↩️ Commissioner undid pick #%s (%s).', pk.overall, _pname(pk.player_id)));
 end $$;
@@ -502,7 +514,8 @@ begin
   delete from transactions where type = 'draft' and season = st.season;
   update draft_picks set player_id = null, picked_at = null, auto = false where season = st.season;
   update draft_state set status = 'scheduled', current_overall = case when order_set then 1 end,
-    deadline = null, paused_remaining = null, started_at = null, updated_at = now();
+    deadline = null, paused_remaining = null, started_at = null, updated_at = now()
+  where id = 1;
   update league set phase = 'predraft' where phase in ('draft', 'season');
   perform _sys('draft', '🔄 Draft board reset by the commissioner.');
 end $$;
@@ -859,7 +872,8 @@ begin
     commish_note = case when p ? 'commish_note' then p->>'commish_note' else commish_note end,
     scoring = coalesce(p->'scoring', scoring),
     info = coalesce(p->'info', info),
-    updated_at = now();
+    updated_at = now()
+  where id = 1;
   if p ? 'commish_note' and coalesce(p->>'commish_note', '') <> '' then
     perform _sys('general', '📣 Commissioner: ' || (p->>'commish_note'));
   end if;
@@ -946,7 +960,7 @@ end $$;
 create trigger messages_mentions after insert on public.messages for each row execute function public._mention_notify();
 
 -- ───────────────────────────── grants ─────────────────────────────
-revoke execute on all functions in schema public from public, anon;
+revoke execute on all functions in schema public from public, anon, authenticated;
 grant execute on function
   public.my_team(), public.is_commish(), public.today_et(), public.slot_ok(text[], text, text),
   public.player_locked(int), public.take_snapshots(), public.calc_fpts(jsonb), public.rescore_all(),

@@ -13,7 +13,8 @@ const POSITIONS: ('ALL' | PosT)[] = ['ALL', 'C', 'LW', 'RW', 'D', 'G'];
 export default function Draft() {
   const { me, league, teams, team, players, rosters, owner, picks, draft, online, refresh } = useLeague();
   const now = useNow(250);
-  const { busy, run } = useAction();
+  const { busy, run: runRaw } = useAction();
+  const run = (fn: () => Promise<unknown>, ok?: string) => runRaw(async () => { await fn(); await refresh(['draft', 'picks', 'league', 'rosters', 'teams']); }, ok);
   const [tab, setTab] = useState<Tab>('players');
   const [q, setQ] = useState('');
   const [pos, setPos] = useState<'ALL' | PosT>('ALL');
@@ -106,7 +107,7 @@ export default function Draft() {
             <button className={`grid h-9 w-9 place-items-center rounded-lg text-lg ${queue.includes(p.id) ? 'text-amber-300' : 'text-mute'}`} onClick={() => toggleQueue(p.id)} title="Queue">
               {queue.includes(p.id) ? '★' : '☆'}
             </button>
-            {myTurn && <button className="btn-primary btn-sm" disabled={busy} onClick={() => draftPlayer(p)}>Draft</button>}
+            {myTurn && <button className="btn-primary btn-sm shrink-0" disabled={busy} onClick={() => draftPlayer(p)}>Draft</button>}
           </div>
         ))}
       </div>
@@ -270,7 +271,7 @@ export default function Draft() {
   ];
 
   return (
-    <div className="-mx-3 -my-3 flex h-[calc(100dvh-7rem-env(safe-area-inset-bottom)-env(safe-area-inset-top))] flex-col sm:-mx-5 lg:m-0 lg:h-[calc(100dvh-3rem)]">
+    <div className="-mx-3 -my-3 flex overflow-x-hidden h-[calc(100dvh-7rem-env(safe-area-inset-bottom)-env(safe-area-inset-top))] flex-col sm:-mx-5 lg:m-0 lg:h-[calc(100dvh-3rem)]">
       {/* clock */}
       {(status === 'live' || status === 'paused') && current ? (
         <div className={`border-b border-line px-3 py-2 ${myTurn ? 'bg-goal/25' : 'bg-rink'}`}>

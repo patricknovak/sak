@@ -99,7 +99,7 @@ export function LeagueProvider({ children }: { children: ReactNode }) {
     refresh().then(() => alive && setLoaded(true));
     // measure clock skew against the database so every phone shows the same pick clock
     const t0 = Date.now();
-    fetch(`${import.meta.env.VITE_SUPABASE_URL}/rest/v1/`, { method: 'HEAD', headers: { apikey: import.meta.env.VITE_SUPABASE_ANON_KEY } })
+    fetch(`${import.meta.env.VITE_SUPABASE_URL}/rest/v1/team_directory?select=id&limit=1`, { headers: { apikey: import.meta.env.VITE_SUPABASE_ANON_KEY } })
       .then((r) => {
         const d = r.headers.get('date');
         if (d) setServerOffset(new Date(d).getTime() + 500 - (t0 + Date.now()) / 2);
@@ -154,6 +154,16 @@ export function LeagueProvider({ children }: { children: ReactNode }) {
     supabase.rpc('touch_seen');
     return () => { supabase.removeChannel(ch); };
   }, [me?.id]);
+
+  // safety net for flaky phone connections: poll the draft while it's live
+  const draftLive = draft?.status === 'live' || draft?.status === 'paused' || (draft?.status === 'scheduled' && draft.order_set);
+  useEffect(() => {
+    if (!session || !draftLive) return;
+    const i = window.setInterval(() => {
+      if (document.visibilityState === 'visible') refresh(['draft', 'picks', 'rosters', 'league']);
+    }, 4000);
+    return () => clearInterval(i);
+  }, [session, draftLive, refresh]);
 
   const owner = useMemo(() => new Map(rosters.map((r) => [r.player_id, r])), [rosters]);
   const teamMap = useMemo(() => new Map(teams.map((t) => [t.id, t])), [teams]);

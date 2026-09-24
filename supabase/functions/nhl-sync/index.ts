@@ -26,7 +26,7 @@ const check = <T>({ data, error }: { data: T; error: unknown }) => {
 async function scores() {
   const now = new Date();
   const days = [etDate(new Date(now.getTime() - 86400000)), etDate(now)];
-  const games = (await Promise.all(days.map((d) => get(`/score/${d}`)))).flatMap((j) => j.games ?? []);
+  const games = (await Promise.all(days.map((d) => get(`/score/${d}`)))).flatMap((j) => j.games ?? []).filter((g: any) => g.gameType === 2); // regular season only
   if (games.length) check(await db.from('games').upsert(games.map(gameRow)));
   const snaps = check(await db.rpc('take_snapshots'));
 
@@ -75,8 +75,11 @@ async function players() {
       });
     }
   }
-  const existing = check(await db.from('players').select('id,elig').in('id', seen.map((p) => p.id))) as { id: number; elig: string[] }[];
-  const have = new Map(existing.map((p) => [p.id, p.elig]));
+  const have = new Map<number, string[]>();
+  for (let i = 0; i < seen.length; i += 300) {
+    const chunk = check(await db.from('players').select('id,elig').in('id', seen.slice(i, i + 300).map((p) => p.id))) as { id: number; elig: string[] }[];
+    for (const p of chunk) have.set(p.id, p.elig);
+  }
   const rows = seen.map((p) => ({ ...p, elig: have.get(p.id) ?? [p.pos], updated_at: new Date().toISOString() }));
   for (let i = 0; i < rows.length; i += 300) check(await db.from('players').upsert(rows.slice(i, i + 300)));
   return { players: rows.length, added: rows.filter((r) => !have.has(r.id)).length };

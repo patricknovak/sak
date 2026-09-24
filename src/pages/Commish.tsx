@@ -14,7 +14,8 @@ const fromLocal = (v: string) => (v ? new Date(v).toISOString() : null);
 
 export default function Commish() {
   const { me, league, teams, team, draft, picks, players, owner, refresh } = useLeague();
-  const { busy, run } = useAction();
+  const { busy, run: runRaw } = useAction();
+  const run = (fn: () => Promise<unknown>, ok?: string) => runRaw(async () => { await fn(); await refresh(['draft', 'picks', 'league', 'rosters', 'teams']); }, ok);
   const [s, setS] = useState({ keeper_deadline: '', draft_at: '', pick_seconds: 90, draft_rounds: 18, snake: true, trade_deadline: '', max_acquisitions: 10, keepers: 6, top_scorer_rule: true, phase: 'keepers' });
   const [note, setNote] = useState('');
   const [order, setOrder] = useState<number[]>([]);

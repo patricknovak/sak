@@ -20,13 +20,13 @@ export function PlayerRow({ p, right, onClick, sub, dim }: { p: Player; right?: 
           <span className="truncate font-semibold">{p.name}</span>
           {p.status === 'inj' && <span className="chip border-red-800 bg-red-900/50 text-red-300">INJ</span>}
         </div>
-        <div className="flex items-center gap-1.5 text-xs text-mute">
+        <div className="flex min-w-0 items-center gap-1.5 overflow-hidden whitespace-nowrap text-xs text-mute">
           <NhlLogo abbr={p.nhl_team} size={14} />
           <span>{p.nhl_team ?? 'FA'}</span>
           <span>·</span>
           <span>{p.elig.join('/')}</span>
           {opp && (
-            <span className={`ml-1 ${live ? 'font-semibold text-goal' : 'text-slate-300'}`}>
+            <span className={`ml-1 truncate ${live ? 'font-semibold text-goal' : 'text-slate-300'}`}>
               {opp} {live ? `· ${g!.period === 'SO' || g!.period === 'OT' ? g!.period : 'P' + g!.period} ${g!.clock ?? ''}`
                 : ['OFF', 'FINAL'].includes(g!.state) ? '· Final' : '· ' + fmtTime(g!.start_utc)}
             </span>
@@ -47,7 +47,7 @@ export function usePlayerSheet() {
 interface GameLine { game_id: number; date: string; nhl_team: string; stats: Record<string, number>; fpts: number }
 
 export function PlayerSheet({ id, onClose, actions }: { id: number | null; onClose: () => void; actions?: ReactNode }) {
-  const { players, owner, team, me, league, season, rosters } = useLeague();
+  const { players, owner, team, me, league, season, rosters, refresh } = useLeague();
   const nav = useNavigate();
   const p = id ? players.get(id) : undefined;
   const r = id ? owner.get(id) : undefined;
@@ -80,6 +80,7 @@ export function PlayerSheet({ id, onClose, actions }: { id: number | null; onClo
         await rpc('add_player', { p_add: p.id, p_drop: drop ?? null, p_accept_fee: true });
       } else throw e;
     }
+    await refresh(['rosters', 'standings']);
     onClose();
   }, `${p.name} added`);
 
@@ -144,7 +145,7 @@ export function PlayerSheet({ id, onClose, actions }: { id: number | null; onClo
         )}
         {mine && ['season', 'predraft'].includes(league?.phase ?? '') && (
           <button className="btn-ghost text-red-300" disabled={busy}
-            onClick={() => confirm(`Drop ${p.name}?`) && run(async () => { await rpc('drop_player', { p_player: p.id }); onClose(); }, `${p.name} dropped`)}>
+            onClick={() => confirm(`Drop ${p.name}?`) && run(async () => { await rpc('drop_player', { p_player: p.id }); await refresh(['rosters']); onClose(); }, `${p.name} dropped`)}>
             Drop
           </button>
         )}

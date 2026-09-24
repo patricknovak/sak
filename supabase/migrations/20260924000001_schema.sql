@@ -310,6 +310,8 @@ language sql stable as
 $$ select (now() at time zone 'America/New_York')::date $$;
 
 -- ───────────────────────────── row level security ─────────────────────────────
+-- Supabase grants the API roles everything by default; start from nothing and grant explicitly.
+revoke all on all tables in schema public from anon, authenticated;
 do $$
 declare t text;
 begin

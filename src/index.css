@@ -18,7 +18,7 @@
 :root { color-scheme: dark; }
 html, body { background: var(--color-ice); color: #e7ecf7; -webkit-tap-highlight-color: transparent; }
 body { overscroll-behavior-y: none; }
-#root { min-height: 100dvh; }
+#root { min-height: 100dvh; overflow-x: clip; }
 
 /* safe areas for iPhone home-screen installs */
 .pt-safe { padding-top: env(safe-area-inset-top); }
