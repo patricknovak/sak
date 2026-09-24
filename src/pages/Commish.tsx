@@ -2,7 +2,8 @@ import { useEffect, useMemo, useState } from 'react';
 import { useLeague } from '../lib/store';
 import { rpc } from '../lib/supabase';
 import { fmtDateTime } from '../lib/format';
-import { Section, TeamBadge, useAction } from '../components/ui';
+import { Section, TeamBadge, useAction, PageHeader } from '../components/ui';
+import { Wrench } from 'lucide-react';
 import { ScoringEditor } from '../components/ScoringEditor';
 
 // datetime-local <-> ISO in the viewer's zone
@@ -34,13 +35,15 @@ export default function Commish() {
       max_acquisitions: league.max_acquisitions, keepers: league.keepers, top_scorer_rule: league.top_scorer_rule, phase: league.phase,
     });
     setNote(league.commish_note ?? '');
-  }, [league?.updated_at]);
+  }, [league?.updated_at, league?.phase]); // draft reset/undo change the phase without touching updated_at
 
   const seasonPicks = useMemo(() => picks.filter((p) => p.season === draft?.season), [picks, draft]);
+  // key on the actual order so a re-randomize shows up here before anyone taps "Save this order"
+  const r1 = seasonPicks.filter((p) => p.round === 1 && p.overall).sort((a, b) => a.overall! - b.overall!).map((p) => p.original_team);
+  const r1Key = r1.join(',');
   useEffect(() => {
-    const r1 = seasonPicks.filter((p) => p.round === 1 && p.overall).sort((a, b) => a.overall! - b.overall!).map((p) => p.original_team);
     setOrder(r1.length ? r1 : teams.map((t) => t.id));
-  }, [seasonPicks.length, draft?.order_set, teams.length]);
+  }, [r1Key, teams.length]);
 
   if (!me?.is_commish) return <div className="card p-6 text-center text-sm text-mute">Commissioner only. Nice try. 🤡</div>;
 
@@ -63,7 +66,7 @@ export default function Commish() {
 
   return (
     <div className="space-y-5">
-      <div><h1 className="h-display text-2xl">🛠️ Commissioner</h1><p className="text-sm text-mute">With great power comes great responsibility, {me.gm_name}.</p></div>
+      <PageHeader icon={<Wrench size={22} className="text-gold" />} title="Commissioner" sub={`With great power comes great responsibility, ${me.gm_name}.`} />
 
       <Section title="📣 Announcement">
         <div className="card space-y-2 p-3">
@@ -154,7 +157,7 @@ export default function Commish() {
         <div className="card space-y-2 p-3">
           <input className="input" placeholder="Find a player" value={mv.q} onChange={(e) => setMv({ ...mv, q: e.target.value, player: 0 })} />
           {matches.length > 0 && !mv.player && (
-            <div className="divide-y divide-line rounded-xl border border-line">
+            <div className="divide-y divide-white/[.06] rounded-xl border border-line">
               {matches.map((p) => <button key={p.id} className="flex w-full justify-between px-3 py-1.5 text-left text-sm" onClick={() => setMv({ ...mv, player: p.id, q: p.name })}>
                 <span>{p.name} · {p.nhl_team}</span><span className="text-mute">{team(owner.get(p.id)?.team_id)?.abbrev ?? 'FA'}</span></button>)}
             </div>

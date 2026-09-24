@@ -16,10 +16,12 @@ export async function rpc<T = unknown>(fn: string, args?: Record<string, unknown
 }
 
 // fetch every row of a table/view (PostgREST caps responses at 1000 rows)
-export async function selectAll<T>(table: string, columns = '*', page = 1000): Promise<T[]> {
+export async function selectAll<T>(table: string, columns = '*', page = 1000, order: string[] = []): Promise<T[]> {
   const out: T[] = [];
   for (let from = 0; ; from += page) {
-    const { data, error } = await supabase.from(table).select(columns).range(from, from + page - 1);
+    let q = supabase.from(table).select(columns);
+    for (const c of order) q = q.order(c); // a stable order keeps pages from overlapping
+    const { data, error } = await q.range(from, from + page - 1);
     if (error) throw error;
     out.push(...((data ?? []) as T[]));
     if (!data || data.length < page) return out;

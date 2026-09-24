@@ -1,9 +1,10 @@
-import { useEffect, useMemo, useState } from 'react';
+import { Fragment, useEffect, useMemo, useState } from 'react';
 import { useLeague, useNow } from '../lib/store';
-import { rpc, realtimeChannel, supabase } from '../lib/supabase';
+import { rpc, realtimeChannel, supabase, selectAll } from '../lib/supabase';
 import type { Bet, CoinBalance, CoinEntry } from '../lib/types';
 import { ago, etToday, fmtDate, fmtMoney, fmtPts } from '../lib/format';
-import { Empty, Section, Sheet, TeamBadge, TeamName, useAction } from '../components/ui';
+import { Empty, Section, Sheet, TeamBadge, TeamName, useAction, PageHeader, Coin, Rank } from '../components/ui';
+import { Dices } from 'lucide-react';
 
 interface Daily { team_id: number; date: string; points: number }
 
@@ -31,7 +32,7 @@ export default function Bets() {
   };
   useEffect(() => {
     load();
-    supabase.from('team_daily').select('team_id,date,points').then(({ data }) => setDaily((data ?? []) as Daily[]));
+    selectAll<Daily>('team_daily', 'team_id,date,points', 1000, ['date', 'team_id']).then(setDaily, () => {});
     const ch = realtimeChannel('bets-page')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'bets' }, load)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'coin_ledger' }, load)
@@ -69,9 +70,9 @@ export default function Bets() {
     const mine = b.creator_team === me?.id || b.opponent_team === me?.id;
     const other = b.creator_team === me?.id ? b.opponent_team : b.creator_team;
     return (
-      <div className={`card p-3 ${mine ? 'border-sky-500/40' : ''}`}>
+      <div className={`card p-3 ${mine ? 'border-sky-400/30 shadow-[0_0_0_1px_rgba(76,195,255,.15),0_12px_32px_-18px_rgba(76,195,255,.6)]' : ''}`}>
         <div className="flex items-start gap-2">
-          <div className="flex -space-x-2"><TeamBadge team={team(b.creator_team)} size={30} /><TeamBadge team={team(b.opponent_team)} size={30} /></div>
+          <div className="flex items-center"><TeamBadge team={team(b.creator_team)} size={32} /><span className="z-10 -mx-1.5 grid h-5 w-5 place-items-center rounded-full bg-[#0b1222] text-[8px] font-black text-white/70 ring-1 ring-white/15">VS</span><TeamBadge team={team(b.opponent_team)} size={32} /></div>
           <div className="min-w-0 flex-1">
             <div className="font-semibold leading-snug">{b.title}</div>
             <div className="text-xs text-mute">
@@ -80,7 +81,7 @@ export default function Bets() {
           </div>
           {(b.amount || b.stake || b.coins > 0) && (
             <div className="text-right text-sm">
-              {b.coins > 0 && <div className="font-display text-lg font-bold text-emerald-300">☘️ {b.coins}</div>}
+              {b.coins > 0 && <div className="flex items-center justify-end gap-1"><Coin size={16} /><span className="num text-gold-shine font-display text-lg font-extrabold">{b.coins}</span></div>}
               {!!b.amount && <div className="font-display text-lg font-bold text-gold">{fmtMoney(b.amount)}</div>}
               <div className="max-w-28 text-[11px] text-mute">{b.stake}</div>
             </div>
@@ -88,10 +89,11 @@ export default function Bets() {
         </div>
         {b.terms && <p className="mt-2 text-sm text-slate-300">{b.terms}</p>}
         {b.kind === 'h2h' && b.opponent_team && (
-          <div className="mt-2 grid grid-cols-2 gap-2 rounded-xl bg-boards/60 p-2 text-center">
-            {[b.creator_team, b.opponent_team].map((t) => (
-              <div key={t}><div className="text-xs text-mute">{team(t)?.gm_name}</div><div className="font-display text-2xl font-bold">{fmtPts(h2h(b, t))}</div></div>
-            ))}
+          <div className="mt-2 grid grid-cols-2 gap-2 rounded-xl border border-white/[.07] bg-black/25 p-2 text-center">
+            {[b.creator_team, b.opponent_team].map((t) => {
+              const lead = h2h(b, t) > h2h(b, t === b.creator_team ? b.opponent_team! : b.creator_team);
+              return <div key={t}><div className="text-xs text-mute">{team(t)?.gm_name}</div><div className={`num font-display text-2xl font-extrabold ${lead ? 'text-emerald-300' : ''}`}>{fmtPts(h2h(b, t))}</div></div>;
+            })}
             <div className="col-span-2 text-[11px] text-mute">Fantasy points {b.start_date ? fmtDate(b.start_date) : 'start'} → {b.end_date ? fmtDate(b.end_date) : 'season end'}</div>
           </div>
         )}
@@ -137,29 +139,27 @@ export default function Bets() {
   return (
     <div className="space-y-5">
       <div className="flex items-end justify-between gap-2">
-        <div>
-          <h1 className="h-display text-2xl">Side Bets</h1>
-          <p className="text-sm text-mute">Bet St. Patrick coins, real money, or your dignity.</p>
-        </div>
+        <div className="min-w-0 flex-1"><PageHeader icon={<Dices size={22} className="text-clover" />} title="Side Bets" sub="Coins, cash, or your dignity." /></div>
         <button className="btn-primary" onClick={() => setOpen(true)}>🎲 New bet</button>
       </div>
 
-      <Section title="☘️ St. Patrick’s Bank" right={<button className="text-xs text-sky-300" onClick={() => setShowLedger(!showLedger)}>{showLedger ? 'Hide' : 'My coin history'}</button>}>
-        <div className="card divide-y divide-line">
-          {[...bank].sort((a, b) => b.balance - a.balance).map((c, i) => {
+      <Section icon={<Coin size={20} />} title="St. Patrick’s Bank" right={<button className="text-xs text-sky-300" onClick={() => setShowLedger(!showLedger)}>{showLedger ? 'Hide' : 'My coin history'}</button>}>
+        <div className="card divide-y divide-white/[.06] overflow-hidden" style={{ background: 'linear-gradient(160deg, rgba(247,197,72,.10), rgba(15,23,41,.75) 45%)' }}>
+          {[...bank].sort((a, b) => b.balance - a.balance).map((c, i, all) => {
             const t = team(c.team_id); const r = record(c.team_id);
+            const tie = all.every((x) => x.balance === all[0].balance);
             return (
-              <div key={c.team_id} className={`flex items-center gap-3 px-3 py-2 ${c.team_id === me?.id ? 'bg-white/5' : ''}`}>
-                <span className="w-5 text-center font-display text-lg text-mute">{i + 1}</span>
-                <TeamBadge team={t} size={26} />
-                <div className="min-w-0 flex-1"><div className="truncate text-sm font-semibold">{t?.gm_name}</div><div className="text-[11px] text-mute">bets {r.w}-{r.l}{c.escrow ? ` · ${c.escrow} in play` : ''}</div></div>
-                <div className="font-display text-xl font-bold text-emerald-300">{c.balance.toLocaleString()}</div>
+              <div key={c.team_id} className={`flex items-center gap-3 px-3 py-2.5 ${c.team_id === me?.id ? 'bg-white/[.05]' : ''}`}>
+                {tie ? <span className="grid h-7 w-7 place-items-center text-mute">–</span> : <Rank n={i + 1} />}
+                <TeamBadge team={t} size={30} />
+                <div className="min-w-0 flex-1"><div className="truncate text-sm font-bold">{t?.gm_name}</div><div className="text-[11px] text-mute">bets {r.w}-{r.l}{c.escrow ? ` · ${c.escrow} in play` : ''}</div></div>
+                <div className="flex items-center gap-1.5"><Coin size={18} /><span className="num text-gold-shine font-display text-xl font-extrabold">{c.balance.toLocaleString()}</span></div>
               </div>
             );
           })}
         </div>
         {showLedger && (
-          <div className="card mt-2 divide-y divide-line">
+          <div className="card mt-2 divide-y divide-white/[.06]">
             {myCoins.map((c) => (
               <div key={c.id} className="flex items-center gap-2 px-3 py-2 text-sm">
                 <span className="flex-1 truncate">{c.reason}</span>
@@ -174,7 +174,7 @@ export default function Bets() {
 
       {owed.length > 0 && (
         <Section title="💸 Outstanding">
-          <div className="card divide-y divide-line">
+          <div className="card divide-y divide-white/[.06]">
             {owed.map((b) => {
               const loser = b.winner_team === b.creator_team ? b.opponent_team : b.creator_team;
               return <div key={b.id} className="flex items-center gap-2 px-3 py-2 text-sm"><TeamName team={team(loser)} /> owes <TeamName team={team(b.winner_team!)} /><span className="ml-auto font-semibold text-gold">{fmtMoney(b.amount)}</span></div>;
@@ -182,12 +182,12 @@ export default function Bets() {
           </div>
         </Section>
       )}
-      {groups.open.length > 0 && <Section title="Open challenges"><div className="grid gap-2 sm:grid-cols-2">{groups.open.map((b) => <BetCard key={b.id} b={b} />)}</div></Section>}
+      {groups.open.length > 0 && <Section title="Open challenges"><div className="grid gap-2 sm:grid-cols-2">{groups.open.map((b) => <Fragment key={b.id}>{BetCard({ b })}</Fragment>)}</div></Section>}
       <Section title="Live bets">
         {groups.live.length === 0 ? <div className="card"><Empty icon="🎲" title="No live bets">Challenge someone. You know who.</Empty></div>
-          : <div className="grid gap-2 sm:grid-cols-2">{groups.live.map((b) => <BetCard key={b.id} b={b} />)}</div>}
+          : <div className="grid gap-2 sm:grid-cols-2">{groups.live.map((b) => <Fragment key={b.id}>{BetCard({ b })}</Fragment>)}</div>}
       </Section>
-      {groups.settled.length > 0 && <Section title="Settled"><div className="grid gap-2 sm:grid-cols-2">{groups.settled.map((b) => <BetCard key={b.id} b={b} />)}</div></Section>}
+      {groups.settled.length > 0 && <Section title="Settled"><div className="grid gap-2 sm:grid-cols-2">{groups.settled.map((b) => <Fragment key={b.id}>{BetCard({ b })}</Fragment>)}</div></Section>}
 
       <Sheet open={open} onClose={() => setOpen(false)} title="New side bet">
         <div className="space-y-3">

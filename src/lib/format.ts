@@ -49,8 +49,17 @@ export const NHL_TEAMS: Record<string, string> = {
   TOR: 'Toronto', UTA: 'Utah', VAN: 'Vancouver', VGK: 'Vegas', WPG: 'Winnipeg', WSH: 'Washington',
 };
 
+// primary colours for NHL clubs, used behind player headshots
+export const NHL_COLORS: Record<string, string> = {
+  ANA: '#F47A38', BOS: '#FFB81C', BUF: '#003087', CAR: '#CE1126', CBJ: '#002654', CGY: '#C8102E', CHI: '#CF0A2C',
+  COL: '#6F263D', DAL: '#006847', DET: '#CE1126', EDM: '#FF4C00', FLA: '#C8102E', LAK: '#A2AAAD', MIN: '#154734',
+  MTL: '#AF1E2D', NJD: '#CE1126', NSH: '#FFB81C', NYI: '#00539B', NYR: '#0038A8', OTT: '#C52032', PHI: '#F74902',
+  PIT: '#FCB514', SEA: '#99D9D9', SJS: '#006D75', STL: '#002F87', TBL: '#002868', TOR: '#00205B', UTA: '#71AFE5',
+  VAN: '#00843D', VGK: '#B4975A', WPG: '#041E42', WSH: '#C8102E',
+};
+
 export const teamLogo = (abbr: string | null | undefined) =>
-  abbr ? `https://assets.nhle.com/logos/nhl/svg/${abbr}_light.svg` : '';
+  abbr ? `https://assets.nhle.com/logos/nhl/svg/${abbr}_dark.svg` : '';
 
 // "lighten" a hex colour for text on dark backgrounds
 export function readable(hex: string) {

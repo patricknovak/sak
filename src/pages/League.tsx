@@ -5,7 +5,8 @@ import { rpc, supabase } from '../lib/supabase';
 import type { LedgerRow, Proposal, Vote } from '../lib/types';
 import { fmtMoney, fmtPts, STAT_LABELS } from '../lib/format';
 import { ALL_TIME_2425, RULES, SEASONS, TIMELINE, TROPHIES, allTime, type GM } from '../data/history';
-import { Section, Sheet, TeamBadge, TeamName, useAction } from '../components/ui';
+import { Section, Sheet, TeamBadge, TeamName, useAction, PageHeader } from '../components/ui';
+import { Landmark } from 'lucide-react';
 
 type Tab = 'history' | 'rules' | 'money' | 'votes';
 
@@ -14,13 +15,10 @@ export default function LeaguePage() {
   const tab = (params.get('t') as Tab) ?? 'history';
   return (
     <div className="space-y-4">
-      <div>
-        <h1 className="h-display text-2xl">She’s A Keeper</h1>
-        <p className="text-sm text-mute">Est. September 2013 · 13th season</p>
-      </div>
+      <PageHeader icon={<Landmark size={22} className="text-gold" />} title="She’s A Keeper" sub="Est. September 2013 · 13th season" />
       <div className="scroll-x flex gap-1">
         {([['history', '📜 History'], ['rules', '📘 Rules'], ['money', '💰 Money'], ['votes', '🗳️ Proposals']] as const).map(([k, l]) => (
-          <button key={k} className={`tab ${tab === k ? 'tab-on' : 'bg-boards'}`} onClick={() => setParams({ t: k })}>{l}</button>
+          <button key={k} className={`tab ${tab === k ? 'tab-on' : 'bg-white/[.05]'}`} onClick={() => setParams({ t: k })}>{l}</button>
         ))}
       </div>
       {tab === 'history' && <History />}
@@ -44,13 +42,40 @@ function History() {
     return { c: [...c].sort((a, b) => b[1] - a[1]), p: [...p].sort((a, b) => b[1] - a[1]), money: [...money].sort((a, b) => b[1] - a[1]) };
   }, []);
   const at = allTime();
+  // a colour per GM so each banner looks like it belongs to its franchise
+  const { teams } = useLeague();
+  const gmColor = (gm: string) => teams.find((t) => t.gm_name === gm)?.color ?? '#4b5878';
   return (
     <div className="space-y-5">
+      {/* championship banners in the rafters */}
+      <div className="card overflow-hidden p-0">
+        <div className="label flex items-center gap-1.5 px-3 pt-3 text-white/70">🏟️ Raised to the rafters</div>
+        <div className="scroll-x flex gap-2.5 px-3 pb-4 pt-3">
+          {SEASONS.map((s) => {
+            const w = s.rows[0]; const c = gmColor(w.gm);
+            return (
+              <div key={s.season} className="relative w-24 shrink-0">
+                <div className="mx-auto h-2 w-20 rounded-full bg-white/20" />
+                <div className="relative -mt-1 flex h-36 flex-col items-center px-1.5 pt-3 text-center shadow-[0_18px_30px_-16px_rgba(0,0,0,.9)]"
+                  style={{ background: `linear-gradient(180deg, ${c}, color-mix(in oklab, ${c} 55%, black))`, clipPath: 'polygon(0 0, 100% 0, 100% 86%, 50% 100%, 0 86%)' }}>
+                  <div className="text-lg">🏆</div>
+                  <div className="h-display text-[11px] leading-tight text-white/80">Champions</div>
+                  <div className="mt-1 line-clamp-2 text-[11px] font-bold leading-tight text-white">{w.team}</div>
+                  <div className="text-[10px] text-white/70">{w.gm}</div>
+                  <div className="h-display mt-auto pb-5 text-base text-white">{s.season}</div>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+
       <div className="grid gap-3 sm:grid-cols-3">
         {TROPHIES.map((t) => (
-          <div key={t.name} className="card p-3">
-            <div className="text-3xl">{t.emoji}</div>
-            <div className="h-display mt-1 text-lg">{t.name}</div>
+          <div key={t.name} className="card relative overflow-hidden p-3">
+            <div className="pointer-events-none absolute -right-4 -top-4 h-24 w-24 rounded-full bg-gold/20 blur-2xl" />
+            <div className="relative grid h-12 w-12 place-items-center rounded-2xl bg-gradient-to-br from-gold/30 to-gold/5 text-3xl ring-1 ring-gold/30">{t.emoji}</div>
+            <div className="h-display text-gold-shine mt-2 text-xl">{t.name}</div>
             <div className="text-[11px] text-mute">since {t.since}</div>
             <p className="mt-1 text-sm text-slate-300">{t.desc}</p>
           </div>
@@ -59,18 +84,18 @@ function History() {
 
       <div className="grid gap-4 lg:grid-cols-3">
         <Section title="🏆 Titles">
-          <div className="card divide-y divide-line">{champs.c.map(([gm, n]) => <div key={gm} className="flex justify-between px-3 py-2 text-sm"><span>{gm}</span><span className="font-semibold">{'🏆'.repeat(n)}</span></div>)}</div>
+          <div className="card divide-y divide-white/[.06]">{champs.c.map(([gm, n]) => <div key={gm} className="flex items-center justify-between px-3 py-2 text-sm"><span className="flex items-center gap-2"><span className="h-2.5 w-2.5 rounded-full" style={{ background: gmColor(gm) }} />{gm}</span><span className="font-semibold">{'🏆'.repeat(n)}</span></div>)}</div>
         </Section>
         <Section title="🪣 Peters">
-          <div className="card divide-y divide-line">{champs.p.map(([gm, n]) => <div key={gm} className="flex justify-between px-3 py-2 text-sm"><span>{gm}</span><span>{'🪣'.repeat(n)}</span></div>)}</div>
+          <div className="card divide-y divide-white/[.06]">{champs.p.map(([gm, n]) => <div key={gm} className="flex justify-between px-3 py-2 text-sm"><span>{gm}</span><span>{'🪣'.repeat(n)}</span></div>)}</div>
         </Section>
         <Section title="💵 Career winnings">
-          <div className="card divide-y divide-line">{champs.money.map(([gm, n]) => <div key={gm} className="flex justify-between px-3 py-2 text-sm"><span>{gm}</span><span className="font-semibold">{fmtMoney(n)}</span></div>)}</div>
+          <div className="card divide-y divide-white/[.06]">{champs.money.map(([gm, n]) => <div key={gm} className="flex justify-between px-3 py-2 text-sm"><span>{gm}</span><span className="font-semibold">{fmtMoney(n)}</span></div>)}</div>
         </Section>
       </div>
 
       <Section title="All-time points (through 2025-26)">
-        <div className="card divide-y divide-line">
+        <div className="card divide-y divide-white/[.06]">
           {at.map((r, i) => (
             <div key={r.teamId} className="flex items-center gap-3 px-3 py-2 text-sm">
               <span className="w-5 font-display text-lg text-mute">{i + 1}</span>
@@ -177,11 +202,11 @@ function Money() {
       {info.peterOwed && <div className="card border-amber-500/30 bg-amber-500/10 p-3 text-sm">🪣 {info.peterOwed.season} Peter Punishment: {info.peterOwed.team} owes {fmtMoney(info.peterOwed.amount)} to the SaK Fund.</div>}
       {owing.length > 0 && (
         <Section title="Owing">
-          <div className="card divide-y divide-line">{owing.map(({ t, amt }) => <div key={t.id} className="flex items-center gap-2 px-3 py-2 text-sm"><TeamBadge team={t} size={22} /><TeamName team={t} /><span className="ml-auto font-semibold">{fmtMoney(amt)}</span></div>)}</div>
+          <div className="card divide-y divide-white/[.06]">{owing.map(({ t, amt }) => <div key={t.id} className="flex items-center gap-2 px-3 py-2 text-sm"><TeamBadge team={t} size={22} /><TeamName team={t} /><span className="ml-auto font-semibold">{fmtMoney(amt)}</span></div>)}</div>
         </Section>
       )}
       <Section title="Ledger">
-        <div className="card divide-y divide-line">
+        <div className="card divide-y divide-white/[.06]">
           {ledger.length === 0 && <div className="p-4 text-sm text-mute">No fees or fines yet this season. Behave.</div>}
           {ledger.map((l) => (
             <div key={l.id} className="flex items-center gap-2 px-3 py-2 text-sm">

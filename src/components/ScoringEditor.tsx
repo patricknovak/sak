@@ -49,7 +49,7 @@ export function ScoringEditor() {
       {(['skater', 'goalie'] as Side[]).map((side) => (
         <div key={side} className="mb-4">
           <div className="h-display mb-1 text-base">{side === 'skater' ? 'Forwards / Defencemen' : 'Goaltenders'}</div>
-          <div className="divide-y divide-line">
+          <div className="divide-y divide-white/[.06]">
             {SCORING_STATS[side].map(([k, label]) => {
               const s = draft[side][k];
               return (
@@ -69,7 +69,7 @@ export function ScoringEditor() {
           </div>
         </div>
       ))}
-      <div className="sticky bottom-20 flex items-center gap-2 rounded-xl bg-rink/95 py-2 lg:bottom-2">
+      <div className="sticky bottom-[calc(72px+env(safe-area-inset-bottom))] flex items-center gap-2 rounded-xl bg-rink/95 py-2 lg:bottom-2">
         <span className="flex-1 text-xs text-mute">ⓘ Nothing changes until you save. Saving re-scores the whole season.</span>
         <button className="btn-ghost" disabled={!dirty || busy} onClick={() => setDraft(fromLeague)}>Cancel</button>
         <button className="btn-primary" disabled={!dirty || invalid || busy} onClick={save}>Save changes</button>

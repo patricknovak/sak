@@ -3,8 +3,9 @@ import { Link, useNavigate } from 'react-router-dom';
 import { useLeague, useNow } from '../lib/store';
 import { realtimeChannel, supabase } from '../lib/supabase';
 import type { Bet, Message, Trade } from '../lib/types';
-import { ago, countdown, fmtDateTime, fmtPts, ordinal } from '../lib/format';
-import { Section, Stat, TeamBadge, TeamName } from '../components/ui';
+import { ago, fmtDateTime, fmtPts, ordinal, etToday, readable } from '../lib/format';
+import { Countdown, Rank, Section, Stat, TeamBadge, TeamName, TeamStack } from '../components/ui';
+import { ArrowRight, ClipboardList, Lock, Megaphone, MessageCircle, Radio, Trophy } from 'lucide-react';
 import { PlayerRow, usePlayerSheet } from '../components/PlayerCard';
 import { SEASONS } from '../data/history';
 
@@ -34,7 +35,7 @@ export default function Home() {
   // today's live fantasy points per player
   useEffect(() => {
     if (league?.phase !== 'season') return;
-    const load = () => supabase.from('player_games').select('player_id,fpts').eq('date', new Date(now).toLocaleDateString('en-CA', { timeZone: 'America/New_York' }))
+    const load = () => supabase.from('player_games').select('player_id,fpts').eq('date', etToday())
       .then(({ data }) => setTodayPts(new Map((data ?? []).map((r) => [r.player_id, Number(r.fpts)]))));
     load();
     const i = setInterval(load, 60_000);
@@ -57,72 +58,82 @@ export default function Home() {
   const myBets = bets.filter((b) => b.creator_team === me?.id || b.opponent_team === me?.id || (b.status === 'open' && !b.opponent_team));
   const myTrades = trades.filter((t) => t.to_team === me?.id || t.from_team === me?.id || (me?.is_commish && t.status === 'accepted'));
 
+  const lastRows = SEASONS[0].rows;
+  const top = phase === 'season' ? Math.max(1, ...table.map((s) => Number(s.points))) : Math.max(1, ...lastRows.map((r) => r.points));
+  const onlineTeams = teams.filter((t) => online.has(t.id));
+  const More = ({ to, label }: { to: string; label: string }) => <Link to={to} className="flex items-center gap-1 text-xs font-semibold text-sky-300">{label}<ArrowRight size={13} /></Link>;
+
   return (
-    <div className="space-y-5">
+    <div className="stagger space-y-5">
       {/* hero */}
-      <div className="card relative overflow-hidden p-4 sm:p-5" style={{ background: `linear-gradient(135deg, ${me?.color}44, #111a2e 55%)` }}>
-        <div className="flex items-center gap-3">
-          <TeamBadge team={me ?? undefined} size={56} />
+      <div className="card-hero p-4 sm:p-6" style={{ '--tc': me?.color } as React.CSSProperties}>
+        <div className="pointer-events-none absolute -right-6 -top-8 select-none text-[160px] leading-none opacity-[.09] sm:text-[220px]">{me?.emoji}</div>
+        <div className="relative flex items-center gap-3.5">
+          <TeamBadge team={me ?? undefined} size={60} ring />
           <div className="min-w-0">
-            <div className="text-xs text-mute">Welcome back, {me?.gm_name}</div>
-            <div className="h-display truncate text-2xl leading-tight">{me?.name}</div>
-            {me?.motto && <div className="truncate text-xs italic text-slate-300">“{me.motto}”</div>}
+            <div className="text-xs font-semibold text-white/70">Welcome back, {me?.gm_name}</div>
+            <div className="h-display text-shine truncate text-[30px] leading-[1.05] sm:text-4xl">{me?.name}</div>
+            {me?.motto && <div className="truncate text-xs italic text-white/70">“{me.motto}”</div>}
           </div>
         </div>
 
-        {phase === 'keepers' && (
-          <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
-            <div>
-              <div className="label">Keeper deadline</div>
-              <div className="font-display text-3xl font-bold">{league?.keeper_deadline ? countdown(new Date(league.keeper_deadline).getTime() - now) : 'TBD'}</div>
-              <div className="text-xs text-mute">{league?.keeper_deadline && fmtDateTime(league.keeper_deadline)} · keep up to {league?.keepers}</div>
+        <div className="relative mt-5 grid gap-3 sm:grid-cols-2">
+          {phase === 'keepers' && (
+            <div className="rounded-2xl border border-white/10 bg-black/25 p-3.5 backdrop-blur">
+              <div className="label flex items-center gap-1.5 text-white/70"><Lock size={12} /> Keeper deadline</div>
+              <div className="mt-2">{league?.keeper_deadline ? <Countdown ms={new Date(league.keeper_deadline).getTime() - now} size="md" /> : <span className="h-display text-2xl">TBD</span>}</div>
+              <div className="mt-1 text-xs text-white/60">{league?.keeper_deadline && fmtDateTime(league.keeper_deadline)} · keep up to {league?.keepers}</div>
+              <Link to="/keepers" className={`mt-3 w-full ${me?.keepers_submitted ? 'btn-ghost' : 'btn-primary pulse-ring'}`}>
+                {me?.keepers_submitted ? '✅ Keepers set · edit' : '🔒 Pick your keepers'}
+              </Link>
             </div>
-            <Link to="/keepers" className={me?.keepers_submitted ? 'btn-ghost' : 'btn-primary pulse-ring'}>
-              {me?.keepers_submitted ? '✅ Keepers set · edit' : '🔒 Pick your keepers'}
-            </Link>
-          </div>
-        )}
-        {(phase === 'predraft' || (phase === 'keepers' && league?.draft_at)) && draft?.status === 'scheduled' && (
-          <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
-            <div>
-              <div className="label">Draft night</div>
-              <div className="font-display text-3xl font-bold">{league?.draft_at ? countdown(new Date(league.draft_at).getTime() - now) : 'TBD'}</div>
-              <div className="text-xs text-mute">{league?.draft_at && fmtDateTime(league.draft_at)} · {league?.pick_seconds}s per pick · {league?.draft_rounds} rounds</div>
+          )}
+          {(phase === 'predraft' || (phase === 'keepers' && league?.draft_at)) && draft?.status === 'scheduled' && (
+            <div className="rounded-2xl border border-white/10 bg-black/25 p-3.5 backdrop-blur">
+              <div className="label flex items-center gap-1.5 text-white/70"><ClipboardList size={12} /> Draft night</div>
+              <div className="mt-2">{league?.draft_at ? <Countdown ms={new Date(league.draft_at).getTime() - now} size="md" /> : <span className="h-display text-2xl">TBD</span>}</div>
+              <div className="mt-1 text-xs text-white/60">{league?.draft_at && fmtDateTime(league.draft_at)} · {league?.pick_seconds}s clock · {league?.draft_rounds} rounds</div>
+              <Link to="/draft" className="btn-blue mt-3 w-full">📋 Enter the draft room</Link>
             </div>
-            <Link to="/draft" className="btn-blue">📋 Draft room</Link>
-          </div>
-        )}
-        {draft?.status === 'live' || draft?.status === 'paused' ? (
-          <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
-            <div>
-              <div className="label">{draft.status === 'paused' ? 'Draft paused' : 'On the clock'}</div>
-              <div className="flex items-center gap-2 text-lg font-semibold"><TeamBadge team={team(current?.team_id)} size={24} /><TeamName team={team(current?.team_id)} /></div>
-              <div className="text-xs text-mute">Pick #{current?.overall} · your next: {myPicks[0] ? `#${myPicks[0].overall}` : '—'}</div>
+          )}
+          {(draft?.status === 'live' || draft?.status === 'paused') && (
+            <div className="rounded-2xl border border-white/10 bg-black/25 p-3.5 backdrop-blur sm:col-span-2">
+              <div className="label flex items-center gap-1.5 text-white/70"><Radio size={12} className="text-goal" /> {draft.status === 'paused' ? 'Draft paused' : 'Live: on the clock'}</div>
+              <div className="mt-2 flex items-center gap-2 text-xl font-bold"><TeamBadge team={team(current?.team_id)} size={32} /><TeamName team={team(current?.team_id)} /></div>
+              <div className="mt-1 text-xs text-white/60">Pick #{current?.overall} · your next: {myPicks[0] ? `#${myPicks[0].overall}` : '—'}</div>
+              <Link to="/draft" className="btn-primary pulse-ring mt-3 w-full">Enter the draft room</Link>
             </div>
-            <Link to="/draft" className="btn-primary pulse-ring">Enter draft room</Link>
-          </div>
-        ) : null}
-        {phase === 'season' && mine && (
-          <div className="mt-4 grid grid-cols-3 gap-2">
-            <Stat label="Rank" value={ordinal(mine.rank)} sub={`of ${teams.length}`} />
-            <Stat label="Points" value={fmtPts(mine.points)} sub={leader && leader.team_id !== me?.id ? `${fmtPts(leader.points - mine.points)} back` : 'Leading 👑'} />
-            <Stat label="Today" value={fmtPts(myStarters.reduce((t, x) => t + (todayPts.get(x.p.id) ?? 0), 0))} sub={`${playingTonight.length} playing`} />
+          )}
+          {phase === 'season' && mine && (
+            <div className="grid grid-cols-3 gap-2 sm:col-span-2">
+              <Stat label="Rank" value={ordinal(mine.rank)} sub={`of ${teams.length}`} />
+              <Stat label="Points" value={fmtPts(mine.points)} sub={leader && leader.team_id !== me?.id ? `${fmtPts(leader.points - mine.points)} back` : 'Leading 👑'} />
+              <Stat label="Today" value={fmtPts(myStarters.reduce((t, x) => t + (todayPts.get(x.p.id) ?? 0), 0))} sub={`${playingTonight.length} playing`} />
+            </div>
+          )}
+        </div>
+
+        {onlineTeams.length > 0 && (
+          <div className="relative mt-4 flex items-center gap-2 text-xs text-white/70">
+            <span className="h-2 w-2 animate-pulse rounded-full bg-emerald-400 shadow-[0_0_8px_rgba(52,211,153,.9)]" />
+            <TeamStack teams={onlineTeams} size={22} />
+            <span>{onlineTeams.length === 1 ? 'Just you in the barn' : `${onlineTeams.length} GMs in the barn`}</span>
           </div>
         )}
       </div>
 
       {league?.commish_note && (
-        <div className="card border-amber-500/40 bg-amber-500/10 p-4">
-          <div className="label text-amber-300">📣 From the commish</div>
-          <p className="mt-1 whitespace-pre-wrap text-sm">{league.commish_note}</p>
+        <div className="card relative overflow-hidden border-amber-400/30 p-4" style={{ background: 'linear-gradient(135deg, rgba(247,197,72,.16), rgba(15,23,41,.8) 60%)' }}>
+          <div className="label flex items-center gap-1.5 text-amber-300"><Megaphone size={13} /> From the commish</div>
+          <p className="mt-1.5 whitespace-pre-wrap text-[15px]">{league.commish_note}</p>
         </div>
       )}
 
       {(myTrades.length > 0 || myBets.some((b) => b.status === 'open' && b.opponent_team === me?.id)) && (
         <div className="grid gap-2 sm:grid-cols-2">
           {myTrades.map((t) => (
-            <button key={t.id} onClick={() => nav('/trades')} className="card flex items-center gap-3 p-3 text-left">
-              <span className="text-2xl">🔄</span>
+            <button key={t.id} onClick={() => nav('/trades')} className="card flex items-center gap-3 p-3 text-left transition active:scale-[.98]">
+              <span className="grid h-10 w-10 place-items-center rounded-xl bg-sky-400/15 text-xl ring-1 ring-sky-400/30">🔄</span>
               <div className="text-sm">
                 {t.to_team === me?.id && t.status === 'proposed' ? <><TeamName team={team(t.from_team)} /> sent you a trade offer</>
                   : t.status === 'accepted' ? <>Trade awaiting commish review: <TeamName team={team(t.from_team)} /> ↔ <TeamName team={team(t.to_team)} /></>
@@ -131,8 +142,8 @@ export default function Home() {
             </button>
           ))}
           {myBets.filter((b) => b.status === 'open' && b.opponent_team === me?.id).map((b) => (
-            <button key={b.id} onClick={() => nav('/bets')} className="card flex items-center gap-3 p-3 text-left">
-              <span className="text-2xl">🎲</span>
+            <button key={b.id} onClick={() => nav('/bets')} className="card flex items-center gap-3 p-3 text-left transition active:scale-[.98]">
+              <span className="grid h-10 w-10 place-items-center rounded-xl bg-emerald-400/15 text-xl ring-1 ring-emerald-400/30">🎲</span>
               <div className="text-sm"><TeamName team={team(b.creator_team)} /> challenged you: <span className="font-semibold">{b.title}</span></div>
             </button>
           ))}
@@ -140,38 +151,50 @@ export default function Home() {
       )}
 
       <div className="grid gap-5 lg:grid-cols-2">
-        <Section title={phase === 'season' ? 'Standings' : `${SEASONS[0].season} final standings`} right={<Link to="/standings" className="text-xs text-sky-300">All →</Link>}>
-          <div className="card divide-y divide-line">
+        <Section icon={<Trophy size={17} className="text-gold" />} title={phase === 'season' ? 'Standings' : `${SEASONS[0].season} final standings`} right={<More to="/standings" label="All" />}>
+          <div className="card divide-y divide-white/[.06] overflow-hidden">
             {phase === 'season'
-              ? table.map((s) => (
-                <Link key={s.team_id} to={`/team/${s.team_id}`} className={`flex items-center gap-3 px-3 py-2.5 ${s.team_id === me?.id ? 'bg-white/5' : ''}`}>
-                  <span className="w-5 text-center font-display text-lg text-mute">{s.rank}</span>
-                  <TeamBadge team={team(s.team_id)} size={28} />
-                  <div className="min-w-0 flex-1"><div className="truncate text-sm font-semibold">{team(s.team_id)?.name}</div>
-                    <div className="text-[11px] text-mute">{team(s.team_id)?.gm_name}{online.has(s.team_id) && <span className="ml-1 text-emerald-400">● online</span>}</div></div>
-                  <div className="text-right"><div className="font-display text-lg font-bold">{fmtPts(s.points)}</div>
-                    {s.today > 0 && <div className="text-[11px] text-emerald-400">+{fmtPts(s.today)} today</div>}</div>
-                </Link>
-              ))
-              : SEASONS[0].rows.map((r, i) => (
-                <div key={r.team} className="flex items-center gap-3 px-3 py-2.5">
-                  <span className="w-5 text-center font-display text-lg text-mute">{i + 1}</span>
-                  <div className="min-w-0 flex-1"><div className="truncate text-sm font-semibold">{r.team} {i === 0 && '🏆'} {r.peter && '🪣'}</div><div className="text-[11px] text-mute">{r.gm}</div></div>
-                  <div className="font-display text-lg font-bold">{fmtPts(r.points, 2)}</div>
-                </div>
-              ))}
+              ? table.map((s) => {
+                const t = team(s.team_id);
+                return (
+                  <Link key={s.team_id} to={`/team/${s.team_id}`} className={`relative flex items-center gap-3 px-3 py-2.5 transition hover:bg-white/[.03] ${s.team_id === me?.id ? 'bg-white/[.05]' : ''}`}>
+                    <Rank n={s.rank} />
+                    <TeamBadge team={t} size={30} />
+                    <div className="min-w-0 flex-1">
+                      <div className="truncate text-sm font-bold">{t?.name}</div>
+                      <div className="mt-1 h-1 overflow-hidden rounded-full bg-white/[.06]"><div className="h-full rounded-full" style={{ width: `${(Number(s.points) / top) * 100}%`, background: `linear-gradient(90deg, ${readable(t?.color ?? '#4cc3ff')}, color-mix(in oklab, ${readable(t?.color ?? '#4cc3ff')} 60%, white))` }} /></div>
+                    </div>
+                    <div className="text-right"><div className="num font-display text-lg font-extrabold">{fmtPts(s.points)}</div>
+                      {s.today > 0 && <div className="num text-[11px] font-semibold text-emerald-400">+{fmtPts(s.today)} today</div>}</div>
+                  </Link>
+                );
+              })
+              : lastRows.map((r, i) => {
+                const t = teams.find((x) => x.name === r.team);
+                return (
+                  <div key={r.team} className="flex items-center gap-3 px-3 py-2.5">
+                    <Rank n={i + 1} />
+                    {t ? <TeamBadge team={t} size={30} /> : <div className="h-[30px] w-[30px]" />}
+                    <div className="min-w-0 flex-1">
+                      <div className="truncate text-sm font-bold">{r.team} {i === 0 && '🏆'} {r.peter && '🪣'}</div>
+                      <div className="mt-1 h-1 overflow-hidden rounded-full bg-white/[.06]"><div className="h-full rounded-full" style={{ width: `${(r.points / top) * 100}%`, background: t ? `linear-gradient(90deg, ${readable(t.color)}, color-mix(in oklab, ${readable(t.color)} 60%, white))` : '#4cc3ff' }} /></div>
+                    </div>
+                    <div className="num font-display text-lg font-extrabold">{fmtPts(r.points, 2)}</div>
+                  </div>
+                );
+              })}
           </div>
-          {phase !== 'season' && <p className="mt-2 px-1 text-xs text-mute">Defending champ: {lastChamp.team} ({lastChamp.gm}). The Peter: {SEASONS[0].rows[SEASONS[0].rows.length - 1]?.team}.</p>}
+          {phase !== 'season' && <p className="mt-2 px-1 text-xs text-mute">Defending champ: <span className="font-semibold text-gold">{lastChamp.team}</span> ({lastChamp.gm}). The Peter: {lastRows[lastRows.length - 1]?.team}.</p>}
         </Section>
 
         <div className="space-y-5">
           {phase === 'season' && (
-            <Section title="Tonight" right={<Link to="/team" className="text-xs text-sky-300">Lineup →</Link>}>
-              <div className="card divide-y divide-line">
+            <Section title="Tonight" right={<More to="/team" label="Lineup" />}>
+              <div className="card divide-y divide-white/[.06]">
                 {playingTonight.length === 0 && <div className="p-4 text-sm text-mute">None of your starters play today.</div>}
                 {playingTonight.map(({ r, p }) => (
                   <div key={p.id} className="px-3 py-2">
-                    <PlayerRow p={p} onClick={() => open(p.id)} right={<div className="text-right"><div className="text-[10px] text-mute">{r.slot}</div><div className="font-semibold">{fmtPts(todayPts.get(p.id) ?? 0, 1)}</div></div>} />
+                    <PlayerRow p={p} onClick={() => open(p.id)} right={<div className="text-right"><div className="text-[10px] text-mute">{r.slot}</div><div className="num font-bold">{fmtPts(todayPts.get(p.id) ?? 0, 1)}</div></div>} />
                   </div>
                 ))}
                 {benchedPlaying.length > 0 && (
@@ -183,28 +206,29 @@ export default function Home() {
             </Section>
           )}
 
-          <Section title="League wire" right={<Link to="/chat" className="text-xs text-sky-300">Chat →</Link>}>
-            <div className="card divide-y divide-line">
-              {feed.length === 0 && <div className="p-4 text-sm text-mute">Quiet in here. Someone chirp somebody.</div>}
+          <Section icon={<MessageCircle size={17} className="text-blue" />} title="League wire" right={<More to="/chat" label="Chat" />}>
+            <div className="card space-y-1 p-2">
+              {feed.length === 0 && <div className="p-3 text-sm text-mute">Quiet in here. Someone chirp somebody.</div>}
               {feed.map((m) => (
-                <Link to="/chat" key={m.id} className="flex items-start gap-2.5 px-3 py-2.5">
-                  {m.kind === 'system' ? <span className="grid h-7 w-7 shrink-0 place-items-center rounded-full bg-boards text-sm">📢</span>
-                    : m.kind === 'bot' ? <span className="grid h-7 w-7 shrink-0 place-items-center rounded-full bg-gradient-to-br from-emerald-500 to-emerald-800 text-sm">🎙️</span>
-                    : <TeamBadge team={team(m.team_id)} size={28} />}
+                <Link to="/chat" key={m.id} className="flex items-start gap-2.5 rounded-xl px-2 py-2 transition hover:bg-white/[.04]">
+                  {m.kind === 'system' ? <span className="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-white/[.06] text-sm">📢</span>
+                    : m.kind === 'bot' ? <span className="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-gradient-to-br from-emerald-400 to-emerald-800 text-sm shadow-[0_4px_14px_-4px_rgba(52,211,153,.8)]">🎙️</span>
+                    : <TeamBadge team={team(m.team_id)} size={32} />}
                   <div className="min-w-0 flex-1">
-                    <div className={`line-clamp-2 whitespace-pre-line text-sm ${m.kind === 'system' ? 'text-slate-300' : ''}`}>
-                      {m.kind === 'user' && <span className="font-semibold">{team(m.team_id)?.gm_name}: </span>}{m.kind === 'bot' && <span className="font-semibold text-emerald-300">Garry: </span>}{m.body}
+                    <div className="flex items-baseline gap-2 text-[11px]">
+                      <span className={`font-bold ${m.kind === 'bot' ? 'text-emerald-300' : 'text-slate-200'}`}>{m.kind === 'bot' ? 'Garry' : m.kind === 'system' ? 'League' : team(m.team_id)?.gm_name}</span>
+                      <span className="text-mute">{ago(m.created_at, now)}</span>
                     </div>
+                    <div className={`line-clamp-2 whitespace-pre-line text-sm ${m.kind === 'system' ? 'text-slate-300' : 'text-slate-100'}`}>{m.body}</div>
                   </div>
-                  <span className="shrink-0 text-[11px] text-mute">{ago(m.created_at, now)}</span>
                 </Link>
               ))}
             </div>
           </Section>
 
           {myBets.filter((b) => b.status === 'accepted').length > 0 && (
-            <Section title="Your action" right={<Link to="/bets" className="text-xs text-sky-300">Bets →</Link>}>
-              <div className="card divide-y divide-line">
+            <Section title="Your action" right={<More to="/bets" label="Bets" />}>
+              <div className="card divide-y divide-white/[.06]">
                 {myBets.filter((b) => b.status === 'accepted').map((b) => (
                   <Link to="/bets" key={b.id} className="flex items-center gap-2 px-3 py-2.5 text-sm">
                     <span>🎲</span><span className="flex-1 truncate font-medium">{b.title}</span>
@@ -215,11 +239,6 @@ export default function Home() {
             </Section>
           )}
         </div>
-      </div>
-
-      <div className="flex flex-wrap items-center gap-2 px-1 text-xs text-mute">
-        <span>Online now:</span>
-        {teams.filter((t) => online.has(t.id)).map((t) => <span key={t.id} className="flex items-center gap-1"><TeamBadge team={t} size={18} />{t.gm_name}</span>)}
       </div>
       {sheet}
     </div>

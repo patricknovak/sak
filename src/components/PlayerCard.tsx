@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useLeague } from '../lib/store';
 import { rpc, supabase } from '../lib/supabase';
 import type { NewsItem, Player } from '../lib/types';
-import { ago, calcFpts, fmtDate, fmtPts, fmtTime, injuryBadge, NHL_TEAMS, STAT_LABELS } from '../lib/format';
+import { ago, calcFpts, fmtDate, fmtPts, fmtTime, injuryBadge, NHL_COLORS, NHL_TEAMS, STAT_LABELS, teamLogo } from '../lib/format';
 import { Headshot, NhlLogo, Pos, Sheet, TeamBadge, TeamName, useAction } from './ui';
 
 // one-line player row used everywhere
@@ -96,10 +96,12 @@ export function PlayerSheet({ id, onClose, actions }: { id: number | null; onClo
   }, `${p.name} added`);
 
   return (
-    <Sheet open={!!id} onClose={onClose} title={<span className="flex items-center gap-2"><NhlLogo abbr={p.nhl_team} />{p.name}</span>}>
-      <div className="flex items-center gap-3">
-        <Headshot p={p} size={72} />
-        <div className="min-w-0 flex-1">
+    <Sheet open={!!id} onClose={onClose} title={<span className="flex items-center gap-2"><NhlLogo abbr={p.nhl_team} size={22} />{NHL_TEAMS[p.nhl_team ?? ''] ?? 'Player'}</span>}>
+      <div className="card-hero -mx-1 flex items-center gap-4 p-4" style={{ '--tc': NHL_COLORS[p.nhl_team ?? ''] ?? '#4cc3ff' } as React.CSSProperties}>
+        {p.nhl_team && <img src={teamLogo(p.nhl_team)} alt="" className="pointer-events-none absolute -right-6 -top-4 h-36 w-36 opacity-[.12]" />}
+        <Headshot p={p} size={84} />
+        <div className="relative min-w-0 flex-1">
+          <div className="h-display text-shine truncate text-2xl leading-tight">{p.name}</div>
           <div className="flex flex-wrap items-center gap-1">
             {p.elig.map((e) => <Pos key={e} p={e} />)}
             {p.num != null && <span className="chip">#{p.num}</span>}
@@ -121,7 +123,7 @@ export function PlayerSheet({ id, onClose, actions }: { id: number | null; onClo
 
       <div className="mt-3 flex gap-1">
         {([['overview', 'Overview'], ['career', 'Career'], ['news', `News${news.length ? ` (${news.length})` : ''}`]] as const).map(([k, l]) => (
-          <button key={k} className={`tab ${tab === k ? 'tab-on' : 'bg-boards'}`} onClick={() => setTab(k)}>{l}</button>
+          <button key={k} className={`tab ${tab === k ? 'tab-on' : 'bg-white/[.05]'}`} onClick={() => setTab(k)}>{l}</button>
         ))}
       </div>
 
@@ -137,7 +139,7 @@ export function PlayerSheet({ id, onClose, actions }: { id: number | null; onClo
                     {(isGoalie ? ['gp', 'gs', 'w', 'l', 'ga', 'sv', 'sho'] : ['gp', 'g', 'a', 'pts', 'pm', 'ppp', 'sog', 'hit', 'blk']).map((k) => <th key={k} className="px-1">{STAT_LABELS[k]}</th>)}
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-line">
+                <tbody className="divide-y divide-white/[.06]">
                   {career.map((c) => {
                     const fp = calcFpts(c as Record<string, number>, league?.scoring[isGoalie ? 'goalie' : 'skater'] ?? {});
                     const sz = String(c.season);
@@ -193,7 +195,7 @@ export function PlayerSheet({ id, onClose, actions }: { id: number | null; onClo
       {log.length > 0 && (
         <div className="mt-4">
           <div className="label mb-1">Game log</div>
-          <div className="divide-y divide-line rounded-xl border border-line">
+          <div className="divide-y divide-white/[.06] rounded-xl border border-line">
             {log.map((g) => (
               <div key={g.game_id} className="flex items-center justify-between gap-2 px-3 py-1.5 text-xs">
                 <span className="w-20 text-mute">{fmtDate(g.date)}</span>
@@ -228,7 +230,7 @@ export function PlayerSheet({ id, onClose, actions }: { id: number | null; onClo
       {dropPick && (
         <div className="mt-3">
           <div className="label mb-1">Drop who?</div>
-          <div className="max-h-72 divide-y divide-line overflow-y-auto rounded-xl border border-line">
+          <div className="max-h-72 divide-y divide-white/[.06] overflow-y-auto rounded-xl border border-line">
             {myRoster.map((x) => players.get(x.player_id)).filter(Boolean).sort((a, b) => a!.proj - b!.proj).map((d) => (
               <div key={d!.id} className="flex items-center gap-2 px-3 py-2">
                 <div className="min-w-0 flex-1"><PlayerRow p={d!} /></div>

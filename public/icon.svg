@@ -1,1 +1,27 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><rect width="512" height="512" rx="112" fill="#0b1220"/><circle cx="256" cy="256" r="196" fill="none" stroke="#e11d48" stroke-width="28"/><text x="256" y="300" text-anchor="middle" font-family="Arial Black,Arial,sans-serif" font-weight="900" font-size="150" fill="#fff">SaK</text><path d="M150 360h212" stroke="#38bdf8" stroke-width="18" stroke-linecap="round"/></svg>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <defs>
+    <radialGradient id="bg" cx="50%" cy="28%" r="80%">
+      <stop offset="0" stop-color="#1d3160"/><stop offset=".55" stop-color="#0d1730"/><stop offset="1" stop-color="#060a15"/>
+    </radialGradient>
+    <linearGradient id="ring" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#ff5a78"/><stop offset="1" stop-color="#c8102e"/>
+    </linearGradient>
+    <linearGradient id="txt" x1="0" y1="0" x2="0" y2="1">
+      <stop offset=".2" stop-color="#ffffff"/><stop offset="1" stop-color="#b9c7e6"/>
+    </linearGradient>
+    <linearGradient id="blue" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#7dd7ff"/><stop offset="1" stop-color="#2fb2f2"/>
+    </linearGradient>
+    <filter id="glow" x="-30%" y="-30%" width="160%" height="160%"><feGaussianBlur stdDeviation="10"/></filter>
+  </defs>
+  <rect width="512" height="512" rx="112" fill="url(#bg)"/>
+  <rect x="6" y="6" width="500" height="500" rx="106" fill="none" stroke="#ffffff" stroke-opacity=".08" stroke-width="4"/>
+  <circle cx="256" cy="262" r="186" fill="none" stroke="#ef2a4f" stroke-opacity=".55" stroke-width="30" filter="url(#glow)"/>
+  <circle cx="256" cy="262" r="186" fill="none" stroke="url(#ring)" stroke-width="24"/>
+  <g stroke="#ef2a4f" stroke-width="12" stroke-linecap="round" opacity=".9">
+    <path d="M180 104v-26M332 104v-26M180 420v26M332 420v26"/>
+  </g>
+  <text x="256" y="306" text-anchor="middle" font-family="'Arial Black','Helvetica Neue',Arial,sans-serif" font-weight="900" font-size="148" letter-spacing="-4" fill="url(#txt)">SaK</text>
+  <rect x="150" y="340" width="212" height="18" rx="9" fill="url(#blue)"/>
+  <text x="256" y="168" text-anchor="middle" font-size="40">☘️</text>
+</svg>
