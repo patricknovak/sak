@@ -98,7 +98,7 @@ export function ChatPanel({ channel, compact, className = '' }: { channel: strin
 
   const byId = useMemo(() => new Map(msgs.map((m) => [m.id, m])), [msgs]);
   const mention = /@(\w*)$/.exec(text)?.[1];
-  const suggestions = mention !== undefined ? [...teams.map((t) => t.gm_name), 'everyone'].filter((n) => n.toLowerCase().startsWith(mention.toLowerCase())) : [];
+  const suggestions = mention !== undefined ? [...teams.map((t) => t.gm_name), 'Garry', 'everyone'].filter((n) => n.toLowerCase().startsWith(mention.toLowerCase())) : [];
 
   const highlight = (body: string) =>
     body.split(/(@\w+)/g).map((part, i) => part.startsWith('@')
@@ -118,6 +118,21 @@ export function ChatPanel({ channel, compact, className = '' }: { channel: strin
             return (
               <div key={m.id} className="flex justify-center py-1">
                 <div className={`max-w-[92%] whitespace-pre-line rounded-xl bg-boards/70 px-3 py-1.5 text-center text-xs text-slate-300 ${compact ? '' : 'sm:text-sm'}`}>{m.body}</div>
+              </div>
+            );
+          }
+          if (m.kind === 'bot') {
+            const parent = m.reply_to ? byId.get(m.reply_to) : undefined;
+            return (
+              <div key={m.id} className="flex gap-2 pt-2">
+                <div className="grid h-7 w-7 shrink-0 place-items-center rounded-full bg-gradient-to-br from-emerald-500 to-emerald-800 text-sm">🎙️</div>
+                <div className="max-w-[85%]">
+                  <div className="mb-0.5 px-1 text-[11px]"><span className="font-semibold text-emerald-300">Garry</span> <span className="text-mute">· league bot · {ago(m.created_at, now)}</span></div>
+                  <div className="rounded-2xl rounded-bl-md border border-emerald-700/40 bg-emerald-950/40 px-3 py-2 text-[15px] leading-snug">
+                    {parent && <div className="mb-1 border-l-2 border-emerald-500/50 pl-2 text-xs opacity-75">{team(parent.team_id)?.gm_name}: {parent.body.slice(0, 80)}</div>}
+                    <span className="whitespace-pre-wrap break-words">{highlight(m.body)}</span>
+                  </div>
+                </div>
               </div>
             );
           }

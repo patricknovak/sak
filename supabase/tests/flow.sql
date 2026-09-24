@@ -119,7 +119,7 @@ select 'trade', status from trades where id = :trade_id;
 -- ── bets
 select pg_temp.as_team(7);
 set role authenticated;
-select create_bet(8, 'Most points in October', 'Whoever scores more fantasy points in October', 'h2h', 'a two-four', 20, '2026-10-01', '2026-10-31') as bet_id \gset
+select create_bet(8, 'Most points in October', 'Whoever scores more fantasy points in October', 'h2h', 'a two-four', 20, '2026-10-01', '2026-10-31', 150) as bet_id \gset
 reset role;
 select pg_temp.as_team(8);
 set role authenticated;
@@ -131,6 +131,12 @@ set role authenticated;
 select confirm_bet(:bet_id);
 reset role;
 select 'bet', status, winner_team from bets where id = :bet_id;
+select 'coins (expect 7=850, 8=1150)', team_id, balance, escrow from coin_balances where team_id in (7, 8) order by 1;
+select pg_temp.as_team(7);
+set role authenticated;
+do $$ begin perform create_bet(null, 'Too rich', null, 'custom', null, null, null, null, 5000); raise exception 'overbet allowed';
+exception when others then if sqlerrm not like '%coins available%' then raise; end if; end $$;
+reset role;
 
 -- ── scoring
 insert into games (id, date, start_utc, home, away, state)

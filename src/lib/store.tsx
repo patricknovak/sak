@@ -64,7 +64,7 @@ export function LeagueProvider({ children }: { children: ReactNode }) {
     league: async () => { const { data } = await supabase.from('league').select('*').single(); if (data) setLeague(data as League); },
     teams: async () => { const { data } = await supabase.from('teams').select('*').order('id'); if (data) setTeams(data as Team[]); },
     players: async () => {
-      const rows = await selectAll<Player>('players', 'id,name,first,last_name,pos,elig,nhl_team,num,headshot,last_fp,proj,rank,status,last_stats,injury_note');
+      const rows = await selectAll<Player>('players', 'id,name,first,last_name,pos,elig,nhl_team,num,headshot,last_fp,proj,rank,status,last_stats,injury_note,injury_status,injury_date');
       setPlayers(new Map(rows.map((p) => [p.id, p])));
     },
     rosters: async () => setRosters(await selectAll<Roster>('rosters')),

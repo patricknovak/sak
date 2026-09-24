@@ -14,7 +14,7 @@ const slotOk = (p: Player, s: Slot) =>
 
 export default function MyTeam() {
   const { id } = useParams();
-  const { me, league, teams, team, rosters, players, standings, season, gamesByTeam, refresh } = useLeague();
+  const { me, league, teams, team, rosters, players, standings, season, games, gamesByTeam, refresh } = useLeague();
   const now = useNow(15_000);
   const nav = useNavigate();
   const { busy, run } = useAction();
@@ -41,6 +41,10 @@ export default function MyTeam() {
     if (!teamId) return;
     supabase.from('transactions').select('*').eq('team_id', teamId).order('id', { ascending: false }).limit(15).then(({ data }) => setTx((data ?? []) as Transaction[]));
   }, [teamId, rosters.length]);
+
+  // games left this week (through Sunday, Eastern) for position planning
+  const weekEnd = (() => { const d = new Date(etToday() + 'T12:00:00'); d.setDate(d.getDate() + ((7 - d.getDay()) % 7)); return d.toISOString().slice(0, 10); })();
+  const weekGames = (nhl: string | null) => games.filter((g) => g.date >= etToday() && g.date <= weekEnd && (g.home === nhl || g.away === nhl)).length;
 
   const locked = (p: Player) => {
     const g = gamesByTeam(p.nhl_team);
@@ -110,7 +114,7 @@ export default function MyTeam() {
             {lk && <span title="Locked: game started" className="text-xs">🔒</span>}
             <div className="w-14 text-right">
               <div className={`text-sm font-semibold ${tp && tp.fpts > 0 ? 'text-emerald-300' : ''}`}>{tp ? fmtPts(tp.fpts, 1) : g ? '–' : ''}</div>
-              <div className="text-[10px] text-mute">{fmtPts(season.get(x.p.id)?.fpts ?? 0, 0)} szn</div>
+              <div className="text-[10px] text-mute">{fmtPts(season.get(x.p.id)?.fpts ?? 0, 0)} szn · {weekGames(x.p.nhl_team)}g wk</div>
             </div>
           </>
         ) : (

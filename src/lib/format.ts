@@ -63,6 +63,39 @@ export function readable(hex: string) {
 }
 
 export const STAT_LABELS: Record<string, string> = {
-  g: 'G', a: 'A', pm: '+/-', pim: 'PIM', ppp: 'PPP', gwg: 'GWG', sog: 'SOG', hit: 'HIT', blk: 'BLK',
-  gs: 'GS', w: 'W', l: 'L', ga: 'GA', sv: 'SV', sho: 'SO', otl: 'OTL', gp: 'GP',
+  g: 'G', a: 'A', pts: 'P', pm: '+/-', pim: 'PIM', ppg: 'PPG', ppa: 'PPA', ppp: 'PPP', shg: 'SHG', sha: 'SHA', shp: 'SHP',
+  gwg: 'GWG', sog: 'SOG', fow: 'FW', fol: 'FL', hit: 'HIT', blk: 'BLK',
+  gs: 'GS', w: 'W', l: 'L', ga: 'GA', sa: 'SA', sv: 'SV', sho: 'SO', otl: 'OTL', gp: 'GP',
 };
+
+// every stat the scoring editor offers, in Yahoo's order
+export const SCORING_STATS: { skater: [string, string][]; goalie: [string, string][] } = {
+  skater: [
+    ['g', 'Goals'], ['a', 'Assists'], ['pts', 'Points'], ['pm', 'Plus/Minus'], ['pim', 'Penalty Minutes'],
+    ['ppg', 'Powerplay Goals'], ['ppa', 'Powerplay Assists'], ['ppp', 'Powerplay Points'],
+    ['shg', 'Shorthanded Goals'], ['sha', 'Shorthanded Assists'], ['shp', 'Shorthanded Points'],
+    ['gwg', 'Game-Winning Goals'], ['sog', 'Shots on Goal'], ['fow', 'Faceoffs Won'], ['fol', 'Faceoffs Lost'],
+    ['hit', 'Hits'], ['blk', 'Blocks'],
+  ],
+  goalie: [
+    ['gs', 'Games Started'], ['w', 'Wins'], ['l', 'Losses'], ['otl', 'Overtime Losses'], ['ga', 'Goals Against'],
+    ['sa', 'Shots Against'], ['sv', 'Saves'], ['sho', 'Shutouts'],
+  ],
+};
+
+// fantasy points for one stat line under the league's scoring
+export function calcFpts(stats: Record<string, number | null | undefined>, weights: Record<string, number>) {
+  let t = 0;
+  for (const [k, w] of Object.entries(weights)) t += w * Number(stats[k] ?? 0);
+  return Math.round(t * 100) / 100;
+}
+
+// short label + colour for injury/suspension status
+export function injuryBadge(status: string | null | undefined) {
+  if (!status) return null;
+  const s = status.toLowerCase();
+  if (s.includes('susp')) return { label: 'SUSP', cls: 'border-orange-700 bg-orange-900/50 text-orange-300' };
+  if (s.includes('day')) return { label: 'DTD', cls: 'border-amber-700 bg-amber-900/40 text-amber-300' };
+  if (s.includes('reserve') || s === 'ir') return { label: 'IR', cls: 'border-red-800 bg-red-900/50 text-red-300' };
+  return { label: 'OUT', cls: 'border-red-800 bg-red-900/50 text-red-300' };
+}

@@ -20,6 +20,7 @@ const Bets = lazy(() => import('./pages/Bets'));
 const LeaguePage = lazy(() => import('./pages/League'));
 const Commish = lazy(() => import('./pages/Commish'));
 const Profile = lazy(() => import('./pages/Profile'));
+const News = lazy(() => import('./pages/News'));
 
 function Loading() {
   return <div className="grid min-h-[50dvh] place-items-center"><Spinner className="h-8 w-8" /></div>;
@@ -64,6 +65,7 @@ function App() {
           <Route path="/league" element={<LeaguePage />} />
           <Route path="/commish" element={<Commish />} />
           <Route path="/profile" element={<Profile />} />
+          <Route path="/news" element={<News />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </Suspense>
