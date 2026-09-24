@@ -5,6 +5,7 @@ import { rpc, supabase } from '../lib/supabase';
 import { ago } from '../lib/format';
 import { ALL_FEATURES, FEATURE_GROUPS, type Feature } from '../data/features';
 import { PageHeader, TeamBadge, useAction } from '../components/ui';
+import { PromoVideo } from '../components/PromoVideo';
 
 interface Comment { id: number; feature_key: string; team_id: number; body: string; created_at: string }
 interface Idea { id: number; team_id: number; title: string; body: string | null; status: Status; commish_note: string | null; created_at: string }
@@ -161,14 +162,7 @@ export default function Features() {
 
       {tab === 'built' && (
         <>
-          <div className="card overflow-hidden sm:flex">
-            <video className="aspect-[9/16] w-full bg-black sm:w-60" controls playsInline preload="none" poster="promo-poster.jpg" src="promo.mp4" />
-            <div className="p-4 sm:self-center">
-              <div className="h-display text-xl">🎬 The 2026-27 promo</div>
-              <p className="mt-1 text-sm text-mute">Everything the league can do, in 76 seconds. Sound on. Share it with anyone who still thinks we run this on a spreadsheet.</p>
-              <a className="btn-ghost btn-sm mt-3" href="promo.mp4" download="SaK-2026-27-promo.mp4">⬇️ Download</a>
-            </div>
-          </div>
+          <PromoVideo />
           <div className="card-hero flex flex-wrap items-center gap-3 p-4" style={{ '--tc': '#ef2a4f' } as React.CSSProperties}>
             <div className="relative flex-1 text-sm">
               <div className="h-display text-xl">Got an idea?</div>
