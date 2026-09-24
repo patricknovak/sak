@@ -79,6 +79,7 @@ export function Layout({ children }: { children: ReactNode }) {
     { to: '/keepers', label: 'Keepers', icon: '🔒' },
     { to: '/trades', label: 'Trades', icon: '🔄' },
     { to: '/bets', label: 'Side Bets', icon: '🎲' },
+    { to: '/news', label: 'News & Injuries', icon: '🩹' },
     { to: '/league', label: 'League & History', icon: '📜' },
     { to: '/profile', label: 'My Profile', icon: '🪪' },
     { to: '/commish', label: 'Commissioner', icon: '🛠️', commish: true },

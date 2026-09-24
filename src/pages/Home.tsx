@@ -188,10 +188,12 @@ export default function Home() {
               {feed.length === 0 && <div className="p-4 text-sm text-mute">Quiet in here. Someone chirp somebody.</div>}
               {feed.map((m) => (
                 <Link to="/chat" key={m.id} className="flex items-start gap-2.5 px-3 py-2.5">
-                  {m.kind === 'system' ? <span className="grid h-7 w-7 shrink-0 place-items-center rounded-full bg-boards text-sm">📢</span> : <TeamBadge team={team(m.team_id)} size={28} />}
+                  {m.kind === 'system' ? <span className="grid h-7 w-7 shrink-0 place-items-center rounded-full bg-boards text-sm">📢</span>
+                    : m.kind === 'bot' ? <span className="grid h-7 w-7 shrink-0 place-items-center rounded-full bg-gradient-to-br from-emerald-500 to-emerald-800 text-sm">🎙️</span>
+                    : <TeamBadge team={team(m.team_id)} size={28} />}
                   <div className="min-w-0 flex-1">
                     <div className={`line-clamp-2 whitespace-pre-line text-sm ${m.kind === 'system' ? 'text-slate-300' : ''}`}>
-                      {m.kind === 'user' && <span className="font-semibold">{team(m.team_id)?.gm_name}: </span>}{m.body}
+                      {m.kind === 'user' && <span className="font-semibold">{team(m.team_id)?.gm_name}: </span>}{m.kind === 'bot' && <span className="font-semibold text-emerald-300">Garry: </span>}{m.body}
                     </div>
                   </div>
                   <span className="shrink-0 text-[11px] text-mute">{ago(m.created_at, now)}</span>

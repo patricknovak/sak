@@ -1,8 +1,11 @@
 // nhl-sync: keeps SaK in step with the NHL.
-//   ?task=scores    (every minute via pg_cron) games for yesterday+today, freeze lineups at puck drop, box scores -> fantasy points
-//   ?task=schedule  (hourly) the next two weeks of games, so lineups know who plays when
-//   ?task=players   (daily) current NHL rosters: trades, call-ups, sweater numbers, headshots
-//   ?task=daily     (daily, late morning ET) auto-set lineups for teams that opted in
+//   ?task=scores       (every minute) games for yesterday+today, freeze lineups at puck drop, box scores -> fantasy points
+//   ?task=corrections  (daily) re-pull the last 3 days of finished games so NHL stat corrections flow into points
+//   ?task=schedule     (hourly) the next two weeks of games, so lineups know who plays when
+//   ?task=players      (daily) current NHL rosters: trades, call-ups, sweater numbers, headshots
+//   ?task=injuries     (hourly) injury / suspension status from ESPN's public injury report
+//   ?task=news         (every 2 hours) NHL headlines, tagged with the players they mention
+//   ?task=daily        (late morning ET) auto-set lineups for teams that opted in
 import { createClient } from 'jsr:@supabase/supabase-js@2';
 import { etDate, gameRow, gameStats, NHL, STARTED } from '../_shared/nhl.ts';
 
@@ -12,16 +15,45 @@ const db = createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE_SE
 
 const TEAMS = ['ANA','BOS','BUF','CAR','CBJ','CGY','CHI','COL','DAL','DET','EDM','FLA','LAK','MIN','MTL','NJD','NSH','NYI','NYR','OTT','PHI','PIT','SEA','SJS','STL','TBL','TOR','UTA','VAN','VGK','WPG','WSH'];
 const POS: Record<string, string> = { C: 'C', L: 'LW', R: 'RW', D: 'D', G: 'G' };
+const ESPN = 'https://site.api.espn.com/apis/site/v2/sports/hockey/nhl';
 
-const get = async (path: string) => {
-  const r = await fetch(`${NHL}${path}`, { headers: { 'user-agent': 'sak-league' } });
-  if (!r.ok) throw new Error(`${path}: ${r.status}`);
+const getJson = async (url: string) => {
+  const r = await fetch(url, { headers: { 'user-agent': 'sak-league' } });
+  if (!r.ok) throw new Error(`${url}: ${r.status}`);
   return r.json();
 };
+const get = (path: string) => getJson(`${NHL}${path}`);
 const check = <T>({ data, error }: { data: T; error: unknown }) => {
   if (error) throw error;
   return data;
 };
+const norm = (s: string) => s.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().replace(/[^a-z]/g, '');
+
+// faceoffs need the (large) play-by-play feed, so only fetch it when the league scores them
+async function needsPbp() {
+  const { data } = await db.from('league').select('scoring').single();
+  const sk = (data?.scoring?.skater ?? {}) as Record<string, number>;
+  return !!(sk.fow || sk.fol);
+}
+
+async function syncGames(ids: number[]) {
+  const pbpWanted = await needsPbp();
+  let lines = 0;
+  for (const id of ids) {
+    const [box, landing, pbp] = await Promise.all([
+      get(`/gamecenter/${id}/boxscore`), get(`/gamecenter/${id}/landing`),
+      pbpWanted ? get(`/gamecenter/${id}/play-by-play`) : Promise.resolve(undefined),
+    ]);
+    const rows = gameStats(box, landing, pbp).map((l) => ({ game_id: id, date: box.gameDate, ...l }));
+    // only score players we know about (the pool is every NHL player, so this is nearly everyone)
+    const known = new Set((check(await db.from('players').select('id').in('id', rows.map((r) => r.player_id))) as { id: number }[]).map((p) => p.id));
+    const keep = rows.filter((r) => known.has(r.player_id));
+    if (keep.length) check(await db.from('player_games').upsert(keep));
+    lines += keep.length;
+    if (box.gameState === 'OFF') check(await db.from('games').update({ final_synced: true, updated_at: new Date().toISOString() }).eq('id', id));
+  }
+  return lines;
+}
 
 async function scores() {
   const now = new Date();
@@ -29,23 +61,19 @@ async function scores() {
   const games = (await Promise.all(days.map((d) => get(`/score/${d}`)))).flatMap((j) => j.games ?? []).filter((g: any) => g.gameType === 2); // regular season only
   if (games.length) check(await db.from('games').upsert(games.map(gameRow)));
   const snaps = check(await db.rpc('take_snapshots'));
-
   const { data: open } = await db.from('games').select('id,state').in('date', days).eq('final_synced', false);
-  const todo = (open ?? []).filter((g) => STARTED.has(g.state));
-  let lines = 0;
-  for (const g of todo) {
-    const [box, landing] = await Promise.all([get(`/gamecenter/${g.id}/boxscore`), get(`/gamecenter/${g.id}/landing`)]);
-    const date = box.gameDate;
-    const rows = gameStats(box, landing).map((l) => ({ game_id: g.id, date, ...l }));
-    // only score players we know about (the pool is every NHL player, so this is nearly everyone)
-    const ids = check(await db.from('players').select('id').in('id', rows.map((r) => r.player_id))) as { id: number }[];
-    const known = new Set(ids.map((p) => p.id));
-    const keep = rows.filter((r) => known.has(r.player_id));
-    if (keep.length) check(await db.from('player_games').upsert(keep));
-    lines += keep.length;
-    if (box.gameState === 'OFF') check(await db.from('games').update({ final_synced: true }).eq('id', g.id));
-  }
+  const todo = (open ?? []).filter((g) => STARTED.has(g.state)).map((g) => g.id);
+  const lines = await syncGames(todo);
   return { games: games.length, snapshots: snaps, synced: todo.length, lines };
+}
+
+// the NHL revises stats (assists, hits, blocks, goalie decisions) after review; re-pull recent finals
+async function corrections() {
+  const since = etDate(new Date(Date.now() - 3 * 86400000));
+  const { data } = await db.from('games').select('id').gte('date', since).in('state', ['OFF', 'FINAL']);
+  const ids = (data ?? []).map((g) => g.id);
+  const lines = await syncGames(ids);
+  return { rechecked: ids.length, lines };
 }
 
 async function schedule() {
@@ -85,12 +113,67 @@ async function players() {
   return { players: rows.length, added: rows.filter((r) => !have.has(r.id)).length };
 }
 
+async function nameIndex() {
+  const all: { id: number; name: string }[] = [];
+  for (let from = 0; ; from += 1000) {
+    const chunk = check(await db.from('players').select('id,name').range(from, from + 999)) as typeof all;
+    all.push(...chunk);
+    if (chunk.length < 1000) break;
+  }
+  const byName = new Map<string, number[]>();
+  for (const p of all) byName.set(norm(p.name), [...(byName.get(norm(p.name)) ?? []), p.id]);
+  return { all, byName };
+}
+
+async function injuries() {
+  const j = await getJson(`${ESPN}/injuries`);
+  const { byName } = await nameIndex();
+  const found = new Map<number, { injury_status: string; injury_note: string | null; injury_date: string | null }>();
+  for (const team of j.injuries ?? []) {
+    for (const i of team.injuries ?? []) {
+      const ids = byName.get(norm(i.athlete?.displayName ?? ''));
+      if (!ids || ids.length !== 1) continue;
+      found.set(ids[0], {
+        injury_status: i.status ?? i.type?.description ?? 'Injured',
+        injury_note: i.shortComment ?? i.longComment ?? null,
+        injury_date: i.date ?? null,
+      });
+    }
+  }
+  // clear players who are no longer listed
+  const { data: listed } = await db.from('players').select('id').not('injury_status', 'is', null);
+  const cleared = (listed ?? []).map((p) => p.id).filter((id) => !found.has(id));
+  if (cleared.length) check(await db.from('players').update({ injury_status: null, injury_note: null, injury_date: null }).in('id', cleared));
+  for (const [id, v] of found) check(await db.from('players').update(v).eq('id', id));
+  return { injured: found.size, cleared: cleared.length };
+}
+
+async function news() {
+  const j = await getJson(`${ESPN}/news?limit=50`);
+  const { all } = await nameIndex();
+  const names = all.filter((p) => p.name.length > 6).map((p) => ({ id: p.id, n: p.name.toLowerCase() }));
+  const rows = (j.articles ?? []).map((a: any) => {
+    const text = `${a.headline ?? ''} ${a.description ?? ''}`.toLowerCase();
+    return {
+      id: String(a.id ?? a.links?.web?.href ?? a.headline),
+      headline: a.headline, description: a.description ?? null, published: a.published ?? null,
+      url: a.links?.web?.href ?? null, image: a.images?.[0]?.url ?? null,
+      player_ids: names.filter((p) => text.includes(p.n)).map((p) => p.id),
+    };
+  }).filter((r: any) => r.headline);
+  if (rows.length) check(await db.from('news').upsert(rows));
+  return { articles: rows.length, tagged: rows.filter((r: any) => r.player_ids.length).length };
+}
+
 Deno.serve(async (req) => {
   const task = new URL(req.url).searchParams.get('task') ?? 'scores';
   try {
     const result =
       task === 'schedule' ? await schedule()
       : task === 'players' ? await players()
+      : task === 'corrections' ? await corrections()
+      : task === 'injuries' ? await injuries()
+      : task === 'news' ? await news()
       : task === 'daily' ? { lineups: check(await db.rpc('run_auto_lineups')) }
       : await scores();
     return Response.json({ task, ok: true, ...result });

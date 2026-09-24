@@ -53,19 +53,25 @@ const main = async () => {
     }
   }
 
-  const [sum, rt, gsum] = await Promise.all([
+  const [sum, rt, fo, gsum] = await Promise.all([
     stats('skater', 'summary'),
     stats('skater', 'realtime'),
+    stats('skater', 'faceoffwins'),
     stats('goalie', 'summary'),
   ]);
   const rtById = new Map(rt.map((r) => [r.playerId, r]));
+  const foById = new Map(fo.map((r) => [r.playerId, r]));
   const S = SCORING.skater, G = SCORING.goalie;
   const last = new Map();
   for (const s of sum) {
     const r = rtById.get(s.playerId) || {};
+    const f = foById.get(s.playerId) || {};
     const st = {
-      gp: s.gamesPlayed, g: s.goals, a: s.assists, pm: s.plusMinus, pim: s.penaltyMinutes,
-      ppp: s.ppPoints, gwg: s.gameWinningGoals, sog: s.shots, hit: r.hits ?? 0, blk: r.blockedShots ?? 0,
+      gp: s.gamesPlayed, g: s.goals, a: s.assists, pts: s.points, pm: s.plusMinus, pim: s.penaltyMinutes,
+      ppg: s.ppGoals, ppa: s.ppPoints - s.ppGoals, ppp: s.ppPoints,
+      shg: s.shGoals, sha: s.shPoints - s.shGoals, shp: s.shPoints,
+      gwg: s.gameWinningGoals, sog: s.shots, fow: f.totalFaceoffWins ?? 0, fol: f.totalFaceoffLosses ?? 0,
+      hit: r.hits ?? 0, blk: r.blockedShots ?? 0,
     };
     const fp = Object.keys(S).reduce((t, k) => t + S[k] * (st[k] || 0), 0);
     last.set(s.playerId, { st, fp: round1(fp), name: s.skaterFullName, team: s.teamAbbrevs });
@@ -73,7 +79,7 @@ const main = async () => {
   for (const s of gsum) {
     const st = {
       gp: s.gamesPlayed, gs: s.gamesStarted, w: s.wins, l: s.losses, otl: s.otLosses,
-      ga: s.goalsAgainst, sv: s.saves, sho: s.shutouts, svp: s.savePct,
+      ga: s.goalsAgainst, sa: s.shotsAgainst, sv: s.saves, sho: s.shutouts, svp: s.savePct,
     };
     const fp = Object.keys(G).reduce((t, k) => t + G[k] * (st[k] || 0), 0);
     last.set(s.playerId, { st, fp: round1(fp), name: s.goalieFullName, team: s.teamAbbrevs });

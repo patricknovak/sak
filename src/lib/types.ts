@@ -22,6 +22,7 @@ export interface Player {
   id: number; name: string; first: string | null; last_name: string | null; pos: Pos; elig: string[];
   nhl_team: string | null; num: number | null; headshot: string | null; last_fp: number; proj: number;
   rank: number | null; status: string; last_stats: Record<string, number> | null; injury_note: string | null;
+  injury_status: string | null; injury_date: string | null;
 }
 
 export interface Roster {
@@ -39,7 +40,7 @@ export interface DraftState {
 }
 
 export interface Message {
-  id: number; channel: string; team_id: number | null; kind: 'user' | 'system'; body: string;
+  id: number; channel: string; team_id: number | null; kind: 'user' | 'system' | 'bot'; body: string;
   meta: Record<string, unknown> | null; reply_to: number | null; created_at: string; edited_at: string | null; deleted: boolean;
 }
 
@@ -68,7 +69,7 @@ export interface Bet {
   id: number; creator_team: number; opponent_team: number | null; title: string; terms: string | null;
   kind: 'custom' | 'h2h' | 'season'; stake: string | null; amount: number | null; start_date: string | null; end_date: string | null;
   status: 'open' | 'accepted' | 'declined' | 'cancelled' | 'settled'; proposed_winner: number | null; proposed_by: number | null;
-  winner_team: number | null; paid: boolean; created_at: string; accepted_at: string | null; settled_at: string | null;
+  winner_team: number | null; paid: boolean; coins: number; created_at: string; accepted_at: string | null; settled_at: string | null;
 }
 
 export interface Proposal {
@@ -85,3 +86,7 @@ export interface Transaction {
 export interface Notification { id: number; team_id: number; kind: string; body: string; link: string | null; read: boolean; created_at: string }
 
 export interface LedgerRow { id: number; season: string; team_id: number | null; kind: string; amount: number; description: string; paid: boolean; created_at: string }
+
+export interface CoinBalance { team_id: number; balance: number; escrow: number }
+export interface CoinEntry { id: number; team_id: number; amount: number; reason: string; bet_id: number | null; created_at: string }
+export interface NewsItem { id: string; headline: string; description: string | null; published: string | null; url: string | null; image: string | null; player_ids: number[] }

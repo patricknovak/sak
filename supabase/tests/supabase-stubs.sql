@@ -26,3 +26,6 @@ create function auth.role() returns text language sql stable as
 create publication supabase_realtime;
 grant usage on schema public, auth, extensions to anon, authenticated, service_role;
 grant select on auth.users to authenticated;
+create schema if not exists net;
+create function net.http_post(url text, body jsonb default null, params jsonb default null, headers jsonb default null,
+  timeout_milliseconds int default null) returns bigint language sql as $$ select 1::bigint $$;

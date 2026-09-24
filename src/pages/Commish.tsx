@@ -3,6 +3,7 @@ import { useLeague } from '../lib/store';
 import { rpc } from '../lib/supabase';
 import { fmtDateTime } from '../lib/format';
 import { Section, TeamBadge, useAction } from '../components/ui';
+import { ScoringEditor } from '../components/ScoringEditor';
 
 // datetime-local <-> ISO in the viewer's zone
 const toLocal = (iso: string | null) => {
@@ -23,6 +24,7 @@ export default function Commish() {
   const [fine, setFine] = useState({ team: '', kind: 'fine', amount: '', desc: '' });
   const [mv, setMv] = useState({ q: '', player: 0, team: '' });
   const [pickEdit, setPickEdit] = useState({ pick: '', team: '' });
+  const [coin, setCoin] = useState({ team: '', amount: '', reason: '' });
 
   useEffect(() => {
     if (!league) return;
@@ -124,6 +126,10 @@ export default function Commish() {
         </div>
       </Section>
 
+      <Section title="📐 Scoring settings">
+        <ScoringEditor />
+      </Section>
+
       <Section title="⚙️ League settings">
         <div className="card grid gap-3 p-3 sm:grid-cols-2">
           <label className="text-xs text-mute">Phase
@@ -175,6 +181,18 @@ export default function Commish() {
           <button className="btn-primary sm:col-span-3" disabled={!fine.team || !fine.amount || !fine.desc || busy}
             onClick={() => run(async () => { await rpc('commish_ledger', { p_team: Number(fine.team), p_kind: fine.kind, p_amount: Number(fine.amount), p_desc: fine.desc }); setFine({ team: '', kind: 'fine', amount: '', desc: '' }); }, 'Added to the ledger')}>Add to ledger</button>
           <p className="text-xs text-mute sm:col-span-3">Fines are announced in Trash Talk. Mark items paid on the League → Money page.</p>
+        </div>
+      </Section>
+
+      <Section title="☘️ St. Patrick coins">
+        <div className="card grid gap-2 p-3 sm:grid-cols-[1fr_120px]">
+          <select className="input" value={coin.team} onChange={(e) => setCoin({ ...coin, team: e.target.value })}>
+            <option value="">Team…</option>{teams.map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}
+          </select>
+          <input className="input" inputMode="numeric" placeholder="± coins" value={coin.amount} onChange={(e) => setCoin({ ...coin, amount: e.target.value.replace(/[^\d-]/g, '') })} />
+          <input className="input sm:col-span-2" placeholder="Reason (e.g. Best trash talk of the week)" value={coin.reason} onChange={(e) => setCoin({ ...coin, reason: e.target.value })} />
+          <button className="btn-primary sm:col-span-2" disabled={!coin.team || !Number(coin.amount) || !coin.reason || busy}
+            onClick={() => run(async () => { await rpc('commish_coins', { p_team: Number(coin.team), p_amount: Number(coin.amount), p_reason: coin.reason }); setCoin({ team: '', amount: '', reason: '' }); }, 'Coins sent ☘️')}>Award / dock coins</button>
         </div>
       </Section>
 

@@ -2,8 +2,8 @@ import { useEffect, useState, type ReactNode } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useLeague } from '../lib/store';
 import { rpc, supabase } from '../lib/supabase';
-import type { Player } from '../lib/types';
-import { fmtDate, fmtPts, fmtTime, NHL_TEAMS, STAT_LABELS } from '../lib/format';
+import type { NewsItem, Player } from '../lib/types';
+import { ago, calcFpts, fmtDate, fmtPts, fmtTime, injuryBadge, NHL_TEAMS, STAT_LABELS } from '../lib/format';
 import { Headshot, NhlLogo, Pos, Sheet, TeamBadge, TeamName, useAction } from './ui';
 
 // one-line player row used everywhere
@@ -18,7 +18,7 @@ export function PlayerRow({ p, right, onClick, sub, dim }: { p: Player; right?: 
       <div className="min-w-0 flex-1">
         <div className="flex items-center gap-1.5">
           <span className="truncate font-semibold">{p.name}</span>
-          {p.status === 'inj' && <span className="chip border-red-800 bg-red-900/50 text-red-300">INJ</span>}
+          {(() => { const b = injuryBadge(p.injury_status); return b && <span className={`chip shrink-0 ${b.cls}`} title={p.injury_note ?? ''}>{b.label}</span>; })()}
         </div>
         <div className="flex min-w-0 items-center gap-1.5 overflow-hidden whitespace-nowrap text-xs text-mute">
           <NhlLogo abbr={p.nhl_team} size={14} />
@@ -53,19 +53,30 @@ export function PlayerSheet({ id, onClose, actions }: { id: number | null; onClo
   const r = id ? owner.get(id) : undefined;
   const [log, setLog] = useState<GameLine[]>([]);
   const [dropPick, setDropPick] = useState(false);
+  const [career, setCareer] = useState<Record<string, number | string>[] | null>(null);
+  const [news, setNews] = useState<NewsItem[]>([]);
+  const [tab, setTab] = useState<'overview' | 'career' | 'news'>('overview');
   const { busy, run } = useAction();
 
   useEffect(() => {
-    setLog([]); setDropPick(false);
+    setLog([]); setDropPick(false); setCareer(null); setNews([]); setTab('overview');
     if (!id) return;
     supabase.from('player_games').select('game_id,date,nhl_team,stats,fpts').eq('player_id', id).order('date', { ascending: false }).limit(15)
       .then(({ data }) => setLog((data ?? []) as GameLine[]));
+    supabase.from('news').select('*').contains('player_ids', [id]).order('published', { ascending: false }).limit(10)
+      .then(({ data }) => setNews((data ?? []) as NewsItem[]));
   }, [id]);
+  useEffect(() => {
+    if (tab !== 'career' || !id || career) return;
+    supabase.functions.invoke(`player-info?id=${id}`, { method: 'GET' })
+      .then(({ data }) => setCareer((data?.seasons ?? []) as Record<string, number | string>[]))
+      .catch(() => setCareer([]));
+  }, [tab, id, career]);
 
   if (!p) return null;
   const s = season.get(p.id);
   const isGoalie = p.pos === 'G';
-  const keys = isGoalie ? ['gp', 'gs', 'w', 'l', 'ga', 'sv', 'sho'] : ['gp', 'g', 'a', 'pm', 'ppp', 'sog', 'hit', 'blk', 'pim'];
+  const keys = isGoalie ? ['gp', 'gs', 'w', 'l', 'otl', 'ga', 'sa', 'sv', 'sho'] : ['gp', 'g', 'a', 'pts', 'pm', 'pim', 'ppg', 'ppp', 'shp', 'gwg', 'sog', 'fow', 'hit', 'blk'];
   const mine = r && me && r.team_id === me.id;
   const inSeason = league?.phase === 'season';
   const myRoster = rosters.filter((x) => x.team_id === me?.id && x.slot !== 'IR');
@@ -101,6 +112,64 @@ export function PlayerSheet({ id, onClose, actions }: { id: number | null; onClo
         </div>
       </div>
 
+      {p.injury_status && (
+        <div className="mt-3 rounded-xl border border-red-900/60 bg-red-950/40 p-3 text-sm">
+          <div className="font-semibold text-red-300">🩹 {p.injury_status}{p.injury_date && <span className="ml-2 text-xs font-normal text-mute">updated {ago(p.injury_date)}</span>}</div>
+          {p.injury_note && <p className="mt-1 text-slate-300">{p.injury_note}</p>}
+        </div>
+      )}
+
+      <div className="mt-3 flex gap-1">
+        {([['overview', 'Overview'], ['career', 'Career'], ['news', `News${news.length ? ` (${news.length})` : ''}`]] as const).map(([k, l]) => (
+          <button key={k} className={`tab ${tab === k ? 'tab-on' : 'bg-boards'}`} onClick={() => setTab(k)}>{l}</button>
+        ))}
+      </div>
+
+      {tab === 'career' && (
+        <div className="mt-3">
+          {career === null ? <div className="py-6 text-center text-sm text-mute">Loading career stats…</div>
+            : career.length === 0 ? <div className="py-6 text-center text-sm text-mute">No NHL regular-season stats yet.</div> : (
+            <div className="overflow-x-auto rounded-xl border border-line">
+              <table className="w-full text-right text-xs">
+                <thead className="bg-boards/60 text-mute">
+                  <tr>
+                    <th className="px-2 py-1.5 text-left">Season</th><th className="px-2 text-gold">SaK</th><th className="px-1">Team</th>
+                    {(isGoalie ? ['gp', 'gs', 'w', 'l', 'ga', 'sv', 'sho'] : ['gp', 'g', 'a', 'pts', 'pm', 'ppp', 'sog', 'hit', 'blk']).map((k) => <th key={k} className="px-1">{STAT_LABELS[k]}</th>)}
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-line">
+                  {career.map((c) => {
+                    const fp = calcFpts(c as Record<string, number>, league?.scoring[isGoalie ? 'goalie' : 'skater'] ?? {});
+                    const sz = String(c.season);
+                    return (
+                      <tr key={sz}>
+                        <td className="px-2 py-1.5 text-left">{sz.slice(0, 4)}-{sz.slice(6)}</td><td className="px-2 font-semibold text-gold">{fmtPts(fp)}</td><td className="px-1 text-mute">{String(c.team ?? '')}</td>
+                        {(isGoalie ? ['gp', 'gs', 'w', 'l', 'ga', 'sv', 'sho'] : ['gp', 'g', 'a', 'pts', 'pm', 'ppp', 'sog', 'hit', 'blk']).map((k) => <td key={k} className="px-1">{String(c[k] ?? 0)}</td>)}
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          )}
+          <p className="mt-1 text-[11px] text-mute">SaK column = fantasy points under this league’s current scoring. Hits and blocks are tracked from 2005-06 on.</p>
+        </div>
+      )}
+
+      {tab === 'news' && (
+        <div className="mt-3 space-y-2">
+          {news.length === 0 && <div className="py-6 text-center text-sm text-mute">No recent headlines mention {p.name}.</div>}
+          {news.map((n) => (
+            <a key={n.id} href={n.url ?? '#'} target="_blank" rel="noreferrer" className="block rounded-xl border border-line p-3">
+              <div className="text-sm font-semibold">{n.headline}</div>
+              {n.description && <div className="mt-0.5 line-clamp-2 text-xs text-slate-300">{n.description}</div>}
+              <div className="mt-1 text-[11px] text-mute">{n.published ? ago(n.published) : ''} · ESPN</div>
+            </a>
+          ))}
+        </div>
+      )}
+
+      {tab === 'overview' && <>
       <div className="mt-4 grid grid-cols-3 gap-2 text-center">
         <div className="rounded-xl bg-boards/60 p-2"><div className="label">This season</div><div className="font-display text-xl font-bold">{fmtPts(s?.fpts)}</div><div className="text-[11px] text-mute">{s?.gp ?? 0} GP</div></div>
         <div className="rounded-xl bg-boards/60 p-2"><div className="label">Last season</div><div className="font-display text-xl font-bold">{fmtPts(p.last_fp)}</div><div className="text-[11px] text-mute">{p.last_stats?.gp ?? 0} GP</div></div>
@@ -137,6 +206,8 @@ export function PlayerSheet({ id, onClose, actions }: { id: number | null; onClo
           </div>
         </div>
       )}
+
+      </>}
 
       <div className="mt-4 flex flex-wrap gap-2">
         {actions}

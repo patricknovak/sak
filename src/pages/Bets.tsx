@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useLeague, useNow } from '../lib/store';
 import { rpc, supabase } from '../lib/supabase';
-import type { Bet } from '../lib/types';
+import type { Bet, CoinBalance, CoinEntry } from '../lib/types';
 import { ago, etToday, fmtDate, fmtMoney, fmtPts } from '../lib/format';
 import { Empty, Section, Sheet, TeamBadge, TeamName, useAction } from '../components/ui';
 
@@ -19,13 +19,23 @@ export default function Bets() {
   const [bets, setBets] = useState<Bet[]>([]);
   const [daily, setDaily] = useState<Daily[]>([]);
   const [open, setOpen] = useState(false);
-  const [f, setF] = useState({ opponent: '' as string, title: '', terms: '', kind: 'custom' as Bet['kind'], stake: '', amount: '', start: etToday(), end: '' });
+  const [bank, setBank] = useState<CoinBalance[]>([]);
+  const [myCoins, setMyCoins] = useState<CoinEntry[]>([]);
+  const [showLedger, setShowLedger] = useState(false);
+  const [f, setF] = useState({ opponent: '' as string, title: '', terms: '', kind: 'custom' as Bet['kind'], stake: '', amount: '', coins: '100', start: etToday(), end: '' });
 
-  const load = () => supabase.from('bets').select('*').order('id', { ascending: false }).then(({ data }) => setBets((data ?? []) as Bet[]));
+  const load = () => {
+    supabase.from('bets').select('*').order('id', { ascending: false }).then(({ data }) => setBets((data ?? []) as Bet[]));
+    supabase.from('coin_balances').select('*').then(({ data }) => setBank((data ?? []) as CoinBalance[]));
+    if (me) supabase.from('coin_ledger').select('*').eq('team_id', me.id).order('id', { ascending: false }).limit(30).then(({ data }) => setMyCoins((data ?? []) as CoinEntry[]));
+  };
   useEffect(() => {
     load();
     supabase.from('team_daily').select('team_id,date,points').then(({ data }) => setDaily((data ?? []) as Daily[]));
-    const ch = supabase.channel('bets-page').on('postgres_changes', { event: '*', schema: 'public', table: 'bets' }, load).subscribe();
+    const ch = supabase.channel('bets-page')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'bets' }, load)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'coin_ledger' }, load)
+      .subscribe();
     return () => { supabase.removeChannel(ch); };
   }, []);
 
@@ -37,8 +47,9 @@ export default function Bets() {
       p_opponent: f.opponent ? Number(f.opponent) : null, p_title: f.title, p_terms: f.terms || null, p_kind: f.kind,
       p_stake: f.stake || null, p_amount: f.amount ? Number(f.amount) : null,
       p_start: f.kind === 'h2h' ? f.start || null : null, p_end: f.kind === 'h2h' ? f.end || null : null,
+      p_coins: Number(f.coins) || 0,
     });
-    setOpen(false); setF({ ...f, title: '', terms: '', stake: '', amount: '' }); load();
+    setOpen(false); setF({ ...f, title: '', terms: '', stake: '', amount: '', coins: '100' }); load();
   }, 'Bet posted 🎲');
 
   const groups = useMemo(() => ({
@@ -67,7 +78,13 @@ export default function Bets() {
               <TeamName team={team(b.creator_team)} /> vs {b.opponent_team ? <TeamName team={team(b.opponent_team)} /> : <span className="text-amber-300">anyone</span>} · {ago(b.created_at, now)}
             </div>
           </div>
-          {(b.amount || b.stake) && <div className="text-right text-sm"><div className="font-display text-lg font-bold text-gold">{b.amount ? fmtMoney(b.amount) : ''}</div><div className="max-w-28 text-[11px] text-mute">{b.stake}</div></div>}
+          {(b.amount || b.stake || b.coins > 0) && (
+            <div className="text-right text-sm">
+              {b.coins > 0 && <div className="font-display text-lg font-bold text-emerald-300">☘️ {b.coins}</div>}
+              {!!b.amount && <div className="font-display text-lg font-bold text-gold">{fmtMoney(b.amount)}</div>}
+              <div className="max-w-28 text-[11px] text-mute">{b.stake}</div>
+            </div>
+          )}
         </div>
         {b.terms && <p className="mt-2 text-sm text-slate-300">{b.terms}</p>}
         {b.kind === 'h2h' && b.opponent_team && (
@@ -83,7 +100,7 @@ export default function Bets() {
         )}
         {b.status === 'settled' && (
           <div className="mt-2 flex items-center gap-2 text-sm">🏆 <TeamName team={team(b.winner_team!)} /> won {b.paid ? <span className="chip text-emerald-300">paid</span> : (b.amount ? <span className="chip text-amber-300">unpaid</span> : null)}
-            {!b.paid && (b.winner_team === me?.id || me?.is_commish) && (b.amount || b.stake) && <button className="btn-ghost btn-sm ml-auto" onClick={() => run(async () => { await rpc('mark_bet_paid', { p_bet: b.id }); load(); }, 'Marked paid')}>Mark paid</button>}
+            {!b.paid && (b.winner_team === me?.id || me?.is_commish) && (!!b.amount || !!b.stake) && <button className="btn-ghost btn-sm ml-auto" onClick={() => run(async () => { await rpc('mark_bet_paid', { p_bet: b.id }); load(); }, 'Marked paid')}>Mark paid</button>}
           </div>
         )}
         <div className="mt-3 flex flex-wrap gap-2">
@@ -122,16 +139,38 @@ export default function Bets() {
       <div className="flex items-end justify-between gap-2">
         <div>
           <h1 className="h-display text-2xl">Side Bets</h1>
-          <p className="text-sm text-mute">Put your money (or your dignity) where your mouth is.</p>
+          <p className="text-sm text-mute">Bet St. Patrick coins, real money, or your dignity.</p>
         </div>
         <button className="btn-primary" onClick={() => setOpen(true)}>🎲 New bet</button>
       </div>
 
-      <div className="scroll-x flex gap-2">
-        {teams.map((t) => { const r = record(t.id); return (
-          <div key={t.id} className="card flex shrink-0 items-center gap-2 px-3 py-2"><TeamBadge team={t} size={24} /><div className="text-xs"><div className="font-semibold">{t.gm_name}</div><div className="text-mute">{r.w}-{r.l}</div></div></div>
-        ); })}
-      </div>
+      <Section title="☘️ St. Patrick’s Bank" right={<button className="text-xs text-sky-300" onClick={() => setShowLedger(!showLedger)}>{showLedger ? 'Hide' : 'My coin history'}</button>}>
+        <div className="card divide-y divide-line">
+          {[...bank].sort((a, b) => b.balance - a.balance).map((c, i) => {
+            const t = team(c.team_id); const r = record(c.team_id);
+            return (
+              <div key={c.team_id} className={`flex items-center gap-3 px-3 py-2 ${c.team_id === me?.id ? 'bg-white/5' : ''}`}>
+                <span className="w-5 text-center font-display text-lg text-mute">{i + 1}</span>
+                <TeamBadge team={t} size={26} />
+                <div className="min-w-0 flex-1"><div className="truncate text-sm font-semibold">{t?.gm_name}</div><div className="text-[11px] text-mute">bets {r.w}-{r.l}{c.escrow ? ` · ${c.escrow} in play` : ''}</div></div>
+                <div className="font-display text-xl font-bold text-emerald-300">{c.balance.toLocaleString()}</div>
+              </div>
+            );
+          })}
+        </div>
+        {showLedger && (
+          <div className="card mt-2 divide-y divide-line">
+            {myCoins.map((c) => (
+              <div key={c.id} className="flex items-center gap-2 px-3 py-2 text-sm">
+                <span className="flex-1 truncate">{c.reason}</span>
+                <span className="text-xs text-mute">{ago(c.created_at, now)}</span>
+                <span className={`w-16 text-right font-semibold ${c.amount >= 0 ? 'text-emerald-300' : 'text-red-300'}`}>{c.amount >= 0 ? '+' : ''}{c.amount}</span>
+              </div>
+            ))}
+          </div>
+        )}
+        <p className="mt-1 px-1 text-xs text-mute">Everyone started with 1,000 coins. Coins on open and live bets are held until they settle. Garry pays {25} coins to the top team each day.</p>
+      </Section>
 
       {owed.length > 0 && (
         <Section title="💸 Outstanding">
@@ -178,6 +217,16 @@ export default function Bets() {
               <label className="text-xs text-mute">To<input type="date" className="input mt-1" value={f.end} onChange={(e) => setF({ ...f, end: e.target.value })} /></label>
             </div>
           )}
+          <div>
+            <div className="label mb-1">☘️ St. Patrick coins (you have {(bank.find((b) => b.team_id === me?.id)?.balance ?? 0) - (bank.find((b) => b.team_id === me?.id)?.escrow ?? 0)} available)</div>
+            <div className="flex flex-wrap gap-1.5">
+              {['0', '25', '50', '100', '250', '500'].map((c) => (
+                <button key={c} className={`chip py-1 ${f.coins === c ? 'bg-emerald-500 text-ice' : ''}`} onClick={() => setF({ ...f, coins: c })}>{c === '0' ? 'No coins' : c}</button>
+              ))}
+              <input className="input w-24 py-1" inputMode="numeric" value={f.coins} onChange={(e) => setF({ ...f, coins: e.target.value.replace(/[^\d]/g, '') })} />
+            </div>
+          </div>
+          <div className="label -mb-1">Real money / stakes (optional, tracked between you)</div>
           <div className="grid grid-cols-[110px_1fr] gap-2">
             <input className="input" inputMode="decimal" placeholder="$ amount" value={f.amount} onChange={(e) => setF({ ...f, amount: e.target.value.replace(/[^\d.]/g, '') })} />
             <input className="input" placeholder="…and/or stakes: a two-four, dinner, bragging rights" value={f.stake} onChange={(e) => setF({ ...f, stake: e.target.value })} />

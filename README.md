@@ -17,6 +17,11 @@ your home screen like an app.
 | **Trades** | Players and draft picks, counter-offers, commissioner review (auto-approves after 24 h), trade deadline. |
 | **Free agents** | 10 free pickups; extra pickups cost $30 and hit the ledger automatically. |
 | **League** | Every season since 2013-14, all-time points, titles, Peters, career winnings, rules, scoring, the prize pool and SaK Fund, fines ledger, and rule proposals with co-sponsors and voting. |
+| **Scoring editor** | Every Yahoo stat (G, A, P, +/-, PIM, PPG/PPA/PPP, SHG/SHA/SHP, GWG, SOG, FW/FL, HIT, BLK; GS, W, L, OTL, GA, SA, SV, SO) can be switched on with a custom value. Saving re-scores the whole season and re-ranks the draft list. |
+| **Stat corrections** | Finished games from the last 3 days are re-pulled from the NHL every morning, so official stat changes flow into everyone's points. |
+| **Player cards** | Last season, this season, game log, full career by season (priced in SaK points under the current scoring), injury/suspension status and notes, and tagged headlines. News & Injuries page for the whole league. |
+| **St. Patrick coins** | Every GM started with 1,000 coins. Coin stakes are held in escrow until a bet settles; Garry pays 25 coins to the top team each day; the commish can award or dock coins. Real-money bets are still recorded alongside. |
+| **Garry** | The league bot. Morning recap (day's scores, star of the night, who left points on the bench, Peter watch, lurkers), a 5 pm lineup nudge that @mentions GMs with empty slots, idle starters or injured players in the lineup, pre-draft hype, and replies whenever someone writes @Garry. |
 | **Commissioner** | Announcements, finalize keepers, draft order (manual or lottery), start/pause/undo/reset (for mock drafts), roster moves, fines, password resets, league settings. |
 
 ## How it's built
@@ -41,6 +46,13 @@ your home screen like an app.
 
 No passwords or secret keys live in this repo. The Supabase key in `.env` is the public "anon" key;
 row-level security and the database functions decide what each GM can see and do.
+
+## Giving Garry a real brain (optional)
+
+Garry works out of the box with built-in lines. To have Claude write his recaps and comebacks, add an
+Anthropic API key as an Edge Function secret: Supabase dashboard → the **sak-league** project →
+**Edge Functions → Secrets** → add `ANTHROPIC_API_KEY`. Garry picks it up on his next post; a daily
+recap plus a few replies costs pennies a day.
 
 ## Signing in
 
