@@ -6,7 +6,7 @@ import { ago, countdown } from '../lib/format';
 import { currentSubscription } from '../lib/push';
 import { Sheet, TeamBadge } from './ui';
 import {
-  Bell, ClipboardList, FlaskConical, Dices, Home, Landmark, Lock, LogOut, Menu, MessageCircle, Newspaper, Repeat2, Search, Shield,
+  Bell, ClipboardList, FlaskConical, Dices, Home, Landmark, Lightbulb, Lock, LogOut, Menu, MessageCircle, Newspaper, Repeat2, Search, Shield,
   Trophy, UserRound, Wrench, type LucideIcon,
 } from 'lucide-react';
 
@@ -96,6 +96,7 @@ export function Layout({ children }: { children: ReactNode }) {
     { to: '/bets', label: 'Side Bets', icon: Dices },
     { to: '/news', label: 'News & Injuries', icon: Newspaper },
     { to: '/league', label: 'League & History', icon: Landmark },
+    { to: '/features', label: 'League Features', icon: Lightbulb },
     { to: '/profile', label: 'My Profile', icon: UserRound },
     { to: '/commish', label: 'Commissioner', icon: Wrench, commish: true },
   ].filter((i) => !i.commish || me?.is_commish);

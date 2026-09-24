@@ -36,6 +36,7 @@ const HELP: Record<string, string> = {
   bet: 'Side Bets (More menu) → New bet: pick an opponent (or leave it open), terms, and St. Patrick coins and/or real money. Head-to-head bets track your fantasy points automatically. 👉 #/bets',
   alerts: 'My Profile → Alerts → Turn on alerts. On iPhone add SaK to your Home Screen first (Share → Add to Home Screen), open it from there, then turn alerts on. 👉 #/profile',
   player: 'Tap any player anywhere for his full page: stats, where his points come from, game log, career, news and upcoming games. 👉 #/players',
+  features: 'More → League Features lists everything the site does. Comment on any of it, suggest new features, and upvote the ideas you want most; the commish marks them planned, building or shipped. 👉 #/features?t=ideas',
   chat: 'Trash Talk is the main room, each GM has a DM, and “Ask Garry” is your private line to me. Say my name anywhere and I’ll show up.',
 };
 
@@ -124,6 +125,7 @@ export async function answer(db: Db, question: string, askerTeam: number): Promi
     [/\b(drafts?|mock|queue|autodraft|on the clock)\b/, 'draft'],
     [/\b(bets?|betting|wagers?|coins?|st\.? patrick)\b/, 'bet'],
     [/\b(alerts?|notifications?|notify|push|buzz)\b/, 'alerts'],
+    [/\b(features?|suggest\w*|ideas?|wish ?list|request)\b/, 'features'],
   ];
   const topic = topics.find(([re]) => re.test(q))?.[1];
 
