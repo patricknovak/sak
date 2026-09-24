@@ -1,0 +1,25 @@
+name: Refresh player projections
+
+# Rebuilds data/players.json from the NHL stats API (last season's SaK points + projections).
+# Live rosters and scoring are synced by the nhl-sync edge function; this is for the draft rankings.
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: node scripts/build-players.mjs && node scripts/gen-seed-sql.mjs --rosters
+      - run: |
+          git config user.name "sak-bot"
+          git config user.email "sak-bot@users.noreply.github.com"
+          git add data supabase/seed
+          git diff --cached --quiet || git commit -m "Refresh player data"
+          git push

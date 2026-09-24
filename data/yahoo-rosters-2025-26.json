@@ -1,0 +1,1690 @@
+{
+ "source": "Yahoo league 54998, end of 2025/26 season rosters (fetched 2026-09-24)",
+ "teams": {
+  "1": [
+   {
+    "name": "Macklin Celebrini",
+    "team": "SJ",
+    "elig": [
+     "C"
+    ],
+    "fpts": 227.5
+   },
+   {
+    "name": "Zach Werenski",
+    "team": "CBJ",
+    "elig": [
+     "D"
+    ],
+    "fpts": 178.2
+   },
+   {
+    "name": "Kyle Connor",
+    "team": "WPG",
+    "elig": [
+     "LW"
+    ],
+    "fpts": 184.0
+   },
+   {
+    "name": "Matthew Tkachuk",
+    "team": "FLA",
+    "elig": [
+     "LW",
+     "RW"
+    ],
+    "fpts": 57.3
+   },
+   {
+    "name": "Brandon Hagel",
+    "team": "TB",
+    "elig": [
+     "LW",
+     "RW"
+    ],
+    "fpts": 164.0
+   },
+   {
+    "name": "Sam Reinhart",
+    "team": "FLA",
+    "elig": [
+     "RW"
+    ],
+    "fpts": 130.1
+   },
+   {
+    "name": "Miro Heiskanen",
+    "team": "DAL",
+    "elig": [
+     "D"
+    ],
+    "fpts": 141.1
+   },
+   {
+    "name": "Mark Stone",
+    "team": "VGK",
+    "elig": [
+     "RW"
+    ],
+    "fpts": 154.2
+   },
+   {
+    "name": "Alex Ovechkin",
+    "team": "WSH",
+    "elig": [
+     "LW",
+     "RW"
+    ],
+    "fpts": 152.2
+   },
+   {
+    "name": "Vincent Trocheck",
+    "team": "UTA",
+    "elig": [
+     "C"
+    ],
+    "fpts": 101.1
+   },
+   {
+    "name": "Shea Theodore",
+    "team": "VGK",
+    "elig": [
+     "D"
+    ],
+    "fpts": 97.8
+   },
+   {
+    "name": "JJ Peterka",
+    "team": "BOS",
+    "elig": [
+     "LW",
+     "RW"
+    ],
+    "fpts": 100.6
+   },
+   {
+    "name": "Brandon Montour",
+    "team": "SEA",
+    "elig": [
+     "D"
+    ],
+    "fpts": 82.9
+   },
+   {
+    "name": "Pavel Zacha",
+    "team": "BOS",
+    "elig": [
+     "C",
+     "LW"
+    ],
+    "fpts": 129.2
+   },
+   {
+    "name": "Gabriel Landeskog",
+    "team": "COL",
+    "elig": [
+     "LW",
+     "RW"
+    ],
+    "fpts": 93.0
+   },
+   {
+    "name": "Thomas Harley",
+    "team": "DAL",
+    "elig": [
+     "D"
+    ],
+    "fpts": 98.9
+   },
+   {
+    "name": "Frank Nazar",
+    "team": "CHI",
+    "elig": [
+     "C"
+    ],
+    "fpts": 81.7
+   },
+   {
+    "name": "Tomas Hertl",
+    "team": "VGK",
+    "elig": [
+     "C",
+     "LW"
+    ],
+    "fpts": 131.0
+   },
+   {
+    "name": "Dawson Mercer",
+    "team": "NJ",
+    "elig": [
+     "C",
+     "RW"
+    ],
+    "fpts": 93.2
+   },
+   {
+    "name": "Jake Oettinger",
+    "team": "DAL",
+    "elig": [
+     "G"
+    ],
+    "fpts": 147.7
+   },
+   {
+    "name": "Connor Hellebuyck",
+    "team": "WPG",
+    "elig": [
+     "G"
+    ],
+    "fpts": 91.25
+   },
+   {
+    "name": "Yaroslav Askarov",
+    "team": "SJ",
+    "elig": [
+     "G"
+    ],
+    "fpts": 70.7
+   },
+   {
+    "name": "Akira Schmid",
+    "team": "FLA",
+    "elig": [
+     "G"
+    ],
+    "fpts": 63.8
+   },
+   {
+    "name": "Filip Gustavsson",
+    "team": "MIN",
+    "elig": [
+     "G"
+    ],
+    "fpts": 121.7
+   }
+  ],
+  "2": [
+   {
+    "name": "Auston Matthews",
+    "team": "TOR",
+    "elig": [
+     "C"
+    ],
+    "fpts": 135.7
+   },
+   {
+    "name": "Brady Tkachuk",
+    "team": "FLA",
+    "elig": [
+     "C",
+     "LW"
+    ],
+    "fpts": 135.0
+   },
+   {
+    "name": "Tage Thompson",
+    "team": "BUF",
+    "elig": [
+     "C",
+     "RW"
+    ],
+    "fpts": 180.5
+   },
+   {
+    "name": "Filip Forsberg",
+    "team": "NSH",
+    "elig": [
+     "LW"
+    ],
+    "fpts": 171.4
+   },
+   {
+    "name": "Erik Karlsson",
+    "team": "PIT",
+    "elig": [
+     "D"
+    ],
+    "fpts": 136.1
+   },
+   {
+    "name": "Bo Horvat",
+    "team": "NYI",
+    "elig": [
+     "C"
+    ],
+    "fpts": 141.4
+   },
+   {
+    "name": "Roman Josi",
+    "team": "NSH",
+    "elig": [
+     "D"
+    ],
+    "fpts": 121.8
+   },
+   {
+    "name": "Matthew Knies",
+    "team": "TOR",
+    "elig": [
+     "LW",
+     "RW"
+    ],
+    "fpts": 116.3
+   },
+   {
+    "name": "Dylan Larkin",
+    "team": "DET",
+    "elig": [
+     "C"
+    ],
+    "fpts": 153.9
+   },
+   {
+    "name": "Nikolaj Ehlers",
+    "team": "CAR",
+    "elig": [
+     "LW"
+    ],
+    "fpts": 154.0
+   },
+   {
+    "name": "Gabriel Vilardi",
+    "team": "WPG",
+    "elig": [
+     "C",
+     "RW"
+    ],
+    "fpts": 126.2
+   },
+   {
+    "name": "Shayne Gostisbehere",
+    "team": "CAR",
+    "elig": [
+     "D"
+    ],
+    "fpts": 106.3
+   },
+   {
+    "name": "Dougie Hamilton",
+    "team": "NJ",
+    "elig": [
+     "D"
+    ],
+    "fpts": 108.7
+   },
+   {
+    "name": "Brad Marchand",
+    "team": "FLA",
+    "elig": [
+     "LW",
+     "RW"
+    ],
+    "fpts": 99.3
+   },
+   {
+    "name": "Rasmus Andersson",
+    "team": "VGK",
+    "elig": [
+     "D"
+    ],
+    "fpts": 119.1
+   },
+   {
+    "name": "Jacob Trouba",
+    "team": "SJ",
+    "elig": [
+     "D"
+    ],
+    "fpts": 112.1
+   },
+   {
+    "name": "Josh Norris",
+    "team": "BUF",
+    "elig": [
+     "C"
+    ],
+    "fpts": 69.5
+   },
+   {
+    "name": "Teuvo Teravainen",
+    "team": "CHI",
+    "elig": [
+     "LW",
+     "RW"
+    ],
+    "fpts": 65.8
+   },
+   {
+    "name": "Victor Olofsson",
+    "team": "VGK",
+    "elig": [
+     "LW",
+     "RW"
+    ],
+    "fpts": 81.7
+   },
+   {
+    "name": "Justin Brazeau",
+    "team": "PIT",
+    "elig": [
+     "RW"
+    ],
+    "fpts": 87.3
+   },
+   {
+    "name": "Jakub Dobes",
+    "team": "MTL",
+    "elig": [
+     "G"
+    ],
+    "fpts": 114.0
+   },
+   {
+    "name": "Dan Vladar",
+    "team": "PHI",
+    "elig": [
+     "G"
+    ],
+    "fpts": 121.6
+   },
+   {
+    "name": "Arturs Silovs",
+    "team": "PIT",
+    "elig": [
+     "G"
+    ],
+    "fpts": 74.75
+   },
+   {
+    "name": "Jordan Binnington",
+    "team": "STL",
+    "elig": [
+     "G"
+    ],
+    "fpts": 40.1
+   },
+   {
+    "name": "Elvis Merzlikins",
+    "team": "CBJ",
+    "elig": [
+     "G"
+    ],
+    "fpts": 50.35
+   }
+  ],
+  "3": [
+   {
+    "name": "Evan Bouchard",
+    "team": "EDM",
+    "elig": [
+     "D"
+    ],
+    "fpts": 200.8
+   },
+   {
+    "name": "Matt Boldy",
+    "team": "MIN",
+    "elig": [
+     "LW",
+     "RW"
+    ],
+    "fpts": 195.4
+   },
+   {
+    "name": "Mikko Rantanen",
+    "team": "DAL",
+    "elig": [
+     "LW",
+     "RW"
+    ],
+    "fpts": 126.0
+   },
+   {
+    "name": "Leo Carlsson",
+    "team": "ANA",
+    "elig": [
+     "C"
+    ],
+    "fpts": 134.7
+   },
+   {
+    "name": "Artemi Panarin",
+    "team": "LA",
+    "elig": [
+     "LW"
+    ],
+    "fpts": 155.1
+   },
+   {
+    "name": "Adrian Kempe",
+    "team": "LA",
+    "elig": [
+     "RW"
+    ],
+    "fpts": 166.1
+   },
+   {
+    "name": "William Nylander",
+    "team": "TOR",
+    "elig": [
+     "C",
+     "RW"
+    ],
+    "fpts": 136.5
+   },
+   {
+    "name": "Ivan Demidov",
+    "team": "MTL",
+    "elig": [
+     "RW"
+    ],
+    "fpts": 113.6
+   },
+   {
+    "name": "Logan Cooley",
+    "team": "UTA",
+    "elig": [
+     "C"
+    ],
+    "fpts": 90.1
+   },
+   {
+    "name": "Sebastian Aho",
+    "team": "CAR",
+    "elig": [
+     "C"
+    ],
+    "fpts": 157.2
+   },
+   {
+    "name": "Mika Zibanejad",
+    "team": "NYR",
+    "elig": [
+     "C",
+     "RW"
+    ],
+    "fpts": 166.2
+   },
+   {
+    "name": "J.T. Miller",
+    "team": "NYR",
+    "elig": [
+     "C",
+     "LW",
+     "RW"
+    ],
+    "fpts": 102.3
+   },
+   {
+    "name": "Brandt Clarke",
+    "team": "LA",
+    "elig": [
+     "D"
+    ],
+    "fpts": 117.2
+   },
+   {
+    "name": "Patrick Kane",
+    "team": "CHI",
+    "elig": [
+     "RW"
+    ],
+    "fpts": 115.5
+   },
+   {
+    "name": "Aliaksei Protas",
+    "team": "WSH",
+    "elig": [
+     "LW",
+     "RW"
+    ],
+    "fpts": 119.5
+   },
+   {
+    "name": "Ryan Nugent-Hopkins",
+    "team": "EDM",
+    "elig": [
+     "C",
+     "LW"
+    ],
+    "fpts": 109.1
+   },
+   {
+    "name": "Jack Roslovic",
+    "team": "TOR",
+    "elig": [
+     "C",
+     "RW"
+    ],
+    "fpts": 85.0
+   },
+   {
+    "name": "Mike Matheson",
+    "team": "MTL",
+    "elig": [
+     "D"
+    ],
+    "fpts": 100.4
+   },
+   {
+    "name": "Neal Pionk",
+    "team": "WPG",
+    "elig": [
+     "D"
+    ],
+    "fpts": 54.1
+   },
+   {
+    "name": "Brent Burns",
+    "team": "COL",
+    "elig": [
+     "D"
+    ],
+    "fpts": 111.2
+   },
+   {
+    "name": "Drew Doughty",
+    "team": "LA",
+    "elig": [
+     "D"
+    ],
+    "fpts": 60.6
+   },
+   {
+    "name": "Jacob Markstrom",
+    "team": "FLA",
+    "elig": [
+     "G"
+    ],
+    "fpts": 79.15
+   },
+   {
+    "name": "Brandon Bussi",
+    "team": "CAR",
+    "elig": [
+     "G"
+    ],
+    "fpts": 122.25
+   },
+   {
+    "name": "Joseph Woll",
+    "team": "PHI",
+    "elig": [
+     "G"
+    ],
+    "fpts": 63.8
+   },
+   {
+    "name": "Stuart Skinner",
+    "team": "WPG",
+    "elig": [
+     "G"
+    ],
+    "fpts": 91.25
+   },
+   {
+    "name": "Samuel Montembeault",
+    "team": "MTL",
+    "elig": [
+     "G"
+    ],
+    "fpts": 32.2
+   }
+  ],
+  "4": [
+   {
+    "name": "David Pastrnak",
+    "team": "BOS",
+    "elig": [
+     "RW"
+    ],
+    "fpts": 189.8
+   },
+   {
+    "name": "Nick Suzuki",
+    "team": "MTL",
+    "elig": [
+     "C"
+    ],
+    "fpts": 207.1
+   },
+   {
+    "name": "Martin Necas",
+    "team": "COL",
+    "elig": [
+     "RW"
+    ],
+    "fpts": 208.4
+   },
+   {
+    "name": "Cutter Gauthier",
+    "team": "ANA",
+    "elig": [
+     "C",
+     "LW",
+     "RW"
+    ],
+    "fpts": 166.8
+   },
+   {
+    "name": "Jake Guentzel",
+    "team": "TB",
+    "elig": [
+     "LW",
+     "RW"
+    ],
+    "fpts": 177.4
+   },
+   {
+    "name": "Alex DeBrincat",
+    "team": "DET",
+    "elig": [
+     "LW",
+     "RW"
+    ],
+    "fpts": 192.2
+   },
+   {
+    "name": "Sidney Crosby",
+    "team": "PIT",
+    "elig": [
+     "C"
+    ],
+    "fpts": 139.2
+   },
+   {
+    "name": "Adam Fox",
+    "team": "NYR",
+    "elig": [
+     "D"
+    ],
+    "fpts": 104.4
+   },
+   {
+    "name": "Moritz Seider",
+    "team": "DET",
+    "elig": [
+     "D"
+    ],
+    "fpts": 163.3
+   },
+   {
+    "name": "Dylan Holloway",
+    "team": "STL",
+    "elig": [
+     "C",
+     "LW"
+    ],
+    "fpts": 124.0
+   },
+   {
+    "name": "Jackson LaCombe",
+    "team": "ANA",
+    "elig": [
+     "D"
+    ],
+    "fpts": 131.1
+   },
+   {
+    "name": "John Tavares",
+    "team": "TOR",
+    "elig": [
+     "C"
+    ],
+    "fpts": 132.0
+   },
+   {
+    "name": "Rickard Rakell",
+    "team": "PIT",
+    "elig": [
+     "C",
+     "LW",
+     "RW"
+    ],
+    "fpts": 115.3
+   },
+   {
+    "name": "Morgan Geekie",
+    "team": "BOS",
+    "elig": [
+     "C",
+     "LW",
+     "RW"
+    ],
+    "fpts": 152.6
+   },
+   {
+    "name": "John Carlson",
+    "team": "TB",
+    "elig": [
+     "D"
+    ],
+    "fpts": 127.5
+   },
+   {
+    "name": "Mattias Samuelsson",
+    "team": "BUF",
+    "elig": [
+     "D"
+    ],
+    "fpts": 131.2
+   },
+   {
+    "name": "Noah Hanifin",
+    "team": "VGK",
+    "elig": [
+     "D"
+    ],
+    "fpts": 84.0
+   },
+   {
+    "name": "Alex Laferriere",
+    "team": "LA",
+    "elig": [
+     "C",
+     "LW",
+     "RW"
+    ],
+    "fpts": 135.0
+   },
+   {
+    "name": "Gage Goncalves",
+    "team": "TB",
+    "elig": [
+     "C",
+     "LW"
+    ],
+    "fpts": 76.0
+   },
+   {
+    "name": "Jesper Wallstedt",
+    "team": "MIN",
+    "elig": [
+     "G"
+    ],
+    "fpts": 89.15
+   },
+   {
+    "name": "Karel Vejmelka",
+    "team": "UTA",
+    "elig": [
+     "G"
+    ],
+    "fpts": 149.35
+   },
+   {
+    "name": "Jet Greaves",
+    "team": "CBJ",
+    "elig": [
+     "G"
+    ],
+    "fpts": 114.85
+   },
+   {
+    "name": "Juuse Saros",
+    "team": "NSH",
+    "elig": [
+     "G"
+    ],
+    "fpts": 106.45
+   },
+   {
+    "name": "Joey Daccord",
+    "team": "SEA",
+    "elig": [
+     "G"
+    ],
+    "fpts": 80.55
+   }
+  ],
+  "5": [
+   {
+    "name": "Cale Makar",
+    "team": "COL",
+    "elig": [
+     "D"
+    ],
+    "fpts": 185.6
+   },
+   {
+    "name": "Dylan Guenther",
+    "team": "UTA",
+    "elig": [
+     "LW",
+     "RW"
+    ],
+    "fpts": 169.5
+   },
+   {
+    "name": "Kirill Marchenko",
+    "team": "CBJ",
+    "elig": [
+     "RW"
+    ],
+    "fpts": 153.8
+   },
+   {
+    "name": "Brayden Point",
+    "team": "TB",
+    "elig": [
+     "C"
+    ],
+    "fpts": 98.9
+   },
+   {
+    "name": "Roope Hintz",
+    "team": "DAL",
+    "elig": [
+     "C"
+    ],
+    "fpts": 101.2
+   },
+   {
+    "name": "Timo Meier",
+    "team": "NJ",
+    "elig": [
+     "LW",
+     "RW"
+    ],
+    "fpts": 131.1
+   },
+   {
+    "name": "Brock Faber",
+    "team": "MIN",
+    "elig": [
+     "D"
+    ],
+    "fpts": 133.7
+   },
+   {
+    "name": "Quinton Byfield",
+    "team": "LA",
+    "elig": [
+     "C"
+    ],
+    "fpts": 111.7
+   },
+   {
+    "name": "Andrei Svechnikov",
+    "team": "CAR",
+    "elig": [
+     "LW",
+     "RW"
+    ],
+    "fpts": 148.9
+   },
+   {
+    "name": "Nico Hischier",
+    "team": "NJ",
+    "elig": [
+     "C"
+    ],
+    "fpts": 149.1
+   },
+   {
+    "name": "Alex Tuch",
+    "team": "WSH",
+    "elig": [
+     "LW",
+     "RW"
+    ],
+    "fpts": 154.8
+   },
+   {
+    "name": "Logan Stankoven",
+    "team": "CAR",
+    "elig": [
+     "C",
+     "RW"
+    ],
+    "fpts": 105.6
+   },
+   {
+    "name": "Dylan Strome",
+    "team": "WSH",
+    "elig": [
+     "C"
+    ],
+    "fpts": 112.1
+   },
+   {
+    "name": "Matt Duchene",
+    "team": "DAL",
+    "elig": [
+     "C",
+     "RW"
+    ],
+    "fpts": 86.2
+   },
+   {
+    "name": "Noah Dobson",
+    "team": "MTL",
+    "elig": [
+     "D"
+    ],
+    "fpts": 128.6
+   },
+   {
+    "name": "Thomas Chabot",
+    "team": "OTT",
+    "elig": [
+     "D"
+    ],
+    "fpts": 82.2
+   },
+   {
+    "name": "Tyler Bertuzzi",
+    "team": "CHI",
+    "elig": [
+     "LW",
+     "RW"
+    ],
+    "fpts": 114.2
+   },
+   {
+    "name": "Tyler Toffoli",
+    "team": "SJ",
+    "elig": [
+     "LW",
+     "RW"
+    ],
+    "fpts": 105.4
+   },
+   {
+    "name": "Jonathan Marchessault",
+    "team": "NSH",
+    "elig": [
+     "LW",
+     "RW"
+    ],
+    "fpts": 62.7
+   },
+   {
+    "name": "Mattias Ekholm",
+    "team": "EDM",
+    "elig": [
+     "D"
+    ],
+    "fpts": 115.2
+   },
+   {
+    "name": "Seth Jarvis",
+    "team": "CAR",
+    "elig": [
+     "LW",
+     "RW"
+    ],
+    "fpts": 156.2
+   },
+   {
+    "name": "Jeremy Swayman",
+    "team": "BOS",
+    "elig": [
+     "G"
+    ],
+    "fpts": 131.25
+   },
+   {
+    "name": "Sergei Bobrovsky",
+    "team": "TOR",
+    "elig": [
+     "G"
+    ],
+    "fpts": 94.8
+   },
+   {
+    "name": "Linus Ullmark",
+    "team": "OTT",
+    "elig": [
+     "G"
+    ],
+    "fpts": 114.85
+   },
+   {
+    "name": "Eric Comrie",
+    "team": "SJ",
+    "elig": [
+     "G"
+    ],
+    "fpts": 42.1
+   }
+  ],
+  "6": [
+   {
+    "name": "Connor McDavid",
+    "team": "EDM",
+    "elig": [
+     "C"
+    ],
+    "fpts": 263.9
+   },
+   {
+    "name": "Lane Hutson",
+    "team": "MTL",
+    "elig": [
+     "D"
+    ],
+    "fpts": 163.5
+   },
+   {
+    "name": "Cole Caufield",
+    "team": "MTL",
+    "elig": [
+     "LW",
+     "RW"
+    ],
+    "fpts": 212.5
+   },
+   {
+    "name": "Jack Eichel",
+    "team": "VGK",
+    "elig": [
+     "C"
+    ],
+    "fpts": 194.9
+   },
+   {
+    "name": "Rasmus Dahlin",
+    "team": "BUF",
+    "elig": [
+     "D"
+    ],
+    "fpts": 149.6
+   },
+   {
+    "name": "Clayton Keller",
+    "team": "UTA",
+    "elig": [
+     "LW",
+     "RW"
+    ],
+    "fpts": 175.6
+   },
+   {
+    "name": "Juraj Slafkovský",
+    "team": "MTL",
+    "elig": [
+     "LW",
+     "RW"
+    ],
+    "fpts": 162.2
+   },
+   {
+    "name": "Pavel Dorofeyev",
+    "team": "NYR",
+    "elig": [
+     "LW",
+     "RW"
+    ],
+    "fpts": 149.5
+   },
+   {
+    "name": "Jesper Bratt",
+    "team": "NJ",
+    "elig": [
+     "LW",
+     "RW"
+    ],
+    "fpts": 135.9
+   },
+   {
+    "name": "Zach Hyman",
+    "team": "EDM",
+    "elig": [
+     "LW",
+     "RW"
+    ],
+    "fpts": 118.9
+   },
+   {
+    "name": "Evgeni Malkin",
+    "team": "PIT",
+    "elig": [
+     "C",
+     "LW",
+     "RW"
+    ],
+    "fpts": 114.2
+   },
+   {
+    "name": "Valeri Nichushkin",
+    "team": "CBJ",
+    "elig": [
+     "LW",
+     "RW"
+    ],
+    "fpts": 102.7
+   },
+   {
+    "name": "Seth Jones",
+    "team": "FLA",
+    "elig": [
+     "D"
+    ],
+    "fpts": 72.9
+   },
+   {
+    "name": "Mason McTavish",
+    "team": "STL",
+    "elig": [
+     "C"
+    ],
+    "fpts": 87.4
+   },
+   {
+    "name": "Filip Hronek",
+    "team": "VAN",
+    "elig": [
+     "D"
+    ],
+    "fpts": 107.1
+   },
+   {
+    "name": "Troy Terry",
+    "team": "ANA",
+    "elig": [
+     "RW"
+    ],
+    "fpts": 113.8
+   },
+   {
+    "name": "Owen Tippett",
+    "team": "PHI",
+    "elig": [
+     "LW",
+     "RW"
+    ],
+    "fpts": 131.7
+   },
+   {
+    "name": "Jake Walman",
+    "team": "EDM",
+    "elig": [
+     "D"
+    ],
+    "fpts": 54.2
+   },
+   {
+    "name": "Igor Shesterkin",
+    "team": "NYR",
+    "elig": [
+     "G"
+    ],
+    "fpts": 110.95
+   },
+   {
+    "name": "Lukas Dostal",
+    "team": "ANA",
+    "elig": [
+     "G"
+    ],
+    "fpts": 107.7
+   },
+   {
+    "name": "Darcy Kuemper",
+    "team": "LA",
+    "elig": [
+     "G"
+    ],
+    "fpts": 87.0
+   },
+   {
+    "name": "John Gibson",
+    "team": "DET",
+    "elig": [
+     "G"
+    ],
+    "fpts": 123.85
+   },
+   {
+    "name": "Adin Hill",
+    "team": "VGK",
+    "elig": [
+     "G"
+    ],
+    "fpts": 37.55
+   },
+   {
+    "name": "Connor Ingram",
+    "team": "EDM",
+    "elig": [
+     "G"
+    ],
+    "fpts": 67.8
+   }
+  ],
+  "7": [
+   {
+    "name": "Nathan MacKinnon",
+    "team": "COL",
+    "elig": [
+     "C"
+    ],
+    "fpts": 279.6
+   },
+   {
+    "name": "Kirill Kaprizov",
+    "team": "MIN",
+    "elig": [
+     "LW"
+    ],
+    "fpts": 198.3
+   },
+   {
+    "name": "Jason Robertson",
+    "team": "DAL",
+    "elig": [
+     "LW",
+     "RW"
+    ],
+    "fpts": 223.0
+   },
+   {
+    "name": "Quinn Hughes",
+    "team": "MIN",
+    "elig": [
+     "D"
+    ],
+    "fpts": 144.6
+   },
+   {
+    "name": "Mitch Marner",
+    "team": "VGK",
+    "elig": [
+     "C",
+     "LW",
+     "RW"
+    ],
+    "fpts": 154.3
+   },
+   {
+    "name": "Robert Thomas",
+    "team": "STL",
+    "elig": [
+     "C"
+    ],
+    "fpts": 123.1
+   },
+   {
+    "name": "Jake Sanderson",
+    "team": "OTT",
+    "elig": [
+     "D"
+    ],
+    "fpts": 139.3
+   },
+   {
+    "name": "Lucas Raymond",
+    "team": "DET",
+    "elig": [
+     "RW"
+    ],
+    "fpts": 147.8
+   },
+   {
+    "name": "Drake Batherson",
+    "team": "OTT",
+    "elig": [
+     "LW",
+     "RW"
+    ],
+    "fpts": 147.4
+   },
+   {
+    "name": "Nick Schmaltz",
+    "team": "UTA",
+    "elig": [
+     "C",
+     "RW"
+    ],
+    "fpts": 166.3
+   },
+   {
+    "name": "Bryan Rust",
+    "team": "PIT",
+    "elig": [
+     "RW"
+    ],
+    "fpts": 144.6
+   },
+   {
+    "name": "Steven Stamkos",
+    "team": "NSH",
+    "elig": [
+     "C",
+     "RW"
+    ],
+    "fpts": 147.2
+   },
+   {
+    "name": "Joel Eriksson Ek",
+    "team": "MIN",
+    "elig": [
+     "C"
+    ],
+    "fpts": 129.3
+   },
+   {
+    "name": "Victor Hedman",
+    "team": "TB",
+    "elig": [
+     "D"
+    ],
+    "fpts": 38.7
+   },
+   {
+    "name": "Brock Nelson",
+    "team": "COL",
+    "elig": [
+     "C"
+    ],
+    "fpts": 153.8
+   },
+   {
+    "name": "Elias Pettersson",
+    "team": "VAN",
+    "elig": [
+     "C"
+    ],
+    "fpts": 105.2
+   },
+   {
+    "name": "Josh Morrissey",
+    "team": "WPG",
+    "elig": [
+     "D"
+    ],
+    "fpts": 125.4
+   },
+   {
+    "name": "Vince Dunn",
+    "team": "SEA",
+    "elig": [
+     "D"
+    ],
+    "fpts": 95.9
+   },
+   {
+    "name": "Artturi Lehkonen",
+    "team": "COL",
+    "elig": [
+     "LW",
+     "RW"
+    ],
+    "fpts": 114.0
+   },
+   {
+    "name": "Matvei Michkov",
+    "team": "PHI",
+    "elig": [
+     "LW",
+     "RW"
+    ],
+    "fpts": 95.5
+   },
+   {
+    "name": "Pavel Buchnevich",
+    "team": "STL",
+    "elig": [
+     "C",
+     "LW",
+     "RW"
+    ],
+    "fpts": 98.7
+   },
+   {
+    "name": "Marcus Johansson",
+    "team": "MIN",
+    "elig": [
+     "LW"
+    ],
+    "fpts": 100.2
+   },
+   {
+    "name": "Logan Thompson",
+    "team": "WSH",
+    "elig": [
+     "G"
+    ],
+    "fpts": 140.35
+   },
+   {
+    "name": "Scott Wedgewood",
+    "team": "COL",
+    "elig": [
+     "G"
+    ],
+    "fpts": 145.35
+   },
+   {
+    "name": "Mackenzie Blackwood",
+    "team": "COL",
+    "elig": [
+     "G"
+    ],
+    "fpts": 98.15
+   },
+   {
+    "name": "Tristan Jarry",
+    "team": "EDM",
+    "elig": [
+     "G"
+    ],
+    "fpts": 65.7
+   }
+  ],
+  "8": [
+   {
+    "name": "Nikita Kucherov",
+    "team": "TB",
+    "elig": [
+     "RW"
+    ],
+    "fpts": 245.6
+   },
+   {
+    "name": "Leon Draisaitl",
+    "team": "EDM",
+    "elig": [
+     "C",
+     "LW"
+    ],
+    "fpts": 183.4
+   },
+   {
+    "name": "Jack Hughes",
+    "team": "NJ",
+    "elig": [
+     "C",
+     "LW"
+    ],
+    "fpts": 157.4
+   },
+   {
+    "name": "Wyatt Johnston",
+    "team": "DAL",
+    "elig": [
+     "C",
+     "RW"
+    ],
+    "fpts": 182.4
+   },
+   {
+    "name": "Mark Scheifele",
+    "team": "WPG",
+    "elig": [
+     "C"
+    ],
+    "fpts": 177.0
+   },
+   {
+    "name": "Matthew Schaefer",
+    "team": "NYI",
+    "elig": [
+     "D"
+    ],
+    "fpts": 153.0
+   },
+   {
+    "name": "Tim Stutzle",
+    "team": "OTT",
+    "elig": [
+     "C",
+     "LW"
+    ],
+    "fpts": 175.4
+   },
+   {
+    "name": "Darren Raddysh",
+    "team": "TOR",
+    "elig": [
+     "D"
+    ],
+    "fpts": 159.0
+   },
+   {
+    "name": "Will Smith",
+    "team": "SJ",
+    "elig": [
+     "LW",
+     "RW"
+    ],
+    "fpts": 119.0
+   },
+   {
+    "name": "Jakob Chychrun",
+    "team": "WSH",
+    "elig": [
+     "D"
+    ],
+    "fpts": 160.4
+   },
+   {
+    "name": "Connor Bedard",
+    "team": "CHI",
+    "elig": [
+     "C",
+     "RW"
+    ],
+    "fpts": 140.2
+   },
+   {
+    "name": "Trevor Zegras",
+    "team": "PHI",
+    "elig": [
+     "C",
+     "LW",
+     "RW"
+    ],
+    "fpts": 127.7
+   },
+   {
+    "name": "Travis Konecny",
+    "team": "PHI",
+    "elig": [
+     "LW",
+     "RW"
+    ],
+    "fpts": 137.7
+   },
+   {
+    "name": "Adam Fantilli",
+    "team": "CBJ",
+    "elig": [
+     "C"
+    ],
+    "fpts": 133.3
+   },
+   {
+    "name": "Mathew Barzal",
+    "team": "NYI",
+    "elig": [
+     "C",
+     "RW"
+    ],
+    "fpts": 138.0
+   },
+   {
+    "name": "Mikhail Sergachev",
+    "team": "UTA",
+    "elig": [
+     "D"
+    ],
+    "fpts": 130.8
+   },
+   {
+    "name": "Charlie McAvoy",
+    "team": "BOS",
+    "elig": [
+     "D"
+    ],
+    "fpts": 129.0
+   },
+   {
+    "name": "Jared McCann",
+    "team": "SEA",
+    "elig": [
+     "C",
+     "LW"
+    ],
+    "fpts": 85.2
+   },
+   {
+    "name": "Andrei Vasilevskiy",
+    "team": "TB",
+    "elig": [
+     "G"
+    ],
+    "fpts": 165.55
+   },
+   {
+    "name": "Ilya Sorokin",
+    "team": "NYI",
+    "elig": [
+     "G"
+    ],
+    "fpts": 128.3
+   },
+   {
+    "name": "Ukko-Pekka Luukkonen",
+    "team": "BUF",
+    "elig": [
+     "G"
+    ],
+    "fpts": 92.75
+   },
+   {
+    "name": "Carter Hart",
+    "team": "VGK",
+    "elig": [
+     "G"
+    ],
+    "fpts": 43.8
+   },
+   {
+    "name": "Spencer Knight",
+    "team": "CHI",
+    "elig": [
+     "G"
+    ],
+    "fpts": 86.9
+   },
+   {
+    "name": "Alex Lyon",
+    "team": "BUF",
+    "elig": [
+     "G"
+    ],
+    "fpts": 88.35
+   },
+   {
+    "name": "Dustin Wolf",
+    "team": "CGY",
+    "elig": [
+     "G"
+    ],
+    "fpts": 90.0
+   }
+  ]
+ }
+}

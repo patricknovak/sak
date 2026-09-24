@@ -1,0 +1,51 @@
+@import url('https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700;800&family=Inter:wght@400;500;600;700&display=swap');
+@import 'tailwindcss';
+
+@theme {
+  --font-sans: 'Inter', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  --font-display: 'Barlow Condensed', 'Inter', ui-sans-serif, system-ui, sans-serif;
+  --color-ice: #0b1220;
+  --color-rink: #111a2e;
+  --color-boards: #1c2742;
+  --color-line: #26324f;
+  --color-mute: #8b97b5;
+  --color-goal: #e11d48;
+  --color-blue: #38bdf8;
+  --color-gold: #fbbf24;
+  --color-win: #22c55e;
+}
+
+:root { color-scheme: dark; }
+html, body { background: var(--color-ice); color: #e7ecf7; -webkit-tap-highlight-color: transparent; }
+body { overscroll-behavior-y: none; }
+#root { min-height: 100dvh; }
+
+/* safe areas for iPhone home-screen installs */
+.pt-safe { padding-top: env(safe-area-inset-top); }
+.pb-safe { padding-bottom: env(safe-area-inset-bottom); }
+.mb-nav { margin-bottom: calc(64px + env(safe-area-inset-bottom)); }
+
+@utility card { @apply rounded-2xl border border-line bg-rink; }
+@utility btn { @apply inline-flex items-center justify-center gap-1.5 rounded-xl px-3.5 py-2 text-sm font-semibold transition active:scale-[.97] disabled:opacity-40 disabled:pointer-events-none; }
+@utility btn-primary { @apply btn bg-goal text-white hover:bg-rose-500; }
+@utility btn-blue { @apply btn bg-sky-500 text-ice hover:bg-sky-400; }
+@utility btn-ghost { @apply btn border border-line bg-boards/60 text-slate-200 hover:bg-boards; }
+@utility btn-sm { @apply px-2.5! py-1! text-xs! rounded-lg!; }
+@utility input { @apply w-full rounded-xl border border-line bg-ice px-3 py-2 text-[16px] text-white outline-none placeholder:text-mute focus:border-sky-400; }
+@utility chip { @apply inline-flex items-center gap-1 rounded-full border border-line bg-boards px-2 py-0.5 text-[11px] font-semibold text-slate-300; }
+@utility h-display { @apply font-display font-bold uppercase tracking-wide; }
+@utility label { @apply text-[11px] font-semibold uppercase tracking-wider text-mute; }
+@utility tab { @apply shrink-0 rounded-full px-3 py-1.5 text-sm font-semibold text-mute transition; }
+@utility tab-on { @apply bg-white text-ice; }
+
+.scroll-x { overflow-x: auto; scrollbar-width: none; -webkit-overflow-scrolling: touch; }
+.scroll-x::-webkit-scrollbar { display: none; }
+
+@keyframes pop { 0% { transform: scale(.6); opacity: 0 } 60% { transform: scale(1.08); opacity: 1 } 100% { transform: scale(1) } }
+.animate-pop { animation: pop .35s ease-out both; }
+@keyframes slideup { from { transform: translateY(24px); opacity: 0 } to { transform: none; opacity: 1 } }
+.animate-slideup { animation: slideup .25s ease-out both; }
+@keyframes pulse-ring { 0% { box-shadow: 0 0 0 0 rgba(225,29,72,.6) } 100% { box-shadow: 0 0 0 14px rgba(225,29,72,0) } }
+.pulse-ring { animation: pulse-ring 1.4s infinite; }
+@keyframes goal-flash { 0%, 100% { background: transparent } 50% { background: rgba(225,29,72,.18) } }
+.goal-flash { animation: goal-flash .6s ease-in-out 3; }
