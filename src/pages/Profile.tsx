@@ -30,11 +30,12 @@ export default function Profile() {
 
   return (
     <div className="space-y-5">
-      <div className="card flex items-center gap-4 p-4" style={{ background: `linear-gradient(135deg, ${f.color}55, #111a2e 60%)` }}>
-        <TeamBadge team={{ ...me, ...f } as Team} size={64} />
-        <div className="min-w-0">
-          <div className="h-display truncate text-2xl">{f.name}</div>
-          <div className="text-sm text-mute">GM {me.gm_name}{me.is_commish && ' · Commissioner'} · since {me.joined_season}</div>
+      <div className="card-hero flex items-center gap-4 p-4" style={{ '--tc': f.color } as React.CSSProperties}>
+        <div className="pointer-events-none absolute -right-4 -top-6 select-none text-[120px] leading-none opacity-[.08]">{f.emoji}</div>
+        <TeamBadge team={{ ...me, ...f } as Team} size={64} ring />
+        <div className="relative min-w-0">
+          <div className="h-display text-shine truncate text-[28px] leading-tight">{f.name}</div>
+          <div className="text-sm text-white/70">GM {me.gm_name}{me.is_commish && ' · Commissioner'} · since {me.joined_season}</div>
         </div>
       </div>
 
@@ -62,7 +63,7 @@ export default function Profile() {
 
       {career.length > 0 && (
         <Section title="Your SaK career">
-          <div className="card divide-y divide-line">
+          <div className="card divide-y divide-white/[.06]">
             {career.map((c) => (
               <div key={c.season} className="flex items-center gap-3 px-3 py-2 text-sm">
                 <span className="w-16 text-mute">{c.season}</span>

@@ -2,15 +2,49 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useLeague, useNow } from '../lib/store';
 import { rpc, supabase } from '../lib/supabase';
 import type { DraftPick, Player, Pos as PosT } from '../lib/types';
-import { countdown, fmtDateTime, fmtPts } from '../lib/format';
+import { countdown, fmtDateTime, fmtPts, readable } from '../lib/format';
 import { ChatPanel } from '../components/ChatPanel';
 import { PlayerRow, PlayerSheet } from '../components/PlayerCard';
-import { Headshot, Pos, TeamBadge, TeamName, Toggle, useAction, useToast } from '../components/ui';
+import { Countdown, Headshot, Pos, TeamBadge, TeamName, TeamStack, Toggle, useAction, useToast } from '../components/ui';
+import confetti from 'canvas-confetti';
 
 type Tab = 'players' | 'board' | 'queue' | 'team' | 'chat';
 const POSITIONS: ('ALL' | PosT)[] = ['ALL', 'C', 'LW', 'RW', 'D', 'G'];
 
 // render just one layout (phone tabs or the desktop grid) instead of hiding the other with CSS
+// shrinking ring around the team on the clock
+function ClockRing({ frac, color, size = 56, children }: { frac: number; color: string; size?: number; children: React.ReactNode }) {
+  const r = size / 2 - 3, c = 2 * Math.PI * r;
+  const f = Math.max(0, Math.min(1, frac));
+  const stroke = f < 0.12 ? '#ef2a4f' : f < 0.33 ? '#f7c548' : color;
+  return (
+    <div className="relative grid shrink-0 place-items-center" style={{ width: size, height: size }}>
+      <svg className="absolute inset-0 -rotate-90" width={size} height={size}>
+        <circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke="rgba(255,255,255,.1)" strokeWidth={4} />
+        <circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke={stroke} strokeWidth={4} strokeLinecap="round"
+          strokeDasharray={c} strokeDashoffset={c * (1 - f)} style={{ transition: 'stroke-dashoffset .5s linear, stroke .3s', filter: `drop-shadow(0 0 6px ${stroke})` }} />
+      </svg>
+      {children}
+    </div>
+  );
+}
+
+// a burst of confetti in the drafting team's colours
+function celebrate(colors: string[], big = false) {
+  try {
+    const base = { colors, disableForReducedMotion: true, zIndex: 70 };
+    confetti({ ...base, particleCount: big ? 160 : 60, spread: big ? 100 : 70, startVelocity: big ? 48 : 36, origin: { y: 0.25 } });
+    if (big) setTimeout(() => { confetti({ ...base, particleCount: 80, angle: 60, spread: 60, origin: { x: 0, y: 0.6 } }); confetti({ ...base, particleCount: 80, angle: 120, spread: 60, origin: { x: 1, y: 0.6 } }); }, 250);
+  } catch { /* no canvas */ }
+}
+
+// draft board cells tinted by position, like the big boards on draft night
+const POS_BG: Record<string, string> = {
+  C: 'linear-gradient(180deg, rgba(56,189,248,.28), rgba(56,189,248,.12))', LW: 'linear-gradient(180deg, rgba(52,211,153,.28), rgba(52,211,153,.12))',
+  RW: 'linear-gradient(180deg, rgba(167,139,250,.30), rgba(167,139,250,.12))', D: 'linear-gradient(180deg, rgba(251,191,36,.28), rgba(251,191,36,.10))',
+  G: 'linear-gradient(180deg, rgba(251,113,133,.30), rgba(251,113,133,.12))',
+};
+
 function useWide() {
   const mq = '(min-width: 1024px)';
   const [wide, setWide] = useState(() => window.matchMedia(mq).matches);
@@ -81,7 +115,11 @@ export default function Draft() {
   useEffect(() => {
     if (made > lastSeen.current) {
       const latest = [...board].reverse().find((p) => p.player_id);
-      if (latest) { setFlash(latest); setTimeout(() => setFlash(null), 3500); }
+      if (latest) {
+        setFlash(latest); setTimeout(() => setFlash(null), 4200);
+        const tc = team(latest.team_id)?.color ?? '#4cc3ff';
+        celebrate([tc, '#ffffff', '#f7c548'], latest.team_id === me?.id || latest.overall === 1);
+      }
     }
     lastSeen.current = made;
   }, [made]);
@@ -128,7 +166,7 @@ export default function Draft() {
         <input className="input" placeholder="Search players or team (e.g. EDM)" value={q} onChange={(e) => setQ(e.target.value)} />
         <div className="flex items-center gap-1.5">
           <div className="scroll-x flex flex-1 gap-1">
-            {POSITIONS.map((x) => <button key={x} className={`tab px-2.5 py-1 ${pos === x ? 'tab-on' : 'bg-boards'}`} onClick={() => setPos(x)}>{x}</button>)}
+            {POSITIONS.map((x) => <button key={x} className={`tab px-2.5 py-1 ${pos === x ? 'tab-on' : 'bg-white/[.05]'}`} onClick={() => setPos(x)}>{x}</button>)}
           </div>
           <select className="rounded-lg border border-line bg-boards px-2 py-1 text-xs" value={sort} onChange={(e) => setSort(e.target.value as 'proj')}>
             <option value="proj">Projected</option>
@@ -136,7 +174,7 @@ export default function Draft() {
           </select>
         </div>
       </div>
-      <div className="min-h-0 flex-1 divide-y divide-line overflow-y-auto">
+      <div className="min-h-0 flex-1 divide-y divide-white/[.06] overflow-y-auto">
         {available.map((p, i) => (
           <div key={p.id} className="flex items-center gap-2 px-2 py-2">
             <span className="w-6 text-center text-[11px] text-mute">{i + 1}</span>
@@ -161,7 +199,7 @@ export default function Draft() {
     <div className="min-h-0 flex-1 overflow-auto">
       {board.length === 0 ? <div className="p-6 text-center text-sm text-mute">The draft order hasn’t been set yet.</div> : (
         <table className="w-max border-separate border-spacing-1 p-1 text-xs">
-          <thead className="sticky top-0 z-10 bg-ice">
+          <thead className="sticky top-0 z-10 bg-[#0b1222]/95 backdrop-blur">
             <tr>
               <th className="w-7" />
               {order.map((t) => (
@@ -176,7 +214,7 @@ export default function Draft() {
               <td className="text-center font-bold text-mute">K</td>
               {order.map((t) => (
                 <td key={t} className="align-top">
-                  <div className="space-y-0.5 rounded-lg bg-boards/40 p-1">
+                  <div className="space-y-0.5 rounded-lg border border-gold/20 bg-gold/[.06] p-1">
                     {rosters.filter((r) => r.team_id === t && r.acquired === 'keeper').map((r) => players.get(r.player_id)).filter(Boolean).map((p) => (
                       <div key={p!.id} className="flex items-center gap-1 truncate"><Pos p={p!.pos} className="min-w-0 px-1" /><span className="truncate">{p!.last_name}</span></div>
                     ))}
@@ -199,7 +237,8 @@ export default function Draft() {
                     return (
                       <td key={t}>
                         <button onClick={() => pl && setDetail(pl.id)}
-                          className={`h-12 w-28 rounded-lg border px-1.5 py-1 text-left ${isNow ? 'pulse-ring border-goal bg-goal/20' : pl ? 'border-transparent bg-boards' : 'border-dashed border-line'} ${pk.team_id === me?.id && !pl ? 'border-sky-500/60' : ''}`}>
+                          style={pl ? { background: POS_BG[pl.pos], boxShadow: `inset 3px 0 0 ${readable(team(pk.team_id)?.color ?? '#888')}` } : undefined}
+                          className={`h-12 w-28 rounded-lg border px-1.5 py-1 text-left transition ${isNow ? 'pulse-ring border-goal bg-goal/20' : pl ? 'border-white/10 hover:brightness-125' : 'border-dashed border-white/10'} ${pk.team_id === me?.id && !pl ? 'border-sky-400/60 bg-sky-400/[.06]' : ''}`}>
                           <div className="flex items-center justify-between text-[10px] text-mute">
                             <span>#{pk.overall}{pk.auto ? ' 🤖' : ''}</span>
                             {traded && <span title={`Owned by ${team(pk.team_id)?.name}`}>→{team(pk.team_id)?.abbrev}</span>}
@@ -227,7 +266,7 @@ export default function Draft() {
         <Toggle on={!!me?.autodraft} onChange={(v) => run(async () => { await rpc('set_autodraft', { p_on: v }); await refresh(['teams']); }, v ? 'Autodraft on 🤖' : 'Autodraft off')} />
       </div>
       {queue.length === 0 && <div className="p-6 text-center text-sm text-mute">Star (☆) players to line them up here. Your queue is private.</div>}
-      <div className="card divide-y divide-line">
+      <div className="card divide-y divide-white/[.06]">
         {queue.map((id, i) => {
           const p = players.get(id);
           if (!p) return null;
@@ -259,7 +298,7 @@ export default function Draft() {
           );
         })}
       </div>
-      <div className="card divide-y divide-line">
+      <div className="card divide-y divide-white/[.06]">
         {myRoster.sort((a, b) => b.proj - a.proj).map((p) => {
           const r = owner.get(p.id);
           return (
@@ -274,12 +313,12 @@ export default function Draft() {
   );
 
   const Lobby = (
-    <div className="card p-4">
-      <div className="flex flex-wrap items-center justify-between gap-3">
+    <div className="card-hero p-4" style={{ '--tc': '#4cc3ff' } as React.CSSProperties}>
+      <div className="relative flex flex-wrap items-center justify-between gap-3">
         <div>
-          <div className="label">Draft starts</div>
-          <div className="font-display text-4xl font-bold">{league?.draft_at ? countdown(new Date(league.draft_at).getTime() - now) : 'TBD'}</div>
-          <div className="text-xs text-mute">{league?.draft_at && fmtDateTime(league.draft_at)} · {league?.pick_seconds}s clock · {league?.draft_rounds} rounds · {league?.snake ? 'snake' : 'straight'}</div>
+          <div className="label text-white/70">Draft night · puck drops in</div>
+          <div className="mt-2">{league?.draft_at ? <Countdown ms={new Date(league.draft_at).getTime() - now} /> : <span className="h-display text-3xl">TBD</span>}</div>
+          <div className="mt-1 text-xs text-white/60">{league?.draft_at && fmtDateTime(league.draft_at)} · {league?.pick_seconds}s clock · {league?.draft_rounds} rounds · {league?.snake ? 'snake' : 'straight'}</div>
         </div>
         {me?.is_commish && (
           <div className="flex flex-wrap gap-2">
@@ -288,22 +327,24 @@ export default function Draft() {
           </div>
         )}
       </div>
-      {league?.phase === 'keepers' && <p className="mt-3 rounded-lg bg-amber-500/10 p-2 text-xs text-amber-200">Keepers aren’t final yet, so the whole pool shows. A team tag in amber (e.g. HIP?) under the points means that player could still be kept. Star anyone now to build your queue; kept players drop out automatically.</p>}
+      {league?.phase === 'keepers' && <p className="relative mt-3 rounded-xl border border-amber-400/20 bg-amber-500/10 p-2.5 text-xs text-amber-100">Keepers aren’t final yet, so the whole pool shows. A team tag in amber (e.g. HIP?) under the points means that player could still be kept. Star anyone now to build your queue; kept players drop out automatically.</p>}
       {order.length > 0 && (
-        <div className="mt-4">
-          <div className="label mb-1">Draft order</div>
+        <div className="relative mt-4">
+          <div className="label mb-1.5 text-white/70">Draft order</div>
           <div className="grid grid-cols-2 gap-1.5 sm:grid-cols-4">
             {order.map((t, i) => (
-              <div key={t} className="animate-pop flex items-center gap-2 rounded-xl bg-boards/70 px-2 py-1.5" style={{ animationDelay: `${i * 120}ms` }}>
-                <span className="font-display text-lg text-mute">{i + 1}</span><TeamBadge team={team(t)} size={24} /><span className="truncate text-sm">{team(t)?.gm_name}</span>
+              <div key={t} className="animate-pop flex items-center gap-2 rounded-xl border border-white/10 bg-black/25 px-2 py-1.5" style={{ animationDelay: `${i * 120}ms` }}>
+                <span className="num font-display text-lg font-bold text-white/50">{i + 1}</span><TeamBadge team={team(t)} size={24} /><span className="truncate text-sm">{team(t)?.gm_name}</span>
                 {online.has(t) && <span className="ml-auto h-2 w-2 rounded-full bg-emerald-400" />}
               </div>
             ))}
           </div>
         </div>
       )}
-      <div className="mt-3 flex flex-wrap gap-1.5 text-xs text-mute">
-        In the room: {teams.filter((t) => online.has(t.id)).map((t) => <span key={t.id} className="chip">{t.emoji} {t.gm_name}</span>)}
+      <div className="relative mt-4 flex items-center gap-2 text-xs text-white/70">
+        <span className="h-2 w-2 animate-pulse rounded-full bg-emerald-400 shadow-[0_0_8px_rgba(52,211,153,.9)]" />
+        <TeamStack teams={teams.filter((t) => online.has(t.id))} size={22} />
+        <span>{teams.filter((t) => online.has(t.id)).length} in the draft room</span>
       </div>
     </div>
   );
@@ -314,27 +355,30 @@ export default function Draft() {
   ];
 
   return (
-    <div className="-mx-3 -my-3 flex overflow-x-hidden h-[calc(100dvh-7rem-env(safe-area-inset-bottom)-env(safe-area-inset-top))] flex-col sm:-mx-5 lg:m-0 lg:h-[calc(100dvh-3rem)]">
+    <div className="-mx-3 -my-3 flex overflow-x-hidden h-[calc(100dvh-8.25rem-env(safe-area-inset-bottom)-env(safe-area-inset-top))] flex-col sm:-mx-5 lg:m-0 lg:h-[calc(100dvh-3rem)]">
       {/* clock */}
       {(status === 'live' || status === 'paused') && current ? (
-        <div className={`border-b border-line px-3 py-2 ${myTurn ? 'bg-goal/25' : 'bg-rink'}`}>
-          <div className="flex items-center gap-3">
-            <TeamBadge team={team(current.team_id)} size={40} ring={myTurn} />
+        <div className={`relative overflow-hidden border-b border-white/[.08] px-3 py-2.5 ${myTurn ? 'shadow-[inset_0_0_40px_rgba(239,42,79,.35)]' : ''}`}
+          style={{ background: `linear-gradient(110deg, color-mix(in oklab, ${team(current.team_id)?.color ?? '#4cc3ff'} ${myTurn ? 55 : 35}%, #0b1222), #0b1222 70%)` }}>
+          <div className="relative flex items-center gap-3">
+            <ClockRing frac={status === 'paused' ? 1 : remaining / ((league?.pick_seconds ?? 90) * 1000)} color={readable(team(current.team_id)?.color ?? '#4cc3ff')}>
+              <TeamBadge team={team(current.team_id)} size={44} />
+            </ClockRing>
             <div className="min-w-0 flex-1">
-              <div className="text-[11px] text-mute">Round {current.round} · Pick {current.overall} of {board.length}{current.team_id !== current.original_team && ` · via ${team(current.original_team)?.abbrev}`}</div>
-              <div className="truncate font-semibold">{myTurn ? '⏰ YOU’RE ON THE CLOCK' : <TeamName team={team(current.team_id)} />}</div>
+              <div className="text-[11px] font-semibold uppercase tracking-wider text-white/60">Round {current.round} · Pick {current.overall} of {board.length}{current.team_id !== current.original_team && ` · via ${team(current.original_team)?.abbrev}`}</div>
+              <div className="h-display truncate text-xl leading-tight">{myTurn ? <span className="text-white">⏰ Your pick!</span> : <TeamName team={team(current.team_id)} />}</div>
             </div>
-            <div className={`font-display text-4xl font-bold tabular-nums ${clockColor}`}>{status === 'paused' ? '⏸' : countdown(remaining)}</div>
+            <div className={`num font-display text-5xl font-extrabold leading-none ${clockColor} ${remaining < 10_000 && status !== 'paused' ? 'animate-pulse' : ''}`}>{status === 'paused' ? '⏸' : countdown(remaining)}</div>
           </div>
           <div className="scroll-x mt-1.5 flex items-center gap-1.5 text-[11px] text-mute">
-            <span>Up next:</span>
+            <span className="shrink-0">Up next:</span>
             {upcoming.map((p) => <span key={p.id} className={`flex shrink-0 items-center gap-1 rounded-full px-1.5 py-0.5 ${p.team_id === me?.id ? 'bg-sky-500/20 text-sky-200' : 'bg-boards'}`}><TeamBadge team={team(p.team_id)} size={14} />{team(p.team_id)?.gm_name}</span>)}
             {picksUntilMine != null && picksUntilMine > 0 && <span className="ml-auto shrink-0 text-sky-300">You pick in {picksUntilMine}</span>}
           </div>
         </div>
       ) : status === 'done' ? (
-        <div className="border-b border-line bg-emerald-500/10 px-3 py-3 text-center">
-          <div className="h-display text-xl">🏁 Draft complete</div>
+        <div className="border-b border-white/[.08] bg-gradient-to-r from-emerald-500/20 via-emerald-500/5 to-emerald-500/20 px-3 py-4 text-center">
+          <div className="h-display text-gold-shine text-2xl">🏁 Draft complete</div>
           <div className="text-xs text-mute">{made} picks made. Set your lineup on My Team, then start chirping.</div>
         </div>
       ) : (
@@ -365,9 +409,9 @@ export default function Draft() {
         {tab === 'team' && TeamTab}
         {tab === 'chat' && <ChatPanel channel="draft" compact className="flex-1" />}
       </div>}
-      {wide && <div className="grid min-h-0 flex-1 grid-cols-[360px_1fr_320px] gap-3 pt-3">
+      {wide && <div className="grid min-h-0 flex-1 grid-cols-[minmax(300px,360px)_minmax(0,1fr)_minmax(260px,320px)] gap-3 pt-3">
         <div className="card flex min-h-0 flex-col overflow-hidden">{PlayersTab}</div>
-        <div className="flex min-h-0 flex-col gap-3">
+        <div className="flex min-h-0 min-w-0 flex-col gap-3">
           <div className="card flex min-h-0 flex-[3] flex-col overflow-hidden">{BoardTab}</div>
           <div className="card flex min-h-0 flex-[2] flex-col overflow-hidden">
             <div className="flex gap-1 border-b border-line p-1.5">
@@ -384,13 +428,19 @@ export default function Draft() {
       {flash && (() => {
         const p = players.get(flash.player_id!);
         return (
-          <div className="pointer-events-none fixed inset-x-0 top-24 z-50 flex justify-center px-4">
-            <div className="animate-pop flex items-center gap-3 rounded-2xl border border-white/10 px-4 py-3 shadow-2xl" style={{ background: `linear-gradient(135deg, ${team(flash.team_id)?.color}, #111a2e)` }}>
-              <Headshot p={p} size={52} />
-              <div>
-                <div className="text-[11px] uppercase tracking-wider text-white/70">Pick #{flash.overall}{flash.auto ? ' · autopick' : ''}</div>
-                <div className="font-semibold">{team(flash.team_id)?.name} select</div>
-                <div className="h-display text-xl">{p?.name}</div>
+          <div className="pointer-events-none fixed inset-x-0 top-20 z-[65] flex justify-center px-4">
+            <div className="animate-pop shine w-full max-w-sm overflow-hidden rounded-3xl border border-white/15 shadow-[0_30px_80px_-20px_rgba(0,0,0,.9)]"
+              style={{ background: `radial-gradient(120% 100% at 0% 0%, ${team(flash.team_id)?.color}, #0b1222 70%)` }}>
+              <div className="flex items-center justify-between border-b border-white/10 px-4 py-2 text-[11px] font-bold uppercase tracking-[.2em] text-white/80">
+                <span>🚨 The pick is in</span><span className="num">#{flash.overall}{flash.auto ? ' · auto' : ''}</span>
+              </div>
+              <div className="flex items-center gap-4 p-4">
+                <Headshot p={p} size={76} />
+                <div className="min-w-0">
+                  <div className="flex items-center gap-1.5 text-sm font-semibold text-white/85"><TeamBadge team={team(flash.team_id)} size={18} />{team(flash.team_id)?.name} select</div>
+                  <div className="h-display text-shine truncate text-3xl leading-none">{p?.name}</div>
+                  <div className="mt-1 flex items-center gap-1.5 text-xs text-white/70"><Pos p={p?.pos ?? 'C'} />{p?.nhl_team} · {fmtPts(p?.proj ?? 0, 0)} proj</div>
+                </div>
               </div>
             </div>
           </div>

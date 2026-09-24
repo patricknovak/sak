@@ -5,7 +5,8 @@ import { rpc, realtimeChannel, supabase } from '../lib/supabase';
 import type { Trade } from '../lib/types';
 import { ago, fmtDateTime, fmtPts } from '../lib/format';
 import { PlayerRow } from '../components/PlayerCard';
-import { Empty, Section, TeamBadge, TeamName, useAction } from '../components/ui';
+import { Empty, Section, TeamBadge, TeamName, useAction, PageHeader } from '../components/ui';
+import { Repeat2 } from 'lucide-react';
 
 export default function Trades() {
   const { me, teams, team, rosters, players, picks, league, season } = useLeague();
@@ -80,10 +81,7 @@ export default function Trades() {
 
   return (
     <div className="space-y-5">
-      <div className="flex items-end justify-between">
-        <h1 className="h-display text-2xl">Trades</h1>
-        <div className="text-xs text-mute">Deadline {league?.trade_deadline ? fmtDateTime(league.trade_deadline) : 'TBD'}</div>
-      </div>
+      <PageHeader icon={<Repeat2 size={22} className="text-blue" />} title="Trades" sub={<>Deadline {league?.trade_deadline ? fmtDateTime(league.trade_deadline) : 'TBD'}</>} />
 
       {groups.incoming.length > 0 && (
         <Section title="Offers for you">
@@ -130,7 +128,7 @@ export default function Trades() {
                     { label: `${team(partner)?.gm_name} sends`, a: theirs, sel: get, set: setGet, psel: getPicks, pset: setGetPicks }].map((col) => (
                     <div key={col.label}>
                       <div className="label mb-1 flex justify-between"><span>{col.label}</span><span>{fmtPts(valueOf(col.sel), 0)} pts value</span></div>
-                      <div className="max-h-80 divide-y divide-line overflow-y-auto rounded-xl border border-line">
+                      <div className="max-h-80 divide-y divide-white/[.06] overflow-y-auto rounded-xl border border-line">
                         {col.a.players.map((p) => (
                           <label key={p.id} className={`flex cursor-pointer items-center gap-2 px-2 py-1.5 ${col.sel.has(p.id) ? 'bg-sky-500/15' : ''}`}>
                             <input type="checkbox" checked={col.sel.has(p.id)} onChange={() => flip(col.sel, col.set, p.id)} className="h-4 w-4 accent-sky-400" />

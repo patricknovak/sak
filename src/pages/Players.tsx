@@ -3,7 +3,8 @@ import { useLeague } from '../lib/store';
 import type { Pos as PosT } from '../lib/types';
 import { fmtPts } from '../lib/format';
 import { PlayerRow, PlayerSheet } from '../components/PlayerCard';
-import { TeamBadge } from '../components/ui';
+import { TeamBadge, PageHeader } from '../components/ui';
+import { Search } from 'lucide-react';
 
 type SortKey = 'season' | 'last14' | 'proj' | 'last_fp';
 
@@ -34,17 +35,15 @@ export default function Players() {
 
   return (
     <div className="space-y-3">
-      <div className="flex items-end justify-between gap-2">
-        <h1 className="h-display text-2xl">Players</h1>
-        <div className="text-xs text-mute">Roster {used}/{Object.entries(league?.roster ?? {}).reduce((t, [k, v]) => t + (k === 'IR' ? 0 : v), 0)} {league?.phase !== 'season' && '· pickups open after the draft'}</div>
-      </div>
+      <PageHeader icon={<Search size={22} className="text-blue" />} title="Players"
+        sub={<>Roster {used}/{Object.entries(league?.roster ?? {}).reduce((t, [k, v]) => t + (k === 'IR' ? 0 : v), 0)} {league?.phase !== 'season' && '· pickups open after the draft'}</>} />
       <div className="sticky top-[calc(3rem+var(--banner,0px))] z-20 -mx-3 space-y-2 border-b border-line bg-ice/95 px-3 py-2 backdrop-blur lg:top-[var(--banner,0px)]">
         <input className="input" placeholder="Search name or NHL team (e.g. TOR)" value={q} onChange={(e) => setQ(e.target.value)} />
         <div className="scroll-x flex items-center gap-1">
-          {(['ALL', 'C', 'LW', 'RW', 'D', 'G'] as const).map((x) => <button key={x} className={`tab px-2.5 py-1 ${pos === x ? 'tab-on' : 'bg-boards'}`} onClick={() => setPos(x)}>{x}</button>)}
+          {(['ALL', 'C', 'LW', 'RW', 'D', 'G'] as const).map((x) => <button key={x} className={`tab px-2.5 py-1 ${pos === x ? 'tab-on' : 'bg-white/[.05]'}`} onClick={() => setPos(x)}>{x}</button>)}
           <span className="mx-1 h-5 w-px bg-line" />
           {([['avail', 'Available'], ['taken', 'Rostered'], ['all', 'All']] as const).map(([k, l]) => (
-            <button key={k} className={`tab px-2.5 py-1 ${who === k ? 'tab-on' : 'bg-boards'}`} onClick={() => setWho(k)}>{l}</button>
+            <button key={k} className={`tab px-2.5 py-1 ${who === k ? 'tab-on' : 'bg-white/[.05]'}`} onClick={() => setWho(k)}>{l}</button>
           ))}
         </div>
         <div className="scroll-x flex gap-1 text-xs">
@@ -53,7 +52,7 @@ export default function Players() {
           ))}
         </div>
       </div>
-      <div className="card divide-y divide-line">
+      <div className="card divide-y divide-white/[.06]">
         {list.slice(0, limit).map((p, i) => {
           const r = owner.get(p.id);
           return (

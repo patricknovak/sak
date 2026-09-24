@@ -4,7 +4,8 @@ import { supabase } from '../lib/supabase';
 import type { NewsItem } from '../lib/types';
 import { ago, injuryBadge } from '../lib/format';
 import { PlayerRow, PlayerSheet } from '../components/PlayerCard';
-import { Section, TeamBadge, TeamName } from '../components/ui';
+import { Section, TeamBadge, TeamName, PageHeader } from '../components/ui';
+import { Newspaper } from 'lucide-react';
 
 export default function News() {
   const { players, owner, teams, me } = useLeague();
@@ -36,13 +37,10 @@ export default function News() {
 
   return (
     <div className="space-y-5">
-      <div>
-        <h1 className="h-display text-2xl">News & Injuries</h1>
-        <p className="text-sm text-mute">Injury and suspension statuses refresh hourly; headlines every two hours.</p>
-      </div>
+      <PageHeader icon={<Newspaper size={22} className="text-blue" />} title="News & Injuries" sub="Injuries refresh hourly, headlines every two hours." />
 
       <Section title="🩹 Your team">
-        <div className="card divide-y divide-line">
+        <div className="card divide-y divide-white/[.06]">
           {mine.length === 0 ? <div className="p-4 text-sm text-mute">Nobody on your roster is hurt or suspended. Knock on wood.</div>
             : mine.map((p) => <Fragment key={p.id}>{Hurt({ id: p.id })}</Fragment>)}
         </div>
@@ -50,8 +48,8 @@ export default function News() {
 
       <Section title="League injury report" right={
         <div className="flex gap-1">
-          <button className={`tab px-2.5 py-1 text-xs ${scope === 'rostered' ? 'tab-on' : 'bg-boards'}`} onClick={() => setScope('rostered')}>SaK rosters</button>
-          <button className={`tab px-2.5 py-1 text-xs ${scope === 'all' ? 'tab-on' : 'bg-boards'}`} onClick={() => setScope('all')}>Free agents</button>
+          <button className={`tab px-2.5 py-1 text-xs ${scope === 'rostered' ? 'tab-on' : 'bg-white/[.05]'}`} onClick={() => setScope('rostered')}>SaK rosters</button>
+          <button className={`tab px-2.5 py-1 text-xs ${scope === 'all' ? 'tab-on' : 'bg-white/[.05]'}`} onClick={() => setScope('all')}>Free agents</button>
         </div>}>
         {scope === 'rostered' ? (
           <div className="space-y-3">
@@ -59,12 +57,12 @@ export default function News() {
             {byTeam.map(({ t, list }) => (
               <div key={t.id} className="card overflow-hidden">
                 <div className="flex items-center gap-2 border-b border-line px-3 py-2"><TeamBadge team={t} size={22} /><TeamName team={t} /><span className="ml-auto text-xs text-mute">{list.length}</span></div>
-                <div className="divide-y divide-line">{list.map((p) => <Fragment key={p.id}>{Hurt({ id: p.id })}</Fragment>)}</div>
+                <div className="divide-y divide-white/[.06]">{list.map((p) => <Fragment key={p.id}>{Hurt({ id: p.id })}</Fragment>)}</div>
               </div>
             ))}
           </div>
         ) : (
-          <div className="card divide-y divide-line">
+          <div className="card divide-y divide-white/[.06]">
             {fa.length === 0 ? <div className="p-4 text-sm text-mute">No notable injured free agents.</div> : fa.map((p) => <Fragment key={p.id}>{Hurt({ id: p.id })}</Fragment>)}
           </div>
         )}

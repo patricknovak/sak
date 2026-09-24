@@ -34,25 +34,34 @@ export default function Login() {
 
   return (
     <div className="pt-safe relative flex min-h-dvh flex-col items-center justify-center overflow-hidden px-4 py-10">
-      <div className="pointer-events-none absolute inset-0 opacity-40" style={{
-        background: 'radial-gradient(60% 40% at 50% 0%, #e11d4855, transparent), radial-gradient(50% 40% at 80% 100%, #38bdf833, transparent)' }} />
+      {/* arena lights */}
+      <div className="pointer-events-none absolute inset-0">
+        <div className="animate-glow absolute -top-40 left-1/2 h-[520px] w-[820px] -translate-x-1/2 rounded-full" style={{ background: 'radial-gradient(closest-side, rgba(76,195,255,.28), transparent)' }} />
+        <div className="absolute -left-32 top-10 h-[640px] w-40 rotate-[24deg] bg-gradient-to-b from-white/[.10] to-transparent blur-2xl" />
+        <div className="absolute -right-32 top-10 h-[640px] w-40 -rotate-[24deg] bg-gradient-to-b from-white/[.10] to-transparent blur-2xl" />
+        <div className="absolute bottom-0 left-1/2 h-64 w-[900px] -translate-x-1/2 rounded-[100%] border-t-[6px] border-goal/20" />
+      </div>
       <div className="relative w-full max-w-md">
         <div className="mb-8 text-center">
-          <img src="./icon.svg" alt="" className="mx-auto mb-3 h-20 w-20 drop-shadow-2xl" />
-          <h1 className="h-display text-4xl">She’s A Keeper</h1>
-          <p className="mt-1 text-sm text-mute">SaK League · est. 2013 · 2026-27 season</p>
+          <div className="relative mx-auto mb-4 h-24 w-24">
+            <div className="absolute inset-0 animate-glow rounded-[28px] bg-goal/40 blur-2xl" />
+            <img src="./icon.svg" alt="" className="relative h-24 w-24 drop-shadow-2xl" />
+          </div>
+          <h1 className="h-display text-shine text-5xl leading-none">She’s A Keeper</h1>
+          <p className="mt-2 text-xs font-bold uppercase tracking-[.3em] text-mute">SaK League · est. 2013 · 2026-27</p>
         </div>
 
         {!pick ? (
           <>
-            <div className="label mb-2 text-center">Who are you?</div>
-            <div className="grid grid-cols-2 gap-2">
+            <div className="label mb-3 text-center">Who are you?</div>
+            <div className="stagger grid grid-cols-2 gap-2.5">
               {teams.map((t) => (
                 <button key={t.id} onClick={() => { setPick(t); setPw(''); setErr(''); }}
-                  className="card flex flex-col items-center gap-2 px-2 py-4 transition hover:border-white/40 active:scale-[.98]">
-                  <TeamBadge team={t as Team} size={48} />
-                  <div className="text-center">
-                    <div className="text-sm font-semibold leading-tight">{t.name}</div>
+                  className="group card relative flex flex-col items-center gap-2 overflow-hidden px-2 py-4 transition duration-200 hover:-translate-y-0.5 active:scale-[.97]">
+                  <div className="pointer-events-none absolute inset-0 opacity-60 transition group-hover:opacity-100" style={{ background: `radial-gradient(90% 70% at 50% 0%, ${t.color}55, transparent 70%)` }} />
+                  <div className="relative"><TeamBadge team={t as Team} size={52} /></div>
+                  <div className="relative text-center">
+                    <div className="text-sm font-bold leading-tight">{t.name}</div>
                     <div className="text-xs text-mute">{t.gm_name}</div>
                   </div>
                 </button>
@@ -61,23 +70,23 @@ export default function Login() {
             </div>
           </>
         ) : (
-          <form onSubmit={signIn} className="card animate-pop p-5">
-            <div className="mb-4 flex items-center gap-3">
-              <TeamBadge team={pick as Team} size={52} />
+          <form onSubmit={signIn} className="card-hero animate-pop p-5" style={{ '--tc': pick.color } as React.CSSProperties}>
+            <div className="relative mb-5 flex items-center gap-3">
+              <TeamBadge team={pick as Team} size={60} ring />
               <div>
-                <div className="font-semibold">{pick.name}</div>
-                <div className="text-sm text-mute">GM {pick.gm_name}</div>
+                <div className="h-display text-shine text-2xl leading-tight">{pick.name}</div>
+                <div className="text-sm text-white/70">GM {pick.gm_name}</div>
               </div>
             </div>
-            <label className="label">Password</label>
-            <input className="input mt-1" type="password" autoFocus autoComplete="current-password" value={pw}
+            <label className="label relative text-white/70">Password</label>
+            <input className="input relative mt-1" type="password" autoFocus autoComplete="current-password" value={pw}
               onChange={(e) => setPw(e.target.value)} placeholder="Your SaK password" />
-            <button className="btn-primary mt-4 w-full py-3 text-base" disabled={busy || !pw}>{busy ? <Spinner /> : 'Drop the puck'}</button>
-            <button type="button" className="mt-3 w-full text-center text-sm text-mute" onClick={() => setPick(null)}>Not {pick.gm_name}? Switch team</button>
+            <button className="btn-primary relative mt-4 w-full py-3 text-base" disabled={busy || !pw}>{busy ? <Spinner /> : '🏒 Drop the puck'}</button>
+            <button type="button" className="relative mt-3 w-full text-center text-sm text-white/60" onClick={() => setPick(null)}>Not {pick.gm_name}? Switch team</button>
           </form>
         )}
-        {err && <div className="mt-4 rounded-xl bg-red-900/50 px-4 py-3 text-center text-sm text-red-200">{err}</div>}
-        <p className="mt-8 text-center text-xs text-mute">Play fair, play hard and play to win.</p>
+        {err && <div className="mt-4 rounded-xl border border-red-400/30 bg-red-900/50 px-4 py-3 text-center text-sm text-red-200">{err}</div>}
+        <p className="mt-8 text-center text-xs italic text-mute">Play fair, play hard and play to win.</p>
       </div>
     </div>
   );

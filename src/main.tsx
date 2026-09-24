@@ -44,7 +44,19 @@ function App() {
       </div>
     );
   }
-  if (!ready) return <div className="grid min-h-dvh place-items-center"><Spinner className="h-8 w-8" /></div>;
+  if (!ready) {
+    return (
+      <div className="grid min-h-dvh place-items-center">
+        <div className="flex flex-col items-center gap-4">
+          <div className="relative h-20 w-20">
+            <div className="absolute inset-0 animate-glow rounded-[24px] bg-goal/40 blur-2xl" />
+            <img src="./icon.svg" alt="" className="relative h-20 w-20 animate-pulse" />
+          </div>
+          <div className="h-display text-shine text-xl tracking-[.2em]">Loading the barn…</div>
+        </div>
+      </div>
+    );
+  }
   if (!session) return <Login />;
   if (!me) {
     return (

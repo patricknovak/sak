@@ -116,7 +116,7 @@ export default function MyTeam() {
           <>
             <div className="min-w-0 flex-1"><PlayerRow p={x.p} dim={slot !== 'BN' && slot !== 'IR' && !g} /></div>
             {lk && <span title="Locked: game started" className="text-xs">🔒</span>}
-            <div className="w-14 text-right">
+            <div className="min-w-14 shrink-0 text-right">
               <div className={`text-sm font-semibold ${tp && tp.fpts > 0 ? 'text-emerald-300' : ''}`}>{tp ? fmtPts(tp.fpts, 1) : g ? '–' : ''}</div>
               {offseason
                 ? <div className="whitespace-nowrap text-[10px] text-mute">{fmtPts(x.p.last_fp, 0)} ’25-26</div>
@@ -133,14 +133,16 @@ export default function MyTeam() {
   if (!t) return null;
   return (
     <div className="space-y-4">
-      <div className="flex items-center gap-3">
-        <TeamBadge team={t} size={48} />
-        <div className="min-w-0 flex-1">
-          <h1 className="h-display truncate text-2xl leading-tight">{t.name}</h1>
-          <div className="text-xs text-mute">GM {t.gm_name}{st && league?.phase === 'season' && <> · {ordinal(st.rank)} · {fmtPts(st.points)} pts · {st.moves}/{league?.max_acquisitions} pickups</>}</div>
+      <div className="card-hero flex flex-wrap items-center gap-3 p-4" style={{ '--tc': t.color } as React.CSSProperties}>
+        <div className="pointer-events-none absolute -right-4 -top-6 select-none text-[120px] leading-none opacity-[.08]">{t.emoji}</div>
+        <TeamBadge team={t} size={56} ring />
+        <div className="relative min-w-0 flex-1">
+          <h1 className="h-display text-shine truncate text-[28px] leading-tight">{t.name}</h1>
+          <div className="text-xs text-white/70">GM {t.gm_name}{st && league?.phase === 'season' && <> · {ordinal(st.rank)} · {fmtPts(st.points)} pts · {st.moves}/{league?.max_acquisitions} pickups</>}</div>
+          {t.motto && <div className="truncate text-xs italic text-white/60">“{t.motto}”</div>}
         </div>
-        <select className="rounded-lg border border-line bg-boards px-2 py-1.5 text-sm" value={teamId} onChange={(e) => nav(Number(e.target.value) === me?.id ? '/team' : `/team/${e.target.value}`)}>
-          {teams.map((x) => <option key={x.id} value={x.id}>{x.id === me?.id ? 'My team' : x.name}</option>)}
+        <select aria-label="View team" className="relative w-full rounded-xl border border-white/15 bg-black/30 px-2 py-1.5 text-sm backdrop-blur sm:w-auto" value={teamId} onChange={(e) => nav(Number(e.target.value) === me?.id ? '/team' : `/team/${e.target.value}`)}>
+          {teams.map((x) => <option key={x.id} value={x.id}>{x.id === me?.id ? '🏠 My team' : `${x.emoji} ${x.name}`}</option>)}
         </select>
       </div>
 
@@ -163,26 +165,26 @@ export default function MyTeam() {
       <div className="grid gap-4 lg:grid-cols-2">
         {(!offseason || anyStarter) && (
           <Section title="Starters">
-            <div className="card divide-y divide-line overflow-hidden">{rows.map((r, i) => <Fragment key={i}>{Row({ slot: r.slot, x: r.x })}</Fragment>)}</div>
+            <div className="card divide-y divide-white/[.06] overflow-hidden">{rows.map((r, i) => <Fragment key={i}>{Row({ slot: r.slot, x: r.x })}</Fragment>)}</div>
           </Section>
         )}
         <div className="space-y-4">
           <Section title={offseason && !anyStarter ? `Roster (${bench.length})` : `Bench (${bench.length}/${cap.BN ?? 12})`}>
-            <div className="card divide-y divide-line overflow-hidden">
+            <div className="card divide-y divide-white/[.06] overflow-hidden">
               {bench.map((x) => <Fragment key={x.p.id}>{Row({ slot: 'BN', x })}</Fragment>)}
               {selected && selected.r.slot !== 'BN' && Row({ slot: 'BN' })}
               {bench.length === 0 && !selected && <div className="p-3 text-sm text-mute">Empty bench.</div>}
             </div>
           </Section>
           <Section title={`IR (${ir.length}/${cap.IR ?? 2})`}>
-            <div className="card divide-y divide-line overflow-hidden">
+            <div className="card divide-y divide-white/[.06] overflow-hidden">
               {ir.map((x) => <Fragment key={x.p.id}>{Row({ slot: 'IR', x })}</Fragment>)}
               {selected && selected.r.slot !== 'IR' && ir.length < (cap.IR ?? 2) && Row({ slot: 'IR' })}
               {ir.length === 0 && !selected && <div className="p-3 text-xs text-mute">Injured players only (honour system; the commish is watching).</div>}
             </div>
           </Section>
           <Section title="Transactions">
-            <div className="card divide-y divide-line">
+            <div className="card divide-y divide-white/[.06]">
               {tx.length === 0 && <div className="p-3 text-sm text-mute">None yet.</div>}
               {tx.map((x) => (
                 <div key={x.id} className="flex items-center gap-2 px-3 py-2 text-sm">

@@ -2,7 +2,8 @@ import { useEffect, useMemo, useState } from 'react';
 import { useLeague } from '../lib/store';
 import { rpc } from '../lib/supabase';
 import { fmtDateTime } from '../lib/format';
-import { Section, TeamBadge, useAction } from '../components/ui';
+import { Section, TeamBadge, useAction, PageHeader } from '../components/ui';
+import { Wrench } from 'lucide-react';
 import { ScoringEditor } from '../components/ScoringEditor';
 
 // datetime-local <-> ISO in the viewer's zone
@@ -65,7 +66,7 @@ export default function Commish() {
 
   return (
     <div className="space-y-5">
-      <div><h1 className="h-display text-2xl">🛠️ Commissioner</h1><p className="text-sm text-mute">With great power comes great responsibility, {me.gm_name}.</p></div>
+      <PageHeader icon={<Wrench size={22} className="text-gold" />} title="Commissioner" sub={`With great power comes great responsibility, ${me.gm_name}.`} />
 
       <Section title="📣 Announcement">
         <div className="card space-y-2 p-3">
@@ -156,7 +157,7 @@ export default function Commish() {
         <div className="card space-y-2 p-3">
           <input className="input" placeholder="Find a player" value={mv.q} onChange={(e) => setMv({ ...mv, q: e.target.value, player: 0 })} />
           {matches.length > 0 && !mv.player && (
-            <div className="divide-y divide-line rounded-xl border border-line">
+            <div className="divide-y divide-white/[.06] rounded-xl border border-line">
               {matches.map((p) => <button key={p.id} className="flex w-full justify-between px-3 py-1.5 text-left text-sm" onClick={() => setMv({ ...mv, player: p.id, q: p.name })}>
                 <span>{p.name} · {p.nhl_team}</span><span className="text-mute">{team(owner.get(p.id)?.team_id)?.abbrev ?? 'FA'}</span></button>)}
             </div>

@@ -4,6 +4,7 @@ import { realtimeChannel, supabase } from '../lib/supabase';
 import type { Message, Reaction } from '../lib/types';
 import { ago, readable } from '../lib/format';
 import { TeamBadge, useToast } from './ui';
+import { SendHorizontal } from 'lucide-react';
 
 const REACTIONS = ['🔥', '😂', '🤡', '👏', '💀', '🍺', '🚨', '🪣'];
 const CHIRPS = ['🚨 REACH!', 'Steal of the draft 🥷', 'Enjoy the Peter 🪣', 'Sell me that guy 💰', 'Who? 🤔', 'Lock it in 🔒', 'GG 🍺', 'Scoreboard. 📈'];
@@ -117,7 +118,7 @@ export function ChatPanel({ channel, compact, className = '' }: { channel: strin
           if (m.kind === 'system') {
             return (
               <div key={m.id} className="flex justify-center py-1">
-                <div className={`max-w-[92%] whitespace-pre-line rounded-xl bg-boards/70 px-3 py-1.5 text-center text-xs text-slate-300 ${compact ? '' : 'sm:text-sm'}`}>{m.body}</div>
+                <div className={`max-w-[92%] whitespace-pre-line rounded-full border border-white/10 bg-white/[.05] px-3.5 py-1.5 text-center text-xs font-medium text-slate-300 ${compact ? '' : 'sm:text-sm'}`}>{m.body}</div>
               </div>
             );
           }
@@ -125,10 +126,10 @@ export function ChatPanel({ channel, compact, className = '' }: { channel: strin
             const parent = m.reply_to ? byId.get(m.reply_to) : undefined;
             return (
               <div key={m.id} className="flex gap-2 pt-2">
-                <div className="grid h-7 w-7 shrink-0 place-items-center rounded-full bg-gradient-to-br from-emerald-500 to-emerald-800 text-sm">🎙️</div>
+                <div className="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-gradient-to-br from-emerald-300 to-emerald-800 text-sm shadow-[0_4px_14px_-4px_rgba(52,211,153,.9)] ring-1 ring-emerald-300/40">🎙️</div>
                 <div className="max-w-[85%]">
                   <div className="mb-0.5 px-1 text-[11px]"><span className="font-semibold text-emerald-300">Garry</span> <span className="text-mute">· league bot · {ago(m.created_at, now)}</span></div>
-                  <div className="rounded-2xl rounded-bl-md border border-emerald-700/40 bg-emerald-950/40 px-3 py-2 text-[15px] leading-snug">
+                  <div className="rounded-2xl rounded-bl-md border border-emerald-400/25 bg-gradient-to-br from-emerald-500/20 to-emerald-900/30 px-3 py-2 text-[15px] leading-snug shadow-[0_8px_24px_-14px_rgba(52,211,153,.8)]">
                     {parent && <div className="mb-1 border-l-2 border-emerald-500/50 pl-2 text-xs opacity-75">{team(parent.team_id)?.gm_name}: {parent.body.slice(0, 80)}</div>}
                     <span className="whitespace-pre-wrap break-words">{highlight(m.body)}</span>
                   </div>
@@ -151,8 +152,8 @@ export function ChatPanel({ channel, compact, className = '' }: { channel: strin
                   <div className="mb-0.5 px-1 text-[11px]"><span className="font-semibold" style={{ color: readable(t?.color ?? '#888') }}>{t?.gm_name}</span> <span className="text-mute">· {ago(m.created_at, now)}</span></div>
                 )}
                 <button onClick={() => setPicker(picker === m.id ? null : m.id)}
-                  className={`rounded-2xl px-3 py-1.5 text-left text-[15px] leading-snug ${m.deleted ? 'italic text-mute' : ''} ${mine ? 'rounded-br-md text-white' : 'rounded-bl-md bg-boards'}`}
-                  style={mine ? { background: me?.color } : undefined}>
+                  className={`rounded-2xl px-3 py-1.5 text-left text-[15px] leading-snug transition active:scale-[.98] ${m.deleted ? 'italic text-mute' : ''} ${mine ? 'rounded-br-md text-white shadow-[inset_0_1px_0_rgba(255,255,255,.2)]' : 'rounded-bl-md border border-white/[.07] bg-white/[.06]'}`}
+                  style={mine ? { background: `linear-gradient(160deg, color-mix(in oklab, ${me?.color} 85%, white 15%), color-mix(in oklab, ${me?.color} 80%, black))`, boxShadow: `0 8px 20px -12px ${me?.color}` } : undefined}>
                   {parent && <div className="mb-1 border-l-2 border-white/40 pl-2 text-xs opacity-75">{team(parent.team_id)?.gm_name}: {parent.body.slice(0, 80)}</div>}
                   <span className="whitespace-pre-wrap break-words">{highlight(m.body)}</span>
                 </button>
@@ -164,7 +165,7 @@ export function ChatPanel({ channel, compact, className = '' }: { channel: strin
                   </div>
                 )}
                 {picker === m.id && (
-                  <div className="animate-pop mt-1 flex items-center gap-1 rounded-full border border-line bg-rink px-2 py-1 shadow-xl">
+                  <div className="animate-pop mt-1 flex items-center gap-1 rounded-full border border-white/10 bg-[#16213b]/95 px-2 py-1 shadow-2xl backdrop-blur">
                     {REACTIONS.map((e) => <button key={e} className="text-lg transition hover:scale-125" onClick={() => react(m, e)}>{e}</button>)}
                     <button className="ml-1 text-xs text-mute" onClick={() => { setReplyTo(m); setPicker(null); }}>↩︎</button>
                     {mine && !m.deleted && <button className="ml-1 text-xs text-red-300" onClick={() => remove(m)}>🗑</button>}
@@ -176,7 +177,7 @@ export function ChatPanel({ channel, compact, className = '' }: { channel: strin
         })}
       </div>
 
-      <div className="border-t border-line bg-rink/80 p-2">
+      <div className="border-t border-white/[.07] bg-[#0b1222]/70 p-2 backdrop-blur-xl">
         {replyTo && (
           <div className="mb-1 flex items-center gap-2 rounded-lg bg-boards px-2 py-1 text-xs">
             <span className="flex-1 truncate">↩︎ {team(replyTo.team_id)?.gm_name}: {replyTo.body}</span>
@@ -201,7 +202,7 @@ export function ChatPanel({ channel, compact, className = '' }: { channel: strin
             onChange={(e) => setText(e.target.value)}
             onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send(text); } }}
           />
-          <button className="btn-primary h-10 shrink-0 px-4" disabled={!text.trim()}>Send</button>
+          <button className="btn-primary h-10 w-10 shrink-0 p-0" disabled={!text.trim()} aria-label="Send"><SendHorizontal size={18} /></button>
         </form>
       </div>
     </div>

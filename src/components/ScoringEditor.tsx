@@ -49,7 +49,7 @@ export function ScoringEditor() {
       {(['skater', 'goalie'] as Side[]).map((side) => (
         <div key={side} className="mb-4">
           <div className="h-display mb-1 text-base">{side === 'skater' ? 'Forwards / Defencemen' : 'Goaltenders'}</div>
-          <div className="divide-y divide-line">
+          <div className="divide-y divide-white/[.06]">
             {SCORING_STATS[side].map(([k, label]) => {
               const s = draft[side][k];
               return (
