@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { useLeague, useNow } from '../lib/store';
-import { rpc, supabase } from '../lib/supabase';
+import { rpc, realtimeChannel, supabase } from '../lib/supabase';
 import type { Trade } from '../lib/types';
 import { ago, fmtDateTime, fmtPts } from '../lib/format';
 import { PlayerRow } from '../components/PlayerCard';
@@ -24,7 +24,7 @@ export default function Trades() {
     .then(({ data }) => setTrades((data ?? []) as Trade[]));
   useEffect(() => {
     load();
-    const ch = supabase.channel('trades-page').on('postgres_changes', { event: '*', schema: 'public', table: 'trades' }, load).subscribe();
+    const ch = realtimeChannel('trades-page').on('postgres_changes', { event: '*', schema: 'public', table: 'trades' }, load).subscribe();
     return () => { supabase.removeChannel(ch); };
   }, []);
 

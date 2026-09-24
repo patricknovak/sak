@@ -1,11 +1,15 @@
 import { StrictMode, lazy, Suspense } from 'react';
 import { createRoot } from 'react-dom/client';
-import { HashRouter, Navigate, Route, Routes } from 'react-router-dom';
+import { HashRouter, Navigate, Route, Routes, useLocation } from 'react-router-dom';
 import './index.css';
 import { LeagueProvider, useLeague } from './lib/store';
 import { configured } from './lib/supabase';
 import { Layout } from './components/Layout';
 import { Spinner, ToastHost } from './components/ui';
+import { ErrorBoundary, reloadForNewVersion } from './components/ErrorBoundary';
+
+// Vite fires this when a lazily-loaded page can't be fetched (stale tab after a deploy)
+window.addEventListener('vite:preloadError', (e) => { if (reloadForNewVersion()) e.preventDefault(); });
 import Login from './pages/Login';
 import Home from './pages/Home';
 
@@ -28,6 +32,7 @@ function Loading() {
 
 function App() {
   const { ready, session, me } = useLeague();
+  const { pathname } = useLocation();
   if (!configured) {
     return (
       <div className="grid min-h-dvh place-items-center p-6 text-center">
@@ -50,6 +55,7 @@ function App() {
   }
   return (
     <Layout>
+      <ErrorBoundary key={pathname}>
       <Suspense fallback={<Loading />}>
         <Routes>
           <Route path="/" element={<Home />} />
@@ -69,6 +75,7 @@ function App() {
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </Suspense>
+      </ErrorBoundary>
     </Layout>
   );
 }

@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useLeague, useNow } from '../lib/store';
-import { supabase } from '../lib/supabase';
+import { realtimeChannel, supabase } from '../lib/supabase';
 import type { Bet, Message, Trade } from '../lib/types';
 import { ago, countdown, fmtDateTime, fmtPts, ordinal } from '../lib/format';
 import { Section, Stat, TeamBadge, TeamName } from '../components/ui';
@@ -25,7 +25,7 @@ export default function Home() {
       supabase.from('trades').select('*').in('status', ['proposed', 'accepted']).then(({ data }) => setTrades((data ?? []) as Trade[]));
     };
     load();
-    const ch = supabase.channel('home-feed')
+    const ch = realtimeChannel('home-feed')
       .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'messages', filter: 'channel=eq.general' }, load)
       .subscribe();
     return () => { supabase.removeChannel(ch); };
@@ -161,7 +161,7 @@ export default function Home() {
                 </div>
               ))}
           </div>
-          {phase !== 'season' && <p className="mt-2 px-1 text-xs text-mute">Defending champ: {lastChamp.team} ({lastChamp.gm}). The Peter: {SEASONS[0].rows.at(-1)?.team}.</p>}
+          {phase !== 'season' && <p className="mt-2 px-1 text-xs text-mute">Defending champ: {lastChamp.team} ({lastChamp.gm}). The Peter: {SEASONS[0].rows[SEASONS[0].rows.length - 1]?.team}.</p>}
         </Section>
 
         <div className="space-y-5">

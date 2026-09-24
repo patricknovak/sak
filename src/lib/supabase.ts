@@ -25,3 +25,8 @@ export async function selectAll<T>(table: string, columns = '*', page = 1000): P
     if (!data || data.length < page) return out;
   }
 }
+
+// Realtime hands back an existing channel when the topic matches, and adding listeners to an
+// already-subscribed channel throws. Give every mount its own topic so two components (or a
+// remount racing the old unsubscribe) never share one.
+export const realtimeChannel = (name: string) => supabase.channel(`${name}:${Math.random().toString(36).slice(2, 10)}`);
