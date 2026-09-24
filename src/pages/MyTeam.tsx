@@ -4,7 +4,8 @@ import { useLeague, useNow } from '../lib/store';
 import { rpc, supabase } from '../lib/supabase';
 import type { Player, Roster, Slot, Transaction } from '../lib/types';
 import { ago, etToday, fmtPts, ordinal } from '../lib/format';
-import { PlayerRow, PlayerSheet } from '../components/PlayerCard';
+import { PlayerRow } from '../components/PlayerCard';
+import { TeamScout } from '../components/TeamScout';
 import { Pos, Section, TeamBadge, TeamName, Toggle, useAction } from '../components/ui';
 
 const STARTERS: Slot[] = ['C', 'LW', 'RW', 'D', 'Util', 'G'];
@@ -22,9 +23,10 @@ export default function MyTeam() {
   const t = team(teamId);
   const mine = teamId === me?.id;
   const [sel, setSel] = useState<number | null>(null);
-  const [detail, setDetail] = useState<number | null>(null);
+  useEffect(() => { setView('scout'); setSel(null); }, [teamId]);
   const [today, setToday] = useState<Map<number, { fpts: number; stats: Record<string, number> }>>(new Map());
   const [tx, setTx] = useState<Transaction[]>([]);
+  const [view, setView] = useState<'scout' | 'lineup'>('scout');
 
   const roster = useMemo(() => rosters.filter((r) => r.team_id === teamId).map((r) => ({ r, p: players.get(r.player_id)! })).filter((x) => x.p), [rosters, players, teamId]);
 
@@ -75,7 +77,7 @@ export default function MyTeam() {
   };
 
   const tap = (slot: Slot, x?: { r: Roster; p: Player }) => {
-    if (!mine || league?.phase === 'keepers') { if (x) setDetail(x.p.id); return; }
+    if (!mine || league?.phase === 'keepers') { if (x) nav(`/player/${x.p.id}`); return; }
     if (selected) {
       if (x?.p.id === selected.p.id) { setSel(null); return; }
       if (canTarget(slot, x)) {
@@ -89,7 +91,7 @@ export default function MyTeam() {
       return;
     }
     if (x) {
-      if (locked(x.p)) { setDetail(x.p.id); return; }
+      if (locked(x.p)) { nav(`/player/${x.p.id}`); return; }
       setSel(x.p.id);
     }
   };
@@ -162,6 +164,13 @@ export default function MyTeam() {
         <Link to="/keepers" className="card block bg-amber-500/10 p-3 text-sm text-amber-100">🔒 It’s keeper season: this is your 2025-26 roster. Pick who you keep →</Link>
       )}
 
+      {!mine && (
+        <div className="flex gap-1">
+          <button className={`tab ${view === 'scout' ? 'tab-on' : 'bg-white/[.05]'}`} onClick={() => setView('scout')}>🔍 Scout & trade</button>
+          <button className={`tab ${view === 'lineup' ? 'tab-on' : 'bg-white/[.05]'}`} onClick={() => setView('lineup')}>🏒 Lineup</button>
+        </div>
+      )}
+      {!mine && view === 'scout' ? <TeamScout teamId={t.id} /> : <>
       <div className="grid gap-4 lg:grid-cols-2">
         {(!offseason || anyStarter) && (
           <Section title="Starters">
@@ -189,7 +198,7 @@ export default function MyTeam() {
               {tx.map((x) => (
                 <div key={x.id} className="flex items-center gap-2 px-3 py-2 text-sm">
                   <span>{{ add: '➕', drop: '➖', trade: '🔄', draft: '📋', keeper: '🔒', release: '↩️', commish: '🛠️' }[x.type] ?? '•'}</span>
-                  <span className="flex-1 truncate">{players.get(x.player_id ?? 0)?.name} <span className="text-mute">{x.type}{x.other_team ? ` from ${team(x.other_team)?.abbrev}` : ''}{x.fee ? ` ($${x.fee})` : ''}</span></span>
+                  <span className="flex-1 truncate"><Link className="hover:underline" to={`/player/${x.player_id}`}>{players.get(x.player_id ?? 0)?.name}</Link> <span className="text-mute">{x.type}{x.other_team ? ` from ${team(x.other_team)?.abbrev}` : ''}{x.fee ? ` ($${x.fee})` : ''}</span></span>
                   <span className="text-xs text-mute">{ago(x.created_at, now)}</span>
                 </div>
               ))}
@@ -197,8 +206,9 @@ export default function MyTeam() {
           </Section>
         </div>
       </div>
+      {mine && <TeamScout teamId={t.id} hideRoster />}
       {!mine && <div className="text-center text-sm"><Link className="text-sky-300" to={`/trades?with=${teamId}`}>🔄 Propose a trade with <TeamName team={t} /></Link></div>}
-      <PlayerSheet id={detail} onClose={() => setDetail(null)} />
+      </>}
     </div>
   );
 }

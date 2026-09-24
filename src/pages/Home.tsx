@@ -8,6 +8,7 @@ import { Countdown, Rank, Section, Stat, TeamBadge, TeamName, TeamStack } from '
 import { ArrowRight, ClipboardList, Lock, Megaphone, MessageCircle, Radio, Trophy } from 'lucide-react';
 import { PlayerRow, usePlayerSheet } from '../components/PlayerCard';
 import { SEASONS } from '../data/history';
+import { PushCard } from '../components/PushCard';
 
 export default function Home() {
   const { me, league, teams, team, standings, rosters, players, draft, picks, gamesByTeam, online } = useLeague();
@@ -93,13 +94,13 @@ export default function Home() {
               <div className="label flex items-center gap-1.5 text-white/70"><ClipboardList size={12} /> Draft night</div>
               <div className="mt-2">{league?.draft_at ? <Countdown ms={new Date(league.draft_at).getTime() - now} size="md" /> : <span className="h-display text-2xl">TBD</span>}</div>
               <div className="mt-1 text-xs text-white/60">{league?.draft_at && fmtDateTime(league.draft_at)} · {league?.pick_seconds}s clock · {league?.draft_rounds} rounds</div>
-              <Link to="/draft" className="btn-blue mt-3 w-full">📋 Enter the draft room</Link>
+              <div className="mt-3 grid grid-cols-[1fr_auto] gap-2"><Link to="/draft" className="btn-blue">📋 Draft room</Link><Link to="/mock" className="btn-ghost">🧪 Mock draft</Link></div>
             </div>
           )}
           {(draft?.status === 'live' || draft?.status === 'paused') && (
             <div className="rounded-2xl border border-white/10 bg-black/25 p-3.5 backdrop-blur sm:col-span-2">
               <div className="label flex items-center gap-1.5 text-white/70"><Radio size={12} className="text-goal" /> {draft.status === 'paused' ? 'Draft paused' : 'Live: on the clock'}</div>
-              <div className="mt-2 flex items-center gap-2 text-xl font-bold"><TeamBadge team={team(current?.team_id)} size={32} /><TeamName team={team(current?.team_id)} /></div>
+              <div className="mt-2 flex items-center gap-2 text-xl font-bold"><TeamBadge team={team(current?.team_id)} size={32} /><TeamName link team={team(current?.team_id)} /></div>
               <div className="mt-1 text-xs text-white/60">Pick #{current?.overall} · your next: {myPicks[0] ? `#${myPicks[0].overall}` : '—'}</div>
               <Link to="/draft" className="btn-primary pulse-ring mt-3 w-full">Enter the draft room</Link>
             </div>
@@ -121,6 +122,8 @@ export default function Home() {
           </div>
         )}
       </div>
+
+      <PushCard hideWhenOn compact />
 
       {league?.commish_note && (
         <div className="card relative overflow-hidden border-amber-400/30 p-4" style={{ background: 'linear-gradient(135deg, rgba(247,197,72,.16), rgba(15,23,41,.8) 60%)' }}>

@@ -1,61 +1,18 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { Link } from 'react-router-dom';
 import { useLeague, useNow } from '../lib/store';
 import { rpc, supabase } from '../lib/supabase';
 import type { DraftPick, Player, Pos as PosT } from '../lib/types';
 import { countdown, fmtDateTime, fmtPts, readable } from '../lib/format';
 import { ChatPanel } from '../components/ChatPanel';
 import { PlayerRow, PlayerSheet } from '../components/PlayerCard';
-import { Countdown, Headshot, Pos, TeamBadge, TeamName, TeamStack, Toggle, useAction, useToast } from '../components/ui';
-import confetti from 'canvas-confetti';
+import { Countdown, Headshot, Sheet, Pos, TeamBadge, TeamName, TeamStack, Toggle, useAction, useToast } from '../components/ui';
+import { ClockRing, POS_BG, celebrate, useWide } from '../components/draftkit';
+import { PushCard } from '../components/PushCard';
+import { DraftReport } from '../components/DraftReport';
 
 type Tab = 'players' | 'board' | 'queue' | 'team' | 'chat';
 const POSITIONS: ('ALL' | PosT)[] = ['ALL', 'C', 'LW', 'RW', 'D', 'G'];
-
-// render just one layout (phone tabs or the desktop grid) instead of hiding the other with CSS
-// shrinking ring around the team on the clock
-function ClockRing({ frac, color, size = 56, children }: { frac: number; color: string; size?: number; children: React.ReactNode }) {
-  const r = size / 2 - 3, c = 2 * Math.PI * r;
-  const f = Math.max(0, Math.min(1, frac));
-  const stroke = f < 0.12 ? '#ef2a4f' : f < 0.33 ? '#f7c548' : color;
-  return (
-    <div className="relative grid shrink-0 place-items-center" style={{ width: size, height: size }}>
-      <svg className="absolute inset-0 -rotate-90" width={size} height={size}>
-        <circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke="rgba(255,255,255,.1)" strokeWidth={4} />
-        <circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke={stroke} strokeWidth={4} strokeLinecap="round"
-          strokeDasharray={c} strokeDashoffset={c * (1 - f)} style={{ transition: 'stroke-dashoffset .5s linear, stroke .3s', filter: `drop-shadow(0 0 6px ${stroke})` }} />
-      </svg>
-      {children}
-    </div>
-  );
-}
-
-// a burst of confetti in the drafting team's colours
-function celebrate(colors: string[], big = false) {
-  try {
-    const base = { colors, disableForReducedMotion: true, zIndex: 70 };
-    confetti({ ...base, particleCount: big ? 160 : 60, spread: big ? 100 : 70, startVelocity: big ? 48 : 36, origin: { y: 0.25 } });
-    if (big) setTimeout(() => { confetti({ ...base, particleCount: 80, angle: 60, spread: 60, origin: { x: 0, y: 0.6 } }); confetti({ ...base, particleCount: 80, angle: 120, spread: 60, origin: { x: 1, y: 0.6 } }); }, 250);
-  } catch { /* no canvas */ }
-}
-
-// draft board cells tinted by position, like the big boards on draft night
-const POS_BG: Record<string, string> = {
-  C: 'linear-gradient(180deg, rgba(56,189,248,.28), rgba(56,189,248,.12))', LW: 'linear-gradient(180deg, rgba(52,211,153,.28), rgba(52,211,153,.12))',
-  RW: 'linear-gradient(180deg, rgba(167,139,250,.30), rgba(167,139,250,.12))', D: 'linear-gradient(180deg, rgba(251,191,36,.28), rgba(251,191,36,.10))',
-  G: 'linear-gradient(180deg, rgba(251,113,133,.30), rgba(251,113,133,.12))',
-};
-
-function useWide() {
-  const mq = '(min-width: 1024px)';
-  const [wide, setWide] = useState(() => window.matchMedia(mq).matches);
-  useEffect(() => {
-    const m = window.matchMedia(mq);
-    const on = () => setWide(m.matches);
-    m.addEventListener('change', on);
-    return () => m.removeEventListener('change', on);
-  }, []);
-  return wide;
-}
 
 export default function Draft() {
   const { me, league, teams, team, players, rosters, owner, picks, draft, online, refresh } = useLeague();
@@ -65,6 +22,7 @@ export default function Draft() {
   const wide = useWide();
   const run = (fn: () => Promise<unknown>, ok?: string) => runRaw(async () => { await fn(); await refresh(['draft', 'picks', 'league', 'rosters', 'teams']); }, ok);
   const [tab, setTab] = useState<Tab>('players');
+  const [report, setReport] = useState(false);
   const [q, setQ] = useState('');
   const [pos, setPos] = useState<'ALL' | PosT>('ALL');
   const [sort, setSort] = useState<'proj' | 'last_fp'>('proj');
@@ -204,7 +162,7 @@ export default function Draft() {
               <th className="w-7" />
               {order.map((t) => (
                 <th key={t} className="w-28 px-1 py-1 text-left">
-                  <div className="flex items-center gap-1"><TeamBadge team={team(t)} size={18} /><span className="truncate">{team(t)?.gm_name}</span></div>
+                  <Link to={`/team/${t}`} className="flex items-center gap-1 hover:underline"><TeamBadge team={team(t)} size={18} /><span className="truncate">{team(t)?.gm_name}</span></Link>
                 </th>
               ))}
             </tr>
@@ -341,6 +299,8 @@ export default function Draft() {
           </div>
         </div>
       )}
+      <Link to="/mock" className="relative mt-4 flex items-center gap-3 rounded-2xl border border-emerald-400/25 bg-emerald-500/10 p-3 transition active:scale-[.98]"><span className="text-2xl">🧪</span><span className="flex-1"><span className="block font-bold">Practice with a mock draft</span><span className="text-xs text-white/70">You vs. 7 bot GMs using today’s keepers. Get graded at the end.</span></span><span className="text-sky-300">→</span></Link>
+      <div className="relative mt-3"><PushCard hideWhenOn compact /></div>
       <div className="relative mt-4 flex items-center gap-2 text-xs text-white/70">
         <span className="h-2 w-2 animate-pulse rounded-full bg-emerald-400 shadow-[0_0_8px_rgba(52,211,153,.9)]" />
         <TeamStack teams={teams.filter((t) => online.has(t.id))} size={22} />
@@ -380,6 +340,7 @@ export default function Draft() {
         <div className="border-b border-white/[.08] bg-gradient-to-r from-emerald-500/20 via-emerald-500/5 to-emerald-500/20 px-3 py-4 text-center">
           <div className="h-display text-gold-shine text-2xl">🏁 Draft complete</div>
           <div className="text-xs text-mute">{made} picks made. Set your lineup on My Team, then start chirping.</div>
+          <button className="btn-gold btn-sm mt-2" onClick={() => setReport(true)}>📊 Draft report card</button>
         </div>
       ) : (
         <div className="p-3">{Lobby}</div>
@@ -446,6 +407,8 @@ export default function Draft() {
           </div>
         );
       })()}
+
+      <Sheet open={report} onClose={() => setReport(false)} title="📊 Draft report card" wide><DraftReport onPlayer={(id) => { setReport(false); setDetail(id); }} /></Sheet>
 
       <PlayerSheet id={detail} onClose={() => setDetail(null)} actions={detail && !taken(detail) ? (
         <>

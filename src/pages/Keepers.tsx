@@ -50,7 +50,7 @@ export default function Keepers() {
               .sort((a, b) => b.proj - a.proj);
             return (
               <div key={t.id} className="card p-3">
-                <div className="mb-2 flex items-center gap-2"><TeamBadge team={t} size={26} /><TeamName team={t} /><span className="ml-auto text-xs text-mute">{t.gm_name}</span></div>
+                <div className="mb-2 flex items-center gap-2"><TeamBadge team={t} size={26} /><TeamName link team={t} /><span className="ml-auto text-xs text-mute">{t.gm_name}</span></div>
                 <div className="space-y-2">{ks.map((p) => <PlayerRow key={p.id} p={p} onClick={() => open(p.id)} right={<span className="text-xs text-mute">{fmtPts(p.proj, 0)}</span>} />)}</div>
               </div>
             );

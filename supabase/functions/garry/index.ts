@@ -2,10 +2,12 @@
 //   ?task=daily  (late morning ET) yesterday's recap + standings + daily coin bonus; keeper/draft hype off-season
 //   ?task=nudge  (late afternoon ET) calls out GMs with sloppy lineups before puck drop
 //   ?task=reply  (on "@Garry" in chat, via a database trigger) answers back
+//   ?task=draft  (when the last pick lands) grades every team's draft
 // Writes with Claude when the ANTHROPIC_API_KEY secret is set; otherwise uses built-in templates.
 import { createClient } from 'jsr:@supabase/supabase-js@2';
 import Anthropic from 'npm:@anthropic-ai/sdk';
 import { etDate } from '../_shared/nhl.ts';
+import { gradeTeams, type GP } from '../_shared/grades.ts';
 
 const db = createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!, {
   auth: { persistSession: false },
@@ -220,6 +222,55 @@ async function reply(messageId: number) {
   return { replied: true };
 }
 
+
+// ─────────────── draft recap ───────────────
+async function draftRecap() {
+  const { teams, byId } = await base();
+  const { data: ds } = await db.from('draft_state').select('season,status').single();
+  if (ds?.status !== 'done') return { skipped: 'draft not finished' };
+  if (await alreadyPosted('draft', ds.season)) return { skipped: 'already posted' };
+  const [{ data: picks }, { data: kept }] = await Promise.all([
+    db.from('draft_picks').select('overall,round,team_id,player_id,auto').eq('season', ds.season).not('player_id', 'is', null).order('overall'),
+    db.from('rosters').select('team_id,player_id').eq('acquired', 'keeper'),
+  ]);
+  const ids = [...new Set([...(picks ?? []).map((p) => p.player_id), ...(kept ?? []).map((k) => k.player_id)])];
+  const pl = new Map<number, GP & { name: string }>();
+  for (let i = 0; i < ids.length; i += 300) {
+    const { data } = await db.from('players').select('id,name,pos,elig,proj').in('id', ids.slice(i, i + 300));
+    for (const p of data ?? []) pl.set(p.id, { ...p, proj: Number(p.proj) });
+  }
+  // everyone not kept, ranked by projection, is where a player "should" have gone
+  const keptIds = new Set((kept ?? []).map((k) => k.player_id));
+  const { data: poolRows } = await db.from('players').select('id').order('proj', { ascending: false }).limit(400);
+  const poolRank = new Map((poolRows ?? []).filter((r) => !keptIds.has(r.id)).map((r, i) => [r.id, i + 1]));
+  const byTeam = new Map<number, (GP & { name: string })[]>(teams.map((t) => [t.id, []]));
+  for (const k of kept ?? []) { const p = pl.get(k.player_id); if (p) byTeam.get(k.team_id)?.push(p); }
+  for (const k of picks ?? []) { const p = pl.get(k.player_id); if (p) byTeam.get(k.team_id)?.push(p); }
+  const grades = [...gradeTeams(byTeam).values()].sort((a, b) => a.rank - b.rank);
+  const vals = (picks ?? []).map((k) => ({ gm: byId.get(k.team_id)?.gm_name, player: pl.get(k.player_id)?.name, overall: k.overall, auto: k.auto, value: k.overall - (poolRank.get(k.player_id) ?? k.overall) }));
+  const steal = [...vals].sort((a, b) => b.value - a.value)[0];
+  const reach = [...vals].filter((v) => v.overall <= 48).sort((a, b) => a.value - b.value)[0];
+  const autos = teams.map((t) => ({ gm: t.gm_name, n: (picks ?? []).filter((k) => k.team_id === t.id && k.auto).length })).filter((x) => x.n > 0).sort((a, b) => b.n - a.n);
+  const facts = {
+    season: ds.season,
+    grades: grades.map((g) => ({ gm: byId.get(g.team)?.gm_name, team: byId.get(g.team)?.name, grade: g.grade, rank: g.rank, projected_starter_points: Math.round(g.starterPts) })),
+    first_overall: vals[0], steal_of_the_draft: steal, biggest_reach: reach, most_autopicks: autos[0] ?? null,
+  };
+  const top = grades[0], low = grades[grades.length - 1];
+  const g = (t: number) => byId.get(t)!;
+  const fallback = [
+    `🏁 Draft's done and Garry's got the red pen out. Report cards:`,
+    ...grades.map((x) => `${x.grade.padEnd(2)} @${g(x.team).gm_name} (${g(x.team).name})`),
+    steal ? `🥷 Steal of the draft: ${steal.player} at #${steal.overall} to @${steal.gm}.` : '',
+    reach ? `🚨 Reach of the night: ${reach.player} at #${reach.overall}, @${reach.gm}. Bold.` : '',
+    autos[0] ? `🤖 @${autos[0].gm} let the robot make ${autos[0].n} pick${autos[0].n > 1 ? 's' : ''}. Hope it was a good date.` : '',
+    `@${g(top.team).gm_name} is the paper champ. @${g(low.team).gm_name}, the season is long, bud. Set those lineups, and someone put coins on it.`,
+  ].filter(Boolean).join('\n');
+  const body = await write('Write the post-draft report card for the league chat: give every GM their letter grade (use the grades given, in rank order, one short line each), crown the steal of the draft, roast the biggest reach, and hype the season opener.', facts, fallback, 260);
+  await post(body, { type: 'draft', date: ds.season });
+  return { posted: true, grades: facts.grades.length };
+}
+
 Deno.serve(async (req) => {
   const url = new URL(req.url);
   const task = url.searchParams.get('task') ?? 'daily';
@@ -229,6 +280,7 @@ Deno.serve(async (req) => {
       const { message_id } = await req.json();
       result = await reply(Number(message_id));
     } else if (task === 'nudge') result = await nudge();
+    else if (task === 'draft') result = await draftRecap();
     else result = await daily();
     return Response.json({ task, ok: true, llm: !!claude, result });
   } catch (e) {

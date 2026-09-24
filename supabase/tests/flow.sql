@@ -116,6 +116,30 @@ select review_trade(:trade_id, true, 'lgtm');
 reset role;
 select 'trade', status from trades where id = :trade_id;
 
+-- next season's picks exist and can be traded: team 5 sends its 2027-28 R1 for team 6's 2027-28 R2
+select 'future picks', count(*) from draft_picks where season = _next_season((select season from league));
+select pg_temp.as_team(5);
+set role authenticated;
+select propose_trade(6, '{}', '{}',
+  array[(select id from draft_picks where season = _next_season((select season from league)) and original_team = 5 and round = 1)],
+  array[(select id from draft_picks where season = _next_season((select season from league)) and original_team = 6 and round = 2)], 'future considerations') as pick_trade \gset
+reset role;
+select pg_temp.as_team(6);
+set role authenticated;
+select respond_trade(:pick_trade, true);
+reset role;
+select pg_temp.as_team(1);
+set role authenticated;
+select review_trade(:pick_trade, true, 'ok');
+reset role;
+do $$ begin
+  if (select team_id from draft_picks where season = _next_season((select season from league)) and original_team = 5 and round = 1) <> 6
+     or (select team_id from draft_picks where season = _next_season((select season from league)) and original_team = 6 and round = 2) <> 5 then
+    raise exception 'future pick trade did not move the picks';
+  end if;
+end $$;
+select 'future pick trade', status from trades where id = :pick_trade;
+
 -- ── bets
 select pg_temp.as_team(7);
 set role authenticated;

@@ -76,7 +76,7 @@ export default function Bets() {
           <div className="min-w-0 flex-1">
             <div className="font-semibold leading-snug">{b.title}</div>
             <div className="text-xs text-mute">
-              <TeamName team={team(b.creator_team)} /> vs {b.opponent_team ? <TeamName team={team(b.opponent_team)} /> : <span className="text-amber-300">anyone</span>} · {ago(b.created_at, now)}
+              <TeamName link team={team(b.creator_team)} /> vs {b.opponent_team ? <TeamName link team={team(b.opponent_team)} /> : <span className="text-amber-300">anyone</span>} · {ago(b.created_at, now)}
             </div>
           </div>
           {(b.amount || b.stake || b.coins > 0) && (
@@ -101,7 +101,7 @@ export default function Bets() {
           <div className="mt-2 text-xs text-mute">Currently: {team(b.creator_team)?.gm_name} #{rank(b.creator_team) ?? '–'} · {team(b.opponent_team)?.gm_name} #{rank(b.opponent_team) ?? '–'}</div>
         )}
         {b.status === 'settled' && (
-          <div className="mt-2 flex items-center gap-2 text-sm">🏆 <TeamName team={team(b.winner_team!)} /> won {b.paid ? <span className="chip text-emerald-300">paid</span> : (b.amount ? <span className="chip text-amber-300">unpaid</span> : null)}
+          <div className="mt-2 flex items-center gap-2 text-sm">🏆 <TeamName link team={team(b.winner_team!)} /> won {b.paid ? <span className="chip text-emerald-300">paid</span> : (b.amount ? <span className="chip text-amber-300">unpaid</span> : null)}
             {!b.paid && (b.winner_team === me?.id || me?.is_commish) && (!!b.amount || !!b.stake) && <button className="btn-ghost btn-sm ml-auto" onClick={() => run(async () => { await rpc('mark_bet_paid', { p_bet: b.id }); load(); }, 'Marked paid')}>Mark paid</button>}
           </div>
         )}
@@ -177,7 +177,7 @@ export default function Bets() {
           <div className="card divide-y divide-white/[.06]">
             {owed.map((b) => {
               const loser = b.winner_team === b.creator_team ? b.opponent_team : b.creator_team;
-              return <div key={b.id} className="flex items-center gap-2 px-3 py-2 text-sm"><TeamName team={team(loser)} /> owes <TeamName team={team(b.winner_team!)} /><span className="ml-auto font-semibold text-gold">{fmtMoney(b.amount)}</span></div>;
+              return <div key={b.id} className="flex items-center gap-2 px-3 py-2 text-sm"><TeamName link team={team(loser)} /> owes <TeamName link team={team(b.winner_team!)} /><span className="ml-auto font-semibold text-gold">{fmtMoney(b.amount)}</span></div>;
             })}
           </div>
         </Section>

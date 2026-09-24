@@ -202,7 +202,7 @@ function Money() {
       {info.peterOwed && <div className="card border-amber-500/30 bg-amber-500/10 p-3 text-sm">🪣 {info.peterOwed.season} Peter Punishment: {info.peterOwed.team} owes {fmtMoney(info.peterOwed.amount)} to the SaK Fund.</div>}
       {owing.length > 0 && (
         <Section title="Owing">
-          <div className="card divide-y divide-white/[.06]">{owing.map(({ t, amt }) => <div key={t.id} className="flex items-center gap-2 px-3 py-2 text-sm"><TeamBadge team={t} size={22} /><TeamName team={t} /><span className="ml-auto font-semibold">{fmtMoney(amt)}</span></div>)}</div>
+          <div className="card divide-y divide-white/[.06]">{owing.map(({ t, amt }) => <div key={t.id} className="flex items-center gap-2 px-3 py-2 text-sm"><TeamBadge team={t} size={22} /><TeamName link team={t} /><span className="ml-auto font-semibold">{fmtMoney(amt)}</span></div>)}</div>
         </Section>
       )}
       <Section title="Ledger">

@@ -29,3 +29,7 @@ grant select on auth.users to authenticated;
 create schema if not exists net;
 create function net.http_post(url text, body jsonb default null, params jsonb default null, headers jsonb default null,
   timeout_milliseconds int default null) returns bigint language sql as $$ select 1::bigint $$;
+
+-- Supabase Vault stand-in (secrets are read through vault.decrypted_secrets)
+create schema if not exists vault;
+create table if not exists vault.decrypted_secrets (name text primary key, decrypted_secret text);
