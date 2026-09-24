@@ -7,6 +7,7 @@ import { Rank, Section, TeamBadge, TeamName, PageHeader } from '../components/ui
 import type { Team } from '../lib/types';
 import { Trophy } from 'lucide-react';
 import { SEASONS } from '../data/history';
+import { PLACES, prizes } from '../lib/prizes';
 
 interface Daily { team_id: number; date: string; points: number }
 
@@ -94,26 +95,46 @@ function Race({ daily, focus }: { daily: Daily[]; focus: number }) {
 }
 
 export default function Standings() {
-  const { standings, team, teams, me, league, online } = useLeague();
+  const { standings, playoffs, team, teams, me, league, online } = useLeague();
+  const playoffsOn = playoffs.some((t) => Number(t.points) !== 0);
+  const [view, setView] = useState<'regular' | 'playoffs'>(playoffsOn ? 'playoffs' : 'regular');
+  useEffect(() => { if (playoffsOn) setView('playoffs'); }, [playoffsOn]);
+  const isPo = view === 'playoffs';
   const [daily, setDaily] = useState<Daily[]>([]);
   useEffect(() => {
-    selectAll<Daily>('team_daily', 'team_id,date,points', 1000, ['date', 'team_id']).then(setDaily, () => {});
-  }, [standings]);
-  const table = useMemo(() => [...standings].sort((a, b) => a.rank - b.rank), [standings]);
-  const pool = (league?.entry_fee ?? 200) - (league?.sak_fee ?? 25);
-  const prizes = (league?.prize_split ?? [60, 30, 10]).map((p) => (p / 100) * pool * table.length);
+    selectAll<Daily>(isPo ? 'playoff_daily' : 'team_daily', 'team_id,date,points', 1000, ['date', 'team_id']).then(setDaily, () => {});
+  }, [standings, playoffs, isPo]);
+  const table = useMemo(() => [...(isPo ? playoffs : standings)].sort((a, b) => a.rank - b.rank), [standings, playoffs, isPo]);
+  const money = prizes(league, teams.length);
+  const pot = isPo ? money.playoffs : money.regular;
   const last = table[table.length - 1], second = table[table.length - 2];
   const scored = table.some((t) => Number(t.points) !== 0);
 
   return (
     <div className="space-y-5">
       <PageHeader icon={<Trophy size={22} className="text-gold" />} title="Standings" sub={`${league?.season} season`} />
-      {league?.phase !== 'season' && (
+
+      <div className="grid grid-cols-2 gap-2">
+        {([['regular', 'Regular season', money.regularPool, money.regularPct, money.regular], ['playoffs', 'Playoffs', money.playoffPool, money.playoffPct, money.playoffs]] as const).map(([k, label, amt, pct, places]) => (
+          <button key={k} onClick={() => setView(k)}
+            className={`card p-3 text-left transition active:scale-[.98] ${view === k ? 'border-gold/40 shadow-[0_0_0_1px_rgba(247,197,72,.25),0_12px_32px_-18px_rgba(247,197,72,.7)]' : 'opacity-75'}`}
+            style={view === k ? { background: 'linear-gradient(160deg, rgba(247,197,72,.14), rgba(15,23,41,.8) 55%)' } : undefined}>
+            <div className="label flex items-center justify-between"><span>{k === 'playoffs' ? '🏆 ' : '🏒 '}{label}</span><span>{pct}%</span></div>
+            <div className="num text-gold-shine mt-1 font-display text-2xl font-extrabold">{fmtMoney(amt)}</div>
+            <div className="num mt-0.5 text-[11px] text-mute">{places.map((v, i) => `${PLACES[i]} ${fmtMoney(v)}`).join(' · ')}</div>
+          </button>
+        ))}
+      </div>
+
+      {league?.phase !== 'season' && !scored && (
         <div className="card p-4 text-sm text-mute">The season hasn’t started. Scoring begins {league?.season_start && fmtDate(league.season_start)}. Last season’s final table is on the <Link className="text-sky-300" to="/league">League page</Link>.</div>
       )}
+      {isPo && !scored && (
+        <div className="card p-4 text-sm text-slate-300">🏆 <b>The SaK playoffs</b> run alongside the NHL playoffs with the same rosters. Every fantasy point scored in an NHL playoff game counts toward this separate table, and the top three split {money.playoffPct}% of the prize pool. Players whose NHL team is eliminated stop scoring, so depth on deep playoff teams wins it.</div>
+      )}
       {scored && table.length >= 3
-        ? <Podium caption="If the season ended today" rows={table.slice(0, 3).map((s) => ({ t: team(s.team_id), name: team(s.team_id)?.name ?? '', gm: team(s.team_id)?.gm_name ?? '', pts: Number(s.points) }))} />
-        : <Podium caption={`${SEASONS[0].season} final podium`} rows={SEASONS[0].rows.slice(0, 3).map((r) => ({ t: teams.find((x) => x.name === r.team), name: r.team, gm: r.gm, pts: r.points }))} />}
+        ? <Podium caption={isPo ? 'Playoff podium right now' : 'If the season ended today'} rows={table.slice(0, 3).map((s) => ({ t: team(s.team_id), name: team(s.team_id)?.name ?? '', gm: team(s.team_id)?.gm_name ?? '', pts: Number(s.points) }))} />
+        : !isPo && <Podium caption={`${SEASONS[0].season} final podium`} rows={SEASONS[0].rows.slice(0, 3).map((r) => ({ t: teams.find((x) => x.name === r.team), name: r.team, gm: r.gm, pts: r.points }))} />}
       <div className="card overflow-hidden">
         <table className="w-full text-sm">
           <thead className="bg-white/[.04] text-left text-[11px] uppercase tracking-wider text-mute">
@@ -127,8 +148,8 @@ export default function Standings() {
                   <Link to={`/team/${s.team_id}`} className="flex items-center gap-2">
                     <TeamBadge team={team(s.team_id)} size={28} />
                     <div className="min-w-0"><TeamName team={team(s.team_id)} className="block truncate" />
-                      <div className="text-[11px] text-mute">{team(s.team_id)?.gm_name} · {s.moves} pickups{online.has(s.team_id) && <span className="text-emerald-400"> · online</span>}
-                        {scored && i < 3 && prizes[i] ? <span className="text-gold"> · {fmtMoney(prizes[i])}</span> : null}{scored && i === table.length - 1 && table.length > 1 ? ' · 🪣 Peter watch' : ''}</div></div>
+                      <div className="text-[11px] text-mute">{team(s.team_id)?.gm_name}{!isPo && ` · ${s.moves} pickups`}{online.has(s.team_id) && <span className="text-emerald-400"> · online</span>}
+                        {scored && i < 3 && pot[i] ? <span className="text-gold"> · {fmtMoney(pot[i])}</span> : null}{!isPo && scored && i === table.length - 1 && table.length > 1 ? ' · 🪣 Peter watch' : ''}</div></div>
                   </Link>
                 </td>
                 <td className="num text-right font-display text-lg font-extrabold">{fmtPts(s.points)}</td>
@@ -140,22 +161,24 @@ export default function Standings() {
           </tbody>
         </table>
       </div>
-      {last && second && league?.phase === 'season' && (
-        <p className="px-1 text-xs text-mute">🪣 Peter Punishment if the season ended now: {team(last.team_id)?.gm_name} owes {fmtMoney(Math.round((second.points - last.points) * 100) / 100)} to the SaK Fund.</p>
+      {!isPo && scored && last && second && (
+        <p className="px-1 text-xs text-mute">🪣 Peter Punishment if the regular season ended now: {team(last.team_id)?.gm_name} owes {fmtMoney(Math.round((second.points - last.points) * 100) / 100)} to the SaK Fund.</p>
       )}
-      <Section title="Points race">
+      <Section title={isPo ? 'Playoff points race' : 'Points race'}>
         <div className="card p-3"><Race daily={daily} focus={me?.id ?? 0} /></div>
       </Section>
-      <Section title={`Last season (${SEASONS[0].season})`}>
-        <div className="card divide-y divide-white/[.06]">
-          {SEASONS[0].rows.map((r, i) => (
-            <div key={r.team} className="flex items-center gap-3 px-3 py-2 text-sm">
-              <span className="w-5 text-mute">{i + 1}</span><span className="flex-1">{r.team} <span className="text-mute">· {r.gm}</span></span>
-              <span>{fmtPts(r.points, 2)}</span>
-            </div>
-          ))}
-        </div>
-      </Section>
+      {!isPo && (
+        <Section title={`Last season (${SEASONS[0].season})`}>
+          <div className="card divide-y divide-white/[.06]">
+            {SEASONS[0].rows.map((r, i) => (
+              <div key={r.team} className="flex items-center gap-3 px-3 py-2 text-sm">
+                <span className="w-5 text-mute">{i + 1}</span><span className="flex-1">{r.team} <span className="text-mute">· {r.gm}</span></span>
+                <span>{fmtPts(r.points, 2)}</span>
+              </div>
+            ))}
+          </div>
+        </Section>
+      )}
     </div>
   );
 }

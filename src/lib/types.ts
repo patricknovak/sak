@@ -7,7 +7,7 @@ export interface League {
   keepers: number; top_scorer_rule: boolean; keeper_deadline: string | null; draft_at: string | null;
   pick_seconds: number; draft_rounds: number; snake: boolean; season_start: string | null; season_end: string | null;
   trade_deadline: string | null; trade_review_hours: number; max_acquisitions: number; extra_acq_fee: number;
-  entry_fee: number; sak_fee: number; prize_split: number[]; roster: Record<Slot, number>;
+  entry_fee: number; sak_fee: number; prize_split: number[]; playoff_share: number; roster: Record<Slot, number>;
   scoring: { skater: Record<string, number>; goalie: Record<string, number> };
   commish_note: string | null; updated_at: string; info: Record<string, any>;
 }

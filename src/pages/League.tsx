@@ -6,6 +6,7 @@ import type { LedgerRow, Proposal, Vote } from '../lib/types';
 import { fmtMoney, fmtPts, STAT_LABELS } from '../lib/format';
 import { ALL_TIME_2425, RULES, SEASONS, TIMELINE, TROPHIES, allTime, type GM } from '../data/history';
 import { Section, Sheet, TeamBadge, TeamName, useAction, PageHeader } from '../components/ui';
+import { PLACES, prizes } from '../lib/prizes';
 import { Landmark } from 'lucide-react';
 
 type Tab = 'history' | 'rules' | 'money' | 'votes';
@@ -187,14 +188,34 @@ function Money() {
   const load = () => supabase.from('ledger').select('*').order('id', { ascending: false }).then(({ data }) => setLedger((data ?? []) as LedgerRow[]));
   useEffect(() => { load(); }, []);
   const info = league?.info ?? {};
-  const pool = ((league?.entry_fee ?? 200) - (league?.sak_fee ?? 25)) * teams.length;
-  const split = league?.prize_split ?? [60, 30, 10];
+  const money = prizes(league, teams.length);
   const owing = teams.map((t) => ({ t, amt: ledger.filter((l) => l.team_id === t.id && !l.paid).reduce((s, l) => s + Number(l.amount), 0) })).filter((x) => x.amt);
   return (
     <div className="space-y-5">
+      <div className="card-hero p-4" style={{ '--tc': '#f7c548' } as React.CSSProperties}>
+        <div className="relative flex flex-wrap items-end justify-between gap-3">
+          <div>
+            <div className="label text-white/70">{league?.season} prize pool</div>
+            <div className="num text-gold-shine font-display text-5xl font-extrabold leading-none">{fmtMoney(money.pool)}</div>
+            <div className="mt-1 text-xs text-white/70">{money.teams} GMs × {fmtMoney(money.entry)} = {fmtMoney(money.entry * money.teams)}, less {fmtMoney(money.fund)} each to the SaK Fund ({fmtMoney(money.fundTotal)} total)</div>
+          </div>
+        </div>
+        <div className="relative mt-4 grid gap-2 sm:grid-cols-2">
+          {([['🏒 Regular season', money.regularPct, money.regularPool, money.regular], ['🏆 Playoffs', money.playoffPct, money.playoffPool, money.playoffs]] as const).map(([label, pct, amt, places]) => (
+            <div key={label} className="rounded-2xl border border-white/10 bg-black/25 p-3">
+              <div className="flex items-baseline justify-between"><span className="font-bold">{label}</span><span className="text-xs text-white/60">{pct}% of the pool</span></div>
+              <div className="num mt-0.5 font-display text-2xl font-extrabold text-gold">{fmtMoney(amt)}</div>
+              <div className="mt-2 grid grid-cols-3 gap-1.5 text-center">
+                {places.map((v, i) => (
+                  <div key={i} className="rounded-lg bg-white/[.05] px-1 py-1.5"><div className="text-[10px] font-bold uppercase tracking-wider text-white/60">{PLACES[i]}</div><div className="num text-sm font-bold">{fmtMoney(v)}</div></div>
+                ))}
+              </div>
+            </div>
+          ))}
+        </div>
+        <p className="relative mt-3 text-[11px] text-white/60">Each pot pays {money.split.map((p, i) => `${PLACES[i]} ${p}%`).join(', ')}. The playoffs use the same rosters; only fantasy points from NHL playoff games count toward the playoff table.</p>
+      </div>
       <div className="grid gap-3 sm:grid-cols-3">
-        <div className="card p-4"><div className="label">{league?.season} prize pool</div><div className="font-display text-3xl font-bold text-gold">{fmtMoney(pool)}</div>
-          <div className="mt-1 text-xs text-mute">{split.map((p, i) => `${['1st', '2nd', '3rd'][i]} ${fmtMoney((p / 100) * pool)}`).join(' · ')}</div></div>
         <div className="card p-4"><div className="label">Entry</div><div className="font-display text-3xl font-bold">{fmtMoney(league?.entry_fee)}</div><div className="mt-1 text-xs text-mute">incl. {fmtMoney(league?.sak_fee)} to the SaK Fund</div></div>
         {info.fund && <div className="card p-4"><div className="label">SaK Fund</div><div className="font-display text-3xl font-bold">{fmtMoney(info.fund.valueCad)}</div>
           <div className="mt-1 text-xs text-mute">{fmtMoney(info.fund.perMember)} per GM · {info.fund.holding} · as of {info.fund.asOf}</div></div>}
