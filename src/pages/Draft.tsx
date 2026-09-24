@@ -7,6 +7,7 @@ import { ChatPanel } from '../components/ChatPanel';
 import { PlayerRow, PlayerSheet } from '../components/PlayerCard';
 import { Countdown, Headshot, Pos, TeamBadge, TeamName, TeamStack, Toggle, useAction, useToast } from '../components/ui';
 import confetti from 'canvas-confetti';
+import { PushCard } from '../components/PushCard';
 
 type Tab = 'players' | 'board' | 'queue' | 'team' | 'chat';
 const POSITIONS: ('ALL' | PosT)[] = ['ALL', 'C', 'LW', 'RW', 'D', 'G'];
@@ -341,6 +342,7 @@ export default function Draft() {
           </div>
         </div>
       )}
+      <div className="relative mt-4"><PushCard hideWhenOn compact /></div>
       <div className="relative mt-4 flex items-center gap-2 text-xs text-white/70">
         <span className="h-2 w-2 animate-pulse rounded-full bg-emerald-400 shadow-[0_0_8px_rgba(52,211,153,.9)]" />
         <TeamStack teams={teams.filter((t) => online.has(t.id))} size={22} />

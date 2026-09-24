@@ -5,6 +5,7 @@ import { fmtMoney, fmtPts, NHL_TEAMS, ordinal } from '../lib/format';
 import { SEASONS, FRANCHISE_OF, type GM } from '../data/history';
 import { Section, TeamBadge, Toggle, useAction, useToast } from '../components/ui';
 import type { Team } from '../lib/types';
+import { PushCard } from '../components/PushCard';
 
 const EMOJIS = ['🏒', '🥅', '🇨🇿', '🐦', '🐦‍⬛', '🦅', '🧔', '👨‍👦', '🕺', '😱', '🔥', '🐺', '🦁', '🐻', '🦈', '🍺', '👑', '💀', '🤠', '🧊', '⚡', '🚨', '🐐', '🦫'];
 const COLORS = ['#c8102e', '#e11d48', '#ea580c', '#f59e0b', '#16a34a', '#0f766e', '#0891b2', '#1d4ed8', '#7c3aed', '#db2777', '#111827', '#64748b'];
@@ -76,6 +77,10 @@ export default function Profile() {
           </div>
         </Section>
       )}
+
+      <Section title="Alerts">
+        <PushCard />
+      </Section>
 
       <Section title="Password">
         <div className="card space-y-2 p-3">

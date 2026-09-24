@@ -8,6 +8,7 @@ import { Countdown, Rank, Section, Stat, TeamBadge, TeamName, TeamStack } from '
 import { ArrowRight, ClipboardList, Lock, Megaphone, MessageCircle, Radio, Trophy } from 'lucide-react';
 import { PlayerRow, usePlayerSheet } from '../components/PlayerCard';
 import { SEASONS } from '../data/history';
+import { PushCard } from '../components/PushCard';
 
 export default function Home() {
   const { me, league, teams, team, standings, rosters, players, draft, picks, gamesByTeam, online } = useLeague();
@@ -121,6 +122,8 @@ export default function Home() {
           </div>
         )}
       </div>
+
+      <PushCard hideWhenOn compact />
 
       {league?.commish_note && (
         <div className="card relative overflow-hidden border-amber-400/30 p-4" style={{ background: 'linear-gradient(135deg, rgba(247,197,72,.16), rgba(15,23,41,.8) 60%)' }}>

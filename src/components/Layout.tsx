@@ -3,6 +3,7 @@ import { NavLink, useLocation, useNavigate } from 'react-router-dom';
 import { useLeague, useNow } from '../lib/store';
 import { realtimeChannel, supabase } from '../lib/supabase';
 import { ago, countdown } from '../lib/format';
+import { currentSubscription } from '../lib/push';
 import { Sheet, TeamBadge } from './ui';
 import {
   Bell, ClipboardList, Dices, Home, Landmark, Lock, LogOut, Menu, MessageCircle, Newspaper, Repeat2, Search, Shield,
@@ -68,6 +69,15 @@ export function Layout({ children }: { children: ReactNode }) {
   const [bell, setBell] = useState(false);
   const { any: chatUnread } = useUnread();
   const unreadN = notifications.filter((n) => !n.read).length;
+
+  // if this device already has alerts on, make sure the server knows it belongs to this team
+  useEffect(() => {
+    if (!me || typeof Notification === 'undefined' || Notification.permission !== 'granted') return;
+    currentSubscription().then((sub) => {
+      const j = sub?.toJSON();
+      if (j?.endpoint) supabase.rpc('push_subscribe', { p_endpoint: j.endpoint, p_p256dh: j.keys?.p256dh, p_auth: j.keys?.auth, p_ua: navigator.userAgent }).then(() => {}, () => {});
+    }).catch(() => {});
+  }, [me?.id]);
 
   const phase = league?.phase;
   const draftish = phase === 'keepers' || phase === 'predraft' || phase === 'draft';
