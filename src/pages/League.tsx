@@ -8,6 +8,7 @@ import { ALL_TIME_2425, RULES, SEASONS, TIMELINE, TROPHIES, allTime, type GM } f
 import { Section, Sheet, TeamBadge, TeamName, useAction, PageHeader } from '../components/ui';
 import { PLACES, prizes } from '../lib/prizes';
 import { Landmark } from 'lucide-react';
+import { PromoVideo } from '../components/PromoVideo';
 
 type Tab = 'history' | 'rules' | 'money' | 'votes';
 
@@ -17,6 +18,7 @@ export default function LeaguePage() {
   return (
     <div className="space-y-4">
       <PageHeader icon={<Landmark size={22} className="text-gold" />} title="She’s A Keeper" sub="Est. September 2013 · 13th season" />
+      {tab === 'history' && <PromoVideo />}
       <div className="scroll-x flex gap-1">
         {([['history', '📜 History'], ['rules', '📘 Rules'], ['money', '💰 Money'], ['votes', '🗳️ Proposals']] as const).map(([k, l]) => (
           <button key={k} className={`tab ${tab === k ? 'tab-on' : 'bg-white/[.05]'}`} onClick={() => setParams({ t: k })}>{l}</button>
