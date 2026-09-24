@@ -243,3 +243,36 @@ do $$ begin
 end $$;
 reset role;
 select 'garry channel ok';
+
+-- ── league features: comments, ideas, votes; only the commish sets status
+select pg_temp.as_team(3);
+set role authenticated;
+insert into feature_comments (feature_key, team_id, body) values ('lineup-tools', 3, 'Love the auto-pilot');
+insert into feature_ideas (team_id, title, body) values (3, 'Weekly head-to-head matchups', 'Side pot for weekly winners');
+insert into feature_votes (idea_id, team_id) select id, 3 from feature_ideas where title = 'Weekly head-to-head matchups';
+do $$ begin
+  insert into feature_ideas (team_id, title, status) values (3, 'Sneaky planned idea', 'planned');
+  raise exception 'a GM created an idea already marked planned';
+exception when others then if sqlerrm like '%row-level security%' then null; else raise; end if;
+end $$;
+do $$ begin
+  perform set_idea_status((select id from feature_ideas limit 1), 'planned', null);
+  raise exception 'a GM changed an idea status';
+exception when others then if sqlerrm like '%Commissioner only%' then null; else raise; end if;
+end $$;
+reset role;
+select pg_temp.as_team(4);
+set role authenticated;
+do $$ begin
+  insert into feature_votes (idea_id, team_id) select id, 3 from feature_ideas limit 1;
+  raise exception 'voted as another team';
+exception when others then if sqlerrm like '%row-level security%' or sqlerrm like '%duplicate key%' then null; else raise; end if;
+end $$;
+insert into feature_votes (idea_id, team_id) select id, 4 from feature_ideas limit 1;
+reset role;
+select pg_temp.as_team((select id from teams where is_commish limit 1));
+set role authenticated;
+select set_idea_status((select id from feature_ideas limit 1), 'planned', 'On it for next season');
+reset role;
+select 'features', (select count(*) from feature_votes) as votes, (select status from feature_ideas limit 1) as status,
+  (select count(*) from messages where body like '💡%') as announcements, (select count(*) from notifications where kind = 'idea') as notified;
