@@ -1,6 +1,6 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import type { Session } from '@supabase/supabase-js';
-import { configured, selectAll, supabase } from './supabase';
+import { configured, selectAll, realtimeChannel, supabase } from './supabase';
 import type {
   DraftPick, DraftState, Game, League, Notification, Player, PlayerSeason, Roster, Standing, Team,
 } from './types';
@@ -57,6 +57,8 @@ export function LeagueProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const me = useMemo(() => teams.find((t) => t.user_id === session?.user.id) ?? null, [teams, session]);
+  // you're always online to yourself, even before presence syncs
+  useEffect(() => { if (me) setOnline((o) => (o.has(me.id) ? o : new Set([...o, me.id]))); }, [me?.id]);
   const meRef = useRef(me);
   meRef.current = me;
 
@@ -120,7 +122,7 @@ export function LeagueProvider({ children }: { children: ReactNode }) {
       league: ['league'], teams: ['teams'], rosters: ['rosters', 'standings'], draft_picks: ['picks'],
       draft_state: ['draft'], games: ['games'], notifications: ['notifications'], transactions: ['standings'],
     };
-    const ch = supabase.channel('league-db');
+    const ch = realtimeChannel('league-db');
     for (const table of Object.keys(map)) {
       ch.on('postgres_changes', { event: '*', schema: 'public', table }, (payload) => {
         // draft state is latency-sensitive: apply it directly
@@ -147,7 +149,7 @@ export function LeagueProvider({ children }: { children: ReactNode }) {
     if (!me) return;
     const ch = supabase.channel('online', { config: { presence: { key: String(me.id) } } });
     ch.on('presence', { event: 'sync' }, () => {
-      setOnline(new Set(Object.keys(ch.presenceState()).map(Number)));
+      setOnline(new Set([me.id, ...Object.keys(ch.presenceState()).map(Number)]));
     }).subscribe(async (status) => {
       if (status === 'SUBSCRIBED') await ch.track({ at: Date.now() });
     });

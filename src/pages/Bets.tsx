@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useLeague, useNow } from '../lib/store';
-import { rpc, supabase } from '../lib/supabase';
+import { rpc, realtimeChannel, supabase } from '../lib/supabase';
 import type { Bet, CoinBalance, CoinEntry } from '../lib/types';
 import { ago, etToday, fmtDate, fmtMoney, fmtPts } from '../lib/format';
 import { Empty, Section, Sheet, TeamBadge, TeamName, useAction } from '../components/ui';
@@ -32,7 +32,7 @@ export default function Bets() {
   useEffect(() => {
     load();
     supabase.from('team_daily').select('team_id,date,points').then(({ data }) => setDaily((data ?? []) as Daily[]));
-    const ch = supabase.channel('bets-page')
+    const ch = realtimeChannel('bets-page')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'bets' }, load)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'coin_ledger' }, load)
       .subscribe();

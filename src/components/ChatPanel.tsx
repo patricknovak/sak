@@ -1,6 +1,6 @@
 import { Fragment, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { useLeague, useNow } from '../lib/store';
-import { supabase } from '../lib/supabase';
+import { realtimeChannel, supabase } from '../lib/supabase';
 import type { Message, Reaction } from '../lib/types';
 import { ago, readable } from '../lib/format';
 import { TeamBadge, useToast } from './ui';
@@ -38,7 +38,7 @@ export function ChatPanel({ channel, compact, className = '' }: { channel: strin
   useEffect(() => {
     setMsgs([]); setReactions([]); setOlder(true); stick.current = true;
     load();
-    const ch = supabase.channel(`chat-${channel}`)
+    const ch = realtimeChannel(`chat-${channel}`)
       .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'messages', filter: `channel=eq.${channel}` }, (p) => {
         setMsgs((m) => (m.some((x) => x.id === (p.new as Message).id) ? m : [...m, p.new as Message]));
       })
@@ -63,7 +63,7 @@ export function ChatPanel({ channel, compact, className = '' }: { channel: strin
   }, [msgs]);
 
   // mark read
-  const lastId = msgs.at(-1)?.id;
+  const lastId = msgs[msgs.length - 1]?.id;
   useEffect(() => {
     if (!me || !lastId) return;
     supabase.from('chat_reads').upsert({ team_id: me.id, channel, last_read_id: lastId }).then(() => {});

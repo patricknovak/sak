@@ -25,7 +25,7 @@ function Race({ daily, focus }: { daily: Daily[]; focus: number }) {
   const y = (v: number) => H - P.b - (v / max) * (H - P.t - P.b);
   const path = (pts: number[]) => pts.map((v, i) => `${i ? 'L' : 'M'}${x(i)},${y(v)}`).join('');
   const order = [...series].sort((a, b) => (a.t === focus ? 1 : 0) - (b.t === focus ? 1 : 0));
-  const leader = [...series].sort((a, b) => b.pts.at(-1)! - a.pts.at(-1)!)[0];
+  const leader = [...series].sort((a, b) => b.pts[b.pts.length - 1] - a.pts[a.pts.length - 1])[0];
   return (
     <div className="relative">
       <svg viewBox={`0 0 ${W} ${H}`} className="w-full" onMouseLeave={() => setHover(null)}
@@ -39,7 +39,7 @@ function Race({ daily, focus }: { daily: Daily[]; focus: number }) {
             <text x={P.l - 6} y={y(max * f) + 4} textAnchor="end" fontSize={10} fill="#8b97b5">{Math.round(max * f)}</text></g>
         ))}
         <text x={P.l} y={H - 6} fontSize={10} fill="#8b97b5">{fmtDate(dates[0])}</text>
-        <text x={W - P.r} y={H - 6} fontSize={10} fill="#8b97b5" textAnchor="end">{fmtDate(dates.at(-1)!)}</text>
+        <text x={W - P.r} y={H - 6} fontSize={10} fill="#8b97b5" textAnchor="end">{fmtDate(dates[dates.length - 1])}</text>
         {order.map((s) => (
           <path key={s.t} d={path(s.pts)} fill="none" strokeWidth={s.t === focus ? 2.5 : 1.5} strokeLinejoin="round"
             stroke={s.t === focus ? team(s.t)?.color ?? '#e11d48' : '#4b5878'} />
@@ -47,7 +47,7 @@ function Race({ daily, focus }: { daily: Daily[]; focus: number }) {
         {[...new Set([focus, leader.t])].map((t) => {
           const s = series.find((z) => z.t === t);
           if (!s) return null;
-          return <text key={t} x={W - P.r + 6} y={y(s.pts.at(-1)!) + 4} fontSize={11} fill="#e7ecf7">{team(t)?.gm_name}</text>;
+          return <text key={t} x={W - P.r + 6} y={y(s.pts[s.pts.length - 1]) + 4} fontSize={11} fill="#e7ecf7">{team(t)?.gm_name}</text>;
         })}
         {hover != null && <line x1={x(hover)} x2={x(hover)} y1={P.t} y2={H - P.b} stroke="#8b97b5" strokeDasharray="3 3" />}
       </svg>
@@ -72,7 +72,8 @@ export default function Standings() {
   const table = useMemo(() => [...standings].sort((a, b) => a.rank - b.rank), [standings]);
   const pool = (league?.entry_fee ?? 200) - (league?.sak_fee ?? 25);
   const prizes = (league?.prize_split ?? [60, 30, 10]).map((p) => (p / 100) * pool * table.length);
-  const last = table.at(-1), second = table.at(-2);
+  const last = table[table.length - 1], second = table[table.length - 2];
+  const scored = table.some((t) => Number(t.points) !== 0);
 
   return (
     <div className="space-y-5">
@@ -94,7 +95,7 @@ export default function Standings() {
                     <TeamBadge team={team(s.team_id)} size={28} />
                     <div className="min-w-0"><TeamName team={team(s.team_id)} className="block truncate" />
                       <div className="text-[11px] text-mute">{team(s.team_id)?.gm_name} · {s.moves} pickups{online.has(s.team_id) && <span className="text-emerald-400"> · online</span>}
-                        {i < 3 && prizes[i] ? <span className="text-gold"> · {fmtMoney(prizes[i])}</span> : null}{i === table.length - 1 && table.length > 1 ? ' · 🪣 Peter watch' : ''}</div></div>
+                        {scored && i < 3 && prizes[i] ? <span className="text-gold"> · {fmtMoney(prizes[i])}</span> : null}{scored && i === table.length - 1 && table.length > 1 ? ' · 🪣 Peter watch' : ''}</div></div>
                   </Link>
                 </td>
                 <td className="text-right font-display text-lg font-bold">{fmtPts(s.points)}</td>

@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { NavLink, useLocation, useNavigate } from 'react-router-dom';
 import { useLeague, useNow } from '../lib/store';
-import { supabase } from '../lib/supabase';
+import { realtimeChannel, supabase } from '../lib/supabase';
 import { ago, countdown } from '../lib/format';
 import { Sheet, TeamBadge } from './ui';
 
@@ -24,7 +24,7 @@ export function useUnread() {
       setLatest(l);
     };
     load();
-    const ch = supabase.channel('unread')
+    const ch = realtimeChannel('unread')
       .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'messages' }, (p) => {
         const m = p.new as { id: number; channel: string };
         setLatest((l) => ({ ...l, [m.channel]: Math.max(l[m.channel] ?? 0, m.id) }));

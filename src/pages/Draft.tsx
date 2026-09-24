@@ -58,15 +58,27 @@ export default function Draft() {
     lastSeen.current = made;
   }, [made]);
 
+  // before keepers are final every rostered player might come back, so show the whole pool
+  const preKeepers = league?.phase === 'keepers';
+  const taken = (id: number) => !preKeepers && owner.has(id);
+  // each team's 2025-26 top scorer can't be kept, so he's a sure thing for the draft
+  const banned = useMemo(() => {
+    const best = new Map<number, { id: number; fp: number }>();
+    if (league?.top_scorer_rule) for (const r of rosters) {
+      const b = best.get(r.team_id);
+      if (!b || (r.prev_fp ?? 0) > b.fp) best.set(r.team_id, { id: r.player_id, fp: r.prev_fp ?? 0 });
+    }
+    return new Set([...best.values()].map((b) => b.id));
+  }, [rosters, league?.top_scorer_rule]);
   const available = useMemo(() => {
     const needle = q.trim().toLowerCase();
     return [...players.values()]
-      .filter((p) => !owner.has(p.id))
+      .filter((p) => preKeepers || !owner.has(p.id))
       .filter((p) => pos === 'ALL' || (pos === 'G' ? p.pos === 'G' : p.elig.includes(pos)))
       .filter((p) => !needle || p.name.toLowerCase().includes(needle) || p.nhl_team?.toLowerCase() === needle)
       .sort((a, b) => (b[sort] as number) - (a[sort] as number))
       .slice(0, 150);
-  }, [players, owner, pos, q, sort]);
+  }, [players, owner, pos, q, sort, preKeepers]);
 
   const draftPlayer = (p: Player) => run(async () => {
     await rpc('draft_pick', { p_player: p.id });
@@ -82,7 +94,7 @@ export default function Draft() {
   const status = draft?.status ?? 'scheduled';
 
   const PlayersTab = (
-    <div className="flex min-h-0 flex-1 flex-col">
+    <div className="flex min-h-0 min-w-0 flex-1 flex-col">
       <div className="space-y-2 border-b border-line p-2">
         <input className="input" placeholder="Search players or team (e.g. EDM)" value={q} onChange={(e) => setQ(e.target.value)} />
         <div className="flex items-center gap-1.5">
@@ -102,7 +114,9 @@ export default function Draft() {
             <div className="min-w-0 flex-1"><PlayerRow p={p} onClick={() => setDetail(p.id)} /></div>
             <div className="w-12 text-right">
               <div className="text-sm font-semibold">{fmtPts(sort === 'proj' ? p.proj : p.last_fp, 0)}</div>
-              <div className="text-[10px] text-mute">{sort === 'proj' ? 'proj' : "'25-26"}</div>
+              {preKeepers && owner.has(p.id) && !banned.has(p.id)
+                ? <div className="text-[10px] font-semibold text-amber-300" title="On a 2025-26 roster: could still be kept">{team(owner.get(p.id)!.team_id)?.abbrev}?</div>
+                : <div className="text-[10px] text-mute">{sort === 'proj' ? 'proj' : "'25-26"}</div>}
             </div>
             <button className={`grid h-9 w-9 place-items-center rounded-lg text-lg ${queue.includes(p.id) ? 'text-amber-300' : 'text-mute'}`} onClick={() => toggleQueue(p.id)} title="Queue">
               {queue.includes(p.id) ? '★' : '☆'}
@@ -188,7 +202,7 @@ export default function Draft() {
         {queue.map((id, i) => {
           const p = players.get(id);
           if (!p) return null;
-          const gone = owner.has(id);
+          const gone = taken(id);
           return (
             <div key={id} className="flex items-center gap-2 px-2 py-2">
               <span className="w-5 text-center text-xs text-mute">{i + 1}</span>
@@ -245,7 +259,7 @@ export default function Draft() {
           </div>
         )}
       </div>
-      {league?.phase === 'keepers' && <p className="mt-3 rounded-lg bg-amber-500/10 p-2 text-xs text-amber-200">Keepers aren’t final yet. The commissioner finalizes them before the draft; star players now to build your queue.</p>}
+      {league?.phase === 'keepers' && <p className="mt-3 rounded-lg bg-amber-500/10 p-2 text-xs text-amber-200">Keepers aren’t final yet, so the whole pool shows. A team tag in amber (e.g. HIP?) under the points means that player could still be kept. Star anyone now to build your queue; kept players drop out automatically.</p>}
       {order.length > 0 && (
         <div className="mt-4">
           <div className="label mb-1">Draft order</div>
@@ -354,7 +368,7 @@ export default function Draft() {
         );
       })()}
 
-      <PlayerSheet id={detail} onClose={() => setDetail(null)} actions={detail && !owner.has(detail) ? (
+      <PlayerSheet id={detail} onClose={() => setDetail(null)} actions={detail && !taken(detail) ? (
         <>
           {myTurn && <button className="btn-primary" disabled={busy} onClick={() => draftPlayer(players.get(detail)!)}>Draft {players.get(detail)?.last_name}</button>}
           {me?.is_commish && !myTurn && status === 'live' && (

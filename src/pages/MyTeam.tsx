@@ -94,6 +94,9 @@ export default function MyTeam() {
   };
 
   const st = standings.find((s) => s.team_id === teamId);
+  // before the season there's no lineup to set: show the roster with last season's numbers
+  const offseason = league?.phase !== 'season';
+  const anyStarter = rows.some((r) => r.x);
   const todayTotal = rows.filter((r) => r.x).reduce((tot, r) => tot + (today.get(r.x!.p.id)?.fpts ?? 0), 0);
   const benchedWithGames = bench.filter((x) => gamesByTeam(x.p.nhl_team) && !locked(x.p));
   const emptyStarters = rows.filter((r) => !r.x).length;
@@ -114,7 +117,9 @@ export default function MyTeam() {
             {lk && <span title="Locked: game started" className="text-xs">🔒</span>}
             <div className="w-14 text-right">
               <div className={`text-sm font-semibold ${tp && tp.fpts > 0 ? 'text-emerald-300' : ''}`}>{tp ? fmtPts(tp.fpts, 1) : g ? '–' : ''}</div>
-              <div className="text-[10px] text-mute">{fmtPts(season.get(x.p.id)?.fpts ?? 0, 0)} szn · {weekGames(x.p.nhl_team)}g wk</div>
+              {offseason
+                ? <div className="whitespace-nowrap text-[10px] text-mute">{fmtPts(x.p.last_fp, 0)} ’25-26</div>
+                : <div className="whitespace-nowrap text-[10px] text-mute">{fmtPts(season.get(x.p.id)?.fpts ?? 0, 0)} szn · {weekGames(x.p.nhl_team)}g</div>}
             </div>
           </>
         ) : (
@@ -155,11 +160,13 @@ export default function MyTeam() {
       )}
 
       <div className="grid gap-4 lg:grid-cols-2">
-        <Section title="Starters">
-          <div className="card divide-y divide-line overflow-hidden">{rows.map((r, i) => <Row key={i} slot={r.slot} x={r.x} />)}</div>
-        </Section>
+        {(!offseason || anyStarter) && (
+          <Section title="Starters">
+            <div className="card divide-y divide-line overflow-hidden">{rows.map((r, i) => <Row key={i} slot={r.slot} x={r.x} />)}</div>
+          </Section>
+        )}
         <div className="space-y-4">
-          <Section title={`Bench (${bench.length}/${cap.BN ?? 12})`}>
+          <Section title={offseason && !anyStarter ? `Roster (${bench.length})` : `Bench (${bench.length}/${cap.BN ?? 12})`}>
             <div className="card divide-y divide-line overflow-hidden">
               {bench.map((x) => <Row key={x.p.id} slot="BN" x={x} />)}
               {selected && selected.r.slot !== 'BN' && <Row slot="BN" />}
