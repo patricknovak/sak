@@ -20,7 +20,7 @@ async function init() {
   ready = true;
 }
 
-const ICONS: Record<string, string> = { draft: '⏰', trade: '🔄', bet: '🎲', mention: '💬' };
+const ICONS: Record<string, string> = { draft: '⏰', trade: '🔄', bet: '🎲', mention: '💬', injury: '🚑', big_night: '🔥', weekly: '🏆', health: '🩺', idea: '💡' };
 
 async function sendToTeam(teamId: number, payload: Record<string, unknown>) {
   const { data: subs } = await db.from('push_subscriptions').select('endpoint,p256dh,auth').eq('team_id', teamId);

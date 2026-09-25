@@ -3,6 +3,7 @@
 //   ?task=nudge  (late afternoon ET) calls out GMs with sloppy lineups before puck drop
 //   ?task=reply  (when a GM says "Garry" in chat, or anything in their Ask Garry channel) answers with real info
 //   ?task=draft  (when the last pick lands) grades every team's draft
+//   ?task=weekly (Monday morning) team of the week (+coins), bust of the week, player of the week, power rankings
 // Writes with Claude when the ANTHROPIC_API_KEY secret is set; otherwise uses built-in templates.
 import { createClient } from 'jsr:@supabase/supabase-js@2';
 import Anthropic from 'npm:@anthropic-ai/sdk';
@@ -17,6 +18,7 @@ const apiKey = Deno.env.get('ANTHROPIC_API_KEY');
 const claude = apiKey ? new Anthropic({ apiKey }) : null;
 
 const DAILY_BONUS = 25;
+const WEEKLY_BONUS = 50;
 const pick = <T>(a: T[]) => a[Math.floor(Math.random() * a.length)];
 const f1 = (n: number) => (Math.round(n * 10) / 10).toFixed(1);
 
@@ -274,6 +276,77 @@ async function draftRecap() {
   return { posted: true, grades: facts.grades.length };
 }
 
+// ─────────────── weekly awards + power rankings ───────────────
+// Monday-to-Sunday week that ended yesterday; power rank = 60% last-14-day pace, 40% season standing
+async function weekly() {
+  const { league, teams, byId, standings } = await base();
+  if (league.phase !== 'season') return { skipped: league.phase };
+  const end = etDate(new Date(Date.now() - 86400000));
+  const start = etDate(new Date(Date.now() - 7 * 86400000));
+  const start14 = etDate(new Date(Date.now() - 14 * 86400000));
+  if (await alreadyPosted('weekly', end)) return { skipped: 'already posted' };
+  const { data: daily } = await db.from('team_daily').select('team_id,date,points').gte('date', start14).lte('date', end);
+  const week = (daily ?? []).filter((d) => d.date >= start);
+  if (week.length === 0) return { skipped: 'no games last week' };
+  const sum = (rows: { team_id: number; points: number }[]) => {
+    const m = new Map<number, number>(teams.map((t) => [t.id, 0]));
+    for (const r of rows) m.set(r.team_id, (m.get(r.team_id) ?? 0) + Number(r.points));
+    return m;
+  };
+  const wk = sum(week), two = sum(daily ?? []);
+  const table = teams.map((t) => ({ team_id: t.id, gm: t.gm_name, team: t.name, points: Math.round((wk.get(t.id) ?? 0) * 10) / 10 })).sort((a, b) => b.points - a.points);
+  const best = table[0], worst = table[table.length - 1];
+
+  // player of the week: most points while starting for someone
+  const { data: snaps } = await db.from('lineup_snapshots').select('team_id,player_id,game_id,slot').gte('date', start).lte('date', end).not('slot', 'in', '("BN","IR")');
+  const ids = [...new Set((snaps ?? []).map((s) => s.player_id))];
+  const byPlayer = new Map<number, { pts: number; team: number }>();
+  for (let i = 0; i < ids.length; i += 300) {
+    const { data: pgs } = await db.from('player_games').select('player_id,game_id,fpts').gte('date', start).lte('date', end).in('player_id', ids.slice(i, i + 300));
+    for (const g of pgs ?? []) {
+      const s = (snaps ?? []).find((x) => x.player_id === g.player_id && x.game_id === g.game_id);
+      if (!s) continue;
+      const cur = byPlayer.get(g.player_id) ?? { pts: 0, team: s.team_id };
+      byPlayer.set(g.player_id, { pts: cur.pts + Number(g.fpts), team: s.team_id });
+    }
+  }
+  const topId = [...byPlayer.entries()].sort((a, b) => b[1].pts - a[1].pts)[0];
+  let star: { player: string; gm: string | undefined; points: number } | null = null;
+  if (topId) {
+    const { data: p } = await db.from('players').select('name').eq('id', topId[0]).single();
+    star = { player: p?.name ?? '?', gm: byId.get(topId[1].team)?.gm_name, points: Math.round(topId[1].pts * 10) / 10 };
+  }
+
+  // power rankings, with movement since last Monday's column
+  const n = teams.length;
+  const seasonRank = new Map(standings.map((s) => [s.team_id, Number(s.rank)]));
+  const paceRank = new Map([...two.entries()].sort((a, b) => b[1] - a[1]).map(([id], i) => [id, i + 1]));
+  const score = (id: number) => 0.6 * (paceRank.get(id) ?? n) + 0.4 * (seasonRank.get(id) ?? n);
+  const { data: prevMsg } = await db.from('messages').select('meta').eq('kind', 'bot').contains('meta', { type: 'weekly' }).order('id', { ascending: false }).limit(1);
+  const prev = new Map<number, number>(((prevMsg?.[0]?.meta as { rankings?: { team_id: number; rank: number }[] })?.rankings ?? []).map((r) => [r.team_id, r.rank]));
+  const rankings = teams.map((t) => ({ team_id: t.id, s: score(t.id) })).sort((a, b) => a.s - b.s)
+    .map((r, i) => ({ team_id: r.team_id, rank: i + 1, prev: prev.get(r.team_id) ?? null, gm: byId.get(r.team_id)?.gm_name, team: byId.get(r.team_id)?.name,
+      last14: Math.round((two.get(r.team_id) ?? 0) * 10) / 10, season_rank: seasonRank.get(r.team_id) ?? null }));
+  const arrow = (r: { rank: number; prev: number | null }) => r.prev == null ? 'new' : r.prev > r.rank ? `▲${r.prev - r.rank}` : r.prev < r.rank ? `▼${r.rank - r.prev}` : '–';
+
+  await db.from('coin_ledger').insert({ team_id: best.team_id, amount: WEEKLY_BONUS, reason: `Garry's Team of the Week (${start} to ${end})` });
+  await db.from('notifications').insert({ team_id: best.team_id, kind: 'weekly', body: `🏆 Team of the Week! ${f1(best.points)} points and ${WEEKLY_BONUS} ☘️ coins from Garry`, link: '/chat' });
+
+  const facts = { week: { start, end }, week_table: table, team_of_the_week: { ...best, coins: WEEKLY_BONUS }, bust_of_the_week: worst, player_of_the_week: star,
+    power_rankings: rankings.map((r) => ({ rank: r.rank, gm: r.gm, team: r.team, move: arrow(r), last_14_days: r.last14, season_rank: r.season_rank })) };
+  const fallback = [
+    `📰 Garry's Monday column, week of ${start}.`,
+    `🏆 Team of the Week: @${best.gm} (${best.team}) with ${f1(best.points)}. That's ${WEEKLY_BONUS} ☘️ coins, don't spend them all on one bet.`,
+    `🪣 Bust of the Week: @${worst.gm} with ${f1(worst.points)}. ${pick(['Was the lineup even set?', 'The bench outscored the starters, probably.', 'Tough week. Tougher chat.'])}`,
+    star ? `⭐ Player of the Week: ${star.player} (${f1(star.points)}) for @${star.gm}.` : '',
+    `Power rankings: ${rankings.map((r) => `${r.rank}. ${r.gm} (${arrow(r)})`).join(' · ')}.`,
+    pick(['Trade deadline energy, please. Somebody make an offer.', 'Put some coins on next week\'s Team of the Week.', 'Set your lineups. Garry is watching.']),
+  ].filter(Boolean).join('\n');
+  const body = await write('Write your Monday column for the league chat: Team of the Week (and their coin bonus), Bust of the Week, Player of the Week, then the power rankings as a numbered list with the movement arrows given. One dry line per team.', facts, fallback, 260);
+  await post(body, { type: 'weekly', date: end, rankings: rankings.map((r) => ({ team_id: r.team_id, rank: r.rank, prev: r.prev })), team_of_week: best.team_id });
+  return { posted: 'weekly', team_of_week: best.gm, star };
+}
+
 Deno.serve(async (req) => {
   const url = new URL(req.url);
   const task = url.searchParams.get('task') ?? 'daily';
@@ -284,6 +357,7 @@ Deno.serve(async (req) => {
       result = await reply(Number(message_id));
     } else if (task === 'nudge') result = await nudge();
     else if (task === 'draft') result = await draftRecap();
+    else if (task === 'weekly') result = await weekly();
     else result = await daily();
     return Response.json({ task, ok: true, llm: !!claude, result });
   } catch (e) {

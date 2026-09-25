@@ -2,12 +2,13 @@ import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useLeague } from '../lib/store';
 import { selectAll } from '../lib/supabase';
-import { fmtDate, fmtMoney, fmtPts, readable } from '../lib/format';
+import { fmtDate, fmtMoney, fmtPts } from '../lib/format';
 import { Rank, Section, TeamBadge, TeamName, PageHeader } from '../components/ui';
 import type { Team } from '../lib/types';
 import { Trophy } from 'lucide-react';
 import { SEASONS } from '../data/history';
 import { PLACES, prizes } from '../lib/prizes';
+import { PointsRace } from '../components/charts';
 
 interface Daily { team_id: number; date: string; points: number }
 
@@ -35,61 +36,6 @@ function Podium({ rows, caption }: { rows: { t?: Team; name: string; gm: string;
           </div>
         ))}
       </div>
-    </div>
-  );
-}
-
-// cumulative points race: your team highlighted, everyone else recessive
-function Race({ daily, focus }: { daily: Daily[]; focus: number }) {
-  const { team } = useLeague();
-  const [hover, setHover] = useState<number | null>(null);
-  const dates = [...new Set(daily.map((d) => d.date))].sort();
-  const teams = [...new Set(daily.map((d) => d.team_id))];
-  const series = teams.map((t) => {
-    let acc = 0;
-    return { t, pts: dates.map((d) => (acc += daily.find((x) => x.team_id === t && x.date === d)?.points ?? 0)) };
-  });
-  if (dates.length < 2) return <div className="p-6 text-center text-sm text-mute">The points race chart appears after a couple of game days.</div>;
-  const W = 640, H = 220, P = { l: 40, r: 70, t: 10, b: 22 };
-  const max = Math.max(...series.flatMap((s) => s.pts), 1);
-  const x = (i: number) => P.l + (i / (dates.length - 1)) * (W - P.l - P.r);
-  const y = (v: number) => H - P.b - (v / max) * (H - P.t - P.b);
-  const path = (pts: number[]) => pts.map((v, i) => `${i ? 'L' : 'M'}${x(i)},${y(v)}`).join('');
-  const order = [...series].sort((a, b) => (a.t === focus ? 1 : 0) - (b.t === focus ? 1 : 0));
-  const leader = [...series].sort((a, b) => b.pts[b.pts.length - 1] - a.pts[a.pts.length - 1])[0];
-  return (
-    <div className="relative">
-      <svg viewBox={`0 0 ${W} ${H}`} className="w-full" onMouseLeave={() => setHover(null)}
-        onMouseMove={(e) => {
-          const r = e.currentTarget.getBoundingClientRect();
-          const px = ((e.clientX - r.left) / r.width) * W;
-          setHover(Math.max(0, Math.min(dates.length - 1, Math.round(((px - P.l) / (W - P.l - P.r)) * (dates.length - 1)))));
-        }}>
-        {[0, 0.5, 1].map((f) => (
-          <g key={f}><line x1={P.l} x2={W - P.r} y1={y(max * f)} y2={y(max * f)} stroke="#26324f" strokeWidth={1} />
-            <text x={P.l - 6} y={y(max * f) + 4} textAnchor="end" fontSize={10} fill="#8b97b5">{Math.round(max * f)}</text></g>
-        ))}
-        <text x={P.l} y={H - 6} fontSize={10} fill="#8b97b5">{fmtDate(dates[0])}</text>
-        <text x={W - P.r} y={H - 6} fontSize={10} fill="#8b97b5" textAnchor="end">{fmtDate(dates[dates.length - 1])}</text>
-        {order.map((s) => (
-          <path key={s.t} d={path(s.pts)} fill="none" strokeWidth={s.t === focus ? 2.5 : 1.5} strokeLinejoin="round"
-            stroke={s.t === focus ? readable(team(s.t)?.color ?? '#ef2a4f') : '#3a4768'} style={s.t === focus ? { filter: `drop-shadow(0 0 5px ${readable(team(s.t)?.color ?? '#ef2a4f')})` } : undefined} />
-        ))}
-        {[...new Set([focus, leader.t])].map((t) => {
-          const s = series.find((z) => z.t === t);
-          if (!s) return null;
-          return <text key={t} x={W - P.r + 6} y={y(s.pts[s.pts.length - 1]) + 4} fontSize={11} fill="#e7ecf7">{team(t)?.gm_name}</text>;
-        })}
-        {hover != null && <line x1={x(hover)} x2={x(hover)} y1={P.t} y2={H - P.b} stroke="#8b97b5" strokeDasharray="3 3" />}
-      </svg>
-      {hover != null && (
-        <div className="pointer-events-none absolute left-2 top-2 rounded-xl border border-white/10 bg-[#0b1222]/90 p-2 text-xs shadow-xl backdrop-blur">
-          <div className="mb-1 font-semibold">{fmtDate(dates[hover])}</div>
-          {[...series].sort((a, b) => b.pts[hover] - a.pts[hover]).map((s) => (
-            <div key={s.t} className="flex justify-between gap-4"><span className={s.t === focus ? 'font-semibold' : 'text-slate-300'}>{team(s.t)?.gm_name}</span><span>{fmtPts(s.pts[hover])}</span></div>
-          ))}
-        </div>
-      )}
     </div>
   );
 }
@@ -165,7 +111,7 @@ export default function Standings() {
         <p className="px-1 text-xs text-mute">🪣 Peter Punishment if the regular season ended now: {team(last.team_id)?.gm_name} owes {fmtMoney(Math.round((second.points - last.points) * 100) / 100)} to the SaK Fund.</p>
       )}
       <Section title={isPo ? 'Playoff points race' : 'Points race'}>
-        <div className="card p-3"><Race daily={daily} focus={me?.id ?? 0} /></div>
+        <div className="card p-3"><PointsRace daily={daily} focus={me?.id ?? 0} /></div>
       </Section>
       {!isPo && (
         <Section title={`Last season (${SEASONS[0].season})`}>

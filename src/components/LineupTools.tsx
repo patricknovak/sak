@@ -18,6 +18,7 @@ const BASES: { k: Basis; label: string; hint: string }[] = [
   { k: 'proj', label: 'Projection', hint: 'Preseason projection' },
   { k: 'form', label: 'Hot hand', hint: 'Last 14 days' },
   { k: 'season', label: 'Season avg', hint: 'Points per game this season' },
+  { k: 'ros', label: 'Rest of season', hint: 'Projection blended with pace' },
 ];
 const MODE_NAME: Record<Mode, string> = { day: 'today', week: 'this week', season: 'the season' };
 
@@ -86,7 +87,7 @@ export function LineupTools({ open, onClose, roster }: { open: boolean; onClose:
           </div>
           <p className="mt-1.5 text-xs text-mute">{MODES.find((m) => m.k === (me?.auto_mode ?? 'off'))?.hint}{me?.auto_mode !== 'off' && ' Runs every morning and again before puck drop, but never undoes a move you made yourself that day. Locked players are never touched.'}</p>
           <div className="label mb-1.5 mt-3">Rank players by</div>
-          <div className="grid grid-cols-3 gap-1 rounded-xl bg-white/[.04] p-1">
+          <div className="grid grid-cols-4 gap-1 rounded-xl bg-white/[.04] p-1">
             {BASES.map((b) => (
               <button key={b.k} disabled={busy} onClick={() => { setBasis(b.k); savePrefs(null, b.k); }}
                 className={`rounded-lg px-2 py-1.5 text-sm font-semibold transition ${basis === b.k ? 'bg-white/[.12] text-white ring-1 ring-inset ring-white/20' : 'text-mute hover:bg-white/[.06]'}`}>

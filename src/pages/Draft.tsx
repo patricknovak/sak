@@ -11,6 +11,8 @@ import { Countdown, Headshot, Sheet, Pos, TeamBadge, TeamName, TeamStack, Toggle
 import { ClockRing, POS_BG, celebrate, useWide } from '../components/draftkit';
 import { PushCard } from '../components/PushCard';
 import { DraftReport } from '../components/DraftReport';
+import { SoundToggle, useDraftSounds, useSoundsOn } from '../components/DraftSounds';
+import { Tv } from 'lucide-react';
 
 type Tab = 'players' | 'board' | 'queue' | 'team' | 'chat';
 
@@ -29,6 +31,8 @@ export default function Draft() {
   const [flash, setFlash] = useState<DraftPick | null>(null);
 
   const spectator = me?.role === 'spectator';
+  const soundOn = useSoundsOn();
+  useDraftSounds(soundOn);
   const season = draft?.season;
   const board = useMemo(() => picks.filter((p) => p.season === season && p.overall).sort((a, b) => a.overall! - b.overall!), [picks, season]);
   const order = useMemo(() => board.filter((p) => p.round === 1).map((p) => p.original_team), [board]);
@@ -337,9 +341,14 @@ export default function Draft() {
         </div>
       )}
 
-      {/* mobile tabs */}
-      <div className="scroll-x flex gap-1 border-b border-line px-2 py-1.5 lg:hidden">
-        {tabs.map((t) => <button key={t.k} className={`tab ${tab === t.k ? 'tab-on' : ''}`} onClick={() => setTab(t.k)}>{t.label}</button>)}
+      {/* mobile tabs, plus sounds and the TV board */}
+      <div className="flex items-center gap-1 border-b border-line px-2 py-1.5">
+        <div className="scroll-x flex min-w-0 flex-1 gap-1 lg:hidden">
+          {tabs.map((t) => <button key={t.k} className={`tab ${tab === t.k ? 'tab-on' : ''}`} onClick={() => setTab(t.k)}>{t.label}</button>)}
+        </div>
+        <div className="hidden min-w-0 flex-1 truncate text-xs text-mute lg:block">🔊 Horn when a pick lands, ticks under ten seconds on your clock. 📺 TV mode is the full board for the big screen.</div>
+        <SoundToggle />
+        <Link to="/draft/tv" className="btn-ghost btn-sm" title="TV mode: the full board for the big screen"><Tv size={16} /><span className="hidden sm:inline">TV mode</span></Link>
       </div>
 
       {/* phone: one tab at a time; desktop: players | board+queue | chat */}

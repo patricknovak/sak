@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useLeague } from '../lib/store';
 import { PlayerRow } from '../components/PlayerCard';
 import { PlayerFilterBar, StatTable, usePlayerFilter } from '../components/PlayerFilters';
+import { projLike } from '../lib/playerstats';
 import { TeamBadge, PageHeader } from '../components/ui';
 import { Search } from 'lucide-react';
 
@@ -18,7 +19,7 @@ export default function Players() {
     .filter((p) => (who === 'all' ? true : who === 'avail' ? !owner.has(p.id) : owner.has(p.id)))), [players, owner, who, pf.apply]);
 
   const used = rosters.filter((r) => r.team_id === me?.id).length;
-  const table = view === 'table' && pf.tf !== 'proj';
+  const table = view === 'table' && !projLike(pf.tf);
 
   return (
     <div className="space-y-3">
@@ -32,7 +33,7 @@ export default function Players() {
           ))}
           <span className="mx-1 h-5 w-px shrink-0 bg-line" />
           <button className={`tab px-2.5 py-1 ${!table ? 'tab-on' : 'bg-white/[.05]'}`} onClick={() => setView('list')}>List</button>
-          <button className={`tab px-2.5 py-1 ${table ? 'tab-on' : 'bg-white/[.05]'} disabled:opacity-40`} disabled={pf.tf === 'proj'} title={pf.tf === 'proj' ? 'Pick a timeframe with real stats' : 'Every stat in one table'} onClick={() => setView('table')}>Table</button>
+          <button className={`tab px-2.5 py-1 ${table ? 'tab-on' : 'bg-white/[.05]'} disabled:opacity-40`} disabled={projLike(pf.tf)} title={projLike(pf.tf) ? 'Pick a timeframe with real stats' : 'Every stat in one table'} onClick={() => setView('table')}>Table</button>
         </PlayerFilterBar>
       </div>
 

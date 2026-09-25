@@ -4,7 +4,8 @@ import { realtimeChannel, supabase } from '../lib/supabase';
 import type { Message, Reaction } from '../lib/types';
 import { ago, readable } from '../lib/format';
 import { TeamBadge, useToast } from './ui';
-import { SendHorizontal } from 'lucide-react';
+import { BarChart3, SendHorizontal } from 'lucide-react';
+import { PollCard, PollComposer } from './PollCard';
 import { Link } from 'react-router-dom';
 
 const REACTIONS = ['🔥', '😂', '🤡', '👏', '💀', '🍺', '🚨', '🪣'];
@@ -27,6 +28,7 @@ export function ChatPanel({ channel, compact, className = '' }: { channel: strin
   const [picker, setPicker] = useState<number | null>(null);
   const [replyTo, setReplyTo] = useState<Message | null>(null);
   const [showChirps, setShowChirps] = useState(false);
+  const [showPoll, setShowPoll] = useState(false);
   const [older, setOlder] = useState(true);
   const scroller = useRef<HTMLDivElement>(null);
   const stick = useRef(true);
@@ -150,9 +152,11 @@ export function ChatPanel({ channel, compact, className = '' }: { channel: strin
         )}
         {msgs.map((m, i) => {
           if (m.kind === 'system') {
+            const pollId = typeof m.meta?.poll === 'number' ? m.meta.poll : null;
             return (
-              <div key={m.id} className="flex justify-center py-1">
+              <div key={m.id} className="flex flex-col items-center py-1">
                 <div className={`max-w-[92%] whitespace-pre-line rounded-full border border-white/10 bg-white/[.05] px-3.5 py-1.5 text-center text-xs font-medium text-slate-300 ${compact ? '' : 'sm:text-sm'}`}>{m.body}</div>
+                {pollId != null && <PollCard id={pollId} />}
               </div>
             );
           }
@@ -231,6 +235,7 @@ export function ChatPanel({ channel, compact, className = '' }: { channel: strin
             {suggestions.map((s) => <button key={s} className="chip" onClick={() => setText(text.replace(/@\w*$/, '@' + s + ' '))}>@{s}</button>)}
           </div>
         )}
+        {showPoll && !muted && <PollComposer channel={channel} onDone={() => setShowPoll(false)} />}
         {showChirps && (
           <div className="scroll-x mb-1 flex gap-1">
             {CHIRPS.map((c) => <button key={c} className="chip shrink-0 py-1 text-xs" onClick={() => send(c)}>{c}</button>)}
@@ -239,6 +244,7 @@ export function ChatPanel({ channel, compact, className = '' }: { channel: strin
         {muted ? <div className="rounded-xl border border-white/10 bg-white/[.04] px-3 py-2.5 text-center text-sm text-mute">🔇 The commissioner has switched off {channel.startsWith('dm:') ? 'DMs' : 'chat'} for your spectator pass.</div> : (
         <form className="flex items-end gap-1.5" onSubmit={(e) => { e.preventDefault(); send(text); }}>
           <button type="button" className="btn-ghost h-10 w-10 shrink-0 p-0 text-lg" onClick={() => setShowChirps(!showChirps)} title="Quick chirps">🗯️</button>
+          {!isGarry && !channel.startsWith('dm:') && <button type="button" className={`btn-ghost h-10 w-10 shrink-0 p-0 ${showPoll ? 'text-sky-300' : ''}`} onClick={() => setShowPoll(!showPoll)} title="Start a poll"><BarChart3 size={18} /></button>}
           <textarea
             className="input max-h-32 min-h-10 flex-1 resize-none py-2" rows={1} value={text} maxLength={2000}
             placeholder={isGarry ? 'Ask Garry anything…' : channel === 'draft' ? 'Chirp the picks…' : 'Talk trash… (say “Garry” to ask him something)'}

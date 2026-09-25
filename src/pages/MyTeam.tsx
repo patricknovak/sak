@@ -187,7 +187,7 @@ export default function MyTeam() {
             <button className="btn-ghost" onClick={() => setTools(true)}>⚙️ Lineup tools</button>
           </div>
           <div className="w-full text-xs text-mute">
-            Auto-pilot: <button className="font-semibold text-sky-300 hover:underline" onClick={() => setTools(true)}>{me?.auto_mode && me.auto_mode !== 'off' ? `${me.auto_mode} mode · ${{ proj: 'projection', form: 'hot hand', season: 'season avg' }[me.auto_basis ?? 'proj']}` : 'off'}</button>
+            Auto-pilot: <button className="font-semibold text-sky-300 hover:underline" onClick={() => setTools(true)}>{me?.auto_mode && me.auto_mode !== 'off' ? `${me.auto_mode} mode · ${{ proj: 'projection', form: 'hot hand', season: 'season avg', ros: 'rest of season' }[me.auto_basis ?? 'proj']}` : 'off'}</button>
             {roster.some((x) => x.r.pin) && <> · {roster.filter((x) => x.r.pin).length} pinned</>}
           </div>
         </div>

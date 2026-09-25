@@ -6,7 +6,7 @@ import { ago, countdown } from '../lib/format';
 import { currentSubscription } from '../lib/push';
 import { Sheet, TeamBadge } from './ui';
 import {
-  Bell, ClipboardList, FlaskConical, Dices, Home, Landmark, Lightbulb, Lock, LogOut, Menu, MessageCircle, Newspaper, Repeat2, Search, Shield,
+  Bell, ClipboardList, FlaskConical, Dices, Home, Landmark, Lightbulb, Lock, LogOut, Menu, MessageCircle, Newspaper, Radio, Repeat2, Search, Shield,
   Trophy, UserRound, Wrench, type LucideIcon,
 } from 'lucide-react';
 
@@ -90,6 +90,7 @@ export function Layout({ children }: { children: ReactNode }) {
   ];
   const moreItems: Item[] = [
     { to: '/standings', label: 'Standings', icon: Trophy },
+    ...(draftish ? [] : [{ to: '/scoreboard', label: 'Live scoreboard', icon: Radio }]),
     draftish ? { to: '/team', label: 'My Team', icon: Shield } : { to: '/draft', label: 'Draft Board', icon: ClipboardList },
     { to: '/keepers', label: 'Keepers', icon: Lock },
     ...(draftish ? [{ to: '/mock', label: 'Mock Draft', icon: FlaskConical }] : []),
@@ -137,9 +138,10 @@ export function Layout({ children }: { children: ReactNode }) {
   };
 
   const isActive = (to: string) => (to === '/' ? loc.pathname === '/' : loc.pathname.startsWith(to));
+  if (loc.pathname === '/draft/tv') return <>{children}</>;
 
   const banner = draft?.status === 'live' && !!current && !loc.pathname.startsWith('/draft');
-  const nKind: Record<string, string> = { trade: '🔄', bet: '🎲', mention: '💬', draft: '📋' };
+  const nKind: Record<string, string> = { trade: '🔄', bet: '🎲', mention: '💬', draft: '📋', injury: '🚑', big_night: '🔥', weekly: '🏆', health: '🩺', idea: '💡' };
   return (
     <div className="lg:flex" style={{ '--banner': banner ? '2.25rem' : '0px' } as React.CSSProperties}>
       {/* desktop sidebar */}
