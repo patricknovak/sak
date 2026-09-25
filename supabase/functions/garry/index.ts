@@ -4,9 +4,8 @@
 //   ?task=reply  (when a GM says "Garry" in chat, or anything in their Ask Garry channel) answers with real info
 //   ?task=draft  (when the last pick lands) grades every team's draft
 //   ?task=weekly (Monday morning) team of the week (+coins), bust of the week, player of the week, power rankings
-// Writes with Claude when the ANTHROPIC_API_KEY secret is set; otherwise uses built-in templates.
+// Writes with Grok (xAI) when the XAI_API_KEY secret is set; otherwise uses built-in templates.
 import { createClient } from 'jsr:@supabase/supabase-js@2';
-import Anthropic from 'npm:@anthropic-ai/sdk';
 import { etDate } from '../_shared/nhl.ts';
 import { gradeTeams, type GP } from '../_shared/grades.ts';
 import { answer } from './answer.ts';
@@ -14,8 +13,9 @@ import { answer } from './answer.ts';
 const db = createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!, {
   auth: { persistSession: false },
 });
-const apiKey = Deno.env.get('ANTHROPIC_API_KEY');
-const claude = apiKey ? new Anthropic({ apiKey }) : null;
+const apiKey = Deno.env.get('XAI_API_KEY');
+const GROK_MODEL = Deno.env.get('GROK_MODEL') || 'grok-4';   // any xAI chat model id
+const GROK_URL = 'https://api.x.ai/v1/chat/completions';
 
 const DAILY_BONUS = 25;
 const WEEKLY_BONUS = 50;
@@ -37,27 +37,31 @@ Always end with one nudge that gets people participating: set lineups, make a tr
 St. Patrick coins, or trash talk someone specific. Plain text only, no markdown headers.`;
 
 async function write(task: string, facts: unknown, fallback: string, maxWords = 180): Promise<string> {
-  if (!claude) return fallback;
+  if (!apiKey) return fallback;
   try {
-    const params = {
-      model: 'claude-opus-5',
-      max_tokens: 2000,
-      betas: ['server-side-fallback-2026-07-01'],
-      fallbacks: 'default',
-      output_config: { effort: 'low' },
-      system: PERSONA,
-      messages: [{
-        role: 'user',
-        content: `${task}\nKeep it under ${maxWords} words.\n\nFacts (JSON):\n${JSON.stringify(facts)}`,
-      }],
-    };
-    // deno-lint-ignore no-explicit-any
-    const res: any = await claude.beta.messages.create(params as any);
-    if (res.stop_reason === 'refusal') return fallback;
-    const text = (res.content ?? []).filter((b: { type: string }) => b.type === 'text').map((b: { text: string }) => b.text).join('').trim();
+    const ctl = new AbortController();
+    const timer = setTimeout(() => ctl.abort(), 45_000);
+    const res = await fetch(GROK_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${apiKey}` },
+      signal: ctl.signal,
+      body: JSON.stringify({
+        model: GROK_MODEL,
+        temperature: 0.9,
+        max_tokens: 1200,
+        messages: [
+          { role: 'system', content: PERSONA },
+          { role: 'user', content: `${task}\nKeep it under ${maxWords} words.\n\nFacts (JSON):\n${JSON.stringify(facts)}` },
+        ],
+      }),
+    });
+    clearTimeout(timer);
+    if (!res.ok) { console.error('grok', res.status, (await res.text()).slice(0, 300)); return fallback; }
+    const j = await res.json();
+    const text = String(j?.choices?.[0]?.message?.content ?? '').trim();
     return text || fallback;
   } catch (e) {
-    console.error('claude', e);
+    console.error('grok', e);
     return fallback;
   }
 }
@@ -359,7 +363,7 @@ Deno.serve(async (req) => {
     else if (task === 'draft') result = await draftRecap();
     else if (task === 'weekly') result = await weekly();
     else result = await daily();
-    return Response.json({ task, ok: true, llm: !!claude, result });
+    return Response.json({ task, ok: true, llm: apiKey ? GROK_MODEL : false, result });
   } catch (e) {
     console.error(task, e);
     return Response.json({ task, ok: false, error: String((e as Error)?.message ?? e) }, { status: 500 });

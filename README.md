@@ -49,10 +49,10 @@ row-level security and the database functions decide what each GM can see and do
 
 ## Giving Garry a real brain (optional)
 
-Garry works out of the box with built-in lines. To have Claude write his recaps and comebacks, add an
-Anthropic API key as an Edge Function secret: Supabase dashboard → the **sak-league** project →
-**Edge Functions → Secrets** → add `ANTHROPIC_API_KEY`. Garry picks it up on his next post; a daily
-recap plus a few replies costs pennies a day.
+Garry works out of the box with built-in lines. To have Grok write his recaps, columns and comebacks, add an
+xAI API key in the Supabase dashboard: **Edge Functions → Secrets** → add `XAI_API_KEY` (and optionally
+`GROK_MODEL`, default `grok-4`). Garry picks it up on his next post; a daily
+column costs a few cents. Without it he falls back to the templates, so nothing breaks.
 
 ## Signing in
 
