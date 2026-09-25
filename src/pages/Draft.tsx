@@ -6,13 +6,13 @@ import type { DraftPick, Player, Pos as PosT } from '../lib/types';
 import { countdown, fmtDateTime, fmtPts, readable } from '../lib/format';
 import { ChatPanel } from '../components/ChatPanel';
 import { PlayerRow, PlayerSheet } from '../components/PlayerCard';
+import { PlayerFilterBar, usePlayerFilter } from '../components/PlayerFilters';
 import { Countdown, Headshot, Sheet, Pos, TeamBadge, TeamName, TeamStack, Toggle, useAction, useToast } from '../components/ui';
 import { ClockRing, POS_BG, celebrate, useWide } from '../components/draftkit';
 import { PushCard } from '../components/PushCard';
 import { DraftReport } from '../components/DraftReport';
 
 type Tab = 'players' | 'board' | 'queue' | 'team' | 'chat';
-const POSITIONS: ('ALL' | PosT)[] = ['ALL', 'C', 'LW', 'RW', 'D', 'G'];
 
 export default function Draft() {
   const { me, league, teams, team, players, rosters, owner, picks, draft, online, refresh } = useLeague();
@@ -23,9 +23,7 @@ export default function Draft() {
   const run = (fn: () => Promise<unknown>, ok?: string) => runRaw(async () => { await fn(); await refresh(['draft', 'picks', 'league', 'rosters', 'teams']); }, ok);
   const [tab, setTab] = useState<Tab>('players');
   const [report, setReport] = useState(false);
-  const [q, setQ] = useState('');
-  const [pos, setPos] = useState<'ALL' | PosT>('ALL');
-  const [sort, setSort] = useState<'proj' | 'last_fp'>('proj');
+  const pf = usePlayerFilter({ tf: 'proj' });
   const [queue, setQueue] = useState<number[]>([]);
   const [detail, setDetail] = useState<number | null>(null);
   const [flash, setFlash] = useState<DraftPick | null>(null);
@@ -95,15 +93,7 @@ export default function Draft() {
     }
     return new Set([...best.values()].map((b) => b.id));
   }, [rosters, league?.top_scorer_rule]);
-  const available = useMemo(() => {
-    const needle = q.trim().toLowerCase();
-    return [...players.values()]
-      .filter((p) => preKeepers || !owner.has(p.id))
-      .filter((p) => pos === 'ALL' || (pos === 'G' ? p.pos === 'G' : p.elig.includes(pos)))
-      .filter((p) => !needle || p.name.toLowerCase().includes(needle) || p.nhl_team?.toLowerCase() === needle)
-      .sort((a, b) => (b[sort] as number) - (a[sort] as number))
-      .slice(0, 150);
-  }, [players, owner, pos, q, sort, preKeepers]);
+  const available = useMemo(() => pf.apply([...players.values()].filter((p) => preKeepers || !owner.has(p.id))).slice(0, 150), [players, owner, preKeepers, pf.apply]);
 
   const draftPlayer = (p: Player) => run(async () => {
     await rpc('draft_pick', { p_player: p.id });
@@ -120,28 +110,17 @@ export default function Draft() {
 
   const PlayersTab = (
     <div className="flex min-h-0 min-w-0 flex-1 flex-col">
-      <div className="space-y-2 border-b border-line p-2">
-        <input className="input" placeholder="Search players or team (e.g. EDM)" value={q} onChange={(e) => setQ(e.target.value)} />
-        <div className="flex items-center gap-1.5">
-          <div className="scroll-x flex flex-1 gap-1">
-            {POSITIONS.map((x) => <button key={x} className={`tab px-2.5 py-1 ${pos === x ? 'tab-on' : 'bg-white/[.05]'}`} onClick={() => setPos(x)}>{x}</button>)}
-          </div>
-          <select className="rounded-lg border border-line bg-boards px-2 py-1 text-xs" value={sort} onChange={(e) => setSort(e.target.value as 'proj')}>
-            <option value="proj">Projected</option>
-            <option value="last_fp">2025-26 pts</option>
-          </select>
-        </div>
-      </div>
+      <div className="border-b border-line p-2"><PlayerFilterBar pf={pf} compact /></div>
       <div className="min-h-0 flex-1 divide-y divide-white/[.06] overflow-y-auto">
         {available.map((p, i) => (
           <div key={p.id} className="flex items-center gap-2 px-2 py-2">
             <span className="w-6 text-center text-[11px] text-mute">{i + 1}</span>
             <div className="min-w-0 flex-1"><PlayerRow p={p} onClick={() => setDetail(p.id)} /></div>
-            <div className="w-12 text-right">
-              <div className="text-sm font-semibold">{fmtPts(sort === 'proj' ? p.proj : p.last_fp, 0)}</div>
+            <div className="w-16 text-right">
+              <div className="num text-sm font-semibold">{pf.fmt(p)}</div>
               {preKeepers && owner.has(p.id) && !banned.has(p.id)
                 ? <div className="text-[10px] font-semibold text-amber-300" title="On a 2025-26 roster: could still be kept">{team(owner.get(p.id)!.team_id)?.abbrev}?</div>
-                : <div className="text-[10px] text-mute">{sort === 'proj' ? 'proj' : "'25-26"}</div>}
+                : <div className="whitespace-nowrap text-[10px] text-mute">{pf.label}</div>}
             </div>
             <button className={`grid h-9 w-9 place-items-center rounded-lg text-lg ${queue.includes(p.id) ? 'text-amber-300' : 'text-mute'}`} onClick={() => toggleQueue(p.id)} title="Queue">
               {queue.includes(p.id) ? '★' : '☆'}

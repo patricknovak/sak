@@ -2,7 +2,7 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useRef, use
 import type { Session } from '@supabase/supabase-js';
 import { configured, selectAll, realtimeChannel, supabase } from './supabase';
 import type {
-  DraftPick, DraftState, Game, League, Notification, Player, PlayerSeason, Roster, Standing, Team,
+  DraftPick, DraftState, Game, League, Notification, Player, PlayerSeason, PlayerWindow, Roster, Standing, Team,
 } from './types';
 import { etToday } from './format';
 
@@ -21,6 +21,7 @@ interface Store {
   standings: Standing[];
   playoffs: Standing[];         // NHL-playoff games only, a separate table and prize pot
   season: Map<number, PlayerSeason>;
+  windows: Map<number, Record<string, PlayerWindow>>;   // per-player stats by timeframe (season / 30 / 14 / 7 days)
   games: Game[];               // today + upcoming week
   gamesByTeam: (nhl: string | null | undefined, date?: string) => Game | undefined;
   notifications: Notification[];
@@ -29,7 +30,7 @@ interface Store {
   serverOffset: number;        // ms to add to Date.now() to match the database clock
 }
 
-type Table = 'league' | 'teams' | 'rosters' | 'picks' | 'draft' | 'standings' | 'season' | 'games' | 'notifications' | 'players';
+type Table = 'league' | 'teams' | 'rosters' | 'picks' | 'draft' | 'standings' | 'season' | 'windows' | 'games' | 'notifications' | 'players';
 
 const Ctx = createContext<Store | null>(null);
 
@@ -45,6 +46,7 @@ export function LeagueProvider({ children }: { children: ReactNode }) {
   const [standings, setStandings] = useState<Standing[]>([]);
   const [playoffs, setPlayoffs] = useState<Standing[]>([]);
   const [season, setSeason] = useState<Map<number, PlayerSeason>>(new Map());
+  const [windows, setWindows] = useState<Map<number, Record<string, PlayerWindow>>>(new Map());
   const [games, setGames] = useState<Game[]>([]);
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [online, setOnline] = useState<Set<number>>(new Set());
@@ -82,6 +84,12 @@ export function LeagueProvider({ children }: { children: ReactNode }) {
     season: async () => {
       const rows = await selectAll<PlayerSeason>('player_season');
       setSeason(new Map(rows.map((r) => [r.player_id, r])));
+    },
+    windows: async () => {
+      const rows = await selectAll<PlayerWindow>('player_windows', '*', 1000, ['player_id', 'win']);
+      const m = new Map<number, Record<string, PlayerWindow>>();
+      for (const r of rows) { const w = m.get(r.player_id) ?? {}; w[r.win] = r; m.set(r.player_id, w); }
+      setWindows(m);
     },
     games: async () => {
       const today = etToday();
@@ -139,7 +147,7 @@ export function LeagueProvider({ children }: { children: ReactNode }) {
     ch.subscribe();
     // live scoring: standings refresh every minute, season stats every 5
     const i1 = window.setInterval(() => { if (document.visibilityState === 'visible') refresh(['standings', 'games']); }, 60_000);
-    const i2 = window.setInterval(() => { if (document.visibilityState === 'visible') refresh(['season']); }, 300_000);
+    const i2 = window.setInterval(() => { if (document.visibilityState === 'visible') refresh(['season', 'windows']); }, 300_000);
     const onVis = () => { if (document.visibilityState === 'visible') refresh(['draft', 'picks', 'rosters', 'standings', 'notifications']); };
     document.addEventListener('visibilitychange', onVis);
     return () => {
@@ -191,7 +199,7 @@ export function LeagueProvider({ children }: { children: ReactNode }) {
 
   const value: Store = {
     ready: authReady && (!session || loaded), session, me, league, teams, team, players, rosters, owner, picks, draft,
-    standings, playoffs, season, games, gamesByTeam, notifications, online, refresh, serverOffset,
+    standings, playoffs, season, windows, games, gamesByTeam, notifications, online, refresh, serverOffset,
   };
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
 }

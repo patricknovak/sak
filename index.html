@@ -15,6 +15,17 @@
   </head>
   <body>
     <div id="root"></div>
+    <script>
+      // the site needs a 2023-or-newer browser (iOS 16.4+, Chrome 111+, Firefox 128+): say so instead of showing a broken page
+      (function () {
+        var ok = window.CSS && CSS.supports && CSS.supports('color', 'color-mix(in oklab, red, blue)') && CSS.supports('selector(&)') && typeof CSS.registerProperty === 'function';
+        if (ok) return;
+        var d = document.createElement('div');
+        d.setAttribute('style', 'position:fixed;left:0;right:0;top:0;z-index:99999;background:#ef2a4f;color:#fff;font:600 14px/1.4 -apple-system,system-ui,sans-serif;padding:12px 16px;text-align:center');
+        d.innerHTML = '&#9888;&#65039; Your browser is too old for SaK and pages may look broken. On iPhone update to iOS 16.4 or newer; otherwise open the site in the latest Chrome.';
+        document.body.appendChild(d);
+      })();
+    </script>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>

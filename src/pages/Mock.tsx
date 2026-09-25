@@ -3,10 +3,11 @@ import { Link } from 'react-router-dom';
 import { FlaskConical, RotateCcw, Share2 } from 'lucide-react';
 import { useLeague, useNow } from '../lib/store';
 import { supabase } from '../lib/supabase';
-import type { Player, Pos as PosT } from '../lib/types';
+import type { Player } from '../lib/types';
 import { fmtPts, readable } from '../lib/format';
 import { gradeColor, gradeTeams, lineupStrength, pickValues, projectedKeepers } from '../lib/grades';
 import { PlayerRow, PlayerSheet } from '../components/PlayerCard';
+import { PlayerFilterBar, usePlayerFilter } from '../components/PlayerFilters';
 import { Headshot, PageHeader, Pos, Section, TeamBadge, TeamName, useToast } from '../components/ui';
 import { ClockRing, POS_BG, celebrate } from '../components/draftkit';
 
@@ -15,7 +16,6 @@ type Tab = 'avail' | 'board' | 'team';
 interface MockPick { overall: number; round: number; team: number; pid: number | null }
 
 const CAPS: Record<string, number> = { C: 7, LW: 7, RW: 7, D: 9, G: 4 };
-const POSITIONS: ('ALL' | PosT)[] = ['ALL', 'C', 'LW', 'RW', 'D', 'G'];
 
 const shuffle = <T,>(a: T[]) => { const b = [...a]; for (let i = b.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [b[i], b[j]] = [b[j], b[i]]; } return b; };
 
@@ -30,8 +30,7 @@ export default function Mock() {
   const [order, setOrder] = useState<number[]>([]);
   const [board, setBoard] = useState<MockPick[]>([]);
   const [tab, setTab] = useState<Tab>('avail');
-  const [q, setQ] = useState('');
-  const [pos, setPos] = useState<'ALL' | PosT>('ALL');
+  const pf = usePlayerFilter({ tf: 'proj' });
   const [detail, setDetail] = useState<number | null>(null);
   const [deadline, setDeadline] = useState<number | null>(null);
   const [flash, setFlash] = useState<MockPick | null>(null);
@@ -81,16 +80,28 @@ export default function Mock() {
     if (done.team === me?.id) celebrate([me.color, '#ffffff', '#f7c548']);
   };
 
-  // run the bots, and my clock
+  // run the bots, and my clock. A bot always picks someone (best available if its own logic finds nobody),
+  // and if the pool is truly empty the mock just ends, so it can never sit on "thinking" forever.
   const botTimer = useRef<number | null>(null);
+  const lastChange = useRef(Date.now());
+  useEffect(() => { lastChange.current = Date.now(); }, [current?.overall]);
+  const runBot = () => {
+    if (!current || current.team === me?.id) return;
+    const p = botPick(current.team) ?? pool.find((x) => !taken.has(x.id));
+    if (p) makePick(p); else setPhase('done');
+  };
   useEffect(() => {
     if (phase !== 'live') return;
     if (!current) { setPhase('done'); setDeadline(null); celebrate(['#f7c548', '#ffffff', me?.color ?? '#ef2a4f'], true); return; }
     if (current.team === me?.id) { setDeadline(clock ? Date.now() + clock * 1000 : null); return; }
     setDeadline(null);
-    botTimer.current = window.setTimeout(() => { const p = botPick(current.team); if (p) makePick(p); }, 650);
+    botTimer.current = window.setTimeout(runBot, 650);
     return () => { if (botTimer.current) clearTimeout(botTimer.current); };
-  }, [phase, current?.overall]);
+  }, [phase, current?.overall, pool.length]);
+  // watchdog: a phone that slept mid-pick can lose the timer above; the clock tick catches it
+  useEffect(() => {
+    if (phase === 'live' && current && current.team !== me?.id && Date.now() - lastChange.current > 4000) { lastChange.current = Date.now(); runBot(); }
+  }, [now]); // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => {
     if (myTurn && deadline && now > deadline) { const p = botPick(me!.id); if (p) { toast('Clock ran out: autopicked ' + p.name, 'info'); makePick(p); } }
   }, [now > (deadline ?? Infinity)]);
@@ -105,13 +116,8 @@ export default function Mock() {
     setOrder(ord); setBoard(picks); setTab('avail'); setPhase('live');
   };
 
-  const available = useMemo(() => {
-    const needle = q.trim().toLowerCase();
-    return pool.filter((p) => !taken.has(p.id))
-      .filter((p) => pos === 'ALL' || (pos === 'G' ? p.pos === 'G' : p.elig.includes(pos)))
-      .filter((p) => !needle || p.name.toLowerCase().includes(needle) || p.nhl_team?.toLowerCase() === needle)
-      .slice(0, 80);
-  }, [pool, taken, pos, q]);
+  const available = useMemo(() => pf.apply(pool.filter((p) => !taken.has(p.id))).slice(0, 80), [pool, taken, pf.apply]);
+  const poolReady = pool.length >= 50 && teams.length >= 2;
 
   const grades = useMemo(() => (phase === 'done' ? gradeTeams(new Map(order.map((t) => [t, teamPlayers(t)]))) : null), [phase]);
   const mySteals = useMemo(() => {
@@ -155,7 +161,8 @@ export default function Mock() {
             <Opt v={clock} set={setClock} opts={[0, 30, 90]} fmt={(x) => (x ? `${x}s` : 'No clock')} />
           </div>
           <p className="relative text-xs text-white/60">Everyone keeps the keepers they’ve saved so far (or the ones the site would pick for them). The bots draft the best projected player with a little chaos, and grab goalies in time.</p>
-          <button className="btn-primary relative w-full py-3 text-base" onClick={start}>🧪 Start the mock</button>
+          <button className="btn-primary relative w-full py-3 text-base" disabled={!poolReady} onClick={start}>{poolReady ? '🧪 Start the mock' : 'Loading the player pool…'}</button>
+          {!poolReady && <p className="relative text-center text-xs text-white/60">Still loading after a few seconds? <button className="underline" onClick={() => location.reload()}>Reload the page</button>.</p>}
         </div>
         <Link to="/draft" className="block text-center text-sm text-sky-300">← Back to the real draft room</Link>
       </div>
@@ -237,16 +244,13 @@ export default function Mock() {
 
       {tab === 'avail' && (
         <div className="card overflow-hidden">
-          <div className="space-y-2 border-b border-white/[.07] p-2">
-            <input className="input" placeholder="Search players or team" value={q} onChange={(e) => setQ(e.target.value)} />
-            <div className="scroll-x flex gap-1">{POSITIONS.map((x) => <button key={x} className={`tab px-2.5 py-1 ${pos === x ? 'tab-on' : 'bg-white/[.05]'}`} onClick={() => setPos(x)}>{x}</button>)}</div>
-          </div>
+          <div className="border-b border-white/[.07] p-2"><PlayerFilterBar pf={pf} compact /></div>
           <div className="divide-y divide-white/[.06]">
             {available.map((p) => (
               <div key={p.id} className="flex items-center gap-2 px-2 py-2">
                 <span className="w-7 text-center text-[11px] text-mute">{poolRank.get(p.id)}</span>
                 <div className="min-w-0 flex-1"><PlayerRow p={p} onClick={() => setDetail(p.id)} /></div>
-                <div className="w-11 text-right"><div className="num text-sm font-bold">{fmtPts(p.proj, 0)}</div><div className="text-[10px] text-mute">proj</div></div>
+                <div className="w-16 text-right"><div className="num text-sm font-bold">{pf.fmt(p)}</div><div className="whitespace-nowrap text-[10px] text-mute">{pf.label}</div></div>
                 {myTurn && <button className="btn-primary btn-sm shrink-0" onClick={() => makePick(p)}>Draft</button>}
               </div>
             ))}
