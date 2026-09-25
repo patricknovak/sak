@@ -6,6 +6,8 @@ import type { Player, Roster, Slot, Transaction } from '../lib/types';
 import { ago, etToday, fmtPts, ordinal } from '../lib/format';
 import { PlayerRow } from '../components/PlayerCard';
 import { TeamScout } from '../components/TeamScout';
+import { TeamStats } from '../components/TeamStats';
+import { TIMEFRAMES, lineFor, type Timeframe } from '../lib/playerstats';
 import { LineupTools, useOptimizer } from '../components/LineupTools';
 import { Pos, Section, TeamBadge, TeamName, useAction } from '../components/ui';
 
@@ -16,7 +18,7 @@ const slotOk = (p: Player, s: Slot) =>
 
 export default function MyTeam() {
   const { id } = useParams();
-  const { me, league, teams, team, rosters, players, standings, season, games, gamesByTeam, refresh } = useLeague();
+  const { me, league, teams, team, rosters, players, standings, season, windows, games, gamesByTeam, refresh } = useLeague();
   const now = useNow(15_000);
   const nav = useNavigate();
   const { busy, run } = useAction();
@@ -24,10 +26,23 @@ export default function MyTeam() {
   const t = team(teamId);
   const mine = teamId === me?.id;
   const [sel, setSel] = useState<number | null>(null);
-  useEffect(() => { setView('scout'); setSel(null); }, [teamId]);
+  useEffect(() => { setView(teamId === me?.id ? 'lineup' : 'scout'); setSel(null); }, [teamId]); // eslint-disable-line react-hooks/exhaustive-deps
   const [today, setToday] = useState<Map<number, { fpts: number; stats: Record<string, number> }>>(new Map());
   const [tx, setTx] = useState<Transaction[]>([]);
-  const [view, setView] = useState<'scout' | 'lineup'>('scout');
+  const [view, setView] = useState<'scout' | 'lineup' | 'stats'>(id ? 'scout' : 'lineup');
+  // the stat line under each player in the lineup
+  const liveOk = windows.size > 0;
+  const [tf, setTf] = useState<Timeframe>(league?.phase === 'season' ? 'season' : 'last');
+  const tfOk: Timeframe = !liveOk && TIMEFRAMES.find((x) => x.k === tf)?.live ? 'last' : tf;
+  const statLine = (p: Player) => {
+    const l = lineFor(p, tfOk, windows.get(p.id), season.get(p.id));
+    if (!l || tfOk === 'proj' || tfOk === 'ros') return null;
+    const t = l.totals;
+    if (!l.gp) return 'no games';
+    return p.pos === 'G'
+      ? `${l.gp} GP · ${t.w ?? 0}-${t.l ?? 0}-${t.otl ?? 0} · ${t.sa ? ((t.sv ?? 0) / t.sa).toFixed(3).replace(/^0/, '') : '–'} SV% · ${((t.ga ?? 0) / l.gp).toFixed(2)} GAA`
+      : `${l.gp} GP · ${t.g ?? 0} G ${t.a ?? 0} A · ${t.pm != null && t.pm > 0 ? '+' : ''}${t.pm ?? 0} · ${t.sog ?? 0} SOG · ${t.hit ?? 0} H ${t.blk ?? 0} B`;
+  };
   const [tools, setTools] = useState(false);
 
   const roster = useMemo(() => rosters.filter((r) => r.team_id === teamId).map((r) => ({ r, p: players.get(r.player_id)! })).filter((x) => x.p), [rosters, players, teamId]);
@@ -126,7 +141,7 @@ export default function MyTeam() {
         <Pos p={slot} className="w-10" />
         {x ? (
           <>
-            <div className="min-w-0 flex-1"><PlayerRow p={x.p} dim={slot !== 'BN' && slot !== 'IR' && !g} /></div>
+            <div className="min-w-0 flex-1 overflow-hidden"><PlayerRow p={x.p} dim={slot !== 'BN' && slot !== 'IR' && !g} />{statLine(x.p) && <div className="num mt-0.5 truncate pl-12 text-[10px] text-slate-400">{statLine(x.p)}</div>}</div>
             {lk && <span title="Locked: game started" className="text-xs">🔒</span>}
             {mine && !offseason && (
               <button aria-label={`Pin ${x.p.name}`} title={x.r.pin === 'start' ? 'Pinned: always start' : x.r.pin === 'bench' ? 'Pinned: never start' : 'Pin: tap to always start / never start'}
@@ -204,20 +219,28 @@ export default function MyTeam() {
         <Link to="/keepers" className="card block bg-amber-500/10 p-3 text-sm text-amber-100">🔒 It’s keeper season: this is your 2025-26 roster. Pick who you keep →</Link>
       )}
 
-      {!mine && (
-        <div className="flex gap-1">
-          <button className={`tab ${view === 'scout' ? 'tab-on' : 'bg-white/[.05]'}`} onClick={() => setView('scout')}>🔍 {me?.role === 'spectator' ? 'Scout' : 'Scout & trade'}</button>
-          <button className={`tab ${view === 'lineup' ? 'tab-on' : 'bg-white/[.05]'}`} onClick={() => setView('lineup')}>🏒 Lineup</button>
-        </div>
-      )}
-      {!mine && view === 'scout' ? <TeamScout teamId={t.id} /> : <>
+      <div className="flex flex-wrap items-center gap-1">
+        {!mine && <button className={`tab ${view === 'scout' ? 'tab-on' : 'bg-white/[.05]'}`} onClick={() => setView('scout')}>🔍 {me?.role === 'spectator' ? 'Scout' : 'Scout & trade'}</button>}
+        <button className={`tab ${view === 'lineup' ? 'tab-on' : 'bg-white/[.05]'}`} onClick={() => setView('lineup')}>🏒 Lineup</button>
+        <button className={`tab ${view === 'stats' ? 'tab-on' : 'bg-white/[.05]'}`} onClick={() => setView('stats')}>📊 Stats</button>
+        {view === 'lineup' && (
+          <div className="scroll-x ml-auto flex items-center gap-1">
+            <span className="text-[10px] uppercase tracking-wider text-mute">Lines</span>
+            {TIMEFRAMES.filter((x) => x.k !== 'proj' && x.k !== 'ros').map((x) => (
+              <button key={x.k} disabled={x.live && !liveOk} title={x.live && !liveOk ? 'Once the season starts' : x.label} onClick={() => setTf(x.k)}
+                className={`shrink-0 rounded-full px-2 py-0.5 text-[11px] font-semibold disabled:opacity-35 ${tfOk === x.k ? 'bg-sky-500 text-ice' : 'bg-white/[.05] text-mute'}`}>{x.short}</button>
+            ))}
+          </div>
+        )}
+      </div>
+      {view === 'stats' ? <TeamStats teamId={t.id} /> : !mine && view === 'scout' ? <TeamScout teamId={t.id} /> : <>
       <div className="grid gap-4 lg:grid-cols-2">
         {(!offseason || anyStarter) && (
-          <Section title="Starters">
+          <Section title="Starters" className="min-w-0">
             <div className="card divide-y divide-white/[.06] overflow-hidden">{rows.map((r, i) => <Fragment key={i}>{Row({ slot: r.slot, x: r.x })}</Fragment>)}</div>
           </Section>
         )}
-        <div className="space-y-4">
+        <div className="min-w-0 space-y-4">
           <Section title={offseason && !anyStarter ? `Roster (${bench.length})` : `Bench (${bench.length}/${cap.BN ?? 12})`}>
             <div className="card divide-y divide-white/[.06] overflow-hidden">
               {bench.map((x) => <Fragment key={x.p.id}>{Row({ slot: 'BN', x })}</Fragment>)}
