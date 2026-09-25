@@ -60,7 +60,7 @@ export default function Home() {
 
   const phase = league?.phase;
   const myBets = bets.filter((b) => b.creator_team === me?.id || b.opponent_team === me?.id || (b.status === 'open' && !b.opponent_team));
-  const myTrades = trades.filter((t) => t.to_team === me?.id || t.from_team === me?.id || (me?.is_commish && t.status === 'accepted'));
+  const myTrades = trades.filter((t) => t.to_team === me?.id || t.from_team === me?.id || (t.parties ?? []).includes(me?.id ?? -1) || (me?.is_commish && t.status === 'accepted'));
 
   const lastRows = SEASONS[0].rows;
   const top = phase === 'season' ? Math.max(1, ...table.map((s) => Number(s.points))) : Math.max(1, ...lastRows.map((r) => r.points));
@@ -148,7 +148,8 @@ export default function Home() {
             <button key={t.id} onClick={() => nav('/trades')} className="card flex items-center gap-3 p-3 text-left transition active:scale-[.98]">
               <span className="grid h-10 w-10 place-items-center rounded-xl bg-sky-400/15 text-xl ring-1 ring-sky-400/30">🔄</span>
               <div className="text-sm">
-                {t.to_team === me?.id && t.status === 'proposed' ? <><TeamName team={team(t.from_team)} /> sent you a trade offer</>
+                {t.parties && t.status === 'proposed' ? <><TeamName team={team(t.from_team)} /> proposed a {t.parties.length}-team trade{(t.accepted_by ?? []).includes(me?.id ?? -1) ? ' (you accepted)' : ''}</>
+                  : t.to_team === me?.id && t.status === 'proposed' ? <><TeamName team={team(t.from_team)} /> sent you a trade offer</>
                   : t.status === 'accepted' ? <>Trade awaiting commish review: <TeamName team={team(t.from_team)} /> ↔ <TeamName team={team(t.to_team)} /></>
                   : <>Your offer to <TeamName team={team(t.to_team)} /> is pending</>}
               </div>
