@@ -5,7 +5,7 @@ import { useUnread } from '../components/Layout';
 import { TeamBadge } from '../components/ui';
 
 export default function Chat() {
-  const { me, teams, online } = useLeague();
+  const { me, teams, spectators, online, can } = useLeague();
   const [params, setParams] = useSearchParams();
   const channel = params.get('c') ?? 'general';
   const { unread } = useUnread();
@@ -14,7 +14,7 @@ export default function Chat() {
     { c: 'general', label: '🔥 Trash Talk' },
     { c: 'draft', label: '📋 Draft' },
     ...(me ? [{ c: `garry:${me.id}`, label: '🎙️ Ask Garry' }] : []),
-    ...teams.filter((t) => t.id !== me?.id).map((t) => ({ c: dm(t.id), label: t.gm_name, team: t })),
+    ...(can('dm') ? [...teams, ...spectators].filter((t) => t.id !== me?.id).map((t) => ({ c: dm(t.id), label: t.gm_name, team: t })) : []),
   ];
   const cur = channels.find((x) => x.c === channel);
 

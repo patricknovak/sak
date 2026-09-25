@@ -17,6 +17,7 @@ export interface Team {
   color: string; emoji: string; motto: string | null; fav_nhl: string | null; is_commish: boolean;
   joined_season: string | null; auto_lineup: boolean; autodraft: boolean; keepers_submitted: boolean; last_seen: string | null;
   auto_mode: 'off' | 'day' | 'week' | 'season'; auto_basis: 'proj' | 'form' | 'season'; lineup_touched: string | null;
+  role: 'gm' | 'spectator'; perms: Record<string, boolean>;   // spectators: {chat, dm, bets, ideas, active}, missing = allowed
 }
 
 export interface Player {

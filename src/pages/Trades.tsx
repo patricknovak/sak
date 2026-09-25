@@ -112,7 +112,7 @@ export default function Trades() {
       )}
 
       <Section title="Propose a trade">
-        {pastDeadline ? <div className="card p-4 text-sm text-mute">The trade deadline has passed. See you in the offseason.</div> : (
+        {me?.role === 'spectator' ? <div className="card p-4 text-sm text-mute">🍿 Spectators can watch the trade market, not play it. Join as a GM and this opens up.</div> : pastDeadline ? <div className="card p-4 text-sm text-mute">The trade deadline has passed. See you in the offseason.</div> : (
           <div className="card space-y-3 p-3">
             <div className="scroll-x flex gap-1.5">
               {teams.filter((t) => t.id !== me?.id).map((t) => (

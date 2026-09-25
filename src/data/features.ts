@@ -69,6 +69,8 @@ export const FEATURE_GROUPS: FeatureGroup[] = [
         points: ['Scoring editor, deadlines, draft settings and money', 'Approve trades, fix rosters, announcements'] },
       { key: 'profile', icon: '🎨', title: 'Your team, your way', to: '/profile', blurb: 'Team name, colours, emoji and motto, shown everywhere.',
         points: ['Name changes announced in the chat', 'Install SaK on your phone like an app'] },
+      { key: 'spectators', icon: '🍿', title: 'Spectator passes', isNew: true, blurb: 'Friends can watch the league before they join it.',
+        points: ['A login with no team: standings, the draft room, rules and history', 'Chat, DMs and St. Patrick coin side bets', 'The commish can switch chat, DMs, bets or ideas off for any spectator'] },
       { key: 'features', icon: '💡', title: 'This page', to: '/features', isNew: true, blurb: 'See what’s built, comment on it, and suggest what comes next.',
         points: ['Upvote the ideas you want most', 'The commish marks ideas planned, building or shipped'] },
     ],

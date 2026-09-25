@@ -279,3 +279,39 @@ select 'features', (select count(*) from feature_votes) as votes, (select status
 
 -- ── stats by timeframe: one row per player per window once games exist (the draft above scored nothing, so empty is fine)
 select 'player windows', count(*) >= 0 as ok, (select count(distinct win) from player_windows) <= 4 as windows_ok from player_windows;
+
+-- ── spectators: a login with no team that can chat and bet, unless the commish switches that off
+select pg_temp.as_team((select id from teams where is_commish limit 1));
+set role authenticated;
+select commish_add_spectator('Test Spectator', 'spectator@sakleague.app', 'popcorn-1234') as spec_id \gset
+reset role;
+select case when :spec_id <> 9 then 1/0 end;   -- the checks below assume the ninth team is the spectator
+update auth.users set id = '00000000-0000-0000-0000-000000000009' where email = 'spectator@sakleague.app';
+update teams set user_id = '00000000-0000-0000-0000-000000000009' where id = 9;
+select pg_temp.as_team(9);
+set role authenticated;
+insert into messages (channel, team_id, body) values ('general', 9, 'hello from the cheap seats');
+do $$ begin perform add_player(8478402, null, false); raise exception 'spectator added a player';
+exception when others then if sqlerrm like '%GMs%' then null; else raise; end if; end $$;
+do $$ begin perform set_keepers(array[]::int[]); raise exception 'spectator set keepers';
+exception when others then if sqlerrm like '%GMs%' then null; else raise; end if; end $$;
+do $$ begin perform propose_trade(1, array[]::int[], array[8478402], array[]::int[], array[]::int[], null); raise exception 'spectator proposed a trade';
+exception when others then if sqlerrm like '%GMs%' then null; else raise; end if; end $$;
+select create_bet(null, 'Spectator bet', null, 'custom', null, null, null, null, 50) as spec_bet \gset
+reset role;
+select pg_temp.as_team((select id from teams where is_commish limit 1));
+set role authenticated;
+select commish_set_spectator(9, '{"chat": false, "bets": false}');
+reset role;
+select pg_temp.as_team(9);
+set role authenticated;
+do $$ begin insert into messages (channel, team_id, body) values ('general', 9, 'muted?'); raise exception 'muted spectator posted';
+exception when others then if sqlerrm like '%row-level security%' then null; else raise; end if; end $$;
+do $$ begin perform create_bet(null, 'Another', null, 'custom', null, null, null, null, 10); raise exception 'muted spectator bet';
+exception when others then if sqlerrm like '%switched off%' then null; else raise; end if; end $$;
+reset role;
+select 'spectators', (select count(*) from standings where team_id = 9) = 0 as not_in_standings,
+  (select count(*) from draft_picks where team_id = 9) = 0 as no_picks,
+  (select balance from coin_balances where team_id = 9) as coins,
+  (select count(*) from messages where team_id = 9 and kind = 'user') as posted,
+  (select role from team_directory where id = 9) as role;

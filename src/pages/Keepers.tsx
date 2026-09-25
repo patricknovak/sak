@@ -39,6 +39,21 @@ export default function Keepers() {
   const closed = phase !== 'keepers' || (deadline != null && now > deadline && !me?.is_commish);
   const dirty = mine.some((x) => x.r.keeper !== sel.has(x.r.player_id));
 
+  if (phase === 'keepers' && me?.role === 'spectator') {
+    return (
+      <div className="space-y-4">
+        <PageHeader icon={<Lock size={22} className="text-gold" />} title="Keepers" sub="Being picked right now" />
+        <div className="card p-5 text-sm text-mute">Every GM keeps up to {max} players from last season. Their picks stay secret until the commish finalizes them{deadline ? ` after ${fmtDateTime(league!.keeper_deadline!)}` : ''}, then they show up here.</div>
+        <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+          {teams.map((t) => (
+            <div key={t.id} className={`card flex items-center gap-2 px-3 py-2.5 ${t.keepers_submitted ? 'border-emerald-400/30' : ''}`}>
+              <TeamBadge team={t} size={24} /><div className="min-w-0 flex-1 truncate text-sm">{t.gm_name}</div><span>{t.keepers_submitted ? '✅' : '⏳'}</span>
+            </div>
+          ))}
+        </div>
+      </div>
+    );
+  }
   if (phase !== 'keepers') {
     // keepers are final: show everyone's
     return (

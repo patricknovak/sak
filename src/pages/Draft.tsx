@@ -15,7 +15,7 @@ import { DraftReport } from '../components/DraftReport';
 type Tab = 'players' | 'board' | 'queue' | 'team' | 'chat';
 
 export default function Draft() {
-  const { me, league, teams, team, players, rosters, owner, picks, draft, online, refresh } = useLeague();
+  const { me, league, teams, spectators, team, players, rosters, owner, picks, draft, online, refresh } = useLeague();
   const now = useNow(500);
   const { busy, run: runRaw } = useAction();
   const toast = useToast();
@@ -28,6 +28,7 @@ export default function Draft() {
   const [detail, setDetail] = useState<number | null>(null);
   const [flash, setFlash] = useState<DraftPick | null>(null);
 
+  const spectator = me?.role === 'spectator';
   const season = draft?.season;
   const board = useMemo(() => picks.filter((p) => p.season === season && p.overall).sort((a, b) => a.overall! - b.overall!), [picks, season]);
   const order = useMemo(() => board.filter((p) => p.round === 1).map((p) => p.original_team), [board]);
@@ -122,9 +123,9 @@ export default function Draft() {
                 ? <div className="text-[10px] font-semibold text-amber-300" title="On a 2025-26 roster: could still be kept">{team(owner.get(p.id)!.team_id)?.abbrev}?</div>
                 : <div className="whitespace-nowrap text-[10px] text-mute">{pf.label}</div>}
             </div>
-            <button className={`grid h-9 w-9 place-items-center rounded-lg text-lg ${queue.includes(p.id) ? 'text-amber-300' : 'text-mute'}`} onClick={() => toggleQueue(p.id)} title="Queue">
+            {!spectator && <button className={`grid h-9 w-9 place-items-center rounded-lg text-lg ${queue.includes(p.id) ? 'text-amber-300' : 'text-mute'}`} onClick={() => toggleQueue(p.id)} title="Queue">
               {queue.includes(p.id) ? '★' : '☆'}
-            </button>
+            </button>}
             {myTurn && <button className="btn-primary btn-sm shrink-0" disabled={busy} onClick={() => draftPlayer(p)}>Draft</button>}
           </div>
         ))}
@@ -264,7 +265,7 @@ export default function Draft() {
           </div>
         )}
       </div>
-      {league?.phase === 'keepers' && <p className="relative mt-3 rounded-xl border border-amber-400/20 bg-amber-500/10 p-2.5 text-xs text-amber-100">Keepers aren’t final yet, so the whole pool shows. A team tag in amber (e.g. HIP?) under the points means that player could still be kept. Star anyone now to build your queue; kept players drop out automatically.</p>}
+      {league?.phase === 'keepers' && <p className="relative mt-3 rounded-xl border border-amber-400/20 bg-amber-500/10 p-2.5 text-xs text-amber-100">Keepers aren’t final yet, so the whole pool shows. A team tag in amber (e.g. HIP?) under the points means that player could still be kept.{!spectator && ' Star anyone now to build your queue; kept players drop out automatically.'}</p>}
       {order.length > 0 && (
         <div className="relative mt-4">
           <div className="label mb-1.5 text-white/70">Draft order</div>
@@ -282,16 +283,16 @@ export default function Draft() {
       <div className="relative mt-3"><PushCard hideWhenOn compact /></div>
       <div className="relative mt-4 flex items-center gap-2 text-xs text-white/70">
         <span className="h-2 w-2 animate-pulse rounded-full bg-emerald-400 shadow-[0_0_8px_rgba(52,211,153,.9)]" />
-        <TeamStack teams={teams.filter((t) => online.has(t.id))} size={22} />
-        <span>{teams.filter((t) => online.has(t.id)).length} in the draft room</span>
+        <TeamStack teams={[...teams, ...spectators].filter((t) => online.has(t.id))} size={22} />
+        <span>{[...teams, ...spectators].filter((t) => online.has(t.id)).length} in the draft room</span>
       </div>
     </div>
   );
 
-  const tabs: { k: Tab; label: string }[] = [
+  const tabs: { k: Tab; label: string }[] = ([
     { k: 'players', label: 'Players' }, { k: 'board', label: 'Board' }, { k: 'queue', label: `Queue${queue.length ? ` (${queue.length})` : ''}` },
     { k: 'team', label: 'My team' }, { k: 'chat', label: 'Chat' },
-  ];
+  ] as { k: Tab; label: string }[]).filter((t) => !spectator || (t.k !== 'queue' && t.k !== 'team'));
 
   return (
     <div className="-mx-3 -my-3 flex overflow-x-hidden h-[calc(100dvh-8.25rem-env(safe-area-inset-bottom)-env(safe-area-inset-top))] flex-col sm:-mx-5 lg:m-0 lg:h-[calc(100dvh-3rem)]">
@@ -358,7 +359,7 @@ export default function Draft() {
               <button className={`tab ${tab !== 'team' ? 'tab-on' : ''}`} onClick={() => setTab('queue')}>Queue</button>
               <button className={`tab ${tab === 'team' ? 'tab-on' : ''}`} onClick={() => setTab('team')}>My team</button>
             </div>
-            {tab === 'team' ? TeamTab : QueueTab}
+            {spectator ? <div className="p-4 text-sm text-mute">🍿 You’re watching as a spectator: no queue, no picks, all the chirps.</div> : tab === 'team' ? TeamTab : QueueTab}
           </div>
         </div>
         <div className="card flex min-h-0 flex-col overflow-hidden"><div className="border-b border-line px-3 py-2 text-sm font-semibold">💬 Draft chat</div><ChatPanel channel="draft" compact className="flex-1" /></div>
@@ -395,7 +396,7 @@ export default function Draft() {
           {me?.is_commish && !myTurn && status === 'live' && (
             <button className="btn-ghost" disabled={busy} onClick={() => confirm(`Pick ${players.get(detail)?.name} for ${team(current?.team_id)?.name}?`) && draftPlayer(players.get(detail)!)}>🛠️ Pick for {team(current?.team_id)?.abbrev}</button>
           )}
-          <button className="btn-ghost" onClick={() => toggleQueue(detail)}>{queue.includes(detail) ? '★ Queued' : '☆ Queue'}</button>
+          {!spectator && <button className="btn-ghost" onClick={() => toggleQueue(detail)}>{queue.includes(detail) ? '★ Queued' : '☆ Queue'}</button>}
         </>
       ) : undefined} />
     </div>

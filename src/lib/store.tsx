@@ -11,7 +11,9 @@ interface Store {
   session: Session | null;
   me: Team | null;
   league: League | null;
-  teams: Team[];
+  teams: Team[];               // GMs only
+  spectators: Team[];          // spectator passes (chat, bets, no roster)
+  can: (what: string) => boolean;
   team: (id: number | null | undefined) => Team | undefined;
   players: Map<number, Player>;
   rosters: Roster[];
@@ -38,7 +40,9 @@ export function LeagueProvider({ children }: { children: ReactNode }) {
   const [session, setSession] = useState<Session | null>(null);
   const [authReady, setAuthReady] = useState(!configured);
   const [league, setLeague] = useState<League | null>(null);
-  const [teams, setTeams] = useState<Team[]>([]);
+  const [allTeams, setAllTeams] = useState<Team[]>([]);
+  const teams = useMemo(() => allTeams.filter((t) => t.role !== 'spectator'), [allTeams]);      // the eight GMs
+  const spectators = useMemo(() => allTeams.filter((t) => t.role === 'spectator'), [allTeams]);
   const [players, setPlayers] = useState<Map<number, Player>>(new Map());
   const [rosters, setRosters] = useState<Roster[]>([]);
   const [picks, setPicks] = useState<DraftPick[]>([]);
@@ -60,7 +64,9 @@ export function LeagueProvider({ children }: { children: ReactNode }) {
     return () => data.subscription.unsubscribe();
   }, []);
 
-  const me = useMemo(() => teams.find((t) => t.user_id === session?.user.id) ?? null, [teams, session]);
+  const me = useMemo(() => allTeams.find((t) => t.user_id === session?.user.id) ?? null, [allTeams, session]);
+  // GMs can do everything; a spectator only what the commissioner left switched on
+  const can = useCallback((what: string) => !me || me.role !== 'spectator' || (me.perms?.active !== false && me.perms?.[what] !== false), [me]);
   // you're always online to yourself, even before presence syncs
   useEffect(() => { if (me) setOnline((o) => (o.has(me.id) ? o : new Set([...o, me.id]))); }, [me?.id]);
   const meRef = useRef(me);
@@ -68,7 +74,7 @@ export function LeagueProvider({ children }: { children: ReactNode }) {
 
   const loaders: Record<Table, () => Promise<void>> = useMemo(() => ({
     league: async () => { const { data } = await supabase.from('league').select('*').single(); if (data) setLeague(data as League); },
-    teams: async () => { const { data } = await supabase.from('teams').select('*').order('id'); if (data) setTeams(data as Team[]); },
+    teams: async () => { const { data } = await supabase.from('teams').select('*').order('id'); if (data) setAllTeams(data as Team[]); },
     players: async () => {
       const rows = await selectAll<Player>('players', 'id,name,first,last_name,pos,elig,nhl_team,num,headshot,last_fp,proj,rank,status,last_stats,injury_note,injury_status,injury_date');
       setPlayers(new Map(rows.map((p) => [p.id, p])));
@@ -192,13 +198,13 @@ export function LeagueProvider({ children }: { children: ReactNode }) {
   }, [session, draftLive, refresh]);
 
   const owner = useMemo(() => new Map(rosters.map((r) => [r.player_id, r])), [rosters]);
-  const teamMap = useMemo(() => new Map(teams.map((t) => [t.id, t])), [teams]);
+  const teamMap = useMemo(() => new Map(allTeams.map((t) => [t.id, t])), [allTeams]);
   const team = useCallback((id: number | null | undefined) => (id == null ? undefined : teamMap.get(id)), [teamMap]);
   const gamesByTeam = useCallback((nhl: string | null | undefined, date = etToday()) =>
     nhl ? games.find((g) => g.date === date && (g.home === nhl || g.away === nhl)) : undefined, [games]);
 
   const value: Store = {
-    ready: authReady && (!session || loaded), session, me, league, teams, team, players, rosters, owner, picks, draft,
+    ready: authReady && (!session || loaded), session, me, league, teams, spectators, can, team, players, rosters, owner, picks, draft,
     standings, playoffs, season, windows, games, gamesByTeam, notifications, online, refresh, serverOffset,
   };
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
