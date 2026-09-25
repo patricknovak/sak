@@ -4,7 +4,7 @@ import { useLeague } from '../lib/store';
 import type { Player, Pos as PosT } from '../lib/types';
 import { NHL_TEAMS } from '../lib/format';
 import { isOut } from '../lib/lineup';
-import { TIMEFRAMES, fmtStat, lineFor, minSample, statDef, statValue, statsFor, type Line, type Timeframe } from '../lib/playerstats';
+import { TIMEFRAMES, fmtStat, lineFor, minSample, projLike, statDef, statValue, statsFor, type Line, type Timeframe } from '../lib/playerstats';
 import { Headshot, Pos } from './ui';
 import { injuryBadge } from '../lib/format';
 
@@ -15,7 +15,7 @@ const SKATER_COLS = ['gp', 'fp', 'g', 'a', 'pts', 'pm', 'ppp', 'sog', 'hit', 'bl
 const GOALIE_COLS = ['gp', 'gs', 'fp', 'w', 'l', 'otl', 'ga', 'sa', 'sv', 'svp', 'sho', 'gaa'];
 
 export function usePlayerFilter(init?: Partial<Filter>) {
-  const { windows } = useLeague();
+  const { windows, season } = useLeague();
   const [f, setF] = useState<Filter>({ ...DEFAULT, ...init });
   const set = useCallback((patch: Partial<Filter>) => setF((x) => {
     const n = { ...x, ...patch };
@@ -26,11 +26,11 @@ export function usePlayerFilter(init?: Partial<Filter>) {
   }), []);
   const liveOk = windows.size > 0;   // nobody has played yet before opening night
   const tf: Timeframe = !liveOk && TIMEFRAMES.find((t) => t.k === f.tf)?.live ? 'last' : f.tf;
-  const stat = tf === 'proj' ? 'fp' : f.stat;
-  const perGame = f.perGame && tf !== 'proj';
+  const stat = projLike(tf) ? 'fp' : f.stat;
+  const perGame = f.perGame && !projLike(tf);
   const goalie = f.pos === 'G';
   const d = statDef(stat);
-  const line = useCallback((p: Player): Line | null => lineFor(p, tf, windows.get(p.id)), [tf, windows]);
+  const line = useCallback((p: Player): Line | null => lineFor(p, tf, windows.get(p.id), season.get(p.id)), [tf, windows, season]);
   const sample = minSample(tf);
   const value = useCallback((p: Player) => statValue(line(p), stat, perGame, sample), [line, stat, perGame, sample.gp, sample.sog]); // eslint-disable-line react-hooks/exhaustive-deps
   const apply = useCallback((list: Player[]) => {
@@ -41,7 +41,7 @@ export function usePlayerFilter(init?: Partial<Filter>) {
       .filter((p) => !needle || p.name.toLowerCase().includes(needle) || p.nhl_team?.toLowerCase() === needle)
       .filter((p) => !f.nhl || p.nhl_team === f.nhl)
       .filter((p) => !f.hideInjured || !isOut(p.injury_status))
-      .filter((p) => !f.minGp || tf === 'proj' || (line(p)?.gp ?? 0) >= f.minGp);
+      .filter((p) => !f.minGp || projLike(tf) || (line(p)?.gp ?? 0) >= f.minGp);
     for (const p of out) vals.set(p.id, value(p));
     return out.sort((a, b) => {
       const va = vals.get(a.id), vb = vals.get(b.id);
@@ -52,7 +52,7 @@ export function usePlayerFilter(init?: Partial<Filter>) {
     });
   }, [f.q, f.pos, f.nhl, f.hideInjured, f.minGp, tf, d.lowerIsBetter, line, value]);
   const tfShort = TIMEFRAMES.find((t) => t.k === tf)!.short;
-  const label = tf === 'proj' ? 'proj' : `${d.short}${perGame && !d.rate && stat !== 'gp' ? '/GP' : ''} · ${tfShort}`;
+  const label = tf === 'proj' ? 'proj' : tf === 'ros' ? 'ROS' : `${d.short}${perGame && !d.rate && stat !== 'gp' ? '/GP' : ''} · ${tfShort}`;
   const fmt = useCallback((p: Player) => fmtStat(value(p), stat, perGame), [value, stat, perGame]);
   return { f, set, tf, stat, perGame, liveOk, goalie, line, value, apply, label, fmt, sample };
 }
@@ -77,10 +77,10 @@ export function PlayerFilterBar({ pf, compact, hideSearch, children }: { pf: Pla
         ))}
       </div>
       <div className="scroll-x flex items-center gap-1.5">
-        <select aria-label="Sort by stat" className="rounded-lg border border-white/10 bg-black/30 px-2 py-1 text-xs" value={stat} disabled={tf === 'proj'} onChange={(e) => set({ stat: e.target.value })}>
-          {tf === 'proj' ? <option value="fp">Projected points</option> : statsFor(goalie).map((s) => <option key={s.k} value={s.k}>{s.label}</option>)}
+        <select aria-label="Sort by stat" className="rounded-lg border border-white/10 bg-black/30 px-2 py-1 text-xs" value={stat} disabled={projLike(tf)} onChange={(e) => set({ stat: e.target.value })}>
+          {tf === 'proj' ? <option value="fp">Projected points</option> : tf === 'ros' ? <option value="fp">Rest-of-season points</option> : statsFor(goalie).map((s) => <option key={s.k} value={s.k}>{s.label}</option>)}
         </select>
-        {tf !== 'proj' && <button className={chip(f.perGame)} onClick={() => set({ perGame: !f.perGame })} title="Per game">/GP</button>}
+        {!projLike(tf) && <button className={chip(f.perGame)} onClick={() => set({ perGame: !f.perGame })} title="Per game">/GP</button>}
         <button className={chip(f.hideInjured)} onClick={() => set({ hideInjured: !f.hideInjured })}>🚑 {f.hideInjured ? 'hidden' : 'hide'}</button>
         {!compact && (
           <select aria-label="NHL team" className="rounded-lg border border-white/10 bg-black/30 px-2 py-1 text-xs" value={f.nhl} onChange={(e) => set({ nhl: e.target.value })}>
@@ -88,7 +88,7 @@ export function PlayerFilterBar({ pf, compact, hideSearch, children }: { pf: Pla
             {Object.keys(NHL_TEAMS).sort().map((a) => <option key={a} value={a}>{a}</option>)}
           </select>
         )}
-        {!compact && tf !== 'proj' && (
+        {!compact && !projLike(tf) && (
           <select aria-label="Minimum games" className="rounded-lg border border-white/10 bg-black/30 px-2 py-1 text-xs" value={f.minGp} onChange={(e) => set({ minGp: Number(e.target.value) })}>
             {[0, 3, 5, 10, 20, 40, 60].map((n) => <option key={n} value={n}>{n ? `${n}+ GP` : 'Any GP'}</option>)}
           </select>

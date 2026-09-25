@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
+import { HealthPanel } from '../components/HealthPanel';
 import { useLeague } from '../lib/store';
 import { rpc } from '../lib/supabase';
 import { fmtDateTime } from '../lib/format';
@@ -69,6 +70,8 @@ export default function Commish() {
   return (
     <div className="space-y-5">
       <PageHeader icon={<Wrench size={22} className="text-gold" />} title="Commissioner" sub={`With great power comes great responsibility, ${me.gm_name}.`} />
+
+      <HealthPanel />
 
       <Section title="📣 Announcement">
         <div className="card space-y-2 p-3">

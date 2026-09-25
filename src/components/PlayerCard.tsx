@@ -1,4 +1,5 @@
 import { useEffect, useState, type ReactNode } from 'react';
+import { Sparkline } from './charts';
 import { useNavigate } from 'react-router-dom';
 import { useLeague } from '../lib/store';
 import { rpc, supabase } from '../lib/supabase';
@@ -154,7 +155,7 @@ export function PlayerSheet({ id, onClose, actions }: { id: number | null; onClo
 
       {tab === 'overview' && <>
       <div className="mt-4 grid grid-cols-3 gap-2 text-center">
-        <div className="rounded-xl bg-boards/60 p-2"><div className="label">This season</div><div className="font-display text-xl font-bold">{fmtPts(s?.fpts)}</div><div className="text-[11px] text-mute">{s?.gp ?? 0} GP</div></div>
+        <div className="rounded-xl bg-boards/60 p-2"><div className="label">This season</div><div className="flex items-end gap-1.5"><span className="font-display text-xl font-bold">{fmtPts(s?.fpts)}</span>{log.length > 1 && <Sparkline values={[...log].reverse().map((g) => g.fpts)} color={NHL_COLORS[p.nhl_team ?? ''] ?? '#4cc3ff'} width={56} height={20} />}</div><div className="text-[11px] text-mute">{s?.gp ?? 0} GP</div></div>
         <div className="rounded-xl bg-boards/60 p-2"><div className="label">Last season</div><div className="font-display text-xl font-bold">{fmtPts(p.last_fp)}</div><div className="text-[11px] text-mute">{p.last_stats?.gp ?? 0} GP</div></div>
         <div className="rounded-xl bg-boards/60 p-2"><div className="label">Projection</div><div className="font-display text-xl font-bold">{fmtPts(p.proj, 0)}</div><div className="text-[11px] text-mute">Rank #{p.rank ?? '—'}</div></div>
       </div>

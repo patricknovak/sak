@@ -4,7 +4,7 @@
 // players whose games have started, the GM's pins, and injuries.
 
 export type Mode = 'day' | 'week' | 'season';
-export type Basis = 'proj' | 'form' | 'season';
+export type Basis = 'proj' | 'form' | 'season' | 'ros';
 
 export interface LPlayer {
   id: number; pos: string; elig: string[]; proj: number; nhl_team: string | null; injury_status: string | null;
@@ -41,10 +41,22 @@ export function gamesLeftThisWeek(team: string | null, ctx: LContext) {
   return team ? ctx.games.filter((g) => live(g) && g.date >= ctx.today && g.date <= ctx.weekEnd && (g.home === team || g.away === team)).length : 0;
 }
 
+export const GAMES_PER_SEASON = (pos: string) => (pos === 'G' ? 58 : 80);
+
+// rest-of-season points per game: the preseason projection, trusted less and the season's pace trusted more
+// as games pile up (a full weight of 1 at 25 games)
+export function rosPerGame(proj: number, pos: string, gp: number, fpts: number) {
+  const base = proj / GAMES_PER_SEASON(pos);
+  if (!gp) return base;
+  const w = Math.min(1, gp / 25);
+  return (1 - w) * base + w * (fpts / gp);
+}
+
 // fantasy points per game under the chosen basis (falls back to the projection when there's no sample)
 export function perGame(p: LPlayer, basis: Basis, ctx: LContext) {
-  const base = p.proj / (p.pos === 'G' ? 58 : 80);
+  const base = p.proj / GAMES_PER_SEASON(p.pos);
   const s = ctx.season.get(p.id);
+  if (basis === 'ros') return rosPerGame(p.proj, p.pos, s?.gp ?? 0, s?.fpts ?? 0);
   if (basis === 'form' && s?.gp14 && s.gp14 >= 2 && s.fpts14 != null) return s.fpts14 / s.gp14;
   if ((basis === 'season' || basis === 'form') && s && s.gp >= 5) return s.fpts / s.gp;
   return base;

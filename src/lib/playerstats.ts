@@ -1,9 +1,11 @@
 // Player stats by timeframe, for sorting and filtering the player lists any way a GM likes.
-import type { Player, PlayerWindow } from './types';
+import type { Player, PlayerSeason, PlayerWindow } from './types';
+import { GAMES_PER_SEASON, rosPerGame } from './lineup';
 
-export type Timeframe = 'proj' | 'last' | 'season' | '30' | '14' | '7';
+export type Timeframe = 'proj' | 'ros' | 'last' | 'season' | '30' | '14' | '7';
 export const TIMEFRAMES: { k: Timeframe; label: string; short: string; live: boolean }[] = [
   { k: 'proj', label: 'Projected 2026-27', short: 'Proj', live: false },
+  { k: 'ros', label: 'Rest of season (projection blended with this season’s pace)', short: 'ROS', live: false },
   { k: 'last', label: '2025-26 season', short: '’25-26', live: false },
   { k: 'season', label: 'This season', short: 'Season', live: true },
   { k: '30', label: 'Last 30 days', short: '30d', live: true },
@@ -46,8 +48,16 @@ export const statsFor = (goalie: boolean) => STATS.filter((s) => goalie ? !s.ska
 
 // a player's line for a timeframe: games, fantasy points and raw totals (null when there's nothing to show)
 export interface Line { gp: number | null; fp: number; totals: Record<string, number> }
-export function lineFor(p: Player, tf: Timeframe, windows?: Record<string, PlayerWindow>): Line | null {
+// projection-style timeframes have one number and no raw totals
+export const projLike = (tf: Timeframe) => tf === 'proj' || tf === 'ros';
+// what's left in the tank: blended per-game pace times the games he has left
+export function rosPoints(p: Player, s?: PlayerSeason | null) {
+  const gp = s?.gp ?? 0;
+  return rosPerGame(p.proj, p.pos, gp, s?.fpts ?? 0) * Math.max(0, GAMES_PER_SEASON(p.pos) - gp);
+}
+export function lineFor(p: Player, tf: Timeframe, windows?: Record<string, PlayerWindow>, season?: PlayerSeason | null): Line | null {
   if (tf === 'proj') return { gp: null, fp: p.proj, totals: {} };
+  if (tf === 'ros') return { gp: season?.gp ?? null, fp: rosPoints(p, season), totals: {} };
   if (tf === 'last') {
     if (!p.last_stats) return null;
     const { fp, gp, ...totals } = p.last_stats as Record<string, number>;

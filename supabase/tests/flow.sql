@@ -315,3 +315,51 @@ select 'spectators', (select count(*) from standings where team_id = 9) = 0 as n
   (select balance from coin_balances where team_id = 9) as coins,
   (select count(*) from messages where team_id = 9 and kind = 'user') as posted,
   (select role from team_directory where id = 9) as role;
+
+-- ── player alerts: the owner hears about injuries and big nights
+select player_id as alert_pl from rosters where team_id = 1 and slot <> 'IR' order by player_id limit 1 \gset
+update players set injury_status = 'Day-to-day', injury_note = 'Upper body' where id = :alert_pl;
+update players set injury_status = null where id = :alert_pl;
+insert into games (id, date, start_utc, home, away, state) values (777, today_et(), now() - interval '2 hours', 'EDM', 'CGY', 'LIVE') on conflict do nothing;
+insert into player_games (game_id, player_id, date, stats) values (777, :alert_pl, today_et(), '{"g":2,"a":1,"pts":3}');
+update player_games set stats = '{"g":3,"a":1,"pts":4}' where game_id = 777 and player_id = :alert_pl;
+update player_games set stats = '{"g":3,"a":2,"pts":5}' where game_id = 777 and player_id = :alert_pl;
+select 'alerts', (select count(*) from notifications where team_id = 1 and kind = 'injury') as injury_alerts,
+  (select count(*) from notifications where team_id = 1 and kind = 'big_night') as big_nights,
+  (select body from notifications where team_id = 1 and kind = 'big_night' limit 1) like '🎩%' as hat_trick;
+
+-- ── polls: anyone who can chat can start one and vote once; the card rides a system message
+select pg_temp.as_team(1);
+set role authenticated;
+insert into polls (channel, team_id, question, options) values ('general', 1, 'Who takes McDavid?', '["Patrick","Jason","A goalie, somehow"]') returning id as poll_id \gset
+insert into poll_votes (poll_id, team_id, choice) values (:poll_id, 1, 0);
+do $$ begin insert into poll_votes (poll_id, team_id, choice) values ((select max(id) from polls), 2, 1); raise exception 'voted as another team';
+exception when others then if sqlerrm like '%row-level security%' then null; else raise; end if; end $$;
+reset role;
+select pg_temp.as_team(2);
+set role authenticated;
+insert into poll_votes (poll_id, team_id, choice) values (:poll_id, 2, 1);
+update poll_votes set choice = 2 where poll_id = :poll_id and team_id = 2;
+do $$ begin update polls set closed = true where id = (select max(id) from polls); end $$;   -- not mine: silently no rows
+reset role;
+select pg_temp.as_team(1);
+set role authenticated;
+update polls set closed = true where id = :poll_id;
+do $$ begin insert into poll_votes (poll_id, team_id, choice) values ((select max(id) from polls), 1, 1); raise exception 'voted on a closed poll';
+exception when others then if sqlerrm like '%row-level security%' or sqlerrm like '%duplicate key%' then null; else raise; end if; end $$;
+reset role;
+select 'polls', (select closed from polls where id = :poll_id) as closed, (select count(*) from poll_votes where poll_id = :poll_id) as votes,
+  (select choice from poll_votes where poll_id = :poll_id and team_id = 2) as t2_choice,
+  (select count(*) from messages where kind = 'system' and (meta->>'poll')::int = :poll_id) as cards;
+
+-- ── health check: runs without the cron/net tables, and only the commissioner can read it
+select 'health', jsonb_typeof(health_check(false)->'issues') as issues, (health_check(false)->>'phase') is not null as has_phase;
+select pg_temp.as_team((select id from teams where is_commish limit 1));
+set role authenticated;
+select 'commish health', (commish_health() ? 'checked_at') as ok;
+reset role;
+select pg_temp.as_team(2);
+set role authenticated;
+do $$ begin perform commish_health(); raise exception 'a GM read the health panel';
+exception when others then if sqlerrm like '%Commissioner only%' then null; else raise; end if; end $$;
+reset role;

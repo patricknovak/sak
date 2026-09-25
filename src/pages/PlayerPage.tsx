@@ -6,6 +6,7 @@ import { supabase } from '../lib/supabase';
 import type { Game, NewsItem, Transaction } from '../lib/types';
 import { ago, calcFpts, etToday, fmtDate, fmtPts, fmtTime, injuryBadge, NHL_COLORS, NHL_TEAMS, readable, SCORING_STATS, STAT_LABELS, teamLogo } from '../lib/format';
 import { PlayerActions } from '../components/PlayerCard';
+import { FormChart } from '../components/charts';
 import { Headshot, NhlLogo, Pos, Section, Skeleton, Stat, TeamBadge, TeamName } from '../components/ui';
 
 interface GameLine { game_id: number; date: string; nhl_team: string; stats: Record<string, number>; fpts: number }
@@ -85,8 +86,7 @@ export default function PlayerPage() {
   const tc = NHL_COLORS[p.nhl_team ?? ''] ?? '#4cc3ff';
   const inj = injuryBadge(p.injury_status);
   const keys = goalie ? ['gp', 'gs', 'w', 'l', 'otl', 'ga', 'sa', 'sv', 'sho'] : ['gp', 'g', 'a', 'pts', 'pm', 'pim', 'ppg', 'ppp', 'shp', 'gwg', 'sog', 'fow', 'hit', 'blk'];
-  const recent = (log ?? []).slice(0, 20).reverse();
-  const maxRecent = Math.max(1, ...recent.map((g) => Math.abs(g.fpts)));
+  const recent = (log ?? []).slice(0, 25).reverse();
   const ownerTeam = r ? team(r.team_id) : undefined;
 
   return (
@@ -166,17 +166,8 @@ export default function PlayerPage() {
             )}
 
             {recent.length > 1 && (
-              <Section title="Recent form">
-                <div className="card p-3">
-                  <div className="flex h-28 items-end gap-1">
-                    {recent.map((g) => (
-                      <div key={g.game_id} className="group relative flex flex-1 flex-col items-center justify-end" title={`${fmtDate(g.date)}: ${fmtPts(g.fpts, 1)}`}>
-                        <div className="w-full rounded-t" style={{ height: `${Math.max(3, (Math.abs(g.fpts) / maxRecent) * 100)}%`, background: g.fpts >= 0 ? `linear-gradient(180deg, ${readable(tc)}, color-mix(in oklab, ${readable(tc)} 40%, #0b1222))` : '#ef4444' }} />
-                      </div>
-                    ))}
-                  </div>
-                  <div className="mt-1 flex justify-between text-[10px] text-mute"><span>{fmtDate(recent[0].date)}</span><span>last {recent.length} games · avg {fmtPts(recent.reduce((t, g) => t + g.fpts, 0) / recent.length, 2)}</span><span>{fmtDate(recent[recent.length - 1].date)}</span></div>
-                </div>
+              <Section title="Recent form" right={<span className="text-xs text-mute">last {recent.length} games · avg {fmtPts(recent.reduce((t, g) => t + g.fpts, 0) / recent.length, 2)}</span>}>
+                <div className="card p-3"><FormChart games={recent} color={tc} /></div>
               </Section>
             )}
 
