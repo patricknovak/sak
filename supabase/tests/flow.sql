@@ -363,3 +363,33 @@ set role authenticated;
 do $$ begin perform commish_health(); raise exception 'a GM read the health panel';
 exception when others then if sqlerrm like '%Commissioner only%' then null; else raise; end if; end $$;
 reset role;
+
+-- ── three-team trade: 2 sends a player to 3, 3 sends a player to 4, 4 sends a pick to 2; everyone must accept
+select (select player_id from rosters where team_id = 2 order by player_id limit 1) as m2, (select player_id from rosters where team_id = 3 order by player_id limit 1) as m3,
+  (select id from draft_picks where team_id = 4 and player_id is null and round = 5 limit 1) as k4 \gset
+select pg_temp.as_team(2);
+set role authenticated;
+select propose_multi_trade(jsonb_build_array(jsonb_build_object('from', 2, 'to', 3, 'player_id', :m2), jsonb_build_object('from', 3, 'to', 4, 'player_id', :m3), jsonb_build_object('from', 4, 'to', 2, 'pick_id', :k4)), 'three-way') as multi \gset
+do $$ begin perform propose_multi_trade(jsonb_build_array(jsonb_build_object('from', 3, 'to', 4, 'player_id', (select player_id from rosters where team_id = 3 limit 1))), null); raise exception 'proposed a trade without being in it';
+exception when others then if sqlerrm like '%part of your own trade%' then null; else raise; end if; end $$;
+do $$ begin perform respond_trade((select max(id) from trades), true); raise exception 'proposer accepted their own trade';
+exception when others then if sqlerrm like '%respond%' then null; else raise; end if; end $$;
+reset role;
+select pg_temp.as_team(3);
+set role authenticated;
+select respond_trade(:multi, true);
+reset role;
+select 'multi after one accept', status, accepted_by from trades where id = :multi;
+select pg_temp.as_team(4);
+set role authenticated;
+select respond_trade(:multi, true);
+reset role;
+select 'multi after all accept', status from trades where id = :multi;
+select pg_temp.as_team(1);
+set role authenticated;
+select review_trade(:multi, true, 'three-way ok');
+reset role;
+select 'multi trade', (select status from trades where id = :multi) as status,
+  (select team_id from rosters where player_id = :m2) = 3 as p2_to_3, (select team_id from rosters where player_id = :m3) = 4 as p3_to_4,
+  (select team_id from draft_picks where id = :k4) = 2 as pick_to_2,
+  (select count(*) from messages where body like '🔄 TRADE! 3-team deal%') as announced;

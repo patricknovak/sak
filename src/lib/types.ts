@@ -65,9 +65,10 @@ export interface Trade {
   id: number; season: string; from_team: number; to_team: number;
   status: 'proposed' | 'accepted' | 'approved' | 'declined' | 'cancelled' | 'vetoed' | 'failed';
   note: string | null; review_note: string | null; created_at: string; responded_at: string | null; decided_at: string | null;
+  parties: number[] | null; accepted_by: number[];   // multi-team trades list every team; two-team trades have parties = null
   trade_items?: TradeItem[];
 }
-export interface TradeItem { id: number; trade_id: number; from_team: number; player_id: number | null; pick_id: number | null }
+export interface TradeItem { id: number; trade_id: number; from_team: number; to_team: number | null; player_id: number | null; pick_id: number | null }
 
 export interface Bet {
   id: number; creator_team: number; opponent_team: number | null; title: string; terms: string | null;
