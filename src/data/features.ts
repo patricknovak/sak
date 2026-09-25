@@ -8,8 +8,8 @@ export const FEATURE_GROUPS: FeatureGroup[] = [
   {
     key: 'draft', title: 'Draft day', icon: '📋', tagline: 'Keepers in, then the best draft night we’ve ever had',
     features: [
-      { key: 'keepers', icon: '🔒', title: 'Keepers', to: '/keepers', blurb: 'Pick up to 6 from last season’s roster before the deadline.',
-        points: ['Your 2025-26 top scorer can’t be kept, so stars come back into the pool', 'Miss the deadline and the site keeps your top 6 by points', 'See every team’s keepers once they’re locked'] },
+      { key: 'keepers', icon: '🔒', title: 'Keepers', to: '/keepers', isNew: true, blurb: 'Pick up to 6 from last season’s roster before the deadline, with a helper that does the math.',
+        points: ['Keeper helper: the best six by projection in one tap, positional balance, injury warnings', 'Every player’s last-season line, overall and position rank, and about which round he’d go if released', 'Sort by last season, projection, points per game or position; or open every stat in a table', 'Your 2025-26 top scorer can’t be kept, so stars come back into the pool', 'Miss the deadline and the site keeps your top 6 by points', 'See every team’s keepers once they’re locked'] },
       { key: 'draft-room', icon: '⏱️', title: 'Live draft room', to: '/draft', blurb: 'An 18-round snake draft with a pick clock, live for everyone at once.',
         points: ['Star players to build your queue', 'Autodraft takes the best player on your queue (or board) when you’re away', 'Draft chat right beside the board for instant chirps', 'Phone alert when you’re on the clock', 'Pick announcements with confetti; the commish can pause, undo or pick for a team'] },
       { key: 'draft-tv', icon: '📺', title: 'TV mode and draft sounds', to: '/draft/tv', isNew: true, blurb: 'Cast the full board to the big screen; the horn goes off on every pick.',
