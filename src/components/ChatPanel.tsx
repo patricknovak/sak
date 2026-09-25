@@ -17,7 +17,8 @@ const linkLabel = (path: string) => LINK_LABEL.find(([p]) => path.startsWith(p))
 const CHIRPS = ['🚨 REACH!', 'Steal of the draft 🥷', 'Enjoy the Peter 🪣', 'Sell me that guy 💰', 'Who? 🤔', 'Lock it in 🔒', 'GG 🍺', 'Scoreboard. 📈'];
 
 export function ChatPanel({ channel, compact, className = '' }: { channel: string; compact?: boolean; className?: string }) {
-  const { me, team, teams } = useLeague();
+  const { me, team, teams, can } = useLeague();
+  const muted = !can('chat') || (channel.startsWith('dm:') && !can('dm'));
   const now = useNow(30_000);
   const toast = useToast();
   const [msgs, setMsgs] = useState<Message[]>([]);
@@ -88,7 +89,7 @@ export function ChatPanel({ channel, compact, className = '' }: { channel: strin
 
   const react = async (m: Message, emoji: string) => {
     setPicker(null);
-    if (!me) return;
+    if (!me || muted) return;
     const mine = reactions.some((r) => r.message_id === m.id && r.team_id === me.id && r.emoji === emoji);
     if (mine) {
       setReactions((r) => r.filter((x) => !(x.message_id === m.id && x.team_id === me.id && x.emoji === emoji)));
@@ -235,6 +236,7 @@ export function ChatPanel({ channel, compact, className = '' }: { channel: strin
             {CHIRPS.map((c) => <button key={c} className="chip shrink-0 py-1 text-xs" onClick={() => send(c)}>{c}</button>)}
           </div>
         )}
+        {muted ? <div className="rounded-xl border border-white/10 bg-white/[.04] px-3 py-2.5 text-center text-sm text-mute">🔇 The commissioner has switched off {channel.startsWith('dm:') ? 'DMs' : 'chat'} for your spectator pass.</div> : (
         <form className="flex items-end gap-1.5" onSubmit={(e) => { e.preventDefault(); send(text); }}>
           <button type="button" className="btn-ghost h-10 w-10 shrink-0 p-0 text-lg" onClick={() => setShowChirps(!showChirps)} title="Quick chirps">🗯️</button>
           <textarea
@@ -244,7 +246,7 @@ export function ChatPanel({ channel, compact, className = '' }: { channel: strin
             onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send(text); } }}
           />
           <button className="btn-primary h-10 w-10 shrink-0 p-0" disabled={!text.trim()} aria-label="Send"><SendHorizontal size={18} /></button>
-        </form>
+        </form>)}
       </div>
     </div>
   );

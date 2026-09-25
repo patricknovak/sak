@@ -57,7 +57,7 @@ export default function Profile() {
             <select className="input mt-1" value={f.fav_nhl ?? ''} onChange={(e) => setF({ ...f, fav_nhl: e.target.value })}>
               <option value="">—</option>{Object.entries(NHL_TEAMS).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
             </select></label>
-          <Toggle on={!!f.auto_lineup} onChange={(v) => setF({ ...f, auto_lineup: v })} label={<span>Auto-set my lineup every morning <span className="text-xs text-mute">(starts players with games)</span></span>} />
+          {me?.role !== 'spectator' && <Toggle on={!!f.auto_lineup} onChange={(v) => setF({ ...f, auto_lineup: v })} label={<span>Auto-set my lineup every morning <span className="text-xs text-mute">(starts players with games)</span></span>} />}
           <button className="btn-primary" disabled={busy} onClick={save}>Save</button>
         </div>
       </Section>

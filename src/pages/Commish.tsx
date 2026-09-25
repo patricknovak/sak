@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { useLeague } from '../lib/store';
 import { rpc } from '../lib/supabase';
 import { fmtDateTime } from '../lib/format';
-import { Section, TeamBadge, useAction, PageHeader } from '../components/ui';
+import { Section, TeamBadge, Toggle, useAction, PageHeader } from '../components/ui';
 import { Wrench } from 'lucide-react';
 import { MoneySettings } from '../components/MoneySettings';
 import { ScoringEditor } from '../components/ScoringEditor';
@@ -16,7 +16,7 @@ const toLocal = (iso: string | null) => {
 const fromLocal = (v: string) => (v ? new Date(v).toISOString() : null);
 
 export default function Commish() {
-  const { me, league, teams, team, draft, picks, players, owner, refresh } = useLeague();
+  const { me, league, teams, spectators, team, draft, picks, players, owner, refresh } = useLeague();
   const { busy, run: runRaw } = useAction();
   const run = (fn: () => Promise<unknown>, ok?: string) => runRaw(async () => { await fn(); await refresh(['draft', 'picks', 'league', 'rosters', 'teams']); }, ok);
   const [s, setS] = useState({ keeper_deadline: '', draft_at: '', pick_seconds: 90, draft_rounds: 18, snake: true, trade_deadline: '', max_acquisitions: 10, keepers: 6, top_scorer_rule: true, phase: 'keepers' });
@@ -27,6 +27,7 @@ export default function Commish() {
   const [mv, setMv] = useState({ q: '', player: 0, team: '' });
   const [pickEdit, setPickEdit] = useState({ pick: '', team: '' });
   const [coin, setCoin] = useState({ team: '', amount: '', reason: '' });
+  const [spec, setSpec] = useState({ name: '', email: '', pw: '', color: '#64748b', emoji: '🍿' });
 
   useEffect(() => {
     if (!league) return;
@@ -207,10 +208,41 @@ export default function Commish() {
       <Section title="🔑 Reset a GM’s password">
         <div className="card flex flex-wrap gap-2 p-3">
           <select className="input w-auto" value={pw.team} onChange={(e) => setPw({ ...pw, team: e.target.value })}>
-            <option value="">GM…</option>{teams.map((t) => <option key={t.id} value={t.id}>{t.gm_name} ({t.name})</option>)}
+            <option value="">GM…</option>{[...teams, ...spectators].map((t) => <option key={t.id} value={t.id}>{t.gm_name} ({t.role === 'spectator' ? 'spectator' : t.name})</option>)}
           </select>
           <input className="input w-auto flex-1" placeholder="New password (6+ chars)" value={pw.pw} onChange={(e) => setPw({ ...pw, pw: e.target.value })} />
           <button className="btn-primary" disabled={!pw.team || pw.pw.length < 6 || busy} onClick={() => run(async () => { await rpc('commish_reset_password', { p_team: Number(pw.team), p_password: pw.pw }); setPw({ team: '', pw: '' }); }, 'Password reset. Send it to them privately.')}>Reset</button>
+        </div>
+      </Section>
+
+      <Section title="🍿 Spectator passes">
+        <p className="mb-2 px-1 text-xs text-mute">A spectator can see the whole league, chat, DM and bet St. Patrick coins, but has no team. Switch any of that off per person, or pause the pass entirely.</p>
+        <div className="space-y-2">
+          {spectators.map((t) => {
+            const on = (k: string) => t.perms?.[k] !== false;
+            const flip = (k: string, v: boolean) => run(async () => { await rpc('commish_set_spectator', { p_team: t.id, p_perms: { [k]: v } }); await refresh(['teams']); }, `${t.gm_name}: ${k} ${v ? 'on' : 'off'}`);
+            return (
+              <div key={t.id} className={`card p-3 ${on('active') ? '' : 'opacity-60'}`}>
+                <div className="flex items-center gap-2"><TeamBadge team={t} size={28} /><div className="min-w-0 flex-1"><div className="truncate font-semibold">{t.gm_name}</div><div className="truncate text-xs text-mute">{t.login_email}</div></div>
+                  <Toggle on={on('active')} onChange={(v) => flip('active', v)} label={<span className="text-xs">{on('active') ? 'Active' : 'Paused'}</span>} /></div>
+                <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1">
+                  {([['chat', '💬 Chat'], ['dm', '✉️ DMs'], ['bets', '🎲 Bets'], ['ideas', '💡 Ideas']] as const).map(([k, l]) => (
+                    <Toggle key={k} on={on(k)} onChange={(v) => flip(k, v)} label={<span className="text-xs">{l}</span>} />
+                  ))}
+                </div>
+              </div>
+            );
+          })}
+          {spectators.length === 0 && <div className="card p-3 text-sm text-mute">No spectators yet.</div>}
+          <div className="card grid gap-2 p-3 sm:grid-cols-2">
+            <div className="text-sm font-semibold sm:col-span-2">Add a spectator</div>
+            <input className="input" placeholder="Name (e.g. Dan Perra)" value={spec.name} onChange={(e) => setSpec({ ...spec, name: e.target.value })} />
+            <input className="input" type="email" placeholder="Login email" value={spec.email} onChange={(e) => setSpec({ ...spec, email: e.target.value })} />
+            <input className="input" placeholder="Password (6+ characters)" value={spec.pw} onChange={(e) => setSpec({ ...spec, pw: e.target.value })} />
+            <div className="flex gap-2"><input className="input w-20" placeholder="🍿" value={spec.emoji} onChange={(e) => setSpec({ ...spec, emoji: e.target.value })} /><input className="h-10 w-14 cursor-pointer rounded-lg border border-white/10 bg-transparent" type="color" value={spec.color} onChange={(e) => setSpec({ ...spec, color: e.target.value })} /></div>
+            <button className="btn-primary sm:col-span-2" disabled={busy || spec.name.trim().length < 2 || !spec.email.includes('@') || spec.pw.length < 6}
+              onClick={() => run(async () => { await rpc('commish_add_spectator', { p_name: spec.name.trim(), p_email: spec.email.trim(), p_password: spec.pw, p_color: spec.color, p_emoji: spec.emoji || '🍿' }); setSpec({ name: '', email: '', pw: '', color: '#64748b', emoji: '🍿' }); await refresh(['teams']); }, 'Spectator added. Send them the login privately.')}>Create spectator pass</button>
+          </div>
         </div>
       </Section>
     </div>

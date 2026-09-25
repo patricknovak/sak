@@ -150,6 +150,16 @@ export default function MyTeam() {
   };
 
   if (!t) return null;
+  if (t.role === 'spectator') {
+    return (
+      <div className="card-hero p-5 text-center" style={{ '--tc': t.color } as React.CSSProperties}>
+        <div className="relative mx-auto w-fit"><TeamBadge team={t} size={64} ring /></div>
+        <h1 className="h-display text-shine relative mt-3 text-3xl">{t.name}</h1>
+        <p className="relative mt-1 text-sm text-white/70">🍿 Spectator pass: no roster, no lineup, just a great seat.{mine ? ' Head to the standings, the chat or the side bets.' : ''}</p>
+        <div className="relative mt-4 flex justify-center gap-2"><Link to="/standings" className="btn-primary">Standings</Link><Link to="/chat" className="btn-ghost">Chat</Link></div>
+      </div>
+    );
+  }
   return (
     <div className="space-y-4">
       <div className="card-hero flex flex-wrap items-center gap-3 p-4" style={{ '--tc': t.color } as React.CSSProperties}>
@@ -196,7 +206,7 @@ export default function MyTeam() {
 
       {!mine && (
         <div className="flex gap-1">
-          <button className={`tab ${view === 'scout' ? 'tab-on' : 'bg-white/[.05]'}`} onClick={() => setView('scout')}>🔍 Scout & trade</button>
+          <button className={`tab ${view === 'scout' ? 'tab-on' : 'bg-white/[.05]'}`} onClick={() => setView('scout')}>🔍 {me?.role === 'spectator' ? 'Scout' : 'Scout & trade'}</button>
           <button className={`tab ${view === 'lineup' ? 'tab-on' : 'bg-white/[.05]'}`} onClick={() => setView('lineup')}>🏒 Lineup</button>
         </div>
       )}

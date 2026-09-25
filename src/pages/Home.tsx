@@ -82,7 +82,14 @@ export default function Home() {
         </div>
 
         <div className="relative mt-5 grid gap-3 sm:grid-cols-2">
-          {phase === 'keepers' && (
+          {me?.role === 'spectator' && (
+            <div className="rounded-2xl border border-white/10 bg-black/25 p-3.5 backdrop-blur sm:col-span-2">
+              <div className="label text-white/70">🍿 Spectator pass</div>
+              <p className="mt-1.5 text-sm text-white/80">You’ve got a seat in the barn: watch the draft, follow the standings, talk trash and put St. Patrick coins on side bets. No roster to set, no Peter to fear.</p>
+              <div className="mt-3 flex flex-wrap gap-2"><Link to="/chat" className="btn-primary">💬 Trash Talk</Link><Link to="/bets" className="btn-ghost">🎲 Side bets</Link><Link to="/league" className="btn-ghost">📜 Rules & history</Link></div>
+            </div>
+          )}
+          {phase === 'keepers' && me?.role !== 'spectator' && (
             <div className="rounded-2xl border border-white/10 bg-black/25 p-3.5 backdrop-blur">
               <div className="label flex items-center gap-1.5 text-white/70"><Lock size={12} /> Keeper deadline</div>
               <div className="mt-2">{league?.keeper_deadline ? <Countdown ms={new Date(league.keeper_deadline).getTime() - now} size="md" /> : <span className="h-display text-2xl">TBD</span>}</div>

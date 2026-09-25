@@ -3,7 +3,7 @@ import { supabase } from '../lib/supabase';
 import { Spinner, TeamBadge } from '../components/ui';
 import type { Team } from '../lib/types';
 
-type DirTeam = Pick<Team, 'id' | 'name' | 'abbrev' | 'gm_name' | 'login_email' | 'color' | 'emoji'>;
+type DirTeam = Pick<Team, 'id' | 'name' | 'abbrev' | 'gm_name' | 'login_email' | 'color' | 'emoji' | 'role'>;
 
 export default function Login() {
   const [teams, setTeams] = useState<DirTeam[]>([]);
@@ -55,7 +55,7 @@ export default function Login() {
           <>
             <div className="label mb-3 text-center">Who are you?</div>
             <div className="stagger grid grid-cols-2 gap-2.5">
-              {teams.map((t) => (
+              {teams.filter((t) => t.role !== 'spectator').map((t) => (
                 <button key={t.id} onClick={() => { setPick(t); setPw(''); setErr(''); }}
                   className="group card relative flex flex-col items-center gap-2 overflow-hidden px-2 py-4 transition duration-200 hover:-translate-y-0.5 active:scale-[.97]">
                   <div className="pointer-events-none absolute inset-0 opacity-60 transition group-hover:opacity-100" style={{ background: `radial-gradient(90% 70% at 50% 0%, ${t.color}55, transparent 70%)` }} />
@@ -68,6 +68,18 @@ export default function Login() {
               ))}
               {teams.length === 0 && !err && <div className="col-span-2 flex justify-center py-8"><Spinner /></div>}
             </div>
+            {teams.some((t) => t.role === 'spectator') && (
+              <>
+                <div className="label mb-2 mt-6 text-center">Spectators</div>
+                <div className="flex flex-wrap justify-center gap-2">
+                  {teams.filter((t) => t.role === 'spectator').map((t) => (
+                    <button key={t.id} onClick={() => { setPick(t); setPw(''); setErr(''); }} className="card flex items-center gap-2 px-3 py-2 text-sm transition hover:-translate-y-0.5 active:scale-[.97]">
+                      <TeamBadge team={t as Team} size={26} /><span className="font-semibold">{t.name}</span><span className="text-xs text-mute">🍿</span>
+                    </button>
+                  ))}
+                </div>
+              </>
+            )}
           </>
         ) : (
           <form onSubmit={signIn} className="card-hero animate-pop p-5" style={{ '--tc': pick.color } as React.CSSProperties}>
@@ -75,7 +87,7 @@ export default function Login() {
               <TeamBadge team={pick as Team} size={60} ring />
               <div>
                 <div className="h-display text-shine text-2xl leading-tight">{pick.name}</div>
-                <div className="text-sm text-white/70">GM {pick.gm_name}</div>
+                <div className="text-sm text-white/70">{pick.role === 'spectator' ? '🍿 Spectator pass' : `GM ${pick.gm_name}`}</div>
               </div>
             </div>
             <label className="label relative text-white/70">Password</label>

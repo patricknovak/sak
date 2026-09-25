@@ -81,9 +81,10 @@ export function Layout({ children }: { children: ReactNode }) {
 
   const phase = league?.phase;
   const draftish = phase === 'keepers' || phase === 'predraft' || phase === 'draft';
+  const spectator = me?.role === 'spectator';
   const items: Item[] = [
     { to: '/', label: 'Home', icon: Home },
-    draftish ? { to: '/draft', label: 'Draft', icon: ClipboardList } : { to: '/team', label: 'Lineup', icon: Shield },
+    draftish ? { to: '/draft', label: 'Draft', icon: ClipboardList } : spectator ? { to: '/standings', label: 'Standings', icon: Trophy } : { to: '/team', label: 'Lineup', icon: Shield },
     { to: '/chat', label: 'Chat', icon: MessageCircle },
     { to: '/players', label: 'Players', icon: Search },
   ];
@@ -99,7 +100,7 @@ export function Layout({ children }: { children: ReactNode }) {
     { to: '/features', label: 'League Features', icon: Lightbulb },
     { to: '/profile', label: 'My Profile', icon: UserRound },
     { to: '/commish', label: 'Commissioner', icon: Wrench, commish: true },
-  ].filter((i) => !i.commish || me?.is_commish);
+  ].filter((i) => (!i.commish || me?.is_commish) && !(spectator && i.to === '/team'));
 
   // who's on the clock?
   const current = useMemo(() => picks.find((p) => p.overall === draft?.current_overall && draft?.season === p.season), [picks, draft]);

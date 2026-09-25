@@ -73,7 +73,7 @@ async function alreadyPosted(type: string, date: string) {
 async function base() {
   const [{ data: league }, { data: teams }, { data: standings }] = await Promise.all([
     db.from('league').select('*').single(),
-    db.from('teams').select('id,name,gm_name,auto_lineup,keepers_submitted').order('id'),
+    db.from('teams').select('id,name,gm_name,auto_lineup,keepers_submitted').eq('role', 'gm').order('id'),
     db.from('standings').select('*'),
   ]);
   const byId = new Map((teams as Team[]).map((t) => [t.id, t]));

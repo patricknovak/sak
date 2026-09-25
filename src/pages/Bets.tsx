@@ -14,7 +14,7 @@ const IDEAS = [
 ];
 
 export default function Bets() {
-  const { me, teams, team, standings } = useLeague();
+  const { me, teams, team, standings, spectators, can } = useLeague();
   const now = useNow(30_000);
   const { busy, run } = useAction();
   const [bets, setBets] = useState<Bet[]>([]);
@@ -106,7 +106,7 @@ export default function Bets() {
           </div>
         )}
         <div className="mt-3 flex flex-wrap gap-2">
-          {b.status === 'open' && b.creator_team !== me?.id && (!b.opponent_team || b.opponent_team === me?.id) && (
+          {can('bets') && b.status === 'open' && b.creator_team !== me?.id && (!b.opponent_team || b.opponent_team === me?.id) && (
             <>
               <button className="btn-primary btn-sm" disabled={busy} onClick={() => run(async () => { await rpc('respond_bet', { p_bet: b.id, p_accept: true }); load(); }, 'You’re on! 🤝')}>Take the bet</button>
               {b.opponent_team === me?.id && <button className="btn-ghost btn-sm" disabled={busy} onClick={() => run(async () => { await rpc('respond_bet', { p_bet: b.id, p_accept: false }); load(); }, 'Declined 🐔')}>Decline</button>}
@@ -120,7 +120,7 @@ export default function Bets() {
             </>
           )}
           {b.status === 'accepted' && b.proposed_winner && (
-            b.proposed_by !== me?.id && mine ? (
+            b.proposed_by !== me?.id && mine && can('bets') ? (
               <><span className="self-center text-xs text-amber-200">{team(b.proposed_by)?.gm_name} claims the win.</span>
                 <button className="btn-primary btn-sm" onClick={() => run(async () => { await rpc('confirm_bet', { p_bet: b.id }); load(); }, 'Settled')}>Confirm</button></>
             ) : <span className="text-xs text-mute">Waiting for {team(b.proposed_by === b.creator_team ? b.opponent_team : b.creator_team)?.gm_name} to confirm {team(b.proposed_winner)?.gm_name} won.</span>
@@ -140,7 +140,7 @@ export default function Bets() {
     <div className="space-y-5">
       <div className="flex items-end justify-between gap-2">
         <div className="min-w-0 flex-1"><PageHeader icon={<Dices size={22} className="text-clover" />} title="Side Bets" sub="Coins, cash, or your dignity." /></div>
-        <button className="btn-primary" onClick={() => setOpen(true)}>🎲 New bet</button>
+        {can('bets') ? <button className="btn-primary" onClick={() => setOpen(true)}>🎲 New bet</button> : <span className="text-xs text-mute">🔇 Betting is off for your pass</span>}
       </div>
 
       <Section icon={<Coin size={20} />} title="St. Patrick’s Bank" right={<button className="text-xs text-sky-300" onClick={() => setShowLedger(!showLedger)}>{showLedger ? 'Hide' : 'My coin history'}</button>}>
@@ -195,7 +195,7 @@ export default function Bets() {
             <div className="label mb-1">Who are you calling out?</div>
             <div className="flex flex-wrap gap-1.5">
               <button className={`chip py-1 ${f.opponent === '' ? 'bg-white text-ice' : ''}`} onClick={() => setF({ ...f, opponent: '' })}>Anyone (open)</button>
-              {teams.filter((t) => t.id !== me?.id).map((t) => (
+              {[...teams, ...spectators].filter((t) => t.id !== me?.id).map((t) => (
                 <button key={t.id} className={`chip py-1 ${f.opponent === String(t.id) ? 'bg-white text-ice' : ''}`} onClick={() => setF({ ...f, opponent: String(t.id) })}>{t.emoji} {t.gm_name}</button>
               ))}
             </div>

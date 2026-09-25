@@ -43,7 +43,7 @@ const HELP: Record<string, string> = {
 async function base(db: Db) {
   const [{ data: league }, { data: teams }, { data: standings }, { data: playoffs }] = await Promise.all([
     db.from('league').select('*').single(),
-    db.from('teams').select('id,name,gm_name,abbrev,auto_mode,keepers_submitted').order('id'),
+    db.from('teams').select('id,name,gm_name,abbrev,auto_mode,keepers_submitted').eq('role', 'gm').order('id'),
     db.from('standings').select('*'),
     db.from('playoff_standings').select('*'),
   ]);

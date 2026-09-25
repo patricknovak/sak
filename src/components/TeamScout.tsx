@@ -107,7 +107,7 @@ export function TeamScout({ teamId, hideRoster }: { teamId: number; hideRoster?:
             const on = want.has(p.id);
             return (
               <div key={p.id} className={`flex items-center gap-2 px-3 py-2 transition ${on ? 'bg-sky-400/[.12] shadow-[inset_3px_0_0_#4cc3ff]' : ''}`}>
-                {!mine && tradeOpen && (
+                {!mine && tradeOpen && me?.role !== 'spectator' && (
                   <button aria-label={on ? 'Remove from trade' : 'Ask for in a trade'} onClick={() => flip(want, setWant, p.id)}
                     className={`grid h-6 w-6 shrink-0 place-items-center rounded-lg border text-xs font-bold ${on ? 'border-sky-300 bg-sky-400 text-ice' : 'border-white/20'}`}>{on ? '✓' : ''}</button>
                 )}

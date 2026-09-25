@@ -21,7 +21,7 @@ const STATUS: Record<Status, { label: string; cls: string }> = {
 };
 
 export default function Features() {
-  const { me, team } = useLeague();
+  const { me, team, can } = useLeague();
   const now = useNow(60_000);
   const { busy, run } = useAction();
   const [params, setParams] = useSearchParams();
@@ -115,10 +115,10 @@ export default function Features() {
             </div>
           );
         })}
-        <form className="flex gap-1.5 pt-1" onSubmit={(e) => { e.preventDefault(); post(k); }}>
+        {can('ideas') && <form className="flex gap-1.5 pt-1" onSubmit={(e) => { e.preventDefault(); post(k); }}>
           <input className="input py-1.5 text-sm" placeholder="Add a comment…" maxLength={1000} value={draft} onChange={(e) => setDraft(e.target.value)} />
           <button className="btn-primary btn-sm shrink-0" disabled={busy || !draft.trim()}>Post</button>
-        </form>
+        </form>}
       </div>
     );
   };
@@ -184,7 +184,8 @@ export default function Features() {
 
       {tab === 'ideas' && (
         <>
-          <form className="card space-y-2 p-3.5" onSubmit={(e) => { e.preventDefault(); suggest(); }}>
+          {!can('ideas') && <div className="card p-4 text-sm text-mute">🔇 Suggesting and voting is switched off for your spectator pass. You can still read everything.</div>}
+          {can('ideas') && <form className="card space-y-2 p-3.5" onSubmit={(e) => { e.preventDefault(); suggest(); }}>
             <div className="font-bold">💡 Suggest a feature</div>
             <input className="input" placeholder="What should we build? (e.g. Weekly head-to-head side pot)" maxLength={120} value={idea.title} onChange={(e) => setIdea({ ...idea, title: e.target.value })} />
             <textarea className="input min-h-20" placeholder="Details (optional): how would it work, why would it be fun?" maxLength={2000} value={idea.body} onChange={(e) => setIdea({ ...idea, body: e.target.value })} />
@@ -192,7 +193,7 @@ export default function Features() {
               <span className="text-xs text-mute">Posting it tells the league chat so people can vote.</span>
               <button className="btn-primary shrink-0 whitespace-nowrap" disabled={busy || idea.title.trim().length < 3}>Post idea</button>
             </div>
-          </form>
+          </form>}
 
           {ranked.length === 0 && <div className="card p-6 text-center text-sm text-mute">No ideas yet. Yours could be the first one we build.</div>}
           <div className="space-y-3">
@@ -203,7 +204,7 @@ export default function Features() {
               const voted = iVoted(i.id);
               return (
                 <div key={i.id} className="card flex gap-3 p-3.5">
-                  <button onClick={() => toggleVote(i.id)} disabled={busy} aria-label={voted ? 'Remove vote' : 'Vote'}
+                  <button onClick={() => toggleVote(i.id)} disabled={busy || !can('ideas')} aria-label={voted ? 'Remove vote' : 'Vote'}
                     className={`flex h-14 w-12 shrink-0 flex-col items-center justify-center rounded-xl text-sm font-extrabold transition ${voted ? 'bg-gradient-to-b from-sky-400 to-sky-600 text-ice shadow-[0_6px_18px_-8px_rgba(56,189,248,.8)]' : 'bg-white/[.05] text-slate-300 ring-1 ring-white/10 hover:bg-white/[.1]'}`}>
                     <span className="text-xs">▲</span>{voteCount(i.id)}
                   </button>
