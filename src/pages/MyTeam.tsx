@@ -206,7 +206,7 @@ export default function MyTeam() {
 
       {!mine && (
         <div className="flex gap-1">
-          <button className={`tab ${view === 'scout' ? 'tab-on' : 'bg-white/[.05]'}`} onClick={() => setView('scout')}>🔍 Scout & trade</button>
+          <button className={`tab ${view === 'scout' ? 'tab-on' : 'bg-white/[.05]'}`} onClick={() => setView('scout')}>🔍 {me?.role === 'spectator' ? 'Scout' : 'Scout & trade'}</button>
           <button className={`tab ${view === 'lineup' ? 'tab-on' : 'bg-white/[.05]'}`} onClick={() => setView('lineup')}>🏒 Lineup</button>
         </div>
       )}
