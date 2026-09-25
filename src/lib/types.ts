@@ -57,6 +57,7 @@ export interface Standing {
   team_id: number; points: number; today: number; yesterday: number; last7: number; games: number; rank: number; moves: number;
 }
 
+export interface PlayerWindow { player_id: number; win: string; gp: number; fpts: number; totals: Record<string, number> }
 export interface PlayerSeason { player_id: number; gp: number; fpts: number; fpts14: number | null; gp14: number | null; totals: Record<string, number | null> }
 
 export interface Trade {

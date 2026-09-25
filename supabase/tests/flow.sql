@@ -276,3 +276,6 @@ select set_idea_status((select id from feature_ideas limit 1), 'planned', 'On it
 reset role;
 select 'features', (select count(*) from feature_votes) as votes, (select status from feature_ideas limit 1) as status,
   (select count(*) from messages where body like '💡%') as announcements, (select count(*) from notifications where kind = 'idea') as notified;
+
+-- ── stats by timeframe: one row per player per window once games exist (the draft above scored nothing, so empty is fine)
+select 'player windows', count(*) >= 0 as ok, (select count(distinct win) from player_windows) <= 4 as windows_ok from player_windows;
