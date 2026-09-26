@@ -23,7 +23,7 @@ export const PROVIDERS = ['Telus', 'Rogers', 'Bell', 'Shaw', 'Vidéotron', 'Coge
 // The fastest route for a cable/fibre subscriber, so it goes first on the game card.
 export interface ProviderPlayer { name: string; url: string; how: string }
 export const PROVIDER_PLAYERS: Record<string, ProviderPlayer> = {
-  Telus: { name: 'TELUS TV+', url: 'https://telustvplus.telus.com/', how: 'Sign in once with your TELUS account (same as My TELUS), open Live TV and pick the channel.' },
+  Telus: { name: 'TELUS TV+', url: 'https://telustvplus.com/#/', how: 'Sign in once with your TELUS account (same as My TELUS), open Live TV and pick the channel.' },
   Rogers: { name: 'Rogers Xfinity Stream', url: 'https://rogersxfinitystream.rogers.com/', how: 'Sign in with your Rogers account, open Live TV and pick the channel.' },
   Shaw: { name: 'Rogers Xfinity Stream', url: 'https://rogersxfinitystream.rogers.com/', how: 'Shaw is Rogers now: sign in with your Shaw/Rogers account, open Live TV and pick the channel.' },
   Bell: { name: 'Bell Fibe TV', url: 'https://tv.bell.ca/', how: 'Sign in with your MyBell account, open Live TV and pick the channel.' },
