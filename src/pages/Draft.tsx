@@ -1,9 +1,12 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { bannedTopScorers } from '../lib/keepers';
+import { projectedKeepers } from '../lib/grades';
+import { fitFor, needsOf } from '../lib/draftsim';
+import { NeedsStrip, RosterNeeds } from '../components/RosterNeeds';
 import { useLeague, useNow } from '../lib/store';
 import { rpc, supabase } from '../lib/supabase';
-import type { DraftPick, Player, Pos as PosT } from '../lib/types';
+import type { DraftPick, Player } from '../lib/types';
 import { countdown, fmtDateTime, fmtPts, readable } from '../lib/format';
 import { ChatPanel } from '../components/ChatPanel';
 import { PlayerRow, PlayerSheet } from '../components/PlayerCard';
@@ -86,12 +89,24 @@ export default function Draft() {
     lastSeen.current = made;
   }, [made]);
 
-  // before keepers are final every rostered player might come back, so show the whole pool
+  // before keepers are final: a GM's saved keepers are as good as gone, the rest of their roster is coming back
+  // to the pool; a GM who hasn't saved yet gets the default (top 6 by last season's points, top scorer excluded)
+  // and those players show as "likely kept" rather than disappearing
   const preKeepers = league?.phase === 'keepers';
-  const taken = (id: number) => !preKeepers && owner.has(id);
+  const caps = league?.roster as Record<string, number> | undefined;
+  const { lockedKept, likelyKept } = useMemo(() => {
+    const locked = new Set<number>(), likely = new Set<number>();
+    if (preKeepers) for (const t of teams) {
+      const rows = rosters.filter((r) => r.team_id === t.id);
+      for (const id of projectedKeepers(rows, league?.keepers ?? 6, !!league?.top_scorer_rule)) (t.keepers_submitted ? locked : likely).add(id);
+    }
+    return { lockedKept: locked, likelyKept: likely };
+  }, [preKeepers, teams, rosters, league?.keepers, league?.top_scorer_rule]);
+  const taken = (id: number) => (preKeepers ? lockedKept.has(id) : owner.has(id));
   // each team's 2025-26 top scorer can't be kept, so he's a sure thing for the draft
   const banned = useMemo(() => bannedTopScorers(rosters, league?.top_scorer_rule), [rosters, league?.top_scorer_rule]);
-  const available = useMemo(() => pf.apply([...players.values()].filter((p) => preKeepers || !owner.has(p.id))).slice(0, 150), [players, owner, preKeepers, pf.apply]);
+  const available = useMemo(() => pf.apply([...players.values()].filter((p) => !taken(p.id))).slice(0, 150), [players, owner, preKeepers, lockedKept, pf.apply]); // eslint-disable-line react-hooks/exhaustive-deps
+  const poolRank = useMemo(() => new Map([...players.values()].filter((p) => !taken(p.id)).sort((a, b) => b.proj - a.proj).map((p, i) => [p.id, i + 1])), [players, lockedKept, owner, preKeepers]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const draftPlayer = (p: Player) => run(async () => {
     await rpc('draft_pick', { p_player: p.id });
@@ -99,25 +114,42 @@ export default function Draft() {
     await refresh(['draft', 'picks', 'rosters']);
   }, `You drafted ${p.name}!`);
 
-  const myRoster = rosters.filter((r) => r.team_id === me?.id).map((r) => players.get(r.player_id)!).filter(Boolean);
-  const countBy = (ps: Player[], k: PosT) => ps.filter((p) => p.pos === k).length;
-  const needs: Record<PosT, number> = { C: 2, LW: 2, RW: 2, D: 3, G: 2 };
+  // my roster as it will stand on draft night: keepers (saved or projected) plus whatever I've drafted
+  const myRoster = useMemo(() => {
+    const rows = rosters.filter((r) => r.team_id === me?.id);
+    const ids = preKeepers ? [...projectedKeepers(rows, league?.keepers ?? 6, !!league?.top_scorer_rule)] : rows.map((r) => r.player_id);
+    return ids.map((id) => players.get(id)!).filter(Boolean);
+  }, [rosters, me?.id, preKeepers, players, league?.keepers, league?.top_scorer_rule]);
+  const myNeeds = useMemo(() => needsOf(myRoster, caps), [myRoster, caps]);
+  const fitTag = (p: Player) => { const f = fitFor(p, myNeeds); return f === 'BN' ? 'bench' : `fills ${f}`; };
+  const bestBy = (k: string) => [...players.values()].filter((p) => !taken(p.id) && !likelyKept.has(p.id) && (k === 'G' ? p.pos === 'G' : p.pos !== 'G' && p.elig.includes(k))).sort((a, b) => b.proj - a.proj)[0];
 
   const clockColor = remaining < 10_000 ? 'text-red-400' : remaining < 30_000 ? 'text-amber-300' : 'text-white';
   const status = draft?.status ?? 'scheduled';
 
   const PlayersTab = (
     <div className="flex min-h-0 min-w-0 flex-1 flex-col">
+      {!spectator && <div className="border-b border-line px-2 py-1.5"><NeedsStrip players={myRoster} caps={caps} /></div>}
+      {myTurn && (
+        <div className="scroll-x flex gap-1.5 border-b border-line p-2 text-xs">
+          <span className="shrink-0 self-center text-mute">Best by position:</span>
+          {['C', 'LW', 'RW', 'D', 'G'].map((k) => { const p = bestBy(k); return p ? <button key={k} className={`chip shrink-0 py-1 ${myNeeds.open[k as 'C'] > 0 ? 'border-amber-300/40 bg-amber-500/10' : ''}`} onClick={() => setDetail(p.id)}><b>{k}</b> {p.last_name} <span className="text-mute">{Math.round(p.proj)}</span></button> : null; })}
+        </div>
+      )}
       <div className="border-b border-line p-2"><PlayerFilterBar pf={pf} compact /></div>
       <div className="min-h-0 flex-1 divide-y divide-white/[.06] overflow-y-auto">
-        {available.map((p, i) => (
+        {available.map((p, i) => {
+          const maybe = preKeepers && likelyKept.has(p.id) && !banned.has(p.id);
+          const value = myTurn && current?.overall ? (poolRank.get(p.id) ?? 999) - current.overall : 0;
+          return (
           <div key={p.id} className="flex items-center gap-2 px-2 py-2">
             <span className="w-6 text-center text-[11px] text-mute">{i + 1}</span>
-            <div className="min-w-0 flex-1"><PlayerRow p={p} onClick={() => setDetail(p.id)} /></div>
+            <div className="min-w-0 flex-1"><PlayerRow p={p} dim={maybe} onClick={() => setDetail(p.id)} sub={!spectator && !maybe ? <span className={`ml-1 rounded px-1 text-[10px] ${fitFor(p, myNeeds) === 'BN' ? 'bg-white/[.06] text-mute' : 'bg-amber-500/15 text-amber-200'}`}>{fitTag(p)}</span> : null} /></div>
             <div className="w-16 text-right">
               <div className="num text-sm font-semibold">{pf.fmt(p)}</div>
-              {preKeepers && owner.has(p.id) && !banned.has(p.id)
-                ? <div className="text-[10px] font-semibold text-amber-300" title="On a 2025-26 roster: could still be kept">{team(owner.get(p.id)!.team_id)?.abbrev}?</div>
+              {maybe
+                ? <div className="text-[10px] font-semibold text-amber-300" title="This GM hasn’t saved keepers; by the default rule this player would be kept">{team(owner.get(p.id)!.team_id)?.abbrev} likely kept</div>
+                : value > 8 ? <div className="text-[10px] font-semibold text-emerald-300" title="Ranked higher than this pick by projection">+{value} value</div>
                 : <div className="whitespace-nowrap text-[10px] text-mute">{pf.label}</div>}
             </div>
             {!spectator && <button className={`grid h-9 w-9 place-items-center rounded-lg text-lg ${queue.includes(p.id) ? 'text-amber-300' : 'text-mute'}`} onClick={() => toggleQueue(p.id)} title="Queue">
@@ -125,7 +157,8 @@ export default function Draft() {
             </button>}
             {myTurn && <button className="btn-primary btn-sm shrink-0" disabled={busy} onClick={() => draftPlayer(p)}>Draft</button>}
           </div>
-        ))}
+          );
+        })}
       </div>
     </div>
   );
@@ -223,27 +256,9 @@ export default function Draft() {
 
   const TeamTab = (
     <div className="min-h-0 flex-1 overflow-y-auto p-2">
-      <div className="mb-2 grid grid-cols-5 gap-1.5">
-        {(Object.keys(needs) as PosT[]).map((k) => {
-          const n = countBy(myRoster, k);
-          return (
-            <div key={k} className={`rounded-xl p-2 text-center ${n >= needs[k] ? 'bg-emerald-500/15' : 'bg-boards'}`}>
-              <Pos p={k} /><div className="mt-1 font-display text-xl font-bold">{n}</div><div className="text-[10px] text-mute">start {needs[k]}</div>
-            </div>
-          );
-        })}
-      </div>
-      <div className="card divide-y divide-white/[.06]">
-        {myRoster.sort((a, b) => b.proj - a.proj).map((p) => {
-          const r = owner.get(p.id);
-          return (
-            <div key={p.id} className="flex items-center gap-2 px-2 py-2">
-              <div className="min-w-0 flex-1"><PlayerRow p={p} onClick={() => setDetail(p.id)} /></div>
-              <span className="chip">{r?.acquired === 'keeper' ? 'K' : `#${board.find((b) => b.player_id === p.id)?.overall ?? ''}`}</span>
-            </div>
-          );
-        })}
-      </div>
+      {preKeepers && <div className="mb-2 rounded-xl border border-amber-400/20 bg-amber-500/10 p-2 text-xs text-amber-100">{me?.keepers_submitted ? 'Your saved keepers, as your roster will stand on draft night.' : 'You haven’t saved keepers: this is what the site would keep for you by default.'}</div>}
+      <RosterNeeds players={myRoster} caps={caps} onPlayer={setDetail} tag={(p) => { const r = owner.get(p.id); return r?.acquired === 'keeper' || (preKeepers && r) ? 'K' : `#${board.find((b) => b.player_id === p.id)?.overall ?? ''}`; }} />
+      {myNext && <div className="mt-2 text-xs text-mute">Your next pick: #{myNext.overall} (round {myNext.round}){picksUntilMine ? ` · ${picksUntilMine} picks away` : ''}</div>}
     </div>
   );
 
@@ -262,7 +277,7 @@ export default function Draft() {
           </div>
         )}
       </div>
-      {league?.phase === 'keepers' && <p className="relative mt-3 rounded-xl border border-amber-400/20 bg-amber-500/10 p-2.5 text-xs text-amber-100">Keepers aren’t final yet, so the whole pool shows. A team tag in amber (e.g. HIP?) under the points means that player could still be kept.{!spectator && ' Star anyone now to build your queue; kept players drop out automatically.'}</p>}
+      {league?.phase === 'keepers' && <p className="relative mt-3 rounded-xl border border-amber-400/20 bg-amber-500/10 p-2.5 text-xs text-amber-100">Keepers locked for {teams.filter((t) => t.keepers_submitted).length} of {teams.length} GMs: their keepers are out of the Players list, the rest of their rosters are in. Players tagged “likely kept” belong to a GM who hasn’t saved yet.{!spectator && ' Star anyone now to build your queue; kept players drop out automatically.'} {[...players.values()].filter((p) => !taken(p.id)).length} players in the pool.</p>}
       {order.length > 0 && (
         <div className="relative mt-4">
           <div className="label mb-1.5 text-white/70">Draft order</div>
@@ -276,7 +291,7 @@ export default function Draft() {
           </div>
         </div>
       )}
-      <Link to="/mock" className="relative mt-4 flex items-center gap-3 rounded-2xl border border-emerald-400/25 bg-emerald-500/10 p-3 transition active:scale-[.98]"><span className="text-2xl">🧪</span><span className="flex-1"><span className="block font-bold">Practice with a mock draft</span><span className="text-xs text-white/70">You vs. 7 bot GMs using today’s keepers. Get graded at the end.</span></span><span className="text-sky-300">→</span></Link>
+      <Link to="/mock" className="relative mt-4 flex items-center gap-3 rounded-2xl border border-emerald-400/25 bg-emerald-500/10 p-3 transition active:scale-[.98]"><span className="text-2xl">🧪</span><span className="flex-1"><span className="block font-bold">Dress rehearsal: run tomorrow’s draft now</span><span className="text-xs text-white/70">The real order, traded picks and everyone’s keepers, against bot GMs. See who’ll be there at your picks, then get graded.</span></span><span className="text-sky-300">→</span></Link>
       <div className="relative mt-3"><PushCard hideWhenOn compact /></div>
       <div className="relative mt-4 flex items-center gap-2 text-xs text-white/70">
         <span className="h-2 w-2 animate-pulse rounded-full bg-emerald-400 shadow-[0_0_8px_rgba(52,211,153,.9)]" />
