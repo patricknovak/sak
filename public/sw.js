@@ -1,11 +1,11 @@
-// SaK League service worker: shows push notifications and opens the right page when tapped.
+// SAK Superleague service worker: shows push notifications and opens the right page when tapped.
 self.addEventListener('install', () => self.skipWaiting());
 self.addEventListener('activate', (e) => e.waitUntil(self.clients.claim()));
 
 self.addEventListener('push', (e) => {
   let d = {};
   try { d = e.data ? e.data.json() : {}; } catch { d = { body: e.data && e.data.text() }; }
-  const title = d.title || 'SaK League';
+  const title = d.title || 'SAK Superleague';
   e.waitUntil(self.registration.showNotification(title, {
     body: d.body || '',
     icon: './icon-192.png',

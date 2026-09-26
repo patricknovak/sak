@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '../lib/supabase';
 import { Spinner, TeamBadge } from '../components/ui';
+import { Wordmark } from '../components/Brand';
 import type { Team } from '../lib/types';
 
 type DirTeam = Pick<Team, 'id' | 'name' | 'abbrev' | 'gm_name' | 'login_email' | 'color' | 'emoji' | 'role'>;
@@ -36,7 +37,7 @@ export default function Login() {
     <div className="pt-safe relative flex min-h-dvh flex-col items-center justify-center overflow-hidden px-4 py-10">
       {/* arena lights */}
       <div className="pointer-events-none absolute inset-0">
-        <div className="animate-glow absolute -top-40 left-1/2 h-[520px] w-[820px] -translate-x-1/2 rounded-full" style={{ background: 'radial-gradient(closest-side, rgba(76,195,255,.28), transparent)' }} />
+        <div className="animate-glow absolute -top-40 left-1/2 h-[520px] w-[820px] -translate-x-1/2 rounded-full" style={{ background: 'radial-gradient(closest-side, rgba(247,197,72,.22), transparent)' }} />
         <div className="absolute -left-32 top-10 h-[640px] w-40 rotate-[24deg] bg-gradient-to-b from-white/[.10] to-transparent blur-2xl" />
         <div className="absolute -right-32 top-10 h-[640px] w-40 -rotate-[24deg] bg-gradient-to-b from-white/[.10] to-transparent blur-2xl" />
         <div className="absolute bottom-0 left-1/2 h-64 w-[900px] -translate-x-1/2 rounded-[100%] border-t-[6px] border-goal/20" />
@@ -44,11 +45,11 @@ export default function Login() {
       <div className="relative w-full max-w-md">
         <div className="mb-8 text-center">
           <div className="relative mx-auto mb-4 h-24 w-24">
-            <div className="absolute inset-0 animate-glow rounded-[28px] bg-goal/40 blur-2xl" />
+            <div className="absolute inset-0 animate-glow rounded-[28px] bg-gold/40 blur-2xl" />
             <img src="./icon.svg" alt="" className="relative h-24 w-24 drop-shadow-2xl" />
           </div>
-          <h1 className="h-display text-shine text-5xl leading-none">She’s A Keeper</h1>
-          <p className="mt-2 text-xs font-bold uppercase tracking-[.3em] text-mute">SaK League · est. 2013 · 2026-27</p>
+          <h1><Wordmark size="lg" /></h1>
+          <p className="mt-2 text-xs font-bold uppercase tracking-[.3em] text-mute">She’s A Keeper · est. 2013 · 2026-27</p>
         </div>
 
         {!pick ? (
@@ -92,7 +93,7 @@ export default function Login() {
             </div>
             <label className="label relative text-white/70">Password</label>
             <input className="input relative mt-1" type="password" autoFocus autoComplete="current-password" value={pw}
-              onChange={(e) => setPw(e.target.value)} placeholder="Your SaK password" />
+              onChange={(e) => setPw(e.target.value)} placeholder="Your Superleague password" />
             <button className="btn-primary relative mt-4 w-full py-3 text-base" disabled={busy || !pw}>{busy ? <Spinner /> : '🏒 Drop the puck'}</button>
             <button type="button" className="relative mt-3 w-full text-center text-sm text-white/60" onClick={() => setPick(null)}>Not {pick.gm_name}? Switch team</button>
           </form>

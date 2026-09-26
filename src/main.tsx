@@ -49,7 +49,7 @@ function App() {
       <div className="grid min-h-dvh place-items-center p-6 text-center">
         <div className="card max-w-md p-6">
           <div className="text-4xl">🏒</div>
-          <h1 className="h-display mt-2 text-2xl">SaK League</h1>
+          <h1 className="h-display mt-2 text-2xl">SAK Superleague</h1>
           <p className="mt-2 text-sm text-mute">This build has no database configured. Set VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY in <code>.env</code>.</p>
         </div>
       </div>

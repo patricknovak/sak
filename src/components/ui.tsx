@@ -84,7 +84,7 @@ export function Section({ title, right, children, className = '', icon }: { titl
     <section className={className}>
       <div className="mb-2.5 flex items-center justify-between gap-2 px-1">
         <h2 className="h-display flex items-center gap-2 text-lg text-slate-100">
-          {icon ?? <span className="h-4 w-1 rounded-full bg-gradient-to-b from-goal to-blue" />}
+          {icon ?? <span className="accent-bar h-4 w-1 rounded-full" />}
           {title}
         </h2>
         {right}
@@ -198,7 +198,7 @@ export function Skeleton({ className = '' }: { className?: string }) {
 export function PageHeader({ icon, title, sub, right }: { icon: ReactNode; title: ReactNode; sub?: ReactNode; right?: ReactNode }) {
   return (
     <div className="flex items-center gap-3">
-      <div className="grid h-11 w-11 shrink-0 place-items-center rounded-2xl bg-gradient-to-br from-white/15 to-white/[.03] text-white ring-1 ring-white/15 shadow-[0_10px_24px_-12px_rgba(76,195,255,.6)]">{icon}</div>
+      <div className="grid h-11 w-11 shrink-0 place-items-center rounded-2xl bg-gradient-to-br from-white/15 to-white/[.03] text-white ring-1 ring-gold/30 shadow-[0_10px_24px_-12px_rgba(247,197,72,.6)]">{icon}</div>
       <div className="min-w-0 flex-1">
         <h1 className="h-display text-shine truncate text-[26px] leading-none">{title}</h1>
         {sub && <div className="mt-1 text-sm text-mute">{sub}</div>}

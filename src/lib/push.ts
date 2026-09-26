@@ -24,7 +24,7 @@ export async function currentSubscription() {
 }
 
 export async function enablePush() {
-  if (!pushSupported()) throw new Error(isIOS() && !isStandalone() ? 'On iPhone, add SaK to your Home Screen first, then turn this on from there.' : 'This browser can’t do push notifications.');
+  if (!pushSupported()) throw new Error(isIOS() && !isStandalone() ? 'On iPhone, add SAK to your Home Screen first, then turn this on from there.' : 'This browser can’t do push notifications.');
   const perm = await Notification.requestPermission();
   if (perm !== 'granted') throw new Error('Notifications are blocked. Allow them for this site in your browser settings.');
   const reg = await swReg();
