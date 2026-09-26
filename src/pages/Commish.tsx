@@ -4,6 +4,8 @@ import { useLeague } from '../lib/store';
 import { rpc } from '../lib/supabase';
 import { fmtDateTime } from '../lib/format';
 import { Section, TeamBadge, Toggle, useAction, PageHeader } from '../components/ui';
+import { bannedTopScorers } from '../lib/keepers';
+import { fmtPts } from '../lib/format';
 import { Wrench } from 'lucide-react';
 import { MoneySettings } from '../components/MoneySettings';
 import { ScoringEditor } from '../components/ScoringEditor';
@@ -94,6 +96,7 @@ export default function Commish() {
           </button>
           {league?.phase !== 'keepers' && <div className="text-xs text-mute">Keepers are final.</div>}
         </div>
+        {league?.phase === 'keepers' && <KeepersForTeam />}
       </Section>
 
       <Section title="📋 Draft">
@@ -248,6 +251,49 @@ export default function Commish() {
           </div>
         </div>
       </Section>
+    </div>
+  );
+}
+
+// Enter a GM's keepers for him: a GM whose phone or browser won't cooperate tells the commish his six
+function KeepersForTeam() {
+  const { league, teams, rosters, players, refresh } = useLeague();
+  const { busy, run } = useAction();
+  const [teamId, setTeamId] = useState(0);
+  const [sel, setSel] = useState<Set<number>>(new Set());
+  const max = league?.keepers ?? 6;
+  const banned = useMemo(() => bannedTopScorers(rosters, league?.top_scorer_rule), [rosters, league?.top_scorer_rule]);
+  const roster = useMemo(() => rosters.filter((r) => r.team_id === teamId).map((r) => ({ r, p: players.get(r.player_id)! })).filter((x) => x.p).sort((a, b) => (b.r.prev_fp ?? 0) - (a.r.prev_fp ?? 0)), [rosters, players, teamId]);
+  useEffect(() => { setSel(new Set(roster.filter((x) => x.r.keeper).map((x) => x.p.id))); }, [teamId]); // eslint-disable-line react-hooks/exhaustive-deps
+  const toggle = (id: number) => { const n = new Set(sel); if (n.has(id)) n.delete(id); else if (n.size < max) n.add(id); setSel(n); };
+  return (
+    <div className="card mt-3 space-y-2 p-3">
+      <div className="text-sm font-semibold">Enter keepers for a GM</div>
+      <p className="text-xs text-mute">For a GM who can’t get the Keepers page to work: pick his team, tick up to {max} (never his top scorer), save. He’s notified and can still change them himself until you finalize.</p>
+      <select className="input" value={teamId} onChange={(e) => setTeamId(Number(e.target.value))}>
+        <option value={0}>Choose a team…</option>
+        {teams.filter((t) => t.role !== 'spectator').map((t) => <option key={t.id} value={t.id}>{t.name} · {t.gm_name}{t.keepers_submitted ? ' ✅' : ' ⏳'}</option>)}
+      </select>
+      {teamId > 0 && (
+        <>
+          <div className="max-h-80 divide-y divide-white/[.06] overflow-y-auto rounded-xl border border-white/[.08]">
+            {roster.map(({ r, p }) => {
+              const top = banned.has(p.id), on = sel.has(p.id);
+              return (
+                <label key={p.id} className={`flex items-center gap-2 px-2 py-1.5 text-sm ${top ? 'opacity-50' : ''} ${on ? 'bg-emerald-500/10' : ''}`}>
+                  <input type="checkbox" className="h-4 w-4 accent-emerald-400" disabled={top} checked={on} onChange={() => toggle(p.id)} />
+                  <span className="min-w-0 flex-1 truncate">{p.name} <span className="text-mute">{p.nhl_team} {p.pos}{top ? ' · top scorer, can’t keep' : ''}</span></span>
+                  <span className="num text-xs text-mute">{fmtPts(r.prev_fp)}</span>
+                </label>
+              );
+            })}
+          </div>
+          <div className="flex items-center gap-2">
+            <span className="num text-sm font-bold">{sel.size}/{max}</span>
+            <button className="btn-primary btn-sm ml-auto" disabled={busy || sel.size === 0} onClick={() => confirm(`Save these ${sel.size} keepers for ${teams.find((t) => t.id === teamId)?.gm_name}?`) && run(async () => { await rpc('commish_set_keepers', { p_team: teamId, p_players: [...sel] }); await refresh(['rosters', 'teams']); }, 'Keepers saved for that GM')}>Save for this GM</button>
+          </div>
+        </>
+      )}
     </div>
   );
 }
