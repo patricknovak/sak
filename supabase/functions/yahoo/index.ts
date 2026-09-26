@@ -73,6 +73,7 @@ async function tokenRequest(body: Record<string, string>) {
     body: new URLSearchParams(body),
   });
   const j = await r.json().catch(() => ({}));
+  console.log('yahoo token', body.grant_type, r.status, Object.keys(j).join(','), j.scope ?? '', j.token_type ?? '', j.expires_in ?? '');
   if (!r.ok || !j.access_token) throw new Fail(`Yahoo sign-in failed: ${j.error_description ?? j.error ?? r.status}`, 502);
   return j as { access_token: string; refresh_token: string; expires_in: number; xoauth_yahoo_guid?: string };
 }
@@ -84,11 +85,19 @@ async function saveTokens(teamId: number, t: { access_token: string; refresh_tok
   return row.access_token;
 }
 
+// one refresh at a time per GM: parallel reads must not each spend the refresh token (Yahoo rotates it)
+const refreshing = new Map<number, Promise<string>>();
 async function accessToken(acct: Acct | null) {
   if (!acct?.refresh_token) throw new Fail('Connect your Yahoo account first', 412);
   if (acct.access_token && acct.expires_at && new Date(acct.expires_at) > new Date()) return acct.access_token;
-  const t = await tokenRequest({ grant_type: 'refresh_token', redirect_uri: REDIRECT, refresh_token: acct.refresh_token });
-  return saveTokens(acct.team_id, t);
+  let p = refreshing.get(acct.team_id);
+  if (!p) {
+    p = tokenRequest({ grant_type: 'refresh_token', redirect_uri: REDIRECT, refresh_token: acct.refresh_token })
+      .then((t) => { acct.access_token = t.access_token; acct.refresh_token = t.refresh_token; acct.expires_at = new Date(Date.now() + (t.expires_in - 60) * 1000).toISOString(); return saveTokens(acct.team_id, t); })
+      .finally(() => refreshing.delete(acct.team_id));
+    refreshing.set(acct.team_id, p);
+  }
+  return p;
 }
 
 // ───────────── Yahoo API ─────────────
@@ -125,6 +134,7 @@ async function ycall(acct: Acct, method: string, path: string, body?: string, re
   }
   const doc = text ? xml.parse(text) : {};
   if (!r.ok) {
+    console.error('yahoo api', method, path, r.status, text.slice(0, 600));
     const desc = String(doc?.error?.description ?? doc?.yahoo_error?.description ?? text.slice(0, 200) ?? r.statusText).replace(/<[^>]+>/g, '').trim();
     if (method !== 'GET' && (r.status === 401 || r.status === 403 || /scope|permission|not allowed|read.only/i.test(desc))) {
       // the Yahoo app only has read access (Yahoo no longer offers Read/Write to every app): remember it so the site
