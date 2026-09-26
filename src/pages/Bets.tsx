@@ -3,16 +3,17 @@
 // (top SaK team of the week, pick a player). Tracked bets show live numbers and settle themselves from the box
 // scores every morning; cash bets keep a tab of who owes whom.
 import React, { Fragment, useEffect, useMemo, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
+import { BookTab, BookLeaders } from '../components/Book';
 import { useLeague, useNow } from '../lib/store';
 import { rpc, realtimeChannel, supabase, selectAll } from '../lib/supabase';
 import type { Bet, BetEntry, BetKind, BetProgress, BetStat, CoinBalance, CoinEntry, Player, Team } from '../lib/types';
 import { ago, etToday, fmtDate, fmtMoney, fmtPts } from '../lib/format';
 import { Empty, Section, Sheet, TeamBadge, TeamName, useAction, PageHeader, Coin, Rank } from '../components/ui';
-import { Dices, Lightbulb, Sparkles } from 'lucide-react';
+import { BookOpen, Dices, Lightbulb, Sparkles, Trophy } from 'lucide-react';
 
 interface Daily { team_id: number; date: string; points: number }
-type Form = { kind: BetKind; opponent: string; title: string; terms: string; stake: string; amount: string; coins: string; start: string; end: string; entryClose: string;
+type Form = { kind: BetKind; opponent: string; title: string; terms: string; stake: string; amount: string; coins: string; odds: number; start: string; end: string; entryClose: string;
   playerId: number | null; playerB: number | null; stat: BetStat; line: string; side: 'over' | 'under'; teamPick: number | null };
 
 const KINDS: { k: BetKind; icon: string; label: string; blurb: string; pool?: boolean; tracked?: boolean }[] = [
@@ -68,8 +69,11 @@ export default function Bets() {
   const [showAllSettled, setShowAllSettled] = useState(false);
   const [open, setOpen] = useState(false);
   const [joining, setJoining] = useState<Bet | null>(null);
-  const blank: Form = { kind: 'custom', opponent: '', title: '', terms: '', stake: '', amount: '', coins: '100', start: etToday(), end: etToday(), entryClose: etToday(), playerId: null, playerB: null, stat: 'fpts', line: '', side: 'over', teamPick: null };
+  const blank: Form = { kind: 'custom', opponent: '', title: '', terms: '', stake: '', amount: '', coins: '100', odds: 1, start: etToday(), end: etToday(), entryClose: etToday(), playerId: null, playerB: null, stat: 'fpts', line: '', side: 'over', teamPick: null };
   const [f, setF] = useState<Form>(blank);
+  const [params, setParams] = useSearchParams();
+  const tab = (params.get('t') as 'side' | 'book' | 'leaders') || 'side';
+  const setTab = (t: string) => setParams(t === 'side' ? {} : { t }, { replace: true });
   const gms = useMemo(() => teams.filter((t) => t.role !== 'spectator'), [teams]);
   const wins = useMemo(() => windows(league?.season_start ?? null, league?.season_end ?? null), [league?.season_start, league?.season_end]);
 
@@ -160,7 +164,7 @@ export default function Bets() {
       : f.kind === 'pool_team' ? { team_id: f.teamPick ?? me?.id } : f.kind === 'pool_player' ? { player_id: f.playerId, stat: 'fpts' } : {};
     const dated = TRACKED.has(f.kind);
     await rpc('create_bet_v2', { p: { opponent: f.opponent || null, title: f.title, terms: f.terms || null, kind: f.kind, stake: f.stake || null, amount: f.amount || null,
-      start: dated ? f.start : null, end: dated ? f.end : null, entry_close: isPool(f.kind) ? f.entryClose : null, coins: Number(f.coins) || 0, subject } });
+      start: dated ? f.start : null, end: dated ? f.end : null, entry_close: isPool(f.kind) ? f.entryClose : null, coins: Number(f.coins) || 0, odds: isPool(f.kind) ? 1 : f.odds, subject } });
     setOpen(false); setF(blank); load();
   }, isPool(f.kind) ? 'Pool is open 🎰' : 'Bet posted 🎲');
   const useIdea = (form: Partial<Form>) => { setF({ ...blank, ...form }); setOpen(true); };
@@ -232,7 +236,8 @@ export default function Bets() {
           </div>
           {(b.amount || b.stake || b.coins > 0) && (
             <div className="text-right text-sm">
-              {b.coins > 0 && <div className="flex items-center justify-end gap-1"><Coin size={16} /><span className="num text-gold-shine font-display text-lg font-extrabold">{b.coins}</span>{pool && <span className="text-[10px] text-mute">each</span>}</div>}
+              {b.coins > 0 && <div className="flex items-center justify-end gap-1"><Coin size={16} /><span className="num text-gold-shine font-display text-lg font-extrabold">{Number(b.odds) !== 1 ? `${Math.round(b.coins * Number(b.odds))} v ${b.coins}` : b.coins}</span>{pool && <span className="text-[10px] text-mute">each</span>}</div>}
+              {Number(b.odds) !== 1 && <div className="text-[10px] text-mute">{team(b.creator_team)?.gm_name} risks {Math.round(b.coins * Number(b.odds))}, {b.opponent_team ? team(b.opponent_team)?.gm_name : 'taker'} risks {b.coins}</div>}
               {!!b.amount && <div className="font-display text-lg font-bold text-gold">{fmtMoney(b.amount)}</div>}
               <div className="max-w-28 text-[11px] text-mute">{b.stake}</div>
             </div>
@@ -337,39 +342,55 @@ export default function Bets() {
     <div className="space-y-5">
       <div className="flex items-end justify-between gap-2">
         <div className="min-w-0 flex-1"><PageHeader icon={<Dices size={22} className="text-clover" />} title="Side Bets" sub="Coins, cash, or your dignity. Tracked bets settle themselves." /></div>
-        {can('bets') ? <button className="btn-primary" onClick={() => { setF(blank); setOpen(true); }}>🎲 New bet</button> : <span className="text-xs text-mute">🔇 Betting is off for your pass</span>}
+        {tab === 'side' && (can('bets') ? <button className="btn-primary" onClick={() => { setF(blank); setOpen(true); }}>🎲 New bet</button> : <span className="text-xs text-mute">🔇 Betting is off for your pass</span>)}
       </div>
-
-      <Section icon={<Coin size={20} />} title="St. Patrick’s Bank" right={<button className="text-xs text-sky-300" onClick={() => setShowLedger(!showLedger)}>{showLedger ? 'Hide' : 'My coin history'}</button>}>
-        <Leader />
-        {showLedger && (
-          <div className="card mt-2 divide-y divide-white/[.06]">
-            {myCoins.map((c) => (
-              <div key={c.id} className="flex items-center gap-2 px-3 py-2 text-sm">
-                <span className="flex-1 truncate">{c.reason}</span><span className="text-xs text-mute">{ago(c.created_at, now)}</span>
-                <span className={`w-16 text-right font-semibold ${c.amount >= 0 ? 'text-emerald-300' : 'text-red-300'}`}>{c.amount >= 0 ? '+' : ''}{c.amount}</span>
+      <div className="scroll-x flex gap-1">
+        {([['side', <><Dices size={14} /> Side bets</>], ['book', <><BookOpen size={14} /> Garry’s Book</>], ['leaders', <><Trophy size={14} /> Leaders</>]] as const).map(([k, l]) => (
+          <button key={k} className={`tab flex shrink-0 items-center gap-1 ${tab === k ? 'tab-on' : 'bg-white/[.05]'}`} onClick={() => setTab(k)}>{l}</button>
+        ))}
+      </div>
+      {tab === 'book' && <BookTab />}
+      {tab === 'leaders' && (
+        <>
+          <Section icon={<Coin size={20} />} title="St. Patrick’s Bank" right={<button className="text-xs text-sky-300" onClick={() => setShowLedger(!showLedger)}>{showLedger ? 'Hide' : 'My coin history'}</button>}>
+            <Leader />
+            {showLedger && (
+              <div className="card mt-2 divide-y divide-white/[.06]">
+                {myCoins.map((c) => (
+                  <div key={c.id} className="flex items-center gap-2 px-3 py-2 text-sm">
+                    <span className="flex-1 truncate">{c.reason}</span><span className="text-xs text-mute">{ago(c.created_at, now)}</span>
+                    <span className={`w-16 text-right font-semibold ${c.amount >= 0 ? 'text-emerald-300' : 'text-red-300'}`}>{c.amount >= 0 ? '+' : ''}{c.amount}</span>
+                  </div>
+                ))}
               </div>
-            ))}
-          </div>
-        )}
-        <p className="mt-1 px-1 text-xs text-mute">Everyone started with 1,000 coins. Coins on open bets, live bets and pool buy-ins are held until they settle. Garry pays 25 coins to the top team each day and 50 to the Team of the Week.</p>
-      </Section>
-
-      {(cash.owed.length > 0 || [...cash.net.values()].some((n) => n)) && (
-        <Section title="💸 The cash tab">
-          <div className="card divide-y divide-white/[.06]">
-            {cash.owed.length === 0 && <div className="px-3 py-2 text-sm text-mute">All square. Nobody owes anybody.</div>}
-            {cash.owed.map((o) => (
-              <div key={`${o.from}:${o.to}`} className="flex items-center gap-2 px-3 py-2 text-sm">
-                <TeamBadge team={team(o.from)} size={22} /><TeamName link team={team(o.from)} /> owes <TeamName link team={team(o.to)} /><TeamBadge team={team(o.to)} size={22} />
-                <span className="ml-auto font-semibold text-gold">{fmtMoney(o.amount)}</span>
-                <span className="text-[11px] text-mute">{o.bets.length} bet{o.bets.length === 1 ? '' : 's'}</span>
+            )}
+            <p className="mt-1 px-1 text-xs text-mute">Everyone started with 1,000 coins. Coins on open bets, live bets and pool buy-ins are held until they settle; Book tickets leave the bank when placed. Garry pays 25 coins to the top team each day and 50 to the Team of the Week.</p>
+          </Section>
+          <Section icon={<BookOpen size={18} className="text-sky-300" />} title="At the Book"><BookLeaders /></Section>
+          {(cash.owed.length > 0 || [...cash.net.values()].some((n) => n)) && (
+            <Section title="💸 The cash tab">
+              <div className="card divide-y divide-white/[.06]">
+                {cash.owed.length === 0 && <div className="px-3 py-2 text-sm text-mute">All square. Nobody owes anybody.</div>}
+                {cash.owed.map((o) => (
+                  <div key={`${o.from}:${o.to}`} className="flex items-center gap-2 px-3 py-2 text-sm">
+                    <TeamBadge team={team(o.from)} size={22} /><TeamName link team={team(o.from)} /> owes <TeamName link team={team(o.to)} /><TeamBadge team={team(o.to)} size={22} />
+                    <span className="ml-auto font-semibold text-gold">{fmtMoney(o.amount)}</span>
+                    <span className="text-[11px] text-mute">{o.bets.length} bet{o.bets.length === 1 ? '' : 's'}</span>
+                  </div>
+                ))}
               </div>
-            ))}
-          </div>
-          <p className="mt-1 px-1 text-xs text-mute">Real money settles between you (e-transfer, a beer, whatever). The winner or the commish marks a bet paid on its card.</p>
-        </Section>
+              <p className="mt-1 px-1 text-xs text-mute">Real money settles between you (e-transfer, a beer, whatever). The winner or the commish marks a bet paid on its card.</p>
+            </Section>
+          )}
+        </>
       )}
+      {tab === 'side' && <>
+
+      <div className="card flex items-center gap-3 px-3 py-2 text-sm">
+        <Coin size={18} /><span className="num text-gold-shine font-display text-lg font-extrabold">{(myBank?.balance ?? 0).toLocaleString()}</span>
+        <span className="text-xs text-mute">{available} available{myBank?.escrow ? ` · ${myBank.escrow} in play` : ''}</span>
+        <button className="ml-auto text-xs text-sky-300" onClick={() => setTab('leaders')}>Bank & leaders</button>
+      </div>
 
       {ideas.length > 0 && can('bets') && (
         <Section icon={<Lightbulb size={18} className="text-gold" />} title="Bet ideas for you">
@@ -398,6 +419,7 @@ export default function Bets() {
         </Section>
       )}
       <p className="text-center text-xs text-mute">How the numbers work: fantasy points come from the NHL box scores, the same ones as the standings. Tracked bets settle at 8:45 a.m. ET the morning after they end, once stat corrections are in. Ties push. <Link to="/league?t=rules" className="text-sky-300">Rulebook</Link></p>
+      </>}
 
       {/* ───── new bet */}
       <Sheet open={open} onClose={() => setOpen(false)} title="New side bet" wide>
@@ -468,6 +490,17 @@ export default function Bets() {
               <input className="input w-24 py-1" inputMode="numeric" value={f.coins} onChange={(e) => setF({ ...f, coins: e.target.value.replace(/[^\d]/g, '') })} />
             </div>
           </div>
+          {!isPool(f.kind) && Number(f.coins) > 0 && (
+            <div>
+              <div className="label mb-1">Odds: what you risk against their {f.coins || 0}</div>
+              <div className="flex flex-wrap gap-1.5">
+                {([[1, 'Even'], [1.5, '3:2'], [2, '2:1'], [3, '3:1'], [5, '5:1'], [0.5, '1:2'], [0.333, '1:3']] as const).map(([o, l]) => (
+                  <button key={o} className={`chip py-1 ${f.odds === o ? 'bg-white text-ice' : ''}`} onClick={() => setF({ ...f, odds: o })}>{l}</button>
+                ))}
+              </div>
+              <p className="mt-1 text-[11px] text-mute">{f.odds === 1 ? 'Even money: both sides put up the same.' : `You risk ${Math.round(Number(f.coins) * f.odds)} ☘️ to win their ${f.coins} ☘️${f.odds > 1 ? '. Generous. Or confident.' : '. They\u2019re the favourite, you get paid more if you\u2019re right.'}`}</p>
+            </div>
+          )}
           {!isPool(f.kind) && (
             <>
               <div className="label -mb-1">Real money / stakes (optional, tracked on the cash tab)</div>

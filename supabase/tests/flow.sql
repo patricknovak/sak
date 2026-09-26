@@ -467,3 +467,53 @@ select 'settle', settle_due_bets()->>'settled' as settled;
 select 'ou settled (expect 7 wins)', status, winner_team, push from bets where id = :ou_id;
 select 'pool settled (expect 7 wins 60)', status, winner_team, result->>'pot' as pot from bets where id = :pool_id;
 select 'coins after (7 up 70, 8 down 70)', team_id, balance, escrow from coin_balances where team_id in (7, 8) order by team_id;
+
+
+-- ── Garry's Book: markets on tonight's game, a bet, a settlement, a void
+reset role;
+insert into games (id, date, start_utc, home, away, state) values (888, today_et(), now() + interval '1 hour', 'EDM', 'CGY', 'FUT') on conflict do nothing;
+select 'book opened (expect >= 3)', open_markets(today_et());
+select 'book markets (expect >= 3)', count(*) from markets where game_id = 888;
+select pg_temp.as_team(7);
+set role authenticated;
+select place_market_bet((select id from markets where game_id = 888 and kind = 'winner'), 'home', 50);
+select place_market_bet((select id from markets where game_id = 888 and kind = 'ot'), 'yes', 20);
+do $$ begin perform place_market_bet((select id from markets where game_id = 888 and kind = 'winner'), 'draw', 10); raise exception 'bad pick allowed';
+exception when others then if sqlerrm not like '%Pick one%' then raise; end if; end $$;
+do $$ begin perform place_market_bet((select id from markets where game_id = 888 and kind = 'winner'), 'home', 2); raise exception 'tiny bet allowed';
+exception when others then if sqlerrm not like '%between 5 and 500%' then raise; end if; end $$;
+reset role;
+select 'book stake taken (expect 850)', balance from coin_balances where team_id = 7;
+-- the odds-on side bet: creator lays 2:1
+select pg_temp.as_team(7);
+set role authenticated;
+select create_bet_v2(jsonb_build_object('title', 'Two to one says yes', 'kind', 'custom', 'opponent', 8, 'coins', 50, 'odds', 2)) as odds_bet \gset
+reset role;
+select 'odds escrow (expect 100)', escrow from coin_balances where team_id = 7;
+select pg_temp.as_team(8);
+set role authenticated;
+select respond_bet(:odds_bet, true);
+select claim_bet(:odds_bet, 8);
+select pg_temp.as_team(7);
+set role authenticated;
+select confirm_bet(:odds_bet);
+reset role;
+select 'odds settled (expect 7 = 750, 8 = 1180)', team_id, balance from coin_balances where team_id in (7, 8) order by team_id;
+-- game goes final in overtime, home wins
+update games set state = 'OFF', home_score = 4, away_score = 3, period = 'OT', final_synced = true where id = 888;
+update markets set closes_at = now() - interval '1 minute' where game_id = 888;
+select 'book settle', settle_markets()->>'settled' as settled;
+select 'winner paid (expect payout > 50)', payout from market_bets where team_id = 7 and market_id = (select id from markets where game_id = 888 and kind = 'winner');
+select 'ot paid (expect 68)', payout from market_bets where team_id = 7 and market_id = (select id from markets where game_id = 888 and kind = 'ot');
+select 'book standings (expect 2 bets 2 wins)', bets, wins, net > 0 as up from book_standings where team_id = 7;
+-- a postponed game voids and refunds
+insert into games (id, date, start_utc, home, away, state) values (889, today_et(), now() + interval '2 hours', 'TOR', 'MTL', 'FUT') on conflict do nothing;
+select open_markets(today_et());
+select pg_temp.as_team(8);
+set role authenticated;
+select place_market_bet((select id from markets where game_id = 889 and kind = 'total'), 'over', 30);
+reset role;
+update games set state = 'PPD' where id = 889;
+update markets set closes_at = now() - interval '1 minute' where game_id = 889;
+select 'void', settle_markets()->>'void' as void;
+select 'void refunded (expect 1180)', balance from coin_balances where team_id = 8;
