@@ -16,4 +16,4 @@ export interface ClubPerson { id: number; name: string; num: number; pos: string
 export interface ClubSkater { id: number; name: string; pos: string; gp: number; g: number; a: number; pts: number; pm: number; pim: number; ppg: number; sog: number; pct: number; toi: string }
 export interface ClubGoalie { id: number; name: string; gp: number; gs: number; w: number; l: number; otl: number; gaa: number; svp: number; so: number }
 export interface XPost { id: string; text: string; at: string; url: string; author: { name: string; handle: string; avatar: string | null }; likes: number; reposts: number; link: { url: string; title: string | null } | null; image: string | null }
-export interface XFeed { configured: boolean; accounts: { handle: string; name: string; url: string }[]; posts: XPost[] }
+export interface XFeed { configured: boolean; source: 'x' | 'grok' | null; accounts: { handle: string; name: string; url: string }[]; posts: XPost[]; fetched_at?: string; stale?: boolean }

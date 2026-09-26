@@ -83,11 +83,12 @@ export function ChatPanel({ channel, compact, className = '' }: { channel: strin
   const lastId = msgs[msgs.length - 1]?.id;
   useEffect(() => {
     if (!me || !lastId) return;
-    if (!all) { supabase.from('chat_reads').upsert({ team_id: me.id, channel, last_read_id: lastId }).then(() => {}); return; }
-    // the merged feed reads every channel it showed
-    const latest = new Map<string, number>();
-    for (const m of msgs) latest.set(m.channel, Math.max(latest.get(m.channel) ?? 0, m.id));
-    supabase.from('chat_reads').upsert([...latest].map(([c, id]) => ({ team_id: me.id, channel: c, last_read_id: id }))).then(() => {});
+    // tell the app shell straight away (the badge), then the server
+    const rows = new Map<string, number>();
+    if (!all) rows.set(channel, lastId);
+    else for (const m of msgs) rows.set(m.channel, Math.max(rows.get(m.channel) ?? 0, m.id));   // the merged feed reads every channel it showed
+    for (const [c, id] of rows) window.dispatchEvent(new CustomEvent('sak:read', { detail: { channel: c, id } }));
+    supabase.from('chat_reads').upsert([...rows].map(([c, id]) => ({ team_id: me.id, channel: c, last_read_id: id }))).then(() => {});
   }, [lastId, me?.id, channel]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const send = async (body: string) => {

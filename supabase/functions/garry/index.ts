@@ -315,11 +315,12 @@ function chirpIntent(text: string, teams: Team[], asker: number) {
   const joke = /\b(joke|funny|make me laugh|one.?liner|comedy|humou?r me|something funny|entertain)\b/.test(q);
   if (!roast && !joke) return null;
   let target: Team | undefined;
-  if (roast) {
+  const everyone = roast && /\b(all|everyone|everybody|every (gm|team|one)|each (gm|team)|the (whole )?league|all of us|us all)\b/.test(q);
+  if (roast && !everyone) {
     target = teams.find((t) => new RegExp(`\\b${t.gm_name.toLowerCase()}\\b`).test(q) || q.includes(t.name.toLowerCase()));
     if (!target && /\b(me|myself|my team)\b/.test(q)) target = teams.find((t) => t.id === asker);
   }
-  return { kind: roast ? 'roast' as const : 'joke' as const, target, wantsLeader: /\b(leader|first place|whoever.s winning)\b/.test(q), wantsPeter: /\b(last place|peter|loser|basement)\b/.test(q) };
+  return { kind: roast ? 'roast' as const : 'joke' as const, target, everyone, wantsLeader: /\b(leader|first place|whoever.s winning)\b/.test(q), wantsPeter: /\b(last place|peter|loser|basement)\b/.test(q) };
 }
 
 async function chirp(m: { id: number; channel: string; team_id: number; body: string }, intent: NonNullable<ReturnType<typeof chirpIntent>>) {
@@ -331,6 +332,25 @@ async function chirp(m: { id: number; channel: string; team_id: number; body: st
   if (!target && intent.kind === 'roast') target = pick(teams.filter((t) => t.id !== m.team_id));   // "trash talk someone": Garry picks
   const asker = byId.get(m.team_id);
   const facts: Record<string, unknown> = { asked_by: asker?.gm_name, request: m.body, phase: league.phase };
+  // "roast everyone": one line per GM, built from what's known about each
+  if (intent.everyone) {
+    const [{ data: bets }, { data: bals }] = await Promise.all([
+      db.from('bets').select('creator_team,opponent_team,winner_team').eq('status', 'settled'),
+      db.from('coin_balances').select('team_id,balance'),
+    ]);
+    facts.gms = teams.map((t) => {
+      const st = standings.find((s) => s.team_id === t.id);
+      const mine = (bets ?? []).filter((b) => b.creator_team === t.id || b.opponent_team === t.id);
+      return { gm: t.gm_name, team: t.name, last_season: LAST_SEASON[t.gm_name] ?? null, standing: st && Number(st.points) > 0 ? { rank: st.rank, points: Number(st.points) } : 'no games yet',
+        keepers_submitted: t.keepers_submitted, auto_lineup: t.auto_lineup, bet_record: `${mine.filter((b) => b.winner_team === t.id).length}-${mine.filter((b) => b.winner_team && b.winner_team !== t.id).length}`, coins: (bals ?? []).find((b) => b.team_id === t.id)?.balance ?? null };
+    });
+    const task = `${asker?.gm_name} asked you to trash talk every GM in the league, one by one. One short, specific line each (all ${teams.length} of them, the asker included), built on last season's finish, keepers, bets and what you remember about them. Hockey decisions only. Finish with one challenge for the room.`;
+    const fallback = ['🎙️ Fine. Everyone gets one.', ...teams.map((t) => `@${t.gm_name}: ${LAST_SEASON[t.gm_name] ? `finished ${LAST_SEASON[t.gm_name]} last year` : 'new here'}${t.keepers_submitted ? '' : ' and still hasn’t submitted keepers'}. ${pick(['Bold strategy.', 'The bench is where dreams go to die.', 'Set your lineup.', 'Group chat GM.', 'Big talk, small box scores.'])}`), 'Now somebody put coins on it.'].join('\n');
+    const body = await write(task, facts, fallback, 260, teams.map((t) => t.id));
+    const { error } = await db.from('messages').insert({ channel: m.channel, kind: 'bot', body, reply_to: m.id, meta: { bot: 'garry', type: 'chirp', kind: 'roast', target: null, everyone: true } });
+    if (error) throw error;
+    return { replied: true, topic: 'roast', target: 'everyone' };
+  }
   if (target) {
     const st = standings.find((s) => s.team_id === target!.id);
     const [{ data: bets }, { data: bal }, { data: rows }, { data: said }] = await Promise.all([

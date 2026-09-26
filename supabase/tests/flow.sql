@@ -111,6 +111,23 @@ do $$ begin
   perform move_player((select r.player_id from rosters r join players p on p.id = r.player_id where r.team_id = 5 and p.pos = 'G' limit 1), 'C');
   raise exception 'goalie at C allowed';
 exception when others then if sqlerrm not like '%can''t play%' then raise; end if; end $$;
+-- IR is for injured players only
+do $$ declare h int; begin
+  select r.player_id into h from rosters r join players p on p.id = r.player_id where r.team_id = 5 and r.slot = 'BN' and p.injury_status is null limit 1;
+  perform move_player(h, 'IR');
+  raise exception 'healthy player on IR allowed';
+exception when others then if sqlerrm not like '%injury report%' then raise; end if; end $$;
+reset role;
+update players set injury_status = 'Out' where id = (select r.player_id from rosters r where r.team_id = 5 and r.slot = 'BN' limit 1);
+set role authenticated;
+do $$ declare h int; begin
+  select r.player_id into h from rosters r join players p on p.id = r.player_id where r.team_id = 5 and r.slot = 'BN' and p.injury_status = 'Out' limit 1;
+  perform move_player(h, 'IR');
+  if (select slot from rosters where player_id = h) <> 'IR' then raise exception 'injured player not on IR'; end if;
+  perform move_player(h, 'BN');   -- back, so the roster stays full for the pickup tests below
+end $$;
+select 'ir back on bench (expect 0)', count(*) from rosters where team_id = 5 and slot = 'IR';
+select 'standings has bench (expect true)', (to_jsonb(s) ? 'bench') from standings s limit 1;
 
 -- ── free agents
 do $$ begin
