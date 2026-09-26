@@ -10,7 +10,6 @@ import { PageHeader, Section, Sheet, TeamBadge } from '../components/ui';
 import { ExternalLink, Headphones, Play, Radio, Tv } from 'lucide-react';
 import { InjuriesTab, LeadersTab, NewsTab, TeamsTab, XTab } from '../components/NhlMore';
 import { watchOptions, playerFor, PROVIDERS } from '../lib/watch';
-import { openYahoo as openSide } from '../lib/yahoo';
 import { rpc } from '../lib/supabase';
 
 type NTeam = { id: number; abbrev: string; name: string; place: string; score: number | null; sog: number | null; logo: string | null; radio: string | null; record: string | null };
@@ -39,6 +38,10 @@ const per = (g: Game) => (!g.period ? '' : g.period.type === 'REG' ? `P${g.perio
 const fmtDay = (d: string) => new Date(d + 'T12:00:00Z').toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric', timeZone: 'UTC' });
 
 // NHL team radio (HLS): Safari plays it natively, everyone else through hls.js loaded on demand
+// broadcaster and TV-provider sign-ins go in a plain new tab with no opener: a scripted popup can make Safari
+// drop the login cookie and bounce the GM back to the sign-in page in a loop
+const openTab = (url: string) => { window.open(url, '_blank', 'noopener,noreferrer'); };
+
 // where to watch this game: the GM's own TV provider player first (one sign-in, every channel), then the
 // broadcasters' players. A GM who hasn't said what they have gets a one-tap provider picker right here.
 function WatchBox({ watch, channels }: { watch: ReturnType<typeof watchOptions>; channels: string[] }) {
@@ -54,9 +57,9 @@ function WatchBox({ watch, channels }: { watch: ReturnType<typeof watchOptions>;
     <div className="rounded-xl border border-white/[.08] bg-white/[.03] p-2.5">
       <div className="mb-1.5 flex items-center justify-between text-[11px] font-bold uppercase tracking-wider text-mute"><span>Watch live</span>{channels.length > 0 && <span className="normal-case tracking-normal">📺 {channels.join(' · ')}</span>}</div>
       <div className="flex flex-wrap gap-1.5">
-        {player && <button className={btn(true)} onClick={() => openSide(player.url)} title={player.how}><Tv size={14} /> {player.name} <span className="text-[10px] font-normal text-sky-200/80">your {me?.tv?.provider}</span><ExternalLink size={11} className="opacity-60" /></button>}
+        {player && <button className={btn(true)} onClick={() => openTab(player.url)} title={player.how}><Tv size={14} /> {player.name} <span className="text-[10px] font-normal text-sky-200/80">your {me?.tv?.provider}</span><ExternalLink size={11} className="opacity-60" /></button>}
         {watch.map((w) => (
-          <button key={w.service.k} className={btn(w.have)} onClick={() => openSide(w.service.url)} title={w.service.note}>
+          <button key={w.service.k} className={btn(w.have)} onClick={() => openTab(w.service.url)} title={w.service.note}>
             <Tv size={14} /> {w.service.name}{w.network !== 'NHL.TV' && w.network.toUpperCase() !== w.service.name.toUpperCase() ? <span className="text-[10px] font-normal text-mute">{w.network}</span> : null}{w.have && <span className="text-[10px]">✓</span>}<ExternalLink size={11} className="opacity-60" />
           </button>
         ))}
@@ -72,7 +75,7 @@ function WatchBox({ watch, channels }: { watch: ReturnType<typeof watchOptions>;
           <ol className="mt-1 list-decimal space-y-0.5 pl-4">
             {player ? <li><b>{player.name}</b>: {player.how} It’s the channel shown above ({channels[0] ?? 'see the game page'}). Every channel in your package, one login.</li> : null}
             <li><b>Broadcaster’s player</b> ({watch.map((w) => w.service.name).join(', ')}): tap Sign in, choose “TV provider”, pick {me.tv.provider}, then the live channel. You stay signed in on that site.</li>
-            <li>The window opens beside SaK on a computer, or as a tab on your phone (inside the app if SaK is on your Home Screen). <Link to="/profile" className="text-sky-300">Change provider or services</Link>.</li>
+            <li>Each opens in its own tab so the sign-in sticks; once you’re signed in there, the next tap goes straight to live TV. <Link to="/profile" className="text-sky-300">Change provider or services</Link>.</li>
           </ol>
         </details>
       )}
