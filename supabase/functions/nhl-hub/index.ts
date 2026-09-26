@@ -5,11 +5,14 @@
 //   ?task=standings                 the current standings (last season's final table in the off-season)
 //   ?task=schedule&date=YYYY-MM-DD  the week from that date
 //   ?task=game&id=<gameId>          landing (scoring, three stars, penalties) + box score for one game
+//   ?task=news                      NHL.com stories + Sportsnet and ESPN headlines, newest first
+//   ?task=leaders                   league leaders: skaters (points, goals, assists, +/-, PIM, PP/SH goals, faceoffs) and goalies
+//   ?task=team&abbrev=EDM           one club: roster, this week's games, season stats for every player
 import { NHL } from '../_shared/nhl.ts';
 
 const cors = { 'Access-Control-Allow-Origin': '*', 'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type', 'Access-Control-Allow-Methods': 'GET, POST, OPTIONS' };
 const cache = new Map<string, { at: number; ttl: number; body: unknown }>();
-const TTL = { scores: 20_000, standings: 300_000, schedule: 600_000, game: 20_000 };
+const TTL = { scores: 20_000, standings: 300_000, schedule: 600_000, game: 20_000, news: 600_000, leaders: 600_000, team: 300_000 };
 
 async function get(path: string) {
   const r = await fetch(`${NHL}${path}`, { headers: { 'user-agent': 'sak-league' } });
@@ -93,18 +96,73 @@ async function gameDetail(id: string) {
   };
 }
 
+// ── news: NHL.com (official, via its content API) plus Sportsnet and ESPN RSS
+const FORGE = 'https://forge-dapi.d3.nhle.com/v2/content/en-us/stories?%24limit=40&%24sort=contentDate:desc';
+const strip = (h: string) => h.replace(/<!\[CDATA\[|\]\]>/g, '').replace(/<[^>]+>/g, ' ').replace(/&#8217;|&rsquo;/g, '’').replace(/&#8216;|&lsquo;/g, '‘').replace(/&#8220;|&ldquo;/g, '“').replace(/&#8221;|&rdquo;/g, '”').replace(/&amp;/g, '&').replace(/&quot;/g, '"').replace(/&#039;|&apos;/g, "'").replace(/&nbsp;/g, ' ').replace(/\s+/g, ' ').trim();
+function rss(xml: string, source: string) {
+  const items = xml.match(/<item\b[^>]*>[\s\S]*?<\/item>/g) ?? [];
+  const tag = (it: string, t: string) => { const m = new RegExp(`<${t}[^>]*>([\\s\\S]*?)<\\/${t}>`).exec(it); return m ? strip(m[1]) : ''; };
+  return items.map((it) => {
+    const link = tag(it, 'link') || (/<link[^>]*href="([^"]+)"/.exec(it)?.[1] ?? '');
+    const img = /<(?:media:content|media:thumbnail|enclosure)[^>]*url="([^"]+)"/.exec(it)?.[1] ?? null;
+    return { id: `${source}:${link}`, source, headline: tag(it, 'title'), summary: tag(it, 'description').slice(0, 280), date: new Date(tag(it, 'pubDate') || 0).toISOString(), url: link, image: img, tags: [] as string[] };
+  }).filter((x) => x.headline && x.url && !/sn-collection/.test(x.url));
+}
+async function news() {
+  const ua = { headers: { 'user-agent': 'Mozilla/5.0 (compatible; sak-league)' } };
+  const [forge, sn, espn] = await Promise.all([
+    fetch(FORGE, ua).then((r) => r.json()).catch(() => ({ items: [] })),
+    fetch('https://www.sportsnet.ca/hockey/nhl/feed/', ua).then((r) => r.text()).catch(() => ''),
+    fetch('https://www.espn.com/espn/rss/nhl/news', ua).then((r) => r.text()).catch(() => ''),
+  ]);
+  const official = (forge.items ?? []).map((i: any) => ({
+    id: `nhl:${i._entityId}`, source: 'NHL.com', headline: i.headline || i.title, summary: (i.summary ?? '').slice(0, 280), date: i.contentDate,
+    url: `https://www.nhl.com/news/${i.slug}`, image: i.thumbnail?.templateUrl ? i.thumbnail.templateUrl.replace('{formatInstructions}', 't_ratio16_9-size40') : null,
+    tags: (i.tags ?? []).map((t: any) => t.slug).filter(Boolean),
+  }));
+  const all = [...official, ...rss(sn, 'Sportsnet'), ...rss(espn, 'ESPN')].filter((x) => x.date && x.date !== '1970-01-01T00:00:00.000Z');
+  all.sort((a, b) => b.date.localeCompare(a.date));
+  return { items: all.slice(0, 80) };
+}
+
+// ── league leaders
+async function leaders() {
+  const [s, g] = await Promise.all([
+    get('/skater-stats-leaders/current?categories=points,goals,assists,plusMinus,penaltyMins,goalsPp,goalsSh,faceoffLeaders&limit=10'),
+    get('/goalie-stats-leaders/current?categories=wins,savePctg,goalsAgainstAverage,shutouts&limit=10'),
+  ]);
+  const row = (p: any) => ({ id: p.id, name: `${txt(p.firstName)} ${txt(p.lastName)}`, num: p.sweaterNumber, pos: p.position, team: p.teamAbbrev, logo: p.teamLogo ?? null, headshot: p.headshot ?? null, value: p.value });
+  const cats = (j: any) => Object.fromEntries(Object.entries(j).map(([k, v]) => [k, (v as any[]).map(row)]));
+  return { skaters: cats(s), goalies: cats(g) };
+}
+
+// ── one club
+async function club(abbrev: string) {
+  const [r, st, sc] = await Promise.all([get(`/roster/${abbrev}/current`), get(`/club-stats/${abbrev}/now`).catch(() => null), get(`/club-schedule/${abbrev}/week/now`).catch(() => null)]);
+  const person = (p: any) => ({ id: p.id, name: `${txt(p.firstName)} ${txt(p.lastName)}`, num: p.sweaterNumber, pos: p.positionCode, shoots: p.shootsCatches, ht: p.heightInInches, wt: p.weightInPounds, born: p.birthDate, country: p.birthCountry, headshot: p.headshot ?? null });
+  const sk = (p: any) => ({ id: p.playerId, name: `${txt(p.firstName)} ${txt(p.lastName)}`, pos: p.positionCode, gp: p.gamesPlayed, g: p.goals, a: p.assists, pts: p.points, pm: p.plusMinus, pim: p.penaltyMinutes, ppg: p.powerPlayGoals, sog: p.shots, pct: p.shootingPctg, toi: p.avgTimeOnIcePerGame });
+  const go = (p: any) => ({ id: p.playerId, name: `${txt(p.firstName)} ${txt(p.lastName)}`, gp: p.gamesPlayed, gs: p.gamesStarted, w: p.wins, l: p.losses, otl: p.overtimeLosses, gaa: p.goalsAgainstAverage, svp: p.savePercentage, so: p.shutouts });
+  return {
+    abbrev, roster: { forwards: (r.forwards ?? []).map(person), defense: (r.defensemen ?? []).map(person), goalies: (r.goalies ?? []).map(person) },
+    stats: st ? { season: st.season, type: st.gameType, skaters: (st.skaters ?? []).map(sk).sort((a: any, b: any) => b.pts - a.pts), goalies: (st.goalies ?? []).map(go).sort((a: any, b: any) => b.gp - a.gp) } : null,
+    week: sc ? { prev: sc.previousStartDate ?? null, next: sc.nextStartDate ?? null, games: (sc.games ?? []).map(game) } : null,
+  };
+}
+
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: cors });
   const url = new URL(req.url);
   const task = url.searchParams.get('task') ?? 'scores';
   const date = url.searchParams.get('date') ?? 'now';
   const id = url.searchParams.get('id') ?? '';
-  if (!/^(now|\d{4}-\d{2}-\d{2})$/.test(date) || !/^\d{0,12}$/.test(id)) return Response.json({ error: 'bad request' }, { status: 400, headers: cors });
-  const key = `${task}:${date}:${id}`;
+  const abbrev = (url.searchParams.get('abbrev') ?? '').toUpperCase();
+  if (!/^(now|\d{4}-\d{2}-\d{2})$/.test(date) || !/^\d{0,12}$/.test(id) || !/^[A-Z]{0,3}$/.test(abbrev)) return Response.json({ error: 'bad request' }, { status: 400, headers: cors });
+  const key = `${task}:${date}:${id}:${abbrev}`;
   const hit = cache.get(key);
   if (hit && Date.now() - hit.at < hit.ttl) return Response.json(hit.body, { headers: { ...cors, 'x-cache': 'hit' } });
   try {
-    const body = task === 'standings' ? await standings() : task === 'schedule' ? await schedule(date) : task === 'game' ? await gameDetail(id) : await scores(date);
+    const body = task === 'standings' ? await standings() : task === 'schedule' ? await schedule(date) : task === 'game' ? await gameDetail(id)
+      : task === 'news' ? await news() : task === 'leaders' ? await leaders() : task === 'team' ? await club(abbrev) : await scores(date);
     cache.set(key, { at: Date.now(), ttl: TTL[task as keyof typeof TTL] ?? 20_000, body });
     if (cache.size > 200) for (const [k, v] of cache) if (Date.now() - v.at > v.ttl) cache.delete(k);
     return Response.json(body, { headers: { ...cors, 'x-cache': 'miss' } });

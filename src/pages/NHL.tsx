@@ -4,10 +4,11 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { useLeague } from '../lib/store';
-import { supabase } from '../lib/supabase';
+import { hub } from '../lib/nhlhub';
 import { etToday, fmtTime } from '../lib/format';
 import { PageHeader, Section, Sheet, TeamBadge } from '../components/ui';
 import { ExternalLink, Headphones, Play, Radio, Tv } from 'lucide-react';
+import { LeadersTab, NewsTab, TeamsTab } from '../components/NhlMore';
 import { watchOptions } from '../lib/watch';
 
 type NTeam = { id: number; abbrev: string; name: string; place: string; score: number | null; sog: number | null; logo: string | null; radio: string | null; record: string | null };
@@ -22,13 +23,6 @@ const LIVE = new Set(['LIVE', 'CRIT']), DONE = new Set(['OFF', 'FINAL']);
 const BRIGHTCOVE = (id: string) => `https://players.brightcove.net/6415718365001/default_default/index.html?videoId=${id}`;
 const NET: Record<string, string> = { SN: 'Sportsnet', SNP: 'Sportsnet Pacific', SNW: 'Sportsnet West', SNO: 'Sportsnet Ontario', SNE: 'Sportsnet East', SN1: 'Sportsnet One', SN360: 'Sportsnet 360', TVAS: 'TVA Sports', CBC: 'CBC', ESPN: 'ESPN', 'ESPN+': 'ESPN+', ABC: 'ABC', TNT: 'TNT', TBS: 'TBS', MAX: 'Max', HULU: 'Hulu', NHLN: 'NHL Network', PRIME: 'Prime Video', AMZN: 'Prime Video', SCRIPPS: 'Scripps' };
 
-async function hub<T>(task: string, q: Record<string, string> = {}): Promise<T> {
-  const qs = new URLSearchParams({ task, ...q }).toString();
-  const { data, error } = await supabase.functions.invoke(`nhl-hub?${qs}`, { method: 'GET' });
-  if (error) throw error;
-  if (data?.error) throw new Error(data.error);
-  return data as T;
-}
 const status = (g: Game) => {
   if (g.scheduleState === 'PPD') return 'Postponed';
   if (g.scheduleState === 'CNCL') return 'Cancelled';
@@ -83,7 +77,7 @@ function Video({ id, title, onClose }: { id: string; title: string; onClose: () 
 export default function NHL() {
   const { me, players, rosters, owner, team, teams } = useLeague();
   const [params, setParams] = useSearchParams();
-  const tab = (params.get('t') as 'scores' | 'standings' | 'schedule') || 'scores';
+  const tab = (params.get('t') as 'scores' | 'standings' | 'schedule' | 'news' | 'leaders' | 'teams') || 'scores';
   const setTab = (t: string) => setParams((p) => { const n = new URLSearchParams(p); n.set('t', t); return n; });
   const [date, setDate] = useState(etToday());
   const [scores, setScores] = useState<{ date: string; prev: string | null; next: string | null; games: Game[] } | null>(null);
@@ -163,9 +157,9 @@ export default function NHL() {
   return (
     <div className="space-y-4">
       <PageHeader icon={<Radio size={22} className="text-goal" />} title="NHL" sub="Scores, standings, schedule, highlights and radio, with your SaK players flagged in every game" />
-      <div className="flex gap-1">
-        {([['scores', '🏒 Scores'], ['standings', '🏆 Standings'], ['schedule', '📅 Schedule']] as const).map(([k, l]) => <button key={k} className={`tab ${tab === k ? 'tab-on' : 'bg-white/[.05]'}`} onClick={() => setTab(k)}>{l}</button>)}
-        <Link to="/scoreboard" className="tab ml-auto bg-white/[.05]">📡 SaK scoreboard</Link>
+      <div className="scroll-x flex gap-1">
+        {([['scores', '🏒 Scores'], ['news', '📰 News'], ['standings', '🏆 Standings'], ['leaders', '📈 Leaders'], ['teams', '🛡️ Teams'], ['schedule', '📅 Schedule']] as const).map(([k, l]) => <button key={k} className={`tab shrink-0 ${tab === k ? 'tab-on' : 'bg-white/[.05]'}`} onClick={() => setTab(k)}>{l}</button>)}
+        <Link to="/scoreboard" className="tab ml-auto shrink-0 bg-white/[.05]">📡 SaK</Link>
       </div>
       {err && <div className="rounded-xl border border-amber-400/20 bg-amber-500/10 p-3 text-sm text-amber-100">NHL data didn’t load: {err}</div>}
 
@@ -251,6 +245,10 @@ export default function NHL() {
           ))}
         </>
       )}
+
+      {tab === 'news' && <NewsTab />}
+      {tab === 'leaders' && <LeadersTab />}
+      {tab === 'teams' && <TeamsTab onGame={(g) => setOpen(g as Game)} />}
 
       <GameSheet g={open} onClose={() => setOpen(null)} gmsIn={gmsIn} teamOf={team} ownerOf={(id) => { const o = owner.get(id); return o ? team(o.team_id) : undefined; }} inPool={(id) => players.has(id)} />
     </div>
