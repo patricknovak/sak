@@ -6,6 +6,7 @@ import { fmtDateTime, fmtPts } from '../lib/format';
 import { PlayerRow, usePlayerSheet } from '../components/PlayerCard';
 import { PlayerFilterBar, StatTable, usePlayerFilter } from '../components/PlayerFilters';
 import { lineFor } from '../lib/playerstats';
+import { comingAvailable } from '../lib/keepers';
 import { Pos } from '../components/ui';
 import type { Player } from '../lib/types';
 import { Section, TeamBadge, TeamName, useAction, PageHeader, Countdown } from '../components/ui';
@@ -23,6 +24,7 @@ export default function Keepers() {
   const pf = usePlayerFilter({ tf: 'last' });
   const phase = league?.phase;
   const max = league?.keepers ?? 6;
+  const coming = useMemo(() => comingAvailable(players, rosters, league).filter((p) => rosters.find((r) => r.player_id === p.id)?.team_id !== me?.id), [players, rosters, league, me?.id]);
 
   const mineRaw = useMemo(() => rosters.filter((r) => r.team_id === me?.id)
     .map((r) => ({ r, p: players.get(r.player_id)! })).filter((x) => x.p), [rosters, players, me]);
@@ -227,6 +229,24 @@ export default function Keepers() {
           );
         })}
       </div>
+      )}
+
+      {coming.length > 0 && (
+        <Section title="Top players coming available" right={<Link to="/players?who=coming" className="text-xs text-sky-300">All {coming.length} →</Link>}>
+          <p className="mb-2 px-1 text-xs text-mute">Every team’s top scorer from last season goes back in the pool, so these are sure things for draft night. Plan your keepers around who’ll be there.</p>
+          <div className="card divide-y divide-white/[.06]">
+            {coming.slice(0, 8).map((p, i) => {
+              const from = team(rosters.find((r) => r.player_id === p.id)?.team_id ?? 0);
+              return (
+                <div key={p.id} className="flex items-center gap-2 px-2.5 py-2">
+                  <span className="w-5 text-center text-[11px] text-mute">{i + 1}</span>
+                  <div className="min-w-0 flex-1"><PlayerRow p={p} onClick={() => open(p.id)} sub={from ? <span className="ml-1 text-[10px] text-mute">· {from.name}</span> : undefined} /></div>
+                  <div className="w-16 text-right"><div className="num text-sm font-semibold">{fmtPts(p.proj, 0)}</div><div className="text-[10px] text-mute">proj</div></div>
+                </div>
+              );
+            })}
+          </div>
+        </Section>
       )}
 
       <Section title="Who's locked in">

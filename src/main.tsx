@@ -31,6 +31,9 @@ const Features = lazy(() => import('./pages/Features'));
 const DraftTV = lazy(() => import('./pages/DraftTV'));
 const Scoreboard = lazy(() => import('./pages/Scoreboard'));
 const NHL = lazy(() => import('./pages/NHL'));
+const Yahoo = lazy(() => import('./pages/Yahoo'));
+const YahooLeague = lazy(() => import('./pages/YahooLeague'));
+import { YahooReturnHandler } from './components/YahooConnect';
 
 function Loading() {
   return <div className="grid min-h-[50dvh] place-items-center"><Spinner className="h-8 w-8" /></div>;
@@ -73,6 +76,7 @@ function App() {
   }
   return (
     <Layout>
+      <YahooReturnHandler />
       <ErrorBoundary key={pathname}>
       <Suspense fallback={<Loading />}>
         <Routes>
@@ -81,6 +85,8 @@ function App() {
           <Route path="/draft/tv" element={<DraftTV />} />
           <Route path="/scoreboard" element={<Scoreboard />} />
           <Route path="/nhl" element={<NHL />} />
+          <Route path="/yahoo" element={<Yahoo />} />
+          <Route path="/yahoo/:key" element={<YahooLeague />} />
           <Route path="/keepers" element={<Keepers />} />
           <Route path="/team" element={<MyTeam />} />
           <Route path="/team/:id" element={<MyTeam />} />

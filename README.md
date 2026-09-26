@@ -54,6 +54,15 @@ xAI API key in the Supabase dashboard: **Edge Functions → Secrets** → add `X
 `GROK_MODEL`, default `grok-4`). Garry picks it up on his next post; a daily
 column costs a few cents. Without it he falls back to the templates, so nothing breaks.
 
+## Connecting Yahoo leagues (optional)
+
+GMs who also play in (or commission) other Yahoo Fantasy Hockey leagues can run them from **More → Yahoo
+leagues**. To switch that on, create a Yahoo developer app at https://developer.yahoo.com/apps/create/
+(Web Application; redirect URI `https://patricknovak.github.io/sak/`; API permission **Fantasy Sports →
+Read/Write**), then add its `YAHOO_CLIENT_ID` and `YAHOO_CLIENT_SECRET` under **Edge Functions → Secrets**
+(and `YAHOO_REDIRECT_URI` if the site lives somewhere else). Each GM signs in on Yahoo's own page; SaK keeps
+only the OAuth tokens, in a table that no browser session can read, and calls Yahoo as that GM.
+
 ## Signing in
 
 Each GM taps their team on the sign-in screen and enters their password. The commissioner hands out

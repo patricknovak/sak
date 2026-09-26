@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
+import { bannedTopScorers } from '../lib/keepers';
 import { useLeague, useNow } from '../lib/store';
 import { rpc, supabase } from '../lib/supabase';
 import type { DraftPick, Player, Pos as PosT } from '../lib/types';
@@ -89,15 +90,7 @@ export default function Draft() {
   const preKeepers = league?.phase === 'keepers';
   const taken = (id: number) => !preKeepers && owner.has(id);
   // each team's 2025-26 top scorer can't be kept, so he's a sure thing for the draft
-  const banned = useMemo(() => {
-    const best = new Map<number, { id: number; fp: number }>();
-    if (league?.top_scorer_rule) for (const r of rosters) {
-      if (r.prev_fp == null) continue;
-      const b = best.get(r.team_id);
-      if (!b || r.prev_fp > b.fp || (r.prev_fp === b.fp && r.player_id < b.id)) best.set(r.team_id, { id: r.player_id, fp: r.prev_fp });
-    }
-    return new Set([...best.values()].map((b) => b.id));
-  }, [rosters, league?.top_scorer_rule]);
+  const banned = useMemo(() => bannedTopScorers(rosters, league?.top_scorer_rule), [rosters, league?.top_scorer_rule]);
   const available = useMemo(() => pf.apply([...players.values()].filter((p) => preKeepers || !owner.has(p.id))).slice(0, 150), [players, owner, preKeepers, pf.apply]);
 
   const draftPlayer = (p: Player) => run(async () => {
