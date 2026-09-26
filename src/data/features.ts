@@ -27,6 +27,8 @@ export const FEATURE_GROUPS: FeatureGroup[] = [
     features: [
       { key: 'live-scoring', icon: '📡', title: 'Live scoring', to: '/standings', blurb: 'Fantasy points straight from the NHL, updated every minute during games.',
         points: ['Goals, assists, +/-, PPP, shots, hits, blocks, wins, saves, shutouts and more', 'NHL stat corrections flow in automatically for three days', 'Lineups freeze at each player’s puck drop'] },
+      { key: 'nhl-hub', icon: '🏒', title: 'NHL hub: live scores, standings, highlights, radio', to: '/nhl', isNew: true, blurb: 'Every NHL game in one place, with your SaK players flagged in each one.',
+        points: ['Live scores with period, clock and shots, refreshed every 30 seconds', 'Every goal with its highlight clip, plus the three-minute recap and condensed game, playing right on the page', 'Box scores with SaK owners marked, three stars, penalties', 'NHL standings by division, conference, wild card or league, with GMs’ favourite teams marked', 'The week’s schedule with broadcasters', 'Listen live: NHL team radio streams; watch on the broadcaster or NHL.com from the game page'] },
       { key: 'scoreboard', icon: '📡', title: 'Live scoreboard', to: '/scoreboard', isNew: true, blurb: 'Game night in one screen: every NHL score and every team’s starters, point by point.',
         points: ['NHL games with period, clock and score', 'Teams ranked by tonight’s points; tap one for every starter’s line', 'Refreshes itself every minute'] },
       { key: 'lineup', icon: '🧩', title: 'Set your lineup', to: '/team', blurb: 'Tap a player, tap where he goes. Locks when his game starts.',
