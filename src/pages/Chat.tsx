@@ -7,10 +7,11 @@ import { TeamBadge } from '../components/ui';
 export default function Chat() {
   const { me, teams, spectators, online, can } = useLeague();
   const [params, setParams] = useSearchParams();
-  const channel = params.get('c') ?? 'general';
-  const { unread } = useUnread();
+  const channel = params.get('c') ?? 'all';
+  const { unread, any } = useUnread();
   const dm = (id: number) => `dm:${Math.min(id, me!.id)}-${Math.max(id, me!.id)}`;
   const channels = [
+    { c: 'all', label: '💬 All' },
     { c: 'general', label: '🔥 Trash Talk' },
     { c: 'draft', label: '📋 Draft' },
     ...(me ? [{ c: `garry:${me.id}`, label: '🎙️ Ask Garry' }] : []),
@@ -27,12 +28,12 @@ export default function Chat() {
             {'team' in x && x.team && <TeamBadge team={x.team} size={18} />}
             {x.label}
             {'team' in x && x.team && online.has(x.team.id) && <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />}
-            {unread(x.c) && channel !== x.c && <span className="absolute -right-0.5 -top-0.5 h-2.5 w-2.5 rounded-full bg-goal" />}
+            {(x.c === 'all' ? any : unread(x.c)) && channel !== x.c && <span className="absolute -right-0.5 -top-0.5 h-2.5 w-2.5 rounded-full bg-goal" />}
           </button>
         ))}
       </div>
       <div className="flex min-h-0 flex-1 flex-col lg:card lg:overflow-hidden">
-        <div className="hidden border-b border-line px-4 py-2 text-sm font-semibold lg:block">{cur?.label}{(channel.startsWith('dm:') || channel.startsWith('garry:')) && <span className="ml-2 text-xs font-normal text-mute">private</span>}</div>
+        <div className="hidden border-b border-line px-4 py-2 text-sm font-semibold lg:block">{cur?.label}{channel === 'all' && <span className="ml-2 text-xs font-normal text-mute">every chat in one feed except the draft room · posts go to Trash Talk, replies stay in their chat</span>}{(channel.startsWith('dm:') || channel.startsWith('garry:')) && <span className="ml-2 text-xs font-normal text-mute">private</span>}</div>
         <ChatPanel key={channel} channel={channel} className="flex-1" />
       </div>
     </div>
