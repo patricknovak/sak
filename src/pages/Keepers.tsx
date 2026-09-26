@@ -11,6 +11,7 @@ import { Pos } from '../components/ui';
 import type { Player } from '../lib/types';
 import { Section, TeamBadge, TeamName, useAction, PageHeader, Countdown } from '../components/ui';
 import { Lock } from 'lucide-react';
+import { KeeperReport } from '../components/KeeperReport';
 import confetti from 'canvas-confetti';
 
 export default function Keepers() {
@@ -111,6 +112,7 @@ export default function Keepers() {
     return (
       <div className="space-y-4">
         <PageHeader icon={<Lock size={22} className="text-gold" />} title="Keepers" sub={`${league?.season} · locked in and revealed`} />
+        <KeeperReport onPlayer={open} />
         <div className="grid gap-3 sm:grid-cols-2">
           {teams.map((t) => {
             const ks = rosters.filter((r) => r.team_id === t.id && r.acquired === 'keeper').map((r) => players.get(r.player_id)!).filter(Boolean)
@@ -248,6 +250,8 @@ export default function Keepers() {
           </div>
         </Section>
       )}
+
+      <KeeperReport onPlayer={open} />
 
       <Section title="Who's locked in">
         <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
