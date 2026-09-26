@@ -52,7 +52,7 @@ Deno.serve(async (req) => {
       if (!u?.user) return new Response(JSON.stringify({ error: 'Sign in first' }), { status: 401, headers: cors });
       const { data: t } = await db.from('teams').select('id,gm_name').eq('user_id', u.user.id).single();
       if (!t) return new Response(JSON.stringify({ error: 'No team' }), { status: 404, headers: cors });
-      const r = await sendToTeam(t.id, { title: '🏒 SaK League', body: `Notifications are on, ${t.gm_name}. See you on draft night.`, url: SITE, tag: 'test' });
+      const r = await sendToTeam(t.id, { title: '🏒 SAK Superleague', body: `Notifications are on, ${t.gm_name}. See you on draft night.`, url: SITE, tag: 'test' });
       return new Response(JSON.stringify(r), { headers: { ...cors, 'Content-Type': 'application/json' } });
     }
 
@@ -61,7 +61,7 @@ Deno.serve(async (req) => {
     const { data: n } = await db.from('notifications').select('id,team_id,kind,body,link').eq('id', id).single();
     if (!n) return new Response('not found', { status: 404, headers: cors });
     const r = await sendToTeam(n.team_id, {
-      title: `${ICONS[n.kind] ?? '🔔'} SaK League`,
+      title: `${ICONS[n.kind] ?? '🔔'} SAK Superleague`,
       body: n.body,
       url: SITE + '#' + (n.link ?? '/'),
       tag: n.kind === 'draft' ? 'draft-clock' : `n${n.id}`,

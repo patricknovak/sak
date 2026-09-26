@@ -1,12 +1,12 @@
 {
-  "name": "SaK League",
-  "short_name": "SaK",
+  "name": "SAK Superleague",
+  "short_name": "SAK",
   "description": "She's A Keeper fantasy hockey league",
   "start_url": "./",
   "scope": "./",
   "display": "standalone",
-  "background_color": "#070c18",
-  "theme_color": "#070c18",
+  "background_color": "#05080f",
+  "theme_color": "#05080f",
   "icons": [
     { "src": "icon.svg", "sizes": "any", "type": "image/svg+xml" },
     { "src": "icon-192.png", "sizes": "192x192", "type": "image/png" },

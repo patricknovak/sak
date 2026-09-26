@@ -294,6 +294,7 @@ export default function Draft() {
         </div>
       )}
       <Link to="/mock" className="relative mt-4 flex items-center gap-3 rounded-2xl border border-emerald-400/25 bg-emerald-500/10 p-3 transition active:scale-[.98]"><span className="text-2xl">🧪</span><span className="flex-1"><span className="block font-bold">Dress rehearsal: run tomorrow’s draft now</span><span className="text-xs text-white/70">The real order, traded picks and everyone’s keepers, against bot GMs. See who’ll be there at your picks, then get graded.</span></span><span className="text-sky-300">→</span></Link>
+      <Link to="/draft/sheet" className="relative mt-3 flex items-center gap-3 rounded-2xl border border-gold/25 bg-gold/[.08] p-3 transition active:scale-[.98]"><span className="text-2xl">📋</span><span className="flex-1"><span className="block font-bold">Your cheat sheet</span><span className="text-xs text-white/70">Your gaps, the best 10 available at each, and the odds each one lasts to your next pick. One screen, no scrolling under the clock.</span></span><span className="text-sky-300">→</span></Link>
       <div className="relative mt-3"><DraftCall /></div>
       <div className="relative mt-3"><PushCard hideWhenOn compact /></div>
       <div className="relative mt-4 flex items-center gap-2 text-xs text-white/70">

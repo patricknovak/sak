@@ -4,10 +4,10 @@
 @theme {
   --font-sans: 'Inter', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
   --font-display: 'Barlow Condensed', 'Inter', ui-sans-serif, system-ui, sans-serif;
-  --color-ice: #070c18;
-  --color-rink: #0f1729;
-  --color-boards: #1a2440;
-  --color-line: #243152;
+  --color-ice: #05080f;
+  --color-rink: #0e1527;
+  --color-boards: #182240;
+  --color-line: #233052;
   --color-mute: #8391b3;
   --color-goal: #ef2a4f;
   --color-blue: #4cc3ff;
@@ -27,10 +27,11 @@ body {
 body::before {
   content: ''; position: fixed; inset: 0; z-index: -1; pointer-events: none;
   background:
-    radial-gradient(80% 50% at 50% -10%, rgba(76, 195, 255, .16), transparent 70%),
+    radial-gradient(80% 50% at 50% -10%, rgba(76, 195, 255, .18), transparent 70%),
+    radial-gradient(45% 35% at 0% 0%, rgba(247, 197, 72, .10), transparent 70%),
     radial-gradient(50% 40% at 100% 100%, rgba(239, 42, 79, .10), transparent 70%),
-    radial-gradient(40% 35% at 0% 60%, rgba(52, 211, 153, .06), transparent 70%),
-    linear-gradient(180deg, #0a1122 0%, #070c18 60%);
+    radial-gradient(40% 35% at 0% 60%, rgba(52, 211, 153, .05), transparent 70%),
+    linear-gradient(180deg, #091020 0%, #05080f 60%);
 }
 body::after {
   content: ''; position: fixed; inset: 0; z-index: -1; pointer-events: none; opacity: .5;
@@ -47,9 +48,9 @@ body::after {
 
 /* glass cards: a whisper of light on top, deep shadow below */
 @utility card {
-  @apply rounded-2xl border border-white/[.07];
-  background: linear-gradient(180deg, rgba(255,255,255,.055), rgba(255,255,255,.02)) , rgba(15, 23, 41, .72);
-  box-shadow: inset 0 1px 0 rgba(255,255,255,.06), 0 12px 32px -18px rgba(0,0,0,.8);
+  @apply rounded-2xl border border-white/[.08];
+  background: linear-gradient(180deg, rgba(255,255,255,.06), rgba(255,255,255,.02)) , rgba(14, 21, 39, .74);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.07), 0 14px 36px -18px rgba(0,0,0,.85);
   backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px);
 }
 /* hero card tinted by a team colour: set --tc on the element */
@@ -85,8 +86,12 @@ body::after {
 @utility chip { @apply inline-flex items-center gap-1 rounded-full border border-white/10 bg-white/[.05] px-2 py-0.5 text-[11px] font-semibold text-slate-300; }
 @utility h-display { @apply font-display font-extrabold uppercase tracking-[.03em]; }
 @utility label { @apply text-[11px] font-semibold uppercase tracking-[.12em] text-mute; }
+/* the brand accent bar: gold into ice */
+@utility accent-bar { background: linear-gradient(180deg, #f7c548, #4cc3ff); }
+/* gold hairline under section titles and hero cards */
+@utility gold-rule { background: linear-gradient(90deg, rgba(247,197,72,.7), rgba(247,197,72,0)); height: 1px; }
 @utility tab { @apply shrink-0 rounded-full px-3.5 py-1.5 text-sm font-semibold text-mute transition hover:text-slate-200; }
-@utility tab-on { @apply bg-white text-ice shadow-[0_6px_18px_-8px_rgba(255,255,255,.6)] hover:text-ice; }
+@utility tab-on { @apply text-ice hover:text-ice; background: linear-gradient(180deg, #fff3c4, #f7c548); box-shadow: 0 6px 18px -8px rgba(247,197,72,.8), inset 0 1px 0 rgba(255,255,255,.6); }
 @utility num { font-variant-numeric: tabular-nums; }
 /* silver-ice gradient for big headings */
 @utility text-shine {

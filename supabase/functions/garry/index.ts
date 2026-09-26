@@ -6,12 +6,13 @@
 //   ?task=weekly (Monday morning) team of the week (+coins), bust of the week, player of the week, power rankings
 //   ?task=learn / ?task=evolve  force a memory pass / a rewrite of his voice notes (they also run on their own)
 //   ?task=keepers (after the keeper deadline, or on the commish's say-so) grades every team's keepers and predicts the season
+//   ?task=draftprep (draft eve and draft day) names who still has no queue, no alerts, no autodraft, with the taps to fix it
 // Writes with Grok (xAI) when the XAI_API_KEY secret is set; otherwise uses built-in templates.
 // Garry remembers: after replies and with the morning post he pulls facts and running gags out of the chat
 // (garry_memory), and once a week rewrites his own voice notes (garry_state.persona). Both feed every post.
 import { createClient } from 'jsr:@supabase/supabase-js@2';
 import { etDate } from '../_shared/nhl.ts';
-import { gradeTeams, type GP } from '../_shared/grades.ts';
+import { gradeTeams, lineupStrength, type GP } from '../_shared/grades.ts';
 import { answer } from './answer.ts';
 import { gradeAllKeepers, type KP } from '../_shared/keepers.ts';
 
@@ -489,6 +490,65 @@ Facts (JSON):\n${JSON.stringify(facts)}`, 2200, 0.85, true);
   return { posted: true, llm, grades: table.map((g) => ({ team: byId.get(g.team)?.gm_name, grade: g.grade })) };
 }
 
+// ─────────────── draft prep nags ───────────────
+// the day before and the afternoon of the draft: who hasn't built a queue, turned on alerts, or looked at their
+// gaps, with the exact taps to fix it, plus a personal nudge in each slacker's notification bell
+async function draftPrep() {
+  const { league, teams } = await base();
+  const { data: ds } = await db.from('draft_state').select('season,status').single();
+  if (!league.draft_at || ds?.status !== 'scheduled') return { skipped: ds?.status ?? 'no draft' };
+  const hours = Math.round((new Date(league.draft_at).getTime() - Date.now()) / 3600000);
+  if (hours < 0 || hours > 40) return { skipped: `draft in ${hours}h` };
+  const slotKey = hours <= 6 ? 'day' : 'eve';
+  if (await alreadyPosted('draftprep', `${ds.season}-${slotKey}`)) return { skipped: 'already posted' };
+  const [{ data: queue }, { data: push }, { data: rosters }, { data: picks }, { data: tq }] = await Promise.all([
+    db.from('draft_queue').select('team_id'),
+    db.from('push_subscriptions').select('team_id'),
+    db.from('rosters').select('team_id,player_id'),
+    db.from('draft_picks').select('team_id,overall').eq('season', ds.season).is('player_id', null).not('overall', 'is', null).order('overall'),
+    db.from('teams').select('id,autodraft').eq('role', 'gm'),
+  ]);
+  const ids = (rosters ?? []).map((r) => r.player_id);
+  const { data: ps } = await db.from('players').select('id,pos,elig,proj').in('id', ids);
+  const pl = new Map((ps ?? []).map((p) => [p.id, { id: p.id, pos: p.pos, elig: p.elig ?? [], proj: Number(p.proj) } as GP]));
+  const caps = (league.roster ?? { C: 2, LW: 2, RW: 2, D: 3, Util: 1, G: 2 }) as Record<string, number>;
+  const gapsOf = (t: number) => {
+    const mine = (rosters ?? []).filter((r) => r.team_id === t).map((r) => pl.get(r.player_id)).filter(Boolean) as GP[];
+    const by: Record<string, number> = {};
+    for (const s of lineupStrength(mine).starters) by[s.slot] = (by[s.slot] ?? 0) + 1;
+    return ['C', 'LW', 'RW', 'D', 'Util', 'G'].filter((s) => (by[s] ?? 0) < (caps[s] ?? 0)).map((s) => `${(caps[s] ?? 0) - (by[s] ?? 0)} ${s}`);
+  };
+  const qCount = new Map<number, number>(), pCount = new Map<number, number>();
+  for (const q of queue ?? []) qCount.set(q.team_id, (qCount.get(q.team_id) ?? 0) + 1);
+  for (const p of push ?? []) pCount.set(p.team_id, (pCount.get(p.team_id) ?? 0) + 1);
+  const auto = new Map((tq ?? []).map((t) => [t.id, !!t.autodraft]));
+  const gms = teams.map((t) => ({
+    id: t.id, gm: t.gm_name, team: t.name, first_pick: (picks ?? []).find((p) => p.team_id === t.id)?.overall ?? null,
+    queue: qCount.get(t.id) ?? 0, alerts_on: (pCount.get(t.id) ?? 0) > 0, autodraft: auto.get(t.id) ?? false, gaps: gapsOf(t.id),
+  }));
+  const noQueue = gms.filter((g) => g.queue === 0), noAlerts = gms.filter((g) => !g.alerts_on), ready = gms.filter((g) => g.queue > 0 && g.alerts_on);
+  const when = new Date(league.draft_at).toLocaleString('en-CA', { timeZone: 'America/Toronto', weekday: 'long', hour: 'numeric', minute: '2-digit' }) + ' ET';
+  const facts = { draft_at: when, hours_to_draft: hours, slot: slotKey, pick_seconds: league.pick_seconds, rounds: league.draft_rounds, gms,
+    how_to: { queue: 'Draft tab, star players (or the star on the cheat sheet at #/draft/sheet); autodraft takes the top of the queue when you are away', alerts: 'My Profile, Alerts, Turn on alerts; iPhone: add SaK to the Home Screen first', cheat_sheet: 'More menu, Draft cheat sheet: your gaps, the best 10 at each, and the odds each lasts to your pick', call: 'Draft page, Join the call; the first one in signs in with Google or GitHub' } };
+  const fallback = [
+    `📋 ${hours <= 6 ? `Draft night. ${hours} hours.` : `Draft eve, boys. ${when}, ${league.pick_seconds} seconds a pick.`}`,
+    noQueue.length ? `No queue yet: ${noQueue.map((g) => '@' + g.gm).join(', ')}. If your phone dies, the robot picks off projections instead of your list. Draft tab, star 15 guys. Two minutes.` : 'Everyone has a queue. Who are you people.',
+    noAlerts.length ? `No alerts: ${noAlerts.map((g) => '@' + g.gm).join(', ')}. You will not know you are on the clock. My Profile, Alerts, turn them on (iPhone: Home Screen first).` : '',
+    `Cheat sheet is live: your gaps, best 10 at each, and the odds each one lasts to your pick 👉 #/draft/sheet`,
+    ready.length ? `Gold stars for ${ready.map((g) => g.gm).join(', ')}: queue built, alerts on. Dangerous.` : '',
+    `Join the call from the Draft page. First one in signs in and opens the room. Somebody put coins on who goes #1.`,
+  ].filter(Boolean).join('\n');
+  const body = await write(`Write the ${slotKey === 'day' ? 'draft day' : 'draft eve'} post for the league chat: hype the room, then name exactly who has no draft queue and who has no alerts, with the taps to fix each (from how_to), and one line each on the GMs who are ready. Mention the cheat sheet with its link and the call. Keep every "👉 #/..." link.`, facts, fallback, 220, teams.map((t) => t.id));
+  await post(body, { type: 'draftprep', date: `${ds.season}-${slotKey}` });
+  // and a personal nudge in the bell for anyone missing something
+  const notes = gms.filter((g) => g.queue === 0 || !g.alerts_on).map((g) => ({
+    team_id: g.id, kind: 'draftprep', link: g.queue === 0 ? '/draft/sheet' : '/profile',
+    body: `📋 Draft in ${hours}h. ${g.queue === 0 ? 'Your queue is empty: star your targets so autodraft has a list. ' : ''}${!g.alerts_on ? 'Alerts are off: turn them on so you know when you are on the clock.' : ''}`.trim(),
+  }));
+  if (notes.length) await db.from('notifications').insert(notes);
+  return { posted: slotKey, no_queue: noQueue.map((g) => g.gm), no_alerts: noAlerts.map((g) => g.gm) };
+}
+
 // ─────────────── draft recap ───────────────
 async function draftRecap() {
   const { teams, byId } = await base();
@@ -618,6 +678,7 @@ Deno.serve(async (req) => {
       result = await reply(Number(message_id));
     } else if (task === 'nudge') result = await nudge();
     else if (task === 'keepers') { if (!(await callerMayRun(req))) return Response.json({ task, ok: false, error: 'Commissioner only' }, { status: 403 }); result = await keeperReport(); }
+    else if (task === 'draftprep') result = await draftPrep();
     else if (task === 'learn') result = await learn(true);
     else if (task === 'evolve') result = await evolve(true);
     else if (task === 'draft') result = await draftRecap();

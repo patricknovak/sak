@@ -17,7 +17,7 @@ export default function LeaguePage() {
   const tab = (params.get('t') as Tab) ?? 'history';
   return (
     <div className="space-y-4">
-      <PageHeader icon={<Landmark size={22} className="text-gold" />} title="She’s A Keeper" sub="Est. September 2013 · 13th season" />
+      <PageHeader icon={<Landmark size={22} className="text-gold" />} title="SAK Superleague" sub="She’s A Keeper · est. September 2013 · 13th season" />
       {tab === 'history' && <PromoVideo />}
       <div className="scroll-x flex gap-1">
         {([['history', '📜 History'], ['rules', '📘 Rules'], ['money', '💰 Money'], ['votes', '🗳️ Proposals']] as const).map(([k, l]) => (

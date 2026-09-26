@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { NavLink, useLocation, useNavigate } from 'react-router-dom';
+import { Wordmark, WordmarkStack } from './Brand';
 import { useLeague, useNow } from '../lib/store';
 import { realtimeChannel, supabase } from '../lib/supabase';
 import { ago, countdown } from '../lib/format';
@@ -7,7 +8,7 @@ import { currentSubscription } from '../lib/push';
 import { Sheet, TeamBadge } from './ui';
 import {
   Bell, ClipboardList, FlaskConical, Dices, Home, Landmark, Lightbulb, Lock, LogOut, Menu, MessageCircle, Radio, Repeat2, Search, Shield,
-  Trophy, Tv, UserRound, Globe, ListOrdered, Wrench, type LucideIcon,
+  Trophy, Tv, UserRound, Globe, ListOrdered, NotebookPen, Wrench, type LucideIcon,
 } from 'lucide-react';
 
 type Item = { to: string; label: string; icon: LucideIcon; commish?: boolean };
@@ -107,7 +108,7 @@ export function Layout({ children }: { children: ReactNode }) {
     draftish ? { to: '/team', label: 'My Team', icon: Shield } : { to: '/draft', label: 'Draft Board', icon: ClipboardList },
     { to: '/keepers', label: 'Keepers', icon: Lock },
     { to: '/draft/list', label: 'Draft order & picks', icon: ListOrdered },
-    ...(draftish ? [{ to: '/mock', label: 'Mock Draft', icon: FlaskConical }] : []),
+    ...(draftish ? [{ to: '/draft/sheet', label: 'Draft cheat sheet', icon: NotebookPen }, { to: '/mock', label: 'Mock Draft', icon: FlaskConical }] : []),
     { to: '/trades', label: 'Trades', icon: Repeat2 },
     { to: '/bets', label: 'Side Bets', icon: Dices },
     { to: '/league', label: 'League & History', icon: Landmark },
@@ -130,7 +131,7 @@ export function Layout({ children }: { children: ReactNode }) {
     }
   }, [myTurn, current]);
   useEffect(() => {
-    document.title = myTurn ? `⏰ YOUR PICK · ${countdown(remaining)}` : 'SaK League';
+    document.title = myTurn ? `⏰ YOUR PICK · ${countdown(remaining)}` : 'SAK Superleague';
   }, [myTurn, Math.floor(remaining / 1000)]);
 
   // any open client keeps the draft clock honest (the server double-checks the deadline)
@@ -158,18 +159,18 @@ export function Layout({ children }: { children: ReactNode }) {
   return (
     <div className="lg:flex" style={{ '--banner': banner ? '2.25rem' : '0px' } as React.CSSProperties}>
       {/* desktop sidebar */}
-      <aside className="sticky top-0 hidden h-dvh w-64 shrink-0 flex-col border-r border-white/[.06] bg-[#0a1122]/70 p-4 backdrop-blur-xl lg:flex">
+      <aside className="sticky top-0 hidden h-dvh w-64 shrink-0 flex-col border-r border-white/[.06] bg-[#091020]/70 p-4 backdrop-blur-xl lg:flex">
         <button onClick={() => nav('/')} className="mb-7 flex items-center gap-3 px-1">
-          <img src="./icon.svg" className="h-10 w-10 drop-shadow-[0_6px_16px_rgba(239,42,79,.45)]" alt="" />
-          <div className="text-left"><div className="h-display text-shine text-2xl leading-none">SaK League</div><div className="mt-0.5 text-[11px] font-medium text-mute">She’s A Keeper · {league?.season}</div></div>
+          <img src="./icon.svg" className="h-11 w-11 drop-shadow-[0_6px_16px_rgba(247,197,72,.45)]" alt="" />
+          <Wordmark size="sm" tagline={`She’s A Keeper · ${league?.season ?? ""}`} className="text-left" />
         </button>
         <nav className="flex flex-col gap-0.5">
           {[...items, ...moreItems].filter((i, n, a) => a.findIndex((x) => x.to === i.to) === n).map((i) => {
             const a = isActive(i.to);
             return (
               <NavLink key={i.to} to={i.to} end={i.to === '/'} className={`relative flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-semibold transition ${a ? 'bg-gradient-to-r from-white/[.14] to-white/[.03] text-white shadow-[inset_0_1px_0_rgba(255,255,255,.08)]' : 'text-slate-400 hover:bg-white/[.05] hover:text-slate-100'}`}>
-                {a && <span className="absolute bottom-2 left-0 top-2 w-1 rounded-r-full bg-gradient-to-b from-goal to-blue" />}
-                <i.icon size={18} strokeWidth={a ? 2.4 : 2} className={a ? 'text-blue' : ''} />{i.label}
+                {a && <span className="accent-bar absolute bottom-2 left-0 top-2 w-1 rounded-r-full" />}
+                <i.icon size={18} strokeWidth={a ? 2.4 : 2} className={a ? 'text-gold' : ''} />{i.label}
                 {i.to === '/chat' && chatUnread && <span className="ml-auto grid h-5 min-w-5 place-items-center rounded-full bg-goal px-1.5 text-[11px] font-bold text-white shadow-[0_0_8px_rgba(239,42,79,.9)]">{chatCount > 99 ? '99+' : chatCount || ''}</span>}
                 {i.to === '/draft' && draft?.status === 'live' && <span className="ml-auto h-2 w-2 animate-pulse rounded-full bg-emerald-400" />}
               </NavLink>
@@ -185,11 +186,11 @@ export function Layout({ children }: { children: ReactNode }) {
 
       <div className="min-w-0 flex-1">
         {/* mobile top bar */}
-        <header className="pt-safe sticky top-0 z-30 border-b border-white/[.06] bg-[#070c18]/75 backdrop-blur-xl lg:hidden">
+        <header className="pt-safe sticky top-0 z-30 border-b border-white/[.06] bg-[#05080f]/75 backdrop-blur-xl lg:hidden">
           <div className="flex h-12 items-center gap-2 px-3">
             <button onClick={() => nav('/')} className="flex items-center gap-2">
-              <img src="./icon.svg" className="h-7 w-7 drop-shadow-[0_4px_10px_rgba(239,42,79,.5)]" alt="" />
-              <span className="h-display text-shine text-xl">SaK</span>
+              <img src="./icon.svg" className="h-8 w-8 drop-shadow-[0_4px_10px_rgba(247,197,72,.5)]" alt="" />
+              <WordmarkStack />
             </button>
             <div className="flex-1" />
             <button className="relative grid h-9 w-9 place-items-center rounded-full bg-white/[.05] ring-1 ring-white/10" onClick={openNotif} aria-label="Notifications">
@@ -217,7 +218,7 @@ export function Layout({ children }: { children: ReactNode }) {
             const a = isActive(i.to);
             return (
               <NavLink key={i.to} to={i.to} end={i.to === '/'} className="relative flex flex-col items-center justify-center gap-1">
-                <span className={`grid h-8 w-12 place-items-center rounded-full transition-all duration-200 ${a ? 'bg-gradient-to-b from-white/20 to-white/[.06] text-white shadow-[0_0_18px_-4px_rgba(76,195,255,.7)]' : 'text-slate-400'}`}>
+                <span className={`grid h-8 w-12 place-items-center rounded-full transition-all duration-200 ${a ? 'bg-gradient-to-b from-gold/30 to-white/[.06] text-gold shadow-[0_0_18px_-4px_rgba(247,197,72,.7)]' : 'text-slate-400'}`}>
                   <i.icon size={20} strokeWidth={a ? 2.4 : 2} />
                 </span>
                 <span className={`text-[10px] font-bold tracking-wide ${a ? 'text-white' : 'text-mute'}`}>{i.label}</span>

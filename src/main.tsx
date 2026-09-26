@@ -26,6 +26,7 @@ const Commish = lazy(() => import('./pages/Commish'));
 const Profile = lazy(() => import('./pages/Profile'));
 const News = lazy(() => import('./pages/News'));
 const Mock = lazy(() => import('./pages/Mock'));
+const CheatSheet = lazy(() => import('./pages/CheatSheet'));
 const PlayerPage = lazy(() => import('./pages/PlayerPage'));
 const Features = lazy(() => import('./pages/Features'));
 const DraftTV = lazy(() => import('./pages/DraftTV'));
@@ -48,7 +49,7 @@ function App() {
       <div className="grid min-h-dvh place-items-center p-6 text-center">
         <div className="card max-w-md p-6">
           <div className="text-4xl">🏒</div>
-          <h1 className="h-display mt-2 text-2xl">SaK League</h1>
+          <h1 className="h-display mt-2 text-2xl">SAK Superleague</h1>
           <p className="mt-2 text-sm text-mute">This build has no database configured. Set VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY in <code>.env</code>.</p>
         </div>
       </div>
@@ -102,6 +103,7 @@ function App() {
           <Route path="/profile" element={<Profile />} />
           <Route path="/news" element={<News />} />
           <Route path="/mock" element={<Mock />} />
+          <Route path="/draft/sheet" element={<CheatSheet />} />
           <Route path="/player/:id" element={<PlayerPage />} />
           <Route path="/features" element={<Features />} />
           <Route path="*" element={<Navigate to="/" replace />} />
