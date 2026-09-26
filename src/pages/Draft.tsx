@@ -15,10 +15,11 @@ import { Countdown, Headshot, Sheet, Pos, TeamBadge, TeamName, TeamStack, Toggle
 import { ClockRing, POS_BG, celebrate, useWide } from '../components/draftkit';
 import { PushCard } from '../components/PushCard';
 import { DraftReport } from '../components/DraftReport';
+import { DraftCall } from '../components/DraftCall';
 import { SoundToggle, useDraftSounds, useSoundsOn } from '../components/DraftSounds';
 import { Tv } from 'lucide-react';
 
-type Tab = 'players' | 'board' | 'queue' | 'team' | 'chat';
+type Tab = 'players' | 'board' | 'queue' | 'team' | 'chat' | 'call';
 
 export default function Draft() {
   const { me, league, teams, spectators, team, players, rosters, owner, picks, draft, online, refresh } = useLeague();
@@ -29,6 +30,7 @@ export default function Draft() {
   const run = (fn: () => Promise<unknown>, ok?: string) => runRaw(async () => { await fn(); await refresh(['draft', 'picks', 'league', 'rosters', 'teams']); }, ok);
   const [tab, setTab] = useState<Tab>('players');
   const [report, setReport] = useState(false);
+  const [showCall, setShowCall] = useState(false);
   const pf = usePlayerFilter({ tf: 'proj' });
   const [queue, setQueue] = useState<number[]>([]);
   const [detail, setDetail] = useState<number | null>(null);
@@ -292,6 +294,7 @@ export default function Draft() {
         </div>
       )}
       <Link to="/mock" className="relative mt-4 flex items-center gap-3 rounded-2xl border border-emerald-400/25 bg-emerald-500/10 p-3 transition active:scale-[.98]"><span className="text-2xl">🧪</span><span className="flex-1"><span className="block font-bold">Dress rehearsal: run tomorrow’s draft now</span><span className="text-xs text-white/70">The real order, traded picks and everyone’s keepers, against bot GMs. See who’ll be there at your picks, then get graded.</span></span><span className="text-sky-300">→</span></Link>
+      <div className="relative mt-3"><DraftCall /></div>
       <div className="relative mt-3"><PushCard hideWhenOn compact /></div>
       <div className="relative mt-4 flex items-center gap-2 text-xs text-white/70">
         <span className="h-2 w-2 animate-pulse rounded-full bg-emerald-400 shadow-[0_0_8px_rgba(52,211,153,.9)]" />
@@ -303,7 +306,7 @@ export default function Draft() {
 
   const tabs: { k: Tab; label: string }[] = ([
     { k: 'players', label: 'Players' }, { k: 'board', label: 'Board' }, { k: 'queue', label: `Queue${queue.length ? ` (${queue.length})` : ''}` },
-    { k: 'team', label: 'My team' }, { k: 'chat', label: 'Chat' },
+    { k: 'team', label: 'My team' }, { k: 'chat', label: 'Chat' }, { k: 'call', label: '🎙️ Call' },
   ] as { k: Tab; label: string }[]).filter((t) => !spectator || (t.k !== 'queue' && t.k !== 'team'));
 
   return (
@@ -367,6 +370,7 @@ export default function Draft() {
         {tab === 'queue' && QueueTab}
         {tab === 'team' && TeamTab}
         {tab === 'chat' && <ChatPanel channel="draft" compact className="flex-1" />}
+        {tab === 'call' && <div className="flex min-h-0 flex-1 flex-col p-2"><DraftCall tall /></div>}
       </div>}
       {wide && <div className="grid min-h-0 flex-1 grid-cols-[minmax(300px,360px)_minmax(0,1fr)_minmax(260px,320px)] gap-3 pt-3">
         <div className="card flex min-h-0 flex-col overflow-hidden">{PlayersTab}</div>
@@ -380,7 +384,10 @@ export default function Draft() {
             {spectator ? <div className="p-4 text-sm text-mute">🍿 You’re watching as a spectator: no queue, no picks, all the chirps.</div> : tab === 'team' ? TeamTab : QueueTab}
           </div>
         </div>
-        <div className="card flex min-h-0 flex-col overflow-hidden"><div className="border-b border-line px-3 py-2 text-sm font-semibold">💬 Draft chat</div><ChatPanel channel="draft" compact className="flex-1" /></div>
+        <div className="flex min-h-0 flex-col gap-3">
+          {showCall ? <DraftCall tall /> : <button className="card flex items-center gap-2 px-3 py-2 text-left text-sm hover:bg-white/[.04]" onClick={() => setShowCall(true)}><span className="grid h-8 w-8 place-items-center rounded-lg bg-emerald-500/15 text-emerald-300">🎙️</span><span className="flex-1"><span className="block font-semibold">Voice & video</span><span className="text-xs text-mute">Talk while you draft</span></span><span className="text-sky-300">Open</span></button>}
+          <div className="card flex min-h-0 flex-1 flex-col overflow-hidden"><div className="border-b border-line px-3 py-2 text-sm font-semibold">💬 Draft chat</div><ChatPanel channel="draft" compact className="flex-1" /></div>
+        </div>
       </div>}
 
       {/* pick announcement */}
