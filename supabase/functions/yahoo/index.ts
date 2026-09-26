@@ -48,7 +48,7 @@ const json = (body: unknown, status = 200) => new Response(JSON.stringify(body),
 class Fail extends Error { constructor(msg: string, public status = 400) { super(msg); } }
 
 // ───────────── the GM calling ─────────────
-interface Acct { team_id: number; guid: string | null; access_token: string | null; refresh_token: string | null; expires_at: string | null; state: string | null; state_at: string | null; connected_at: string | null }
+interface Acct { team_id: number; guid: string | null; access_token: string | null; refresh_token: string | null; expires_at: string | null; state: string | null; state_at: string | null; connected_at: string | null; write_ok: boolean | null }
 
 async function caller(req: Request) {
   const jwt = (req.headers.get('Authorization') ?? '').replace('Bearer ', '');
@@ -122,9 +122,16 @@ async function ycall(acct: Acct, method: string, path: string, body?: string, re
   }
   const doc = text ? xml.parse(text) : {};
   if (!r.ok) {
-    const desc = doc?.error?.description ?? doc?.yahoo_error?.description ?? text.slice(0, 200) ?? r.statusText;
-    throw new Fail(`Yahoo: ${String(desc).replace(/<[^>]+>/g, '').trim() || r.status}`, r.status === 401 ? 401 : 502);
+    const desc = String(doc?.error?.description ?? doc?.yahoo_error?.description ?? text.slice(0, 200) ?? r.statusText).replace(/<[^>]+>/g, '').trim();
+    if (method !== 'GET' && (r.status === 401 || r.status === 403 || /scope|permission|not allowed|read.only/i.test(desc))) {
+      // the Yahoo app only has read access (Yahoo no longer offers Read/Write to every app): remember it so the site
+      // sends this GM to Yahoo's own pages for changes instead
+      await db.from('yahoo_accounts').update({ write_ok: false, updated_at: new Date().toISOString() }).eq('team_id', acct.team_id);
+      throw new Fail(`Yahoo only lets SaK read your leagues, so this change has to be made on Yahoo itself. Use “Manage on Yahoo”. (${desc || r.status})`, 403);
+    }
+    throw new Fail(`Yahoo: ${desc || r.status}`, r.status === 401 ? 401 : 502);
   }
+  if (method !== 'GET' && acct.write_ok !== true) db.from('yahoo_accounts').update({ write_ok: true }).eq('team_id', acct.team_id).then(() => {}, () => {});
   return doc?.fantasy_content ?? doc;
 }
 
@@ -347,7 +354,7 @@ Deno.serve(async (req) => {
     await loadCreds();
     const connected = !!acct?.refresh_token;
 
-    if (task === 'status') return json({ configured: configured(), connected, guid: connected ? acct?.guid ?? null : null, since: connected ? acct?.connected_at : null, redirect: REDIRECT });
+    if (task === 'status') return json({ configured: configured(), connected, guid: connected ? acct?.guid ?? null : null, since: connected ? acct?.connected_at : null, writeOk: connected ? acct?.write_ok ?? null : null, redirect: REDIRECT });
     if (!configured()) throw new Fail('Yahoo sign-in is not set up yet: the commissioner needs to add YAHOO_CLIENT_ID and YAHOO_CLIENT_SECRET to the Supabase secrets.', 503);
 
     if (task === 'auth_url') {

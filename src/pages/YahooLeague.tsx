@@ -5,11 +5,11 @@ import { Link, useParams } from 'react-router-dom';
 import { ArrowLeft, ChevronLeft, ChevronRight, ExternalLink, RefreshCw, Shield } from 'lucide-react';
 import { hub } from '../lib/nhlhub';
 import { etToday } from '../lib/format';
-import { yahoo, nhlAbbr, BENCH, SCORING, type YLeagueFull, type YMatchup, type YPlayer, type YRoster, type YTeam, type YTransaction, type YTransactions } from '../lib/yahoo';
+import { yahoo, nhlAbbr, openYahoo, BENCH, SCORING, type YLeagueFull, type YMatchup, type YPlayer, type YRoster, type YTeam, type YTransaction, type YTransactions } from '../lib/yahoo';
 import { Empty, PageHeader, Section, Sheet, Spinner, useAction } from '../components/ui';
-import { YahooMark } from '../components/YahooConnect';
+import { YahooMark, useYahooStatus } from '../components/YahooConnect';
 
-type Tab = 'standings' | 'matchups' | 'team' | 'players' | 'moves' | 'more';
+type Tab = 'standings' | 'matchups' | 'team' | 'players' | 'moves' | 'manage' | 'more';
 const shift = (d: string, n: number) => { const x = new Date(d + 'T12:00:00Z'); x.setUTCDate(x.getUTCDate() + n); return x.toISOString().slice(0, 10); };
 const fmtDay = (d: string) => new Date(d + 'T12:00:00Z').toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric', timeZone: 'UTC' });
 const ord = (n: number) => `${n}${n % 100 >= 11 && n % 100 <= 13 ? 'th' : ['th', 'st', 'nd', 'rd'][n % 10] ?? 'th'}`;
@@ -21,6 +21,8 @@ export default function YahooLeague() {
   const [err, setErr] = useState<string | null>(null);
   const [tab, setTab] = useState<Tab>('standings');
   const [busy, setBusy] = useState(false);
+  const { st } = useYahooStatus();
+  const writeOk = st?.writeOk ?? null;
   const load = useCallback(() => {
     setBusy(true); setErr(null);
     yahoo<YLeagueFull>('league', { league_key: key }).then(setL, (e: Error) => setErr(e.message)).finally(() => setBusy(false));
@@ -31,7 +33,7 @@ export default function YahooLeague() {
   if (err) return <div className="space-y-3"><Link to="/yahoo" className="btn btn-sm w-fit"><ArrowLeft size={14} /> Yahoo leagues</Link><div className="card border-red-400/30 bg-red-500/10 p-3 text-sm">{err}</div></div>;
   if (!L) return <div className="grid place-items-center py-16"><Spinner /></div>;
   const me = L.me;
-  const tabs: [Tab, string][] = [['standings', '🏆 Standings'], ...(L.matchups ? [['matchups', '⚔️ Matchups'] as [Tab, string]] : []), ...(me ? [['team', '🧩 My team'] as [Tab, string], ['players', '🔍 Players'] as [Tab, string], ['moves', '🔄 Moves'] as [Tab, string]] : []), ['more', '⚙️ More']];
+  const tabs: [Tab, string][] = [['standings', '🏆 Standings'], ...(L.matchups ? [['matchups', '⚔️ Matchups'] as [Tab, string]] : []), ...(me ? [['team', '🧩 My team'] as [Tab, string], ['players', '🔍 Players'] as [Tab, string], ['moves', '🔄 Moves'] as [Tab, string]] : []), ['manage', '🖥️ Manage on Yahoo'], ['more', '⚙️ More']];
 
   return (
     <div className="space-y-4">
@@ -50,10 +52,54 @@ export default function YahooLeague() {
 
       {tab === 'standings' && <StandingsTab L={L} />}
       {tab === 'matchups' && L.matchups && <MatchupsTab L={L} />}
-      {tab === 'team' && me && <TeamTab L={L} team={me} />}
-      {tab === 'players' && me && <PlayersTab L={L} team={me} />}
-      {tab === 'moves' && me && <MovesTab L={L} team={me} />}
+      {tab === 'team' && me && <TeamTab L={L} team={me} writeOk={writeOk} />}
+      {tab === 'players' && me && <PlayersTab L={L} team={me} writeOk={writeOk} />}
+      {tab === 'moves' && me && <MovesTab L={L} team={me} writeOk={writeOk} />}
+      {tab === 'manage' && <ManageTab L={L} writeOk={writeOk} />}
       {tab === 'more' && <MoreTab L={L} />}
+    </div>
+  );
+}
+
+// Yahoo gave this connection read-only access: changes go through Yahoo's own page in the Yahoo window
+function ReadOnly({ url, what }: { url: string | null; what: string }) {
+  return (
+    <div className="flex flex-wrap items-center gap-2 rounded-xl border border-amber-400/30 bg-amber-400/10 px-3 py-2 text-sm">
+      <span className="flex-1">Yahoo only lets SaK <b>read</b> your leagues, so {what} happens on Yahoo. It opens in its own window and you stay signed in there.</span>
+      {url && <button className="btn-gold btn-sm shrink-0" onClick={() => openYahoo(url)}><ExternalLink size={14} /> Open on Yahoo</button>}
+    </div>
+  );
+}
+
+// ───────────── manage on Yahoo: the Yahoo window ─────────────
+function ManageTab({ L, writeOk }: { L: YLeagueFull; writeOk: boolean | null }) {
+  const base = L.url?.replace(/\/$/, '') ?? null;
+  const team = L.me?.url?.replace(/\/$/, '') ?? null;
+  const items: [string, string, string | null][] = [
+    ['🧩', 'Set my lineup', team],
+    ['➕', 'Add or drop players', base ? `${base}/players` : null],
+    ['🔄', 'Trades and transactions', base ? `${base}/transactions` : null],
+    ['⚔️', 'This week’s matchup', team ? `${team}/matchup` : null],
+    ['🏆', 'Standings', base ? `${base}/standings` : null],
+    ['💬', 'Message board', base ? `${base}/messages` : null],
+    ['⚙️', 'League settings', base ? `${base}/settings` : null],
+    ...(L.me?.commissioner ? [['👑', 'Commissioner tools (league home)', base] as [string, string, string | null]] : []),
+  ];
+  return (
+    <div className="space-y-3">
+      <div className="card p-3 text-sm text-mute">
+        <p>Yahoo doesn’t allow its pages inside another site, so the Yahoo window is a real browser window: one that opens beside SaK on a computer, a new tab on a phone. Sign in to Yahoo there once and it stays signed in. Everything you do there shows up here after a refresh.</p>
+        {writeOk === false && <p className="mt-2 text-amber-200">Yahoo gave SaK read-only access to your account, so lineup changes, pickups and trades are done in the Yahoo window.</p>}
+        {writeOk === true && <p className="mt-2 text-emerald-200">Your connection can write, so lineups, pickups and trades also work right here in SaK.</p>}
+      </div>
+      <div className="grid gap-2 sm:grid-cols-2">
+        {items.filter(([, , u]) => u).map(([icon, label, url]) => (
+          <button key={label} className="card flex items-center gap-3 px-3 py-3 text-left text-sm transition active:scale-[.98]" onClick={() => openYahoo(url!)}>
+            <span className="text-xl">{icon}</span><span className="flex-1 font-semibold">{label}</span><ExternalLink size={14} className="text-mute" />
+          </button>
+        ))}
+      </div>
+      {base && <button className="btn w-full" onClick={() => openYahoo(base)}><YahooMark size={16} /> Open the league home in the Yahoo window</button>}
     </div>
   );
 }
@@ -151,7 +197,7 @@ function PlayerRow({ p, right, plays }: { p: YPlayer; right?: React.ReactNode; p
   );
 }
 
-function TeamTab({ L, team }: { L: YLeagueFull; team: YTeam }) {
+function TeamTab({ L, team, writeOk }: { L: YLeagueFull; team: YTeam; writeOk: boolean | null }) {
   const [date, setDate] = useState(etToday());
   const [R, setR] = useState<YRoster | null>(null);
   const [err, setErr] = useState<string | null>(null);
@@ -191,6 +237,7 @@ function TeamTab({ L, team }: { L: YLeagueFull; team: YTeam }) {
         <>
           <div className="flex flex-wrap gap-1">{L.settings.positions.filter((x) => x.pos !== 'BN').map((x) => <span key={x.pos} className={`chip ${(counts[x.pos] ?? 0) > x.count ? 'bg-red-500/15 text-red-200' : (counts[x.pos] ?? 0) < x.count && x.starting ? 'bg-amber-400/15 text-amber-200' : ''}`}>{x.pos} {counts[x.pos] ?? 0}/{x.count}</span>)}<span className="chip">BN {counts.BN ?? 0}</span></div>
           {R.editable === false && <div className="text-xs text-amber-200">Yahoo has locked this date’s lineup.</div>}
+          {writeOk === false && <ReadOnly url={team.url} what="setting your lineup" />}
           <div className="card divide-y divide-white/[.06] px-3">
             {sorted.map((p) => {
               const s = slotOf(p);
@@ -198,7 +245,7 @@ function TeamTab({ L, team }: { L: YLeagueFull; team: YTeam }) {
               return (
                 <div key={p.key} className={`${starting ? '' : 'opacity-80'}`}>
                   <PlayerRow p={p} plays={playing.has(nhlAbbr(p.team))} right={
-                    <select className="input w-20 py-1 text-xs" value={s} disabled={p.editable === false || R.editable === false} onChange={(e) => setMoves({ ...moves, [p.key]: e.target.value })} aria-label={`Slot for ${p.name}`}>
+                    <select className="input w-20 py-1 text-xs" value={s} disabled={p.editable === false || R.editable === false || writeOk === false} onChange={(e) => setMoves({ ...moves, [p.key]: e.target.value })} aria-label={`Slot for ${p.name}`}>
                       {options(p).map((o) => <option key={o} value={o}>{o}</option>)}
                     </select>} />
                 </div>
@@ -219,7 +266,7 @@ function TeamTab({ L, team }: { L: YLeagueFull; team: YTeam }) {
 }
 
 // ───────────── players: free agents, add/drop ─────────────
-function PlayersTab({ L, team }: { L: YLeagueFull; team: YTeam }) {
+function PlayersTab({ L, team, writeOk }: { L: YLeagueFull; team: YTeam; writeOk: boolean | null }) {
   const [q, setQ] = useState('');
   const [status, setStatus] = useState<'FA' | 'W' | 'A'>('FA');
   const [pos, setPos] = useState('');
@@ -249,12 +296,13 @@ function PlayersTab({ L, team }: { L: YLeagueFull; team: YTeam }) {
         {positions.map((p) => <button key={p} className={`tab shrink-0 ${pos === p ? 'tab-on' : 'bg-white/[.05]'}`} onClick={() => { setPos(p); reset(); }}>{p}</button>)}
         <select className="input ml-auto w-auto shrink-0 py-1 text-xs" value={sort} onChange={(e) => { setSort(e.target.value as 'AR'); reset(); }} aria-label="Sort"><option value="AR">Yahoo rank</option><option value="OR">Overall rank</option><option value="PTS">Fantasy points</option></select>
       </div>
+      {writeOk === false && <ReadOnly url={L.url ? `${L.url.replace(/\/$/, '')}/players` : null} what="adding and dropping" />}
       {err && <div className="card border-red-400/30 bg-red-500/10 p-3 text-sm">{err}</div>}
       {!list && !err && <div className="grid place-items-center py-8"><Spinner /></div>}
       {list && list.length === 0 && <Empty title="Nobody matches" />}
       {list && list.length > 0 && (
         <div className="card divide-y divide-white/[.06] px-3">
-          {list.map((p) => <PlayerRow key={p.key} p={p} right={p.owner?.type === 'team' ? <span className="text-[11px] text-mute">{p.owner.teamKey === team.key ? 'Yours' : 'Taken'}</span> : <button className="btn-blue btn-sm" onClick={() => setAdding(p)}>{p.owner?.type === 'waivers' ? 'Claim' : 'Add'}</button>} />)}
+          {list.map((p) => <PlayerRow key={p.key} p={p} right={p.owner?.type === 'team' ? <span className="text-[11px] text-mute">{p.owner.teamKey === team.key ? 'Yours' : 'Taken'}</span> : <button className="btn-blue btn-sm" onClick={() => (writeOk === false && L.url ? openYahoo(`${L.url.replace(/\/$/, '')}/players`) : setAdding(p))}>{p.owner?.type === 'waivers' ? 'Claim' : 'Add'}</button>} />)}
         </div>
       )}
       {more && <button className="btn w-full" onClick={() => setStart(start + 25)}>More</button>}
@@ -329,7 +377,7 @@ function TxCard({ t, me, commish, onAct, busy }: { t: YTransaction; me: YTeam; c
   );
 }
 
-function MovesTab({ L, team }: { L: YLeagueFull; team: YTeam }) {
+function MovesTab({ L, team, writeOk }: { L: YLeagueFull; team: YTeam; writeOk: boolean | null }) {
   const [T, setT] = useState<YTransactions | null>(null);
   const [err, setErr] = useState<string | null>(null);
   const [propose, setPropose] = useState(false);
@@ -343,18 +391,19 @@ function MovesTab({ L, team }: { L: YLeagueFull; team: YTeam }) {
   };
   return (
     <div className="space-y-3">
-      <div className="flex items-center justify-between"><div className="text-sm text-mute">{L.settings.tradeRatify === 'commish' ? 'Trades need the commissioner’s approval.' : L.settings.tradeRatify === 'vote' ? 'Trades can be voted down by the league.' : 'Trades go through automatically.'}{L.settings.tradeEnd ? ` Deadline ${L.settings.tradeEnd}.` : ''}</div><button className="btn-blue btn-sm shrink-0" onClick={() => setPropose(true)}>Propose trade</button></div>
+      <div className="flex items-center justify-between"><div className="text-sm text-mute">{L.settings.tradeRatify === 'commish' ? 'Trades need the commissioner’s approval.' : L.settings.tradeRatify === 'vote' ? 'Trades can be voted down by the league.' : 'Trades go through automatically.'}{L.settings.tradeEnd ? ` Deadline ${L.settings.tradeEnd}.` : ''}</div><button className="btn-blue btn-sm shrink-0" onClick={() => (writeOk === false && team.url ? openYahoo(team.url) : setPropose(true))}>Propose trade</button></div>
+      {writeOk === false && <ReadOnly url={L.url ? `${L.url.replace(/\/$/, '')}/transactions` : null} what="accepting, rejecting and approving trades" />}
       {err && <div className="card border-red-400/30 bg-red-500/10 p-3 text-sm">{err}</div>}
       {!T && !err && <div className="grid place-items-center py-8"><Spinner /></div>}
       {T && (
         <>
           {(T.pending.length > 0 || T.waivers.length > 0) && (
             <Section title="Pending">
-              <div className="space-y-2">{[...T.pending, ...T.waivers].map((t) => <TxCard key={t.key} t={t} me={team} commish={team.commissioner} onAct={act} busy={busy} />)}</div>
+              <div className="space-y-2">{[...T.pending, ...T.waivers].map((t) => <TxCard key={t.key} t={t} me={team} commish={team.commissioner} onAct={act} busy={busy || writeOk === false} />)}</div>
             </Section>
           )}
           <Section title="Recent moves">
-            {T.recent.length === 0 ? <Empty title="No moves yet" /> : <div className="space-y-2">{T.recent.map((t) => <TxCard key={t.key} t={t} me={team} commish={team.commissioner} onAct={act} busy={busy} />)}</div>}
+            {T.recent.length === 0 ? <Empty title="No moves yet" /> : <div className="space-y-2">{T.recent.map((t) => <TxCard key={t.key} t={t} me={team} commish={team.commissioner} onAct={act} busy={busy || writeOk === false} />)}</div>}
           </Section>
         </>
       )}
