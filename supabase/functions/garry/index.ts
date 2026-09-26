@@ -4,7 +4,10 @@
 //   ?task=reply  (when a GM says "Garry" in chat, or anything in their Ask Garry channel) answers with real info
 //   ?task=draft  (when the last pick lands) grades every team's draft
 //   ?task=weekly (Monday morning) team of the week (+coins), bust of the week, player of the week, power rankings
+//   ?task=learn / ?task=evolve  force a memory pass / a rewrite of his voice notes (they also run on their own)
 // Writes with Grok (xAI) when the XAI_API_KEY secret is set; otherwise uses built-in templates.
+// Garry remembers: after replies and with the morning post he pulls facts and running gags out of the chat
+// (garry_memory), and once a week rewrites his own voice notes (garry_state.persona). Both feed every post.
 import { createClient } from 'jsr:@supabase/supabase-js@2';
 import { etDate } from '../_shared/nhl.ts';
 import { gradeTeams, type GP } from '../_shared/grades.ts';
@@ -36,8 +39,25 @@ Use the facts given; never invent stats, scores or players. Tag GMs as @Name (fi
 Always end with one nudge that gets people participating: set lineups, make a trade offer, post a side bet with
 St. Patrick coins, or trash talk someone specific. Plain text only, no markdown headers.`;
 
-async function write(task: string, facts: unknown, fallback: string, maxWords = 180): Promise<string> {
-  if (!apiKey) return fallback;
+// ─────────────── memory ───────────────
+type Memory = { id: number; kind: 'fact' | 'gag' | 'lesson'; team_id: number | null; content: string; weight: number; created_at: string };
+const MAX_MEMORIES = 400;
+
+// what Garry knows, as lines for the prompt: the league-wide stuff plus the freshest, heaviest facts per GM
+async function recall(byId: Map<number, Team>, focus: number[] = [], limit = 40): Promise<string[]> {
+  const { data } = await db.from('garry_memory').select('id,kind,team_id,content,weight,created_at').order('weight', { ascending: false }).order('created_at', { ascending: false }).limit(300);
+  const all = (data ?? []) as Memory[];
+  const chosen = [...all.filter((m) => focus.includes(m.team_id ?? -1)).slice(0, 15), ...all.filter((m) => !focus.includes(m.team_id ?? -1))].slice(0, limit);
+  if (chosen.length) db.from('garry_memory').update({ last_used: new Date().toISOString() }).in('id', chosen.map((m) => m.id)).then(() => {}, () => {});
+  return chosen.map((m) => `${m.team_id ? `[${byId.get(m.team_id)?.gm_name ?? 'someone'}]` : '[league]'} ${m.kind === 'gag' ? '(running gag) ' : ''}${m.content}`);
+}
+async function voiceNotes(): Promise<string | null> {
+  const { data } = await db.from('garry_state').select('persona').eq('id', 1).maybeSingle();
+  return data?.persona ?? null;
+}
+
+async function grok(system: string, user: string, maxTokens = 1200, temperature = 0.9, json = false): Promise<string | null> {
+  if (!apiKey) return null;
   try {
     const ctl = new AbortController();
     const timer = setTimeout(() => ctl.abort(), 45_000);
@@ -45,25 +65,76 @@ async function write(task: string, facts: unknown, fallback: string, maxWords = 
       method: 'POST',
       headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${apiKey}` },
       signal: ctl.signal,
-      body: JSON.stringify({
-        model: GROK_MODEL,
-        temperature: 0.9,
-        max_tokens: 1200,
-        messages: [
-          { role: 'system', content: PERSONA },
-          { role: 'user', content: `${task}\nKeep it under ${maxWords} words.\n\nFacts (JSON):\n${JSON.stringify(facts)}` },
-        ],
-      }),
+      body: JSON.stringify({ model: GROK_MODEL, temperature, max_tokens: maxTokens, messages: [{ role: 'system', content: system }, { role: 'user', content: user }], ...(json ? { response_format: { type: 'json_object' } } : {}) }),
     });
     clearTimeout(timer);
-    if (!res.ok) { console.error('grok', res.status, (await res.text()).slice(0, 300)); return fallback; }
+    if (!res.ok) { console.error('grok', res.status, (await res.text()).slice(0, 300)); return null; }
     const j = await res.json();
-    const text = String(j?.choices?.[0]?.message?.content ?? '').trim();
-    return text || fallback;
+    return String(j?.choices?.[0]?.message?.content ?? '').trim() || null;
   } catch (e) {
     console.error('grok', e);
-    return fallback;
+    return null;
   }
+}
+
+// every post Garry writes: the persona, his current voice notes, and what he remembers
+async function write(task: string, facts: unknown, fallback: string, maxWords = 180, focus: number[] = []): Promise<string> {
+  if (!apiKey) return fallback;
+  const { byId } = await base();
+  const [mem, notes] = await Promise.all([recall(byId, focus), voiceNotes()]);
+  const system = [PERSONA, notes ? `\nYour current voice notes (you wrote these yourself; they evolve week to week):\n${notes}` : '',
+    mem.length ? `\nThings you remember about the league and its GMs (use them naturally when relevant, never list them, never contradict the facts given):\n${mem.map((m) => '- ' + m).join('\n')}` : ''].filter(Boolean).join('\n');
+  const text = await grok(system, `${task}\nKeep it under ${maxWords} words.\n\nFacts (JSON):\n${JSON.stringify(facts)}`);
+  return text || fallback;
+}
+
+// pull new facts and running gags out of the chat since the last time (cheap: only when there's enough new talk)
+async function learn(force = false) {
+  if (!apiKey) return { skipped: 'no llm' };
+  const { teams, byId } = await base();
+  const { data: st } = await db.from('garry_state').select('*').eq('id', 1).single();
+  const { data: msgs } = await db.from('messages').select('id,channel,team_id,body,created_at').eq('kind', 'user').eq('deleted', false)
+    .not('channel', 'like', 'dm:%').gt('id', st?.last_learned_msg ?? 0).order('id').limit(60);
+  const fresh = msgs ?? [];
+  if (fresh.length < (force ? 1 : 4)) return { skipped: 'not enough new chat', pending: fresh.length };
+  const transcript = fresh.map((m) => `${byId.get(m.team_id)?.gm_name ?? '?'}${m.channel.startsWith('garry:') ? ' (privately to Garry)' : ''}: ${m.body.slice(0, 300)}`).join('\n');
+  const known = await recall(byId, [], 60);
+  const out = await grok(
+    `You maintain the memory of Garry, a fantasy hockey league chat bot. From a chat transcript, extract things worth remembering about the GMs
+(their habits, opinions, teams they love or hate, players they hoard, bets they make, excuses, catchphrases, feuds, trade tendencies) and the league
+(rules people argue about, traditions, running jokes). Only things that will still be funny or useful in a month. Nothing about anyone's health, family, job,
+money troubles or looks. Skip anything already known. Return JSON: {"memories": [{"gm": "<first name or null for the league>", "kind": "fact"|"gag"|"lesson", "content": "<one line, max 140 chars>"}]}. Return {"memories": []} if there is nothing new.`,
+    `GMs: ${teams.map((t) => t.gm_name).join(', ')}\n\nAlready known:\n${known.map((m) => '- ' + m).join('\n') || '(nothing yet)'}\n\nNew chat:\n${transcript}`, 900, 0.3, true);
+  let items: { gm: string | null; kind: string; content: string }[] = [];
+  try { items = JSON.parse(out ?? '{}').memories ?? []; } catch { items = []; }
+  const rows = items.filter((m) => m && typeof m.content === 'string' && m.content.trim().length >= 3).slice(0, 12).map((m) => ({
+    kind: ['fact', 'gag', 'lesson'].includes(m.kind) ? m.kind : 'fact',
+    team_id: m.gm ? teams.find((t) => t.gm_name.toLowerCase() === String(m.gm).toLowerCase())?.id ?? null : null,
+    content: m.content.trim().slice(0, 300), source_msg: fresh[fresh.length - 1].id,
+  }));
+  if (rows.length) await db.from('garry_memory').insert(rows);
+  await db.from('garry_state').update({ last_learned_msg: fresh[fresh.length - 1].id, learned_at: new Date().toISOString() }).eq('id', 1);
+  // keep the pile from growing forever: drop the oldest lightweight ones
+  const { count } = await db.from('garry_memory').select('id', { count: 'exact', head: true });
+  if ((count ?? 0) > MAX_MEMORIES) {
+    const { data: old } = await db.from('garry_memory').select('id').eq('weight', 1).order('created_at').limit((count ?? 0) - MAX_MEMORIES);
+    if (old?.length) await db.from('garry_memory').delete().in('id', old.map((o) => o.id));
+  }
+  return { learned: rows.length, from: fresh.length };
+}
+
+// once a week Garry rewrites his own voice notes from what he's picked up
+async function evolve(force = false) {
+  if (!apiKey) return { skipped: 'no llm' };
+  const { byId } = await base();
+  const { data: st } = await db.from('garry_state').select('*').eq('id', 1).single();
+  if (!force && st?.persona_updated_at && Date.now() - new Date(st.persona_updated_at).getTime() < 6 * 86400000) return { skipped: 'fresh' };
+  const [mem, { data: recent }] = await Promise.all([recall(byId, [], 60), db.from('messages').select('body').eq('kind', 'bot').order('id', { ascending: false }).limit(8)]);
+  const notes = await grok(PERSONA,
+    `Write your own voice notes for the coming week, in first person, under 120 words, plain text: your mood, the running gags you're keeping alive, who you're picking on and why (hockey reasons only), any catchphrases you've picked up from the GMs, and one thing you've learned about this league. Stay PG-13 and keep the same core character.\n\nPrevious notes:\n${st?.persona ?? '(none yet)'}\n\nWhat you remember:\n${mem.map((m) => '- ' + m).join('\n') || '(nothing yet)'}\n\nYour last few posts:\n${(recent ?? []).map((m) => '- ' + m.body.slice(0, 200)).join('\n')}`, 400, 0.9);
+  if (!notes) return { skipped: 'llm failed' };
+  await db.from('garry_state').update({ persona: notes.slice(0, 1200), persona_updated_at: new Date().toISOString() }).eq('id', 1);
+  return { evolved: true };
 }
 
 async function post(body: string, meta: Record<string, unknown>) {
@@ -88,6 +159,8 @@ async function base() {
 
 // ─────────────── daily ───────────────
 async function daily() {
+  await learn().catch((e) => console.error('learn', e));
+  await evolve().catch((e) => console.error('evolve', e));
   const { league, teams, byId, standings: regStandings } = await base();
   let standings = regStandings;
   const today = etDate(new Date());
@@ -219,16 +292,95 @@ async function nudge() {
 
 // ─────────────── reply ───────────────
 // answers anyone who says "Garry" in a public channel, and everything in their private garry:<team> channel
+// last season's finish, for the chirps
+const LAST_SEASON: Record<string, string> = { Darin: 'won it all as a rookie GM (The Johnson)', Craig: '2nd, six points short of the title', Panagiotis: '3rd', Todd: '4th', Patrick: '5th', Jason: '6th', Terry: '7th', Trystan: 'last place, holding The Peter' };
+const ROASTS = [
+  (n: string, f: string) => `@${n}, ${f}. Honestly the most consistent thing about your team is the excuses. 🪣`,
+  (n: string, f: string) => `@${n} manages a roster like it's a group chat: opens it, panics, closes it. For the record: ${f}.`,
+  (n: string, f: string) => `Quick scouting report on @${n}: ${f}. Strengths: confidence. Weaknesses: everything that shows up in a box score.`,
+  (n: string, f: string) => `@${n}, your lineup has more holes than a beer-league net, and ${f}. Set it. Please. For the children.`,
+];
+const JOKES = [
+  'Why did the GM bring a ladder to the draft? He heard the first round had a lot of reaches. 🪜',
+  'A goalie, a defenceman and a fantasy GM walk into a bar. The GM leaves early: his starter was on the bench. 🍺',
+  'What do you call a keeper league with eight guys who all think they won the draft? Tuesday.',
+  'My lineup optimizer and I have one thing in common: neither of us can fix Trystan. 🤖',
+  'The Peter is the only trophy that gets more expensive the longer you hold it. Ask around. 🪣',
+];
+
+// "Garry, roast Terry" / "trash talk the leader" / "tell me a joke": who's the target, and what kind of chirp?
+function chirpIntent(text: string, teams: Team[], asker: number) {
+  const q = text.replace(/@?garry[,:!]?/ig, ' ').toLowerCase();
+  const roast = /\b(roast|trash ?talk|chirp|burn|rip (on|into)|make fun|insult|destroy|humble|go (in|off) on|cook|dunk on|clown)\b/.test(q);
+  const joke = /\b(joke|funny|make me laugh|one.?liner|comedy|humou?r me|something funny|entertain)\b/.test(q);
+  if (!roast && !joke) return null;
+  let target: Team | undefined;
+  if (roast) {
+    target = teams.find((t) => new RegExp(`\\b${t.gm_name.toLowerCase()}\\b`).test(q) || q.includes(t.name.toLowerCase()));
+    if (!target && /\b(me|myself|my team)\b/.test(q)) target = teams.find((t) => t.id === asker);
+  }
+  return { kind: roast ? 'roast' as const : 'joke' as const, target, wantsLeader: /\b(leader|first place|whoever.s winning)\b/.test(q), wantsPeter: /\b(last place|peter|loser|basement)\b/.test(q) };
+}
+
+async function chirp(m: { id: number; channel: string; team_id: number; body: string }, intent: NonNullable<ReturnType<typeof chirpIntent>>) {
+  const { league, teams, byId, standings } = await base();
+  const table = [...standings].sort((a, b) => a.rank - b.rank);
+  let target = intent.target;
+  if (!target && intent.wantsLeader && table[0]) target = byId.get(table[0].team_id);
+  if (!target && intent.wantsPeter && table.length) target = byId.get(table[table.length - 1].team_id);
+  if (!target && intent.kind === 'roast') target = pick(teams.filter((t) => t.id !== m.team_id));   // "trash talk someone": Garry picks
+  const asker = byId.get(m.team_id);
+  const facts: Record<string, unknown> = { asked_by: asker?.gm_name, request: m.body, phase: league.phase };
+  if (target) {
+    const st = standings.find((s) => s.team_id === target!.id);
+    const [{ data: bets }, { data: bal }, { data: rows }, { data: said }] = await Promise.all([
+      db.from('bets').select('creator_team,opponent_team,winner_team,status').eq('status', 'settled').or(`creator_team.eq.${target.id},opponent_team.eq.${target.id}`),
+      db.from('coin_balances').select('balance').eq('team_id', target.id).maybeSingle(),
+      db.from('rosters').select('player_id,slot').eq('team_id', target.id),
+      db.from('messages').select('body').eq('kind', 'user').eq('team_id', target.id).not('channel', 'like', 'dm:%').not('channel', 'like', 'garry:%').order('id', { ascending: false }).limit(5),
+    ]);
+    const { data: ps } = await db.from('players').select('name,injury_status,proj').in('id', (rows ?? []).map((r) => r.player_id));
+    const w = (bets ?? []).filter((b) => b.winner_team === target!.id).length, l = (bets ?? []).length - w;
+    facts.target = {
+      gm: target.gm_name, team: target.name, last_season: LAST_SEASON[target.gm_name] ?? null,
+      standing: st && Number(st.points) > 0 ? { rank: st.rank, points: Number(st.points) } : 'no games yet (season not started, so no standings to brag about)',
+      keepers_submitted: target.keepers_submitted, auto_lineup: target.auto_lineup,
+      bet_record: `${w}-${l}`, coins: bal?.balance ?? null,
+      injured_on_roster: (ps ?? []).filter((p) => p.injury_status).map((p) => `${p.name} (${p.injury_status})`).slice(0, 4),
+      best_player: (ps ?? []).sort((a, b) => Number(b.proj) - Number(a.proj))[0]?.name ?? null,
+      recent_things_they_said: (said ?? []).map((x) => x.body.slice(0, 120)),
+    };
+  }
+  const task = intent.kind === 'joke'
+    ? `A GM asked you for something funny. Tell one original hockey or fantasy-league joke or a two-sentence bit about this league (use a real fact or memory if it makes it funnier). Under 60 words.`
+    : `${asker?.gm_name} asked you to roast @${target?.gm_name}${target?.id === m.team_id ? ' (that is the asker; they asked for it)' : ''}. Chirp them hard but fair: 2-4 sentences, specific, built on the facts and what you remember about them. Hockey decisions, results, bets and things they said in chat only. Never their family, looks, job, health or money. End with a challenge (a bet, a trade, a lineup fix).`;
+  const f = target ? [target.keepers_submitted ? `you finished ${LAST_SEASON[target.gm_name] ?? 'somewhere'} last season` : 'you still haven’t even submitted keepers', `your bet record is ${facts.target ? (facts.target as any).bet_record : '0-0'}`] : [];
+  const fallback = intent.kind === 'joke' ? pick(JOKES) : target ? pick(ROASTS)(target.gm_name, pick(f)) : pick(JOKES);
+  const body = await write(task, facts, fallback, 90, target ? [target.id, m.team_id] : [m.team_id]);
+  const { error } = await db.from('messages').insert({ channel: m.channel, kind: 'bot', body, reply_to: m.id, meta: { bot: 'garry', type: 'chirp', kind: intent.kind, target: target?.id ?? null } });
+  if (error) throw error;
+  return { replied: true, topic: intent.kind, target: target?.gm_name ?? null };
+}
+
 async function reply(messageId: number) {
   const { data: m } = await db.from('messages').select('*').eq('id', messageId).single();
   if (!m || m.kind !== 'user') return { skipped: 'not a user message' };
-  const ans = await answer(db, m.body, m.team_id);
-  const body = await write(
-    'A GM just asked you something in the league chat. Answer them directly. Keep every fact, number and every "👉 #/..." link from draft_answer (the links become buttons), be sassy but genuinely useful, 1-4 sentences.',
-    { question: m.body, draft_answer: ans.text, topic: ans.topic, ...ans.facts }, ans.text, 110);
-  const { error } = await db.from('messages').insert({ channel: m.channel, kind: 'bot', body, reply_to: m.id, meta: { bot: 'garry', type: 'reply', topic: ans.topic } });
-  if (error) throw error;
-  return { replied: true, topic: ans.topic };
+  const { teams } = await base();
+  const intent = chirpIntent(m.body, teams, m.team_id);
+  let result: unknown;
+  if (intent) result = await chirp(m, intent);
+  else {
+    const ans = await answer(db, m.body, m.team_id);
+    const body = await write(
+      'A GM just asked you something in the league chat. Answer them directly. Keep every fact, number and every "👉 #/..." link from draft_answer (the links become buttons), be sassy but genuinely useful, 1-4 sentences.',
+      { question: m.body, draft_answer: ans.text, topic: ans.topic, ...ans.facts }, ans.text, 110, [m.team_id]);
+    const { error } = await db.from('messages').insert({ channel: m.channel, kind: 'bot', body, reply_to: m.id, meta: { bot: 'garry', type: 'reply', topic: ans.topic } });
+    if (error) throw error;
+    result = { replied: true, topic: ans.topic };
+  }
+  // then quietly learn from whatever's been said lately
+  const learned = await learn().catch((e) => ({ error: String(e) }));
+  return { ...(result as object), learned };
 }
 
 
@@ -360,6 +512,8 @@ Deno.serve(async (req) => {
       const { message_id } = await req.json();
       result = await reply(Number(message_id));
     } else if (task === 'nudge') result = await nudge();
+    else if (task === 'learn') result = await learn(true);
+    else if (task === 'evolve') result = await evolve(true);
     else if (task === 'draft') result = await draftRecap();
     else if (task === 'weekly') result = await weekly();
     else result = await daily();

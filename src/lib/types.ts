@@ -71,12 +71,18 @@ export interface Trade {
 }
 export interface TradeItem { id: number; trade_id: number; from_team: number; to_team: number | null; player_id: number | null; pick_id: number | null }
 
+export type BetKind = 'custom' | 'h2h' | 'season' | 'player_ou' | 'player_vs' | 'team_ou' | 'pool_team' | 'pool_player';
+export type BetStat = 'fpts' | 'g' | 'a' | 'pts' | 'ppp' | 'sog' | 'hit' | 'blk' | 'pim' | 'w' | 'sv' | 'sho';
+export interface BetSubject { player_id?: number; player_a?: number; player_b?: number; stat?: BetStat; line?: number; side?: 'over' | 'under' }
 export interface Bet {
   id: number; creator_team: number; opponent_team: number | null; title: string; terms: string | null;
-  kind: 'custom' | 'h2h' | 'season'; stake: string | null; amount: number | null; start_date: string | null; end_date: string | null;
+  kind: BetKind; stake: string | null; amount: number | null; start_date: string | null; end_date: string | null;
   status: 'open' | 'accepted' | 'declined' | 'cancelled' | 'settled'; proposed_winner: number | null; proposed_by: number | null;
   winner_team: number | null; paid: boolean; coins: number; created_at: string; accepted_at: string | null; settled_at: string | null;
+  subject: BetSubject | null; entry_close: string | null; result: Record<string, unknown> | null; push: boolean;
 }
+export interface BetEntry { bet_id: number; team_id: number; choice: { team_id?: number; player_id?: number }; coins: number; created_at: string }
+export interface BetProgress { a?: number; b?: number; value?: number; line?: number; side?: string; entries?: { team_id: number; pick: number; value: number; coins: number }[] }
 
 export interface Proposal {
   id: number; title: string; body: string | null; sponsor_team: number | null; cosponsor_team: number | null;
@@ -96,3 +102,5 @@ export interface LedgerRow { id: number; season: string; team_id: number | null;
 export interface CoinBalance { team_id: number; balance: number; escrow: number }
 export interface CoinEntry { id: number; team_id: number; amount: number; reason: string; bet_id: number | null; created_at: string }
 export interface NewsItem { id: string; headline: string; description: string | null; published: string | null; url: string | null; image: string | null; player_ids: number[] }
+
+export interface GarryMemory { id: number; kind: 'fact' | 'gag' | 'lesson'; team_id: number | null; content: string; weight: number; created_at: string; last_used: string | null }

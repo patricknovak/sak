@@ -5,7 +5,7 @@ import { rpc, supabase } from '../lib/supabase';
 import { fmtMoney, fmtPts, NHL_TEAMS, ordinal } from '../lib/format';
 import { SEASONS, FRANCHISE_OF, type GM } from '../data/history';
 import { Section, TeamBadge, Toggle, useAction, useToast } from '../components/ui';
-import type { Team } from '../lib/types';
+import type { GarryMemory, Team } from '../lib/types';
 import { PushCard } from '../components/PushCard';
 import { ConnectYahoo, useYahooStatus } from '../components/YahooConnect';
 
@@ -21,6 +21,10 @@ export default function Profile() {
   useEffect(() => { setTv(me?.tv ?? {}); }, [me?.id]); // eslint-disable-line react-hooks/exhaustive-deps
   const [pw, setPw] = useState({ a: '', b: '' });
   const yst = useYahooStatus();
+  const [file, setFile] = useState<GarryMemory[]>([]);
+  const [mood, setMood] = useState<string | null>(null);
+  const loadFile = () => { if (!me) return; supabase.from('garry_memory').select('*').eq('team_id', me.id).order('created_at', { ascending: false }).then(({ data }) => setFile((data ?? []) as GarryMemory[])); supabase.from('garry_state').select('persona').eq('id', 1).maybeSingle().then(({ data }) => setMood(data?.persona ?? null)); };
+  useEffect(loadFile, [me?.id]); // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => { if (me) setF(me); }, [me?.id]);
   if (!me) return null;
 
@@ -89,6 +93,21 @@ export default function Profile() {
             </div>
           </div>
           <button className="btn-primary" disabled={busy} onClick={() => run(async () => { await rpc('set_tv', { p_tv: tv }); await refresh(['teams']); }, 'Saved. Watch buttons will match your services.')}>Save</button>
+        </div>
+      </Section>
+
+      <Section title="🎙️ Garry’s file on you">
+        <div className="card space-y-2 p-3">
+          <p className="text-xs text-mute">Garry remembers what gets said in the chat (never DMs) and uses it in his chirps. This is everything he has on you. Delete anything you’d rather he forgot.</p>
+          {file.length === 0 && <div className="text-sm text-mute">Nothing yet. Say something memorable.</div>}
+          {file.map((m) => (
+            <div key={m.id} className="flex items-start gap-2 text-sm">
+              <span className="chip shrink-0">{m.kind === 'gag' ? '🔁 gag' : m.kind === 'lesson' ? '📚' : '🧠'}</span>
+              <span className="min-w-0 flex-1">{m.content}</span>
+              <button className="shrink-0 text-xs text-mute hover:text-red-300" onClick={() => run(async () => { await rpc('garry_forget', { p_id: m.id }); loadFile(); }, 'Forgotten')}>Forget</button>
+            </div>
+          ))}
+          {mood && <details className="text-xs text-mute"><summary className="cursor-pointer">Garry’s mood this week</summary><p className="mt-1 whitespace-pre-wrap">{mood}</p></details>}
         </div>
       </Section>
 
