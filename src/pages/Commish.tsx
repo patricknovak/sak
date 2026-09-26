@@ -23,6 +23,7 @@ export default function Commish() {
   const { busy, run: runRaw } = useAction();
   const run = (fn: () => Promise<unknown>, ok?: string) => runRaw(async () => { await fn(); await refresh(['draft', 'picks', 'league', 'rosters', 'teams']); }, ok);
   const [s, setS] = useState({ keeper_deadline: '', draft_at: '', pick_seconds: 90, draft_rounds: 18, snake: true, trade_deadline: '', max_acquisitions: 10, keepers: 6, top_scorer_rule: true, phase: 'keepers' });
+  const [callUrl, setCallUrl] = useState<string>(() => (typeof league?.info?.call_url === 'string' ? league.info.call_url : ''));
   const [note, setNote] = useState('');
   const [order, setOrder] = useState<number[]>([]);
   const [pw, setPw] = useState({ team: '', pw: '' });
@@ -74,6 +75,16 @@ export default function Commish() {
       <PageHeader icon={<Wrench size={22} className="text-gold" />} title="Commissioner" sub={`With great power comes great responsibility, ${me.gm_name}.`} />
 
       <HealthPanel />
+
+      <Section title="🎙️ Draft night call">
+        <div className="card space-y-2 p-3 text-sm">
+          <p className="text-xs text-mute">GMs get a voice & video room inside the draft page (built-in, no app needed). If the group would rather use its own call, paste the link here and the Join button goes there instead: Google Meet, FaceTime link, Discord, Zoom, anything.</p>
+          <div className="flex gap-2">
+            <input className="input flex-1" placeholder="https://meet.google.com/… (leave empty for the built-in room)" value={callUrl} onChange={(e) => setCallUrl(e.target.value)} />
+            <button className="btn-primary shrink-0" disabled={busy} onClick={() => run(async () => { const v = callUrl.trim(); await rpc('commish_update_league', { p: { info: { ...(league?.info ?? {}), call_url: v || null } } }); await refresh(['league']); }, callUrl.trim() ? 'Call link saved' : 'Using the built-in room')}>Save</button>
+          </div>
+        </div>
+      </Section>
 
       <Section title="📣 Announcement">
         <div className="card space-y-2 p-3">

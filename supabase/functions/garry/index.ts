@@ -5,6 +5,7 @@
 //   ?task=draft  (when the last pick lands) grades every team's draft
 //   ?task=weekly (Monday morning) team of the week (+coins), bust of the week, player of the week, power rankings
 //   ?task=learn / ?task=evolve  force a memory pass / a rewrite of his voice notes (they also run on their own)
+//   ?task=keepers (after the keeper deadline, or on the commish's say-so) grades every team's keepers and predicts the season
 // Writes with Grok (xAI) when the XAI_API_KEY secret is set; otherwise uses built-in templates.
 // Garry remembers: after replies and with the morning post he pulls facts and running gags out of the chat
 // (garry_memory), and once a week rewrites his own voice notes (garry_state.persona). Both feed every post.
@@ -12,11 +13,13 @@ import { createClient } from 'jsr:@supabase/supabase-js@2';
 import { etDate } from '../_shared/nhl.ts';
 import { gradeTeams, type GP } from '../_shared/grades.ts';
 import { answer } from './answer.ts';
+import { gradeAllKeepers, type KP } from '../_shared/keepers.ts';
 
 const db = createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!, {
   auth: { persistSession: false },
 });
 const apiKey = Deno.env.get('XAI_API_KEY');
+const ANON_KEY = Deno.env.get('SUPABASE_ANON_KEY') ?? '';
 const GROK_MODEL = Deno.env.get('GROK_MODEL') || 'grok-4';   // any xAI chat model id
 const GROK_URL = 'https://api.x.ai/v1/chat/completions';
 
@@ -404,6 +407,88 @@ async function reply(messageId: number) {
 }
 
 
+// ─────────────── keeper report ───────────────
+// who may ask for one: cron (the anon key) or the commissioner (their own session token)
+async function callerMayRun(req: Request) {
+  const token = (req.headers.get('Authorization') ?? '').replace(/^Bearer /i, '');
+  if (!token) return false;
+  if (token === ANON_KEY) return true;
+  const { data: u } = await db.auth.getUser(token);
+  if (!u?.user) return false;
+  const { data: t } = await db.from('teams').select('is_commish').eq('user_id', u.user.id).maybeSingle();
+  return !!t?.is_commish;
+}
+
+async function keeperReport() {
+  const { league, teams, byId } = await base();
+  const max = Number(league.keepers ?? 6);
+  const { data: rosters } = await db.from('rosters').select('team_id,player_id,keeper,acquired,prev_fp');
+  const rows = rosters ?? [];
+  const all: KP[] = [];
+  for (let from = 0; from < 20000;) {
+    const { data } = await db.from('players').select('id,name,pos,elig,proj,injury_status,nhl_team').order('id').range(from, from + 999);
+    if (!data?.length) break;
+    all.push(...data.map((p) => ({ id: p.id, name: p.name, pos: p.pos, elig: p.elig ?? [], proj: Number(p.proj), injury_status: p.injury_status, nhl_team: p.nhl_team })));
+    from += data.length;
+  }
+  const pl = new Map(all.map((p) => [p.id, p]));
+  // the banned top scorer per team (highest last-season points, ties to the lower id), and the default keepers
+  const banned = new Set<number>();
+  if (league.top_scorer_rule) for (const t of teams) {
+    const best = rows.filter((r) => r.team_id === t.id && r.prev_fp != null).sort((a, b) => Number(b.prev_fp) - Number(a.prev_fp) || a.player_id - b.player_id)[0];
+    if (best) banned.add(best.player_id);
+  }
+  const finalized = rows.some((r) => r.acquired === 'keeper');
+  const keepersOf = (t: number) => {
+    const mine = rows.filter((r) => r.team_id === t);
+    let ids: number[];
+    if (finalized) ids = mine.filter((r) => r.acquired === 'keeper').map((r) => r.player_id);
+    else if (mine.some((r) => r.keeper)) ids = mine.filter((r) => r.keeper).map((r) => r.player_id);
+    else ids = mine.filter((r) => r.prev_fp != null && !banned.has(r.player_id)).sort((a, b) => Number(b.prev_fp) - Number(a.prev_fp) || a.player_id - b.player_id).slice(0, max).map((r) => r.player_id);
+    return ids.map((id) => pl.get(id)).filter(Boolean) as KP[];
+  };
+  // once keepers are final the released players are back in the pool, so the best possible set is unknowable: treat the keepers as it
+  const eligibleOf = (t: number) => finalized ? keepersOf(t) : rows.filter((r) => r.team_id === t && !banned.has(r.player_id)).map((r) => pl.get(r.player_id)).filter(Boolean) as KP[];
+  const grades = gradeAllKeepers(teams.map((t) => ({ id: t.id, submitted: !!t.keepers_submitted })), keepersOf, eligibleOf, all, max);
+  const table = [...grades.values()].sort((a, b) => a.rank - b.rank);
+  const facts = table.map((g) => ({
+    team_id: g.team, gm: byId.get(g.team)?.gm_name, team: byId.get(g.team)?.name, last_season: LAST_SEASON[byId.get(g.team)?.gm_name ?? ''] ?? null,
+    grade: g.grade, rank_by_keepers: g.rank, projected_points_from_keepers: g.proj, ...(finalized ? {} : { pct_of_best_possible_set: g.efficiency }), starters_filled_of_12: g.filled, gaps: g.gaps, injured: g.injured,
+    saved_keepers: g.submitted ? 'yes' : 'no, using the default (top 6 by last season, top scorer excluded)',
+    keepers: g.keepers.map((k) => `${k.player.name} (${k.player.pos}, ${k.player.nhl_team}, proj ${Math.round(k.player.proj)}, #${k.posRank} at ${k.player.pos}, ${k.tier}${k.injured ? ', ' + k.player.injury_status : ''})`),
+    ...(finalized ? {} : { sent_back_to_pool: g.leftBehind.map((p) => `${p.name} (${Math.round(p.proj)})`) }),
+  }));
+  let out: { intro?: string; teams?: { team_id: number; take: string }[]; predictions?: { team_id: number; rank: number; line: string }[]; bold?: string } | null = null;
+  if (apiKey) {
+    const txt = await grok(PERSONA + `\nYou are writing Garry's keeper report for the league. Stay PG-13, hockey decisions only. Return JSON only.`,
+      `Grade and chirp every team's keepers, then predict the final regular-season standings for 2026-27 based on the keepers (the draft hasn't happened; keepers are the core, the draft fills the rest, so a great keeper set is a head start, not a lock).
+Return exactly: {"intro": "<2-3 sentences opening the report>", "teams": [{"team_id": <id>, "take": "<2-3 sentences on that GM's keepers: what's strong, what's missing, one chirp; mention a player by name>"}], "predictions": [{"team_id": <id>, "rank": <1-${teams.length}>, "line": "<one short line why>"}], "bold": "<one bold, specific prediction for the season>"}
+Every team must appear once in teams and once in predictions with ranks 1..${teams.length}.
+
+Facts (JSON):\n${JSON.stringify(facts)}`, 2200, 0.85, true);
+    try { out = JSON.parse(txt ?? ''); } catch { out = null; }
+  }
+  const ranksOk = out?.predictions?.length === teams.length && new Set(out!.predictions!.map((p) => p.rank)).size === teams.length && out!.predictions!.every((p) => byId.has(p.team_id));
+  const takesOk = out?.teams?.length === teams.length && out!.teams!.every((t) => byId.has(t.team_id) && typeof t.take === 'string');
+  const llm = !!(out && ranksOk && takesOk);
+  const report = {
+    generated_at: new Date().toISOString(), llm,
+    intro: llm ? String(out!.intro ?? '') : `Keepers are ${finalized ? 'locked' : 'mostly in'}, so here's the report card before anyone can blame the draft. ${table[0] ? `${byId.get(table[0].team)?.gm_name} kept the best six on paper` : ''}${table.at(-1) ? `; ${byId.get(table.at(-1)!.team)?.gm_name}, we need to talk.` : '.'}`,
+    teams: table.map((g) => ({ team_id: g.team, grade: g.grade, take: llm ? out!.teams!.find((t) => t.team_id === g.team)!.take : `${g.grade}: ${g.keepers[0] ? `${g.keepers[0].player.name} carries it` : 'no keepers'}${g.gaps.length ? `, but the draft has to find ${g.gaps.join(', ')}` : ', and the starting lineup is nearly full already'}${!finalized && g.efficiency < 90 ? `. Left ${100 - g.efficiency}% of the possible value on the table.` : '.'}` })),
+    predictions: llm ? out!.predictions!.map((p) => ({ team_id: p.team_id, rank: p.rank, line: String(p.line ?? '') })) : table.map((g) => ({ team_id: g.team, rank: g.rank, line: `${g.proj} projected from the keepers, ${g.filled} of 12 starters already filled` })),
+    bold: llm ? String(out!.bold ?? '') || null : null,
+  };
+  const { data: lg } = await db.from('league').select('info').eq('id', 1).single();
+  await db.from('league').update({ info: { ...(lg?.info ?? {}), keeper_report: report } }).eq('id', 1);
+  const preds = [...report.predictions].sort((a, b) => a.rank - b.rank);
+  await post([
+    `🎙️ Garry's keeper report is in. Grades: ${table.map((g) => `${byId.get(g.team)?.gm_name} ${g.grade}`).join(' · ')}.`,
+    `Predicted finish: ${preds.map((p) => `${p.rank}. ${byId.get(p.team_id)?.gm_name}`).join(', ')}.${report.bold ? ` Bold call: ${report.bold}` : ''}`,
+    `Full takes on every team's keepers 👉 #/keepers`,
+  ].join('\n'), { type: 'keepers', date: etDate(new Date()) });
+  return { posted: true, llm, grades: table.map((g) => ({ team: byId.get(g.team)?.gm_name, grade: g.grade })) };
+}
+
 // ─────────────── draft recap ───────────────
 async function draftRecap() {
   const { teams, byId } = await base();
@@ -532,6 +617,7 @@ Deno.serve(async (req) => {
       const { message_id } = await req.json();
       result = await reply(Number(message_id));
     } else if (task === 'nudge') result = await nudge();
+    else if (task === 'keepers') { if (!(await callerMayRun(req))) return Response.json({ task, ok: false, error: 'Commissioner only' }, { status: 403 }); result = await keeperReport(); }
     else if (task === 'learn') result = await learn(true);
     else if (task === 'evolve') result = await evolve(true);
     else if (task === 'draft') result = await draftRecap();
