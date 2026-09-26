@@ -19,15 +19,27 @@
 //   POST {task: 'cancel', transaction_key}                    withdraw a pending trade or waiver claim
 //   POST {task: 'propose_trade', league_key, trader_team_key, tradee_team_key, note?, players: [{player_key, from, to}]}
 //
-// Secrets: YAHOO_CLIENT_ID and YAHOO_CLIENT_SECRET from a Yahoo developer app (Fantasy Sports read/write),
-// optional YAHOO_REDIRECT_URI (default: the site root, which must match the app's registered redirect URI).
+// Secrets: YAHOO_CLIENT_ID and YAHOO_CLIENT_SECRET from a Yahoo developer app (Fantasy Sports), as edge function
+// secrets or as Vault secrets yahoo_client_id / yahoo_client_secret; optional YAHOO_REDIRECT_URI (default: the
+// site root, which must match the app's registered redirect URI).
 import { createClient } from 'jsr:@supabase/supabase-js@2';
 import { XMLParser } from 'npm:fast-xml-parser@4.5.0';
 
 const URL_ = Deno.env.get('SUPABASE_URL')!;
 const db = createClient(URL_, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!, { auth: { persistSession: false } });
-const CLIENT_ID = Deno.env.get('YAHOO_CLIENT_ID') ?? '';
-const CLIENT_SECRET = Deno.env.get('YAHOO_CLIENT_SECRET') ?? '';
+// the Yahoo app keys: env secrets first, otherwise Vault (secrets yahoo_client_id / yahoo_client_secret)
+let CLIENT_ID = Deno.env.get('YAHOO_CLIENT_ID') ?? '';
+let CLIENT_SECRET = Deno.env.get('YAHOO_CLIENT_SECRET') ?? '';
+let credsChecked = !!(CLIENT_ID && CLIENT_SECRET);
+async function loadCreds() {
+  if (credsChecked) return;
+  const { data } = await db.rpc('_yahoo_creds');
+  const v = (data ?? {}) as Record<string, string>;
+  if (!CLIENT_ID && v.yahoo_client_id) CLIENT_ID = v.yahoo_client_id.trim();
+  if (!CLIENT_SECRET && v.yahoo_client_secret) CLIENT_SECRET = v.yahoo_client_secret.trim();
+  // keep looking until both exist, so a key added to Vault later is picked up without a redeploy
+  credsChecked = !!(CLIENT_ID && CLIENT_SECRET);
+}
 const REDIRECT = Deno.env.get('YAHOO_REDIRECT_URI') ?? 'https://patricknovak.github.io/sak/';
 const API = 'https://fantasysports.yahooapis.com/fantasy/v2';
 const cors = { 'Access-Control-Allow-Origin': '*', 'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type', 'Access-Control-Allow-Methods': 'POST, OPTIONS' };
@@ -332,6 +344,7 @@ Deno.serve(async (req) => {
     const b = await req.json().catch(() => ({}));
     const task = str(b.task);
     const { team, acct } = await caller(req);
+    await loadCreds();
     const connected = !!acct?.refresh_token;
 
     if (task === 'status') return json({ configured: configured(), connected, guid: connected ? acct?.guid ?? null : null, since: connected ? acct?.connected_at : null, redirect: REDIRECT });
