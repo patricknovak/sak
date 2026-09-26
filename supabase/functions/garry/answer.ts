@@ -155,8 +155,8 @@ export async function answer(db: Db, question: string, askerTeam: number): Promi
   if (has(/\b(injur\w*|hurt|suspend\w*)\b/)) {
     const { data: rows } = await db.from('rosters').select('player_id,slot').eq('team_id', askerTeam);
     const { data: ps } = await db.from('players').select('id,name,injury_status').in('id', (rows ?? []).map((r: any) => r.player_id)).not('injury_status', 'is', null);
-    if (!ps?.length) return reply('injuries', 'Your whole roster is healthy. Enjoy it, it never lasts. 👉 #/news');
-    return reply('injuries', `On your roster: ${ps.map((p: any) => `${p.name} (${p.injury_status})`).join(', ')}. Stash the long-term guys on IR and pick up a body. 👉 #/news`);
+    if (!ps?.length) return reply('injuries', 'Your whole roster is healthy. Enjoy it, it never lasts. 👉 #/nhl?t=injuries');
+    return reply('injuries', `On your roster: ${ps.map((p: any) => `${p.name} (${p.injury_status})`).join(', ')}. Stash the long-term guys on IR and pick up a body. 👉 #/nhl?t=injuries`);
   }
 
   // ── scoring

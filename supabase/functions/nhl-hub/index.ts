@@ -8,11 +8,12 @@
 //   ?task=news                      NHL.com stories + Sportsnet and ESPN headlines, newest first
 //   ?task=leaders                   league leaders: skaters (points, goals, assists, +/-, PIM, PP/SH goals, faceoffs) and goalies
 //   ?task=team&abbrev=EDM           one club: roster, this week's games, season stats for every player
+//   ?task=x                         NHL insiders on X (needs the X_BEARER_TOKEN secret; otherwise just the account list)
 import { NHL } from '../_shared/nhl.ts';
 
 const cors = { 'Access-Control-Allow-Origin': '*', 'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type', 'Access-Control-Allow-Methods': 'GET, POST, OPTIONS' };
 const cache = new Map<string, { at: number; ttl: number; body: unknown }>();
-const TTL = { scores: 20_000, standings: 300_000, schedule: 600_000, game: 20_000, news: 600_000, leaders: 600_000, team: 300_000 };
+const TTL = { scores: 20_000, standings: 300_000, schedule: 600_000, game: 20_000, news: 600_000, leaders: 600_000, team: 300_000, x: 180_000 };
 
 async function get(path: string) {
   const r = await fetch(`${NHL}${path}`, { headers: { 'user-agent': 'sak-league' } });
@@ -125,6 +126,42 @@ async function news() {
   return { items: all.slice(0, 80) };
 }
 
+// ── X (Twitter): the NHL insiders' feed, through the X API v2 when the X_BEARER_TOKEN secret is set
+// (a paid X developer plan). Without it the page lists the accounts with links instead.
+const X_ACCOUNTS: [string, string][] = [['NHL', 'NHL'], ['PR_NHL', 'NHL Public Relations'], ['FriedgeHNIC', 'Elliotte Friedman'], ['TSNBobMcKenzie', 'Bob McKenzie'],
+  ['PierreVLeBrun', 'Pierre LeBrun'], ['DarrenDreger', 'Darren Dreger'], ['frank_seravalli', 'Frank Seravalli'], ['emilymkaplan', 'Emily Kaplan'],
+  ['reporterchris', 'Chris Johnston'], ['NHLInjuryNews', 'NHL Injury News'], ['PuckPedia', 'PuckPedia'], ['DailyFaceoff', 'Daily Faceoff']];
+async function xfeed() {
+  const token = Deno.env.get('X_BEARER_TOKEN');
+  const accounts = X_ACCOUNTS.map(([handle, name]) => ({ handle, name, url: `https://x.com/${handle}` }));
+  if (!token) return { configured: false, accounts, posts: [] };
+  const query = `(${X_ACCOUNTS.map(([h]) => `from:${h}`).join(' OR ')}) -is:retweet -is:reply`;
+  const u = new URL('https://api.x.com/2/tweets/search/recent');
+  u.searchParams.set('query', query);
+  u.searchParams.set('max_results', '50');
+  u.searchParams.set('tweet.fields', 'created_at,public_metrics,entities,attachments');
+  u.searchParams.set('expansions', 'author_id,attachments.media_keys');
+  u.searchParams.set('user.fields', 'name,username,profile_image_url,verified');
+  u.searchParams.set('media.fields', 'url,preview_image_url,type');
+  const r = await fetch(u, { headers: { Authorization: `Bearer ${token}` } });
+  if (!r.ok) throw new Error(`X API ${r.status}: ${(await r.text()).slice(0, 200)}`);
+  const j = await r.json();
+  const users = new Map<string, any>((j.includes?.users ?? []).map((x: any) => [x.id, x]));
+  const media = new Map<string, any>((j.includes?.media ?? []).map((m: any) => [m.media_key, m]));
+  const posts = (j.data ?? []).map((t: any) => {
+    const a = users.get(t.author_id) ?? {};
+    const link = (t.entities?.urls ?? []).find((x: any) => x.expanded_url && !/x\.com|twitter\.com/.test(x.expanded_url));
+    const pic = (t.attachments?.media_keys ?? []).map((k: string) => media.get(k)).find((m: any) => m && (m.url || m.preview_image_url));
+    return {
+      id: t.id, text: t.text, at: t.created_at, url: `https://x.com/${a.username ?? 'i'}/status/${t.id}`,
+      author: { name: a.name ?? '', handle: a.username ?? '', avatar: a.profile_image_url ?? null },
+      likes: t.public_metrics?.like_count ?? 0, reposts: t.public_metrics?.retweet_count ?? 0,
+      link: link ? { url: link.expanded_url, title: link.title ?? null } : null, image: pic ? pic.url ?? pic.preview_image_url : null,
+    };
+  });
+  return { configured: true, accounts, posts };
+}
+
 // ── league leaders
 async function leaders() {
   const [s, g] = await Promise.all([
@@ -162,7 +199,7 @@ Deno.serve(async (req) => {
   if (hit && Date.now() - hit.at < hit.ttl) return Response.json(hit.body, { headers: { ...cors, 'x-cache': 'hit' } });
   try {
     const body = task === 'standings' ? await standings() : task === 'schedule' ? await schedule(date) : task === 'game' ? await gameDetail(id)
-      : task === 'news' ? await news() : task === 'leaders' ? await leaders() : task === 'team' ? await club(abbrev) : await scores(date);
+      : task === 'news' ? await news() : task === 'x' ? await xfeed() : task === 'leaders' ? await leaders() : task === 'team' ? await club(abbrev) : await scores(date);
     cache.set(key, { at: Date.now(), ttl: TTL[task as keyof typeof TTL] ?? 20_000, body });
     if (cache.size > 200) for (const [k, v] of cache) if (Date.now() - v.at > v.ttl) cache.delete(k);
     return Response.json(body, { headers: { ...cors, 'x-cache': 'miss' } });

@@ -6,7 +6,7 @@ import { ago, countdown } from '../lib/format';
 import { currentSubscription } from '../lib/push';
 import { Sheet, TeamBadge } from './ui';
 import {
-  Bell, ClipboardList, FlaskConical, Dices, Home, Landmark, Lightbulb, Lock, LogOut, Menu, MessageCircle, Newspaper, Radio, Repeat2, Search, Shield,
+  Bell, ClipboardList, FlaskConical, Dices, Home, Landmark, Lightbulb, Lock, LogOut, Menu, MessageCircle, Radio, Repeat2, Search, Shield,
   Trophy, Tv, UserRound, Globe, ListOrdered, Wrench, type LucideIcon,
 } from 'lucide-react';
 
@@ -16,14 +16,16 @@ export function useUnread() {
   const { me } = useLeague();
   const [latest, setLatest] = useState<Record<string, number>>({});
   const [reads, setReads] = useState<Record<string, number>>({});
+  const [recent, setRecent] = useState<{ id: number; channel: string; team_id: number | null }[]>([]);   // the last 200 messages, for the count
   useEffect(() => {
     if (!me) return;
     const load = async () => {
       const [{ data: r }, { data: m }] = await Promise.all([
         supabase.from('chat_reads').select('channel,last_read_id'),
-        supabase.from('messages').select('id,channel').order('id', { ascending: false }).limit(200),
+        supabase.from('messages').select('id,channel,team_id').order('id', { ascending: false }).limit(200),
       ]);
       setReads(Object.fromEntries((r ?? []).map((x) => [x.channel, x.last_read_id])));
+      setRecent((m ?? []) as { id: number; channel: string; team_id: number | null }[]);
       const l: Record<string, number> = {};
       for (const x of m ?? []) l[x.channel] = Math.max(l[x.channel] ?? 0, x.id);
       setLatest(l);
@@ -31,8 +33,9 @@ export function useUnread() {
     load();
     const ch = realtimeChannel('unread')
       .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'messages' }, (p) => {
-        const m = p.new as { id: number; channel: string };
+        const m = p.new as { id: number; channel: string; team_id: number | null };
         setLatest((l) => ({ ...l, [m.channel]: Math.max(l[m.channel] ?? 0, m.id) }));
+        setRecent((r) => (r.some((x) => x.id === m.id) ? r : [m, ...r].slice(0, 300)));
       })
       .on('postgres_changes', { event: '*', schema: 'public', table: 'chat_reads' }, (p) => {
         const r = p.new as { channel: string; last_read_id: number };
@@ -43,7 +46,9 @@ export function useUnread() {
   }, [me?.id]);
   const unread = (c: string) => (latest[c] ?? 0) > (reads[c] ?? 0);
   const any = Object.keys(latest).some((c) => c !== 'draft' && unread(c));
-  return { unread, any, markRead: (c: string, id: number) => setReads((r) => ({ ...r, [c]: Math.max(r[c] ?? 0, id) })) };
+  // how many messages you haven't seen (everything but the draft room and your own posts; 200+ shows as 99+)
+  const count = recent.filter((m) => m.channel !== 'draft' && m.team_id !== me?.id && m.id > (reads[m.channel] ?? 0)).length;
+  return { unread, any, count, markRead: (c: string, id: number) => setReads((r) => ({ ...r, [c]: Math.max(r[c] ?? 0, id) })) };
 }
 
 // short beep + buzz when it's your turn
@@ -67,7 +72,7 @@ export function Layout({ children }: { children: ReactNode }) {
   const nav = useNavigate();
   const [more, setMore] = useState(false);
   const [bell, setBell] = useState(false);
-  const { any: chatUnread } = useUnread();
+  const { any: chatUnread, count: chatCount } = useUnread();
   const unreadN = notifications.filter((n) => !n.read).length;
 
   // if this device already has alerts on, make sure the server knows it belongs to this team
@@ -90,7 +95,7 @@ export function Layout({ children }: { children: ReactNode }) {
   ];
   const moreItems: Item[] = [
     { to: '/standings', label: 'Standings', icon: Trophy },
-    { to: '/nhl', label: 'NHL scores & standings', icon: Tv },
+    { to: '/nhl', label: 'NHL centre', icon: Tv },
     { to: '/yahoo', label: 'Yahoo leagues', icon: Globe },
     ...(draftish ? [] : [{ to: '/scoreboard', label: 'Live scoreboard', icon: Radio }]),
     draftish ? { to: '/team', label: 'My Team', icon: Shield } : { to: '/draft', label: 'Draft Board', icon: ClipboardList },
@@ -99,7 +104,6 @@ export function Layout({ children }: { children: ReactNode }) {
     ...(draftish ? [{ to: '/mock', label: 'Mock Draft', icon: FlaskConical }] : []),
     { to: '/trades', label: 'Trades', icon: Repeat2 },
     { to: '/bets', label: 'Side Bets', icon: Dices },
-    { to: '/news', label: 'News & Injuries', icon: Newspaper },
     { to: '/league', label: 'League & History', icon: Landmark },
     { to: '/features', label: 'League Features', icon: Lightbulb },
     { to: '/profile', label: 'My Profile', icon: UserRound },
@@ -160,7 +164,7 @@ export function Layout({ children }: { children: ReactNode }) {
               <NavLink key={i.to} to={i.to} end={i.to === '/'} className={`relative flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-semibold transition ${a ? 'bg-gradient-to-r from-white/[.14] to-white/[.03] text-white shadow-[inset_0_1px_0_rgba(255,255,255,.08)]' : 'text-slate-400 hover:bg-white/[.05] hover:text-slate-100'}`}>
                 {a && <span className="absolute bottom-2 left-0 top-2 w-1 rounded-r-full bg-gradient-to-b from-goal to-blue" />}
                 <i.icon size={18} strokeWidth={a ? 2.4 : 2} className={a ? 'text-blue' : ''} />{i.label}
-                {i.to === '/chat' && chatUnread && <span className="ml-auto h-2 w-2 rounded-full bg-goal shadow-[0_0_8px_rgba(239,42,79,.9)]" />}
+                {i.to === '/chat' && chatUnread && <span className="ml-auto grid h-5 min-w-5 place-items-center rounded-full bg-goal px-1.5 text-[11px] font-bold text-white shadow-[0_0_8px_rgba(239,42,79,.9)]">{chatCount > 99 ? '99+' : chatCount || ''}</span>}
                 {i.to === '/draft' && draft?.status === 'live' && <span className="ml-auto h-2 w-2 animate-pulse rounded-full bg-emerald-400" />}
               </NavLink>
             );
@@ -211,7 +215,9 @@ export function Layout({ children }: { children: ReactNode }) {
                   <i.icon size={20} strokeWidth={a ? 2.4 : 2} />
                 </span>
                 <span className={`text-[10px] font-bold tracking-wide ${a ? 'text-white' : 'text-mute'}`}>{i.label}</span>
-                {i.to === '/chat' && chatUnread && <span className="absolute right-[24%] top-2 h-2.5 w-2.5 rounded-full border-2 border-[#0d1528] bg-goal" />}
+                {i.to === '/chat' && chatUnread && (chatCount > 0
+                  ? <span className="absolute right-[18%] top-1 grid h-4 min-w-4 place-items-center rounded-full border-2 border-[#0d1528] bg-goal px-1 text-[9px] font-bold leading-none text-white">{chatCount > 99 ? '99+' : chatCount}</span>
+                  : <span className="absolute right-[24%] top-2 h-2.5 w-2.5 rounded-full border-2 border-[#0d1528] bg-goal" />)}
                 {i.to === '/draft' && draft?.status === 'live' && <span className="absolute right-[24%] top-2 h-2.5 w-2.5 animate-pulse rounded-full border-2 border-[#0d1528] bg-emerald-400" />}
               </NavLink>
             );

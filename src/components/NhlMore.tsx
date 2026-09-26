@@ -1,11 +1,12 @@
 // The NHL page's News, Leaders and Teams tabs.
-import { useEffect, useMemo, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Fragment, useEffect, useMemo, useState } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
 import { useLeague, useNow } from '../lib/store';
-import { hub, type ClubGoalie, type ClubPerson, type ClubSkater, type Leaders, type NewsStory } from '../lib/nhlhub';
-import { ago, fmtPts, fmtTime, NHL_COLORS, NHL_TEAMS } from '../lib/format';
-import { Section, Sheet, TeamBadge } from './ui';
-import { ExternalLink, Flame } from 'lucide-react';
+import { hub, type ClubGoalie, type ClubPerson, type ClubSkater, type Leaders, type NewsStory, type XFeed } from '../lib/nhlhub';
+import { ago, fmtPts, fmtTime, injuryBadge, NHL_COLORS, NHL_TEAMS } from '../lib/format';
+import { Section, Sheet, TeamBadge, TeamName } from './ui';
+import { PlayerRow } from './PlayerCard';
+import { ExternalLink, Flame, Heart, Repeat2 } from 'lucide-react';
 
 const LOGO = (ab: string) => `https://assets.nhle.com/logos/nhl/svg/${ab}_light.svg`;
 const SKATER_CATS: [string, string][] = [['points', 'Points'], ['goals', 'Goals'], ['assists', 'Assists'], ['plusMinus', '+/-'], ['goalsPp', 'PP goals'], ['goalsSh', 'SH goals'], ['penaltyMins', 'PIM'], ['faceoffLeaders', 'Faceoff %']];
@@ -208,6 +209,111 @@ export function TeamsTab({ onGame }: { onGame: (g: any) => void }) {
           </div>
         )}
       </Sheet>
+    </div>
+  );
+}
+
+// ── Injuries: the league injury report (your team first), from the players table (refreshed hourly)
+export function InjuriesTab() {
+  const nav = useNavigate();
+  const { players, owner, teams, me } = useLeague();
+  const [scope, setScope] = useState<'rostered' | 'all'>('rostered');
+  const injured = useMemo(() => [...players.values()].filter((p) => p.injury_status).sort((a, b) => (b.injury_date ?? '').localeCompare(a.injury_date ?? '')), [players]);
+  const mine = injured.filter((p) => owner.get(p.id)?.team_id === me?.id);
+  const byTeam = teams.map((t) => ({ t, list: injured.filter((p) => owner.get(p.id)?.team_id === t.id) })).filter((x) => x.list.length);
+  const fa = injured.filter((p) => !owner.has(p.id) && p.proj > 60);
+  const Hurt = ({ id }: { id: number }) => {
+    const p = players.get(id)!;
+    const b = injuryBadge(p.injury_status);
+    return (
+      <div className="px-3 py-2" onClick={() => nav(`/player/${p.id}`)}>
+        <PlayerRow p={p} right={<span className={`chip ${b?.cls}`}>{p.injury_status}</span>} />
+        {p.injury_note && <p className="mt-1 line-clamp-2 pl-12 text-xs text-slate-400">{p.injury_note}</p>}
+      </div>
+    );
+  };
+  return (
+    <div className="space-y-4">
+      <Section title="🩹 Your team">
+        <div className="card divide-y divide-white/[.06]">
+          {mine.length === 0 ? <div className="p-4 text-sm text-mute">Nobody on your roster is hurt or suspended. Knock on wood.</div> : mine.map((p) => <Fragment key={p.id}>{Hurt({ id: p.id })}</Fragment>)}
+        </div>
+      </Section>
+      <Section title="League injury report" right={<div className="flex gap-1">
+        <button className={`tab px-2.5 py-1 text-xs ${scope === 'rostered' ? 'tab-on' : 'bg-white/[.05]'}`} onClick={() => setScope('rostered')}>SaK rosters</button>
+        <button className={`tab px-2.5 py-1 text-xs ${scope === 'all' ? 'tab-on' : 'bg-white/[.05]'}`} onClick={() => setScope('all')}>Free agents</button></div>}>
+        {scope === 'rostered' ? (
+          <div className="space-y-3">
+            {byTeam.length === 0 && <div className="card p-4 text-sm text-mute">No injured players on any SaK roster.</div>}
+            {byTeam.map(({ t, list }) => (
+              <div key={t.id} className="card overflow-hidden">
+                <div className="flex items-center gap-2 border-b border-line px-3 py-2"><TeamBadge team={t} size={22} /><TeamName link team={t} /><span className="ml-auto text-xs text-mute">{list.length}</span></div>
+                <div className="divide-y divide-white/[.06]">{list.map((p) => <Fragment key={p.id}>{Hurt({ id: p.id })}</Fragment>)}</div>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <div className="card divide-y divide-white/[.06]">{fa.length === 0 ? <div className="p-4 text-sm text-mute">No notable injured free agents.</div> : fa.map((p) => <Fragment key={p.id}>{Hurt({ id: p.id })}</Fragment>)}</div>
+        )}
+      </Section>
+    </div>
+  );
+}
+
+// ── X: the NHL insiders' feed (live through the X API when the commissioner has added the token)
+export function XTab() {
+  const { players, owner, me, team } = useLeague();
+  const now = useNow(30_000);
+  const [feed, setFeed] = useState<XFeed | null>(null);
+  const [err, setErr] = useState<string | null>(null);
+  const [filter, setFilter] = useState<'all' | 'mine' | 'sak'>('all');
+  const [tick, setTick] = useState(0);
+  useEffect(() => {
+    hub<XFeed>('x').then(setFeed, (e) => setErr(e.message));
+    const t = setInterval(() => setTick((x) => x + 1), 120_000);
+    return () => clearInterval(t);
+  }, [tick]);
+  // which SaK players a post mentions (last names of rostered players, first-name-checked for common surnames)
+  const mentions = useMemo(() => {
+    const list = [...players.values()].filter((p) => owner.has(p.id) && p.last_name && p.last_name.length >= 4).map((p) => ({ p, re: new RegExp(`\\b${p.last_name!.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`, 'i') }));
+    return (text: string) => list.filter((x) => x.re.test(text)).map((x) => x.p).slice(0, 4);
+  }, [players, owner]);
+  const posts = (feed?.posts ?? []).map((x) => ({ x, tagged: mentions(x.text) })).filter(({ tagged }) => filter === 'all' ? true : filter === 'sak' ? tagged.length > 0 : tagged.some((p) => owner.get(p.id)?.team_id === me?.id));
+  return (
+    <div className="space-y-3">
+      {err && <div className="card border-red-400/30 bg-red-500/10 p-3 text-sm">X feed didn’t load: {err}</div>}
+      {!feed && !err && <div className="p-6 text-center text-sm text-mute">Loading…</div>}
+      {feed && !feed.configured && (
+        <div className="card space-y-2 p-3 text-sm">
+          <p>The live X feed switches on once the commissioner adds an <code className="rounded bg-white/10 px-1">X_BEARER_TOKEN</code> secret (X’s developer API is a paid plan). Until then, here are the insiders worth following, one tap each:</p>
+          <div className="grid gap-1.5 sm:grid-cols-2">{feed.accounts.map((a) => <a key={a.handle} href={a.url} target="_blank" rel="noreferrer" className="flex items-center justify-between rounded-xl bg-white/[.04] px-3 py-2"><span><span className="font-semibold">{a.name}</span> <span className="text-mute">@{a.handle}</span></span><ExternalLink size={14} className="text-mute" /></a>)}</div>
+        </div>
+      )}
+      {feed?.configured && (
+        <>
+          <div className="scroll-x flex items-center gap-1">
+            {([['all', 'Everything'], ['sak', 'SaK players'], ['mine', 'My players']] as const).map(([k, l]) => <button key={k} className={`shrink-0 rounded-full px-2.5 py-1 text-xs font-semibold ${filter === k ? 'bg-sky-500 text-ice' : 'bg-white/[.05] text-mute'}`} onClick={() => setFilter(k)}>{l}</button>)}
+            <span className="ml-auto shrink-0 text-[11px] text-mute">{feed.accounts.length} insiders · refreshes every 2 min</span>
+          </div>
+          {posts.length === 0 && <div className="card p-4 text-sm text-mute">Nothing matches right now.</div>}
+          {posts.map(({ x, tagged }) => (
+            <div key={x.id} className="card p-3">
+              <div className="flex items-center gap-2">
+                {x.author.avatar ? <img src={x.author.avatar} alt="" className="h-8 w-8 rounded-full" /> : <span className="grid h-8 w-8 place-items-center rounded-full bg-white/[.06] text-xs">𝕏</span>}
+                <div className="min-w-0 flex-1 leading-tight"><div className="truncate text-sm font-semibold">{x.author.name}</div><div className="text-[11px] text-mute">@{x.author.handle} · {ago(x.at, now)}</div></div>
+                <a href={x.url} target="_blank" rel="noreferrer" className="btn btn-sm" aria-label="Open on X"><ExternalLink size={14} /></a>
+              </div>
+              <p className="mt-2 whitespace-pre-wrap text-sm">{x.text.replace(/https:\/\/t\.co\/\S+/g, '').trim()}</p>
+              {x.image && <img src={x.image} alt="" loading="lazy" className="mt-2 max-h-72 w-full rounded-xl object-cover" />}
+              {x.link && <a href={x.link.url} target="_blank" rel="noreferrer" className="mt-2 block truncate rounded-lg bg-white/[.04] px-2 py-1.5 text-xs text-sky-300">{x.link.title ?? x.link.url}</a>}
+              <div className="mt-2 flex flex-wrap items-center gap-2 text-[11px] text-mute">
+                <span className="flex items-center gap-1"><Heart size={11} /> {x.likes}</span><span className="flex items-center gap-1"><Repeat2 size={11} /> {x.reposts}</span>
+                {tagged.map((p) => { const o = owner.get(p.id); const t = o ? team(o.team_id) : undefined; return <Link key={p.id} to={`/player/${p.id}`} className="chip flex items-center gap-1">{p.name}{t && <TeamBadge team={t} size={12} />}</Link>; })}
+              </div>
+            </div>
+          ))}
+        </>
+      )}
     </div>
   );
 }

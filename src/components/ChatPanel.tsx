@@ -12,7 +12,7 @@ const REACTIONS = ['🔥', '😂', '🤡', '👏', '💀', '🍺', '🚨', '🪣
 const ASK_GARRY = ['Who’s winning?', 'How’s my lineup?', 'Who should I pick up?', 'How do trades work?', 'What’s the prize money?', 'When’s the draft?', 'How do keepers work?', 'What’s the scoring?'];
 // Garry points at pages with "👉 #/path"; those become buttons
 const LINK_LABEL: [string, string][] = [['/player/', 'Player page'], ['/team', 'My lineup'], ['/standings', 'Standings'], ['/trades', 'Trades'], ['/players', 'Players'],
-  ['/keepers', 'Keepers'], ['/draft', 'Draft room'], ['/bets', 'Side bets'], ['/profile', 'Profile'], ['/news', 'News'], ['/features', 'Features'], ['/league?t=money', 'Prize money'], ['/league', 'Rulebook']];
+  ['/keepers', 'Keepers'], ['/draft', 'Draft room'], ['/bets', 'Side bets'], ['/profile', 'Profile'], ['/nhl?t=injuries', 'Injuries'], ['/nhl', 'NHL centre'], ['/features', 'Features'], ['/league?t=money', 'Prize money'], ['/league', 'Rulebook']];
 const linkLabel = (path: string) => LINK_LABEL.find(([p]) => path.startsWith(p))?.[1] ?? 'Open';
 
 const CHIRPS = ['🚨 REACH!', 'Steal of the draft 🥷', 'Enjoy the Peter 🪣', 'Sell me that guy 💰', 'Who? 🤔', 'Lock it in 🔒', 'GG 🍺', 'Scoreboard. 📈'];
