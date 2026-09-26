@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { PROVIDERS, SERVICES } from '../lib/watch';
+import { PROVIDERS, SERVICES, playerFor } from '../lib/watch';
 import { useLeague } from '../lib/store';
 import { rpc, supabase } from '../lib/supabase';
 import { fmtMoney, fmtPts, NHL_TEAMS, ordinal } from '../lib/format';
@@ -73,11 +73,12 @@ export default function Profile() {
 
       <Section title="Where you watch">
         <div className="card space-y-3 p-3">
-          <p className="text-xs text-mute">Live NHL streams live on the broadcasters’ own players, where you sign in with your TV provider (Telus, Rogers, Bell…) or a subscription. Tell SaK what you have and every game on the NHL page gets a “Watch on …” button that goes straight to the right one, with the games you can watch flagged.</p>
+          <p className="text-xs text-mute">SaK can’t stream games itself (the rights belong to the broadcasters), but it gets you there in one tap. Pick your TV provider and every game on the NHL page leads with your provider’s own web player, where one sign-in unlocks every channel you subscribe to. Tick the streaming services you have and their buttons get a ✓ and the games you can watch are flagged.</p>
           <label className="block text-xs text-mute">TV provider
             <select className="input mt-1" value={tv.provider ?? ''} onChange={(e) => setTv({ ...tv, provider: e.target.value || undefined })}>
               <option value="">None / streaming only</option>{PROVIDERS.map((p) => <option key={p} value={p}>{p}</option>)}
             </select></label>
+          {playerFor(tv.provider) && <p className="text-xs text-mute">Your games will open in <b>{playerFor(tv.provider)!.name}</b>: {playerFor(tv.provider)!.how}</p>}
           <div>
             <div className="label mb-1">Services and channels you can sign in to</div>
             <div className="grid gap-1.5 sm:grid-cols-2">

@@ -285,7 +285,7 @@ export function XTab() {
       {!feed && !err && <div className="p-6 text-center text-sm text-mute">Loading…</div>}
       {feed && !feed.configured && (
         <div className="card space-y-2 p-3 text-sm">
-          <p>The live X feed switches on once the commissioner adds an <code className="rounded bg-white/10 px-1">X_BEARER_TOKEN</code> secret (X’s developer API is a paid plan). Until then, here are the insiders worth following, one tap each:</p>
+          <p>The live X feed isn’t switched on (it runs through Grok’s X search, or X’s own API). Here are the insiders worth following, one tap each:</p>
           <div className="grid gap-1.5 sm:grid-cols-2">{feed.accounts.map((a) => <a key={a.handle} href={a.url} target="_blank" rel="noreferrer" className="flex items-center justify-between rounded-xl bg-white/[.04] px-3 py-2"><span><span className="font-semibold">{a.name}</span> <span className="text-mute">@{a.handle}</span></span><ExternalLink size={14} className="text-mute" /></a>)}</div>
         </div>
       )}
@@ -293,7 +293,7 @@ export function XTab() {
         <>
           <div className="scroll-x flex items-center gap-1">
             {([['all', 'Everything'], ['sak', 'SaK players'], ['mine', 'My players']] as const).map(([k, l]) => <button key={k} className={`shrink-0 rounded-full px-2.5 py-1 text-xs font-semibold ${filter === k ? 'bg-sky-500 text-ice' : 'bg-white/[.05] text-mute'}`} onClick={() => setFilter(k)}>{l}</button>)}
-            <span className="ml-auto shrink-0 text-[11px] text-mute">{feed.accounts.length} insiders · refreshes every 2 min</span>
+            <span className="ml-auto shrink-0 text-[11px] text-mute">{feed.source === 'grok' ? 'via Grok’s X search' : 'via X'}{feed.fetched_at ? ` · ${ago(feed.fetched_at, now)}` : ''}{feed.stale ? ' · refresh failed, showing the last one' : ''}</span>
           </div>
           {posts.length === 0 && <div className="card p-4 text-sm text-mute">Nothing matches right now.</div>}
           {posts.map(({ x, tagged }) => (

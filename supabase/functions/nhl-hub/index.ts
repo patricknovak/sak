@@ -8,12 +8,18 @@
 //   ?task=news                      NHL.com stories + Sportsnet and ESPN headlines, newest first
 //   ?task=leaders                   league leaders: skaters (points, goals, assists, +/-, PIM, PP/SH goals, faceoffs) and goalies
 //   ?task=team&abbrev=EDM           one club: roster, this week's games, season stats for every player
-//   ?task=x                         NHL insiders on X (needs the X_BEARER_TOKEN secret; otherwise just the account list)
+//   ?task=x                         NHL insiders on X: through the X API when X_BEARER_TOKEN is set, otherwise through
+//                                   Grok's X search with the XAI_API_KEY the league already uses for Garry (shared cache
+//                                   in hub_cache so the whole league costs one search every few minutes)
+import { createClient } from 'jsr:@supabase/supabase-js@2';
 import { NHL } from '../_shared/nhl.ts';
+
+const db = createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!, { auth: { persistSession: false } });
 
 const cors = { 'Access-Control-Allow-Origin': '*', 'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type', 'Access-Control-Allow-Methods': 'GET, POST, OPTIONS' };
 const cache = new Map<string, { at: number; ttl: number; body: unknown }>();
-const TTL = { scores: 20_000, standings: 300_000, schedule: 600_000, game: 20_000, news: 600_000, leaders: 600_000, team: 300_000, x: 180_000 };
+const TTL = { scores: 20_000, standings: 300_000, schedule: 600_000, game: 20_000, news: 600_000, leaders: 600_000, team: 300_000, x: 120_000 };
+const X_SHARED_TTL = 300_000;   // how old the league-wide X feed may get before the next request refreshes it
 
 async function get(path: string) {
   const r = await fetch(`${NHL}${path}`, { headers: { 'user-agent': 'sak-league' } });
@@ -126,15 +132,16 @@ async function news() {
   return { items: all.slice(0, 80) };
 }
 
-// ── X (Twitter): the NHL insiders' feed, through the X API v2 when the X_BEARER_TOKEN secret is set
-// (a paid X developer plan). Without it the page lists the accounts with links instead.
+// ── X (Twitter): the NHL insiders' feed. Through the X API v2 when the X_BEARER_TOKEN secret is set (a paid
+// X developer plan); otherwise through Grok's X search (xAI Responses API, x_search tool) with the league's
+// XAI_API_KEY. Grok's answer is cached in hub_cache for everyone, so it's one search per X_SHARED_TTL.
 const X_ACCOUNTS: [string, string][] = [['NHL', 'NHL'], ['PR_NHL', 'NHL Public Relations'], ['FriedgeHNIC', 'Elliotte Friedman'], ['TSNBobMcKenzie', 'Bob McKenzie'],
   ['PierreVLeBrun', 'Pierre LeBrun'], ['DarrenDreger', 'Darren Dreger'], ['frank_seravalli', 'Frank Seravalli'], ['emilymkaplan', 'Emily Kaplan'],
   ['reporterchris', 'Chris Johnston'], ['NHLInjuryNews', 'NHL Injury News'], ['PuckPedia', 'PuckPedia'], ['DailyFaceoff', 'Daily Faceoff']];
-async function xfeed() {
-  const token = Deno.env.get('X_BEARER_TOKEN');
-  const accounts = X_ACCOUNTS.map(([handle, name]) => ({ handle, name, url: `https://x.com/${handle}` }));
-  if (!token) return { configured: false, accounts, posts: [] };
+type XPost = { id: string; text: string; at: string; url: string; author: { name: string; handle: string; avatar: string | null }; likes: number; reposts: number; link: { url: string; title: string | null } | null; image: string | null };
+const accounts = X_ACCOUNTS.map(([handle, name]) => ({ handle, name, url: `https://x.com/${handle}` }));
+
+async function xApi(token: string): Promise<XPost[]> {
   const query = `(${X_ACCOUNTS.map(([h]) => `from:${h}`).join(' OR ')}) -is:retweet -is:reply`;
   const u = new URL('https://api.x.com/2/tweets/search/recent');
   u.searchParams.set('query', query);
@@ -148,7 +155,7 @@ async function xfeed() {
   const j = await r.json();
   const users = new Map<string, any>((j.includes?.users ?? []).map((x: any) => [x.id, x]));
   const media = new Map<string, any>((j.includes?.media ?? []).map((m: any) => [m.media_key, m]));
-  const posts = (j.data ?? []).map((t: any) => {
+  return (j.data ?? []).map((t: any) => {
     const a = users.get(t.author_id) ?? {};
     const link = (t.entities?.urls ?? []).find((x: any) => x.expanded_url && !/x\.com|twitter\.com/.test(x.expanded_url));
     const pic = (t.attachments?.media_keys ?? []).map((k: string) => media.get(k)).find((m: any) => m && (m.url || m.preview_image_url));
@@ -159,7 +166,68 @@ async function xfeed() {
       link: link ? { url: link.expanded_url, title: link.title ?? null } : null, image: pic ? pic.url ?? pic.preview_image_url : null,
     };
   });
-  return { configured: true, accounts, posts };
+}
+
+// Grok reads X for us: the x_search tool restricted to the insiders (the tool takes up to 10 handles), and the
+// model writes the posts back as JSON. Post ids come from the status URLs it cites.
+async function xGrok(apiKey: string): Promise<XPost[]> {
+  const handles = X_ACCOUNTS.slice(0, 10).map(([h]) => h);
+  const today = new Date(), from = new Date(Date.now() - 2 * 86400000);
+  const day = (d: Date) => d.toISOString().slice(0, 10);
+  const ctl = new AbortController();
+  const timer = setTimeout(() => ctl.abort(), 90_000);
+  const r = await fetch('https://api.x.ai/v1/responses', {
+    method: 'POST', signal: ctl.signal,
+    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${apiKey}` },
+    body: JSON.stringify({
+      model: Deno.env.get('GROK_SEARCH_MODEL') || 'grok-4-1-fast',
+      tools: [{ type: 'x_search', allowed_x_handles: handles, from_date: day(from), to_date: day(today) }],
+      input: [
+        { role: 'system', content: 'You are a data extractor. You search X and return only JSON, never prose.' },
+        { role: 'user', content: `Find the most recent posts (last 48 hours, newest first, up to 40) from these X accounts about the NHL: ${handles.map((h) => '@' + h).join(', ')}. Include injuries, lineups, trades, signings, call-ups, waivers, scores and news. Skip replies and retweets.
+Return exactly this JSON and nothing else:
+{"posts":[{"handle":"<account handle without @>","name":"<account display name>","text":"<the post text, verbatim>","url":"<https://x.com/<handle>/status/<id>>","at":"<ISO 8601 timestamp, UTC>","link":"<first non-X URL in the post or null>"}]}` },
+      ],
+    }),
+  }).finally(() => clearTimeout(timer));
+  if (!r.ok) throw new Error(`Grok ${r.status}: ${(await r.text()).slice(0, 200)}`);
+  const j = await r.json();
+  const text: string = (j.output ?? []).filter((o: any) => o.type === 'message').flatMap((o: any) => o.content ?? []).filter((c: any) => c.type === 'output_text').map((c: any) => c.text).join('\n')
+    || j.output_text || '';
+  const m = text.match(/\{[\s\S]*\}/);
+  if (!m) throw new Error('Grok returned no JSON: ' + text.slice(0, 120));
+  let items: any[] = [];
+  try { items = JSON.parse(m[0]).posts ?? []; } catch { throw new Error('Grok JSON did not parse'); }
+  const names = new Map(X_ACCOUNTS.map(([h, n]) => [h.toLowerCase(), n]));
+  const seen = new Set<string>();
+  return items.map((p: any) => {
+    const handle = String(p.handle ?? '').replace(/^@/, '');
+    const idm = String(p.url ?? '').match(/status\/(\d+)/);
+    const id = idm ? idm[1] : `${handle}-${String(p.at ?? '').slice(0, 16)}`;
+    const at = p.at && !isNaN(Date.parse(p.at)) ? new Date(p.at).toISOString() : new Date().toISOString();
+    return { id, text: String(p.text ?? '').trim(), at, url: idm ? `https://x.com/${handle}/status/${idm[1]}` : `https://x.com/${handle}`,
+      author: { name: p.name || names.get(handle.toLowerCase()) || handle, handle, avatar: null }, likes: 0, reposts: 0,
+      link: p.link && /^https?:\/\//.test(p.link) && !/x\.com|twitter\.com/.test(p.link) ? { url: p.link, title: null } : null, image: null } as XPost;
+  }).filter((p) => p.text && p.author.handle && !seen.has(p.id) && seen.add(p.id)).sort((a, b) => b.at.localeCompare(a.at)).slice(0, 40);
+}
+
+async function xfeed() {
+  const token = Deno.env.get('X_BEARER_TOKEN');
+  const xai = Deno.env.get('XAI_API_KEY');
+  if (!token && !xai) return { configured: false, source: null, accounts, posts: [] };
+  // the league shares one feed: serve the cached one while it's fresh, otherwise refresh it
+  const { data: hit } = await db.from('hub_cache').select('body,at').eq('key', 'x').maybeSingle();
+  if (hit && Date.now() - new Date(hit.at).getTime() < X_SHARED_TTL) return hit.body;
+  try {
+    const posts = token ? await xApi(token) : await xGrok(xai!);
+    const body = { configured: true, source: token ? 'x' : 'grok', accounts, posts, fetched_at: new Date().toISOString() };
+    await db.from('hub_cache').upsert({ key: 'x', body, at: new Date().toISOString() });
+    return body;
+  } catch (e) {
+    console.error('xfeed', e);
+    if (hit) return { ...(hit.body as object), stale: true };   // an old feed beats an error
+    throw e;
+  }
 }
 
 // ── league leaders

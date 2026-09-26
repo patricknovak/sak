@@ -42,7 +42,13 @@ export function useUnread() {
         if (r?.channel) setReads((x) => ({ ...x, [r.channel]: r.last_read_id }));
       })
       .subscribe();
-    return () => { supabase.removeChannel(ch); };
+    // the chat panel announces what it just marked read, so the badge clears without waiting on the server
+    const onRead = (e: Event) => { const { channel, id } = (e as CustomEvent<{ channel: string; id: number }>).detail; setReads((r) => ({ ...r, [channel]: Math.max(r[channel] ?? 0, id) })); };
+    window.addEventListener('sak:read', onRead);
+    // and when the app comes back to the front, re-check (reads made on another device, missed events)
+    const onWake = () => { if (document.visibilityState === 'visible') load(); };
+    document.addEventListener('visibilitychange', onWake);
+    return () => { supabase.removeChannel(ch); window.removeEventListener('sak:read', onRead); document.removeEventListener('visibilitychange', onWake); };
   }, [me?.id]);
   const unread = (c: string) => (latest[c] ?? 0) > (reads[c] ?? 0);
   const any = Object.keys(latest).some((c) => c !== 'draft' && unread(c));
@@ -96,7 +102,7 @@ export function Layout({ children }: { children: ReactNode }) {
   const moreItems: Item[] = [
     { to: '/standings', label: 'Standings', icon: Trophy },
     { to: '/nhl', label: 'NHL centre', icon: Tv },
-    { to: '/yahoo', label: 'Yahoo leagues', icon: Globe },
+    { to: '/yahoo', label: 'My pools', icon: Globe },
     ...(draftish ? [] : [{ to: '/scoreboard', label: 'Live scoreboard', icon: Radio }]),
     draftish ? { to: '/team', label: 'My Team', icon: Shield } : { to: '/draft', label: 'Draft Board', icon: ClipboardList },
     { to: '/keepers', label: 'Keepers', icon: Lock },

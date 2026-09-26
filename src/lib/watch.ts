@@ -7,17 +7,34 @@ export interface Service { k: string; name: string; note: string; country: 'CA' 
 
 // broadcaster live pages, keyed by the network codes the NHL schedule uses
 export const SERVICES: Service[] = [
-  { k: 'sn', name: 'Sportsnet', note: 'Sportsnet+ subscription, or sign in with your TV provider (Telus, Rogers, Bell, Shaw, Cogeco…)', country: 'CA', url: 'https://watch.sportsnet.ca/live', nets: ['SN', 'SNP', 'SNW', 'SNO', 'SNE', 'SN1', 'SN360', 'SNF', 'SNNOW', 'SN+', 'SNPLUS'] },
-  { k: 'tsn', name: 'TSN', note: 'TSN+ subscription, or sign in with your TV provider', country: 'CA', url: 'https://www.tsn.ca/live', nets: ['TSN', 'TSN1', 'TSN2', 'TSN3', 'TSN4', 'TSN5', 'TSN+'] },
-  { k: 'cbc', name: 'CBC Gem', note: 'Free with a CBC account (Hockey Night in Canada)', country: 'CA', url: 'https://gem.cbc.ca/live', nets: ['CBC', 'CITY', 'CITYTV'] },
-  { k: 'tva', name: 'TVA Sports', note: 'Sign in with your TV provider (French)', country: 'CA', url: 'https://www.tvasports.ca/direct', nets: ['TVAS', 'TVAS2'] },
-  { k: 'rds', name: 'RDS', note: 'Sign in with your TV provider (French)', country: 'CA', url: 'https://www.rds.ca/direct', nets: ['RDS', 'RDS2'] },
+  { k: 'sn', name: 'Sportsnet+', note: 'Sportsnet+ subscription, or sign in with your TV provider (Telus, Rogers, Bell, Shaw, Cogeco…)', country: 'CA', url: 'https://www.sportsnetplus.ca/', nets: ['SN', 'SNP', 'SNW', 'SNO', 'SNE', 'SN1', 'SN360', 'SNF', 'SNNOW', 'SN+', 'SNPLUS'] },
+  { k: 'tsn', name: 'TSN', note: 'TSN+ subscription, or sign in with your TV provider', country: 'CA', url: 'https://www.tsn.ca/live/', nets: ['TSN', 'TSN1', 'TSN2', 'TSN3', 'TSN4', 'TSN5', 'TSN+'] },
+  { k: 'cbc', name: 'CBC Gem', note: 'Free with a CBC account (Hockey Night in Canada)', country: 'CA', url: 'https://gem.cbc.ca/section/live', nets: ['CBC', 'CITY', 'CITYTV'] },
+  { k: 'tva', name: 'TVA Sports', note: 'Sign in with your TV provider (French)', country: 'CA', url: 'https://www.tvasports.ca/en-direct', nets: ['TVAS', 'TVAS2'] },
+  { k: 'rds', name: 'RDS', note: 'Sign in with your TV provider (French)', country: 'CA', url: 'https://www.rds.ca/emissions/en-direct/', nets: ['RDS', 'RDS2'] },
   { k: 'espn', name: 'ESPN / ESPN+', note: 'ESPN+ subscription, or sign in with your US TV provider', country: 'US', url: 'https://www.espn.com/watch/', nets: ['ESPN', 'ESPN+', 'ESPN2', 'ABC', 'ESPNPLUS', 'HULU'] },
   { k: 'tnt', name: 'TNT / Max', note: 'Max subscription, or sign in with your US TV provider', country: 'US', url: 'https://www.max.com/', nets: ['TNT', 'TBS', 'TRUTV', 'MAX'] },
   { k: 'prime', name: 'Prime Video', note: 'Monday Night Hockey (Canada) with a Prime membership', country: 'ANY', url: 'https://www.primevideo.com/', nets: ['PRIME', 'AMZN', 'AMAZON'] },
-  { k: 'nhltv', name: 'NHL.tv / NHL Network', note: 'Out-of-market games with an NHL.tv (Canada) or ESPN+ (US) subscription', country: 'ANY', url: 'https://www.nhl.com/tv', nets: ['NHLN', 'NHLTV'] },
+  { k: 'nhltv', name: 'Out-of-market', note: 'Every out-of-market game: Sportsnet+ Premium in Canada, ESPN+ in the US', country: 'ANY', url: 'https://www.sportsnetplus.ca/', nets: ['NHLN', 'NHLTV'] },
 ];
 export const PROVIDERS = ['Telus', 'Rogers', 'Bell', 'Shaw', 'Vidéotron', 'Cogeco', 'Eastlink', 'SaskTel', 'Xfinity', 'Spectrum', 'DirecTV', 'YouTube TV', 'Other'];
+
+// the TV providers' own web players: one sign-in, every channel you subscribe to, no broadcaster hopping.
+// The fastest route for a cable/fibre subscriber, so it goes first on the game card.
+export interface ProviderPlayer { name: string; url: string; how: string }
+export const PROVIDER_PLAYERS: Record<string, ProviderPlayer> = {
+  Telus: { name: 'TELUS TV+', url: 'https://tvplus.telus.com/', how: 'Sign in once with your TELUS account (same as My TELUS), open Live TV and pick the channel.' },
+  Rogers: { name: 'Rogers Xfinity Stream', url: 'https://rogersxfinitystream.rogers.com/', how: 'Sign in with your Rogers account, open Live TV and pick the channel.' },
+  Shaw: { name: 'Rogers Xfinity Stream', url: 'https://rogersxfinitystream.rogers.com/', how: 'Shaw is Rogers now: sign in with your Shaw/Rogers account, open Live TV and pick the channel.' },
+  Bell: { name: 'Bell Fibe TV', url: 'https://tv.bell.ca/', how: 'Sign in with your MyBell account, open Live TV and pick the channel.' },
+  Vidéotron: { name: 'Helix TV', url: 'https://tv.videotron.com/', how: 'Sign in with your Vidéotron account and pick the channel.' },
+  Cogeco: { name: 'Cogeco TV', url: 'https://tv.cogeco.ca/', how: 'Sign in with your Cogeco account and pick the channel.' },
+  Xfinity: { name: 'Xfinity Stream', url: 'https://www.xfinity.com/stream/', how: 'Sign in with your Xfinity account, open Live TV and pick the channel.' },
+  Spectrum: { name: 'Spectrum TV', url: 'https://watch.spectrum.net/', how: 'Sign in with your Spectrum account, open Live TV and pick the channel.' },
+  DirecTV: { name: 'DIRECTV', url: 'https://stream.directv.com/', how: 'Sign in with your DIRECTV account and pick the channel.' },
+  'YouTube TV': { name: 'YouTube TV', url: 'https://tv.youtube.com/', how: 'Open YouTube TV and pick the channel from Live.' },
+};
+export const playerFor = (provider?: string | null) => (provider ? PROVIDER_PLAYERS[provider] : undefined);
 
 export interface TvPrefs { provider?: string; services?: string[] }
 
