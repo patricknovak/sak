@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { PROVIDERS, SERVICES } from '../lib/watch';
 import { useLeague } from '../lib/store';
 import { rpc, supabase } from '../lib/supabase';
 import { fmtMoney, fmtPts, NHL_TEAMS, ordinal } from '../lib/format';
@@ -15,6 +16,8 @@ export default function Profile() {
   const toast = useToast();
   const { busy, run } = useAction();
   const [f, setF] = useState<Partial<Team>>({});
+  const [tv, setTv] = useState<{ provider?: string; services?: string[] }>({});
+  useEffect(() => { setTv(me?.tv ?? {}); }, [me?.id]); // eslint-disable-line react-hooks/exhaustive-deps
   const [pw, setPw] = useState({ a: '', b: '' });
   useEffect(() => { if (me) setF(me); }, [me?.id]);
   if (!me) return null;
@@ -59,6 +62,31 @@ export default function Profile() {
             </select></label>
           {me?.role !== 'spectator' && <Toggle on={!!f.auto_lineup} onChange={(v) => setF({ ...f, auto_lineup: v })} label={<span>Auto-set my lineup every morning <span className="text-xs text-mute">(starts players with games)</span></span>} />}
           <button className="btn-primary" disabled={busy} onClick={save}>Save</button>
+        </div>
+      </Section>
+
+      <Section title="Where you watch">
+        <div className="card space-y-3 p-3">
+          <p className="text-xs text-mute">Live NHL streams live on the broadcasters’ own players, where you sign in with your TV provider (Telus, Rogers, Bell…) or a subscription. Tell SaK what you have and every game on the NHL page gets a “Watch on …” button that goes straight to the right one, with the games you can watch flagged.</p>
+          <label className="block text-xs text-mute">TV provider
+            <select className="input mt-1" value={tv.provider ?? ''} onChange={(e) => setTv({ ...tv, provider: e.target.value || undefined })}>
+              <option value="">None / streaming only</option>{PROVIDERS.map((p) => <option key={p} value={p}>{p}</option>)}
+            </select></label>
+          <div>
+            <div className="label mb-1">Services and channels you can sign in to</div>
+            <div className="grid gap-1.5 sm:grid-cols-2">
+              {SERVICES.map((sv) => {
+                const on = (tv.services ?? []).includes(sv.k);
+                return (
+                  <label key={sv.k} className={`flex cursor-pointer items-start gap-2 rounded-xl border px-2.5 py-2 text-sm ${on ? 'border-sky-400/40 bg-sky-500/10' : 'border-white/[.08] bg-white/[.03]'}`}>
+                    <input type="checkbox" className="mt-0.5 h-4 w-4 accent-sky-400" checked={on} onChange={() => setTv({ ...tv, services: on ? (tv.services ?? []).filter((k) => k !== sv.k) : [...(tv.services ?? []), sv.k] })} />
+                    <span className="min-w-0"><span className="font-semibold">{sv.name}</span> <span className="text-[10px] text-mute">{sv.country === 'CA' ? '🇨🇦' : sv.country === 'US' ? '🇺🇸' : ''}</span><span className="block text-[11px] text-mute">{sv.note}</span></span>
+                  </label>
+                );
+              })}
+            </div>
+          </div>
+          <button className="btn-primary" disabled={busy} onClick={() => run(async () => { await rpc('set_tv', { p_tv: tv }); await refresh(['teams']); }, 'Saved. Watch buttons will match your services.')}>Save</button>
         </div>
       </Section>
 
