@@ -8,6 +8,7 @@ import { supabase } from '../lib/supabase';
 import { etToday, fmtTime } from '../lib/format';
 import { PageHeader, Section, Sheet, TeamBadge } from '../components/ui';
 import { ExternalLink, Headphones, Play, Radio, Tv } from 'lucide-react';
+import { watchOptions } from '../lib/watch';
 
 type NTeam = { id: number; abbrev: string; name: string; place: string; score: number | null; sog: number | null; logo: string | null; radio: string | null; record: string | null };
 type Goal = { period: number; type?: string; time: string; playerId: number; name: string; team: string; strength: string; modifier: string; goalsToDate: number; away: number; home: number; mugshot: string | null; assists: { playerId: number; name: string; n: number }[]; clip: string | null };
@@ -80,7 +81,7 @@ function Video({ id, title, onClose }: { id: string; title: string; onClose: () 
 }
 
 export default function NHL() {
-  const { players, rosters, owner, team, teams } = useLeague();
+  const { me, players, rosters, owner, team, teams } = useLeague();
   const [params, setParams] = useSearchParams();
   const tab = (params.get('t') as 'scores' | 'standings' | 'schedule') || 'scores';
   const setTab = (t: string) => setParams((p) => { const n = new URLSearchParams(p); n.set('t', t); return n; });
@@ -136,6 +137,7 @@ export default function NHL() {
         })}
         <div className="mt-1.5 flex items-center gap-1 text-[11px] text-mute">
           {gms.length ? <>SaK: {gms.slice(0, 5).map(([t, n]) => <span key={t} className="flex items-center gap-0.5"><TeamBadge team={team(t)} size={14} />{n}</span>)}{gms.length > 5 && <span>+{gms.length - 5}</span>}</> : <span>No SaK players in this one</span>}
+          {!done && watchOptions(g.tv, me?.tv).some((w) => w.have) && <span className="ml-auto flex items-center gap-1 text-sky-300"><Tv size={11} /> you can watch</span>}
           {(g.recap || g.condensed) && <span className="ml-auto flex items-center gap-1 text-sky-300"><Play size={11} /> recap</span>}
           {g.home.radio && !done && <span className={`${g.recap ? '' : 'ml-auto'} flex items-center gap-1 text-emerald-300`}><Headphones size={11} /> radio</span>}
         </div>
@@ -257,6 +259,7 @@ export default function NHL() {
 
 type TeamOf = ReturnType<typeof useLeague>['team'];
 function GameSheet({ g, onClose, gmsIn, teamOf, ownerOf, inPool }: { g: Game | null; onClose: () => void; gmsIn: (g: Game) => [number, number][]; teamOf: TeamOf; ownerOf: (id: number) => ReturnType<TeamOf>; inPool: (id: number) => boolean }) {
+  const { me } = useLeague();
   const [d, setD] = useState<Detail | null>(null);
   const [video, setVideo] = useState<{ id: string; title: string } | null>(null);
   const [radio, setRadio] = useState<{ url: string; label: string } | null>(null);
@@ -274,6 +277,7 @@ function GameSheet({ g, onClose, gmsIn, teamOf, ownerOf, inPool }: { g: Game | n
   const x: Game = d ?? g;
   const live = LIVE.has(x.state), done = DONE.has(x.state);
   const gms = gmsIn(x);
+  const watch = watchOptions(x.tv, me?.tv);
   const Owner = ({ id }: { id: number }) => { const o = ownerOf(id); return o ? <span title={`${o.gm_name}'s player`} className="ml-1 inline-flex align-middle"><TeamBadge team={o} size={13} /></span> : null; };
   const Name = ({ id, name }: { id: number; name: string }) => inPool(id) ? <Link to={`/player/${id}`} className="hover:underline" onClick={onClose}>{name}</Link> : <>{name}</>;
   const box = d?.box?.[side];
@@ -291,15 +295,32 @@ function GameSheet({ g, onClose, gmsIn, teamOf, ownerOf, inPool }: { g: Game | n
         <div className="text-center text-xs text-mute">{x.venue}{x.date ? ` · ${fmtDay(x.date)}` : ''} · {fmtTime(x.start)}{x.tv.length > 0 && <> · 📺 {x.tv.map((t) => `${NET[t.network] ?? t.network}${t.country === 'CA' ? ' 🇨🇦' : t.country === 'US' ? ' 🇺🇸' : ''}`).join(', ')}</>}</div>
 
         {/* watch, listen, replay */}
+        {!done && watch.length > 0 && (
+          <div className="rounded-xl border border-white/[.08] bg-white/[.03] p-2.5">
+            <div className="mb-1.5 text-[11px] font-bold uppercase tracking-wider text-mute">Watch live</div>
+            <div className="flex flex-wrap gap-1.5">
+              {watch.map((w) => (
+                <a key={w.service.k} href={w.service.url} target="_blank" rel="noreferrer" title={w.service.note}
+                  className={`btn-sm inline-flex items-center gap-1 rounded-xl border px-2.5 py-1.5 text-sm font-semibold ${w.have ? 'border-sky-400/50 bg-sky-500/15 text-sky-100' : 'border-white/10 bg-white/[.04] text-slate-300'}`}>
+                  <Tv size={14} /> {w.service.name}{w.network !== 'NHL.TV' && w.network.toUpperCase() !== w.service.name.toUpperCase() ? <span className="text-[10px] font-normal text-mute">{w.network}</span> : null}{w.have && <span className="text-[10px]">✓</span>}<ExternalLink size={11} className="opacity-60" />
+                </a>
+              ))}
+            </div>
+            <div className="mt-1.5 text-[11px] text-mute">
+              {me?.tv?.provider ? <>Sign in on the broadcaster’s page with your <b>{me.tv.provider}</b> account{me.tv.services?.length ? '' : ' (or a subscription)'}. </> : <>Sign in on the broadcaster’s page with your TV provider (Telus, Rogers, Bell…) or a subscription. </>}
+              <Link to="/profile" className="text-sky-300" onClick={onClose}>Set your services</Link> and the ones you have get a ✓.
+            </div>
+          </div>
+        )}
         <div className="flex flex-wrap gap-1.5">
-          {x.link && <a href={x.link} target="_blank" rel="noreferrer" className="btn-ghost btn-sm"><Tv size={14} /> Watch on NHL.com <ExternalLink size={11} /></a>}
+          {x.link && <a href={x.link} target="_blank" rel="noreferrer" className="btn-ghost btn-sm"><Tv size={14} /> Game page on NHL.com <ExternalLink size={11} /></a>}
           {[x.away, x.home].filter((t) => t.radio).map((t) => <button key={t.abbrev} className={`btn-ghost btn-sm ${radio?.url === t.radio ? 'text-emerald-300' : ''}`} onClick={() => setRadio(radio?.url === t.radio ? null : { url: t.radio!, label: t.abbrev })}><Headphones size={14} /> {t.abbrev} radio</button>)}
           {x.recap && <button className="btn-ghost btn-sm" onClick={() => setVideo({ id: x.recap!, title: 'Game recap' })}><Play size={14} /> Recap</button>}
           {x.condensed && <button className="btn-ghost btn-sm" onClick={() => setVideo({ id: x.condensed!, title: 'Condensed game' })}><Play size={14} /> Condensed game</button>}
         </div>
         {radio && <RadioPlayer url={radio.url} label={radio.label} onClose={() => setRadio(null)} />}
         {video && <Video id={video.id} title={video.title} onClose={() => setVideo(null)} />}
-        {!live && !done && <p className="text-xs text-mute">Live streams are on the broadcasters listed above (Sportsnet+, ESPN+, NHL.tv where available). Radio and the highlight clips play right here.</p>}
+
 
         {gms.length > 0 && (
           <div className="flex flex-wrap items-center gap-1.5 text-xs"><span className="text-mute">SaK players in this game:</span>{gms.map(([t, n]) => <span key={t} className="flex items-center gap-1 rounded-full bg-white/[.05] px-2 py-0.5"><TeamBadge team={teamOf(t)} size={14} />{teamOf(t)?.gm_name} <span className="num text-mute">{n}</span></span>)}</div>
