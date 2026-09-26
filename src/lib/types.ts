@@ -57,6 +57,7 @@ export interface Game {
 
 export interface Standing {
   team_id: number; points: number; today: number; yesterday: number; last7: number; games: number; rank: number; moves: number;
+  bench: number; bench_today: number;   // points left on the bench (and IR): shown, never counted
 }
 
 export interface PlayerWindow { player_id: number; win: string; gp: number; fpts: number; totals: Record<string, number> }

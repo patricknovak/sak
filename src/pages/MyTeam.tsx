@@ -14,7 +14,7 @@ import { Pos, Section, TeamBadge, TeamName, useAction } from '../components/ui';
 const STARTERS: Slot[] = ['C', 'LW', 'RW', 'D', 'Util', 'G'];
 
 const slotOk = (p: Player, s: Slot) =>
-  s === 'BN' || s === 'IR' ? true : s === 'Util' ? p.pos !== 'G' : s === 'G' ? p.pos === 'G' : p.pos !== 'G' && p.elig.includes(s);
+  s === 'BN' ? true : s === 'IR' ? !!p.injury_status : s === 'Util' ? p.pos !== 'G' : s === 'G' ? p.pos === 'G' : p.pos !== 'G' && p.elig.includes(s);   // IR: injury report only
 
 export default function MyTeam() {
   const { id } = useParams();
@@ -126,6 +126,7 @@ export default function MyTeam() {
   const offseason = league?.phase !== 'season';
   const anyStarter = rows.some((r) => r.x);
   const todayTotal = rows.filter((r) => r.x).reduce((tot, r) => tot + (today.get(r.x!.p.id)?.fpts ?? 0), 0);
+  const benchTotal = [...bench, ...ir].reduce((tot, x) => tot + (today.get(x.p.id)?.fpts ?? 0), 0);   // shown, never counted
   const benchedWithGames = bench.filter((x) => gamesByTeam(x.p.nhl_team) && !locked(x.p));
   const emptyStarters = rows.filter((r) => !r.x).length;
 
@@ -193,7 +194,7 @@ export default function MyTeam() {
       {mine && league?.phase === 'season' && (
         <div className="card flex flex-wrap items-center gap-3 p-3">
           <div className="flex-1 text-sm">
-            <div><span className="font-semibold">Today: {fmtPts(todayTotal)} pts</span> <span className="text-mute">· tap a player, then tap where he should go</span></div>
+            <div><span className="font-semibold">Today: {fmtPts(todayTotal)} pts</span>{benchTotal > 0 && <span className="text-amber-300" title="Points your bench and IR scored today. They don’t count."> · {fmtPts(benchTotal)} left on the bench</span>}{st?.bench ? <span className="text-mute" title="Season total left on the bench"> · {fmtPts(st.bench)} benched this season</span> : null} <span className="text-mute">· tap a player, then tap where he should go</span></div>
             {benchedWithGames.length > 0 && <div className="text-xs text-amber-300">⚠️ {benchedWithGames.length} benched player{benchedWithGames.length > 1 ? 's' : ''} playing today</div>}
             {emptyStarters > 0 && <div className="text-xs text-amber-300">⚠️ {emptyStarters} empty starting slot{emptyStarters > 1 ? 's' : ''}</div>}
           </div>
