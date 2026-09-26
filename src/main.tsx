@@ -30,6 +30,7 @@ const PlayerPage = lazy(() => import('./pages/PlayerPage'));
 const Features = lazy(() => import('./pages/Features'));
 const DraftTV = lazy(() => import('./pages/DraftTV'));
 const Scoreboard = lazy(() => import('./pages/Scoreboard'));
+const NHL = lazy(() => import('./pages/NHL'));
 
 function Loading() {
   return <div className="grid min-h-[50dvh] place-items-center"><Spinner className="h-8 w-8" /></div>;
@@ -79,6 +80,7 @@ function App() {
           <Route path="/draft" element={<Draft />} />
           <Route path="/draft/tv" element={<DraftTV />} />
           <Route path="/scoreboard" element={<Scoreboard />} />
+          <Route path="/nhl" element={<NHL />} />
           <Route path="/keepers" element={<Keepers />} />
           <Route path="/team" element={<MyTeam />} />
           <Route path="/team/:id" element={<MyTeam />} />

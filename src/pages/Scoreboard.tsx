@@ -73,6 +73,7 @@ export default function Scoreboard() {
     <div className="space-y-4">
       <PageHeader icon={<Radio size={22} className={anyLive ? 'animate-pulse text-goal' : 'text-goal'} />} title="Live scoreboard"
         sub={slate.length ? `${slate.length} NHL game${slate.length > 1 ? 's' : ''} tonight · updates every minute` : 'No NHL games today.'} />
+      <Link to="/nhl" className="card flex items-center gap-3 p-3 text-sm transition active:scale-[.99]"><span className="text-2xl">🏒</span><span className="flex-1"><span className="font-semibold">Every NHL game, live</span><span className="block text-xs text-mute">Scores, goals with highlight clips, box scores, standings, schedule and team radio.</span></span><span className="text-mute">›</span></Link>
       {league?.phase !== 'season' && <div className="rounded-xl border border-amber-400/20 bg-amber-500/10 p-3 text-sm text-amber-100">The season hasn’t started. Once it does, this page follows every game night live: NHL scores up top, your starters’ points below.</div>}
 
       {slate.length > 0 && (
