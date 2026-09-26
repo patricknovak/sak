@@ -7,6 +7,7 @@ import { SEASONS, FRANCHISE_OF, type GM } from '../data/history';
 import { Section, TeamBadge, Toggle, useAction, useToast } from '../components/ui';
 import type { Team } from '../lib/types';
 import { PushCard } from '../components/PushCard';
+import { ConnectYahoo, useYahooStatus } from '../components/YahooConnect';
 
 const EMOJIS = ['🏒', '🥅', '🇨🇿', '🐦', '🐦‍⬛', '🦅', '🧔', '👨‍👦', '🕺', '😱', '🔥', '🐺', '🦁', '🐻', '🦈', '🍺', '👑', '💀', '🤠', '🧊', '⚡', '🚨', '🐐', '🦫'];
 const COLORS = ['#c8102e', '#e11d48', '#ea580c', '#f59e0b', '#16a34a', '#0f766e', '#0891b2', '#1d4ed8', '#7c3aed', '#db2777', '#111827', '#64748b'];
@@ -19,6 +20,7 @@ export default function Profile() {
   const [tv, setTv] = useState<{ provider?: string; services?: string[] }>({});
   useEffect(() => { setTv(me?.tv ?? {}); }, [me?.id]); // eslint-disable-line react-hooks/exhaustive-deps
   const [pw, setPw] = useState({ a: '', b: '' });
+  const yst = useYahooStatus();
   useEffect(() => { if (me) setF(me); }, [me?.id]);
   if (!me) return null;
 
@@ -88,6 +90,10 @@ export default function Profile() {
           </div>
           <button className="btn-primary" disabled={busy} onClick={() => run(async () => { await rpc('set_tv', { p_tv: tv }); await refresh(['teams']); }, 'Saved. Watch buttons will match your services.')}>Save</button>
         </div>
+      </Section>
+
+      <Section title="Yahoo Fantasy">
+        <div className="card p-3">{yst.st === undefined ? <span className="text-xs text-mute">Checking…</span> : <ConnectYahoo st={yst.st} onChange={yst.reload} />}</div>
       </Section>
 
       {career.length > 0 && (
