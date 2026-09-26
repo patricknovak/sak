@@ -35,7 +35,7 @@ export interface Roster {
 
 export interface DraftPick {
   id: number; season: string; round: number; original_team: number; team_id: number; overall: number | null;
-  player_id: number | null; picked_at: string | null; auto: boolean;
+  player_id: number | null; picked_at: string | null; auto: boolean; note: string | null;   // how the pick changed hands
 }
 
 export interface DraftState {

@@ -29,6 +29,7 @@ const Mock = lazy(() => import('./pages/Mock'));
 const PlayerPage = lazy(() => import('./pages/PlayerPage'));
 const Features = lazy(() => import('./pages/Features'));
 const DraftTV = lazy(() => import('./pages/DraftTV'));
+const DraftList = lazy(() => import('./pages/DraftList'));
 const Scoreboard = lazy(() => import('./pages/Scoreboard'));
 const NHL = lazy(() => import('./pages/NHL'));
 const Yahoo = lazy(() => import('./pages/Yahoo'));
@@ -83,6 +84,7 @@ function App() {
           <Route path="/" element={<Home />} />
           <Route path="/draft" element={<Draft />} />
           <Route path="/draft/tv" element={<DraftTV />} />
+          <Route path="/draft/list" element={<DraftList />} />
           <Route path="/scoreboard" element={<Scoreboard />} />
           <Route path="/nhl" element={<NHL />} />
           <Route path="/yahoo" element={<Yahoo />} />

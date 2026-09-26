@@ -341,6 +341,7 @@ export default function Draft() {
         </div>
         <div className="hidden min-w-0 flex-1 truncate text-xs text-mute lg:block">🔊 Horn when a pick lands, ticks under ten seconds on your clock. 📺 TV mode is the full board for the big screen.</div>
         <SoundToggle />
+        <Link to="/draft/list" className="btn-ghost btn-sm" title="The full pick order, traded picks and keepers">📋<span className="hidden sm:inline">Draft list</span></Link>
         <Link to="/draft/tv" className="btn-ghost btn-sm" title="TV mode: the full board for the big screen"><Tv size={16} /><span className="hidden sm:inline">TV mode</span></Link>
       </div>
 

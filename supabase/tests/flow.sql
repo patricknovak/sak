@@ -66,6 +66,10 @@ set role authenticated;
 select 'patrick mention notif', count(*) from notifications;
 -- ── draft
 select draft_set_order(array[5,7,2,1,4,3,6,8]);
+-- the commish can move a pick to another team (with a note) before the draft starts
+select commish_set_pick_owner((select id from draft_picks where season = (select season from draft_state) and round = 1 and original_team = 7), 2, 'test trade');
+select 'pick moved', team_id, note from draft_picks where season = (select season from draft_state) and round = 1 and original_team = 7;
+select commish_set_pick_owner((select id from draft_picks where season = (select season from draft_state) and round = 1 and original_team = 7), 7, null);
 select draft_start();
 reset role;
 select 'on clock', current_overall, (select team_id from draft_picks where overall = 1) from draft_state;
