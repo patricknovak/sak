@@ -51,7 +51,7 @@ export const FEATURE_GROUPS: FeatureGroup[] = [
     key: 'social', title: 'Trash talk', icon: '🔥', tagline: 'Where the league actually lives',
     features: [
       { key: 'chat', icon: '💬', title: 'League chat and DMs', to: '/chat', blurb: 'Trash Talk for everyone, a draft room channel, and private DMs with every GM.',
-        points: ['Reactions, replies and @mentions', 'Quick chirps one tap away', 'Unread dots so you never miss a shot'] },
+        points: ['“All” shows every chat in one feed (Trash Talk, your DMs, Ask Garry) except the draft room; the others are filters', 'Reactions, replies and @mentions', 'Quick chirps one tap away', 'Unread dots so you never miss a shot'] },
       { key: 'garry', icon: '🎙️', title: 'Garry, the league bot', to: '/chat', isNew: true, blurb: 'Our resident chirper: recaps, nudges, awards and answers, with sass.',
         points: ['Morning recap of last night with a Dangler of the Day coin bonus', 'Calls out sloppy lineups before puck drop', 'Say “Garry” anywhere and ask him anything: standings, players, your lineup, tonight’s games, rules, money', 'Your own private “Ask Garry” channel', 'Grades the draft the moment it ends', 'Monday column with the weekly awards and power rankings', 'Writes with Grok, with built-in lines as a backup'] },
       { key: 'polls', icon: '📊', title: 'Polls in chat', to: '/chat', isNew: true, blurb: 'Settle it with a vote. Anyone can start one in any channel.',
