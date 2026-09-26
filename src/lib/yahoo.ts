@@ -14,7 +14,15 @@ export async function yahoo<T>(task: string, body: Record<string, unknown> = {})
   return data as T;
 }
 
-export interface YStatus { configured: boolean; connected: boolean; guid: string | null; since: string | null; redirect: string }
+export interface YStatus { configured: boolean; connected: boolean; guid: string | null; since: string | null; writeOk: boolean | null; redirect: string }
+
+// Yahoo won't let its pages load inside another site (X-Frame-Options), so "the Yahoo window" is a real browser
+// window: one named popup beside SaK on a desktop, a new tab on a phone. The GM's Yahoo login lives there.
+export function openYahoo(url: string) {
+  const desktop = window.matchMedia('(min-width: 1024px)').matches;
+  const w = desktop ? window.open(url, 'sak-yahoo', `popup=yes,width=1180,height=${Math.min(900, window.screen.availHeight - 60)},left=${Math.max(0, window.screen.availWidth - 1200)},top=30`) : window.open(url, '_blank');
+  w?.focus();
+}
 export interface YTeam {
   key: string; id: number | null; name: string; url: string | null; logo: string | null; managers: string[]; mine: boolean; commissioner: boolean; commishNames: string[];
   waiver: number | null; faab: number | null; moves: number | null; trades: number | null; clinched: boolean;

@@ -104,7 +104,7 @@ export default function Home() {
               <div className="label flex items-center gap-1.5 text-white/70"><ClipboardList size={12} /> Draft night</div>
               <div className="mt-2">{league?.draft_at ? <Countdown ms={new Date(league.draft_at).getTime() - now} size="md" /> : <span className="h-display text-2xl">TBD</span>}</div>
               <div className="mt-1 text-xs text-white/60">{league?.draft_at && fmtDateTime(league.draft_at)} · {league?.pick_seconds}s clock · {league?.draft_rounds} rounds</div>
-              <div className="mt-3 grid grid-cols-[1fr_auto] gap-2"><Link to="/draft" className="btn-blue">📋 Draft room</Link><Link to="/mock" className="btn-ghost">🧪 Mock draft</Link></div>
+              <div className="mt-3 grid grid-cols-[1fr_auto_auto] gap-2"><Link to="/draft" className="btn-blue">📋 Draft room</Link><Link to="/draft/list" className="btn-ghost" title="Pick order, traded picks and keepers">🔢 Order</Link><Link to="/mock" className="btn-ghost">🧪 Mock draft</Link></div>
             </div>
           )}
           {(draft?.status === 'live' || draft?.status === 'paused') && (

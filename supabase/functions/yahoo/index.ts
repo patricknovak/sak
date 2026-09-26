@@ -21,7 +21,7 @@
 //
 // Secrets: YAHOO_CLIENT_ID and YAHOO_CLIENT_SECRET from a Yahoo developer app (Fantasy Sports), as edge function
 // secrets or as Vault secrets yahoo_client_id / yahoo_client_secret; optional YAHOO_REDIRECT_URI (default: the
-// site root, which must match the app's registered redirect URI).
+// site root, which must match the app's registered redirect URI); optional YAHOO_SCOPE (default fspt-r).
 import { createClient } from 'jsr:@supabase/supabase-js@2';
 import { XMLParser } from 'npm:fast-xml-parser@4.5.0';
 
@@ -41,6 +41,9 @@ async function loadCreds() {
   credsChecked = !!(CLIENT_ID && CLIENT_SECRET);
 }
 const REDIRECT = Deno.env.get('YAHOO_REDIRECT_URI') ?? 'https://patricknovak.github.io/sak/';
+// the OAuth scope to ask for: fspt-r (Fantasy Sports read) or fspt-w (read/write, only if the Yahoo app has it).
+// Without an explicit scope Yahoo issues a token that can't call the Fantasy API at all ("not authorized").
+const SCOPE = Deno.env.get('YAHOO_SCOPE') ?? 'fspt-r';
 const API = 'https://fantasysports.yahooapis.com/fantasy/v2';
 const cors = { 'Access-Control-Allow-Origin': '*', 'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type', 'Access-Control-Allow-Methods': 'POST, OPTIONS' };
 const json = (body: unknown, status = 200) => new Response(JSON.stringify(body), { status, headers: { ...cors, 'Content-Type': 'application/json' } });
@@ -48,7 +51,7 @@ const json = (body: unknown, status = 200) => new Response(JSON.stringify(body),
 class Fail extends Error { constructor(msg: string, public status = 400) { super(msg); } }
 
 // ───────────── the GM calling ─────────────
-interface Acct { team_id: number; guid: string | null; access_token: string | null; refresh_token: string | null; expires_at: string | null; state: string | null; state_at: string | null; connected_at: string | null }
+interface Acct { team_id: number; guid: string | null; access_token: string | null; refresh_token: string | null; expires_at: string | null; state: string | null; state_at: string | null; connected_at: string | null; write_ok: boolean | null }
 
 async function caller(req: Request) {
   const jwt = (req.headers.get('Authorization') ?? '').replace('Bearer ', '');
@@ -70,6 +73,7 @@ async function tokenRequest(body: Record<string, string>) {
     body: new URLSearchParams(body),
   });
   const j = await r.json().catch(() => ({}));
+  console.log('yahoo token', body.grant_type, r.status, Object.keys(j).join(','), j.scope ?? '', j.token_type ?? '', j.expires_in ?? '');
   if (!r.ok || !j.access_token) throw new Fail(`Yahoo sign-in failed: ${j.error_description ?? j.error ?? r.status}`, 502);
   return j as { access_token: string; refresh_token: string; expires_in: number; xoauth_yahoo_guid?: string };
 }
@@ -81,11 +85,19 @@ async function saveTokens(teamId: number, t: { access_token: string; refresh_tok
   return row.access_token;
 }
 
+// one refresh at a time per GM: parallel reads must not each spend the refresh token (Yahoo rotates it)
+const refreshing = new Map<number, Promise<string>>();
 async function accessToken(acct: Acct | null) {
   if (!acct?.refresh_token) throw new Fail('Connect your Yahoo account first', 412);
   if (acct.access_token && acct.expires_at && new Date(acct.expires_at) > new Date()) return acct.access_token;
-  const t = await tokenRequest({ grant_type: 'refresh_token', redirect_uri: REDIRECT, refresh_token: acct.refresh_token });
-  return saveTokens(acct.team_id, t);
+  let p = refreshing.get(acct.team_id);
+  if (!p) {
+    p = tokenRequest({ grant_type: 'refresh_token', redirect_uri: REDIRECT, refresh_token: acct.refresh_token })
+      .then((t) => { acct.access_token = t.access_token; acct.refresh_token = t.refresh_token; acct.expires_at = new Date(Date.now() + (t.expires_in - 60) * 1000).toISOString(); return saveTokens(acct.team_id, t); })
+      .finally(() => refreshing.delete(acct.team_id));
+    refreshing.set(acct.team_id, p);
+  }
+  return p;
 }
 
 // ───────────── Yahoo API ─────────────
@@ -122,9 +134,17 @@ async function ycall(acct: Acct, method: string, path: string, body?: string, re
   }
   const doc = text ? xml.parse(text) : {};
   if (!r.ok) {
-    const desc = doc?.error?.description ?? doc?.yahoo_error?.description ?? text.slice(0, 200) ?? r.statusText;
-    throw new Fail(`Yahoo: ${String(desc).replace(/<[^>]+>/g, '').trim() || r.status}`, r.status === 401 ? 401 : 502);
+    console.error('yahoo api', method, path, r.status, text.slice(0, 600));
+    const desc = String(doc?.error?.description ?? doc?.yahoo_error?.description ?? text.slice(0, 200) ?? r.statusText).replace(/<[^>]+>/g, '').trim();
+    if (method !== 'GET' && (r.status === 401 || r.status === 403 || /scope|permission|not allowed|read.only/i.test(desc))) {
+      // the Yahoo app only has read access (Yahoo no longer offers Read/Write to every app): remember it so the site
+      // sends this GM to Yahoo's own pages for changes instead
+      await db.from('yahoo_accounts').update({ write_ok: false, updated_at: new Date().toISOString() }).eq('team_id', acct.team_id);
+      throw new Fail(`Yahoo only lets SaK read your leagues, so this change has to be made on Yahoo itself. Use “Manage on Yahoo”. (${desc || r.status})`, 403);
+    }
+    throw new Fail(`Yahoo: ${desc || r.status}`, r.status === 401 ? 401 : 502);
   }
+  if (method !== 'GET' && acct.write_ok !== true) db.from('yahoo_accounts').update({ write_ok: true }).eq('team_id', acct.team_id).then(() => {}, () => {});
   return doc?.fantasy_content ?? doc;
 }
 
@@ -347,14 +367,14 @@ Deno.serve(async (req) => {
     await loadCreds();
     const connected = !!acct?.refresh_token;
 
-    if (task === 'status') return json({ configured: configured(), connected, guid: connected ? acct?.guid ?? null : null, since: connected ? acct?.connected_at : null, redirect: REDIRECT });
+    if (task === 'status') return json({ configured: configured(), connected, guid: connected ? acct?.guid ?? null : null, since: connected ? acct?.connected_at : null, writeOk: connected ? acct?.write_ok ?? null : null, redirect: REDIRECT });
     if (!configured()) throw new Fail('Yahoo sign-in is not set up yet: the commissioner needs to add YAHOO_CLIENT_ID and YAHOO_CLIENT_SECRET to the Supabase secrets.', 503);
 
     if (task === 'auth_url') {
       const state = crypto.randomUUID().replace(/-/g, '');
       const { error } = await db.from('yahoo_accounts').upsert({ team_id: team.id, state, state_at: new Date().toISOString(), updated_at: new Date().toISOString() });
       if (error) throw new Fail(error.message, 500);
-      const q = new URLSearchParams({ client_id: CLIENT_ID, redirect_uri: REDIRECT, response_type: 'code', state, language: 'en-us' });
+      const q = new URLSearchParams({ client_id: CLIENT_ID, redirect_uri: REDIRECT, response_type: 'code', scope: SCOPE, state, language: 'en-us' });
       return json({ url: `https://api.login.yahoo.com/oauth2/request_auth?${q}` });
     }
     if (task === 'exchange') {

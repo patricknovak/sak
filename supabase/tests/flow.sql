@@ -19,6 +19,23 @@ do $$ begin
   perform set_keepers(array[(select player_id from rosters where team_id = 1 limit 1)]);
   raise exception 'kept other team player';
 exception when others then if sqlerrm not like '%own roster%' then raise; end if; end $$;
+reset role;
+-- the commissioner can enter a GM's keepers for him (the GM's own save below then overrides them)
+select pg_temp.as_team(1);
+set role authenticated;
+do $$ begin
+  perform commish_set_keepers(2, array[(select top_scorer(2))]);
+  raise exception 'commish kept the top scorer';
+exception when others then if sqlerrm not like '%top scorer%' then raise; end if; end $$;
+select commish_set_keepers(2, (select array_agg(player_id) from (select player_id from rosters where team_id = 2 and player_id <> top_scorer(2) order by prev_fp desc limit 3) x));
+reset role;
+select 'commish keepers team2', keepers_submitted, (select count(*) from rosters where team_id = 2 and keeper) as kept from teams where id = 2;
+select pg_temp.as_team(2);
+set role authenticated;
+do $$ begin
+  perform commish_set_keepers(2, array[]::int[]);
+  raise exception 'non-commish used commish_set_keepers';
+exception when others then if sqlerrm not like '%Commissioner%' then raise; end if; end $$;
 select set_keepers((select array_agg(player_id) from (select player_id from rosters where team_id = 2 and player_id <> top_scorer(2) order by prev_fp desc limit 6) x));
 reset role;
 select 'keepers team2', count(*) from rosters where team_id = 2 and keeper;
@@ -49,6 +66,10 @@ set role authenticated;
 select 'patrick mention notif', count(*) from notifications;
 -- ── draft
 select draft_set_order(array[5,7,2,1,4,3,6,8]);
+-- the commish can move a pick to another team (with a note) before the draft starts
+select commish_set_pick_owner((select id from draft_picks where season = (select season from draft_state) and round = 1 and original_team = 7), 2, 'test trade');
+select 'pick moved', team_id, note from draft_picks where season = (select season from draft_state) and round = 1 and original_team = 7;
+select commish_set_pick_owner((select id from draft_picks where season = (select season from draft_state) and round = 1 and original_team = 7), 7, null);
 select draft_start();
 reset role;
 select 'on clock', current_overall, (select team_id from draft_picks where overall = 1) from draft_state;
@@ -393,3 +414,4 @@ select 'multi trade', (select status from trades where id = :multi) as status,
   (select team_id from rosters where player_id = :m2) = 3 as p2_to_3, (select team_id from rosters where player_id = :m3) = 4 as p3_to_4,
   (select team_id from draft_picks where id = :k4) = 2 as pick_to_2,
   (select count(*) from messages where body like '🔄 TRADE! 3-team deal%') as announced;
+
