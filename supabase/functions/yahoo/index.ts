@@ -21,7 +21,7 @@
 //
 // Secrets: YAHOO_CLIENT_ID and YAHOO_CLIENT_SECRET from a Yahoo developer app (Fantasy Sports), as edge function
 // secrets or as Vault secrets yahoo_client_id / yahoo_client_secret; optional YAHOO_REDIRECT_URI (default: the
-// site root, which must match the app's registered redirect URI).
+// site root, which must match the app's registered redirect URI); optional YAHOO_SCOPE (default fspt-r).
 import { createClient } from 'jsr:@supabase/supabase-js@2';
 import { XMLParser } from 'npm:fast-xml-parser@4.5.0';
 
@@ -41,6 +41,9 @@ async function loadCreds() {
   credsChecked = !!(CLIENT_ID && CLIENT_SECRET);
 }
 const REDIRECT = Deno.env.get('YAHOO_REDIRECT_URI') ?? 'https://patricknovak.github.io/sak/';
+// the OAuth scope to ask for: fspt-r (Fantasy Sports read) or fspt-w (read/write, only if the Yahoo app has it).
+// Without an explicit scope Yahoo issues a token that can't call the Fantasy API at all ("not authorized").
+const SCOPE = Deno.env.get('YAHOO_SCOPE') ?? 'fspt-r';
 const API = 'https://fantasysports.yahooapis.com/fantasy/v2';
 const cors = { 'Access-Control-Allow-Origin': '*', 'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type', 'Access-Control-Allow-Methods': 'POST, OPTIONS' };
 const json = (body: unknown, status = 200) => new Response(JSON.stringify(body), { status, headers: { ...cors, 'Content-Type': 'application/json' } });
@@ -361,7 +364,7 @@ Deno.serve(async (req) => {
       const state = crypto.randomUUID().replace(/-/g, '');
       const { error } = await db.from('yahoo_accounts').upsert({ team_id: team.id, state, state_at: new Date().toISOString(), updated_at: new Date().toISOString() });
       if (error) throw new Fail(error.message, 500);
-      const q = new URLSearchParams({ client_id: CLIENT_ID, redirect_uri: REDIRECT, response_type: 'code', state, language: 'en-us' });
+      const q = new URLSearchParams({ client_id: CLIENT_ID, redirect_uri: REDIRECT, response_type: 'code', scope: SCOPE, state, language: 'en-us' });
       return json({ url: `https://api.login.yahoo.com/oauth2/request_auth?${q}` });
     }
     if (task === 'exchange') {
