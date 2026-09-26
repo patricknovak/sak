@@ -9,7 +9,7 @@ import { PollCard, PollComposer } from './PollCard';
 import { Link } from 'react-router-dom';
 
 const REACTIONS = ['🔥', '😂', '🤡', '👏', '💀', '🍺', '🚨', '🪣'];
-const ASK_GARRY = ['Who’s winning?', 'How’s my lineup?', 'Who should I pick up?', 'How do trades work?', 'What’s the prize money?', 'When’s the draft?', 'How do keepers work?', 'What’s the scoring?'];
+const ASK_GARRY = ['Roast me', 'Trash talk the leader', 'Tell me a joke', 'Who’s winning?', 'How’s my lineup?', 'Who should I pick up?', 'How do trades work?', 'What’s the prize money?', 'When’s the draft?', 'How do keepers work?', 'What’s the scoring?'];
 // Garry points at pages with "👉 #/path"; those become buttons
 const LINK_LABEL: [string, string][] = [['/player/', 'Player page'], ['/team', 'My lineup'], ['/standings', 'Standings'], ['/trades', 'Trades'], ['/players', 'Players'],
   ['/keepers', 'Keepers'], ['/draft', 'Draft room'], ['/bets', 'Side bets'], ['/profile', 'Profile'], ['/nhl?t=injuries', 'Injuries'], ['/nhl', 'NHL centre'], ['/features', 'Features'], ['/league?t=money', 'Prize money'], ['/league', 'Rulebook']];
@@ -139,6 +139,7 @@ export function ChatPanel({ channel, compact, className = '' }: { channel: strin
   const Tag = ({ c }: { c: string }) => { if (!all) return null; const t = tagOf(c); return <span className={`rounded px-1 py-px text-[10px] font-semibold ${t.cls}`}>{t.label}</span>; };
   // Garry is "typing" for a bit after someone asks him something
   const isGarry = channel.startsWith('garry:');
+  const roastTarget = useMemo(() => { const others = teams.filter((t) => t.id !== me?.id && t.role !== 'spectator'); return others.length ? others[Math.floor(Math.random() * others.length)].gm_name : null; }, [teams, me?.id]);
   const last = msgs[msgs.length - 1];
   const asked = !!last && last.kind === 'user' && last.team_id === me?.id && (isGarry || /\bgarry\b/i.test(last.body));
   const [, tick] = useState(0);
@@ -241,7 +242,7 @@ export function ChatPanel({ channel, compact, className = '' }: { channel: strin
       <div className="border-t border-white/[.07] bg-[#0b1222]/70 p-2 backdrop-blur-xl">
         {isGarry && !text && (
           <div className="scroll-x mb-1 flex gap-1">
-            {ASK_GARRY.map((q) => <button key={q} className="chip shrink-0 py-1 text-xs" onClick={() => send(q)}>{q}</button>)}
+            {[...ASK_GARRY.slice(0, 1), ...(roastTarget ? [`Roast ${roastTarget}`] : []), ...ASK_GARRY.slice(1)].map((q) => <button key={q} className="chip shrink-0 py-1 text-xs" onClick={() => send(q)}>{q}</button>)}
           </div>
         )}
         {replyTo && (
