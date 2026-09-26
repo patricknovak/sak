@@ -415,3 +415,38 @@ select 'multi trade', (select status from trades where id = :multi) as status,
   (select team_id from draft_picks where id = :k4) = 2 as pick_to_2,
   (select count(*) from messages where body like '🔄 TRADE! 3-team deal%') as announced;
 
+
+-- ───────────── side bets v2: tracked bets settle from the box scores, pools pay the pot ─────────────
+insert into games (id, date, start_utc, home, away, state) select 3, today_et() - 1, now() - interval '30 hours', p.nhl_team, 'ZZZ', 'OFF' from players p where p.name = 'Connor McDavid';
+insert into player_games (game_id, player_id, date, stats) select 3, id, today_et() - 1, '{"g":1,"a":2,"sog":4}' from players where name = 'Connor McDavid';
+select pg_temp.as_team(7);
+set role authenticated;
+select create_bet_v2(jsonb_build_object('opponent', 8, 'title', 'McDavid over 0.5 goals', 'kind', 'player_ou', 'coins', 40,
+  'start', (today_et() - 1)::text, 'end', (today_et() - 1)::text,
+  'subject', jsonb_build_object('player_id', (select id from players where name = 'Connor McDavid'), 'stat', 'g', 'line', 0.5, 'side', 'over'))) as ou_id \gset
+select create_bet_v2(jsonb_build_object('title', 'Pick a player: most fantasy points yesterday', 'kind', 'pool_player', 'coins', 30,
+  'start', (today_et() - 1)::text, 'end', (today_et() - 1)::text, 'entry_close', (today_et() - 1)::text,
+  'subject', jsonb_build_object('player_id', (select id from players where name = 'Connor McDavid')))) as pool_id \gset
+do $$ begin perform create_bet_v2(jsonb_build_object('title', 'no dates', 'kind', 'player_vs', 'coins', 1, 'subject', '{}'::jsonb)); raise exception 'dateless tracked bet allowed';
+exception when others then if sqlerrm not like '%start and end date%' then raise; end if; end $$;
+reset role;
+select pg_temp.as_team(8);
+set role authenticated;
+select respond_bet(:ou_id, true);
+reset role;
+-- entries closed yesterday; reopen them for the join test, then close again before settling
+update bets set entry_close = today_et() where id = :pool_id;
+select pg_temp.as_team(8);
+set role authenticated;
+select join_pool(:pool_id, jsonb_build_object('player_id', (select id from players where name <> 'Connor McDavid' order by proj desc limit 1)));
+select set_config('sak.pool_id', :'pool_id', false);
+do $$ begin perform join_pool(current_setting('sak.pool_id')::bigint, jsonb_build_object('player_id', 1)); raise exception 'double entry allowed';
+exception when others then if sqlerrm not like '%already in%' then raise; end if; end $$;
+reset role;
+select 'progress ou (expect value 1)', bet_progress(:ou_id)->>'value' as value, bet_progress(:ou_id)->>'line' as line;
+select 'escrow team 8 (expect 70 = 40 + 30)', escrow from coin_balances where team_id = 8;
+update bets set entry_close = today_et() - 1 where id = :pool_id;
+select 'settle', settle_due_bets()->>'settled' as settled;
+select 'ou settled (expect 7 wins)', status, winner_team, push from bets where id = :ou_id;
+select 'pool settled (expect 7 wins 60)', status, winner_team, result->>'pot' as pot from bets where id = :pool_id;
+select 'coins after (7 up 70, 8 down 70)', team_id, balance, escrow from coin_balances where team_id in (7, 8) order by team_id;

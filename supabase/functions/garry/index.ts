@@ -343,7 +343,7 @@ async function chirp(m: { id: number; channel: string; team_id: number; body: st
     const w = (bets ?? []).filter((b) => b.winner_team === target!.id).length, l = (bets ?? []).length - w;
     facts.target = {
       gm: target.gm_name, team: target.name, last_season: LAST_SEASON[target.gm_name] ?? null,
-      standing: st ? { rank: st.rank, points: Number(st.points) } : 'no games yet',
+      standing: st && Number(st.points) > 0 ? { rank: st.rank, points: Number(st.points) } : 'no games yet (season not started, so no standings to brag about)',
       keepers_submitted: target.keepers_submitted, auto_lineup: target.auto_lineup,
       bet_record: `${w}-${l}`, coins: bal?.balance ?? null,
       injured_on_roster: (ps ?? []).filter((p) => p.injury_status).map((p) => `${p.name} (${p.injury_status})`).slice(0, 4),
