@@ -1,7 +1,9 @@
 // Voice and video for draft night. Two ways in: a call link the commish pasted (Google Meet, FaceTime,
 // Discord, whatever the group uses) or the built-in room, which is a Jitsi Meet call embedded in the draft
 // page (free, no account or app needed, works in the phone browser). Jitsi's public server asks the first
-// person in to sign in with Google or GitHub so the room has a moderator; everyone after just joins.
+// person in to sign in with Google or GitHub so the room has a moderator (the sign-in popup is blocked inside an
+// iframe on some phones, so the commish gets a "Host the room" link that opens the room in its own tab); everyone
+// after just joins.
 import { useEffect, useRef, useState } from 'react';
 import { Mic, PhoneOff, Video, ExternalLink } from 'lucide-react';
 import { useLeague } from '../lib/store';
@@ -61,11 +63,12 @@ export function DraftCall({ tall }: { tall?: boolean }) {
           <div className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-emerald-500/15 text-emerald-300"><Video size={20} /></div>
           <div className="min-w-0 flex-1 text-sm">
             <div className="font-semibold">Draft night voice & video</div>
-            <div className="text-xs text-mute">Built-in room, no app needed. Camera starts off, mic on. The first one in signs in (Google or GitHub) to open the room; everyone after just joins.</div>
+            <div className="text-xs text-mute">Built-in room, no app needed. Camera starts off, mic on.{me?.is_commish ? ' You open the room: tap “Host the room”, choose “I am the host” and sign in with Google. After that everyone just joins.' : ' The commish opens the room first; if you see “waiting for a moderator”, hang tight, it starts the moment he signs in.'}</div>
           </div>
           <div className="flex shrink-0 flex-col gap-1">
-            <button className="btn-primary btn-sm" onClick={() => { setErr(null); setJoined(true); }}><Mic size={14} /> Join here</button>
-            <a href={jitsiUrl} target="_blank" rel="noopener noreferrer" className="btn-ghost btn-sm text-xs">New tab <ExternalLink size={11} /></a>
+            {me?.is_commish && <a href={jitsiUrl} target="_blank" rel="noopener noreferrer" className="btn-gold btn-sm"><Mic size={14} /> Host the room <ExternalLink size={11} className="opacity-60" /></a>}
+            <button className={`${me?.is_commish ? 'btn-ghost' : 'btn-primary'} btn-sm`} onClick={() => { setErr(null); setJoined(true); }}><Mic size={14} /> Join here</button>
+            {!me?.is_commish && <a href={jitsiUrl} target="_blank" rel="noopener noreferrer" className="btn-ghost btn-sm text-xs">New tab <ExternalLink size={11} /></a>}
           </div>
         </div>
       ) : (
@@ -76,7 +79,7 @@ export function DraftCall({ tall }: { tall?: boolean }) {
             <button className="btn-ghost btn-sm text-red-300" onClick={() => setJoined(false)}><PhoneOff size={14} /> Leave</button>
           </div>
           {err ? <div className="p-3 text-sm text-red-300">{err} <a href={jitsiUrl} target="_blank" rel="noopener noreferrer" className="underline">Open in a new tab</a></div>
-            : <div ref={box} className={tall ? 'min-h-0 flex-1' : 'h-[300px]'} />}
+            : <div ref={box} className={tall ? 'min-h-0 flex-1' : 'h-[460px]'} />}
         </>
       )}
     </div>

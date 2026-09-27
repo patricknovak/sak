@@ -8,6 +8,12 @@ export const START_SLOTS: StartSlot[] = ['C', 'LW', 'RW', 'D', 'Util', 'G'];
 export const DEFAULT_CAPS: Record<string, number> = { C: 2, LW: 2, RW: 2, D: 3, Util: 1, G: 2, BN: 12, IR: 2 };
 // a sane ceiling per position so bots don't draft nine defencemen
 const POS_CAP: Record<string, number> = { C: 7, LW: 7, RW: 7, D: 9, G: 4 };
+// a balanced 24-man roster: the bench isn't a pile of "best available", it's depth spread over the positions
+// so a full lineup can be dressed every night of the season and the playoffs. 21 targeted spots + 3 flex.
+export const DEPTH: Record<string, number> = { C: 4, LW: 4, RW: 4, D: 6, G: 3 };
+export const FLEX = 3;
+export const DEPTH_POS = ['C', 'LW', 'RW', 'D', 'G'] as const;
+export type Fit = StartSlot | 'depth' | 'flex' | 'BN';
 
 export interface Needs {
   filled: Record<StartSlot, Player[]>;      // who fills each starting slot (best projected first)
@@ -16,6 +22,10 @@ export interface Needs {
   benchOpen: number;                        // bench spots left
   total: number;                            // roster spots left (starters + bench)
   gaps: string[];                           // "1 LW", "2 G" …
+  depth: Record<string, { have: number; target: number }>;   // by position, everyone counted (starters and bench)
+  depthGaps: string[];                      // positions still under their depth target: "2 C", "1 G"
+  flexOpen: number;                         // flex spots left once every position is at target
+  balanced: boolean;                        // every position at or above target
 }
 
 // greedy lineup: scarce slots first, best projected player who's eligible, Util takes any skater
@@ -38,8 +48,27 @@ export function needsOf(ps: Player[], caps: Record<string, number> = DEFAULT_CAP
   const total = Math.max(0, starters + (caps.BN ?? 0) - ps.length);
   const benchOpen = Math.max(0, (caps.BN ?? 0) - bench.length);
   const gaps = START_SLOTS.filter((s) => open[s] > 0).map((s) => `${open[s]} ${s}`);
-  return { filled, open, bench, benchOpen, total, gaps };
+  // depth: count everyone by primary position (a LW/RW counts where he's listed), against the balanced targets
+  const depth = Object.fromEntries(DEPTH_POS.map((k) => [k, { have: ps.filter((p) => p.pos === k).length, target: DEPTH[k] }]));
+  const depthGaps = DEPTH_POS.filter((k) => depth[k].have < depth[k].target).map((k) => `${depth[k].target - depth[k].have} ${k}`);
+  const overTarget = DEPTH_POS.reduce((n, k) => n + Math.max(0, depth[k].have - depth[k].target), 0);
+  const flexOpen = Math.max(0, FLEX - overTarget);
+  return { filled, open, bench, benchOpen, total, gaps, depth, depthGaps, flexOpen, balanced: depthGaps.length === 0 };
 }
+
+// how a player would land on this roster: a starting slot, depth at a position that still needs it, a flex
+// spot, or a pure bench body at a position that's already full
+export function fitOf(p: Player, n: Needs): Fit {
+  if (p.pos === 'G') return n.open.G > 0 ? 'G' : n.depth.G.have < n.depth.G.target ? 'depth' : 'BN';   // a fourth goalie is never flex
+  for (const s of ['C', 'LW', 'RW', 'D'] as const) if (n.open[s] > 0 && p.elig.includes(s)) return s;
+  if (n.open.Util > 0) return 'Util';
+  const d = n.depth[p.pos]; if (d && d.have < d.target) return 'depth';
+  // a LW/RW-eligible winger can cover the other wing's depth too
+  if (p.pos !== 'D' && p.elig.some((e) => e !== p.pos && n.depth[e] && n.depth[e].have < n.depth[e].target)) return 'depth';
+  return n.flexOpen > 0 ? 'flex' : 'BN';
+}
+export const fitLabel = (f: Fit, pos?: string) => f === 'depth' ? `depth ${pos ?? ''}`.trim() : f === 'flex' ? 'flex' : f === 'BN' ? 'surplus' : `fills ${f}`;
+export const fitClass = (f: Fit) => f === 'BN' ? 'bg-white/[.06] text-mute' : f === 'flex' ? 'bg-white/[.08] text-slate-200' : f === 'depth' ? 'bg-sky-500/15 text-sky-200' : 'bg-amber-500/15 text-amber-200';
 
 // where a player would go on this roster right now
 export function fitFor(p: Player, n: Needs): StartSlot | 'BN' {
@@ -62,9 +91,11 @@ export function botChoose(mine: Player[], avail: Player[], round: number, rounds
   const late = round > rounds - 5;
   const cands = avail.filter((p) => count(p.pos) < (POS_CAP[p.pos] ?? 9)).slice(0, 45).map((p) => {
     let v = p.proj * (0.92 + rand() * 0.16);
-    const fit = fitFor(p, n);
-    if (fit !== 'BN') v *= fit === 'G' ? (round >= 3 ? 1.22 : 1.05) : 1.12;
-    else v *= late ? 0.7 : 0.85;
+    const fit = fitOf(p, n);
+    if (fit === 'depth') v *= 1.0;
+    else if (fit === 'flex') v *= 0.88;
+    else if (fit === 'BN') v *= late ? 0.55 : 0.7;
+    else v *= fit === 'G' ? (round >= 3 ? 1.22 : 1.05) : 1.12;
     if (p.pos === 'G' && count('G') >= 3) v *= 0.4;
     if (p.injury_status === 'Out' || p.injury_status === 'Suspension' || p.injury_status === 'Injured Reserve') v *= 0.8;
     if (n.total <= 0) v *= 0.5;

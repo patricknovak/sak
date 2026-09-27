@@ -1,5 +1,6 @@
 // Plays draft sounds off the shared draft state: a sting (or the horn for you) when a pick lands, ticks under
-// ten seconds while someone is on the clock, a buzzer at zero. Also the toggle button.
+// ten seconds while someone is on the clock, a buzzer at zero, the big horn when you come on the clock. Also the
+// toggle button. Browsers only start audio after a tap, so the draft page unlocks it on the first touch.
 import { useEffect, useRef, useState } from 'react';
 import { useLeague, useNow } from '../lib/store';
 import { buzzer, horn, setSounds, sting, soundsOn, tick, unlockAudio } from '../lib/sounds';
@@ -22,6 +23,11 @@ export function useDraftSounds(on: boolean, opts: { everyone?: boolean } = {}) {
     }
     lastMade.current = made;
   }, [made]); // eslint-disable-line react-hooks/exhaustive-deps
+  // your turn: the horn, once per pick
+  const alarmed = useRef<number | null>(null);
+  useEffect(() => {
+    if (on && mine && current?.overall != null && alarmed.current !== current.overall) { alarmed.current = current.overall; horn(true); }
+  }, [mine, current?.overall, on]);
   useEffect(() => {
     if (!on || draft?.status !== 'live' || !(mine || opts.everyone)) { lastSec.current = null; return; }
     const sec = Math.ceil(remaining / 1000);

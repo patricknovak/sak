@@ -6,7 +6,7 @@ import { supabase } from '../lib/supabase';
 import type { Player } from '../lib/types';
 import { fmtPts, readable } from '../lib/format';
 import { gradeColor, gradeTeams, lineupStrength, pickValues, projectedKeepers } from '../lib/grades';
-import { availabilityOdds, botChoose, fitFor, needsOf, simulateDraft, type Outlook, type SimPick } from '../lib/draftsim';
+import { availabilityOdds, botChoose, fitClass, fitLabel, fitOf, needsOf, simulateDraft, type Outlook, type SimPick } from '../lib/draftsim';
 import { PlayerRow, PlayerSheet } from '../components/PlayerCard';
 import { PlayerFilterBar, usePlayerFilter } from '../components/PlayerFilters';
 import { NeedsStrip, RosterNeeds } from '../components/RosterNeeds';
@@ -163,7 +163,7 @@ export default function Mock() {
   const untilMine = current ? board.filter((b) => !b.pid).findIndex((b) => b.team === me.id) : -1;
   const remaining = deadline ? deadline - now : 0;
   const myRealPicks = realBoard.filter((b) => b.team === me.id && !b.pid);
-  const fitTag = (p: Player) => { const f = fitFor(p, myNeeds); return f === 'BN' ? 'bench' : `fills ${f}`; };
+  const fitTag = (p: Player) => fitLabel(fitOf(p, myNeeds), p.pos);
 
   if (phase === 'setup') {
     const Opt = <T extends number>({ v, set, opts, fmt }: { v: T; set: (x: T) => void; opts: T[]; fmt: (x: T) => string }) => (
@@ -317,7 +317,7 @@ export default function Mock() {
           {myTurn && (
             <div className="scroll-x flex gap-1.5 border-b border-white/[.07] p-2 text-xs">
               <span className="shrink-0 self-center text-mute">Best by position:</span>
-              {['C', 'LW', 'RW', 'D', 'G'].map((k) => { const p = bestBy(k); return p ? <button key={k} className={`chip shrink-0 py-1 ${myNeeds.open[k as 'C'] > 0 ? 'border-amber-300/40 bg-amber-500/10' : ''}`} onClick={() => setDetail(p.id)}><b>{k}</b> {p.last_name} <span className="text-mute">{Math.round(p.proj)}</span></button> : null; })}
+              {['C', 'LW', 'RW', 'D', 'G'].map((k) => { const p = bestBy(k); return p ? <button key={k} className={`chip shrink-0 py-1 ${myNeeds.open[k as 'C'] > 0 ? 'border-amber-300/40 bg-amber-500/10' : myNeeds.depth[k].have < myNeeds.depth[k].target ? 'border-sky-300/40 bg-sky-500/10' : ''}`} onClick={() => setDetail(p.id)}><b>{k}</b> {p.last_name} <span className="text-mute">{Math.round(p.proj)}</span></button> : null; })}
             </div>
           )}
           <div className="border-b border-white/[.07] p-2"><PlayerFilterBar pf={pf} compact /></div>
@@ -329,7 +329,7 @@ export default function Mock() {
               return (
                 <div key={p.id} className="flex items-center gap-2 px-2 py-2">
                   <span className="w-7 text-center text-[11px] text-mute">{rank}</span>
-                  <div className="min-w-0 flex-1"><PlayerRow p={p} onClick={() => setDetail(p.id)} sub={<span className={`ml-1 rounded px-1 text-[10px] ${fitFor(p, myNeeds) === 'BN' ? 'bg-white/[.06] text-mute' : 'bg-amber-500/15 text-amber-200'}`}>{fitTag(p)}</span>} /></div>
+                  <div className="min-w-0 flex-1"><PlayerRow p={p} onClick={() => setDetail(p.id)} sub={<span className={`ml-1 rounded px-1 text-[10px] ${fitClass(fitOf(p, myNeeds))}`}>{fitTag(p)}</span>} /></div>
                   <div className="w-20 text-right">
                     <div className="num text-sm font-bold">{pf.fmt(p)}</div>
                     <div className="whitespace-nowrap text-[10px] text-mute">{myTurn && value > 8 ? <span className="text-emerald-300">+{value} value</span> : odds != null && !myTurn ? <span className={odds >= 70 ? 'text-emerald-300' : odds >= 35 ? 'text-amber-200' : 'text-red-300/80'}>{odds}% at #{liveOdds!.pick}</span> : pf.label}</div>

@@ -6,6 +6,9 @@ update teams set user_id = ('00000000-0000-0000-0000-00000000000' || id)::uuid;
 create or replace function pg_temp.as_team(t int) returns void language sql as
 $$ select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-00000000000' || t, false) $$;
 
+-- the fixture's deadlines are fixed dates; keep the test valid whatever today is
+update league set keeper_deadline = now() + interval '1 day', draft_at = now() + interval '2 days';
+
 -- ── keepers
 select pg_temp.as_team(2);
 set role authenticated;
