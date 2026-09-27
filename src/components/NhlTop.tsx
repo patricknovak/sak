@@ -91,10 +91,10 @@ export function TopTab({ onGame }: { onGame: (g: TopGame) => void }) {
               <div key={g.id} className="card p-3">
                 <div className="flex items-center gap-2 text-sm">{g.away.logo && <img src={g.away.logo} alt="" className="h-6 w-6" />}<span className="font-semibold">{g.away.abbrev} {g.away.score}</span><span className="text-mute">@</span><span className="font-semibold">{g.home.abbrev} {g.home.score}</span>{g.home.logo && <img src={g.home.logo} alt="" className="h-6 w-6" />}<span className="ml-auto text-[11px] text-mute">{status(g)}</span></div>
                 {g.goals.length > 0 && <div className="mt-1 truncate text-[11px] text-mute">{g.goals.slice(-3).map((x) => `${x.name} (${x.goalsToDate})`).join(' · ')}</div>}
-                <div className="mt-2 flex gap-1.5">
+                <div className="mt-2 flex flex-wrap gap-1.5">
                   {g.recap && <button className="btn-ghost btn-sm" onClick={() => setVideo({ id: g.recap!, title: `${g.away.abbrev} @ ${g.home.abbrev} recap` })}><Play size={13} /> Recap</button>}
                   {g.condensed && <button className="btn-ghost btn-sm" onClick={() => setVideo({ id: g.condensed!, title: `${g.away.abbrev} @ ${g.home.abbrev} condensed` })}><Play size={13} /> Condensed</button>}
-                  <button className="btn-ghost btn-sm ml-auto" onClick={() => onGame(g)}>Box score</button>
+                  <button className="btn-ghost btn-sm sm:ml-auto" onClick={() => onGame(g)}>Box score</button>
                 </div>
               </div>
             ))}
