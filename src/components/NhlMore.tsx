@@ -293,7 +293,12 @@ export function XTab() {
         <>
           <div className="scroll-x flex items-center gap-1">
             {([['all', 'Everything'], ['sak', 'SaK players'], ['mine', 'My players']] as const).map(([k, l]) => <button key={k} className={`shrink-0 rounded-full px-2.5 py-1 text-xs font-semibold ${filter === k ? 'bg-sky-500 text-ice' : 'bg-white/[.05] text-mute'}`} onClick={() => setFilter(k)}>{l}</button>)}
-            <span className="ml-auto shrink-0 text-[11px] text-mute">{feed.source === 'grok' ? 'via Grok’s X search' : 'via X'}{feed.fetched_at ? ` · ${ago(feed.fetched_at, now)}` : ''}{feed.stale ? ' · refresh failed, showing the last one' : ''}</span>
+            <span className="ml-auto shrink-0 text-[11px] text-mute">{feed.source === 'grok' ? 'via Grok’s X search' : 'via X'}{feed.fetched_at ? ` · ${ago(feed.fetched_at, now)}` : ''}{feed.stale ? ' · refresh failed, showing the last one' : feed.refreshing ? ' · refreshing…' : ''}</span>
+          </div>
+          <div className="flex flex-wrap items-center gap-1 text-[11px] text-mute">
+            <span>Following {feed.accounts.length}: {feed.accounts.slice(0, 6).map((a) => a.name).join(', ')}{feed.accounts.length > 6 ? ` +${feed.accounts.length - 6}` : ''}.</span>
+            {feed.topics && feed.topics.length > 0 && <span>Favouring: {feed.topics.join(', ')}.</span>}
+            {me?.is_commish && <Link to="/commish" className="text-sky-300">Edit the list ›</Link>}
           </div>
           {posts.length === 0 && <div className="card p-4 text-sm text-mute">Nothing matches right now.</div>}
           {posts.map(({ x, tagged }) => (

@@ -162,7 +162,7 @@ export default function Features() {
 
       {tab === 'built' && (
         <>
-          <PromoVideo />
+          <PromoVideo only="promo" />
           <div className="card-hero flex flex-wrap items-center gap-3 p-4" style={{ '--tc': '#ef2a4f' } as React.CSSProperties}>
             <div className="relative flex-1 text-sm">
               <div className="h-display text-xl">Got an idea?</div>

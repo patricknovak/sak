@@ -135,14 +135,27 @@ async function news() {
 // ── X (Twitter): the NHL insiders' feed. Through the X API v2 when the X_BEARER_TOKEN secret is set (a paid
 // X developer plan); otherwise through Grok's X search (xAI Responses API, x_search tool) with the league's
 // XAI_API_KEY. Grok's answer is cached in hub_cache for everyone, so it's one search per X_SHARED_TTL.
-const X_ACCOUNTS: [string, string][] = [['NHL', 'NHL'], ['PR_NHL', 'NHL Public Relations'], ['FriedgeHNIC', 'Elliotte Friedman'], ['TSNBobMcKenzie', 'Bob McKenzie'],
+// The default insiders. The commissioner can change the list (and add topics) on the Commissioner page; that
+// lives in league.info.x_feed = { accounts: [{handle, name}], topics: [string] } and wins over these defaults.
+const X_DEFAULT: [string, string][] = [['NHL', 'NHL'], ['PR_NHL', 'NHL Public Relations'], ['FriedgeHNIC', 'Elliotte Friedman'], ['TSNBobMcKenzie', 'Bob McKenzie'],
   ['PierreVLeBrun', 'Pierre LeBrun'], ['DarrenDreger', 'Darren Dreger'], ['frank_seravalli', 'Frank Seravalli'], ['emilymkaplan', 'Emily Kaplan'],
   ['reporterchris', 'Chris Johnston'], ['NHLInjuryNews', 'NHL Injury News'], ['PuckPedia', 'PuckPedia'], ['DailyFaceoff', 'Daily Faceoff']];
 type XPost = { id: string; text: string; at: string; url: string; author: { name: string; handle: string; avatar: string | null }; likes: number; reposts: number; link: { url: string; title: string | null } | null; image: string | null };
-const accounts = X_ACCOUNTS.map(([handle, name]) => ({ handle, name, url: `https://x.com/${handle}` }));
+type XConfig = { accounts: [string, string][]; topics: string[]; key: string };
+async function xConfig(): Promise<XConfig> {
+  const { data } = await db.from('league').select('info').eq('id', 1).maybeSingle();
+  const cfg = (data?.info as any)?.x_feed;
+  const list: [string, string][] = Array.isArray(cfg?.accounts) && cfg.accounts.length
+    ? cfg.accounts.map((a: any) => [String(a.handle ?? '').replace(/^@/, '').trim(), String(a.name ?? a.handle ?? '').trim()] as [string, string]).filter(([h]: [string, string]) => /^[A-Za-z0-9_]{1,15}$/.test(h)).slice(0, 20)
+    : X_DEFAULT;
+  const topics: string[] = Array.isArray(cfg?.topics) ? cfg.topics.map((t: any) => String(t).trim()).filter(Boolean).slice(0, 12) : [];
+  return { accounts: list, topics, key: JSON.stringify([list.map(([h]) => h.toLowerCase()), topics.map((t) => t.toLowerCase())]) };
+}
+const accountsOf = (c: XConfig) => c.accounts.map(([handle, name]) => ({ handle, name, url: `https://x.com/${handle}` }));
 
-async function xApi(token: string): Promise<XPost[]> {
-  const query = `(${X_ACCOUNTS.map(([h]) => `from:${h}`).join(' OR ')}) -is:retweet -is:reply`;
+async function xApi(token: string, cfg: XConfig): Promise<XPost[]> {
+  const topic = cfg.topics.length ? ` (${cfg.topics.map((t) => `"${t.replace(/"/g, '')}"`).join(' OR ')})` : '';
+  const query = `(${cfg.accounts.map(([h]) => `from:${h}`).join(' OR ')})${topic} -is:retweet -is:reply`;
   const u = new URL('https://api.x.com/2/tweets/search/recent');
   u.searchParams.set('query', query);
   u.searchParams.set('max_results', '50');
@@ -170,8 +183,15 @@ async function xApi(token: string): Promise<XPost[]> {
 
 // Grok reads X for us: the x_search tool restricted to the insiders (the tool takes up to 10 handles), and the
 // model writes the posts back as JSON. Post ids come from the status URLs it cites.
-async function xGrok(apiKey: string): Promise<XPost[]> {
-  const handles = X_ACCOUNTS.slice(0, 10).map(([h]) => h);
+// (more than 10 accounts means two searches, merged)
+async function xGrok(apiKey: string, cfg: XConfig): Promise<XPost[]> {
+  const all = cfg.accounts.map(([h]) => h);
+  const chunks = [all.slice(0, 10), ...(all.length > 10 ? [all.slice(10, 20)] : [])];
+  const results = await Promise.all(chunks.map((handles) => xGrokOnce(apiKey, handles, cfg)));
+  const seen = new Set<string>();
+  return results.flat().filter((p) => !seen.has(p.id) && seen.add(p.id)).sort((a, b) => b.at.localeCompare(a.at)).slice(0, 50);
+}
+async function xGrokOnce(apiKey: string, handles: string[], cfg: XConfig): Promise<XPost[]> {
   const today = new Date(), from = new Date(Date.now() - 2 * 86400000);
   const day = (d: Date) => d.toISOString().slice(0, 10);
   const ctl = new AbortController();
@@ -184,7 +204,7 @@ async function xGrok(apiKey: string): Promise<XPost[]> {
       tools: [{ type: 'x_search', allowed_x_handles: handles, from_date: day(from), to_date: day(today) }],
       input: [
         { role: 'system', content: 'You are a data extractor. You search X and return only JSON, never prose.' },
-        { role: 'user', content: `Find the most recent posts (last 48 hours, newest first, up to 40) from these X accounts about the NHL: ${handles.map((h) => '@' + h).join(', ')}. Include injuries, lineups, trades, signings, call-ups, waivers, scores and news. Skip replies and retweets.
+        { role: 'user', content: `Find the most recent posts (last 48 hours, newest first, up to 40) from these X accounts about the NHL: ${handles.map((h) => '@' + h).join(', ')}. Include injuries, lineups, trades, signings, call-ups, waivers, scores and news${cfg.topics.length ? `, and give priority to posts about: ${cfg.topics.join(', ')}` : ''}. Skip replies and retweets.
 Return exactly this JSON and nothing else:
 {"posts":[{"handle":"<account handle without @>","name":"<account display name>","text":"<the post text, verbatim>","url":"<https://x.com/<handle>/status/<id>>","at":"<ISO 8601 timestamp, UTC>","link":"<first non-X URL in the post or null>"}]}` },
       ],
@@ -198,7 +218,7 @@ Return exactly this JSON and nothing else:
   if (!m) throw new Error('Grok returned no JSON: ' + text.slice(0, 120));
   let items: any[] = [];
   try { items = JSON.parse(m[0]).posts ?? []; } catch { throw new Error('Grok JSON did not parse'); }
-  const names = new Map(X_ACCOUNTS.map(([h, n]) => [h.toLowerCase(), n]));
+  const names = new Map(cfg.accounts.map(([h, n]) => [h.toLowerCase(), n]));
   const seen = new Set<string>();
   return items.map((p: any) => {
     const handle = String(p.handle ?? '').replace(/^@/, '');
@@ -214,21 +234,32 @@ Return exactly this JSON and nothing else:
 async function xfeed() {
   const token = Deno.env.get('X_BEARER_TOKEN');
   const xai = Deno.env.get('XAI_API_KEY');
-  if (!token && !xai) return { configured: false, source: null, accounts, posts: [] };
-  // the league shares one feed: serve the cached one while it's fresh, otherwise refresh it
+  const cfg = await xConfig();
+  const accounts = accountsOf(cfg);
+  if (!token && !xai) return { configured: false, source: null, accounts, topics: cfg.topics, posts: [] };
+  // the league shares one feed: serve the cached one while it's fresh and built from the same account list.
+  // When it's gone stale (or the commish changed the list) the old feed goes out right away and the refresh
+  // runs in the background, so nobody waits on a Grok search.
   const { data: hit } = await db.from('hub_cache').select('body,at').eq('key', 'x').maybeSingle();
-  if (hit && Date.now() - new Date(hit.at).getTime() < X_SHARED_TTL) return hit.body;
-  try {
-    const posts = token ? await xApi(token) : await xGrok(xai!);
-    const body = { configured: true, source: token ? 'x' : 'grok', accounts, posts, fetched_at: new Date().toISOString() };
+  const fresh = !!hit && Date.now() - new Date(hit.at).getTime() < X_SHARED_TTL && (hit.body as any)?.config_key === cfg.key;
+  if (fresh) return hit!.body;
+  const refresh = async () => {
+    const posts = token ? await xApi(token, cfg) : await xGrok(xai!, cfg);
+    const body = { configured: true, source: token ? 'x' : 'grok', accounts, topics: cfg.topics, posts, fetched_at: new Date().toISOString(), config_key: cfg.key };
     await db.from('hub_cache').upsert({ key: 'x', body, at: new Date().toISOString() });
     return body;
-  } catch (e) {
-    console.error('xfeed', e);
-    if (hit) return { ...(hit.body as object), stale: true };   // an old feed beats an error
-    throw e;
+  };
+  if (hit && !xRefreshing) {
+    xRefreshing = refresh().catch((e) => console.error('xfeed refresh', e)).finally(() => { xRefreshing = null; });
+    const rt = (globalThis as any).EdgeRuntime;
+    if (rt?.waitUntil) rt.waitUntil(xRefreshing);
+    // the list changed: say so, and keep the old posts on screen until the new search lands
+    return { ...(hit.body as object), accounts, topics: cfg.topics, refreshing: true };
   }
+  if (hit) return { ...(hit.body as object), accounts, topics: cfg.topics, refreshing: true };
+  try { return await refresh(); } catch (e) { console.error('xfeed', e); throw e; }
 }
+let xRefreshing: Promise<unknown> | null = null;
 
 // ── league leaders
 async function leaders() {
