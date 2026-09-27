@@ -128,6 +128,9 @@ export default function Draft() {
 
   const clockColor = remaining < 10_000 ? 'text-red-400' : remaining < 30_000 ? 'text-amber-300' : 'text-white';
   const status = draft?.status ?? 'scheduled';
+  // live: the whole page is one viewport with the columns filling it; before and after, the lobby or the
+  // wrap-up sits on top and the page scrolls, so the columns get a fixed working height instead
+  const pinned = status === 'live' || status === 'paused';
 
   const PlayersTab = (
     <div className="flex min-h-0 min-w-0 flex-1 flex-col">
@@ -311,7 +314,7 @@ export default function Draft() {
   ] as { k: Tab; label: string }[]).filter((t) => !spectator || (t.k !== 'queue' && t.k !== 'team'));
 
   return (
-    <div className="-mx-3 -my-3 flex overflow-x-hidden h-[calc(100dvh-8.25rem-env(safe-area-inset-bottom)-env(safe-area-inset-top))] flex-col sm:-mx-5 lg:m-0 lg:h-[calc(100dvh-3rem)]">
+    <div className={`-mx-3 -my-3 flex flex-col overflow-x-hidden sm:-mx-5 lg:m-0 ${pinned ? 'h-[calc(100dvh-8.25rem-env(safe-area-inset-bottom)-env(safe-area-inset-top))] lg:h-[calc(100dvh-3rem)]' : ''}`}>
       {/* clock */}
       {(status === 'live' || status === 'paused') && current ? (
         <div className={`relative overflow-hidden border-b border-white/[.08] px-3 py-2.5 ${myTurn ? 'shadow-[inset_0_0_40px_rgba(239,42,79,.35)]' : ''}`}
@@ -365,7 +368,7 @@ export default function Draft() {
       </div>
 
       {/* phone: one tab at a time; desktop: players | board+queue | chat */}
-      {!wide && <div className="flex min-h-0 flex-1">
+      {!wide && <div className={`flex min-h-0 ${pinned ? 'flex-1' : 'h-[calc(100dvh-12rem)] min-h-[420px] shrink-0'}`}>
         {tab === 'players' && PlayersTab}
         {tab === 'board' && BoardTab}
         {tab === 'queue' && QueueTab}
@@ -373,7 +376,7 @@ export default function Draft() {
         {tab === 'chat' && <ChatPanel channel="draft" compact className="flex-1" />}
         {tab === 'call' && <div className="flex min-h-0 flex-1 flex-col p-2"><DraftCall tall /></div>}
       </div>}
-      {wide && <div className="grid min-h-0 flex-1 grid-cols-[minmax(300px,360px)_minmax(0,1fr)_minmax(260px,320px)] gap-3 pt-3">
+      {wide && <div className={`grid min-h-0 grid-cols-[minmax(300px,360px)_minmax(0,1fr)_minmax(260px,320px)] gap-3 pt-3 ${pinned ? 'flex-1' : 'h-[calc(100dvh-6rem)] min-h-[560px] shrink-0 pb-3'}`}>
         <div className="card flex min-h-0 flex-col overflow-hidden">{PlayersTab}</div>
         <div className="flex min-h-0 min-w-0 flex-col gap-3">
           <div className="card flex min-h-0 flex-[3] flex-col overflow-hidden">{BoardTab}</div>
