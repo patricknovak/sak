@@ -8,7 +8,7 @@ import { useLeague } from '../lib/store';
 import { supabase } from '../lib/supabase';
 import type { Player } from '../lib/types';
 import { projectedKeepers } from '../lib/grades';
-import { availabilityOdds, needsOf, START_SLOTS, type Outlook, type SimPick, type StartSlot } from '../lib/draftsim';
+import { availabilityOdds, needsOf, type Outlook, type SimPick, type StartSlot } from '../lib/draftsim';
 import { PlayerSheet } from '../components/PlayerCard';
 import { NeedsStrip } from '../components/RosterNeeds';
 import { Headshot, PageHeader, Pos, Section, useToast } from '../components/ui';
@@ -45,9 +45,9 @@ export default function CheatSheet() {
   const mine = useMemo(() => [...(keepers.get(me?.id ?? -1) ?? []), ...board.filter((b) => b.team === me?.id && b.pid).map((b) => b.pid!)].map((id) => players.get(id)).filter(Boolean) as Player[], [keepers, board, me?.id, players]);
   const needs = useMemo(() => needsOf(mine, caps), [mine, caps]);
   const myPicks = board.filter((b) => b.team === me?.id && !b.pid).map((b) => b.overall);
-  const gapSlots = START_SLOTS.filter((s) => needs.open[s] > 0);
-  // Util is "any skater": only list it on its own when every position slot is already full
-  const listSlots = gapSlots.filter((s) => s !== 'Util' || gapSlots.length === 1);
+  // one list per position that still needs bodies: starting gaps first, then depth under its balanced target
+  const listSlots = (['C', 'LW', 'RW', 'D', 'G'] as StartSlot[]).map((s) => ({ s, start: needs.open[s], depth: Math.max(0, needs.depth[s].target - needs.depth[s].have - needs.open[s]) }))
+    .filter((x) => x.start > 0 || x.depth > 0).sort((a, b) => b.start - a.start || b.depth - a.depth);
 
   const runOdds = () => {
     if (!me || !board.length) return;
@@ -105,13 +105,14 @@ export default function CheatSheet() {
         <div className="label mb-1.5">Your roster right now</div>
         <NeedsStrip players={mine} caps={caps} />
         <div className="mt-2 text-xs text-mute">
-          {needs.gaps.length ? <>Still to fill: <b className="text-white">{needs.gaps.join(', ')}</b>, then {needs.benchOpen} bench spots.</> : <>Every starting slot is filled; the rest is bench depth ({needs.benchOpen} spots).</>}
+          {needs.gaps.length ? <>Starters still to fill: <b className="text-white">{needs.gaps.join(', ')}</b>.</> : <>Every starting slot is filled.</>}
+          {needs.depthGaps.length ? <> Depth to reach a balanced 24: <b className="text-sky-200">{needs.depthGaps.join(', ')}</b>, then {needs.flexOpen} flex.</> : <> <span className="text-emerald-300">Balanced across every position.</span>{needs.flexOpen ? ` ${needs.flexOpen} flex spots left.` : ''}</>}
           {outlook && outlook.picks.length > 0 && <> The three percentages are the odds a player is still there at your next picks: <b className="text-white">{outlook.picks.slice(0, 3).map((n) => '#' + n).join(', ')}</b>, from 25 simulated drafts.</>}
         </div>
       </div>
 
-      {listSlots.map((slot) => (
-        <Section key={slot} title={`${SLOT_LABEL[slot]} · need ${needs.open[slot]}`} right={<span className="text-xs text-mute">best 10 available</span>}>
+      {listSlots.map(({ s: slot, start, depth }) => (
+        <Section key={slot} title={`${SLOT_LABEL[slot]} · need ${start + depth}`} right={<span className="text-xs text-mute">{start ? `${start} starter${start > 1 ? 's' : ''}` : ''}{start && depth ? ' + ' : ''}{depth ? `${depth} depth` : ''} · best 10</span>}>
           <div className="card divide-y divide-white/[.06] px-2">{listFor(slot).map((p, i) => <Row key={p.id} p={p} i={i} />)}</div>
         </Section>
       ))}

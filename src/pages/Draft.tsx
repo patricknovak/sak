@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { bannedTopScorers } from '../lib/keepers';
 import { projectedKeepers } from '../lib/grades';
-import { fitFor, needsOf } from '../lib/draftsim';
+import { fitClass, fitLabel, fitOf, needsOf } from '../lib/draftsim';
 import { NeedsStrip, RosterNeeds } from '../components/RosterNeeds';
 import { useLeague, useNow } from '../lib/store';
 import { rpc, supabase } from '../lib/supabase';
@@ -17,6 +17,7 @@ import { PushCard } from '../components/PushCard';
 import { DraftReport } from '../components/DraftReport';
 import { DraftCall } from '../components/DraftCall';
 import { SoundToggle, useDraftSounds, useSoundsOn } from '../components/DraftSounds';
+import { unlockAudio } from '../lib/sounds';
 import { Tv } from 'lucide-react';
 
 type Tab = 'players' | 'board' | 'queue' | 'team' | 'chat' | 'call';
@@ -37,8 +38,14 @@ export default function Draft() {
   const [flash, setFlash] = useState<DraftPick | null>(null);
 
   const spectator = me?.role === 'spectator';
-  const soundOn = useSoundsOn();
+  const soundOn = useSoundsOn(true);
   useDraftSounds(soundOn);
+  // browsers only let audio start after a gesture: the first tap anywhere in the draft room unlocks it
+  useEffect(() => {
+    const once = () => { unlockAudio(); document.removeEventListener('pointerdown', once); };
+    document.addEventListener('pointerdown', once);
+    return () => document.removeEventListener('pointerdown', once);
+  }, []);
   const season = draft?.season;
   const board = useMemo(() => picks.filter((p) => p.season === season && p.overall).sort((a, b) => a.overall! - b.overall!), [picks, season]);
   const order = useMemo(() => board.filter((p) => p.round === 1).map((p) => p.original_team), [board]);
@@ -123,7 +130,7 @@ export default function Draft() {
     return ids.map((id) => players.get(id)!).filter(Boolean);
   }, [rosters, me?.id, preKeepers, players, league?.keepers, league?.top_scorer_rule]);
   const myNeeds = useMemo(() => needsOf(myRoster, caps), [myRoster, caps]);
-  const fitTag = (p: Player) => { const f = fitFor(p, myNeeds); return f === 'BN' ? 'bench' : `fills ${f}`; };
+  const fitTag = (p: Player) => fitLabel(fitOf(p, myNeeds), p.pos);
   const bestBy = (k: string) => [...players.values()].filter((p) => !taken(p.id) && !likelyKept.has(p.id) && (k === 'G' ? p.pos === 'G' : p.pos !== 'G' && p.elig.includes(k))).sort((a, b) => b.proj - a.proj)[0];
 
   const clockColor = remaining < 10_000 ? 'text-red-400' : remaining < 30_000 ? 'text-amber-300' : 'text-white';
@@ -138,7 +145,7 @@ export default function Draft() {
       {myTurn && (
         <div className="scroll-x flex gap-1.5 border-b border-line p-2 text-xs">
           <span className="shrink-0 self-center text-mute">Best by position:</span>
-          {['C', 'LW', 'RW', 'D', 'G'].map((k) => { const p = bestBy(k); return p ? <button key={k} className={`chip shrink-0 py-1 ${myNeeds.open[k as 'C'] > 0 ? 'border-amber-300/40 bg-amber-500/10' : ''}`} onClick={() => setDetail(p.id)}><b>{k}</b> {p.last_name} <span className="text-mute">{Math.round(p.proj)}</span></button> : null; })}
+          {['C', 'LW', 'RW', 'D', 'G'].map((k) => { const p = bestBy(k); return p ? <button key={k} className={`chip shrink-0 py-1 ${myNeeds.open[k as 'C'] > 0 ? 'border-amber-300/40 bg-amber-500/10' : myNeeds.depth[k].have < myNeeds.depth[k].target ? 'border-sky-300/40 bg-sky-500/10' : ''}`} onClick={() => setDetail(p.id)}><b>{k}</b> {p.last_name} <span className="text-mute">{Math.round(p.proj)}</span></button> : null; })}
         </div>
       )}
       <div className="border-b border-line p-2"><PlayerFilterBar pf={pf} compact /></div>
@@ -149,7 +156,7 @@ export default function Draft() {
           return (
           <div key={p.id} className="flex items-center gap-2 px-2 py-2">
             <span className="w-6 text-center text-[11px] text-mute">{i + 1}</span>
-            <div className="min-w-0 flex-1"><PlayerRow p={p} dim={maybe} onClick={() => setDetail(p.id)} sub={!spectator && !maybe ? <span className={`ml-1 rounded px-1 text-[10px] ${fitFor(p, myNeeds) === 'BN' ? 'bg-white/[.06] text-mute' : 'bg-amber-500/15 text-amber-200'}`}>{fitTag(p)}</span> : null} /></div>
+            <div className="min-w-0 flex-1"><PlayerRow p={p} dim={maybe} onClick={() => setDetail(p.id)} sub={!spectator && !maybe ? <span className={`ml-1 rounded px-1 text-[10px] ${fitClass(fitOf(p, myNeeds))}`}>{fitTag(p)}</span> : null} /></div>
             <div className="w-16 text-right">
               <div className="num text-sm font-semibold">{pf.fmt(p)}</div>
               {maybe
@@ -362,7 +369,7 @@ export default function Draft() {
           {tabs.map((t) => <button key={t.k} className={`tab ${tab === t.k ? 'tab-on' : ''}`} onClick={() => setTab(t.k)}>{t.label}</button>)}
         </div>
         <div className="hidden min-w-0 flex-1 truncate text-xs text-mute lg:block">🔊 Horn when a pick lands, ticks under ten seconds on your clock. 📺 TV mode is the full board for the big screen.</div>
-        <SoundToggle />
+        <SoundToggle fallback />
         <Link to="/draft/list" className="btn-ghost btn-sm" title="The full pick order, traded picks and keepers">📋<span className="hidden sm:inline">Draft list</span></Link>
         <Link to="/draft/tv" className="btn-ghost btn-sm" title="TV mode: the full board for the big screen"><Tv size={16} /><span className="hidden sm:inline">TV mode</span></Link>
       </div>
