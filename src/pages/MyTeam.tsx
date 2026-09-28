@@ -206,7 +206,7 @@ export default function MyTeam() {
             <button className="btn-ghost" onClick={() => setTools(true)}>⚙️ Lineup tools</button>
           </div>
           <div className="w-full text-xs text-mute">
-            Auto-pilot: <button className="font-semibold text-sky-300 hover:underline" onClick={() => setTools(true)}>{me?.auto_mode && me.auto_mode !== 'off' ? `${me.auto_mode} mode · ${{ proj: 'projection', form: 'hot hand', season: 'season avg', ros: 'rest of season' }[me.auto_basis ?? 'proj']}` : 'off'}</button>
+            Auto-pilot: <button className="font-semibold text-sky-300 hover:underline" onClick={() => setTools(true)}>{me?.auto_mode && me.auto_mode !== 'off' ? `on · ${{ proj: 'projection', form: 'hot hand', season: 'season avg', ros: 'rest of season' }[me.auto_basis ?? 'proj']}` : 'off'}</button>
             {roster.some((x) => x.r.pin) && <> · {roster.filter((x) => x.r.pin).length} pinned</>}
           </div>
         </div>
@@ -214,7 +214,7 @@ export default function MyTeam() {
       {mine && league?.phase !== 'season' && league?.phase !== 'keepers' && (
         <button className="card flex w-full items-center gap-3 p-3 text-left text-sm" onClick={() => setTools(true)}>
           <span className="text-2xl">⚙️</span>
-          <span className="flex-1"><span className="font-semibold">Lineup tools</span><span className="block text-xs text-mute">Auto-pilot {me?.auto_mode && me.auto_mode !== 'off' ? `on (${me.auto_mode} mode)` : 'off'}: set it now and it takes over on opening night</span></span>
+          <span className="flex-1"><span className="font-semibold">Lineup tools</span><span className="block text-xs text-mute">Auto-pilot {me?.auto_mode && me.auto_mode !== 'off' ? 'on' : 'off'}: set it now and it takes over on opening night</span></span>
           <span className="text-mute">›</span>
         </button>
       )}

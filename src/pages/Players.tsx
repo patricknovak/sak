@@ -6,6 +6,7 @@ import { PlayerFilterBar, StatTable, usePlayerFilter } from '../components/Playe
 import { projLike } from '../lib/playerstats';
 import { comingAvailable } from '../lib/keepers';
 import { TeamBadge, PageHeader } from '../components/ui';
+import { PickupAdvisor, RosterVsAvailable } from '../components/PickupTools';
 import { Search } from 'lucide-react';
 
 export default function Players() {
@@ -19,6 +20,7 @@ export default function Players() {
   const comingSet = useMemo(() => new Set(coming.map((p) => p.id)), [coming]);
   const [view, setView] = useState<'list' | 'table'>('list');
   const [limit, setLimit] = useState(100);
+  const [tab, setTab] = useState<'browse' | 'advisor' | 'compare'>(q.get('tab') === 'advisor' ? 'advisor' : q.get('tab') === 'compare' ? 'compare' : 'browse');
 
   const list = useMemo(() => pf.apply([...players.values()]
     .filter((p) => (who === 'all' ? true : who === 'coming' ? comingSet.has(p.id) : who === 'avail' ? !owner.has(p.id) || comingSet.has(p.id) : owner.has(p.id)))), [players, owner, who, pf.apply, comingSet]);
@@ -31,6 +33,12 @@ export default function Players() {
     <div className="space-y-3">
       <PageHeader icon={<Search size={22} className="text-blue" />} title="Players"
         sub={<>Roster {used}/{Object.entries(league?.roster ?? {}).reduce((t, [k, v]) => t + (k === 'IR' ? 0 : v), 0)} {league?.phase !== 'season' && '· pickups open after the draft'}</>} />
+      <div className="scroll-x flex gap-1">
+        {([['browse', '🔍 Browse'], ['advisor', '✨ Pickup advisor'], ['compare', '⚖️ Roster vs available']] as const).map(([k, l]) => (
+          <button key={k} className={`tab shrink-0 ${tab === k ? 'tab-on' : 'bg-white/[.05]'}`} onClick={() => setTab(k)}>{l}</button>
+        ))}
+      </div>
+      {tab === 'advisor' ? <PickupAdvisor /> : tab === 'compare' ? <RosterVsAvailable /> : <>
       <div className="sticky top-[calc(3rem+var(--banner,0px))] z-20 -mx-3 space-y-1.5 border-b border-line bg-ice/95 px-3 py-2 backdrop-blur lg:top-[var(--banner,0px)]">
         <PlayerFilterBar pf={pf}>
           <span className="mx-1 h-5 w-px shrink-0 bg-line" />
@@ -70,6 +78,7 @@ export default function Players() {
         </div>
       )}
       {list.length > limit && <button className="btn-ghost w-full" onClick={() => setLimit(limit + 100)}>Show more ({list.length - limit} left)</button>}
+      </>}
     </div>
   );
 }

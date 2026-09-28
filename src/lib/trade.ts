@@ -51,7 +51,7 @@ export function evaluateSide(s: Side, v: Valuer, rosterMax: number): SideEval {
   const count = (ps: Player[], k: string) => ps.filter((p) => p.pos === k).length;
   for (const k of POS) if (count(s.after, k) < NEED[k] && count(s.before, k) >= NEED[k]) warnings.push(`Only ${count(s.after, k)} ${k} left: can't fill ${NEED[k]} starting spot${NEED[k] > 1 ? 's' : ''}`);
   if (s.after.length > rosterMax) warnings.push(`${s.after.length} players after the deal: ${s.after.length - rosterMax} to drop before it can go through`);
-  for (const p of inn) if (p.injury_status && /^(out|ir|injured|long|suspend)/i.test(p.injury_status)) warnings.push(`${p.name} is listed ${p.injury_status}`);
+  for (const p of inn) if (p.injury_status && /^(out|ir|injured|long|suspen)/i.test(p.injury_status)) warnings.push(`${p.name} is listed ${p.injury_status}`);
   return {
     team: s.team, startersBefore: b.starters, startersAfter: a.starters, startersDelta: a.starters - b.starters,
     depthBefore: b.depth, depthAfter: a.depth, valueOut, valueIn, net: valueIn - valueOut, pos, rosterAfter: s.after.length, warnings,
@@ -93,10 +93,13 @@ export function posture(me: number, standings: Standing[], progress: number) {
 export interface Suggestion { partner: number; give: Player[]; get: Player[]; me: SideEval; them: SideEval; score: number }
 
 // deals that improve both starting lineups: 1-for-1, 2-for-1 and 1-for-2 across the best players on each side
-export function findTrades(me: number, myRoster: Player[], partners: { team: number; roster: Player[] }[], v: Valuer, rosterMax: number, opts: { minMine?: number; minTheirs?: number; top?: number; limit?: number } = {}): Suggestion[] {
-  const { minMine = 4, minTheirs = -1, top = 14, limit = 12 } = opts;
+// winWin (the default): both starting lineups must get better and the value has to stay close, so the other
+// GM has a real reason to say yes. Ranked by the smaller of the two gains, so the fairest deals come first.
+export function findTrades(me: number, myRoster: Player[], partners: { team: number; roster: Player[] }[], v: Valuer, rosterMax: number, opts: { minMine?: number; minTheirs?: number; top?: number; limit?: number; winWin?: boolean } = {}): Suggestion[] {
+  const winWin = opts.winWin ?? true;
+  const { minMine = winWin ? 2 : 4, minTheirs = winWin ? 2 : -1, top = 14, limit = 12 } = opts;
   const out: Suggestion[] = [];
-  const healthy = (p: Player) => !p.injury_status || !/^(out|ir|injured|long|suspend)/i.test(p.injury_status);
+  const healthy = (p: Player) => !p.injury_status || !/^(out|ir|injured|long|suspen)/i.test(p.injury_status);
   const byVal = (ps: Player[]) => [...ps].filter(healthy).sort((a, b) => v.player(b) - v.player(a)).slice(0, top);
   const mine = byVal(myRoster);
   const seen = new Set<string>();
@@ -114,7 +117,10 @@ export function findTrades(me: number, myRoster: Player[], partners: { team: num
       if (b.startersDelta < minTheirs || b.warnings.some((w) => w.startsWith('Only'))) return;
       // fairness: the partner has to see value too, or they'll never say yes; and you shouldn't be fleeced either
       if (b.net < -25 || a.net < -70) return;
-      out.push({ partner: team, give, get, me: a, them: b, score: a.startersDelta + Math.max(0, b.startersDelta) * 0.8 - Math.max(0, -b.net) * 0.2 - Math.max(0, -a.net - 30) * 0.15 });
+      if (winWin && Math.abs(a.net) > 45) return;
+      out.push({ partner: team, give, get, me: a, them: b, score: winWin
+        ? Math.min(a.startersDelta, b.startersDelta) * 2 + (a.startersDelta + b.startersDelta) * 0.5 - Math.abs(a.net) * 0.1
+        : a.startersDelta + Math.max(0, b.startersDelta) * 0.8 - Math.max(0, -b.net) * 0.2 - Math.max(0, -a.net - 30) * 0.15 });
     };
     for (const g of mine) for (const r of theirs) {
       if (g.id === r.id) continue;
@@ -122,6 +128,9 @@ export function findTrades(me: number, myRoster: Player[], partners: { team: num
     }
     for (let i = 0; i < mine.length; i++) for (let j = i + 1; j < mine.length; j++) for (const r of theirs) tryDeal([mine[i], mine[j]], [r]);
     for (const g of mine) for (let i = 0; i < theirs.length; i++) for (let j = i + 1; j < theirs.length; j++) tryDeal([g], [theirs[i], theirs[j]]);
+    // two for two: where most win-win deals live (each side swaps surplus for need), top 8 on each side
+    const m8 = mine.slice(0, 8), t8 = theirs.slice(0, 8);
+    for (let i = 0; i < m8.length; i++) for (let j = i + 1; j < m8.length; j++) for (let k = 0; k < t8.length; k++) for (let l = k + 1; l < t8.length; l++) tryDeal([m8[i], m8[j]], [t8[k], t8[l]]);
   }
   // variety: the best version of each ask, at most one deal per player you'd receive, a few per partner
   const sorted = out.sort((a, b) => b.score - a.score);

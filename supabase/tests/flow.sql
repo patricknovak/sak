@@ -570,3 +570,19 @@ select 'set projections (expect 1)', set_projections(jsonb_build_array(jsonb_bui
   'stats', jsonb_build_object('g', 40, 'a', 60, 'sog', 250, 'hit', 50, 'blk', 30, 'ppp', 30, 'pm', 10, 'pim', 20, 'gwg', 6),
   'meta', jsonb_build_object('lo', 0.85, 'hi', 1.15))));
 select 'model projection used (expect 60+60+50+5+6+15+5-4+6 = 203)', proj from players where id = :proj_p;
+
+-- ───────────── stat corrections ─────────────
+select r.player_id as corr_p from rosters r join players p on p.id = r.player_id where r.team_id = 2 and p.pos <> 'G' limit 1 \gset
+insert into games (id, date, start_utc, home, away, state, final_synced) values (990, today_et() - 1, now() - interval '1 day', 'TOR', 'MTL', 'OFF', false);
+insert into lineup_snapshots (game_id, date, team_id, player_id, slot) values (990, today_et() - 1, 2, :corr_p, 'C');
+insert into player_games (game_id, player_id, date, stats) values (990, :corr_p, today_et() - 1, '{"g":1,"a":0,"sog":3}');
+update player_games set stats = '{"g":1,"a":1,"sog":3}' where game_id = 990 and player_id = :corr_p;
+select 'live change not logged (expect 0)', count(*) from stat_corrections;
+update games set final_synced = true where id = 990;
+update player_games set stats = '{"g":1,"a":1,"sog":3}' where game_id = 990 and player_id = :corr_p;
+select 'unchanged re-pull not logged (expect 0)', count(*) from stat_corrections;
+update player_games set stats = '{"g":1,"a":2,"sog":4}' where game_id = 990 and player_id = :corr_p;
+select 'correction logged (expect 1, +1.2)', count(*), max(new_fpts - old_fpts) from stat_corrections;
+select 'teams told (expect 1)', notify_corrections();
+select 'note', body from notifications where team_id = 2 and kind = 'correction';
+select 'told once (expect 0)', notify_corrections();

@@ -149,6 +149,7 @@ export function TradeFinder({ onBuild }: { onBuild: (partner: number, give: Play
   const { me, teams, team, players, standings } = useLeague();
   const { v, rosterMax, rosterOf, progress, inSeason } = useTradeValuer();
   const [partner, setPartner] = useState<number | 'any'>('any');
+  const [winWin, setWinWin] = useState(true);
   const [res, setRes] = useState<Suggestion[] | null>(null);
   const [busy, setBusy] = useState(false);
   const stance = me && inSeason ? posture(me.id, standings, progress) : null;
@@ -157,7 +158,7 @@ export function TradeFinder({ onBuild }: { onBuild: (partner: number, give: Play
     setBusy(true);
     setTimeout(() => {
       const partners = teams.filter((t) => t.id !== me.id && (partner === 'any' || t.id === partner)).map((t) => ({ team: t.id, roster: rosterOf(t.id) }));
-      setRes(findTrades(me.id, rosterOf(me.id), partners, v, rosterMax, { limit: partner === 'any' ? 12 : 10 }));
+      setRes(findTrades(me.id, rosterOf(me.id), partners, v, rosterMax, { limit: partner === 'any' ? 12 : 10, winWin }));
       setBusy(false);
     }, 30);
   };
@@ -172,7 +173,7 @@ export function TradeFinder({ onBuild }: { onBuild: (partner: number, give: Play
     <div className="card space-y-2 p-3">
       <div>
         <div className="flex items-center gap-1.5 font-semibold"><Sparkles size={16} className="text-gold" /> Trade finder</div>
-        <div className="text-xs text-mute">Searches 1-for-1, 2-for-1 and 1-for-2 swaps that make your best lineup better without making theirs worse.{weakest && weakest[0] && <> Your weakest spot in the league: <b>{weakest[0].pos}</b> (#{weakest[0].rank} of {teams.length}).</>}</div>
+        <div className="text-xs text-mute">Searches 1-for-1, 2-for-1, 1-for-2 and 2-for-2 swaps. {winWin ? 'Win-win: both starting lineups have to get better and the value has to stay close, so the other GM has a reason to say yes. Fairest deals first.' : 'Any deal that makes your lineup better without making theirs much worse.'}{weakest && weakest[0] && <> Your weakest spot in the league: <b>{weakest[0].pos}</b> (#{weakest[0].rank} of {teams.length}).</>}</div>
         {stance && <div className={`mt-1 text-xs ${stance.mode === 'sell' ? 'text-amber-200' : 'text-emerald-200'}`}>📈 {stance.text}</div>}
       </div>
       <div className="flex flex-wrap items-center gap-2">
@@ -180,9 +181,10 @@ export function TradeFinder({ onBuild }: { onBuild: (partner: number, give: Play
           <option value="any">Any GM</option>
           {teams.filter((t) => t.id !== me?.id).map((t) => <option key={t.id} value={t.id}>{t.emoji} {t.gm_name}</option>)}
         </select>
+        <label className="flex items-center gap-1.5 text-xs"><input type="checkbox" className="h-4 w-4 accent-emerald-400" checked={winWin} onChange={(e) => { setWinWin(e.target.checked); setRes(null); }} />Win-win only</label>
         <button className="btn-gold btn-sm" disabled={busy} onClick={run}>{busy ? 'Thinking…' : res ? 'Search again' : 'Find trades'}</button>
       </div>
-      {res && res.length === 0 && <div className="rounded-xl bg-white/[.04] p-3 text-sm text-mute">Nothing that clears the bar{partner === 'any' ? '' : ` with ${team(partner as number)?.gm_name}`}: no swap of their top players makes your lineup at least 4 points better without hurting theirs. Try another GM, or build one by hand and read the analysis.</div>}
+      {res && res.length === 0 && <div className="rounded-xl bg-white/[.04] p-3 text-sm text-mute">Nothing that clears the bar{partner === 'any' ? '' : ` with ${team(partner as number)?.gm_name}`}{winWin ? ': no swap makes both lineups better at a fair price. Untick Win-win only to see deals that help you more than them.' : ': no swap of their top players makes your lineup at least 4 points better without hurting theirs. Try another GM, or build one by hand and read the analysis.'}</div>}
       {res && res.length > 0 && (
         <div className="divide-y divide-white/[.06] overflow-hidden rounded-xl border border-white/[.08]">
           {res.map((s, i) => (
@@ -190,7 +192,11 @@ export function TradeFinder({ onBuild }: { onBuild: (partner: number, give: Play
               <TeamBadge team={team(s.partner)} size={22} />
               <div className="min-w-0 flex-1">
                 <div><span className="text-mute">You send</span> <b>{s.give.map((p) => p.name).join(' + ')}</b> <span className="text-mute">for</span> <b>{s.get.map((p) => p.name).join(' + ')}</b> <span className="text-mute">from {team(s.partner)?.gm_name}</span></div>
-                <div className="text-[11px] text-mute">Your starters <span className={`num font-semibold ${tone(s.me.startersDelta)}`}>{d(s.me.startersDelta)}</span> · theirs <span className={`num font-semibold ${tone(s.them.startersDelta)}`}>{d(s.them.startersDelta)}</span> · value to them <span className="num">{d(s.them.net)}</span>{s.me.pos.filter((p) => p.delta >= 3).length > 0 && <> · you gain at {s.me.pos.filter((p) => p.delta >= 3).map((p) => p.pos).join(', ')}</>}</div>
+                <div className="text-[11px] text-mute">Your starters <span className={`num font-semibold ${tone(s.me.startersDelta)}`}>{d(s.me.startersDelta)}</span> · theirs <span className={`num font-semibold ${tone(s.them.startersDelta)}`}>{d(s.them.startersDelta)}</span> · value to them <span className="num">{d(s.them.net)}</span></div>
+                <div className="text-[11px]">
+                  {s.me.pos.filter((p) => p.delta >= 3).length > 0 && <span className="mr-2 text-emerald-200">You: stronger at {s.me.pos.filter((p) => p.delta >= 3).map((p) => p.pos).join(', ')}.</span>}
+                  {s.them.startersDelta > 1 && <span className="text-sky-200">{team(s.partner)?.gm_name}: {s.them.pos.filter((p) => p.delta >= 3).length ? `stronger at ${s.them.pos.filter((p) => p.delta >= 3).map((p) => p.pos).join(', ')}` : 'a better lineup'}{s.give.length < s.get.length ? ', and a roster spot back' : ''}; what they give up {s.get.every((p) => !s.them.pos.some((x) => x.pos === p.pos && x.delta < -3)) ? 'was mostly sitting on their bench' : 'is covered by what they get'}.</span>}
+                </div>
               </div>
               <button className="btn-ghost btn-sm shrink-0" onClick={() => onBuild(s.partner, s.give, s.get)}>Build this</button>
             </div>

@@ -1,13 +1,14 @@
 // nhl-sync: keeps SaK in step with the NHL.
 //   ?task=scores       (every minute) games for yesterday+today, freeze lineups at puck drop, box scores -> fantasy points
-//   ?task=corrections  (daily) re-pull the last 3 days of finished games so NHL stat corrections flow into points
+//   ?task=corrections  (daily) re-pull the last 3 days of finished games so NHL stat corrections flow into points;
+//                      &days=21 (weekly) reaches further back for late corrections. GMs whose starters moved are told.
 //   ?task=schedule     (hourly) the next six weeks of games, so lineups can be set a month ahead
 //   ?task=season-schedule (daily) every remaining game of the season, for rest-of-season forecasts
 //   ?task=projections  (weekly) the SAK projection model: three seasons of NHL stats -> a projected line per player
 //   ?task=players      (daily) current NHL rosters: trades, call-ups, sweater numbers, headshots
 //   ?task=injuries     (hourly) injury / suspension status from ESPN's public injury report
 //   ?task=news         (every 2 hours) NHL headlines, tagged with the players they mention
-//   ?task=daily        (late morning ET) lineup auto-pilot for teams that turned it on (day / week / season mode)
+//   ?task=daily        (late morning ET) lineup auto-pilot for teams that turned it on: today's best lineup
 //   ?task=lineups-late (before puck drop) the auto-pilot again, for late scratches and injuries; skips any team
 //                      whose GM moved players by hand today
 import { createClient } from 'jsr:@supabase/supabase-js@2';
@@ -42,10 +43,10 @@ async function needsPbp() {
   return !!(sk.fow || sk.fol);
 }
 
-async function syncGames(ids: number[]) {
+async function syncGames(ids: number[], parallel = 1) {
   const pbpWanted = await needsPbp();
   let lines = 0;
-  for (const id of ids) {
+  const one = async (id: number) => {
     const [box, landing, pbp] = await Promise.all([
       get(`/gamecenter/${id}/boxscore`), get(`/gamecenter/${id}/landing`),
       pbpWanted ? get(`/gamecenter/${id}/play-by-play`) : Promise.resolve(undefined),
@@ -57,7 +58,8 @@ async function syncGames(ids: number[]) {
     if (keep.length) check(await db.from('player_games').upsert(keep));
     lines += keep.length;
     if (box.gameState === 'OFF') check(await db.from('games').update({ final_synced: true, updated_at: new Date().toISOString() }).eq('id', id));
-  }
+  };
+  for (let i = 0; i < ids.length; i += parallel) await Promise.all(ids.slice(i, i + parallel).map(one));
   return lines;
 }
 
@@ -74,12 +76,13 @@ async function scores() {
 }
 
 // the NHL revises stats (assists, hits, blocks, goalie decisions) after review; re-pull recent finals
-async function corrections() {
-  const since = etDate(new Date(Date.now() - 3 * 86400000));
+async function corrections(days: number) {
+  const since = etDate(new Date(Date.now() - days * 86400000));
   const { data } = await db.from('games').select('id').gte('date', since).in('state', ['OFF', 'FINAL']);
   const ids = (data ?? []).map((g) => g.id);
-  const lines = await syncGames(ids);
-  return { rechecked: ids.length, lines };
+  const lines = await syncGames(ids, 4);
+  const told = check(await db.rpc('notify_corrections'));
+  return { rechecked: ids.length, days, lines, teams_told: told };
 }
 
 async function upsertSchedule(starts: string[]) {
@@ -262,7 +265,9 @@ async function autoLineups() {
   const ctx = { today, weekEnd, now: Date.now(), games: games ?? [], season, caps: league.roster as Record<string, number> };
   const out: Record<number, number | string> = {};
   for (const t of todo) {
-    const plan = optimize(rows.filter((r) => r.team_id === t.id), players, t.auto_mode, t.auto_basis, ctx);
+    // lineups are daily, so the best lineup is always today's best; optimize() already breaks ties toward
+    // the better player for the season, which is what keeps the right guys in idle slots
+    const plan = optimize(rows.filter((r) => r.team_id === t.id), players, 'day', t.auto_basis, ctx);
     if (!plan.moves.length) { out[t.id] = 0; continue; }
     const { error } = await db.rpc('apply_auto_lineup', { p_team: t.id, p_slots: Object.fromEntries(plan.moves.map((m) => [m.player_id, m.to])) });
     out[t.id] = error ? `error: ${error.message}` : plan.moves.length;
@@ -279,7 +284,7 @@ Deno.serve(async (req) => {
       : task === 'season-schedule' ? await seasonSchedule()
       : task === 'projections' ? await projections()
       : task === 'players' ? await players()
-      : task === 'corrections' ? await corrections()
+      : task === 'corrections' ? await corrections(Math.min(35, Math.max(1, Number(new URL(req.url).searchParams.get('days') ?? 3))))
       : task === 'injuries' ? await injuries()
       : task === 'news' ? await news()
       : task === 'daily' || task === 'lineups-late' ? { lineups: await autoLineups() }
