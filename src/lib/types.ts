@@ -8,7 +8,7 @@ export interface League {
   pick_seconds: number; draft_rounds: number; snake: boolean; season_start: string | null; season_end: string | null;
   playoffs_end: string | null;   // the last possible day of the Stanley Cup final
   trade_deadline: string | null; trade_review_hours: number; max_acquisitions: number; extra_acq_fee: number;
-  entry_fee: number; sak_fee: number; prize_split: number[]; playoff_share: number; roster: Record<Slot, number>;
+  entry_fee: number; sak_fee: number; prize_split: number[]; playoff_share: number; cup_share: number; playoff_bonus_acq: number; roster: Record<Slot, number>;
   scoring: { skater: Record<string, number>; goalie: Record<string, number> };
   commish_note: string | null; updated_at: string; info: Record<string, any>;
 }
@@ -68,6 +68,11 @@ export interface NhlTeam {
   point_pct: number | null; prior_pct: number | null; strength: number | null; proj_pts: number | null;
   playoff_odds: number; exp_po_games: number; po_status: 'regular' | 'alive' | 'out' | null; po_note: string | null;
 }
+export interface LedgerLine { id: number; season: string; team_id: number; kind: string; amount: number; description: string; paid: boolean; paid_at: string | null; method: string | null; note: string | null; created_at: string }
+export interface MoneyBalance { team_id: number; balance: number; owes: number; owed: number; paid_in: number; paid_out: number }
+export interface FundStatus { symbol: string; price_usd: number | null; fx_usdcad: number | null; priced_at: string | null; owed_back: number; owed_back_note: string | null; custodian: string | null; purpose: string | null; shares: number; cash: number; stock_cad: number; net_cad: number; members: number }
+export interface FundLine { id: number; date: string; kind: string; cash: number; shares: number; team_id: number | null; season: string | null; note: string | null }
+export interface PickupStatus { team_id: number; used: number; allowed: number; remaining: number; playoff_bonus: number; bonus_on: boolean }
 export interface TradeBlock { team_id: number; offering: number[]; wants: string[]; offer_note: string | null; picks: boolean; updated_at: string }
 
 export interface Standing {
@@ -85,7 +90,7 @@ export interface Trade {
   parties: number[] | null; accepted_by: number[];   // multi-team trades list every team; two-team trades have parties = null
   trade_items?: TradeItem[];
 }
-export interface TradeItem { id: number; trade_id: number; from_team: number; to_team: number | null; player_id: number | null; pick_id: number | null }
+export interface TradeItem { id: number; trade_id: number; from_team: number; to_team: number | null; player_id: number | null; pick_id: number | null; pickups: number | null; coins: number | null }
 
 export type BetKind = 'custom' | 'h2h' | 'season' | 'player_ou' | 'player_vs' | 'team_ou' | 'pool_team' | 'pool_player';
 export type BetStat = 'fpts' | 'g' | 'a' | 'pts' | 'ppp' | 'sog' | 'hit' | 'blk' | 'pim' | 'w' | 'sv' | 'sho';

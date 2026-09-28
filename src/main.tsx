@@ -20,6 +20,7 @@ const Players = lazy(() => import('./pages/Players'));
 const Chat = lazy(() => import('./pages/Chat'));
 const Standings = lazy(() => import('./pages/Standings'));
 const Trades = lazy(() => import('./pages/Trades'));
+const Money = lazy(() => import('./pages/Money'));
 const Bets = lazy(() => import('./pages/Bets'));
 const LeaguePage = lazy(() => import('./pages/League'));
 const Commish = lazy(() => import('./pages/Commish'));
@@ -98,6 +99,7 @@ function App() {
           <Route path="/chat" element={<Chat />} />
           <Route path="/standings" element={<Standings />} />
           <Route path="/trades" element={<Trades />} />
+          <Route path="/money" element={<Money />} />
           <Route path="/bets" element={<Bets />} />
           <Route path="/league" element={<LeaguePage />} />
           <Route path="/commish" element={<Commish />} />

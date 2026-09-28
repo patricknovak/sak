@@ -722,3 +722,72 @@ insert into player_games (game_id, player_id, date, stats) values (2026030222, :
 select 'playoff table (expect > 0)', points from playoff_standings where team_id = 2;
 select 'cup = regular + playoffs (expect true)', c.points = s.points + p.points from sak_cup_standings c join standings s using (team_id) join playoff_standings p using (team_id) where c.team_id = 2;
 select 'GMs only (expect 0)', count(*) from sak_cup_standings c join teams t on t.id = c.team_id where t.role <> 'gm';
+
+-- ───────────── money: three pots, balances netted, the SaK Fund ─────────────
+select 'shares (expect 25, 25)', playoff_share, cup_share from league;
+select 'this season billed (expect 8 x 200)', count(*), max(amount) from ledger where season = '2026-27' and kind = 'entry';
+select 'darin nets winnings against entry (expect -640)', balance from money_balances where team_id = 8;
+select 'craig (expect -220)', balance from money_balances where team_id = 4;
+select 'panagiotis (expect 60)', balance from money_balances where team_id = 6;
+select 'fund before (expect 36 shares, 470.70 cash)', shares, cash from fund_status;
+select pg_temp.as_team(1);
+set role authenticated;
+select commish_settle_team(3, 'e-transfer', 'test');
+select commish_fund_price(300, 1.4);
+reset role;
+select 'jason settled (expect 0)', balance from money_balances where team_id = 3;
+select 'his $25 went to the fund (expect 495.70)', cash from fund_status;
+select 'fund value (expect 36*300*1.4 + 495.70 - 1000 = 14615.70)', net_cad from fund_status;
+select pg_temp.as_team(1);
+set role authenticated;
+select commish_mark_paid((select id from ledger where team_id = 3 and season = '2026-27' and kind = 'entry'), false);
+reset role;
+select 'unpaid takes it back out (expect 470.70)', cash from fund_status;
+select pg_temp.as_team(2);
+set role authenticated;
+do $$ begin perform commish_settle_team(2); raise exception 'a GM settled his own tab';
+exception when others then if sqlerrm not like '%Commissioner%' then raise; end if; end $$;
+reset role;
+
+-- ───────────── pickups: +3 in the playoffs, and tradable ─────────────
+select 'regular season allowance (expect 10)', allowed from pickup_status where team_id = 2;
+update league set season_end = today_et() - 1;
+select 'playoff allowance (expect 13)', allowed from pickup_status where team_id = 2;
+update league set season_end = '2027-04-10';
+insert into coin_ledger (team_id, amount, reason) values (2, 500, 'test grant');
+select pg_temp.as_team(2);
+set role authenticated;
+select propose_trade(3, '{}', '{}', '{}', '{}', 'pickups for coins', 2, 0, 0, 0) as pk_trade \gset
+do $$ begin perform propose_trade(3, '{}', '{}', '{}', '{}', null, 50, 0, 0, 0); raise exception 'traded pickups he doesn''t have';
+exception when others then if sqlerrm not like '%free-agent pickup%' then raise; end if; end $$;
+reset role;
+select pg_temp.as_team(3);
+set role authenticated;
+select respond_trade(:pk_trade, true);
+reset role;
+select pg_temp.as_team(1);
+set role authenticated;
+select review_trade(:pk_trade, true, 'ok');
+reset role;
+select 'pickups moved (expect 2 = 8, 3 = 12)', string_agg(team_id || '=' || allowed, ', ' order by team_id) from pickup_status where team_id in (2, 3);
+select coalesce(balance, 0) as coins3_before from coin_balances where team_id = 3 \gset
+select pg_temp.as_team(2);
+set role authenticated;
+select propose_trade(3, '{}', '{}', '{}', '{}', 'coins', 0, 0, 100, 0) as coin_trade \gset
+reset role;
+select pg_temp.as_team(3);
+set role authenticated;
+select respond_trade(:coin_trade, true);
+reset role;
+select pg_temp.as_team(1);
+set role authenticated;
+select review_trade(:coin_trade, true, 'ok');
+reset role;
+select 'coins moved (expect +100)', balance - :coins3_before from coin_balances where team_id = 3;
+select 'announced with labels (expect 1)', count(*) from messages where body like '%2 free-agent pickups%';
+select pg_temp.as_team(4);
+set role authenticated;
+select 'GMs can read pickups (expect 8)', count(*) from pickup_status;
+select 'GMs can read the fund (expect 1)', count(*) from fund_status;
+select 'GMs can read balances (expect 8)', count(*) from money_balances;
+reset role;

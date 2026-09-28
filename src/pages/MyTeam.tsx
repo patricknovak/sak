@@ -32,6 +32,8 @@ export default function MyTeam() {
   useEffect(() => { setView(teamId === me?.id ? 'lineup' : 'scout'); setSel(null); }, [teamId]); // eslint-disable-line react-hooks/exhaustive-deps
   const [today, setToday] = useState<Map<number, { fpts: number; stats: Record<string, number> }>>(new Map());
   const [tx, setTx] = useState<Transaction[]>([]);
+  const [pk, setPk] = useState<{ used: number; allowed: number } | null>(null);
+  useEffect(() => { if (teamId) supabase.from('pickup_status').select('used,allowed').eq('team_id', teamId).maybeSingle().then(({ data }) => setPk(data as { used: number; allowed: number } | null)); }, [teamId, rosters]);
   const [view, setView] = useState<'scout' | 'lineup' | 'plan' | 'stats'>(id ? 'scout' : 'lineup');
   // the stat line under each player in the lineup
   const liveOk = windows.size > 0;
@@ -186,7 +188,7 @@ export default function MyTeam() {
         <TeamBadge team={t} size={56} ring />
         <div className="relative min-w-0 flex-1">
           <h1 className="h-display text-shine truncate text-[28px] leading-tight">{t.name}</h1>
-          <div className="text-xs text-white/70">GM {t.gm_name}{st && league?.phase === 'season' && <> · {ordinal(st.rank)} · {fmtPts(st.points)} pts · {st.moves}/{league?.max_acquisitions} pickups</>}</div>
+          <div className="text-xs text-white/70">GM {t.gm_name}{st && league?.phase === 'season' && <> · {ordinal(st.rank)} · {fmtPts(st.points)} pts · {pk ? pk.used : st.moves}/{pk?.allowed ?? league?.max_acquisitions} pickups</>}</div>
           {t.motto && <div className="truncate text-xs italic text-white/60">“{t.motto}”</div>}
         </div>
         <select aria-label="View team" className="relative w-full rounded-xl border border-white/15 bg-black/30 px-2 py-1.5 text-sm backdrop-blur sm:w-auto" value={teamId} onChange={(e) => nav(Number(e.target.value) === me?.id ? '/team' : `/team/${e.target.value}`)}>
