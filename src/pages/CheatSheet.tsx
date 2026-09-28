@@ -111,6 +111,7 @@ export default function CheatSheet() {
         </div>
       </div>
 
+      <div className="grid items-start gap-4 xl:grid-cols-2 2xl:grid-cols-3">
       {listSlots.map(({ s: slot, start, depth }) => (
         <Section key={slot} title={`${SLOT_LABEL[slot]} · need ${start + depth}`} right={<span className="text-xs text-mute">{start ? `${start} starter${start > 1 ? 's' : ''}` : ''}{start && depth ? ' + ' : ''}{depth ? `${depth} depth` : ''} · best 10</span>}>
           <div className="card divide-y divide-white/[.06] px-2">{listFor(slot).map((p, i) => <Row key={p.id} p={p} i={i} />)}</div>
@@ -120,6 +121,7 @@ export default function CheatSheet() {
       <Section title="Best available, any position" right={<span className="text-xs text-mute">by projection</span>}>
         <div className="card divide-y divide-white/[.06] px-2">{pool.slice(0, 12).map((p, i) => <Row key={p.id} p={p} i={i} />)}</div>
       </Section>
+      </div>
 
       <p className="px-1 text-xs text-mute">Tap ⭐ to add anyone to your draft queue; autodraft takes the top of your queue if you’re away. Green means he’ll almost surely be there, amber is a coin flip, red means take him now or forget him. Practise in the <Link to="/mock" className="text-sky-300">mock draft</Link>.</p>
       <PlayerSheet id={detail} onClose={() => setDetail(null)} />

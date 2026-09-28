@@ -68,7 +68,7 @@ export function KeeperReport({ onPlayer }: { onPlayer: (id: number) => void }) {
   return (
     <>
       <Section title="🎓 Keeper grades" right={<span className="text-xs text-mute">league-relative, projections</span>}>
-        <div className="space-y-1.5">{rows.map((g) => <TeamCard key={g.team} g={g} open={open === g.team} onToggle={() => setOpen(open === g.team ? null : g.team)} onPlayer={onPlayer} take={takeFor(g.team)} />)}</div>
+        <div className="grid items-start gap-1.5 xl:grid-cols-2">{rows.map((g) => <TeamCard key={g.team} g={g} open={open === g.team} onToggle={() => setOpen(open === g.team ? null : g.team)} onPlayer={onPlayer} take={takeFor(g.team)} />)}</div>
         <p className="mt-1.5 px-1 text-xs text-mute">A team’s grade weighs what its keepers project to score, how close that is to the best six it could have kept (while keepers are still being picked), how many of the 12 starting slots they fill, and injuries. Each keeper’s letter is his projection rank in the whole pool; the tier is his rank at his position. “Default keepers” means that GM hasn’t saved yet, so this is what the site would keep for them.</p>
       </Section>
 

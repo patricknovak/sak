@@ -39,6 +39,10 @@ body::after {
   background-size: cover; background-position: center;
 }
 #root { min-height: 100dvh; overflow-x: clip; }
+/* big monitors: everything a touch larger, so pages fill the screen instead of floating in the middle */
+@media (min-width: 1800px) { html { font-size: 17px; } }
+@media (min-width: 2300px) { html { font-size: 18px; } }
+@media (min-width: 3000px) { html { font-size: 20px; } }
 ::selection { background: rgba(76, 195, 255, .35); }
 
 /* safe areas for iPhone home-screen installs */

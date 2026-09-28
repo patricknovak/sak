@@ -178,12 +178,12 @@ export default function Draft() {
   const BoardTab = (
     <div className="min-h-0 flex-1 overflow-auto">
       {board.length === 0 ? <div className="p-6 text-center text-sm text-mute">The draft order hasn’t been set yet.</div> : (
-        <table className="w-max border-separate border-spacing-1 p-1 text-xs">
+        <table className="w-full table-fixed border-separate border-spacing-1 p-1 text-xs" style={{ minWidth: `${order.length * 6 + 2}rem` }}>
           <thead className="sticky top-0 z-10 bg-[#0b1222]/95 backdrop-blur">
             <tr>
-              <th className="w-7" />
+              <th className="w-7" style={{ width: '1.75rem' }} />
               {order.map((t) => (
-                <th key={t} className="w-28 px-1 py-1 text-left">
+                <th key={t} className="px-1 py-1 text-left">
                   <Link to={`/team/${t}`} className="flex items-center gap-1 hover:underline"><TeamBadge team={team(t)} size={18} /><span className="truncate">{team(t)?.gm_name}</span></Link>
                 </th>
               ))}
@@ -218,7 +218,7 @@ export default function Draft() {
                       <td key={t}>
                         <button onClick={() => pl && setDetail(pl.id)}
                           style={pl ? { background: POS_BG[pl.pos], boxShadow: `inset 3px 0 0 ${readable(team(pk.team_id)?.color ?? '#888')}` } : undefined}
-                          className={`h-12 w-28 rounded-lg border px-1.5 py-1 text-left transition ${isNow ? 'pulse-ring border-goal bg-goal/20' : pl ? 'border-white/10 hover:brightness-125' : 'border-dashed border-white/10'} ${pk.team_id === me?.id && !pl ? 'border-sky-400/60 bg-sky-400/[.06]' : ''}`}>
+                          className={`h-12 w-full rounded-lg border px-1.5 py-1 text-left transition ${isNow ? 'pulse-ring border-goal bg-goal/20' : pl ? 'border-white/10 hover:brightness-125' : 'border-dashed border-white/10'} ${pk.team_id === me?.id && !pl ? 'border-sky-400/60 bg-sky-400/[.06]' : ''}`}>
                           <div className="flex items-center justify-between text-[10px] text-mute">
                             <span>#{pk.overall}{pk.auto ? ' 🤖' : ''}</span>
                             {traded && <span title={`Owned by ${team(pk.team_id)?.name}`}>→{team(pk.team_id)?.abbrev}</span>}
@@ -386,7 +386,7 @@ export default function Draft() {
         {tab === 'chat' && <ChatPanel channel="draft" compact className="flex-1" />}
         {tab === 'call' && <div className="flex min-h-0 flex-1 flex-col p-2"><DraftCall tall /></div>}
       </div>}
-      {wide && <div className={`grid min-h-0 grid-cols-[minmax(300px,360px)_minmax(0,1fr)_minmax(260px,320px)] gap-3 pt-3 ${pinned ? 'flex-1' : 'h-[calc(100dvh-6rem)] min-h-[560px] shrink-0 pb-3'}`}>
+      {wide && <div className={`grid min-h-0 grid-cols-[minmax(280px,330px)_minmax(0,1fr)_minmax(250px,300px)] 2xl:grid-cols-[minmax(340px,420px)_minmax(0,1fr)_minmax(300px,380px)] gap-3 pt-3 ${pinned ? 'flex-1' : 'h-[calc(100dvh-6rem)] min-h-[560px] shrink-0 pb-3'}`}>
         <div className="card flex min-h-0 flex-col overflow-hidden">{PlayersTab}</div>
         <div className="flex min-h-0 min-w-0 flex-col gap-3">
           <div className="card flex min-h-0 flex-[3] flex-col overflow-hidden">{BoardTab}</div>

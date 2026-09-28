@@ -91,6 +91,8 @@ export default function Standings() {
       {scored && table.length >= 3
         ? <Podium caption={isCup ? 'SAK Cup race right now' : isPo ? 'Playoff podium right now' : 'If the season ended today'} rows={table.slice(0, 3).map((s) => ({ t: team(s.team_id), name: team(s.team_id)?.name ?? '', gm: team(s.team_id)?.gm_name ?? '', pts: Number(s.points) }))} />
         : view === 'regular' && <Podium caption={`${SEASONS[0].season} final podium`} rows={SEASONS[0].rows.slice(0, 3).map((r) => ({ t: teams.find((x) => x.name === r.team), name: r.team, gm: r.gm, pts: r.points }))} />}
+      <div className="grid items-start gap-5 xl:grid-cols-[minmax(0,1.35fr)_minmax(0,1fr)]">
+      <div className="space-y-2">
       <div className="card overflow-hidden">
         <table className="w-full text-sm">
           <thead className="bg-white/[.04] text-left text-[11px] uppercase tracking-wider text-mute">
@@ -121,9 +123,11 @@ export default function Standings() {
       {view === 'regular' && scored && last && second && (
         <p className="px-1 text-xs text-mute">🪣 Peter Punishment if the regular season ended now: {team(last.team_id)?.gm_name} owes {fmtMoney(Math.round((second.points - last.points) * 100) / 100)} to the SaK Fund.</p>
       )}
+      </div>
       <Section title={isCup ? 'SAK Cup race' : isPo ? 'Playoff points race' : 'Points race'}>
         <div className="card p-3"><PointsRace daily={daily} focus={me?.id ?? 0} /></div>
       </Section>
+      </div>
       {view === 'regular' && <Corrections />}
       {view === 'regular' && (
         <Section title={`Last season (${SEASONS[0].season})`}>
