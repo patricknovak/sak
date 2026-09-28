@@ -3,8 +3,10 @@
 // (the projection before the season, blended with pace once games are played); picks are worth
 // about what the player taken there projects to, discounted for uncertainty.
 import type { DraftPick, Player, PlayerSeason, Standing } from './types';
-import { rosPoints } from './playerstats';
+import { flexMult, rosPoints } from './playerstats';
 import { lineupStrength } from './grades';
+import { gamesOf, rosPerGame } from './lineup';
+import { forecastPlayoffs, forecastTeam, type FGame, type FPlayer } from './forecast';
 
 export const NEED: Record<string, number> = { C: 2, LW: 2, RW: 2, D: 3, G: 2 };
 export const POS = ['C', 'LW', 'RW', 'D', 'G'];
@@ -12,7 +14,8 @@ export const POS = ['C', 'LW', 'RW', 'D', 'G'];
 export interface Valuer { player: (p: Player) => number; pick: (k: DraftPick) => number }
 
 export function makeValuer(players: Map<number, Player>, season: Map<number, PlayerSeason>, rostered: Set<number>, nTeams: number, currentSeason: string | undefined): Valuer {
-  const player = (p: Player) => rosPoints(p, season.get(p.id));
+  // rest-of-season points, with a premium for multi-position skaters (they fill more slots)
+  const player = (p: Player) => rosPoints(p, season.get(p.id)) * flexMult(p);
   // the pool a pick draws from: everyone not on a roster, best first
   const pool = [...players.values()].filter((p) => !rostered.has(p.id)).map(player).sort((a, b) => b - a);
   const pick = (k: DraftPick) => {
@@ -40,8 +43,33 @@ const strength = (ps: Player[], val: (p: Player) => number) => {
   return { starters: r.starterPts, depth: r.bench.slice(0, 6).reduce((t, p) => t + p.proj, 0) };
 };
 
-export function evaluateSide(s: Side, v: Valuer, rosterMax: number): SideEval {
+// The schedule-aware lineup: each roster played out day by day over the rest of the real schedule (and the
+// playoffs, from NHL playoff odds) with the best lineup each night. This is what makes a multi-position player
+// worth more than his raw points: on nights a C is off, a C/LW keeps the slot filled.
+export interface Sched {
+  games: FGame[]; caps: Record<string, number>; from: string; to?: string;
+  days?: Set<string>[];                       // synthetic playoff days (forecast.playoffDays)
+  season: Map<number, PlayerSeason>;
+  cache?: Map<string, number>;
+}
+const asF = (p: Player, season: Map<number, PlayerSeason>): FPlayer => {
+  const s = season.get(p.id);
+  const gp = p.proj_gp && p.proj_gp > 0 ? p.proj_gp : p.pos === 'G' ? 58 : 80;
+  return { ...p, proj: rosPerGame(Number(p.proj), p.pos, s?.gp ?? 0, s?.fpts ?? 0, p.proj_gp) * gp, proj_gp: gamesOf(p) };
+};
+export function schedStarters(ps: Player[], sc: Sched, team = 0) {
+  const key = ps.map((p) => p.id).sort((a, b) => a - b).join(',');
+  const hit = sc.cache?.get(key);
+  if (hit != null) return hit;
+  const f = ps.map((p) => asF(p, sc.season));
+  const v = forecastTeam(team, f, sc.games, sc.caps, sc.from, 0, sc.to).ros + (sc.days ? forecastPlayoffs(team, f, sc.days, sc.caps).ros : 0);
+  sc.cache?.set(key, v);
+  return v;
+}
+
+export function evaluateSide(s: Side, v: Valuer, rosterMax: number, sc?: Sched): SideEval {
   const b = strength(s.before, v.player), a = strength(s.after, v.player);
+  if (sc) { b.starters = schedStarters(s.before, sc, s.team); a.starters = schedStarters(s.after, sc, s.team); }
   const beforeIds = new Set(s.before.map((p) => p.id)), afterIds = new Set(s.after.map((p) => p.id));
   const out = s.before.filter((p) => !afterIds.has(p.id)), inn = s.after.filter((p) => !beforeIds.has(p.id));
   const valueOut = out.reduce((t, p) => t + v.player(p), 0) + s.picksOut.reduce((t, k) => t + v.pick(k), 0);
@@ -95,9 +123,11 @@ export interface Suggestion { partner: number; give: Player[]; get: Player[]; me
 // deals that improve both starting lineups: 1-for-1, 2-for-1 and 1-for-2 across the best players on each side
 // winWin (the default): both starting lineups must get better and the value has to stay close, so the other
 // GM has a real reason to say yes. Ranked by the smaller of the two gains, so the fairest deals come first.
-export function findTrades(me: number, myRoster: Player[], partners: { team: number; roster: Player[] }[], v: Valuer, rosterMax: number, opts: { minMine?: number; minTheirs?: number; top?: number; limit?: number; winWin?: boolean } = {}): Suggestion[] {
+export function findTrades(me: number, myRoster: Player[], partners: { team: number; roster: Player[] }[], v: Valuer, rosterMax: number, opts: { minMine?: number; minTheirs?: number; top?: number; limit?: number; winWin?: boolean; sched?: Sched; only?: (s: { partner: number; give: Player[]; get: Player[] }) => boolean } = {}): Suggestion[] {
   const winWin = opts.winWin ?? true;
   const { minMine = winWin ? 2 : 4, minTheirs = winWin ? 2 : -1, top = 14, limit = 12 } = opts;
+  // with the schedule to check against, the quick pass casts a wider net and the schedule decides
+  const slack = opts.sched ? 8 : 0;
   const out: Suggestion[] = [];
   const healthy = (p: Player) => !p.injury_status || !/^(out|ir|injured|long|suspen)/i.test(p.injury_status);
   const byVal = (ps: Player[]) => [...ps].filter(healthy).sort((a, b) => v.player(b) - v.player(a)).slice(0, top);
@@ -106,15 +136,16 @@ export function findTrades(me: number, myRoster: Player[], partners: { team: num
   for (const { team, roster } of partners) {
     const theirs = byVal(roster);
     const tryDeal = (give: Player[], get: Player[]) => {
+      if (opts.only && !opts.only({ partner: team, give, get })) return;
       const key = `${team}:${give.map((p) => p.id).sort().join(',')}>${get.map((p) => p.id).sort().join(',')}`;
       if (seen.has(key)) return; seen.add(key);
       const giveIds = new Set(give.map((p) => p.id)), getIds = new Set(get.map((p) => p.id));
       const myAfter = [...myRoster.filter((p) => !giveIds.has(p.id)), ...get];
       const theirAfter = [...roster.filter((p) => !getIds.has(p.id)), ...give];
       const a = evaluateSide({ team: me, before: myRoster, after: myAfter, picksOut: [], picksIn: [] }, v, rosterMax);
-      if (a.startersDelta < minMine) return;
+      if (a.startersDelta < minMine - slack) return;
       const b = evaluateSide({ team, before: roster, after: theirAfter, picksOut: [], picksIn: [] }, v, rosterMax);
-      if (b.startersDelta < minTheirs || b.warnings.some((w) => w.startsWith('Only'))) return;
+      if (b.startersDelta < minTheirs - slack || b.warnings.some((w) => w.startsWith('Only'))) return;
       // fairness: the partner has to see value too, or they'll never say yes; and you shouldn't be fleeced either
       if (b.net < -25 || a.net < -70) return;
       if (winWin && Math.abs(a.net) > 45) return;
@@ -132,8 +163,23 @@ export function findTrades(me: number, myRoster: Player[], partners: { team: num
     const m8 = mine.slice(0, 8), t8 = theirs.slice(0, 8);
     for (let i = 0; i < m8.length; i++) for (let j = i + 1; j < m8.length; j++) for (let k = 0; k < t8.length; k++) for (let l = k + 1; l < t8.length; l++) tryDeal([m8[i], m8[j]], [t8[k], t8[l]]);
   }
+  // the quick pass above ranks deals on a static best lineup; the best of them are re-scored on the real schedule
+  // (daily lineups, multi-position flexibility, the playoffs) and must still help both sides
+  let sorted = out.sort((a, b) => b.score - a.score);
+  if (opts.sched) {
+    const sc = { ...opts.sched, cache: opts.sched.cache ?? new Map<string, number>() };
+    sorted = sorted.slice(0, 120).map((x) => {
+      const partner = partners.find((p) => p.team === x.partner)!;
+      const giveIds = new Set(x.give.map((p) => p.id)), getIds = new Set(x.get.map((p) => p.id));
+      const a = evaluateSide({ team: me, before: myRoster, after: [...myRoster.filter((p) => !giveIds.has(p.id)), ...x.get], picksOut: [], picksIn: [] }, v, rosterMax, sc);
+      const b = evaluateSide({ team: x.partner, before: partner.roster, after: [...partner.roster.filter((p) => !getIds.has(p.id)), ...x.give], picksOut: [], picksIn: [] }, v, rosterMax, sc);
+      const score = winWin
+        ? Math.min(a.startersDelta, b.startersDelta) * 2 + (a.startersDelta + b.startersDelta) * 0.5 - Math.abs(a.net) * 0.1
+        : a.startersDelta + Math.max(0, b.startersDelta) * 0.8 - Math.max(0, -b.net) * 0.2 - Math.max(0, -a.net - 30) * 0.15;
+      return { ...x, me: a, them: b, score };
+    }).filter((x) => x.me.startersDelta >= minMine && x.them.startersDelta >= minTheirs).sort((a, b) => b.score - a.score);
+  }
   // variety: the best version of each ask, at most one deal per player you'd receive, a few per partner
-  const sorted = out.sort((a, b) => b.score - a.score);
   const picked: Suggestion[] = [];
   const perPartner = new Map<number, number>(), gotPlayer = new Set<string>();
   const maxPer = partners.length > 1 ? 3 : limit;

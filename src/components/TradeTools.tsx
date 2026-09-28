@@ -3,10 +3,12 @@ import { useMemo, useState } from 'react';
 import { useLeague } from '../lib/store';
 import type { DraftPick, Player } from '../lib/types';
 import { fmtPts } from '../lib/format';
-import { evaluateSide, findTrades, gradeSide, makeValuer, posture, verdict, type Side, type SideEval, type Suggestion } from '../lib/trade';
+import { evaluateSide, findTrades, gradeSide, makeValuer, posture, verdict, type Sched, type Side, type SideEval, type Suggestion } from '../lib/trade';
+import { playoffDays } from '../lib/forecast';
+import { etToday } from '../lib/format';
 import { gradeColor } from '../lib/grades';
 import { lineFor, minSample, rosPoints, statValue, fmtStat, TIMEFRAMES, type Timeframe } from '../lib/playerstats';
-import { useProjDetails, toneCls, toneIcon } from '../lib/projections';
+import { useNhlOdds, useProjDetails, useSeasonGames, toneCls, toneIcon } from '../lib/projections';
 import { Headshot, Pos, TeamBadge } from './ui';
 import { Sparkles } from 'lucide-react';
 
@@ -21,7 +23,13 @@ export function useTradeValuer() {
   const end = start ? start + 197 * 86400000 : 0;
   const progress = league?.phase === 'season' && start ? Math.min(1, Math.max(0, (Date.now() - start) / (end - start))) : 0;
   const rosterOf = (t: number) => rosters.filter((r) => r.team_id === t).map((r) => players.get(r.player_id)).filter((p): p is Player => !!p);
-  return { v, rosterMax, rosterOf, inSeason: league?.phase === 'season', stance: standings.length ? null : null, standings, progress };
+  // the schedule-aware lineup (daily lineups over the real schedule plus the playoffs), once the schedule loads
+  const games = useSeasonGames();
+  const nhl = useNhlOdds();
+  const sched = useMemo<Sched | undefined>(() => (games && nhl && league
+    ? { games, caps, from: etToday(), to: league.season_end ?? undefined, days: playoffDays(nhl), season, cache: new Map() }
+    : undefined), [games, nhl, league, season]); // eslint-disable-line react-hooks/exhaustive-deps
+  return { v, rosterMax, rosterOf, inSeason: league?.phase === 'season', stance: standings.length ? null : null, standings, progress, sched };
 }
 
 const d = (n: number) => { const r = Math.round(n); return `${r > 0 ? '+' : ''}${r}`; };
@@ -50,9 +58,9 @@ export function SideCard({ e, name, mine }: { e: SideEval; name: string; mine?: 
 // every player in the deal side by side
 export function TradeAnalysis({ sides, compact }: { sides: Side[]; compact?: boolean }) {
   const { me, team } = useLeague();
-  const { v, rosterMax } = useTradeValuer();
+  const { v, rosterMax, sched } = useTradeValuer();
   const details = useProjDetails();
-  const evals = sides.map((s) => evaluateSide(s, v, rosterMax));
+  const evals = useMemo(() => sides.map((s) => evaluateSide(s, v, rosterMax, sched)), [sides, v, rosterMax, sched]);
   const changed = sides.some((s) => s.before.length !== s.after.length || s.picksIn.length || s.picksOut.length || s.after.some((p) => !s.before.includes(p)));
   if (!changed) return <div className="rounded-xl border border-dashed border-white/10 p-3 text-center text-xs text-mute">Tick players or picks and the analysis appears here: a grade for each side, what each lineup gains or loses, value both ways, and every player's numbers side by side.</div>;
   const name = (t: number) => (t === me?.id ? 'You' : team(t)?.gm_name ?? 'Them');
@@ -83,7 +91,7 @@ export function TradeAnalysis({ sides, compact }: { sides: Side[]; compact?: boo
         {evals.map((e) => <SideCard key={e.team} e={e} name={name(e.team)} mine={e.team === me?.id} />)}
       </div>}
       {moving.length > 0 && <TradeCompare moving={moving} />}
-      <p className="px-1 text-[11px] text-mute">Grades weigh the rest-of-season lineup most, then value in and out, then depth, and dock deals that open a hole or take on an injury. Starters = each team's best possible lineup (2C 2LW 2RW 3D 1Util 2G) from SAK projections blended with this season's pace.</p>
+      <p className="px-1 text-[11px] text-mute">Grades weigh the lineup most, then value in and out, then depth, and dock deals that open a hole or take on an injury. Starters = each roster played out day by day over the rest of the real schedule and the playoffs, with the best lineup (2C 2LW 2RW 3D 1Util 2G) every night, from SAK projections blended with this season's pace. That's where multi-position players earn their keep: a C/LW fills whichever spot is empty that night. Value counts them about 5% higher.</p>
     </div>
   );
 }
@@ -147,7 +155,7 @@ export function TradeCompare({ moving }: { moving: { p: Player; to: number; from
 // deals the computer likes: better lineup for you, no worse for them
 export function TradeFinder({ onBuild }: { onBuild: (partner: number, give: Player[], get: Player[]) => void }) {
   const { me, teams, team, players, standings } = useLeague();
-  const { v, rosterMax, rosterOf, progress, inSeason } = useTradeValuer();
+  const { v, rosterMax, rosterOf, progress, inSeason, sched } = useTradeValuer();
   const [partner, setPartner] = useState<number | 'any'>('any');
   const [winWin, setWinWin] = useState(true);
   const [res, setRes] = useState<Suggestion[] | null>(null);
@@ -158,7 +166,7 @@ export function TradeFinder({ onBuild }: { onBuild: (partner: number, give: Play
     setBusy(true);
     setTimeout(() => {
       const partners = teams.filter((t) => t.id !== me.id && (partner === 'any' || t.id === partner)).map((t) => ({ team: t.id, roster: rosterOf(t.id) }));
-      setRes(findTrades(me.id, rosterOf(me.id), partners, v, rosterMax, { limit: partner === 'any' ? 12 : 10, winWin }));
+      setRes(findTrades(me.id, rosterOf(me.id), partners, v, rosterMax, { limit: partner === 'any' ? 12 : 10, winWin, sched }));
       setBusy(false);
     }, 30);
   };

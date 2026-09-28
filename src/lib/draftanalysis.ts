@@ -1,7 +1,7 @@
 // The draft analysis: every pick against where it was taken, every roster (keepers + picks) played out over the
 // real schedule, finish odds, position and category ranks, and what each GM should do next. Pure; the page and
 // the offline report both call analyzeDraft().
-import { finishOdds, forecastTeam, rankIn, type FGame, type FPlayer, type Odds, type TeamForecast } from './forecast';
+import { flexValues, forecastPlayoffs, forecastTeam, playoffDays, rankIn, seasonOdds, type FGame, type FPlayer, type NhlOdds, type Odds, type SeasonOdds, type TeamForecast } from './forecast';
 
 export interface APick { overall: number; round: number; team: number; player: number }
 export interface ATeam { id: number; name: string; gm: string }
@@ -9,8 +9,12 @@ export interface PickEval { overall: number; round: number; team: number; player
 export interface TeamAnalysis {
   team: number;
   draftGrade: string; draftScore: number;   // value added over slot, all picks
-  rosterGrade: string;                      // the full roster's forecast against the league
-  fc: TeamForecast; odds: Odds;
+  rosterGrade: string;                      // the full roster's forecast for the whole year (regular season + playoffs)
+  fc: TeamForecast; odds: Odds;             // the regular season
+  po: TeamForecast; so: SeasonOdds;         // the playoffs, and odds for all three tables
+  year: number;                             // projected SAK Cup total: regular season + playoffs
+  flex: { id: number; gain: number }[];     // multi-position players and what the flexibility adds
+  poRisk: number;                           // share of starter points on NHL teams unlikely to make the playoffs
   picks: PickEval[]; best: PickEval | null; worst: PickEval | null; stashes: PickEval[];
   keeperPts: number; draftPts: number;      // expected starter points from keepers vs this draft's picks
   posRank: Record<string, number>;          // 1 = best in the league
@@ -39,8 +43,13 @@ export function analyzeDraft(opts: {
   teams: ATeam[]; players: Map<number, FPlayer & { name: string; age?: number | null }>;
   rosters: { team_id: number; player_id: number; acquired: string }[]; picks: APick[];
   games: FGame[]; caps: Record<string, number>; from: string; current?: Map<number, number>;
+  to?: string;                                   // last day of the regular season
+  nhl?: Map<string, NhlOdds>;                    // NHL playoff odds (no playoffs forecast without them)
+  currentPo?: Map<number, number>;               // playoff points banked
+  flex?: boolean;                                // work out each multi-position player's value (slower)
 }): DraftAnalysis {
   const { teams, players, rosters, picks, games, caps, from } = opts;
+  const nhl = opts.nhl ?? new Map<string, NhlOdds>();
   const P = (id: number) => players.get(id);
   // the board as it stood when the draft opened: everyone except the keepers, best projection first
   const kept = new Set(rosters.filter((r) => r.acquired === 'keeper').map((r) => r.player_id));
@@ -56,16 +65,25 @@ export function analyzeDraft(opts: {
 
   // play out every roster
   const rosterOf = (t: number) => rosters.filter((r) => r.team_id === t).map((r) => P(r.player_id)).filter((p): p is NonNullable<typeof p> => !!p);
-  const fcs = teams.map((t) => forecastTeam(t.id, rosterOf(t.id), games, caps, from, opts.current?.get(t.id) ?? 0));
-  const odds = finishOdds(fcs, players as Map<number, FPlayer>);
-  const totals = fcs.map((f) => f.total);
+  const regDone = !!opts.to && from > opts.to;
+  const fcs = teams.map((t) => forecastTeam(t.id, rosterOf(t.id), regDone ? [] : games, caps, from, opts.current?.get(t.id) ?? 0, opts.to));
+  const days = playoffDays(nhl);
+  const pos = teams.map((t) => forecastPlayoffs(t.id, rosterOf(t.id), days, caps, opts.currentPo?.get(t.id) ?? 0));
+  const so = seasonOdds(fcs, pos, players as Map<number, FPlayer>, nhl);
+  const odds = so.map((x) => x.reg);
+  const years = fcs.map((f, i) => f.total + pos[i].total);
+  const totals = years;
   // value over slot for this season (stashed prospects are judged later, not here)
   const draftScores = teams.map((t) => evals.filter((e) => e.team === t.id && !e.stash).reduce((s, e) => s + e.over, 0));
   const avgWaste = fcs.reduce((s, f) => s + f.benchWaste, 0) / fcs.length;
   const avgEmpty = fcs.reduce((s, f) => s + f.emptySlots, 0) / fcs.length;
 
   const out: TeamAnalysis[] = teams.map((t, i) => {
-    const fc = fcs[i], od = odds[i];
+    const fc = fcs[i], od = odds[i], po = pos[i];
+    const fv = opts.flex === false || regDone ? null : flexValues(t.id, rosterOf(t.id), games, caps, from, opts.to);
+    const flex = fv ? [...fv.by].map(([id, gain]) => ({ id, gain })).sort((a, b) => b.gain - a.gain) : [];
+    const weakPts = [...fc.players.values()].filter((c) => (nhl.get(P(c.id)?.nhl_team ?? '')?.playoff_odds ?? 1) < 0.35).reduce((a, c) => a + c.pts, 0);
+    const poRisk = nhl.size && fc.ros > 0 ? weakPts / fc.ros : 0;
     const mine = evals.filter((e) => e.team === t.id).sort((a, b) => a.overall - b.overall);
     const best = [...mine].filter((e) => !e.stash).sort((a, b) => b.over - a.over)[0] ?? null;
     const worst = [...mine].filter((e) => e.round <= 8 && !e.stash).sort((a, b) => a.over - b.over)[0] ?? null;
@@ -114,12 +132,17 @@ export function analyzeDraft(opts: {
     }
     const hurt = roster.filter((p) => p.injury_status && /^(out|ir|injured|long)/i.test(p.injury_status));
     if (hurt.length) moves.push(`Put ${hurt.slice(0, 2).map((p) => p.name).join(' and ')} on IR while ${hurt.length > 1 ? 'they are' : 'he is'} out: it frees a bench spot for someone who plays.`);
+    const flexTotal = flex.reduce((a, f) => a + Math.max(0, f.gain), 0);
+    if (flexTotal >= 60) strengths.push(`Flexible: ${flex.length} multi-position players fill gaps worth about ${Math.round(flexTotal)} points`);
+    if (flex.length <= 1 && fc.emptySlots > avgEmpty) moves.push(`Only ${flex.length || 'no'} multi-position forward${flex.length === 1 ? '' : 's'}: a C/LW or LW/RW type fills the nights your single-position players are off. Worth a premium in trades.`);
+    if (nhl.size && poRisk >= 0.3) moves.push(`${Math.round(poRisk * 100)}% of your lineup points come from NHL teams unlikely to make the playoffs. Fine for the regular season, but the SAK playoffs and the Cup need players who keep playing into May and June.`);
+    if (nhl.size && so[i].po.first >= 0.25 && so[i].reg.first < 0.15) strengths.push('Built for the playoffs: deep on NHL contenders');
     if (od.top3 < 0.2 && avgAge != null && avgAge < 27.5) moves.push('Young roster and long odds this year: take upside swings and future picks in trades.');
     if (od.top3 >= 0.6) moves.push('A real contender: trade depth and future picks for starters before the deadline.');
 
     return {
-      team: t.id, draftScore: draftScores[i], draftGrade: letter(zOf(draftScores, draftScores[i])), rosterGrade: letter(zOf(totals, fc.total)),
-      fc, odds: od, picks: mine, best, worst, keeperPts, draftPts, posRank, catRank, counts, goalieStarts, avgAge,
+      team: t.id, draftScore: draftScores[i], draftGrade: letter(zOf(draftScores, draftScores[i])), rosterGrade: letter(zOf(totals, years[i])),
+      fc, odds: od, po, so: so[i], year: years[i], flex, poRisk, picks: mine, best, worst, keeperPts, draftPts, posRank, catRank, counts, goalieStarts, avgAge,
       risks: risks.slice(0, 3), strengths, weaknesses, moves: moves.slice(0, 5), surplus, needs, stashes: mine.filter((e) => e.stash),
     };
   });
@@ -134,7 +157,7 @@ export function analyzeDraft(opts: {
     }
   }
   return {
-    teams: out.sort((a, b) => b.fc.total - a.fc.total),
+    teams: out.sort((a, b) => b.year - a.year),
     steals: [...evals].sort((a, b) => b.over - a.over).slice(0, 5),
     reaches: [...evals].filter((e) => e.round <= 8 && !e.stash).sort((a, b) => a.over - b.over).slice(0, 5),
     stashes: evals.filter((e) => e.stash),

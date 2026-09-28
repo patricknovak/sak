@@ -5,6 +5,7 @@
 //   ?task=schedule     (hourly) the next six weeks of games, so lineups can be set a month ahead
 //   ?task=season-schedule (daily) every remaining game of the season, for rest-of-season forecasts
 //   ?task=projections  (weekly) the SAK projection model: three seasons of NHL stats -> a projected line per player
+//   ?task=standings    (daily) NHL standings and playoff odds: how many playoff games each NHL team should play
 //   ?task=players      (daily) current NHL rosters: trades, call-ups, sweater numbers, headshots
 //   ?task=injuries     (hourly) injury / suspension status from ESPN's public injury report
 //   ?task=news         (every 2 hours) NHL headlines, tagged with the players they mention
@@ -15,6 +16,7 @@ import { createClient } from 'jsr:@supabase/supabase-js@2';
 import { etDate, gameRow, gameStats, NHL, STARTED } from '../_shared/nhl.ts';
 import { optimize, weekEndOf, type Basis, type LPlayer, type LSeason, type Mode } from '../_shared/lineup.ts';
 import { projectAll, type GoalieSeason, type ProjPlayer, type SkaterSeason } from '../_shared/projections.ts';
+import { playoffOdds, type NhlTeamIn, type SeriesIn } from '../_shared/playoffs.ts';
 
 const db = createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!, {
   auth: { persistSession: false },
@@ -162,6 +164,39 @@ async function projections() {
   return { projected: n, players: players.length, seasons: sum.length + gsum.length };
 }
 
+// NHL standings, last season's as the prior, and the playoff bracket once it exists
+async function standings() {
+  const { data: lg } = await db.from('league').select('season').single();
+  const startYear = Number(String(lg?.season ?? '2026-27').slice(0, 4));
+  const seasonId = startYear * 10000 + startYear + 1;
+  const [now, prev] = await Promise.all([get('/standings/now'), get(`/standings/${startYear}-04-15`)]);
+  const priorOf = new Map<string, number>((prev.standings ?? []).map((s: any) => [s.teamAbbrev.default, Number(s.pointPctg)]));
+  // before opening night /standings/now still shows last season: count it as zero games played
+  const current = (now.standings ?? []).filter((s: any) => Number(s.seasonId) === seasonId);
+  const rows = (current.length ? current : prev.standings ?? []) as any[];
+  const teams: NhlTeamIn[] = rows.map((s) => ({
+    abbrev: s.teamAbbrev.default, name: `${s.placeName?.default ?? ''} ${s.teamCommonName?.default ?? s.teamName?.default ?? ''}`.trim(),
+    conf: s.conferenceAbbrev, division: s.divisionAbbrev,
+    gp: current.length ? Number(s.gamesPlayed) : 0, pts: current.length ? Number(s.points) : 0,
+    prior: priorOf.get(s.teamAbbrev.default) ?? null,
+  }));
+  let series: SeriesIn[] | null = null;
+  try {
+    const c = await get(`/playoff-series/carousel/${seasonId}/`);
+    const all = (c.rounds ?? []).flatMap((r: any) => (r.series ?? []).map((x: any) => ({ r: r.roundNumber, x })));
+    const abbr = new Map<number, string>();
+    for (const { x } of all) { if (x.topSeed?.id) abbr.set(x.topSeed.id, x.topSeed.abbrev); if (x.bottomSeed?.id) abbr.set(x.bottomSeed.id, x.bottomSeed.abbrev); }
+    const s: SeriesIn[] = all.filter(({ x }: any) => x.topSeed?.abbrev && x.bottomSeed?.abbrev).map(({ r, x }: any) => ({
+      round: r, a: x.topSeed.abbrev, b: x.bottomSeed.abbrev, aw: Number(x.topSeed.wins ?? 0), bw: Number(x.bottomSeed.wins ?? 0),
+      winner: x.winningTeamId ? abbr.get(x.winningTeamId) ?? null : null, loser: x.losingTeamId ? abbr.get(x.losingTeamId) ?? null : null,
+    }));
+    if (s.length) series = s;
+  } catch { /* no bracket yet */ }
+  const out = playoffOdds(teams, series);
+  check(await db.from('nhl_teams').upsert(out.map((o) => ({ ...o, updated_at: new Date().toISOString() }))));
+  return { teams: out.length, playoffs: !!series, alive: out.filter((o) => o.po_status === 'alive').length };
+}
+
 async function players() {
   const seen: any[] = [];
   for (const t of TEAMS) {
@@ -287,6 +322,7 @@ Deno.serve(async (req) => {
       task === 'schedule' ? await schedule()
       : task === 'season-schedule' ? await seasonSchedule()
       : task === 'projections' ? await projections()
+      : task === 'standings' ? await standings()
       : task === 'players' ? await players()
       : task === 'corrections' ? await corrections(Math.min(35, Math.max(1, Number(new URL(req.url).searchParams.get('days') ?? 3))))
       : task === 'injuries' ? await injuries()

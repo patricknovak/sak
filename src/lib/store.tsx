@@ -22,6 +22,7 @@ interface Store {
   draft: DraftState | null;
   standings: Standing[];
   playoffs: Standing[];         // NHL-playoff games only, a separate table and prize pot
+  cup: Standing[];              // the SAK Cup: the whole year, regular season plus playoffs
   season: Map<number, PlayerSeason>;
   windows: Map<number, Record<string, PlayerWindow>>;   // per-player stats by timeframe (season / 30 / 14 / 7 days)
   games: Game[];               // today + upcoming week
@@ -49,6 +50,7 @@ export function LeagueProvider({ children }: { children: ReactNode }) {
   const [draft, setDraft] = useState<DraftState | null>(null);
   const [standings, setStandings] = useState<Standing[]>([]);
   const [playoffs, setPlayoffs] = useState<Standing[]>([]);
+  const [cup, setCup] = useState<Standing[]>([]);
   const [season, setSeason] = useState<Map<number, PlayerSeason>>(new Map());
   const [windows, setWindows] = useState<Map<number, Record<string, PlayerWindow>>>(new Map());
   const [games, setGames] = useState<Game[]>([]);
@@ -83,9 +85,10 @@ export function LeagueProvider({ children }: { children: ReactNode }) {
     picks: async () => setPicks(await selectAll<DraftPick>('draft_picks')),
     draft: async () => { const { data } = await supabase.from('draft_state').select('*').single(); if (data) setDraft(data as DraftState); },
     standings: async () => {
-      const [{ data }, { data: po }] = await Promise.all([supabase.from('standings').select('*'), supabase.from('playoff_standings').select('*')]);
+      const [{ data }, { data: po }, { data: cp }] = await Promise.all([supabase.from('standings').select('*'), supabase.from('playoff_standings').select('*'), supabase.from('sak_cup_standings').select('*')]);
       if (data) setStandings(data as Standing[]);
       if (po) setPlayoffs((po as Standing[]).map((r) => ({ ...r, moves: 0 })));
+      if (cp) setCup((cp as Standing[]).map((r) => ({ ...r, moves: 0 })));
     },
     season: async () => {
       const rows = await selectAll<PlayerSeason>('player_season');
@@ -205,7 +208,7 @@ export function LeagueProvider({ children }: { children: ReactNode }) {
 
   const value: Store = {
     ready: authReady && (!session || loaded), session, me, league, teams, spectators, can, team, players, rosters, owner, picks, draft,
-    standings, playoffs, season, windows, games, gamesByTeam, notifications, online, refresh, serverOffset,
+    standings, playoffs, cup, season, windows, games, gamesByTeam, notifications, online, refresh, serverOffset,
   };
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
 }

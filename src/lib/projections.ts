@@ -2,7 +2,8 @@
 // every player's projected stat line, range and factors, and the rest of the season's NHL schedule.
 import { useEffect, useState } from 'react';
 import { selectAll } from './supabase';
-import type { Game, ProjDetail } from './types';
+import type { Game, NhlTeam, ProjDetail } from './types';
+import { supabase } from './supabase';
 import { etToday } from './format';
 
 let detailCache: Promise<Map<number, ProjDetail>> | null = null;
@@ -38,6 +39,23 @@ export function useSeasonGames() {
   const [g, setG] = useState<Game[] | null>(null);
   useEffect(() => { let on = true; loadSeasonGames().then((x) => on && setG(x)).catch(() => on && setG([])); return () => { on = false; }; }, []);
   return g;
+}
+
+// NHL playoff odds and expected playoff games per NHL team (nhl-sync?task=standings keeps them fresh)
+let nhlCache: Promise<Map<string, NhlTeam>> | null = null;
+let nhlAt = 0;
+export function loadNhlOdds() {
+  if (!nhlCache || Date.now() - nhlAt > 30 * 60_000) {
+    nhlAt = Date.now();
+    nhlCache = Promise.resolve(supabase.from('nhl_teams').select('*')).then(({ data }) => new Map(((data ?? []) as NhlTeam[]).map((t) => [t.abbrev, { ...t, playoff_odds: Number(t.playoff_odds), exp_po_games: Number(t.exp_po_games) }])))
+      .catch((e) => { nhlCache = null; throw e; });
+  }
+  return nhlCache;
+}
+export function useNhlOdds() {
+  const [m, setM] = useState<Map<string, NhlTeam> | null>(null);
+  useEffect(() => { let on = true; loadNhlOdds().then((x) => on && setM(x)).catch(() => on && setM(new Map())); return () => { on = false; }; }, []);
+  return m;
 }
 
 // the stats worth projecting, by position group

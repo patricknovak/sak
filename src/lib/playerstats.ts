@@ -50,6 +50,11 @@ export const statsFor = (goalie: boolean) => STATS.filter((s) => goalie ? !s.ska
 export interface Line { gp: number | null; fp: number; totals: Record<string, number> }
 // projection-style timeframes have one number and no raw totals
 export const projLike = (tf: Timeframe) => tf === 'proj' || tf === 'ros';
+// multi-position skaters are worth more: on nights one position is thin they fill it. Played out over the real
+// schedule for every roster in the league, that flexibility is worth 20-95 points a team and about 5% of a
+// multi-position player's points (a third position adds little over a second). Goalies play one position.
+export const flexMult = (p: { pos: string; elig: string[] }) => (p.pos !== 'G' && p.elig.length > 1 ? 1.05 : 1);
+
 // what's left in the tank: blended per-game pace times the games he has left
 export function rosPoints(p: Player, s?: PlayerSeason | null) {
   const gp = s?.gp ?? 0;

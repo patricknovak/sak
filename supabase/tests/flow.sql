@@ -421,6 +421,13 @@ set role authenticated;
 select respond_trade(:multi, true);
 reset role;
 select 'multi after one accept', status, accepted_by from trades where id = :multi;
+-- team 4 takes a player and gives only a pick: a full roster has to drop first
+select pg_temp.as_team(4);
+set role authenticated;
+do $$ begin perform respond_trade((select max(id) from trades where parties is not null), true); raise exception 'full roster took a player';
+exception when others then if sqlerrm not like '%Drop 1 first%' then raise; end if; end $$;
+reset role;
+delete from rosters where player_id = (select player_id from rosters where team_id = 4 and slot = 'BN' and player_id <> :m3 order by player_id desc limit 1);
 select pg_temp.as_team(4);
 set role authenticated;
 select respond_trade(:multi, true);
@@ -586,3 +593,132 @@ select 'correction logged (expect 1, +1.2)', count(*), max(new_fpts - old_fpts) 
 select 'teams told (expect 1)', notify_corrections();
 select 'note', body from notifications where team_id = 2 and kind = 'correction';
 select 'told once (expect 0)', notify_corrections();
+
+-- ───────────── IR rules: two spots, injured only (not suspended), coming off IR needs a roster spot ─────────────
+reset role;
+update league set phase = 'season';
+select r.player_id as ir_a from rosters r where r.team_id = 7 and r.slot = 'BN' order by r.player_id limit 1 \gset
+select r.player_id as ir_s from rosters r where r.team_id = 7 and r.slot = 'BN' order by r.player_id offset 1 limit 1 \gset
+select set_config('t.ir_a', :'ir_a', false), set_config('t.ir_s', :'ir_s', false);
+update players set injury_status = 'Out' where id = :ir_a;
+update players set injury_status = 'Suspension' where id = :ir_s;
+update rosters set slot = 'BN' where team_id = 7 and slot = 'IR';
+select 'team 7 active before (expect 24)', _active_count(7);
+select pg_temp.as_team(7);
+set role authenticated;
+do $$ begin perform move_player(current_setting('t.ir_s')::int, 'IR'); raise exception 'suspended player on IR allowed';
+exception when others then if sqlerrm not like '%suspended players can''t go on IR%' then raise; end if; end $$;
+select move_player(:ir_a, 'IR');
+select free_agent as ir_fa from (select id as free_agent from players p where p.pos <> 'G' and not exists (select 1 from rosters r where r.player_id = p.id) order by proj desc limit 1) x \gset
+select add_player(:ir_fa);   -- IR opened a spot: no drop needed
+reset role;
+select 'active after IR + pickup (expect 24)', _active_count(7);
+select pg_temp.as_team(7);
+set role authenticated;
+do $$ begin perform move_player(current_setting('t.ir_a')::int, 'BN'); raise exception 'came off IR with a full roster';
+exception when others then if sqlerrm not like '%No roster spot%' then raise; end if; end $$;
+do $$ begin perform _apply_lineup(7, jsonb_build_object(current_setting('t.ir_a')::int::text, 'BN')); raise exception 'optimizer overfilled the roster';
+exception when others then if sqlerrm not like '%No roster spot%' and sqlerrm not like '%permission denied%' then raise; end if; end $$;
+reset role;
+-- healed but still on IR: no pickups until he's activated or someone is dropped
+update players set injury_status = null where id = :ir_a;
+select pg_temp.as_team(7);
+set role authenticated;
+do $$ begin perform add_player((select id from players p where not exists (select 1 from rosters r where r.player_id = p.id) order by proj desc limit 1), current_setting('t.ir_s')::int);
+  raise exception 'pickup with a healthy player stashed on IR';
+exception when others then if sqlerrm not like '%no longer injured%' then raise; end if; end $$;
+-- a saved plan can't activate him either while the roster is full
+do $$ begin perform set_lineup_plans(jsonb_build_object((today_et() + 3)::text, jsonb_build_object(current_setting('t.ir_a')::int::text, 'BN')));
+  raise exception 'plan overfilled the roster';
+exception when others then if sqlerrm not like '%would be active%' then raise; end if; end $$;
+-- plans reach past the regular season into the playoffs, but not past the Cup final
+reset role;
+update league set season_end = today_et() + 2, playoffs_end = today_et() + 20;
+select pg_temp.as_team(7);
+set role authenticated;
+select 'playoff-date plan saved (expect 1)', set_lineup_plans(jsonb_build_object((today_et() + 10)::text, '{}'::jsonb));
+do $$ begin perform set_lineup_plans(jsonb_build_object((today_et() + 25)::text, '{}'::jsonb)); raise exception 'plan after the Cup final';
+exception when others then if sqlerrm not like '%Stanley Cup final%' then raise; end if; end $$;
+-- drop someone, then he comes back
+reset role;
+delete from rosters where player_id = :ir_s;
+select pg_temp.as_team(7);
+set role authenticated;
+select move_player(:ir_a, 'BN');
+reset role;
+select 'activated after a drop (expect BN, 24)', (select slot from rosters where player_id = :ir_a), _active_count(7);
+update league set season_end = '2027-04-10', playoffs_end = '2027-06-30';
+
+-- saved plans that would overfill the roster leave him on IR
+update players set injury_status = 'Out' where id = :ir_a;
+select pg_temp.as_team(7);
+set role authenticated;
+select move_player(:ir_a, 'IR');
+select add_player((select id from players p where p.pos <> 'G' and not exists (select 1 from rosters r where r.player_id = p.id) order by proj desc limit 1));
+reset role;
+insert into lineup_plans (team_id, date, player_id, slot) values (7, today_et(), :ir_a, 'BN');
+delete from lineup_plan_applied where team_id = 7;
+select 'plans applied', apply_lineup_plans() >= 1;
+select 'kept on IR, roster not overfilled (expect IR, 24)', (select slot from rosters where player_id = :ir_a), _active_count(7);
+
+-- trades: no team can end up with more active players than the roster holds
+select pg_temp.as_team(6);
+set role authenticated;
+select propose_trade(7, array(select player_id from rosters where team_id = 6 and slot <> 'IR' order by player_id limit 2), array[(select player_id from rosters where team_id = 7 and slot = 'BN' order by player_id limit 1)], '{}', '{}', 'two for one') as big_trade \gset
+select set_config('t.big_trade', :'big_trade', false);
+reset role;
+select 'team 7 after 2-for-1 (expect 25)', _trade_active_after(:big_trade, 7);
+select pg_temp.as_team(7);
+set role authenticated;
+do $$ begin perform respond_trade(current_setting('t.big_trade')::bigint, true); raise exception 'accepted into an overfull roster';
+exception when others then if sqlerrm not like '%Drop 1 first%' then raise; end if; end $$;
+reset role;
+-- an injured player on IR keeps his IR spot with his new team
+update rosters set slot = 'BN' where team_id = 6 and slot = 'IR';
+select r.player_id as ir_t from rosters r where r.team_id = 6 order by r.player_id limit 1 \gset
+update players set injury_status = 'Injured Reserve' where id = :ir_t;
+update rosters set slot = 'IR' where player_id = :ir_t;
+select pg_temp.as_team(6);
+set role authenticated;
+select propose_trade(7, array[:ir_t], array[(select player_id from rosters where team_id = 7 and slot = 'BN' order by player_id limit 1)], '{}', '{}', 'hurt for healthy') as ir_trade \gset
+reset role;
+update rosters set slot = 'BN' where player_id = :ir_a;   -- free team 7's IR... and make room for him
+delete from rosters where player_id = (select player_id from rosters where team_id = 7 and slot = 'BN' and player_id <> :ir_a order by player_id desc limit 1);
+select pg_temp.as_team(7);
+set role authenticated;
+select respond_trade(:ir_trade, true);
+reset role;
+select pg_temp.as_team(1);
+set role authenticated;
+select review_trade(:ir_trade, true, 'ok');
+reset role;
+select 'traded IR player stays on IR (expect 7, IR)', team_id, slot from rosters where player_id = :ir_t;
+select 'rosters within limits (expect 0)', count(*) from (select team_id from rosters group by team_id having count(*) filter (where slot <> 'IR') > _roster_max() or count(*) filter (where slot = 'IR') > 2) x;
+
+-- ───────────── the trade block ─────────────
+select pg_temp.as_team(3);
+set role authenticated;
+select set_trade_block(array(select player_id from rosters where team_id = 3 order by player_id limit 2), array['D', 'G'], 'Two forwards for a top-four D', true);
+do $$ begin perform set_trade_block(array[(select player_id from rosters where team_id = 4 limit 1)], '{}', null); raise exception 'offered another team''s player';
+exception when others then if sqlerrm not like '%your own players%' then raise; end if; end $$;
+do $$ begin perform set_trade_block('{}', array['Util'], null); raise exception 'bad position';
+exception when others then if sqlerrm not like '%Positions are%' then raise; end if; end $$;
+select 'block visible to all (expect 2, {D,G})', cardinality(offering), wants from trade_block where team_id = 3;
+reset role;
+select 'announced (expect 1)', count(*) from messages where meta->>'trade_block' = '3';
+delete from rosters where player_id = (select offering[1] from trade_block where team_id = 3);
+select 'dropped player leaves the block (expect 1)', cardinality(offering) from trade_block where team_id = 3;
+select pg_temp.as_team(3);
+set role authenticated;
+select set_trade_block('{}', '{}', null);
+reset role;
+select 'cleared (expect 0)', count(*) from trade_block where team_id = 3;
+
+-- ───────────── the SAK Cup: regular season + playoffs ─────────────
+insert into games (id, date, start_utc, home, away, state, final_synced) values (2026030222, today_et() - 1, now() - interval '1 day', 'TOR', 'MTL', 'OFF', true);
+select r.player_id as po_p from rosters r where r.team_id = 2 and r.slot not in ('BN', 'IR') limit 1 \gset
+insert into lineup_snapshots (game_id, date, team_id, player_id, slot) values (2026030222, today_et() - 1, 2, :po_p, 'C');
+insert into player_games (game_id, player_id, date, stats) values (2026030222, :po_p, today_et() - 1, '{"g":2,"a":1,"sog":5}');
+select 'playoff table (expect > 0)', points from playoff_standings where team_id = 2;
+select 'cup = regular + playoffs (expect true)', c.points = s.points + p.points from sak_cup_standings c join standings s using (team_id) join playoff_standings p using (team_id) where c.team_id = 2;
+select 'GMs only (expect 0)', count(*) from sak_cup_standings c join teams t on t.id = c.team_id where t.role <> 'gm';
