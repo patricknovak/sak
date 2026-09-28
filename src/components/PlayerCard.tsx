@@ -216,15 +216,8 @@ export function PlayerActions({ p, onDone }: { p: Player; onDone?: () => void })
   const myRoster = rosters.filter((x) => x.team_id === me?.id && x.slot !== 'IR');
   const full = myRoster.length >= Object.entries(league?.roster ?? {}).filter(([k]) => k !== 'IR').reduce((t, [, v]) => t + v, 0);
 
-  const add = (drop?: number, fee = false) => run(async () => {
-    try {
-      await rpc('add_player', { p_add: p.id, p_drop: drop ?? null, p_accept_fee: fee });
-    } catch (e) {
-      const m = (e as Error).message;
-      if (m.startsWith('ACQ_LIMIT') && confirm(m.replace('ACQ_LIMIT: ', '') + '\n\nPay the fee and make the pickup?')) {
-        await rpc('add_player', { p_add: p.id, p_drop: drop ?? null, p_accept_fee: true });
-      } else throw e;
-    }
+  const add = (drop?: number) => run(async () => {
+    await rpc('add_player', { p_add: p.id, p_drop: drop ?? null });
     await refresh(['rosters', 'standings']);
     onDone?.();
   }, `${p.name} added`);

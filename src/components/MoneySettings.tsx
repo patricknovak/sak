@@ -9,13 +9,13 @@ import { useAction } from './ui';
 export function MoneySettings() {
   const { league, teams, refresh } = useLeague();
   const { busy, run } = useAction();
-  const [f, setF] = useState({ entry: '200', fund: '25', split: ['60', '30', '10'], playoff: '25', cup: '25', acq: '10', bonus: '3', fee: '30' });
+  const [f, setF] = useState({ entry: '200', fund: '25', split: ['60', '30', '10'], playoff: '25', cup: '25', acq: '10', bonus: '3' });
   useEffect(() => {
     if (!league) return;
     setF({
       entry: String(league.entry_fee), fund: String(league.sak_fee), split: (league.prize_split ?? [60, 30, 10]).map(String),
       playoff: String(league.playoff_share ?? 25), cup: String(league.cup_share ?? 25),
-      acq: String(league.max_acquisitions ?? 10), bonus: String(league.playoff_bonus_acq ?? 3), fee: String(league.extra_acq_fee ?? 30),
+      acq: String(league.max_acquisitions ?? 10), bonus: String(league.playoff_bonus_acq ?? 3),
     });
   }, [league?.updated_at]); // eslint-disable-line react-hooks/exhaustive-deps
   const splitSum = f.split.reduce((t, x) => t + (Number(x) || 0), 0);
@@ -23,7 +23,7 @@ export function MoneySettings() {
   const regular = 100 - Number(f.playoff) - Number(f.cup);
   const bad = splitSum !== 100 || Number(f.fund) > Number(f.entry) || regular < 0 || Number(f.playoff) < 0 || Number(f.cup) < 0;
   const num = (v: string) => v.replace(/[^\d.]/g, '');
-  const field = (label: string, k: 'entry' | 'fund' | 'playoff' | 'cup' | 'acq' | 'bonus' | 'fee') => (
+  const field = (label: string, k: 'entry' | 'fund' | 'playoff' | 'cup' | 'acq' | 'bonus') => (
     <label className="text-xs text-mute">{label}<input className="input mt-1" inputMode="decimal" value={f[k]} onChange={(e) => setF({ ...f, [k]: num(e.target.value) })} /></label>
   );
 
@@ -45,10 +45,9 @@ export function MoneySettings() {
           ))}
         </div>
       </div>
-      <div className="grid grid-cols-3 gap-2">
+      <div className="grid grid-cols-2 gap-2">
         {field('Free pickups', 'acq')}
         {field('Playoff bonus', 'bonus')}
-        {field('Extra pickup $', 'fee')}
       </div>
       <div className="space-y-0.5 rounded-xl border border-white/10 bg-black/25 p-2.5 text-xs">
         <div>Pool {fmtMoney(preview.pool)} ({teams.length} × {fmtMoney(preview.entry - preview.fund)}) · SaK Fund {fmtMoney(preview.fundTotal)}</div>
@@ -57,7 +56,7 @@ export function MoneySettings() {
       <button className="btn-primary w-full" disabled={busy || bad} onClick={() => run(async () => {
         await rpc('commish_update_league', { p: {
           entry_fee: Number(f.entry), sak_fee: Number(f.fund), prize_split: f.split.map(Number), playoff_share: Number(f.playoff), cup_share: Number(f.cup),
-          max_acquisitions: Number(f.acq), playoff_bonus_acq: Number(f.bonus), extra_acq_fee: Number(f.fee),
+          max_acquisitions: Number(f.acq), playoff_bonus_acq: Number(f.bonus),
         } });
         await refresh(['league']);
       }, 'Money settings saved 💰')}>Save money settings</button>

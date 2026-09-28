@@ -79,12 +79,7 @@ export function PickupAdvisor() {
   }, [games, me?.id, h, pos, mine, players, owner]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const doAdd = (i: Idea) => run(async () => {
-    try { await rpc('add_player', { p_add: i.add.id, p_drop: i.drop?.id ?? null, p_accept_fee: false }); }
-    catch (e) {
-      const m = (e as Error).message;
-      if (m.startsWith('ACQ_LIMIT') && confirm(m.replace('ACQ_LIMIT: ', '') + '\n\nPay the fee and make the pickup?')) await rpc('add_player', { p_add: i.add.id, p_drop: i.drop?.id ?? null, p_accept_fee: true });
-      else throw e;
-    }
+    await rpc('add_player', { p_add: i.add.id, p_drop: i.drop?.id ?? null });
     await refresh(['rosters', 'standings']);
   }, `${i.add.name} added${i.drop ? `, ${i.drop.name} dropped` : ''}`);
 
@@ -125,7 +120,7 @@ export function PickupAdvisor() {
             })}
           </div>
         )}
-      <p className="px-1 text-[11px] text-mute">Gain = projected lineup points over {span} with the move, minus without it. Free pickups are limited ({league?.max_acquisitions ?? 10} for the regular season and playoffs, +{league?.playoff_bonus_acq ?? 3} when the playoffs start, then ${league?.extra_acq_fee ?? 30} each; spares can be traded), so short stretches favour streaming only when the gain is big.</p>
+      <p className="px-1 text-[11px] text-mute">Gain = projected lineup points over {span} with the move, minus without it. Free pickups are limited ({league?.max_acquisitions ?? 10} for the regular season and playoffs, +{league?.playoff_bonus_acq ?? 3} when the playoffs start; no paid extras, so trade with another GM for more), so short stretches favour streaming only when the gain is big.</p>
       <PlayerSheet id={detail} onClose={() => setDetail(null)} />
     </div>
   );

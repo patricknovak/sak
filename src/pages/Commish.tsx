@@ -205,7 +205,7 @@ export default function Commish() {
             <option value="">Team…</option>{teams.map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}
           </select>
           <select className="input" value={fine.kind} onChange={(e) => setFine({ ...fine, kind: e.target.value })}>
-            {['fine', 'entry', 'sak', 'acq_fee', 'prize', 'other'].map((k) => <option key={k}>{k}</option>)}
+            {['fine', 'entry', 'sak', 'prize', 'other'].map((k) => <option key={k}>{k}</option>)}
           </select>
           <input className="input" inputMode="decimal" placeholder="$" value={fine.amount} onChange={(e) => setFine({ ...fine, amount: e.target.value })} />
           <input className="input sm:col-span-3" placeholder="e.g. Marchand 2-game suspension (Get SaK'ed)" value={fine.desc} onChange={(e) => setFine({ ...fine, desc: e.target.value })} />
