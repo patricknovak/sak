@@ -21,6 +21,7 @@ export interface LContext {
   games: LGame[];                   // at least today through weekEnd
   season: Map<number, LSeason>;
   caps: Record<string, number>;     // starting slots: C LW RW D Util G (+ IR, BN)
+  avail?: Map<number, number>;      // chance each player plays on a night his team does (see availability())
 }
 
 export const STARTING = ['C', 'LW', 'RW', 'D', 'Util', 'G'];
@@ -69,10 +70,39 @@ export function perGame(p: LPlayer, basis: Basis, ctx: LContext) {
 // backup far fewer, a skater nearly all (from his projected games)
 export const dressRate = (p: { pos: string; proj_gp?: number | null }) => Math.min(1, gamesOf(p) / 82);
 
+// how likely an injury status lets him play on a given night: out is out, day-to-day is a coin flip
+export function healthFactor(s: string | null | undefined) {
+  if (!s) return 1;
+  if (isOut(s)) return 0;
+  if (/day[- ]?to[- ]?day|questionable|dtd|game[- ]time/i.test(s)) return 0.5;
+  if (/probable/i.test(s)) return 0.85;
+  return 0.9;
+}
+
+// the chance each player is in the NHL lineup on a night his team plays: how often he dresses (or, for a
+// goalie, starts), times his health. A hurt goalie's starts go to his healthy crease partners.
+export function availability(players: Iterable<LPlayer>): Map<number, number> {
+  const out = new Map<number, number>();
+  const goalies = new Map<string, { p: LPlayer; base: number; h: number }[]>();
+  for (const p of players) {
+    const base = dressRate(p), h = healthFactor(p.injury_status);
+    out.set(p.id, base * h);
+    if (p.pos === 'G' && p.nhl_team) goalies.set(p.nhl_team, [...(goalies.get(p.nhl_team) ?? []), { p, base, h }]);
+  }
+  for (const gs of goalies.values()) {
+    const lost = gs.reduce((t, g) => t + g.base * (1 - g.h), 0);
+    const healthy = gs.filter((g) => g.h >= 0.85);
+    const pool = healthy.reduce((t, g) => t + g.base, 0);
+    if (lost <= 0 || !pool) continue;
+    for (const g of healthy) out.set(g.p.id, Math.min(0.92, g.base * g.h + lost * (g.base / pool)));
+  }
+  return out;
+}
+
 // what a player is worth in a starting slot for this mode (expected points: per game × chance he plays)
 export function worth(p: LPlayer, mode: Mode, basis: Basis, ctx: LContext) {
   if (isOut(p.injury_status)) return 0;
-  const pg = perGame(p, basis, ctx) * dressRate(p);
+  const pg = perGame(p, basis, ctx) * (ctx.avail?.get(p.id) ?? dressRate(p) * healthFactor(p.injury_status));
   if (mode === 'day') return gameToday(p.nhl_team, ctx) ? pg : 0;
   if (mode === 'week') return gamesLeftThisWeek(p.nhl_team, ctx) * pg;
   return pg * 82;
@@ -116,7 +146,8 @@ export interface Plan {
   before: number;                  // same measure for the current lineup
 }
 
-export function optimize(rows: LRow[], players: Map<number, LPlayer>, mode: Mode, basis: Basis, ctx: LContext): Plan {
+export function optimize(rows: LRow[], players: Map<number, LPlayer>, mode: Mode, basis: Basis, ctxIn: LContext): Plan {
+  const ctx = ctxIn.avail ? ctxIn : { ...ctxIn, avail: availability(players.values()) };
   const caps = { ...ctx.caps };
   const final = new Map<number, string>();
   const roster = rows.map((r) => ({ r, p: players.get(r.player_id) })).filter((x): x is { r: LRow; p: LPlayer } => !!x.p);
