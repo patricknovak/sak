@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { useLeague, useNow } from '../lib/store';
 import { rpc, realtimeChannel, supabase } from '../lib/supabase';
-import type { DraftPick, Player, Trade } from '../lib/types';
+import type { DraftPick, PickupStatus, Player, Trade } from '../lib/types';
 import { ago, fmtDateTime, fmtPts } from '../lib/format';
 import { PlayerRow } from '../components/PlayerCard';
 import { Empty, Section, TeamBadge, TeamName, useAction, PageHeader } from '../components/ui';
@@ -29,6 +29,16 @@ export default function Trades() {
   const [givePicks, setGivePicks] = useState<Set<number>>(new Set(ids('givePicks')));
   const [getPicks, setGetPicks] = useState<Set<number>>(new Set(ids('getPicks')));
   const [note, setNote] = useState('');
+  // unused free-agent pickups and St. Patrick coins can go in a deal too
+  const [extras, setExtras] = useState({ givePk: 0, getPk: 0, giveCoins: 0, getCoins: 0 });
+  const [pkStatus, setPkStatus] = useState<PickupStatus[]>([]);
+  const [coinFree, setCoinFree] = useState<Map<number, number>>(new Map());
+  useEffect(() => {
+    supabase.from('pickup_status').select('*').then(({ data }) => setPkStatus((data ?? []) as PickupStatus[]));
+    supabase.from('coin_balances').select('team_id,balance,escrow').then(({ data }) => setCoinFree(new Map((data ?? []).map((c: { team_id: number; balance: number; escrow: number }) => [c.team_id, Number(c.balance) - Number(c.escrow)]))));
+  }, []);
+  const pkLeft = (t: number) => pkStatus.find((x) => x.team_id === t)?.remaining ?? 0;
+  const extrasN = extras.givePk + extras.getPk + extras.giveCoins + extras.getCoins;
   const [mode, setMode] = useState<'two' | 'multi'>(params.get('multi') ? 'multi' : 'two');
   const [parties, setParties] = useState<number[]>([]);
   const [mitems, setMitems] = useState<MItem[]>([]);
@@ -54,8 +64,9 @@ export default function Trades() {
   const pickLabel = (k: DraftPick, side: number) => `${k.season} R${k.round} pick${k.original_team !== side ? ` (via ${team(k.original_team)?.abbrev})` : ''}${k.overall ? ` · #${k.overall}` : ''}`;
 
   const propose = () => run(async () => {
-    await rpc('propose_trade', { p_to: partner, p_give: [...give], p_get: [...get], p_give_picks: [...givePicks], p_get_picks: [...getPicks], p_note: note || null });
-    setGive(new Set()); setGet(new Set()); setGivePicks(new Set()); setGetPicks(new Set()); setNote(''); setParams({});
+    await rpc('propose_trade', { p_to: partner, p_give: [...give], p_get: [...get], p_give_picks: [...givePicks], p_get_picks: [...getPicks], p_note: note || null,
+      p_give_pickups: extras.givePk, p_get_pickups: extras.getPk, p_give_coins: extras.giveCoins, p_get_coins: extras.getCoins });
+    setGive(new Set()); setGet(new Set()); setGivePicks(new Set()); setGetPicks(new Set()); setNote(''); setParams({}); setExtras({ givePk: 0, getPk: 0, giveCoins: 0, getCoins: 0 });
     load();
   }, 'Trade offer sent 📨');
   const proposeMulti = () => run(async () => {
@@ -95,6 +106,8 @@ export default function Trades() {
 
   const describe = (t: Trade, side: number, to?: number) => (t.trade_items ?? []).filter((i) => i.from_team === side && (to == null || i.to_team === to)).map((i) => {
     if (i.player_id) return players.get(i.player_id)?.name ?? 'Player';
+    if (i.pickups) return `🎟️ ${i.pickups} free-agent pickup${i.pickups > 1 ? 's' : ''}`;
+    if (i.coins) return `☘️ ${i.coins} St. Patrick coins`;
     const pk = picks.find((p) => p.id === i.pick_id);
     return pk ? `${pk.season} R${pk.round} pick${pk.original_team !== side ? ` (via ${team(pk.original_team)?.abbrev})` : ''}` : 'Pick';
   });
@@ -268,19 +281,28 @@ export default function Trades() {
                 {partner && (
                   <>
                     <div className="grid gap-3 sm:grid-cols-2">
-                      {[{ label: 'You send', tid: me!.id, a: mine, sel: give, set: setGive, psel: givePicks, pset: setGivePicks },
-                        { label: `${team(partner)?.gm_name} sends`, tid: partner, a: theirs, sel: get, set: setGet, psel: getPicks, pset: setGetPicks }].map((col) => (
-                        <div key={col.label}>
+                      {[{ label: 'You send', tid: me!.id, a: mine, sel: give, set: setGive, psel: givePicks, pset: setGivePicks, pk: 'givePk' as const, cn: 'giveCoins' as const },
+                        { label: `${team(partner)?.gm_name} sends`, tid: partner, a: theirs, sel: get, set: setGet, psel: getPicks, pset: setGetPicks, pk: 'getPk' as const, cn: 'getCoins' as const }].map((col) => (
+                        <div key={col.label} className="min-w-0">
                           <div className="label mb-1 flex justify-between"><span>{col.label}</span><span>{fmtPts(valueOf(col.sel), 0)} pts value</span></div>
                           <AssetList tid={col.tid} players={col.a.players} picks={col.a.picks}
                             isOn={(k, id) => (k === 'player_id' ? col.sel.has(id) : col.psel.has(id))}
                             onFlip={(k, id) => (k === 'player_id' ? flip(col.sel, col.set, id) : flip(col.psel, col.pset, id))} />
+                          <div className="mt-2 grid grid-cols-2 gap-2">
+                            <label className="rounded-xl border border-white/[.08] bg-white/[.03] px-2 py-1.5 text-[11px] text-mute">🎟️ Free-agent pickups <span className="text-slate-400">({pkLeft(col.tid)} left)</span>
+                              <input className="input mt-1 py-1" type="number" min={0} max={pkLeft(col.tid)} value={extras[col.pk] || ''} placeholder="0"
+                                onChange={(e) => setExtras({ ...extras, [col.pk]: Math.max(0, Math.min(pkLeft(col.tid), Math.floor(Number(e.target.value) || 0))) })} /></label>
+                            <label className="rounded-xl border border-white/[.08] bg-white/[.03] px-2 py-1.5 text-[11px] text-mute">☘️ St. Patrick coins <span className="text-slate-400">({Math.max(0, coinFree.get(col.tid) ?? 0)} free)</span>
+                              <input className="input mt-1 py-1" type="number" min={0} max={Math.max(0, coinFree.get(col.tid) ?? 0)} value={extras[col.cn] || ''} placeholder="0"
+                                onChange={(e) => setExtras({ ...extras, [col.cn]: Math.max(0, Math.min(Math.max(0, coinFree.get(col.tid) ?? 0), Math.floor(Number(e.target.value) || 0))) })} /></label>
+                          </div>
                         </div>
                       ))}
                     </div>
                     <TradeAnalysis sides={twoSides} />
                     <input className="input" placeholder="Sweeten it with a message (optional)" value={note} onChange={(e) => setNote(e.target.value)} />
-                    <button className="btn-primary w-full" disabled={busy || give.size + get.size + givePicks.size + getPicks.size === 0} onClick={propose}>Send offer to {team(partner)?.name}</button>
+                    {extrasN > 0 && <div className="rounded-xl border border-white/10 bg-black/25 px-3 py-2 text-xs text-slate-300">Also in the deal: {[extras.givePk && `you send ${extras.givePk} pickup${extras.givePk > 1 ? 's' : ''}`, extras.giveCoins && `you send ${extras.giveCoins} coins`, extras.getPk && `you get ${extras.getPk} pickup${extras.getPk > 1 ? 's' : ''}`, extras.getCoins && `you get ${extras.getCoins} coins`].filter(Boolean).join(' · ')}. Pickups are this season's free adds; a spare one is worth more to a GM who's out of them than to you.</div>}
+                    <button className="btn-primary w-full" disabled={busy || give.size + get.size + givePicks.size + getPicks.size + extrasN === 0} onClick={propose}>Send offer to {team(partner)?.name}</button>
                   </>
                 )}
               </>
@@ -314,7 +336,7 @@ export default function Trades() {
                           );
                         };
                         return (
-                          <div key={tid}>
+                          <div key={tid} className="min-w-0">
                             <div className="label mb-1 flex items-center gap-1.5"><TeamBadge team={team(tid)} size={16} />{tid === me.id ? 'You send' : `${team(tid)?.gm_name} sends`}</div>
                             <AssetList tid={tid} players={a.players} picks={a.picks} isOn={(k, id) => !!mitem(tid, k, id)} onFlip={(k, id) => toggleM(tid, k, id)} dest={Dest} />
                           </div>
@@ -324,7 +346,7 @@ export default function Trades() {
                     {mitems.length > 0 && (
                       <div className={`grid gap-2 rounded-xl border border-white/10 bg-black/25 p-2.5 text-xs ${allParties.length > 2 ? 'sm:grid-cols-3' : 'grid-cols-2'}`}>
                         {allParties.map((tid) => (
-                          <div key={tid}>
+                          <div key={tid} className="min-w-0">
                             <div className="label mb-1">{tid === me.id ? 'You' : team(tid)?.gm_name} get{tid === me.id ? '' : 's'}</div>
                             {mitems.filter((i) => i.to === tid).map((i, n) => <div key={n} className="truncate">{i.player_id ? <span className="font-semibold">{players.get(i.player_id)?.name}</span> : <span className="text-gold">📋 {(() => { const k = picks.find((x) => x.id === i.pick_id); return k ? `${k.season} R${k.round}` : 'pick'; })()}</span>} <span className="text-mute">from {team(i.from)?.abbrev}</span></div>)}
                             {mitems.filter((i) => i.to === tid).length === 0 && <div className="text-mute">Nothing yet</div>}

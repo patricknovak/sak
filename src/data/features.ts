@@ -107,8 +107,10 @@ export const FEATURE_GROUPS: FeatureGroup[] = [
   {
     key: 'league', title: 'The league', icon: '🏛️', tagline: 'Since 2013: the money, the history and the rules',
     features: [
-      { key: 'money', icon: '💰', title: 'Prize money', to: '/league?t=money', isNew: true, blurb: '$200 a GM: $25 to the SaK Fund, the rest to the pool.',
-        points: ['60% for the regular season, 40% for the playoffs', 'Each pot pays 1st, 2nd and 3rd', 'Live projected payouts as the standings move'] },
+      { key: 'money', icon: '💰', title: 'Money: prize pools, balances and the SaK Fund', to: '/money', isNew: true, blurb: 'Every dollar in the open: $200 a GM, $25 of it to the SaK Fund, the rest to three pots.',
+        points: ['The Johnson (regular season) 50%, the Playoff Cup 25%, the SAK Cup (full year) 25%; each pays 1st, 2nd and 3rd, with who’d collect if it ended today', 'Your balance: winnings net against next season’s entry, so one e-Transfer settles it either way', 'Who owes what across the league, every line behind it, and what the commish has to collect and pay out', 'The SaK Fund: TSLA shares priced every weekday in Canadian dollars, cash, every movement, and each GM’s share', 'Free-agent pickups left for every team, and a link to the side-bet cash tab'] },
+      { key: 'trade-extras', icon: '🎟️', title: 'Trade pickups and St. Patrick coins', to: '/trades', isNew: true, blurb: 'Unused free-agent pickups and St. Patrick coins can go in a trade, like players and picks.',
+        points: ['10 free pickups for the regular season and playoffs, plus 3 more for everyone when the playoffs start', 'Put pickups or coins on either side of an offer; the site checks you have them to give'] },
       { key: 'history', icon: '📜', title: 'League history', to: '/league', blurb: 'Every season since 2013, the all-time table, champions and Peter holders.',
         points: ['The Johnson and The Peter', 'All-time franchise points'] },
       { key: 'rules', icon: '📖', title: 'Rulebook and rule votes', to: '/league?t=rules', blurb: 'The rules in one place, and a vote on changes.',

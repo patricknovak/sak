@@ -6,6 +6,7 @@
 //   ?task=season-schedule (daily) every remaining game of the season, for rest-of-season forecasts
 //   ?task=projections  (weekly) the SAK projection model: three seasons of NHL stats -> a projected line per player
 //   ?task=standings    (daily) NHL standings and playoff odds: how many playoff games each NHL team should play
+//   ?task=fund         (weekdays) the SaK Fund's share price and the US/Canadian dollar rate
 //   ?task=players      (daily) current NHL rosters: trades, call-ups, sweater numbers, headshots
 //   ?task=injuries     (hourly) injury / suspension status from ESPN's public injury report
 //   ?task=news         (every 2 hours) NHL headlines, tagged with the players they mention
@@ -197,6 +198,20 @@ async function standings() {
   return { teams: out.length, playoffs: !!series, alive: out.filter((o) => o.po_status === 'alive').length };
 }
 
+// the SaK Fund is priced in Canadian dollars: the stock's last price times the USD/CAD rate
+async function fundPrice() {
+  const { data: f } = await db.from('fund').select('symbol').single();
+  const quote = async (sym: string) => {
+    const j = await getJson(`https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(sym)}?range=5d&interval=1d`);
+    const p = Number(j?.chart?.result?.[0]?.meta?.regularMarketPrice);
+    if (!(p > 0)) throw new Error(`no price for ${sym}`);
+    return p;
+  };
+  const [price, fx] = await Promise.all([quote(f?.symbol ?? 'TSLA'), quote('CAD=X')]);
+  check(await db.rpc('set_fund_price', { p_price: price, p_fx: fx }));
+  return { symbol: f?.symbol ?? 'TSLA', price, fx };
+}
+
 async function players() {
   const seen: any[] = [];
   for (const t of TEAMS) {
@@ -323,6 +338,7 @@ Deno.serve(async (req) => {
       : task === 'season-schedule' ? await seasonSchedule()
       : task === 'projections' ? await projections()
       : task === 'standings' ? await standings()
+      : task === 'fund' ? await fundPrice()
       : task === 'players' ? await players()
       : task === 'corrections' ? await corrections(Math.min(35, Math.max(1, Number(new URL(req.url).searchParams.get('days') ?? 3))))
       : task === 'injuries' ? await injuries()

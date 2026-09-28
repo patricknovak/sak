@@ -125,7 +125,7 @@ export function PickupAdvisor() {
             })}
           </div>
         )}
-      <p className="px-1 text-[11px] text-mute">Gain = projected lineup points over {span} with the move, minus without it. Free pickups are limited ({league?.max_acquisitions ?? 10} a season, then ${league?.extra_acq_fee ?? 30} each), so short stretches favour streaming only when the gain is big.</p>
+      <p className="px-1 text-[11px] text-mute">Gain = projected lineup points over {span} with the move, minus without it. Free pickups are limited ({league?.max_acquisitions ?? 10} for the regular season and playoffs, +{league?.playoff_bonus_acq ?? 3} when the playoffs start, then ${league?.extra_acq_fee ?? 30} each; spares can be traded), so short stretches favour streaming only when the gain is big.</p>
       <PlayerSheet id={detail} onClose={() => setDetail(null)} />
     </div>
   );
