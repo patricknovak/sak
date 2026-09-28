@@ -8,6 +8,7 @@ export type Basis = 'proj' | 'form' | 'season' | 'ros';
 
 export interface LPlayer {
   id: number; pos: string; elig: string[]; proj: number; nhl_team: string | null; injury_status: string | null;
+  proj_gp?: number | null;          // games (starts for goalies) the projection covers
 }
 export interface LRow { player_id: number; slot: string; pin?: string | null }
 export interface LSeason { gp: number; fpts: number; gp14?: number | null; fpts14?: number | null }
@@ -42,21 +43,23 @@ export function gamesLeftThisWeek(team: string | null, ctx: LContext) {
 }
 
 export const GAMES_PER_SEASON = (pos: string) => (pos === 'G' ? 58 : 80);
+// the games a player's projection is spread over: the model's projected games when there is one
+export const gamesOf = (p: { pos: string; proj_gp?: number | null }) => (p.proj_gp && p.proj_gp > 0 ? p.proj_gp : GAMES_PER_SEASON(p.pos));
 
 // rest-of-season points per game: the preseason projection, trusted less and the season's pace trusted more
-// as games pile up (a full weight of 1 at 25 games)
-export function rosPerGame(proj: number, pos: string, gp: number, fpts: number) {
-  const base = proj / GAMES_PER_SEASON(pos);
+// as games pile up (half and half at 30 games; fantasy scoring rates take most of a season to settle)
+export function rosPerGame(proj: number, pos: string, gp: number, fpts: number, projGp?: number | null) {
+  const base = proj / (projGp && projGp > 0 ? projGp : GAMES_PER_SEASON(pos));
   if (!gp) return base;
-  const w = Math.min(1, gp / 25);
+  const w = gp / (gp + 30);
   return (1 - w) * base + w * (fpts / gp);
 }
 
 // fantasy points per game under the chosen basis (falls back to the projection when there's no sample)
 export function perGame(p: LPlayer, basis: Basis, ctx: LContext) {
-  const base = p.proj / GAMES_PER_SEASON(p.pos);
+  const base = p.proj / gamesOf(p);
   const s = ctx.season.get(p.id);
-  if (basis === 'ros') return rosPerGame(p.proj, p.pos, s?.gp ?? 0, s?.fpts ?? 0);
+  if (basis === 'ros') return rosPerGame(p.proj, p.pos, s?.gp ?? 0, s?.fpts ?? 0, p.proj_gp);
   if (basis === 'form' && s?.gp14 && s.gp14 >= 2 && s.fpts14 != null) return s.fpts14 / s.gp14;
   if ((basis === 'season' || basis === 'form') && s && s.gp >= 5) return s.fpts / s.gp;
   return base;
@@ -72,7 +75,7 @@ export function worth(p: LPlayer, mode: Mode, basis: Basis, ctx: LContext) {
 }
 
 // Hungarian algorithm: minimum-cost assignment of n rows to m >= n columns
-function hungarian(cost: number[][]): number[] {
+export function hungarian(cost: number[][]): number[] {
   const n = cost.length, m = cost[0]?.length ?? 0;
   const INF = 1e18;
   const u = new Array(n + 1).fill(0), v = new Array(m + 1).fill(0), p = new Array(m + 1).fill(0), way = new Array(m + 1).fill(0);

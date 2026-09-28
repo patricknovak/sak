@@ -26,6 +26,13 @@ export interface Player {
   nhl_team: string | null; num: number | null; headshot: string | null; last_fp: number; proj: number;
   rank: number | null; status: string; last_stats: Record<string, number> | null; injury_note: string | null;
   injury_status: string | null; injury_date: string | null;
+  proj_gp?: number | null;   // games the projection covers (starts for goalies)
+}
+// the projection model's detail for one player (loaded on demand)
+export interface ProjFactor { tone: 'good' | 'bad' | 'info'; text: string }
+export interface ProjDetail {
+  id: number; proj_stats: Record<string, number> | null; proj_gp: number | null;
+  proj_meta: { lo: number; hi: number; age: number | null; fpg: number; trend: 'up' | 'down' | 'flat' | null; factors: ProjFactor[]; hist: { s: string; gp: number; fp: number }[]; model: string } | null;
 }
 
 export interface Roster {
@@ -78,7 +85,7 @@ export interface BetSubject { player_id?: number; player_a?: number; player_b?: 
 export interface Bet {
   id: number; creator_team: number; opponent_team: number | null; title: string; terms: string | null;
   kind: BetKind; stake: string | null; amount: number | null; start_date: string | null; end_date: string | null;
-  status: 'open' | 'accepted' | 'declined' | 'cancelled' | 'settled'; proposed_winner: number | null; proposed_by: number | null;
+  status: 'open' | 'accepted' | 'declined' | 'cancelled' | 'settled' | 'expired'; proposed_winner: number | null; proposed_by: number | null;
   winner_team: number | null; paid: boolean; coins: number; created_at: string; accepted_at: string | null; settled_at: string | null;
   subject: BetSubject | null; entry_close: string | null; result: Record<string, unknown> | null; push: boolean;
   odds: number;   // the creator risks coins × odds against the opponent's coins (1 = even)

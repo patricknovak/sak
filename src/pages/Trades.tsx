@@ -6,8 +6,10 @@ import type { DraftPick, Player, Trade } from '../lib/types';
 import { ago, fmtDateTime, fmtPts } from '../lib/format';
 import { PlayerRow } from '../components/PlayerCard';
 import { Empty, Section, TeamBadge, TeamName, useAction, PageHeader } from '../components/ui';
-import { TradeAnalysis, TradeFinder } from '../components/TradeTools';
-import type { Side } from '../lib/trade';
+import { TradeAnalysis, TradeFinder, useTradeValuer } from '../components/TradeTools';
+import { evaluateSide, gradeSide, type Side } from '../lib/trade';
+import { gradeColor } from '../lib/grades';
+import { rosPoints } from '../lib/playerstats';
 import { Repeat2 } from 'lucide-react';
 
 // a multi-team builder line: one asset, where it comes from and where it goes
@@ -96,11 +98,31 @@ export default function Trades() {
     return pk ? `${pk.season} R${pk.round} pick${pk.original_team !== side ? ` (via ${team(pk.original_team)?.abbrev})` : ''}` : 'Pick';
   });
   const partiesOf = (t: Trade) => t.parties ?? [t.from_team, t.to_team];
+  // a pending trade as sides: each team's roster now, and after the deal
+  const sidesOf = (t: Trade): Side[] => {
+    const ps = partiesOf(t);
+    const items = t.trade_items ?? [];
+    const dest = (i: { from_team: number; to_team: number | null }) => i.to_team ?? ps.find((x) => x !== i.from_team)!;
+    return ps.map((tid) => {
+      const before = assets(tid).players;
+      const out = new Set(items.filter((i) => i.from_team === tid && i.player_id).map((i) => i.player_id!));
+      const inn = items.filter((i) => dest(i) === tid && i.from_team !== tid && i.player_id).map((i) => players.get(i.player_id!)).filter((p): p is Player => !!p);
+      return { team: tid, before, after: [...before.filter((p) => !out.has(p.id)), ...inn],
+        picksOut: picks.filter((k) => items.some((i) => i.from_team === tid && i.pick_id === k.id)),
+        picksIn: picks.filter((k) => items.some((i) => dest(i) === tid && i.from_team !== tid && i.pick_id === k.id)) };
+    });
+  };
+  const [openTrade, setOpenTrade] = useState<number | null>(null);
+  const { v: valuer, rosterMax } = useTradeValuer();
+  // offers waiting on you open with the full assessment showing
+  const isOpen = (t: Trade) => openTrade === t.id || (canRespond(t) && openTrade !== -t.id);
+  const gradesOf = (t: Trade) => sidesOf(t).map((sd) => gradeSide(evaluateSide(sd, valuer, rosterMax)));
   const canRespond = (t: Trade) => !!me && t.status === 'proposed' && (t.parties ? partiesOf(t).includes(me.id) && t.from_team !== me.id && !(t.accepted_by ?? []).includes(me.id) : t.to_team === me.id);
 
   const groups = useMemo(() => ({
     incoming: trades.filter((t) => canRespond(t)),
     outgoing: trades.filter((t) => t.status === 'proposed' && !canRespond(t) && !!me && partiesOf(t).includes(me.id)),
+    league: trades.filter((t) => t.status === 'proposed' && !(me && partiesOf(t).includes(me.id))),
     review: trades.filter((t) => t.status === 'accepted'),
     done: trades.filter((t) => !['proposed', 'accepted'].includes(t.status)),
   }), [trades, me]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -127,6 +149,17 @@ export default function Trades() {
             </div>
           ))}
         </div>
+        {(t.status === 'proposed' || t.status === 'accepted') && (() => {
+          const gs = gradesOf(t);
+          return (
+            <div className="mt-2 flex flex-wrap items-center gap-2 rounded-lg bg-white/[.03] px-2 py-1.5 text-xs">
+              <span className="text-mute">Grades</span>
+              {gs.map((g) => <span key={g.team} className="flex items-center gap-1"><TeamBadge team={team(g.team)} size={16} />{team(g.team)?.gm_name}<b className={`h-display text-base ${gradeColor(g.grade)}`}>{g.grade}</b></span>)}
+              <button className="ml-auto text-sky-300 hover:underline" onClick={() => setOpenTrade(isOpen(t) ? -t.id : t.id)}>{isOpen(t) ? 'Hide' : 'Full assessment & stats'}</button>
+            </div>
+          );
+        })()}
+        {isOpen(t) && <div className="mt-2"><TradeAnalysis sides={sidesOf(t)} compact /></div>}
         {t.note && <p className="mt-2 rounded-lg bg-boards px-2 py-1 text-xs italic">“{t.note}”</p>}
         {t.review_note && <p className="mt-1 text-xs text-mute">Commish: {t.review_note}</p>}
         {children && <div className="mt-3 flex flex-wrap gap-2">{children}</div>}
@@ -134,6 +167,16 @@ export default function Trades() {
     );
   };
 
+  // the one-line résumé under each player in the builder: this season if it's started, else last season
+  const statBlurb = (p: Player) => {
+    const s = season.get(p.id);
+    const t = (s && s.gp ? s.totals : p.last_stats) as Record<string, number | null> | null;
+    const gp = s && s.gp ? s.gp : (p.last_stats?.gp ?? 0);
+    if (!t || !gp) return 'no NHL games';
+    const tag = s && s.gp ? '' : '’25-26 ';
+    return p.pos === 'G' ? `${tag}${gp} GP, ${t.w ?? 0} W, ${t.sa ? ((t.sv ?? 0) / (t.sa as number)).toFixed(3).replace(/^0/, '') : '–'} SV%, ${t.sho ?? 0} SO`
+      : `${tag}${gp} GP, ${t.g ?? 0} G, ${t.a ?? 0} A, ${t.ppp ?? 0} PPP, ${t.sog ?? 0} SOG, ${t.hit ?? 0} H, ${t.blk ?? 0} B`;
+  };
   const buildFromFinder = (p: number, g: Player[], r: Player[]) => {
     setMode('two');
     setParams({ with: String(p), give: g.map((x) => x.id).join(','), get: r.map((x) => x.id).join(',') });
@@ -144,8 +187,8 @@ export default function Trades() {
       {ps.map((p) => (
         <label key={p.id} className={`flex cursor-pointer items-center gap-2 px-2 py-1.5 ${isOn('player_id', p.id) ? 'bg-sky-500/15' : ''}`}>
           <input type="checkbox" checked={isOn('player_id', p.id)} onChange={() => onFlip('player_id', p.id)} className="h-4 w-4 accent-sky-400" />
-          <div className="min-w-0 flex-1"><PlayerRow p={p} /></div>
-          <span className="num shrink-0 text-xs text-mute">{fmtPts(p.proj, 0)}</span>
+          <div className="min-w-0 flex-1"><PlayerRow p={p} sub={<span className="ml-1">· {statBlurb(p)}</span>} /></div>
+          <span className="shrink-0 text-right text-[10px] leading-tight text-mute"><span className="num block text-xs font-semibold text-slate-200">{fmtPts(p.proj, 0)}</span>proj · {fmtPts(rosPoints(p, season.get(p.id)), 0)} ROS</span>
           {isOn('player_id', p.id) && dest?.('player_id', p.id)}
         </label>
       ))}
@@ -295,6 +338,12 @@ export default function Trades() {
           </div>
         )}
       </Section>
+
+      {groups.league.length > 0 && (
+        <Section title="Around the league" right={<span className="text-xs text-mute">every open offer, graded</span>}>
+          <div className="space-y-2">{groups.league.map((t) => <TradeCard key={t.id} t={t} />)}</div>
+        </Section>
+      )}
 
       {groups.outgoing.length > 0 && (
         <Section title="Your pending offers">

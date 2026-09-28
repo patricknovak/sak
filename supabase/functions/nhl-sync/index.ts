@@ -1,7 +1,9 @@
 // nhl-sync: keeps SaK in step with the NHL.
 //   ?task=scores       (every minute) games for yesterday+today, freeze lineups at puck drop, box scores -> fantasy points
 //   ?task=corrections  (daily) re-pull the last 3 days of finished games so NHL stat corrections flow into points
-//   ?task=schedule     (hourly) the next two weeks of games, so lineups know who plays when
+//   ?task=schedule     (hourly) the next six weeks of games, so lineups can be set a month ahead
+//   ?task=season-schedule (daily) every remaining game of the season, for rest-of-season forecasts
+//   ?task=projections  (weekly) the SAK projection model: three seasons of NHL stats -> a projected line per player
 //   ?task=players      (daily) current NHL rosters: trades, call-ups, sweater numbers, headshots
 //   ?task=injuries     (hourly) injury / suspension status from ESPN's public injury report
 //   ?task=news         (every 2 hours) NHL headlines, tagged with the players they mention
@@ -11,6 +13,7 @@
 import { createClient } from 'jsr:@supabase/supabase-js@2';
 import { etDate, gameRow, gameStats, NHL, STARTED } from '../_shared/nhl.ts';
 import { optimize, weekEndOf, type Basis, type LPlayer, type LSeason, type Mode } from '../_shared/lineup.ts';
+import { projectAll, type GoalieSeason, type ProjPlayer, type SkaterSeason } from '../_shared/projections.ts';
 
 const db = createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!, {
   auth: { persistSession: false },
@@ -79,19 +82,81 @@ async function corrections() {
   return { rechecked: ids.length, lines };
 }
 
-async function schedule() {
-  const now = new Date();
-  const weeks = [etDate(now), etDate(new Date(now.getTime() + 7 * 86400000))];
-  const rows = (await Promise.all(weeks.map((d) => get(`/schedule/${d}`))))
+async function upsertSchedule(starts: string[]) {
+  const rows = (await Promise.all(starts.map((d) => get(`/schedule/${d}`))))
     .flatMap((j) => j.gameWeek ?? [])
     .flatMap((w: any) => (w.games ?? []).filter((g: any) => g.gameType === 2 || g.gameType === 3).map((g: any) => ({ ...g, gameDate: w.date })))
     .map(gameRow);
+  const uniq = [...new Map(rows.map((r) => [r.id, r])).values()];
   // don't clobber live scores with schedule placeholders
-  const { data: started } = await db.from('games').select('id').in('id', rows.map((r) => r.id)).neq('state', 'FUT');
-  const skip = new Set((started ?? []).map((g) => g.id));
-  const fresh = rows.filter((r) => !skip.has(r.id));
-  if (fresh.length) check(await db.from('games').upsert(fresh));
-  return { scheduled: fresh.length };
+  const skip = new Set<number>();
+  for (let i = 0; i < uniq.length; i += 300) {
+    const { data: started } = await db.from('games').select('id').in('id', uniq.slice(i, i + 300).map((r) => r.id)).neq('state', 'FUT');
+    for (const g of started ?? []) skip.add(g.id);
+  }
+  const fresh = uniq.filter((r) => !skip.has(r.id));
+  for (let i = 0; i < fresh.length; i += 300) check(await db.from('games').upsert(fresh.slice(i, i + 300)));
+  return fresh.length;
+}
+const weekStarts = (from: Date, weeks: number) => Array.from({ length: weeks }, (_, i) => etDate(new Date(from.getTime() + i * 7 * 86400000)));
+
+async function schedule() {
+  return { scheduled: await upsertSchedule(weekStarts(new Date(), 6)) };
+}
+
+// the rest of the regular season, a week at a time
+async function seasonSchedule() {
+  const { data: lg } = await db.from('league').select('season_end').single();
+  const end = lg?.season_end ? new Date(lg.season_end + 'T12:00:00Z') : new Date(Date.now() + 200 * 86400000);
+  const weeks = Math.min(32, Math.max(1, Math.ceil((end.getTime() - Date.now()) / (7 * 86400000)) + 1));
+  let n = 0;
+  const starts = weekStarts(new Date(), weeks);
+  for (let i = 0; i < starts.length; i += 6) n += await upsertSchedule(starts.slice(i, i + 6));
+  return { scheduled: n, weeks };
+}
+
+// the projection model: pull three seasons of every player's NHL stats in a handful of requests, project, store
+const STATS = 'https://api.nhle.com/stats/rest/en';
+const report = async (kind: string, name: string, from: number) =>
+  ((await getJson(`${STATS}/${kind}/${name}?limit=-1&cayenneExp=${encodeURIComponent(`seasonId>=${from} and gameTypeId=2`)}`)).data ?? []) as any[];
+async function projections() {
+  const { data: lg } = await db.from('league').select('scoring,season').single();
+  const startYear = Number(String(lg?.season ?? '2026-27').slice(0, 4));
+  const latest = (startYear - 1) * 10000 + startYear;      // 2026-27 is projected from 2025-26 and the two before
+  const from = latest - 20002;
+  const [sum, rt, toi, fo, gsum] = await Promise.all([
+    report('skater', 'summary', from), report('skater', 'realtime', from), report('skater', 'timeonice', from),
+    report('skater', 'faceoffwins', from), report('goalie', 'summary', from),
+  ]);
+  const key = (r: any) => `${r.playerId}:${r.seasonId}`;
+  const rtBy = new Map(rt.map((r) => [key(r), r])), toiBy = new Map(toi.map((r) => [key(r), r])), foBy = new Map(fo.map((r) => [key(r), r]));
+  const skaters = new Map<number, SkaterSeason[]>();
+  for (const s of sum) {
+    const r = rtBy.get(key(s)) ?? {}, t = toiBy.get(key(s)) ?? {}, f = foBy.get(key(s)) ?? {};
+    const row: SkaterSeason = {
+      season: s.seasonId, gp: s.gamesPlayed ?? 0, g: s.goals ?? 0, a: s.assists ?? 0, pm: s.plusMinus ?? 0, pim: s.penaltyMinutes ?? 0,
+      ppg: s.ppGoals ?? 0, ppp: s.ppPoints ?? 0, shp: s.shPoints ?? 0, gwg: s.gameWinningGoals ?? 0, sog: s.shots ?? 0,
+      hit: r.hits ?? 0, blk: r.blockedShots ?? 0, fow: f.totalFaceoffWins ?? 0, fol: f.totalFaceoffLosses ?? 0,
+      toi: s.timeOnIcePerGame ?? 0, pptoi: t.ppTimeOnIcePerGame ?? 0, team: s.teamAbbrevs ?? '',
+    };
+    skaters.set(s.playerId, [...(skaters.get(s.playerId) ?? []), row]);
+  }
+  const goalies = new Map<number, GoalieSeason[]>();
+  for (const g of gsum) {
+    const row: GoalieSeason = { season: g.seasonId, gp: g.gamesPlayed ?? 0, gs: g.gamesStarted ?? 0, w: g.wins ?? 0, l: g.losses ?? 0, otl: g.otLosses ?? 0, ga: g.goalsAgainst ?? 0, sa: g.shotsAgainst ?? 0, sv: g.saves ?? 0, sho: g.shutouts ?? 0, team: g.teamAbbrevs ?? '' };
+    goalies.set(g.playerId, [...(goalies.get(g.playerId) ?? []), row]);
+  }
+  const players: ProjPlayer[] = [];
+  for (let from = 0; from < 20000;) {
+    const chunk = check(await db.from('players').select('id,pos,birth,nhl_team,injury_status').order('id').range(from, from + 999)) as ProjPlayer[];
+    if (!chunk.length) break;
+    players.push(...chunk);
+    from += chunk.length;
+  }
+  const out = projectAll(players, skaters, goalies, lg!.scoring, latest);
+  let n = 0;
+  for (let i = 0; i < out.length; i += 400) n += check(await db.rpc('set_projections', { p: out.slice(i, i + 400) })) as number;
+  return { projected: n, players: players.length, seasons: sum.length + gsum.length };
 }
 
 async function players() {
@@ -186,10 +251,10 @@ async function autoLineups() {
   for (let i = 0; i < ids.length; i += 300) {
     const chunk = ids.slice(i, i + 300);
     const [ps, ss] = await Promise.all([
-      db.from('players').select('id,pos,elig,proj,nhl_team,injury_status').in('id', chunk),
+      db.from('players').select('id,pos,elig,proj,proj_gp,nhl_team,injury_status').in('id', chunk),
       db.from('player_season').select('player_id,gp,fpts,gp14,fpts14').in('player_id', chunk),
     ]);
-    for (const p of check(ps) ?? []) players.set(p.id, { ...p, proj: Number(p.proj) });
+    for (const p of check(ps) ?? []) players.set(p.id, { ...p, proj: Number(p.proj), proj_gp: p.proj_gp == null ? null : Number(p.proj_gp) });
     for (const x of check(ss) ?? []) season.set(x.player_id, { gp: Number(x.gp), fpts: Number(x.fpts), gp14: Number(x.gp14 ?? 0), fpts14: x.fpts14 == null ? null : Number(x.fpts14) });
   }
   const weekEnd = weekEndOf(today);
@@ -211,6 +276,8 @@ Deno.serve(async (req) => {
   try {
     const result =
       task === 'schedule' ? await schedule()
+      : task === 'season-schedule' ? await seasonSchedule()
+      : task === 'projections' ? await projections()
       : task === 'players' ? await players()
       : task === 'corrections' ? await corrections()
       : task === 'injuries' ? await injuries()

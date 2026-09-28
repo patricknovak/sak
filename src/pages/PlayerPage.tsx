@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
+import { ProjOutlook } from '../components/ProjOutlook';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { ArrowLeft, CalendarDays, History, Newspaper, Trophy, UserRound } from 'lucide-react';
 import { useLeague } from '../lib/store';
@@ -128,6 +129,8 @@ export default function PlayerPage() {
         <Stat label="2025-26" value={fmtPts(p.last_fp)} sub={`${p.last_stats?.gp ?? 0} GP · ${p.last_stats?.gp ? fmtPts(p.last_fp / p.last_stats.gp, 2) : '–'}/gm`} />
         <Stat label="Projection" value={fmtPts(p.proj, 0)} sub={`#${p.rank ?? '–'} overall · #${posRank ?? '–'} ${p.pos}`} />
       </div>
+
+      <ProjOutlook p={p} />
 
       <PlayerActions p={p} />
 

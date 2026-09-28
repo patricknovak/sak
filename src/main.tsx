@@ -27,6 +27,7 @@ const Profile = lazy(() => import('./pages/Profile'));
 const News = lazy(() => import('./pages/News'));
 const Mock = lazy(() => import('./pages/Mock'));
 const CheatSheet = lazy(() => import('./pages/CheatSheet'));
+const DraftAnalysis = lazy(() => import('./pages/DraftAnalysis'));
 const PlayerPage = lazy(() => import('./pages/PlayerPage'));
 const Features = lazy(() => import('./pages/Features'));
 const DraftTV = lazy(() => import('./pages/DraftTV'));
@@ -104,6 +105,7 @@ function App() {
           <Route path="/news" element={<News />} />
           <Route path="/mock" element={<Mock />} />
           <Route path="/draft/sheet" element={<CheatSheet />} />
+          <Route path="/draft/analysis" element={<DraftAnalysis />} />
           <Route path="/player/:id" element={<PlayerPage />} />
           <Route path="/features" element={<Features />} />
           <Route path="*" element={<Navigate to="/" replace />} />

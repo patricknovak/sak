@@ -346,7 +346,10 @@ export default function Draft() {
         <div className="border-b border-white/[.08] bg-gradient-to-r from-emerald-500/20 via-emerald-500/5 to-emerald-500/20 px-3 py-4 text-center">
           <div className="h-display text-gold-shine text-2xl">🏁 Draft complete</div>
           <div className="text-xs text-mute">{made} picks made. Set your lineup on My Team, then start chirping.</div>
-          <button className="btn-gold btn-sm mt-2" onClick={() => setReport(true)}>📊 Draft report card</button>
+          <div className="mt-2 flex flex-wrap justify-center gap-2">
+            <Link to="/draft/analysis" className="btn-gold btn-sm">📈 Full draft analysis</Link>
+            <button className="btn-ghost btn-sm" onClick={() => setReport(true)}>📊 Report card</button>
+          </div>
         </div>
       ) : (
         <div className="p-3">{Lobby}</div>

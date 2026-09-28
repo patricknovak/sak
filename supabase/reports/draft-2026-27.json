@@ -1,0 +1,100 @@
+{
+  "written": "September 28, 2026, the morning after the draft",
+  "overview": [
+    "Every roster was played out night by night over the real 2026-27 schedule with the SAK projection model, then the season was simulated 4,000 times. Terry is the clear favourite: about a 54% chance to win it and close to 90% to finish in the money. Panagiotis is the only real threat at 28% to win and 80% for the top three, and Todd is a solid third.",
+    "After that it's wide open. Places four through eight are separated by about 110 projected points, less than one good month of hockey. Trades, injuries and who sets the smartest daily lineups will decide the money spots.",
+    "The draft story was goalies. Four of the five biggest reaches by the model were goalies taken in the first five rounds: Wedgewood at 10, Blackwood at 15, Wallstedt at 21 and Jarry at 36. The model pays for starts more than save percentage, and each of them projects for a backup's or split workload. The best value: Hischier at 99 and Fantilli at 123 (both Jason), Tippett at 114 (Terry), Larkin at 73 (Trystan) and Panarin at 32 (Darin).",
+    "Craig had the best draft by value over slot, with Todd close behind. Jason spent picks 27 and 51 on Gavin McKenna and Ivar Stenberg, junior prospects who won't score for SAK this season but could be keepers for years. Centres went early: four of the first seven picks."
+  ],
+  "teams": {
+    "2": {
+      "headline": "The favourite, with one glaring hole in goal",
+      "body": [
+        "Terry kept Matthews, Tkachuk, Forsberg, Ehlers, Karlsson and Josi, then made nine of the first eighteen picks and used them well. MacKinnon at 2 and Kucherov at 5 are the model's No. 1 and No. 3 players, and Necas, Thompson and Scheifele followed. The result is the best group of centres in the league and first place in goals, assists, power-play points and shots.",
+        "The weakness is the crease. Wedgewood, Blackwood and Vladar are the weakest goaltending group in the league and project last in wins and saves, and two of those picks were among the biggest reaches of the draft. Seven centres and five right wings also mean about 560 projected points will sit on the bench. Stone at 34 is the age risk."
+      ],
+      "plan": [
+        "Trade one of Malkin, Cooley or Scheifele plus a spare winger for a true starting goalie. It is the biggest single upgrade on this roster.",
+        "Use the daily lineup planner to rotate the extra centres through the Util slot on busy nights instead of leaving scorers on the bench."
+      ]
+    },
+    "6": {
+      "headline": "The best-balanced roster, and the one team that can catch Terry",
+      "body": [
+        "Makar at 6 anchors the best defence in the league with Dahlin, Harley and Hamilton behind him. The right wings rank second and he leads the league in hits. Bratt at 46 was the value pick of his draft and Kyrou at 102 was close behind. The model has him at 28% to win and 80% to finish in the money.",
+        "The soft spot is centre, second-weakest in the league: Eichel does the heavy lifting and Nugent-Hopkins, Zacha, Miller and Kadri are a step down. Bussi at 14 was early for a goalie the model sees in a split crease."
+      ],
+      "plan": [
+        "Trade a surplus winger (Michkov, Sherwood or Knies) for a No. 2 centre behind Eichel.",
+        "With the league's best blue line, move a fourth defenceman only for a clear forward upgrade."
+      ]
+    },
+    "7": {
+      "headline": "A deep, well-drafted roster missing a No. 1 centre",
+      "body": [
+        "The keepers (Robertson, Kaprizov, Marner, Quinn Hughes, Raymond) give Todd the second-best left wings and the second-best defence, and his middle rounds were as good as anyone's: Batherson at 61, Schmaltz at 69 and Meier at 101 all went well after where the model rated them. He projects third with a 53% shot at the money.",
+        "The early picks were the misses. Wallstedt at 21 projects as a backup and Gostisbehere went at 26. Despite five centres, his centre group is the weakest in the league: Zibanejad, Barzal, O'Reilly and Zegras are all second-line producers. Gustavsson opens the season out with a hip injury."
+      ],
+      "plan": [
+        "Consolidate: two of Barzal, O'Reilly and Zegras for one top-line centre.",
+        "Put Gustavsson on IR until November so his bench spot goes to someone who plays."
+      ]
+    },
+    "4": {
+      "headline": "The best draft in the league, held back by two holes",
+      "body": [
+        "By value over slot, Craig drafted better than anyone. Geekie at 42, Konecny at 47, Thomas at 63 and Hintz at 87 all came at or ahead of their slots, and the only real reach in his first eight rounds was goalie Dobes at 31. Pastrnak, Suzuki and Guentzel lead a roster that tops the league in blocks and plus/minus.",
+        "The roster only projects fourth, though, because of left wing (7th, with just three of them) and goal (7th: Vejmelka, Dobes and Greaves). Seven centres and six right wings create the most bench waste in the league, about 590 projected points."
+      ],
+      "plan": [
+        "Turn a centre (Cirelli or Nelson) and a right winger into a starting goalie.",
+        "Add a left winger. Craig has the depth to pay for one."
+      ]
+    },
+    "5": {
+      "headline": "Elite at the top, thin on the left side and the blue line",
+      "body": [
+        "McDavid first overall and DeBrincat at 9 set the tone, and the right wings are the best in the league. Larkin at 73 was one of the steals of the draft. Sorokin, Ullmark and Luukkonen give him the league lead in saves and shutouts.",
+        "He also spent picks on five goalies and on defencemen who don't score: Samuelsson at 57 was the biggest reach of his draft and opens on the injury list, and Parekh at 97 is a long-term play. That leaves the weakest left wings and the weakest defence in the league. Crosby is 39 and Jarvis starts on IR. He projects fifth, 17% for the money."
+      ],
+      "plan": [
+        "Trade a goalie (Ullmark or Luukkonen) for a defenceman who scores.",
+        "Add a left winger from free agency. The next tier would start for him right away."
+      ]
+    },
+    "1": {
+      "headline": "Best goaltending and left wing, but the oldest roster and no right wing",
+      "body": [
+        "Patrick has the best goaltending in the league and the best left wings (Connor, Slafkovsky, Ovechkin and Matthew Tkachuk). Aho at 20 and Ovechkin at 68 were strong value, and his draft graded well against its slots.",
+        "The roster is the oldest in the league at 30.8, with Ovechkin 41 and Tavares and Stamkos both 36. It has one natural right winger, which makes right wing the weakest in the league and puts him last in assists and power-play points. Jarry at 36 was the second-biggest reach of the draft, and eight centres and five goalies mean a lot of talent that can't get into the lineup. He projects sixth: 15% for the money, 18% to finish last."
+      ],
+      "plan": [
+        "Trade a centre (Hertl, Bennett or Stankoven) and a goalie for a first-line right winger.",
+        "Add a defenceman: the blue line is 7th of 8.",
+        "Set lineups a week ahead in the daily planner. With this many centres, the Util and wing slots decide most nights."
+      ]
+    },
+    "3": {
+      "headline": "The youngest roster, built for the long run",
+      "body": [
+        "Jason took Bouchard at 3 and Celebrini at 4 and has the youngest roster in the league at 26.5. His late rounds were the best of the night: Hischier at 99 and Fantilli at 123 were the two biggest steals of the draft.",
+        "He also spent picks 27 and 51 on Gavin McKenna and Ivar Stenberg, junior prospects who won't score for SAK this season. That costs him now: he projects seventh with 14% for the money and last in hits. If those two become keepers, this draft will look very different in two years."
+      ],
+      "plan": [
+        "Stay patient and buy low on veterans from teams that fall out of the race before the deadline.",
+        "Hits and blocks are free points in this scoring. Add a physical forward and a shot-blocking defenceman from free agency."
+      ]
+    },
+    "8": {
+      "headline": "Great centres and goalies, not enough scoring on the wings",
+      "body": [
+        "Darin has the second-best centres (Draisaitl, Jack Hughes, Johnston, Stützle, and Barkov if he's healthy after a lost season) and the second-best goaltending, and leads the league in goalie wins. Panarin at 32 was one of the best values of the draft.",
+        "The wings are the problem. Demidov at 24 was a reach by the model, Lyon and Martone went early too, and Darin projects last in goals, shots, blocks and plus/minus. Bedard and Marchand open on the injury list and Hellebuyck is listed as suspended. The model has him eighth today, but a good part of the gap is injuries that will heal."
+      ],
+      "plan": [
+        "Trade a goalie (Dostal or Lyon) and a spare defenceman for a scoring winger.",
+        "Put Bedard and Marchand on IR until they're back, and pick up two healthy forwards for their bench spots."
+      ]
+    }
+  }
+}

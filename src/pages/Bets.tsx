@@ -112,7 +112,17 @@ export default function Bets() {
     pools: bets.filter((b) => isPool(b.kind) && (b.status === 'open' || b.status === 'accepted')),
     live: bets.filter((b) => b.status === 'accepted' && !isPool(b.kind)),
     settled: bets.filter((b) => b.status === 'settled'),
+    expired: bets.filter((b) => b.status === 'expired' && Date.now() - new Date(b.created_at).getTime() < 21 * 86400000),
   }), [bets]);
+  // nobody took it in 7 days: it expires (pools only if nobody else has joined)
+  const expiresIn = (b: Bet) => {
+    if (b.status !== 'open') return null;
+    if (isPool(b.kind) && entries.some((e) => e.bet_id === b.id && e.team_id !== b.creator_team)) return null;
+    const at = new Date(b.created_at).getTime() + 7 * 86400000;
+    // a pool whose entries close sooner just closes: the entries line already says when
+    if (isPool(b.kind) && b.entry_close && new Date(b.entry_close + 'T23:59:00').getTime() < at) return null;
+    return at - now;
+  };
 
   // cash: settled money bets that haven't been marked paid, netted per pair, plus each GM's net
   const cash = useMemo(() => {
@@ -243,6 +253,9 @@ export default function Bets() {
             </div>
           )}
         </div>
+        {(() => { const ms = expiresIn(b); if (ms == null) return null; const h = Math.max(0, Math.floor(ms / 3600000));
+          return <div className={`mt-1.5 inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] ${h < 24 ? 'bg-amber-500/15 text-amber-200' : 'bg-white/[.05] text-mute'}`}>⌛ {h >= 24 ? `${Math.floor(h / 24)}d ${h % 24}h` : `${h}h`} left for someone to take it</div>; })()}
+        {b.status === 'expired' && <div className="mt-1.5 inline-flex rounded-full bg-white/[.05] px-2 py-0.5 text-[11px] text-mute">⌛ Expired: nobody took it within 7 days</div>}
         {b.terms && <p className="mt-2 text-sm text-slate-300">{b.terms}</p>}
         {(b.status === 'accepted' || pool) && b.status !== 'settled' && <Progress b={b} />}
         {b.kind === 'season' && b.opponent_team && b.status !== 'settled' && (
@@ -408,11 +421,12 @@ export default function Bets() {
       )}
 
       {groups.pools.length > 0 && <Section title="🎰 Pools"><div className="grid gap-2 sm:grid-cols-2">{groups.pools.map((b) => <Fragment key={b.id}>{BetCard({ b })}</Fragment>)}</div></Section>}
-      {groups.open.length > 0 && <Section title="Open challenges"><div className="grid gap-2 sm:grid-cols-2">{groups.open.map((b) => <Fragment key={b.id}>{BetCard({ b })}</Fragment>)}</div></Section>}
+      {groups.open.length > 0 && <Section title="Open challenges" right={<span className="text-xs text-mute">untaken bets expire after 7 days</span>}><div className="grid gap-2 sm:grid-cols-2">{groups.open.map((b) => <Fragment key={b.id}>{BetCard({ b })}</Fragment>)}</div></Section>}
       <Section title="Live bets">
         {groups.live.length === 0 ? <div className="card"><Empty icon="🎲" title="No live bets">Challenge someone. You know who. Or open a pool.</Empty></div>
           : <div className="grid gap-2 sm:grid-cols-2">{groups.live.map((b) => <Fragment key={b.id}>{BetCard({ b })}</Fragment>)}</div>}
       </Section>
+      {groups.expired.length > 0 && <Section title="⌛ Expired"><div className="grid gap-2 opacity-70 sm:grid-cols-2">{groups.expired.map((b) => <Fragment key={b.id}>{BetCard({ b })}</Fragment>)}</div></Section>}
       {groups.settled.length > 0 && (
         <Section title="Settled" right={groups.settled.length > 6 ? <button className="text-xs text-sky-300" onClick={() => setShowAllSettled(!showAllSettled)}>{showAllSettled ? 'Fewer' : `All ${groups.settled.length}`}</button> : undefined}>
           <div className="grid gap-2 sm:grid-cols-2">{(showAllSettled ? groups.settled : groups.settled.slice(0, 6)).map((b) => <Fragment key={b.id}>{BetCard({ b })}</Fragment>)}</div>
@@ -511,6 +525,7 @@ export default function Bets() {
             </>
           )}
           <button className="btn-primary w-full" disabled={busy || !ready} onClick={create}>{isPool(f.kind) ? 'Open the pool' : 'Post it to the league'}</button>
+          <p className="text-center text-[11px] text-mute">{isPool(f.kind) ? 'If nobody else buys in within 7 days, the pool expires.' : 'If nobody takes it within 7 days it expires and any coins you put up are freed.'}</p>
           <p className="text-center text-xs text-mute">{TRACKED.has(f.kind) ? 'Tracked from the box scores and settled automatically. Ties push.' : 'Bets are announced in Trash Talk. Settle up between yourselves; the commish is the final ruling.'}</p>
         </div>
       </Sheet>
