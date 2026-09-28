@@ -35,10 +35,10 @@ export function perTeamGame(p: FPlayer) {
 }
 
 // the whole rest of the season for one roster
-export function forecastTeam(team: number, roster: FPlayer[], games: FGame[], caps: Record<string, number>, from: string, current = 0): TeamForecast {
+export function forecastTeam(team: number, roster: FPlayer[], games: FGame[], caps: Record<string, number>, from: string, current = 0, to?: string): TeamForecast {
   const playing = new Map<string, Set<string>>();
   for (const g of games) {
-    if (g.date < from || g.state === 'PPD' || g.state === 'CNCL') continue;
+    if (g.date < from || (to && g.date > to) || g.state === 'PPD' || g.state === 'CNCL') continue;
     const s = playing.get(g.date) ?? new Set<string>();
     s.add(g.home); s.add(g.away);
     playing.set(g.date, s);

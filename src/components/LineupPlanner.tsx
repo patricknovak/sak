@@ -7,7 +7,7 @@ import { CalendarDays, Copy, Save, Sparkles, Trash2, Undo2 } from 'lucide-react'
 import { useLeague } from '../lib/store';
 import { rpc, supabase } from '../lib/supabase';
 import { etToday, fmtPts } from '../lib/format';
-import { optimize, slotOk as canPlay, gamesOf, type Basis, type LContext } from '../lib/lineup';
+import { optimize, slotOk as canPlay, gamesOf, dressRate, type Basis, type LContext } from '../lib/lineup';
 import { lineFor, minSample, rosPoints, statValue, fmtStat, TIMEFRAMES, type Timeframe } from '../lib/playerstats';
 import { useProjDetails, useSeasonGames } from '../lib/projections';
 import type { Game, Player, Roster, Slot } from '../lib/types';
@@ -20,6 +20,7 @@ const addDays = (d: string, n: number) => { const x = new Date(d + 'T12:00:00Z')
 const dayLabel = (d: string) => new Date(d + 'T12:00:00Z').toLocaleDateString('en-CA', { weekday: 'short', timeZone: 'UTC' });
 const monthDay = (d: string) => new Date(d + 'T12:00:00Z').toLocaleDateString('en-CA', { month: 'short', day: 'numeric', timeZone: 'UTC' });
 const hurt = (p: Player) => !!p.injury_status && /^(out|ir|injured|long|suspen)/i.test(p.injury_status);
+const addDaysLocal = (d: string, n: number) => { const x = new Date(d + 'T12:00:00Z'); x.setUTCDate(x.getUTCDate() + n); return x.toISOString().slice(0, 10); };
 
 // the stat groups the grid can show
 type View = 'fantasy' | 'skater' | 'points' | 'goalie' | 'proj';
@@ -83,6 +84,8 @@ export function LineupPlanner({ roster }: { roster: Row[] }) {
   const nowMs = Date.now() + serverOffset;
   const locked = (p: Player) => { if (day !== today) return false; const g = gameFor(p, today); return !!g && new Date(g.start_utc).getTime() <= nowMs; };
   const perGameProj = (p: Player) => p.proj / gamesOf(p);
+  // expected points on a night his team plays: per game × the chance he dresses (or starts, for a goalie)
+  const expPts = (p: Player) => (hurt(p) ? 0 : perGameProj(p) * dressRate(p));
 
   // per-day summary for the date strip
   const summary = (d: string) => {
@@ -92,7 +95,7 @@ export function LineupPlanner({ roster }: { roster: Row[] }) {
       const g = gameFor(x.p, d);
       if (!g) continue;
       const slot = s.get(x.p.id) ?? 'BN';
-      if (START.includes(slot as Slot)) { playing++; pts += hurt(x.p) ? 0 : perGameProj(x.p); } else if (slot === 'BN' && !hurt(x.p)) benched++;
+      if (START.includes(slot as Slot)) { playing++; pts += expPts(x.p); } else if (slot === 'BN' && !hurt(x.p)) benched++;
     }
     return { playing, benched, pts };
   };
@@ -217,7 +220,40 @@ export function LineupPlanner({ roster }: { roster: Row[] }) {
   const emptyOnGameDay = START.reduce((t, s) => t + Math.max(0, (caps[s] ?? 0) - (counts[s] ?? 0)), 0);
   const benchedPlaying = roster.filter((x) => (slots.get(x.p.id) === 'BN') && gameFor(x.p, day) && !hurt(x.p));
   const idleStarters = roster.filter((x) => START.includes((slots.get(x.p.id) ?? 'BN') as Slot) && !gameFor(x.p, day));
-  const dayPts = roster.reduce((t, x) => t + (START.includes((slots.get(x.p.id) ?? 'BN') as Slot) && gameFor(x.p, day) && !hurt(x.p) ? perGameProj(x.p) : 0), 0);
+  const dayPts = roster.reduce((t, x) => t + (START.includes((slots.get(x.p.id) ?? 'BN') as Slot) && gameFor(x.p, day) ? expPts(x.p) : 0), 0);
+
+  // start / sit: what the best lineup for this day changes, with the reason for each call
+  const best = useMemo(() => (games ? optimizeDay(day, slots) : null), [games, day, slots]); // eslint-disable-line react-hooks/exhaustive-deps
+  const isStart = (s?: string) => START.includes((s ?? 'BN') as Slot);
+  const bestPts = best ? roster.reduce((t, x) => t + (isStart(best.get(x.p.id)) && gameFor(x.p, day) ? expPts(x.p) : 0), 0) : dayPts;
+  const toStart = best ? roster.filter((x) => isStart(best.get(x.p.id)) && !isStart(slots.get(x.p.id))) : [];
+  const toSit = best ? roster.filter((x) => !isStart(best.get(x.p.id)) && isStart(slots.get(x.p.id))) : [];
+  const form = (p: Player) => { const x = windows.get(p.id)?.['14']; return x && x.gp >= 2 ? x.fpts / x.gp : null; };
+  const why = (p: Player, starting: boolean) => {
+    const g = gameFor(p, day);
+    if (!starting) {
+      if (hurt(p)) return `${p.injury_status}`;
+      if (!g) return 'no game this day';
+      return `${expPts(p).toFixed(2)} expected: less than who replaces him`;
+    }
+    const f = form(p);
+    const b2b = p.pos === 'G' && gameFor(p, addDaysLocal(day, -1)) ? ' · back-to-back, may not start' : '';
+    return `${g ? (g.home === p.nhl_team ? 'vs ' + g.away : '@' + g.home) : ''} · ${expPts(p).toFixed(2)} expected${f != null ? ` · ${f.toFixed(2)}/g last 14 days` : ''}${b2b}`;
+  };
+  // close calls: a starter and the best bench option for his slot, both playing, within 15%
+  const closeCalls = useMemo(() => {
+    const out: { slot: string; a: Row; b: Row }[] = [];
+    for (const a of roster) {
+      const sa = slots.get(a.p.id);
+      if (!isStart(sa) || sa === 'G' || !gameFor(a.p, day) || hurt(a.p)) continue;
+      const alt = roster.filter((b) => slots.get(b.p.id) === 'BN' && gameFor(b.p, day) && !hurt(b.p) && canPlay(b.p, sa!))
+        .sort((x, y) => expPts(y.p) - expPts(x.p))[0];
+      if (alt && Math.abs(expPts(alt.p) - expPts(a.p)) <= 0.15 * Math.max(expPts(a.p), expPts(alt.p)) && !out.some((o) => o.b.p.id === alt.p.id)) out.push({ slot: sa!, a, b: alt });
+    }
+    return out.slice(0, 4);
+  }, [roster, slots, day, gamesOn]); // eslint-disable-line react-hooks/exhaustive-deps
+  const [cmp, setCmp] = useState<number[]>([]);
+  const toggleCmp = (id: number) => setCmp((c) => (c.includes(id) ? c.filter((x) => x !== id) : [...c, id].slice(-4)));
 
   return (
     <div className="space-y-3">
@@ -256,7 +292,7 @@ export function LineupPlanner({ roster }: { roster: Row[] }) {
               {day === today ? 'Live lineup: saves immediately. Players whose game has started are locked.'
                 : eff.source === 'own' ? 'You set this day. It becomes your live lineup that morning.'
                 : eff.source ? `No lineup of its own yet: carries forward from ${monthDay(eff.source)}.`
-                : me?.auto_mode && me.auto_mode !== 'off' ? `Nothing saved: your auto-pilot (${me.auto_mode} mode) will set this day. Save a lineup to take over.`
+                : me?.auto_mode && me.auto_mode !== 'off' ? 'Nothing saved: your auto-pilot will set the best lineup that morning. Save a lineup to take over.'
                 : 'Nothing saved: today’s lineup carries forward. Save to set this day.'}
             </div>
           </div>
@@ -286,6 +322,72 @@ export function LineupPlanner({ roster }: { roster: Row[] }) {
           {[7, 14, 30].map((n) => <button key={n} className="btn-ghost btn-sm" disabled={busy || !games} onClick={() => confirm(`Set the best lineup for each of the next ${n} days? It replaces any lineup you already saved for those days. Pins are respected.`) && optimizeAhead(n)}>Next {n} days</button>)}
         </div>
       </div>
+
+      {/* start / sit */}
+      {best && (
+        <div className="card space-y-2 p-3">
+          <div className="flex flex-wrap items-center gap-2">
+            <div className="font-semibold">Start / sit{day === today ? ' today' : ` · ${monthDay(day)}`}</div>
+            {toStart.length === 0 ? <span className="chip bg-emerald-500/15 text-emerald-200">✅ This is already the best lineup for the day</span>
+              : <span className="chip bg-sky-500/15 text-sky-100">+{fmtPts(bestPts - dayPts, 1)} projected pts with {toStart.length} change{toStart.length > 1 ? 's' : ''}</span>}
+            {toStart.length > 0 && <button className="btn-blue btn-sm ml-auto" onClick={() => setDraft(best)}><Sparkles size={14} /> Make these changes</button>}
+          </div>
+          {toStart.length > 0 && (
+            <div className="grid gap-2 sm:grid-cols-2">
+              <div className="rounded-xl border border-emerald-400/20 bg-emerald-500/[.05] p-2">
+                <div className="label mb-1 text-emerald-200">▲ Start</div>
+                {toStart.map((x) => <div key={x.p.id} className="py-1 text-sm"><span className="font-semibold">{x.p.name}</span> <span className="text-[11px] text-mute">{x.p.elig.join('/')} → {best.get(x.p.id)}</span><div className="text-[11px] text-slate-300">{why(x.p, true)}</div></div>)}
+              </div>
+              <div className="rounded-xl border border-red-400/20 bg-red-500/[.05] p-2">
+                <div className="label mb-1 text-red-200">▼ Sit</div>
+                {toSit.map((x) => <div key={x.p.id} className="py-1 text-sm"><span className="font-semibold">{x.p.name}</span> <span className="text-[11px] text-mute">{slots.get(x.p.id)} → bench</span><div className="text-[11px] text-slate-300">{why(x.p, false)}</div></div>)}
+              </div>
+            </div>
+          )}
+          {closeCalls.length > 0 && (
+            <div>
+              <div className="label mb-1">Close calls</div>
+              <div className="space-y-1">{closeCalls.map(({ slot, a, b }) => {
+                const edge = expPts(a.p) >= expPts(b.p) ? a : b;
+                return (
+                  <div key={a.p.id} className="flex flex-wrap items-center gap-x-2 gap-y-0.5 rounded-lg bg-white/[.03] px-2 py-1.5 text-xs">
+                    <span className="chip px-1.5 py-0">{slot}</span>
+                    <span><b>{a.p.name}</b> {expPts(a.p).toFixed(2)}</span><span className="text-mute">vs</span><span><b>{b.p.name}</b> {expPts(b.p).toFixed(2)}</span>
+                    <span className="text-mute">· edge {edge.p.last_name ?? edge.p.name}{form(edge.p) != null ? `, ${form(edge.p)!.toFixed(2)}/g lately` : ''}</span>
+                    <button className="ml-auto text-sky-300 hover:underline" onClick={() => setCmp([a.p.id, b.p.id])}>Compare</button>
+                  </div>
+                );
+              })}</div>
+            </div>
+          )}
+          {cmp.length >= 2 && (() => {
+            const ps = cmp.map((id) => roster.find((x) => x.p.id === id)).filter((x): x is Row => !!x);
+            const top = [...ps].sort((x, y) => (gameFor(y.p, day) ? expPts(y.p) : 0) - (gameFor(x.p, day) ? expPts(x.p) : 0))[0];
+            const rowsC: [string, (p: Player) => string][] = [
+              ['Game', (p) => { const g = gameFor(p, day); return g ? `${g.home === p.nhl_team ? 'vs ' + g.away : '@' + g.home} ${new Date(g.start_utc).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}` : 'no game'; }],
+              ['Expected pts', (p) => (gameFor(p, day) ? expPts(p).toFixed(2) : '0')],
+              ['Projected / game', (p) => perGameProj(p).toFixed(2)],
+              ['Plays (chance)', (p) => `${Math.round(dressRate(p) * 100)}%`],
+              ['Season FP/G', (p) => { const x = season.get(p.id); return x && x.gp ? (x.fpts / x.gp).toFixed(2) : '–'; }],
+              ['Last 14 days', (p) => (form(p) != null ? `${form(p)!.toFixed(2)}/g` : '–')],
+              ['Games next 7 days', (p) => String(gamesIn(p, day, 7))],
+              ['Rest of season', (p) => fmtPts(rosPoints(p, season.get(p.id)), 0)],
+              ['Status', (p) => p.injury_status ?? 'healthy'],
+            ];
+            return (
+              <div className="rounded-xl border border-white/[.08]">
+                <div className="flex items-center justify-between border-b border-white/[.06] px-2 py-1.5"><span className="label">Head to head{day === today ? ' today' : ` · ${monthDay(day)}`}</span><button className="text-xs text-mute" onClick={() => setCmp([])}>Close</button></div>
+                <div className="scroll-x"><table className="w-full text-xs">
+                  <thead><tr><th className="px-2 py-1 text-left text-mute" />{ps.map((x) => <th key={x.p.id} className={`px-2 py-1 text-left ${x === top ? 'text-emerald-300' : ''}`}>{x.p.name}{x === top ? ' ✓' : ''}<div className="text-[10px] font-normal text-mute">{x.p.elig.join('/')} · now {slots.get(x.p.id)}</div></th>)}</tr></thead>
+                  <tbody className="divide-y divide-white/[.05]">{rowsC.map(([l, f]) => <tr key={l}><td className="whitespace-nowrap px-2 py-1 text-mute">{l}</td>{ps.map((x) => <td key={x.p.id} className="num whitespace-nowrap px-2 py-1">{f(x.p)}</td>)}</tr>)}</tbody>
+                </table></div>
+                <div className="px-2 py-1.5 text-[11px] text-slate-300">Verdict: start <b>{top.p.name}</b>{gameFor(top.p, day) ? '' : ' (nobody here plays this day)'}. {details?.get(top.p.id)?.proj_meta?.factors?.[0]?.text ?? ''}</div>
+              </div>
+            );
+          })()}
+          <p className="text-[11px] text-mute">Expected points = projected points per game × the chance he plays (goalies: the chance he starts). Tick ⚖️ on any two to four players in the grid to compare them head to head.</p>
+        </div>
+      )}
 
       {/* the grid */}
       <div className="card overflow-hidden">
@@ -336,7 +438,7 @@ export function LineupPlanner({ roster }: { roster: Row[] }) {
                       <div className="flex items-center gap-1.5">
                         <Headshot p={p} size={22} />
                         <div className="min-w-0">
-                          <div className="truncate font-semibold text-slate-100">{p.name}{r.pin === 'start' ? ' 📌' : r.pin === 'bench' ? ' 🚫' : ''}{lk ? ' 🔒' : ''}</div>
+                          <div className="truncate font-semibold text-slate-100"><button aria-label={`Compare ${p.name}`} title="Compare" onClick={() => toggleCmp(p.id)} className={`mr-1 ${cmp.includes(p.id) ? '' : 'opacity-30 hover:opacity-80'}`}>⚖️</button>{p.name}{r.pin === 'start' ? ' 📌' : r.pin === 'bench' ? ' 🚫' : ''}{lk ? ' 🔒' : ''}</div>
                           <div className="truncate text-[10px] text-mute">{p.elig.join('/')} · {p.nhl_team}{p.injury_status ? <span className="text-red-300"> · {p.injury_status}</span> : ''}</div>
                         </div>
                       </div>

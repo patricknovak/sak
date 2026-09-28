@@ -65,10 +65,14 @@ export function perGame(p: LPlayer, basis: Basis, ctx: LContext) {
   return base;
 }
 
-// what a player is worth in a starting slot for this mode
+// the chance he's in the lineup on a night his team plays: a starting goalie starts about 70% of games, a
+// backup far fewer, a skater nearly all (from his projected games)
+export const dressRate = (p: { pos: string; proj_gp?: number | null }) => Math.min(1, gamesOf(p) / 82);
+
+// what a player is worth in a starting slot for this mode (expected points: per game × chance he plays)
 export function worth(p: LPlayer, mode: Mode, basis: Basis, ctx: LContext) {
   if (isOut(p.injury_status)) return 0;
-  const pg = perGame(p, basis, ctx);
+  const pg = perGame(p, basis, ctx) * dressRate(p);
   if (mode === 'day') return gameToday(p.nhl_team, ctx) ? pg : 0;
   if (mode === 'week') return gamesLeftThisWeek(p.nhl_team, ctx) * pg;
   return pg * 82;

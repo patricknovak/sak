@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useLeague } from '../lib/store';
-import { selectAll } from '../lib/supabase';
+import { selectAll, supabase } from '../lib/supabase';
 import { fmtDate, fmtMoney, fmtPts } from '../lib/format';
 import { Rank, Section, TeamBadge, TeamName, PageHeader } from '../components/ui';
 import type { Team } from '../lib/types';
@@ -114,6 +114,7 @@ export default function Standings() {
       <Section title={isPo ? 'Playoff points race' : 'Points race'}>
         <div className="card p-3"><PointsRace daily={daily} focus={me?.id ?? 0} /></div>
       </Section>
+      {!isPo && <Corrections />}
       {!isPo && (
         <Section title={`Last season (${SEASONS[0].season})`}>
           <div className="card divide-y divide-white/[.06]">
@@ -127,5 +128,34 @@ export default function Standings() {
         </Section>
       )}
     </div>
+  );
+}
+
+// every stat correction the NHL made after a game was final, and which teams it moved
+function Corrections() {
+  const { players } = useLeague();
+  const [rows, setRows] = useState<{ id: number; player_id: number; date: string; old_fpts: number; new_fpts: number; old_stats: Record<string, number>; new_stats: Record<string, number>; created_at: string }[]>([]);
+  useEffect(() => {
+    supabase.from('stat_corrections').select('*').order('id', { ascending: false }).limit(12)
+      .then(({ data }) => setRows((data ?? []).filter((r) => Number(r.new_fpts) !== Number(r.old_fpts))));
+  }, []);
+  if (!rows.length) return null;
+  const diff = (o: Record<string, number>, n: Record<string, number>) => [...new Set([...Object.keys(o), ...Object.keys(n)])]
+    .map((k) => [k, (n[k] ?? 0) - (o[k] ?? 0)] as const).filter(([, d]) => d).map(([k, d]) => `${k.toUpperCase()} ${d > 0 ? '+' : ''}${d}`).join(', ');
+  return (
+    <Section title="📝 Stat corrections" right={<span className="text-xs text-mute">rechecked daily, three weeks back every Monday</span>}>
+      <div className="card divide-y divide-white/[.06]">
+        {rows.map((r) => {
+          const d = Number(r.new_fpts) - Number(r.old_fpts);
+          return (
+            <div key={r.id} className="flex items-center gap-2 px-3 py-2 text-sm">
+              <span className="min-w-0 flex-1 truncate"><b>{players.get(r.player_id)?.name ?? 'Player'}</b> <span className="text-xs text-mute">{fmtDate(r.date)} · {diff(r.old_stats, r.new_stats) || 'recalculated'}</span></span>
+              <span className={`num font-semibold ${d > 0 ? 'text-emerald-300' : 'text-red-300'}`}>{d > 0 ? '+' : ''}{fmtPts(d, 2)}</span>
+            </div>
+          );
+        })}
+      </div>
+      <p className="mt-1 px-1 text-xs text-mute">Points follow the lineup at puck drop: a correction counts for whoever started the player that night. Teams it moves get a note.</p>
+    </Section>
   );
 }
