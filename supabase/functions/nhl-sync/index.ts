@@ -260,6 +260,10 @@ async function autoLineups() {
     for (const p of check(ps) ?? []) players.set(p.id, { ...p, proj: Number(p.proj), proj_gp: p.proj_gp == null ? null : Number(p.proj_gp) });
     for (const x of check(ss) ?? []) season.set(x.player_id, { gp: Number(x.gp), fpts: Number(x.fpts), gp14: Number(x.gp14 ?? 0), fpts14: x.fpts14 == null ? null : Number(x.fpts14) });
   }
+  // every goalie in the league, so a hurt starter's starts can go to his healthy partner
+  for (const g of check(await db.from('players').select('id,pos,elig,proj,proj_gp,nhl_team,injury_status').eq('pos', 'G')) ?? []) {
+    if (!players.has(g.id)) players.set(g.id, { ...g, proj: Number(g.proj), proj_gp: g.proj_gp == null ? null : Number(g.proj_gp) });
+  }
   const weekEnd = weekEndOf(today);
   const games = check(await db.from('games').select('home,away,date,start_utc,state').gte('date', today).lte('date', weekEnd));
   const ctx = { today, weekEnd, now: Date.now(), games: games ?? [], season, caps: league.roster as Record<string, number> };

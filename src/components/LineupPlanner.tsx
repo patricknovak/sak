@@ -7,7 +7,7 @@ import { CalendarDays, Copy, Save, Sparkles, Trash2, Undo2 } from 'lucide-react'
 import { useLeague } from '../lib/store';
 import { rpc, supabase } from '../lib/supabase';
 import { etToday, fmtPts } from '../lib/format';
-import { optimize, slotOk as canPlay, gamesOf, dressRate, type Basis, type LContext } from '../lib/lineup';
+import { optimize, slotOk as canPlay, gamesOf, availability, type Basis, type LContext } from '../lib/lineup';
 import { lineFor, minSample, rosPoints, statValue, fmtStat, TIMEFRAMES, type Timeframe } from '../lib/playerstats';
 import { useProjDetails, useSeasonGames } from '../lib/projections';
 import type { Game, Player, Roster, Slot } from '../lib/types';
@@ -85,7 +85,10 @@ export function LineupPlanner({ roster }: { roster: Row[] }) {
   const locked = (p: Player) => { if (day !== today) return false; const g = gameFor(p, today); return !!g && new Date(g.start_utc).getTime() <= nowMs; };
   const perGameProj = (p: Player) => p.proj / gamesOf(p);
   // expected points on a night his team plays: per game × the chance he dresses (or starts, for a goalie)
-  const expPts = (p: Player) => (hurt(p) ? 0 : perGameProj(p) * dressRate(p));
+  // injuries count: day-to-day is about a coin flip, and a hurt goalie's starts go to his healthy partner
+  const avail = useMemo(() => availability(players.values()), [players]);
+  const chance = (p: Player) => avail.get(p.id) ?? 0;
+  const expPts = (p: Player) => (hurt(p) ? 0 : perGameProj(p) * chance(p));
 
   // per-day summary for the date strip
   const summary = (d: string) => {
@@ -104,7 +107,7 @@ export function LineupPlanner({ roster }: { roster: Row[] }) {
   const over = Object.entries(counts).filter(([s, n]) => s !== 'BN' && n > (caps[s] ?? 0)).map(([s, n]) => `${n - (caps[s] ?? 0)} too many at ${s}`);
   const setSlot = (id: number, s: string) => setDraft(new Map([...slots, [id, s]]));
 
-  const ctxFor = (d: string): LContext => ({ today: d, weekEnd: d, now: d === today ? nowMs : 0, games: gamesOn.get(d) ?? [], season: new Map([...season].map(([k, v]) => [k, { gp: v.gp, fpts: v.fpts, gp14: v.gp14, fpts14: v.fpts14 }])), caps });
+  const ctxFor = (d: string): LContext => ({ today: d, weekEnd: d, now: d === today ? nowMs : 0, games: gamesOn.get(d) ?? [], season: new Map([...season].map(([k, v]) => [k, { gp: v.gp, fpts: v.fpts, gp14: v.gp14, fpts14: v.fpts14 }])), caps, avail });
   const basis: Basis = me?.auto_basis ?? 'proj';
   const optimizeDay = (d: string, start: Map<number, string>) => {
     const rows = roster.map((x) => ({ player_id: x.p.id, slot: start.get(x.p.id) ?? 'BN', pin: x.r.pin }));
@@ -234,11 +237,14 @@ export function LineupPlanner({ roster }: { roster: Row[] }) {
     if (!starting) {
       if (hurt(p)) return `${p.injury_status}`;
       if (!g) return 'no game this day';
+      if (p.injury_status) return `${p.injury_status}: about a ${Math.round(chance(p) * 100)}% chance he plays, so ${expPts(p).toFixed(2)} expected`;
       return `${expPts(p).toFixed(2)} expected: less than who replaces him`;
     }
     const f = form(p);
     const b2b = p.pos === 'G' && gameFor(p, addDaysLocal(day, -1)) ? ' · back-to-back, may not start' : '';
-    return `${g ? (g.home === p.nhl_team ? 'vs ' + g.away : '@' + g.home) : ''} · ${expPts(p).toFixed(2)} expected${f != null ? ` · ${f.toFixed(2)}/g last 14 days` : ''}${b2b}`;
+    const partner = p.pos === 'G' ? [...players.values()].find((q) => q.pos === 'G' && q.id !== p.id && q.nhl_team === p.nhl_team && q.injury_status) : undefined;
+    const cover = partner ? ` · ${partner.name} is ${partner.injury_status}, so he should get the start` : '';
+    return `${g ? (g.home === p.nhl_team ? 'vs ' + g.away : '@' + g.home) : ''} · ${expPts(p).toFixed(2)} expected${f != null ? ` · ${f.toFixed(2)}/g last 14 days` : ''}${b2b}${cover}`;
   };
   // close calls: a starter and the best bench option for his slot, both playing, within 15%
   const closeCalls = useMemo(() => {
@@ -367,7 +373,7 @@ export function LineupPlanner({ roster }: { roster: Row[] }) {
               ['Game', (p) => { const g = gameFor(p, day); return g ? `${g.home === p.nhl_team ? 'vs ' + g.away : '@' + g.home} ${new Date(g.start_utc).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}` : 'no game'; }],
               ['Expected pts', (p) => (gameFor(p, day) ? expPts(p).toFixed(2) : '0')],
               ['Projected / game', (p) => perGameProj(p).toFixed(2)],
-              ['Plays (chance)', (p) => `${Math.round(dressRate(p) * 100)}%`],
+              ['Plays (chance)', (p) => `${Math.round(chance(p) * 100)}%${p.injury_status ? ` · ${p.injury_status}` : ''}`],
               ['Season FP/G', (p) => { const x = season.get(p.id); return x && x.gp ? (x.fpts / x.gp).toFixed(2) : '–'; }],
               ['Last 14 days', (p) => (form(p) != null ? `${form(p)!.toFixed(2)}/g` : '–')],
               ['Games next 7 days', (p) => String(gamesIn(p, day, 7))],
@@ -385,7 +391,7 @@ export function LineupPlanner({ roster }: { roster: Row[] }) {
               </div>
             );
           })()}
-          <p className="text-[11px] text-mute">Expected points = projected points per game × the chance he plays (goalies: the chance he starts). Tick ⚖️ on any two to four players in the grid to compare them head to head.</p>
+          <p className="text-[11px] text-mute">Expected points = projected points per game × the chance he plays: how often he dresses (goalies: starts), halved for day-to-day, with a hurt goalie's starts going to his healthy partner. Tick ⚖️ on any two to four players in the grid to compare them head to head.</p>
         </div>
       )}
 
