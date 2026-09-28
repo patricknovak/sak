@@ -58,12 +58,12 @@ export default function Players() {
         <StatTable list={list.slice(0, limit)} pf={pf} onPlayer={(id) => nav(`/player/${id}`)}
           badge={(p) => { const r = owner.get(p.id); const f = fromTeam(p); return f ? <span className="ml-1 font-semibold text-emerald-300" title={`${f.name}’s top scorer last season: can’t be kept`}>🔓 {f.abbrev}</span> : r ? <span className="ml-1 font-semibold" style={{ color: team(r.team_id)?.color }}>{team(r.team_id)?.abbrev}</span> : null; }} />
       ) : (
-        <div className="card divide-y divide-white/[.06]">
+        <div className="card divide-y divide-white/[.06] xl:columns-2 xl:gap-0 2xl:columns-3">
           {list.slice(0, limit).map((p, i) => {
             const r = owner.get(p.id);
             const l = pf.line(p);
             return (
-              <div key={p.id} className="flex items-center gap-2 px-2.5 py-2" onClick={() => nav(`/player/${p.id}`)}>
+              <div key={p.id} className="flex break-inside-avoid items-center gap-2 px-2.5 py-2 xl:border-r xl:border-white/[.04]" onClick={() => nav(`/player/${p.id}`)}>
                 <span className="w-6 text-center text-[11px] text-mute">{i + 1}</span>
                 <div className="min-w-0 flex-1"><PlayerRow p={p} /></div>
                 {fromTeam(p) ? <span className="chip shrink-0 bg-emerald-500/15 text-emerald-200" title={`${fromTeam(p)!.name}’s top scorer last season: can’t be kept`}>🔓 {fromTeam(p)!.abbrev}</span> : r && <TeamBadge team={team(r.team_id)} size={22} />}

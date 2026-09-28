@@ -420,16 +420,16 @@ export default function Bets() {
         </Section>
       )}
 
-      {groups.pools.length > 0 && <Section title="🎰 Pools"><div className="grid gap-2 sm:grid-cols-2">{groups.pools.map((b) => <Fragment key={b.id}>{BetCard({ b })}</Fragment>)}</div></Section>}
-      {groups.open.length > 0 && <Section title="Open challenges" right={<span className="text-xs text-mute">untaken bets expire after 7 days</span>}><div className="grid gap-2 sm:grid-cols-2">{groups.open.map((b) => <Fragment key={b.id}>{BetCard({ b })}</Fragment>)}</div></Section>}
+      {groups.pools.length > 0 && <Section title="🎰 Pools"><div className="grid gap-2 sm:grid-cols-2 2xl:grid-cols-3">{groups.pools.map((b) => <Fragment key={b.id}>{BetCard({ b })}</Fragment>)}</div></Section>}
+      {groups.open.length > 0 && <Section title="Open challenges" right={<span className="text-xs text-mute">untaken bets expire after 7 days</span>}><div className="grid gap-2 sm:grid-cols-2 2xl:grid-cols-3">{groups.open.map((b) => <Fragment key={b.id}>{BetCard({ b })}</Fragment>)}</div></Section>}
       <Section title="Live bets">
         {groups.live.length === 0 ? <div className="card"><Empty icon="🎲" title="No live bets">Challenge someone. You know who. Or open a pool.</Empty></div>
-          : <div className="grid gap-2 sm:grid-cols-2">{groups.live.map((b) => <Fragment key={b.id}>{BetCard({ b })}</Fragment>)}</div>}
+          : <div className="grid gap-2 sm:grid-cols-2 2xl:grid-cols-3">{groups.live.map((b) => <Fragment key={b.id}>{BetCard({ b })}</Fragment>)}</div>}
       </Section>
-      {groups.expired.length > 0 && <Section title="⌛ Expired"><div className="grid gap-2 opacity-70 sm:grid-cols-2">{groups.expired.map((b) => <Fragment key={b.id}>{BetCard({ b })}</Fragment>)}</div></Section>}
+      {groups.expired.length > 0 && <Section title="⌛ Expired"><div className="grid gap-2 opacity-70 sm:grid-cols-2 2xl:grid-cols-3">{groups.expired.map((b) => <Fragment key={b.id}>{BetCard({ b })}</Fragment>)}</div></Section>}
       {groups.settled.length > 0 && (
         <Section title="Settled" right={groups.settled.length > 6 ? <button className="text-xs text-sky-300" onClick={() => setShowAllSettled(!showAllSettled)}>{showAllSettled ? 'Fewer' : `All ${groups.settled.length}`}</button> : undefined}>
-          <div className="grid gap-2 sm:grid-cols-2">{(showAllSettled ? groups.settled : groups.settled.slice(0, 6)).map((b) => <Fragment key={b.id}>{BetCard({ b })}</Fragment>)}</div>
+          <div className="grid gap-2 sm:grid-cols-2 2xl:grid-cols-3">{(showAllSettled ? groups.settled : groups.settled.slice(0, 6)).map((b) => <Fragment key={b.id}>{BetCard({ b })}</Fragment>)}</div>
         </Section>
       )}
       <p className="text-center text-xs text-mute">How the numbers work: fantasy points come from the NHL box scores, the same ones as the standings. Tracked bets settle at 8:45 a.m. ET the morning after they end, once stat corrections are in. Ties push. <Link to="/league?t=rules" className="text-sky-300">Rulebook</Link></p>

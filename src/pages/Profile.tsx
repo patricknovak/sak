@@ -49,6 +49,7 @@ export default function Profile() {
         </div>
       </div>
 
+      <div className="space-y-5 xl:columns-2 xl:gap-5 xl:space-y-0 [&>*]:break-inside-avoid xl:[&>*]:mb-5">
       <Section title="Team identity">
         <div className="card space-y-3 p-3">
           <label className="block text-xs text-mute">Team name<input className="input mt-1" value={f.name ?? ''} maxLength={40} onChange={(e) => setF({ ...f, name: e.target.value })} /></label>
@@ -151,6 +152,7 @@ export default function Profile() {
         📱 <span className="text-slate-200">Install the app:</span> on iPhone tap Share → “Add to Home Screen”; on Android tap ⋮ → “Install app”. It opens full-screen like a native app.
       </div>
       <button className="btn-ghost w-full" onClick={() => supabase.auth.signOut()}>Sign out</button>
+      </div>
     </div>
   );
 }

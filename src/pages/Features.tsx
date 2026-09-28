@@ -176,7 +176,7 @@ export default function Features() {
                 <h2 className="h-display flex items-center gap-2 text-lg"><span>{g.icon}</span>{g.title}</h2>
                 <div className="text-xs text-mute">{g.tagline}</div>
               </div>
-              <div className="grid gap-3 lg:grid-cols-2">{g.features.map((f) => <Fragment key={f.key}>{FeatureCard({ f })}</Fragment>)}</div>
+              <div className="grid gap-3 lg:grid-cols-2 2xl:grid-cols-3">{g.features.map((f) => <Fragment key={f.key}>{FeatureCard({ f })}</Fragment>)}</div>
             </section>
           ))}
         </>

@@ -93,7 +93,7 @@ export default function Scoreboard() {
       )}
 
       <Section title="Tonight’s points" right={<span className="text-xs text-mute">tap a team for every starter</span>}>
-        <div className="space-y-2">
+        <div className="grid items-start gap-2 xl:grid-cols-2">
           {rows.map(({ t, lines, pts, done, playing, left }, i) => {
             const isOpen = open === t.id;
             const top = lines.filter((l) => l.pg).slice(0, 3);
