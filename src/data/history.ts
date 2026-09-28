@@ -208,7 +208,7 @@ export const RULES: { title: string; items: string[] }[] = [
     'Expansion GMs draft in the middle position and get first pick of everyone’s non-keepers before draft day (no rookies).',
   ] },
   { title: 'Transactions', items: [
-    '10 free pickups per season. Extra pickups cost $30 each ($15 to the prize pool, $15 to the SaK Fund), allowed until 7 days before the season ends.',
+    '10 free-agent pickups for the regular season and playoffs, plus 3 more when the playoffs start. No paid extra pickups: pickups are tradable, so trade with another GM for more.',
     'No maximum on trades: the league wants as many trades as possible.',
     'Trades are reviewed by the commissioner for fairness; generally all trades are approved. Accepted trades auto-approve after 24 hours.',
     'Trade deadline matches the NHL trade deadline.',

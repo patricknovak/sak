@@ -30,7 +30,7 @@ const CLOSE = [
 const HELP: Record<string, string> = {
   lineup: 'Lineup tab (bottom menu): tap a player, then tap the slot he should go to. Players lock when their game starts. Or open ⚙️ Lineup tools: “Optimize today” sets the best lineup in one tap, and Auto-pilot (Day / Week / Season) does it for you every morning. Pin anyone you always want in (📌) or never want in (🚫). 👉 #/team',
   trade: 'Tap any team name to open their page, switch to “Scout & trade”, tick the players or picks you want, then Build trade and add what you’re sending. Picks for this draft and next year’s are tradable. The commish approves accepted deals. 👉 #/trades',
-  pickup: 'Players tab → “Available”, tap a player → ➕ Add (you’ll pick who to drop if you’re full). You get 10 free pickups a season, then it costs $30 a pop. 👉 #/players',
+  pickup: 'Players tab → “Available”, tap a player → ➕ Add (you’ll pick who to drop if you’re full). You get 10 free pickups for the season and playoffs, +3 more when the playoffs start. No paying for extras: trade another GM for their spares. 👉 #/players',
   keeper: 'More → Keepers: tick up to 6 from your 2025-26 roster and hit Save before the deadline. Your 2025-26 top scorer can’t be kept. Miss the deadline and the site keeps your top 6 by points for you. 👉 #/keepers',
   draft: 'The Draft tab is the draft room: star players to build your queue, flip on Autodraft if you’ll be away, and practise first in the mock draft. Turn on phone alerts so you get buzzed when you’re on the clock. 👉 #/draft',
   bet: 'Side Bets (More menu) → New bet: pick an opponent (or leave it open), terms, and St. Patrick coins and/or real money. Head-to-head bets track your fantasy points automatically. 👉 #/bets',
@@ -245,7 +245,7 @@ export async function answer(db: Db, question: string, askerTeam: number): Promi
   // ── rules and deadlines
   if (has(/\b(rule|rules|deadline|limit|how many (pickups|keepers)|allowed)\b/)) {
     const td = league.trade_deadline ? new Date(league.trade_deadline).toLocaleDateString('en-CA', { timeZone: 'America/Toronto', month: 'long', day: 'numeric' }) : 'TBD';
-    return reply('rules', `Keep ${league.keepers} (not your top scorer), ${league.max_acquisitions} free pickups then $${league.extra_acq_fee} each, trade deadline ${td}, lineups lock at each player’s puck drop, and the regular-season and playoff pots are separate races. Full rulebook: 👉 #/league?t=rules`);
+    return reply('rules', `Keep ${league.keepers} (not your top scorer), ${league.max_acquisitions} free pickups (+${league.playoff_bonus_acq ?? 3} in the playoffs, trade for more), trade deadline ${td}, lineups lock at each player’s puck drop, and the regular-season and playoff pots are separate races. Full rulebook: 👉 #/league?t=rules`);
   }
 
   if (topic) return reply(topic, HELP[topic]);

@@ -156,7 +156,7 @@ export default function Money() {
               })}
             </div>
           </div>
-          <p className="mt-1 px-1 text-xs text-mute">Positive lines are money a GM owes (entry, Peter Punishment, extra pickups, fines); negative lines are winnings owed to them. Last season's winnings and this season's entry net out, so one e-Transfer settles each GM.</p>
+          <p className="mt-1 px-1 text-xs text-mute">Positive lines are money a GM owes (entry, Peter Punishment, fines); negative lines are winnings owed to them. Last season's winnings and this season's entry net out, so one e-Transfer settles each GM.</p>
         </Section>
 
         {/* the fund */}
@@ -197,7 +197,7 @@ export default function Money() {
             )}
           </Section>
 
-          <Section title="Free-agent pickups" right={<span className="text-xs text-mute">{fmtMoney(league?.extra_acq_fee)} each after that</span>}>
+          <Section title="Free-agent pickups" right={<span className="text-xs text-mute">no paid extras · trade for more</span>}>
             <div className="card divide-y divide-white/[.06]">
               {teams.map((t) => {
                 const p = pickups.find((x) => x.team_id === t.id);
