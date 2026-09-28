@@ -137,3 +137,27 @@ export function findTrades(me: number, myRoster: Player[], partners: { team: num
   }
   return picked;
 }
+
+// A letter grade and a written assessment for each side of a deal. Lineup impact counts most (that's what wins
+// the season), then value in and out (what the deal is worth in trade and next year), then depth, with
+// penalties for holes it opens, injured arrivals and roster overflow.
+export interface SideGrade { team: number; grade: string; score: number; notes: { tone: 'good' | 'bad' | 'info'; text: string }[] }
+const LETTERS: [number, string][] = [[25, 'A+'], [15, 'A'], [8, 'A-'], [3, 'B+'], [-3, 'B'], [-8, 'B-'], [-15, 'C+'], [-25, 'C'], [-40, 'D']];
+export const tradeLetter = (score: number) => LETTERS.find(([min]) => score >= min)?.[1] ?? 'F';
+export function gradeSide(e: SideEval, extra: { outAge?: number | null; inAge?: number | null; name?: string } = {}): SideGrade {
+  const depth = e.depthAfter - e.depthBefore;
+  let score = e.startersDelta + e.net * 0.25 + depth * 0.1;
+  const notes: SideGrade['notes'] = [];
+  const r = (n: number) => Math.round(Math.abs(n));
+  if (Math.abs(e.startersDelta) >= 2) notes.push({ tone: e.startersDelta > 0 ? 'good' : 'bad', text: `Best lineup ${e.startersDelta > 0 ? 'gains' : 'loses'} about ${r(e.startersDelta)} projected points the rest of the way.` });
+  else notes.push({ tone: 'info', text: 'Barely moves the starting lineup.' });
+  const up = e.pos.filter((p) => p.delta >= 3).map((p) => p.pos), down = e.pos.filter((p) => p.delta <= -3).map((p) => p.pos);
+  if (up.length) notes.push({ tone: 'good', text: `Stronger at ${up.join(', ')}.` });
+  if (down.length) notes.push({ tone: 'bad', text: `Weaker at ${down.join(', ')}.` });
+  if (Math.abs(e.net) >= 10) notes.push({ tone: e.net > 0 ? 'good' : 'bad', text: `${e.net > 0 ? 'Wins' : 'Loses'} the value count by about ${r(e.net)} points (${Math.round(e.valueIn)} in, ${Math.round(e.valueOut)} out).` });
+  if (e.net < -20 && e.startersDelta > 3) notes.push({ tone: 'info', text: 'Pays a premium for a lineup upgrade: consolidation. Worth it if the depth going out was sitting on the bench.' });
+  if (e.net > 20 && e.startersDelta < -3) notes.push({ tone: 'info', text: 'More total value but a weaker lineup now: a long-game move.' });
+  if (extra.inAge != null && extra.outAge != null && Math.abs(extra.inAge - extra.outAge) >= 3) notes.push({ tone: 'info', text: `Gets ${extra.inAge < extra.outAge ? 'younger' : 'older'}: average age in ${extra.inAge.toFixed(0)} vs out ${extra.outAge.toFixed(0)}.` });
+  for (const w of e.warnings) { notes.push({ tone: 'bad', text: w }); score -= w.startsWith('Only') ? 12 : w.includes('drop') ? 4 : 6; }
+  return { team: e.team, grade: tradeLetter(score), score, notes };
+}

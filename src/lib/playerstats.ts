@@ -1,6 +1,6 @@
 // Player stats by timeframe, for sorting and filtering the player lists any way a GM likes.
 import type { Player, PlayerSeason, PlayerWindow } from './types';
-import { GAMES_PER_SEASON, rosPerGame } from './lineup';
+import { gamesOf, rosPerGame } from './lineup';
 
 export type Timeframe = 'proj' | 'ros' | 'last' | 'season' | '30' | '14' | '7';
 export const TIMEFRAMES: { k: Timeframe; label: string; short: string; live: boolean }[] = [
@@ -53,7 +53,7 @@ export const projLike = (tf: Timeframe) => tf === 'proj' || tf === 'ros';
 // what's left in the tank: blended per-game pace times the games he has left
 export function rosPoints(p: Player, s?: PlayerSeason | null) {
   const gp = s?.gp ?? 0;
-  return rosPerGame(p.proj, p.pos, gp, s?.fpts ?? 0) * Math.max(0, GAMES_PER_SEASON(p.pos) - gp);
+  return rosPerGame(p.proj, p.pos, gp, s?.fpts ?? 0, p.proj_gp) * Math.max(0, gamesOf(p) - gp);
 }
 export function lineFor(p: Player, tf: Timeframe, windows?: Record<string, PlayerWindow>, season?: PlayerSeason | null): Line | null {
   if (tf === 'proj') return { gp: null, fp: p.proj, totals: {} };

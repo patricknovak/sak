@@ -9,6 +9,8 @@ import { TeamScout } from '../components/TeamScout';
 import { TeamStats } from '../components/TeamStats';
 import { TIMEFRAMES, lineFor, type Timeframe } from '../lib/playerstats';
 import { LineupTools, useOptimizer } from '../components/LineupTools';
+import { LineupPlanner } from '../components/LineupPlanner';
+import { TeamForecastCard } from '../components/TeamForecast';
 import { Pos, Section, TeamBadge, TeamName, useAction } from '../components/ui';
 
 const STARTERS: Slot[] = ['C', 'LW', 'RW', 'D', 'Util', 'G'];
@@ -29,7 +31,7 @@ export default function MyTeam() {
   useEffect(() => { setView(teamId === me?.id ? 'lineup' : 'scout'); setSel(null); }, [teamId]); // eslint-disable-line react-hooks/exhaustive-deps
   const [today, setToday] = useState<Map<number, { fpts: number; stats: Record<string, number> }>>(new Map());
   const [tx, setTx] = useState<Transaction[]>([]);
-  const [view, setView] = useState<'scout' | 'lineup' | 'stats'>(id ? 'scout' : 'lineup');
+  const [view, setView] = useState<'scout' | 'lineup' | 'plan' | 'stats'>(id ? 'scout' : 'lineup');
   // the stat line under each player in the lineup
   const liveOk = windows.size > 0;
   const [tf, setTf] = useState<Timeframe>(league?.phase === 'season' ? 'season' : 'last');
@@ -200,6 +202,7 @@ export default function MyTeam() {
           </div>
           <div className="flex flex-wrap items-center gap-2">
             <button className="btn-blue" disabled={busy || opt.busy} onClick={() => opt.apply(opt.plan('day'), 'today')}>✨ Optimize today</button>
+            <button className="btn-ghost" onClick={() => setView('plan')}>📅 Set future days</button>
             <button className="btn-ghost" onClick={() => setTools(true)}>⚙️ Lineup tools</button>
           </div>
           <div className="w-full text-xs text-mute">
@@ -216,6 +219,7 @@ export default function MyTeam() {
         </button>
       )}
       {mine && <LineupTools open={tools} onClose={() => setTools(false)} roster={roster} />}
+      {(league?.phase === 'season' || league?.phase === 'offseason') && view !== 'plan' && <TeamForecastCard teamId={t.id} />}
       {league?.phase === 'keepers' && mine && (
         <Link to="/keepers" className="card block bg-amber-500/10 p-3 text-sm text-amber-100">🔒 It’s keeper season: this is your 2025-26 roster. Pick who you keep →</Link>
       )}
@@ -223,6 +227,7 @@ export default function MyTeam() {
       <div className="flex flex-wrap items-center gap-1">
         {!mine && <button className={`tab ${view === 'scout' ? 'tab-on' : 'bg-white/[.05]'}`} onClick={() => setView('scout')}>🔍 {me?.role === 'spectator' ? 'Scout' : 'Scout & trade'}</button>}
         <button className={`tab ${view === 'lineup' ? 'tab-on' : 'bg-white/[.05]'}`} onClick={() => setView('lineup')}>🏒 Lineup</button>
+        {mine && league?.phase !== 'keepers' && <button className={`tab ${view === 'plan' ? 'tab-on' : 'bg-white/[.05]'}`} onClick={() => setView('plan')}>📅 Daily lineups</button>}
         <button className={`tab ${view === 'stats' ? 'tab-on' : 'bg-white/[.05]'}`} onClick={() => setView('stats')}>📊 Stats</button>
         {view === 'lineup' && (
           <div className="scroll-x ml-auto flex items-center gap-1">
@@ -234,7 +239,7 @@ export default function MyTeam() {
           </div>
         )}
       </div>
-      {view === 'stats' ? <TeamStats teamId={t.id} /> : !mine && view === 'scout' ? <TeamScout teamId={t.id} /> : <>
+      {view === 'stats' ? <TeamStats teamId={t.id} /> : view === 'plan' && mine ? <LineupPlanner roster={roster} /> : !mine && view === 'scout' ? <TeamScout teamId={t.id} /> : <>
       <div className="grid gap-4 lg:grid-cols-2">
         {(!offseason || anyStarter) && (
           <Section title="Starters" className="min-w-0">

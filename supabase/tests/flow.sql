@@ -520,3 +520,53 @@ update games set state = 'PPD' where id = 889;
 update markets set closes_at = now() - interval '1 minute' where game_id = 889;
 select 'void', settle_markets()->>'void' as void;
 select 'void refunded (expect 1180)', balance from coin_balances where team_id = 8;
+
+-- ───────────── lineups planned ahead ─────────────
+select pg_temp.as_team(1);
+select p.id as plan_c from rosters r join players p on p.id = r.player_id where r.team_id = 1 and p.pos = 'C' order by p.proj desc limit 1 \gset
+select p.id as plan_g from rosters r join players p on p.id = r.player_id where r.team_id = 1 and p.pos = 'G' order by p.proj desc limit 1 \gset
+set role authenticated;
+select 'plan saved (expect 2 days)', set_lineup_plans(jsonb_build_object(
+  (today_et() + 1)::text, jsonb_build_object(:plan_c::text, 'C', :plan_g::text, 'G'),
+  (today_et() + 2)::text, jsonb_build_object(:plan_c::text, 'BN')));
+do $$ begin perform set_lineup_plans(jsonb_build_object(today_et()::text, '{}'::jsonb)); raise exception 'today plan allowed';
+exception when others then if sqlerrm not like '%set live%' then raise; end if; end $$;
+do $$ declare g int; begin
+  select p.id into g from rosters r join players p on p.id = r.player_id where r.team_id = 1 and p.pos = 'G' limit 1;
+  perform set_lineup_plans(jsonb_build_object((today_et() + 3)::text, jsonb_build_object(g::text, 'C'))); raise exception 'goalie at C allowed';
+exception when others then if sqlerrm not like '%can''t play%' then raise; end if; end $$;
+do $$ begin perform set_lineup_plans(jsonb_build_object((today_et() + 3)::text, jsonb_build_object('8478402', 'C'))); raise exception 'someone else''s player allowed';
+exception when others then if sqlerrm not like '%not on your roster%' and sqlerrm not like '%can''t play%' then raise; end if; end $$;
+select 'my plans visible (expect 3 rows)', count(*) from lineup_plans;
+select pg_temp.as_team(2);
+select 'others'' plans hidden (expect 0)', count(*) from lineup_plans;
+reset role;
+-- the day arrives: pretend tomorrow's plan is today's
+update lineup_plans set date = today_et() where date = today_et() + 1;
+update rosters set slot = 'BN' where team_id = 1;
+select 'plans applied (expect 1)', apply_lineup_plans();
+select 'planned slots live (expect C and G)', string_agg(slot, ',' order by slot) from rosters where team_id = 1 and player_id in (:plan_c, :plan_g);
+select 'applied once (expect 0)', apply_lineup_plans();
+select 'counts as manual (expect t)', lineup_touched = today_et() from teams where id = 1;
+select pg_temp.as_team(1);
+set role authenticated;
+select 'clear a day (expect 1)', clear_lineup_plans(array[today_et() + 2]);
+reset role;
+
+-- ───────────── untaken bets expire after 7 days ─────────────
+select pg_temp.as_team(3);
+set role authenticated;
+select create_bet_v2(jsonb_build_object('title', 'Nobody will take this', 'kind', 'custom', 'coins', 40)) as stale_bet \gset
+reset role;
+select 'stale escrow (expect >= 40)', escrow >= 40 from coin_balances where team_id = 3;
+update bets set created_at = now() - interval '8 days' where id = :stale_bet;
+select 'expired (expect 1)', expire_stale_bets();
+select 'status (expect expired)', status from bets where id = :stale_bet;
+select 'creator told (expect 1)', count(*) from notifications where team_id = 3 and body like '%expired%';
+
+-- ───────────── projections repriced by scoring ─────────────
+select id as proj_p from players where pos = 'C' order by proj desc limit 1 \gset
+select 'set projections (expect 1)', set_projections(jsonb_build_array(jsonb_build_object('id', :proj_p, 'gp', 80,
+  'stats', jsonb_build_object('g', 40, 'a', 60, 'sog', 250, 'hit', 50, 'blk', 30, 'ppp', 30, 'pm', 10, 'pim', 20, 'gwg', 6),
+  'meta', jsonb_build_object('lo', 0.85, 'hi', 1.15))));
+select 'model projection used (expect 60+60+50+5+6+15+5-4+6 = 203)', proj from players where id = :proj_p;

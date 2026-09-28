@@ -6,6 +6,7 @@ import { rpc, supabase } from '../lib/supabase';
 import type { NewsItem, Player } from '../lib/types';
 import { ago, calcFpts, fmtDate, fmtPts, fmtTime, injuryBadge, NHL_COLORS, NHL_TEAMS, STAT_LABELS, teamLogo } from '../lib/format';
 import { Headshot, NhlLogo, Pos, Sheet, TeamBadge, TeamName, useAction } from './ui';
+import { ProjOutlook } from './ProjOutlook';
 
 // one-line player row used everywhere
 export function PlayerRow({ p, right, onClick, sub, dim }: { p: Player; right?: ReactNode; onClick?: () => void; sub?: ReactNode; dim?: boolean }) {
@@ -159,6 +160,7 @@ export function PlayerSheet({ id, onClose, actions }: { id: number | null; onClo
         <div className="rounded-xl bg-boards/60 p-2"><div className="label">Last season</div><div className="font-display text-xl font-bold">{fmtPts(p.last_fp)}</div><div className="text-[11px] text-mute">{p.last_stats?.gp ?? 0} GP</div></div>
         <div className="rounded-xl bg-boards/60 p-2"><div className="label">Projection</div><div className="font-display text-xl font-bold">{fmtPts(p.proj, 0)}</div><div className="text-[11px] text-mute">Rank #{p.rank ?? '—'}</div></div>
       </div>
+      <ProjOutlook p={p} />
 
       {p.last_stats && (
         <div className="mt-3">
