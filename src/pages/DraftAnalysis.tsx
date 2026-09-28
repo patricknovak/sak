@@ -6,7 +6,7 @@ import { ChevronDown, LineChart } from 'lucide-react';
 import { useLeague } from '../lib/store';
 import { supabase } from '../lib/supabase';
 import { etToday, fmtPts } from '../lib/format';
-import { useProjDetails, useSeasonGames } from '../lib/projections';
+import { useNhlOdds, useProjDetails, useSeasonGames } from '../lib/projections';
 import { analyzeDraft, type DraftAnalysis as DA, type PickEval, type TeamAnalysis } from '../lib/draftanalysis';
 import type { FPlayer } from '../lib/forecast';
 import { gradeColor } from '../lib/grades';
@@ -20,11 +20,12 @@ interface Commentary {
 }
 
 export function useDraftAnalysis() {
-  const { teams, players, rosters, picks, draft, league, standings } = useLeague();
+  const { teams, players, rosters, picks, draft, league, standings, playoffs } = useLeague();
   const details = useProjDetails();
   const games = useSeasonGames();
+  const nhl = useNhlOdds();
   return useMemo<DA | null>(() => {
-    if (!details || !games || !players.size || !league) return null;
+    if (!details || !games || !nhl || !players.size || !league) return null;
     const gm = teams.filter((t) => t.role !== 'spectator');
     const fp = new Map<number, FPlayer & { name: string; age?: number | null }>();
     for (const p of players.values()) {
@@ -33,8 +34,10 @@ export function useDraftAnalysis() {
     }
     const board = picks.filter((k) => k.season === draft?.season && k.player_id && k.overall).map((k) => ({ overall: k.overall!, round: k.round, team: k.team_id, player: k.player_id! }));
     const current = new Map(standings.map((s) => [s.team_id, Number(s.points) || 0]));
-    return analyzeDraft({ teams: gm.map((t) => ({ id: t.id, name: t.name, gm: t.gm_name })), players: fp, rosters, picks: board, games, caps: league.roster as Record<string, number>, from: etToday(), current });
-  }, [details, games, players, teams, rosters, picks, draft?.season, league, standings]);
+    const currentPo = new Map(playoffs.map((s) => [s.team_id, Number(s.points) || 0]));
+    return analyzeDraft({ teams: gm.map((t) => ({ id: t.id, name: t.name, gm: t.gm_name })), players: fp, rosters, picks: board, games, caps: league.roster as Record<string, number>,
+      from: etToday(), current, currentPo, to: league.season_end ?? undefined, nhl });
+  }, [details, games, nhl, players, teams, rosters, picks, draft?.season, league, standings, playoffs]);
 }
 
 const pct = (v: number) => (v >= 0.995 ? '>99%' : v < 0.005 ? '<1%' : `${Math.round(v * 100)}%`);
@@ -48,6 +51,7 @@ export default function DraftAnalysisPage() {
   const [notes, setNotes] = useState<Commentary | null>(null);
   const [open, setOpen] = useState<Set<number>>(new Set(me ? [me.id] : []));
   const [detail, setDetail] = useState<number | null>(null);
+  const [tbl, setTbl] = useState<'cup' | 'reg' | 'po'>('cup');
   useEffect(() => {
     supabase.from('league_reports').select('data').eq('id', `draft-${draft?.season ?? '2026-27'}`).maybeSingle().then(({ data }) => setNotes((data?.data as Commentary) ?? null));
   }, [draft?.season]);
@@ -86,7 +90,7 @@ export default function DraftAnalysisPage() {
             <TeamName team={tm} className="block truncate font-semibold" />
             <span className="block truncate text-xs text-mute">{c?.headline ?? `${tm?.gm_name} · projected ${fmtPts(t.fc.total, 0)}`}</span>
           </span>
-          <span className="hidden text-right text-xs sm:block"><span className="block text-mute">Title · Top 3</span><span className="num font-bold">{pct(t.odds.first)} · {pct(t.odds.top3)}</span></span>
+          <span className="hidden text-right text-xs sm:block"><span className="block text-mute">🏆 Cup · Regular · Playoffs</span><span className="num font-bold">{pct(t.so.cup.first)} · {pct(t.so.reg.first)} · {pct(t.so.po.first)}</span></span>
           <span className="text-center"><span className="block text-[9px] uppercase tracking-wider text-mute">Roster</span><span className={`h-display text-2xl ${gradeColor(t.rosterGrade)}`}>{t.rosterGrade}</span></span>
           <span className="text-center"><span className="block text-[9px] uppercase tracking-wider text-mute">Draft</span><span className={`h-display text-2xl ${gradeColor(t.draftGrade)}`}>{t.draftGrade}</span></span>
           <ChevronDown size={16} className={`shrink-0 text-mute transition ${isOpen ? 'rotate-180' : ''}`} />
@@ -94,12 +98,22 @@ export default function DraftAnalysisPage() {
         {isOpen && (
           <div className="space-y-3 border-t border-white/[.06] p-3">
             {c && <div className="space-y-2 text-sm leading-relaxed text-slate-200">{c.body.map((p, k) => <p key={k}>{p}</p>)}</div>}
-            <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
-              <Box label="Projected total" value={fmtPts(t.fc.total, 0)} sub={`${fmtPts(t.odds.p10, 0)}–${fmtPts(t.odds.p90, 0)} likely range`} />
-              <Box label="Finish odds" value={`${pct(t.odds.first)} title`} sub={`${pct(t.odds.top3)} in the money · ${pct(t.odds.last)} last`} />
+            <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-5">
+              <Box label="🏆 SAK Cup (full year)" value={fmtPts(t.year, 0)} sub={`${pct(t.so.cup.first)} to win it · ${fmtPts(t.so.cup.p10, 0)}–${fmtPts(t.so.cup.p90, 0)}`} />
+              <Box label="Regular season" value={fmtPts(t.fc.total, 0)} sub={`${pct(t.odds.first)} title · ${pct(t.odds.top3)} in the money · ${pct(t.odds.last)} last`} />
+              <Box label="Playoffs (from zero)" value={fmtPts(t.po.total, 0)} sub={`${pct(t.so.po.first)} title · ${pct(t.so.po.top3)} in the money`} />
               <Box label="Keepers vs draft" value={`${Math.round((t.keeperPts / Math.max(1, t.keeperPts + t.draftPts)) * 100)}% / ${Math.round((t.draftPts / Math.max(1, t.keeperPts + t.draftPts)) * 100)}%`} sub="share of lineup points" />
               <Box label="Draft value" value={`${t.draftScore - avgDraft > 0 ? '+' : ''}${Math.round(t.draftScore - avgDraft)}`} sub="points vs the average draft" />
             </div>
+            {t.flex.length > 0 && (
+              <div>
+                <div className="label mb-1">Multi-position players <span className="font-normal normal-case text-mute">· points they add by covering more than one spot</span></div>
+                <div className="flex flex-wrap gap-1.5">
+                  {t.flex.map((f) => { const p = players.get(f.id); return p && (
+                    <button key={f.id} onClick={() => setDetail(f.id)} className="flex items-center gap-1 rounded-full bg-white/[.06] px-2 py-0.5 text-xs"><span className="font-semibold">{p.name}</span><span className="text-mute">{p.elig.join('/')}</span><span className={`num font-bold ${f.gain >= 3 ? 'text-emerald-300' : 'text-slate-300'}`}>+{fmtPts(Math.max(0, f.gain), 0)}</span></button>); })}
+                </div>
+              </div>
+            )}
             <div>
               <div className="label mb-1">Position strength <span className="font-normal normal-case text-mute">· rank of {n}, lineup points</span></div>
               <div className="flex flex-wrap gap-1.5">
@@ -160,25 +174,32 @@ export default function DraftAnalysisPage() {
             </div>
           )}
 
-          <Section title="Projected standings" right={<span className="text-xs text-mute">4,000 simulated seasons</span>}>
+          <Section title="Projected standings" right={<span className="text-xs text-mute">3,000 simulated years</span>}>
+            <div className="mb-2 flex flex-wrap gap-1.5">
+              {([['cup', '🏆 SAK Cup · full year'], ['reg', '🏒 Regular season'], ['po', '🔥 Playoffs']] as const).map(([k, l]) => (
+                <button key={k} onClick={() => setTbl(k)} className={`chip ${tbl === k ? 'bg-gold/20 text-gold' : 'bg-white/[.05] text-mute'}`}>{l}</button>
+              ))}
+            </div>
             <div className="card overflow-hidden">
               <div className="scroll-x">
                 <table className="w-full min-w-[560px] text-sm">
                   <thead className="bg-white/[.04] text-[11px] uppercase tracking-wider text-mute">
-                    <tr><th className="px-3 py-2 text-left">Team</th><th className="px-2 text-right">Proj</th><th className="px-2 text-left">Likely range</th><th className="px-2 text-right">Title</th><th className="px-2 text-right">Top 3</th><th className="px-2 text-right">Last</th><th className="px-2 text-center">Roster</th><th className="px-2 text-center">Draft</th></tr>
+                    <tr><th className="px-3 py-2 text-left">Team</th><th className="px-2 text-right">Proj</th><th className="px-2 text-left">Likely range</th><th className="px-2 text-right">Win</th><th className="px-2 text-right">Top 3</th><th className="px-2 text-right">Last</th><th className="px-2 text-center">Roster</th><th className="px-2 text-center">Draft</th></tr>
                   </thead>
                   <tbody className="divide-y divide-white/[.06]">
                     {(() => {
-                      const lo = Math.min(...a.teams.map((t) => t.odds.p10)), hi = Math.max(...a.teams.map((t) => t.odds.p90));
+                      const od = (t: TeamAnalysis) => t.so[tbl];
+                      const tot = (t: TeamAnalysis) => (tbl === 'cup' ? t.year : tbl === 'reg' ? t.fc.total : t.po.total);
+                      const lo = Math.min(...a.teams.map((t) => od(t).p10)), hi = Math.max(...a.teams.map((t) => od(t).p90));
                       const x = (v: number) => `${((v - lo) / Math.max(1, hi - lo)) * 100}%`;
-                      return a.teams.map((t) => (
+                      return [...a.teams].sort((p, q) => tot(q) - tot(p)).map((t) => (
                         <tr key={t.team} className={t.team === me?.id ? 'bg-sky-500/[.07]' : ''}>
                           <td className="px-3 py-2"><span className="flex items-center gap-2"><TeamBadge team={team(t.team)} size={24} /><span className="truncate font-semibold">{team(t.team)?.gm_name}</span></span></td>
-                          <td className="num px-2 text-right font-bold">{fmtPts(t.fc.total, 0)}</td>
-                          <td className="px-2"><div className="relative h-2 w-32 rounded-full bg-white/[.05] sm:w-44"><div className="absolute h-2 rounded-full bg-sky-400/50" style={{ left: x(t.odds.p10), width: `calc(${x(t.odds.p90)} - ${x(t.odds.p10)})` }} /><div className="absolute -top-0.5 h-3 w-0.5 rounded bg-white" style={{ left: x(t.fc.total) }} /></div></td>
-                          <td className="num px-2 text-right">{pct(t.odds.first)}</td>
-                          <td className="num px-2 text-right">{pct(t.odds.top3)}</td>
-                          <td className="num px-2 text-right text-mute">{pct(t.odds.last)}</td>
+                          <td className="num px-2 text-right font-bold">{fmtPts(tot(t), 0)}</td>
+                          <td className="px-2"><div className="relative h-2 w-32 rounded-full bg-white/[.05] sm:w-44"><div className="absolute h-2 rounded-full bg-sky-400/50" style={{ left: x(od(t).p10), width: `calc(${x(od(t).p90)} - ${x(od(t).p10)})` }} /><div className="absolute -top-0.5 h-3 w-0.5 rounded bg-white" style={{ left: x(tot(t)) }} /></div></td>
+                          <td className="num px-2 text-right">{pct(od(t).first)}</td>
+                          <td className="num px-2 text-right">{pct(od(t).top3)}</td>
+                          <td className="num px-2 text-right text-mute">{pct(od(t).last)}</td>
                           <td className={`h-display px-2 text-center text-lg ${gradeColor(t.rosterGrade)}`}>{t.rosterGrade}</td>
                           <td className={`h-display px-2 text-center text-lg ${gradeColor(t.draftGrade)}`}>{t.draftGrade}</td>
                         </tr>
@@ -188,7 +209,7 @@ export default function DraftAnalysisPage() {
                 </table>
               </div>
             </div>
-            <p className="mt-1 px-1 text-xs text-mute">Roster grade: the whole team (keepers and picks) played out day by day with the best lineup each night. Draft grade: this year’s value from the picks alone, each one against the best player still on the board at that slot. Prospect stashes are judged in later years.</p>
+            <p className="mt-1 px-1 text-xs text-mute">{tbl === 'cup' ? 'The SAK Cup is the whole year, draft to Stanley Cup final: regular season plus playoff points.' : tbl === 'po' ? 'The playoffs start everyone at zero with the same rosters. Players only score while their NHL team is alive, so the forecast leans on each NHL team’s playoff odds and how deep it should go.' : 'Regular season points, kept as they stand when the NHL regular season ends.'} Roster grade: the whole team (keepers and picks) played out day by day with the best lineup each night, for the full year. Multi-position players count for what they’re worth: on nights a C or LW is off, a C/LW keeps the slot filled. Draft grade: this year’s value from the picks alone, each one against the best player still on the board at that slot. Prospect stashes are judged in later years.</p>
           </Section>
 
           <div className="grid gap-4 sm:grid-cols-2">

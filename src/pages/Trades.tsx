@@ -7,6 +7,7 @@ import { ago, fmtDateTime, fmtPts } from '../lib/format';
 import { PlayerRow } from '../components/PlayerCard';
 import { Empty, Section, TeamBadge, TeamName, useAction, PageHeader } from '../components/ui';
 import { TradeAnalysis, TradeFinder, useTradeValuer } from '../components/TradeTools';
+import { TradeBlock } from '../components/TradeBlock';
 import { evaluateSide, gradeSide, type Side } from '../lib/trade';
 import { gradeColor } from '../lib/grades';
 import { rosPoints } from '../lib/playerstats';
@@ -113,10 +114,10 @@ export default function Trades() {
     });
   };
   const [openTrade, setOpenTrade] = useState<number | null>(null);
-  const { v: valuer, rosterMax } = useTradeValuer();
+  const { v: valuer, rosterMax, sched } = useTradeValuer();
   // offers waiting on you open with the full assessment showing
   const isOpen = (t: Trade) => openTrade === t.id || (canRespond(t) && openTrade !== -t.id);
-  const gradesOf = (t: Trade) => sidesOf(t).map((sd) => gradeSide(evaluateSide(sd, valuer, rosterMax)));
+  const gradesOf = (t: Trade) => sidesOf(t).map((sd) => gradeSide(evaluateSide(sd, valuer, rosterMax, sched)));
   const canRespond = (t: Trade) => !!me && t.status === 'proposed' && (t.parties ? partiesOf(t).includes(me.id) && t.from_team !== me.id && !(t.accepted_by ?? []).includes(me.id) : t.to_team === me.id);
 
   const groups = useMemo(() => ({
@@ -230,6 +231,12 @@ export default function Trades() {
               ) : <span className="text-xs text-mute">Auto-approves {league?.trade_review_hours ?? 24}h after acceptance unless the commish steps in.</span>}
             </TradeCard>
           ))}</div>
+        </Section>
+      )}
+
+      {!pastDeadline && league?.phase !== 'draft' && (
+        <Section title="📣 The trade block" right={<span className="text-xs text-mute">who's selling, who's buying</span>}>
+          <TradeBlock onBuild={buildFromFinder} />
         </Section>
       )}
 

@@ -6,6 +6,7 @@ export interface League {
   phase: 'keepers' | 'predraft' | 'draft' | 'season' | 'offseason';
   keepers: number; top_scorer_rule: boolean; keeper_deadline: string | null; draft_at: string | null;
   pick_seconds: number; draft_rounds: number; snake: boolean; season_start: string | null; season_end: string | null;
+  playoffs_end: string | null;   // the last possible day of the Stanley Cup final
   trade_deadline: string | null; trade_review_hours: number; max_acquisitions: number; extra_acq_fee: number;
   entry_fee: number; sak_fee: number; prize_split: number[]; playoff_share: number; roster: Record<Slot, number>;
   scoring: { skater: Record<string, number>; goalie: Record<string, number> };
@@ -61,6 +62,13 @@ export interface Game {
   id: number; date: string; start_utc: string; home: string; away: string; state: string;
   home_score: number | null; away_score: number | null; period: string | null; clock: string | null;
 }
+
+export interface NhlTeam {
+  abbrev: string; name: string | null; conf: string | null; division: string | null; gp: number; pts: number;
+  point_pct: number | null; prior_pct: number | null; strength: number | null; proj_pts: number | null;
+  playoff_odds: number; exp_po_games: number; po_status: 'regular' | 'alive' | 'out' | null; po_note: string | null;
+}
+export interface TradeBlock { team_id: number; offering: number[]; wants: string[]; offer_note: string | null; picks: boolean; updated_at: string }
 
 export interface Standing {
   team_id: number; points: number; today: number; yesterday: number; last7: number; games: number; rank: number; moves: number;

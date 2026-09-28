@@ -27,6 +27,8 @@ export interface LContext {
 export const STARTING = ['C', 'LW', 'RW', 'D', 'Util', 'G'];
 const OUT = /^(out|ir|injured reserve|injured|suspension|suspended|long[- ]term)/i;
 export const isOut = (s: string | null | undefined) => !!s && OUT.test(s);
+// who can go on IR: anyone on the injury report except a suspended player (a suspension isn't an injury)
+export const irOk = (s: string | null | undefined) => !!s && !/suspen/i.test(s);
 
 export const slotOk = (p: { pos: string; elig: string[] }, slot: string) =>
   slot === 'BN' || slot === 'IR' ? true : slot === 'Util' ? p.pos !== 'G' : slot === 'G' ? p.pos === 'G' : p.pos !== 'G' && p.elig.includes(slot);
@@ -169,7 +171,7 @@ export function optimize(rows: LRow[], players: Map<number, LPlayer>, mode: Mode
     candidates.push(x);
   }
   for (const x of [...candidates].sort((a, b) => b.p.proj - a.p.proj)) {
-    if (irOpen > 0 && isOut(x.p.injury_status) && x.r.pin !== 'start') {
+    if (irOpen > 0 && isOut(x.p.injury_status) && irOk(x.p.injury_status) && x.r.pin !== 'start') {
       final.set(x.p.id, 'IR'); irOpen--;
       candidates.splice(candidates.indexOf(x), 1);
     }
@@ -193,7 +195,7 @@ export function optimize(rows: LRow[], players: Map<number, LPlayer>, mode: Mode
     final.set(p.id, j >= 0 && j < cols.length && cost[i][j] < BIG ? cols[j] : 'BN');
   });
 
-  // a player coming back from IR can't overflow the bench: leave him on IR instead
+  // a player coming back from IR needs a roster spot (the bench can't overflow): leave him on IR instead
   const benchCap = ctx.caps.BN ?? Infinity;
   let bench = [...final.values()].filter((s) => s === 'BN').length;
   for (const x of roster) {

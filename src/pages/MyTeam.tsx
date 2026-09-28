@@ -12,11 +12,12 @@ import { LineupTools, useOptimizer } from '../components/LineupTools';
 import { LineupPlanner } from '../components/LineupPlanner';
 import { TeamForecastCard } from '../components/TeamForecast';
 import { Pos, Section, TeamBadge, TeamName, useAction } from '../components/ui';
+import { irOk } from '../lib/lineup';
 
 const STARTERS: Slot[] = ['C', 'LW', 'RW', 'D', 'Util', 'G'];
 
 const slotOk = (p: Player, s: Slot) =>
-  s === 'BN' ? true : s === 'IR' ? !!p.injury_status : s === 'Util' ? p.pos !== 'G' : s === 'G' ? p.pos === 'G' : p.pos !== 'G' && p.elig.includes(s);   // IR: injury report only
+  s === 'BN' ? true : s === 'IR' ? irOk(p.injury_status) : s === 'Util' ? p.pos !== 'G' : s === 'G' ? p.pos === 'G' : p.pos !== 'G' && p.elig.includes(s);   // IR: injury report only, not suspensions
 
 export default function MyTeam() {
   const { id } = useParams();
@@ -258,8 +259,19 @@ export default function MyTeam() {
             <div className="card divide-y divide-white/[.06] overflow-hidden">
               {ir.map((x) => <Fragment key={x.p.id}>{Row({ slot: 'IR', x })}</Fragment>)}
               {selected && selected.r.slot !== 'IR' && ir.length < (cap.IR ?? 2) && Row({ slot: 'IR' })}
-              {ir.length === 0 && !selected && <div className="p-3 text-xs text-mute">Injured players only (honour system; the commish is watching).</div>}
+              {ir.length === 0 && !selected && <div className="p-3 text-xs text-mute">Injured players only, not suspended ones.</div>}
             </div>
+            {mine && !offseason && (() => {
+              const active = roster.filter((x) => x.r.slot !== 'IR').length;
+              const max = Object.entries(cap).filter(([k]) => k !== 'IR').reduce((a, [, v]) => a + Number(v), 0);
+              const healed = ir.filter((x) => !irOk(x.p.injury_status));
+              return (
+                <div className="mt-1 space-y-1 px-1 text-xs text-mute">
+                  {healed.length > 0 && <div className="rounded-lg bg-amber-500/10 px-2 py-1.5 text-amber-200">⚠ {healed.map((x) => x.p.name).join(' and ')} {healed.length > 1 ? 'are' : 'is'} {healed.some((x) => x.p.injury_status) ? 'no longer eligible for IR' : 'healthy'}. {active >= max ? 'Drop someone to activate' : 'Activate'} {healed.length > 1 ? 'them' : 'him'}: pickups are blocked until then.</div>}
+                  <div>Each player on IR frees a roster spot ({active}/{max} active). Coming off IR needs a free spot, so if you filled it, drop someone first.</div>
+                </div>
+              );
+            })()}
           </Section>
           <Section title="Transactions">
             <div className="card divide-y divide-white/[.06]">
