@@ -68,7 +68,8 @@ export function LineupPlanner({ roster }: { roster: Row[] }) {
     for (const k of plans.keys()) if (k <= d && (!from || k > from)) from = k;
     const base = from ? plans.get(from)! : liveSlots;
     const slots = new Map<number, string>();
-    for (const x of roster) slots.set(x.p.id, base.get(x.p.id) ?? (x.r.slot === 'IR' ? 'IR' : 'BN'));
+    // IR is set by hand on the team page: IR players stay there, and a plan never puts anyone on it
+    for (const x of roster) { const b = base.get(x.p.id); slots.set(x.p.id, x.r.slot === 'IR' ? 'IR' : !b || b === 'IR' ? 'BN' : b); }
     return { slots, source: from === d ? 'own' : from };
   };
   const eff = effective(day);
@@ -430,12 +431,13 @@ export function LineupPlanner({ roster }: { roster: Row[] }) {
                 const s = slots.get(p.id) ?? 'BN';
                 const g = gameFor(p, day);
                 const lk = locked(p);
-                const options = [...START.filter((x) => canPlay(p, x)), 'BN', ...(hurt(p) || s === 'IR' ? ['IR'] : [])];
+                const onIr = r.slot === 'IR';
+                const options = onIr ? ['IR'] : [...START.filter((x) => canPlay(p, x)), 'BN'];
                 const changed = draft && eff.slots.get(p.id) !== s;
                 return (
                   <tr key={p.id} className={`${START.includes(s as Slot) ? '' : 'text-slate-400'} ${changed ? 'bg-sky-500/[.08]' : ''}`}>
                     <td className="sticky left-0 z-10 bg-rink px-2 py-1">
-                      <select aria-label={`Slot for ${p.name}`} disabled={lk || me?.role === 'spectator'} value={s} onChange={(e) => setSlot(p.id, e.target.value)}
+                      <select aria-label={`Slot for ${p.name}`} disabled={lk || onIr || me?.role === 'spectator'} title={onIr ? 'On IR: move him off IR on the My Team page' : undefined} value={s} onChange={(e) => setSlot(p.id, e.target.value)}
                         className={`w-[52px] rounded-md border px-1 py-0.5 text-[11px] font-bold ${START.includes(s as Slot) ? 'border-sky-400/40 bg-sky-500/15 text-sky-100' : 'border-white/10 bg-black/40 text-slate-300'} disabled:opacity-60`}>
                         {options.map((o) => <option key={o} value={o}>{o}</option>)}
                       </select>

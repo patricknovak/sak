@@ -162,19 +162,11 @@ export function optimize(rows: LRow[], players: Map<number, LPlayer>, mode: Mode
     else free.push(x);
   }
 
-  // IR: injured players go to open IR spots, healthy ones come back off it
-  let irOpen = (caps.IR ?? 0) - free.filter((x) => x.r.slot === 'IR').length;
+  // IR is the GM's call: players on it stay there (even once healthy) and the optimizer never puts anyone on it
   const candidates: { r: LRow; p: LPlayer }[] = [];
   for (const x of free) {
-    if (x.r.slot === 'IR' && isOut(x.p.injury_status)) { final.set(x.p.id, 'IR'); continue; }
-    if (x.r.slot === 'IR') irOpen++;
+    if (x.r.slot === 'IR') { final.set(x.p.id, 'IR'); continue; }
     candidates.push(x);
-  }
-  for (const x of [...candidates].sort((a, b) => b.p.proj - a.p.proj)) {
-    if (irOpen > 0 && isOut(x.p.injury_status) && irOk(x.p.injury_status) && x.r.pin !== 'start') {
-      final.set(x.p.id, 'IR'); irOpen--;
-      candidates.splice(candidates.indexOf(x), 1);
-    }
   }
 
   // one column per open starting slot, plus a bench column per player
@@ -194,14 +186,6 @@ export function optimize(rows: LRow[], players: Map<number, LPlayer>, mode: Mode
     const j = assign[i];
     final.set(p.id, j >= 0 && j < cols.length && cost[i][j] < BIG ? cols[j] : 'BN');
   });
-
-  // a player coming back from IR needs a roster spot (the bench can't overflow): leave him on IR instead
-  const benchCap = ctx.caps.BN ?? Infinity;
-  let bench = [...final.values()].filter((s) => s === 'BN').length;
-  for (const x of roster) {
-    if (bench <= benchCap) break;
-    if (x.r.slot === 'IR' && final.get(x.p.id) === 'BN') { final.set(x.p.id, 'IR'); bench--; }
-  }
 
   const starterValue = (slotOf: (id: number) => string) =>
     roster.filter((x) => STARTING.includes(slotOf(x.p.id))).reduce((t, x) => t + w(x.p), 0);

@@ -3,10 +3,11 @@ import { Sparkline } from './charts';
 import { useNavigate } from 'react-router-dom';
 import { useLeague } from '../lib/store';
 import { rpc, supabase } from '../lib/supabase';
-import type { NewsItem, Player } from '../lib/types';
+import type { Player } from '../lib/types';
 import { ago, calcFpts, fmtDate, fmtPts, fmtTime, injuryBadge, NHL_COLORS, NHL_TEAMS, STAT_LABELS, teamLogo } from '../lib/format';
 import { Headshot, NhlLogo, Pos, Sheet, TeamBadge, TeamName, useAction } from './ui';
 import { ProjOutlook } from './ProjOutlook';
+import { LatestNews, PlayerNewsList, usePlayerNews } from './PlayerNews';
 
 // one-line player row used everywhere
 export function PlayerRow({ p, right, onClick, sub, dim }: { p: Player; right?: ReactNode; onClick?: () => void; sub?: ReactNode; dim?: boolean }) {
@@ -56,16 +57,14 @@ export function PlayerSheet({ id, onClose, actions }: { id: number | null; onClo
   const r = id ? owner.get(id) : undefined;
   const [log, setLog] = useState<GameLine[]>([]);
   const [career, setCareer] = useState<Record<string, number | string>[] | null>(null);
-  const [news, setNews] = useState<NewsItem[]>([]);
+  const news = usePlayerNews(id, 10);
   const [tab, setTab] = useState<'overview' | 'career' | 'news'>('overview');
 
   useEffect(() => {
-    setLog([]); setCareer(null); setNews([]); setTab('overview');
+    setLog([]); setCareer(null); setTab('overview');
     if (!id) return;
     supabase.from('player_games').select('game_id,date,nhl_team,stats,fpts').eq('player_id', id).order('date', { ascending: false }).limit(15)
       .then(({ data }) => setLog((data ?? []) as GameLine[]));
-    supabase.from('news').select('*').contains('player_ids', [id]).order('published', { ascending: false }).limit(10)
-      .then(({ data }) => setNews((data ?? []) as NewsItem[]));
   }, [id]);
   useEffect(() => {
     if (tab !== 'career' || !id || career) return;
@@ -105,7 +104,7 @@ export function PlayerSheet({ id, onClose, actions }: { id: number | null; onClo
       )}
 
       <div className="mt-3 flex gap-1">
-        {([['overview', 'Overview'], ['career', 'Career'], ['news', `News${news.length ? ` (${news.length})` : ''}`]] as const).map(([k, l]) => (
+        {([['overview', 'Overview'], ['career', 'Career'], ['news', `News${news?.length ? ` (${news.length})` : ''}`]] as const).map(([k, l]) => (
           <button key={k} className={`tab ${tab === k ? 'tab-on' : 'bg-white/[.05]'}`} onClick={() => setTab(k)}>{l}</button>
         ))}
       </div>
@@ -141,20 +140,10 @@ export function PlayerSheet({ id, onClose, actions }: { id: number | null; onClo
         </div>
       )}
 
-      {tab === 'news' && (
-        <div className="mt-3 space-y-2">
-          {news.length === 0 && <div className="py-6 text-center text-sm text-mute">No recent headlines mention {p.name}.</div>}
-          {news.map((n) => (
-            <a key={n.id} href={n.url ?? '#'} target="_blank" rel="noreferrer" className="block rounded-xl border border-line p-3">
-              <div className="text-sm font-semibold">{n.headline}</div>
-              {n.description && <div className="mt-0.5 line-clamp-2 text-xs text-slate-300">{n.description}</div>}
-              <div className="mt-1 text-[11px] text-mute">{n.published ? ago(n.published) : ''} · ESPN</div>
-            </a>
-          ))}
-        </div>
-      )}
+      {tab === 'news' && <div className="mt-3"><PlayerNewsList items={news} name={p.name} /></div>}
 
       {tab === 'overview' && <>
+      <LatestNews items={news} onMore={() => setTab('news')} />
       <div className="mt-4 grid grid-cols-3 gap-2 text-center">
         <div className="rounded-xl bg-boards/60 p-2"><div className="label">This season</div><div className="flex items-end gap-1.5"><span className="font-display text-xl font-bold">{fmtPts(s?.fpts)}</span>{log.length > 1 && <Sparkline values={[...log].reverse().map((g) => g.fpts)} color={NHL_COLORS[p.nhl_team ?? ''] ?? '#4cc3ff'} width={56} height={20} />}</div><div className="text-[11px] text-mute">{s?.gp ?? 0} GP</div></div>
         <div className="rounded-xl bg-boards/60 p-2"><div className="label">Last season</div><div className="font-display text-xl font-bold">{fmtPts(p.last_fp)}</div><div className="text-[11px] text-mute">{p.last_stats?.gp ?? 0} GP</div></div>

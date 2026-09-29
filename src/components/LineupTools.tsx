@@ -83,7 +83,7 @@ export function LineupTools({ open, onClose, roster }: { open: boolean; onClose:
       let from: string | null = null;
       for (const k of plans.keys()) if (k <= d && (!from || k > from)) from = k;
       const src = from ? plans.get(from)! : live;
-      return new Map(roster.map((x) => [x.p.id, src.get(x.p.id) ?? (x.r.slot === 'IR' ? 'IR' : 'BN')]));
+      return new Map(roster.map((x) => { const b = src.get(x.p.id); return [x.p.id, x.r.slot === 'IR' ? 'IR' : !b || b === 'IR' ? 'BN' : b]; }));
     };
     return planDays({ rows: roster.map((x) => x.r), players, games: seasonGames, season, caps: ctx.caps, basis, from: ctx.today, days: spanDays, now: Date.now() + serverOffset, today: ctx.today, baseline });
   }, [open, inSeason, period, seasonGames, plans, roster, players, season, basis, spanDays]); // eslint-disable-line react-hooks/exhaustive-deps

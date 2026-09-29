@@ -200,6 +200,7 @@ export const RULES: { title: string; items: string[] }[] = [
     'Season-long points league: most fantasy points at the end of the NHL regular season wins the regular-season pot. From 2026-27 the season carries on through the NHL playoffs as a second, separate race for the playoff pot.',
     'Rosters: C, C, LW, LW, RW, RW, D, D, D, Util, G, G plus 12 bench and 2 IR spots.',
     'Daily lineups. A player locks when his NHL game starts; only starters (not BN/IR) score.',
+    'IR: 2 spots, for players on the injury report (not suspensions). Each player on IR frees a roster spot for a pickup or trade. He stays on IR, even once healthy, until his GM moves him off, which needs a free roster spot (drop or trade someone first). Lineup tools and auto-pilot never move players on or off IR.',
     'Live standard (snake) draft with a pick clock. Draft picks can be traded.',
   ] },
   { title: 'Keepers', items: [

@@ -617,20 +617,20 @@ select pg_temp.as_team(7);
 set role authenticated;
 do $$ begin perform move_player(current_setting('t.ir_a')::int, 'BN'); raise exception 'came off IR with a full roster';
 exception when others then if sqlerrm not like '%No roster spot%' then raise; end if; end $$;
-do $$ begin perform _apply_lineup(7, jsonb_build_object(current_setting('t.ir_a')::int::text, 'BN')); raise exception 'optimizer overfilled the roster';
-exception when others then if sqlerrm not like '%No roster spot%' and sqlerrm not like '%permission denied%' then raise; end if; end $$;
 reset role;
--- healed but still on IR: no pickups until he's activated or someone is dropped
+-- lineup tools never move a player off IR: the optimizer's move is skipped, not an error
+select 'optimizer skips IR (expect 0, IR)', _apply_lineup(7, jsonb_build_object(:'ir_a', 'BN')), (select slot from rosters where player_id = :ir_a);
+-- healed but still on IR: he can stay there, and he doesn't block a pickup-and-drop
 update players set injury_status = null where id = :ir_a;
 select pg_temp.as_team(7);
 set role authenticated;
-do $$ begin perform add_player((select id from players p where not exists (select 1 from rosters r where r.player_id = p.id) order by proj desc limit 1), current_setting('t.ir_s')::int);
-  raise exception 'pickup with a healthy player stashed on IR';
-exception when others then if sqlerrm not like '%no longer injured%' then raise; end if; end $$;
--- a saved plan can't activate him either while the roster is full
-do $$ begin perform set_lineup_plans(jsonb_build_object((today_et() + 3)::text, jsonb_build_object(current_setting('t.ir_a')::int::text, 'BN')));
-  raise exception 'plan overfilled the roster';
-exception when others then if sqlerrm not like '%would be active%' then raise; end if; end $$;
+select add_player((select id from players p where not exists (select 1 from rosters r where r.player_id = p.id) order by proj desc limit 1), (select player_id from rosters where team_id = 7 and slot = 'BN' and player_id <> current_setting('t.ir_s')::int order by player_id desc limit 1));
+-- a saved plan leaves IR players out instead of failing
+select 'plan ignores IR player (expect 1)', set_lineup_plans(jsonb_build_object((today_et() + 3)::text, jsonb_build_object(:'ir_a', 'BN')));
+reset role;
+select 'no plan row for the IR player (expect 0)', count(*) from lineup_plans where player_id = :ir_a;
+select pg_temp.as_team(7);
+set role authenticated;
 -- plans reach past the regular season into the playoffs, but not past the Cup final
 reset role;
 update league set season_end = today_et() + 2, playoffs_end = today_et() + 20;
@@ -790,4 +790,21 @@ set role authenticated;
 select 'GMs can read pickups (expect 8)', count(*) from pickup_status;
 select 'GMs can read the fund (expect 1)', count(*) from fund_status;
 select 'GMs can read balances (expect 8)', count(*) from money_balances;
+reset role;
+
+-- ───────────── game-day trade: the box score moves a player to his new team, and his card logs it ─────────────
+select r.player_id as bx_p, r.team_id as bx_t from rosters r join players p on p.id = r.player_id where p.pos <> 'G' and r.slot = 'BN' order by r.player_id limit 1 \gset
+update players set nhl_team = 'CBJ' where id = :bx_p;
+insert into games (id, date, start_utc, home, away, state) values (9031, today_et(), now() - interval '5 minutes', 'TOR', 'MTL', 'LIVE') on conflict do nothing;
+insert into player_games (game_id, player_id, date, nhl_team, stats) values (9031, :bx_p, today_et(), 'TOR', '{"g":0}');
+select 'box score moved him (expect 1)', sync_teams_from_box();
+select 'now with TOR (expect TOR)', nhl_team from players where id = :bx_p;
+select 'lineup frozen for his new team''s game (expect 1)', count(*) from lineup_snapshots where game_id = 9031 and player_id = :bx_p;
+select 'trade logged on his card (expect 1)', count(*) from player_events where player_id = :bx_p and kind = 'team' and body = 'Moved from CBJ to TOR';
+update players set injury_status = 'Day-To-Day', injury_note = 'upper body' where id = :bx_p;
+update players set injury_status = null where id = :bx_p;
+select 'injury changes logged (expect 2)', count(*) from player_events where player_id = :bx_p and kind = 'injury';
+select pg_temp.as_team(4);
+set role authenticated;
+select 'GMs can read player events (expect 4)', count(*) from player_events where player_id = :bx_p;
 reset role;
