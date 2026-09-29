@@ -9,6 +9,7 @@ import type { BookStanding, Market, MarketBet, MarketKind, MarketOption } from '
 import { ago, etToday, fmtDate, fmtTime, NHL_TEAMS } from '../lib/format';
 import { Coin, Empty, Section, Sheet, TeamBadge, useAction } from './ui';
 import { BookOpen, Plus } from 'lucide-react';
+import { marketChances } from '../lib/betodds';
 
 const KIND: Record<MarketKind, { icon: string; label: string }> = { winner: { icon: '🏒', label: 'Moneyline' }, total: { icon: '🥅', label: 'Total goals' }, ot: { icon: '⏱️', label: 'Overtime' }, prop: { icon: '⭐', label: 'Player prop' }, custom: { icon: '🎯', label: 'Commish special' } };
 const STAKES = [10, 25, 50, 100, 250];
@@ -38,7 +39,7 @@ export function useBook() {
 }
 
 export function BookTab() {
-  const { me, team, players, can } = useLeague();
+  const { me, team, players, can, games } = useLeague();
   const now = useNow(30_000);
   const { busy, run } = useAction();
   const { markets, tickets, standings, reload } = useBook();
@@ -50,7 +51,22 @@ export function BookTab() {
   const [showResults, setShowResults] = useState(false);
   const mine = standings.find((s) => s.team_id === me?.id);
   const open = markets.filter((m) => m.status === 'open' && new Date(m.closes_at).getTime() > now);
-  const closed = markets.filter((m) => m.status !== 'open' || new Date(m.closes_at).getTime() <= now);
+  const liveMs = markets.filter((m) => m.status === 'open' && new Date(m.closes_at).getTime() <= now);   // puck's dropped, not settled yet
+  const closed = markets.filter((m) => m.status !== 'open');
+  // SaK points so far tonight for every player with a prop on the board (live props need them)
+  const propIds = [...new Set(markets.filter((m) => m.kind === 'prop' && m.status === 'open' && m.subject.player_id).map((m) => m.subject.player_id!))];
+  const [propPts, setPropPts] = useState<Map<string, number>>(new Map());
+  useEffect(() => {
+    if (!propIds.length) return;
+    let alive = true;
+    const load = () => supabase.from('player_games').select('player_id,date,fpts').in('player_id', propIds).gte('date', etToday())
+      .then(({ data }) => { if (alive) setPropPts(new Map((data ?? []).map((r) => [`${r.player_id}|${r.date}`, Number(r.fpts)]))); });
+    load();
+    const i = window.setInterval(() => { if (document.visibilityState === 'visible') load(); }, 60_000);
+    return () => { alive = false; window.clearInterval(i); };
+  }, [propIds.join()]); // eslint-disable-line react-hooks/exhaustive-deps
+  const gameOf = (m: Market) => (m.game_id ? games.find((g) => g.id === m.game_id) : undefined);
+  const chanceOf = (m: Market) => marketChances(m, gameOf(m), m.subject.player_id ? propPts.get(`${m.subject.player_id}|${m.date}`) ?? 0 : 0, players);
   const myTickets = tickets.filter((t) => t.team_id === me?.id);
   const onMarket = (id: number) => tickets.filter((t) => t.market_id === id);
   const pname = (id?: number) => (id ? players.get(id)?.name ?? `#${id}` : '');
@@ -60,11 +76,15 @@ export function BookTab() {
     const g = new Map<string, { key: string; title: string; when: string; kind: 'game' | 'custom'; ms: Market[] }>();
     for (const m of open.filter((x) => filter === 'all' || x.kind === filter)) {
       const key = m.game_id ? `g${m.game_id}` : 'custom';
-      if (!g.has(key)) g.set(key, { key, title: m.game_id ? `${club(m.subject.away)} @ ${club(m.subject.home)}` : 'Commish specials', when: m.closes_at, kind: m.game_id ? 'game' : 'custom', ms: [] });
+      // props don't carry the clubs: name the game from the schedule, or from any market on it that does
+      const gm = m.game_id ? games.find((x) => x.id === m.game_id) : undefined;
+      const withClubs = open.find((x) => x.game_id === m.game_id && x.subject.home);
+      const away = gm?.away ?? withClubs?.subject.away, home = gm?.home ?? withClubs?.subject.home;
+      if (!g.has(key)) g.set(key, { key, title: m.game_id ? `${club(away)} @ ${club(home)}` : 'Commish specials', when: m.closes_at, kind: m.game_id ? 'game' : 'custom', ms: [] });
       g.get(key)!.ms.push(m);
     }
     return [...g.values()].sort((a, b) => a.when.localeCompare(b.when));
-  }, [open, filter]);
+  }, [open, filter, games]);
 
   const place = () => run(async () => {
     if (!betting) return;
@@ -82,6 +102,7 @@ export function BookTab() {
         onClick={() => { setBetting({ m, o }); setStake(25); setCustom(''); }}>
         <span className="w-full truncate text-sm font-semibold">{o.label}</span>
         <span className="num font-display text-lg font-extrabold text-gold">{Number(o.odds).toFixed(2)} <span className="text-[10px] font-normal text-mute">{american(Number(o.odds))}</span></span>
+        {(() => { const c = chanceOf(m)?.[o.key]; return c != null && m.status === 'open' ? <span className="text-[10px] text-slate-300">{Math.round(c * 100)}% to hit{new Date(m.closes_at).getTime() <= now ? ' · live' : ''}</span> : null; })()}
         {yours > 0 && <span className="text-[10px] text-sky-200">you: {yours} ☘️</span>}
         {backers.length > 0 && <span className="mt-0.5 flex items-center gap-0.5">{backers.slice(0, 5).map((t) => <TeamBadge key={t.id} team={team(t.team_id)} size={12} />)}</span>}
       </button>
@@ -97,8 +118,35 @@ export function BookTab() {
       </div>
       <div className="flex gap-1.5">{m.options.map((o) => <OptionBtn key={o.key} m={m} o={o} />)}</div>
       {m.subject.terms && <div className="mt-1 text-[11px] text-mute">{m.subject.terms}</div>}
+      <Tickets m={m} />
+      {m.created_by && me?.is_commish && m.status === 'open' && new Date(m.closes_at).getTime() <= now && (
+        <div className="mt-1.5 flex flex-wrap gap-1 text-[11px]"><span className="text-mute">Settle:</span>{m.options.map((o) => <button key={o.key} className="chip py-0.5" onClick={() => run(async () => { await rpc('commish_settle_market', { p_market: m.id, p_winner: o.key }); reload(); }, 'Settled')}>{o.label} won</button>)}<button className="chip py-0.5 text-red-300" onClick={() => run(async () => { await rpc('commish_settle_market', { p_market: m.id, p_winner: null }); reload(); }, 'Voided')}>Void</button></div>
+      )}
     </div>
   );
+
+  // every ticket on a market: who, what, how much, what it pays, and its live chance of cashing
+  const Tickets = ({ m }: { m: Market }) => {
+    const ts = onMarket(m.id);
+    if (!ts.length) return null;
+    const c = m.status === 'open' ? chanceOf(m) : null;
+    return (
+      <div className="mt-1.5 flex flex-wrap gap-1">
+        {ts.map((t) => {
+          const o = m.options.find((x) => x.key === t.pick);
+          const pct = c?.[t.pick];
+          const won = m.status === 'settled' ? m.winner_key === t.pick : null;
+          return (
+            <span key={t.id} className={`inline-flex items-center gap-1 rounded-full border px-1.5 py-0.5 text-[10px] ${t.team_id === me?.id ? 'border-sky-400/50 bg-sky-500/10' : 'border-white/[.08] bg-white/[.03]'}`}>
+              <TeamBadge team={team(t.team_id)} size={12} />{team(t.team_id)?.gm_name}: {t.coins} ☘️ on {o?.label ?? t.pick} → {Math.round(t.coins * t.odds)}
+              {pct != null && <b className={pct >= 0.5 ? 'text-emerald-300' : 'text-amber-200'}>{Math.round(pct * 100)}%</b>}
+              {won != null && <b className={won ? 'text-emerald-300' : 'text-red-300'}>{won ? 'won' : 'lost'}</b>}
+            </span>
+          );
+        })}
+      </div>
+    );
+  };
 
   const Result = ({ m }: { m: Market }) => {
     const win = m.options.find((o) => o.key === m.winner_key);
@@ -152,6 +200,26 @@ export function BookTab() {
           <div className="card divide-y divide-white/[.06]">{g.ms.map((m) => <MarketRow key={m.id} m={m} />)}</div>
         </Section>
       ))}
+
+      {liveMs.length > 0 && (
+        <Section title="📡 Live now" right={<span className="text-xs text-mute">odds to hit, updated with the score</span>}>
+          <div className="space-y-2">
+            {[...new Set(liveMs.map((m) => m.game_id ?? 0))].map((gid) => {
+              const ms = liveMs.filter((m) => (m.game_id ?? 0) === gid);
+              const g = gid ? games.find((x) => x.id === gid) : undefined;
+              const state = !g ? '' : ['OFF', 'FINAL'].includes(g.state) ? 'Final · settling' : ['LIVE', 'CRIT'].includes(g.state) ? `${g.period ?? ''} ${g.clock ?? ''}`.trim() : fmtTime(g.start_utc);
+              return (
+                <div key={gid} className="card divide-y divide-white/[.06]">
+                  <div className="flex items-center gap-2 px-3 py-2 text-sm font-semibold">
+                    {g ? <>{g.away} {g.away_score ?? 0} <span className="text-mute">@</span> {g.home} {g.home_score ?? 0}<span className={`ml-auto text-xs ${g && ['LIVE', 'CRIT'].includes(g.state) ? 'text-goal' : 'text-mute'}`}>{state}</span></> : 'Commish specials'}
+                  </div>
+                  {ms.map((m) => <MarketRow key={m.id} m={m} />)}
+                </div>
+              );
+            })}
+          </div>
+        </Section>
+      )}
 
       {myTickets.length > 0 && (
         <Section title="🎟️ My tickets">

@@ -7,6 +7,7 @@ import { etToday, fmtPts, fmtTime, readable } from '../lib/format';
 import { NhlLogo, PageHeader, Pos, Section, TeamBadge } from '../components/ui';
 import type { Game } from '../lib/types';
 import { Radio } from 'lucide-react';
+import { BoxScore, scoringLine } from '../components/BoxScore';
 
 type Snap = { team_id: number; player_id: number; slot: string; game_id: number };
 type PG = { player_id: number; game_id: number; fpts: number; stats: Record<string, number> };
@@ -17,7 +18,7 @@ function gameLabel(g: Game) {
   if (g.state === 'PPD') return 'Postponed';
   if (g.state === 'CNCL') return 'Cancelled';
   if (DONE.has(g.state)) return 'Final';
-  if (LIVE.has(g.state)) return `${g.period ?? ''} ${g.clock ?? ''}`.trim() || 'Live';
+  if (LIVE.has(g.state)) return `${/^\d+$/.test(g.period ?? '') ? 'P' + g.period : g.period ?? ''} ${g.clock ?? ''}`.trim() || 'Live';
   return fmtTime(g.start_utc);
 }
 
@@ -29,6 +30,7 @@ export default function Scoreboard() {
   const [snaps, setSnaps] = useState<Snap[]>([]);
   const [pgs, setPgs] = useState<PG[]>([]);
   const [open, setOpen] = useState<number | null>(me?.id ?? null);
+  const [box, setBox] = useState<Game | null>(null);
 
   // freeze-frames are taken at puck drop, box scores every minute: poll both while the page is open
   useEffect(() => {
@@ -81,12 +83,14 @@ export default function Scoreboard() {
           {slate.map((g) => {
             const live = LIVE.has(g.state);
             return (
-              <div key={g.id} className={`w-40 shrink-0 rounded-2xl border p-2.5 ${live ? 'border-goal/40 bg-goal/[.07]' : 'border-white/[.07] bg-white/[.03]'}`}>
+              <button type="button" key={g.id} onClick={() => setBox(g)} title="Open the box score"
+                className={`w-40 shrink-0 rounded-2xl border p-2.5 text-left transition hover:border-sky-400/50 ${live ? 'border-goal/40 bg-goal/[.07]' : 'border-white/[.07] bg-white/[.03]'}`}>
                 <div className={`mb-1.5 text-[10px] font-bold uppercase tracking-wider ${live ? 'text-goal' : 'text-mute'}`}>{live && <span className="mr-1 inline-block h-1.5 w-1.5 animate-pulse rounded-full bg-goal align-middle" />}{gameLabel(g)}</div>
                 {[[g.away, g.away_score], [g.home, g.home_score]].map(([abbr, score]) => (
                   <div key={String(abbr)} className="flex items-center gap-1.5 py-0.5 text-sm"><NhlLogo abbr={String(abbr)} size={18} /><span className="flex-1 font-semibold">{abbr}</span><span className="num font-bold">{score ?? ''}</span></div>
                 ))}
-              </div>
+                <div className="mt-1 text-[10px] text-sky-300">{live || ['OFF', 'FINAL'].includes(g.state) ? 'Box score ›' : 'Preview ›'}</div>
+              </button>
             );
           })}
         </div>
@@ -117,12 +121,13 @@ export default function Scoreboard() {
                       const p = players.get(l.player_id);
                       const st = l.pg?.stats ?? {};
                       const g = l.game;
-                      const line = p?.pos === 'G' ? `${st.sv ?? 0} SV · ${st.ga ?? 0} GA${st.w ? ' · W' : ''}` : `${st.g ?? 0} G · ${st.a ?? 0} A · ${st.sog ?? 0} SOG${st.pm ? ` · ${st.pm > 0 ? '+' : ''}${st.pm}` : ''}`;
+                      const goalie = p?.pos === 'G';
+                      const line = scoringLine(st, (goalie ? league?.scoring.goalie : league?.scoring.skater) ?? {}, goalie) || 'no scoring yet';
                       return (
                         <Link key={l.player_id} to={`/player/${l.player_id}`} className="flex items-center gap-2 px-3 py-1.5 text-sm hover:bg-white/[.03]">
                           <Pos p={l.slot} className="min-w-0 px-1 py-0" />
-                          <span className="min-w-0 flex-1 truncate font-semibold">{p?.name}</span>
-                          <span className="hidden text-xs text-mute sm:block">{l.pg ? line : g ? `${p?.nhl_team} vs ${g.home === p?.nhl_team ? g.away : g.home} · ${gameLabel(g)}` : ''}</span>
+                          <span className="min-w-0 flex-1"><span className="block truncate font-semibold">{p?.name}</span>
+                            <span className="block truncate text-[11px] text-mute">{l.pg ? line : g ? `${p?.nhl_team} vs ${g.home === p?.nhl_team ? g.away : g.home} · ${gameLabel(g)}` : ''}</span></span>
                           {g && <span className={`w-14 text-right text-[10px] uppercase ${LIVE.has(g.state) ? 'text-goal' : 'text-mute'}`}>{DONE.has(g.state) ? 'Final' : LIVE.has(g.state) ? 'Live' : fmtTime(g.start_utc)}</span>}
                           <span className={`num w-12 text-right font-bold ${l.pts < 0 ? 'text-red-300' : ''}`}>{l.pg ? fmtPts(l.pts) : '–'}</span>
                         </Link>
@@ -136,6 +141,7 @@ export default function Scoreboard() {
           })}
         </div>
       </Section>
+      <BoxScore game={box ? slate.find((g) => g.id === box.id) ?? box : null} onClose={() => setBox(null)} />
       <p className="px-1 text-center text-[11px] text-mute">Points follow the NHL box scores, which update about once a minute. Last check {new Date(now).toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' })}.</p>
     </div>
   );

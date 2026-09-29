@@ -11,6 +11,8 @@ import type { Bet, BetEntry, BetKind, BetProgress, BetStat, CoinBalance, CoinEnt
 import { ago, etToday, fmtDate, fmtMoney, fmtPts } from '../lib/format';
 import { Empty, Section, Sheet, TeamBadge, TeamName, useAction, PageHeader, Coin, Rank } from '../components/ui';
 import { BookOpen, Dices, Lightbulb, Sparkles, Trophy } from 'lucide-react';
+import { useSeasonGames } from '../lib/projections';
+import { betWinChance, type OddsCtx } from '../lib/betodds';
 
 interface Daily { team_id: number; date: string; points: number }
 type Form = { kind: BetKind; opponent: string; title: string; terms: string; stake: string; amount: string; coins: string; odds: number; start: string; end: string; entryClose: string;
@@ -56,7 +58,9 @@ function suggestLine(p: Player | undefined, stat: BetStat, start: string, end: s
 }
 
 export default function Bets() {
-  const { me, teams, team, players, owner, rosters, standings, spectators, can, league } = useLeague();
+  const { me, teams, team, players, owner, rosters, standings, spectators, can, league, games } = useLeague();
+  const seasonGames = useSeasonGames();
+  const [ruling, setRuling] = useState<Bet | null>(null);
   const now = useNow(30_000);
   const { busy, run } = useAction();
   const [bets, setBets] = useState<Bet[]>([]);
@@ -94,13 +98,29 @@ export default function Bets() {
     return () => { supabase.removeChannel(ch); };
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
   // live numbers for every tracked bet that's on (refreshed with the page's clock)
-  const liveTracked = useMemo(() => bets.filter((b) => TRACKED.has(b.kind) && (b.status === 'accepted' || (isPool(b.kind) && b.status === 'open'))), [bets]);
+  const liveTracked = useMemo(() => bets.filter((b) => (TRACKED.has(b.kind) || (b.kind === 'season' && !!b.opponent_team)) && (b.status === 'accepted' || (isPool(b.kind) && b.status === 'open'))), [bets]);
   useEffect(() => {
     let dead = false;
     Promise.all(liveTracked.map((b) => rpc<BetProgress>('bet_progress', { p_bet: b.id }).then((p) => [b.id, p] as const, () => [b.id, {}] as const))).then((rows) => { if (!dead) setProgress(Object.fromEntries(rows)); });
     return () => { dead = true; };
   }, [liveTracked.map((b) => b.id).join(), Math.floor(now / 60_000)]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  // live odds of winning for every tracked bet: what's banked so far plus what's still to come
+  const oddsCtx = useMemo<OddsCtx | null>(() => {
+    if (!seasonGames) return null;
+    const today = etToday();
+    const started = new Set<string>();
+    for (const g of games) if (g.date === today && !['FUT', 'PRE'].includes(g.state)) { started.add(`${today}|${g.home}`); started.add(`${today}|${g.away}`); }
+    const byTeam = new Map<number, Player[]>();
+    for (const r of rosters) if (r.slot !== 'IR') { const p = players.get(r.player_id); if (p) byTeam.set(r.team_id, [...(byTeam.get(r.team_id) ?? []), p]); }
+    return { today, games: seasonGames, started, players, rosterOf: (t) => byTeam.get(t) ?? [], caps: (league?.roster ?? {}) as Record<string, number>, seasonStart: league?.season_start, seasonEnd: league?.season_end };
+  }, [seasonGames, games, rosters, players, league]);
+  const chances = useMemo(() => {
+    const out: Record<number, ReturnType<typeof betWinChance>> = {};
+    if (!oddsCtx) return out;
+    for (const b of liveTracked) { try { out[b.id] = betWinChance(b, progress[b.id], oddsCtx); } catch { out[b.id] = null; } }
+    return out;
+  }, [liveTracked, progress, oddsCtx]);
   const h2h = (b: Bet, t: number | null) => daily.filter((d) => d.team_id === t && (!b.start_date || d.date >= b.start_date) && (!b.end_date || d.date <= b.end_date)).reduce((s, d) => s + Number(d.points), 0);
   const rank = (t: number | null) => standings.find((s) => s.team_id === t)?.rank;
   const myBank = bank.find((b) => b.team_id === me?.id);
@@ -219,6 +239,7 @@ export default function Bets() {
             <span className="num w-4 text-[11px] text-mute">{i + 1}</span><TeamBadge team={team(r.team_id)} size={18} />
             <span className="min-w-0 flex-1 truncate">{b.kind === 'pool_team' ? team(r.pick)?.name : pname(r.pick)}</span>
             <span className={`num font-semibold ${i === 0 && r.value > 0 ? 'text-emerald-300' : ''}`}>{fmtPts(r.value)}</span>
+            {(() => { const c = chances[b.id]; const w = c && 'pool' in c ? c.pool.get(r.team_id) : undefined; return w != null ? <span className="num w-10 text-right text-[11px] text-sky-200" title="Live odds to win the pool">{Math.round(w * 100)}%</span> : null; })()}
           </div>
         ))}
       </div>
@@ -258,6 +279,13 @@ export default function Bets() {
         {b.status === 'expired' && <div className="mt-1.5 inline-flex rounded-full bg-white/[.05] px-2 py-0.5 text-[11px] text-mute">⌛ Expired: nobody took it within 7 days</div>}
         {b.terms && <p className="mt-2 text-sm text-slate-300">{b.terms}</p>}
         {(b.status === 'accepted' || pool) && b.status !== 'settled' && <Progress b={b} />}
+        {b.status === 'accepted' && !pool && (() => { const c = chances[b.id]; if (!c || !('creator' in c)) return null; const pa = Math.round(c.creator * 100);
+          return (
+            <div className="mt-2 rounded-xl border border-white/[.07] bg-black/20 p-2 text-xs">
+              <div className="mb-1 flex justify-between"><span>📈 {team(b.creator_team)?.gm_name} <b className="num text-white">{pa}%</b></span><span className="text-mute">odds to win, live</span><span><b className="num text-white">{100 - pa}%</b> {team(b.opponent_team)?.gm_name}</span></div>
+              <div className="flex h-1.5 overflow-hidden rounded-full bg-white/[.08]"><div className="bg-sky-400" style={{ width: `${pa}%` }} /><div className="flex-1 bg-amber-400/80" /></div>
+            </div>
+          ); })()}
         {b.kind === 'season' && b.opponent_team && b.status !== 'settled' && (
           <div className="mt-2 text-xs text-mute">Currently: {team(b.creator_team)?.gm_name} #{rank(b.creator_team) ?? '–'} · {team(b.opponent_team)?.gm_name} #{rank(b.opponent_team) ?? '–'}</div>
         )}
@@ -280,6 +308,8 @@ export default function Bets() {
           )}
           {b.status === 'open' && b.creator_team === me?.id && <button className="btn-ghost btn-sm" onClick={() => run(async () => { await rpc('cancel_bet', { p_bet: b.id }); load(); })}>Cancel</button>}
           {b.status === 'accepted' && TRACKED.has(b.kind) && <span className="self-center text-xs text-mute">Settles itself the morning after {fmtDate(b.end_date!)}.</span>}
+          {b.status === 'accepted' && b.kind === 'season' && b.opponent_team && <span className="self-center text-xs text-mute">Settles itself when the regular season ends{league?.season_end ? ` (${fmtDate(league.season_end)})` : ''}.</span>}
+          {b.result && (b.result as { ruling?: { note?: string } }).ruling && <span className="self-center text-xs text-amber-200">⚖️ Commish ruling{(b.result as { ruling?: { note?: string } }).ruling?.note ? `: ${(b.result as { ruling?: { note?: string } }).ruling?.note}` : ''}</span>}
           {b.status === 'accepted' && !TRACKED.has(b.kind) && mine && !b.proposed_winner && !pool && (
             <>
               <button className="btn-blue btn-sm" disabled={busy} onClick={() => run(async () => { await rpc('claim_bet', { p_bet: b.id, p_winner: me!.id }); load(); }, 'Claim sent. They need to confirm.')}>I won</button>
@@ -292,11 +322,8 @@ export default function Bets() {
                 <button className="btn-primary btn-sm" onClick={() => run(async () => { await rpc('confirm_bet', { p_bet: b.id }); load(); }, 'Settled')}>Confirm</button></>
             ) : <span className="text-xs text-mute">Waiting for {team(b.proposed_by === b.creator_team ? b.opponent_team : b.creator_team)?.gm_name} to confirm {team(b.proposed_winner)?.gm_name} won.</span>
           )}
-          {b.status === 'accepted' && !pool && me?.is_commish && (
-            <select className="ml-auto rounded-lg border border-line bg-boards px-2 py-1 text-xs" value="" onChange={(e) => e.target.value && run(async () => { await rpc('commish_settle_bet', { p_bet: b.id, p_winner: Number(e.target.value) }); load(); })}>
-              <option value="">⚖️ Commish ruling…</option>
-              {[b.creator_team, b.opponent_team].map((t) => <option key={t!} value={t!}>{team(t)?.name} wins</option>)}
-            </select>
+          {(b.status === 'accepted' || b.status === 'settled') && me?.is_commish && (
+            <button className="btn-ghost btn-sm ml-auto" onClick={() => setRuling(b)}>⚖️ Commish ruling</button>
           )}
         </div>
       </div>
@@ -531,6 +558,9 @@ export default function Bets() {
       </Sheet>
 
       {/* ───── join a pool */}
+      <Sheet open={!!ruling} onClose={() => setRuling(null)} title={ruling ? `⚖️ Ruling: ${ruling.title}` : ''}>
+        {ruling && <Ruling b={ruling} entries={entries.filter((e) => e.bet_id === ruling.id)} onDone={() => { setRuling(null); load(); }} />}
+      </Sheet>
       <Sheet open={!!joining} onClose={() => setJoining(null)} title={joining ? `Buy in: ${joining.title}` : ''}>
         {joining && <JoinPool b={joining} gms={gms} entries={entries.filter((e) => e.bet_id === joining.id)} onDone={() => { setJoining(null); load(); }} PlayerPick={PlayerPick} />}
       </Sheet>
@@ -552,6 +582,47 @@ function JoinPool({ b, gms, entries, onDone, PlayerPick }: { b: Bet; gms: Team[]
         ? <div className="flex flex-wrap gap-1.5">{gms.map((t) => <button key={t.id} className={`chip py-1 ${teamPick === t.id ? 'bg-white text-ice' : ''}`} onClick={() => setTeamPick(t.id)}>{t.emoji} {t.gm_name}</button>)}</div>
         : <PlayerPick label="Your player (no repeats)" value={playerPick} onPick={(id) => { if (taken.has(id)) return; setPlayerPick(id); }} />}
       <button className="btn-primary w-full" disabled={busy || (b.kind === 'pool_team' ? !teamPick : !playerPick)} onClick={() => run(async () => { await rpc('join_pool', { p_bet: b.id, p_choice: b.kind === 'pool_team' ? { team_id: teamPick } : { player_id: playerPick } }); onDone(); }, 'You’re in 🎰')}>Buy in</button>
+    </div>
+  );
+}
+
+// the commissioner's override: pick the right outcome and the site undoes whatever coins the bet moved and redoes it
+function Ruling({ b, entries, onDone }: { b: Bet; entries: BetEntry[]; onDone: () => void }) {
+  const { team } = useLeague();
+  const { busy, run } = useAction();
+  const pool = isPool(b.kind);
+  const [outcome, setOutcome] = useState<'winner' | 'push' | 'void'>('winner');
+  const [winner, setWinner] = useState<number | null>(pool ? null : b.winner_team);
+  const [winners, setWinners] = useState<number[]>(pool ? ((b.result?.winners as number[] | undefined) ?? []) : []);
+  const [note, setNote] = useState('');
+  const sides = pool ? entries.map((e) => e.team_id) : [b.creator_team, b.opponent_team].filter((x): x is number => !!x);
+  const ok = outcome !== 'winner' || (pool ? winners.length > 0 : !!winner);
+  return (
+    <div className="space-y-3 text-sm">
+      <p className="text-xs text-mute">{b.status === 'settled' ? 'Already settled. A ruling undoes every coin this bet moved, then applies the outcome you pick.' : 'Settle it now, whatever the system would have done.'} Everyone sees the ruling in Trash Talk.</p>
+      <div className="grid grid-cols-3 gap-1 rounded-xl bg-white/[.04] p-1">
+        {(['winner', 'push', 'void'] as const).map((o) => <button key={o} className={`rounded-lg px-2 py-1.5 text-xs font-semibold ${outcome === o ? 'bg-sky-500 text-ice' : 'text-mute'}`} onClick={() => setOutcome(o)}>{o === 'winner' ? 'Winner' : o === 'push' ? 'Push (tie)' : 'Void'}</button>)}
+      </div>
+      {outcome === 'winner' && (
+        <div className="space-y-1">
+          {sides.map((t) => {
+            const on = pool ? winners.includes(t) : winner === t;
+            return (
+              <button key={t} className={`flex w-full items-center gap-2 rounded-xl border px-3 py-2 text-left ${on ? 'border-emerald-400/60 bg-emerald-500/15' : 'border-white/[.08]'}`}
+                onClick={() => (pool ? setWinners(on ? winners.filter((x) => x !== t) : [...winners, t]) : setWinner(t))}>
+                <TeamBadge team={team(t)} size={22} /><span className="flex-1">{team(t)?.name}</span>{on && <span>🏆</span>}
+              </button>
+            );
+          })}
+          {pool && <p className="text-[11px] text-mute">Pick more than one to split the pot.</p>}
+        </div>
+      )}
+      {outcome === 'void' && <p className="text-xs text-amber-200">Void cancels the bet and hands every stake back.</p>}
+      <input className="input" placeholder="Why (shown to everyone), e.g. stat correction" value={note} onChange={(e) => setNote(e.target.value)} maxLength={140} />
+      <button className="btn-primary w-full" disabled={busy || !ok} onClick={() => run(async () => {
+        await rpc('commish_rule_bet', { p_bet: b.id, p_outcome: outcome, p_winner: pool ? null : winner, p_winners: pool ? winners : null, p_note: note || null });
+        onDone();
+      }, 'Ruling made ⚖️')}>Make the ruling</button>
     </div>
   );
 }
