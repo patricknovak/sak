@@ -30,6 +30,8 @@ const bump = (m: Map<number, number>, id: number) => m.set(id, (m.get(id) || 0) 
 
 // box = /gamecenter/{id}/boxscore, landing = /gamecenter/{id}/landing,
 // pbp = /gamecenter/{id}/play-by-play (optional: only needed when faceoffs are scored)
+const toiSec = (s: string) => { const [m, x] = String(s ?? '0:0').split(':').map(Number); return (m || 0) * 60 + (x || 0); };
+
 export function gameStats(box: any, landing: any, pbp?: any): StatLine[] {
   const out = new Map<number, StatLine>();
   const home = box.homeTeam.abbrev, away = box.awayTeam.abbrev;
@@ -80,12 +82,16 @@ export function gameStats(box: any, landing: any, pbp?: any): StatLine[] {
       });
     }
     const goalies = (t.goalies ?? []).filter((g: any) => g.toi && g.toi !== '00:00');
+    // the box score only flags the starter once the game is final; while it's live, the goalie who's played the
+    // most is the starter (a pulled starter is corrected at the final whistle)
+    const liveStarter = goalies.some((g: any) => g.starter != null) ? null
+      : [...goalies].sort((a: any, b: any) => toiSec(b.toi) - toiSec(a.toi))[0]?.playerId ?? null;
     for (const g of goalies) {
       const ga = g.goalsAgainst ?? 0;
       out.set(g.playerId, {
         player_id: g.playerId, nhl_team: team,
         stats: {
-          gs: g.starter ? 1 : 0, w: g.decision === 'W' ? 1 : 0, l: g.decision === 'L' ? 1 : 0,
+          gs: (g.starter ?? g.playerId === liveStarter) ? 1 : 0, w: g.decision === 'W' ? 1 : 0, l: g.decision === 'L' ? 1 : 0,
           otl: g.decision === 'O' ? 1 : 0, ga, sv: g.saves ?? 0, sa: g.shotsAgainst ?? 0,
           sho: done && ga === 0 && g.decision === 'W' && goalies.length === 1 ? 1 : 0,
         },

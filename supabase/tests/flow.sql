@@ -865,3 +865,36 @@ select pg_temp.as_team(4);
 set role authenticated;
 select 'GMs can read game-day status (expect 1)', count(*) from player_status where player_id = :lk_p;
 reset role;
+
+-- ───────────── commissioner rulings undo and redo a bet's coins; season bets settle themselves ─────────────
+reset role;
+select 'ou coins before ruling (expect 2 rows, 7 +40)', count(*), sum(amount) filter (where team_id = 7) from coin_ledger where bet_id = :ou_id;
+select pg_temp.as_team(1);
+set role authenticated;
+select commish_rule_bet(:ou_id, 'push', null, null, 'stat correction');
+reset role;
+select 'push: coins undone (expect 0 rows, push t)', (select count(*) from coin_ledger where bet_id = :ou_id), push, status from bets where id = :ou_id;
+select pg_temp.as_team(1);
+set role authenticated;
+select commish_rule_bet(:ou_id, 'winner', 8, null, 'he was credited a goal he didn''t score');
+reset role;
+select 'flipped to 8 (expect 8 +40, 7 -40)', winner_team, (select sum(amount) from coin_ledger where bet_id = :ou_id and team_id = 8), (select sum(amount) from coin_ledger where bet_id = :ou_id and team_id = 7), result->'ruling'->>'note' is not null from bets where id = :ou_id;
+select pg_temp.as_team(1);
+set role authenticated;
+select commish_rule_bet(:pool_id, 'winner', null, array[8], null);
+select commish_rule_bet(:odds_bet, 'void', null, null, 'nobody could agree');
+reset role;
+select 'pool to 8 (expect 8 nets +30, 7 nets -30)', (select sum(amount) from coin_ledger where bet_id = :pool_id and team_id = 8), (select sum(amount) from coin_ledger where bet_id = :pool_id and team_id = 7);
+select 'void refunds (expect cancelled, 0 rows)', status, (select count(*) from coin_ledger where bet_id = :odds_bet) from bets where id = :odds_bet;
+select pg_temp.as_team(8);
+set role authenticated;
+do $$ begin perform commish_rule_bet(current_setting('sak.pool_id')::bigint, 'push'); raise exception 'a GM overruled a bet';
+exception when others then if sqlerrm not like '%ommissioner%' and sqlerrm not like '%ommish%' then raise; end if; end $$;
+reset role;
+-- final-standings bet: settles itself once the regular season is over
+insert into bets (creator_team, opponent_team, title, kind, coins, status, accepted_at) values (7, 8, 'Seven finishes above eight', 'season', 20, 'accepted', now()) returning id as season_bet \gset
+update league set season_end = today_et() - 1;
+select 'season bet progress has both sides', bet_progress(:season_bet) ? 'a' and bet_progress(:season_bet) ? 'b';
+select settle_due_bets() is not null as settled;
+select 'season bet settled (expect settled)', status, winner_team is not null or push from bets where id = :season_bet;
+update league set season_end = '2027-04-10';
