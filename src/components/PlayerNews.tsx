@@ -7,7 +7,7 @@ import type { NewsItem, PlayerEvent } from '../lib/types';
 // and injury-report changes as the site picks them up
 export type NewsEntry =
   | { kind: 'headline'; at: string; item: NewsItem }
-  | { kind: 'team' | 'injury'; at: string; item: PlayerEvent };
+  | { kind: 'team' | 'injury' | 'lineup'; at: string; item: PlayerEvent };
 
 export function usePlayerNews(id: number | null | undefined, limit = 15) {
   const [items, setItems] = useState<NewsEntry[] | null>(null);
@@ -31,7 +31,7 @@ export function usePlayerNews(id: number | null | undefined, limit = 15) {
   return items;
 }
 
-const ICON = { team: '🔁', injury: '🩹' } as const;
+const ICON = { team: '🔁', injury: '🩹', lineup: '📋' } as const;
 
 export function NewsLine({ e, images = false }: { e: NewsEntry; images?: boolean }) {
   if (e.kind === 'headline') {
@@ -49,7 +49,7 @@ export function NewsLine({ e, images = false }: { e: NewsEntry; images?: boolean
     <div className="card flex items-start gap-3 p-3">
       <span className="text-lg leading-none">{ICON[e.kind]}</span>
       <div className="min-w-0"><div className="text-sm font-semibold leading-snug">{e.item.body}</div>
-        <div className="mt-1 text-[11px] text-mute">{ago(e.item.at)} · {e.kind === 'team' ? 'NHL roster' : 'Injury report'}</div></div>
+        <div className="mt-1 text-[11px] text-mute">{ago(e.item.at)} · {e.kind === 'team' ? 'NHL roster' : e.kind === 'lineup' ? 'Game day' : 'Injury report'}</div></div>
     </div>
   );
 }

@@ -2,6 +2,7 @@
 // Pure TypeScript, no Deno or DOM APIs. It finds the best possible assignment of players to starting
 // slots (an exact assignment, not a greedy fill, so a C/LW never blocks a better winger), respecting
 // players whose games have started, the GM's pins, and injuries.
+import { statusChance, type GameStatus } from './gameday.ts';
 
 export type Mode = 'day' | 'week' | 'season';
 export type Basis = 'proj' | 'form' | 'season' | 'ros';
@@ -9,6 +10,7 @@ export type Basis = 'proj' | 'form' | 'season' | 'ros';
 export interface LPlayer {
   id: number; pos: string; elig: string[]; proj: number; nhl_team: string | null; injury_status: string | null;
   proj_gp?: number | null;          // games (starts for goalies) the projection covers
+  gs?: GameStatus | null;           // today's game-day status: confirmed/expected/backup goalie, out, scratched
 }
 export interface LRow { player_id: number; slot: string; pin?: string | null }
 export interface LSeason { gp: number; fpts: number; gp14?: number | null; fpts14?: number | null }
@@ -38,8 +40,8 @@ export function gameToday(team: string | null, ctx: LContext) {
   return team ? ctx.games.find((g) => g.date === ctx.today && live(g) && (g.home === team || g.away === team)) : undefined;
 }
 export function locked(p: LPlayer, ctx: LContext) {
-  const g = gameToday(p.nhl_team, ctx);
-  return !!g && new Date(g.start_utc).getTime() <= ctx.now;
+  const g = gameToday(p.nhl_team, ctx) as { start_utc: string; state?: string } | undefined;
+  return !!g && (new Date(g.start_utc).getTime() <= ctx.now || ['LIVE', 'CRIT', 'OFF', 'FINAL'].includes(g.state ?? ''));
 }
 export function gamesLeftThisWeek(team: string | null, ctx: LContext) {
   return team ? ctx.games.filter((g) => live(g) && g.date >= ctx.today && g.date <= ctx.weekEnd && (g.home === team || g.away === team)).length : 0;
@@ -104,8 +106,10 @@ export function availability(players: Iterable<LPlayer>): Map<number, number> {
 // what a player is worth in a starting slot for this mode (expected points: per game × chance he plays)
 export function worth(p: LPlayer, mode: Mode, basis: Basis, ctx: LContext) {
   if (isOut(p.injury_status)) return 0;
-  const pg = perGame(p, basis, ctx) * (ctx.avail?.get(p.id) ?? dressRate(p) * healthFactor(p.injury_status));
-  if (mode === 'day') return gameToday(p.nhl_team, ctx) ? pg : 0;
+  const chance = ctx.avail?.get(p.id) ?? dressRate(p) * healthFactor(p.injury_status);
+  const pg = perGame(p, basis, ctx) * chance;
+  // tonight we may know for sure: a confirmed starter plays, the backup almost never does, a scratch doesn't
+  if (mode === 'day') { const sc = statusChance(p.gs); return gameToday(p.nhl_team, ctx) ? (sc == null ? pg : perGame(p, basis, ctx) * sc) : 0; }
   if (mode === 'week') return gamesLeftThisWeek(p.nhl_team, ctx) * pg;
   return pg * 82;
 }

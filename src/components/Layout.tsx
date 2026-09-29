@@ -98,11 +98,11 @@ export function Layout({ children }: { children: ReactNode }) {
     { to: '/', label: 'Home', icon: Home },
     draftish ? { to: '/draft', label: 'Draft', icon: ClipboardList } : spectator ? { to: '/standings', label: 'Standings', icon: Trophy } : { to: '/team', label: 'Lineup', icon: Shield },
     { to: '/chat', label: 'Chat', icon: MessageCircle },
-    { to: '/players', label: 'Players', icon: Search },
+    { to: '/nhl', label: 'NHL centre', icon: Tv },
   ];
   const moreItems: Item[] = [
     { to: '/standings', label: 'Standings', icon: Trophy },
-    { to: '/nhl', label: 'NHL centre', icon: Tv },
+    { to: '/players', label: 'Players', icon: Search },
     { to: '/yahoo', label: 'My pools', icon: Globe },
     ...(draftish ? [] : [{ to: '/scoreboard', label: 'Live scoreboard', icon: Radio }]),
     draftish ? { to: '/team', label: 'My Team', icon: Shield } : { to: '/draft', label: 'Draft Board', icon: ClipboardList },

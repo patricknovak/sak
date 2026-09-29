@@ -135,7 +135,8 @@ export interface LedgerRow { id: number; season: string; team_id: number | null;
 
 export interface CoinBalance { team_id: number; balance: number; escrow: number }
 export interface CoinEntry { id: number; team_id: number; amount: number; reason: string; bet_id: number | null; created_at: string }
-export interface PlayerEvent { id: number; player_id: number; at: string; kind: 'team' | 'injury'; body: string }
+export interface PlayerStatus { player_id: number; date: string; status: 'confirmed' | 'expected' | 'backup' | 'gtd' | 'out' | 'scratched'; note: string | null; opponent: string | null; updated_at: string }
+export interface PlayerEvent { id: number; player_id: number; at: string; kind: 'team' | 'injury' | 'lineup'; body: string }
 export interface NewsItem { id: string; headline: string; description: string | null; published: string | null; url: string | null; image: string | null; player_ids: number[] }
 
 export interface GarryMemory { id: number; kind: 'fact' | 'gag' | 'lesson'; team_id: number | null; content: string; weight: number; created_at: string; last_used: string | null }

@@ -10,6 +10,7 @@
 //   ?task=players      (every few hours, and before puck drop) current NHL rosters: trades, call-ups, sweater numbers,
 //                      headshots. On game day the box score's team wins (see sync_teams_from_box)
 //   ?task=injuries     (hourly) injury / suspension status from ESPN's public injury report
+//   ?task=gameday      (every 15 min, afternoon and evening) injuries again, starting goalies, scratches: who plays
 //   ?task=news         (every 2 hours) NHL headlines, tagged with the players they mention
 //   ?task=daily        (late morning ET) lineup auto-pilot for teams that turned it on: today's best lineup
 //   ?task=lineups-late (before puck drop) the auto-pilot again, for late scratches and injuries; skips any team
@@ -19,6 +20,7 @@ import { etDate, gameRow, gameStats, NHL, STARTED } from '../_shared/nhl.ts';
 import { optimize, weekEndOf, type Basis, type LPlayer, type LSeason, type Mode } from '../_shared/lineup.ts';
 import { projectAll, type GoalieSeason, type ProjPlayer, type SkaterSeason } from '../_shared/projections.ts';
 import { playoffOdds, type NhlTeamIn, type SeriesIn } from '../_shared/playoffs.ts';
+import { mergeStatus, type GameStatus } from '../_shared/gameday.ts';
 
 const db = createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!, {
   auth: { persistSession: false },
@@ -278,10 +280,21 @@ async function injuries() {
 }
 
 async function news() {
-  const j = await getJson(`${ESPN}/news?limit=50`);
+  // the league-wide feed plus each team's own feed, which carries the smaller player notes
+  const j = await getJson(`${ESPN}/news?limit=100`);
+  const articles: any[] = [...(j.articles ?? [])];
+  try {
+    const tj = await getJson(`${ESPN}/teams`);
+    const ids: string[] = (tj.sports?.[0]?.leagues?.[0]?.teams ?? []).map((t: any) => String(t.team?.id)).filter(Boolean);
+    for (let i = 0; i < ids.length; i += 8) {
+      const got = await Promise.all(ids.slice(i, i + 8).map((id) => getJson(`${ESPN}/news?team=${id}&limit=15`).catch(() => ({}))));
+      for (const g of got) articles.push(...((g as any).articles ?? []));
+    }
+  } catch (e) { console.error('team news', e); }
   const { all } = await nameIndex();
   const names = all.filter((p) => p.name.length > 6).map((p) => ({ id: p.id, n: p.name.toLowerCase() }));
-  const rows = (j.articles ?? []).map((a: any) => {
+  const uniq = [...new Map(articles.filter((a) => a?.headline).map((a) => [String(a.id ?? a.links?.web?.href ?? a.headline), a])).values()];
+  const rows = uniq.map((a: any) => {
     const text = `${a.headline ?? ''} ${a.description ?? ''}`.toLowerCase();
     return {
       id: String(a.id ?? a.links?.web?.href ?? a.headline),
@@ -292,6 +305,63 @@ async function news() {
   }).filter((r: any) => r.headline);
   if (rows.length) check(await db.from('news').upsert(rows));
   return { articles: rows.length, tagged: rows.filter((r: any) => r.player_ids.length).length };
+}
+
+// game day: who starts in goal (ESPN's probable goalies), who's out or a game-time call, and once a game is under
+// way, which rostered players were scratched. Today and tomorrow, every 15 minutes through the afternoon and evening
+const ymd = (d: string) => d.replaceAll('-', '');
+async function gameday() {
+  const inj = await injuries();
+  const now = new Date();
+  const dates = [etDate(now), etDate(new Date(now.getTime() + 86400000))];
+  const { byName } = await nameIndex();
+  let rows = 0, events = 0;
+  for (const date of dates) {
+    const games = check(await db.from('games').select('id,home,away,state').eq('date', date).not('state', 'in', '(PPD,CNCL)')) as
+      { id: number; home: string; away: string; state: string }[];
+    if (!games.length) { await db.from('player_status').delete().eq('date', date); continue; }
+    const teams = [...new Set(games.flatMap((g) => [g.home, g.away]))];
+    const goalies = check(await db.from('players').select('id,nhl_team').eq('pos', 'G').in('nhl_team', teams)) as { id: number; nhl_team: string }[];
+    const gTeam = new Map(goalies.map((g) => [g.id, g.nhl_team]));
+    // ESPN's probable goalies, matched to our goalies by name
+    const probables: { team: string; playerId: number; status: 'confirmed' | 'expected'; name: string }[] = [];
+    try {
+      const sb = await getJson(`${ESPN}/scoreboard?dates=${ymd(date)}`);
+      for (const e of sb.events ?? []) for (const c of e.competitions?.[0]?.competitors ?? []) for (const pr of c.probables ?? []) {
+        const name = pr.athlete?.displayName ?? '';
+        const id = (byName.get(norm(name)) ?? []).find((x) => gTeam.has(x));
+        const st = String(pr.status?.name ?? pr.status ?? '').toLowerCase();
+        if (id) probables.push({ team: gTeam.get(id)!, playerId: id, status: st.startsWith('confirm') ? 'confirmed' : 'expected', name });
+      }
+    } catch (e) { console.error('probables', date, e); }
+    const injured = (check(await db.from('players').select('id,nhl_team,injury_status,injury_note').in('nhl_team', teams).not('injury_status', 'is', null)) as any[])
+      .map((p) => ({ id: p.id, team: p.nhl_team, status: p.injury_status, note: p.injury_note }));
+    // scratches: a game under way with a full box score, and a rostered player of those teams isn't in it
+    const scratched: { id: number; team: string }[] = [];
+    const started = games.filter((g) => STARTED.has(g.state));
+    if (started.length) {
+      const rostered = check(await db.from('rosters').select('player_id,players!inner(nhl_team,pos)').in('players.nhl_team', started.flatMap((g) => [g.home, g.away]))) as any[];
+      for (const g of started) {
+        const { data: box } = await db.from('player_games').select('player_id').eq('game_id', g.id);
+        const inBox = new Set((box ?? []).map((b) => b.player_id));
+        if (inBox.size < 30) continue;
+        for (const r of rostered) if ([g.home, g.away].includes(r.players.nhl_team) && !inBox.has(r.player_id)) scratched.push({ id: r.player_id, team: r.players.nhl_team });
+      }
+    }
+    const next = mergeStatus({ date, games, probables, goalies: goalies.map((g) => ({ id: g.id, team: g.nhl_team })), injured, scratched });
+    const { data: prevRows } = await db.from('player_status').select('player_id,status').eq('date', date);
+    const prev = new Map((prevRows ?? []).map((r) => [r.player_id as number, r.status as GameStatus]));
+    const stamp = new Date().toISOString();
+    for (let i = 0; i < next.length; i += 300) check(await db.from('player_status').upsert(next.slice(i, i + 300).map((r) => ({ ...r, updated_at: stamp }))));
+    const gone = [...prev.keys()].filter((id) => !next.some((r) => r.player_id === id));
+    if (gone.length) check(await db.from('player_status').delete().eq('date', date).in('player_id', gone));
+    // the big ones go on the player's news timeline
+    const ev = next.filter((r) => (r.status === 'confirmed' || r.status === 'scratched') && prev.get(r.player_id) !== r.status)
+      .map((r) => ({ player_id: r.player_id, kind: 'lineup', body: r.status === 'confirmed' ? `Confirmed to start in goal ${r.opponent} (${date})` : `Scratched ${r.opponent}` }));
+    if (ev.length) check(await db.from('player_events').insert(ev));
+    rows += next.length; events += ev.length;
+  }
+  return { ...inj, status_rows: rows, events };
 }
 
 // the lineup auto-pilot: the same exact optimizer the site's "Optimize" button uses
@@ -319,6 +389,11 @@ async function autoLineups() {
   // every goalie in the league, so a hurt starter's starts can go to his healthy partner
   for (const g of check(await db.from('players').select('id,pos,elig,proj,proj_gp,nhl_team,injury_status').eq('pos', 'G')) ?? []) {
     if (!players.has(g.id)) players.set(g.id, { ...g, proj: Number(g.proj), proj_gp: g.proj_gp == null ? null : Number(g.proj_gp) });
+  }
+  // tonight's starting goalies, scratches and injury calls
+  for (const s of check(await db.from('player_status').select('player_id,status').eq('date', today)) ?? []) {
+    const p = players.get(s.player_id);
+    if (p) p.gs = s.status as GameStatus;
   }
   const weekEnd = weekEndOf(today);
   const games = check(await db.from('games').select('home,away,date,start_utc,state').gte('date', today).lte('date', weekEnd));
@@ -349,6 +424,7 @@ Deno.serve(async (req) => {
       : task === 'corrections' ? await corrections(Math.min(35, Math.max(1, Number(new URL(req.url).searchParams.get('days') ?? 3))))
       : task === 'injuries' ? await injuries()
       : task === 'news' ? await news()
+      : task === 'gameday' ? await gameday()
       : task === 'daily' || task === 'lineups-late' ? { lineups: await autoLineups() }
       : await scores();
     return Response.json({ task, ok: true, ...result });

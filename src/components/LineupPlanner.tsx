@@ -12,6 +12,8 @@ import { lineFor, minSample, rosPoints, statValue, fmtStat, TIMEFRAMES, type Tim
 import { useProjDetails, useSeasonGames } from '../lib/projections';
 import type { Game, Player, Roster, Slot } from '../lib/types';
 import { Headshot, useAction } from './ui';
+import { PlayerSheet } from './PlayerCard';
+import { GameStatusChip, NewsDot } from './GameStatus';
 
 type Row = { r: Roster; p: Player };
 const START: Slot[] = ['C', 'LW', 'RW', 'D', 'Util', 'G'];
@@ -45,6 +47,7 @@ export function LineupPlanner({ roster }: { roster: Row[] }) {
   const [day, setDay] = useState(today);
   const [plans, setPlans] = useState<Map<string, Map<number, string>>>(new Map());
   const [draft, setDraft] = useState<Map<number, string> | null>(null);   // unsaved edits for the selected day
+  const [info, setInfo] = useState<number | null>(null);
   const [view, setView] = useState<View>('fantasy');
   const [tf, setTf] = useState<Timeframe>(league?.phase === 'season' && windows.size ? 'season' : 'proj');
   const [perGame, setPerGame] = useState(false);
@@ -83,7 +86,7 @@ export function LineupPlanner({ roster }: { roster: Row[] }) {
   }, [games]);
   const gameFor = (p: Player, d: string) => (gamesOn.get(d) ?? []).find((g) => g.home === p.nhl_team || g.away === p.nhl_team);
   const nowMs = Date.now() + serverOffset;
-  const locked = (p: Player) => { if (day !== today) return false; const g = gameFor(p, today); return !!g && new Date(g.start_utc).getTime() <= nowMs; };
+  const locked = (p: Player) => { if (day !== today) return false; const g = gameFor(p, today); return !!g && (new Date(g.start_utc).getTime() <= nowMs || ['LIVE', 'CRIT', 'OFF', 'FINAL'].includes(g.state)); };
   const perGameProj = (p: Player) => p.proj / gamesOf(p);
   // expected points on a night his team plays: per game × the chance he dresses (or starts, for a goalie)
   // injuries count: day-to-day is about a coin flip, and a hurt goalie's starts go to his healthy partner
@@ -264,6 +267,7 @@ export function LineupPlanner({ roster }: { roster: Row[] }) {
 
   return (
     <div className="space-y-3">
+      <PlayerSheet id={info} onClose={() => setInfo(null)} />
       {/* the date strip */}
       <div className="card p-2">
         <div className="mb-1.5 flex items-center gap-1.5 px-1 text-xs text-mute"><CalendarDays size={14} /> Pick a day. Set it now, up to {Math.round((new Date(end).getTime() - new Date(today).getTime()) / 86400000)} days out.</div>
@@ -446,7 +450,7 @@ export function LineupPlanner({ roster }: { roster: Row[] }) {
                       <div className="flex items-center gap-1.5">
                         <Headshot p={p} size={22} />
                         <div className="min-w-0">
-                          <div className="truncate font-semibold text-slate-100"><button aria-label={`Compare ${p.name}`} title="Compare" onClick={() => toggleCmp(p.id)} className={`mr-1 ${cmp.includes(p.id) ? '' : 'opacity-30 hover:opacity-80'}`}>⚖️</button>{p.name}{r.pin === 'start' ? ' 📌' : r.pin === 'bench' ? ' 🚫' : ''}{lk ? ' 🔒' : ''}</div>
+                          <div className="truncate font-semibold text-slate-100"><button aria-label={`Compare ${p.name}`} title="Compare" onClick={() => toggleCmp(p.id)} className={`mr-1 ${cmp.includes(p.id) ? '' : 'opacity-30 hover:opacity-80'}`}>⚖️</button><button className="hover:underline" title="Injury, game-day status, news and stats" onClick={() => setInfo(p.id)}>{p.name}</button>{r.pin === 'start' ? ' 📌' : r.pin === 'bench' ? ' 🚫' : ''}{lk ? ' 🔒' : ''} <GameStatusChip id={p.id} date={day} /> <NewsDot id={p.id} onClick={() => setInfo(p.id)} /></div>
                           <div className="truncate text-[10px] text-mute">{p.elig.join('/')} · {p.nhl_team}{p.injury_status ? <span className="text-red-300"> · {p.injury_status}</span> : ''}</div>
                         </div>
                       </div>
