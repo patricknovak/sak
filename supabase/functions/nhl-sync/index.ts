@@ -7,7 +7,8 @@
 //   ?task=projections  (weekly) the SAK projection model: three seasons of NHL stats -> a projected line per player
 //   ?task=standings    (daily) NHL standings and playoff odds: how many playoff games each NHL team should play
 //   ?task=fund         (weekdays) the SaK Fund's share price and the US/Canadian dollar rate
-//   ?task=players      (daily) current NHL rosters: trades, call-ups, sweater numbers, headshots
+//   ?task=players      (every few hours, and before puck drop) current NHL rosters: trades, call-ups, sweater numbers,
+//                      headshots. On game day the box score's team wins (see sync_teams_from_box)
 //   ?task=injuries     (hourly) injury / suspension status from ESPN's public injury report
 //   ?task=news         (every 2 hours) NHL headlines, tagged with the players they mention
 //   ?task=daily        (late morning ET) lineup auto-pilot for teams that turned it on: today's best lineup
@@ -75,7 +76,9 @@ async function scores() {
   const { data: open } = await db.from('games').select('id,state').in('date', days).eq('final_synced', false);
   const todo = (open ?? []).filter((g) => STARTED.has(g.state)).map((g) => g.id);
   const lines = await syncGames(todo);
-  return { games: games.length, snapshots: snaps, synced: todo.length, lines };
+  // a player in today's box score plays for that team, even if the roster feed hasn't caught up with a trade
+  const moved = lines ? check(await db.rpc('sync_teams_from_box')) : 0;
+  return { games: games.length, snapshots: snaps, synced: todo.length, lines, moved };
 }
 
 // the NHL revises stats (assists, hits, blocks, goalie decisions) after review; re-pull recent finals
@@ -224,12 +227,15 @@ async function players() {
       });
     }
   }
+  // on game day the box score is the truth: don't let a roster feed that's behind on a trade undo it
+  const { data: dressed } = await db.from('player_games').select('player_id,nhl_team').eq('date', etDate(new Date()));
+  const boxTeam = new Map((dressed ?? []).filter((x) => x.nhl_team).map((x) => [x.player_id as number, x.nhl_team as string]));
   const have = new Map<number, string[]>();
   for (let i = 0; i < seen.length; i += 300) {
     const chunk = check(await db.from('players').select('id,elig').in('id', seen.slice(i, i + 300).map((p) => p.id))) as { id: number; elig: string[] }[];
     for (const p of chunk) have.set(p.id, p.elig);
   }
-  const rows = seen.map((p) => ({ ...p, elig: have.get(p.id) ?? [p.pos], updated_at: new Date().toISOString() }));
+  const rows = seen.map((p) => ({ ...p, nhl_team: boxTeam.get(p.id) ?? p.nhl_team, elig: have.get(p.id) ?? [p.pos], updated_at: new Date().toISOString() }));
   for (let i = 0; i < rows.length; i += 300) check(await db.from('players').upsert(rows.slice(i, i + 300)));
   return { players: rows.length, added: rows.filter((r) => !have.has(r.id)).length };
 }

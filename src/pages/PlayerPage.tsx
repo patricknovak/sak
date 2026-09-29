@@ -4,7 +4,8 @@ import { Link, useNavigate, useParams } from 'react-router-dom';
 import { ArrowLeft, CalendarDays, History, Newspaper, Trophy, UserRound } from 'lucide-react';
 import { useLeague } from '../lib/store';
 import { supabase } from '../lib/supabase';
-import type { Game, NewsItem, Transaction } from '../lib/types';
+import type { Game, Transaction } from '../lib/types';
+import { LatestNews, PlayerNewsList, usePlayerNews } from '../components/PlayerNews';
 import { ago, calcFpts, etToday, fmtDate, fmtPts, fmtTime, injuryBadge, NHL_COLORS, NHL_TEAMS, readable, SCORING_STATS, STAT_LABELS, teamLogo } from '../lib/format';
 import { PlayerActions } from '../components/PlayerCard';
 import { FormChart } from '../components/charts';
@@ -36,17 +37,16 @@ export default function PlayerPage() {
   const [log, setLog] = useState<GameLine[] | null>(null);
   const [career, setCareer] = useState<Record<string, number | string>[] | null>(null);
   const [bio, setBio] = useState<Bio | null | undefined>(undefined);
-  const [news, setNews] = useState<NewsItem[]>([]);
+  const news = usePlayerNews(id, 15);
   const [tx, setTx] = useState<Transaction[]>([]);
   const [upcoming, setUpcoming] = useState<Game[]>([]);
 
   useEffect(() => {
     if (!id) return;
     window.scrollTo(0, 0);
-    setLog(null); setCareer(null); setBio(undefined); setNews([]); setTx([]); setTab('overview');
+    setLog(null); setCareer(null); setBio(undefined); setTx([]); setTab('overview');
     supabase.from('player_games').select('game_id,date,nhl_team,stats,fpts').eq('player_id', id).order('date', { ascending: false }).limit(90)
       .then(({ data }) => setLog((data ?? []) as GameLine[]));
-    supabase.from('news').select('*').contains('player_ids', [id]).order('published', { ascending: false }).limit(15).then(({ data }) => setNews((data ?? []) as NewsItem[]));
     supabase.from('transactions').select('*').eq('player_id', id).order('id', { ascending: false }).limit(30).then(({ data }) => setTx((data ?? []) as Transaction[]));
     supabase.functions.invoke(`player-info?id=${id}`, { method: 'GET' })
       .then(({ data }) => { setCareer((data?.seasons ?? []) as Record<string, number | string>[]); setBio((data?.bio ?? null) as Bio | null); })
@@ -142,11 +142,12 @@ export default function PlayerPage() {
       )}
 
       <div className="scroll-x sticky top-[calc(3rem+var(--banner,0px))] z-20 -mx-3 flex gap-1 border-b border-white/[.07] bg-[#070c18]/85 px-3 py-2 backdrop-blur-xl lg:top-[var(--banner,0px)]">
-        {([['overview', 'Overview'], ['log', `Game log${log?.length ? ` (${log.length})` : ''}`], ['career', 'Career'], ['news', `News${news.length ? ` (${news.length})` : ''}`]] as const).map(([k, l]) => (
+        {([['overview', 'Overview'], ['log', `Game log${log?.length ? ` (${log.length})` : ''}`], ['career', 'Career'], ['news', `News${news?.length ? ` (${news.length})` : ''}`]] as const).map(([k, l]) => (
           <button key={k} className={`tab ${tab === k ? 'tab-on' : 'bg-white/[.05]'}`} onClick={() => setTab(k)}>{l}</button>
         ))}
       </div>
 
+      {tab === 'overview' && <LatestNews items={news} onMore={() => setTab('news')} />}
       {tab === 'overview' && (
         <div className="grid gap-4 lg:grid-cols-2">
           <div className="space-y-4">
@@ -320,18 +321,8 @@ export default function PlayerPage() {
       )}
 
       {tab === 'news' && (
-        <Section icon={<Newspaper size={16} className="text-blue" />} title="Headlines">
-          <div className="space-y-2">
-            {news.length === 0 && <div className="card p-4 text-sm text-mute">No recent headlines mention {p.name}.</div>}
-            {news.map((n) => (
-              <a key={n.id} href={n.url ?? '#'} target="_blank" rel="noreferrer" className="card flex gap-3 p-3">
-                {n.image && <img src={n.image} alt="" loading="lazy" className="h-16 w-24 shrink-0 rounded-lg object-cover" />}
-                <div className="min-w-0"><div className="text-sm font-semibold leading-snug">{n.headline}</div>
-                  {n.description && <div className="mt-0.5 line-clamp-2 text-xs text-slate-400">{n.description}</div>}
-                  <div className="mt-1 text-[11px] text-mute">{n.published ? ago(n.published) : ''} · ESPN</div></div>
-              </a>
-            ))}
-          </div>
+        <Section icon={<Newspaper size={16} className="text-blue" />} title="News, trades and injuries">
+          <PlayerNewsList items={news} name={p.name} images />
         </Section>
       )}
 

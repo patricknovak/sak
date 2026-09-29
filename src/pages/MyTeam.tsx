@@ -269,8 +269,8 @@ export default function MyTeam() {
               const healed = ir.filter((x) => !irOk(x.p.injury_status));
               return (
                 <div className="mt-1 space-y-1 px-1 text-xs text-mute">
-                  {healed.length > 0 && <div className="rounded-lg bg-amber-500/10 px-2 py-1.5 text-amber-200">⚠ {healed.map((x) => x.p.name).join(' and ')} {healed.length > 1 ? 'are' : 'is'} {healed.some((x) => x.p.injury_status) ? 'no longer eligible for IR' : 'healthy'}. {active >= max ? 'Drop someone to activate' : 'Activate'} {healed.length > 1 ? 'them' : 'him'}: pickups are blocked until then.</div>}
-                  <div>Each player on IR frees a roster spot ({active}/{max} active). Coming off IR needs a free spot, so if you filled it, drop someone first.</div>
+                  {healed.length > 0 && <div className="rounded-lg bg-emerald-500/10 px-2 py-1.5 text-emerald-200">💪 {healed.map((x) => x.p.name).join(' and ')} {healed.length > 1 ? 'are' : 'is'} off the injury report. {healed.length > 1 ? 'They can' : 'He can'} stay on IR as long as you like; {active >= max ? `to bring ${healed.length > 1 ? 'them' : 'him'} back, drop or trade someone first` : `tap to bring ${healed.length > 1 ? 'them' : 'him'} back`}.</div>}
+                  <div>Each player on IR frees a roster spot ({active}/{max} active). IR moves are yours to make: lineup tools and auto-pilot leave IR alone. Coming off IR needs a free spot, so if you filled it, drop or trade someone first.</div>
                 </div>
               );
             })()}
