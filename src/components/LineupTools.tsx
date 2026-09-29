@@ -38,11 +38,17 @@ export function useLineupContext(): LContext {
 
 // one-tap "optimize today" used by the lineup card
 export function useOptimizer(roster: Row[]) {
-  const { players, me, refresh } = useLeague();
+  const { players, me, refresh, gameStatus } = useLeague();
   const ctx = useLineupContext();
   const { busy, run } = useAction();
+  // tonight's starting goalies, scratches and injury calls count toward today's lineup
+  const withStatus = () => {
+    const m = new Map(players);
+    for (const x of roster) { const s = gameStatus(x.p.id); if (s) m.set(x.p.id, { ...x.p, gs: s.status } as typeof x.p); }
+    return m;
+  };
   const plan = (mode: Mode, basis: Basis = me?.auto_basis ?? 'proj') =>
-    optimize(roster.map((x) => x.r), players, mode, basis, { ...ctx, now: Date.now() });
+    optimize(roster.map((x) => x.r), mode === 'day' ? withStatus() : players, mode, basis, { ...ctx, now: Date.now() });
   const apply = (p: Plan, label: string) => run(async () => {
     if (!p.moves.length) return;
     await rpc('set_lineup', { p_slots: Object.fromEntries(p.moves.map((m) => [m.player_id, m.to])) });

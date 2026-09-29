@@ -8,9 +8,10 @@ import { ago, calcFpts, fmtDate, fmtPts, fmtTime, injuryBadge, NHL_COLORS, NHL_T
 import { Headshot, NhlLogo, Pos, Sheet, TeamBadge, TeamName, useAction } from './ui';
 import { ProjOutlook } from './ProjOutlook';
 import { LatestNews, PlayerNewsList, usePlayerNews } from './PlayerNews';
+import { GameStatusBox, GameStatusChip, NewsDot } from './GameStatus';
 
 // one-line player row used everywhere
-export function PlayerRow({ p, right, onClick, sub, dim }: { p: Player; right?: ReactNode; onClick?: () => void; sub?: ReactNode; dim?: boolean }) {
+export function PlayerRow({ p, right, onClick, sub, dim, onInfo }: { p: Player; right?: ReactNode; onClick?: () => void; sub?: ReactNode; dim?: boolean; onInfo?: () => void }) {
   const { gamesByTeam } = useLeague();
   const g = gamesByTeam(p.nhl_team);
   const opp = g ? (g.home === p.nhl_team ? `vs ${g.away}` : `@ ${g.home}`) : null;
@@ -22,6 +23,8 @@ export function PlayerRow({ p, right, onClick, sub, dim }: { p: Player; right?: 
         <div className="flex items-center gap-1.5">
           <span className="truncate font-semibold">{p.name}</span>
           {(() => { const b = injuryBadge(p.injury_status); return b && <span className={`chip shrink-0 ${b.cls}`} title={p.injury_note ?? ''}>{b.label}</span>; })()}
+          <GameStatusChip id={p.id} />
+          <NewsDot id={p.id} onClick={onInfo} />
         </div>
         <div className="flex min-w-0 items-center gap-1.5 overflow-hidden whitespace-nowrap text-xs text-mute">
           <NhlLogo abbr={p.nhl_team} size={14} />
@@ -96,6 +99,7 @@ export function PlayerSheet({ id, onClose, actions }: { id: number | null; onClo
         </div>
       </div>
 
+      <GameStatusBox id={p.id} />
       {p.injury_status && (
         <div className="mt-3 rounded-xl border border-red-900/60 bg-red-950/40 p-3 text-sm">
           <div className="font-semibold text-red-300">🩹 {p.injury_status}{p.injury_date && <span className="ml-2 text-xs font-normal text-mute">updated {ago(p.injury_date)}</span>}</div>

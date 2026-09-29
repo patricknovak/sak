@@ -808,3 +808,60 @@ select pg_temp.as_team(4);
 set role authenticated;
 select 'GMs can read player events (expect 4)', count(*) from player_events where player_id = :bx_p;
 reset role;
+
+-- ───────────── lineup locks: free to change until his game starts, frozen from puck drop ─────────────
+reset role;
+select r.player_id as lk_p, r.team_id as lk_t from rosters r join players p on p.id = r.player_id
+  where r.slot = 'BN' and p.pos = 'C' and r.team_id between 1 and 8 order by r.player_id limit 1 \gset
+select r.player_id as lk_q from rosters r join players p on p.id = r.player_id
+  where r.team_id = :lk_t and r.slot = 'BN' and p.pos = 'C' and r.player_id <> :lk_p order by r.player_id limit 1 \gset
+select set_config('t.lk_p', :'lk_p', false), set_config('t.lk_q', :'lk_q', false), set_config('t.lk_t', :'lk_t', false);
+update players set nhl_team = 'SEA', injury_status = null where id = :lk_p;
+update players set nhl_team = 'SEA', injury_status = null where id = :lk_q;
+delete from lineup_snapshots where player_id in (:lk_p, :lk_q);
+delete from player_games where player_id in (:lk_p, :lk_q) and date = today_et();
+delete from games where id = 9041;
+insert into games (id, date, start_utc, home, away, state) values (9041, today_et(), now() + interval '2 hours', 'SEA', 'SJS', 'FUT');
+select 'not locked before puck drop (expect f)', player_locked(:lk_p);
+select pg_temp.as_team(:lk_t);
+set role authenticated;
+select move_player(:lk_p, 'Util', (select player_id from rosters where team_id = current_setting('t.lk_t')::int and slot = 'Util'));
+reset role;
+select 'moved before puck drop (expect Util)', slot from rosters where player_id = :lk_p;
+-- the game starts: every path is closed
+update games set start_utc = now() - interval '1 minute', state = 'LIVE' where id = 9041;
+select 'locked at puck drop (expect t)', player_locked(:lk_p);
+select pg_temp.as_team(:lk_t);
+set role authenticated;
+do $$ begin perform move_player(current_setting('t.lk_p')::int, 'BN'); raise exception 'moved a locked starter';
+exception when others then if sqlerrm not like '%locked%' then raise; end if; end $$;
+do $$ begin perform move_player(current_setting('t.lk_q')::int, 'Util', current_setting('t.lk_p')::int); raise exception 'swapped out a locked starter';
+exception when others then if sqlerrm not like '%locked%' then raise; end if; end $$;
+do $$ begin perform set_lineup(jsonb_build_object(current_setting('t.lk_p'), 'BN')); raise exception 'best lineup moved a locked starter';
+exception when others then if sqlerrm not like '%locked%' then raise; end if; end $$;
+reset role;
+select 'auto-pilot can''t move him either', (select count(*) from rosters where player_id = :lk_p and slot = 'Util') = 1;
+do $$ begin perform _apply_lineup(current_setting('t.lk_t')::int, jsonb_build_object(current_setting('t.lk_p'), 'BN')); raise exception 'auto-pilot moved a locked starter';
+exception when others then if sqlerrm not like '%locked%' then raise; end if; end $$;
+-- a saved lineup applied after puck drop leaves him where he was
+insert into lineup_plans (team_id, date, player_id, slot) values (:lk_t, today_et(), :lk_p, 'BN') on conflict do nothing;
+delete from lineup_plan_applied where team_id = :lk_t;
+select apply_lineup_plans() >= 1 as plans_ran;
+select 'saved plan kept him in (expect Util)', slot from rosters where player_id = :lk_p;
+-- a game already under way locks even if the scheduled time hasn't come (clock or feed out of step)
+update games set start_utc = now() + interval '1 hour', state = 'LIVE' where id = 9041;
+delete from lineup_snapshots where player_id = :lk_p;
+select 'live game locks before its scheduled time (expect t)', player_locked(:lk_p);
+-- in today's box score for another team (a game-day trade the feed missed): locked
+update games set state = 'FUT', start_utc = now() + interval '1 hour' where id = 9041;
+insert into player_games (game_id, player_id, date, nhl_team, stats) values (9041, :lk_q, today_et(), 'SJS', '{}');
+select 'in a box score today locks him (expect f, t)', player_locked(:lk_p), player_locked(:lk_q);
+delete from player_games where game_id = 9041;
+delete from games where id = 9041;
+
+-- game-day status table is readable by GMs
+insert into player_status (player_id, date, status, note, opponent) values (:lk_p, today_et(), 'confirmed', 'Confirmed starter', 'vs SJS');
+select pg_temp.as_team(4);
+set role authenticated;
+select 'GMs can read game-day status (expect 1)', count(*) from player_status where player_id = :lk_p;
+reset role;

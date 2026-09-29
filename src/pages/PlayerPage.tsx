@@ -6,6 +6,7 @@ import { useLeague } from '../lib/store';
 import { supabase } from '../lib/supabase';
 import type { Game, Transaction } from '../lib/types';
 import { LatestNews, PlayerNewsList, usePlayerNews } from '../components/PlayerNews';
+import { GameStatusBox } from '../components/GameStatus';
 import { ago, calcFpts, etToday, fmtDate, fmtPts, fmtTime, injuryBadge, NHL_COLORS, NHL_TEAMS, readable, SCORING_STATS, STAT_LABELS, teamLogo } from '../lib/format';
 import { PlayerActions } from '../components/PlayerCard';
 import { FormChart } from '../components/charts';
@@ -134,6 +135,7 @@ export default function PlayerPage() {
 
       <PlayerActions p={p} />
 
+      <GameStatusBox id={p.id} />
       {p.injury_status && (
         <div className="card border-red-400/30 p-3 text-sm" style={{ background: 'linear-gradient(135deg, rgba(239,42,79,.14), rgba(15,23,41,.8) 60%)' }}>
           <div className="font-bold text-red-300">🩹 {p.injury_status}{p.injury_date && <span className="ml-2 text-xs font-normal text-mute">updated {ago(p.injury_date)}</span>}</div>

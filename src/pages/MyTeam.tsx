@@ -3,8 +3,8 @@ import { Link, useNavigate, useParams } from 'react-router-dom';
 import { useLeague, useNow } from '../lib/store';
 import { rpc, supabase } from '../lib/supabase';
 import type { Player, Roster, Slot, Transaction } from '../lib/types';
-import { ago, etToday, fmtPts, ordinal } from '../lib/format';
-import { PlayerRow } from '../components/PlayerCard';
+import { ago, etToday, fmtPts, fmtTime, ordinal } from '../lib/format';
+import { PlayerRow, PlayerSheet } from '../components/PlayerCard';
 import { TeamScout } from '../components/TeamScout';
 import { TeamStats } from '../components/TeamStats';
 import { TIMEFRAMES, lineFor, type Timeframe } from '../lib/playerstats';
@@ -21,7 +21,7 @@ const slotOk = (p: Player, s: Slot) =>
 
 export default function MyTeam() {
   const { id } = useParams();
-  const { me, league, teams, team, rosters, players, standings, season, windows, games, gamesByTeam, refresh } = useLeague();
+  const { me, league, teams, team, rosters, players, standings, season, windows, games, gamesByTeam, gameStatus, refresh } = useLeague();
   const now = useNow(15_000);
   const nav = useNavigate();
   const { busy, run } = useAction();
@@ -29,6 +29,7 @@ export default function MyTeam() {
   const t = team(teamId);
   const mine = teamId === me?.id;
   const [sel, setSel] = useState<number | null>(null);
+  const [info, setInfo] = useState<number | null>(null);
   useEffect(() => { setView(teamId === me?.id ? 'lineup' : 'scout'); setSel(null); }, [teamId]); // eslint-disable-line react-hooks/exhaustive-deps
   const [today, setToday] = useState<Map<number, { fpts: number; stats: Record<string, number> }>>(new Map());
   const [tx, setTx] = useState<Transaction[]>([]);
@@ -81,7 +82,7 @@ export default function MyTeam() {
 
   const locked = (p: Player) => {
     const g = gamesByTeam(p.nhl_team);
-    return !!g && new Date(g.start_utc).getTime() <= now && !['PPD', 'CNCL'].includes(g.state);
+    return !!g && !['PPD', 'CNCL'].includes(g.state) && (new Date(g.start_utc).getTime() <= now || ['LIVE', 'CRIT', 'OFF', 'FINAL'].includes(g.state));
   };
 
   // lay out slot instances
@@ -134,6 +135,12 @@ export default function MyTeam() {
   const benchTotal = [...bench, ...ir].reduce((tot, x) => tot + (today.get(x.p.id)?.fpts ?? 0), 0);   // shown, never counted
   const benchedWithGames = bench.filter((x) => gamesByTeam(x.p.nhl_team) && !locked(x.p));
   const emptyStarters = rows.filter((r) => !r.x).length;
+  // starters who may not play tonight (a backup goalie, out, scratched, or a game-time call), while there's time
+  const doubtful = rows.filter((r) => r.x && !locked(r.x.p) && ['backup', 'out', 'scratched', 'gtd'].includes(gameStatus(r.x.p.id)?.status ?? ''))
+    .map((r) => ({ p: r.x!.p, s: gameStatus(r.x!.p.id)! }));
+  // the next lineup lock: the earliest of my players' games today that hasn't started
+  const nextLock = roster.map((x) => gamesByTeam(x.p.nhl_team)).filter((g): g is NonNullable<typeof g> => !!g && new Date(g.start_utc).getTime() > now && !['PPD', 'CNCL'].includes(g.state))
+    .sort((a, b) => a.start_utc.localeCompare(b.start_utc))[0];
 
   const Row = ({ slot, x }: { slot: Slot; x?: { r: Roster; p: Player } }) => {
     const isSel = x && x.p.id === sel;
@@ -147,8 +154,11 @@ export default function MyTeam() {
         <Pos p={slot} className="w-10" />
         {x ? (
           <>
-            <div className="min-w-0 flex-1 overflow-hidden"><PlayerRow p={x.p} dim={slot !== 'BN' && slot !== 'IR' && !g} />{statLine(x.p) && <div className="num mt-0.5 truncate pl-12 text-[10px] text-slate-400">{statLine(x.p)}</div>}</div>
-            {lk && <span title="Locked: game started" className="text-xs">🔒</span>}
+            <div className="min-w-0 flex-1 overflow-hidden"><PlayerRow p={x.p} dim={slot !== 'BN' && slot !== 'IR' && !g} onInfo={() => setInfo(x.p.id)} />{statLine(x.p) && <div className="num mt-0.5 truncate pl-12 text-[10px] text-slate-400">{statLine(x.p)}</div>}</div>
+            {lk && <span title="Locked: his game has started. Lineup changes reopen tomorrow." className="text-xs">🔒</span>}
+            <button aria-label={`About ${x.p.name}`} title="Injury, game-day status, news and stats"
+              onClick={(e) => { e.stopPropagation(); setInfo(x.p.id); }}
+              className="grid h-7 w-7 shrink-0 place-items-center rounded-lg text-sm text-sky-300 transition hover:bg-white/10">ⓘ</button>
             {mine && !offseason && (
               <button aria-label={`Pin ${x.p.name}`} title={x.r.pin === 'start' ? 'Pinned: always start' : x.r.pin === 'bench' ? 'Pinned: never start' : 'Pin: tap to always start / never start'}
                 onClick={(e) => { e.stopPropagation(); cyclePin(x); }}
@@ -183,6 +193,7 @@ export default function MyTeam() {
   }
   return (
     <div className="space-y-4">
+      <PlayerSheet id={info} onClose={() => setInfo(null)} />
       <div className="card-hero flex flex-wrap items-center gap-3 p-4" style={{ '--tc': t.color } as React.CSSProperties}>
         <div className="pointer-events-none absolute -right-4 -top-6 select-none text-[120px] leading-none opacity-[.08]">{t.emoji}</div>
         <TeamBadge team={t} size={56} ring />
@@ -202,6 +213,9 @@ export default function MyTeam() {
             <div><span className="font-semibold">Today: {fmtPts(todayTotal)} pts</span>{benchTotal > 0 && <span className="text-amber-300" title="Points your bench and IR scored today. They don’t count."> · {fmtPts(benchTotal)} left on the bench</span>}{st?.bench ? <span className="text-mute" title="Season total left on the bench"> · {fmtPts(st.bench)} benched this season</span> : null} <span className="text-mute">· tap a player, then tap where he should go</span></div>
             {benchedWithGames.length > 0 && <div className="text-xs text-amber-300">⚠️ {benchedWithGames.length} benched player{benchedWithGames.length > 1 ? 's' : ''} playing today</div>}
             {emptyStarters > 0 && <div className="text-xs text-amber-300">⚠️ {emptyStarters} empty starting slot{emptyStarters > 1 ? 's' : ''}</div>}
+            {doubtful.length > 0 && <div className="text-xs text-amber-300">⚠️ May not play tonight: {doubtful.map(({ p, s }) => (
+              <button key={p.id} className="mr-1 underline decoration-dotted" onClick={() => setInfo(p.id)}>{p.name} ({{ backup: 'backup goalie', out: 'out', scratched: 'scratched', gtd: 'game-time call' }[s.status as 'backup']})</button>))}</div>}
+            <div className="text-xs text-mute">🔒 Each player locks when his game starts; change anyone until then.{nextLock && <> Next lock: <span className="text-slate-200">{fmtTime(nextLock.start_utc)}</span> ({nextLock.away} @ {nextLock.home}).</>}</div>
           </div>
           <div className="flex flex-wrap items-center gap-2">
             <button className="btn-blue" disabled={busy || opt.busy} onClick={() => opt.apply(opt.plan('day'), 'today')}>✨ Optimize today</button>

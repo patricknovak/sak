@@ -2,7 +2,7 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useRef, use
 import type { Session } from '@supabase/supabase-js';
 import { configured, selectAll, realtimeChannel, supabase } from './supabase';
 import type {
-  DraftPick, DraftState, Game, League, Notification, Player, PlayerSeason, PlayerWindow, Roster, Standing, Team,
+  DraftPick, DraftState, Game, League, Notification, Player, PlayerSeason, PlayerStatus, PlayerWindow, Roster, Standing, Team,
 } from './types';
 import { etToday } from './format';
 
@@ -28,12 +28,14 @@ interface Store {
   games: Game[];               // today + upcoming week
   gamesByTeam: (nhl: string | null | undefined, date?: string) => Game | undefined;
   notifications: Notification[];
+  gameStatus: (id: number, date?: string) => PlayerStatus | undefined;   // will he play? (today, or a given day)
+  freshNews: Map<number, number>;   // players with headlines, trades, injury or lineup news in the last 48 hours
   online: Set<number>;
   refresh: (what?: Table[]) => Promise<void>;
   serverOffset: number;        // ms to add to Date.now() to match the database clock
 }
 
-type Table = 'league' | 'teams' | 'rosters' | 'picks' | 'draft' | 'standings' | 'season' | 'windows' | 'games' | 'notifications' | 'players';
+type Table = 'league' | 'teams' | 'rosters' | 'picks' | 'draft' | 'standings' | 'season' | 'windows' | 'games' | 'notifications' | 'players' | 'gameday';
 
 const Ctx = createContext<Store | null>(null);
 
@@ -55,6 +57,8 @@ export function LeagueProvider({ children }: { children: ReactNode }) {
   const [windows, setWindows] = useState<Map<number, Record<string, PlayerWindow>>>(new Map());
   const [games, setGames] = useState<Game[]>([]);
   const [notifications, setNotifications] = useState<Notification[]>([]);
+  const [statuses, setStatuses] = useState<Map<string, PlayerStatus>>(new Map());
+  const [freshNews, setFreshNews] = useState<Map<number, number>>(new Map());
   const [online, setOnline] = useState<Set<number>>(new Set());
   const [loaded, setLoaded] = useState(false);
   const [serverOffset, setServerOffset] = useState(0);
@@ -110,6 +114,20 @@ export function LeagueProvider({ children }: { children: ReactNode }) {
       const { data } = await supabase.from('notifications').select('*').order('id', { ascending: false }).limit(50);
       if (data) setNotifications(data as Notification[]);
     },
+    gameday: async () => {
+      const today = etToday();
+      const since = new Date(Date.now() - 48 * 3600000).toISOString();
+      const [{ data: st }, { data: nw }, { data: ev }] = await Promise.all([
+        supabase.from('player_status').select('*').gte('date', today),
+        supabase.from('news').select('player_ids').gte('published', since),
+        supabase.from('player_events').select('player_id').gte('at', since),
+      ]);
+      if (st) setStatuses(new Map((st as PlayerStatus[]).map((s) => [`${s.player_id}|${s.date}`, s])));
+      const fresh = new Map<number, number>();
+      for (const n of (nw ?? []) as { player_ids: number[] }[]) for (const id of n.player_ids ?? []) fresh.set(id, (fresh.get(id) ?? 0) + 1);
+      for (const e of (ev ?? []) as { player_id: number }[]) fresh.set(e.player_id, (fresh.get(e.player_id) ?? 0) + 1);
+      setFreshNews(fresh);
+    },
   }), []);
 
   const refresh = useCallback(async (what?: Table[]) => {
@@ -143,7 +161,7 @@ export function LeagueProvider({ children }: { children: ReactNode }) {
     };
     const map: Record<string, Table[]> = {
       league: ['league'], teams: ['teams'], rosters: ['rosters', 'standings'], draft_picks: ['picks'],
-      draft_state: ['draft'], games: ['games'], notifications: ['notifications'], transactions: ['standings'],
+      draft_state: ['draft'], games: ['games'], notifications: ['notifications'], transactions: ['standings'], player_status: ['gameday'],
     };
     const ch = realtimeChannel('league-db');
     for (const table of Object.keys(map)) {
@@ -156,8 +174,8 @@ export function LeagueProvider({ children }: { children: ReactNode }) {
     ch.subscribe();
     // live scoring: standings refresh every minute, season stats every 5
     const i1 = window.setInterval(() => { if (document.visibilityState === 'visible') refresh(['standings', 'games']); }, 60_000);
-    const i2 = window.setInterval(() => { if (document.visibilityState === 'visible') refresh(['season', 'windows']); }, 300_000);
-    const onVis = () => { if (document.visibilityState === 'visible') refresh(['draft', 'picks', 'rosters', 'standings', 'notifications']); };
+    const i2 = window.setInterval(() => { if (document.visibilityState === 'visible') refresh(['season', 'windows', 'gameday']); }, 300_000);
+    const onVis = () => { if (document.visibilityState === 'visible') refresh(['draft', 'picks', 'rosters', 'standings', 'notifications', 'gameday']); };
     document.addEventListener('visibilitychange', onVis);
     return () => {
       supabase.removeChannel(ch);
@@ -206,9 +224,10 @@ export function LeagueProvider({ children }: { children: ReactNode }) {
   const gamesByTeam = useCallback((nhl: string | null | undefined, date = etToday()) =>
     nhl ? games.find((g) => g.date === date && (g.home === nhl || g.away === nhl)) : undefined, [games]);
 
+  const gameStatus = useCallback((id: number, date?: string) => statuses.get(`${id}|${date ?? etToday()}`), [statuses]);
   const value: Store = {
     ready: authReady && (!session || loaded), session, me, league, teams, spectators, can, team, players, rosters, owner, picks, draft,
-    standings, playoffs, cup, season, windows, games, gamesByTeam, notifications, online, refresh, serverOffset,
+    standings, playoffs, cup, season, windows, games, gamesByTeam, notifications, gameStatus, freshNews, online, refresh, serverOffset,
   };
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
 }
