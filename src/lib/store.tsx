@@ -5,12 +5,14 @@ import type {
   DraftPick, DraftState, Game, League, Notification, Player, PlayerSeason, PlayerStatus, PlayerWindow, Roster, Standing, Team,
 } from './types';
 import { etCalendarToday, etToday, setLeagueDayHold } from './format';
+import { brandOf, SAK_BRAND, type Brand } from './brand';
 
 interface Store {
   ready: boolean;
   session: Session | null;
   me: Team | null;
   league: League | null;
+  brand: Brand;                // names, wordmark, trophies for the league on screen (SaK defaults)
   teams: Team[];               // GMs only
   spectators: Team[];          // spectator passes (chat, bets, no roster)
   can: (what: string) => boolean;
@@ -44,6 +46,7 @@ export function LeagueProvider({ children }: { children: ReactNode }) {
   const [session, setSession] = useState<Session | null>(null);
   const [authReady, setAuthReady] = useState(!configured);
   const [league, setLeague] = useState<League | null>(null);
+  const [brand, setBrand] = useState<Brand>(SAK_BRAND);
   const [allTeams, setAllTeams] = useState<Team[]>([]);
   const teams = useMemo(() => allTeams.filter((t) => t.role !== 'spectator'), [allTeams]);      // the eight GMs
   const spectators = useMemo(() => allTeams.filter((t) => t.role === 'spectator'), [allTeams]);
@@ -80,7 +83,12 @@ export function LeagueProvider({ children }: { children: ReactNode }) {
   meRef.current = me;
 
   const loaders: Record<Table, () => Promise<void>> = useMemo(() => ({
-    league: async () => { const { data } = await supabase.from('league').select('*').single(); if (data) setLeague(data as League); },
+    league: async () => {
+      const { data } = await supabase.from('league').select('*').single();
+      if (data) setLeague(data as League);
+      const { data: lg } = await supabase.from('leagues').select('brand').eq('id', (data as League | null)?.league_id ?? 1).maybeSingle();
+      setBrand(brandOf(lg?.brand as Partial<Brand> | null));
+    },
     teams: async () => { const { data } = await supabase.from('teams').select('*').order('id'); if (data) setAllTeams(data as Team[]); },
     players: async () => {
       const rows = await selectAll<Player>('players', 'id,name,first,last_name,pos,elig,nhl_team,num,headshot,last_fp,proj,proj_gp,rank,status,last_stats,injury_note,injury_status,injury_date');
@@ -247,7 +255,7 @@ export function LeagueProvider({ children }: { children: ReactNode }) {
 
   const gameStatus = useCallback((id: number, date?: string) => statuses.get(`${id}|${date ?? etToday()}`), [statuses, leagueDay]); // eslint-disable-line react-hooks/exhaustive-deps
   const value: Store = {
-    ready: authReady && (!session || loaded), session, me, league, teams, spectators, can, team, players, rosters, owner, picks, draft,
+    ready: authReady && (!session || loaded), session, me, league, brand, teams, spectators, can, team, players, rosters, owner, picks, draft,
     standings, playoffs, cup, season, windows, games, gamesByTeam, notifications, gameStatus, freshNews, online, refresh, serverOffset, leagueDay,
   };
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;

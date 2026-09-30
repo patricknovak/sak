@@ -1,0 +1,82 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Super Pools · AI-enhanced fantasy leagues</title>
+  <meta name="description" content="Super Pools runs your fantasy hockey league with an AI commissioner's assistant: live scoring, daily lineups, a draft room, side bets and a league voice that never sleeps." />
+  <meta property="og:title" content="Super Pools · AI-enhanced fantasy leagues" />
+  <meta property="og:description" content="Live scoring, daily lineups, a draft room, side bets and an AI league voice. Built by a league, for leagues." />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:ital,wght@0,700;0,900;1,900&family=Inter:wght@400;600&display=swap" rel="stylesheet" />
+  <style>
+    :root { --bg: #0b1220; --card: #111b30; --ink: #eef2ff; --mute: #94a3b8; --gold: #f7c548; --sky: #38bdf8; --line: rgba(255,255,255,.08); }
+    * { box-sizing: border-box; }
+    body { margin: 0; background: radial-gradient(1200px 600px at 20% -10%, rgba(56,189,248,.18), transparent 60%), radial-gradient(900px 500px at 100% 0%, rgba(247,197,72,.14), transparent 55%), var(--bg); color: var(--ink); font: 16px/1.55 Inter, system-ui, sans-serif; }
+    main { max-width: 1040px; margin: 0 auto; padding: 32px 20px 64px; }
+    .wordmark { font-family: 'Barlow Condensed', sans-serif; font-weight: 900; font-size: 28px; letter-spacing: .02em; }
+    .wordmark b { color: var(--gold); font-style: italic; }
+    .wordmark span { color: #cbd5e1; letter-spacing: .28em; font-size: 14px; margin-left: 10px; }
+    header { display: flex; align-items: center; justify-content: space-between; gap: 16px; }
+    .pill { border: 1px solid var(--line); border-radius: 999px; padding: 6px 12px; font-size: 12px; color: var(--mute); }
+    h1 { font-family: 'Barlow Condensed', sans-serif; font-weight: 900; font-size: clamp(44px, 8vw, 84px); line-height: .95; margin: 64px 0 16px; letter-spacing: .01em; }
+    h1 em { font-style: italic; color: var(--gold); }
+    .lede { font-size: clamp(17px, 2.2vw, 21px); color: #cbd5e1; max-width: 640px; margin: 0 0 28px; }
+    .cta { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; }
+    .btn { display: inline-block; padding: 12px 20px; border-radius: 14px; font-weight: 600; text-decoration: none; }
+    .btn-gold { background: linear-gradient(180deg, #fff3c4, var(--gold)); color: #1a1405; box-shadow: 0 10px 24px -12px rgba(247,197,72,.8); }
+    .btn-ghost { border: 1px solid var(--line); color: var(--ink); }
+    .note { font-size: 13px; color: var(--mute); }
+    .grid { display: grid; gap: 14px; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); margin-top: 56px; }
+    .card { background: var(--card); border: 1px solid var(--line); border-radius: 18px; padding: 18px; }
+    .card h3 { margin: 6px 0 6px; font-size: 17px; }
+    .card p { margin: 0; color: var(--mute); font-size: 14px; }
+    .card .ico { font-size: 22px; }
+    .strip { margin-top: 56px; padding: 22px; border-radius: 18px; border: 1px solid rgba(247,197,72,.3); background: linear-gradient(135deg, rgba(247,197,72,.12), rgba(15,23,41,.6) 60%); }
+    .strip h2 { font-family: 'Barlow Condensed', sans-serif; font-weight: 900; font-size: 30px; margin: 0 0 6px; }
+    form { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 12px; }
+    input { flex: 1 1 240px; padding: 12px 14px; border-radius: 12px; border: 1px solid var(--line); background: rgba(0,0,0,.35); color: var(--ink); font: inherit; }
+    footer { margin-top: 64px; padding-top: 20px; border-top: 1px solid var(--line); color: var(--mute); font-size: 13px; display: flex; flex-wrap: wrap; gap: 12px; justify-content: space-between; }
+    footer a { color: var(--sky); text-decoration: none; }
+  </style>
+</head>
+<body>
+  <main>
+    <header>
+      <div class="wordmark"><b>SUPER</b> POOLS<span>AI</span></div>
+      <span class="pill">Season one · NHL 2026-27 · in private beta</span>
+    </header>
+
+    <h1>Your league, run by <em>an AI that never sleeps</em>.</h1>
+    <p class="lede">Super Pools is a fantasy hockey league site with an AI commissioner's assistant built in: live scoring from the box scores, daily lineups you can set weeks ahead, a draft room with a clock, side bets that settle themselves, and a league voice that posts recaps, grades trades and answers questions in your chat.</p>
+    <div class="cta">
+      <a class="btn btn-gold" href="#waitlist">Get on the list</a>
+      <a class="btn btn-ghost" href="mailto:hello@superpoolsai.com">Talk to us</a>
+      <span class="note">Built by a keeper league that has run for years, on the site it uses every night.</span>
+    </div>
+
+    <div class="grid">
+      <div class="card"><div class="ico">🏒</div><h3>Live scoring, done right</h3><p>Points from the NHL box scores as the games happen; every player locks at his own puck drop, corrections flow in for a month.</p></div>
+      <div class="card"><div class="ico">📅</div><h3>Daily lineups, weeks ahead</h3><p>Set who starts for any day up to 60 days out, or let the auto-pilot do it. See exactly how every played day went.</p></div>
+      <div class="card"><div class="ico">⏱️</div><h3>A real draft room</h3><p>Pick clock, live board, queues, a TV-mode board for the big screen, mock drafts, and a graded report card after.</p></div>
+      <div class="card"><div class="ico">🎙️</div><h3>An AI league voice</h3><p>Daily recaps, power rankings, trade grades, keeper reports, trash talk on request, and answers to "who should I start?".</p></div>
+      <div class="card"><div class="ico">🎲</div><h3>Side bets and a book</h3><p>Head-to-heads, player props, pools and a coin sportsbook on real games, all settled from the box scores with live odds.</p></div>
+      <div class="card"><div class="ico">📈</div><h3>Projections and forecasts</h3><p>Rest-of-season projections, thousands of simulated seasons, playoff odds, trade and free-agent finders.</p></div>
+    </div>
+
+    <section class="strip" id="waitlist">
+      <h2>Bring your league next season</h2>
+      <p class="note">Leave an address and we'll write when leagues open. No spam, no list sharing.</p>
+      <form action="mailto:hello@superpoolsai.com" method="get" enctype="text/plain">
+        <input type="email" name="subject" placeholder="you@example.com" required />
+        <button class="btn btn-gold" type="submit">Notify me</button>
+      </form>
+    </section>
+
+    <footer>
+      <span>© 2026 Super Pools · superpoolsai.com</span>
+      <span><a href="mailto:hello@superpoolsai.com">hello@superpoolsai.com</a></span>
+    </footer>
+  </main>
+</body>
+</html>
