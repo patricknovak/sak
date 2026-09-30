@@ -23,8 +23,22 @@ export function useBook() {
   const [standings, setStandings] = useState<BookStanding[]>([]);
   const load = () => {
     const since = new Date(Date.now() - 4 * 86400000).toISOString().slice(0, 10);
-    supabase.from('markets').select('*').or(`status.eq.open,date.gte.${since}`).order('closes_at').then(({ data }) => setMarkets((data ?? []) as Market[]));
-    supabase.from('market_bets').select('*').order('id', { ascending: false }).limit(400).then(({ data }) => setTickets((data ?? []) as MarketBet[]));
+    Promise.all([
+      supabase.from('markets').select('*').or(`status.eq.open,date.gte.${since}`).order('closes_at'),
+      supabase.from('market_bets').select('*').order('id', { ascending: false }).limit(1000),
+    ]).then(async ([{ data: ms }, { data: ts }]) => {
+      const list = (ms ?? []) as Market[];
+      const tix = (ts ?? []) as MarketBet[];
+      // older markets that tickets were placed on, so every ticket's result can be shown
+      const have = new Set(list.map((m) => m.id));
+      const missing = [...new Set(tix.map((t) => t.market_id).filter((id) => !have.has(id)))];
+      for (let i = 0; i < missing.length; i += 200) {
+        const { data } = await supabase.from('markets').select('*').in('id', missing.slice(i, i + 200));
+        list.push(...((data ?? []) as Market[]));
+      }
+      setMarkets(list.sort((a, b) => a.closes_at.localeCompare(b.closes_at)));
+      setTickets(tix);
+    });
     supabase.from('book_standings').select('*').then(({ data }) => setStandings((data ?? []) as BookStanding[]));
   };
   useEffect(() => {
@@ -241,6 +255,8 @@ export function BookTab() {
         </Section>
       )}
 
+      {tickets.length > 0 && <EveryTicket markets={markets} tickets={tickets} />}
+
       {closed.length > 0 && (
         <Section title="Results" right={closed.length > 8 ? <button className="text-xs text-sky-300" onClick={() => setShowResults(!showResults)}>{showResults ? 'Fewer' : `All ${closed.length}`}</button> : undefined}>
           <div className="card divide-y divide-white/[.06]">{[...closed].sort((a, b) => (b.settled_at ?? b.closes_at).localeCompare(a.settled_at ?? a.closes_at)).slice(0, showResults ? 200 : 8).map((m) => <Result key={m.id} m={m} />)}</div>
@@ -360,5 +376,60 @@ export function BookLeaders() {
       </div>
       <p className="px-1 text-xs text-mute">Net coins won or lost at the Book. 🎯 Sharp: best return per coin staked (3+ tickets). 🐳 Whale: most coins put through. 💥 Big hit: a single ticket that cleared 200.</p>
     </div>
+  );
+}
+
+// every ticket anyone has placed at the Book: who, on what, for how much, and how it went
+function EveryTicket({ markets, tickets }: { markets: Market[]; tickets: MarketBet[] }) {
+  const { team, teams, me } = useLeague();
+  const [who, setWho] = useState<number | 'all'>('all');
+  const [all, setAll] = useState(false);
+  const byId = useMemo(() => new Map(markets.map((m) => [m.id, m])), [markets]);
+  const outcome = (t: MarketBet) => {
+    const m = byId.get(t.market_id);
+    if (!m || m.status === 'open') return { label: 'open', net: null as number | null };
+    if (m.status === 'void') return { label: 'void', net: 0 };
+    const won = m.winner_key === t.pick;
+    return { label: won ? 'won' : 'lost', net: won ? Math.round(t.payout ?? t.coins * t.odds) - t.coins : -t.coins };
+  };
+  const gms = teams.filter((t) => tickets.some((x) => x.team_id === t.id));
+  const totals = gms.map((t) => {
+    const mine = tickets.filter((x) => x.team_id === t.id).map(outcome);
+    return { t, net: mine.reduce((s, o) => s + (o.net ?? 0), 0), w: mine.filter((o) => o.label === 'won').length, l: mine.filter((o) => o.label === 'lost').length, open: mine.filter((o) => o.label === 'open').length };
+  }).sort((a, b) => b.net - a.net);
+  const rows = tickets.filter((t) => who === 'all' || t.team_id === who);
+  return (
+    <Section title="📜 Every ticket" right={<span className="text-xs text-mute">{tickets.length} placed</span>}>
+      <div className="scroll-x mb-2 flex gap-1">
+        <button className={`chip shrink-0 py-1 ${who === 'all' ? 'bg-sky-500 text-ice' : ''}`} onClick={() => setWho('all')}>Everyone</button>
+        {totals.map(({ t, net, w, l, open }) => (
+          <button key={t.id} className={`chip shrink-0 items-center gap-1 py-1 ${who === t.id ? 'bg-sky-500 text-ice' : ''}`} onClick={() => setWho(t.id)}>
+            <TeamBadge team={t} size={14} />{t.gm_name} <b className={net > 0 ? 'text-emerald-300' : net < 0 ? 'text-red-300' : ''}>{net > 0 ? '+' : ''}{net}</b>
+            <span className="text-[10px] text-mute">{w}-{l}{open ? ` · ${open} open` : ''}</span>
+          </button>
+        ))}
+      </div>
+      <div className="card divide-y divide-white/[.06]">
+        {(all ? rows : rows.slice(0, 15)).map((t) => {
+          const m = byId.get(t.market_id);
+          const o = m?.options.find((x) => x.key === t.pick);
+          const r = outcome(t);
+          return (
+            <div key={t.id} className={`flex items-center gap-2 px-3 py-2 text-sm ${t.team_id === me?.id ? 'bg-white/[.03]' : ''}`}>
+              <TeamBadge team={team(t.team_id)} size={22} />
+              <div className="min-w-0 flex-1">
+                <div className="truncate"><b>{team(t.team_id)?.gm_name}</b> · {o?.label ?? t.pick} <span className="text-mute">@ {Number(t.odds).toFixed(2)}</span></div>
+                <div className="truncate text-[11px] text-mute">{m ? `${KIND[m.kind].icon} ${m.title}` : 'Market'} · {t.coins} ☘️ to win {Math.round(t.coins * t.odds) - t.coins} · {fmtDate(m?.date ?? t.created_at.slice(0, 10))}</div>
+              </div>
+              <span className={`num shrink-0 text-right font-semibold ${r.label === 'won' ? 'text-emerald-300' : r.label === 'lost' ? 'text-red-300' : 'text-mute'}`}>
+                {r.label === 'open' ? 'open' : r.label === 'void' ? 'void' : `${r.net! > 0 ? '+' : ''}${r.net}`}
+              </span>
+            </div>
+          );
+        })}
+      </div>
+      {rows.length > 15 && <button className="mt-1 w-full text-center text-xs text-sky-300" onClick={() => setAll(!all)}>{all ? 'Fewer' : `All ${rows.length} tickets`}</button>}
+      <p className="mt-1 px-1 text-[11px] text-mute">Net = what a ticket paid minus its stake. Void tickets were refunded.</p>
+    </Section>
   );
 }
