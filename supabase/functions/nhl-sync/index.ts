@@ -36,6 +36,9 @@ const getJson = async (url: string) => {
   return r.json();
 };
 const get = (path: string) => getJson(`${NHL}${path}`);
+// the league day (today_et() in the database): last night's date until its final game is over
+const leagueToday = async () => { const { data } = await db.rpc('today_et'); return (data as string | null) ?? etDate(new Date()); };
+const nextDay = (d: string) => new Date(new Date(d + 'T12:00:00Z').getTime() + 86400000).toISOString().slice(0, 10);
 const check = <T>({ data, error }: { data: T; error: unknown }) => {
   if (error) throw error;
   return data;
@@ -230,7 +233,7 @@ async function players() {
     }
   }
   // on game day the box score is the truth: don't let a roster feed that's behind on a trade undo it
-  const { data: dressed } = await db.from('player_games').select('player_id,nhl_team').eq('date', etDate(new Date()));
+  const { data: dressed } = await db.from('player_games').select('player_id,nhl_team').eq('date', await leagueToday());
   const boxTeam = new Map((dressed ?? []).filter((x) => x.nhl_team).map((x) => [x.player_id as number, x.nhl_team as string]));
   const have = new Map<number, string[]>();
   for (let i = 0; i < seen.length; i += 300) {
@@ -312,8 +315,8 @@ async function news() {
 const ymd = (d: string) => d.replaceAll('-', '');
 async function gameday() {
   const inj = await injuries();
-  const now = new Date();
-  const dates = [etDate(now), etDate(new Date(now.getTime() + 86400000))];
+  const today = await leagueToday();
+  const dates = [today, nextDay(today)];
   const { byName } = await nameIndex();
   let rows = 0, events = 0;
   for (const date of dates) {
@@ -368,7 +371,7 @@ async function gameday() {
 async function autoLineups() {
   const { data: league } = await db.from('league').select('phase,roster').single();
   if (league?.phase !== 'season') return { skipped: league?.phase };
-  const today = etDate(new Date());
+  const today = await leagueToday();
   const teams = check(await db.from('teams').select('id,auto_mode,auto_basis,lineup_touched').neq('auto_mode', 'off')) as
     { id: number; auto_mode: Mode; auto_basis: Basis; lineup_touched: string | null }[];
   const todo = teams.filter((t) => t.lineup_touched !== today);

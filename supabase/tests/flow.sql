@@ -898,3 +898,21 @@ select 'season bet progress has both sides', bet_progress(:season_bet) ? 'a' and
 select settle_due_bets() is not null as settled;
 select 'season bet settled (expect settled)', status, winner_team is not null or push from bets where id = :season_bet;
 update league set season_end = '2027-04-10';
+
+-- ───────────── the league day waits for the last game of the night ─────────────
+reset role;
+delete from games where id in (9051, 9052);
+-- a game from "yesterday" still in overtime at 12:40 am: the day hasn't turned over
+insert into games (id, date, start_utc, home, away, state) values (9051, date '2031-01-14', timestamptz '2031-01-15 03:00+00', 'SEA', 'SJS', 'LIVE');
+select 'overtime past midnight holds the day (expect 2031-01-14)', _league_day(timestamptz '2031-01-15 00:40-05');
+-- it goes final: the day turns over
+update games set state = 'OFF' where id = 9051;
+select 'final lets it turn over (expect 2031-01-15)', _league_day(timestamptz '2031-01-15 00:45-05');
+-- a stuck game can't hold the day past 6 am
+update games set state = 'LIVE' where id = 9051;
+select 'stuck game released at 6 am (expect 2031-01-15)', _league_day(timestamptz '2031-01-15 06:01-05');
+-- a game that hasn't started (postponed or not yet on) doesn't hold anything
+update games set state = 'FUT', start_utc = timestamptz '2031-01-15 09:00+00' where id = 9051;
+select 'unstarted game does not hold (expect 2031-01-15)', _league_day(timestamptz '2031-01-15 00:40-05');
+select 'normal afternoon (expect today)', _league_day(now()) = (now() at time zone 'America/New_York')::date or now() at time zone 'America/New_York' < date_trunc('day', now() at time zone 'America/New_York') + interval '6 hours';
+delete from games where id = 9051;

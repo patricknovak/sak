@@ -1,5 +1,15 @@
-export const etToday = () =>
+// the calendar date in the league's time zone
+export const etCalendarToday = () =>
   new Intl.DateTimeFormat('en-CA', { timeZone: 'America/New_York', year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date());
+const etHour = () => Number(new Intl.DateTimeFormat('en-US', { timeZone: 'America/New_York', hour: 'numeric', hourCycle: 'h23' }).format(new Date()));
+// the league day: it stays on the previous date until that night's last game is final (the store sets the hold
+// while one is still going), and turns over at 6 am ET no matter what, the same rule as the server's today_et()
+let dayHold: string | null = null;
+export const setLeagueDayHold = (d: string | null) => { dayHold = d; };
+export const etToday = () => {
+  const cal = etCalendarToday();
+  return dayHold && dayHold < cal && etHour() < 6 ? dayHold : cal;
+};
 
 export const fmtPts = (n: number | null | undefined, d = 1) =>
   n == null ? '—' : Number(n).toLocaleString(undefined, { minimumFractionDigits: d, maximumFractionDigits: d });
