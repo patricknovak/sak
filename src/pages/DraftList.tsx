@@ -15,7 +15,7 @@ import type { DraftPick } from '../lib/types';
 type Comment = { id: number; feature_key: string; team_id: number; body: string; created_at: string };
 const KEY = 'draft-list';
 
-export default function DraftList() {
+export default function DraftList({ embedded = false }: { embedded?: boolean } = {}) {
   const { me, league, teams, team, players, rosters, picks, draft, refresh } = useLeague();
   const { busy, run } = useAction();
   const season = draft?.season ?? league?.season ?? '';
@@ -62,9 +62,9 @@ export default function DraftList() {
 
   return (
     <div className="space-y-5">
-      <PageHeader icon={<ClipboardList size={22} className="text-gold" />} title="Draft list"
+      {!embedded && <PageHeader icon={<ClipboardList size={22} className="text-gold" />} title="Draft list"
         sub={<span>{season} · {rounds} rounds, {n} teams, {league?.snake ? 'snake: the order flips every other round' : 'no snake: the same order every round'}{league?.draft_at ? ` · ${fmtDateTime(league.draft_at)}` : ''}</span>}
-        right={<Link to="/draft" className="btn btn-sm">Draft room →</Link>} />
+        right={<Link to="/draft" className="btn btn-sm">Draft room →</Link>} />}
 
       <div className="card space-y-2 p-3 text-sm">
         <p><b>How the order works.</b> Pick 1 goes to last place in {last?.season}, pick 2 to second-last, and so on up to the champion at pick {n}. {league?.snake ? 'Even rounds run in reverse.' : 'Every round runs in that same order.'} Picks traded last season are shown with who they came from. Look it over and post a comment below if anything is off; the commish can fix it before the draft.</p>

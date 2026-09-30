@@ -45,7 +45,7 @@ const POS = ['C', 'LW', 'RW', 'D', 'G'];
 const CAT_LABEL: Record<string, string> = { g: 'G', a: 'A', ppp: 'PPP', sog: 'SOG', hit: 'HIT', blk: 'BLK', pm: '+/-', w: 'W', sv: 'SV', sho: 'SO' };
 const rankCls = (r: number, n: number) => (r === 1 ? 'bg-gold/25 text-gold' : r <= 2 ? 'bg-emerald-500/20 text-emerald-200' : r >= n ? 'bg-red-500/20 text-red-200' : r >= n - 1 ? 'bg-amber-500/15 text-amber-200' : 'bg-white/[.06] text-slate-300');
 
-export default function DraftAnalysisPage() {
+export default function DraftAnalysisPage({ embedded = false }: { embedded?: boolean } = {}) {
   const { team, players, me, teams, draft } = useLeague();
   const a = useDraftAnalysis();
   const [notes, setNotes] = useState<Commentary | null>(null);
@@ -160,8 +160,8 @@ export default function DraftAnalysisPage() {
 
   return (
     <div className="space-y-4">
-      <PageHeader icon={<LineChart size={22} className="text-gold" />} title="Draft analysis" sub={`${draft?.season ?? ''} · every roster played out over the real schedule`}
-        right={<Link to="/draft" className="btn-ghost btn-sm">Draft board</Link>} />
+      {!embedded && <PageHeader icon={<LineChart size={22} className="text-gold" />} title="Draft analysis" sub={`${draft?.season ?? ''} · every roster played out over the real schedule`}
+        right={<Link to="/draft" className="btn-ghost btn-sm">Draft board</Link>} />}
       {!a ? (
         <div className="space-y-2"><Skeleton className="h-24" /><Skeleton className="h-64" /><div className="text-center text-xs text-mute">Simulating the season…</div></div>
       ) : (

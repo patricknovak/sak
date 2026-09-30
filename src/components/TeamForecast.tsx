@@ -15,7 +15,7 @@ export function TeamForecastCard({ teamId }: { teamId: number }) {
   if (!t) return null;
   const weakest = Object.entries(t.posRank).sort((x, y) => y[1] - x[1])[0];
   return (
-    <Link to="/draft/analysis" className="card flex flex-wrap items-center gap-3 p-3 transition hover:bg-white/[.04]">
+    <Link to="/draft?t=analysis" className="card flex flex-wrap items-center gap-3 p-3 transition hover:bg-white/[.04]">
       <div className="text-2xl">📈</div>
       <div className="min-w-0 flex-1 text-sm">
         <div className="font-semibold">Full-year forecast: {ordinal(i + 1)} of {a.teams.length} · {fmtPts(t.year, 0)} pts</div>

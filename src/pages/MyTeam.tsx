@@ -238,7 +238,7 @@ export default function MyTeam() {
       {mine && <LineupTools open={tools} onClose={() => setTools(false)} roster={roster} />}
       {(league?.phase === 'season' || league?.phase === 'offseason') && view !== 'plan' && <TeamForecastCard teamId={t.id} />}
       {league?.phase === 'keepers' && mine && (
-        <Link to="/keepers" className="card block bg-amber-500/10 p-3 text-sm text-amber-100">🔒 It’s keeper season: this is your 2025-26 roster. Pick who you keep →</Link>
+        <Link to="/draft?t=keepers" className="card block bg-amber-500/10 p-3 text-sm text-amber-100">🔒 It’s keeper season: this is your 2025-26 roster. Pick who you keep →</Link>
       )}
 
       <div className="flex flex-wrap items-center gap-1">

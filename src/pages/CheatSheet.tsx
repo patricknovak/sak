@@ -16,7 +16,7 @@ import { Headshot, PageHeader, Pos, Section, useToast } from '../components/ui';
 const SLOT_LABEL: Record<StartSlot, string> = { C: 'Centres', LW: 'Left wings', RW: 'Right wings', D: 'Defence', Util: 'Utility (any skater)', G: 'Goalies' };
 const oddsClass = (v: number) => (v >= 70 ? 'bg-emerald-500/20 text-emerald-200' : v >= 35 ? 'bg-amber-400/20 text-amber-100' : 'bg-red-500/20 text-red-200');
 
-export default function CheatSheet() {
+export default function CheatSheet({ embedded = false }: { embedded?: boolean } = {}) {
   const { me, league, teams, players, rosters, picks, draft } = useLeague();
   const toast = useToast();
   const caps = league?.roster as Record<string, number> | undefined;
@@ -98,8 +98,8 @@ export default function CheatSheet() {
 
   return (
     <div className="space-y-4">
-      <PageHeader icon={<ClipboardList size={22} className="text-gold" />} title="Draft cheat sheet" sub={draft?.status === 'live' ? `Live: pick #${draft.current_overall} on the clock` : `Your picks: ${myPicks.slice(0, 6).map((n) => '#' + n).join(', ')}${myPicks.length > 6 ? '…' : ''}`}
-        right={<button className="btn btn-sm" disabled={simming} onClick={runOdds}><RefreshCw size={14} className={simming ? 'animate-spin' : ''} /> {simming ? 'Simulating' : 'Refresh odds'}</button>} />
+      {!embedded && <PageHeader icon={<ClipboardList size={22} className="text-gold" />} title="Draft cheat sheet" sub={draft?.status === 'live' ? `Live: pick #${draft.current_overall} on the clock` : `Your picks: ${myPicks.slice(0, 6).map((n) => '#' + n).join(', ')}${myPicks.length > 6 ? '…' : ''}`}
+        right={<button className="btn btn-sm" disabled={simming} onClick={runOdds}><RefreshCw size={14} className={simming ? 'animate-spin' : ''} /> {simming ? 'Simulating' : 'Refresh odds'}</button>} />}
 
       <div className="card p-3">
         <div className="label mb-1.5">Your roster right now</div>
@@ -123,7 +123,7 @@ export default function CheatSheet() {
       </Section>
       </div>
 
-      <p className="px-1 text-xs text-mute">Tap ⭐ to add anyone to your draft queue; autodraft takes the top of your queue if you’re away. Green means he’ll almost surely be there, amber is a coin flip, red means take him now or forget him. Practise in the <Link to="/mock" className="text-sky-300">mock draft</Link>.</p>
+      <p className="px-1 text-xs text-mute">Tap ⭐ to add anyone to your draft queue; autodraft takes the top of your queue if you’re away. Green means he’ll almost surely be there, amber is a coin flip, red means take him now or forget him. Practise in the <Link to="/draft?t=mock" className="text-sky-300">mock draft</Link>.</p>
       <PlayerSheet id={detail} onClose={() => setDetail(null)} />
     </div>
   );

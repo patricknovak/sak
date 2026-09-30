@@ -7,8 +7,8 @@ import { ago, countdown } from '../lib/format';
 import { currentSubscription } from '../lib/push';
 import { Sheet, TeamBadge } from './ui';
 import {
-  Bell, ClipboardList, FlaskConical, Dices, Home, Landmark, Lightbulb, Lock, LogOut, Menu, MessageCircle, Radio, Repeat2, Search, Shield,
-  Trophy, Tv, UserRound, Globe, ListOrdered, NotebookPen, Wrench, LineChart, Wallet, type LucideIcon,
+  Bell, ClipboardList, Dices, Home, Landmark, Lightbulb, LogOut, Menu, MessageCircle, Radio, Repeat2, Search, Shield,
+  Trophy, Tv, UserRound, Globe, Wrench, Wallet, type LucideIcon,
 } from 'lucide-react';
 
 type Item = { to: string; label: string; icon: LucideIcon; commish?: boolean };
@@ -96,7 +96,7 @@ export function Layout({ children }: { children: ReactNode }) {
   const spectator = me?.role === 'spectator';
   const items: Item[] = [
     { to: '/', label: 'Home', icon: Home },
-    draftish ? { to: '/draft', label: 'Draft', icon: ClipboardList } : spectator ? { to: '/standings', label: 'Standings', icon: Trophy } : { to: '/team', label: 'Lineup', icon: Shield },
+    draftish ? { to: '/draft', label: 'Draft Centre', icon: ClipboardList } : spectator ? { to: '/standings', label: 'Standings', icon: Trophy } : { to: '/team', label: 'Lineup', icon: Shield },
     { to: '/chat', label: 'Chat', icon: MessageCircle },
     { to: '/nhl', label: 'NHL centre', icon: Tv },
   ];
@@ -105,11 +105,7 @@ export function Layout({ children }: { children: ReactNode }) {
     { to: '/players', label: 'Players', icon: Search },
     { to: '/yahoo', label: 'My pools', icon: Globe },
     ...(draftish ? [] : [{ to: '/scoreboard', label: 'Live scoreboard', icon: Radio }]),
-    draftish ? { to: '/team', label: 'My Team', icon: Shield } : { to: '/draft', label: 'Draft Board', icon: ClipboardList },
-    { to: '/keepers', label: 'Keepers', icon: Lock },
-    { to: '/draft/list', label: 'Draft order & picks', icon: ListOrdered },
-    ...(draftish ? [] : [{ to: '/draft/analysis', label: 'Draft analysis', icon: LineChart }]),
-    ...(draftish ? [{ to: '/draft/sheet', label: 'Draft cheat sheet', icon: NotebookPen }, { to: '/mock', label: 'Mock Draft', icon: FlaskConical }] : []),
+    draftish ? { to: '/team', label: 'My Team', icon: Shield } : { to: '/draft', label: 'Draft Centre', icon: ClipboardList },
     { to: '/trades', label: 'Trades', icon: Repeat2 },
     { to: '/bets', label: 'Side Bets', icon: Dices },
     { to: '/money', label: 'Money', icon: Wallet },

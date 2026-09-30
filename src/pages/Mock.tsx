@@ -19,7 +19,7 @@ type Mode = 'real' | 'custom';
 
 const shuffle = <T,>(a: T[]) => { const b = [...a]; for (let i = b.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [b[i], b[j]] = [b[j], b[i]]; } return b; };
 
-export default function Mock() {
+export default function Mock({ embedded = false }: { embedded?: boolean } = {}) {
   const { me, league, teams, team, players, rosters, picks, draft } = useLeague();
   const toast = useToast();
   const now = useNow(250);
@@ -172,7 +172,7 @@ export default function Mock() {
     const keptCount = teams.filter((t) => t.keepers_submitted).length;
     return (
       <div className="space-y-4">
-        <PageHeader icon={<FlaskConical size={22} className="text-clover" />} title="Mock Draft" sub="Practice against bot GMs. Nothing here counts." />
+        {!embedded && <PageHeader icon={<FlaskConical size={22} className="text-clover" />} title="Mock Draft" sub="Practice against bot GMs. Nothing here counts." />}
         <div className="card-hero space-y-4 p-4" style={{ '--tc': me.color } as React.CSSProperties}>
           {realReady && (
             <div className="relative">

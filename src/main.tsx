@@ -13,8 +13,6 @@ window.addEventListener('vite:preloadError', (e) => { if (reloadForNewVersion())
 import Login from './pages/Login';
 import Home from './pages/Home';
 
-const Draft = lazy(() => import('./pages/Draft'));
-const Keepers = lazy(() => import('./pages/Keepers'));
 const MyTeam = lazy(() => import('./pages/MyTeam'));
 const Players = lazy(() => import('./pages/Players'));
 const Chat = lazy(() => import('./pages/Chat'));
@@ -26,13 +24,10 @@ const LeaguePage = lazy(() => import('./pages/League'));
 const Commish = lazy(() => import('./pages/Commish'));
 const Profile = lazy(() => import('./pages/Profile'));
 const News = lazy(() => import('./pages/News'));
-const Mock = lazy(() => import('./pages/Mock'));
-const CheatSheet = lazy(() => import('./pages/CheatSheet'));
-const DraftAnalysis = lazy(() => import('./pages/DraftAnalysis'));
 const PlayerPage = lazy(() => import('./pages/PlayerPage'));
 const Features = lazy(() => import('./pages/Features'));
 const DraftTV = lazy(() => import('./pages/DraftTV'));
-const DraftList = lazy(() => import('./pages/DraftList'));
+const DraftCentre = lazy(() => import('./pages/DraftCentre'));
 const Scoreboard = lazy(() => import('./pages/Scoreboard'));
 const NHL = lazy(() => import('./pages/NHL'));
 const Yahoo = lazy(() => import('./pages/Yahoo'));
@@ -85,14 +80,14 @@ function App() {
       <Suspense fallback={<Loading />}>
         <Routes>
           <Route path="/" element={<Home />} />
-          <Route path="/draft" element={<Draft />} />
+          <Route path="/draft" element={<DraftCentre />} />
           <Route path="/draft/tv" element={<DraftTV />} />
-          <Route path="/draft/list" element={<DraftList />} />
+          <Route path="/draft/list" element={<Navigate to="/draft?t=order" replace />} />
           <Route path="/scoreboard" element={<Scoreboard />} />
           <Route path="/nhl" element={<NHL />} />
           <Route path="/yahoo" element={<Yahoo />} />
           <Route path="/yahoo/:key" element={<YahooLeague />} />
-          <Route path="/keepers" element={<Keepers />} />
+          <Route path="/keepers" element={<Navigate to="/draft?t=keepers" replace />} />
           <Route path="/team" element={<MyTeam />} />
           <Route path="/team/:id" element={<MyTeam />} />
           <Route path="/players" element={<Players />} />
@@ -105,9 +100,9 @@ function App() {
           <Route path="/commish" element={<Commish />} />
           <Route path="/profile" element={<Profile />} />
           <Route path="/news" element={<News />} />
-          <Route path="/mock" element={<Mock />} />
-          <Route path="/draft/sheet" element={<CheatSheet />} />
-          <Route path="/draft/analysis" element={<DraftAnalysis />} />
+          <Route path="/mock" element={<Navigate to="/draft?t=mock" replace />} />
+          <Route path="/draft/sheet" element={<Navigate to="/draft?t=sheet" replace />} />
+          <Route path="/draft/analysis" element={<Navigate to="/draft?t=analysis" replace />} />
           <Route path="/player/:id" element={<PlayerPage />} />
           <Route path="/features" element={<Features />} />
           <Route path="*" element={<Navigate to="/" replace />} />
