@@ -110,7 +110,12 @@ export function LeagueProvider({ children }: { children: ReactNode }) {
       const today = new Date(new Date(etCalendarToday() + 'T12:00:00Z').getTime() - 86400000).toISOString().slice(0, 10);
       const end = new Date(Date.now() + 8 * 86400000).toISOString().slice(0, 10);
       const { data } = await supabase.from('games').select('*').gte('date', today).lte('date', end).order('start_utc');
-      if (data) setGames(data as Game[]);
+      if (data) {
+        // set the league-day hold before anything renders with these games (a late game from last night still on)
+        const going = (data as Game[]).some((g) => g.date === today && new Date(g.start_utc).getTime() <= Date.now() && !['OFF', 'FINAL', 'PPD', 'CNCL'].includes(g.state));
+        setLeagueDayHold(going ? today : null);
+        setGames(data as Game[]);
+      }
     },
     notifications: async () => {
       const { data } = await supabase.from('notifications').select('*').order('id', { ascending: false }).limit(50);

@@ -5,7 +5,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { useLeague } from '../lib/store';
 import { hub } from '../lib/nhlhub';
-import { etToday, fmtTime } from '../lib/format';
+import { fmtTime } from '../lib/format';
 import { PageHeader, Section, Sheet, TeamBadge } from '../components/ui';
 import { ExternalLink, Headphones, Play, Radio, Tv } from 'lucide-react';
 import { InjuriesTab, LeadersTab, NewsTab, TeamsTab, XTab } from '../components/NhlMore';
@@ -122,15 +122,23 @@ function Video({ id, title, onClose }: { id: string; title: string; onClose: () 
 }
 
 export default function NHL() {
-  const { me, players, rosters, owner, team, teams } = useLeague();
+  const { me, players, rosters, owner, team, teams, leagueDay } = useLeague();
   const [params, setParams] = useSearchParams();
   const tab = (params.get('t') as 'top' | 'scores' | 'standings' | 'schedule' | 'news' | 'injuries' | 'x' | 'leaders' | 'teams') || 'top';
   const setTab = (t: string) => setParams((p) => { const n = new URLSearchParams(p); n.set('t', t); return n; });
-  const [date, setDate] = useState(etToday());
+  const [date, setDate] = useState(leagueDay);
   const [scores, setScores] = useState<{ date: string; prev: string | null; next: string | null; games: Game[] } | null>(null);
   const [standings, setStandings] = useState<{ asOf: string; rows: Row[] } | null>(null);
   const [week, setWeek] = useState<{ prev: string | null; next: string | null; days: { date: string; games: Game[] }[] } | null>(null);
-  const [weekDate, setWeekDate] = useState(etToday());
+  const [weekDate, setWeekDate] = useState(leagueDay);
+  // follow the league day (it holds on last night until its final game ends), unless you've paged elsewhere
+  const [lastDay, setLastDay] = useState(leagueDay);
+  useEffect(() => {
+    if (leagueDay === lastDay) return;
+    setDate((d) => (d === lastDay ? leagueDay : d));
+    setWeekDate((d) => (d === lastDay ? leagueDay : d));
+    setLastDay(leagueDay);
+  }, [leagueDay]); // eslint-disable-line react-hooks/exhaustive-deps
   const [err, setErr] = useState<string | null>(null);
   const [open, setOpen] = useState<Game | null>(null);
   const [view, setView] = useState<'div' | 'conf' | 'league' | 'wc'>('div');
@@ -140,7 +148,7 @@ export default function NHL() {
   // live games refresh every 30 seconds, a slate that hasn't started every 2 minutes
   const anyLive = !!scores?.games.some((g) => LIVE.has(g.state));
   useEffect(() => {
-    if (tab !== 'scores' || date !== etToday()) return;
+    if (tab !== 'scores' || date !== leagueDay) return;
     const i = window.setInterval(() => { if (document.visibilityState === 'visible') loadScores(date); }, anyLive ? 30_000 : 120_000);
     return () => window.clearInterval(i);
   }, [tab, date, anyLive, loadScores]);
@@ -214,7 +222,7 @@ export default function NHL() {
         <>
           <div className="flex items-center gap-2">
             <button className="btn-ghost btn-sm" disabled={!scores?.prev} onClick={() => scores?.prev && setDate(scores.prev)}>‹ {scores?.prev ? fmtDay(scores.prev) : ''}</button>
-            <div className="flex-1 text-center"><div className="font-bold">{fmtDay(date)}</div>{date !== etToday() && <button className="text-xs text-sky-300" onClick={() => setDate(etToday())}>Today</button>}</div>
+            <div className="flex-1 text-center"><div className="font-bold">{fmtDay(date)}</div>{date !== leagueDay && <button className="text-xs text-sky-300" onClick={() => setDate(leagueDay)}>Today</button>}</div>
             <button className="btn-ghost btn-sm" disabled={!scores?.next} onClick={() => scores?.next && setDate(scores.next)}>{scores?.next ? fmtDay(scores.next) : ''} ›</button>
           </div>
           {!scores && !err && <div className="p-6 text-center text-sm text-mute">Loading…</div>}

@@ -6,7 +6,7 @@ import { Link } from 'react-router-dom';
 import { ExternalLink, Play, Radio } from 'lucide-react';
 import { useLeague, useNow } from '../lib/store';
 import { hub, type Leaders, type NewsStory, type XFeed } from '../lib/nhlhub';
-import { ago, etToday, fmtTime, injuryBadge } from '../lib/format';
+import { ago, fmtTime, injuryBadge } from '../lib/format';
 import { Section, TeamBadge } from './ui';
 
 type NTeam = { id: number; abbrev: string; name: string; place: string; score: number | null; sog: number | null; logo: string | null; record: string | null };
@@ -20,7 +20,7 @@ const fmtDay = (d: string) => new Date(d + 'T12:00:00Z').toLocaleDateString(unde
 const status = (g: TopGame) => DONE.has(g.state) ? `Final${g.outcome && g.outcome !== 'REG' ? ' / ' + g.outcome : ''}` : LIVE.has(g.state) ? (g.clock?.intermission ? `Int ${g.period?.n}` : `${g.period?.type === 'REG' ? 'P' + g.period?.n : g.period?.type} ${g.clock?.time ?? ''}`) : fmtTime(g.start);
 
 export function TopTab({ onGame }: { onGame: (g: TopGame) => void }) {
-  const { players, owner, team, me } = useLeague();
+  const { players, owner, team, me, leagueDay } = useLeague();
   const now = useNow(60_000);
   const [today, setToday] = useState<Scores | null>(null);
   const [last, setLast] = useState<Scores | null>(null);
@@ -30,12 +30,13 @@ export function TopTab({ onGame }: { onGame: (g: TopGame) => void }) {
   const [video, setVideo] = useState<{ id: string; title: string } | null>(null);
   useEffect(() => {
     let dead = false;
-    hub<Scores>('scores', { date: etToday() }).then((s) => { if (dead) return; setToday(s); if (s.prev && !s.games.some((g) => DONE.has(g.state))) hub<Scores>('scores', { date: s.prev }).then((p) => !dead && setLast(p), () => {}); }, () => {});
+    setLast(null);
+    hub<Scores>('scores', { date: leagueDay }).then((s) => { if (dead) return; setToday(s); if (s.prev && !s.games.some((g) => DONE.has(g.state))) hub<Scores>('scores', { date: s.prev }).then((p) => !dead && setLast(p), () => {}); }, () => {});
     hub<{ items: NewsStory[] }>('news').then((r) => !dead && setNews(r.items), () => {});
     hub<XFeed>('x').then((f) => !dead && setX(f), () => {});
     hub<Leaders>('leaders').then((l) => !dead && setLeaders(l), () => {});
     return () => { dead = true; };
-  }, []);
+  }, [leagueDay]);
 
   // which league players play for an NHL club, for the badges
   const byNhl = useMemo(() => { const m = new Map<string, Map<number, number>>(); for (const [, r] of owner) { const p = players.get(r.player_id); if (!p?.nhl_team) continue; const t = m.get(p.nhl_team) ?? new Map(); t.set(r.team_id, (t.get(r.team_id) ?? 0) + 1); m.set(p.nhl_team, t); } return m; }, [owner, players]);
