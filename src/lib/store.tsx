@@ -4,7 +4,7 @@ import { configured, selectAll, realtimeChannel, supabase } from './supabase';
 import type {
   DraftPick, DraftState, Game, League, Notification, Player, PlayerSeason, PlayerStatus, PlayerWindow, Roster, Standing, Team,
 } from './types';
-import { etToday } from './format';
+import { etCalendarToday, etToday, setLeagueDayHold } from './format';
 
 interface Store {
   ready: boolean;
@@ -33,6 +33,7 @@ interface Store {
   online: Set<number>;
   refresh: (what?: Table[]) => Promise<void>;
   serverOffset: number;        // ms to add to Date.now() to match the database clock
+  leagueDay: string;           // today for the league: last night until its final game ends
 }
 
 type Table = 'league' | 'teams' | 'rosters' | 'picks' | 'draft' | 'standings' | 'season' | 'windows' | 'games' | 'notifications' | 'players' | 'gameday';
@@ -105,7 +106,8 @@ export function LeagueProvider({ children }: { children: ReactNode }) {
       setWindows(m);
     },
     games: async () => {
-      const today = etToday();
+      // from yesterday: last night's games may still be going after midnight
+      const today = new Date(new Date(etCalendarToday() + 'T12:00:00Z').getTime() - 86400000).toISOString().slice(0, 10);
       const end = new Date(Date.now() + 8 * 86400000).toISOString().slice(0, 10);
       const { data } = await supabase.from('games').select('*').gte('date', today).lte('date', end).order('start_utc');
       if (data) setGames(data as Game[]);
@@ -221,13 +223,27 @@ export function LeagueProvider({ children }: { children: ReactNode }) {
   const owner = useMemo(() => new Map(rosters.map((r) => [r.player_id, r])), [rosters]);
   const teamMap = useMemo(() => new Map(allTeams.map((t) => [t.id, t])), [allTeams]);
   const team = useCallback((id: number | null | undefined) => (id == null ? undefined : teamMap.get(id)), [teamMap]);
+  // hold the league day on yesterday while any of yesterday's games is still being played (checked each minute)
+  const [leagueDay, setLeagueDay] = useState(etToday());
+  useEffect(() => {
+    const check = () => {
+      const cal = etCalendarToday();
+      const y = new Date(new Date(cal + 'T12:00:00Z').getTime() - 86400000).toISOString().slice(0, 10);
+      const going = games.some((g) => g.date === y && new Date(g.start_utc).getTime() <= Date.now() && !['OFF', 'FINAL', 'PPD', 'CNCL'].includes(g.state));
+      setLeagueDayHold(going ? y : null);
+      setLeagueDay(etToday());
+    };
+    check();
+    const i = window.setInterval(check, 60_000);
+    return () => window.clearInterval(i);
+  }, [games]);
   const gamesByTeam = useCallback((nhl: string | null | undefined, date = etToday()) =>
-    nhl ? games.find((g) => g.date === date && (g.home === nhl || g.away === nhl)) : undefined, [games]);
+    nhl ? games.find((g) => g.date === date && (g.home === nhl || g.away === nhl)) : undefined, [games, leagueDay]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const gameStatus = useCallback((id: number, date?: string) => statuses.get(`${id}|${date ?? etToday()}`), [statuses]);
+  const gameStatus = useCallback((id: number, date?: string) => statuses.get(`${id}|${date ?? etToday()}`), [statuses, leagueDay]); // eslint-disable-line react-hooks/exhaustive-deps
   const value: Store = {
     ready: authReady && (!session || loaded), session, me, league, teams, spectators, can, team, players, rosters, owner, picks, draft,
-    standings, playoffs, cup, season, windows, games, gamesByTeam, notifications, gameStatus, freshNews, online, refresh, serverOffset,
+    standings, playoffs, cup, season, windows, games, gamesByTeam, notifications, gameStatus, freshNews, online, refresh, serverOffset, leagueDay,
   };
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
 }
