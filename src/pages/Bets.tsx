@@ -13,6 +13,7 @@ import { Empty, Section, Sheet, TeamBadge, TeamName, useAction, PageHeader, Coin
 import { BookOpen, Dices, Lightbulb, Sparkles, Trophy } from 'lucide-react';
 import { useSeasonGames } from '../lib/projections';
 import { betWinChance, type OddsCtx } from '../lib/betodds';
+import { betMoves } from '../lib/betresults';
 
 interface Daily { team_id: number; date: string; points: number }
 type Form = { kind: BetKind; opponent: string; title: string; terms: string; stake: string; amount: string; coins: string; odds: number; start: string; end: string; entryClose: string;
@@ -640,27 +641,7 @@ function BetResults({ bets, entries }: { bets: Bet[]; entries: BetEntry[] }) {
   const { team, teams, me } = useLeague();
   const [who, setWho] = useState<number | 'all'>('all');
   const [all, setAll] = useState(false);
-  // what each team gained or lost on one bet
-  const moves = (b: Bet): Map<number, { coins: number; cash: number; won: boolean | null }> => {
-    const m = new Map<number, { coins: number; cash: number; won: boolean | null }>();
-    if (isPool(b.kind)) {
-      const es = entries.filter((e) => e.bet_id === b.id);
-      const winners = (b.result?.winners as number[] | undefined) ?? (b.winner_team ? [b.winner_team] : []);
-      const pot = Number(b.result?.pot ?? es.reduce((s, e) => s + e.coins, 0));
-      const share = winners.length ? Math.floor(pot / winners.length) : 0;
-      for (const e of es) { const w = winners.includes(e.team_id); m.set(e.team_id, { coins: (w ? share : 0) - e.coins, cash: 0, won: b.push ? null : w }); }
-      return m;
-    }
-    const sides = [b.creator_team, b.opponent_team].filter((x): x is number => !!x);
-    if (b.push || !b.winner_team) { for (const t of sides) m.set(t, { coins: 0, cash: 0, won: null }); return m; }
-    const loser = b.winner_team === b.creator_team ? b.opponent_team! : b.creator_team;
-    const coins = loser === b.creator_team ? Math.round(b.coins * Number(b.odds)) : b.coins;
-    const cash = Number(b.amount ?? 0);
-    m.set(b.winner_team, { coins, cash, won: true });
-    m.set(loser, { coins: -coins, cash: -cash, won: false });
-    return m;
-  };
-  const per = bets.map((b) => ({ b, m: moves(b) }));
+  const per = bets.map((b) => ({ b, m: betMoves(b, entries) }));
   const totals = teams.filter((t) => per.some((x) => x.m.has(t.id))).map((t) => {
     const mine = per.map((x) => x.m.get(t.id)).filter((x): x is NonNullable<typeof x> => !!x);
     return { t, coins: mine.reduce((s, x) => s + x.coins, 0), cash: mine.reduce((s, x) => s + x.cash, 0), w: mine.filter((x) => x.won === true).length, l: mine.filter((x) => x.won === false).length, p: mine.filter((x) => x.won === null).length };

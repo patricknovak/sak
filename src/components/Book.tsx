@@ -10,6 +10,7 @@ import { ago, etToday, fmtDate, fmtTime, NHL_TEAMS } from '../lib/format';
 import { Coin, Empty, Section, Sheet, TeamBadge, useAction } from './ui';
 import { BookOpen, Plus } from 'lucide-react';
 import { marketChances } from '../lib/betodds';
+import { ticketOutcome } from '../lib/betresults';
 
 const KIND: Record<MarketKind, { icon: string; label: string }> = { winner: { icon: '🏒', label: 'Moneyline' }, total: { icon: '🥅', label: 'Total goals' }, ot: { icon: '⏱️', label: 'Overtime' }, prop: { icon: '⭐', label: 'Player prop' }, custom: { icon: '🎯', label: 'Commish special' } };
 const STAKES = [10, 25, 50, 100, 250];
@@ -380,18 +381,12 @@ export function BookLeaders() {
 }
 
 // every ticket anyone has placed at the Book: who, on what, for how much, and how it went
-function EveryTicket({ markets, tickets }: { markets: Market[]; tickets: MarketBet[] }) {
+export function EveryTicket({ markets, tickets }: { markets: Market[]; tickets: MarketBet[] }) {
   const { team, teams, me } = useLeague();
   const [who, setWho] = useState<number | 'all'>('all');
   const [all, setAll] = useState(false);
   const byId = useMemo(() => new Map(markets.map((m) => [m.id, m])), [markets]);
-  const outcome = (t: MarketBet) => {
-    const m = byId.get(t.market_id);
-    if (!m || m.status === 'open') return { label: 'open', net: null as number | null };
-    if (m.status === 'void') return { label: 'void', net: 0 };
-    const won = m.winner_key === t.pick;
-    return { label: won ? 'won' : 'lost', net: won ? Math.round(t.payout ?? t.coins * t.odds) - t.coins : -t.coins };
-  };
+  const outcome = (t: MarketBet) => ticketOutcome(byId.get(t.market_id), t);
   const gms = teams.filter((t) => tickets.some((x) => x.team_id === t.id));
   const totals = gms.map((t) => {
     const mine = tickets.filter((x) => x.team_id === t.id).map(outcome);

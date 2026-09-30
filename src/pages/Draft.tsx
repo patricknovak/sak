@@ -303,8 +303,8 @@ export default function Draft() {
           </div>
         </div>
       )}
-      <Link to="/mock" className="relative mt-4 flex items-center gap-3 rounded-2xl border border-emerald-400/25 bg-emerald-500/10 p-3 transition active:scale-[.98]"><span className="text-2xl">🧪</span><span className="flex-1"><span className="block font-bold">Dress rehearsal: run tomorrow’s draft now</span><span className="text-xs text-white/70">The real order, traded picks and everyone’s keepers, against bot GMs. See who’ll be there at your picks, then get graded.</span></span><span className="text-sky-300">→</span></Link>
-      <Link to="/draft/sheet" className="relative mt-3 flex items-center gap-3 rounded-2xl border border-gold/25 bg-gold/[.08] p-3 transition active:scale-[.98]"><span className="text-2xl">📋</span><span className="flex-1"><span className="block font-bold">Your cheat sheet</span><span className="text-xs text-white/70">Your gaps, the best 10 available at each, and the odds each one lasts to your next pick. One screen, no scrolling under the clock.</span></span><span className="text-sky-300">→</span></Link>
+      <Link to="/draft?t=mock" className="relative mt-4 flex items-center gap-3 rounded-2xl border border-emerald-400/25 bg-emerald-500/10 p-3 transition active:scale-[.98]"><span className="text-2xl">🧪</span><span className="flex-1"><span className="block font-bold">Dress rehearsal: run tomorrow’s draft now</span><span className="text-xs text-white/70">The real order, traded picks and everyone’s keepers, against bot GMs. See who’ll be there at your picks, then get graded.</span></span><span className="text-sky-300">→</span></Link>
+      <Link to="/draft?t=sheet" className="relative mt-3 flex items-center gap-3 rounded-2xl border border-gold/25 bg-gold/[.08] p-3 transition active:scale-[.98]"><span className="text-2xl">📋</span><span className="flex-1"><span className="block font-bold">Your cheat sheet</span><span className="text-xs text-white/70">Your gaps, the best 10 available at each, and the odds each one lasts to your next pick. One screen, no scrolling under the clock.</span></span><span className="text-sky-300">→</span></Link>
       <div className="relative mt-3"><DraftCall /></div>
       <div className="relative mt-3"><PushCard hideWhenOn compact /></div>
       <div className="relative mt-4 flex items-center gap-2 text-xs text-white/70">
@@ -347,7 +347,7 @@ export default function Draft() {
           <div className="h-display text-gold-shine text-2xl">🏁 Draft complete</div>
           <div className="text-xs text-mute">{made} picks made. Set your lineup on My Team, then start chirping.</div>
           <div className="mt-2 flex flex-wrap justify-center gap-2">
-            <Link to="/draft/analysis" className="btn-gold btn-sm">📈 Full draft analysis</Link>
+            <Link to="/draft?t=analysis" className="btn-gold btn-sm">📈 Full draft analysis</Link>
             <button className="btn-ghost btn-sm" onClick={() => setReport(true)}>📊 Report card</button>
           </div>
         </div>
@@ -373,7 +373,7 @@ export default function Draft() {
         </div>
         <div className="hidden min-w-0 flex-1 truncate text-xs text-mute lg:block">🔊 Horn when a pick lands, ticks under ten seconds on your clock. 📺 TV mode is the full board for the big screen.</div>
         <SoundToggle fallback />
-        <Link to="/draft/list" className="btn-ghost btn-sm" title="The full pick order, traded picks and keepers">📋<span className="hidden sm:inline">Draft list</span></Link>
+        <Link to="/draft?t=order" className="btn-ghost btn-sm" title="The full pick order, traded picks and keepers">📋<span className="hidden sm:inline">Draft list</span></Link>
         <Link to="/draft/tv" className="btn-ghost btn-sm" title="TV mode: the full board for the big screen"><Tv size={16} /><span className="hidden sm:inline">TV mode</span></Link>
       </div>
 

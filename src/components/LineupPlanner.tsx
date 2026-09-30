@@ -2,7 +2,7 @@
 // on the page to decide it. Today saves straight to the live lineup; future days save as plans that become the
 // live lineup that morning (and the auto-pilot leaves them alone). Plans carry forward: a day with no plan of its
 // own uses the last plan before it, or today's lineup.
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { CalendarDays, Copy, Save, Sparkles, Trash2, Undo2 } from 'lucide-react';
 import { useLeague } from '../lib/store';
 import { rpc, supabase } from '../lib/supabase';
@@ -14,6 +14,7 @@ import type { Game, Player, Roster, Slot } from '../lib/types';
 import { Headshot, useAction } from './ui';
 import { PlayerSheet } from './PlayerCard';
 import { GameStatusChip, NewsDot } from './GameStatus';
+import { PastDay } from './PastDay';
 
 type Row = { r: Roster; p: Player };
 const START: Slot[] = ['C', 'LW', 'RW', 'D', 'Util', 'G'];
@@ -43,8 +44,16 @@ export function LineupPlanner({ roster }: { roster: Row[] }) {
   const today = etToday();
   const caps = (league?.roster ?? {}) as Record<string, number>;
   const end = league?.season_end && league.season_end < addDays(today, 60) ? league.season_end : addDays(today, 60);
-  const days = useMemo(() => { const out: string[] = []; for (let d = today; d <= end; d = addDays(d, 1)) out.push(d); return out; }, [today, end]);
+  // the strip runs from opening night (a played day shows how the team did) to 60 days out
+  const start = league?.season_start && league.season_start < today ? league.season_start : today;
+  const days = useMemo(() => { const out: string[] = []; for (let d = start; d <= end; d = addDays(d, 1)) out.push(d); return out; }, [start, end]);
   const [day, setDay] = useState(today);
+  const [past, setPast] = useState<Map<string, { points: number; games: number }>>(new Map());
+  const strip = useRef<HTMLDivElement>(null);
+  const todayBtn = useRef<HTMLButtonElement>(null);
+  useEffect(() => { if (me && start < today) supabase.from('team_daily').select('date,points,games').eq('team_id', me.id).lt('date', today).then(({ data }) => setPast(new Map((data ?? []).map((r) => [r.date, { points: Number(r.points), games: r.games }])))); }, [me?.id, start, today]);
+  // open on today, with a couple of played days peeking in from the left
+  useEffect(() => { const el = strip.current, b = todayBtn.current; if (el && b) el.scrollLeft = Math.max(0, b.offsetLeft - el.offsetLeft - 124); }, [days.length]); // eslint-disable-line react-hooks/exhaustive-deps
   const [plans, setPlans] = useState<Map<string, Map<number, string>>>(new Map());
   const [draft, setDraft] = useState<Map<number, string> | null>(null);   // unsaved edits for the selected day
   const [info, setInfo] = useState<number | null>(null);
@@ -270,17 +279,20 @@ export function LineupPlanner({ roster }: { roster: Row[] }) {
       <PlayerSheet id={info} onClose={() => setInfo(null)} />
       {/* the date strip */}
       <div className="card p-2">
-        <div className="mb-1.5 flex items-center gap-1.5 px-1 text-xs text-mute"><CalendarDays size={14} /> Pick a day. Set it now, up to {Math.round((new Date(end).getTime() - new Date(today).getTime()) / 86400000)} days out.</div>
-        <div className="scroll-x flex gap-1 pb-1">
+        <div className="mb-1.5 flex items-center gap-1.5 px-1 text-xs text-mute"><CalendarDays size={14} /> Pick a day. Set it now, up to {Math.round((new Date(end).getTime() - new Date(today).getTime()) / 86400000)} days out{start < today ? '; scroll left to see how any played day went' : ''}.</div>
+        <div ref={strip} className="scroll-x flex gap-1 pb-1">
           {days.map((d) => {
-            const s = games ? summary(d) : null;
+            const gone = d < today;
+            const s = !gone && games ? summary(d) : null;
+            const pd = gone ? past.get(d) : undefined;
             const own = plans.has(d);
             const on = d === day;
             return (
-              <button key={d} onClick={() => setDay(d)} className={`relative flex w-[58px] shrink-0 flex-col items-center rounded-xl border px-1 py-1.5 text-center transition ${on ? 'border-gold bg-gold/15' : 'border-white/[.07] bg-white/[.03] hover:bg-white/[.07]'}`}>
+              <button key={d} ref={d === today ? todayBtn : undefined} onClick={() => setDay(d)} className={`relative flex w-[58px] shrink-0 flex-col items-center rounded-xl border px-1 py-1.5 text-center transition ${on ? 'border-gold bg-gold/15' : gone ? 'border-white/[.05] bg-black/20 hover:bg-white/[.05]' : 'border-white/[.07] bg-white/[.03] hover:bg-white/[.07]'}`}>
                 <span className="text-[10px] font-semibold uppercase text-mute">{d === today ? 'Today' : dayLabel(d)}</span>
-                <span className="text-sm font-bold">{monthDay(d).replace(/^\w+ /, '')}</span>
+                <span className={`text-sm font-bold ${gone ? 'text-slate-300' : ''}`}>{monthDay(d).replace(/^\w+ /, '')}</span>
                 <span className="text-[9px] text-mute">{monthDay(d).split(' ')[0]}</span>
+                {gone && <span className={`num mt-0.5 rounded-full px-1.5 text-[10px] font-bold ${pd ? 'bg-gold/15 text-gold' : 'bg-white/[.05] text-mute'}`} title={pd ? `${fmtPts(pd.points, 2)} points that day` : 'No points that day'}>{pd ? fmtPts(pd.points, 1) : '–'}</span>}
                 {s && <span className={`num mt-0.5 rounded-full px-1.5 text-[10px] font-bold ${s.benched > 0 ? 'bg-amber-500/20 text-amber-200' : s.playing ? 'bg-emerald-500/20 text-emerald-200' : 'bg-white/[.05] text-mute'}`} title={`${s.playing} starters playing${s.benched ? `, ${s.benched} benched with a game` : ''}`}>{s.playing}{s.benched ? `+${s.benched}` : ''}</span>}
                 {own && <span className="absolute right-1 top-1 h-1.5 w-1.5 rounded-full bg-sky-400" title="Lineup set for this day" />}
               </button>
@@ -291,9 +303,12 @@ export function LineupPlanner({ roster }: { roster: Row[] }) {
           <span><span className="rounded-full bg-emerald-500/20 px-1 text-emerald-200">5</span> starters with a game</span>
           <span><span className="rounded-full bg-amber-500/20 px-1 text-amber-200">5+2</span> and 2 benched who play</span>
           <span><span className="mr-0.5 inline-block h-1.5 w-1.5 rounded-full bg-sky-400" />lineup saved for that day</span>
+          {start < today && <span><span className="rounded-full bg-gold/15 px-1 text-gold">12.5</span> points scored on a played day</span>}
         </div>
       </div>
 
+      {day < today && me && <PastDay day={day} roster={roster} teamId={me.id} onInfo={setInfo} />}
+      {day >= today && <>
       {/* the day */}
       <div className="card space-y-2 p-3">
         <div className="flex flex-wrap items-center gap-2">
@@ -468,6 +483,7 @@ export function LineupPlanner({ roster }: { roster: Row[] }) {
           {view === 'points' ? 'Fantasy points each category produced under the league’s scoring. Tap a column to sort.' : view === 'proj' ? 'The SAK projection for the full season (goalies: GP = starts, G = wins, A = saves, P = shutouts). Range = the gap between a bad year and a great year.' : view === 'fantasy' ? 'Proj/G = projected fantasy points per game. ROS = rest of season. FP uses the timeframe below. Games = NHL games from the selected day.' : 'Tap a column to sort. Per game divides by games played.'}
         </div>
       </div>
+      </>}
     </div>
   );
 }

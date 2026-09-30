@@ -14,7 +14,7 @@ import { Lock } from 'lucide-react';
 import { KeeperReport } from '../components/KeeperReport';
 import confetti from 'canvas-confetti';
 
-export default function Keepers() {
+export default function Keepers({ embedded = false }: { embedded?: boolean } = {}) {
   const { me, league, teams, rosters, players, team, refresh } = useLeague();
   const now = useNow(1000);
   const { busy, run } = useAction();
@@ -95,7 +95,7 @@ export default function Keepers() {
   if (phase === 'keepers' && me?.role === 'spectator') {
     return (
       <div className="space-y-4">
-        <PageHeader icon={<Lock size={22} className="text-gold" />} title="Keepers" sub="Being picked right now" />
+        {!embedded && <PageHeader icon={<Lock size={22} className="text-gold" />} title="Keepers" sub="Being picked right now" />}
         <div className="card p-5 text-sm text-mute">Every GM keeps up to {max} players from last season. Their picks stay secret until the commish finalizes them{deadline ? ` after ${fmtDateTime(league!.keeper_deadline!)}` : ''}, then they show up here.</div>
         <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
           {teams.map((t) => (
@@ -111,7 +111,7 @@ export default function Keepers() {
     // keepers are final: show everyone's
     return (
       <div className="space-y-4">
-        <PageHeader icon={<Lock size={22} className="text-gold" />} title="Keepers" sub={`${league?.season} · locked in and revealed`} />
+        {!embedded && <PageHeader icon={<Lock size={22} className="text-gold" />} title="Keepers" sub={`${league?.season} · locked in and revealed`} />}
         <KeeperReport onPlayer={open} />
         <div className="grid gap-3 sm:grid-cols-2">
           {teams.map((t) => {

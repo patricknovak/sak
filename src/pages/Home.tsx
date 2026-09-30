@@ -9,6 +9,7 @@ import { ArrowRight, ClipboardList, Lock, Megaphone, MessageCircle, Radio, Troph
 import { PlayerRow, usePlayerSheet } from '../components/PlayerCard';
 import { SEASONS } from '../data/history';
 import { PushCard } from '../components/PushCard';
+import { BankCard, BetResultsCard, NhlTopCard, TicketsCard } from '../components/HomeCards';
 
 export default function Home() {
   const { me, league, teams, team, standings: regular, playoffs, rosters, players, draft, picks, gamesByTeam, online, leagueDay } = useLeague();
@@ -22,7 +23,7 @@ export default function Home() {
 
   useEffect(() => {
     const load = () => {
-      supabase.from('messages').select('*').eq('channel', 'general').order('id', { ascending: false }).limit(8).then(({ data }) => setFeed((data ?? []) as Message[]));
+      supabase.from('messages').select('*').eq('channel', 'general').order('id', { ascending: false }).limit(4).then(({ data }) => setFeed((data ?? []) as Message[]));
       supabase.from('bets').select('*').in('status', ['open', 'accepted']).order('id', { ascending: false }).then(({ data }) => setBets((data ?? []) as Bet[]));
       supabase.from('trades').select('*').in('status', ['proposed', 'accepted']).then(({ data }) => setTrades((data ?? []) as Trade[]));
     };
@@ -94,7 +95,7 @@ export default function Home() {
               <div className="label flex items-center gap-1.5 text-white/70"><Lock size={12} /> Keeper deadline</div>
               <div className="mt-2">{league?.keeper_deadline ? <Countdown ms={new Date(league.keeper_deadline).getTime() - now} size="md" /> : <span className="h-display text-2xl">TBD</span>}</div>
               <div className="mt-1 text-xs text-white/60">{league?.keeper_deadline && fmtDateTime(league.keeper_deadline)} · keep up to {league?.keepers}</div>
-              <Link to="/keepers" className={`mt-3 w-full ${me?.keepers_submitted ? 'btn-ghost' : 'btn-primary pulse-ring'}`}>
+              <Link to="/draft?t=keepers" className={`mt-3 w-full ${me?.keepers_submitted ? 'btn-ghost' : 'btn-primary pulse-ring'}`}>
                 {me?.keepers_submitted ? '✅ Keepers set · edit' : '🔒 Pick your keepers'}
               </Link>
             </div>
@@ -104,7 +105,7 @@ export default function Home() {
               <div className="label flex items-center gap-1.5 text-white/70"><ClipboardList size={12} /> Draft night</div>
               <div className="mt-2">{league?.draft_at ? <Countdown ms={new Date(league.draft_at).getTime() - now} size="md" /> : <span className="h-display text-2xl">TBD</span>}</div>
               <div className="mt-1 text-xs text-white/60">{league?.draft_at && fmtDateTime(league.draft_at)} · {league?.pick_seconds}s clock · {league?.draft_rounds} rounds</div>
-              <div className="mt-3 grid grid-cols-[1fr_auto_auto] gap-2"><Link to="/draft" className="btn-blue">📋 Draft room</Link><Link to="/draft/list" className="btn-ghost" title="Pick order, traded picks and keepers">🔢 Order</Link><Link to="/mock" className="btn-ghost">🧪 Mock draft</Link></div>
+              <div className="mt-3 grid grid-cols-[1fr_auto_auto] gap-2"><Link to="/draft" className="btn-blue">📋 Draft room</Link><Link to="/draft?t=order" className="btn-ghost" title="Pick order, traded picks and keepers">🔢 Order</Link><Link to="/draft?t=mock" className="btn-ghost">🧪 Mock draft</Link></div>
             </div>
           )}
           {(draft?.status === 'live' || draft?.status === 'paused') && (
@@ -224,7 +225,7 @@ export default function Home() {
             <div className="card space-y-1 p-2">
               {feed.length === 0 && <div className="p-3 text-sm text-mute">Quiet in here. Someone chirp somebody.</div>}
               {feed.map((m) => (
-                <Link to="/chat" key={m.id} className="flex items-start gap-2.5 rounded-xl px-2 py-2 transition hover:bg-white/[.04]">
+                <Link to="/chat" key={m.id} className="flex items-start gap-2.5 rounded-xl px-2 py-1 transition hover:bg-white/[.04]">
                   {m.kind === 'system' ? <span className="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-white/[.06] text-sm">📢</span>
                     : m.kind === 'bot' ? <span className="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-gradient-to-br from-emerald-400 to-emerald-800 text-sm shadow-[0_4px_14px_-4px_rgba(52,211,153,.8)]">🎙️</span>
                     : <TeamBadge team={team(m.team_id)} size={32} />}
@@ -233,12 +234,17 @@ export default function Home() {
                       <span className={`font-bold ${m.kind === 'bot' ? 'text-emerald-300' : 'text-slate-200'}`}>{m.kind === 'bot' ? 'Garry' : m.kind === 'system' ? 'League' : team(m.team_id)?.gm_name}</span>
                       <span className="text-mute">{ago(m.created_at, now)}</span>
                     </div>
-                    <div className={`line-clamp-2 whitespace-pre-line text-sm ${m.kind === 'system' ? 'text-slate-300' : 'text-slate-100'}`}>{m.body}</div>
+                    <div className={`line-clamp-1 whitespace-pre-line text-sm ${m.kind === 'system' ? 'text-slate-300' : 'text-slate-100'}`}>{m.body}</div>
                   </div>
                 </Link>
               ))}
             </div>
           </Section>
+
+          {phase === 'season' && <NhlTopCard />}
+          <BankCard />
+          <TicketsCard />
+          <BetResultsCard />
 
           {myBets.filter((b) => b.status === 'accepted').length > 0 && (
             <Section title="Your action" right={<More to="/bets" label="Bets" />}>
