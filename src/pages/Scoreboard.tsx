@@ -3,7 +3,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useLeague, useNow } from '../lib/store';
 import { supabase } from '../lib/supabase';
-import { etToday, fmtPts, fmtTime, readable } from '../lib/format';
+import { fmtPts, fmtTime, readable } from '../lib/format';
 import { NhlLogo, PageHeader, Pos, Section, TeamBadge } from '../components/ui';
 import type { Game } from '../lib/types';
 import { Radio } from 'lucide-react';
@@ -23,9 +23,9 @@ function gameLabel(g: Game) {
 }
 
 export default function Scoreboard() {
-  const { me, teams, players, rosters, games, league, standings } = useLeague();
+  const { me, teams, players, rosters, games, league, standings, leagueDay } = useLeague();
   const now = useNow(30_000);
-  const today = etToday();
+  const today = leagueDay;
   const slate = useMemo(() => games.filter((g) => g.date === today).sort((a, b) => a.start_utc.localeCompare(b.start_utc)), [games, today]);
   const [snaps, setSnaps] = useState<Snap[]>([]);
   const [pgs, setPgs] = useState<PG[]>([]);

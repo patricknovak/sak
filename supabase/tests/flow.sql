@@ -184,7 +184,7 @@ select 'future pick trade', status from trades where id = :pick_trade;
 -- ── bets
 select pg_temp.as_team(7);
 set role authenticated;
-select create_bet(8, 'Most points in October', 'Whoever scores more fantasy points in October', 'h2h', 'a two-four', 20, '2026-10-01', '2026-10-31', 150) as bet_id \gset
+select create_bet(8, 'Most points in October', 'Whoever scores more fantasy points in October', 'h2h', 'a two-four', 20, today_et() + 1, today_et() + 31, 150) as bet_id \gset
 reset role;
 select pg_temp.as_team(8);
 set role authenticated;
@@ -448,11 +448,16 @@ insert into games (id, date, start_utc, home, away, state) select 3, today_et() 
 insert into player_games (game_id, player_id, date, stats) select 3, id, today_et() - 1, '{"g":1,"a":2,"sog":4}' from players where name = 'Connor McDavid';
 select pg_temp.as_team(7);
 set role authenticated;
+-- a window that's already under way can't be bet on
+do $$ begin perform create_bet_v2(jsonb_build_object('opponent', 8, 'title', 'Too late', 'kind', 'player_ou', 'coins', 5,
+  'start', (today_et() - 1)::text, 'end', (today_et() - 1)::text, 'subject', jsonb_build_object('player_id', (select id from players where name = 'Connor McDavid'), 'stat', 'g', 'line', 0.5, 'side', 'over')));
+  raise exception 'bet on a finished night allowed';
+exception when others then if sqlerrm not like '%already started%' then raise; end if; end $$;
 select create_bet_v2(jsonb_build_object('opponent', 8, 'title', 'McDavid over 0.5 goals', 'kind', 'player_ou', 'coins', 40,
-  'start', (today_et() - 1)::text, 'end', (today_et() - 1)::text,
+  'start', (today_et() + 1)::text, 'end', (today_et() + 1)::text,
   'subject', jsonb_build_object('player_id', (select id from players where name = 'Connor McDavid'), 'stat', 'g', 'line', 0.5, 'side', 'over'))) as ou_id \gset
 select create_bet_v2(jsonb_build_object('title', 'Pick a player: most fantasy points yesterday', 'kind', 'pool_player', 'coins', 30,
-  'start', (today_et() - 1)::text, 'end', (today_et() - 1)::text, 'entry_close', (today_et() - 1)::text,
+  'start', (today_et() + 1)::text, 'end', (today_et() + 1)::text, 'entry_close', (today_et() + 1)::text,
   'subject', jsonb_build_object('player_id', (select id from players where name = 'Connor McDavid')))) as pool_id \gset
 do $$ begin perform create_bet_v2(jsonb_build_object('title', 'no dates', 'kind', 'player_vs', 'coins', 1, 'subject', '{}'::jsonb)); raise exception 'dateless tracked bet allowed';
 exception when others then if sqlerrm not like '%start and end date%' then raise; end if; end $$;
@@ -470,6 +475,8 @@ select set_config('sak.pool_id', :'pool_id', false);
 do $$ begin perform join_pool(current_setting('sak.pool_id')::bigint, jsonb_build_object('player_id', 1)); raise exception 'double entry allowed';
 exception when others then if sqlerrm not like '%already in%' then raise; end if; end $$;
 reset role;
+-- both were made and taken ahead of time; now play the window out (yesterday) so they can settle
+update bets set start_date = today_et() - 1, end_date = today_et() - 1 where id in (:ou_id, :pool_id);
 select 'progress ou (expect value 1)', bet_progress(:ou_id)->>'value' as value, bet_progress(:ou_id)->>'line' as line;
 select 'escrow team 8 (expect 70 = 40 + 30)', escrow from coin_balances where team_id = 8;
 update bets set entry_close = today_et() - 1 where id = :pool_id;
@@ -916,3 +923,27 @@ update games set state = 'FUT', start_utc = timestamptz '2031-01-15 09:00+00' wh
 select 'unstarted game does not hold (expect 2031-01-15)', _league_day(timestamptz '2031-01-15 00:40-05');
 select 'normal afternoon (expect today)', _league_day(now()) = (now() at time zone 'America/New_York')::date or now() at time zone 'America/New_York' < date_trunc('day', now() at time zone 'America/New_York') + interval '6 hours';
 delete from games where id = 9051;
+
+-- ───────────── no taking or joining a box-score bet once its night is under way ─────────────
+select pg_temp.as_team(7);
+set role authenticated;
+select create_bet_v2(jsonb_build_object('opponent', 8, 'title', 'Late taker', 'kind', 'team_ou', 'coins', 5,
+  'start', (today_et() + 1)::text, 'end', (today_et() + 1)::text, 'subject', jsonb_build_object('line', 10, 'side', 'over'))) as late_bet \gset
+select create_bet_v2(jsonb_build_object('title', 'Late pool', 'kind', 'pool_team', 'coins', 5,
+  'start', (today_et() + 1)::text, 'end', (today_et() + 1)::text, 'entry_close', (today_et() + 1)::text, 'subject', jsonb_build_object('team_id', 7))) as late_pool \gset
+reset role;
+select set_config('t.late_bet', :'late_bet', false), set_config('t.late_pool', :'late_pool', false);
+select 'custom bets are not affected (expect t)', not _bet_underway(null);
+-- tonight's first game drops the puck
+update bets set start_date = today_et(), end_date = today_et() where id in (:late_bet, :late_pool);
+insert into games (id, date, start_utc, home, away, state) values (9061, today_et(), now() - interval '10 minutes', 'SEA', 'SJS', 'LIVE') on conflict do nothing;
+select 'window under way (expect t)', _bet_underway(today_et());
+select pg_temp.as_team(8);
+set role authenticated;
+do $$ begin perform respond_bet(current_setting('t.late_bet')::bigint, true); raise exception 'took a bet after puck drop';
+exception when others then if sqlerrm not like '%Too late%' then raise; end if; end $$;
+do $$ begin perform join_pool(current_setting('t.late_pool')::bigint, jsonb_build_object('team_id', 8)); raise exception 'joined a pool after puck drop';
+exception when others then if sqlerrm not like '%Too late%' then raise; end if; end $$;
+reset role;
+delete from games where id = 9061;
+select 'before puck drop it is fine (expect f)', _bet_underway(today_et() + 1);

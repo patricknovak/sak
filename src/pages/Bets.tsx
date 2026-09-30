@@ -36,13 +36,14 @@ const isPool = (k: BetKind) => k.startsWith('pool');
 
 // date windows in ET: tonight, this week (Mon–Sun), next 7 days, this month, the whole season
 const shift = (d: string, n: number) => { const x = new Date(d + 'T12:00:00Z'); x.setUTCDate(x.getUTCDate() + n); return x.toISOString().slice(0, 10); };
-function windows(seasonStart: string | null, seasonEnd: string | null) {
-  const t = etToday();
+// once tonight's first game has started, box-score bets start tomorrow (no betting on a night already under way)
+function windows(seasonStart: string | null, seasonEnd: string | null, tonightStarted: boolean) {
+  const t = tonightStarted ? shift(etToday(), 1) : etToday();
   const dow = (new Date(t + 'T12:00:00Z').getUTCDay() + 6) % 7;   // Monday = 0
   const mon = shift(t, -dow);
   const mEnd = new Date(t.slice(0, 7) + '-01T12:00:00Z'); mEnd.setUTCMonth(mEnd.getUTCMonth() + 1); mEnd.setUTCDate(0);
   return [
-    { label: 'Tonight', start: t, end: t }, { label: 'This week', start: mon, end: shift(mon, 6) }, { label: 'Next 7 days', start: t, end: shift(t, 6) },
+    { label: tonightStarted ? 'Tomorrow night' : 'Tonight', start: t, end: t }, { label: tonightStarted ? 'Rest of the week' : 'This week', start: tonightStarted ? t : mon, end: shift(mon, 6) }, { label: 'Next 7 days', start: t, end: shift(t, 6) },
     { label: 'This month', start: t, end: mEnd.toISOString().slice(0, 10) }, { label: 'Rest of season', start: t, end: seasonEnd ?? shift(t, 180) },
     ...(seasonStart ? [{ label: 'Whole season', start: seasonStart, end: seasonEnd ?? shift(seasonStart, 190) }] : []),
   ];
@@ -58,7 +59,7 @@ function suggestLine(p: Player | undefined, stat: BetStat, start: string, end: s
 }
 
 export default function Bets() {
-  const { me, teams, team, players, owner, rosters, standings, spectators, can, league, games } = useLeague();
+  const { me, teams, team, players, owner, rosters, standings, spectators, can, league, games, leagueDay } = useLeague();
   const seasonGames = useSeasonGames();
   const [ruling, setRuling] = useState<Bet | null>(null);
   const now = useNow(30_000);
@@ -73,13 +74,17 @@ export default function Bets() {
   const [showAllSettled, setShowAllSettled] = useState(false);
   const [open, setOpen] = useState(false);
   const [joining, setJoining] = useState<Bet | null>(null);
-  const blank: Form = { kind: 'custom', opponent: '', title: '', terms: '', stake: '', amount: '', coins: '100', odds: 1, start: etToday(), end: etToday(), entryClose: etToday(), playerId: null, playerB: null, stat: 'fpts', line: '', side: 'over', teamPick: null };
+  const tonightStarted = games.some((g) => g.date === leagueDay && !['PPD', 'CNCL'].includes(g.state) && new Date(g.start_utc).getTime() <= now);
+  // a box-score bet whose first night has started can't be taken or joined (the server enforces it too)
+  const underway = (b: Bet) => !!b.start_date && (b.start_date < leagueDay || (b.start_date === leagueDay && tonightStarted));
+  const firstDay = tonightStarted ? shift(etToday(), 1) : etToday();
+  const blank: Form = { kind: 'custom', opponent: '', title: '', terms: '', stake: '', amount: '', coins: '100', odds: 1, start: firstDay, end: firstDay, entryClose: firstDay, playerId: null, playerB: null, stat: 'fpts', line: '', side: 'over', teamPick: null };
   const [f, setF] = useState<Form>(blank);
   const [params, setParams] = useSearchParams();
   const tab = (params.get('t') as 'side' | 'book' | 'leaders') || 'side';
   const setTab = (t: string) => setParams(t === 'side' ? {} : { t }, { replace: true });
   const gms = useMemo(() => teams.filter((t) => t.role !== 'spectator'), [teams]);
-  const wins = useMemo(() => windows(league?.season_start ?? null, league?.season_end ?? null), [league?.season_start, league?.season_end]);
+  const wins = useMemo(() => windows(league?.season_start ?? null, league?.season_end ?? null, tonightStarted), [league?.season_start, league?.season_end, tonightStarted]);
 
   const load = () => {
     supabase.from('bets').select('*').order('id', { ascending: false }).then(({ data }) => setBets((data ?? []) as Bet[]));
@@ -252,7 +257,8 @@ export default function Bets() {
     const other = b.creator_team === me?.id ? b.opponent_team : b.creator_team;
     const kind = KINDS.find((k) => k.k === b.kind);
     const inPool = pool && entries.some((e) => e.bet_id === b.id && e.team_id === me?.id);
-    const canJoin = pool && b.status === 'open' && !inPool && can('bets') && me?.role !== 'spectator' && (b.entry_close ?? '') >= etToday();
+    const late = TRACKED.has(b.kind) && underway(b);
+    const canJoin = pool && b.status === 'open' && !inPool && can('bets') && me?.role !== 'spectator' && (b.entry_close ?? '') >= etToday() && !late;
     return (
       <div className={`card p-3 ${mine ? 'border-sky-400/30 shadow-[0_0_0_1px_rgba(76,195,255,.15),0_12px_32px_-18px_rgba(76,195,255,.6)]' : ''}`}>
         <div className="flex items-start gap-2">
@@ -300,7 +306,8 @@ export default function Bets() {
         <div className="mt-3 flex flex-wrap gap-2">
           {canJoin && <button className="btn-primary btn-sm" disabled={busy} onClick={() => setJoining(b)}>Buy in ({b.coins} ☘️)</button>}
           {inPool && b.status === 'open' && b.creator_team !== me?.id && <button className="btn-ghost btn-sm" disabled={busy} onClick={() => run(async () => { await rpc('leave_pool', { p_bet: b.id }); load(); }, 'You’re out')}>Back out</button>}
-          {can('bets') && !pool && b.status === 'open' && b.creator_team !== me?.id && (!b.opponent_team || b.opponent_team === me?.id) && (
+          {b.status === 'open' && late && <span className="self-center text-xs text-amber-200">⏰ Its games have started: too late to {pool ? 'join' : 'take'}.</span>}
+          {can('bets') && !pool && b.status === 'open' && !late && b.creator_team !== me?.id && (!b.opponent_team || b.opponent_team === me?.id) && (
             <>
               <button className="btn-primary btn-sm" disabled={busy} onClick={() => run(async () => { await rpc('respond_bet', { p_bet: b.id, p_accept: true }); load(); }, 'You’re on! 🤝')}>Take the bet{TRACKED.has(b.kind) && b.subject?.side ? ` (the ${b.subject.side === 'over' ? 'under' : 'over'})` : ''}</button>
               {b.opponent_team === me?.id && <button className="btn-ghost btn-sm" disabled={busy} onClick={() => run(async () => { await rpc('respond_bet', { p_bet: b.id, p_accept: false }); load(); }, 'Declined 🐔')}>Decline</button>}
@@ -459,6 +466,7 @@ export default function Bets() {
           <div className="grid gap-2 sm:grid-cols-2 2xl:grid-cols-3">{(showAllSettled ? groups.settled : groups.settled.slice(0, 6)).map((b) => <Fragment key={b.id}>{BetCard({ b })}</Fragment>)}</div>
         </Section>
       )}
+      {groups.settled.length > 0 && <BetResults bets={groups.settled} entries={entries} />}
       <p className="text-center text-xs text-mute">How the numbers work: fantasy points come from the NHL box scores, the same ones as the standings. Tracked bets settle at 8:45 a.m. ET the morning after they end, once stat corrections are in. Ties push. <Link to="/league?t=rules" className="text-sky-300">Rulebook</Link></p>
       </>}
 
@@ -624,5 +632,79 @@ function Ruling({ b, entries, onDone }: { b: Bet; entries: BetEntry[]; onDone: (
         onDone();
       }, 'Ruling made ⚖️')}>Make the ruling</button>
     </div>
+  );
+}
+
+// every settled side bet: who won, who lost, and what changed hands (coins and cash), with each GM's totals
+function BetResults({ bets, entries }: { bets: Bet[]; entries: BetEntry[] }) {
+  const { team, teams, me } = useLeague();
+  const [who, setWho] = useState<number | 'all'>('all');
+  const [all, setAll] = useState(false);
+  // what each team gained or lost on one bet
+  const moves = (b: Bet): Map<number, { coins: number; cash: number; won: boolean | null }> => {
+    const m = new Map<number, { coins: number; cash: number; won: boolean | null }>();
+    if (isPool(b.kind)) {
+      const es = entries.filter((e) => e.bet_id === b.id);
+      const winners = (b.result?.winners as number[] | undefined) ?? (b.winner_team ? [b.winner_team] : []);
+      const pot = Number(b.result?.pot ?? es.reduce((s, e) => s + e.coins, 0));
+      const share = winners.length ? Math.floor(pot / winners.length) : 0;
+      for (const e of es) { const w = winners.includes(e.team_id); m.set(e.team_id, { coins: (w ? share : 0) - e.coins, cash: 0, won: b.push ? null : w }); }
+      return m;
+    }
+    const sides = [b.creator_team, b.opponent_team].filter((x): x is number => !!x);
+    if (b.push || !b.winner_team) { for (const t of sides) m.set(t, { coins: 0, cash: 0, won: null }); return m; }
+    const loser = b.winner_team === b.creator_team ? b.opponent_team! : b.creator_team;
+    const coins = loser === b.creator_team ? Math.round(b.coins * Number(b.odds)) : b.coins;
+    const cash = Number(b.amount ?? 0);
+    m.set(b.winner_team, { coins, cash, won: true });
+    m.set(loser, { coins: -coins, cash: -cash, won: false });
+    return m;
+  };
+  const per = bets.map((b) => ({ b, m: moves(b) }));
+  const totals = teams.filter((t) => per.some((x) => x.m.has(t.id))).map((t) => {
+    const mine = per.map((x) => x.m.get(t.id)).filter((x): x is NonNullable<typeof x> => !!x);
+    return { t, coins: mine.reduce((s, x) => s + x.coins, 0), cash: mine.reduce((s, x) => s + x.cash, 0), w: mine.filter((x) => x.won === true).length, l: mine.filter((x) => x.won === false).length, p: mine.filter((x) => x.won === null).length };
+  }).sort((a, b) => b.coins + b.cash * 10 - (a.coins + a.cash * 10));
+  const rows = per.filter((x) => who === 'all' || x.m.has(who)).sort((a, b) => (b.b.settled_at ?? '').localeCompare(a.b.settled_at ?? ''));
+  return (
+    <Section title="📜 Bet results" right={<span className="text-xs text-mute">{bets.length} settled</span>}>
+      <div className="scroll-x mb-2 flex gap-1">
+        <button className={`chip shrink-0 py-1 ${who === 'all' ? 'bg-sky-500 text-ice' : ''}`} onClick={() => setWho('all')}>Everyone</button>
+        {totals.map(({ t, coins, cash, w, l, p }) => (
+          <button key={t.id} className={`chip shrink-0 items-center gap-1 py-1 ${who === t.id ? 'bg-sky-500 text-ice' : ''}`} onClick={() => setWho(t.id)}>
+            <TeamBadge team={t} size={14} />{t.gm_name}
+            <b className={coins > 0 ? 'text-emerald-300' : coins < 0 ? 'text-red-300' : ''}>{coins > 0 ? '+' : ''}{coins} ☘️</b>
+            {cash !== 0 && <b className={cash > 0 ? 'text-emerald-300' : 'text-red-300'}>{cash > 0 ? '+' : '−'}{fmtMoney(Math.abs(cash))}</b>}
+            <span className="text-[10px] text-mute">{w}-{l}{p ? `-${p}` : ''}</span>
+          </button>
+        ))}
+      </div>
+      <div className="card divide-y divide-white/[.06]">
+        {(all ? rows : rows.slice(0, 12)).map(({ b, m }) => {
+          const winners = [...m.entries()].filter(([, x]) => x.won === true);
+          const mineMove = me ? m.get(me.id) : undefined;
+          return (
+            <div key={b.id} className={`px-3 py-2 text-sm ${mineMove ? 'bg-white/[.03]' : ''}`}>
+              <div className="flex items-center gap-2">
+                <span className="min-w-0 flex-1 truncate font-semibold">{b.title}</span>
+                <span className="shrink-0 text-[11px] text-mute">{b.settled_at ? fmtDate(b.settled_at.slice(0, 10)) : ''}</span>
+              </div>
+              <div className="mt-0.5 flex flex-wrap items-center gap-x-3 gap-y-0.5 text-xs">
+                {b.push ? <span className="text-mute">🤝 Push: stakes returned</span> : winners.length === 0 ? <span className="text-mute">No winner</span> : null}
+                {[...m.entries()].filter(([, x]) => x.won !== null).sort((a, b2) => b2[1].coins - a[1].coins).map(([t, x]) => (
+                  <span key={t} className="flex items-center gap-1">
+                    <TeamBadge team={team(t)} size={14} />{team(t)?.gm_name}
+                    <b className={x.won ? 'text-emerald-300' : 'text-red-300'}>{x.won ? 'won' : 'lost'} {x.coins !== 0 ? `${x.coins > 0 ? '+' : ''}${x.coins} ☘️` : ''}{x.cash ? ` ${x.cash > 0 ? '+' : '−'}${fmtMoney(Math.abs(x.cash))}` : ''}</b>
+                  </span>
+                ))}
+                {(b.result as { ruling?: unknown } | null)?.ruling ? <span className="text-amber-200">⚖️ commish ruling</span> : null}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+      {rows.length > 12 && <button className="mt-1 w-full text-center text-xs text-sky-300" onClick={() => setAll(!all)}>{all ? 'Fewer' : `All ${rows.length} bets`}</button>}
+      <p className="mt-1 px-1 text-[11px] text-mute">Coins and cash each GM won or lost on settled side bets. Pools show each entrant's share of the pot minus their buy-in. Pushes return every stake.</p>
+    </Section>
   );
 }

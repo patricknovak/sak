@@ -3,7 +3,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import { useLeague, useNow } from '../lib/store';
 import { realtimeChannel, supabase } from '../lib/supabase';
 import type { Bet, Message, Trade } from '../lib/types';
-import { ago, fmtDateTime, fmtPts, ordinal, etToday, readable } from '../lib/format';
+import { ago, fmtDateTime, fmtPts, ordinal, readable } from '../lib/format';
 import { Countdown, Rank, Section, Stat, TeamBadge, TeamName, TeamStack } from '../components/ui';
 import { ArrowRight, ClipboardList, Lock, Megaphone, MessageCircle, Radio, Trophy } from 'lucide-react';
 import { PlayerRow, usePlayerSheet } from '../components/PlayerCard';
@@ -11,7 +11,7 @@ import { SEASONS } from '../data/history';
 import { PushCard } from '../components/PushCard';
 
 export default function Home() {
-  const { me, league, teams, team, standings: regular, playoffs, rosters, players, draft, picks, gamesByTeam, online } = useLeague();
+  const { me, league, teams, team, standings: regular, playoffs, rosters, players, draft, picks, gamesByTeam, online, leagueDay } = useLeague();
   const now = useNow(1000);
   const nav = useNavigate();
   const { open, sheet } = usePlayerSheet();
@@ -36,12 +36,12 @@ export default function Home() {
   // today's live fantasy points per player
   useEffect(() => {
     if (league?.phase !== 'season') return;
-    const load = () => supabase.from('player_games').select('player_id,fpts').eq('date', etToday())
+    const load = () => supabase.from('player_games').select('player_id,fpts').eq('date', leagueDay)
       .then(({ data }) => setTodayPts(new Map((data ?? []).map((r) => [r.player_id, Number(r.fpts)]))));
     load();
     const i = setInterval(load, 60_000);
     return () => clearInterval(i);
-  }, [league?.phase]);
+  }, [league?.phase, leagueDay]);
 
   // once NHL playoff games are being scored, Home follows the playoff race
   const inPlayoffs = playoffs.some((t) => Number(t.points) !== 0);

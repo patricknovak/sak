@@ -78,7 +78,8 @@ export async function answer(db: Db, question: string, askerTeam: number): Promi
   const byId = new Map(teams.map((t) => [t.id, t]));
   const me = byId.get(askerTeam);
   const gm = me ? '@' + me.gm_name : 'bud';
-  const today = etDate(new Date());
+  // the league day: after midnight it's still last night until its final game ends
+  const today = ((await db.rpc('today_et')).data as string | null) ?? etDate(new Date());
   const has = (re: RegExp) => re.test(q);
   // "how do I…" wants instructions; "how's my lineup" / "how is Makar" wants the facts
   const howTo = has(/\b(how (do|can|does|to|should|would)|where|help|can i|what do i|explain|show me)\b/);
