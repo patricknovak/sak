@@ -36,13 +36,14 @@ const isPool = (k: BetKind) => k.startsWith('pool');
 
 // date windows in ET: tonight, this week (Mon–Sun), next 7 days, this month, the whole season
 const shift = (d: string, n: number) => { const x = new Date(d + 'T12:00:00Z'); x.setUTCDate(x.getUTCDate() + n); return x.toISOString().slice(0, 10); };
-function windows(seasonStart: string | null, seasonEnd: string | null) {
-  const t = etToday();
+// once tonight's first game has started, box-score bets start tomorrow (no betting on a night already under way)
+function windows(seasonStart: string | null, seasonEnd: string | null, tonightStarted: boolean) {
+  const t = tonightStarted ? shift(etToday(), 1) : etToday();
   const dow = (new Date(t + 'T12:00:00Z').getUTCDay() + 6) % 7;   // Monday = 0
   const mon = shift(t, -dow);
   const mEnd = new Date(t.slice(0, 7) + '-01T12:00:00Z'); mEnd.setUTCMonth(mEnd.getUTCMonth() + 1); mEnd.setUTCDate(0);
   return [
-    { label: 'Tonight', start: t, end: t }, { label: 'This week', start: mon, end: shift(mon, 6) }, { label: 'Next 7 days', start: t, end: shift(t, 6) },
+    { label: tonightStarted ? 'Tomorrow night' : 'Tonight', start: t, end: t }, { label: tonightStarted ? 'Rest of the week' : 'This week', start: tonightStarted ? t : mon, end: shift(mon, 6) }, { label: 'Next 7 days', start: t, end: shift(t, 6) },
     { label: 'This month', start: t, end: mEnd.toISOString().slice(0, 10) }, { label: 'Rest of season', start: t, end: seasonEnd ?? shift(t, 180) },
     ...(seasonStart ? [{ label: 'Whole season', start: seasonStart, end: seasonEnd ?? shift(seasonStart, 190) }] : []),
   ];
@@ -58,7 +59,7 @@ function suggestLine(p: Player | undefined, stat: BetStat, start: string, end: s
 }
 
 export default function Bets() {
-  const { me, teams, team, players, owner, rosters, standings, spectators, can, league, games } = useLeague();
+  const { me, teams, team, players, owner, rosters, standings, spectators, can, league, games, leagueDay } = useLeague();
   const seasonGames = useSeasonGames();
   const [ruling, setRuling] = useState<Bet | null>(null);
   const now = useNow(30_000);
@@ -73,13 +74,17 @@ export default function Bets() {
   const [showAllSettled, setShowAllSettled] = useState(false);
   const [open, setOpen] = useState(false);
   const [joining, setJoining] = useState<Bet | null>(null);
-  const blank: Form = { kind: 'custom', opponent: '', title: '', terms: '', stake: '', amount: '', coins: '100', odds: 1, start: etToday(), end: etToday(), entryClose: etToday(), playerId: null, playerB: null, stat: 'fpts', line: '', side: 'over', teamPick: null };
+  const tonightStarted = games.some((g) => g.date === leagueDay && !['PPD', 'CNCL'].includes(g.state) && new Date(g.start_utc).getTime() <= now);
+  // a box-score bet whose first night has started can't be taken or joined (the server enforces it too)
+  const underway = (b: Bet) => !!b.start_date && (b.start_date < leagueDay || (b.start_date === leagueDay && tonightStarted));
+  const firstDay = tonightStarted ? shift(etToday(), 1) : etToday();
+  const blank: Form = { kind: 'custom', opponent: '', title: '', terms: '', stake: '', amount: '', coins: '100', odds: 1, start: firstDay, end: firstDay, entryClose: firstDay, playerId: null, playerB: null, stat: 'fpts', line: '', side: 'over', teamPick: null };
   const [f, setF] = useState<Form>(blank);
   const [params, setParams] = useSearchParams();
   const tab = (params.get('t') as 'side' | 'book' | 'leaders') || 'side';
   const setTab = (t: string) => setParams(t === 'side' ? {} : { t }, { replace: true });
   const gms = useMemo(() => teams.filter((t) => t.role !== 'spectator'), [teams]);
-  const wins = useMemo(() => windows(league?.season_start ?? null, league?.season_end ?? null), [league?.season_start, league?.season_end]);
+  const wins = useMemo(() => windows(league?.season_start ?? null, league?.season_end ?? null, tonightStarted), [league?.season_start, league?.season_end, tonightStarted]);
 
   const load = () => {
     supabase.from('bets').select('*').order('id', { ascending: false }).then(({ data }) => setBets((data ?? []) as Bet[]));
@@ -252,7 +257,8 @@ export default function Bets() {
     const other = b.creator_team === me?.id ? b.opponent_team : b.creator_team;
     const kind = KINDS.find((k) => k.k === b.kind);
     const inPool = pool && entries.some((e) => e.bet_id === b.id && e.team_id === me?.id);
-    const canJoin = pool && b.status === 'open' && !inPool && can('bets') && me?.role !== 'spectator' && (b.entry_close ?? '') >= etToday();
+    const late = TRACKED.has(b.kind) && underway(b);
+    const canJoin = pool && b.status === 'open' && !inPool && can('bets') && me?.role !== 'spectator' && (b.entry_close ?? '') >= etToday() && !late;
     return (
       <div className={`card p-3 ${mine ? 'border-sky-400/30 shadow-[0_0_0_1px_rgba(76,195,255,.15),0_12px_32px_-18px_rgba(76,195,255,.6)]' : ''}`}>
         <div className="flex items-start gap-2">
@@ -300,7 +306,8 @@ export default function Bets() {
         <div className="mt-3 flex flex-wrap gap-2">
           {canJoin && <button className="btn-primary btn-sm" disabled={busy} onClick={() => setJoining(b)}>Buy in ({b.coins} ☘️)</button>}
           {inPool && b.status === 'open' && b.creator_team !== me?.id && <button className="btn-ghost btn-sm" disabled={busy} onClick={() => run(async () => { await rpc('leave_pool', { p_bet: b.id }); load(); }, 'You’re out')}>Back out</button>}
-          {can('bets') && !pool && b.status === 'open' && b.creator_team !== me?.id && (!b.opponent_team || b.opponent_team === me?.id) && (
+          {b.status === 'open' && late && <span className="self-center text-xs text-amber-200">⏰ Its games have started: too late to {pool ? 'join' : 'take'}.</span>}
+          {can('bets') && !pool && b.status === 'open' && !late && b.creator_team !== me?.id && (!b.opponent_team || b.opponent_team === me?.id) && (
             <>
               <button className="btn-primary btn-sm" disabled={busy} onClick={() => run(async () => { await rpc('respond_bet', { p_bet: b.id, p_accept: true }); load(); }, 'You’re on! 🤝')}>Take the bet{TRACKED.has(b.kind) && b.subject?.side ? ` (the ${b.subject.side === 'over' ? 'under' : 'over'})` : ''}</button>
               {b.opponent_team === me?.id && <button className="btn-ghost btn-sm" disabled={busy} onClick={() => run(async () => { await rpc('respond_bet', { p_bet: b.id, p_accept: false }); load(); }, 'Declined 🐔')}>Decline</button>}

@@ -4,7 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { ArrowLeft, ChevronLeft, ChevronRight, ExternalLink, RefreshCw, Shield } from 'lucide-react';
 import { hub } from '../lib/nhlhub';
-import { etToday } from '../lib/format';
+import { useLeague } from '../lib/store';
 import { yahoo, nhlAbbr, openYahoo, BENCH, SCORING, type YLeagueFull, type YMatchup, type YPlayer, type YRoster, type YTeam, type YTransaction, type YTransactions } from '../lib/yahoo';
 import { Empty, PageHeader, Section, Sheet, Spinner, useAction } from '../components/ui';
 import { YahooMark, useYahooStatus } from '../components/YahooConnect';
@@ -198,7 +198,8 @@ function PlayerRow({ p, right, plays }: { p: YPlayer; right?: React.ReactNode; p
 }
 
 function TeamTab({ L, team, writeOk }: { L: YLeagueFull; team: YTeam; writeOk: boolean | null }) {
-  const [date, setDate] = useState(etToday());
+  const { leagueDay } = useLeague();
+  const [date, setDate] = useState(leagueDay);
   const [R, setR] = useState<YRoster | null>(null);
   const [err, setErr] = useState<string | null>(null);
   const [moves, setMoves] = useState<Record<string, string>>({});
@@ -228,7 +229,7 @@ function TeamTab({ L, team, writeOk }: { L: YLeagueFull; team: YTeam; writeOk: b
     <div className="space-y-2">
       <div className="flex items-center justify-between">
         <button className="btn btn-sm" onClick={() => setDate(shift(date, -1))}><ChevronLeft size={14} /></button>
-        <div className="text-center"><div className="font-semibold">{fmtDay(date)}</div>{date !== etToday() && <button className="text-[11px] text-sky-300" onClick={() => setDate(etToday())}>Today</button>}</div>
+        <div className="text-center"><div className="font-semibold">{fmtDay(date)}</div>{date !== leagueDay && <button className="text-[11px] text-sky-300" onClick={() => setDate(leagueDay)}>Today</button>}</div>
         <button className="btn btn-sm" onClick={() => setDate(shift(date, 1))}><ChevronRight size={14} /></button>
       </div>
       {err && <div className="card border-red-400/30 bg-red-500/10 p-3 text-sm">{err}</div>}
