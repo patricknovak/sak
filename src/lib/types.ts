@@ -2,7 +2,7 @@ export type Slot = 'C' | 'LW' | 'RW' | 'D' | 'Util' | 'G' | 'BN' | 'IR';
 export type Pos = 'C' | 'LW' | 'RW' | 'D' | 'G';
 
 export interface League {
-  id: number; name: string; short_name: string; season: string;
+  id: number; league_id: number; name: string; short_name: string; season: string;
   phase: 'keepers' | 'predraft' | 'draft' | 'season' | 'offseason';
   keepers: number; top_scorer_rule: boolean; keeper_deadline: string | null; draft_at: string | null;
   pick_seconds: number; draft_rounds: number; snake: boolean; season_start: string | null; season_end: string | null;

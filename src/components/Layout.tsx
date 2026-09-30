@@ -73,7 +73,7 @@ function alertMe() {
 }
 
 export function Layout({ children }: { children: ReactNode }) {
-  const { me, league, draft, picks, notifications, refresh } = useLeague();
+  const { me, league, brand, draft, picks, notifications, refresh } = useLeague();
   const now = useNow(1000);
   const loc = useLocation();
   const nav = useNavigate();
@@ -160,7 +160,7 @@ export function Layout({ children }: { children: ReactNode }) {
       <aside className="sticky top-0 hidden h-dvh w-64 shrink-0 flex-col border-r border-white/[.06] bg-[#091020]/70 p-4 backdrop-blur-xl lg:flex">
         <button onClick={() => nav('/')} className="mb-7 flex items-center gap-3 px-1">
           <img src="./icon.svg" className="h-11 w-11 drop-shadow-[0_6px_16px_rgba(247,197,72,.45)]" alt="" />
-          <Wordmark size="sm" tagline={`She’s A Keeper · ${league?.season ?? ""}`} className="text-left" />
+          <Wordmark size="sm" tagline={`${brand.tagline} · ${league?.season ?? ""}`} className="text-left" />
         </button>
         <nav className="flex flex-col gap-0.5">
           {[...items, ...moreItems].filter((i, n, a) => a.findIndex((x) => x.to === i.to) === n).map((i) => {
