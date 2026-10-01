@@ -113,7 +113,7 @@ export type ClubRace = 'points' | 'division' | 'conference' | 'president' | 'cup
 export interface BookRequest {
   template: BookTemplate; bet?: 'winner' | 'total' | 'ot'; game_id?: number;
   players?: number[]; player_id?: number; stat?: string; from?: string; to?: string; line?: number | null;
-  what?: ClubRace; clubs?: string[]; club?: string;
+  what?: ClubRace; clubs?: string[]; club?: string; field?: boolean; pos?: 'S' | 'G' | 'D' | 'F';
 }
 export interface BookSuggestion extends BookRequest { label: string; why: string; group: 'games' | 'players' | 'nhl' }
 export interface BookPreview { kind: MarketKind; title: string; date: string; game_id?: number; subject: Market['subject']; options: MarketOption[]; closes_at: string; note: string }
@@ -123,7 +123,7 @@ export interface Market {
   subject: { home?: string; away?: string; line?: number; player_id?: number; stat?: string; owner?: number; terms?: string | null;
     what?: 'johnson' | 'peter' | 'playoffs' | 'cup' | ClubRace; season?: string; scope?: 'team' | 'player'; team_id?: number;   // season futures and props
     template?: BookTemplate; players?: number[]; clubs?: string[]; group?: string[]; club?: string; from?: string; to?: string;    // requested markets
-    settle?: 'auto' | 'commish'; requested_by?: number; means?: Record<string, number>; mean?: number };
+    settle?: 'auto' | 'commish'; requested_by?: number; means?: Record<string, number>; mean?: number; house?: 'nhl'; pos?: string };
   options: MarketOption[]; closes_at: string; status: 'open' | 'settled' | 'void'; winner_key: string | null;
   result: { home?: number; away?: number; period?: string | null; value?: number; values?: Record<string, number>; winner?: string } | null; created_by: number | null; settled_at: string | null; created_at: string;
 }

@@ -1307,3 +1307,45 @@ set role authenticated;
 select pg_temp.expect('the north league has an empty live board', book_live() = '{}'::jsonb);
 reset role;
 select 'book live', true;
+
+-- ───────────── the Book's NHL board: house futures, one club against the field, player races against the field ─────────────
+reset role;
+-- the fixture has no projection details: give the top skaters, defencemen and goalies some
+update players set proj_stats = jsonb_build_object('pts', round(proj / 2), 'g', round(proj / 5), 'a', round(proj / 3)) where pos <> 'G' and id in (select id from players where pos <> 'G' order by proj desc limit 40);
+update players set proj_stats = jsonb_build_object('w', round(proj / 5), 'sv', round(proj * 8), 'sho', 3) where pos = 'G' and id in (select id from players where pos = 'G' order by proj desc limit 12);
+select pg_temp.as_team(1);
+-- one club against the field in a season-long race
+select preview_market('{"template":"club_race","what":"cup","clubs":["EDM"]}') as pv \gset
+select pg_temp.expect('one club runs against the field for the Cup', jsonb_array_length(:'pv'::jsonb->'options') = 2 and :'pv'::jsonb->'options'->1->>'key' = 'field' and :'pv'::jsonb->>'title' like 'Edmonton Oilers%');
+-- a player against the field: the pool is the rest of the top 30 at the stat
+select preview_market(format('{"template":"player_race","players":[%s],"stat":"g","field":true,"from":"%s","to":"%s"}', :mcd, today_et(), today_et() + 7)::jsonb) as pv \gset
+select pg_temp.expect('a player against the field prices the field from the rest of the top 30', jsonb_array_length(:'pv'::jsonb->'options') = 2 and :'pv'::jsonb->'options'->1->>'key' = 'field'
+  and jsonb_array_length(:'pv'::jsonb->'subject'->'group') between 2 and 31);
+-- the house board opens once a season
+update league_rules set trade_deadline = now() + interval '60 days' where league_id = 1;
+select open_nhl_markets() as n_nhl \gset
+select pg_temp.expect('the NHL board opened with the Cup, the Presidents'' Trophy, the divisions and the awards', :n_nhl >= 7
+  and (select count(*) from markets where subject->>'house' = 'nhl' and title = 'Stanley Cup winner') = 1
+  and (select count(*) from markets where subject->>'house' = 'nhl' and title like 'Art Ross%') = 1
+  and (select count(*) from markets where subject->>'house' = 'nhl' and title like 'Most wins%') = 1);
+select pg_temp.expect('the board opens once', open_nhl_markets() = 0);
+select id as ross_id from markets where subject->>'house' = 'nhl' and title like 'Art Ross%' \gset
+select pg_temp.expect('the Art Ross runs eight against the field over the whole season', (select jsonb_array_length(options) = 9 and options->8->>'key' = 'field' and (subject->>'from')::date <= today_et() from markets where id = :ross_id));
+select pg_temp.expect('the live price of a field race covers the whole pool', (select jsonb_array_length(_live_options(m)) = 9 from markets m where id = :ross_id));
+select pg_temp.expect('the Cup market runs the twelve strongest against the field', (select jsonb_array_length(options) from markets where subject->>'house' = 'nhl' and title = 'Stanley Cup winner') = (select least(12, count(*)) + case when count(*) > 12 then 1 else 0 end from nhl_teams));
+-- a field race settles league-wide: a leader outside the picks pays the field
+select pg_temp.as_team(7);
+set role authenticated;
+select request_market(format('{"template":"player_race","players":[%s],"stat":"g","field":true,"from":"%s","to":"%s"}', :mcd, today_et(), today_et() + 2)::jsonb, 'p' || :mcd, 10) as rq_field \gset
+reset role;
+update markets set subject = subject || jsonb_build_object('from', today_et() - 3, 'to', today_et() - 1), closes_at = now() - interval '1 minute' where id = :rq_field;
+insert into games (id, date, start_utc, home, away, state, final_synced) values (898, today_et() - 1, now() - interval '1 day', 'TBL', 'BOS', 'OFF', true) on conflict do nothing;
+insert into player_games (game_id, player_id, date, nhl_team, stats, fpts) values (898, :kuch, today_et() - 1, 'TBL', '{"g":5,"a":0}', 20);
+select settle_race_markets() as n_field \gset
+select pg_temp.expect('a leader outside the picks pays the field', :n_field >= 1 and (select winner_key from markets where id = :rq_field) = 'field' and (select payout from market_bets where market_id = :rq_field and team_id = 7) = 0);
+-- the north league has no NHL board of its own yet
+select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-000000000099', false);
+set role authenticated;
+select pg_temp.expect('the north league sees no house NHL markets', (select count(*) from markets where subject->>'house' = 'nhl') = 0);
+reset role;
+select 'book nhl', true;

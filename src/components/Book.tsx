@@ -138,11 +138,11 @@ export function BookTab() {
 
   // open markets grouped by game (the season markets and the custom ones in groups of their own), in start order
   const groups = useMemo(() => {
-    const g = new Map<string, { key: string; title: string; when: string; kind: 'game' | 'custom' | 'season' | 'asked'; ms: Market[] }>();
-    for (const m of open.filter((x) => filter === 'all' || x.kind === filter || (filter === 'future' && x.kind === 'season_prop'))) {
-      const key = m.game_id ? `g${m.game_id}` : m.kind === 'race' ? 'asked' : SEASON.has(m.kind) ? 'season' : 'custom';
-      if (key === 'season' || key === 'asked') {
-        if (!g.has(key)) g.set(key, { key, title: key === 'asked' ? '🏁 Races & requests' : '🔮 Season futures & props', when: key === 'asked' ? '9998' : '9999', kind: key, ms: [] });
+    const g = new Map<string, { key: string; title: string; when: string; kind: 'game' | 'custom' | 'season' | 'asked' | 'nhl'; ms: Market[] }>();
+    for (const m of open.filter((x) => filter === 'all' || x.kind === filter || (filter === 'future' && x.kind === 'season_prop') || (filter === 'race' && x.kind === 'race'))) {
+      const key = m.game_id ? `g${m.game_id}` : m.kind === 'race' ? (m.subject.house === 'nhl' ? 'nhl' : 'asked') : SEASON.has(m.kind) ? 'season' : 'custom';
+      if (key === 'season' || key === 'asked' || key === 'nhl') {
+        if (!g.has(key)) g.set(key, { key, title: key === 'asked' ? '🏁 Races & requests' : key === 'nhl' ? '🏆 NHL futures: the Cup, the awards, the races' : '🔮 Season futures & props', when: key === 'asked' ? '9998' : key === 'nhl' ? '9997' : '9999', kind: key, ms: [] });
         g.get(key)!.ms.push(m);
         continue;
       }
@@ -200,7 +200,7 @@ export function BookTab() {
         </div>
       )}
       <Tickets m={m} />
-      {m.created_by && me?.is_commish && m.status === 'open' && new Date(m.closes_at).getTime() <= now && !m.game_id && (
+      {(m.created_by || m.subject.house) && me?.is_commish && m.status === 'open' && new Date(m.closes_at).getTime() <= now && !m.game_id && (
         <div className="mt-1.5 flex flex-wrap gap-1 text-[11px]"><span className="text-mute">Settle:</span>{m.options.map((o) => <button key={o.key} className="chip py-0.5" onClick={() => run(async () => { await rpc('commish_settle_market', { p_market: m.id, p_winner: o.key }); reload(); }, 'Settled')}>{o.label} won</button>)}<button className="chip py-0.5 text-red-300" onClick={() => run(async () => { await rpc('commish_settle_market', { p_market: m.id, p_winner: null }); reload(); }, 'Voided')}>Void</button></div>
       )}
     </div>
@@ -272,7 +272,7 @@ export function BookTab() {
 
       {open.length > 0 && (
         <div className="scroll-x flex gap-1">
-          {([['all', 'Everything'], ['future', '🔮 Season'], ['race', '🏁 Races'], ['winner', '🏒 Moneylines'], ['total', '🥅 Totals'], ['ot', '⏱️ Overtime'], ['prop', '⭐ Props'], ['custom', '🎯 Specials']] as const).filter(([k]) => k === 'all' || open.some((m) => m.kind === k || (k === 'future' && m.kind === 'season_prop'))).map(([k, l]) => (
+          {([['all', 'Everything'], ['race', '🏆 NHL & races'], ['future', '🔮 Season'], ['winner', '🏒 Moneylines'], ['total', '🥅 Totals'], ['ot', '⏱️ Overtime'], ['prop', '⭐ Props'], ['custom', '🎯 Specials']] as const).filter(([k]) => k === 'all' || open.some((m) => m.kind === k || (k === 'future' && m.kind === 'season_prop'))).map(([k, l]) => (
             <button key={k} className={`shrink-0 rounded-full px-2.5 py-1 text-xs font-semibold ${filter === k ? 'bg-sky-500 text-ice' : 'bg-white/[.05] text-mute'}`} onClick={() => setFilter(k)}>{l}</button>
           ))}
         </div>
@@ -282,7 +282,7 @@ export function BookTab() {
         <div className="card"><Empty icon="📖" title="The Book is closed">{markets.length ? 'Everything has gone to puck drop. Results land as the games go final.' : 'It opens at 9:35 ET on the next game day with moneylines, totals, overtime and player props.'}{can('bets') && me?.role !== 'spectator' ? ' Or ask it for a market on a game later in the week, a player race or an NHL race.' : ''}</Empty></div>
       )}
       {groups.map((g) => (
-        <Section key={g.key} title={g.kind === 'custom' ? '🎯 Commish specials' : g.title} right={g.kind === 'game' ? <span className="text-xs text-mute">{fmtDate(g.ms[0].date) === fmtDate(etToday()) ? 'Tonight' : fmtDate(g.ms[0].date)} · {fmtTime(g.when)}</span> : g.kind === 'season' ? <span className="text-xs text-mute">open until {fmtDate(g.ms[0].closes_at.slice(0, 10))}</span> : g.kind === 'asked' ? <button className="text-xs text-sky-300" onClick={() => setAsking(true)}>Ask for one</button> : undefined}>
+        <Section key={g.key} title={g.kind === 'custom' ? '🎯 Commish specials' : g.title} right={g.kind === 'game' ? <span className="text-xs text-mute">{fmtDate(g.ms[0].date) === fmtDate(etToday()) ? 'Tonight' : fmtDate(g.ms[0].date)} · {fmtTime(g.when)}</span> : g.kind === 'season' || g.kind === 'nhl' ? <span className="text-xs text-mute">open until {fmtDate(g.ms[0].closes_at.slice(0, 10))}</span> : g.kind === 'asked' ? <button className="text-xs text-sky-300" onClick={() => setAsking(true)}>Ask for one</button> : undefined}>
           <div className="card divide-y divide-white/[.06]">{g.ms.map((m) => <MarketRow key={m.id} m={m} />)}</div>
         </Section>
       ))}
