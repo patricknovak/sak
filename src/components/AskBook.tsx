@@ -11,7 +11,7 @@ import { Coin, Headshot, Spinner, useAction } from './ui';
 
 const TEMPLATES: { key: BookTemplate; icon: string; label: string; blurb: string }[] = [
   { key: 'game', icon: '🏒', label: 'A game', blurb: 'Moneyline, total or overtime on a game later in the week. Settles from the final like tonight’s.' },
-  { key: 'player_race', icon: '🏁', label: 'Player race', blurb: 'Two to six players, one stat, one window. Most goals in October, most saves this week. Counted from the box scores.' },
+  { key: 'player_race', icon: '🏁', label: 'Player race', blurb: 'Up to eight players, one stat, one window. Most goals in October, most saves this week. Add the field to run them against the rest of the league.' },
   { key: 'player_line', icon: '📈', label: 'Player line', blurb: 'One player, one stat, over or under the Book’s number for the window.' },
   { key: 'club_race', icon: '🏆', label: 'NHL race', blurb: 'Clubs against each other: most points over a window, the division, the conference, the Presidents’ Trophy, the Cup, or in or out of the playoffs.' },
   { key: 'club_line', icon: '📊', label: 'Club points', blurb: 'A club’s regular-season points, over or under the Book’s projection.' },
@@ -29,9 +29,9 @@ const endOfMonth = (d: string) => { const x = new Date(d + 'T12:00:00Z'); x.setU
 const ready = (r: BookRequest) => {
   switch (r.template) {
     case 'game': return !!r.game_id;
-    case 'player_race': return (r.players?.length ?? 0) >= 2 && !!r.stat;
+    case 'player_race': return (r.players?.length ?? 0) >= (r.field ? 1 : 2) && !!r.stat;
     case 'player_line': return !!r.player_id && !!r.stat;
-    case 'club_race': return !!r.what && (r.clubs?.length ?? 0) >= (r.what === 'playoffs' ? 1 : 2);
+    case 'club_race': return !!r.what && (r.clubs?.length ?? 0) >= (r.what === 'points' ? 2 : 1);
     case 'club_line': return !!r.club;
   }
 };
@@ -110,6 +110,9 @@ export function AskBook({ onDone, start }: { onDone: () => void; start?: BookReq
         <>
           <PlayerPicker req={req} set={set} players={players} />
           <StatPicker req={req} set={set} players={players} />
+          {req.template === 'player_race' && (
+            <label className="flex items-center gap-2 text-xs text-mute"><input type="checkbox" className="h-4 w-4" checked={!!req.field} onChange={(e) => set({ field: e.target.checked || undefined })} /> Against the field: everyone else in the league’s top 30 at this stat counts as one more option</label>
+          )}
           <WindowPicker req={req} set={set} today={today} seasonEnd={league?.season_end ?? null} />
           {req.template === 'player_line' && (
             <label className="block text-xs text-mute">Line (leave blank for the Book’s number{preview?.subject.mean != null ? `, it expects ${preview.subject.mean}` : ''})
@@ -121,7 +124,7 @@ export function AskBook({ onDone, start }: { onDone: () => void; start?: BookReq
       {req.template === 'club_race' && (
         <>
           <select className="input" value={req.what} onChange={(e) => set({ what: e.target.value as ClubRace, clubs: [] })}>{RACES.map(([k, l]) => <option key={k} value={k}>{l}</option>)}</select>
-          <ClubPicker clubs={req.clubs ?? []} max={req.what === 'playoffs' ? 1 : 8} onChange={(clubs) => set({ clubs })} hint={req.what === 'playoffs' ? 'Pick the club' : req.what === 'points' ? 'Two to eight clubs' : 'Two to eight clubs; the rest of the group is “the field”'} />
+          <ClubPicker clubs={req.clubs ?? []} max={req.what === 'playoffs' ? 1 : 8} onChange={(clubs) => set({ clubs })} hint={req.what === 'playoffs' ? 'Pick the club' : req.what === 'points' ? 'Two to eight clubs' : 'One club against the field, or up to eight; the rest of the group is “the field”'} />
           {req.what === 'points' && <WindowPicker req={req} set={set} today={today} seasonEnd={league?.season_end ?? null} />}
         </>
       )}
@@ -231,7 +234,7 @@ function PlayerPicker({ req, set, players }: { req: BookRequest; set: (p: Partia
           {picked.map((id) => { const p = players.get(id); return <button key={id} className="chip items-center gap-1 py-1 bg-sky-500/20" onClick={() => drop(id)}><Headshot p={p} size={18} />{p?.name ?? id} <span className="text-xs text-mute">{p?.nhl_team}</span> ✕</button>; })}
         </div>
       )}
-      {(single ? picked.length === 0 : picked.length < 6) && (
+      {(single ? picked.length === 0 : picked.length < 8) && (
         <>
           <input className="input" placeholder={picked.length ? 'Add another…' : 'Search any NHL player…'} value={q} onChange={(e) => setQ(e.target.value)} />
           <div className="divide-y divide-white/[.06] rounded-xl border border-white/[.08]">

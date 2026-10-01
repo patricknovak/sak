@@ -28,6 +28,10 @@ const apiKey = Deno.env.get('XAI_API_KEY');
 const ANON_KEY = Deno.env.get('SUPABASE_ANON_KEY') ?? '';
 const GROK_MODEL = Deno.env.get('GROK_MODEL') || 'grok-4';   // any xAI chat model id
 const GROK_URL = 'https://api.x.ai/v1/chat/completions';
+// the site calls two tasks from the browser (the commissioner's shaping buttons, the Book's private line), so the
+// browser's preflight has to be answered and every reply has to carry the CORS headers
+const cors = { 'Access-Control-Allow-Origin': '*', 'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type', 'Access-Control-Allow-Methods': 'GET, POST, OPTIONS' };
+const json = (body: unknown, status = 200) => new Response(JSON.stringify(body), { status, headers: { ...cors, 'Content-Type': 'application/json' } });
 
 // the coin bonuses: top team of the day, team of the week
 const DAILY_BONUS = 5;
@@ -758,10 +762,10 @@ type BookPick = { market_id: number; pick: string; why: string };
 type BookRequest = Record<string, unknown> & { why?: string };
 const TEMPLATES_SPEC = `New markets a GM can ask the Book to open (a "request"), as JSON objects:
 - {"template":"game","bet":"winner"|"total"|"ot","game_id":<id from upcoming_games>}  a game later in the week (not tonight's)
-- {"template":"player_race","stat":"g"|"a"|"pts"|"sog"|"hit"|"blk"|"ppp"|"fpts" (goalies: "w"|"sv"|"sho"|"fpts"),"players":[2 to 6 player ids],"from":"YYYY-MM-DD","to":"YYYY-MM-DD"}  most of a stat over a window
+- {"template":"player_race","stat":"g"|"a"|"pts"|"sog"|"hit"|"blk"|"ppp"|"fpts" (goalies: "w"|"sv"|"sho"|"fpts"),"players":[2 to 8 player ids],"from":"YYYY-MM-DD","to":"YYYY-MM-DD"}  most of a stat over a window; add "field": true (and "pos": "S"|"G"|"D") to run one or more players against the rest of the league
 - {"template":"player_line","stat":<as above>,"player_id":<id>,"from":"YYYY-MM-DD","to":"YYYY-MM-DD"}  over/under the Book's number
 - {"template":"club_race","what":"points","clubs":[2 to 8 NHL abbrevs],"from":"YYYY-MM-DD","to":"YYYY-MM-DD"}  most standings points over a window
-- {"template":"club_race","what":"division"|"conference"|"president"|"cup","clubs":[2 to 8 abbrevs]}  a season-long race (the rest of the group is "the field")
+- {"template":"club_race","what":"division"|"conference"|"president"|"cup","clubs":[1 to 8 abbrevs]}  a season-long race (the rest of the group is "the field"); one club is "that club or the field", e.g. Oilers to win the Cup
 - {"template":"club_race","what":"playoffs","clubs":[<one abbrev>]}  in or out of the playoffs
 - {"template":"club_line","club":<abbrev>}  a club's season points over/under`;
 
@@ -822,7 +826,7 @@ async function bookChat(me: { id: number; gm_name: string }, token: string, mess
     const system = [persona(st?.briefing),
       `\nRight now you are the Book's bet advisor on a GM's private line (not the league chat). Recommend bets. Rules:
 - Use only the open_markets given, by market_id, with a pick that is one of that market's option keys. Never invent a market, a player, a game or odds.
-- Suggest a new market (a "request") only from book_suggestions or by filling a template exactly (see spec); the Book will price it before the GM sees odds.
+- Suggest a new market (a "request") only from book_suggestions or by filling a template exactly (see spec); the Book will price it before the GM sees odds. You are the bet builder: when the GM describes a bet in words (a club to win the Cup, two players racing, a player over a number this month), build the request that matches. If the house already has it on the board (the Stanley Cup, the Presidents' Trophy, the division winners, the Art Ross, the Rocket Richard, most wins, top defenceman), point at that market instead with a pick.
 - Read the asker's profile: favour what they ask for, then what fits how they bet, then what's hot (most backers, most coins riding, closing soon). Mention who else is on a market when it's a reason.
 - 2 to 4 picks, 0 to 2 requests. One short reason each (hockey reasons, odds, who's on it). Reply in 1-4 sentences in your voice, no lists in the reply text (the picks render as cards).
 - Return JSON only: {"reply": "...", "picks": [{"market_id": 123, "pick": "home", "why": "..."}], "requests": [{"template": "...", ..., "why": "..."}]}
@@ -867,29 +871,30 @@ async function runTask(task: string, req: Request) {
 }
 
 Deno.serve(async (req) => {
+  if (req.method === 'OPTIONS') return new Response('ok', { headers: cors });
   const url = new URL(req.url);
   const task = url.searchParams.get('task') ?? 'daily';
   try {
     if (task === 'reply') {
       const { message_id } = await req.json();
       const { data: m } = await db.from('messages').select('league_id').eq('id', Number(message_id)).maybeSingle();
-      if (!m) return Response.json({ task, ok: false, error: 'no such message' }, { status: 404 });
+      if (!m) return json({ task, ok: false, error: 'no such message' }, 404);
       await enter(m.league_id);
       const result = await reply(Number(message_id));
-      return Response.json({ task, ok: true, llm: apiKey ? GROK_MODEL : false, league: L.lid, result });
+      return json({ task, ok: true, llm: apiKey ? GROK_MODEL : false, league: L.lid, result });
     }
     if (task === 'book') {
       const token = (req.headers.get('Authorization') ?? '').replace(/^Bearer /i, '');
       const { data: u } = token && !isAnonCaller(token) ? await db.auth.getUser(token) : { data: null };
-      if (!u?.user) return Response.json({ task, ok: false, error: 'Sign in first' }, { status: 401 });
+      if (!u?.user) return json({ task, ok: false, error: 'Sign in first' }, 401);
       const [lid] = await leaguesFor(req, url);
       await enter(lid);
       const { data: t } = await db.from('teams').select('id,gm_name,role').eq('user_id', u.user.id).eq('league_id', lid).maybeSingle();
-      if (!t || t.role !== 'gm') return Response.json({ task, ok: false, error: 'GMs only' }, { status: 403 });
+      if (!t || t.role !== 'gm') return json({ task, ok: false, error: 'GMs only' }, 403);
       const body = await req.json().catch(() => ({}));
       const msgs = (Array.isArray(body?.messages) ? body.messages : []).filter((m: any) => m && (m.role === 'user' || m.role === 'assistant') && typeof m.content === 'string').slice(-10);
       const result = await bookChat({ id: t.id, gm_name: t.gm_name }, token, msgs);
-      return Response.json({ task, ok: true, llm: apiKey ? GROK_MODEL : false, league: L.lid, result });
+      return json({ task, ok: true, llm: apiKey ? GROK_MODEL : false, league: L.lid, result });
     }
     const leagues = await leaguesFor(req, url);
     const results: Record<number, unknown> = {};
@@ -899,10 +904,10 @@ Deno.serve(async (req) => {
       catch (e) { console.error(task, lid, e); results[lid] = { error: String((e as Error)?.message ?? e) }; }
     }
     const one = leagues.length === 1 ? results[leagues[0]] : null;
-    if (one && typeof one === 'object' && 'error' in one) return Response.json({ task, ok: false, league: leagues[0], error: (one as { error: string }).error }, { status: (one as { error: string }).error === 'Commissioner only' ? 403 : 500 });
-    return Response.json({ task, ok: true, llm: apiKey ? GROK_MODEL : false, leagues, result: leagues.length === 1 ? one : results });
+    if (one && typeof one === 'object' && 'error' in one) return json({ task, ok: false, league: leagues[0], error: (one as { error: string }).error }, (one as { error: string }).error === 'Commissioner only' ? 403 : 500);
+    return json({ task, ok: true, llm: apiKey ? GROK_MODEL : false, leagues, result: leagues.length === 1 ? one : results });
   } catch (e) {
     console.error(task, e);
-    return Response.json({ task, ok: false, error: String((e as Error)?.message ?? e) }, { status: 500 });
+    return json({ task, ok: false, error: String((e as Error)?.message ?? e) }, 500);
   }
 });

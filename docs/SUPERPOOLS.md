@@ -141,7 +141,11 @@ The steps above finish the tenancy. `docs/MARKET.md` sets what comes after in th
     computed on read (`book_live()`) and stamped on the ticket at placement, never stored per tick; tonight's
     markets stay open while the game is on (10% edge in play, no bets in the last two minutes, overtime or on a
     stale feed), futures and races re-price from the standings and the box scores, and every ticket keeps the
-    price it was bought at. The kinds and subjects are a stat key and a line, so they carry to every sport.
+    price it was bought at. The NHL board (migration 71): the house opens, once a season, the Stanley Cup, the
+    Presidents' Trophy, the division winners, the Art Ross, the Rocket Richard, most wins and the top defenceman
+    (the top eight against the field), priced on read like everything else; requests take one club against the
+    field and player races against the field, which is what Garry's chat builds from in words ("Oilers to win
+    the Cup"). The kinds and subjects are a stat key and a line, so they carry to every sport.
 12. **Commissioner tools the market lacks**: dues tracker (no escrow), co-commissioners, constitution page,
     audit trail of every override, abandoned-team handover.
 13. **The sport pulled out of the engine**: a `sports` table, per-sport player, game and stat shapes and
