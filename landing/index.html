@@ -3,74 +3,182 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Super Pools · AI-enhanced fantasy leagues</title>
-  <meta name="description" content="Super Pools runs your fantasy hockey league with an AI commissioner's assistant: live scoring, daily lineups, a draft room, side bets and a league voice that never sleeps." />
-  <meta property="og:title" content="Super Pools · AI-enhanced fantasy leagues" />
-  <meta property="og:description" content="Live scoring, daily lineups, a draft room, side bets and an AI league voice. Built by a league, for leagues." />
-  <link rel="preconnect" href="https://fonts.googleapis.com" />
-  <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:ital,wght@0,700;0,900;1,900&family=Inter:wght@400;600&display=swap" rel="stylesheet" />
+  <title>Super Pools · The hockey pool that runs itself</title>
+  <meta name="description" content="Super Pools is a fantasy hockey league site with a commissioner's assistant built in. Live scoring from the box scores, lineups weeks ahead, a real draft room, side bets that settle themselves, and a league voice that posts the recap. Built by a keeper league." />
+  <link rel="canonical" href="https://superpoolsai.com/" />
+  <link rel="icon" href="./icon.svg" type="image/svg+xml" />
+  <meta name="theme-color" content="#0b1220" />
+  <meta property="og:type" content="website" />
+  <meta property="og:url" content="https://superpoolsai.com/" />
+  <meta property="og:title" content="Super Pools · The hockey pool that runs itself" />
+  <meta property="og:description" content="Live scoring from the box scores, lineups weeks ahead, a real draft room, side bets that settle themselves, and a league voice. Built by a keeper league, for keeper leagues." />
+  <meta property="og:image" content="https://superpoolsai.com/og.png" />
+  <meta name="twitter:card" content="summary_large_image" />
   <style>
-    :root { --bg: #0b1220; --card: #111b30; --ink: #eef2ff; --mute: #94a3b8; --gold: #f7c548; --sky: #38bdf8; --line: rgba(255,255,255,.08); }
+    @font-face { font-family: 'Barlow Condensed'; font-style: italic; font-weight: 900; font-display: swap; src: url(./fonts/barlow-condensed-900-italic.woff2) format('woff2'); }
+    @font-face { font-family: 'Barlow Condensed'; font-style: normal; font-weight: 900; font-display: swap; src: url(./fonts/barlow-condensed-900.woff2) format('woff2'); }
+    @font-face { font-family: 'Barlow Condensed'; font-style: normal; font-weight: 700; font-display: swap; src: url(./fonts/barlow-condensed-700.woff2) format('woff2'); }
+    @font-face { font-family: 'Inter'; font-style: normal; font-weight: 400 600; font-display: swap; src: url(./fonts/inter.woff2) format('woff2'); }
+
+    :root { --night: #0b1220; --boards: #111b30; --ink: #eef2ff; --mute: #94a3b8; --gold: #f7c548; --ice: #38bdf8; --line: rgba(255,255,255,.08); }
     * { box-sizing: border-box; }
-    body { margin: 0; background: radial-gradient(1200px 600px at 20% -10%, rgba(56,189,248,.18), transparent 60%), radial-gradient(900px 500px at 100% 0%, rgba(247,197,72,.14), transparent 55%), var(--bg); color: var(--ink); font: 16px/1.55 Inter, system-ui, sans-serif; }
-    main { max-width: 1040px; margin: 0 auto; padding: 32px 20px 64px; }
-    .wordmark { font-family: 'Barlow Condensed', sans-serif; font-weight: 900; font-size: 28px; letter-spacing: .02em; }
-    .wordmark b { color: var(--gold); font-style: italic; }
-    .wordmark span { color: #cbd5e1; letter-spacing: .28em; font-size: 14px; margin-left: 10px; }
+    html { scroll-behavior: smooth; }
+    body { margin: 0; background: radial-gradient(1100px 560px at 15% -10%, rgba(56,189,248,.16), transparent 60%), radial-gradient(900px 480px at 100% 0%, rgba(247,197,72,.13), transparent 55%), var(--night); color: var(--ink); font: 16px/1.55 Inter, system-ui, sans-serif; -webkit-font-smoothing: antialiased; }
+    main { max-width: 1040px; margin: 0 auto; padding: 24px 16px 64px; }
+    a { color: var(--ice); text-decoration: none; }
+    .display { font-family: 'Barlow Condensed', 'Arial Narrow', sans-serif; font-weight: 900; letter-spacing: .01em; line-height: .95; }
+    .display em { font-style: italic; color: var(--gold); }
+    .eyebrow { font-family: 'Barlow Condensed', sans-serif; font-weight: 700; font-size: 13px; letter-spacing: .22em; text-transform: uppercase; color: var(--ice); }
+    .mute { color: var(--mute); }
+
     header { display: flex; align-items: center; justify-content: space-between; gap: 16px; }
-    .pill { border: 1px solid var(--line); border-radius: 999px; padding: 6px 12px; font-size: 12px; color: var(--mute); }
-    h1 { font-family: 'Barlow Condensed', sans-serif; font-weight: 900; font-size: clamp(44px, 8vw, 84px); line-height: .95; margin: 64px 0 16px; letter-spacing: .01em; }
-    h1 em { font-style: italic; color: var(--gold); }
-    .lede { font-size: clamp(17px, 2.2vw, 21px); color: #cbd5e1; max-width: 640px; margin: 0 0 28px; }
+    .wordmark { display: inline-flex; align-items: center; gap: 10px; color: var(--ink); }
+    .wordmark svg { width: 34px; height: 34px; flex: none; }
+    .wordmark span { font-family: 'Barlow Condensed', sans-serif; font-weight: 900; font-size: 26px; letter-spacing: .02em; line-height: 1; white-space: nowrap; }
+    .wordmark b { color: var(--gold); font-style: italic; font-weight: 900; }
+    .pill { border: 1px solid var(--line); border-radius: 999px; padding: 6px 12px; font-size: 12px; color: var(--mute); white-space: nowrap; }
+    .pill .long { display: none; }
+    @media (min-width: 720px) { .pill .long { display: inline; } }
+
+    h1 { font-size: clamp(50px, 9vw, 96px); margin: 56px 0 18px; max-width: 12ch; }
+    .lede { font-size: clamp(17px, 2.2vw, 20px); color: #cbd5e1; max-width: 620px; margin: 0 0 26px; }
     .cta { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; }
-    .btn { display: inline-block; padding: 12px 20px; border-radius: 14px; font-weight: 600; text-decoration: none; }
+    .btn { display: inline-block; padding: 13px 22px; border-radius: 14px; font-weight: 600; font-size: 15px; border: 0; cursor: pointer; font-family: inherit; }
     .btn-gold { background: linear-gradient(180deg, #fff3c4, var(--gold)); color: #1a1405; box-shadow: 0 10px 24px -12px rgba(247,197,72,.8); }
-    .btn-ghost { border: 1px solid var(--line); color: var(--ink); }
-    .note { font-size: 13px; color: var(--mute); }
-    .grid { display: grid; gap: 14px; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); margin-top: 56px; }
-    .card { background: var(--card); border: 1px solid var(--line); border-radius: 18px; padding: 18px; }
-    .card h3 { margin: 6px 0 6px; font-size: 17px; }
+    .btn-ghost { border: 1px solid var(--line); color: var(--ink); background: transparent; }
+    .nav-cta { display: none; }
+    @media (min-width: 720px) { .nav-cta { display: inline-block; } }
+    .proof { margin-top: 18px; font-size: 13px; color: var(--mute); max-width: 560px; }
+
+    section { margin-top: 64px; }
+    h2 { font-size: clamp(30px, 4.6vw, 44px); margin: 8px 0 18px; }
+    .grid { display: grid; gap: 14px; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); }
+    .card { background: var(--boards); border: 1px solid var(--line); border-radius: 18px; padding: 20px; }
+    .card h3 { margin: 4px 0 8px; font-size: 18px; }
     .card p { margin: 0; color: var(--mute); font-size: 14px; }
-    .card .ico { font-size: 22px; }
-    .strip { margin-top: 56px; padding: 22px; border-radius: 18px; border: 1px solid rgba(247,197,72,.3); background: linear-gradient(135deg, rgba(247,197,72,.12), rgba(15,23,41,.6) 60%); }
-    .strip h2 { font-family: 'Barlow Condensed', sans-serif; font-weight: 900; font-size: 30px; margin: 0 0 6px; }
-    form { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 12px; }
-    input { flex: 1 1 240px; padding: 12px 14px; border-radius: 12px; border: 1px solid var(--line); background: rgba(0,0,0,.35); color: var(--ink); font: inherit; }
+    .card .n { font-family: 'Barlow Condensed', sans-serif; font-weight: 900; font-size: 34px; color: var(--gold); line-height: 1; }
+    .pillars .card { padding: 24px; }
+    .pillars .card p { color: #cbd5e1; font-size: 15px; }
+
+    .season { display: grid; gap: 0; grid-template-columns: 1fr; border-left: 2px solid var(--line); margin-left: 8px; }
+    .season div { position: relative; padding: 0 0 22px 22px; }
+    .season div::before { content: ''; position: absolute; left: -7px; top: 7px; width: 12px; height: 12px; border-radius: 50%; background: var(--night); border: 3px solid var(--gold); }
+    .season b { display: block; font-family: 'Barlow Condensed', sans-serif; font-weight: 700; font-size: 20px; letter-spacing: .02em; }
+    .season p { margin: 4px 0 0; color: var(--mute); font-size: 14px; max-width: 560px; }
+
+    .voice { background: var(--boards); border: 1px solid var(--line); border-radius: 18px; padding: 18px 20px; max-width: 620px; }
+    .voice .who { display: flex; align-items: center; gap: 10px; font-size: 13px; color: var(--mute); }
+    .voice .who b { color: var(--ink); font-weight: 600; }
+    .voice .avatar { width: 28px; height: 28px; border-radius: 50%; background: linear-gradient(180deg, #fff3c4, var(--gold)); display: grid; place-items: center; color: #1a1405; font-family: 'Barlow Condensed', sans-serif; font-weight: 900; font-size: 15px; }
+    .voice p { margin: 10px 0 0; font-size: 15px; }
+    .voice .tag { margin-top: 12px; font-size: 12px; color: var(--mute); }
+
+    .strip { padding: 24px; border-radius: 18px; border: 1px solid rgba(247,197,72,.3); background: linear-gradient(135deg, rgba(247,197,72,.12), rgba(15,23,41,.6) 60%); }
+    form { display: grid; gap: 10px; margin-top: 14px; }
+    @media (min-width: 720px) { form { grid-template-columns: 1fr 1fr auto; } form .wide { grid-column: 1 / -1; } }
+    input { width: 100%; padding: 13px 14px; border-radius: 12px; border: 1px solid var(--line); background: rgba(0,0,0,.35); color: var(--ink); font: inherit; }
+    input::placeholder { color: #64748b; }
+    .hp { position: absolute; left: -9999px; width: 1px; height: 1px; opacity: 0; }
+    .msg { margin: 10px 0 0; font-size: 14px; min-height: 1.4em; }
+    .msg.ok { color: var(--gold); }
+    .msg.err { color: #fca5a5; }
+
+    .faq details { border-top: 1px solid var(--line); padding: 14px 0; }
+    .faq details:last-child { border-bottom: 1px solid var(--line); }
+    .faq summary { cursor: pointer; font-weight: 600; list-style: none; display: flex; justify-content: space-between; gap: 12px; }
+    .faq summary::after { content: '+'; color: var(--gold); font-family: 'Barlow Condensed', sans-serif; font-size: 22px; line-height: 1; }
+    .faq details[open] summary::after { content: '–'; }
+    .faq p { margin: 10px 0 0; color: var(--mute); font-size: 15px; max-width: 640px; }
+
     footer { margin-top: 64px; padding-top: 20px; border-top: 1px solid var(--line); color: var(--mute); font-size: 13px; display: flex; flex-wrap: wrap; gap: 12px; justify-content: space-between; }
-    footer a { color: var(--sky); text-decoration: none; }
   </style>
 </head>
 <body>
   <main>
     <header>
-      <div class="wordmark"><b>SUPER</b> POOLS<span>AI</span></div>
-      <span class="pill">Season one · NHL 2026-27 · in private beta</span>
+      <a class="wordmark" href="https://superpoolsai.com/" aria-label="Super Pools">
+        <svg viewBox="0 0 64 64" aria-hidden="true"><rect width="64" height="64" rx="14" fill="#111b30"/><circle cx="32" cy="32" r="17" fill="none" stroke="#f7c548" stroke-width="4"/><circle cx="32" cy="32" r="4.5" fill="#f7c548"/><g stroke="#f7c548" stroke-width="2.6" stroke-linecap="round"><line x1="25" y1="8" x2="25" y2="12.5"/><line x1="39" y1="8" x2="39" y2="12.5"/><line x1="25" y1="51.5" x2="25" y2="56"/><line x1="39" y1="51.5" x2="39" y2="56"/></g></svg>
+        <span><b>SUPER</b> POOLS</span>
+      </a>
+      <div style="display:flex;align-items:center;gap:10px">
+        <span class="pill"><span class="long">Season one · NHL 2026-27 · </span>Private beta</span>
+        <a class="btn btn-gold nav-cta" href="#waitlist">Get on the list</a>
+      </div>
     </header>
 
-    <h1>Your league, run by <em>an AI that never sleeps</em>.</h1>
-    <p class="lede">Super Pools is a fantasy hockey league site with an AI commissioner's assistant built in: live scoring from the box scores, daily lineups you can set weeks ahead, a draft room with a clock, side bets that settle themselves, and a league voice that posts recaps, grades trades and answers questions in your chat.</p>
+    <h1 class="display">The hockey pool that <em>runs itself</em>.</h1>
+    <p class="lede">Super Pools scores your league from the NHL box scores every night, settles the side bets, sets the lineups your GMs planned weeks ago, and gives the league a voice that posts the recap before you have finished your coffee. You run the league. It does the bookkeeping.</p>
     <div class="cta">
       <a class="btn btn-gold" href="#waitlist">Get on the list</a>
-      <a class="btn btn-ghost" href="mailto:hello@superpoolsai.com">Talk to us</a>
-      <span class="note">Built by a keeper league that has run for years, on the site it uses every night.</span>
+      <a class="btn btn-ghost" href="#season">See how a season goes</a>
     </div>
+    <p class="proof">Built by a keeper league that has drafted every fall since 2013. Its 2026-27 season has run on Super Pools every night since the keeper deadline.</p>
 
-    <div class="grid">
-      <div class="card"><div class="ico">🏒</div><h3>Live scoring, done right</h3><p>Points from the NHL box scores as the games happen; every player locks at his own puck drop, corrections flow in for a month.</p></div>
-      <div class="card"><div class="ico">📅</div><h3>Daily lineups, weeks ahead</h3><p>Set who starts for any day up to 60 days out, or let the auto-pilot do it. See exactly how every played day went.</p></div>
-      <div class="card"><div class="ico">⏱️</div><h3>A real draft room</h3><p>Pick clock, live board, queues, a TV-mode board for the big screen, mock drafts, and a graded report card after.</p></div>
-      <div class="card"><div class="ico">🎙️</div><h3>An AI league voice</h3><p>Daily recaps, power rankings, trade grades, keeper reports, trash talk on request, and answers to "who should I start?".</p></div>
-      <div class="card"><div class="ico">🎲</div><h3>Side bets and a book</h3><p>Head-to-heads, player props, pools and a coin sportsbook on real games, all settled from the box scores with live odds.</p></div>
-      <div class="card"><div class="ico">📈</div><h3>Projections and forecasts</h3><p>Rest-of-season projections, thousands of simulated seasons, playoff odds, trade and free-agent finders.</p></div>
-    </div>
+    <section class="pillars">
+      <div class="eyebrow">Three things</div>
+      <h2 class="display">What you get, and <em>what you stop doing</em></h2>
+      <div class="grid">
+        <div class="card"><div class="n">01</div><h3>It runs itself</h3><p>Points from the box scores as the games happen. Every player locks at his own puck drop. Corrections flow in for a month. Bets, props, pools and the coin book settle themselves. Nobody keeps score by hand.</p></div>
+        <div class="card"><div class="n">02</div><h3>It talks back</h3><p>A league voice, named by your league, posts the daily recap, power rankings, trade grades and keeper reports, answers "who should I start?" in the chat, and talks trash on request.</p></div>
+        <div class="card"><div class="n">03</div><h3>Built by a league</h3><p>Thirteen seasons of keeper-league rules are baked in: keepers, a draft room with a clock and a TV board, trade review windows, IR rules, acquisition limits, and the money between friends.</p></div>
+      </div>
+    </section>
+
+    <section id="season">
+      <div class="eyebrow">A season on Super Pools</div>
+      <h2 class="display">From the keeper deadline <em>to the Cup</em></h2>
+      <div class="season">
+        <div><b>September: keepers</b><p>GMs lock their keepers on their phones. The top-scorer rule and the deadline are enforced by the site, not by a reminder email.</p></div>
+        <div><b>Draft night</b><p>A pick clock, a live board, queues, autopick for the GM stuck at work, a TV board for the big screen, and a graded report card the morning after.</p></div>
+        <div><b>Every game night</b><p>Lineups set up to sixty days ahead or left to the auto-pilot. Points land as the box scores change. The recap posts when the last game goes final.</p></div>
+        <div><b>Trades, pickups, side bets</b><p>Trades with review windows and grades. Pickup limits that count themselves. Head-to-heads, props, pools and a coin book on real games, settled from the box scores.</p></div>
+        <div><b>Playoffs and the money</b><p>Playoff odds all season, thousands of simulated seasons, then the Cup, the last-place prize and the payouts, all on the record.</p></div>
+      </div>
+    </section>
+
+    <section>
+      <div class="eyebrow">The league voice</div>
+      <h2 class="display">Every league gets <em>a voice</em></h2>
+      <div class="voice">
+        <div class="who"><span class="avatar">G</span><span><b>Garry</b> · league voice · Tuesday recap</span></div>
+        <p>Three games, one lesson: the North Stars benched a 4-point night and still took first by a goal. The Bruisers started a scratched goalie and would like to speak to the manager. Keeper report posts Sunday. Trade deadline is in 19 days, and yes, I am counting.</p>
+        <div class="tag">A sample post. Your league names its own voice and decides how often it talks.</div>
+      </div>
+    </section>
+
+    <section>
+      <div class="eyebrow">Everything in one place</div>
+      <h2 class="display">The whole life of the league, <em>on a phone</em></h2>
+      <div class="grid">
+        <div class="card"><h3>Live scoring, done right</h3><p>Points from the NHL box scores as the games happen. Every player locks at his own puck drop. Corrections flow in for a month.</p></div>
+        <div class="card"><h3>Lineups weeks ahead</h3><p>Set who starts for any day up to sixty days out, or let the auto-pilot do it. See exactly how every played day went.</p></div>
+        <div class="card"><h3>A real draft room</h3><p>Pick clock, live board, queues, a TV board for the big screen, mock drafts, and a graded report card after.</p></div>
+        <div class="card"><h3>Side bets and a book</h3><p>Head-to-heads, player props, pools and a coin sportsbook on real games, all settled from the box scores with live odds.</p></div>
+        <div class="card"><h3>Projections and forecasts</h3><p>Rest-of-season projections, thousands of simulated seasons, playoff odds, trade and free-agent finders.</p></div>
+        <div class="card"><h3>Chat, polls and history</h3><p>The league's living room: chat with reactions and polls, every transaction on the record, and a voice that remembers who said what.</p></div>
+      </div>
+    </section>
 
     <section class="strip" id="waitlist">
-      <h2>Bring your league next season</h2>
-      <p class="note">Leave an address and we'll write when leagues open. No spam, no list sharing.</p>
-      <form action="mailto:hello@superpoolsai.com" method="get" enctype="text/plain">
-        <input type="email" name="subject" placeholder="you@example.com" required />
-        <button class="btn btn-gold" type="submit">Notify me</button>
+      <div class="eyebrow">For commissioners</div>
+      <h2 class="display">Bring your league <em>next season</em></h2>
+      <p class="mute" style="margin:0;max-width:620px">One subscription per league per season, paid by the commissioner or split with the GMs. Season one is a private beta: free for the leagues we take on. Leave an address and we will write when leagues open. No spam, no list sharing.</p>
+      <form id="wl" novalidate>
+        <input type="email" name="email" placeholder="you@example.com" autocomplete="email" required />
+        <input type="text" name="league" placeholder="What do you run today? (12-team keeper on Yahoo)" maxlength="160" />
+        <input class="hp" type="text" name="website" tabindex="-1" autocomplete="off" />
+        <button class="btn btn-gold" type="submit">Get on the list</button>
+        <p class="msg wide" id="wl-msg" aria-live="polite"></p>
       </form>
+    </section>
+
+    <section class="faq">
+      <div class="eyebrow">Questions</div>
+      <h2 class="display">Before you <em>ask</em></h2>
+      <details><summary>Does the assistant run my league?</summary><p>No. You do. The commissioner sets the rules, rules on disputes and decides what the voice is allowed to say. Super Pools does the bookkeeping: scoring, locks, settlement, lineups, the record.</p></details>
+      <details><summary>Can we bring our Yahoo league?</summary><p>Yes. The Yahoo import brings over your teams and rosters so the first season starts from where you are, keepers included.</p></details>
+      <details><summary>Is it only hockey?</summary><p>Yes, the NHL, for now. It was built by a hockey pool for hockey pools, and we would rather be the best at one sport than average at four.</p></details>
+      <details><summary>Is there real money in it?</summary><p>The side bets and the book use the league's coins, which are worth bragging rights. Cash stays what it has always been in a pool among friends: bookkeeping, with the balances on the record. No payments are handled.</p></details>
     </section>
 
     <footer>
@@ -78,5 +186,33 @@
       <span><a href="mailto:hello@superpoolsai.com">hello@superpoolsai.com</a></span>
     </footer>
   </main>
+
+  <script>
+    // The waitlist writes straight to the database through its public API; the key below is the publishable
+    // one and can only insert into the waitlist table (see supabase/migrations/20261005000061_waitlist.sql).
+    (function () {
+      var API = 'https://quakdkzdafzlhgjvmypg.supabase.co/rest/v1/waitlist';
+      var KEY = 'sb_publishable_AMcluryqKenfAO6vFJ2f1A_50DhQz1b';
+      var form = document.getElementById('wl'), msg = document.getElementById('wl-msg');
+      var fallback = 'Something went wrong. Email <a href="mailto:hello@superpoolsai.com">hello@superpoolsai.com</a> and we will add you by hand.';
+      form.addEventListener('submit', function (e) {
+        e.preventDefault();
+        var email = form.email.value.trim(), league = form.league.value.trim();
+        if (form.website.value) return;  // a bot filled the hidden field
+        if (!/^[^@\s]+@[^@\s]+\.[^@\s]{2,}$/.test(email)) { msg.className = 'msg err wide'; msg.textContent = 'That address does not look right.'; return; }
+        var btn = form.querySelector('button'); btn.disabled = true; msg.className = 'msg wide'; msg.textContent = 'One moment.';
+        fetch(API, {
+          method: 'POST',
+          headers: { apikey: KEY, Authorization: 'Bearer ' + KEY, 'Content-Type': 'application/json', Prefer: 'return=minimal' },
+          body: JSON.stringify({ email: email, league: league || null, source: location.hostname + location.pathname })
+        }).then(function (r) {
+          if (r.status === 201) { msg.className = 'msg ok wide'; msg.textContent = 'You are on the list. We will write when leagues open.'; form.reset(); }
+          else if (r.status === 409) { msg.className = 'msg ok wide'; msg.textContent = 'You were already on the list. We have not forgotten.'; }
+          else { msg.className = 'msg err wide'; msg.innerHTML = fallback; }
+        }).catch(function () { msg.className = 'msg err wide'; msg.innerHTML = fallback; })
+          .finally(function () { btn.disabled = false; });
+      });
+    })();
+  </script>
 </body>
 </html>
