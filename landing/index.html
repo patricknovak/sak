@@ -3,15 +3,15 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Super Pools · The hockey pool that runs itself</title>
-  <meta name="description" content="Super Pools is a fantasy hockey league site with a commissioner's assistant built in. Live scoring from the box scores, lineups weeks ahead, a real draft room, side bets that settle themselves, and a league voice that posts the recap. Built by a keeper league." />
+  <title>Super Pools · The AI-enhanced pool that runs itself</title>
+  <meta name="description" content="Super Pools is the AI-enhanced home for every pool your friends play, in every sport. AI-optimized lineups, live scoring from the box scores, a real draft room, Supercoin side bets, and a league voice that posts the recap. Hockey first, built by a keeper league." />
   <link rel="canonical" href="https://superpoolsai.com/" />
   <link rel="icon" href="./icon.svg" type="image/svg+xml" />
   <meta name="theme-color" content="#0b1220" />
   <meta property="og:type" content="website" />
   <meta property="og:url" content="https://superpoolsai.com/" />
-  <meta property="og:title" content="Super Pools · The hockey pool that runs itself" />
-  <meta property="og:description" content="Live scoring from the box scores, lineups weeks ahead, a real draft room, side bets that settle themselves, and a league voice. Built by a keeper league, for keeper leagues." />
+  <meta property="og:title" content="Super Pools · The AI-enhanced pool that runs itself" />
+  <meta property="og:description" content="AI-optimized lineups, AI-enhanced recaps and grades, live scoring, a real draft room, Supercoin side bets, every sport in one home. Hockey first, built by a keeper league." />
   <meta property="og:image" content="https://superpoolsai.com/og.png" />
   <meta name="twitter:card" content="summary_large_image" />
   <style>
@@ -50,6 +50,61 @@
     @media (min-width: 720px) { .nav-cta { display: inline-block; } }
     .proof { margin-top: 18px; font-size: 13px; color: var(--mute); max-width: 560px; }
 
+    /* icons: one stroke, one colour, drawn inline so they stay crisp */
+    .ico { width: 22px; height: 22px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; color: var(--gold); flex: none; }
+    .ico.ice { color: var(--ice); }
+    .card .ico { width: 26px; height: 26px; margin-bottom: 8px; }
+
+    /* hero: words left, the product right */
+    .hero { position: relative; display: grid; gap: 28px; align-items: center; margin-top: 44px; }
+    @media (min-width: 900px) { .hero { grid-template-columns: 1.05fr .95fr; margin-top: 56px; } }
+    .hero h1 { margin-top: 10px; font-size: clamp(44px, 6.4vw, 72px); max-width: 16ch; }
+    .nb { white-space: nowrap; }
+    .rink { position: absolute; right: -120px; top: -60px; width: 520px; height: 520px; opacity: .10; pointer-events: none; display: none; }
+    @media (min-width: 900px) { .rink { display: block; } }
+    .mock { position: relative; width: 300px; margin: 8px auto 0; padding-right: 30px; }
+    .phone { width: 270px; height: 540px; border-radius: 38px; background: #05080f; border: 1px solid rgba(255,255,255,.14); box-shadow: 0 40px 80px -30px rgba(0,0,0,.9), 0 0 0 6px #0d1424 inset; padding: 14px; position: relative; }
+    .phone::before { content: ''; position: absolute; top: 14px; left: 50%; width: 90px; height: 22px; margin-left: -45px; border-radius: 0 0 14px 14px; background: #05080f; z-index: 2; }
+    .screen { background: var(--night); border-radius: 28px; height: 100%; padding: 36px 14px 14px; overflow: hidden; font-size: 12px; display: flex; flex-direction: column; gap: 10px; }
+    .bar { display: flex; justify-content: space-between; align-items: center; font-family: 'Barlow Condensed', sans-serif; font-weight: 900; font-size: 17px; letter-spacing: .02em; }
+    .bar .live { font-size: 10px; letter-spacing: .16em; color: var(--ice); font-weight: 700; }
+    .rows { background: var(--boards); border: 1px solid var(--line); border-radius: 14px; padding: 4px 10px; }
+    .row { display: grid; grid-template-columns: 18px 1fr auto auto; gap: 8px; align-items: center; padding: 8px 0; border-bottom: 1px solid var(--line); }
+    .row:last-child { border-bottom: 0; }
+    .row .rk { color: var(--mute); font-family: 'Barlow Condensed', sans-serif; font-weight: 900; font-size: 14px; }
+    .row .tm { font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .row .pts { font-variant-numeric: tabular-nums; }
+    .row .d { font-size: 11px; font-variant-numeric: tabular-nums; min-width: 40px; text-align: right; }
+    .row .up { color: var(--gold); } .row .dn { color: var(--mute); }
+    .row.lead .tm, .row.lead .pts { color: var(--gold); }
+    .bubble { display: flex; gap: 8px; align-items: flex-start; background: var(--boards); border: 1px solid var(--line); border-radius: 14px; padding: 10px; font-size: 11.5px; line-height: 1.4; margin-top: auto; }
+    .bubble .avatar { width: 22px; height: 22px; font-size: 12px; }
+    .bubble b { color: var(--ink); }
+    .float { position: absolute; right: 0; bottom: 128px; width: 200px; background: var(--boards); border: 1px solid rgba(247,197,72,.45); border-radius: 16px; padding: 12px 14px; box-shadow: 0 24px 50px -20px rgba(0,0,0,.9); }
+    .chip { display: inline-flex; align-items: center; gap: 6px; font-size: 11px; letter-spacing: .08em; text-transform: uppercase; color: var(--gold); font-weight: 700; }
+    .chip .ico { width: 14px; height: 14px; }
+    .float .big { font-family: 'Barlow Condensed', sans-serif; font-weight: 900; font-size: 34px; line-height: 1; margin: 6px 0 4px; }
+    .float .big small { font-size: 13px; font-weight: 700; color: var(--mute); letter-spacing: .06em; margin-left: 4px; }
+    .float .small { font-size: 12px; color: var(--mute); line-height: 1.4; }
+
+    /* the coin */
+    .coinart { width: 150px; height: 150px; margin: 0 auto 14px; filter: drop-shadow(0 20px 30px rgba(247,197,72,.25)); }
+
+    /* AI section */
+    .ai { display: grid; gap: 14px; grid-template-columns: 1fr; }
+    @media (min-width: 900px) { .ai { grid-template-columns: 1fr 1fr; } }
+    .lineup { background: var(--boards); border: 1px solid var(--line); border-radius: 18px; padding: 16px 18px; font-size: 13px; }
+    .lineup .hd { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
+    .lineup .hd b { font-family: 'Barlow Condensed', sans-serif; font-weight: 900; font-size: 20px; letter-spacing: .02em; }
+    .lineup .l { display: grid; grid-template-columns: 34px 1fr auto; gap: 10px; align-items: center; padding: 7px 0; border-bottom: 1px solid var(--line); }
+    .lineup .l:last-of-type { border-bottom: 0; }
+    .lineup .slot { font-family: 'Barlow Condensed', sans-serif; font-weight: 700; color: var(--mute); letter-spacing: .06em; }
+    .lineup .proj { font-variant-numeric: tabular-nums; color: var(--mute); }
+    .lineup .l.moved .slot, .lineup .l.moved .proj { color: var(--gold); }
+    .lineup .note { margin-top: 10px; font-size: 12px; color: var(--mute); }
+    .tier.hot { position: relative; }
+    .tier.hot::before { content: 'Most leagues'; position: absolute; top: -11px; right: 16px; background: linear-gradient(180deg, #fff3c4, var(--gold)); color: #1a1405; font-size: 10px; letter-spacing: .14em; text-transform: uppercase; font-weight: 700; padding: 4px 9px; border-radius: 999px; }
+
     section { margin-top: 64px; }
     h2 { font-size: clamp(30px, 4.6vw, 44px); margin: 8px 0 18px; }
     .grid { display: grid; gap: 14px; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); }
@@ -83,6 +138,29 @@
     .msg.ok { color: var(--gold); }
     .msg.err { color: #fca5a5; }
 
+    .sports { display: grid; gap: 10px; grid-template-columns: repeat(2, 1fr); }
+    @media (min-width: 720px) { .sports { grid-template-columns: repeat(4, 1fr); } }
+    .sport { background: var(--boards); border: 1px solid var(--line); border-radius: 14px; padding: 14px; }
+    .sport { display: flex; gap: 10px; align-items: flex-start; }
+    .sport b { display: block; font-family: 'Barlow Condensed', sans-serif; font-weight: 900; font-size: 20px; letter-spacing: .02em; }
+    .sport span { display: inline-block; margin-top: 6px; font-size: 11px; letter-spacing: .14em; text-transform: uppercase; color: var(--mute); }
+    .sport.now { border-color: rgba(247,197,72,.45); }
+    .sport.now span { color: var(--gold); }
+    .tiers { display: grid; gap: 14px; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); }
+    .tier { background: var(--boards); border: 1px solid var(--line); border-radius: 18px; padding: 20px; display: flex; flex-direction: column; }
+    .tier.hot { border-color: rgba(247,197,72,.45); }
+    .tier h3 { margin: 0; font-family: 'Barlow Condensed', sans-serif; font-weight: 900; font-size: 26px; letter-spacing: .02em; }
+    .tier .for { font-size: 13px; color: var(--mute); margin: 2px 0 12px; }
+    .tier ul { margin: 0; padding: 0 0 0 18px; color: #cbd5e1; font-size: 14px; }
+    .tier li { margin: 4px 0; }
+    .tier .price { margin-top: auto; padding-top: 14px; font-family: 'Barlow Condensed', sans-serif; font-weight: 700; font-size: 18px; letter-spacing: .04em; color: var(--gold); }
+    .coin { display: grid; gap: 14px; grid-template-columns: 1fr; align-items: start; }
+    @media (min-width: 720px) { .coin { grid-template-columns: 1.2fr 1fr; } }
+    .ledger { background: var(--boards); border: 1px solid var(--line); border-radius: 18px; padding: 14px 16px; font-size: 13px; }
+    .ledger div { display: flex; justify-content: space-between; gap: 12px; padding: 7px 0; border-bottom: 1px solid var(--line); }
+    .ledger div:last-child { border-bottom: 0; }
+    .ledger .plus { color: var(--gold); font-weight: 600; }
+    .ledger .minus { color: var(--mute); font-weight: 600; }
     .faq details { border-top: 1px solid var(--line); padding: 14px 0; }
     .faq details:last-child { border-bottom: 1px solid var(--line); }
     .faq summary { cursor: pointer; font-weight: 600; list-style: none; display: flex; justify-content: space-between; gap: 12px; }
@@ -94,6 +172,28 @@
   </style>
 </head>
 <body>
+  <svg width="0" height="0" style="position:absolute" aria-hidden="true">
+    <symbol id="i-spark" viewBox="0 0 24 24"><path d="M12 2l2.3 6.4L21 10.7l-6.7 2.3L12 19.4l-2.3-6.4L3 10.7l6.7-2.3z"/></symbol>
+    <symbol id="i-puck" viewBox="0 0 24 24"><ellipse cx="12" cy="8" rx="9" ry="3.5"/><path d="M3 8v6c0 1.9 4 3.5 9 3.5s9-1.6 9-3.5V8"/></symbol>
+    <symbol id="i-clock" viewBox="0 0 24 24"><circle cx="12" cy="13" r="8"/><path d="M12 9v4l3 2M9 2h6"/></symbol>
+    <symbol id="i-mic" viewBox="0 0 24 24"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3M8 21h8"/></symbol>
+    <symbol id="i-dice" viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="4"/><circle cx="8" cy="8" r="1.3" fill="currentColor" stroke="none"/><circle cx="16" cy="8" r="1.3" fill="currentColor" stroke="none"/><circle cx="12" cy="12" r="1.3" fill="currentColor" stroke="none"/><circle cx="8" cy="16" r="1.3" fill="currentColor" stroke="none"/><circle cx="16" cy="16" r="1.3" fill="currentColor" stroke="none"/></symbol>
+    <symbol id="i-chart" viewBox="0 0 24 24"><path d="M3 20h18M5 16l4-5 4 3 6-8M16 6h3v3"/></symbol>
+    <symbol id="i-chat" viewBox="0 0 24 24"><path d="M4 5h16v10H9l-5 4z"/><path d="M8 10h8"/></symbol>
+    <symbol id="i-cal" viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="16" rx="3"/><path d="M3 10h18M8 3v4M16 3v4"/></symbol>
+    <symbol id="i-board" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="12" rx="2"/><path d="M8 20h8M12 16v4M7 8h4M7 12h7"/></symbol>
+    <symbol id="i-shield" viewBox="0 0 24 24"><path d="M12 3l8 3v6c0 4.5-3.5 7.8-8 9-4.5-1.2-8-4.5-8-9V6z"/><path d="M9 12l2 2 4-4"/></symbol>
+    <symbol id="i-people" viewBox="0 0 24 24"><circle cx="9" cy="8" r="3.5"/><path d="M2.5 20a6.5 6.5 0 0 1 13 0M15 5a3.5 3.5 0 0 1 0 7M17 14a6.5 6.5 0 0 1 4.5 6"/></symbol>
+    <symbol id="i-vote" viewBox="0 0 24 24"><path d="M5 12l4 4L19 6M4 20h16"/></symbol>
+    <symbol id="s-hockey" viewBox="0 0 24 24"><path d="M5 3l8 12 3 1.5a1.8 1.8 0 0 1-1.6 2.5H9"/><ellipse cx="17.5" cy="18.5" rx="3" ry="1.4"/></symbol>
+    <symbol id="s-soccer" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7.5l4 2.9-1.5 4.7h-5L8 10.4z"/><path d="M12 3v4.5M4 10.4l4 0M20 10.4l-4 0M6.5 18.6l3-3.5M17.5 18.6l-3-3.5"/></symbol>
+    <symbol id="s-basket" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3v18M5.6 5.6c3 3 3 9.8 0 12.8M18.4 5.6c-3 3-3 9.8 0 12.8"/></symbol>
+    <symbol id="s-cricket" viewBox="0 0 24 24"><path d="M4 20l8-8M12 12l6.5-7.5L20 6l-7.5 6.5"/><circle cx="18" cy="18" r="2.5"/></symbol>
+    <symbol id="s-baseball" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M6 5c2 2.5 2 11.5 0 14M18 5c-2 2.5-2 11.5 0 14"/></symbol>
+    <symbol id="s-football" viewBox="0 0 24 24"><ellipse cx="12" cy="12" rx="10" ry="6" transform="rotate(-35 12 12)"/><path d="M9 15l6-6M10 11l1 1M12 9.5l1 1M13.5 13l1 1"/></symbol>
+    <symbol id="s-golf" viewBox="0 0 24 24"><path d="M8 21V4l9 3-9 3M4 21h10"/></symbol>
+    <symbol id="s-multi" viewBox="0 0 24 24"><circle cx="9" cy="10" r="5"/><circle cx="15" cy="10" r="5"/><circle cx="12" cy="15" r="5"/></symbol>
+  </svg>
   <main>
     <header>
       <a class="wordmark" href="https://superpoolsai.com/" aria-label="Super Pools">
@@ -106,21 +206,87 @@
       </div>
     </header>
 
-    <h1 class="display">The hockey pool that <em>runs itself</em>.</h1>
-    <p class="lede">Super Pools scores your league from the NHL box scores every night, settles the side bets, sets the lineups your GMs planned weeks ago, and gives the league a voice that posts the recap before you have finished your coffee. You run the league. It does the bookkeeping.</p>
-    <div class="cta">
-      <a class="btn btn-gold" href="#waitlist">Get on the list</a>
-      <a class="btn btn-ghost" href="#season">See how a season goes</a>
+    <div class="hero">
+      <svg class="rink" viewBox="0 0 520 520" aria-hidden="true"><g fill="none" stroke="#38bdf8" stroke-width="3"><circle cx="260" cy="260" r="230"/><circle cx="260" cy="260" r="12" fill="#38bdf8" stroke="none"/><path d="M200 30v18M320 30v18M200 472v18M320 472v18"/></g><path d="M0 260h520" stroke="#ef2a4f" stroke-width="3" stroke-opacity=".8"/></svg>
+      <div>
+        <div class="eyebrow">AI-optimized · AI-enhanced · built by a league</div>
+        <h1 class="display">The <span class="nb">AI-enhanced</span> pool that <em>runs itself</em>.</h1>
+        <p class="lede">One home for every pool your friends play. Super Pools scores the league from the box scores every night, optimizes the lineups your GMs leave to it, settles the side bets in Supercoins, keeps every season on the record, and gives the league a voice that posts the recap before you have finished your coffee. You run the league. It does the bookkeeping.</p>
+        <div class="cta">
+          <a class="btn btn-gold" href="#waitlist">Get on the list</a>
+          <a class="btn btn-ghost" href="#ai">See the assistant</a>
+        </div>
+        <p class="proof">Hockey first. Built by a keeper league that has drafted every fall since 2013; its 2026-27 season has run on Super Pools every night since the keeper deadline. Free to start, no ads, never real money.</p>
+      </div>
+      <div class="mock" aria-hidden="true">
+        <div class="phone">
+          <div class="screen">
+            <div class="bar"><span>NORTH POOL</span><span class="live">LIVE · 3 GAMES</span></div>
+            <div class="rows">
+              <div class="row lead"><span class="rk">1</span><span class="tm">Stars</span><span class="pts">1,284.5</span><span class="d up">+12.0</span></div>
+              <div class="row"><span class="rk">2</span><span class="tm">Bruisers</span><span class="pts">1,279.0</span><span class="d up">+7.5</span></div>
+              <div class="row"><span class="rk">3</span><span class="tm">Rink Rats</span><span class="pts">1,251.5</span><span class="d dn">+3.0</span></div>
+              <div class="row"><span class="rk">4</span><span class="tm">Habs Nots</span><span class="pts">1,236.0</span><span class="d up">+9.5</span></div>
+              <div class="row"><span class="rk">5</span><span class="tm">Prairie</span><span class="pts">1,198.5</span><span class="d dn">+1.5</span></div>
+              <div class="row"><span class="rk">6</span><span class="tm">Zambonis</span><span class="pts">1,190.0</span><span class="d dn">0.0</span></div>
+            </div>
+            <div class="bubble"><span class="avatar">G</span><div><b>Garry</b> · 10:48 pm<br>Stars take first by a goal. Bruisers left 9.5 on the bench. Recap at the horn.</div></div>
+          </div>
+        </div>
+        <div class="float">
+          <div class="chip"><svg class="ico"><use href="#i-spark"/></svg> AI-optimized lineup</div>
+          <div class="big">+6.4<small>PROJ</small></div>
+          <div class="small">Oettinger confirmed in net, moved to G1. Two bench points saved.</div>
+        </div>
+      </div>
     </div>
-    <p class="proof">Built by a keeper league that has drafted every fall since 2013. Its 2026-27 season has run on Super Pools every night since the keeper deadline.</p>
 
     <section class="pillars">
       <div class="eyebrow">Three things</div>
       <h2 class="display">What you get, and <em>what you stop doing</em></h2>
       <div class="grid">
-        <div class="card"><div class="n">01</div><h3>It runs itself</h3><p>Points from the box scores as the games happen. Every player locks at his own puck drop. Corrections flow in for a month. Bets, props, pools and the coin book settle themselves. Nobody keeps score by hand.</p></div>
-        <div class="card"><div class="n">02</div><h3>It talks back</h3><p>A league voice, named by your league, posts the daily recap, power rankings, trade grades and keeper reports, answers "who should I start?" in the chat, and talks trash on request.</p></div>
-        <div class="card"><div class="n">03</div><h3>Built by a league</h3><p>Thirteen seasons of keeper-league rules are baked in: keepers, a draft room with a clock and a TV board, trade review windows, IR rules, acquisition limits, and the money between friends.</p></div>
+        <div class="card"><svg class="ico"><use href="#i-puck"/></svg><div class="n">01</div><h3>It runs itself</h3><p>Points from the box scores as the games happen. Every player locks at his own puck drop. Corrections flow in for a month. Bets, props, pools and the coin book settle themselves. Nobody keeps score by hand.</p></div>
+        <div class="card"><svg class="ico"><use href="#i-mic"/></svg><div class="n">02</div><h3>It talks back</h3><p>A league voice, named by your league, posts the daily recap, power rankings, trade grades and keeper reports, answers "who should I start?" in the chat, and talks trash on request.</p></div>
+        <div class="card"><svg class="ico"><use href="#i-people"/></svg><div class="n">03</div><h3>Built by a league, with its leagues</h3><p>Thirteen seasons of keeper-league rules are baked in: keepers, a draft room with a clock and a TV board, trade review windows, IR rules, acquisition limits. Every pool can suggest and vote on what gets built next, and sees what shipped.</p></div>
+      </div>
+    </section>
+
+    <section id="sports">
+      <div class="eyebrow">Every sport, one home</div>
+      <h2 class="display">The same friends, <em>every season of the year</em></h2>
+      <p class="mute" style="margin:0 0 16px;max-width:640px">Hockey tonight. The rest arrive one at a time, each on licensed data, each with the same engine, the same chat, the same history and the same Supercoins. One login for the group, one crown for the year.</p>
+      <div class="sports">
+        <div class="sport now"><svg class="ico"><use href="#s-hockey"/></svg><div><b>Hockey</b><span>Now · NHL 2026-27</span></div></div>
+        <div class="sport"><svg class="ico ice"><use href="#s-soccer"/></svg><div><b>Soccer</b><span>Next season</span></div></div>
+        <div class="sport"><svg class="ico ice"><use href="#s-basket"/></svg><div><b>Basketball</b><span>Next season</span></div></div>
+        <div class="sport"><svg class="ico ice"><use href="#s-cricket"/></svg><div><b>Cricket</b><span>After · free to play</span></div></div>
+        <div class="sport"><svg class="ico ice"><use href="#s-baseball"/></svg><div><b>Baseball</b><span>After</span></div></div>
+        <div class="sport"><svg class="ico ice"><use href="#s-football"/></svg><div><b>Football</b><span>After</span></div></div>
+        <div class="sport"><svg class="ico ice"><use href="#s-golf"/></svg><div><b>Golf and F1</b><span>Pools</span></div></div>
+        <div class="sport"><svg class="ico ice"><use href="#s-multi"/></svg><div><b>Multi-sport pool</b><span>Draft across sports</span></div></div>
+      </div>
+      <p class="mute" style="margin:16px 0 0;max-width:640px">The multi-sport pool is one roster across sports: four skaters, three strikers, two point guards, a bowler. Every sport's points on one scale, every player locked at his own game, and the pool wraps up when the season you choose ends.</p>
+    </section>
+
+    <section id="supercoin">
+      <div class="eyebrow">The Supercoin</div>
+      <h2 class="display">One fun currency, <em>never money</em></h2>
+      <div class="coin">
+        <div>
+          <p class="mute" style="margin:0 0 12px">Every account has a Supercoin wallet. Every pool grants its GMs an allowance for the season and tops it up for the draft, the deadline and the playoffs. Head-to-heads, props, pools and the Book settle in Supercoins from the box scores, and a site-wide prediction market takes your word on the Cup, the scoring title and the trade of the year.</p>
+          <p class="mute" style="margin:0 0 12px">Supercoins cannot be bought, sold or cashed out, which keeps them fun and keeps us out of the betting business. Cash dues stay what they have always been in a pool among friends: bookkeeping, with the balances on the record. No payments are handled.</p>
+          <p class="mute" style="margin:0">Every coin that moves is a line in the ledger, visible to the pool, so nobody ever wonders where the money went.</p>
+        </div>
+        <div>
+          <svg class="coinart" viewBox="0 0 120 120" aria-hidden="true"><defs><linearGradient id="cg" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#fff1b8"/><stop offset=".5" stop-color="#f7c548"/><stop offset="1" stop-color="#b8800a"/></linearGradient><radialGradient id="cf" cx="40%" cy="30%" r="80%"><stop offset="0" stop-color="#2a3a6a"/><stop offset="1" stop-color="#0b1220"/></radialGradient></defs><circle cx="60" cy="60" r="56" fill="url(#cg)"/><circle cx="60" cy="60" r="47" fill="url(#cf)"/><circle cx="60" cy="60" r="40" fill="none" stroke="#38bdf8" stroke-opacity=".25"/><circle cx="60" cy="60" r="26" fill="none" stroke="url(#cg)" stroke-width="6"/><circle cx="60" cy="60" r="7" fill="url(#cg)"/><g stroke="url(#cg)" stroke-width="4" stroke-linecap="round"><path d="M49 22v7M71 22v7M49 91v7M71 91v7"/></g></svg>
+          <div class="ledger" aria-label="A sample Supercoin ledger">
+          <div><span>Season allowance · North Pool</span><span class="plus">+1,000</span></div>
+          <div><span>Head-to-head vs Bruisers · Tuesday</span><span class="plus">+40</span></div>
+          <div><span>Prop · MacKinnon 2+ points · settled</span><span class="minus">-25</span></div>
+          <div><span>Prediction market · Cup winner · stake</span><span class="minus">-100</span></div>
+          <div><span>Deadline-day top-up</span><span class="plus">+250</span></div>
+          </div>
+        </div>
       </div>
     </section>
 
@@ -136,13 +302,26 @@
       </div>
     </section>
 
-    <section>
-      <div class="eyebrow">The league voice</div>
-      <h2 class="display">Every league gets <em>a voice</em></h2>
+    <section id="ai">
+      <div class="eyebrow">AI-optimized · AI-enhanced</div>
+      <h2 class="display">An assistant that knows <em>your league</em></h2>
+      <p class="mute" style="margin:0 0 16px;max-width:640px">Everything the assistant says is built from your pool's own box scores and record, and it is always labelled as the voice. It optimizes lineups, grades trades and drafts, writes the recap, runs the projections and answers questions in the chat. It never invents a stat and it never runs your league. You do.</p>
+      <div class="ai">
       <div class="voice">
         <div class="who"><span class="avatar">G</span><span><b>Garry</b> · league voice · Tuesday recap</span></div>
         <p>Three games, one lesson: the North Stars benched a 4-point night and still took first by a goal. The Bruisers started a scratched goalie and would like to speak to the manager. Keeper report posts Sunday. Trade deadline is in 19 days, and yes, I am counting.</p>
         <div class="tag">A sample post. Your league names its own voice and decides how often it talks.</div>
+      </div>
+      <div class="lineup" aria-label="A sample AI-optimized lineup">
+        <div class="hd"><b>TONIGHT'S LINEUP</b><span class="chip"><svg class="ico"><use href="#i-spark"/></svg> Optimized</span></div>
+        <div class="l"><span class="slot">C</span><span>Bedard · CHI vs STL</span><span class="proj">4.1</span></div>
+        <div class="l"><span class="slot">LW</span><span>Hughes · NJD vs PHI</span><span class="proj">3.8</span></div>
+        <div class="l moved"><span class="slot">RW</span><span>Marner · in for Tkachuk (out)</span><span class="proj">3.4</span></div>
+        <div class="l"><span class="slot">D</span><span>Makar · COL at DAL</span><span class="proj">3.9</span></div>
+        <div class="l moved"><span class="slot">G1</span><span>Oettinger · confirmed starter</span><span class="proj">5.2</span></div>
+        <div class="l"><span class="slot">BN</span><span>Tkachuk · day to day</span><span class="proj">0.0</span></div>
+        <div class="note">Two moves before puck drop: a scratched winger swapped out, a confirmed goalie swapped in. Every move is logged, every lock is at the player's own game time.</div>
+      </div>
       </div>
     </section>
 
@@ -150,26 +329,49 @@
       <div class="eyebrow">Everything in one place</div>
       <h2 class="display">The whole life of the league, <em>on a phone</em></h2>
       <div class="grid">
-        <div class="card"><h3>Live scoring, done right</h3><p>Points from the NHL box scores as the games happen. Every player locks at his own puck drop. Corrections flow in for a month.</p></div>
-        <div class="card"><h3>Lineups weeks ahead</h3><p>Set who starts for any day up to sixty days out, or let the auto-pilot do it. See exactly how every played day went.</p></div>
-        <div class="card"><h3>A real draft room</h3><p>Pick clock, live board, queues, a TV board for the big screen, mock drafts, and a graded report card after.</p></div>
-        <div class="card"><h3>Side bets and a book</h3><p>Head-to-heads, player props, pools and a coin sportsbook on real games, all settled from the box scores with live odds.</p></div>
-        <div class="card"><h3>Projections and forecasts</h3><p>Rest-of-season projections, thousands of simulated seasons, playoff odds, trade and free-agent finders.</p></div>
-        <div class="card"><h3>Chat, polls and history</h3><p>The league's living room: chat with reactions and polls, every transaction on the record, and a voice that remembers who said what.</p></div>
+        <div class="card"><svg class="ico"><use href="#i-puck"/></svg><h3>Live scoring, done right</h3><p>Points from the NHL box scores as the games happen. Every player locks at his own puck drop. Corrections flow in for a month.</p></div>
+        <div class="card"><svg class="ico"><use href="#i-cal"/></svg><h3>Lineups weeks ahead</h3><p>Set who starts for any day up to sixty days out, or let the auto-pilot do it. See exactly how every played day went.</p></div>
+        <div class="card"><svg class="ico"><use href="#i-board"/></svg><h3>A real draft room</h3><p>Pick clock, live board, queues, a TV board for the big screen, mock drafts, and a graded report card after.</p></div>
+        <div class="card"><svg class="ico"><use href="#i-dice"/></svg><h3>Side bets and a book</h3><p>Head-to-heads, player props, pools and a coin sportsbook on real games, all settled from the box scores with live odds.</p></div>
+        <div class="card"><svg class="ico"><use href="#i-chart"/></svg><h3>Projections and forecasts</h3><p>Rest-of-season projections, thousands of simulated seasons, playoff odds, trade and free-agent finders.</p></div>
+        <div class="card"><svg class="ico"><use href="#i-chat"/></svg><h3>Chat, polls and history</h3><p>The league's living room: chat with reactions and polls, every transaction on the record, and a voice that remembers who said what.</p></div>
       </div>
+    </section>
+
+    <section id="tiers">
+      <div class="eyebrow">Free to start</div>
+      <h2 class="display">Pay for features, <em>per pool</em>, never per GM</h2>
+      <p class="mute" style="margin:0 0 16px;max-width:640px">A free pool is a real pool. The paid tiers add what makes a league serious, and the price follows the features. No ads on any tier. Prices per pool per season, announced before leagues open.</p>
+      <div class="tiers">
+        <div class="tier"><h3>Free</h3><div class="for">For a group trying a pool</div><ul><li>One sport, points scoring from presets</li><li>Snake draft with a clock</li><li>Daily lineups, standings, history</li><li>Chat and polls, up to 12 teams</li><li>No assistant</li></ul><div class="price">Free</div></div>
+        <div class="tier"><h3>Plus</h3><div class="for">For an established league</div><ul><li>Custom scoring: points, categories, roto</li><li>Keepers and imports with history</li><li>Dues tracker, co-commissioners</li><li>Constitution and an audit trail</li><li>AI-optimized lineups and a weekly AI recap</li></ul><div class="price">Per pool, per season</div></div>
+        <div class="tier hot"><h3>Premium</h3><div class="for">For the fourteen-year league</div><ul><li>The full AI voice: daily recaps, rankings, trade and draft grades, answers</li><li>Contracts, caps, prospect slots, rookie drafts</li><li>AI-enhanced projections and simulated seasons</li><li>The multi-sport pool and the prediction market</li><li>Side bets and the Book included</li></ul><div class="price">Per pool, per season</div></div>
+        <div class="tier"><h3>Side bets and the Book</h3><div class="for">Add-on for any tier</div><ul><li>Head-to-heads, props and pools</li><li>A coin sportsbook on real games</li><li>Settled from the box scores</li><li>Live odds, rulings on the record</li></ul><div class="price">Add-on</div></div>
+      </div>
+      <p class="mute" style="margin:14px 0 0;max-width:640px">A group with several pools gets them all for one price, in every sport, with one cross-sport standing: the Super Pool.</p>
     </section>
 
     <section class="strip" id="waitlist">
       <div class="eyebrow">For commissioners</div>
       <h2 class="display">Bring your league <em>next season</em></h2>
-      <p class="mute" style="margin:0;max-width:620px">Free to start. Paid tiers add the serious features, priced per pool per season and never per GM, with no ads on any tier. Season one is a private beta: free for the leagues we take on. Leave an address and we will write when leagues open. No spam, no list sharing.</p>
+      <p class="mute" style="margin:0;max-width:620px">Season one is a private beta: free for the leagues we take on. Leave an address and we will write when leagues open. No spam, no list sharing.</p>
       <form id="wl" novalidate>
         <input type="email" name="email" placeholder="you@example.com" autocomplete="email" required />
-        <input type="text" name="league" placeholder="What do you run today? (12-team keeper on Yahoo)" maxlength="160" />
+        <input type="text" name="league" placeholder="What do you run today? (12-team keeper on Yahoo, an FPL mini-league)" maxlength="160" />
         <input class="hp" type="text" name="website" tabindex="-1" autocomplete="off" />
         <button class="btn btn-gold" type="submit">Get on the list</button>
         <p class="msg wide" id="wl-msg" aria-live="polite"></p>
       </form>
+    </section>
+
+    <section>
+      <div class="eyebrow">It gets better every season</div>
+      <h2 class="display">Built <em>with its pools</em></h2>
+      <div class="grid">
+        <div class="card"><svg class="ico ice"><use href="#i-vote"/></svg><h3>Ask for what you need</h3><p>Every GM and commissioner can suggest a feature, comment and vote. Statuses are public: new, planned, building, done, declined, each with a note. A changelog shows what shipped and who asked for it.</p></div>
+        <div class="card"><svg class="ico ice"><use href="#i-spark"/></svg><h3>Every pool teaches the next one</h3><p>How pools set their rules, which formats win, where drafts stall and what the voice gets asked all shape the presets a new pool starts from, the statistics the site shows and what the voice pays attention to.</p></div>
+        <div class="card"><svg class="ico ice"><use href="#i-shield"/></svg><h3>Your data stays yours</h3><p>Usage is recorded per pool without names, disclosed in plain English, and never sold or shared. A commissioner can switch it off. What we learn goes back into the product and nowhere else.</p></div>
+      </div>
     </section>
 
     <section class="faq">
@@ -177,7 +379,8 @@
       <h2 class="display">Before you <em>ask</em></h2>
       <details><summary>Does the assistant run my league?</summary><p>No. You do. The commissioner sets the rules, rules on disputes and decides what the voice is allowed to say. Super Pools does the bookkeeping: scoring, locks, settlement, lineups, the record.</p></details>
       <details><summary>Can we bring our Yahoo league?</summary><p>Yes. The Yahoo import brings over your teams and rosters so the first season starts from where you are, keepers included.</p></details>
-      <details><summary>Is it only hockey?</summary><p>Yes, the NHL, for now. It was built by a hockey pool for hockey pools, and we would rather be the best at one sport than average at four.</p></details>
+      <details><summary>Is it only hockey?</summary><p>Today, yes: the NHL, built by a hockey pool for hockey pools. Soccer and basketball come next season on the same engine, then cricket (free to play), baseball, football and pools for golf and F1. A sport appears on the site only when it is live and its data is licensed.</p></details>
+      <details><summary>Can I run a free pool?</summary><p>Yes, a real one: one sport, points scoring from presets, a draft with a clock, daily lineups, standings, chat, polls and history, with no ads. The paid tiers add custom scoring, keepers, imports, the voice and the rest, priced per pool and never per GM.</p></details>
       <details><summary>Is there real money in it?</summary><p>No. The side bets and the Book use Supercoins, which cannot be bought or cashed out and are worth bragging rights. Cash stays what it has always been in a pool among friends: bookkeeping, with the balances on the record. No payments are handled.</p></details>
     </section>
 

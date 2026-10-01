@@ -332,7 +332,8 @@ Target: 1,500 pools, every major sport on at least two continents, the first Sup
 - No generic AI content; nothing the voice says comes from anywhere but the pool's own data, and the free
   tier has no voice rather than a watered-down one.
 - No sport added before its data is licensed or demonstrably tolerated and its engine is one we already
-  run; no "coming soon" sports on the landing page; no cricket with money anywhere.
+  run; the landing page shows the roadmap as a roadmap and never a sport as available before it is; no
+  cricket with money anywhere.
 - No telemetry sold, shared or tied to a name; what we learn goes back into the product.
 
 ## 7. Sources on commissioner pain

@@ -7,12 +7,13 @@ the league runs on.
 
 ## 1. What we are selling, in one breath
 
-Super Pools is a fantasy hockey league site with a commissioner's assistant built in. It scores the league
-from the NHL box scores every night, settles the side bets, sets the lineups GMs planned weeks ago, runs the
+Super Pools is the home for every pool a group of friends plays, with a commissioner's assistant built in.
+It starts with hockey. It scores the league from the box scores every night, settles the side bets, sets the lineups GMs planned weeks ago, runs the
 draft, and gives the league a voice that posts the recap, grades the trades and answers "who should I
 start?" in the chat. The commissioner runs the league. Super Pools does the bookkeeping.
 
-**Tagline:** The hockey pool that runs itself.
+**Tagline:** The AI-enhanced pool that runs itself. (In hockey copy, the AI-enhanced hockey pool that runs
+itself; the word "hockey" drops as the sports arrive.)
 
 **Positioning statement.** For commissioners of serious hockey pools (keeper and dynasty leagues, six to
 fourteen teams, friends who have played together for years) who are tired of doing the league's bookkeeping
@@ -79,8 +80,11 @@ Hockey-league plain English. The way a good commissioner writes the Sunday email
   them St. Patrick coins). Name features by what they do ("lineups weeks ahead"), not by a brand name.
 - Avoid: "AI-powered", "revolutionize", "platform", "seamless", "unlock", "supercharge", any exclamation
   mark, any em dash, emoji in copy (icons in the UI are fine).
-- "AI" appears in the domain and in the mechanism, not in the name and not in the headline. The headline
-  sells what the assistant does for the league, not that it is an assistant.
+- AI is said plainly, as a benefit with an object: AI-optimized lineups, AI-enhanced recaps, grades and
+  projections, an AI voice. The two words we use are "AI-optimized" (for things the assistant decides,
+  lineups and projections) and "AI-enhanced" (for things it writes or grades). Every such claim is backed by
+  the pool's own data and labelled as the voice. Never "AI-powered" as decoration, never AI as the subject of
+  a sentence about the league: the league is the subject, the assistant is what it has.
 - One idea per sentence. Phone width first: a headline is at most six words, a card is two sentences.
 - Humour is dry and about hockey or the league, never about the reader.
 
@@ -113,8 +117,10 @@ per screen as the thing to look at. Ice is for lines and links. Nothing else is 
 **Type.** Barlow Condensed (900 italic for the gold word, 900 for headlines, 700 for labels) and Inter (400
 body, 600 emphasis). The landing page self-hosts both so it depends on nothing at load.
 
-**Imagery.** Screens of the product on a phone, the TV draft board, the box score. No stock photography of
-hockey players, no generated art, no mascots.
+**Imagery.** Screens of the product on a phone (drawn in HTML and CSS with fictional pools so they stay crisp
+and private), the TV draft board, the box score, the faceoff-circle motif as a faint background line, one-stroke
+icons in gold or ice, the Supercoin as a gold coin carrying the mark. No stock photography of hockey players,
+no generated art, no mascots.
 
 ## 7. Where it applies today
 
