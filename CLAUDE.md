@@ -67,6 +67,12 @@ Deno check for edge functions: copy the function folder plus `_shared` to a scra
 - Migrations live in `supabase/migrations/` as `20261005000NNN_name.sql` (next number after the highest).
   Write the file, run `test:db`, then apply the same SQL to the project (Supabase MCP `apply_migration`).
   Cron changes go in their own `*_cron*` migration.
+- Pitfall: the Supabase MCP holds any top-level statement that begins with `drop` (`drop policy if exists`,
+  `drop trigger if exists`, ...) for a confirmation this session cannot give, and the call times out after 60 s
+  with nothing applied, in `apply_migration` and `execute_sql` alike. Write migrations without top-level drops
+  (`create or replace`, `if not exists`, or a drop inside a `do $$ ... $$` block), or apply in pieces with
+  `execute_sql` and record the row in `supabase_migrations.schema_migrations` by hand. Check the live state
+  before retrying: a timed-out call may have applied nothing, or everything up to the drop.
 - Edge functions deploy with the Supabase MCP `deploy_edge_function`, sending the full contents of
   `<fn>/index.ts` and every `_shared/*.ts` it imports. Pitfall: a literal `\uXXXX` in source is decoded once
   more by the deploy pipeline; send it as `\\u005cuXXXX`.
