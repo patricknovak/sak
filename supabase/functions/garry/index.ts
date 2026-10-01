@@ -465,11 +465,18 @@ async function reply(messageId: number) {
 
 
 // ─────────────── keeper report ───────────────
+// the scheduler calls with the project's anon key (the legacy JWT with role anon, or a publishable key); the gateway
+// has already checked it, so reading the role off it is enough to tell cron from a person's session
+function isAnonCaller(token: string) {
+  if (!token) return false;
+  if (token === ANON_KEY || token.startsWith('sb_publishable_')) return true;
+  try { return JSON.parse(atob(token.split('.')[1].replace(/-/g, '+').replace(/_/g, '/'))).role === 'anon'; } catch { return false; }
+}
 // who may ask for one: cron (the anon key), or the commissioner of the league the run is scoped to
 async function callerMayRun(req: Request) {
   const token = (req.headers.get('Authorization') ?? '').replace(/^Bearer /i, '');
   if (!token) return false;
-  if (token === ANON_KEY) return true;
+  if (isAnonCaller(token)) return true;
   const { data: u } = await db.auth.getUser(token);
   if (!u?.user) return false;
   const { data: m } = await db.from('league_members').select('role').eq('user_id', u.user.id).eq('league_id', L.lid).maybeSingle();
@@ -480,7 +487,7 @@ async function leaguesFor(req: Request, url: URL): Promise<number[]> {
   const asked = Number(url.searchParams.get('league'));
   if (asked > 0) return [asked];
   const token = (req.headers.get('Authorization') ?? '').replace(/^Bearer /i, '');
-  if (token && token !== ANON_KEY) {
+  if (token && !isAnonCaller(token)) {
     const { data: u } = await db.auth.getUser(token);
     if (u?.user) {
       const { data: a } = await db.from('accounts').select('active_league_id').eq('user_id', u.user.id).maybeSingle();
