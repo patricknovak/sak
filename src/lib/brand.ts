@@ -14,7 +14,7 @@ export interface Brand {
 }
 
 // the product behind the league (docs/BRAND.md): the name, the line under it, and where it lives
-export const PRODUCT = { name: 'Super Pools', tagline: 'The hockey pool that runs itself', domain: 'superpoolsai.com', url: 'https://superpoolsai.com' } as const;
+export const PRODUCT = { name: 'Super Pools', tagline: 'The pool that runs itself', domain: 'superpoolsai.com', url: 'https://superpoolsai.com' } as const;
 
 export const SAK_BRAND: Brand = {
   wordmark: { a: 'SAK', b: 'SUPERLEAGUE' }, tagline: 'She’s A Keeper', trophy: 'The SAK Cup', booby: 'The Peter',

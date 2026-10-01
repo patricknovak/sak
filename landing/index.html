@@ -3,15 +3,15 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Super Pools · The hockey pool that runs itself</title>
-  <meta name="description" content="Super Pools is a fantasy hockey league site with a commissioner's assistant built in. Live scoring from the box scores, lineups weeks ahead, a real draft room, side bets that settle themselves, and a league voice that posts the recap. Built by a keeper league." />
+  <title>Super Pools · The pool that runs itself</title>
+  <meta name="description" content="Super Pools is the home for every pool your friends play, in every sport, with a commissioner's assistant built in. Live scoring from the box scores, lineups weeks ahead, a real draft room, Supercoin side bets, and a league voice. Hockey first, built by a keeper league." />
   <link rel="canonical" href="https://superpoolsai.com/" />
   <link rel="icon" href="./icon.svg" type="image/svg+xml" />
   <meta name="theme-color" content="#0b1220" />
   <meta property="og:type" content="website" />
   <meta property="og:url" content="https://superpoolsai.com/" />
-  <meta property="og:title" content="Super Pools · The hockey pool that runs itself" />
-  <meta property="og:description" content="Live scoring from the box scores, lineups weeks ahead, a real draft room, side bets that settle themselves, and a league voice. Built by a keeper league, for keeper leagues." />
+  <meta property="og:title" content="Super Pools · The pool that runs itself" />
+  <meta property="og:description" content="Every pool your friends play, in every sport, in one home. Live scoring, lineups weeks ahead, a real draft room, Supercoin side bets, and a league voice. Hockey first, built by a keeper league." />
   <meta property="og:image" content="https://superpoolsai.com/og.png" />
   <meta name="twitter:card" content="summary_large_image" />
   <style>
@@ -83,6 +83,28 @@
     .msg.ok { color: var(--gold); }
     .msg.err { color: #fca5a5; }
 
+    .sports { display: grid; gap: 10px; grid-template-columns: repeat(2, 1fr); }
+    @media (min-width: 720px) { .sports { grid-template-columns: repeat(4, 1fr); } }
+    .sport { background: var(--boards); border: 1px solid var(--line); border-radius: 14px; padding: 14px; }
+    .sport b { display: block; font-family: 'Barlow Condensed', sans-serif; font-weight: 900; font-size: 20px; letter-spacing: .02em; }
+    .sport span { display: inline-block; margin-top: 6px; font-size: 11px; letter-spacing: .14em; text-transform: uppercase; color: var(--mute); }
+    .sport.now { border-color: rgba(247,197,72,.45); }
+    .sport.now span { color: var(--gold); }
+    .tiers { display: grid; gap: 14px; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); }
+    .tier { background: var(--boards); border: 1px solid var(--line); border-radius: 18px; padding: 20px; display: flex; flex-direction: column; }
+    .tier.hot { border-color: rgba(247,197,72,.45); }
+    .tier h3 { margin: 0; font-family: 'Barlow Condensed', sans-serif; font-weight: 900; font-size: 26px; letter-spacing: .02em; }
+    .tier .for { font-size: 13px; color: var(--mute); margin: 2px 0 12px; }
+    .tier ul { margin: 0; padding: 0 0 0 18px; color: #cbd5e1; font-size: 14px; }
+    .tier li { margin: 4px 0; }
+    .tier .price { margin-top: auto; padding-top: 14px; font-family: 'Barlow Condensed', sans-serif; font-weight: 700; font-size: 18px; letter-spacing: .04em; color: var(--gold); }
+    .coin { display: grid; gap: 14px; grid-template-columns: 1fr; align-items: start; }
+    @media (min-width: 720px) { .coin { grid-template-columns: 1.2fr 1fr; } }
+    .ledger { background: var(--boards); border: 1px solid var(--line); border-radius: 18px; padding: 14px 16px; font-size: 13px; }
+    .ledger div { display: flex; justify-content: space-between; gap: 12px; padding: 7px 0; border-bottom: 1px solid var(--line); }
+    .ledger div:last-child { border-bottom: 0; }
+    .ledger .plus { color: var(--gold); font-weight: 600; }
+    .ledger .minus { color: var(--mute); font-weight: 600; }
     .faq details { border-top: 1px solid var(--line); padding: 14px 0; }
     .faq details:last-child { border-bottom: 1px solid var(--line); }
     .faq summary { cursor: pointer; font-weight: 600; list-style: none; display: flex; justify-content: space-between; gap: 12px; }
@@ -106,13 +128,13 @@
       </div>
     </header>
 
-    <h1 class="display">The hockey pool that <em>runs itself</em>.</h1>
-    <p class="lede">Super Pools scores your league from the NHL box scores every night, settles the side bets, sets the lineups your GMs planned weeks ago, and gives the league a voice that posts the recap before you have finished your coffee. You run the league. It does the bookkeeping.</p>
+    <h1 class="display">The pool that <em>runs itself</em>.</h1>
+    <p class="lede">One home for every pool your friends play. Super Pools scores the league from the box scores every night, settles the side bets in Supercoins, sets the lineups your GMs planned weeks ago, keeps every season on the record, and gives the league a voice that posts the recap before you have finished your coffee. You run the league. It does the bookkeeping.</p>
     <div class="cta">
       <a class="btn btn-gold" href="#waitlist">Get on the list</a>
-      <a class="btn btn-ghost" href="#season">See how a season goes</a>
+      <a class="btn btn-ghost" href="#sports">Every sport, one home</a>
     </div>
-    <p class="proof">Built by a keeper league that has drafted every fall since 2013. Its 2026-27 season has run on Super Pools every night since the keeper deadline.</p>
+    <p class="proof">Hockey first. Built by a keeper league that has drafted every fall since 2013; its 2026-27 season has run on Super Pools every night since the keeper deadline. Free to start, no ads, never real money.</p>
 
     <section class="pillars">
       <div class="eyebrow">Three things</div>
@@ -120,7 +142,43 @@
       <div class="grid">
         <div class="card"><div class="n">01</div><h3>It runs itself</h3><p>Points from the box scores as the games happen. Every player locks at his own puck drop. Corrections flow in for a month. Bets, props, pools and the coin book settle themselves. Nobody keeps score by hand.</p></div>
         <div class="card"><div class="n">02</div><h3>It talks back</h3><p>A league voice, named by your league, posts the daily recap, power rankings, trade grades and keeper reports, answers "who should I start?" in the chat, and talks trash on request.</p></div>
-        <div class="card"><div class="n">03</div><h3>Built by a league</h3><p>Thirteen seasons of keeper-league rules are baked in: keepers, a draft room with a clock and a TV board, trade review windows, IR rules, acquisition limits, and the money between friends.</p></div>
+        <div class="card"><div class="n">03</div><h3>Built by a league, with its leagues</h3><p>Thirteen seasons of keeper-league rules are baked in: keepers, a draft room with a clock and a TV board, trade review windows, IR rules, acquisition limits. Every pool can suggest and vote on what gets built next, and sees what shipped.</p></div>
+      </div>
+    </section>
+
+    <section id="sports">
+      <div class="eyebrow">Every sport, one home</div>
+      <h2 class="display">The same friends, <em>every season of the year</em></h2>
+      <p class="mute" style="margin:0 0 16px;max-width:640px">Hockey tonight. The rest arrive one at a time, each on licensed data, each with the same engine, the same chat, the same history and the same Supercoins. One login for the group, one crown for the year.</p>
+      <div class="sports">
+        <div class="sport now"><b>Hockey</b><span>Now · NHL 2026-27</span></div>
+        <div class="sport"><b>Soccer</b><span>Next season</span></div>
+        <div class="sport"><b>Basketball</b><span>Next season</span></div>
+        <div class="sport"><b>Cricket</b><span>After · free to play</span></div>
+        <div class="sport"><b>Baseball</b><span>After</span></div>
+        <div class="sport"><b>Football</b><span>After</span></div>
+        <div class="sport"><b>Golf and F1</b><span>Pools</span></div>
+        <div class="sport"><b>Multi-sport pool</b><span>Draft across sports</span></div>
+      </div>
+      <p class="mute" style="margin:16px 0 0;max-width:640px">The multi-sport pool is one roster across sports: four skaters, three strikers, two point guards, a bowler. Every sport's points on one scale, every player locked at his own game, and the pool wraps up when the season you choose ends.</p>
+    </section>
+
+    <section id="supercoin">
+      <div class="eyebrow">The Supercoin</div>
+      <h2 class="display">One fun currency, <em>never money</em></h2>
+      <div class="coin">
+        <div>
+          <p class="mute" style="margin:0 0 12px">Every account has a Supercoin wallet. Every pool grants its GMs an allowance for the season and tops it up for the draft, the deadline and the playoffs. Head-to-heads, props, pools and the Book settle in Supercoins from the box scores, and a site-wide prediction market takes your word on the Cup, the scoring title and the trade of the year.</p>
+          <p class="mute" style="margin:0 0 12px">Supercoins cannot be bought, sold or cashed out, which keeps them fun and keeps us out of the betting business. Cash dues stay what they have always been in a pool among friends: bookkeeping, with the balances on the record. No payments are handled.</p>
+          <p class="mute" style="margin:0">Every coin that moves is a line in the ledger, visible to the pool, so nobody ever wonders where the money went.</p>
+        </div>
+        <div class="ledger" aria-label="A sample Supercoin ledger">
+          <div><span>Season allowance · North Pool</span><span class="plus">+1,000</span></div>
+          <div><span>Head-to-head vs Bruisers · Tuesday</span><span class="plus">+40</span></div>
+          <div><span>Prop · MacKinnon 2+ points · settled</span><span class="minus">-25</span></div>
+          <div><span>Prediction market · Cup winner · stake</span><span class="minus">-100</span></div>
+          <div><span>Deadline-day top-up</span><span class="plus">+250</span></div>
+        </div>
       </div>
     </section>
 
@@ -159,17 +217,40 @@
       </div>
     </section>
 
+    <section id="tiers">
+      <div class="eyebrow">Free to start</div>
+      <h2 class="display">Pay for features, <em>per pool</em>, never per GM</h2>
+      <p class="mute" style="margin:0 0 16px;max-width:640px">A free pool is a real pool. The paid tiers add what makes a league serious, and the price follows the features. No ads on any tier. Prices per pool per season, announced before leagues open.</p>
+      <div class="tiers">
+        <div class="tier"><h3>Free</h3><div class="for">For a group trying a pool</div><ul><li>One sport, points scoring from presets</li><li>Snake draft with a clock</li><li>Daily lineups, standings, history</li><li>Chat and polls, up to 12 teams</li><li>No assistant</li></ul><div class="price">Free</div></div>
+        <div class="tier"><h3>Plus</h3><div class="for">For an established league</div><ul><li>Custom scoring: points, categories, roto</li><li>Keepers and imports with history</li><li>Dues tracker, co-commissioners</li><li>Constitution and an audit trail</li><li>A weekly recap from the voice</li></ul><div class="price">Per pool, per season</div></div>
+        <div class="tier hot"><h3>Premium</h3><div class="for">For the fourteen-year league</div><ul><li>The full voice: daily recaps, rankings, grades, answers</li><li>Contracts, caps, prospect slots, rookie drafts</li><li>Projections and simulated seasons</li><li>The multi-sport pool and the prediction market</li><li>Side bets and the Book included</li></ul><div class="price">Per pool, per season</div></div>
+        <div class="tier"><h3>Side bets and the Book</h3><div class="for">Add-on for any tier</div><ul><li>Head-to-heads, props and pools</li><li>A coin sportsbook on real games</li><li>Settled from the box scores</li><li>Live odds, rulings on the record</li></ul><div class="price">Add-on</div></div>
+      </div>
+      <p class="mute" style="margin:14px 0 0;max-width:640px">A group with several pools gets them all for one price, in every sport, with one cross-sport standing: the Super Pool.</p>
+    </section>
+
     <section class="strip" id="waitlist">
       <div class="eyebrow">For commissioners</div>
       <h2 class="display">Bring your league <em>next season</em></h2>
-      <p class="mute" style="margin:0;max-width:620px">Free to start. Paid tiers add the serious features, priced per pool per season and never per GM, with no ads on any tier. Season one is a private beta: free for the leagues we take on. Leave an address and we will write when leagues open. No spam, no list sharing.</p>
+      <p class="mute" style="margin:0;max-width:620px">Season one is a private beta: free for the leagues we take on. Leave an address and we will write when leagues open. No spam, no list sharing.</p>
       <form id="wl" novalidate>
         <input type="email" name="email" placeholder="you@example.com" autocomplete="email" required />
-        <input type="text" name="league" placeholder="What do you run today? (12-team keeper on Yahoo)" maxlength="160" />
+        <input type="text" name="league" placeholder="What do you run today? (12-team keeper on Yahoo, an FPL mini-league)" maxlength="160" />
         <input class="hp" type="text" name="website" tabindex="-1" autocomplete="off" />
         <button class="btn btn-gold" type="submit">Get on the list</button>
         <p class="msg wide" id="wl-msg" aria-live="polite"></p>
       </form>
+    </section>
+
+    <section>
+      <div class="eyebrow">It gets better every season</div>
+      <h2 class="display">Built <em>with its pools</em></h2>
+      <div class="grid">
+        <div class="card"><h3>Ask for what you need</h3><p>Every GM and commissioner can suggest a feature, comment and vote. Statuses are public: new, planned, building, done, declined, each with a note. A changelog shows what shipped and who asked for it.</p></div>
+        <div class="card"><h3>Every pool teaches the next one</h3><p>How pools set their rules, which formats win, where drafts stall and what the voice gets asked all shape the presets a new pool starts from, the statistics the site shows and what the voice pays attention to.</p></div>
+        <div class="card"><h3>Your data stays yours</h3><p>Usage is recorded per pool without names, disclosed in plain English, and never sold or shared. A commissioner can switch it off. What we learn goes back into the product and nowhere else.</p></div>
+      </div>
     </section>
 
     <section class="faq">
@@ -177,7 +258,8 @@
       <h2 class="display">Before you <em>ask</em></h2>
       <details><summary>Does the assistant run my league?</summary><p>No. You do. The commissioner sets the rules, rules on disputes and decides what the voice is allowed to say. Super Pools does the bookkeeping: scoring, locks, settlement, lineups, the record.</p></details>
       <details><summary>Can we bring our Yahoo league?</summary><p>Yes. The Yahoo import brings over your teams and rosters so the first season starts from where you are, keepers included.</p></details>
-      <details><summary>Is it only hockey?</summary><p>Yes, the NHL, for now. It was built by a hockey pool for hockey pools, and we would rather be the best at one sport than average at four.</p></details>
+      <details><summary>Is it only hockey?</summary><p>Today, yes: the NHL, built by a hockey pool for hockey pools. Soccer and basketball come next season on the same engine, then cricket (free to play), baseball, football and pools for golf and F1. A sport appears on the site only when it is live and its data is licensed.</p></details>
+      <details><summary>Can I run a free pool?</summary><p>Yes, a real one: one sport, points scoring from presets, a draft with a clock, daily lineups, standings, chat, polls and history, with no ads. The paid tiers add custom scoring, keepers, imports, the voice and the rest, priced per pool and never per GM.</p></details>
       <details><summary>Is there real money in it?</summary><p>No. The side bets and the Book use Supercoins, which cannot be bought or cashed out and are worth bragging rights. Cash stays what it has always been in a pool among friends: bookkeeping, with the balances on the record. No payments are handled.</p></details>
     </section>
 

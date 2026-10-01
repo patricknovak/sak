@@ -7,12 +7,13 @@ the league runs on.
 
 ## 1. What we are selling, in one breath
 
-Super Pools is a fantasy hockey league site with a commissioner's assistant built in. It scores the league
-from the NHL box scores every night, settles the side bets, sets the lineups GMs planned weeks ago, runs the
+Super Pools is the home for every pool a group of friends plays, with a commissioner's assistant built in.
+It starts with hockey. It scores the league from the box scores every night, settles the side bets, sets the lineups GMs planned weeks ago, runs the
 draft, and gives the league a voice that posts the recap, grades the trades and answers "who should I
 start?" in the chat. The commissioner runs the league. Super Pools does the bookkeeping.
 
-**Tagline:** The hockey pool that runs itself.
+**Tagline:** The pool that runs itself. (In hockey copy, the hockey pool that runs itself; the word "hockey"
+drops as the sports arrive.)
 
 **Positioning statement.** For commissioners of serious hockey pools (keeper and dynasty leagues, six to
 fourteen teams, friends who have played together for years) who are tired of doing the league's bookkeeping
