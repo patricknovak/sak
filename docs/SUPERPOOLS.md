@@ -4,7 +4,8 @@ Super Pools is the product built from the SaK Superleague site. The SaK league i
 league, and keeps running on the same code and database while the product grows around it. This document is
 the plan of record: what the product is, how leagues are separated, what is shared, and the order of work.
 
-Domains: `superpoolsai.com` (primary) and `superpoolai.com` (redirects to the primary).
+Domains: `superpoolsai.com` (primary) and `superpoolai.com` (redirects to the primary). The market, the
+competition and the road to every sport are in `docs/MARKET.md`; the words and the look in `docs/BRAND.md`.
 
 Landing page hosting: Vercel project `superpools` (team `patricknovak1-8908s-projects`, id
 `prj_SRNe8ClGioGw9vAAOwq3unQ9tbMh`), linked to this repo with root directory `landing/`; every push to `main`
@@ -88,6 +89,30 @@ of every team on the login page until the app is served per host (step 3).
 7. **Onboarding.** A new league: sign up, name and brand it, invite GMs, import a Yahoo pool (the connector
    exists) or start fresh, set rules, draft.
 8. **Billing.** A subscription per league per season (Stripe). Landing page collects interest until then.
+
+The steps above finish the tenancy. `docs/MARKET.md` sets what comes after in three horizons. The first,
+"win hockey and lay the foundations", adds to this list in this order once tenancy is done:
+
+9. **Tiers and billing.** Free, Plus, Premium, the side-bet add-on and the Super Pool bundle, enforced per
+   pool (a `plan` on the league row and a feature gate function), Stripe for the paid tiers.
+10. **Category and rotisserie scoring.** The scoring engine reads the league's categories the way it reads
+    its point weights.
+11. **Import with history** from Fantrax, ESPN and CBS (Yahoo exists).
+12. **Contracts, caps, prospect slots and rookie drafts**; guillotine and best ball formats.
+13. **The Supercoin.** An account-level wallet, the SaK coin ledger migrated onto it, per-pool allowances, the
+    Book and side bets as the add-on, the ledger visible in every pool. Never for sale, never cashed out.
+14. **Commissioner tools the market lacks**: dues tracker (no escrow), co-commissioners, constitution page,
+    audit trail of every override, abandoned-team handover.
+15. **The sport pulled out of the engine**: a `sports` table, per-sport player, game and stat shapes and
+    scoring vocabularies, a sync per sport; the NHL becomes one row. Prerequisite for soccer, basketball and
+    the multi-sport pool.
+16. **Telemetry and the feature board**: pseudonymous per-pool usage tables with a commissioner opt-out, the
+    SaK Features page grown into a product-wide board with public statuses and a changelog.
+17. **App-store listing**, the **playoff bracket pool**, and the voice per league with a daily budget.
+
+Then horizon 2 (soccer on licensed data, basketball, the multi-sport pool, the Supercoin prediction market,
+the Super Pool bundle, the public API) and horizon 3 (cricket free-to-play, baseball, football and college,
+pools for golf and F1, Supercoin competitions and non-cash prizes), as `docs/MARKET.md` lays out.
 
 ## 6. Environments
 
