@@ -29,6 +29,7 @@ const Features = lazy(() => import('./pages/Features'));
 const DraftTV = lazy(() => import('./pages/DraftTV'));
 const DraftCentre = lazy(() => import('./pages/DraftCentre'));
 const Scoreboard = lazy(() => import('./pages/Scoreboard'));
+const Performance = lazy(() => import('./pages/Performance'));
 const NHL = lazy(() => import('./pages/NHL'));
 const Yahoo = lazy(() => import('./pages/Yahoo'));
 const YahooLeague = lazy(() => import('./pages/YahooLeague'));
@@ -84,6 +85,7 @@ function App() {
           <Route path="/draft/tv" element={<DraftTV />} />
           <Route path="/draft/list" element={<Navigate to="/draft?t=order" replace />} />
           <Route path="/scoreboard" element={<Scoreboard />} />
+          <Route path="/performance" element={<Performance />} />
           <Route path="/nhl" element={<NHL />} />
           <Route path="/yahoo" element={<Yahoo />} />
           <Route path="/yahoo/:key" element={<YahooLeague />} />

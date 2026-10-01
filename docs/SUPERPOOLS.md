@@ -18,8 +18,14 @@ proxy): apex `A 216.150.1.1`, `www` `CNAME cname.vercel-dns.com`, on both zones.
 A fantasy hockey league site with an AI commissioner's assistant built in. One league is one tenant. Each
 league gets: live scoring from NHL box scores with per-player puck-drop locks; daily lineups set up to 60
 days ahead with an auto-pilot; a draft room (clock, board, queues, TV mode, mock drafts, graded report
+<<<<<<< HEAD
 card); keepers; trades with grades and scouting numbers beside every player (form, outlook, categories, side by side); free-agent and trade finders; side bets and a coin sportsbook that settle
 themselves; projections and simulated-season forecasts; a chat with polls; push notifications; and a league
+=======
+card); keepers; trades with grades; free-agent and trade finders; side bets and a coin sportsbook that settle
+themselves; a Performance page (every point that counted, by day and by category, for any team or the
+league, with plain-language analytics); projections and simulated-season forecasts; a chat with polls; push notifications; and a league
+>>>>>>> origin/main
 voice (Garry in SaK, named per league) that posts recaps, rankings, grades and answers questions.
 
 The NHL data behind all of that is fetched once and shared by every league.
@@ -99,8 +105,13 @@ on the site, and the switcher.
 
 1. **League by host.** `leagues.domain`: `sak.superpoolsai.com` or a custom domain per league; the app picks
    the league from the host, so one deployment serves all leagues.
-2. **Garry per league.** Memory and persona are already keyed by team and channel; add the league key and
-   a per-league daily budget of LLM calls (the one cost that scales with leagues).
+2. **Garry per league** (done in migration 65, bar the budget). One state row per league (voice notes, the
+   commissioner's briefing, where the memory pass got to); the edge function scopes every read and write to
+   one league, loops over the active leagues for the cron tasks and takes a reply's league from its message;
+   names come from `leagues.brand`. The commissioner shapes the voice from the Commissioner page: a briefing
+   read before every post, facts handed over by name, the file he built from the chat (anything can be struck)
+   and his voice notes. Still to do: a per-league daily budget of LLM calls (the one cost that scales with
+   leagues).
 3. **Scheduler per league.** nhl-sync's league-scoped tasks (snapshots, auto-lineups, standings,
    settlement) iterate leagues, setting `app.league_id` before each league's pass; the NHL fetches stay single.
 4. **Money.** Coins stay. Cash tracking stays bookkeeping between friends (no payments handled), or is
@@ -145,7 +156,10 @@ pools for golf and F1, Supercoin competitions and non-cash prizes), as `docs/MAR
 
 ## 9. Working agreement
 
-- The SaK league is the model: build features there first, on the league that uses them every night.
+- The SaK league is the model and the test and development platform: build features there first, on the
+  league that uses them every night. Unless Patrick says otherwise for a feature, anything built for SaK is a
+  Super Pools feature (or a per-league customization) for every league: it reads its league's rules, brand and
+  data by `league_id` and never assumes SaK's names or numbers.
 - Every league-scoped change from now on writes `league_id` explicitly (or relies on the default = 1 only
   where the caller can only be in SaK).
 - Nothing in `docs/` or the app names SaK as the product; the product is Super Pools, SaK is a league on it.

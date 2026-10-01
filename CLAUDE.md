@@ -80,6 +80,9 @@ Deno check for edge functions: copy the function folder plus `_shared` to a scra
 
 ## Conventions
 
+- SaK is the test and development platform for Super Pools. Anything built for the SaK Superleague is, by
+  default, a Super Pools feature or a per-league customization for every league (reads its league's rules and
+  brand, keyed by `league_id`), unless Patrick says otherwise for that feature.
 - Branch and PR flow: work on the designated `claude/...` branch, commit with Patrick's name and email,
   push, open a draft PR against `main`, subscribe to it, schedule a self check-in, and fast-forward the
   branch to `main` after the merge. No model identifiers in commits or PR text.
