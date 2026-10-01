@@ -52,16 +52,18 @@ counts, testimonials or press.
 
 ## 4. How we compare
 
+The long version, with sources, is `docs/MARKET.md`.
+
 | | Yahoo / ESPN | Fantrax | Sleeper | Super Pools |
 |---|---|---|---|---|
-| Hockey | an afterthought to football | deep, dated | thin | the only sport |
+| Hockey | an afterthought to football | deep, dated | none | the only sport |
 | Keeper leagues | basic | strong | basic | built around them |
 | Scoring | nightly | nightly | nightly | live from the box scores, per-player locks, corrections |
 | Side bets, book | no | no | no | yes, settled from the box scores |
 | League voice | no | no | no | yes, named per league |
 | Chat | sidebar | sidebar | the product | the league's living room |
-| Who built it | media company | fantasy company | social app | a keeper league |
-| Price | free with ads | free or paid tiers | free | one subscription per league per season |
+| Who built it | media company | fantasy company (Markham, Ontario) | social app | a keeper league |
+| Price | free with ads, $60-80 a year per user for the tools | free, $130 a league for the full rules | free, funded by picks and prediction markets | one subscription per league per season |
 
 We never name competitors on the landing page. We describe the difference ("built for football", "you keep
 the score yourself") and let the reader fill in the name.

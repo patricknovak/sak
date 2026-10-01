@@ -4,7 +4,8 @@ Super Pools is the product built from the SaK Superleague site. The SaK league i
 league, and keeps running on the same code and database while the product grows around it. This document is
 the plan of record: what the product is, how leagues are separated, what is shared, and the order of work.
 
-Domains: `superpoolsai.com` (primary) and `superpoolai.com` (redirects to the primary).
+Domains: `superpoolsai.com` (primary) and `superpoolai.com` (redirects to the primary). The market, the
+competition and the road to every sport are in `docs/MARKET.md`; the words and the look in `docs/BRAND.md`.
 
 Landing page hosting: Vercel project `superpools` (team `patricknovak1-8908s-projects`, id
 `prj_SRNe8ClGioGw9vAAOwq3unQ9tbMh`), linked to this repo with root directory `landing/`; every push to `main`
@@ -88,6 +89,23 @@ of every team on the login page until the app is served per host (step 3).
 7. **Onboarding.** A new league: sign up, name and brand it, invite GMs, import a Yahoo pool (the connector
    exists) or start fresh, set rules, draft.
 8. **Billing.** A subscription per league per season (Stripe). Landing page collects interest until then.
+
+The steps above finish the tenancy. `docs/MARKET.md` sets what comes after, in three horizons; the first,
+"win hockey", adds to this list in this order once tenancy is done:
+
+9. **Category and rotisserie scoring.** The scoring engine reads the league's categories the way it reads
+   its point weights; head-to-head categories and roto are the formats a large share of hockey leagues use.
+10. **Import with history** from Fantrax, ESPN and CBS (Yahoo exists): rosters, keepers, draft results, past
+    standings and champions.
+11. **Contracts, caps, prospect slots and rookie drafts**; guillotine and best ball formats.
+12. **Commissioner tools the market lacks**: dues tracker with balances and reminders (no escrow),
+    co-commissioners, a constitution page, an audit trail of every override, abandoned-team handover.
+13. **App-store listing** through a thin native wrapper of the existing site.
+14. **Playoff bracket pool** and playoff-only leagues.
+15. **Public API and an MCP connector** for league data.
+
+Then horizon 2 (the sport pulled out of the engine; basketball, then baseball; the cross-sport Super Pool)
+and horizon 3 (football, college, soccer, pools for golf and F1, PWHL and WNBA), as `docs/MARKET.md` lays out.
 
 ## 6. Environments
 
