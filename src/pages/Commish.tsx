@@ -10,6 +10,8 @@ import { fmtPts } from '../lib/format';
 import { Wrench } from 'lucide-react';
 import { MoneySettings } from '../components/MoneySettings';
 import { ScoringEditor } from '../components/ScoringEditor';
+import { GarryShaper } from '../components/GarryShaper';
+import { useBrand } from '../lib/brand';
 
 // datetime-local <-> ISO in the viewer's zone
 const toLocal = (iso: string | null) => {
@@ -21,6 +23,7 @@ const fromLocal = (v: string) => (v ? new Date(v).toISOString() : null);
 
 export default function Commish() {
   const { me, league, teams, spectators, team, draft, picks, players, owner, refresh } = useLeague();
+  const brand = useBrand();
   const { busy, run: runRaw } = useAction();
   const run = (fn: () => Promise<unknown>, ok?: string) => runRaw(async () => { await fn(); await refresh(['draft', 'picks', 'league', 'rosters', 'teams']); }, ok);
   const [s, setS] = useState({ keeper_deadline: '', draft_at: '', pick_seconds: 90, draft_rounds: 18, snake: true, trade_deadline: '', max_acquisitions: 10, keepers: 6, top_scorer_rule: true, phase: 'keepers' });
@@ -225,6 +228,10 @@ export default function Commish() {
           <button className="btn-primary sm:col-span-2" disabled={!coin.team || !Number(coin.amount) || !coin.reason || busy}
             onClick={() => run(async () => { await rpc('commish_coins', { p_team: Number(coin.team), p_amount: Number(coin.amount), p_reason: coin.reason }); setCoin({ team: '', amount: '', reason: '' }); }, 'Coins sent ☘️')}>Award / dock coins</button>
         </div>
+      </Section>
+
+      <Section title={`${brand.bot.emoji} Shape ${brand.bot.name}`}>
+        <GarryShaper />
       </Section>
 
       <Section title="🔑 Reset a GM’s password">

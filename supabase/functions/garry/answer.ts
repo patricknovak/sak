@@ -4,7 +4,12 @@
 import type { SupabaseClient } from 'jsr:@supabase/supabase-js@2';
 import { etDate } from '../_shared/nhl.ts';
 
-type Db = SupabaseClient;
+// the league-scoped reads from index.ts, plus the league's names for the wording
+type Db = {
+  from: (table: string) => ReturnType<SupabaseClient['from']>;
+  rpc: (fn: string, args?: Record<string, unknown>) => ReturnType<SupabaseClient['rpc']>;
+  brand: { bot: { name: string }; coin: { name: string }; booby: string }; league: { short_name: string };
+};
 export interface Answer { text: string; topic: string; facts: Record<string, unknown> }
 
 const pick = <T>(a: T[]) => a[Math.floor(Math.random() * a.length)];
@@ -27,18 +32,18 @@ const CLOSE = [
   'That’s free advice, which is exactly what your last trade offer was worth.', 'Now stop bugging me and set your lineup.',
 ];
 
-const HELP: Record<string, string> = {
+const help = (db: Db): Record<string, string> => ({
   lineup: 'Lineup tab (bottom menu): tap a player, then tap the slot he should go to. Players lock when their game starts. Or open ⚙️ Lineup tools: “Optimize today” sets the best lineup in one tap, and Auto-pilot (Day / Week / Season) does it for you every morning. Pin anyone you always want in (📌) or never want in (🚫). 👉 #/team',
   trade: 'Tap any team name to open their page, switch to “Scout & trade”, tick the players or picks you want, then Build trade and add what you’re sending. Picks for this draft and next year’s are tradable. The commish approves accepted deals. 👉 #/trades',
   pickup: 'Players tab → “Available”, tap a player → ➕ Add (you’ll pick who to drop if you’re full). You get 10 free pickups for the season and playoffs, +3 more when the playoffs start. No paying for extras: trade another GM for their spares. 👉 #/players',
   keeper: 'More → Keepers: tick up to 6 from your 2025-26 roster and hit Save before the deadline. Your 2025-26 top scorer can’t be kept. Miss the deadline and the site keeps your top 6 by points for you. 👉 #/keepers',
   draft: 'The Draft tab is the draft room: star players to build your queue, flip on Autodraft if you’ll be away, and practise first in the mock draft. Turn on phone alerts so you get buzzed when you’re on the clock. 👉 #/draft',
-  bet: 'Side Bets (More menu) → New bet: pick an opponent (or leave it open), terms, and St. Patrick coins and/or real money. Head-to-head bets track your fantasy points automatically. 👉 #/bets',
-  alerts: 'My Profile → Alerts → Turn on alerts. On iPhone add SaK to your Home Screen first (Share → Add to Home Screen), open it from there, then turn alerts on. 👉 #/profile',
+  bet: `Side Bets (More menu) → New bet: pick an opponent (or leave it open), terms, and ${db.brand.coin.name} and/or real money. Head-to-head bets track your fantasy points automatically. 👉 #/bets`,
+  alerts: `My Profile → Alerts → Turn on alerts. On iPhone add ${db.league.short_name} to your Home Screen first (Share → Add to Home Screen), open it from there, then turn alerts on. 👉 #/profile`,
   player: 'Tap any player anywhere for his full page: stats, where his points come from, game log, career, news and upcoming games. 👉 #/players',
   features: 'More → League Features lists everything the site does. Comment on any of it, suggest new features, and upvote the ideas you want most; the commish marks them planned, building or shipped. 👉 #/features?t=ideas',
-  chat: 'Trash Talk is the main room, each GM has a DM, and “Ask Garry” is your private line to me. Say my name anywhere and I’ll show up.',
-};
+  chat: `Trash Talk is the main room, each GM has a DM, and “Ask ${db.brand.bot.name}” is your private line to me. Say my name anywhere and I’ll show up.`,
+});
 
 async function base(db: Db) {
   const [{ data: league }, { data: teams }, { data: standings }, { data: playoffs }] = await Promise.all([
@@ -73,7 +78,8 @@ async function findPlayers(db: Db, q: string) {
 }
 
 export async function answer(db: Db, question: string, askerTeam: number): Promise<Answer> {
-  const q = norm(question.replace(/@?garry[,:!]?/ig, ' ')).trim();
+  const HELP = help(db);
+  const q = norm(question.replace(new RegExp(`@?${db.brand.bot.name}[,:!]?`, 'ig'), ' ')).trim();
   const { league, teams, standings, playoffs } = await base(db);
   const byId = new Map(teams.map((t) => [t.id, t]));
   const me = byId.get(askerTeam);
@@ -91,7 +97,7 @@ export async function answer(db: Db, question: string, askerTeam: number): Promi
 
   // ── greetings and thanks
   if (!q || /^(hi|hey|yo|sup|hello|thanks|thank you|ty|cheers)\b[\s!.?]*$/.test(q)) {
-    return reply('hello', (/thank|ty|cheers/.test(q) ? 'Anytime. Garry’s always here, unlike your goalie. ' : 'You rang? ') + 'Ask me anything: standings, your lineup, a player, tonight’s games, trades, pickups, the draft, bets, rules or the prize money.');
+    return reply('hello', (/thank|ty|cheers/.test(q) ? `Anytime. ${db.brand.bot.name}’s always here, unlike your goalie. ` : 'You rang? ') + 'Ask me anything: standings, your lineup, a player, tonight’s games, trades, pickups, the draft, bets, rules or the prize money.');
   }
 
   // ── a specific player
@@ -134,19 +140,19 @@ export async function answer(db: Db, question: string, askerTeam: number): Promi
   if (has(/\b(standing|standings|leader|leading|winning|first place|last place|in first|in last|peter|rank|table|who.?s up|points race|where am i)\b/)) {
     if (!scored) {
       const last = [...table].pop();
-      return reply('standings', `Nobody’s scored yet: the season starts ${league.season_start ?? 'soon'}. Everyone’s tied at zero, which is the best some of you will ever look. Last year Hatrick Swayze (Darin) won it and Eagle Palace (Trystan) took the Peter. 👉 #/standings`, { last });
+      return reply('standings', `Nobody’s scored yet: the season starts ${league.season_start ?? 'soon'}. Everyone’s tied at zero, which is the best some of you will ever look. 👉 #/standings`, { last });
     }
     const mine = table.find((t) => t.team_id === askerTeam);
     const lead = table[0], last = table[table.length - 1];
     const top3 = table.slice(0, 3).map((t) => `${t.rank}. ${byId.get(t.team_id)?.gm_name} ${f1(t.points)}`).join(', ');
     const you = mine ? ` You’re ${mine.rank}${['st', 'nd', 'rd'][mine.rank - 1] ?? 'th'} with ${f1(mine.points)}${mine.team_id !== lead.team_id ? `, ${f1(lead.points - mine.points)} back of ${byId.get(lead.team_id)?.gm_name}` : ', leading the pack'}.` : '';
-    return reply('standings', `${inPlayoffs ? 'Playoff race' : 'Standings'}: ${top3}.${you}${!inPlayoffs ? ` Peter watch: ${byId.get(last.team_id)?.gm_name} at ${f1(last.points)}.` : ''} 👉 #/standings`, { top3, mine });
+    return reply('standings', `${inPlayoffs ? 'Playoff race' : 'Standings'}: ${top3}.${you}${!inPlayoffs ? ` ${db.brand.booby} watch: ${byId.get(last.team_id)?.gm_name} at ${f1(last.points)}.` : ''} 👉 #/standings`, { top3, mine });
   }
 
   // ── coins
   if (topic === 'bet' && !howTo || has(/\b(balance|how many coins|my coins)\b/)) {
     const { data: bal } = await db.from('coin_balances').select('*').eq('team_id', askerTeam).maybeSingle();
-    return reply('bet', `You’ve got ${bal ? Number(bal.balance) - Number(bal.escrow) : 0} St. Patrick coins free to bet${bal?.escrow ? ` (${bal.escrow} tied up in live bets)` : ''}. ${HELP.bet}`);
+    return reply('bet', `You’ve got ${bal ? Number(bal.balance) - Number(bal.escrow) : 0} ${db.brand.coin.name} free to bet${bal?.escrow ? ` (${bal.escrow} tied up in live bets)` : ''}. ${HELP.bet}`);
   }
 
   // ── how-to questions get instructions
@@ -240,7 +246,7 @@ export async function answer(db: Db, question: string, askerTeam: number): Promi
     const n = teams.length, entry = Number(league.entry_fee), fund = Number(league.sak_fee), share = Number(league.playoff_share ?? 40) / 100;
     const pool = (entry - fund) * n, split = (league.prize_split ?? [60, 30, 10]).map(Number);
     const pots = (amt: number) => split.map((p: number, i: number) => `${['1st', '2nd', '3rd'][i]} ${money(amt * p / 100)}`).join(', ');
-    return reply('money', `${n} GMs × ${money(entry)}, with ${money(fund)} each to the SaK Fund, makes a ${money(pool)} pool. Regular season (${Math.round((1 - share) * 100)}%, ${money(pool * (1 - share))}): ${pots(pool * (1 - share))}. Playoffs (${Math.round(share * 100)}%, ${money(pool * share)}): ${pots(pool * share)}. Last place pays the Peter. 👉 #/league?t=money`);
+    return reply('money', `${n} GMs × ${money(entry)}, with ${money(fund)} each to the SaK Fund, makes a ${money(pool)} pool (${db.league.short_name} fund: ${money(fund * n)}). Regular season (${Math.round((1 - share) * 100)}%, ${money(pool * (1 - share))}): ${pots(pool * (1 - share))}. Playoffs (${Math.round(share * 100)}%, ${money(pool * share)}): ${pots(pool * share)}. Last place pays for ${db.brand.booby}. 👉 #/league?t=money`);
   }
 
   // ── rules and deadlines
@@ -250,7 +256,7 @@ export async function answer(db: Db, question: string, askerTeam: number): Promi
   }
 
   if (topic) return reply(topic, HELP[topic]);
-  if (has(/\b(chat|dm|message|ask garry)\b/)) return reply('chat', HELP.chat);
+  if (has(/\b(chat|dm|message|ask)\b/)) return reply('chat', HELP.chat);
 
-  return reply('unknown', `No idea what you’re on about, but here’s what I know: standings, your lineup, any player by name, tonight’s games, injuries, free agents, trades, keepers, the draft, bets and coins, scoring, rules and prize money. Try “Garry, who should I pick up?” or “Garry, how’s Makar doing?”`);
+  return reply('unknown', `No idea what you’re on about, but here’s what I know: standings, your lineup, any player by name, tonight’s games, injuries, free agents, trades, keepers, the draft, bets and coins, scoring, rules and prize money. Try “${db.brand.bot.name}, who should I pick up?” or “${db.brand.bot.name}, how’s Makar doing?”`);
 }

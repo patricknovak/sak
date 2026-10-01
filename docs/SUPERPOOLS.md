@@ -100,8 +100,13 @@ on the site, and the switcher.
 
 1. **League by host.** `leagues.domain`: `sak.superpoolsai.com` or a custom domain per league; the app picks
    the league from the host, so one deployment serves all leagues.
-2. **Garry per league.** Memory and persona are already keyed by team and channel; add the league key and
-   a per-league daily budget of LLM calls (the one cost that scales with leagues).
+2. **Garry per league** (done in migration 65, bar the budget). One state row per league (voice notes, the
+   commissioner's briefing, where the memory pass got to); the edge function scopes every read and write to
+   one league, loops over the active leagues for the cron tasks and takes a reply's league from its message;
+   names come from `leagues.brand`. The commissioner shapes the voice from the Commissioner page: a briefing
+   read before every post, facts handed over by name, the file he built from the chat (anything can be struck)
+   and his voice notes. Still to do: a per-league daily budget of LLM calls (the one cost that scales with
+   leagues).
 3. **Scheduler per league.** nhl-sync's league-scoped tasks (snapshots, auto-lineups, standings,
    settlement) iterate leagues, setting `app.league_id` before each league's pass; the NHL fetches stay single.
 4. **Money.** Coins stay. Cash tracking stays bookkeeping between friends (no payments handled), or is
