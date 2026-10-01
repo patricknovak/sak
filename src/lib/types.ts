@@ -105,15 +105,17 @@ export interface Bet {
 }
 
 // Garry's Book: coin markets on real games and stats, paid at decimal odds
-export type MarketKind = 'winner' | 'total' | 'ot' | 'prop' | 'custom';
+export type MarketKind = 'winner' | 'total' | 'ot' | 'prop' | 'custom' | 'future' | 'season_prop';
 export interface MarketOption { key: string; label: string; odds: number }
 export interface Market {
   id: number; kind: MarketKind; title: string; game_id: number | null; date: string;
-  subject: { home?: string; away?: string; line?: number; player_id?: number; stat?: string; owner?: number; terms?: string | null };
+  subject: { home?: string; away?: string; line?: number; player_id?: number; stat?: string; owner?: number; terms?: string | null;
+    what?: 'johnson' | 'peter' | 'playoffs' | 'cup'; season?: string; scope?: 'team' | 'player'; team_id?: number };   // season futures and props
   options: MarketOption[]; closes_at: string; status: 'open' | 'settled' | 'void'; winner_key: string | null;
   result: { home?: number; away?: number; period?: string | null; value?: number } | null; created_by: number | null; settled_at: string | null; created_at: string;
 }
 export interface MarketBet { id: number; market_id: number; team_id: number; pick: string; coins: number; odds: number; payout: number | null; created_at: string }
+export interface CoinRace { team_id: number; week: number; month: number; season: number }
 export interface BookStanding { team_id: number; bets: number; wins: number; staked: number; returned: number; net: number; open_coins: number; best_win: number }
 export interface BetEntry { bet_id: number; team_id: number; choice: { team_id?: number; player_id?: number }; coins: number; created_at: string }
 export interface BetProgress { a?: number; b?: number; value?: number; line?: number; side?: string; entries?: { team_id: number; pick: number; value: number; coins: number }[] }

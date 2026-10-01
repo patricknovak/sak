@@ -1106,3 +1106,38 @@ select garry_remember('Loves a long shot', 2) as my_mem \gset
 select pg_temp.expect('a GM feeds a fact about their own team', (select weight from garry_memory where id = :my_mem) = 3);
 reset role;
 select 'garry per league', true;
+-- ───────────── the Book, season edition: futures, season props, coin races ─────────────
+update league_rules set season_end = today_et() + 100, playoffs_end = today_et() + 160, trade_deadline = null where league_id = 1;
+select pg_temp.as_team(1);
+set role authenticated;
+select pg_temp.expect('the coin races view reads', (select count(*) from coin_races) = (select count(*) from teams where role = 'gm'));
+reset role;
+select open_season_markets() as n_season \gset
+select pg_temp.expect('the season markets opened', :n_season >= 4 + (select count(*) from teams where role = 'gm' and league_id = 1));
+select pg_temp.expect('four futures with one option per GM team', (select count(*) from markets where kind = 'future' and league_id = 1) = 4
+  and (select bool_and(jsonb_array_length(options) = (select count(*) from teams where role = 'gm' and league_id = 1)) from markets where kind = 'future' and league_id = 1));
+select pg_temp.expect('futures price every team between 1.1 and 30', (select bool_and((o->>'odds')::numeric between 1.1 and 30) from markets m, jsonb_array_elements(m.options) o where m.kind = 'future'));
+select pg_temp.expect('opening twice is a no-op', open_season_markets() = 0);
+select pg_temp.expect('a re-price touches every open future', reprice_season_markets() = 4);
+-- a GM backs a champion and a team total
+select pg_temp.as_team(2);
+set role authenticated;
+select id as fut_id from markets where kind = 'future' and subject->>'what' = 'johnson' \gset
+select place_market_bet(:fut_id, 't2', 20);
+select id as tp_id from markets where kind = 'season_prop' and subject->>'scope' = 'team' and (subject->>'team_id')::int = 2 \gset
+select place_market_bet(:tp_id, 'over', 10);
+reset role;
+select pg_temp.expect('nothing settles while the season is on', settle_season_markets() = 0);
+-- the season ends: the regular-season markets settle, the playoff ones wait
+update league_rules set season_end = today_et() - 1 where league_id = 1;
+select settle_season_markets() as n_settled \gset
+select pg_temp.expect('regular-season futures and props settled, playoff futures still open', (select status from markets where id = :fut_id) = 'settled'
+  and (select status from markets where id = :tp_id) in ('settled', 'void')
+  and (select count(*) from markets where kind = 'future' and status = 'open') = 2);
+select pg_temp.expect('the champion future paid the top of the table', (select winner_key from markets where id = :fut_id) = 't' || (select team_id from standings where team_id in (select id from teams where league_id = 1) order by rank, team_id limit 1));
+-- the north league sees none of it
+select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-000000000099', false);
+set role authenticated;
+select pg_temp.expect('the north league has no season markets', (select count(*) from markets where kind in ('future', 'season_prop')) = 0);
+reset role;
+select 'book season', true;

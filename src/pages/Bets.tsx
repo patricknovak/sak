@@ -7,7 +7,8 @@ import { Link, useSearchParams } from 'react-router-dom';
 import { BookTab, BookLeaders } from '../components/Book';
 import { useLeague, useNow } from '../lib/store';
 import { rpc, realtimeChannel, supabase, selectAll } from '../lib/supabase';
-import type { Bet, BetEntry, BetKind, BetProgress, BetStat, CoinBalance, CoinEntry, Player, Team } from '../lib/types';
+import type { Bet, BetEntry, BetKind, BetProgress, BetStat, CoinBalance, CoinEntry, CoinRace, Player, Team } from '../lib/types';
+import { useBrand } from '../lib/brand';
 import { ago, etToday, fmtDate, fmtMoney, fmtPts } from '../lib/format';
 import { Empty, Section, Sheet, TeamBadge, TeamName, useAction, PageHeader, Coin, Rank } from '../components/ui';
 import { BookOpen, Dices, Lightbulb, Sparkles, Trophy } from 'lucide-react';
@@ -61,6 +62,7 @@ function suggestLine(p: Player | undefined, stat: BetStat, start: string, end: s
 
 export default function Bets() {
   const { me, teams, team, players, owner, rosters, standings, spectators, can, league, games, leagueDay } = useLeague();
+  const brand = useBrand();
   const seasonGames = useSeasonGames();
   const [ruling, setRuling] = useState<Bet | null>(null);
   const now = useNow(30_000);
@@ -70,6 +72,8 @@ export default function Bets() {
   const [progress, setProgress] = useState<Record<number, BetProgress>>({});
   const [daily, setDaily] = useState<Daily[]>([]);
   const [bank, setBank] = useState<CoinBalance[]>([]);
+  const [races, setRaces] = useState<CoinRace[]>([]);
+  const [race, setRace] = useState<'week' | 'month' | 'season'>('week');
   const [myCoins, setMyCoins] = useState<CoinEntry[]>([]);
   const [showLedger, setShowLedger] = useState(false);
   const [showAllSettled, setShowAllSettled] = useState(false);
@@ -91,6 +95,7 @@ export default function Bets() {
     supabase.from('bets').select('*').order('id', { ascending: false }).then(({ data }) => setBets((data ?? []) as Bet[]));
     supabase.from('bet_entries').select('*').then(({ data }) => setEntries((data ?? []) as BetEntry[]));
     supabase.from('coin_balances').select('*').then(({ data }) => setBank((data ?? []) as CoinBalance[]));
+    supabase.from('coin_races').select('*').then(({ data }) => setRaces((data ?? []) as CoinRace[]));
     if (me) supabase.from('coin_ledger').select('*').eq('team_id', me.id).order('id', { ascending: false }).limit(30).then(({ data }) => setMyCoins((data ?? []) as CoinEntry[]));
   };
   useEffect(() => {
@@ -355,6 +360,11 @@ export default function Bets() {
       </div>
     );
   };
+  const quick = (opp: number) => {
+    const w = wins[1] ?? wins[0];
+    setF({ ...blank, kind: 'h2h', opponent: String(opp), coins: '50', start: w.start, end: w.end, entryClose: w.start, title: `Most points ${w.label.toLowerCase()}` });
+    setOpen(true);
+  };
   const kindDef = KINDS.find((k) => k.k === f.kind)!;
   const setWindow = (w: { start: string; end: string }) => setF({ ...f, start: w.start, end: w.end, entryClose: w.start });
   const autoTitle = () => {
@@ -393,7 +403,7 @@ export default function Bets() {
         {tab === 'side' && (can('bets') ? <button className="btn-primary" onClick={() => { setF(blank); setOpen(true); }}>🎲 New bet</button> : <span className="text-xs text-mute">🔇 Betting is off for your pass</span>)}
       </div>
       <div className="scroll-x flex gap-1">
-        {([['side', <><Dices size={14} /> Side bets</>], ['book', <><BookOpen size={14} /> Garry’s Book</>], ['leaders', <><Trophy size={14} /> Leaders</>]] as const).map(([k, l]) => (
+        {([['side', <><Dices size={14} /> Side bets{groups.live.length + groups.open.length > 0 ? <span className="num ml-0.5 rounded-full bg-white/15 px-1.5 text-[10px]">{groups.live.length + groups.open.length}</span> : null}</>], ['book', <><BookOpen size={14} /> {brand.bot.name}’s Book</>], ['leaders', <><Trophy size={14} /> Leaders & races</>]] as const).map(([k, l]) => (
           <button key={k} className={`tab flex shrink-0 items-center gap-1 ${tab === k ? 'tab-on' : 'bg-white/[.05]'}`} onClick={() => setTab(k)}>{l}</button>
         ))}
       </div>
@@ -412,7 +422,31 @@ export default function Bets() {
                 ))}
               </div>
             )}
-            <p className="mt-1 px-1 text-xs text-mute">Everyone started with 1,000 coins. Coins on open bets, live bets and pool buy-ins are held until they settle; Book tickets leave the bank when placed. Garry pays 25 coins to the top team each day and 50 to the Team of the Week.</p>
+            <p className="mt-1 px-1 text-xs text-mute">Everyone started with 1,000 coins. Coins on open bets, live bets and pool buy-ins are held until they settle; Book tickets leave the bank when placed. {brand.bot.name} pays 5 coins to the top team each day and 5 to the Team of the Week.</p>
+          </Section>
+          <Section icon={<span className="text-lg">🏁</span>} title="Coin races" right={<div className="flex gap-1">{(['week', 'month', 'season'] as const).map((k) => <button key={k} className={`chip py-0.5 ${race === k ? 'bg-sky-500 text-ice' : ''}`} onClick={() => setRace(k)}>{k === 'week' ? 'This week' : k === 'month' ? 'This month' : 'Season'}</button>)}</div>}>
+            <div className="card divide-y divide-white/[.06] overflow-hidden">
+              {(() => {
+                const rows = races.filter((r) => gms.some((t) => t.id === r.team_id)).sort((a, b) => b[race] - a[race] || a.team_id - b.team_id);
+                const top = Math.max(1, ...rows.map((r) => Math.abs(r[race])));
+                if (!rows.some((r) => r[race] !== 0)) return <div className="px-3 py-3 text-sm text-mute">Nobody has moved a coin {race === 'week' ? 'this week' : race === 'month' ? 'this month' : 'yet'}. Place a bet and take the lead.</div>;
+                return rows.map((r, i) => {
+                  const v = r[race];
+                  return (
+                    <div key={r.team_id} className={`flex items-center gap-3 px-3 py-2 ${r.team_id === me?.id ? 'bg-white/[.05]' : ''}`}>
+                      <span className="w-6 text-center">{i === 0 && v > 0 ? '👑' : <span className="num text-sm text-mute">{i + 1}</span>}</span>
+                      <TeamBadge team={team(r.team_id)} size={26} />
+                      <div className="min-w-0 flex-1">
+                        <div className="truncate text-sm font-bold">{team(r.team_id)?.gm_name}</div>
+                        <div className="h-1.5 w-full overflow-hidden rounded-full bg-white/[.06]"><div className={`h-full rounded-full ${v >= 0 ? 'bg-emerald-400' : 'bg-red-400'}`} style={{ width: `${Math.round((Math.abs(v) / top) * 100)}%` }} /></div>
+                      </div>
+                      <span className={`num font-display text-lg font-extrabold ${v > 0 ? 'text-emerald-300' : v < 0 ? 'text-red-300' : 'text-mute'}`}>{v > 0 ? '+' : ''}{v}</span>
+                    </div>
+                  );
+                });
+              })()}
+            </div>
+            <p className="mt-1 px-1 text-xs text-mute">Net coins won and lost in the window: side bets, pools, the Book and {brand.bot.name}’s bonuses. The weekly race restarts every Monday. Races are for bragging rights, and on Super Pools for prizes in coins, never money.</p>
           </Section>
           <Section icon={<BookOpen size={18} className="text-sky-300" />} title="At the Book"><BookLeaders /></Section>
           {(cash.owed.length > 0 || [...cash.net.values()].some((n) => n)) && (
@@ -439,6 +473,20 @@ export default function Bets() {
         <span className="text-xs text-mute">{available} available{myBank?.escrow ? ` · ${myBank.escrow} in play` : ''}</span>
         <button className="ml-auto text-xs text-sky-300" onClick={() => setTab('leaders')}>Bank & leaders</button>
       </div>
+
+      {can('bets') && me?.role !== 'spectator' && gms.length > 1 && (
+        <div className="card p-3">
+          <div className="mb-2 text-sm font-semibold">⚔️ Call someone out <span className="font-normal text-mute">· most points this week, 50 ☘️, even money</span></div>
+          <div className="scroll-x flex gap-2">
+            {gms.filter((t) => t.id !== me?.id).map((t) => (
+              <button key={t.id} className="flex w-[68px] shrink-0 flex-col items-center gap-1 rounded-xl border border-white/[.08] bg-white/[.03] px-1 py-2 text-[11px] transition hover:border-sky-400/50 active:scale-95" onClick={() => quick(t.id)}>
+                <TeamBadge team={t} size={36} /><span className="w-full truncate text-center">{t.gm_name}</span>
+              </button>
+            ))}
+          </div>
+          <div className="mt-1.5 text-[11px] text-mute">Tap a GM and the challenge is written for you; change anything before you post it.</div>
+        </div>
+      )}
 
       {ideas.length > 0 && can('bets') && (
         <Section icon={<Lightbulb size={18} className="text-gold" />} title="Bet ideas for you">
