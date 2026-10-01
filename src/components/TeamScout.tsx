@@ -1,16 +1,16 @@
 import { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ArrowUpDown, ClipboardList, Repeat2, Scale } from 'lucide-react';
+import { ClipboardList, Repeat2, Scale } from 'lucide-react';
 import { useLeague } from '../lib/store';
 import type { DraftPick, Player } from '../lib/types';
 import { fmtPts, readable } from '../lib/format';
 import { PlayerRow } from './PlayerCard';
 import { Pos, Section, TeamBadge } from './ui';
+import { PlayerPeek, ScoutBar, StatStrip, sortPlayers, useScout, useScoutCtx } from './TradeScout';
 
 // starting slots per position: how many players at each spot actually score for you
 const NEED: Record<string, number> = { C: 2, LW: 2, RW: 2, D: 3, G: 2 };
 const POS = ['C', 'LW', 'RW', 'D', 'G'];
-type Sort = 'value' | 'proj' | 'last' | 'pos';
 
 // value of a team's best starters at one position (a player counts at his primary position)
 const posStrength = (ps: Player[], pos: string, val: (p: Player) => number) =>
@@ -21,7 +21,9 @@ export function TeamScout({ teamId, hideRoster }: { teamId: number; hideRoster?:
   const nav = useNavigate();
   const mine = teamId === me?.id;
   const inSeason = league?.phase === 'season';
-  const [sort, setSort] = useState<Sort>('value');
+  const scout = useScout();
+  const sctx = useScoutCtx();
+  const [peek, setPeek] = useState<number | null>(null);
   const [want, setWant] = useState<Set<number>>(new Set());
   const [wantPicks, setWantPicks] = useState<Set<number>>(new Set());
 
@@ -48,9 +50,7 @@ export function TeamScout({ teamId, hideRoster }: { teamId: number; hideRoster?:
     return { theyHave, theyNeed };
   }, [strength, mine]);
 
-  const sorted = useMemo(() => [...theirs].sort((a, b) =>
-    sort === 'pos' ? POS.indexOf(a.pos) - POS.indexOf(b.pos) || b.proj - a.proj
-      : sort === 'proj' ? b.proj - a.proj : sort === 'last' ? b.last_fp - a.last_fp : val(b) - val(a)), [theirs, sort, season]);
+  const sorted = useMemo(() => sortPlayers(theirs, scout.sort, sctx), [theirs, scout.sort, sctx]);
 
   // picks this team owns for this draft and next year's
   const seasons = [...new Set(picks.map((k) => k.season))].sort();
@@ -93,27 +93,24 @@ export function TeamScout({ teamId, hideRoster }: { teamId: number; hideRoster?:
         </div>
       </Section>
 
-      {!hideRoster && <Section title={`${mine ? 'Your' : `${t?.gm_name}'s`} roster (${theirs.length})`} right={
-        <label className="flex items-center gap-1 text-xs text-mute"><ArrowUpDown size={12} />
-          <select className="rounded-lg border border-white/10 bg-black/30 px-1.5 py-1 text-xs" value={sort} onChange={(e) => setSort(e.target.value as Sort)}>
-            <option value="value">{inSeason ? 'Value' : 'Projection'}</option><option value="proj">Projection</option><option value="last">2025-26 pts</option><option value="pos">Position</option>
-          </select>
-        </label>}>
+      {!hideRoster && <Section title={`${mine ? 'Your' : `${t?.gm_name}'s`} roster (${theirs.length})`}>
+        <div className="mb-2"><ScoutBar s={scout} hasG={theirs.some((p) => p.pos === 'G')} /></div>
         <div className="card divide-y divide-white/[.06] overflow-hidden">
-          <div className="flex items-center gap-2 bg-white/[.03] px-3 py-1.5 text-[10px] font-bold uppercase tracking-wider text-mute">
-            {!mine && tradeOpen && <span className="w-6">Ask</span>}<span className="flex-1">Player</span><span className="w-12 text-right">{inSeason ? 'Szn' : '25-26'}</span><span className="w-12 text-right">Proj</span>
-          </div>
           {sorted.map((p) => {
             const on = want.has(p.id);
             return (
-              <div key={p.id} className={`flex items-center gap-2 px-3 py-2 transition ${on ? 'bg-sky-400/[.12] shadow-[inset_3px_0_0_#4cc3ff]' : ''}`}>
-                {!mine && tradeOpen && me?.role !== 'spectator' && (
-                  <button aria-label={on ? 'Remove from trade' : 'Ask for in a trade'} onClick={() => flip(want, setWant, p.id)}
-                    className={`grid h-6 w-6 shrink-0 place-items-center rounded-lg border text-xs font-bold ${on ? 'border-sky-300 bg-sky-400 text-ice' : 'border-white/20'}`}>{on ? '✓' : ''}</button>
-                )}
-                <div className="min-w-0 flex-1"><PlayerRow p={p} onClick={() => nav(`/player/${p.id}`)} /></div>
-                <span className="num w-12 text-right text-sm">{fmtPts(inSeason ? season.get(p.id)?.fpts ?? 0 : p.last_fp, 0)}</span>
-                <span className="num w-12 text-right text-sm font-bold">{fmtPts(p.proj, 0)}</span>
+              <div key={p.id} className={`px-3 py-2 transition ${on ? 'bg-sky-400/[.12] shadow-[inset_3px_0_0_#4cc3ff]' : ''}`}>
+                <div className="flex items-center gap-2">
+                  {!mine && tradeOpen && me?.role !== 'spectator' && (
+                    <button aria-label={on ? 'Remove from trade' : 'Ask for in a trade'} onClick={() => flip(want, setWant, p.id)}
+                      className={`grid h-6 w-6 shrink-0 place-items-center rounded-lg border text-xs font-bold ${on ? 'border-sky-300 bg-sky-400 text-ice' : 'border-white/20'}`}>{on ? '✓' : ''}</button>
+                  )}
+                  <div className="min-w-0 flex-1"><PlayerRow p={p} onClick={() => nav(`/player/${p.id}`)} /></div>
+                  <button type="button" title="Every number, past and future" aria-label="More numbers" onClick={() => setPeek(peek === p.id ? null : p.id)}
+                    className={`grid h-7 w-7 shrink-0 place-items-center rounded-lg border text-xs ${peek === p.id ? 'border-sky-400/60 bg-sky-500/20' : 'border-white/10 text-mute'}`}>{peek === p.id ? '▴' : '▾'}</button>
+                </div>
+                <div className="mt-1 flex justify-end"><StatStrip p={p} s={scout} c={sctx} /></div>
+                {peek === p.id && <div className="mt-1.5"><PlayerPeek p={p} c={sctx} /></div>}
               </div>
             );
           })}

@@ -6,11 +6,11 @@ import type { DraftPick, PickupStatus, Player, Trade } from '../lib/types';
 import { ago, fmtDateTime, fmtPts } from '../lib/format';
 import { PlayerRow } from '../components/PlayerCard';
 import { Empty, Section, TeamBadge, TeamName, useAction, PageHeader } from '../components/ui';
-import { TradeAnalysis, TradeFinder, useTradeValuer } from '../components/TradeTools';
+import { TradeAnalysis, TradeCompare, TradeFinder, useTradeValuer } from '../components/TradeTools';
+import { PlayerPeek, ScoutBar, StatStrip, sortPlayers, useScout, useScoutCtx } from '../components/TradeScout';
 import { TradeBlock } from '../components/TradeBlock';
 import { evaluateSide, gradeSide, type Side } from '../lib/trade';
 import { gradeColor } from '../lib/grades';
-import { rosPoints } from '../lib/playerstats';
 import { Repeat2 } from 'lucide-react';
 
 // a multi-team builder line: one asset, where it comes from and where it goes
@@ -40,6 +40,13 @@ export default function Trades() {
   const pkLeft = (t: number) => pkStatus.find((x) => x.team_id === t)?.remaining ?? 0;
   const extrasN = extras.givePk + extras.getPk + extras.giveCoins + extras.getCoins;
   const [mode, setMode] = useState<'two' | 'multi'>(params.get('multi') ? 'multi' : 'two');
+  // scouting while you pick: what shows beside each player, a peek under any of them, and a side-by-side tray
+  const scout = useScout();
+  const sctx = useScoutCtx();
+  const [peek, setPeek] = useState<number | null>(null);
+  const [compare, setCompare] = useState<Set<number>>(new Set());
+  const compareList = [...compare].map((id) => players.get(id)).filter((p): p is Player => !!p);
+  const ownerOf = (id: number) => rosters.find((r) => r.player_id === id)?.team_id ?? 0;
   const [parties, setParties] = useState<number[]>([]);
   const [mitems, setMitems] = useState<MItem[]>([]);
   useEffect(() => { setGive(new Set(ids('give'))); setGet(new Set(ids('get'))); setGivePicks(new Set(ids('givePicks'))); setGetPicks(new Set(ids('getPicks'))); }, [params]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -197,15 +204,25 @@ export default function Trades() {
     document.getElementById('trade-builder')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
   };
   const AssetList = ({ tid, players: ps, picks: ks, isOn, onFlip, dest }: { tid: number; players: Player[]; picks: DraftPick[]; isOn: (k: 'player_id' | 'pick_id', id: number) => boolean; onFlip: (k: 'player_id' | 'pick_id', id: number) => void; dest?: (k: 'player_id' | 'pick_id', id: number) => React.ReactNode }) => (
-    <div className="max-h-80 divide-y divide-white/[.06] overflow-y-auto rounded-xl border border-line">
-      {ps.map((p) => (
-        <label key={p.id} className={`flex cursor-pointer items-center gap-2 px-2 py-1.5 ${isOn('player_id', p.id) ? 'bg-sky-500/15' : ''}`}>
-          <input type="checkbox" checked={isOn('player_id', p.id)} onChange={() => onFlip('player_id', p.id)} className="h-4 w-4 accent-sky-400" />
-          <div className="min-w-0 flex-1"><PlayerRow p={p} sub={<span className="ml-1">· {statBlurb(p)}</span>} /></div>
-          <span className="shrink-0 text-right text-[10px] leading-tight text-mute"><span className="num block text-xs font-semibold text-slate-200">{fmtPts(p.proj, 0)}</span>proj · {fmtPts(rosPoints(p, season.get(p.id)), 0)} ROS</span>
-          {isOn('player_id', p.id) && dest?.('player_id', p.id)}
-        </label>
-      ))}
+    <div className="max-h-[32rem] divide-y divide-white/[.06] overflow-y-auto rounded-xl border border-line">
+      {sortPlayers(ps, scout.sort, sctx).map((p) => {
+        const on = isOn('player_id', p.id), cmp = compare.has(p.id);
+        return (
+          <div key={p.id} className={`px-2 py-1.5 ${on ? 'bg-sky-500/15' : ''}`}>
+            <div className="flex items-center gap-2">
+              <input type="checkbox" checked={on} onChange={() => onFlip('player_id', p.id)} className="h-4 w-4 shrink-0 accent-sky-400" aria-label={on ? 'Take out of the deal' : 'Put in the deal'} />
+              <div className="min-w-0 flex-1"><PlayerRow p={p} sub={<span className="ml-1">· {statBlurb(p)}</span>} /></div>
+              {on && dest?.('player_id', p.id)}
+              <button type="button" title={cmp ? 'Take out of the comparison' : 'Compare side by side'} aria-label="Compare" onClick={() => { const n = new Set(compare); n.has(p.id) ? n.delete(p.id) : n.add(p.id); setCompare(n); }}
+                className={`grid h-7 w-7 shrink-0 place-items-center rounded-lg border text-sm ${cmp ? 'border-gold/60 bg-gold/20' : 'border-white/10 text-mute'}`}>⚖️</button>
+              <button type="button" title="Every number, past and future" aria-label="More numbers" onClick={() => setPeek(peek === p.id ? null : p.id)}
+                className={`grid h-7 w-7 shrink-0 place-items-center rounded-lg border text-xs ${peek === p.id ? 'border-sky-400/60 bg-sky-500/20' : 'border-white/10 text-mute'}`}>{peek === p.id ? '▴' : '▾'}</button>
+            </div>
+            <div className="mt-1 flex justify-end pl-6"><StatStrip p={p} s={scout} c={sctx} /></div>
+            {peek === p.id && <div className="mt-1.5"><PlayerPeek p={p} c={sctx} /></div>}
+          </div>
+        );
+      })}
       {ks.map((k) => (
         <label key={`pk${k.id}`} className={`flex cursor-pointer items-center gap-2 px-2 py-2 text-sm ${isOn('pick_id', k.id) ? 'bg-sky-500/15' : ''}`}>
           <input type="checkbox" checked={isOn('pick_id', k.id)} onChange={() => onFlip('pick_id', k.id)} className="h-4 w-4 accent-sky-400" />
@@ -280,6 +297,8 @@ export default function Trades() {
                 </div>
                 {partner && (
                   <>
+                    <ScoutBar s={scout} hasG={[...mine.players, ...theirs.players].some((p) => p.pos === 'G')} />
+                    {compareList.length > 0 && <TradeCompare moving={compareList.map((p) => ({ p, to: ownerOf(p.id) }))} title="Side by side" showTo={false} onClear={() => setCompare(new Set())} />}
                     <div className="grid gap-3 sm:grid-cols-2">
                       {[{ label: 'You send', tid: me!.id, a: mine, sel: give, set: setGive, psel: givePicks, pset: setGivePicks, pk: 'givePk' as const, cn: 'giveCoins' as const },
                         { label: `${team(partner)?.gm_name} sends`, tid: partner, a: theirs, sel: get, set: setGet, psel: getPicks, pset: setGetPicks, pk: 'getPk' as const, cn: 'getCoins' as const }].map((col) => (
@@ -324,6 +343,8 @@ export default function Trades() {
                 </div>
                 {parties.length >= 2 && (
                   <>
+                    <ScoutBar s={scout} />
+                    {compareList.length > 0 && <TradeCompare moving={compareList.map((p) => ({ p, to: ownerOf(p.id) }))} title="Side by side" showTo={false} onClear={() => setCompare(new Set())} />}
                     <div className={`grid gap-3 ${allParties.length > 2 ? 'lg:grid-cols-3 sm:grid-cols-2' : 'sm:grid-cols-2'}`}>
                       {allParties.map((tid) => {
                         const a = assets(tid);
