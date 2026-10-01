@@ -14,7 +14,7 @@ import type { TopGame } from './NhlTop';
 import type { Bet, BetEntry, CoinBalance, MarketKind } from '../lib/types';
 
 const LIVE = new Set(['LIVE', 'CRIT']), DONE = new Set(['OFF', 'FINAL']);
-const ICON: Record<MarketKind, string> = { winner: '🏒', total: '🥅', ot: '⏱️', prop: '⭐', custom: '🎯', future: '🔮', season_prop: '📅' };
+const ICON: Record<MarketKind, string> = { winner: '🏒', total: '🥅', ot: '⏱️', prop: '⭐', custom: '🎯', future: '🔮', season_prop: '📅', race: '🏁' };
 export const More = ({ to, label }: { to: string; label: string }) => <Link to={to} className="flex items-center gap-1 text-xs font-semibold text-sky-300">{label}<ArrowRight size={13} /></Link>;
 const status = (g: TopGame) => DONE.has(g.state) ? `Final${g.outcome && g.outcome !== 'REG' ? ' / ' + g.outcome : ''}` : LIVE.has(g.state) ? (g.clock?.intermission ? `Int ${g.period?.n}` : `${g.period?.type === 'REG' ? 'P' + g.period?.n : g.period?.type} ${g.clock?.time ?? ''}`) : fmtTime(g.start);
 

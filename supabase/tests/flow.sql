@@ -1141,3 +1141,99 @@ set role authenticated;
 select pg_temp.expect('the north league has no season markets', (select count(*) from markets where kind in ('future', 'season_prop')) = 0);
 reset role;
 select 'book season', true;
+
+-- ───────────── the Book, by request: games later in the week, player races, club races ─────────────
+reset role;
+update league_rules set season_end = today_et() + 100 where league_id = 1;        -- the season is back on for the windows
+insert into games (id, date, start_utc, home, away, state) values
+  (891, today_et() + 3, now() + interval '3 days', 'EDM', 'TBL', 'FUT'),
+  (892, today_et() + 5, now() + interval '5 days', 'TBL', 'EDM', 'FUT'),
+  (893, today_et() + 6, now() + interval '6 days', 'EDM', 'TOR', 'FUT'),
+  (895, today_et(), now() + interval '3 hours', 'TBL', 'TOR', 'FUT') on conflict do nothing;
+select id as mcd from players where name = 'Connor McDavid' \gset
+select id as kuch from players where name = 'Nikita Kucherov' \gset
+select id as vasy from players where name = 'Andrei Vasilevskiy' \gset
+-- a moneyline on a game later in the week, priced from the clubs' form, closing at puck drop
+select preview_market('{"template":"game","game_id":891,"bet":"winner"}') as pv \gset
+select pg_temp.expect('a game request previews as a moneyline', :'pv'::jsonb->>'kind' = 'winner' and jsonb_array_length(:'pv'::jsonb->'options') = 2
+  and (:'pv'::jsonb->>'closes_at')::timestamptz = (select start_utc from games where id = 891));
+do $$ begin perform preview_market('{"template":"game","game_id":895,"bet":"winner"}'); raise exception 'priced tonight''s game';
+exception when others then if sqlerrm not like '%9:35%' then raise; end if; end $$;
+-- a GM opens it by taking the first ticket
+select pg_temp.as_team(2);
+set role authenticated;
+select request_market('{"template":"game","game_id":891,"bet":"winner"}', 'home', 20) as rq_game \gset
+select pg_temp.expect('the requested moneyline is on the board with the first ticket', (select created_by = 2 and status = 'open' and league_id = 1 and game_id = 891 from markets where id = :rq_game)
+  and (select coins from market_bets where market_id = :rq_game and team_id = 2) = 20);
+do $$ begin perform request_market('{"template":"game","game_id":891,"bet":"winner"}', 'away', 10); raise exception 'opened the same market twice';
+exception when others then if sqlerrm not like '%already%' then raise; end if; end $$;
+-- a player race over a window: odds from each man's rate and his club's games left
+select preview_market(format('{"template":"player_race","players":[%s,%s],"stat":"g","from":"%s","to":"%s"}', :mcd, :kuch, today_et(), today_et() + 7)::jsonb) as pv \gset
+select pg_temp.expect('a player race previews with one option per player', :'pv'::jsonb->>'kind' = 'race' and jsonb_array_length(:'pv'::jsonb->'options') = 2
+  and (select bool_and((o->>'odds')::numeric between 1.1 and 30) from jsonb_array_elements(:'pv'::jsonb->'options') o) and :'pv'::jsonb->>'title' like '%most goals%');
+do $$ begin perform preview_market(format('{"template":"player_race","players":[%s,%s],"stat":"g"}', current_setting('vars.mcd', true), '1')::jsonb); raise exception 'raced an unknown player';
+exception when others then null; end $$;
+do $$ begin perform preview_market(format('{"template":"player_race","players":[%s,%s],"stat":"g","from":"%s","to":"%s"}', (select id from players where name = 'Connor McDavid'), (select id from players where name = 'Andrei Vasilevskiy'), today_et(), today_et() + 7)::jsonb); raise exception 'raced a goalie against a skater';
+exception when others then if sqlerrm not like '%goalies%' then raise; end if; end $$;
+do $$ begin perform preview_market(format('{"template":"player_race","players":[%s,%s],"stat":"g","from":"%s","to":"%s"}', (select id from players where name = 'Connor McDavid'), (select id from players where name = 'Nikita Kucherov'), today_et() + 1, today_et() + 2)::jsonb); raise exception 'priced a window with no games';
+exception when others then if sqlerrm not like '%No games left%' then raise; end if; end $$;
+select pg_temp.as_team(3);
+set role authenticated;
+select request_market(format('{"template":"player_race","players":[%s,%s],"stat":"g","from":"%s","to":"%s"}', :mcd, :kuch, today_et(), today_et() + 7)::jsonb, 'p' || :mcd, 10) as rq_race \gset
+select pg_temp.expect('the race is open, marked as asked for, with the terms on it', (select kind = 'race' and created_by = 3 and subject->>'template' = 'player_race' and subject ? 'terms' and subject ? 'sig' from markets where id = :rq_race));
+-- a club points race over a window works from the schedule alone; the standings races need the standings
+select preview_market(format('{"template":"club_race","what":"points","clubs":["EDM","TBL"],"from":"%s","to":"%s"}', today_et(), today_et() + 7)::jsonb) as pv \gset
+select pg_temp.expect('a club points race previews from the schedule', jsonb_array_length(:'pv'::jsonb->'options') = 2);
+do $$ begin perform preview_market('{"template":"club_race","what":"division","clubs":["EDM","CGY"]}'); raise exception 'priced a division race with no standings';
+exception when others then if sqlerrm not like '%standings%' then raise; end if; end $$;
+reset role;
+insert into nhl_teams (abbrev, name, conf, division, gp, pts, strength, proj_pts, playoff_odds, po_status) values
+  ('EDM', 'Edmonton Oilers', 'W', 'P', 10, 16, 0.62, 104, 0.9, 'regular'), ('CGY', 'Calgary Flames', 'W', 'P', 10, 12, 0.55, 92, 0.5, 'regular'),
+  ('VAN', 'Vancouver Canucks', 'W', 'P', 10, 10, 0.5, 86, 0.3, 'regular'), ('SEA', 'Seattle Kraken', 'W', 'P', 10, 9, 0.48, 84, 0.25, 'regular'),
+  ('TBL', 'Tampa Bay Lightning', 'E', 'A', 10, 15, 0.6, 100, 0.8, 'regular'), ('TOR', 'Toronto Maple Leafs', 'E', 'A', 10, 11, 0.52, 88, 0.4, 'regular')
+  on conflict (abbrev) do nothing;
+select preview_market('{"template":"club_race","what":"division","clubs":["EDM","CGY"]}') as pv \gset
+select pg_temp.expect('a division race runs the picked clubs against the field', jsonb_array_length(:'pv'::jsonb->'options') = 3 and :'pv'::jsonb->'options'->2->>'key' = 'field'
+  and (:'pv'::jsonb->'options'->0->>'odds')::numeric < (:'pv'::jsonb->'options'->1->>'odds')::numeric);
+do $$ begin perform preview_market('{"template":"club_race","what":"division","clubs":["EDM","TBL"]}'); raise exception 'mixed divisions';
+exception when others then if sqlerrm not like '%one division%' then raise; end if; end $$;
+select preview_market('{"template":"club_race","what":"playoffs","clubs":["CGY"]}') as pv \gset
+select pg_temp.expect('a playoff yes/no prices from the model''s odds', :'pv'::jsonb->'options'->0->>'key' = 'yes' and (:'pv'::jsonb->'options'->0->>'odds')::numeric = _odds(0.5));
+select preview_market('{"template":"club_line","club":"EDM"}') as pv \gset
+select pg_temp.expect('a club season-points line sits on a half, priced both ways', ((:'pv'::jsonb->'subject'->>'line')::numeric * 2)::int % 2 = 1
+  and (select bool_and((o->>'odds')::numeric between 1.15 and 6) from jsonb_array_elements(:'pv'::jsonb->'options') o));
+select pg_temp.expect('the Book has suggestions for the league', jsonb_array_length(book_suggestions()) >= 3
+  and (select bool_and(s ? 'template' and s ? 'label' and s ? 'why') from jsonb_array_elements(book_suggestions()) s));
+-- the morning Book fills in the rest of the game's markets without doubling the requested moneyline
+select open_markets(today_et() + 3) as n_later \gset
+select pg_temp.expect('the house adds the total and overtime to a game with a requested moneyline, once', :n_later >= 2
+  and (select count(*) from markets where game_id = 891 and kind = 'winner') = 1 and (select count(*) from markets where game_id = 891 and kind = 'total') = 1);
+-- three open requests per GM
+select pg_temp.as_team(4);
+set role authenticated;
+select request_market('{"template":"club_race","what":"division","clubs":["EDM","CGY"]}', 'cEDM', 10) as rq_div \gset
+select request_market('{"template":"game","game_id":892,"bet":"total"}', 'over', 5);
+select request_market('{"template":"game","game_id":893,"bet":"ot"}', 'yes', 5);
+do $$ begin perform request_market('{"template":"club_line","club":"EDM"}', 'over', 5); raise exception 'a fourth open request went through';
+exception when others then if sqlerrm not like '%three markets%' then raise; end if; end $$;
+reset role;
+-- settlement: the player race's window has passed and the box scores are in
+update markets set subject = subject || jsonb_build_object('from', today_et() - 3, 'to', today_et() - 1), closes_at = now() - interval '1 minute' where id = :rq_race;
+update games set final_synced = true where date between today_et() - 3 and today_et() - 1 and state in ('OFF', 'FINAL');
+insert into games (id, date, start_utc, home, away, state, final_synced) values (894, today_et() - 2, now() - interval '2 days', 'EDM', 'TBL', 'OFF', true) on conflict do nothing;
+insert into player_games (game_id, player_id, date, nhl_team, stats, fpts) values (894, :mcd, today_et() - 2, 'EDM', '{"g":4,"a":0}', 16), (894, :kuch, today_et() - 2, 'TBL', '{"g":1,"a":1}', 6);
+select settle_race_markets() as n_races \gset
+select pg_temp.expect('the player race settled from the box scores and paid the ticket', :n_races >= 1 and (select winner_key from markets where id = :rq_race) = 'p' || :mcd
+  and (select payout from market_bets where market_id = :rq_race and team_id = 3) > 10);
+-- the division race waits for the 82, then pays
+update markets set closes_at = now() - interval '1 minute' where id = :rq_div;
+select pg_temp.expect('the division race waits for the 82', settle_race_markets() = 0 and (select status from markets where id = :rq_div) = 'open');
+update nhl_teams set gp = 82, pts = case abbrev when 'EDM' then 110 when 'CGY' then 95 when 'VAN' then 90 else 80 end where division = 'P';
+select settle_race_markets() as n_div \gset
+select pg_temp.expect('the division race paid the club that finished first', :n_div = 1 and (select winner_key from markets where id = :rq_div) = 'cEDM');
+-- the north league sees none of it
+select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-000000000099', false);
+set role authenticated;
+select pg_temp.expect('the north league has no requested markets', (select count(*) from markets where created_by is not null) = 0);
+reset role;
+select 'book requests', true;

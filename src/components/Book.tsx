@@ -1,8 +1,10 @@
 // Garry's Book: the league's coin sportsbook. Markets on real NHL games (moneyline, total goals, overtime,
 // player props) open every morning and settle themselves from the box scores; season futures (the champion,
 // last place, the playoffs, the full-year trophy) and season-long props on every team and the biggest names
-// stay open until the trade deadline, re-priced every morning from the standings; the commish can add a
-// market on anything verifiable. Stakes leave the bank when the ticket is placed; winners are paid stake × odds.
+// stay open until the trade deadline, re-priced every morning from the standings; any GM can ask the Book for
+// a long NHL market (a game later in the week, a race between players or clubs, a line on one of them) and open
+// it by taking the first ticket; the commish can add a market on anything verifiable. Stakes leave the bank when
+// the ticket is placed; winners are paid stake × odds.
 import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useLeague, useNow } from '../lib/store';
@@ -10,12 +12,14 @@ import { rpc, realtimeChannel, supabase } from '../lib/supabase';
 import type { BookStanding, Market, MarketBet, MarketKind, MarketOption } from '../lib/types';
 import { ago, etToday, fmtDate, fmtTime, NHL_TEAMS } from '../lib/format';
 import { Coin, Empty, Section, Sheet, TeamBadge, useAction } from './ui';
-import { BookOpen, Plus } from 'lucide-react';
+import { BookOpen, Plus, Sparkles } from 'lucide-react';
+import { AskBook } from './AskBook';
 import { marketChances } from '../lib/betodds';
 import { ticketOutcome } from '../lib/betresults';
 
-const KIND: Record<MarketKind, { icon: string; label: string }> = { winner: { icon: '🏒', label: 'Moneyline' }, total: { icon: '🥅', label: 'Total goals' }, ot: { icon: '⏱️', label: 'Overtime' }, prop: { icon: '⭐', label: 'Player prop' }, custom: { icon: '🎯', label: 'Commish special' }, future: { icon: '🔮', label: 'Season future' }, season_prop: { icon: '📅', label: 'Season prop' } };
+const KIND: Record<MarketKind, { icon: string; label: string }> = { winner: { icon: '🏒', label: 'Moneyline' }, total: { icon: '🥅', label: 'Total goals' }, ot: { icon: '⏱️', label: 'Overtime' }, prop: { icon: '⭐', label: 'Player prop' }, custom: { icon: '🎯', label: 'Commish special' }, future: { icon: '🔮', label: 'Season future' }, season_prop: { icon: '📅', label: 'Season prop' }, race: { icon: '🏁', label: 'Race' } };
 const SEASON = new Set<MarketKind>(['future', 'season_prop']);
+const LONG = new Set<MarketKind>(['future', 'season_prop', 'race']);   // open for days or months, not until puck drop
 // what the Book's odds say each option's chance is, with the house edge taken back out
 const implied = (m: Market): Record<string, number> => {
   const inv = m.options.map((o) => 1 / Math.max(1.01, Number(o.odds)));
@@ -72,6 +76,7 @@ export function BookTab() {
   const [stake, setStake] = useState(25);
   const [custom, setCustom] = useState('');
   const [newMarket, setNewMarket] = useState(false);
+  const [asking, setAsking] = useState(false);
   const [showResults, setShowResults] = useState(false);
   const mine = standings.find((s) => s.team_id === me?.id);
   const open = markets.filter((m) => m.status === 'open' && new Date(m.closes_at).getTime() > now);
@@ -90,18 +95,18 @@ export function BookTab() {
     return () => { alive = false; window.clearInterval(i); };
   }, [propIds.join()]); // eslint-disable-line react-hooks/exhaustive-deps
   const gameOf = (m: Market) => (m.game_id ? games.find((g) => g.id === m.game_id) : undefined);
-  const chanceOf = (m: Market) => SEASON.has(m.kind) ? implied(m) : marketChances(m, gameOf(m), m.subject.player_id ? propPts.get(`${m.subject.player_id}|${m.date}`) ?? 0 : 0, players);
+  const chanceOf = (m: Market) => LONG.has(m.kind) ? implied(m) : marketChances(m, gameOf(m), m.subject.player_id ? propPts.get(`${m.subject.player_id}|${m.date}`) ?? 0 : 0, players);
   const myTickets = tickets.filter((t) => t.team_id === me?.id);
   const onMarket = (id: number) => tickets.filter((t) => t.market_id === id);
   const pname = (id?: number) => (id ? players.get(id)?.name ?? `#${id}` : '');
 
   // open markets grouped by game (the season markets and the custom ones in groups of their own), in start order
   const groups = useMemo(() => {
-    const g = new Map<string, { key: string; title: string; when: string; kind: 'game' | 'custom' | 'season'; ms: Market[] }>();
+    const g = new Map<string, { key: string; title: string; when: string; kind: 'game' | 'custom' | 'season' | 'asked'; ms: Market[] }>();
     for (const m of open.filter((x) => filter === 'all' || x.kind === filter || (filter === 'future' && x.kind === 'season_prop'))) {
-      const key = m.game_id ? `g${m.game_id}` : SEASON.has(m.kind) ? 'season' : 'custom';
-      if (key === 'season') {
-        if (!g.has(key)) g.set(key, { key, title: '🔮 Season futures & props', when: '9999', kind: 'season', ms: [] });
+      const key = m.game_id ? `g${m.game_id}` : m.kind === 'race' ? 'asked' : SEASON.has(m.kind) ? 'season' : 'custom';
+      if (key === 'season' || key === 'asked') {
+        if (!g.has(key)) g.set(key, { key, title: key === 'asked' ? '🏁 Races & requests' : '🔮 Season futures & props', when: key === 'asked' ? '9998' : '9999', kind: key, ms: [] });
         g.get(key)!.ms.push(m);
         continue;
       }
@@ -142,15 +147,20 @@ export function BookTab() {
     <div className="px-3 py-2">
       <div className="mb-1.5 flex items-center gap-2 text-xs text-mute">
         <span>{KIND[m.kind].icon} {KIND[m.kind].label}</span>
-        <span className="min-w-0 flex-1 truncate font-medium text-white">{m.kind === 'prop' || (m.kind === 'season_prop' && m.subject.player_id) ? <Link to={`/player/${m.subject.player_id}`} className="hover:underline">{m.kind === 'prop' ? pname(m.subject.player_id) : m.title}</Link> : m.title}{m.kind === 'prop' && m.subject.owner ? <span className="text-mute"> · {team(m.subject.owner)?.abbrev}</span> : null}</span>
-        {m.status === 'open' && <span className="shrink-0">{SEASON.has(m.kind) ? `until ${fmtDate(m.closes_at.slice(0, 10))}` : `closes ${fmtTime(m.closes_at)}`}</span>}
+        <span className="min-w-0 flex-1 truncate font-medium text-white">{m.kind === 'prop' || ((m.kind === 'season_prop' || m.subject.template === 'player_line') && m.subject.player_id) ? <Link to={`/player/${m.subject.player_id}`} className="hover:underline">{m.kind === 'prop' ? pname(m.subject.player_id) : m.title}</Link> : m.title}{m.kind === 'prop' && m.subject.owner ? <span className="text-mute"> · {team(m.subject.owner)?.abbrev}</span> : null}</span>
+        {m.status === 'open' && <span className="shrink-0">{LONG.has(m.kind) ? `until ${fmtDate(m.closes_at.slice(0, 10))}` : m.date > etToday() ? `${fmtDate(m.date)} ${fmtTime(m.closes_at)}` : `closes ${fmtTime(m.closes_at)}`}</span>}
       </div>
       <div className={m.options.length > 3 ? 'grid grid-cols-2 gap-1.5 sm:grid-cols-4' : 'flex gap-1.5'}>{m.options.map((o) => <OptionBtn key={o.key} m={m} o={o} />)}</div>
       {m.kind === 'future' && <div className="mt-1 text-[11px] text-mute">Odds move with the standings every morning; a ticket keeps the odds it was placed at.</div>}
       {m.kind === 'season_prop' && <div className="mt-1 text-[11px] text-mute">{m.subject.scope === 'team' ? 'Regular-season points, settled the day after the season ends.' : m.subject.stat === 'g' ? 'NHL goals this regular season, settled the day after it ends.' : 'Fantasy points this regular season, settled the day after it ends.'}</div>}
-      {m.subject.terms && <div className="mt-1 text-[11px] text-mute">{m.subject.terms}</div>}
+      {(m.subject.terms || (m.created_by && m.kind !== 'custom')) && (
+        <div className="mt-1 text-[11px] text-mute">
+          {m.created_by && m.kind !== 'custom' && <span className="mr-1 inline-flex items-center gap-1 text-slate-300"><TeamBadge team={team(m.created_by)} size={12} />Asked for by {team(m.created_by)?.gm_name} ·</span>}
+          {m.subject.terms}
+        </div>
+      )}
       <Tickets m={m} />
-      {m.created_by && me?.is_commish && m.status === 'open' && new Date(m.closes_at).getTime() <= now && (
+      {m.created_by && me?.is_commish && m.status === 'open' && new Date(m.closes_at).getTime() <= now && !m.game_id && (
         <div className="mt-1.5 flex flex-wrap gap-1 text-[11px]"><span className="text-mute">Settle:</span>{m.options.map((o) => <button key={o.key} className="chip py-0.5" onClick={() => run(async () => { await rpc('commish_settle_market', { p_market: m.id, p_winner: o.key }); reload(); }, 'Settled')}>{o.label} won</button>)}<button className="chip py-0.5 text-red-300" onClick={() => run(async () => { await rpc('commish_settle_market', { p_market: m.id, p_winner: null }); reload(); }, 'Voided')}>Void</button></div>
       )}
     </div>
@@ -204,7 +214,7 @@ export function BookTab() {
         <BookOpen size={22} className="text-sky-300" />
         <div className="min-w-0 flex-1 text-sm">
           <div className="font-semibold">Garry’s Book</div>
-          <div className="text-xs text-mute">Coins on tonight’s games and stats, and on the season: the champion, last place, the playoffs, every team’s points and the biggest names. Paid at the odds shown; the Book opens every morning at 9:35 ET and settles itself. 5 to 500 ☘️ a ticket.</div>
+          <div className="text-xs text-mute">Coins on tonight’s games and stats, on the season (the champion, last place, the playoffs, every team’s points, the biggest names) and on anything you ask for: a game later in the week, a race between players or NHL clubs, a line on one of them. Paid at the odds shown; the Book opens every morning at 9:35 ET and settles itself. 5 to 500 ☘️ a ticket.</div>
         </div>
         {mine && (mine.bets > 0 || mine.open_coins > 0) && (
           <div className="text-right text-xs text-mute">
@@ -212,22 +222,25 @@ export function BookTab() {
             <div>{mine.wins}-{mine.bets - mine.wins}{mine.open_coins ? ` · ${mine.open_coins} riding` : ''}</div>
           </div>
         )}
-        {me?.is_commish && <button className="btn-blue btn-sm" onClick={() => setNewMarket(true)}><Plus size={14} /> Market</button>}
+        <div className="flex w-full gap-1.5 sm:w-auto">
+          {can('bets') && me?.role !== 'spectator' && <button className="btn-blue btn-sm" onClick={() => setAsking(true)}><Sparkles size={14} /> Ask the Book</button>}
+          {me?.is_commish && <button className="btn-ghost btn-sm" onClick={() => setNewMarket(true)}><Plus size={14} /> Market</button>}
+        </div>
       </div>
 
       {open.length > 0 && (
         <div className="scroll-x flex gap-1">
-          {([['all', 'Everything'], ['future', '🔮 Season'], ['winner', '🏒 Moneylines'], ['total', '🥅 Totals'], ['ot', '⏱️ Overtime'], ['prop', '⭐ Props'], ['custom', '🎯 Specials']] as const).filter(([k]) => k === 'all' || open.some((m) => m.kind === k || (k === 'future' && m.kind === 'season_prop'))).map(([k, l]) => (
+          {([['all', 'Everything'], ['future', '🔮 Season'], ['race', '🏁 Races'], ['winner', '🏒 Moneylines'], ['total', '🥅 Totals'], ['ot', '⏱️ Overtime'], ['prop', '⭐ Props'], ['custom', '🎯 Specials']] as const).filter(([k]) => k === 'all' || open.some((m) => m.kind === k || (k === 'future' && m.kind === 'season_prop'))).map(([k, l]) => (
             <button key={k} className={`shrink-0 rounded-full px-2.5 py-1 text-xs font-semibold ${filter === k ? 'bg-sky-500 text-ice' : 'bg-white/[.05] text-mute'}`} onClick={() => setFilter(k)}>{l}</button>
           ))}
         </div>
       )}
 
       {open.length === 0 && (
-        <div className="card"><Empty icon="📖" title="The Book is closed">{markets.length ? 'Everything has gone to puck drop. Results land as the games go final.' : 'It opens at 9:35 ET on the next game day with moneylines, totals, overtime and player props.'}</Empty></div>
+        <div className="card"><Empty icon="📖" title="The Book is closed">{markets.length ? 'Everything has gone to puck drop. Results land as the games go final.' : 'It opens at 9:35 ET on the next game day with moneylines, totals, overtime and player props.'}{can('bets') && me?.role !== 'spectator' ? ' Or ask it for a market on a game later in the week, a player race or an NHL race.' : ''}</Empty></div>
       )}
       {groups.map((g) => (
-        <Section key={g.key} title={g.kind === 'custom' ? '🎯 Commish specials' : g.title} right={g.kind === 'game' ? <span className="text-xs text-mute">{fmtDate(g.ms[0].date) === fmtDate(etToday()) ? 'Tonight' : fmtDate(g.ms[0].date)} · {fmtTime(g.when)}</span> : g.kind === 'season' ? <span className="text-xs text-mute">open until {fmtDate(g.ms[0].closes_at.slice(0, 10))}</span> : undefined}>
+        <Section key={g.key} title={g.kind === 'custom' ? '🎯 Commish specials' : g.title} right={g.kind === 'game' ? <span className="text-xs text-mute">{fmtDate(g.ms[0].date) === fmtDate(etToday()) ? 'Tonight' : fmtDate(g.ms[0].date)} · {fmtTime(g.when)}</span> : g.kind === 'season' ? <span className="text-xs text-mute">open until {fmtDate(g.ms[0].closes_at.slice(0, 10))}</span> : g.kind === 'asked' ? <button className="text-xs text-sky-300" onClick={() => setAsking(true)}>Ask for one</button> : undefined}>
           <div className="card divide-y divide-white/[.06]">{g.ms.map((m) => <MarketRow key={m.id} m={m} />)}</div>
         </Section>
       ))}
@@ -280,7 +293,7 @@ export function BookTab() {
         </Section>
       )}
 
-      <p className="text-center text-xs text-mute">Moneyline odds come from each club’s points percentage this season plus home ice; totals, overtime and props are fixed lines. Futures are priced from points banked plus what each roster projects to score, tightening as the season runs down. The house keeps a 5% edge (8% on futures), ties go to the under, postponed games and scratched players are refunded. Coins only, never cash.</p>
+      <p className="text-center text-xs text-mute">Moneyline odds come from each club’s points percentage this season plus home ice; totals, overtime and props are fixed lines. Futures are priced from points banked plus what each roster projects to score, tightening as the season runs down. Requested races are priced from each player’s rate (or his projection) and his club’s games left, or from the NHL standings model, and freeze when they open; they settle from the box scores and the standings, a tie refunds everyone, and the Cup waits for the commish. The house keeps a 5% edge (8% on futures and races), ties go to the under, postponed games and scratched players are refunded. Coins only, never cash.</p>
 
       {/* place a ticket */}
       <Sheet open={!!betting} onClose={() => setBetting(null)} title="Place a ticket">
@@ -300,13 +313,16 @@ export function BookTab() {
             </div>
             <div className="flex items-center justify-between rounded-xl bg-white/[.04] px-3 py-2 text-sm"><span className="text-mute">Pays if it hits</span><span className="flex items-center gap-1 font-semibold"><Coin size={14} /> {Math.round(stake * Number(betting.o.odds))} <span className="text-xs text-mute">(+{Math.round(stake * Number(betting.o.odds)) - stake})</span></span></div>
             <button className="btn-primary w-full" disabled={busy || stake < 5 || stake > 500} onClick={place}>Place {stake} ☘️ on {betting.o.label}</button>
-            <p className="text-center text-xs text-mute">{SEASON.has(betting.m.kind) ? `Open until ${fmtDate(betting.m.closes_at.slice(0, 10))}; settles when the season has the answer.` : `Closes ${fmtTime(betting.m.closes_at)}.`} Stakes leave your bank now; tickets can’t be cancelled. Max 500 a market.</p>
+            <p className="text-center text-xs text-mute">{LONG.has(betting.m.kind) ? `Open until ${fmtDate(betting.m.closes_at.slice(0, 10))}; settles when the ${betting.m.kind === 'race' ? 'race' : 'season'} has the answer.` : `Closes ${fmtTime(betting.m.closes_at)}.`} Stakes leave your bank now; tickets can’t be cancelled. Max 500 a market.</p>
           </div>
         )}
       </Sheet>
 
       <Sheet open={newMarket} onClose={() => setNewMarket(false)} title="New market (commish)">
         <NewMarket onDone={() => { setNewMarket(false); reload(); }} />
+      </Sheet>
+      <Sheet open={asking} onClose={() => setAsking(false)} title="Ask the Book">
+        {asking && <AskBook onDone={() => { setAsking(false); reload(); }} />}
       </Sheet>
     </div>
   );
