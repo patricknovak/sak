@@ -8,8 +8,7 @@ import { currentSubscription } from '../lib/push';
 import { Sheet, TeamBadge } from './ui';
 import {
   Bell, ClipboardList, Dices, Home, Landmark, Lightbulb, LogOut, Menu, MessageCircle, Radio, Repeat2, Search, Shield,
-  Trophy, Tv, UserRound, Globe, Wrench, Wallet, type LucideIcon,
-} from 'lucide-react';
+  Trophy, Tv, UserRound, Globe, Wrench, Wallet, type LucideIcon, BarChart3 } from 'lucide-react';
 
 type Item = { to: string; label: string; icon: LucideIcon; commish?: boolean };
 
@@ -104,7 +103,7 @@ export function Layout({ children }: { children: ReactNode }) {
     { to: '/standings', label: 'Standings', icon: Trophy },
     { to: '/players', label: 'Players', icon: Search },
     { to: '/yahoo', label: 'My pools', icon: Globe },
-    ...(draftish ? [] : [{ to: '/scoreboard', label: 'Live scoreboard', icon: Radio }]),
+    ...(draftish ? [] : [{ to: '/scoreboard', label: 'Live scoreboard', icon: Radio }, { to: '/performance', label: 'Performance', icon: BarChart3 }]),
     draftish ? { to: '/team', label: 'My Team', icon: Shield } : { to: '/draft', label: 'Draft Centre', icon: ClipboardList },
     { to: '/trades', label: 'Trades', icon: Repeat2 },
     { to: '/bets', label: 'Side Bets', icon: Dices },
