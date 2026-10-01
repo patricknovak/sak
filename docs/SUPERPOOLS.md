@@ -19,7 +19,8 @@ A fantasy hockey league site with an AI commissioner's assistant built in. One l
 league gets: live scoring from NHL box scores with per-player puck-drop locks; daily lineups set up to 60
 days ahead with an auto-pilot; a draft room (clock, board, queues, TV mode, mock drafts, graded report
 card); keepers; trades with grades; free-agent and trade finders; side bets and a coin sportsbook that settle
-themselves; projections and simulated-season forecasts; a chat with polls; push notifications; and a league
+themselves; a Performance page (every point that counted, by day and by category, for any team or the
+league, with plain-language analytics); projections and simulated-season forecasts; a chat with polls; push notifications; and a league
 voice (Garry in SaK, named per league) that posts recaps, rankings, grades and answers questions.
 
 The NHL data behind all of that is fetched once and shared by every league.
@@ -150,7 +151,10 @@ pools for golf and F1, Supercoin competitions and non-cash prizes), as `docs/MAR
 
 ## 9. Working agreement
 
-- The SaK league is the model: build features there first, on the league that uses them every night.
+- The SaK league is the model and the test and development platform: build features there first, on the
+  league that uses them every night. Unless Patrick says otherwise for a feature, anything built for SaK is a
+  Super Pools feature (or a per-league customization) for every league: it reads its league's rules, brand and
+  data by `league_id` and never assumes SaK's names or numbers.
 - Every league-scoped change from now on writes `league_id` explicitly (or relies on the default = 1 only
   where the caller can only be in SaK).
 - Nothing in `docs/` or the app names SaK as the product; the product is Super Pools, SaK is a league on it.

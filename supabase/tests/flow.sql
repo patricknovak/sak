@@ -1069,6 +1069,21 @@ reset role;
 select pg_temp.expect('the seat invite is spent, the spectator invite has uses left', (select uses from league_invites where code = current_setting('t.north_code')) = 1 and (select uses from league_invites where code = :'spec_code') = 1 and (select max_uses from league_invites where code = :'spec_code') = 3);
 select 'accounts', true;
 
+-- ───────────── performance: the points that counted, by day and by category ─────────────
+select pg_temp.as_team(2);
+set role authenticated;
+select pg_temp.expect('performance_days has yesterday for team 2', exists (select 1 from performance_days(today_et() - 1, today_et() - 1) d where d.team_id = 2 and d.game_type = 2 and d.points > 0 and (d.stats->>'g')::numeric >= 1 and (d.stats->>'a')::numeric >= 2));
+select pg_temp.expect('performance_days keeps the playoff game apart', exists (select 1 from performance_days(today_et() - 1, today_et() - 1) d where d.team_id = 2 and d.game_type = 3));
+select pg_temp.expect('performance_days stays inside the range', not exists (select 1 from performance_days(today_et(), today_et()) d where d.date <> today_et()));
+select pg_temp.expect('performance_players sums the starter', exists (select 1 from performance_players(null, null, 2) p where p.player_id = :corr_p and p.started >= 1 and p.points > 0 and (p.stats->>'a')::numeric >= 2));
+select pg_temp.expect('performance_players for the league covers team 2', exists (select 1 from performance_players() p where p.team_id = 2 and p.player_id = :corr_p));
+reset role;
+-- the north league sees none of it
+select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-000000000099', false);
+set role authenticated;
+select pg_temp.expect('the north league has no SaK performance rows', (select count(*) from performance_days()) = 0 and (select count(*) from performance_players()) = 0);
+reset role;
+select 'performance', true;
 -- ───────────── Garry per league: a state row per league, a briefing from the commissioner ─────────────
 select pg_temp.expect('every league has a voice row', (select count(*) from garry_state) = (select count(*) from leagues) and (select briefing is not null from garry_state where league_id = 1));
 -- the north commissioner briefs the voice and hands it a fact; SaK's commissioner cannot see either
