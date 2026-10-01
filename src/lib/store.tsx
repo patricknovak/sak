@@ -175,7 +175,8 @@ export function LeagueProvider({ children }: { children: ReactNode }) {
       timers.set(t, window.setTimeout(() => loaders[t](), delay));
     };
     const map: Record<string, Table[]> = {
-      league: ['league'], teams: ['teams'], rosters: ['rosters', 'standings'], draft_picks: ['picks'],
+      // the rules row lives in league_rules (the `league` the site reads is a view of the caller's row), so its changes arrive under that name
+      league: ['league'], league_rules: ['league'], teams: ['teams'], rosters: ['rosters', 'standings'], draft_picks: ['picks'],
       draft_state: ['draft'], games: ['games'], notifications: ['notifications'], transactions: ['standings'], player_status: ['gameday'],
     };
     const ch = realtimeChannel('league-db');

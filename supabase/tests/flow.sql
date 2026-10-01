@@ -992,3 +992,29 @@ select pg_temp.expect('SaK standings has no north team', (select count(*) from s
 select pg_temp.expect('SaK still sees its own league whole', (select count(*) from teams) = 9 and (select count(*) from league) = 1 and (select count(*) from leagues) = 1);
 reset role;
 select 'second league isolated', true;
+
+-- ───────────── every rule reads its own league's row ─────────────
+reset role;
+select pg_temp.expect('rules table renamed, view in its place', (select count(*) from pg_views where schemaname = 'public' and viewname = 'league') = 1 and (select count(*) from league_rules) = 2);
+-- the north commissioner reads and writes only her league's rules
+select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-000000000099', false);
+set role authenticated;
+select pg_temp.expect('north reads her rules row', (select count(*) from league) = 1 and (select phase from league) = 'keepers');
+select commish_update_league('{"keepers": 7, "pick_seconds": 45}'::jsonb);
+select pg_temp.expect('north update landed on her row', (select keepers from league) = 7 and (select pick_seconds from league) = 45);
+select pg_temp.expect('scoring reads the north rules row', calc_fpts('{"g": 2}'::jsonb) = 2 * (select (scoring->'skater'->>'g')::numeric from league));
+reset role;
+select pg_temp.expect('SaK rules untouched by the north', (select keepers from league_rules where league_id = 1) <> 7 or (select pick_seconds from league_rules where league_id = 1) <> 45);
+-- the SaK commissioner still sees one row, his own
+select pg_temp.as_team(1);
+set role authenticated;
+select pg_temp.expect('SaK reads its own rules row', (select count(*) from league) = 1 and (select league_id from league) = 1 and (select phase from league) = 'season');
+select pg_temp.expect('SaK standings still eight teams through the re-pointed view', (select count(*) from standings) = 8);
+reset role;
+-- the scheduler's hook picks the league without a user
+select set_config('request.jwt.claim.sub', '', false);
+select set_config('app.league_id', current_setting('t.league2'), false);
+select pg_temp.expect('scheduler hook selects the north league', (select league_id from league) = current_setting('t.league2')::int);
+select set_config('app.league_id', '', false);
+select pg_temp.expect('no user and no hook falls back to league 1', (select league_id from league) = 1);
+select 'league row per league', true;
