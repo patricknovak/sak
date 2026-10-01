@@ -142,7 +142,7 @@ export function BookTab() {
     for (const m of open.filter((x) => filter === 'all' || x.kind === filter || (filter === 'future' && x.kind === 'season_prop') || (filter === 'race' && x.kind === 'race'))) {
       const key = m.game_id ? `g${m.game_id}` : m.kind === 'race' ? (m.subject.house === 'nhl' ? 'nhl' : 'asked') : SEASON.has(m.kind) ? 'season' : 'custom';
       if (key === 'season' || key === 'asked' || key === 'nhl') {
-        if (!g.has(key)) g.set(key, { key, title: key === 'asked' ? '🏁 Races & requests' : key === 'nhl' ? '🏆 NHL futures: the Cup, the awards, the races' : '🔮 Season futures & props', when: key === 'asked' ? '9998' : key === 'nhl' ? '9997' : '9999', kind: key, ms: [] });
+        if (!g.has(key)) g.set(key, { key, title: key === 'asked' ? '🏁 Races & requests' : key === 'nhl' ? '🏆 NHL futures' : '🔮 Season futures & props', when: key === 'asked' ? '9998' : key === 'nhl' ? '9997' : '9999', kind: key, ms: [] });
         g.get(key)!.ms.push(m);
         continue;
       }
