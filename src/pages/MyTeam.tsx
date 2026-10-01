@@ -135,6 +135,13 @@ export default function MyTeam() {
   const benchTotal = [...bench, ...ir].reduce((tot, x) => tot + (today.get(x.p.id)?.fpts ?? 0), 0);   // shown, never counted
   const benchedWithGames = bench.filter((x) => gamesByTeam(x.p.nhl_team) && !locked(x.p));
   const emptyStarters = rows.filter((r) => !r.x).length;
+  // who's actually on the ice tonight: starters whose club plays, out of the slots the league gives
+  const playsToday = (p: Player) => { const g = gamesByTeam(p.nhl_team); return !!g && !['PPD', 'CNCL'].includes(g.state); };
+  const starterSlots = rows.length;
+  const playingStarters = rows.filter((r) => r.x && playsToday(r.x.p)).length;
+  const gameDayStarters = roster.filter((x) => x.r.slot !== 'IR' && playsToday(x.p)).length;
+  const benchPlaying = bench.filter((x) => playsToday(x.p));
+  const benchIdle = bench.filter((x) => !playsToday(x.p));
   // starters who may not play tonight (a backup goalie, out, scratched, or a game-time call), while there's time
   const doubtful = rows.filter((r) => r.x && !locked(r.x.p) && ['backup', 'out', 'scratched', 'gtd'].includes(gameStatus(r.x.p.id)?.status ?? ''))
     .map((r) => ({ p: r.x!.p, s: gameStatus(r.x!.p.id)! }));
@@ -148,13 +155,17 @@ export default function MyTeam() {
     const g = x ? gamesByTeam(x.p.nhl_team) : undefined;
     const tp = x ? today.get(x.p.id) : undefined;
     const lk = x && locked(x.p);
+    const playing = !!g && !['PPD', 'CNCL'].includes(g.state);
+    const live = !!g && ['LIVE', 'CRIT'].includes(g.state);
+    const done = !!g && ['OFF', 'FINAL'].includes(g.state);
+    const starter = slot !== 'BN' && slot !== 'IR';
     return (
       <div onClick={() => tap(slot, x)}
-        className={`flex cursor-pointer items-center gap-2 px-2.5 py-2 transition ${isSel ? 'bg-sky-500/20 ring-1 ring-inset ring-sky-400' : target ? 'bg-emerald-500/10 ring-1 ring-inset ring-emerald-500/60' : ''}`}>
+        className={`flex cursor-pointer items-center gap-2 border-l-[3px] px-2.5 py-2 transition ${isSel ? 'bg-sky-500/20 ring-1 ring-inset ring-sky-400' : target ? 'bg-emerald-500/10 ring-1 ring-inset ring-emerald-500/60' : ''} ${offseason || !x ? 'border-transparent' : live ? 'border-goal' : playing ? 'border-emerald-400/80' : starter ? 'border-white/15' : 'border-transparent'}`}>
         <Pos p={slot} className="w-10" />
         {x ? (
           <>
-            <div className="min-w-0 flex-1 overflow-hidden"><PlayerRow p={x.p} dim={slot !== 'BN' && slot !== 'IR' && !g} onInfo={() => setInfo(x.p.id)} />{statLine(x.p) && <div className="num mt-0.5 truncate pl-12 text-[10px] text-slate-400">{statLine(x.p)}</div>}</div>
+            <div className="min-w-0 flex-1 overflow-hidden"><PlayerRow p={x.p} dim={!offseason && starter && !playing} onInfo={() => setInfo(x.p.id)} />{statLine(x.p) && <div className="num mt-0.5 truncate pl-12 text-[10px] text-slate-400">{statLine(x.p)}</div>}</div>
             {lk && <span title="Locked: his game has started. Lineup changes reopen tomorrow." className="text-xs">🔒</span>}
             <button aria-label={`About ${x.p.name}`} title="Injury, game-day status, news and stats"
               onClick={(e) => { e.stopPropagation(); setInfo(x.p.id); }}
@@ -167,10 +178,14 @@ export default function MyTeam() {
               </button>
             )}
             <div className="min-w-14 shrink-0 text-right">
-              <div className={`text-sm font-semibold ${tp && tp.fpts > 0 ? 'text-emerald-300' : ''}`}>{tp ? fmtPts(tp.fpts, 1) : g ? '–' : ''}</div>
+              {offseason ? <div className="text-sm font-semibold">{fmtPts(x.p.last_fp, 0)}</div>
+                : tp || done ? <div className={`text-sm font-semibold ${tp && tp.fpts > 0 ? 'text-emerald-300' : ''}`}>{fmtPts(tp?.fpts ?? 0, 1)}{done && <span className="ml-1 text-[10px] font-normal text-mute">final</span>}</div>
+                : live ? <div className="text-xs font-semibold text-goal">● LIVE</div>
+                : playing ? <div className="inline-block rounded-md bg-emerald-500/15 px-1.5 py-0.5 text-[11px] font-semibold text-emerald-200">{fmtTime(g!.start_utc)}</div>
+                : <div className="inline-block rounded-md bg-white/[.06] px-1.5 py-0.5 text-[11px] text-mute">No game</div>}
               {offseason
-                ? <div className="whitespace-nowrap text-[10px] text-mute">{fmtPts(x.p.last_fp, 0)} ’25-26</div>
-                : <div className="whitespace-nowrap text-[10px] text-mute">{fmtPts(season.get(x.p.id)?.fpts ?? 0, 0)} szn · {weekGames(x.p.nhl_team)}g</div>}
+                ? <div className="whitespace-nowrap text-[10px] text-mute">’25-26</div>
+                : <div className="whitespace-nowrap text-[10px] text-mute">{fmtPts(season.get(x.p.id)?.fpts ?? 0, 0)} szn · {weekGames(x.p.nhl_team)}g wk</div>}
             </div>
           </>
         ) : (
@@ -208,23 +223,26 @@ export default function MyTeam() {
       </div>
 
       {mine && league?.phase === 'season' && (
-        <div className="card flex flex-wrap items-center gap-3 p-3">
-          <div className="flex-1 text-sm">
-            <div><span className="font-semibold">Today: {fmtPts(todayTotal)} pts</span>{benchTotal > 0 && <span className="text-amber-300" title="Points your bench and IR scored today. They don’t count."> · {fmtPts(benchTotal)} left on the bench</span>}{st?.bench ? <span className="text-mute" title="Season total left on the bench"> · {fmtPts(st.bench)} benched this season</span> : null} <span className="text-mute">· tap a player, then tap where he should go</span></div>
-            {benchedWithGames.length > 0 && <div className="text-xs text-amber-300">⚠️ {benchedWithGames.length} benched player{benchedWithGames.length > 1 ? 's' : ''} playing today</div>}
-            {emptyStarters > 0 && <div className="text-xs text-amber-300">⚠️ {emptyStarters} empty starting slot{emptyStarters > 1 ? 's' : ''}</div>}
-            {doubtful.length > 0 && <div className="text-xs text-amber-300">⚠️ May not play tonight: {doubtful.map(({ p, s }) => (
-              <button key={p.id} className="mr-1 underline decoration-dotted" onClick={() => setInfo(p.id)}>{p.name} ({{ backup: 'backup goalie', out: 'out', scratched: 'scratched', gtd: 'game-time call' }[s.status as 'backup']})</button>))}</div>}
-            <div className="text-xs text-mute">🔒 Each player locks when his game starts; change anyone until then.{nextLock && <> Next lock: <span className="text-slate-200">{fmtTime(nextLock.start_utc)}</span> ({nextLock.away} @ {nextLock.home}).</>}</div>
+        <div className="card space-y-2 p-3">
+          <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
+            <div className="text-sm"><span className="num font-display text-2xl font-extrabold">{fmtPts(todayTotal)}</span> <span className="text-mute">pts today</span></div>
+            <div className="text-sm"><span className={`num font-semibold ${playingStarters < gameDayStarters ? 'text-amber-300' : 'text-emerald-300'}`}>{playingStarters}</span><span className="text-mute"> of {starterSlots} starters play tonight</span>{gameDayStarters === 0 && <span className="text-mute"> · quiet night for your roster</span>}</div>
+            {benchTotal > 0 && <div className="text-xs text-amber-300" title="Points your bench and IR scored today. They don’t count.">{fmtPts(benchTotal)} left on the bench</div>}
           </div>
+          {(benchedWithGames.length > 0 || emptyStarters > 0 || doubtful.length > 0) && (
+            <div className="flex flex-wrap gap-1.5 text-[11px]">
+              {benchedWithGames.length > 0 && <button className="chip bg-amber-500/15 text-amber-200" onClick={() => document.getElementById('bench-playing')?.scrollIntoView({ behavior: 'smooth', block: 'start' })}>⚠️ {benchedWithGames.length} on the bench with a game tonight</button>}
+              {emptyStarters > 0 && <span className="chip bg-amber-500/15 text-amber-200">⚠️ {emptyStarters} empty starting slot{emptyStarters > 1 ? 's' : ''}</span>}
+              {doubtful.map(({ p, s }) => <button key={p.id} className="chip bg-amber-500/15 text-amber-200" onClick={() => setInfo(p.id)}>⚠️ {p.last_name ?? p.name}: {{ backup: 'backup goalie', out: 'out', scratched: 'scratched', gtd: 'game-time call' }[s.status as 'backup']}</button>)}
+            </div>
+          )}
           <div className="flex flex-wrap items-center gap-2">
             <button className="btn-blue" disabled={busy || opt.busy} onClick={() => opt.apply(opt.plan('day'), 'today')}>✨ Optimize today</button>
-            <button className="btn-ghost" onClick={() => setView('plan')}>📅 Set future days</button>
-            <button className="btn-ghost" onClick={() => setTools(true)}>⚙️ Lineup tools</button>
+            <button className="btn-ghost" onClick={() => setView('plan')}>📅 Daily lineups</button>
+            <button className="btn-ghost" onClick={() => setTools(true)}>⚙️ Tools</button>
           </div>
-          <div className="w-full text-xs text-mute">
-            Auto-pilot: <button className="font-semibold text-sky-300 hover:underline" onClick={() => setTools(true)}>{me?.auto_mode && me.auto_mode !== 'off' ? `on · ${{ proj: 'projection', form: 'hot hand', season: 'season avg', ros: 'rest of season' }[me.auto_basis ?? 'proj']}` : 'off'}</button>
-            {roster.some((x) => x.r.pin) && <> · {roster.filter((x) => x.r.pin).length} pinned</>}
+          <div className="text-xs text-mute">
+            🔒 Players lock at their puck drop{nextLock ? <>; next lock <span className="text-slate-200">{fmtTime(nextLock.start_utc)}</span> ({nextLock.away} @ {nextLock.home})</> : ''}. Auto-pilot <button className="font-semibold text-sky-300 hover:underline" onClick={() => setTools(true)}>{me?.auto_mode && me.auto_mode !== 'off' ? `on · ${{ proj: 'projection', form: 'hot hand', season: 'season avg', ros: 'rest of season' }[me.auto_basis ?? 'proj']}` : 'off'}</button>{roster.some((x) => x.r.pin) && <> · {roster.filter((x) => x.r.pin).length} pinned</>}{st?.bench ? <> · {fmtPts(st.bench)} benched this season</> : null}
           </div>
         </div>
       )}
@@ -236,7 +254,6 @@ export default function MyTeam() {
         </button>
       )}
       {mine && <LineupTools open={tools} onClose={() => setTools(false)} roster={roster} />}
-      {(league?.phase === 'season' || league?.phase === 'offseason') && view !== 'plan' && <TeamForecastCard teamId={t.id} />}
       {league?.phase === 'keepers' && mine && (
         <Link to="/draft?t=keepers" className="card block bg-amber-500/10 p-3 text-sm text-amber-100">🔒 It’s keeper season: this is your 2025-26 roster. Pick who you keep →</Link>
       )}
@@ -259,18 +276,37 @@ export default function MyTeam() {
       {view === 'stats' ? <TeamStats teamId={t.id} /> : view === 'plan' && mine ? <LineupPlanner roster={roster} /> : !mine && view === 'scout' ? <TeamScout teamId={t.id} /> : <>
       <div className="grid gap-4 lg:grid-cols-2">
         {(!offseason || anyStarter) && (
-          <Section title="Starters" className="min-w-0">
+          <Section title="Starters" className="min-w-0" right={!offseason ? <span className="text-xs text-mute"><span className="mr-1 inline-block h-2 w-2 rounded-full bg-emerald-400" />{playingStarters} of {starterSlots} play tonight</span> : undefined}>
+            {mine && !offseason && <p className="mb-1.5 px-1 text-[11px] text-mute">Tap a player, then tap the slot he should go to. Green bar: his club plays tonight. Grey: no game, he sits idle.</p>}
             <div className="card divide-y divide-white/[.06] overflow-hidden">{rows.map((r, i) => <Fragment key={i}>{Row({ slot: r.slot, x: r.x })}</Fragment>)}</div>
           </Section>
         )}
         <div className="min-w-0 space-y-4">
-          <Section title={offseason && !anyStarter ? `Roster (${bench.length})` : `Bench (${bench.length}/${cap.BN ?? 12})`}>
-            <div className="card divide-y divide-white/[.06] overflow-hidden">
-              {bench.map((x) => <Fragment key={x.p.id}>{Row({ slot: 'BN', x })}</Fragment>)}
-              {selected && selected.r.slot !== 'BN' && Row({ slot: 'BN' })}
-              {bench.length === 0 && !selected && <div className="p-3 text-sm text-mute">Empty bench.</div>}
-            </div>
-          </Section>
+          {offseason && !anyStarter ? (
+            <Section title={`Roster (${bench.length})`}>
+              <div className="card divide-y divide-white/[.06] overflow-hidden">
+                {bench.map((x) => <Fragment key={x.p.id}>{Row({ slot: 'BN', x })}</Fragment>)}
+                {bench.length === 0 && <div className="p-3 text-sm text-mute">Empty bench.</div>}
+              </div>
+            </Section>
+          ) : (
+            <>
+              <div id="bench-playing" className="scroll-mt-20" />
+              <Section title={`Bench · playing tonight (${benchPlaying.length})`} right={benchPlaying.length > 0 && (emptyStarters > 0 || rows.some((r) => r.x && !playsToday(r.x.p))) ? <span className="text-xs text-amber-300">could start</span> : undefined}>
+                <div className="card divide-y divide-white/[.06] overflow-hidden">
+                  {benchPlaying.map((x) => <Fragment key={x.p.id}>{Row({ slot: 'BN', x })}</Fragment>)}
+                  {selected && selected.r.slot !== 'BN' && Row({ slot: 'BN' })}
+                  {benchPlaying.length === 0 && !selected && <div className="p-3 text-xs text-mute">Nobody on the bench has a game tonight{gameDayStarters > 0 ? ': everyone who plays is in' : ''}.</div>}
+                </div>
+              </Section>
+              <Section title={`Bench · no game tonight (${benchIdle.length})`} right={<span className="text-xs text-mute">{bench.length}/{cap.BN ?? 12} bench spots</span>}>
+                <div className="card divide-y divide-white/[.06] overflow-hidden">
+                  {benchIdle.map((x) => <Fragment key={x.p.id}>{Row({ slot: 'BN', x })}</Fragment>)}
+                  {benchIdle.length === 0 && <div className="p-3 text-xs text-mute">Everyone on the bench plays tonight.</div>}
+                </div>
+              </Section>
+            </>
+          )}
           <Section title={`IR (${ir.length}/${cap.IR ?? 2})`}>
             <div className="card divide-y divide-white/[.06] overflow-hidden">
               {ir.map((x) => <Fragment key={x.p.id}>{Row({ slot: 'IR', x })}</Fragment>)}
@@ -303,6 +339,11 @@ export default function MyTeam() {
           </Section>
         </div>
       </div>
+      {(league?.phase === 'season' || league?.phase === 'offseason') && (
+        <Section title="The long view" right={<span className="text-xs text-mute">full-year forecast</span>}>
+          <TeamForecastCard teamId={t.id} />
+        </Section>
+      )}
       {mine && <TeamScout teamId={t.id} hideRoster />}
       {!mine && <div className="text-center text-sm"><Link className="text-sky-300" to={`/trades?with=${teamId}`}>🔄 Propose a trade with <TeamName team={t} /></Link></div>}
       </>}
