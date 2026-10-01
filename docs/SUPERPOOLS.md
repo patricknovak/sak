@@ -67,8 +67,8 @@ SQL functions never rely on the column default of 1. The flow test opens a secon
 neither league sees the other's teams, rosters, chat, bets, money, lineup plans or standings.
 
 Still open from this step: `current_league_id()` falls back to league 1 for a signed-in user with no team row
-(today that is nobody; accounts in step 1 replace the fallback), and `team_directory` stays the public list
-of every team on the login page until the app is served per host (step 2).
+(today that is nobody; accounts replaced the fallback for anyone with a membership), and `team_directory` stays the public list
+of every team on the login page until the app is served per host (step 1).
 
 ## 5. Every rule reads its own league's row (done in migration 62)
 
@@ -79,48 +79,61 @@ hook the per-league scheduler sets before each league's pass), then the signed-i
 The functions that pinned the row to `id = 1` lost the pin. The edge-function tasks that loop over teams
 still run for league 1 only; that is the scheduler step below.
 
-## 6. What is not done yet, in order
+## 6. Accounts (done in migration 63)
 
-1. **Accounts.** A person (auth user) can own teams in several leagues. Add `league_members(user_id,
-   league_id, team_id, role)`; `current_league_id()` reads the user's chosen league (a setting or the host).
-   Invite by link; the commissioner role per league is what the Commish page already gates on.
-2. **League by host.** `leagues.domain`: `sak.superpoolsai.com` or a custom domain per league; the app picks
+A person is an account with a membership per league: `league_members (user_id, league_id, team_id, role)`,
+backfilled from the team rows and kept in step with them by a trigger (`teams.user_id` stays the login on the
+team, now one team per person per league). `accounts.active_league_id` is the league a person is working in
+when the request does not say. `current_league_id()` resolves, in order: the scheduler's `app.league_id`
+setting; the request's `x-league` header when the caller is a member of that league (the site sends it once
+it has a league switcher); the account's active league; the first membership; league 1. `my_team()`,
+`_team()`, `is_commish()`, `_commish()`, `is_gm()` and `can_do()` read the membership for the current league,
+so a commissioner in one league is a plain GM in another. `my_leagues()` and `set_active_league()` serve the
+switcher. Invites: `create_invite(team, role, days, uses)` mints a code for an open seat or a spectator
+place, `accept_invite(code)` claims it and makes the joined league active, `revoke_invite(code)` ends it.
+The flow test has the SaK commissioner join the north league as a GM, switch between the two, be picked by
+header for one call, and a fan join as a spectator. Still to come with onboarding: sign-up, the invite page
+on the site, and the switcher.
+
+## 7. What is not done yet, in order
+
+1. **League by host.** `leagues.domain`: `sak.superpoolsai.com` or a custom domain per league; the app picks
    the league from the host, so one deployment serves all leagues.
-3. **Garry per league.** Memory and persona are already keyed by team and channel; add the league key and
+2. **Garry per league.** Memory and persona are already keyed by team and channel; add the league key and
    a per-league daily budget of LLM calls (the one cost that scales with leagues).
-4. **Scheduler per league.** nhl-sync's league-scoped tasks (snapshots, auto-lineups, standings,
+3. **Scheduler per league.** nhl-sync's league-scoped tasks (snapshots, auto-lineups, standings,
    settlement) iterate leagues, setting `app.league_id` before each league's pass; the NHL fetches stay single.
-5. **Money.** Coins stay. Cash tracking stays bookkeeping between friends (no payments handled), or is
+4. **Money.** Coins stay. Cash tracking stays bookkeeping between friends (no payments handled), or is
    turned off per league.
-6. **Onboarding.** A new league: sign up, name and brand it, invite GMs, import a Yahoo pool (the connector
+5. **Onboarding.** A new league: sign up, name and brand it, invite GMs, import a Yahoo pool (the connector
    exists) or start fresh, set rules, draft.
-7. **Billing.** A subscription per league per season (Stripe). Landing page collects interest until then.
+6. **Billing.** A subscription per league per season (Stripe). Landing page collects interest until then.
 
 The steps above finish the tenancy. `docs/MARKET.md` sets what comes after in three horizons. The first,
 "win hockey and lay the foundations", adds to this list in this order once tenancy is done:
 
-8. **Tiers and billing.** Free, Plus, Premium, the side-bet add-on and the Super Pool bundle, enforced per
+7. **Tiers and billing.** Free, Plus, Premium, the side-bet add-on and the Super Pool bundle, enforced per
    pool (a `plan` on the league row and a feature gate function), Stripe for the paid tiers.
-9. **Category and rotisserie scoring.** The scoring engine reads the league's categories the way it reads
+8. **Category and rotisserie scoring.** The scoring engine reads the league's categories the way it reads
     its point weights.
-10. **Import with history** from Fantrax, ESPN and CBS (Yahoo exists).
-11. **Contracts, caps, prospect slots and rookie drafts**; guillotine and best ball formats.
-12. **The Supercoin.** An account-level wallet, the SaK coin ledger migrated onto it, per-pool allowances, the
+9. **Import with history** from Fantrax, ESPN and CBS (Yahoo exists).
+10. **Contracts, caps, prospect slots and rookie drafts**; guillotine and best ball formats.
+11. **The Supercoin.** An account-level wallet, the SaK coin ledger migrated onto it, per-pool allowances, the
     Book and side bets as the add-on, the ledger visible in every pool. Never for sale, never cashed out.
-13. **Commissioner tools the market lacks**: dues tracker (no escrow), co-commissioners, constitution page,
+12. **Commissioner tools the market lacks**: dues tracker (no escrow), co-commissioners, constitution page,
     audit trail of every override, abandoned-team handover.
-14. **The sport pulled out of the engine**: a `sports` table, per-sport player, game and stat shapes and
+13. **The sport pulled out of the engine**: a `sports` table, per-sport player, game and stat shapes and
     scoring vocabularies, a sync per sport; the NHL becomes one row. Prerequisite for soccer, basketball and
     the multi-sport pool.
-15. **Telemetry and the feature board**: pseudonymous per-pool usage tables with a commissioner opt-out, the
+14. **Telemetry and the feature board**: pseudonymous per-pool usage tables with a commissioner opt-out, the
     SaK Features page grown into a product-wide board with public statuses and a changelog.
-16. **App-store listing**, the **playoff bracket pool**, and the voice per league with a daily budget.
+15. **App-store listing**, the **playoff bracket pool**, and the voice per league with a daily budget.
 
 Then horizon 2 (soccer on licensed data, basketball, the multi-sport pool, the Supercoin prediction market,
 the Super Pool bundle, the public API) and horizon 3 (cricket free-to-play, baseball, football and college,
 pools for golf and F1, Supercoin competitions and non-cash prizes), as `docs/MARKET.md` lays out.
 
-## 7. Environments
+## 8. Environments
 
 | | Today | Product |
 |---|---|---|
@@ -130,7 +143,7 @@ pools for golf and F1, Supercoin competitions and non-cash prizes), as `docs/MAR
 | Edge functions | Supabase, deployed by hand | same, deployed from CI |
 | LLM | Grok (xAI) for Garry and X search | same, per-league budget; model per league later |
 
-## 8. Working agreement
+## 9. Working agreement
 
 - The SaK league is the model: build features there first, on the league that uses them every night.
 - Every league-scoped change from now on writes `league_id` explicitly (or relies on the default = 1 only

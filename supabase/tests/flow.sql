@@ -1018,3 +1018,53 @@ select pg_temp.expect('scheduler hook selects the north league', (select league_
 select set_config('app.league_id', '', false);
 select pg_temp.expect('no user and no hook falls back to league 1', (select league_id from league) = 1);
 select 'league row per league', true;
+
+-- ───────────── accounts: one person, several leagues ─────────────
+reset role;
+select pg_temp.expect('memberships backfilled from the team rows', (select count(*) from league_members) = (select count(*) from teams where user_id is not null));
+select pg_temp.expect('roles follow the team rows', (select role from league_members where team_id = 1) = 'commish' and (select role from league_members where team_id = 9) = 'spectator' and (select role from league_members where team_id = 2) = 'gm' and (select role from league_members where team_id = 99) = 'commish');
+-- an open seat in the north league, and an invite for it from the north commissioner
+insert into teams (id, name, abbrev, gm_name, league_id) values (98, 'Tundra Wolves', 'TUN', 'open seat', current_setting('t.league2')::int);
+select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-000000000099', false);
+set role authenticated;
+do $$ begin perform create_invite(1); raise exception 'invited a seat from another league';
+exception when others then if sqlerrm not like '%open seat%' then raise; end if; end $$;
+select create_invite(98) as north_code \gset
+reset role;
+select set_config('t.north_code', :'north_code', false);
+-- the SaK commissioner takes the seat: he is now in two leagues, commissioner of one and a GM in the other
+select pg_temp.as_team(1);
+set role authenticated;
+select pg_temp.expect('one league before accepting', (select count(*) from my_leagues()) = 1);
+select pg_temp.expect('accepting the invite joins the north league', accept_invite(current_setting('t.north_code')) = current_setting('t.league2')::int);
+select pg_temp.expect('two leagues after accepting', (select count(*) from my_leagues()) = 2);
+select pg_temp.expect('the joined league is active and he is a GM there', (select current_league_id()) = current_setting('t.league2')::int and (select my_team()) = 98 and not is_commish());
+do $$ begin perform accept_invite(current_setting('t.north_code')); raise exception 'used the invite twice';
+exception when others then if sqlerrm not like '%no longer good%' and sqlerrm not like '%already in%' then raise; end if; end $$;
+do $$ begin perform accept_invite('nope-nope'); raise exception 'accepted a bad code';
+exception when others then if sqlerrm not like '%no longer good%' then raise; end if; end $$;
+-- back to SaK by choice: commissioner again, team 1 again
+select pg_temp.expect('switch back to SaK accepted', set_active_league(1) = 1);
+select pg_temp.expect('SaK is the active league again', (select current_league_id()) = 1 and (select my_team()) = 1 and is_commish());
+do $$ begin perform set_active_league(999); raise exception 'switched to a league he is not in';
+exception when others then if sqlerrm not like '%not in that league%' then raise; end if; end $$;
+-- the request header picks the league for one call when the caller is a member there, and is ignored when not
+select set_config('request.headers', json_build_object('x-league', current_setting('t.league2'))::text, false);
+select pg_temp.expect('x-league header selects the north league', (select current_league_id()) = current_setting('t.league2')::int and (select my_team()) = 98 and (select count(*) from teams) = 2 and (select count(*) from standings) = 2);
+select set_config('request.headers', '{"x-league": "999"}', false);
+select pg_temp.expect('a header for a league he is not in is ignored', (select current_league_id()) = 1 and (select my_team()) = 1);
+select set_config('request.headers', '', false);
+reset role;
+-- a spectator invite makes a spectator row; the seat invite is spent
+select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-000000000099', false);
+set role authenticated;
+select create_invite(null, 'spectator', 7, 3) as spec_code \gset
+reset role;
+insert into auth.users (id, email) values ('00000000-0000-0000-0000-000000000097', 'fan@example.com');
+select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-000000000097', false);
+set role authenticated;
+select pg_temp.expect('a fan accepts a spectator invite', accept_invite(:'spec_code') = current_setting('t.league2')::int);
+select pg_temp.expect('the fan is a spectator in the north league', (select current_league_id()) = current_setting('t.league2')::int and (select role from teams where id = my_team()) = 'spectator' and can_do('chat') is not null);
+reset role;
+select pg_temp.expect('the seat invite is spent, the spectator invite has uses left', (select uses from league_invites where code = current_setting('t.north_code')) = 1 and (select uses from league_invites where code = :'spec_code') = 1 and (select max_uses from league_invites where code = :'spec_code') = 3);
+select 'accounts', true;
