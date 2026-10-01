@@ -4,12 +4,14 @@
 // stay open until the trade deadline, re-priced every morning from the standings; any GM can ask the Book for
 // a long NHL market (a game later in the week, a race between players or clubs, a line on one of them) and open
 // it by taking the first ticket; the commish can add a market on anything verifiable. Stakes leave the bank when
-// the ticket is placed; winners are paid stake × odds.
+// the ticket is placed; winners are paid stake × odds. Odds move: tonight's markets stay open in play and re-price
+// from the score and the clock, the long ones from the standings and the box scores; a ticket keeps the price it
+// was bought at. The live prices come from one call (book_live) that the board refreshes as scores change.
 import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useLeague, useNow } from '../lib/store';
 import { rpc, realtimeChannel, supabase } from '../lib/supabase';
-import type { BookRequest, BookStanding, Market, MarketBet, MarketKind, MarketOption } from '../lib/types';
+import type { BookRequest, BookStanding, Game, Market, MarketBet, MarketKind, MarketOption } from '../lib/types';
 import { ago, etToday, fmtDate, fmtTime, NHL_TEAMS } from '../lib/format';
 import { Coin, Empty, Section, Sheet, TeamBadge, useAction } from './ui';
 import { BookOpen, Plus, Sparkles } from 'lucide-react';
@@ -22,11 +24,38 @@ const KIND: Record<MarketKind, { icon: string; label: string }> = { winner: { ic
 const SEASON = new Set<MarketKind>(['future', 'season_prop']);
 const LONG = new Set<MarketKind>(['future', 'season_prop', 'race']);   // open for days or months, not until puck drop
 // what the Book's odds say each option's chance is, with the house edge taken back out
-const implied = (m: Market): Record<string, number> => {
-  const inv = m.options.map((o) => 1 / Math.max(1.01, Number(o.odds)));
+const implied = (opts: MarketOption[]): Record<string, number> => {
+  const inv = opts.map((o) => 1 / Math.max(1.01, Number(o.odds)));
   const sum = inv.reduce((a, b) => a + b, 0) || 1;
-  return Object.fromEntries(m.options.map((o, i) => [o.key, inv[i] / sum]));
+  return Object.fromEntries(opts.map((o, i) => [o.key, inv[i] / sum]));
 };
+const GAME_KINDS = new Set<MarketKind>(['winner', 'total', 'ot', 'prop']);
+// regulation minutes left, as the Book counts them (0 in overtime or a shootout)
+const minutesLeft = (g: Game) => {
+  const per = String(g.period ?? '').toUpperCase();
+  if (per.includes('OT') || per.includes('SO')) return 0;
+  const n = Number(per.replace(/\D/g, '')) || 1;
+  const [mm, ss] = String(g.clock ?? '20:00').split(':').map(Number);
+  return Math.max(0, (3 - n) * 20 + (mm || 0) + (ss || 0) / 60);
+};
+// can a ticket still be bought in play? the server has the final say (same rules, plus a fresh score feed)
+const inPlayOpen = (m: Market, g: Game | undefined) => !!g && GAME_KINDS.has(m.kind) && ['LIVE', 'CRIT'].includes(g.state) && minutesLeft(g) >= 2 && !/OT|SO/i.test(String(g.period ?? ''));
+
+// the board's live prices: one call, refreshed when a score changes and once a minute while a game is on
+function useLiveOdds(markets: Market[], games: Game[]) {
+  const [live, setLive] = useState<Record<string, MarketOption[]>>({});
+  const anyLive = games.some((g) => ['LIVE', 'CRIT'].includes(g.state));
+  const scoreKey = games.map((g) => `${g.id}:${g.state}:${g.home_score}:${g.away_score}:${g.period}`).join('|');
+  useEffect(() => {
+    if (!markets.some((m) => m.status === 'open')) return;
+    let alive = true;
+    const load = () => rpc<Record<string, MarketOption[]>>('book_live').then((d) => { if (alive && d) setLive(d); }).catch(() => {});
+    const t = window.setTimeout(load, 400);
+    const i = anyLive ? window.setInterval(() => { if (document.visibilityState === 'visible') load(); }, 60_000) : 0;
+    return () => { alive = false; window.clearTimeout(t); if (i) window.clearInterval(i); };
+  }, [scoreKey, anyLive, markets.length]); // eslint-disable-line react-hooks/exhaustive-deps
+  return live;
+}
 const STAKES = [10, 25, 50, 100, 250];
 const club = (a?: string) => (a ? NHL_TEAMS[a] ?? a : '');
 // decimal odds as the league reads them: "2.10" and "+110"
@@ -72,6 +101,10 @@ export function BookTab() {
   const now = useNow(30_000);
   const { busy, run } = useAction();
   const { markets, tickets, standings, reload } = useBook();
+  const liveOdds = useLiveOdds(markets, games);
+  // the options as priced right now (the stored ones are the opening odds)
+  const liveOpts = (m: Market): MarketOption[] => (m.status === 'open' && liveOdds[String(m.id)]) || m.options;
+  const priceOf = (m: Market, o: MarketOption) => Number(liveOpts(m).find((x) => x.key === o.key)?.odds ?? o.odds);
   const [filter, setFilter] = useState<'all' | MarketKind>('all');
   const [betting, setBetting] = useState<{ m: Market; o: MarketOption } | null>(null);
   const [stake, setStake] = useState(25);
@@ -97,7 +130,8 @@ export function BookTab() {
     return () => { alive = false; window.clearInterval(i); };
   }, [propIds.join()]); // eslint-disable-line react-hooks/exhaustive-deps
   const gameOf = (m: Market) => (m.game_id ? games.find((g) => g.id === m.game_id) : undefined);
-  const chanceOf = (m: Market) => LONG.has(m.kind) ? implied(m) : marketChances(m, gameOf(m), m.subject.player_id ? propPts.get(`${m.subject.player_id}|${m.date}`) ?? 0 : 0, players);
+  const chanceOf = (m: Market) => LONG.has(m.kind) ? implied(liveOpts(m)) : marketChances(m, gameOf(m), m.subject.player_id ? propPts.get(`${m.subject.player_id}|${m.date}`) ?? 0 : 0, players);
+  const bettable = (m: Market) => m.status === 'open' && (new Date(m.closes_at).getTime() > now || inPlayOpen(m, gameOf(m)));
   const myTickets = tickets.filter((t) => t.team_id === me?.id);
   const onMarket = (id: number) => tickets.filter((t) => t.market_id === id);
   const pname = (id?: number) => (id ? players.get(id)?.name ?? `#${id}` : '');
@@ -126,18 +160,21 @@ export function BookTab() {
     if (!betting) return;
     await rpc('place_market_bet', { p_market: betting.m.id, p_pick: betting.o.key, p_coins: stake });
     setBetting(null); reload();
-  }, `Ticket placed: ${stake} ☘️ on ${betting?.o.label} @ ${betting?.o.odds}`);
+  }, `Ticket placed: ${stake} ☘️ on ${betting?.o.label} @ ${betting ? priceOf(betting.m, betting.o).toFixed(2) : ''}`);
 
   const OptionBtn = ({ m, o }: { m: Market; o: MarketOption }) => {
     const yours = onMarket(m.id).filter((t) => t.team_id === me?.id && t.pick === o.key).reduce((s, t) => s + t.coins, 0);
     const backers = onMarket(m.id).filter((t) => t.pick === o.key);
     const won = m.status === 'settled' && m.winner_key === o.key;
+    const price = m.status === 'open' ? priceOf(m, o) : Number(o.odds);
+    const moved = m.status === 'open' && Math.abs(price - Number(o.odds)) >= 0.05;
     return (
-      <button disabled={m.status !== 'open' || new Date(m.closes_at).getTime() <= now || !can('bets') || me?.role === 'spectator'}
+      <button disabled={!bettable(m) || !can('bets') || me?.role === 'spectator'}
         className={`flex min-w-0 flex-1 flex-col items-center rounded-xl border px-2 py-2 text-center transition active:scale-[.98] disabled:active:scale-100 ${won ? 'border-emerald-400/60 bg-emerald-500/15' : yours ? 'border-sky-400/60 bg-sky-500/15' : 'border-white/[.08] bg-white/[.03] hover:bg-white/[.06]'}`}
         onClick={() => { setBetting({ m, o }); setStake(25); setCustom(''); }}>
         <span className="w-full truncate text-sm font-semibold">{o.label}</span>
-        <span className="num font-display text-lg font-extrabold text-gold">{Number(o.odds).toFixed(2)} <span className="text-[10px] font-normal text-mute">{american(Number(o.odds))}</span></span>
+        <span className="num font-display text-lg font-extrabold text-gold">{price.toFixed(2)} <span className="text-[10px] font-normal text-mute">{american(price)}</span></span>
+        {moved && <span className="text-[10px] text-mute">opened {Number(o.odds).toFixed(2)} {price < Number(o.odds) ? '▼' : '▲'}</span>}
         {(() => { const c = chanceOf(m)?.[o.key]; return c != null && m.status === 'open' ? <span className="text-[10px] text-slate-300">{Math.round(c * 100)}% to hit{new Date(m.closes_at).getTime() <= now ? ' · live' : ''}</span> : null; })()}
         {yours > 0 && <span className="text-[10px] text-sky-200">you: {yours} ☘️</span>}
         {backers.length > 0 && <span className="mt-0.5 flex items-center gap-0.5">{backers.slice(0, 5).map((t) => <TeamBadge key={t.id} team={team(t.team_id)} size={12} />)}</span>}
@@ -150,10 +187,11 @@ export function BookTab() {
       <div className="mb-1.5 flex items-center gap-2 text-xs text-mute">
         <span>{KIND[m.kind].icon} {KIND[m.kind].label}</span>
         <span className="min-w-0 flex-1 truncate font-medium text-white">{m.kind === 'prop' || ((m.kind === 'season_prop' || m.subject.template === 'player_line') && m.subject.player_id) ? <Link to={`/player/${m.subject.player_id}`} className="hover:underline">{m.kind === 'prop' ? pname(m.subject.player_id) : m.title}</Link> : m.title}{m.kind === 'prop' && m.subject.owner ? <span className="text-mute"> · {team(m.subject.owner)?.abbrev}</span> : null}</span>
-        {m.status === 'open' && <span className="shrink-0">{LONG.has(m.kind) ? `until ${fmtDate(m.closes_at.slice(0, 10))}` : m.date > etToday() ? `${fmtDate(m.date)} ${fmtTime(m.closes_at)}` : `closes ${fmtTime(m.closes_at)}`}</span>}
+        {m.status === 'open' && <span className="shrink-0">{LONG.has(m.kind) ? `until ${fmtDate(m.closes_at.slice(0, 10))}` : new Date(m.closes_at).getTime() <= now ? (inPlayOpen(m, gameOf(m)) ? '🔴 in play' : 'no more bets') : m.date > etToday() ? `${fmtDate(m.date)} ${fmtTime(m.closes_at)}` : `puck drop ${fmtTime(m.closes_at)}`}</span>}
       </div>
       <div className={m.options.length > 3 ? 'grid grid-cols-2 gap-1.5 sm:grid-cols-4' : 'flex gap-1.5'}>{m.options.map((o) => <OptionBtn key={o.key} m={m} o={o} />)}</div>
-      {m.kind === 'future' && <div className="mt-1 text-[11px] text-mute">Odds move with the standings every morning; a ticket keeps the odds it was placed at.</div>}
+      {m.kind === 'future' && <div className="mt-1 text-[11px] text-mute">Odds move with the standings; a ticket keeps the odds it was placed at.</div>}
+      {GAME_KINDS.has(m.kind) && m.status === 'open' && new Date(m.closes_at).getTime() <= now && <div className="mt-1 text-[11px] text-mute">{inPlayOpen(m, gameOf(m)) ? 'In play: the price follows the score and the clock, the house keeps 10%. No bets in the last two minutes or in overtime.' : 'Betting is over for this one; it settles at the final.'}</div>}
       {m.kind === 'season_prop' && <div className="mt-1 text-[11px] text-mute">{m.subject.scope === 'team' ? 'Regular-season points, settled the day after the season ends.' : m.subject.stat === 'g' ? 'NHL goals this regular season, settled the day after it ends.' : 'Fantasy points this regular season, settled the day after it ends.'}</div>}
       {(m.subject.terms || (m.created_by && m.kind !== 'custom')) && (
         <div className="mt-1 text-[11px] text-mute">
@@ -181,7 +219,7 @@ export function BookTab() {
           const won = m.status === 'settled' ? m.winner_key === t.pick : null;
           return (
             <span key={t.id} className={`inline-flex items-center gap-1 rounded-full border px-1.5 py-0.5 text-[10px] ${t.team_id === me?.id ? 'border-sky-400/50 bg-sky-500/10' : 'border-white/[.08] bg-white/[.03]'}`}>
-              <TeamBadge team={team(t.team_id)} size={12} />{team(t.team_id)?.gm_name}: {t.coins} ☘️ on {o?.label ?? t.pick} → {Math.round(t.coins * t.odds)}
+              <TeamBadge team={team(t.team_id)} size={12} />{team(t.team_id)?.gm_name}: {t.coins} ☘️ on {o?.label ?? t.pick} @ {Number(t.odds).toFixed(2)}{t.placed_live ? ' live' : ''} → {Math.round(t.coins * t.odds)}
               {pct != null && <b className={pct >= 0.5 ? 'text-emerald-300' : 'text-amber-200'}>{Math.round(pct * 100)}%</b>}
               {won != null && <b className={won ? 'text-emerald-300' : 'text-red-300'}>{won ? 'won' : 'lost'}</b>}
             </span>
@@ -250,7 +288,7 @@ export function BookTab() {
       ))}
 
       {liveMs.length > 0 && (
-        <Section title="📡 Live now" right={<span className="text-xs text-mute">odds to hit, updated with the score</span>}>
+        <Section title="📡 In play" right={<span className="text-xs text-mute">prices move with the score</span>}>
           <div className="space-y-2">
             {[...new Set(liveMs.map((m) => m.game_id ?? 0))].map((gid) => {
               const ms = liveMs.filter((m) => (m.game_id ?? 0) === gid);
@@ -297,7 +335,7 @@ export function BookTab() {
         </Section>
       )}
 
-      <p className="text-center text-xs text-mute">Moneyline odds come from each club’s points percentage this season plus home ice; totals, overtime and props are fixed lines. Futures are priced from points banked plus what each roster projects to score, tightening as the season runs down. Requested races are priced from each player’s rate (or his projection) and his club’s games left, or from the NHL standings model, and freeze when they open; they settle from the box scores and the standings, a tie refunds everyone, and the Cup waits for the commish. The house keeps a 5% edge (8% on futures and races), ties go to the under, postponed games and scratched players are refunded. Coins only, never cash.</p>
+      <p className="text-center text-xs text-mute">Moneyline odds come from each club’s points percentage this season plus home ice; totals, overtime and props are fixed lines. Futures are priced from points banked plus what each roster projects to score, tightening as the season runs down. Requested races are priced from each player’s rate (or his projection) and his club’s games left, or from the NHL standings model, and freeze when they open; they settle from the box scores and the standings, a tie refunds everyone, and the Cup waits for the commish. Prices move: tonight’s markets stay open in play and re-price from the score and the clock (10% edge in play, no bets in the last two minutes or overtime, none while the score feed is behind); futures and races re-price from the standings and the box scores. Every ticket keeps the price it was bought at. The house keeps a 5% edge before puck drop (8% on futures and races), ties go to the under, postponed games and scratched players are refunded. Coins only, never cash.</p>
 
       {/* place a ticket */}
       <Sheet open={!!betting} onClose={() => setBetting(null)} title="Place a ticket">
@@ -306,7 +344,9 @@ export function BookTab() {
             <div className="text-sm"><span className="text-mute">{KIND[betting.m.kind].label} · </span>{betting.m.title}</div>
             <div className="rounded-xl border border-sky-400/40 bg-sky-500/10 p-3 text-center">
               <div className="text-lg font-bold">{betting.o.label}</div>
-              <div className="num font-display text-3xl font-extrabold text-gold">{Number(betting.o.odds).toFixed(2)} <span className="text-sm font-normal text-mute">{american(Number(betting.o.odds))}</span></div>
+              <div className="num font-display text-3xl font-extrabold text-gold">{priceOf(betting.m, betting.o).toFixed(2)} <span className="text-sm font-normal text-mute">{american(priceOf(betting.m, betting.o))}</span></div>
+              {Math.abs(priceOf(betting.m, betting.o) - Number(betting.o.odds)) >= 0.05 && <div className="text-xs text-mute">opened at {Number(betting.o.odds).toFixed(2)}</div>}
+              {new Date(betting.m.closes_at).getTime() <= now && <div className="mt-1 text-xs text-goal">🔴 In play: you get the Book’s price at the moment you tap</div>}
             </div>
             <div>
               <div className="label mb-1">Stake (you have <AvailableCoins /> available)</div>
@@ -315,9 +355,9 @@ export function BookTab() {
                 <input className="input w-24 py-1" inputMode="numeric" placeholder="other" value={custom} onChange={(e) => { const v = e.target.value.replace(/[^\d]/g, ''); setCustom(v); if (v) setStake(Number(v)); }} />
               </div>
             </div>
-            <div className="flex items-center justify-between rounded-xl bg-white/[.04] px-3 py-2 text-sm"><span className="text-mute">Pays if it hits</span><span className="flex items-center gap-1 font-semibold"><Coin size={14} /> {Math.round(stake * Number(betting.o.odds))} <span className="text-xs text-mute">(+{Math.round(stake * Number(betting.o.odds)) - stake})</span></span></div>
+            <div className="flex items-center justify-between rounded-xl bg-white/[.04] px-3 py-2 text-sm"><span className="text-mute">Pays if it hits</span><span className="flex items-center gap-1 font-semibold"><Coin size={14} /> {Math.round(stake * priceOf(betting.m, betting.o))} <span className="text-xs text-mute">(+{Math.round(stake * priceOf(betting.m, betting.o)) - stake})</span></span></div>
             <button className="btn-primary w-full" disabled={busy || stake < 5 || stake > 500} onClick={place}>Place {stake} ☘️ on {betting.o.label}</button>
-            <p className="text-center text-xs text-mute">{LONG.has(betting.m.kind) ? `Open until ${fmtDate(betting.m.closes_at.slice(0, 10))}; settles when the ${betting.m.kind === 'race' ? 'race' : 'season'} has the answer.` : `Closes ${fmtTime(betting.m.closes_at)}.`} Stakes leave your bank now; tickets can’t be cancelled. Max 500 a market.</p>
+            <p className="text-center text-xs text-mute">{LONG.has(betting.m.kind) ? `Open until ${fmtDate(betting.m.closes_at.slice(0, 10))}; settles when the ${betting.m.kind === 'race' ? 'race' : 'season'} has the answer.` : new Date(betting.m.closes_at).getTime() <= now ? 'Open in play until the last two minutes of regulation.' : `Puck drop ${fmtTime(betting.m.closes_at)}, then in play until the last two minutes.`} Stakes leave your bank now; tickets can’t be cancelled. Max 500 a market.</p>
           </div>
         )}
       </Sheet>

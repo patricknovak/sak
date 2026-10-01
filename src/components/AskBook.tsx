@@ -85,7 +85,7 @@ export function AskBook({ onDone, start }: { onDone: () => void; start?: BookReq
 
   return (
     <div className="space-y-3">
-      <p className="text-xs text-mute">The Book only prices what someone asks for. Pick a template, see the odds, and open the market by taking the first ticket: it goes on the board for everyone, marked as yours. Odds freeze when it opens. Three open requests per GM.</p>
+      <p className="text-xs text-mute">The Book only prices what someone asks for. Pick a template, see the odds, and open the market by taking the first ticket: it goes on the board for everyone, marked as yours. Prices keep moving with the games; your ticket keeps the price you took. Three open requests per GM.</p>
 
       {suggestions && suggestions.length > 0 && (
         <div>

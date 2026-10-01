@@ -137,7 +137,11 @@ The steps above finish the tenancy. `docs/MARKET.md` sets what comes after in th
     settlement from the box scores and the standings, the Cup and ties by the commish; three open requests per
     GM, fifteen per league. Garry at the window (`garry?task=book`): a GM's private line at the Book that reads
     the board, how they bet and the Book's suggestions, and answers with picks that place in one tap or open
-    the Ask sheet already built. The kinds and subjects are a stat key and a line, so they carry to every sport.
+    the Ask sheet already built. In play (migration 70): odds are a function of state the site already keeps,
+    computed on read (`book_live()`) and stamped on the ticket at placement, never stored per tick; tonight's
+    markets stay open while the game is on (10% edge in play, no bets in the last two minutes, overtime or on a
+    stale feed), futures and races re-price from the standings and the box scores, and every ticket keeps the
+    price it was bought at. The kinds and subjects are a stat key and a line, so they carry to every sport.
 12. **Commissioner tools the market lacks**: dues tracker (no escrow), co-commissioners, constitution page,
     audit trail of every override, abandoned-team handover.
 13. **The sport pulled out of the engine**: a `sports` table, per-sport player, game and stat shapes and

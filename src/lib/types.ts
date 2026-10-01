@@ -61,6 +61,7 @@ export interface Reaction { message_id: number; team_id: number; emoji: string }
 export interface Game {
   id: number; date: string; start_utc: string; home: string; away: string; state: string;
   home_score: number | null; away_score: number | null; period: string | null; clock: string | null;
+  updated_at?: string;   // when the score feed last touched the row
 }
 
 export interface NhlTeam {
@@ -126,7 +127,7 @@ export interface Market {
   options: MarketOption[]; closes_at: string; status: 'open' | 'settled' | 'void'; winner_key: string | null;
   result: { home?: number; away?: number; period?: string | null; value?: number; values?: Record<string, number>; winner?: string } | null; created_by: number | null; settled_at: string | null; created_at: string;
 }
-export interface MarketBet { id: number; market_id: number; team_id: number; pick: string; coins: number; odds: number; payout: number | null; created_at: string }
+export interface MarketBet { id: number; market_id: number; team_id: number; pick: string; coins: number; odds: number; payout: number | null; created_at: string; placed_live?: boolean }
 export interface CoinRace { team_id: number; week: number; month: number; season: number }
 export interface BookStanding { team_id: number; bets: number; wins: number; staked: number; returned: number; net: number; open_coins: number; best_win: number }
 export interface BetEntry { bet_id: number; team_id: number; choice: { team_id?: number; player_id?: number }; coins: number; created_at: string }

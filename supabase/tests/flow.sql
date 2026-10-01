@@ -1237,3 +1237,73 @@ set role authenticated;
 select pg_temp.expect('the north league has no requested markets', (select count(*) from markets where created_by is not null) = 0);
 reset role;
 select 'book requests', true;
+
+-- ───────────── the Book, in play: odds that move with the score, tickets at the live price ─────────────
+reset role;
+insert into games (id, date, start_utc, home, away, state) values (896, today_et(), now() + interval '1 hour', 'CGY', 'TBL', 'FUT') on conflict do nothing;
+select open_markets(today_et()) as n_896 \gset
+select id as ml_id from markets where game_id = 896 and kind = 'winner' \gset
+select id as tot_id from markets where game_id = 896 and kind = 'total' \gset
+select (o->>'odds')::numeric as home_open from markets m, jsonb_array_elements(m.options) o where m.id = :ml_id and o->>'key' = 'home' \gset
+select pg_temp.expect('before puck drop the live odds are the opening odds', (select _live_option_odds(m, 'home') from markets m where id = :ml_id) = :home_open);
+-- puck drop: the home side up two in the second period
+update games set state = 'LIVE', home_score = 2, away_score = 0, period = '2', clock = '12:00', start_utc = now() - interval '1 hour', updated_at = now() where id = 896;
+update markets set closes_at = now() - interval '1 hour' where game_id = 896;
+select _live_option_odds(m, 'home') as home_live from markets m where id = :ml_id \gset
+select pg_temp.expect('a two-goal lead shortens the home price', :home_live < :home_open and :home_live >= 1.05);
+select pg_temp.as_team(1);
+select pg_temp.expect('the live board prices every open market in one call', jsonb_typeof(book_live()->(:'ml_id'::text)) = 'array'
+  and (book_live()->(:'ml_id'::text)->0->>'odds')::numeric between 1.05 and 15);
+select pg_temp.expect('the total re-prices from the goals on the board and the clock', (select _live_option_odds(m, 'under') from markets m where id = :tot_id) < 1.9
+  and (select _live_option_odds(m, 'over') from markets m where id = :tot_id) > 1.9);
+-- a GM buys in play at the live price
+select pg_temp.as_team(5);
+set role authenticated;
+select place_market_bet(:ml_id, 'home', 20);
+select pg_temp.expect('the in-play ticket carries the live price and the flag', (select odds = :home_live and placed_live from market_bets where market_id = :ml_id and team_id = 5));
+reset role;
+-- the guards: a stale feed, the last two minutes, overtime, the final
+update games set updated_at = now() - interval '5 minutes' where id = 896;
+select pg_temp.as_team(5);
+set role authenticated;
+do $$ begin perform place_market_bet((select id from markets where game_id = 896 and kind = 'total'), 'over', 10); raise exception 'bet on a stale feed';
+exception when others then if sqlerrm not like '%feed%' then raise; end if; end $$;
+reset role;
+update games set updated_at = now(), period = '3', clock = '1:30' where id = 896;
+select pg_temp.as_team(5);
+set role authenticated;
+do $$ begin perform place_market_bet((select id from markets where game_id = 896 and kind = 'total'), 'over', 10); raise exception 'bet in the last two minutes';
+exception when others then if sqlerrm not like '%last two minutes%' then raise; end if; end $$;
+reset role;
+update games set period = 'OT', clock = '4:00', home_score = 2, away_score = 2 where id = 896;
+select pg_temp.as_team(5);
+set role authenticated;
+do $$ begin perform place_market_bet((select id from markets where game_id = 896 and kind = 'total'), 'over', 10); raise exception 'bet in overtime';
+exception when others then if sqlerrm not like '%overtime%' then raise; end if; end $$;
+reset role;
+-- the final: the home side wins in overtime, the in-play ticket pays at the price it was bought at
+update games set state = 'OFF', home_score = 3, away_score = 2, final_synced = true, updated_at = now() where id = 896;
+select pg_temp.as_team(5);
+set role authenticated;
+do $$ begin perform place_market_bet((select id from markets where game_id = 896 and kind = 'winner'), 'home', 10); raise exception 'bet on a finished game';
+exception when others then if sqlerrm not like '%over%' then raise; end if; end $$;
+reset role;
+select settle_markets() as settled_896 \gset
+select pg_temp.expect('the in-play ticket paid at its own price', (select payout from market_bets where market_id = :ml_id and team_id = 5) = round(20 * :home_live));
+-- a player race re-prices from the box scores as the window runs
+insert into games (id, date, start_utc, home, away, state, final_synced) values (897, today_et(), now() - interval '3 hours', 'EDM', 'CGY', 'OFF', true) on conflict do nothing;
+select pg_temp.as_team(6);
+set role authenticated;
+select request_market(format('{"template":"player_race","players":[%s,%s],"stat":"blk","from":"%s","to":"%s"}', :mcd, :kuch, today_et(), today_et() + 7)::jsonb, 'p' || :kuch, 10) as rq_live \gset
+reset role;
+select (o->>'odds')::numeric as mcd_open from markets m, jsonb_array_elements(m.options) o where m.id = :rq_live and o->>'key' = 'p' || :mcd \gset
+insert into player_games (game_id, player_id, date, nhl_team, stats, fpts) values (897, :mcd, today_et(), 'EDM', '{"g":0,"a":0,"blk":6}', 3);
+select pg_temp.expect('six blocks in the window shorten his race price while the opening odds stay on the ticket',
+  (select _live_option_odds(m, 'p' || :mcd) from markets m where id = :rq_live) < :mcd_open
+  and (select odds from market_bets where market_id = :rq_live and team_id = 6) = (select (o->>'odds')::numeric from markets m, jsonb_array_elements(m.options) o where m.id = :rq_live and o->>'key' = 'p' || :kuch));
+-- the north league's board is its own
+select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-000000000099', false);
+set role authenticated;
+select pg_temp.expect('the north league has an empty live board', book_live() = '{}'::jsonb);
+reset role;
+select 'book live', true;
