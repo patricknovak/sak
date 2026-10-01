@@ -120,6 +120,11 @@ The steps above finish the tenancy. `docs/MARKET.md` sets what comes after in th
 10. **Contracts, caps, prospect slots and rookie drafts**; guillotine and best ball formats.
 11. **The Supercoin.** An account-level wallet, the SaK coin ledger migrated onto it, per-pool allowances, the
     Book and side bets as the add-on, the ledger visible in every pool. Never for sale, never cashed out.
+    Already in place on the league coin (migration 66): the Book's season edition (futures on the champion,
+    last place, the playoffs and the full-year trophy, priced from the standings and re-priced daily; season
+    props on every team and the biggest names, settled from the standings and season stats) and the coin
+    races (net coins this week, this month, this season). The kinds and subjects are a stat key and a line,
+    so they carry to every sport.
 12. **Commissioner tools the market lacks**: dues tracker (no escrow), co-commissioners, constitution page,
     audit trail of every override, abandoned-team handover.
 13. **The sport pulled out of the engine**: a `sports` table, per-sport player, game and stat shapes and

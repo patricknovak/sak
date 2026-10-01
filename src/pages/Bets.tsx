@@ -476,7 +476,7 @@ export default function Bets() {
 
       {can('bets') && me?.role !== 'spectator' && gms.length > 1 && (
         <div className="card p-3">
-          <div className="mb-2 flex items-baseline justify-between gap-2"><span className="text-sm font-semibold">⚔️ Call someone out</span><span className="truncate text-[11px] text-mute">most points this week · 50 ☘️ · even money · tap to edit</span></div>
+          <div className="mb-2 text-sm font-semibold">⚔️ Call someone out <span className="font-normal text-mute">· most points this week, 50 ☘️, even money</span></div>
           <div className="scroll-x flex gap-2">
             {gms.filter((t) => t.id !== me?.id).map((t) => (
               <button key={t.id} className="flex w-[68px] shrink-0 flex-col items-center gap-1 rounded-xl border border-white/[.08] bg-white/[.03] px-1 py-2 text-[11px] transition hover:border-sky-400/50 active:scale-95" onClick={() => quick(t.id)}>
@@ -484,6 +484,7 @@ export default function Bets() {
               </button>
             ))}
           </div>
+          <div className="mt-1.5 text-[11px] text-mute">Tap a GM and the challenge is written for you; change anything before you post it.</div>
         </div>
       )}
 
