@@ -1068,3 +1068,26 @@ select pg_temp.expect('the fan is a spectator in the north league', (select curr
 reset role;
 select pg_temp.expect('the seat invite is spent, the spectator invite has uses left', (select uses from league_invites where code = current_setting('t.north_code')) = 1 and (select uses from league_invites where code = :'spec_code') = 1 and (select max_uses from league_invites where code = :'spec_code') = 3);
 select 'accounts', true;
+
+-- ───────────── Garry per league: a state row per league, a briefing from the commissioner ─────────────
+select pg_temp.expect('every league has a voice row', (select count(*) from garry_state) = (select count(*) from leagues) and (select briefing is not null from garry_state where league_id = 1));
+-- the north commissioner briefs the voice and hands it a fact; SaK's commissioner cannot see either
+select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-000000000099', false);
+set role authenticated;
+select garry_brief('A six-team league in the north. The booby prize is a frozen fish.');
+select garry_remember('Thinks goalies win leagues', 99) as north_mem \gset
+select pg_temp.expect('the north commissioner reads his briefing and his memory only', (select briefing like 'A six-team%' from garry_state) and (select count(*) from garry_state) = 1 and (select count(*) from garry_memory) = 1);
+reset role;
+select pg_temp.as_team(1);
+set role authenticated;
+select pg_temp.expect('SaK sees its own briefing and none of the north memories', (select briefing like 'The league: She''s A Keeper%' from garry_state) and (select count(*) from garry_memory where id = :north_mem) = 0);
+reset role;
+-- a plain GM may only feed facts about their own team
+select pg_temp.as_team(2);
+set role authenticated;
+do $$ begin perform garry_remember('Patrick hoards goalies', 1); raise exception 'fed a fact about another team';
+exception when others then if sqlerrm not like '%own team%' then raise; end if; end $$;
+select garry_remember('Loves a long shot', 2) as my_mem \gset
+select pg_temp.expect('a GM feeds a fact about their own team', (select weight from garry_memory where id = :my_mem) = 3);
+reset role;
+select 'garry per league', true;

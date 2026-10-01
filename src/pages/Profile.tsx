@@ -23,7 +23,7 @@ export default function Profile() {
   const yst = useYahooStatus();
   const [file, setFile] = useState<GarryMemory[]>([]);
   const [mood, setMood] = useState<string | null>(null);
-  const loadFile = () => { if (!me) return; supabase.from('garry_memory').select('*').eq('team_id', me.id).order('created_at', { ascending: false }).then(({ data }) => setFile((data ?? []) as GarryMemory[])); supabase.from('garry_state').select('persona').eq('id', 1).maybeSingle().then(({ data }) => setMood(data?.persona ?? null)); };
+  const loadFile = () => { if (!me) return; supabase.from('garry_memory').select('*').eq('team_id', me.id).order('created_at', { ascending: false }).then(({ data }) => setFile((data ?? []) as GarryMemory[])); supabase.from('garry_state').select('persona').limit(1).maybeSingle().then(({ data }) => setMood(data?.persona ?? null)); };
   useEffect(loadFile, [me?.id]); // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => { if (me) setF(me); }, [me?.id]);
   if (!me) return null;
