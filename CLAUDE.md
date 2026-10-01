@@ -1,7 +1,7 @@
 # CLAUDE.md: the standing briefing for this repository
 
-Read this first in every session, then `docs/SUPERPOOLS.md` (the product plan) and, for how the system is
-built and what it costs to run, `docs/REVIEW-2026-09.md`.
+Read this first in every session, then `docs/SUPERPOOLS.md` (the product plan), `docs/BRAND.md` (how the product
+is named, described and drawn) and, for how the system is built and what it costs to run, `docs/REVIEW-2026-09.md`.
 
 ## What this is
 
