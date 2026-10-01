@@ -6,6 +6,12 @@ the plan of record: what the product is, how leagues are separated, what is shar
 
 Domains: `superpoolsai.com` (primary) and `superpoolai.com` (redirects to the primary).
 
+Landing page hosting: Vercel project `superpools` (team `patricknovak1-8908s-projects`, id
+`prj_SRNe8ClGioGw9vAAOwq3unQ9tbMh`), linked to this repo with root directory `landing/`; every push to `main`
+redeploys it. Production domains on the project: `superpoolsai.com` serves the page; `www.superpoolsai.com`,
+`superpoolai.com` and `www.superpoolai.com` are 308 redirects to it. DNS lives in Cloudflare (DNS only, no
+proxy): apex `A 216.150.1.1`, `www` `CNAME cname.vercel-dns.com`, on both zones.
+
 ## 1. What it is
 
 A fantasy hockey league site with an AI commissioner's assistant built in. One league is one tenant. Each
