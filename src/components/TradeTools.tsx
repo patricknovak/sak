@@ -7,10 +7,11 @@ import { evaluateSide, findTrades, gradeSide, makeValuer, posture, verdict, type
 import { playoffDays } from '../lib/forecast';
 import { etToday } from '../lib/format';
 import { gradeColor } from '../lib/grades';
-import { lineFor, minSample, rosPoints, statValue, fmtStat, TIMEFRAMES, type Timeframe } from '../lib/playerstats';
+import { lineFor, minSample, statValue, fmtStat, TIMEFRAMES, type Timeframe } from '../lib/playerstats';
 import { useNhlOdds, useProjDetails, useSeasonGames, toneCls, toneIcon } from '../lib/projections';
 import { Headshot, Pos, TeamBadge } from './ui';
 import { Sparkles } from 'lucide-react';
+import { rosPg, scoutNums, trendLabel, useScoutCtx } from './TradeScout';
 
 export function useTradeValuer() {
   const { players, season, rosters, teams, league, draft, standings } = useLeague();
@@ -96,58 +97,91 @@ export function TradeAnalysis({ sides, compact }: { sides: Side[]; compact?: boo
   );
 }
 
-// every player in the deal, every number: projection and range, rest of season, and any timeframe's stats
-type CView = 'value' | 'skater' | 'goalie';
-export function TradeCompare({ moving }: { moving: { p: Player; to: number; from?: number }[] }) {
+// every player in the deal (or in the comparison tray), every number: the outlook (projection and range, rest
+// of season, games left, the week ahead, age), the form (this season and the last 7, 14 and 30 days, hot or
+// cold against his own pace, last season) and any timeframe's skater or goalie categories. The best value in
+// each column is marked, so the comparison reads at a glance.
+type CView = 'outlook' | 'form' | 'skater' | 'goalie';
+export function TradeCompare({ moving, title = 'Players in the deal', showTo = true, onClear }: { moving: { p: Player; to: number; from?: number }[]; title?: string; showTo?: boolean; onClear?: () => void }) {
   const { team, windows, season } = useLeague();
   const details = useProjDetails();
+  const c = useScoutCtx();
   const [tf, setTf] = useState<Timeframe>(windows.size ? 'season' : 'last');
-  const [view, setView] = useState<CView>('value');
+  const [view, setView] = useState<CView>(windows.size ? 'form' : 'outlook');
   const [perGame, setPerGame] = useState(false);
   const tfOk: Timeframe = !windows.size && TIMEFRAMES.find((x) => x.k === tf)?.live ? 'last' : tf;
   const hasG = moving.some((m) => m.p.pos === 'G'), hasS = moving.some((m) => m.p.pos !== 'G');
-  const cols = view === 'value' ? ['proj', 'range', 'ros', 'fp', 'fpg'] : view === 'skater' ? ['gp', 'g', 'a', 'pts', 'pm', 'ppp', 'sog', 'hit', 'blk', 'pim', 'shpct'] : ['gp', 'w', 'l', 'svp', 'gaa', 'sho', 'sv'];
-  const L: Record<string, string> = { proj: 'Proj', range: 'Bad–great year', ros: 'ROS', fp: 'FP', fpg: 'FP/G', gp: 'GP', g: 'G', a: 'A', pts: 'P', pm: '+/-', ppp: 'PPP', sog: 'SOG', hit: 'HIT', blk: 'BLK', pim: 'PIM', shpct: 'S%', w: 'W', l: 'L', svp: 'SV%', gaa: 'GAA', sho: 'SO', sv: 'SV' };
-  const list = moving.filter((m) => view === 'value' || (view === 'goalie' ? m.p.pos === 'G' : m.p.pos !== 'G'));
-  const cell = (p: Player, k: string) => {
+  const cols = view === 'outlook' ? ['proj', 'range', 'ros', 'rospg', 'left', 'next7', 'age'] : view === 'form' ? ['gp', 'fp', 'fpg', 'w7', 'w14', 'w30', 'trend', 'last']
+    : view === 'skater' ? ['gp', 'g', 'a', 'pts', 'pm', 'ppp', 'sog', 'hit', 'blk', 'pim', 'shpct'] : ['gp', 'w', 'l', 'svp', 'gaa', 'sho', 'sv'];
+  const L: Record<string, string> = { proj: 'Proj', range: 'Bad–great year', ros: 'ROS', rospg: 'ROS/G', left: 'Games left', next7: 'Next 7d', age: 'Age', fp: 'FP', fpg: 'FP/G', w7: '7d FP', w14: '14d FP', w30: '30d FP', trend: 'Form', last: '’25-26', gp: 'GP', g: 'G', a: 'A', pts: 'P', pm: '+/-', ppp: 'PPP', sog: 'SOG', hit: 'HIT', blk: 'BLK', pim: 'PIM', shpct: 'S%', w: 'W', l: 'L', svp: 'SV%', gaa: 'GAA', sho: 'SO', sv: 'SV' };
+  const list = moving.filter((m) => view === 'outlook' || view === 'form' || (view === 'goalie' ? m.p.pos === 'G' : m.p.pos !== 'G'));
+  // the sortable number behind each cell, so the best in a column can be marked (lower wins for the stats that hurt)
+  const raw = (p: Player, k: string): number | null => {
+    const n = scoutNums(p, c);
     const line = lineFor(p, tfOk, windows.get(p.id), season.get(p.id));
-    const m = details?.get(p.id)?.proj_meta;
+    switch (k) {
+      case 'proj': return p.proj; case 'range': return null; case 'ros': return n.ros; case 'rospg': return rosPg(p, c); case 'left': return n.left; case 'next7': return n.next7; case 'age': return null;
+      case 'fp': return view === 'form' ? n.fp : line ? line.fp : null; case 'fpg': return view === 'form' ? n.fpg : line?.gp ? line.fp / line.gp : null;
+      case 'w7': return n.w['7']?.fp ?? null; case 'w14': return n.w['14']?.fp ?? null; case 'w30': return n.w['30']?.fp ?? null; case 'trend': return n.trend; case 'last': return n.last;
+      case 'gp': return view === 'form' ? n.gp : line?.gp ?? null;
+      default: return statValue(line, k, perGame, minSample(tfOk));
+    }
+  };
+  const lower = new Set(['l', 'gaa', 'pim']);
+  const best = (k: string) => { const vs = list.map((m) => raw(m.p, k)).filter((v): v is number => v != null); return vs.length > 1 ? (lower.has(k) ? Math.min(...vs) : Math.max(...vs)) : null; };
+  const cell = (p: Player, k: string) => {
+    const n = scoutNums(p, c);
+    const line = lineFor(p, tfOk, windows.get(p.id), season.get(p.id));
     if (k === 'proj') return fmtPts(p.proj, 0);
-    if (k === 'range') return m ? `${fmtPts(p.proj * m.lo, 0)}–${fmtPts(p.proj * m.hi, 0)}` : '–';
-    if (k === 'ros') return fmtPts(rosPoints(p, season.get(p.id)), 0);
+    if (k === 'range') return n.lo != null ? `${fmtPts(n.lo, 0)}–${fmtPts(n.hi, 0)}` : '–';
+    if (k === 'ros') return fmtPts(n.ros, 0);
+    if (k === 'rospg') return rosPg(p, c).toFixed(2);
+    if (k === 'left') return n.left || '–';
+    if (k === 'next7') return String(n.next7);
+    if (k === 'age') return n.age ?? '–';
+    if (k === 'w7' || k === 'w14' || k === 'w30') { const x = n.w[k.slice(1) as '7' | '14' | '30']; return x ? `${fmtPts(x.fp, 0)} (${x.gp})` : '–'; }
+    if (k === 'trend') { const t = trendLabel(n.trend); return t ? <span className={t.cls}>{t.icon} {t.text}</span> : '–'; }
+    if (k === 'last') return n.lastGp ? `${fmtPts(n.last, 0)} (${n.lastGp})` : '–';
+    if (view === 'form' && k === 'gp') return n.gp || '–';
+    if (view === 'form' && k === 'fp') return n.gp ? fmtPts(n.fp, 0) : '–';
+    if (view === 'form' && k === 'fpg') return n.fpg != null ? n.fpg.toFixed(2) : '–';
     if (k === 'fp') return line ? fmtPts(line.fp, 0) : '–';
     if (k === 'fpg') return line?.gp ? (line.fp / line.gp).toFixed(2) : '–';
-    return fmtStat(statValue(line, k, perGame, minSample(tfOk)), k, perGame);
+    return fmtStat(statValue(line, k, perGame && k !== 'gp', minSample(tfOk)), k, perGame && k !== 'gp');
   };
   return (
     <div className="overflow-hidden rounded-xl border border-white/[.08]">
       <div className="flex flex-wrap items-center gap-1 border-b border-white/[.06] bg-white/[.02] p-2">
-        <span className="label mr-1">Players in the deal</span>
-        {(['value', ...(hasS ? ['skater'] : []), ...(hasG ? ['goalie'] : [])] as CView[]).map((v) => <button key={v} onClick={() => setView(v)} className={`rounded-full px-2 py-0.5 text-[11px] font-semibold ${view === v ? 'bg-gold text-ice' : 'bg-white/[.05] text-mute'}`}>{v === 'value' ? 'Value' : v === 'skater' ? 'Skater stats' : 'Goalie stats'}</button>)}
-        <span className="mx-1 h-4 w-px bg-white/10" />
-        {TIMEFRAMES.filter((x) => x.k !== 'proj' && x.k !== 'ros').map((x) => <button key={x.k} disabled={x.live && !windows.size} title={x.label} onClick={() => setTf(x.k)} className={`rounded-full px-2 py-0.5 text-[11px] font-semibold disabled:opacity-35 ${tfOk === x.k ? 'bg-sky-500 text-ice' : 'bg-white/[.05] text-mute'}`}>{x.short}</button>)}
-        {view !== 'value' && <button onClick={() => setPerGame(!perGame)} className={`rounded-full px-2 py-0.5 text-[11px] font-semibold ${perGame ? 'bg-emerald-500 text-ice' : 'bg-white/[.05] text-mute'}`}>Per game</button>}
+        <span className="label mr-1">{title}</span>
+        {(['form', 'outlook', ...(hasS ? ['skater'] : []), ...(hasG ? ['goalie'] : [])] as CView[]).map((v) => <button key={v} onClick={() => setView(v)} className={`rounded-full px-2 py-0.5 text-[11px] font-semibold ${view === v ? 'bg-gold text-ice' : 'bg-white/[.05] text-mute'}`}>{v === 'form' ? '📈 Form' : v === 'outlook' ? '🔭 Outlook' : v === 'skater' ? 'Skater stats' : 'Goalie stats'}</button>)}
+        {(view === 'skater' || view === 'goalie') && <>
+          <span className="mx-1 h-4 w-px bg-white/10" />
+          {TIMEFRAMES.filter((x) => x.k !== 'proj' && x.k !== 'ros').map((x) => <button key={x.k} disabled={x.live && !windows.size} title={x.label} onClick={() => setTf(x.k)} className={`rounded-full px-2 py-0.5 text-[11px] font-semibold disabled:opacity-35 ${tfOk === x.k ? 'bg-sky-500 text-ice' : 'bg-white/[.05] text-mute'}`}>{x.short}</button>)}
+          <button onClick={() => setPerGame(!perGame)} className={`rounded-full px-2 py-0.5 text-[11px] font-semibold ${perGame ? 'bg-emerald-500 text-ice' : 'bg-white/[.05] text-mute'}`}>Per game</button>
+        </>}
+        {onClear && <button onClick={onClear} className="ml-auto text-[11px] text-sky-300">Clear</button>}
       </div>
       <div className="scroll-x">
         <table className="w-full text-xs">
-          <thead className="text-[10px] uppercase tracking-wider text-mute"><tr><th className="px-2 py-1.5 text-left">Player</th><th className="px-2 text-left">To</th>{cols.map((k) => <th key={k} className="whitespace-nowrap px-2 text-right">{L[k]}</th>)}</tr></thead>
+          <thead className="text-[10px] uppercase tracking-wider text-mute"><tr><th className="px-2 py-1.5 text-left">Player</th>{showTo && <th className="px-2 text-left">To</th>}{cols.map((k) => <th key={k} className="whitespace-nowrap px-2 text-right">{L[k]}</th>)}</tr></thead>
           <tbody className="divide-y divide-white/[.05]">
             {list.map(({ p, to }) => {
               const f = details?.get(p.id)?.proj_meta?.factors ?? [];
               return (
                 <tr key={p.id} className="align-top">
                   <td className="px-2 py-1.5">
-                    <div className="flex items-center gap-1.5"><Headshot p={p} size={24} /><div className="min-w-0"><div className="truncate font-semibold">{p.name}</div><div className="text-[10px] text-mute">{p.elig.join('/')} · {p.nhl_team}{p.injury_status && <span className="text-red-300"> · {p.injury_status}</span>}</div></div></div>
-                    {view === 'value' && f.length > 0 && <ul className="mt-1 max-w-[260px] space-y-0.5 text-[10px] leading-snug">{f.slice(0, 3).map((x) => <li key={x.text} className={toneCls[x.tone]}>{toneIcon[x.tone]} <span className="text-slate-300">{x.text}</span></li>)}</ul>}
+                    <div className="flex items-center gap-1.5"><Headshot p={p} size={24} /><div className="min-w-0"><div className="truncate font-semibold">{p.name}</div><div className="text-[10px] text-mute">{p.elig.join('/')} · {p.nhl_team}{!showTo && <> · {team(to)?.abbrev}</>}{p.injury_status && <span className="text-red-300"> · {p.injury_status}</span>}</div></div></div>
+                    {view === 'outlook' && f.length > 0 && <ul className="mt-1 max-w-[260px] space-y-0.5 text-[10px] leading-snug">{f.slice(0, 3).map((x) => <li key={x.text} className={toneCls[x.tone]}>{toneIcon[x.tone]} <span className="text-slate-300">{x.text}</span></li>)}</ul>}
                   </td>
-                  <td className="whitespace-nowrap px-2 py-1.5"><span className="flex items-center gap-1"><TeamBadge team={team(to)} size={16} />{team(to)?.abbrev}</span></td>
-                  {cols.map((k) => <td key={k} className="num whitespace-nowrap px-2 py-1.5 text-right">{cell(p, k)}</td>)}
+                  {showTo && <td className="whitespace-nowrap px-2 py-1.5"><span className="flex items-center gap-1"><TeamBadge team={team(to)} size={16} />{team(to)?.abbrev}</span></td>}
+                  {cols.map((k) => { const b = best(k); const v = raw(p, k); const top = b != null && v != null && v === b; return <td key={k} className={`num whitespace-nowrap px-2 py-1.5 text-right ${top ? 'font-bold text-gold' : ''}`}>{cell(p, k)}</td>; })}
                 </tr>
               );
             })}
           </tbody>
         </table>
       </div>
+      <div className="border-t border-white/[.06] px-2 py-1 text-[10px] text-mute">Gold marks the best in each column. Form: the last 14 days per game against his own pace this season (or his projection early on). ROS blends the projection with this season's pace as games pile up.</div>
     </div>
   );
 }

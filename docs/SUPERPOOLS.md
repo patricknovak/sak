@@ -18,7 +18,7 @@ proxy): apex `A 216.150.1.1`, `www` `CNAME cname.vercel-dns.com`, on both zones.
 A fantasy hockey league site with an AI commissioner's assistant built in. One league is one tenant. Each
 league gets: live scoring from NHL box scores with per-player puck-drop locks; daily lineups set up to 60
 days ahead with an auto-pilot; a draft room (clock, board, queues, TV mode, mock drafts, graded report
-card); keepers; trades with grades; free-agent and trade finders; side bets and a coin sportsbook that settle
+card); keepers; trades with grades and scouting numbers beside every player (form, outlook, categories, side by side); free-agent and trade finders; side bets and a coin sportsbook that settle
 themselves; projections and simulated-season forecasts; a chat with polls; push notifications; and a league
 voice (Garry in SaK, named per league) that posts recaps, rankings, grades and answers questions.
 
