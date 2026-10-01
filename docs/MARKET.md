@@ -24,10 +24,12 @@ holds the ordered work and `docs/BRAND.md` the words and the look.
 - Real money is the trap. Every pick'em and DFS operator spent 2025-26 fighting state attorneys general
   and surrendering licences; Ontario classes paid DFS as betting. Season-long leagues among friends with no
   rake are unregulated everywhere that matters. Super Pools stays there.
-- The way to "every sport" is one sport at a time, in the order the audience and the data allow: hockey
-  first and fully, then basketball (same engine, same calendar), then baseball (same engine, the summer),
-  then football (the biggest market, the hardest data, the most crowded), then soccer and the rest. The
-  portal is not a feature list; it is the same ten friends, one home, every season of the year, one crown.
+- The way to "every sport" is one sport at a time: hockey first and fully, then soccer (the one sport the
+  whole world plays) and basketball (the same engine as hockey), then cricket (free-to-play, the door to
+  India, the UK and Australia) and baseball, then football once revenue carries its data. Free to start,
+  paid by feature and per pool, with one fun currency (the Supercoin) across every pool and a multi-sport
+  pool that drafts across sports. The portal is not a feature list; it is the same ten friends, one home,
+  every season of the year, one crown.
 
 ## 2. The market
 
@@ -152,111 +154,186 @@ What the market has that we do not, in the order it costs us leagues:
 ## 5. The position
 
 Said once, in the brand document's words: Super Pools is the hockey pool that runs itself, built by a keeper
-league, with a league voice. Against each competitor, the one sentence we win with:
+league, with a league voice. It grows into the place where a group of friends keeps every pool they play, in
+every sport, with one fun currency across all of them. Against each competitor, the one sentence we win with:
 
 - Against Sleeper: everything you love about Sleeper, with hockey, and a voice that posts the recap.
 - Against Yahoo and ESPN: your rules, not theirs; your history, all of it; no ads; an assistant that knows
-  hockey.
+  the sport.
 - Against Fantrax: the same depth, on a phone, fast, with no pop-ups, and it talks.
 - Against CBS: the same control for less, and it works on game night.
+- Against FPL and Dream11, abroad: a private pool with your friends and your rules, not one public game.
 
-The pricing posture that fits the benchmarks: one subscription per league per season, paid by the
-commissioner or split, with no per-user upsell and no ads, ever. The right number sits where Fantrax, CBS
-and RotoWire already are and under what Yahoo asks per user: about $99 per league per season, which is
-roughly two percent of a typical pot and under $10 a GM. Season one and the first beta leagues are free.
-LLM spend is the only cost that scales with leagues, so the per-league voice budget in the plan is a
-condition of this price, not a nice-to-have.
+### Free to start, paid by feature, priced per pool
 
-The AI posture, from what users said in 2026: grounded in the league's own data, labelled as the voice,
-dry, specific, never generic prose and never an invented stat. Yahoo's AI-written content drew "zero
-personality, zero laughs"; ChatGPT drafted players who were out for the season. Garry's grades and recaps
-are built on box scores and the league's record, which is why they work. Every product decision about the
-voice keeps that property.
+A free tier gets people into simple pools with no assistant; each paid tier adds the features that make a pool
+serious, and the price follows the features, never the head count. No ads on any tier. Prices are per pool
+per season, paid by the commissioner or split, and are proposals until the first paying season sets them:
+
+| Tier | Who it is for | What it adds | Proposed price |
+|---|---|---|---|
+| Free | a group trying a pool | one sport, points scoring from presets, snake draft, daily lineups, standings, chat and polls, league history, up to 12 teams; no assistant | free |
+| Plus | an established league | custom scoring (points, categories, rotisserie), keepers, imports with history, dues tracker, co-commissioners, constitution, audit trail, weekly recap from the voice | about $49 a season |
+| Premium | the fourteen-year league | the full voice (daily recap, rankings, grades, answers, a daily budget), contracts and caps, prospect slots and rookie drafts, projections and simulated seasons, the multi-sport pool, the prediction market, API access | about $99 a season |
+| Side bets and the Book | any tier | head-to-heads, props, pools and the coin book on real games, settled from the box scores | add-on, about $19 a season, included in Premium |
+| Super Pool bundle | a group with several pools | every pool the group runs, in every sport, for one price | about $149 a season |
+
+The benchmarks put the top of this ladder where Fantrax, CBS and RotoWire already are and below Yahoo's
+per-user tools for a twelve-team league; the free tier matches what Sleeper, Yahoo and ESPN give away, minus
+their ads and plus our history. A free pool sees the paid features in place, greyed, with a week's trial on
+each, so the upsell is the product and not a banner.
+
+### The Supercoin
+
+One fun currency for the whole site, never money. The SaK league's coins become the first Supercoin wallet;
+every account gets one, and every pool draws on it:
+
+- Each pool grants its members a season allowance of Supercoins and may top it up for events (the draft, the
+  deadline, the playoffs). Side bets, props, pools and the Book settle in Supercoins from the box scores.
+- A prediction market in Supercoins, across the site: who wins the Cup, the scoring title, the trade of the
+  year, settled from the record, with pool-level and site-level leaderboards. Peer-to-peer, no house.
+- Later, competitions and prizes within Super Pools paid in Supercoins and in kind (badges, trophies, a
+  season of Premium), never in cash.
+
+The rules that keep it fun and out of the regulators' way, permanent:
+
+1. Supercoins cannot be bought, sold, transferred for value or cashed out, and the terms say so. A coin with
+   no price is not consideration, and without consideration there is no wager and no lottery.
+2. No real money enters or leaves through us: no rake, no entry fees to us, no house-banked anything,
+   no sportsbook or prediction-market affiliation. Cash dues stay a tracker with balances on the record.
+3. Any future prize is non-cash, awarded on skill first (standings, grades), and reviewed by counsel in each
+   market before it launches; free entry with a prize is a promotion, and promotions have rules by country.
+4. The ledger is the law: every Supercoin movement is a row with a reason, visible to the pool, so a
+   commissioner can never be accused of what Fantrax commissioners are accused of.
+
+### The pool that learns
+
+The site improves because it watches how pools are used and asks what they want:
+
+- Usage telemetry, pseudonymous and per pool: which settings leagues choose, which formats and scoring
+  presets win, which features get used and dropped, where drafts stall, what bets are popular, what the voice
+  gets asked. Stored in our own tables, disclosed in the privacy policy, with a commissioner opt-out, never
+  sold or shared. It feeds the presets a new pool starts from, the statistics and projections the site shows,
+  and the voice's sense of what matters in a league.
+- A product-wide feature board grown from the SaK Features page: GMs and commissioners in every pool suggest,
+  comment and vote; statuses are public (new, planned, building, done, declined) with a note on each; a
+  changelog posts what shipped and who asked for it. The people who run the pools build the product with us.
+
+The AI posture, from what users said in 2026: grounded in the pool's own data, labelled as the voice, dry,
+specific, never generic prose and never an invented stat. Yahoo's AI-written content drew "zero personality,
+zero laughs"; ChatGPT drafted players who were out for the season. Garry's grades and recaps are built on
+box scores and the league's record, which is why they work, and the free tier has no voice at all so nobody
+meets a generic one.
 
 ## 6. The road to every sport
 
-The portal idea, stated plainly: the same group of friends keeps one home for every season of the year.
-Hockey and basketball run October to June, baseball April to October, football September to February,
-soccer August to May. One login, one chat, one voice, one dues ledger, one history, and a cross-sport
-standing (the Super Pool) that crowns the year. No incumbent sells that; they sell sports, one app each.
+The portal, stated plainly: the same group of friends keeps one home for every pool they play, in every
+sport, all year, with one currency and one history. Hockey and basketball run October to June, baseball
+April to October, football September to February, soccer August to May, cricket's IPL March to May and the
+international calendar all year. No incumbent sells that; they sell sports, one app each.
 
-The order is set by two things: where the audience we already have is (hockey leagues also play
-basketball and baseball; football is a different crowd with the most options) and what the data costs.
+Two sports are promoted for the audience they bring rather than the data they cost: soccer, the one sport
+the whole world plays (13.1 million FPL managers in the UK alone), and cricket, the door to India, the UK,
+Australia and the Caribbean. Cricket is free-to-play only wherever we offer it: India banned real-money
+gaming in 2025, and we have no money in the product anyway.
 
-| Sport | Engine fit | Data | Verdict |
+| Sport | Engine | Data | Verdict |
 |---|---|---|---|
-| NHL | built | free public API, seconds latency, tolerated personal-use terms | finish it first |
-| NBA, WNBA | same daily engine, same calendar | free CDN feed but cloud IPs are blocked; $10-40 a month licensed (BALLDONTLIE, Tank01) | second |
-| MLB | same daily engine, the summer | best free API in sport, but an explicit non-commercial notice and a litigious owner; budget a licensed feed | third |
-| NFL | new weekly engine | no free live data; Genius exclusivity; $100 a month (Tank01) to about $16k a year (SportsDataIO) for live | fourth, once revenue carries the feed |
-| Soccer | weekly engine, FPL-style and head-to-head | cheap and licensed: API-Football $19-39, football-data.org €12-49 a month | fifth; the global door |
-| College FB and BB | reuse NFL and NBA engines | the cheapest licensed live data of all (CollegeFootballData $5-30 a month) | with football |
-| Golf, F1 | pool formats, not rosters | DataGolf non-commercial, PGA unofficial; Jolpica and OpenF1 free | pools only, low cost |
-| PWHL | reuse NHL | HockeyTech feed, undocumented | small, cheap, on brand for Canada |
-| Cricket, esports | new engines | $150-1,000 a month per title; India bans real money | not before 2029 |
+| NHL | built: daily lineups, per-game locks | free public API, seconds latency, tolerated personal-use terms | finish it first |
+| Soccer | weekly engine: fixtures, gameweeks, FPL-style and head-to-head | cheap and licensed: API-Football $19-39, Sportmonks €29-99 a month | second: the worldwide door, EPL 2027-28 |
+| NBA, WNBA | the hockey engine, same calendar | free CDN feed but cloud IPs are blocked; $10-40 a month licensed | third: the first multi-sport partner to hockey |
+| Cricket | match engine: innings scorecards, T20 leagues and series | $6-275 a month (CricketData, Roanuz, EntitySport); free-to-play only | fourth: IPL 2028 |
+| MLB | the hockey engine, the summer | best free API in sport but an explicit non-commercial notice and a litigious owner; budget a licensed feed | fifth |
+| NFL, college football | weekly engine, from soccer | no free live NFL data; $100 a month to about $16k a year; college live data $5-30 a month | sixth, once revenue carries the feed |
+| College basketball | the hockey engine | $5-30 a month licensed | with basketball |
+| Golf, F1 | pools, not rosters | DataGolf non-commercial, PGA unofficial; Jolpica and OpenF1 free | pools only, cheap |
+| PWHL | the hockey engine | HockeyTech feed, undocumented | small, cheap, on brand for Canada |
+| Esports | match engine | €400-1,000 a month per title | not before 2029 |
 
-Sources: [NHL API reference](https://github.com/Zmalski/NHL-API-Reference), [NBA blocking](https://github.com/swar/nba_api/issues/405), [BALLDONTLIE](https://www.balldontlie.io/), [Tank01](https://www.tank01.com/), [MLB copyright notice](https://gdx.mlb.com/components/copyright.txt), [Genius and the NFL](https://www.geniussports.com/newsroom/the-national-football-league-expands-and-extends-strategic-partnership-with-genius-sports-in-multi-year-deal/), [SportsDataIO](https://sportsdata.io/developers), [API-Football](https://www.api-football.com/), [CollegeFootballData](https://collegefootballdata.com/api-tiers), [C.B.C. v. MLBAM](https://media.ca8.uscourts.gov/opndir/07/10/063357P.pdf).
+Sources: [NHL API reference](https://github.com/Zmalski/NHL-API-Reference), [NBA blocking](https://github.com/swar/nba_api/issues/405), [BALLDONTLIE](https://www.balldontlie.io/), [Tank01](https://www.tank01.com/), [MLB copyright notice](https://gdx.mlb.com/components/copyright.txt), [Genius and the NFL](https://www.geniussports.com/newsroom/the-national-football-league-expands-and-extends-strategic-partnership-with-genius-sports-in-multi-year-deal/), [SportsDataIO](https://sportsdata.io/developers), [API-Football](https://www.api-football.com/), [Sportmonks](https://www.sportmonks.com/football-api/plans-pricing/), [cricket APIs](https://api.market/blog/veer-hanuman-1/sports/best-cricket-api-2026), [India's 2025 Act](https://en.wikipedia.org/wiki/Promotion_and_Regulation_of_Online_Gaming_Act,_2025), [CollegeFootballData](https://collegefootballdata.com/api-tiers), [C.B.C. v. MLBAM](https://media.ca8.uscourts.gov/opndir/07/10/063357P.pdf).
 
 Legal footing: using player names and public statistics in a paid fantasy game is protected speech in the
 US (C.B.C. Distribution v. MLBAM, 2007; Daniels v. FanDuel, 2018). The exposure is the terms of the feed we
 read, not the stats themselves, and the remedy is a licensed feed once a sport earns it. Headshots, logos
-and marks need licences; we draw our own.
+and marks need licences; we draw our own. Abroad, the FPL and Premier League terms forbid building on their
+feed, so soccer runs on licensed data from day one.
 
-### Horizon 1: win hockey (now to summer 2027)
+### The multi-sport pool
 
-The product is finished when a commissioner can move a fourteen-year Fantrax league to Super Pools in an
-evening without us, and nothing is lost.
+A pool whose roster spans sports: a GM drafts, say, four hockey players, three basketball players, three
+soccer players and two cricketers, and the pool wraps up when one chosen season ends (the anchor season,
+usually the longest one in the set). What it needs:
+
+- Each sport's points on a common scale, so a hat trick and a century are worth comparable amounts. The
+  pool picks a preset (equal weight per sport, or weighted by roster share) and sees per-sport totals too.
+- Slots per sport, locks per sport (a player locks at his own game's start, whatever the sport), and the
+  daily and weekly engines running side by side under one lineup page.
+- Every sport in the set live on the site first; the pool cannot include a sport we do not score.
+- The first version ships with hockey, basketball and soccer, which share the October-to-May window; cricket
+  and baseball join as they land.
+
+### Horizon 1: win hockey and lay the foundations (now to summer 2027)
+
+Hockey is finished when a commissioner can move a fourteen-year Fantrax league to Super Pools in an evening
+without us and nothing is lost. The foundations are the pieces every later sport and every tier needs.
 
 1. Finish tenancy (plan steps 1-7: functions per league, accounts, league by host, voice per league,
    scheduler per league, money per league, onboarding).
-2. Category and rotisserie scoring, with the scoring engine reading the league's categories the way it
-   reads its point weights today.
-3. Import with history from Yahoo (exists), Fantrax, ESPN and CBS: rosters, keepers, draft results, past
-   standings and champions.
-4. Contracts, caps, prospect slots, rookie drafts; guillotine and best ball formats.
-5. Dues tracker with balances and reminders; co-commissioners; constitution page; commissioner audit trail;
+2. Tiers and billing: the free, Plus, Premium, add-on and bundle shape above, enforced per pool in the
+   database (a `plan` on the league row and a feature gate function), Stripe for the paid tiers, free for
+   the beta leagues.
+3. Category and rotisserie scoring, reading the league's categories the way it reads its point weights.
+4. Import with history from Yahoo (exists), Fantrax, ESPN and CBS.
+5. Contracts, caps, prospect slots, rookie drafts; guillotine and best ball formats.
+6. The Supercoin: an account-level wallet, the SaK coin ledger migrated onto it, per-pool allowances, the
+   side-bet and Book add-on gated by tier, the ledger visible in every pool.
+7. Commissioner tools the market lacks: dues tracker, co-commissioners, constitution page, audit trail,
    abandoned-team handover.
-6. App-store listing through a thin native wrapper of the existing site; push through the store.
-7. The voice, per league, with a daily budget, labelled, and a commissioner switch for what it may say.
-8. Playoff bracket pool and playoff-only leagues (a cheap spring product and a way to try the site).
-9. Billing: Stripe, one subscription per league per season; free for the beta leagues.
+8. The sport pulled out of the engine: a `sports` table, per-sport player, game and stat shapes, per-sport
+   scoring vocabularies and a sync per sport; the NHL becomes one row. This is the prerequisite for soccer,
+   basketball and the multi-sport pool, so it moves into the first horizon.
+9. Telemetry tables and the product-wide feature board; the privacy policy and the commissioner opt-out.
+10. App-store listing through a thin native wrapper; the playoff bracket pool; the voice per league with a
+    daily budget and a commissioner switch for what it may say.
 
-Target: 10 beta leagues on the 2027 playoffs, 100 paying hockey leagues for 2027-28.
+Target: 10 beta leagues on the 2027 playoffs, 100 hockey pools for 2027-28, a quarter of them paid.
 
-### Horizon 2: the second and third sports (summer 2027 to spring 2028)
+### Horizon 2: the world, and the second currency of fun (summer 2027 to spring 2028)
 
-1. Pull the sport out of the engine: a `sports` table, per-sport player, game and stat shapes, per-sport
-   scoring vocabularies, and a sync per sport; the NHL becomes one row.
-2. Basketball for 2027-28, on a licensed feed, with the hockey engine's daily lineups, locks, corrections,
-   book and voice.
-3. Baseball for 2028, same engine, on a licensed feed or a written arrangement with MLBAM.
-4. The Super Pool: one group, several leagues, one cross-sport standing and one crown; dues and history
-   across sports; the voice knows all of them.
-5. The public API and an MCP connector, so the tools people already use (and the assistants they already
-   ask) read Super Pools leagues the way they read MFL and Sleeper.
+1. Soccer for 2027-28 on licensed data: a weekly engine with gameweeks, FPL-style squads and head-to-head
+   leagues, private pools with the commissioner's rules. The first sport outside North America, the landing
+   page in more than one voice of English, and prices in more than one currency.
+2. Basketball for 2027-28 on the hockey engine and a licensed feed.
+3. The multi-sport pool, version one: hockey, basketball and soccer.
+4. The Supercoin prediction market across the site, peer-to-peer, settled from the record, with leaderboards.
+5. The Super Pool bundle: one group, several pools, one cross-sport standing and one crown.
+6. The public API and an MCP connector; the telemetry feeding presets, statistics and the voice.
 
-Target: 300 leagues across three sports for 2028-29; a league that plays all three.
+Target: 400 pools across three sports, a hundred of them outside North America, a pool that plays all three.
 
-### Horizon 3: football, soccer and the rest (2028 to 2029)
+### Horizon 3: cricket, the summer, football and prizes (2028 to 2029)
 
-1. Football with a weekly engine (matchups, weekly locks, waivers with FAAB), keeper and dynasty depth,
-   best ball and guillotine, on licensed live data once revenue carries it. College football and
-   basketball ride the same engines on the cheapest licensed data in sport.
-2. Soccer, FPL-style and head-to-head, the first sport outside North America and the door to the UK's
-   thirteen million FPL managers.
-3. Pools for golf and F1; PWHL and WNBA on the existing engines.
-4. Creator-hosted leagues and public leagues with waiting lists, which is how new commissioners arrive
-   once the product is known.
+1. Cricket for IPL 2028, free-to-play everywhere: a match engine for innings scorecards, T20 leagues and
+   international series, on a licensed feed. Then the UK, Australian and Caribbean seasons.
+2. Baseball for 2028 on the hockey engine and a licensed feed; the multi-sport pool gains the summer.
+3. Football and college for 2028 on the soccer engine's weekly bones, with keeper and dynasty depth, best
+   ball and guillotine, on licensed live data once revenue carries it; college basketball with basketball.
+4. Pools for golf and F1; PWHL and WNBA on the existing engines.
+5. Supercoin competitions and non-cash prizes, market by market after counsel review; creator-hosted and
+   public pools with waiting lists.
 
-Target: 1,000 leagues, every major North American sport, one season of soccer.
+Target: 1,500 pools, every major sport on at least two continents, the first Supercoin champion.
 
 ### What we will not do
 
-- No ads, no per-user upsell, no features taken away from a free tier to sell them back.
-- No real money through us, no house-banked products, no sportsbook affiliation.
-- No generic AI content; nothing the voice says comes from anywhere but the league's own data.
-- No sport added before its data is licensed or demonstrably tolerated and its engine is the same one we
-  already run; no "coming soon" sports on the landing page.
+- No ads on any tier, and no feature taken away from a tier a pool already paid for.
+- No real money through us, no Supercoins for sale, no house-banked products, no sportsbook or
+  prediction-market affiliation, no cash prizes.
+- No generic AI content; nothing the voice says comes from anywhere but the pool's own data, and the free
+  tier has no voice rather than a watered-down one.
+- No sport added before its data is licensed or demonstrably tolerated and its engine is one we already
+  run; no "coming soon" sports on the landing page; no cricket with money anywhere.
+- No telemetry sold, shared or tied to a name; what we learn goes back into the product.
 
 ## 7. Sources on commissioner pain
 

@@ -90,22 +90,29 @@ of every team on the login page until the app is served per host (step 3).
    exists) or start fresh, set rules, draft.
 8. **Billing.** A subscription per league per season (Stripe). Landing page collects interest until then.
 
-The steps above finish the tenancy. `docs/MARKET.md` sets what comes after, in three horizons; the first,
-"win hockey", adds to this list in this order once tenancy is done:
+The steps above finish the tenancy. `docs/MARKET.md` sets what comes after in three horizons. The first,
+"win hockey and lay the foundations", adds to this list in this order once tenancy is done:
 
-9. **Category and rotisserie scoring.** The scoring engine reads the league's categories the way it reads
-   its point weights; head-to-head categories and roto are the formats a large share of hockey leagues use.
-10. **Import with history** from Fantrax, ESPN and CBS (Yahoo exists): rosters, keepers, draft results, past
-    standings and champions.
-11. **Contracts, caps, prospect slots and rookie drafts**; guillotine and best ball formats.
-12. **Commissioner tools the market lacks**: dues tracker with balances and reminders (no escrow),
-    co-commissioners, a constitution page, an audit trail of every override, abandoned-team handover.
-13. **App-store listing** through a thin native wrapper of the existing site.
-14. **Playoff bracket pool** and playoff-only leagues.
-15. **Public API and an MCP connector** for league data.
+9. **Tiers and billing.** Free, Plus, Premium, the side-bet add-on and the Super Pool bundle, enforced per
+   pool (a `plan` on the league row and a feature gate function), Stripe for the paid tiers.
+10. **Category and rotisserie scoring.** The scoring engine reads the league's categories the way it reads
+    its point weights.
+11. **Import with history** from Fantrax, ESPN and CBS (Yahoo exists).
+12. **Contracts, caps, prospect slots and rookie drafts**; guillotine and best ball formats.
+13. **The Supercoin.** An account-level wallet, the SaK coin ledger migrated onto it, per-pool allowances, the
+    Book and side bets as the add-on, the ledger visible in every pool. Never for sale, never cashed out.
+14. **Commissioner tools the market lacks**: dues tracker (no escrow), co-commissioners, constitution page,
+    audit trail of every override, abandoned-team handover.
+15. **The sport pulled out of the engine**: a `sports` table, per-sport player, game and stat shapes and
+    scoring vocabularies, a sync per sport; the NHL becomes one row. Prerequisite for soccer, basketball and
+    the multi-sport pool.
+16. **Telemetry and the feature board**: pseudonymous per-pool usage tables with a commissioner opt-out, the
+    SaK Features page grown into a product-wide board with public statuses and a changelog.
+17. **App-store listing**, the **playoff bracket pool**, and the voice per league with a daily budget.
 
-Then horizon 2 (the sport pulled out of the engine; basketball, then baseball; the cross-sport Super Pool)
-and horizon 3 (football, college, soccer, pools for golf and F1, PWHL and WNBA), as `docs/MARKET.md` lays out.
+Then horizon 2 (soccer on licensed data, basketball, the multi-sport pool, the Supercoin prediction market,
+the Super Pool bundle, the public API) and horizon 3 (cricket free-to-play, baseball, football and college,
+pools for golf and F1, Supercoin competitions and non-cash prizes), as `docs/MARKET.md` lays out.
 
 ## 6. Environments
 
