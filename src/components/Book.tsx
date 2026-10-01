@@ -9,11 +9,12 @@ import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useLeague, useNow } from '../lib/store';
 import { rpc, realtimeChannel, supabase } from '../lib/supabase';
-import type { BookStanding, Market, MarketBet, MarketKind, MarketOption } from '../lib/types';
+import type { BookRequest, BookStanding, Market, MarketBet, MarketKind, MarketOption } from '../lib/types';
 import { ago, etToday, fmtDate, fmtTime, NHL_TEAMS } from '../lib/format';
 import { Coin, Empty, Section, Sheet, TeamBadge, useAction } from './ui';
 import { BookOpen, Plus, Sparkles } from 'lucide-react';
 import { AskBook } from './AskBook';
+import { BookChat } from './BookChat';
 import { marketChances } from '../lib/betodds';
 import { ticketOutcome } from '../lib/betresults';
 
@@ -77,6 +78,7 @@ export function BookTab() {
   const [custom, setCustom] = useState('');
   const [newMarket, setNewMarket] = useState(false);
   const [asking, setAsking] = useState(false);
+  const [askStart, setAskStart] = useState<BookRequest | null>(null);
   const [showResults, setShowResults] = useState(false);
   const mine = standings.find((s) => s.team_id === me?.id);
   const open = markets.filter((m) => m.status === 'open' && new Date(m.closes_at).getTime() > now);
@@ -228,6 +230,8 @@ export function BookTab() {
         </div>
       </div>
 
+      <BookChat markets={markets} onPick={(m, o) => { setBetting({ m, o }); setStake(25); setCustom(''); }} onRequest={(r) => { setAskStart(r); setAsking(true); }} />
+
       {open.length > 0 && (
         <div className="scroll-x flex gap-1">
           {([['all', 'Everything'], ['future', '🔮 Season'], ['race', '🏁 Races'], ['winner', '🏒 Moneylines'], ['total', '🥅 Totals'], ['ot', '⏱️ Overtime'], ['prop', '⭐ Props'], ['custom', '🎯 Specials']] as const).filter(([k]) => k === 'all' || open.some((m) => m.kind === k || (k === 'future' && m.kind === 'season_prop'))).map(([k, l]) => (
@@ -321,8 +325,8 @@ export function BookTab() {
       <Sheet open={newMarket} onClose={() => setNewMarket(false)} title="New market (commish)">
         <NewMarket onDone={() => { setNewMarket(false); reload(); }} />
       </Sheet>
-      <Sheet open={asking} onClose={() => setAsking(false)} title="Ask the Book">
-        {asking && <AskBook onDone={() => { setAsking(false); reload(); }} />}
+      <Sheet open={asking} onClose={() => { setAsking(false); setAskStart(null); }} title="Ask the Book">
+        {asking && <AskBook start={askStart ?? undefined} onDone={() => { setAsking(false); setAskStart(null); reload(); }} />}
       </Sheet>
     </div>
   );

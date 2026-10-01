@@ -7,6 +7,7 @@
 //   ?task=learn / ?task=evolve  force a memory pass / a rewrite of his voice notes (they also run on their own)
 //   ?task=keepers (after the keeper deadline, or on the commish's say-so) grades every team's keepers and predicts the season
 //   ?task=draftprep (draft eve and draft day) names who still has no queue, no alerts, no autodraft, with the taps to fix it
+//   ?task=book  (a GM's private line at the Book) recommends bets: what's hot, what fits how they bet, and new markets to ask for
 //   ?league=N runs the task for one league. Without it a cron task runs for every active league in turn, a
 //   commissioner's token runs it for their own league, and a reply takes its league from the message.
 // Writes with Grok (xAI) when the XAI_API_KEY secret is set; otherwise uses built-in templates.
@@ -58,7 +59,7 @@ async function enter(lid: number) {
 
 const LEAGUE_TABLES = new Set(['messages', 'garry_memory', 'garry_state', 'rosters', 'teams', 'notifications', 'draft_picks', 'draft_state', 'draft_queue',
   'bets', 'bet_entries', 'coin_ledger', 'lineup_snapshots', 'push_subscriptions', 'markets', 'market_bets', 'trades', 'league_rules']);
-const TEAM_VIEWS = new Set(['standings', 'playoff_standings', 'sak_cup_standings', 'coin_balances', 'team_daily', 'playoff_daily', 'team_bench_daily']);
+const TEAM_VIEWS = new Set(['standings', 'playoff_standings', 'sak_cup_standings', 'coin_balances', 'team_daily', 'playoff_daily', 'team_bench_daily', 'book_standings', 'coin_races']);
 // wraps a query builder so selects, updates and deletes carry the league bound and inserts stamp it
 function scoped(col: string, val: number | number[]) {
   return {
@@ -748,6 +749,111 @@ async function weekly() {
   return { posted: 'weekly', team_of_week: best.gm, star };
 }
 
+// ─────────────── the Book's private line ───────────────
+// A GM asks what to bet on. Garry reads the board (what's open, who's on it, what closes soon), how this GM bets
+// (their tickets so far), the Book's own suggestions, and answers with a few picks: tickets on open markets, and
+// markets worth asking the Book to open. Nothing is placed or opened here; the site turns each pick into a tap.
+type BookMsg = { role: 'user' | 'assistant'; content: string };
+type BookPick = { market_id: number; pick: string; why: string };
+type BookRequest = Record<string, unknown> & { why?: string };
+const TEMPLATES_SPEC = `New markets a GM can ask the Book to open (a "request"), as JSON objects:
+- {"template":"game","bet":"winner"|"total"|"ot","game_id":<id from upcoming_games>}  a game later in the week (not tonight's)
+- {"template":"player_race","stat":"g"|"a"|"pts"|"sog"|"hit"|"blk"|"ppp"|"fpts" (goalies: "w"|"sv"|"sho"|"fpts"),"players":[2 to 6 player ids],"from":"YYYY-MM-DD","to":"YYYY-MM-DD"}  most of a stat over a window
+- {"template":"player_line","stat":<as above>,"player_id":<id>,"from":"YYYY-MM-DD","to":"YYYY-MM-DD"}  over/under the Book's number
+- {"template":"club_race","what":"points","clubs":[2 to 8 NHL abbrevs],"from":"YYYY-MM-DD","to":"YYYY-MM-DD"}  most standings points over a window
+- {"template":"club_race","what":"division"|"conference"|"president"|"cup","clubs":[2 to 8 abbrevs]}  a season-long race (the rest of the group is "the field")
+- {"template":"club_race","what":"playoffs","clubs":[<one abbrev>]}  in or out of the playoffs
+- {"template":"club_line","club":<abbrev>}  a club's season points over/under`;
+
+async function bookChat(me: { id: number; gm_name: string }, token: string, messages: BookMsg[]) {
+  const asked = messages.filter((m) => m.role === 'user').slice(-1)[0]?.content?.trim() ?? '';
+  const today = ((await db.rpc('today_et')).data as string | null) ?? etDate(new Date());
+  // reads as the GM, so the Book's own functions see their league
+  const asUser = createClient(Deno.env.get('SUPABASE_URL')!, ANON_KEY, { global: { headers: { Authorization: `Bearer ${token}` } }, auth: { persistSession: false } });
+  const [{ data: open }, { data: mine }, { data: bal }, { data: stand }, sugg, { data: games }, { byId }] = await Promise.all([
+    from('markets').select('id,kind,title,options,closes_at,created_by,subject,game_id,date').eq('status', 'open').gt('closes_at', new Date().toISOString()).order('closes_at').limit(80),
+    from('market_bets').select('market_id,pick,coins,odds,payout,created_at').eq('team_id', me.id).order('id', { ascending: false }).limit(60),
+    from('coin_balances').select('balance,escrow').eq('team_id', me.id).maybeSingle(),
+    from('book_standings').select('*').eq('team_id', me.id).maybeSingle(),
+    asUser.rpc('book_suggestions').then((r) => (r.data ?? []) as Record<string, unknown>[]),
+    db.from('games').select('id,date,home,away,start_utc').gt('date', today).lte('date', addDaysIso(today, 7)).eq('game_type', 2).in('state', ['FUT', 'PRE']).order('start_utc'),
+    base(),
+  ]);
+  const ids = (open ?? []).map((m) => m.id);
+  const { data: tix } = ids.length ? await from('market_bets').select('market_id,team_id,pick,coins').in('market_id', ids) : { data: [] as any[] };
+  const backers = new Map<number, { n: number; coins: number; gms: string[] }>();
+  for (const t of tix ?? []) { const b = backers.get(t.market_id) ?? { n: 0, coins: 0, gms: [] }; b.n++; b.coins += t.coins; const g = byId.get(t.team_id)?.gm_name; if (g && !b.gms.includes(g)) b.gms.push(g); backers.set(t.market_id, b); }
+  // what this GM likes: kinds, stakes, clubs and players they keep backing, their record
+  const settledMine = (mine ?? []).filter((t) => t.payout != null);
+  const titles = new Map((open ?? []).map((m) => [m.id, m.title]));
+  const { data: pastMk } = (mine ?? []).length ? await from('markets').select('id,kind,title,subject,winner_key').in('id', [...new Set((mine ?? []).map((t) => t.market_id))]) : { data: [] as any[] };
+  const kindOf = new Map((pastMk ?? []).map((m) => [m.id, m.kind]));
+  const kinds: Record<string, number> = {};
+  for (const t of mine ?? []) { const k = kindOf.get(t.market_id) ?? '?'; kinds[k] = (kinds[k] ?? 0) + 1; }
+  const profile = {
+    gm: me.gm_name, tickets: (mine ?? []).length, wins: settledMine.filter((t) => (t.payout ?? 0) > t.coins).length, settled: settledMine.length,
+    avg_stake: (mine ?? []).length ? Math.round((mine ?? []).reduce((s, t) => s + t.coins, 0) / (mine ?? []).length) : null,
+    kinds_bet_most: Object.entries(kinds).sort((a, b) => b[1] - a[1]).slice(0, 4).map(([k, n]) => `${k} ×${n}`),
+    recent: (mine ?? []).slice(0, 8).map((t) => `${(pastMk ?? []).find((m) => m.id === t.market_id)?.title ?? titles.get(t.market_id) ?? '?'} · ${t.pick} · ${t.coins} coins @ ${t.odds}${t.payout == null ? '' : (t.payout ?? 0) > t.coins ? ' · won' : t.payout === t.coins ? ' · void' : ' · lost'}`),
+    coins_available: bal ? bal.balance - bal.escrow : null, lifetime_net: stand?.net ?? 0,
+  };
+  const board = (open ?? []).map((m) => ({
+    market_id: m.id, kind: m.kind, title: m.title, closes_at: m.closes_at, asked_for_by: m.created_by ? byId.get(m.created_by)?.gm_name ?? null : null,
+    options: (m.options as { key: string; label: string; odds: number }[]).map((o) => `${o.key}: ${o.label} @ ${o.odds}`),
+    backers: backers.get(m.id)?.n ?? 0, coins_riding: backers.get(m.id)?.coins ?? 0, gms_on_it: backers.get(m.id)?.gms ?? [],
+    mine: (mine ?? []).filter((t) => t.market_id === m.id).map((t) => `${t.pick} ${t.coins}`),
+  }));
+  const facts = {
+    today, asker: profile, open_markets: board,
+    book_suggestions: sugg.map((x) => ({ request: Object.fromEntries(Object.entries(x).filter(([k]) => !['label', 'why', 'group'].includes(k))), label: x.label, why: x.why })),
+    upcoming_games: (games ?? []).slice(0, 40).map((g) => `${g.id}: ${g.away} @ ${g.home} on ${g.date}`),
+    conversation: messages.slice(-8),
+  };
+  const fallback = () => {
+    const hot = [...board].filter((m) => !m.mine.length).sort((a, b) => b.backers - a.backers || b.coins_riding - a.coins_riding || a.closes_at.localeCompare(b.closes_at)).slice(0, 3);
+    const picks: BookPick[] = hot.map((m) => ({ market_id: m.market_id, pick: m.options[0].split(':')[0], why: m.backers ? `${m.backers} ticket${m.backers > 1 ? 's' : ''} on it already${m.gms_on_it.length ? ` (${m.gms_on_it.slice(0, 3).join(', ')})` : ''}` : 'closes soonest, nobody has touched it' }));
+    const requests = sugg.slice(0, 2).map((x) => ({ ...Object.fromEntries(Object.entries(x).filter(([k]) => !['label', 'group'].includes(k))) }));
+    return { reply: `@${me.gm_name} ${hot.length ? `Here's where the action is: ${hot.map((m) => m.title).join('; ')}. ` : 'The board is quiet. '}${requests.length ? 'Or ask the Book for one of these and start your own.' : ''} Pick something, you're not here to browse.`, picks, requests };
+  };
+  let out: { reply: string; picks: BookPick[]; requests: BookRequest[] } | null = null;
+  if (apiKey) {
+    const st = await state();
+    const mem = await recall(byId, [me.id], 20);
+    const system = [persona(st?.briefing),
+      `\nRight now you are the Book's bet advisor on a GM's private line (not the league chat). Recommend bets. Rules:
+- Use only the open_markets given, by market_id, with a pick that is one of that market's option keys. Never invent a market, a player, a game or odds.
+- Suggest a new market (a "request") only from book_suggestions or by filling a template exactly (see spec); the Book will price it before the GM sees odds.
+- Read the asker's profile: favour what they ask for, then what fits how they bet, then what's hot (most backers, most coins riding, closing soon). Mention who else is on a market when it's a reason.
+- 2 to 4 picks, 0 to 2 requests. One short reason each (hockey reasons, odds, who's on it). Reply in 1-4 sentences in your voice, no lists in the reply text (the picks render as cards).
+- Return JSON only: {"reply": "...", "picks": [{"market_id": 123, "pick": "home", "why": "..."}], "requests": [{"template": "...", ..., "why": "..."}]}
+${TEMPLATES_SPEC}`,
+      mem.length ? `\nWhat you remember about this GM and the league:\n${mem.map((m) => '- ' + m).join('\n')}` : ''].join('\n');
+    const text = await grok(system, `The GM says: "${asked || 'What should I bet on?'}"\n\nFacts (JSON):\n${JSON.stringify(facts)}`, 1400, 0.7, true);
+    try {
+      const j = JSON.parse(text ?? '');
+      if (j && typeof j.reply === 'string') out = { reply: j.reply, picks: Array.isArray(j.picks) ? j.picks : [], requests: Array.isArray(j.requests) ? j.requests : [] };
+    } catch { out = null; }
+  }
+  if (!out) out = fallback();
+  // keep only picks that exist on the board, with a real option
+  const byMarket = new Map((open ?? []).map((m) => [m.id, m]));
+  const picks = out.picks.filter((p) => p && byMarket.has(Number(p.market_id)) && (byMarket.get(Number(p.market_id))!.options as { key: string }[]).some((o) => o.key === p.pick))
+    .slice(0, 4).map((p) => { const m = byMarket.get(Number(p.market_id))!; const o = (m.options as { key: string; label: string; odds: number }[]).find((x) => x.key === p.pick)!;
+      return { market_id: m.id, pick: p.pick, why: String(p.why ?? '').slice(0, 200), title: m.title, kind: m.kind, label: o.label, odds: Number(o.odds), closes_at: m.closes_at, backers: backers.get(m.id)?.n ?? 0 }; });
+  // price the requests as the GM would see them; drop what the Book won't take
+  const requests: { request: Record<string, unknown>; why: string; preview: unknown }[] = [];
+  for (const r of out.requests.slice(0, 3)) {
+    if (!r || typeof r !== 'object' || !r.template) continue;
+    const { why, label: _l, group: _g, ...request } = r as Record<string, unknown>;
+    const { data: pv, error } = await asUser.rpc('preview_market', { p: request });
+    if (error || !pv) { console.log('book preview', error?.message); continue; }
+    requests.push({ request, why: String(why ?? '').slice(0, 200), preview: pv });
+    if (requests.length >= 2) break;
+  }
+  return { reply: out.reply.slice(0, 900), picks, requests, llm: !!apiKey };
+}
+const addDaysIso = (d: string, n: number) => new Date(new Date(d + 'T12:00:00Z').getTime() + n * 86400000).toISOString().slice(0, 10);
+
 async function runTask(task: string, req: Request) {
   if (task === 'nudge') return nudge();
   if (task === 'keepers' || task === 'learn' || task === 'evolve') {
@@ -770,6 +876,19 @@ Deno.serve(async (req) => {
       if (!m) return Response.json({ task, ok: false, error: 'no such message' }, { status: 404 });
       await enter(m.league_id);
       const result = await reply(Number(message_id));
+      return Response.json({ task, ok: true, llm: apiKey ? GROK_MODEL : false, league: L.lid, result });
+    }
+    if (task === 'book') {
+      const token = (req.headers.get('Authorization') ?? '').replace(/^Bearer /i, '');
+      const { data: u } = token && !isAnonCaller(token) ? await db.auth.getUser(token) : { data: null };
+      if (!u?.user) return Response.json({ task, ok: false, error: 'Sign in first' }, { status: 401 });
+      const [lid] = await leaguesFor(req, url);
+      await enter(lid);
+      const { data: t } = await db.from('teams').select('id,gm_name,role').eq('user_id', u.user.id).eq('league_id', lid).maybeSingle();
+      if (!t || t.role !== 'gm') return Response.json({ task, ok: false, error: 'GMs only' }, { status: 403 });
+      const body = await req.json().catch(() => ({}));
+      const msgs = (Array.isArray(body?.messages) ? body.messages : []).filter((m: any) => m && (m.role === 'user' || m.role === 'assistant') && typeof m.content === 'string').slice(-10);
+      const result = await bookChat({ id: t.id, gm_name: t.gm_name }, token, msgs);
       return Response.json({ task, ok: true, llm: apiKey ? GROK_MODEL : false, league: L.lid, result });
     }
     const leagues = await leaguesFor(req, url);

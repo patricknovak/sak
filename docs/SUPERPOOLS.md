@@ -135,7 +135,9 @@ The steps above finish the tenancy. `docs/MARKET.md` sets what comes after in th
     the playoffs, a club's season points), sees the odds, and opens it by taking the first ticket, so the board
     only carries bets somebody wants; `book_suggestions()` offers what's worth asking for, computed on the fly;
     settlement from the box scores and the standings, the Cup and ties by the commish; three open requests per
-    GM, fifteen per league. The kinds and subjects are a stat key and a line, so they carry to every sport.
+    GM, fifteen per league. Garry at the window (`garry?task=book`): a GM's private line at the Book that reads
+    the board, how they bet and the Book's suggestions, and answers with picks that place in one tap or open
+    the Ask sheet already built. The kinds and subjects are a stat key and a line, so they carry to every sport.
 12. **Commissioner tools the market lacks**: dues tracker (no escrow), co-commissioners, constitution page,
     audit trail of every override, abandoned-team handover.
 13. **The sport pulled out of the engine**: a `sports` table, per-sport player, game and stat shapes and
