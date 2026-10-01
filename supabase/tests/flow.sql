@@ -947,3 +947,48 @@ exception when others then if sqlerrm not like '%Too late%' then raise; end if; 
 reset role;
 delete from games where id = 9061;
 select 'before puck drop it is fine (expect f)', _bet_underway(today_et() + 1);
+
+-- ───────────── a second league sees nothing of the first ─────────────
+reset role;
+create or replace function pg_temp.expect(label text, ok boolean) returns void language plpgsql as
+$$ begin if not coalesce(ok, false) then raise exception 'FAILED: %', label; end if; end $$;
+-- the SaK commissioner opens a second league; one GM runs it
+select pg_temp.as_team(1);
+set role authenticated;
+select create_league('north', 'North Pool', 'NP', '{}'::jsonb) as league2 \gset
+reset role;
+select set_config('t.league2', :'league2', false);
+insert into auth.users (id, email) values ('00000000-0000-0000-0000-000000000099', 'north-gm@example.com');
+insert into teams (id, name, abbrev, gm_name, login_email, user_id, league_id, is_commish)
+  values (99, 'North Stars', 'NOR', 'Nora', 'north-gm@example.com', '00000000-0000-0000-0000-000000000099', :league2, true);
+-- a row written for her team lands in her league even when nobody says which league
+insert into messages (channel, team_id, body) values ('general', 99, 'hello from the north');
+insert into lineup_plans (team_id, date, player_id, slot) values (99, today_et() + 1, (select id from players order by id limit 1), 'BN');
+select pg_temp.expect('north rows stamped with league 2', bool_and(league_id = :league2)) from messages where team_id = 99;
+select pg_temp.expect('north plan stamped with league 2', bool_and(league_id = :league2)) from lineup_plans where team_id = 99;
+-- the north GM sees only her league: her team, her league row, her rules row, her standings
+select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-000000000099', false);
+set role authenticated;
+select pg_temp.expect('north sees one team', (select count(*) from teams) = 1);
+select pg_temp.expect('north sees one league', (select count(*) from leagues) = 1 and (select id from leagues) = current_setting('t.league2')::int);
+select pg_temp.expect('north sees one rules row', (select count(*) from league) = 1 and (select league_id from league) = current_setting('t.league2')::int);
+select pg_temp.expect('north sees no SaK rosters', (select count(*) from rosters) = 0);
+select pg_temp.expect('north sees no SaK chat', (select count(*) from messages where team_id <> 99) = 0);
+select pg_temp.expect('north sees no SaK bets, coins or money', (select count(*) from bets) + (select count(*) from coin_ledger) + (select count(*) from ledger) = 0);
+select pg_temp.expect('north standings is her team alone', (select count(*) from standings) = 1 and (select team_id from standings) = 99);
+select pg_temp.expect('north coin balances is hers alone', (select count(*) from coin_balances where team_id <> 99) = 0);
+-- her own chat post needs no league on it, and naming the SaK league does not get her in
+insert into messages (channel, team_id, body) values ('general', 99, 'second post');
+insert into messages (channel, team_id, body, league_id) values ('general', 99, 'sneaky', 1);
+select pg_temp.expect('north posts land in league 2', bool_and(league_id = current_setting('t.league2')::int)) from messages where team_id = 99;
+reset role;
+-- the SaK commissioner sees none of it, lineup plans included
+select pg_temp.as_team(1);
+set role authenticated;
+select pg_temp.expect('SaK commish sees no north team', (select count(*) from teams where id = 99) = 0);
+select pg_temp.expect('SaK commish sees no north plan', (select count(*) from lineup_plans where team_id = 99) = 0);
+select pg_temp.expect('SaK commish sees no north chat', (select count(*) from messages where team_id = 99) = 0);
+select pg_temp.expect('SaK standings has no north team', (select count(*) from standings where team_id = 99) = 0);
+select pg_temp.expect('SaK still sees its own league whole', (select count(*) from teams) = 9 and (select count(*) from league) = 1 and (select count(*) from leagues) = 1);
+reset role;
+select 'second league isolated', true;

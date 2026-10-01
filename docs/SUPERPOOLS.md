@@ -54,32 +54,42 @@ through `useBrand()` (src/lib/brand.ts) with SaK defaults for anything missing. 
 sidebar tagline use it now; the remaining hard-coded names (the Peter, Garry, St. Patrick coins, the SAK
 Cup) move over as each screen is touched. `src/lib/brand.ts` also holds the product constants.
 
-## 4. What is not done yet, in order
+## 4. Per-league policies (done in migration 60)
 
-1. **Row-level policies per league.** Today: "any signed-in GM can read everything". Next: every policy on a
-   per-league table gains `league_id = current_league_id()`. Every view that aggregates teams
-   (standings, team_daily, coin_balances, book_standings, money_balances, fund_status, pickup_status) gains
-   the same filter. The test suite (supabase/tests) runs the full draft-to-settlement flow and is the safety
-   net; do this on a branch, run the suite, then apply between game days.
-2. **Functions that read `league`.** Each `select * from league` inside a SQL function becomes
+Every policy on a table that carries `league_id` now requires `league_id = current_league_id()` in front of its
+own predicate, reads and writes alike, including the commissioner's `or is_commish()` branches. `leagues` and
+`league` are readable only for the caller's league. The scoring, coin and money views run as the caller
+(`security_invoker`), so they inherit the bound without a filter of their own. A row written with a team on it
+takes its league from that team (`_stamp_league` before-insert trigger on every league-scoped table with
+`team_id`, `creator_team`, `from_team`, `sponsor_team` or `trade_id`), so the client's direct inserts and the
+SQL functions never rely on the column default of 1. The flow test opens a second league and checks that
+neither league sees the other's teams, rosters, chat, bets, money, lineup plans or standings.
+
+Still open from this step: `current_league_id()` falls back to league 1 for a signed-in user with no team row
+(today that is nobody; accounts in step 2 replace the fallback), and `team_directory` stays the public list
+of every team on the login page until the app is served per host (step 3).
+
+## 5. What is not done yet, in order
+
+1. **Functions that read `league`.** Each `select * from league` inside a SQL function becomes
    `where league_id = current_league_id()`; each edge function task that loops over teams loops per league.
    The `league_id` column on every table makes both mechanical.
-3. **Accounts.** A person (auth user) can own teams in several leagues. Add `league_members(user_id,
+2. **Accounts.** A person (auth user) can own teams in several leagues. Add `league_members(user_id,
    league_id, team_id, role)`; `current_league_id()` reads the user's chosen league (a setting or the host).
    Invite by link; the commissioner role per league is what the Commish page already gates on.
-4. **League by host.** `leagues.domain`: `sak.superpoolsai.com` or a custom domain per league; the app picks
+3. **League by host.** `leagues.domain`: `sak.superpoolsai.com` or a custom domain per league; the app picks
    the league from the host, so one deployment serves all leagues.
-5. **Garry per league.** Memory and persona are already keyed by team and channel; add the league key and
+4. **Garry per league.** Memory and persona are already keyed by team and channel; add the league key and
    a per-league daily budget of LLM calls (the one cost that scales with leagues).
-6. **Scheduler per league.** nhl-sync's league-scoped tasks (snapshots, auto-lineups, standings,
+5. **Scheduler per league.** nhl-sync's league-scoped tasks (snapshots, auto-lineups, standings,
    settlement) iterate leagues; the NHL fetches stay single.
-7. **Money.** Coins stay. Cash tracking stays bookkeeping between friends (no payments handled), or is
+6. **Money.** Coins stay. Cash tracking stays bookkeeping between friends (no payments handled), or is
    turned off per league.
-8. **Onboarding.** A new league: sign up, name and brand it, invite GMs, import a Yahoo pool (the connector
+7. **Onboarding.** A new league: sign up, name and brand it, invite GMs, import a Yahoo pool (the connector
    exists) or start fresh, set rules, draft.
-9. **Billing.** A subscription per league per season (Stripe). Landing page collects interest until then.
+8. **Billing.** A subscription per league per season (Stripe). Landing page collects interest until then.
 
-## 5. Environments
+## 6. Environments
 
 | | Today | Product |
 |---|---|---|
@@ -89,7 +99,7 @@ Cup) move over as each screen is touched. `src/lib/brand.ts` also holds the prod
 | Edge functions | Supabase, deployed by hand | same, deployed from CI |
 | LLM | Grok (xAI) for Garry and X search | same, per-league budget; model per league later |
 
-## 6. Working agreement
+## 7. Working agreement
 
 - The SaK league is the model: build features there first, on the league that uses them every night.
 - Every league-scoped change from now on writes `league_id` explicitly (or relies on the default = 1 only
