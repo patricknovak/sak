@@ -75,6 +75,8 @@ where n.nspname = 'public' and p.prosecdef and p.prorettype <> 'trigger'::regtyp
     'drop_player', 'move_player', 'set_pin',
     -- check membership themselves
     'accept_invite', 'set_active_league',
+    -- platform admins only, over the platform's own bills (ops schema), not league data
+    'cost_set_fixed', 'cost_end_fixed',
     -- debt: a pick names a player, and rosters hold one row per player across all leagues (rosters key, see EXPANSION.md)
     'draft_pick',
     -- debt: a multi-team trade names its teams inside a json list; each team needs the league check

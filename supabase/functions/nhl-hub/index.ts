@@ -220,6 +220,11 @@ async function xMeter(u: Record<string, unknown> | undefined) {
     // xAI prices every call itself, in ticks of a ten-billionth of a dollar
     usd: Math.round((n('usd') + Number(u?.cost_in_usd_ticks ?? 0) / 1e10) * 10000) / 10000, last: u ?? null };
   await db.from('hub_cache').upsert({ key: 'x_usage', body, at: new Date().toISOString() });
+  // and on the running-costs ledger, as a cost every league shares (league 0)
+  await db.rpc('meter_cost', { p_league: 0, p_source: 'xai', p_feature: 'hub.x_feed', p_calls: 1, p_input: Number(u?.input_tokens ?? 0),
+    p_cached: Number((u?.input_tokens_details as Record<string, unknown> | undefined)?.cached_tokens ?? 0), p_output: Number(u?.output_tokens ?? 0),
+    p_units: Number((u?.server_side_tool_usage_details as Record<string, unknown> | undefined)?.x_posts_fetched ?? 0),
+    p_usd: Number(u?.cost_in_usd_ticks ?? 0) / 1e10 });
 }
 async function xGrokOnce(apiKey: string, handles: string[], cfg: XConfig, since: string | null = null): Promise<XPost[]> {
   const today = new Date(), from = since ? new Date(since) : new Date(Date.now() - 2 * 86400000);
