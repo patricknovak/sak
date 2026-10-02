@@ -429,8 +429,8 @@ begin
   closes := coalesce(l.trade_deadline, (season_to - 30)::timestamptz);
   if closes <= now() then return 0; end if;
   season_from := coalesce((select min(date) from games where game_type = 2), today_et());
-  -- the clubs: the Cup (the twelve strongest against the field), the Presidents' Trophy (the eight best projections), the divisions
-  select array_agg(abbrev) into clubs from (select abbrev from nhl_teams order by strength desc nulls last, abbrev limit 12) t;
+  -- the clubs: the Cup (the eight strongest against the field), the Presidents' Trophy (the eight best projections), the divisions
+  select array_agg(abbrev) into clubs from (select abbrev from nhl_teams order by strength desc nulls last, abbrev limit 8) t;
   req := jsonb_build_object('template', 'club_race', 'what', 'cup', 'clubs', to_jsonb(clubs), 'title', 'Stanley Cup winner');
   spec := preview_market(req);
   insert into markets (kind, title, date, subject, options, closes_at, league_id) values ('race', spec->>'title', today_et(), (spec->'subject') || jsonb_build_object('house', 'nhl', 'season', l.season, 'terms', spec->>'note'), spec->'options', closes, current_league_id());
