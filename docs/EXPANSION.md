@@ -87,6 +87,13 @@ two leagues roster the same player, add, move and release him independently, and
 players). `_advance` posts `garry?task=draft` with no league.
 *Fix:* one `draft_state` row per league (`unique (league_id)`); pick uniqueness includes `league_id`; every draft
 and keeper function filters by league; the cron `draft_tick` loops leagues.
+*Done (migration 82, October 2026).* One draft row per league, made by `create_league` (or on first use);
+`overall` is unique per league; every draft function works on the caller's league (order from its own GMs only,
+picks, undo and reset in its own league; `finalize_keepers` was scoped in 81). `draft_tick` and `process_pending`
+run league by league from the scheduler with `app.league_id` set, each trade on its league's review hours, and a
+failure in one league is logged without stopping the others (the start of B4). Garry's draft recap gets
+`&league=`. The flow test runs a north draft (her order, her pick of a player SaK owns, an autopick by the
+scheduler, a reset) while SaK's finished draft and drafted rosters stay byte for byte the same.
 
 **B3. Fantasy points are stored once, with SaK's weights.** The `_player_games_fpts` trigger writes
 `calc_fpts(stats)` into the shared `player_games.fpts` as league 1; every standings view, the Book, bench

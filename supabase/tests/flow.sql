@@ -1607,3 +1607,42 @@ select pg_temp.expect('a spike notifies once', cost_watch() = 0);
 select cost_snapshot();
 select pg_temp.expect('the database size is recorded', exists (select 1 from ops.usage_daily where metric = 'db_bytes'));
 select 'running costs', true;
+
+-- ───────────── the draft per league ─────────────
+reset role;
+select set_config('request.jwt.claim.sub', '', false);
+select row_to_json(d)::text as sak_draft0 from draft_state d where league_id = 1 \gset
+select count(*) as sak_drafted0 from rosters where league_id = 1 and acquired = 'draft' \gset
+select phase as north_phase2 from league_rules where league_id = :league2 \gset
+select player_id as sak_star from rosters r where r.league_id = 1 order by r.prev_fp desc nulls last, r.player_id limit 1 \gset
+select pg_temp.expect('every league has its draft row', (select count(*) from draft_state) = (select count(*) from leagues));
+-- the north commissioner sets her order (her two GMs) and starts her draft
+select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-000000000099', false);
+set role authenticated;
+select pg_temp.raises('a SaK team can''t be in the north''s order', 'select draft_set_order(array[99, 2])', 'every team once');
+select draft_set_order(array[99, 98]);
+select draft_start();
+select pg_temp.expect('the north''s pick 1 is hers', (select current_overall = 1 and status = 'live' from draft_state) and (select team_id = 99 from draft_picks where overall = 1));
+-- she takes a player SaK owns: he's a free agent in the north
+select draft_pick(:sak_star);
+reset role;
+select pg_temp.expect('her pick landed in the north', exists (select 1 from rosters where league_id = :league2 and team_id = 99 and acquired = 'draft'));
+-- the clock runs out on team 98: the scheduler's tick autopicks for the north, and only the north
+update draft_state set deadline = now() - interval '1 second' where league_id = :league2;
+select set_config('request.jwt.claim.sub', '', false);
+select process_pending();
+select pg_temp.expect('the scheduler autopicked for the north', (select count(*) = 2 from draft_picks where league_id = :league2 and player_id is not null)
+  and exists (select 1 from rosters where league_id = :league2 and team_id = 98 and acquired = 'draft'));
+select pg_temp.expect('SaK''s draft never moved', (select row_to_json(d)::text from draft_state d where league_id = 1) = :'sak_draft0'
+  and (select count(*) from rosters where league_id = 1 and acquired = 'draft') = :sak_drafted0);
+select pg_temp.expect('pick numbers repeat across leagues', exists (select 1 from draft_picks a join draft_picks b on a.season = b.season and a.overall = b.overall and a.league_id <> b.league_id));
+-- the north resets her draft: SaK's drafted players stay put
+select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-000000000099', false);
+set role authenticated;
+select draft_reset();
+reset role;
+select pg_temp.expect('the north reset cleared only the north', not exists (select 1 from rosters where league_id = :league2 and acquired = 'draft')
+  and (select count(*) from rosters where league_id = 1 and acquired = 'draft') = :sak_drafted0
+  and (select row_to_json(d)::text from draft_state d where league_id = 1) = :'sak_draft0');
+update league_rules set phase = :'north_phase2' where league_id = :league2;
+select 'draft per league', true;
