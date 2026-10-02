@@ -12,6 +12,7 @@ import { MoneySettings } from '../components/MoneySettings';
 import { ScoringEditor } from '../components/ScoringEditor';
 import { GarryShaper } from '../components/GarryShaper';
 import { useBrand } from '../lib/brand';
+import { Link } from 'react-router-dom';
 
 // datetime-local <-> ISO in the viewer's zone
 const toLocal = (iso: string | null) => {
@@ -36,6 +37,9 @@ export default function Commish() {
   const [pickEdit, setPickEdit] = useState({ pick: '', team: '' });
   const [coin, setCoin] = useState({ team: '', amount: '', reason: '' });
   const [spec, setSpec] = useState({ name: '', email: '', pw: '', color: '#64748b', emoji: '🍿' });
+  // the platform owner also gets the running-costs dashboard
+  const [platformAdmin, setPlatformAdmin] = useState(false);
+  useEffect(() => { rpc<boolean>('is_platform_admin').then(setPlatformAdmin, () => {}); }, []);
 
   useEffect(() => {
     if (!league) return;
@@ -79,6 +83,14 @@ export default function Commish() {
       <PageHeader icon={<Wrench size={22} className="text-gold" />} title="Commissioner" sub={`With great power comes great responsibility, ${me.gm_name}.`} />
 
       <HealthPanel />
+
+      {platformAdmin && (
+        <Link to="/costs" className="card flex items-center gap-3 p-3 text-sm hover:bg-white/[.06]">
+          <span className="text-xl">🧾</span>
+          <span className="flex-1"><span className="font-semibold">Running costs</span><span className="block text-xs text-mute">What SaK and Super Pools cost to run, by day, month, feature and league</span></span>
+          <span className="text-mute">›</span>
+        </Link>
+      )}
 
       <Section title="🎙️ Draft night call">
         <div className="card space-y-2 p-3 text-sm">

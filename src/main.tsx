@@ -26,6 +26,7 @@ const Profile = lazy(() => import('./pages/Profile'));
 const News = lazy(() => import('./pages/News'));
 const PlayerPage = lazy(() => import('./pages/PlayerPage'));
 const Features = lazy(() => import('./pages/Features'));
+const Costs = lazy(() => import('./pages/Costs'));
 const DraftTV = lazy(() => import('./pages/DraftTV'));
 const DraftCentre = lazy(() => import('./pages/DraftCentre'));
 const Scoreboard = lazy(() => import('./pages/Scoreboard'));
@@ -107,6 +108,7 @@ function App() {
           <Route path="/draft/analysis" element={<Navigate to="/draft?t=analysis" replace />} />
           <Route path="/player/:id" element={<PlayerPage />} />
           <Route path="/features" element={<Features />} />
+          <Route path="/costs" element={<Costs />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </Suspense>

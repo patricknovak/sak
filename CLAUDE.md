@@ -33,7 +33,8 @@ Two things in one repo:
   (gated by `_scores_due()`), nhl-gameday, nhl-injuries, nhl-schedule, season-schedule, nhl-news,
   nhl-players, nhl-players-pregame, nhl-standings, nhl-corrections, nhl-corrections-deep, projections,
   auto-lineups, auto-lineups-late, garry-daily, garry-weekly, garry-nudge, garry-moments, open-book, settle-book,
-  settle-bets, expire-bets, process-pending (every 10 s), health-check, fund-price, cron-history.
+  settle-bets, expire-bets, process-pending (every 10 s), health-check, fund-price, cron-history, cost-snapshot,
+  cost-watch.
 - Hosting: GitHub Pages from `main` (`.github/workflows/deploy.yml`, builds on push). The landing page for
   Super Pools is `landing/index.html`, to be hosted on Vercel.
 
@@ -101,6 +102,11 @@ Deno check for edge functions: copy the function folder plus `_shared` to a scra
   `meta.bot='garry'`.
 - Never modify real GMs' rosters, lineups, plans, bets or coins unless asked. Browser checks against
   production are view-only.
+- Running costs: every paid outside call (today xAI, for Garry and the X feed) records its price with
+  `meter_cost(league, source, feature, ...)` from the edge function (service role only), tagged with the feature
+  (`garry.<task>`, `hub.x_feed`) and the league it served (0 = shared by every league). A new paid call does the same,
+  or the dashboard (`#/costs`, platform admins in `ops.platform_admins` only) won't see it. Fixed bills are edited on
+  that page. The ledger lives in schema `ops`, which the API doesn't serve.
 - Never commit credentials. Secrets live in Supabase function secrets and GitHub Actions secrets. The test
   team's login is kept out of the repo.
 

@@ -1454,3 +1454,60 @@ select 'tenancy guards', true;
 set role authenticated;
 select pg_temp.raises('a GM cannot pay out a market', 'select _payout_market(1, ''home'')', 'permission denied');
 reset role;
+
+-- ───────────── running costs ─────────────
+reset role;
+insert into ops.platform_admins (user_id) select user_id from teams where id = 1 on conflict do nothing;
+-- the edge functions meter their calls; a GM can't, and two calls on one day add up on one row
+set role authenticated;
+select pg_temp.raises('a GM cannot meter a cost', 'select meter_cost(1, ''xai'', ''garry.reply'', 1, 100, 0, 10, 0, 1)', 'permission denied');
+reset role;
+set role service_role;
+select meter_cost(1, 'xai', 'garry.reply', 1, 2600, 2000, 100, 0, 0.003);
+select meter_cost(1, 'xai', 'garry.reply', 1, 2600, 2000, 100, 0, 0.003);
+select meter_cost(0, 'xai', 'hub.x_feed', 1, 9000, 0, 600, 19, 0.113);
+reset role;
+select pg_temp.expect('two replies on one row', (select calls = 2 and usd = 0.006 from ops.cost_usage where feature = 'garry.reply'));
+-- the dashboard is for platform admins only, and a GM can't read the bills by any other door
+select pg_temp.as_team(2);
+set role authenticated;
+select pg_temp.raises('a GM cannot open the cost dashboard', 'select cost_dashboard(30)', 'Platform admins only');
+select pg_temp.raises('a GM cannot edit the bills', 'select cost_set_fixed(null, ''x'', 1, 1, null)', 'Platform admins only');
+select pg_temp.raises('a GM cannot read the cost tables', 'select count(*) from ops.cost_usage', 'permission denied');
+select pg_temp.expect('a GM is not a platform admin', not is_platform_admin());
+reset role;
+select pg_temp.as_team(1);
+set role authenticated;
+select pg_temp.expect('the owner is a platform admin', is_platform_admin());
+select set_config('t.cost', cost_dashboard(30)::text, false);
+select pg_temp.expect('today''s AI spend is on the dashboard', (select (d->>'garry')::numeric = 0.006 and (d->>'x_feed')::numeric = 0.113
+  from jsonb_array_elements(current_setting('t.cost')::jsonb->'daily') d where d->>'day' = current_setting('t.cost')::jsonb->>'today'));
+select pg_temp.expect('the fixed bills are spread over the days', (select (d->>'fixed')::numeric > 0
+  from jsonb_array_elements(current_setting('t.cost')::jsonb->'daily') d where d->>'day' = current_setting('t.cost')::jsonb->>'today'));
+select pg_temp.expect('features are listed by cost', (current_setting('t.cost')::jsonb->'features'->0->>'feature') = 'hub.x_feed');
+select pg_temp.expect('SaK carries its own Garry plus a share of the shared costs', (select (l->>'direct_30')::numeric = 0.006 and (l->>'shared_30')::numeric > 0
+  from jsonb_array_elements(current_setting('t.cost')::jsonb->'leagues') l where (l->>'id')::int = 1));
+select cost_set_fixed(null, 'Test bill', 30, 0.5, 'half of it', 'other') as bill_id \gset
+select pg_temp.expect('a new bill lands', (select (f->>'monthly_usd')::numeric = 30 and (f->>'share')::numeric = 0.5
+  from jsonb_array_elements(cost_dashboard(30)->'fixed') f where (f->>'id')::int = :bill_id));
+select pg_temp.raises('a share over 1 is refused', format('select cost_set_fixed(%s, ''Test bill'', 30, 2, null)', :bill_id), 'between 0 and 1');
+-- a new price starts today; the days before keep the old one
+reset role;
+insert into ops.cost_fixed (source, item, monthly_usd, starts) values ('other', 'Old bill', 31, (now() at time zone 'America/New_York')::date - 10) returning id as old_bill \gset
+select pg_temp.as_team(1);
+set role authenticated;
+select cost_set_fixed(:old_bill, 'Old bill', 62, 1, null) as new_bill \gset
+select cost_end_fixed(:bill_id);
+reset role;
+select pg_temp.expect('the old price closes yesterday', (select ends = (now() at time zone 'America/New_York')::date - 1 and monthly_usd = 31 from ops.cost_fixed where id = :old_bill));
+select pg_temp.expect('the new price starts today', (select starts = (now() at time zone 'America/New_York')::date and monthly_usd = 62 from ops.cost_fixed where id = :new_bill));
+select pg_temp.expect('a bill ended the day it started never counts', (select ends < starts from ops.cost_fixed where id = :bill_id)
+  and not exists (select 1 from jsonb_array_elements(cost_dashboard(30)->'fixed') f where (f->>'id')::int = :bill_id));
+-- a spike notifies the owner once, a quiet day doesn't
+insert into ops.cost_usage (day, source, feature, calls, usd) values ((now() at time zone 'America/New_York')::date - 1, 'xai', 'garry.daily', 1, 6);
+select pg_temp.expect('a spike notifies the owner', cost_watch() = 1);
+select pg_temp.expect('the spike lands on team 1 with a link', exists (select 1 from notifications where team_id = 1 and kind = 'cost' and link = '/costs'));
+select pg_temp.expect('a spike notifies once', cost_watch() = 0);
+select cost_snapshot();
+select pg_temp.expect('the database size is recorded', exists (select 1 from ops.usage_daily where metric = 'db_bytes'));
+select 'running costs', true;

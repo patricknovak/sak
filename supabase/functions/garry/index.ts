@@ -170,8 +170,17 @@ async function grok(system: string, user: string, maxTokens = 1200, temperature 
   }
 }
 
-// today's model calls and tokens on the league's state row, so the cost of Garry's talking can be read any time
-async function meter(u: { prompt_tokens?: number; completion_tokens?: number; prompt_tokens_details?: { cached_tokens?: number }; completion_tokens_details?: { reasoning_tokens?: number } } | undefined) {
+// what this run is for, so every model call is billed to a feature on the running-costs dashboard (garry.reply, ...)
+let FEATURE = 'garry.daily';
+// today's model calls and tokens on the league's state row, so the cost of Garry's talking can be read any time, and
+// the call's price on the running-costs ledger, by league and feature
+async function meter(u: { prompt_tokens?: number; completion_tokens?: number; prompt_tokens_details?: { cached_tokens?: number }; completion_tokens_details?: { reasoning_tokens?: number }; cost_in_usd_ticks?: number } | undefined) {
+  const input = u?.prompt_tokens ?? 0, cached = u?.prompt_tokens_details?.cached_tokens ?? 0, output = u?.completion_tokens ?? 0;
+  const reasoning = u?.completion_tokens_details?.reasoning_tokens ?? 0;
+  // xAI prices the call itself, in ticks of a ten-billionth of a dollar; failing that, grok-4.3's list prices
+  const usd = u?.cost_in_usd_ticks != null ? u.cost_in_usd_ticks / 1e10 : ((input - cached) * 1.25 + cached * 0.2 + (output + reasoning) * 2.5) / 1e6;
+  await db.rpc('meter_cost', { p_league: L.lid, p_source: 'xai', p_feature: FEATURE, p_calls: 1, p_input: input, p_cached: cached,
+    p_output: output + reasoning, p_usd: usd }).then(() => {}, (e) => console.error('meter_cost', e));
   const st = await state();
   if (!st) return;
   const day = etDate(new Date());
@@ -1263,6 +1272,7 @@ Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: cors });
   const url = new URL(req.url);
   const task = url.searchParams.get('task') ?? 'daily';
+  FEATURE = `garry.${task}`;
   try {
     if (task === 'reply') {
       const { message_id } = await req.json();
