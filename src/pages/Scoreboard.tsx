@@ -13,7 +13,7 @@ import { ChevronLeft, ChevronRight, Radio } from 'lucide-react';
 import { BoxScore, scoringLine } from '../components/BoxScore';
 
 type Snap = { team_id: number; player_id: number; slot: string; game_id: number };
-type PG = { player_id: number; game_id: number; fpts: number; stats: Record<string, number> };
+type PG = { player_id: number; game_id: number; fpts: number; stats: Record<string, number>; nhl_team: string | null };
 type BenchDay = { team_id: number; date: string; points: number; game_type: number };
 const LIVE = new Set(['LIVE', 'CRIT']);
 const DONE = new Set(['OFF', 'FINAL']);
@@ -28,6 +28,21 @@ function gameLabel(g: Game) {
 const BENCH = ['BN', 'IR'];
 // the NHL game id carries its kind: 2026020123 is a regular-season game, 2026030111 a playoff game
 const isPlayoffGame = (g: Game) => String(g.id).slice(4, 6) === '03';
+// a player's game from his side: his club first (the one he played for that night), the opponent, the score
+// with his club's goals first, and where the game stands
+function matchup(g: Game, club: string | null | undefined) {
+  const home = club ? club === g.home : true;
+  const mine = home ? g.home : g.away, opp = home ? g.away : g.home;
+  const my = home ? g.home_score : g.away_score, their = home ? g.away_score : g.home_score;
+  const started = LIVE.has(g.state) || DONE.has(g.state);
+  const extra = DONE.has(g.state) && g.period && !/^\d+$/.test(g.period) ? `/${g.period}` : '';
+  return {
+    teams: `${mine} ${home ? 'vs' : '@'} ${opp}`,
+    score: started && my != null && their != null ? `${my}–${their}` : null,
+    tone: !started || my == null || their == null || my === their ? 'text-slate-300' : my > their ? 'text-emerald-300' : 'text-red-300',
+    status: DONE.has(g.state) ? `Final${extra}` : gameLabel(g),
+  };
+}
 const addDays = (d: string, n: number) => new Date(Date.UTC(+d.slice(0, 4), +d.slice(5, 7) - 1, +d.slice(8, 10) + n)).toISOString().slice(0, 10);
 
 export default function Scoreboard() {
@@ -53,7 +68,7 @@ export default function Scoreboard() {
     const load = async () => {
       const [{ data: s }, { data: p }] = await Promise.all([
         supabase.from('lineup_snapshots').select('team_id,player_id,slot,game_id').eq('date', today),
-        supabase.from('player_games').select('player_id,game_id,fpts,stats').eq('date', today),
+        supabase.from('player_games').select('player_id,game_id,fpts,stats,nhl_team').eq('date', today),
       ]);
       if (!alive) return;
       setSnaps((s ?? []) as Snap[]);
@@ -106,12 +121,22 @@ export default function Scoreboard() {
     const g = l.game;
     const goalie = p?.pos === 'G';
     const line = scoringLine(st, (goalie ? league?.scoring.goalie : league?.scoring.skater) ?? {}, goalie) || 'no scoring yet';
+    const mu = g ? matchup(g, l.pg?.nhl_team ?? p?.nhl_team) : null;
     return (
       <Link key={l.player_id} to={`/player/${l.player_id}`} className={`flex items-center gap-2 px-3 py-1.5 text-sm hover:bg-white/[.03] ${bench ? 'bg-amber-500/[.02]' : ''}`}>
         <Pos p={l.slot} className={`min-w-0 px-1 py-0 ${bench ? 'opacity-60' : ''}`} />
         <span className="min-w-0 flex-1"><span className={`block truncate font-semibold ${bench ? 'text-slate-300' : ''}`}>{p?.name}</span>
-          <span className="block truncate text-[11px] text-mute">{l.pg ? line : g ? `${p?.nhl_team} vs ${g.home === p?.nhl_team ? g.away : g.home} · ${gameLabel(g)}` : ''}</span></span>
-        {g && <span className={`w-14 text-right text-[10px] uppercase ${LIVE.has(g.state) ? 'text-goal' : 'text-mute'}`}>{DONE.has(g.state) ? 'Final' : LIVE.has(g.state) ? 'Live' : fmtTime(g.start_utc)}</span>}
+          <span className="block truncate text-[11px] text-mute">{l.pg ? line : g ? (LIVE.has(g.state) || DONE.has(g.state) ? 'no scoring yet' : `puck drop ${fmtTime(g.start_utc)}`) : ''}</span></span>
+        {mu && (
+          <span className="w-[86px] shrink-0 text-right leading-tight">
+            <span className="block truncate text-[11px] font-semibold text-slate-200">{mu.teams}</span>
+            <span className="block truncate text-[10px]">
+              {mu.score && <span className={`num font-bold ${mu.tone}`}>{mu.score}</span>}
+              {mu.score && <span className="text-mute"> · </span>}
+              <span className={LIVE.has(g!.state) ? 'text-goal' : 'text-mute'}>{mu.status}</span>
+            </span>
+          </span>
+        )}
         <span className={`num w-12 text-right font-bold ${l.pts < 0 ? 'text-red-300' : bench ? 'text-amber-200/90' : ''}`}>{l.pg ? fmtPts(l.pts) : '–'}</span>
       </Link>
     );
