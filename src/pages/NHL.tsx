@@ -5,13 +5,13 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { useLeague } from '../lib/store';
 import { hub } from '../lib/nhlhub';
-import { fmtTime } from '../lib/format';
+import { fmtPts, fmtTime } from '../lib/format';
 import { PageHeader, Section, Sheet, TeamBadge } from '../components/ui';
 import { ExternalLink, Headphones, Play, Radio, Tv } from 'lucide-react';
 import { InjuriesTab, LeadersTab, NewsTab, TeamsTab, XTab } from '../components/NhlMore';
 import { TopTab } from '../components/NhlTop';
 import { watchOptions, playerFor, PROVIDERS } from '../lib/watch';
-import { rpc } from '../lib/supabase';
+import { rpc, supabase } from '../lib/supabase';
 
 type NTeam = { id: number; abbrev: string; name: string; place: string; score: number | null; sog: number | null; logo: string | null; radio: string | null; record: string | null };
 type Goal = { period: number; type?: string; time: string; playerId: number; name: string; team: string; strength: string; modifier: string; goalsToDate: number; away: number; home: number; mugshot: string | null; assists: { playerId: number; name: string; n: number }[]; clip: string | null };
@@ -314,17 +314,27 @@ export default function NHL() {
 }
 
 type TeamOf = ReturnType<typeof useLeague>['team'];
+// a player's fantasy points in the box score: gold when he scored, red when he cost points
+const FpCell = ({ v }: { v: number | undefined }) => (
+  <td className={`num px-2 py-1 text-right font-bold ${v == null ? 'text-mute' : v > 0 ? 'text-gold' : v < 0 ? 'text-red-300' : 'text-slate-400'}`}>{v == null ? '–' : fmtPts(v)}</td>
+);
 function GameSheet({ g, onClose, gmsIn, teamOf, ownerOf, inPool }: { g: Game | null; onClose: () => void; gmsIn: (g: Game) => [number, number][]; teamOf: TeamOf; ownerOf: (id: number) => ReturnType<TeamOf>; inPool: (id: number) => boolean }) {
   const { me } = useLeague();
   const [d, setD] = useState<Detail | null>(null);
   const [video, setVideo] = useState<{ id: string; title: string } | null>(null);
   const [radio, setRadio] = useState<{ url: string; label: string } | null>(null);
   const [side, setSide] = useState<'away' | 'home'>('away');
+  // fantasy points for the night, scored with the league's own weights (the same lines the scoreboard counts)
+  const [fp, setFp] = useState<Map<number, number>>(new Map());
   useEffect(() => {
-    setD(null); setVideo(null); setRadio(null);
+    setD(null); setVideo(null); setRadio(null); setFp(new Map());
     if (!g) return;
     let alive = true;
-    const load = () => hub<Detail>('game', { id: String(g.id) }).then((x) => { if (alive) setD(x); }, () => {});
+    const load = () => {
+      hub<Detail>('game', { id: String(g.id) }).then((x) => { if (alive) setD(x); }, () => {});
+      supabase.from('player_games').select('player_id,fpts').eq('game_id', g.id)
+        .then(({ data }) => { if (alive && data) setFp(new Map(data.map((r) => [r.player_id as number, Number(r.fpts)]))); });
+    };
     load();
     const i = LIVE.has(g.state) ? window.setInterval(load, 30_000) : 0;
     return () => { alive = false; if (i) window.clearInterval(i); };
@@ -402,20 +412,22 @@ function GameSheet({ g, onClose, gmsIn, teamOf, ownerOf, inPool }: { g: Game | n
           <Section title="Box score" right={<div className="flex gap-1">{(['away', 'home'] as const).map((s) => <button key={s} className={`rounded-full px-2 py-0.5 text-xs font-semibold ${side === s ? 'bg-sky-500 text-ice' : 'bg-white/[.05] text-mute'}`} onClick={() => setSide(s)}>{x[s].abbrev}</button>)}</div>}>
             <div className="card overflow-x-auto">
               <table className="w-full min-w-[560px] text-xs">
-                <thead className="text-mute"><tr>{['Skater', 'G', 'A', 'P', '+/-', 'PIM', 'SOG', 'HIT', 'BLK', 'TOI'].map((h, i) => <th key={h} className={`px-2 py-1.5 font-semibold ${i ? 'text-right' : 'text-left'}`}>{h}</th>)}</tr></thead>
+                <thead className="text-mute"><tr><th className="px-2 py-1.5 text-left font-semibold">Skater</th><th className="px-2 text-right font-semibold text-gold" title="Fantasy points tonight">FP</th>{['G', 'A', 'P', '+/-', 'PIM', 'SOG', 'HIT', 'BLK', 'TOI'].map((h) => <th key={h} className="px-2 py-1.5 text-right font-semibold">{h}</th>)}</tr></thead>
                 <tbody className="divide-y divide-white/[.05]">
                   {box && [...box.forwards, ...box.defense].map((p) => (
                     <tr key={p.id} className={p.pts > 0 ? 'text-white' : 'text-slate-300'}>
                       <td className="whitespace-nowrap px-2 py-1"><span className="text-mute">{p.pos} {p.num}</span> <Name id={p.id} name={p.name} /><Owner id={p.id} /></td>
+                      <FpCell v={fp.get(p.id)} />
                       {[p.g, p.a, p.pts, p.pm > 0 ? `+${p.pm}` : p.pm, p.pim, p.sog, p.hit, p.blk, p.toi].map((v, k) => <td key={k} className="num px-2 py-1 text-right">{v}</td>)}
                     </tr>
                   ))}
                 </tbody>
-                <thead className="text-mute"><tr>{['Goalie', 'SA', 'SV%', 'GA', 'TOI', 'Dec', '', '', '', ''].map((h, i) => <th key={i} className={`px-2 py-1.5 font-semibold ${i ? 'text-right' : 'text-left'}`}>{h}</th>)}</tr></thead>
+                <thead className="text-mute"><tr><th className="px-2 py-1.5 text-left font-semibold">Goalie</th><th className="px-2 text-right font-semibold text-gold" title="Fantasy points tonight">FP</th>{['SA', 'SV%', 'GA', 'TOI', 'Dec', '', '', '', ''].map((h, i) => <th key={i} className="px-2 py-1.5 text-right font-semibold">{h}</th>)}</tr></thead>
                 <tbody className="divide-y divide-white/[.05]">
                   {box?.goalies.map((p) => (
                     <tr key={p.id}>
                       <td className="whitespace-nowrap px-2 py-1"><span className="text-mute">G {p.num}</span> <Name id={p.id} name={p.name} /><Owner id={p.id} />{p.starter ? '' : <span className="ml-1 text-[10px] text-mute">relief</span>}</td>
+                      <FpCell v={fp.get(p.id)} />
                       {[p.sa, p.svp != null ? p.svp.toFixed(3).replace(/^0/, '') : '–', p.ga, p.toi, p.decision ?? '', '', '', '', ''].map((v, k) => <td key={k} className="num px-2 py-1 text-right">{v}</td>)}
                     </tr>
                   ))}
