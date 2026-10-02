@@ -1,9 +1,11 @@
 // Game night, live: every NHL game on the slate, and every team's points as they come in, starter by starter.
 // Step back a day (or any number of days) to review a night that is already in the books.
+// The bench is tracked too: what each GM left on the bench and IR that night and over the season so far.
+// Bench points are shown and never counted; they come from the same puck-drop freeze-frames as the starters.
 import { useEffect, useMemo, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { useLeague, useNow } from '../lib/store';
-import { supabase } from '../lib/supabase';
+import { selectAll, supabase } from '../lib/supabase';
 import { fmtDate, fmtPts, fmtTime, readable } from '../lib/format';
 import { NhlLogo, PageHeader, Pos, Section, TeamBadge } from '../components/ui';
 import type { Game } from '../lib/types';
@@ -12,6 +14,7 @@ import { BoxScore, scoringLine } from '../components/BoxScore';
 
 type Snap = { team_id: number; player_id: number; slot: string; game_id: number };
 type PG = { player_id: number; game_id: number; fpts: number; stats: Record<string, number> };
+type BenchDay = { team_id: number; date: string; points: number; game_type: number };
 const LIVE = new Set(['LIVE', 'CRIT']);
 const DONE = new Set(['OFF', 'FINAL']);
 
@@ -22,6 +25,9 @@ function gameLabel(g: Game) {
   if (LIVE.has(g.state)) return `${/^\d+$/.test(g.period ?? '') ? 'P' + g.period : g.period ?? ''} ${g.clock ?? ''}`.trim() || 'Live';
   return fmtTime(g.start_utc);
 }
+const BENCH = ['BN', 'IR'];
+// the NHL game id carries its kind: 2026020123 is a regular-season game, 2026030111 a playoff game
+const isPlayoffGame = (g: Game) => String(g.id).slice(4, 6) === '03';
 const addDays = (d: string, n: number) => new Date(Date.UTC(+d.slice(0, 4), +d.slice(5, 7) - 1, +d.slice(8, 10) + n)).toISOString().slice(0, 10);
 
 export default function Scoreboard() {
@@ -39,6 +45,7 @@ export default function Scoreboard() {
   const [pgs, setPgs] = useState<PG[]>([]);
   const [open, setOpen] = useState<number | null>(me?.id ?? null);
   const [box, setBox] = useState<Game | null>(null);
+  const [benchDays, setBenchDays] = useState<BenchDay[]>([]);
 
   // freeze-frames are taken at puck drop, box scores every minute: poll both while the page is open
   useEffect(() => {
@@ -58,24 +65,59 @@ export default function Scoreboard() {
     return () => { alive = false; window.clearInterval(i); };
   }, [today, slate.length, past]);
 
+  // every earlier night's bench, for the season tally (tonight's comes from the box scores below)
+  useEffect(() => {
+    selectAll<BenchDay>('team_bench_daily', 'team_id,date,points,game_type', 1000, ['date', 'team_id', 'game_type'])
+      .then((r) => setBenchDays(r.map((x) => ({ ...x, points: Number(x.points) }))), () => setBenchDays([]));
+  }, [today]);
+
   const gameOf = (nhl: string | null) => slate.find((g) => g.home === nhl || g.away === nhl);
   const pgBy = useMemo(() => new Map(pgs.map((p) => [`${p.game_id}:${p.player_id}`, p])), [pgs]);
   // starters tonight: the frozen lineup once a game has started, the current lineup before that
-  const rows = useMemo(() => teams.map((t) => {
-    const live = snaps.filter((s) => s.team_id === t.id && !['BN', 'IR'].includes(s.slot));
-    const frozen = new Set(live.map((s) => s.player_id));
-    const pending = (past ? [] : rosters).filter((r) => r.team_id === t.id && !['BN', 'IR'].includes(r.slot) && !frozen.has(r.player_id))
-      .map((r) => ({ team_id: t.id, player_id: r.player_id, slot: r.slot, game: gameOf(players.get(r.player_id)?.nhl_team ?? null) }))
+  // one side of a team's night: the frozen lineup once a game has started, the current lineup before that
+  const side = (teamId: number, bench: boolean) => {
+    const mine = (slot: string) => BENCH.includes(slot) === bench;
+    const live = snaps.filter((s) => s.team_id === teamId && mine(s.slot));
+    const frozen = new Set(snaps.filter((s) => s.team_id === teamId).map((s) => s.player_id));
+    const pending = (past ? [] : rosters).filter((r) => r.team_id === teamId && mine(r.slot) && !frozen.has(r.player_id))
+      .map((r) => ({ team_id: teamId, player_id: r.player_id, slot: r.slot, game: gameOf(players.get(r.player_id)?.nhl_team ?? null) }))
       .filter((r) => r.game && !DONE.has(r.game.state) && !LIVE.has(r.game.state));
-    const lines = [
+    return [
       ...live.map((s) => { const g = slate.find((x) => x.id === s.game_id); const pg = pgBy.get(`${s.game_id}:${s.player_id}`); return { ...s, game: g, pg, pts: pg?.fpts ?? 0 }; }),
       ...pending.map((s) => ({ ...s, game_id: s.game!.id, pg: undefined as PG | undefined, pts: 0 })),
     ].sort((a, b) => b.pts - a.pts || (a.game?.start_utc ?? '').localeCompare(b.game?.start_utc ?? ''));
+  };
+  // the season tally follows the table the night belongs to: playoff nights add up the playoff bench
+  const playoffNight = slate.some(isPlayoffGame);
+  const rows = useMemo(() => teams.map((t) => {
+    const lines = side(t.id, false);
+    const benchLines = side(t.id, true);
     const pts = lines.reduce((n, l) => n + l.pts, 0);
+    const bench = benchLines.reduce((n, l) => n + l.pts, 0);
+    const before = benchDays.filter((b) => b.team_id === t.id && b.date < today && b.game_type === (playoffNight ? 3 : 2)).reduce((n, b) => n + b.points, 0);
     const done = lines.filter((l) => l.game && DONE.has(l.game.state)).length;
     const playing = lines.filter((l) => l.game && LIVE.has(l.game.state)).length;
-    return { t, lines, pts, done, playing, left: lines.length - done - playing };
-  }).sort((a, b) => b.pts - a.pts || a.t.id - b.t.id), [teams, snaps, rosters, players, slate, pgBy]);
+    return { t, lines, pts, done, playing, left: lines.length - done - playing, benchLines, bench, benchScored: benchLines.some((l) => l.pg), benchSeason: before + bench };
+  }).sort((a, b) => b.pts - a.pts || a.t.id - b.t.id), [teams, snaps, rosters, players, slate, pgBy, benchDays, today, playoffNight]); // eslint-disable-line react-hooks/exhaustive-deps
+  // one player's line on a team card; bench lines are dimmed and their points shown in amber
+  const renderLine = (l: ReturnType<typeof side>[number], bench = false) => {
+    const p = players.get(l.player_id);
+    const st = l.pg?.stats ?? {};
+    const g = l.game;
+    const goalie = p?.pos === 'G';
+    const line = scoringLine(st, (goalie ? league?.scoring.goalie : league?.scoring.skater) ?? {}, goalie) || 'no scoring yet';
+    return (
+      <Link key={l.player_id} to={`/player/${l.player_id}`} className={`flex items-center gap-2 px-3 py-1.5 text-sm hover:bg-white/[.03] ${bench ? 'bg-amber-500/[.02]' : ''}`}>
+        <Pos p={l.slot} className={`min-w-0 px-1 py-0 ${bench ? 'opacity-60' : ''}`} />
+        <span className="min-w-0 flex-1"><span className={`block truncate font-semibold ${bench ? 'text-slate-300' : ''}`}>{p?.name}</span>
+          <span className="block truncate text-[11px] text-mute">{l.pg ? line : g ? `${p?.nhl_team} vs ${g.home === p?.nhl_team ? g.away : g.home} · ${gameLabel(g)}` : ''}</span></span>
+        {g && <span className={`w-14 text-right text-[10px] uppercase ${LIVE.has(g.state) ? 'text-goal' : 'text-mute'}`}>{DONE.has(g.state) ? 'Final' : LIVE.has(g.state) ? 'Live' : fmtTime(g.start_utc)}</span>}
+        <span className={`num w-12 text-right font-bold ${l.pts < 0 ? 'text-red-300' : bench ? 'text-amber-200/90' : ''}`}>{l.pg ? fmtPts(l.pts) : '–'}</span>
+      </Link>
+    );
+  };
+  const benchTable = useMemo(() => [...rows].sort((a, b) => b.bench - a.bench || b.benchSeason - a.benchSeason || a.t.id - b.t.id), [rows]);
+  const benchAny = rows.some((r) => r.benchScored || r.benchSeason !== 0);
   const scored = standings.some((s) => Number(s.points) !== 0);
   const rankOf = (id: number) => (scored ? standings.find((s) => s.team_id === id)?.rank : undefined);
   const anyLive = slate.some((g) => LIVE.has(g.state));
@@ -113,11 +155,11 @@ export default function Scoreboard() {
 
       <Section title={past ? `Points on ${fmtDate(today)}` : 'Tonight’s points'} right={<span className="text-xs text-mute">tap a team for every starter</span>}>
         <div className="grid items-start gap-2 xl:grid-cols-2">
-          {rows.map(({ t, lines, pts, done, playing, left }, i) => {
+          {rows.map(({ t, lines, pts, done, playing, left, benchLines, bench, benchScored, benchSeason }, i) => {
             const isOpen = open === t.id;
             const top = lines.filter((l) => l.pg).slice(0, 3);
             return (
-              <div key={t.id} className={`card overflow-hidden ${t.id === me?.id ? 'ring-1 ring-sky-400/40' : ''}`}>
+              <div key={t.id} id={`sb-${t.id}`} className={`card scroll-mt-20 overflow-hidden ${t.id === me?.id ? 'ring-1 ring-sky-400/40' : ''}`}>
                 <button className="flex w-full items-center gap-3 p-3 text-left" onClick={() => setOpen(isOpen ? null : t.id)}>
                   <span className="num w-5 text-center text-sm font-bold text-mute">{i + 1}</span>
                   <TeamBadge team={t} size={36} />
@@ -128,27 +170,23 @@ export default function Scoreboard() {
                       {top.length > 0 && <> · {top.map((l) => `${players.get(l.player_id)?.last_name} ${fmtPts(l.pts)}`).join(', ')}</>}
                     </div>
                   </div>
-                  <div className="text-right"><div className="num font-display text-2xl font-extrabold" style={{ color: readable(t.color) }}>{fmtPts(pts)}</div><div className="text-[10px] text-mute">{past ? 'that night' : 'tonight'}</div></div>
+                  <div className="text-right"><div className="num font-display text-2xl font-extrabold" style={{ color: readable(t.color) }}>{fmtPts(pts)}</div><div className="text-[10px] text-mute">{past ? 'that night' : 'tonight'}</div>
+                    {benchScored && <div className="num text-[10px] font-semibold text-amber-200" title="Points on the bench and IR: shown, never counted">🪑 {fmtPts(bench)} benched</div>}</div>
                 </button>
                 {isOpen && (
                   <div className="divide-y divide-white/[.05] border-t border-white/[.06]">
-                    {lines.map((l) => {
-                      const p = players.get(l.player_id);
-                      const st = l.pg?.stats ?? {};
-                      const g = l.game;
-                      const goalie = p?.pos === 'G';
-                      const line = scoringLine(st, (goalie ? league?.scoring.goalie : league?.scoring.skater) ?? {}, goalie) || 'no scoring yet';
-                      return (
-                        <Link key={l.player_id} to={`/player/${l.player_id}`} className="flex items-center gap-2 px-3 py-1.5 text-sm hover:bg-white/[.03]">
-                          <Pos p={l.slot} className="min-w-0 px-1 py-0" />
-                          <span className="min-w-0 flex-1"><span className="block truncate font-semibold">{p?.name}</span>
-                            <span className="block truncate text-[11px] text-mute">{l.pg ? line : g ? `${p?.nhl_team} vs ${g.home === p?.nhl_team ? g.away : g.home} · ${gameLabel(g)}` : ''}</span></span>
-                          {g && <span className={`w-14 text-right text-[10px] uppercase ${LIVE.has(g.state) ? 'text-goal' : 'text-mute'}`}>{DONE.has(g.state) ? 'Final' : LIVE.has(g.state) ? 'Live' : fmtTime(g.start_utc)}</span>}
-                          <span className={`num w-12 text-right font-bold ${l.pts < 0 ? 'text-red-300' : ''}`}>{l.pg ? fmtPts(l.pts) : '–'}</span>
-                        </Link>
-                      );
-                    })}
+                    {lines.map((l) => renderLine(l))}
                     {lines.length === 0 && <div className="p-3 text-xs text-mute">Nobody in {t.gm_name}’s starting lineup {past ? 'played that night' : 'plays tonight'}.</div>}
+                    {benchLines.length > 0 && (
+                      <>
+                        <div className="flex items-center gap-2 bg-amber-500/[.06] px-3 py-1.5 text-[11px]">
+                          <span className="font-semibold uppercase tracking-wider text-amber-200">🪑 Bench & IR</span>
+                          <span className="flex-1 text-mute">shown, never counted</span>
+                          <span className="num text-amber-200">{fmtPts(bench)} {past ? 'that night' : 'tonight'} · {fmtPts(benchSeason)} {playoffNight ? 'playoffs' : 'season'}</span>
+                        </div>
+                        {benchLines.map((l) => renderLine(l, true))}
+                      </>
+                    )}
                   </div>
                 )}
               </div>
@@ -156,6 +194,37 @@ export default function Scoreboard() {
           })}
         </div>
       </Section>
+
+      {benchAny && (
+        <Section title="🪑 Left on the bench" right={<span className="text-xs text-mute">shown, never counted</span>}>
+          <div className="card overflow-hidden">
+            <table className="w-full text-sm">
+              <thead className="bg-white/[.04] text-left text-[11px] uppercase tracking-wider text-mute">
+                <tr><th className="px-3 py-2">Team</th><th className="px-2 text-right">{past ? 'That night' : 'Tonight'}</th><th className="px-3 text-right" title={`Bench and IR points ${playoffNight ? 'in the playoffs' : 'this regular season'}${past ? ', through that night' : ', tonight included'}`}>{playoffNight ? 'Playoffs' : 'Season'}</th></tr>
+              </thead>
+              <tbody className="divide-y divide-white/[.06]">
+                {benchTable.map(({ t, bench, benchScored, benchSeason, benchLines }) => {
+                  const top = benchLines.find((l) => l.pg && l.pts > 0 && players.get(l.player_id));
+                  return (
+                    <tr key={t.id} className={t.id === me?.id ? 'bg-white/[.05]' : ''}>
+                      <td className="px-3 py-2">
+                        <button className="flex min-w-0 items-center gap-2 text-left" onClick={() => { setOpen(t.id); document.getElementById(`sb-${t.id}`)?.scrollIntoView({ behavior: 'smooth', block: 'start' }); }}>
+                          <TeamBadge team={t} size={26} />
+                          <span className="min-w-0"><span className="block truncate font-semibold">{t.gm_name}</span>
+                            <span className="block truncate text-[11px] text-mute">{top ? `${players.get(top.player_id)?.last_name ?? players.get(top.player_id)?.name} ${fmtPts(top.pts)} on the bench` : t.name}</span></span>
+                        </button>
+                      </td>
+                      <td className={`num px-2 text-right font-semibold ${bench > 0 ? 'text-amber-200' : 'text-mute'}`}>{benchScored ? fmtPts(bench) : '–'}</td>
+                      <td className="num px-3 text-right text-slate-300">{benchSeason ? fmtPts(benchSeason) : '–'}</td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+            <div className="border-t border-white/[.06] px-3 py-2 text-[11px] text-mute">Points the bench and IR scored{past ? ' that night' : ' tonight'}, and the {playoffNight ? 'playoff' : 'season'} total{past ? ' through that night' : ' so far'}. Every day of it, team by team, is on the <Link to="/performance" className="text-sky-300">Performance page</Link>.</div>
+          </div>
+        </Section>
+      )}
       <BoxScore game={box ? slate.find((g) => g.id === box.id) ?? box : null} onClose={() => setBox(null)} />
       {past ? <p className="px-1 text-center text-[11px] text-mute">Final box scores. Stat corrections from the NHL can still move a line for up to a month.</p>
         : <p className="px-1 text-center text-[11px] text-mute">Points follow the NHL box scores, which update about once a minute. Last check {new Date(now).toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' })}.</p>}
