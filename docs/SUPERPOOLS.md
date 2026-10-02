@@ -98,6 +98,10 @@ on the site, and the switcher.
 
 ## 7. What is not done yet, in order
 
+The expansion review (`docs/EXPANSION.md`, October 2026) is the detailed version of this list: the eight
+blockers before a second league goes live, the phases and their gates, the sport split, and the new-league
+checklist. `supabase/tests/tenancy.sql` enforces the tenancy rules on every test run.
+
 1. **League by host.** `leagues.domain`: `sak.superpoolsai.com` or a custom domain per league; the app picks
    the league from the host, so one deployment serves all leagues.
 2. **Garry per league** (done in migration 65, bar the budget). One state row per league (voice notes, the

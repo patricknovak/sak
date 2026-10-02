@@ -1381,3 +1381,76 @@ select pg_temp.expect('garry_state carries the phase his notes were written in, 
   (select count(*) from information_schema.columns where table_name = 'garry_state' and column_name in ('persona_phase', 'moments', 'usage')) = 3);
 select pg_temp.expect('moments and usage start empty', (select bool_and(moments = '{}'::jsonb and usage = '{}'::jsonb) from garry_state));
 select 'garry v2', true;
+
+-- ───────────── tenancy guards ─────────────
+reset role;
+create or replace function pg_temp.raises(label text, sql text, msg text default 'another league') returns void language plpgsql as
+$$ begin
+  begin execute sql; exception when others then
+    if sqlerrm ilike '%' || msg || '%' then return; end if;
+    raise exception 'FAILED: % (raised "%" instead)', label, sqlerrm;
+  end;
+  raise exception 'FAILED: % (no error)', label;
+end $$;
+-- the north commissioner can't reach into SaK by id, whatever the tool (the ids are looked up first: she can't see them)
+select set_config('t.sak_player', (select player_id::text from rosters where league_id = 1 limit 1), false);
+select set_config('t.sak_pick', (select id::text from draft_picks where league_id = 1 limit 1), false);
+select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-000000000099', false);
+set role authenticated;
+select pg_temp.raises('north commish gives coins to a SaK team', 'select commish_coins(2, 500, ''gift'')');
+select pg_temp.raises('north commish resets a SaK password', 'select commish_reset_password(2, ''hijacked-123'')');
+select pg_temp.raises('north commish books a SaK ledger line', 'select commish_ledger(2, ''adjust'', 10, ''x'')');
+select pg_temp.raises('north commish moves a SaK player', format('select commish_move_player(%s, 99, ''BN'')', current_setting('t.sak_player')));
+select pg_temp.raises('north commish proposes a trade to a SaK team', 'select propose_trade(2, array[]::int[], array[]::int[], array[]::int[], array[]::int[], null, 0, 0, 10, 0)');
+select pg_temp.raises('north commish re-owns a SaK pick', format('select commish_set_pick_owner(%s, 99, null::text)', current_setting('t.sak_pick')));
+reset role;
+select coalesce((select id::text from bets where league_id = 1 order by id limit 1), '') as sak_bet \gset
+select set_config('t.sak_bet', :'sak_bet', false);
+select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-000000000099', false);
+set role authenticated;
+do $$ begin
+  if current_setting('t.sak_bet') <> '' then
+    perform pg_temp.raises('north GM answers a SaK bet', format('select respond_bet(%s, true)', current_setting('t.sak_bet')));
+    perform pg_temp.raises('north commish settles a SaK bet', format('select commish_settle_bet(%s, 2)', current_setting('t.sak_bet')));
+  end if;
+end $$;
+-- her own league still works: coins to her own team land, and SaK's ledger doesn't move
+reset role;
+select count(*) as sak_coins0 from coin_ledger where league_id = 1 \gset
+select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-000000000099', false);
+set role authenticated;
+select commish_coins(99, 5, 'north test');
+reset role;
+select pg_temp.expect('north coins land in the north', (select league_id from coin_ledger where team_id = 99 and reason = 'north test') = :league2);
+select pg_temp.expect('SaK coin ledger untouched', (select count(*) from coin_ledger where league_id = 1) = :sak_coins0);
+-- a site notice raised from the north lands in the north
+select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-000000000099', false);
+select _sys('general', 'north notice', null);
+select pg_temp.expect('north notice in the north', (select league_id from messages where body = 'north notice') = :league2);
+-- an @mention in SaK chat never pings the north, even when the names match
+select count(*) as north_pings0 from notifications where team_id = 99 \gset
+insert into messages (channel, team_id, body) values ('general', 2, '@Nora @all big night boys');
+select pg_temp.expect('SaK @all does not reach the north', (select count(*) from notifications where team_id = 99) = :north_pings0);
+select pg_temp.expect('SaK @all still reaches SaK', (select count(*) from notifications where kind = 'mention' and body like '%big night boys%' and team_id <> 2) >= 1);
+-- a signed-in stranger with no membership belongs to no league and reads nothing
+insert into auth.users (id, email) values ('00000000-0000-0000-0000-000000000098', 'stranger@example.com');
+select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-000000000098', false);
+set role authenticated;
+select pg_temp.expect('a stranger has no league', current_league_id() is null);
+select pg_temp.expect('a stranger reads no teams, chat, rosters or rules', (select count(*) from teams) + (select count(*) from messages) + (select count(*) from rosters) + (select count(*) from league) = 0);
+reset role;
+select set_config('request.jwt.claim.sub', '', false);
+select pg_temp.expect('the scheduler still lands on league 1', current_league_id() = 1);
+-- the admin key: only the service role can check it, and only the real key passes
+select value as admin_key from private.app_keys where name = 'admin' \gset
+set role service_role;
+select pg_temp.expect('the admin key checks out', admin_key_ok(:'admin_key'));
+select pg_temp.expect('a wrong key does not', not admin_key_ok('not-the-key-not-the-key-not-the-key'));
+reset role;
+set role anon;
+select pg_temp.raises('anon cannot test admin keys', 'select admin_key_ok(''x'')', 'permission denied');
+reset role;
+select 'tenancy guards', true;
+set role authenticated;
+select pg_temp.raises('a GM cannot pay out a market', 'select _payout_market(1, ''home'')', 'permission denied');
+reset role;

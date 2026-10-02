@@ -1,0 +1,255 @@
+# Expansion readiness: more leagues, then more sports
+
+The review of record for growing Super Pools past one league and one sport. It answers two questions: what
+breaks today if a second league (or a second sport) is switched on, and the order of work that makes adding
+leagues a routine, issue-free process. It sits under `docs/SUPERPOOLS.md` (the plan) and `docs/MARKET.md` (the
+road to every sport); `supabase/tests/tenancy.sql` is its enforcement.
+
+Reviewed 2 October 2026 against `main` after PR #68: all 77 migrations (each function judged by its latest
+definition), every edge function, the whole front end, and the live database. Three independent passes
+(database, edge functions, front end), then the claims that drive the plan were checked by hand against
+production.
+
+## 1. The verdict
+
+- **SaK is safe and unaffected.** Every finding below is about what happens when a second league or sport
+  arrives. Nothing in this review changed what SaK's GMs see.
+- **Tenancy is about two thirds done.** Every league table carries `league_id`, has row-level security on, has
+  every policy bound to `current_league_id()`, and stamps its league from the team on insert (checked by the
+  new guardrail test, section 3). Rules, accounts, invites and Garry are per league.
+- **A second hockey league cannot go live yet.** Eight blockers (section 4) would make it collide with SaK on
+  the first draft, the first scored game or the first cron run: one roster row per NHL player across all
+  leagues, a single draft, fantasy points stored once with SaK's weights, a scheduler that only ever runs as
+  league 1, and a sign-in page that lists every league's teams.
+- **A second sport is a larger, separate step.** The NHL is threaded through the schema (positions, stat keys,
+  game states, ids, the Eastern-time league day) and the front end. Section 6 lays out the split: a `sports`
+  table, a sport adapter for data, and scoring profiles, with the NHL becoming the first row.
+- **What this pass fixed:** three holes that were open today (section 2), cross-league guards on 26 functions,
+  and a guardrail test that fails the build when a new table, view or function breaks tenancy.
+
+## 2. Fixed in this pass
+
+Migrations 76 and 77 (applied to production), Garry v32 (deployed), and the guardrail test.
+
+| What | Was | Now |
+|---|---|---|
+| `_payout_market` | Callable with the public key: anyone could pay out any Book market to the winner of their choice. All 80 settlements on record happened at the scheduler's minutes, so nobody did. | Revoked from the API; only the settlement jobs call it. |
+| Garry's commissioner tasks (keeper report, memory passes, voice-note rewrite, the league column, probes) | Callable with the public key; the keeper report had no once-a-day guard, so anyone could make Garry post it again and again, at our LLM cost. | A league's commissioner session, or the platform admin key (`x-admin-key`, held in `private.app_keys`, checked by `admin_key_ok`, which only the service role may call). |
+| `current_league_id()` for a signed-in person with no membership | Fell through to league 1: any new account would have read all of SaK. | No league: they read nothing. The scheduler (no user) still lands on league 1. |
+| Commissioner and GM tools that take an id (coins, ledger lines, password resets, keepers, picks, bets, markets, trades, proposals, ideas, Garry's memory) | Security-definer functions with no league check: a commissioner in league 2 could hand out coins, settle bets or reset a SaK GM's password. | `_in_league(table, id)` runs first in all 26 of them. |
+| `_sys()` (site notices) | Always posted into SaK's chat. | Posts into the caller's league. |
+| `@mentions` and the bot's name | `@all` in any league pinged every league's GMs; the bot answered only to "garry". | Mentions stay in their league; the bot answers to its league's name from `leagues.brand`. |
+| Garry at the Book | The GM's RPCs ran in their active league, not the run's league. | Sent with `x-league`. |
+
+The flow test now proves each of these (the second league's commissioner tries every tool on SaK ids and is
+refused; a stranger reads nothing; a SaK `@all` never reaches the north league).
+
+## 3. The guardrails (how it stays fixed)
+
+`supabase/tests/tenancy.sql` runs after the flow test on every `npm run test:db`. It fails when:
+
+1. A table has no `league_id` and isn't on the shared list (NHL data, caches, platform tables).
+2. A league table has row-level security off, or any policy that doesn't check `current_league_id()`.
+3. A league table that names a team lacks the `_stamp_league` trigger.
+4. A view doesn't run as the caller (`security_invoker`).
+5. An internal `_name` security-definer function that writes can be called from the API.
+6. A callable security-definer function takes an id (`p_team`, `p_bet`, `p_market`, ...) and never checks
+   its league.
+
+Each rule carries a short reviewed list with the reason for every entry. Those lists are the debt register:
+they only ever get shorter. Proven by planting a table, a view and a function that break the rules: each was
+caught. The same rules were run against production and pass.
+
+**Working rule from now on:** a new league table gets `league_id`, the stamp trigger and bound policies in the
+same migration; a new RPC that takes an id calls `_in_league` first; a new view is `security_invoker`. The test
+says so if you forget.
+
+## 4. Blockers before a second league goes live (same sport)
+
+Each is confirmed against production. Fix in this order; each lands with flow-test coverage for two leagues.
+
+**B1. One roster row per NHL player across every league.** `rosters` has `primary key (player_id)`. League 2
+cannot roster anyone SaK owns, and every lookup by player alone (`add_player`, `drop_player`, `_do_pick`'s
+"already taken", `commish_move_player`'s `on conflict (player_id)`, `_autopick_player`, the injury and
+big-night alerts, Book props) reads across leagues.
+*Fix:* key `(league_id, player_id)`; add the league to every player-keyed roster query; alerts loop every
+owning team, one per league.
+
+**B2. The draft is single-tenant.** `draft_state` is one row (`check (id = 1)`); `draft_picks` is
+`unique (season, overall)` and `unique (season, round, original_team)`; `draft_set_order`, `_ensure_picks`,
+`_do_pick`, `_advance`, `draft_tick`, `draft_undo`, `draft_reset`, `finalize_keepers` and
+`ensure_future_picks` count, create or delete across all leagues (`draft_reset` deletes every league's drafted
+players). `_advance` posts `garry?task=draft` with no league.
+*Fix:* one `draft_state` row per league (`unique (league_id)`); pick uniqueness includes `league_id`; every draft
+and keeper function filters by league; the cron `draft_tick` loops leagues.
+
+**B3. Fantasy points are stored once, with SaK's weights.** The `_player_games_fpts` trigger writes
+`calc_fpts(stats)` into the shared `player_games.fpts` as league 1; every standings view, the Book, bench
+tallies and Garry sum it. `commish_update_scoring` re-scores every game for everyone, so a league-2
+commissioner saving scoring would rewrite SaK's season. `recompute_player_values` writes `proj`, `last_fp` and
+`rank` onto the shared `players` table.
+*Fix:* scoring profiles. A `scoring_profiles` table (one row per distinct scoring set, keyed by a hash, shared by
+leagues with the same rules), `player_game_points (profile_id, game_id, player_id, fpts)` filled by the stats
+trigger for every active profile, and `player_values (profile_id, player_id, proj, last_fp, rank)`. Views join
+through `league_rules.profile_id`. Saving scoring switches the league to a profile; it never rewrites another.
+SaK's current points become profile 1 unchanged.
+
+**B4. The scheduler only ever runs as league 1.** Nothing sets `app.league_id`. In SQL: `open_markets`,
+`open_season_markets`, `open_nhl_markets`, `reprice_season_markets`, `settle_season_markets`,
+`settle_race_markets`, `settle_due_bets` (SaK's `season_end`), `process_pending` (SaK's trade review hours and
+roster caps; one failing trade aborts the whole job, `draft_tick` included). In nhl-sync: `take_snapshots`,
+`apply_lineup_plans`, auto-lineups (the teams query has no league filter and uses SaK's phase and caps),
+`notify_corrections`, the faceoff decision, projections.
+*Fix:* a league pass: one SQL entry point `run_league_jobs(p_league)` that sets `app.league_id` locally and runs
+the per-league work, called once per active league by each cron job; nhl-sync splits into the shared NHL fetch
+and a per-league pass through RPCs that take `p_league` (a `set_config` doesn't carry across PostgREST calls).
+Each league's pass catches its own errors.
+
+**B5. Sign-in and choosing a league.** The login page reads `team_directory` with the public key: every
+league's teams and every GM's login email (live today for SaK's eight). The client never sends `x-league`;
+nothing calls `my_leagues`, `set_active_league` or `accept_invite`; there is no sign-up, invite page or
+league switcher. Realtime listeners have no `league_id` filter (deletes skip row-level security, so every
+league would refetch on every other league's deletes) and presence is one global `online` channel.
+*Fix:* sign in by email, then pick the league (or league by host, plan step 1); a pre-sign-in
+`league_by_host()` that returns only the brand; `x-league` on every request; a switcher that sets the active
+league and resubscribes; `filter: league_id=eq.N` on every per-league subscription; presence per league.
+*Decision for Patrick:* the team-picker login is friendly for SaK but exposes emails; moving SaK to email
+sign-in (with "remember me") closes that today.
+
+**B6. Money and the Fund are SaK's.** `commish_bill_entries` bills every league's GMs; `commish_post_payouts`
+reads `standings` with the owner's rights, so it ranks, pays and charges the Peter across leagues; `fund` is one
+row (`check (id = 1)`) and `fund_prices` is shared (SaK's TSLA holding shows to everyone).
+*Fix:* filter both by league; the Fund becomes per league (`fund (league_id)`, `fund_prices (league_id, date)`)
+or an explicit SaK-only feature hidden elsewhere. *Decision for Patrick:* which of the two.
+
+**B7. SaK's history and names are written into the site.** `src/data/history.ts` (seasons, champions, team
+ids 1 to 8, the rules text, $200 and 60/30/10) renders on League, Home, Standings, Money, Profile and the draft
+list; `prizes.ts` hard-codes The Johnson, The Playoff Cup and The SAK Cup; 173 UI lines in 42 files name SaK,
+Garry, St. Patrick coins, the Peter or the SAK Cup; `useBrand()` is used in 6 files and `brand.coin`,
+`brand.booby`, `brand.trophy` are never read. The draft call room defaults to one Jitsi room name for every
+league; `league_reports` ids (`draft-2026-27`) collide across leagues.
+*Fix:* league history and rules text move to per-league rows (`league_seasons`, rules generated from
+`league_rules`); brand gains `trophies`, `fund`, `penalty`, `short` and every screen reads it; the call room
+and report ids include the league.
+
+**B8. Alerts and phones.** `push_subscriptions` is keyed by `endpoint`, so a phone in two leagues serves only
+the last; push titles say "SAK Superleague"; `respond_trade` notifies every league's commissioner; push replay
+(`push` with a notification id) is open to the public key.
+*Fix:* key `(endpoint, team_id)`; title and link from the league's brand and host; commissioner of the trade's
+league only; push sends behind the admin key or a signed trigger.
+
+## 5. High and medium findings (after the blockers)
+
+| Area | Finding | Fix |
+|---|---|---|
+| Edge functions | nhl-sync answers every task to the public key, including the heavy ones (`projections`, `corrections&days=35`, `players`). | The cron jobs send the admin key; heavy tasks require it. |
+| Edge functions | `.single()` on `teams by user_id` (push test, Yahoo) breaks for a person in two leagues; `yahoo_accounts` is per team. | Resolve the team through `league_members` and the active league; Yahoo per account. |
+| Edge functions | Reads that can pass 1,000 rows across leagues (gameday rosters, auto-lineup rosters) are cut short silently. | Distinct ids by RPC, or page per league. |
+| SQL | `create_league` copies league 1's rules, sets no sport, owner or membership, and makes no draft or fund row; any commissioner can call it. | A platform-owner `create_league` that builds the whole league (rules from a sport template, draft row, Garry row, commissioner membership, opening coins). |
+| SQL | `teams.id` has no sequence (`max(id) + 1` in `accept_invite`, `commish_add_spectator`); `commish_add_spectator` writes no league. | Identity column; the league written explicitly. |
+| SQL | Book market inserts with no team (`commish_market`, `open_markets`) rely on the default league 1. | Write `league_id` explicitly. |
+| SQL | The stamp trigger runs on insert only; a trade moving a row to another team never re-stamps. | Cross-league moves are refused anyway once B1 lands; assert it. |
+| SQL | `commish_health` shows platform cron and function internals to any league's commissioner. | Platform owner only; commissioners see their league's jobs. |
+| SQL | SaK words in SQL messages ("St. Patrick coins", "SaK points tonight", Johnson, Peter, SaK Fund). | Read `leagues.brand`. |
+| Front end | Hosted on GitHub Pages with one SaK manifest, icons, titles and service worker. | Vercel, league by host, manifest and icons per league. |
+| Cost | Garry runs per league with no daily budget (about $0.003 a reply, plus the daily, weekly and moments posts). | Per-league daily call budget on `garry_state.usage`, set by plan tier. |
+
+## 6. The sport pulled out of the engine
+
+What is hockey-specific today, and what replaces it. The NHL becomes `sports` row `nhl` and nothing about SaK
+changes.
+
+**Data and identity.** `players.id` is the NHL player id and `games.id` the NHL game id; `games.game_type`
+comes from the NHL id's digits; `players.nhl_team`, `teams.fav_nhl` and the `nhl_teams` table name the league.
+Add `sport` to `players`, `games`, `player_games`, `player_status` and a `clubs` table (`nhl_teams` becomes its
+NHL rows); new sports get platform ids from a sequence with `(sport, ext_id)` unique, and NHL rows keep their
+ids so nothing in SaK moves.
+
+**The sport adapter (edge).** One adapter per sport fetches and normalizes into the shared tables:
+`fetchSchedule`, `fetchGame -> {game, stat lines}`, `fetchRosters`, `fetchInjuries`, `fetchNews`,
+`fetchProbables`, `fetchSeasonStats`, plus its time zone and day cutoff. `_shared/nhl.ts`, nhl-sync's NHL
+endpoints, ESPN hockey, `projections.ts` (82 games, F/D/G priors), `playoffs.ts`, nhl-hub and player-info are
+the NHL adapter today. nhl-sync becomes `sport-sync?sport=nhl` for the shared fetch and the league pass from B4.
+
+**The sport definition (database).** A `sports` row carries what the engine now hard-codes:
+positions and their labels; lineup slots with eligibility (`slot_ok`'s G and Util rules, IR and bench codes);
+player groups (skater and goalie today, batter and pitcher, outfield and keeper); the stat vocabulary with
+labels and groups; game states mapped to scheduled, live, final, postponed and cancelled; period labels
+(P1, OT, SO; halves; innings); the season shape (regular season and playoffs, games per season); the
+day boundary (America/New_York with the 6 am rollover for the NHL; a gameweek for soccer); and the lock rule
+(each player at his own game's start). `league_rules.scoring` stops being `{skater, goalie}` and becomes a list
+of `{group, stat, points}` read through the sport's vocabulary; `calc_fpts`, `slot_ok`, `_auto_lineup`,
+`_apply_lineup`, `_autopick_player`, `recompute_player_values` and the Book's stat whitelist read the sport.
+
+**The front end.** A `SportConfig` read from the sports row drives positions and colours, slot lists, stat
+columns, game-state and period text, team names and logos, the day boundary (matching the server), the
+"centre" page (`/nhl` becomes `/sport/nhl`), and the words ("puck drop", "goalie starts"). About 28 position
+literals in 20 files, 42 game-state literals in 16 files and the NHL team tables in `format.ts` move onto it.
+
+**Garry.** His persona says hockey ("beer-league dressing room", "hockey decisions only"); it reads the sport's
+vocabulary and voice notes instead, and his prompt facts stop naming NHL games.
+
+**The Book.** Markets already carry a stat key and a line, so they carry over; the templates, the house
+futures (Stanley Cup, Art Ross, Rocket Richard) and the in-play rules (three periods, overtime, shootout) become
+per sport.
+
+## 7. The order of work
+
+Each phase ends on a gate: what must be true before the next starts.
+
+**Phase 0, done (this pass).** Live holes closed, cross-league guards, guardrail test, this review.
+
+**Phase 1, a second hockey league in the same database.** B1 rosters key, B2 draft per league, B3 scoring
+profiles, B4 the league pass, B6 money and Fund, the medium SQL items. Each lands with two-league flow
+coverage: both leagues draft the same player, score the same game with different weights, run every cron job,
+settle bets and the Book, post payouts, and neither sees or changes the other.
+*Gate:* a shadow league (a copy of SaK's teams under test accounts) runs alongside SaK for a full week of real
+games, and its standings, Book and Garry posts match what SaK's engine produces for its own rules.
+
+**Phase 2, people can join.** B5 sign-in by email and league by host, invites and the switcher, realtime and
+presence per league, B7 brand and history per league, B8 phones, Vercel hosting, the platform `create_league`.
+Garry's daily budget. A staging Supabase project for every migration before production.
+*Gate:* a friend's league is created, invited, drafted and scored for two weeks without anyone touching SQL.
+
+**Phase 3, the sport pulled out.** Section 6 with the NHL as the only sport: `sports` row, adapter interface,
+`SportConfig`, scoring as a list, ids with `sport`. SaK must not notice.
+*Gate:* every NHL literal in the guardrail lists is gone and the flow test runs unchanged.
+
+**Phase 4, the second sport.** Basketball on the daily (hockey) engine is the cheapest proof of the split, on a
+licensed feed; soccer follows with the weekly engine for 2027-28, as `docs/MARKET.md` lays out.
+*Gate:* one basketball league and SaK run side by side through a month with no sport-specific code outside
+the adapter and the sports row.
+
+## 8. The new-league checklist
+
+Until onboarding is self-serve, a new league goes live only when every line is true. Phase 2 turns this list
+into a `league_readiness(league)` function that the Commissioner page shows.
+
+1. `leagues` row: slug, name, short name, sport, status `active`, owner, full brand (bot, coin, trophies,
+   last-place prize, fund name, colours), domain if any.
+2. `league_rules` row from the sport's template: season dates, phase, roster caps, scoring profile, keepers,
+   draft settings, money (or money off), trade review hours.
+3. Commissioner account with a `league_members` row as `commish`; every GM invited and accepted.
+4. `draft_state` row, picks generated for this league only, draft room name unique.
+5. `garry_state` row with a briefing; daily LLM budget set.
+6. Opening coins granted to every GM; Book futures opened for the league.
+7. A dry run of the league pass for this league (snapshots, auto-lineups, markets) with no errors.
+8. `npm run test:db` green, including `tenancy.sql`, on the build that serves it.
+
+## 9. Decisions for Patrick
+
+1. **Sign-in.** Keep SaK's team-picker login (exposes GMs' login emails to anyone with the public key) or move
+   everyone to email sign-in now. Recommendation: email sign-in, with the team picker shown after.
+2. **The Fund.** A per-league feature, or SaK's own and hidden elsewhere. Recommendation: SaK's own for now;
+   per league once a second league asks.
+3. **The second sport.** Basketball first (cheapest, same engine) or soccer first (bigger audience, new weekly
+   engine). Recommendation: basketball proves the split; soccer is the growth bet for 2027-28.
+4. **Staging.** A second Supabase project for staging before the first league outside SaK (about $25 a month).
+   Recommendation: yes, at the start of phase 2.
+
+## 10. Where things live
+
+- The rules: `supabase/tests/tenancy.sql` (with the reviewed lists), migration 76 (`_in_league`, the admin key).
+- The proofs: the "tenancy guards" and "second league" sections of `supabase/tests/flow.sql`.
+- The admin key: `private.app_keys` (name `admin`); read it with the service role or the SQL editor. It goes in
+  the `x-admin-key` header for Garry's commissioner tasks; never in the site or the repo.

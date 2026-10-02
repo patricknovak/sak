@@ -1,8 +1,9 @@
 # CLAUDE.md: the standing briefing for this repository
 
 Read this first in every session, then `docs/SUPERPOOLS.md` (the product plan), `docs/BRAND.md` (how the product
-is named, described and drawn), `docs/MARKET.md` (the competition and the road to every sport) and, for how the
-system is built and what it costs to run, `docs/REVIEW-2026-09.md`.
+is named, described and drawn), `docs/MARKET.md` (the competition and the road to every sport), `docs/EXPANSION.md`
+(what must change before more leagues and sports, in order) and, for how the system is built and what it costs to
+run, `docs/REVIEW-2026-09.md`.
 
 ## What this is
 
@@ -56,7 +57,8 @@ npx vite preview --port 4174 --strictPort   # serve dist/ for browser checks
 Local database for `test:db`: a plain Postgres 16 on a Unix socket, `PGHOST=/tmp PGPORT=5433
 PGUSER=postgres bash supabase/tests/run.sh`. The runner applies every migration in order (files whose name
 contains `_cron` are skipped: pg_cron is not available locally) and then `supabase/tests/flow.sql`, which
-drafts, sets lineups, scores, trades and settles a whole flow. Success prints `database flow test passed`.
+drafts, sets lineups, scores, trades and settles a whole flow, then `supabase/tests/tenancy.sql`, the tenancy
+guardrails. Success prints `database flow test passed`.
 Note: psql `:vars` do not interpolate inside `DO` blocks; use `set_config` / `current_setting`.
 
 Deno check for edge functions: copy the function folder plus `_shared` to a scratch dir and run
@@ -86,6 +88,12 @@ Deno check for edge functions: copy the function folder plus `_shared` to a scra
 - Branch and PR flow: work on the designated `claude/...` branch, commit with Patrick's name and email,
   push, open a draft PR against `main`, subscribe to it, schedule a self check-in, and fast-forward the
   branch to `main` after the merge. No model identifiers in commits or PR text.
+- Tenancy: a new league table gets `league_id`, the `_stamp_league` trigger and policies bound to
+  `current_league_id()` in the same migration; a new security-definer RPC that takes an id calls
+  `_in_league(table, id)` first; a new view is `security_invoker`. `tenancy.sql` fails the test otherwise.
+- The platform admin key (`private.app_keys`, name `admin`) goes in the `x-admin-key` header for Garry's
+  commissioner tasks (keepers, learn, evolve, assess, probe); the public anon key alone is refused. Never put it
+  in the site or the repo.
 - Comments explain the league rule or the reason, in plain language, in the voice of the existing code.
 - UI copy is hockey-league plain English, phone-first (390 px wide) and checked with a screenshot before
   a PR (Playwright with the pre-installed Chromium; sign in as a test team, never as a real GM).
