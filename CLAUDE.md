@@ -31,7 +31,7 @@ Two things in one repo:
 - Scheduler: pg_cron jobs call the edge functions through pg_net with the anon key. Job names: nhl-scores
   (gated by `_scores_due()`), nhl-gameday, nhl-injuries, nhl-schedule, season-schedule, nhl-news,
   nhl-players, nhl-players-pregame, nhl-standings, nhl-corrections, nhl-corrections-deep, projections,
-  auto-lineups, auto-lineups-late, garry-daily, garry-weekly, garry-nudge, open-book, settle-book,
+  auto-lineups, auto-lineups-late, garry-daily, garry-weekly, garry-nudge, garry-moments, open-book, settle-book,
   settle-bets, expire-bets, process-pending (every 10 s), health-check, fund-price, cron-history.
 - Hosting: GitHub Pages from `main` (`.github/workflows/deploy.yml`, builds on push). The landing page for
   Super Pools is `landing/index.html`, to be hosted on Vercel.

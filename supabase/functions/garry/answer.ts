@@ -77,7 +77,8 @@ async function findPlayers(db: Db, q: string) {
   return [...best.values()].slice(0, 2).map((p) => p.id);
 }
 
-export async function answer(db: Db, question: string, askerTeam: number): Promise<Answer> {
+// plain: just the facts and the link, no greeting or sign-off (the chat engine writes its own words around them)
+export async function answer(db: Db, question: string, askerTeam: number, opts: { plain?: boolean } = {}): Promise<Answer> {
   const HELP = help(db);
   const q = norm(question.replace(new RegExp(`@?${db.brand.bot.name}[,:!]?`, 'ig'), ' ')).trim();
   const { league, teams, standings, playoffs } = await base(db);
@@ -90,7 +91,7 @@ export async function answer(db: Db, question: string, askerTeam: number): Promi
   // "how do I…" wants instructions; "how's my lineup" / "how is Makar" wants the facts
   const howTo = has(/\b(how (do|can|does|to|should|would)|where|help|can i|what do i|explain|show me)\b/);
   const reply = (topic: string, body: string, facts: Record<string, unknown> = {}) =>
-    ({ topic, facts, text: `${gm} ${topic === 'hello' ? '' : pick(OPEN)} ${body} ${topic === 'hello' ? '' : pick(CLOSE)}`.replace(/\s+/g, ' ').trim() });
+    ({ topic, facts, text: (opts.plain ? body : `${gm} ${topic === 'hello' ? '' : pick(OPEN)} ${body} ${topic === 'hello' ? '' : pick(CLOSE)}`).replace(/\s+/g, ' ').trim() });
   const inPlayoffs = playoffs.some((t) => Number(t.points) !== 0);
   const table = [...(inPlayoffs ? playoffs : standings)].sort((a, b) => a.rank - b.rank);
   const scored = table.some((t) => Number(t.points) !== 0);
