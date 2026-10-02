@@ -1375,3 +1375,9 @@ select pg_temp.expect('the north league scores its own starters', (select points
 reset role;
 update league_rules set phase = 'keepers', season_start = null where league_id = :league2;
 select 'bench tallies', true;
+
+-- ───────────── Garry, second edition ─────────────
+select pg_temp.expect('garry_state carries the phase his notes were written in, his moments and his usage',
+  (select count(*) from information_schema.columns where table_name = 'garry_state' and column_name in ('persona_phase', 'moments', 'usage')) = 3);
+select pg_temp.expect('moments and usage start empty', (select bool_and(moments = '{}'::jsonb and usage = '{}'::jsonb) from garry_state));
+select 'garry v2', true;
