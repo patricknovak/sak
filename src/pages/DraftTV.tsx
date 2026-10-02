@@ -10,7 +10,7 @@ import { SoundToggle, useDraftSounds, useSoundsOn } from '../components/DraftSou
 import { Maximize2, X } from 'lucide-react';
 
 export default function DraftTV() {
-  const { league, teams, team, players, rosters, picks, draft, online } = useLeague();
+  const { league, teams, spectators, team, players, rosters, picks, draft, online } = useLeague();
   const now = useNow(500);
   const on = useSoundsOn(true);
   useDraftSounds(on, { everyone: true });
@@ -48,7 +48,7 @@ export default function DraftTV() {
           <img src="./icon.svg" className="h-14 w-14 drop-shadow-[0_6px_16px_rgba(247,197,72,.45)]" alt="" />
           <div className="min-w-0">
             <div className="h-display text-3xl leading-none"><span className="text-gold-shine italic">SAK</span> <span className="text-shine">Superleague Draft · {season}</span></div>
-            <div className="mt-1 text-sm text-white/60">{league?.pick_seconds}s clock · {rounds} rounds · {league?.snake ? 'snake' : 'straight'} · {[...teams].filter((t) => online.has(t.id)).length} GMs in the room</div>
+            <div className="mt-1 text-sm text-white/60">{league?.pick_seconds}s clock · {rounds} rounds · {league?.snake ? 'snake' : 'straight'} · {teams.filter((t) => online.has(t.id)).length} GMs{spectators.some((t) => online.has(t.id)) ? ` and ${spectators.filter((t) => online.has(t.id)).length} watching` : ''} in the room</div>
           </div>
           <div className="flex-1" />
           {status === 'live' || status === 'paused' ? current && (

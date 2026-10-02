@@ -2,16 +2,35 @@ import { useEffect, useMemo, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { useLeague, useNow } from '../lib/store';
 import { rpc, realtimeChannel, supabase } from '../lib/supabase';
-import type { DraftPick, PickupStatus, Player, Trade } from '../lib/types';
+import type { DraftPick, Player, Trade } from '../lib/types';
 import { ago, fmtDateTime, fmtPts } from '../lib/format';
 import { PlayerRow } from '../components/PlayerCard';
 import { Empty, Section, TeamBadge, TeamName, useAction, PageHeader } from '../components/ui';
-import { TradeAnalysis, TradeCompare, TradeFinder, useTradeValuer } from '../components/TradeTools';
+import { TradeAnalysis, TradeCompare, TradeFinder, TradeFit, useTradeValuer, usePickupStatus, type BuildSpec } from '../components/TradeTools';
 import { PlayerPeek, ScoutBar, StatStrip, sortPlayers, useScout, useScoutCtx } from '../components/TradeScout';
 import { TradeBlock } from '../components/TradeBlock';
-import { evaluateSide, gradeSide, type Side } from '../lib/trade';
+import { dropOrder, evaluateSide, gradeSide, type Side } from '../lib/trade';
 import { gradeColor } from '../lib/grades';
 import { Repeat2 } from 'lucide-react';
+
+// choosing who goes to make room: the weakest first, tap to swap one for another
+function DropPick({ pool, need, value, onChange, worth }: { pool: Player[]; need: number; value: Set<number>; onChange: (v: Set<number>) => void; worth: (p: Player) => number }) {
+  return (
+    <div className="flex flex-wrap gap-1">
+      {pool.slice(0, 10).map((p) => {
+        const on = value.has(p.id);
+        return (
+          <button key={p.id} type="button" onClick={() => { const n = new Set(value); if (on) n.delete(p.id); else { if (n.size >= need) n.delete([...n][0]); n.add(p.id); } onChange(n); }}
+            className={`rounded-full border px-2 py-0.5 text-xs ${on ? 'border-amber-300 bg-amber-400/25 text-amber-50' : 'border-white/10 bg-white/[.04] text-slate-300'}`}>
+            {on ? '✂️ ' : ''}{p.name} <span className="text-mute">{p.elig.join('/')} · {Math.round(worth(p))} pts left</span>
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
+const FILTERS = ['all', 'C', 'LW', 'RW', 'D', 'G', 'picks'];
 
 // a multi-team builder line: one asset, where it comes from and where it goes
 type MItem = { from: number; to: number; player_id?: number; pick_id?: number };
@@ -31,13 +50,13 @@ export default function Trades() {
   const [note, setNote] = useState('');
   // unused free-agent pickups and St. Patrick coins can go in a deal too
   const [extras, setExtras] = useState({ givePk: 0, getPk: 0, giveCoins: 0, getCoins: 0 });
-  const [pkStatus, setPkStatus] = useState<PickupStatus[]>([]);
+  const pkStatus = usePickupStatus();
   const [coinFree, setCoinFree] = useState<Map<number, number>>(new Map());
   useEffect(() => {
-    supabase.from('pickup_status').select('*').then(({ data }) => setPkStatus((data ?? []) as PickupStatus[]));
     supabase.from('coin_balances').select('team_id,balance,escrow').then(({ data }) => setCoinFree(new Map((data ?? []).map((c: { team_id: number; balance: number; escrow: number }) => [c.team_id, Number(c.balance) - Number(c.escrow)]))));
   }, []);
   const pkLeft = (t: number) => pkStatus.find((x) => x.team_id === t)?.remaining ?? 0;
+  const { v: valuer, rosterMax, sched, irOf } = useTradeValuer();
   const extrasN = extras.givePk + extras.getPk + extras.giveCoins + extras.getCoins;
   const [mode, setMode] = useState<'two' | 'multi'>(params.get('multi') ? 'multi' : 'two');
   // scouting while you pick: what shows beside each player, a peek under any of them, and a side-by-side tray
@@ -49,7 +68,14 @@ export default function Trades() {
   const ownerOf = (id: number) => rosters.find((r) => r.player_id === id)?.team_id ?? 0;
   const [parties, setParties] = useState<number[]>([]);
   const [mitems, setMitems] = useState<MItem[]>([]);
-  useEffect(() => { setGive(new Set(ids('give'))); setGet(new Set(ids('get'))); setGivePicks(new Set(ids('givePicks'))); setGetPicks(new Set(ids('getPicks'))); }, [params]); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => {
+    setGive(new Set(ids('give'))); setGet(new Set(ids('get'))); setGivePicks(new Set(ids('givePicks'))); setGetPicks(new Set(ids('getPicks')));
+    setExtras((x) => ({ ...x, givePk: Number(params.get('givePk') ?? 0) || 0, getPk: Number(params.get('getPk') ?? 0) || 0 }));
+  }, [params]); // eslint-disable-line react-hooks/exhaustive-deps
+  // the builder can show one position (or only picks) at a time
+  const [posFilter, setPosFilter] = useState<string>('all');
+  // the players you name to drop when the deal leaves you over the roster limit
+  const [myDrops, setMyDrops] = useState<Set<number>>(new Set());
 
   const load = () => supabase.from('trades').select('*, trade_items(*)').order('id', { ascending: false }).limit(60)
     .then(({ data }) => setTrades((data ?? []) as Trade[]));
@@ -72,13 +98,13 @@ export default function Trades() {
 
   const propose = () => run(async () => {
     await rpc('propose_trade', { p_to: partner, p_give: [...give], p_get: [...get], p_give_picks: [...givePicks], p_get_picks: [...getPicks], p_note: note || null,
-      p_give_pickups: extras.givePk, p_get_pickups: extras.getPk, p_give_coins: extras.giveCoins, p_get_coins: extras.getCoins });
-    setGive(new Set()); setGet(new Set()); setGivePicks(new Set()); setGetPicks(new Set()); setNote(''); setParams({}); setExtras({ givePk: 0, getPk: 0, giveCoins: 0, getCoins: 0 });
+      p_give_pickups: extras.givePk, p_get_pickups: extras.getPk, p_give_coins: extras.giveCoins, p_get_coins: extras.getCoins, p_drops: needDrops > 0 ? [...myDrops] : [] });
+    setGive(new Set()); setGet(new Set()); setGivePicks(new Set()); setGetPicks(new Set()); setNote(''); setParams({}); setExtras({ givePk: 0, getPk: 0, giveCoins: 0, getCoins: 0 }); setMyDrops(new Set());
     load();
   }, 'Trade offer sent 📨');
   const proposeMulti = () => run(async () => {
-    await rpc('propose_multi_trade', { p_items: mitems, p_note: note || null });
-    setMitems([]); setParties([]); setNote('');
+    await rpc('propose_multi_trade', { p_items: mitems, p_note: note || null, p_drops: needDropsM > 0 ? [...myDrops] : [] });
+    setMitems([]); setParties([]); setNote(''); setMyDrops(new Set());
     load();
   }, 'Multi-team offer sent 📨');
 
@@ -89,10 +115,12 @@ export default function Trades() {
     const myAfter = [...mine.players.filter((p) => !give.has(p.id)), ...theirs.players.filter((p) => get.has(p.id))];
     const theirAfter = [...theirs.players.filter((p) => !get.has(p.id)), ...mine.players.filter((p) => give.has(p.id))];
     return [
-      { team: me.id, before: mine.players, after: myAfter, picksOut: pk(givePicks), picksIn: pk(getPicks) },
-      { team: partner, before: theirs.players, after: theirAfter, picksOut: pk(getPicks), picksIn: pk(givePicks) },
+      { team: me.id, before: mine.players, after: myAfter, picksOut: pk(givePicks), picksIn: pk(getPicks), ir: irOf(me.id), drops: [...myDrops],
+        pickupsOut: extras.givePk, pickupsIn: extras.getPk, pickupsLeft: pkLeft(me.id), coinsOut: extras.giveCoins, coinsIn: extras.getCoins },
+      { team: partner, before: theirs.players, after: theirAfter, picksOut: pk(getPicks), picksIn: pk(givePicks), ir: irOf(partner),
+        pickupsOut: extras.getPk, pickupsIn: extras.givePk, pickupsLeft: pkLeft(partner), coinsOut: extras.getCoins, coinsIn: extras.giveCoins },
     ];
-  }, [me, partner, mine.players, theirs.players, give, get, givePicks, getPicks, picks]);
+  }, [me, partner, mine.players, theirs.players, give, get, givePicks, getPicks, picks, extras, myDrops, pkStatus, rosters]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // multi-team: everyone involved, and each roster after the deal
   const allParties = me ? [me.id, ...parties] : [];
@@ -100,9 +128,24 @@ export default function Trades() {
     const before = assets(t).players;
     const out = new Set(mitems.filter((i) => i.from === t && i.player_id).map((i) => i.player_id!));
     const inn = mitems.filter((i) => i.to === t && i.player_id).map((i) => players.get(i.player_id!)).filter((p): p is Player => !!p);
-    return { team: t, before, after: [...before.filter((p) => !out.has(p.id)), ...inn],
+    return { team: t, before, after: [...before.filter((p) => !out.has(p.id)), ...inn], ir: irOf(t), pickupsLeft: pkLeft(t), drops: t === me?.id ? [...myDrops] : [],
       picksOut: picks.filter((k) => mitems.some((i) => i.from === t && i.pick_id === k.id)), picksIn: picks.filter((k) => mitems.some((i) => i.to === t && i.pick_id === k.id)) };
-  }), [allParties.join(','), mitems, rosters, players, picks]); // eslint-disable-line react-hooks/exhaustive-deps
+  }), [allParties.join(','), mitems, rosters, players, picks, myDrops, pkStatus]); // eslint-disable-line react-hooks/exhaustive-deps
+  // how many players you'd be over the roster limit after the deal you're building (you name who goes)
+  const activeOf = (ps: Player[], t: number) => { const ir = irOf(t); return ps.filter((p) => !ir.has(p.id)).length; };
+  const needDrops = me && partner && twoSides[0] ? Math.max(0, activeOf(twoSides[0].after, me.id) - rosterMax) : 0;
+  const myMulti = me ? multiSides.find((x) => x.team === me.id) : undefined;
+  const needDropsM = me && myMulti ? Math.max(0, activeOf(myMulti.after, me.id) - rosterMax) : 0;
+  const need = mode === 'two' ? needDrops : needDropsM;
+  const myAfterNow = mode === 'two' ? twoSides[0]?.after ?? [] : myMulti?.after ?? [];
+  const dropPool = dropOrder(myAfterNow, myAfterNow.filter((p) => me && mine.players.includes(p) && !irOf(me.id).has(p.id)), valuer);
+  useEffect(() => {
+    // start from the weakest players; the GM can swap in anyone else
+    if (need === 0) { if (myDrops.size) setMyDrops(new Set()); return; }
+    const keep = [...myDrops].filter((id) => dropPool.some((p) => p.id === id)).slice(0, need);
+    for (const p of dropPool) { if (keep.length >= need) break; if (!keep.includes(p.id)) keep.push(p.id); }
+    if (keep.length !== myDrops.size || keep.some((id) => !myDrops.has(id))) setMyDrops(new Set(keep));
+  }, [need, dropPool.map((p) => p.id).join(',')]); // eslint-disable-line react-hooks/exhaustive-deps
   const mitem = (from: number, key: 'player_id' | 'pick_id', id: number) => mitems.find((i) => i.from === from && i[key] === id);
   const toggleM = (from: number, key: 'player_id' | 'pick_id', id: number) => {
     const cur = mitem(from, key, id);
@@ -111,7 +154,7 @@ export default function Trades() {
   };
   const setDest = (item: MItem, to: number) => setMitems(mitems.map((i) => (i === item ? { ...i, to } : i)));
 
-  const describe = (t: Trade, side: number, to?: number) => (t.trade_items ?? []).filter((i) => i.from_team === side && (to == null || i.to_team === to)).map((i) => {
+  const describe = (t: Trade, side: number, to?: number) => (t.trade_items ?? []).filter((i) => !i.release && i.from_team === side && (to == null || i.to_team === to)).map((i) => {
     if (i.player_id) return players.get(i.player_id)?.name ?? 'Player';
     if (i.pickups) return `🎟️ ${i.pickups} free-agent pickup${i.pickups > 1 ? 's' : ''}`;
     if (i.coins) return `☘️ ${i.coins} St. Patrick coins`;
@@ -124,17 +167,33 @@ export default function Trades() {
     const ps = partiesOf(t);
     const items = t.trade_items ?? [];
     const dest = (i: { from_team: number; to_team: number | null }) => i.to_team ?? ps.find((x) => x !== i.from_team)!;
+    const moves = items.filter((i) => !i.release);
+    const sum = (f: (i: (typeof items)[number]) => boolean, k: 'pickups' | 'coins') => moves.filter(f).reduce((n, i) => n + (i[k] ?? 0), 0);
     return ps.map((tid) => {
       const before = assets(tid).players;
-      const out = new Set(items.filter((i) => i.from_team === tid && i.player_id).map((i) => i.player_id!));
-      const inn = items.filter((i) => dest(i) === tid && i.from_team !== tid && i.player_id).map((i) => players.get(i.player_id!)).filter((p): p is Player => !!p);
-      return { team: tid, before, after: [...before.filter((p) => !out.has(p.id)), ...inn],
-        picksOut: picks.filter((k) => items.some((i) => i.from_team === tid && i.pick_id === k.id)),
-        picksIn: picks.filter((k) => items.some((i) => dest(i) === tid && i.from_team !== tid && i.pick_id === k.id)) };
+      const out = new Set(moves.filter((i) => i.from_team === tid && i.player_id).map((i) => i.player_id!));
+      const inn = moves.filter((i) => dest(i) === tid && i.from_team !== tid && i.player_id).map((i) => players.get(i.player_id!)).filter((p): p is Player => !!p);
+      return { team: tid, before, after: [...before.filter((p) => !out.has(p.id)), ...inn], ir: irOf(tid), pickupsLeft: pkLeft(tid),
+        drops: items.filter((i) => i.release && i.from_team === tid).map((i) => i.player_id!),
+        pickupsOut: sum((i) => i.from_team === tid, 'pickups'), pickupsIn: sum((i) => dest(i) === tid && i.from_team !== tid, 'pickups'),
+        coinsOut: sum((i) => i.from_team === tid, 'coins'), coinsIn: sum((i) => dest(i) === tid && i.from_team !== tid, 'coins'),
+        picksOut: picks.filter((k) => moves.some((i) => i.from_team === tid && i.pick_id === k.id)),
+        picksIn: picks.filter((k) => moves.some((i) => dest(i) === tid && i.from_team !== tid && i.pick_id === k.id)) };
     });
   };
   const [openTrade, setOpenTrade] = useState<number | null>(null);
-  const { v: valuer, rosterMax, sched } = useTradeValuer();
+  // accepting an offer that leaves you over the roster limit: name who goes first
+  const [accepting, setAccepting] = useState<{ id: number; need: number; pool: Player[]; drops: Set<number> } | null>(null);
+  const accept = (t: Trade, drops: number[] = []) => run(async () => { await rpc('respond_trade', { p_trade: t.id, p_accept: true, p_drops: drops }); setAccepting(null); load(); },
+    t.parties ? 'Accepted. Waiting on the others.' : 'Accepted! Off to the commish.');
+  const tryAccept = (t: Trade) => {
+    if (!me) return;
+    const mineSide = sidesOf(t).find((x) => x.team === me.id);
+    const n = mineSide ? Math.max(0, activeOf(mineSide.after, me.id) - rosterMax) : 0;
+    if (!n) { accept(t); return; }
+    const pool = dropOrder(mineSide!.after, mineSide!.after.filter((p) => mine.players.includes(p) && !irOf(me.id).has(p.id)), valuer);
+    setAccepting({ id: t.id, need: n, pool, drops: new Set(pool.slice(0, n).map((p) => p.id)) });
+  };
   // offers waiting on you open with the full assessment showing
   const isOpen = (t: Trade) => openTrade === t.id || (canRespond(t) && openTrade !== -t.id);
   const gradesOf = (t: Trade) => sidesOf(t).map((sd) => gradeSide(evaluateSide(sd, valuer, rosterMax, sched)));
@@ -167,6 +226,7 @@ export default function Trades() {
               ) : (
                 <ul className="text-sm">{describe(t, side).map((d) => <li key={d}>• {d}</li>)}{describe(t, side).length === 0 && <li className="text-mute">nothing</li>}</ul>
               )}
+              {(t.trade_items ?? []).filter((i) => i.release && i.from_team === side).map((i) => <div key={i.id} className="mt-0.5 text-xs text-amber-200">✂️ drops {players.get(i.player_id!)?.name ?? 'a player'} to make room</div>)}
             </div>
           ))}
         </div>
@@ -199,14 +259,19 @@ export default function Trades() {
     return p.pos === 'G' ? `${tag}${fp}${gp} GP, ${t.w ?? 0} W, ${t.sa ? ((t.sv ?? 0) / (t.sa as number)).toFixed(3).replace(/^0/, '') : '–'} SV%, ${t.sho ?? 0} SO`
       : `${tag}${fp}${gp} GP, ${t.g ?? 0} G, ${t.a ?? 0} A, ${t.ppp ?? 0} PPP, ${t.sog ?? 0} SOG, ${t.hit ?? 0} H, ${t.blk ?? 0} B`;
   };
-  const buildFromFinder = (p: number, g: Player[], r: Player[]) => {
+  const buildFromFinder = (b: BuildSpec) => {
     setMode('two');
-    setParams({ with: String(p), give: g.map((x) => x.id).join(','), get: r.map((x) => x.id).join(',') });
+    const q: Record<string, string> = { with: String(b.partner), give: b.give.map((x) => x.id).join(','), get: b.get.map((x) => x.id).join(',') };
+    if (b.givePicks?.length) q.givePicks = b.givePicks.map((k) => k.id).join(',');
+    if (b.getPicks?.length) q.getPicks = b.getPicks.map((k) => k.id).join(',');
+    if (b.givePk) q.givePk = String(b.givePk);
+    if (b.getPk) q.getPk = String(b.getPk);
+    setParams(q);
     document.getElementById('trade-builder')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
   };
   const AssetList = ({ tid, players: ps, picks: ks, isOn, onFlip, dest }: { tid: number; players: Player[]; picks: DraftPick[]; isOn: (k: 'player_id' | 'pick_id', id: number) => boolean; onFlip: (k: 'player_id' | 'pick_id', id: number) => void; dest?: (k: 'player_id' | 'pick_id', id: number) => React.ReactNode }) => (
     <div className="max-h-[32rem] divide-y divide-white/[.06] overflow-y-auto rounded-xl border border-line">
-      {sortPlayers(ps, scout.sort, sctx).map((p) => {
+      {sortPlayers(ps, scout.sort, sctx).filter((p) => isOn('player_id', p.id) || posFilter === 'all' || (posFilter !== 'picks' && (p.pos === posFilter || p.elig.includes(posFilter)))).map((p) => {
         const on = isOn('player_id', p.id), cmp = compare.has(p.id);
         return (
           <div key={p.id} className={`px-2 py-1.5 ${on ? 'bg-sky-500/15' : ''}`}>
@@ -224,13 +289,28 @@ export default function Trades() {
           </div>
         );
       })}
-      {ks.map((k) => (
+      {ks.filter((k) => isOn('pick_id', k.id) || posFilter === 'all' || posFilter === 'picks').map((k) => (
         <label key={`pk${k.id}`} className={`flex cursor-pointer items-center gap-2 px-2 py-2 text-sm ${isOn('pick_id', k.id) ? 'bg-sky-500/15' : ''}`}>
           <input type="checkbox" checked={isOn('pick_id', k.id)} onChange={() => onFlip('pick_id', k.id)} className="h-4 w-4 accent-sky-400" />
           <span className="flex-1">📋 {pickLabel(k, tid)}</span>
           {isOn('pick_id', k.id) && dest?.('pick_id', k.id)}
         </label>
       ))}
+    </div>
+  );
+
+  // show one position at a time (or only picks) in the asset lists; whatever is already in the deal stays visible
+  const posBar = (
+    <div className="scroll-x flex items-center gap-1">
+      <span className="label mr-1 shrink-0">Show</span>
+      {FILTERS.map((f) => <button key={f} onClick={() => setPosFilter(f)} className={`shrink-0 rounded-full px-2 py-0.5 text-[11px] font-semibold ${posFilter === f ? 'bg-gold text-ice' : 'bg-white/[.05] text-mute'}`}>{f === 'all' ? 'Everyone' : f === 'picks' ? '📋 Picks' : f}</button>)}
+    </div>
+  );
+  // over the limit: name who goes with the deal
+  const dropBox = need > 0 && (
+    <div className="space-y-1.5 rounded-xl border border-amber-400/30 bg-amber-500/10 p-2.5">
+      <div className="text-xs text-amber-100">✂️ You'd have {rosterMax + need} active players, {need} over the limit. Pick {need === 1 ? 'who goes' : `the ${need} who go`} with the trade (only if it goes through). The weakest you can spare is picked to start:</div>
+      <DropPick pool={dropPool} need={need} value={myDrops} onChange={setMyDrops} worth={valuer.player} />
     </div>
   );
 
@@ -242,7 +322,16 @@ export default function Trades() {
         <Section title="Offers for you">
           <div className="space-y-2">{groups.incoming.map((t) => (
             <TradeCard key={t.id} t={t}>
-              <button className="btn-primary" disabled={busy} onClick={() => run(async () => { await rpc('respond_trade', { p_trade: t.id, p_accept: true }); load(); }, t.parties ? 'Accepted. Waiting on the others.' : 'Accepted! Off to the commish.')}>Accept</button>
+              {accepting?.id === t.id ? (
+                <div className="w-full space-y-1.5 rounded-xl border border-amber-400/30 bg-amber-500/10 p-2 text-sm">
+                  <div className="text-xs text-amber-100">This puts you {accepting.need} over the roster limit. Pick {accepting.need === 1 ? 'who goes' : `the ${accepting.need} who go`} with the trade (only if it goes through). Weakest you can spare first:</div>
+                  <DropPick pool={accepting.pool} need={accepting.need} value={accepting.drops} onChange={(d) => setAccepting({ ...accepting, drops: d })} worth={valuer.player} />
+                  <div className="flex gap-2">
+                    <button className="btn-primary btn-sm" disabled={busy || accepting.drops.size !== accepting.need} onClick={() => accept(t, [...accepting.drops])}>Accept and drop {accepting.drops.size}</button>
+                    <button className="btn-ghost btn-sm" onClick={() => setAccepting(null)}>Not yet</button>
+                  </div>
+                </div>
+              ) : <button className="btn-primary" disabled={busy} onClick={() => tryAccept(t)}>Accept</button>}
               <button className="btn-ghost" disabled={busy} onClick={() => run(async () => { await rpc('respond_trade', { p_trade: t.id, p_accept: false }); load(); }, 'Declined')}>Decline</button>
               {!t.parties && <button className="btn-ghost" onClick={() => { setMode('two'); setParams({ with: String(t.from_team) }); }}>Counter</button>}
             </TradeCard>
@@ -268,6 +357,12 @@ export default function Trades() {
       {!pastDeadline && league?.phase !== 'draft' && (
         <Section title="📣 The trade block" right={<span className="text-xs text-mute">who's selling, who's buying</span>}>
           <TradeBlock onBuild={buildFromFinder} />
+        </Section>
+      )}
+
+      {me?.role !== 'spectator' && !pastDeadline && league?.phase !== 'draft' && (
+        <Section title="🧭 Who needs what" right={<span className="text-xs text-mute">position ranks, best partners</span>}>
+          <TradeFit onPick={(t) => { setMode('two'); setParams({ with: String(t) }); document.getElementById('trade-builder')?.scrollIntoView({ behavior: 'smooth', block: 'start' }); }} />
         </Section>
       )}
 
@@ -299,6 +394,7 @@ export default function Trades() {
                 {partner && (
                   <>
                     <ScoutBar s={scout} hasG={[...mine.players, ...theirs.players].some((p) => p.pos === 'G')} />
+                    {posBar}
                     {compareList.length > 0 && <TradeCompare moving={compareList.map((p) => ({ p, to: ownerOf(p.id) }))} title="Side by side" showTo={false} onClear={() => setCompare(new Set())} />}
                     <div className="grid gap-3 sm:grid-cols-2">
                       {[{ label: 'You send', tid: me!.id, a: mine, sel: give, set: setGive, psel: givePicks, pset: setGivePicks, pk: 'givePk' as const, cn: 'giveCoins' as const },
@@ -319,10 +415,12 @@ export default function Trades() {
                         </div>
                       ))}
                     </div>
+                    {dropBox}
                     <TradeAnalysis sides={twoSides} />
                     <input className="input" placeholder="Sweeten it with a message (optional)" value={note} onChange={(e) => setNote(e.target.value)} />
                     {extrasN > 0 && <div className="rounded-xl border border-white/10 bg-black/25 px-3 py-2 text-xs text-slate-300">Also in the deal: {[extras.givePk && `you send ${extras.givePk} pickup${extras.givePk > 1 ? 's' : ''}`, extras.giveCoins && `you send ${extras.giveCoins} coins`, extras.getPk && `you get ${extras.getPk} pickup${extras.getPk > 1 ? 's' : ''}`, extras.getCoins && `you get ${extras.getCoins} coins`].filter(Boolean).join(' · ')}. Pickups are this season's free adds; a spare one is worth more to a GM who's out of them than to you.</div>}
-                    <button className="btn-primary w-full" disabled={busy || give.size + get.size + givePicks.size + getPicks.size + extrasN === 0} onClick={propose}>Send offer to {team(partner)?.name}</button>
+                    <button className="btn-primary w-full" disabled={busy || give.size + get.size + givePicks.size + getPicks.size + extrasN === 0 || myDrops.size !== needDrops} onClick={propose}>Send offer to {team(partner)?.name}</button>
+                    {give.size > 0 && get.size === 0 && getPicks.size + extras.getPk + extras.getCoins > 0 && <div className="text-center text-[11px] text-mute">Players for picks, pickups or coins, nothing back: that works. Their roster has to have room, or they'll name a drop when they accept.</div>}
                   </>
                 )}
               </>
@@ -345,6 +443,7 @@ export default function Trades() {
                 {parties.length >= 2 && (
                   <>
                     <ScoutBar s={scout} />
+                    {posBar}
                     {compareList.length > 0 && <TradeCompare moving={compareList.map((p) => ({ p, to: ownerOf(p.id) }))} title="Side by side" showTo={false} onClear={() => setCompare(new Set())} />}
                     <div className={`grid gap-3 ${allParties.length > 2 ? 'lg:grid-cols-3 sm:grid-cols-2' : 'sm:grid-cols-2'}`}>
                       {allParties.map((tid) => {
@@ -376,9 +475,10 @@ export default function Trades() {
                         ))}
                       </div>
                     )}
+                    {dropBox}
                     <TradeAnalysis sides={multiSides} />
                     <input className="input" placeholder="Sweeten it with a message (optional)" value={note} onChange={(e) => setNote(e.target.value)} />
-                    <button className="btn-primary w-full" disabled={busy || mitems.length === 0 || !allParties.every((t) => mitems.some((i) => i.from === t || i.to === t))} onClick={proposeMulti}>
+                    <button className="btn-primary w-full" disabled={busy || mitems.length === 0 || !allParties.every((t) => mitems.some((i) => i.from === t || i.to === t)) || myDrops.size !== needDropsM} onClick={proposeMulti}>
                       Send {allParties.length}-team offer to {parties.map((t) => team(t)?.gm_name).join(' and ')}
                     </button>
                     {!allParties.every((t) => mitems.some((i) => i.from === t || i.to === t)) && mitems.length > 0 && <div className="text-center text-[11px] text-amber-200">Every team in the deal has to send or receive something.</div>}

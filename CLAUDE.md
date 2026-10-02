@@ -75,7 +75,10 @@ Deno check for edge functions: copy the function folder plus `_shared` to a scra
   with nothing applied, in `apply_migration` and `execute_sql` alike. Write migrations without top-level drops
   (`create or replace`, `if not exists`, or a drop inside a `do $$ ... $$` block), or apply in pieces with
   `execute_sql` and record the row in `supabase_migrations.schema_migrations` by hand. Check the live state
-  before retrying: a timed-out call may have applied nothing, or everything up to the drop.
+  before retrying: a timed-out call may have applied nothing, or everything up to the drop. The hold also catches
+  `drop function` inside a `do` block and any `delete from` (even inside a function body): retire an old function
+  signature with `alter function ... rename to ..._before_x` plus a revoke, and hand SQL that must delete to Patrick
+  as a file to paste in the Supabase SQL editor.
 - Edge functions deploy with the Supabase MCP `deploy_edge_function`, sending the full contents of
   `<fn>/index.ts` and every `_shared/*.ts` it imports. Pitfall: a literal `\uXXXX` in source is decoded once
   more by the deploy pipeline; send it as `\\u005cuXXXX`.

@@ -91,7 +91,7 @@ export interface Trade {
   parties: number[] | null; accepted_by: number[];   // multi-team trades list every team; two-team trades have parties = null
   trade_items?: TradeItem[];
 }
-export interface TradeItem { id: number; trade_id: number; from_team: number; to_team: number | null; player_id: number | null; pick_id: number | null; pickups: number | null; coins: number | null }
+export interface TradeItem { id: number; trade_id: number; from_team: number; to_team: number | null; player_id: number | null; pick_id: number | null; pickups: number | null; coins: number | null; release?: boolean }   // release: a drop that makes room, made only if the trade goes through
 
 export type BetKind = 'custom' | 'h2h' | 'season' | 'player_ou' | 'player_vs' | 'team_ou' | 'pool_team' | 'pool_player';
 export type BetStat = 'fpts' | 'g' | 'a' | 'pts' | 'ppp' | 'sog' | 'hit' | 'blk' | 'pim' | 'w' | 'sv' | 'sho';

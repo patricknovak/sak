@@ -7,15 +7,14 @@ import { rpc, realtimeChannel, supabase } from '../lib/supabase';
 import type { Player, TradeBlock as TB } from '../lib/types';
 import { ago, fmtPts } from '../lib/format';
 import { evaluateSide, findTrades, type Suggestion } from '../lib/trade';
-import { useTradeValuer } from './TradeTools';
+import { SuggestionRow, useTradeValuer, type BuildSpec } from './TradeTools';
 import { Headshot, Pos, TeamBadge, useAction } from './ui';
 import { Megaphone } from 'lucide-react';
 
 const POS = ['C', 'LW', 'RW', 'D', 'G'];
 const fits = (p: Player, wants: string[]) => wants.includes(p.pos) || p.elig.some((e) => wants.includes(e));
-const d = (n: number) => { const r = Math.round(n); return `${r > 0 ? '+' : ''}${r}`; };
 
-export function TradeBlock({ onBuild }: { onBuild: (partner: number, give: Player[], get: Player[]) => void }) {
+export function TradeBlock({ onBuild }: { onBuild: (b: BuildSpec) => void }) {
   const { me, teams, players, rosters } = useLeague();
   const { v, rosterMax, rosterOf, sched } = useTradeValuer();
   const { busy, run } = useAction();
@@ -125,9 +124,9 @@ function BlockSummary({ row }: { row: TB }) {
   );
 }
 
-function BlockCard({ row, myRow, onBuild, sched }: { row: TB; myRow?: TB; onBuild: (partner: number, give: Player[], get: Player[]) => void; sched: ReturnType<typeof useTradeValuer>['sched'] }) {
+function BlockCard({ row, myRow, onBuild, sched }: { row: TB; myRow?: TB; onBuild: (b: BuildSpec) => void; sched: ReturnType<typeof useTradeValuer>['sched'] }) {
   const { me, team, players } = useLeague();
-  const { v, rosterMax, rosterOf } = useTradeValuer();
+  const { v, rosterMax, rosterOf, ctxOf } = useTradeValuer();
   const [res, setRes] = useState<Suggestion[] | null>(null);
   const [busy, setBusy] = useState(false);
   const t = team(row.team_id);
@@ -142,7 +141,7 @@ function BlockCard({ row, myRow, onBuild, sched }: { row: TB; myRow?: TB; onBuil
     setTimeout(() => {
       const only = (s: { give: Player[]; get: Player[] }) =>
         (!offered.size || s.get.every((p) => offered.has(p.id))) && (!row.wants.length || s.give.some((p) => fits(p, row.wants)));
-      setRes(findTrades(me.id, rosterOf(me.id), [{ team: row.team_id, roster: rosterOf(row.team_id) }], v, rosterMax, { limit: 6, winWin: true, sched, only, top: 18 }));
+      setRes(findTrades(ctxOf(me.id), [ctxOf(row.team_id)], v, rosterMax, { limit: 6, winWin: true, sched, only, top: 18 }));
       setBusy(false);
     }, 30);
   };
@@ -163,15 +162,7 @@ function BlockCard({ row, myRow, onBuild, sched }: { row: TB; myRow?: TB; onBuil
       {res && res.length === 0 && <div className="rounded-lg bg-white/[.04] p-2 text-xs text-mute">No deal makes both lineups better within what {t?.gm_name} listed. Build one by hand and read the grades, or message them.</div>}
       {res && res.length > 0 && (
         <div className="divide-y divide-white/[.06] overflow-hidden rounded-xl border border-white/[.08]">
-          {res.map((s, i) => (
-            <div key={i} className="flex flex-wrap items-center gap-2 px-2.5 py-2 text-sm">
-              <div className="min-w-0 flex-1">
-                <div><span className="text-mute">You send</span> <b>{s.give.map((p) => p.name).join(' + ')}</b> <span className="text-mute">for</span> <b>{s.get.map((p) => p.name).join(' + ')}</b></div>
-                <div className="text-[11px] text-mute">Your lineup <span className="num font-semibold text-emerald-300">{d(s.me.startersDelta)}</span> · theirs <span className="num font-semibold text-emerald-300">{d(s.them.startersDelta)}</span> · value to them <span className="num">{d(s.them.net)}</span></div>
-              </div>
-              <button className="btn-ghost btn-sm shrink-0" onClick={() => onBuild(s.partner, s.give, s.get)}>Build this</button>
-            </div>
-          ))}
+          {res.map((s, i) => <SuggestionRow key={i} s={s} onBuild={onBuild} />)}
         </div>
       )}
     </div>
