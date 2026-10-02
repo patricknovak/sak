@@ -81,6 +81,8 @@ export function LeagueProvider({ children }: { children: ReactNode }) {
   useEffect(() => { if (me) setOnline((o) => (o.has(me.id) ? o : new Set([...o, me.id]))); }, [me?.id]);
   const meRef = useRef(me);
   meRef.current = me;
+  const gamesRef = useRef<Game[]>([]);
+  gamesRef.current = games;
 
   const loaders: Record<Table, () => Promise<void>> = useMemo(() => ({
     league: async () => {
@@ -188,14 +190,22 @@ export function LeagueProvider({ children }: { children: ReactNode }) {
       });
     }
     ch.subscribe();
-    // live scoring: standings refresh every minute, season stats every 5
-    const i1 = window.setInterval(() => { if (document.visibilityState === 'visible') refresh(['standings', 'games']); }, 60_000);
-    const i2 = window.setInterval(() => { if (document.visibilityState === 'visible') refresh(['season', 'windows', 'gameday']); }, 300_000);
+    // live scoring: while a game is on (or about to drop the puck) standings refresh every minute and season stats
+    // every 5; with nothing on, the numbers can't move, so every 5 and every 30. Game starts and finals arrive by
+    // realtime on `games`, which flips the pace without waiting for a tick.
+    let tick = 0;
+    const i1 = window.setInterval(() => {
+      if (document.visibilityState !== 'visible') return;
+      tick++;
+      const live = gamesRef.current.some((g) => !['OFF', 'FINAL', 'PPD', 'CNCL'].includes(g.state) && Date.parse(g.start_utc) - 30 * 60_000 <= Date.now());
+      if (live || tick % 5 === 0) refresh(['standings', 'games']);
+      if (live ? tick % 5 === 0 : tick % 30 === 0) refresh(['season', 'windows', 'gameday']);
+    }, 60_000);
     const onVis = () => { if (document.visibilityState === 'visible') refresh(['draft', 'picks', 'rosters', 'standings', 'notifications', 'gameday']); };
     document.addEventListener('visibilitychange', onVis);
     return () => {
       supabase.removeChannel(ch);
-      clearInterval(i1); clearInterval(i2);
+      clearInterval(i1);
       document.removeEventListener('visibilitychange', onVis);
       timers.forEach((t) => clearTimeout(t));
     };
