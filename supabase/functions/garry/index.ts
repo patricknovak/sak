@@ -8,6 +8,7 @@
 //   ?task=keepers (after the keeper deadline, or on the commish's say-so) grades every team's keepers and predicts the season
 //   ?task=draftprep (draft eve and draft day) names who still has no queue, no alerts, no autodraft, with the taps to fix it
 //   ?task=book  (a GM's private line at the Book) recommends bets: what's hot, what fits how they bet, and new markets to ask for
+//   ?task=assess (commissioner's call) a state-of-the-league column, with an announcement first if one is queued
 //   ?task=moments (every half hour) calls out a trade, a hat trick, a monster night or a new leader, at most twice a day
 //   ?task=probe&message_id=N  writes the reply Garry would give to a message, without posting it (kept on garry_state.usage)
 //   ?league=N runs the task for one league. Without it a cron task runs for every active league in turn, a
@@ -38,7 +39,7 @@ type Effort = 'none' | 'low' | 'medium';
 const GROK_URL = 'https://api.x.ai/v1/chat/completions';
 // the site calls two tasks from the browser (the commissioner's shaping buttons, the Book's private line), so the
 // browser's preflight has to be answered and every reply has to carry the CORS headers
-const cors = { 'Access-Control-Allow-Origin': '*', 'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type', 'Access-Control-Allow-Methods': 'GET, POST, OPTIONS' };
+const cors = { 'Access-Control-Allow-Origin': '*', 'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-admin-key', 'Access-Control-Allow-Methods': 'GET, POST, OPTIONS' };
 const json = (body: unknown, status = 200) => new Response(JSON.stringify(body), { status, headers: { ...cors, 'Content-Type': 'application/json' } });
 
 // the coin bonuses: top team of the day, team of the week
@@ -283,6 +284,17 @@ Nothing that goes stale: no deadlines, no "set your keepers" or "get ready for t
 async function post(body: string, meta: Record<string, unknown>) {
   const { error } = await from('messages').insert({ channel: 'general', kind: 'bot', body: body.slice(0, 2000), meta: { bot: 'garry', ...meta } });
   if (error) throw error;
+}
+// a long column goes out as a few messages, split between paragraphs (a message holds 2,000 characters)
+async function postLong(body: string, meta: Record<string, unknown>) {
+  const parts: string[] = [];
+  for (const para of body.split(/\n{2,}/)) {
+    const last = parts.length - 1;
+    if (last >= 0 && parts[last].length + para.length + 2 <= 1900) parts[last] += '\n\n' + para;
+    else parts.push(para.slice(0, 1990));
+  }
+  for (const [i, part] of parts.entries()) await post(part, { ...meta, ...(parts.length > 1 ? { part: i + 1, of: parts.length } : {}) });
+  return parts.length;
 }
 
 async function alreadyPosted(type: string, date: string) {
@@ -665,11 +677,14 @@ function isAnonCaller(token: string) {
   if (token === ANON_KEY || token.startsWith('sb_publishable_')) return true;
   try { return JSON.parse(atob(token.split('.')[1].replace(/-/g, '+').replace(/_/g, '/'))).role === 'anon'; } catch { return false; }
 }
-// who may ask for one: cron (the anon key), or the commissioner of the league the run is scoped to
+// who may run the commissioner's tasks (the keeper report, memory passes, the league column, probes): the commissioner
+// of the league the run is scoped to, or whoever holds the platform's admin key (x-admin-key, checked against the
+// database). The public anon key alone is not enough: it ships in the site, so anyone has it.
 async function callerMayRun(req: Request) {
+  const key = req.headers.get('x-admin-key');
+  if (key) { const { data } = await db.rpc('admin_key_ok', { p_key: key }); if (data === true) return true; }
   const token = (req.headers.get('Authorization') ?? '').replace(/^Bearer /i, '');
-  if (!token) return false;
-  if (isAnonCaller(token)) return true;
+  if (!token || isAnonCaller(token)) return false;
   const { data: u } = await db.auth.getUser(token);
   if (!u?.user) return false;
   const { data: m } = await db.from('league_members').select('role').eq('user_id', u.user.id).eq('league_id', L.lid).maybeSingle();
@@ -960,8 +975,8 @@ const TEMPLATES_SPEC = `New markets a GM can ask the Book to open (a "request"),
 async function bookChat(me: { id: number; gm_name: string }, token: string, messages: BookMsg[]) {
   const asked = messages.filter((m) => m.role === 'user').slice(-1)[0]?.content?.trim() ?? '';
   const today = ((await db.rpc('today_et')).data as string | null) ?? etDate(new Date());
-  // reads as the GM, so the Book's own functions see their league
-  const asUser = createClient(Deno.env.get('SUPABASE_URL')!, ANON_KEY, { global: { headers: { Authorization: `Bearer ${token}` } }, auth: { persistSession: false } });
+  // reads as the GM, in this run's league, so the Book's own functions see the right board
+  const asUser = createClient(Deno.env.get('SUPABASE_URL')!, ANON_KEY, { global: { headers: { Authorization: `Bearer ${token}`, 'x-league': String(L.lid) } }, auth: { persistSession: false } });
   const [{ data: open }, { data: mine }, { data: bal }, { data: stand }, sugg, { data: games }, { byId }] = await Promise.all([
     from('markets').select('id,kind,title,options,closes_at,created_by,subject,game_id,date').eq('status', 'open').gt('closes_at', new Date().toISOString()).order('closes_at').limit(80),
     from('market_bets').select('market_id,pick,coins,odds,payout,created_at').eq('team_id', me.id).order('id', { ascending: false }).limit(60),
@@ -1143,9 +1158,97 @@ async function moments() {
   return { posted: pick.key };
 }
 
+// ─────────────── state of the league ───────────────
+// A longer column on where the season stands: every GM's start, who's carrying whom, who's under water against
+// their projection, the points left on benches, the free agents nobody has noticed, who's betting and who's
+// quiet. Posted once a league day at most. The commissioner can hand Garry an announcement to make first: in the
+// request (from the commissioner or an admin-key holder), or left on garry_state.moments.assess_note (used once, then
+// cleared).
+async function assess(asked: string | null, force = false) {
+  const { league, teams, byId, standings } = await base();
+  if (league.phase !== 'season') return { skipped: league.phase };
+  const day = ((await db.rpc('today_et')).data as string | null) ?? etDate(new Date());
+  if (!force && await alreadyPosted('assess', day)) return { skipped: 'already posted' };
+  const st = await state();
+  const queued = typeof st?.moments?.assess_note === 'string' ? String(st.moments.assess_note) : null;
+  const note = asked ?? queued;
+  const [{ data: daily }, { data: rosters }, { data: book }, { data: chat }, { data: modes }] = await Promise.all([
+    from('team_daily').select('team_id,date,points').gte('date', league.season_start ?? day).lt('date', day).order('date'),
+    from('rosters').select('team_id,player_id,slot'),
+    from('book_standings').select('team_id,bets,wins,net'),
+    from('messages').select('team_id').eq('kind', 'user').not('channel', 'like', 'dm:%').gte('created_at', new Date(Date.now() - 7 * 86400000).toISOString()),
+    from('teams').select('id,auto_mode').eq('role', 'gm'),
+  ]);
+  const nights = [...new Set((daily ?? []).map((d) => d.date))];
+  if (!nights.length) return { skipped: 'no nights played yet' };
+  const pids = (rosters ?? []).map((r) => r.player_id);
+  const [{ data: ps }, { data: ss }, { data: hot }] = await Promise.all([
+    from('players').select('id,name,pos,nhl_team,proj,injury_status').in('id', pids),
+    from('player_season').select('player_id,gp,fpts').in('player_id', pids),
+    from('player_season').select('player_id,gp,fpts').gt('gp', 0).order('fpts', { ascending: false }).limit(150),
+  ]);
+  const pl = new Map((ps ?? []).map((p) => [p.id, p]));
+  const sea = new Map((ss ?? []).map((s) => [s.player_id, s]));
+  const owner = new Map((rosters ?? []).map((r) => [r.player_id, r.team_id]));
+  // a player's pace against his projection: what an 82-game projection says he should have by now
+  const pace = (id: number) => { const s = sea.get(id), p = pl.get(id); return s && p && s.gp ? Number(s.fpts) - (Number(p.proj) / 82) * s.gp : 0; };
+  const table = [...standings].sort((a, b) => a.rank - b.rank);
+  const nightsOf = (id: number) => nights.map((d) => f1(Number((daily ?? []).find((x) => x.team_id === id && x.date === d)?.points ?? 0)));
+  const best = [...(daily ?? [])].sort((a, b) => Number(b.points) - Number(a.points))[0];
+  const worst = [...(daily ?? [])].sort((a, b) => Number(a.points) - Number(b.points))[0];
+  const talk = new Map<number, number>();
+  for (const m of chat ?? []) talk.set(m.team_id, (talk.get(m.team_id) ?? 0) + 1);
+  const gms = table.map((s) => {
+    const mine = (rosters ?? []).filter((r) => r.team_id === s.team_id);
+    const byFp = mine.filter((r) => sea.get(r.player_id)?.gp).sort((a, b) => Number(sea.get(b.player_id)!.fpts) - Number(sea.get(a.player_id)!.fpts));
+    const under = mine.filter((r) => (sea.get(r.player_id)?.gp ?? 0) >= 2).sort((a, b) => pace(a.player_id) - pace(b.player_id))[0];
+    const bk = (book ?? []).find((b) => b.team_id === s.team_id);
+    return {
+      rank: s.rank, gm: byId.get(s.team_id)?.gm_name, team: byId.get(s.team_id)?.name, points: Number(s.points), by_night: nightsOf(s.team_id),
+      left_on_bench: Number(s.bench ?? 0), pickups_used: s.moves ?? 0, autopilot: (modes ?? []).find((m) => m.id === s.team_id)?.auto_mode ?? 'off',
+      carrying_them: byFp.slice(0, 2).map((r) => `${pl.get(r.player_id)?.name} ${f1(Number(sea.get(r.player_id)!.fpts))}`),
+      behind_pace: under && pace(under.player_id) < -2 ? `${pl.get(under.player_id)?.name} (${f1(Number(sea.get(under.player_id)!.fpts))} in ${sea.get(under.player_id)!.gp} games, projected ${Math.round(Number(pl.get(under.player_id)?.proj))} for the year)` : null,
+      hurt: mine.filter((r) => pl.get(r.player_id)?.injury_status && !['BN', 'IR'].includes(r.slot)).map((r) => `${pl.get(r.player_id)?.name} (${pl.get(r.player_id)?.injury_status})`).slice(0, 3),
+      book: bk ? `${bk.bets} tickets, ${bk.wins} won, net ${bk.net} coins` : 'no tickets yet',
+      chat_messages_this_week: talk.get(s.team_id) ?? 0,
+    };
+  });
+  // the best unowned producers so far, for the waiver-wire line
+  const { data: hp } = await from('players').select('id,name,pos,nhl_team').in('id', (hot ?? []).map((h) => h.player_id));
+  const hpn = new Map((hp ?? []).map((p) => [p.id, p]));
+  const freeAgents = (hot ?? []).filter((h) => !owner.has(h.player_id)).slice(0, 4).map((h) => `${hpn.get(h.player_id)?.name} (${hpn.get(h.player_id)?.pos}, ${hpn.get(h.player_id)?.nhl_team}) ${f1(Number(h.fpts))} in ${h.gp}`);
+  const facts = {
+    nights_played: nights.length, first_night: nights[0], standings: gms,
+    best_night: best ? { gm: byId.get(best.team_id)?.gm_name, date: best.date, points: Number(best.points) } : null,
+    worst_night: worst ? { gm: byId.get(worst.team_id)?.gm_name, date: worst.date, points: Number(worst.points) } : null,
+    gap_first_to_last: table.length > 1 ? f1(Number(table[0].points) - Number(table.at(-1)!.points)) : null,
+    hot_free_agents: freeAgents,
+  };
+  // the announcement first, on its own, then the column
+  if (note) {
+    const said = await write(`The commissioner asked you to tell the league this, in your own words, in 3 to 5 sentences, in character, then say your state-of-the-league column is next. It's all true; don't add features it doesn't mention:\n${note}`, {}, note, 120);
+    await post(said, { type: 'notice', date: day });
+    if (queued) await from('garry_state').update({ moments: { ...(st?.moments ?? {}), assess_note: null } });
+  }
+  const task = `Write your state-of-the-league column for the chat after ${nights.length} night${nights.length > 1 ? 's' : ''} of play. Open with one line, then one short, specific paragraph per GM in standings order, separated by blank lines, built on their numbers: how they started, who's carrying them, who's behind pace, bench points, autopilot, the Book. Use a GM's @ only when the line is really about them. Then one paragraph with the waiver wire (name the free agents), the race, and one challenge for the week. It's early: say so where it matters, crown nobody.`;
+  const fallback = [
+    `${L.brand.bot.emoji} State of the league after ${nights.length} night${nights.length > 1 ? 's' : ''}.`,
+    ...gms.map((g) => `${g.rank}. ${g.gm} ${f1(g.points)}${g.carrying_them[0] ? `, carried by ${g.carrying_them[0]}` : ''}${g.left_on_bench ? `, ${f1(g.left_on_bench)} left on the bench` : ''}.`),
+    freeAgents.length ? `Free agents nobody has noticed: ${freeAgents.join(', ')}. 👉 #/players` : '',
+  ].filter(Boolean).join('\n\n');
+  const body = await write(task, facts, fallback, 380, teams.map((t) => t.id));
+  const parts = await postLong(body, { type: 'assess', date: day });
+  return { posted: 'assess', nights: nights.length, parts, announced: !!note };
+}
+
 async function runTask(task: string, req: Request) {
   if (task === 'nudge') return nudge();
   if (task === 'moments') return moments();
+  if (task === 'assess') {
+    if (!(await callerMayRun(req))) return { error: 'Commissioner only' };
+    const body = await req.json().catch(() => ({}));
+    return assess(typeof body?.note === 'string' ? body.note.slice(0, 1200) : null, body?.force === true);
+  }
   if (task === 'keepers' || task === 'learn' || task === 'evolve') {
     if (!(await callerMayRun(req))) return { error: 'Commissioner only' };
     return task === 'keepers' ? keeperReport() : task === 'learn' ? learn(true) : evolve(true);

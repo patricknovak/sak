@@ -10,4 +10,6 @@ for f in $(ls supabase/migrations/*.sql | grep -v _cron) supabase/seed/players-*
   $PSQL -d sak_test -f "$f"
 done
 $PSQL -d sak_test -f supabase/tests/flow.sql > /tmp/sak-flow.out
+# the tenancy guardrails: every table, view and callable function keeps to its league
+$PSQL -d sak_test -f supabase/tests/tenancy.sql >> /tmp/sak-flow.out
 echo "database flow test passed"
