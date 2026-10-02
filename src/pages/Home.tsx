@@ -13,7 +13,7 @@ import { PushCard } from '../components/PushCard';
 import { BankCard, BetResultsCard, NhlTopCard, TicketsCard } from '../components/HomeCards';
 
 export default function Home() {
-  const { me, league, teams, team, standings: regular, playoffs, rosters, players, draft, picks, gamesByTeam, online, leagueDay } = useLeague();
+  const { me, league, teams, spectators, team, standings: regular, playoffs, rosters, players, draft, picks, gamesByTeam, online, leagueDay } = useLeague();
   const now = useNow(1000);
   const nav = useNavigate();
   const { open, sheet } = usePlayerSheet();
@@ -66,7 +66,16 @@ export default function Home() {
 
   const lastRows = SEASONS[0].rows;
   const top = phase === 'season' ? Math.max(1, ...table.map((s) => Number(s.points))) : Math.max(1, ...lastRows.map((r) => r.points));
+  // who's in the barn right now: GMs first, then spectators
   const onlineTeams = teams.filter((t) => online.has(t.id));
+  const onlineFans = spectators.filter((t) => online.has(t.id));
+  const [showBarn, setShowBarn] = useState(false);
+  const barnLine = (() => {
+    const g = onlineTeams.length, f = onlineFans.length;
+    if (g + f === 1) return 'Just you in the barn';
+    const parts = [g && `${g} GM${g > 1 ? 's' : ''}`, f && `${f} spectator${f > 1 ? 's' : ''}`].filter(Boolean);
+    return `${parts.join(' and ')} in the barn`;
+  })();
   const More = ({ to, label }: { to: string; label: string }) => <Link to={to} className="flex items-center gap-1 text-xs font-semibold text-sky-300">{label}<ArrowRight size={13} /></Link>;
 
   return (
@@ -126,11 +135,20 @@ export default function Home() {
           )}
         </div>
 
-        {onlineTeams.length > 0 && (
-          <div className="relative mt-4 flex items-center gap-2 text-xs text-white/70">
-            <span className="h-2 w-2 animate-pulse rounded-full bg-emerald-400 shadow-[0_0_8px_rgba(52,211,153,.9)]" />
-            <TeamStack teams={onlineTeams} size={22} />
-            <span>{onlineTeams.length === 1 ? 'Just you in the barn' : `${onlineTeams.length} GMs in the barn`}</span>
+        {onlineTeams.length + onlineFans.length > 0 && (
+          <div className="relative mt-4 text-xs text-white/70">
+            <button type="button" className="flex items-center gap-2 text-left" onClick={() => setShowBarn(!showBarn)} aria-expanded={showBarn}>
+              <span className="h-2 w-2 shrink-0 animate-pulse rounded-full bg-emerald-400 shadow-[0_0_8px_rgba(52,211,153,.9)]" />
+              <TeamStack teams={[...onlineTeams, ...onlineFans]} size={22} />
+              <span>{barnLine}</span>
+              <span className="text-white/40">{showBarn ? '▴' : '▾'}</span>
+            </button>
+            {showBarn && (
+              <div className="mt-2 flex flex-wrap gap-1.5">
+                {onlineTeams.map((t) => <span key={t.id} className="flex items-center gap-1 rounded-full bg-white/[.06] px-2 py-0.5"><TeamBadge team={t} size={16} />{t.gm_name}</span>)}
+                {onlineFans.map((t) => <span key={t.id} className="flex items-center gap-1 rounded-full bg-white/[.06] px-2 py-0.5"><TeamBadge team={t} size={16} />{t.gm_name}<span className="text-white/45">· spectator</span></span>)}
+              </div>
+            )}
           </div>
         )}
       </div>

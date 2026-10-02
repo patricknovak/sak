@@ -5,6 +5,16 @@ update teams set user_id = ('00000000-0000-0000-0000-00000000000' || id)::uuid;
 
 create or replace function pg_temp.as_team(t int) returns void language sql as
 $$ select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-00000000000' || t, false) $$;
+create or replace function pg_temp.expect(label text, ok boolean) returns void language plpgsql as
+$$ begin if not coalesce(ok, false) then raise exception 'FAILED: %', label; end if; end $$;
+create or replace function pg_temp.raises(label text, sql text, msg text default 'another league') returns void language plpgsql as
+$$ begin
+  begin execute sql; exception when others then
+    if sqlerrm ilike '%' || msg || '%' then return; end if;
+    raise exception 'FAILED: % (raised "%" instead)', label, sqlerrm;
+  end;
+  raise exception 'FAILED: % (no error)', label;
+end $$;
 
 -- the fixture's deadlines are fixed dates; keep the test valid whatever today is
 update league set keeper_deadline = now() + interval '1 day', draft_at = now() + interval '2 days';
@@ -425,13 +435,12 @@ select 'multi after one accept', status, accepted_by from trades where id = :mul
 select pg_temp.as_team(4);
 set role authenticated;
 do $$ begin perform respond_trade((select max(id) from trades where parties is not null), true); raise exception 'full roster took a player';
-exception when others then if sqlerrm not like '%Drop 1 first%' then raise; end if; end $$;
+exception when others then if sqlerrm not like '%Pick 1 to drop with it%' then raise; end if; end $$;
+-- ...and names the drop with the accept: it waits for the trade
+select player_id as m4drop from rosters where team_id = 4 and slot = 'BN' and player_id <> :m3 order by player_id desc limit 1 \gset
+select respond_trade(:multi, true, array[:m4drop]);
 reset role;
-delete from rosters where player_id = (select player_id from rosters where team_id = 4 and slot = 'BN' and player_id <> :m3 order by player_id desc limit 1);
-select pg_temp.as_team(4);
-set role authenticated;
-select respond_trade(:multi, true);
-reset role;
+select pg_temp.expect('a named drop waits for the trade', (select team_id = 4 from rosters where player_id = :m4drop));
 select 'multi after all accept', status from trades where id = :multi;
 select pg_temp.as_team(1);
 set role authenticated;
@@ -678,8 +687,45 @@ select 'team 7 after 2-for-1 (expect 25)', _trade_active_after(:big_trade, 7);
 select pg_temp.as_team(7);
 set role authenticated;
 do $$ begin perform respond_trade(current_setting('t.big_trade')::bigint, true); raise exception 'accepted into an overfull roster';
-exception when others then if sqlerrm not like '%Drop 1 first%' then raise; end if; end $$;
+exception when others then if sqlerrm not like '%Pick 1 to drop with it%' then raise; end if; end $$;
+-- drops are your own players, outside the deal, and only as many as the room needs
+select pg_temp.raises('drops someone else''s player', format('select respond_trade(%s, true, array[%s])', :big_trade, (select player_id from rosters where team_id = 6 and slot = 'BN' order by player_id desc limit 1)), 'your own players');
+select pg_temp.raises('drops more than needed', format('select respond_trade(%s, true, (select array_agg(player_id) from (select player_id from rosters where team_id = 7 and slot = ''BN'' order by player_id desc limit 2) x))', :big_trade), 'only need to drop 1');
+select player_id as big_drop from rosters where team_id = 7 and slot = 'BN' order by player_id desc limit 1 \gset
+select respond_trade(:big_trade, true, array[:big_drop]);
 reset role;
+select pg_temp.as_team(1);
+set role authenticated;
+select review_trade(:big_trade, true, 'ok');
+reset role;
+select pg_temp.expect('the 2-for-1 goes through with its drop', (select status = 'approved' from trades where id = :big_trade)
+  and not exists (select 1 from rosters where player_id = :big_drop) and _active_count(7) = _roster_max()
+  and exists (select 1 from transactions where type = 'drop' and team_id = 7 and player_id = :big_drop));
+-- the proposer's own overflow is caught at proposal, and named there
+select pg_temp.as_team(7);
+set role authenticated;
+select pg_temp.raises('proposer overfills', format('select propose_trade(6, array[]::int[], array[%s])', (select player_id from rosters where team_id = 6 and slot = 'BN' order by player_id limit 1)), 'Pick 1 to drop with it');
+select propose_trade(6, array[]::int[], array[(select player_id from rosters where team_id = 6 and slot = 'BN' order by player_id limit 1)], '{}', '{}', 'one for nothing back',
+  0, 0, 0, 0, array[(select player_id from rosters where team_id = 7 and slot = 'BN' order by player_id desc limit 1)]) as one_way \gset
+select cancel_trade(:one_way);
+reset role;
+select pg_temp.expect('one-way offer recorded its drop', (select count(*) = 1 from trade_items where trade_id = :one_way and release));
+-- a roster that changed after the deal was agreed fails the trade, with the reason, instead of erroring
+select pg_temp.as_team(6);
+set role authenticated;
+select propose_trade(7, array[(select player_id from rosters where team_id = 6 and slot = 'BN' order by player_id limit 1)], array[(select player_id from rosters where team_id = 7 and slot = 'BN' order by player_id limit 1)], '{}', '{}', 'straight up') as late_trade \gset
+reset role;
+select pg_temp.as_team(7);
+set role authenticated;
+select respond_trade(:late_trade, true);
+reset role;
+insert into rosters (team_id, player_id, slot) select 7, p.id, 'BN' from players p where not exists (select 1 from rosters r where r.player_id = p.id) and p.pos = 'C' order by p.id limit 1 returning player_id as late_add \gset
+select pg_temp.as_team(1);
+set role authenticated;
+select review_trade(:late_trade, true, 'ok');
+reset role;
+select pg_temp.expect('an overfull roster fails the trade with the reason', (select status = 'failed' and review_note like '%would have 25 active players%' from trades where id = :late_trade));
+delete from rosters where player_id = :late_add;
 -- an injured player on IR keeps his IR spot with his new team
 update rosters set slot = 'BN' where team_id = 6 and slot = 'IR';
 select r.player_id as ir_t from rosters r where r.team_id = 6 order by r.player_id limit 1 \gset
