@@ -19,7 +19,13 @@ const db = createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE_SE
 const cors = { 'Access-Control-Allow-Origin': '*', 'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type', 'Access-Control-Allow-Methods': 'GET, POST, OPTIONS' };
 const cache = new Map<string, { at: number; ttl: number; body: unknown }>();
 const TTL = { scores: 20_000, standings: 300_000, schedule: 600_000, game: 20_000, news: 600_000, leaders: 600_000, team: 300_000, x: 120_000 };
-const X_SHARED_TTL = 300_000;   // how old the league-wide X feed may get before the next request refreshes it
+// How old the league-wide X feed may get before the next request refreshes it. Each refresh is a paid X search
+// (xAI bills per post it reads), so it's ten minutes from late morning to 1 am Eastern, when the news breaks and
+// people are looking, and an hour overnight.
+const xSharedTtl = () => {
+  const h = Number(new Intl.DateTimeFormat('en-US', { timeZone: 'America/New_York', hour: 'numeric', hourCycle: 'h23' }).format(new Date()));
+  return h >= 11 || h < 1 ? 600_000 : 3_600_000;
+};
 
 async function get(path: string) {
   const r = await fetch(`${NHL}${path}`, { headers: { 'user-agent': 'sak-league' } });
@@ -134,7 +140,7 @@ async function news() {
 
 // ── X (Twitter): the NHL insiders' feed. Through the X API v2 when the X_BEARER_TOKEN secret is set (a paid
 // X developer plan); otherwise through Grok's X search (xAI Responses API, x_search tool) with the league's
-// XAI_API_KEY. Grok's answer is cached in hub_cache for everyone, so it's one search per X_SHARED_TTL.
+// XAI_API_KEY. Grok's answer is cached in hub_cache for everyone, so it's one search per refresh window (xSharedTtl).
 // The default insiders. The commissioner can change the list (and add topics) on the Commissioner page; that
 // lives in league.info.x_feed = { accounts: [{handle, name}], topics: [string] } and wins over these defaults.
 const X_DEFAULT: [string, string][] = [['NHL', 'NHL'], ['PR_NHL', 'NHL Public Relations'], ['FriedgeHNIC', 'Elliotte Friedman'], ['TSNBobMcKenzie', 'Bob McKenzie'],
@@ -183,16 +189,40 @@ async function xApi(token: string, cfg: XConfig): Promise<XPost[]> {
 
 // Grok reads X for us: the x_search tool restricted to the insiders (the tool takes up to 10 handles), and the
 // model writes the posts back as JSON. Post ids come from the status URLs it cites.
-// (more than 10 accounts means two searches, merged)
-async function xGrok(apiKey: string, cfg: XConfig): Promise<XPost[]> {
+// (more than 10 accounts means two groups)
+// A refresh asks only for what's new since the newest post already on the feed from those accounts (the search
+// reads, and xAI bills, every post it looks at: half a cent a post, which is most of the cost), then merges it into
+// the cached feed, which keeps the last 48 hours. Once the feed exists, each refresh searches one group in turn, so
+// a refresh is one paid search and every account is still looked at every other refresh.
+async function xGrok(apiKey: string, cfg: XConfig, prev: XPost[] = []): Promise<XPost[]> {
   const all = cfg.accounts.map(([h]) => h);
   const chunks = [all.slice(0, 10), ...(all.length > 10 ? [all.slice(10, 20)] : [])];
-  const results = await Promise.all(chunks.map((handles) => xGrokOnce(apiKey, handles, cfg)));
+  const turn = prev.length ? [chunks[Math.floor(Date.now() / xSharedTtl()) % chunks.length]] : chunks;
+  const newest = (handles: string[]) => {
+    const hs = new Set(handles.map((h) => h.toLowerCase()));
+    const mine = prev.filter((p) => hs.has(p.author.handle.toLowerCase()));
+    return mine.length ? mine.reduce((m, p) => (p.at > m ? p.at : m), mine[0].at) : prev.length ? new Date(Date.now() - 86400000).toISOString() : null;
+  };
+  const results = await Promise.all(turn.map((handles) => xGrokOnce(apiKey, handles, cfg, newest(handles))));
+  const cutoff = new Date(Date.now() - 2 * 86400000).toISOString();
   const seen = new Set<string>();
-  return results.flat().filter((p) => !seen.has(p.id) && seen.add(p.id)).sort((a, b) => b.at.localeCompare(a.at)).slice(0, 50);
+  return [...results.flat(), ...prev].filter((p) => p.at >= cutoff && !seen.has(p.id) && seen.add(p.id)).sort((a, b) => b.at.localeCompare(a.at)).slice(0, 50);
 }
-async function xGrokOnce(apiKey: string, handles: string[], cfg: XConfig): Promise<XPost[]> {
-  const today = new Date(), from = new Date(Date.now() - 2 * 86400000);
+// what the X searches cost, by Eastern day, on hub_cache 'x_usage': searches, tokens, posts read and dollars
+async function xMeter(u: Record<string, unknown> | undefined) {
+  const day = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/New_York' }).format(new Date());
+  const { data } = await db.from('hub_cache').select('body').eq('key', 'x_usage').maybeSingle();
+  const cur = (data?.body as Record<string, unknown> | undefined)?.day === day ? data!.body as Record<string, number> : { day } as unknown as Record<string, number>;
+  const n = (k: string) => Number(cur[k] ?? 0);
+  const body = { ...cur, day, searches: n('searches') + 1, input: n('input') + Number(u?.input_tokens ?? 0), output: n('output') + Number(u?.output_tokens ?? 0),
+    tool_calls: n('tool_calls') + Number(u?.num_server_side_tools_used ?? 0),
+    posts_read: n('posts_read') + Number((u?.server_side_tool_usage_details as Record<string, unknown> | undefined)?.x_posts_fetched ?? 0),
+    // xAI prices every call itself, in ticks of a ten-billionth of a dollar
+    usd: Math.round((n('usd') + Number(u?.cost_in_usd_ticks ?? 0) / 1e10) * 10000) / 10000, last: u ?? null };
+  await db.from('hub_cache').upsert({ key: 'x_usage', body, at: new Date().toISOString() });
+}
+async function xGrokOnce(apiKey: string, handles: string[], cfg: XConfig, since: string | null = null): Promise<XPost[]> {
+  const today = new Date(), from = since ? new Date(since) : new Date(Date.now() - 2 * 86400000);
   const day = (d: Date) => d.toISOString().slice(0, 10);
   const ctl = new AbortController();
   const timer = setTimeout(() => ctl.abort(), 90_000);
@@ -200,11 +230,11 @@ async function xGrokOnce(apiKey: string, handles: string[], cfg: XConfig): Promi
     method: 'POST', signal: ctl.signal,
     headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${apiKey}` },
     body: JSON.stringify({
-      model: Deno.env.get('GROK_SEARCH_MODEL') || 'grok-4-1-fast',
+      model: Deno.env.get('GROK_SEARCH_MODEL') || 'grok-4.3',   // grok-4-1-fast was retired in May 2026 and redirects here anyway
       tools: [{ type: 'x_search', allowed_x_handles: handles, from_date: day(from), to_date: day(today) }],
       input: [
         { role: 'system', content: 'You are a data extractor. You search X and return only JSON, never prose.' },
-        { role: 'user', content: `Find the most recent posts (last 48 hours, newest first, up to 40) from these X accounts about the NHL: ${handles.map((h) => '@' + h).join(', ')}. Include injuries, lineups, trades, signings, call-ups, waivers, scores and news${cfg.topics.length ? `, and give priority to posts about: ${cfg.topics.join(', ')}` : ''}. Skip replies and retweets.
+        { role: 'user', content: `Find the most recent posts (${since ? `posted after ${since}, newest first, up to 15` : 'last 48 hours, newest first, up to 40'}) from these X accounts about the NHL: ${handles.map((h) => '@' + h).join(', ')}. Include injuries, lineups, trades, signings, call-ups, waivers, scores and news${cfg.topics.length ? `, and give priority to posts about: ${cfg.topics.join(', ')}` : ''}. Skip replies and retweets.
 Return exactly this JSON and nothing else:
 {"posts":[{"handle":"<account handle without @>","name":"<account display name>","text":"<the post text, verbatim>","url":"<https://x.com/<handle>/status/<id>>","at":"<ISO 8601 timestamp, UTC>","link":"<first non-X URL in the post or null>"}]}` },
       ],
@@ -212,6 +242,7 @@ Return exactly this JSON and nothing else:
   }).finally(() => clearTimeout(timer));
   if (!r.ok) throw new Error(`Grok ${r.status}: ${(await r.text()).slice(0, 200)}`);
   const j = await r.json();
+  await xMeter(j?.usage).catch(() => {});
   const text: string = (j.output ?? []).filter((o: any) => o.type === 'message').flatMap((o: any) => o.content ?? []).filter((c: any) => c.type === 'output_text').map((c: any) => c.text).join('\n')
     || j.output_text || '';
   const m = text.match(/\{[\s\S]*\}/);
@@ -241,10 +272,12 @@ async function xfeed() {
   // When it's gone stale (or the commish changed the list) the old feed goes out right away and the refresh
   // runs in the background, so nobody waits on a Grok search.
   const { data: hit } = await db.from('hub_cache').select('body,at').eq('key', 'x').maybeSingle();
-  const fresh = !!hit && Date.now() - new Date(hit.at).getTime() < X_SHARED_TTL && (hit.body as any)?.config_key === cfg.key;
+  const same = !!hit && (hit.body as any)?.config_key === cfg.key;
+  const fresh = same && Date.now() - new Date(hit!.at).getTime() < xSharedTtl();
   if (fresh) return hit!.body;
   const refresh = async () => {
-    const posts = token ? await xApi(token, cfg) : await xGrok(xai!, cfg);
+    // a changed account list starts the feed over; otherwise only what's new is fetched and merged in
+    const posts = token ? await xApi(token, cfg) : await xGrok(xai!, cfg, same ? ((hit!.body as any)?.posts ?? []) as XPost[] : []);
     const body = { configured: true, source: token ? 'x' : 'grok', accounts, topics: cfg.topics, posts, fetched_at: new Date().toISOString(), config_key: cfg.key };
     await db.from('hub_cache').upsert({ key: 'x', body, at: new Date().toISOString() });
     return body;

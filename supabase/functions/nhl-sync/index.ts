@@ -235,14 +235,19 @@ async function players() {
   // on game day the box score is the truth: don't let a roster feed that's behind on a trade undo it
   const { data: dressed } = await db.from('player_games').select('player_id,nhl_team').eq('date', await leagueToday());
   const boxTeam = new Map((dressed ?? []).filter((x) => x.nhl_team).map((x) => [x.player_id as number, x.nhl_team as string]));
-  const have = new Map<number, string[]>();
+  const FIELDS = ['name', 'first', 'last_name', 'pos', 'nhl_team', 'num', 'birth', 'shoots', 'headshot', 'status'] as const;
+  const have = new Map<number, Record<string, unknown>>();
   for (let i = 0; i < seen.length; i += 300) {
-    const chunk = check(await db.from('players').select('id,elig').in('id', seen.slice(i, i + 300).map((p) => p.id))) as { id: number; elig: string[] }[];
-    for (const p of chunk) have.set(p.id, p.elig);
+    const chunk = check(await db.from('players').select('id,elig,name,first,last_name,pos,nhl_team,num,birth,shoots,headshot,status').in('id', seen.slice(i, i + 300).map((p) => p.id))) as unknown as Record<string, unknown>[];
+    for (const p of chunk) have.set(p.id as number, p);
   }
-  const rows = seen.map((p) => ({ ...p, nhl_team: boxTeam.get(p.id) ?? p.nhl_team, elig: have.get(p.id) ?? [p.pos], updated_at: new Date().toISOString() }));
+  // write only the players whose roster line changed: rewriting all ~800 every run bloated the table and stamped
+  // everyone as updated, so nobody downstream could tell what actually moved
+  const rows = seen.map((p) => ({ ...p, nhl_team: boxTeam.get(p.id) ?? p.nhl_team, elig: (have.get(p.id)?.elig as string[] | undefined) ?? [p.pos] }))
+    .filter((r) => { const o = have.get(r.id); return !o || FIELDS.some((f) => (o[f] ?? null) !== ((r as Record<string, unknown>)[f] ?? null)); })
+    .map((r) => ({ ...r, updated_at: new Date().toISOString() }));
   for (let i = 0; i < rows.length; i += 300) check(await db.from('players').upsert(rows.slice(i, i + 300)));
-  return { players: rows.length, added: rows.filter((r) => !have.has(r.id)).length };
+  return { players: seen.length, changed: rows.length, added: rows.filter((r) => !have.has(r.id)).length };
 }
 
 async function nameIndex() {
@@ -275,11 +280,20 @@ async function injuries() {
     }
   }
   // clear players who are no longer listed
-  const { data: listed } = await db.from('players').select('id').not('injury_status', 'is', null);
+  const { data: listed } = await db.from('players').select('id,injury_status,injury_note,injury_date').not('injury_status', 'is', null);
   const cleared = (listed ?? []).map((p) => p.id).filter((id) => !found.has(id));
   if (cleared.length) check(await db.from('players').update({ injury_status: null, injury_note: null, injury_date: null }).in('id', cleared));
-  for (const [id, v] of found) check(await db.from('players').update(v).eq('id', id));
-  return { injured: found.size, cleared: cleared.length };
+  // and write only the injuries that are new or changed (the same hundred-odd rows were rewritten every 15 minutes)
+  const was = new Map((listed ?? []).map((p) => [p.id as number, p]));
+  const day = (d: unknown) => (d ? String(d).slice(0, 10) : null);
+  let changed = 0;
+  for (const [id, v] of found) {
+    const o = was.get(id);
+    if (o && o.injury_status === v.injury_status && (o.injury_note ?? null) === v.injury_note && day(o.injury_date) === day(v.injury_date)) continue;
+    check(await db.from('players').update(v).eq('id', id));
+    changed++;
+  }
+  return { injured: found.size, changed, cleared: cleared.length };
 }
 
 async function news() {
