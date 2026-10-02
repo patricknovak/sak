@@ -45,9 +45,11 @@ export default function MyTeam() {
     if (!l || tfOk === 'proj' || tfOk === 'ros') return null;
     const t = l.totals;
     if (!l.gp) return 'no games';
+    // total fantasy points first: the stat line truncates on a phone, and this is the number that counts
+    const fp = `${fmtPts(l.fp, 1)} FP`;
     return p.pos === 'G'
-      ? `${l.gp} GP · ${t.w ?? 0}-${t.l ?? 0}-${t.otl ?? 0} · ${t.sa ? ((t.sv ?? 0) / t.sa).toFixed(3).replace(/^0/, '') : '–'} SV% · ${((t.ga ?? 0) / l.gp).toFixed(2)} GAA`
-      : `${l.gp} GP · ${t.g ?? 0} G ${t.a ?? 0} A · ${t.pm != null && t.pm > 0 ? '+' : ''}${t.pm ?? 0} · ${t.sog ?? 0} SOG · ${t.hit ?? 0} H ${t.blk ?? 0} B`;
+      ? `${fp} · ${l.gp} GP · ${t.w ?? 0}-${t.l ?? 0}-${t.otl ?? 0} · ${t.sa ? ((t.sv ?? 0) / t.sa).toFixed(3).replace(/^0/, '') : '–'} SV% · ${((t.ga ?? 0) / l.gp).toFixed(2)} GAA`
+      : `${fp} · ${l.gp} GP · ${t.g ?? 0} G ${t.a ?? 0} A · ${t.pm != null && t.pm > 0 ? '+' : ''}${t.pm ?? 0} · ${t.sog ?? 0} SOG · ${t.hit ?? 0} H ${t.blk ?? 0} B`;
   };
   const [tools, setTools] = useState(false);
 

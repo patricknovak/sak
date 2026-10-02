@@ -3,12 +3,13 @@ import { Link } from 'react-router-dom';
 import { useLeague } from '../lib/store';
 import { selectAll, supabase } from '../lib/supabase';
 import { fmtDate, fmtMoney, fmtPts } from '../lib/format';
-import { Rank, Section, TeamBadge, TeamName, PageHeader } from '../components/ui';
+import { Section, TeamBadge, PageHeader } from '../components/ui';
 import type { Team } from '../lib/types';
 import { Trophy } from 'lucide-react';
 import { SEASONS } from '../data/history';
 import { PLACES, prizes } from '../lib/prizes';
 import { PointsRace } from '../components/charts';
+import { StandingsTable } from '../components/StandingsTable';
 
 interface Daily { team_id: number; date: string; points: number }
 
@@ -41,7 +42,7 @@ function Podium({ rows, caption }: { rows: { t?: Team; name: string; gm: string;
 }
 
 export default function Standings() {
-  const { standings, playoffs, cup, team, teams, me, league, online } = useLeague();
+  const { standings, playoffs, cup, team, teams, me, league } = useLeague();
   const playoffsOn = playoffs.some((t) => Number(t.points) !== 0);
   const [view, setView] = useState<'regular' | 'playoffs' | 'cup'>(playoffsOn ? 'playoffs' : 'regular');
   useEffect(() => { if (playoffsOn) setView('playoffs'); }, [playoffsOn]);
@@ -87,36 +88,7 @@ export default function Standings() {
         : view === 'regular' && <Podium caption={`${SEASONS[0].season} final podium`} rows={SEASONS[0].rows.slice(0, 3).map((r) => ({ t: teams.find((x) => x.name === r.team), name: r.team, gm: r.gm, pts: r.points }))} />}
       <div className="grid items-start gap-5 xl:grid-cols-[minmax(0,1.35fr)_minmax(0,1fr)]">
       <div className="space-y-2">
-      <div className="card overflow-hidden">
-        <table className="w-full text-sm">
-          <thead className="bg-white/[.04] text-left text-[11px] uppercase tracking-wider text-mute">
-            <tr><th className="px-3 py-2">#</th><th>Team</th><th className="text-right">Pts</th><th className="hidden text-right sm:table-cell">Today</th><th className="hidden text-right sm:table-cell">7 days</th><th className="px-2 text-right" title="Points left on the bench and IR: shown, never counted">Bench</th><th className="px-3 text-right">Back</th></tr>
-          </thead>
-          <tbody className="divide-y divide-white/[.06]">
-            {table.map((s, i) => (
-              <tr key={s.team_id} className={s.team_id === me?.id ? 'bg-white/5' : ''}>
-                <td className="px-3 py-2.5">{scored ? <Rank n={s.rank} /> : <span className="grid h-7 w-7 place-items-center text-mute">–</span>}</td>
-                <td>
-                  <Link to={`/team/${s.team_id}`} className="flex items-center gap-2">
-                    <TeamBadge team={team(s.team_id)} size={28} />
-                    <div className="min-w-0"><TeamName team={team(s.team_id)} className="block truncate" />
-                      <div className="text-[11px] text-mute">{team(s.team_id)?.gm_name}{view === 'regular' && ` · ${s.moves} pickups`}{online.has(s.team_id) && <span className="text-emerald-400"> · online</span>}
-                        {scored && i < 3 && pot[i] ? <span className="text-gold"> · {fmtMoney(pot[i])}</span> : null}{view === 'regular' && scored && i === table.length - 1 && table.length > 1 ? ' · 🪣 Peter watch' : ''}</div></div>
-                  </Link>
-                </td>
-                <td className="num text-right font-display text-lg font-extrabold">{fmtPts(s.points)}</td>
-                <td className="hidden text-right text-emerald-300 sm:table-cell">{s.today ? '+' + fmtPts(s.today) : '–'}</td>
-                <td className="hidden text-right sm:table-cell">{fmtPts(s.last7)}</td>
-                <td className="num px-2 text-right text-xs text-mute" title={`Left on the bench and IR ${isCup ? 'this year' : isPo ? 'in the playoffs' : 'this season'}`}>
-                  {Number(s.bench) ? fmtPts(s.bench) : '–'}
-                  {Number(s.bench_today) > 0 && <div className="whitespace-nowrap text-[10px] text-amber-200">+{fmtPts(s.bench_today)} today</div>}
-                </td>
-                <td className="px-3 text-right text-mute">{i === 0 ? '—' : fmtPts(table[0].points - s.points)}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
+      <StandingsTable rows={table} view={view} pot={pot} peter={view === 'regular'} />
       {scored && <p className="px-1 text-[11px] text-mute">🪑 Bench: points left on the bench and IR {isCup ? 'this year' : isPo ? 'in the playoffs' : 'this season'}, shown and never counted. Tonight’s bench is on the <Link className="text-sky-300" to="/scoreboard">scoreboard</Link>, every day of it on the <Link className="text-sky-300" to="/performance">Performance page</Link>.</p>}
       {view === 'regular' && scored && last && second && (
         <p className="px-1 text-xs text-mute">🪣 Peter Punishment if the regular season ended now: {team(last.team_id)?.gm_name} owes {fmtMoney(Math.round((second.points - last.points) * 100) / 100)} to the SaK Fund.</p>

@@ -195,8 +195,9 @@ export default function Trades() {
     const gp = s && s.gp ? s.gp : (p.last_stats?.gp ?? 0);
     if (!t || !gp) return 'no NHL games';
     const tag = s && s.gp ? '' : '’25-26 ';
-    return p.pos === 'G' ? `${tag}${gp} GP, ${t.w ?? 0} W, ${t.sa ? ((t.sv ?? 0) / (t.sa as number)).toFixed(3).replace(/^0/, '') : '–'} SV%, ${t.sho ?? 0} SO`
-      : `${tag}${gp} GP, ${t.g ?? 0} G, ${t.a ?? 0} A, ${t.ppp ?? 0} PPP, ${t.sog ?? 0} SOG, ${t.hit ?? 0} H, ${t.blk ?? 0} B`;
+    const fp = `${fmtPts(s && s.gp ? s.fpts : p.last_fp, 1)} FP, `;
+    return p.pos === 'G' ? `${tag}${fp}${gp} GP, ${t.w ?? 0} W, ${t.sa ? ((t.sv ?? 0) / (t.sa as number)).toFixed(3).replace(/^0/, '') : '–'} SV%, ${t.sho ?? 0} SO`
+      : `${tag}${fp}${gp} GP, ${t.g ?? 0} G, ${t.a ?? 0} A, ${t.ppp ?? 0} PPP, ${t.sog ?? 0} SOG, ${t.hit ?? 0} H, ${t.blk ?? 0} B`;
   };
   const buildFromFinder = (p: number, g: Player[], r: Player[]) => {
     setMode('two');

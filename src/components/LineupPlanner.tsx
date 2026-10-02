@@ -164,15 +164,16 @@ export function LineupPlanner({ roster }: { roster: Row[] }) {
   // stats for the grid
   const tfOk: Timeframe = !windows.size && TIMEFRAMES.find((x) => x.k === tf)?.live ? 'last' : tf;
   const w = league?.scoring;
+  // total fantasy points lead every view, so the number that counts is on screen without scrolling
   const cols = (() => {
-    if (view === 'fantasy') return ['fpg', 'ros', 'fp', 'fp14', 'wk', 'n30'];
-    if (view === 'skater') return SK;
-    if (view === 'goalie') return GO;
-    if (view === 'proj') return ['pgp', 'pg', 'pa', 'ppts', 'ppm', 'pppp', 'psog', 'phit', 'pblk', 'prange'];
-    return [...Object.keys(w?.skater ?? {}), ...Object.keys(w?.goalie ?? {}).map((k) => 'g:' + k)];
+    if (view === 'fantasy') return ['fp', 'fpg', 'ros', 'fp14', 'wk', 'n30'];
+    if (view === 'skater') return ['fp', ...SK];
+    if (view === 'goalie') return ['fp', ...GO];
+    if (view === 'proj') return ['pfp', 'pgp', 'pg', 'pa', 'ppts', 'ppm', 'pppp', 'psog', 'phit', 'pblk', 'prange'];
+    return ['fp', ...Object.keys(w?.skater ?? {}), ...Object.keys(w?.goalie ?? {}).map((k) => 'g:' + k)];
   })();
   const LABEL: Record<string, string> = {
-    fpg: 'Proj/G', ros: 'ROS', fp: 'FP', fp14: 'FP/G 14d', wk: 'Games 7d', n30: 'Games 30d', pgp: 'GP', pg: 'G', pa: 'A', ppts: 'P', ppm: '+/-', pppp: 'PPP', psog: 'SOG', phit: 'HIT', pblk: 'BLK', prange: 'Range',
+    fpg: 'Proj/G', ros: 'ROS', fp: 'FP', pfp: 'FP', fp14: 'FP/G 14d', wk: 'Games 7d', n30: 'Games 30d', pgp: 'GP', pg: 'G', pa: 'A', ppts: 'P', ppm: '+/-', pppp: 'PPP', psog: 'SOG', phit: 'HIT', pblk: 'BLK', prange: 'Range',
     gp: 'GP', gs: 'GS', g: 'G', a: 'A', pts: 'P', pm: '+/-', ppp: 'PPP', sog: 'SOG', hit: 'HIT', blk: 'BLK', pim: 'PIM', gwg: 'GWG', shpct: 'S%', w: 'W', l: 'L', otl: 'OTL', sv: 'SV', ga: 'GA', svp: 'SV%', gaa: 'GAA', sho: 'SO',
   };
   const gamesIn = (p: Player, from: string, n: number) => { let c = 0; for (let i = 0; i < n; i++) if (gameFor(p, addDays(from, i))) c++; return c; };
@@ -184,6 +185,7 @@ export function LineupPlanner({ roster }: { roster: Row[] }) {
     if (k === 'fp14') { const x = windows.get(p.id)?.['14']; return x && x.gp ? x.fpts / x.gp : null; }
     if (k === 'wk') return gamesIn(p, day, 7);
     if (k === 'n30') return gamesIn(p, day, 30);
+    if (k === 'pfp') { const gp = details?.get(p.id)?.proj_stats?.gp; return perGame ? (gp ? p.proj / gp : null) : p.proj; }
     if (k.startsWith('p') && view === 'proj') {
       const st = details?.get(p.id)?.proj_stats;
       if (k === 'prange') { const m = details?.get(p.id)?.proj_meta; return m ? p.proj * m.hi - p.proj * m.lo : null; }
@@ -207,7 +209,7 @@ export function LineupPlanner({ roster }: { roster: Row[] }) {
     if (v == null) return '–';
     if (['fpg', 'fp14'].includes(k)) return v.toFixed(2);
     if (k === 'prange') return `±${Math.round(v / 2)}`;
-    if (['ros', 'fp'].includes(k) || view === 'points') return fmtPts(v, perGame || view === 'points' ? 1 : 0);
+    if (['ros', 'fp', 'pfp'].includes(k) || view === 'points') return fmtPts(v, perGame || view === 'points' || k === 'fp' ? 1 : 0);
     if (['wk', 'n30'].includes(k)) return String(v);
     if (view === 'proj') return perGame ? v.toFixed(2) : String(Math.round(v));
     return fmtStat(v, k, perGame);
@@ -440,7 +442,7 @@ export function LineupPlanner({ roster }: { roster: Row[] }) {
                 <th className="px-2 text-left">{day === today ? 'Today' : monthDay(day)}</th>
                 {cols.map((k) => (
                   <th key={k} className="cursor-pointer whitespace-nowrap px-2 text-right hover:text-white" onClick={() => setSort(sort?.k === k ? (sort.dir === 1 ? { k, dir: -1 } : null) : { k, dir: 1 })}>
-                    {view === 'points' ? pointsLabel(k) : LABEL[k] ?? k}{sort?.k === k ? (sort.dir === 1 ? ' ▼' : ' ▲') : ''}
+                    {k === 'fp' || k === 'pfp' ? <span className="text-gold" title="Total fantasy points over the timeframe">{LABEL[k]}</span> : view === 'points' ? pointsLabel(k) : LABEL[k] ?? k}{sort?.k === k ? (sort.dir === 1 ? ' ▼' : ' ▲') : ''}
                   </th>
                 ))}
               </tr>
@@ -471,7 +473,7 @@ export function LineupPlanner({ roster }: { roster: Row[] }) {
                       </div>
                     </td>
                     <td className="whitespace-nowrap px-2">{g ? <span className={START.includes(s as Slot) ? 'text-emerald-300' : 'text-amber-200'}>{g.home === p.nhl_team ? 'vs ' + g.away : '@' + g.home} <span className="text-mute">{new Date(g.start_utc).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}</span></span> : <span className="text-white/20">no game</span>}</td>
-                    {cols.map((k) => <td key={k} className="num whitespace-nowrap px-2 text-right">{fmt(k, value(p, k))}</td>)}
+                    {cols.map((k) => <td key={k} className={`num whitespace-nowrap px-2 text-right ${k === 'fp' || k === 'pfp' ? 'font-bold text-gold' : ''}`}>{fmt(k, value(p, k))}</td>)}
                   </tr>
                 );
               })}
@@ -480,7 +482,7 @@ export function LineupPlanner({ roster }: { roster: Row[] }) {
           </table>
         </div>
         <div className="border-t border-white/[.06] px-3 py-2 text-[11px] text-mute">
-          {view === 'points' ? 'Fantasy points each category produced under the league’s scoring. Tap a column to sort.' : view === 'proj' ? 'The SAK projection for the full season (goalies: GP = starts, G = wins, A = saves, P = shutouts). Range = the gap between a bad year and a great year.' : view === 'fantasy' ? 'Proj/G = projected fantasy points per game. ROS = rest of season. FP uses the timeframe below. Games = NHL games from the selected day.' : 'Tap a column to sort. Per game divides by games played.'}
+          {view === 'points' ? 'Fantasy points each category produced under the league’s scoring. Tap a column to sort.' : view === 'proj' ? 'The SAK projection for the full season (goalies: GP = starts, G = wins, A = saves, P = shutouts). Range = the gap between a bad year and a great year.' : view === 'fantasy' ? 'FP = total fantasy points over the timeframe above. Proj/G = projected fantasy points per game. ROS = rest of season. Games = NHL games from the selected day.' : 'FP = total fantasy points over the timeframe above. Tap a column to sort. Per game divides by games played.'}
         </div>
       </div>
       </>}
