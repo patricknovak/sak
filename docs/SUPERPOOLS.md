@@ -100,7 +100,8 @@ on the site, and the switcher.
 
 The expansion review (`docs/EXPANSION.md`, October 2026) is the detailed version of this list: the eight
 blockers before a second league goes live, the phases and their gates, the sport split, and the new-league
-checklist. `supabase/tests/tenancy.sql` enforces the tenancy rules on every test run.
+checklist. Phase 1 is under way: B1 (one roster per league) landed in migration 81; B2 (the draft per league) is
+next. `supabase/tests/tenancy.sql` enforces the tenancy rules on every test run.
 
 1. **League by host.** `leagues.domain`: `sak.superpoolsai.com` or a custom domain per league; the app picks
    the league from the host, so one deployment serves all leagues.

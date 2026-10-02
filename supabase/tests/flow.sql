@@ -1039,6 +1039,48 @@ select pg_temp.expect('SaK still sees its own league whole', (select count(*) fr
 reset role;
 select 'second league isolated', true;
 
+-- ───────────── one roster per league: both leagues can have the same player ─────────────
+reset role;
+select r.player_id as shared_p, r.team_id as sak_owner from rosters r where r.league_id = 1 and r.slot = 'BN' order by r.player_id limit 1 \gset
+select r.player_id as shared2 from rosters r where r.league_id = 1 and r.slot = 'BN' and r.player_id <> :shared_p order by r.player_id limit 1 \gset
+select phase as north_phase from league_rules where league_id = :league2 \gset
+update league_rules set phase = 'season' where league_id = :league2;
+-- the north commissioner puts SaK's player on her team, and her GM adds another one SaK owns as a free agent
+select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-000000000099', false);
+set role authenticated;
+select commish_move_player(:shared_p, 99, 'BN');
+select add_player(:shared2, null, false);
+select pg_temp.raises('the north can''t add him twice', format('select add_player(%s, null, false)', :shared2), 'already on a roster');
+reset role;
+select pg_temp.expect('both leagues have him', (select count(*) = 2 and count(distinct league_id) = 2 from rosters where player_id = :shared_p)
+  and (select team_id = :sak_owner from rosters where player_id = :shared_p and league_id = 1));
+select pg_temp.expect('the north''s add left SaK''s row alone', (select count(*) = 2 from rosters where player_id = :shared2));
+-- news about him reaches his team in every league
+update players set injury_status = 'Day-to-Day' where id = :shared_p;
+select pg_temp.expect('an injury pings both owners', (select count(distinct team_id) = 2 from notifications where kind = 'injury' and link = '/player/' || :shared_p and team_id in (99, :sak_owner)));
+update players set injury_status = null where id = :shared_p;
+-- the SaK commissioner still runs SaK's copy of a shared player, and the north's copy doesn't move
+select pg_temp.as_team(1);
+set role authenticated;
+select commish_move_player(:shared2, 3, 'BN');
+reset role;
+select pg_temp.expect('SaK move moved SaK''s row only', (select team_id = 3 from rosters where player_id = :shared2 and league_id = 1) and (select team_id = 99 from rosters where player_id = :shared2 and league_id = :league2));
+-- the north sends him back to free agency: SaK keeps him
+select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-000000000099', false);
+set role authenticated;
+select commish_move_player(:shared2, null, null);
+select drop_player(:shared_p);
+reset role;
+select pg_temp.expect('north releases leave SaK''s rows', (select count(*) = 1 from rosters where player_id = :shared2 and league_id = 1)
+  and not exists (select 1 from rosters where league_id = :league2 and player_id in (:shared_p, :shared2))
+  and exists (select 1 from rosters where player_id = :shared_p and league_id = 1 and team_id = :sak_owner));
+-- the north's snapshots of those players (taken while she had them) are right, but the sections below expect a
+-- north league with no games of its own
+select pg_temp.expect('the north team was snapshotted for her own copy', exists (select 1 from lineup_snapshots where team_id = 99));
+delete from lineup_snapshots where team_id = 99;
+update league_rules set phase = :'north_phase' where league_id = :league2;
+select 'one roster per league', true;
+
 -- ───────────── every rule reads its own league's row ─────────────
 reset role;
 select pg_temp.expect('rules table renamed, view in its place', (select count(*) from pg_views where schemaname = 'public' and viewname = 'league') = 1 and (select count(*) from league_rules) = 2);
@@ -1446,9 +1488,17 @@ set role authenticated;
 select pg_temp.raises('north commish gives coins to a SaK team', 'select commish_coins(2, 500, ''gift'')');
 select pg_temp.raises('north commish resets a SaK password', 'select commish_reset_password(2, ''hijacked-123'')');
 select pg_temp.raises('north commish books a SaK ledger line', 'select commish_ledger(2, ''adjust'', 10, ''x'')');
-select pg_temp.raises('north commish moves a SaK player', format('select commish_move_player(%s, 99, ''BN'')', current_setting('t.sak_player')));
+-- a player on a SaK roster is a free agent in the north: her move takes her league's copy and never SaK's
+select commish_move_player(current_setting('t.sak_player')::int, 99, 'BN');
+select commish_move_player(current_setting('t.sak_player')::int, null, null);
 select pg_temp.raises('north commish proposes a trade to a SaK team', 'select propose_trade(2, array[]::int[], array[]::int[], array[]::int[], array[]::int[], null, 0, 0, 10, 0)');
 select pg_temp.raises('north commish re-owns a SaK pick', format('select commish_set_pick_owner(%s, 99, null::text)', current_setting('t.sak_pick')));
+reset role;
+select pg_temp.expect('the north''s moves left SaK''s copy where it was', exists (select 1 from rosters where league_id = 1 and player_id = current_setting('t.sak_player')::int)
+  and not exists (select 1 from rosters where league_id <> 1 and player_id = current_setting('t.sak_player')::int));
+delete from lineup_snapshots where team_id = 99;
+select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-000000000099', false);
+set role authenticated;
 reset role;
 select coalesce((select id::text from bets where league_id = 1 order by id limit 1), '') as sak_bet \gset
 select set_config('t.sak_bet', :'sak_bet', false);

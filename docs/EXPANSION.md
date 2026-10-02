@@ -74,6 +74,11 @@ cannot roster anyone SaK owns, and every lookup by player alone (`add_player`, `
 big-night alerts, Book props) reads across leagues.
 *Fix:* key `(league_id, player_id)`; add the league to every player-keyed roster query; alerts loop every
 owning team, one per league.
+*Done (migration 81, October 2026).* The key is `(league_id, player_id)`. Nineteen functions look a player up in
+the right league: the team's for a GM's own moves, the caller's for the commissioner's, the pick's in the draft;
+the injury and big-night alerts reach the owning team in every league; `_in_league` refuses only when none of a
+player's rows is in the caller's league; nhl-sync's scratch check counts a shared player once. The flow test has
+two leagues roster the same player, add, move and release him independently, and both owners get his injury.
 
 **B2. The draft is single-tenant.** `draft_state` is one row (`check (id = 1)`); `draft_picks` is
 `unique (season, overall)` and `unique (season, round, original_team)`; `draft_set_order`, `_ensure_picks`,

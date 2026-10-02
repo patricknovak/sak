@@ -357,7 +357,9 @@ async function gameday() {
     const scratched: { id: number; team: string }[] = [];
     const started = games.filter((g) => STARTED.has(g.state));
     if (started.length) {
-      const rostered = check(await db.from('rosters').select('player_id,players!inner(nhl_team,pos)').in('players.nhl_team', started.flatMap((g) => [g.home, g.away]))) as any[];
+      // one entry per player: with several leagues the same player is on several rosters
+      const rostered = [...new Map((check(await db.from('rosters').select('player_id,players!inner(nhl_team,pos)').in('players.nhl_team', started.flatMap((g) => [g.home, g.away]))) as any[])
+        .map((r) => [r.player_id, r])).values()];
       for (const g of started) {
         const { data: box } = await db.from('player_games').select('player_id').eq('game_id', g.id);
         const inBox = new Set((box ?? []).map((b) => b.player_id));

@@ -199,4 +199,4 @@ insert into public.rosters (player_id, team_id, slot, acquired, prev_fp) values
 (8481519,8,'BN','carryover',86.9),
 (8479312,8,'BN','carryover',88.35),
 (8481692,8,'BN','carryover',90)
-on conflict (player_id) do nothing;
+on conflict (league_id, player_id) do nothing;
