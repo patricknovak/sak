@@ -248,6 +248,8 @@ export default function Performance() {
             </Section>
           )}
 
+          {inRange.length > 0 && <BenchTally rows={inRange} dates={dates} teamIds={gmTeams.map((t) => t.id)} focus={focus ?? 0} />}
+
           {mine && (
             <Section title={<span className="flex items-center gap-2"><TeamBadge team={team(mine.team_id)} size={26} />{team(mine.team_id)?.name}</span>} right={sel === 'all' && <span className="text-xs text-mute">your team · pick another above</span>}>
               <div className="space-y-3">
@@ -343,5 +345,72 @@ export default function Performance() {
         </>
       )}
     </div>
+  );
+}
+
+// What every GM left on the bench and IR over the stretch: one column per GM, one row per game day, with the
+// total and the share of their players' points that sat out. Shown, never counted. Same rows as the table above.
+function BenchTally({ rows, dates, teamIds, focus }: { rows: Day[]; dates: string[]; teamIds: number[]; focus: number }) {
+  const { team, me } = useLeague();
+  const [all, setAll] = useState(false);
+  const cell = useMemo(() => new Map(rows.map((r) => [`${r.team_id}:${r.date}`, r])), [rows]);
+  const totals = useMemo(() => teamIds.map((id) => {
+    const mine = rows.filter((r) => r.team_id === id);
+    const bench = mine.reduce((n, r) => n + r.bench, 0), pts = mine.reduce((n, r) => n + r.points, 0);
+    return { id, bench, pts, games: mine.reduce((n, r) => n + r.benched, 0) };
+  }).sort((a, b) => b.bench - a.bench || a.id - b.id), [rows, teamIds]);
+  const days = useMemo(() => [...dates].reverse(), [dates]);
+  const shown = all ? days : days.slice(0, 14);
+  const benchOf = (id: number, d: string) => cell.get(`${id}:${d}`)?.bench ?? 0;
+  return (
+    <Section title="🪑 Bench tally" right={<span className="text-xs text-mute">shown, never counted</span>}>
+      <div className="space-y-3">
+        {dates.length > 1 && <PointsRace daily={rows.map((r) => ({ team_id: r.team_id, date: r.date, points: r.bench }))} focus={focus} />}
+        <div className="card overflow-hidden">
+          <div className="scroll-x">
+            <table className="w-full min-w-max text-xs">
+              <thead className="bg-white/[.03] text-[10px] uppercase tracking-wider text-mute">
+                <tr>
+                  <th className="sticky left-0 z-10 bg-rink px-2 py-1.5 text-left">Day</th>
+                  {totals.map((t) => (
+                    <th key={t.id} className="px-1.5 py-1.5 text-center" title={`${team(t.id)?.name} · ${team(t.id)?.gm_name}`}>
+                      <div className="flex flex-col items-center gap-0.5"><TeamBadge team={team(t.id)} size={20} /><span className={`normal-case ${t.id === me?.id ? 'text-sky-300' : ''}`}>{t.id === me?.id ? 'Me' : team(t.id)?.gm_name}</span></div>
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-white/[.05]">
+                <tr className="bg-amber-500/[.06]">
+                  <td className="sticky left-0 z-10 bg-rink px-2 py-1.5 font-semibold text-amber-200">Total</td>
+                  {totals.map((t) => <td key={t.id} className="num px-1.5 text-center font-bold text-amber-200">{t.bench ? fmtPts(t.bench) : '–'}</td>)}
+                </tr>
+                <tr className="text-mute">
+                  <td className="sticky left-0 z-10 bg-rink px-2 py-1.5" title="Bench and IR points as a share of everything their players scored">% benched</td>
+                  {totals.map((t) => <td key={t.id} className="num px-1.5 text-center">{t.pts + t.bench > 0 && t.bench > 0 ? `${Math.round((t.bench / (t.pts + t.bench)) * 100)}%` : '–'}</td>)}
+                </tr>
+                <tr className="text-mute">
+                  <td className="sticky left-0 z-10 bg-rink px-2 py-1.5" title="Games played by players on the bench or IR">Games</td>
+                  {totals.map((t) => <td key={t.id} className="num px-1.5 text-center">{t.games || '–'}</td>)}
+                </tr>
+                {shown.map((d) => {
+                  const hi = Math.max(...totals.map((t) => benchOf(t.id, d)));
+                  return (
+                    <tr key={d} className="hover:bg-white/[.03]">
+                      <td className="sticky left-0 z-10 bg-rink px-2 py-1.5"><Link to={`/scoreboard?day=${d}`} className="whitespace-nowrap font-semibold text-sky-300">{fmtDate(d)}</Link></td>
+                      {totals.map((t) => {
+                        const v = benchOf(t.id, d);
+                        return <td key={t.id} className={`num px-1.5 text-center ${v && v === hi ? 'font-bold text-amber-200' : v ? 'text-slate-300' : 'text-white/20'}`}>{v ? fmtPts(v) : '·'}</td>;
+                      })}
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+          {days.length > 14 && <button className="w-full border-t border-white/[.06] py-2 text-xs font-semibold text-sky-300" onClick={() => setAll(!all)}>{all ? 'Show the last 14 days' : `Show all ${days.length} days`}</button>}
+          <div className="border-t border-white/[.06] px-3 py-2 text-[11px] text-mute">Bench and IR points for every GM, game day by game day, with the total over this stretch. Amber marks the biggest bench of each day. Tap a day for that night’s scoreboard.</div>
+        </div>
+      </div>
+    </Section>
   );
 }

@@ -90,7 +90,7 @@ export default function Standings() {
       <div className="card overflow-hidden">
         <table className="w-full text-sm">
           <thead className="bg-white/[.04] text-left text-[11px] uppercase tracking-wider text-mute">
-            <tr><th className="px-3 py-2">#</th><th>Team</th><th className="text-right">Pts</th><th className="hidden text-right sm:table-cell">Today</th><th className="hidden text-right sm:table-cell">7 days</th><th className="hidden text-right md:table-cell" title="Points left on the bench and IR this season: shown, never counted">Benched</th><th className="px-3 text-right">Back</th></tr>
+            <tr><th className="px-3 py-2">#</th><th>Team</th><th className="text-right">Pts</th><th className="hidden text-right sm:table-cell">Today</th><th className="hidden text-right sm:table-cell">7 days</th><th className="px-2 text-right" title="Points left on the bench and IR: shown, never counted">Bench</th><th className="px-3 text-right">Back</th></tr>
           </thead>
           <tbody className="divide-y divide-white/[.06]">
             {table.map((s, i) => (
@@ -107,13 +107,17 @@ export default function Standings() {
                 <td className="num text-right font-display text-lg font-extrabold">{fmtPts(s.points)}</td>
                 <td className="hidden text-right text-emerald-300 sm:table-cell">{s.today ? '+' + fmtPts(s.today) : '–'}</td>
                 <td className="hidden text-right sm:table-cell">{fmtPts(s.last7)}</td>
-                <td className="hidden text-right text-mute md:table-cell" title="Left on the bench this season">{s.bench ? fmtPts(s.bench) : '–'}</td>
+                <td className="num px-2 text-right text-xs text-mute" title={`Left on the bench and IR ${isCup ? 'this year' : isPo ? 'in the playoffs' : 'this season'}`}>
+                  {Number(s.bench) ? fmtPts(s.bench) : '–'}
+                  {Number(s.bench_today) > 0 && <div className="whitespace-nowrap text-[10px] text-amber-200">+{fmtPts(s.bench_today)} today</div>}
+                </td>
                 <td className="px-3 text-right text-mute">{i === 0 ? '—' : fmtPts(table[0].points - s.points)}</td>
               </tr>
             ))}
           </tbody>
         </table>
       </div>
+      {scored && <p className="px-1 text-[11px] text-mute">🪑 Bench: points left on the bench and IR {isCup ? 'this year' : isPo ? 'in the playoffs' : 'this season'}, shown and never counted. Tonight’s bench is on the <Link className="text-sky-300" to="/scoreboard">scoreboard</Link>, every day of it on the <Link className="text-sky-300" to="/performance">Performance page</Link>.</p>}
       {view === 'regular' && scored && last && second && (
         <p className="px-1 text-xs text-mute">🪣 Peter Punishment if the regular season ended now: {team(last.team_id)?.gm_name} owes {fmtMoney(Math.round((second.points - last.points) * 100) / 100)} to the SaK Fund.</p>
       )}

@@ -1349,3 +1349,29 @@ set role authenticated;
 select pg_temp.expect('the north league sees no house NHL markets', (select count(*) from markets where subject->>'house' = 'nhl') = 0);
 reset role;
 select 'book nhl', true;
+
+-- ───────────── bench tallies ─────────────
+-- a bench point from a playoff game shows in the playoff table and the full year, never in the regular season
+select pg_temp.as_team(2);
+select pg_temp.expect('bench rows say what kind of game', (select count(*) from information_schema.columns where table_name = 'team_bench_daily' and column_name = 'game_type') = 1);
+select id as bn_p from players where id not in (select player_id from lineup_snapshots where game_id = 2026030222) and pos <> 'G' order by id limit 1 \gset
+select s.bench as reg_b0, p.bench as po_b0, c.bench as cup_b0 from standings s join playoff_standings p using (team_id) join sak_cup_standings c using (team_id) where s.team_id = 2 \gset
+insert into lineup_snapshots (game_id, date, team_id, player_id, slot) values (2026030222, today_et() - 1, 2, :bn_p, 'BN');
+insert into player_games (game_id, player_id, date, stats) values (2026030222, :bn_p, today_et() - 1, '{"g":1,"a":1,"sog":4}');
+select fpts as bn_f from player_games where game_id = 2026030222 and player_id = :bn_p \gset
+select pg_temp.expect('the benched playoff game scores something', :bn_f > 0);
+select pg_temp.expect('playoff bench lands in the playoff table', (select bench from playoff_standings where team_id = 2) = :po_b0 + :bn_f);
+select pg_temp.expect('and in the full year', (select bench from sak_cup_standings where team_id = 2) = :cup_b0 + :bn_f);
+select pg_temp.expect('not in the regular season', (select bench from standings where team_id = 2) = :reg_b0);
+select pg_temp.expect('bench never counts', (select points from playoff_standings where team_id = 2) = (select coalesce(sum(points), 0) from playoff_daily where team_id = 2));
+
+-- a second league reads its own rules row: its points and bench show in its own table
+update league_rules set phase = 'season', season_start = today_et() - 1 where league_id = :league2;
+insert into lineup_snapshots (game_id, date, team_id, player_id, slot, league_id)
+  select 1, today_et(), 99, id, 'C', :league2 from players where name = 'Connor McDavid';
+select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-000000000099', false);
+set role authenticated;
+select pg_temp.expect('the north league scores its own starters', (select points from standings where team_id = 99) > 0);
+reset role;
+update league_rules set phase = 'keepers', season_start = null where league_id = :league2;
+select 'bench tallies', true;

@@ -180,7 +180,8 @@ export default function Home() {
                       <div className="mt-1 h-1 overflow-hidden rounded-full bg-white/[.06]"><div className="h-full rounded-full" style={{ width: `${(Number(s.points) / top) * 100}%`, background: `linear-gradient(90deg, ${readable(t?.color ?? '#4cc3ff')}, color-mix(in oklab, ${readable(t?.color ?? '#4cc3ff')} 60%, white))` }} /></div>
                     </div>
                     <div className="text-right"><div className="num font-display text-lg font-extrabold">{fmtPts(s.points)}</div>
-                      {s.today > 0 && <div className="num text-[11px] font-semibold text-emerald-400">+{fmtPts(s.today)} today</div>}</div>
+                      {s.today > 0 && <div className="num text-[11px] font-semibold text-emerald-400">+{fmtPts(s.today)} today</div>}
+                      {Number(s.bench_today) > 0 && <div className="num text-[10px] text-amber-200/90" title="Left on the bench and IR today: shown, never counted">🪑 {fmtPts(s.bench_today)} benched</div>}</div>
                   </Link>
                 );
               })
