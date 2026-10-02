@@ -121,8 +121,11 @@ export function LeadersTab() {
 
 // ── Teams
 type Club = { abbrev: string; roster: { forwards: ClubPerson[]; defense: ClubPerson[]; goalies: ClubPerson[] }; stats: { season: string; type: number; skaters: ClubSkater[]; goalies: ClubGoalie[] } | null; week: { games: { id: number; date: string; state: string; start: string; home: { abbrev: string; score: number | null }; away: { abbrev: string; score: number | null }; tv: { network: string }[] }[] } | null };
+// a player's fantasy points this season in a stats table
+const FpTd = ({ v }: { v: number | undefined }) => <td className={`num px-2 py-1 text-right font-bold ${v ? (v > 0 ? 'text-gold' : 'text-red-300') : 'text-mute'}`}>{v == null ? '–' : fmtPts(v, 1)}</td>;
+
 export function TeamsTab({ onGame }: { onGame: (g: any) => void }) {
-  const { teams, players, owner, team } = useLeague();
+  const { teams, players, owner, team, season } = useLeague();
   const { Owner, Name } = useOwner();
   const [open, setOpen] = useState<string | null>(null);
   const [club, setClub] = useState<Club | null>(null);
@@ -183,28 +186,30 @@ export function TeamsTab({ onGame }: { onGame: (g: any) => void }) {
                 </div>
               ))}
             </Section>
-            {club.stats && (
+            {club.stats && (() => { const fpOn = club.stats.type === 2; return (
               <Section title={`Season stats · ${club.stats.season.slice(0, 4)}-${club.stats.season.slice(6)}${club.stats.type === 1 ? ' preseason' : club.stats.type === 3 ? ' playoffs' : ''}`}>
                 <div className="card overflow-x-auto">
                   <table className="w-full min-w-[560px] text-xs">
-                    <thead className="text-mute"><tr>{['Skater', 'GP', 'G', 'A', 'P', '+/-', 'PIM', 'PPG', 'SOG', 'S%', 'TOI'].map((h, i) => <th key={h} className={`px-2 py-1.5 font-semibold ${i ? 'text-right' : 'text-left'}`}>{h}</th>)}</tr></thead>
+                    <thead className="text-mute"><tr><th className="px-2 py-1.5 text-left font-semibold">Skater</th>{fpOn && <th className="px-2 text-right font-semibold text-gold" title="Fantasy points this season, league scoring">FP</th>}{['GP', 'G', 'A', 'P', '+/-', 'PIM', 'PPG', 'SOG', 'S%', 'TOI'].map((h) => <th key={h} className="px-2 py-1.5 text-right font-semibold">{h}</th>)}</tr></thead>
                     <tbody className="divide-y divide-white/[.05]">
                       {club.stats.skaters.map((p) => (
                         <tr key={p.id}><td className="whitespace-nowrap px-2 py-1"><span className="text-mute">{p.pos}</span> <Name id={p.id} name={p.name} /><Owner id={p.id} /></td>
+                          {fpOn && <FpTd v={season.get(p.id)?.fpts} />}
                           {[p.gp, p.g, p.a, p.pts, p.pm > 0 ? `+${p.pm}` : p.pm, p.pim, p.ppg, p.sog, (p.pct * 100).toFixed(1), p.toi].map((v, k) => <td key={k} className="num px-2 py-1 text-right">{v}</td>)}</tr>
                       ))}
                     </tbody>
-                    <thead className="text-mute"><tr>{['Goalie', 'GP', 'GS', 'W', 'L', 'OTL', 'GAA', 'SV%', 'SO', '', ''].map((h, i) => <th key={i} className={`px-2 py-1.5 font-semibold ${i ? 'text-right' : 'text-left'}`}>{h}</th>)}</tr></thead>
+                    <thead className="text-mute"><tr><th className="px-2 py-1.5 text-left font-semibold">Goalie</th>{fpOn && <th className="px-2 text-right font-semibold text-gold" title="Fantasy points this season, league scoring">FP</th>}{['GP', 'GS', 'W', 'L', 'OTL', 'GAA', 'SV%', 'SO', '', ''].map((h, i) => <th key={i} className="px-2 py-1.5 text-right font-semibold">{h}</th>)}</tr></thead>
                     <tbody className="divide-y divide-white/[.05]">
                       {club.stats.goalies.map((p) => (
                         <tr key={p.id}><td className="whitespace-nowrap px-2 py-1"><span className="text-mute">G</span> <Name id={p.id} name={p.name} /><Owner id={p.id} /></td>
+                          {fpOn && <FpTd v={season.get(p.id)?.fpts} />}
                           {[p.gp, p.gs, p.w, p.l, p.otl, p.gaa?.toFixed(2), p.svp?.toFixed(3).replace(/^0/, ''), p.so, '', ''].map((v, k) => <td key={k} className="num px-2 py-1 text-right">{v}</td>)}</tr>
                       ))}
                     </tbody>
                   </table>
                 </div>
               </Section>
-            )}
+            ); })()}
             <div className="text-center text-xs text-mute">{team(0) ? '' : ''}<a href={`https://www.nhl.com/${NHL_TEAMS[open ?? ''].toLowerCase().replace(/[^a-z]/g, '')}`} target="_blank" rel="noreferrer" className="text-sky-300">Team site on NHL.com <ExternalLink size={10} className="inline" /></a></div>
           </div>
         )}

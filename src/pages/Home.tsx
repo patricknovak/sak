@@ -1,3 +1,4 @@
+import { StandingsTable } from '../components/StandingsTable';
 import { useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useLeague, useNow } from '../lib/store';
@@ -165,27 +166,11 @@ export default function Home() {
         </div>
       )}
 
-      <div className="grid gap-5 lg:grid-cols-2">
+      <div className="grid grid-cols-1 gap-5 lg:grid-cols-2">
         <Section icon={<Trophy size={17} className="text-gold" />} title={phase === 'season' ? (inPlayoffs ? '🏆 Playoff standings' : 'Standings') : `${SEASONS[0].season} final standings`} right={<More to="/standings" label="All" />}>
+          {phase === 'season' ? <StandingsTable rows={table} view={inPlayoffs ? 'playoffs' : 'regular'} peter={!inPlayoffs} /> : (
           <div className="card divide-y divide-white/[.06] overflow-hidden">
-            {phase === 'season'
-              ? table.map((s) => {
-                const t = team(s.team_id);
-                return (
-                  <Link key={s.team_id} to={`/team/${s.team_id}`} className={`relative flex items-center gap-3 px-3 py-2.5 transition hover:bg-white/[.03] ${s.team_id === me?.id ? 'bg-white/[.05]' : ''}`}>
-                    <Rank n={s.rank} />
-                    <TeamBadge team={t} size={30} />
-                    <div className="min-w-0 flex-1">
-                      <div className="truncate text-sm font-bold">{t?.name}</div>
-                      <div className="mt-1 h-1 overflow-hidden rounded-full bg-white/[.06]"><div className="h-full rounded-full" style={{ width: `${(Number(s.points) / top) * 100}%`, background: `linear-gradient(90deg, ${readable(t?.color ?? '#4cc3ff')}, color-mix(in oklab, ${readable(t?.color ?? '#4cc3ff')} 60%, white))` }} /></div>
-                    </div>
-                    <div className="text-right"><div className="num font-display text-lg font-extrabold">{fmtPts(s.points)}</div>
-                      {s.today > 0 && <div className="num text-[11px] font-semibold text-emerald-400">+{fmtPts(s.today)} today</div>}
-                      {Number(s.bench_today) > 0 && <div className="num text-[10px] text-amber-200/90" title="Left on the bench and IR today: shown, never counted">🪑 {fmtPts(s.bench_today)} benched</div>}</div>
-                  </Link>
-                );
-              })
-              : lastRows.map((r, i) => {
+            {lastRows.map((r, i) => {
                 const t = teams.find((x) => x.name === r.team);
                 return (
                   <div key={r.team} className="flex items-center gap-3 px-3 py-2.5">
@@ -200,6 +185,7 @@ export default function Home() {
                 );
               })}
           </div>
+          )}
           {phase !== 'season' && <p className="mt-2 px-1 text-xs text-mute">Defending champ: <span className="font-semibold text-gold">{lastChamp.team}</span> ({lastChamp.gm}). The Peter: {lastRows[lastRows.length - 1]?.team}.</p>}
         </Section>
 

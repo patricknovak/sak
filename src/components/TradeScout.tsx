@@ -150,7 +150,7 @@ export function StatStrip({ p, s, c }: { p: Player; s: Scout; c: ScoutCtx }) {
       </span>
     );
   }
-  const cols = goalie ? GOALIE_COLS.slice(0, 6) : (s.view === 'goalie' ? [] : SKATER_COLS.slice(0, 7));
+  const cols = goalie ? ['fp', ...GOALIE_COLS.slice(0, 6)] : (s.view === 'goalie' ? [] : ['fp', ...SKATER_COLS.slice(0, 7)]);
   if (!cols.length) return <span className="text-[10px] text-mute">skater</span>;
   const tfOk: Timeframe = !c.windows.size && TIMEFRAMES.find((x) => x.k === s.tf)?.live ? 'last' : s.tf;
   const line = lineFor(p, tfOk, c.windows.get(p.id), c.season.get(p.id));

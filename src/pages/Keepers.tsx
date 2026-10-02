@@ -75,9 +75,10 @@ export default function Keepers({ embedded = false }: { embedded?: boolean } = {
     const l = lineFor(p, 'last');
     if (!l || !l.gp) return 'no games last season';
     const t = l.totals;
+    const fp = `${fmtPts(l.fp, 0)} FP`;
     return p.pos === 'G'
-      ? `${l.gp} GP · ${t.w ?? 0}-${t.l ?? 0}-${t.otl ?? 0} · ${t.sa ? ((t.sv ?? 0) / t.sa).toFixed(3).replace(/^0/, '') : '–'} SV% · ${((t.ga ?? 0) / l.gp).toFixed(2)} GAA`
-      : `${l.gp} GP · ${t.g ?? 0} G ${t.a ?? 0} A · ${t.pm != null && t.pm > 0 ? '+' : ''}${t.pm ?? 0} · ${t.sog ?? 0} SOG · ${t.hit ?? 0} H ${t.blk ?? 0} B`;
+      ? `${fp} · ${l.gp} GP · ${t.w ?? 0}-${t.l ?? 0}-${t.otl ?? 0} · ${t.sa ? ((t.sv ?? 0) / t.sa).toFixed(3).replace(/^0/, '') : '–'} SV% · ${((t.ga ?? 0) / l.gp).toFixed(2)} GAA`
+      : `${fp} · ${l.gp} GP · ${t.g ?? 0} G ${t.a ?? 0} A · ${t.pm != null && t.pm > 0 ? '+' : ''}${t.pm ?? 0} · ${t.sog ?? 0} SOG · ${t.hit ?? 0} H ${t.blk ?? 0} B`;
   };
   const tableList = useMemo(() => pf.apply(mineRaw.map((x) => x.p)), [pf.apply, mineRaw]); // eslint-disable-line react-hooks/exhaustive-deps
   const chip = (on: boolean) => `shrink-0 rounded-full px-2.5 py-1 text-xs font-semibold transition ${on ? 'bg-sky-500 text-ice' : 'bg-white/[.05] text-mute hover:text-slate-200'}`;
