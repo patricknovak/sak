@@ -100,7 +100,8 @@ results of his own past calls, and what the wider pool knows.
    table matches the site's to the cent. The site reads them (`useHistory()`, `src/lib/history.ts`): every page that
    showed SaK's past reads the caller's league's rows, and a league with no past shows none. Garry reads them as his
    record book (each season's champion and last place, titles by GM). Next: imports write them.
-7. **Phase 2, people can join**: email sign-in, league by host, invites and the switcher, realtime and presence
+7. **Phase 2, people can join** (under way: email sign-in with reset codes, invites, the join page and the switcher done
+   3 October 2026, migrations 103 to 105): league by host, realtime and presence
    per league, phones, Vercel hosting, the Garry budget.
 8. **Pool intelligence** once a few leagues are playing, then the horizons in `docs/MARKET.md`.
 

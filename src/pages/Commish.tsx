@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { HealthPanel } from '../components/HealthPanel';
 import { XFeedSettings } from '../components/XFeedSettings';
 import { useLeague } from '../lib/store';
-import { rpc } from '../lib/supabase';
+import { rpc, supabase } from '../lib/supabase';
 import { fmtDateTime } from '../lib/format';
 import { Section, TeamBadge, Toggle, useAction, PageHeader } from '../components/ui';
 import { bannedTopScorers } from '../lib/keepers';
@@ -251,6 +251,10 @@ export default function Commish() {
         <GarryShaper />
       </Section>
 
+      <Section title="📨 Invite links">
+        <Invites />
+      </Section>
+
       <Section title="✉️ Sign-in emails">
         <SignInEmails />
       </Section>
@@ -384,6 +388,62 @@ function SignInEmails() {
           </div>
         );
       })}
+    </div>
+  );
+}
+
+// Invite links: an open seat (a GM team with nobody signed in to it) or a spectator place. The link opens the join
+// page, where someone new makes their account and someone with one signs in; either way they land in this league.
+interface Invite { code: string; team_id: number | null; role: 'gm' | 'spectator'; created_at: string; expires_at: string; max_uses: number; uses: number; revoked: boolean }
+function Invites() {
+  const { teams } = useLeague();
+  const { busy, run } = useAction();
+  const [rows, setRows] = useState<Invite[]>([]);
+  const [made, setMade] = useState<string | null>(null);
+  const load = () => supabase.from('league_invites').select('code,team_id,role,created_at,expires_at,max_uses,uses,revoked').order('created_at', { ascending: false }).limit(20)
+    .then(({ data }) => setRows((data ?? []) as Invite[]));
+  useEffect(() => { load(); }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  const open = teams.filter((t) => t.role === 'gm' && !t.user_id);
+  const link = (code: string) => `${location.origin}${location.pathname}#/join/${code}`;
+  const share = async (code: string) => {
+    const url = link(code);
+    try { if (navigator.share) { await navigator.share({ title: 'Join the league', url }); return; } } catch { /* fall back to copying */ }
+    try { await navigator.clipboard.writeText(url); } catch { /* shown below to copy by hand */ }
+  };
+  const make = (team: number | null) => run(async () => {
+    const code = await rpc<string>('create_invite', { p_team: team, p_role: team ? 'gm' : 'spectator', p_days: 14, p_uses: team ? 1 : 5 });
+    setMade(code); await load(); await share(code);
+  }, 'Invite link made and copied');
+  const live = (i: Invite) => !i.revoked && i.uses < i.max_uses && new Date(i.expires_at).getTime() > Date.now();
+  return (
+    <div className="space-y-2">
+      <p className="px-1 text-xs text-mute">Send someone a link and they join from their phone: new people make their account on the spot, people with one sign in. A seat link works once; a spectator link up to five times. Links last 14 days.</p>
+      <div className="card space-y-2 p-3">
+        {open.length ? open.map((t) => (
+          <div key={t.id} className="flex items-center gap-2">
+            <TeamBadge team={t} size={26} /><div className="min-w-0 flex-1 truncate text-sm font-semibold">{t.name} <span className="text-xs font-normal text-mute">open seat</span></div>
+            <button className="btn-primary btn-sm" disabled={busy} onClick={() => make(t.id)}>Invite a GM</button>
+          </div>
+        )) : <div className="text-sm text-mute">Every seat has a GM.</div>}
+        <button className="btn-ghost w-full" disabled={busy} onClick={() => make(null)}>🍿 Make a spectator link</button>
+        {made && <div className="break-all rounded-lg bg-black/30 px-2 py-1.5 text-xs text-sky-200">{link(made)}</div>}
+      </div>
+      {rows.length > 0 && (
+        <div className="card divide-y divide-white/[.06]">
+          {rows.map((i) => (
+            <div key={i.code} className={`flex items-center gap-2 px-3 py-2 text-xs ${live(i) ? '' : 'opacity-50'}`}>
+              <div className="min-w-0 flex-1">
+                <div className="truncate font-semibold text-slate-200">{i.role === 'spectator' ? '🍿 Spectator' : teams.find((t) => t.id === i.team_id)?.name ?? 'Seat'}</div>
+                <div className="text-mute">{i.revoked ? 'cancelled' : i.uses >= i.max_uses ? 'used' : new Date(i.expires_at).getTime() < Date.now() ? 'expired' : `${i.uses}/${i.max_uses} used · until ${fmtDateTime(i.expires_at)}`}</div>
+              </div>
+              {live(i) && <>
+                <button className="btn-ghost btn-sm" onClick={() => share(i.code)}>Copy</button>
+                <button className="btn-ghost btn-sm" disabled={busy} onClick={() => run(async () => { await rpc('revoke_invite', { p_code: i.code }); await load(); }, 'Invite cancelled')}>Cancel</button>
+              </>}
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }

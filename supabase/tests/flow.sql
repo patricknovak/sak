@@ -2181,3 +2181,29 @@ set role anon;
 select pg_temp.expect('the public key still reads the league''s names', (select count(*) from team_directory) > 0);
 reset role;
 select 'sign-in step 2', true;
+
+-- ───────────── joining by invite ─────────────
+-- the north commissioner offers an open seat; the link shows what it's for to someone signed out
+reset role;
+insert into teams (name, abbrev, gm_name, league_id, role) values ('Polar Express', 'POL', 'Open seat', :league2, 'gm') returning id as join_seat \gset
+select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-000000000099', false);
+set role authenticated;
+select create_invite(:join_seat) as join_code \gset
+reset role;
+select set_config('request.jwt.claim.sub', '', false);
+set role anon;
+select pg_temp.expect('the link shows its league and seat before sign-in', (select (v->>'ok')::boolean and v->>'team' = 'Polar Express' and v->>'role' = 'gm' and v ? 'league' from invite_preview(:'join_code') v));
+select pg_temp.expect('a made-up code shows nothing', (invite_preview('not-a-code')->>'reason') = 'unknown' and not (invite_preview('not-a-code')->>'ok')::boolean);
+select pg_temp.expect('the public key can''t seat anyone', not has_function_privilege('anon', 'public._accept_invite(uuid, text, text)', 'execute')
+  and not has_function_privilege('authenticated', 'public._accept_invite(uuid, text, text)', 'execute'));
+reset role;
+-- the join function makes the newcomer's account and seats them with their name
+insert into auth.users (id, email) values ('00000000-0000-0000-0000-000000000096', 'newcomer@example.com');
+select pg_temp.expect('a newcomer takes the seat', _accept_invite('00000000-0000-0000-0000-000000000096', :'join_code', ' Nora Newcomer ') = :league2);
+select pg_temp.expect('the seat carries their name and account', (select gm_name = 'Nora Newcomer' and user_id = '00000000-0000-0000-0000-000000000096' and login_email = 'newcomer@example.com' from teams where id = :join_seat));
+select pg_temp.expect('they are a member, with the north as their league', exists (select 1 from league_members where user_id = '00000000-0000-0000-0000-000000000096' and league_id = :league2 and team_id = :join_seat)
+  and (select active_league_id from accounts where user_id = '00000000-0000-0000-0000-000000000096') = :league2);
+select pg_temp.expect('the link now says it is spent', (select not (v->>'ok')::boolean from invite_preview(:'join_code') v));
+select pg_temp.raises('a spent link seats nobody else', format('select _accept_invite(%L, %L)', '00000000-0000-0000-0000-000000000097', :'join_code'), 'no longer good');
+select set_config('request.jwt.claim.sub', '', false);
+select 'joining by invite', true;

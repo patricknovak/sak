@@ -11,6 +11,7 @@ import { ErrorBoundary, reloadForNewVersion } from './components/ErrorBoundary';
 // Vite fires this when a lazily-loaded page can't be fetched (stale tab after a deploy)
 window.addEventListener('vite:preloadError', (e) => { if (reloadForNewVersion()) e.preventDefault(); });
 import Login from './pages/Login';
+import Join from './pages/Join';
 import Home from './pages/Home';
 
 const MyTeam = lazy(() => import('./pages/MyTeam'));
@@ -67,11 +68,14 @@ function App() {
       </div>
     );
   }
+  // an invite link opens its own page, signed in or not
+  const join = pathname.match(/^\/join\/([a-z0-9-]+)/i);
+  if (join) return <Join code={join[1]} />;
   if (!session) return <Login />;
   if (!me) {
     return (
       <div className="grid min-h-dvh place-items-center p-6 text-center">
-        <div className="card max-w-md p-6"><p className="text-sm text-mute">This login isn’t linked to a SaK team yet. Ask the commish.</p></div>
+        <div className="card max-w-md p-6"><p className="text-sm text-mute">This login isn’t linked to a team yet. Ask your commissioner for an invite link.</p></div>
       </div>
     );
   }

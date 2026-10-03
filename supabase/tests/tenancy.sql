@@ -73,6 +73,8 @@ where n.nspname = 'public' and p.prosecdef and p.prorettype <> 'trigger'::regtyp
     'drop_player', 'move_player', 'set_pin',
     -- check membership themselves
     'accept_invite', 'set_active_league',
+    -- read-only: what an invite offers, for whoever holds its code (the code is the secret)
+    'invite_preview',
     -- platform admins only, over the platform's own bills (ops schema), not league data
     'cost_set_fixed', 'cost_end_fixed',
     -- platform admins only: an invite to an open seat of a league that may have no commissioner yet
