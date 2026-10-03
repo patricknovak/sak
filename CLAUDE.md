@@ -153,6 +153,9 @@ wasn't applied); #75 was the hotfix.
   that page. The ledger lives in schema `ops`, which the API doesn't serve.
 - Never commit credentials. Secrets live in Supabase function secrets and GitHub Actions secrets. The test
   team's login is kept out of the repo.
+- Sign-in is email and password (GMs' own emails, set by the commissioner on the Commish page; open sign-up is off).
+  Auth email (the 6-digit password reset code) goes through Resend's SMTP from no-reply@superpoolsai.com; the key lives
+  only in Supabase's SMTP settings. superpoolsai.com's DNS is on Cloudflare.
 - Money and a league fund are per-league options (`league_rules.features`: `money`, `fund`), never requirements: SQL checks
   `league_has()` / `_feature()`, the site `hasFeature()` (`src/lib/features.ts`). SaK has both; a new league neither.
 - Expand, then contract: add the new path beside the old, move the readers, prove the numbers match, retire the
