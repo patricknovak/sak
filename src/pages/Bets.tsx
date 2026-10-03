@@ -2,7 +2,7 @@
 // final standings, a player over/under, player vs player, your team over/under) and pools everyone buys into
 // (the league's top team of the week, pick a player). Tracked bets show live numbers and settle themselves from the box
 // scores every morning; cash bets keep a tab of who owes whom.
-import React, { Fragment, useEffect, useMemo, useState } from 'react';
+import { Fragment, useEffect, useMemo, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { BookTab, BookLeaders } from '../components/Book';
 import { useLeague, useNow } from '../lib/store';
@@ -62,7 +62,7 @@ function suggestLine(p: Player | undefined, stat: BetStat, start: string, end: s
 }
 
 export default function Bets() {
-  const { me, teams, team, players, owner, rosters, standings, spectators, can, league, games, leagueDay } = useLeague();
+  const { me, teams, team, players, rosters, standings, spectators, can, league, games, leagueDay } = useLeague();
   const brand = useBrand();
   const L = (s: string) => s.replaceAll('{L}', brand.short);
   const seasonGames = useSeasonGames();
@@ -346,22 +346,6 @@ export default function Bets() {
   };
 
   // ───── player picker for the sheet
-  const PlayerPick = ({ value, onPick, label, exclude }: { value: number | null; onPick: (id: number) => void; label: string; exclude?: number | null }) => {
-    const [q, setQ] = useState('');
-    const list = useMemo(() => {
-      const s = q.trim().toLowerCase();
-      const all = [...players.values()].filter((p) => p.id !== exclude && (!s || p.name.toLowerCase().includes(s)));
-      return (s ? all : all.filter((p) => owner.has(p.id))).sort((a, b) => b.proj - a.proj).slice(0, 8);
-    }, [q, exclude]); // eslint-disable-line react-hooks/exhaustive-deps
-    const chosen = pickerPlayer(value);
-    return (
-      <div>
-        <div className="label mb-1">{label}{chosen ? <span className="ml-2 text-white">{chosen.name} <span className="text-mute">{chosen.nhl_team} {chosen.pos}{owner.get(chosen.id) ? ` · ${team(owner.get(chosen.id)!.team_id)?.abbrev}` : ' · FA'}</span></span> : null}</div>
-        <input className="input" placeholder="Search a player…" value={q} onChange={(e) => setQ(e.target.value)} />
-        <div className="scroll-x mt-1 flex gap-1">{list.map((p) => <button key={p.id} className={`chip shrink-0 py-1 ${value === p.id ? 'bg-white text-ice' : ''}`} onClick={() => { onPick(p.id); setQ(''); }}>{p.name} <span className="opacity-60">{owner.get(p.id) ? team(owner.get(p.id)!.team_id)?.abbrev : 'FA'}</span></button>)}</div>
-      </div>
-    );
-  };
   const quick = (opp: number) => {
     const w = wins[1] ?? wins[0];
     setF({ ...blank, kind: 'h2h', opponent: String(opp), coins: '50', start: w.start, end: w.end, entryClose: w.start, title: `Most points ${w.label.toLowerCase()}` });
@@ -621,13 +605,33 @@ export default function Bets() {
         {ruling && <Ruling b={ruling} entries={entries.filter((e) => e.bet_id === ruling.id)} onDone={() => { setRuling(null); load(); }} />}
       </Sheet>
       <Sheet open={!!joining} onClose={() => setJoining(null)} title={joining ? `Buy in: ${joining.title}` : ''}>
-        {joining && <JoinPool b={joining} gms={gms} entries={entries.filter((e) => e.bet_id === joining.id)} onDone={() => { setJoining(null); load(); }} PlayerPick={PlayerPick} />}
+        {joining && <JoinPool b={joining} gms={gms} entries={entries.filter((e) => e.bet_id === joining.id)} onDone={() => { setJoining(null); load(); }} />}
       </Sheet>
     </div>
   );
 }
 
-function JoinPool({ b, gms, entries, onDone, PlayerPick }: { b: Bet; gms: Team[]; entries: BetEntry[]; onDone: () => void; PlayerPick: (p: { value: number | null; onPick: (id: number) => void; label: string; exclude?: number | null }) => React.ReactElement }) {
+// searching for a player in the bet forms. Its own component at the top of the file (not one made inside the page),
+// so the search box keeps what the GM typed while the page refreshes around it
+function PlayerPick({ value, onPick, label, exclude }: { value: number | null; onPick: (id: number) => void; label: string; exclude?: number | null }) {
+  const { players, owner, team } = useLeague();
+  const [q, setQ] = useState('');
+  const list = useMemo(() => {
+    const s = q.trim().toLowerCase();
+    const all = [...players.values()].filter((p) => p.id !== exclude && (!s || p.name.toLowerCase().includes(s)));
+    return (s ? all : all.filter((p) => owner.has(p.id))).sort((a, b) => b.proj - a.proj).slice(0, 8);
+  }, [q, exclude, players, owner]);
+  const chosen = value ? players.get(value) : undefined;
+  return (
+    <div>
+      <div className="label mb-1">{label}{chosen ? <span className="ml-2 text-white">{chosen.name} <span className="text-mute">{chosen.nhl_team} {chosen.pos}{owner.get(chosen.id) ? ` · ${team(owner.get(chosen.id)!.team_id)?.abbrev}` : ' · FA'}</span></span> : null}</div>
+      <input className="input" placeholder="Search a player…" value={q} onChange={(e) => setQ(e.target.value)} />
+      <div className="scroll-x mt-1 flex gap-1">{list.map((p) => <button key={p.id} className={`chip shrink-0 py-1 ${value === p.id ? 'bg-white text-ice' : ''}`} onClick={() => { onPick(p.id); setQ(''); }}>{p.name} <span className="opacity-60">{owner.get(p.id) ? team(owner.get(p.id)!.team_id)?.abbrev : 'FA'}</span></button>)}</div>
+    </div>
+  );
+}
+
+function JoinPool({ b, gms, entries, onDone }: { b: Bet; gms: Team[]; entries: BetEntry[]; onDone: () => void }) {
   const { team, players } = useLeague();
   const { busy, run } = useAction();
   const [teamPick, setTeamPick] = useState<number | null>(null);

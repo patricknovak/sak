@@ -3,6 +3,7 @@
 // numbers say: where the team is strong, where it leaks, how steady it is and what was left on the bench.
 // Everything here comes from the puck-drop freeze-frames and the box scores, the same rows the standings count.
 import { useEffect, useMemo, useState } from 'react';
+import { useSticky } from '../lib/sticky';
 import { Link } from 'react-router-dom';
 import { useLeague } from '../lib/store';
 import { rpc } from '../lib/supabase';
@@ -48,11 +49,11 @@ export default function Performance() {
   const { me, teams, team, players, league, leagueDay, games } = useLeague();
   const [rows, setRows] = useState<Day[] | null>(null);
   const [pps, setPps] = useState<PP[]>([]);
-  const [range, setRange] = useState<RangeKey>('last');
+  const [range, setRange] = useSticky<RangeKey>('perf:range', 'last');
   const [custom, setCustom] = useState<{ from: string; to: string }>({ from: addDays(leagueDay, -6), to: leagueDay });
   const [sel, setSel] = useState<number | 'all'>(me?.id ?? 'all');
-  const [sortKey, setSortKey] = useState<string>('pts');
-  const [phase, setPhase] = useState<2 | 3>(2);
+  const [sortKey, setSortKey] = useSticky<string>('perf:sort', 'pts');
+  const [phase, setPhase] = useSticky<2 | 3>('perf:phase', 2);
   const gmTeams = useMemo(() => teams.filter((t) => t.role === 'gm'), [teams]);
 
   // the whole season once; ranges are sliced here

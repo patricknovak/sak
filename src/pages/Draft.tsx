@@ -32,7 +32,7 @@ export default function Draft() {
   const [tab, setTab] = useState<Tab>('players');
   const [report, setReport] = useState(false);
   const [showCall, setShowCall] = useState(false);
-  const pf = usePlayerFilter({ tf: 'proj' });
+  const pf = usePlayerFilter({ tf: 'proj' }, 'draft');
   const [queue, setQueue] = useState<number[]>([]);
   const [detail, setDetail] = useState<number | null>(null);
   const [flash, setFlash] = useState<DraftPick | null>(null);

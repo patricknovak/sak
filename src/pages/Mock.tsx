@@ -28,7 +28,9 @@ export default function Mock({ embedded = false }: { embedded?: boolean } = {}) 
   const realBoard = useMemo<SimPick[]>(() => picks.filter((p) => p.season === draft?.season && p.overall).sort((a, b) => a.overall! - b.overall!)
     .map((p) => ({ overall: p.overall!, round: p.round, team: p.team_id, original: p.original_team, pid: p.player_id })), [picks, draft?.season]);
   const realReady = realBoard.length > 0 && draft?.status !== 'done';
-  const [mode, setMode] = useState<Mode>('real');
+  const [modePick, setMode] = useState<Mode>('real');
+  // the dress rehearsal needs the real board; until it's there (or once the draft is done) it's a custom mock
+  const mode: Mode = realReady ? modePick : 'custom';
   const [phase, setPhase] = useState<Phase>('setup');
   const [slot, setSlot] = useState(0); // 0 = random
   const [rounds, setRounds] = useState(12);
@@ -42,7 +44,6 @@ export default function Mock({ embedded = false }: { embedded?: boolean } = {}) 
   const [flash, setFlash] = useState<SimPick | null>(null);
   const [outlook, setOutlook] = useState<Outlook | null>(null);
   const [simming, setSimming] = useState(false);
-  useEffect(() => { if (!realReady) setMode('custom'); }, [realReady]);
 
   // everyone's keepers as they stand today (saved picks, or the default the server would use)
   const keepers = useMemo(() => {
@@ -166,9 +167,6 @@ export default function Mock({ embedded = false }: { embedded?: boolean } = {}) 
   const fitTag = (p: Player) => fitLabel(fitOf(p, myNeeds), p.pos);
 
   if (phase === 'setup') {
-    const Opt = <T extends number>({ v, set, opts, fmt }: { v: T; set: (x: T) => void; opts: T[]; fmt: (x: T) => string }) => (
-      <div className="flex flex-wrap gap-1.5">{opts.map((o) => <button key={o} className={`tab ${v === o ? 'tab-on' : 'bg-white/[.05]'}`} onClick={() => set(o)}>{fmt(o)}</button>)}</div>
-    );
     const keptCount = teams.filter((t) => t.keepers_submitted).length;
     return (
       <div className="space-y-4">
@@ -392,4 +390,10 @@ export default function Mock({ embedded = false }: { embedded?: boolean } = {}) 
       ) : undefined} />
     </div>
   );
+}
+
+// a row of choices for the mock's setup (kept out of the page so the 250 ms clock doesn't rebuild the buttons under
+// a GM's finger)
+function Opt<T extends number>({ v, set, opts, fmt }: { v: T; set: (x: T) => void; opts: T[]; fmt: (x: T) => string }) {
+  return <div className="flex flex-wrap gap-1.5">{opts.map((o) => <button key={o} className={`tab ${v === o ? 'tab-on' : 'bg-white/[.05]'}`} onClick={() => set(o)}>{fmt(o)}</button>)}</div>;
 }

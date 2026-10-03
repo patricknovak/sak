@@ -2,7 +2,8 @@
 // side. Form (this season, the last 7, 14 and 30 days, a hot/cold read against his own pace), outlook (the
 // projection and its range, rest of season, games left, the next week's schedule, age), or the raw skater and
 // goalie categories for any timeframe. Used by the trade builder and the team scouting page.
-import { useMemo, useState, type ReactNode } from 'react';
+import { useMemo, type ReactNode } from 'react';
+import { useSticky } from '../lib/sticky';
 import { useLeague } from '../lib/store';
 import type { Player, PlayerSeason, PlayerWindow, ProjDetail } from '../lib/types';
 import { etToday, fmtPts } from '../lib/format';
@@ -78,13 +79,15 @@ export function sortPlayers(ps: Player[], sort: ScoutSort, c: ScoutCtx): Player[
 }
 
 // the controls above a list: what to show beside each player, which window, and the order
-export function useScout(init: Partial<{ view: ScoutView; tf: Timeframe; sort: ScoutSort }> = {}) {
+// (`keep` remembers the choices for this screen while the browser tab is open)
+export function useScout(init: Partial<{ view: ScoutView; tf: Timeframe; sort: ScoutSort }> = {}, keep?: string) {
   const { league, windows } = useLeague();
   const inSeason = league?.phase === 'season' && windows.size > 0;
-  const [view, setView] = useState<ScoutView>(init.view ?? (inSeason ? 'form' : 'outlook'));
-  const [tf, setTf] = useState<Timeframe>(init.tf ?? (inSeason ? 'season' : 'last'));
-  const [sort, setSort] = useState<ScoutSort>(init.sort ?? (inSeason ? 'ros' : 'proj'));
-  const [perGame, setPerGame] = useState(false);
+  const k = (x: string) => (keep ? `scout:${keep}:${x}` : null);
+  const [view, setView] = useSticky<ScoutView>(k('view'), init.view ?? (inSeason ? 'form' : 'outlook'));
+  const [tf, setTf] = useSticky<Timeframe>(k('tf'), init.tf ?? (inSeason ? 'season' : 'last'));
+  const [sort, setSort] = useSticky<ScoutSort>(k('sort'), init.sort ?? (inSeason ? 'ros' : 'proj'));
+  const [perGame, setPerGame] = useSticky(k('pg'), false);
   return { view, setView, tf, setTf, sort, setSort, perGame, setPerGame, inSeason };
 }
 export type Scout = ReturnType<typeof useScout>;
