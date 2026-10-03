@@ -1890,3 +1890,15 @@ select pg_temp.expect('and invites the next GM herself', create_invite((select i
 reset role;
 select set_config('request.jwt.claim.sub', '', false);
 select 'platform opens a league', true;
+
+-- ───────────── the SQL speaks the league's language ─────────────
+reset role;
+select set_config('request.jwt.claim.sub', '', false);
+select pg_temp.expect('SaK''s Book post keeps SaK''s words', exists (select 1 from messages where league_id = 1 and body like '📖 Garry''s Book is open:%St. Patrick coins only%'));
+select pg_temp.expect('the north''s Book post uses its own coin', exists (select 1 from messages where league_id = :league2 and body like '📖 %''s Book is open:%player props, coins only%'));
+select pg_temp.as_team(2);
+set role authenticated;
+select pg_temp.raises('a SaK GM short of coins hears St. Patrick coins', 'select create_bet(null, ''Too rich'', null, ''custom'', null, null, null, null, 999999)', 'St. Patrick coins available');
+reset role;
+select set_config('request.jwt.claim.sub', '', false);
+select 'SQL words from the brand', true;

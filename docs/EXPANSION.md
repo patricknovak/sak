@@ -190,7 +190,7 @@ league only; push sends behind the admin key or a signed trigger.
 | SQL | Book market inserts with no team (`commish_market`, `open_markets`) rely on the default league 1. | Write `league_id` explicitly. |
 | SQL | The stamp trigger runs on insert only; a trade moving a row to another team never re-stamps. | Cross-league moves are refused anyway once B1 lands; assert it. |
 | SQL | `commish_health` shows platform cron and function internals to any league's commissioner. | Platform owner only; commissioners see their league's jobs. |
-| SQL | SaK words in SQL messages ("St. Patrick coins", "SaK points tonight", Johnson, Peter, SaK Fund). | Read `leagues.brand`. |
+| SQL | SaK words in SQL messages ("St. Patrick coins", "SaK points tonight", Johnson, Peter, SaK Fund). | Read `leagues.brand`. *Done (migrations 84, 86 and 91): the Book's posts and props, bets, trades, the commissioner's coins and fund entries, payouts and the money settings read the brand; SaK's words unchanged.* |
 | Front end | Hosted on GitHub Pages with one SaK manifest, icons, titles and service worker. | Vercel, league by host, manifest and icons per league. |
 | Cost | Garry runs per league with no daily budget (about $0.003 a reply, plus the daily, weekly and moments posts). | Per-league daily call budget on `garry_state.usage`, set by plan tier. |
 
