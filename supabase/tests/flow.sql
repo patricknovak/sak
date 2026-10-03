@@ -1002,7 +1002,8 @@ select 'before puck drop it is fine (expect f)', _bet_underway(today_et() + 1);
 reset role;
 create or replace function pg_temp.expect(label text, ok boolean) returns void language plpgsql as
 $$ begin if not coalesce(ok, false) then raise exception 'FAILED: %', label; end if; end $$;
--- the SaK commissioner opens a second league; one GM runs it
+-- the platform (Patrick, a platform admin) opens a second league; one GM runs it
+insert into ops.platform_admins (user_id) select user_id from teams where id = 1 on conflict do nothing;
 select pg_temp.as_team(1);
 set role authenticated;
 select create_league('north', 'North Pool', 'NP', '{}'::jsonb) as league2 \gset
@@ -1755,6 +1756,152 @@ select set_config('request.jwt.claim.sub', '', false);
 update leagues set status = :'north_status' where id = :league2;
 select 'league pass', true;
 
+-- ───────────── money per league ─────────────
+reset role;
+select set_config('request.jwt.claim.sub', '', false);
+select count(*) as sak_gms from teams where league_id = 1 and role = 'gm' \gset
+select count(*) as north_gms from teams where league_id = :league2 and role = 'gm' \gset
+select count(*) as entries0 from ledger where kind = 'entry' \gset
+-- the north commissioner bills her league: her GMs only, to her league's fund
+select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-000000000099', false);
+set role authenticated;
+select commish_bill_entries() as north_billed \gset
+reset role;
+select pg_temp.expect('the north billed its own GMs only', :north_billed = :north_gms
+  and (select count(*) from ledger where kind = 'entry') = :entries0 + :north_gms);
+select pg_temp.expect('the north''s entries name the north''s fund', (select bool_and(description like '%to the NP Fund') from ledger l join teams t on t.id = l.team_id where l.kind = 'entry' and t.league_id = :league2));
+-- her regular-season payouts: her pool (her GMs), her teams, her brand's words
+select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-000000000099', false);
+set role authenticated;
+select commish_post_payouts('regular') as north_paid \gset
+reset role;
+select pg_temp.expect('north payouts go to north teams only', :north_paid = least(3, :north_gms)
+  and not exists (select 1 from ledger l join teams t on t.id = l.team_id where l.kind in ('payout', 'peter') and t.league_id = 1
+                  and l.season = (select season from league_rules where league_id = 1)));
+select pg_temp.expect('the north''s pool is its own GMs'' entries', (select min(amount) from ledger l join teams t on t.id = l.team_id where l.kind = 'payout' and t.league_id = :league2)
+  = (select -round((r.entry_fee - r.sak_fee) * :north_gms * (100 - r.playoff_share - r.cup_share) / 100 * (r.prize_split->>0)::numeric / 100, 2) from league_rules r where r.league_id = :league2));
+select pg_temp.expect('a league with no named prizes reads plain words', exists (select 1 from ledger l join teams t on t.id = l.team_id where l.kind = 'payout' and t.league_id = :league2 and l.description like '%Regular season champion (regular season): 1st place'));
+-- SaK's commissioner posts SaK's: the words SaK has always had
+select pg_temp.as_team(1);
+set role authenticated;
+select commish_post_payouts('regular') as sak_paid \gset
+reset role;
+select pg_temp.expect('SaK''s payouts keep SaK''s words, on SaK''s teams', :sak_paid = 3
+  and exists (select 1 from ledger l join teams t on t.id = l.team_id where l.kind = 'payout' and t.league_id = 1 and l.description like '% The Johnson (regular season): 1st place')
+  and (select count(*) from ledger l join teams t on t.id = l.team_id where l.kind = 'payout' and t.league_id = :league2) = :north_paid);
+select pg_temp.expect('the Peter keeps its name and SaK''s fund', (select bool_and(description like '%Peter Punishment: $1 a point behind second-last, to the SaK Fund')
+  from ledger where kind = 'peter' and season = (select season from league_rules where league_id = 1)) is not false);
+select pg_temp.as_team(1);
+set role authenticated;
+select pg_temp.raises('payouts post once', 'select commish_post_payouts(''regular'')', 'already posted');
+reset role;
+-- a spectator the north adds is the north's, with a new id from the sequence
+select max(id) as max_team from teams \gset
+select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-000000000099', false);
+set role authenticated;
+select commish_add_spectator('North Fan', 'north-fan@example.com', 'popcorn-5678') as north_fan \gset
+reset role;
+select pg_temp.expect('the north''s spectator is the north''s', (select league_id = :league2 and role = 'spectator' from teams where id = :north_fan) and :north_fan > 0
+  and (select reason from coin_ledger where team_id = :north_fan) = 'Opening balance: 1,000 coins');
+select set_config('request.jwt.claim.sub', '', false);
+select 'money per league', true;
+
+-- ───────────── the prediction log ─────────────
+reset role;
+select set_config('request.jwt.claim.sub', '', false);
+-- a club with two of SaK's skaters on it plays tonight
+select p.nhl_team as pl_club from rosters r join players p on p.id = r.player_id
+  where r.league_id = 1 and r.slot <> 'IR' and p.pos <> 'G' and p.nhl_team is not null
+  group by p.nhl_team having count(*) >= 2 order by p.nhl_team limit 1 \gset
+select min(r.player_id) as pl_dressed, max(r.player_id) as pl_scratched from rosters r join players p on p.id = r.player_id
+  where r.league_id = 1 and r.slot <> 'IR' and p.pos <> 'G' and p.nhl_team = :'pl_club' \gset
+insert into games (id, date, start_utc, home, away, state) values (998, today_et(), now() + interval '3 hours', :'pl_club', 'QQQ', 'FUT');
+select (run_league_jobs('predict')->>'1')::int as predicted_n \gset
+select pg_temp.expect('tonight''s players are predicted', :predicted_n > 0
+  and (select predicted = _player_rate(:pl_dressed, 'fpts') from predictions where kind = 'player_night' and subject->>'player_id' = :'pl_dressed' and resolves_on = today_et()));
+select pg_temp.expect('predicting twice adds nothing', (run_league_jobs('predict')->>'1')::int = 0);
+-- the game is played: one of them dresses and scores, the other is scratched
+insert into player_games (game_id, player_id, date, stats) values (998, :pl_dressed, today_et(), '{"g":1,"a":1,"sog":4}');
+update games set state = 'OFF', final_synced = true where id = 998;
+select score_predictions(today_et()) as scored_n \gset
+select pg_temp.expect('the one who played is scored on this league''s points', (select status = 'scored' and outcome = (select fpts from league_games where game_id = 998 and player_id = :pl_dressed)
+  and error = outcome - predicted from predictions where subject->>'player_id' = :'pl_dressed' and resolves_on = today_et()));
+select pg_temp.expect('the scratch is void, not a zero', (select status = 'void' and outcome is null from predictions where subject->>'player_id' = :'pl_scratched' and resolves_on = today_et()));
+select pg_temp.expect('accuracy by week', exists (select 1 from prediction_accuracy where kind = 'player_night' and n >= 1));
+select pg_temp.expect('the Book''s calibration reads the settled markets', (select count(*) from book_calibration) >= 0);
+-- a GM reads their own league's log and nothing else
+select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-000000000099', false);
+set role authenticated;
+select pg_temp.expect('the north sees none of SaK''s predictions', (select count(*) from predictions) = 0);
+reset role;
+select set_config('request.jwt.claim.sub', '', false);
+select 'prediction log', true;
+
+-- ───────────── league memory ─────────────
+reset role;
+select set_config('request.jwt.claim.sub', '', false);
+select pg_temp.expect('SaK''s history is in the database', (select count(*) from league_seasons where league_id = 1) = 13
+  and (select count(*) from season_results where league_id = 1) = 104
+  and (select team_name from season_results where league_id = 1 and season = '2025-26' and place = 1) = 'Hatrick Swayze'
+  and (select count(*) from league_all_time where league_id = 1) = 8);
+select pg_temp.as_team(2);
+set role authenticated;
+select pg_temp.expect('a SaK GM reads SaK''s past', (select count(*) from league_seasons) = 13 and (select count(*) from league_rule_text) > 0);
+reset role;
+select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-000000000099', false);
+set role authenticated;
+select pg_temp.expect('the north has a past of its own, empty for now', (select count(*) from league_seasons) = 0 and (select count(*) from season_results) = 0
+  and (select count(*) from league_all_time) = 0);
+reset role;
+select set_config('request.jwt.claim.sub', '', false);
+select 'league memory', true;
+
+-- ───────────── the platform opens a league ─────────────
+reset role;
+select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-000000000099', false);
+set role authenticated;
+select pg_temp.raises('a league''s commissioner can''t open leagues', 'select create_league(''east'', ''East Pool'', ''EP'', ''{}''::jsonb, 4)', 'Only the platform');
+select pg_temp.raises('nor mint the platform''s invites', format('select platform_invite(%s, 99)', :league2), 'Only the platform');
+reset role;
+select pg_temp.as_team(1);
+set role authenticated;
+select create_league('east', 'East Pool', 'EP', '{"coin": {"name": "Loonies", "emoji": "🪙"}}'::jsonb, 4) as league3 \gset
+select pg_temp.raises('web names are unique', 'select create_league(''east'', ''East Again'', ''EA'')', 'taken');
+reset role;
+select pg_temp.expect('the league is built whole', (select owner_user is not null and sport = 'nhl' and status = 'setup' from leagues where id = :league3)
+  and exists (select 1 from league_rules where league_id = :league3 and profile_id is not null)
+  and exists (select 1 from draft_state where league_id = :league3) and exists (select 1 from garry_state where league_id = :league3)
+  and (select count(*) from teams where league_id = :league3 and role = 'gm' and user_id is null) = 4
+  and (select count(*) from teams where league_id = :league3 and is_commish) = 1);
+select pg_temp.expect('every seat has its opening coins, in the league''s coin', (select count(*) from coin_ledger c join teams t on t.id = c.team_id
+  where t.league_id = :league3 and c.amount = 1000 and c.reason = 'Opening balance: 1,000 Loonies') = 4);
+-- the first commissioner gets in by the platform's invite, then invites the rest
+select id as east_seat1 from teams where league_id = :league3 and is_commish \gset
+select pg_temp.as_team(1);
+set role authenticated;
+select platform_invite(:league3, :east_seat1) as east_code \gset
+reset role;
+insert into auth.users (id, email) values ('00000000-0000-0000-0000-0000000000e1', 'east-commish@example.com');
+select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-0000000000e1', false);
+set role authenticated;
+select pg_temp.expect('the invite seats the commissioner', accept_invite(:'east_code') = :league3);
+select pg_temp.expect('she runs her league', current_league_id() = :league3 and is_commish());
+select pg_temp.expect('and invites the next GM herself', create_invite((select id from teams where league_id = :league3 and not is_commish order by id limit 1)) is not null);
+reset role;
+select set_config('request.jwt.claim.sub', '', false);
+select 'platform opens a league', true;
+
+-- ───────────── the SQL speaks the league's language ─────────────
+reset role;
+select set_config('request.jwt.claim.sub', '', false);
+select pg_temp.expect('SaK''s Book post keeps SaK''s words', exists (select 1 from messages where league_id = 1 and body like '📖 Garry''s Book is open:%St. Patrick coins only%'));
+select pg_temp.expect('the north''s Book post uses its own coin', exists (select 1 from messages where league_id = :league2 and body like '📖 %''s Book is open:%player props, coins only%'));
+select pg_temp.as_team(2);
+set role authenticated;
+select pg_temp.raises('a SaK GM short of coins hears St. Patrick coins', 'select create_bet(null, ''Too rich'', null, ''custom'', null, null, null, null, 999999)', 'St. Patrick coins available');
+reset role;
+select set_config('request.jwt.claim.sub', '', false);
+select 'SQL words from the brand', true;
 -- ───────────── system lineup changes need nobody signed in ─────────────
 reset role;
 select set_config('request.jwt.claim.sub', '', false);
@@ -1762,3 +1909,39 @@ select r.player_id as sys_p, r.slot as sys_slot from rosters r where r.league_id
 update rosters set slot = 'IR' where player_id = :sys_p and league_id = 1;
 update rosters set slot = :'sys_slot' where player_id = :sys_p and league_id = 1;
 select 'system lineup change', true;
+
+-- ───────────── the shadow league ─────────────
+reset role;
+select set_config('request.jwt.claim.sub', '', false);
+select open_shadow_league(1, 'sak-shadow') as shadow \gset
+select pg_temp.expect('the shadow has SaK''s GM teams and rosters', (select count(*) from teams where league_id = :shadow) = (select count(*) from teams where league_id = 1 and role = 'gm')
+  and (select count(*) from rosters where league_id = :shadow) = (select count(*) from rosters r join teams t on t.id = r.team_id where t.league_id = 1 and t.role = 'gm')
+  and (select profile_id from league_rules where league_id = :shadow) = (select profile_id from league_rules where league_id = 1));
+-- a SaK GM moves a player; the next sync mirrors it
+select r.player_id as sh_p, r.team_id as sh_t from rosters r where r.league_id = 1 and r.slot = 'BN' order by r.player_id limit 1 \gset
+update rosters set slot = 'IR' where player_id = :sh_p and league_id = 1;
+select shadow_sync() as sh_synced \gset
+select pg_temp.expect('the sync mirrors a lineup change', :sh_synced >= 1
+  and (select slot from rosters where league_id = :shadow and player_id = :sh_p) = 'IR'
+  and (select (perms->>'shadow_of')::int from teams where id = (select team_id from rosters where league_id = :shadow and player_id = :sh_p)) = :sh_t);
+update rosters set slot = 'BN' where player_id = :sh_p and league_id = 1;
+select shadow_sync();
+-- a game is played: every team and its shadow gain exactly the same points (snapshots first, so the shadow's
+-- backfill of games that started before it existed isn't counted as the new game's)
+select take_snapshots();
+create temp table shadow_before as select * from shadow_report(:shadow);
+select p.nhl_team as sh_club from rosters r join players p on p.id = r.player_id where r.league_id = 1 and r.slot not in ('BN', 'IR') and p.pos <> 'G'
+  and p.nhl_team is not null order by r.player_id limit 1 \gset
+insert into games (id, date, start_utc, home, away, state) values (996, today_et() - 1, now() - interval '2 hours', :'sh_club', 'SSS', 'LIVE');
+select take_snapshots();
+insert into player_games (game_id, player_id, date, stats)
+  select 996, p.id, today_et() - 1, '{"g":1,"a":1,"sog":3,"hit":2}' from players p where p.nhl_team = :'sh_club' and p.pos <> 'G';
+select pg_temp.expect('the game counted', exists (select 1 from lineup_snapshots where game_id = 996 and league_id = :shadow));
+select pg_temp.expect('original and shadow moved together', not exists (
+  select 1 from shadow_report(:shadow) a left join shadow_before b on b.date = a.date and b.team = a.team
+  where a.diff is distinct from coalesce(b.diff, 0)));
+select pg_temp.expect('and something actually moved', exists (
+  select 1 from shadow_report(:shadow) a left join shadow_before b on b.date = a.date and b.team = a.team
+  where a.original is distinct from coalesce(b.original, 0)));
+update leagues set status = 'archived' where id = :shadow;
+select 'shadow league', true;

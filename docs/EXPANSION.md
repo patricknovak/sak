@@ -158,6 +158,10 @@ reads `standings` with the owner's rights, so it ranks, pays and charges the Pet
 row (`check (id = 1)`) and `fund_prices` is shared (SaK's TSLA holding shows to everyone).
 *Fix:* filter both by league; the Fund becomes per league (`fund (league_id)`, `fund_prices (league_id, date)`)
 or an explicit SaK-only feature hidden elsewhere. *Decision for Patrick:* which of the two.
+*Money done (migration 86, October 2026).* Billing and payouts work on the commissioner's league only (its GMs, its
+pool, its standings), and the ledger's words come from the league's brand (`regular`, `playoff`, `trophy`, `booby`,
+`fund`, with plain defaults; SaK's read as before). `teams.id` comes from a sequence; a spectator lands in the
+commissioner's league. The flow test bills and pays out the north beside SaK. The Fund waits on the decision.
 
 **B7. SaK's history and names are written into the site.** `src/data/history.ts` (seasons, champions, team
 ids 1 to 8, the rules text, $200 and 60/30/10) renders on League, Home, Standings, Money, Profile and the draft
@@ -188,12 +192,12 @@ league only; push sends behind the admin key or a signed trigger.
 | Edge functions | nhl-sync answers every task to the public key, including the heavy ones (`projections`, `corrections&days=35`, `players`). | The cron jobs send the admin key; heavy tasks require it. |
 | Edge functions | `.single()` on `teams by user_id` (push test, Yahoo) breaks for a person in two leagues; `yahoo_accounts` is per team. | Resolve the team through `league_members` and the active league; Yahoo per account. |
 | Edge functions | Reads that can pass 1,000 rows across leagues (gameday rosters, auto-lineup rosters) are cut short silently. | Distinct ids by RPC, or page per league. |
-| SQL | `create_league` copies league 1's rules, sets no sport, owner or membership, and makes no draft or fund row; any commissioner can call it. | A platform-owner `create_league` that builds the whole league (rules from a sport template, draft row, Garry row, commissioner membership, opening coins). |
-| SQL | `teams.id` has no sequence (`max(id) + 1` in `accept_invite`, `commish_add_spectator`); `commish_add_spectator` writes no league. | Identity column; the league written explicitly. |
+| SQL | `create_league` copies league 1's rules, sets no sport, owner or membership, and makes no draft or fund row; any commissioner can call it. | A platform-owner `create_league` that builds the whole league (rules from a sport template, draft row, Garry row, commissioner membership, opening coins). *Done (migration 90): platform admins only, owner and sport recorded, rules from a template league, open GM seats with opening coins (seat 1 the commissioner's), and `platform_invite` for the first commissioner.* |
+| SQL | `teams.id` has no sequence (`max(id) + 1` in `accept_invite`, `commish_add_spectator`); `commish_add_spectator` writes no league. | Identity column; the league written explicitly. *Done (migration 86).* |
 | SQL | Book market inserts with no team (`commish_market`, `open_markets`) rely on the default league 1. | Write `league_id` explicitly. |
 | SQL | The stamp trigger runs on insert only; a trade moving a row to another team never re-stamps. | Cross-league moves are refused anyway once B1 lands; assert it. |
 | SQL | `commish_health` shows platform cron and function internals to any league's commissioner. | Platform owner only; commissioners see their league's jobs. |
-| SQL | SaK words in SQL messages ("St. Patrick coins", "SaK points tonight", Johnson, Peter, SaK Fund). | Read `leagues.brand`. |
+| SQL | SaK words in SQL messages ("St. Patrick coins", "SaK points tonight", Johnson, Peter, SaK Fund). | Read `leagues.brand`. *Done (migrations 84, 86 and 91): the Book's posts and props, bets, trades, the commissioner's coins and fund entries, payouts and the money settings read the brand; SaK's words unchanged.* |
 | Front end | Hosted on GitHub Pages with one SaK manifest, icons, titles and service worker. | Vercel, league by host, manifest and icons per league. |
 | Cost | Garry runs per league with no daily budget (about $0.003 a reply, plus the daily, weekly and moments posts). | Per-league daily call budget on `garry_state.usage`, set by plan tier. |
 
@@ -247,7 +251,8 @@ profiles, B4 the league pass, B6 money and Fund, the medium SQL items. Each land
 coverage: both leagues draft the same player, score the same game with different weights, run every cron job,
 settle bets and the Book, post payouts, and neither sees or changes the other.
 *Gate:* a shadow league (a copy of SaK's teams under test accounts) runs alongside SaK for a full week of real
-games, and its standings, Book and Garry posts match what SaK's engine produces for its own rules.
+games, and its standings, Book and Garry posts match what SaK's engine produces for its own rules. The tooling is
+built (migrations 92 and 93: `open_shadow_league`, `shadow_sync` every minute, `shadow_report`).
 
 **Phase 2, people can join.** B5 sign-in by email and league by host, invites and the switcher, realtime and
 presence per league, B7 brand and history per league, B8 phones, Vercel hosting, the platform `create_league`.
