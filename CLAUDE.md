@@ -29,7 +29,7 @@ Two things in one repo:
   standings, daily points, coin balances and money.
 - Edge functions in `supabase/functions`: `nhl-sync` (scores, box scores, lineup snapshots, schedule,
   injuries, game-day status, news, projections, auto-lineups; tasks via `?task=`), `nhl-hub` (NHL centre
-  data, cached in `hub_cache`), `garry` (the league voice; the LLM is Grok via xAI, `XAI_API_KEY`),
+  data, cached in `hub_cache`; `?task=lines` works out each club's lines from the NHL's shift charts), `garry` (the league voice; the LLM is Grok via xAI, `XAI_API_KEY`),
   `player-info`, `push`, `yahoo`, `join` (makes a newcomer's account from an invite link and seats them). Shared code in `supabase/functions/_shared`.
 - Scheduler: pg_cron jobs call the edge functions through pg_net with the anon key. Job names: nhl-scores
   (gated by `_scores_due()`), nhl-gameday, nhl-injuries, nhl-schedule, season-schedule, nhl-news,

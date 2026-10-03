@@ -507,3 +507,169 @@ export function EveryTicket({ markets, tickets }: { markets: Market[]; tickets: 
     </Section>
   );
 }
+
+// The Book inside a game (NHL centre's game sheet): every market the Book has on this game (the moneyline, total goals,
+// overtime and the player props), priced live like the board, with the bet slip right under the pick. The same
+// place_market_bet as the Book page, so the same limits and in-play rules apply.
+type GameClub = { abbrev: string; logo: string | null };
+export function GameBook({ gameId, away, home }: { gameId: number; away: GameClub; home: GameClub }) {
+  const { me, team, players, can, games } = useLeague();
+  const brand = useBrand();
+  const now = useNow(15_000);
+  const { busy, run } = useAction();
+  const { markets, tickets, reload } = useBook();
+  const liveOdds = useLiveOdds(markets, games);
+  const [pick, setPick] = useState<{ m: Market; o: MarketOption } | null>(null);
+  const [stake, setStake] = useState(25);
+  const [custom, setCustom] = useState('');
+  const g = games.find((x) => x.id === gameId);
+  const ms = markets.filter((m) => m.game_id === gameId && m.status === 'open');
+  const settled = markets.filter((m) => m.game_id === gameId && m.status !== 'open');
+  // the league's points so far tonight for the players with a prop, for the live chances
+  const [pts, setPts] = useState<Map<number, number>>(new Map());
+  const propIds = ms.filter((m) => m.kind === 'prop' && m.subject.player_id).map((m) => m.subject.player_id!);
+  useEffect(() => {
+    if (!propIds.length) return;
+    let alive = true;
+    const load = () => supabase.from('league_games').select('player_id,fpts').eq('game_id', gameId)
+      .then(({ data }) => { if (alive) setPts(new Map((data ?? []).map((r) => [r.player_id as number, Number(r.fpts)]))); });
+    load();
+    const i = g && ['LIVE', 'CRIT'].includes(g.state) ? window.setInterval(load, 60_000) : 0;
+    return () => { alive = false; if (i) window.clearInterval(i); };
+  }, [gameId, propIds.join(), g?.state]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const opts = (m: Market) => (liveOdds[String(m.id)] ?? m.options);
+  const price = (m: Market, o: MarketOption) => Number(opts(m).find((x) => x.key === o.key)?.odds ?? o.odds);
+  const chances = (m: Market) => marketChances(m, g, m.subject.player_id ? pts.get(m.subject.player_id) ?? 0 : 0, players);
+  const open = (m: Market) => new Date(m.closes_at).getTime() > now || inPlayOpen(m, g);
+  const canBet = can('bets') && me?.role !== 'spectator';
+  const inPlay = ms.some((m) => new Date(m.closes_at).getTime() <= now);
+  const mineOn = tickets.filter((t) => t.team_id === me?.id && [...ms, ...settled].some((m) => m.id === t.market_id));
+  const find = (k: MarketKind) => ms.find((m) => m.kind === k);
+  const winner = find('winner'), total = find('total'), ot = find('ot');
+  const props = ms.filter((m) => m.kind === 'prop');
+
+  const choose = (m: Market, o: MarketOption) => { if (!canBet || !open(m)) return; setPick(pick?.m.id === m.id && pick.o.key === o.key ? null : { m, o }); setStake(25); setCustom(''); };
+  const place = () => run(async () => {
+    if (!pick) return;
+    await rpc('place_market_bet', { p_market: pick.m.id, p_pick: pick.o.key, p_coins: stake });
+    setPick(null); reload();
+  }, `Ticket placed: ${stake} ☘️ on ${pick?.o.label} @ ${pick ? price(pick.m, pick.o).toFixed(2) : ''}`);
+
+  // one price on the board: the pick, the odds big in gold, the chance under it; picked, it lights up
+  const priceBtn = (m: Market, o: MarketOption, big?: { logo: string | null; abbrev: string }) => {
+    const p = price(m, o);
+    const c = chances(m)?.[o.key];
+    const on = pick?.m.id === m.id && pick.o.key === o.key;
+    const yours = tickets.filter((t) => t.market_id === m.id && t.team_id === me?.id && t.pick === o.key).reduce((s, t) => s + t.coins, 0);
+    return (
+      <button key={o.key} disabled={!canBet || !open(m)} onClick={() => choose(m, o)}
+        className={`relative flex min-w-0 flex-1 flex-col items-center rounded-xl border px-2 text-center transition active:scale-[.97] disabled:opacity-60 disabled:active:scale-100 ${big ? 'py-2.5' : 'py-1.5'} ${on ? 'border-gold bg-gold/15 shadow-[0_0_20px_-6px_rgba(247,197,72,.7)]' : yours ? 'border-sky-400/60 bg-sky-500/10' : 'border-white/10 bg-black/20 hover:border-white/25 hover:bg-white/[.05]'}`}>
+        {big ? (
+          <span className="flex items-center gap-1.5 text-sm font-bold">{big.logo && <img src={big.logo} alt="" className="h-7 w-7" />}{big.abbrev}</span>
+        ) : <span className="w-full truncate text-xs font-semibold text-slate-200">{o.label}</span>}
+        <span className={`num font-display font-extrabold leading-tight text-gold ${big ? 'text-2xl' : 'text-lg'}`}>{p.toFixed(2)}</span>
+        <span className="text-[10px] text-mute">{american(p)}{c != null ? ` · ${Math.round(c * 100)}%` : ''}</span>
+        {yours > 0 && <span className="absolute -top-1.5 right-1 rounded-full bg-sky-500 px-1.5 text-[9px] font-bold text-ice">{yours} ☘️</span>}
+      </button>
+    );
+  };
+
+  // the slip, under the market it belongs to
+  const slip = (m: Market) => pick && pick.m.id === m.id && (
+    <div className="mt-2 animate-pop space-y-2 rounded-xl border border-gold/40 bg-gradient-to-br from-gold/15 to-black/20 p-2.5">
+      <div className="flex items-center justify-between gap-2 text-sm">
+        <span className="min-w-0 truncate font-semibold">{pick.o.label}{m.kind === 'prop' ? ` · ${players.get(m.subject.player_id!)?.name ?? ''}` : ''}</span>
+        <span className="num shrink-0 font-display text-xl font-extrabold text-gold">{price(m, pick.o).toFixed(2)}</span>
+      </div>
+      <div className="flex flex-wrap gap-1.5">
+        {STAKES.map((s) => <button key={s} className={`chip py-1 ${stake === s && !custom ? 'bg-gold text-ice' : ''}`} onClick={() => { setStake(s); setCustom(''); }}>{s}</button>)}
+        <input className="input w-20 py-1" inputMode="numeric" placeholder="other" value={custom} onChange={(e) => { const v = e.target.value.replace(/[^\d]/g, ''); setCustom(v); if (v) setStake(Number(v)); }} />
+      </div>
+      <div className="flex items-center justify-between text-xs"><span className="text-mute">You have <AvailableCoins /> · pays if it hits</span><span className="flex items-center gap-1 font-semibold"><Coin size={13} /> {Math.round(stake * price(m, pick.o))} <span className="text-mute">(+{Math.round(stake * price(m, pick.o)) - stake})</span></span></div>
+      <div className="flex gap-2">
+        <button className="btn-primary flex-1" disabled={busy || stake < 5 || stake > 500} onClick={place}>Place {stake} ☘️</button>
+        <button className="btn-ghost" onClick={() => setPick(null)}>Cancel</button>
+      </div>
+      {new Date(m.closes_at).getTime() <= now && <div className="text-[11px] text-goal">🔴 In play: you get the Book’s price at the moment you tap.</div>}
+    </div>
+  );
+
+  const label = (t: string) => <div className="mb-1 text-[11px] font-bold uppercase tracking-[.16em] text-mute">{t}</div>;
+
+  if (!ms.length && !mineOn.length) {
+    return (
+      <div className="rounded-2xl border border-white/10 bg-white/[.03] p-3 text-center text-xs text-mute">
+        {brand.bot.name}’s Book has no lines on this game yet; they go up the morning of the game. <Link to="/bets" className="text-sky-300 underline">The Book</Link>
+      </div>
+    );
+  }
+  const wc = winner ? chances(winner) : null;
+  return (
+    <div className="relative overflow-hidden rounded-2xl border border-gold/25 bg-gradient-to-br from-gold/[.10] via-white/[.03] to-transparent p-3">
+      <BookOpen className="pointer-events-none absolute -right-6 -top-6 h-32 w-32 text-gold/[.06]" aria-hidden />
+      <div className="relative space-y-3">
+        <div className="flex items-center justify-between gap-2">
+          <div className="font-display text-lg font-extrabold">📖 {brand.bot.name}’s Book</div>
+          <div className="text-right text-[11px] text-mute">{inPlay ? <span className="font-semibold text-goal">🔴 In play</span> : winner ? `Puck drop ${fmtTime(winner.closes_at)}` : ''}{canBet && <div>You have <AvailableCoins /></div>}</div>
+        </div>
+        {winner && (
+          <div>
+            {label('Who wins')}
+            <div className="flex gap-2">{(['away', 'home'] as const).map((k) => { const o = winner.options.find((x) => x.key === k); return o ? priceBtn(winner, o, k === 'away' ? away : home) : null; })}</div>
+            {wc && wc.away != null && wc.home != null && (
+              <div className="mt-1.5 flex h-1.5 overflow-hidden rounded-full bg-white/10">
+                <div className="bg-sky-400/80" style={{ width: `${Math.round(wc.away * 100)}%` }} /><div className="flex-1 bg-gold/80" />
+              </div>
+            )}
+            {slip(winner)}
+          </div>
+        )}
+        {(total || ot) && (
+          <div className="grid gap-3 sm:grid-cols-2">
+            {total && <div>{label(`Total goals · ${total.subject.line ?? ''}`)}<div className="flex gap-1.5">{total.options.map((o) => priceBtn(total, o))}</div>{slip(total)}</div>}
+            {ot && <div>{label('Overtime')}<div className="flex gap-1.5">{ot.options.map((o) => priceBtn(ot, o))}</div>{slip(ot)}</div>}
+          </div>
+        )}
+        {props.length > 0 && (
+          <div>
+            {label(`${brand.short} points tonight`)}
+            <div className="space-y-2">
+              {props.map((m) => {
+                const pl = m.subject.player_id ? players.get(m.subject.player_id) : undefined;
+                const o = m.subject.owner ? team(m.subject.owner) : undefined;
+                const sofar = m.subject.player_id ? pts.get(m.subject.player_id) : undefined;
+                return (
+                  <div key={m.id}>
+                    <div className="flex items-center gap-2">
+                      <div className="min-w-0 flex-1">
+                        <Link to={`/player/${m.subject.player_id}`} className="block text-sm font-semibold leading-tight hover:underline">{pl?.name ?? m.title}</Link>
+                        <div className="flex items-center gap-1 text-[10px] text-mute">{o && <><TeamBadge team={o} size={12} />{o.gm_name}</>}{sofar != null && <span className="text-slate-300"> · {sofar.toFixed(1)} so far</span>}</div>
+                      </div>
+                      <div className="flex w-[58%] shrink-0 gap-1.5">{m.options.map((x) => priceBtn(m, x))}</div>
+                    </div>
+                    {slip(m)}
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
+        {mineOn.length > 0 && (
+          <div>
+            {label('Your tickets on this game')}
+            <div className="flex flex-wrap gap-1">
+              {mineOn.map((t) => {
+                const m = [...ms, ...settled].find((x) => x.id === t.market_id)!;
+                const o = m.options.find((x) => x.key === t.pick);
+                const won = m.status === 'settled' ? m.winner_key === t.pick : null;
+                return <span key={t.id} className={`rounded-full border px-2 py-0.5 text-[11px] ${won === true ? 'border-emerald-400/50 bg-emerald-500/10 text-emerald-200' : won === false ? 'border-red-400/40 bg-red-500/10 text-red-200' : 'border-sky-400/40 bg-sky-500/10'}`}>{t.coins} ☘️ on {m.kind === 'prop' ? `${players.get(m.subject.player_id!)?.name.split(' ').slice(-1)[0]} ` : ''}{o?.label ?? t.pick} @ {Number(t.odds).toFixed(2)} → {Math.round(t.coins * t.odds)}{won != null ? (won ? ' · won' : ' · lost') : ''}</span>;
+              })}
+            </div>
+          </div>
+        )}
+        <div className="text-[10px] text-mute">Stakes leave your bank when you place; winners are paid stake × odds. Open in play until the last two minutes of regulation. <Link to="/bets" className="text-sky-300 underline">Full board</Link></div>
+      </div>
+    </div>
+  );
+}
