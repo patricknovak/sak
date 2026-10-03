@@ -1,6 +1,7 @@
 # CLAUDE.md: the standing briefing for this repository
 
-Read this first in every session, then `docs/SUPERPOOLS.md` (the product plan), `docs/BRAND.md` (how the product
+Read this first in every session, then `docs/DEVELOPMENT.md` (how we build: the release order, the working method,
+the knowledge base and the next steps), `docs/SUPERPOOLS.md` (the product plan), `docs/BRAND.md` (how the product
 is named, described and drawn), `docs/MARKET.md` (the competition and the road to every sport), `docs/EXPANSION.md`
 (what must change before more leagues and sports, in order) and, for how the system is built and what it costs to
 run, `docs/REVIEW-2026-09.md`.
@@ -12,7 +13,8 @@ Two things in one repo:
 - **The SaK Superleague site**: an 8-team NHL fantasy keeper league (commissioner: Patrick Novak, team 1,
   "The Hip Czechs"). It is live and used every night of the season. Treat it as production.
 - **Super Pools** (superpoolsai.com): the product being built from it. The SaK league is league 1, the model
-  league. Every league-scoped table already carries `league_id` (default 1); see `docs/SUPERPOOLS.md`.
+  league. Every league-scoped table carries `league_id` (default `current_league_id()`, the caller's league); see
+  `docs/SUPERPOOLS.md`.
 
 ## Stack and layout
 
@@ -70,23 +72,43 @@ Note: psql `:vars` do not interpolate inside `DO` blocks; use `set_config` / `cu
 Deno check for edge functions: copy the function folder plus `_shared` to a scratch dir and run
 `deno check <entry>` (`npx -y deno@2`; set `DENO_CERT` to the proxy CA bundle when behind a proxy).
 
+CI: `.github/workflows/test.yml` runs the build, `test:nhl` and the whole `test:db` (Postgres 16 service) on every
+pull request and push to `main`. A red run is a red PR: fix it before anything else.
+
 ## Migrations and deploys
 
-- Migrations live in `supabase/migrations/` as `20261005000NNN_name.sql` (next number after the highest).
-  Write the file, run `test:db`, then apply the same SQL to the project (Supabase MCP `apply_migration`).
-  Cron changes go in their own `*_cron*` migration.
-- Pitfall: the Supabase MCP holds any top-level statement that begins with `drop` (`drop policy if exists`,
-  `drop trigger if exists`, ...) for a confirmation this session cannot give, and the call times out after 60 s
-  with nothing applied, in `apply_migration` and `execute_sql` alike. Write migrations without top-level drops
-  (`create or replace`, `if not exists`, or a drop inside a `do $$ ... $$` block), or apply in pieces with
-  `execute_sql` and record the row in `supabase_migrations.schema_migrations` by hand. Check the live state
-  before retrying: a timed-out call may have applied nothing, or everything up to the drop. The hold also catches
-  `drop function` inside a `do` block and any `delete from` (even inside a function body): retire an old function
-  signature with `alter function ... rename to ..._before_x` plus a revoke, and hand SQL that must delete to Patrick
-  as a file to paste in the Supabase SQL editor.
-- Edge functions deploy with the Supabase MCP `deploy_edge_function`, sending the full contents of
-  `<fn>/index.ts` and every `_shared/*.ts` it imports. Pitfall: a literal `\uXXXX` in source is decoded once
-  more by the deploy pipeline; send it as `\\u005cuXXXX`.
+Database changes are made directly on the live project through the Supabase connector (`apply_migration`,
+`execute_sql`). Every change goes out in this order, and the pull request says which steps are done:
+
+1. Write `supabase/migrations/20261005000NNN_name.sql` (next number after the highest; cron changes in their own
+   `*_cron*` file). Make it safe to run twice (`create or replace`, `if not exists`, guarded `do` blocks).
+2. `npm run test:db` green locally, with a two-league section for anything league-facing.
+3. Check live first: fingerprint every function the migration replaces, live and local, and compare
+   (`md5(btrim(regexp_replace(regexp_replace(prosrc, '--[^\n]*', '', 'g'), '\s+', ' ', 'g')))` per `proname`); a
+   difference means live has something the repo doesn't: stop and reconcile. For a change to numbers GMs see,
+   prove with a read-only query on live that the new path reproduces today's numbers.
+4. Apply with `apply_migration` (name = the file's name part), then verify: fingerprints now match the repo,
+   `supabase_migrations.schema_migrations` has the row, the numbers SaK sees are unchanged, Postgres logs clean.
+5. Deploy the edge functions that changed (below).
+6. Merge the pull request last. A pull request whose migration is not live and verified never merges: the site
+   and the functions deploy from `main` and would read objects that don't exist yet.
+
+- Destroying league data (deleting rows GMs made, dropping a table or a column that holds data) needs Patrick's
+  yes in the chat first, every time. Dropping functions, policies or triggers, and housekeeping deletes the tests
+  cover, are ordinary migrations.
+- If the connector holds a statement (the call hangs and times out after about 60 s): its tool permission is not
+  set to allowed. Ask Patrick to open https://claude.ai/customize/connectors, choose Supabase and set
+  `apply_migration` and `execute_sql` to allowed. Check the live state before retrying: a timed-out call may have
+  applied nothing, or everything up to the held statement. Until it is fixed, the fallback is a paste file in the
+  scratchpad (the migrations, then the `schema_migrations` rows, then a one-line check), dry-run twice on a clean
+  copy of the pre-change schema, sent to Patrick for the SQL editor.
+- Retire an old function signature with `alter function ... rename to ..._before_x` plus a revoke when a
+  `drop function` would break callers mid-deploy.
+- Edge functions: `.github/workflows/functions.yml` deploys every function on merge to `main` once the
+  `SUPABASE_ACCESS_TOKEN` GitHub Actions secret exists. Until then (or for a fix that can't wait for a merge),
+  deploy with the connector's `deploy_edge_function`, sending the full contents of `<fn>/index.ts` and every
+  `_shared/*.ts` it imports, then compare the deployed files with the repo. Pitfall: a literal `\uXXXX` in source
+  is decoded once more by that deploy path; send it as `\\u005cuXXXX`.
 - The site deploys itself on merge to `main`.
 
 ## Conventions
@@ -117,6 +139,14 @@ Deno check for edge functions: copy the function folder plus `_shared` to a scra
   that page. The ledger lives in schema `ops`, which the API doesn't serve.
 - Never commit credentials. Secrets live in Supabase function secrets and GitHub Actions secrets. The test
   team's login is kept out of the repo.
+- Expand, then contract: add the new path beside the old, move the readers, prove the numbers match, retire the
+  old path in a later change (the debt list is in `docs/DEVELOPMENT.md`).
+- The product learns: a new prediction or grade (projection, trade or draft grade, odds, a Garry pick) is
+  written to the prediction log once it exists and scored when the result is in; a league's history lives in the
+  database, never in code. See `docs/DEVELOPMENT.md` section 4.
+- Flow-test sections end signed out (`reset role` and an empty `request.jwt.claim.sub`), so the next section
+  doesn't run as another league's GM.
+- Keep the docs true in the same pull request as the change: `docs/SUPERPOOLS.md`, `docs/EXPANSION.md`, this file.
 
 ## Team ids (SaK, league 1)
 
@@ -125,5 +155,6 @@ Deno check for edge functions: copy the function folder plus `_shared` to a scra
 
 ## Where the plan lives
 
-`docs/SUPERPOOLS.md` holds the ordered list of remaining product work; update it when a step lands.
+`docs/DEVELOPMENT.md` holds the order of work from here and the method; `docs/SUPERPOOLS.md` holds the product
+plan and its ordered list; update both when a step lands.
 `docs/REVIEW-2026-09.md` holds the resource-use and security baseline; update the numbers when they change.

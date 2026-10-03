@@ -1,0 +1,41 @@
+name: Deploy edge functions
+
+# On a merge to main that changes supabase/functions, deploy every edge function to the live project, so the
+# functions always match main. It needs the SUPABASE_ACCESS_TOKEN repository secret (a Supabase personal access
+# token); without it the job says so and does nothing, and functions are deployed by hand as before.
+# The rule that makes this safe: a migration a function depends on is live before its pull request merges.
+on:
+  push:
+    branches: [main]
+    paths: ['supabase/functions/**']
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: functions
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    env:
+      SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+      PROJECT: quakdkzdafzlhgjvmypg
+    steps:
+      - if: env.SUPABASE_ACCESS_TOKEN == ''
+        run: echo "No SUPABASE_ACCESS_TOKEN secret, so nothing was deployed. Add it under Settings > Secrets and variables > Actions."
+      - if: env.SUPABASE_ACCESS_TOKEN != ''
+        uses: actions/checkout@v4
+      - if: env.SUPABASE_ACCESS_TOKEN != ''
+        uses: supabase/setup-cli@v1
+        with:
+          version: latest
+      # every function keeps JWT verification on (the live setting for all of them)
+      - if: env.SUPABASE_ACCESS_TOKEN != ''
+        run: |
+          for fn in $(ls supabase/functions | grep -v '^_'); do
+            echo "deploying $fn"
+            supabase functions deploy "$fn" --project-ref "$PROJECT"
+          done
