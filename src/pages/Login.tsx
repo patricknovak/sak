@@ -1,53 +1,59 @@
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { remembered, setRemember, supabase } from '../lib/supabase';
-import { Spinner, TeamBadge } from '../components/ui';
+import { Spinner } from '../components/ui';
 import { Wordmark } from '../components/Brand';
-import type { Team } from '../lib/types';
 
-type DirTeam = Pick<Team, 'id' | 'name' | 'abbrev' | 'gm_name' | 'login_email' | 'color' | 'emoji' | 'role'>;
-
-// Sign in with your email and password (Patrick's call, October 2026). The old way, tapping your team and typing the
-// password, stays one tap away until every GM has a real email on their account (the commissioner adds them on the
-// Commish page); it goes in step 2, with the addresses the team list hands out.
+// Sign in with your email and password (Patrick's call, October 2026; every SaK account has its own email since step 2).
+// Forgot your password: the league emails you a code, you type it with a new password, and you're in. The code works
+// on any device (no link to open on the right phone).
 export default function Login() {
   const [email, setEmail] = useState(() => { try { return localStorage.getItem('sak-last-email') ?? ''; } catch { return ''; } });
   const [remember, setRem] = useState(remembered);
-  const [byTeam, setByTeam] = useState(false);
-  const [teams, setTeams] = useState<DirTeam[]>([]);
-  const [pick, setPick] = useState<DirTeam | null>(null);
+  const [mode, setMode] = useState<'in' | 'forgot' | 'code'>('in');
   const [pw, setPw] = useState('');
+  const [pw2, setPw2] = useState('');
+  const [code, setCode] = useState('');
   const [err, setErr] = useState('');
+  const [note, setNote] = useState('');
   const [busy, setBusy] = useState(false);
+  const login = email.trim().toLowerCase();
+  const go = (m: typeof mode) => { setMode(m); setErr(''); setNote(''); setPw(''); setPw2(''); setCode(''); };
 
-  useEffect(() => {
-    if (!byTeam || teams.length) return;
-    supabase.from('team_directory').select('*').order('id').then(({ data, error }) => {
-      if (error) setErr('Can’t reach the league server. Try again in a minute.');
-      setTeams((data ?? []) as DirTeam[]);
-      const last = localStorage.getItem('sak-last-team');
-      const t = (data ?? []).find((x) => String(x.id) === last);
-      if (t) setPick(t as DirTeam);
-    });
-  }, [byTeam]); // eslint-disable-line react-hooks/exhaustive-deps
+  const keepEmail = () => { try { if (remember) localStorage.setItem('sak-last-email', login); else localStorage.removeItem('sak-last-email'); } catch { /* nothing to remember with */ } };
 
   const signIn = async (e: React.FormEvent) => {
     e.preventDefault();
-    const login = byTeam ? pick?.login_email : email.trim().toLowerCase();
-    if (!login) return;
     setBusy(true); setErr('');
     setRemember(remember);
     const { error } = await supabase.auth.signInWithPassword({ email: login, password: pw });
     setBusy(false);
-    if (error) {
-      setErr(error.message !== 'Invalid login credentials' ? error.message
-        : byTeam ? 'Wrong password. Ask the commish if you’re locked out.'
-        : 'That email and password don’t match. Same password as always; ask the commish if you’re locked out.');
-      return;
-    }
-    try {
-      if (byTeam && pick) localStorage.setItem('sak-last-team', String(pick.id));
-      if (!byTeam && remember) localStorage.setItem('sak-last-email', login); else localStorage.removeItem('sak-last-email');
-    } catch { /* nothing to remember with */ }
+    if (error) setErr(error.message === 'Invalid login credentials' ? 'That email and password don’t match. Forgot it? Reset it below.' : error.message);
+    else keepEmail();
+  };
+
+  // the league emails a one-time code; nothing says whether the address has an account
+  const sendCode = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setBusy(true); setErr('');
+    const { error } = await supabase.auth.resetPasswordForEmail(login);
+    setBusy(false);
+    if (error) { setErr(/rate limit/i.test(error.message) ? 'Too many codes asked for. Wait a few minutes and try again.' : error.message); return; }
+    go('code');
+    setNote(`If ${login} has an account, a code is on its way. Check your inbox (and junk).`);
+  };
+
+  // the code signs you in for the reset; the new password goes on straight after
+  const reset = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (pw !== pw2) { setErr('The two passwords don’t match.'); return; }
+    setBusy(true); setErr('');
+    setRemember(remember);
+    const { error } = await supabase.auth.verifyOtp({ email: login, token: code.trim(), type: 'recovery' });
+    if (error) { setBusy(false); setErr(/expired|invalid/i.test(error.message) ? 'That code didn’t work. Check it, or ask for a new one.' : error.message); return; }
+    const up = await supabase.auth.updateUser({ password: pw });
+    setBusy(false);
+    if (up.error) setErr(`You're signed in, but the new password didn't save: ${up.error.message}. Set it on your Profile page.`);
+    else keepEmail();
   };
 
   const rememberBox = (
@@ -56,6 +62,14 @@ export default function Login() {
       Remember me on this device
     </label>
   );
+  const emailField = (
+    <>
+      <label className="label relative text-white/70" htmlFor="email">Email</label>
+      <input id="email" className="input relative mt-1" type="email" inputMode="email" autoComplete="username" autoFocus={!email}
+        value={email} onChange={(e) => setEmail(e.target.value)} placeholder="you@example.com" />
+    </>
+  );
+  const okEmail = /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(login);
 
   return (
     <div className="pt-safe relative flex min-h-dvh flex-col items-center justify-center overflow-hidden px-4 py-10">
@@ -76,67 +90,38 @@ export default function Login() {
           <p className="mt-2 text-xs font-bold uppercase tracking-[.3em] text-mute">She’s A Keeper · est. 2013 · 2026-27</p>
         </div>
 
-        {!byTeam ? (
+        {mode === 'in' ? (
           <form onSubmit={signIn} className="card-hero animate-pop p-5">
-            <label className="label relative text-white/70" htmlFor="email">Email</label>
-            <input id="email" className="input relative mt-1" type="email" inputMode="email" autoComplete="username" autoFocus={!email}
-              value={email} onChange={(e) => setEmail(e.target.value)} placeholder="you@example.com" />
+            {emailField}
             <label className="label relative mt-3 block text-white/70" htmlFor="pw">Password</label>
             <input id="pw" className="input relative mt-1" type="password" autoComplete="current-password" autoFocus={!!email} value={pw}
               onChange={(e) => setPw(e.target.value)} placeholder="Your Superleague password" />
             {rememberBox}
-            <button className="btn-primary relative mt-4 w-full py-3 text-base" disabled={busy || !pw || !email.includes('@')}>{busy ? <Spinner /> : '🏒 Drop the puck'}</button>
-            <p className="relative mt-3 text-center text-xs text-white/60">Same password as always. Forgot it? Ask the commish.</p>
-            <button type="button" className="relative mt-2 w-full text-center text-sm text-white/60 underline" onClick={() => { setByTeam(true); setErr(''); setPw(''); }}>
-              No email on your account yet? Pick your team instead
-            </button>
+            <button className="btn-primary relative mt-4 w-full py-3 text-base" disabled={busy || !pw || !okEmail}>{busy ? <Spinner /> : '🏒 Drop the puck'}</button>
+            <button type="button" className="relative mt-3 w-full text-center text-sm text-white/60 underline" onClick={() => go('forgot')}>Forgot your password?</button>
           </form>
-        ) : !pick ? (
-          <>
-            <div className="label mb-3 text-center">Who are you?</div>
-            <div className="stagger grid grid-cols-2 gap-2.5">
-              {teams.filter((t) => t.role !== 'spectator').map((t) => (
-                <button key={t.id} onClick={() => { setPick(t); setPw(''); setErr(''); }}
-                  className="group card relative flex flex-col items-center gap-2 overflow-hidden px-2 py-4 transition duration-200 hover:-translate-y-0.5 active:scale-[.97]">
-                  <div className="pointer-events-none absolute inset-0 opacity-60 transition group-hover:opacity-100" style={{ background: `radial-gradient(90% 70% at 50% 0%, ${t.color}55, transparent 70%)` }} />
-                  <div className="relative"><TeamBadge team={t as Team} size={52} /></div>
-                  <div className="relative text-center">
-                    <div className="text-sm font-bold leading-tight">{t.name}</div>
-                    <div className="text-xs text-mute">{t.gm_name}</div>
-                  </div>
-                </button>
-              ))}
-              {teams.length === 0 && !err && <div className="col-span-2 flex justify-center py-8"><Spinner /></div>}
-            </div>
-            <button type="button" className="mt-4 w-full text-center text-sm text-white/60 underline" onClick={() => { setByTeam(false); setErr(''); }}>Sign in with your email instead</button>
-            {teams.some((t) => t.role === 'spectator') && (
-              <>
-                <div className="label mb-2 mt-6 text-center">Spectators</div>
-                <div className="flex flex-wrap justify-center gap-2">
-                  {teams.filter((t) => t.role === 'spectator').map((t) => (
-                    <button key={t.id} onClick={() => { setPick(t); setPw(''); setErr(''); }} className="card flex items-center gap-2 px-3 py-2 text-sm transition hover:-translate-y-0.5 active:scale-[.97]">
-                      <TeamBadge team={t as Team} size={26} /><span className="font-semibold">{t.name}</span><span className="text-xs text-mute">🍿</span>
-                    </button>
-                  ))}
-                </div>
-              </>
-            )}
-          </>
+        ) : mode === 'forgot' ? (
+          <form onSubmit={sendCode} className="card-hero animate-pop p-5">
+            <div className="relative mb-3 text-sm text-white/80">Type your email and we&apos;ll send you a code to set a new password.</div>
+            {emailField}
+            <button className="btn-primary relative mt-4 w-full py-3 text-base" disabled={busy || !okEmail}>{busy ? <Spinner /> : '✉️ Email me a code'}</button>
+            <button type="button" className="relative mt-3 w-full text-center text-sm text-white/60 underline" onClick={() => go('in')}>Back to sign in</button>
+          </form>
         ) : (
-          <form onSubmit={signIn} className="card-hero animate-pop p-5" style={{ '--tc': pick.color } as React.CSSProperties}>
-            <div className="relative mb-5 flex items-center gap-3">
-              <TeamBadge team={pick as Team} size={60} ring />
-              <div>
-                <div className="h-display text-shine text-2xl leading-tight">{pick.name}</div>
-                <div className="text-sm text-white/70">{pick.role === 'spectator' ? '🍿 Spectator pass' : `GM ${pick.gm_name}`}</div>
-              </div>
-            </div>
-            <label className="label relative text-white/70">Password</label>
-            <input className="input relative mt-1" type="password" autoFocus autoComplete="current-password" value={pw}
-              onChange={(e) => setPw(e.target.value)} placeholder="Your Superleague password" />
+          <form onSubmit={reset} className="card-hero animate-pop p-5">
+            {note && <div className="relative mb-3 rounded-xl border border-sky-400/30 bg-sky-500/10 px-3 py-2 text-xs text-sky-100">{note}</div>}
+            <label className="label relative text-white/70" htmlFor="code">Code from the email</label>
+            <input id="code" className="input relative mt-1 tracking-[.3em]" inputMode="numeric" autoComplete="one-time-code" autoFocus value={code}
+              onChange={(e) => setCode(e.target.value.replace(/\D/g, '').slice(0, 10))} placeholder="123456" />
+            <label className="label relative mt-3 block text-white/70" htmlFor="npw">New password</label>
+            <input id="npw" className="input relative mt-1" type="password" autoComplete="new-password" value={pw} onChange={(e) => setPw(e.target.value)} placeholder="6+ characters" />
+            <input className="input relative mt-2" type="password" autoComplete="new-password" value={pw2} onChange={(e) => setPw2(e.target.value)} placeholder="Same again" />
             {rememberBox}
-            <button className="btn-primary relative mt-4 w-full py-3 text-base" disabled={busy || !pw}>{busy ? <Spinner /> : '🏒 Drop the puck'}</button>
-            <button type="button" className="relative mt-3 w-full text-center text-sm text-white/60" onClick={() => setPick(null)}>Not {pick.gm_name}? Switch team</button>
+            <button className="btn-primary relative mt-4 w-full py-3 text-base" disabled={busy || code.length < 6 || pw.length < 6 || !pw2}>{busy ? <Spinner /> : '🔑 Set password and sign in'}</button>
+            <div className="relative mt-3 flex justify-between text-sm text-white/60">
+              <button type="button" className="underline" onClick={() => go('forgot')}>Send a new code</button>
+              <button type="button" className="underline" onClick={() => go('in')}>Back to sign in</button>
+            </div>
           </form>
         )}
         {err && <div className="mt-4 rounded-xl border border-red-400/30 bg-red-900/50 px-4 py-3 text-center text-sm text-red-200">{err}</div>}
