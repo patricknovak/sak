@@ -1,6 +1,6 @@
 // The draft analysis: live numbers from the projection model and the season forecast (they move as rosters
 // change), plus the written commentary from draft night.
-import { useEffect, useMemo, useState } from 'react';
+import { Fragment, useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { ChevronDown, LineChart } from 'lucide-react';
 import { useLeague } from '../lib/store';
@@ -59,10 +59,12 @@ export default function DraftAnalysisPage({ embedded = false }: { embedded?: boo
   const n = teams.filter((t) => t.role !== 'spectator').length;
   const avgDraft = a ? a.teams.reduce((s, t) => s + t.draftScore, 0) / a.teams.length : 0;
 
-  const PickLine = ({ e, show = 'team' }: { e: PickEval; show?: 'team' | 'over' }) => {
+  // render functions, not components: a component defined in here would be a new type on every render, and the
+  // team cards' open "every pick" lists would snap shut whenever a pick was tapped
+  const pickLine = (e: PickEval, show: 'team' | 'over' = 'team') => {
     const p = players.get(e.player);
     return (
-      <button className="flex w-full items-center gap-2 px-3 py-2 text-left hover:bg-white/[.03]" onClick={() => setDetail(e.player)}>
+      <button key={e.overall} className="flex w-full items-center gap-2 px-3 py-2 text-left hover:bg-white/[.03]" onClick={() => setDetail(e.player)}>
         <span className="num w-8 shrink-0 text-xs text-mute">#{e.overall}</span>
         <Headshot p={p} size={28} />
         <span className="min-w-0 flex-1">
@@ -75,7 +77,7 @@ export default function DraftAnalysisPage({ embedded = false }: { embedded?: boo
     );
   };
 
-  const TeamCard = ({ t, i }: { t: TeamAnalysis; i: number }) => {
+  const teamCard = (t: TeamAnalysis, i: number) => {
     const tm = team(t.team);
     const c = notes?.teams?.[String(t.team)];
     const isOpen = open.has(t.team);
@@ -150,7 +152,7 @@ export default function DraftAnalysisPage({ embedded = false }: { embedded?: boo
             </div>
             <details className="rounded-xl border border-white/[.07]">
               <summary className="cursor-pointer px-3 py-2 text-sm font-semibold">Every pick, against where it was taken</summary>
-              <div className="divide-y divide-white/[.06]">{t.picks.map((e) => <PickLine key={e.overall} e={e} show="over" />)}</div>
+              <div className="divide-y divide-white/[.06]">{t.picks.map((e) => pickLine(e, 'over'))}</div>
             </details>
           </div>
         )}
@@ -213,12 +215,12 @@ export default function DraftAnalysisPage({ embedded = false }: { embedded?: boo
           </Section>
 
           <div className="grid gap-4 sm:grid-cols-2">
-            <Section title="🥷 Steals"><div className="card divide-y divide-white/[.06]">{a.steals.map((e) => <PickLine key={e.overall} e={e} />)}</div></Section>
-            <Section title="🚨 Reaches"><div className="card divide-y divide-white/[.06]">{a.reaches.map((e) => <PickLine key={e.overall} e={e} />)}</div></Section>
+            <Section title="🥷 Steals"><div className="card divide-y divide-white/[.06]">{a.steals.map((e) => pickLine(e))}</div></Section>
+            <Section title="🚨 Reaches"><div className="card divide-y divide-white/[.06]">{a.reaches.map((e) => pickLine(e))}</div></Section>
           </div>
           {a.stashes.length > 0 && (
             <Section title="🔮 Prospect stashes">
-              <div className="card divide-y divide-white/[.06]">{a.stashes.map((e) => <PickLine key={e.overall} e={e} />)}</div>
+              <div className="card divide-y divide-white/[.06]">{a.stashes.map((e) => pickLine(e))}</div>
               <p className="mt-1 px-1 text-xs text-mute">No NHL track record yet: keeper bets on the future, worth nothing this season.</p>
             </Section>
           )}
@@ -227,7 +229,7 @@ export default function DraftAnalysisPage({ embedded = false }: { embedded?: boo
           )}
 
           <Section title="Team by team">
-            <div className="space-y-2">{a.teams.map((t, i) => <TeamCard key={t.team} t={t} i={i} />)}</div>
+            <div className="space-y-2">{a.teams.map((t, i) => <Fragment key={t.team}>{teamCard(t, i)}</Fragment>)}</div>
           </Section>
           <p className="px-1 text-xs text-mute">Projections: the SAK model (three seasons of stats weighted toward last year, shooting luck and save % regressed, age curves, games played and injuries). Point values are fantasy points under the league’s scoring.</p>
         </>

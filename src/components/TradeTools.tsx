@@ -1,5 +1,6 @@
 // Trade analysis and the trade finder, used by the Trades page builder.
 import { useEffect, useMemo, useState } from 'react';
+import { useSticky } from '../lib/sticky';
 import { useLeague } from '../lib/store';
 import { supabase } from '../lib/supabase';
 import type { DraftPick, PickupStatus, Player } from '../lib/types';
@@ -77,10 +78,43 @@ export function SideCard({ e, name, mine }: { e: SideEval; name: string; mine?: 
   );
 }
 
+// the players a side gets and sends, each with his fantasy points: this season (and per game) and what he projects to
+// score the rest of the way, with the totals both ways, so a grade always sits next to the points behind it
+function MoveList({ inn, out, c }: { inn: Player[]; out: Player[]; c: ReturnType<typeof useScoutCtx> }) {
+  if (!inn.length && !out.length) return null;
+  const line = (p: Player) => {
+    const n = scoutNums(p, c);
+    const now = n.gp ? `${fmtPts(n.fp, 1)} FP · ${n.fpg != null ? n.fpg.toFixed(2) : '–'}/G (${n.gp} GP)` : n.lastGp ? `’25-26 ${fmtPts(n.last, 0)} FP` : `proj ${fmtPts(p.proj, 0)}`;
+    return { now, ros: n.ros };
+  };
+  const total = (ps: Player[]) => ps.reduce((t, p) => { const n = scoutNums(p, c); return { fp: t.fp + n.fp, ros: t.ros + n.ros }; }, { fp: 0, ros: 0 });
+  const block = (label: string, ps: Player[], sign: string, cls: string) => ps.length > 0 && (
+    <div>
+      <div className="flex justify-between text-[10px] uppercase tracking-wider text-mute"><span>{label}</span><span className="num normal-case tracking-normal">{fmtPts(total(ps).fp, 0)} FP · {fmtPts(total(ps).ros, 0)} ROS</span></div>
+      {ps.map((p) => { const l = line(p); return (
+        <div key={p.id} className="flex items-baseline gap-1.5 text-[12px]">
+          <span className={`w-3 shrink-0 font-bold ${cls}`}>{sign}</span>
+          <div className="min-w-0 flex-1">
+            <div className="truncate"><span className="font-semibold text-slate-100">{p.name}</span> <span className="text-mute">{p.elig.join('/')}</span></div>
+            <div className="num text-[11px] text-slate-300">{l.now} · <b className="text-slate-100">{fmtPts(l.ros, 0)}</b> ROS</div>
+          </div>
+        </div>
+      ); })}
+    </div>
+  );
+  return (
+    <div className="mt-2 space-y-1.5 rounded-lg bg-black/25 p-2">
+      {block('Gets', inn, '+', 'text-emerald-300')}
+      {block('Sends', out, '−', 'text-red-300')}
+    </div>
+  );
+}
+
 // the live read on whatever is in the builder (or on an offer): grades, what each lineup gains or loses, and
 // every player in the deal side by side
 export function TradeAnalysis({ sides, compact }: { sides: Side[]; compact?: boolean }) {
   const { me, team } = useLeague();
+  const sc = useScoutCtx();
   const { v, rosterMax, sched } = useTradeValuer();
   const details = useProjDetails();
   const evals = useMemo(() => sides.map((s) => evaluateSide(s, v, rosterMax, sched)), [sides, v, rosterMax, sched]);
@@ -108,6 +142,7 @@ export function TradeAnalysis({ sides, compact }: { sides: Side[]; compact?: boo
               <div className={`h-display text-4xl leading-none ${gradeColor(g.grade)}`}>{g.grade}</div>
             </div>
             <ul className="mt-1.5 space-y-0.5 text-[12px]">{g.notes.map((n) => <li key={n.text} className={toneCls[n.tone]}>{toneIcon[n.tone]} <span className="text-slate-200">{n.text}</span></li>)}</ul>
+            {(() => { const s = sides.find((x) => x.team === g.team)!; return <MoveList c={sc} inn={s.after.filter((p) => !s.before.includes(p))} out={s.before.filter((p) => !s.after.includes(p))} />; })()}
           </div>
         ))}
       </div>
@@ -129,9 +164,10 @@ export function TradeCompare({ moving, title = 'Players in the deal', showTo = t
   const { team, windows, season } = useLeague();
   const details = useProjDetails();
   const c = useScoutCtx();
-  const [tf, setTf] = useState<Timeframe>(windows.size ? 'season' : 'last');
-  const [view, setView] = useState<CView>(windows.size ? 'form' : 'outlook');
-  const [perGame, setPerGame] = useState(false);
+  // the view, window and per-game choice carry from one deal to the next, and survive the page refreshing
+  const [tf, setTf] = useSticky<Timeframe>('compare:tf', windows.size ? 'season' : 'last');
+  const [view, setView] = useSticky<CView>('compare:view', windows.size ? 'form' : 'outlook');
+  const [perGame, setPerGame] = useSticky('compare:pg', false);
   const tfOk: Timeframe = !windows.size && TIMEFRAMES.find((x) => x.k === tf)?.live ? 'last' : tf;
   const hasG = moving.some((m) => m.p.pos === 'G'), hasS = moving.some((m) => m.p.pos !== 'G');
   const cols = view === 'outlook' ? ['proj', 'range', 'ros', 'rospg', 'left', 'next7', 'age'] : view === 'form' ? ['gp', 'fp', 'fpg', 'w7', 'w14', 'w30', 'trend', 'last']

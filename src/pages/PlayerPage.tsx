@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
+import { useSticky } from '../lib/sticky';
 import { ProjOutlook } from '../components/ProjOutlook';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { ArrowLeft, CalendarDays, History, Newspaper, Trophy, UserRound } from 'lucide-react';
@@ -36,7 +37,8 @@ export default function PlayerPage() {
   const brand = useBrand();
   const p = players.get(id);
   const r = owner.get(id);
-  const [tab, setTab] = useState<Tab>('overview');
+  // the tab carries from one player to the next (game log to game log), and survives a refresh
+  const [tab, setTab] = useSticky<Tab>('player:tab', 'overview');
   const [log, setLog] = useState<GameLine[] | null>(null);
   const [career, setCareer] = useState<Record<string, number | string>[] | null>(null);
   const [bio, setBio] = useState<Bio | null | undefined>(undefined);
@@ -47,7 +49,7 @@ export default function PlayerPage() {
   useEffect(() => {
     if (!id) return;
     window.scrollTo(0, 0);
-    setLog(null); setCareer(null); setBio(undefined); setTx([]); setTab('overview');
+    setLog(null); setCareer(null); setBio(undefined); setTx([]);
     supabase.from('league_games').select('game_id,date,nhl_team,stats,fpts').eq('player_id', id).order('date', { ascending: false }).limit(90)
       .then(({ data }) => setLog((data ?? []) as GameLine[]));
     supabase.from('transactions').select('*').eq('player_id', id).order('id', { ascending: false }).limit(30).then(({ data }) => setTx((data ?? []) as Transaction[]));

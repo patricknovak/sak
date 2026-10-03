@@ -1,4 +1,5 @@
-import { useMemo, useState } from 'react';
+import { useMemo } from 'react';
+import { useSticky } from '../lib/sticky';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useLeague } from '../lib/store';
 import { PlayerRow } from '../components/PlayerCard';
@@ -12,15 +13,16 @@ import { Search } from 'lucide-react';
 export default function Players() {
   const nav = useNavigate();
   const { players, owner, team, league, me, rosters } = useLeague();
-  const pf = usePlayerFilter({ tf: league?.phase === 'season' ? 'season' : 'proj' });
+  const pf = usePlayerFilter({ tf: league?.phase === 'season' ? 'season' : 'proj' }, 'players');
   const [q] = useSearchParams();
-  const [who, setWho] = useState<'avail' | 'all' | 'taken' | 'coming'>(q.get('who') === 'coming' ? 'coming' : 'avail');
+  // the screen's choices survive a visit to a player's page and back
+  const [who, setWho] = useSticky<'avail' | 'all' | 'taken' | 'coming'>('players:who', q.get('who') === 'coming' ? 'coming' : 'avail');
   // before keepers lock, each team's top scorer is already as good as available: he can't be kept
   const coming = useMemo(() => comingAvailable(players, rosters, league), [players, rosters, league]);
   const comingSet = useMemo(() => new Set(coming.map((p) => p.id)), [coming]);
-  const [view, setView] = useState<'list' | 'table'>('list');
-  const [limit, setLimit] = useState(100);
-  const [tab, setTab] = useState<'browse' | 'advisor' | 'compare'>(q.get('tab') === 'advisor' ? 'advisor' : q.get('tab') === 'compare' ? 'compare' : 'browse');
+  const [view, setView] = useSticky<'list' | 'table'>('players:view', 'list');
+  const [limit, setLimit] = useSticky('players:limit', 100);
+  const [tab, setTab] = useSticky<'browse' | 'advisor' | 'compare'>('players:tab', q.get('tab') === 'advisor' ? 'advisor' : q.get('tab') === 'compare' ? 'compare' : 'browse');
 
   const list = useMemo(() => pf.apply([...players.values()]
     .filter((p) => (who === 'all' ? true : who === 'coming' ? comingSet.has(p.id) : who === 'avail' ? !owner.has(p.id) || comingSet.has(p.id) : owner.has(p.id)))), [players, owner, who, pf.apply, comingSet]);

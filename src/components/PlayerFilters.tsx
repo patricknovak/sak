@@ -1,5 +1,5 @@
 // Shared player filtering and sorting (Players page, draft room, mock draft): any stat, any timeframe.
-import { useCallback, useMemo, useState, type ReactNode } from 'react';
+import { useCallback, useMemo, type ReactNode } from 'react';
 import { useLeague } from '../lib/store';
 import type { Player, Pos as PosT } from '../lib/types';
 import { NHL_TEAMS } from '../lib/format';
@@ -7,6 +7,7 @@ import { isOut } from '../lib/lineup';
 import { TIMEFRAMES, fmtStat, lineFor, minSample, projLike, statDef, statValue, statsFor, type Line, type Timeframe } from '../lib/playerstats';
 import { Headshot, Pos } from './ui';
 import { injuryBadge } from '../lib/format';
+import { useSticky } from '../lib/sticky';
 
 export interface Filter { q: string; pos: 'ALL' | PosT; tf: Timeframe; stat: string; perGame: boolean; hideInjured: boolean; nhl: string; minGp: number }
 const DEFAULT: Filter = { q: '', pos: 'ALL', tf: 'proj', stat: 'fp', perGame: false, hideInjured: false, nhl: '', minGp: 0 };
@@ -14,9 +15,10 @@ const POSITIONS: ('ALL' | PosT)[] = ['ALL', 'C', 'LW', 'RW', 'D', 'G'];
 const SKATER_COLS = ['gp', 'fp', 'g', 'a', 'pts', 'pm', 'ppp', 'sog', 'hit', 'blk', 'pim', 'gwg', 'shp', 'fow', 'shpct'];
 const GOALIE_COLS = ['gp', 'gs', 'fp', 'w', 'l', 'otl', 'ga', 'sa', 'sv', 'svp', 'sho', 'gaa'];
 
-export function usePlayerFilter(init?: Partial<Filter>) {
+// `keep` names the screen whose filters should survive the GM stepping away and back (Players, the draft room)
+export function usePlayerFilter(init?: Partial<Filter>, keep?: string) {
   const { windows, season } = useLeague();
-  const [f, setF] = useState<Filter>({ ...DEFAULT, ...init });
+  const [f, setF] = useSticky<Filter>(keep ? `pf:${keep}` : null, { ...DEFAULT, ...init });
   const set = useCallback((patch: Partial<Filter>) => setF((x) => {
     const n = { ...x, ...patch };
     // a stat the other position group doesn't have goes back to fantasy points

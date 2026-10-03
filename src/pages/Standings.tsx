@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
+import { useSticky } from '../lib/sticky';
 import { Link } from 'react-router-dom';
 import { useLeague } from '../lib/store';
 import { bare, useBrand } from '../lib/brand';
@@ -43,13 +44,16 @@ function Podium({ rows, caption }: { rows: { t?: Team; name: string; gm: string;
   );
 }
 
+let poShown = false;
+
 export default function Standings() {
   const { standings, playoffs, cup, team, teams, me, league } = useLeague();
   const lastSeason = useHistory().seasons[0];
   const brand = useBrand();
   const playoffsOn = playoffs.some((t) => Number(t.points) !== 0);
-  const [view, setView] = useState<'regular' | 'playoffs' | 'cup'>(playoffsOn ? 'playoffs' : 'regular');
-  useEffect(() => { if (playoffsOn) setView('playoffs'); }, [playoffsOn]);
+  const [view, setView] = useSticky<'regular' | 'playoffs' | 'cup'>('standings:view', playoffsOn ? 'playoffs' : 'regular');
+  // once the playoffs start the page opens on them, once per visit; after that the GM's pick stays
+  useEffect(() => { if (playoffsOn && !poShown) { poShown = true; setView('playoffs'); } }, [playoffsOn]); // eslint-disable-line react-hooks/exhaustive-deps
   const isPo = view === 'playoffs', isCup = view === 'cup';
   const [daily, setDaily] = useState<Daily[]>([]);
   useEffect(() => {
