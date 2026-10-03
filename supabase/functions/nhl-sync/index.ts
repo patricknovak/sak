@@ -25,6 +25,10 @@ import { mergeStatus, type GameStatus } from '../_shared/gameday.ts';
 const db = createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!, {
   auth: { persistSession: false },
 });
+// the same key working for one league: x-league makes the league views, rules and points that league's
+const dbFor = (league: number) => createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!, {
+  auth: { persistSession: false }, global: { headers: { 'x-league': String(league) } },
+});
 
 const TEAMS = ['ANA','BOS','BUF','CAR','CBJ','CGY','CHI','COL','DAL','DET','EDM','FLA','LAK','MIN','MTL','NJD','NSH','NYI','NYR','OTT','PHI','PIT','SEA','SJS','STL','TBL','TOR','UTA','VAN','VGK','WPG','WSH'];
 const POS: Record<string, string> = { C: 'C', L: 'LW', R: 'RW', D: 'D', G: 'G' };
@@ -45,11 +49,10 @@ const check = <T>({ data, error }: { data: T; error: unknown }) => {
 };
 const norm = (s: string) => s.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/[^a-z]/g, '');
 
-// faceoffs need the (large) play-by-play feed, so only fetch it when the league scores them
+// faceoffs need the (large) play-by-play feed, so only fetch it when some league scores them
 async function needsPbp() {
-  const { data } = await db.from('league').select('scoring').single();
-  const sk = (data?.scoring?.skater ?? {}) as Record<string, number>;
-  return !!(sk.fow || sk.fol);
+  const { data } = await db.from('league_rules').select('scoring');
+  return (data ?? []).some((r) => { const sk = (r.scoring?.skater ?? {}) as Record<string, number>; return !!(sk.fow || sk.fol); });
 }
 
 async function syncGames(ids: number[], parallel = 1) {
@@ -383,12 +386,23 @@ async function gameday() {
   return { ...inj, status_rows: rows, events };
 }
 
-// the lineup auto-pilot: the same exact optimizer the site's "Optimize" button uses
+// the lineup auto-pilot: the same exact optimizer the site's "Optimize" button uses, league by league (each on its
+// own phase, roster caps and points); one league failing doesn't stop the others
 async function autoLineups() {
-  const { data: league } = await db.from('league').select('phase,roster').single();
+  const leagues = check(await db.from('leagues').select('id').eq('status', 'active').order('id')) as { id: number }[];
+  const out: Record<number, unknown> = {};
+  for (const { id } of leagues) {
+    try { out[id] = await autoLineupsFor(id); } catch (e) { console.error('auto lineups, league', id, e); out[id] = { error: String(e) }; }
+  }
+  return out;
+}
+
+async function autoLineupsFor(lid: number) {
+  const ldb = dbFor(lid);
+  const { data: league } = await ldb.from('league').select('phase,roster').single();
   if (league?.phase !== 'season') return { skipped: league?.phase };
   const today = await leagueToday();
-  const teams = check(await db.from('teams').select('id,auto_mode,auto_basis,lineup_touched').neq('auto_mode', 'off')) as
+  const teams = check(await db.from('teams').select('id,auto_mode,auto_basis,lineup_touched').eq('league_id', lid).neq('auto_mode', 'off')) as
     { id: number; auto_mode: Mode; auto_basis: Basis; lineup_touched: string | null }[];
   const todo = teams.filter((t) => t.lineup_touched !== today);
   if (!todo.length) return { teams: 0, skipped_manual: teams.length };
@@ -399,14 +413,14 @@ async function autoLineups() {
   for (let i = 0; i < ids.length; i += 300) {
     const chunk = ids.slice(i, i + 300);
     const [ps, ss] = await Promise.all([
-      db.from('players').select('id,pos,elig,proj,proj_gp,nhl_team,injury_status').in('id', chunk),
-      db.from('player_season').select('player_id,gp,fpts,gp14,fpts14').in('player_id', chunk),
+      ldb.from('league_players').select('id,pos,elig,proj,proj_gp,nhl_team,injury_status').in('id', chunk),
+      ldb.from('player_season').select('player_id,gp,fpts,gp14,fpts14').in('player_id', chunk),
     ]);
     for (const p of check(ps) ?? []) players.set(p.id, { ...p, proj: Number(p.proj), proj_gp: p.proj_gp == null ? null : Number(p.proj_gp) });
     for (const x of check(ss) ?? []) season.set(x.player_id, { gp: Number(x.gp), fpts: Number(x.fpts), gp14: Number(x.gp14 ?? 0), fpts14: x.fpts14 == null ? null : Number(x.fpts14) });
   }
   // every goalie in the league, so a hurt starter's starts can go to his healthy partner
-  for (const g of check(await db.from('players').select('id,pos,elig,proj,proj_gp,nhl_team,injury_status').eq('pos', 'G')) ?? []) {
+  for (const g of check(await ldb.from('league_players').select('id,pos,elig,proj,proj_gp,nhl_team,injury_status').eq('pos', 'G')) ?? []) {
     if (!players.has(g.id)) players.set(g.id, { ...g, proj: Number(g.proj), proj_gp: g.proj_gp == null ? null : Number(g.proj_gp) });
   }
   // tonight's starting goalies, scratches and injury calls
@@ -423,7 +437,7 @@ async function autoLineups() {
     // the better player for the season, which is what keeps the right guys in idle slots
     const plan = optimize(rows.filter((r) => r.team_id === t.id), players, 'day', t.auto_basis, ctx);
     if (!plan.moves.length) { out[t.id] = 0; continue; }
-    const { error } = await db.rpc('apply_auto_lineup', { p_team: t.id, p_slots: Object.fromEntries(plan.moves.map((m) => [m.player_id, m.to])) });
+    const { error } = await ldb.rpc('apply_auto_lineup', { p_team: t.id, p_slots: Object.fromEntries(plan.moves.map((m) => [m.player_id, m.to])) });
     out[t.id] = error ? `error: ${error.message}` : plan.moves.length;
     if (error) console.error('auto lineup', t.id, error);
   }

@@ -16,7 +16,7 @@ where n.nspname = 'public' and c.relkind in ('r', 'p')
   and c.relname not in (
     -- one copy for every league: NHL data, caches and platform tables
     'players', 'games', 'player_games', 'player_status', 'player_events', 'player_history', 'news', 'nhl_teams',
-    'stat_corrections', 'hub_cache', 'health_alerts', 'leagues', 'accounts', 'waitlist',
+    'stat_corrections', 'scoring_profiles', 'player_game_points', 'player_values', 'hub_cache', 'health_alerts', 'leagues', 'accounts', 'waitlist',
     -- debt: the SaK Fund's price history (should be per league, or SaK only by design)
     'fund_prices',
     -- one-off backup kept from the 2025-26 roster import (row-level security on, no policies)
@@ -81,5 +81,12 @@ where n.nspname = 'public' and p.prosecdef and p.prorettype <> 'trigger'::regtyp
     'draft_pick',
     -- debt: a multi-team trade names its teams inside a json list; each team needs the league check
     'propose_multi_trade');
+
+-- 7. A row written without a league takes the caller's league, never a fixed one.
+select pg_temp.none('a league table whose league_id default is not current_league_id()', string_agg(c.relname, ', '))
+from pg_class c join pg_namespace n on n.oid = c.relnamespace
+join pg_attribute a on a.attrelid = c.oid and a.attname = 'league_id' and not a.attisdropped
+where n.nspname = 'public' and c.relkind in ('r', 'p')
+  and pg_get_expr((select d.adbin from pg_attrdef d where d.adrelid = c.oid and d.adnum = a.attnum), c.oid) is distinct from 'current_league_id()';
 
 select 'tenancy guardrails', true;

@@ -46,7 +46,7 @@ export default function PlayerPage() {
     if (!id) return;
     window.scrollTo(0, 0);
     setLog(null); setCareer(null); setBio(undefined); setTx([]); setTab('overview');
-    supabase.from('player_games').select('game_id,date,nhl_team,stats,fpts').eq('player_id', id).order('date', { ascending: false }).limit(90)
+    supabase.from('league_games').select('game_id,date,nhl_team,stats,fpts').eq('player_id', id).order('date', { ascending: false }).limit(90)
       .then(({ data }) => setLog((data ?? []) as GameLine[]));
     supabase.from('transactions').select('*').eq('player_id', id).order('id', { ascending: false }).limit(30).then(({ data }) => setTx((data ?? []) as Transaction[]));
     supabase.functions.invoke(`player-info?id=${id}`, { method: 'GET' })
