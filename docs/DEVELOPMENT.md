@@ -87,7 +87,9 @@ results of his own past calls, and what the wider pool knows.
 4. **The prediction log**, small and early (migration 87, built): `predictions`, written each morning for every
    rostered player playing that night (`predict_tonight`) and scored the next morning on the league's own points
    (`score_predictions`), with `prediction_accuracy` by week and `book_calibration` (the Book's odds against what
-   happened, read from the markets). Next kinds: trade and draft grades, the auto-pilot's choices, Garry's picks.
+   happened, read from the markets). Trades next (migration 102): every approved trade logs a `trade_value` per team,
+   the rest-of-season points of the players coming in less those going out, scored at the end of the regular season
+   on what they actually scored. Next kinds: draft grades, the auto-pilot's choices, Garry's picks.
 5. **B6 money and the Fund**: money per league (migration 86), and both are options a league turns on (migration
    95, Patrick's call): `league_rules.features` holds `money` and `fund`; SaK has both, a new league neither; the
    ledger refuses lines in a league without money; the Fund is one per league with its own prices. Then the medium
