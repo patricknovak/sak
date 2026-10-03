@@ -7,7 +7,7 @@ import { ArrowDown, ArrowUp, ClipboardList, Pencil } from 'lucide-react';
 import { useLeague } from '../lib/store';
 import { rpc, supabase } from '../lib/supabase';
 import { ago, fmtDateTime, ordinal } from '../lib/format';
-import { SEASONS, FRANCHISE_OF, type GM } from '../data/history';
+import { useHistory } from '../lib/history';
 import { PlayerRow } from '../components/PlayerCard';
 import { PageHeader, Section, TeamBadge, TeamName, Toggle, useAction } from '../components/ui';
 import type { DraftPick } from '../lib/types';
@@ -27,8 +27,8 @@ export default function DraftList({ embedded = false }: { embedded?: boolean } =
   // the order the commissioner set, read back from round 1 (overall is per original team)
   const order = useMemo(() => orderSet ? mine.filter((p) => p.round === 1).sort((a, b) => a.overall! - b.overall!).map((p) => p.original_team) : [], [mine, orderSet]);
   // last season's finish, for the "why this order" line
-  const last = SEASONS[0];
-  const finish = useMemo(() => { const m = new Map<number, number>(); last?.rows.forEach((r, i) => { const t = FRANCHISE_OF[r.gm as GM]; if (t && !m.has(t)) m.set(t, i + 1); }); return m; }, [last]);
+  const last = useHistory().seasons[0];
+  const finish = useMemo(() => { const m = new Map<number, number>(); last?.rows.forEach((r, i) => { const t = r.teamId; if (t && !m.has(t)) m.set(t, i + 1); }); return m; }, [last]);
   const byRound = useMemo(() => { const m = new Map<number, DraftPick[]>(); for (const p of mine) m.set(p.round, [...(m.get(p.round) ?? []), p]); return m; }, [mine]);
   const traded = mine.filter((p) => p.team_id !== p.original_team);
   const keepersFinal = league?.phase !== 'keepers';
