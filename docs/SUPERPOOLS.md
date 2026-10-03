@@ -7,11 +7,18 @@ the plan of record: what the product is, how leagues are separated, what is shar
 Domains: `superpoolsai.com` (primary) and `superpoolai.com` (redirects to the primary). The market, the
 competition and the road to every sport are in `docs/MARKET.md`; the words and the look in `docs/BRAND.md`.
 
-Landing page hosting: Vercel project `superpools` (team `patricknovak1-8908s-projects`, id
-`prj_SRNe8ClGioGw9vAAOwq3unQ9tbMh`), linked to this repo with root directory `landing/`; every push to `main`
-redeploys it. Production domains on the project: `superpoolsai.com` serves the page; `www.superpoolsai.com`,
-`superpoolai.com` and `www.superpoolai.com` are 308 redirects to it. DNS lives in Cloudflare (DNS only, no
-proxy): apex `A 216.150.1.1`, `www` `CNAME cname.vercel-dns.com`, on both zones.
+Hosting (decided by Patrick, 3 October 2026): **Cloudflare Pages** for both the league app and the landing page. It is
+free for commercial use (Vercel's free tier is not, and Vercel Pro is $20 a month per member), the DNS for both domains
+is already on Cloudflare, and wildcard subdomains (`<league>.superpoolsai.com`) route to one deployment, which is what
+league-by-host needs. The move is in `docs/EXPANSION.md` (Phase 2, hosting); until it is done the app is on GitHub
+Pages from `main` and the landing page on Vercel.
+
+Landing page today (until it moves to Cloudflare Pages): Vercel project `superpools` (team
+`patricknovak1-8908s-projects`, id `prj_SRNe8ClGioGw9vAAOwq3unQ9tbMh`), linked to this repo with root directory
+`landing/`; every push to `main` redeploys it. `superpoolsai.com` serves the page; `www.superpoolsai.com`,
+`superpoolai.com` and `www.superpoolai.com` are 308 redirects to it. DNS lives in Cloudflare (DNS only, no proxy):
+apex `A 216.150.1.1`, `www` `CNAME cname.vercel-dns.com`, on both zones. Sign-in email sends from the same domain
+through Resend (records on `send`, `rsend`, `resend._domainkey`, `_dmarc`).
 
 ## 1. What it is
 
@@ -168,10 +175,11 @@ pools for golf and F1, Supercoin competitions and non-cash prizes), as `docs/MAR
 
 | | Today | Product |
 |---|---|---|
-| Database | one Supabase project (`quakdkzdafzlhgjvmypg`), SaK is league 1 | same project through beta; a second project for staging before the first paying league |
-| App | GitHub Pages from `main` | Vercel, one deployment, league chosen by host |
-| Landing | Vercel project `superpools` from `landing/` | same, grows into sign-up |
-| Edge functions | Supabase, deployed by hand | same, deployed from CI |
+| Database | one Supabase project (`quakdkzdafzlhgjvmypg`), SaK is league 1 | same project; no staging (decided 3 October 2026: SaK is the live test bed, with the shadow league, the flow test on every pull request and fingerprint checks) |
+| App | GitHub Pages from `main` | Cloudflare Pages, one deployment, league chosen by host (`<league>.superpoolsai.com`) |
+| Landing | Vercel project `superpools` from `landing/` | Cloudflare Pages at `superpoolsai.com`, grows into sign-up |
+| Edge functions | Supabase, deployed from CI on merge to `main` | same |
+| Auth email | Resend SMTP from `no-reply@superpoolsai.com` | same |
 | LLM | Grok (xAI) for Garry and X search | same, per-league budget; model per league later |
 
 ## 9. Working agreement

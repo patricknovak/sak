@@ -167,7 +167,15 @@ Commish page (an open seat, once; a spectator place, up to five times; 14 days);
 shows the league and seat before sign-in (`invite_preview`). Someone new makes their account there (the `join`
 function creates it and seats them through `_accept_invite`, removing the account again if the seat can't be taken);
 someone with an account signs in and joins (`accept_invite`). Profile lists an account's leagues and switches between
-them (`my_leagues`, `set_active_league`). Presence was already per league. Next: league by host (`leagues.domain`).
+them (`my_leagues`, `set_active_league`). Presence was already per league. Next: hosting and league by host.
+*Hosting (decided by Patrick, 3 October 2026): Cloudflare Pages* for the app and the landing page (free for commercial
+use, DNS already on Cloudflare, wildcard subdomains for league by host). The move, with no interruption for GMs:
+(1) a Pages project built from this repo beside GitHub Pages, each pull request getting a preview; (2) SaK at
+`sak.superpoolsai.com`, with sign-in, push and the installed app checked there; (3) GMs told the new address, the old
+GitHub Pages address forwarding to it for a season; (4) the landing page off Vercel onto Pages at `superpoolsai.com`;
+(5) league by host: the app reads the host, `league_by_host()` returns the league's brand before sign-in, and a new
+league is a subdomain. Needs a Cloudflare API token (Pages and DNS for superpoolsai.com) in the cloud environment as
+`CLOUDFLARE_API_TOKEN`, with `CLOUDFLARE_ACCOUNT_ID`.
 
 **B6. Money and the Fund are SaK's.** `commish_bill_entries` bills every league's GMs; `commish_post_payouts`
 reads `standings` with the owner's rights, so it ranks, pays and charges the Peter across leagues; `fund` is one
@@ -229,7 +237,7 @@ switcher: turning alerts off in one league unsubscribes the browser for all of t
 | SQL | The stamp trigger runs on insert only; a trade moving a row to another team never re-stamps. | Cross-league moves are refused anyway once B1 lands; assert it. *Done (migration 97): rosters and draft picks refuse a move to another league's team.* |
 | SQL | `commish_health` shows platform cron and function internals to any league's commissioner. | Platform owner only; commissioners see their league's jobs. *Done (migration 97): platform admins see everything; a league's commissioner sees the league's part, without the platform's job list or error text.* |
 | SQL | SaK words in SQL messages ("St. Patrick coins", "SaK points tonight", Johnson, Peter, SaK Fund). | Read `leagues.brand`. *Done (migrations 84, 86 and 91): the Book's posts and props, bets, trades, the commissioner's coins and fund entries, payouts and the money settings read the brand; SaK's words unchanged.* |
-| Front end | Hosted on GitHub Pages with one SaK manifest, icons, titles and service worker. | Vercel, league by host, manifest and icons per league. |
+| Front end | Hosted on GitHub Pages with one SaK manifest, icons, titles and service worker. | Cloudflare Pages (decided 3 October 2026), league by host, manifest and icons per league. |
 | Cost | Garry runs per league with no daily budget (about $0.003 a reply, plus the daily, weekly and moments posts). | Per-league daily call budget on `garry_state.usage`, set by plan tier. *Done (migration 99): `garry_state.daily_budget_usd` ($1.00 a day when unset; SaK spends about $0.08), counted from the running-costs ledger; once spent, Garry uses his canned lines until tomorrow. A platform admin sets it with `set_garry_budget`; plan tiers will set it later.* |
 
 ## 6. The sport pulled out of the engine
@@ -286,7 +294,7 @@ games, and its standings, Book and Garry posts match what SaK's engine produces 
 built (migrations 92 and 93: `open_shadow_league`, `shadow_sync` every minute, `shadow_report`).
 
 **Phase 2, people can join.** B5 sign-in by email and league by host, invites and the switcher, realtime and
-presence per league, B7 brand and history per league, B8 phones, Vercel hosting, the platform `create_league`.
+presence per league, B7 brand and history per league, B8 phones, Cloudflare Pages hosting, the platform `create_league`.
 Garry's daily budget.
 *Gate:* a friend's league is created, invited, drafted and scored for two weeks without anyone touching SQL.
 
