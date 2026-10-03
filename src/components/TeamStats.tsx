@@ -1,6 +1,7 @@
 // Every stat for one team: totals by category with the team's league rank in each, and a full per-player
 // table, for any timeframe (projection, last season, this season, last 30 / 14 / 7 days).
-import { useMemo, useState } from 'react';
+import { useMemo } from 'react';
+import { useSticky } from '../lib/sticky';
 import { useNavigate } from 'react-router-dom';
 import { useLeague } from '../lib/store';
 import type { Player } from '../lib/types';
@@ -27,8 +28,8 @@ export function TeamStats({ teamId }: { teamId: number }) {
   const { teams, rosters, players, windows, season, league } = useLeague();
   const nav = useNavigate();
   const inSeason = league?.phase === 'season';
-  const [tf, setTf] = useState<Timeframe>(inSeason ? 'season' : 'last');
-  const [scope, setScope] = useState<'starters' | 'roster'>('roster');
+  const [tf, setTf] = useSticky<Timeframe>('teamstats:tf', inSeason ? 'season' : 'last');
+  const [scope, setScope] = useSticky<'starters' | 'roster'>('teamstats:scope', 'roster');
   const liveOk = windows.size > 0;
   const tfOk = !liveOk && TIMEFRAMES.find((t) => t.k === tf)?.live ? 'last' : tf;
   const line = (p: Player) => lineFor(p, tfOk, windows.get(p.id), season.get(p.id));

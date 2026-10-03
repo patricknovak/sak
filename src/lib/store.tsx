@@ -152,7 +152,10 @@ export function LeagueProvider({ children }: { children: ReactNode }) {
     await Promise.all(keys.map((k) => loaders[k]().catch((e) => console.warn('load', k, e))));
   }, [loaders]);
 
-  // initial load once signed in
+  // initial load once signed in. Keyed on who is signed in, not the session object: Supabase hands out a new session
+  // on every token refresh and when the app comes back to the foreground, and reloading everything then would
+  // rebuild every screen under the GM
+  const uid = session?.user.id ?? null;
   useEffect(() => {
     if (!session) { setLoaded(false); return; }
     let alive = true;
@@ -166,7 +169,7 @@ export function LeagueProvider({ children }: { children: ReactNode }) {
       })
       .catch(() => {});
     return () => { alive = false; };
-  }, [session, refresh]);
+  }, [uid, refresh]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // realtime: refetch the affected table (debounced) whenever the database changes. A league's own tables are heard
   // for this league only (inserts and updates carry league_id, so the filter holds them back at the server); deletes
@@ -221,7 +224,7 @@ export function LeagueProvider({ children }: { children: ReactNode }) {
       document.removeEventListener('visibilitychange', onVis);
       timers.forEach((t) => clearTimeout(t));
     };
-  }, [session, loaders, refresh, rtLeague]);
+  }, [uid, loaders, refresh, rtLeague]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // presence: who's online right now, GMs and spectators alike. Everyone in a league shares its 'online:<league>'
   // topic, so wait for any previous copy (a quick sign-out/in) to finish leaving before joining again.
@@ -255,7 +258,7 @@ export function LeagueProvider({ children }: { children: ReactNode }) {
       if (document.visibilityState === 'visible') refresh(['draft', 'picks', 'rosters', 'league']);
     }, 4000);
     return () => clearInterval(i);
-  }, [session, draftLive, refresh]);
+  }, [uid, draftLive, refresh]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const owner = useMemo(() => new Map(rosters.map((r) => [r.player_id, r])), [rosters]);
   const teamMap = useMemo(() => new Map(allTeams.map((t) => [t.id, t])), [allTeams]);

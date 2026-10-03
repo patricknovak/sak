@@ -21,7 +21,7 @@ export function TeamScout({ teamId, hideRoster }: { teamId: number; hideRoster?:
   const nav = useNavigate();
   const mine = teamId === me?.id;
   const inSeason = league?.phase === 'season';
-  const scout = useScout();
+  const scout = useScout({}, 'team');
   const sctx = useScoutCtx();
   const [peek, setPeek] = useState<number | null>(null);
   const [want, setWant] = useState<Set<number>>(new Set());

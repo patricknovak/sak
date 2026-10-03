@@ -1,4 +1,5 @@
 import { Fragment, useEffect, useMemo, useState } from 'react';
+import { useSticky } from '../lib/sticky';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { useLeague, useNow } from '../lib/store';
 import { rpc, supabase } from '../lib/supabase';
@@ -35,10 +36,11 @@ export default function MyTeam() {
   const [tx, setTx] = useState<Transaction[]>([]);
   const [pk, setPk] = useState<{ used: number; allowed: number } | null>(null);
   useEffect(() => { if (teamId) supabase.from('pickup_status').select('used,allowed').eq('team_id', teamId).maybeSingle().then(({ data }) => setPk(data as { used: number; allowed: number } | null)); }, [teamId, rosters]);
-  const [view, setView] = useState<'scout' | 'lineup' | 'plan' | 'stats'>(id ? 'scout' : 'lineup');
+  // your own team remembers which tab you were on (another team's page always opens on the scouting view)
+  const [view, setView] = useSticky<'scout' | 'lineup' | 'plan' | 'stats'>(id ? null : 'myteam:view', id ? 'scout' : 'lineup');
   // the stat line under each player in the lineup
   const liveOk = windows.size > 0;
-  const [tf, setTf] = useState<Timeframe>(league?.phase === 'season' ? 'season' : 'last');
+  const [tf, setTf] = useSticky<Timeframe>('myteam:tf', league?.phase === 'season' ? 'season' : 'last');
   const tfOk: Timeframe = !liveOk && TIMEFRAMES.find((x) => x.k === tf)?.live ? 'last' : tf;
   const statLine = (p: Player) => {
     const l = lineFor(p, tfOk, windows.get(p.id), season.get(p.id));

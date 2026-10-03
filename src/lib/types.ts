@@ -87,7 +87,8 @@ export interface PlayerSeason { player_id: number; gp: number; fpts: number; fpt
 
 export interface Trade {
   id: number; season: string; from_team: number; to_team: number;
-  status: 'proposed' | 'accepted' | 'approved' | 'declined' | 'cancelled' | 'vetoed' | 'failed';
+  status: 'proposed' | 'accepted' | 'approved' | 'declined' | 'cancelled' | 'vetoed' | 'failed' | 'countered';
+  counter_of?: number | null;           // the offer this one answers (migration 101)
   note: string | null; review_note: string | null; created_at: string; responded_at: string | null; decided_at: string | null;
   parties: number[] | null; accepted_by: number[];   // multi-team trades list every team; two-team trades have parties = null
   trade_items?: TradeItem[];

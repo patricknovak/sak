@@ -2049,6 +2049,46 @@ select pg_temp.expect('the public key can''t read budgets', not has_function_pri
 select set_config('request.jwt.claim.sub', '', false);
 select 'garry budget', true;
 
+-- ───────────── counter-offers ─────────────
+-- Patrick offers Terry coins; Terry counters for more. The first offer closes as countered, the counter names it,
+-- and Patrick hears it was countered
+reset role;
+select pg_temp.as_team(1);
+set role authenticated;
+select propose_trade(2, '{}', '{}', '{}', '{}', 'coins for nothing', 0, 0, 5, 0) as first_offer \gset
+reset role;
+select pg_temp.as_team(3);
+set role authenticated;
+select pg_temp.raises('only the GM an offer was made to can counter it',
+  format('select propose_trade(1, ''{}'', ''{}'', ''{}'', ''{}'', null, 0, 0, 0, 5, ''{}'', %s)', :first_offer), 'counter an open offer');
+reset role;
+select pg_temp.as_team(2);
+set role authenticated;
+select pg_temp.raises('a counter goes back to the GM who made the offer',
+  format('select propose_trade(3, ''{}'', ''{}'', ''{}'', ''{}'', null, 0, 0, 0, 5, ''{}'', %s)', :first_offer), 'counter an open offer');
+select propose_trade(1, '{}', '{}', '{}', '{}', 'make it ten', 0, 0, 0, 10, '{}', :first_offer) as counter_offer \gset
+select pg_temp.raises('an offer can only be countered once',
+  format('select propose_trade(1, ''{}'', ''{}'', ''{}'', ''{}'', null, 0, 0, 0, 12, ''{}'', %s)', :first_offer), 'counter an open offer');
+reset role;
+select pg_temp.expect('the first offer closed as countered', (select status from trades where id = :first_offer) = 'countered');
+select pg_temp.expect('the counter names the offer it answers', (select counter_of from trades where id = :counter_offer) = :first_offer
+  and (select status from trades where id = :counter_offer) = 'proposed');
+select pg_temp.expect('Patrick is told it was countered', exists (select 1 from notifications where team_id = 1 and body like '% countered your trade offer'));
+select pg_temp.expect('the old signature is closed', not has_function_privilege('authenticated',
+  'public.propose_trade_before_counter(int, int[], int[], int[], int[], text, int, int, int, int, int[])', 'execute'));
+-- the north can't counter SaK's offers
+select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-000000000099', false);
+set role authenticated;
+select pg_temp.raises('a counter from another league is refused',
+  format('select propose_trade(1, ''{}'', ''{}'', ''{}'', ''{}'', null, 0, 0, 0, 5, ''{}'', %s)', :counter_offer));
+reset role;
+select pg_temp.as_team(2);
+set role authenticated;
+select cancel_trade(:counter_offer);
+reset role;
+select set_config('request.jwt.claim.sub', '', false);
+select 'counter-offers', true;
+
 -- ───────────── trades in the prediction log ─────────────
 reset role;
 select set_config('request.jwt.claim.sub', '', false);
