@@ -159,8 +159,9 @@ page (`commish_set_login_email`; the account, password and existing sessions are
 stays one tap away for anyone not moved yet. *Step 2 done (migration 104, same day, all nine accounts on real emails):*
 the picker is gone, `team_directory` lists names and colours only, open sign-up is off (accounts come from the
 commissioner, and from invites once they exist), and "Forgot your password?" emails a 6-digit code that is typed with
-the new password on the sign-in page (works on any device). The code email needs the project's own SMTP sender
-(Supabase's built-in one only delivers to the project's team); GMs change their password any time on their Profile.
+the new password on the sign-in page (works on any device). Auth email goes through Resend (SMTP, set 3 October 2026):
+SAK Superleague <no-reply@superpoolsai.com>, domain verified (DKIM, SPF on `send`, DMARC `p=none` to tighten once mail
+has flowed a while), 30 auth emails an hour. GMs change their password any time on their Profile.
 Next: the switcher.
 
 **B6. Money and the Fund are SaK's.** `commish_bill_entries` bills every league's GMs; `commish_post_payouts`
