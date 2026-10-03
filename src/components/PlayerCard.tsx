@@ -9,6 +9,7 @@ import { Headshot, NhlLogo, Pos, Sheet, TeamBadge, TeamName, useAction } from '.
 import { ProjOutlook } from './ProjOutlook';
 import { LatestNews, PlayerNewsList, usePlayerNews } from './PlayerNews';
 import { GameStatusBox, GameStatusChip, NewsDot } from './GameStatus';
+import { useBrand } from '../lib/brand';
 
 // one-line player row used everywhere
 export function PlayerRow({ p, right, onClick, sub, dim, onInfo }: { p: Player; right?: ReactNode; onClick?: () => void; sub?: ReactNode; dim?: boolean; onInfo?: () => void }) {
@@ -55,6 +56,7 @@ interface GameLine { game_id: number; date: string; nhl_team: string; stats: Rec
 
 export function PlayerSheet({ id, onClose, actions }: { id: number | null; onClose: () => void; actions?: ReactNode }) {
   const { players, owner, team, league, season } = useLeague();
+  const brand = useBrand();
   const nav = useNavigate();
   const p = id ? players.get(id) : undefined;
   const r = id ? owner.get(id) : undefined;
@@ -121,7 +123,7 @@ export function PlayerSheet({ id, onClose, actions }: { id: number | null; onClo
               <table className="w-full text-right text-xs">
                 <thead className="bg-boards/60 text-mute">
                   <tr>
-                    <th className="px-2 py-1.5 text-left">Season</th><th className="px-2 text-gold">SaK</th><th className="px-1">Team</th>
+                    <th className="px-2 py-1.5 text-left">Season</th><th className="px-2 text-gold">{brand.short}</th><th className="px-1">Team</th>
                     {(isGoalie ? ['gp', 'gs', 'w', 'l', 'ga', 'sv', 'sho'] : ['gp', 'g', 'a', 'pts', 'pm', 'ppp', 'sog', 'hit', 'blk']).map((k) => <th key={k} className="px-1">{STAT_LABELS[k]}</th>)}
                   </tr>
                 </thead>
@@ -140,7 +142,7 @@ export function PlayerSheet({ id, onClose, actions }: { id: number | null; onClo
               </table>
             </div>
           )}
-          <p className="mt-1 text-[11px] text-mute">SaK column = fantasy points under this league’s current scoring. Hits and blocks are tracked from 2005-06 on.</p>
+          <p className="mt-1 text-[11px] text-mute">{brand.short} column = fantasy points under this league’s current scoring. Hits and blocks are tracked from 2005-06 on.</p>
         </div>
       )}
 

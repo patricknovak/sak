@@ -2,12 +2,15 @@ import { useEffect, useState } from 'react';
 import { useLeague } from '../lib/store';
 import { rpc } from '../lib/supabase';
 import { fmtMoney } from '../lib/format';
-import { PLACES, POTS, prizes } from '../lib/prizes';
+import { PLACES, potsOf, prizes } from '../lib/prizes';
+import { bare, useBrand } from '../lib/brand';
 import { useAction } from './ui';
 
-// commissioner: entry fee, SaK Fund share, the three pots, the 1st/2nd/3rd split and the pickup rules
+// commissioner: entry fee, the fund's share, the three pots, the 1st/2nd/3rd split and the pickup rules
 export function MoneySettings() {
   const { league, teams, refresh } = useLeague();
+  const brand = useBrand();
+  const POTS = potsOf(brand);
   const { busy, run } = useAction();
   const [f, setF] = useState({ entry: '200', fund: '25', split: ['60', '30', '10'], playoff: '25', cup: '25', acq: '10', bonus: '3' });
   useEffect(() => {
@@ -32,11 +35,11 @@ export function MoneySettings() {
       <div className="font-semibold">Money settings</div>
       <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
         {field('Entry per GM', 'entry')}
-        {field('To SaK Fund', 'fund')}
-        {field('Playoff Cup %', 'playoff')}
-        {field('SAK Cup %', 'cup')}
+        {field(`To ${brand.fund}`, 'fund')}
+        {field(`${bare(brand.playoff)} %`, 'playoff')}
+        {field(`${bare(brand.trophy)} %`, 'cup')}
       </div>
-      <div className="text-xs text-mute">The Johnson (regular season) gets the rest: <b className={regular < 0 ? 'text-red-300' : 'text-white'}>{regular}%</b></div>
+      <div className="text-xs text-mute">{brand.regular} (regular season) gets the rest: <b className={regular < 0 ? 'text-red-300' : 'text-white'}>{regular}%</b></div>
       <div>
         <div className="mb-1 text-xs text-mute">Payout split for each pot (must add to 100) <span className={splitSum === 100 ? 'text-emerald-300' : 'text-red-300'}>· {splitSum}%</span></div>
         <div className="grid grid-cols-3 gap-2">
@@ -50,7 +53,7 @@ export function MoneySettings() {
         {field('Playoff bonus', 'bonus')}
       </div>
       <div className="space-y-0.5 rounded-xl border border-white/10 bg-black/25 p-2.5 text-xs">
-        <div>Pool {fmtMoney(preview.pool)} ({teams.length} × {fmtMoney(preview.entry - preview.fund)}) · SaK Fund {fmtMoney(preview.fundTotal)}</div>
+        <div>Pool {fmtMoney(preview.pool)} ({teams.length} × {fmtMoney(preview.entry - preview.fund)}) · {brand.fund} {fmtMoney(preview.fundTotal)}</div>
         {POTS.map((p) => <div key={p.key}>{p.icon} {p.trophy} {preview.pots[p.key].pct}% {fmtMoney(preview.pots[p.key].amount)}: {preview.pots[p.key].places.map((v, i) => `${PLACES[i]} ${fmtMoney(v)}`).join(' · ')}</div>)}
       </div>
       <button className="btn-primary w-full" disabled={busy || bad} onClick={() => run(async () => {

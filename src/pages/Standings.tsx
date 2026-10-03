@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useLeague } from '../lib/store';
+import { bare, useBrand } from '../lib/brand';
 import { selectAll, supabase } from '../lib/supabase';
 import { fmtDate, fmtMoney, fmtPts } from '../lib/format';
 import { Section, TeamBadge, PageHeader } from '../components/ui';
@@ -43,6 +44,7 @@ function Podium({ rows, caption }: { rows: { t?: Team; name: string; gm: string;
 
 export default function Standings() {
   const { standings, playoffs, cup, team, teams, me, league } = useLeague();
+  const brand = useBrand();
   const playoffsOn = playoffs.some((t) => Number(t.points) !== 0);
   const [view, setView] = useState<'regular' | 'playoffs' | 'cup'>(playoffsOn ? 'playoffs' : 'regular');
   useEffect(() => { if (playoffsOn) setView('playoffs'); }, [playoffsOn]);
@@ -62,7 +64,7 @@ export default function Standings() {
       <PageHeader icon={<Trophy size={22} className="text-gold" />} title="Standings" sub={`${league?.season} season`} />
 
       <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
-        {([['regular', '🏒 The Johnson', 'Regular season', money.pots.regular], ['playoffs', '🔥 Playoff Cup', 'Playoffs', money.pots.playoffs], ['cup', '🏆 The SAK Cup', 'Full year', money.pots.cup]] as const).map(([k, trophy, label, pot]) => (
+        {([['regular', `🏒 ${brand.regular}`, 'Regular season', money.pots.regular], ['playoffs', `🔥 ${bare(brand.playoff)}`, 'Playoffs', money.pots.playoffs], ['cup', `🏆 ${brand.trophy}`, 'Full year', money.pots.cup]] as const).map(([k, trophy, label, pot]) => (
           <button key={k} onClick={() => setView(k)}
             className={`card p-3 text-left transition active:scale-[.98] ${k === 'cup' ? 'col-span-2 sm:col-span-1' : ''} ${view === k ? 'border-gold/40 shadow-[0_0_0_1px_rgba(247,197,72,.25),0_12px_32px_-18px_rgba(247,197,72,.7)]' : 'opacity-75'}`}
             style={view === k ? { background: 'linear-gradient(160deg, rgba(247,197,72,.14), rgba(15,23,41,.8) 55%)' } : undefined}>
@@ -78,23 +80,23 @@ export default function Standings() {
         <div className="card p-4 text-sm text-mute">The season hasn’t started. Scoring begins {league?.season_start && fmtDate(league.season_start)}. Last season’s final table is on the <Link className="text-sky-300" to="/league">League page</Link>.</div>
       )}
       {isPo && !scored && (
-        <div className="card p-4 text-sm text-slate-300">🔥 <b>The SaK playoffs</b> run alongside the NHL playoffs. The regular season table is saved as it stands, and everyone starts the playoffs at zero with their current roster, including any trades and pickups. Same daily lineups, same rules. Every fantasy point scored in an NHL playoff game counts here, and the top three split {money.playoffPct}% of the prize pool for the Playoff Cup. Players whose NHL team is eliminated stop scoring, so depth on deep playoff teams wins it.</div>
+        <div className="card p-4 text-sm text-slate-300">🔥 <b>The {brand.short} playoffs</b> run alongside the NHL playoffs. The regular season table is saved as it stands, and everyone starts the playoffs at zero with their current roster, including any trades and pickups. Same daily lineups, same rules. Every fantasy point scored in an NHL playoff game counts here, and the top three split {money.playoffPct}% of the prize pool for the {bare(brand.playoff)}. Players whose NHL team is eliminated stop scoring, so depth on deep playoff teams wins it.</div>
       )}
       {isCup && (
-        <div className="card p-4 text-sm text-slate-300">🏆 <b>The SAK Cup</b> goes to the best team over the whole year, from the draft to the Stanley Cup final: every regular season point plus every playoff point, for {money.cupPct}% of the prize pool. {!playoffsOn && 'Until the playoffs start it matches the regular season table.'} Odds for it are on the <Link className="text-sky-300" to="/draft?t=analysis">forecast page</Link>.</div>
+        <div className="card p-4 text-sm text-slate-300">🏆 <b>{brand.trophy}</b> goes to the best team over the whole year, from the draft to the Stanley Cup final: every regular season point plus every playoff point, for {money.cupPct}% of the prize pool. {!playoffsOn && 'Until the playoffs start it matches the regular season table.'} Odds for it are on the <Link className="text-sky-300" to="/draft?t=analysis">forecast page</Link>.</div>
       )}
       {scored && table.length >= 3
-        ? <Podium caption={isCup ? 'SAK Cup race right now' : isPo ? 'Playoff podium right now' : 'If the season ended today'} rows={table.slice(0, 3).map((s) => ({ t: team(s.team_id), name: team(s.team_id)?.name ?? '', gm: team(s.team_id)?.gm_name ?? '', pts: Number(s.points) }))} />
+        ? <Podium caption={isCup ? `${bare(brand.trophy)} race right now` : isPo ? 'Playoff podium right now' : 'If the season ended today'} rows={table.slice(0, 3).map((s) => ({ t: team(s.team_id), name: team(s.team_id)?.name ?? '', gm: team(s.team_id)?.gm_name ?? '', pts: Number(s.points) }))} />
         : view === 'regular' && <Podium caption={`${SEASONS[0].season} final podium`} rows={SEASONS[0].rows.slice(0, 3).map((r) => ({ t: teams.find((x) => x.name === r.team), name: r.team, gm: r.gm, pts: r.points }))} />}
       <div className="grid items-start gap-5 xl:grid-cols-[minmax(0,1.35fr)_minmax(0,1fr)]">
       <div className="space-y-2">
       <StandingsTable rows={table} view={view} pot={pot} peter={view === 'regular'} />
       {scored && <p className="px-1 text-[11px] text-mute">🪑 Bench: points left on the bench and IR {isCup ? 'this year' : isPo ? 'in the playoffs' : 'this season'}, shown and never counted. Tonight’s bench is on the <Link className="text-sky-300" to="/scoreboard">scoreboard</Link>, every day of it on the <Link className="text-sky-300" to="/performance">Performance page</Link>.</p>}
       {view === 'regular' && scored && last && second && (
-        <p className="px-1 text-xs text-mute">🪣 Peter Punishment if the regular season ended now: {team(last.team_id)?.gm_name} owes {fmtMoney(Math.round((second.points - last.points) * 100) / 100)} to the SaK Fund.</p>
+        <p className="px-1 text-xs text-mute">🪣 {bare(brand.booby)} Punishment if the regular season ended now: {team(last.team_id)?.gm_name} owes {fmtMoney(Math.round((second.points - last.points) * 100) / 100)} to the {brand.fund}.</p>
       )}
       </div>
-      <Section title={isCup ? 'SAK Cup race' : isPo ? 'Playoff points race' : 'Points race'}>
+      <Section title={isCup ? `${bare(brand.trophy)} race` : isPo ? 'Playoff points race' : 'Points race'}>
         <div className="card p-3"><PointsRace daily={daily} focus={me?.id ?? 0} /></div>
       </Section>
       </div>

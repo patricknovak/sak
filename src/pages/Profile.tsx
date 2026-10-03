@@ -8,12 +8,14 @@ import { Section, TeamBadge, Toggle, useAction, useToast } from '../components/u
 import type { GarryMemory, Team } from '../lib/types';
 import { PushCard } from '../components/PushCard';
 import { ConnectYahoo, useYahooStatus } from '../components/YahooConnect';
+import { useBrand } from '../lib/brand';
 
 const EMOJIS = ['🏒', '🥅', '🇨🇿', '🐦', '🐦‍⬛', '🦅', '🧔', '👨‍👦', '🕺', '😱', '🔥', '🐺', '🦁', '🐻', '🦈', '🍺', '👑', '💀', '🤠', '🧊', '⚡', '🚨', '🐐', '🦫'];
 const COLORS = ['#c8102e', '#e11d48', '#ea580c', '#f59e0b', '#16a34a', '#0f766e', '#0891b2', '#1d4ed8', '#7c3aed', '#db2777', '#111827', '#64748b'];
 
 export default function Profile() {
   const { me, refresh } = useLeague();
+  const brand = useBrand();
   const toast = useToast();
   const { busy, run } = useAction();
   const [f, setF] = useState<Partial<Team>>({});
@@ -74,7 +76,7 @@ export default function Profile() {
 
       <Section title="Where you watch">
         <div className="card space-y-3 p-3">
-          <p className="text-xs text-mute">SaK can’t stream games itself (the rights belong to the broadcasters), but it gets you there in one tap. Pick your TV provider and every game on the NHL page leads with your provider’s own web player, where one sign-in unlocks every channel you subscribe to. Tick the streaming services you have and their buttons get a ✓ and the games you can watch are flagged.</p>
+          <p className="text-xs text-mute">{brand.short} can’t stream games itself (the rights belong to the broadcasters), but it gets you there in one tap. Pick your TV provider and every game on the NHL page leads with your provider’s own web player, where one sign-in unlocks every channel you subscribe to. Tick the streaming services you have and their buttons get a ✓ and the games you can watch are flagged.</p>
           <label className="block text-xs text-mute">TV provider
             <select className="input mt-1" value={tv.provider ?? ''} onChange={(e) => setTv({ ...tv, provider: e.target.value || undefined })}>
               <option value="">None / streaming only</option>{PROVIDERS.map((p) => <option key={p} value={p}>{p}</option>)}
@@ -98,9 +100,9 @@ export default function Profile() {
         </div>
       </Section>
 
-      <Section title="🎙️ Garry’s file on you">
+      <Section title={`${brand.bot.emoji} ${brand.bot.name}’s file on you`}>
         <div className="card space-y-2 p-3">
-          <p className="text-xs text-mute">Garry remembers what gets said in the chat (never DMs) and uses it in his chirps. This is everything he has on you. Delete anything you’d rather he forgot.</p>
+          <p className="text-xs text-mute">{brand.bot.name} remembers what gets said in the chat (never DMs) and uses it in his chirps. This is everything he has on you. Delete anything you’d rather he forgot.</p>
           {file.length === 0 && <div className="text-sm text-mute">Nothing yet. Say something memorable.</div>}
           {file.map((m) => (
             <div key={m.id} className="flex items-start gap-2 text-sm">
@@ -109,7 +111,7 @@ export default function Profile() {
               <button className="shrink-0 text-xs text-mute hover:text-red-300" onClick={() => run(async () => { await rpc('garry_forget', { p_id: m.id }); loadFile(); }, 'Forgotten')}>Forget</button>
             </div>
           ))}
-          {mood && <details className="text-xs text-mute"><summary className="cursor-pointer">Garry’s mood this week</summary><p className="mt-1 whitespace-pre-wrap">{mood}</p></details>}
+          {mood && <details className="text-xs text-mute"><summary className="cursor-pointer">{brand.bot.name}’s mood this week</summary><p className="mt-1 whitespace-pre-wrap">{mood}</p></details>}
         </div>
       </Section>
 
@@ -118,7 +120,7 @@ export default function Profile() {
       </Section>
 
       {career.length > 0 && (
-        <Section title="Your SaK career">
+        <Section title={`Your ${brand.short} career`}>
           <div className="card divide-y divide-white/[.06]">
             {career.map((c) => (
               <div key={c.season} className="flex items-center gap-3 px-3 py-2 text-sm">

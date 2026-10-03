@@ -1,5 +1,5 @@
 // A day that's already been played: the lineup as it was frozen at each puck drop, every player's box-score
-// line and SaK points, and the team's total for the day. Read-only; the same numbers the standings count.
+// line and the league's points, and the team's total for the day. Read-only; the same numbers the standings count.
 import { useEffect, useMemo, useState } from 'react';
 import { useLeague } from '../lib/store';
 import { supabase } from '../lib/supabase';
@@ -7,6 +7,7 @@ import { fmtPts } from '../lib/format';
 import { scoringLine } from './BoxScore';
 import { Headshot, Pos } from './ui';
 import type { Game, Player, Roster } from '../lib/types';
+import { useBrand } from '../lib/brand';
 
 type Snap = { player_id: number; slot: string; game_id: number };
 type PG = { player_id: number; nhl_team: string | null; fpts: number; stats: Record<string, number> };
@@ -15,6 +16,7 @@ const ORDER: Record<string, number> = { C: 0, LW: 1, RW: 2, D: 3, Util: 4, G: 5,
 
 export function PastDay({ day, roster, teamId, onInfo }: { day: string; roster: { r: Roster; p: Player }[]; teamId: number; onInfo: (id: number) => void }) {
   const { players, league } = useLeague();
+  const brand = useBrand();
   const [snaps, setSnaps] = useState<Snap[] | null>(null);
   const [pgs, setPgs] = useState<Map<number, PG>>(new Map());
   const [games, setGames] = useState<Game[]>([]);
@@ -98,7 +100,7 @@ export function PastDay({ day, roster, teamId, onInfo }: { day: string; roster: 
                   <th className="sticky left-[62px] z-10 bg-rink px-2 text-left">Player</th>
                   <th className="px-2 text-left">Game</th>
                   <th className="px-2 text-left">Box score</th>
-                  <th className="px-2 text-right text-gold">SaK</th>
+                  <th className="px-2 text-right text-gold">{brand.short}</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-white/[.05]">

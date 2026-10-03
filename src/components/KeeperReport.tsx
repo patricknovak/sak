@@ -9,6 +9,7 @@ import { keeperGrades, keeperGradeColor, type KeeperReport as Report, type TeamK
 import { ago } from '../lib/format';
 import { Pos, Section, TeamBadge, TeamName, useAction } from './ui';
 import { Sparkles } from 'lucide-react';
+import { useBrand } from '../lib/brand';
 
 export function useKeeperGrades() {
   const { teams, rosters, players, league } = useLeague();
@@ -52,6 +53,7 @@ function TeamCard({ g, open, onToggle, onPlayer, take }: { g: TeamKeepers; open:
 
 export function KeeperReport({ onPlayer }: { onPlayer: (id: number) => void }) {
   const { me, league, team, refresh } = useLeague();
+  const brand = useBrand();
   const grades = useKeeperGrades();
   const { busy, run } = useAction();
   const [open, setOpen] = useState<number | null>(me?.id ?? null);
@@ -63,7 +65,7 @@ export function KeeperReport({ onPlayer }: { onPlayer: (id: number) => void }) {
     if (error) throw error;
     if (data && data.ok === false) throw new Error(data.error);
     await refresh(['league']);
-  }, 'Garry filed his keeper report 🎙️');
+  }, `${brand.bot.name} filed his keeper report ${brand.bot.emoji}`);
   if (rows.length === 0) return null;
   return (
     <>
@@ -72,14 +74,14 @@ export function KeeperReport({ onPlayer }: { onPlayer: (id: number) => void }) {
         <p className="mt-1.5 px-1 text-xs text-mute">A team’s grade weighs what its keepers project to score, how close that is to the best six it could have kept (while keepers are still being picked), how many of the 12 starting slots they fill, and injuries. Each keeper’s letter is his projection rank in the whole pool; the tier is his rank at his position. “Default keepers” means that GM hasn’t saved yet, so this is what the site would keep for them.</p>
       </Section>
 
-      <Section title="🎙️ Garry’s keeper report" right={me?.is_commish ? <button className="btn btn-sm" disabled={busy} onClick={regen}><Sparkles size={14} /> {report ? 'Redo it' : 'Ask Garry'}</button> : undefined}>
+      <Section title={`${brand.bot.emoji} ${brand.bot.name}’s keeper report`} right={me?.is_commish ? <button className="btn btn-sm" disabled={busy} onClick={regen}><Sparkles size={14} /> {report ? 'Redo it' : 'Ask Garry'}</button> : undefined}>
         {!report ? (
-          <div className="card p-4 text-sm text-mute">Garry files his report once keepers lock (and the commish can ask for it any time): a take on every GM’s keepers and his predicted standings for the season.</div>
+          <div className="card p-4 text-sm text-mute">{brand.bot.name} files his report once keepers lock (and the commish can ask for it any time): a take on every GM’s keepers and his predicted standings for the season.</div>
         ) : (
           <div className="space-y-3">
             <div className="card p-3 text-sm"><p>{report.intro}</p><div className="mt-1 text-[11px] text-mute">Filed {ago(report.generated_at, Date.now())}{report.llm ? '' : ' · house lines (Grok was out)'} · based on keepers as they stood then</div></div>
             <div className="card divide-y divide-white/[.06]">
-              <div className="px-3 py-2 text-xs font-bold uppercase tracking-wider text-mute">Garry’s predicted standings, 2026-27</div>
+              <div className="px-3 py-2 text-xs font-bold uppercase tracking-wider text-mute">{brand.bot.name}’s predicted standings, {league?.season}</div>
               {[...report.predictions].sort((a, b) => a.rank - b.rank).map((p) => (
                 <div key={p.team_id} className={`flex items-center gap-3 px-3 py-2 ${p.team_id === me?.id ? 'bg-white/[.05]' : ''}`}>
                   <span className="num w-5 text-center font-display text-lg text-mute">{p.rank}</span>
@@ -89,7 +91,7 @@ export function KeeperReport({ onPlayer }: { onPlayer: (id: number) => void }) {
               ))}
             </div>
             {report.bold && <div className="card border-gold/30 bg-gold/[.06] p-3 text-sm">🔮 <b>Bold call:</b> {report.bold}</div>}
-            <p className="px-1 text-xs text-mute">Tap a team above to read Garry’s take on their keepers. Disagree? <Link to="/chat" className="text-sky-300">Tell him in the chat</Link>, he remembers.</p>
+            <p className="px-1 text-xs text-mute">Tap a team above to read {brand.bot.name}’s take on their keepers. Disagree? <Link to="/chat" className="text-sky-300">Tell him in the chat</Link>, he remembers.</p>
           </div>
         )}
       </Section>

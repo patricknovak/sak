@@ -1,14 +1,15 @@
+import type { Brand } from './brand';
 import type { League } from './types';
 
-// SaK money: every GM pays the entry fee, part of it goes to the SaK Fund, and the rest is the prize pool. The
-// pool is split three ways, each paid 1st/2nd/3rd by prize_split:
-//   the Johnson (regular season), the Playoff Cup (playoff points only) and the SAK Cup (the whole year).
-export const POTS = [
-  { key: 'regular', trophy: 'The Johnson', label: 'Regular season', icon: '🏒' },
-  { key: 'playoffs', trophy: 'The Playoff Cup', label: 'Playoffs', icon: '🔥' },
-  { key: 'cup', trophy: 'The SAK Cup', label: 'Full year: regular season + playoffs', icon: '🏆' },
-] as const;
-export type PotKey = (typeof POTS)[number]['key'];
+// League money: every GM pays the entry fee, part of it goes to the league's fund, and the rest is the prize pool.
+// The pool is split three ways, each paid 1st/2nd/3rd by prize_split: the regular-season prize (the Johnson in
+// SaK), the playoff prize (playoff points only) and the full-year trophy (the SAK Cup). Names from the brand.
+export type PotKey = 'regular' | 'playoffs' | 'cup';
+export const potsOf = (b: Brand): { key: PotKey; trophy: string; label: string; icon: string }[] => [
+  { key: 'regular', trophy: b.regular, label: 'Regular season', icon: '🏒' },
+  { key: 'playoffs', trophy: b.playoff, label: 'Playoffs', icon: '🔥' },
+  { key: 'cup', trophy: b.trophy, label: 'Full year: regular season + playoffs', icon: '🏆' },
+];
 
 export function prizes(league: League | null | undefined, teams: number) {
   const entry = Number(league?.entry_fee ?? 200);
