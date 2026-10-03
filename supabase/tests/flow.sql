@@ -1002,7 +1002,8 @@ select 'before puck drop it is fine (expect f)', _bet_underway(today_et() + 1);
 reset role;
 create or replace function pg_temp.expect(label text, ok boolean) returns void language plpgsql as
 $$ begin if not coalesce(ok, false) then raise exception 'FAILED: %', label; end if; end $$;
--- the SaK commissioner opens a second league; one GM runs it
+-- the platform (Patrick, a platform admin) opens a second league; one GM runs it
+insert into ops.platform_admins (user_id) select user_id from teams where id = 1 on conflict do nothing;
 select pg_temp.as_team(1);
 set role authenticated;
 select create_league('north', 'North Pool', 'NP', '{}'::jsonb) as league2 \gset
@@ -1854,3 +1855,38 @@ select pg_temp.expect('the north has a past of its own, empty for now', (select 
 reset role;
 select set_config('request.jwt.claim.sub', '', false);
 select 'league memory', true;
+
+-- ───────────── the platform opens a league ─────────────
+reset role;
+select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-000000000099', false);
+set role authenticated;
+select pg_temp.raises('a league''s commissioner can''t open leagues', 'select create_league(''east'', ''East Pool'', ''EP'', ''{}''::jsonb, 4)', 'Only the platform');
+select pg_temp.raises('nor mint the platform''s invites', format('select platform_invite(%s, 99)', :league2), 'Only the platform');
+reset role;
+select pg_temp.as_team(1);
+set role authenticated;
+select create_league('east', 'East Pool', 'EP', '{"coin": {"name": "Loonies", "emoji": "🪙"}}'::jsonb, 4) as league3 \gset
+select pg_temp.raises('web names are unique', 'select create_league(''east'', ''East Again'', ''EA'')', 'taken');
+reset role;
+select pg_temp.expect('the league is built whole', (select owner_user is not null and sport = 'nhl' and status = 'setup' from leagues where id = :league3)
+  and exists (select 1 from league_rules where league_id = :league3 and profile_id is not null)
+  and exists (select 1 from draft_state where league_id = :league3) and exists (select 1 from garry_state where league_id = :league3)
+  and (select count(*) from teams where league_id = :league3 and role = 'gm' and user_id is null) = 4
+  and (select count(*) from teams where league_id = :league3 and is_commish) = 1);
+select pg_temp.expect('every seat has its opening coins, in the league''s coin', (select count(*) from coin_ledger c join teams t on t.id = c.team_id
+  where t.league_id = :league3 and c.amount = 1000 and c.reason = 'Opening balance: 1,000 Loonies') = 4);
+-- the first commissioner gets in by the platform's invite, then invites the rest
+select id as east_seat1 from teams where league_id = :league3 and is_commish \gset
+select pg_temp.as_team(1);
+set role authenticated;
+select platform_invite(:league3, :east_seat1) as east_code \gset
+reset role;
+insert into auth.users (id, email) values ('00000000-0000-0000-0000-0000000000e1', 'east-commish@example.com');
+select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-0000000000e1', false);
+set role authenticated;
+select pg_temp.expect('the invite seats the commissioner', accept_invite(:'east_code') = :league3);
+select pg_temp.expect('she runs her league', current_league_id() = :league3 and is_commish());
+select pg_temp.expect('and invites the next GM herself', create_invite((select id from teams where league_id = :league3 and not is_commish order by id limit 1)) is not null);
+reset role;
+select set_config('request.jwt.claim.sub', '', false);
+select 'platform opens a league', true;
