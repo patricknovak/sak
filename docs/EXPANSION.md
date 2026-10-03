@@ -199,7 +199,7 @@ league only; push sends behind the admin key or a signed trigger.
 | SQL | `commish_health` shows platform cron and function internals to any league's commissioner. | Platform owner only; commissioners see their league's jobs. |
 | SQL | SaK words in SQL messages ("St. Patrick coins", "SaK points tonight", Johnson, Peter, SaK Fund). | Read `leagues.brand`. *Done (migrations 84, 86 and 91): the Book's posts and props, bets, trades, the commissioner's coins and fund entries, payouts and the money settings read the brand; SaK's words unchanged.* |
 | Front end | Hosted on GitHub Pages with one SaK manifest, icons, titles and service worker. | Vercel, league by host, manifest and icons per league. |
-| Cost | Garry runs per league with no daily budget (about $0.003 a reply, plus the daily, weekly and moments posts). | Per-league daily call budget on `garry_state.usage`, set by plan tier. |
+| Cost | Garry runs per league with no daily budget (about $0.003 a reply, plus the daily, weekly and moments posts). | Per-league daily call budget on `garry_state.usage`, set by plan tier. *Done (migration 99): `garry_state.daily_budget_usd` ($1.00 a day when unset; SaK spends about $0.08), counted from the running-costs ledger; once spent, Garry uses his canned lines until tomorrow. A platform admin sets it with `set_garry_budget`; plan tiers will set it later.* |
 
 ## 6. The sport pulled out of the engine
 

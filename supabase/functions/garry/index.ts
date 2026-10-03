@@ -145,8 +145,23 @@ async function state(): Promise<State | null> {
   return (made ?? null) as State | null;
 }
 
+// the league's daily budget for model calls (garry_budget, migration 99): once it's spent he uses his canned lines for
+// that league until tomorrow, as when the model is down. Asked before each call; if the check itself fails he carries
+// on, so a missing function never mutes him
+const spent = new Set<number>();
+async function budgetLeft(): Promise<boolean> {
+  if (spent.has(L.lid)) return false;
+  const { data, error } = await db.rpc('garry_budget', { p_league: L.lid });
+  if (error || !data) return true;
+  if (Number((data as { left?: number }).left ?? 1) > 0) return true;
+  spent.add(L.lid);
+  console.warn('garry budget spent for league', L.lid, data);
+  return false;
+}
+
 async function grok(system: string, user: string, maxTokens = 1200, temperature = 0.9, json = false, effort: Effort = 'none'): Promise<string | null> {
   if (!apiKey) return null;
+  if (!(await budgetLeft())) return null;
   const call = async (extra: boolean) => {
     const ctl = new AbortController();
     const timer = setTimeout(() => ctl.abort(), 40_000);
