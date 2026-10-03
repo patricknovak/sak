@@ -1,5 +1,5 @@
 // A game's box score, from the same numbers the league scores: every skater and goalie who dressed, the stats
-// the league counts, and each player's SaK points. SaK-rostered players are marked with their GM.
+// the league counts, and each player's points in the league. Players the league's GMs own are marked with their GM.
 import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useLeague } from '../lib/store';
@@ -7,6 +7,7 @@ import { supabase } from '../lib/supabase';
 import { fmtPts, fmtTime, STAT_LABELS } from '../lib/format';
 import { NhlLogo, Sheet } from './ui';
 import type { Game } from '../lib/types';
+import { useBrand } from '../lib/brand';
 
 type PG = { player_id: number; nhl_team: string | null; fpts: number; stats: Record<string, number> };
 const SKATER = ['g', 'a', 'pm', 'sog', 'hit', 'blk', 'pim', 'ppp'];
@@ -21,6 +22,7 @@ export function scoringLine(stats: Record<string, number>, weights: Record<strin
 
 export function BoxScore({ game, onClose }: { game: Game | null; onClose: () => void }) {
   const { players, owner, team, league } = useLeague();
+  const brand = useBrand();
   const [rows, setRows] = useState<PG[] | null>(null);
   useEffect(() => {
     if (!game) return;
@@ -72,7 +74,7 @@ export function BoxScore({ game, onClose }: { game: Game | null; onClose: () => 
                 <div className="mb-1 flex items-center gap-1.5 font-semibold"><NhlLogo abbr={s.abbr} size={18} />{s.abbr}</div>
                 <div className="overflow-x-auto rounded-xl border border-line">
                   <table className="w-full text-right text-xs">
-                    <thead className="bg-boards/60 text-mute"><tr><th className="px-2 py-1.5 text-left">Skater</th><th className="px-2 text-gold">SaK</th>{SKATER.map((k) => <th key={k} className="px-1.5">{STAT_LABELS[k]}</th>)}</tr></thead>
+                    <thead className="bg-boards/60 text-mute"><tr><th className="px-2 py-1.5 text-left">Skater</th><th className="px-2 text-gold">{brand.short}</th>{SKATER.map((k) => <th key={k} className="px-1.5">{STAT_LABELS[k]}</th>)}</tr></thead>
                     <tbody className="divide-y divide-white/[.05]">
                       {s.skaters.map((r) => (
                         <tr key={r.player_id} className={owned(r.player_id) ? 'bg-sky-500/[.06]' : ''}>
@@ -82,7 +84,7 @@ export function BoxScore({ game, onClose }: { game: Game | null; onClose: () => 
                         </tr>
                       ))}
                     </tbody>
-                    <thead className="bg-boards/60 text-mute"><tr><th className="px-2 py-1.5 text-left">Goalie</th><th className="px-2 text-gold">SaK</th>{GOALIE.map((k) => <th key={k} className="px-1.5">{STAT_LABELS[k]}</th>)}<th colSpan={SKATER.length - GOALIE.length} /></tr></thead>
+                    <thead className="bg-boards/60 text-mute"><tr><th className="px-2 py-1.5 text-left">Goalie</th><th className="px-2 text-gold">{brand.short}</th>{GOALIE.map((k) => <th key={k} className="px-1.5">{STAT_LABELS[k]}</th>)}<th colSpan={SKATER.length - GOALIE.length} /></tr></thead>
                     <tbody className="divide-y divide-white/[.05]">
                       {s.goalies.map((r) => (
                         <tr key={r.player_id} className={owned(r.player_id) ? 'bg-sky-500/[.06]' : ''}>
@@ -97,7 +99,7 @@ export function BoxScore({ game, onClose }: { game: Game | null; onClose: () => 
                 </div>
               </div>
             ))}
-            <p className="text-[11px] text-mute">SaK = fantasy points under this league’s scoring ({Object.entries(league?.scoring.skater ?? {}).map(([k, v]) => `${STAT_LABELS[k] ?? k} ${v}`).join(', ')}). Highlighted players are on a SaK roster. Refreshes every minute. <a className="text-sky-300 hover:underline" href={`https://www.nhl.com/gamecenter/${game.id}`} target="_blank" rel="noreferrer">Full game centre on NHL.com →</a></p>
+            <p className="text-[11px] text-mute">{brand.short} = fantasy points under this league’s scoring ({Object.entries(league?.scoring.skater ?? {}).map(([k, v]) => `${STAT_LABELS[k] ?? k} ${v}`).join(', ')}). Highlighted players are on a SaK roster. Refreshes every minute. <a className="text-sky-300 hover:underline" href={`https://www.nhl.com/gamecenter/${game.id}`} target="_blank" rel="noreferrer">Full game centre on NHL.com →</a></p>
           </div>
         )}
     </Sheet>

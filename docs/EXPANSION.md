@@ -141,7 +141,8 @@ auto-pilot. The faceoff feed is fetched when any league scores faceoffs. The flo
 north at once (each its own board, chat line and prop name), checks the service key's league, caps by league and a
 refused unknown job. Left for later: the SaK Fund's price (B6) and the health check, which are platform-wide.
 
-**B5. Sign-in and choosing a league.** The login page reads `team_directory` with the public key: every
+**B5. Sign-in and choosing a league.** (Realtime done, October 2026: a league's tables are heard for that league
+only on inserts and updates; deletes, which Realtime can't filter, still arrive from every league and cost a refetch.) The login page reads `team_directory` with the public key: every
 league's teams and every GM's login email (live today for SaK's eight). The client never sends `x-league`;
 nothing calls `my_leagues`, `set_active_league` or `accept_invite`; there is no sign-up, invite page or
 league switcher. Realtime listeners have no `league_id` filter (deletes skip row-level security, so every
@@ -167,6 +168,12 @@ league; `league_reports` ids (`draft-2026-27`) collide across leagues.
 *Fix:* league history and rules text move to per-league rows (`league_seasons`, rules generated from
 `league_rules`); brand gains `trophies`, `fund`, `penalty`, `short` and every screen reads it; the call room
 and report ids include the league.
+*Names partly done (October 2026).* The brand now carries `short`, `regular`, `playoff`, `fund` and `bank` (SaK's
+defaults unchanged) and the screens GMs use every day read it: Money and its settings, Standings, Bets, the Book,
+Home and its cards, Trades, chat, the box score, the player card and page, the profile and the keeper report (whose
+predicted standings now show the league's season, not a fixed 2026-27). The draft call room carries the league id
+for every league but SaK. Left: `src/data/history.ts` into the database (league memory), the League page, the
+feature board, the Yahoo import and the SQL messages.
 
 **B8. Alerts and phones.** `push_subscriptions` is keyed by `endpoint`, so a phone in two leagues serves only
 the last; push titles say "SAK Superleague"; `respond_trade` notifies every league's commissioner; push replay

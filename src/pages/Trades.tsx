@@ -12,6 +12,7 @@ import { TradeBlock } from '../components/TradeBlock';
 import { dropOrder, evaluateSide, gradeSide, type Side } from '../lib/trade';
 import { gradeColor } from '../lib/grades';
 import { Repeat2 } from 'lucide-react';
+import { useBrand } from '../lib/brand';
 
 // choosing who goes to make room: the weakest first, tap to swap one for another
 function DropPick({ pool, need, value, onChange, worth }: { pool: Player[]; need: number; value: Set<number>; onChange: (v: Set<number>) => void; worth: (p: Player) => number }) {
@@ -37,6 +38,7 @@ type MItem = { from: number; to: number; player_id?: number; pick_id?: number };
 
 export default function Trades() {
   const { me, teams, team, rosters, players, picks, league, season } = useLeague();
+  const brand = useBrand();
   const now = useNow(30_000);
   const [params, setParams] = useSearchParams();
   const { busy, run } = useAction();
@@ -48,7 +50,7 @@ export default function Trades() {
   const [givePicks, setGivePicks] = useState<Set<number>>(new Set(ids('givePicks')));
   const [getPicks, setGetPicks] = useState<Set<number>>(new Set(ids('getPicks')));
   const [note, setNote] = useState('');
-  // unused free-agent pickups and St. Patrick coins can go in a deal too
+  // unused free-agent pickups and the league's coins can go in a deal too
   const [extras, setExtras] = useState({ givePk: 0, getPk: 0, giveCoins: 0, getCoins: 0 });
   const pkStatus = usePickupStatus();
   const [coinFree, setCoinFree] = useState<Map<number, number>>(new Map());
@@ -157,7 +159,7 @@ export default function Trades() {
   const describe = (t: Trade, side: number, to?: number) => (t.trade_items ?? []).filter((i) => !i.release && i.from_team === side && (to == null || i.to_team === to)).map((i) => {
     if (i.player_id) return players.get(i.player_id)?.name ?? 'Player';
     if (i.pickups) return `🎟️ ${i.pickups} free-agent pickup${i.pickups > 1 ? 's' : ''}`;
-    if (i.coins) return `☘️ ${i.coins} St. Patrick coins`;
+    if (i.coins) return `${brand.coin.emoji} ${i.coins} ${brand.coin.name}`;
     const pk = picks.find((p) => p.id === i.pick_id);
     return pk ? `${pk.season} R${pk.round} pick${pk.original_team !== side ? ` (via ${team(pk.original_team)?.abbrev})` : ''}` : 'Pick';
   });
@@ -408,7 +410,7 @@ export default function Trades() {
                             <label className="rounded-xl border border-white/[.08] bg-white/[.03] px-2 py-1.5 text-[11px] text-mute">🎟️ Free-agent pickups <span className="text-slate-400">({pkLeft(col.tid)} left)</span>
                               <input className="input mt-1 py-1" type="number" min={0} max={pkLeft(col.tid)} value={extras[col.pk] || ''} placeholder="0"
                                 onChange={(e) => setExtras({ ...extras, [col.pk]: Math.max(0, Math.min(pkLeft(col.tid), Math.floor(Number(e.target.value) || 0))) })} /></label>
-                            <label className="rounded-xl border border-white/[.08] bg-white/[.03] px-2 py-1.5 text-[11px] text-mute">☘️ St. Patrick coins <span className="text-slate-400">({Math.max(0, coinFree.get(col.tid) ?? 0)} free)</span>
+                            <label className="rounded-xl border border-white/[.08] bg-white/[.03] px-2 py-1.5 text-[11px] text-mute">{brand.coin.emoji} {brand.coin.name} <span className="text-slate-400">({Math.max(0, coinFree.get(col.tid) ?? 0)} free)</span>
                               <input className="input mt-1 py-1" type="number" min={0} max={Math.max(0, coinFree.get(col.tid) ?? 0)} value={extras[col.cn] || ''} placeholder="0"
                                 onChange={(e) => setExtras({ ...extras, [col.cn]: Math.max(0, Math.min(Math.max(0, coinFree.get(col.tid) ?? 0), Math.floor(Number(e.target.value) || 0))) })} /></label>
                           </div>

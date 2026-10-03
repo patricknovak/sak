@@ -1,6 +1,6 @@
 // Side bets: St. Patrick coins, real money and dignity. Two-sided bets (anything, fantasy points head-to-head,
 // final standings, a player over/under, player vs player, your team over/under) and pools everyone buys into
-// (top SaK team of the week, pick a player). Tracked bets show live numbers and settle themselves from the box
+// (the league's top team of the week, pick a player). Tracked bets show live numbers and settle themselves from the box
 // scores every morning; cash bets keep a tab of who owes whom.
 import React, { Fragment, useEffect, useMemo, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
@@ -27,12 +27,13 @@ const KINDS: { k: BetKind; icon: string; label: string; blurb: string; pool?: bo
   { k: 'player_vs', icon: '🥊', label: 'Player vs player', blurb: 'Your guy against theirs. Settles itself.', tracked: true },
   { k: 'team_ou', icon: '🎯', label: 'My team over / under', blurb: 'Your team beats a points line. They take the other side.', tracked: true },
   { k: 'season', icon: '🏆', label: 'Final standings', blurb: 'Who finishes higher. Settle it in April.' },
-  { k: 'pool_team', icon: '🎰', label: 'Pool: top team', blurb: 'Everyone buys in and picks the SaK team that scores most. Pot to the winner.', pool: true, tracked: true },
+  { k: 'pool_team', icon: '🎰', label: 'Pool: top team', blurb: 'Everyone buys in and picks the {L} team that scores most. Pot to the winner.', pool: true, tracked: true },
   { k: 'pool_player', icon: '🎰', label: 'Pool: pick a player', blurb: 'Everyone buys in and names a player (no repeats). Most points takes the pot.', pool: true, tracked: true },
 ];
-const STATS: [BetStat, string][] = [['fpts', 'SaK points'], ['g', 'Goals'], ['a', 'Assists'], ['pts', 'Points'], ['ppp', 'PP points'], ['sog', 'Shots'], ['hit', 'Hits'], ['blk', 'Blocks'], ['pim', 'PIM'], ['w', 'Wins'], ['sv', 'Saves'], ['sho', 'Shutouts']];
+// {L} is the league's short name ("SaK points"), filled in where the words are shown
+const STATS: [BetStat, string][] = [['fpts', '{L} points'], ['g', 'Goals'], ['a', 'Assists'], ['pts', 'Points'], ['ppp', 'PP points'], ['sog', 'Shots'], ['hit', 'Hits'], ['blk', 'Blocks'], ['pim', 'PIM'], ['w', 'Wins'], ['sv', 'Saves'], ['sho', 'Shutouts']];
 const STAT_LABEL = Object.fromEntries(STATS) as Record<BetStat, string>;
-const statWord = (k: BetStat) => (k === 'fpts' ? 'SaK points' : STAT_LABEL[k].toLowerCase());
+const statWord = (k: BetStat) => (k === 'fpts' ? '{L} points' : STAT_LABEL[k].toLowerCase());
 const TRACKED = new Set<BetKind>(['h2h', 'player_ou', 'player_vs', 'team_ou', 'pool_team', 'pool_player']);
 const isPool = (k: BetKind) => k.startsWith('pool');
 
@@ -63,6 +64,7 @@ function suggestLine(p: Player | undefined, stat: BetStat, start: string, end: s
 export default function Bets() {
   const { me, teams, team, players, owner, rosters, standings, spectators, can, league, games, leagueDay } = useLeague();
   const brand = useBrand();
+  const L = (s: string) => s.replaceAll('{L}', brand.short);
   const seasonGames = useSeasonGames();
   const [ruling, setRuling] = useState<Bet | null>(null);
   const now = useNow(30_000);
@@ -190,10 +192,10 @@ export default function Bets() {
     const neighbour = myRank ? gms.find((t) => rank(t.id) === (myRank > 1 ? myRank - 1 : 2)) : null;
     const out: { icon: string; title: string; why: string; form: Partial<Form> }[] = [];
     if (pickOther) out.push({ icon: '⚔️', title: `Who wins the week: you vs ${pickOther.gm_name}`, why: 'Most fantasy points Monday to Sunday. Settles itself Monday morning.', form: { kind: 'h2h', opponent: String(pickOther.id), title: `Most points this week: ${me.gm_name} vs ${pickOther.gm_name}`, start: week.start, end: week.end, coins: '100' } });
-    if (mine[0] && theirs[0] && pickOther) out.push({ icon: '🥊', title: `${mine[0].name} vs ${theirs[0].name}`, why: `Your best against ${pickOther.gm_name}’s best this week, SaK points.`, form: { kind: 'player_vs', opponent: String(pickOther.id), title: `${mine[0].name} vs ${theirs[0].name} this week`, playerId: mine[0].id, playerB: theirs[0].id, stat: 'fpts', start: week.start, end: week.end, coins: '75' } });
-    if (mine[0]) out.push({ icon: '📈', title: `${mine[0].name} over ${suggestLine(mine[0], 'fpts', week.start, week.end)} SaK points this week`, why: 'You take the over, whoever bites takes the under.', form: { kind: 'player_ou', opponent: '', title: `${mine[0].name} over ${suggestLine(mine[0], 'fpts', week.start, week.end)} SaK pts this week`, playerId: mine[0].id, stat: 'fpts', line: suggestLine(mine[0], 'fpts', week.start, week.end), side: 'over', start: week.start, end: week.end, coins: '50' } });
+    if (mine[0] && theirs[0] && pickOther) out.push({ icon: '🥊', title: `${mine[0].name} vs ${theirs[0].name}`, why: `Your best against ${pickOther.gm_name}’s best this week, ${brand.short} points.`, form: { kind: 'player_vs', opponent: String(pickOther.id), title: `${mine[0].name} vs ${theirs[0].name} this week`, playerId: mine[0].id, playerB: theirs[0].id, stat: 'fpts', start: week.start, end: week.end, coins: '75' } });
+    if (mine[0]) out.push({ icon: '📈', title: `${mine[0].name} over ${suggestLine(mine[0], 'fpts', week.start, week.end)} ${brand.short} points this week`, why: 'You take the over, whoever bites takes the under.', form: { kind: 'player_ou', opponent: '', title: `${mine[0].name} over ${suggestLine(mine[0], 'fpts', week.start, week.end)} ${brand.short} pts this week`, playerId: mine[0].id, stat: 'fpts', line: suggestLine(mine[0], 'fpts', week.start, week.end), side: 'over', start: week.start, end: week.end, coins: '50' } });
     if (mine[1]) out.push({ icon: '🚨', title: `${mine[1].name} scores tonight`, why: `Over 0.5 goals tonight. Quick, loud, settles tomorrow morning.`, form: { kind: 'player_ou', opponent: '', title: `${mine[1].name} scores tonight`, playerId: mine[1].id, stat: 'g', line: '0.5', side: 'over', start: wins[0].start, end: wins[0].end, coins: '25' } });
-    out.push({ icon: '🎰', title: 'Pool: top SaK team this week', why: `Everyone in for 50 coins, pick the team that scores most. Pot to the winner.`, form: { kind: 'pool_team', title: 'Top SaK team this week', teamPick: me.id, start: week.start, end: week.end, entryClose: week.start, coins: '50' } });
+    out.push({ icon: '🎰', title: `Pool: top ${brand.short} team this week`, why: `Everyone in for 50 coins, pick the team that scores most. Pot to the winner.`, form: { kind: 'pool_team', title: `Top ${brand.short} team this week`, teamPick: me.id, start: week.start, end: week.end, entryClose: week.start, coins: '50' } });
     if (neighbour) out.push({ icon: '🏆', title: `Finish above ${neighbour.gm_name}`, why: 'Final standings. Bragging rights until next September.', form: { kind: 'season', opponent: String(neighbour.id), title: `${me.gm_name} finishes above ${neighbour.gm_name}`, coins: '200', amount: '20' } });
     return out;
   }, [me, rosters, players, gms, wins, standings, Math.floor(now / 3_600_000)]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -223,13 +225,13 @@ export default function Bets() {
         <div className="mt-2 grid grid-cols-2 gap-2 rounded-xl border border-white/[.07] bg-black/25 p-2 text-center">
           <div><div className="truncate text-xs text-mute">{la}</div><div className={`num font-display text-2xl font-extrabold ${a > bb ? 'text-emerald-300' : ''}`}>{fmtPts(a)}</div></div>
           <div><div className="truncate text-xs text-mute">{lb ?? 'open'}</div><div className={`num font-display text-2xl font-extrabold ${bb > a ? 'text-emerald-300' : ''}`}>{fmtPts(bb)}</div></div>
-          <div className="col-span-2 text-[11px] text-mute">{b.kind === 'h2h' ? 'Fantasy points' : STAT_LABEL[b.subject?.stat ?? 'fpts']} {fmtDate(b.start_date!)} → {fmtDate(b.end_date!)}</div>
+          <div className="col-span-2 text-[11px] text-mute">{b.kind === 'h2h' ? 'Fantasy points' : L(STAT_LABEL[b.subject?.stat ?? 'fpts'])} {fmtDate(b.start_date!)} → {fmtDate(b.end_date!)}</div>
         </div>
       );
     }
     if (b.kind === 'player_ou' || b.kind === 'team_ou') {
       const v = p?.value ?? 0, line = Number(b.subject?.line ?? 0);
-      const who = b.kind === 'player_ou' ? `${pname(b.subject?.player_id)} · ${STAT_LABEL[b.subject?.stat ?? 'fpts']}` : `${team(b.creator_team)?.name} · fantasy points`;
+      const who = b.kind === 'player_ou' ? `${pname(b.subject?.player_id)} · ${L(STAT_LABEL[b.subject?.stat ?? 'fpts'])}` : `${team(b.creator_team)?.name} · fantasy points`;
       return (
         <div className="mt-2 rounded-xl border border-white/[.07] bg-black/25 p-2 text-sm">
           <div className="flex items-baseline justify-between"><span className="truncate text-xs text-mute">{who}</span><span className="num font-display text-xl font-extrabold">{fmtPts(v)} <span className="text-xs font-normal text-mute">/ line {line}</span></span></div>
@@ -369,12 +371,12 @@ export default function Bets() {
   const setWindow = (w: { start: string; end: string }) => setF({ ...f, start: w.start, end: w.end, entryClose: w.start });
   const autoTitle = () => {
     const p = pickerPlayer(f.playerId), b = pickerPlayer(f.playerB), w = wins.find((x) => x.start === f.start && x.end === f.end)?.label.toLowerCase() ?? `${fmtDate(f.start)} to ${fmtDate(f.end)}`;
-    if (f.kind === 'player_ou' && p) return `${p.name} ${f.side} ${f.line || '?'} ${statWord(f.stat)} ${w}`;
-    if (f.kind === 'player_vs' && p && b) return `${p.name} vs ${b.name}, ${statWord(f.stat)} ${w}`;
+    if (f.kind === 'player_ou' && p) return `${p.name} ${f.side} ${f.line || '?'} ${L(statWord(f.stat))} ${w}`;
+    if (f.kind === 'player_vs' && p && b) return `${p.name} vs ${b.name}, ${L(statWord(f.stat))} ${w}`;
     if (f.kind === 'team_ou') return `${me?.name} ${f.side} ${f.line || '?'} points ${w}`;
     if (f.kind === 'h2h') return `Most points ${w}`;
-    if (f.kind === 'pool_team') return `Pool: top SaK team ${w}`;
-    if (f.kind === 'pool_player') return `Pool: pick a player, most SaK points ${w}`;
+    if (f.kind === 'pool_team') return `Pool: top ${brand.short} team ${w}`;
+    if (f.kind === 'pool_player') return `Pool: pick a player, most ${brand.short} points ${w}`;
     return f.title;
   };
   const ready = f.title.trim().length >= 3 && (f.kind !== 'player_ou' || (f.playerId && f.line)) && (f.kind !== 'player_vs' || (f.playerId && f.playerB)) && (f.kind !== 'team_ou' || f.line) && (f.kind !== 'pool_player' || f.playerId) && (!isPool(f.kind) || Number(f.coins) > 0);
@@ -410,7 +412,7 @@ export default function Bets() {
       {tab === 'book' && <BookTab />}
       {tab === 'leaders' && (
         <>
-          <Section icon={<Coin size={20} />} title="St. Patrick’s Bank" right={<button className="text-xs text-sky-300" onClick={() => setShowLedger(!showLedger)}>{showLedger ? 'Hide' : 'My coin history'}</button>}>
+          <Section icon={<Coin size={20} />} title={brand.bank} right={<button className="text-xs text-sky-300" onClick={() => setShowLedger(!showLedger)}>{showLedger ? 'Hide' : 'My coin history'}</button>}>
             <Leader />
             {showLedger && (
               <div className="card mt-2 divide-y divide-white/[.06]">
@@ -527,7 +529,7 @@ export default function Bets() {
               <div className="text-lg">{k.icon}</div><div className="text-xs font-semibold leading-tight">{k.label}</div>
             </button>)}
           </div>
-          <p className="text-xs text-mute">{kindDef.blurb}</p>
+          <p className="text-xs text-mute">{L(kindDef.blurb)}</p>
 
           {!kindDef.pool && (
             <div>
@@ -557,7 +559,7 @@ export default function Bets() {
           {(f.kind === 'player_ou' || f.kind === 'player_vs') && (
             <div>
               <div className="label mb-1">Stat</div>
-              <div className="scroll-x flex gap-1">{STATS.map(([k, l]) => <button key={k} className={`chip shrink-0 py-1 ${f.stat === k ? 'bg-white text-ice' : ''}`} onClick={() => setF({ ...f, stat: k, line: f.kind === 'player_ou' ? suggestLine(pickerPlayer(f.playerId), k, f.start, f.end) : f.line })}>{l}</button>)}</div>
+              <div className="scroll-x flex gap-1">{STATS.map(([k, l]) => <button key={k} className={`chip shrink-0 py-1 ${f.stat === k ? 'bg-white text-ice' : ''}`} onClick={() => setF({ ...f, stat: k, line: f.kind === 'player_ou' ? suggestLine(pickerPlayer(f.playerId), k, f.start, f.end) : f.line })}>{L(l)}</button>)}</div>
             </div>
           )}
           {(f.kind === 'player_ou' || f.kind === 'team_ou') && (
@@ -580,7 +582,7 @@ export default function Bets() {
           </div>
           <textarea className="input" rows={2} placeholder="Terms / fine print (optional)" value={f.terms} onChange={(e) => setF({ ...f, terms: e.target.value })} />
           <div>
-            <div className="label mb-1">☘️ St. Patrick coins{isPool(f.kind) ? ' to buy in' : ''} (you have {available} available)</div>
+            <div className="label mb-1">{brand.coin.emoji} {brand.coin.name}{isPool(f.kind) ? ' to buy in' : ''} (you have {available} available)</div>
             <div className="flex flex-wrap gap-1.5">
               {['0', '25', '50', '100', '250', '500'].filter((c) => !(isPool(f.kind) && c === '0')).map((c) => (
                 <button key={c} className={`chip py-1 ${f.coins === c ? 'bg-emerald-500 text-ice' : ''}`} onClick={() => setF({ ...f, coins: c })}>{c === '0' ? 'No coins' : c}</button>

@@ -88,8 +88,8 @@ export function LeagueProvider({ children }: { children: ReactNode }) {
     league: async () => {
       const { data } = await supabase.from('league').select('*').single();
       if (data) setLeague(data as League);
-      const { data: lg } = await supabase.from('leagues').select('brand').eq('id', (data as League | null)?.league_id ?? 1).maybeSingle();
-      setBrand(brandOf(lg?.brand as Partial<Brand> | null));
+      const { data: lg } = await supabase.from('leagues').select('brand,short_name').eq('id', (data as League | null)?.league_id ?? 1).maybeSingle();
+      setBrand(brandOf(lg?.brand as Partial<Brand> | null, lg?.short_name as string | null));
     },
     teams: async () => { const { data } = await supabase.from('teams').select('*').order('id'); if (data) setAllTeams(data as Team[]); },
     players: async () => {
@@ -168,7 +168,10 @@ export function LeagueProvider({ children }: { children: ReactNode }) {
     return () => { alive = false; };
   }, [session, refresh]);
 
-  // realtime: refetch the affected table (debounced) whenever the database changes
+  // realtime: refetch the affected table (debounced) whenever the database changes. A league's own tables are heard
+  // for this league only (inserts and updates carry league_id, so the filter holds them back at the server); deletes
+  // can't be filtered by Realtime, so they are still heard from every league and only cost a refetch.
+  const rtLeague = league?.league_id ?? null;
   useEffect(() => {
     if (!session) return;
     const timers = new Map<Table, number>();
@@ -181,13 +184,22 @@ export function LeagueProvider({ children }: { children: ReactNode }) {
       league: ['league'], league_rules: ['league'], teams: ['teams'], rosters: ['rosters', 'standings'], draft_picks: ['picks'],
       draft_state: ['draft'], games: ['games'], notifications: ['notifications'], transactions: ['standings'], player_status: ['gameday'],
     };
+    const perLeague = new Set(['league_rules', 'teams', 'rosters', 'draft_picks', 'draft_state', 'notifications', 'transactions']);
     const ch = realtimeChannel('league-db');
     for (const table of Object.keys(map)) {
-      ch.on('postgres_changes', { event: '*', schema: 'public', table }, (payload) => {
+      const on = (payload: { new: Record<string, unknown> | null }) => {
         // draft state is latency-sensitive: apply it directly
-        if (table === 'draft_state' && payload.new && 'status' in payload.new) { setDraft(payload.new as DraftState); return; }
+        if (table === 'draft_state' && payload.new && 'status' in payload.new) { setDraft(payload.new as unknown as DraftState); return; }
         map[table].forEach((t) => bump(t, table === 'games' ? 2000 : 250));
-      });
+      };
+      if (rtLeague != null && perLeague.has(table)) {
+        const filter = `league_id=eq.${rtLeague}`;
+        ch.on('postgres_changes', { event: 'INSERT', schema: 'public', table, filter }, on);
+        ch.on('postgres_changes', { event: 'UPDATE', schema: 'public', table, filter }, on);
+        ch.on('postgres_changes', { event: 'DELETE', schema: 'public', table }, on);
+      } else {
+        ch.on('postgres_changes', { event: '*', schema: 'public', table }, on);
+      }
     }
     ch.subscribe();
     // live scoring: while a game is on (or about to drop the puck) standings refresh every minute and season stats
@@ -209,7 +221,7 @@ export function LeagueProvider({ children }: { children: ReactNode }) {
       document.removeEventListener('visibilitychange', onVis);
       timers.forEach((t) => clearTimeout(t));
     };
-  }, [session, loaders, refresh]);
+  }, [session, loaders, refresh, rtLeague]);
 
   // presence: who's online right now, GMs and spectators alike. Everyone in a league shares its 'online:<league>'
   // topic, so wait for any previous copy (a quick sign-out/in) to finish leaving before joining again.

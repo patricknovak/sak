@@ -1,5 +1,5 @@
 // League money, in the open: this season's three pots, who owes what (last season's winnings net against this
-// season's entry), what the commish holds and still has to pay, the SaK Fund and every line behind it. Everyone
+// season's entry), what the commish holds and still has to pay, the league's fund and every line behind it. Everyone
 // sees everything; only the commissioner can change it.
 import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
@@ -7,7 +7,8 @@ import { ChevronDown, Wallet } from 'lucide-react';
 import { useLeague } from '../lib/store';
 import { realtimeChannel, rpc, selectAll, supabase } from '../lib/supabase';
 import { fmtDate, fmtDateTime, fmtMoney } from '../lib/format';
-import { PLACES, POTS, prizes, type PotKey } from '../lib/prizes';
+import { PLACES, potsOf, prizes, type PotKey } from '../lib/prizes';
+import { bare, useBrand } from '../lib/brand';
 import type { FundLine, FundStatus, LedgerLine, MoneyBalance, PickupStatus, Standing } from '../lib/types';
 import { MoneySettings } from '../components/MoneySettings';
 import { Sparkline } from '../components/charts';
@@ -21,6 +22,9 @@ const METHODS = ['e-transfer', 'cash', 'netted', 'in the fund', 'other'];
 
 export default function Money() {
   const { me, team, teams, league, standings, playoffs, cup } = useLeague();
+  const brand = useBrand();
+  const POTS = potsOf(brand);
+  const peter = `${bare(brand.booby)} Punishment`;
   const { busy, run } = useAction();
   const [lines, setLines] = useState<LedgerLine[]>([]);
   const [bal, setBal] = useState<MoneyBalance[]>([]);
@@ -60,7 +64,7 @@ export default function Money() {
 
   return (
     <div className="space-y-5">
-      <PageHeader icon={<Wallet size={22} className="text-gold" />} title="Money" sub={`${league?.season ?? ''} · prize pools, who owes what, and the SaK Fund. Everyone sees every dollar.`}
+      <PageHeader icon={<Wallet size={22} className="text-gold" />} title="Money" sub={`${league?.season ?? ''} · prize pools, who owes what, and the ${brand.fund}. Everyone sees every dollar.`}
         right={commish ? <button className="btn-ghost btn-sm" onClick={() => setSheet('line')}>+ Add a line</button> : undefined} />
 
       {/* your balance */}
@@ -85,11 +89,11 @@ export default function Money() {
       )}
 
       {/* the pots */}
-      <Section title={`${league?.season} prize pool`} right={<span className="text-xs text-mute">{money.teams} × {fmtMoney(money.entry - money.fund)} after {fmtMoney(money.fund)} each to the SaK Fund</span>}>
+      <Section title={`${league?.season} prize pool`} right={<span className="text-xs text-mute">{money.teams} × {fmtMoney(money.entry - money.fund)} after {fmtMoney(money.fund)} each to the {brand.fund}</span>}>
         <div className="card-hero p-4" style={{ '--tc': '#f7c548' } as React.CSSProperties}>
           <div className="relative flex flex-wrap items-baseline gap-x-3">
             <div className="num text-gold-shine font-display text-5xl font-extrabold leading-none">{fmtMoney(money.pool)}</div>
-            <div className="text-xs text-white/70">{money.teams} GMs × {fmtMoney(money.entry)} = {fmtMoney(money.entry * money.teams)}, less {fmtMoney(money.fundTotal)} to the SaK Fund</div>
+            <div className="text-xs text-white/70">{money.teams} GMs × {fmtMoney(money.entry)} = {fmtMoney(money.entry * money.teams)}, less {fmtMoney(money.fundTotal)} to the {brand.fund}</div>
           </div>
           <div className="relative mt-4 grid gap-2 md:grid-cols-3">
             {POTS.map((p) => {
@@ -114,7 +118,7 @@ export default function Money() {
               );
             })}
           </div>
-          <p className="relative mt-3 text-[11px] text-white/60">Each pot pays {money.split.map((p, i) => `${PLACES[i]} ${p}%`).join(', ')}. The names beside each place are who'd collect if it ended today. The regular season table is kept when the NHL regular season ends; the playoffs start everyone at zero; the SAK Cup adds the two.</p>
+          <p className="relative mt-3 text-[11px] text-white/60">Each pot pays {money.split.map((p, i) => `${PLACES[i]} ${p}%`).join(', ')}. The names beside each place are who'd collect if it ended today. The regular season table is kept when the NHL regular season ends; the playoffs start everyone at zero; the {bare(brand.trophy)} adds the two.</p>
         </div>
       </Section>
 
@@ -156,12 +160,12 @@ export default function Money() {
               })}
             </div>
           </div>
-          <p className="mt-1 px-1 text-xs text-mute">Positive lines are money a GM owes (entry, Peter Punishment, fines); negative lines are winnings owed to them. Last season's winnings and this season's entry net out, so one e-Transfer settles each GM.</p>
+          <p className="mt-1 px-1 text-xs text-mute">Positive lines are money a GM owes (entry, {peter}, fines); negative lines are winnings owed to them. Last season's winnings and this season's entry net out, so one e-Transfer settles each GM.</p>
         </Section>
 
         {/* the fund */}
         <div className="min-w-0 space-y-5">
-          <Section title="🏦 The SaK Fund" right={commish ? <span className="flex gap-1"><button className="btn-ghost btn-sm" onClick={() => setSheet('fund')}>+ Entry</button><button className="btn-ghost btn-sm" onClick={() => setSheet('price')}>Price</button><button className="btn-ghost btn-sm" onClick={() => setSheet('settings')}>Settings</button></span> : undefined}>
+          <Section title={`🏦 The ${brand.fund}`} right={commish ? <span className="flex gap-1"><button className="btn-ghost btn-sm" onClick={() => setSheet('fund')}>+ Entry</button><button className="btn-ghost btn-sm" onClick={() => setSheet('price')}>Price</button><button className="btn-ghost btn-sm" onClick={() => setSheet('settings')}>Settings</button></span> : undefined}>
             {!fund ? <div className="card h-40 animate-pulse" /> : (
               <div className="card space-y-3 p-4">
                 <div className="flex flex-wrap items-end justify-between gap-2">
@@ -174,7 +178,7 @@ export default function Money() {
                 </div>
                 <div className="grid grid-cols-2 gap-2 text-sm">
                   <Box label={`${fund.shares} ${fund.symbol} shares`} value={fmtMoney(Math.round(fund.stock_cad))} sub={fund.price_usd ? `US$${fund.price_usd.toFixed(2)} × ${fund.fx_usdcad?.toFixed(4)} CAD` : 'no price yet'} />
-                  <Box label="Cash" value={fmtMoney(fund.cash)} sub="contributions, Peter money, fees" />
+                  <Box label="Cash" value={fmtMoney(fund.cash)} sub={`contributions, ${bare(brand.booby)} money, fees`} />
                   {fund.owed_back > 0 && <Box label="Less: owed back" value={`−${fmtMoney(fund.owed_back)}`} sub={fund.owed_back_note ?? ''} />}
                   <Box label="Priced" value={fund.priced_at ? fmtDateTime(fund.priced_at) : '—'} sub="updated each weekday after the close" />
                 </div>
@@ -186,7 +190,7 @@ export default function Money() {
                     {fundLines.map((f) => (
                       <div key={f.id} className="flex items-center gap-2 px-3 py-1.5 text-xs">
                         <span className="w-20 shrink-0 text-mute">{fmtDate(f.date)}</span>
-                        <span className="min-w-0 flex-1 truncate">{FUND_KIND[f.kind] ?? f.kind}{f.note ? ` · ${f.note}` : ''}</span>
+                        <span className="min-w-0 flex-1 truncate">{f.kind === 'peter' ? peter : FUND_KIND[f.kind] ?? f.kind}{f.note ? ` · ${f.note}` : ''}</span>
                         {f.shares !== 0 && <span className="num shrink-0">{f.shares > 0 ? '+' : ''}{f.shares} sh</span>}
                         {f.cash !== 0 && <span className={`num shrink-0 font-semibold ${f.cash > 0 ? 'text-emerald-300' : 'text-red-300'}`}>{f.cash > 0 ? '+' : '−'}{abs(f.cash)}</span>}
                       </div>
@@ -210,7 +214,7 @@ export default function Money() {
                 );
               })}
             </div>
-            <p className="mt-1 px-1 text-xs text-mute">{league?.max_acquisitions ?? 10} free pickups for the regular season and playoffs, plus {league?.playoff_bonus_acq ?? 3} more for everyone when the playoffs start. Unused pickups can be traded, like St. Patrick coins.</p>
+            <p className="mt-1 px-1 text-xs text-mute">{league?.max_acquisitions ?? 10} free pickups for the regular season and playoffs, plus {league?.playoff_bonus_acq ?? 3} more for everyone when the playoffs start. Unused pickups can be traded, like {brand.coin.name}.</p>
           </Section>
 
           <div className="card p-3 text-sm">🎲 Side-bet cash is settled GM to GM. See who owes whom on the <Link to="/bets" className="text-sky-300">cash tab</Link>.</div>
@@ -242,7 +246,7 @@ export default function Money() {
                 ))}
                 <button className="btn-ghost btn-sm" onClick={() => setSheet('pay')}>Payment instructions</button>
               </div>
-              <p className="text-xs text-mute">Post payouts once each table is final: the Johnson after the regular season (it also bills the Peter Punishment), the Playoff Cup and SAK Cup after the Stanley Cup final. Next season, bill the new entries and each winner's balance nets automatically.</p>
+              <p className="text-xs text-mute">Post payouts once each table is final: the {bare(brand.regular)} after the regular season (it also bills the {peter}), the {bare(brand.playoff)} and {bare(brand.trophy)} after the Stanley Cup final. Next season, bill the new entries and each winner's balance nets automatically.</p>
             </div>
             <MoneySettings />
           </div>
@@ -270,11 +274,12 @@ function Box({ label, value, sub }: { label: string; value: string; sub?: string
 
 function LineRow({ l, commish, onChange }: { l: LedgerLine; commish?: boolean; onChange?: () => void }) {
   const { run, busy } = useAction();
+  const brand = useBrand();
   return (
     <div className="flex items-center gap-2 px-3 py-1.5 text-sm">
       <div className="min-w-0 flex-1">
         <div className="truncate">{l.description}</div>
-        <div className="text-[10px] text-mute">{KIND[l.kind] ?? l.kind} · {l.season}{l.paid && l.paid_at ? ` · settled ${fmtDate(l.paid_at.slice(0, 10))}${l.method ? ` by ${l.method}` : ''}` : ''}</div>
+        <div className="text-[10px] text-mute">{l.kind === 'peter' ? `${bare(brand.booby)} Punishment` : KIND[l.kind] ?? l.kind} · {l.season}{l.paid && l.paid_at ? ` · settled ${fmtDate(l.paid_at.slice(0, 10))}${l.method ? ` by ${l.method}` : ''}` : ''}</div>
       </div>
       <span className={`num shrink-0 font-semibold ${l.amount > 0 ? 'text-red-200' : 'text-emerald-200'} ${l.paid ? 'line-through opacity-50' : ''}`}>{l.amount > 0 ? '' : '−'}{abs(l.amount)}</span>
       {commish ? (
@@ -372,10 +377,11 @@ function FundPrice({ open, onClose, onDone, fund }: { open: boolean; onClose: ()
 
 function FundSettings({ open, onClose, onDone, fund }: { open: boolean; onClose: () => void; onDone: () => void; fund: FundStatus | null }) {
   const { run, busy } = useAction();
+  const brand = useBrand();
   const [f, setF] = useState({ owed_back: '', owed_back_note: '', custodian: '', purpose: '', symbol: '' });
   useEffect(() => { if (open && fund) setF({ owed_back: String(fund.owed_back), owed_back_note: fund.owed_back_note ?? '', custodian: fund.custodian ?? '', purpose: fund.purpose ?? '', symbol: fund.symbol }); }, [open]); // eslint-disable-line react-hooks/exhaustive-deps
   return (
-    <Sheet open={open} onClose={onClose} title="SaK Fund settings">
+    <Sheet open={open} onClose={onClose} title={`${brand.fund} settings`}>
       <div className="space-y-2">
         <label className="block text-xs text-mute">Owed back before the split (CAD)<input className="input mt-1" inputMode="decimal" value={f.owed_back} onChange={(e) => setF({ ...f, owed_back: e.target.value })} /></label>
         <input className="input" placeholder="Why" value={f.owed_back_note} onChange={(e) => setF({ ...f, owed_back_note: e.target.value })} />

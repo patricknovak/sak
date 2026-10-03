@@ -1,4 +1,4 @@
-// Garry's Book: the league's coin sportsbook. Markets on real NHL games (moneyline, total goals, overtime,
+// The Book (Garry's in SaK): the league's coin sportsbook. Markets on real NHL games (moneyline, total goals, overtime,
 // player props) open every morning and settle themselves from the box scores; season futures (the champion,
 // last place, the playoffs, the full-year trophy) and season-long props on every team and the biggest names
 // stay open until the trade deadline, re-priced every morning from the standings; any GM can ask the Book for
@@ -19,6 +19,7 @@ import { AskBook } from './AskBook';
 import { BookChat } from './BookChat';
 import { marketChances } from '../lib/betodds';
 import { ticketOutcome } from '../lib/betresults';
+import { useBrand } from '../lib/brand';
 
 const KIND: Record<MarketKind, { icon: string; label: string }> = { winner: { icon: '🏒', label: 'Moneyline' }, total: { icon: '🥅', label: 'Total goals' }, ot: { icon: '⏱️', label: 'Overtime' }, prop: { icon: '⭐', label: 'Player prop' }, custom: { icon: '🎯', label: 'Commish special' }, future: { icon: '🔮', label: 'Season future' }, season_prop: { icon: '📅', label: 'Season prop' }, race: { icon: '🏁', label: 'Race' } };
 const SEASON = new Set<MarketKind>(['future', 'season_prop']);
@@ -98,6 +99,7 @@ export function useBook() {
 
 export function BookTab() {
   const { me, team, players, can, games } = useLeague();
+  const brand = useBrand();
   const now = useNow(30_000);
   const { busy, run } = useAction();
   const { markets, tickets, standings, reload } = useBook();
@@ -117,7 +119,7 @@ export function BookTab() {
   const open = markets.filter((m) => m.status === 'open' && new Date(m.closes_at).getTime() > now);
   const liveMs = markets.filter((m) => m.status === 'open' && new Date(m.closes_at).getTime() <= now);   // puck's dropped, not settled yet
   const closed = markets.filter((m) => m.status !== 'open');
-  // SaK points so far tonight for every player with a prop on the board (live props need them)
+  // the league's points so far tonight for every player with a prop on the board (live props need them)
   const propIds = [...new Set(markets.filter((m) => m.kind === 'prop' && m.status === 'open' && m.subject.player_id).map((m) => m.subject.player_id!))];
   const [propPts, setPropPts] = useState<Map<string, number>>(new Map());
   useEffect(() => {
@@ -253,7 +255,7 @@ export function BookTab() {
       <div className="card flex flex-wrap items-center gap-3 p-3" style={{ background: 'linear-gradient(160deg, rgba(76,195,255,.12), rgba(15,23,41,.75) 55%)' }}>
         <BookOpen size={22} className="text-sky-300" />
         <div className="min-w-0 flex-1 text-sm">
-          <div className="font-semibold">Garry’s Book</div>
+          <div className="font-semibold">{brand.bot.name}’s Book</div>
           <div className="text-xs text-mute">Coins on tonight’s games and stats, on the season (the champion, last place, the playoffs, every team’s points, the biggest names) and on anything you ask for: a game later in the week, a race between players or NHL clubs, a line on one of them. Paid at the odds shown; the Book opens every morning at 9:35 ET and settles itself. 5 to 500 ☘️ a ticket.</div>
         </div>
         {mine && (mine.bets > 0 || mine.open_coins > 0) && (
@@ -385,7 +387,8 @@ function NewMarket({ onDone }: { onDone: () => void }) {
   const [terms, setTerms] = useState('');
   const [closes, setCloses] = useState(() => { const d = new Date(Date.now() + 86400000); d.setMinutes(0, 0, 0); return new Date(d.getTime() - d.getTimezoneOffset() * 60000).toISOString().slice(0, 16); });
   const [opts, setOpts] = useState<{ label: string; odds: string }[]>([{ label: 'Yes', odds: '1.9' }, { label: 'No', odds: '1.9' }]);
-  const IDEAS = ['Any SaK player scores a hat trick this week', 'A goalie posts a shutout tonight', 'Most goals in one game this week: over 8.5', 'Trystan makes a trade before Halloween', 'First GM to use all 10 free pickups'];
+  const brand = useBrand();
+  const IDEAS = [`Any ${brand.short} player scores a hat trick this week`, 'A goalie posts a shutout tonight', 'Most goals in one game this week: over 8.5', 'A trade goes through before Halloween', 'First GM to use all 10 free pickups'];
   return (
     <div className="space-y-3">
       <input className="input" placeholder="What are we betting on? Something you can verify." value={title} onChange={(e) => setTitle(e.target.value)} maxLength={140} />

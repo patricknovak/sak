@@ -11,6 +11,7 @@ import { ago, calcFpts, etToday, fmtDate, fmtPts, fmtTime, injuryBadge, NHL_COLO
 import { PlayerActions } from '../components/PlayerCard';
 import { FormChart } from '../components/charts';
 import { Headshot, NhlLogo, Pos, Section, Skeleton, Stat, TeamBadge, TeamName } from '../components/ui';
+import { useBrand } from '../lib/brand';
 
 interface GameLine { game_id: number; date: string; nhl_team: string; stats: Record<string, number>; fpts: number }
 interface Bio {
@@ -32,6 +33,7 @@ export default function PlayerPage() {
   const id = Number(idParam);
   const nav = useNavigate();
   const { players, owner, team, league, season, picks } = useLeague();
+  const brand = useBrand();
   const p = players.get(id);
   const r = owner.get(id);
   const [tab, setTab] = useState<Tab>('overview');
@@ -81,7 +83,7 @@ export default function PlayerPage() {
 
   if (!p) {
     return players.size ? (
-      <div className="card p-6 text-center"><div className="text-4xl">🤷</div><p className="mt-2 text-sm text-mute">We don’t have that player in the SaK pool.</p><button className="btn-ghost mt-3" onClick={() => nav(-1)}>Go back</button></div>
+      <div className="card p-6 text-center"><div className="text-4xl">🤷</div><p className="mt-2 text-sm text-mute">We don’t have that player in the {brand.short} pool.</p><button className="btn-ghost mt-3" onClick={() => nav(-1)}>Go back</button></div>
     ) : <div className="space-y-3"><Skeleton className="h-48" /><Skeleton className="h-24" /><Skeleton className="h-64" /></div>;
   }
 
@@ -119,8 +121,8 @@ export default function PlayerPage() {
           {ownerTeam ? (
             <><TeamBadge team={ownerTeam} size={24} /><span className="text-white/70">On</span><TeamName team={ownerTeam} link /><Pos p={r!.slot} />
               {r!.acquired === 'keeper' && <span className="chip">🔒 Keeper</span>}</>
-          ) : <span className="font-semibold text-emerald-300">✅ Free agent in SaK</span>}
-          {draftedAt?.overall && <span className="ml-auto text-xs text-white/60">SaK pick #{draftedAt.overall} ({draftedAt.season})</span>}
+          ) : <span className="font-semibold text-emerald-300">✅ Free agent in {brand.short}</span>}
+          {draftedAt?.overall && <span className="ml-auto text-xs text-white/60">{brand.short} pick #{draftedAt.overall} ({draftedAt.season})</span>}
         </div>
       </div>
 
@@ -166,7 +168,7 @@ export default function PlayerPage() {
                       <span className={`num w-14 shrink-0 text-right font-bold ${b.pts < 0 ? 'text-red-300' : ''}`}>{b.pts > 0 ? '+' : ''}{fmtPts(b.pts, 1)}</span>
                     </div>
                   ))}
-                  <div className="flex justify-between border-t border-white/[.07] pt-1.5 text-xs"><span className="text-mute">Total under SaK scoring</span><span className="num font-bold text-gold">{fmtPts(breakdown.reduce((t, b) => t + b.pts, 0), 1)}</span></div>
+                  <div className="flex justify-between border-t border-white/[.07] pt-1.5 text-xs"><span className="text-mute">Total under {brand.short} scoring</span><span className="num font-bold text-gold">{fmtPts(breakdown.reduce((t, b) => t + b.pts, 0), 1)}</span></div>
                 </div>
               </Section>
             )}
@@ -229,9 +231,9 @@ export default function PlayerPage() {
               </div>
             </Section>
 
-            <Section icon={<History size={16} className="text-blue" />} title="SaK history">
+            <Section icon={<History size={16} className="text-blue" />} title={`${brand.short} history`}>
               <div className="card divide-y divide-white/[.06]">
-                {tx.length === 0 && <div className="p-3 text-sm text-mute">No SaK moves yet this season.</div>}
+                {tx.length === 0 && <div className="p-3 text-sm text-mute">No {brand.short} moves yet this season.</div>}
                 {tx.map((t) => (
                   <div key={t.id} className="flex items-center gap-2 px-3 py-2 text-sm">
                     <span>{{ add: '➕', drop: '➖', trade: '🔄', draft: '📋', keeper: '🔒', release: '↩️', commish: '🛠️' }[t.type] ?? '•'}</span>
@@ -249,7 +251,7 @@ export default function PlayerPage() {
         <div className="card overflow-x-auto">
           {log === null ? <div className="p-4"><Skeleton className="h-32" /></div> : log.length === 0 ? <div className="p-4 text-sm text-mute">No games yet this season. The log fills in once the puck drops.</div> : (
             <table className="w-full text-right text-xs">
-              <thead className="bg-white/[.04] text-mute"><tr><th className="px-2 py-2 text-left">Date</th><th className="px-2 text-gold">SaK</th>{keys.filter((k) => k !== 'gp').map((k) => <th key={k} className="px-1.5">{STAT_LABELS[k]}</th>)}</tr></thead>
+              <thead className="bg-white/[.04] text-mute"><tr><th className="px-2 py-2 text-left">Date</th><th className="px-2 text-gold">{brand.short}</th>{keys.filter((k) => k !== 'gp').map((k) => <th key={k} className="px-1.5">{STAT_LABELS[k]}</th>)}</tr></thead>
               <tbody className="divide-y divide-white/[.06]">
                 {log.map((g) => (
                   <tr key={g.game_id}>
@@ -270,7 +272,7 @@ export default function PlayerPage() {
             {career === null ? <Skeleton className="h-40" /> : career.length === 0 ? <div className="card p-4 text-sm text-mute">No NHL regular-season stats yet.</div> : (
               <div className="card overflow-x-auto">
                 <table className="w-full text-right text-xs">
-                  <thead className="bg-white/[.04] text-mute"><tr><th className="px-2 py-2 text-left">Season</th><th className="px-2 text-gold">SaK</th><th className="px-1.5 text-left">Team</th>
+                  <thead className="bg-white/[.04] text-mute"><tr><th className="px-2 py-2 text-left">Season</th><th className="px-2 text-gold">{brand.short}</th><th className="px-1.5 text-left">Team</th>
                     {(goalie ? ['gp', 'gs', 'w', 'l', 'otl', 'ga', 'sv', 'sho'] : ['gp', 'g', 'a', 'pts', 'pm', 'ppp', 'sog', 'hit', 'blk', 'fow']).map((k) => <th key={k} className="px-1.5">{STAT_LABELS[k]}</th>)}</tr></thead>
                   <tbody className="divide-y divide-white/[.06]">
                     {career.map((c) => (
@@ -285,7 +287,7 @@ export default function PlayerPage() {
                 </table>
               </div>
             )}
-            <p className="mt-1 px-1 text-[11px] text-mute">SaK = fantasy points under this league’s current scoring. Hits and blocks are tracked from 2005-06 on.</p>
+            <p className="mt-1 px-1 text-[11px] text-mute">{brand.short} = fantasy points under this league’s current scoring. Hits and blocks are tracked from 2005-06 on.</p>
           </Section>
 
           {bio?.playoffSeasons?.length ? (

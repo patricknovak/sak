@@ -1,4 +1,4 @@
-// The home screen's windows into the rest of the site: tonight around the NHL, St. Patrick's Bank, the latest
+// The home screen's windows into the rest of the site: tonight around the NHL, the league's coin bank, the latest
 // Book tickets and the latest side-bet results. Each shows a handful of rows and leads to its own page.
 import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
@@ -12,6 +12,7 @@ import { useBook } from './Book';
 import { Coin, Rank, Section, TeamBadge } from './ui';
 import type { TopGame } from './NhlTop';
 import type { Bet, BetEntry, CoinBalance, MarketKind } from '../lib/types';
+import { useBrand } from '../lib/brand';
 
 const LIVE = new Set(['LIVE', 'CRIT']), DONE = new Set(['OFF', 'FINAL']);
 const ICON: Record<MarketKind, string> = { winner: '🏒', total: '🥅', ot: '⏱️', prop: '⭐', custom: '🎯', future: '🔮', season_prop: '📅', race: '🏁' };
@@ -62,15 +63,16 @@ export function NhlTopCard() {
   );
 }
 
-// St. Patrick's Bank: every GM's coins, richest first
+// the coin bank: every GM's coins, richest first
 export function BankCard() {
   const { teams, team, me } = useLeague();
+  const brand = useBrand();
   const [bank, setBank] = useState<CoinBalance[]>([]);
   useEffect(() => { supabase.from('coin_balances').select('*').then(({ data }) => setBank((data ?? []) as CoinBalance[])); }, []);
   const rows = [...bank].filter((c) => teams.some((t) => t.id === c.team_id && t.role !== 'spectator')).sort((a, b) => b.balance - a.balance);
   const tie = rows.length > 1 && rows.every((x) => x.balance === rows[0].balance);
   return (
-    <Section title="☘️ St. Patrick’s Bank" right={<More to="/bets?t=leaders" label="Leaders" />}>
+    <Section title={`${brand.coin.emoji} ${brand.bank}`} right={<More to="/bets?t=leaders" label="Leaders" />}>
       <div className="card divide-y divide-white/[.06] overflow-hidden" style={{ background: 'linear-gradient(160deg, rgba(247,197,72,.10), rgba(15,23,41,.75) 45%)' }}>
         {rows.length === 0 && <div className="p-3 text-sm text-mute">No coins in circulation yet.</div>}
         {rows.map((c, i) => (
@@ -86,7 +88,7 @@ export function BankCard() {
   );
 }
 
-// the latest tickets at Garry's Book and what they did
+// the latest tickets at the Book and what they did
 export function TicketsCard() {
   const { team, me } = useLeague();
   const { markets, tickets } = useBook();

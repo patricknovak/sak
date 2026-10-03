@@ -10,8 +10,13 @@ import { useLeague } from '../lib/store';
 
 declare global { interface Window { JitsiMeetExternalAPI?: new (domain: string, opts: Record<string, unknown>) => { dispose: () => void; executeCommand: (c: string, ...a: unknown[]) => void } } }
 
-export const jitsiRoom = (info: Record<string, unknown> | undefined, season: string | undefined) =>
-  (typeof info?.call_room === 'string' && info.call_room) || `SaKKeeperLeagueDraft${(season ?? '').replace(/[^0-9]/g, '')}`;
+// the commissioner can name the room; otherwise it is the league's own (SaK keeps the name it has always had, every
+// other league gets one with its id in it, so two leagues drafting the same night never meet in one call)
+export const jitsiRoom = (info: Record<string, unknown> | undefined, season: string | undefined, league?: number) => {
+  if (typeof info?.call_room === 'string' && info.call_room) return info.call_room;
+  const yr = (season ?? '').replace(/[^0-9]/g, '');
+  return !league || league === 1 ? `SaKKeeperLeagueDraft${yr}` : `SuperPoolsDraft${league}x${yr}`;
+};
 export const callLink = (info: Record<string, unknown> | undefined) => (typeof info?.call_url === 'string' && info.call_url ? info.call_url : null);
 
 let scriptLoading: Promise<void> | null = null;
@@ -25,7 +30,7 @@ const loadJitsi = () => scriptLoading ??= new Promise<void>((res, rej) => {
 export function DraftCall({ tall }: { tall?: boolean }) {
   const { me, league } = useLeague();
   const link = callLink(league?.info);
-  const room = jitsiRoom(league?.info, league?.season);
+  const room = jitsiRoom(league?.info, league?.season, league?.league_id);
   const [joined, setJoined] = useState(false);
   const [err, setErr] = useState<string | null>(null);
   const box = useRef<HTMLDivElement>(null);

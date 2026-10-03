@@ -11,9 +11,11 @@ import { PlayerRow, usePlayerSheet } from '../components/PlayerCard';
 import { SEASONS } from '../data/history';
 import { PushCard } from '../components/PushCard';
 import { BankCard, BetResultsCard, NhlTopCard, TicketsCard } from '../components/HomeCards';
+import { bare, useBrand } from '../lib/brand';
 
 export default function Home() {
   const { me, league, teams, spectators, team, standings: regular, playoffs, rosters, players, draft, picks, gamesByTeam, online, leagueDay } = useLeague();
+  const brand = useBrand();
   const now = useNow(1000);
   const nav = useNavigate();
   const { open, sheet } = usePlayerSheet();
@@ -96,7 +98,7 @@ export default function Home() {
           {me?.role === 'spectator' && (
             <div className="rounded-2xl border border-white/10 bg-black/25 p-3.5 backdrop-blur sm:col-span-2">
               <div className="label text-white/70">🍿 Spectator pass</div>
-              <p className="mt-1.5 text-sm text-white/80">You’ve got a seat in the barn: watch the draft, follow the standings, talk trash and put St. Patrick coins on side bets. No roster to set, no Peter to fear.</p>
+              <p className="mt-1.5 text-sm text-white/80">You’ve got a seat in the barn: watch the draft, follow the standings, talk trash and put {brand.coin.name} on side bets. No roster to set, no {bare(brand.booby)} to fear.</p>
               <div className="mt-3 flex flex-wrap gap-2"><Link to="/chat" className="btn-primary">💬 Trash Talk</Link><Link to="/bets" className="btn-ghost">🎲 Side bets</Link><Link to="/league" className="btn-ghost">📜 Rules & history</Link></div>
             </div>
           )}
@@ -204,7 +206,7 @@ export default function Home() {
               })}
           </div>
           )}
-          {phase !== 'season' && <p className="mt-2 px-1 text-xs text-mute">Defending champ: <span className="font-semibold text-gold">{lastChamp.team}</span> ({lastChamp.gm}). The Peter: {lastRows[lastRows.length - 1]?.team}.</p>}
+          {phase !== 'season' && <p className="mt-2 px-1 text-xs text-mute">Defending champ: <span className="font-semibold text-gold">{lastChamp.team}</span> ({lastChamp.gm}). {brand.booby}: {lastRows[lastRows.length - 1]?.team}.</p>}
         </Section>
 
         <div className="space-y-5">
@@ -236,7 +238,7 @@ export default function Home() {
                     : <TeamBadge team={team(m.team_id)} size={32} />}
                   <div className="min-w-0 flex-1">
                     <div className="flex items-baseline gap-2 text-[11px]">
-                      <span className={`font-bold ${m.kind === 'bot' ? 'text-emerald-300' : 'text-slate-200'}`}>{m.kind === 'bot' ? 'Garry' : m.kind === 'system' ? 'League' : team(m.team_id)?.gm_name}</span>
+                      <span className={`font-bold ${m.kind === 'bot' ? 'text-emerald-300' : 'text-slate-200'}`}>{m.kind === 'bot' ? brand.bot.name : m.kind === 'system' ? 'League' : team(m.team_id)?.gm_name}</span>
                       <span className="text-mute">{ago(m.created_at, now)}</span>
                     </div>
                     <div className={`line-clamp-1 whitespace-pre-line text-sm ${m.kind === 'system' ? 'text-slate-300' : 'text-slate-100'}`}>{m.body}</div>

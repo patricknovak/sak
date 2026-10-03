@@ -7,6 +7,7 @@ import { TeamBadge, useToast } from './ui';
 import { BarChart3, SendHorizontal } from 'lucide-react';
 import { PollCard, PollComposer } from './PollCard';
 import { Link } from 'react-router-dom';
+import { useBrand } from '../lib/brand';
 
 const REACTIONS = ['🔥', '😂', '🤡', '👏', '💀', '🍺', '🚨', '🪣'];
 const ASK_GARRY = ['Roast me', 'Trash talk the leader', 'Tell me a joke', 'Who’s winning?', 'How’s my lineup?', 'Who should I pick up?', 'How do trades work?', 'What’s the prize money?', 'When’s the draft?', 'How do keepers work?', 'What’s the scoring?'];
@@ -15,11 +16,14 @@ const LINK_LABEL: [string, string][] = [['/player/', 'Player page'], ['/team', '
   ['/draft?t=keepers', 'Keepers'], ['/draft', 'Draft room'], ['/bets', 'Side bets'], ['/performance', 'Performance'], ['/profile', 'Profile'], ['/nhl?t=injuries', 'Injuries'], ['/nhl', 'NHL centre'], ['/features', 'Features'], ['/money', 'Money'], ['/league', 'Rulebook']];
 const linkLabel = (path: string) => LINK_LABEL.find(([p]) => path.startsWith(p))?.[1] ?? 'Open';
 
-const CHIRPS = ['🚨 REACH!', 'Steal of the draft 🥷', 'Enjoy the Peter 🪣', 'Sell me that guy 💰', 'Who? 🤔', 'Lock it in 🔒', 'GG 🍺', 'Scoreboard. 📈'];
+const CHIRPS = ['🚨 REACH!', 'Steal of the draft 🥷', 'Enjoy {booby} 🪣', 'Sell me that guy 💰', 'Who? 🤔', 'Lock it in 🔒', 'GG 🍺', 'Scoreboard. 📈'];
 
 // channel 'all' is the merged feed: every channel this GM can see except the draft room, newest last; posting from it goes to Trash Talk
 export function ChatPanel({ channel, compact, className = '' }: { channel: string; compact?: boolean; className?: string }) {
   const { me, team, teams, can } = useLeague();
+  const brand = useBrand();
+  const bot = brand.bot.name;
+  const chirps = CHIRPS.map((c) => c.replace('{booby}', brand.booby.replace(/^The /, 'the ')));
   const all = channel === 'all';
   const postTo = all ? 'general' : channel;
   const muted = !can('chat') || (channel.startsWith('dm:') && !can('dm'));
@@ -121,7 +125,7 @@ export function ChatPanel({ channel, compact, className = '' }: { channel: strin
 
   const byId = useMemo(() => new Map(msgs.map((m) => [m.id, m])), [msgs]);
   const mention = /@(\w*)$/.exec(text)?.[1];
-  const suggestions = mention !== undefined ? [...teams.map((t) => t.gm_name), 'Garry', 'everyone'].filter((n) => n.toLowerCase().startsWith(mention.toLowerCase())) : [];
+  const suggestions = mention !== undefined ? [...teams.map((t) => t.gm_name), bot, 'everyone'].filter((n) => n.toLowerCase().startsWith(mention.toLowerCase())) : [];
 
   const highlight = (body: string) =>
     body.split(/(👉\s*#\/\S+|@\w+)/gu).map((part, i) => part.startsWith('👉')
@@ -133,7 +137,7 @@ export function ChatPanel({ channel, compact, className = '' }: { channel: strin
   // where a message came from, shown on the merged feed
   const tagOf = (c: string) => {
     if (c === 'general') return { label: 'Trash Talk', cls: 'bg-goal/20 text-rose-200' };
-    if (c.startsWith('garry:')) return { label: 'Ask Garry', cls: 'bg-emerald-500/20 text-emerald-200' };
+    if (c.startsWith('garry:')) return { label: `Ask ${bot}`, cls: 'bg-emerald-500/20 text-emerald-200' };
     if (c.startsWith('dm:')) { const other = c.slice(3).split('-').map(Number).find((id) => id !== me?.id); return { label: `DM · ${team(other)?.gm_name ?? '?'}`, cls: 'bg-sky-500/20 text-sky-200' }; }
     return { label: c, cls: 'bg-white/10 text-slate-300' };
   };
@@ -142,7 +146,7 @@ export function ChatPanel({ channel, compact, className = '' }: { channel: strin
   const isGarry = channel.startsWith('garry:');
   const roastTarget = useMemo(() => { const others = teams.filter((t) => t.id !== me?.id && t.role !== 'spectator'); return others.length ? others[Math.floor(Math.random() * others.length)].gm_name : null; }, [teams, me?.id]);
   const last = msgs[msgs.length - 1];
-  const asked = !!last && last.kind === 'user' && last.team_id === me?.id && (isGarry || /\bgarry\b/i.test(last.body));
+  const asked = !!last && last.kind === 'user' && last.team_id === me?.id && (isGarry || new RegExp(`\\b${bot.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`, 'i').test(last.body));
   const [, tick] = useState(0);
   useEffect(() => { if (!asked) return; const t = setTimeout(() => tick((n) => n + 1), 25_000); return () => clearTimeout(t); }, [asked, last?.id]);
   const garryTyping = asked && Date.now() - new Date(last!.created_at).getTime() < 25_000;
@@ -167,7 +171,7 @@ export function ChatPanel({ channel, compact, className = '' }: { channel: strin
         {isGarry && msgs.length === 0 && (
           <div className="px-3 py-8 text-center">
             <div className="mx-auto grid h-16 w-16 place-items-center rounded-full bg-emerald-500/15 text-4xl ring-1 ring-emerald-400/30">🎙️</div>
-            <div className="mt-2 font-semibold">Your private line to Garry</div>
+            <div className="mt-2 font-semibold">Your private line to {bot}</div>
             <div className="mx-auto mt-1 max-w-sm text-sm text-mute">Ask about standings, your lineup, any player, tonight’s games, trades, pickups, the draft, bets, rules or the prize money. Only you can see this. He’s cheeky, but he knows his stuff.</div>
           </div>
         )}
@@ -187,7 +191,7 @@ export function ChatPanel({ channel, compact, className = '' }: { channel: strin
               <div key={m.id} className="flex gap-2 pt-2">
                 <div className="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-gradient-to-br from-emerald-300 to-emerald-800 text-sm shadow-[0_4px_14px_-4px_rgba(52,211,153,.9)] ring-1 ring-emerald-300/40">🎙️</div>
                 <div className="max-w-[85%]">
-                  <div className="mb-0.5 px-1 text-[11px]"><span className="font-semibold text-emerald-300">Garry</span> <span className="text-mute">· league bot · {ago(m.created_at, now)}</span> <Tag c={m.channel} /></div>
+                  <div className="mb-0.5 px-1 text-[11px]"><span className="font-semibold text-emerald-300">{bot}</span> <span className="text-mute">· league bot · {ago(m.created_at, now)}</span> <Tag c={m.channel} /></div>
                   <div className="rounded-2xl rounded-bl-md border border-emerald-400/25 bg-gradient-to-br from-emerald-500/20 to-emerald-900/30 px-3 py-2 text-[15px] leading-snug shadow-[0_8px_24px_-14px_rgba(52,211,153,.8)]">
                     {parent && <div className="mb-1 border-l-2 border-emerald-500/50 pl-2 text-xs opacity-75">{team(parent.team_id)?.gm_name}: {parent.body.slice(0, 80)}</div>}
                     <span className="whitespace-pre-wrap break-words">{highlight(m.body)}</span>
@@ -238,7 +242,7 @@ export function ChatPanel({ channel, compact, className = '' }: { channel: strin
       </div>
 
       {garryTyping && (
-        <div className="flex items-center gap-2 px-4 pb-1 text-xs text-emerald-300"><span className="animate-pulse">🎙️</span> Garry is typing…</div>
+        <div className="flex items-center gap-2 px-4 pb-1 text-xs text-emerald-300"><span className="animate-pulse">🎙️</span> {bot} is typing…</div>
       )}
       <div className="border-t border-white/[.07] bg-[#0b1222]/70 p-2 backdrop-blur-xl">
         {isGarry && !text && (
@@ -260,7 +264,7 @@ export function ChatPanel({ channel, compact, className = '' }: { channel: strin
         {showPoll && !muted && <PollComposer channel={postTo} onDone={() => setShowPoll(false)} />}
         {showChirps && (
           <div className="scroll-x mb-1 flex gap-1">
-            {CHIRPS.map((c) => <button key={c} className="chip shrink-0 py-1 text-xs" onClick={() => send(c)}>{c}</button>)}
+            {chirps.map((c) => <button key={c} className="chip shrink-0 py-1 text-xs" onClick={() => send(c)}>{c}</button>)}
           </div>
         )}
         {muted ? <div className="rounded-xl border border-white/10 bg-white/[.04] px-3 py-2.5 text-center text-sm text-mute">🔇 The commissioner has switched off {channel.startsWith('dm:') ? 'DMs' : 'chat'} for your spectator pass.</div> : (
@@ -269,7 +273,7 @@ export function ChatPanel({ channel, compact, className = '' }: { channel: strin
           {!isGarry && !channel.startsWith('dm:') && <button type="button" className={`btn-ghost h-10 w-10 shrink-0 p-0 ${showPoll ? 'text-sky-300' : ''}`} onClick={() => setShowPoll(!showPoll)} title="Start a poll"><BarChart3 size={18} /></button>}
           <textarea
             className="input max-h-32 min-h-10 flex-1 resize-none py-2" rows={1} value={text} maxLength={2000}
-            placeholder={isGarry ? 'Ask Garry anything…' : channel === 'draft' ? 'Chirp the picks…' : all ? (replyTo ? `Reply in ${tagOf(replyTo.channel).label}…` : 'Post to Trash Talk… (say “Garry” to ask him something)') : 'Talk trash… (say “Garry” to ask him something)'}
+            placeholder={isGarry ? `Ask ${bot} anything…` : channel === 'draft' ? 'Chirp the picks…' : all ? (replyTo ? `Reply in ${tagOf(replyTo.channel).label}…` : 'Post to Trash Talk… (say “Garry” to ask him something)') : 'Talk trash… (say “Garry” to ask him something)'}
             onChange={(e) => setText(e.target.value)}
             onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send(text); } }}
           />
