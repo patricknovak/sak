@@ -332,7 +332,7 @@ function GameSheet({ g, onClose, gmsIn, teamOf, ownerOf, inPool }: { g: Game | n
     let alive = true;
     const load = () => {
       hub<Detail>('game', { id: String(g.id) }).then((x) => { if (alive) setD(x); }, () => {});
-      supabase.from('league_games').select('player_id,fpts').eq('game_id', g.id)
+      supabase.from('player_games').select('player_id,fpts').eq('game_id', g.id)
         .then(({ data }) => { if (alive && data) setFp(new Map(data.map((r) => [r.player_id as number, Number(r.fpts)]))); });
     };
     load();

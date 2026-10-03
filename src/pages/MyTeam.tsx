@@ -66,7 +66,7 @@ export default function MyTeam() {
   const rosterKey = roster.map((x) => x.p.id).join(',');
   useEffect(() => {
     if (!roster.length) return;
-    const load = () => supabase.from('league_games').select('player_id,fpts,stats').eq('date', etToday()).in('player_id', roster.map((x) => x.p.id))
+    const load = () => supabase.from('player_games').select('player_id,fpts,stats').eq('date', etToday()).in('player_id', roster.map((x) => x.p.id))
       .then(({ data }) => setToday(new Map((data ?? []).map((d) => [d.player_id, { fpts: Number(d.fpts), stats: d.stats }]))));
     load();
     const i = setInterval(load, 60_000);
