@@ -7,7 +7,7 @@ import { fmtDate, fmtMoney, fmtPts } from '../lib/format';
 import { Section, TeamBadge, PageHeader } from '../components/ui';
 import type { Team } from '../lib/types';
 import { Trophy } from 'lucide-react';
-import { SEASONS } from '../data/history';
+import { useHistory } from '../lib/history';
 import { PLACES, prizes } from '../lib/prizes';
 import { hasFeature } from '../lib/features';
 import { PointsRace } from '../components/charts';
@@ -45,6 +45,7 @@ function Podium({ rows, caption }: { rows: { t?: Team; name: string; gm: string;
 
 export default function Standings() {
   const { standings, playoffs, cup, team, teams, me, league } = useLeague();
+  const lastSeason = useHistory().seasons[0];
   const brand = useBrand();
   const playoffsOn = playoffs.some((t) => Number(t.points) !== 0);
   const [view, setView] = useState<'regular' | 'playoffs' | 'cup'>(playoffsOn ? 'playoffs' : 'regular');
@@ -91,7 +92,7 @@ export default function Standings() {
       )}
       {scored && table.length >= 3
         ? <Podium caption={isCup ? `${bare(brand.trophy)} race right now` : isPo ? 'Playoff podium right now' : 'If the season ended today'} rows={table.slice(0, 3).map((s) => ({ t: team(s.team_id), name: team(s.team_id)?.name ?? '', gm: team(s.team_id)?.gm_name ?? '', pts: Number(s.points) }))} />
-        : view === 'regular' && <Podium caption={`${SEASONS[0].season} final podium`} rows={SEASONS[0].rows.slice(0, 3).map((r) => ({ t: teams.find((x) => x.name === r.team), name: r.team, gm: r.gm, pts: r.points }))} />}
+        : view === 'regular' && lastSeason && lastSeason.rows.length >= 3 && <Podium caption={`${lastSeason.season} final podium`} rows={lastSeason.rows.slice(0, 3).map((r) => ({ t: teams.find((x) => x.name === r.team), name: r.team, gm: r.gm, pts: r.points }))} />}
       <div className="grid items-start gap-5 xl:grid-cols-[minmax(0,1.35fr)_minmax(0,1fr)]">
       <div className="space-y-2">
       <StandingsTable rows={table} view={view} pot={useMoney ? pot : []} peter={useMoney && view === 'regular'} />
@@ -105,10 +106,10 @@ export default function Standings() {
       </Section>
       </div>
       {view === 'regular' && <Corrections />}
-      {view === 'regular' && (
-        <Section title={`Last season (${SEASONS[0].season})`}>
+      {view === 'regular' && lastSeason && (
+        <Section title={`Last season (${lastSeason.season})`}>
           <div className="card divide-y divide-white/[.06]">
-            {SEASONS[0].rows.map((r, i) => (
+            {lastSeason.rows.map((r, i) => (
               <div key={r.team} className="flex items-center gap-3 px-3 py-2 text-sm">
                 <span className="w-5 text-mute">{i + 1}</span><span className="flex-1">{r.team} <span className="text-mute">· {r.gm}</span></span>
                 <span>{fmtPts(r.points, 2)}</span>

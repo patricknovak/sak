@@ -3,7 +3,7 @@ import { PROVIDERS, SERVICES, playerFor } from '../lib/watch';
 import { useLeague } from '../lib/store';
 import { rpc, supabase } from '../lib/supabase';
 import { fmtMoney, fmtPts, NHL_TEAMS, ordinal } from '../lib/format';
-import { SEASONS, FRANCHISE_OF, type GM } from '../data/history';
+import { useHistory } from '../lib/history';
 import { Section, TeamBadge, Toggle, useAction, useToast } from '../components/ui';
 import type { GarryMemory, Team } from '../lib/types';
 import { PushCard } from '../components/PushCard';
@@ -28,6 +28,7 @@ export default function Profile() {
   const loadFile = () => { if (!me) return; supabase.from('garry_memory').select('*').eq('team_id', me.id).order('created_at', { ascending: false }).then(({ data }) => setFile((data ?? []) as GarryMemory[])); supabase.from('garry_state').select('persona').limit(1).maybeSingle().then(({ data }) => setMood(data?.persona ?? null)); };
   useEffect(loadFile, [me?.id]); // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => { if (me) setF(me); }, [me?.id]);
+  const history = useHistory();
   if (!me) return null;
 
   const save = () => run(async () => {
@@ -35,8 +36,9 @@ export default function Profile() {
     await refresh(['teams']);
   }, 'Profile saved');
 
-  const career = SEASONS.map((s) => {
-    const i = s.rows.findIndex((r) => FRANCHISE_OF[r.gm as GM] === me.id && (r.gm === me.gm_name || (me.id === 5 && r.gm === 'Dan')));
+  // the franchise's past seasons, under whichever GM ran it (a franchise that changed hands keeps its history)
+  const career = history.seasons.map((s) => {
+    const i = s.rows.findIndex((r) => r.teamId === me.id);
     return i < 0 ? null : { season: s.season, place: i + 1, of: s.rows.length, ...s.rows[i] };
   }).filter(Boolean) as { season: string; place: number; of: number; team: string; gm: string; points: number; prize?: number; peter?: boolean }[];
 

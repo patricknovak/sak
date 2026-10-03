@@ -8,7 +8,7 @@ import { ago, fmtDateTime, fmtPts, ordinal, readable } from '../lib/format';
 import { Countdown, Rank, Section, Stat, TeamBadge, TeamName, TeamStack } from '../components/ui';
 import { ArrowRight, ClipboardList, Lock, Megaphone, MessageCircle, Radio, Trophy } from 'lucide-react';
 import { PlayerRow, usePlayerSheet } from '../components/PlayerCard';
-import { SEASONS } from '../data/history';
+import { useHistory } from '../lib/history';
 import { PushCard } from '../components/PushCard';
 import { BankCard, BetResultsCard, NhlTopCard, TicketsCard } from '../components/HomeCards';
 import { bare, useBrand } from '../lib/brand';
@@ -60,13 +60,15 @@ export default function Home() {
     .map((r) => players.get(r.player_id)!).filter((p) => p && gamesByTeam(p.nhl_team));
   const current = picks.find((p) => p.overall === draft?.current_overall && p.season === draft?.season);
   const myPicks = picks.filter((p) => p.team_id === me?.id && p.season === draft?.season && p.overall && !p.player_id).sort((a, b) => a.overall! - b.overall!);
-  const lastChamp = SEASONS[0].rows[0];
+  const history = useHistory();
+  const lastSeason = history.seasons[0];
+  const lastChamp = lastSeason?.rows[0];
 
   const phase = league?.phase;
   const myBets = bets.filter((b) => b.creator_team === me?.id || b.opponent_team === me?.id || (b.status === 'open' && !b.opponent_team));
   const myTrades = trades.filter((t) => t.to_team === me?.id || t.from_team === me?.id || (t.parties ?? []).includes(me?.id ?? -1) || (me?.is_commish && t.status === 'accepted'));
 
-  const lastRows = SEASONS[0].rows;
+  const lastRows = lastSeason?.rows ?? [];
   const top = phase === 'season' ? Math.max(1, ...table.map((s) => Number(s.points))) : Math.max(1, ...lastRows.map((r) => r.points));
   // who's in the barn right now: GMs first, then spectators
   const onlineTeams = teams.filter((t) => online.has(t.id));
@@ -187,7 +189,7 @@ export default function Home() {
       )}
 
       <div className="grid grid-cols-1 gap-5 lg:grid-cols-2">
-        <Section icon={<Trophy size={17} className="text-gold" />} title={phase === 'season' ? (inPlayoffs ? '🏆 Playoff standings' : 'Standings') : `${SEASONS[0].season} final standings`} right={<More to="/standings" label="All" />}>
+        <Section icon={<Trophy size={17} className="text-gold" />} title={phase === 'season' ? (inPlayoffs ? '🏆 Playoff standings' : 'Standings') : lastSeason ? `${lastSeason.season} final standings` : 'Standings'} right={<More to="/standings" label="All" />}>
           {phase === 'season' ? <StandingsTable rows={table} view={inPlayoffs ? 'playoffs' : 'regular'} peter={!inPlayoffs} /> : (
           <div className="card divide-y divide-white/[.06] overflow-hidden">
             {lastRows.map((r, i) => {
@@ -206,7 +208,7 @@ export default function Home() {
               })}
           </div>
           )}
-          {phase !== 'season' && <p className="mt-2 px-1 text-xs text-mute">Defending champ: <span className="font-semibold text-gold">{lastChamp.team}</span> ({lastChamp.gm}). {brand.booby}: {lastRows[lastRows.length - 1]?.team}.</p>}
+          {phase !== 'season' && lastChamp && <p className="mt-2 px-1 text-xs text-mute">Defending champ: <span className="font-semibold text-gold">{lastChamp.team}</span> ({lastChamp.gm}). {brand.booby}: {lastRows[lastRows.length - 1]?.team}.</p>}
         </Section>
 
         <div className="space-y-5">

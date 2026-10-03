@@ -14,7 +14,7 @@ import { MoneySettings } from '../components/MoneySettings';
 import { hasFeature } from '../lib/features';
 import { Sparkline } from '../components/charts';
 import { PageHeader, Section, Sheet, TeamBadge, useAction } from '../components/ui';
-import { SEASONS } from '../data/history';
+import { useHistory } from '../lib/history';
 
 const abs = (n: number) => fmtMoney(Math.abs(Math.round(n * 100) / 100));
 const KIND: Record<string, string> = { entry: 'Entry', payout: 'Winnings', peter: 'Peter Punishment', acq_fee: 'Extra pickup', fine: 'Fine', adjust: 'Adjustment', credit: 'Credit' };
@@ -23,6 +23,7 @@ const METHODS = ['e-transfer', 'cash', 'netted', 'in the fund', 'other'];
 
 export default function Money() {
   const { me, team, teams, league, standings, playoffs, cup } = useLeague();
+  const { seasons: SEASONS } = useHistory();
   const brand = useBrand();
   const POTS = potsOf(brand);
   const peter = `${bare(brand.booby)} Punishment`;

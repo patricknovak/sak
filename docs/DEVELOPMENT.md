@@ -47,7 +47,8 @@ Reviewed 3 October 2026, after migrations 81 to 85 (Super Pools B1 to B4).
 **Compatibility debt to retire** once Phase 1's gate is passed and the edge functions read the league views:
 `player_games.fpts` and `players.proj / last_fp / rank` (SaK's numbers kept for old readers), `stat_corrections.old_fpts
 / new_fpts`, the `*_before_*` function signatures renamed out of the way, `run_auto_lineups` (superseded by
-nhl-sync's auto-pilot), `src/data/history.ts` (section 4), `fund.id` (the fund is keyed by league since migration 95).
+nhl-sync's auto-pilot), `src/data/history.ts` (section 4; no page reads it now, only the generator script), `fund.id` (the
+fund is keyed by league since migration 95).
 
 ## 4. The knowledge base: every league makes every league smarter
 
@@ -94,7 +95,9 @@ results of his own past calls, and what the wider pool knows.
 6. **League memory**: history into the database (part of B7) with SaK's past as the first import. Tables built
    (migration 89: `league_seasons`, `season_results`, `league_all_time_base` and the `league_all_time` view,
    `league_trophies`, `league_timeline`, `league_rule_text`), loaded with SaK's history from `history.ts`; the all-time
-   table matches the site's to the cent. Next: the site and Garry read them, imports write them.
+   table matches the site's to the cent. The site reads them (`useHistory()`, `src/lib/history.ts`): every page that
+   showed SaK's past reads the caller's league's rows, and a league with no past shows none. Next: Garry reads them,
+   imports write them.
 7. **Phase 2, people can join**: email sign-in, league by host, invites and the switcher, realtime and presence
    per league, phones, Vercel hosting, the Garry budget.
 8. **Pool intelligence** once a few leagues are playing, then the horizons in `docs/MARKET.md`.
