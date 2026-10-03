@@ -1754,3 +1754,53 @@ reset role;
 select set_config('request.jwt.claim.sub', '', false);
 update leagues set status = :'north_status' where id = :league2;
 select 'league pass', true;
+
+-- ───────────── money per league ─────────────
+reset role;
+select set_config('request.jwt.claim.sub', '', false);
+select count(*) as sak_gms from teams where league_id = 1 and role = 'gm' \gset
+select count(*) as north_gms from teams where league_id = :league2 and role = 'gm' \gset
+select count(*) as entries0 from ledger where kind = 'entry' \gset
+-- the north commissioner bills her league: her GMs only, to her league's fund
+select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-000000000099', false);
+set role authenticated;
+select commish_bill_entries() as north_billed \gset
+reset role;
+select pg_temp.expect('the north billed its own GMs only', :north_billed = :north_gms
+  and (select count(*) from ledger where kind = 'entry') = :entries0 + :north_gms);
+select pg_temp.expect('the north''s entries name the north''s fund', (select bool_and(description like '%to the NP Fund') from ledger l join teams t on t.id = l.team_id where l.kind = 'entry' and t.league_id = :league2));
+-- her regular-season payouts: her pool (her GMs), her teams, her brand's words
+select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-000000000099', false);
+set role authenticated;
+select commish_post_payouts('regular') as north_paid \gset
+reset role;
+select pg_temp.expect('north payouts go to north teams only', :north_paid = least(3, :north_gms)
+  and not exists (select 1 from ledger l join teams t on t.id = l.team_id where l.kind in ('payout', 'peter') and t.league_id = 1
+                  and l.season = (select season from league_rules where league_id = 1)));
+select pg_temp.expect('the north''s pool is its own GMs'' entries', (select min(amount) from ledger l join teams t on t.id = l.team_id where l.kind = 'payout' and t.league_id = :league2)
+  = (select -round((r.entry_fee - r.sak_fee) * :north_gms * (100 - r.playoff_share - r.cup_share) / 100 * (r.prize_split->>0)::numeric / 100, 2) from league_rules r where r.league_id = :league2));
+select pg_temp.expect('a league with no named prizes reads plain words', exists (select 1 from ledger l join teams t on t.id = l.team_id where l.kind = 'payout' and t.league_id = :league2 and l.description like '%Regular season champion (regular season): 1st place'));
+-- SaK's commissioner posts SaK's: the words SaK has always had
+select pg_temp.as_team(1);
+set role authenticated;
+select commish_post_payouts('regular') as sak_paid \gset
+reset role;
+select pg_temp.expect('SaK''s payouts keep SaK''s words, on SaK''s teams', :sak_paid = 3
+  and exists (select 1 from ledger l join teams t on t.id = l.team_id where l.kind = 'payout' and t.league_id = 1 and l.description like '% The Johnson (regular season): 1st place')
+  and (select count(*) from ledger l join teams t on t.id = l.team_id where l.kind = 'payout' and t.league_id = :league2) = :north_paid);
+select pg_temp.expect('the Peter keeps its name and SaK''s fund', (select bool_and(description like '%Peter Punishment: $1 a point behind second-last, to the SaK Fund')
+  from ledger where kind = 'peter' and season = (select season from league_rules where league_id = 1)) is not false);
+select pg_temp.as_team(1);
+set role authenticated;
+select pg_temp.raises('payouts post once', 'select commish_post_payouts(''regular'')', 'already posted');
+reset role;
+-- a spectator the north adds is the north's, with a new id from the sequence
+select max(id) as max_team from teams \gset
+select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-000000000099', false);
+set role authenticated;
+select commish_add_spectator('North Fan', 'north-fan@example.com', 'popcorn-5678') as north_fan \gset
+reset role;
+select pg_temp.expect('the north''s spectator is the north''s', (select league_id = :league2 and role = 'spectator' from teams where id = :north_fan) and :north_fan > 0
+  and (select reason from coin_ledger where team_id = :north_fan) = 'Opening balance: 1,000 coins');
+select set_config('request.jwt.claim.sub', '', false);
+select 'money per league', true;
