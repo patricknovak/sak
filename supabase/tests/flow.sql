@@ -1946,6 +1946,26 @@ select pg_temp.expect('and something actually moved', exists (
 update leagues set status = 'archived' where id = :shadow;
 select 'shadow league', true;
 
+-- ───────────── reads that must stay inside one league ─────────────
+-- the shadow league is still here (archived), with copies of SaK's team names: the sign-in list and the standings
+-- must still read one league, the way the service key (Garry, the edge functions) and the public key read them
+reset role;
+select set_config('request.jwt.claim.sub', '', false);
+select count(*) as sak_teams from teams where league_id = 1 \gset
+set role anon;
+select pg_temp.expect('the sign-in list is SaK''s teams only', (select count(*) from team_directory) = :sak_teams
+  and not exists (select 1 from team_directory where league_id <> 1));
+reset role;
+select set_config('app.league_id', '1', false);
+select pg_temp.expect('SaK''s standings rank SaK''s teams, read with the owner''s rights', (select count(*) from standings) = (select count(*) from teams where league_id = 1 and role = 'gm')
+  and not exists (select 1 from standings s join teams t on t.id = s.team_id where t.league_id <> 1)
+  and (select count(*) from playoff_standings) = (select count(*) from sak_cup_standings));
+select set_config('app.league_id', :'shadow', false);
+select pg_temp.expect('the shadow''s standings are its own, ranked from 1', (select count(*) from standings) = (select count(*) from teams where league_id = :shadow and role = 'gm')
+  and (select min(rank) from standings) = 1 and not exists (select 1 from standings s join teams t on t.id = s.team_id where t.league_id <> :shadow));
+select set_config('app.league_id', '', false);
+select 'reads inside one league', true;
+
 -- ───────────── the medium items ─────────────
 reset role;
 select set_config('request.jwt.claim.sub', '', false);
