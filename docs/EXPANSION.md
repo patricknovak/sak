@@ -244,7 +244,8 @@ profiles, B4 the league pass, B6 money and Fund, the medium SQL items. Each land
 coverage: both leagues draft the same player, score the same game with different weights, run every cron job,
 settle bets and the Book, post payouts, and neither sees or changes the other.
 *Gate:* a shadow league (a copy of SaK's teams under test accounts) runs alongside SaK for a full week of real
-games, and its standings, Book and Garry posts match what SaK's engine produces for its own rules.
+games, and its standings, Book and Garry posts match what SaK's engine produces for its own rules. The tooling is
+built (migrations 92 and 93: `open_shadow_league`, `shadow_sync` every minute, `shadow_report`).
 
 **Phase 2, people can join.** B5 sign-in by email and league by host, invites and the switcher, realtime and
 presence per league, B7 brand and history per league, B8 phones, Vercel hosting, the platform `create_league`.

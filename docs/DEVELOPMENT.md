@@ -77,8 +77,11 @@ results of his own past calls, and what the wider pool knows.
    after the phone check.
 2. **The delivery pipeline.** Test workflow (done), direct database access, function deploys from CI, the
    staging decision.
-3. **Start the shadow league** (Phase 1's gate): a copy of SaK's teams under test accounts, running alongside
-   for a week of real games while the next steps are built. It is the real proof that B1 to B4 hold.
+3. **Start the shadow league** (Phase 1's gate): a copy of SaK's teams, running alongside for a week of real games
+   while the next steps are built. It is the real proof that B1 to B4 hold. Built (migrations 92 and 93):
+   `open_shadow_league(1, 'sak-shadow')` makes it (SaK's rules and profile, a team per GM team, the same rosters,
+   active); `shadow_sync()` mirrors rosters and slots every minute; `shadow_report(league)` lays each day's points
+   side by side with the difference, which must be zero from its first full day.
 4. **The prediction log**, small and early (migration 87, built): `predictions`, written each morning for every
    rostered player playing that night (`predict_tonight`) and scored the next morning on the league's own points
    (`score_predictions`), with `prediction_accuracy` by week and `book_calibration` (the Book's odds against what

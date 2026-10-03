@@ -1909,3 +1909,39 @@ select r.player_id as sys_p, r.slot as sys_slot from rosters r where r.league_id
 update rosters set slot = 'IR' where player_id = :sys_p and league_id = 1;
 update rosters set slot = :'sys_slot' where player_id = :sys_p and league_id = 1;
 select 'system lineup change', true;
+
+-- ───────────── the shadow league ─────────────
+reset role;
+select set_config('request.jwt.claim.sub', '', false);
+select open_shadow_league(1, 'sak-shadow') as shadow \gset
+select pg_temp.expect('the shadow has SaK''s GM teams and rosters', (select count(*) from teams where league_id = :shadow) = (select count(*) from teams where league_id = 1 and role = 'gm')
+  and (select count(*) from rosters where league_id = :shadow) = (select count(*) from rosters r join teams t on t.id = r.team_id where t.league_id = 1 and t.role = 'gm')
+  and (select profile_id from league_rules where league_id = :shadow) = (select profile_id from league_rules where league_id = 1));
+-- a SaK GM moves a player; the next sync mirrors it
+select r.player_id as sh_p, r.team_id as sh_t from rosters r where r.league_id = 1 and r.slot = 'BN' order by r.player_id limit 1 \gset
+update rosters set slot = 'IR' where player_id = :sh_p and league_id = 1;
+select shadow_sync() as sh_synced \gset
+select pg_temp.expect('the sync mirrors a lineup change', :sh_synced >= 1
+  and (select slot from rosters where league_id = :shadow and player_id = :sh_p) = 'IR'
+  and (select (perms->>'shadow_of')::int from teams where id = (select team_id from rosters where league_id = :shadow and player_id = :sh_p)) = :sh_t);
+update rosters set slot = 'BN' where player_id = :sh_p and league_id = 1;
+select shadow_sync();
+-- a game is played: every team and its shadow gain exactly the same points (snapshots first, so the shadow's
+-- backfill of games that started before it existed isn't counted as the new game's)
+select take_snapshots();
+create temp table shadow_before as select * from shadow_report(:shadow);
+select p.nhl_team as sh_club from rosters r join players p on p.id = r.player_id where r.league_id = 1 and r.slot not in ('BN', 'IR') and p.pos <> 'G'
+  and p.nhl_team is not null order by r.player_id limit 1 \gset
+insert into games (id, date, start_utc, home, away, state) values (996, today_et() - 1, now() - interval '2 hours', :'sh_club', 'SSS', 'LIVE');
+select take_snapshots();
+insert into player_games (game_id, player_id, date, stats)
+  select 996, p.id, today_et() - 1, '{"g":1,"a":1,"sog":3,"hit":2}' from players p where p.nhl_team = :'sh_club' and p.pos <> 'G';
+select pg_temp.expect('the game counted', exists (select 1 from lineup_snapshots where game_id = 996 and league_id = :shadow));
+select pg_temp.expect('original and shadow moved together', not exists (
+  select 1 from shadow_report(:shadow) a left join shadow_before b on b.date = a.date and b.team = a.team
+  where a.diff is distinct from coalesce(b.diff, 0)));
+select pg_temp.expect('and something actually moved', exists (
+  select 1 from shadow_report(:shadow) a left join shadow_before b on b.date = a.date and b.team = a.team
+  where a.original is distinct from coalesce(b.original, 0)));
+update leagues set status = 'archived' where id = :shadow;
+select 'shadow league', true;
