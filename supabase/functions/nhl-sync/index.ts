@@ -459,8 +459,19 @@ async function autoLineupsFor(lid: number) {
   return { teams: todo.length, skipped_manual: teams.length - todo.length, moves: out };
 }
 
+// the heavy tasks (every NHL roster, the projection model, weeks of box-score corrections) run for the scheduler,
+// which sends the platform's admin key; the public key alone can't start them
+const HEAVY = new Set(['players', 'projections', 'corrections']);
+async function adminCall(req: Request) {
+  const key = req.headers.get('x-admin-key');
+  if (!key) return false;
+  const { data } = await db.rpc('admin_key_ok', { p_key: key });
+  return data === true;
+}
+
 Deno.serve(async (req) => {
   const task = new URL(req.url).searchParams.get('task') ?? 'scores';
+  if (HEAVY.has(task) && !(await adminCall(req))) return Response.json({ task, ok: false, error: 'This task needs the platform key' }, { status: 403 });
   try {
     const result =
       task === 'schedule' ? await schedule()
