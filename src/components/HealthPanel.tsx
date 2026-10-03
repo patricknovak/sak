@@ -47,7 +47,7 @@ export function HealthPanel() {
               ].map(([k, v]) => <div key={k} className="rounded-lg bg-white/[.04] px-2 py-1.5"><div className="text-[10px] text-mute">{k}</div><div className="font-semibold">{v}</div></div>)}
             </div>
             {h.last_error && <div className="mt-2 truncate rounded-lg bg-white/[.04] px-2 py-1.5 font-mono text-[11px] text-amber-200" title={h.last_error}>Last error: {h.last_error}</div>}
-            <div className="mt-3 overflow-x-auto">
+            {h.jobs.length > 0 && <div className="mt-3 overflow-x-auto">
               <table className="w-full text-xs">
                 <thead className="text-mute"><tr><th className="py-1 text-left font-semibold">Scheduled job</th><th className="text-left font-semibold">Schedule (UTC)</th><th className="text-left font-semibold">Last run</th><th className="text-left font-semibold">Result</th></tr></thead>
                 <tbody className="divide-y divide-white/[.05]">
@@ -61,7 +61,7 @@ export function HealthPanel() {
                   ))}
                 </tbody>
               </table>
-            </div>
+            </div>}
           </>
         )}
       </div>
