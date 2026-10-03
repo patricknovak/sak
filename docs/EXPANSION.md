@@ -192,6 +192,13 @@ the last; push titles say "SAK Superleague"; `respond_trade` notifies every leag
 (`push` with a notification id) is open to the public key.
 *Fix:* key `(endpoint, team_id)`; title and link from the league's brand and host; commissioner of the trade's
 league only; push sends behind the admin key or a signed trigger.
+*Done (migration 100, October 2026).* `push_subscriptions` is keyed `(endpoint, team_id)`: one phone carries a row per
+league, and within a league it belongs to one team (signing in as another team of the same league moves it). The
+push function titles each alert with the league's name (SaK's reads "SAK Superleague" as before) and links to the
+league's domain when it has one; the notifications trigger sends the admin key through `_edge_headers(true)` and the
+function refuses a replay without it (a GM's test push still runs on their sign-in, for the team of the league
+they're in). `respond_trade` already told only the trade's league's commissioner (migration 80). Left for the
+switcher: turning alerts off in one league unsubscribes the browser for all of them.
 
 ## 5. High and medium findings (after the blockers)
 

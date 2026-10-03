@@ -2089,6 +2089,36 @@ reset role;
 select set_config('request.jwt.claim.sub', '', false);
 select 'counter-offers', true;
 
+-- ───────────── phones in more than one league (B8) ─────────────
+-- one phone, a SaK GM and the north's commissioner: each league keeps its own row, so both get their alerts
+reset role;
+select pg_temp.as_team(1);
+set role authenticated;
+select push_subscribe('https://push.example/phone-1', 'k', 'a', 'test phone');
+reset role;
+select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-000000000099', false);
+set role authenticated;
+select push_subscribe('https://push.example/phone-1', 'k', 'a', 'test phone');
+select pg_temp.expect('a GM sees only their own devices', push_device_count() = 1);
+reset role;
+select pg_temp.expect('one phone carries a row per league', (select count(*) from push_subscriptions where endpoint = 'https://push.example/phone-1') = 2
+  and exists (select 1 from push_subscriptions where endpoint = 'https://push.example/phone-1' and team_id = 1 and league_id = 1)
+  and exists (select 1 from push_subscriptions where endpoint = 'https://push.example/phone-1' and team_id = 99 and league_id = :league2));
+-- the same phone signed in as another SaK team moves over within SaK; the north's row stays
+select pg_temp.as_team(2);
+set role authenticated;
+select push_subscribe('https://push.example/phone-1', 'k2', 'a2', 'test phone');
+select push_subscribe('https://push.example/phone-1', 'k2', 'a2', 'test phone');
+reset role;
+select pg_temp.expect('within a league a phone belongs to one team', (select array_agg(team_id order by team_id) from push_subscriptions where endpoint = 'https://push.example/phone-1') = array[2, 99]);
+-- a notification still starts a push, with the scheduler's key
+select pg_temp.expect('the push trigger sends the platform key', (select prosrc from pg_proc where proname = '_push_on_notify') like '%_edge_headers(true)%');
+insert into notifications (team_id, kind, body, link) values (2, 'trade', 'test push', '/trades');
+delete from push_subscriptions where endpoint = 'https://push.example/phone-1';
+delete from notifications where body = 'test push';
+select set_config('request.jwt.claim.sub', '', false);
+select 'push per league', true;
+
 -- ───────────── trades in the prediction log ─────────────
 reset role;
 select set_config('request.jwt.claim.sub', '', false);

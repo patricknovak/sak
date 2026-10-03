@@ -1,6 +1,8 @@
 // Sends web push notifications.
-//   POST {notification: id}  from the notifications trigger: pushes that row to its team's devices
+//   POST {notification: id}  from the notifications trigger (with the platform's admin key): pushes that row to its
+//                            team's devices
 //   POST {test: true}        from a signed-in GM: sends a test push to their own devices
+// Each push is titled with its league's name and opens that league's site.
 // The VAPID private key comes from Supabase Vault through _vapid_private() (service role only).
 import { createClient } from 'jsr:@supabase/supabase-js@2';
 import webpush from 'npm:web-push@3.6.7';
@@ -9,7 +11,26 @@ const URL_ = Deno.env.get('SUPABASE_URL')!;
 const db = createClient(URL_, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!, { auth: { persistSession: false } });
 const VAPID_PUBLIC = 'BEz86QWfjI0MlV7iV33KCnUSAahyR9UGXZ3O4MbbVil9vzmYXkoG6i_DhhWP8SYhjdwMcjVxCvGeU50IWMW2P20';
 const SITE = 'https://patricknovak.github.io/sak/';
-const cors = { 'Access-Control-Allow-Origin': '*', 'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type' };
+const cors = { 'Access-Control-Allow-Origin': '*', 'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-league' };
+
+// the league a team plays in, as a push names it: "SAK Superleague" from SaK's wordmark, the league's name
+// otherwise, and its own site when it has a domain
+async function leagueOf(teamId: number) {
+  const { data: t } = await db.from('teams').select('league_id').eq('id', teamId).single();
+  const { data: l } = await db.from('leagues').select('name,domain,brand').eq('id', t?.league_id ?? 1).single();
+  const w = (l?.brand as { wordmark?: { a?: string; b?: string } } | null)?.wordmark;
+  const word = (x: string) => x.charAt(0).toUpperCase() + x.slice(1).toLowerCase();
+  const name = w?.a ? [w.a, w.b ? word(w.b) : ''].filter(Boolean).join(' ') : (l?.name ?? 'Super Pools');
+  return { name, site: l?.domain ? `https://${l.domain}/` : SITE };
+}
+
+// the notifications trigger sends the platform's admin key; the public key alone can't replay a notification
+async function adminCall(req: Request) {
+  const key = req.headers.get('x-admin-key');
+  if (!key) return false;
+  const { data } = await db.rpc('admin_key_ok', { p_key: key });
+  return data === true;
+}
 
 let ready = false;
 async function init() {
@@ -46,24 +67,29 @@ Deno.serve(async (req) => {
     const body = await req.json().catch(() => ({}));
 
     if (body.test) {
-      // who is asking? use their JWT to find their team
+      // who is asking? their sign-in names their team in the league they're in (a GM can be in more than one)
       const jwt = (req.headers.get('Authorization') ?? '').replace('Bearer ', '');
       const { data: u } = await db.auth.getUser(jwt);
       if (!u?.user) return new Response(JSON.stringify({ error: 'Sign in first' }), { status: 401, headers: cors });
-      const { data: t } = await db.from('teams').select('id,gm_name').eq('user_id', u.user.id).single();
+      const asUser = createClient(URL_, Deno.env.get('SUPABASE_ANON_KEY')!, { auth: { persistSession: false }, global: { headers: { Authorization: `Bearer ${jwt}`, ...(req.headers.get('x-league') ? { 'x-league': req.headers.get('x-league')! } : {}) } } });
+      const { data: mine } = await asUser.rpc('my_team');
+      const { data: t } = mine ? await db.from('teams').select('id,gm_name').eq('id', mine).single() : { data: null };
       if (!t) return new Response(JSON.stringify({ error: 'No team' }), { status: 404, headers: cors });
-      const r = await sendToTeam(t.id, { title: '🏒 SAK Superleague', body: `Notifications are on, ${t.gm_name}. See you on draft night.`, url: SITE, tag: 'test' });
+      const lg = await leagueOf(t.id);
+      const r = await sendToTeam(t.id, { title: `🏒 ${lg.name}`, body: `Notifications are on, ${t.gm_name}. See you on draft night.`, url: lg.site, tag: 'test' });
       return new Response(JSON.stringify(r), { headers: { ...cors, 'Content-Type': 'application/json' } });
     }
 
     const id = Number(body.notification);
     if (!id) return new Response('bad request', { status: 400, headers: cors });
+    if (!(await adminCall(req))) return new Response('forbidden', { status: 403, headers: cors });
     const { data: n } = await db.from('notifications').select('id,team_id,kind,body,link').eq('id', id).single();
     if (!n) return new Response('not found', { status: 404, headers: cors });
+    const lg = await leagueOf(n.team_id);
     const r = await sendToTeam(n.team_id, {
-      title: `${ICONS[n.kind] ?? '🔔'} SAK Superleague`,
+      title: `${ICONS[n.kind] ?? '🔔'} ${lg.name}`,
       body: n.body,
-      url: SITE + '#' + (n.link ?? '/'),
+      url: lg.site + '#' + (n.link ?? '/'),
       tag: n.kind === 'draft' ? 'draft-clock' : `n${n.id}`,
       urgent: n.kind === 'draft',
     });
