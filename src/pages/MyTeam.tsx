@@ -42,16 +42,17 @@ export default function MyTeam() {
   const liveOk = windows.size > 0;
   const [tf, setTf] = useSticky<Timeframe>('myteam:tf', league?.phase === 'season' ? 'season' : 'last');
   const tfOk: Timeframe = !liveOk && TIMEFRAMES.find((x) => x.k === tf)?.live ? 'last' : tf;
-  const statLine = (p: Player) => {
+  // the stat line under each player, as pieces that wrap on a narrow phone rather than being cut off; fantasy points
+  // first, the number that counts
+  const statLine = (p: Player): string[] | null => {
     const l = lineFor(p, tfOk, windows.get(p.id), season.get(p.id));
     if (!l || tfOk === 'proj' || tfOk === 'ros') return null;
     const t = l.totals;
-    if (!l.gp) return 'no games';
-    // total fantasy points first: the stat line truncates on a phone, and this is the number that counts
+    if (!l.gp) return ['no games'];
     const fp = `${fmtPts(l.fp, 1)} FP`;
     return p.pos === 'G'
-      ? `${fp} · ${l.gp} GP · ${t.w ?? 0}-${t.l ?? 0}-${t.otl ?? 0} · ${t.sa ? ((t.sv ?? 0) / t.sa).toFixed(3).replace(/^0/, '') : '–'} SV% · ${((t.ga ?? 0) / l.gp).toFixed(2)} GAA`
-      : `${fp} · ${l.gp} GP · ${t.g ?? 0} G ${t.a ?? 0} A · ${t.pm != null && t.pm > 0 ? '+' : ''}${t.pm ?? 0} · ${t.sog ?? 0} SOG · ${t.hit ?? 0} H ${t.blk ?? 0} B`;
+      ? [fp, `${l.gp} GP`, `${t.w ?? 0}-${t.l ?? 0}-${t.otl ?? 0}`, `${t.sa ? ((t.sv ?? 0) / t.sa).toFixed(3).replace(/^0/, '') : '–'} SV%`, `${((t.ga ?? 0) / l.gp).toFixed(2)} GAA`]
+      : [fp, `${l.gp} GP`, `${t.g ?? 0} G ${t.a ?? 0} A`, `${t.pm != null && t.pm > 0 ? '+' : ''}${t.pm ?? 0} +/-`, `${t.sog ?? 0} SOG`, `${t.hit ?? 0} H ${t.blk ?? 0} B`];
   };
   const [tools, setTools] = useState(false);
 
@@ -163,37 +164,48 @@ export default function MyTeam() {
     const live = !!g && ['LIVE', 'CRIT'].includes(g.state);
     const done = !!g && ['OFF', 'FINAL'].includes(g.state);
     const starter = slot !== 'BN' && slot !== 'IR';
+    const parts = x ? statLine(x.p) : null;
     return (
       <div onClick={() => tap(slot, x)}
-        className={`flex cursor-pointer items-center gap-2 border-l-[3px] px-2.5 py-2 transition ${isSel ? 'bg-sky-500/20 ring-1 ring-inset ring-sky-400' : target ? 'bg-emerald-500/10 ring-1 ring-inset ring-emerald-500/60' : ''} ${offseason || !x ? 'border-transparent' : live ? 'border-goal' : playing ? 'border-emerald-400/80' : starter ? 'border-white/15' : 'border-transparent'}`}>
-        <Pos p={slot} className="w-10" />
+        className={`flex cursor-pointer items-start gap-2 border-l-[3px] px-2 py-2 transition sm:px-2.5 ${isSel ? 'bg-sky-500/20 ring-1 ring-inset ring-sky-400' : target ? 'bg-emerald-500/10 ring-1 ring-inset ring-emerald-500/60' : ''} ${offseason || !x ? 'border-transparent' : live ? 'border-goal' : playing ? 'border-emerald-400/80' : starter ? 'border-white/15' : 'border-transparent'}`}>
+        <Pos p={slot} className="mt-2 w-9 shrink-0 sm:w-10" />
         {x ? (
           <>
-            <div className="min-w-0 flex-1 overflow-hidden"><PlayerRow p={x.p} dim={!offseason && starter && !playing} onInfo={() => setInfo(x.p.id)} />{statLine(x.p) && <div className="num mt-0.5 truncate pl-12 text-[10px] text-slate-400">{statLine(x.p)}</div>}</div>
-            {lk && <span title="Locked: his game has started. Lineup changes reopen tomorrow." className="text-xs">🔒</span>}
-            <button aria-label={`About ${x.p.name}`} title="Injury, game-day status, news and stats"
-              onClick={(e) => { e.stopPropagation(); setInfo(x.p.id); }}
-              className="grid h-7 w-7 shrink-0 place-items-center rounded-lg text-sm text-sky-300 transition hover:bg-white/10">ⓘ</button>
-            {mine && !offseason && (
-              <button aria-label={`Pin ${x.p.name}`} title={x.r.pin === 'start' ? 'Pinned: always start' : x.r.pin === 'bench' ? 'Pinned: never start' : 'Pin: tap to always start / never start'}
-                onClick={(e) => { e.stopPropagation(); cyclePin(x); }}
-                className={`grid h-7 w-7 shrink-0 place-items-center rounded-lg text-xs transition hover:bg-white/10 ${x.r.pin ? '' : 'opacity-30'}`}>
-                {x.r.pin === 'start' ? '📌' : x.r.pin === 'bench' ? '🚫' : '📍'}
-              </button>
-            )}
-            <div className="min-w-14 shrink-0 text-right">
+            <div className="min-w-0 flex-1">
+              <PlayerRow p={x.p} wrap dim={!offseason && starter && !playing} onInfo={() => setInfo(x.p.id)} />
+              {parts && (
+                <div className="num mt-1 flex flex-wrap gap-x-2 gap-y-0.5 pl-11 text-[11px] leading-tight text-slate-400">
+                  {parts.map((t, i) => <span key={i} className={`whitespace-nowrap ${i === 0 ? 'font-semibold text-slate-200' : ''}`}>{t}</span>)}
+                </div>
+              )}
+            </div>
+            {/* the info and pin buttons stacked in a narrow column, so the player's details keep the width */}
+            <div className="-my-0.5 flex shrink-0 flex-col items-center">
+              <button aria-label={`About ${x.p.name}`} title="Injury, game-day status, news and stats"
+                onClick={(e) => { e.stopPropagation(); setInfo(x.p.id); }}
+                className="grid h-7 w-7 place-items-center rounded-lg text-sm text-sky-300 transition hover:bg-white/10">ⓘ</button>
+              {mine && !offseason && (
+                <button aria-label={`Pin ${x.p.name}`} title={x.r.pin === 'start' ? 'Pinned: always start' : x.r.pin === 'bench' ? 'Pinned: never start' : 'Pin: tap to always start / never start'}
+                  onClick={(e) => { e.stopPropagation(); cyclePin(x); }}
+                  className={`grid h-7 w-7 place-items-center rounded-lg text-xs transition hover:bg-white/10 ${x.r.pin ? '' : 'opacity-30'}`}>
+                  {x.r.pin === 'start' ? '📌' : x.r.pin === 'bench' ? '🚫' : '📍'}
+                </button>
+              )}
+            </div>
+            <div className="flex shrink-0 flex-col items-end gap-1">
               {offseason ? <div className="text-sm font-semibold">{fmtPts(x.p.last_fp, 0)}</div>
                 : tp || done ? <div className={`text-sm font-semibold ${tp && tp.fpts > 0 ? 'text-emerald-300' : ''}`}>{fmtPts(tp?.fpts ?? 0, 1)}{done && <span className="ml-1 text-[10px] font-normal text-mute">final</span>}</div>
                 : live ? <div className="text-xs font-semibold text-goal">● LIVE</div>
-                : playing ? <div className="inline-block rounded-md bg-emerald-500/15 px-1.5 py-0.5 text-[11px] font-semibold text-emerald-200">{fmtTime(g!.start_utc)}</div>
-                : <div className="inline-block rounded-md bg-white/[.06] px-1.5 py-0.5 text-[11px] text-mute">No game</div>}
+                : playing ? <div className="inline-block whitespace-nowrap rounded-md bg-emerald-500/15 px-1.5 py-0.5 text-[11px] font-semibold text-emerald-200">{fmtTime(g!.start_utc)}</div>
+                : <div className="inline-block whitespace-nowrap rounded-md bg-white/[.06] px-1.5 py-0.5 text-[11px] text-mute">No game</div>}
               {offseason
                 ? <div className="whitespace-nowrap text-[10px] text-mute">’25-26</div>
-                : <div className="whitespace-nowrap text-[10px] text-mute">{fmtPts(season.get(x.p.id)?.fpts ?? 0, 0)} szn · {weekGames(x.p.nhl_team)}g wk</div>}
+                : <div className="text-right text-[10px] leading-tight text-mute"><div className="whitespace-nowrap">{fmtPts(season.get(x.p.id)?.fpts ?? 0, 0)} szn</div><div className="whitespace-nowrap">{weekGames(x.p.nhl_team)}g this wk</div></div>}
+              {lk && <span title="Locked: his game has started. Lineup changes reopen tomorrow." className="text-xs">🔒</span>}
             </div>
           </>
         ) : (
-          <div className={`flex-1 text-sm ${target ? 'font-semibold text-emerald-300' : 'text-mute'}`}>{target ? 'Move here' : 'Empty'}</div>
+          <div className={`flex-1 self-center text-sm ${target ? 'font-semibold text-emerald-300' : 'text-mute'}`}>{target ? 'Move here' : 'Empty'}</div>
         )}
       </div>
     );
