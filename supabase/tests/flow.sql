@@ -1902,3 +1902,10 @@ select pg_temp.raises('a SaK GM short of coins hears St. Patrick coins', 'select
 reset role;
 select set_config('request.jwt.claim.sub', '', false);
 select 'SQL words from the brand', true;
+-- ───────────── system lineup changes need nobody signed in ─────────────
+reset role;
+select set_config('request.jwt.claim.sub', '', false);
+select r.player_id as sys_p, r.slot as sys_slot from rosters r where r.league_id = 1 and r.slot = 'BN' order by r.player_id limit 1 \gset
+update rosters set slot = 'IR' where player_id = :sys_p and league_id = 1;
+update rosters set slot = :'sys_slot' where player_id = :sys_p and league_id = 1;
+select 'system lineup change', true;
