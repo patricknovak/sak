@@ -1965,3 +1965,25 @@ select pg_temp.expect('the shadow''s standings are its own, ranked from 1', (sel
   and (select min(rank) from standings) = 1 and not exists (select 1 from standings s join teams t on t.id = s.team_id where t.league_id <> :shadow));
 select set_config('app.league_id', '', false);
 select 'reads inside one league', true;
+
+-- ───────────── the medium items ─────────────
+reset role;
+select set_config('request.jwt.claim.sub', '', false);
+-- a team's row never moves to another league's team, whatever path tries
+select r.player_id as sak_player from rosters r where r.league_id = 1 order by r.player_id limit 1 \gset
+select min(id) as north_team from teams where league_id = :league2 and role = 'gm' \gset
+select pg_temp.raises('a roster row can''t move leagues', format('update rosters set team_id = %s where league_id = 1 and player_id = %s', :north_team, :sak_player), 'another league');
+select id as sak_pick from draft_picks where league_id = 1 order by id limit 1 \gset
+select pg_temp.raises('a draft pick can''t move leagues', format('update draft_picks set team_id = %s where id = %s', :north_team, :sak_pick), 'another league');
+-- the north commissioner's status panel: the league's part, not the platform's jobs or errors
+select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-000000000099', false);
+set role authenticated;
+select pg_temp.expect('a league''s commissioner sees no platform jobs or errors', (select h->'jobs' = '[]'::jsonb and h->'last_error' = 'null'::jsonb and h ? 'phase' from (select commish_health() h) x));
+-- her custom market is her league's, named outright
+select commish_market('{"title": "Who scores first?", "options": [{"label": "Us", "odds": 1.9}, {"label": "Them", "odds": 1.9}]}') as north_market \gset
+reset role;
+select pg_temp.expect('a commissioner''s market is her league''s', (select league_id from markets where id = :north_market) = :league2);
+select pg_temp.expect('the scheduler''s headers are the scheduler''s', not has_function_privilege('authenticated', 'public._edge_headers(boolean)', 'execute')
+  and not has_function_privilege('anon', 'public._edge_headers(boolean)', 'execute'));
+select set_config('request.jwt.claim.sub', '', false);
+select 'medium items', true;
