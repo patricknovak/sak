@@ -42,8 +42,10 @@ Two things in one repo:
 - Points: the NHL data is shared, the scoring isn't. `player_games.fpts` and `players.proj / last_fp / rank` are
   SaK's numbers kept for old readers; read a league's points through `league_games`, `league_players`,
   `player_season`, `player_windows` (each league's scoring profile, `scoring_profiles`).
-- Hosting: GitHub Pages from `main` (`.github/workflows/deploy.yml`, builds on push). The landing page for
-  Super Pools is `landing/index.html`, to be hosted on Vercel.
+- Hosting: today GitHub Pages from `main` (`.github/workflows/deploy.yml`, builds on push), and the Super Pools landing
+  page (`landing/index.html`) on Vercel. Decided (3 October 2026): both move to **Cloudflare Pages** (free for commercial
+  use, DNS already on Cloudflare, wildcard subdomains for league by host); never plan new work on Vercel. The move is
+  in `docs/EXPANSION.md`.
 
 ## Time and the league day
 
@@ -142,6 +144,10 @@ wasn't applied); #75 was the hotfix.
 - Comments explain the league rule or the reason, in plain language, in the voice of the existing code.
 - UI copy is hockey-league plain English, phone-first (390 px wide) and checked with a screenshot before
   a PR (Playwright with the pre-installed Chromium; sign in as a test team, never as a real GM).
+- Every feature is built in the most beautiful, visually appealing way we can (Patrick's standing rule): it looks like a
+  premium sports app, fits a small phone (check 360 and 390 px) without cutting off what a GM needs, wraps rather than
+  truncates key facts, and uses the league's brand and the existing card, chip and colour language. A plain or cramped
+  first version is not done.
 - Garry posts to league chat only when Patrick asks. Bot posts are `messages` rows with `kind='bot'` and
   `meta.bot='garry'`.
 - Never modify real GMs' rosters, lineups, plans, bets or coins unless asked. Browser checks against

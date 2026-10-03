@@ -102,7 +102,7 @@ results of his own past calls, and what the wider pool knows.
    record book (each season's champion and last place, titles by GM). Next: imports write them.
 7. **Phase 2, people can join** (under way: email sign-in with reset codes, invites, the join page and the switcher done
    3 October 2026, migrations 103 to 105): league by host, realtime and presence
-   per league, phones, Vercel hosting, the Garry budget.
+   per league, phones, Cloudflare Pages hosting (decided 3 October 2026), the Garry budget.
 8. **Pool intelligence** once a few leagues are playing, then the horizons in `docs/MARKET.md`.
 
 ## 6. The working method
