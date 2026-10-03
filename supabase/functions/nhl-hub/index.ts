@@ -8,6 +8,9 @@
 //   ?task=news                      NHL.com stories + Sportsnet and ESPN headlines, newest first
 //   ?task=leaders                   league leaders: skaters (points, goals, assists, +/-, PIM, PP/SH goals, faceoffs) and goalies
 //   ?task=team&abbrev=EDM           one club: roster, this week's games, season stats for every player
+//   ?task=lines&id=<gameId>         each club's lines for a game: four forward lines, three defence pairs and the goalies,
+//                                   worked out from the NHL's shift charts (a game that has started: its own 5-on-5; one
+//                                   that hasn't: each club's last game)
 //   ?task=x                         NHL insiders on X: through the X API when X_BEARER_TOKEN is set, otherwise through
 //                                   Grok's X search with the XAI_API_KEY the league already uses for Garry (shared cache
 //                                   in hub_cache so the whole league costs one search every few minutes)
@@ -18,7 +21,7 @@ const db = createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE_SE
 
 const cors = { 'Access-Control-Allow-Origin': '*', 'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type', 'Access-Control-Allow-Methods': 'GET, POST, OPTIONS' };
 const cache = new Map<string, { at: number; ttl: number; body: unknown }>();
-const TTL = { scores: 20_000, standings: 300_000, schedule: 600_000, game: 20_000, news: 600_000, leaders: 600_000, team: 300_000, x: 120_000 };
+const TTL = { lines: 3_600_000, scores: 20_000, standings: 300_000, schedule: 600_000, game: 20_000, news: 600_000, leaders: 600_000, team: 300_000, x: 120_000 };
 // How old the league-wide X feed may get before the next request refreshes it. Each refresh is a paid X search
 // (xAI bills per post it reads), so it's ten minutes from late morning to 1 am Eastern, when the news breaks and
 // people are looking, and an hour overnight.
@@ -323,6 +326,111 @@ async function club(abbrev: string) {
   };
 }
 
+// ── a game's lines
+// The NHL publishes no line combinations, but its shift charts say who was on the ice every second. Two players who
+// spent the most 5-on-5 time together are on the same line: forwards group into trios by shared time (seeded by the
+// forward who played most), defencemen into pairs. The box score says who plays centre and the wings; the club roster
+// says which way a defenceman shoots (left D, right D). A game that has started shows its own lines; one that hasn't
+// shows each club's lines from its last game, which is what the club usually dresses.
+interface LinePlayer { id: number; name: string; num: number; pos: string; toi: number }
+const secs = (t: string) => { const [m, s] = String(t ?? '0:0').split(':').map(Number); return (m || 0) * 60 + (s || 0); };
+async function clubLines(gameId: number, abbr: string) {
+  const [shiftJ, box, roster, pbp] = await Promise.all([
+    fetch(`https://api.nhle.com/stats/rest/en/shiftcharts?cayenneExp=gameId=${gameId}`, { headers: { 'user-agent': 'sak-league' } }).then((r) => (r.ok ? r.json() : { data: [] })),
+    get(`/gamecenter/${gameId}/boxscore`),
+    get(`/roster/${abbr}/current`).catch(() => null),
+    get(`/gamecenter/${gameId}/play-by-play`).catch(() => null),
+  ]);
+  // every faceoff: when it happened and who took it (a line with two natural centres is centred by whoever takes the
+  // draws while that line is on the ice)
+  const faceoffs = ((pbp?.plays ?? []) as any[]).filter((pl) => pl.typeDescKey === 'faceoff')
+    .map((pl) => ({ t: (Number(pl.periodDescriptor?.number ?? 1) - 1) * 1200 + secs(pl.timeInPeriod), ids: [pl.details?.winningPlayerId, pl.details?.losingPlayerId] as number[] }));
+  const sideKey = box.awayTeam?.abbrev === abbr ? 'awayTeam' : 'homeTeam';
+  const mine = box.playerByGameStats?.[sideKey] ?? {};
+  const other = box.playerByGameStats?.[sideKey === 'awayTeam' ? 'homeTeam' : 'awayTeam'] ?? {};
+  const goalieIds = new Set([...(mine.goalies ?? []), ...(other.goalies ?? [])].map((g: any) => g.playerId));
+  const lastName = (n: string) => n.replace(/^[A-Z]\.\s*/, '');
+  const person = (p: any): LinePlayer => ({ id: p.playerId, name: lastName(txt(p.name)), num: p.sweaterNumber, pos: p.position, toi: 0 });
+  const fwd = new Map<number, LinePlayer>((mine.forwards ?? []).map((p: any) => [p.playerId, person(p)]));
+  const dee = new Map<number, LinePlayer>((mine.defense ?? []).map((p: any) => [p.playerId, person(p)]));
+  const shoots = new Map<number, string>([...(roster?.defensemen ?? [])].map((p: any) => [p.id, p.shootsCatches]));
+  // who was on the ice each second, skaters only, per club
+  const on: Record<string, Map<number, number[]>> = {};
+  for (const sh of (shiftJ.data ?? []) as any[]) {
+    if (sh.typeCode !== 517 || goalieIds.has(sh.playerId)) continue;
+    const base = (sh.period - 1) * 1200, a = base + secs(sh.startTime), b = base + secs(sh.endTime);
+    const m = (on[sh.teamAbbrev] ??= new Map());
+    for (let t = a; t < b; t++) { const l = m.get(t); if (l) l.push(sh.playerId); else m.set(t, [sh.playerId]); }
+  }
+  const us = on[abbr] ?? new Map(), them = Object.entries(on).find(([k]) => k !== abbr)?.[1] ?? new Map();
+  const pair = new Map<string, number>();
+  const key = (a: number, b: number) => (a < b ? `${a}-${b}` : `${b}-${a}`);
+  const tally = (even: boolean) => {
+    pair.clear();
+    for (const p of [...fwd.values(), ...dee.values()]) p.toi = 0;
+    for (const [t, ids] of us) {
+      if (even && (ids.length !== 5 || (them.get(t)?.length ?? 0) !== 5)) continue;
+      for (const id of ids) { const p = fwd.get(id) ?? dee.get(id); if (p) p.toi++; }
+      for (let i = 0; i < ids.length; i++) for (let j = i + 1; j < ids.length; j++) { const k = key(ids[i], ids[j]); pair.set(k, (pair.get(k) ?? 0) + 1); }
+    }
+  };
+  tally(true);
+  // early in a game there's little 5-on-5 yet: use every second instead
+  if ([...fwd.values()].reduce((t, p) => t + p.toi, 0) < 600) tally(false);
+  const ov = (a: number, b: number) => pair.get(key(a, b)) ?? 0;
+  const left = [...fwd.values()].filter((p) => p.toi > 0).sort((a, b) => b.toi - a.toi);
+  const forwards: (LinePlayer | null)[][] = [];
+  while (left.length >= 3 && forwards.length < 4) {
+    const seed = left.shift()!;
+    let best: [number, number, number] = [-1, 0, 1];
+    for (let i = 0; i < left.length; i++) for (let j = i + 1; j < left.length; j++) {
+      const v = ov(seed.id, left[i].id) + ov(seed.id, left[j].id) + ov(left[i].id, left[j].id);
+      if (v > best[0]) best = [v, i, j];
+    }
+    const trio = [seed, left[best[1]], left[best[2]]];
+    left.splice(best[2], 1); left.splice(best[1], 1);
+    // centre from the box score's C, wings from L and R, anyone else where there's room
+    const slot: (LinePlayer | null)[] = [null, null, null];
+    // the draws this trio took together on the ice; with none, a natural centre
+    const together = faceoffs.filter((f) => { const ids = us.get(f.t) ?? us.get(f.t + 1) ?? []; return trio.every((p) => ids.includes(p.id)); });
+    const took = (p: LinePlayer) => together.filter((f) => f.ids.includes(p.id)).length;
+    const centre = trio.reduce((b, p, k) => (took(p) > took(trio[b]) || (took(p) === took(trio[b]) && p.pos === 'C' && trio[b].pos !== 'C') ? k : b), 0);
+    slot[1] = trio.splice(centre, 1)[0];
+    for (const [i, pos] of [[0, 'L'], [2, 'R']] as const) { const k = trio.findIndex((p) => p.pos === pos); if (k >= 0) slot[i] = trio.splice(k, 1)[0]; }
+    for (let i = 0; i < 3; i++) if (!slot[i] && trio.length) slot[i] = trio.shift()!;
+    forwards.push(slot);
+  }
+  const dl = [...dee.values()].filter((p) => p.toi > 0).sort((a, b) => b.toi - a.toi);
+  const defense: (LinePlayer | null)[][] = [];
+  while (dl.length >= 2 && defense.length < 3) {
+    const seed = dl.shift()!;
+    let bi = 0; for (let i = 1; i < dl.length; i++) if (ov(seed.id, dl[i].id) > ov(seed.id, dl[bi].id)) bi = i;
+    const mate = dl.splice(bi, 1)[0];
+    const lefty = shoots.get(seed.id) === 'L' || (shoots.get(mate.id) !== 'L' && shoots.get(seed.id) !== 'R') ? seed : mate;
+    defense.push(lefty === seed ? [seed, mate] : [mate, seed]);
+  }
+  const goalies = (mine.goalies ?? []).map((g: any) => ({ ...person(g), toi: secs(g.toi), starter: !!g.starter }))
+    .sort((a: any, b: any) => Number(b.starter) - Number(a.starter) || b.toi - a.toi);
+  return { forwards, defense, goalies, extras: [...left, ...dl] };
+}
+
+async function gameLines(id: string) {
+  const land = await get(`/gamecenter/${id}/landing`);
+  const started = ['LIVE', 'CRIT', 'OFF', 'FINAL'].includes(land.gameState);
+  const side = async (abbr: string) => {
+    if (started) return { from: 'this' as const, ref: { id: Number(id), date: land.gameDate, opp: null as string | null }, ...(await clubLines(Number(id), abbr)) };
+    const sched = await get(`/club-schedule-season/${abbr}/now`).catch(() => null);
+    const prev = (sched?.games ?? []).filter((g: any) => ['OFF', 'FINAL'].includes(g.gameState) && g.startTimeUTC < land.startTimeUTC).pop();
+    if (!prev) return null;
+    const opp = prev.awayTeam?.abbrev === abbr ? `@ ${prev.homeTeam?.abbrev}` : `vs ${prev.awayTeam?.abbrev}`;
+    return { from: 'last' as const, ref: { id: prev.id, date: prev.gameDate, opp }, ...(await clubLines(prev.id, abbr)) };
+  };
+  const [away, home] = await Promise.all([side(land.awayTeam.abbrev), side(land.homeTeam.abbrev)]);
+  const live = ['LIVE', 'CRIT'].includes(land.gameState);
+  // a live game's lines move every shift change; a finished or upcoming game's don't
+  return { away, home, ttl: live ? 60_000 : started ? 21_600_000 : 3_600_000 };
+}
+
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: cors });
   const url = new URL(req.url);
@@ -336,8 +444,10 @@ Deno.serve(async (req) => {
   if (hit && Date.now() - hit.at < hit.ttl) return Response.json(hit.body, { headers: { ...cors, 'x-cache': 'hit' } });
   try {
     const body = task === 'standings' ? await standings() : task === 'schedule' ? await schedule(date) : task === 'game' ? await gameDetail(id)
-      : task === 'news' ? await news() : task === 'x' ? await xfeed() : task === 'leaders' ? await leaders() : task === 'team' ? await club(abbrev) : await scores(date);
-    cache.set(key, { at: Date.now(), ttl: TTL[task as keyof typeof TTL] ?? 20_000, body });
+      : task === 'news' ? await news() : task === 'x' ? await xfeed() : task === 'leaders' ? await leaders() : task === 'team' ? await club(abbrev)
+      : task === 'lines' ? await gameLines(id) : await scores(date);
+    const ttl = (body as { ttl?: number })?.ttl ?? TTL[task as keyof typeof TTL] ?? 20_000;
+    cache.set(key, { at: Date.now(), ttl, body });
     if (cache.size > 200) for (const [k, v] of cache) if (Date.now() - v.at > v.ttl) cache.delete(k);
     return Response.json(body, { headers: { ...cors, 'x-cache': 'miss' } });
   } catch (e) {
