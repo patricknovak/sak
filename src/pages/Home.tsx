@@ -40,7 +40,7 @@ export default function Home() {
   // today's live fantasy points per player
   useEffect(() => {
     if (league?.phase !== 'season') return;
-    const load = () => supabase.from('player_games').select('player_id,fpts').eq('date', leagueDay)
+    const load = () => supabase.from('league_games').select('player_id,fpts').eq('date', leagueDay)
       .then(({ data }) => setTodayPts(new Map((data ?? []).map((r) => [r.player_id, Number(r.fpts)]))));
     load();
     const i = setInterval(load, 60_000);

@@ -125,7 +125,7 @@ export function BookTab() {
   useEffect(() => {
     if (!propIds.length) return;
     let alive = true;
-    const load = () => supabase.from('player_games').select('player_id,date,fpts').in('player_id', propIds).gte('date', etToday())
+    const load = () => supabase.from('league_games').select('player_id,date,fpts').in('player_id', propIds).gte('date', etToday())
       .then(({ data }) => { if (alive) setPropPts(new Map((data ?? []).map((r) => [`${r.player_id}|${r.date}`, Number(r.fpts)]))); });
     load();
     const i = window.setInterval(() => { if (document.visibilityState === 'visible') load(); }, 60_000);
