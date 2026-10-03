@@ -1835,3 +1835,22 @@ select pg_temp.expect('the north sees none of SaK''s predictions', (select count
 reset role;
 select set_config('request.jwt.claim.sub', '', false);
 select 'prediction log', true;
+
+-- ───────────── league memory ─────────────
+reset role;
+select set_config('request.jwt.claim.sub', '', false);
+select pg_temp.expect('SaK''s history is in the database', (select count(*) from league_seasons where league_id = 1) = 13
+  and (select count(*) from season_results where league_id = 1) = 104
+  and (select team_name from season_results where league_id = 1 and season = '2025-26' and place = 1) = 'Hatrick Swayze'
+  and (select count(*) from league_all_time where league_id = 1) = 8);
+select pg_temp.as_team(2);
+set role authenticated;
+select pg_temp.expect('a SaK GM reads SaK''s past', (select count(*) from league_seasons) = 13 and (select count(*) from league_rule_text) > 0);
+reset role;
+select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-000000000099', false);
+set role authenticated;
+select pg_temp.expect('the north has a past of its own, empty for now', (select count(*) from league_seasons) = 0 and (select count(*) from season_results) = 0
+  and (select count(*) from league_all_time) = 0);
+reset role;
+select set_config('request.jwt.claim.sub', '', false);
+select 'league memory', true;
