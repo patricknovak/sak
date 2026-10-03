@@ -16,7 +16,7 @@ where n.nspname = 'public' and c.relkind in ('r', 'p')
   and c.relname not in (
     -- one copy for every league: NHL data, caches and platform tables
     'players', 'games', 'player_games', 'player_status', 'player_events', 'player_history', 'news', 'nhl_teams',
-    'stat_corrections', 'hub_cache', 'health_alerts', 'leagues', 'accounts', 'waitlist',
+    'stat_corrections', 'scoring_profiles', 'player_game_points', 'player_values', 'hub_cache', 'health_alerts', 'leagues', 'accounts', 'waitlist',
     -- debt: the SaK Fund's price history (should be per league, or SaK only by design)
     'fund_prices',
     -- one-off backup kept from the 2025-26 roster import (row-level security on, no policies)

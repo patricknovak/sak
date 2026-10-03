@@ -105,6 +105,17 @@ leagues with the same rules), `player_game_points (profile_id, game_id, player_i
 trigger for every active profile, and `player_values (profile_id, player_id, proj, last_fp, rank)`. Views join
 through `league_rules.profile_id`. Saving scoring switches the league to a profile; it never rewrites another.
 SaK's current points become profile 1 unchanged.
+*Done (migration 83, October 2026).* `scoring_profiles` (keyed by an md5 of the weights, shared by leagues with
+the same rules), `league_rules.profile_id` kept in step with `league_rules.scoring` by a trigger (saving new weights
+switches the league and scores the whole season under the new profile on the spot), `player_game_points` filled for
+every profile in use as each stat line lands, and `player_values`. `league_games`, `league_players` and
+`league_corrections` are the shared tables seen with the caller's league's points; the four point views and 16
+functions read them, the site reads them, and stat-correction notices use each team's own league's weights. SaK's
+weights are profile 1, which reproduced the live points, projections and ranks exactly. `player_games.fpts` and
+`players.proj / last_fp / rank` still hold SaK's numbers for the edge functions (Garry, nhl-sync, keeper grades),
+which read them directly until B4 gives them a league. The flow test has the north double a goal's worth: the same
+game scores differently in each league, SaK's points, projections, ranks and standings stay byte for byte the same,
+a new stat line is scored under both profiles, and going back to SaK's weights shares profile 1 again.
 
 **B4. The scheduler only ever runs as league 1.** Nothing sets `app.league_id`. In SQL: `open_markets`,
 `open_season_markets`, `open_nhl_markets`, `reprice_season_markets`, `settle_season_markets`,
@@ -116,6 +127,9 @@ roster caps; one failing trade aborts the whole job, `draft_tick` included). In 
 the per-league work, called once per active league by each cron job; nhl-sync splits into the shared NHL fetch
 and a per-league pass through RPCs that take `p_league` (a `set_config` doesn't carry across PostgREST calls).
 Each league's pass catches its own errors.
+Since B3 the edge functions' reads of `player_games.fpts`, `player_season` and `players.proj` give SaK's numbers when
+no league is set; the league pass sends `x-league` (or reads `league_games` / `league_players` through an RPC that takes
+`p_league`) so Garry, the projections task and the keeper grades score in each league's own points.
 
 **B5. Sign-in and choosing a league.** The login page reads `team_directory` with the public key: every
 league's teams and every GM's login email (live today for SaK's eight). The client never sends `x-league`;

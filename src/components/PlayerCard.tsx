@@ -66,7 +66,7 @@ export function PlayerSheet({ id, onClose, actions }: { id: number | null; onClo
   useEffect(() => {
     setLog([]); setCareer(null); setTab('overview');
     if (!id) return;
-    supabase.from('player_games').select('game_id,date,nhl_team,stats,fpts').eq('player_id', id).order('date', { ascending: false }).limit(15)
+    supabase.from('league_games').select('game_id,date,nhl_team,stats,fpts').eq('player_id', id).order('date', { ascending: false }).limit(15)
       .then(({ data }) => setLog((data ?? []) as GameLine[]));
   }, [id]);
   useEffect(() => {

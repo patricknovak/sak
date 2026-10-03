@@ -16,6 +16,10 @@ $$ begin
   raise exception 'FAILED: % (no error)', label;
 end $$;
 
+-- the player seed loads after the migrations: its projections, last-season points and ranks are the model
+-- league's values (profile 1), as the nightly recompute leaves them on the live database
+insert into player_values (profile_id, player_id, proj, last_fp, rank) select 1, id, proj, last_fp, rank from players;
+
 -- the fixture's deadlines are fixed dates; keep the test valid whatever today is
 update league set keeper_deadline = now() + interval '1 day', draft_at = now() + interval '2 days';
 
@@ -1646,3 +1650,58 @@ select pg_temp.expect('the north reset cleared only the north', not exists (sele
   and (select row_to_json(d)::text from draft_state d where league_id = 1) = :'sak_draft0');
 update league_rules set phase = :'north_phase2' where league_id = :league2;
 select 'draft per league', true;
+
+-- ───────────── scoring per league ─────────────
+reset role;
+select set_config('request.jwt.claim.sub', '', false);
+select pg_temp.expect('SaK scores with profile 1', (select profile_id = 1 from league_rules where league_id = 1));
+select pg_temp.expect('every league points at the profile for its weights', not exists (
+  select 1 from league_rules lr join scoring_profiles sp on sp.id = lr.profile_id where sp.scoring <> lr.scoring));
+select game_id as sc_game, player_id as sc_player from player_games where (stats->>'g')::numeric > 0 and not stats ? 'sv' order by game_id limit 1 \gset
+select recompute_player_values();   -- values follow the players' stats; bring them up to date before the snapshot
+select md5(string_agg(game_id || ':' || player_id || ':' || fpts, ',' order by game_id, player_id)) as sak_points0 from player_game_points where profile_id = 1 \gset
+select md5(string_agg(game_id || ':' || player_id || ':' || fpts, ',' order by game_id, player_id)) as sak_compat0 from player_games \gset
+select md5(string_agg(player_id || ':' || proj || ':' || last_fp || ':' || rank, ',' order by player_id)) as sak_values0 from player_values where profile_id = 1 \gset
+select md5(string_agg(id || ':' || proj || ':' || last_fp || ':' || rank, ',' order by id)) as sak_players0 from players \gset
+select md5(string_agg(team_id || ':' || points, ',' order by team_id)) as sak_standings0 from standings \gset
+select count(*) as profiles0 from scoring_profiles \gset
+-- the north commissioner doubles what a goal is worth
+select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-000000000099', false);
+set role authenticated;
+select commish_update_scoring((select jsonb_set(scoring, '{skater,g}', to_jsonb((scoring->'skater'->>'g')::numeric * 2)) from league));
+select pg_temp.expect('the north reads its own points for a shared game', (select fpts from league_games where game_id = :sc_game and player_id = :sc_player)
+  = (select _score(scoring, stats) from player_games, league where game_id = :sc_game and player_id = :sc_player));
+select fpts as north_fpts from league_games where game_id = :sc_game and player_id = :sc_player \gset
+select fpts as north_season from player_season where player_id = :sc_player \gset
+select proj as north_proj from league_players where id = :proj_p \gset
+reset role;
+select set_config('request.jwt.claim.sub', '', false);
+select pg_temp.expect('the north moved to a new profile', (select profile_id <> 1 from league_rules where league_id = :league2)
+  and (select count(*) from scoring_profiles) = :profiles0 + 1);
+select pg_temp.expect('SaK''s points never moved', (select md5(string_agg(game_id || ':' || player_id || ':' || fpts, ',' order by game_id, player_id)) from player_game_points where profile_id = 1) = :'sak_points0'
+  and (select md5(string_agg(game_id || ':' || player_id || ':' || fpts, ',' order by game_id, player_id)) from player_games) = :'sak_compat0');
+select pg_temp.expect('SaK''s projections and ranks never moved', (select md5(string_agg(player_id || ':' || proj || ':' || last_fp || ':' || rank, ',' order by player_id)) from player_values where profile_id = 1) = :'sak_values0'
+  and (select md5(string_agg(id || ':' || proj || ':' || last_fp || ':' || rank, ',' order by id)) from players) = :'sak_players0');
+select pg_temp.expect('SaK''s standings never moved', (select md5(string_agg(team_id || ':' || points, ',' order by team_id)) from standings) = :'sak_standings0');
+select pg_temp.expect('SaK reads its own points for the same game', (select fpts from league_games where game_id = :sc_game and player_id = :sc_player)
+  = (select fpts from player_games where game_id = :sc_game and player_id = :sc_player)
+  and (select fpts from league_games where game_id = :sc_game and player_id = :sc_player) < :north_fpts);
+select pg_temp.expect('season totals differ by league', (select fpts from player_season where player_id = :sc_player) < :north_season);
+select pg_temp.expect('projections differ by league', (select proj from league_players where id = :proj_p) < :north_proj);
+-- a new stat line is scored for both leagues as it lands
+insert into games (id, date, start_utc, home, away, state) values (995, today_et(), now() - interval '1 hour', 'TOR', 'MTL', 'LIVE');
+insert into player_games (game_id, player_id, date, stats) values (995, :sc_player, today_et(), '{"g":1,"a":0,"sog":2}');
+select pg_temp.expect('a new line is scored under both profiles', (select count(*) from player_game_points where game_id = 995) = 2
+  and (select count(distinct fpts) from player_game_points where game_id = 995) = 2);
+-- going back to SaK's weights shares SaK's profile again; nothing new is made
+select scoring as sak_scoring from league_rules where league_id = 1 \gset
+select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-000000000099', false);
+set role authenticated;
+select pg_temp.raises('scoring can''t be blanked', 'select commish_update_scoring(null)', 'skater and goalie');
+select commish_update_scoring(:'sak_scoring'::jsonb);
+reset role;
+select set_config('request.jwt.claim.sub', '', false);
+select pg_temp.expect('same weights, same profile', (select profile_id = 1 from league_rules where league_id = :league2)
+  and (select count(*) from scoring_profiles) = :profiles0 + 1);
+select pg_temp.expect('SaK''s points still never moved', (select md5(string_agg(game_id || ':' || player_id || ':' || fpts, ',' order by game_id, player_id)) from player_game_points where profile_id = 1 and game_id <> 995) = :'sak_points0');
+select 'scoring per league', true;
