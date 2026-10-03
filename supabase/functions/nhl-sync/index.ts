@@ -6,7 +6,7 @@
 //   ?task=season-schedule (daily) every remaining game of the season, for rest-of-season forecasts
 //   ?task=projections  (weekly) the SAK projection model: three seasons of NHL stats -> a projected line per player
 //   ?task=standings    (daily) NHL standings and playoff odds: how many playoff games each NHL team should play
-//   ?task=fund         (weekdays) the SaK Fund's share price and the US/Canadian dollar rate
+//   ?task=fund         (weekdays) each league fund's share price and the US/Canadian dollar rate
 //   ?task=players      (every few hours, and before puck drop) current NHL rosters: trades, call-ups, sweater numbers,
 //                      headshots. On game day the box score's team wins (see sync_teams_from_box)
 //   ?task=injuries     (hourly) injury / suspension status from ESPN's public injury report
@@ -209,18 +209,33 @@ async function standings() {
   return { teams: out.length, playoffs: !!series, alive: out.filter((o) => o.po_status === 'alive').length };
 }
 
-// the SaK Fund is priced in Canadian dollars: the stock's last price times the USD/CAD rate
+// each league's fund is priced in Canadian dollars: its stock's last price times the USD/CAD rate. Only leagues that
+// keep a fund (league_rules.features.fund) have one; each is priced for its own league, one failing doesn't stop the rest
 async function fundPrice() {
-  const { data: f } = await db.from('fund').select('symbol').single();
-  const quote = async (sym: string) => {
-    const j = await getJson(`https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(sym)}?range=5d&interval=1d`);
-    const p = Number(j?.chart?.result?.[0]?.meta?.regularMarketPrice);
-    if (!(p > 0)) throw new Error(`no price for ${sym}`);
-    return p;
+  const rules = check(await db.from('league_rules').select('league_id,features')) as { league_id: number; features: Record<string, boolean> | null }[];
+  const on = new Set(rules.filter((r) => r.features?.fund === true).map((r) => r.league_id));
+  const funds = (check(await db.from('fund').select('league_id,symbol')) as { league_id: number; symbol: string | null }[]).filter((f) => on.has(f.league_id));
+  if (!funds.length) return { leagues: 0 };
+  const quotes = new Map<string, Promise<number>>();
+  const quote = (sym: string) => {
+    if (!quotes.has(sym)) quotes.set(sym, getJson(`https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(sym)}?range=5d&interval=1d`).then((j) => {
+      const p = Number(j?.chart?.result?.[0]?.meta?.regularMarketPrice);
+      if (!(p > 0)) throw new Error(`no price for ${sym}`);
+      return p;
+    }));
+    return quotes.get(sym)!;
   };
-  const [price, fx] = await Promise.all([quote(f?.symbol ?? 'TSLA'), quote('CAD=X')]);
-  check(await db.rpc('set_fund_price', { p_price: price, p_fx: fx }));
-  return { symbol: f?.symbol ?? 'TSLA', price, fx };
+  const fx = await quote('CAD=X');
+  const out: Record<number, unknown> = {};
+  for (const f of funds) {
+    const symbol = f.symbol || 'TSLA';
+    try {
+      const price = await quote(symbol);
+      check(await dbFor(f.league_id).rpc('set_fund_price', { p_price: price, p_fx: fx }));
+      out[f.league_id] = { symbol, price, fx };
+    } catch (e) { console.error('fund price, league', f.league_id, e); out[f.league_id] = { error: String(e) }; }
+  }
+  return out;
 }
 
 async function players() {

@@ -153,6 +153,8 @@ wasn't applied); #75 was the hotfix.
   that page. The ledger lives in schema `ops`, which the API doesn't serve.
 - Never commit credentials. Secrets live in Supabase function secrets and GitHub Actions secrets. The test
   team's login is kept out of the repo.
+- Money and a league fund are per-league options (`league_rules.features`: `money`, `fund`), never requirements: SQL checks
+  `league_has()` / `_feature()`, the site `hasFeature()` (`src/lib/features.ts`). SaK has both; a new league neither.
 - Expand, then contract: add the new path beside the old, move the readers, prove the numbers match, retire the
   old path in a later change (the debt list is in `docs/DEVELOPMENT.md`).
 - The product learns: a new prediction or grade (projection, trade or draft grade, odds, a Garry pick) is
