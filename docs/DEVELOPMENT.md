@@ -40,14 +40,14 @@ Reviewed 3 October 2026, after migrations 81 to 85 (Super Pools B1 to B4).
 | Database changes went through SQL files pasted by hand, because the Supabase connector held any statement with `drop` or `delete` for a confirmation a cloud session can't give. | B1 to B4 waited on a paste. PR #73 merged while its SQL wasn't live (harmless, no site change); PR #74 merged the same way and its site change read views that didn't exist yet, so the live player list failed until the #75 hotfix. | Direct database changes through `scripts/db.sh` (Supabase's Management API) with `SUPABASE_ACCESS_TOKEN` set in the cloud environment's settings: the connector's hold is its own and stayed on with the tools set to allowed. The connector stays for reads and hold-free SQL. Rule: a pull request merges only after its migration is live and verified. The paste file stays as the fallback. |
 | Nothing ran the tests on a pull request; the only check was Vercel's landing preview. | A broken migration or build could reach `main`; the site deploys itself from `main`. | `.github/workflows/test.yml`: build, the stat parser and the whole database flow test on every pull request and push. |
 | Edge functions were deployed by hand, full files pasted through the connector (with the `\u` escaping trap). | Slow, and a function could lag `main`. | `.github/workflows/functions.yml` deploys every function on merge once the `SUPABASE_ACCESS_TOKEN` secret is added in GitHub. Until then, the connector as before. |
-| Production is the only database. | Every migration lands on the league people are using tonight. | Before the first league outside SaK: a staging project (about $25 a month) or a Supabase branch for the risky migrations. Decision for Patrick. |
+| Production is the only database. | Every migration lands on the league people are using tonight. | Decided (Patrick, 3 October 2026): no staging project. SaK is the live test bed and the product grows around it; the safety comes from the release order, the flow test on every pull request, fingerprints before and checks after every migration, and the shadow league. |
 | One 1,750-line flow test with shared session state. | Two false failures this week from a test still signed in as the north GM. | Each section ends signed out (`reset role` plus an empty `request.jwt.claim.sub`); the file splits by area as it is touched. |
 | The plan's lists drift from what has landed. | Time spent re-reading what is done. | Update `docs/SUPERPOOLS.md` section 7 and `docs/EXPANSION.md` in the same pull request as the work. |
 
 **Compatibility debt to retire** once Phase 1's gate is passed and the edge functions read the league views:
 `player_games.fpts` and `players.proj / last_fp / rank` (SaK's numbers kept for old readers), `stat_corrections.old_fpts
 / new_fpts`, the `*_before_*` function signatures renamed out of the way, `run_auto_lineups` (superseded by
-nhl-sync's auto-pilot), `src/data/history.ts` (section 4).
+nhl-sync's auto-pilot), `src/data/history.ts` (section 4), `fund.id` (the fund is keyed by league since migration 95).
 
 ## 4. The knowledge base: every league makes every league smarter
 
@@ -73,20 +73,23 @@ results of his own past calls, and what the wider pool knows.
 
 ## 5. The order of work from here
 
-1. **Land B1 to B4.** The SQL goes live (direct, or the paste file), nhl-sync and Garry deploy, PR #74 merges
-   after the phone check.
-2. **The delivery pipeline.** Test workflow (done), direct database access, function deploys from CI, the
-   staging decision.
+1. **Land B1 to B4.** Done 3 October 2026: migrations 81 to 94 live and verified, nhl-sync and Garry deployed, the
+   site reads the league views (#81).
+2. **The delivery pipeline.** Test workflow (done), direct database access (`SUPABASE_ACCESS_TOKEN` in the cloud
+   environment, read by new sessions), function deploys from CI (the GitHub secret), no staging (decided).
 3. **Start the shadow league** (Phase 1's gate): a copy of SaK's teams, running alongside for a week of real games
    while the next steps are built. It is the real proof that B1 to B4 hold. Built (migrations 92 and 93):
    `open_shadow_league(1, 'sak-shadow')` makes it (SaK's rules and profile, a team per GM team, the same rosters,
    active); `shadow_sync()` mirrors rosters and slots every minute; `shadow_report(league)` lays each day's points
-   side by side with the difference, which must be zero from its first full day.
+   side by side with the difference, which must be zero from its first full day. Opened 3 October 2026 as league 2
+   (`sak-shadow`); its first full day is 3 October.
 4. **The prediction log**, small and early (migration 87, built): `predictions`, written each morning for every
    rostered player playing that night (`predict_tonight`) and scored the next morning on the league's own points
    (`score_predictions`), with `prediction_accuracy` by week and `book_calibration` (the Book's odds against what
    happened, read from the markets). Next kinds: trade and draft grades, the auto-pilot's choices, Garry's picks.
-5. **B6 money and the Fund**: money per league built (migration 86); the Fund waits on the decision. Then the medium
+5. **B6 money and the Fund**: money per league (migration 86), and both are options a league turns on (migration
+   95, Patrick's call): `league_rules.features` holds `money` and `fund`; SaK has both, a new league neither; the
+   ledger refuses lines in a league without money; the Fund is one per league with its own prices. Then the medium
    SQL items. Phase 1 done.
 6. **League memory**: history into the database (part of B7) with SaK's past as the first import. Tables built
    (migration 89: `league_seasons`, `season_results`, `league_all_time_base` and the `league_all_time` view,

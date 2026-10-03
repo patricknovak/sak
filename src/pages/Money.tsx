@@ -11,6 +11,7 @@ import { PLACES, potsOf, prizes, type PotKey } from '../lib/prizes';
 import { bare, useBrand } from '../lib/brand';
 import type { FundLine, FundStatus, LedgerLine, MoneyBalance, PickupStatus, Standing } from '../lib/types';
 import { MoneySettings } from '../components/MoneySettings';
+import { hasFeature } from '../lib/features';
 import { Sparkline } from '../components/charts';
 import { PageHeader, Section, Sheet, TeamBadge, useAction } from '../components/ui';
 import { SEASONS } from '../data/history';
@@ -61,14 +62,19 @@ export default function Money() {
   const myLines = lines.filter((l) => l.team_id === me?.id && !l.paid);
   const payNote = (league?.info?.pay_note as string | undefined) ?? 'Send an Interac e-Transfer to the commissioner. Winnings are sent the same way.';
   const tables: Record<PotKey, Standing[]> = { regular: standings, playoffs, cup };
+  const useMoney = hasFeature(league, 'money'), useFund = hasFeature(league, 'fund');
 
   return (
     <div className="space-y-5">
-      <PageHeader icon={<Wallet size={22} className="text-gold" />} title="Money" sub={`${league?.season ?? ''} · prize pools, who owes what, and the ${brand.fund}. Everyone sees every dollar.`}
-        right={commish ? <button className="btn-ghost btn-sm" onClick={() => setSheet('line')}>+ Add a line</button> : undefined} />
+      <PageHeader icon={<Wallet size={22} className="text-gold" />} title="Money" sub={`${league?.season ?? ''} · ${[useMoney && 'prize pools, who owes what', useFund && `the ${brand.fund}`].filter(Boolean).join(', and ') || 'pickups'}.${useMoney || useFund ? ' Everyone sees every dollar.' : ''}`}
+        right={commish && useMoney ? <button className="btn-ghost btn-sm" onClick={() => setSheet('line')}>+ Add a line</button> : undefined} />
+
+      {!useMoney && !useFund && (
+        <div className="card p-4 text-sm text-mute">This league doesn't keep its money on the site.{commish ? ' You can turn on league money or a fund under League settings on the Commissioner page.' : ''}</div>
+      )}
 
       {/* your balance */}
-      {me && me.role !== 'spectator' && mine && (
+      {useMoney && me && me.role !== 'spectator' && mine && (
         <div className="card-hero p-4" style={{ '--tc': mine.balance > 0 ? '#ef2a4f' : mine.balance < 0 ? '#34d399' : '#4cc3ff' } as React.CSSProperties}>
           <div className="relative flex flex-wrap items-end justify-between gap-3">
             <div>
@@ -89,6 +95,7 @@ export default function Money() {
       )}
 
       {/* the pots */}
+      {useMoney && (
       <Section title={`${league?.season} prize pool`} right={<span className="text-xs text-mute">{money.teams} × {fmtMoney(money.entry - money.fund)} after {fmtMoney(money.fund)} each to the {brand.fund}</span>}>
         <div className="card-hero p-4" style={{ '--tc': '#f7c548' } as React.CSSProperties}>
           <div className="relative flex flex-wrap items-baseline gap-x-3">
@@ -121,9 +128,11 @@ export default function Money() {
           <p className="relative mt-3 text-[11px] text-white/60">Each pot pays {money.split.map((p, i) => `${PLACES[i]} ${p}%`).join(', ')}. The names beside each place are who'd collect if it ended today. The regular season table is kept when the NHL regular season ends; the playoffs start everyone at zero; the {bare(brand.trophy)} adds the two.</p>
         </div>
       </Section>
+      )}
 
       <div className="grid items-start gap-5 xl:grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)]">
         {/* balances */}
+        {useMoney && (
         <Section className="min-w-0" title="Who owes what" right={<span className="text-xs text-mute">every unpaid line, every season</span>}>
           <div className="card overflow-hidden">
             <div className="grid grid-cols-3 gap-2 border-b border-white/[.06] p-3 text-center">
@@ -162,9 +171,11 @@ export default function Money() {
           </div>
           <p className="mt-1 px-1 text-xs text-mute">Positive lines are money a GM owes (entry, {peter}, fines); negative lines are winnings owed to them. Last season's winnings and this season's entry net out, so one e-Transfer settles each GM.</p>
         </Section>
+        )}
 
         {/* the fund */}
         <div className="min-w-0 space-y-5">
+          {useFund && (
           <Section title={`🏦 The ${brand.fund}`} right={commish ? <span className="flex gap-1"><button className="btn-ghost btn-sm" onClick={() => setSheet('fund')}>+ Entry</button><button className="btn-ghost btn-sm" onClick={() => setSheet('price')}>Price</button><button className="btn-ghost btn-sm" onClick={() => setSheet('settings')}>Settings</button></span> : undefined}>
             {!fund ? <div className="card h-40 animate-pulse" /> : (
               <div className="card space-y-3 p-4">
@@ -200,6 +211,7 @@ export default function Money() {
               </div>
             )}
           </Section>
+          )}
 
           <Section title="Free-agent pickups" right={<span className="text-xs text-mute">no paid extras · trade for more</span>}>
             <div className="card divide-y divide-white/[.06]">
@@ -222,6 +234,7 @@ export default function Money() {
       </div>
 
       {/* history */}
+      {useMoney && (
       <Section title="Past payouts" right={<Link to="/league" className="text-xs text-sky-300">Full history ›</Link>}>
         <div className="card divide-y divide-white/[.06]">
           {SEASONS.slice(0, 4).map((s) => (
@@ -233,8 +246,9 @@ export default function Money() {
           ))}
         </div>
       </Section>
+      )}
 
-      {commish && (
+      {commish && useMoney && (
         <Section title="Commissioner tools">
           <div className="grid gap-3 lg:grid-cols-2">
             <div className="card space-y-2 p-3 text-sm">

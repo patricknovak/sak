@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { NavLink, useLocation, useNavigate } from 'react-router-dom';
 import { Wordmark, WordmarkStack } from './Brand';
 import { useLeague, useNow } from '../lib/store';
+import { hasFeature } from '../lib/features';
 import { realtimeChannel, supabase } from '../lib/supabase';
 import { ago, countdown } from '../lib/format';
 import { currentSubscription } from '../lib/push';
@@ -107,7 +108,7 @@ export function Layout({ children }: { children: ReactNode }) {
     draftish ? { to: '/team', label: 'My Team', icon: Shield } : { to: '/draft', label: 'Draft Centre', icon: ClipboardList },
     { to: '/trades', label: 'Trades', icon: Repeat2 },
     { to: '/bets', label: 'Side Bets', icon: Dices },
-    { to: '/money', label: 'Money', icon: Wallet },
+    ...(hasFeature(league, 'money') || hasFeature(league, 'fund') ? [{ to: '/money', label: 'Money', icon: Wallet }] : []),
     { to: '/league', label: 'League & History', icon: Landmark },
     { to: '/features', label: 'League Features', icon: Lightbulb },
     { to: '/profile', label: 'My Profile', icon: UserRound },

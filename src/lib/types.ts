@@ -11,6 +11,7 @@ export interface League {
   entry_fee: number; sak_fee: number; prize_split: number[]; playoff_share: number; cup_share: number; playoff_bonus_acq: number; roster: Record<Slot, number>;
   scoring: { skater: Record<string, number>; goalie: Record<string, number> };
   commish_note: string | null; updated_at: string; info: Record<string, any>;
+  features?: { money?: boolean; fund?: boolean } | null;   // what the league uses beyond the game (src/lib/features.ts)
 }
 
 export interface Team {

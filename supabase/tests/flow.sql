@@ -1762,6 +1762,16 @@ select set_config('request.jwt.claim.sub', '', false);
 select count(*) as sak_gms from teams where league_id = 1 and role = 'gm' \gset
 select count(*) as north_gms from teams where league_id = :league2 and role = 'gm' \gset
 select count(*) as entries0 from ledger where kind = 'entry' \gset
+-- money is an option: a new league keeps none until its commissioner turns it on
+select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-000000000099', false);
+set role authenticated;
+select pg_temp.expect('a new league starts without money or a fund', not league_has('money') and not league_has('fund'));
+select pg_temp.raises('no money, no billing', 'select commish_bill_entries()', 'doesn''t keep its money');
+select pg_temp.raises('features are money and fund only', 'select commish_update_league(''{"features": {"casino": true}}'')', 'Features are money and fund');
+select commish_update_league('{"features": {"money": true}}');
+select pg_temp.expect('the north turned money on, still no fund', league_has('money') and not league_has('fund') and not exists (select 1 from fund_status));
+reset role;
+select pg_temp.expect('SaK keeps both', league_has('money', 1) and league_has('fund', 1));
 -- the north commissioner bills her league: her GMs only, to her league's fund
 select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-000000000099', false);
 set role authenticated;
@@ -1803,6 +1813,34 @@ select commish_add_spectator('North Fan', 'north-fan@example.com', 'popcorn-5678
 reset role;
 select pg_temp.expect('the north''s spectator is the north''s', (select league_id = :league2 and role = 'spectator' from teams where id = :north_fan) and :north_fan > 0
   and (select reason from coin_ledger where team_id = :north_fan) = 'Opening balance: 1,000 coins');
+-- the fund is an option too: a paid entry adds nothing in a league without one
+select sum(cash) as sak_fund_cash from fund_ledger where league_id = 1 \gset
+select count(*) as sak_prices from fund_prices where league_id = 1 \gset
+select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-000000000099', false);
+set role authenticated;
+select pg_temp.raises('no fund, no fund entries', 'select commish_fund_entry(''deposit'', 50, 0, ''Seed money'')', 'has no fund');
+select l.id as north_entry from ledger l where l.kind = 'entry' and l.league_id = current_league_id() order by l.id limit 1 \gset
+select commish_mark_paid(:north_entry, true, 'e-transfer');
+reset role;
+select pg_temp.expect('a paid entry in a league with no fund adds nothing', not exists (select 1 from fund_ledger where ledger_id = :north_entry));
+-- the north turns its fund on: its own row, its own movements, its own prices; SaK's fund doesn't move
+select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-000000000099', false);
+set role authenticated;
+select commish_update_league('{"features": {"fund": true}}');
+select commish_fund_entry('deposit', 50, 0, 'Seed money');
+select commish_fund_price(100, 1.25);
+select pg_temp.expect('the north''s fund is its own', (select cash = 50 and shares = 0 and members = :north_gms from fund_status)
+  and (select count(*) from fund_prices) = 1 and (select count(*) from fund_ledger) = 1);
+reset role;
+select pg_temp.expect('the north''s fund row and price are the north''s', exists (select 1 from fund where league_id = :league2)
+  and exists (select 1 from fund_prices where league_id = :league2 and value_cad = 50));
+select pg_temp.expect('SaK''s fund is untouched', (select sum(cash) from fund_ledger where league_id = 1) = :sak_fund_cash
+  and (select count(*) from fund_prices where league_id = 1) = :sak_prices);
+select pg_temp.as_team(1);
+set role authenticated;
+select pg_temp.expect('SaK''s GMs see SaK''s fund', (select count(*) from fund_status) = 1 and (select members from fund_status) = :sak_gms
+  and not exists (select 1 from fund_ledger where league_id <> 1));
+reset role;
 select set_config('request.jwt.claim.sub', '', false);
 select 'money per league', true;
 

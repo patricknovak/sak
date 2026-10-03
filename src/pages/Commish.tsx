@@ -9,6 +9,8 @@ import { bannedTopScorers } from '../lib/keepers';
 import { fmtPts } from '../lib/format';
 import { Wrench } from 'lucide-react';
 import { MoneySettings } from '../components/MoneySettings';
+import { LeagueFeatures } from '../components/LeagueFeatures';
+import { hasFeature } from '../lib/features';
 import { ScoringEditor } from '../components/ScoringEditor';
 import { GarryShaper } from '../components/GarryShaper';
 import { useBrand } from '../lib/brand';
@@ -192,8 +194,11 @@ export default function Commish() {
         </div>
       </Section>
 
-      <Section title="💰 Money & payouts">
-        <MoneySettings />
+      <Section title="💰 Money & the fund">
+        <div className="space-y-3">
+          <LeagueFeatures />
+          {hasFeature(league, 'money') && <MoneySettings />}
+        </div>
       </Section>
 
       <Section title="🔁 Roster moves">

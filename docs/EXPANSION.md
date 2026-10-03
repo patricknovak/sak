@@ -157,11 +157,16 @@ sign-in (with "remember me") closes that today.
 reads `standings` with the owner's rights, so it ranks, pays and charges the Peter across leagues; `fund` is one
 row (`check (id = 1)`) and `fund_prices` is shared (SaK's TSLA holding shows to everyone).
 *Fix:* filter both by league; the Fund becomes per league (`fund (league_id)`, `fund_prices (league_id, date)`)
-or an explicit SaK-only feature hidden elsewhere. *Decision for Patrick:* which of the two.
+or an explicit SaK-only feature hidden elsewhere. *Decided (Patrick, October 2026):* money and the Fund are features any league
+can turn on, never requirements.
 *Money done (migration 86, October 2026).* Billing and payouts work on the commissioner's league only (its GMs, its
 pool, its standings), and the ledger's words come from the league's brand (`regular`, `playoff`, `trophy`, `booby`,
 `fund`, with plain defaults; SaK's read as before). `teams.id` comes from a sequence; a spectator lands in the
-commissioner's league. The flow test bills and pays out the north beside SaK. The Fund waits on the decision.
+commissioner's league. The flow test bills and pays out the north beside SaK.
+*Fund and options done (migration 95).* `league_rules.features` (`money`, `fund`; SaK both, a new league neither, the
+commissioner switches them in League settings); a ledger line in a league without money is refused; `fund` is keyed by
+league, `fund_prices` by league and date, `fund_status` reads the caller's league, a paid line feeds the fund only where
+there is one; nhl-sync prices every league's fund. The site hides money and the fund where they're off.
 
 **B7. SaK's history and names are written into the site.** `src/data/history.ts` (seasons, champions, team
 ids 1 to 8, the rules text, $200 and 60/30/10) renders on League, Home, Standings, Money, Profile and the draft
@@ -256,7 +261,7 @@ built (migrations 92 and 93: `open_shadow_league`, `shadow_sync` every minute, `
 
 **Phase 2, people can join.** B5 sign-in by email and league by host, invites and the switcher, realtime and
 presence per league, B7 brand and history per league, B8 phones, Vercel hosting, the platform `create_league`.
-Garry's daily budget. A staging Supabase project for every migration before production.
+Garry's daily budget.
 *Gate:* a friend's league is created, invited, drafted and scored for two weeks without anyone touching SQL.
 
 **Phase 3, the sport pulled out.** Section 6 with the NHL as the only sport: `sports` row, adapter interface,
@@ -288,12 +293,11 @@ into a `league_readiness(league)` function that the Commissioner page shows.
 
 1. **Sign-in.** Keep SaK's team-picker login (exposes GMs' login emails to anyone with the public key) or move
    everyone to email sign-in now. Recommendation: email sign-in, with the team picker shown after.
-2. **The Fund.** A per-league feature, or SaK's own and hidden elsewhere. Recommendation: SaK's own for now;
-   per league once a second league asks.
+2. **The Fund.** *Decided:* money and the Fund are per-league features, off until a league turns them on (migration 95).
 3. **The second sport.** Basketball first (cheapest, same engine) or soccer first (bigger audience, new weekly
    engine). Recommendation: basketball proves the split; soccer is the growth bet for 2027-28.
-4. **Staging.** A second Supabase project for staging before the first league outside SaK (about $25 a month).
-   Recommendation: yes, at the start of phase 2.
+4. **Staging.** *Decided:* no staging project. SaK stays the live test bed; the release order, the flow test, the
+   fingerprint checks and the shadow league carry the safety.
 
 ## 10. Where things live
 
