@@ -162,7 +162,12 @@ commissioner, and from invites once they exist), and "Forgot your password?" ema
 the new password on the sign-in page (works on any device). Auth email goes through Resend (SMTP, set 3 October 2026):
 SAK Superleague <no-reply@superpoolsai.com>, domain verified (DKIM, SPF on `send`, DMARC `p=none` to tighten once mail
 has flowed a while), 30 auth emails an hour. GMs change their password any time on their Profile.
-Next: the switcher.
+*Joining and the switcher done (migration 105, the `join` edge function):* the commissioner makes invite links on the
+Commish page (an open seat, once; a spectator place, up to five times; 14 days); the link opens `#/join/<code>`, which
+shows the league and seat before sign-in (`invite_preview`). Someone new makes their account there (the `join`
+function creates it and seats them through `_accept_invite`, removing the account again if the seat can't be taken);
+someone with an account signs in and joins (`accept_invite`). Profile lists an account's leagues and switches between
+them (`my_leagues`, `set_active_league`). Presence was already per league. Next: league by host (`leagues.domain`).
 
 **B6. Money and the Fund are SaK's.** `commish_bill_entries` bills every league's GMs; `commish_post_payouts`
 reads `standings` with the owner's rights, so it ranks, pays and charges the Peter across leagues; `fund` is one
