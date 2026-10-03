@@ -27,7 +27,7 @@ export function BoxScore({ game, onClose }: { game: Game | null; onClose: () => 
   useEffect(() => {
     if (!game) return;
     let alive = true;
-    const load = () => supabase.from('player_games').select('player_id,nhl_team,fpts,stats').eq('game_id', game.id)
+    const load = () => supabase.from('league_games').select('player_id,nhl_team,fpts,stats').eq('game_id', game.id)
       .then(({ data }) => { if (alive) setRows(((data ?? []) as PG[]).map((r) => ({ ...r, fpts: Number(r.fpts) }))); });
     setRows(null);
     load();

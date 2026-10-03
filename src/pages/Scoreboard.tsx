@@ -68,7 +68,7 @@ export default function Scoreboard() {
     const load = async () => {
       const [{ data: s }, { data: p }] = await Promise.all([
         supabase.from('lineup_snapshots').select('team_id,player_id,slot,game_id').eq('date', today),
-        supabase.from('player_games').select('player_id,game_id,fpts,stats,nhl_team').eq('date', today),
+        supabase.from('league_games').select('player_id,game_id,fpts,stats,nhl_team').eq('date', today),
       ]);
       if (!alive) return;
       setSnaps((s ?? []) as Snap[]);

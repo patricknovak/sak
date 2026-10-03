@@ -122,7 +122,7 @@ function Corrections() {
   const { players } = useLeague();
   const [rows, setRows] = useState<{ id: number; player_id: number; date: string; old_fpts: number; new_fpts: number; old_stats: Record<string, number>; new_stats: Record<string, number>; created_at: string }[]>([]);
   useEffect(() => {
-    supabase.from('stat_corrections').select('*').order('id', { ascending: false }).limit(12)
+    supabase.from('league_corrections').select('*').order('id', { ascending: false }).limit(12)
       .then(({ data }) => setRows((data ?? []).filter((r) => Number(r.new_fpts) !== Number(r.old_fpts))));
   }, []);
   if (!rows.length) return null;

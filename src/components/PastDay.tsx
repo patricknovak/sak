@@ -31,7 +31,7 @@ export function PastDay({ day, roster, teamId, onInfo }: { day: string; roster: 
       ]);
       const snapRows = (s ?? []) as Snap[];
       const ids = [...new Set([...snapRows.map((x) => x.player_id), ...roster.map((x) => x.p.id)])];
-      const { data: p } = await supabase.from('player_games').select('player_id,nhl_team,fpts,stats').eq('date', day).in('player_id', ids);
+      const { data: p } = await supabase.from('league_games').select('player_id,nhl_team,fpts,stats').eq('date', day).in('player_id', ids);
       if (!alive) return;
       setSnaps(snapRows);
       setGames((g ?? []) as Game[]);
