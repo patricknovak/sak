@@ -2173,3 +2173,11 @@ select pg_temp.expect('the north''s commissioner sees only the north''s sign-ins
 reset role;
 select set_config('request.jwt.claim.sub', '', false);
 select 'sign-in emails', true;
+
+-- ───────────── sign-in, step 2 ─────────────
+select pg_temp.expect('the public team list hands out no sign-in addresses', not exists (
+  select 1 from information_schema.columns where table_schema = 'public' and table_name = 'team_directory' and column_name = 'login_email'));
+set role anon;
+select pg_temp.expect('the public key still reads the league''s names', (select count(*) from team_directory) > 0);
+reset role;
+select 'sign-in step 2', true;

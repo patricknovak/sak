@@ -156,8 +156,12 @@ sign-in (with "remember me") closes that today.
 Step 1 (migration 103): the sign-in page asks for email and password, with "Remember me on this device" (on by default;
 off keeps the session in sessionStorage); the commissioner puts each GM's real email on their account from the Commish
 page (`commish_set_login_email`; the account, password and existing sessions are untouched), and the old team picker
-stays one tap away for anyone not moved yet. Step 2, once no account is on a stand-in address: the picker goes and
-`team_directory` stops listing addresses. Then: real email delivery (SMTP) for "forgot password", and the switcher.
+stays one tap away for anyone not moved yet. *Step 2 done (migration 104, same day, all nine accounts on real emails):*
+the picker is gone, `team_directory` lists names and colours only, open sign-up is off (accounts come from the
+commissioner, and from invites once they exist), and "Forgot your password?" emails a 6-digit code that is typed with
+the new password on the sign-in page (works on any device). The code email needs the project's own SMTP sender
+(Supabase's built-in one only delivers to the project's team); GMs change their password any time on their Profile.
+Next: the switcher.
 
 **B6. Money and the Fund are SaK's.** `commish_bill_entries` bills every league's GMs; `commish_post_payouts`
 reads `standings` with the owner's rights, so it ranks, pays and charges the Peter across leagues; `fund` is one

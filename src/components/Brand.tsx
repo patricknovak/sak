@@ -4,7 +4,7 @@
 import { useBrand } from '../lib/brand';
 
 export function Wordmark({ size = 'md', tagline, className = '' }: { size?: 'sm' | 'md' | 'lg' | 'xl'; tagline?: string; className?: string }) {
-  const s = { sm: 'text-xl', md: 'text-2xl', lg: 'text-4xl', xl: 'text-6xl' }[size];
+  const s = { sm: 'text-xl', md: 'text-2xl', lg: 'text-3xl sm:text-4xl', xl: 'text-6xl' }[size];
   const sub = { sm: 'text-[9px] tracking-[.18em]', md: 'text-[10px] tracking-[.3em]', lg: 'text-sm tracking-[.34em]', xl: 'text-lg tracking-[.38em]' }[size];
   const { wordmark } = useBrand();
   return (
