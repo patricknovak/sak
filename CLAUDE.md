@@ -93,6 +93,11 @@ Database changes are made directly on the live project through the Supabase conn
 6. Merge the pull request last. A pull request whose migration is not live and verified never merges: the site
    and the functions deploy from `main` and would read objects that don't exist yet.
 
+Every pull request is safe to merge the moment it is opened, even as a draft: Patrick may merge any open pull
+request. Code that needs SQL not yet live stays out of it (on the branch, unpushed, or in a later pull request
+opened once the SQL is live). PR #74 broke the live site for this reason (its site change read views whose SQL
+wasn't applied); #75 was the hotfix.
+
 - Destroying league data (deleting rows GMs made, dropping a table or a column that holds data) needs Patrick's
   yes in the chat first, every time. Dropping functions, policies or triggers, and housekeeping deletes the tests
   cover, are ordinary migrations.

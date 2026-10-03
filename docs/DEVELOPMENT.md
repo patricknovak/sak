@@ -37,7 +37,7 @@ Reviewed 3 October 2026, after migrations 81 to 85 (Super Pools B1 to B4).
 
 | Problem | What it cost | Fix |
 |---|---|---|
-| Database changes went through SQL files pasted by hand, because the Supabase connector held any statement with `drop` or `delete` for a confirmation a cloud session can't give. | B1 to B4 waited on a paste; PR #73 merged while its SQL wasn't live (harmless that time, only because it carried no site change). | Direct database changes: allow the Supabase connector's `apply_migration` and `execute_sql` tools (https://claude.ai/customize/connectors, Supabase, tool permissions: set both to allowed). Rule: a pull request merges only after its migration is live and verified. The paste file stays as the fallback. |
+| Database changes went through SQL files pasted by hand, because the Supabase connector held any statement with `drop` or `delete` for a confirmation a cloud session can't give. | B1 to B4 waited on a paste. PR #73 merged while its SQL wasn't live (harmless, no site change); PR #74 merged the same way and its site change read views that didn't exist yet, so the live player list failed until the #75 hotfix. | Direct database changes: allow the Supabase connector's `apply_migration` and `execute_sql` tools (https://claude.ai/customize/connectors, Supabase, tool permissions: set both to allowed). Rule: a pull request merges only after its migration is live and verified. The paste file stays as the fallback. |
 | Nothing ran the tests on a pull request; the only check was Vercel's landing preview. | A broken migration or build could reach `main`; the site deploys itself from `main`. | `.github/workflows/test.yml`: build, the stat parser and the whole database flow test on every pull request and push. |
 | Edge functions were deployed by hand, full files pasted through the connector (with the `\u` escaping trap). | Slow, and a function could lag `main`. | `.github/workflows/functions.yml` deploys every function on merge once the `SUPABASE_ACCESS_TOKEN` secret is added in GitHub. Until then, the connector as before. |
 | Production is the only database. | Every migration lands on the league people are using tonight. | Before the first league outside SaK: a staging project (about $25 a month) or a Supabase branch for the risky migrations. Decision for Patrick. |
@@ -93,6 +93,8 @@ results of his own past calls, and what the wider pool knows.
   (fingerprints of the functions being replaced); migration applied to live and verified (fingerprints match the
   repo, the numbers SaK sees unchanged, Postgres logs clean); edge functions deployed; site change merged last.
   The pull request says which of those are done.
+- **Every pull request is safe to merge the moment it is opened.** Code that needs SQL not yet live is not in it;
+  it goes up in its own pull request once the SQL is live.
 - **Expand, then contract.** Add the new path beside the old one, move the readers, prove the numbers match,
   and only then retire the old path in a later change.
 - **Two-league proof.** Any league-facing change gets a flow-test section where SaK and the north both use it
