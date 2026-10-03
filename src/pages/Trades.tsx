@@ -75,7 +75,6 @@ export default function Trades() {
     setGive(new Set(ids('give'))); setGet(new Set(ids('get'))); setGivePicks(new Set(ids('givePicks'))); setGetPicks(new Set(ids('getPicks')));
     setExtras({ givePk: Number(params.get('givePk') ?? 0) || 0, getPk: Number(params.get('getPk') ?? 0) || 0,
       giveCoins: Number(params.get('giveCoins') ?? 0) || 0, getCoins: Number(params.get('getCoins') ?? 0) || 0 });
-    if (params.get('counter')) setNote(`Counter to #${params.get('counter')}: `);
   }, [params]); // eslint-disable-line react-hooks/exhaustive-deps
   // the builder can show one position (or only picks) at a time
   const [posFilter, setPosFilter] = useSticky<string>('trades:pos', 'all');
@@ -101,12 +100,12 @@ export default function Trades() {
   const pastDeadline = league?.trade_deadline && now > new Date(league.trade_deadline).getTime();
   const pickLabel = (k: DraftPick, side: number) => `${k.season} R${k.round} pick${k.original_team !== side ? ` (via ${team(k.original_team)?.abbrev})` : ''}${k.overall ? ` · #${k.overall}` : ''}`;
 
-  // the offer being countered, if any: sending the counter answers it (the original is declined)
+  // the offer being countered, if any: sending the counter closes it as countered and links the two (migration 101)
   const countering = params.get('counter') ? trades.find((t) => t.id === Number(params.get('counter')) && t.status === 'proposed') : undefined;
   const propose = () => run(async () => {
     await rpc('propose_trade', { p_to: partner, p_give: [...give], p_get: [...get], p_give_picks: [...givePicks], p_get_picks: [...getPicks], p_note: note || null,
-      p_give_pickups: extras.givePk, p_get_pickups: extras.getPk, p_give_coins: extras.giveCoins, p_get_coins: extras.getCoins, p_drops: needDrops > 0 ? [...myDrops] : [] });
-    if (countering && countering.from_team === partner) await rpc('respond_trade', { p_trade: countering.id, p_accept: false });
+      p_give_pickups: extras.givePk, p_get_pickups: extras.getPk, p_give_coins: extras.giveCoins, p_get_coins: extras.getCoins, p_drops: needDrops > 0 ? [...myDrops] : [],
+      ...(countering && countering.from_team === partner ? { p_counter: countering.id } : {}) });
     setGive(new Set()); setGet(new Set()); setGivePicks(new Set()); setGetPicks(new Set()); setNote(''); setParams({}); setExtras({ givePk: 0, getPk: 0, giveCoins: 0, getCoins: 0 }); setMyDrops(new Set());
     load();
   }, countering ? 'Counter-offer sent 📨' : 'Trade offer sent 📨');
@@ -223,8 +222,8 @@ export default function Trades() {
     return (
       <div className="card p-3">
         <div className="mb-2 flex items-center justify-between text-xs text-mute">
-          <span>#{t.id} · {ago(t.created_at, now)}{t.parties && <> · {t.parties.length}-team trade</>}</span>
-          <span className={`chip ${t.status === 'approved' ? 'text-emerald-300' : ['vetoed', 'declined', 'failed'].includes(t.status) ? 'text-red-300' : ''}`}>{t.status}</span>
+          <span>#{t.id} · {ago(t.created_at, now)}{t.parties && <> · {t.parties.length}-team trade</>}{t.counter_of && <> · ↩️ counter to #{t.counter_of}</>}</span>
+          <span className={`chip ${t.status === 'approved' ? 'text-emerald-300' : ['vetoed', 'declined', 'failed'].includes(t.status) ? 'text-red-300' : t.status === 'countered' ? 'text-sky-300' : ''}`}>{t.status}</span>
         </div>
         <div className={`grid gap-3 ${ps.length > 2 ? 'sm:grid-cols-3' : 'grid-cols-2'}`}>
           {ps.map((side) => (
@@ -424,7 +423,7 @@ export default function Trades() {
                   ))}
                 </div>
                 {partner && countering && countering.from_team === partner && (
-                  <div className="rounded-xl border border-sky-400/30 bg-sky-500/10 px-3 py-2 text-xs text-sky-100">↩️ Countering {team(partner)?.gm_name}’s offer #{countering.id}: it’s loaded below the other way round. Change anything, then send. Sending your counter declines their original.</div>
+                  <div className="rounded-xl border border-sky-400/30 bg-sky-500/10 px-3 py-2 text-xs text-sky-100">↩️ Countering {team(partner)?.gm_name}’s offer #{countering.id}: it’s loaded below the other way round. Change anything, then send. Sending it closes their offer as countered.</div>
                 )}
                 {partner && (
                   <>
