@@ -152,6 +152,12 @@ league would refetch on every other league's deletes) and presence is one global
 league and resubscribes; `filter: league_id=eq.N` on every per-league subscription; presence per league.
 *Decision for Patrick:* the team-picker login is friendly for SaK but exposes emails; moving SaK to email
 sign-in (with "remember me") closes that today.
+*Decided (Patrick, 3 October 2026):* email sign-in with "remember me", rolled out without signing anyone out.
+Step 1 (migration 103): the sign-in page asks for email and password, with "Remember me on this device" (on by default;
+off keeps the session in sessionStorage); the commissioner puts each GM's real email on their account from the Commish
+page (`commish_set_login_email`; the account, password and existing sessions are untouched), and the old team picker
+stays one tap away for anyone not moved yet. Step 2, once no account is on a stand-in address: the picker goes and
+`team_directory` stops listing addresses. Then: real email delivery (SMTP) for "forgot password", and the switcher.
 
 **B6. Money and the Fund are SaK's.** `commish_bill_entries` bills every league's GMs; `commish_post_payouts`
 reads `standings` with the owner's rights, so it ranks, pays and charges the Peter across leagues; `fund` is one
@@ -301,8 +307,7 @@ into a `league_readiness(league)` function that the Commissioner page shows.
 
 ## 9. Decisions for Patrick
 
-1. **Sign-in.** Keep SaK's team-picker login (exposes GMs' login emails to anyone with the public key) or move
-   everyone to email sign-in now. Recommendation: email sign-in, with the team picker shown after.
+1. **Sign-in.** *Decided:* email sign-in with "remember me" (3 October 2026); rollout in B5 above.
 2. **The Fund.** *Decided:* money and the Fund are per-league features, off until a league turns them on (migration 95).
 3. **The second sport.** Basketball first (cheapest, same engine) or soccer first (bigger audience, new weekly
    engine). Recommendation: basketball proves the split; soccer is the growth bet for 2027-28.
