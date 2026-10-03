@@ -10,6 +10,7 @@ import { ProjOutlook } from './ProjOutlook';
 import { LatestNews, PlayerNewsList, usePlayerNews } from './PlayerNews';
 import { GameStatusBox, GameStatusChip, NewsDot } from './GameStatus';
 import { useBrand } from '../lib/brand';
+import { AddPlayerPanel } from './AddPlayer';
 
 // one-line player row used everywhere
 export function PlayerRow({ p, right, onClick, sub, dim, onInfo }: { p: Player; right?: ReactNode; onClick?: () => void; sub?: ReactNode; dim?: boolean; onInfo?: () => void }) {
@@ -201,27 +202,20 @@ export function PlayerSheet({ id, onClose, actions }: { id: number | null; onClo
 
 // add / drop / trade buttons for a player, used by the quick-view sheet and the player page
 export function PlayerActions({ p, onDone }: { p: Player; onDone?: () => void }) {
-  const { owner, me, league, rosters, players, refresh } = useLeague();
+  const { owner, me, league, refresh } = useLeague();
   const nav = useNavigate();
   const { busy, run } = useAction();
-  const [dropPick, setDropPick] = useState(false);
+  // adding opens the chooser: his numbers beside your roster's, with an optional (or, when full, required) drop
+  const [adding, setAdding] = useState(false);
   const r = owner.get(p.id);
   const mine = r && me && r.team_id === me.id;
   const inSeason = league?.phase === 'season';
-  const myRoster = rosters.filter((x) => x.team_id === me?.id && x.slot !== 'IR');
-  const full = myRoster.length >= Object.entries(league?.roster ?? {}).filter(([k]) => k !== 'IR').reduce((t, [, v]) => t + v, 0);
-
-  const add = (drop?: number) => run(async () => {
-    await rpc('add_player', { p_add: p.id, p_drop: drop ?? null });
-    await refresh(['rosters', 'standings']);
-    onDone?.();
-  }, `${p.name} added`);
 
   return (
     <>
       <div className="mt-4 flex flex-wrap gap-2">
-        {!r && inSeason && me && !dropPick && (
-          <button className="btn-primary" disabled={busy} onClick={() => (full ? setDropPick(true) : add())}>➕ Add {full ? '(drop someone)' : ''}</button>
+        {!r && inSeason && me && me.role !== 'spectator' && !adding && (
+          <button className="btn-primary" disabled={busy} onClick={() => setAdding(true)}>➕ Add</button>
         )}
         {mine && ['season', 'predraft'].includes(league?.phase ?? '') && (
           <button className="btn-ghost text-red-300" disabled={busy}
@@ -234,19 +228,7 @@ export function PlayerActions({ p, onDone }: { p: Player; onDone?: () => void })
         )}
       </div>
 
-      {dropPick && (
-        <div className="mt-3">
-          <div className="label mb-1">Drop who?</div>
-          <div className="max-h-72 divide-y divide-white/[.06] overflow-y-auto rounded-xl border border-line">
-            {myRoster.map((x) => players.get(x.player_id)).filter(Boolean).sort((a, b) => a!.proj - b!.proj).map((d) => (
-              <div key={d!.id} className="flex items-center gap-2 px-3 py-2">
-                <div className="min-w-0 flex-1"><PlayerRow p={d!} /></div>
-                <button className="btn-primary btn-sm" disabled={busy} onClick={() => add(d!.id)}>Drop</button>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
+      {adding && <AddPlayerPanel p={p} onCancel={() => setAdding(false)} onDone={() => { setAdding(false); onDone?.(); }} />}
     </>
   );
 }

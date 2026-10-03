@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
+import { useSticky } from '../lib/sticky';
 import { Link } from 'react-router-dom';
 import { useLeague } from '../lib/store';
 import { bare, useBrand } from '../lib/brand';
@@ -48,7 +49,7 @@ export default function Standings() {
   const lastSeason = useHistory().seasons[0];
   const brand = useBrand();
   const playoffsOn = playoffs.some((t) => Number(t.points) !== 0);
-  const [view, setView] = useState<'regular' | 'playoffs' | 'cup'>(playoffsOn ? 'playoffs' : 'regular');
+  const [view, setView] = useSticky<'regular' | 'playoffs' | 'cup'>('standings:view', playoffsOn ? 'playoffs' : 'regular');
   useEffect(() => { if (playoffsOn) setView('playoffs'); }, [playoffsOn]);
   const isPo = view === 'playoffs', isCup = view === 'cup';
   const [daily, setDaily] = useState<Daily[]>([]);
