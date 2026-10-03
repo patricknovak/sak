@@ -130,6 +130,16 @@ Each league's pass catches its own errors.
 Since B3 the edge functions' reads of `player_games.fpts`, `player_season` and `players.proj` give SaK's numbers when
 no league is set; the league pass sends `x-league` (or reads `league_games` / `league_players` through an RPC that takes
 `p_league`) so Garry, the projections task and the keeper grades score in each league's own points.
+*Done (migrations 84 and 85, October 2026).* `run_league_jobs(job)` runs the Book's open, its settling, the season and
+NHL markets and the bet settler once per active league with `app.league_id` set, catching each league's errors; the
+five cron jobs call it. `open_markets`, `settle_markets` and `settle_due_bets` work on the running league's rows only
+(the props carry the league's short name, not "SaK"). The service key may name a league with `x-league`, so nhl-sync's
+auto-pilot runs league by league (its phase, caps, points, teams) and Garry reads box scores, projections, season
+lines and standings in his league's points. Every `league_id` defaults to `current_league_id()`, not 1 (tenancy rule
+7). Roster caps come from the team's own league in a lineup change, the plans applied at puck drop and the
+auto-pilot. The faceoff feed is fetched when any league scores faceoffs. The flow test opens the Book for SaK and the
+north at once (each its own board, chat line and prop name), checks the service key's league, caps by league and a
+refused unknown job. Left for later: the SaK Fund's price (B6) and the health check, which are platform-wide.
 
 **B5. Sign-in and choosing a league.** The login page reads `team_directory` with the public key: every
 league's teams and every GM's login email (live today for SaK's eight). The client never sends `x-league`;

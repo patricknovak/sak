@@ -1328,6 +1328,7 @@ select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-000000000099
 set role authenticated;
 select pg_temp.expect('the north league has no requested markets', (select count(*) from markets where created_by is not null) = 0);
 reset role;
+select set_config('request.jwt.claim.sub', '', false);
 select 'book requests', true;
 
 -- ───────────── the Book, in play: odds that move with the score, tickets at the live price ─────────────
@@ -1705,3 +1706,51 @@ select pg_temp.expect('same weights, same profile', (select profile_id = 1 from 
   and (select count(*) from scoring_profiles) = :profiles0 + 1);
 select pg_temp.expect('SaK''s points still never moved', (select md5(string_agg(game_id || ':' || player_id || ':' || fpts, ',' order by game_id, player_id)) from player_game_points where profile_id = 1 and game_id <> 995) = :'sak_points0');
 select 'scoring per league', true;
+
+-- ───────────── the league pass ─────────────
+reset role;
+select set_config('request.jwt.claim.sub', '', false);
+-- an edge function (the service key) names its league with x-league; a GM can only name one of their own
+select set_config('request.jwt.claim.role', 'service_role', false);
+select set_config('request.headers', json_build_object('x-league', :league2::text)::text, false);
+select pg_temp.expect('the service key works for the league it names', current_league_id() = :league2 and current_profile_id() = (select profile_id from league_rules where league_id = :league2));
+select set_config('request.jwt.claim.role', 'authenticated', false);
+select pg_temp.as_team(2);
+select pg_temp.expect('a SaK GM can''t name the north', current_league_id() = 1);
+select set_config('request.headers', '', false);
+select set_config('request.jwt.claim.role', '', false);
+select set_config('request.jwt.claim.sub', '', false);
+-- roster caps are the team's own league's
+update league_rules set roster = jsonb_set(roster, '{C}', '1') where league_id = :league2;
+select pg_temp.expect('caps by league', _cap('C', :league2) = 1 and _cap('C', 1) = (select (roster->>'C')::int from league_rules where league_id = 1) and _cap('C') = _cap('C', 1));
+update league_rules set roster = jsonb_set(roster, '{C}', (select roster->'C' from league_rules where league_id = 1)) where league_id = :league2;
+-- the Book opens tonight for each league, on its own rows, with its own name on the props
+select p.id as pass_p, p.nhl_team as pass_club from players p
+  where p.pos <> 'G' and p.injury_status is null and p.nhl_team is not null
+    and not exists (select 1 from rosters r where r.player_id = p.id)
+  order by p.proj desc limit 1 \gset
+insert into rosters (team_id, player_id, slot) values (99, :pass_p, 'BN');
+insert into rosters (team_id, player_id, slot) values (2, :pass_p, 'BN');
+insert into games (id, date, start_utc, home, away, state) values (997, today_et(), now() + interval '2 hours', :'pass_club', 'ZZZ', 'FUT');
+select status as north_status from leagues where id = :league2 \gset
+update leagues set status = 'active' where id = :league2;   -- a league in setup is skipped by the scheduler
+select count(*) as sak_msgs0 from messages where league_id = 1 \gset
+select run_league_jobs('open-book') as pass_open \gset
+select pg_temp.expect('each league opened its own board for the game', (select count(*) from markets where game_id = 997 and league_id = 1 and kind in ('winner', 'total', 'ot')) = 3
+  and (select count(*) from markets where game_id = 997 and league_id = :league2 and kind in ('winner', 'total', 'ot')) = 3);
+select pg_temp.expect('the north''s prop carries the north''s name', exists (select 1 from markets where game_id = 997 and league_id = :league2 and kind = 'prop' and title like '%NP points tonight'));
+select pg_temp.expect('each league''s chat heard about its own Book', exists (select 1 from messages where league_id = :league2 and kind = 'system' and meta ? 'book')
+  and (select count(*) from messages where league_id = 1) > :sak_msgs0);
+select pg_temp.expect('a second run opens nothing new', (select count(*) from markets where game_id = 997) = (select count(*) from markets where game_id = 997)
+  and (run_league_jobs('open-book')->>'1')::int = 0 and (run_league_jobs('open-book')->>:'league2')::int = 0);
+select pg_temp.expect('the job left no league set behind', coalesce(current_setting('app.league_id', true), '') = '');
+-- every job runs for every league; an unknown job is refused
+select pg_temp.expect('settling runs league by league', (select count(*) from jsonb_object_keys(run_league_jobs('settle-book'))) = (select count(*) from leagues where status = 'active'));
+select pg_temp.raises('only the listed jobs run', 'select run_league_jobs(''drop everything'')', 'Unknown league job');
+-- a row written without a league is the caller's
+select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-000000000099', false);
+select pg_temp.expect('an unstamped row takes the caller''s league', (select current_league_id()) = :league2);
+reset role;
+select set_config('request.jwt.claim.sub', '', false);
+update leagues set status = :'north_status' where id = :league2;
+select 'league pass', true;

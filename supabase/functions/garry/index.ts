@@ -58,8 +58,12 @@ type Team = { id: number; name: string; gm_name: string; auto_lineup: boolean; k
 type Brand = { bot: { name: string; emoji: string }; coin: { name: string; emoji: string }; trophy: string; booby: string; tagline: string };
 const SAK_BRAND: Brand = { bot: { name: 'Garry', emoji: '🎙️' }, coin: { name: 'St. Patrick coins', emoji: '☘️' }, trophy: 'The SAK Cup', booby: 'The Peter', tagline: "She's A Keeper" };
 const brandOf = (raw: Partial<Brand> | null | undefined): Brand => ({ ...SAK_BRAND, ...(raw ?? {}), bot: { ...SAK_BRAND.bot, ...raw?.bot }, coin: { ...SAK_BRAND.coin, ...raw?.coin } });
-type Ctx = { lid: number; info: { id: number; name: string; short_name: string }; brand: Brand; ids: number[] };
-let L: Ctx = { lid: 1, info: { id: 1, name: "She's A Keeper", short_name: 'SaK' }, brand: SAK_BRAND, ids: [] };
+// the service key working for one league: x-league makes the views that score players use that league's scoring
+const dbFor = (lid: number) => createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!, {
+  auth: { persistSession: false }, global: { headers: { 'x-league': String(lid) } },
+});
+type Ctx = { lid: number; info: { id: number; name: string; short_name: string }; brand: Brand; ids: number[]; db: typeof db };
+let L: Ctx = { lid: 1, info: { id: 1, name: "She's A Keeper", short_name: 'SaK' }, brand: SAK_BRAND, ids: [], db };
 const coin = () => L.brand.coin;
 const bot = () => L.brand.bot.name;
 
@@ -67,11 +71,13 @@ async function enter(lid: number) {
   const { data: lg } = await db.from('leagues').select('id,name,short_name,brand').eq('id', lid).maybeSingle();
   if (!lg) throw new Error(`no league ${lid}`);
   const { data: teams } = await db.from('teams').select('id').eq('league_id', lid).eq('role', 'gm');
-  L = { lid, info: { id: lg.id, name: lg.name, short_name: lg.short_name }, brand: brandOf(lg.brand as Partial<Brand>), ids: (teams ?? []).map((t) => t.id) };
+  L = { lid, info: { id: lg.id, name: lg.name, short_name: lg.short_name }, brand: brandOf(lg.brand as Partial<Brand>), ids: (teams ?? []).map((t) => t.id), db: dbFor(lid) };
 }
 
 const LEAGUE_TABLES = new Set(['messages', 'garry_memory', 'garry_state', 'rosters', 'teams', 'notifications', 'draft_picks', 'draft_state', 'draft_queue',
   'bets', 'bet_entries', 'coin_ledger', 'lineup_snapshots', 'push_subscriptions', 'markets', 'market_bets', 'trades', 'league_rules']);
+// shared NHL data in this league's points: box scores, projections and corrections under its scoring profile
+const LEAGUE_VIEWS: Record<string, string> = { player_games: 'league_games', players: 'league_players', stat_corrections: 'league_corrections' };
 const TEAM_VIEWS = new Set(['standings', 'playoff_standings', 'sak_cup_standings', 'coin_balances', 'team_daily', 'playoff_daily', 'team_bench_daily', 'book_standings', 'coin_races']);
 // wraps a query builder so selects, updates and deletes carry the league bound and inserts stamp it
 function scoped(col: string, val: number | number[]) {
@@ -87,13 +93,13 @@ function scoped(col: string, val: number | number[]) {
 }
 type QB = ReturnType<typeof db.from>;
 function from(table: string): QB {
-  if (table === 'league') return new Proxy(db.from('league_rules'), scoped('league_id', L.lid));   // the rules row, by league
-  if (LEAGUE_TABLES.has(table)) return new Proxy(db.from(table), scoped('league_id', L.lid));
-  if (TEAM_VIEWS.has(table)) return new Proxy(db.from(table), scoped('team_id', L.ids));
-  return db.from(table);
+  if (table === 'league') return new Proxy(L.db.from('league_rules'), scoped('league_id', L.lid));   // the rules row, by league
+  if (LEAGUE_TABLES.has(table)) return new Proxy(L.db.from(table), scoped('league_id', L.lid));
+  if (TEAM_VIEWS.has(table)) return new Proxy(L.db.from(table), scoped('team_id', L.ids));
+  return L.db.from(LEAGUE_VIEWS[table] ?? table);
 }
 // what answer.ts gets: the same scoped reads, plus the brand for its wording
-const facade = () => ({ from, rpc: (fn: string, args?: Record<string, unknown>) => db.rpc(fn, args), brand: L.brand, league: L.info });
+const facade = () => ({ from, rpc: (fn: string, args?: Record<string, unknown>) => L.db.rpc(fn, args), brand: L.brand, league: L.info });
 
 // who he is, for this league: the brand's names, and whatever the commissioner briefed him with
 function persona(briefing?: string | null) {

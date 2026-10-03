@@ -34,7 +34,12 @@ Two things in one repo:
   nhl-players, nhl-players-pregame, nhl-standings, nhl-corrections, nhl-corrections-deep, projections,
   auto-lineups, auto-lineups-late, garry-daily, garry-weekly, garry-nudge, garry-moments, open-book, settle-book,
   settle-bets, expire-bets, process-pending (every 10 s), health-check, fund-price, cron-history, cost-snapshot,
-  cost-watch.
+  cost-watch. A job that does a league's work runs once per active league: in SQL through
+  `run_league_jobs(job)` (sets `app.league_id`, one league's failure doesn't stop the others), in an edge function
+  through a client with the service key and an `x-league` header (`dbFor(league)` in nhl-sync and Garry).
+- Points: the NHL data is shared, the scoring isn't. `player_games.fpts` and `players.proj / last_fp / rank` are
+  SaK's numbers kept for old readers; read a league's points through `league_games`, `league_players`,
+  `player_season`, `player_windows` (each league's scoring profile, `scoring_profiles`).
 - Hosting: GitHub Pages from `main` (`.github/workflows/deploy.yml`, builds on push). The landing page for
   Super Pools is `landing/index.html`, to be hosted on Vercel.
 

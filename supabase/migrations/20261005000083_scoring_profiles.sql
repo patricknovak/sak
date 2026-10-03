@@ -39,7 +39,8 @@ do $$ begin
     create policy read_all on public.scoring_profiles for select to authenticated using (true);
   end if;
 end $$;
-grant select on public.scoring_profiles to authenticated;
+revoke all on public.scoring_profiles from anon;
+grant select on public.scoring_profiles to authenticated, service_role;
 
 alter table public.league_rules add column if not exists profile_id int references public.scoring_profiles (id);
 
@@ -57,7 +58,8 @@ do $$ begin
     create policy read_all on public.player_game_points for select to authenticated using (true);
   end if;
 end $$;
-grant select on public.player_game_points to authenticated;
+revoke all on public.player_game_points from anon;
+grant select on public.player_game_points to authenticated, service_role;
 
 create table if not exists public.player_values (
   profile_id int not null references public.scoring_profiles (id),
@@ -73,7 +75,8 @@ do $$ begin
     create policy read_all on public.player_values for select to authenticated using (true);
   end if;
 end $$;
-grant select on public.player_values to authenticated;
+revoke all on public.player_values from anon;
+grant select on public.player_values to authenticated, service_role;
 
 -- the profile the caller's league scores with
 create or replace function public.current_profile_id() returns int
@@ -222,7 +225,8 @@ create or replace view public.league_games with (security_invoker = true) as
   select pg.game_id, pg.player_id, pg.date, pg.nhl_team, pg.stats, coalesce(pp.fpts, 0::numeric) as fpts, pg.updated_at
   from player_games pg
   left join player_game_points pp on pp.game_id = pg.game_id and pp.player_id = pg.player_id and pp.profile_id = (select current_profile_id());
-grant select on public.league_games to authenticated;
+revoke all on public.league_games from anon;
+grant select on public.league_games to authenticated, service_role;
 
 create or replace view public.league_players with (security_invoker = true) as
   select p.id, p.name, p.first, p.last_name, p.pos, p.elig, p.nhl_team, p.num, p.birth, p.shoots, p.headshot,
@@ -230,7 +234,8 @@ create or replace view public.league_players with (security_invoker = true) as
     p.status, p.injury_note, p.updated_at, p.injury_status, p.injury_date, p.proj_stats, p.proj_gp, p.proj_meta
   from players p
   left join player_values v on v.player_id = p.id and v.profile_id = (select current_profile_id());
-grant select on public.league_players to authenticated;
+revoke all on public.league_players from anon;
+grant select on public.league_players to authenticated, service_role;
 
 create or replace view public.league_corrections with (security_invoker = true) as
   select c.id, c.game_id, c.player_id, c.date, c.old_stats, c.new_stats,
@@ -238,7 +243,8 @@ create or replace view public.league_corrections with (security_invoker = true) 
   from stat_corrections c
   join scoring_profiles sp on sp.id = (select current_profile_id())
   where _score(sp.scoring, c.old_stats) <> _score(sp.scoring, c.new_stats);
-grant select on public.league_corrections to authenticated;
+revoke all on public.league_corrections from anon;
+grant select on public.league_corrections to authenticated, service_role;
 
 -- the views that add up points read the caller's league's points
 create or replace view public.player_season with (security_invoker = true) as
