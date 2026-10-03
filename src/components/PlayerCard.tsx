@@ -13,28 +13,30 @@ import { useBrand } from '../lib/brand';
 import { AddPlayerPanel } from './AddPlayer';
 
 // one-line player row used everywhere
-export function PlayerRow({ p, right, onClick, sub, dim, onInfo }: { p: Player; right?: ReactNode; onClick?: () => void; sub?: ReactNode; dim?: boolean; onInfo?: () => void }) {
+// `wrap`: on a narrow phone the name and the matchup wrap onto more lines instead of being cut off (the lineup uses it,
+// where the opponent and the puck drop matter most)
+export function PlayerRow({ p, right, onClick, sub, dim, onInfo, wrap }: { p: Player; right?: ReactNode; onClick?: () => void; sub?: ReactNode; dim?: boolean; onInfo?: () => void; wrap?: boolean }) {
   const { gamesByTeam } = useLeague();
   const g = gamesByTeam(p.nhl_team);
   const opp = g ? (g.home === p.nhl_team ? `vs ${g.away}` : `@ ${g.home}`) : null;
   const live = g && ['LIVE', 'CRIT'].includes(g.state);
   return (
     <div onClick={onClick} className={`flex min-w-0 items-center gap-2.5 ${onClick ? 'cursor-pointer' : ''} ${dim ? 'opacity-45' : ''}`}>
-      <Headshot p={p} size={38} />
+      <Headshot p={p} size={wrap ? 34 : 38} />
       <div className="min-w-0 flex-1">
-        <div className="flex items-center gap-1.5">
-          <span className="truncate font-semibold">{p.name}</span>
+        <div className={wrap ? 'flex flex-wrap items-center gap-x-1.5 gap-y-0.5' : 'flex items-center gap-1.5'}>
+          <span className={wrap ? 'break-words font-semibold leading-tight' : 'truncate font-semibold'}>{p.name}</span>
           {(() => { const b = injuryBadge(p.injury_status); return b && <span className={`chip shrink-0 ${b.cls}`} title={p.injury_note ?? ''}>{b.label}</span>; })()}
           <GameStatusChip id={p.id} />
           <NewsDot id={p.id} onClick={onInfo} />
         </div>
-        <div className="flex min-w-0 items-center gap-1.5 overflow-hidden whitespace-nowrap text-xs text-mute">
-          <NhlLogo abbr={p.nhl_team} size={14} />
+        <div className={wrap ? 'mt-0.5 flex min-w-0 flex-wrap items-center gap-x-1.5 gap-y-0.5 text-xs text-mute' : 'flex min-w-0 items-center gap-1.5 overflow-hidden whitespace-nowrap text-xs text-mute'}>
+          <span className="inline-flex items-center gap-1.5 whitespace-nowrap"><NhlLogo abbr={p.nhl_team} size={14} />
           <span>{p.nhl_team ?? 'FA'}</span>
           <span>·</span>
-          <span>{p.elig.join('/')}</span>
+          <span>{p.elig.join('/')}</span></span>
           {opp && (
-            <span className={`ml-1 truncate ${live ? 'font-semibold text-goal' : 'text-slate-300'}`}>
+            <span className={`${wrap ? 'whitespace-nowrap rounded-md bg-white/[.06] px-1.5 py-px' : 'ml-1 truncate'} ${live ? 'font-semibold text-goal' : 'text-slate-300'}`}>
               {opp} {live ? `· ${g!.period === 'SO' || g!.period === 'OT' ? g!.period : 'P' + g!.period} ${g!.clock ?? ''}`
                 : ['OFF', 'FINAL'].includes(g!.state) ? '· Final' : '· ' + fmtTime(g!.start_utc)}
             </span>
