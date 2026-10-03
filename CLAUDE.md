@@ -134,6 +134,8 @@ wasn't applied); #75 was the hotfix.
 - Tenancy: a new league table gets `league_id`, the `_stamp_league` trigger and policies bound to
   `current_league_id()` in the same migration; a new security-definer RPC that takes an id calls
   `_in_league(table, id)` first; a new view is `security_invoker`. `tenancy.sql` fails the test otherwise.
+  The service key (Garry, the edge functions) skips row-level security, so a view that ranks, counts or lists across
+  teams filters `league_id = current_league_id()` itself (migration 96: the sign-in list and the standings).
 - The platform admin key (`private.app_keys`, name `admin`) goes in the `x-admin-key` header for Garry's
   commissioner tasks (keepers, learn, evolve, assess, probe); the public anon key alone is refused. Never put it
   in the site or the repo.
