@@ -2139,3 +2139,37 @@ select set_config('app.league_id', '', false);
 select pg_temp.expect('a trade value is scored at the end of the season', exists (
   select 1 from predictions where kind = 'trade_value' and league_id = 1 and status = 'scored' and outcome is not null and error = outcome - predicted));
 select 'trade predictions', true;
+
+-- ───────────── sign-in emails ─────────────
+-- the commissioner puts a GM's real email on the account; the account and its password stay
+reset role;
+select user_id as terry_uid from teams where id = 2 \gset
+create temp table terry_before as select encrypted_password from auth.users where id = :'terry_uid';
+-- live accounts carry an email identity beside the user; the test's GMs are made without one
+insert into auth.identities (id, user_id, provider_id, provider, identity_data, created_at, updated_at)
+  select gen_random_uuid(), id, id::text, 'email', jsonb_build_object('sub', id::text, 'email', email), now(), now()
+  from auth.users where id = :'terry_uid' and not exists (select 1 from auth.identities where user_id = :'terry_uid');
+select pg_temp.as_team(1);
+set role authenticated;
+select pg_temp.expect('the commissioner sees the league''s sign-ins', (select count(*) from commish_accounts()) = (select count(*) from teams where league_id = 1 and user_id is not null));
+select commish_set_login_email(2, '  Terry.Real@Example.com ');
+select pg_temp.raises('an email can sign in to one account only', 'select commish_set_login_email(3, ''terry.real@example.com'')', 'Another account');
+select pg_temp.raises('an address has to look like one', 'select commish_set_login_email(3, ''terry'')', 'look like an email');
+reset role;
+select pg_temp.expect('the account takes the new email, password unchanged', (select u.email = 'terry.real@example.com' and u.encrypted_password is not distinct from b.encrypted_password and u.email_confirmed_at is not null
+    from auth.users u, terry_before b where u.id = :'terry_uid'));
+select pg_temp.expect('the email identity and the team follow', (select identity_data->>'email' from auth.identities where user_id = :'terry_uid' and provider = 'email') = 'terry.real@example.com'
+  and (select login_email from teams where id = 2) = 'terry.real@example.com');
+-- a GM can't do it, and the north's commissioner can't reach SaK's accounts
+select pg_temp.as_team(3);
+set role authenticated;
+select pg_temp.raises('a GM can''t set sign-in emails', 'select commish_set_login_email(3, ''jason@example.com'')', 'Commissioner only');
+select pg_temp.raises('a GM can''t list the sign-ins', 'select * from commish_accounts()', 'Commissioner only');
+reset role;
+select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-000000000099', false);
+set role authenticated;
+select pg_temp.raises('the north''s commissioner can''t touch SaK''s accounts', 'select commish_set_login_email(2, ''x@example.com'')');
+select pg_temp.expect('the north''s commissioner sees only the north''s sign-ins', not exists (select 1 from commish_accounts() a join teams t on t.id = a.team_id where t.league_id <> :league2));
+reset role;
+select set_config('request.jwt.claim.sub', '', false);
+select 'sign-in emails', true;

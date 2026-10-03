@@ -1,12 +1,18 @@
 import { useEffect, useState } from 'react';
-import { supabase } from '../lib/supabase';
+import { remembered, setRemember, supabase } from '../lib/supabase';
 import { Spinner, TeamBadge } from '../components/ui';
 import { Wordmark } from '../components/Brand';
 import type { Team } from '../lib/types';
 
 type DirTeam = Pick<Team, 'id' | 'name' | 'abbrev' | 'gm_name' | 'login_email' | 'color' | 'emoji' | 'role'>;
 
+// Sign in with your email and password (Patrick's call, October 2026). The old way, tapping your team and typing the
+// password, stays one tap away until every GM has a real email on their account (the commissioner adds them on the
+// Commish page); it goes in step 2, with the addresses the team list hands out.
 export default function Login() {
+  const [email, setEmail] = useState(() => { try { return localStorage.getItem('sak-last-email') ?? ''; } catch { return ''; } });
+  const [remember, setRem] = useState(remembered);
+  const [byTeam, setByTeam] = useState(false);
   const [teams, setTeams] = useState<DirTeam[]>([]);
   const [pick, setPick] = useState<DirTeam | null>(null);
   const [pw, setPw] = useState('');
@@ -14,6 +20,7 @@ export default function Login() {
   const [busy, setBusy] = useState(false);
 
   useEffect(() => {
+    if (!byTeam || teams.length) return;
     supabase.from('team_directory').select('*').order('id').then(({ data, error }) => {
       if (error) setErr('Can’t reach the league server. Try again in a minute.');
       setTeams((data ?? []) as DirTeam[]);
@@ -21,17 +28,34 @@ export default function Login() {
       const t = (data ?? []).find((x) => String(x.id) === last);
       if (t) setPick(t as DirTeam);
     });
-  }, []);
+  }, [byTeam]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const signIn = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!pick) return;
+    const login = byTeam ? pick?.login_email : email.trim().toLowerCase();
+    if (!login) return;
     setBusy(true); setErr('');
-    const { error } = await supabase.auth.signInWithPassword({ email: pick.login_email, password: pw });
+    setRemember(remember);
+    const { error } = await supabase.auth.signInWithPassword({ email: login, password: pw });
     setBusy(false);
-    if (error) setErr(error.message === 'Invalid login credentials' ? 'Wrong password. Ask the commish if you’re locked out.' : error.message);
-    else localStorage.setItem('sak-last-team', String(pick.id));
+    if (error) {
+      setErr(error.message !== 'Invalid login credentials' ? error.message
+        : byTeam ? 'Wrong password. Ask the commish if you’re locked out.'
+        : 'That email and password don’t match. Same password as always; ask the commish if you’re locked out.');
+      return;
+    }
+    try {
+      if (byTeam && pick) localStorage.setItem('sak-last-team', String(pick.id));
+      if (!byTeam && remember) localStorage.setItem('sak-last-email', login); else localStorage.removeItem('sak-last-email');
+    } catch { /* nothing to remember with */ }
   };
+
+  const rememberBox = (
+    <label className="relative mt-3 flex cursor-pointer items-center gap-2 text-sm text-white/80">
+      <input type="checkbox" className="h-4 w-4 accent-gold" checked={remember} onChange={(e) => setRem(e.target.checked)} />
+      Remember me on this device
+    </label>
+  );
 
   return (
     <div className="pt-safe relative flex min-h-dvh flex-col items-center justify-center overflow-hidden px-4 py-10">
@@ -52,7 +76,22 @@ export default function Login() {
           <p className="mt-2 text-xs font-bold uppercase tracking-[.3em] text-mute">She’s A Keeper · est. 2013 · 2026-27</p>
         </div>
 
-        {!pick ? (
+        {!byTeam ? (
+          <form onSubmit={signIn} className="card-hero animate-pop p-5">
+            <label className="label relative text-white/70" htmlFor="email">Email</label>
+            <input id="email" className="input relative mt-1" type="email" inputMode="email" autoComplete="username" autoFocus={!email}
+              value={email} onChange={(e) => setEmail(e.target.value)} placeholder="you@example.com" />
+            <label className="label relative mt-3 block text-white/70" htmlFor="pw">Password</label>
+            <input id="pw" className="input relative mt-1" type="password" autoComplete="current-password" autoFocus={!!email} value={pw}
+              onChange={(e) => setPw(e.target.value)} placeholder="Your Superleague password" />
+            {rememberBox}
+            <button className="btn-primary relative mt-4 w-full py-3 text-base" disabled={busy || !pw || !email.includes('@')}>{busy ? <Spinner /> : '🏒 Drop the puck'}</button>
+            <p className="relative mt-3 text-center text-xs text-white/60">Same password as always. Forgot it? Ask the commish.</p>
+            <button type="button" className="relative mt-2 w-full text-center text-sm text-white/60 underline" onClick={() => { setByTeam(true); setErr(''); setPw(''); }}>
+              No email on your account yet? Pick your team instead
+            </button>
+          </form>
+        ) : !pick ? (
           <>
             <div className="label mb-3 text-center">Who are you?</div>
             <div className="stagger grid grid-cols-2 gap-2.5">
@@ -69,6 +108,7 @@ export default function Login() {
               ))}
               {teams.length === 0 && !err && <div className="col-span-2 flex justify-center py-8"><Spinner /></div>}
             </div>
+            <button type="button" className="mt-4 w-full text-center text-sm text-white/60 underline" onClick={() => { setByTeam(false); setErr(''); }}>Sign in with your email instead</button>
             {teams.some((t) => t.role === 'spectator') && (
               <>
                 <div className="label mb-2 mt-6 text-center">Spectators</div>
@@ -94,6 +134,7 @@ export default function Login() {
             <label className="label relative text-white/70">Password</label>
             <input className="input relative mt-1" type="password" autoFocus autoComplete="current-password" value={pw}
               onChange={(e) => setPw(e.target.value)} placeholder="Your Superleague password" />
+            {rememberBox}
             <button className="btn-primary relative mt-4 w-full py-3 text-base" disabled={busy || !pw}>{busy ? <Spinner /> : '🏒 Drop the puck'}</button>
             <button type="button" className="relative mt-3 w-full text-center text-sm text-white/60" onClick={() => setPick(null)}>Not {pick.gm_name}? Switch team</button>
           </form>

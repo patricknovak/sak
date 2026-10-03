@@ -251,6 +251,10 @@ export default function Commish() {
         <GarryShaper />
       </Section>
 
+      <Section title="✉️ Sign-in emails">
+        <SignInEmails />
+      </Section>
+
       <Section title="🔑 Reset a GM’s password">
         <div className="card flex flex-wrap gap-2 p-3">
           <select className="input w-auto" value={pw.team} onChange={(e) => setPw({ ...pw, team: e.target.value })}>
@@ -334,6 +338,52 @@ function KeepersForTeam() {
           </div>
         </>
       )}
+    </div>
+  );
+}
+
+// Email sign-in, step 1: each GM's real email goes on their account here. The account, its password and any phone
+// already signed in stay as they are; from then on the GM signs in with that email and the same password. A stand-in
+// address (name@sakleague.app) is one no GM ever typed: those are the ones still to do.
+interface Account { team_id: number; gm_name: string; team_name: string; role: string; login_email: string | null; stand_in: boolean; last_sign_in: string | null }
+function SignInEmails() {
+  const { teams } = useLeague();
+  const { busy, run } = useAction();
+  const [rows, setRows] = useState<Account[] | null>(null);
+  const [draft, setDraft] = useState<Record<number, string>>({});
+  const load = () => rpc<Account[]>('commish_accounts').then(setRows, () => setRows([]));
+  useEffect(() => { load(); }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  if (!rows) return <div className="card p-3 text-sm text-mute">Loading…</div>;
+  const todo = rows.filter((r) => r.stand_in).length;
+  return (
+    <div className="space-y-2">
+      <p className="px-1 text-xs text-mute">
+        Put each GM&apos;s own email on their account. Nothing changes for anyone already signed in, and their password stays the same; next time
+        they sign in, it&apos;s their email and that password. {todo ? <b className="text-slate-200">{todo} still on a stand-in address.</b> : <b className="text-emerald-300">Everyone has a real email.</b>}
+      </p>
+      {rows.map((r) => {
+        const t = teams.find((x) => x.id === r.team_id);
+        const v = draft[r.team_id] ?? '';
+        return (
+          <div key={r.team_id} className="card p-3">
+            <div className="flex items-center gap-2">
+              {t && <TeamBadge team={t} size={26} />}
+              <div className="min-w-0 flex-1">
+                <div className="truncate text-sm font-semibold">{r.gm_name} <span className="text-xs font-normal text-mute">{r.role === 'spectator' ? 'spectator' : r.team_name}</span></div>
+                <div className={`truncate text-xs ${r.stand_in ? 'text-amber-300' : 'text-emerald-300'}`}>{r.stand_in ? '⚠️ ' : '✓ '}{r.login_email}</div>
+              </div>
+              <div className="shrink-0 text-right text-[10px] text-mute">{r.last_sign_in ? `signed in ${fmtDateTime(r.last_sign_in)}` : 'never signed in'}</div>
+            </div>
+            <div className="mt-2 flex gap-2">
+              <input className="input flex-1" type="email" inputMode="email" placeholder={r.stand_in ? 'Their email' : 'Change to…'} value={v}
+                onChange={(e) => setDraft({ ...draft, [r.team_id]: e.target.value })} />
+              <button className="btn-primary" disabled={busy || !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(v.trim())}
+                onClick={() => run(async () => { await rpc('commish_set_login_email', { p_team: r.team_id, p_email: v.trim() }); setDraft({ ...draft, [r.team_id]: '' }); await load(); },
+                  `${r.gm_name} signs in with ${v.trim().toLowerCase()} from now on`)}>Save</button>
+            </div>
+          </div>
+        );
+      })}
     </div>
   );
 }
