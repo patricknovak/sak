@@ -2118,3 +2118,24 @@ delete from push_subscriptions where endpoint = 'https://push.example/phone-1';
 delete from notifications where body = 'test push';
 select set_config('request.jwt.claim.sub', '', false);
 select 'push per league', true;
+
+-- ───────────── trades in the prediction log ─────────────
+reset role;
+select set_config('request.jwt.claim.sub', '', false);
+select pg_temp.expect('an approved trade logs a value for each side', exists (
+  select 1 from predictions pr join trades t on t.id = (pr.subject->>'trade_id')::bigint
+  where pr.kind = 'trade_value' and t.status = 'approved' and pr.league_id = t.league_id
+    and jsonb_typeof(pr.subject->'in') = 'array' and pr.resolves_on > (pr.subject->>'from')::date - 1));
+select pg_temp.expect('one row per team per trade', not exists (
+  select 1 from predictions where kind = 'trade_value' group by league_id, subject->>'trade_id', subject->>'team_id' having count(*) > 1));
+select pg_temp.expect('the two sides of a two-team trade mirror each other', not exists (
+  select 1 from predictions a join predictions b on a.kind = 'trade_value' and b.kind = 'trade_value' and a.subject->>'trade_id' = b.subject->>'trade_id'
+    and a.subject->>'team_id' < b.subject->>'team_id' join trades t on t.id = (a.subject->>'trade_id')::bigint and t.parties is null
+  where a.predicted + b.predicted <> 0));
+-- scored once the season it was valued over is done
+select set_config('app.league_id', '1', false);
+select score_predictions((select max(resolves_on) from predictions where kind = 'trade_value' and league_id = 1));
+select set_config('app.league_id', '', false);
+select pg_temp.expect('a trade value is scored at the end of the season', exists (
+  select 1 from predictions where kind = 'trade_value' and league_id = 1 and status = 'scored' and outcome is not null and error = outcome - predicted));
+select 'trade predictions', true;
