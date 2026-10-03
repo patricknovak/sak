@@ -2025,3 +2025,26 @@ select pg_temp.expect('the scheduler''s headers are the scheduler''s', not has_f
   and not has_function_privilege('anon', 'public._edge_headers(boolean)', 'execute'));
 select set_config('request.jwt.claim.sub', '', false);
 select 'medium items', true;
+
+-- ───────────── Garry's daily budget ─────────────
+reset role;
+select set_config('request.jwt.claim.sub', '', false);
+select pg_temp.expect('a league with no budget set gets the default $1.00', (garry_budget(:league2)->>'budget')::numeric = 1.00);
+-- the north commissioner can't set it; the platform can
+select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-000000000099', false);
+set role authenticated;
+select pg_temp.raises('a commissioner can''t set Garry''s budget', format('select set_garry_budget(%s, 5)', :league2), 'Only the platform');
+reset role;
+insert into ops.platform_admins (user_id) select user_id from teams where id = 1 on conflict do nothing;
+select pg_temp.as_team(1);
+set role authenticated;
+select set_garry_budget(:league2, 0.25);
+reset role;
+-- spending past it leaves nothing for today, in that league only
+select meter_cost(:league2, 'xai', 'garry.reply', 1, 1000, 0, 500, 0, 0.30);
+select meter_cost(:league2, 'xai', 'hub.x_feed', 1, 1000, 0, 500, 0, 5.00);
+select pg_temp.expect('the north''s Garry is out for today', (garry_budget(:league2)->>'left')::numeric = 0 and (garry_budget(:league2)->>'spent')::numeric = 0.30);
+select pg_temp.expect('SaK''s budget is its own', (garry_budget(1)->>'left')::numeric > 0);
+select pg_temp.expect('the public key can''t read budgets', not has_function_privilege('authenticated', 'public.garry_budget(int)', 'execute'));
+select set_config('request.jwt.claim.sub', '', false);
+select 'garry budget', true;
