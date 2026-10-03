@@ -178,6 +178,9 @@ Home and its cards, Trades, chat, the box score, the player card and page, the p
 predicted standings now show the league's season, not a fixed 2026-27). The draft call room carries the league id
 for every league but SaK. Left: `src/data/history.ts` into the database (league memory), the League page, the
 feature board, the Yahoo import and the SQL messages.
+*History done (October 2026).* The site reads each league's past from the league memory tables (migration 89)
+through `useHistory()`; no page imports `src/data/history.ts`. SaK's pages read word for word as before (checked
+against a build of the old code), and a league with no past shows none.
 
 **B8. Alerts and phones.** `push_subscriptions` is keyed by `endpoint`, so a phone in two leagues serves only
 the last; push titles say "SAK Superleague"; `respond_trade` notifies every league's commissioner; push replay

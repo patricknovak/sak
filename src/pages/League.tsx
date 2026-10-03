@@ -4,7 +4,8 @@ import { useLeague } from '../lib/store';
 import { rpc, supabase } from '../lib/supabase';
 import type { Proposal, Vote } from '../lib/types';
 import { fmtMoney, fmtPts, STAT_LABELS } from '../lib/format';
-import { ALL_TIME_2425, RULES, SEASONS, TIMELINE, TROPHIES, allTime, type GM } from '../data/history';
+import { useHistory } from '../lib/history';
+import { bare, useBrand } from '../lib/brand';
 import { Section, Sheet, useAction, PageHeader } from '../components/ui';
 import { Landmark } from 'lucide-react';
 import { PromoVideo } from '../components/PromoVideo';
@@ -32,18 +33,23 @@ export default function LeaguePage() {
 }
 
 function History() {
-  const [open, setOpen] = useState<string | null>(SEASONS[0].season);
+  const { seasons: SEASONS, allTime: at, baseCount, baseThrough, trophies: TROPHIES, timeline: TIMELINE } = useHistory();
+  const brand = useBrand();
+  const [open, setOpen] = useState<string | null>(null);
+  useEffect(() => { if (SEASONS[0]) setOpen((o) => o ?? SEASONS[0].season); }, [SEASONS]);
   const champs = useMemo(() => {
-    const c = new Map<GM, number>(), p = new Map<GM, number>(), money = new Map<GM, number>();
+    const c = new Map<string, number>(), p = new Map<string, number>(), money = new Map<string, number>();
     for (const s of SEASONS) {
+      if (!s.rows.length) continue;
       c.set(s.rows[0].gm, (c.get(s.rows[0].gm) ?? 0) + 1);
       const peter = s.rows.find((r) => r.peter);
       if (peter) p.set(peter.gm, (p.get(peter.gm) ?? 0) + 1);
       for (const r of s.rows) if (r.prize) money.set(r.gm, (money.get(r.gm) ?? 0) + r.prize);
     }
     return { c: [...c].sort((a, b) => b[1] - a[1]), p: [...p].sort((a, b) => b[1] - a[1]), money: [...money].sort((a, b) => b[1] - a[1]) };
-  }, []);
-  const at = allTime();
+  }, [SEASONS]);
+  // the seasons played since the official all-time table the league started from
+  const since = SEASONS.filter((s) => baseThrough && s.season > baseThrough).map((s) => s.season).reverse().join(', ');
   // a colour per GM so each banner looks like it belongs to its franchise
   const { teams } = useLeague();
   const gmColor = (gm: string) => teams.find((t) => t.gm_name === gm)?.color ?? '#4b5878';
@@ -53,7 +59,7 @@ function History() {
       <div className="card overflow-hidden p-0">
         <div className="label flex items-center gap-1.5 px-3 pt-3 text-white/70">🏟️ Raised to the rafters</div>
         <div className="scroll-x flex gap-2.5 px-3 pb-4 pt-3">
-          {SEASONS.map((s) => {
+          {SEASONS.filter((s) => s.rows.length).map((s) => {
             const w = s.rows[0]; const c = gmColor(w.gm);
             return (
               <div key={s.season} className="relative w-24 shrink-0">
@@ -96,7 +102,7 @@ function History() {
         </Section>
       </div>
 
-      <Section title="All-time points (through 2025-26)">
+      <Section title={`All-time points${SEASONS[0] ? ` (through ${SEASONS[0].season})` : ''}`}>
         <div className="card divide-y divide-white/[.06]">
           {at.map((r, i) => (
             <div key={r.teamId} className="flex items-center gap-3 px-3 py-2 text-sm">
@@ -106,12 +112,12 @@ function History() {
             </div>
           ))}
         </div>
-        <p className="mt-1 px-1 text-xs text-mute">From the league spreadsheet’s official all-time table ({ALL_TIME_2425.length} franchises through 2024-25) plus 2025-26. Expansion teams get the league average for seasons before they joined.</p>
+        {baseCount > 0 && <p className="mt-1 px-1 text-xs text-mute">From the league’s official all-time table ({baseCount} franchises through {baseThrough}){since && ` plus ${since}`}. Expansion teams get the league average for seasons before they joined.</p>}
       </Section>
 
       <Section title="Season by season">
         <div className="space-y-2">
-          {SEASONS.map((s) => (
+          {SEASONS.filter((s) => s.rows.length).map((s) => (
             <div key={s.season} className="card overflow-hidden">
               <button className="flex w-full items-center gap-3 px-3 py-2.5 text-left" onClick={() => setOpen(open === s.season ? null : s.season)}>
                 <span className="h-display w-16 text-lg">{s.season}</span>
@@ -129,7 +135,7 @@ function History() {
                       <span className="w-16 text-right font-semibold">{fmtPts(r.points, 1)}</span>
                     </div>
                   ))}
-                  {s.peterPenalty && <p className="px-3 pb-2 text-xs text-mute">Peter Punishment paid to the SaK Fund: {fmtMoney(s.peterPenalty)}</p>}
+                  {s.peterPenalty && <p className="px-3 pb-2 text-xs text-mute">{bare(brand.booby)} Punishment paid to the {brand.fund}: {fmtMoney(s.peterPenalty)}</p>}
                 </div>
               )}
             </div>
@@ -152,6 +158,7 @@ function History() {
 
 function Rules() {
   const { league } = useLeague();
+  const { rules: RULES } = useHistory();
   return (
     <div className="space-y-4">
       <div className="grid gap-3 sm:grid-cols-2">
