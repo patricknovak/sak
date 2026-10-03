@@ -79,9 +79,12 @@ results of his own past calls, and what the wider pool knows.
    staging decision.
 3. **Start the shadow league** (Phase 1's gate): a copy of SaK's teams under test accounts, running alongside
    for a week of real games while the next steps are built. It is the real proof that B1 to B4 hold.
-4. **The prediction log**, small and early: one table, written by the projections task, the trade and draft
-   graders, the Book and the auto-pilot, scored nightly.
-5. **B6 money and the Fund** (decision on the Fund) and the medium SQL items. Phase 1 done.
+4. **The prediction log**, small and early (migration 87, built): `predictions`, written each morning for every
+   rostered player playing that night (`predict_tonight`) and scored the next morning on the league's own points
+   (`score_predictions`), with `prediction_accuracy` by week and `book_calibration` (the Book's odds against what
+   happened, read from the markets). Next kinds: trade and draft grades, the auto-pilot's choices, Garry's picks.
+5. **B6 money and the Fund**: money per league built (migration 86); the Fund waits on the decision. Then the medium
+   SQL items. Phase 1 done.
 6. **League memory**: history into the database (part of B7) with SaK's past as the first import.
 7. **Phase 2, people can join**: email sign-in, league by host, invites and the switcher, realtime and presence
    per league, phones, Vercel hosting, the Garry budget.

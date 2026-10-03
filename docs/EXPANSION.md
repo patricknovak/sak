@@ -157,6 +157,10 @@ reads `standings` with the owner's rights, so it ranks, pays and charges the Pet
 row (`check (id = 1)`) and `fund_prices` is shared (SaK's TSLA holding shows to everyone).
 *Fix:* filter both by league; the Fund becomes per league (`fund (league_id)`, `fund_prices (league_id, date)`)
 or an explicit SaK-only feature hidden elsewhere. *Decision for Patrick:* which of the two.
+*Money done (migration 86, October 2026).* Billing and payouts work on the commissioner's league only (its GMs, its
+pool, its standings), and the ledger's words come from the league's brand (`regular`, `playoff`, `trophy`, `booby`,
+`fund`, with plain defaults; SaK's read as before). `teams.id` comes from a sequence; a spectator lands in the
+commissioner's league. The flow test bills and pays out the north beside SaK. The Fund waits on the decision.
 
 **B7. SaK's history and names are written into the site.** `src/data/history.ts` (seasons, champions, team
 ids 1 to 8, the rules text, $200 and 60/30/10) renders on League, Home, Standings, Money, Profile and the draft

@@ -1804,3 +1804,34 @@ select pg_temp.expect('the north''s spectator is the north''s', (select league_i
   and (select reason from coin_ledger where team_id = :north_fan) = 'Opening balance: 1,000 coins');
 select set_config('request.jwt.claim.sub', '', false);
 select 'money per league', true;
+
+-- ───────────── the prediction log ─────────────
+reset role;
+select set_config('request.jwt.claim.sub', '', false);
+-- a club with two of SaK's skaters on it plays tonight
+select p.nhl_team as pl_club from rosters r join players p on p.id = r.player_id
+  where r.league_id = 1 and r.slot <> 'IR' and p.pos <> 'G' and p.nhl_team is not null
+  group by p.nhl_team having count(*) >= 2 order by p.nhl_team limit 1 \gset
+select min(r.player_id) as pl_dressed, max(r.player_id) as pl_scratched from rosters r join players p on p.id = r.player_id
+  where r.league_id = 1 and r.slot <> 'IR' and p.pos <> 'G' and p.nhl_team = :'pl_club' \gset
+insert into games (id, date, start_utc, home, away, state) values (998, today_et(), now() + interval '3 hours', :'pl_club', 'QQQ', 'FUT');
+select (run_league_jobs('predict')->>'1')::int as predicted_n \gset
+select pg_temp.expect('tonight''s players are predicted', :predicted_n > 0
+  and (select predicted = _player_rate(:pl_dressed, 'fpts') from predictions where kind = 'player_night' and subject->>'player_id' = :'pl_dressed' and resolves_on = today_et()));
+select pg_temp.expect('predicting twice adds nothing', (run_league_jobs('predict')->>'1')::int = 0);
+-- the game is played: one of them dresses and scores, the other is scratched
+insert into player_games (game_id, player_id, date, stats) values (998, :pl_dressed, today_et(), '{"g":1,"a":1,"sog":4}');
+update games set state = 'OFF', final_synced = true where id = 998;
+select score_predictions(today_et()) as scored_n \gset
+select pg_temp.expect('the one who played is scored on this league''s points', (select status = 'scored' and outcome = (select fpts from league_games where game_id = 998 and player_id = :pl_dressed)
+  and error = outcome - predicted from predictions where subject->>'player_id' = :'pl_dressed' and resolves_on = today_et()));
+select pg_temp.expect('the scratch is void, not a zero', (select status = 'void' and outcome is null from predictions where subject->>'player_id' = :'pl_scratched' and resolves_on = today_et()));
+select pg_temp.expect('accuracy by week', exists (select 1 from prediction_accuracy where kind = 'player_night' and n >= 1));
+select pg_temp.expect('the Book''s calibration reads the settled markets', (select count(*) from book_calibration) >= 0);
+-- a GM reads their own league's log and nothing else
+select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-000000000099', false);
+set role authenticated;
+select pg_temp.expect('the north sees none of SaK''s predictions', (select count(*) from predictions) = 0);
+reset role;
+select set_config('request.jwt.claim.sub', '', false);
+select 'prediction log', true;
