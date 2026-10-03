@@ -62,8 +62,8 @@ const brandOf = (raw: Partial<Brand> | null | undefined): Brand => ({ ...SAK_BRA
 const dbFor = (lid: number) => createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!, {
   auth: { persistSession: false }, global: { headers: { 'x-league': String(lid) } },
 });
-type Ctx = { lid: number; info: { id: number; name: string; short_name: string }; brand: Brand; ids: number[]; db: typeof db };
-let L: Ctx = { lid: 1, info: { id: 1, name: "She's A Keeper", short_name: 'SaK' }, brand: SAK_BRAND, ids: [], db };
+type Ctx = { lid: number; info: { id: number; name: string; short_name: string }; brand: Brand; ids: number[]; db: typeof db; history: string };
+let L: Ctx = { lid: 1, info: { id: 1, name: "She's A Keeper", short_name: 'SaK' }, brand: SAK_BRAND, ids: [], db, history: '' };
 const coin = () => L.brand.coin;
 const bot = () => L.brand.bot.name;
 
@@ -71,7 +71,28 @@ async function enter(lid: number) {
   const { data: lg } = await db.from('leagues').select('id,name,short_name,brand').eq('id', lid).maybeSingle();
   if (!lg) throw new Error(`no league ${lid}`);
   const { data: teams } = await db.from('teams').select('id').eq('league_id', lid).eq('role', 'gm');
-  L = { lid, info: { id: lg.id, name: lg.name, short_name: lg.short_name }, brand: brandOf(lg.brand as Partial<Brand>), ids: (teams ?? []).map((t) => t.id), db: dbFor(lid) };
+  L = { lid, info: { id: lg.id, name: lg.name, short_name: lg.short_name }, brand: brandOf(lg.brand as Partial<Brand>), ids: (teams ?? []).map((t) => t.id), db: dbFor(lid),
+    history: await recordBook(lid) };
+}
+
+// the league's record book, from its own history rows (league memory, migration 89): each season's champion and last
+// place, and titles by GM, so what he says about the past is the league's, not invented. A new league has none.
+async function recordBook(lid: number): Promise<string> {
+  const [{ data: seasons }, { data: rows }] = await Promise.all([
+    db.from('league_seasons').select('season,note,sort').eq('league_id', lid).order('sort', { ascending: false }).limit(20),
+    db.from('season_results').select('season,place,team_name,gm_name,points,last_place').eq('league_id', lid),
+  ]);
+  if (!seasons?.length || !rows?.length) return '';
+  const titles = new Map<string, number>();
+  const lines = seasons.map((s) => {
+    const r = rows.filter((x) => x.season === s.season).sort((a, b) => a.place - b.place);
+    const champ = r[0], last = r.find((x) => x.last_place) ?? r[r.length - 1];
+    if (!champ) return null;
+    titles.set(champ.gm_name, (titles.get(champ.gm_name) ?? 0) + 1);
+    return `${s.season}: champion ${champ.team_name} (${champ.gm_name}, ${Number(champ.points)} pts); last ${last.team_name} (${last.gm_name})${s.note ? `. ${s.note}` : ''}`;
+  }).filter(Boolean);
+  const t = [...titles].sort((a, b) => b[1] - a[1]).map(([gm, n]) => `${gm} ${n}`).join(', ');
+  return [...lines, `Titles: ${t}.`].join('\n');
 }
 
 const LEAGUE_TABLES = new Set(['messages', 'garry_memory', 'garry_state', 'rosters', 'teams', 'notifications', 'draft_picks', 'draft_state', 'draft_queue',
@@ -112,14 +133,15 @@ Voice: a loud, lovable Canadian beer-league dressing-room guy. Quick, punchy, sp
 leader and last place alike (${booby} is the last-place prize; the champion wins ${trophy}). Keep it PG-13: no
 slurs, nothing about anyone's family, looks, jobs or real-life problems; the chirps are about hockey decisions only.
 Use the facts given; never invent stats, scores, players or league history (past finishes, titles, years): history comes
-only from the commissioner's briefing or what you remember. Tag a GM as @Name only when the post is really about them:
+only from the league's record book, the commissioner's briefing or what you remember. Tag a GM as @Name only when the post is really about them:
 every tag pings their phone. Use at most 3 emoji.
 
 Most posts can end with one nudge that gets people participating (fix a lineup, make a trade offer, put
 ${coin().name} on something, call someone out), but vary it, skip it when it doesn't fit, and never use the same one
 twice in a row. No stock openers ("Great question", "Pull up a stool") and no catchphrase on every post: a regular
 in a dressing room doesn't repeat himself. Plain text only, no markdown headers.`;
-  return briefing ? `${text}\n\nWhat the commissioner told you about this league (true; use it naturally, never recite it):\n${briefing}` : text;
+  const book = L.history ? `\n\nThe league's record book (true, from its own records; use it when the past comes up, never recite it):\n${L.history}` : '';
+  return (briefing ? `${text}\n\nWhat the commissioner told you about this league (true; use it naturally, never recite it):\n${briefing}` : text) + book;
 }
 
 // ─────────────── memory ───────────────

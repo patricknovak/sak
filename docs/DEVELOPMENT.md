@@ -91,7 +91,8 @@ results of his own past calls, and what the wider pool knows.
 6. **League memory**: history into the database (part of B7) with SaK's past as the first import. Tables built
    (migration 89: `league_seasons`, `season_results`, `league_all_time_base` and the `league_all_time` view,
    `league_trophies`, `league_timeline`, `league_rule_text`), loaded with SaK's history from `history.ts`; the all-time
-   table matches the site's to the cent. Next: the site and Garry read them, imports write them.
+   table matches the site's to the cent. Garry reads them as his record book (each season's champion and last place,
+   titles by GM). Next: the site reads them, imports write them.
 7. **Phase 2, people can join**: email sign-in, league by host, invites and the switcher, realtime and presence
    per league, phones, Vercel hosting, the Garry budget.
 8. **Pool intelligence** once a few leagues are playing, then the horizons in `docs/MARKET.md`.
