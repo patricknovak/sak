@@ -79,6 +79,8 @@ where n.nspname = 'public' and p.prosecdef and p.prorettype <> 'trigger'::regtyp
     'cost_set_fixed', 'cost_end_fixed',
     -- platform admins only: an invite to an open seat of a league that may have no commissioner yet
     'platform_invite',
+    -- platform admins only: a league's daily budget for Garry's paid model calls
+    'set_garry_budget',
     -- debt: a pick names a player, and rosters hold one row per player across all leagues (rosters key, see EXPANSION.md)
     'draft_pick',
     -- debt: a multi-team trade names its teams inside a json list; each team needs the league check
