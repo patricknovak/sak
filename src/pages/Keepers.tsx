@@ -52,7 +52,7 @@ export default function Keepers({ embedded = false }: { embedded?: boolean } = {
 
   useEffect(() => {
     setSel(new Set(mine.filter((x) => x.r.keeper).map((x) => x.r.player_id)));
-  }, [mine.map((x) => `${x.r.player_id}:${x.r.keeper}`).join()]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [mineRaw.map((x) => `${x.r.player_id}:${x.r.keeper}`).sort().join()]); // saved keepers only: re-sorting the list keeps unsaved picks // eslint-disable-line react-hooks/exhaustive-deps
 
   // suggested keepers: best projections, at most two goalies (only two start), never the banned top scorer
   const suggested = useMemo(() => {
