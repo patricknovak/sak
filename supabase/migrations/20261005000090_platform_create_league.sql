@@ -16,8 +16,13 @@ set client_min_messages = warning;
 do $$ begin
   if exists (select 1 from pg_proc where proname = 'create_league' and pronamespace = 'public'::regnamespace
              and pg_get_function_identity_arguments(oid) = 'p_slug text, p_name text, p_short text, p_brand jsonb') then
-    alter function public.create_league(text, text, text, jsonb) rename to create_league_before_platform;
-    revoke execute on function public.create_league_before_platform(text, text, text, jsonb) from public, anon, authenticated;
+    if exists (select 1 from pg_proc where proname = 'create_league_before_platform' and pronamespace = 'public'::regnamespace) then
+      -- run again after an earlier migration re-made the old one: the renamed copy is already kept
+      drop function public.create_league(text, text, text, jsonb);
+    else
+      alter function public.create_league(text, text, text, jsonb) rename to create_league_before_platform;
+      revoke execute on function public.create_league_before_platform(text, text, text, jsonb) from public, anon, authenticated;
+    end if;
   end if;
 end $$;
 
