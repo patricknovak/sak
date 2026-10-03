@@ -11,6 +11,7 @@ import { ExternalLink, Headphones, Play, Radio, Tv } from 'lucide-react';
 import { InjuriesTab, LeadersTab, NewsTab, TeamsTab, XTab } from '../components/NhlMore';
 import { TopTab } from '../components/NhlTop';
 import { GameLines } from '../components/GameLines';
+import { GameBook } from '../components/Book';
 import { watchOptions, playerFor, PROVIDERS } from '../lib/watch';
 import { rpc, supabase } from '../lib/supabase';
 
@@ -376,6 +377,10 @@ function GameSheet({ g, onClose, gmsIn, teamOf, ownerOf, inPool }: { g: Game | n
         {gms.length > 0 && (
           <div className="flex flex-wrap items-center gap-1.5 text-xs"><span className="text-mute">SaK players in this game:</span>{gms.map(([t, n]) => <span key={t} className="flex items-center gap-1 rounded-full bg-white/[.05] px-2 py-0.5"><TeamBadge team={teamOf(t)} size={14} />{teamOf(t)?.gm_name} <span className="num text-mute">{n}</span></span>)}</div>
         )}
+
+        <Section title="Bet this game">
+          <GameBook gameId={x.id} away={x.away} home={x.home} />
+        </Section>
 
         <Section title="Lines">
           <GameLines gameId={x.id} date={x.date} live={live} away={x.away} home={x.home} onOpen={onClose} />
