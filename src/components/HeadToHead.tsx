@@ -3,9 +3,13 @@ import { Link } from 'react-router-dom';
 import { ArrowRight } from 'lucide-react';
 import { useLeague } from '../lib/store';
 import { rpc } from '../lib/supabase';
-import { fmtPts } from '../lib/format';
+import { fmtPts, readable } from '../lib/format';
 import { useBrand } from '../lib/brand';
 import { categoryOf, fmtCat } from '../lib/categories';
+import { forecastTeam, type FPlayer } from '../lib/forecast';
+import { gamesOf, rosPerGame } from '../lib/lineup';
+import { useSeasonGames } from '../lib/projections';
+import type { Player } from '../lib/types';
 import { Headshot, Pos, Rank, Section, Sheet, TeamBadge } from './ui';
 
 // A head-to-head league (migration 118): each week every team meets one other and the higher started-player points
@@ -180,6 +184,66 @@ function MatchupPlayers({ x, onClose }: { x: Matchup; onClose: () => void }) {
   );
 }
 
+// the normal curve's share below z (Abramowitz and Stegun 7.1.26, good to a few parts in a million)
+function phi(z: number) {
+  const t = 1 / (1 + 0.3275911 * Math.abs(z) / Math.SQRT2);
+  const erf = 1 - (((((1.061405429 * t - 1.453152027) * t) + 1.421413741) * t - 0.284496736) * t + 0.254829592) * t * Math.exp(-(z * z) / 2);
+  return z >= 0 ? (1 + erf) / 2 : (1 - erf) / 2;
+}
+
+// A points matchup's chances while it can still turn: each side's points so far plus the rest of the week played out
+// night by night with its roster (the same forecast the season odds use: each player's projection blended with his
+// pace, his NHL games, his chance of dressing, the best lineup each night), and the week's spread of luck around it
+// (a team's points swing about 1.2 × the square root of what it expects). Tonight's games count once they're on the
+// board; while they're being played the forecast starts tomorrow.
+function useWinChance(x: Matchup) {
+  const { league, rosters, players, season, games: today, leagueDay } = useLeague();
+  const sched = useSeasonGames();
+  const on = !!sched && x.away_team != null && x.status !== 'final' && !league?.categories?.length;
+  return useMemo(() => {
+    if (!on || x.away_team == null) return null;
+    const caps = (league?.roster ?? {}) as Record<string, number>;
+    const started = today.some((g) => g.date === leagueDay && !['FUT', 'PRE', 'PPD', 'CNCL'].includes(g.state));
+    const from = x.status === 'upcoming' ? x.starts : started ? new Date(new Date(leagueDay + 'T12:00:00Z').getTime() + 86400000).toISOString().slice(0, 10) : leagueDay;
+    const value = (p: Player): FPlayer => { const s = season.get(p.id); return { ...p, proj: rosPerGame(p.proj, p.pos, s?.gp ?? 0, s?.fpts ?? 0, p.proj_gp) * gamesOf(p) }; };
+    const side = (t: number) => {
+      const roster = rosters.filter((r) => r.team_id === t && r.slot !== 'IR').map((r) => players.get(r.player_id)).filter((p): p is Player => !!p).map(value);
+      return from > x.ends ? 0 : forecastTeam(t, roster, sched!, caps, from, 0, x.ends).ros;
+    };
+    const hr = side(x.home_team), ar = side(x.away_team);
+    if (x.status === 'upcoming' && hr + ar <= 0) return null;   // nothing scheduled to go on
+    const hNow = x.status === 'upcoming' ? 0 : Number(x.home_pts ?? 0), aNow = x.status === 'upcoming' ? 0 : Number(x.away_pts ?? 0);
+    const lead = hNow + hr - (aNow + ar), sd = 1.2 * Math.sqrt(hr + ar);
+    const home = sd < 0.5 ? (lead > 0 ? 1 : lead < 0 ? 0 : 0.5) : Math.min(0.999, Math.max(0.001, phi(lead / sd)));
+    return { home, homeProj: hNow + hr, awayProj: aNow + ar };
+  }, [on, x, sched, rosters, players, season, today, leagueDay, league?.roster, league?.categories]);
+}
+
+function WinBar({ x }: { x: Matchup }) {
+  const { team } = useLeague();
+  const c = useWinChance(x);
+  if (!c || x.away_team == null) return null;
+  const h = team(x.home_team), a = team(x.away_team);
+  // 100% only once nothing is left to play; while games remain the long shot keeps at least 1%
+  const hp = c.home <= 0 || c.home >= 1 ? Math.round(c.home * 100) : Math.min(99, Math.max(1, Math.round(c.home * 100))), ap = 100 - hp;
+  // a sure thing still shows a sliver of the other side, so the bar reads as a contest
+  const w = Math.min(97, Math.max(3, c.home * 100));
+  return (
+    <div className="mt-1.5 px-1">
+      <div className="mb-1 flex items-baseline justify-between text-[11px]">
+        <span className="num font-bold" style={{ color: readable(h?.color ?? '#fff') }}>{hp}%</span>
+        <span className="text-[10px] font-semibold uppercase tracking-wider text-mute">{x.status === 'upcoming' ? 'Projected' : 'Win chance'}</span>
+        <span className="num font-bold" style={{ color: readable(a?.color ?? '#fff') }}>{ap}%</span>
+      </div>
+      <div className="flex h-1.5 gap-0.5 overflow-hidden rounded-full">
+        <span className="rounded-l-full" style={{ width: `${w}%`, background: h?.color ?? '#94a3b8' }} />
+        <span className="flex-1 rounded-r-full" style={{ background: a?.color ?? '#64748b' }} />
+      </div>
+      <div className="mt-1 text-center text-[10px] text-mute">projected <span className="num text-slate-300">{fmtPts(c.homeProj)}</span> – <span className="num text-slate-300">{fmtPts(c.awayProj)}</span></div>
+    </div>
+  );
+}
+
 export function MatchupCard({ x }: { x: Matchup }) {
   const { team, me, league } = useLeague();
   const { cat, score } = useScore();
@@ -213,6 +277,7 @@ export function MatchupCard({ x }: { x: Matchup }) {
           {side(x.home_team, x.home_pts, homeWon)}<div className="self-center px-1 text-xs font-bold text-mute">vs</div>{side(x.away_team, x.away_pts, awayWon)}
         </button>
       )}
+      {!cat && <WinBar x={x} />}
       {x.away_team != null && x.status !== 'upcoming' && !cat && (
         <button type="button" onClick={() => setPlayers(true)} className="mt-1 w-full rounded-lg py-1 text-[11px] font-semibold text-sky-300 hover:bg-white/[.04]">Player by player ›</button>
       )}
