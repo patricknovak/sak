@@ -3,7 +3,8 @@
 //    or the rest of the season), measured by playing your roster out night by night over the real schedule.
 //  • Roster vs available: any team's players at each position next to the best free agents there.
 import { useEffect, useMemo, useState } from 'react';
-import { useLeague } from '../lib/store';
+import { useLeague, useSport } from '../lib/store';
+import { groupOf, type SportConfig } from '../lib/sport';
 import { rpc } from '../lib/supabase';
 import { etToday, fmtPts } from '../lib/format';
 import { gamesOf, rosPerGame, dressRate } from '../lib/lineup';
@@ -18,6 +19,8 @@ import { buildModel, categoryDelta, contribution, perGame, scorePerGame, isGoali
 import { categoryOf, fmtCat } from '../lib/categories';
 
 const addDays = (d: string, n: number) => { const x = new Date(d + 'T12:00:00Z'); x.setUTCDate(x.getUTCDate() + n); return x.toISOString().slice(0, 10); };
+// a player plays a position: his own, or one he's eligible for within his group (a skater at a skater's spot)
+const plays = (sport: SportConfig, p: Player, pos: string) => p.pos === pos || (groupOf(sport, p.pos) === groupOf(sport, pos) && p.elig.includes(pos));
 const hurt = (p: Player) => !!p.injury_status && /^(out|ir|injured|long|suspen)/i.test(p.injury_status);
 type Horizon = 7 | 14 | 30 | 0;   // 0 = rest of season
 
@@ -58,7 +61,8 @@ export function PickupAdvisor() {
   const value = (p: Player): FPlayer => (model && rates ? { ...p, proj: scorePerGame(model, rates.get(p.id) ?? null, p) * gpOf(p) } : pointsValue(p));
   const { busy, run } = useAction();
   const [h, setH] = useState<Horizon>(14);
-  const [pos, setPos] = useState<'All' | 'C' | 'LW' | 'RW' | 'D' | 'G'>('All');
+  const sport = useSport();
+  const [pos, setPos] = useState<string>('All');
   const [ideas, setIdeas] = useState<Idea[] | null>(null);
   const [detail, setDetail] = useState<number | null>(null);
   const today = etToday();
@@ -80,7 +84,7 @@ export function PickupAdvisor() {
       const drops = [...roster].sort((a, b) => ((base.players.get(a.id)?.pts ?? 0) + (base.players.get(a.id)?.benchPts ?? 0) * 0.2) - ((base.players.get(b.id)?.pts ?? 0) + (base.players.get(b.id)?.benchPts ?? 0) * 0.2)).slice(0, h ? 5 : 3);
       const n = h ? 40 : 20;
       const rank = (x: { v: FPlayer; g: number }) => x.v.proj / gamesOf(x.v) * dressRate(x.v) * (h ? x.g : 82);
-      const free = [...players.values()].filter((p) => !owner.has(p.id) && p.proj > 0 && !hurt(p) && (pos === 'All' || (pos === 'G' ? p.pos === 'G' : p.pos !== 'G' && p.elig.includes(pos))))
+      const free = [...players.values()].filter((p) => !owner.has(p.id) && p.proj > 0 && !hurt(p) && (pos === 'All' || plays(sport, p, pos)))
         .map((p) => ({ p, v: value(p), g: gamesIn(p) }));
       // category values aren't on one scale across skaters and goalies, so each group brings its own best
       const pool = catOn
@@ -123,7 +127,7 @@ export function PickupAdvisor() {
         <div className="flex flex-wrap items-center gap-1">
           {([7, 14, 30, 0] as Horizon[]).map((x) => <button key={x} onClick={() => setH(x)} className={`rounded-full px-2.5 py-1 text-xs font-semibold ${h === x ? 'bg-gold text-ice' : 'bg-white/[.05] text-mute'}`}>{x ? `Next ${x} days` : 'Rest of season'}</button>)}
           <span className="mx-1 h-4 w-px bg-white/10" />
-          {(['All', 'C', 'LW', 'RW', 'D', 'G'] as const).map((x) => <button key={x} onClick={() => setPos(x)} className={`rounded-lg px-2 py-0.5 text-[11px] font-semibold ${pos === x ? 'bg-white/15 text-white' : 'text-mute'}`}>{x}</button>)}
+          {['All', ...sport.positions.map((x) => x.key)].map((x) => <button key={x} onClick={() => setPos(x)} className={`rounded-lg px-2 py-0.5 text-[11px] font-semibold ${pos === x ? 'bg-white/15 text-white' : 'text-mute'}`}>{x}</button>)}
         </div>
       </div>
       {!ideas ? <div className="card p-6 text-center text-sm text-mute">Playing out {span} with every free agent…</div>
@@ -201,6 +205,7 @@ type Metric = 'ros' | 'proj' | 'pg' | 'season' | 'form' | 'cat';
 const METRICS: { k: Metric; label: string }[] = [{ k: 'ros', label: 'Rest of season' }, { k: 'pg', label: 'Proj / game' }, { k: 'proj', label: 'Projection' }, { k: 'season', label: 'Season FP/G' }, { k: 'form', label: 'Last 14 FP/G' }];
 
 export function RosterVsAvailable() {
+  const sport = useSport();
   const { me, teams, team, players, rosters, owner, season, windows } = useLeague();
   const [tid, setTid] = useState<number>(me?.id && me.role !== 'spectator' ? me.id : teams.find((t) => t.role !== 'spectator')?.id ?? 1);
   // a category league compares on category value (migration 129), and opens on it
@@ -221,8 +226,8 @@ export function RosterVsAvailable() {
     return w && w.gp >= 2 ? w.fpts / w.gp : null;
   };
   const fmt = (v: number | null) => (v == null ? '–' : metric === 'cat' ? `${v > 0 ? '+' : ''}${v.toFixed(1)}` : metric === 'pg' || metric === 'season' || metric === 'form' ? v.toFixed(2) : fmtPts(v, 0));
-  const POSS = ['C', 'LW', 'RW', 'D', 'G'] as const;
-  const at = (p: Player, pos: string) => (pos === 'G' ? p.pos === 'G' : p.pos !== 'G' && p.elig.includes(pos));
+  const POSS = sport.positions.map((x) => x.key);
+  const at = (p: Player, pos: string) => plays(sport, p, pos);
   const mine = rosters.filter((r) => r.team_id === tid).map((r) => players.get(r.player_id)).filter((p): p is Player => !!p);
   const avail = [...players.values()].filter((p) => !owner.has(p.id) && p.proj > 0);
   return (

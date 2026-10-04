@@ -17,6 +17,8 @@ where n.nspname = 'public' and c.relkind in ('r', 'p')
     -- one copy for every league: NHL data, caches and platform tables
     'players', 'games', 'player_games', 'player_status', 'player_events', 'player_history', 'news', 'nhl_teams',
     'stat_corrections', 'scoring_profiles', 'player_game_points', 'player_values', 'hub_cache', 'health_alerts', 'leagues', 'accounts', 'waitlist',
+    -- each sport's description (positions, slots, stats), read by every league that plays it
+    'sports',
     -- one-off backup kept from the 2025-26 roster import (row-level security on, no policies)
     'rosters_2526_backup');
 

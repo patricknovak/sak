@@ -2818,6 +2818,19 @@ select set_config('app.league_id', '', false);
 delete from lineup_snapshots where game_id = 7802; delete from player_games where game_id = 7802; delete from games where id = 7802;
 select 'lineup efficiency', true;
 
+-- ───────────── the sports table: the NHL's description ─────────────
+reset role;
+select pg_temp.expect('every league plays a sport that has a row', not exists (select 1 from leagues l where not exists (select 1 from sports s where s.id = l.sport)));
+select pg_temp.expect('the NHL''s slots accept exactly whom slot_ok accepts', not exists (
+  select 1 from sports sp, jsonb_array_elements(sp.config->'slots') sl, jsonb_array_elements(sp.config->'positions') po
+  where sp.id = 'nhl'
+    and ((sl->'accepts') ? (po->>'key')) <> slot_ok(array[po->>'key'], po->>'key', sl->>'key')));
+select pg_temp.raises('a league can''t name a sport with no row', $$update leagues set sport = 'curling' where id = 1$$, 'foreign key');
+set role anon;
+select pg_temp.expect('anyone can read a sport''s description', (select count(*) from sports where id = 'nhl') = 1);
+reset role;
+select 'the sports table', true;
+
 -- ───────────── payouts follow the format ─────────────
 reset role;
 select id as pf_league from leagues where slug = 'rink' \gset

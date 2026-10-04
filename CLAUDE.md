@@ -22,6 +22,9 @@ Two things in one repo:
   `src/components`, shared logic in `src/lib`. The app-wide store is `src/lib/store.tsx` (`useLeague()`):
   it loads league, teams, players, rosters, picks, draft, standings, season stats, windows, games,
   notifications and game-day status, subscribes to realtime, and exposes `leagueDay` and `brand`.
+- Sport: `src/lib/sport.ts` (`useSport()` from the store): the league's sport as the engine reads it (positions, slots,
+  stats, game states, periods), the database's `sports` row with the NHL compiled in. New code that needs a position
+  list, a slot rule or a stat label reads it instead of writing hockey in; the rest moves over one place at a time.
 - Brand: `src/lib/brand.ts` (`useBrand()`, SaK defaults, `PRODUCT` constants). Names come from
   `leagues.brand`; never hard-code a new league-specific name. The league's colour (`brand.colors.gold`) themes the
   site through CSS variables (`--color-gold`, `--gold-rgb`, `--gold-hi`...; `applyBrandColors`): draw accents with

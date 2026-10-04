@@ -6,6 +6,7 @@ import type {
 } from './types';
 import { etCalendarToday, etToday, setLeagueDayHold } from './format';
 import { applyBrandColors, brandOf, SAK_BRAND, type Brand } from './brand';
+import { NHL, type SportConfig } from './sport';
 import { hostLeague, tabLeague, type HostLeague } from './host';
 
 interface Store {
@@ -16,6 +17,7 @@ interface Store {
   host: HostLeague | null;      // the league this address belongs to (league by host), if any
   hostElsewhere: boolean;       // signed in on a league's address the GM isn't in: the page shows their own league
   brand: Brand;                // names, wordmark, trophies for the league on screen (SaK defaults)
+  sport: SportConfig;          // the sport the league plays (sports row, migration 135; the NHL until it loads)
   teams: Team[];               // GMs only
   spectators: Team[];          // spectator passes (chat, bets, no roster)
   can: (what: string) => boolean;
@@ -50,6 +52,7 @@ export function LeagueProvider({ children }: { children: ReactNode }) {
   const [authReady, setAuthReady] = useState(!configured);
   const [league, setLeague] = useState<League | null>(null);
   const [brand, setBrand] = useState<Brand>(SAK_BRAND);
+  const [sport, setSport] = useState<SportConfig>(NHL);
   // league by host: which league this address is, worked out once before anything loads, so the sign-in page wears its
   // brand and every request names it
   const [host, setHost] = useState<HostLeague | null>(null);
@@ -101,8 +104,15 @@ export function LeagueProvider({ children }: { children: ReactNode }) {
     league: async () => {
       const { data } = await supabase.from('league').select('*').single();
       if (data) setLeague(data as League);
-      const { data: lg } = await supabase.from('leagues').select('brand,short_name').eq('id', (data as League | null)?.league_id ?? 1).maybeSingle();
+      const { data: lg } = await supabase.from('leagues').select('brand,short_name,sport').eq('id', (data as League | null)?.league_id ?? 1).maybeSingle();
       setBrand(brandOf(lg?.brand as Partial<Brand> | null, lg?.short_name as string | null));
+      // hockey is compiled in; another sport's description comes from its row
+      const code = (lg?.sport as string | null) ?? 'nhl';
+      if (code === 'nhl') setSport(NHL);
+      else {
+        const { data: sp } = await supabase.from('sports').select('config').eq('id', code).maybeSingle();
+        setSport(sp?.config ? { ...NHL, ...(sp.config as Partial<SportConfig>) } : NHL);
+      }
     },
     teams: async () => { const { data } = await supabase.from('teams').select('*').order('id'); if (data) setAllTeams(data as Team[]); },
     players: async () => {
@@ -295,11 +305,14 @@ export function LeagueProvider({ children }: { children: ReactNode }) {
 
   const gameStatus = useCallback((id: number, date?: string) => statuses.get(`${id}|${date ?? etToday()}`), [statuses, leagueDay]); // eslint-disable-line react-hooks/exhaustive-deps
   const value: Store = {
-    ready: authReady && hostReady && (!session || loaded), host, hostElsewhere: !!host && !!league && league.league_id !== host.id && !tabLeague(), session, me, league, brand, teams, spectators, can, team, players, rosters, owner, picks, draft,
+    ready: authReady && hostReady && (!session || loaded), host, hostElsewhere: !!host && !!league && league.league_id !== host.id && !tabLeague(), session, me, league, brand, sport, teams, spectators, can, team, players, rosters, owner, picks, draft,
     standings, playoffs, cup, season, windows, games, gamesByTeam, notifications, gameStatus, freshNews, online, refresh, serverOffset, leagueDay,
   };
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
 }
+
+// the sport the league on screen plays
+export function useSport() { return useLeague().sport; }
 
 export function useLeague() {
   const v = useContext(Ctx);

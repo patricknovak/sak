@@ -320,6 +320,13 @@ draft takes one round per spot after the keepers).
 **Phase 3, the sport pulled out.** Section 6 with the NHL as the only sport: `sports` row, adapter interface,
 `SportConfig`, scoring as a list, ids with `sport`. SaK must not notice.
 *Gate:* every NHL literal in the guardrail lists is gone and the flow test runs unchanged.
+*Started 4 October 2026 (migration 135):* the `sports` table, the NHL its one row (positions and groups, slots and whom
+each accepts, the stat vocabulary, game states as the engine's five, periods, the season's shape, the day boundary, the
+lock rule, the words); `leagues.sport` references it. The site carries the same row compiled in (`src/lib/sport.ts`,
+`useSport()` from the store, which loads another sport's row), `supabase/tests/sport.test.mjs` fails if the two drift or
+the slots stop agreeing with the lineup engine, and the flow test checks them against `slot_ok`. First readers moved:
+the pickup advisor's positions and Roster vs available. Next: the position chips and filters across the site, then the
+game-state and period text.
 
 **Phase 4, the second sport.** Basketball on the daily (hockey) engine is the cheapest proof of the split, on a
 licensed feed; soccer follows with the weekly engine for 2027-28, as `docs/MARKET.md` lays out.

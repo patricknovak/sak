@@ -207,7 +207,8 @@ The steps above finish the tenancy. `docs/MARKET.md` sets what comes after in th
     GM's entry, the commissioner marks lines paid, `money_balances` shows who owes what), with no escrow.
 13. **The sport pulled out of the engine**: a `sports` table, per-sport player, game and stat shapes and
     scoring vocabularies, a sync per sport; the NHL becomes one row. Prerequisite for soccer, basketball and
-    the multi-sport pool.
+    the multi-sport pool. *Started (migration 135, 4 October 2026):* the `sports` table with the NHL's row and the
+    site's `useSport()`; code moves onto it one place at a time (`docs/EXPANSION.md`, Phase 3).
 14. **Telemetry and the feature board**: pseudonymous per-pool usage tables with a commissioner opt-out, the
     SaK Features page grown into a product-wide board with public statuses and a changelog. *The changelog done (4 October
     2026):* the Features page's What's new tab, a dated timeline from `src/data/changelog.ts` (an entry in the same pull
