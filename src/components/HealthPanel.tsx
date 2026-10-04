@@ -36,16 +36,16 @@ export function HealthPanel() {
         {!h && !err && <div className="text-sm text-mute">Checking…</div>}
         {h && (
           <>
-            <div className={`flex items-center gap-2 rounded-xl px-3 py-2 text-sm font-semibold ${ok ? 'bg-emerald-500/15 text-emerald-200' : 'bg-red-500/15 text-red-200'}`}>
+            <div className={`flex flex-wrap items-center gap-x-2 gap-y-0.5 rounded-xl px-3 py-2 text-sm font-semibold ${ok ? 'bg-emerald-500/15 text-emerald-200' : 'bg-red-500/15 text-red-200'}`}>
               <span className={`h-2.5 w-2.5 rounded-full ${ok ? 'bg-emerald-400' : 'animate-pulse bg-red-400'}`} />
-              {ok ? 'All systems go' : `${h.issues.length} issue${h.issues.length > 1 ? 's' : ''}`}
-              <span className="ml-auto text-xs font-normal opacity-70">checked {when(h.checked_at)} · runs every 30 min, you get a notification when something breaks</span>
+              <span className="whitespace-nowrap">{ok ? 'All systems go' : `${h.issues.length} issue${h.issues.length > 1 ? 's' : ''}`}</span>
+              <span className="basis-full text-xs font-normal opacity-70 sm:ml-auto sm:basis-auto">checked {when(h.checked_at)} · runs every 30 min, you get a notification when something breaks</span>
             </div>
             {h.issues.length > 0 && <ul className="mt-2 space-y-1 text-sm text-red-200">{h.issues.map((i) => <li key={i}>⚠️ {i}</li>)}</ul>}
             <div className="mt-3 grid grid-cols-2 gap-1.5 text-xs sm:grid-cols-4">
               {[
                 ['Score sync OK', when(h.scores_ok_at)], [`${brand.bot.name}’s morning post`, when(h.daily_ok_at)], ['Last box-score row', when(h.last_score_row)], ['Last bot post', when(h.last_bot_post)],
-                ['Games today', String(h.games_today ?? 0)], ['Errors (30 min)', String(h.errors_30m ?? 0)], ['Phase', h.phase], ['Database clock', new Date(h.db_time).toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' })],
+                ['Games today', String(h.games_today ?? 0)], ['Errors (30 min)', String(h.errors_30m ?? 0)], ['Phase', h.phase || '–'], ['Database clock', h.db_time ? new Date(h.db_time).toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' }) : '–'],
               ].map(([k, v]) => <div key={k} className="rounded-lg bg-white/[.04] px-2 py-1.5"><div className="text-[10px] text-mute">{k}</div><div className="font-semibold">{v}</div></div>)}
             </div>
             {h.last_error && <div className="mt-2 truncate rounded-lg bg-white/[.04] px-2 py-1.5 font-mono text-[11px] text-amber-200" title={h.last_error}>Last error: {h.last_error}</div>}
