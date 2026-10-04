@@ -2846,6 +2846,37 @@ update league_rules set format = 'season', categories = null where league_id = :
 select set_config('request.jwt.claim.sub', '', false);
 select 'head-to-head: upcoming weeks aren''t counted, the seed breaks ties', true;
 
+-- ───────────── category value for the draft ─────────────
+reset role;
+select id as cv_league from leagues where slug = 'rink' \gset
+select set_config('app.league_id', :cv_league::text, false);
+select pg_temp.expect('a points league has no category values', not exists (select 1 from category_values()));
+update league_rules set categories = array['g', 'hit', 'blk', 'w', 'gaa'] where league_id = :cv_league;
+create temp table cv as select * from category_values();
+select pg_temp.expect('a category league values its players on its categories', (select count(*) from cv) > 100
+  and (select bool_and(z ?| array['g', 'hit', 'blk', 'w', 'gaa']) from cv) and (select min(rank) from cv) = 1);
+select pg_temp.expect('skaters on skater categories, goalies on goalie ones', (select bool_and(not (z ? 'w')) from cv join players p on p.id = cv.player_id where p.pos <> 'G')
+  and (select bool_and(z ? 'gaa' and not (z ? 'hit')) from cv join players p on p.id = cv.player_id where p.pos = 'G'));
+-- the hitter: among skaters, more hits and blocks per game at the same goals is worth more here than in points
+select pg_temp.expect('a big hitter outranks his points', (select avg(cv.rank) from cv join players p on p.id = cv.player_id
+    where p.pos <> 'G' and (p.last_stats->>'hit')::numeric / greatest((p.last_stats->>'gp')::numeric, 1) > 2.5)
+  < (select avg(p.rank) from cv join players p on p.id = cv.player_id where p.pos <> 'G' and (p.last_stats->>'hit')::numeric / greatest((p.last_stats->>'gp')::numeric, 1) > 2.5));
+select pg_temp.expect('fewer goals against per start is better', (select corr((p.last_stats->>'ga')::numeric / nullif((p.last_stats->>'gs')::numeric, 0), (cv.z->>'gaa')::numeric)
+  from cv join players p on p.id = cv.player_id where p.pos = 'G' and (p.last_stats->>'gs')::numeric >= 50) < 0);
+select id as cv_team from teams where league_id = :cv_league and role = 'gm' and not exists (select 1 from draft_queue q where q.team_id = teams.id) order by id limit 1 \gset
+select pg_temp.expect('the robot drafts by category value in a category league', _autopick_player(:cv_team) = (
+  select cv.player_id from cv join league_players p on p.id = cv.player_id
+  where p.pos in ('C', 'LW', 'RW', 'D', 'G') and coalesce(p.injury_status, '') !~* '^(out|ir\b|injured|suspen|long)'
+    and not exists (select 1 from rosters r where r.player_id = p.id and r.league_id = :cv_league)
+    and (select count(*) from rosters r join players x on x.id = r.player_id where r.team_id = :cv_team and x.pos = p.pos)
+        < case p.pos when 'D' then 6 when 'G' then 3 else 4 end
+  order by cv.value desc, p.proj desc, p.last_fp desc limit 1));
+drop table cv;
+update league_rules set categories = null where league_id = :cv_league;
+select set_config('app.league_id', '', false);
+select set_config('request.jwt.claim.sub', '', false);
+select 'category value for the draft', true;
+
 -- ───────────── how alive each league is ─────────────
 reset role;
 update teams set last_seen = now() - interval '2 days' where id = 1;

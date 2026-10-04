@@ -163,7 +163,10 @@ The steps above finish the tenancy. `docs/MARKET.md` sets what comes after in th
     the table, and each matchup opens category by category. Payouts follow the format (migration 124): the regular-season
     pot pays the head-to-head or category table, a bracket pays its champion, runner-up and best semifinal loser, and the
     last-place punishment stays a points-league rule. Every morning (`h2h-notes`, migration 125) each GM of a head-to-head
-    league hears the week's opponent when a week starts and the result when it ends, the playoffs round by round. Next: the each-category variant (every category a win or a
+    league hears the week's opponent when a week starts and the result when it ends, the playoffs round by round.
+    A category league drafts on its categories (migration 129): `category_values()` values every player on the league's
+    categories (last season's pace over his projected games, a z-score against the draftable pool of skaters or goalies),
+    the Players page, draft room and mock draft rank by it in the projection view, and the robot's autopick uses it. Next: the each-category variant (every category a win or a
     loss on the table) if a league asks for it.
 9. **Import with history** from Fantrax, ESPN and CBS (Yahoo exists).
 10. **Contracts, caps, prospect slots and rookie drafts**; guillotine and best ball formats.

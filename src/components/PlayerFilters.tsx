@@ -1,6 +1,7 @@
 // Shared player filtering and sorting (Players page, draft room, mock draft): any stat, any timeframe.
-import { useCallback, useMemo, type ReactNode } from 'react';
+import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react';
 import { useLeague } from '../lib/store';
+import { rpc } from '../lib/supabase';
 import type { Player, Pos as PosT } from '../lib/types';
 import { NHL_TEAMS } from '../lib/format';
 import { isOut } from '../lib/lineup';
@@ -15,9 +16,27 @@ const POSITIONS: ('ALL' | PosT)[] = ['ALL', 'C', 'LW', 'RW', 'D', 'G'];
 const SKATER_COLS = ['gp', 'fp', 'g', 'a', 'pts', 'pm', 'ppp', 'sog', 'hit', 'blk', 'pim', 'gwg', 'shp', 'fow', 'shpct'];
 const GOALIE_COLS = ['gp', 'gs', 'fp', 'w', 'l', 'otl', 'ga', 'sa', 'sv', 'svp', 'sho', 'gaa'];
 
+// a category league's draft value per player (category_values, migration 129): its categories, not fantasy points
+const cvCache = new Map<string, Map<number, number>>();
+export function useCategoryValues() {
+  const { league } = useLeague();
+  const key = league?.categories?.length ? `${league.league_id}:${league.categories.join(',')}` : '';
+  const [cv, setCv] = useState<Map<number, number> | null>(key ? cvCache.get(key) ?? null : null);
+  useEffect(() => {
+    if (!key) { setCv(null); return; }
+    if (cvCache.has(key)) { setCv(cvCache.get(key)!); return; }
+    rpc<{ player_id: number; value: number }[]>('category_values').then((rows) => {
+      const m = new Map((rows ?? []).map((r) => [r.player_id, Number(r.value)]));
+      cvCache.set(key, m); setCv(m);
+    }, () => setCv(null));
+  }, [key]);
+  return cv;
+}
+
 // `keep` names the screen whose filters should survive the GM stepping away and back (Players, the draft room)
 export function usePlayerFilter(init?: Partial<Filter>, keep?: string) {
   const { windows, season } = useLeague();
+  const cv = useCategoryValues();
   const [f, setF] = useSticky<Filter>(keep ? `pf:${keep}` : null, { ...DEFAULT, ...init });
   const set = useCallback((patch: Partial<Filter>) => setF((x) => {
     const n = { ...x, ...patch };
@@ -34,11 +53,13 @@ export function usePlayerFilter(init?: Partial<Filter>, keep?: string) {
   const d = statDef(stat);
   const line = useCallback((p: Player): Line | null => lineFor(p, tf, windows.get(p.id), season.get(p.id)), [tf, windows, season]);
   const sample = minSample(tf);
-  const value = useCallback((p: Player) => statValue(line(p), stat, perGame, sample), [line, stat, perGame, sample.gp, sample.sog]); // eslint-disable-line react-hooks/exhaustive-deps
+  // in a category league the projection view ranks by category value: what the league actually plays for
+  const byCat = tf === 'proj' && !!cv && cv.size > 0;
+  const value = useCallback((p: Player) => (byCat ? cv!.get(p.id) ?? null : statValue(line(p), stat, perGame, sample)), [byCat, cv, line, stat, perGame, sample.gp, sample.sog]); // eslint-disable-line react-hooks/exhaustive-deps
   const apply = useCallback((list: Player[]) => {
     const needle = f.q.trim().toLowerCase();
     const vals = new Map<number, number | null>();
-    const dir = d.lowerIsBetter ? 1 : -1;
+    const dir = d.lowerIsBetter && !byCat ? 1 : -1;
     const out = list.filter((p) => f.pos === 'ALL' || (f.pos === 'G' ? p.pos === 'G' : p.elig.includes(f.pos)))
       .filter((p) => !needle || p.name.toLowerCase().includes(needle) || p.nhl_team?.toLowerCase() === needle)
       .filter((p) => !f.nhl || p.nhl_team === f.nhl)
@@ -52,11 +73,15 @@ export function usePlayerFilter(init?: Partial<Filter>, keep?: string) {
       if (vb == null) return -1;
       return (va - vb) * dir || b.proj - a.proj;
     });
-  }, [f.q, f.pos, f.nhl, f.hideInjured, f.minGp, tf, d.lowerIsBetter, line, value]);
+  }, [f.q, f.pos, f.nhl, f.hideInjured, f.minGp, tf, d.lowerIsBetter, byCat, line, value]);
   const tfShort = TIMEFRAMES.find((t) => t.k === tf)!.short;
-  const label = tf === 'proj' ? 'proj' : tf === 'ros' ? 'ROS' : `${d.short}${perGame && !d.rate && stat !== 'gp' ? '/GP' : ''} · ${tfShort}`;
-  const fmt = useCallback((p: Player) => fmtStat(value(p), stat, perGame), [value, stat, perGame]);
-  return { f, set, tf, stat, perGame, liveOk, goalie, line, value, apply, label, fmt, sample };
+  const label = byCat ? 'cat value' : tf === 'proj' ? 'proj' : tf === 'ros' ? 'ROS' : `${d.short}${perGame && !d.rate && stat !== 'gp' ? '/GP' : ''} · ${tfShort}`;
+  const fmt = useCallback((p: Player) => {
+    if (!byCat) return fmtStat(value(p), stat, perGame);
+    const v = value(p);
+    return v == null ? '–' : `${v > 0 ? '+' : ''}${v.toFixed(1)}`;
+  }, [byCat, value, stat, perGame]);
+  return { f, set, tf, stat, perGame, liveOk, goalie, line, value, apply, label, fmt, sample, byCat };
 }
 export type PlayerFilter = ReturnType<typeof usePlayerFilter>;
 
@@ -80,7 +105,7 @@ export function PlayerFilterBar({ pf, compact, hideSearch, children }: { pf: Pla
       </div>
       <div className="scroll-x flex items-center gap-1.5">
         <select aria-label="Sort by stat" className="rounded-lg border border-white/10 bg-black/30 px-2 py-1 text-xs" value={stat} disabled={projLike(tf)} onChange={(e) => set({ stat: e.target.value })}>
-          {tf === 'proj' ? <option value="fp">Projected points</option> : tf === 'ros' ? <option value="fp">Rest-of-season points</option> : statsFor(goalie).map((s) => <option key={s.k} value={s.k}>{s.label}</option>)}
+          {tf === 'proj' ? <option value="fp">{pf.byCat ? 'Category value' : 'Projected points'}</option> : tf === 'ros' ? <option value="fp">Rest-of-season points</option> : statsFor(goalie).map((s) => <option key={s.k} value={s.k}>{s.label}</option>)}
         </select>
         {!projLike(tf) && <button className={chip(f.perGame)} onClick={() => set({ perGame: !f.perGame })} title="Per game">/GP</button>}
         <button className={chip(f.hideInjured)} onClick={() => set({ hideInjured: !f.hideInjured })}>🚑 {f.hideInjured ? 'hidden' : 'hide'}</button>
