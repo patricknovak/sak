@@ -231,9 +231,9 @@ export default function MyTeam() {
         <div className="pointer-events-none absolute -right-4 -top-6 select-none text-[120px] leading-none opacity-[.08]">{t.emoji}</div>
         <TeamBadge team={t} size={56} ring />
         <div className="relative min-w-0 flex-1">
-          <h1 className="h-display text-shine truncate text-[28px] leading-tight">{t.name}</h1>
+          <h1 className="h-display text-shine break-words text-[clamp(21px,7.4vw,28px)] leading-[1.05]">{t.name}</h1>
           <div className="text-xs text-white/70">GM {t.gm_name}{st && league?.phase === 'season' && <> · {ordinal(st.rank)} · {fmtPts(st.points)} pts · {pk ? pk.used : st.moves}/{pk?.allowed ?? league?.max_acquisitions} pickups</>}</div>
-          {t.motto && <div className="truncate text-xs italic text-white/60">“{t.motto}”</div>}
+          {t.motto && <div className="line-clamp-2 text-xs italic text-white/60">“{t.motto}”</div>}
         </div>
         <select aria-label="View team" className="relative w-full rounded-xl border border-white/15 bg-black/30 px-2 py-1.5 text-sm backdrop-blur sm:w-auto" value={teamId} onChange={(e) => nav(Number(e.target.value) === me?.id ? '/team' : `/team/${e.target.value}`)}>
           {teams.map((x) => <option key={x.id} value={x.id}>{x.id === me?.id ? '🏠 My team' : `${x.emoji} ${x.name}`}</option>)}
