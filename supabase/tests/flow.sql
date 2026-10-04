@@ -3127,6 +3127,8 @@ delete from watchlist where team_id = 3;
 insert into watchlist (league_id, team_id, player_id) select 1, 3, id from players order by id limit 100;
 select pg_temp.raises('a full list takes no more', format('insert into watchlist (league_id, team_id, player_id) values (1, 3, %s)',
   (select id from players order by id offset 100 limit 1)), 'watch list is full');
+select pg_temp.raises('a full list starring one it has is the usual duplicate, not "full"', format('insert into watchlist (league_id, team_id, player_id) values (1, 3, %s)',
+  (select id from players order by id limit 1)), 'duplicate key');
 delete from watchlist where team_id = 3;
 delete from watchlist where player_id = :wl_p;
 select set_config('request.jwt.claim.sub', '', false);

@@ -296,7 +296,9 @@ async function learn(force = false) {
     `You maintain the memory of Garry, a fantasy hockey league chat bot. From a chat transcript, extract things worth remembering about the GMs
 (their habits, opinions, teams they love or hate, players they hoard, bets they make, excuses, catchphrases, feuds, trade tendencies) and the league
 (rules people argue about, traditions, running jokes), and how they talk to Garry (what lands, what annoys them). Only things that will still be funny or useful in a month. Nothing about anyone's health, family, job,
-money troubles or looks. Skip anything already known. Return JSON: {"memories": [{"gm": "<first name or null for the league>", "kind": "fact"|"gag"|"lesson", "content": "<one line, max 140 chars>"}]}. Return {"memories": []} if there is nothing new.`,
+money troubles or looks. Lines marked "privately to Garry" were said in confidence: learn how that GM talks and what lands with them,
+never their plans (players they want to add, drop, trade for or are watching, bets or moves they're weighing), since memories
+come up in the league chat. Skip anything already known. Return JSON: {"memories": [{"gm": "<first name or null for the league>", "kind": "fact"|"gag"|"lesson", "content": "<one line, max 140 chars>"}]}. Return {"memories": []} if there is nothing new.`,
     `GMs: ${teams.map((t) => t.gm_name).join(', ')}\n\nWhat the commissioner says about the league (already known, do not repeat):\n${st?.briefing ?? '(nothing)'}\n\nAlready known:\n${known.map((m) => '- ' + m).join('\n') || '(nothing yet)'}\n\nNew chat:\n${transcript}`, 900, 0.3, true, 'low');
   let items: { gm: string | null; kind: string; content: string }[] = [];
   try { items = JSON.parse(out ?? '{}').memories ?? []; } catch { items = []; }
