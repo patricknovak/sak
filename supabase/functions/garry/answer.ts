@@ -145,6 +145,29 @@ export async function answer(db: Db, question: string, askerTeam: number, opts: 
 
   // ── standings
   if (has(/\b(standing|standings|leader|leading|winning|first place|last place|in first|in last|peter|rank|table|who.?s up|points race|where am i)\b/)) {
+    const ord = (n: number) => `${n}${['st', 'nd', 'rd'][n - 1] ?? 'th'}`;
+    // a head-to-head league is ranked by wins, and a GM wants this week's matchup too
+    if (league.format === 'h2h') {
+      const [{ data: rows }, { data: games }] = await Promise.all([db.rpc('h2h_standings'), db.rpc('h2h_scores')]);
+      const tbl = [...((rows ?? []) as any[])].sort((a, b) => a.rank - b.rank);
+      const ms = (games ?? []) as any[];
+      const week = ms.find((m) => m.status === 'live')?.week ?? ms.find((m) => m.status === 'upcoming')?.week;
+      const m = ms.find((x) => x.week === week && (x.home_team === askerTeam || x.away_team === askerTeam));
+      const top3 = tbl.slice(0, 3).map((t) => `${t.rank}. ${byId.get(t.team_id)?.gm_name} ${t.w}-${t.l}-${t.t}`).join(', ');
+      const mine = tbl.find((t) => t.team_id === askerTeam);
+      const opp = m ? (m.home_team === askerTeam ? m.away_team : m.home_team) : null;
+      const vs = m && opp ? ` This week (${m.status === 'live' ? 'live' : 'starts ' + m.starts}): you ${f1(m.home_team === askerTeam ? m.home_pts : m.away_pts)}, ${byId.get(opp)?.gm_name} ${f1(m.home_team === askerTeam ? m.away_pts : m.home_pts)}.` : m ? ' You have the week off.' : '';
+      return reply('standings', `${tbl.length && tbl.some((t) => t.w + t.l + t.t > 0) ? `Head-to-head: ${top3}.` : 'No week finished yet, so everyone’s 0-0-0.'}${mine ? ` You’re ${ord(mine.rank)} at ${mine.w}-${mine.l}-${mine.t}.` : ''}${vs} 👉 #/standings`, { top3, mine, matchup: m });
+    }
+    // a rotisserie league is ranked by category points
+    if (league.categories?.length) {
+      const { data: rows } = await db.rpc('category_standings');
+      const tbl = [...((rows ?? []) as any[])].sort((a, b) => a.rank - b.rank);
+      const top3 = tbl.slice(0, 3).map((t) => `${t.rank}. ${byId.get(t.team_id)?.gm_name} ${f1(t.total)}`).join(', ');
+      const mine = tbl.find((t) => t.team_id === askerTeam);
+      const weak = mine ? Object.entries(mine.cats as Record<string, { pts: number }>).sort((a, b) => a[1].pts - b[1].pts)[0] : null;
+      return reply('standings', `Rotisserie: ${top3}.${mine ? ` You’re ${ord(mine.rank)} with ${f1(mine.total)} roto points${weak ? `; your weakest category is ${weak[0].toUpperCase()}` : ''}.` : ''} 👉 #/standings`, { top3, mine });
+    }
     if (!scored) {
       const last = [...table].pop();
       return reply('standings', `Nobody’s scored yet: the season starts ${league.season_start ?? 'soon'}. Everyone’s tied at zero, which is the best some of you will ever look. 👉 #/standings`, { last });
