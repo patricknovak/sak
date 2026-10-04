@@ -3,492 +3,314 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Super Pools · Call it before your friends do</title>
-  <meta name="description" content="Super Pools turns everything you watch into a pool with your people. Every answer has a price that moves as your friends call it: shows, sports, award nights. Fantasy hockey that runs itself, a Love Is Blind pool for Season 11, soccer next. Free, no money, ever." />
+  <title>Super Pools · The pool that runs itself</title>
+  <meta name="description" content="Super Pools is the home for your fantasy league and every pool your group plays. Live scoring from the box scores, lineups that set themselves, side bets in coins, a league voice that talks trash, and questions with odds that move as your buddies call them. Built by a hockey pool that has drafted every fall since 2013. Free to start, never money." />
   <link rel="canonical" href="https://superpoolsai.com/" />
   <link rel="icon" href="./icon.svg" type="image/svg+xml" />
   <meta name="theme-color" content="#0b1220" />
   <meta property="og:type" content="website" />
   <meta property="og:url" content="https://superpoolsai.com/" />
-  <meta property="og:title" content="Super Pools · Call it before your friends do" />
-  <meta property="og:description" content="Pools for everything you watch, with prices that move as your friends call it. Love Is Blind Season 11, fantasy hockey that runs itself, soccer next. No money, ever." />
+  <meta property="og:title" content="Super Pools · The pool that runs itself" />
+  <meta property="og:description" content="Your fantasy league and every pool your group plays, in one home. Live scoring, lineups that set themselves, side bets in coins, a league voice. Never money." />
   <meta property="og:image" content="https://superpoolsai.com/og.png" />
   <meta name="twitter:card" content="summary_large_image" />
+  <link rel="stylesheet" href="./site.css" />
   <style>
-    @font-face { font-family: 'Barlow Condensed'; font-style: italic; font-weight: 900; font-display: swap; src: url(./fonts/barlow-condensed-900-italic.woff2) format('woff2'); }
-    @font-face { font-family: 'Barlow Condensed'; font-style: normal; font-weight: 900; font-display: swap; src: url(./fonts/barlow-condensed-900.woff2) format('woff2'); }
-    @font-face { font-family: 'Barlow Condensed'; font-style: normal; font-weight: 700; font-display: swap; src: url(./fonts/barlow-condensed-700.woff2) format('woff2'); }
-    @font-face { font-family: 'Inter'; font-style: normal; font-weight: 400 600; font-display: swap; src: url(./fonts/inter.woff2) format('woff2'); }
-
-    :root { --night: #0b1220; --boards: #111b30; --ink: #eef2ff; --mute: #94a3b8; --soft: #cbd5e1; --gold: #f7c548; --ice: #38bdf8; --rose: #fb7185; --blush: #fda4af; --lilac: #c4b5fd; --mint: #34d399; --line: rgba(255,255,255,.08); }
-    * { box-sizing: border-box; }
-    html { scroll-behavior: smooth; overflow-x: clip; }
-    body { margin: 0; background: var(--night); color: var(--ink); font: 16px/1.55 Inter, system-ui, sans-serif; -webkit-font-smoothing: antialiased; overflow-x: hidden; }
-    body::before { content: ''; position: fixed; inset: 0; z-index: -1; pointer-events: none;
-      background: radial-gradient(900px 600px at 0% -5%, rgba(251,113,133,.20), transparent 60%), radial-gradient(800px 520px at 100% 8%, rgba(247,197,72,.14), transparent 55%), radial-gradient(900px 700px at 50% 120%, rgba(56,189,248,.10), transparent 60%), var(--night); }
-    main { max-width: 1120px; margin: 0 auto; padding: 18px 16px 72px; }
-    a { color: var(--ice); text-decoration: none; }
-    img { display: block; max-width: 100%; }
-    .display { font-family: 'Barlow Condensed', 'Arial Narrow', sans-serif; font-weight: 900; letter-spacing: .005em; line-height: .94; }
-    .display em { font-style: italic; }
-    .rose { color: var(--rose); } .gold { color: var(--gold); } .ice { color: var(--ice); }
-    .eyebrow { font-family: 'Barlow Condensed', sans-serif; font-weight: 700; font-size: 13px; letter-spacing: .24em; text-transform: uppercase; color: var(--blush); }
-    .eyebrow.g { color: var(--gold); } .eyebrow.i { color: var(--ice); }
-    .mute { color: var(--mute); }
-    section { margin-top: 88px; scroll-margin-top: 20px; }
-    h2 { font-size: clamp(36px, 6vw, 60px); margin: 10px 0 14px; }
-    .lead { font-size: clamp(16px, 2.2vw, 19px); color: var(--soft); max-width: 640px; margin: 0 0 22px; }
-
-    /* header */
-    header { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
-    .wordmark { display: inline-flex; align-items: center; gap: 10px; color: var(--ink); }
-    .wordmark svg { width: 34px; height: 34px; flex: none; }
-    .wordmark span { font-family: 'Barlow Condensed', sans-serif; font-weight: 900; font-size: 26px; letter-spacing: .02em; line-height: 1; white-space: nowrap; }
-    .wordmark b { color: var(--gold); font-style: italic; }
-    .navlinks { display: none; gap: 22px; font-size: 14px; font-weight: 600; }
-    .navlinks a { color: var(--soft); }
-    @media (min-width: 860px) { .navlinks { display: flex; } }
-    .btn { display: inline-flex; align-items: center; justify-content: center; gap: 8px; padding: 13px 22px; border-radius: 16px; font-weight: 600; font-size: 15px; border: 0; cursor: pointer; font-family: inherit; text-align: center; transition: transform .15s ease, box-shadow .2s ease; }
-    .btn:active { transform: scale(.98); }
-    .btn-rose { background: linear-gradient(180deg, #ffd1d8, var(--rose)); color: #3a0716; box-shadow: 0 12px 28px -12px rgba(251,113,133,.9); }
-    .btn-gold { background: linear-gradient(180deg, #fff3c4, var(--gold)); color: #1a1405; box-shadow: 0 12px 28px -12px rgba(247,197,72,.8); }
-    .btn-ghost { border: 1px solid rgba(255,255,255,.14); color: var(--ink); background: rgba(255,255,255,.03); }
-    .btn-sm { padding: 9px 14px; font-size: 13px; border-radius: 12px; }
-
-    /* hero */
-    .hero { overflow-x: clip; overflow-y: visible; display: grid; gap: 34px; align-items: center; margin-top: 40px; }
-    @media (min-width: 940px) { .hero { grid-template-columns: 1.05fr .95fr; margin-top: 64px; } }
-    .hero h1 { font-size: clamp(54px, 10vw, 104px); margin: 14px 0 18px; }
-    .hero h1 .l2 { display: block; background: linear-gradient(90deg, var(--rose), #f9a8d4 40%, var(--gold)); -webkit-background-clip: text; background-clip: text; color: transparent; padding-right: .08em; }
-    .cta { display: flex; flex-wrap: wrap; gap: 10px; }
-    .trust { display: flex; flex-wrap: wrap; gap: 8px 16px; margin-top: 18px; font-size: 13px; color: var(--mute); }
-    .trust span::before { content: '✓ '; color: var(--mint); font-weight: 700; }
-
-    /* phones */
-    .phone { width: 248px; border-radius: 38px; padding: 9px; background: linear-gradient(160deg, #2a3350, #070b15 60%); box-shadow: 0 50px 90px -40px rgba(0,0,0,.95), 0 0 0 1px rgba(255,255,255,.12) inset; position: relative; }
-    .phone img { border-radius: 30px; width: 100%; height: auto; aspect-ratio: 1 / 2; object-fit: cover; object-position: top; background: #05080f; }
-    .phone::after { content: ''; position: absolute; top: 15px; left: 50%; width: 74px; height: 20px; margin-left: -37px; border-radius: 999px; background: #05080f; }
-    .duo { position: relative; height: 560px; max-width: 520px; margin: 0 auto; width: 100%; }
-    .duo .phone { position: absolute; }
-    .duo .a { left: 2%; top: 30px; transform: rotate(-6deg); z-index: 1; }
-    .duo .b { right: 2%; top: 0; transform: rotate(5deg); z-index: 2; }
-    .glow-rose { box-shadow: 0 50px 90px -40px rgba(0,0,0,.95), 0 0 0 1px rgba(255,255,255,.12) inset, 0 0 80px -20px rgba(251,113,133,.55); }
-    .glow-gold { box-shadow: 0 50px 90px -40px rgba(0,0,0,.95), 0 0 0 1px rgba(255,255,255,.12) inset, 0 0 80px -20px rgba(247,197,72,.45); }
-    @media (max-width: 520px) { .duo { height: 450px; } .duo .phone { width: 190px; border-radius: 32px; } .duo .phone img { border-radius: 25px; } .duo .a { left: 14px; } .duo .b { right: 14px; } }
-    .tag { position: absolute; z-index: 3; background: rgba(17,27,48,.92); backdrop-filter: blur(10px); border: 1px solid rgba(255,255,255,.12); border-radius: 16px; padding: 10px 12px; font-size: 12px; box-shadow: 0 20px 40px -18px rgba(0,0,0,.9); }
-    .tag b { display: block; font-family: 'Barlow Condensed', sans-serif; font-weight: 900; font-size: 26px; line-height: 1; }
-    .tag.t1 { right: 0; bottom: 18px; } .tag.t1 b { color: var(--rose); }
-    .tag.t2 { left: 0; bottom: 84px; } .tag.t2 b { color: var(--gold); }
-    @media (max-width: 520px) { .tag { font-size: 11px; padding: 8px 10px; } .tag b { font-size: 22px; } .tag.t2 { bottom: 70px; } }
-
-    /* the ticker */
-    .ticker { margin: 56px -16px 0; overflow: hidden; border-block: 1px solid var(--line); background: rgba(255,255,255,.02); -webkit-mask-image: linear-gradient(90deg, transparent, #000 8%, #000 92%, transparent); mask-image: linear-gradient(90deg, transparent, #000 8%, #000 92%, transparent); }
-    .ticker .run { display: flex; gap: 12px; width: max-content; padding: 14px 0; animation: run 48s linear infinite; }
-    @keyframes run { to { transform: translateX(-50%); } }
-    @media (prefers-reduced-motion: reduce) { .ticker .run { animation: none; } }
-    .q { display: inline-flex; align-items: center; gap: 10px; padding: 8px 14px; border-radius: 999px; background: var(--boards); border: 1px solid var(--line); font-size: 13px; white-space: nowrap; }
-    .q i { font-style: normal; width: 8px; height: 8px; border-radius: 50%; }
-    .q b { font-family: 'Barlow Condensed', sans-serif; font-weight: 900; font-size: 18px; }
-
-    /* cards */
-    .grid { display: grid; gap: 14px; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); }
-    .card { background: linear-gradient(180deg, rgba(255,255,255,.04), rgba(255,255,255,.015)); border: 1px solid var(--line); border-radius: 22px; padding: 22px; }
-    .card h3 { margin: 10px 0 6px; font-size: 19px; }
-    .card p { margin: 0; color: var(--mute); font-size: 14.5px; }
-    .num { font-family: 'Barlow Condensed', sans-serif; font-weight: 900; font-size: 40px; line-height: 1; }
-    .ico { width: 26px; height: 26px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
-
-    /* how it works */
-    .steps { display: grid; gap: 14px; grid-template-columns: 1fr; }
-    @media (min-width: 860px) { .steps { grid-template-columns: repeat(3, 1fr); } }
-    .step .num { background: linear-gradient(180deg, #ffd1d8, var(--rose)); -webkit-background-clip: text; background-clip: text; color: transparent; }
-    .mini { margin-top: 16px; display: grid; gap: 6px; }
-    .bar { position: relative; overflow: hidden; border-radius: 12px; background: rgba(255,255,255,.04); border: 1px solid var(--line); padding: 8px 12px; display: flex; justify-content: space-between; font-size: 13px; font-weight: 600; }
-    .bar::before { content: ''; position: absolute; inset: 0 auto 0 0; width: var(--w); background: linear-gradient(90deg, var(--c), transparent); opacity: .3; }
-    .bar span { position: relative; } .bar b { position: relative; font-family: 'Barlow Condensed', sans-serif; font-size: 18px; color: var(--c); }
-
-    /* the show pool */
-    .show { position: relative; border-radius: 34px; padding: 34px 22px; overflow: hidden; border: 1px solid rgba(251,113,133,.28);
-      background: radial-gradient(700px 420px at 0% 0%, rgba(251,113,133,.30), transparent 60%), radial-gradient(600px 400px at 100% 100%, rgba(196,181,253,.20), transparent 60%), linear-gradient(160deg, #22122a, #0e1224 70%); }
-    @media (min-width: 860px) { .show { padding: 52px; } }
-    .show-grid { display: grid; gap: 30px; align-items: center; }
-    @media (min-width: 940px) { .show-grid { grid-template-columns: 1.1fr .9fr; } }
-    .show h2 { color: #fff; }
-    .count { display: flex; gap: 8px; margin: 6px 0 24px; }
-    .count div { min-width: 64px; text-align: center; border-radius: 16px; background: rgba(0,0,0,.28); border: 1px solid rgba(255,255,255,.1); padding: 8px 6px; }
-    .count b { display: block; font-family: 'Barlow Condensed', sans-serif; font-weight: 900; font-size: 34px; line-height: 1; color: #fff; }
-    .count span { font-size: 10px; letter-spacing: .18em; text-transform: uppercase; color: var(--blush); }
-    .drops { display: grid; gap: 8px; grid-template-columns: repeat(2, 1fr); margin: 18px 0 24px; }
-    @media (min-width: 560px) { .drops { grid-template-columns: repeat(4, 1fr); } }
-    .drops div { border-radius: 16px; background: rgba(255,255,255,.05); border: 1px solid rgba(255,255,255,.08); padding: 10px 12px; }
-    .drops b { display: block; font-family: 'Barlow Condensed', sans-serif; font-weight: 900; font-size: 20px; color: #fff; }
-    .drops span { font-size: 12px; color: var(--blush); }
-    .feats { display: grid; gap: 10px; margin: 0 0 26px; padding: 0; list-style: none; }
-    .feats li { display: flex; gap: 12px; align-items: flex-start; font-size: 15px; color: #f1d4dc; }
-    .feats li::before { content: ''; flex: none; width: 22px; height: 22px; margin-top: 1px; border-radius: 50%; background: radial-gradient(circle at 50% 50%, #fff 0 22%, var(--rose) 24% 100%); box-shadow: 0 0 14px rgba(251,113,133,.7); }
-    .show .phones { display: flex; justify-content: center; gap: 14px; }
-    .show .phones .phone { width: 200px; }
-    .show .phones .phone:nth-child(2) { margin-top: 46px; }
-    @media (max-width: 480px) { .show .phones .phone { width: 160px; border-radius: 30px; } .show .phones .phone img { border-radius: 24px; } }
-
-    /* difference */
-    .vs { display: grid; gap: 12px; grid-template-columns: 1fr; }
-    @media (min-width: 760px) { .vs { grid-template-columns: 1fr 1fr; } }
-    .vs .card { display: grid; grid-template-columns: auto 1fr; gap: 4px 14px; align-items: start; }
-    .vs .card .ico { grid-row: span 2; margin-top: 4px; color: var(--rose); }
-    .vs .card:nth-child(even) .ico { color: var(--gold); }
-    .vs h3 { margin: 0; }
-    .vs .was { font-size: 13px; color: #64748b; text-decoration: line-through; text-decoration-color: rgba(251,113,133,.55); }
-
-    /* sports */
-    .sports-hero { display: grid; gap: 26px; align-items: center; }
-    @media (min-width: 940px) { .sports-hero { grid-template-columns: .9fr 1.1fr; } }
-    .sak { display: flex; gap: 16px; align-items: center; padding: 16px; border-radius: 22px; border: 1px solid rgba(247,197,72,.3); background: linear-gradient(135deg, rgba(247,197,72,.12), rgba(17,27,48,.5) 60%); }
-    .sak img { width: 76px; height: 76px; border-radius: 20px; box-shadow: 0 0 30px -6px rgba(247,197,72,.6); }
-    .sak b { font-family: 'Barlow Condensed', sans-serif; font-weight: 900; font-size: 26px; letter-spacing: .02em; display: block; line-height: 1; }
-    .sak b em { color: var(--gold); font-style: italic; }
-    .sak span { font-size: 13px; color: var(--mute); }
-    .shots { display: grid; gap: 18px; grid-template-columns: 1fr; margin-top: 30px; }
-    @media (min-width: 760px) { .shots { grid-template-columns: repeat(3, 1fr); } }
-    .shot { display: flex; flex-direction: column; align-items: center; text-align: center; }
-    .shot .phone { width: 230px; }
-    .shot h3 { margin: 18px 0 4px; font-size: 19px; }
-    .shot p { margin: 0; font-size: 14px; color: var(--mute); max-width: 300px; }
-    .shot .was { margin-top: 8px; font-size: 12px; color: #64748b; }
-
-    .stats { display: grid; gap: 10px; grid-template-columns: 1fr; }
-    @media (min-width: 560px) { .stats { grid-template-columns: 1fr 1fr; } }
-    .stats .card { display: flex; gap: 16px; align-items: center; padding: 16px 18px; }
-    .stats .num { min-width: 64px; font-size: 36px; }
-    .stats p { font-size: 14px; }
-
-    /* calendar */
-    .cal { display: grid; gap: 10px; grid-template-columns: repeat(2, 1fr); }
-    @media (min-width: 760px) { .cal { grid-template-columns: repeat(3, 1fr); } }
-    @media (min-width: 1000px) { .cal { grid-template-columns: repeat(6, 1fr); } }
-    .cal div { border-radius: 18px; padding: 14px; background: var(--boards); border: 1px solid var(--line); }
-    .cal .now { border-color: rgba(251,113,133,.5); background: linear-gradient(180deg, rgba(251,113,133,.14), var(--boards)); }
-    .cal .now2 { border-color: rgba(247,197,72,.45); background: linear-gradient(180deg, rgba(247,197,72,.12), var(--boards)); }
-    .cal small { display: block; font-size: 11px; letter-spacing: .16em; text-transform: uppercase; color: var(--mute); }
-    .cal b { display: block; font-family: 'Barlow Condensed', sans-serif; font-weight: 900; font-size: 21px; line-height: 1.05; margin: 4px 0; }
-    .cal span { font-size: 12.5px; color: var(--mute); }
-
-    /* soccer */
-    .soccer { display: grid; gap: 14px; grid-template-columns: 1fr; }
-    @media (min-width: 860px) { .soccer { grid-template-columns: repeat(3, 1fr); } }
-    .pill { display: inline-block; border-radius: 999px; padding: 4px 10px; font-size: 11px; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; }
-    .pill.next { background: rgba(56,189,248,.15); color: var(--ice); }
-    .pill.later { background: rgba(255,255,255,.07); color: var(--mute); }
-    .pill.now { background: rgba(52,211,153,.15); color: var(--mint); }
-
-    /* coin */
-    .coin { display: grid; gap: 22px; align-items: center; grid-template-columns: 1fr; }
-    @media (min-width: 860px) { .coin { grid-template-columns: auto 1fr; } }
-    .coinart { width: 150px; height: 150px; margin: 0 auto; filter: drop-shadow(0 20px 30px rgba(247,197,72,.3)); }
-    .never { display: grid; gap: 8px; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); margin-top: 14px; }
-    .never div { border-radius: 14px; padding: 12px 14px; background: rgba(255,255,255,.03); border: 1px solid var(--line); font-size: 14px; color: var(--soft); }
-    .never div::before { content: '✕ '; color: var(--rose); font-weight: 700; }
-
-    /* join */
-    .join { border-radius: 30px; padding: 30px 22px; border: 1px solid rgba(251,113,133,.3); background: radial-gradient(600px 300px at 0% 0%, rgba(251,113,133,.22), transparent 60%), radial-gradient(600px 300px at 100% 100%, rgba(247,197,72,.14), transparent 60%), var(--boards); }
-    @media (min-width: 860px) { .join { padding: 44px; } }
-    form { display: grid; gap: 10px; margin-top: 18px; }
-    @media (min-width: 760px) { form { grid-template-columns: 1fr 1fr; } form .wide { grid-column: 1 / -1; } }
-    input, select { width: 100%; padding: 14px; border-radius: 14px; border: 1px solid rgba(255,255,255,.12); background: rgba(0,0,0,.35); color: var(--ink); font: inherit; font-size: 16px; }
-    select { appearance: none; background-image: linear-gradient(45deg, transparent 50%, var(--blush) 50%), linear-gradient(135deg, var(--blush) 50%, transparent 50%); background-position: calc(100% - 20px) 50%, calc(100% - 14px) 50%; background-size: 6px 6px; background-repeat: no-repeat; }
-    input::placeholder { color: #64748b; }
-    .hp { position: absolute; left: -9999px; width: 1px; height: 1px; opacity: 0; }
-    .msg { margin: 4px 0 0; font-size: 14px; min-height: 1.4em; }
-    .msg.ok { color: var(--blush); } .msg.err { color: #fca5a5; }
-
-    /* tiers */
-    .tiers { display: grid; gap: 14px; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); }
-    .tier { display: flex; flex-direction: column; }
-    .tier h3 { font-family: 'Barlow Condensed', sans-serif; font-weight: 900; font-size: 28px; margin: 0; }
-    .tier .for { font-size: 13px; color: var(--mute); margin: 2px 0 12px; }
-    .tier ul { margin: 0; padding: 0 0 0 18px; color: var(--soft); font-size: 14px; }
-    .tier li { margin: 4px 0; }
-    .tier .price { margin-top: auto; padding-top: 14px; font-family: 'Barlow Condensed', sans-serif; font-weight: 700; font-size: 19px; letter-spacing: .04em; color: var(--gold); }
-    .tier.hot { border-color: rgba(251,113,133,.45); }
-
-    .faq details { border-top: 1px solid var(--line); padding: 16px 0; }
-    .faq details:last-child { border-bottom: 1px solid var(--line); }
-    .faq summary { cursor: pointer; font-weight: 600; list-style: none; display: flex; justify-content: space-between; gap: 12px; }
-    .faq summary::-webkit-details-marker { display: none; }
-    .faq summary::after { content: '+'; color: var(--rose); font-family: 'Barlow Condensed', sans-serif; font-size: 24px; line-height: 1; }
-    .faq details[open] summary::after { content: '–'; }
-    .faq p { margin: 10px 0 0; color: var(--mute); font-size: 15px; max-width: 700px; }
-    footer { margin-top: 72px; padding-top: 22px; border-top: 1px solid var(--line); color: var(--mute); font-size: 13px; display: flex; flex-wrap: wrap; gap: 12px; justify-content: space-between; }
+    .stage { position: relative; max-width: 520px; width: 100%; margin: 0 auto; }
+    .stage .phone { position: absolute; right: -10px; top: -26px; width: 230px; transform: rotate(6deg); opacity: .9; display: none; }
+    @media (min-width: 960px) { .stage { padding-right: 120px; } .stage .phone { display: block; } }
+    .stage .board { position: relative; z-index: 2; }
+    .voice { position: relative; z-index: 3; margin: -18px 10px 0 auto; max-width: 330px; }
+    .voice .msg { margin: 0; }
   </style>
 </head>
 <body>
   <svg width="0" height="0" style="position:absolute" aria-hidden="true">
-    <symbol id="i-spark" viewBox="0 0 24 24"><path d="M12 2l2.3 6.4L21 10.7l-6.7 2.3L12 19.4l-2.3-6.4L3 10.7l6.7-2.3z"/></symbol>
-    <symbol id="i-chart" viewBox="0 0 24 24"><path d="M3 20h18M5 16l4-5 4 3 6-8M16 6h3v3"/></symbol>
-    <symbol id="i-chat" viewBox="0 0 24 24"><path d="M4 5h16v10H9l-5 4z"/><path d="M8 10h8"/></symbol>
-    <symbol id="i-people" viewBox="0 0 24 24"><circle cx="9" cy="8" r="3.5"/><path d="M2.5 20a6.5 6.5 0 0 1 13 0M15 5a3.5 3.5 0 0 1 0 7M17 14a6.5 6.5 0 0 1 4.5 6"/></symbol>
-    <symbol id="i-shield" viewBox="0 0 24 24"><path d="M12 3l8 3v6c0 4.5-3.5 7.8-8 9-4.5-1.2-8-4.5-8-9V6z"/><path d="M9 12l2 2 4-4"/></symbol>
-    <symbol id="i-phone" viewBox="0 0 24 24"><rect x="6" y="2" width="12" height="20" rx="3"/><path d="M10 18h4"/></symbol>
+    <symbol id="i-bolt" viewBox="0 0 24 24"><path d="M13 2L4 14h7l-1 8 9-12h-7z"/></symbol>
     <symbol id="i-cal" viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="16" rx="3"/><path d="M3 10h18M8 3v4M16 3v4"/></symbol>
+    <symbol id="i-clock" viewBox="0 0 24 24"><circle cx="12" cy="13" r="8"/><path d="M12 9v4l3 2M9 2h6"/></symbol>
+    <symbol id="i-swap" viewBox="0 0 24 24"><path d="M4 8h13l-3-3M20 16H7l3 3"/></symbol>
+    <symbol id="i-coin" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="4"/></symbol>
     <symbol id="i-mic" viewBox="0 0 24 24"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3M8 21h8"/></symbol>
-    <symbol id="i-gavel" viewBox="0 0 24 24"><path d="M14 4l6 6M11 7l6 6M8.5 9.5l6 6M5 21l7-7"/></symbol>
-    <symbol id="i-heart" viewBox="0 0 24 24"><path d="M12 20s-7-4.4-7-10a4 4 0 0 1 7-2.6A4 4 0 0 1 19 10c0 5.6-7 10-7 10z"/></symbol>
+    <symbol id="i-chart" viewBox="0 0 24 24"><path d="M3 20h18M5 16l4-5 4 3 6-8M16 6h3v3"/></symbol>
+    <symbol id="i-phone" viewBox="0 0 24 24"><rect x="6" y="2" width="12" height="20" rx="3"/><path d="M10 18h4"/></symbol>
+    <symbol id="i-trophy" viewBox="0 0 24 24"><path d="M8 4h8v5a4 4 0 0 1-8 0zM8 6H4a3 3 0 0 0 4 4M16 6h4a3 3 0 0 1-4 4M12 13v4M8 21h8M9 17h6"/></symbol>
   </svg>
   <main>
     <header>
-      <a class="wordmark" href="https://superpoolsai.com/" aria-label="Super Pools">
+      <a class="wordmark" href="./" aria-label="Super Pools">
         <svg viewBox="0 0 64 64" aria-hidden="true"><rect width="64" height="64" rx="14" fill="#111b30"/><circle cx="32" cy="32" r="17" fill="none" stroke="#f7c548" stroke-width="4"/><circle cx="32" cy="32" r="4.5" fill="#f7c548"/><g stroke="#f7c548" stroke-width="2.6" stroke-linecap="round"><line x1="25" y1="8" x2="25" y2="12.5"/><line x1="39" y1="8" x2="39" y2="12.5"/><line x1="25" y1="51.5" x2="25" y2="56"/><line x1="39" y1="51.5" x2="39" y2="56"/></g></svg>
         <span><b>SUPER</b> POOLS</span>
       </a>
-      <nav class="navlinks"><a href="#shows">Shows</a><a href="#sports">Sports</a><a href="#how">How it works</a><a href="#faq">Questions</a></nav>
-      <a class="btn btn-rose btn-sm" href="#join">Get in</a>
+      <nav class="navlinks"><a href="#runs">How it works</a><a href="#callit">Call it</a><a href="#sak">The founding league</a><a href="#road">Where it's going</a><a href="./together.html">Any group</a></nav>
+      <a class="btn btn-gold btn-sm" href="#join">Get in</a>
     </header>
 
     <div class="hero">
       <div>
-        <div class="eyebrow">Pools for everything you watch</div>
-        <h1 class="display">Call it<span class="l2"><em>before your friends do.</em></span></h1>
-        <p class="lead">Super Pools turns the show, the game and the award night into a pool with your people. Every answer has a price that moves as your friends call it, the chat is built in, and the crown goes to whoever read it best. Free, and never money.</p>
+        <div class="eyebrow">Fantasy · side bets · pools for every game</div>
+        <h1 class="display">The pool that <span class="l2"><em class="grad-gold">runs itself.</em></span></h1>
+        <p class="lead">Your league, minus the spreadsheet. Points land as the box scores change, lineups set themselves, the side bets settle on their own and a league voice posts the recap and the trash talk. Built by a hockey pool that has drafted every fall since 2013.</p>
         <div class="cta">
-          <a class="btn btn-rose" href="#join" data-pick="Love Is Blind pool">Join the Love Is Blind pool</a>
-          <a class="btn btn-ghost" href="#sports">Bring your hockey pool</a>
+          <a class="btn btn-gold" href="#join" data-pick="A hockey pool">Bring your pool</a>
+          <a class="btn btn-ghost" href="#runs">See how it runs</a>
         </div>
-        <div class="trust"><span>No app to download</span><span>One tap from the group chat</span><span>No money in, no money out</span></div>
+        <div class="trust"><span>Free to start</span><span>No app to download</span><span>Never real money</span></div>
       </div>
-      <div class="duo" aria-hidden="true">
-        <div class="phone a glow-gold"><img src="./img/sak-live.webp" alt="" width="600" height="1200" loading="eager" /></div>
-        <div class="phone b glow-rose"><img src="./img/pool-question.webp" alt="" width="600" height="1200" loading="eager" /></div>
-        <div class="tag t1"><b>56%</b>six couples get engaged</div>
-        <div class="tag t2"><b>+32.2</b>tonight, live from the box score</div>
+      <div class="stage rv" aria-label="A game night in a sample pool">
+        <div class="phone glow-gold" aria-hidden="true"><img src="./img/sak-live.webp" alt="" width="600" height="1200" loading="eager" /></div>
+        <div class="board" id="board">
+          <div class="board-h"><b>TONIGHT</b><span class="live">Live · 9 games</span></div>
+          <div class="row" data-t="Hat Trick Club" data-p="31.5"><span class="rk">1</span><span class="tm"><b>Hat Trick Club</b><span>4 playing · 2 done</span></span><span class="pts"><span class="bump"></span><span class="v">31.5</span><small>tonight</small></span></div>
+          <div class="row" data-t="Top Shelf" data-p="29.0"><span class="rk">2</span><span class="tm"><b>Top Shelf</b><span>5 playing · 1 done</span></span><span class="pts"><span class="bump"></span><span class="v">29.0</span><small>tonight</small></span></div>
+          <div class="row" data-t="Zamboni Drivers" data-p="26.4"><span class="rk">3</span><span class="tm"><b>Zamboni Drivers</b><span>3 playing · 3 done</span></span><span class="pts"><span class="bump"></span><span class="v">26.4</span><small>tonight</small></span></div>
+          <div class="row" data-t="Five Hole Heroes" data-p="24.0"><span class="rk">4</span><span class="tm"><b>Five Hole Heroes</b><span>6 playing</span></span><span class="pts"><span class="bump"></span><span class="v">24.0</span><small>tonight</small></span></div>
+          <div class="event" id="board-ev"><b>Live</b> · points land as the box scores change</div>
+        </div>
+        <div class="voice">
+          <div class="msg bot"><span class="av" style="background:#f7c548">G</span><div class="bub"><small>GARRY · THE LEAGUE VOICE</small>Five Hole Heroes left 11.5 points on the bench again. Somebody check on him.</div></div>
+        </div>
       </div>
     </div>
 
     <div class="ticker" aria-label="Sample questions from pools">
       <div class="run">
-        <span class="q"><i style="background:#34d399"></i>Will a woman propose in the pods? <b style="color:#34d399">64%</b></span>
         <span class="q"><i style="background:#f7c548"></i>Does the Cup go east? <b style="color:#f7c548">47%</b></span>
-        <span class="q"><i style="background:#fb7185"></i>Anyone still together at the reunion? <b style="color:#fb7185">38%</b></span>
-        <span class="q"><i style="background:#38bdf8"></i>Arsenal top of the table at Christmas? <b style="color:#38bdf8">41%</b></span>
-        <span class="q"><i style="background:#c4b5fd"></i>Best Picture: the favourite holds? <b style="color:#c4b5fd">57%</b></span>
-        <span class="q"><i style="background:#fb7185"></i>How many say "I do"? Two <b style="color:#fb7185">27%</b></span>
-        <span class="q"><i style="background:#f7c548"></i>McDavid to 130 points? <b style="color:#f7c548">22%</b></span>
-        <span class="q"><i style="background:#34d399"></i>Will a woman propose in the pods? <b style="color:#34d399">64%</b></span>
+        <span class="q"><i style="background:#38bdf8"></i>McDavid to 130 points? <b style="color:#38bdf8">22%</b></span>
+        <span class="q"><i style="background:#34d399"></i>Arsenal top of the table at Christmas? <b style="color:#34d399">41%</b></span>
+        <span class="q"><i style="background:#fb7185"></i>Anyone in our pool go all season without a trade? <b style="color:#fb7185">12%</b></span>
+        <span class="q"><i style="background:#c4b5fd"></i>Super Bowl: first score a field goal? <b style="color:#c4b5fd">38%</b></span>
+        <span class="q"><i style="background:#f7c548"></i>A 1-seed loses in the first round? <b style="color:#f7c548">9%</b></span>
+        <span class="q"><i style="background:#38bdf8"></i>Masters winner at 10 under or better? <b style="color:#38bdf8">64%</b></span>
         <span class="q"><i style="background:#f7c548"></i>Does the Cup go east? <b style="color:#f7c548">47%</b></span>
-        <span class="q"><i style="background:#fb7185"></i>Anyone still together at the reunion? <b style="color:#fb7185">38%</b></span>
-        <span class="q"><i style="background:#38bdf8"></i>Arsenal top of the table at Christmas? <b style="color:#38bdf8">41%</b></span>
-        <span class="q"><i style="background:#c4b5fd"></i>Best Picture: the favourite holds? <b style="color:#c4b5fd">57%</b></span>
-        <span class="q"><i style="background:#fb7185"></i>How many say "I do"? Two <b style="color:#fb7185">27%</b></span>
-        <span class="q"><i style="background:#f7c548"></i>McDavid to 130 points? <b style="color:#f7c548">22%</b></span>
+        <span class="q"><i style="background:#38bdf8"></i>McDavid to 130 points? <b style="color:#38bdf8">22%</b></span>
+        <span class="q"><i style="background:#34d399"></i>Arsenal top of the table at Christmas? <b style="color:#34d399">41%</b></span>
+        <span class="q"><i style="background:#fb7185"></i>Anyone in our pool go all season without a trade? <b style="color:#fb7185">12%</b></span>
+        <span class="q"><i style="background:#c4b5fd"></i>Super Bowl: first score a field goal? <b style="color:#c4b5fd">38%</b></span>
+        <span class="q"><i style="background:#f7c548"></i>A 1-seed loses in the first round? <b style="color:#f7c548">9%</b></span>
+        <span class="q"><i style="background:#38bdf8"></i>Masters winner at 10 under or better? <b style="color:#38bdf8">64%</b></span>
       </div>
     </div>
 
-    <section id="how">
-      <div class="eyebrow">How it works</div>
-      <h2 class="display">Three taps from the group chat <em class="rose">to a scoreboard</em></h2>
-      <div class="steps">
-        <div class="card step"><div class="num">01</div><h3>Start a pool, send one link</h3><p>Name it, pick a pack of questions (or write your own) and drop the link in the chat. Friends join in one tap, on any phone, with nothing to install.</p>
-          <div class="mini"><div class="bar" style="--w:100%;--c:#fb7185"><span>Pod Squad · 8 friends</span><b>joined</b></div></div></div>
-        <div class="card step"><div class="num">02</div><h3>Call it, and watch it move</h3><p>Every answer has a price that reads as a chance. Put your coins on the call you believe; the price moves with every friend who agrees or disagrees, and you can sell before it closes.</p>
-          <div class="mini"><div class="bar" style="--w:64%;--c:#34d399"><span>Yes</span><b>64%</b></div><div class="bar" style="--w:36%;--c:#fb7185"><span>No</span><b>36%</b></div></div></div>
-        <div class="card step"><div class="num">03</div><h3>Settle it, crown someone</h3><p>The host settles each question by the rule written when it was asked, with a note the whole pool sees. Right calls pay out, coins drop for everyone on episode or game night, and the board crowns the sharpest read.</p>
-          <div class="mini"><div class="bar" style="--w:88%;--c:#f7c548"><span>👑 Priya</span><b>1,312</b></div></div></div>
+    <div class="strip rv">
+      <div><b>2013</b><span>the year the founding pool first drafted</span></div>
+      <div><b>Live</b><span>points as the box scores change, every night</span></div>
+      <div><b>60 days</b><span>of lineups set ahead, or left to the auto-pilot</span></div>
+      <div><b>0</b><span>spreadsheets, side-bet ledgers or chasing people for dues</span></div>
+    </div>
+
+    <section id="runs">
+      <div class="rv">
+        <div class="eyebrow">It runs itself</div>
+        <h2 class="display">Everything the commish <em class="gold">did by hand.</em></h2>
+        <p class="lead">Every job that made running a pool a second job now happens on its own, the same way every night, with the record kept where everyone can see it.</p>
+      </div>
+      <div class="feats">
+        <div class="card feat rv"><span class="icowrap"><svg class="ico"><use href="#i-bolt"/></svg></span><div><h3>Live scoring</h3><p>Points land from the box scores as the games happen. Each player locks at his own puck drop, and stat corrections flow in for a month after.</p><span class="was">standings that update overnight</span></div></div>
+        <div class="card feat rv"><span class="icowrap i"><svg class="ico"><use href="#i-cal"/></svg></span><div><h3>Lineups that set themselves</h3><p>Plan sixty days ahead, tap once to optimize tonight, or let the AI-optimized auto-pilot cover the nights you forget.</p><span class="was">a forgotten bench on a Tuesday</span></div></div>
+        <div class="card feat rv"><span class="icowrap"><svg class="ico"><use href="#i-clock"/></svg></span><div><h3>A real draft room</h3><p>A clock, a TV board for the basement, keepers carried in, picks traded, and a grade for every pick before the night is over.</p><span class="was">a whiteboard and a phone timer</span></div></div>
+        <div class="card feat rv"><span class="icowrap i"><svg class="ico"><use href="#i-swap"/></svg></span><div><h3>Trades with a grade</h3><p>A review window, the league's own scoring on every player, and an AI-enhanced grade that says who won it, out loud, in the chat.</p><span class="was">forty texts arguing about a trade</span></div></div>
+        <div class="card feat rv"><span class="icowrap m"><svg class="ico"><use href="#i-coin"/></svg></span><div><h3>Side bets that settle</h3><p>Head-to-heads, props and a coin book on real games, priced and settled from the box scores in Supercoins. Nobody keeps the ledger.</p><span class="was">"you still owe me from March"</span></div></div>
+        <div class="card feat rv"><span class="icowrap r"><svg class="ico"><use href="#i-mic"/></svg></span><div><h3>A league voice</h3><p>Named by your league. It posts the recap at the final horn, ranks the teams, grades the trades and answers "who do I start?"</p><span class="was">the commish writing the Sunday email</span></div></div>
+        <div class="card feat rv"><span class="icowrap"><svg class="ico"><use href="#i-trophy"/></svg></span><div><h3>Every season remembered</h3><p>Champions, records, the last-place prize and every past season, imported from where your league used to live.</p><span class="was">history in someone's old email</span></div></div>
+        <div class="card feat rv"><span class="icowrap i"><svg class="ico"><use href="#i-chart"/></svg></span><div><h3>Odds all season</h3><p>Projections, thousands of simulated seasons, playoff odds and a live win chance on every head-to-head matchup.</p><span class="was">guessing who is still alive</span></div></div>
+        <div class="card feat rv"><span class="icowrap m"><svg class="ico"><use href="#i-phone"/></svg></span><div><h3>Built for the phone</h3><p>Fast and clean at 390 pixels, one link to join, alerts when you are on the clock or someone sends a trade.</p><span class="was">a desktop site squeezed onto a phone</span></div></div>
       </div>
     </section>
 
-    <section id="shows">
-      <div class="show">
-        <div class="show-grid">
-          <div>
-            <div class="eyebrow">The first show pool · Love Is Blind, Season 11 · Boston</div>
-            <h2 class="display">Your group chat already has opinions. <em style="color:#fda4af">Now it has a scoreboard.</em></h2>
-            <p class="lead" style="color:#f1d4dc">The pods open Wednesday, October 14. Call the engagements, the getaway, the altar and the reunion with your friends, watch the odds swing with every episode, and settle the season with The Golden Goblet.</p>
-            <div class="count" id="premiere" aria-label="Time to the premiere"><div><b data-u="d">10</b><span>days</span></div><div><b data-u="h">00</b><span>hours</span></div><div><b data-u="m">00</b><span>min</span></div></div>
-            <ul class="feats">
-              <li>Questions for the whole season and for every drop: who gets engaged, who goes to the altar, who says "I do".</li>
-              <li>The odds move as your friends call it, so the bold early read pays the most.</li>
-              <li>Fresh coins every drop night for everyone, and late friends catch up to the same coins.</li>
-              <li>The chat sits right beside the calls. Spoiler talk stays inside your pool.</li>
-              <li>Beautiful on a phone, open from a link, and never a cent of real money.</li>
-            </ul>
-            <div class="drops">
-              <div><b>Oct 14</b><span>Episodes 1-5</span></div>
-              <div><b>Oct 21</b><span>Episodes 6-8</span></div>
-              <div><b>Oct 28</b><span>Episodes 9-11</span></div>
-              <div><b>Nov 4</b><span>The weddings</span></div>
-            </div>
-            <a class="btn btn-rose" href="#join" data-pick="Love Is Blind pool">Get an invite before the pods open</a>
-          </div>
-          <div class="phones" aria-hidden="true">
-            <div class="phone glow-rose"><img src="./img/pool-home.webp" alt="" width="600" height="1200" loading="lazy" /></div>
-            <div class="phone glow-rose"><img src="./img/pool-call.webp" alt="" width="600" height="1200" loading="lazy" /></div>
-          </div>
+    <section id="voice">
+      <div class="split">
+        <div class="rv">
+          <div class="eyebrow">It talks back</div>
+          <h2 class="display">A league voice <em class="gold">that knows your league.</em></h2>
+          <p class="lead">Every league names its own. It reads your scoring, your rosters and every season of history you bring, and it talks like the guy at the end of the bench.</p>
+          <ul class="ticks">
+            <li>The recap at the final horn, with who left points on the bench.</li>
+            <li>Power rankings, trade grades and keeper reports, on schedule.</li>
+            <li>Answers in the chat: who to start, who to drop, who won that trade.</li>
+            <li>Trash talk on request. Always about the hockey, never about the reader.</li>
+          </ul>
+        </div>
+        <div class="chat rv" aria-label="A sample league chat">
+          <div class="msg bot"><span class="av" style="background:#f7c548">G</span><div class="bub"><small>GARRY · 11:42 PM</small>Final horn. Hat Trick Club take the night with 38.5 behind MacKinnon's two goals. Top Shelf had McDavid and still lost the night. That takes talent.<div class="react"><span>😂 4</span><span>🔥 2</span></div></div></div>
+          <div class="msg me"><span class="av" style="background:#38bdf8">T</span><div class="bub"><small>TOP SHELF</small>@Garry who do I start Thursday, Hughes or Dobson?</div></div>
+          <div class="msg bot"><span class="av" style="background:#f7c548">G</span><div class="bub"><small>GARRY</small>Hughes. Two games this week to Dobson's one, and he's on the first power play. Dobson sits.</div></div>
+          <div class="msg"><span class="av" style="background:#c4b5fd">Z</span><div class="bub"><small>ZAMBONI DRIVERS</small>Garry grade my trade, I think I won it</div></div>
+          <div class="msg bot"><span class="av" style="background:#f7c548">G</span><div class="bub"><small>GARRY</small>C+. You won the week. You lost March.<div class="react"><span>💀 6</span></div></div></div>
         </div>
       </div>
-      <p class="mute" style="font-size:12px;margin:12px 4px 0">Super Pools is not affiliated with Netflix or Love Is Blind. Questions are about what airs. Screens show a sample pool.</p>
     </section>
 
-    <section>
-      <div class="eyebrow">What makes it different</div>
-      <h2 class="display">Not a bracket you forget. <em class="gold">A pool that lives.</em></h2>
-      <div class="vs">
-        <div class="card"><svg class="ico"><use href="#i-chart"/></svg><h3>Prices that move</h3><p>Every call shifts the odds, so the pool is alive all season and the early, bold read is worth the most.<br><span class="was">A ballot you fill in once</span></p></div>
-        <div class="card"><svg class="ico"><use href="#i-people"/></svg><h3>Your people, every season</h3><p>The same pool carries from this show to the next, then to the playoffs. History, rivalries and crowns stay.<br><span class="was">A group that resets every event</span></p></div>
-        <div class="card"><svg class="ico"><use href="#i-chat"/></svg><h3>The chat is the living room</h3><p>Reactions, polls and the calls in one place, plus a voice that posts the recap when your pool wants one.<br><span class="was">A spreadsheet and a separate group text</span></p></div>
-        <div class="card"><svg class="ico"><use href="#i-heart"/></svg><h3>Free, and never money</h3><p>Coins with no cash value, no prize modes, no sportsbook ads and no "bet now" pushes. Just bragging rights.<br><span class="was">Entry fees, rake and gambling-style alerts</span></p></div>
-        <div class="card"><svg class="ico"><use href="#i-gavel"/></svg><h3>Settled in the open</h3><p>Every question carries its rule from the moment it is asked. The host settles it with a note, and every coin is a line the pool can see.<br><span class="was">"Trust me, I'm the commissioner"</span></p></div>
-        <div class="card"><svg class="ico"><use href="#i-phone"/></svg><h3>Made for the phone</h3><p>Fast, clean and beautiful at 390 pixels wide, open from a link, ready to add to your home screen.<br><span class="was">A website squeezed onto a phone</span></p></div>
+    <section id="callit">
+      <div class="split flip">
+        <div class="rv">
+          <div class="eyebrow i">Call it before your buddies do</div>
+          <h2 class="display">Every question <em class="ice">has a price.</em></h2>
+          <p class="lead">Playoff pools, the Super Bowl prop sheet, the bracket, the Masters. Ask anything, and every answer gets a price that moves as your group calls it, the way a prediction market works, in coins that are only ever worth bragging rights.</p>
+          <ul class="ticks">
+            <li>The early, bold call pays the most. The bandwagon pays the least.</li>
+            <li>Sell before it closes if you lose your nerve.</li>
+            <li>Questions about results settle themselves; the rest settle by the rule written when they were asked.</li>
+            <li>Inside your fantasy league, or as a pool of its own for the office or the family.</li>
+          </ul>
+        </div>
+        <div class="market rv" id="market" aria-label="Try a question">
+          <div class="meta">TRY IT · 300 PRETEND COINS · 100 A CALL</div>
+          <h4>Does the Stanley Cup go to the East?</h4>
+          <div class="meta">Settles when the Cup is handed out · a sample pool</div>
+          <svg class="chart" viewBox="0 0 300 118" preserveAspectRatio="none" aria-hidden="true">
+            <defs><linearGradient id="mg" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#38bdf8" stop-opacity=".35"/><stop offset="1" stop-color="#38bdf8" stop-opacity="0"/></linearGradient></defs>
+            <line class="mid" x1="0" y1="58" x2="300" y2="58" stroke="rgba(255,255,255,.14)" stroke-dasharray="4 5"/>
+            <path class="ar" fill="url(#mg)"/><path class="ln" fill="none" stroke="#38bdf8" stroke-width="2.5" stroke-linejoin="round"/>
+            <circle class="dt" r="5" fill="#38bdf8" stroke="#0b1220" stroke-width="2"/>
+          </svg>
+          <button type="button" class="opt" data-k="y" style="--c:#38bdf8"><span>East</span><b>50%</b><span class="go">Call it</span></button>
+          <button type="button" class="opt" data-k="n" style="--c:#f7c548"><span>West</span><b>50%</b><span class="go">Call it</span></button>
+          <div class="receipt">Tap an answer. Watch what 100 coins does to the price.</div>
+        </div>
       </div>
     </section>
 
-    <section id="sports">
-      <div class="sports-hero">
-        <div>
-          <div class="eyebrow g">Sports first · built by a real league</div>
-          <h2 class="display">The hockey pool <em class="gold">that runs itself.</em></h2>
-          <p class="lead">Super Pools was built inside the SaK Superleague, an eight-team keeper league that has drafted every fall since 2013 and has run its 2026-27 season on Super Pools every night. Everything a commissioner used to do by hand, it does.</p>
-          <div class="sak"><img src="./img/sak-icon.svg" alt="SAK Superleague" width="76" height="76" /><div><b><em>SAK</em> SUPERLEAGUE</b><span>She’s A Keeper · est. 2013 · the founding pool</span></div></div>
+    <section id="sak">
+      <div class="split">
+        <div class="rv">
+          <div class="eyebrow">Built by a league, not a media company</div>
+          <h2 class="display">Thirteen seasons <em class="gold">in the making.</em></h2>
+          <p class="lead">Super Pools was built inside the SaK Superleague, an eight-team keeper league that has drafted every fall since 2013. Its 2026-27 season has run on Super Pools every night since the keeper deadline. The founding league feels every bug first.</p>
+          <div class="card" style="display:flex;gap:16px;align-items:center;border-color:rgba(247,197,72,.3);background:linear-gradient(135deg,rgba(247,197,72,.12),rgba(17,27,48,.5) 60%)">
+            <img src="./img/sak-icon.svg" alt="SAK Superleague" width="76" height="76" style="width:76px;height:76px;border-radius:20px;box-shadow:0 0 30px -6px rgba(247,197,72,.6)" />
+            <div><b class="display" style="font-size:26px;letter-spacing:.02em"><em class="gold">SAK</em> SUPERLEAGUE</b><div class="mute" style="font-size:13px">She’s A Keeper · est. 2013 · the founding pool</div></div>
+          </div>
         </div>
-        <div class="stats">
-          <div class="card"><div class="num gold">Live</div><p>Points land as the box scores change, and each player locks at his own puck drop.</p></div>
-          <div class="card"><div class="num gold">60</div><p>Days of lineups set ahead, or left to the AI-optimized auto-pilot.</p></div>
-          <div class="card"><div class="num gold">13</div><p>Seasons of keeper rules baked in, from the top-scorer rule to the trade review window.</p></div>
-          <div class="card"><div class="num gold">0</div><p>Spreadsheets. The ledger, the bets and the history keep themselves.</p></div>
+        <div class="grid rv" style="grid-template-columns:repeat(2,1fr)">
+          <div class="card"><div class="num gold">8</div><p>GMs who check it every night of the season</p></div>
+          <div class="card"><div class="num gold">13</div><p>seasons of keeper rules built in, from the top-scorer rule to IR</p></div>
+          <div class="card"><div class="num ice">60</div><p>days of lineups any GM can set ahead</p></div>
+          <div class="card"><div class="num ice">1</div><p>place for the scores, the bets, the money and the chat</p></div>
         </div>
       </div>
       <div class="shots">
-        <div class="shot"><div class="phone glow-gold"><img src="./img/sak-live.webp" alt="The live scoreboard: every team's points tonight, game by game" width="600" height="1200" loading="lazy" /></div><h3>Every point, as it happens</h3><p>Tonight's points by team, game clocks, box scores and who left points on the bench.</p><div class="was">Instead of standings that update overnight</div></div>
-        <div class="shot"><div class="phone glow-gold"><img src="./img/sak-lineup.webp" alt="The lineup page with one-tap optimize and lineups planned by day" width="600" height="1200" loading="lazy" /></div><h3>Lineups that set themselves</h3><p>One tap optimizes tonight, the auto-pilot handles the nights you forget, and every lock is at the player's own game.</p><div class="was">Instead of a forgotten bench on a Tuesday</div></div>
-        <div class="shot"><div class="phone glow-gold"><img src="./img/sak-home.webp" alt="The league home: your team, the standings, alerts" width="600" height="1200" loading="lazy" /></div><h3>The league's home, in your pocket</h3><p>Your team, the race, side bets in coins, trade grades and a league voice that posts the recap at the final horn.</p><div class="was">Instead of a dated site with pop-up ads</div></div>
+        <div class="shot rv"><div class="phone glow-gold"><img src="./img/sak-live.webp" alt="The live scoreboard: every team's points tonight, game by game" width="600" height="1200" loading="lazy" /></div><h3>Every point, as it happens</h3><p>Tonight's points by team, game clocks, box scores and who left points on the bench.</p></div>
+        <div class="shot rv"><div class="phone glow-gold"><img src="./img/sak-lineup.webp" alt="The lineup page with one-tap optimize and lineups planned by day" width="600" height="1200" loading="lazy" /></div><h3>Lineups that set themselves</h3><p>One tap optimizes tonight; the auto-pilot handles the nights you forget.</p></div>
+        <div class="shot rv"><div class="phone glow-gold"><img src="./img/sak-home.webp" alt="The league home: your team, the standings, alerts" width="600" height="1200" loading="lazy" /></div><h3>The league in your pocket</h3><p>Your team, the race, the side bets and the voice, one tap from the group chat.</p></div>
       </div>
-      <p class="mute" style="font-size:12px;text-align:center;margin:14px 0 0">Screens from the SaK Superleague's own site, with names changed.</p>
+      <p class="mute center" style="font-size:12px;margin:14px 0 0">Screens from the SaK Superleague's own site, with names changed.</p>
     </section>
 
-    <section id="soccer">
-      <div class="eyebrow i">Every sport, one home</div>
-      <h2 class="display">Hockey tonight. <em class="ice">Soccer next.</em></h2>
-      <p class="lead">The same friends, the same chat and the same crown, every season of the year. Soccer comes first as pools you can play this season, then as full fantasy.</p>
-      <div class="soccer">
-        <div class="card"><span class="pill now">Now</span><h3>Hockey, all of it</h3><p>Season-long, rotisserie or weekly head-to-head, keepers and the draft room, live scoring, side bets in coins and the league voice. NHL 2026-27.</p></div>
-        <div class="card"><span class="pill next">Next</span><h3>Soccer pools this season</h3><p>Gameweek calls, score predictor and last-one-standing pools on the Premier League and MLS, settled from the results, plus questions for the whole season.</p></div>
-        <div class="card"><span class="pill later">After</span><h3>Soccer fantasy, then the rest</h3><p>Squads, captains and gameweeks with familiar scoring, then basketball, cricket, baseball and football, each on licensed data and the same engine.</p></div>
+    <section id="season">
+      <div class="rv">
+        <div class="eyebrow i">A pool for every season</div>
+        <h2 class="display">Keep the group. <em class="ice">Change the game.</em></h2>
+        <p class="lead">The same buddies, the same chat and the same bragging rights, all year. When one season ends, the next pool starts in the same place.</p>
       </div>
-    </section>
-
-    <section>
-      <div class="eyebrow">A pool for every season</div>
-      <h2 class="display">Keep the pool. <em class="rose">Change the question.</em></h2>
-      <div class="cal">
-        <div class="now"><small>October</small><b>Love Is Blind</b><span>Season 11, the pods to the altar</span></div>
-        <div class="now2"><small>All season</small><b>Hockey</b><span>Fantasy that runs itself, plus season questions</span></div>
-        <div><small>Fall</small><b>Soccer</b><span>Gameweek, predictor and survivor pools</span></div>
-        <div><small>January</small><b>The Bachelor, The Traitors</b><span>Weekly calls, a season crown</span></div>
-        <div><small>March</small><b>Oscars and the bracket</b><span>Award night and March Madness</span></div>
-        <div><small>Summer</small><b>Women's World Cup</b><span>Brazil 2027, and Love Island</span></div>
+      <div class="cal rv">
+        <div class="hot"><small>Oct to Apr</small><b>Hockey fantasy</b><span>Season, rotisserie or head-to-head, keepers and the Book</span></div>
+        <div class="hot2"><small>All season</small><b>Soccer</b><span>Matchweek calls on the Premier League and MLS</span></div>
+        <div><small>February</small><b>The Super Bowl sheet</b><span>Props for the whole party, priced live</span></div>
+        <div><small>March</small><b>The bracket</b><span>March Madness, with odds on every pick</span></div>
+        <div class="hot"><small>Apr to Jun</small><b>Playoff pools</b><span>Stanley Cup picks, series calls, the Conn Smythe</span></div>
+        <div><small>April</small><b>The Masters</b><span>Golf pools for the office, sorted by Sunday</span></div>
       </div>
     </section>
 
-    <section>
-      <div class="coin">
-        <svg class="coinart" viewBox="0 0 120 120" aria-hidden="true"><defs><linearGradient id="cg" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#fff1b8"/><stop offset=".5" stop-color="#f7c548"/><stop offset="1" stop-color="#b8800a"/></linearGradient><linearGradient id="cr" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#ffd1d8"/><stop offset="1" stop-color="#fb7185"/></linearGradient></defs><circle cx="60" cy="60" r="54" fill="url(#cg)"/><circle cx="60" cy="60" r="44" fill="none" stroke="#7a5308" stroke-opacity=".35" stroke-width="3"/><circle cx="60" cy="60" r="28" fill="none" stroke="#3b2a00" stroke-opacity=".55" stroke-width="5"/><circle cx="60" cy="60" r="7" fill="#3b2a00" fill-opacity=".55"/><circle cx="96" cy="26" r="16" fill="url(#cr)"/><path d="M96 33s-6-3.7-6-8.3a3.4 3.4 0 0 1 6-2.2 3.4 3.4 0 0 1 6 2.2c0 4.6-6 8.3-6 8.3z" fill="#3a0716" fill-opacity=".55"/></svg>
+    <section id="road">
+      <div class="rv">
+        <div class="eyebrow g">Where it's going</div>
+        <h2 class="display">Every pool you're in. <em class="gold">One home.</em></h2>
+        <p class="lead">Hockey is where it starts. The plan is every sport, every season and every kind of pool a group plays, on one engine, with your league's whole history in it.</p>
+      </div>
+      <div class="road rv">
+        <div class="stop" style="--c:#34d399"><span class="dot"></span><span class="pill now">Now</span><h3>Hockey, all of it</h3><ul><li>Season, roto and head-to-head</li><li>Keepers, the draft room, trades</li><li>The Book and the league voice</li><li>Questions with live odds, in any league</li></ul></div>
+        <div class="stop" style="--c:#38bdf8"><span class="dot"></span><span class="pill next">This season</span><h3>Soccer and pools for anything</h3><ul><li>Premier League and MLS matchweeks</li><li>Pools for the office and the family</li><li>Show pools, starting with Love Is Blind</li></ul></div>
+        <div class="stop" style="--c:#f7c548"><span class="dot"></span><span class="pill gold">2027</span><h3>More sports, more pools</h3><ul><li>Soccer fantasy, then basketball</li><li>Playoffs, brackets and award nights</li><li>Pools hosted by podcasts and creators</li></ul></div>
+        <div class="stop" style="--c:#94a3b8"><span class="dot"></span><span class="pill later">After</span><h3>Every sport, everywhere</h3><ul><li>Cricket, baseball and football</li><li>Every pool your group plays, in one app</li><li>A voice that knows your league's whole story</li></ul></div>
+      </div>
+      <div class="mission rv">
+        <p>Every group has a pool. The hockey pool that started in a basement, the office bracket, the Super Bowl sheet on the fridge. They live in spreadsheets, group texts and sites built for something else. <span class="gold">Super Pools is building the one home they all move into.</span></p>
+        <p>Every sport, every season, your league's whole history, a voice that knows it, and a currency that is only ever for bragging rights. No ads on any tier, no house to play against, never real money.</p>
+      </div>
+    </section>
+
+    <section id="any">
+      <div class="door rv">
         <div>
-          <div class="eyebrow g">Supercoins</div>
-          <h2 class="display">One fun currency. <em class="gold">Never money.</em></h2>
-          <p class="lead" style="margin-bottom:8px">Every pool runs on coins (a pool can name its own: SaK calls them St. Patrick coins, the Pod Squad pours Goblets). They make the calls mean something and the board worth topping, and they are worth nothing outside your pool.</p>
-          <div class="never"><div>No buying coins</div><div>No cashing out</div><div>No entry fees or rake</div><div>No prize modes</div><div>No sportsbook ads</div><div>No "bet now" alerts</div></div>
+          <div class="eyebrow r">Pools for any group</div>
+          <h2 class="display">Not everyone's a hockey guy. <em style="color:#fda4af">Everyone's welcome.</em></h2>
+          <p class="lead" style="color:#f1d4dc">The same pools work for the shows your friends won't stop texting about and the women's games worth watching together. First up, a Love Is Blind pool for Season 11, from October 14.</p>
+          <div class="chips"><span>Love Is Blind</span><span>The Bachelor</span><span>Award nights</span><span>Women's World Cup 2027</span><span>NWSL and WSL</span><span>Women's hockey</span></div>
+          <a class="btn btn-rose" href="./together.html">See pools for any group</a>
+        </div>
+        <div class="phones" aria-hidden="true">
+          <div class="phone glow-rose"><img src="./img/pool-home.webp" alt="" width="600" height="1200" loading="lazy" /></div>
+          <div class="phone glow-rose"><img src="./img/pool-question.webp" alt="" width="600" height="1200" loading="lazy" /></div>
         </div>
       </div>
     </section>
 
-    <section id="join">
-      <div class="join">
-        <div class="eyebrow">Private beta</div>
-        <h2 class="display">Get in <em class="rose">before it starts.</em></h2>
-        <p class="lead" style="margin:0">Tell us what you want to play. Love Is Blind invites go out before the pods open on October 14; hockey and soccer pools are opening a group at a time. No spam, no list sharing.</p>
-        <form id="wl" novalidate>
-          <input type="email" name="email" placeholder="you@example.com" autocomplete="email" required aria-label="Email" />
-          <select name="pick" aria-label="What do you want to play?">
-            <option>Love Is Blind pool</option>
-            <option>A hockey pool</option>
-            <option>A soccer pool</option>
-            <option>An office or family pool</option>
-            <option>Something else</option>
-          </select>
-          <input class="wide" type="text" name="note" placeholder="Anything we should know? (optional)" maxlength="500" />
-          <input class="hp" type="text" name="website" tabindex="-1" autocomplete="off" />
-          <button class="btn btn-rose wide" type="submit">Get in</button>
-          <p class="msg wide" id="wl-msg" aria-live="polite"></p>
-        </form>
+    <section>
+      <div class="coin rv">
+        <svg class="coinart" viewBox="0 0 120 120" aria-hidden="true"><defs><linearGradient id="cg" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#fff1b8"/><stop offset=".5" stop-color="#f7c548"/><stop offset="1" stop-color="#b8800a"/></linearGradient></defs><circle cx="60" cy="60" r="54" fill="url(#cg)"/><circle cx="60" cy="60" r="44" fill="none" stroke="#7a5308" stroke-opacity=".35" stroke-width="3"/><circle cx="60" cy="60" r="28" fill="none" stroke="#3b2a00" stroke-opacity=".55" stroke-width="5"/><circle cx="60" cy="60" r="7" fill="#3b2a00" fill-opacity=".55"/><g stroke="#3b2a00" stroke-opacity=".55" stroke-width="4" stroke-linecap="round"><line x1="49" y1="18" x2="49" y2="26"/><line x1="71" y1="18" x2="71" y2="26"/><line x1="49" y1="94" x2="49" y2="102"/><line x1="71" y1="94" x2="71" y2="102"/></g></svg>
+        <div>
+          <div class="eyebrow g">Supercoins</div>
+          <h2 class="display">Bragging rights. <em class="gold">Never money.</em></h2>
+          <p class="lead" style="margin-bottom:8px">Every pool runs on coins (SaK calls them St. Patrick coins). They make the side bets and the calls mean something, and they are worth nothing outside your pool. The dues your league already plays for stay what they always were: between friends, and tracked if you like.</p>
+          <div class="never"><div>No buying coins</div><div>No cashing out</div><div>No house to beat</div><div>No sportsbook ads</div><div>No "bet now" alerts</div><div>No ads at all</div></div>
+        </div>
       </div>
     </section>
 
     <section id="tiers">
-      <div class="eyebrow g">Free to start</div>
-      <h2 class="display">Pay for features, <em class="gold">per pool</em>, never per person</h2>
-      <p class="lead">A free pool is a real pool. Paid tiers add what makes a league serious. No ads on any tier. Prices are proposals until the first paid season.</p>
+      <div class="rv">
+        <div class="eyebrow g">Free to start</div>
+        <h2 class="display">Pay per pool, <em class="gold">never per guy.</em></h2>
+        <p class="lead">A free pool is a real pool. Paid tiers add what makes a league serious, priced per pool per season so the commish can split it eight ways. Prices are proposals until the first paid season.</p>
+      </div>
       <div class="tiers">
-        <div class="card tier"><h3>Free</h3><div class="for">Any group, any pool</div><ul><li>Prediction pools with packs or your own questions</li><li>Chat, polls and a leaderboard</li><li>One-sport fantasy from presets</li><li>Up to 12 teams or 30 players</li></ul><div class="price">Free</div></div>
-        <div class="card tier"><h3>Plus</h3><div class="for">An established league</div><ul><li>Custom scoring: points, categories, roto</li><li>Keepers and imports with history</li><li>Co-hosts, a constitution, an audit trail</li><li>A weekly recap from the voice</li></ul><div class="price">About $49 a season</div></div>
-        <div class="card tier hot"><h3>Premium</h3><div class="for">The fourteen-year league</div><ul><li>The full AI voice: recaps, rankings, grades, answers</li><li>Contracts, caps, prospects, rookie drafts</li><li>Projections and simulated seasons</li><li>The multi-sport pool and the coin book</li></ul><div class="price">About $99 a season</div></div>
+        <div class="card tier rv"><h3>Free</h3><div class="for">Any group, any pool</div><ul><li>One-sport fantasy from presets</li><li>Question pools with live odds</li><li>Chat, polls and a leaderboard</li><li>Up to 12 teams or 30 players</li></ul><div class="price">Free</div></div>
+        <div class="card tier rv"><h3>Plus</h3><div class="for">An established league</div><ul><li>Custom scoring: points, categories, roto</li><li>Keepers and imports with history</li><li>Co-commissioners and an audit trail</li><li>A weekly recap from the voice</li></ul><div class="price">About $49 a season</div></div>
+        <div class="card tier hot rv"><h3>Premium</h3><div class="for">The fourteen-year league</div><ul><li>The full voice: recaps, rankings, grades, answers</li><li>Contracts, caps, prospects, rookie drafts</li><li>Projections and simulated seasons</li><li>The Book and the multi-sport pool</li></ul><div class="price">About $99 a season</div></div>
+      </div>
+    </section>
+
+    <section id="join">
+      <div class="join rv">
+        <div class="eyebrow">Private beta</div>
+        <h2 class="display">Get your pool <em class="gold">in early.</em></h2>
+        <p class="lead" style="margin:0">Pools are opening a group at a time. Tell us what you play and we will write when yours can move in. No spam, no list sharing.</p>
+        <form id="wl" novalidate>
+          <input type="email" name="email" placeholder="you@example.com" autocomplete="email" required aria-label="Email" />
+          <select name="pick" aria-label="What do you want to play?">
+            <option>A hockey pool</option>
+            <option>A soccer pool</option>
+            <option>A playoff or bracket pool</option>
+            <option>An office or family pool</option>
+            <option>Love Is Blind pool</option>
+            <option>Something else</option>
+          </select>
+          <input class="wide" type="text" name="note" placeholder="Anything we should know? (optional: 10 teams, keepers, on Yahoo)" maxlength="500" />
+          <input class="hp" type="text" name="website" tabindex="-1" autocomplete="off" />
+          <button class="btn btn-gold wide" type="submit">Get in</button>
+          <p class="msgline wide" id="wl-msg" aria-live="polite"></p>
+        </form>
       </div>
     </section>
 
     <section class="faq" id="faq">
       <div class="eyebrow">Questions</div>
-      <h2 class="display">Before you <em class="rose">ask</em></h2>
-      <details><summary>Is there any real money in it?</summary><p>No. Pools run on coins that cannot be bought, sold, transferred or cashed out, and there are no prizes of value. It is bragging rights, a crown and a pool that remembers who called it. Cash dues in a sports league stay what they always were among friends: bookkeeping between you.</p></details>
-      <details><summary>How do the prices work?</summary><p>Each answer's price is the pool's chance of it, and the prices always add up to 100%. When you put coins on an answer, its price rises; when friends back another answer, it falls. A share of the right answer pays one coin, so calling it early, before the pool agrees with you, pays the most. You can sell back before a question closes.</p></details>
-      <details><summary>Who decides the answer?</summary><p>The pool's host. Every question carries its rule from the moment it is asked, and it locks once anyone calls it. The host settles it with a note the pool sees, can void it with every stake refunded, and every coin that moves is a line in the ledger.</p></details>
-      <details><summary>Do my friends need to download an app?</summary><p>No. They tap the link you send, make an account with an email and a password, and they are in. They can add it to their home screen and turn on alerts if they like.</p></details>
-      <details><summary>Is this connected to Netflix?</summary><p>No. Super Pools is not affiliated with Netflix or Love Is Blind. A show pool is fans making calls about what airs, the way a group chat already does.</p></details>
-      <details><summary>Can we bring our hockey league?</summary><p>Yes. Leagues on Yahoo come over with their teams, rosters and every past season Yahoo kept; any other site's final tables can be pasted in. Keepers, the draft room, lineups, trades, side bets and the league voice are ready on day one.</p></details>
-      <details><summary>When does soccer arrive?</summary><p>Soccer pools (gameweek calls, a score predictor and last one standing on the Premier League and MLS) come first, this season. Full soccer fantasy follows on the same engine.</p></details>
+      <h2 class="display">Before you <em class="gold">ask</em></h2>
+      <details><summary>Can we bring our league?</summary><p>Yes. A league on Yahoo comes over with its teams, rosters and every past season Yahoo kept; any other site's final tables can be pasted in. Keepers, the draft room, lineups, trades, side bets and the league voice are ready on day one.</p></details>
+      <details><summary>Is there any real money in it?</summary><p>No. Side bets and calls run on coins that cannot be bought, sold or cashed out. If your league plays for dues, that stays between friends, the way it always has; Super Pools can track who has paid, nothing more.</p></details>
+      <details><summary>How do the odds on a question work?</summary><p>Each answer's price is the group's chance of it, and the prices add up to 100%. Calling an answer pushes its price up; a share of the right answer pays one coin, so calling it early, before the group agrees, pays the most. You can sell back before a question closes.</p></details>
+      <details><summary>What does the league voice cost us?</summary><p>The weekly recap comes with Plus; the full voice (daily recaps, rankings, grades and answers in the chat) comes with Premium. It only ever posts what your league asks it to.</p></details>
+      <details><summary>Does everyone need to download an app?</summary><p>No. They tap the link, make an account with an email and a password, and they are in. Add it to the home screen and turn on alerts if you like.</p></details>
+      <details><summary>When does soccer arrive?</summary><p>Matchweek pools on the Premier League and MLS come first, this season: every match home, draw or away, closing at kick-off and settling itself at full time. Soccer fantasy follows on the same engine.</p></details>
     </section>
 
     <footer>
-      <span>© 2026 Super Pools · superpoolsai.com · not affiliated with Netflix, the NHL or any league</span>
-      <span><a href="mailto:hello@superpoolsai.com">hello@superpoolsai.com</a></span>
+      <span>© 2026 Super Pools · superpoolsai.com · not affiliated with the NHL, Netflix or any league</span>
+      <nav><a href="./together.html">Pools for any group</a><a href="mailto:hello@superpoolsai.com">hello@superpoolsai.com</a></nav>
     </footer>
   </main>
-  <script>
-    // the premiere countdown: Love Is Blind Season 11 drops Wednesday 14 October 2026 at 3 am ET (07:00 UTC)
-    (function () {
-      var at = Date.UTC(2026, 9, 14, 7, 0, 0), box = document.getElementById('premiere');
-      function tick() {
-        var ms = Math.max(0, at - Date.now()), d = Math.floor(ms / 864e5), h = Math.floor(ms % 864e5 / 36e5), m = Math.floor(ms % 36e5 / 6e4);
-        if (ms === 0) { box.innerHTML = '<div style="min-width:auto;padding:10px 14px"><b style="font-size:24px">The pods are open</b></div>'; return; }
-        box.querySelector('[data-u=d]').textContent = d; box.querySelector('[data-u=h]').textContent = String(h).padStart(2, '0'); box.querySelector('[data-u=m]').textContent = String(m).padStart(2, '0');
-      }
-      tick(); setInterval(tick, 30000);
-    })();
-    // a button that says what it is for picks it in the form
-    document.querySelectorAll('[data-pick]').forEach(function (a) {
-      a.addEventListener('click', function () { var s = document.querySelector('#wl select'); if (s) s.value = a.getAttribute('data-pick'); });
-    });
-    // The waitlist writes straight to the database through its public API; the key below is the publishable
-    // one and can only insert into the waitlist table (see supabase/migrations/20261005000061_waitlist.sql).
-    (function () {
-      var API = 'https://quakdkzdafzlhgjvmypg.supabase.co/rest/v1/waitlist';
-      var KEY = 'sb_publishable_AMcluryqKenfAO6vFJ2f1A_50DhQz1b';
-      var form = document.getElementById('wl'), msg = document.getElementById('wl-msg');
-      var fallback = 'Something went wrong. Email <a href="mailto:hello@superpoolsai.com">hello@superpoolsai.com</a> and we will add you by hand.';
-      form.addEventListener('submit', function (e) {
-        e.preventDefault();
-        var email = form.email.value.trim(), note = form.note.value.trim(), pick = form.pick.value;
-        if (form.website.value) return;  // a bot filled the hidden field
-        if (!/^[^@\s]+@[^@\s]+\.[^@\s]{2,}$/.test(email)) { msg.className = 'msg err wide'; msg.textContent = 'That address does not look right.'; return; }
-        var btn = form.querySelector('button'); btn.disabled = true; msg.className = 'msg wide'; msg.textContent = 'One moment.';
-        fetch(API, {
-          method: 'POST',
-          headers: { apikey: KEY, Authorization: 'Bearer ' + KEY, 'Content-Type': 'application/json', Prefer: 'return=minimal' },
-          body: JSON.stringify({ email: email, league: pick, note: note || null, source: (location.hostname + location.pathname).slice(0, 120) })
-        }).then(function (r) {
-          if (r.status === 201) { msg.className = 'msg ok wide'; msg.textContent = pick === 'Love Is Blind pool' ? 'You are on the list. Your invite comes before the pods open.' : 'You are on the list. We will write when your pool can open.'; form.reset(); }
-          else if (r.status === 409) { msg.className = 'msg ok wide'; msg.textContent = 'You were already on the list. We have not forgotten.'; }
-          else { msg.className = 'msg err wide'; msg.innerHTML = fallback; }
-        }).catch(function () { msg.className = 'msg err wide'; msg.innerHTML = fallback; })
-          .finally(function () { btn.disabled = false; });
-      });
-    })();
-  </script>
+  <script src="./site.js"></script>
 </body>
 </html>
