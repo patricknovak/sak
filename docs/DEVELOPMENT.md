@@ -99,7 +99,9 @@ results of his own past calls, and what the wider pool knows.
    `league_trophies`, `league_timeline`, `league_rule_text`), loaded with SaK's history from `history.ts`; the all-time
    table matches the site's to the cent. The site reads them (`useHistory()`, `src/lib/history.ts`): every page that
    showed SaK's past reads the caller's league's rows, and a league with no past shows none. Garry reads them as his
-   record book (each season's champion and last place, titles by GM). Next: imports write them.
+   record book (each season's champion and last place, titles by GM). A commissioner writes past seasons in from the
+   League page (migration 114, `commish_set_season`, `commish_delete_season`), so a league that played elsewhere
+   arrives with its champions and final tables. Next: imports write them.
 7. **Phase 2, people can join** (under way: email sign-in with reset codes, invites, the join page and the switcher done
    3 October 2026, migrations 103 to 105; onboarding part 1, the Platform page, the readiness checklist, going live and
    the league identity editor, migration 106): league by host, realtime and presence

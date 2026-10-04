@@ -10,7 +10,9 @@ import { Section, Sheet, useAction, PageHeader } from '../components/ui';
 import { Landmark } from 'lucide-react';
 import { PromoVideo } from '../components/PromoVideo';
 import { commishAction } from '../lib/commishLog';
+import { hasFeature } from '../lib/features';
 import { Constitution } from '../components/Constitution';
+import { HistoryEditor } from '../components/HistoryEditor';
 
 type Tab = 'history' | 'rules' | 'money' | 'votes' | 'log';   // money moved to its own page (/money)
 
@@ -27,6 +29,7 @@ export default function LeaguePage() {
           <button key={k} className={`tab ${tab === k ? 'tab-on' : 'bg-white/[.05]'}`} onClick={() => setParams({ t: k })}>{l}</button>
         ))}
       </div>
+      {tab === 'history' && <HistoryEditor />}
       {tab === 'history' && <History />}
       {tab === 'rules' && <Rules />}
       {tab === 'votes' && <Votes />}
@@ -54,7 +57,7 @@ function History() {
   // the seasons played since the official all-time table the league started from
   const since = SEASONS.filter((s) => baseThrough && s.season > baseThrough).map((s) => s.season).reverse().join(', ');
   // a colour per GM so each banner looks like it belongs to its franchise
-  const { teams } = useLeague();
+  const { teams, league } = useLeague();
   const gmColor = (gm: string) => teams.find((t) => t.gm_name === gm)?.color ?? '#4b5878';
   return (
     <div className="space-y-5">
@@ -97,12 +100,12 @@ function History() {
         <Section title="🏆 Titles">
           <div className="card divide-y divide-white/[.06]">{champs.c.map(([gm, n]) => <div key={gm} className="flex items-center justify-between px-3 py-2 text-sm"><span className="flex items-center gap-2"><span className="h-2.5 w-2.5 rounded-full" style={{ background: gmColor(gm) }} />{gm}</span><span className="font-semibold">{'🏆'.repeat(n)}</span></div>)}</div>
         </Section>
-        <Section title="🪣 Peters">
+        <Section title={league?.league_id === 1 ? '🪣 Peters' : `🥄 ${bare(brand.booby)}`}>
           <div className="card divide-y divide-white/[.06]">{champs.p.map(([gm, n]) => <div key={gm} className="flex justify-between px-3 py-2 text-sm"><span>{gm}</span><span>{'🪣'.repeat(n)}</span></div>)}</div>
         </Section>
-        <Section title="💵 Career winnings">
+        {hasFeature(league, 'money') && <Section title="💵 Career winnings">
           <div className="card divide-y divide-white/[.06]">{champs.money.map(([gm, n]) => <div key={gm} className="flex justify-between px-3 py-2 text-sm"><span>{gm}</span><span className="font-semibold">{fmtMoney(n)}</span></div>)}</div>
-        </Section>
+        </Section>}
       </div>
 
       <Section title={`All-time points${SEASONS[0] ? ` (through ${SEASONS[0].season})` : ''}`}>
