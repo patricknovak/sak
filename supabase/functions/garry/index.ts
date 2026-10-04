@@ -1025,6 +1025,20 @@ async function weekly() {
     };
   }
 
+  // lineup management (migration 133): each team's lineups against the best it could have played from the same
+  // players, night by night; the sharpest and the one who left the most out
+  const { data: effRows } = await L.db.rpc('lineup_efficiency', { p_from: start, p_to: end });
+  const effBy = new Map<number, { pts: number; best: number }>();
+  for (const r of (effRows ?? []) as { team_id: number; points: number; best: number }[]) {
+    const e = effBy.get(r.team_id) ?? { pts: 0, best: 0 };
+    e.pts += Number(r.points); e.best += Number(r.best); effBy.set(r.team_id, e);
+  }
+  const effTable = [...effBy.entries()].filter(([id, e]) => byId.has(id) && e.best > 0)
+    .map(([id, e]) => ({ gm: byId.get(id)?.gm_name, pct: Math.round((e.pts / e.best) * 100), left_out: Math.round((e.best - e.pts) * 10) / 10 }))
+    .sort((a, b) => b.pct - a.pct || a.left_out - b.left_out);
+  const lineups = effTable.length >= 2 && effTable[0].pct > effTable[effTable.length - 1].pct
+    ? { sharpest: effTable[0], most_left_out: [...effTable].sort((a, b) => b.left_out - a.left_out)[0] } : null;
+
   // power rankings, with movement since last Monday's column
   const n = teams.length;
   // the season rank is the table the league plays for: W-L-T in head-to-head, roto points in rotisserie, else points
@@ -1045,6 +1059,7 @@ async function weekly() {
 
   const facts = { week: { start, end }, week_table: table, team_of_the_week: { ...best, coins: WEEKLY_BONUS }, bust_of_the_week: worst, player_of_the_week: star,
     power_rankings: rankings.map((r) => ({ rank: r.rank, gm: r.gm, team: r.team, move: arrow(r), last_14_days: r.last14, season_rank: r.season_rank })),
+    ...(lineups ? { lineup_management: { note: 'share of the best lineup possible each night from the same players', ...lineups } } : {}),
     ...(h2h ? { format: league.categories?.length ? 'head-to-head, categories won' : 'head-to-head, points',
       [h2h.playoff ? 'playoff_results' : 'matchup_results']: h2h.results,
       records: h2h.table.map((t) => ({ gm: byId.get(t.team_id)?.gm_name, record: `${t.w}-${t.l}-${t.t}`, rank: t.rank })) } : {}) };
@@ -1057,10 +1072,11 @@ async function weekly() {
     `🏆 Team of the Week: @${best.gm} (${best.team}) with ${f1(best.points)}. That's ${WEEKLY_BONUS} ${coin().emoji} coins, don't spend them all on one bet.`,
     `🪣 Bust of the Week: @${worst.gm} with ${f1(worst.points)}. ${pick(['Was the lineup even set?', 'The bench outscored the starters, probably.', 'Tough week. Tougher chat.'])}`,
     star ? `⭐ Player of the Week: ${star.player} (${f1(star.points)}) for @${star.gm}.` : '',
+    lineups ? `🧠 Sharpest lineups: @${lineups.sharpest.gm} at ${lineups.sharpest.pct}% of the best possible. Most left out: @${lineups.most_left_out.gm}, ${f1(lineups.most_left_out.left_out)} points short of their best lineups.` : '',
     `Power rankings: ${rankings.map((r) => `${r.rank}. ${r.gm} (${arrow(r)})`).join(' · ')}.`,
     pick(['Trade deadline energy, please. Somebody make an offer.', 'Put some coins on next week\'s Team of the Week.', `Set your lineups. ${bot()} is watching.`]),
   ].filter(Boolean).join('\n');
-  const body = await write(`Write your Monday column for the league chat: ${h2h?.results.length ? `lead with the week's head-to-head ${h2h.playoff ? 'playoff ' : ''}results (every matchup: who beat whom and by how much, a tie as a tie), then ` : ''}Team of the Week (and their coin bonus), Bust of the Week, Player of the Week, then the power rankings as a numbered list with the movement arrows given. One dry line per team.`, facts, fallback, h2h?.results.length ? 340 : 260);
+  const body = await write(`Write your Monday column for the league chat: ${h2h?.results.length ? `lead with the week's head-to-head ${h2h.playoff ? 'playoff ' : ''}results (every matchup: who beat whom and by how much, a tie as a tie), then ` : ''}Team of the Week (and their coin bonus), Bust of the Week, Player of the Week, ${lineups ? 'one line on lineup management (the sharpest manager and who left the most points out, from lineup_management), ' : ''}then the power rankings as a numbered list with the movement arrows given. One dry line per team.`, facts, fallback, (h2h?.results.length ? 340 : 260) + (lineups ? 40 : 0));
   await post(body, { type: 'weekly', date: end, rankings: rankings.map((r) => ({ team_id: r.team_id, rank: r.rank, prev: r.prev })), team_of_week: best.team_id });
   return { posted: 'weekly', team_of_week: best.gm, star };
 }
