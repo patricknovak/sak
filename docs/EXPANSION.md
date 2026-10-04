@@ -191,8 +191,12 @@ proxied wildcard DNS record (`AAAA * 100::`) and the route in `wrangler.jsonc`. 
 `sak.superpoolsai.com` as a Worker custom domain (the deploy makes its DNS record and certificate), which is steps 1
 and 2 together, beside GitHub Pages; the landing Worker is uploaded with no address until step 4. Checked before it:
 the build's base is relative, every edge function answers any origin, `league_by_host` maps `sak` to league 1, and
-sign-in needs no redirect address. Still to check once it is up: sign-in, push and the installed app at the new
-address (a phone's push subscription belongs to the address, so GMs turn alerts on again there).
+sign-in needs no redirect address. *Live the same day:* the deploy needed the token's
+Workers Scripts and Workers Routes permissions (the first run was refused, the re-run went through), and
+`sak.superpoolsai.com` now serves the app from Cloudflare: the sign-in page wears SaK's brand, `league_by_host` answers
+league 1, and the service worker and the hashed files carry the cache rules in `public/_headers`. Still to check with
+a signed-in GM: push and the installed app at the new address (a phone's push subscription belongs to the address,
+so GMs turn alerts on again there). Then step 3, telling the GMs, and step 4, the landing page.
 
 **B6. Money and the Fund are SaK's.** `commish_bill_entries` bills every league's GMs; `commish_post_payouts`
 reads `standings` with the owner's rights, so it ranks, pays and charges the Peter across leagues; `fund` is one
