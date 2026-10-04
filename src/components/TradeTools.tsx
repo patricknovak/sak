@@ -2,6 +2,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useSticky } from '../lib/sticky';
 import { useLeague } from '../lib/store';
+import { useBrand } from '../lib/brand';
 import { supabase } from '../lib/supabase';
 import type { DraftPick, PickupStatus, Player } from '../lib/types';
 import { fmtPts } from '../lib/format';
@@ -14,6 +15,9 @@ import { useNhlOdds, useProjDetails, useSeasonGames, toneCls, toneIcon } from '.
 import { Headshot, Pos, TeamBadge } from './ui';
 import { Sparkles } from 'lucide-react';
 import { rosPg, scoutNums, trendLabel, useScoutCtx } from './TradeScout';
+import { useCategoryValues } from './PlayerFilters';
+import { buildModel, perGame as catPerGame, pointsScale } from '../lib/catpickup';
+import { rosPerGame } from '../lib/lineup';
 
 // every team's free-agent pickups left, read once and shared by every trade tool on the page
 let pkCache: { at: number; rows: PickupStatus[] } | null = null;
@@ -30,7 +34,17 @@ export function useTradeValuer() {
   const { players, season, rosters, teams, league, draft, standings, picks } = useLeague();
   const pk = usePickupStatus();
   const rostered = useMemo(() => new Set(rosters.map((r) => r.player_id)), [rosters]);
-  const v = useMemo(() => makeValuer(players, season, rostered, Math.max(1, teams.length), draft?.season), [players, season, rostered, teams.length, draft?.season]);
+  // a category league weighs a trade on its categories, put on a points scale so the grades read the same way
+  const cats = league?.categories;
+  const perGame = useMemo(() => {
+    if (!cats?.length) return undefined;
+    const all = [...players.values()];
+    const model = buildModel(cats, all, season);
+    const rates = new Map(all.map((p) => [p.id, catPerGame(p, season.get(p.id), cats)]));
+    const pts = (p: Player) => { const s = season.get(p.id); return rosPerGame(Number(p.proj), p.pos, s?.gp ?? 0, s?.fpts ?? 0, p.proj_gp); };
+    return pointsScale(model, rates, all, (p) => pts(p as Player), rostered) as (p: Player) => number;
+  }, [cats, players, season, rostered]);
+  const v = useMemo(() => makeValuer(players, season, rostered, Math.max(1, teams.length), draft?.season, perGame), [players, season, rostered, teams.length, draft?.season, perGame]);
   const caps = (league?.roster ?? {}) as Record<string, number>;
   const rosterMax = Object.entries(caps).filter(([k]) => k !== 'IR').reduce((t, [, n]) => t + n, 0) || 24;
   // how far along the season is (for buy / sell posture)
@@ -42,8 +56,8 @@ export function useTradeValuer() {
   const games = useSeasonGames();
   const nhl = useNhlOdds();
   const sched = useMemo<Sched | undefined>(() => (games && nhl && league
-    ? { games, caps, from: etToday(), to: league.season_end ?? undefined, days: playoffDays(nhl), season, cache: new Map() }
-    : undefined), [games, nhl, league, season]); // eslint-disable-line react-hooks/exhaustive-deps
+    ? { games, caps, from: etToday(), to: league.season_end ?? undefined, days: playoffDays(nhl), season, cache: new Map(), perGame }
+    : undefined), [games, nhl, league, season, perGame]); // eslint-disable-line react-hooks/exhaustive-deps
   // a team as the trade search sees it: roster, who's on IR, pickups left, unused picks
   const ctxOf = (t: number): TeamCtx => ({
     team: t, roster: rosterOf(t), ir: new Set(rosters.filter((r) => r.team_id === t && r.slot === 'IR').map((r) => r.player_id)),
@@ -81,6 +95,11 @@ export function SideCard({ e, name, mine }: { e: SideEval; name: string; mine?: 
 // the players a side gets and sends, each with his fantasy points: this season (and per game) and what he projects to
 // score the rest of the way, with the totals both ways, so a grade always sits next to the points behind it
 function MoveList({ inn, out, c }: { inn: Player[]; out: Player[]; c: ReturnType<typeof useScoutCtx> }) {
+  // a category league also weighs each player on its categories (category value, migration 129)
+  const cvMap = useCategoryValues();
+  const cv = cvMap && cvMap.size ? cvMap : null;
+  const cvFmt = (v: number) => `${v > 0 ? '+' : ''}${v.toFixed(1)}`;
+  const cvSum = (ps: Player[]) => ps.reduce((t, p) => t + (cv?.get(p.id) ?? 0), 0);
   if (!inn.length && !out.length) return null;
   const line = (p: Player) => {
     const n = scoutNums(p, c);
@@ -90,13 +109,13 @@ function MoveList({ inn, out, c }: { inn: Player[]; out: Player[]; c: ReturnType
   const total = (ps: Player[]) => ps.reduce((t, p) => { const n = scoutNums(p, c); return { fp: t.fp + n.fp, ros: t.ros + n.ros }; }, { fp: 0, ros: 0 });
   const block = (label: string, ps: Player[], sign: string, cls: string) => ps.length > 0 && (
     <div>
-      <div className="flex justify-between text-[10px] uppercase tracking-wider text-mute"><span>{label}</span><span className="num normal-case tracking-normal">{fmtPts(total(ps).fp, 0)} FP · {fmtPts(total(ps).ros, 0)} ROS</span></div>
+      <div className="flex justify-between text-[10px] uppercase tracking-wider text-mute"><span>{label}</span><span className="num normal-case tracking-normal">{fmtPts(total(ps).fp, 0)} FP · {fmtPts(total(ps).ros, 0)} ROS{cv && <> · <b className="text-gold">{cvFmt(cvSum(ps))}</b> cat</>}</span></div>
       {ps.map((p) => { const l = line(p); return (
         <div key={p.id} className="flex items-baseline gap-1.5 text-[12px]">
           <span className={`w-3 shrink-0 font-bold ${cls}`}>{sign}</span>
           <div className="min-w-0 flex-1">
             <div className="truncate"><span className="font-semibold text-slate-100">{p.name}</span> <span className="text-mute">{p.elig.join('/')}</span></div>
-            <div className="num text-[11px] text-slate-300">{l.now} · <b className="text-slate-100">{fmtPts(l.ros, 0)}</b> ROS</div>
+            <div className="num text-[11px] text-slate-300">{l.now} · <b className="text-slate-100">{fmtPts(l.ros, 0)}</b> ROS{cv && <> · <b className="text-gold">{cv.get(p.id) != null ? cvFmt(cv.get(p.id)!) : '–'}</b> cat</>}</div>
           </div>
         </div>
       ); })}
@@ -113,7 +132,12 @@ function MoveList({ inn, out, c }: { inn: Player[]; out: Player[]; c: ReturnType
 // the live read on whatever is in the builder (or on an offer): grades, what each lineup gains or loses, and
 // every player in the deal side by side
 export function TradeAnalysis({ sides, compact }: { sides: Side[]; compact?: boolean }) {
-  const { me, team } = useLeague();
+  const { me, team, league } = useLeague();
+  const brand = useBrand();
+  // the league's own starting lineup, as the forecast plays it: 2C 2LW 2RW 3D 1Util 2G in SaK
+  const caps = (league?.roster ?? {}) as Record<string, number>;
+  const lineupText = ['C', 'LW', 'RW', 'D', 'Util', 'G'].filter((k) => caps[k]).map((k) => `${caps[k]}${k}`).join(' ');
+  const catMode = !!league?.categories?.length;
   const sc = useScoutCtx();
   const { v, rosterMax, sched } = useTradeValuer();
   const details = useProjDetails();
@@ -125,7 +149,7 @@ export function TradeAnalysis({ sides, compact }: { sides: Side[]; compact?: boo
   const ageOf = (ps: Player[]) => { const a = ps.map((p) => details?.get(p.id)?.proj_meta?.age).filter((x): x is number => x != null); return a.length ? a.reduce((x, y) => x + y, 0) / a.length : null; };
   const grades = sides.map((s, i) => {
     const out = s.before.filter((p) => !s.after.includes(p)), inn = s.after.filter((p) => !s.before.includes(p));
-    return gradeSide(evals[i], { outAge: ageOf(out), inAge: ageOf(inn) });
+    return gradeSide(evals[i], { outAge: ageOf(out), inAge: ageOf(inn), coin: brand.coin.name });
   });
   const ve = verdict(evals, name);
   const cls = { good: 'border-emerald-400/30 bg-emerald-500/10 text-emerald-100', ok: 'border-white/10 bg-white/[.04] text-slate-200', warn: 'border-amber-400/30 bg-amber-500/10 text-amber-100', bad: 'border-red-400/30 bg-red-500/10 text-red-100' }[ve.tone];
@@ -150,7 +174,7 @@ export function TradeAnalysis({ sides, compact }: { sides: Side[]; compact?: boo
         {evals.map((e) => <SideCard key={e.team} e={e} name={name(e.team)} mine={e.team === me?.id} />)}
       </div>}
       {moving.length > 0 && <TradeCompare moving={moving} />}
-      <p className="px-1 text-[11px] text-mute">Grades weigh the lineup most, then value in and out, then depth, and dock deals that open a hole or take on an injury. Roster spots count: the side that takes in more players than it sends drops its weakest (or the ones its GM names), and the side that sends more gets the best free agent for the open spot if it has a pickup left. Picks are worth about what the player taken there projects to; pickups are worth what the best free agent adds over the weakest player, less for each one already in hand; coins are shown but don't count. Starters = each roster played out day by day over the rest of the real schedule and the playoffs, with the best lineup (2C 2LW 2RW 3D 1Util 2G) every night, from SAK projections blended with this season's pace. That's where multi-position players earn their keep: a C/LW fills whichever spot is empty that night. Value counts them about 5% higher.</p>
+      <p className="px-1 text-[11px] text-mute">Grades weigh the lineup most, then value in and out, then depth, and dock deals that open a hole or take on an injury. Roster spots count: the side that takes in more players than it sends drops its weakest (or the ones its GM names), and the side that sends more gets the best free agent for the open spot if it has a pickup left. Picks are worth about what the player taken there projects to; pickups are worth what the best free agent adds over the weakest player, less for each one already in hand; coins are shown but don't count. Starters = each roster played out day by day over the rest of the real schedule and the playoffs, with the best lineup ({lineupText}) every night, from the projections blended with this season's pace.{catMode ? ' In a category league every number is your categories on a points scale: each player\'s category value (his pace in the league\'s categories against the draftable pool), scaled so a typical rostered skater or goalie is worth his points.' : ''} That's where multi-position players earn their keep: a C/LW fills whichever spot is empty that night. Value counts them about 5% higher.</p>
     </div>
   );
 }
@@ -386,12 +410,20 @@ export function TradeFinder({ onBuild }: { onBuild: (b: BuildSpec) => void }) {
 // who needs what: every team's rank at each position, and the partners whose strengths cover your weak spots while
 // your strengths cover theirs
 export function TradeFit({ onPick }: { onPick?: (partner: number) => void }) {
-  const { me, teams, team } = useLeague();
+  const { me, teams, team, players, rosters } = useLeague();
   const { v, ctxOf } = useTradeValuer();
   const ranks = useMemo(() => positionRanks(teams.map((t) => ctxOf(t.id)), v), [teams, v]); // eslint-disable-line react-hooks/exhaustive-deps
   const fit = me ? partnerFit(me.id, ranks, teams.length).slice(0, 3) : [];
   const cls = (r: number) => (r <= 2 ? 'bg-emerald-500/25 text-emerald-100' : r >= teams.length - 1 ? 'bg-red-500/20 text-red-100' : 'bg-white/[.04] text-slate-300');
   const order = [...teams].sort((a, b) => (a.id === me?.id ? -1 : b.id === me?.id ? 1 : 0));
+  // no rosters yet (a new league before its draft): every team would tie first everywhere, so say so rather than show a
+  // wall of 1s (only once the players have loaded, so a league that has rosters never flashes it)
+  if (players.size > 0 && !rosters.length && teams.length > 1) return (
+    <div className="card flex items-center gap-3 p-4 text-sm text-mute">
+      <span className="text-2xl">🧭</span>
+      <span>Every roster is level so far. Once teams have players, this shows where each one is deep and thin, and who fits you best.</span>
+    </div>
+  );
   return (
     <div className="card space-y-2 p-3">
       <div className="text-xs text-mute">Where every team ranks at each position (1 = deepest), from the players it would start. Green is a strength to trade from, red a need to trade for.</div>

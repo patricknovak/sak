@@ -1,6 +1,8 @@
 # Super Pools landing page
 
-Static, served by Vercel (project `superpools`, root directory `landing/`, redeployed on every push to `main`).
+Static, served by Vercel (project `superpools`, root directory `landing/`, redeployed on every push to `main`) until it
+moves to Cloudflare (`wrangler.jsonc` here, deployed by `.github/workflows/cloudflare.yml`; `.assetsignore` keeps this
+file, the config and the share-card source off the site).
 Brand, copy and positioning rules live in `docs/BRAND.md`.
 
 - `index.html`: the page. The waitlist form posts to `public.waitlist` through PostgREST with the publishable key.

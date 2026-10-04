@@ -1,15 +1,15 @@
 // The standings table, one for every screen that shows it (Standings and Home). Built to fit a phone: every
-// column stays on screen at 390 px, the team cell truncates instead of pushing numbers off the edge, and
+// column stays on screen at 360 px, the team's name wraps to a second line instead of pushing numbers off the edge, and
 // "back of the leader" rides under the points instead of taking a column.
 // The day column shows today's points once tonight's first game has started; before that it shows yesterday's,
 // so the morning after a game night still reads like a box score instead of a row of dashes.
 import { Link } from 'react-router-dom';
-import { useLeague } from '../lib/store';
+import { useLeague, useSport } from '../lib/store';
+import { hasStarted } from '../lib/sport';
 import { fmtMoney, fmtPts } from '../lib/format';
 import type { Standing } from '../lib/types';
 import { Rank, TeamBadge, TeamName } from './ui';
 
-const STARTED = new Set(['LIVE', 'CRIT', 'OFF', 'FINAL']);
 
 export function StandingsTable({ rows, view = 'regular', pot = [], peter = false }: {
   rows: Standing[];
@@ -18,9 +18,10 @@ export function StandingsTable({ rows, view = 'regular', pot = [], peter = false
   peter?: boolean;         // flag last place for the Peter
 }) {
   const { team, me, online, games, leagueDay } = useLeague();
+  const sport = useSport();
   const table = [...rows].sort((a, b) => a.rank - b.rank);
   const scored = table.some((t) => Number(t.points) !== 0);
-  const tonight = games.some((g) => g.date === leagueDay && STARTED.has(g.state));
+  const tonight = games.some((g) => g.date === leagueDay && hasStarted(sport, g.state));
   const lead = Number(table[0]?.points ?? 0);
   const benchWhen = view === 'cup' ? 'this year' : view === 'playoffs' ? 'in the playoffs' : 'this season';
 
@@ -53,7 +54,7 @@ export function StandingsTable({ rows, view = 'regular', pot = [], peter = false
                   <Link to={`/team/${s.team_id}`} className="flex min-w-0 items-center gap-2">
                     <TeamBadge team={t} size={26} />
                     <span className="min-w-0">
-                      <TeamName team={t} className="block truncate text-[13px] font-bold leading-tight" />
+                      <TeamName team={t} className="line-clamp-2 break-words text-[13px] font-bold leading-tight" />
                       <span className="block truncate text-[10px] text-mute">
                         {sub}
                         {online.has(s.team_id) && <span className="text-emerald-400"> · online</span>}

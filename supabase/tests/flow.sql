@@ -1092,7 +1092,7 @@ select pg_temp.expect('rules table renamed, view in its place', (select count(*)
 -- the north commissioner reads and writes only her league's rules
 select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-000000000099', false);
 set role authenticated;
-select pg_temp.expect('north reads her rules row', (select count(*) from league) = 1 and (select phase from league) = 'keepers');
+select pg_temp.expect('north reads her rules row', (select count(*) from league) = 1 and (select phase from league) = 'predraft');
 select commish_update_league('{"keepers": 7, "pick_seconds": 45}'::jsonb);
 select pg_temp.expect('north update landed on her row', (select keepers from league) = 7 and (select pick_seconds from league) = 45);
 select pg_temp.expect('scoring reads the north rules row', calc_fpts('{"g": 2}'::jsonb) = 2 * (select (scoring->'skater'->>'g')::numeric from league));
@@ -2295,3 +2295,859 @@ select pg_temp.expect('a SaK GM on the pond''s address stays in SaK', current_le
 select set_config('request.headers', '', false);
 select set_config('request.jwt.claim.sub', '', false);
 select 'league by host', true;
+
+-- ───────────── asking for a league ─────────────
+reset role;
+select set_config('request.jwt.claim.sub', '', false);
+set role anon;
+select pg_temp.expect('anyone can ask for a league', request_league(' Lou Lake ', 'Lou@Example.com ', 'Lake Shinny', 10, 'yahoo', 'Twelve years on Yahoo'));
+select pg_temp.raises('a request needs an email', 'select request_league(''Lou'', ''not-an-email'', ''Lake'', 10)', 'email address');
+select pg_temp.raises('and a sensible number of teams', 'select request_league(''Lou'', ''lou@example.com'', ''Lake'', 40)', 'Between 2 and 20');
+select request_league('Lou Lake', 'lou@example.com', 'Lake Shinny', 10);
+select request_league('Lou Lake', 'lou@example.com', 'Lake Shinny', 10);
+select pg_temp.raises('one email asks a few times a day at most', 'select request_league(''Lou Lake'', ''lou@example.com'', ''Lake Shinny'', 10)', 'already');
+select pg_temp.raises('the public can''t read the inbox', 'select * from platform_league_requests()', 'permission denied');
+reset role;
+select pg_temp.expect('the inbox is out of the API''s reach', not has_schema_privilege('anon', 'ops', 'usage') and not has_schema_privilege('authenticated', 'ops', 'usage'));
+select pg_temp.as_team(1);
+set role authenticated;
+select pg_temp.expect('the platform hears about it in its bell', exists (select 1 from notifications where team_id = 1 and kind = 'platform' and body like '📮 Lou Lake asked for a league: Lake Shinny, 10 teams'));
+select pg_temp.expect('the platform sees it, trimmed and lower-cased', (select name = 'Lou Lake' and email = 'lou@example.com' and teams = 10 and plays_on = 'yahoo' and status = 'new'
+  from platform_league_requests() order by created_at limit 1));
+select pg_temp.expect('and marks it opened with the league it became', platform_close_request((select min(id) from platform_league_requests()), 'opened', :league2) = 'opened');
+reset role;
+select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-000000000099', false);
+set role authenticated;
+select pg_temp.raises('a commissioner can''t read the platform''s inbox', 'select * from platform_league_requests()', 'Only the platform');
+reset role;
+select set_config('request.jwt.claim.sub', '', false);
+select 'asking for a league', true;
+-- ───────────── the commissioner's log ─────────────
+reset role;
+select pg_temp.expect('the north commissioner''s rebrand earlier is on the north''s log', exists (select 1 from commish_log where league_id = :league2 and team_id = 99 and action = 'commish_set_brand'));
+-- one line per action, even when one commissioner function calls another inside it
+select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-000000000099', false);
+begin;
+set local role authenticated;
+select commish_update_league('{"pick_seconds": 75}'::jsonb);
+select commish_update_league('{"pick_seconds": 80}'::jsonb);
+select txid_current() as log_tx \gset
+commit;
+select pg_temp.expect('two calls in one transaction are one line', (select count(*) from commish_log where tx = :log_tx) = 1);
+select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-000000000099', false);
+set role authenticated;
+select commish_update_league('{"pick_seconds": 60}'::jsonb);
+select count(*) from commish_accounts();
+reset role;
+select pg_temp.expect('a rules change is a line with who and when', exists (select 1 from commish_log where league_id = :league2 and team_id = 99 and action = 'commish_update_league' and at > now() - interval '1 minute'));
+select pg_temp.expect('reading the account list is not', not exists (select 1 from commish_log where action = 'commish_accounts'));
+-- every member reads their own league's log, nobody writes to it
+select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-000000000096', false);
+set role authenticated;
+select pg_temp.expect('a north GM reads the north''s log and only it', (select count(*) > 0 and bool_and(league_id = :league2) from commish_log));
+select pg_temp.raises('nobody writes to the log by hand', 'insert into commish_log (team_id, action) values (99, ''commish_coins'')', 'permission denied');
+reset role;
+select pg_temp.as_team(2);
+set role authenticated;
+select pg_temp.expect('a SaK GM reads only SaK''s', not exists (select 1 from commish_log where league_id <> 1));
+reset role;
+select set_config('request.jwt.claim.sub', '', false);
+select 'the commissioner''s log', true;
+
+-- ───────────── the league's constitution ─────────────
+reset role;
+select count(*) as sak_rules from league_rule_text where league_id = 1 \gset
+select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-000000000099', false);
+set role authenticated;
+select pg_temp.expect('the north''s commissioner writes the league''s rules', commish_set_rules(
+  '[{"title": "Conduct", "items": ["Chirp the GM, never the person.", "  ", "Pay on time."]}, {"title": "", "items": []}, {"title": "Trades", "items": ["No trades between two teams out of the race."]}]'::jsonb) = 2);
+select pg_temp.expect('in order, empty lines dropped', (select array_agg(title order by sort) from league_rule_text) = array['Conduct', 'Trades']
+  and (select items from league_rule_text where title = 'Conduct') = array['Chirp the GM, never the person.', 'Pay on time.']);
+select pg_temp.raises('two sections can''t share a name', 'select commish_set_rules(''[{"title": "A", "items": ["x"]}, {"title": "A", "items": ["y"]}]''::jsonb)', 'Two sections');
+select pg_temp.raises('a section with rules needs a title', 'select commish_set_rules(''[{"title": " ", "items": ["x"]}]''::jsonb)', 'needs a title');
+reset role;
+select pg_temp.expect('a refused change leaves the rules as they were', (select count(*) from league_rule_text where league_id = :league2) = 2);
+select pg_temp.expect('it is on the commissioner''s log', exists (select 1 from commish_log where league_id = :league2 and action = 'commish_set_rules'));
+select pg_temp.expect('SaK''s rules are untouched', (select count(*) from league_rule_text where league_id = 1) = :sak_rules);
+select pg_temp.as_team(2);
+set role authenticated;
+select pg_temp.raises('a GM can''t rewrite the rules', 'select commish_set_rules(''[]''::jsonb)', 'Commissioner only');
+reset role;
+select set_config('request.jwt.claim.sub', '', false);
+select 'the league''s constitution', true;
+
+-- ───────────── a league's past, written in ─────────────
+reset role;
+select string_agg(season || ':' || sort, ',' order by season) as sak_sorts from league_seasons where league_id = 1 \gset
+select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-000000000099', false);
+set role authenticated;
+select pg_temp.expect('the north''s commissioner writes in a past season', commish_set_season('2024-25', 'Won it on the last night.',
+  '[{"team_name": "North Stars", "gm_name": "Nora", "team_id": 99, "points": 2400.5, "prize": 300}, {"team_name": "Old Timers", "gm_name": "Olaf", "points": 2300}, {"team_name": "Igloo", "gm_name": "Ivy", "points": 1900, "last_place": true}]'::jsonb) = 3);
+select commish_set_season('2023-24', null, '[{"team_name": "Old Timers", "gm_name": "Olaf"}, {"team_name": "North Stars", "gm_name": "Nora", "team_id": 99}]'::jsonb);
+select pg_temp.expect('the seasons read in order, the table in places', (select array_agg(season order by sort) from league_seasons) = array['2023-24', '2024-25']
+  and (select array_agg(team_name order by place) from season_results where season = '2024-25') = array['North Stars', 'Old Timers', 'Igloo']
+  and (select team_id from season_results where season = '2024-25' and place = 1) = 99
+  and (select last_place from season_results where season = '2024-25' and place = 3));
+select pg_temp.expect('writing a season again', commish_set_season('2024-25', null, '[{"team_name": "Old Timers", "gm_name": "Olaf"}, {"team_name": "North Stars", "gm_name": "Nora"}]'::jsonb) = 2);
+select pg_temp.expect('replaces it', (select team_name from season_results where season = '2024-25' and place = 1) = 'Old Timers'
+  and (select count(*) from season_results where season = '2024-25') = 2);
+select pg_temp.raises('the season being played isn''t written by hand', format('select commish_set_season(%L, null, ''[{"team_name":"a","gm_name":"b"},{"team_name":"c","gm_name":"d"}]''::jsonb)', (select season from league)), 'Only past seasons');
+select pg_temp.raises('a season is written like 2019-20', 'select commish_set_season(''2019-21'', null, ''[{"team_name":"a","gm_name":"b"},{"team_name":"c","gm_name":"d"}]''::jsonb)', 'like 2019-20');
+select pg_temp.raises('one last place a season', 'select commish_set_season(''2019-20'', null, ''[{"team_name":"a","gm_name":"b","last_place":true},{"team_name":"c","gm_name":"d","last_place":true}]''::jsonb)', 'One last place');
+select commish_set_season('2022-23', null, '[{"team_name": "Pirates", "gm_name": "Pat", "team_id": 1}, {"team_name": "North Stars", "gm_name": "Nora"}]'::jsonb);
+select pg_temp.expect('a team from another league isn''t linked to it', (select team_id from season_results where season = '2022-23' and place = 1) is null);
+select pg_temp.expect('a season comes out again', commish_delete_season('2023-24'));
+select pg_temp.expect('and is gone', not exists (select 1 from league_seasons where season = '2023-24'));
+reset role;
+select pg_temp.expect('the edits are on the log', (select count(*) from commish_log where league_id = :league2 and action in ('commish_set_season', 'commish_delete_season')) >= 3);
+select pg_temp.expect('SaK''s seasons are untouched, numbers and all', (select string_agg(season || ':' || sort, ',' order by season) from league_seasons where league_id = 1) = :'sak_sorts');
+select pg_temp.as_team(2);
+set role authenticated;
+select pg_temp.raises('a GM can''t write the league''s past', 'select commish_delete_season(''2024-25'')', 'Commissioner only');
+reset role;
+select set_config('request.jwt.claim.sub', '', false);
+select 'a league''s past, written in', true;
+-- ───────────── commissioner tools: co-commissioners and a handover ─────────────
+reset role;
+select id as hand_seat from teams where league_id = :league2 and gm_name = 'Nora Newcomer' \gset
+insert into push_subscriptions (endpoint, team_id, p256dh, auth, league_id) values ('https://push.example/nora', :hand_seat, 'k', 'a', :league2);
+insert into teams (name, abbrev, gm_name, league_id, role) values ('Tundra', 'TUN', 'Open seat', :league2, 'gm') returning id as open_seat \gset
+select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-000000000099', false);
+set role authenticated;
+select pg_temp.expect('the north''s commissioner shares the job', commish_set_cocommish(:hand_seat, true));
+reset role;
+select pg_temp.expect('the co-commissioner is a commissioner in the north', (select role from league_members where user_id = '00000000-0000-0000-0000-000000000096' and league_id = :league2) = 'commish');
+select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-000000000096', false);
+set role authenticated;
+select pg_temp.expect('and has the commissioner''s powers', is_commish() and current_league_id() = :league2);
+-- with two in place, either can step down; the last one can't
+select pg_temp.expect('she takes the original''s role away', not commish_set_cocommish(99, false));
+select pg_temp.raises('the last commissioner can''t step down', format('select commish_set_cocommish(%s, false)', :hand_seat), 'needs a commissioner');
+select commish_set_cocommish(99, true);
+reset role;
+select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-000000000099', false);
+set role authenticated;
+select pg_temp.expect('and he takes hers back', not commish_set_cocommish(:hand_seat, false));
+select pg_temp.raises('an open seat can''t run the league', format('select commish_set_cocommish(%s, true)', :open_seat), 'no GM yet');
+-- the newcomer has moved on: the seat is handed over
+select commish_vacate_seat(:hand_seat) as hand_code \gset
+reset role;
+select pg_temp.expect('the seat is open again, its team kept', (select user_id is null and gm_name = 'Open seat' and name = 'Polar Express' from teams where id = :hand_seat));
+select pg_temp.expect('the old GM is out of the league, their phones too', not exists (select 1 from league_members where user_id = '00000000-0000-0000-0000-000000000096' and league_id = :league2)
+  and not exists (select 1 from push_subscriptions where team_id = :hand_seat));
+select pg_temp.expect('a fresh invite for the seat', (select (v->>'ok')::boolean and v->>'team' = 'Polar Express' from invite_preview(:'hand_code') v));
+select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-000000000099', false);
+set role authenticated;
+select pg_temp.raises('a commissioner can''t vacate their own seat', 'select commish_vacate_seat(99)', 'own seat');
+select pg_temp.raises('nor another league''s', 'select commish_vacate_seat(2)', 'another league');
+reset role;
+select pg_temp.as_team(2);
+set role authenticated;
+select pg_temp.raises('a GM can''t hand over seats', format('select commish_vacate_seat(%s)', :hand_seat), 'Commissioner only');
+select pg_temp.raises('or make commissioners', 'select commish_set_cocommish(3, true)', 'Commissioner only');
+reset role;
+select pg_temp.expect('SaK''s commissioners are untouched', (select array_agg(id order by id) from teams where league_id = 1 and is_commish) = array[1]);
+select set_config('request.jwt.claim.sub', '', false);
+select 'commissioner tools', true;
+-- ───────────── a new league's path to its draft ─────────────
+reset role;
+select pg_temp.as_team(1);
+set role authenticated;
+select create_league('rink', 'Rink Rats', 'RR', '{}'::jsonb, 3) as league5 \gset
+reset role;
+select pg_temp.expect('a new league opens ready to draft, not in keepers', (select phase from league_rules where league_id = :league5) = 'predraft');
+select pg_temp.expect('and on the season''s calendar: first and last days, the trade deadline', (select r.season_start is not distinct from s.season_start
+  and r.season_end is not distinct from s.season_end and r.trade_deadline is not distinct from s.trade_deadline and r.playoffs_end is not distinct from s.playoffs_end
+  and r.season_start is not null from league_rules r, league_rules s where r.league_id = :league5 and s.league_id = 1));
+select id as rink_seat1 from teams where league_id = :league5 and is_commish \gset
+insert into auth.users (id, email) values ('00000000-0000-0000-0000-0000000000f2', 'rink-commish@example.com');
+select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-000000000001', false);
+set role authenticated;
+select platform_invite(:league5, :rink_seat1) as rink_code \gset
+reset role;
+select _accept_invite('00000000-0000-0000-0000-0000000000f2', :'rink_code', 'Rita Rink');
+select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-0000000000f2', false);
+set role authenticated;
+select pg_temp.expect('randomizing draws only this league''s teams', (select array_agg(x order by x) from unnest(draft_randomize_order()) x)
+  = (select array_agg(id order by id) from teams where role = 'gm'));
+select draft_start();
+reset role;
+-- the commissioner picks first if the hat says so; whoever is on the clock, an open seat's clock is short
+select pg_temp.expect('an open seat''s pick comes in seconds, a GM''s gets the full clock', (
+  select case when t.user_id is null then d.deadline <= now() + interval '5 seconds' else d.deadline > now() + interval '30 seconds' end
+  from draft_state d join draft_picks p on p.league_id = d.league_id and p.season = d.season and p.overall = d.current_overall
+  join teams t on t.id = p.team_id where d.league_id = :league5));
+select set_config('request.jwt.claim.sub', '', false);
+select 'a new league''s path to its draft', true;
+
+-- ───────────── drafts and keepers join the prediction log ─────────────
+reset role;
+update league_rules set season_end = today_et() + 180 where league_id = :league5;
+do $$ declare i int; lid int := (select id from leagues where slug = 'rink'); begin
+  for i in 1..80 loop
+    update draft_state set deadline = now() - interval '1 second' where league_id = lid and status = 'live';
+    perform draft_tick();
+  end loop; end $$;
+select pg_temp.expect('the rink''s draft runs to the end', (select status from draft_state where league_id = :league5) = 'done');
+select pg_temp.expect('every team''s draft class is forecast', (select count(*) from predictions where league_id = :league5 and kind = 'draft_value') = 3
+  and (select bool_and(jsonb_array_length(subject->'players') = (select draft_rounds from league_rules where league_id = :league5)) from predictions where league_id = :league5 and kind = 'draft_value')
+  and (select bool_and(status = 'open' and resolves_on = today_et() + 180) from predictions where league_id = :league5 and kind = 'draft_value'));
+select pg_temp.expect('a new league kept nobody, so no keeper forecast', not exists (select 1 from predictions where league_id = :league5 and kind = 'keeper_value'));
+-- at the season's end, each class is scored on what its players did, whoever they play for by then
+update predictions set resolves_on = today_et() - 1 where league_id = :league5 and kind = 'draft_value';
+select set_config('app.league_id', :league5::text, false);
+select score_predictions();
+select set_config('app.league_id', '', false);
+select pg_temp.expect('and scored once the season is done', (select bool_and(status = 'scored' and outcome is not null and error = outcome - predicted) from predictions where league_id = :league5 and kind = 'draft_value'));
+select pg_temp.expect('nobody else''s draft is touched', not exists (select 1 from predictions where kind = 'draft_value' and league_id not in (1, :league5)));
+select set_config('request.jwt.claim.sub', '', false);
+select 'drafts and keepers join the prediction log', true;
+
+-- ───────────── a league's own roster ─────────────
+reset role;
+select roster::text as pond_roster_before from league_rules where league_id = :league4 \gset
+select id as pond_commish from teams where league_id = :league4 and is_commish \gset
+select user_id as pond_commish_user from teams where id = :pond_commish \gset
+update league_rules set phase = 'predraft' where league_id = :league4;
+update draft_state set order_set = false, status = 'scheduled' where league_id = :league4;
+select set_config('request.jwt.claim.sub', :'pond_commish_user', false);
+set role authenticated;
+select pg_temp.expect('the commissioner sets the league''s own slots, and the draft follows', (commish_set_roster('{"C": 2, "LW": 2, "RW": 2, "D": 4, "G": 2, "Util": 2, "BN": 6, "IR": 1}'::jsonb)->>'rounds')::int = 20 - (select keepers from league));
+select pg_temp.expect('the rules carry it', (select roster->>'D' = '4' and roster->>'BN' = '6' and draft_rounds = 20 - keepers from league));
+select pg_temp.raises('a league needs a goalie', 'select commish_set_roster(''{"C": 2, "LW": 2, "RW": 2, "D": 4, "G": 0, "Util": 2, "BN": 6, "IR": 1}''::jsonb)', 'G takes');
+select pg_temp.raises('every slot is counted', 'select commish_set_roster(''{"C": 2}''::jsonb)', 'needs a count');
+select pg_temp.raises('half a defenceman is no slot', 'select commish_set_roster(''{"C": 2, "LW": 2, "RW": 2, "D": 3.5, "G": 2, "Util": 2, "BN": 6, "IR": 1}''::jsonb)', 'D takes');
+reset role;
+update draft_state set order_set = true where league_id = :league4;
+select set_config('request.jwt.claim.sub', :'pond_commish_user', false);
+set role authenticated;
+select pg_temp.raises('not once the order is drawn', 'select commish_set_roster(''{"C": 2, "LW": 2, "RW": 2, "D": 3, "G": 2, "Util": 1, "BN": 12, "IR": 2}''::jsonb)', 'before the draft order');
+reset role;
+select pg_temp.expect('SaK''s roster is untouched', (select roster from league_rules where league_id = 1) = '{"C": 2, "D": 3, "G": 2, "BN": 12, "IR": 2, "LW": 2, "RW": 2, "Util": 1}'::jsonb);
+select pg_temp.expect('it is on the log', exists (select 1 from commish_log where league_id = :league4 and action = 'commish_set_roster'));
+select pg_temp.as_team(2);
+set role authenticated;
+select pg_temp.raises('a GM can''t change the roster', 'select commish_set_roster(''{}''::jsonb)', 'Commissioner only');
+reset role;
+select set_config('request.jwt.claim.sub', '', false);
+select 'a league''s own roster', true;
+
+-- ───────────── rotisserie ─────────────
+reset role;
+select id as roto_league from leagues where slug = 'sak-shadow' \gset
+update league_rules set categories = array['g', 'a', 'pim', 'sog', 'w', 'gaa', 'svp'] where league_id = :roto_league;
+select set_config('app.league_id', :roto_league::text, false);
+create temp table roto as select * from category_standings();
+select set_config('app.league_id', '', false);
+select pg_temp.expect('every team in the table, every category scored', (select count(*) from roto) = (select count(*) from teams where league_id = :roto_league and role = 'gm')
+  and (select bool_and((select count(*) from jsonb_object_keys(cats)) = 7) from roto));
+-- a category's points run from the team count down to one; ties share; every category hands out the same total
+select pg_temp.expect('each category hands out the same points', (select count(distinct s) = 1 from (
+  select k, sum((cats->k->>'pts')::numeric) as s from roto, jsonb_object_keys(cats) k group by k) x)
+  and (select sum((cats->'g'->>'pts')::numeric) from roto) = (select n * (n + 1) / 2.0 from (select count(*) n from roto) c));
+-- goals: the sum of what the started players scored, from the season's start
+select pg_temp.expect('goals are the started players'' goals', (select bool_and((r.cats->'g'->>'value')::numeric = coalesce((
+  select sum((pg.stats->>'g')::numeric) from lineup_snapshots s join player_games pg on pg.game_id = s.game_id and pg.player_id = s.player_id join games g on g.id = s.game_id
+  where s.team_id = r.team_id and s.slot not in ('BN', 'IR') and g.game_type = 2 and s.date >= (select season_start from league_rules where league_id = :roto_league)), 0)) from roto r));
+select pg_temp.expect('the total is the sum of the categories, ranked', (select bool_and(total = (select sum((cats->k->>'pts')::numeric) from jsonb_object_keys(cats) k)) from roto)
+  and (select rank from roto order by total desc limit 1) = 1);
+-- the commissioner picks the categories
+select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-000000000099', false);
+set role authenticated;
+select pg_temp.expect('a commissioner turns the league to rotisserie, in the catalogue''s order', commish_set_categories(array['svp', 'g', 'a', 'w']) = array['g', 'a', 'w', 'svp']);
+select pg_temp.expect('the site''s league row carries them', (select categories from league) = array['g', 'a', 'w', 'svp']);
+select pg_temp.raises('3 categories at least', 'select commish_set_categories(array[''g'', ''a''])', '3 to 12');
+select pg_temp.raises('from the list', 'select commish_set_categories(array[''g'', ''a'', ''goons''])', 'from the list');
+select pg_temp.expect('and back to points', commish_set_categories(null) is null);
+reset role;
+select pg_temp.expect('SaK stays a points league', (select categories from league_rules where league_id = 1) is null);
+select pg_temp.expect('the changes are on the log', exists (select 1 from commish_log where league_id = :league2 and action = 'commish_set_categories'));
+update league_rules set categories = null where league_id = :roto_league;
+drop table roto;
+select set_config('request.jwt.claim.sub', '', false);
+select 'rotisserie', true;
+
+-- ───────────── head-to-head ─────────────
+reset role;
+select id as h2h_league from leagues where slug = 'rink' \gset
+select user_id as rink_user from teams where league_id = :h2h_league and is_commish \gset
+update league_rules set season_start = today_et() + 1, season_end = today_et() + 60 where league_id = :h2h_league;
+select set_config('request.jwt.claim.sub', :'rink_user', false);
+set role authenticated;
+select pg_temp.raises('a season-total league has no schedule', 'select commish_make_schedule()', 'switch it to head-to-head');
+select pg_temp.expect('the rink switches to head-to-head', commish_set_format('h2h') = 'h2h');
+select pg_temp.expect('and the site''s league row says so', (select format from league) = 'h2h');
+select commish_make_schedule() as h2h_weeks \gset
+reset role;
+-- three teams: one has a bye each week; over a full round every pair meets once
+select pg_temp.expect('a matchup a week, plus the bye', (select count(*) from matchups where league_id = :h2h_league) = :h2h_weeks * 2
+  and (select count(*) from matchups where league_id = :h2h_league and away_team is null) = :h2h_weeks);
+select pg_temp.expect('weeks run Monday to Sunday, back to back', (select bool_and(extract(isodow from ends) = 7 or ends = (select season_end from league_rules where league_id = :h2h_league)) from matchups where league_id = :h2h_league)
+  and (select bool_and(m2.starts = m1.ends + 1) from matchups m1 join matchups m2 on m2.league_id = m1.league_id and m2.week = m1.week + 1 and m2.home_team = (select min(home_team) from matchups x where x.league_id = m1.league_id and x.week = m1.week + 1) where m1.league_id = :h2h_league and m1.home_team = (select min(home_team) from matchups x where x.league_id = m1.league_id and x.week = m1.week)));
+select pg_temp.expect('every team plays each week or sits out', (select bool_and(c = 3) from (select week, count(home_team) + count(away_team) as c from matchups where league_id = :h2h_league group by week) x));
+select pg_temp.expect('in the first round, every pair meets once', (select count(distinct least(home_team, away_team) || '-' || greatest(home_team, away_team)) from matchups where league_id = :h2h_league and week <= 3 and away_team is not null) = 3);
+-- the scores: a week's started-player points; final weeks make the table
+update matchups set starts = starts - 70, ends = ends - 70 where league_id = :h2h_league and week = 1;
+select set_config('app.league_id', :h2h_league::text, false);
+select pg_temp.expect('a past week is final, the rest upcoming', (select bool_and(status = case when week = 1 then 'final' else 'upcoming' end) from h2h_scores()));
+select pg_temp.expect('the table counts the final weeks only', (select sum(w + l + t) from h2h_standings()) = 2 and (select count(*) from h2h_standings()) = 3);
+select set_config('app.league_id', '', false);
+set role authenticated;
+select pg_temp.raises('the schedule is fixed once a week has started', 'select commish_make_schedule()', 'once its first week starts');
+select pg_temp.expect('head-to-head can play for categories', commish_set_categories(array['g', 'a', 'w']) = array['g', 'a', 'w']);
+select pg_temp.expect('and back to points', commish_set_categories(null) is null);
+reset role;
+select pg_temp.expect('SaK still plays the season total', (select format from league_rules where league_id = 1) = 'season' and not exists (select 1 from matchups where league_id = 1));
+select pg_temp.expect('the format change and the schedule are on the log', (select count(*) from commish_log where league_id = :h2h_league and action in ('commish_set_format', 'commish_make_schedule')) >= 2);
+select set_config('request.jwt.claim.sub', '', false);
+select 'head-to-head', true;
+
+-- ───────────── head-to-head playoffs ─────────────
+reset role;
+select id as po_league from leagues where slug = 'rink' \gset
+delete from matchups where league_id = :po_league;
+update league_rules set season_start = today_et() + 1, season_end = today_et() + 60 where league_id = :po_league;
+select set_config('request.jwt.claim.sub', (select user_id::text from teams where league_id = :po_league and is_commish), false);
+set role authenticated;
+select pg_temp.raises('the playoffs can''t take more teams than the league has', 'select commish_make_schedule(4)', 'at most');
+select pg_temp.raises('nor one team', 'select commish_make_schedule(1)', '2 to 16');
+select commish_make_schedule(0) as po_none \gset
+select commish_make_schedule(3) as po_regular \gset
+select pg_temp.expect('the site''s league row carries the playoff spots', (select h2h_playoffs from league) = 3);
+reset role;
+-- three teams take a two-round bracket: two weeks fewer of the round robin, the rest kept for the playoffs
+select pg_temp.expect('the bracket keeps the season''s last two weeks', :po_regular = :po_none - 2
+  and (select h2h_playoffs from league_rules where league_id = :po_league) = 3);
+select set_config('app.league_id', :po_league::text, false);
+create temp table br as select * from h2h_bracket();
+select pg_temp.expect('the top seed sits out the first round, two and three meet', (select count(*) from br where round = 1) = 2
+  and (select status from br where round = 1 and high_seed = 1) = 'bye'
+  and (select high_seed = 2 and low_seed = 3 from br where round = 1 and status <> 'bye'));
+select pg_temp.expect('the final waits on the semi, after the regular weeks', (select count(*) from br where round = 2) = 1
+  and (select high_seed = 1 and low_seed is null and status = 'upcoming' from br where round = 2)
+  and (select starts from br where round = 1 limit 1) = (select max(ends) + 1 from matchups where league_id = :po_league)
+  and (select starts from br where round = 2) = (select ends + 1 from br where round = 1 limit 1));
+select pg_temp.expect('the seeds are "if it ended today" until the regular season is over', not (select bool_or(seeded) from br));
+drop table br;
+-- the whole season played (no points scored): ties go to the higher seed, so one beats three and then two
+update matchups set starts = starts - 100, ends = ends - 100 where league_id = :po_league;
+create temp table br as select * from h2h_bracket();
+select pg_temp.expect('the seeds hold once the regular season is over', (select bool_and(seeded) from br)
+  and (select array_agg(high_team order by slot) from br where round = 1) = (select (array_agg(team_id order by rank, pf desc, team_id))[1:2] from h2h_standings()));
+select pg_temp.expect('a tie goes to the higher seed, and the champion comes out of the final', (select winner = high_team and status = 'final' from br where round = 1 and status <> 'bye')
+  and (select winner = high_team and low_seed = 2 and status = 'final' from br where round = 2));
+drop table br;
+select set_config('app.league_id', '', false);
+select pg_temp.expect('SaK has no bracket', (select h2h_playoffs from league_rules where league_id = 1) = 0);
+delete from matchups where league_id = :po_league;
+update league_rules set h2h_playoffs = 0 where league_id = :po_league;
+select set_config('request.jwt.claim.sub', '', false);
+select 'head-to-head playoffs', true;
+
+-- ───────────── head-to-head categories ─────────────
+reset role;
+-- read-only on SaK's scored nights (teams 2 and 5 started players earlier in this test); its categories go back after
+select 1 as hc_league, 2 as hc_a, 5 as hc_b, (today_et() - 30)::text as hc_from \gset
+select pg_temp.expect('the pairing has started players to count', (select count(*) from lineup_snapshots where team_id in (2, 5) and slot not in ('BN', 'IR') and date >= today_et() - 30) > 0);
+select set_config('app.league_id', :hc_league::text, false);
+-- a points league: a pairing's score is each side's started points over those days
+select pg_temp.expect('a points pairing is the weeks'' points', (select a_score = coalesce((select sum(points) from team_daily where team_id = :hc_a and date between :'hc_from' and today_et()), 0)
+  and b_score = coalesce((select sum(points) from team_daily where team_id = :hc_b and date between :'hc_from' and today_et()), 0) and cats is null
+  from _h2h_result(:hc_a, :hc_b, :'hc_from', today_et())));
+update league_rules set categories = array['g', 'a', 'pim', 'sog', 'w', 'gaa', 'svp'] where league_id = :hc_league;
+create temp table hc as select * from _h2h_result(:hc_a, :hc_b, :'hc_from', today_et());
+select pg_temp.expect('a category pairing scores every category once', (select (select count(*) from jsonb_object_keys(cats)) = 7
+  and a_score + b_score + (select count(*) from jsonb_each(cats) e where e.value->>'win' = 'tie') = 7 from hc));
+select pg_temp.expect('and the counting found something', (select (cats->'sog'->>'a')::numeric + (cats->'sog'->>'b')::numeric > 0 from hc));
+select pg_temp.expect('a category''s value is the started players'' total', (select (cats->'g'->>'a')::numeric = coalesce((
+  select sum((pg.stats->>'g')::numeric) from lineup_snapshots s join player_games pg on pg.game_id = s.game_id and pg.player_id = s.player_id join games g on g.id = s.game_id
+  where s.team_id = :hc_a and s.slot not in ('BN', 'IR') and g.game_type = 2 and s.date between :'hc_from' and today_et()), 0) from hc));
+select pg_temp.expect('more goals wins goals, fewer against per start wins that', (select bool_and(case
+    when k = 'g' and (cats->k->>'a')::numeric > (cats->k->>'b')::numeric then cats->k->>'win' = 'a'
+    when k = 'g' and (cats->k->>'a')::numeric < (cats->k->>'b')::numeric then cats->k->>'win' = 'b'
+    when k = 'gaa' and (cats->k->>'a') is not null and (cats->k->>'b') is not null and (cats->k->>'a')::numeric < (cats->k->>'b')::numeric then cats->k->>'win' = 'a'
+    when k = 'gaa' and (cats->k->>'a') is not null and (cats->k->>'b') is not null and (cats->k->>'a')::numeric > (cats->k->>'b')::numeric then cats->k->>'win' = 'b'
+    else true end) from hc, jsonb_object_keys(cats) k));
+select pg_temp.expect('a bye counts nothing', (select a_score = 0 and b_score is null and cats is null from _h2h_result(:hc_a, null, :'hc_from', today_et())));
+drop table hc;
+update league_rules set categories = null where league_id = :hc_league;
+select set_config('app.league_id', '', false);
+select pg_temp.expect('SaK still plays for points', (select categories from league_rules where league_id = 1) is null);
+select set_config('request.jwt.claim.sub', '', false);
+select 'head-to-head categories', true;
+
+-- ───────────── a head-to-head league's schedule on the checklist ─────────────
+reset role;
+select id as ck_league from leagues where slug = 'rink' \gset
+update league_rules set format = 'h2h', season_start = today_et() + 1, season_end = today_et() + 60 where league_id = :ck_league;
+delete from matchups where league_id = :ck_league;
+select pg_temp.as_team(1);
+set role authenticated;
+select pg_temp.expect('a head-to-head league''s checklist wants its schedule', (select x->>'ok' = 'false' and x->>'required' = 'true'
+  from jsonb_array_elements(league_readiness(:ck_league)) x where x->>'key' = 'schedule'));
+select pg_temp.raises('so it can''t go live without one', format('select platform_set_league_status(%s, ''active'')', :ck_league), 'Head-to-head schedule made');
+select pg_temp.expect('a points league''s checklist has no schedule line', not exists (select 1 from jsonb_array_elements(league_readiness(1)) x where x->>'key' = 'schedule'));
+reset role;
+select set_config('request.jwt.claim.sub', (select user_id::text from teams where league_id = :ck_league and is_commish), false);
+set role authenticated;
+select commish_make_schedule(0) as ck_weeks \gset
+reset role;
+select pg_temp.as_team(1);
+set role authenticated;
+select pg_temp.expect('once it''s made, the line is ticked', (select x->>'ok' = 'true' and x->>'detail' like '%weeks%'
+  from jsonb_array_elements(league_readiness(:ck_league)) x where x->>'key' = 'schedule'));
+reset role;
+delete from matchups where league_id = :ck_league;
+update league_rules set season_start = null where league_id = :ck_league;
+select pg_temp.as_team(1);
+set role authenticated;
+select pg_temp.expect('and the rules line wants the season''s dates', (select x->>'ok' = 'false' and x->>'detail' like '%no first and last days%'
+  from jsonb_array_elements(league_readiness(:ck_league)) x where x->>'key' = 'rules'));
+reset role;
+update league_rules set format = 'season', season_start = today_et() + 1 where league_id = :ck_league;
+select set_config('request.jwt.claim.sub', '', false);
+select 'a head-to-head league''s schedule on the checklist', true;
+
+-- ───────────── Garry's picks in the prediction log ─────────────
+reset role;
+select id as gp_won, winner_key as gp_key from markets where league_id = 1 and status = 'settled' and winner_key is not null order by id limit 1 \gset
+select id as gp_void from markets where league_id = 1 and status = 'void' order by id limit 1 \gset
+insert into markets (league_id, kind, title, options, closes_at, date) values (1, 'custom', 'Still open', '[{"key":"y","label":"Yes","odds":2.5},{"key":"n","label":"No","odds":1.5}]', now() + interval '1 day', today_et()) returning id as gp_open \gset
+insert into predictions (league_id, kind, subject, predicted, basis, resolves_on) values
+  (1, 'garry_pick', jsonb_build_object('market_id', :gp_won, 'pick', :'gp_key'), 0.4, 'garry', today_et() - 1),
+  (1, 'garry_pick', jsonb_build_object('market_id', :gp_won, 'pick', 'not-' || :'gp_key'), 0.6, 'garry', today_et() - 1),
+  (1, 'garry_pick', jsonb_build_object('market_id', :gp_void, 'pick', 'home'), 0.5, 'garry', today_et() - 1),
+  (1, 'garry_pick', jsonb_build_object('market_id', :gp_open, 'pick', 'y'), 0.4, 'garry', today_et() + 1);
+select set_config('app.league_id', '1', false);
+select score_predictions() >= 3 as gp_scored \gset
+select set_config('app.league_id', '', false);
+select pg_temp.expect('a pick that came in scores 1 against its chance', (select outcome = 1 and error = 0.6 and status = 'scored' from predictions where kind = 'garry_pick' and subject->>'market_id' = :'gp_won' and subject->>'pick' = :'gp_key'));
+select pg_temp.expect('one that didn''t scores 0', (select outcome = 0 and error = -0.6 and status = 'scored' from predictions where kind = 'garry_pick' and subject->>'market_id' = :'gp_won' and subject->>'pick' <> :'gp_key'));
+select pg_temp.expect('a void market voids the pick', (select status = 'void' from predictions where kind = 'garry_pick' and subject->>'market_id' = :'gp_void'));
+select pg_temp.expect('an open market''s pick waits', (select status = 'open' from predictions where kind = 'garry_pick' and subject->>'market_id' = :'gp_open'));
+select pg_temp.expect('one pick per market and option, however many GMs hear it', (select count(*) from pg_indexes where indexname = 'predictions_one_per_subject') = 1);
+delete from predictions where kind = 'garry_pick';
+delete from markets where id = :gp_open;
+select set_config('request.jwt.claim.sub', '', false);
+select 'Garry''s picks in the prediction log', true;
+
+-- ───────────── the auto-pilot's choices in the prediction log ─────────────
+reset role;
+select (array_agg(r.player_id order by r.player_id))[1] as ap_a, (array_agg(r.player_id order by r.player_id))[2] as ap_b,
+       (array_agg(r.player_id order by r.player_id))[3] as ap_c
+from rosters r join players p on p.id = r.player_id where r.team_id = 3 and p.pos <> 'G' \gset
+select id as ap_other from leagues where slug = 'rink' \gset
+-- three nights: one played as the auto-pilot set it, one the GM changed, one not over yet
+insert into games (id, date, start_utc, home, away, state, final_synced) values
+  (7701, today_et() - 200, now() - interval '200 days', 'TOR', 'MTL', 'OFF', true),
+  (7702, today_et() - 199, now() - interval '199 days', 'TOR', 'MTL', 'OFF', true),
+  (7703, today_et() - 198, now() - interval '198 days', 'TOR', 'MTL', 'LIVE', false);
+insert into player_games (game_id, player_id, date, stats)
+select g, p, today_et() - (7701 + 200 - g), s::jsonb from (values
+  (7701, :ap_a, '{"g":2,"a":1,"sog":5}'), (7701, :ap_b, '{"g":0,"a":1,"sog":2}'), (7701, :ap_c, '{"g":1,"a":0,"sog":1}'),
+  (7702, :ap_a, '{"g":1,"a":0,"sog":3}'), (7702, :ap_b, '{"g":0,"a":0,"sog":1}'), (7702, :ap_c, '{"g":0,"a":2,"sog":2}'),
+  (7703, :ap_a, '{"g":0,"a":0,"sog":1}')) x(g, p, s);
+insert into lineup_snapshots (game_id, date, team_id, player_id, slot) values
+  (7701, today_et() - 200, 3, :ap_a, 'C'), (7701, today_et() - 200, 3, :ap_b, 'LW'), (7701, today_et() - 200, 3, :ap_c, 'BN'),
+  (7702, today_et() - 199, 3, :ap_a, 'C'), (7702, today_et() - 199, 3, :ap_b, 'BN'), (7702, today_et() - 199, 3, :ap_c, 'LW'),
+  (7703, today_et() - 198, 3, :ap_a, 'C');
+insert into predictions (league_id, kind, subject, predicted, basis, resolves_on, detail) values
+  (1, 'auto_lineup', jsonb_build_object('team_id', 3, 'date', today_et() - 200), 6.5, 'blend', today_et() - 200, jsonb_build_object('starters', jsonb_build_array(:ap_a, :ap_b))),
+  (1, 'auto_lineup', jsonb_build_object('team_id', 3, 'date', today_et() - 199), 5.0, 'blend', today_et() - 199, jsonb_build_object('starters', jsonb_build_array(:ap_a, :ap_b))),
+  (1, 'auto_lineup', jsonb_build_object('team_id', 3, 'date', today_et() - 198), 4.0, 'blend', today_et() - 198, jsonb_build_object('starters', jsonb_build_array(:ap_a))),
+  (:ap_other, 'auto_lineup', jsonb_build_object('team_id', 3, 'date', today_et() - 200), 1.0, 'blend', today_et() - 200, jsonb_build_object('starters', jsonb_build_array(:ap_a)));
+-- a night none of its starters played (his only game postponed), and one where a starter's game was postponed
+insert into games (id, date, start_utc, home, away, state, final_synced) values
+  (7704, today_et() - 197, now() - interval '197 days', (select nhl_team from players where id = :ap_a), 'ZZA', 'PPD', false),
+  (7705, today_et() - 196, now() - interval '196 days', 'TOR', 'MTL', 'OFF', true),
+  (7706, today_et() - 196, now() - interval '196 days', (select nhl_team from players where id = :ap_b), 'ZZB', 'PPD', false);
+insert into player_games (game_id, player_id, date, stats) values (7705, :ap_a, today_et() - 196, '{"g":1,"a":0,"sog":3}');
+insert into lineup_snapshots (game_id, date, team_id, player_id, slot) values (7705, today_et() - 196, 3, :ap_a, 'C');
+insert into predictions (league_id, kind, subject, predicted, basis, resolves_on, detail) values
+  (1, 'auto_lineup', jsonb_build_object('team_id', 3, 'date', today_et() - 197), 7.5, 'blend', today_et() - 197, jsonb_build_object('starters', jsonb_build_array(:ap_a))),
+  (1, 'auto_lineup', jsonb_build_object('team_id', 3, 'date', today_et() - 196), 6.0, 'blend', today_et() - 196, jsonb_build_object('starters', jsonb_build_array(:ap_a, :ap_b)));
+select set_config('app.league_id', '1', false);
+select score_predictions() >= 2 as ap_scored \gset
+select sum(fpts) as ap_want from league_games where game_id = 7701 and player_id in (:ap_a, :ap_b) \gset
+select set_config('app.league_id', '', false);
+select pg_temp.expect('the auto-pilot''s night scores what its starters scored', (select outcome = :ap_want and :ap_want > 0
+  and error = outcome - 6.5 and status = 'scored' from predictions where league_id = 1 and kind = 'auto_lineup' and subject->>'date' = (today_et() - 200)::text));
+select pg_temp.expect('a night the GM changed isn''t the auto-pilot''s: void', (select status = 'void' and outcome is null from predictions where league_id = 1 and kind = 'auto_lineup' and subject->>'date' = (today_et() - 199)::text));
+select pg_temp.expect('a night still being played waits', (select status = 'open' from predictions where league_id = 1 and kind = 'auto_lineup' and subject->>'date' = (today_et() - 198)::text));
+select pg_temp.expect('another league''s call is left alone', (select status = 'open' from predictions where league_id = :ap_other and kind = 'auto_lineup'));
+select pg_temp.expect('a night none of its starters played is void, not a zero', (select status = 'void' and outcome is null from predictions where league_id = 1 and kind = 'auto_lineup' and subject->>'date' = (today_et() - 197)::text));
+select pg_temp.expect('a night a starter''s game was postponed is void', (select status = 'void' from predictions where league_id = 1 and kind = 'auto_lineup' and subject->>'date' = (today_et() - 196)::text));
+select pg_temp.expect('the calls are counted by kind and status', (select n from prediction_status where kind = 'auto_lineup' and status = 'void') >= 3);
+delete from predictions where kind = 'auto_lineup';
+delete from lineup_snapshots where game_id in (7701, 7702, 7703, 7705);
+delete from player_games where game_id in (7701, 7702, 7703, 7705);
+delete from games where id in (7701, 7702, 7703, 7704, 7705, 7706);
+select set_config('request.jwt.claim.sub', '', false);
+select 'the auto-pilot''s choices in the prediction log', true;
+
+-- ───────────── lineup efficiency: the best lineup in hindsight ─────────────
+reset role;
+select (array_agg(r.player_id order by r.player_id))[1] as le_a, (array_agg(r.player_id order by r.player_id))[2] as le_b,
+       (array_agg(r.player_id order by r.player_id))[3] as le_c, (array_agg(r.player_id order by r.player_id))[4] as le_d
+from rosters r join players p on p.id = r.player_id where r.team_id = 3 and p.pos <> 'G' \gset
+insert into games (id, date, start_utc, home, away, state, final_synced) values (7801, today_et() + 150, now() + interval '150 days', 'TOR', 'MTL', 'OFF', true);
+insert into player_games (game_id, player_id, date, stats) values
+  (7801, :le_a, today_et() + 150, '{"g":1,"a":0,"sog":2}'), (7801, :le_b, today_et() + 150, '{"g":0,"a":0,"sog":1}'),
+  (7801, :le_c, today_et() + 150, '{"g":2,"a":1,"sog":6}'), (7801, :le_d, today_et() + 150, '{"g":3,"a":0,"sog":5}');
+-- a and b started; c, the night's best, sat on the bench; d was on IR (not his GM's to start)
+insert into lineup_snapshots (game_id, date, team_id, player_id, slot) values
+  (7801, today_et() + 150, 3, :le_a, 'Util'), (7801, today_et() + 150, 3, :le_b, 'D'), (7801, today_et() + 150, 3, :le_c, 'BN'), (7801, today_et() + 150, 3, :le_d, 'IR');
+select set_config('app.league_id', '1', false);
+select sum(fpts) filter (where player_id in (:le_a, :le_b)) as le_got, sum(fpts) filter (where player_id in (:le_a, :le_b, :le_c) and fpts > 0) as le_best
+from league_games where game_id = 7801 \gset
+select set_config('app.league_id', '', false);
+select pg_temp.as_team(3);
+set role authenticated;
+select pg_temp.expect('the lineup''s points are the starters''', (select points = :le_got from lineup_efficiency(today_et() + 150, today_et() + 150) where team_id = 3));
+select pg_temp.expect('the best counts the benched star, not the man on IR', (select best = :le_best and best > points from lineup_efficiency(today_et() + 150, today_et() + 150) where team_id = 3));
+reset role;
+select pg_temp.expect('a placement that needs a move is found', _best_lineup_points('[{"pts":10,"pos":"C","elig":["C","LW"]},{"pts":8,"pos":"C","elig":["C"]},{"pts":5,"pos":"LW","elig":["LW"]}]', array['C', 'LW']) = 18);
+select pg_temp.expect('a chain of moves too', _best_lineup_points('[{"pts":9,"pos":"C","elig":["C","LW"]},{"pts":8,"pos":"LW","elig":["LW","RW"]},{"pts":7,"pos":"C","elig":["C"]},{"pts":6,"pos":"RW","elig":["RW"]}]', array['C', 'LW', 'RW']) = 24);
+select pg_temp.expect('goalies only in goal, nobody scoring below zero', _best_lineup_points('[{"pts":5,"pos":"G","elig":["G"]},{"pts":-2,"pos":"D","elig":["D"]}]', array['D', 'Util']) = 0);
+select set_config('request.jwt.claim.sub', (select user_id::text from teams where league_id = (select id from leagues where slug = 'rink') and is_commish), false);
+set role authenticated;
+select pg_temp.expect('another league''s GM sees none of it', not exists (select 1 from lineup_efficiency(today_et() + 150, today_et() + 150) where team_id = 3));
+reset role;
+delete from lineup_snapshots where game_id = 7801;
+delete from player_games where game_id = 7801;
+delete from games where id = 7801;
+select set_config('request.jwt.claim.sub', '', false);
+reset role;
+-- read without row-level security (as the service key does), the Performance reads stay in the league
+insert into games (id, date, start_utc, home, away, state, final_synced) values (7802, today_et() + 151, now() + interval '151 days', 'TOR', 'MTL', 'OFF', true);
+insert into player_games (game_id, player_id, date, stats) values (7802, :le_a, today_et() + 151, '{"g":1}');
+insert into lineup_snapshots (game_id, date, team_id, player_id, slot, league_id)
+  select 7802, today_et() + 151, t.id, :le_a, 'C', t.league_id from teams t where t.league_id = (select id from leagues where slug = 'rink') and t.role = 'gm' limit 1;
+select set_config('app.league_id', '1', false);
+select pg_temp.expect('performance_days keeps to the league without row-level security', not exists (select 1 from performance_days(today_et() + 151, today_et() + 151) x join teams t on t.id = x.team_id where t.league_id <> 1));
+select pg_temp.expect('performance_players too', not exists (select 1 from performance_players(today_et() + 151, today_et() + 151) x join teams t on t.id = x.team_id where t.league_id <> 1));
+select pg_temp.expect('lineup_efficiency too', not exists (select 1 from lineup_efficiency(today_et() + 151, today_et() + 151) x join teams t on t.id = x.team_id where t.league_id <> 1));
+select set_config('app.league_id', '', false);
+delete from lineup_snapshots where game_id = 7802; delete from player_games where game_id = 7802; delete from games where id = 7802;
+select 'lineup efficiency', true;
+
+-- ───────────── the sports table: the NHL's description ─────────────
+reset role;
+select pg_temp.expect('every league plays a sport that has a row', not exists (select 1 from leagues l where not exists (select 1 from sports s where s.id = l.sport)));
+select pg_temp.expect('the NHL row carries the words of Garry''s voice, the old ones kept', (select config->'words' ?& array['game', 'rec', 'room', 'voice', 'start', 'centre']
+  and config->'words'->>'game' = 'hockey' from sports where id = 'nhl'));
+select pg_temp.expect('the NHL''s slots accept exactly whom slot_ok accepts', not exists (
+  select 1 from sports sp, jsonb_array_elements(sp.config->'slots') sl, jsonb_array_elements(sp.config->'positions') po
+  where sp.id = 'nhl'
+    and ((sl->'accepts') ? (po->>'key')) <> slot_ok(array[po->>'key'], po->>'key', sl->>'key')));
+select pg_temp.raises('a league can''t name a sport with no row', $$update leagues set sport = 'curling' where id = 1$$, 'foreign key');
+set role anon;
+select pg_temp.expect('anyone can read a sport''s description', (select count(*) from sports where id = 'nhl') = 1);
+reset role;
+select 'the sports table', true;
+
+-- ───────────── payouts follow the format ─────────────
+reset role;
+select id as pf_league from leagues where slug = 'rink' \gset
+update league_rules set features = '{"money": true}', format = 'h2h', h2h_playoffs = 0, entry_fee = 100, sak_fee = 0, prize_split = '[60, 30, 10]', playoff_share = 40, cup_share = 0,
+  season_start = today_et() + 1, season_end = today_et() + 60 where league_id = :pf_league;
+delete from matchups where league_id = :pf_league;
+select set_config('request.jwt.claim.sub', (select user_id::text from teams where league_id = :pf_league and is_commish), false);
+set role authenticated;
+select commish_make_schedule(2) as pf_weeks \gset
+reset role;
+-- the whole season played; give the third team the points so the table and the points disagree on nothing but order
+update matchups set starts = starts - 100, ends = ends - 100 where league_id = :pf_league;
+select set_config('app.league_id', :pf_league::text, false);
+create temp table pf_table as select team_id, rank, pf from h2h_standings();
+create temp table pf_br as select * from h2h_bracket();
+select set_config('app.league_id', '', false);
+set role authenticated;
+select pg_temp.expect('the regular pot pays the head-to-head table', commish_post_payouts('regular') = 3);
+reset role;
+select pg_temp.expect('in the table''s order', (select array_agg(team_id order by id) from ledger where league_id = :pf_league and kind = 'payout' and description like '%regular season%')
+  = (select array_agg(team_id order by rank, pf desc, team_id) from pf_table));
+select pg_temp.expect('and no last-place punishment outside a points league', not exists (select 1 from ledger where league_id = :pf_league and kind = 'peter'));
+set role authenticated;
+select pg_temp.expect('the playoff pot pays the bracket: champion, then runner-up', commish_post_payouts('playoffs') = 2);
+reset role;
+select pg_temp.expect('the champion first', (select team_id from ledger where league_id = :pf_league and kind = 'payout' and description like '%1st place' and description not like '%regular season%')
+  = (select winner from pf_br where round = (select max(round) from pf_br)));
+-- a rotisserie league pays its category table
+delete from ledger where league_id = :pf_league;
+delete from matchups where league_id = :pf_league;
+update league_rules set format = 'season', h2h_playoffs = 0, categories = array['g', 'a', 'w'] where league_id = :pf_league;
+select set_config('app.league_id', :pf_league::text, false);
+create temp table pf_roto as select team_id, rank from category_standings();
+select set_config('app.league_id', '', false);
+set role authenticated;
+select pg_temp.expect('the regular pot pays the category table', commish_post_payouts('regular') = 3);
+reset role;
+select pg_temp.expect('in its order', (select array_agg(team_id order by id) from ledger where league_id = :pf_league and kind = 'payout')
+  = (select array_agg(team_id order by rank, team_id) from pf_roto) and not exists (select 1 from ledger where league_id = :pf_league and kind = 'peter'));
+drop table pf_roto;
+delete from ledger where league_id = :pf_league;
+update league_rules set format = 'season', h2h_playoffs = 0, categories = null, features = '{}' where league_id = :pf_league;
+drop table pf_table; drop table pf_br;
+select set_config('request.jwt.claim.sub', '', false);
+select 'payouts follow the format', true;
+
+-- ───────────── head-to-head week alerts ─────────────
+reset role;
+select id as wn_league from leagues where slug = 'rink' \gset
+update league_rules set format = 'h2h', h2h_playoffs = 0, season_start = today_et(), season_end = today_et() + 60 where league_id = :wn_league;
+delete from matchups where league_id = :wn_league;
+select set_config('request.jwt.claim.sub', (select user_id::text from teams where league_id = :wn_league and is_commish), false);
+set role authenticated;
+select commish_make_schedule(0) as wn_weeks \gset
+reset role;
+-- week 1 starts today; pretend the week before it ended yesterday by moving week 2 back a fortnight
+update matchups set starts = today_et() - 7, ends = today_et() - 1 where league_id = :wn_league and week = 2;
+delete from notifications where kind = 'matchup';
+select set_config('app.league_id', :wn_league::text, false);
+select h2h_week_notes() as wn_sent \gset
+select pg_temp.expect('every GM hears this week''s opponent, or the week off', (select count(*) from notifications n join teams t on t.id = n.team_id
+  where t.league_id = :wn_league and n.kind = 'matchup' and (n.body like '%starts today: you vs%' or n.body like '%week off%')) = 3);
+select pg_temp.expect('the two who played last week hear how it went', (select count(*) from notifications n join teams t on t.id = n.team_id
+  where t.league_id = :wn_league and n.kind = 'matchup' and n.body ~ 'you (beat|lost to|tied)') = 2);
+select pg_temp.expect('once each: a second run says nothing new', h2h_week_notes() = 0);
+-- next season the circle pairs the same teams again: last year's identical line mustn't hold this one up
+update notifications set created_at = now() - interval '200 days' where kind = 'matchup';
+select pg_temp.expect('the same line a season later goes out again', h2h_week_notes() >= 3);
+select set_config('app.league_id', '1', false);
+select pg_temp.expect('a season-total league hears nothing', h2h_week_notes() = 0);
+select set_config('app.league_id', '', false);
+select pg_temp.expect('the morning job knows it', (run_league_jobs('h2h-notes')) is not null);
+delete from notifications where kind = 'matchup';
+delete from matchups where league_id = :wn_league;
+update league_rules set format = 'season' where league_id = :wn_league;
+select set_config('request.jwt.claim.sub', '', false);
+select 'head-to-head week alerts', true;
+
+-- ───────────── head-to-head win chances in the prediction log ─────────────
+reset role;
+insert into matchups (league_id, week, starts, ends, home_team, away_team) values (1, 97, today_et() - 30, today_et() - 3, 2, 5) returning id as hw_id \gset
+select case when a_score > b_score then 1 when a_score < b_score then 0 else 0.5 end as hw_want from _h2h_result(2, 5, today_et() - 30, today_et() - 3) \gset
+insert into predictions (league_id, kind, subject, predicted, basis, resolves_on) values
+  (1, 'h2h_win', jsonb_build_object('matchup_id', :hw_id, 'date', today_et() - 10), 0.6, 'forecast', today_et() - 3),
+  (1, 'h2h_win', jsonb_build_object('matchup_id', -1, 'date', today_et() - 10), 0.5, 'forecast', today_et() - 3),
+  (1, 'h2h_win', jsonb_build_object('matchup_id', :hw_id, 'date', today_et() + 2), 0.5, 'forecast', today_et() + 3);
+select set_config('app.league_id', '1', false);
+select score_predictions() >= 2 as hw_scored \gset
+select set_config('app.league_id', '', false);
+select pg_temp.expect('a finished week scores the home side''s result against its chance', (select outcome = :hw_want and error = :hw_want - 0.6 and status = 'scored'
+  from predictions where kind = 'h2h_win' and subject->>'matchup_id' = :'hw_id' and resolves_on = today_et() - 3));
+select pg_temp.expect('a matchup that''s gone voids its call', (select status = 'void' from predictions where kind = 'h2h_win' and subject->>'matchup_id' = '-1'));
+select pg_temp.expect('a week still on waits', (select status = 'open' from predictions where kind = 'h2h_win' and resolves_on = today_et() + 3));
+delete from predictions where kind = 'h2h_win';
+delete from matchups where id = :hw_id;
+select 'head-to-head win chances in the prediction log', true;
+
+-- ───────────── the pickup advisor's suggestions in the prediction log ─────────────
+reset role;
+select (array_agg(r.player_id order by r.player_id))[1] as pk_add, (array_agg(r.player_id order by r.player_id))[2] as pk_drop,
+  (array_agg(r.player_id order by r.player_id))[3] as pk_add2
+from rosters r join players p on p.id = r.player_id where r.team_id = 3 and p.pos <> 'G' \gset
+select p.id as pk_free from players p where not exists (select 1 from rosters r where r.player_id = p.id) and p.pos <> 'G' order by p.id limit 1 \gset
+-- the move itself, as add_player writes it
+insert into transactions (league_id, season, type, team_id, player_id) values
+  (1, '2026-27', 'drop', 3, :pk_drop), (1, '2026-27', 'add', 3, :pk_add);
+-- a second pickup a moment later, with no drop (its own transaction: another moment)
+insert into transactions (league_id, season, type, team_id, player_id, created_at) values (1, '2026-27', 'add', 3, :pk_add2, now() + interval '1 second');
+select pg_temp.as_team(3);
+set role authenticated;
+select pg_temp.expect('a GM logs the pickup they just made', log_pickup_call(:pk_add, :pk_drop, 6.5, today_et() + 14));
+select pg_temp.expect('not one that isn''t on their roster', not log_pickup_call(:pk_free, null, 3, today_et() + 14));
+select pg_temp.expect('not a rostered player they didn''t just add', not log_pickup_call(:pk_drop, null, 3, today_et() + 14));
+select pg_temp.expect('not a drop they didn''t make', not log_pickup_call(:pk_add, :pk_free, 3, today_et() + 14));
+select pg_temp.expect('not without the drop made with it', not log_pickup_call(:pk_add, null, 3, today_et() + 14));
+select pg_temp.expect('not with a drop where there was none', not log_pickup_call(:pk_add2, :pk_drop, 3, today_et() + 14));
+select pg_temp.expect('the same pickup again is quietly the same call', log_pickup_call(:pk_add, :pk_drop, 9, today_et() + 14));
+select pg_temp.expect('a promise held to what a stretch can hold', log_pickup_call(:pk_add2, null, 100000, today_et() + 1));
+reset role;
+select pg_temp.expect('the call is theirs, once', (select count(*) from predictions where kind = 'pickup' and subject->>'team_id' = '3' and subject->>'add' = :'pk_add') = 1
+  and (select predicted = 6.5 and (subject->>'drop')::int = :pk_drop from predictions where kind = 'pickup' and subject->>'add' = :'pk_add'));
+select pg_temp.expect('the cap is 30 a night', (select predicted from predictions where kind = 'pickup' and subject->>'drop' is null) = 60);
+delete from transactions where team_id = 3 and type in ('add', 'drop') and created_at > now() - interval '1 minute';
+delete from transactions where team_id = 3 and player_id = :pk_add2 and type = 'add';
+delete from predictions where kind = 'pickup';
+-- scored on what the new player scored while started, less what the dropped one scored
+insert into games (id, date, start_utc, home, away, state, final_synced) values
+  (7901, today_et() - 120, now() - interval '120 days', 'TOR', 'MTL', 'OFF', true),
+  (7902, today_et() - 119, now() - interval '119 days', 'TOR', 'MTL', 'OFF', true);
+insert into player_games (game_id, player_id, date, stats) values
+  (7901, :pk_add, today_et() - 120, '{"g":2,"a":1,"sog":5}'), (7902, :pk_add, today_et() - 119, '{"g":1,"a":0,"sog":3}'),
+  (7901, :pk_drop, today_et() - 120, '{"g":0,"a":1,"sog":2}');
+insert into lineup_snapshots (game_id, date, team_id, player_id, slot) values
+  (7901, today_et() - 120, 3, :pk_add, 'C'), (7902, today_et() - 119, 3, :pk_add, 'BN');
+-- made the afternoon of the first game's day: that night's game counts
+insert into predictions (league_id, kind, subject, predicted, basis, resolves_on, made_at) values
+  (1, 'pickup', jsonb_build_object('team_id', 3, 'add', :pk_add, 'drop', :pk_drop, 'from', today_et() - 120), 4.0, 'advisor', today_et() - 119,
+   now() - interval '120 days 3 hours');
+select set_config('app.league_id', '1', false);
+select (select fpts from league_games where game_id = 7901 and player_id = :pk_add) - (select fpts from league_games where game_id = 7901 and player_id = :pk_drop) as pk_want \gset
+select score_predictions() >= 1 as pk_scored \gset
+select set_config('app.league_id', '', false);
+select pg_temp.expect('a pickup scores the new player''s started points less the dropped one''s', (select outcome = :pk_want and error = :pk_want - 4.0 and status = 'scored' from predictions where kind = 'pickup'));
+delete from predictions where kind = 'pickup';
+delete from lineup_snapshots where game_id in (7901, 7902);
+delete from player_games where game_id in (7901, 7902);
+delete from games where id in (7901, 7902);
+select set_config('request.jwt.claim.sub', '', false);
+select 'the pickup advisor''s suggestions in the prediction log', true;
+
+-- ───────────── a matchup, player by player ─────────────
+reset role;
+-- SaK's teams 2 and 5 started players earlier in this test: a matchup between them over those days
+insert into matchups (league_id, week, starts, ends, home_team, away_team) values (1, 99, today_et() - 30, today_et(), 2, 5) returning id as mp_id \gset
+select set_config('app.league_id', '1', false);
+create temp table mp as select * from h2h_matchup_players(:mp_id);
+select pg_temp.expect('both sides'' started players, nobody else', (select count(distinct team_id) from mp) = 2 and (select bool_and(team_id in (2, 5)) from mp));
+select pg_temp.expect('a side''s players add up to its week', abs((select coalesce(sum(pts), 0) from mp where team_id = 2)
+  - (select a_score from _h2h_result(2, 5, today_et() - 30, today_et()))) < 0.05
+  and abs((select coalesce(sum(pts), 0) from mp where team_id = 5) - (select b_score from _h2h_result(2, 5, today_et() - 30, today_et()))) < 0.05);
+drop table mp;
+select set_config('app.league_id', '', false);
+select pg_temp.as_team(9);
+select set_config('request.jwt.claim.sub', (select user_id::text from teams where league_id = (select id from leagues where slug = 'rink') and is_commish), false);
+set role authenticated;
+select pg_temp.expect('another league''s GM sees nothing of it', (select count(*) from h2h_matchup_players(:mp_id)) = 0);
+reset role;
+delete from matchups where id = :mp_id;
+select set_config('request.jwt.claim.sub', '', false);
+select 'a matchup, player by player', true;
+
+-- ───────────── head-to-head: upcoming weeks aren't counted, the seed breaks ties ─────────────
+reset role;
+select id as rf_league from leagues where slug = 'rink' \gset
+update league_rules set format = 'h2h', categories = array['g', 'a', 'w'], h2h_playoffs = 0, season_start = today_et() + 1, season_end = today_et() + 60 where league_id = :rf_league;
+delete from matchups where league_id = :rf_league;
+select set_config('request.jwt.claim.sub', (select user_id::text from teams where league_id = :rf_league and is_commish), false);
+set role authenticated;
+select commish_make_schedule(0) as rf_weeks \gset
+reset role;
+select set_config('app.league_id', :rf_league::text, false);
+select pg_temp.expect('a week not yet started is 0 to 0, nothing counted', (select bool_and(home_pts = 0 and (away_team is null or away_pts = 0) and cats is null) from h2h_scores() where status = 'upcoming'));
+select pg_temp.expect('level teams share a rank but never a seed', (select count(distinct rank) = 1 and count(distinct seed) = count(*) and min(seed) = 1 from h2h_standings()));
+select pg_temp.expect('the seed is the table''s order with team id last', (select array_agg(team_id order by seed) = array_agg(team_id order by rank, pf desc, team_id) from h2h_standings()));
+select set_config('app.league_id', '', false);
+delete from matchups where league_id = :rf_league;
+update league_rules set format = 'season', categories = null where league_id = :rf_league;
+select set_config('request.jwt.claim.sub', '', false);
+select 'head-to-head: upcoming weeks aren''t counted, the seed breaks ties', true;
+
+-- ───────────── category value for the draft ─────────────
+reset role;
+select id as cv_league from leagues where slug = 'rink' \gset
+select set_config('app.league_id', :cv_league::text, false);
+select pg_temp.expect('a points league has no category values', not exists (select 1 from category_values()));
+update league_rules set categories = array['g', 'hit', 'blk', 'w', 'gaa'] where league_id = :cv_league;
+create temp table cv as select * from category_values();
+select pg_temp.expect('a category league values its players on its categories', (select count(*) from cv) > 100
+  and (select bool_and(z ?| array['g', 'hit', 'blk', 'w', 'gaa']) from cv) and (select min(rank) from cv) = 1);
+select pg_temp.expect('skaters on skater categories, goalies on goalie ones', (select bool_and(not (z ? 'w')) from cv join players p on p.id = cv.player_id where p.pos <> 'G')
+  and (select bool_and(z ? 'gaa' and not (z ? 'hit')) from cv join players p on p.id = cv.player_id where p.pos = 'G'));
+-- the hitter: among skaters, more hits and blocks per game at the same goals is worth more here than in points
+select pg_temp.expect('a big hitter outranks his points', (select avg(cv.rank) from cv join players p on p.id = cv.player_id
+    where p.pos <> 'G' and (p.last_stats->>'hit')::numeric / greatest((p.last_stats->>'gp')::numeric, 1) > 2.5)
+  < (select avg(p.rank) from cv join players p on p.id = cv.player_id where p.pos <> 'G' and (p.last_stats->>'hit')::numeric / greatest((p.last_stats->>'gp')::numeric, 1) > 2.5));
+-- a player the model projects but who has no usable last season (a rookie, a star hurt all year) still has a value
+select id as cv_rookie, last_stats::text as cv_rookie_stats from players where proj_stats is not null and pos <> 'G' order by proj desc limit 1 \gset
+update players set last_stats = null where id = :cv_rookie;
+select pg_temp.expect('a projected player with no last season is valued', exists (select 1 from category_values() where player_id = :cv_rookie));
+update players set last_stats = :'cv_rookie_stats'::jsonb where id = :cv_rookie;
+select pg_temp.expect('the values come back best first', (select bool_and(r = rank) from (select rank, row_number() over () as r from category_values()) x where r = 1));
+select pg_temp.expect('fewer goals against per start is better', (select corr((p.last_stats->>'ga')::numeric / nullif((p.last_stats->>'gs')::numeric, 0), (cv.z->>'gaa')::numeric)
+  from cv join players p on p.id = cv.player_id where p.pos = 'G' and (p.last_stats->>'gs')::numeric >= 50) < 0);
+select id as cv_team from teams where league_id = :cv_league and role = 'gm' and not exists (select 1 from draft_queue q where q.team_id = teams.id) order by id limit 1 \gset
+select pg_temp.expect('the robot drafts by category value in a category league', _autopick_player(:cv_team) = (
+  select cv.player_id from cv join league_players p on p.id = cv.player_id
+  where p.pos in ('C', 'LW', 'RW', 'D', 'G') and coalesce(p.injury_status, '') !~* '^(out|ir\b|injured|suspen|long)'
+    and not exists (select 1 from rosters r where r.player_id = p.id and r.league_id = :cv_league)
+    and (select count(*) from rosters r join players x on x.id = r.player_id where r.team_id = :cv_team and x.pos = p.pos)
+        < case p.pos when 'D' then 6 when 'G' then 3 else 4 end
+  order by cv.value desc, p.proj desc, p.last_fp desc limit 1));
+drop table cv;
+update league_rules set categories = null where league_id = :cv_league;
+select set_config('app.league_id', '', false);
+select set_config('request.jwt.claim.sub', '', false);
+select 'category value for the draft', true;
+
+-- ───────────── how alive each league is ─────────────
+reset role;
+update teams set last_seen = now() - interval '2 days' where id = 1;
+select pg_temp.as_team(1);
+set role authenticated;
+select pg_temp.expect('the platform sees who used each league this week', (select active_7d >= 1 and last_seen is not null from platform_leagues() where league_id = 1)
+  and (select active_7d <= seats from platform_leagues() where league_id = 1));
+select pg_temp.expect('and how each league plays', (select format = 'season' and categories = 0 from platform_leagues() where league_id = 1));
+reset role;
+select set_config('request.jwt.claim.sub', '', false);
+select 'how alive each league is', true;
+
+-- ───────────── the watch list ─────────────
+reset role;
+select p.id as wl_p from players p where not exists (select 1 from rosters r where r.player_id = p.id) and p.pos <> 'G' order by p.id limit 1 \gset
+select p.id as wl_q from players p where not exists (select 1 from rosters r where r.player_id = p.id) and p.pos <> 'G' order by p.id offset 1 limit 1 \gset
+select pg_temp.as_team(3);
+set role authenticated;
+insert into watchlist (team_id, player_id) values (3, :wl_p), (3, :wl_q);
+select pg_temp.expect('a GM stars players, in their league', (select count(*) = 2 and bool_and(league_id = 1) from watchlist where team_id = 3));
+select pg_temp.raises('never for another team', format('insert into watchlist (team_id, player_id) values (2, %s)', :wl_q), 'row-level security');
+delete from watchlist where player_id = :wl_q;
+select pg_temp.expect('and unstars them', (select count(*) from watchlist) = 1);
+reset role;
+insert into watchlist (league_id, team_id, player_id) values (1, 2, :wl_p);
+select pg_temp.as_team(3);
+set role authenticated;
+select pg_temp.expect('a GM sees only their own list', (select count(*) from watchlist) = 1);
+reset role;
+select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-000000000099', false);
+set role authenticated;
+insert into watchlist (team_id, player_id) values (99, :wl_p);
+select pg_temp.expect('the north watches in its own league, seeing only its own',
+  (select count(*) from watchlist) = 1 and (select league_id from watchlist) = current_setting('t.league2')::int);
+reset role;
+-- team 2 drops him: team 3 hears, not team 2 (who dropped him) and not the north (another league)
+insert into transactions (league_id, season, type, team_id, player_id) values (1, '2026-27', 'drop', 2, :wl_p);
+select pg_temp.expect('a watcher hears he is free', (select count(*) from notifications where kind = 'watch' and team_id = 3 and league_id = 1 and link = '/player/' || :wl_p) = 1);
+select pg_temp.expect('not the team that dropped him, nor another league', not exists (select 1 from notifications where kind = 'watch' and team_id in (2, 99)));
+-- a pickup's add after the drop is another kind of line: no alert
+insert into transactions (league_id, season, type, team_id, player_id) values (1, '2026-27', 'add', 4, :wl_p);
+select pg_temp.expect('an add says nothing', (select count(*) from notifications where kind = 'watch') = 1);
+delete from notifications where kind = 'watch';
+delete from transactions where player_id = :wl_p and type in ('add', 'drop') and team_id in (2, 4);
+-- before the draft a drop goes back to the pool, not to free agency: nothing to tell
+select phase as wl_phase from league_rules where league_id = 1 \gset
+update league_rules set phase = 'predraft' where league_id = 1;
+insert into transactions (league_id, season, type, team_id, player_id) values (1, '2026-27', 'drop', 2, :wl_p);
+select pg_temp.expect('a drop before the draft says nothing', not exists (select 1 from notifications where kind = 'watch'));
+update league_rules set phase = :'wl_phase' where league_id = 1;
+delete from transactions where player_id = :wl_p and type = 'drop' and team_id = 2;
+-- a list holds 100
+delete from watchlist where team_id = 3;
+insert into watchlist (league_id, team_id, player_id) select 1, 3, id from players order by id limit 100;
+select pg_temp.raises('a full list takes no more', format('insert into watchlist (league_id, team_id, player_id) values (1, 3, %s)',
+  (select id from players order by id offset 100 limit 1)), 'watch list is full');
+select pg_temp.raises('a full list starring one it has is the usual duplicate, not "full"', format('insert into watchlist (league_id, team_id, player_id) values (1, 3, %s)',
+  (select id from players order by id limit 1)), 'duplicate key');
+delete from watchlist where team_id = 3;
+delete from watchlist where player_id = :wl_p;
+select set_config('request.jwt.claim.sub', '', false);
+select 'the watch list', true;
+
+-- ───────────── injury news for the watch list ─────────────
+reset role;
+select r.player_id as wi_own, r.team_id as wi_owner from rosters r join players p on p.id = r.player_id where r.league_id = 1 and p.injury_status is null order by r.player_id limit 1 \gset
+select p.id as wi_free from players p where not exists (select 1 from rosters r where r.player_id = p.id) and p.injury_status is null order by p.id limit 1 \gset
+insert into watchlist (league_id, team_id, player_id) values (1, 5, :wi_free), (1, 5, :wi_own), (1, :wi_owner, :wi_own);
+delete from notifications where kind = 'injury';
+update players set injury_status = 'Day-to-day', injury_note = 'lower body' where id in (:wi_free, :wi_own);
+select pg_temp.expect('a watcher hears about a free agent''s injury', (select count(*) from notifications where kind = 'injury' and team_id = 5 and body like '%' || (select name from players where id = :wi_free) || '%(on your watch list)') = 1);
+select pg_temp.expect('and about another team''s player', (select count(*) from notifications where kind = 'injury' and team_id = 5 and link = '/player/' || :wi_own) = 1);
+select pg_temp.expect('his owner hears it once, as before, even watching him', (select count(*) from notifications where kind = 'injury' and team_id = :wi_owner and link = '/player/' || :wi_own) = 1
+  and not exists (select 1 from notifications where kind = 'injury' and team_id = :wi_owner and body like '%watch list%'));
+update players set injury_status = null, injury_note = null where id in (:wi_free, :wi_own);
+delete from notifications where kind = 'injury';
+delete from watchlist where team_id in (5, :wi_owner);
+select 'injury news for the watch list', true;

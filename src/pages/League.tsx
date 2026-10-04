@@ -3,37 +3,51 @@ import { Navigate, useSearchParams } from 'react-router-dom';
 import { useLeague } from '../lib/store';
 import { rpc, supabase } from '../lib/supabase';
 import type { Proposal, Vote } from '../lib/types';
-import { fmtMoney, fmtPts, STAT_LABELS } from '../lib/format';
+import { fmtMoney, fmtPts, ordinal, STAT_LABELS } from '../lib/format';
 import { useHistory } from '../lib/history';
 import { bare, useBrand } from '../lib/brand';
 import { Section, Sheet, useAction, PageHeader } from '../components/ui';
 import { Landmark } from 'lucide-react';
 import { PromoVideo } from '../components/PromoVideo';
+import { commishAction } from '../lib/commishLog';
+import { hasFeature } from '../lib/features';
+import { Constitution } from '../components/Constitution';
+import { HistoryEditor } from '../components/HistoryEditor';
 
-type Tab = 'history' | 'rules' | 'money' | 'votes';   // money moved to its own page (/money)
+type Tab = 'history' | 'rules' | 'money' | 'votes' | 'log';   // money moved to its own page (/money)
 
 export default function LeaguePage() {
   const [params, setParams] = useSearchParams();
   const tab = (params.get('t') as Tab) ?? 'history';
+  const { league } = useLeague();
+  const brand = useBrand();
+  const { seasons, loaded } = useHistory();
   if (tab === 'money') return <Navigate to="/money" replace />;
+  // SaK's header and its season films are its own; every other league reads its name, its line and its count of seasons
+  const sak = league?.league_id === 1;
+  const nth = seasons.filter((x) => x.rows.length).length + 1;
+  const sub = [brand.tagline || null, loaded ? (nth === 1 ? 'First season' : `${ordinal(nth)} season`) : null].filter(Boolean).join(' · ');
   return (
     <div className="space-y-4">
-      <PageHeader icon={<Landmark size={22} className="text-gold" />} title="SAK Superleague" sub="She’s A Keeper · est. September 2013 · 13th season" />
-      {tab === 'history' && <PromoVideo />}
+      <PageHeader icon={<Landmark size={22} className="text-gold" />} title={sak ? 'SAK Superleague' : league?.name ?? brand.short}
+        sub={sak ? 'She’s A Keeper · est. September 2013 · 13th season' : sub || undefined} />
+      {tab === 'history' && sak && <PromoVideo />}
       <div className="scroll-x flex gap-1">
-        {([['history', '📜 History'], ['rules', '📘 Rules'], ['votes', '🗳️ Proposals']] as const).map(([k, l]) => (
+        {([['history', '📜 History'], ['rules', '📘 Rules'], ['votes', '🗳️ Proposals'], ['log', '🛡️ Commish log']] as const).map(([k, l]) => (
           <button key={k} className={`tab ${tab === k ? 'tab-on' : 'bg-white/[.05]'}`} onClick={() => setParams({ t: k })}>{l}</button>
         ))}
       </div>
+      {tab === 'history' && <HistoryEditor />}
       {tab === 'history' && <History />}
       {tab === 'rules' && <Rules />}
       {tab === 'votes' && <Votes />}
+      {tab === 'log' && <CommishLog />}
     </div>
   );
 }
 
 function History() {
-  const { seasons: SEASONS, allTime: at, baseCount, baseThrough, trophies: TROPHIES, timeline: TIMELINE } = useHistory();
+  const { seasons: SEASONS, allTime: at, baseCount, baseThrough, trophies: TROPHIES, timeline: TIMELINE, loaded } = useHistory();
   const brand = useBrand();
   const [open, setOpen] = useState<string | null>(null);
   useEffect(() => { if (SEASONS[0]) setOpen((o) => o ?? SEASONS[0].season); }, [SEASONS]);
@@ -51,8 +65,9 @@ function History() {
   // the seasons played since the official all-time table the league started from
   const since = SEASONS.filter((s) => baseThrough && s.season > baseThrough).map((s) => s.season).reverse().join(', ');
   // a colour per GM so each banner looks like it belongs to its franchise
-  const { teams } = useLeague();
+  const { teams, league } = useLeague();
   const gmColor = (gm: string) => teams.find((t) => t.gm_name === gm)?.color ?? '#4b5878';
+  if (loaded && !SEASONS.some((x) => x.rows.length) && !TIMELINE.length && !TROPHIES.length) return <YearOne />;
   return (
     <div className="space-y-5">
       {/* championship banners in the rafters */}
@@ -94,12 +109,12 @@ function History() {
         <Section title="🏆 Titles">
           <div className="card divide-y divide-white/[.06]">{champs.c.map(([gm, n]) => <div key={gm} className="flex items-center justify-between px-3 py-2 text-sm"><span className="flex items-center gap-2"><span className="h-2.5 w-2.5 rounded-full" style={{ background: gmColor(gm) }} />{gm}</span><span className="font-semibold">{'🏆'.repeat(n)}</span></div>)}</div>
         </Section>
-        <Section title="🪣 Peters">
+        <Section title={league?.league_id === 1 ? '🪣 Peters' : `🥄 ${bare(brand.booby)}`}>
           <div className="card divide-y divide-white/[.06]">{champs.p.map(([gm, n]) => <div key={gm} className="flex justify-between px-3 py-2 text-sm"><span>{gm}</span><span>{'🪣'.repeat(n)}</span></div>)}</div>
         </Section>
-        <Section title="💵 Career winnings">
+        {hasFeature(league, 'money') && <Section title="💵 Career winnings">
           <div className="card divide-y divide-white/[.06]">{champs.money.map(([gm, n]) => <div key={gm} className="flex justify-between px-3 py-2 text-sm"><span>{gm}</span><span className="font-semibold">{fmtMoney(n)}</span></div>)}</div>
-        </Section>
+        </Section>}
       </div>
 
       <Section title={`All-time points${SEASONS[0] ? ` (through ${SEASONS[0].season})` : ''}`}>
@@ -158,17 +173,9 @@ function History() {
 
 function Rules() {
   const { league } = useLeague();
-  const { rules: RULES } = useHistory();
   return (
     <div className="space-y-4">
-      <div className="grid gap-3 sm:grid-cols-2">
-        {RULES.map((r) => (
-          <div key={r.title} className="card p-4">
-            <h3 className="h-display text-lg">{r.title}</h3>
-            <ul className="mt-2 space-y-1.5 text-sm text-slate-300">{r.items.map((i) => <li key={i} className="flex gap-2"><span className="text-goal">•</span><span>{i}</span></li>)}</ul>
-          </div>
-        ))}
-      </div>
+      <Constitution />
       {league && (
         <Section title="Scoring">
           <div className="grid gap-3 sm:grid-cols-2">
@@ -253,6 +260,83 @@ function Votes() {
           <button className="btn-primary w-full" disabled={busy || !f.title.trim()} onClick={() => run(async () => { await rpc('create_proposal', { p_title: f.title, p_body: f.body }); setOpen(false); setF({ title: '', body: '' }); load(); }, 'Proposal posted')}>Submit</button>
         </div>
       </Sheet>
+    </div>
+  );
+}
+
+// a league with no past yet: what this page will hold, in the league's own words, instead of a row of empty headings
+function YearOne() {
+  const brand = useBrand();
+  const { teams, league } = useLeague();
+  const rows: [string, string, string][] = [
+    ['🏆', brand.trophy, 'Each champion goes up in the rafters here, banner by banner.'],
+    ['🥇', brand.regular, 'The regular-season winner, every year.'],
+    [brand.coin.emoji, `${brand.coin.name}`, 'Who won the most at the Book and in side bets.'],
+    ['🥄', brand.booby, 'Last place gets remembered too.'],
+  ];
+  return (
+    <div className="space-y-4">
+      <div className="card-hero p-5">
+        <div className="relative">
+          <div className="label text-white/60">Year one{league?.season ? ` · ${league.season}` : ''}</div>
+          <h2 className="h-display text-shine mt-1 text-3xl leading-none">The story starts now</h2>
+          <p className="mt-2 text-sm text-white/75">This is where {league?.name ?? 'the league'} keeps its history: champions, final tables, all-time points and the moments worth retelling. It fills in as you play, starting with this season.</p>
+          <div className="mt-4 flex -space-x-2">
+            {teams.slice(0, 12).map((t) => <span key={t.id} title={t.name} className="grid h-9 w-9 place-items-center rounded-full border-2 border-rink text-base" style={{ background: t.color }}>{t.emoji ?? '🏒'}</span>)}
+          </div>
+        </div>
+      </div>
+      <div className="grid gap-2 sm:grid-cols-2">
+        {rows.map(([e, n, d]) => (
+          <div key={n} className="card flex items-start gap-3 p-3">
+            <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-white/[.06] text-xl">{e}</span>
+            <span className="min-w-0"><span className="block font-semibold text-slate-100">{n}</span><span className="block text-xs text-mute">{d}</span></span>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+// Everything a commissioner did that changes the league, newest first: who, what and when. Every GM sees it.
+interface LogRow { id: number; team_id: number | null; action: string; at: string }
+function CommishLog() {
+  const { team } = useLeague();
+  const [rows, setRows] = useState<LogRow[] | null>(null);
+  useEffect(() => {
+    supabase.from('commish_log').select('id,team_id,action,at').order('at', { ascending: false }).limit(200)
+      .then(({ data }) => setRows((data ?? []) as LogRow[]));
+  }, []);
+  if (!rows) return <div className="card h-40 animate-pulse" />;
+  // grouped by day, the way a GM looks back ("what happened Tuesday?")
+  const days = new Map<string, LogRow[]>();
+  for (const r of rows) {
+    const d = new Date(r.at).toLocaleDateString(undefined, { weekday: 'long', month: 'short', day: 'numeric' });
+    days.set(d, [...(days.get(d) ?? []), r]);
+  }
+  return (
+    <div className="space-y-4">
+      <p className="px-1 text-xs text-mute">Every change a commissioner makes to the league, kept for everyone to see: settings, scoring, moved players and picks, coins, rulings on bets and the draft.</p>
+      {!rows.length && <div className="card p-5 text-center text-sm text-mute">Nothing yet. When a commissioner changes something, it shows up here.</div>}
+      {[...days].map(([d, list]) => (
+        <Section key={d} title={d}>
+          <div className="card divide-y divide-white/[.06]">
+            {list.map((r) => {
+              const t = r.team_id ? team(r.team_id) : undefined;
+              const a = commishAction(r.action);
+              return (
+                <div key={r.id} className="flex items-start gap-3 px-3 py-2.5">
+                  <span className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-white/[.06] text-lg">{a.emoji}</span>
+                  <div className="min-w-0 flex-1 text-sm">
+                    <span className="font-semibold text-slate-100">{t?.gm_name ?? 'A commissioner'}</span> <span className="text-slate-300">{a.text}</span>
+                    <div className="text-xs text-mute">{new Date(r.at).toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' })}</div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </Section>
+      ))}
     </div>
   );
 }

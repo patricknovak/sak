@@ -1,7 +1,8 @@
 import { Fragment, useEffect, useMemo, useState } from 'react';
 import { useSticky } from '../lib/sticky';
 import { Link, useNavigate, useParams } from 'react-router-dom';
-import { useLeague, useNow } from '../lib/store';
+import { useLeague, useNow, useSport } from '../lib/store';
+import { calledOff, hasStarted, isFinal, isLive } from '../lib/sport';
 import { rpc, supabase } from '../lib/supabase';
 import type { Player, Roster, Slot, Transaction } from '../lib/types';
 import { ago, etToday, fmtPts, fmtTime, ordinal } from '../lib/format';
@@ -23,6 +24,7 @@ const slotOk = (p: Player, s: Slot) =>
 export default function MyTeam() {
   const { id } = useParams();
   const { me, league, teams, team, rosters, players, standings, season, windows, games, gamesByTeam, gameStatus, refresh } = useLeague();
+  const sport = useSport();
   const now = useNow(15_000);
   const nav = useNavigate();
   const { busy, run } = useAction();
@@ -87,7 +89,7 @@ export default function MyTeam() {
 
   const locked = (p: Player) => {
     const g = gamesByTeam(p.nhl_team);
-    return !!g && !['PPD', 'CNCL'].includes(g.state) && (new Date(g.start_utc).getTime() <= now || ['LIVE', 'CRIT', 'OFF', 'FINAL'].includes(g.state));
+    return !!g && !calledOff(sport, g.state) && (new Date(g.start_utc).getTime() <= now || hasStarted(sport, g.state));
   };
 
   // lay out slot instances
@@ -141,7 +143,7 @@ export default function MyTeam() {
   const benchedWithGames = bench.filter((x) => gamesByTeam(x.p.nhl_team) && !locked(x.p));
   const emptyStarters = rows.filter((r) => !r.x).length;
   // who's actually on the ice tonight: starters whose club plays, out of the slots the league gives
-  const playsToday = (p: Player) => { const g = gamesByTeam(p.nhl_team); return !!g && !['PPD', 'CNCL'].includes(g.state); };
+  const playsToday = (p: Player) => { const g = gamesByTeam(p.nhl_team); return !!g && !calledOff(sport, g.state); };
   const starterSlots = rows.length;
   const playingStarters = rows.filter((r) => r.x && playsToday(r.x.p)).length;
   const gameDayStarters = roster.filter((x) => x.r.slot !== 'IR' && playsToday(x.p)).length;
@@ -151,7 +153,7 @@ export default function MyTeam() {
   const doubtful = rows.filter((r) => r.x && !locked(r.x.p) && ['backup', 'out', 'scratched', 'gtd'].includes(gameStatus(r.x.p.id)?.status ?? ''))
     .map((r) => ({ p: r.x!.p, s: gameStatus(r.x!.p.id)! }));
   // the next lineup lock: the earliest of my players' games today that hasn't started
-  const nextLock = roster.map((x) => gamesByTeam(x.p.nhl_team)).filter((g): g is NonNullable<typeof g> => !!g && new Date(g.start_utc).getTime() > now && !['PPD', 'CNCL'].includes(g.state))
+  const nextLock = roster.map((x) => gamesByTeam(x.p.nhl_team)).filter((g): g is NonNullable<typeof g> => !!g && new Date(g.start_utc).getTime() > now && !calledOff(sport, g.state))
     .sort((a, b) => a.start_utc.localeCompare(b.start_utc))[0];
 
   const Row = ({ slot, x }: { slot: Slot; x?: { r: Roster; p: Player } }) => {
@@ -160,9 +162,9 @@ export default function MyTeam() {
     const g = x ? gamesByTeam(x.p.nhl_team) : undefined;
     const tp = x ? today.get(x.p.id) : undefined;
     const lk = x && locked(x.p);
-    const playing = !!g && !['PPD', 'CNCL'].includes(g.state);
-    const live = !!g && ['LIVE', 'CRIT'].includes(g.state);
-    const done = !!g && ['OFF', 'FINAL'].includes(g.state);
+    const playing = !!g && !calledOff(sport, g.state);
+    const live = !!g && isLive(sport, g.state);
+    const done = !!g && isFinal(sport, g.state);
     const starter = slot !== 'BN' && slot !== 'IR';
     const parts = x ? statLine(x.p) : null;
     return (
@@ -229,9 +231,9 @@ export default function MyTeam() {
         <div className="pointer-events-none absolute -right-4 -top-6 select-none text-[120px] leading-none opacity-[.08]">{t.emoji}</div>
         <TeamBadge team={t} size={56} ring />
         <div className="relative min-w-0 flex-1">
-          <h1 className="h-display text-shine truncate text-[28px] leading-tight">{t.name}</h1>
+          <h1 className="h-display text-shine break-words text-[clamp(21px,7.4vw,28px)] leading-[1.05]">{t.name}</h1>
           <div className="text-xs text-white/70">GM {t.gm_name}{st && league?.phase === 'season' && <> · {ordinal(st.rank)} · {fmtPts(st.points)} pts · {pk ? pk.used : st.moves}/{pk?.allowed ?? league?.max_acquisitions} pickups</>}</div>
-          {t.motto && <div className="truncate text-xs italic text-white/60">“{t.motto}”</div>}
+          {t.motto && <div className="line-clamp-2 text-xs italic text-white/60">“{t.motto}”</div>}
         </div>
         <select aria-label="View team" className="relative w-full rounded-xl border border-white/15 bg-black/30 px-2 py-1.5 text-sm backdrop-blur sm:w-auto" value={teamId} onChange={(e) => nav(Number(e.target.value) === me?.id ? '/team' : `/team/${e.target.value}`)}>
           {teams.map((x) => <option key={x.id} value={x.id}>{x.id === me?.id ? '🏠 My team' : `${x.emoji} ${x.name}`}</option>)}
@@ -258,7 +260,7 @@ export default function MyTeam() {
             <button className="btn-ghost" onClick={() => setTools(true)}>⚙️ Tools</button>
           </div>
           <div className="text-xs text-mute">
-            🔒 Players lock at their puck drop{nextLock ? <>; next lock <span className="text-slate-200">{fmtTime(nextLock.start_utc)}</span> ({nextLock.away} @ {nextLock.home})</> : ''}. Auto-pilot <button className="font-semibold text-sky-300 hover:underline" onClick={() => setTools(true)}>{me?.auto_mode && me.auto_mode !== 'off' ? `on · ${{ proj: 'projection', form: 'hot hand', season: 'season avg', ros: 'rest of season' }[me.auto_basis ?? 'proj']}` : 'off'}</button>{roster.some((x) => x.r.pin) && <> · {roster.filter((x) => x.r.pin).length} pinned</>}{st?.bench ? <> · {fmtPts(st.bench)} benched this season</> : null}
+            🔒 Players lock at their {sport.words.start}{nextLock ? <>; next lock <span className="text-slate-200">{fmtTime(nextLock.start_utc)}</span> ({nextLock.away} @ {nextLock.home})</> : ''}. Auto-pilot <button className="font-semibold text-sky-300 hover:underline" onClick={() => setTools(true)}>{me?.auto_mode && me.auto_mode !== 'off' ? `on · ${{ proj: 'projection', form: 'hot hand', season: 'season avg', ros: 'rest of season' }[me.auto_basis ?? 'proj']}` : 'off'}</button>{roster.some((x) => x.r.pin) && <> · {roster.filter((x) => x.r.pin).length} pinned</>}{st?.bench ? <> · {fmtPts(st.bench)} benched this season</> : null}
           </div>
         </div>
       )}

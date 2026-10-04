@@ -5,7 +5,8 @@
 import { Fragment, useEffect, useMemo, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { BookTab, BookLeaders } from '../components/Book';
-import { useLeague, useNow } from '../lib/store';
+import { useLeague, useNow, useSport } from '../lib/store';
+import { calledOff, notStarted } from '../lib/sport';
 import { rpc, realtimeChannel, supabase, selectAll } from '../lib/supabase';
 import type { Bet, BetEntry, BetKind, BetProgress, BetStat, CoinBalance, CoinEntry, CoinRace, Player, Team } from '../lib/types';
 import { useBrand } from '../lib/brand';
@@ -63,6 +64,7 @@ function suggestLine(p: Player | undefined, stat: BetStat, start: string, end: s
 
 export default function Bets() {
   const { me, teams, team, players, rosters, standings, spectators, can, league, games, leagueDay } = useLeague();
+  const sport = useSport();
   const brand = useBrand();
   const L = (s: string) => s.replaceAll('{L}', brand.short);
   const seasonGames = useSeasonGames();
@@ -81,7 +83,7 @@ export default function Bets() {
   const [showAllSettled, setShowAllSettled] = useState(false);
   const [open, setOpen] = useState(false);
   const [joining, setJoining] = useState<Bet | null>(null);
-  const tonightStarted = games.some((g) => g.date === leagueDay && !['PPD', 'CNCL'].includes(g.state) && new Date(g.start_utc).getTime() <= now);
+  const tonightStarted = games.some((g) => g.date === leagueDay && !calledOff(sport, g.state) && new Date(g.start_utc).getTime() <= now);
   // a box-score bet whose first night has started can't be taken or joined (the server enforces it too)
   const underway = (b: Bet) => !!b.start_date && (b.start_date < leagueDay || (b.start_date === leagueDay && tonightStarted));
   const firstDay = tonightStarted ? shift(etToday(), 1) : etToday();
@@ -123,11 +125,11 @@ export default function Bets() {
     if (!seasonGames) return null;
     const today = etToday();
     const started = new Set<string>();
-    for (const g of games) if (g.date === today && !['FUT', 'PRE'].includes(g.state)) { started.add(`${today}|${g.home}`); started.add(`${today}|${g.away}`); }
+    for (const g of games) if (g.date === today && !notStarted(sport, g.state)) { started.add(`${today}|${g.home}`); started.add(`${today}|${g.away}`); }
     const byTeam = new Map<number, Player[]>();
     for (const r of rosters) if (r.slot !== 'IR') { const p = players.get(r.player_id); if (p) byTeam.set(r.team_id, [...(byTeam.get(r.team_id) ?? []), p]); }
     return { today, games: seasonGames, started, players, rosterOf: (t) => byTeam.get(t) ?? [], caps: (league?.roster ?? {}) as Record<string, number>, seasonStart: league?.season_start, seasonEnd: league?.season_end };
-  }, [seasonGames, games, rosters, players, league]);
+  }, [seasonGames, games, rosters, players, league, sport]);
   const chances = useMemo(() => {
     const out: Record<number, ReturnType<typeof betWinChance>> = {};
     if (!oddsCtx) return out;

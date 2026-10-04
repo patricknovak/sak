@@ -7,6 +7,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { Mic, PhoneOff, Video, ExternalLink } from 'lucide-react';
 import { useLeague } from '../lib/store';
+import { useBrand } from '../lib/brand';
 
 declare global { interface Window { JitsiMeetExternalAPI?: new (domain: string, opts: Record<string, unknown>) => { dispose: () => void; executeCommand: (c: string, ...a: unknown[]) => void } } }
 
@@ -29,6 +30,7 @@ const loadJitsi = () => scriptLoading ??= new Promise<void>((res, rej) => {
 
 export function DraftCall({ tall }: { tall?: boolean }) {
   const { me, league } = useLeague();
+  const brand = useBrand();
   const link = callLink(league?.info);
   const room = jitsiRoom(league?.info, league?.season, league?.league_id);
   const [joined, setJoined] = useState(false);
@@ -45,7 +47,7 @@ export function DraftCall({ tall }: { tall?: boolean }) {
       api.current = new window.JitsiMeetExternalAPI('meet.jit.si', {
         roomName: room, parentNode: box.current, width: '100%', height: '100%',
         userInfo: { displayName: me?.gm_name ?? 'GM' },
-        configOverwrite: { startWithVideoMuted: true, startWithAudioMuted: false, prejoinConfig: { enabled: false }, disableDeepLinking: true, subject: 'SaK draft night', toolbarButtons: ['microphone', 'camera', 'hangup', 'tileview', 'settings', 'fullscreen', 'participants-pane'] },
+        configOverwrite: { startWithVideoMuted: true, startWithAudioMuted: false, prejoinConfig: { enabled: false }, disableDeepLinking: true, subject: `${brand.short} draft night`, toolbarButtons: ['microphone', 'camera', 'hangup', 'tileview', 'settings', 'fullscreen', 'participants-pane'] },
         interfaceConfigOverwrite: { MOBILE_APP_PROMO: false, SHOW_JITSI_WATERMARK: false, SHOW_CHROME_EXTENSION_BANNER: false },
       });
     }).catch((e: Error) => setErr(e.message));
@@ -64,13 +66,14 @@ export function DraftCall({ tall }: { tall?: boolean }) {
   return (
     <div className={`card overflow-hidden ${tall && joined ? 'flex min-h-[320px] flex-1 flex-col' : ''}`}>
       {!joined ? (
-        <div className="flex items-center gap-3 p-3">
+        // the words get the card's width; the buttons sit beside them on a wide screen and under them on a phone
+        <div className="flex flex-wrap items-center gap-3 p-3">
           <div className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-emerald-500/15 text-emerald-300"><Video size={20} /></div>
-          <div className="min-w-0 flex-1 text-sm">
+          <div className="min-w-0 flex-1 basis-56 text-sm">
             <div className="font-semibold">Draft night voice & video</div>
-            <div className="text-xs text-mute">Built-in room, no app needed. Camera starts off, mic on.{me?.is_commish ? ' You open the room: tap “Host the room”, choose “I am the host” and sign in with Google. After that everyone just joins.' : ' The commish opens the room first; if you see “waiting for a moderator”, hang tight, it starts the moment he signs in.'}</div>
+            <div className="text-xs text-mute">Built-in room, no app needed. Camera starts off, mic on.{me?.is_commish ? ' You open the room: tap “Host the room”, choose “I am the host” and sign in with Google. After that everyone just joins.' : ' The commish opens the room first; if you see “waiting for a moderator”, hang tight, it starts the moment they sign in.'}</div>
           </div>
-          <div className="flex shrink-0 flex-col gap-1">
+          <div className="flex w-full flex-wrap gap-1.5 sm:w-auto sm:flex-col sm:gap-1 [&>*]:flex-1 sm:[&>*]:flex-none">
             {me?.is_commish && <a href={jitsiUrl} target="_blank" rel="noopener noreferrer" className="btn-gold btn-sm"><Mic size={14} /> Host the room <ExternalLink size={11} className="opacity-60" /></a>}
             <button className={`${me?.is_commish ? 'btn-ghost' : 'btn-primary'} btn-sm`} onClick={() => { setErr(null); setJoined(true); }}><Mic size={14} /> Join here</button>
             {!me?.is_commish && <a href={jitsiUrl} target="_blank" rel="noopener noreferrer" className="btn-ghost btn-sm text-xs">New tab <ExternalLink size={11} /></a>}

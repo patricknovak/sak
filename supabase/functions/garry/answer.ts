@@ -3,6 +3,8 @@
 // deno-lint-ignore-file no-explicit-any
 import type { SupabaseClient } from 'jsr:@supabase/supabase-js@2';
 import { etDate } from '../_shared/nhl.ts';
+import { forecastFromTonight, forecastTeam, winChance, type FPlayer } from '../_shared/forecast.ts';
+import { gamesOf, rosPerGame } from '../_shared/lineup.ts';
 
 // the league-scoped reads from index.ts, plus the league's names for the wording
 type Db = {
@@ -32,17 +34,35 @@ const CLOSE = [
   'That’s free advice, which is exactly what your last trade offer was worth.', 'Now stop bugging me and set your lineup.',
 ];
 
-const help = (db: Db): Record<string, string> => ({
+// the season before this one ("2026-27" -> "2025-26"), for the keeper help
+const prevSeason = (s: string) => { const y = Number(String(s).slice(0, 4)); return y ? `${y - 1}-${String(y).slice(2)}` : 'last season’s'; };
+
+// the how-to answers, in the league's own rules (SaK's read exactly as they always did)
+const help = (db: Db, league: any): Record<string, string> => ({
   lineup: 'Lineup tab (bottom menu): tap a player, then tap the slot he should go to. Players lock when their game starts. Or open ⚙️ Lineup tools: “Optimize today” sets the best lineup in one tap, and Auto-pilot (Day / Week / Season) does it for you every morning. Pin anyone you always want in (📌) or never want in (🚫). 👉 #/team',
   trade: 'Tap any team name to open their page, switch to “Scout & trade”, tick the players or picks you want, then Build trade and add what you’re sending. Picks for this draft and next year’s are tradable. The commish approves accepted deals. 👉 #/trades',
-  pickup: 'Players tab → “Available”, tap a player → ➕ Add (you’ll pick who to drop if you’re full). You get 10 free pickups for the season and playoffs, +3 more when the playoffs start. No paying for extras: trade another GM for their spares. 👉 #/players',
-  keeper: 'More → Keepers: tick up to 6 from your 2025-26 roster and hit Save before the deadline. Your 2025-26 top scorer can’t be kept. Miss the deadline and the site keeps your top 6 by points for you. 👉 #/keepers',
+  pickup: `Players tab → “Available”, tap a player → ➕ Add (you’ll pick who to drop if you’re full). You get ${league?.max_acquisitions ?? 10} free pickups for the season and playoffs${Number(league?.playoff_bonus_acq) ? `, +${league.playoff_bonus_acq} more when the playoffs start` : ''}. ${Number(league?.extra_acq_fee) && league?.features?.money !== false ? `Extras cost ${money(Number(league.extra_acq_fee))} each.` : 'No paying for extras: trade another GM for their spares.'} 👉 #/players`,
+  keeper: Number(league?.keepers ?? 6) > 0
+    ? `More → Keepers: tick up to ${league?.keepers ?? 6} from your ${prevSeason(league?.season ?? '')} roster and hit Save before the deadline. ${league?.top_scorer_rule !== false ? `Your ${prevSeason(league?.season ?? '')} top scorer can’t be kept. ` : ''}Miss the deadline and the site keeps your top ${league?.keepers ?? 6} by points for you. 👉 #/keepers`
+    : 'This league has no keepers: every player goes back into the draft each season. 👉 #/draft',
   draft: 'The Draft tab is the draft room: star players to build your queue, flip on Autodraft if you’ll be away, and practise first in the mock draft. Turn on phone alerts so you get buzzed when you’re on the clock. 👉 #/draft',
-  bet: `Side Bets (More menu) → New bet: pick an opponent (or leave it open), terms, and ${db.brand.coin.name} and/or real money. Head-to-head bets track your fantasy points automatically. 👉 #/bets`,
+  bet: `Side Bets (More menu) → New bet: pick an opponent (or leave it open), terms, and ${db.brand.coin.name}${league?.features && league.features.money !== true ? '' : ' and/or real money'}. Head-to-head bets track your fantasy points automatically. 👉 #/bets`,
   alerts: `My Profile → Alerts → Turn on alerts. On iPhone add ${db.league.short_name} to your Home Screen first (Share → Add to Home Screen), open it from there, then turn alerts on. 👉 #/profile`,
   player: 'Tap any player anywhere for his full page: stats, where his points come from, game log, career, news and upcoming games. 👉 #/players',
   features: 'More → League Features lists everything the site does. Comment on any of it, suggest new features, and upvote the ideas you want most; the commish marks them planned, building or shipped. 👉 #/features?t=ideas',
   chat: `Trash Talk is the main room, each GM has a DM, and “Ask ${db.brand.bot.name}” is your private line to me. Say my name anywhere and I’ll show up.`,
+  // how the league is won: its format (migrations 117, 118, 120, 121)
+  format: (() => {
+    const cats: string[] = league?.categories ?? [];
+    const catList = cats.map((c) => c.toUpperCase()).join(', ');
+    const spots = Number(league?.h2h_playoffs ?? 0);
+    const playoffs = spots >= 2 ? ` The top ${spots} make a playoff bracket over the season’s last weeks, one week a round; a tie goes to the higher seed.` : '';
+    if (league?.format === 'h2h') return cats.length
+      ? `Head-to-head categories: one opponent a week (Monday to Sunday). Your starters’ totals go up against theirs in ${cats.length} categories (${catList}); win more of them to win the week. The table is wins, losses and ties.${playoffs} 👉 #/standings`
+      : `Head-to-head: one opponent a week (Monday to Sunday), and whoever’s starters score more fantasy points wins the week. The table is wins, losses and ties, points for breaks ties.${playoffs} 👉 #/standings`;
+    if (cats.length) return `Rotisserie in ${cats.length} categories (${catList}): every team is ranked in each one on its starters’ season totals. First in a category earns as many points as there are teams, last earns one; the most roto points wins. 👉 #/standings`;
+    return `One season-long total: every fantasy point your starters score from opening night counts, the bench and IR never do, and the most points wins. 👉 #/standings`;
+  })(),
 });
 
 async function base(db: Db) {
@@ -78,10 +98,55 @@ async function findPlayers(db: Db, q: string) {
 }
 
 // plain: just the facts and the link, no greeting or sign-off (the chat engine writes its own words around them)
+// a head-to-head points matchup's chance for one side, as the site's matchup card shows it (_shared/forecast.ts): the
+// points on the board plus the rest of the week played out with each roster; null when nothing can be worked out
+async function matchupChance(db: Db, league: any, m: any, side: number): Promise<number | null> {
+  if (m.away_team == null || m.status === 'final' || league.categories?.length) return null;
+  const today = String((await db.rpc('today_et')).data ?? etDate(new Date()));
+  const teamsIn = [m.home_team, m.away_team];
+  const { data: rows } = await db.from('rosters').select('team_id,player_id,slot').in('team_id', teamsIn).neq('slot', 'IR');
+  const ids = [...new Set(((rows ?? []) as any[]).map((r) => r.player_id))];
+  if (!ids.length) return null;
+  const [{ data: ps }, { data: ss }, { data: gs }] = await Promise.all([
+    db.from('players').select('id,pos,elig,proj,proj_gp,nhl_team,injury_status').in('id', ids),
+    db.from('player_season').select('player_id,gp,fpts').in('player_id', ids),
+    db.from('games').select('id,date,home,away,state').gte('date', m.status === 'upcoming' ? m.starts : today).lte('date', m.ends),
+  ]);
+  const season = new Map(((ss ?? []) as any[]).map((x) => [x.player_id, x]));
+  const players = new Map(((ps ?? []) as any[]).map((p) => {
+    const s = season.get(p.id), pg = p.proj_gp == null ? null : Number(p.proj_gp);
+    return [p.id, { ...p, proj_gp: pg, proj: rosPerGame(Number(p.proj), p.pos, Number(s?.gp ?? 0), Number(s?.fpts ?? 0), pg) * gamesOf({ pos: p.pos, proj_gp: pg }) } as FPlayer];
+  }));
+  // tonight's games already on are in the points; only the ones to come are forecast, in the slots still open
+  const begun = new Set(((gs ?? []) as any[]).filter((g) => g.date === today && !['FUT', 'PRE', 'PPD', 'CNCL'].includes(g.state)).map((g) => g.id));
+  const ahead = ((gs ?? []) as any[]).filter((g) => !begun.has(g.id));
+  const from = m.status === 'upcoming' ? m.starts : today;
+  const caps = (league.roster ?? {}) as Record<string, number>;
+  const rest = (t: number) => {
+    const mine = ((rows ?? []) as any[]).filter((r) => r.team_id === t);
+    const roster = mine.map((r) => players.get(r.player_id)).filter((p): p is FPlayer => !!p);
+    if (from !== today || !begun.size) return forecastTeam(t, roster, ahead, caps, from, 0, m.ends).ros;
+    const held: Record<string, number> = {};
+    for (const r of mine) {
+      if (r.slot === 'BN') continue;
+      const club = players.get(r.player_id)?.nhl_team;
+      const g = club ? ((gs ?? []) as any[]).find((y) => y.date === today && (y.home === club || y.away === club)) : undefined;
+      if (g && begun.has(g.id)) held[r.slot] = (held[r.slot] ?? 0) + 1;
+    }
+    return forecastFromTonight(t, roster, ahead, caps, today, m.ends, held);
+  };
+  const hr = rest(m.home_team), ar = rest(m.away_team);
+  // a week whose games aren't in the schedule yet has nothing to go on (the site shows no chance either)
+  if (m.status === 'upcoming' && hr + ar <= 0) return null;
+  const now = (v: unknown) => (m.status === 'upcoming' ? 0 : Number(v ?? 0));
+  const home = winChance(now(m.home_pts), hr, now(m.away_pts), ar);
+  return side === m.home_team ? home : 1 - home;
+}
+
 export async function answer(db: Db, question: string, askerTeam: number, opts: { plain?: boolean } = {}): Promise<Answer> {
-  const HELP = help(db);
   const q = norm(question.replace(new RegExp(`@?${db.brand.bot.name}[,:!]?`, 'ig'), ' ')).trim();
   const { league, teams, standings, playoffs } = await base(db);
+  const HELP = help(db, league);
   const byId = new Map(teams.map((t) => [t.id, t]));
   const me = byId.get(askerTeam);
   const gm = me ? '@' + me.gm_name : 'bud';
@@ -115,7 +180,7 @@ export async function answer(db: Db, question: string, askerTeam: number, opts: 
       const s = (season ?? []).find((r: any) => r.player_id === p.id);
       const next = (games ?? []).find((g: any) => g.home === p.nhl_team || g.away === p.nhl_team);
       const owner = o ? (o.team_id === askerTeam ? `yours (${o.slot})` : `owned by ${byId.get(o.team_id)?.name} (${byId.get(o.team_id)?.gm_name})`) : 'a free agent, so go grab him';
-      const form = s && s.gp ? ` ${f1(s.fpts)} SaK pts in ${s.gp} games this season${s.gp14 ? `, ${f1(s.fpts14)} over his last ${s.gp14}` : ''}.` : ` ${f1(p.last_fp)} SaK pts last season, projected ${Math.round(p.proj)} (#${p.rank ?? '–'} overall).`;
+      const form = s && s.gp ? ` ${f1(s.fpts)} ${db.league.short_name} pts in ${s.gp} games this season${s.gp14 ? `, ${f1(s.fpts14)} over his last ${s.gp14}` : ''}.` : ` ${f1(p.last_fp)} ${db.league.short_name} pts last season, projected ${Math.round(p.proj)} (#${p.rank ?? '–'} overall).`;
       const note = p.injury_note ? (p.injury_note.length > 110 ? p.injury_note.slice(0, 110).replace(/\s+\S*$/, '') + '…' : p.injury_note) : '';
       const inj = p.injury_status ? ` Heads up: listed ${p.injury_status}${note ? ` (${note})` : ''}.` : '';
       const nxt = next ? ` Next up: ${next.home === p.nhl_team ? 'vs ' + next.away : '@ ' + next.home} on ${next.date}.` : '';
@@ -134,11 +199,75 @@ export async function answer(db: Db, question: string, askerTeam: number, opts: 
     [/\b(bets?|betting|wagers?|coins?|st\.? patrick)\b/, 'bet'],
     [/\b(alerts?|notifications?|notify|push|buzz)\b/, 'alerts'],
     [/\b(features?|suggest\w*|ideas?|wish ?list|request)\b/, 'features'],
+    // how the league is won; "categories" means the format only in a league that plays them (elsewhere it's the scoring),
+    // and a GM asking about "my matchup" wants the score, which the standings answer gives
+    [league?.categories?.length
+      ? /\b(format|head.to.head|h2h|rotisserie|roto|categor(y|ies)|bracket|how (do|does) (we|you|i|the league) win)\b/
+      : /\b(format|head.to.head|h2h|rotisserie|roto|bracket|how (do|does) (we|you|i|the league) win)\b/, 'format'],
   ];
   const topic = topics.find(([re]) => re.test(q))?.[1];
 
   // ── standings
-  if (has(/\b(standing|standings|leader|leading|winning|first place|last place|in first|in last|peter|rank|table|who.?s up|points race|where am i)\b/)) {
+  // a question about a bet ("am I winning my bet?") is the Book's, not the table's
+  if ((has(/\b(standing|standings|leader|leading|winning|first place|last place|in first|in last|peter|rank|table|who.?s up|points race|where am i)\b/)
+      || (league.format === 'h2h' && has(/\b(my matchup|matchup|this week|who am i (playing|against)|my opponent|my (chances|odds)|chance to win|will i win|am i winning)\b/) && !howTo))
+      && !has(/\b(bets?|wagers?)\b/)) {
+    const ord = (n: number) => `${n}${['st', 'nd', 'rd'][n - 1] ?? 'th'}`;
+    // a head-to-head league is ranked by wins, and a GM wants this week's matchup too
+    if (league.format === 'h2h') {
+      const [{ data: rows }, { data: games }] = await Promise.all([db.rpc('h2h_standings'), db.rpc('h2h_scores')]);
+      const tbl = [...((rows ?? []) as any[])].sort((a, b) => (a.seed ?? a.rank) - (b.seed ?? b.rank));
+      const ms = (games ?? []) as any[];
+      const week = ms.find((m) => m.status === 'live')?.week ?? ms.find((m) => m.status === 'upcoming')?.week;
+      const m = ms.find((x) => x.week === week && (x.home_team === askerTeam || x.away_team === askerTeam));
+      const top3 = tbl.slice(0, 3).map((t) => `${t.rank}. ${byId.get(t.team_id)?.gm_name} ${t.w}-${t.l}-${t.t}`).join(', ');
+      const mine = tbl.find((t) => t.team_id === askerTeam);
+      const opp = m ? (m.home_team === askerTeam ? m.away_team : m.home_team) : null;
+      // a category league (migration 121) scores a week in categories won
+      const cats = !!league.categories?.length;
+      const sc = (v: any) => (cats ? String(Math.round(Number(v ?? 0))) : f1(v));
+      const unit = cats ? ' categories' : '';
+      const chance = m && opp ? await matchupChance(db, league, m, askerTeam).catch(() => null) : null;
+      const pctTxt = chance == null ? '' : ` Your chance to win it: ${chance > 0 && chance < 1 ? Math.min(99, Math.max(1, Math.round(chance * 100))) : Math.round(chance * 100)}%.`;
+      const vs = m && opp ? ` This week (${m.status === 'live' ? 'live' : 'starts ' + m.starts}): you ${sc(m.home_team === askerTeam ? m.home_pts : m.away_pts)}${unit}, ${byId.get(opp)?.gm_name} ${sc(m.home_team === askerTeam ? m.away_pts : m.home_pts)}.${pctTxt}` : m ? ' You have the week off.' : '';
+      // the playoffs (migration 120): the asker's latest playoff game once they're on, else where the line sits
+      const spots = Number(league.h2h_playoffs ?? 0);
+      let po = '';
+      if (spots >= 2) {
+        const { data: br } = await db.rpc('h2h_bracket');
+        const bracket = (br ?? []) as any[];
+        const rounds = Math.max(0, ...bracket.map((g) => g.round));
+        const name = (r: number) => ['final', 'semifinal', 'quarterfinal'][rounds - r] ?? `round ${r}`;
+        if (bracket[0]?.seeded) {
+          const final = bracket.find((g) => g.round === rounds);
+          const g = bracket.filter((x) => x.high_team === askerTeam || x.low_team === askerTeam).pop();
+          const other = g && (g.high_team === askerTeam ? g.low_team : g.high_team);
+          const pts = (id: number) => sc(id === g.high_team ? g.high_pts : g.low_pts);
+          if (final?.status === 'final') po = ` ${byId.get(final.winner)?.gm_name} won the final${final.winner === askerTeam ? ': that’s you, champ' : ''}.`;
+          else if (!g) po = ' You missed the playoffs; enjoy the view.';
+          else if (g.status === 'bye') po = ` You had a bye through the ${name(g.round)}.`;
+          else if (g.status === 'final' && g.winner !== askerTeam) po = ` Your playoffs ended in the ${name(g.round)}: ${byId.get(other)?.gm_name} ${pts(other)}, you ${pts(askerTeam)}.`;
+          else if (g.status === 'final') po = ` You won your ${name(g.round)}, ${pts(askerTeam)} to ${pts(other)}; next round to come.`;
+          else {
+            const live = g.status === 'live';
+            const who = !other ? 'opponent to be decided' : live ? `you ${pts(askerTeam)}, ${byId.get(other)?.gm_name} ${pts(other)}` : `you vs ${byId.get(other)?.gm_name}`;
+            po = ` Playoffs, ${name(g.round)} (${live ? 'live' : 'starts ' + g.starts}): ${who}.`;
+          }
+        } else if (mine) {
+          po = (mine.seed ?? mine.rank) <= spots ? ` The top ${spots} make the playoffs: you’re in if it ended today.` : ` The top ${spots} make the playoffs: you’re outside the line right now.`;
+        }
+      }
+      return reply('standings', `${tbl.length && tbl.some((t) => t.w + t.l + t.t > 0) ? `Head-to-head: ${top3}.` : 'No week finished yet, so everyone’s 0-0-0.'}${mine ? ` You’re ${ord(mine.rank)} at ${mine.w}-${mine.l}-${mine.t}.` : ''}${vs}${po} 👉 #/standings`, { top3, mine, matchup: m, win_chance: chance });
+    }
+    // a rotisserie league is ranked by category points
+    if (league.categories?.length) {
+      const { data: rows } = await db.rpc('category_standings');
+      const tbl = [...((rows ?? []) as any[])].sort((a, b) => a.rank - b.rank);
+      const top3 = tbl.slice(0, 3).map((t) => `${t.rank}. ${byId.get(t.team_id)?.gm_name} ${f1(t.total)}`).join(', ');
+      const mine = tbl.find((t) => t.team_id === askerTeam);
+      const weak = mine ? Object.entries(mine.cats as Record<string, { pts: number }>).sort((a, b) => a[1].pts - b[1].pts)[0] : null;
+      return reply('standings', `Rotisserie: ${top3}.${mine ? ` You’re ${ord(mine.rank)} with ${f1(mine.total)} roto points${weak ? `; your weakest category is ${weak[0].toUpperCase()}` : ''}.` : ''} 👉 #/standings`, { top3, mine });
+    }
     if (!scored) {
       const last = [...table].pop();
       return reply('standings', `Nobody’s scored yet: the season starts ${league.season_start ?? 'soon'}. Everyone’s tied at zero, which is the best some of you will ever look. 👉 #/standings`, { last });
@@ -244,10 +373,14 @@ export async function answer(db: Db, question: string, askerTeam: number, opts: 
 
   // ── money
   if (has(/\b(money|prize|pot|payout|paid|pay|fund|entry|fee|how much)\b/)) {
+    // money is a league option (league_rules.features); a league without it plays for pride and coins
+    if (league.features && league.features.money !== true) {
+      return reply('money', `No money in this league: it’s for bragging rights and ${db.brand.coin.name}, which can’t be bought or cashed out. Last place still gets ${db.brand.booby}. 👉 #/league?t=rules`);
+    }
     const n = teams.length, entry = Number(league.entry_fee), fund = Number(league.sak_fee), share = Number(league.playoff_share ?? 40) / 100;
     const pool = (entry - fund) * n, split = (league.prize_split ?? [60, 30, 10]).map(Number);
     const pots = (amt: number) => split.map((p: number, i: number) => `${['1st', '2nd', '3rd'][i]} ${money(amt * p / 100)}`).join(', ');
-    return reply('money', `${n} GMs × ${money(entry)}, with ${money(fund)} each to the SaK Fund, makes a ${money(pool)} pool (${db.league.short_name} fund: ${money(fund * n)}). Regular season (${Math.round((1 - share) * 100)}%, ${money(pool * (1 - share))}): ${pots(pool * (1 - share))}. Playoffs (${Math.round(share * 100)}%, ${money(pool * share)}): ${pots(pool * share)}. Last place pays for ${db.brand.booby}. 👉 #/league?t=money`);
+    return reply('money', `${n} GMs × ${money(entry)}, with ${money(fund)} each to the ${db.league.short_name} Fund, makes a ${money(pool)} pool (fund: ${money(fund * n)}). Regular season (${Math.round((1 - share) * 100)}%, ${money(pool * (1 - share))}): ${pots(pool * (1 - share))}. Playoffs (${Math.round(share * 100)}%, ${money(pool * share)}): ${pots(pool * share)}. Last place pays for ${db.brand.booby}. 👉 #/league?t=money`);
   }
 
   // ── rules and deadlines

@@ -2,7 +2,8 @@
 // the league counts, and each player's points in the league. Players the league's GMs own are marked with their GM.
 import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { useLeague } from '../lib/store';
+import { useLeague, useSport } from '../lib/store';
+import { isFinal, isLive, periodShort } from '../lib/sport';
 import { supabase } from '../lib/supabase';
 import { fmtPts, fmtTime, STAT_LABELS } from '../lib/format';
 import { NhlLogo, Sheet } from './ui';
@@ -22,6 +23,7 @@ export function scoringLine(stats: Record<string, number>, weights: Record<strin
 
 export function BoxScore({ game, onClose }: { game: Game | null; onClose: () => void }) {
   const { players, owner, team, league } = useLeague();
+  const sport = useSport();
   const brand = useBrand();
   const [rows, setRows] = useState<PG[] | null>(null);
   useEffect(() => {
@@ -49,8 +51,8 @@ export function BoxScore({ game, onClose }: { game: Game | null; onClose: () => 
   }, [game, rows, players]);
 
   if (!game) return null;
-  const live = ['LIVE', 'CRIT'].includes(game.state), done = ['OFF', 'FINAL'].includes(game.state);
-  const status = done ? 'Final' : live ? `${/^\d+$/.test(game.period ?? '') ? 'P' + game.period : game.period ?? ''} ${game.clock ?? ''}`.trim() || 'Live' : fmtTime(game.start_utc);
+  const live = isLive(sport, game.state), done = isFinal(sport, game.state);
+  const status = done ? 'Final' : live ? `${periodShort(sport, game.period)} ${game.clock ?? ''}`.trim() || 'Live' : fmtTime(game.start_utc);
   const owned = (id: number) => { const r = owner.get(id); return r ? team(r.team_id) : undefined; };
   const Name = ({ id, name }: { id: number; name?: string }) => {
     const t = owned(id);
@@ -99,7 +101,7 @@ export function BoxScore({ game, onClose }: { game: Game | null; onClose: () => 
                 </div>
               </div>
             ))}
-            <p className="text-[11px] text-mute">{brand.short} = fantasy points under this league’s scoring ({Object.entries(league?.scoring.skater ?? {}).map(([k, v]) => `${STAT_LABELS[k] ?? k} ${v}`).join(', ')}). Highlighted players are on a SaK roster. Refreshes every minute. <a className="text-sky-300 hover:underline" href={`https://www.nhl.com/gamecenter/${game.id}`} target="_blank" rel="noreferrer">Full game centre on NHL.com →</a></p>
+            <p className="text-[11px] text-mute">{brand.short} = fantasy points under this league’s scoring ({Object.entries(league?.scoring.skater ?? {}).map(([k, v]) => `${STAT_LABELS[k] ?? k} ${v}`).join(', ')}). Highlighted players are on a {brand.short} roster. Refreshes every minute. <a className="text-sky-300 hover:underline" href={`https://www.nhl.com/gamecenter/${game.id}`} target="_blank" rel="noreferrer">Full game centre on NHL.com →</a></p>
           </div>
         )}
     </Sheet>

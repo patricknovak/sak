@@ -2,8 +2,9 @@
 // standings, the week's schedule, where to watch, team radio to listen live, and which SaK GMs have
 // skin in each game.
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useBrand } from '../lib/brand';
 import { Link, useSearchParams } from 'react-router-dom';
-import { useLeague } from '../lib/store';
+import { useLeague, useSport } from '../lib/store';
 import { hub } from '../lib/nhlhub';
 import { fmtPts, fmtTime } from '../lib/format';
 import { PageHeader, Section, Sheet, TeamBadge } from '../components/ui';
@@ -124,6 +125,8 @@ function Video({ id, title, onClose }: { id: string; title: string; onClose: () 
 }
 
 export default function NHL() {
+  const sport = useSport();
+  const brand = useBrand();
   const { me, players, rosters, owner, team, teams, leagueDay } = useLeague();
   const [params, setParams] = useSearchParams();
   const tab = (params.get('t') as 'top' | 'scores' | 'standings' | 'schedule' | 'news' | 'injuries' | 'x' | 'leaders' | 'teams') || 'top';
@@ -145,7 +148,8 @@ export default function NHL() {
   const [open, setOpen] = useState<Game | null>(null);
   const [view, setView] = useState<'div' | 'conf' | 'league' | 'wc'>('div');
 
-  const loadScores = useCallback(async (d: string) => { try { setScores(await hub('scores', { date: d })); setErr(null); } catch (e) { setErr((e as Error).message); } }, []);
+  // a reply without its games (the feed hiccuped) reads as no games, not a crashed page
+  const loadScores = useCallback(async (d: string) => { try { const s = await hub<{ date: string; prev: string | null; next: string | null; games?: Game[] }>('scores', { date: d }); setScores({ ...s, games: s?.games ?? [] }); setErr(null); } catch (e) { setErr((e as Error).message); } }, []);
   useEffect(() => { if (tab === 'scores') loadScores(date); }, [tab, date, loadScores]);
   // live games refresh every 30 seconds, a slate that hasn't started every 2 minutes
   const anyLive = !!scores?.games.some((g) => LIVE.has(g.state));
@@ -187,7 +191,7 @@ export default function NHL() {
           );
         })}
         <div className="mt-1.5 flex items-center gap-1 text-[11px] text-mute">
-          {gms.length ? <>SaK: {gms.slice(0, 5).map(([t, n]) => <span key={t} className="flex items-center gap-0.5"><TeamBadge team={team(t)} size={14} />{n}</span>)}{gms.length > 5 && <span>+{gms.length - 5}</span>}</> : <span>No SaK players in this one</span>}
+          {gms.length ? <>{brand.short}: {gms.slice(0, 5).map(([t, n]) => <span key={t} className="flex items-center gap-0.5"><TeamBadge team={team(t)} size={14} />{n}</span>)}{gms.length > 5 && <span>+{gms.length - 5}</span>}</> : <span>No {brand.short} players in this one</span>}
           {!done && watchOptions(g.tv, me?.tv).some((w) => w.have) && <span className="ml-auto flex items-center gap-1 text-sky-300"><Tv size={11} /> you can watch</span>}
           {(g.recap || g.condensed) && <span className="ml-auto flex items-center gap-1 text-sky-300"><Play size={11} /> recap</span>}
           {g.home.radio && !done && <span className={`${g.recap ? '' : 'ml-auto'} flex items-center gap-1 text-emerald-300`}><Headphones size={11} /> radio</span>}
@@ -213,10 +217,10 @@ export default function NHL() {
 
   return (
     <div className="space-y-4">
-      <PageHeader icon={<Radio size={22} className="text-goal" />} title="NHL centre" sub="The top of the NHL day, then scores, news, injuries, the insiders on X, standings, leaders, teams and the schedule, with your players flagged everywhere" />
+      <PageHeader icon={<Radio size={22} className="text-goal" />} title={sport.words.centre ?? 'NHL centre'} sub="The top of the NHL day, then scores, news, injuries, the insiders on X, standings, leaders, teams and the schedule, with your players flagged everywhere" />
       <div className="scroll-x flex gap-1">
         {([['top', '🔥 Top'], ['scores', '🏒 Scores'], ['news', '📰 News'], ['injuries', '🩹 Injuries'], ['x', '𝕏 Insiders'], ['standings', '🏆 Standings'], ['leaders', '📈 Leaders'], ['teams', '🛡️ Teams'], ['schedule', '📅 Schedule']] as const).map(([k, l]) => <button key={k} className={`tab shrink-0 ${tab === k ? 'tab-on' : 'bg-white/[.05]'}`} onClick={() => setTab(k)}>{l}</button>)}
-        <Link to="/scoreboard" className="tab ml-auto shrink-0 bg-white/[.05]">📡 SaK</Link>
+        <Link to="/scoreboard" className="tab ml-auto shrink-0 bg-white/[.05]">📡 {brand.short}</Link>
       </div>
       {err && <div className="rounded-xl border border-amber-400/20 bg-amber-500/10 p-3 text-sm text-amber-100">NHL data didn’t load: {err}</div>}
 
@@ -321,6 +325,7 @@ const FpCell = ({ v }: { v: number | undefined }) => (
   <td className={`num px-2 py-1 text-right font-bold ${v == null ? 'text-mute' : v > 0 ? 'text-gold' : v < 0 ? 'text-red-300' : 'text-slate-400'}`}>{v == null ? '–' : fmtPts(v)}</td>
 );
 function GameSheet({ g, onClose, gmsIn, teamOf, ownerOf, inPool }: { g: Game | null; onClose: () => void; gmsIn: (g: Game) => [number, number][]; teamOf: TeamOf; ownerOf: (id: number) => ReturnType<TeamOf>; inPool: (id: number) => boolean }) {
+  const brand = useBrand();
   const { me } = useLeague();
   const [d, setD] = useState<Detail | null>(null);
   const [video, setVideo] = useState<{ id: string; title: string } | null>(null);
@@ -375,7 +380,7 @@ function GameSheet({ g, onClose, gmsIn, teamOf, ownerOf, inPool }: { g: Game | n
 
 
         {gms.length > 0 && (
-          <div className="flex flex-wrap items-center gap-1.5 text-xs"><span className="text-mute">SaK players in this game:</span>{gms.map(([t, n]) => <span key={t} className="flex items-center gap-1 rounded-full bg-white/[.05] px-2 py-0.5"><TeamBadge team={teamOf(t)} size={14} />{teamOf(t)?.gm_name} <span className="num text-mute">{n}</span></span>)}</div>
+          <div className="flex flex-wrap items-center gap-1.5 text-xs"><span className="text-mute">{brand.short} players in this game:</span>{gms.map(([t, n]) => <span key={t} className="flex items-center gap-1 rounded-full bg-white/[.05] px-2 py-0.5"><TeamBadge team={teamOf(t)} size={14} />{teamOf(t)?.gm_name} <span className="num text-mute">{n}</span></span>)}</div>
         )}
 
         <Section title="Bet this game">

@@ -122,8 +122,8 @@ B4 (the scheduler league by league) landed in migrations 81 to 85, B6 (money and
    one league, loops over the active leagues for the cron tasks and takes a reply's league from its message;
    names come from `leagues.brand`. The commissioner shapes the voice from the Commissioner page: a briefing
    read before every post, facts handed over by name, the file he built from the chat (anything can be struck)
-   and his voice notes. Still to do: a per-league daily budget of LLM calls (the one cost that scales with
-   leagues).
+   and his voice notes. The per-league daily budget of model calls is in too (`garry_budget`, migration 99; the platform
+   sets it with `set_garry_budget`), and once it is spent he falls back to his canned lines.
 3. **Scheduler per league.** nhl-sync's league-scoped tasks (snapshots, auto-lineups, standings,
    settlement) iterate leagues, setting `app.league_id` before each league's pass; the NHL fetches stay single.
 4. **Money.** Coins stay. Cash tracking stays bookkeeping between friends (no payments handled), or is
@@ -133,8 +133,12 @@ B4 (the scheduler league by league) landed in migrations 81 to 85, B6 (money and
    from the Platform page (`#/platform`: name, web name, wordmark, colour, seats), invites its commissioner, follows
    `league_readiness(league)` and puts it live with `platform_set_league_status`; the commissioner sees the same
    checklist and gives the league its identity (`commish_set_brand`: name, wordmark, tagline, colour, prizes, coins,
-   the voice's name) on the Commish page, and the league's colour themes the whole site. Still to come: self-serve
-   sign-up for a commissioner, the Yahoo import into a new league, a guided rules and draft setup.
+   the voice's name) on the Commish page, and the league's colour themes the whole site. *Asking for a league (migration
+   112):* anyone can ask on the public Start your league page (`#/start`, `request_league`, rate-limited, stored in
+   `ops.league_requests`); the Platform page's Requests inbox opens the league in one tap and writes the invite email.
+   A new league takes the season's calendar from its template (first and last days, trade deadline, end of the playoffs;
+   migration 122), and a head-to-head league's checklist and setup guide want its schedule before it goes live.
+   A league that played on Yahoo brings its past in one go (4 October 2026): the commissioner picks the Yahoo league on the League page and every season Yahoo kept (its renew chain, `yahoo?task=history`) comes back with its final table, written in through `commish_set_season`. Still to come: self-serve sign-up and billing for a commissioner, the Yahoo rosters and settings into a new league.
 6. **Billing.** A subscription per league per season (Stripe). Landing page collects interest until then.
 
 The steps above finish the tenancy. `docs/MARKET.md` sets what comes after in three horizons. The first,
@@ -143,7 +147,31 @@ The steps above finish the tenancy. `docs/MARKET.md` sets what comes after in th
 7. **Tiers and billing.** Free, Plus, Premium, the side-bet add-on and the Super Pool bundle, enforced per
    pool (a `plan` on the league row and a feature gate function), Stripe for the paid tiers.
 8. **Category and rotisserie scoring.** The scoring engine reads the league's categories the way it reads
-    its point weights.
+    its point weights. *Rotisserie done (migration 117, October 2026):* `league_rules.categories` (null for a points league),
+    `category_standings()` ranks every team in each category on its started players' season totals, the Standings page and
+    Home show the category table, and the commissioner switches between points and rotisserie on the Commish page.
+    *Head-to-head done (migration 118):* `league_rules.format` ('season', SaK's, or 'h2h'), a `matchups` schedule the
+    commissioner makes (a round robin over the regular season's Monday-to-Sunday weeks, a bye for an odd count),
+    `h2h_scores()` and `h2h_standings()` (wins, losses, ties, then points for), shown on Standings and Home with the week's
+    matchups live; Garry's standings answers follow the format. *Head-to-head playoffs done (migration 120):* the
+    commissioner picks the playoff spots (none, or the top 2 to 8) with the schedule, which keeps the season's last weeks
+    for the bracket (one a round); `h2h_bracket()` works the bracket out on read from the table and those weeks' points
+    (byes for the top seeds when the field isn't a power of two, a tie to the higher seed), shown on Standings and Home with
+    a playoff line on the table and the champion on top. *Head-to-head categories done (migration 121):* a head-to-head
+    league that picks categories plays each week for them: the two teams' started players are totalled in each category
+    (`_h2h_result`), whoever wins more categories wins the week (and the playoff meeting), categories won break ties on
+    the table, and each matchup opens category by category. Payouts follow the format (migration 124): the regular-season
+    pot pays the head-to-head or category table, a bracket pays its champion, runner-up and best semifinal loser, and the
+    last-place punishment stays a points-league rule. Every morning (`h2h-notes`, migration 125) each GM of a head-to-head
+    league hears the week's opponent when a week starts and the result when it ends, the playoffs round by round.
+    A category league drafts on its categories (migration 129): `category_values()` values every player on the league's
+    categories (last season's pace over his projected games, a z-score against the draftable pool of skaters or goalies),
+    the Players page, draft room and mock draft rank by it in the projection view, and the robot's autopick uses it. The pickup advisor plays a category league's moves out on its categories (`src/lib/catpickup.ts`): each stat per game, on one scale across the pool, weighted to where the team trails in the table, with what the move does to each category. Every page reads the format (4 October 2026): in a category league the Performance page ranks
+    any stretch rotisserie style and the scoreboard shows each team's categories night by night; a head-to-head points
+    matchup shows its live win chance and projected final (logged and scored in the prediction log, migration 137), and
+    the table shows each team's max points for (`lineup_efficiency`, migration 133). The trade evaluator weighs a category
+    league's trades on its categories, put on a points scale so the grades read the same (`pointsScale`). Next: the
+    each-category variant (every category a win or a loss on the table) if a league asks for it.
 9. **Import with history** from Fantrax, ESPN and CBS (Yahoo exists).
 10. **Contracts, caps, prospect slots and rookie drafts**; guillotine and best ball formats.
 11. **The Supercoin.** An account-level wallet, the SaK coin ledger migrated onto it, per-pool allowances, the
@@ -169,13 +197,31 @@ The steps above finish the tenancy. `docs/MARKET.md` sets what comes after in th
     field and player races against the field, which is what Garry's chat builds from in words ("Oilers to win
     the Cup"). The kinds and subjects are a stat key and a line, so they carry to every sport.
 12. **Commissioner tools the market lacks**: dues tracker (no escrow), co-commissioners, constitution page,
-    audit trail of every override, abandoned-team handover.
+    audit trail of every override, abandoned-team handover. *Co-commissioners and the handover done (migration 109,
+    October 2026):* `commish_set_cocommish(team, on)` shares the job with a seated GM (a league always keeps one), and
+    `commish_vacate_seat(team)` takes a departed GM off their team, stops their phones' alerts for it and returns a
+    fresh invite for the seat; the team keeps its roster, picks, coins and history. Both on the Commish page (Seats
+    and commissioners).
+    *The audit trail done (migration 110, October 2026):* every
+    commissioner power passes `_commish()`, which now writes a line to `commish_log` (who, what, when; once per
+    action) for the ones that change the league; every GM reads their league's log on the League page (Commish log). *The constitution page done (migration 111):* the
+    League page's Rules tab shows the rules that are settings straight from the settings, then the league's own rules,
+    which its commissioner writes and edits there (`commish_set_rules`, on the log; a new league starts from a few
+    suggested ones). The dues tracker is the money ledger a money league already has (`commish_bill_entries` bills each
+    GM's entry, the commissioner marks lines paid, `money_balances` shows who owes what), with no escrow.
 13. **The sport pulled out of the engine**: a `sports` table, per-sport player, game and stat shapes and
     scoring vocabularies, a sync per sport; the NHL becomes one row. Prerequisite for soccer, basketball and
-    the multi-sport pool.
+    the multi-sport pool. *Started (migration 135, 4 October 2026):* the `sports` table with the NHL's row and the
+    site's `useSport()`; code moves onto it one place at a time (`docs/EXPANSION.md`, Phase 3).
 14. **Telemetry and the feature board**: pseudonymous per-pool usage tables with a commissioner opt-out, the
-    SaK Features page grown into a product-wide board with public statuses and a changelog.
-15. **App-store listing**, the **playoff bracket pool**, and the voice per league with a daily budget.
+    SaK Features page grown into a product-wide board with public statuses and a changelog. *The changelog done (4 October
+    2026):* the Features page's What's new tab, a dated timeline from `src/data/changelog.ts` (an entry in the same pull
+    request as the change), with a dot on the tab until a phone has seen the newest. The board's first idea shipped the same day: the watch list (a GM's
+    request, migrations 140 to 142): stars on the Players page and player cards, a Home card with free agents first, alerts
+    when a watched player is dropped in season or hurt, and Garry knows the list on the GM's private line. Telemetry waits on
+    the privacy note.
+15. **App-store listing** and the **playoff bracket pool**. (The voice per league with a daily budget is done: item 2,
+    migration 99.)
 
 Then horizon 2 (soccer on licensed data, basketball, the multi-sport pool, the Supercoin prediction market,
 the Super Pool bundle, the public API) and horizon 3 (cricket free-to-play, baseball, football and college,

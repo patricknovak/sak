@@ -3,12 +3,14 @@ import { FunctionsHttpError } from '@supabase/supabase-js';
 import { rpc, setRemember, supabase } from '../lib/supabase';
 import { useLeague } from '../lib/store';
 import { Spinner } from '../components/ui';
+import { LeagueCrest } from '../components/Brand';
+import { themed } from '../components/LeagueIdentity';
 
 // The page an invite link opens (#/join/<code>), signed in or not. It shows what the invite is for, then:
 // someone new makes their account right here (the `join` edge function makes it and seats them in one go);
 // someone with an account signs in, or is already signed in, and takes the seat with accept_invite.
 // Either way they land in the league they just joined.
-interface Preview { ok: boolean; reason?: string | null; league?: string; short?: string; role?: 'gm' | 'spectator'; team?: string | null; expires_at?: string }
+interface Preview { ok: boolean; reason?: string | null; league_id?: number; league?: string; short?: string; brand?: { colors?: { gold?: string } } | null; role?: 'gm' | 'spectator'; team?: string | null; expires_at?: string }
 
 const WHY: Record<string, string> = {
   unknown: 'That invite link isn’t right. Ask the commissioner for a new one.',
@@ -70,14 +72,17 @@ export default function Join({ code }: { code: string }) {
     await accept();
   };
 
+  // the invite wears the inviting league's colour and crest (SaK keeps its own badge)
+  const sak = !pv?.ok || pv.league_id === 1 || (pv.league_id == null && pv.short === 'SaK');
+  const gold = !sak && /^#[0-9a-f]{6}$/i.test(pv?.brand?.colors?.gold ?? '') ? pv!.brand!.colors!.gold! : null;
   const what = pv?.role === 'spectator' ? 'a spectator place' : pv?.team ? `the ${pv.team} seat` : 'a seat';
   const okEmail = /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email.trim());
 
   return (
-    <div className="pt-safe flex min-h-dvh flex-col items-center justify-center px-4 py-10">
+    <div className="pt-safe flex min-h-dvh flex-col items-center justify-center px-4 py-10" style={gold ? themed(gold) : undefined}>
       <div className="w-full max-w-md">
         <div className="mb-6 text-center">
-          <img src="./icon.svg" alt="" className="mx-auto mb-3 h-16 w-16" />
+          {sak ? <img src="./icon.svg" alt="" className="mx-auto mb-3 h-16 w-16" /> : <span className="mb-3 inline-block"><LeagueCrest short={pv?.short ?? '…'} size={64} /></span>}
           <div className="label text-mute">You&apos;re invited to</div>
           <h1 className="h-display text-shine mt-1 text-3xl leading-tight">{pv?.league ?? '…'}</h1>
           {pv?.ok && <p className="mt-2 text-sm text-slate-300">Taking {what}{pv.role === 'gm' ? ' as its GM' : ''}.</p>}

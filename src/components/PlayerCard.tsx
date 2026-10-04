@@ -1,7 +1,8 @@
 import { useEffect, useState, type ReactNode } from 'react';
 import { Sparkline } from './charts';
 import { useNavigate } from 'react-router-dom';
-import { useLeague } from '../lib/store';
+import { useLeague, useSport } from '../lib/store';
+import { isFinal, isLive, periodShort } from '../lib/sport';
 import { rpc, supabase } from '../lib/supabase';
 import type { Player } from '../lib/types';
 import { ago, calcFpts, fmtDate, fmtPts, fmtTime, injuryBadge, NHL_COLORS, NHL_TEAMS, STAT_LABELS, teamLogo } from '../lib/format';
@@ -11,15 +12,17 @@ import { LatestNews, PlayerNewsList, usePlayerNews } from './PlayerNews';
 import { GameStatusBox, GameStatusChip, NewsDot } from './GameStatus';
 import { useBrand } from '../lib/brand';
 import { AddPlayerPanel } from './AddPlayer';
+import { useWatchlist } from '../lib/watchlist';
 
 // one-line player row used everywhere
 // `wrap`: on a narrow phone the name and the matchup wrap onto more lines instead of being cut off (the lineup uses it,
 // where the opponent and the puck drop matter most)
 export function PlayerRow({ p, right, onClick, sub, dim, onInfo, wrap }: { p: Player; right?: ReactNode; onClick?: () => void; sub?: ReactNode; dim?: boolean; onInfo?: () => void; wrap?: boolean }) {
   const { gamesByTeam } = useLeague();
+  const sport = useSport();
   const g = gamesByTeam(p.nhl_team);
   const opp = g ? (g.home === p.nhl_team ? `vs ${g.away}` : `@ ${g.home}`) : null;
-  const live = g && ['LIVE', 'CRIT'].includes(g.state);
+  const live = g && isLive(sport, g.state);
   return (
     <div onClick={onClick} className={`flex min-w-0 items-center gap-2.5 ${onClick ? 'cursor-pointer' : ''} ${dim ? 'opacity-45' : ''}`}>
       <Headshot p={p} size={wrap ? 34 : 38} />
@@ -37,8 +40,8 @@ export function PlayerRow({ p, right, onClick, sub, dim, onInfo, wrap }: { p: Pl
           <span>{p.elig.join('/')}</span></span>
           {opp && (
             <span className={`${wrap ? 'whitespace-nowrap rounded-md bg-white/[.06] px-1.5 py-px' : 'ml-1 truncate'} ${live ? 'font-semibold text-goal' : 'text-slate-300'}`}>
-              {opp} {live ? `· ${g!.period === 'SO' || g!.period === 'OT' ? g!.period : 'P' + g!.period} ${g!.clock ?? ''}`
-                : ['OFF', 'FINAL'].includes(g!.state) ? '· Final' : '· ' + fmtTime(g!.start_utc)}
+              {opp} {live ? `· ${periodShort(sport, g!.period)} ${g!.clock ?? ''}`
+                : isFinal(sport, g!.state) ? '· Final' : '· ' + fmtTime(g!.start_utc)}
             </span>
           )}
           {sub}
@@ -212,6 +215,8 @@ export function PlayerActions({ p, onDone }: { p: Player; onDone?: () => void })
   const r = owner.get(p.id);
   const mine = r && me && r.team_id === me.id;
   const inSeason = league?.phase === 'season';
+  const watch = useWatchlist();
+  const watching = watch.ids.has(p.id);
 
   return (
     <>
@@ -227,6 +232,13 @@ export function PlayerActions({ p, onDone }: { p: Player; onDone?: () => void })
         )}
         {r && me && !mine && (
           <button className="btn-ghost" onClick={() => { onDone?.(); nav(`/trades?with=${r.team_id}&get=${p.id}`); }}>🔄 Propose trade</button>
+        )}
+        {watch.on && !mine && (
+          <button className={watching ? 'btn-ghost border-gold/40 bg-gold/10 text-gold' : 'btn-ghost'} aria-pressed={watching}
+            title={watching ? 'On your watch list: you hear if he’s dropped' : 'Keep an eye on him: you hear if he’s dropped'}
+            onClick={() => run(async () => { await watch.toggle(p.id); }, watching ? `${p.name} is off your watch list` : `⭐ ${p.name} is on your watch list`)}>
+            {watching ? '★ Watching' : '☆ Watch'}
+          </button>
         )}
       </div>
 

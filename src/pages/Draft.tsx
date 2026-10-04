@@ -10,7 +10,7 @@ import type { DraftPick, Player } from '../lib/types';
 import { countdown, fmtDateTime, fmtPts, readable } from '../lib/format';
 import { ChatPanel } from '../components/ChatPanel';
 import { PlayerRow, PlayerSheet } from '../components/PlayerCard';
-import { PlayerFilterBar, usePlayerFilter } from '../components/PlayerFilters';
+import { PlayerFilterBar, useCategoryValues, useDraftValue, usePlayerFilter } from '../components/PlayerFilters';
 import { Countdown, Headshot, Sheet, Pos, TeamBadge, TeamName, TeamStack, Toggle, useAction, useToast } from '../components/ui';
 import { ClockRing, POS_BG, celebrate, useWide } from '../components/draftkit';
 import { PushCard } from '../components/PushCard';
@@ -115,7 +115,10 @@ export default function Draft() {
   // each team's 2025-26 top scorer can't be kept, so he's a sure thing for the draft
   const banned = useMemo(() => bannedTopScorers(rosters, league?.top_scorer_rule), [rosters, league?.top_scorer_rule]);
   const available = useMemo(() => pf.apply([...players.values()].filter((p) => !taken(p.id))).slice(0, 150), [players, owner, preKeepers, lockedKept, pf.apply]); // eslint-disable-line react-hooks/exhaustive-deps
-  const poolRank = useMemo(() => new Map([...players.values()].filter((p) => !taken(p.id)).sort((a, b) => b.proj - a.proj).map((p, i) => [p.id, i + 1])), [players, lockedKept, owner, preKeepers]); // eslint-disable-line react-hooks/exhaustive-deps
+  const dv = useDraftValue();
+  const cvMap = useCategoryValues();
+  const cvOn = !!cvMap && cvMap.size > 0;
+  const poolRank = useMemo(() => new Map([...players.values()].filter((p) => !taken(p.id)).sort((a, b) => dv(b) - dv(a)).map((p, i) => [p.id, i + 1])), [players, lockedKept, owner, preKeepers, dv]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const draftPlayer = (p: Player) => run(async () => {
     await rpc('draft_pick', { p_player: p.id });
@@ -131,7 +134,7 @@ export default function Draft() {
   }, [rosters, me?.id, preKeepers, players, league?.keepers, league?.top_scorer_rule]);
   const myNeeds = useMemo(() => needsOf(myRoster, caps), [myRoster, caps]);
   const fitTag = (p: Player) => fitLabel(fitOf(p, myNeeds), p.pos);
-  const bestBy = (k: string) => [...players.values()].filter((p) => !taken(p.id) && !likelyKept.has(p.id) && (k === 'G' ? p.pos === 'G' : p.pos !== 'G' && p.elig.includes(k))).sort((a, b) => b.proj - a.proj)[0];
+  const bestBy = (k: string) => [...players.values()].filter((p) => !taken(p.id) && !likelyKept.has(p.id) && (k === 'G' ? p.pos === 'G' : p.pos !== 'G' && p.elig.includes(k))).sort((a, b) => dv(b) - dv(a))[0];
 
   const clockColor = remaining < 10_000 ? 'text-red-400' : remaining < 30_000 ? 'text-amber-300' : 'text-white';
   const status = draft?.status ?? 'scheduled';
@@ -152,7 +155,8 @@ export default function Draft() {
       <div className="min-h-0 flex-1 divide-y divide-white/[.06] overflow-y-auto">
         {available.map((p, i) => {
           const maybe = preKeepers && likelyKept.has(p.id) && !banned.has(p.id);
-          const value = myTurn && current?.overall ? (poolRank.get(p.id) ?? 999) - current.overall : 0;
+          // no badge for a player a category league can't value yet: his board rank says nothing about him
+          const value = myTurn && current?.overall && !(cvOn && !cvMap!.has(p.id)) ? (poolRank.get(p.id) ?? 999) - current.overall : 0;
           return (
           <div key={p.id} className="flex items-center gap-2 px-2 py-2">
             <span className="w-6 text-center text-[11px] text-mute">{i + 1}</span>
@@ -280,7 +284,7 @@ export default function Draft() {
         <div>
           <div className="label text-white/70">Draft night · puck drops in</div>
           <div className="mt-2">{league?.draft_at ? <Countdown ms={new Date(league.draft_at).getTime() - now} /> : <span className="h-display text-3xl">TBD</span>}</div>
-          <div className="mt-1 text-xs text-white/60">{league?.draft_at && fmtDateTime(league.draft_at)} · {league?.pick_seconds}s clock · {league?.draft_rounds} rounds · {league?.snake ? 'snake' : 'straight'}</div>
+          <div className="mt-1 text-xs text-white/60">{[league?.draft_at && fmtDateTime(league.draft_at), `${league?.pick_seconds}s clock`, `${league?.draft_rounds} rounds`, league?.snake ? 'snake' : 'straight'].filter(Boolean).join(' · ')}</div>
         </div>
         {me?.is_commish && (
           <div className="flex flex-wrap gap-2">
@@ -303,8 +307,8 @@ export default function Draft() {
           </div>
         </div>
       )}
-      <Link to="/draft?t=mock" className="relative mt-4 flex items-center gap-3 rounded-2xl border border-emerald-400/25 bg-emerald-500/10 p-3 transition active:scale-[.98]"><span className="text-2xl">🧪</span><span className="flex-1"><span className="block font-bold">Dress rehearsal: run tomorrow’s draft now</span><span className="text-xs text-white/70">The real order, traded picks and everyone’s keepers, against bot GMs. See who’ll be there at your picks, then get graded.</span></span><span className="text-sky-300">→</span></Link>
-      <Link to="/draft?t=sheet" className="relative mt-3 flex items-center gap-3 rounded-2xl border border-gold/25 bg-gold/[.08] p-3 transition active:scale-[.98]"><span className="text-2xl">📋</span><span className="flex-1"><span className="block font-bold">Your cheat sheet</span><span className="text-xs text-white/70">Your gaps, the best 10 available at each, and the odds each one lasts to your next pick. One screen, no scrolling under the clock.</span></span><span className="text-sky-300">→</span></Link>
+      <Link to="/draft?t=mock" className="relative mt-4 flex items-center gap-3 rounded-2xl border border-emerald-400/25 bg-emerald-500/10 p-3 transition active:scale-[.98]"><span className="text-2xl">🧪</span><span className="flex-1"><span className="block font-bold leading-snug">Dress rehearsal: run tomorrow’s draft now</span><span className="mt-0.5 block text-xs leading-snug text-white/70">The real order, traded picks and everyone’s keepers, against bot GMs. See who’ll be there at your picks, then get graded.</span></span><span className="text-sky-300">→</span></Link>
+      <Link to="/draft?t=sheet" className="relative mt-3 flex items-center gap-3 rounded-2xl border border-gold/25 bg-gold/[.08] p-3 transition active:scale-[.98]"><span className="text-2xl">📋</span><span className="flex-1"><span className="block font-bold leading-snug">Your cheat sheet</span><span className="mt-0.5 block text-xs leading-snug text-white/70">Your gaps, the best 10 available at each, and the odds each one lasts to your next pick. One screen, no scrolling under the clock.</span></span><span className="text-sky-300">→</span></Link>
       <div className="relative mt-3"><DraftCall /></div>
       <div className="relative mt-3"><PushCard hideWhenOn compact /></div>
       <div className="relative mt-4 flex items-center gap-2 text-xs text-white/70">

@@ -1,4 +1,6 @@
 import { StandingsTable } from '../components/StandingsTable';
+import { RotoMini } from '../components/RotoStandings';
+import { H2HHome } from '../components/HeadToHead';
 import { useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useLeague, useNow } from '../lib/store';
@@ -10,8 +12,9 @@ import { ArrowRight, ClipboardList, Lock, Megaphone, MessageCircle, Radio, Troph
 import { PlayerRow, usePlayerSheet } from '../components/PlayerCard';
 import { useHistory } from '../lib/history';
 import { PushCard } from '../components/PushCard';
-import { BankCard, BetResultsCard, NhlTopCard, TicketsCard } from '../components/HomeCards';
+import { BankCard, BetResultsCard, LastNightCard, NhlTopCard, TicketsCard } from '../components/HomeCards';
 import { bare, useBrand } from '../lib/brand';
+import { WatchCard } from '../components/WatchCard';
 
 export default function Home() {
   const { me, league, teams, spectators, team, standings: regular, playoffs, rosters, players, draft, picks, gamesByTeam, online, leagueDay } = useLeague();
@@ -91,8 +94,8 @@ export default function Home() {
           <TeamBadge team={me ?? undefined} size={60} ring />
           <div className="min-w-0">
             <div className="text-xs font-semibold text-white/70">Welcome back, {me?.gm_name}</div>
-            <div className="h-display text-shine truncate text-[30px] leading-[1.05] sm:text-4xl">{me?.name}</div>
-            {me?.motto && <div className="truncate text-xs italic text-white/70">“{me.motto}”</div>}
+            <div className="h-display text-shine break-words text-[clamp(22px,7.6vw,30px)] leading-[1.05] sm:text-4xl">{me?.name}</div>
+            {me?.motto && <div className="line-clamp-2 text-xs italic text-white/70">“{me.motto}”</div>}
           </div>
         </div>
 
@@ -189,8 +192,34 @@ export default function Home() {
       )}
 
       <div className="grid grid-cols-1 gap-5 lg:grid-cols-2">
-        <Section icon={<Trophy size={17} className="text-gold" />} title={phase === 'season' ? (inPlayoffs ? '🏆 Playoff standings' : 'Standings') : lastSeason ? `${lastSeason.season} final standings` : 'Standings'} right={<More to="/standings" label="All" />}>
-          {phase === 'season' ? <StandingsTable rows={table} view={inPlayoffs ? 'playoffs' : 'regular'} peter={!inPlayoffs} /> : (
+        <Section icon={<Trophy size={17} className="text-gold" />} title={phase === 'season' ? (inPlayoffs ? '🏆 Playoff standings' : 'Standings') : lastSeason ? `${lastSeason.season} final standings` : 'The field'} right={<More to="/standings" label="All" />}>
+          {phase === 'season' ? (league?.format === 'h2h' ? <H2HHome /> : league?.categories?.length ? <RotoMini /> : <StandingsTable rows={table} view={inPlayoffs ? 'playoffs' : 'regular'} peter={!inPlayoffs} />) : !lastRows.length ? (
+          // a league in its first season: the field, seat by seat, until the draft makes it a table
+          <div className="space-y-2">
+          {me?.is_commish && teams.some((t) => !t.user_id) && (
+            <Link to="/commish" className="card-hero flex items-center gap-3 p-3.5">
+              <span className="relative grid h-11 w-11 shrink-0 place-items-center rounded-2xl bg-white/10 text-xl">✉️</span>
+              <span className="relative min-w-0 flex-1">
+                <span className="block font-semibold text-white">{teams.filter((t) => !t.user_id).length} seat{teams.filter((t) => !t.user_id).length === 1 ? '' : 's'} still open</span>
+                <span className="block text-xs text-white/70">Send each GM an invite link from the Commish page. Seats still open on draft night are picked for automatically.</span>
+              </span>
+              <ArrowRight size={18} className="relative shrink-0 text-white/60" />
+            </Link>
+          )}
+          <div className="card divide-y divide-white/[.06] overflow-hidden">
+            {teams.map((t) => (
+              <div key={t.id} className="flex items-center gap-3 px-3 py-2.5">
+                <TeamBadge team={t} size={30} />
+                <div className="min-w-0 flex-1">
+                  <div className="break-words text-sm font-bold">{t.name}</div>
+                  <div className="text-xs text-mute">{t.user_id ? `GM ${t.gm_name}` : 'Open seat'}</div>
+                </div>
+                {t.user_id ? <span className="chip text-emerald-300">In</span> : <span className="chip">Waiting</span>}
+              </div>
+            ))}
+          </div>
+          </div>
+          ) : (
           <div className="card divide-y divide-white/[.06] overflow-hidden">
             {lastRows.map((r, i) => {
                 const t = teams.find((x) => x.name === r.team);
@@ -229,6 +258,7 @@ export default function Home() {
               </div>
             </Section>
           )}
+          <WatchCard />
 
           <Section icon={<MessageCircle size={17} className="text-blue" />} title="League wire" right={<More to="/chat" label="Chat" />}>
             <div className="card space-y-1 p-2">
@@ -250,6 +280,7 @@ export default function Home() {
             </div>
           </Section>
 
+          <LastNightCard />
           {phase === 'season' && <NhlTopCard />}
           <BankCard />
           <TicketsCard />

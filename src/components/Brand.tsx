@@ -2,6 +2,7 @@
 // "SUPERLEAGUE" for SaK; whatever the league's brand row says on Super Pools). One component so the
 // sidebar, phone header, login screen and TV board all match.
 import { useBrand } from '../lib/brand';
+import { useLeague } from '../lib/store';
 
 // `mark` draws someone else's wordmark (a preview, another league's card) instead of the league on screen
 export function Wordmark({ size = 'md', tagline, className = '', mark }: { size?: 'sm' | 'md' | 'lg' | 'xl'; tagline?: string; className?: string; mark?: { a: string; b: string } }) {
@@ -39,4 +40,14 @@ export function LeagueCrest({ short, size = 96 }: { short: string; size?: number
       <span className="text-gold-shine h-display relative italic leading-none" style={{ fontSize: size * (s.length > 3 ? 0.2 : s.length > 2 ? 0.26 : 0.32), paddingRight: size * 0.03 }}>{s}</span>
     </span>
   );
+}
+
+// The league's mark wherever the site shows one: SaK's drawn badge for SaK, the crest for every other league.
+// Signed out on a league's own address it is that league's.
+export function LeagueMark({ size, className = '', short }: { size: number; className?: string; short?: string }) {
+  const { league, host } = useLeague();
+  const brand = useBrand();
+  const id = league?.league_id ?? host?.id ?? 1;
+  if (!short && id === 1) return <img src="./icon.svg" alt="" className={className} style={{ width: size, height: size }} />;
+  return <span className={`inline-block ${className}`}><LeagueCrest short={short ?? brand.short} size={size} /></span>;
 }

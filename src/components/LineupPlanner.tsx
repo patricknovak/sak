@@ -4,7 +4,8 @@
 // own uses the last plan before it, or today's lineup.
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { CalendarDays, Copy, Save, Sparkles, Trash2, Undo2 } from 'lucide-react';
-import { useLeague } from '../lib/store';
+import { useLeague, useSport } from '../lib/store';
+import { calledOff, hasStarted, plays, positionKeys } from '../lib/sport';
 import { rpc, supabase } from '../lib/supabase';
 import { etToday, fmtPts } from '../lib/format';
 import { optimize, slotOk as canPlay, gamesOf, availability, type Basis, type LContext } from '../lib/lineup';
@@ -33,11 +34,12 @@ const VIEWS: { k: View; label: string }[] = [
 ];
 const SK = ['gp', 'g', 'a', 'pts', 'pm', 'ppp', 'sog', 'hit', 'blk', 'pim', 'gwg', 'shpct'];
 const GO = ['gp', 'gs', 'w', 'l', 'otl', 'sv', 'ga', 'svp', 'gaa', 'sho'];
-const FILTERS = ['All', 'C', 'LW', 'RW', 'D', 'G', 'Starting', 'Bench', 'Playing'] as const;
-type Filter = (typeof FILTERS)[number];
+type Filter = string;   // All, a position (the sport's), Starting, Bench or Playing
 
 export function LineupPlanner({ roster }: { roster: Row[] }) {
   const { me, league, players, windows, season, refresh, serverOffset } = useLeague();
+  const sport = useSport();
+  const FILTERS = ['All', ...positionKeys(sport), 'Starting', 'Bench', 'Playing'];
   const games = useSeasonGames();
   const details = useProjDetails();
   const { busy, run } = useAction();
@@ -90,12 +92,12 @@ export function LineupPlanner({ roster }: { roster: Row[] }) {
 
   const gamesOn = useMemo(() => {
     const m = new Map<string, Game[]>();
-    for (const g of games ?? []) { if (g.state === 'PPD' || g.state === 'CNCL') continue; m.set(g.date, [...(m.get(g.date) ?? []), g]); }
+    for (const g of games ?? []) { if (calledOff(sport, g.state)) continue; m.set(g.date, [...(m.get(g.date) ?? []), g]); }
     return m;
-  }, [games]);
+  }, [games, sport]);
   const gameFor = (p: Player, d: string) => (gamesOn.get(d) ?? []).find((g) => g.home === p.nhl_team || g.away === p.nhl_team);
   const nowMs = Date.now() + serverOffset;
-  const locked = (p: Player) => { if (day !== today) return false; const g = gameFor(p, today); return !!g && (new Date(g.start_utc).getTime() <= nowMs || ['LIVE', 'CRIT', 'OFF', 'FINAL'].includes(g.state)); };
+  const locked = (p: Player) => { if (day !== today) return false; const g = gameFor(p, today); return !!g && (new Date(g.start_utc).getTime() <= nowMs || hasStarted(sport, g.state)); };
   const perGameProj = (p: Player) => p.proj / gamesOf(p);
   // expected points on a night his team plays: per game × the chance he dresses (or starts, for a goalie)
   // injuries count: day-to-day is about a coin flip, and a hurt goalie's starts go to his healthy partner
@@ -224,8 +226,7 @@ export function LineupPlanner({ roster }: { roster: Row[] }) {
       if (filter === 'Starting') return START.includes(s as Slot);
       if (filter === 'Bench') return s === 'BN' || s === 'IR';
       if (filter === 'Playing') return !!gameFor(x.p, day);
-      if (filter === 'G') return x.p.pos === 'G';
-      return x.p.pos !== 'G' && x.p.elig.includes(filter);
+      return plays(sport, x.p, filter);
     });
     if (goalieCols) list = list.filter((x) => x.p.pos === 'G');
     if (view === 'skater') list = list.filter((x) => x.p.pos !== 'G');

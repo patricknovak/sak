@@ -1,6 +1,7 @@
 // One of a GM's Yahoo leagues: standings, matchups, their lineup (editable), free agents with add/drop,
 // pending trades (accept, reject, propose; commissioner allow/veto) and links to everything else on Yahoo.
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useBrand } from '../lib/brand';
 import { Link, useParams } from 'react-router-dom';
 import { ArrowLeft, ChevronLeft, ChevronRight, ExternalLink, RefreshCw, Shield } from 'lucide-react';
 import { hub } from '../lib/nhlhub';
@@ -63,9 +64,10 @@ export default function YahooLeague() {
 
 // Yahoo gave this connection read-only access: changes go through Yahoo's own page in the Yahoo window
 function ReadOnly({ url, what }: { url: string | null; what: string }) {
+  const brand = useBrand();
   return (
     <div className="flex flex-wrap items-center gap-2 rounded-xl border border-amber-400/30 bg-amber-400/10 px-3 py-2 text-sm">
-      <span className="flex-1">Yahoo only lets SaK <b>read</b> your leagues, so {what} happens on Yahoo. It opens in its own window and you stay signed in there.</span>
+      <span className="flex-1">Yahoo only lets {brand.short} <b>read</b> your leagues, so {what} happens on Yahoo. It opens in its own window and you stay signed in there.</span>
       {url && <button className="btn-gold btn-sm shrink-0" onClick={() => openYahoo(url)}><ExternalLink size={14} /> Open on Yahoo</button>}
     </div>
   );
@@ -73,6 +75,7 @@ function ReadOnly({ url, what }: { url: string | null; what: string }) {
 
 // ───────────── manage on Yahoo: the Yahoo window ─────────────
 function ManageTab({ L, writeOk }: { L: YLeagueFull; writeOk: boolean | null }) {
+  const brand = useBrand();
   const base = L.url?.replace(/\/$/, '') ?? null;
   const team = L.me?.url?.replace(/\/$/, '') ?? null;
   const items: [string, string, string | null][] = [
@@ -88,9 +91,9 @@ function ManageTab({ L, writeOk }: { L: YLeagueFull; writeOk: boolean | null }) 
   return (
     <div className="space-y-3">
       <div className="card p-3 text-sm text-mute">
-        <p>Yahoo doesn’t allow its pages inside another site, so the Yahoo window is a real browser window: one that opens beside SaK on a computer, a new tab on a phone. Sign in to Yahoo there once and it stays signed in. Everything you do there shows up here after a refresh.</p>
-        {writeOk === false && <p className="mt-2 text-amber-200">Yahoo gave SaK read-only access to your account, so lineup changes, pickups and trades are done in the Yahoo window.</p>}
-        {writeOk === true && <p className="mt-2 text-emerald-200">Your connection can write, so lineups, pickups and trades also work right here in SaK.</p>}
+        <p>Yahoo doesn’t allow its pages inside another site, so the Yahoo window is a real browser window: one that opens beside {brand.short} on a computer, a new tab on a phone. Sign in to Yahoo there once and it stays signed in. Everything you do there shows up here after a refresh.</p>
+        {writeOk === false && <p className="mt-2 text-amber-200">Yahoo gave {brand.short} read-only access to your account, so lineup changes, pickups and trades are done in the Yahoo window.</p>}
+        {writeOk === true && <p className="mt-2 text-emerald-200">Your connection can write, so lineups, pickups and trades also work right here in {brand.short}.</p>}
       </div>
       <div className="grid gap-2 sm:grid-cols-2">
         {items.filter(([, , u]) => u).map(([icon, label, url]) => (

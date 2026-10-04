@@ -29,6 +29,8 @@ const PlayerPage = lazy(() => import('./pages/PlayerPage'));
 const Features = lazy(() => import('./pages/Features'));
 const Costs = lazy(() => import('./pages/Costs'));
 const Platform = lazy(() => import('./pages/Platform'));
+const Start = lazy(() => import('./pages/Start'));
+const Calibration = lazy(() => import('./pages/Calibration'));
 const DraftTV = lazy(() => import('./pages/DraftTV'));
 const DraftCentre = lazy(() => import('./pages/DraftCentre'));
 const Scoreboard = lazy(() => import('./pages/Scoreboard'));
@@ -72,11 +74,13 @@ function App() {
   // an invite link opens its own page, signed in or not
   const join = pathname.match(/^\/join\/([a-z0-9-]+)/i);
   if (join) return <Join code={join[1]} />;
+  // asking for a league is open to anyone
+  if (pathname === '/start') return <Suspense fallback={null}><Start /></Suspense>;
   if (!session) return <Login />;
   if (!me) {
     return (
       <div className="grid min-h-dvh place-items-center p-6 text-center">
-        <div className="card max-w-md p-6"><p className="text-sm text-mute">This login isn’t linked to a team yet. Ask your commissioner for an invite link.</p></div>
+        <div className="card max-w-md p-6"><p className="text-sm text-mute">This login isn’t linked to a team yet. Ask your commissioner for an invite link, or <a className="text-sky-300 underline" href="#/start">start a league of your own</a>.</p></div>
       </div>
     );
   }
@@ -115,6 +119,7 @@ function App() {
           <Route path="/features" element={<Features />} />
           <Route path="/costs" element={<Costs />} />
           <Route path="/platform" element={<Platform />} />
+          <Route path="/calibration" element={<Calibration />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </Suspense>

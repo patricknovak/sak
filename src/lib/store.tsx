@@ -6,6 +6,7 @@ import type {
 } from './types';
 import { etCalendarToday, etToday, setLeagueDayHold } from './format';
 import { applyBrandColors, brandOf, SAK_BRAND, type Brand } from './brand';
+import { calledOff, isFinal, NHL, type SportConfig } from './sport';
 import { hostLeague, tabLeague, type HostLeague } from './host';
 
 interface Store {
@@ -16,6 +17,7 @@ interface Store {
   host: HostLeague | null;      // the league this address belongs to (league by host), if any
   hostElsewhere: boolean;       // signed in on a league's address the GM isn't in: the page shows their own league
   brand: Brand;                // names, wordmark, trophies for the league on screen (SaK defaults)
+  sport: SportConfig;          // the sport the league plays (sports row, migration 135; the NHL until it loads)
   teams: Team[];               // GMs only
   spectators: Team[];          // spectator passes (chat, bets, no roster)
   can: (what: string) => boolean;
@@ -50,6 +52,11 @@ export function LeagueProvider({ children }: { children: ReactNode }) {
   const [authReady, setAuthReady] = useState(!configured);
   const [league, setLeague] = useState<League | null>(null);
   const [brand, setBrand] = useState<Brand>(SAK_BRAND);
+  const [sport, setSport] = useState<SportConfig>(NHL);
+  // a game that can't change the numbers any more: over, postponed or cancelled (read from loaders and timers)
+  const sportRef = useRef(sport);
+  sportRef.current = sport;
+  const settled = (state: string) => isFinal(sportRef.current, state) || calledOff(sportRef.current, state);
   // league by host: which league this address is, worked out once before anything loads, so the sign-in page wears its
   // brand and every request names it
   const [host, setHost] = useState<HostLeague | null>(null);
@@ -101,8 +108,17 @@ export function LeagueProvider({ children }: { children: ReactNode }) {
     league: async () => {
       const { data } = await supabase.from('league').select('*').single();
       if (data) setLeague(data as League);
-      const { data: lg } = await supabase.from('leagues').select('brand,short_name').eq('id', (data as League | null)?.league_id ?? 1).maybeSingle();
+      const { data: lg } = await supabase.from('leagues').select('brand,short_name,sport').eq('id', (data as League | null)?.league_id ?? 1).maybeSingle();
       setBrand(brandOf(lg?.brand as Partial<Brand> | null, lg?.short_name as string | null));
+      // hockey is compiled in; another sport's description comes from its row
+      const code = (lg?.sport as string | null) ?? 'nhl';
+      if (code === 'nhl') setSport(NHL);
+      else {
+        const { data: sp } = await supabase.from('sports').select('config').eq('id', code).maybeSingle();
+        // words merge key by key: a row that names only some of them keeps hockey's for the rest
+        const cfg = sp?.config as Partial<SportConfig> | null;
+        setSport(cfg ? { ...NHL, ...cfg, words: { ...NHL.words, ...(cfg.words ?? {}) } } : NHL);
+      }
     },
     teams: async () => { const { data } = await supabase.from('teams').select('*').order('id'); if (data) setAllTeams(data as Team[]); },
     players: async () => {
@@ -135,7 +151,7 @@ export function LeagueProvider({ children }: { children: ReactNode }) {
       const { data } = await supabase.from('games').select('*').gte('date', today).lte('date', end).order('start_utc');
       if (data) {
         // set the league-day hold before anything renders with these games (a late game from last night still on)
-        const going = (data as Game[]).some((g) => g.date === today && new Date(g.start_utc).getTime() <= Date.now() && !['OFF', 'FINAL', 'PPD', 'CNCL'].includes(g.state));
+        const going = (data as Game[]).some((g) => g.date === today && new Date(g.start_utc).getTime() <= Date.now() && !settled(g.state));
         setLeagueDayHold(going ? today : null);
         setGames(data as Game[]);
       }
@@ -225,7 +241,7 @@ export function LeagueProvider({ children }: { children: ReactNode }) {
     const i1 = window.setInterval(() => {
       if (document.visibilityState !== 'visible') return;
       tick++;
-      const live = gamesRef.current.some((g) => !['OFF', 'FINAL', 'PPD', 'CNCL'].includes(g.state) && Date.parse(g.start_utc) - 30 * 60_000 <= Date.now());
+      const live = gamesRef.current.some((g) => !settled(g.state) && Date.parse(g.start_utc) - 30 * 60_000 <= Date.now());
       if (live || tick % 5 === 0) refresh(['standings', 'games']);
       if (live ? tick % 5 === 0 : tick % 30 === 0) refresh(['season', 'windows', 'gameday']);
     }, 60_000);
@@ -282,7 +298,7 @@ export function LeagueProvider({ children }: { children: ReactNode }) {
     const check = () => {
       const cal = etCalendarToday();
       const y = new Date(new Date(cal + 'T12:00:00Z').getTime() - 86400000).toISOString().slice(0, 10);
-      const going = games.some((g) => g.date === y && new Date(g.start_utc).getTime() <= Date.now() && !['OFF', 'FINAL', 'PPD', 'CNCL'].includes(g.state));
+      const going = games.some((g) => g.date === y && new Date(g.start_utc).getTime() <= Date.now() && !settled(g.state));
       setLeagueDayHold(going ? y : null);
       setLeagueDay(etToday());
     };
@@ -295,11 +311,14 @@ export function LeagueProvider({ children }: { children: ReactNode }) {
 
   const gameStatus = useCallback((id: number, date?: string) => statuses.get(`${id}|${date ?? etToday()}`), [statuses, leagueDay]); // eslint-disable-line react-hooks/exhaustive-deps
   const value: Store = {
-    ready: authReady && hostReady && (!session || loaded), host, hostElsewhere: !!host && !!league && league.league_id !== host.id && !tabLeague(), session, me, league, brand, teams, spectators, can, team, players, rosters, owner, picks, draft,
+    ready: authReady && hostReady && (!session || loaded), host, hostElsewhere: !!host && !!league && league.league_id !== host.id && !tabLeague(), session, me, league, brand, sport, teams, spectators, can, team, players, rosters, owner, picks, draft,
     standings, playoffs, cup, season, windows, games, gamesByTeam, notifications, gameStatus, freshNews, online, refresh, serverOffset, leagueDay,
   };
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
 }
+
+// the sport the league on screen plays
+export function useSport() { return useLeague().sport; }
 
 export function useLeague() {
   const v = useContext(Ctx);

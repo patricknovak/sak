@@ -8,7 +8,7 @@ import { fmtPts, readable } from '../lib/format';
 import { gradeColor, gradeTeams, lineupStrength, pickValues, projectedKeepers } from '../lib/grades';
 import { availabilityOdds, botChoose, fitClass, fitLabel, fitOf, needsOf, simulateDraft, type Outlook, type SimPick } from '../lib/draftsim';
 import { PlayerRow, PlayerSheet } from '../components/PlayerCard';
-import { PlayerFilterBar, usePlayerFilter } from '../components/PlayerFilters';
+import { PlayerFilterBar, useDraftValue, usePlayerFilter, useSimValue } from '../components/PlayerFilters';
 import { NeedsStrip, RosterNeeds } from '../components/RosterNeeds';
 import { Headshot, PageHeader, Pos, Section, TeamBadge, TeamName, useToast } from '../components/ui';
 import { ClockRing, POS_BG, celebrate } from '../components/draftkit';
@@ -57,7 +57,9 @@ export default function Mock({ embedded = false }: { embedded?: boolean } = {}) 
     return m;
   }, [teams, rosters, league?.keepers, league?.top_scorer_rule]);
   const keptIds = useMemo(() => new Set([...keepers.values()].flat()), [keepers]);
-  const pool = useMemo(() => [...players.values()].filter((p) => !keptIds.has(p.id)).sort((a, b) => b.proj - a.proj), [players, keptIds]);
+  const dv = useDraftValue();
+  const simValue = useSimValue();
+  const pool = useMemo(() => [...players.values()].filter((p) => !keptIds.has(p.id)).sort((a, b) => dv(b) - dv(a)), [players, keptIds, dv]);
   const poolRank = useMemo(() => new Map(pool.map((p, i) => [p.id, i + 1])), [pool]);
   const totalRounds = mode === 'real' ? (league?.draft_rounds ?? 18) : rounds;
 
@@ -69,7 +71,7 @@ export default function Mock({ embedded = false }: { embedded?: boolean } = {}) 
   const myPlayers = me ? teamPlayers(me.id) : [];
   const myNeeds = useMemo(() => needsOf(myPlayers, caps), [myPlayers.length, board, caps]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const botPick = (t: number): Player | undefined => botChoose(teamPlayers(t), pool.filter((p) => !taken.has(p.id)), current?.round ?? 1, totalRounds, Math.random, caps);
+  const botPick = (t: number): Player | undefined => botChoose(teamPlayers(t), pool.filter((p) => !taken.has(p.id)), current?.round ?? 1, totalRounds, Math.random, caps, simValue);
 
   const makePick = (p: Player) => {
     if (!current) return;
@@ -123,7 +125,7 @@ export default function Mock({ embedded = false }: { embedded?: boolean } = {}) 
   const simTo = (stopAt: 'human' | 'end') => {
     if (!me) return;
     if (botTimer.current) clearTimeout(botTimer.current);
-    const res = simulateDraft(board, keepers, pool, players, { rounds: totalRounds, human: me.id, stopAt, caps });
+    const res = simulateDraft(board, keepers, pool, players, { rounds: totalRounds, human: me.id, stopAt, caps, value: simValue });
     setBoard(res);
     const last = [...res].reverse().find((b) => b.pid && !board.find((x) => x.overall === b.overall)?.pid);
     if (last) { setFlash(last); setTimeout(() => setFlash((f) => (f?.overall === last.overall ? null : f)), 1800); }
@@ -131,12 +133,12 @@ export default function Mock({ embedded = false }: { embedded?: boolean } = {}) 
   const runOutlook = () => {
     if (!me) return;
     setSimming(true);
-    setTimeout(() => { setOutlook(availabilityOdds(realBoard, keepers, pool, players, me.id, league?.draft_rounds ?? 18, 25, caps)); setSimming(false); }, 30);
+    setTimeout(() => { setOutlook(availabilityOdds(realBoard, keepers, pool, players, me.id, league?.draft_rounds ?? 18, 25, caps, simValue)); setSimming(false); }, 30);
   };
   // during a live mock: the odds each player on the list lasts until my next pick (a lighter sim, on demand)
   const liveOdds = useMemo(() => {
     if (phase !== 'live' || !me || !current || myTurn) return null;
-    const o = availabilityOdds(board, keepers, pool, players, me.id, totalRounds, 12, caps);
+    const o = availabilityOdds(board, keepers, pool, players, me.id, totalRounds, 12, caps, simValue);
     return o.picks.length ? { pick: o.picks[0], odds: new Map([...o.odds].map(([id, v]) => [id, v[0]])) } : null;
   }, [phase, current?.overall]); // eslint-disable-line react-hooks/exhaustive-deps
 

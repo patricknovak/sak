@@ -25,9 +25,11 @@ export interface Valuer {
   pickups: (roster: Player[], have: number, change: number) => number;   // what gaining (or losing) pickups is worth
 }
 
-export function makeValuer(players: Map<number, Player>, season: Map<number, PlayerSeason>, rostered: Set<number>, nTeams: number, currentSeason: string | undefined): Valuer {
-  // rest-of-season points, with a premium for multi-position skaters (they fill more slots)
-  const player = (p: Player) => rosPoints(p, season.get(p.id)) * flexMult(p);
+export function makeValuer(players: Map<number, Player>, season: Map<number, PlayerSeason>, rostered: Set<number>, nTeams: number, currentSeason: string | undefined,
+  perGame?: (p: Player) => number): Valuer {
+  // rest-of-season points, with a premium for multi-position skaters (they fill more slots); a category league hands
+  // its own per-game value on a points scale (catpickup's pointsScale), over the same games left
+  const player = (p: Player) => (perGame ? perGame(p) * Math.max(0, gamesOf(p) - (season.get(p.id)?.gp ?? 0)) : rosPoints(p, season.get(p.id))) * flexMult(p);
   // the pool a pick draws from: everyone not on a roster, best first
   const free = [...players.values()].filter((p) => !rostered.has(p.id));
   const pool = free.map(player).sort((a, b) => b - a);
@@ -97,17 +99,18 @@ export interface Sched {
   days?: Set<string>[];                       // synthetic playoff days (forecast.playoffDays)
   season: Map<number, PlayerSeason>;
   cache?: Map<string, number>;
+  perGame?: (p: Player) => number;            // a category league's value per game on a points scale
 }
-const asF = (p: Player, season: Map<number, PlayerSeason>): FPlayer => {
-  const s = season.get(p.id);
+const asF = (p: Player, sc: Sched): FPlayer => {
+  const s = sc.season.get(p.id);
   const gp = p.proj_gp && p.proj_gp > 0 ? p.proj_gp : p.pos === 'G' ? 58 : 80;
-  return { ...p, proj: rosPerGame(Number(p.proj), p.pos, s?.gp ?? 0, s?.fpts ?? 0, p.proj_gp) * gp, proj_gp: gamesOf(p) };
+  return { ...p, proj: (sc.perGame ? sc.perGame(p) : rosPerGame(Number(p.proj), p.pos, s?.gp ?? 0, s?.fpts ?? 0, p.proj_gp)) * gp, proj_gp: gamesOf(p) };
 };
 export function schedStarters(ps: Player[], sc: Sched, team = 0) {
   const key = ps.map((p) => p.id).sort((a, b) => a - b).join(',');
   const hit = sc.cache?.get(key);
   if (hit != null) return hit;
-  const f = ps.map((p) => asF(p, sc.season));
+  const f = ps.map((p) => asF(p, sc));
   const v = forecastTeam(team, f, sc.games, sc.caps, sc.from, 0, sc.to).ros + (sc.days ? forecastPlayoffs(team, f, sc.days, sc.caps).ros : 0);
   sc.cache?.set(key, v);
   return v;
@@ -394,7 +397,7 @@ export function partnerFit(me: number, rank: Map<number, Record<string, number>>
 export interface SideGrade { team: number; grade: string; score: number; notes: { tone: 'good' | 'bad' | 'info'; text: string }[] }
 const LETTERS: [number, string][] = [[25, 'A+'], [15, 'A'], [8, 'A-'], [3, 'B+'], [-3, 'B'], [-8, 'B-'], [-15, 'C+'], [-25, 'C'], [-40, 'D']];
 export const tradeLetter = (score: number) => LETTERS.find(([min]) => score >= min)?.[1] ?? 'F';
-export function gradeSide(e: SideEval, extra: { outAge?: number | null; inAge?: number | null; name?: string } = {}): SideGrade {
+export function gradeSide(e: SideEval, extra: { outAge?: number | null; inAge?: number | null; name?: string; coin?: string } = {}): SideGrade {
   const depth = e.depthAfter - e.depthBefore;
   let score = e.startersDelta + e.net * 0.25 + depth * 0.1;
   const notes: SideGrade['notes'] = [];
@@ -414,7 +417,7 @@ export function gradeSide(e: SideEval, extra: { outAge?: number | null; inAge?: 
   if (auto.length) notes.push({ tone: 'bad', text: `One player too many: has to drop ${auto.map((d) => `${d.p.name}, the weakest he can spare (${r(d.value)} pts the rest of the way)`).join(' and ')}. That's counted.` });
   if (e.fills.length) notes.push({ tone: 'good', text: `Frees a roster spot: ${e.fills.map((f) => `${f.p.name} (${r(f.value)})`).join(', ')}, the best free agent, can fill it with a pickup.` });
   if (Math.abs(e.pickupValue) >= 1) notes.push({ tone: e.pickupValue > 0 ? 'good' : 'bad', text: `Pickups ${e.pickupValue > 0 ? 'in' : 'out'}: worth about ${r(e.pickupValue)} points (what the best free agents add over the weakest player, less for each one already in hand).` });
-  if (e.coinsNet) notes.push({ tone: 'info', text: `${e.coinsNet > 0 ? 'Gets' : 'Pays'} ${Math.abs(e.coinsNet).toLocaleString()} St. Patrick coins: side-bet money, not counted in the grade.` });
+  if (e.coinsNet) notes.push({ tone: 'info', text: `${e.coinsNet > 0 ? 'Gets' : 'Pays'} ${Math.abs(e.coinsNet).toLocaleString()} ${extra.coin ?? 'coins'}: side-bet money, not counted in the grade.` });
   for (const w of e.warnings) { notes.push({ tone: 'bad', text: w }); score -= w.startsWith('Only') ? 12 : 6; }
   return { team: e.team, grade: tradeLetter(score), score, notes };
 }

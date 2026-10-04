@@ -16,7 +16,11 @@ import { GarryShaper } from '../components/GarryShaper';
 import { useBrand } from '../lib/brand';
 import { Link } from 'react-router-dom';
 import { LeagueIdentity } from '../components/LeagueIdentity';
-import { CommishReadiness } from '../components/Readiness';
+import { SetupGuide } from '../components/SetupGuide';
+import { SeatManager } from '../components/SeatManager';
+import { RosterEditor } from '../components/RosterEditor';
+import { CategoryEditor } from '../components/CategoryEditor';
+import { FormatEditor } from '../components/FormatEditor';
 
 // datetime-local <-> ISO in the viewer's zone
 const toLocal = (iso: string | null) => {
@@ -103,9 +107,9 @@ export default function Commish() {
         </div>
       )}
 
-      <CommishReadiness />
+      <SetupGuide />
 
-      <Section title="🎨 League identity">
+      <Section id="identity" title="🎨 League identity">
         <LeagueIdentity />
       </Section>
 
@@ -133,7 +137,7 @@ export default function Commish() {
         </div>
       </Section>
 
-      <Section title="🔒 Keepers">
+      <Section id="keepers" title="🔒 Keepers">
         <div className="card space-y-3 p-3">
           <div className="grid grid-cols-2 gap-1.5 sm:grid-cols-4">
             {teams.map((t) => <div key={t.id} className="flex items-center gap-2 rounded-lg bg-boards/60 px-2 py-1.5 text-sm"><TeamBadge team={t} size={20} />{t.gm_name}<span className="ml-auto">{t.keepers_submitted ? '✅' : '⏳'}</span></div>)}
@@ -147,7 +151,7 @@ export default function Commish() {
         {league?.phase === 'keepers' && <KeepersForTeam />}
       </Section>
 
-      <Section title="📋 Draft">
+      <Section id="draft" title="📋 Draft">
         <div className="card space-y-3 p-3">
           <div className="text-sm">Status: <span className="font-semibold">{status}</span>{draft?.order_set ? ' · order set' : ' · order not set'}</div>
           <div className="label">Draft order (round 1{league?.snake ? ', snakes back' : ''})</div>
@@ -185,11 +189,17 @@ export default function Commish() {
         </div>
       </Section>
 
-      <Section title="📐 Scoring settings">
+      <Section id="scoring" title="📐 Scoring settings">
+        <FormatEditor />
+        <CategoryEditor />
         <ScoringEditor />
       </Section>
 
-      <Section title="⚙️ League settings">
+      <Section id="roster" title="🧩 Roster">
+        <RosterEditor />
+      </Section>
+
+      <Section id="settings" title="⚙️ League settings">
         <div className="card grid gap-3 p-3 sm:grid-cols-2">
           <label className="text-xs text-mute">Phase
             <select className="input mt-1" value={s.phase} onChange={(e) => setS({ ...s, phase: e.target.value })}>
@@ -243,14 +253,14 @@ export default function Commish() {
             {['fine', 'entry', 'sak', 'prize', 'other'].map((k) => <option key={k}>{k}</option>)}
           </select>
           <input className="input" inputMode="decimal" placeholder="$" value={fine.amount} onChange={(e) => setFine({ ...fine, amount: e.target.value })} />
-          <input className="input sm:col-span-3" placeholder="e.g. Marchand 2-game suspension (Get SaK'ed)" value={fine.desc} onChange={(e) => setFine({ ...fine, desc: e.target.value })} />
+          <input className="input sm:col-span-3" placeholder="e.g. Marchand 2-game suspension" value={fine.desc} onChange={(e) => setFine({ ...fine, desc: e.target.value })} />
           <button className="btn-primary sm:col-span-3" disabled={!fine.team || !fine.amount || !fine.desc || busy}
             onClick={() => run(async () => { await rpc('commish_ledger', { p_team: Number(fine.team), p_kind: fine.kind, p_amount: Number(fine.amount), p_desc: fine.desc }); setFine({ team: '', kind: 'fine', amount: '', desc: '' }); }, 'Added to the ledger')}>Add to ledger</button>
           <p className="text-xs text-mute sm:col-span-3">Fines are announced in Trash Talk. Mark items paid on the League → Money page.</p>
         </div>
       </Section>
 
-      <Section title="☘️ St. Patrick coins">
+      <Section title={`${brand.coin.emoji} ${brand.coin.name}`}>
         <div className="card grid gap-2 p-3 sm:grid-cols-[1fr_120px]">
           <select className="input" value={coin.team} onChange={(e) => setCoin({ ...coin, team: e.target.value })}>
             <option value="">Team…</option>{teams.map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}
@@ -266,7 +276,11 @@ export default function Commish() {
         <GarryShaper />
       </Section>
 
-      <Section title="📨 Invite links">
+      <Section title="🛡️ Seats and commissioners">
+        <SeatManager />
+      </Section>
+
+      <Section id="invites" title="📨 Invite links">
         <Invites />
       </Section>
 
@@ -285,7 +299,7 @@ export default function Commish() {
       </Section>
 
       <Section title="🍿 Spectator passes">
-        <p className="mb-2 px-1 text-xs text-mute">A spectator can see the whole league, chat, DM and bet St. Patrick coins, but has no team. Switch any of that off per person, or pause the pass entirely.</p>
+        <p className="mb-2 px-1 text-xs text-mute">A spectator can see the whole league, chat, DM and bet {brand.coin.name}, but has no team. Switch any of that off per person, or pause the pass entirely.</p>
         <div className="space-y-2">
           {spectators.map((t) => {
             const on = (k: string) => t.perms?.[k] !== false;

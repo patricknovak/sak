@@ -9,7 +9,8 @@
 // was bought at. The live prices come from one call (book_live) that the board refreshes as scores change.
 import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { useLeague, useNow } from '../lib/store';
+import { useLeague, useNow, useSport } from '../lib/store';
+import { capFirst, isFinal, isLive } from '../lib/sport';
 import { rpc, realtimeChannel, supabase } from '../lib/supabase';
 import type { BookRequest, BookStanding, Game, Market, MarketBet, MarketKind, MarketOption } from '../lib/types';
 import { ago, etToday, fmtDate, fmtTime, NHL_TEAMS } from '../lib/format';
@@ -44,8 +45,9 @@ const inPlayOpen = (m: Market, g: Game | undefined) => !!g && GAME_KINDS.has(m.k
 
 // the board's live prices: one call, refreshed when a score changes and once a minute while a game is on
 function useLiveOdds(markets: Market[], games: Game[]) {
+  const sport = useSport();
   const [live, setLive] = useState<Record<string, MarketOption[]>>({});
-  const anyLive = games.some((g) => ['LIVE', 'CRIT'].includes(g.state));
+  const anyLive = games.some((g) => isLive(sport, g.state));
   const scoreKey = games.map((g) => `${g.id}:${g.state}:${g.home_score}:${g.away_score}:${g.period}`).join('|');
   useEffect(() => {
     if (!markets.some((m) => m.status === 'open')) return;
@@ -98,7 +100,7 @@ export function useBook() {
 }
 
 export function BookTab() {
-  const { me, team, players, can, games } = useLeague();
+  const { me, team, players, can, games, sport } = useLeague();
   const brand = useBrand();
   const now = useNow(30_000);
   const { busy, run } = useAction();
@@ -281,7 +283,7 @@ export function BookTab() {
       )}
 
       {open.length === 0 && (
-        <div className="card"><Empty icon="📖" title="The Book is closed">{markets.length ? 'Everything has gone to puck drop. Results land as the games go final.' : 'It opens at 9:35 ET on the next game day with moneylines, totals, overtime and player props.'}{can('bets') && me?.role !== 'spectator' ? ' Or ask it for a market on a game later in the week, a player race or an NHL race.' : ''}</Empty></div>
+        <div className="card"><Empty icon="📖" title="The Book is closed">{markets.length ? `Everything has gone to ${sport.words.start}. Results land as the games go final.` : 'It opens at 9:35 ET on the next game day with moneylines, totals, overtime and player props.'}{can('bets') && me?.role !== 'spectator' ? ' Or ask it for a market on a game later in the week, a player race or an NHL race.' : ''}</Empty></div>
       )}
       {groups.map((g) => (
         <Section key={g.key} title={g.kind === 'custom' ? '🎯 Commish specials' : g.title} right={g.kind === 'game' ? <span className="text-xs text-mute">{fmtDate(g.ms[0].date) === fmtDate(etToday()) ? 'Tonight' : fmtDate(g.ms[0].date)} · {fmtTime(g.when)}</span> : g.kind === 'season' || g.kind === 'nhl' ? <span className="text-xs text-mute">open until {fmtDate(g.ms[0].closes_at.slice(0, 10))}</span> : g.kind === 'asked' ? <button className="text-xs text-sky-300" onClick={() => setAsking(true)}>Ask for one</button> : undefined}>
@@ -295,11 +297,11 @@ export function BookTab() {
             {[...new Set(liveMs.map((m) => m.game_id ?? 0))].map((gid) => {
               const ms = liveMs.filter((m) => (m.game_id ?? 0) === gid);
               const g = gid ? games.find((x) => x.id === gid) : undefined;
-              const state = !g ? '' : ['OFF', 'FINAL'].includes(g.state) ? 'Final · settling' : ['LIVE', 'CRIT'].includes(g.state) ? `${g.period ?? ''} ${g.clock ?? ''}`.trim() : fmtTime(g.start_utc);
+              const state = !g ? '' : isFinal(sport, g.state) ? 'Final · settling' : isLive(sport, g.state) ? `${g.period ?? ''} ${g.clock ?? ''}`.trim() : fmtTime(g.start_utc);
               return (
                 <div key={gid} className="card divide-y divide-white/[.06]">
                   <div className="flex items-center gap-2 px-3 py-2 text-sm font-semibold">
-                    {g ? <>{g.away} {g.away_score ?? 0} <span className="text-mute">@</span> {g.home} {g.home_score ?? 0}<span className={`ml-auto text-xs ${g && ['LIVE', 'CRIT'].includes(g.state) ? 'text-goal' : 'text-mute'}`}>{state}</span></> : 'Commish specials'}
+                    {g ? <>{g.away} {g.away_score ?? 0} <span className="text-mute">@</span> {g.home} {g.home_score ?? 0}<span className={`ml-auto text-xs ${g && isLive(sport, g.state) ? 'text-goal' : 'text-mute'}`}>{state}</span></> : 'Commish specials'}
                   </div>
                   {ms.map((m) => <MarketRow key={m.id} m={m} />)}
                 </div>
@@ -513,7 +515,7 @@ export function EveryTicket({ markets, tickets }: { markets: Market[]; tickets: 
 // place_market_bet as the Book page, so the same limits and in-play rules apply.
 type GameClub = { abbrev: string; logo: string | null };
 export function GameBook({ gameId, away, home }: { gameId: number; away: GameClub; home: GameClub }) {
-  const { me, team, players, can, games } = useLeague();
+  const { me, team, players, can, games, sport } = useLeague();
   const brand = useBrand();
   const now = useNow(15_000);
   const { busy, run } = useAction();
@@ -534,7 +536,7 @@ export function GameBook({ gameId, away, home }: { gameId: number; away: GameClu
     const load = () => supabase.from('league_games').select('player_id,fpts').eq('game_id', gameId)
       .then(({ data }) => { if (alive) setPts(new Map((data ?? []).map((r) => [r.player_id as number, Number(r.fpts)]))); });
     load();
-    const i = g && ['LIVE', 'CRIT'].includes(g.state) ? window.setInterval(load, 60_000) : 0;
+    const i = g && isLive(sport, g.state) ? window.setInterval(load, 60_000) : 0;
     return () => { alive = false; if (i) window.clearInterval(i); };
   }, [gameId, propIds.join(), g?.state]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -611,7 +613,7 @@ export function GameBook({ gameId, away, home }: { gameId: number; away: GameClu
       <div className="relative space-y-3">
         <div className="flex items-center justify-between gap-2">
           <div className="font-display text-lg font-extrabold">📖 {brand.bot.name}’s Book</div>
-          <div className="text-right text-[11px] text-mute">{inPlay ? <span className="font-semibold text-goal">🔴 In play</span> : winner ? `Puck drop ${fmtTime(winner.closes_at)}` : ''}{canBet && <div>You have <AvailableCoins /></div>}</div>
+          <div className="text-right text-[11px] text-mute">{inPlay ? <span className="font-semibold text-goal">🔴 In play</span> : winner ? `${capFirst(sport.words.start)} ${fmtTime(winner.closes_at)}` : ''}{canBet && <div>You have <AvailableCoins /></div>}</div>
         </div>
         {winner && (
           <div>

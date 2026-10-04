@@ -4,9 +4,9 @@ import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { ArrowRight } from 'lucide-react';
 import { useLeague } from '../lib/store';
-import { supabase } from '../lib/supabase';
+import { rpc, supabase } from '../lib/supabase';
 import { hub } from '../lib/nhlhub';
-import { fmtDate, fmtMoney, fmtTime } from '../lib/format';
+import { fmtDate, fmtMoney, fmtPts, fmtTime } from '../lib/format';
 import { betMoves, ticketOutcome } from '../lib/betresults';
 import { useBook } from './Book';
 import { Coin, Rank, Section, TeamBadge } from './ui';
@@ -21,18 +21,20 @@ const status = (g: TopGame) => DONE.has(g.state) ? `Final${g.outcome && g.outcom
 
 // NHL centre, top: live games first, else tonight's slate, else last night's finals
 export function NhlTopCard() {
-  const { leagueDay, players, owner, team } = useLeague();
+  const { leagueDay, players, owner, team, sport } = useLeague();
   const [games, setGames] = useState<TopGame[] | null>(null);
   const [label, setLabel] = useState('Tonight');
   useEffect(() => {
     let dead = false;
-    hub<{ prev: string | null; games: TopGame[] }>('scores', { date: leagueDay }).then(async (s) => {
+    // a reply without its games (the feed hiccuped) reads as no games, not a card stuck loading
+    hub<{ prev: string | null; games?: TopGame[] }>('scores', { date: leagueDay }).then(async (s) => {
       if (dead) return;
-      if (s.games.length || !s.prev) { setGames(s.games); return; }
+      const list = s?.games ?? [];
+      if (list.length || !s?.prev) { setGames(list); return; }
       const p = await hub<{ games: TopGame[] }>('scores', { date: s.prev }).catch(() => null);
       if (!dead) { setLabel('Last night'); setGames(p?.games ?? []); }
     }, () => !dead && setGames([]));
-    const i = setInterval(() => hub<{ games: TopGame[] }>('scores', { date: leagueDay }).then((s) => !dead && s.games.length && setGames(s.games), () => {}), 120_000);
+    const i = setInterval(() => hub<{ games?: TopGame[] }>('scores', { date: leagueDay }).then((s) => !dead && s?.games?.length && setGames(s.games), () => {}), 120_000);
     return () => { dead = true; clearInterval(i); };
   }, [leagueDay]);
   const byNhl = useMemo(() => { const m = new Map<string, Set<number>>(); for (const [, r] of owner) { const p = players.get(r.player_id); if (!p?.nhl_team) continue; const t = m.get(p.nhl_team) ?? new Set(); t.add(r.team_id); m.set(p.nhl_team, t); } return m; }, [owner, players]);
@@ -41,7 +43,7 @@ export function NhlTopCard() {
   const rows = live.length ? live : (games ?? []);
   const title = live.length ? '🔴 Live right now' : games?.every((g) => DONE.has(g.state)) && games.length ? `🏒 ${label}: finals` : `🏒 ${label} around the NHL`;
   return (
-    <Section title={title} right={<More to="/nhl" label="NHL centre" />}>
+    <Section title={title} right={<More to="/nhl" label={sport.words.centre ?? 'NHL centre'} />}>
       <div className="card divide-y divide-white/[.05]">
         {!games && <div className="p-3 text-sm text-mute">Loading…</div>}
         {games && games.length === 0 && <div className="p-3 text-sm text-mute">No NHL games today.</div>}
@@ -58,6 +60,45 @@ export function NhlTopCard() {
           );
         })}
         {rows.length > 5 && <Link to="/nhl?t=scores" className="block px-3 py-1.5 text-center text-xs text-sky-300">{rows.length - 5} more ›</Link>}
+      </div>
+    </Section>
+  );
+}
+
+// Your last night against the best lineup you could have played from the same players (lineup_efficiency): a nudge to
+// set lineups (or let the auto-pilot) when points sat on the bench. A points league's GMs only; quiet until a night is in.
+export function LastNightCard() {
+  const { me, league, leagueDay } = useLeague();
+  const [row, setRow] = useState<{ date: string; points: number; best: number } | null>(null);
+  const on = !!me && me.role !== 'spectator' && league?.phase === 'season' && !league?.categories?.length;
+  useEffect(() => {
+    if (!on) { setRow(null); return; }
+    const from = new Date(new Date(leagueDay + 'T12:00:00Z').getTime() - 6 * 86400000).toISOString().slice(0, 10);
+    const to = new Date(new Date(leagueDay + 'T12:00:00Z').getTime() - 86400000).toISOString().slice(0, 10);
+    rpc<{ team_id: number; date: string; game_type: number; points: number; best: number }[]>('lineup_efficiency', { p_from: from, p_to: to })
+      .then((rs) => {
+        const mine = (rs ?? []).filter((r) => r.team_id === me!.id).sort((a, b) => b.date.localeCompare(a.date))[0];
+        setRow(mine ? { date: mine.date, points: Number(mine.points), best: Number(mine.best) } : null);
+      }, () => setRow(null));
+  }, [on, me?.id, leagueDay]); // eslint-disable-line react-hooks/exhaustive-deps
+  if (!on || !row || row.best <= 0) return null;
+  const left = Math.max(0, row.best - row.points), pct = Math.round((row.points / row.best) * 100);
+  const perfect = left < 0.05;
+  const autoOn = !!me?.auto_mode && me.auto_mode !== 'off';
+  return (
+    <Section title="🎯 Lineup check" right={<More to="/performance" label="More" />}>
+      <div className="card space-y-2 p-3">
+        <div className="flex items-baseline justify-between gap-2">
+          <div className="text-sm text-slate-200">{fmtDate(row.date)}: <span className="num font-bold text-white">{fmtPts(row.points)}</span> of a possible <span className="num font-bold text-white">{fmtPts(row.best)}</span></div>
+          <div className={`num font-display text-2xl font-extrabold leading-none ${perfect ? 'text-emerald-300' : pct >= 85 ? 'text-slate-100' : 'text-amber-200'}`}>{pct}%</div>
+        </div>
+        <div className="h-1.5 overflow-hidden rounded-full bg-white/[.06]"><div className={`h-full rounded-full ${perfect ? 'bg-emerald-400' : 'bg-gold'}`} style={{ width: `${Math.max(3, Math.min(100, pct))}%` }} /></div>
+        <div className="text-xs text-mute">
+          {perfect ? 'Perfect: the best lineup those players could have played.'
+            : <>{fmtPts(left)} points sat on the bench that the best lineup would have used. {autoOn
+              ? <Link to={`/scoreboard?day=${row.date}`} className="font-semibold text-sky-300">See the night ›</Link>
+              : <Link to="/team" className="font-semibold text-sky-300">Let the auto-pilot set it ›</Link>}</>}
+        </div>
       </div>
     </Section>
   );

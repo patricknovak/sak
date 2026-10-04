@@ -273,7 +273,7 @@ export function ChatPanel({ channel, compact, className = '' }: { channel: strin
           {!isGarry && !channel.startsWith('dm:') && <button type="button" className={`btn-ghost h-10 w-10 shrink-0 p-0 ${showPoll ? 'text-sky-300' : ''}`} onClick={() => setShowPoll(!showPoll)} title="Start a poll"><BarChart3 size={18} /></button>}
           <textarea
             className="input max-h-32 min-h-10 flex-1 resize-none py-2" rows={1} value={text} maxLength={2000}
-            placeholder={isGarry ? `Ask ${bot} anything…` : channel === 'draft' ? 'Chirp the picks…' : all ? (replyTo ? `Reply in ${tagOf(replyTo.channel).label}…` : 'Post to Trash Talk… (say “Garry” to ask him something)') : 'Talk trash… (say “Garry” to ask him something)'}
+            placeholder={isGarry ? `Ask ${bot} anything…` : channel === 'draft' ? 'Chirp the picks…' : all ? (replyTo ? `Reply in ${tagOf(replyTo.channel).label}…` : `Post, or ask ${bot}…`) : `Talk trash, or ask ${bot}…`}
             onChange={(e) => setText(e.target.value)}
             onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send(text); } }}
           />

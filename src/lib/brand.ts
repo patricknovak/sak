@@ -34,7 +34,7 @@ export function brandOf(raw: Partial<Brand> | null | undefined, short?: string |
   if (!raw) return { ...SAK_BRAND, short: s, fund: `${s} Fund` };
   const coin = { ...SAK_BRAND.coin, ...raw.coin };
   return {
-    ...SAK_BRAND, ...raw, short: s, fund: raw.fund || `${s} Fund`, coin, bank: raw.bank || (/ coins$/i.test(coin.name) ? `${coin.name.replace(/ coins$/i, '')}’s Bank` : 'The Bank'),
+    ...SAK_BRAND, ...raw, short: s, fund: raw.fund || `${s} Fund`, coin, tagline: raw.tagline ?? '', bank: raw.bank || (/ coins$/i.test(coin.name) ? `${coin.name.replace(/ coins$/i, '')}’s Bank` : 'The Bank'),
     wordmark: { ...SAK_BRAND.wordmark, ...raw.wordmark }, bot: { ...SAK_BRAND.bot, ...raw.bot }, colors: { ...SAK_BRAND.colors, ...raw.colors },
   };
 }

@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { NavLink, useLocation, useNavigate } from 'react-router-dom';
-import { Wordmark, WordmarkStack } from './Brand';
+import { LeagueMark, Wordmark, WordmarkStack } from './Brand';
 import { useLeague, useNow } from '../lib/store';
 import { hasFeature } from '../lib/features';
 import { realtimeChannel, supabase } from '../lib/supabase';
@@ -11,7 +11,7 @@ import {
   Bell, ClipboardList, Dices, Home, Landmark, Lightbulb, LogOut, Menu, MessageCircle, Radio, Repeat2, Search, Shield,
   Trophy, Tv, UserRound, Globe, Wrench, Wallet, type LucideIcon, BarChart3 } from 'lucide-react';
 
-type Item = { to: string; label: string; icon: LucideIcon; commish?: boolean };
+type Item = { to: string; label: string; icon: LucideIcon; commish?: boolean; short?: string };   // short: the phone dock's label, one line
 
 export function useUnread() {
   const { me } = useLeague();
@@ -73,7 +73,7 @@ function alertMe() {
 }
 
 export function Layout({ children }: { children: ReactNode }) {
-  const { me, league, brand, draft, picks, notifications, refresh } = useLeague();
+  const { me, league, brand, draft, picks, notifications, refresh, sport } = useLeague();
   const now = useNow(1000);
   const loc = useLocation();
   const nav = useNavigate();
@@ -96,9 +96,10 @@ export function Layout({ children }: { children: ReactNode }) {
   const spectator = me?.role === 'spectator';
   const items: Item[] = [
     { to: '/', label: 'Home', icon: Home },
-    draftish ? { to: '/draft', label: 'Draft Centre', icon: ClipboardList } : spectator ? { to: '/standings', label: 'Standings', icon: Trophy } : { to: '/team', label: 'Lineup', icon: Shield },
+    draftish ? { to: '/draft', label: 'Draft Centre', short: 'Draft', icon: ClipboardList } : spectator ? { to: '/standings', label: 'Standings', icon: Trophy } : { to: '/team', label: 'Lineup', icon: Shield },
     { to: '/chat', label: 'Chat', icon: MessageCircle },
-    { to: '/nhl', label: 'NHL centre', icon: Tv },
+    // the sport's own centre ("NHL centre" for hockey), from the sports row
+    { to: '/nhl', label: sport.words.centre ?? 'NHL centre', icon: Tv },
   ];
   const moreItems: Item[] = [
     { to: '/standings', label: 'Standings', icon: Trophy },
@@ -129,7 +130,7 @@ export function Layout({ children }: { children: ReactNode }) {
     }
   }, [myTurn, current]);
   useEffect(() => {
-    document.title = myTurn ? `⏰ YOUR PICK · ${countdown(remaining)}` : 'SAK Superleague';
+    document.title = myTurn ? `⏰ YOUR PICK · ${countdown(remaining)}` : league?.league_id === 1 || !league ? 'SAK Superleague' : league.name;
   }, [myTurn, Math.floor(remaining / 1000)]);
 
   // any open client keeps the draft clock honest (the server double-checks the deadline)
@@ -153,13 +154,13 @@ export function Layout({ children }: { children: ReactNode }) {
   if (loc.pathname === '/draft/tv') return <>{children}</>;
 
   const banner = draft?.status === 'live' && !!current && !loc.pathname.startsWith('/draft');
-  const nKind: Record<string, string> = { trade: '🔄', bet: '🎲', mention: '💬', draft: '📋', injury: '🚑', big_night: '🔥', weekly: '🏆', health: '🩺', idea: '💡' };
+  const nKind: Record<string, string> = { trade: '🔄', bet: '🎲', mention: '💬', draft: '📋', injury: '🚑', big_night: '🔥', weekly: '🏆', health: '🩺', idea: '💡', matchup: '⚔️', watch: '⭐' };
   return (
     <div className="lg:flex" style={{ '--banner': banner ? '2.25rem' : '0px' } as React.CSSProperties}>
       {/* desktop sidebar */}
       <aside className="sticky top-0 hidden h-dvh w-64 shrink-0 flex-col border-r border-white/[.06] bg-[#091020]/70 p-4 backdrop-blur-xl lg:flex">
         <button onClick={() => nav('/')} className="mb-7 flex items-center gap-3 px-1">
-          <img src="./icon.svg" className="h-11 w-11 drop-shadow-[0_6px_16px_rgb(var(--gold-rgb)/.45)]" alt="" />
+          <LeagueMark size={44} className="drop-shadow-[0_6px_16px_rgb(var(--gold-rgb)/.45)]" />
           <Wordmark size="sm" tagline={[brand.tagline, league?.season].filter(Boolean).join(" · ")} className="text-left" />
         </button>
         <nav className="flex flex-col gap-0.5">
@@ -187,7 +188,7 @@ export function Layout({ children }: { children: ReactNode }) {
         <header className="pt-safe sticky top-0 z-30 border-b border-white/[.06] bg-[#05080f]/75 backdrop-blur-xl lg:hidden">
           <div className="flex h-12 items-center gap-2 px-3">
             <button onClick={() => nav('/')} className="flex items-center gap-2">
-              <img src="./icon.svg" className="h-8 w-8 drop-shadow-[0_4px_10px_rgb(var(--gold-rgb)/.5)]" alt="" />
+              <LeagueMark size={32} className="drop-shadow-[0_4px_10px_rgb(var(--gold-rgb)/.5)]" />
               <WordmarkStack />
             </button>
             <div className="flex-1" />
@@ -219,7 +220,7 @@ export function Layout({ children }: { children: ReactNode }) {
                 <span className={`grid h-8 w-12 place-items-center rounded-full transition-all duration-200 ${a ? 'bg-gradient-to-b from-gold/30 to-white/[.06] text-gold shadow-[0_0_18px_-4px_rgb(var(--gold-rgb)/.7)]' : 'text-slate-400'}`}>
                   <i.icon size={20} strokeWidth={a ? 2.4 : 2} />
                 </span>
-                <span className={`text-[10px] font-bold tracking-wide ${a ? 'text-white' : 'text-mute'}`}>{i.label}</span>
+                <span className={`whitespace-nowrap text-[10px] font-bold tracking-wide ${a ? 'text-white' : 'text-mute'}`}>{i.short ?? i.label}</span>
                 {i.to === '/chat' && chatUnread && (chatCount > 0
                   ? <span className="absolute right-[18%] top-1 grid h-4 min-w-4 place-items-center rounded-full border-2 border-[#0d1528] bg-goal px-1 text-[9px] font-bold leading-none text-white">{chatCount > 99 ? '99+' : chatCount}</span>
                   : <span className="absolute right-[24%] top-2 h-2.5 w-2.5 rounded-full border-2 border-[#0d1528] bg-goal" />)}

@@ -4,6 +4,7 @@ import { useLeague, useNow } from '../lib/store';
 import { rpc, supabase } from '../lib/supabase';
 import { ago } from '../lib/format';
 import { ALL_FEATURES, FEATURE_GROUPS, type Feature } from '../data/features';
+import { CHANGELOG } from '../data/changelog';
 import { PageHeader, TeamBadge, useAction } from '../components/ui';
 import { PromoVideo } from '../components/PromoVideo';
 
@@ -21,11 +22,21 @@ const STATUS: Record<Status, { label: string; cls: string }> = {
 };
 
 export default function Features() {
-  const { me, team, can } = useLeague();
+  const { me, team, can, league } = useLeague();
   const now = useNow(60_000);
   const { busy, run } = useAction();
   const [params, setParams] = useSearchParams();
-  const tab = params.get('t') === 'ideas' || params.get('idea') ? 'ideas' : 'built';
+  const tab = params.get('t') === 'ideas' || params.get('idea') ? 'ideas' : params.get('t') === 'new' ? 'new' : 'built';
+  // the newest change this phone has seen, so the tab can say there's something new
+  const [seen, setSeen] = useState(() => { try { return localStorage.getItem('whatsnew-seen') ?? ''; } catch { return ''; } });
+  // the newest date and how many changes it has, so one more on the same day lights the dot again (zero-padded so
+  // the marker still sorts as text)
+  const newest = CHANGELOG[0] ? `${CHANGELOG[0].date}#${String(CHANGELOG.filter((c) => c.date === CHANGELOG[0].date).length).padStart(3, '0')}` : '';
+  useEffect(() => {
+    if (tab !== 'new' || !newest || seen >= newest) return;
+    try { localStorage.setItem('whatsnew-seen', newest); } catch { /* private mode: the dot just stays */ }
+    setSeen(newest);
+  }, [tab, newest, seen]);
   const [comments, setComments] = useState<Comment[]>([]);
   const [ideas, setIdeas] = useState<Idea[]>([]);
   const [votes, setVotes] = useState<Vote[]>([]);
@@ -155,20 +166,49 @@ export default function Features() {
     <div className="space-y-4">
       <PageHeader icon="💡" title="League features" sub={`${ALL_FEATURES.length} features built so far. Tell us what you think and what to build next.`} />
 
-      <div className="flex gap-1">
+      <div className="flex flex-wrap gap-1">
         <button className={`tab ${tab === 'built' ? 'tab-on' : 'bg-white/[.05]'}`} onClick={() => setParams({})}>🧰 What’s built</button>
         <button className={`tab ${tab === 'ideas' ? 'tab-on' : 'bg-white/[.05]'}`} onClick={() => setParams({ t: 'ideas' })}>🗳️ Ideas{ideas.length ? ` (${ideas.length})` : ''}</button>
+        <button className={`tab relative ${tab === 'new' ? 'tab-on' : 'bg-white/[.05]'}`} onClick={() => setParams({ t: 'new' })}>
+          🆕 What’s new{seen < newest && tab !== 'new' && <span className="absolute -right-0.5 -top-0.5 h-2.5 w-2.5 rounded-full bg-gold shadow-[0_0_8px_rgb(var(--gold-rgb)/.9)]" />}
+        </button>
       </div>
+
+      {tab === 'new' && (
+        <div className="space-y-5">
+          {[...new Set(CHANGELOG.map((c) => c.date))].map((d) => (
+            <section key={d}>
+              <div className="mb-2 px-1 text-[11px] font-bold uppercase tracking-[.18em] text-gold">{new Date(d + 'T12:00:00').toLocaleDateString(undefined, { weekday: 'long', month: 'long', day: 'numeric' })}</div>
+              <ol className="relative space-y-2 border-l border-white/10 pl-4">
+                {CHANGELOG.filter((c) => c.date === d).map((c) => (
+                  <li key={c.title} className="relative">
+                    <span className="absolute -left-[21px] top-4 h-2.5 w-2.5 rounded-full bg-gold ring-4 ring-ice" />
+                    <div className="card flex items-start gap-3 p-3">
+                      <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-white/[.06] text-xl">{c.icon}</span>
+                      <div className="min-w-0 flex-1">
+                        <div className="font-semibold text-slate-100">{c.title}</div>
+                        <p className="mt-0.5 text-sm text-mute">{c.body}</p>
+                        {c.to && <Link to={c.to} className="mt-1.5 inline-block text-xs font-semibold text-sky-300">Take a look ›</Link>}
+                      </div>
+                    </div>
+                  </li>
+                ))}
+              </ol>
+            </section>
+          ))}
+        </div>
+      )}
 
       {tab === 'built' && (
         <>
-          <PromoVideo only="promo" />
+          {/* SaK's own promo film: another league's page doesn't show it */}
+          {league?.league_id === 1 && <PromoVideo only="promo" />}
           <div className="card-hero flex flex-wrap items-center gap-3 p-4" style={{ '--tc': '#ef2a4f' } as React.CSSProperties}>
-            <div className="relative flex-1 text-sm">
+            <div className="relative min-w-[13rem] flex-1 text-sm">
               <div className="h-display text-xl">Got an idea?</div>
               <div className="text-white/70">Suggest a feature and the league votes on it. The most-wanted ideas get built first.</div>
             </div>
-            <button className="btn-primary relative" onClick={() => setParams({ t: 'ideas' })}>💡 Suggest a feature</button>
+            <button className="btn-primary relative w-full sm:w-auto" onClick={() => setParams({ t: 'ideas' })}>💡 Suggest a feature</button>
           </div>
           {FEATURE_GROUPS.map((g) => (
             <section key={g.key}>

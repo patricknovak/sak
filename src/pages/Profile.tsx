@@ -49,7 +49,7 @@ export default function Profile() {
         <div className="pointer-events-none absolute -right-4 -top-6 select-none text-[120px] leading-none opacity-[.08]">{f.emoji}</div>
         <TeamBadge team={{ ...me, ...f } as Team} size={64} ring />
         <div className="relative min-w-0">
-          <div className="h-display text-shine truncate text-[28px] leading-tight">{f.name}</div>
+          <div className="h-display text-shine break-words text-[clamp(21px,7.4vw,28px)] leading-[1.05]">{f.name}</div>
           <div className="text-sm text-white/70">GM {me.gm_name}{me.is_commish && ' · Commissioner'} · since {me.joined_season}</div>
         </div>
       </div>

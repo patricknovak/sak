@@ -1,6 +1,7 @@
 // The draft analysis: live numbers from the projection model and the season forecast (they move as rosters
 // change), plus the written commentary from draft night.
 import { Fragment, useEffect, useMemo, useState } from 'react';
+import { bare, useBrand } from '../lib/brand';
 import { Link } from 'react-router-dom';
 import { ChevronDown, LineChart } from 'lucide-react';
 import { useLeague } from '../lib/store';
@@ -46,6 +47,7 @@ const CAT_LABEL: Record<string, string> = { g: 'G', a: 'A', ppp: 'PPP', sog: 'SO
 const rankCls = (r: number, n: number) => (r === 1 ? 'bg-gold/25 text-gold' : r <= 2 ? 'bg-emerald-500/20 text-emerald-200' : r >= n ? 'bg-red-500/20 text-red-200' : r >= n - 1 ? 'bg-amber-500/15 text-amber-200' : 'bg-white/[.06] text-slate-300');
 
 export default function DraftAnalysisPage({ embedded = false }: { embedded?: boolean } = {}) {
+  const brand = useBrand();
   const { team, players, me, teams, draft } = useLeague();
   const a = useDraftAnalysis();
   const [notes, setNotes] = useState<Commentary | null>(null);
@@ -101,7 +103,7 @@ export default function DraftAnalysisPage({ embedded = false }: { embedded?: boo
           <div className="space-y-3 border-t border-white/[.06] p-3">
             {c && <div className="space-y-2 text-sm leading-relaxed text-slate-200">{c.body.map((p, k) => <p key={k}>{p}</p>)}</div>}
             <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-5">
-              <Box label="🏆 SAK Cup (full year)" value={fmtPts(t.year, 0)} sub={`${pct(t.so.cup.first)} to win it · ${fmtPts(t.so.cup.p10, 0)}–${fmtPts(t.so.cup.p90, 0)}`} />
+              <Box label={`🏆 ${bare(brand.trophy)} (full year)`} value={fmtPts(t.year, 0)} sub={`${pct(t.so.cup.first)} to win it · ${fmtPts(t.so.cup.p10, 0)}–${fmtPts(t.so.cup.p90, 0)}`} />
               <Box label="Regular season" value={fmtPts(t.fc.total, 0)} sub={`${pct(t.odds.first)} title · ${pct(t.odds.top3)} in the money · ${pct(t.odds.last)} last`} />
               <Box label="Playoffs (from zero)" value={fmtPts(t.po.total, 0)} sub={`${pct(t.so.po.first)} title · ${pct(t.so.po.top3)} in the money`} />
               <Box label="Keepers vs draft" value={`${Math.round((t.keeperPts / Math.max(1, t.keeperPts + t.draftPts)) * 100)}% / ${Math.round((t.draftPts / Math.max(1, t.keeperPts + t.draftPts)) * 100)}%`} sub="share of lineup points" />
@@ -178,7 +180,7 @@ export default function DraftAnalysisPage({ embedded = false }: { embedded?: boo
 
           <Section title="Projected standings" right={<span className="text-xs text-mute">3,000 simulated years</span>}>
             <div className="mb-2 flex flex-wrap gap-1.5">
-              {([['cup', '🏆 SAK Cup · full year'], ['reg', '🏒 Regular season'], ['po', '🔥 Playoffs']] as const).map(([k, l]) => (
+              {([['cup', `🏆 ${bare(brand.trophy)} · full year`], ['reg', '🏒 Regular season'], ['po', '🔥 Playoffs']] as const).map(([k, l]) => (
                 <button key={k} onClick={() => setTbl(k)} className={`chip ${tbl === k ? 'bg-gold/20 text-gold' : 'bg-white/[.05] text-mute'}`}>{l}</button>
               ))}
             </div>
@@ -211,7 +213,7 @@ export default function DraftAnalysisPage({ embedded = false }: { embedded?: boo
                 </table>
               </div>
             </div>
-            <p className="mt-1 px-1 text-xs text-mute">{tbl === 'cup' ? 'The SAK Cup is the whole year, draft to Stanley Cup final: regular season plus playoff points.' : tbl === 'po' ? 'The playoffs start everyone at zero with the same rosters. Players only score while their NHL team is alive, so the forecast leans on each NHL team’s playoff odds and how deep it should go.' : 'Regular season points, kept as they stand when the NHL regular season ends.'} Roster grade: the whole team (keepers and picks) played out day by day with the best lineup each night, for the full year. Multi-position players count for what they’re worth: on nights a C or LW is off, a C/LW keeps the slot filled. Draft grade: this year’s value from the picks alone, each one against the best player still on the board at that slot. Prospect stashes are judged in later years.</p>
+            <p className="mt-1 px-1 text-xs text-mute">{tbl === 'cup' ? `${brand.trophy} is the whole year, draft to Stanley Cup final: regular season plus playoff points.` : tbl === 'po' ? 'The playoffs start everyone at zero with the same rosters. Players only score while their NHL team is alive, so the forecast leans on each NHL team’s playoff odds and how deep it should go.' : 'Regular season points, kept as they stand when the NHL regular season ends.'} Roster grade: the whole team (keepers and picks) played out day by day with the best lineup each night, for the full year. Multi-position players count for what they’re worth: on nights a C or LW is off, a C/LW keeps the slot filled. Draft grade: this year’s value from the picks alone, each one against the best player still on the board at that slot. Prospect stashes are judged in later years.</p>
           </Section>
 
           <div className="grid gap-4 sm:grid-cols-2">
@@ -231,7 +233,7 @@ export default function DraftAnalysisPage({ embedded = false }: { embedded?: boo
           <Section title="Team by team">
             <div className="space-y-2">{a.teams.map((t, i) => <Fragment key={t.team}>{teamCard(t, i)}</Fragment>)}</div>
           </Section>
-          <p className="px-1 text-xs text-mute">Projections: the SAK model (three seasons of stats weighted toward last year, shooting luck and save % regressed, age curves, games played and injuries). Point values are fantasy points under the league’s scoring.</p>
+          <p className="px-1 text-xs text-mute">Projections: the Super Pools model (three seasons of stats weighted toward last year, shooting luck and save % regressed, age curves, games played and injuries). Point values are fantasy points under the league’s scoring.</p>
         </>
       )}
       <PlayerSheet id={detail} onClose={() => setDetail(null)} />

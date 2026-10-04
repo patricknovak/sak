@@ -68,12 +68,25 @@ export function useHistory(): History {
   const { league } = useLeague();
   const lid = league?.league_id;
   const [h, setH] = useState<History>(EMPTY);
+  const [v, setV] = useState(0);
+  useEffect(() => {
+    const on = () => setV((x) => x + 1);
+    window.addEventListener(CHANGED, on);
+    return () => window.removeEventListener(CHANGED, on);
+  }, []);
   useEffect(() => {
     if (!lid) return;
     let alive = true;
     if (!cache.has(lid)) cache.set(lid, load().catch((e) => { cache.delete(lid); throw e; }));
     cache.get(lid)!.then((x) => { if (alive) setH(x); }, () => {});
     return () => { alive = false; };
-  }, [lid]);
+  }, [lid, v]);
   return h;
+}
+
+// after the commissioner writes the league's past: every page reading it fetches it again
+const CHANGED = 'sak-history-changed';
+export function historyChanged(lid: number | undefined) {
+  if (lid) cache.delete(lid);
+  window.dispatchEvent(new Event(CHANGED));
 }

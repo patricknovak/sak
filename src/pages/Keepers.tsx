@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { useLeague, useNow } from '../lib/store';
+import { useLeague, useNow, useSport } from '../lib/store';
+import { positionKeys } from '../lib/sport';
 import { rpc } from '../lib/supabase';
 import { fmtDateTime, fmtPts } from '../lib/format';
 import { PlayerRow, usePlayerSheet } from '../components/PlayerCard';
@@ -16,6 +17,7 @@ import confetti from 'canvas-confetti';
 
 export default function Keepers({ embedded = false }: { embedded?: boolean } = {}) {
   const { me, league, teams, rosters, players, team, refresh } = useLeague();
+  const sport = useSport();
   const now = useNow(1000);
   const { busy, run } = useAction();
   const { open, sheet } = usePlayerSheet();
@@ -179,7 +181,7 @@ export default function Keepers({ embedded = false }: { embedded?: boolean } = {
         </div>
         {sel.size > 0 && (
           <div className="mt-2 flex flex-wrap items-center gap-1.5 text-xs">
-            {['C', 'LW', 'RW', 'D', 'G'].map((k) => <span key={k} className="flex items-center gap-1 rounded-full bg-white/[.05] px-2 py-0.5"><Pos p={k} className="min-w-0 px-1 py-0" /><span className="num font-semibold">{posCount(selPlayers, k)}</span></span>)}
+            {positionKeys(sport).map((k) => <span key={k} className="flex items-center gap-1 rounded-full bg-white/[.05] px-2 py-0.5"><Pos p={k} className="min-w-0 px-1 py-0" /><span className="num font-semibold">{posCount(selPlayers, k)}</span></span>)}
             {warnings.map((w) => <span key={w} className="rounded-full bg-amber-500/15 px-2 py-0.5 text-amber-200">⚠️ {w}</span>)}
           </div>
         )}

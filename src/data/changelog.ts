@@ -1,0 +1,45 @@
+// What's new: the product's changelog, newest first, for the Features page. Written for GMs in plain hockey English,
+// one entry per thing a GM can see or use. Words that differ by league (the voice's name, the coins) come from the
+// brand at render time, so entries say "the league's voice", never a name. Add an entry in the same pull request as
+// the change.
+
+export interface Change { date: string; icon: string; title: string; body: string; to?: string; tag?: 'formats' | 'commish' | 'draft' | 'everyone' }
+
+export const CHANGELOG: Change[] = [
+  { date: '2026-10-04', icon: '🧹', tag: 'everyone', title: 'Small things, tidied', to: '/players',
+    body: 'When your filters leave nobody on the Players page, one tap clears them. The build-a-trade bar on another team\'s page fits a phone. My pools shows each site\'s name in full, the injury report\'s switch no longer runs off the screen, and the Money page never says $-0.' },
+  { date: '2026-10-04', icon: '📱', tag: 'everyone', title: 'Names in full on small phones', to: '/standings',
+    body: 'Team names wrap onto a second line instead of being cut off: on Home, My team, your profile, the standings, the podium, the scoreboard and Performance. A long surname on a player\'s page shrinks to fit instead of splitting in the middle, and page titles fit the screen.' },
+  { date: '2026-10-04', icon: '⭐', tag: 'everyone', title: 'Your watch list', to: '/players?who=watch',
+    body: 'Star any player to keep an eye on him: tap his rank on the Players page, or ☆ Watch on his card. Watch list on the Players page shows them all, free agents and other teams\' players alike, and if another team drops one, you hear about it on the bell and your phone while he\'s there for the taking. Injury news on them reaches you too, and the Home page keeps the list in view: free agents first, with tonight\'s games. Asked for on the ideas board.' },
+  { date: '2026-10-04', icon: '⚔️', tag: 'formats', title: 'Head-to-head leagues', to: '/standings',
+    body: 'A league can play weekly matchups instead of one season-long total: one opponent a week, a W-L-T table, the week\'s matchups live on Home and Standings, and a phone alert each Monday with your opponent and last week\'s result.' },
+  { date: '2026-10-04', icon: '🏆', tag: 'formats', title: 'Playoff brackets', to: '/standings',
+    body: 'Head-to-head leagues can finish with a bracket for the top 2 to 8 teams over the season\'s last weeks, byes for the top seeds, and the champion crowned on the Standings page. Payouts follow the bracket.' },
+  { date: '2026-10-04', icon: '📊', tag: 'formats', title: 'Categories, season-long or week by week', to: '/standings',
+    body: 'Rotisserie ranks every team in each category over the season; head-to-head categories plays each week for them. Tap a matchup to see it category by category.' },
+  { date: '2026-10-04', icon: '👥', tag: 'everyone', title: 'Matchups, player by player', to: '/standings',
+    body: 'Tap any head-to-head matchup for both lineups side by side: every started player, his games and his points this week.' },
+  { date: '2026-10-04', icon: '🤝', tag: 'formats', title: 'Trades graded on your categories', to: '/trades',
+    body: 'In a category league the trade evaluator, the trade finder and the position ranks weigh players on the league\'s categories, so a deal for a big hitter in a hits league grades the way it should.' },
+  { date: '2026-10-04', icon: '📋', tag: 'formats', title: 'Performance and the scoreboard in your categories', to: '/performance',
+    body: 'In a category league the Performance page ranks every team on the league\'s categories over any stretch you pick, rotisserie style, with your best and weakest categories, and the scoreboard shows each team\'s categories tonight and ranks the night the same way.' },
+  { date: '2026-10-04', icon: '📈', tag: 'formats', title: 'Win chances in every matchup', to: '/standings',
+    body: 'A head-to-head points matchup shows each side\'s chance of winning the week and the projected final, from the points on the board and the rest of the week played out with both rosters.' },
+  { date: '2026-10-04', icon: '🎯', tag: 'draft', title: 'Drafting for categories', to: '/players',
+    body: 'In a category league the Players page, draft room, cheat sheet and mock draft rank by category value (what a player is worth in your league\'s categories), autodraft picks by it, and Roster vs available compares your players with the free agents on it.' },
+  { date: '2026-10-04', icon: '🎯', tag: 'everyone', title: 'Lineup efficiency', to: '/performance',
+    body: 'Performance now shows how close your lineups came to the best you could have played each night from the same players: a Lineup column for every team, your share and the night that cost the most, and the most possible beside each day. Home shows your last lineup against the best one possible. A head-to-head table shows each team\'s max points for under its points for.' },
+  { date: '2026-10-04', icon: '🧲', tag: 'formats', title: 'Pickups for your categories', to: '/players?tab=advisor',
+    body: 'In a category league the pickup advisor looks for the free agents who help where you trail in the table, plays the move out night by night, and shows what it does to each category: +9 shots, +4 PIM, save percentage up.' },
+  { date: '2026-10-04', icon: '🛡️', tag: 'commish', title: 'A commissioner\'s toolkit', to: '/commish',
+    body: 'Co-commissioners, a clean handover when a GM walks away, a log of every commissioner action on the League page, a constitution page, your own roster slots, and a setup guide that walks a new league to draft night.' },
+  { date: '2026-10-04', icon: '🟣', tag: 'commish', title: 'Your Yahoo past in one go', to: '/league?t=history',
+    body: 'A league that played on Yahoo brings every season Yahoo kept, champions to last place, from the League page: connect Yahoo, pick the league, tick the seasons.' },
+  { date: '2026-10-04', icon: '📜', tag: 'commish', title: 'Your league\'s past', to: '/league?t=history',
+    body: 'Played somewhere else before? The commissioner writes past seasons in, or pastes a final table straight from Yahoo, ESPN, Fantrax or CBS, and the banners, titles and last places fill in.' },
+  { date: '2026-10-03', icon: '✉️', tag: 'everyone', title: 'Email sign-in and invites', to: '/profile',
+    body: 'Sign in with your email and a password you choose, reset it with a code, and join a league from an invite link. Someone in two leagues switches between them from the menu.' },
+  { date: '2026-10-03', icon: '🎲', tag: 'everyone', title: 'Game lines in the NHL centre', to: '/nhl',
+    body: 'Every game shows its line, total and the chance it goes to overtime, and you can bet coins on any game straight from the NHL centre.' },
+];

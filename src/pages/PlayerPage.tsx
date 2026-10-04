@@ -110,7 +110,9 @@ export default function PlayerPage() {
             <div className="flex items-center gap-1.5 text-xs font-semibold text-white/75">
               <NhlLogo abbr={p.nhl_team} size={18} />{NHL_TEAMS[p.nhl_team ?? ''] ?? 'Not on an NHL roster'}{(bio?.number ?? p.num) != null && <span>· #{bio?.number ?? p.num}</span>}
             </div>
-            <h1 className="h-display text-shine break-words text-[30px] leading-[.95] sm:text-5xl">{p.name}</h1>
+            {/* sized so the longest word fits its column on a phone (a long surname shrinks instead of splitting mid-word) */}
+            <h1 className="h-display text-shine break-words text-[length:min(30px,calc((100vw_-_185px)/(var(--nm)*0.85)))] leading-[.95] sm:text-5xl"
+              style={{ '--nm': Math.max(6, ...p.name.split(/\s+/).map((w) => w.length)) } as React.CSSProperties}>{p.name}</h1>
             <div className="mt-1.5 flex flex-wrap items-center gap-1">
               {p.elig.map((e) => <Pos key={e} p={e} />)}
               {inj && <span className={`chip ${inj.cls}`}>{p.injury_status}</span>}

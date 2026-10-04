@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
-import { useLeague } from '../lib/store';
+import { useLeague, useSport } from '../lib/store';
+import { calledOff } from '../lib/sport';
 import { rpc } from '../lib/supabase';
 import { etToday, fmtPts } from '../lib/format';
 import { optimize, weekEndOf, gamesLeftThisWeek, locked as isLocked, type Basis, type LContext, type Mode, type Plan } from '../lib/lineup';
@@ -59,6 +60,7 @@ export function useOptimizer(roster: Row[]) {
 
 export function LineupTools({ open, onClose, roster }: { open: boolean; onClose: () => void; roster: Row[] }) {
   const { me, league, players, refresh } = useLeague();
+  const sport = useSport();
   const ctx = useLineupContext();
   const { plan, apply, busy } = useOptimizer(roster);
   const { run } = useAction();
@@ -113,7 +115,7 @@ export function LineupTools({ open, onClose, roster }: { open: boolean; onClose:
     while (out.length < 7) { const s = d.toISOString().slice(0, 10); out.push(s); if (s >= ctx.weekEnd) break; d.setUTCDate(d.getUTCDate() + 1); }
     return out;
   }, [ctx.today, ctx.weekEnd]);
-  const plays = (p: Player, day: string) => ctx.games.some((g) => g.date === day && g.state !== 'PPD' && g.state !== 'CNCL' && (g.home === p.nhl_team || g.away === p.nhl_team));
+  const plays = (p: Player, day: string) => ctx.games.some((g) => g.date === day && !calledOff(sport, g.state) && (g.home === p.nhl_team || g.away === p.nhl_team));
   const planner = roster.filter((x) => x.r.slot !== 'IR').sort((a, b) => gamesLeftThisWeek(b.p.nhl_team, ctx) - gamesLeftThisWeek(a.p.nhl_team, ctx) || b.p.proj - a.p.proj);
   const pinned = roster.filter((x) => x.r.pin);
 

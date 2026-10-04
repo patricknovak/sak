@@ -1,0 +1,9 @@
+# Cache rules for Cloudflare (static assets read this file; GitHub Pages ignores it).
+# The service worker and the page itself are always checked again, so a new build reaches phones at once;
+# the hashed build files never change, so they are kept for a year.
+/sw.js
+  Cache-Control: no-cache
+/index.html
+  Cache-Control: no-cache
+/assets/*
+  Cache-Control: public, max-age=31536000, immutable

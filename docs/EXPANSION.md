@@ -177,8 +177,17 @@ GitHub Pages address forwarding to it for a season; (4) the landing page off Ver
 league is a subdomain. *Step 5's app side is built (migration 107):* `league_by_host(host)`, the site's `x-league`
 header from the address (`src/lib/host.ts`), the sign-in page in the league's brand with its crest, a notice for a GM
 on a league they're not in, a league switched to on Profile kept for that tab, and each league's address and own
-domain on the Platform page. It waits only on steps 1 and 2 (the Cloudflare project and its wildcard). Needs a Cloudflare API token (Pages and DNS for superpoolsai.com) in the cloud environment as
-`CLOUDFLARE_API_TOKEN`, with `CLOUDFLARE_ACCOUNT_ID`.
+domain on the Platform page. It waits only on steps 1 and 2 (the Cloudflare project and its wildcard).
+*How, on Cloudflare (4 October 2026):* Pages can't take a wildcard custom domain, so the app goes on Cloudflare's
+successor to Pages, a Worker serving the built site as static assets (`wrangler.jsonc`), which takes the route
+`*.superpoolsai.com/*`; the landing page is a second one (`landing/wrangler.jsonc`). Same free plan, same account.
+`.github/workflows/cloudflare.yml` builds and deploys both on every push to `main` once the secrets exist, and
+until then stops green with a notice; `public/_headers` keeps the service worker and the page uncached and the
+hashed build files cached for a year. What Patrick sets up once: a Cloudflare API token with Account → Workers
+Scripts: Edit, and Zone (superpoolsai.com) → Workers Routes: Edit and DNS: Edit; then the token and the account id as
+GitHub Actions secrets `CLOUDFLARE_API_TOKEN` and `CLOUDFLARE_ACCOUNT_ID` (and in the cloud environment, for the
+sessions). The first push then gives a preview at `superpools-app.<account>.workers.dev` (step 1); step 2 adds a
+proxied wildcard DNS record (`AAAA * 100::`) and the route in `wrangler.jsonc`.
 
 **B6. Money and the Fund are SaK's.** `commish_bill_entries` bills every league's GMs; `commish_post_payouts`
 reads `standings` with the owner's rights, so it ranks, pays and charges the Peter across leagues; `fund` is one
@@ -232,8 +241,8 @@ switcher: turning alerts off in one league unsubscribes the browser for all of t
 | Area | Finding | Fix |
 |---|---|---|
 | Edge functions | nhl-sync answers every task to the public key, including the heavy ones (`projections`, `corrections&days=35`, `players`). | The cron jobs send the admin key; heavy tasks require it. *Done (migrations 97 and 98): `_edge_headers(true)` adds the key at run time, so no job's text or the repo holds it; nhl-sync refuses `players`, `projections` and `corrections` without it.* |
-| Edge functions | `.single()` on `teams by user_id` (push test, Yahoo) breaks for a person in two leagues; `yahoo_accounts` is per team. | Resolve the team through `league_members` and the active league; Yahoo per account. |
-| Edge functions | Reads that can pass 1,000 rows across leagues (gameday rosters, auto-lineup rosters) are cut short silently. | Distinct ids by RPC, or page per league. |
+| Edge functions | `.single()` on `teams by user_id` (push test, Yahoo) breaks for a person in two leagues; `yahoo_accounts` is per team. | Resolve the team through `league_members` and the active league; Yahoo per account. *Done: the push test (earlier) and Yahoo (4 October 2026) ask `my_team()` as the caller, so the league they're in decides; a Yahoo sign-in made from the person's team in one league serves their others, and disconnecting forgets it everywhere.* |
+| Edge functions | Reads that can pass 1,000 rows across leagues (gameday rosters, auto-lineup rosters) are cut short silently. | Distinct ids by RPC, or page per league. *Done (4 October 2026): nhl-sync reads both a thousand rows at a time in a fixed order (`every()`) until the last page.* |
 | SQL | `create_league` copies league 1's rules, sets no sport, owner or membership, and makes no draft or fund row; any commissioner can call it. | A platform-owner `create_league` that builds the whole league (rules from a sport template, draft row, Garry row, commissioner membership, opening coins). *Done (migration 90): platform admins only, owner and sport recorded, rules from a template league, open GM seats with opening coins (seat 1 the commissioner's), and `platform_invite` for the first commissioner.* |
 | SQL | `teams.id` has no sequence (`max(id) + 1` in `accept_invite`, `commish_add_spectator`); `commish_add_spectator` writes no league. | Identity column; the league written explicitly. *Done (migration 86).* |
 | SQL | Book market inserts with no team (`commish_market`, `open_markets`) rely on the default league 1. | Write `league_id` explicitly. *Done: the scheduler's markets name it since B4; `commish_market` since migration 97.* |
@@ -298,12 +307,37 @@ built (migrations 92 and 93: `open_shadow_league`, `shadow_sync` every minute, `
 
 **Phase 2, people can join.** B5 sign-in by email and league by host, invites and the switcher, realtime and
 presence per league, B7 brand and history per league, B8 phones, Cloudflare Pages hosting, the platform `create_league`.
-Garry's daily budget.
+Garry's daily budget (done, migration 99).
 *Gate:* a friend's league is created, invited, drafted and scored for two weeks without anyone touching SQL.
+*Walked through on 4 October 2026 (migration 108):* a league opened on the Platform page, its commissioner invited and
+seated, the order drawn, the draft run to the end with open seats picked for them, rosters slotted and the season
+phase set, all through the functions the site calls. Three fixes came out of it: the order draw took every league's
+teams (SaK's too since the shadow league), an open seat waited out the full clock each round (now 4 seconds, like
+autodraft), and a new league opened in the keepers phase with nobody to keep (now ready to draft). A new league can
+set its own roster slots before the draft (migration 116, `commish_set_roster`, the Commish page's Roster section; the
+draft takes one round per spot after the keepers).
 
 **Phase 3, the sport pulled out.** Section 6 with the NHL as the only sport: `sports` row, adapter interface,
 `SportConfig`, scoring as a list, ids with `sport`. SaK must not notice.
 *Gate:* every NHL literal in the guardrail lists is gone and the flow test runs unchanged.
+*Started 4 October 2026 (migration 135):* the `sports` table, the NHL its one row (positions and groups, slots and whom
+each accepts, the stat vocabulary, game states as the engine's five, periods, the season's shape, the day boundary, the
+lock rule, the words); `leagues.sport` references it. The site carries the same row compiled in (`src/lib/sport.ts`,
+`useSport()` from the store, which loads another sport's row), `supabase/tests/sport.test.mjs` fails if the two drift or
+the slots stop agreeing with the lineup engine, and the flow test checks them against `slot_ok`. First readers moved:
+the pickup advisor's positions and Roster vs available, then (the same day) `Pos` became a string and the position
+chips and filters across the site read the sport (Players, the lineup planner, Trades, the trade block, the team scout,
+Keepers). Then the game states and periods: every page that reads the league's own games asks the sport whether a game
+is live, final, not started or called off (`isLive`, `isFinal`, `hasStarted`, `notStarted`, `calledOff`) and how to
+write its period (`periodShort`, `extraTime`), the store included; the NHL centre pages read the NHL's own feed and stay
+its adapter; the Book asks the sport whether a game is live or final, while its in-play prices (regulation minutes,
+overtime) stay hockey's model until a second sport's Book is designed. Garry's voice reads the sport too (migration 144):
+the sports row carries the words his prompts wrote in (the game's name, the rec-league adjective, the room, his one-line
+character), so the NHL's prompts read exactly as before and another sport's league gets its own. The site's "puck drop" in its
+explanations (the lineup lock, a past day, the Book's closing time, the standings' corrections note) reads the same word, and the
+centre's name in the nav, its page title and Home's link read `words.centre` ("NHL centre"). Next: the draft simulator, which needs the sport's draft
+rules in its row (depth targets per position, a cap per position, flex spots, the goalie timing it now hard-codes),
+best designed beside a real second sport rather than guessed at.
 
 **Phase 4, the second sport.** Basketball on the daily (hockey) engine is the cheapest proof of the split, on a
 licensed feed; soccer follows with the weekly engine for 2027-28, as `docs/MARKET.md` lays out.

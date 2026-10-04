@@ -1,5 +1,6 @@
 // The NHL page's News, Leaders and Teams tabs.
 import { Fragment, useEffect, useMemo, useState } from 'react';
+import { useBrand } from '../lib/brand';
 import { Link, useNavigate } from 'react-router-dom';
 import { useLeague, useNow } from '../lib/store';
 import { hub, type ClubGoalie, type ClubPerson, type ClubSkater, type Leaders, type NewsStory, type XFeed } from '../lib/nhlhub';
@@ -21,12 +22,13 @@ function useOwner() {
 
 // ── News
 export function NewsTab() {
+  const brand = useBrand();
   const { players, owner, me, team } = useLeague();
   const now = useNow(60_000);
   const [items, setItems] = useState<NewsStory[] | null>(null);
   const [err, setErr] = useState<string | null>(null);
   const [filter, setFilter] = useState<'all' | 'mine' | 'trades' | 'NHL.com' | 'Sportsnet' | 'ESPN'>('all');
-  useEffect(() => { hub<{ items: NewsStory[] }>('news').then((r) => setItems(r.items), (e) => setErr(e.message)); }, []);
+  useEffect(() => { hub<{ items?: NewsStory[] }>('news').then((r) => setItems(r?.items ?? []), (e) => setErr(e.message)); }, []);
   // which league players a story mentions (full names only, so "Miller" alone doesn't tag six guys)
   const names = useMemo(() => [...players.values()].filter((p) => p.name.length > 6).map((p) => ({ id: p.id, n: p.name.toLowerCase() })), [players]);
   const mentions = (s: NewsStory) => { const t = `${s.headline} ${s.summary}`.toLowerCase(); return names.filter((x) => t.includes(x.n)).map((x) => x.id); };
@@ -59,13 +61,14 @@ export function NewsTab() {
           </a>
         ))}
       </div>
-      <p className="px-1 text-[11px] text-mute">Headlines from NHL.com, Sportsnet and ESPN, refreshed every ten minutes. Badges mark the SaK GM who owns a player mentioned. <ExternalLink size={10} className="inline" /> opens the story on the source’s site.</p>
+      <p className="px-1 text-[11px] text-mute">Headlines from NHL.com, Sportsnet and ESPN, refreshed every ten minutes. Badges mark the {brand.short} GM who owns a player mentioned. <ExternalLink size={10} className="inline" /> opens the story on the source’s site.</p>
     </div>
   );
 }
 
 // ── Leaders
 export function LeadersTab() {
+  const brand = useBrand();
   const { players, windows, owner, team, league } = useLeague();
   const { Owner, Name } = useOwner();
   const [data, setData] = useState<Leaders | null>(null);
@@ -94,7 +97,7 @@ export function LeadersTab() {
     <div className="space-y-4">
       {err && <div className="rounded-xl border border-amber-400/20 bg-amber-500/10 p-3 text-sm text-amber-100">Leaders didn’t load: {err}</div>}
       {league?.phase === 'season' && hot.length > 0 && (
-        <Section icon={<Flame size={16} className="text-goal" />} title="Hottest in the SaK pool · last 7 days">
+        <Section icon={<Flame size={16} className="text-goal" />} title={`Hottest in the ${brand.short} pool · last 7 days`}>
           <div className="card divide-y divide-white/[.05]">
             {hot.map(({ p, w }, i) => (
               <div key={p!.id} className="flex items-center gap-2 px-3 py-1.5 text-sm">
@@ -114,7 +117,7 @@ export function LeadersTab() {
         <div className="scroll-x mb-2 flex gap-1">{GOALIE_CATS.map(([k, l]) => <button key={k} className={chip(gcat === k)} onClick={() => setGcat(k)}>{l}</button>)}</div>
         {data?.goalies[gcat] && <List rows={data.goalies[gcat]} k={gcat} />}
       </Section>
-      <p className="px-1 text-[11px] text-mute">Every stat for every player, sortable by any timeframe, is on the <Link to="/players" className="text-sky-300">Players page</Link>. Badges mark SaK owners; names link to player pages. {team(0) ? '' : ''}</p>
+      <p className="px-1 text-[11px] text-mute">Every stat for every player, sortable by any timeframe, is on the <Link to="/players" className="text-sky-300">Players page</Link>. Badges mark {brand.short} owners; names link to player pages. {team(0) ? '' : ''}</p>
     </div>
   );
 }
@@ -125,6 +128,7 @@ type Club = { abbrev: string; roster: { forwards: ClubPerson[]; defense: ClubPer
 const FpTd = ({ v }: { v: number | undefined }) => <td className={`num px-2 py-1 text-right font-bold ${v ? (v > 0 ? 'text-gold' : 'text-red-300') : 'text-mute'}`}>{v == null ? '–' : fmtPts(v, 1)}</td>;
 
 export function TeamsTab({ onGame }: { onGame: (g: any) => void }) {
+  const brand = useBrand();
   const { teams, players, owner, team, season } = useLeague();
   const { Owner, Name } = useOwner();
   const [open, setOpen] = useState<string | null>(null);
@@ -152,12 +156,12 @@ export function TeamsTab({ onGame }: { onGame: (g: any) => void }) {
             <button key={ab} onClick={() => setOpen(ab)} className="card flex flex-col items-center gap-1 p-2 transition active:scale-[.97]">
               <img src={LOGO(ab)} alt="" className="h-10 w-10" loading="lazy" />
               <span className="text-xs font-bold">{ab}</span>
-              <span className="flex items-center gap-1 text-[10px] text-mute">{n} SaK{favs.map((t) => <TeamBadge key={t.id} team={t} size={11} />)}</span>
+              <span className="flex items-center gap-1 text-[10px] text-mute">{n} {brand.short}{favs.map((t) => <TeamBadge key={t.id} team={t} size={11} />)}</span>
             </button>
           );
         })}
       </div>
-      <p className="px-1 text-[11px] text-mute">Tap a club for its roster, this week’s games and every player’s season stats. “SaK” counts the club’s players on league rosters; badges are GMs’ favourite teams.</p>
+      <p className="px-1 text-[11px] text-mute">Tap a club for its roster, this week’s games and every player’s season stats. “{brand.short}” counts the club’s players on league rosters; badges are GMs’ favourite teams.</p>
 
       <Sheet open={!!open} onClose={() => setOpen(null)} wide title={open ? <span className="flex items-center gap-2"><img src={LOGO(open)} alt="" className="h-7 w-7" />{NHL_TEAMS[open]} <span className="text-xs font-normal text-mute">{open}</span></span> : ''}>
         {err && <div className="rounded-xl border border-amber-400/20 bg-amber-500/10 p-3 text-sm text-amber-100">{err}</div>}
@@ -178,7 +182,7 @@ export function TeamsTab({ onGame }: { onGame: (g: any) => void }) {
                 </div>
               </Section>
             )}
-            <Section title={`Roster (${club.roster.forwards.length + club.roster.defense.length + club.roster.goalies.length})`} right={<span className="text-xs text-mute">{[...club.roster.forwards, ...club.roster.defense, ...club.roster.goalies].filter((p) => owner.has(p.id)).length} on SaK rosters</span>}>
+            <Section title={`Roster (${club.roster.forwards.length + club.roster.defense.length + club.roster.goalies.length})`} right={<span className="text-xs text-mute">{[...club.roster.forwards, ...club.roster.defense, ...club.roster.goalies].filter((p) => owner.has(p.id)).length} on {brand.short} rosters</span>}>
               {([['Forwards', club.roster.forwards], ['Defense', club.roster.defense], ['Goalies', club.roster.goalies]] as const).map(([label, list]) => (
                 <div key={label} className="mb-2">
                   <div className="mb-1 px-1 text-[11px] font-bold uppercase tracking-wider text-mute">{label}</div>
@@ -220,6 +224,7 @@ export function TeamsTab({ onGame }: { onGame: (g: any) => void }) {
 
 // ── Injuries: the league injury report (your team first), from the players table (refreshed hourly)
 export function InjuriesTab() {
+  const brand = useBrand();
   const nav = useNavigate();
   const { players, owner, teams, me } = useLeague();
   const [scope, setScope] = useState<'rostered' | 'all'>('rostered');
@@ -244,12 +249,15 @@ export function InjuriesTab() {
           {mine.length === 0 ? <div className="p-4 text-sm text-mute">Nobody on your roster is hurt or suspended. Knock on wood.</div> : mine.map((p) => <Fragment key={p.id}>{Hurt({ id: p.id })}</Fragment>)}
         </div>
       </Section>
-      <Section title="League injury report" right={<div className="flex gap-1">
-        <button className={`tab px-2.5 py-1 text-xs ${scope === 'rostered' ? 'tab-on' : 'bg-white/[.05]'}`} onClick={() => setScope('rostered')}>SaK rosters</button>
-        <button className={`tab px-2.5 py-1 text-xs ${scope === 'all' ? 'tab-on' : 'bg-white/[.05]'}`} onClick={() => setScope('all')}>Free agents</button></div>}>
+      <Section title="League injury report">
+        {/* the switch sits under the title so both fit a phone; the league's own name, never a hard-coded one */}
+        <div className="mb-2 flex gap-1">
+          <button className={`tab px-2.5 py-1 text-xs ${scope === 'rostered' ? 'tab-on' : 'bg-white/[.05]'}`} onClick={() => setScope('rostered')}>{brand.short} rosters</button>
+          <button className={`tab px-2.5 py-1 text-xs ${scope === 'all' ? 'tab-on' : 'bg-white/[.05]'}`} onClick={() => setScope('all')}>Free agents</button>
+        </div>
         {scope === 'rostered' ? (
           <div className="space-y-3">
-            {byTeam.length === 0 && <div className="card p-4 text-sm text-mute">No injured players on any SaK roster.</div>}
+            {byTeam.length === 0 && <div className="card p-4 text-sm text-mute">No injured players on any {brand.short} roster.</div>}
             {byTeam.map(({ t, list }) => (
               <div key={t.id} className="card overflow-hidden">
                 <div className="flex items-center gap-2 border-b border-line px-3 py-2"><TeamBadge team={t} size={22} /><TeamName link team={t} /><span className="ml-auto text-xs text-mute">{list.length}</span></div>
@@ -267,6 +275,7 @@ export function InjuriesTab() {
 
 // ── X: the NHL insiders' feed (live through the X API when the commissioner has added the token)
 export function XTab() {
+  const brand = useBrand();
   const { players, owner, me, team } = useLeague();
   const now = useNow(30_000);
   const [feed, setFeed] = useState<XFeed | null>(null);
@@ -297,7 +306,7 @@ export function XTab() {
       {feed?.configured && (
         <>
           <div className="scroll-x flex items-center gap-1">
-            {([['all', 'Everything'], ['sak', 'SaK players'], ['mine', 'My players']] as const).map(([k, l]) => <button key={k} className={`shrink-0 rounded-full px-2.5 py-1 text-xs font-semibold ${filter === k ? 'bg-sky-500 text-ice' : 'bg-white/[.05] text-mute'}`} onClick={() => setFilter(k)}>{l}</button>)}
+            {([['all', 'Everything'], ['sak', `${brand.short} players`], ['mine', 'My players']] as const).map(([k, l]) => <button key={k} className={`shrink-0 rounded-full px-2.5 py-1 text-xs font-semibold ${filter === k ? 'bg-sky-500 text-ice' : 'bg-white/[.05] text-mute'}`} onClick={() => setFilter(k)}>{l}</button>)}
             <span className="ml-auto shrink-0 text-[11px] text-mute">{feed.source === 'grok' ? 'via Grok’s X search' : 'via X'}{feed.fetched_at ? ` · ${ago(feed.fetched_at, now)}` : ''}{feed.stale ? ' · refresh failed, showing the last one' : feed.refreshing ? ' · refreshing…' : ''}</span>
           </div>
           <div className="flex flex-wrap items-center gap-1 text-[11px] text-mute">

@@ -1,7 +1,9 @@
 import { useEffect, useMemo, useState } from 'react';
+import { RotoStandings } from '../components/RotoStandings';
+import { HeadToHeadStandings } from '../components/HeadToHead';
 import { useSticky } from '../lib/sticky';
 import { Link } from 'react-router-dom';
-import { useLeague } from '../lib/store';
+import { useLeague, useSport } from '../lib/store';
 import { bare, useBrand } from '../lib/brand';
 import { selectAll, supabase } from '../lib/supabase';
 import { fmtDate, fmtMoney, fmtPts } from '../lib/format';
@@ -31,7 +33,7 @@ function Podium({ rows, caption }: { rows: { t?: Team; name: string; gm: string;
           <div key={place} className="flex flex-col items-center">
             {place === 1 && <div className="mb-1 text-2xl drop-shadow-[0_0_12px_rgb(var(--gold-rgb)/.8)]">👑</div>}
             {r.t ? <TeamBadge team={r.t} size={place === 1 ? 58 : 46} ring={place === 1} /> : <div className="h-12 w-12 rounded-full bg-white/10" />}
-            <div className="mt-1.5 w-full truncate text-center text-xs font-bold">{r.name}</div>
+            <div className="mt-1.5 w-full break-words text-center text-xs font-bold leading-tight">{r.name}</div>
             <div className="text-[10px] text-white/60">{r.gm}</div>
             <div className="num font-display text-base font-extrabold">{fmtPts(r.pts)}</div>
             <div className={`mt-1.5 w-full ${h} rounded-t-xl bg-gradient-to-b ${medal} grid place-items-start justify-center pt-1 shadow-[inset_0_1px_0_rgba(255,255,255,.6)]`}>
@@ -66,6 +68,20 @@ export default function Standings() {
   const last = table[table.length - 1], second = table[table.length - 2];
   const scored = table.some((t) => Number(t.points) !== 0);
 
+  // a head-to-head league ranks by wins; a rotisserie league by categories
+  if (league?.format === 'h2h') return (
+    <div className="space-y-5">
+      <PageHeader icon={<Trophy size={22} className="text-gold" />} title="Standings" sub={`${league.season} season · head-to-head`} />
+      <HeadToHeadStandings />
+    </div>
+  );
+  if (league?.categories?.length) return (
+    <div className="space-y-5">
+      <PageHeader icon={<Trophy size={22} className="text-gold" />} title="Standings" sub={`${league.season} season · rotisserie`} />
+      <RotoStandings />
+    </div>
+  );
+
   return (
     <div className="space-y-5">
       <PageHeader icon={<Trophy size={22} className="text-gold" />} title="Standings" sub={`${league?.season} season`} />
@@ -75,7 +91,7 @@ export default function Standings() {
           <button key={k} onClick={() => setView(k)}
             className={`card p-3 text-left transition active:scale-[.98] ${k === 'cup' ? 'col-span-2 sm:col-span-1' : ''} ${view === k ? 'border-gold/40 shadow-[0_0_0_1px_rgb(var(--gold-rgb)/.25),0_12px_32px_-18px_rgb(var(--gold-rgb)/.7)]' : 'opacity-75'}`}
             style={view === k ? { background: 'linear-gradient(160deg, rgb(var(--gold-rgb)/.14), rgba(15,23,41,.8) 55%)' } : undefined}>
-            <div className="label flex items-center justify-between gap-1"><span className="truncate">{trophy}</span>{useMoney && <span>{pot.pct}%</span>}</div>
+            <div className="label flex items-start justify-between gap-1.5"><span className="min-w-0 break-words leading-snug">{trophy}</span>{useMoney && <span className="shrink-0">{pot.pct}%</span>}</div>
             <div className="text-[10px] text-mute">{label}</div>
             {useMoney && <>
               <div className="num text-gold-shine mt-0.5 font-display text-2xl font-extrabold">{fmtMoney(pot.amount)}</div>
@@ -86,7 +102,7 @@ export default function Standings() {
       </div>
 
       {league?.phase !== 'season' && !scored && (
-        <div className="card p-4 text-sm text-mute">The season hasn’t started. Scoring begins {league?.season_start && fmtDate(league.season_start)}. Last season’s final table is on the <Link className="text-sky-300" to="/league">League page</Link>.</div>
+        <div className="card p-4 text-sm text-mute">The season hasn’t started. {league?.season_start ? <>Scoring begins {fmtDate(league.season_start)}.</> : <>Scoring begins with the first NHL night after the draft.</>}{lastSeason && <> Last season’s final table is on the <Link className="text-sky-300" to="/league">League page</Link>.</>}</div>
       )}
       {isPo && !scored && (
         <div className="card p-4 text-sm text-slate-300">🔥 <b>The {brand.short} playoffs</b> run alongside the NHL playoffs. The regular season table is saved as it stands, and everyone starts the playoffs at zero with their current roster, including any trades and pickups. Same daily lineups, same rules. Every fantasy point scored in an NHL playoff game counts here, and {useMoney ? <>the top three split {money.playoffPct}% of the prize pool for the {bare(brand.playoff)}</> : <>the top team takes the {bare(brand.playoff)}</>}. Players whose NHL team is eliminated stop scoring, so depth on deep playoff teams wins it.</div>
@@ -129,6 +145,7 @@ export default function Standings() {
 // every stat correction the NHL made after a game was final, and which teams it moved
 function Corrections() {
   const { players } = useLeague();
+  const start = useSport().words.start;
   const [rows, setRows] = useState<{ id: number; player_id: number; date: string; old_fpts: number; new_fpts: number; old_stats: Record<string, number>; new_stats: Record<string, number>; created_at: string }[]>([]);
   useEffect(() => {
     supabase.from('league_corrections').select('*').order('id', { ascending: false }).limit(12)
@@ -150,7 +167,7 @@ function Corrections() {
           );
         })}
       </div>
-      <p className="mt-1 px-1 text-xs text-mute">Points follow the lineup at puck drop: a correction counts for whoever started the player that night. Teams it moves get a note.</p>
+      <p className="mt-1 px-1 text-xs text-mute">Points follow the lineup at {start}: a correction counts for whoever started the player that night. Teams it moves get a note.</p>
     </Section>
   );
 }

@@ -1,7 +1,8 @@
 import { Fragment, useEffect, useMemo, useState } from 'react';
 import { useSticky } from '../lib/sticky';
 import { useSearchParams } from 'react-router-dom';
-import { useLeague, useNow } from '../lib/store';
+import { useLeague, useNow, useSport } from '../lib/store';
+import { positionKeys } from '../lib/sport';
 import { rpc, realtimeChannel, supabase } from '../lib/supabase';
 import type { DraftPick, Player, Trade } from '../lib/types';
 import { ago, fmtDateTime, fmtPts } from '../lib/format';
@@ -32,13 +33,13 @@ function DropPick({ pool, need, value, onChange, worth }: { pool: Player[]; need
   );
 }
 
-const FILTERS = ['all', 'C', 'LW', 'RW', 'D', 'G', 'picks'];
 
 // a multi-team builder line: one asset, where it comes from and where it goes
 type MItem = { from: number; to: number; player_id?: number; pick_id?: number };
 
 export default function Trades() {
   const { me, teams, team, rosters, players, picks, league, season } = useLeague();
+  const FILTERS = ['all', ...positionKeys(useSport()), 'picks'];
   const brand = useBrand();
   const now = useNow(30_000);
   const [params, setParams] = useSearchParams();
@@ -203,7 +204,7 @@ export default function Trades() {
   };
   // offers waiting on you open with the full assessment showing
   const isOpen = (t: Trade) => openTrade === t.id || (canRespond(t) && openTrade !== -t.id);
-  const gradesOf = (t: Trade) => sidesOf(t).map((sd) => gradeSide(evaluateSide(sd, valuer, rosterMax, sched)));
+  const gradesOf = (t: Trade) => sidesOf(t).map((sd) => gradeSide(evaluateSide(sd, valuer, rosterMax, sched), { coin: brand.coin.name }));
   const canRespond = (t: Trade) => !!me && t.status === 'proposed' && (t.parties ? partiesOf(t).includes(me.id) && t.from_team !== me.id && !(t.accepted_by ?? []).includes(me.id) : t.to_team === me.id);
 
   const groups = useMemo(() => ({

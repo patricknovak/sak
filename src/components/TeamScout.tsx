@@ -1,7 +1,8 @@
 import { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ClipboardList, Repeat2, Scale } from 'lucide-react';
-import { useLeague } from '../lib/store';
+import { useLeague, useSport } from '../lib/store';
+import { positionKeys } from '../lib/sport';
 import type { DraftPick, Player } from '../lib/types';
 import { fmtPts, readable } from '../lib/format';
 import { PlayerRow } from './PlayerCard';
@@ -10,7 +11,6 @@ import { PlayerPeek, ScoutBar, StatStrip, sortPlayers, useScout, useScoutCtx } f
 
 // starting slots per position: how many players at each spot actually score for you
 const NEED: Record<string, number> = { C: 2, LW: 2, RW: 2, D: 3, G: 2 };
-const POS = ['C', 'LW', 'RW', 'D', 'G'];
 
 // value of a team's best starters at one position (a player counts at his primary position)
 const posStrength = (ps: Player[], pos: string, val: (p: Player) => number) =>
@@ -18,6 +18,7 @@ const posStrength = (ps: Player[], pos: string, val: (p: Player) => number) =>
 
 export function TeamScout({ teamId, hideRoster }: { teamId: number; hideRoster?: boolean }) {
   const { me, teams, team, rosters, players, picks, season, league, draft } = useLeague();
+  const POS = positionKeys(useSport());
   const nav = useNavigate();
   const mine = teamId === me?.id;
   const inSeason = league?.phase === 'season';
@@ -64,7 +65,8 @@ export function TeamScout({ teamId, hideRoster }: { teamId: number; hideRoster?:
 
   return (
     <div className="space-y-4">
-      <Section icon={<Scale size={16} className="text-blue" />} title={mine ? 'Team strength vs. the league' : `${t?.gm_name}'s strength vs. yours`}>
+      {/* nothing to weigh before anyone has players (a new league before its draft) */}
+      {strength.some((s) => s.mine > 0 || s.their > 0) && <Section icon={<Scale size={16} className="text-blue" />} title={mine ? 'Team strength vs. the league' : `${t?.gm_name}'s strength vs. yours`}>
         <div className="card space-y-2.5 p-3">
           {strength.map((s) => (
             <div key={s.pos} className="flex items-center gap-2">
@@ -91,7 +93,7 @@ export function TeamScout({ teamId, hideRoster }: { teamId: number; hideRoster?:
             </div>
           )}
         </div>
-      </Section>
+      </Section>}
 
       {!hideRoster && <Section title={`${mine ? 'Your' : `${t?.gm_name}'s`} roster (${theirs.length})`}>
         <div className="mb-2"><ScoutBar s={scout} hasG={theirs.some((p) => p.pos === 'G')} /></div>
@@ -147,10 +149,11 @@ export function TeamScout({ teamId, hideRoster }: { teamId: number; hideRoster?:
 
       {!mine && tradeOpen && (
         <div className="sticky bottom-[calc(84px+env(safe-area-inset-bottom))] z-20 lg:bottom-3">
-          <div className="card flex items-center gap-3 p-2.5 shadow-2xl" style={{ background: 'linear-gradient(135deg, rgba(76,195,255,.18), rgba(11,18,34,.95) 55%)' }}>
-            <TeamBadge team={t} size={30} />
-            <div className="min-w-0 flex-1 text-sm">
-              {want.size + wantPicks.size === 0 ? <span className="text-slate-300">Tick players or picks you want, then build the offer.</span>
+          <div className="card flex items-center gap-3 p-2.5 shadow-2xl backdrop-blur-md" style={{ background: 'linear-gradient(135deg, rgba(30,70,100,.92), rgba(11,18,34,.96) 55%)' }}>
+            {/* the badge gives way on the smallest phones so the prompt keeps its room */}
+            <span className="hidden shrink-0 min-[380px]:block"><TeamBadge team={t} size={30} /></span>
+            <div className="min-w-0 flex-1 text-sm leading-snug">
+              {want.size + wantPicks.size === 0 ? <><b className="text-slate-200">Tick what you want</b><div className="text-[11px] text-mute">players or picks</div></>
                 : <><b>Ask for {want.size} player{want.size === 1 ? '' : 's'}{wantPicks.size ? ` + ${wantPicks.size} pick${wantPicks.size === 1 ? '' : 's'}` : ''}</b><div className="text-[11px] text-mute">{fmtPts(askValue, 0)} pts of value</div></>}
             </div>
             <button className="btn-primary shrink-0" onClick={() => {

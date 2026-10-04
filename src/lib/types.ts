@@ -1,5 +1,6 @@
 export type Slot = 'C' | 'LW' | 'RW' | 'D' | 'Util' | 'G' | 'BN' | 'IR';
-export type Pos = 'C' | 'LW' | 'RW' | 'D' | 'G';
+// a position key from the league's sport (src/lib/sport.ts): C, LW, RW, D, G in hockey
+export type Pos = string;
 
 export interface League {
   id: number; league_id: number; name: string; short_name: string; season: string;
@@ -12,6 +13,9 @@ export interface League {
   scoring: { skater: Record<string, number>; goalie: Record<string, number> };
   commish_note: string | null; updated_at: string; info: Record<string, any>;
   features?: { money?: boolean; fund?: boolean } | null;   // what the league uses beyond the game (src/lib/features.ts)
+  categories?: string[] | null;  // a rotisserie league's categories (migration 117); null for a points league
+  format?: 'season' | 'h2h';      // the season total, or weekly head-to-head matchups (migration 118)
+  h2h_playoffs?: number;          // a head-to-head league's playoff spots, 0 for none (migration 120)
 }
 
 export interface Team {

@@ -22,11 +22,15 @@ Two things in one repo:
   `src/components`, shared logic in `src/lib`. The app-wide store is `src/lib/store.tsx` (`useLeague()`):
   it loads league, teams, players, rosters, picks, draft, standings, season stats, windows, games,
   notifications and game-day status, subscribes to realtime, and exposes `leagueDay` and `brand`.
+- Sport: `src/lib/sport.ts` (`useSport()` from the store): the league's sport as the engine reads it (positions, slots,
+  stats, game states, periods), the database's `sports` row with the NHL compiled in. New code that needs a position
+  list, a slot rule or a stat label reads it instead of writing hockey in; the rest moves over one place at a time.
 - Brand: `src/lib/brand.ts` (`useBrand()`, SaK defaults, `PRODUCT` constants). Names come from
   `leagues.brand`; never hard-code a new league-specific name. The league's colour (`brand.colors.gold`) themes the
   site through CSS variables (`--color-gold`, `--gold-rgb`, `--gold-hi`...; `applyBrandColors`): draw accents with
   `gold` classes or `rgb(var(--gold-rgb)/…)`, never a literal `#f7c548`. The commissioner edits the brand on the
-  Commish page (`commish_set_brand`); the platform opens leagues on `#/platform`. League by host: `src/lib/host.ts`
+  Commish page (`commish_set_brand`); the platform opens leagues on `#/platform`, from requests made on the public
+  `#/start` page (drawn in the product's own colours, docs/BRAND.md). League by host: `src/lib/host.ts`
   reads the address (`league_by_host`), and the site sends that league as `x-league` on REST requests only (the edge
   functions' CORS doesn't list it).
 - Backend: Supabase Postgres (project `quakdkzdafzlhgjvmypg`). Every rule is a SQL function behind
@@ -40,17 +44,24 @@ Two things in one repo:
   (gated by `_scores_due()`), nhl-gameday, nhl-injuries, nhl-schedule, season-schedule, nhl-news,
   nhl-players, nhl-players-pregame, nhl-standings, nhl-corrections, nhl-corrections-deep, projections,
   auto-lineups, auto-lineups-late, garry-daily, garry-weekly, garry-nudge, garry-moments, open-book, settle-book,
-  settle-bets, expire-bets, process-pending (every 10 s), health-check, fund-price, cron-history, cost-snapshot,
+  settle-bets, expire-bets, h2h-notes, process-pending (every 10 s), health-check, fund-price, cron-history, cost-snapshot,
   cost-watch. A job that does a league's work runs once per active league: in SQL through
   `run_league_jobs(job)` (sets `app.league_id`, one league's failure doesn't stop the others), in an edge function
   through a client with the service key and an `x-league` header (`dbFor(league)` in nhl-sync and Garry).
 - Points: the NHL data is shared, the scoring isn't. `player_games.fpts` and `players.proj / last_fp / rank` are
   SaK's numbers kept for old readers; read a league's points through `league_games`, `league_players`,
   `player_season`, `player_windows` (each league's scoring profile, `scoring_profiles`).
+- Formats: how a league is won is in `league_rules` (and the `league` view): `format` ('season', SaK's total, or 'h2h'
+  weekly matchups on `matchups`), `categories` (null for points; set, it is rotisserie in a season league and weekly
+  categories in an h2h one) and `h2h_playoffs` (0, or the bracket's size). Read the tables through `standings` (points),
+  `category_standings()`, `h2h_scores()` / `h2h_standings()` / `h2h_bracket()` (worked out on read). Anything that ranks
+  teams (payouts, Garry, the Money page) follows the format; SaK's path stays the points table.
 - Hosting: today GitHub Pages from `main` (`.github/workflows/deploy.yml`, builds on push), and the Super Pools landing
-  page (`landing/index.html`) on Vercel. Decided (3 October 2026): both move to **Cloudflare Pages** (free for commercial
-  use, DNS already on Cloudflare, wildcard subdomains for league by host); never plan new work on Vercel. The move is
-  in `docs/EXPANSION.md`.
+  page (`landing/index.html`) on Vercel. Decided (3 October 2026): both move to **Cloudflare** (free for commercial
+  use, DNS already on Cloudflare, wildcard subdomains for league by host); never plan new work on Vercel. Built as
+  Workers serving static assets (`wrangler.jsonc`, `landing/wrangler.jsonc`; Pages can't take a wildcard), deployed by
+  `.github/workflows/cloudflare.yml` once the `CLOUDFLARE_API_TOKEN` and `CLOUDFLARE_ACCOUNT_ID` secrets exist. The
+  move is in `docs/EXPANSION.md`.
 
 ## Time and the league day
 

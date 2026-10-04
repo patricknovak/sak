@@ -6,7 +6,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Receipt } from 'lucide-react';
 import { rpc } from '../lib/supabase';
-import { fmtDate } from '../lib/format';
+import { etToday, fmtDate } from '../lib/format';
 import { PageHeader, Section, Stat, Spinner, useAction } from '../components/ui';
 
 interface Day { day: string; fixed: number; garry: number; x_feed: number; other: number }
@@ -20,6 +20,14 @@ interface Dash {
   usage: { db_bytes: number; db_included_bytes: number; cron_runs_yesterday: number | null; ai_calls_30: number };
   alerts: { day: string; message: string }[];
 }
+
+// a reply missing a list or a block (an empty ledger, an older function) reads as empty rather than crashing the page
+const whole = (r: Partial<Dash> | null): Dash => ({
+  today: r?.today ?? etToday(), metered_since: r?.metered_since ?? null,
+  daily: r?.daily ?? [], months: r?.months ?? [], features: r?.features ?? [], leagues: r?.leagues ?? [], fixed: r?.fixed ?? [], alerts: r?.alerts ?? [],
+  summary: { today: 0, yesterday: 0, mtd: 0, metered_avg_7: 0, fixed_month: 0, projected_month: 0, leagues: 0, ...(r?.summary ?? {}) },
+  usage: { db_bytes: 0, db_included_bytes: 0, cron_runs_yesterday: null, ai_calls_30: 0, ...(r?.usage ?? {}) },
+});
 
 // the four sources, in a fixed order and colour (checked for colour-blind separation on the rink background)
 const SOURCES = [
@@ -176,7 +184,7 @@ export default function Costs() {
   const [add, setAdd] = useState({ item: '', monthly: '', share: '100', note: '' });
   const { busy, run } = useAction();
   const load = async () => {
-    try { setD(await rpc<Dash>('cost_dashboard', { p_days: 92 })); setErr(null); } catch (e) { setErr((e as Error).message); }
+    try { setD(whole(await rpc<Partial<Dash> | null>('cost_dashboard', { p_days: 92 }))); setErr(null); } catch (e) { setErr((e as Error).message); }
   };
   useEffect(() => { load(); }, []);
   // nothing was billed before the books started, so the chart starts there
@@ -211,7 +219,8 @@ export default function Costs() {
 
   return (
     <div className="space-y-5">
-      <PageHeader icon={<Receipt size={22} className="text-gold" />} title="Running costs" sub="What SaK and Super Pools cost to run, and where it goes." />
+      <PageHeader icon={<Receipt size={22} className="text-gold" />} title="Running costs" sub="What SaK and Super Pools cost to run, and where it goes."
+        right={<Link to="/calibration" className="btn-ghost btn-sm shrink-0">🎯 Calibration</Link>} />
 
       <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
         <Stat label="This month so far" value={usd(s.mtd)} sub={`${new Date(`${d.today}T12:00:00`).toLocaleDateString(undefined, { month: 'long' })}, through today`} />

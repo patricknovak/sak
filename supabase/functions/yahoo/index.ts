@@ -57,10 +57,25 @@ async function caller(req: Request) {
   const jwt = (req.headers.get('Authorization') ?? '').replace('Bearer ', '');
   const { data: u } = await db.auth.getUser(jwt);
   if (!u?.user) throw new Fail('Sign in first', 401);
-  const { data: t } = await db.from('teams').select('id,gm_name').eq('user_id', u.user.id).single();
+  // their team in the league they're in (a GM can be in more than one), the way the site's own calls see it
+  const asUser = createClient(URL_, Deno.env.get('SUPABASE_ANON_KEY')!, { auth: { persistSession: false }, global: { headers: { Authorization: `Bearer ${jwt}`, ...(req.headers.get('x-league') ? { 'x-league': req.headers.get('x-league')! } : {}) } } });
+  const { data: mine } = await asUser.rpc('my_team');
+  const { data: t } = mine ? await db.from('teams').select('id,gm_name').eq('id', mine).maybeSingle() : { data: null };
   if (!t) throw new Fail('No team', 404);
-  const { data: a } = await db.from('yahoo_accounts').select('*').eq('team_id', t.id).maybeSingle();
-  return { team: t as { id: number; gm_name: string }, acct: (a ?? null) as Acct | null };
+  // the Yahoo sign-in is the person's: one made from their team in another league serves this one too
+  // (unless this team has a sign-in of its own, or one under way in the last 15 minutes; an abandoned one doesn't count)
+  const { data: theirs } = await db.from('teams').select('id').eq('user_id', u.user.id);
+  const mineAll = (theirs ?? []).map((x: { id: number }) => x.id);
+  let { data: a } = await db.from('yahoo_accounts').select('*').eq('team_id', t.id).maybeSingle();
+  const underWay = !!a?.state && !!a.state_at && Date.now() - new Date(a.state_at).getTime() < 15 * 60_000;
+  if (!a?.refresh_token && !underWay) {
+    const ids = mineAll.filter((id: number) => id !== t.id);
+    if (ids.length) {
+      const { data: other } = await db.from('yahoo_accounts').select('*').in('team_id', ids).not('refresh_token', 'is', null).order('connected_at', { ascending: false }).limit(1).maybeSingle();
+      if (other) a = other;
+    }
+  }
+  return { team: t as { id: number; gm_name: string }, acct: (a ?? null) as Acct | null, teams: mineAll.length ? mineAll : [t.id] };
 }
 
 // ───────────── OAuth ─────────────
@@ -140,7 +155,7 @@ async function ycall(acct: Acct, method: string, path: string, body?: string, re
       // the Yahoo app only has read access (Yahoo no longer offers Read/Write to every app): remember it so the site
       // sends this GM to Yahoo's own pages for changes instead
       await db.from('yahoo_accounts').update({ write_ok: false, updated_at: new Date().toISOString() }).eq('team_id', acct.team_id);
-      throw new Fail(`Yahoo only lets SaK read your leagues, so this change has to be made on Yahoo itself. Use “Manage on Yahoo”. (${desc || r.status})`, 403);
+      throw new Fail(`Yahoo only lets this site read your leagues, so this change has to be made on Yahoo itself. Use “Manage on Yahoo”. (${desc || r.status})`, 403);
     }
     throw new Fail(`Yahoo: ${desc || r.status}`, r.status === 401 ? 401 : 502);
   }
@@ -249,6 +264,33 @@ async function leagueDetail(acct: Acct, key: string) {
   const week = l.week;
   const sb = l.scoring === 'roto' || !week ? null : await yget(acct, `league/${key}/scoreboard;week=${week}`).catch(() => null);
   return { ...l, teams, me, matchups: sb ? arr(sb.league?.scoreboard?.matchups?.matchup).map(matchup) : null };
+}
+
+// a league's past, for the import into a Super Pools league's history: each season Yahoo kept, newest first, by its
+// renew chain (every renewed league names the one before it), with the final table. Read only; at most 25 seasons.
+async function history(acct: Acct, key: string) {
+  need(keyOk(key, 'l'), 'league key');
+  const seasons = [];
+  const seen = new Set<string>();
+  for (let k: string | null = key; k && !seen.has(k) && seasons.length < 25;) {
+    seen.add(k);
+    const St = await yget(acct, `league/${k}/standings`, 3_600_000).catch(() => null);
+    if (!St?.league) break;
+    const l = league(St.league);
+    const teams = arr(St.league.standings?.teams?.team).map(team)
+      .sort((a, b) => (a.rank ?? 99) - (b.rank ?? 99));
+    const y = Number(l.season);
+    seasons.push({
+      key: l.key, name: l.name, season: y ? `${y}-${String((y + 1) % 100).padStart(2, '0')}` : l.season, finished: l.finished, scoring: l.scoring,
+      teams: teams.map((t) => ({ name: t.name, managers: t.managers, rank: t.rank, w: t.w, l: t.l, t: t.t,
+        // a points league's season total; head-to-head points for
+        points: l.scoring === 'point' ? t.points ?? t.pf : t.pf ?? t.points })),
+    });
+    // "427_12345" is the league before this one, as 427.l.12345
+    const renew = str(St.league.renew);
+    k = /^\d+_\d+$/.test(renew) ? renew.replace('_', '.l.') : null;
+  }
+  return { seasons };
 }
 
 async function scoreboard(acct: Acct, key: string, week: number) {
@@ -363,7 +405,7 @@ Deno.serve(async (req) => {
   try {
     const b = await req.json().catch(() => ({}));
     const task = str(b.task);
-    const { team, acct } = await caller(req);
+    const { team, acct, teams } = await caller(req);
     await loadCreds();
     const connected = !!acct?.refresh_token;
 
@@ -386,8 +428,9 @@ Deno.serve(async (req) => {
       return json({ ok: true });
     }
     if (task === 'disconnect') {
-      await db.from('yahoo_accounts').delete().eq('team_id', team.id);
-      bust(team.id);
+      // the sign-in is the person's, so it goes from every league they're in
+      await db.from('yahoo_accounts').delete().in('team_id', teams);
+      teams.forEach((id) => bust(id));
       return json({ ok: true });
     }
     if (!acct) throw new Fail('Connect your Yahoo account first', 412);
@@ -395,6 +438,7 @@ Deno.serve(async (req) => {
     switch (task) {
       case 'leagues': return json({ leagues: await leagues(acct) });
       case 'league': return json(await leagueDetail(acct, str(b.league_key)));
+      case 'history': return json(await history(acct, str(b.league_key)));
       case 'scoreboard': return json(await scoreboard(acct, str(b.league_key), Number(b.week)));
       case 'roster': return json(await roster(acct, str(b.team_key), b.date ? str(b.date) : undefined));
       case 'set_lineup': return json(await setLineup(acct, b));

@@ -83,13 +83,25 @@ results of his own past calls, and what the wider pool knows.
    `open_shadow_league(1, 'sak-shadow')` makes it (SaK's rules and profile, a team per GM team, the same rosters,
    active); `shadow_sync()` mirrors rosters and slots every minute; `shadow_report(league)` lays each day's points
    side by side with the difference, which must be zero from its first full day. Opened 3 October 2026 as league 2
-   (`sak-shadow`); its first full day is 3 October.
+   (`sak-shadow`); its first full day is 3 October. *Day one held (checked 4 October):* all eight teams scored the same
+   on 3 October in both leagues (225.10 points each side, no team off by a hundredth); the shadow's Garry posted only in
+   its own chat, its costs were metered to league 2 ($0.0067 over 5 calls), and its notifications went to its own teams,
+   which have no owners or phones, so no SaK GM heard anything. The gate needs a week of such days (to 10 October).
 4. **The prediction log**, small and early (migration 87, built): `predictions`, written each morning for every
    rostered player playing that night (`predict_tonight`) and scored the next morning on the league's own points
    (`score_predictions`), with `prediction_accuracy` by week and `book_calibration` (the Book's odds against what
    happened, read from the markets). Trades next (migration 102): every approved trade logs a `trade_value` per team,
    the rest-of-season points of the players coming in less those going out, scored at the end of the regular season
-   on what they actually scored. Next kinds: draft grades, the auto-pilot's choices, Garry's picks.
+   on what they actually scored. Drafts and keepers next (migration 115): when a draft is done, each team's draft class
+   (`draft_value`) and keepers (`keeper_value`) are forecast for the regular season the same way, and scored at its end
+   on what those players scored. Garry's picks next (migration 123): every pick he hands a GM at the Book is a
+   `garry_pick` (the chance its odds gave it, once per market and option), scored 1 or 0 when the market settles, so
+   the Calibration page shows whether his picks come in more often than the prices say. The auto-pilot's choices next
+   (migration 132): every lineup it sets is an `auto_lineup` call (its starters' expected points, the starters in
+   `predictions.detail`), scored once the night is final on what they scored, void if the GM changed the lineup after
+   it. Head-to-head win chances next (migration 137): each morning nhl-sync logs every points matchup's chance for its home side (`h2h_win`, the same forecast the site shows, now in `_shared/forecast.ts`), scored 1, 0 or a half when the week ends. The pickup advisor's suggestions next (migration 138): a pickup a GM makes from it logs the lineup points it promised (`pickup`, points leagues), scored when the stretch is over on what the new player scored in that lineup less what the dropped one scored (migration 139: a call needs the move itself in the transaction log, and both sides count the games that start after the call; migration 142: the drop is the one made with the add, and the advisor's promise leaves out tonight's games already under way). The Calibration page
+   (`#/calibration`, platform admins, beside Costs) shows how far off the nightly calls run and which way, the Book's
+   priced chances against how often they came in (with its Brier score), and what is still waiting on results.
 5. **B6 money and the Fund**: money per league (migration 86), and both are options a league turns on (migration
    95, Patrick's call): `league_rules.features` holds `money` and `fund`; SaK has both, a new league neither; the
    ledger refuses lines in a league without money; the Fund is one per league with its own prices. Then the medium
@@ -99,11 +111,16 @@ results of his own past calls, and what the wider pool knows.
    `league_trophies`, `league_timeline`, `league_rule_text`), loaded with SaK's history from `history.ts`; the all-time
    table matches the site's to the cent. The site reads them (`useHistory()`, `src/lib/history.ts`): every page that
    showed SaK's past reads the caller's league's rows, and a league with no past shows none. Garry reads them as his
-   record book (each season's champion and last place, titles by GM). Next: imports write them.
+   record book (each season's champion and last place, titles by GM). A commissioner writes past seasons in from the
+   League page (migration 114, `commish_set_season`, `commish_delete_season`), so a league that played elsewhere
+   arrives with its champions and final tables. A season's final table can be pasted straight from Yahoo, ESPN, Fantrax,
+   CBS or a spreadsheet (`src/lib/historyPaste.ts`, tested in `test:nhl`): the team, its GM and its points come through,
+   linked to today's team by name. A league that played on Yahoo brings every season Yahoo kept in one go (the `history` task walks the league's renew chain; the commissioner ticks the seasons on the League page). Next: Fantrax, ESPN and CBS the same way.
 7. **Phase 2, people can join** (under way: email sign-in with reset codes, invites, the join page and the switcher done
    3 October 2026, migrations 103 to 105; onboarding part 1, the Platform page, the readiness checklist, going live and
-   the league identity editor, migration 106): league by host, realtime and presence
-   per league, phones, Cloudflare Pages hosting (decided 3 October 2026), the Garry budget.
+   the league identity editor, migration 106; league by host, migration 107; realtime and presence per league; phones,
+   migration 100; Garry's daily budget, migration 99). Left: Cloudflare hosting (decided 3 October
+   2026, built as Workers, waiting on the `CLOUDFLARE_API_TOKEN` and `CLOUDFLARE_ACCOUNT_ID` secrets).
 8. **Pool intelligence** once a few leagues are playing, then the horizons in `docs/MARKET.md`.
 
 ## 6. The working method

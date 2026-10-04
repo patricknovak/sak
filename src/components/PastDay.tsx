@@ -1,7 +1,8 @@
 // A day that's already been played: the lineup as it was frozen at each puck drop, every player's box-score
 // line and the league's points, and the team's total for the day. Read-only; the same numbers the standings count.
 import { useEffect, useMemo, useState } from 'react';
-import { useLeague } from '../lib/store';
+import { useLeague, useSport } from '../lib/store';
+import { extraTime } from '../lib/sport';
 import { supabase } from '../lib/supabase';
 import { fmtPts } from '../lib/format';
 import { scoringLine } from './BoxScore';
@@ -16,6 +17,7 @@ const ORDER: Record<string, number> = { C: 0, LW: 1, RW: 2, D: 3, Util: 4, G: 5,
 
 export function PastDay({ day, roster, teamId, onInfo }: { day: string; roster: { r: Roster; p: Player }[]; teamId: number; onInfo: (id: number) => void }) {
   const { players, league } = useLeague();
+  const start = useSport().words.start;
   const brand = useBrand();
   const [snaps, setSnaps] = useState<Snap[] | null>(null);
   const [pgs, setPgs] = useState<Map<number, PG>>(new Map());
@@ -66,7 +68,7 @@ export function PastDay({ day, roster, teamId, onInfo }: { day: string; roster: 
     const home = r.g.home === (r.pg?.nhl_team ?? r.p?.nhl_team);
     const opp = home ? r.g.away : r.g.home;
     const score = r.g.home_score != null ? `${home ? r.g.home_score : r.g.away_score}–${home ? r.g.away_score : r.g.home_score}` : '';
-    return `${home ? 'vs' : '@'} ${opp}${score ? ` · ${score}` : ''}${r.g.period === 'OT' || r.g.period === 'SO' ? ` ${r.g.period}` : ''}`;
+    return `${home ? 'vs' : '@'} ${opp}${score ? ` · ${score}` : ''}${extraTime(r.g.period) ? ` ${r.g.period}` : ''}`;
   };
   const dayName = new Date(day + 'T12:00:00Z').toLocaleDateString('en-CA', { weekday: 'long', month: 'long', day: 'numeric', timeZone: 'UTC' });
 
@@ -77,7 +79,7 @@ export function PastDay({ day, roster, teamId, onInfo }: { day: string; roster: 
         <div className="flex flex-wrap items-center gap-2">
           <div className="min-w-0 flex-1">
             <div className="font-semibold">{dayName}</div>
-            <div className="text-xs text-mute">{snaps.length === 0 ? 'None of your players had a game that day.' : `The lineup as it was locked at each puck drop. ${scored} of ${starters.length} starters scored.`}</div>
+            <div className="text-xs text-mute">{snaps.length === 0 ? 'None of your players had a game that day.' : `The lineup as it was locked at each ${start}. ${scored} of ${starters.length} starters scored.`}</div>
           </div>
           <div className="text-right text-xs"><div className="num text-base font-bold text-emerald-300">{fmtPts(total, 2)}</div><div className="text-mute">points that day</div></div>
         </div>
@@ -127,7 +129,7 @@ export function PastDay({ day, roster, teamId, onInfo }: { day: string; roster: 
               </tbody>
             </table>
           </div>
-          <div className="border-t border-white/[.06] px-3 py-2 text-[11px] text-mute">Only players in a starting slot at puck drop count. Bench and IR points are shown but never added. Stat corrections from the NHL flow in for up to a month and can move a day's total slightly.</div>
+          <div className="border-t border-white/[.06] px-3 py-2 text-[11px] text-mute">Only players in a starting slot at {start} count. Bench and IR points are shown but never added. Stat corrections from the NHL flow in for up to a month and can move a day's total slightly.</div>
         </div>
       )}
     </div>

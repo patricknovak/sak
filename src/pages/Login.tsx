@@ -130,7 +130,8 @@ export default function Login() {
           </form>
         )}
         {err && <div className="mt-4 rounded-xl border border-red-400/30 bg-red-900/50 px-4 py-3 text-center text-sm text-red-200">{err}</div>}
-        <p className="mt-8 text-center text-xs italic text-mute">{other ? `Fantasy hockey on ${PRODUCT.name}` : 'Play fair, play hard and play to win.'}</p>
+        <a href="#/start" className="mt-6 block text-center text-xs text-sky-300/80 underline decoration-sky-300/30 underline-offset-2">Run a pool of your own? Start one on Super Pools</a>
+        <p className="mt-3 text-center text-xs italic text-mute">{other ? `Fantasy hockey on ${PRODUCT.name}` : 'Play fair, play hard and play to win.'}</p>
       </div>
     </div>
   );
