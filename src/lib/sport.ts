@@ -296,6 +296,9 @@ export const NHL: SportConfig = {
   }
 };
 
+// a word at the start of a sentence ("Puck drop 7:00 PM")
+export const capFirst = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
+
 // a game's state as one of the engine's five
 export const stateOf = (sport: SportConfig, state: string) =>
   (Object.keys(sport.states) as (keyof SportConfig['states'])[]).find((k) => sport.states[k].includes(state)) ?? 'scheduled';

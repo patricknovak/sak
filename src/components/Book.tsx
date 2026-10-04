@@ -10,7 +10,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useLeague, useNow, useSport } from '../lib/store';
-import { isFinal, isLive } from '../lib/sport';
+import { capFirst, isFinal, isLive } from '../lib/sport';
 import { rpc, realtimeChannel, supabase } from '../lib/supabase';
 import type { BookRequest, BookStanding, Game, Market, MarketBet, MarketKind, MarketOption } from '../lib/types';
 import { ago, etToday, fmtDate, fmtTime, NHL_TEAMS } from '../lib/format';
@@ -283,7 +283,7 @@ export function BookTab() {
       )}
 
       {open.length === 0 && (
-        <div className="card"><Empty icon="📖" title="The Book is closed">{markets.length ? 'Everything has gone to puck drop. Results land as the games go final.' : 'It opens at 9:35 ET on the next game day with moneylines, totals, overtime and player props.'}{can('bets') && me?.role !== 'spectator' ? ' Or ask it for a market on a game later in the week, a player race or an NHL race.' : ''}</Empty></div>
+        <div className="card"><Empty icon="📖" title="The Book is closed">{markets.length ? `Everything has gone to ${sport.words.start}. Results land as the games go final.` : 'It opens at 9:35 ET on the next game day with moneylines, totals, overtime and player props.'}{can('bets') && me?.role !== 'spectator' ? ' Or ask it for a market on a game later in the week, a player race or an NHL race.' : ''}</Empty></div>
       )}
       {groups.map((g) => (
         <Section key={g.key} title={g.kind === 'custom' ? '🎯 Commish specials' : g.title} right={g.kind === 'game' ? <span className="text-xs text-mute">{fmtDate(g.ms[0].date) === fmtDate(etToday()) ? 'Tonight' : fmtDate(g.ms[0].date)} · {fmtTime(g.when)}</span> : g.kind === 'season' || g.kind === 'nhl' ? <span className="text-xs text-mute">open until {fmtDate(g.ms[0].closes_at.slice(0, 10))}</span> : g.kind === 'asked' ? <button className="text-xs text-sky-300" onClick={() => setAsking(true)}>Ask for one</button> : undefined}>
@@ -613,7 +613,7 @@ export function GameBook({ gameId, away, home }: { gameId: number; away: GameClu
       <div className="relative space-y-3">
         <div className="flex items-center justify-between gap-2">
           <div className="font-display text-lg font-extrabold">📖 {brand.bot.name}’s Book</div>
-          <div className="text-right text-[11px] text-mute">{inPlay ? <span className="font-semibold text-goal">🔴 In play</span> : winner ? `Puck drop ${fmtTime(winner.closes_at)}` : ''}{canBet && <div>You have <AvailableCoins /></div>}</div>
+          <div className="text-right text-[11px] text-mute">{inPlay ? <span className="font-semibold text-goal">🔴 In play</span> : winner ? `${capFirst(sport.words.start)} ${fmtTime(winner.closes_at)}` : ''}{canBet && <div>You have <AvailableCoins /></div>}</div>
         </div>
         {winner && (
           <div>

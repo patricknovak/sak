@@ -260,7 +260,7 @@ export default function MyTeam() {
             <button className="btn-ghost" onClick={() => setTools(true)}>⚙️ Tools</button>
           </div>
           <div className="text-xs text-mute">
-            🔒 Players lock at their puck drop{nextLock ? <>; next lock <span className="text-slate-200">{fmtTime(nextLock.start_utc)}</span> ({nextLock.away} @ {nextLock.home})</> : ''}. Auto-pilot <button className="font-semibold text-sky-300 hover:underline" onClick={() => setTools(true)}>{me?.auto_mode && me.auto_mode !== 'off' ? `on · ${{ proj: 'projection', form: 'hot hand', season: 'season avg', ros: 'rest of season' }[me.auto_basis ?? 'proj']}` : 'off'}</button>{roster.some((x) => x.r.pin) && <> · {roster.filter((x) => x.r.pin).length} pinned</>}{st?.bench ? <> · {fmtPts(st.bench)} benched this season</> : null}
+            🔒 Players lock at their {sport.words.start}{nextLock ? <>; next lock <span className="text-slate-200">{fmtTime(nextLock.start_utc)}</span> ({nextLock.away} @ {nextLock.home})</> : ''}. Auto-pilot <button className="font-semibold text-sky-300 hover:underline" onClick={() => setTools(true)}>{me?.auto_mode && me.auto_mode !== 'off' ? `on · ${{ proj: 'projection', form: 'hot hand', season: 'season avg', ros: 'rest of season' }[me.auto_basis ?? 'proj']}` : 'off'}</button>{roster.some((x) => x.r.pin) && <> · {roster.filter((x) => x.r.pin).length} pinned</>}{st?.bench ? <> · {fmtPts(st.bench)} benched this season</> : null}
           </div>
         </div>
       )}

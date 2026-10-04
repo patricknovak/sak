@@ -313,7 +313,7 @@ export default function Performance() {
                   </tbody>
                 </table>
               </div>
-              <div className="border-t border-white/[.06] px-3 py-2 text-[11px] text-mute">Only players in a starting slot at puck drop count.{catMode ? (league?.format === 'h2h' ? ' Roto ranks every team in each of the league’s categories over this stretch (first earns as many points as there are teams); the standings play them week by week.' : ' Roto ranks every team in each of the league’s categories over this stretch, as the standings do over the season.') : ''}{catMode ? '' : ' Lineup is the share of the best lineup possible each night from the players who played (bench, not IR).'} Gold marks the league’s best in each column. Stat corrections from the NHL can move a day for up to a month.</div>
+              <div className="border-t border-white/[.06] px-3 py-2 text-[11px] text-mute">Only players in a starting slot at {sport.words.start} count.{catMode ? (league?.format === 'h2h' ? ' Roto ranks every team in each of the league’s categories over this stretch (first earns as many points as there are teams); the standings play them week by week.' : ' Roto ranks every team in each of the league’s categories over this stretch, as the standings do over the season.') : ''}{catMode ? '' : ' Lineup is the share of the best lineup possible each night from the players who played (bench, not IR).'} Gold marks the league’s best in each column. Stat corrections from the NHL can move a day for up to a month.</div>
             </div>
           </Section>
 

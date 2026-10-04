@@ -3,7 +3,7 @@ import { RotoStandings } from '../components/RotoStandings';
 import { HeadToHeadStandings } from '../components/HeadToHead';
 import { useSticky } from '../lib/sticky';
 import { Link } from 'react-router-dom';
-import { useLeague } from '../lib/store';
+import { useLeague, useSport } from '../lib/store';
 import { bare, useBrand } from '../lib/brand';
 import { selectAll, supabase } from '../lib/supabase';
 import { fmtDate, fmtMoney, fmtPts } from '../lib/format';
@@ -145,6 +145,7 @@ export default function Standings() {
 // every stat correction the NHL made after a game was final, and which teams it moved
 function Corrections() {
   const { players } = useLeague();
+  const start = useSport().words.start;
   const [rows, setRows] = useState<{ id: number; player_id: number; date: string; old_fpts: number; new_fpts: number; old_stats: Record<string, number>; new_stats: Record<string, number>; created_at: string }[]>([]);
   useEffect(() => {
     supabase.from('league_corrections').select('*').order('id', { ascending: false }).limit(12)
@@ -166,7 +167,7 @@ function Corrections() {
           );
         })}
       </div>
-      <p className="mt-1 px-1 text-xs text-mute">Points follow the lineup at puck drop: a correction counts for whoever started the player that night. Teams it moves get a note.</p>
+      <p className="mt-1 px-1 text-xs text-mute">Points follow the lineup at {start}: a correction counts for whoever started the player that night. Teams it moves get a note.</p>
     </Section>
   );
 }
