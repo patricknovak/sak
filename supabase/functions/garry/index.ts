@@ -429,12 +429,31 @@ async function daily() {
   const talkers = new Set((chat ?? []).map((m) => m.team_id));
   const lurkers = teams.filter((t) => !talkers.has(t.id)).map((t) => t.gm_name);
 
+  // a head-to-head or rotisserie league isn't won on the points table: its own table, and the week's matchups so far
+  let formatFacts: Record<string, unknown> = {};
+  let formatLine = '';
+  if (!playoffs && league.format === 'h2h') {
+    const cats = !!league.categories?.length;
+    const sc = (v: unknown) => (cats ? String(Math.round(Number(v ?? 0))) : f1(Number(v ?? 0)));
+    const [{ data: ms }, { data: tbl }] = await Promise.all([L.db.rpc('h2h_scores'), L.db.rpc('h2h_standings')]);
+    const live = ((ms ?? []) as any[]).filter((m) => m.status === 'live' && m.away_team != null)
+      .map((m) => ({ home: byId.get(m.home_team)?.gm_name, home_score: sc(m.home_pts), away: byId.get(m.away_team)?.gm_name, away_score: sc(m.away_pts) }));
+    const records = ((tbl ?? []) as any[]).sort((a, b) => (a.seed ?? a.rank) - (b.seed ?? b.rank))
+      .map((t) => ({ rank: t.rank, gm: byId.get(t.team_id)?.gm_name, record: `${t.w}-${t.l}-${t.t}` }));
+    formatFacts = { format: cats ? 'head-to-head, categories won' : 'head-to-head, points', this_weeks_matchups_so_far: live, head_to_head_table: records };
+    formatLine = live.length ? `This week so far: ${live.map((m) => `@${m.home} ${m.home_score}, @${m.away} ${m.away_score}`).join('; ')}.` : '';
+  } else if (!playoffs && league.categories?.length) {
+    const { data: roto } = await L.db.rpc('category_standings');
+    const table = ((roto ?? []) as any[]).sort((a, b) => a.rank - b.rank).map((t) => ({ rank: t.rank, gm: byId.get(t.team_id)?.gm_name, roto_points: Number(t.total) }));
+    formatFacts = { format: 'rotisserie', rotisserie_table: table };
+    formatLine = table.length ? `Rotisserie: ${table.slice(0, 3).map((t) => `${t.rank}. @${t.gm} ${f1(t.roto_points)}`).join(', ')}.` : '';
+  }
   const facts = {
-    date: yesterday, day_scores: dayTable, season_standings: season,
+    date: yesterday, day_scores: dayTable, season_standings: formatLine ? undefined : season, ...formatFacts,
     top_performers: active.slice(0, 3), worst_starters: active.slice(-2).reverse(), left_on_bench: benchRegret,
     daily_bonus: { gm: byId.get(winner.team_id)?.gm_name, coins: DAILY_BONUS },
     stage: playoffs ? `${L.info.short_name} playoffs (NHL playoff games only; separate table and ${league.playoff_share ?? 40}% of the prize pool)` : 'regular season',
-    last_place_watch: playoffs ? null : season.at(-1), quiet_in_chat_this_week: lurkers,
+    last_place_watch: playoffs || formatLine ? null : season.at(-1), quiet_in_chat_this_week: lurkers,
   };
   const top = active[0];
   const fallback = [
@@ -443,7 +462,7 @@ async function daily() {
     `${dayTable[0].gm} takes the day ${pick(['and the bragging rights', 'like it was a beer-league final', 'with zero humility'])} and pockets ${DAILY_BONUS} ${coin().emoji} coins.`,
     top ? `Star of the night: ${top.player} with ${f1(top.fpts)} for @${top.gm}.` : '',
     benchRegret[0] ? `Meanwhile @${benchRegret[0].gm} left ${benchRegret[0].player} (${f1(benchRegret[0].fpts)} pts) on the bench. Set your lineup, buddy.` : '',
-    playoffs ? `Playoff table: ${season.slice(0, 3).map((x) => `${x.rank}. @${x.gm} ${f1(x.points)}`).join(', ')}.` : `${L.brand.booby} watch: @${season.at(-1)?.gm} sitting in the basement at ${f1(season.at(-1)?.points ?? 0)}.`,
+    playoffs ? `Playoff table: ${season.slice(0, 3).map((x) => `${x.rank}. @${x.gm} ${f1(x.points)}`).join(', ')}.` : formatLine || `${L.brand.booby} watch: @${season.at(-1)?.gm} sitting in the basement at ${f1(season.at(-1)?.points ?? 0)}.`,
     lurkers.length ? `Haven't heard a peep this week from ${lurkers.map((n) => '@' + n).join(', ')}. Say something.` : '',
     pick([`Who wants to put 100 ${coin().emoji} on tonight?`, 'Trade offers are free. Your dignity isn\'t.', 'Set your lineups before puck drop.']),
   ].filter(Boolean).join(' ');
