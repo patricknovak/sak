@@ -12,6 +12,7 @@ import { LatestNews, PlayerNewsList, usePlayerNews } from './PlayerNews';
 import { GameStatusBox, GameStatusChip, NewsDot } from './GameStatus';
 import { useBrand } from '../lib/brand';
 import { AddPlayerPanel } from './AddPlayer';
+import { useWatchlist } from '../lib/watchlist';
 
 // one-line player row used everywhere
 // `wrap`: on a narrow phone the name and the matchup wrap onto more lines instead of being cut off (the lineup uses it,
@@ -214,6 +215,8 @@ export function PlayerActions({ p, onDone }: { p: Player; onDone?: () => void })
   const r = owner.get(p.id);
   const mine = r && me && r.team_id === me.id;
   const inSeason = league?.phase === 'season';
+  const watch = useWatchlist();
+  const watching = watch.ids.has(p.id);
 
   return (
     <>
@@ -229,6 +232,13 @@ export function PlayerActions({ p, onDone }: { p: Player; onDone?: () => void })
         )}
         {r && me && !mine && (
           <button className="btn-ghost" onClick={() => { onDone?.(); nav(`/trades?with=${r.team_id}&get=${p.id}`); }}>🔄 Propose trade</button>
+        )}
+        {watch.on && !mine && (
+          <button className={watching ? 'btn-ghost border-gold/40 bg-gold/10 text-gold' : 'btn-ghost'} aria-pressed={watching}
+            title={watching ? 'On your watch list: you hear if he’s dropped' : 'Keep an eye on him: you hear if he’s dropped'}
+            onClick={() => run(async () => { await watch.toggle(p.id); }, watching ? `${p.name} is off your watch list` : `⭐ ${p.name} is on your watch list`)}>
+            {watching ? '★ Watching' : '☆ Watch'}
+          </button>
         )}
       </div>
 

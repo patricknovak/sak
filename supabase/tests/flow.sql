@@ -3074,3 +3074,39 @@ select pg_temp.expect('and how each league plays', (select format = 'season' and
 reset role;
 select set_config('request.jwt.claim.sub', '', false);
 select 'how alive each league is', true;
+
+-- ───────────── the watch list ─────────────
+reset role;
+select p.id as wl_p from players p where not exists (select 1 from rosters r where r.player_id = p.id) and p.pos <> 'G' order by p.id limit 1 \gset
+select p.id as wl_q from players p where not exists (select 1 from rosters r where r.player_id = p.id) and p.pos <> 'G' order by p.id offset 1 limit 1 \gset
+select pg_temp.as_team(3);
+set role authenticated;
+insert into watchlist (team_id, player_id) values (3, :wl_p), (3, :wl_q);
+select pg_temp.expect('a GM stars players, in their league', (select count(*) = 2 and bool_and(league_id = 1) from watchlist where team_id = 3));
+select pg_temp.raises('never for another team', format('insert into watchlist (team_id, player_id) values (2, %s)', :wl_q), 'row-level security');
+delete from watchlist where player_id = :wl_q;
+select pg_temp.expect('and unstars them', (select count(*) from watchlist) = 1);
+reset role;
+insert into watchlist (league_id, team_id, player_id) values (1, 2, :wl_p);
+select pg_temp.as_team(3);
+set role authenticated;
+select pg_temp.expect('a GM sees only their own list', (select count(*) from watchlist) = 1);
+reset role;
+select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-000000000099', false);
+set role authenticated;
+insert into watchlist (team_id, player_id) values (99, :wl_p);
+select pg_temp.expect('the north watches in its own league, seeing only its own',
+  (select count(*) from watchlist) = 1 and (select league_id from watchlist) = current_setting('t.league2')::int);
+reset role;
+-- team 2 drops him: team 3 hears, not team 2 (who dropped him) and not the north (another league)
+insert into transactions (league_id, season, type, team_id, player_id) values (1, '2026-27', 'drop', 2, :wl_p);
+select pg_temp.expect('a watcher hears he is free', (select count(*) from notifications where kind = 'watch' and team_id = 3 and league_id = 1 and link = '/player/' || :wl_p) = 1);
+select pg_temp.expect('not the team that dropped him, nor another league', not exists (select 1 from notifications where kind = 'watch' and team_id in (2, 99)));
+-- a pickup's add after the drop is another kind of line: no alert
+insert into transactions (league_id, season, type, team_id, player_id) values (1, '2026-27', 'add', 4, :wl_p);
+select pg_temp.expect('an add says nothing', (select count(*) from notifications where kind = 'watch') = 1);
+delete from notifications where kind = 'watch';
+delete from transactions where player_id = :wl_p and type in ('add', 'drop') and team_id in (2, 4);
+delete from watchlist where player_id = :wl_p;
+select set_config('request.jwt.claim.sub', '', false);
+select 'the watch list', true;

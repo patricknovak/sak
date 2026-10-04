@@ -9,6 +9,7 @@ import { comingAvailable } from '../lib/keepers';
 import { TeamBadge, PageHeader } from '../components/ui';
 import { PickupAdvisor, RosterVsAvailable } from '../components/PickupTools';
 import { Search } from 'lucide-react';
+import { useWatchlist } from '../lib/watchlist';
 
 export default function Players() {
   const nav = useNavigate();
@@ -16,7 +17,8 @@ export default function Players() {
   const pf = usePlayerFilter({ tf: league?.phase === 'season' ? 'season' : 'proj' }, 'players');
   const [q] = useSearchParams();
   // the screen's choices survive a visit to a player's page and back
-  const [who, setWho] = useSticky<'avail' | 'all' | 'taken' | 'coming'>('players:who', q.get('who') === 'coming' ? 'coming' : 'avail');
+  const [who, setWho] = useSticky<'avail' | 'all' | 'taken' | 'coming' | 'watch'>('players:who', q.get('who') === 'coming' ? 'coming' : q.get('who') === 'watch' ? 'watch' : 'avail');
+  const watch = useWatchlist();
   // before keepers lock, each team's top scorer is already as good as available: he can't be kept
   const coming = useMemo(() => comingAvailable(players, rosters, league), [players, rosters, league]);
   const comingSet = useMemo(() => new Set(coming.map((p) => p.id)), [coming]);
@@ -25,7 +27,7 @@ export default function Players() {
   const [tab, setTab] = useSticky<'browse' | 'advisor' | 'compare'>('players:tab', q.get('tab') === 'advisor' ? 'advisor' : q.get('tab') === 'compare' ? 'compare' : 'browse');
 
   const list = useMemo(() => pf.apply([...players.values()]
-    .filter((p) => (who === 'all' ? true : who === 'coming' ? comingSet.has(p.id) : who === 'avail' ? !owner.has(p.id) || comingSet.has(p.id) : owner.has(p.id)))), [players, owner, who, pf.apply, comingSet]);
+    .filter((p) => (who === 'all' ? true : who === 'watch' ? watch.ids.has(p.id) : who === 'coming' ? comingSet.has(p.id) : who === 'avail' ? !owner.has(p.id) || comingSet.has(p.id) : owner.has(p.id)))), [players, owner, who, pf.apply, comingSet, watch.ids]);
   const fromTeam = (p: { id: number }) => (comingSet.has(p.id) ? team(owner.get(p.id)?.team_id ?? 0) : undefined);
 
   const used = rosters.filter((r) => r.team_id === me?.id).length;
@@ -44,7 +46,7 @@ export default function Players() {
       <div className="sticky top-[calc(3rem+var(--banner,0px))] z-20 -mx-3 space-y-1.5 border-b border-line bg-ice/95 px-3 py-2 backdrop-blur lg:top-[var(--banner,0px)]">
         <PlayerFilterBar pf={pf}>
           <span className="mx-1 h-5 w-px shrink-0 bg-line" />
-          {([['avail', 'Available'], ...(coming.length ? [['coming', '🔓 Coming available']] as const : []), ['taken', 'Rostered'], ['all', 'All']] as const).map(([k, l]) => (
+          {([['avail', 'Available'], ...(coming.length ? [['coming', '🔓 Coming available']] as const : []), ...(watch.on ? [['watch', `★ Watch list${watch.ids.size ? ` ${watch.ids.size}` : ''}`]] as const : []), ['taken', 'Rostered'], ['all', 'All']] as const).map(([k, l]) => (
             <button key={k} className={`tab px-2.5 py-1 ${who === k ? 'tab-on' : 'bg-white/[.05]'}`} onClick={() => setWho(k)}>{l}</button>
           ))}
           <span className="mx-1 h-5 w-px shrink-0 bg-line" />
@@ -66,7 +68,14 @@ export default function Players() {
             const l = pf.line(p);
             return (
               <div key={p.id} className="flex break-inside-avoid items-center gap-2 px-2.5 py-2 xl:border-r xl:border-white/[.04]" onClick={() => nav(`/player/${p.id}`)}>
-                <span className="w-6 text-center text-[11px] text-mute">{i + 1}</span>
+                {watch.on ? (
+                  // the rank, or a gold star for a player on the watch list; tap to star or unstar him
+                  <button type="button" aria-label={watch.ids.has(p.id) ? `Stop watching ${p.name}` : `Watch ${p.name}`} aria-pressed={watch.ids.has(p.id)}
+                    className={`-my-2 flex w-7 shrink-0 flex-col items-center justify-center self-stretch ${watch.ids.has(p.id) ? 'text-base text-gold' : 'text-[11px] text-mute'}`}
+                    onClick={(e) => { e.stopPropagation(); watch.toggle(p.id).catch(() => {}); }}>
+                    {watch.ids.has(p.id) ? '★' : <><span>{i + 1}</span><span className="text-[10px] leading-none text-white/25">☆</span></>}
+                  </button>
+                ) : <span className="w-6 text-center text-[11px] text-mute">{i + 1}</span>}
                 <div className="min-w-0 flex-1"><PlayerRow p={p} /></div>
                 {fromTeam(p) ? <span className="chip shrink-0 bg-emerald-500/15 text-emerald-200" title={`${fromTeam(p)!.name}’s top scorer last season: can’t be kept`}>🔓 {fromTeam(p)!.abbrev}</span> : r && <TeamBadge team={team(r.team_id)} size={22} />}
                 <div className="w-[4.5rem] text-right">
@@ -76,7 +85,9 @@ export default function Players() {
               </div>
             );
           })}
-          {list.length === 0 && <div className="p-6 text-center text-sm text-mute">No players match.</div>}
+          {list.length === 0 && (who === 'watch' && !watch.ids.size
+            ? <div className="p-6 text-center text-sm text-mute"><div className="mb-1 text-2xl text-gold">☆</div>Nobody on your watch list yet. Tap a player’s rank here, or ☆ Watch on his card, to keep an eye on him: he stays on this list, and you hear about it if he’s dropped.</div>
+            : <div className="p-6 text-center text-sm text-mute">No players match.</div>)}
         </div>
       )}
       {list.length > limit && <button className="btn-ghost w-full" onClick={() => setLimit(limit + 100)}>Show more ({list.length - limit} left)</button>}
