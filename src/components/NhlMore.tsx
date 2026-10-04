@@ -117,7 +117,7 @@ export function LeadersTab() {
         <div className="scroll-x mb-2 flex gap-1">{GOALIE_CATS.map(([k, l]) => <button key={k} className={chip(gcat === k)} onClick={() => setGcat(k)}>{l}</button>)}</div>
         {data?.goalies[gcat] && <List rows={data.goalies[gcat]} k={gcat} />}
       </Section>
-      <p className="px-1 text-[11px] text-mute">Every stat for every player, sortable by any timeframe, is on the <Link to="/players" className="text-sky-300">Players page</Link>. Badges mark SaK owners; names link to player pages. {team(0) ? '' : ''}</p>
+      <p className="px-1 text-[11px] text-mute">Every stat for every player, sortable by any timeframe, is on the <Link to="/players" className="text-sky-300">Players page</Link>. Badges mark {brand.short} owners; names link to player pages. {team(0) ? '' : ''}</p>
     </div>
   );
 }
@@ -182,7 +182,7 @@ export function TeamsTab({ onGame }: { onGame: (g: any) => void }) {
                 </div>
               </Section>
             )}
-            <Section title={`Roster (${club.roster.forwards.length + club.roster.defense.length + club.roster.goalies.length})`} right={<span className="text-xs text-mute">{[...club.roster.forwards, ...club.roster.defense, ...club.roster.goalies].filter((p) => owner.has(p.id)).length} on SaK rosters</span>}>
+            <Section title={`Roster (${club.roster.forwards.length + club.roster.defense.length + club.roster.goalies.length})`} right={<span className="text-xs text-mute">{[...club.roster.forwards, ...club.roster.defense, ...club.roster.goalies].filter((p) => owner.has(p.id)).length} on {brand.short} rosters</span>}>
               {([['Forwards', club.roster.forwards], ['Defense', club.roster.defense], ['Goalies', club.roster.goalies]] as const).map(([label, list]) => (
                 <div key={label} className="mb-2">
                   <div className="mb-1 px-1 text-[11px] font-bold uppercase tracking-wider text-mute">{label}</div>
@@ -249,9 +249,12 @@ export function InjuriesTab() {
           {mine.length === 0 ? <div className="p-4 text-sm text-mute">Nobody on your roster is hurt or suspended. Knock on wood.</div> : mine.map((p) => <Fragment key={p.id}>{Hurt({ id: p.id })}</Fragment>)}
         </div>
       </Section>
-      <Section title="League injury report" right={<div className="flex gap-1">
-        <button className={`tab px-2.5 py-1 text-xs ${scope === 'rostered' ? 'tab-on' : 'bg-white/[.05]'}`} onClick={() => setScope('rostered')}>SaK rosters</button>
-        <button className={`tab px-2.5 py-1 text-xs ${scope === 'all' ? 'tab-on' : 'bg-white/[.05]'}`} onClick={() => setScope('all')}>Free agents</button></div>}>
+      <Section title="League injury report">
+        {/* the switch sits under the title so both fit a phone; the league's own name, never a hard-coded one */}
+        <div className="mb-2 flex gap-1">
+          <button className={`tab px-2.5 py-1 text-xs ${scope === 'rostered' ? 'tab-on' : 'bg-white/[.05]'}`} onClick={() => setScope('rostered')}>{brand.short} rosters</button>
+          <button className={`tab px-2.5 py-1 text-xs ${scope === 'all' ? 'tab-on' : 'bg-white/[.05]'}`} onClick={() => setScope('all')}>Free agents</button>
+        </div>
         {scope === 'rostered' ? (
           <div className="space-y-3">
             {byTeam.length === 0 && <div className="card p-4 text-sm text-mute">No injured players on any {brand.short} roster.</div>}

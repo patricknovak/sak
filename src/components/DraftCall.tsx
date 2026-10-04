@@ -7,6 +7,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { Mic, PhoneOff, Video, ExternalLink } from 'lucide-react';
 import { useLeague } from '../lib/store';
+import { useBrand } from '../lib/brand';
 
 declare global { interface Window { JitsiMeetExternalAPI?: new (domain: string, opts: Record<string, unknown>) => { dispose: () => void; executeCommand: (c: string, ...a: unknown[]) => void } } }
 
@@ -29,6 +30,7 @@ const loadJitsi = () => scriptLoading ??= new Promise<void>((res, rej) => {
 
 export function DraftCall({ tall }: { tall?: boolean }) {
   const { me, league } = useLeague();
+  const brand = useBrand();
   const link = callLink(league?.info);
   const room = jitsiRoom(league?.info, league?.season, league?.league_id);
   const [joined, setJoined] = useState(false);
@@ -45,7 +47,7 @@ export function DraftCall({ tall }: { tall?: boolean }) {
       api.current = new window.JitsiMeetExternalAPI('meet.jit.si', {
         roomName: room, parentNode: box.current, width: '100%', height: '100%',
         userInfo: { displayName: me?.gm_name ?? 'GM' },
-        configOverwrite: { startWithVideoMuted: true, startWithAudioMuted: false, prejoinConfig: { enabled: false }, disableDeepLinking: true, subject: 'SaK draft night', toolbarButtons: ['microphone', 'camera', 'hangup', 'tileview', 'settings', 'fullscreen', 'participants-pane'] },
+        configOverwrite: { startWithVideoMuted: true, startWithAudioMuted: false, prejoinConfig: { enabled: false }, disableDeepLinking: true, subject: `${brand.short} draft night`, toolbarButtons: ['microphone', 'camera', 'hangup', 'tileview', 'settings', 'fullscreen', 'participants-pane'] },
         interfaceConfigOverwrite: { MOBILE_APP_PROMO: false, SHOW_JITSI_WATERMARK: false, SHOW_CHROME_EXTENSION_BANNER: false },
       });
     }).catch((e: Error) => setErr(e.message));

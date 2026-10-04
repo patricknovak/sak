@@ -101,7 +101,7 @@ export function BoxScore({ game, onClose }: { game: Game | null; onClose: () => 
                 </div>
               </div>
             ))}
-            <p className="text-[11px] text-mute">{brand.short} = fantasy points under this league’s scoring ({Object.entries(league?.scoring.skater ?? {}).map(([k, v]) => `${STAT_LABELS[k] ?? k} ${v}`).join(', ')}). Highlighted players are on a SaK roster. Refreshes every minute. <a className="text-sky-300 hover:underline" href={`https://www.nhl.com/gamecenter/${game.id}`} target="_blank" rel="noreferrer">Full game centre on NHL.com →</a></p>
+            <p className="text-[11px] text-mute">{brand.short} = fantasy points under this league’s scoring ({Object.entries(league?.scoring.skater ?? {}).map(([k, v]) => `${STAT_LABELS[k] ?? k} ${v}`).join(', ')}). Highlighted players are on a {brand.short} roster. Refreshes every minute. <a className="text-sky-300 hover:underline" href={`https://www.nhl.com/gamecenter/${game.id}`} target="_blank" rel="noreferrer">Full game centre on NHL.com →</a></p>
           </div>
         )}
     </Sheet>

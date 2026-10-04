@@ -284,7 +284,7 @@ export default function Draft() {
         <div>
           <div className="label text-white/70">Draft night · puck drops in</div>
           <div className="mt-2">{league?.draft_at ? <Countdown ms={new Date(league.draft_at).getTime() - now} /> : <span className="h-display text-3xl">TBD</span>}</div>
-          <div className="mt-1 text-xs text-white/60">{league?.draft_at && fmtDateTime(league.draft_at)} · {league?.pick_seconds}s clock · {league?.draft_rounds} rounds · {league?.snake ? 'snake' : 'straight'}</div>
+          <div className="mt-1 text-xs text-white/60">{[league?.draft_at && fmtDateTime(league.draft_at), `${league?.pick_seconds}s clock`, `${league?.draft_rounds} rounds`, league?.snake ? 'snake' : 'straight'].filter(Boolean).join(' · ')}</div>
         </div>
         {me?.is_commish && (
           <div className="flex flex-wrap gap-2">
@@ -307,8 +307,8 @@ export default function Draft() {
           </div>
         </div>
       )}
-      <Link to="/draft?t=mock" className="relative mt-4 flex items-center gap-3 rounded-2xl border border-emerald-400/25 bg-emerald-500/10 p-3 transition active:scale-[.98]"><span className="text-2xl">🧪</span><span className="flex-1"><span className="block font-bold">Dress rehearsal: run tomorrow’s draft now</span><span className="text-xs text-white/70">The real order, traded picks and everyone’s keepers, against bot GMs. See who’ll be there at your picks, then get graded.</span></span><span className="text-sky-300">→</span></Link>
-      <Link to="/draft?t=sheet" className="relative mt-3 flex items-center gap-3 rounded-2xl border border-gold/25 bg-gold/[.08] p-3 transition active:scale-[.98]"><span className="text-2xl">📋</span><span className="flex-1"><span className="block font-bold">Your cheat sheet</span><span className="text-xs text-white/70">Your gaps, the best 10 available at each, and the odds each one lasts to your next pick. One screen, no scrolling under the clock.</span></span><span className="text-sky-300">→</span></Link>
+      <Link to="/draft?t=mock" className="relative mt-4 flex items-center gap-3 rounded-2xl border border-emerald-400/25 bg-emerald-500/10 p-3 transition active:scale-[.98]"><span className="text-2xl">🧪</span><span className="flex-1"><span className="block font-bold leading-snug">Dress rehearsal: run tomorrow’s draft now</span><span className="mt-0.5 block text-xs leading-snug text-white/70">The real order, traded picks and everyone’s keepers, against bot GMs. See who’ll be there at your picks, then get graded.</span></span><span className="text-sky-300">→</span></Link>
+      <Link to="/draft?t=sheet" className="relative mt-3 flex items-center gap-3 rounded-2xl border border-gold/25 bg-gold/[.08] p-3 transition active:scale-[.98]"><span className="text-2xl">📋</span><span className="flex-1"><span className="block font-bold leading-snug">Your cheat sheet</span><span className="mt-0.5 block text-xs leading-snug text-white/70">Your gaps, the best 10 available at each, and the odds each one lasts to your next pick. One screen, no scrolling under the clock.</span></span><span className="text-sky-300">→</span></Link>
       <div className="relative mt-3"><DraftCall /></div>
       <div className="relative mt-3"><PushCard hideWhenOn compact /></div>
       <div className="relative mt-4 flex items-center gap-2 text-xs text-white/70">
