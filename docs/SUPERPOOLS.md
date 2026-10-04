@@ -111,7 +111,12 @@ checklist. Phase 1 is under way: B1 (one roster per league), B2 (the draft per l
 B4 (the scheduler league by league) landed in migrations 81 to 85, B6 (money and the Fund per league, both optional features) in 86 and 95, B8 (phones and alerts per league) in 100, and the shadow league (Phase 1's gate) opened on 3 October 2026. `supabase/tests/tenancy.sql` enforces the tenancy rules on every test run.
 
 1. **League by host.** `leagues.domain`: `sak.superpoolsai.com` or a custom domain per league; the app picks
-   the league from the host, so one deployment serves all leagues.
+   the league from the host, so one deployment serves all leagues. *Built (migration 107, October 2026):*
+   `league_by_host(host)` maps `<web name>.superpoolsai.com` or a league's own domain to the league and its brand before
+   sign-in; the site wears that brand on the sign-in page and names the league in `x-league` on every database request
+   (honoured for members only); a GM on another league's address sees their own, with a notice; the platform sets a
+   league's own domain on its Platform card (`platform_set_league_domain`). Live once the site is on Cloudflare Pages
+   with the wildcard `*.superpoolsai.com`.
 2. **Garry per league** (done in migration 65, bar the budget). One state row per league (voice notes, the
    commissioner's briefing, where the memory pass got to); the edge function scopes every read and write to
    one league, loops over the active leagues for the cron tasks and takes a reply's league from its message;

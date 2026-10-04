@@ -206,7 +206,7 @@ export function Layout({ children }: { children: ReactNode }) {
           </button>
         )}
 
-        <main key={loc.pathname} className="page-in mb-nav mx-auto w-full max-w-5xl px-3 py-3 sm:px-5 lg:mb-0 lg:px-8 lg:py-6 xl:max-w-[92rem] 2xl:max-w-[110rem] 2xl:px-10">{children}</main>
+        <main key={loc.pathname} className="page-in mb-nav mx-auto w-full max-w-5xl px-3 py-3 sm:px-5 lg:mb-0 lg:px-8 lg:py-6 xl:max-w-[92rem] 2xl:max-w-[110rem] 2xl:px-10"><HostNotice />{children}</main>
       </div>
 
       {/* mobile dock */}
@@ -258,6 +258,18 @@ export function Layout({ children }: { children: ReactNode }) {
           </div>
         )}
       </Sheet>
+    </div>
+  );
+}
+
+// signed in on another league's address: say so, and that the page is the GM's own league
+function HostNotice() {
+  const { host, hostElsewhere, league } = useLeague();
+  if (!hostElsewhere || !host) return null;
+  return (
+    <div className="mb-3 flex items-start gap-2.5 rounded-2xl border border-sky-300/20 bg-sky-400/10 px-3 py-2.5 text-sm text-sky-100">
+      <span className="text-lg leading-none">🧭</span>
+      <span className="min-w-0 flex-1">This is <b>{host.name}</b>’s address, and you’re not in that league, so you’re seeing your own{league?.name ? <>: <b>{league.name}</b></> : ''}.</span>
     </div>
   );
 }

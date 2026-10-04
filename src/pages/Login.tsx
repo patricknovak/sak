@@ -1,12 +1,17 @@
 import { useState } from 'react';
 import { remembered, setRemember, supabase } from '../lib/supabase';
 import { Spinner } from '../components/ui';
-import { Wordmark } from '../components/Brand';
+import { LeagueCrest, Wordmark } from '../components/Brand';
+import { useLeague } from '../lib/store';
+import { PRODUCT } from '../lib/brand';
 
 // Sign in with your email and password (Patrick's call, October 2026; every SaK account has its own email since step 2).
 // Forgot your password: the league emails you a code, you type it with a new password, and you're in. The code works
 // on any device (no link to open on the right phone).
 export default function Login() {
+  // on another league's own address the page is that league's (league by host); everywhere else it is SaK's, as always
+  const { host, brand } = useLeague();
+  const other = !!host && host.id !== 1;
   const [email, setEmail] = useState(() => { try { return localStorage.getItem('sak-last-email') ?? ''; } catch { return ''; } });
   const [remember, setRem] = useState(remembered);
   const [mode, setMode] = useState<'in' | 'forgot' | 'code'>('in');
@@ -84,10 +89,10 @@ export default function Login() {
         <div className="mb-8 text-center">
           <div className="relative mx-auto mb-4 h-24 w-24">
             <div className="absolute inset-0 animate-glow rounded-[28px] bg-gold/40 blur-2xl" />
-            <img src="./icon.svg" alt="" className="relative h-24 w-24 drop-shadow-2xl" />
+            {other ? <span className="relative"><LeagueCrest short={host.short_name} /></span> : <img src="./icon.svg" alt="" className="relative h-24 w-24 drop-shadow-2xl" />}
           </div>
           <h1><Wordmark size="lg" /></h1>
-          <p className="mt-2 text-xs font-bold uppercase tracking-[.3em] text-mute">She’s A Keeper · est. 2013 · 2026-27</p>
+          <p className="mt-2 text-xs font-bold uppercase tracking-[.3em] text-mute">{other ? (brand.tagline && brand.tagline !== 'She’s A Keeper' ? brand.tagline : `A ${PRODUCT.name} league`) : 'She’s A Keeper · est. 2013 · 2026-27'}</p>
         </div>
 
         {mode === 'in' ? (
@@ -95,7 +100,7 @@ export default function Login() {
             {emailField}
             <label className="label relative mt-3 block text-white/70" htmlFor="pw">Password</label>
             <input id="pw" className="input relative mt-1" type="password" autoComplete="current-password" autoFocus={!!email} value={pw}
-              onChange={(e) => setPw(e.target.value)} placeholder="Your Superleague password" />
+              onChange={(e) => setPw(e.target.value)} placeholder={other ? "Your password" : "Your Superleague password"} />
             {rememberBox}
             <button className="btn-primary relative mt-4 w-full py-3 text-base" disabled={busy || !pw || !okEmail}>{busy ? <Spinner /> : '🏒 Drop the puck'}</button>
             <button type="button" className="relative mt-3 w-full text-center text-sm text-white/60 underline" onClick={() => go('forgot')}>Forgot your password?</button>
@@ -125,7 +130,7 @@ export default function Login() {
           </form>
         )}
         {err && <div className="mt-4 rounded-xl border border-red-400/30 bg-red-900/50 px-4 py-3 text-center text-sm text-red-200">{err}</div>}
-        <p className="mt-8 text-center text-xs italic text-mute">Play fair, play hard and play to win.</p>
+        <p className="mt-8 text-center text-xs italic text-mute">{other ? `Fantasy hockey on ${PRODUCT.name}` : 'Play fair, play hard and play to win.'}</p>
       </div>
     </div>
   );

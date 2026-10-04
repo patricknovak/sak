@@ -174,7 +174,10 @@ use, DNS already on Cloudflare, wildcard subdomains for league by host). The mov
 `sak.superpoolsai.com`, with sign-in, push and the installed app checked there; (3) GMs told the new address, the old
 GitHub Pages address forwarding to it for a season; (4) the landing page off Vercel onto Pages at `superpoolsai.com`;
 (5) league by host: the app reads the host, `league_by_host()` returns the league's brand before sign-in, and a new
-league is a subdomain. Needs a Cloudflare API token (Pages and DNS for superpoolsai.com) in the cloud environment as
+league is a subdomain. *Step 5's app side is built (migration 107):* `league_by_host(host)`, the site's `x-league`
+header from the address (`src/lib/host.ts`), the sign-in page in the league's brand with its crest, a notice for a GM
+on a league they're not in, a league switched to on Profile kept for that tab, and each league's address and own
+domain on the Platform page. It waits only on steps 1 and 2 (the Cloudflare project and its wildcard). Needs a Cloudflare API token (Pages and DNS for superpoolsai.com) in the cloud environment as
 `CLOUDFLARE_API_TOKEN`, with `CLOUDFLARE_ACCOUNT_ID`.
 
 **B6. Money and the Fund are SaK's.** `commish_bill_entries` bills every league's GMs; `commish_post_payouts`
