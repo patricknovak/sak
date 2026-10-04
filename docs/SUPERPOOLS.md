@@ -122,8 +122,8 @@ B4 (the scheduler league by league) landed in migrations 81 to 85, B6 (money and
    one league, loops over the active leagues for the cron tasks and takes a reply's league from its message;
    names come from `leagues.brand`. The commissioner shapes the voice from the Commissioner page: a briefing
    read before every post, facts handed over by name, the file he built from the chat (anything can be struck)
-   and his voice notes. Still to do: a per-league daily budget of LLM calls (the one cost that scales with
-   leagues).
+   and his voice notes. The per-league daily budget of model calls is in too (`garry_budget`, migration 99; the platform
+   sets it with `set_garry_budget`), and once it is spent he falls back to his canned lines.
 3. **Scheduler per league.** nhl-sync's league-scoped tasks (snapshots, auto-lineups, standings,
    settlement) iterate leagues, setting `app.league_id` before each league's pass; the NHL fetches stay single.
 4. **Money.** Coins stay. Cash tracking stays bookkeeping between friends (no payments handled), or is
@@ -151,8 +151,11 @@ The steps above finish the tenancy. `docs/MARKET.md` sets what comes after in th
     *Head-to-head done (migration 118):* `league_rules.format` ('season', SaK's, or 'h2h'), a `matchups` schedule the
     commissioner makes (a round robin over the regular season's Monday-to-Sunday weeks, a bye for an odd count),
     `h2h_scores()` and `h2h_standings()` (wins, losses, ties, then points for), shown on Standings and Home with the week's
-    matchups live. Next: head-to-head categories and a head-to-head playoff bracket; Garry's standings answers still read
-    points.
+    matchups live; Garry's standings answers follow the format. *Head-to-head playoffs done (migration 120):* the
+    commissioner picks the playoff spots (none, or the top 2 to 8) with the schedule, which keeps the season's last weeks
+    for the bracket (one a round); `h2h_bracket()` works the bracket out on read from the table and those weeks' points
+    (byes for the top seeds when the field isn't a power of two, a tie to the higher seed), shown on Standings and Home with
+    a playoff line on the table and the champion on top. Next: head-to-head categories.
 9. **Import with history** from Fantrax, ESPN and CBS (Yahoo exists).
 10. **Contracts, caps, prospect slots and rookie drafts**; guillotine and best ball formats.
 11. **The Supercoin.** An account-level wallet, the SaK coin ledger migrated onto it, per-pool allowances, the
@@ -188,7 +191,8 @@ The steps above finish the tenancy. `docs/MARKET.md` sets what comes after in th
     action) for the ones that change the league; every GM reads their league's log on the League page (Commish log). *The constitution page done (migration 111):* the
     League page's Rules tab shows the rules that are settings straight from the settings, then the league's own rules,
     which its commissioner writes and edits there (`commish_set_rules`, on the log; a new league starts from a few
-    suggested ones).
+    suggested ones). The dues tracker is the money ledger a money league already has (`commish_bill_entries` bills each
+    GM's entry, the commissioner marks lines paid, `money_balances` shows who owes what), with no escrow.
 13. **The sport pulled out of the engine**: a `sports` table, per-sport player, game and stat shapes and
     scoring vocabularies, a sync per sport; the NHL becomes one row. Prerequisite for soccer, basketball and
     the multi-sport pool.

@@ -2,12 +2,19 @@ import { useEffect, useState } from 'react';
 import { useLeague } from '../lib/store';
 import { rpc } from '../lib/supabase';
 import { fmtPts } from '../lib/format';
+import { useBrand } from '../lib/brand';
 import { Rank, Section, TeamBadge } from './ui';
 
 // A head-to-head league (migration 118): each week every team meets one other and the higher started-player points
 // win. The table is wins, losses and ties, then points for; the week's matchups show live.
 export interface Matchup { id: number; week: number; starts: string; ends: string; home_team: number; away_team: number | null; home_pts: number; away_pts: number | null; status: 'upcoming' | 'live' | 'final' }
 export interface H2HRow { team_id: number; w: number; l: number; t: number; pf: number; pa: number; rank: number }
+// a playoff meeting (migration 120): worked out on read from the table and the weeks' points
+export interface BracketGame {
+  round: number; slot: number; week: number; starts: string; ends: string; high_seed: number | null; high_team: number | null;
+  low_seed: number | null; low_team: number | null; high_pts: number | null; low_pts: number | null;
+  status: 'upcoming' | 'live' | 'final' | 'bye'; winner: number | null; seeded: boolean;
+}
 
 const day = (d: string) => new Date(d + 'T12:00:00').toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
 
@@ -15,15 +22,101 @@ export function useH2H() {
   const { league, standings } = useLeague();
   const [m, setM] = useState<Matchup[] | null>(null);
   const [rows, setRows] = useState<H2HRow[] | null>(null);
+  const [bracket, setBracket] = useState<BracketGame[]>([]);
   const on = league?.format === 'h2h';
+  const spots = on ? league?.h2h_playoffs ?? 0 : 0;
   useEffect(() => {
     if (!on) return;
     rpc<Matchup[]>('h2h_scores').then((x) => setM(x ?? []), () => setM([]));
     rpc<H2HRow[]>('h2h_standings').then((x) => setRows([...(x ?? [])].sort((a, b) => a.rank - b.rank)), () => setRows([]));
-  }, [on, league?.updated_at, standings]);
+    if (spots >= 2) rpc<BracketGame[]>('h2h_bracket').then((x) => setBracket(x ?? []), () => setBracket([]));
+    else setBracket([]);
+  }, [on, spots, league?.updated_at, standings]);
   // the week on now, or the next one, or the last one played
   const current = m && (m.find((x) => x.status === 'live')?.week ?? m.find((x) => x.status === 'upcoming')?.week ?? m[m.length - 1]?.week);
-  return { matchups: m, rows, week: current ?? null };
+  // the playoffs are on once the regular season is over (the seeds hold)
+  const playoffsOn = bracket.length > 0 && bracket[0].seeded;
+  return { matchups: m, rows, week: current ?? null, bracket, spots, playoffsOn };
+}
+
+// the round's name, counted back from the final
+const roundName = (r: number, of: number) => ['Final', 'Semifinals', 'Quarterfinals'][of - r] ?? `Round ${r}`;
+const meetingName = (r: number, of: number) => ['final', 'semifinal', 'quarterfinal'][of - r] ?? `round ${r} meeting`;
+
+// one playoff meeting: the higher seed on top, the winner in gold, a bye as a week off
+export function BracketCard({ g, all }: { g: BracketGame; all: BracketGame[] }) {
+  const { team, me } = useLeague();
+  // a side not decided yet: the winner of the meeting that feeds it
+  const feeders = all.filter((x) => x.round === g.round - 1 && (x.slot === g.slot * 2 - 1 || x.slot === g.slot * 2)).filter((x) => x.winner == null);
+  const of = Math.max(...all.map((x) => x.round));
+  const pending = feeders.map((x) => x.high_seed && x.low_seed ? `Winner of #${x.high_seed} v #${x.low_seed}` : `Winner of ${meetingName(x.round, of)} ${x.slot}`);
+  const row = (seed: number | null, id: number | null, pts: number | null, fallback: string) => {
+    const t = id ? team(id) : undefined;
+    const won = g.status === 'final' && g.winner != null && g.winner === id;
+    const lost = g.status === 'final' && g.winner != null && id != null && g.winner !== id;
+    return (
+      <div className={`flex items-center gap-2 rounded-lg px-2 py-1.5 ${won ? 'bg-gold/10 ring-1 ring-gold/40' : ''} ${lost ? 'opacity-45' : ''}`}>
+        <span className="num w-5 shrink-0 text-center text-[11px] font-bold text-mute">{seed ?? ''}</span>
+        {t ? <TeamBadge team={t} size={26} /> : <span className="h-[26px] w-[26px] shrink-0 rounded-full border border-dashed border-white/20" />}
+        <span className={`min-w-0 flex-1 break-words text-sm font-bold leading-tight ${t ? (t.id === me?.id ? 'text-gold' : 'text-slate-100') : 'font-medium text-mute'}`}>{t?.name ?? fallback}</span>
+        {(g.status === 'live' || g.status === 'final') && <span className={`num font-display text-lg font-extrabold leading-none ${won ? 'text-gold' : 'text-white'}`}>{fmtPts(Number(pts ?? 0))}</span>}
+        {won && <span className="text-xs" aria-label="through">✓</span>}
+      </div>
+    );
+  };
+  return (
+    <div className={`card p-1.5 ${g.status === 'live' ? 'ring-1 ring-red-400/40' : ''}`}>
+      <div className="flex items-center justify-between px-2 pb-0.5 pt-1 text-[10px] font-bold uppercase tracking-wider text-mute">
+        <span>{day(g.starts)} – {day(g.ends)}</span>
+        {g.status === 'live' ? <span className="flex items-center gap-1 text-red-300"><span className="h-1.5 w-1.5 animate-pulse rounded-full bg-red-400" />Live</span>
+          : g.status === 'final' ? <span>Final</span> : g.status === 'bye' ? <span className="text-gold/80">Bye</span> : <span>Upcoming</span>}
+      </div>
+      {row(g.high_seed, g.high_team, g.high_pts, pending[0] ?? 'To be decided')}
+      {g.status === 'bye'
+        ? <p className="px-2 pb-1 pt-0.5 text-[11px] text-mute">A week off, straight through to the next round.</p>
+        : row(g.low_seed, g.low_team, g.low_pts, pending[g.high_team == null ? 1 : 0] ?? 'To be decided')}
+    </div>
+  );
+}
+
+// the whole bracket: round by round, the champion on top once the final is played
+export function Bracket({ games, spots }: { games: BracketGame[]; spots: number }) {
+  const { team } = useLeague();
+  const brand = useBrand();
+  if (!games.length) return null;
+  const rounds = Math.max(...games.map((g) => g.round));
+  const final = games.find((g) => g.round === rounds);
+  const champ = final?.status === 'final' && final.winner ? team(final.winner) : undefined;
+  const seeded = games[0].seeded;
+  return (
+    <div className="space-y-3">
+      {champ && (
+        <div className="card relative overflow-hidden p-4 text-center">
+          <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_50%_0%,rgb(var(--gold-rgb)/.28),transparent_65%)]" />
+          <div className="relative text-3xl">🏆</div>
+          <div className="relative mt-1 text-[11px] font-bold uppercase tracking-[.2em] text-gold">Champions · {brand.trophy}</div>
+          <div className="relative mt-2 flex items-center justify-center gap-2"><TeamBadge team={champ} size={40} ring /><span className="break-words font-display text-2xl font-extrabold">{champ.name}</span></div>
+        </div>
+      )}
+      <p className="px-1 text-xs text-mute">
+        {seeded ? `The top ${spots} from the table, one week a round.` : `If the regular season ended today: the top ${spots} from the table, one week a round.`}
+        {' '}A tie goes to the higher seed.
+      </p>
+      <div className="grid gap-3 sm:grid-flow-col sm:auto-cols-fr">
+        {Array.from({ length: rounds }, (_, i) => i + 1).map((r) => (
+          <div key={r} className="space-y-2">
+            <div className="flex items-baseline justify-between px-1">
+              <span className="text-xs font-bold uppercase tracking-wider text-slate-200">{roundName(r, rounds)}</span>
+              <span className="text-[10px] text-mute">Week {games.find((g) => g.round === r)?.week}</span>
+            </div>
+            <div className="space-y-2 sm:flex sm:h-[calc(100%-1.5rem)] sm:flex-col sm:justify-around sm:space-y-0 sm:gap-2">
+              {games.filter((g) => g.round === r).map((g) => <BracketCard key={`${g.round}-${g.slot}`} g={g} all={games} />)}
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
 }
 
 export function MatchupCard({ x }: { x: Matchup }) {
@@ -56,21 +149,28 @@ export function MatchupCard({ x }: { x: Matchup }) {
   );
 }
 
-export function H2HTable({ rows }: { rows: H2HRow[] }) {
+export function H2HTable({ rows, cut = 0 }: { rows: H2HRow[]; cut?: number }) {
   const { team, me } = useLeague();
   return (
     <div className="card overflow-hidden">
       <div className="grid grid-cols-[1.5rem_1fr_auto_auto] items-center gap-x-3 border-b border-white/[.06] px-3 py-2 text-[11px] font-semibold uppercase tracking-wide text-mute">
         <span>#</span><span>Team</span><span className="text-right">W-L-T</span><span className="w-14 text-right">PF</span>
       </div>
-      {rows.map((r) => {
+      {rows.map((r, i) => {
         const t = team(r.team_id);
         return (
-          <div key={r.team_id} className={`grid grid-cols-[1.5rem_1fr_auto_auto] items-center gap-x-3 px-3 py-2.5 ${r.team_id === me?.id ? 'bg-gold/[.06]' : ''}`}>
+          <div key={r.team_id}>
+          {cut > 0 && i === cut && (
+            <div className="flex items-center gap-2 px-3 py-1 text-[9px] font-bold uppercase tracking-[.18em] text-gold/80">
+              <span className="h-px flex-1 border-t border-dashed border-gold/40" />Playoff line<span className="h-px flex-1 border-t border-dashed border-gold/40" />
+            </div>
+          )}
+          <div className={`grid grid-cols-[1.5rem_1fr_auto_auto] items-center gap-x-3 px-3 py-2.5 ${r.team_id === me?.id ? 'bg-gold/[.06]' : ''}`}>
             <Rank n={r.rank} />
             <span className="flex min-w-0 items-center gap-2">{t && <TeamBadge team={t} size={26} />}<span className="min-w-0 break-words text-sm font-bold">{t?.name}</span></span>
             <span className="num text-right font-display text-lg font-extrabold">{r.w}-{r.l}-{r.t}</span>
             <span className="num w-14 text-right text-sm text-slate-300">{fmtPts(Number(r.pf))}</span>
+          </div>
           </div>
         );
       })}
@@ -79,22 +179,26 @@ export function H2HTable({ rows }: { rows: H2HRow[] }) {
 }
 
 export function HeadToHeadStandings() {
-  const { matchups, rows, week } = useH2H();
+  const { matchups, rows, week, bracket, spots, playoffsOn } = useH2H();
   const { me } = useLeague();
   const [showAll, setShowAll] = useState(false);
   if (!matchups || !rows) return <div className="card h-48 animate-pulse" />;
   if (!matchups.length) return <div className="card p-4 text-sm text-mute">The schedule isn’t made yet. The commissioner makes it on the Commish page.</div>;
   const thisWeek = matchups.filter((x) => x.week === week);
   const mine = matchups.filter((x) => x.status === 'final' && (x.home_team === me?.id || x.away_team === me?.id));
+  const playoffs = bracket.length > 0 && <Section title="The playoffs"><Bracket games={bracket} spots={spots} /></Section>;
   return (
     <div className="space-y-5">
-      <Section title={`Week ${week} of ${matchups[matchups.length - 1].week}`}>
-        <div className="grid gap-2 sm:grid-cols-2">{thisWeek.map((x) => <MatchupCard key={x.id} x={x} />)}</div>
+      {playoffsOn ? playoffs : (
+        <Section title={`Week ${week} of ${matchups[matchups.length - 1].week}`}>
+          <div className="grid gap-2 sm:grid-cols-2">{thisWeek.map((x) => <MatchupCard key={x.id} x={x} />)}</div>
+        </Section>
+      )}
+      <Section title={playoffsOn ? 'The regular season' : 'The table'}>
+        <H2HTable rows={rows} cut={Math.min(spots, rows.length)} />
+        <p className="mt-1 px-1 text-[11px] text-mute">A win is worth one, a tie a half; points for break ties. Each week runs Monday to Sunday.{spots >= 2 && ` The top ${spots} make the playoffs.`}</p>
       </Section>
-      <Section title="The table">
-        <H2HTable rows={rows} />
-        <p className="mt-1 px-1 text-[11px] text-mute">A win is worth one, a tie a half; points for break ties. Each week runs Monday to Sunday.</p>
-      </Section>
+      {!playoffsOn && playoffs}
       {mine.length > 0 && (
         <Section title="Your weeks" right={mine.length > 3 ? <button className="text-xs text-sky-300" onClick={() => setShowAll(!showAll)}>{showAll ? 'Fewer' : 'All'}</button> : undefined}>
           <div className="grid gap-2 sm:grid-cols-2">{(showAll ? mine : mine.slice(-3)).reverse().map((x) => <MatchupCard key={x.id} x={x} />)}</div>
@@ -106,14 +210,29 @@ export function HeadToHeadStandings() {
 
 // Home: my matchup this week, then the table
 export function H2HHome() {
-  const { matchups, rows, week } = useH2H();
+  const { matchups, rows, week, bracket, spots, playoffsOn } = useH2H();
   const { me } = useLeague();
   if (!matchups || !rows) return <div className="card h-32 animate-pulse" />;
   const mine = matchups.find((x) => x.week === week && (x.home_team === me?.id || x.away_team === me?.id));
+  if (playoffsOn) {
+    // the playoffs: my latest meeting, or the round being played if I'm out
+    const mineGames = bracket.filter((g) => g.high_team === me?.id || g.low_team === me?.id);
+    const myGame = mineGames[mineGames.length - 1];
+    const now = bracket.find((g) => g.status === 'live') ?? bracket.find((g) => g.status === 'upcoming') ?? bracket[bracket.length - 1];
+    const show = myGame && (myGame.winner == null || myGame.winner === me?.id || myGame.round === now.round) ? myGame : now;
+    const rounds = Math.max(...bracket.map((g) => g.round));
+    return (
+      <div className="space-y-2">
+        <div className="px-1 text-[11px] font-bold uppercase tracking-wider text-gold">Playoffs · {roundName(show.round, rounds)}</div>
+        <BracketCard g={show} all={bracket} />
+        <H2HTable rows={rows} cut={Math.min(spots, rows.length)} />
+      </div>
+    );
+  }
   return (
     <div className="space-y-2">
       {mine && <MatchupCard x={mine} />}
-      <H2HTable rows={rows} />
+      <H2HTable rows={rows} cut={Math.min(spots, rows.length)} />
     </div>
   );
 }

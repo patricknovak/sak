@@ -2598,6 +2598,48 @@ select pg_temp.expect('the format change and the schedule are on the log', (sele
 select set_config('request.jwt.claim.sub', '', false);
 select 'head-to-head', true;
 
+-- ───────────── head-to-head playoffs ─────────────
+reset role;
+select id as po_league from leagues where slug = 'rink' \gset
+delete from matchups where league_id = :po_league;
+update league_rules set season_start = today_et() + 1, season_end = today_et() + 60 where league_id = :po_league;
+select set_config('request.jwt.claim.sub', (select user_id::text from teams where league_id = :po_league and is_commish), false);
+set role authenticated;
+select pg_temp.raises('the playoffs can''t take more teams than the league has', 'select commish_make_schedule(4)', 'at most');
+select pg_temp.raises('nor one team', 'select commish_make_schedule(1)', '2 to 16');
+select commish_make_schedule(0) as po_none \gset
+select commish_make_schedule(3) as po_regular \gset
+select pg_temp.expect('the site''s league row carries the playoff spots', (select h2h_playoffs from league) = 3);
+reset role;
+-- three teams take a two-round bracket: two weeks fewer of the round robin, the rest kept for the playoffs
+select pg_temp.expect('the bracket keeps the season''s last two weeks', :po_regular = :po_none - 2
+  and (select h2h_playoffs from league_rules where league_id = :po_league) = 3);
+select set_config('app.league_id', :po_league::text, false);
+create temp table br as select * from h2h_bracket();
+select pg_temp.expect('the top seed sits out the first round, two and three meet', (select count(*) from br where round = 1) = 2
+  and (select status from br where round = 1 and high_seed = 1) = 'bye'
+  and (select high_seed = 2 and low_seed = 3 from br where round = 1 and status <> 'bye'));
+select pg_temp.expect('the final waits on the semi, after the regular weeks', (select count(*) from br where round = 2) = 1
+  and (select high_seed = 1 and low_seed is null and status = 'upcoming' from br where round = 2)
+  and (select starts from br where round = 1 limit 1) = (select max(ends) + 1 from matchups where league_id = :po_league)
+  and (select starts from br where round = 2) = (select ends + 1 from br where round = 1 limit 1));
+select pg_temp.expect('the seeds are "if it ended today" until the regular season is over', not (select bool_or(seeded) from br));
+drop table br;
+-- the whole season played (no points scored): ties go to the higher seed, so one beats three and then two
+update matchups set starts = starts - 100, ends = ends - 100 where league_id = :po_league;
+create temp table br as select * from h2h_bracket();
+select pg_temp.expect('the seeds hold once the regular season is over', (select bool_and(seeded) from br)
+  and (select array_agg(high_team order by slot) from br where round = 1) = (select (array_agg(team_id order by rank, pf desc, team_id))[1:2] from h2h_standings()));
+select pg_temp.expect('a tie goes to the higher seed, and the champion comes out of the final', (select winner = high_team and status = 'final' from br where round = 1 and status <> 'bye')
+  and (select winner = high_team and low_seed = 2 and status = 'final' from br where round = 2));
+drop table br;
+select set_config('app.league_id', '', false);
+select pg_temp.expect('SaK has no bracket', (select h2h_playoffs from league_rules where league_id = 1) = 0);
+delete from matchups where league_id = :po_league;
+update league_rules set h2h_playoffs = 0 where league_id = :po_league;
+select set_config('request.jwt.claim.sub', '', false);
+select 'head-to-head playoffs', true;
+
 -- ───────────── how alive each league is ─────────────
 reset role;
 update teams set last_seen = now() - interval '2 days' where id = 1;
