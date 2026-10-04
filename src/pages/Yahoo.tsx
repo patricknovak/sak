@@ -16,13 +16,13 @@ import { ConnectYahoo, YahooMark, useYahooStatus } from '../components/YahooConn
 interface PoolLink { id: number; team_id: number; label: string; url: string; provider: string | null; sort: number }
 
 // the big fantasy hockey hosts, for the quick-open buttons and to badge saved links
-const PROVIDERS: { key: string; name: string; home: string; color: string; mark: string; match: RegExp }[] = [
-  { key: 'yahoo', name: 'Yahoo Fantasy Hockey', home: 'https://hockey.fantasysports.yahoo.com/', color: '#6001d2', mark: 'Y!', match: /yahoo\.com/ },
-  { key: 'espn', name: 'ESPN Fantasy Hockey', home: 'https://fantasy.espn.com/hockey/', color: '#d00', mark: 'E', match: /espn\.com/ },
-  { key: 'sleeper', name: 'Sleeper', home: 'https://sleeper.com/', color: '#1c4fd6', mark: 'S', match: /sleeper\.(com|app)/ },
-  { key: 'fantrax', name: 'Fantrax', home: 'https://www.fantrax.com/', color: '#0b7a3b', mark: 'F', match: /fantrax\.com/ },
-  { key: 'nhl', name: 'NHL.com Fantasy', home: 'https://www.nhl.com/fantasy/', color: '#000', mark: 'NHL', match: /nhl\.com/ },
-  { key: 'cbs', name: 'CBS Fantasy', home: 'https://www.cbssports.com/fantasy/hockey/', color: '#0a3d91', mark: 'CBS', match: /cbssports\.com/ },
+const PROVIDERS: { key: string; name: string; tile: string; home: string; color: string; mark: string; match: RegExp }[] = [
+  { key: 'yahoo', name: 'Yahoo Fantasy Hockey', tile: 'Yahoo', home: 'https://hockey.fantasysports.yahoo.com/', color: '#6001d2', mark: 'Y!', match: /yahoo\.com/ },
+  { key: 'espn', name: 'ESPN Fantasy Hockey', tile: 'ESPN', home: 'https://fantasy.espn.com/hockey/', color: '#d00', mark: 'E', match: /espn\.com/ },
+  { key: 'sleeper', name: 'Sleeper', tile: 'Sleeper', home: 'https://sleeper.com/', color: '#1c4fd6', mark: 'S', match: /sleeper\.(com|app)/ },
+  { key: 'fantrax', name: 'Fantrax', tile: 'Fantrax', home: 'https://www.fantrax.com/', color: '#0b7a3b', mark: 'F', match: /fantrax\.com/ },
+  { key: 'nhl', name: 'NHL.com Fantasy', tile: 'NHL.com', home: 'https://www.nhl.com/fantasy/', color: '#000', mark: 'NHL', match: /nhl\.com/ },
+  { key: 'cbs', name: 'CBS Fantasy', tile: 'CBS', home: 'https://www.cbssports.com/fantasy/hockey/', color: '#0a3d91', mark: 'CBS', match: /cbssports\.com/ },
 ];
 const providerOf = (url: string) => PROVIDERS.find((p) => p.match.test(url))?.key ?? null;
 const hostOf = (url: string) => { try { return new URL(url).hostname.replace(/^www\./, ''); } catch { return url; } };
@@ -70,7 +70,7 @@ export default function Yahoo() {
         <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
           {PROVIDERS.map((p) => (
             <button key={p.key} className="card flex items-center gap-2.5 px-3 py-2.5 text-left text-sm transition active:scale-[.98]" onClick={() => openYahoo(p.home)}>
-              <ProviderMark p={p} /><span className="min-w-0 flex-1 truncate font-semibold">{p.name}</span><ExternalLink size={14} className="shrink-0 text-mute" />
+              <ProviderMark p={p} /><span className="min-w-0 flex-1 break-words font-semibold leading-tight" title={p.name}>{p.tile}</span><ExternalLink size={14} className="shrink-0 text-mute" />
             </button>
           ))}
         </div>
