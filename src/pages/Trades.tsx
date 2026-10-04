@@ -6,7 +6,7 @@ import { positionKeys } from '../lib/sport';
 import { rpc, realtimeChannel, supabase } from '../lib/supabase';
 import type { DraftPick, Player, Trade } from '../lib/types';
 import { ago, fmtDateTime, fmtPts } from '../lib/format';
-import { PlayerRow } from '../components/PlayerCard';
+import { PlayerInfoProvider, PlayerRow, PlayerTag } from '../components/PlayerCard';
 import { Empty, Section, TeamBadge, TeamName, useAction, PageHeader } from '../components/ui';
 import { TradeAnalysis, TradeCompare, TradeFinder, TradeFit, useTradeValuer, usePickupStatus, type BuildSpec } from '../components/TradeTools';
 import { PlayerPeek, ScoutBar, StatStrip, sortPlayers, useScout, useScoutCtx } from '../components/TradeScout';
@@ -162,13 +162,19 @@ export default function Trades() {
   };
   const setDest = (item: MItem, to: number) => setMitems(mitems.map((i) => (i === item ? { ...i, to } : i)));
 
-  const describe = (t: Trade, side: number, to?: number) => (t.trade_items ?? []).filter((i) => !i.release && i.from_team === side && (to == null || i.to_team === to)).map((i) => {
+  // what a side sends, line by line; a player is a tag that opens his card (injury, tonight, news) right here
+  const describe = (t: Trade, side: number, to?: number) => (t.trade_items ?? []).filter((i) => !i.release && i.from_team === side && (to == null || i.to_team === to)).map((i): { k: string; n: React.ReactNode } => {
+    const n = itemText(i, side);
+    const p = i.player_id ? players.get(i.player_id) : undefined;
+    return { k: `${i.id}`, n: p ? <PlayerTag p={p} /> : n };
+  });
+  const itemText = (i: NonNullable<Trade['trade_items']>[number], side: number) => {
     if (i.player_id) return players.get(i.player_id)?.name ?? 'Player';
     if (i.pickups) return `🎟️ ${i.pickups} free-agent pickup${i.pickups > 1 ? 's' : ''}`;
     if (i.coins) return `${brand.coin.emoji} ${i.coins} ${brand.coin.name}`;
     const pk = picks.find((p) => p.id === i.pick_id);
     return pk ? `${pk.season} R${pk.round} pick${pk.original_team !== side ? ` (via ${team(pk.original_team)?.abbrev})` : ''}` : 'Pick';
-  });
+  };
   const partiesOf = (t: Trade) => t.parties ?? [t.from_team, t.to_team];
   // a pending trade as sides: each team's roster now, and after the deal
   const sidesOf = (t: Trade): Side[] => {
@@ -233,9 +239,9 @@ export default function Trades() {
                 {t.parties && t.status === 'proposed' && <span className="ml-auto text-xs" title={(t.accepted_by ?? []).includes(side) ? 'Accepted' : 'Waiting'}>{(t.accepted_by ?? []).includes(side) ? '✅' : '⏳'}</span>}</div>
               <div className="text-xs text-mute">sends</div>
               {t.parties ? (
-                <ul className="text-sm">{ps.filter((o) => o !== side).flatMap((o) => describe(t, side, o).map((d) => <li key={o + d}>• {d} <span className="text-mute">→ {team(o)?.abbrev}</span></li>))}{describe(t, side).length === 0 && <li className="text-mute">nothing</li>}</ul>
+                <ul className="space-y-0.5 text-sm">{ps.filter((o) => o !== side).flatMap((o) => describe(t, side, o).map((d) => <li key={`${o}-${d.k}`}>• {d.n} <span className="text-mute">→ {team(o)?.abbrev}</span></li>))}{describe(t, side).length === 0 && <li className="text-mute">nothing</li>}</ul>
               ) : (
-                <ul className="text-sm">{describe(t, side).map((d) => <li key={d}>• {d}</li>)}{describe(t, side).length === 0 && <li className="text-mute">nothing</li>}</ul>
+                <ul className="space-y-0.5 text-sm">{describe(t, side).map((d) => <li key={d.k}>• {d.n}</li>)}{describe(t, side).length === 0 && <li className="text-mute">nothing</li>}</ul>
               )}
               {(t.trade_items ?? []).filter((i) => i.release && i.from_team === side).map((i) => <div key={i.id} className="mt-0.5 text-xs text-amber-200">✂️ drops {players.get(i.player_id!)?.name ?? 'a player'} to make room</div>)}
             </div>
@@ -309,7 +315,7 @@ export default function Trades() {
           <div key={p.id} className={`px-2 py-1.5 ${on ? 'bg-sky-500/15' : ''}`}>
             <div className="flex items-center gap-2">
               <input type="checkbox" checked={on} onChange={() => onFlip('player_id', p.id)} className="h-4 w-4 shrink-0 accent-sky-400" aria-label={on ? 'Take out of the deal' : 'Put in the deal'} />
-              <div className="min-w-0 flex-1"><PlayerRow p={p} sub={<span className="ml-1">· {statBlurb(p)}</span>} /></div>
+              <div className="min-w-0 flex-1"><PlayerRow p={p} wrapName sub={<span className="ml-1">· {statBlurb(p)}</span>} /></div>
               {on && dest?.('player_id', p.id)}
               <button type="button" title={cmp ? 'Take out of the comparison' : 'Compare side by side'} aria-label="Compare" onClick={() => { const n = new Set(compare); n.has(p.id) ? n.delete(p.id) : n.add(p.id); setCompare(n); }}
                 className={`grid h-7 w-7 shrink-0 place-items-center rounded-lg border text-sm ${cmp ? 'border-gold/60 bg-gold/20' : 'border-white/10 text-mute'}`}>⚖️</button>
@@ -347,6 +353,7 @@ export default function Trades() {
   );
 
   return (
+    <PlayerInfoProvider>
     <div className="space-y-5">
       <PageHeader icon={<Repeat2 size={22} className="text-blue" />} title="Trades" sub={<>Deadline {league?.trade_deadline ? fmtDateTime(league.trade_deadline) : 'TBD'}</>} />
 
@@ -547,5 +554,6 @@ export default function Trades() {
           : <div className="space-y-2">{groups.done.map((t) => <Fragment key={t.id}>{tradeCard(t)}</Fragment>)}</div>}
       </Section>
     </div>
+    </PlayerInfoProvider>
   );
 }

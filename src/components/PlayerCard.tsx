@@ -1,4 +1,4 @@
-import { useEffect, useState, type ReactNode } from 'react';
+import { createContext, useCallback, useContext, useEffect, useState, type ReactNode } from 'react';
 import { Sparkline } from './charts';
 import { useNavigate } from 'react-router-dom';
 import { useLeague, useSport } from '../lib/store';
@@ -14,11 +14,51 @@ import { useBrand } from '../lib/brand';
 import { AddPlayerPanel } from './AddPlayer';
 import { useWatchlist } from '../lib/watchlist';
 
+// A page where a GM is weighing players (the trade page) opens a player's card in place: anything under this provider
+// that shows a player (the row's injury, status and news chips, a name in an offer or the comparison) opens it here
+// instead of taking the GM to the player's own page and losing the deal they were building.
+type OpenInfo = (id: number, tab?: 'news') => void;
+const PlayerInfoCtx = createContext<OpenInfo | null>(null);
+export const usePlayerInfo = () => useContext(PlayerInfoCtx);
+export function PlayerInfoProvider({ children }: { children: ReactNode }) {
+  const [info, setInfo] = useState<{ id: number; tab: 'overview' | 'news' } | null>(null);
+  const open = useCallback<OpenInfo>((id, tab) => setInfo({ id, tab: tab ?? 'overview' }), []);
+  return (
+    <PlayerInfoCtx.Provider value={open}>
+      {children}
+      <PlayerSheet id={info?.id ?? null} start={info?.tab} onClose={() => setInfo(null)} />
+    </PlayerInfoCtx.Provider>
+  );
+}
+
+// a player named in a sentence (an offer, a list): the name, his injury and tonight's status, and the news dot, all
+// opening his card when the page has a PlayerInfoProvider
+export function PlayerTag({ p, className = '' }: { p: Player; className?: string }) {
+  const open = usePlayerInfo();
+  const b = injuryBadge(p.injury_status);
+  return (
+    <span className={`inline-flex min-w-0 flex-wrap items-center gap-1 align-middle ${className}`}>
+      {open ? <button type="button" className="text-left font-semibold text-slate-100 decoration-white/30 underline-offset-2 hover:underline" onClick={(e) => { e.stopPropagation(); open(p.id); }}>{p.name}</button>
+        : <span className="font-semibold">{p.name}</span>}
+      {b && (open ? <button type="button" className={`chip shrink-0 cursor-pointer ${b.cls} hover:brightness-125`} title={p.injury_note ?? 'Tap for the injury report'} onClick={(e) => { e.stopPropagation(); open(p.id); }}>{b.label}</button>
+        : <span className={`chip shrink-0 ${b.cls}`} title={p.injury_note ?? ''}>{b.label}</span>)}
+      <GameStatusChip id={p.id} onClick={open ? () => open(p.id) : undefined} />
+      <NewsDot id={p.id} onClick={open ? () => open(p.id, 'news') : undefined} />
+    </span>
+  );
+}
+
 // one-line player row used everywhere
 // `wrap`: on a narrow phone the name and the matchup wrap onto more lines instead of being cut off (the lineup uses it,
 // where the opponent and the puck drop matter most)
-export function PlayerRow({ p, right, onClick, sub, dim, onInfo, wrap }: { p: Player; right?: ReactNode; onClick?: () => void; sub?: ReactNode; dim?: boolean; onInfo?: () => void; wrap?: boolean }) {
+// `onInfo`: the injury, tonight's status and the news dot open the player's card where the row is (a trade, a lineup),
+// with the news tab first when it was the news dot, so a GM can weigh it without leaving the page
+// `wrapName`: only the name and its chips wrap (the trade lists, where an injury and the news dot share a phone's width
+// with the name), and the stat line stays on one
+export function PlayerRow({ p, right, onClick, sub, dim, onInfo: given, wrap, wrapName }: { p: Player; right?: ReactNode; onClick?: () => void; sub?: ReactNode; dim?: boolean; onInfo?: (tab?: 'news') => void; wrap?: boolean; wrapName?: boolean }) {
   const { gamesByTeam } = useLeague();
+  const open = usePlayerInfo();
+  const onInfo = given ?? (open ? (tab?: 'news') => open(p.id, tab) : undefined);
   const sport = useSport();
   const g = gamesByTeam(p.nhl_team);
   const opp = g ? (g.home === p.nhl_team ? `vs ${g.away}` : `@ ${g.home}`) : null;
@@ -27,11 +67,18 @@ export function PlayerRow({ p, right, onClick, sub, dim, onInfo, wrap }: { p: Pl
     <div onClick={onClick} className={`flex min-w-0 items-center gap-2.5 ${onClick ? 'cursor-pointer' : ''} ${dim ? 'opacity-45' : ''}`}>
       <Headshot p={p} size={wrap ? 34 : 38} />
       <div className="min-w-0 flex-1">
-        <div className={wrap ? 'flex flex-wrap items-center gap-x-1.5 gap-y-0.5' : 'flex items-center gap-1.5'}>
-          <span className={wrap ? 'break-words font-semibold leading-tight' : 'truncate font-semibold'}>{p.name}</span>
-          {(() => { const b = injuryBadge(p.injury_status); return b && <span className={`chip shrink-0 ${b.cls}`} title={p.injury_note ?? ''}>{b.label}</span>; })()}
-          <GameStatusChip id={p.id} />
-          <NewsDot id={p.id} onClick={onInfo} />
+        <div className={wrap || wrapName ? 'flex flex-wrap items-center gap-x-1.5 gap-y-0.5' : 'flex items-center gap-1.5'}>
+          <span className={wrap || wrapName ? 'break-words font-semibold leading-tight' : 'truncate font-semibold'}>{p.name}</span>
+          {(() => {
+            const b = injuryBadge(p.injury_status);
+            if (!b) return null;
+            return onInfo
+              ? <button type="button" className={`chip shrink-0 cursor-pointer ${b.cls} hover:brightness-125`} title={p.injury_note ? `${p.injury_note} (tap for more)` : 'Tap for the injury report'}
+                  onClick={(e) => { e.stopPropagation(); onInfo(); }}>{b.label}</button>
+              : <span className={`chip shrink-0 ${b.cls}`} title={p.injury_note ?? ''}>{b.label}</span>;
+          })()}
+          <GameStatusChip id={p.id} onClick={onInfo ? () => onInfo() : undefined} />
+          <NewsDot id={p.id} onClick={onInfo ? () => onInfo('news') : undefined} />
         </div>
         <div className={wrap ? 'mt-0.5 flex min-w-0 flex-wrap items-center gap-x-1.5 gap-y-0.5 text-xs text-mute' : 'flex min-w-0 items-center gap-1.5 overflow-hidden whitespace-nowrap text-xs text-mute'}>
           <span className="inline-flex items-center gap-1.5 whitespace-nowrap"><NhlLogo abbr={p.nhl_team} size={14} />
@@ -60,7 +107,8 @@ export function usePlayerSheet() {
 
 interface GameLine { game_id: number; date: string; nhl_team: string; stats: Record<string, number>; fpts: number }
 
-export function PlayerSheet({ id, onClose, actions }: { id: number | null; onClose: () => void; actions?: ReactNode }) {
+// `start`: the tab it opens on ('news' when a GM tapped the news dot)
+export function PlayerSheet({ id, onClose, actions, start = 'overview' }: { id: number | null; onClose: () => void; actions?: ReactNode; start?: 'overview' | 'news' }) {
   const { players, owner, team, league, season } = useLeague();
   const brand = useBrand();
   const nav = useNavigate();
@@ -72,11 +120,11 @@ export function PlayerSheet({ id, onClose, actions }: { id: number | null; onClo
   const [tab, setTab] = useState<'overview' | 'career' | 'news'>('overview');
 
   useEffect(() => {
-    setLog([]); setCareer(null); setTab('overview');
+    setLog([]); setCareer(null); setTab(start);
     if (!id) return;
     supabase.from('league_games').select('game_id,date,nhl_team,stats,fpts').eq('player_id', id).order('date', { ascending: false }).limit(15)
       .then(({ data }) => setLog((data ?? []) as GameLine[]));
-  }, [id]);
+  }, [id, start]);
   useEffect(() => {
     if (tab !== 'career' || !id || career) return;
     supabase.functions.invoke(`player-info?id=${id}`, { method: 'GET' })

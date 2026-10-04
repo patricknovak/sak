@@ -13,6 +13,7 @@ import { gradeColor } from '../lib/grades';
 import { lineFor, minSample, statValue, fmtStat, TIMEFRAMES, type Timeframe } from '../lib/playerstats';
 import { useNhlOdds, useProjDetails, useSeasonGames, toneCls, toneIcon } from '../lib/projections';
 import { Headshot, Pos, TeamBadge } from './ui';
+import { PlayerTag } from './PlayerCard';
 import { Sparkles } from 'lucide-react';
 import { rosPg, scoutNums, trendLabel, useScoutCtx } from './TradeScout';
 import { useCategoryValues } from './PlayerFilters';
@@ -114,7 +115,7 @@ function MoveList({ inn, out, c }: { inn: Player[]; out: Player[]; c: ReturnType
         <div key={p.id} className="flex items-baseline gap-1.5 text-[12px]">
           <span className={`w-3 shrink-0 font-bold ${cls}`}>{sign}</span>
           <div className="min-w-0 flex-1">
-            <div className="truncate"><span className="font-semibold text-slate-100">{p.name}</span> <span className="text-mute">{p.elig.join('/')}</span></div>
+            <div className="flex flex-wrap items-center gap-x-1.5"><PlayerTag p={p} /> <span className="text-mute">{p.elig.join('/')}</span></div>
             <div className="num text-[11px] text-slate-300">{l.now} · <b className="text-slate-100">{fmtPts(l.ros, 0)}</b> ROS{cv && <> · <b className="text-gold">{cv.get(p.id) != null ? cvFmt(cv.get(p.id)!) : '–'}</b> cat</>}</div>
           </div>
         </div>
@@ -253,7 +254,7 @@ export function TradeCompare({ moving, title = 'Players in the deal', showTo = t
               return (
                 <tr key={p.id} className="align-top">
                   <td className="px-2 py-1.5">
-                    <div className="flex items-center gap-1.5"><Headshot p={p} size={24} /><div className="min-w-0"><div className="truncate font-semibold">{p.name}</div><div className="text-[10px] text-mute">{p.elig.join('/')} · {p.nhl_team}{!showTo && <> · {team(to)?.abbrev}</>}{p.injury_status && <span className="text-red-300"> · {p.injury_status}</span>}</div></div></div>
+                    <div className="flex items-center gap-1.5"><Headshot p={p} size={24} /><div className="min-w-0"><PlayerTag p={p} /><div className="text-[10px] text-mute">{p.elig.join('/')} · {p.nhl_team}{!showTo && <> · {team(to)?.abbrev}</>}</div></div></div>
                     {view === 'outlook' && f.length > 0 && <ul className="mt-1 max-w-[260px] space-y-0.5 text-[10px] leading-snug">{f.slice(0, 3).map((x) => <li key={x.text} className={toneCls[x.tone]}>{toneIcon[x.tone]} <span className="text-slate-300">{x.text}</span></li>)}</ul>}
                   </td>
                   {showTo && <td className="whitespace-nowrap px-2 py-1.5"><span className="flex items-center gap-1"><TeamBadge team={team(to)} size={16} />{team(to)?.abbrev}</span></td>}

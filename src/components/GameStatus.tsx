@@ -12,12 +12,14 @@ const CHIP: Record<PlayerStatus['status'], { short: string; cls: string }> = {
   scratched: { short: 'Scratched', cls: 'border-red-800 bg-red-900/50 text-red-300' },
 };
 
-export function GameStatusChip({ id, date }: { id: number; date?: string }) {
+export function GameStatusChip({ id, date, onClick }: { id: number; date?: string; onClick?: () => void }) {
   const { gameStatus } = useLeague();
   const s = gameStatus(id, date);
   if (!s) return null;
   const c = CHIP[s.status];
-  return <span className={`chip shrink-0 ${c.cls}`} title={`${STATUS_LABEL[s.status]}${s.opponent ? ` ${s.opponent}` : ''}${s.note ? `: ${s.note}` : ''}`}>{c.short}</span>;
+  const title = `${STATUS_LABEL[s.status]}${s.opponent ? ` ${s.opponent}` : ''}${s.note ? `: ${s.note}` : ''}`;
+  if (onClick) return <button type="button" className={`chip shrink-0 cursor-pointer ${c.cls} hover:brightness-125`} title={`${title} (tap for more)`} onClick={(e) => { e.stopPropagation(); onClick(); }}>{c.short}</button>;
+  return <span className={`chip shrink-0 ${c.cls}`} title={title}>{c.short}</span>;
 }
 
 export function NewsDot({ id, onClick }: { id: number; onClick?: () => void }) {
@@ -27,7 +29,7 @@ export function NewsDot({ id, onClick }: { id: number; onClick?: () => void }) {
   return (
     <button type="button" aria-label="Recent news" title={`${n} news update${n > 1 ? 's' : ''} in the last 48 hours`}
       onClick={(e) => { if (onClick) { e.stopPropagation(); onClick(); } }}
-      className="relative shrink-0 text-[11px] leading-none">📰<span className="absolute -right-1 -top-1 h-1.5 w-1.5 rounded-full bg-sky-400" /></button>
+      className={`relative -m-1 shrink-0 p-1 text-[11px] leading-none ${onClick ? 'cursor-pointer rounded-md hover:bg-white/10' : ''}`}>📰<span className="absolute right-0 top-0 h-1.5 w-1.5 rounded-full bg-sky-400" /></button>
   );
 }
 
