@@ -337,7 +337,7 @@ function H2HPreseason() {
       </div>
       <Section title="The field">
         <div className="grid grid-cols-2 gap-2">
-          {teams.map((t) => (
+          {teams.filter((t) => t.role === 'gm').map((t) => (
             <div key={t.id} className={`card flex items-center gap-2 p-2.5 ${t.id === me?.id ? 'ring-1 ring-gold/40' : ''}`}>
               <TeamBadge team={t} size={30} />
               <span className="min-w-0 flex-1">

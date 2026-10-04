@@ -1,7 +1,7 @@
 // Shared player filtering and sorting (Players page, draft room, mock draft): any stat, any timeframe.
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react';
 import { useLeague } from '../lib/store';
-import { rpc } from '../lib/supabase';
+import { supabase } from '../lib/supabase';
 import type { Player, Pos as PosT } from '../lib/types';
 import { NHL_TEAMS } from '../lib/format';
 import { isOut } from '../lib/lineup';
@@ -25,10 +25,18 @@ export function useCategoryValues() {
   useEffect(() => {
     if (!key) { setCv(null); return; }
     if (cvCache.has(key)) { setCv(cvCache.get(key)!); return; }
-    rpc<{ player_id: number; value: number }[]>('category_values').then((rows) => {
-      const m = new Map((rows ?? []).map((r) => [r.player_id, Number(r.value)]));
+    // a thousand rows a request (the API's cap), best first, until the last page
+    (async () => {
+      const m = new Map<number, number>();
+      for (let from = 0; ; from += 1000) {
+        const { data, error } = await supabase.rpc('category_values').range(from, from + 999);
+        if (error) throw error;
+        const rows = (data ?? []) as { player_id: number; value: number }[];
+        for (const r of rows) m.set(r.player_id, Number(r.value));
+        if (rows.length < 1000) break;
+      }
       cvCache.set(key, m); setCv(m);
-    }, () => setCv(null));
+    })().catch(() => setCv(null));
   }, [key]);
   return cv;
 }
@@ -39,6 +47,17 @@ export function useDraftValue() {
   const cv = useCategoryValues();
   const on = !!cv && cv.size > 0;
   return useCallback((p: Player) => (on ? cv!.get(p.id) ?? -1e6 + p.proj / 1000 : p.proj), [on, cv]);
+}
+
+// the draft simulator's bots weigh players by a number above zero: in a category league, the category value shifted so
+// the weakest valued player is 1 (no value at all: just under that); undefined in a points league, where bots use points
+export function useSimValue(): ((p: Player) => number) | undefined {
+  const cv = useCategoryValues();
+  return useMemo(() => {
+    if (!cv || !cv.size) return undefined;
+    const lo = Math.min(...cv.values());
+    return (p: Player) => { const v = cv.get(p.id); return v == null ? 0.5 : v - lo + 1; };
+  }, [cv]);
 }
 
 // `keep` names the screen whose filters should survive the GM stepping away and back (Players, the draft room)

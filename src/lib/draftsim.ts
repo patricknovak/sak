@@ -83,14 +83,14 @@ export function rng(seed: number) {
   return () => { s ^= s << 13; s ^= s >>> 17; s ^= s << 5; return ((s >>> 0) % 100000) / 100000; };
 }
 
-// how a bot GM picks: best projection with a little chaos, leaning to open starting slots, goalies in time,
+// how a bot GM picks: best projection (or, in a category league, the value it's handed: always above zero) with a little chaos, leaning to open starting slots, goalies in time,
 // never a fourth goalie or a ninth defenceman, and a discount on anyone listed Out
-export function botChoose(mine: Player[], avail: Player[], round: number, rounds: number, rand: () => number, caps = DEFAULT_CAPS): Player | undefined {
+export function botChoose(mine: Player[], avail: Player[], round: number, rounds: number, rand: () => number, caps = DEFAULT_CAPS, value: (p: Player) => number = (p) => p.proj): Player | undefined {
   const n = needsOf(mine, caps);
   const count = (k: string) => mine.filter((p) => p.pos === k).length;
   const late = round > rounds - 5;
   const cands = avail.filter((p) => count(p.pos) < (POS_CAP[p.pos] ?? 9)).slice(0, 45).map((p) => {
-    let v = p.proj * (0.92 + rand() * 0.16);
+    let v = value(p) * (0.92 + rand() * 0.16);
     const fit = fitOf(p, n);
     if (fit === 'depth') v *= 1.0;
     else if (fit === 'flex') v *= 0.88;
@@ -105,7 +105,7 @@ export function botChoose(mine: Player[], avail: Player[], round: number, rounds
   return (rand() < 0.15 ? cands[Math.floor(rand() * Math.min(3, cands.length))] : cands[0]).p;
 }
 
-export interface SimOptions { rounds: number; human?: number; stopAt?: 'human' | 'end'; queues?: Map<number, number[]>; rand?: () => number; caps?: Record<string, number> }
+export interface SimOptions { rounds: number; human?: number; stopAt?: 'human' | 'end'; queues?: Map<number, number[]>; rand?: () => number; caps?: Record<string, number>; value?: (p: Player) => number }
 // run the draft from where it stands: bots for everyone (or everyone but `human`), stopping at the human's
 // next pick or the end. `pool` is every draftable player sorted by projection.
 export function simulateDraft(board: SimPick[], keepers: Map<number, number[]>, pool: Player[], byId: Map<number, Player>, opts: SimOptions): SimPick[] {
@@ -124,7 +124,7 @@ export function simulateDraft(board: SimPick[], keepers: Map<number, number[]>, 
     let choice: Player | undefined;
     const q = opts.queues?.get(pk.team);
     if (q) { const qid = q.find((id) => !taken.has(id)); if (qid) choice = byId.get(qid); }
-    if (!choice) choice = botChoose(roster(pk.team), avail, pk.round, opts.rounds, rand, opts.caps);
+    if (!choice) choice = botChoose(roster(pk.team), avail, pk.round, opts.rounds, rand, opts.caps, opts.value);
     if (!choice) break;
     pk.pid = choice.id; taken.add(choice.id); roster(pk.team).push(choice);
     avail = avail.filter((p) => p.id !== choice!.id);
@@ -135,13 +135,13 @@ export function simulateDraft(board: SimPick[], keepers: Map<number, number[]>, 
 export interface Outlook { picks: number[]; odds: Map<number, number[]> }   // my pick overalls, and per player the chance he's there at each
 // run the draft many times with everyone (me included) on bot logic, and count how often each player is still
 // on the board when each of my picks comes up
-export function availabilityOdds(board: SimPick[], keepers: Map<number, number[]>, pool: Player[], byId: Map<number, Player>, me: number, rounds: number, sims = 25, caps = DEFAULT_CAPS): Outlook {
+export function availabilityOdds(board: SimPick[], keepers: Map<number, number[]>, pool: Player[], byId: Map<number, Player>, me: number, rounds: number, sims = 25, caps = DEFAULT_CAPS, value?: (p: Player) => number): Outlook {
   const picks = board.filter((b) => b.team === me && !b.pid).map((b) => b.overall).slice(0, 4);
   const odds = new Map<number, number[]>();
   const watch = pool.slice(0, 120);
   for (const p of watch) odds.set(p.id, picks.map(() => 0));
   for (let s = 0; s < sims; s++) {
-    const res = simulateDraft(board, keepers, pool, byId, { rounds, rand: rng(1000 + s * 7919), caps, stopAt: 'end' });
+    const res = simulateDraft(board, keepers, pool, byId, { rounds, rand: rng(1000 + s * 7919), caps, stopAt: 'end', value });
     picks.forEach((ov, i) => {
       const gone = new Set(res.filter((b) => b.pid && b.overall < ov).map((b) => b.pid!));
       for (const p of watch) if (!gone.has(p.id)) odds.get(p.id)![i]++;

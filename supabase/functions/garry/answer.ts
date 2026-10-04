@@ -152,12 +152,17 @@ export async function answer(db: Db, question: string, askerTeam: number, opts: 
     [/\b(bets?|betting|wagers?|coins?|st\.? patrick)\b/, 'bet'],
     [/\b(alerts?|notifications?|notify|push|buzz)\b/, 'alerts'],
     [/\b(features?|suggest\w*|ideas?|wish ?list|request)\b/, 'features'],
-    [/\b(format|head.to.head|h2h|matchups?|rotisserie|roto|categor(y|ies)|bracket|how (do|does) (we|you|i|the league) win)\b/, 'format'],
+    // how the league is won; "categories" means the format only in a league that plays them (elsewhere it's the scoring),
+    // and a GM asking about "my matchup" wants the score, which the standings answer gives
+    [league?.categories?.length
+      ? /\b(format|head.to.head|h2h|rotisserie|roto|categor(y|ies)|bracket|how (do|does) (we|you|i|the league) win)\b/
+      : /\b(format|head.to.head|h2h|rotisserie|roto|bracket|how (do|does) (we|you|i|the league) win)\b/, 'format'],
   ];
   const topic = topics.find(([re]) => re.test(q))?.[1];
 
   // ── standings
-  if (has(/\b(standing|standings|leader|leading|winning|first place|last place|in first|in last|peter|rank|table|who.?s up|points race|where am i)\b/)) {
+  if (has(/\b(standing|standings|leader|leading|winning|first place|last place|in first|in last|peter|rank|table|who.?s up|points race|where am i)\b/)
+      || (league.format === 'h2h' && has(/\b(my matchup|matchup|this week|who am i (playing|against)|my opponent)\b/) && !howTo)) {
     const ord = (n: number) => `${n}${['st', 'nd', 'rd'][n - 1] ?? 'th'}`;
     // a head-to-head league is ranked by wins, and a GM wants this week's matchup too
     if (league.format === 'h2h') {

@@ -166,13 +166,17 @@ export function RosterVsAvailable() {
       </div>
       <div className="grid gap-2 lg:grid-cols-2">
         {POSS.map((pos) => {
-          const theirs = mine.filter((p) => at(p, pos)).sort((a, b) => (val(b) ?? -1) - (val(a) ?? -1));
-          const fas = avail.filter((p) => at(p, pos)).sort((a, b) => (val(b) ?? -1) - (val(a) ?? -1)).slice(0, 5);
-          const floor = theirs.length ? Math.min(...theirs.map((p) => val(p) ?? 0)) : 0;
+          // a category value is a z-score, often below zero: a player without one sorts last and is never an upgrade
+          const missing = metric === 'cat' ? -1e9 : -1;
+          const theirs = mine.filter((p) => at(p, pos)).sort((a, b) => (val(b) ?? missing) - (val(a) ?? missing));
+          const fas = avail.filter((p) => at(p, pos)).sort((a, b) => (val(b) ?? missing) - (val(a) ?? missing)).slice(0, 5);
+          const known = theirs.map((p) => val(p)).filter((v): v is number => v != null);
+          const floor = metric === 'cat' ? (known.length ? Math.min(...known) : -1e9) : theirs.length ? Math.min(...theirs.map((p) => val(p) ?? 0)) : 0;
+          const better = (p: Player) => (metric === 'cat' ? val(p) != null && val(p)! > floor : (val(p) ?? 0) > floor);
           const weakest = theirs[theirs.length - 1];
           return (
             <div key={pos} className="card overflow-hidden">
-              <div className="flex items-center gap-2 border-b border-white/[.06] px-3 py-1.5"><Pos p={pos} /><span className="text-sm font-semibold">{theirs.length} on roster</span><span className="ml-auto text-[11px] text-mute">{fas.filter((p) => (val(p) ?? 0) > floor).length} free-agent upgrade{fas.filter((p) => (val(p) ?? 0) > floor).length === 1 ? '' : 's'}</span></div>
+              <div className="flex items-center gap-2 border-b border-white/[.06] px-3 py-1.5"><Pos p={pos} /><span className="text-sm font-semibold">{theirs.length} on roster</span><span className="ml-auto text-[11px] text-mute">{fas.filter(better).length} free-agent upgrade{fas.filter(better).length === 1 ? '' : 's'}</span></div>
               <div className="grid grid-cols-2 divide-x divide-white/[.06]">
                 <div className="divide-y divide-white/[.05]">
                   <div className="flex items-center gap-1 px-2 py-1 text-[10px] uppercase tracking-wider text-mute"><TeamBadge team={team(tid)} size={14} />{team(tid)?.abbrev}</div>
@@ -181,7 +185,7 @@ export function RosterVsAvailable() {
                 </div>
                 <div className="divide-y divide-white/[.05]">
                   <div className="px-2 py-1 text-[10px] uppercase tracking-wider text-mute">Free agents</div>
-                  {fas.map((p) => { const up = (val(p) ?? 0) > floor; return (
+                  {fas.map((p) => { const up = better(p); return (
                     <button key={p.id} onClick={() => setDetail(p.id)} className={`flex w-full items-center gap-1.5 px-2 py-1 text-left text-xs ${up ? 'bg-emerald-500/[.08]' : ''}`} title={up && weakest ? `Better than ${weakest.name}` : undefined}>
                       <Headshot p={p} size={20} /><span className="min-w-0 flex-1 truncate">{p.name}{p.injury_status ? <span className="text-red-300"> ·{p.injury_status.split(' ')[0]}</span> : ''}</span><span className={`num font-semibold ${up ? 'text-emerald-300' : ''}`}>{fmt(val(p))}</span>
                     </button>); })}

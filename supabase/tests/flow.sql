@@ -2796,6 +2796,9 @@ select pg_temp.expect('every GM hears this week''s opponent, or the week off', (
 select pg_temp.expect('the two who played last week hear how it went', (select count(*) from notifications n join teams t on t.id = n.team_id
   where t.league_id = :wn_league and n.kind = 'matchup' and n.body ~ 'you (beat|lost to|tied)') = 2);
 select pg_temp.expect('once each: a second run says nothing new', h2h_week_notes() = 0);
+-- next season the circle pairs the same teams again: last year's identical line mustn't hold this one up
+update notifications set created_at = now() - interval '200 days' where kind = 'matchup';
+select pg_temp.expect('the same line a season later goes out again', h2h_week_notes() >= 3);
 select set_config('app.league_id', '1', false);
 select pg_temp.expect('a season-total league hears nothing', h2h_week_notes() = 0);
 select set_config('app.league_id', '', false);
@@ -2861,6 +2864,12 @@ select pg_temp.expect('skaters on skater categories, goalies on goalie ones', (s
 select pg_temp.expect('a big hitter outranks his points', (select avg(cv.rank) from cv join players p on p.id = cv.player_id
     where p.pos <> 'G' and (p.last_stats->>'hit')::numeric / greatest((p.last_stats->>'gp')::numeric, 1) > 2.5)
   < (select avg(p.rank) from cv join players p on p.id = cv.player_id where p.pos <> 'G' and (p.last_stats->>'hit')::numeric / greatest((p.last_stats->>'gp')::numeric, 1) > 2.5));
+-- a player the model projects but who has no usable last season (a rookie, a star hurt all year) still has a value
+select id as cv_rookie, last_stats::text as cv_rookie_stats from players where proj_stats is not null and pos <> 'G' order by proj desc limit 1 \gset
+update players set last_stats = null where id = :cv_rookie;
+select pg_temp.expect('a projected player with no last season is valued', exists (select 1 from category_values() where player_id = :cv_rookie));
+update players set last_stats = :'cv_rookie_stats'::jsonb where id = :cv_rookie;
+select pg_temp.expect('the values come back best first', (select bool_and(r = rank) from (select rank, row_number() over () as r from category_values()) x where r = 1));
 select pg_temp.expect('fewer goals against per start is better', (select corr((p.last_stats->>'ga')::numeric / nullif((p.last_stats->>'gs')::numeric, 0), (cv.z->>'gaa')::numeric)
   from cv join players p on p.id = cv.player_id where p.pos = 'G' and (p.last_stats->>'gs')::numeric >= 50) < 0);
 select id as cv_team from teams where league_id = :cv_league and role = 'gm' and not exists (select 1 from draft_queue q where q.team_id = teams.id) order by id limit 1 \gset

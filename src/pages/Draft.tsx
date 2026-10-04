@@ -10,7 +10,7 @@ import type { DraftPick, Player } from '../lib/types';
 import { countdown, fmtDateTime, fmtPts, readable } from '../lib/format';
 import { ChatPanel } from '../components/ChatPanel';
 import { PlayerRow, PlayerSheet } from '../components/PlayerCard';
-import { PlayerFilterBar, useDraftValue, usePlayerFilter } from '../components/PlayerFilters';
+import { PlayerFilterBar, useCategoryValues, useDraftValue, usePlayerFilter } from '../components/PlayerFilters';
 import { Countdown, Headshot, Sheet, Pos, TeamBadge, TeamName, TeamStack, Toggle, useAction, useToast } from '../components/ui';
 import { ClockRing, POS_BG, celebrate, useWide } from '../components/draftkit';
 import { PushCard } from '../components/PushCard';
@@ -116,6 +116,8 @@ export default function Draft() {
   const banned = useMemo(() => bannedTopScorers(rosters, league?.top_scorer_rule), [rosters, league?.top_scorer_rule]);
   const available = useMemo(() => pf.apply([...players.values()].filter((p) => !taken(p.id))).slice(0, 150), [players, owner, preKeepers, lockedKept, pf.apply]); // eslint-disable-line react-hooks/exhaustive-deps
   const dv = useDraftValue();
+  const cvMap = useCategoryValues();
+  const cvOn = !!cvMap && cvMap.size > 0;
   const poolRank = useMemo(() => new Map([...players.values()].filter((p) => !taken(p.id)).sort((a, b) => dv(b) - dv(a)).map((p, i) => [p.id, i + 1])), [players, lockedKept, owner, preKeepers, dv]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const draftPlayer = (p: Player) => run(async () => {
@@ -153,7 +155,8 @@ export default function Draft() {
       <div className="min-h-0 flex-1 divide-y divide-white/[.06] overflow-y-auto">
         {available.map((p, i) => {
           const maybe = preKeepers && likelyKept.has(p.id) && !banned.has(p.id);
-          const value = myTurn && current?.overall ? (poolRank.get(p.id) ?? 999) - current.overall : 0;
+          // no badge for a player a category league can't value yet: his board rank says nothing about him
+          const value = myTurn && current?.overall && !(cvOn && !cvMap!.has(p.id)) ? (poolRank.get(p.id) ?? 999) - current.overall : 0;
           return (
           <div key={p.id} className="flex items-center gap-2 px-2 py-2">
             <span className="w-6 text-center text-[11px] text-mute">{i + 1}</span>

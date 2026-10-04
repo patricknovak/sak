@@ -8,7 +8,7 @@ import { useLeague } from '../lib/store';
 import { supabase } from '../lib/supabase';
 import type { Player } from '../lib/types';
 import { projectedKeepers } from '../lib/grades';
-import { useCategoryValues, useDraftValue } from '../components/PlayerFilters';
+import { useCategoryValues, useDraftValue, useSimValue } from '../components/PlayerFilters';
 import { availabilityOdds, needsOf, type Outlook, type SimPick, type StartSlot } from '../lib/draftsim';
 import { PlayerSheet } from '../components/PlayerCard';
 import { NeedsStrip } from '../components/RosterNeeds';
@@ -42,6 +42,7 @@ export default function CheatSheet({ embedded = false }: { embedded?: boolean } 
   }, [teams, rosters, league?.keepers, league?.top_scorer_rule]);
   const gone = useMemo(() => new Set([...[...keepers.values()].flat(), ...board.filter((b) => b.pid).map((b) => b.pid!)]), [keepers, board]);
   const dv = useDraftValue();
+  const simValue = useSimValue();
   const cv = useCategoryValues();
   const catOn = !!cv && cv.size > 0;   // a category league ranks and shows category value (migration 129)
   const pool = useMemo(() => [...players.values()].filter((p) => !gone.has(p.id)).sort((a, b) => dv(b) - dv(a)), [players, gone, dv]);
@@ -56,7 +57,7 @@ export default function CheatSheet({ embedded = false }: { embedded?: boolean } 
   const runOdds = () => {
     if (!me || !board.length) return;
     setSimming(true);
-    setTimeout(() => { setOutlook(availabilityOdds(board, keepers, pool, players, me.id, league?.draft_rounds ?? 18, 25, caps)); setSimming(false); }, 30);
+    setTimeout(() => { setOutlook(availabilityOdds(board, keepers, pool, players, me.id, league?.draft_rounds ?? 18, 25, caps, simValue)); setSimming(false); }, 30);
   };
   useEffect(() => { runOdds(); }, [made, me?.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
