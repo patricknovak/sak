@@ -288,7 +288,7 @@ export default function Performance() {
                       return (
                         <tr key={a.team_id} className={`cursor-pointer hover:bg-white/[.03] ${a.team_id === focus && sel !== 'all' ? 'bg-white/[.05]' : ''}`} onClick={() => setSel(a.team_id)}>
                           <td className="sticky left-0 z-10 bg-rink px-2 py-1.5">
-                            <div className="flex items-center gap-1.5"><span className="num w-4 text-center text-mute">{i + 1}</span><TeamBadge team={t} size={22} /><span className="max-w-[88px] truncate font-semibold">{t?.name}</span><Sparkline values={a.daily} color={t?.color ?? '#fff'} width={40} height={16} /></div>
+                            <div className="flex items-center gap-1.5"><span className="num w-4 text-center text-mute">{i + 1}</span><TeamBadge team={t} size={22} /><span className="max-w-[96px] line-clamp-2 break-words font-semibold leading-tight">{t?.name}</span><Sparkline values={a.daily} color={t?.color ?? '#fff'} width={40} height={16} /></div>
                           </td>
                           {catMode
                             ? <td className={`num px-2 text-right font-bold ${hi('pts', roto.get(a.team_id)?.total ?? 0)}`}>{fmtPts(roto.get(a.team_id)?.total ?? 0)}</td>

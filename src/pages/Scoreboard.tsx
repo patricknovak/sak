@@ -221,7 +221,7 @@ export default function Scoreboard() {
                   <span className="num w-5 text-center text-sm font-bold text-mute">{i + 1}</span>
                   <TeamBadge team={t} size={36} />
                   <div className="min-w-0 flex-1">
-                    <div className="truncate font-bold">{t.name} <span className="text-xs font-normal text-mute">· {t.gm_name}{rankOf(t.id) ? ` · ${rankOf(t.id)}${['st', 'nd', 'rd'][(rankOf(t.id)! - 1)] ?? 'th'} overall` : ''}</span></div>
+                    <div className="line-clamp-2 break-words font-bold leading-tight">{t.name} <span className="text-xs font-normal text-mute">· {t.gm_name}{rankOf(t.id) ? ` · ${rankOf(t.id)}${['st', 'nd', 'rd'][(rankOf(t.id)! - 1)] ?? 'th'} overall` : ''}</span></div>
                     <div className="truncate text-xs text-mute">
                       {lines.length === 0 ? (past ? 'No starters with a game' : 'No starters with a game tonight') : `${playing ? `${playing} playing · ` : ''}${done} done · ${left} to come`}
                       {!catMode && top.length > 0 && <> · {top.map((l) => `${players.get(l.player_id)?.last_name} ${fmtPts(l.pts)}`).join(', ')}</>}

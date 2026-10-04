@@ -197,12 +197,14 @@ export function Skeleton({ className = '' }: { className?: string }) {
 // page title with an icon tile and optional subtitle/actions
 export function PageHeader({ icon, title, sub, right }: { icon: ReactNode; title: ReactNode; sub?: ReactNode; right?: ReactNode }) {
   return (
-    // the title keeps room for a word like SCOREBOARD; buttons that don't fit beside it drop to their own row
+    // buttons that don't fit beside the title drop to their own row; the title is sized so its longest word fits the
+    // width it has (a word like SCOREBOARD shrinks a little on a small phone instead of splitting mid-word)
     <div className="flex flex-wrap items-center gap-3">
       <div className="flex min-w-[15rem] flex-1 items-center gap-3">
         <div className="grid h-11 w-11 shrink-0 place-items-center rounded-2xl bg-gradient-to-br from-white/15 to-white/[.03] text-white ring-1 ring-gold/30 shadow-[0_10px_24px_-12px_rgb(var(--gold-rgb)/.6)]">{icon}</div>
-        <div className="min-w-0 flex-1">
-          <h1 className="h-display text-shine break-words text-[26px] leading-none">{title}</h1>
+        <div className="@container min-w-0 flex-1">
+          <h1 className="h-display text-shine break-words text-[length:min(26px,calc(100cqw/(var(--tl)*0.84)))] leading-none"
+            style={{ '--tl': typeof title === 'string' ? Math.max(6, ...title.split(/\s+/).map((w) => w.length)) : 8 } as React.CSSProperties}>{title}</h1>
           {sub && <div className="mt-1 text-sm text-mute">{sub}</div>}
         </div>
       </div>
