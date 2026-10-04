@@ -800,7 +800,8 @@ async function leaguesFor(req: Request, url: URL): Promise<number[]> {
       if (m) return [m.league_id];
     }
   }
-  const { data: all } = await db.from('leagues').select('id').eq('status', 'active').order('id');
+  // a prediction pool has no games and no hockey to talk about: the scheduled posts are for fantasy leagues
+  const { data: all } = await db.from('leagues').select('id').eq('status', 'active').eq('kind', 'fantasy').order('id');
   return (all ?? []).map((l) => l.id);
 }
 

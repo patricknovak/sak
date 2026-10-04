@@ -413,10 +413,11 @@ async function gameday() {
   return { ...inj, status_rows: rows, events };
 }
 
+// (prediction pools, leagues of kind 'predict', have no rosters: every league pass below is for fantasy leagues)
 // the lineup auto-pilot: the same exact optimizer the site's "Optimize" button uses, league by league (each on its
 // own phase, roster caps and points); one league failing doesn't stop the others
 async function autoLineups() {
-  const leagues = check(await db.from('leagues').select('id').eq('status', 'active').order('id')) as { id: number }[];
+  const leagues = check(await db.from('leagues').select('id').eq('status', 'active').eq('kind', 'fantasy').order('id')) as { id: number }[];
   const out: Record<number, unknown> = {};
   for (const { id } of leagues) {
     try { out[id] = await autoLineupsFor(id); } catch (e) { console.error('auto lineups, league', id, e); out[id] = { error: String(e) }; }
@@ -485,7 +486,7 @@ async function autoLineupsFor(lid: number) {
 // site shows for its home side (the points on the board plus the rest of the week played out with each roster), one call
 // per matchup and day, scored by score_predictions when the week is over (1 a win, 0 a loss, a half a tie)
 async function h2hCalls() {
-  const leagues = check(await db.from('leagues').select('id').eq('status', 'active').order('id')) as { id: number }[];
+  const leagues = check(await db.from('leagues').select('id').eq('status', 'active').eq('kind', 'fantasy').order('id')) as { id: number }[];
   const out: Record<number, unknown> = {};
   for (const { id } of leagues) {
     try { out[id] = await h2hCallsFor(id); } catch (e) { console.error('h2h calls, league', id, e); out[id] = { error: String(e) }; }
