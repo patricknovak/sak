@@ -3110,3 +3110,19 @@ delete from transactions where player_id = :wl_p and type in ('add', 'drop') and
 delete from watchlist where player_id = :wl_p;
 select set_config('request.jwt.claim.sub', '', false);
 select 'the watch list', true;
+
+-- ───────────── injury news for the watch list ─────────────
+reset role;
+select r.player_id as wi_own, r.team_id as wi_owner from rosters r join players p on p.id = r.player_id where r.league_id = 1 and p.injury_status is null order by r.player_id limit 1 \gset
+select p.id as wi_free from players p where not exists (select 1 from rosters r where r.player_id = p.id) and p.injury_status is null order by p.id limit 1 \gset
+insert into watchlist (league_id, team_id, player_id) values (1, 5, :wi_free), (1, 5, :wi_own), (1, :wi_owner, :wi_own);
+delete from notifications where kind = 'injury';
+update players set injury_status = 'Day-to-day', injury_note = 'lower body' where id in (:wi_free, :wi_own);
+select pg_temp.expect('a watcher hears about a free agent''s injury', (select count(*) from notifications where kind = 'injury' and team_id = 5 and body like '%' || (select name from players where id = :wi_free) || '%(on your watch list)') = 1);
+select pg_temp.expect('and about another team''s player', (select count(*) from notifications where kind = 'injury' and team_id = 5 and link = '/player/' || :wi_own) = 1);
+select pg_temp.expect('his owner hears it once, as before, even watching him', (select count(*) from notifications where kind = 'injury' and team_id = :wi_owner and link = '/player/' || :wi_own) = 1
+  and not exists (select 1 from notifications where kind = 'injury' and team_id = :wi_owner and body like '%watch list%'));
+update players set injury_status = null, injury_note = null where id in (:wi_free, :wi_own);
+delete from notifications where kind = 'injury';
+delete from watchlist where team_id in (5, :wi_owner);
+select 'injury news for the watch list', true;
