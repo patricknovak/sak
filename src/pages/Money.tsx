@@ -15,6 +15,8 @@ import { hasFeature } from '../lib/features';
 import { Sparkline } from '../components/charts';
 import { PageHeader, Section, Sheet, TeamBadge, useAction } from '../components/ui';
 import { useHistory } from '../lib/history';
+import { useH2H } from '../components/HeadToHead';
+import { useRoto } from '../components/RotoStandings';
 
 const abs = (n: number) => fmtMoney(Math.abs(Math.round(n * 100) / 100));
 const KIND: Record<string, string> = { entry: 'Entry', payout: 'Winnings', peter: 'Peter Punishment', acq_fee: 'Extra pickup', fine: 'Fine', adjust: 'Adjustment', credit: 'Credit' };
@@ -63,6 +65,25 @@ export default function Money() {
   const myLines = lines.filter((l) => l.team_id === me?.id && !l.paid);
   const payNote = (league?.info?.pay_note as string | undefined) ?? 'Send an Interac e-Transfer to the commissioner. Winnings are sent the same way.';
   const tables: Record<PotKey, Standing[]> = { regular: standings, playoffs, cup };
+  // who's in line for each pot, by the table the league plays for (migration 124): a head-to-head league's regular pot
+  // goes by its W-L-T table and its playoff pot by the bracket, a rotisserie league's regular pot by the categories
+  const h2h = useH2H();
+  const roto = useRoto();
+  const inLine = (k: PotKey): { ids: number[]; scored: boolean } => {
+    if (k === 'regular' && league?.format === 'h2h' && h2h.rows) return { ids: h2h.rows.map((r) => r.team_id), scored: h2h.rows.some((r) => r.w + r.l + r.t > 0) };
+    if (k === 'regular' && league?.format !== 'h2h' && roto) return { ids: roto.map((r) => r.team_id), scored: roto.some((r) => Number(r.total) > 0) };
+    if (k === 'playoffs' && league?.format === 'h2h' && h2h.spots >= 2) {
+      const rounds = Math.max(0, ...h2h.bracket.map((g) => g.round));
+      const fin = h2h.bracket.find((g) => g.round === rounds);
+      if (!fin || fin.status !== 'final' || fin.winner == null) return { ids: [], scored: false };
+      const semis = h2h.bracket.filter((g) => g.round === rounds - 1 && g.status === 'final' && g.winner != null)
+        .map((g) => (g.winner === g.high_team ? { id: g.low_team, seed: g.low_seed } : { id: g.high_team, seed: g.high_seed }))
+        .sort((a, b) => (a.seed ?? 99) - (b.seed ?? 99));
+      return { ids: [fin.winner, fin.winner === fin.high_team ? fin.low_team : fin.high_team, semis[0]?.id].filter((x): x is number => x != null), scored: true };
+    }
+    const lead = [...tables[k]].sort((a, b) => a.rank - b.rank);
+    return { ids: lead.map((r) => r.team_id), scored: lead.some((r) => Number(r.points) !== 0) };
+  };
   const useMoney = hasFeature(league, 'money'), useFund = hasFeature(league, 'fund');
 
   return (
@@ -106,8 +127,7 @@ export default function Money() {
           <div className="relative mt-4 grid gap-2 md:grid-cols-3">
             {POTS.map((p) => {
               const pot = money.pots[p.key];
-              const lead = [...tables[p.key]].sort((a, b) => a.rank - b.rank);
-              const scored = lead.some((s) => Number(s.points) !== 0);
+              const { ids: lead, scored } = inLine(p.key);
               return (
                 <div key={p.key} className="rounded-2xl border border-white/10 bg-black/25 p-3">
                   <div className="flex items-baseline justify-between gap-2"><span className="font-bold">{p.icon} {p.trophy}</span><span className="text-xs text-white/60">{pot.pct}%</span></div>
@@ -118,7 +138,7 @@ export default function Money() {
                       <div key={i} className="flex items-center gap-2 rounded-lg bg-white/[.05] px-2 py-1 text-sm">
                         <span className="w-8 text-[10px] font-bold uppercase text-white/60">{PLACES[i]}</span>
                         <span className="num font-bold">{fmtMoney(v)}</span>
-                        {scored && lead[i] && <span className="ml-auto flex min-w-0 items-center gap-1 truncate text-xs text-white/70"><TeamBadge team={team(lead[i].team_id)} size={16} />{team(lead[i].team_id)?.gm_name}</span>}
+                        {scored && lead[i] != null && <span className="ml-auto flex min-w-0 items-center gap-1 truncate text-xs text-white/70"><TeamBadge team={team(lead[i])} size={16} />{team(lead[i])?.gm_name}</span>}
                       </div>
                     ))}
                   </div>
