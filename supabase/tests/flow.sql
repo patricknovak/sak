@@ -2941,6 +2941,41 @@ delete from predictions where kind = 'h2h_win';
 delete from matchups where id = :hw_id;
 select 'head-to-head win chances in the prediction log', true;
 
+-- ───────────── the pickup advisor's suggestions in the prediction log ─────────────
+reset role;
+select (array_agg(r.player_id order by r.player_id))[1] as pk_add, (array_agg(r.player_id order by r.player_id))[2] as pk_drop
+from rosters r join players p on p.id = r.player_id where r.team_id = 3 and p.pos <> 'G' \gset
+select p.id as pk_free from players p where not exists (select 1 from rosters r where r.player_id = p.id) and p.pos <> 'G' order by p.id limit 1 \gset
+select pg_temp.as_team(3);
+set role authenticated;
+select pg_temp.expect('a GM logs the pickup they just made', log_pickup_call(:pk_add, :pk_drop, 6.5, today_et() + 14));
+select pg_temp.expect('not one that isn''t on their roster', not log_pickup_call(:pk_free, null, 3, today_et() + 14));
+reset role;
+select pg_temp.expect('the call is theirs, once', (select count(*) from predictions where kind = 'pickup' and subject->>'team_id' = '3' and predicted = 6.5) = 1);
+delete from predictions where kind = 'pickup';
+-- scored on what the new player scored while started, less what the dropped one scored
+insert into games (id, date, start_utc, home, away, state, final_synced) values
+  (7901, today_et() - 120, now() - interval '120 days', 'TOR', 'MTL', 'OFF', true),
+  (7902, today_et() - 119, now() - interval '119 days', 'TOR', 'MTL', 'OFF', true);
+insert into player_games (game_id, player_id, date, stats) values
+  (7901, :pk_add, today_et() - 120, '{"g":2,"a":1,"sog":5}'), (7902, :pk_add, today_et() - 119, '{"g":1,"a":0,"sog":3}'),
+  (7901, :pk_drop, today_et() - 120, '{"g":0,"a":1,"sog":2}');
+insert into lineup_snapshots (game_id, date, team_id, player_id, slot) values
+  (7901, today_et() - 120, 3, :pk_add, 'C'), (7902, today_et() - 119, 3, :pk_add, 'BN');
+insert into predictions (league_id, kind, subject, predicted, basis, resolves_on) values
+  (1, 'pickup', jsonb_build_object('team_id', 3, 'add', :pk_add, 'drop', :pk_drop, 'from', today_et() - 121), 4.0, 'advisor', today_et() - 119);
+select set_config('app.league_id', '1', false);
+select (select fpts from league_games where game_id = 7901 and player_id = :pk_add) - (select fpts from league_games where game_id = 7901 and player_id = :pk_drop) as pk_want \gset
+select score_predictions() >= 1 as pk_scored \gset
+select set_config('app.league_id', '', false);
+select pg_temp.expect('a pickup scores the new player''s started points less the dropped one''s', (select outcome = :pk_want and error = :pk_want - 4.0 and status = 'scored' from predictions where kind = 'pickup'));
+delete from predictions where kind = 'pickup';
+delete from lineup_snapshots where game_id in (7901, 7902);
+delete from player_games where game_id in (7901, 7902);
+delete from games where id in (7901, 7902);
+select set_config('request.jwt.claim.sub', '', false);
+select 'the pickup advisor''s suggestions in the prediction log', true;
+
 -- ───────────── a matchup, player by player ─────────────
 reset role;
 -- SaK's teams 2 and 5 started players earlier in this test: a matchup between them over those days

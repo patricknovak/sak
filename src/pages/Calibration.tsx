@@ -8,6 +8,7 @@
 //   * Trades: each approved trade's forecast value per team, scored at the end of the regular season.
 //   * The auto-pilot: each lineup it sets, what it expected the starters to score against what they did (migration 132).
 //   * Head-to-head win chances: the chance each morning gave the home side, against how often it won (migration 137).
+//   * Pickup advice: the lineup points the advisor promised for a pickup, against what the swap brought (migration 138).
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Target } from 'lucide-react';
@@ -26,6 +27,7 @@ const WAIT: Record<string, string> = {
   draft_value: 'Draft classes (scored at the regular season’s end)', keeper_value: 'Keepers (scored at the regular season’s end)',
   auto_lineup: 'Auto-pilot lineups (scored when the night is final)',
   h2h_win: 'Head-to-head win chances (scored when the week ends)',
+  pickup: 'Pickups the advisor suggested (scored when the stretch is over)',
 };
 const pct = (x: number) => `${Math.round(Number(x) * 100)}%`;
 const f1 = (x: number) => (Math.round(Number(x) * 10) / 10).toFixed(1);
@@ -78,6 +80,12 @@ export default function Calibration() {
   const hwCame = hwN ? hw.reduce((t, r) => t + Number(r.avg_outcome) * Number(r.n), 0) / hwN : 0;
   const hwMiss = hwN ? hw.reduce((t, r) => t + Number(r.avg_miss) * Number(r.n), 0) / hwN : 0;
   const hwWaiting = open.find((o) => o.kind === 'h2h_win' && o.status === 'open')?.n ?? 0;
+  // pickup advice (migration 138): what the advisor promised a pickup would add, against what the swap brought
+  const pk = acc.filter((r) => r.kind === 'pickup');
+  const pkN = pk.reduce((t, r) => t + Number(r.n), 0);
+  const pkSaid = pkN ? pk.reduce((t, r) => t + Number(r.avg_predicted) * Number(r.n), 0) / pkN : 0;
+  const pkCame = pkN ? pk.reduce((t, r) => t + Number(r.avg_outcome) * Number(r.n), 0) / pkN : 0;
+  const pkWaiting = open.find((o) => o.kind === 'pickup' && o.status === 'open')?.n ?? 0;
   const brier = cal.length ? cal.reduce((s, c) => s + Number(c.brier) * Number(c.n), 0) / cal.reduce((s, c) => s + Number(c.n), 0) : null;
 
   return (
@@ -207,6 +215,20 @@ export default function Calibration() {
           </div>
         ) : <div className="card p-4 text-sm text-mute">{hwWaiting ? `${hwWaiting} chances are out, waiting on their weeks to end.` : 'No head-to-head chances yet. Each morning of a head-to-head week logs every matchup\'s chance here, scored when the week ends.'}</div>}
         <p className="mt-2 px-1 text-[11px] text-mute">The chance the site showed each morning for the home side, against how often it won (a tie counts half). Level bars mean the chances say what they mean.</p>
+      </Section>
+      <Section title="Pickup advice">
+        {pkN ? (
+          <div className="grid grid-cols-2 gap-2">
+            {[{ v: signed(pkSaid), l: 'Promised a pickup', s: `${pkN} pickups scored` }, { v: signed(pkCame), l: 'Came in', s: pkCame >= pkSaid ? 'at or above the promise' : 'below the promise' }].map((x) => (
+              <div key={x.l} className="rounded-2xl border border-white/[.07] bg-white/[.04] px-3 py-2.5">
+                <div className="num font-display text-2xl font-extrabold leading-none text-white">{x.v}</div>
+                <div className="label mt-1">{x.l}</div>
+                <div className="mt-0.5 text-[11px] leading-tight text-mute">{x.s}</div>
+              </div>
+            ))}
+          </div>
+        ) : <div className="card p-4 text-sm text-mute">{pkWaiting ? `${pkWaiting} pickups are out, waiting on their stretches to finish.` : 'No pickups from the advisor yet. Each one a GM makes from it is logged here and scored when its stretch is over.'}</div>}
+        <p className="mt-2 px-1 text-[11px] text-mute">Lineup points the advisor said a pickup would add over the stretch the GM looked at, against what the new player scored in that lineup less what the dropped player scored.</p>
       </Section>
       <Section title="Waiting on results">
         <div className="card divide-y divide-white/[.06]">

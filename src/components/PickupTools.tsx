@@ -114,6 +114,9 @@ export function PickupAdvisor() {
 
   const doAdd = (i: Idea) => run(async () => {
     await rpc('add_player', { p_add: i.add.id, p_drop: i.drop?.id ?? null });
+    // the prediction log (migration 138): what the advisor promised, scored once the stretch is over (points leagues;
+    // a category league's gain is a share, not points)
+    if (!catOn) rpc('log_pickup_call', { p_add: i.add.id, p_drop: i.drop?.id ?? null, p_gain: Math.round(i.gain * 100) / 100, p_to: to }).catch(() => {});
     await refresh(['rosters', 'standings']);
   }, `${i.add.name} added${i.drop ? `, ${i.drop.name} dropped` : ''}`);
 
