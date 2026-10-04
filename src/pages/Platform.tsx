@@ -18,6 +18,7 @@ interface Row {
   league_id: number; slug: string; name: string; short_name: string; status: 'setup' | 'active' | 'archived'; created_at: string;
   seats: number; filled: number; spectators: number; commish_team: number | null; commish_name: string | null; commish_seated: boolean; brand: BrandRow | null; domain: string | null;
   active_7d?: number; last_seen?: string | null;
+  format?: 'season' | 'h2h' | null; categories?: number;   // how the league plays (migration 130)
 }
 
 const STATUS = {
@@ -109,14 +110,19 @@ function LeagueCard({ r, reload }: { r: Row; reload: () => Promise<unknown> }) {
             <div className={`font-semibold ${r.commish_seated ? 'text-white' : 'text-amber-200'}`}>{r.commish_seated ? r.commish_name : 'Not in yet'}</div>
           </div>
         </div>
-        {r.filled > 0 && (
-          <div className="mt-2 flex flex-wrap items-center gap-x-2 gap-y-1 text-[11px] text-white/60">
+        <div className="mt-2 flex flex-wrap items-center gap-x-2 gap-y-1 text-[11px] text-white/60">
+          {r.format && (
+            <span className="inline-flex items-center gap-1 rounded-full bg-white/[.07] px-2 py-0.5 font-semibold text-white/80">
+              {r.format === 'h2h' ? `⚔️ Head-to-head${r.categories ? ` · ${r.categories} categories` : ' · points'}` : r.categories ? `📊 Rotisserie · ${r.categories} categories` : '🏒 Season points'}
+            </span>
+          )}
+          {r.filled > 0 && (<>
             <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 font-semibold ${(r.active_7d ?? 0) > 0 ? 'bg-emerald-400/15 text-emerald-200' : 'bg-white/[.06] text-white/50'}`}>
               {(r.active_7d ?? 0) > 0 && <span className="h-1.5 w-1.5 rounded-full bg-emerald-300" />}{r.active_7d ?? 0} of {r.filled} active this week
             </span>
             {r.last_seen && <span>last seen {ago(r.last_seen) === 'now' ? 'just now' : /^\d/.test(ago(r.last_seen)) ? `${ago(r.last_seen)} ago` : `on ${ago(r.last_seen)}`}</span>}
-          </div>
-        )}
+          </>)}
+        </div>
       </button>
 
       {open && (

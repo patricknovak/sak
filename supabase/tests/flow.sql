@@ -2884,6 +2884,7 @@ select pg_temp.as_team(1);
 set role authenticated;
 select pg_temp.expect('the platform sees who used each league this week', (select active_7d >= 1 and last_seen is not null from platform_leagues() where league_id = 1)
   and (select active_7d <= seats from platform_leagues() where league_id = 1));
+select pg_temp.expect('and how each league plays', (select format = 'season' and categories = 0 from platform_leagues() where league_id = 1));
 reset role;
 select set_config('request.jwt.claim.sub', '', false);
 select 'how alive each league is', true;
