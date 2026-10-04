@@ -45,7 +45,7 @@ export default function DraftTV() {
       <div className="relative shrink-0 overflow-hidden border-b border-white/10 px-6 py-4"
         style={{ background: `linear-gradient(110deg, color-mix(in oklab, ${tc} 45%, #0b1222), #0b1222 65%)` }}>
         <div className="flex items-center gap-6">
-          <img src="./icon.svg" className="h-14 w-14 drop-shadow-[0_6px_16px_rgba(247,197,72,.45)]" alt="" />
+          <img src="./icon.svg" className="h-14 w-14 drop-shadow-[0_6px_16px_rgb(var(--gold-rgb)/.45)]" alt="" />
           <div className="min-w-0">
             <div className="h-display text-3xl leading-none"><span className="text-gold-shine italic">SAK</span> <span className="text-shine">Superleague Draft · {season}</span></div>
             <div className="mt-1 text-sm text-white/60">{league?.pick_seconds}s clock · {rounds} rounds · {league?.snake ? 'snake' : 'straight'} · {teams.filter((t) => online.has(t.id)).length} GMs{spectators.some((t) => online.has(t.id)) ? ` and ${spectators.filter((t) => online.has(t.id)).length} watching` : ''} in the room</div>

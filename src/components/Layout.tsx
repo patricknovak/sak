@@ -159,8 +159,8 @@ export function Layout({ children }: { children: ReactNode }) {
       {/* desktop sidebar */}
       <aside className="sticky top-0 hidden h-dvh w-64 shrink-0 flex-col border-r border-white/[.06] bg-[#091020]/70 p-4 backdrop-blur-xl lg:flex">
         <button onClick={() => nav('/')} className="mb-7 flex items-center gap-3 px-1">
-          <img src="./icon.svg" className="h-11 w-11 drop-shadow-[0_6px_16px_rgba(247,197,72,.45)]" alt="" />
-          <Wordmark size="sm" tagline={`${brand.tagline} · ${league?.season ?? ""}`} className="text-left" />
+          <img src="./icon.svg" className="h-11 w-11 drop-shadow-[0_6px_16px_rgb(var(--gold-rgb)/.45)]" alt="" />
+          <Wordmark size="sm" tagline={[brand.tagline, league?.season].filter(Boolean).join(" · ")} className="text-left" />
         </button>
         <nav className="flex flex-col gap-0.5">
           {[...items, ...moreItems].filter((i, n, a) => a.findIndex((x) => x.to === i.to) === n).map((i) => {
@@ -187,7 +187,7 @@ export function Layout({ children }: { children: ReactNode }) {
         <header className="pt-safe sticky top-0 z-30 border-b border-white/[.06] bg-[#05080f]/75 backdrop-blur-xl lg:hidden">
           <div className="flex h-12 items-center gap-2 px-3">
             <button onClick={() => nav('/')} className="flex items-center gap-2">
-              <img src="./icon.svg" className="h-8 w-8 drop-shadow-[0_4px_10px_rgba(247,197,72,.5)]" alt="" />
+              <img src="./icon.svg" className="h-8 w-8 drop-shadow-[0_4px_10px_rgb(var(--gold-rgb)/.5)]" alt="" />
               <WordmarkStack />
             </button>
             <div className="flex-1" />
@@ -216,7 +216,7 @@ export function Layout({ children }: { children: ReactNode }) {
             const a = isActive(i.to);
             return (
               <NavLink key={i.to} to={i.to} end={i.to === '/'} className="relative flex flex-col items-center justify-center gap-1">
-                <span className={`grid h-8 w-12 place-items-center rounded-full transition-all duration-200 ${a ? 'bg-gradient-to-b from-gold/30 to-white/[.06] text-gold shadow-[0_0_18px_-4px_rgba(247,197,72,.7)]' : 'text-slate-400'}`}>
+                <span className={`grid h-8 w-12 place-items-center rounded-full transition-all duration-200 ${a ? 'bg-gradient-to-b from-gold/30 to-white/[.06] text-gold shadow-[0_0_18px_-4px_rgb(var(--gold-rgb)/.7)]' : 'text-slate-400'}`}>
                   <i.icon size={20} strokeWidth={a ? 2.4 : 2} />
                 </span>
                 <span className={`text-[10px] font-bold tracking-wide ${a ? 'text-white' : 'text-mute'}`}>{i.label}</span>

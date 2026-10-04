@@ -73,7 +73,7 @@ export function BankCard() {
   const tie = rows.length > 1 && rows.every((x) => x.balance === rows[0].balance);
   return (
     <Section title={`${brand.coin.emoji} ${brand.bank}`} right={<More to="/bets?t=leaders" label="Leaders" />}>
-      <div className="card divide-y divide-white/[.06] overflow-hidden" style={{ background: 'linear-gradient(160deg, rgba(247,197,72,.10), rgba(15,23,41,.75) 45%)' }}>
+      <div className="card divide-y divide-white/[.06] overflow-hidden" style={{ background: 'linear-gradient(160deg, rgb(var(--gold-rgb)/.10), rgba(15,23,41,.75) 45%)' }}>
         {rows.length === 0 && <div className="p-3 text-sm text-mute">No coins in circulation yet.</div>}
         {rows.map((c, i) => (
           <Link to="/bets?t=leaders" key={c.team_id} className={`flex items-center gap-2.5 px-3 py-1.5 ${c.team_id === me?.id ? 'bg-white/[.05]' : ''}`}>

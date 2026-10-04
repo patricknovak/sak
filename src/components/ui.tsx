@@ -198,7 +198,7 @@ export function Skeleton({ className = '' }: { className?: string }) {
 export function PageHeader({ icon, title, sub, right }: { icon: ReactNode; title: ReactNode; sub?: ReactNode; right?: ReactNode }) {
   return (
     <div className="flex items-center gap-3">
-      <div className="grid h-11 w-11 shrink-0 place-items-center rounded-2xl bg-gradient-to-br from-white/15 to-white/[.03] text-white ring-1 ring-gold/30 shadow-[0_10px_24px_-12px_rgba(247,197,72,.6)]">{icon}</div>
+      <div className="grid h-11 w-11 shrink-0 place-items-center rounded-2xl bg-gradient-to-br from-white/15 to-white/[.03] text-white ring-1 ring-gold/30 shadow-[0_10px_24px_-12px_rgb(var(--gold-rgb)/.6)]">{icon}</div>
       <div className="min-w-0 flex-1">
         <h1 className="h-display text-shine truncate text-[26px] leading-none">{title}</h1>
         {sub && <div className="mt-1 text-sm text-mute">{sub}</div>}

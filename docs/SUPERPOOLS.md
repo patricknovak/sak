@@ -124,7 +124,12 @@ B4 (the scheduler league by league) landed in migrations 81 to 85, B6 (money and
 4. **Money.** Coins stay. Cash tracking stays bookkeeping between friends (no payments handled), or is
    turned off per league.
 5. **Onboarding.** A new league: sign up, name and brand it, invite GMs, import a Yahoo pool (the connector
-   exists) or start fresh, set rules, draft.
+   exists) or start fresh, set rules, draft. *Part 1 done (migration 106, October 2026):* the platform opens a league
+   from the Platform page (`#/platform`: name, web name, wordmark, colour, seats), invites its commissioner, follows
+   `league_readiness(league)` and puts it live with `platform_set_league_status`; the commissioner sees the same
+   checklist and gives the league its identity (`commish_set_brand`: name, wordmark, tagline, colour, prizes, coins,
+   the voice's name) on the Commish page, and the league's colour themes the whole site. Still to come: self-serve
+   sign-up for a commissioner, the Yahoo import into a new league, a guided rules and draft setup.
 6. **Billing.** A subscription per league per season (Stripe). Landing page collects interest until then.
 
 The steps above finish the tenancy. `docs/MARKET.md` sets what comes after in three horizons. The first,

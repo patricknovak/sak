@@ -16,7 +16,17 @@
   --color-clover: #34d399;
 }
 
-:root { color-scheme: dark; }
+:root {
+  color-scheme: dark;
+  /* the league's colour (brand.colors.gold) and the shades the site draws from it; SaK's gold by default, a league
+     with a colour of its own gets these set on the page (applyBrandColors in src/lib/brand.ts) */
+  --gold-rgb: 247 197 72;
+  --gold-hi: #fff1b8;
+  --gold-soft: #fff3c4;
+  --gold-lo: #c98f0c;
+  --gold-btn-hi: #ffe08a;
+  --gold-btn-lo: #eab308;
+}
 html, body { background: var(--color-ice); color: #e9eefb; -webkit-tap-highlight-color: transparent; }
 body {
   overscroll-behavior-y: none;
@@ -28,7 +38,7 @@ body::before {
   content: ''; position: fixed; inset: 0; z-index: -1; pointer-events: none;
   background:
     radial-gradient(80% 50% at 50% -10%, rgba(76, 195, 255, .18), transparent 70%),
-    radial-gradient(45% 35% at 0% 0%, rgba(247, 197, 72, .10), transparent 70%),
+    radial-gradient(45% 35% at 0% 0%, rgb(var(--gold-rgb) / .10), transparent 70%),
     radial-gradient(50% 40% at 100% 100%, rgba(239, 42, 79, .10), transparent 70%),
     radial-gradient(40% 35% at 0% 60%, rgba(52, 211, 153, .05), transparent 70%),
     linear-gradient(180deg, #091020 0%, #05080f 60%);
@@ -81,8 +91,8 @@ body::after {
 }
 @utility btn-gold {
   @apply btn text-ice;
-  background: linear-gradient(180deg, #ffe08a, #eab308);
-  box-shadow: inset 0 1px 0 rgba(255,255,255,.45), 0 8px 22px -10px rgba(247,197,72,.9);
+  background: linear-gradient(180deg, var(--gold-btn-hi), var(--gold-btn-lo));
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.45), 0 8px 22px -10px rgb(var(--gold-rgb) / .9);
 }
 @utility btn-ghost { @apply btn border border-white/10 bg-white/[.04] text-slate-200 hover:bg-white/[.08]; }
 @utility btn-sm { @apply px-2.5! py-1! text-xs! rounded-lg! min-h-8 min-w-8; }
@@ -91,11 +101,11 @@ body::after {
 @utility h-display { @apply font-display font-extrabold uppercase tracking-[.03em]; }
 @utility label { @apply text-[11px] font-semibold uppercase tracking-[.12em] text-mute; }
 /* the brand accent bar: gold into ice */
-@utility accent-bar { background: linear-gradient(180deg, #f7c548, #4cc3ff); }
+@utility accent-bar { background: linear-gradient(180deg, var(--color-gold), #4cc3ff); }
 /* gold hairline under section titles and hero cards */
-@utility gold-rule { background: linear-gradient(90deg, rgba(247,197,72,.7), rgba(247,197,72,0)); height: 1px; }
+@utility gold-rule { background: linear-gradient(90deg, rgb(var(--gold-rgb) / .7), rgb(var(--gold-rgb) / 0)); height: 1px; }
 @utility tab { @apply shrink-0 rounded-full px-3.5 py-1.5 text-sm font-semibold text-mute transition hover:text-slate-200; }
-@utility tab-on { @apply text-ice hover:text-ice; background: linear-gradient(180deg, #fff3c4, #f7c548); box-shadow: 0 6px 18px -8px rgba(247,197,72,.8), inset 0 1px 0 rgba(255,255,255,.6); }
+@utility tab-on { @apply text-ice hover:text-ice; background: linear-gradient(180deg, var(--gold-soft), var(--color-gold)); box-shadow: 0 6px 18px -8px rgb(var(--gold-rgb) / .8), inset 0 1px 0 rgba(255,255,255,.6); }
 @utility num { font-variant-numeric: tabular-nums; }
 /* silver-ice gradient for big headings */
 @utility text-shine {
@@ -103,7 +113,7 @@ body::after {
   -webkit-background-clip: text; background-clip: text; color: transparent;
 }
 @utility text-gold-shine {
-  background: linear-gradient(180deg, #fff1b8 0%, #f7c548 55%, #c98f0c 100%);
+  background: linear-gradient(180deg, var(--gold-hi) 0%, var(--color-gold) 55%, var(--gold-lo) 100%);
   -webkit-background-clip: text; background-clip: text; color: transparent;
 }
 

@@ -3,10 +3,12 @@
 // sidebar, phone header, login screen and TV board all match.
 import { useBrand } from '../lib/brand';
 
-export function Wordmark({ size = 'md', tagline, className = '' }: { size?: 'sm' | 'md' | 'lg' | 'xl'; tagline?: string; className?: string }) {
+// `mark` draws someone else's wordmark (a preview, another league's card) instead of the league on screen
+export function Wordmark({ size = 'md', tagline, className = '', mark }: { size?: 'sm' | 'md' | 'lg' | 'xl'; tagline?: string; className?: string; mark?: { a: string; b: string } }) {
   const s = { sm: 'text-xl', md: 'text-2xl', lg: 'text-3xl sm:text-4xl', xl: 'text-6xl' }[size];
   const sub = { sm: 'text-[9px] tracking-[.18em]', md: 'text-[10px] tracking-[.3em]', lg: 'text-sm tracking-[.34em]', xl: 'text-lg tracking-[.38em]' }[size];
-  const { wordmark } = useBrand();
+  const own = useBrand().wordmark;
+  const wordmark = mark ?? own;
   return (
     <span className={`inline-flex flex-col leading-none ${className}`}>
       <span className={`h-display ${s} leading-none`}><span className="text-gold-shine italic">{wordmark.a}</span><span className="text-shine ml-1.5 font-black not-italic">{wordmark.b}</span></span>

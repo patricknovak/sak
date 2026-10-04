@@ -366,7 +366,7 @@ export default function Bets() {
   const ready = f.title.trim().length >= 3 && (f.kind !== 'player_ou' || (f.playerId && f.line)) && (f.kind !== 'player_vs' || (f.playerId && f.playerB)) && (f.kind !== 'team_ou' || f.line) && (f.kind !== 'pool_player' || f.playerId) && (!isPool(f.kind) || Number(f.coins) > 0);
 
   const Leader = () => (
-    <div className="card divide-y divide-white/[.06] overflow-hidden" style={{ background: 'linear-gradient(160deg, rgba(247,197,72,.10), rgba(15,23,41,.75) 45%)' }}>
+    <div className="card divide-y divide-white/[.06] overflow-hidden" style={{ background: 'linear-gradient(160deg, rgb(var(--gold-rgb)/.10), rgba(15,23,41,.75) 45%)' }}>
       {[...bank].filter((c) => gms.some((t) => t.id === c.team_id)).sort((a, b) => b.balance - a.balance).map((c, i, all) => {
         const t = team(c.team_id); const r = record(c.team_id); const n = cash.net.get(c.team_id) ?? 0;
         const tie = all.every((x) => x.balance === all[0].balance);

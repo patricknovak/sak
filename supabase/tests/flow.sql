@@ -2207,3 +2207,54 @@ select pg_temp.expect('the link now says it is spent', (select not (v->>'ok')::b
 select pg_temp.raises('a spent link seats nobody else', format('select _accept_invite(%L, %L)', '00000000-0000-0000-0000-000000000097', :'join_code'), 'no longer good');
 select set_config('request.jwt.claim.sub', '', false);
 select 'joining by invite', true;
+
+-- ───────────── onboarding: the checklist, going live, the league's identity ─────────────
+reset role;
+select pg_temp.as_team(1);
+set role authenticated;
+select create_league('pond', 'Pond Hockey Pool', 'PHP', '{}'::jsonb, 3) as league4 \gset
+select pg_temp.expect('the platform sees every league with its seats', (select seats = 3 and filled = 0 and status = 'setup' and not commish_seated
+  from platform_leagues() where league_id = :league4) and exists (select 1 from platform_leagues() where league_id = 1));
+select pg_temp.expect('a new league isn''t ready until its commissioner is in', (select bool_and((x->>'ok')::boolean) filter (where x->>'key' in ('name', 'rules', 'draft', 'coins'))
+  and not bool_or((x->>'ok')::boolean) filter (where x->>'key' = 'commish') from jsonb_array_elements(league_readiness(:league4)) x));
+select pg_temp.raises('it can''t go live before then', format('select platform_set_league_status(%s, ''active'')', :league4), 'Commissioner signed in');
+select pg_temp.raises('SaK stays as it is', 'select platform_set_league_status(1, ''archived'')', 'stays as it is');
+reset role;
+select id as pond_seat1 from teams where league_id = :league4 and is_commish \gset
+set role authenticated;
+select platform_invite(:league4, :pond_seat1) as pond_code \gset
+reset role;
+insert into auth.users (id, email) values ('00000000-0000-0000-0000-0000000000f1', 'pond-commish@example.com');
+select _accept_invite('00000000-0000-0000-0000-0000000000f1', :'pond_code', 'Pat Pond');
+select pg_temp.as_team(1);
+set role authenticated;
+select pg_temp.expect('with the commissioner in, the league goes live', platform_set_league_status(:league4, 'active') = 'active');
+reset role;
+select pg_temp.expect('and is on the nightly jobs', (select status from leagues where id = :league4) = 'active');
+-- nobody else switches leagues or reads another league's checklist
+select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-000000000099', false);
+set role authenticated;
+select pg_temp.raises('a commissioner can''t switch leagues on', format('select platform_set_league_status(%s, ''archived'')', :league4), 'Only the platform');
+select pg_temp.raises('nor list the platform''s leagues', 'select * from platform_leagues()', 'Only the platform');
+select pg_temp.raises('nor read another league''s checklist', format('select league_readiness(%s)', :league4), 'Only the platform');
+select pg_temp.expect('but reads her own', jsonb_array_length(league_readiness(:league2)) = 7);
+-- the north's commissioner gives her league its identity
+select pg_temp.expect('the commissioner names her league and its words', (commish_set_brand(' North Stars Pool ', 'NSP',
+  '{"tagline": "Cold hands", "trophy": "The Aurora", "coin": {"name": "Snowflakes", "emoji": "❄️"}, "wordmark": {"a": "NORTH", "b": "POOL"}, "colors": {"gold": "#7DD3FC"}, "evil": "x"}'::jsonb)
+  ->'colors'->>'gold') = '#7dd3fc');
+select pg_temp.expect('the league row carries it, unknown keys left out', (select name = 'North Stars Pool' and short_name = 'NSP' and brand->>'trophy' = 'The Aurora'
+  and brand->'coin'->>'name' = 'Snowflakes' and brand->'wordmark'->>'a' = 'NORTH' and not brand ? 'evil' from leagues where id = :league2)
+  and (select name from league_rules where league_id = :league2) = 'North Stars Pool');
+select commish_set_brand('North Stars Pool', 'NSP', '{"trophy": "", "tagline": "", "coin": {"emoji": ""}}'::jsonb);
+select pg_temp.expect('an emptied word goes back to the default', (select not brand ? 'trophy' and brand->'coin'->>'name' = 'Snowflakes' and not brand->'coin' ? 'emoji' from leagues where id = :league2));
+select pg_temp.expect('an emptied tagline means none', (select brand->>'tagline' = '' from leagues where id = :league2));
+select pg_temp.raises('a colour is a hex code', 'select commish_set_brand(''North Stars Pool'', ''NSP'', ''{"colors": {"gold": "red"}}''::jsonb)', 'hex code');
+select pg_temp.raises('a league needs a name', 'select commish_set_brand('' '', ''NSP'', null)', '2 to 60');
+reset role;
+select pg_temp.expect('SaK''s name and brand are untouched', (select slug = 'sak' and brand->>'trophy' = 'The SAK Cup' and brand->'coin'->>'name' = 'St. Patrick coins' from leagues where id = 1));
+select pg_temp.as_team(2);
+set role authenticated;
+select pg_temp.raises('a GM can''t rebrand the league', 'select commish_set_brand(''Mine'', ''M'', null)', 'commissioner');
+reset role;
+select set_config('request.jwt.claim.sub', '', false);
+select 'onboarding', true;

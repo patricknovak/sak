@@ -15,6 +15,8 @@ import { ScoringEditor } from '../components/ScoringEditor';
 import { GarryShaper } from '../components/GarryShaper';
 import { useBrand } from '../lib/brand';
 import { Link } from 'react-router-dom';
+import { LeagueIdentity } from '../components/LeagueIdentity';
+import { CommishReadiness } from '../components/Readiness';
 
 // datetime-local <-> ISO in the viewer's zone
 const toLocal = (iso: string | null) => {
@@ -87,12 +89,25 @@ export default function Commish() {
       <HealthPanel />
 
       {platformAdmin && (
-        <Link to="/costs" className="card flex items-center gap-3 p-3 text-sm hover:bg-white/[.06]">
-          <span className="text-xl">🧾</span>
-          <span className="flex-1"><span className="font-semibold">Running costs</span><span className="block text-xs text-mute">What SaK and Super Pools cost to run, by day, month, feature and league</span></span>
-          <span className="text-mute">›</span>
-        </Link>
+        <div className="grid gap-2 sm:grid-cols-2">
+          <Link to="/platform" className="card flex items-center gap-3 p-3 text-sm hover:bg-white/[.06]">
+            <span className="text-xl">🌐</span>
+            <span className="flex-1"><span className="font-semibold">Platform</span><span className="block text-xs text-mute">Every league on Super Pools, and opening the next one</span></span>
+            <span className="text-mute">›</span>
+          </Link>
+          <Link to="/costs" className="card flex items-center gap-3 p-3 text-sm hover:bg-white/[.06]">
+            <span className="text-xl">🧾</span>
+            <span className="flex-1"><span className="font-semibold">Running costs</span><span className="block text-xs text-mute">What SaK and Super Pools cost to run, by day, month, feature and league</span></span>
+            <span className="text-mute">›</span>
+          </Link>
+        </div>
       )}
+
+      <CommishReadiness />
+
+      <Section title="🎨 League identity">
+        <LeagueIdentity />
+      </Section>
 
       <Section title="🎙️ Draft night call">
         <div className="card space-y-2 p-3 text-sm">

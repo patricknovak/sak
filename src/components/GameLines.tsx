@@ -42,7 +42,7 @@ export function GameLines({ gameId, date, live, away, home, onOpen }: { gameId: 
     const mine = !!me && o?.team_id === me.id;
     const inPool = players.has(p.id);
     const body = (
-      <div className={`relative flex h-full min-h-[62px] flex-col rounded-xl border px-2 pb-1.5 pt-1 transition ${mine ? 'border-gold/70 bg-gradient-to-br from-gold/25 to-white/[.03] shadow-[0_0_18px_-6px_rgba(247,197,72,.6)]' : 'border-white/10 bg-gradient-to-br from-white/[.09] to-white/[.02]'} ${inPool ? 'hover:border-sky-400/50' : ''}`}>
+      <div className={`relative flex h-full min-h-[62px] flex-col rounded-xl border px-2 pb-1.5 pt-1 transition ${mine ? 'border-gold/70 bg-gradient-to-br from-gold/25 to-white/[.03] shadow-[0_0_18px_-6px_rgb(var(--gold-rgb)/.6)]' : 'border-white/10 bg-gradient-to-br from-white/[.09] to-white/[.02]'} ${inPool ? 'hover:border-sky-400/50' : ''}`}>
         <div className="flex items-center justify-between gap-1">
           <span className="font-display text-lg font-extrabold leading-none text-white/80">{p.num}</span>
           {t ? <span title={`${t.gm_name}'s player`} className="inline-flex items-center gap-0.5 rounded-full bg-black/35 py-px pl-px pr-1 text-[9px] font-bold text-slate-200"><TeamBadge team={t} size={13} />{t.abbrev}</span>
