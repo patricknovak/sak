@@ -1,7 +1,8 @@
 # CLAUDE.md: the standing briefing for this repository
 
 Read this first in every session, then `docs/DEVELOPMENT.md` (how we build: the release order, the working method,
-the knowledge base and the next steps), `docs/SUPERPOOLS.md` (the product plan), `docs/BRAND.md` (how the product
+the knowledge base and the next steps), `docs/SUPERPOOLS.md` (the product plan), `docs/POOLS.md` (the direction since 4
+October 2026: prediction pools for any group, the Love Is Blind test, soccer next), `docs/BRAND.md` (how the product
 is named, described and drawn), `docs/MARKET.md` (the competition and the road to every sport), `docs/EXPANSION.md`
 (what must change before more leagues and sports, in order) and, for how the system is built and what it costs to
 run, `docs/REVIEW-2026-09.md`.
@@ -12,7 +13,8 @@ Two things in one repo:
 
 - **The SaK Superleague site**: an 8-team NHL fantasy keeper league (commissioner: Patrick Novak, team 1,
   "The Hip Czechs"). It is live and used every night of the season. Treat it as production.
-- **Super Pools** (superpoolsai.com): the product being built from it. The SaK league is league 1, the model
+- **Super Pools** (superpoolsai.com): the product being built from it: fantasy leagues and prediction pools (the
+  Polymarket interface, in Supercoins, never money) for any group, about anything. The SaK league is league 1, the model
   league. Every league-scoped table carries `league_id` (default `current_league_id()`, the caller's league); see
   `docs/SUPERPOOLS.md`.
 

@@ -7,8 +7,15 @@ the league runs on.
 
 ## 1. What we are selling, in one breath
 
-Super Pools is the home for every pool a group of friends plays, with a commissioner's assistant built in.
-It starts with hockey. It scores the league from the box scores every night, settles the side bets, sets the lineups GMs planned weeks ago, runs the
+*Widened 4 October 2026 (`docs/POOLS.md`).* Super Pools is the home for every pool a group plays: fantasy leagues for
+the sports season and prediction pools for anything the group watches, with the chat, a voice and one fun currency
+built in, and never any money. A prediction pool looks like a prediction market (every answer has a price that reads as
+a probability and moves as friends pick) and feels like the group chat with a scoreboard.
+
+**Lead line:** Call it before your friends do. **Tagline:** Pools for everything you watch. (Fantasy copy keeps the
+AI-enhanced pool that runs itself.)
+
+The fantasy door, as it was written for hockey: it starts with hockey. It scores the league from the box scores every night, settles the side bets, sets the lineups GMs planned weeks ago, runs the
 draft, and gives the league a voice that posts the recap, grades the trades and answers "who should I
 start?" in the chat. The commissioner runs the league. Super Pools does the bookkeeping.
 
@@ -32,6 +39,9 @@ and it treats the chat, the bets and the league's history as the point, not a si
 - **Hockey first, Canada first, then the world.** "Pool" is the Canadian word for a fantasy league, which is
   why the product is called what it is. The NHL is the only sport at launch; soccer and cricket are the
   sports that take it abroad, and the name travels because a pool is a pool everywhere.
+- **Everyone who watches with friends.** The prediction door is written for women and men alike, and the first test
+  (Love Is Blind) is aimed at women 18-49 in friend groups: warm, witty, low-pressure, the conversation first. No
+  sports words in a pool that is not about sport.
 - **Not for:** daily fantasy, pick'em against the house, betting for money. Fun bets, props and a prediction
   market are part of the product, in Supercoins, which cannot be bought or cashed out.
 
@@ -75,7 +85,10 @@ the score yourself") and let the reader fill in the name.
 
 Hockey-league plain English. The way a good commissioner writes the Sunday email: short, specific, dry.
 
-- Say: GM, pool and league (both, interchangeably), puck drop, box score, keeper, the Book, the draft room,
+- In prediction pools say: pool, question, answer, call, price (shown as a percent), the drop (when new episodes or a
+  gameweek land), host (not commissioner), crown, Supercoins. A question is written the way a friend asks it in the
+  group chat ("Will Kara and Tucker say I do?"), never as a contract.
+- In fantasy pools say: GM, pool and league (both, interchangeably), puck drop, box score, keeper, the Book, the draft room,
   the league voice, the Supercoin (capital S, one word; a league may still nickname its coins, as SaK calls
   them St. Patrick coins). Name features by what they do ("lineups weeks ahead"), not by a brand name.
 - Avoid: "AI-powered", "revolutionize", "platform", "seamless", "unlock", "supercharge", any exclamation
@@ -111,7 +124,9 @@ icon, which is the lineage.
 | Ice | `#38bdf8` | links, lines, the second accent |
 | Red line | `#ef2a4f` | alerts and the centre line only, never decoration |
 
-Dark is the default and the only theme on the landing page; the app has the same palette. Gold is used once
+Dark is the default and the only theme on the landing page; the app has the same palette. A pool wears its own accent
+(`brand.colors.gold` per league): SaK is gold, a show pool is Rose `#fb7185` with Blush `#fda4af` highlights on the same
+night background, and the landing page uses rose for the prediction door and gold for the fantasy door. Gold is used once
 per screen as the thing to look at. Ice is for lines and links. Nothing else is coloured.
 
 **Type.** Barlow Condensed (900 italic for the gold word, 900 for headlines, 700 for labels) and Inter (400
@@ -124,7 +139,8 @@ no generated art, no mascots.
 
 ## 7. Where it applies today
 
-- `landing/index.html`: the only public surface. Hero, the three things, how a season goes, who built it,
+- `landing/index.html`: the only public surface, rebuilt 4 October 2026 for both doors: the prediction pool hero, the
+  Love Is Blind pool, the fantasy door with the SaK Superleague's own screens (names changed), soccer next, the Supercoin,
   the waitlist (writes to `public.waitlist` through PostgREST with the publishable key).
 - `landing/icon.svg`, `landing/og.png`: the mark and the share card. The share card is rendered from
   `landing/og.html` with the pre-installed headless Chromium (`landing/README.md` has the command).
