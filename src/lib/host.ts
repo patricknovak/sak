@@ -5,7 +5,7 @@
 import { rpc, setLeagueHeader } from './supabase';
 import type { Brand } from './brand';
 
-export interface HostLeague { id: number; slug: string; name: string; short_name: string; brand: Partial<Brand> | null; status: string }
+export interface HostLeague { id: number; slug: string; name: string; short_name: string; brand: Partial<Brand> | null; status: string; kind?: 'fantasy' | 'predict' }
 
 // a league switched to in this tab (Profile, "Your leagues") wins over the address for as long as the tab is open
 const TAB = 'sak-tab-league';

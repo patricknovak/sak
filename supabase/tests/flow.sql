@@ -2269,7 +2269,7 @@ select pg_temp.expect('the app''s own hosts are no league', league_by_host('supe
   and league_by_host('app.superpoolsai.com') is null and league_by_host('patricknovak.github.io') is null and league_by_host('localhost') is null);
 select pg_temp.expect('an unknown name is no league', league_by_host('nobody.superpoolsai.com') is null);
 select pg_temp.expect('it tells a stranger the brand and nothing about anyone', (select array_agg(k order by k) from jsonb_object_keys(league_by_host('sak.superpoolsai.com')) k)
-  = array['brand', 'id', 'name', 'short_name', 'slug', 'status']);
+  = array['brand', 'id', 'kind', 'name', 'short_name', 'slug', 'status']);
 reset role;
 select pg_temp.as_team(1);
 set role authenticated;
@@ -3296,3 +3296,13 @@ select pg_temp.expect('settled in the pool''s own chat', (select league_id from 
 select pg_temp.expect('a host can still settle by hand', (select count(*) from pool_markets where league_id = :lib and status = 'open' and source is null) > 0);
 select set_config('request.jwt.claim.sub', '', false);
 select 'soccer', true;
+
+-- ───────────── a pool's address and invite say what kind of league it is (migration 150) ─────────────
+reset role;
+select set_config('request.jwt.claim.sub', '', false);
+select pg_temp.expect('a pool''s address says it is a pool', league_by_host('pod-squad-test.superpoolsai.com')->>'kind' = 'predict'
+  and league_by_host('sak.superpoolsai.com')->>'kind' = 'fantasy');
+insert into league_invites (code, league_id, team_id, role, created_by, expires_at, max_uses)
+  values ('kindcheck150', :lib, null, 'gm', '00000000-0000-0000-0000-000000000001', now() + interval '1 day', 5);
+select pg_temp.expect('and so does its invite', invite_preview('kindcheck150')->>'kind' = 'predict');
+select 'host kind', true;

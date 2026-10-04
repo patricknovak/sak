@@ -18,9 +18,13 @@ Hosting (decided by Patrick, 3 October 2026): **Cloudflare** (Workers serving st
 free for commercial use (Vercel's free tier is not, and Vercel Pro is $20 a month per member), the DNS for both domains
 is already on Cloudflare, and wildcard subdomains (`<league>.superpoolsai.com`) route to one deployment, which is what
 league-by-host needs. The move is in `docs/EXPANSION.md` (Phase 2, hosting). Since 4 October 2026 SaK is live at `sak.superpoolsai.com`
-on Cloudflare beside GitHub Pages, and the landing page moves to Cloudflare at `superpoolsai.com` with the redesign.
+on Cloudflare beside GitHub Pages, and the landing page is on Cloudflare at `superpoolsai.com` and `www` (the
+`superpools-landing` Worker; Patrick turned the proxy on for both records the same day). Every other
+`<league>.superpoolsai.com` reaches the app through a wildcard zone route and a proxied `AAAA * 100::` record: Pod Squad is
+`podsquad.superpoolsai.com`, and a pool's address speaks the pool's words (`league_by_host` returns its kind, migration
+150). Left on Vercel: only the `superpoolai.com` spelling, a 308 redirect to `superpoolsai.com`.
 
-Landing page until the move (kept for the record): Vercel project `superpools` (team
+Landing page before the move (kept for the record): Vercel project `superpools` (team
 `patricknovak1-8908s-projects`, id `prj_SRNe8ClGioGw9vAAOwq3unQ9tbMh`), linked to this repo with root directory
 `landing/`; every push to `main` redeploys it. `superpoolsai.com` serves the page; `www.superpoolsai.com`,
 `superpoolai.com` and `www.superpoolai.com` are 308 redirects to it. DNS lives in Cloudflare (DNS only, no proxy):
@@ -261,8 +265,8 @@ pools for golf and F1, Supercoin competitions and non-cash prizes), as `docs/MAR
 | | Today | Product |
 |---|---|---|
 | Database | one Supabase project (`quakdkzdafzlhgjvmypg`), SaK is league 1 | same project; no staging (decided 3 October 2026: SaK is the live test bed, with the shadow league, the flow test on every pull request and fingerprint checks) |
-| App | GitHub Pages from `main` | Cloudflare Pages, one deployment, league chosen by host (`<league>.superpoolsai.com`) |
-| Landing | Vercel project `superpools` from `landing/` | Cloudflare Pages at `superpoolsai.com`, grows into sign-up |
+| App | GitHub Pages from `main`, and Cloudflare (`sak.superpoolsai.com`, every `<league>.superpoolsai.com`) | Cloudflare only, one deployment, league chosen by host |
+| Landing | Cloudflare Worker `superpools-landing` at `superpoolsai.com` and `www` (since 4 October 2026) | same, grows into sign-up |
 | Edge functions | Supabase, deployed from CI on merge to `main` | same |
 | Auth email | Resend SMTP from `no-reply@superpoolsai.com` | same |
 | LLM | Grok (xAI) for Garry and X search | same, per-league budget; model per league later |
