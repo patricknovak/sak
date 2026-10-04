@@ -96,7 +96,7 @@ results of his own past calls, and what the wider pool knows.
    the Calibration page shows whether his picks come in more often than the prices say. The auto-pilot's choices next
    (migration 132): every lineup it sets is an `auto_lineup` call (its starters' expected points, the starters in
    `predictions.detail`), scored once the night is final on what they scored, void if the GM changed the lineup after
-   it. Next kinds: the head-to-head win chances (worked out in the browser today, so the server has to compute them to log them) and the pickup advisor's suggestions. The Calibration page
+   it. Head-to-head win chances next (migration 137): each morning nhl-sync logs every points matchup's chance for its home side (`h2h_win`, the same forecast the site shows, now in `_shared/forecast.ts`), scored 1, 0 or a half when the week ends. Next kind: the pickup advisor's suggestions. The Calibration page
    (`#/calibration`, platform admins, beside Costs) shows how far off the nightly calls run and which way, the Book's
    priced chances against how often they came in (with its Brier score), and what is still waiting on results.
 5. **B6 money and the Fund**: money per league (migration 86), and both are options a league turns on (migration

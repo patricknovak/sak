@@ -7,6 +7,7 @@
 //     points. A well-priced book sits on the line: things priced at 60% happen about 60% of the time.
 //   * Trades: each approved trade's forecast value per team, scored at the end of the regular season.
 //   * The auto-pilot: each lineup it sets, what it expected the starters to score against what they did (migration 132).
+//   * Head-to-head win chances: the chance each morning gave the home side, against how often it won (migration 137).
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Target } from 'lucide-react';
@@ -24,6 +25,7 @@ const WAIT: Record<string, string> = {
   player_night: 'Player nights', trade_value: 'Trade forecasts (scored at the regular season’s end)',
   draft_value: 'Draft classes (scored at the regular season’s end)', keeper_value: 'Keepers (scored at the regular season’s end)',
   auto_lineup: 'Auto-pilot lineups (scored when the night is final)',
+  h2h_win: 'Head-to-head win chances (scored when the week ends)',
 };
 const pct = (x: number) => `${Math.round(Number(x) * 100)}%`;
 const f1 = (x: number) => (Math.round(Number(x) * 10) / 10).toFixed(1);
@@ -68,6 +70,13 @@ export default function Calibration() {
     return { week, n, called: avg('avg_predicted'), scored: avg('avg_outcome'), bias: avg('bias'), miss: avg('avg_miss') };
   });
   const apWaiting = open.find((o) => o.kind === 'auto_lineup' && o.status === 'open')?.n ?? 0;
+  // head-to-head win chances (migration 137): what the mornings said for the home side, against how often it won
+  const hw = acc.filter((r) => r.kind === 'h2h_win');
+  const hwN = hw.reduce((t, r) => t + Number(r.n), 0);
+  const hwSaid = hwN ? hw.reduce((t, r) => t + Number(r.avg_predicted) * Number(r.n), 0) / hwN : 0;
+  const hwCame = hwN ? hw.reduce((t, r) => t + Number(r.avg_outcome) * Number(r.n), 0) / hwN : 0;
+  const hwMiss = hwN ? hw.reduce((t, r) => t + Number(r.avg_miss) * Number(r.n), 0) / hwN : 0;
+  const hwWaiting = open.find((o) => o.kind === 'h2h_win' && o.status === 'open')?.n ?? 0;
   const brier = cal.length ? cal.reduce((s, c) => s + Number(c.brier) * Number(c.n), 0) / cal.reduce((s, c) => s + Number(c.n), 0) : null;
 
   return (
@@ -178,6 +187,25 @@ export default function Calibration() {
           </div>
         ) : <div className="card p-4 text-sm text-mute">{apWaiting ? `${apWaiting} lineups are in, waiting on their nights to finish.` : 'No auto-pilot lineups yet. Each one it sets is logged here and scored once the night is final.'}</div>}
         <p className="mt-2 px-1 text-[11px] text-mute">Each lineup the auto-pilot sets: the points it expected from its starters, against what they scored. A night the GM changed afterwards is theirs, so it’s left out.</p>
+      </Section>
+      <Section title="Matchup odds">
+        {hwN ? (
+          <div className="card p-3">
+            <div className="mb-2 flex items-baseline justify-between gap-2">
+              <span className="font-semibold text-slate-100">Home sides {hwCame >= hwSaid ? 'beat' : 'fell short of'} their chances by {Math.abs(Math.round((hwCame - hwSaid) * 100))} points</span>
+              <span className="text-[11px] text-mute">{hwN} calls · miss {pct(hwMiss)}</span>
+            </div>
+            <div className="grid grid-cols-[3.75rem_1fr_2.5rem] items-center gap-x-2 gap-y-1 text-[11px]">
+              <span className="text-mute">said</span>
+              <span className="h-2 overflow-hidden rounded-full bg-white/[.06]"><span className="block h-full rounded-full bg-sky-400" style={{ width: pct(hwSaid) }} /></span>
+              <span className="num text-right text-slate-300">{pct(hwSaid)}</span>
+              <span className="text-mute">won</span>
+              <span className="h-2 overflow-hidden rounded-full bg-white/[.06]"><span className="block h-full rounded-full bg-gold" style={{ width: pct(hwCame) }} /></span>
+              <span className="num text-right font-semibold text-white">{pct(hwCame)}</span>
+            </div>
+          </div>
+        ) : <div className="card p-4 text-sm text-mute">{hwWaiting ? `${hwWaiting} chances are out, waiting on their weeks to end.` : 'No head-to-head chances yet. Each morning of a head-to-head week logs every matchup\'s chance here, scored when the week ends.'}</div>}
+        <p className="mt-2 px-1 text-[11px] text-mute">The chance the site showed each morning for the home side, against how often it won (a tie counts half). Level bars mean the chances say what they mean.</p>
       </Section>
       <Section title="Waiting on results">
         <div className="card divide-y divide-white/[.06]">

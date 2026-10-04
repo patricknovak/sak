@@ -6,7 +6,7 @@ import { rpc } from '../lib/supabase';
 import { fmtPts, readable } from '../lib/format';
 import { useBrand } from '../lib/brand';
 import { categoryOf, fmtCat } from '../lib/categories';
-import { forecastTeam, type FPlayer } from '../lib/forecast';
+import { forecastTeam, winChance, type FPlayer } from '../lib/forecast';
 import { gamesOf, rosPerGame } from '../lib/lineup';
 import { useSeasonGames } from '../lib/projections';
 import type { Player } from '../lib/types';
@@ -184,13 +184,6 @@ function MatchupPlayers({ x, onClose }: { x: Matchup; onClose: () => void }) {
   );
 }
 
-// the normal curve's share below z (Abramowitz and Stegun 7.1.26, good to a few parts in a million)
-function phi(z: number) {
-  const t = 1 / (1 + 0.3275911 * Math.abs(z) / Math.SQRT2);
-  const erf = 1 - (((((1.061405429 * t - 1.453152027) * t) + 1.421413741) * t - 0.284496736) * t + 0.254829592) * t * Math.exp(-(z * z) / 2);
-  return z >= 0 ? (1 + erf) / 2 : (1 - erf) / 2;
-}
-
 // A points matchup's chances while it can still turn: each side's points so far plus the rest of the week played out
 // night by night with its roster (the same forecast the season odds use: each player's projection blended with his
 // pace, his NHL games, his chance of dressing, the best lineup each night), and the week's spread of luck around it
@@ -213,8 +206,7 @@ function useWinChance(x: Matchup) {
     const hr = side(x.home_team), ar = side(x.away_team);
     if (x.status === 'upcoming' && hr + ar <= 0) return null;   // nothing scheduled to go on
     const hNow = x.status === 'upcoming' ? 0 : Number(x.home_pts ?? 0), aNow = x.status === 'upcoming' ? 0 : Number(x.away_pts ?? 0);
-    const lead = hNow + hr - (aNow + ar), sd = 1.2 * Math.sqrt(hr + ar);
-    const home = sd < 0.5 ? (lead > 0 ? 1 : lead < 0 ? 0 : 0.5) : Math.min(0.999, Math.max(0.001, phi(lead / sd)));
+    const home = winChance(hNow, hr, aNow, ar);
     return { home, homeProj: hNow + hr, awayProj: aNow + ar };
   }, [on, x, sched, rosters, players, season, today, leagueDay, league?.roster, league?.categories]);
 }

@@ -17,7 +17,8 @@
 //                      whose GM moved players by hand today
 import { createClient } from 'jsr:@supabase/supabase-js@2';
 import { etDate, gameRow, gameStats, NHL, STARTED } from '../_shared/nhl.ts';
-import { optimize, weekEndOf, STARTING, type Basis, type LPlayer, type LSeason, type Mode } from '../_shared/lineup.ts';
+import { optimize, weekEndOf, STARTING, gamesOf, rosPerGame, type Basis, type LPlayer, type LSeason, type Mode } from '../_shared/lineup.ts';
+import { forecastTeam, winChance, type FPlayer } from '../_shared/forecast.ts';
 import { projectAll, type GoalieSeason, type ProjPlayer, type SkaterSeason } from '../_shared/projections.ts';
 import { playoffOdds, type NhlTeamIn, type SeriesIn } from '../_shared/playoffs.ts';
 import { mergeStatus, type GameStatus } from '../_shared/gameday.ts';
@@ -480,6 +481,57 @@ async function autoLineupsFor(lid: number) {
   return { teams: todo.length, skipped_manual: teams.length - todo.length, moves: out, calls: calls.length };
 }
 
+// the prediction log's head-to-head win chances: each morning, every points matchup on this week gets the chance the
+// site shows for its home side (the points on the board plus the rest of the week played out with each roster), one call
+// per matchup and day, scored by score_predictions when the week is over (1 a win, 0 a loss, a half a tie)
+async function h2hCalls() {
+  const leagues = check(await db.from('leagues').select('id').eq('status', 'active').order('id')) as { id: number }[];
+  const out: Record<number, unknown> = {};
+  for (const { id } of leagues) {
+    try { out[id] = await h2hCallsFor(id); } catch (e) { console.error('h2h calls, league', id, e); out[id] = { error: String(e) }; }
+  }
+  return out;
+}
+
+async function h2hCallsFor(lid: number) {
+  const ldb = dbFor(lid);
+  const { data: league } = await ldb.from('league').select('phase,roster,format,categories').single();
+  if (league?.phase !== 'season' || league.format !== 'h2h' || (league.categories ?? []).length) return { skipped: 'not a head-to-head points league in season' };
+  const today = await leagueToday();
+  const ms = ((check(await ldb.rpc('h2h_scores')) ?? []) as { id: number; starts: string; ends: string; home_team: number; away_team: number | null; home_pts: number; away_pts: number | null; status: string }[])
+    .filter((m) => m.away_team != null && m.starts <= today && m.ends >= today);
+  if (!ms.length) return { calls: 0 };
+  const teamIds = [...new Set(ms.flatMap((m) => [m.home_team, m.away_team!]))];
+  const rows = check(await ldb.from('rosters').select('team_id,player_id,slot').in('team_id', teamIds).neq('slot', 'IR')) as { team_id: number; player_id: number }[];
+  const ids = [...new Set(rows.map((r) => r.player_id))];
+  const players = new Map<number, FPlayer>();
+  for (let i = 0; i < ids.length; i += 300) {
+    const chunk = ids.slice(i, i + 300);
+    const [ps, ss] = await Promise.all([
+      ldb.from('league_players').select('id,pos,elig,proj,proj_gp,nhl_team,injury_status').in('id', chunk),
+      ldb.from('player_season').select('player_id,gp,fpts').in('player_id', chunk),
+    ]);
+    const season = new Map(((check(ss) ?? []) as { player_id: number; gp: number; fpts: number }[]).map((x) => [x.player_id, x]));
+    for (const p of (check(ps) ?? []) as FPlayer[]) {
+      const s = season.get(p.id), pg = p.proj_gp == null ? null : Number(p.proj_gp);
+      players.set(p.id, { ...p, proj_gp: pg, proj: rosPerGame(Number(p.proj), p.pos, Number(s?.gp ?? 0), Number(s?.fpts ?? 0), pg) * gamesOf({ pos: p.pos, proj_gp: pg }) });
+    }
+  }
+  const last = ms.reduce((d, m) => (m.ends > d ? m.ends : d), today);
+  const games = check(await db.from('games').select('id,date,home,away,state').gte('date', today).lte('date', last)) ?? [];
+  const caps = league.roster as Record<string, number>;
+  const rest = (t: number, ends: string) => forecastTeam(t, rows.filter((r) => r.team_id === t).map((r) => players.get(r.player_id)).filter((p): p is FPlayer => !!p), games, caps, today, 0, ends).ros;
+  const calls = ms.map((m) => {
+    const hr = rest(m.home_team, m.ends), ar = rest(m.away_team!, m.ends);
+    const hn = Number(m.home_pts ?? 0), an = Number(m.away_pts ?? 0);
+    return { league_id: lid, kind: 'h2h_win', subject: { matchup_id: m.id, date: today }, predicted: Math.round(winChance(hn, hr, an, ar) * 1000) / 1000,
+      basis: 'forecast', resolves_on: m.ends, detail: { home_now: hn, home_rest: Math.round(hr * 10) / 10, away_now: an, away_rest: Math.round(ar * 10) / 10 } };
+  });
+  const { error } = await db.from('predictions').upsert(calls, { onConflict: 'league_id,kind,subject' });
+  if (error) console.error('h2h calls', lid, error.message);
+  return { calls: error ? 0 : calls.length };
+}
+
 // the heavy tasks (every NHL roster, the projection model, weeks of box-score corrections) run for the scheduler,
 // which sends the platform's admin key; the public key alone can't start them
 const HEAVY = new Set(['players', 'projections', 'corrections']);
@@ -505,7 +557,8 @@ Deno.serve(async (req) => {
       : task === 'injuries' ? await injuries()
       : task === 'news' ? await news()
       : task === 'gameday' ? await gameday()
-      : task === 'daily' || task === 'lineups-late' ? { lineups: await autoLineups() }
+      : task === 'daily' ? { lineups: await autoLineups(), h2h_calls: await h2hCalls() }
+      : task === 'lineups-late' ? { lineups: await autoLineups() }
       : await scores();
     return Response.json({ task, ok: true, ...result });
   } catch (e) {

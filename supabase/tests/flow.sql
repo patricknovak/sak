@@ -2922,6 +2922,25 @@ update league_rules set format = 'season' where league_id = :wn_league;
 select set_config('request.jwt.claim.sub', '', false);
 select 'head-to-head week alerts', true;
 
+-- ───────────── head-to-head win chances in the prediction log ─────────────
+reset role;
+insert into matchups (league_id, week, starts, ends, home_team, away_team) values (1, 97, today_et() - 30, today_et() - 3, 2, 5) returning id as hw_id \gset
+select case when a_score > b_score then 1 when a_score < b_score then 0 else 0.5 end as hw_want from _h2h_result(2, 5, today_et() - 30, today_et() - 3) \gset
+insert into predictions (league_id, kind, subject, predicted, basis, resolves_on) values
+  (1, 'h2h_win', jsonb_build_object('matchup_id', :hw_id, 'date', today_et() - 10), 0.6, 'forecast', today_et() - 3),
+  (1, 'h2h_win', jsonb_build_object('matchup_id', -1, 'date', today_et() - 10), 0.5, 'forecast', today_et() - 3),
+  (1, 'h2h_win', jsonb_build_object('matchup_id', :hw_id, 'date', today_et() + 2), 0.5, 'forecast', today_et() + 3);
+select set_config('app.league_id', '1', false);
+select score_predictions() >= 2 as hw_scored \gset
+select set_config('app.league_id', '', false);
+select pg_temp.expect('a finished week scores the home side''s result against its chance', (select outcome = :hw_want and error = :hw_want - 0.6 and status = 'scored'
+  from predictions where kind = 'h2h_win' and subject->>'matchup_id' = :'hw_id' and resolves_on = today_et() - 3));
+select pg_temp.expect('a matchup that''s gone voids its call', (select status = 'void' from predictions where kind = 'h2h_win' and subject->>'matchup_id' = '-1'));
+select pg_temp.expect('a week still on waits', (select status = 'open' from predictions where kind = 'h2h_win' and resolves_on = today_et() + 3));
+delete from predictions where kind = 'h2h_win';
+delete from matchups where id = :hw_id;
+select 'head-to-head win chances in the prediction log', true;
+
 -- ───────────── a matchup, player by player ─────────────
 reset role;
 -- SaK's teams 2 and 5 started players earlier in this test: a matchup between them over those days
