@@ -2258,3 +2258,40 @@ select pg_temp.raises('a GM can''t rebrand the league', 'select commish_set_bran
 reset role;
 select set_config('request.jwt.claim.sub', '', false);
 select 'onboarding', true;
+
+-- ───────────── league by host ─────────────
+reset role;
+set role anon;
+select pg_temp.expect('sak.superpoolsai.com is SaK', (league_by_host('sak.superpoolsai.com')->>'id')::int = 1);
+select pg_temp.expect('with a port and capitals too', (league_by_host('SAK.superpoolsai.com:443')->>'id')::int = 1);
+select pg_temp.expect('the pond''s address is the pond', (league_by_host('pond.superpoolsai.com')->>'id')::int = :league4);
+select pg_temp.expect('the app''s own hosts are no league', league_by_host('superpoolsai.com') is null and league_by_host('www.superpoolsai.com') is null
+  and league_by_host('app.superpoolsai.com') is null and league_by_host('patricknovak.github.io') is null and league_by_host('localhost') is null);
+select pg_temp.expect('an unknown name is no league', league_by_host('nobody.superpoolsai.com') is null);
+select pg_temp.expect('it tells a stranger the brand and nothing about anyone', (select array_agg(k order by k) from jsonb_object_keys(league_by_host('sak.superpoolsai.com')) k)
+  = array['brand', 'id', 'name', 'short_name', 'slug', 'status']);
+reset role;
+select pg_temp.as_team(1);
+set role authenticated;
+select pg_temp.expect('the platform gives the pond a domain of its own', platform_set_league_domain(:league4, ' Pool.Example.com ') = 'pool.example.com');
+select pg_temp.raises('a superpoolsai.com address is already every league''s', format('select platform_set_league_domain(%s, ''x.superpoolsai.com'')', :league4), 'already has');
+select pg_temp.raises('a domain is a web address', format('select platform_set_league_domain(%s, ''not a domain'')', :league4), 'web address');
+select pg_temp.raises('two leagues can''t share a domain', 'select platform_set_league_domain(1, ''pool.example.com'')', 'Another league');
+select pg_temp.expect('the platform list shows it', (select domain from platform_leagues() where league_id = :league4) = 'pool.example.com');
+reset role;
+set role anon;
+select pg_temp.expect('its own domain opens it', (league_by_host('pool.example.com')->>'id')::int = :league4);
+reset role;
+select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-000000000099', false);
+set role authenticated;
+select pg_temp.raises('a commissioner can''t set domains', format('select platform_set_league_domain(%s, null)', :league2), 'Only the platform');
+reset role;
+-- the site names the host's league in x-league: a member gets it, anyone else stays in their own league
+select set_config('request.headers', json_build_object('x-league', :league4::text)::text, false);
+select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-0000000000f1', false);
+select pg_temp.expect('the pond''s commissioner on the pond''s address is in the pond', current_league_id() = :league4);
+select pg_temp.as_team(2);
+select pg_temp.expect('a SaK GM on the pond''s address stays in SaK', current_league_id() = 1);
+select set_config('request.headers', '', false);
+select set_config('request.jwt.claim.sub', '', false);
+select 'league by host', true;

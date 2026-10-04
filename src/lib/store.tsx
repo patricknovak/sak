@@ -6,12 +6,15 @@ import type {
 } from './types';
 import { etCalendarToday, etToday, setLeagueDayHold } from './format';
 import { applyBrandColors, brandOf, SAK_BRAND, type Brand } from './brand';
+import { hostLeague, tabLeague, type HostLeague } from './host';
 
 interface Store {
   ready: boolean;
   session: Session | null;
   me: Team | null;
   league: League | null;
+  host: HostLeague | null;      // the league this address belongs to (league by host), if any
+  hostElsewhere: boolean;       // signed in on a league's address the GM isn't in: the page shows their own league
   brand: Brand;                // names, wordmark, trophies for the league on screen (SaK defaults)
   teams: Team[];               // GMs only
   spectators: Team[];          // spectator passes (chat, bets, no roster)
@@ -47,6 +50,14 @@ export function LeagueProvider({ children }: { children: ReactNode }) {
   const [authReady, setAuthReady] = useState(!configured);
   const [league, setLeague] = useState<League | null>(null);
   const [brand, setBrand] = useState<Brand>(SAK_BRAND);
+  // league by host: which league this address is, worked out once before anything loads, so the sign-in page wears its
+  // brand and every request names it
+  const [host, setHost] = useState<HostLeague | null>(null);
+  const [hostReady, setHostReady] = useState(!configured);
+  useEffect(() => {
+    if (!configured) return;
+    hostLeague().then((l) => { setHost(l); if (l) setBrand(brandOf(l.brand, l.short_name)); setHostReady(true); });
+  }, []);
   const [allTeams, setAllTeams] = useState<Team[]>([]);
   const teams = useMemo(() => allTeams.filter((t) => t.role !== 'spectator'), [allTeams]);      // the eight GMs
   const spectators = useMemo(() => allTeams.filter((t) => t.role === 'spectator'), [allTeams]);
@@ -159,7 +170,7 @@ export function LeagueProvider({ children }: { children: ReactNode }) {
   // rebuild every screen under the GM
   const uid = session?.user.id ?? null;
   useEffect(() => {
-    if (!session) { setLoaded(false); return; }
+    if (!session || !hostReady) { setLoaded(false); return; }
     let alive = true;
     refresh().then(() => alive && setLoaded(true));
     // measure clock skew against the database so every phone shows the same pick clock
@@ -171,7 +182,7 @@ export function LeagueProvider({ children }: { children: ReactNode }) {
       })
       .catch(() => {});
     return () => { alive = false; };
-  }, [uid, refresh]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [uid, hostReady, refresh]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // realtime: refetch the affected table (debounced) whenever the database changes. A league's own tables are heard
   // for this league only (inserts and updates carry league_id, so the filter holds them back at the server); deletes
@@ -284,7 +295,7 @@ export function LeagueProvider({ children }: { children: ReactNode }) {
 
   const gameStatus = useCallback((id: number, date?: string) => statuses.get(`${id}|${date ?? etToday()}`), [statuses, leagueDay]); // eslint-disable-line react-hooks/exhaustive-deps
   const value: Store = {
-    ready: authReady && (!session || loaded), session, me, league, brand, teams, spectators, can, team, players, rosters, owner, picks, draft,
+    ready: authReady && hostReady && (!session || loaded), host, hostElsewhere: !!host && !!league && league.league_id !== host.id && !tabLeague(), session, me, league, brand, teams, spectators, can, team, players, rosters, owner, picks, draft,
     standings, playoffs, cup, season, windows, games, gamesByTeam, notifications, gameStatus, freshNews, online, refresh, serverOffset, leagueDay,
   };
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;

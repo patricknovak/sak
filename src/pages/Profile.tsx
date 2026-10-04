@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { PROVIDERS, SERVICES, playerFor } from '../lib/watch';
 import { useLeague } from '../lib/store';
+import { setTabLeague } from '../lib/host';
 import { rpc, supabase } from '../lib/supabase';
 import { fmtMoney, fmtPts, NHL_TEAMS, ordinal } from '../lib/format';
 import { useHistory } from '../lib/history';
@@ -167,6 +168,7 @@ export default function Profile() {
 // loads for that league.
 interface LeagueRow { league_id: number; slug: string; name: string; short_name: string | null; role: string; team_id: number | null; active: boolean }
 function MyLeagues() {
+  const { host } = useLeague();
   const { busy, run } = useAction();
   const [rows, setRows] = useState<LeagueRow[]>([]);
   useEffect(() => { rpc<LeagueRow[]>('my_leagues').then((d) => setRows(d ?? []), () => setRows([])); }, []);
@@ -181,7 +183,7 @@ function MyLeagues() {
               <div className="text-xs text-mute">{l.role === 'commish' ? 'Commissioner' : l.role === 'spectator' ? 'Spectator' : 'GM'}</div>
             </div>
             {l.active ? <span className="chip text-emerald-300">Here now</span>
-              : <button className="btn-primary btn-sm" disabled={busy} onClick={() => run(async () => { await rpc('set_active_league', { p_league: l.league_id }); window.location.hash = '#/'; window.location.reload(); })}>Switch</button>}
+              : <button className="btn-primary btn-sm" disabled={busy} onClick={() => run(async () => { await rpc('set_active_league', { p_league: l.league_id }); if (host) setTabLeague(l.league_id); window.location.hash = '#/'; window.location.reload(); })}>Switch</button>}
           </div>
         ))}
       </div>

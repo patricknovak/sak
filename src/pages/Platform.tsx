@@ -11,10 +11,11 @@ import { PageHeader, Section, Spinner, useAction } from '../components/ui';
 import { BrandPreview, ColourPicker, LEAGUE_COLOURS, starterBrand, themed, type BrandRow } from '../components/LeagueIdentity';
 import { Wordmark } from '../components/Brand';
 import { Checklist, type Check } from '../components/Readiness';
+import { leagueUrl } from '../lib/host';
 
 interface Row {
   league_id: number; slug: string; name: string; short_name: string; status: 'setup' | 'active' | 'archived'; created_at: string;
-  seats: number; filled: number; spectators: number; commish_team: number | null; commish_name: string | null; commish_seated: boolean; brand: BrandRow | null;
+  seats: number; filled: number; spectators: number; commish_team: number | null; commish_name: string | null; commish_seated: boolean; brand: BrandRow | null; domain: string | null;
 }
 
 const STATUS = {
@@ -68,6 +69,7 @@ function LeagueCard({ r, reload }: { r: Row; reload: () => Promise<unknown> }) {
   const [open, setOpen] = useState(r.status === 'setup');
   const [checks, setChecks] = useState<Check[] | null>(null);
   const [invite, setInvite] = useState<string | null>(null);
+  const [domain, setDomain] = useState(r.domain ?? '');
   const brand: Brand = useMemo(() => brandOf(r.brand as Partial<Brand> | null, r.short_name), [r.brand, r.short_name]);
   const model = r.league_id === 1;
   useEffect(() => { if (open && !checks) rpc<Check[]>('league_readiness', { p_league: r.league_id }).then(setChecks, () => setChecks([])); }, [open]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -110,6 +112,17 @@ function LeagueCard({ r, reload }: { r: Row; reload: () => Promise<unknown> }) {
           {!checks ? <div className="flex justify-center py-3"><Spinner /></div> : (
             <Checklist checks={checks} />
           )}
+          <div className="mt-4 rounded-xl border border-white/10 bg-black/25 p-3">
+            <div className="label text-white/50">Its address</div>
+            <a href={leagueUrl(r.slug)} target="_blank" rel="noreferrer" className="mt-1 block break-all font-mono text-sm text-sky-200 underline decoration-sky-200/30 underline-offset-2">{r.slug}.superpoolsai.com</a>
+            {r.domain && <a href={`https://${r.domain}/`} target="_blank" rel="noreferrer" className="mt-0.5 block break-all font-mono text-sm text-sky-200 underline decoration-sky-200/30 underline-offset-2">{r.domain}</a>}
+            <div className="mt-2 flex gap-2">
+              <input className="input min-w-0 flex-1 font-mono text-sm" value={domain} placeholder="Its own domain (optional)" inputMode="url" autoCapitalize="none"
+                onChange={(e) => setDomain(e.target.value.trim().toLowerCase())} />
+              <button className="btn-ghost btn-sm shrink-0" disabled={busy || domain === (r.domain ?? '')}
+                onClick={() => run(async () => { await rpc('platform_set_league_domain', { p_league: r.league_id, p_domain: domain || null }); await reload(); }, domain ? 'Domain saved. Point its DNS at the site.' : 'Domain removed')}>Save</button>
+            </div>
+          </div>
           {!model && (
             <div className="mt-4 space-y-2">
               {!r.commish_seated && r.commish_team && (

@@ -19,9 +19,24 @@ const authStorage = {
   removeItem: (k: string) => { try { localStorage.removeItem(k); sessionStorage.removeItem(k); } catch { /* nothing kept */ } },
 };
 
+// The league this tab shows, when the address names one (sak.superpoolsai.com, a league's own domain) or the GM switched
+// leagues in this tab. Every database request carries it as x-league; the database honours it only for a member of that
+// league (current_league_id), so a stranger's tab simply shows their own league. Only the REST API gets it: the edge
+// functions don't list the header for their browsers, and work out the league themselves.
+let leagueHeader: string | null = null;
+export const setLeagueHeader = (id: number | null) => { leagueHeader = id ? String(id) : null; };
+const withLeague: typeof fetch = (input, init) => {
+  const url = typeof input === 'string' ? input : input instanceof URL ? input.href : input.url;
+  if (!leagueHeader || !url.includes('/rest/v1/')) return fetch(input, init);
+  const headers = new Headers(init?.headers ?? (input instanceof Request ? input.headers : undefined));
+  headers.set('x-league', leagueHeader);
+  return fetch(input, { ...init, headers });
+};
+
 export const supabase = createClient(SUPABASE_URL || 'http://localhost', import.meta.env.VITE_SUPABASE_ANON_KEY || 'x', {
   auth: { persistSession: true, autoRefreshToken: true, storageKey: 'sak-auth', storage: authStorage },
   realtime: { params: { eventsPerSecond: 20 } },
+  global: { fetch: withLeague },
 });
 
 // RPC helper that throws a readable message

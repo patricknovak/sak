@@ -27,3 +27,16 @@ export function WordmarkStack({ className = '' }: { className?: string }) {
     </span>
   );
 }
+
+// A league's crest where SaK shows its badge: the short name struck in the league's colour on a dark puck-black tile,
+// ringed in that colour. SaK keeps its own drawn badge (icon.svg).
+export function LeagueCrest({ short, size = 96 }: { short: string; size?: number }) {
+  const s = short.slice(0, 4).toUpperCase();
+  return (
+    <span className="relative grid place-items-center overflow-hidden rounded-[28%] border border-white/10 shadow-2xl"
+      style={{ width: size, height: size, background: 'radial-gradient(circle at 50% 30%, #1a2747, #070b16 75%)' }}>
+      <span className="absolute inset-[9%] rounded-full" style={{ boxShadow: 'inset 0 0 0 3px var(--color-gold), inset 0 0 18px rgb(var(--gold-rgb) / .35)' }} />
+      <span className="text-gold-shine h-display relative italic leading-none" style={{ fontSize: size * (s.length > 3 ? 0.2 : s.length > 2 ? 0.26 : 0.32), paddingRight: size * 0.03 }}>{s}</span>
+    </span>
+  );
+}
