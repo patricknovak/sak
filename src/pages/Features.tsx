@@ -29,7 +29,9 @@ export default function Features() {
   const tab = params.get('t') === 'ideas' || params.get('idea') ? 'ideas' : params.get('t') === 'new' ? 'new' : 'built';
   // the newest change this phone has seen, so the tab can say there's something new
   const [seen, setSeen] = useState(() => { try { return localStorage.getItem('whatsnew-seen') ?? ''; } catch { return ''; } });
-  const newest = CHANGELOG[0]?.date ?? '';
+  // the newest date and how many changes it has, so one more on the same day lights the dot again (zero-padded so
+  // the marker still sorts as text)
+  const newest = CHANGELOG[0] ? `${CHANGELOG[0].date}#${String(CHANGELOG.filter((c) => c.date === CHANGELOG[0].date).length).padStart(3, '0')}` : '';
   useEffect(() => {
     if (tab !== 'new' || !newest || seen >= newest) return;
     try { localStorage.setItem('whatsnew-seen', newest); } catch { /* private mode: the dot just stays */ }
