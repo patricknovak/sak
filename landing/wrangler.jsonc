@@ -1,11 +1,14 @@
-// The Super Pools landing page (superpoolsai.com) on Cloudflare, moving off Vercel (docs/EXPANSION.md B5, hosting step 4).
+// The Super Pools landing page (superpoolsai.com) on Cloudflare, off Vercel (docs/EXPANSION.md B5, hosting step 4).
 // Static files from this folder; deployed by .github/workflows/cloudflare.yml.
 {
   "name": "superpools-landing",
   "compatibility_date": "2026-10-01",
   "assets": { "directory": "." },
-  // uploaded with no address until step 4 (the live landing page stays on Vercel until then)
-  "workers_dev": false
-  // step 4 points the apex and www here:
-  // "routes": [{ "pattern": "superpoolsai.com/*", "zone_name": "superpoolsai.com" }, { "pattern": "www.superpoolsai.com/*", "zone_name": "superpoolsai.com" }]
+  "workers_dev": false,
+  // Zone routes, not custom domains: they deploy beside the old Vercel records and take the traffic only once the apex
+  // and www records are proxied through Cloudflare (orange cloud). Switching back is turning the proxy off again.
+  "routes": [
+    { "pattern": "superpoolsai.com/*", "zone_name": "superpoolsai.com" },
+    { "pattern": "www.superpoolsai.com/*", "zone_name": "superpoolsai.com" }
+  ]
 }
