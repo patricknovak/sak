@@ -211,7 +211,8 @@ export default function Costs() {
 
   return (
     <div className="space-y-5">
-      <PageHeader icon={<Receipt size={22} className="text-gold" />} title="Running costs" sub="What SaK and Super Pools cost to run, and where it goes." />
+      <PageHeader icon={<Receipt size={22} className="text-gold" />} title="Running costs" sub="What SaK and Super Pools cost to run, and where it goes."
+        right={<Link to="/calibration" className="btn-ghost btn-sm shrink-0">🎯 Calibration</Link>} />
 
       <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
         <Stat label="This month so far" value={usd(s.mtd)} sub={`${new Date(`${d.today}T12:00:00`).toLocaleDateString(undefined, { month: 'long' })}, through today`} />

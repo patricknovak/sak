@@ -89,7 +89,9 @@ results of his own past calls, and what the wider pool knows.
    (`score_predictions`), with `prediction_accuracy` by week and `book_calibration` (the Book's odds against what
    happened, read from the markets). Trades next (migration 102): every approved trade logs a `trade_value` per team,
    the rest-of-season points of the players coming in less those going out, scored at the end of the regular season
-   on what they actually scored. Next kinds: draft grades, the auto-pilot's choices, Garry's picks.
+   on what they actually scored. Next kinds: draft grades, the auto-pilot's choices, Garry's picks. The Calibration page
+   (`#/calibration`, platform admins, beside Costs) shows how far off the nightly calls run and which way, the Book's
+   priced chances against how often they came in (with its Brier score), and what is still waiting on results.
 5. **B6 money and the Fund**: money per league (migration 86), and both are options a league turns on (migration
    95, Patrick's call): `league_rules.features` holds `money` and `fund`; SaK has both, a new league neither; the
    ledger refuses lines in a league without money; the Fund is one per league with its own prices. Then the medium

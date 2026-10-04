@@ -42,7 +42,7 @@ export default function Platform() {
   return (
     <div className="space-y-5">
       <PageHeader icon={<Globe2 size={22} className="text-gold" />} title="Platform" sub={`${PRODUCT.name}: every league, and opening the next one`}
-        right={<Link to="/costs" className="btn-ghost btn-sm shrink-0">🧾 Costs</Link>} />
+        right={<div className="flex shrink-0 flex-col gap-1.5"><Link to="/costs" className="btn-ghost btn-sm">🧾 Costs</Link><Link to="/calibration" className="btn-ghost btn-sm">🎯 Calibration</Link></div>} />
 
       <div className="grid grid-cols-3 gap-2">
         {[{ v: rows.length, l: rows.length === 1 ? 'League' : 'Leagues' }, { v: live, l: 'Live' }, { v: gms, l: 'GMs signed in' }].map((x) => (
