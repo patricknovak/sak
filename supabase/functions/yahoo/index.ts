@@ -63,11 +63,12 @@ async function caller(req: Request) {
   const { data: t } = mine ? await db.from('teams').select('id,gm_name').eq('id', mine).maybeSingle() : { data: null };
   if (!t) throw new Fail('No team', 404);
   // the Yahoo sign-in is the person's: one made from their team in another league serves this one too
-  // (only when this team has no row of its own: a row here is this team's sign-in, or one under way)
+  // (unless this team has a sign-in of its own, or one under way in the last 15 minutes; an abandoned one doesn't count)
   const { data: theirs } = await db.from('teams').select('id').eq('user_id', u.user.id);
   const mineAll = (theirs ?? []).map((x: { id: number }) => x.id);
   let { data: a } = await db.from('yahoo_accounts').select('*').eq('team_id', t.id).maybeSingle();
-  if (!a) {
+  const underWay = !!a?.state && !!a.state_at && Date.now() - new Date(a.state_at).getTime() < 15 * 60_000;
+  if (!a?.refresh_token && !underWay) {
     const ids = mineAll.filter((id: number) => id !== t.id);
     if (ids.length) {
       const { data: other } = await db.from('yahoo_accounts').select('*').in('team_id', ids).not('refresh_token', 'is', null).order('connected_at', { ascending: false }).limit(1).maybeSingle();

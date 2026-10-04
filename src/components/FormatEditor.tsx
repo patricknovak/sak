@@ -8,12 +8,12 @@ import { useAction } from './ui';
 // makes here (commish_set_format, commish_make_schedule). The schedule can be made again until its first week starts;
 // the playoff spots go with it, since the bracket takes the season's last weeks (migration 120).
 export function FormatEditor() {
-  const { league, refresh, teams } = useLeague();
+  const { league, refresh, teams, leagueDay } = useLeague();
   const { busy, run } = useAction();
   const [weeks, setWeeks] = useState<{ n: number; first: string | null; started: boolean } | null>(null);
   const load = () => supabase.from('matchups').select('week,starts').order('week').then(({ data }) => {
     const d = (data ?? []) as { week: number; starts: string }[];
-    setWeeks({ n: d.length ? d[d.length - 1].week : 0, first: d[0]?.starts ?? null, started: !!d[0] && new Date(d[0].starts + 'T12:00:00') <= new Date() });
+    setWeeks({ n: d.length ? d[d.length - 1].week : 0, first: d[0]?.starts ?? null, started: !!d[0] && d[0].starts <= leagueDay });   // the league day, as the server's today_et() sees it
   });
   useEffect(() => { load(); }, [league?.updated_at]); // eslint-disable-line react-hooks/exhaustive-deps
   const [po, setPo] = useState<number | null>(null);

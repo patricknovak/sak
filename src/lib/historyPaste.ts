@@ -20,10 +20,30 @@ const toNumber = (s: string) => {
   return Number.isFinite(n) ? String(Math.round(n * 100) / 100) : '';
 };
 
-// cells: tabs (copied from a web table or a sheet), else commas between fields (a comma next to a letter, never one
-// inside a number like 1,234), else runs of two or more spaces
+// a comma-separated line, quotes respected ("Smith, Jones & Co" stays one cell), and a number its commas split back
+// together: "1", "234.5" after a split on "1,234.5" is one number again
+const splitCsv = (line: string) => {
+  const cells: string[] = [];
+  let cur = '', quoted = false, wasQuoted = false;
+  for (const ch of line) {
+    if (ch === '"') { quoted = !quoted; wasQuoted = true; continue; }
+    if (ch === ',' && !quoted) { cells.push(wasQuoted ? cur : cur.trim()); cur = ''; wasQuoted = false; continue; }
+    cur += ch;
+  }
+  cells.push(wasQuoted ? cur : cur.trim());
+  const out: string[] = [];
+  for (const c of cells) {
+    const prev = out[out.length - 1];
+    if (prev != null && /^[-+]?\d{1,3}(?:,\d{3})*$/.test(prev) && /^\d{3}(?:\.\d+)?$/.test(c)) out[out.length - 1] = `${prev},${c}`;
+    else out.push(c);
+  }
+  return out;
+};
+
+// cells: tabs (copied from a web table or a sheet), else commas between fields (a comma next to a letter or a quote,
+// never only the one inside a number like 1,234), else runs of two or more spaces
 const splitCells = (line: string) =>
-  line.includes('\t') ? line.split('\t') : /,\s*[^\d\s]|[^\d\s],/.test(line) ? line.split(',') : line.split(/\s{2,}/);
+  line.includes('\t') ? line.split('\t') : /"|,\s*[^\d\s]|[^\d\s],/.test(line) ? splitCsv(line) : line.split(/\s{2,}/);
 
 export function parsePastedTable(text: string): PastedRow[] {
   const out: PastedRow[] = [];

@@ -989,9 +989,10 @@ async function weekly() {
       Number(league.h2h_playoffs ?? 0) >= 2 ? L.db.rpc('h2h_bracket') : Promise.resolve({ data: [] as unknown[] }),
     ]);
     type Row = { home: number; away: number | null; hp: number; ap: number | null };
-    const reg: Row[] = ((ms ?? []) as any[]).filter((m) => m.ends === end && m.status === 'final' && m.away_team != null)
+    // every week that ended in the column's seven days: a season's last week can end on any day, not only a Sunday
+    const reg: Row[] = ((ms ?? []) as any[]).filter((m) => m.ends >= start && m.ends <= end && m.status === 'final' && m.away_team != null)
       .map((m) => ({ home: m.home_team, away: m.away_team, hp: Number(m.home_pts), ap: Number(m.away_pts) }));
-    const po: Row[] = ((br ?? []) as any[]).filter((g) => g.ends === end && g.status === 'final' && g.low_team != null)
+    const po: Row[] = ((br ?? []) as any[]).filter((g) => g.ends >= start && g.ends <= end && g.status === 'final' && g.low_team != null)
       .map((g) => ({ home: g.high_team, away: g.low_team, hp: Number(g.high_pts), ap: Number(g.low_pts) }));
     const rows = reg.length ? reg : po;
     h2h = {

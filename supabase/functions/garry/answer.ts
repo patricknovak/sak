@@ -149,7 +149,7 @@ export async function answer(db: Db, question: string, askerTeam: number, opts: 
     // a head-to-head league is ranked by wins, and a GM wants this week's matchup too
     if (league.format === 'h2h') {
       const [{ data: rows }, { data: games }] = await Promise.all([db.rpc('h2h_standings'), db.rpc('h2h_scores')]);
-      const tbl = [...((rows ?? []) as any[])].sort((a, b) => a.rank - b.rank);
+      const tbl = [...((rows ?? []) as any[])].sort((a, b) => (a.seed ?? a.rank) - (b.seed ?? b.rank));
       const ms = (games ?? []) as any[];
       const week = ms.find((m) => m.status === 'live')?.week ?? ms.find((m) => m.status === 'upcoming')?.week;
       const m = ms.find((x) => x.week === week && (x.home_team === askerTeam || x.away_team === askerTeam));
@@ -185,7 +185,7 @@ export async function answer(db: Db, question: string, askerTeam: number, opts: 
             po = ` Playoffs, ${name(g.round)} (${live ? 'live' : 'starts ' + g.starts}): ${who}.`;
           }
         } else if (mine) {
-          po = mine.rank <= spots ? ` The top ${spots} make the playoffs: you’re in if it ended today.` : ` The top ${spots} make the playoffs: you’re outside the line right now.`;
+          po = (mine.seed ?? mine.rank) <= spots ? ` The top ${spots} make the playoffs: you’re in if it ended today.` : ` The top ${spots} make the playoffs: you’re outside the line right now.`;
         }
       }
       return reply('standings', `${tbl.length && tbl.some((t) => t.w + t.l + t.t > 0) ? `Head-to-head: ${top3}.` : 'No week finished yet, so everyone’s 0-0-0.'}${mine ? ` You’re ${ord(mine.rank)} at ${mine.w}-${mine.l}-${mine.t}.` : ''}${vs}${po} 👉 #/standings`, { top3, mine, matchup: m });

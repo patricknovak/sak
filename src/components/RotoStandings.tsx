@@ -15,7 +15,7 @@ export function useRoto() {
   const [rows, setRows] = useState<RotoRow[] | null>(null);
   const on = !!league?.categories?.length;
   useEffect(() => {
-    if (!on) return;
+    if (!on) { setRows(null); return; }
     rpc<RotoRow[]>('category_standings').then((r) => setRows([...(r ?? [])].sort((a, b) => a.rank - b.rank || b.total - a.total)), () => setRows([]));
   }, [on, league?.updated_at, standings]);
   return rows;

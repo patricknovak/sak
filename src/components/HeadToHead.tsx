@@ -13,7 +13,7 @@ import { Headshot, Pos, Rank, Section, Sheet, TeamBadge } from './ui';
 export interface Matchup { id: number; week: number; starts: string; ends: string; home_team: number; away_team: number | null; home_pts: number; away_pts: number | null; status: 'upcoming' | 'live' | 'final';
   // a category league (migration 121): the scores are categories won, and each category's values and winner
   cats?: Record<string, { a: number | null; b: number | null; win: 'a' | 'b' | 'tie' }> | null }
-export interface H2HRow { team_id: number; w: number; l: number; t: number; pf: number; pa: number; rank: number }
+export interface H2HRow { team_id: number; w: number; l: number; t: number; pf: number; pa: number; rank: number; seed?: number }   // seed: the order with no ties (migration 128)
 // a playoff meeting (migration 120): worked out on read from the table and the weeks' points
 export interface BracketGame {
   round: number; slot: number; week: number; starts: string; ends: string; high_seed: number | null; high_team: number | null;
@@ -40,7 +40,7 @@ export function useH2H() {
   useEffect(() => {
     if (!on) return;
     rpc<Matchup[]>('h2h_scores').then((x) => setM(x ?? []), () => setM([]));
-    rpc<H2HRow[]>('h2h_standings').then((x) => setRows([...(x ?? [])].sort((a, b) => a.rank - b.rank)), () => setRows([]));
+    rpc<H2HRow[]>('h2h_standings').then((x) => setRows([...(x ?? [])].sort((a, b) => (a.seed ?? a.rank) - (b.seed ?? b.rank))), () => setRows([]));
     if (spots >= 2) rpc<BracketGame[]>('h2h_bracket').then((x) => setBracket(x ?? []), () => setBracket([]));
     else setBracket([]);
   }, [on, spots, league?.updated_at, standings]);

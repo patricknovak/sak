@@ -19,4 +19,8 @@ eq('1. Ice Holes 987.6\n2nd Sin Bin 950',
 eq('1\tTeam Moose\tDan\t1100\t$400', [{ team_name: 'Team Moose', gm_name: 'Dan', points: '1100' }], 'a money column is not points');
 eq('\n\n  \nThe Mighty Ducks\n', [{ team_name: 'The Mighty Ducks', gm_name: '', points: '' }], 'blank lines, a name alone');
 eq('T-3\t2 Good 2 Be True\tPan\t880', [{ team_name: '2 Good 2 Be True', gm_name: 'Pan', points: '880' }], 'a tied place, a name with numbers');
+eq('Team A, Bob, 1,234.5\nTeam B, Sue, 998', [{ team_name: 'Team A', gm_name: 'Bob', points: '1234.5' }, { team_name: 'Team B', gm_name: 'Sue', points: '998' }],
+  'commas between fields and a thousands comma in the points');
+eq('"Rank","Team","GM","Points"\n"1","Team A","Bob","1,234.5"\n"2","Smith, Jones & Co","Ann","1,100"',
+  [{ team_name: 'Team A', gm_name: 'Bob', points: '1234.5' }, { team_name: 'Smith, Jones & Co', gm_name: 'Ann', points: '1100' }], 'quoted CSV, commas inside quotes');
 console.log('history paste parser passed');

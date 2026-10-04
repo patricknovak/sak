@@ -2827,6 +2827,25 @@ delete from matchups where id = :mp_id;
 select set_config('request.jwt.claim.sub', '', false);
 select 'a matchup, player by player', true;
 
+-- ───────────── head-to-head: upcoming weeks aren't counted, the seed breaks ties ─────────────
+reset role;
+select id as rf_league from leagues where slug = 'rink' \gset
+update league_rules set format = 'h2h', categories = array['g', 'a', 'w'], h2h_playoffs = 0, season_start = today_et() + 1, season_end = today_et() + 60 where league_id = :rf_league;
+delete from matchups where league_id = :rf_league;
+select set_config('request.jwt.claim.sub', (select user_id::text from teams where league_id = :rf_league and is_commish), false);
+set role authenticated;
+select commish_make_schedule(0) as rf_weeks \gset
+reset role;
+select set_config('app.league_id', :rf_league::text, false);
+select pg_temp.expect('a week not yet started is 0 to 0, nothing counted', (select bool_and(home_pts = 0 and (away_team is null or away_pts = 0) and cats is null) from h2h_scores() where status = 'upcoming'));
+select pg_temp.expect('level teams share a rank but never a seed', (select count(distinct rank) = 1 and count(distinct seed) = count(*) and min(seed) = 1 from h2h_standings()));
+select pg_temp.expect('the seed is the table''s order with team id last', (select array_agg(team_id order by seed) = array_agg(team_id order by rank, pf desc, team_id) from h2h_standings()));
+select set_config('app.league_id', '', false);
+delete from matchups where league_id = :rf_league;
+update league_rules set format = 'season', categories = null where league_id = :rf_league;
+select set_config('request.jwt.claim.sub', '', false);
+select 'head-to-head: upcoming weeks aren''t counted, the seed breaks ties', true;
+
 -- ───────────── how alive each league is ─────────────
 reset role;
 update teams set last_seen = now() - interval '2 days' where id = 1;
