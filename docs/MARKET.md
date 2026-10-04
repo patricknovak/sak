@@ -4,7 +4,10 @@ Written 1 October 2026 from four research passes over the platforms' own pages, 
 releases, FSGA and Leger surveys, data-vendor pricing and terms, and 2025-26 trade press. Reddit was not
 reachable from the research environment, so commissioner quotes come from app-store reviews, Trustpilot and
 forums. Every figure that matters carries its source. This document sets the position; `docs/SUPERPOOLS.md`
-holds the ordered work and `docs/BRAND.md` the words and the look.
+holds the ordered work and `docs/BRAND.md` the words and the look. Since 4 October 2026 the product is wider than
+fantasy leagues: prediction pools for any group, about anything, with the research in `docs/POOLS.md`; this document
+stays the fantasy-league market and the road to every sport, and soccer moves up to the next sport now (`docs/POOLS.md`
+section 7).
 
 ## 1. The short version
 
@@ -107,7 +110,9 @@ Super Pools, permanent:
 2. Side bets, props, pools and the book settle in league coins, never cash.
 3. Cash dues stay bookkeeping between friends: a tracker with balances on the record, no escrow, no payouts
    through us. If leagues want escrow later, it goes through a licensed partner, never our own wallet.
-4. No pick'em against the house, no prediction markets, no affiliate links to sportsbooks.
+4. No pick'em against the house for money, no real-money prediction markets, no affiliate links to sportsbooks or
+   prediction-market operators. Prediction pools in Supercoins, priced by the pool's own market maker, are the product
+   (4 October 2026, `docs/POOLS.md`); the line is money, never the format.
 
 ### What commissioners actually complain about
 
