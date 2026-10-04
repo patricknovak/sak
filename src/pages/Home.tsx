@@ -12,7 +12,7 @@ import { ArrowRight, ClipboardList, Lock, Megaphone, MessageCircle, Radio, Troph
 import { PlayerRow, usePlayerSheet } from '../components/PlayerCard';
 import { useHistory } from '../lib/history';
 import { PushCard } from '../components/PushCard';
-import { BankCard, BetResultsCard, NhlTopCard, TicketsCard } from '../components/HomeCards';
+import { BankCard, BetResultsCard, LastNightCard, NhlTopCard, TicketsCard } from '../components/HomeCards';
 import { bare, useBrand } from '../lib/brand';
 
 export default function Home() {
@@ -278,6 +278,7 @@ export default function Home() {
             </div>
           </Section>
 
+          <LastNightCard />
           {phase === 'season' && <NhlTopCard />}
           <BankCard />
           <TicketsCard />
