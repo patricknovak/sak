@@ -978,9 +978,36 @@ async function weekly() {
     star = { player: p?.name ?? '?', gm: byId.get(topId[1].team)?.gm_name, points: Math.round(topId[1].pts * 10) / 10 };
   }
 
+  // a head-to-head league (migrations 118, 120, 121): the week's results lead the column, and the season rank is the
+  // W-L-T table, not the points table
+  let h2h: { results: { home: string | undefined; home_pts: string; away: string | undefined; away_pts: string; winner: string | undefined; margin: string }[]; playoff: boolean; table: { team_id: number; rank: number; w: number; l: number; t: number }[] } | null = null;
+  if (league.format === 'h2h') {
+    const cats = !!league.categories?.length;
+    const sc = (v: unknown) => (cats ? String(Math.round(Number(v ?? 0))) : f1(Number(v ?? 0)));
+    const [{ data: ms }, { data: tbl }, { data: br }] = await Promise.all([
+      L.db.rpc('h2h_scores'), L.db.rpc('h2h_standings'),
+      Number(league.h2h_playoffs ?? 0) >= 2 ? L.db.rpc('h2h_bracket') : Promise.resolve({ data: [] as unknown[] }),
+    ]);
+    type Row = { home: number; away: number | null; hp: number; ap: number | null };
+    const reg: Row[] = ((ms ?? []) as any[]).filter((m) => m.ends === end && m.status === 'final' && m.away_team != null)
+      .map((m) => ({ home: m.home_team, away: m.away_team, hp: Number(m.home_pts), ap: Number(m.away_pts) }));
+    const po: Row[] = ((br ?? []) as any[]).filter((g) => g.ends === end && g.status === 'final' && g.low_team != null)
+      .map((g) => ({ home: g.high_team, away: g.low_team, hp: Number(g.high_pts), ap: Number(g.low_pts) }));
+    const rows = reg.length ? reg : po;
+    h2h = {
+      playoff: !reg.length && po.length > 0,
+      results: rows.map((r) => {
+        const homeWon = r.hp > (r.ap ?? 0) || (po.length > 0 && !reg.length && r.hp === r.ap);   // a playoff tie goes to the higher seed
+        return { home: byId.get(r.home)?.gm_name, home_pts: sc(r.hp), away: byId.get(r.away!)?.gm_name, away_pts: sc(r.ap),
+          winner: r.hp === r.ap && reg.length ? undefined : byId.get(homeWon ? r.home : r.away!)?.gm_name, margin: sc(Math.abs(r.hp - (r.ap ?? 0))) };
+      }),
+      table: ((tbl ?? []) as any[]).map((t) => ({ team_id: t.team_id, rank: t.rank, w: t.w, l: t.l, t: t.t })),
+    };
+  }
+
   // power rankings, with movement since last Monday's column
   const n = teams.length;
-  const seasonRank = new Map(standings.map((s) => [s.team_id, Number(s.rank)]));
+  const seasonRank = new Map(h2h?.table.length ? h2h.table.map((s) => [s.team_id, Number(s.rank)]) : standings.map((s) => [s.team_id, Number(s.rank)]));
   const paceRank = new Map([...two.entries()].sort((a, b) => b[1] - a[1]).map(([id], i) => [id, i + 1]));
   const score = (id: number) => 0.6 * (paceRank.get(id) ?? n) + 0.4 * (seasonRank.get(id) ?? n);
   const { data: prevMsg } = await from('messages').select('meta').eq('kind', 'bot').contains('meta', { type: 'weekly' }).order('id', { ascending: false }).limit(1);
@@ -994,16 +1021,23 @@ async function weekly() {
   await from('notifications').insert({ team_id: best.team_id, kind: 'weekly', body: `🏆 Team of the Week! ${f1(best.points)} points and ${WEEKLY_BONUS} ${coin().emoji} coins from ${bot()}`, link: '/chat' });
 
   const facts = { week: { start, end }, week_table: table, team_of_the_week: { ...best, coins: WEEKLY_BONUS }, bust_of_the_week: worst, player_of_the_week: star,
-    power_rankings: rankings.map((r) => ({ rank: r.rank, gm: r.gm, team: r.team, move: arrow(r), last_14_days: r.last14, season_rank: r.season_rank })) };
+    power_rankings: rankings.map((r) => ({ rank: r.rank, gm: r.gm, team: r.team, move: arrow(r), last_14_days: r.last14, season_rank: r.season_rank })),
+    ...(h2h ? { format: league.categories?.length ? 'head-to-head, categories won' : 'head-to-head, points',
+      [h2h.playoff ? 'playoff_results' : 'matchup_results']: h2h.results,
+      records: h2h.table.map((t) => ({ gm: byId.get(t.team_id)?.gm_name, record: `${t.w}-${t.l}-${t.t}`, rank: t.rank })) } : {}) };
+  const resultsLine = h2h?.results.length
+    ? `${h2h.playoff ? '🏒 Playoffs' : '⚔️ Results'}: ${h2h.results.map((r) => r.winner ? `@${r.winner} won ${r.winner === r.home ? `${r.home_pts}-${r.away_pts} over @${r.away}` : `${r.away_pts}-${r.home_pts} over @${r.home}`}` : `@${r.home} and @${r.away} tied at ${r.home_pts}`).join('; ')}.`
+    : '';
   const fallback = [
     `📰 ${bot()}'s Monday column, week of ${start}.`,
+    resultsLine,
     `🏆 Team of the Week: @${best.gm} (${best.team}) with ${f1(best.points)}. That's ${WEEKLY_BONUS} ${coin().emoji} coins, don't spend them all on one bet.`,
     `🪣 Bust of the Week: @${worst.gm} with ${f1(worst.points)}. ${pick(['Was the lineup even set?', 'The bench outscored the starters, probably.', 'Tough week. Tougher chat.'])}`,
     star ? `⭐ Player of the Week: ${star.player} (${f1(star.points)}) for @${star.gm}.` : '',
     `Power rankings: ${rankings.map((r) => `${r.rank}. ${r.gm} (${arrow(r)})`).join(' · ')}.`,
     pick(['Trade deadline energy, please. Somebody make an offer.', 'Put some coins on next week\'s Team of the Week.', `Set your lineups. ${bot()} is watching.`]),
   ].filter(Boolean).join('\n');
-  const body = await write('Write your Monday column for the league chat: Team of the Week (and their coin bonus), Bust of the Week, Player of the Week, then the power rankings as a numbered list with the movement arrows given. One dry line per team.', facts, fallback, 260);
+  const body = await write(`Write your Monday column for the league chat: ${h2h?.results.length ? `lead with the week's head-to-head ${h2h.playoff ? 'playoff ' : ''}results (every matchup: who beat whom and by how much, a tie as a tie), then ` : ''}Team of the Week (and their coin bonus), Bust of the Week, Player of the Week, then the power rankings as a numbered list with the movement arrows given. One dry line per team.`, facts, fallback, h2h?.results.length ? 340 : 260);
   await post(body, { type: 'weekly', date: end, rankings: rankings.map((r) => ({ team_id: r.team_id, rank: r.rank, prev: r.prev })), team_of_week: best.team_id });
   return { posted: 'weekly', team_of_week: best.gm, star };
 }
