@@ -330,8 +330,8 @@ chips and filters across the site read the sport (Players, the lineup planner, T
 Keepers). Then the game states and periods: every page that reads the league's own games asks the sport whether a game
 is live, final, not started or called off (`isLive`, `isFinal`, `hasStarted`, `notStarted`, `calledOff`) and how to
 write its period (`periodShort`, `extraTime`), the store included; the NHL centre pages read the NHL's own feed and stay
-its adapter, and the Book's in-play prices (regulation minutes, overtime) stay hockey's model until a second sport's Book
-is designed. Next: the draft simulator, which needs the sport's draft
+its adapter; the Book asks the sport whether a game is live or final, while its in-play prices (regulation minutes,
+overtime) stay hockey's model until a second sport's Book is designed. Next: the draft simulator, which needs the sport's draft
 rules in its row (depth targets per position, a cap per position, flex spots, the goalie timing it now hard-codes),
 best designed beside a real second sport rather than guessed at.
 
