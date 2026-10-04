@@ -83,6 +83,8 @@ where n.nspname = 'public' and p.prosecdef and p.prorettype <> 'trigger'::regtyp
     'set_garry_budget',
     -- platform admins only: a league's status (setup, active, archived)
     'platform_set_league_status',
+    -- platform admins only: closing a request for a league (marks the league it became)
+    'platform_close_request',
     -- platform admins only: a league's own web address
     'platform_set_league_domain',
     -- debt: a pick names a player, and rosters hold one row per player across all leagues (rosters key, see EXPANSION.md)

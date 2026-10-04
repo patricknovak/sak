@@ -53,6 +53,8 @@ export default function Platform() {
         ))}
       </div>
 
+      <Requests leagues={rows} reload={load} />
+
       <Section title="Leagues">
         <div className="space-y-3">{rows.map((r) => <LeagueCard key={r.league_id} r={r} reload={load} />)}</div>
       </Section>
@@ -204,5 +206,74 @@ function NewLeague({ taken, onMade }: { taken: string[]; onMade: () => Promise<u
         <button className="btn-gold w-full py-3 text-base" style={themed(gold)} disabled={busy || !ok} onClick={make}>{busy ? <Spinner /> : '✨ Open the league'}</button>
       </div>
     </div>
+  );
+}
+
+// The inbox from the Start your league page (request_league): who asked, for what. "Open it" builds the league in one
+// go (its name, a short name from its initials, a web name, the seats asked for, SaK's rules) and makes the
+// commissioner's invite; "Email the invite" opens a ready-written email to the person who asked.
+interface Req { id: number; name: string; email: string; league_name: string; teams: number; plays_on: string | null; note: string | null; status: 'new' | 'opened' | 'declined'; league_id: number | null; created_at: string }
+const PLAYS_ON: Record<string, string> = { yahoo: 'on Yahoo', espn: 'on ESPN', fantrax: 'on Fantrax', cbs: 'on CBS', sheet: 'on a spreadsheet', new: 'starting fresh', other: 'somewhere else' };
+const initials = (n: string) => n.split(/\s+/).filter(Boolean).map((w) => w[0]).join('').toUpperCase().slice(0, 4) || 'NEW';
+
+function Requests({ leagues, reload }: { leagues: Row[]; reload: () => Promise<unknown> }) {
+  const { busy, run } = useAction();
+  const [reqs, setReqs] = useState<Req[] | null>(null);
+  const [made, setMade] = useState<Record<number, string>>({});   // request id -> invite link
+  const load = () => rpc<Req[]>('platform_league_requests').then(setReqs, () => setReqs([]));
+  useEffect(() => { load(); }, []);
+  if (!reqs || !reqs.length) return null;
+  const fresh = reqs.filter((r) => r.status === 'new');
+
+  const open = (q: Req) => run(async () => {
+    const taken = new Set(leagues.map((l) => l.slug));
+    const base = (slugOf(q.league_name) || 'league').slice(0, 27); let slug = base; for (let k = 2; taken.has(slug); k++) slug = `${base}-${k}`;
+    const short = initials(q.league_name);
+    const lid = await rpc<number>('create_league', { p_slug: slug, p_name: q.league_name, p_short: short, p_brand: starterBrand(q.league_name, short, LEAGUE_COLOURS[1].hex), p_seats: q.teams, p_template: 1 });
+    await rpc('platform_close_request', { p_id: q.id, p_status: 'opened', p_league: lid });
+    const row = (await rpc<Row[]>('platform_leagues')).find((l) => l.league_id === lid);
+    if (row?.commish_team) {
+      const code = await rpc<string>('platform_invite', { p_league: lid, p_team: row.commish_team, p_days: 14 });
+      setMade((m) => ({ ...m, [q.id]: link(code) }));
+    }
+    await Promise.all([load(), reload()]);
+  }, 'League opened, invite ready');
+
+  const mail = (q: Req, url: string) => {
+    const first = q.name.split(/\s+/)[0];
+    const body = `Hi ${first},\n\n${q.league_name} is ready on ${PRODUCT.name}. This link takes your commissioner's seat (it works once, for 14 days):\n\n${url}\n\nFrom there you can name it, pick its colours, invite your GMs and set your draft. Let me know if you need anything else.\n\nSincerely,\n\nPatrick`;
+    return `mailto:${encodeURIComponent(q.email)}?subject=${encodeURIComponent(`${q.league_name} is ready`)}&body=${encodeURIComponent(body)}`;
+  };
+
+  return (
+    <Section title={<>Requests {fresh.length > 0 && <span className="ml-1 rounded-full bg-gold px-2 py-0.5 align-middle text-xs text-ice">{fresh.length} new</span>}</>}>
+      <div className="space-y-2">
+        {reqs.slice(0, 12).map((q) => (
+          <div key={q.id} className={`card p-3 ${q.status !== 'new' ? 'opacity-60' : ''}`}>
+            <div className="flex items-start gap-3">
+              <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-white/[.06] text-lg">{q.status === 'opened' ? '✅' : q.status === 'declined' ? '✖️' : '📮'}</span>
+              <div className="min-w-0 flex-1">
+                <div className="break-words font-semibold text-slate-100">{q.league_name}</div>
+                <div className="break-words text-xs text-mute">{q.name} · {q.email}</div>
+                <div className="mt-1 text-xs text-slate-300">{q.teams} teams{q.plays_on ? `, ${PLAYS_ON[q.plays_on] ?? q.plays_on}` : ''} · {opened(q.created_at)}</div>
+                {q.note && <p className="mt-1.5 break-words rounded-lg bg-black/25 px-2.5 py-1.5 text-xs text-slate-300">{q.note}</p>}
+              </div>
+            </div>
+            {q.status === 'new' && (
+              <div className="mt-3 flex gap-2">
+                <button className="btn-gold btn-sm flex-1" disabled={busy} onClick={() => confirm(`Open ${q.league_name} with ${q.teams} seats?`) && open(q)}>✨ Open it</button>
+                <button className="btn-ghost btn-sm" disabled={busy} onClick={() => run(async () => { await rpc('platform_close_request', { p_id: q.id, p_status: 'declined' }); await load(); }, 'Declined')}>Decline</button>
+              </div>
+            )}
+            {made[q.id] && (
+              <div className="mt-3 space-y-2">
+                <div className="break-all rounded-lg bg-black/40 px-2.5 py-2 text-xs text-sky-200">{made[q.id]}</div>
+                <a className="btn-primary btn-sm w-full" href={mail(q, made[q.id])}>✉️ Email the invite to {q.name.split(/\s+/)[0]}</a>
+              </div>
+            )}
+          </div>
+        ))}
+      </div>
+    </Section>
   );
 }
