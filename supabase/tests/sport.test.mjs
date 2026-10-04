@@ -7,6 +7,9 @@ import { STARTING, slotOk } from '../functions/_shared/lineup.ts';
 
 const sql = fs.readFileSync(new URL('../migrations/20261005000135_sports.sql', import.meta.url), 'utf8');
 const row = JSON.parse(sql.match(/\$sport\$([\s\S]*?)\$sport\$/)[1]);
+// words added to the row later (migration 144: Garry's voice in the sport's words)
+const words = fs.readFileSync(new URL('../migrations/20261005000144_sport_voice_words.sql', import.meta.url), 'utf8');
+row.words = { ...row.words, ...JSON.parse(words.match(/\$words\$([\s\S]*?)\$words\$/)[1]) };
 assert.deepEqual(NHL, row, 'src/lib/sport.ts and the sports row for the NHL differ');
 console.log('ok: the compiled NHL matches the sports row');
 

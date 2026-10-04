@@ -288,7 +288,11 @@ export const NHL: SportConfig = {
     "centre": "NHL centre",
     "start": "puck drop",
     "club": "club",
-    "starter": "starting goalie"
+    "starter": "starting goalie",
+    "game": "hockey",
+    "rec": "beer-league",
+    "room": "dressing room",
+    "voice": "a loud, lovable Canadian beer-league dressing-room guy"
   }
 };
 

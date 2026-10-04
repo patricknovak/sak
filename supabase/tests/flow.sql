@@ -2834,6 +2834,8 @@ select 'lineup efficiency', true;
 -- ───────────── the sports table: the NHL's description ─────────────
 reset role;
 select pg_temp.expect('every league plays a sport that has a row', not exists (select 1 from leagues l where not exists (select 1 from sports s where s.id = l.sport)));
+select pg_temp.expect('the NHL row carries the words of Garry''s voice, the old ones kept', (select config->'words' ?& array['game', 'rec', 'room', 'voice', 'start', 'centre']
+  and config->'words'->>'game' = 'hockey' from sports where id = 'nhl'));
 select pg_temp.expect('the NHL''s slots accept exactly whom slot_ok accepts', not exists (
   select 1 from sports sp, jsonb_array_elements(sp.config->'slots') sl, jsonb_array_elements(sp.config->'positions') po
   where sp.id = 'nhl'

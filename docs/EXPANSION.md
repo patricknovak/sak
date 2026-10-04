@@ -331,7 +331,9 @@ Keepers). Then the game states and periods: every page that reads the league's o
 is live, final, not started or called off (`isLive`, `isFinal`, `hasStarted`, `notStarted`, `calledOff`) and how to
 write its period (`periodShort`, `extraTime`), the store included; the NHL centre pages read the NHL's own feed and stay
 its adapter; the Book asks the sport whether a game is live or final, while its in-play prices (regulation minutes,
-overtime) stay hockey's model until a second sport's Book is designed. Next: the draft simulator, which needs the sport's draft
+overtime) stay hockey's model until a second sport's Book is designed. Garry's voice reads the sport too (migration 144):
+the sports row carries the words his prompts wrote in (the game's name, the rec-league adjective, the room, his one-line
+character), so the NHL's prompts read exactly as before and another sport's league gets its own. Next: the draft simulator, which needs the sport's draft
 rules in its row (depth targets per position, a cap per position, flex spots, the goalie timing it now hard-codes),
 best designed beside a real second sport rather than guessed at.
 
