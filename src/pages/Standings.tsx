@@ -33,7 +33,7 @@ function Podium({ rows, caption }: { rows: { t?: Team; name: string; gm: string;
           <div key={place} className="flex flex-col items-center">
             {place === 1 && <div className="mb-1 text-2xl drop-shadow-[0_0_12px_rgb(var(--gold-rgb)/.8)]">👑</div>}
             {r.t ? <TeamBadge team={r.t} size={place === 1 ? 58 : 46} ring={place === 1} /> : <div className="h-12 w-12 rounded-full bg-white/10" />}
-            <div className="mt-1.5 w-full truncate text-center text-xs font-bold">{r.name}</div>
+            <div className="mt-1.5 w-full break-words text-center text-xs font-bold leading-tight">{r.name}</div>
             <div className="text-[10px] text-white/60">{r.gm}</div>
             <div className="num font-display text-base font-extrabold">{fmtPts(r.pts)}</div>
             <div className={`mt-1.5 w-full ${h} rounded-t-xl bg-gradient-to-b ${medal} grid place-items-start justify-center pt-1 shadow-[inset_0_1px_0_rgba(255,255,255,.6)]`}>
@@ -91,7 +91,7 @@ export default function Standings() {
           <button key={k} onClick={() => setView(k)}
             className={`card p-3 text-left transition active:scale-[.98] ${k === 'cup' ? 'col-span-2 sm:col-span-1' : ''} ${view === k ? 'border-gold/40 shadow-[0_0_0_1px_rgb(var(--gold-rgb)/.25),0_12px_32px_-18px_rgb(var(--gold-rgb)/.7)]' : 'opacity-75'}`}
             style={view === k ? { background: 'linear-gradient(160deg, rgb(var(--gold-rgb)/.14), rgba(15,23,41,.8) 55%)' } : undefined}>
-            <div className="label flex items-center justify-between gap-1"><span className="truncate">{trophy}</span>{useMoney && <span>{pot.pct}%</span>}</div>
+            <div className="label flex items-start justify-between gap-1.5"><span className="min-w-0 break-words leading-snug">{trophy}</span>{useMoney && <span className="shrink-0">{pot.pct}%</span>}</div>
             <div className="text-[10px] text-mute">{label}</div>
             {useMoney && <>
               <div className="num text-gold-shine mt-0.5 font-display text-2xl font-extrabold">{fmtMoney(pot.amount)}</div>
