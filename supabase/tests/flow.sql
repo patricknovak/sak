@@ -2804,6 +2804,18 @@ delete from lineup_snapshots where game_id = 7801;
 delete from player_games where game_id = 7801;
 delete from games where id = 7801;
 select set_config('request.jwt.claim.sub', '', false);
+reset role;
+-- read without row-level security (as the service key does), the Performance reads stay in the league
+insert into games (id, date, start_utc, home, away, state, final_synced) values (7802, today_et() + 151, now() + interval '151 days', 'TOR', 'MTL', 'OFF', true);
+insert into player_games (game_id, player_id, date, stats) values (7802, :le_a, today_et() + 151, '{"g":1}');
+insert into lineup_snapshots (game_id, date, team_id, player_id, slot, league_id)
+  select 7802, today_et() + 151, t.id, :le_a, 'C', t.league_id from teams t where t.league_id = (select id from leagues where slug = 'rink') and t.role = 'gm' limit 1;
+select set_config('app.league_id', '1', false);
+select pg_temp.expect('performance_days keeps to the league without row-level security', not exists (select 1 from performance_days(today_et() + 151, today_et() + 151) x join teams t on t.id = x.team_id where t.league_id <> 1));
+select pg_temp.expect('performance_players too', not exists (select 1 from performance_players(today_et() + 151, today_et() + 151) x join teams t on t.id = x.team_id where t.league_id <> 1));
+select pg_temp.expect('lineup_efficiency too', not exists (select 1 from lineup_efficiency(today_et() + 151, today_et() + 151) x join teams t on t.id = x.team_id where t.league_id <> 1));
+select set_config('app.league_id', '', false);
+delete from lineup_snapshots where game_id = 7802; delete from player_games where game_id = 7802; delete from games where id = 7802;
 select 'lineup efficiency', true;
 
 -- ───────────── payouts follow the format ─────────────
