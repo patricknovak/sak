@@ -9,7 +9,7 @@ import { currentSubscription } from '../lib/push';
 import { Sheet, TeamBadge } from './ui';
 import {
   Bell, ClipboardList, Dices, Home, Landmark, Lightbulb, LogOut, Menu, MessageCircle, Radio, Repeat2, Search, Shield,
-  Trophy, Tv, UserRound, Globe, Wrench, Wallet, type LucideIcon, BarChart3 } from 'lucide-react';
+  Trophy, Tv, UserRound, Globe, Wrench, Wallet, type LucideIcon, BarChart3, Sparkles, Crown, Wand2 } from 'lucide-react';
 
 type Item = { to: string; label: string; icon: LucideIcon; commish?: boolean; short?: string };   // short: the phone dock's label, one line
 
@@ -73,7 +73,7 @@ function alertMe() {
 }
 
 export function Layout({ children }: { children: ReactNode }) {
-  const { me, league, brand, draft, picks, notifications, refresh, sport } = useLeague();
+  const { me, league, brand, draft, picks, notifications, refresh, sport, kind } = useLeague();
   const now = useNow(1000);
   const loc = useLocation();
   const nav = useNavigate();
@@ -94,15 +94,28 @@ export function Layout({ children }: { children: ReactNode }) {
   const phase = league?.phase;
   const draftish = phase === 'keepers' || phase === 'predraft' || phase === 'draft';
   const spectator = me?.role === 'spectator';
-  const items: Item[] = [
+  // a prediction pool (migration 145) is questions, leaders, chat: none of the sport's pages
+  const pool = kind === 'predict';
+  const items: Item[] = pool ? [
+    { to: '/', label: 'Home', icon: Home },
+    { to: '/questions', label: 'Questions', icon: Sparkles },
+    { to: '/chat', label: 'Chat', icon: MessageCircle },
+    { to: '/leaders', label: 'Leaders', icon: Crown },
+  ] : [
     { to: '/', label: 'Home', icon: Home },
     draftish ? { to: '/draft', label: 'Draft Centre', short: 'Draft', icon: ClipboardList } : spectator ? { to: '/standings', label: 'Standings', icon: Trophy } : { to: '/team', label: 'Lineup', icon: Shield },
     { to: '/chat', label: 'Chat', icon: MessageCircle },
     // the sport's own centre ("NHL centre" for hockey), from the sports row
     { to: '/nhl', label: sport.words.centre ?? 'NHL centre', icon: Tv },
   ];
-  const moreItems: Item[] = [
+  const moreItems: Item[] = (pool ? [
+    { to: '/yahoo', label: 'My pools', icon: Globe },
+    { to: '/features', label: 'Ideas', icon: Lightbulb },
+    { to: '/profile', label: 'My Profile', icon: UserRound },
+    { to: '/host', label: 'Host', icon: Wand2, commish: true },
+  ] as Item[] : [
     { to: '/standings', label: 'Standings', icon: Trophy },
+    { to: '/questions', label: 'Questions', icon: Sparkles },
     { to: '/players', label: 'Players', icon: Search },
     { to: '/yahoo', label: 'My pools', icon: Globe },
     ...(draftish ? [] : [{ to: '/scoreboard', label: 'Live scoreboard', icon: Radio }, { to: '/performance', label: 'Performance', icon: BarChart3 }]),
@@ -114,7 +127,7 @@ export function Layout({ children }: { children: ReactNode }) {
     { to: '/features', label: 'League Features', icon: Lightbulb },
     { to: '/profile', label: 'My Profile', icon: UserRound },
     { to: '/commish', label: 'Commissioner', icon: Wrench, commish: true },
-  ].filter((i) => (!i.commish || me?.is_commish) && !(spectator && i.to === '/team'));
+  ]).filter((i) => (!i.commish || me?.is_commish) && !(spectator && i.to === '/team'));
 
   // who's on the clock?
   const current = useMemo(() => picks.find((p) => p.overall === draft?.current_overall && draft?.season === p.season), [picks, draft]);

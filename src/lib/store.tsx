@@ -18,6 +18,7 @@ interface Store {
   hostElsewhere: boolean;       // signed in on a league's address the GM isn't in: the page shows their own league
   brand: Brand;                // names, wordmark, trophies for the league on screen (SaK defaults)
   sport: SportConfig;          // the sport the league plays (sports row, migration 135; the NHL until it loads)
+  kind: 'fantasy' | 'predict'; // a fantasy league, or a prediction pool (questions only, migration 145)
   teams: Team[];               // GMs only
   spectators: Team[];          // spectator passes (chat, bets, no roster)
   can: (what: string) => boolean;
@@ -52,6 +53,7 @@ export function LeagueProvider({ children }: { children: ReactNode }) {
   const [authReady, setAuthReady] = useState(!configured);
   const [league, setLeague] = useState<League | null>(null);
   const [brand, setBrand] = useState<Brand>(SAK_BRAND);
+  const [kind, setKind] = useState<'fantasy' | 'predict'>('fantasy');
   const [sport, setSport] = useState<SportConfig>(NHL);
   // a game that can't change the numbers any more: over, postponed or cancelled (read from loaders and timers)
   const sportRef = useRef(sport);
@@ -108,8 +110,9 @@ export function LeagueProvider({ children }: { children: ReactNode }) {
     league: async () => {
       const { data } = await supabase.from('league').select('*').single();
       if (data) setLeague(data as League);
-      const { data: lg } = await supabase.from('leagues').select('brand,short_name,sport').eq('id', (data as League | null)?.league_id ?? 1).maybeSingle();
+      const { data: lg } = await supabase.from('leagues').select('brand,short_name,sport,kind').eq('id', (data as League | null)?.league_id ?? 1).maybeSingle();
       setBrand(brandOf(lg?.brand as Partial<Brand> | null, lg?.short_name as string | null));
+      setKind(lg?.kind === 'predict' ? 'predict' : 'fantasy');
       // hockey is compiled in; another sport's description comes from its row
       const code = (lg?.sport as string | null) ?? 'nhl';
       if (code === 'nhl') setSport(NHL);
@@ -311,7 +314,7 @@ export function LeagueProvider({ children }: { children: ReactNode }) {
 
   const gameStatus = useCallback((id: number, date?: string) => statuses.get(`${id}|${date ?? etToday()}`), [statuses, leagueDay]); // eslint-disable-line react-hooks/exhaustive-deps
   const value: Store = {
-    ready: authReady && hostReady && (!session || loaded), host, hostElsewhere: !!host && !!league && league.league_id !== host.id && !tabLeague(), session, me, league, brand, sport, teams, spectators, can, team, players, rosters, owner, picks, draft,
+    ready: authReady && hostReady && (!session || loaded), host, hostElsewhere: !!host && !!league && league.league_id !== host.id && !tabLeague(), session, me, league, brand, sport, kind, teams, spectators, can, team, players, rosters, owner, picks, draft,
     standings, playoffs, cup, season, windows, games, gamesByTeam, notifications, gameStatus, freshNews, online, refresh, serverOffset, leagueDay,
   };
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;

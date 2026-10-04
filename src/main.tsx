@@ -38,6 +38,12 @@ const Performance = lazy(() => import('./pages/Performance'));
 const NHL = lazy(() => import('./pages/NHL'));
 const Yahoo = lazy(() => import('./pages/Yahoo'));
 const YahooLeague = lazy(() => import('./pages/YahooLeague'));
+// a prediction pool's pages (migration 145)
+const PoolHome = lazy(() => import('./pages/Pool').then((m) => ({ default: m.PoolHome })));
+const Questions = lazy(() => import('./pages/Pool').then((m) => ({ default: m.Questions })));
+const Question = lazy(() => import('./pages/Pool').then((m) => ({ default: m.Question })));
+const PoolLeaders = lazy(() => import('./pages/Pool').then((m) => ({ default: m.PoolLeaders })));
+const PoolHost = lazy(() => import('./pages/Pool').then((m) => ({ default: m.PoolHost })));
 import { YahooReturnHandler } from './components/YahooConnect';
 
 function Loading() {
@@ -45,7 +51,7 @@ function Loading() {
 }
 
 function App() {
-  const { ready, session, me } = useLeague();
+  const { ready, session, me, kind } = useLeague();
   const { pathname } = useLocation();
   if (!configured) {
     return (
@@ -90,7 +96,11 @@ function App() {
       <ErrorBoundary key={pathname}>
       <Suspense fallback={<Loading />}>
         <Routes>
-          <Route path="/" element={<Home />} />
+          <Route path="/" element={kind === 'predict' ? <PoolHome /> : <Home />} />
+          <Route path="/questions" element={<Questions />} />
+          <Route path="/q/:id" element={<Question />} />
+          <Route path="/leaders" element={<PoolLeaders />} />
+          <Route path="/host" element={<PoolHost />} />
           <Route path="/draft" element={<DraftCentre />} />
           <Route path="/draft/tv" element={<DraftTV />} />
           <Route path="/draft/list" element={<Navigate to="/draft?t=order" replace />} />

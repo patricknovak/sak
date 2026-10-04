@@ -75,7 +75,8 @@ export default function Join({ code }: { code: string }) {
   // the invite wears the inviting league's colour and crest (SaK keeps its own badge)
   const sak = !pv?.ok || pv.league_id === 1 || (pv.league_id == null && pv.short === 'SaK');
   const gold = !sak && /^#[0-9a-f]{6}$/i.test(pv?.brand?.colors?.gold ?? '') ? pv!.brand!.colors!.gold! : null;
-  const what = pv?.role === 'spectator' ? 'a spectator place' : pv?.team ? `the ${pv.team} seat` : 'a seat';
+  // an open link into a prediction pool (migration 145) has no seat named: the newcomer gets one of their own
+  const what = pv?.role === 'spectator' ? 'a spectator place' : pv?.team ? `the ${pv.team} seat` : 'a place of your own';
   const okEmail = /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email.trim());
 
   return (
@@ -85,7 +86,7 @@ export default function Join({ code }: { code: string }) {
           {sak ? <img src="./icon.svg" alt="" className="mx-auto mb-3 h-16 w-16" /> : <span className="mb-3 inline-block"><LeagueCrest short={pv?.short ?? '…'} size={64} /></span>}
           <div className="label text-mute">You&apos;re invited to</div>
           <h1 className="h-display text-shine mt-1 text-3xl leading-tight">{pv?.league ?? '…'}</h1>
-          {pv?.ok && <p className="mt-2 text-sm text-slate-300">Taking {what}{pv.role === 'gm' ? ' as its GM' : ''}.</p>}
+          {pv?.ok && <p className="mt-2 text-sm text-slate-300">Taking {what}{pv.role === 'gm' && pv.team ? ' as its GM' : ''}.</p>}
         </div>
 
         {!pv ? <div className="flex justify-center py-8"><Spinner /></div>
