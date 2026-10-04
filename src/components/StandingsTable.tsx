@@ -1,5 +1,5 @@
 // The standings table, one for every screen that shows it (Standings and Home). Built to fit a phone: every
-// column stays on screen at 390 px, the team cell truncates instead of pushing numbers off the edge, and
+// column stays on screen at 360 px, the team's name wraps to a second line instead of pushing numbers off the edge, and
 // "back of the leader" rides under the points instead of taking a column.
 // The day column shows today's points once tonight's first game has started; before that it shows yesterday's,
 // so the morning after a game night still reads like a box score instead of a row of dashes.
@@ -54,7 +54,7 @@ export function StandingsTable({ rows, view = 'regular', pot = [], peter = false
                   <Link to={`/team/${s.team_id}`} className="flex min-w-0 items-center gap-2">
                     <TeamBadge team={t} size={26} />
                     <span className="min-w-0">
-                      <TeamName team={t} className="block truncate text-[13px] font-bold leading-tight" />
+                      <TeamName team={t} className="line-clamp-2 block break-words text-[13px] font-bold leading-tight" />
                       <span className="block truncate text-[10px] text-mute">
                         {sub}
                         {online.has(s.team_id) && <span className="text-emerald-400"> · online</span>}

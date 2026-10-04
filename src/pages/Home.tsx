@@ -94,8 +94,8 @@ export default function Home() {
           <TeamBadge team={me ?? undefined} size={60} ring />
           <div className="min-w-0">
             <div className="text-xs font-semibold text-white/70">Welcome back, {me?.gm_name}</div>
-            <div className="h-display text-shine truncate text-[30px] leading-[1.05] sm:text-4xl">{me?.name}</div>
-            {me?.motto && <div className="truncate text-xs italic text-white/70">“{me.motto}”</div>}
+            <div className="h-display text-shine break-words text-[clamp(22px,7.6vw,30px)] leading-[1.05] sm:text-4xl">{me?.name}</div>
+            {me?.motto && <div className="line-clamp-2 text-xs italic text-white/70">“{me.motto}”</div>}
           </div>
         </div>
 
