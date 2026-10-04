@@ -60,7 +60,7 @@ Two things in one repo:
   page (`landing/index.html`) on Vercel. Decided (3 October 2026): both move to **Cloudflare** (free for commercial
   use, DNS already on Cloudflare, wildcard subdomains for league by host); never plan new work on Vercel. Built as
   Workers serving static assets (`wrangler.jsonc`, `landing/wrangler.jsonc`; Pages can't take a wildcard), deployed by
-  `.github/workflows/cloudflare.yml` once the `CLOUDFLARE_API_TOKEN` and `CLOUDFLARE_ACCOUNT_ID` secrets exist. The
+  `.github/workflows/cloudflare.yml` (the secrets are set; SaK's address there is `sak.superpoolsai.com`). The
   move is in `docs/EXPANSION.md`.
 
 ## Time and the league day

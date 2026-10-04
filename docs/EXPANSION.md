@@ -187,7 +187,12 @@ hashed build files cached for a year. What Patrick sets up once: a Cloudflare AP
 Scripts: Edit, and Zone (superpoolsai.com) → Workers Routes: Edit and DNS: Edit; then the token and the account id as
 GitHub Actions secrets `CLOUDFLARE_API_TOKEN` and `CLOUDFLARE_ACCOUNT_ID` (and in the cloud environment, for the
 sessions). The first push then gives a preview at `superpools-app.<account>.workers.dev` (step 1); step 2 adds a
-proxied wildcard DNS record (`AAAA * 100::`) and the route in `wrangler.jsonc`.
+proxied wildcard DNS record (`AAAA * 100::`) and the route in `wrangler.jsonc`. *4 October 2026:* the secrets are set. The first deploy goes straight to
+`sak.superpoolsai.com` as a Worker custom domain (the deploy makes its DNS record and certificate), which is steps 1
+and 2 together, beside GitHub Pages; the landing Worker is uploaded with no address until step 4. Checked before it:
+the build's base is relative, every edge function answers any origin, `league_by_host` maps `sak` to league 1, and
+sign-in needs no redirect address. Still to check once it is up: sign-in, push and the installed app at the new
+address (a phone's push subscription belongs to the address, so GMs turn alerts on again there).
 
 **B6. Money and the Fund are SaK's.** `commish_bill_entries` bills every league's GMs; `commish_post_payouts`
 reads `standings` with the owner's rights, so it ranks, pays and charges the Peter across leagues; `fund` is one
