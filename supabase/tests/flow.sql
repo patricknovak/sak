@@ -2731,6 +2731,52 @@ delete from markets where id = :gp_open;
 select set_config('request.jwt.claim.sub', '', false);
 select 'Garry''s picks in the prediction log', true;
 
+-- ───────────── payouts follow the format ─────────────
+reset role;
+select id as pf_league from leagues where slug = 'rink' \gset
+update league_rules set features = '{"money": true}', format = 'h2h', h2h_playoffs = 0, entry_fee = 100, sak_fee = 0, prize_split = '[60, 30, 10]', playoff_share = 40, cup_share = 0,
+  season_start = today_et() + 1, season_end = today_et() + 60 where league_id = :pf_league;
+delete from matchups where league_id = :pf_league;
+select set_config('request.jwt.claim.sub', (select user_id::text from teams where league_id = :pf_league and is_commish), false);
+set role authenticated;
+select commish_make_schedule(2) as pf_weeks \gset
+reset role;
+-- the whole season played; give the third team the points so the table and the points disagree on nothing but order
+update matchups set starts = starts - 100, ends = ends - 100 where league_id = :pf_league;
+select set_config('app.league_id', :pf_league::text, false);
+create temp table pf_table as select team_id, rank, pf from h2h_standings();
+create temp table pf_br as select * from h2h_bracket();
+select set_config('app.league_id', '', false);
+set role authenticated;
+select pg_temp.expect('the regular pot pays the head-to-head table', commish_post_payouts('regular') = 3);
+reset role;
+select pg_temp.expect('in the table''s order', (select array_agg(team_id order by id) from ledger where league_id = :pf_league and kind = 'payout' and description like '%regular season%')
+  = (select array_agg(team_id order by rank, pf desc, team_id) from pf_table));
+select pg_temp.expect('and no last-place punishment outside a points league', not exists (select 1 from ledger where league_id = :pf_league and kind = 'peter'));
+set role authenticated;
+select pg_temp.expect('the playoff pot pays the bracket: champion, then runner-up', commish_post_payouts('playoffs') = 2);
+reset role;
+select pg_temp.expect('the champion first', (select team_id from ledger where league_id = :pf_league and kind = 'payout' and description like '%1st place' and description not like '%regular season%')
+  = (select winner from pf_br where round = (select max(round) from pf_br)));
+-- a rotisserie league pays its category table
+delete from ledger where league_id = :pf_league;
+delete from matchups where league_id = :pf_league;
+update league_rules set format = 'season', h2h_playoffs = 0, categories = array['g', 'a', 'w'] where league_id = :pf_league;
+select set_config('app.league_id', :pf_league::text, false);
+create temp table pf_roto as select team_id, rank from category_standings();
+select set_config('app.league_id', '', false);
+set role authenticated;
+select pg_temp.expect('the regular pot pays the category table', commish_post_payouts('regular') = 3);
+reset role;
+select pg_temp.expect('in its order', (select array_agg(team_id order by id) from ledger where league_id = :pf_league and kind = 'payout')
+  = (select array_agg(team_id order by rank, team_id) from pf_roto) and not exists (select 1 from ledger where league_id = :pf_league and kind = 'peter'));
+drop table pf_roto;
+delete from ledger where league_id = :pf_league;
+update league_rules set format = 'season', h2h_playoffs = 0, categories = null, features = '{}' where league_id = :pf_league;
+drop table pf_table; drop table pf_br;
+select set_config('request.jwt.claim.sub', '', false);
+select 'payouts follow the format', true;
+
 -- ───────────── how alive each league is ─────────────
 reset role;
 update teams set last_seen = now() - interval '2 days' where id = 1;
