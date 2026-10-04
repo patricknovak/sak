@@ -2311,6 +2311,7 @@ reset role;
 select pg_temp.expect('the inbox is out of the API''s reach', not has_schema_privilege('anon', 'ops', 'usage') and not has_schema_privilege('authenticated', 'ops', 'usage'));
 select pg_temp.as_team(1);
 set role authenticated;
+select pg_temp.expect('the platform hears about it in its bell', exists (select 1 from notifications where team_id = 1 and kind = 'platform' and body like '📮 Lou Lake asked for a league: Lake Shinny, 10 teams'));
 select pg_temp.expect('the platform sees it, trimmed and lower-cased', (select name = 'Lou Lake' and email = 'lou@example.com' and teams = 10 and plays_on = 'yahoo' and status = 'new'
   from platform_league_requests() order by created_at limit 1));
 select pg_temp.expect('and marks it opened with the league it became', platform_close_request((select min(id) from platform_league_requests()), 'opened', :league2) = 'opened');
