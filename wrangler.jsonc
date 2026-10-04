@@ -13,7 +13,11 @@
   // steps 1 and 2 of the move in one: SaK at sak.superpoolsai.com beside GitHub Pages. A custom domain, so the deploy
   // makes the DNS record and the certificate itself; the new address is the preview, so no workers.dev one.
   "workers_dev": false,
-  "routes": [{ "pattern": "sak.superpoolsai.com", "custom_domain": true }]
-  // every other league's address comes next, with a proxied wildcard DNS record (AAAA * 100::) on superpoolsai.com:
-  // { "pattern": "*.superpoolsai.com/*", "zone_name": "superpoolsai.com" }
+  "routes": [
+    { "pattern": "sak.superpoolsai.com", "custom_domain": true },
+    // every other league's address (podsquad.superpoolsai.com, app.superpoolsai.com...): a zone route, which takes the
+    // traffic once the proxied wildcard DNS record (AAAA * 100::) exists. Names with records of their own (the apex,
+    // www, Resend's) aren't covered by the wildcard record, and www has the landing page's more specific route.
+    { "pattern": "*.superpoolsai.com/*", "zone_name": "superpoolsai.com" }
+  ]
 }
