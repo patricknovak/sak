@@ -236,7 +236,7 @@ export default function Scoreboard() {
                       </div>
                     )}
                   </div>
-                  <div className="shrink-0 text-right"><div className="num font-display text-2xl font-extrabold" style={{ color: readable(t.color) }}>{night ? fmtPts(night.roto.get(t.id) ?? 0) : fmtPts(pts)}</div><div className="text-[10px] text-mute">{night ? 'roto ' : ''}{past ? 'that night' : 'tonight'}</div>
+                  <div className="shrink-0 text-right"><div className="num font-display text-2xl font-extrabold" style={{ color: readable(t.color) }}>{night ? fmtPts(night.roto.get(t.id) ?? 0) : fmtPts(pts)}</div><div className="text-[10px] text-mute">{night ? (league?.format === 'h2h' ? 'category pts ' : 'roto ') : ''}{past ? 'that night' : 'tonight'}</div>
                     {!catMode && benchScored && <div className="num text-[10px] font-semibold text-amber-200" title="Points on the bench and IR: shown, never counted">🪑 {fmtPts(bench)} benched</div>}</div>
                 </button>
                 {isOpen && (

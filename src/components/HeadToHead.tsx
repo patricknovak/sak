@@ -187,8 +187,8 @@ function MatchupPlayers({ x, onClose }: { x: Matchup; onClose: () => void }) {
 // A points matchup's chances while it can still turn: each side's points so far plus the rest of the week played out
 // night by night with its roster (the same forecast the season odds use: each player's projection blended with his
 // pace, his NHL games, his chance of dressing, the best lineup each night), and the week's spread of luck around it
-// (a team's points swing about 1.2 × the square root of what it expects). Tonight's games count once they're on the
-// board; while they're being played the forecast starts tomorrow.
+// (a team's points swing about 1.2 × the square root of what it expects). A game of tonight's counts once it's on the
+// board; the ones still to come are forecast.
 function useWinChance(x: Matchup) {
   const { league, rosters, players, season, games: today, leagueDay } = useLeague();
   const sched = useSeasonGames();
@@ -196,12 +196,15 @@ function useWinChance(x: Matchup) {
   return useMemo(() => {
     if (!on || x.away_team == null) return null;
     const caps = (league?.roster ?? {}) as Record<string, number>;
-    const started = today.some((g) => g.date === leagueDay && !['FUT', 'PRE', 'PPD', 'CNCL'].includes(g.state));
-    const from = x.status === 'upcoming' ? x.starts : started ? new Date(new Date(leagueDay + 'T12:00:00Z').getTime() + 86400000).toISOString().slice(0, 10) : leagueDay;
+    // tonight's games already on (or over) are in the points on the board: the forecast plays only the ones to come,
+    // so a player in a late game keeps what he's expected to add
+    const begun = new Set(today.filter((g) => g.date === leagueDay && !['FUT', 'PRE', 'PPD', 'CNCL'].includes(g.state)).map((g) => g.id));
+    const ahead = begun.size ? sched!.filter((g) => !(g.id != null && begun.has(g.id))) : sched!;
+    const from = x.status === 'upcoming' ? x.starts : leagueDay;
     const value = (p: Player): FPlayer => { const s = season.get(p.id); return { ...p, proj: rosPerGame(p.proj, p.pos, s?.gp ?? 0, s?.fpts ?? 0, p.proj_gp) * gamesOf(p) }; };
     const side = (t: number) => {
       const roster = rosters.filter((r) => r.team_id === t && r.slot !== 'IR').map((r) => players.get(r.player_id)).filter((p): p is Player => !!p).map(value);
-      return from > x.ends ? 0 : forecastTeam(t, roster, sched!, caps, from, 0, x.ends).ros;
+      return from > x.ends ? 0 : forecastTeam(t, roster, ahead, caps, from, 0, x.ends).ros;
     };
     const hr = side(x.home_team), ar = side(x.away_team);
     if (x.status === 'upcoming' && hr + ar <= 0) return null;   // nothing scheduled to go on

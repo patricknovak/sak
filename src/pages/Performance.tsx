@@ -189,7 +189,7 @@ export default function Performance() {
     const gap = ranks.filter((c) => c.r >= aggs.length - 1 && (c.low ? c.v > c.avg : c.v < c.avg)).sort((a, b) => b.r - a.r).slice(0, 3);
     const place = `${pos === 1 ? 'first' : `${pos}${['st', 'nd', 'rd'][pos - 1] ?? 'th'}`} of ${aggs.length} over this stretch`;
     out.push({ tone: pos <= 2 ? 'good' : pos >= aggs.length - 1 ? 'bad' : 'info', text: catMode
-      ? `${name} ${are} ${place} with ${fmtPts(roto.get(mine.team_id)?.total ?? 0)} rotisserie points from the league's ${cats.length} categories (most possible ${aggs.length * cats.length}).`
+      ? `${name} ${are} ${place} with ${fmtPts(roto.get(mine.team_id)?.total ?? 0)} ${league?.format === 'h2h' ? 'category points (every team ranked in each category over the stretch)' : 'rotisserie points'} from the league's ${cats.length} categories (most possible ${aggs.length * cats.length}).`
       : `${name} ${are} ${place} with ${fmtPts(mine.points)} points, ${fmtPts(mine.points / mine.days)} a day against a league average of ${fmtPts(leagueAvg((a) => (a.days ? a.points / a.days : 0)))}.` });
     if (edge.length) out.push({ tone: 'good', text: `Edge: ${edge.map((c) => `${statDef(c.k).label.toLowerCase()} (${fmtCat(c.k, c.v)}, league avg ${fmtCat(c.k, c.avg)})`).join(', ')}.` });
     if (gap.length) out.push({ tone: 'bad', text: `Gap: ${gap.map((c) => `${statDef(c.k).label.toLowerCase()} (${fmtCat(c.k, c.v)}, league avg ${fmtCat(c.k, c.avg)})`).join(', ')}.` });
@@ -312,7 +312,7 @@ export default function Performance() {
                   </tbody>
                 </table>
               </div>
-              <div className="border-t border-white/[.06] px-3 py-2 text-[11px] text-mute">Only players in a starting slot at puck drop count.{catMode ? ' Roto ranks every team in each of the league’s categories over this stretch, as the standings do over the season.' : ''}{catMode ? '' : ' Lineup is the share of the best lineup possible each night from the players who played (bench, not IR).'} Gold marks the league’s best in each column. Stat corrections from the NHL can move a day for up to a month.</div>
+              <div className="border-t border-white/[.06] px-3 py-2 text-[11px] text-mute">Only players in a starting slot at puck drop count.{catMode ? (league?.format === 'h2h' ? ' Roto ranks every team in each of the league’s categories over this stretch (first earns as many points as there are teams); the standings play them week by week.' : ' Roto ranks every team in each of the league’s categories over this stretch, as the standings do over the season.') : ''}{catMode ? '' : ' Lineup is the share of the best lineup possible each night from the players who played (bench, not IR).'} Gold marks the league’s best in each column. Stat corrections from the NHL can move a day for up to a month.</div>
             </div>
           </Section>
 

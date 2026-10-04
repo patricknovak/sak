@@ -38,7 +38,8 @@ export default function Calibration() {
   const [open, setOpen] = useState<Open[]>([]);
   useEffect(() => {
     Promise.all([
-      supabase.from('prediction_accuracy').select('*').order('week', { ascending: false }).limit(40),
+      // every week (a few rows a week per kind): the summaries cover the season, the tables show the latest weeks
+      supabase.from('prediction_accuracy').select('*').order('week', { ascending: false }).limit(1000),
       supabase.from('book_calibration').select('*').order('kind').order('bucket'),
       // counted in the database (migration 136): the rows themselves run to thousands
       supabase.from('prediction_status').select('kind,status,n'),
@@ -102,7 +103,7 @@ export default function Calibration() {
             <div className="grid grid-cols-[1fr_auto_auto_auto_auto] gap-x-3 border-b border-white/[.06] px-3 py-2 text-[11px] font-semibold uppercase tracking-wide text-mute">
               <span>Week of</span><span className="text-right">Nights</span><span className="text-right">Called</span><span className="text-right">Scored</span><span className="text-right">Miss</span>
             </div>
-            {nights.map((r) => (
+            {nights.slice(0, 24).map((r) => (
               <div key={r.week + (r.basis ?? '')} className="grid grid-cols-[1fr_auto_auto_auto_auto] gap-x-3 px-3 py-2 text-sm">
                 <span className="text-slate-200">{fmtDate(r.week)}{r.basis && <span className="block text-[11px] text-mute">{r.basis}</span>}</span>
                 <span className="num text-right text-slate-300">{r.n}</span>
@@ -175,7 +176,7 @@ export default function Calibration() {
             <div className="grid grid-cols-[1fr_auto_auto_auto_auto] gap-x-3 border-b border-white/[.06] px-3 py-2 text-[11px] font-semibold uppercase tracking-wide text-mute">
               <span>Week of</span><span className="text-right">Lineups</span><span className="text-right">Called</span><span className="text-right">Scored</span><span className="text-right">Miss</span>
             </div>
-            {apWeeks.map((r) => (
+            {apWeeks.slice(0, 12).map((r) => (
               <div key={r.week} className="grid grid-cols-[1fr_auto_auto_auto_auto] gap-x-3 px-3 py-2 text-sm">
                 <span className="text-slate-200">{fmtDate(r.week)}</span>
                 <span className="num text-right text-slate-300">{r.n}</span>
