@@ -1092,7 +1092,7 @@ select pg_temp.expect('rules table renamed, view in its place', (select count(*)
 -- the north commissioner reads and writes only her league's rules
 select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-000000000099', false);
 set role authenticated;
-select pg_temp.expect('north reads her rules row', (select count(*) from league) = 1 and (select phase from league) = 'keepers');
+select pg_temp.expect('north reads her rules row', (select count(*) from league) = 1 and (select phase from league) = 'predraft');
 select commish_update_league('{"keepers": 7, "pick_seconds": 45}'::jsonb);
 select pg_temp.expect('north update landed on her row', (select keepers from league) = 7 and (select pick_seconds from league) = 45);
 select pg_temp.expect('scoring reads the north rules row', calc_fpts('{"g": 2}'::jsonb) = 2 * (select (scoring->'skater'->>'g')::numeric from league));
@@ -2295,3 +2295,31 @@ select pg_temp.expect('a SaK GM on the pond''s address stays in SaK', current_le
 select set_config('request.headers', '', false);
 select set_config('request.jwt.claim.sub', '', false);
 select 'league by host', true;
+
+-- ───────────── a new league's path to its draft ─────────────
+reset role;
+select pg_temp.as_team(1);
+set role authenticated;
+select create_league('rink', 'Rink Rats', 'RR', '{}'::jsonb, 3) as league5 \gset
+reset role;
+select pg_temp.expect('a new league opens ready to draft, not in keepers', (select phase from league_rules where league_id = :league5) = 'predraft');
+select id as rink_seat1 from teams where league_id = :league5 and is_commish \gset
+insert into auth.users (id, email) values ('00000000-0000-0000-0000-0000000000f2', 'rink-commish@example.com');
+select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-000000000001', false);
+set role authenticated;
+select platform_invite(:league5, :rink_seat1) as rink_code \gset
+reset role;
+select _accept_invite('00000000-0000-0000-0000-0000000000f2', :'rink_code', 'Rita Rink');
+select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-0000000000f2', false);
+set role authenticated;
+select pg_temp.expect('randomizing draws only this league''s teams', (select array_agg(x order by x) from unnest(draft_randomize_order()) x)
+  = (select array_agg(id order by id) from teams where role = 'gm'));
+select draft_start();
+reset role;
+-- the commissioner picks first if the hat says so; whoever is on the clock, an open seat's clock is short
+select pg_temp.expect('an open seat''s pick comes in seconds, a GM''s gets the full clock', (
+  select case when t.user_id is null then d.deadline <= now() + interval '5 seconds' else d.deadline > now() + interval '30 seconds' end
+  from draft_state d join draft_picks p on p.league_id = d.league_id and p.season = d.season and p.overall = d.current_overall
+  join teams t on t.id = p.team_id where d.league_id = :league5));
+select set_config('request.jwt.claim.sub', '', false);
+select 'a new league''s path to its draft', true;
