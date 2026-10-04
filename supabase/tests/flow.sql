@@ -2563,3 +2563,37 @@ update league_rules set categories = null where league_id = :roto_league;
 drop table roto;
 select set_config('request.jwt.claim.sub', '', false);
 select 'rotisserie', true;
+
+-- ───────────── head-to-head ─────────────
+reset role;
+select id as h2h_league from leagues where slug = 'rink' \gset
+select user_id as rink_user from teams where league_id = :h2h_league and is_commish \gset
+update league_rules set season_start = today_et() + 1, season_end = today_et() + 60 where league_id = :h2h_league;
+select set_config('request.jwt.claim.sub', :'rink_user', false);
+set role authenticated;
+select pg_temp.raises('a season-total league has no schedule', 'select commish_make_schedule()', 'switch it to head-to-head');
+select pg_temp.expect('the rink switches to head-to-head', commish_set_format('h2h') = 'h2h');
+select pg_temp.expect('and the site''s league row says so', (select format from league) = 'h2h');
+select commish_make_schedule() as h2h_weeks \gset
+reset role;
+-- three teams: one has a bye each week; over a full round every pair meets once
+select pg_temp.expect('a matchup a week, plus the bye', (select count(*) from matchups where league_id = :h2h_league) = :h2h_weeks * 2
+  and (select count(*) from matchups where league_id = :h2h_league and away_team is null) = :h2h_weeks);
+select pg_temp.expect('weeks run Monday to Sunday, back to back', (select bool_and(extract(isodow from ends) = 7 or ends = (select season_end from league_rules where league_id = :h2h_league)) from matchups where league_id = :h2h_league)
+  and (select bool_and(m2.starts = m1.ends + 1) from matchups m1 join matchups m2 on m2.league_id = m1.league_id and m2.week = m1.week + 1 and m2.home_team = (select min(home_team) from matchups x where x.league_id = m1.league_id and x.week = m1.week + 1) where m1.league_id = :h2h_league and m1.home_team = (select min(home_team) from matchups x where x.league_id = m1.league_id and x.week = m1.week)));
+select pg_temp.expect('every team plays each week or sits out', (select bool_and(c = 3) from (select week, count(home_team) + count(away_team) as c from matchups where league_id = :h2h_league group by week) x));
+select pg_temp.expect('in the first round, every pair meets once', (select count(distinct least(home_team, away_team) || '-' || greatest(home_team, away_team)) from matchups where league_id = :h2h_league and week <= 3 and away_team is not null) = 3);
+-- the scores: a week's started-player points; final weeks make the table
+update matchups set starts = starts - 70, ends = ends - 70 where league_id = :h2h_league and week = 1;
+select set_config('app.league_id', :h2h_league::text, false);
+select pg_temp.expect('a past week is final, the rest upcoming', (select bool_and(status = case when week = 1 then 'final' else 'upcoming' end) from h2h_scores()));
+select pg_temp.expect('the table counts the final weeks only', (select sum(w + l + t) from h2h_standings()) = 2 and (select count(*) from h2h_standings()) = 3);
+select set_config('app.league_id', '', false);
+set role authenticated;
+select pg_temp.raises('the schedule is fixed once a week has started', 'select commish_make_schedule()', 'once its first week starts');
+select pg_temp.raises('head-to-head plays for points for now', 'select commish_set_categories(array[''g'', ''a'', ''w''])', 'switch');
+reset role;
+select pg_temp.expect('SaK still plays the season total', (select format from league_rules where league_id = 1) = 'season' and not exists (select 1 from matchups where league_id = 1));
+select pg_temp.expect('the format change and the schedule are on the log', (select count(*) from commish_log where league_id = :h2h_league and action in ('commish_set_format', 'commish_make_schedule')) >= 2);
+select set_config('request.jwt.claim.sub', '', false);
+select 'head-to-head', true;

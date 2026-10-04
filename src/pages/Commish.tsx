@@ -20,6 +20,7 @@ import { SetupGuide } from '../components/SetupGuide';
 import { SeatManager } from '../components/SeatManager';
 import { RosterEditor } from '../components/RosterEditor';
 import { CategoryEditor } from '../components/CategoryEditor';
+import { FormatEditor } from '../components/FormatEditor';
 
 // datetime-local <-> ISO in the viewer's zone
 const toLocal = (iso: string | null) => {
@@ -189,6 +190,7 @@ export default function Commish() {
       </Section>
 
       <Section id="scoring" title="📐 Scoring settings">
+        <FormatEditor />
         <CategoryEditor />
         <ScoringEditor />
       </Section>

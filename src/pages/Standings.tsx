@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { RotoStandings } from '../components/RotoStandings';
+import { HeadToHeadStandings } from '../components/HeadToHead';
 import { useSticky } from '../lib/sticky';
 import { Link } from 'react-router-dom';
 import { useLeague } from '../lib/store';
@@ -67,7 +68,13 @@ export default function Standings() {
   const last = table[table.length - 1], second = table[table.length - 2];
   const scored = table.some((t) => Number(t.points) !== 0);
 
-  // a rotisserie league ranks by categories, not points
+  // a head-to-head league ranks by wins; a rotisserie league by categories
+  if (league?.format === 'h2h') return (
+    <div className="space-y-5">
+      <PageHeader icon={<Trophy size={22} className="text-gold" />} title="Standings" sub={`${league.season} season · head-to-head`} />
+      <HeadToHeadStandings />
+    </div>
+  );
   if (league?.categories?.length) return (
     <div className="space-y-5">
       <PageHeader icon={<Trophy size={22} className="text-gold" />} title="Standings" sub={`${league.season} season · rotisserie`} />

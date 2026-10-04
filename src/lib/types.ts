@@ -12,7 +12,8 @@ export interface League {
   scoring: { skater: Record<string, number>; goalie: Record<string, number> };
   commish_note: string | null; updated_at: string; info: Record<string, any>;
   features?: { money?: boolean; fund?: boolean } | null;
-  categories?: string[] | null;  // a rotisserie league's categories (migration 117); null for a points league   // what the league uses beyond the game (src/lib/features.ts)
+  categories?: string[] | null;  // a rotisserie league's categories (migration 117); null for a points league
+  format?: 'season' | 'h2h';      // the season total, or weekly head-to-head matchups (migration 118)   // what the league uses beyond the game (src/lib/features.ts)
 }
 
 export interface Team {

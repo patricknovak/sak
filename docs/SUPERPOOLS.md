@@ -148,7 +148,11 @@ The steps above finish the tenancy. `docs/MARKET.md` sets what comes after in th
     its point weights. *Rotisserie done (migration 117, October 2026):* `league_rules.categories` (null for a points league),
     `category_standings()` ranks every team in each category on its started players' season totals, the Standings page and
     Home show the category table, and the commissioner switches between points and rotisserie on the Commish page.
-    Head-to-head categories (weekly matchups) are next; Garry's standings answers still read points.
+    *Head-to-head done (migration 118):* `league_rules.format` ('season', SaK's, or 'h2h'), a `matchups` schedule the
+    commissioner makes (a round robin over the regular season's Monday-to-Sunday weeks, a bye for an odd count),
+    `h2h_scores()` and `h2h_standings()` (wins, losses, ties, then points for), shown on Standings and Home with the week's
+    matchups live. Next: head-to-head categories and a head-to-head playoff bracket; Garry's standings answers still read
+    points.
 9. **Import with history** from Fantrax, ESPN and CBS (Yahoo exists).
 10. **Contracts, caps, prospect slots and rookie drafts**; guillotine and best ball formats.
 11. **The Supercoin.** An account-level wallet, the SaK coin ledger migrated onto it, per-pool allowances, the
