@@ -2476,3 +2476,26 @@ select pg_temp.expect('an open seat''s pick comes in seconds, a GM''s gets the f
   join teams t on t.id = p.team_id where d.league_id = :league5));
 select set_config('request.jwt.claim.sub', '', false);
 select 'a new league''s path to its draft', true;
+
+-- ───────────── drafts and keepers join the prediction log ─────────────
+reset role;
+update league_rules set season_end = today_et() + 180 where league_id = :league5;
+do $$ declare i int; lid int := (select id from leagues where slug = 'rink'); begin
+  for i in 1..80 loop
+    update draft_state set deadline = now() - interval '1 second' where league_id = lid and status = 'live';
+    perform draft_tick();
+  end loop; end $$;
+select pg_temp.expect('the rink''s draft runs to the end', (select status from draft_state where league_id = :league5) = 'done');
+select pg_temp.expect('every team''s draft class is forecast', (select count(*) from predictions where league_id = :league5 and kind = 'draft_value') = 3
+  and (select bool_and(jsonb_array_length(subject->'players') = (select draft_rounds from league_rules where league_id = :league5)) from predictions where league_id = :league5 and kind = 'draft_value')
+  and (select bool_and(status = 'open' and resolves_on = today_et() + 180) from predictions where league_id = :league5 and kind = 'draft_value'));
+select pg_temp.expect('a new league kept nobody, so no keeper forecast', not exists (select 1 from predictions where league_id = :league5 and kind = 'keeper_value'));
+-- at the season's end, each class is scored on what its players did, whoever they play for by then
+update predictions set resolves_on = today_et() - 1 where league_id = :league5 and kind = 'draft_value';
+select set_config('app.league_id', :league5::text, false);
+select score_predictions();
+select set_config('app.league_id', '', false);
+select pg_temp.expect('and scored once the season is done', (select bool_and(status = 'scored' and outcome is not null and error = outcome - predicted) from predictions where league_id = :league5 and kind = 'draft_value'));
+select pg_temp.expect('nobody else''s draft is touched', not exists (select 1 from predictions where kind = 'draft_value' and league_id not in (1, :league5)));
+select set_config('request.jwt.claim.sub', '', false);
+select 'drafts and keepers join the prediction log', true;

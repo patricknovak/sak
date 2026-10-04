@@ -18,6 +18,10 @@ interface Cal { kind: string; bucket: number; n: number; expected: number; happe
 interface Open { kind: string; status: string; n: number }
 
 const KINDS: Record<string, string> = { winner: 'Who wins', ot: 'Goes to overtime', total: 'Over / under', prop: 'Player props', race: 'Races', season: 'Season markets' };
+const WAIT: Record<string, string> = {
+  player_night: 'Player nights', trade_value: 'Trade forecasts (scored at the regular season’s end)',
+  draft_value: 'Draft classes (scored at the regular season’s end)', keeper_value: 'Keepers (scored at the regular season’s end)',
+};
 const pct = (x: number) => `${Math.round(Number(x) * 100)}%`;
 const f1 = (x: number) => (Math.round(Number(x) * 10) / 10).toFixed(1);
 const signed = (x: number) => `${Number(x) > 0 ? '+' : ''}${f1(x)}`;
@@ -123,7 +127,7 @@ export default function Calibration() {
         <div className="card divide-y divide-white/[.06]">
           {open.length ? open.sort((a, b) => a.kind.localeCompare(b.kind)).map((o) => (
             <div key={o.kind + o.status} className="flex items-center justify-between px-3 py-2 text-sm">
-              <span className="text-slate-200">{o.kind === 'player_night' ? 'Player nights' : o.kind === 'trade_value' ? 'Trade forecasts (scored at the regular season’s end)' : o.kind}</span>
+              <span className="text-slate-200">{WAIT[o.kind] ?? o.kind}</span>
               <span className="num text-mute">{o.n} {o.status}</span>
             </div>
           )) : <div className="px-3 py-3 text-sm text-mute">Nothing logged yet.</div>}
