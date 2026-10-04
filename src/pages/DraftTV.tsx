@@ -1,6 +1,7 @@
 // Draft night on the big screen: cast this tab to the TV. No site chrome, a huge clock, the full board,
 // the last picks on a ticker, and a horn every time a pick lands.
 import { useEffect, useMemo, useState } from 'react';
+import { useBrand } from '../lib/brand';
 import { Link } from 'react-router-dom';
 import { useLeague, useNow } from '../lib/store';
 import { countdown, fmtPts, readable } from '../lib/format';
@@ -11,6 +12,7 @@ import { Maximize2, X } from 'lucide-react';
 import { LeagueMark } from '../components/Brand';
 
 export default function DraftTV() {
+  const brand = useBrand();
   const { league, teams, spectators, team, players, rosters, picks, draft, online } = useLeague();
   const now = useNow(500);
   const on = useSoundsOn(true);
@@ -48,7 +50,7 @@ export default function DraftTV() {
         <div className="flex items-center gap-6">
           <LeagueMark size={56} className="drop-shadow-[0_6px_16px_rgb(var(--gold-rgb)/.45)]" />
           <div className="min-w-0">
-            <div className="h-display text-3xl leading-none"><span className="text-gold-shine italic">SAK</span> <span className="text-shine">Superleague Draft · {season}</span></div>
+            <div className="h-display text-3xl leading-none"><span className="text-gold-shine italic">{brand.wordmark.a}</span> <span className="text-shine">{brand.wordmark.b} Draft · {season}</span></div>
             <div className="mt-1 text-sm text-white/60">{league?.pick_seconds}s clock · {rounds} rounds · {league?.snake ? 'snake' : 'straight'} · {teams.filter((t) => online.has(t.id)).length} GMs{spectators.some((t) => online.has(t.id)) ? ` and ${spectators.filter((t) => online.has(t.id)).length} watching` : ''} in the room</div>
           </div>
           <div className="flex-1" />

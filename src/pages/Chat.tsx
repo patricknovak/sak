@@ -1,10 +1,12 @@
 import { useSearchParams } from 'react-router-dom';
+import { useBrand } from '../lib/brand';
 import { useLeague } from '../lib/store';
 import { ChatPanel } from '../components/ChatPanel';
 import { useUnread } from '../components/Layout';
 import { TeamBadge } from '../components/ui';
 
 export default function Chat() {
+  const brand = useBrand();
   const { me, teams, spectators, online, can } = useLeague();
   const [params, setParams] = useSearchParams();
   const channel = params.get('c') ?? 'all';
@@ -14,7 +16,7 @@ export default function Chat() {
     { c: 'all', label: '💬 All' },
     { c: 'general', label: '🔥 Trash Talk' },
     { c: 'draft', label: '📋 Draft' },
-    ...(me ? [{ c: `garry:${me.id}`, label: '🎙️ Ask Garry' }] : []),
+    ...(me ? [{ c: `garry:${me.id}`, label: `${brand.bot.emoji} Ask ${brand.bot.name}` }] : []),
     ...(can('dm') ? [...teams, ...spectators].filter((t) => t.id !== me?.id).map((t) => ({ c: dm(t.id), label: t.gm_name, team: t })) : []),
   ];
   const cur = channels.find((x) => x.c === channel);

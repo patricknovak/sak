@@ -1,6 +1,7 @@
 // Commissioner's system status: the scheduled jobs, the score sync, Garry, and anything the half-hourly
 // health check would have flagged (it also sends the commissioner a notification when something breaks).
 import { useEffect, useState } from 'react';
+import { useBrand } from '../lib/brand';
 import { rpc } from '../lib/supabase';
 import { ago } from '../lib/format';
 import { Section } from './ui';
@@ -16,6 +17,7 @@ const NAMES: Record<string, string> = {
 };
 
 export function HealthPanel() {
+  const brand = useBrand();
   const now = useNow(30_000);
   const [h, setH] = useState<Health | null>(null);
   const [err, setErr] = useState<string | null>(null);
@@ -42,7 +44,7 @@ export function HealthPanel() {
             {h.issues.length > 0 && <ul className="mt-2 space-y-1 text-sm text-red-200">{h.issues.map((i) => <li key={i}>⚠️ {i}</li>)}</ul>}
             <div className="mt-3 grid grid-cols-2 gap-1.5 text-xs sm:grid-cols-4">
               {[
-                ['Score sync OK', when(h.scores_ok_at)], ['Garry’s morning post', when(h.daily_ok_at)], ['Last box-score row', when(h.last_score_row)], ['Last bot post', when(h.last_bot_post)],
+                ['Score sync OK', when(h.scores_ok_at)], [`${brand.bot.name}’s morning post`, when(h.daily_ok_at)], ['Last box-score row', when(h.last_score_row)], ['Last bot post', when(h.last_bot_post)],
                 ['Games today', String(h.games_today ?? 0)], ['Errors (30 min)', String(h.errors_30m ?? 0)], ['Phase', h.phase], ['Database clock', new Date(h.db_time).toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' })],
               ].map(([k, v]) => <div key={k} className="rounded-lg bg-white/[.04] px-2 py-1.5"><div className="text-[10px] text-mute">{k}</div><div className="font-semibold">{v}</div></div>)}
             </div>

@@ -1,10 +1,12 @@
 import { useEffect, useState } from 'react';
+import { useBrand } from '../lib/brand';
 import { BellRing, BellOff, Smartphone } from 'lucide-react';
 import { currentSubscription, disablePush, enablePush, isIOS, isStandalone, pushSupported, sendTestPush } from '../lib/push';
 import { useAction } from './ui';
 
 // "Turn on alerts" card: on-the-clock, trade offers, bets and @mentions straight to your phone
 export function PushCard({ compact, hideWhenOn }: { compact?: boolean; hideWhenOn?: boolean }) {
+  const brand = useBrand();
   const [on, setOn] = useState<boolean | null>(null);
   const { busy, run } = useAction();
   const supported = pushSupported();
@@ -28,7 +30,7 @@ export function PushCard({ compact, hideWhenOn }: { compact?: boolean; hideWhenO
           <div className="font-bold">{on ? 'Alerts are on for this device' : 'Get draft & trade alerts'}</div>
           <p className="mt-0.5 text-sm text-slate-300">
             {on ? 'You’ll get a buzz when you’re on the clock, get a trade offer, a bet challenge or an @mention.'
-              : iosNeedsInstall ? 'On iPhone: tap Share → “Add to Home Screen”, open SaK from your Home Screen, then turn alerts on here.'
+              : iosNeedsInstall ? `On iPhone: tap Share → “Add to Home Screen”, open ${brand.short} from your Home Screen, then turn alerts on here.`
               : !supported ? 'This browser can’t do push notifications. Try Chrome, Edge or Safari on your phone.'
               : 'Never miss your pick: a buzz on your phone when you’re on the clock, even with the site closed.'}
           </p>

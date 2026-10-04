@@ -129,7 +129,7 @@ export function Layout({ children }: { children: ReactNode }) {
     }
   }, [myTurn, current]);
   useEffect(() => {
-    document.title = myTurn ? `⏰ YOUR PICK · ${countdown(remaining)}` : 'SAK Superleague';
+    document.title = myTurn ? `⏰ YOUR PICK · ${countdown(remaining)}` : league?.league_id === 1 || !league ? 'SAK Superleague' : league.name;
   }, [myTurn, Math.floor(remaining / 1000)]);
 
   // any open client keeps the draft clock honest (the server double-checks the deadline)
