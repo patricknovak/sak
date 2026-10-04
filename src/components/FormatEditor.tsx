@@ -30,12 +30,12 @@ export function FormatEditor() {
       <div className="label">The format</div>
       <div className="grid grid-cols-2 gap-1 rounded-full bg-white/[.05] p-1">
         {([['season', '📈 Season total'], ['h2h', '⚔️ Head-to-head']] as const).map(([k, l]) => (
-          <button key={k} type="button" disabled={busy || (k === 'h2h' && roto) || league.format === k}
+          <button key={k} type="button" disabled={busy || league.format === k}
             onClick={() => confirm(k === 'h2h' ? 'Play weekly head-to-head matchups? Make the schedule next.' : 'Go back to one season-long total?') && run(async () => { await rpc('commish_set_format', { p_format: k }); await refresh(['league']); }, k === 'h2h' ? 'Head-to-head it is' : 'Season total it is')}
             className={`rounded-full px-3 py-2 text-sm font-semibold transition disabled:cursor-default ${(league.format ?? 'season') === k ? 'tab-on' : 'text-mute hover:text-slate-200 disabled:opacity-40'}`}>{l}</button>
         ))}
       </div>
-      <p className="text-xs text-mute">{h2h ? 'Each week (Monday to Sunday) every team plays one other; more points wins. The table is wins, losses and ties.' : 'Every point from opening night to the end of the regular season counts toward one table.'}{roto && ' Head-to-head plays for points: switch rotisserie off to use it.'}</p>
+      <p className="text-xs text-mute">{h2h ? `Each week (Monday to Sunday) every team plays one other; ${roto ? 'more categories won' : 'more points'} wins. The table is wins, losses and ties.` : roto ? 'Every team is ranked in each category over the whole season.' : 'Every point from opening night to the end of the regular season counts toward one table.'}</p>
       {h2h && (
         <div className="rounded-xl border border-white/10 bg-black/25 p-3 text-sm">
           {weeks?.n ? (

@@ -156,7 +156,11 @@ export async function answer(db: Db, question: string, askerTeam: number, opts: 
       const top3 = tbl.slice(0, 3).map((t) => `${t.rank}. ${byId.get(t.team_id)?.gm_name} ${t.w}-${t.l}-${t.t}`).join(', ');
       const mine = tbl.find((t) => t.team_id === askerTeam);
       const opp = m ? (m.home_team === askerTeam ? m.away_team : m.home_team) : null;
-      const vs = m && opp ? ` This week (${m.status === 'live' ? 'live' : 'starts ' + m.starts}): you ${f1(m.home_team === askerTeam ? m.home_pts : m.away_pts)}, ${byId.get(opp)?.gm_name} ${f1(m.home_team === askerTeam ? m.away_pts : m.home_pts)}.` : m ? ' You have the week off.' : '';
+      // a category league (migration 121) scores a week in categories won
+      const cats = !!league.categories?.length;
+      const sc = (v: any) => (cats ? String(Math.round(Number(v ?? 0))) : f1(v));
+      const unit = cats ? ' categories' : '';
+      const vs = m && opp ? ` This week (${m.status === 'live' ? 'live' : 'starts ' + m.starts}): you ${sc(m.home_team === askerTeam ? m.home_pts : m.away_pts)}${unit}, ${byId.get(opp)?.gm_name} ${sc(m.home_team === askerTeam ? m.away_pts : m.home_pts)}.` : m ? ' You have the week off.' : '';
       // the playoffs (migration 120): the asker's latest playoff game once they're on, else where the line sits
       const spots = Number(league.h2h_playoffs ?? 0);
       let po = '';
@@ -169,7 +173,7 @@ export async function answer(db: Db, question: string, askerTeam: number, opts: 
           const final = bracket.find((g) => g.round === rounds);
           const g = bracket.filter((x) => x.high_team === askerTeam || x.low_team === askerTeam).pop();
           const other = g && (g.high_team === askerTeam ? g.low_team : g.high_team);
-          const pts = (id: number) => f1(id === g.high_team ? g.high_pts : g.low_pts);
+          const pts = (id: number) => sc(id === g.high_team ? g.high_pts : g.low_pts);
           if (final?.status === 'final') po = ` ${byId.get(final.winner)?.gm_name} won the final${final.winner === askerTeam ? ': that’s you, champ' : ''}.`;
           else if (!g) po = ' You missed the playoffs; enjoy the view.';
           else if (g.status === 'bye') po = ` You had a bye through the ${name(g.round)}.`;

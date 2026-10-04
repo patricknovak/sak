@@ -2591,7 +2591,8 @@ select pg_temp.expect('the table counts the final weeks only', (select sum(w + l
 select set_config('app.league_id', '', false);
 set role authenticated;
 select pg_temp.raises('the schedule is fixed once a week has started', 'select commish_make_schedule()', 'once its first week starts');
-select pg_temp.raises('head-to-head plays for points for now', 'select commish_set_categories(array[''g'', ''a'', ''w''])', 'switch');
+select pg_temp.expect('head-to-head can play for categories', commish_set_categories(array['g', 'a', 'w']) = array['g', 'a', 'w']);
+select pg_temp.expect('and back to points', commish_set_categories(null) is null);
 reset role;
 select pg_temp.expect('SaK still plays the season total', (select format from league_rules where league_id = 1) = 'season' and not exists (select 1 from matchups where league_id = 1));
 select pg_temp.expect('the format change and the schedule are on the log', (select count(*) from commish_log where league_id = :h2h_league and action in ('commish_set_format', 'commish_make_schedule')) >= 2);
@@ -2639,6 +2640,38 @@ delete from matchups where league_id = :po_league;
 update league_rules set h2h_playoffs = 0 where league_id = :po_league;
 select set_config('request.jwt.claim.sub', '', false);
 select 'head-to-head playoffs', true;
+
+-- ───────────── head-to-head categories ─────────────
+reset role;
+-- read-only on SaK's scored nights (teams 2 and 5 started players earlier in this test); its categories go back after
+select 1 as hc_league, 2 as hc_a, 5 as hc_b, (today_et() - 30)::text as hc_from \gset
+select pg_temp.expect('the pairing has started players to count', (select count(*) from lineup_snapshots where team_id in (2, 5) and slot not in ('BN', 'IR') and date >= today_et() - 30) > 0);
+select set_config('app.league_id', :hc_league::text, false);
+-- a points league: a pairing's score is each side's started points over those days
+select pg_temp.expect('a points pairing is the weeks'' points', (select a_score = coalesce((select sum(points) from team_daily where team_id = :hc_a and date between :'hc_from' and today_et()), 0)
+  and b_score = coalesce((select sum(points) from team_daily where team_id = :hc_b and date between :'hc_from' and today_et()), 0) and cats is null
+  from _h2h_result(:hc_a, :hc_b, :'hc_from', today_et())));
+update league_rules set categories = array['g', 'a', 'pim', 'sog', 'w', 'gaa', 'svp'] where league_id = :hc_league;
+create temp table hc as select * from _h2h_result(:hc_a, :hc_b, :'hc_from', today_et());
+select pg_temp.expect('a category pairing scores every category once', (select (select count(*) from jsonb_object_keys(cats)) = 7
+  and a_score + b_score + (select count(*) from jsonb_each(cats) e where e.value->>'win' = 'tie') = 7 from hc));
+select pg_temp.expect('and the counting found something', (select (cats->'sog'->>'a')::numeric + (cats->'sog'->>'b')::numeric > 0 from hc));
+select pg_temp.expect('a category''s value is the started players'' total', (select (cats->'g'->>'a')::numeric = coalesce((
+  select sum((pg.stats->>'g')::numeric) from lineup_snapshots s join player_games pg on pg.game_id = s.game_id and pg.player_id = s.player_id join games g on g.id = s.game_id
+  where s.team_id = :hc_a and s.slot not in ('BN', 'IR') and g.game_type = 2 and s.date between :'hc_from' and today_et()), 0) from hc));
+select pg_temp.expect('more goals wins goals, fewer against per start wins that', (select bool_and(case
+    when k = 'g' and (cats->k->>'a')::numeric > (cats->k->>'b')::numeric then cats->k->>'win' = 'a'
+    when k = 'g' and (cats->k->>'a')::numeric < (cats->k->>'b')::numeric then cats->k->>'win' = 'b'
+    when k = 'gaa' and (cats->k->>'a') is not null and (cats->k->>'b') is not null and (cats->k->>'a')::numeric < (cats->k->>'b')::numeric then cats->k->>'win' = 'a'
+    when k = 'gaa' and (cats->k->>'a') is not null and (cats->k->>'b') is not null and (cats->k->>'a')::numeric > (cats->k->>'b')::numeric then cats->k->>'win' = 'b'
+    else true end) from hc, jsonb_object_keys(cats) k));
+select pg_temp.expect('a bye counts nothing', (select a_score = 0 and b_score is null and cats is null from _h2h_result(:hc_a, null, :'hc_from', today_et())));
+drop table hc;
+update league_rules set categories = null where league_id = :hc_league;
+select set_config('app.league_id', '', false);
+select pg_temp.expect('SaK still plays for points', (select categories from league_rules where league_id = 1) is null);
+select set_config('request.jwt.claim.sub', '', false);
+select 'head-to-head categories', true;
 
 -- ───────────── how alive each league is ─────────────
 reset role;

@@ -155,7 +155,11 @@ The steps above finish the tenancy. `docs/MARKET.md` sets what comes after in th
     commissioner picks the playoff spots (none, or the top 2 to 8) with the schedule, which keeps the season's last weeks
     for the bracket (one a round); `h2h_bracket()` works the bracket out on read from the table and those weeks' points
     (byes for the top seeds when the field isn't a power of two, a tie to the higher seed), shown on Standings and Home with
-    a playoff line on the table and the champion on top. Next: head-to-head categories.
+    a playoff line on the table and the champion on top. *Head-to-head categories done (migration 121):* a head-to-head
+    league that picks categories plays each week for them: the two teams' started players are totalled in each category
+    (`_h2h_result`), whoever wins more categories wins the week (and the playoff meeting), categories won break ties on
+    the table, and each matchup opens category by category. Next: the each-category variant (every category a win or a
+    loss on the table) if a league asks for it.
 9. **Import with history** from Fantrax, ESPN and CBS (Yahoo exists).
 10. **Contracts, caps, prospect slots and rookie drafts**; guillotine and best ball formats.
 11. **The Supercoin.** An account-level wallet, the SaK coin ledger migrated onto it, per-pool allowances, the

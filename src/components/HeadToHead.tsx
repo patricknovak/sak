@@ -3,11 +3,14 @@ import { useLeague } from '../lib/store';
 import { rpc } from '../lib/supabase';
 import { fmtPts } from '../lib/format';
 import { useBrand } from '../lib/brand';
+import { categoryOf, fmtCat } from '../lib/categories';
 import { Rank, Section, TeamBadge } from './ui';
 
 // A head-to-head league (migration 118): each week every team meets one other and the higher started-player points
 // win. The table is wins, losses and ties, then points for; the week's matchups show live.
-export interface Matchup { id: number; week: number; starts: string; ends: string; home_team: number; away_team: number | null; home_pts: number; away_pts: number | null; status: 'upcoming' | 'live' | 'final' }
+export interface Matchup { id: number; week: number; starts: string; ends: string; home_team: number; away_team: number | null; home_pts: number; away_pts: number | null; status: 'upcoming' | 'live' | 'final';
+  // a category league (migration 121): the scores are categories won, and each category's values and winner
+  cats?: Record<string, { a: number | null; b: number | null; win: 'a' | 'b' | 'tie' }> | null }
 export interface H2HRow { team_id: number; w: number; l: number; t: number; pf: number; pa: number; rank: number }
 // a playoff meeting (migration 120): worked out on read from the table and the weeks' points
 export interface BracketGame {
@@ -15,6 +18,13 @@ export interface BracketGame {
   low_seed: number | null; low_team: number | null; high_pts: number | null; low_pts: number | null;
   status: 'upcoming' | 'live' | 'final' | 'bye'; winner: number | null; seeded: boolean;
 }
+
+// a category league's scores are categories won, whole numbers; a points league's are fantasy points
+const useScore = () => {
+  const { league } = useLeague();
+  const cat = !!league?.categories?.length;
+  return { cat, score: (v: number | null | undefined) => (cat ? String(Math.round(Number(v ?? 0))) : fmtPts(Number(v ?? 0))) };
+};
 
 const day = (d: string) => new Date(d + 'T12:00:00').toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
 
@@ -46,6 +56,7 @@ const meetingName = (r: number, of: number) => ['final', 'semifinal', 'quarterfi
 // one playoff meeting: the higher seed on top, the winner in gold, a bye as a week off
 export function BracketCard({ g, all }: { g: BracketGame; all: BracketGame[] }) {
   const { team, me } = useLeague();
+  const { score } = useScore();
   // a side not decided yet: the winner of the meeting that feeds it
   const feeders = all.filter((x) => x.round === g.round - 1 && (x.slot === g.slot * 2 - 1 || x.slot === g.slot * 2)).filter((x) => x.winner == null);
   const of = Math.max(...all.map((x) => x.round));
@@ -59,7 +70,7 @@ export function BracketCard({ g, all }: { g: BracketGame; all: BracketGame[] }) 
         <span className="num w-5 shrink-0 text-center text-[11px] font-bold text-mute">{seed ?? ''}</span>
         {t ? <TeamBadge team={t} size={26} /> : <span className="h-[26px] w-[26px] shrink-0 rounded-full border border-dashed border-white/20" />}
         <span className={`min-w-0 flex-1 break-words text-sm font-bold leading-tight ${t ? (t.id === me?.id ? 'text-gold' : 'text-slate-100') : 'font-medium text-mute'}`}>{t?.name ?? fallback}</span>
-        {(g.status === 'live' || g.status === 'final') && <span className={`num font-display text-lg font-extrabold leading-none ${won ? 'text-gold' : 'text-white'}`}>{fmtPts(Number(pts ?? 0))}</span>}
+        {(g.status === 'live' || g.status === 'final') && <span className={`num font-display text-lg font-extrabold leading-none ${won ? 'text-gold' : 'text-white'}`}>{score(pts)}</span>}
         {won && <span className="text-xs" aria-label="through">✓</span>}
       </div>
     );
@@ -120,14 +131,17 @@ export function Bracket({ games, spots }: { games: BracketGame[]; spots: number 
 }
 
 export function MatchupCard({ x }: { x: Matchup }) {
-  const { team, me } = useLeague();
+  const { team, me, league } = useLeague();
+  const { cat, score } = useScore();
+  const [open, setOpen] = useState(false);
   const side = (id: number | null, pts: number | null, won: boolean) => {
     const t = id ? team(id) : undefined;
     return (
       <div className={`flex min-w-0 flex-1 flex-col items-center gap-1 rounded-xl px-2 py-2 text-center ${won ? 'bg-gold/10 ring-1 ring-gold/40' : ''}`}>
         {t ? <TeamBadge team={t} size={36} /> : <span className="grid h-9 w-9 place-items-center rounded-full bg-white/10">💤</span>}
         <div className={`w-full break-words text-xs font-bold leading-tight ${t?.id === me?.id ? 'text-gold' : 'text-slate-100'}`}>{t?.name ?? 'Bye'}</div>
-        {t && <div className={`num font-display text-2xl font-extrabold leading-none ${won ? 'text-gold' : 'text-white'}`}>{x.status === 'upcoming' ? '–' : fmtPts(Number(pts ?? 0))}</div>}
+        {t && <div className={`num font-display text-2xl font-extrabold leading-none ${won ? 'text-gold' : 'text-white'}`}>{x.status === 'upcoming' ? '–' : score(pts)}</div>}
+        {t && cat && x.status !== 'upcoming' && <div className="text-[9px] font-bold uppercase tracking-wider text-mute">categories</div>}
       </div>
     );
   };
@@ -145,16 +159,38 @@ export function MatchupCard({ x }: { x: Matchup }) {
       ) : (
         <div className="flex items-stretch gap-1">{side(x.home_team, x.home_pts, homeWon)}<div className="self-center px-1 text-xs font-bold text-mute">vs</div>{side(x.away_team, x.away_pts, awayWon)}</div>
       )}
+      {cat && x.cats && x.away_team != null && x.status !== 'upcoming' && (
+        <>
+          <button type="button" onClick={() => setOpen(!open)} className="mt-1 w-full rounded-lg py-1 text-[11px] font-semibold text-sky-300 hover:bg-white/[.04]">
+            {open ? 'Hide the categories' : `Category by category${(() => { const t = Object.values(x.cats).filter((c) => c.win === 'tie').length; return t ? ` · ${t} tied` : ''; })()}`}
+          </button>
+          {open && (
+            <div className="mt-1 divide-y divide-white/[.05] rounded-lg bg-black/20 text-sm">
+              {(league?.categories ?? Object.keys(x.cats)).filter((k) => x.cats![k]).map((k) => {
+                const c = x.cats![k];
+                return (
+                  <div key={k} className="grid grid-cols-[1fr_auto_1fr] items-center gap-2 px-3 py-1.5">
+                    <span className={`num text-right ${c.win === 'a' ? 'font-bold text-gold' : 'text-slate-300'}`}>{fmtCat(k, c.a)}</span>
+                    <span className="w-16 text-center text-[10px] font-bold uppercase tracking-wider text-mute" title={categoryOf(k)?.label}>{categoryOf(k)?.short ?? k}</span>
+                    <span className={`num ${c.win === 'b' ? 'font-bold text-gold' : 'text-slate-300'}`}>{fmtCat(k, c.b)}</span>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </>
+      )}
     </div>
   );
 }
 
 export function H2HTable({ rows, cut = 0 }: { rows: H2HRow[]; cut?: number }) {
   const { team, me } = useLeague();
+  const { cat, score } = useScore();
   return (
     <div className="card overflow-hidden">
       <div className="grid grid-cols-[1.5rem_1fr_auto_auto] items-center gap-x-3 border-b border-white/[.06] px-3 py-2 text-[11px] font-semibold uppercase tracking-wide text-mute">
-        <span>#</span><span>Team</span><span className="text-right">W-L-T</span><span className="w-14 text-right">PF</span>
+        <span>#</span><span>Team</span><span className="text-right">W-L-T</span><span className="w-14 text-right" title={cat ? 'Categories won' : 'Points for'}>{cat ? 'Cats' : 'PF'}</span>
       </div>
       {rows.map((r, i) => {
         const t = team(r.team_id);
@@ -169,7 +205,7 @@ export function H2HTable({ rows, cut = 0 }: { rows: H2HRow[]; cut?: number }) {
             <Rank n={r.rank} />
             <span className="flex min-w-0 items-center gap-2">{t && <TeamBadge team={t} size={26} />}<span className="min-w-0 break-words text-sm font-bold">{t?.name}</span></span>
             <span className="num text-right font-display text-lg font-extrabold">{r.w}-{r.l}-{r.t}</span>
-            <span className="num w-14 text-right text-sm text-slate-300">{fmtPts(Number(r.pf))}</span>
+            <span className="num w-14 text-right text-sm text-slate-300">{score(r.pf)}</span>
           </div>
           </div>
         );
@@ -181,6 +217,7 @@ export function H2HTable({ rows, cut = 0 }: { rows: H2HRow[]; cut?: number }) {
 export function HeadToHeadStandings() {
   const { matchups, rows, week, bracket, spots, playoffsOn } = useH2H();
   const { me } = useLeague();
+  const { cat } = useScore();
   const [showAll, setShowAll] = useState(false);
   if (!matchups || !rows) return <div className="card h-48 animate-pulse" />;
   if (!matchups.length) return <div className="card p-4 text-sm text-mute">The schedule isn’t made yet. The commissioner makes it on the Commish page.</div>;
@@ -196,7 +233,7 @@ export function HeadToHeadStandings() {
       )}
       <Section title={playoffsOn ? 'The regular season' : 'The table'}>
         <H2HTable rows={rows} cut={Math.min(spots, rows.length)} />
-        <p className="mt-1 px-1 text-[11px] text-mute">A win is worth one, a tie a half; points for break ties. Each week runs Monday to Sunday.{spots >= 2 && ` The top ${spots} make the playoffs.`}</p>
+        <p className="mt-1 px-1 text-[11px] text-mute">{cat ? 'Win more of the categories to win the week. ' : ''}A win is worth one, a tie a half; {cat ? 'categories won' : 'points for'} break ties. Each week runs Monday to Sunday.{spots >= 2 && ` The top ${spots} make the playoffs.`}</p>
       </Section>
       {!playoffsOn && playoffs}
       {mine.length > 0 && (
