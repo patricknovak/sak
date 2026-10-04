@@ -1,5 +1,6 @@
 // The Yahoo sign-in pieces shared by the Yahoo leagues page, the profile and the app shell.
 import { useCallback, useEffect, useState } from 'react';
+import { useBrand } from '../lib/brand';
 import { Link, useNavigate } from 'react-router-dom';
 import { LogOut } from 'lucide-react';
 import { useLeague } from '../lib/store';
@@ -31,6 +32,7 @@ export function useYahooStatus() {
 }
 
 export function ConnectYahoo({ st, onChange, compact }: { st: YStatus | null; onChange: () => void; compact?: boolean }) {
+  const brand = useBrand();
   const { me } = useLeague();
   const { busy, run } = useAction();
   if (!st) return <p className="text-sm text-mute">Couldn’t reach the Yahoo connector right now.</p>;
@@ -53,13 +55,13 @@ export function ConnectYahoo({ st, onChange, compact }: { st: YStatus | null; on
       <div className="flex flex-wrap items-center gap-2 text-sm">
         <YahooMark /> <span>Yahoo connected{st.since ? ` since ${new Date(st.since).toLocaleDateString()}` : ''}</span>
         {!compact && <Link to="/yahoo" className="btn btn-sm">Open my leagues</Link>}
-        <button className="btn btn-sm ml-auto" disabled={busy} onClick={() => { if (confirm('Disconnect Yahoo? SaK forgets your Yahoo sign-in; nothing changes on Yahoo.')) run(async () => { await yahoo('disconnect'); onChange(); }, 'Yahoo disconnected'); }}><LogOut size={14} /> Disconnect</button>
+        <button className="btn btn-sm ml-auto" disabled={busy} onClick={() => { if (confirm(`Disconnect Yahoo? ${brand.short} forgets your Yahoo sign-in; nothing changes on Yahoo.`)) run(async () => { await yahoo('disconnect'); onChange(); }, 'Yahoo disconnected'); }}><LogOut size={14} /> Disconnect</button>
       </div>
     );
   }
   return (
     <div className="space-y-2">
-      {!compact && <p className="text-sm text-mute">Sign in with Yahoo and every other Yahoo hockey league you play in or commission shows up here: standings, matchups, your lineup, pickups, trades and commissioner approvals, all from SaK. You sign in on Yahoo’s own page; SaK never sees your Yahoo password.</p>}
+      {!compact && <p className="text-sm text-mute">Sign in with Yahoo and every other Yahoo hockey league you play in or commission shows up here: standings, matchups, your lineup, pickups, trades and commissioner approvals, all from {brand.short}. You sign in on Yahoo’s own page; {brand.short} never sees your Yahoo password.</p>}
       <button className="btn inline-flex items-center gap-2 bg-[#6001d2] text-white hover:bg-[#7a2df0]" disabled={busy} onClick={() => run(async () => { const { url } = await yahoo<{ url: string }>('auth_url'); window.location.href = url; })}>
         <YahooMark size={20} /> Sign in with Yahoo
       </button>

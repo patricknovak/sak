@@ -4,6 +4,7 @@
 // inside another site's page, so the side window is as close as it gets. The Yahoo API connection stays
 // here as an optional extra for read-only views inside SaK.
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useBrand } from '../lib/brand';
 import { Link } from 'react-router-dom';
 import { ExternalLink, GripVertical, Pencil, Plus, RefreshCw, Trash2 } from 'lucide-react';
 import { useLeague } from '../lib/store';
@@ -32,6 +33,7 @@ function ProviderMark({ p, size = 28 }: { p?: typeof PROVIDERS[number]; size?: n
 }
 
 export default function Yahoo() {
+  const brand = useBrand();
   const { me } = useLeague();
   const { busy, run } = useAction();
   const [links, setLinks] = useState<PoolLink[] | null>(null);
@@ -61,7 +63,7 @@ export default function Yahoo() {
 
   return (
     <div className="space-y-5">
-      <PageHeader icon={<span className="text-2xl">🏒</span>} title="My pools" sub="Every other pool you play in, one tap from SaK"
+      <PageHeader icon={<span className="text-2xl">🏒</span>} title="My pools" sub={`Every other pool you play in, one tap from ${brand.short}`}
         right={<button className="btn-primary btn-sm" onClick={() => setEditing({ label: '', url: '' })}><Plus size={14} /> Add a pool</button>} />
 
       <Section title="Quick open">
@@ -73,8 +75,8 @@ export default function Yahoo() {
           ))}
         </div>
         <p className="mt-1.5 px-1 text-xs text-mute">
-          {desktop ? 'Opens in the SaK side window, beside the site, and stays signed in between visits. ' : standalone ? 'Opens in SaK’s in-app browser; swipe it away to come back. ' : 'Opens in a new tab. Add SaK to your Home Screen and it opens inside the app instead. '}
-          Yahoo, ESPN and the rest won’t load inside another site’s page (their own security rule), so the window is as close as it gets. You sign in on their page; SaK never sees those passwords.
+          {desktop ? `Opens in the ${brand.short} side window, beside the site, and stays signed in between visits. ` : standalone ? `Opens in ${brand.short}’s in-app browser; swipe it away to come back. ` : `Opens in a new tab. Add ${brand.short} to your Home Screen and it opens inside the app instead. `}
+          Yahoo, ESPN and the rest won’t load inside another site’s page (their own security rule), so the window is as close as it gets. You sign in on their page; {brand.short} never sees those passwords.
         </p>
       </Section>
 
@@ -121,6 +123,7 @@ export default function Yahoo() {
 
 // the Yahoo API connection: optional, read-only views inside SaK for the Yahoo leagues you're in
 function YahooApi() {
+  const brand = useBrand();
   const { st, reload } = useYahooStatus();
   const [open, setOpen] = useState(false);
   const [leagues, setLeagues] = useState<YLeague[] | null>(null);
@@ -133,7 +136,7 @@ function YahooApi() {
   useEffect(() => { if (st?.connected && (open || true)) load(); }, [st?.connected, open, load]);
   useEffect(() => { if (st?.connected) setOpen(true); }, [st?.connected]);
   return (
-    <Section icon={<YahooMark size={18} />} title="Yahoo inside SaK (optional)" right={st?.connected ? <button className="btn btn-sm" onClick={load} disabled={busy} aria-label="Refresh"><RefreshCw size={14} className={busy ? 'animate-spin' : ''} /></button> : <button className="text-xs text-sky-300" onClick={() => setOpen(!open)}>{open ? 'Hide' : 'Show'}</button>}>
+    <Section icon={<YahooMark size={18} />} title={`Yahoo inside ${brand.short} (optional)`} right={st?.connected ? <button className="btn btn-sm" onClick={load} disabled={busy} aria-label="Refresh"><RefreshCw size={14} className={busy ? 'animate-spin' : ''} /></button> : <button className="text-xs text-sky-300" onClick={() => setOpen(!open)}>{open ? 'Hide' : 'Show'}</button>}>
       {!open && !st?.connected && <p className="px-1 text-xs text-mute">Sign in with Yahoo and your Yahoo leagues show up here with standings, matchups and rosters read straight from Yahoo. Managing (lineups, pickups, trades) still happens in the Yahoo window above.</p>}
       {open && (
         <div className="space-y-2">

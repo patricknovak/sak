@@ -243,7 +243,7 @@ export default function Commish() {
             {['fine', 'entry', 'sak', 'prize', 'other'].map((k) => <option key={k}>{k}</option>)}
           </select>
           <input className="input" inputMode="decimal" placeholder="$" value={fine.amount} onChange={(e) => setFine({ ...fine, amount: e.target.value })} />
-          <input className="input sm:col-span-3" placeholder="e.g. Marchand 2-game suspension (Get SaK'ed)" value={fine.desc} onChange={(e) => setFine({ ...fine, desc: e.target.value })} />
+          <input className="input sm:col-span-3" placeholder="e.g. Marchand 2-game suspension" value={fine.desc} onChange={(e) => setFine({ ...fine, desc: e.target.value })} />
           <button className="btn-primary sm:col-span-3" disabled={!fine.team || !fine.amount || !fine.desc || busy}
             onClick={() => run(async () => { await rpc('commish_ledger', { p_team: Number(fine.team), p_kind: fine.kind, p_amount: Number(fine.amount), p_desc: fine.desc }); setFine({ team: '', kind: 'fine', amount: '', desc: '' }); }, 'Added to the ledger')}>Add to ledger</button>
           <p className="text-xs text-mute sm:col-span-3">Fines are announced in Trash Talk. Mark items paid on the League → Money page.</p>
