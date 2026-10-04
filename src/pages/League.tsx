@@ -10,6 +10,7 @@ import { Section, Sheet, useAction, PageHeader } from '../components/ui';
 import { Landmark } from 'lucide-react';
 import { PromoVideo } from '../components/PromoVideo';
 import { commishAction } from '../lib/commishLog';
+import { Constitution } from '../components/Constitution';
 
 type Tab = 'history' | 'rules' | 'money' | 'votes' | 'log';   // money moved to its own page (/money)
 
@@ -169,17 +170,9 @@ function History() {
 
 function Rules() {
   const { league } = useLeague();
-  const { rules: RULES } = useHistory();
   return (
     <div className="space-y-4">
-      <div className="grid gap-3 sm:grid-cols-2">
-        {RULES.map((r) => (
-          <div key={r.title} className="card p-4">
-            <h3 className="h-display text-lg">{r.title}</h3>
-            <ul className="mt-2 space-y-1.5 text-sm text-slate-300">{r.items.map((i) => <li key={i} className="flex gap-2"><span className="text-goal">•</span><span>{i}</span></li>)}</ul>
-          </div>
-        ))}
-      </div>
+      <Constitution />
       {league && (
         <Section title="Scoring">
           <div className="grid gap-3 sm:grid-cols-2">

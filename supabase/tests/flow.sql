@@ -2327,6 +2327,28 @@ select pg_temp.expect('a SaK GM reads only SaK''s', not exists (select 1 from co
 reset role;
 select set_config('request.jwt.claim.sub', '', false);
 select 'the commissioner''s log', true;
+
+-- ───────────── the league's constitution ─────────────
+reset role;
+select count(*) as sak_rules from league_rule_text where league_id = 1 \gset
+select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-000000000099', false);
+set role authenticated;
+select pg_temp.expect('the north''s commissioner writes the league''s rules', commish_set_rules(
+  '[{"title": "Conduct", "items": ["Chirp the GM, never the person.", "  ", "Pay on time."]}, {"title": "", "items": []}, {"title": "Trades", "items": ["No trades between two teams out of the race."]}]'::jsonb) = 2);
+select pg_temp.expect('in order, empty lines dropped', (select array_agg(title order by sort) from league_rule_text) = array['Conduct', 'Trades']
+  and (select items from league_rule_text where title = 'Conduct') = array['Chirp the GM, never the person.', 'Pay on time.']);
+select pg_temp.raises('two sections can''t share a name', 'select commish_set_rules(''[{"title": "A", "items": ["x"]}, {"title": "A", "items": ["y"]}]''::jsonb)', 'Two sections');
+select pg_temp.raises('a section with rules needs a title', 'select commish_set_rules(''[{"title": " ", "items": ["x"]}]''::jsonb)', 'needs a title');
+reset role;
+select pg_temp.expect('a refused change leaves the rules as they were', (select count(*) from league_rule_text where league_id = :league2) = 2);
+select pg_temp.expect('it is on the commissioner''s log', exists (select 1 from commish_log where league_id = :league2 and action = 'commish_set_rules'));
+select pg_temp.expect('SaK''s rules are untouched', (select count(*) from league_rule_text where league_id = 1) = :sak_rules);
+select pg_temp.as_team(2);
+set role authenticated;
+select pg_temp.raises('a GM can''t rewrite the rules', 'select commish_set_rules(''[]''::jsonb)', 'Commissioner only');
+reset role;
+select set_config('request.jwt.claim.sub', '', false);
+select 'the league''s constitution', true;
 -- ───────────── commissioner tools: co-commissioners and a handover ─────────────
 reset role;
 select id as hand_seat from teams where league_id = :league2 and gm_name = 'Nora Newcomer' \gset

@@ -176,7 +176,10 @@ The steps above finish the tenancy. `docs/MARKET.md` sets what comes after in th
     and commissioners).
     *The audit trail done (migration 110, October 2026):* every
     commissioner power passes `_commish()`, which now writes a line to `commish_log` (who, what, when; once per
-    action) for the ones that change the league; every GM reads their league's log on the League page (Commish log).
+    action) for the ones that change the league; every GM reads their league's log on the League page (Commish log). *The constitution page done (migration 111):* the
+    League page's Rules tab shows the rules that are settings straight from the settings, then the league's own rules,
+    which its commissioner writes and edits there (`commish_set_rules`, on the log; a new league starts from a few
+    suggested ones).
 13. **The sport pulled out of the engine**: a `sports` table, per-sport player, game and stat shapes and
     scoring vocabularies, a sync per sport; the NHL becomes one row. Prerequisite for soccer, basketball and
     the multi-sport pool.
