@@ -79,9 +79,9 @@ export function Empty({ icon = '🏒', title, children }: { icon?: ReactNode; ti
   );
 }
 
-export function Section({ title, right, children, className = '', icon }: { title: ReactNode; right?: ReactNode; children: ReactNode; className?: string; icon?: ReactNode }) {
+export function Section({ title, right, children, className = '', icon, id }: { title: ReactNode; right?: ReactNode; children: ReactNode; className?: string; icon?: ReactNode; id?: string }) {
   return (
-    <section className={className}>
+    <section id={id} className={`${id ? 'scroll-mt-20' : ''} ${className}`}>
       <div className="mb-2.5 flex items-center justify-between gap-2 px-1">
         <h2 className="h-display flex items-center gap-2 text-lg text-slate-100">
           {icon ?? <span className="accent-bar h-4 w-1 rounded-full" />}

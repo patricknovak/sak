@@ -16,7 +16,7 @@ import { GarryShaper } from '../components/GarryShaper';
 import { useBrand } from '../lib/brand';
 import { Link } from 'react-router-dom';
 import { LeagueIdentity } from '../components/LeagueIdentity';
-import { CommishReadiness } from '../components/Readiness';
+import { SetupGuide } from '../components/SetupGuide';
 
 // datetime-local <-> ISO in the viewer's zone
 const toLocal = (iso: string | null) => {
@@ -103,9 +103,9 @@ export default function Commish() {
         </div>
       )}
 
-      <CommishReadiness />
+      <SetupGuide />
 
-      <Section title="🎨 League identity">
+      <Section id="identity" title="🎨 League identity">
         <LeagueIdentity />
       </Section>
 
@@ -133,7 +133,7 @@ export default function Commish() {
         </div>
       </Section>
 
-      <Section title="🔒 Keepers">
+      <Section id="keepers" title="🔒 Keepers">
         <div className="card space-y-3 p-3">
           <div className="grid grid-cols-2 gap-1.5 sm:grid-cols-4">
             {teams.map((t) => <div key={t.id} className="flex items-center gap-2 rounded-lg bg-boards/60 px-2 py-1.5 text-sm"><TeamBadge team={t} size={20} />{t.gm_name}<span className="ml-auto">{t.keepers_submitted ? '✅' : '⏳'}</span></div>)}
@@ -147,7 +147,7 @@ export default function Commish() {
         {league?.phase === 'keepers' && <KeepersForTeam />}
       </Section>
 
-      <Section title="📋 Draft">
+      <Section id="draft" title="📋 Draft">
         <div className="card space-y-3 p-3">
           <div className="text-sm">Status: <span className="font-semibold">{status}</span>{draft?.order_set ? ' · order set' : ' · order not set'}</div>
           <div className="label">Draft order (round 1{league?.snake ? ', snakes back' : ''})</div>
@@ -185,11 +185,11 @@ export default function Commish() {
         </div>
       </Section>
 
-      <Section title="📐 Scoring settings">
+      <Section id="scoring" title="📐 Scoring settings">
         <ScoringEditor />
       </Section>
 
-      <Section title="⚙️ League settings">
+      <Section id="settings" title="⚙️ League settings">
         <div className="card grid gap-3 p-3 sm:grid-cols-2">
           <label className="text-xs text-mute">Phase
             <select className="input mt-1" value={s.phase} onChange={(e) => setS({ ...s, phase: e.target.value })}>
@@ -250,7 +250,7 @@ export default function Commish() {
         </div>
       </Section>
 
-      <Section title="☘️ St. Patrick coins">
+      <Section title={`${brand.coin.emoji} ${brand.coin.name}`}>
         <div className="card grid gap-2 p-3 sm:grid-cols-[1fr_120px]">
           <select className="input" value={coin.team} onChange={(e) => setCoin({ ...coin, team: e.target.value })}>
             <option value="">Team…</option>{teams.map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}
@@ -266,7 +266,7 @@ export default function Commish() {
         <GarryShaper />
       </Section>
 
-      <Section title="📨 Invite links">
+      <Section id="invites" title="📨 Invite links">
         <Invites />
       </Section>
 
