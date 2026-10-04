@@ -74,6 +74,11 @@ results of his own past calls, and what the wider pool knows.
 
 ## 5. The order of work from here
 
+**Reordered 4 October 2026 (Patrick): prediction pools and the Love Is Blind test come first, soccer next** (`docs/POOLS.md`,
+`docs/SUPERPOOLS.md` P1 to P5). The engine lands as migration 145 with its two-league flow-test section; the Love Is
+Blind pool opens before the 14 October premiere; soccer prediction pools follow on API-Football. The items below
+continue alongside: the shadow-league gate runs to 10 October, Cloudflare hosting finishes with the landing page.
+
 1. **Land B1 to B4.** Done 3 October 2026: migrations 81 to 94 live and verified, nhl-sync and Garry deployed, the
    site reads the league views (#81).
 2. **The delivery pipeline.** Test workflow (done), direct database access (`SUPABASE_ACCESS_TOKEN` in the cloud
@@ -119,8 +124,8 @@ results of his own past calls, and what the wider pool knows.
 7. **Phase 2, people can join** (under way: email sign-in with reset codes, invites, the join page and the switcher done
    3 October 2026, migrations 103 to 105; onboarding part 1, the Platform page, the readiness checklist, going live and
    the league identity editor, migration 106; league by host, migration 107; realtime and presence per league; phones,
-   migration 100; Garry's daily budget, migration 99). Left: Cloudflare hosting (decided 3 October
-   2026, built as Workers, waiting on the `CLOUDFLARE_API_TOKEN` and `CLOUDFLARE_ACCOUNT_ID` secrets).
+   migration 100; Garry's daily budget, migration 99). Cloudflare hosting (decided 3 October 2026, built as Workers): SaK live at
+   `sak.superpoolsai.com` on 4 October; the landing page moves with its redesign.
 8. **Pool intelligence** once a few leagues are playing, then the horizons in `docs/MARKET.md`.
 
 ## 6. The working method

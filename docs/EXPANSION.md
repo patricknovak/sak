@@ -348,10 +348,22 @@ centre's name in the nav, its page title and Home's link read `words.centre` ("N
 rules in its row (depth targets per position, a cap per position, flex spots, the goalie timing it now hard-codes),
 best designed beside a real second sport rather than guessed at.
 
-**Phase 4, the second sport.** Basketball on the daily (hockey) engine is the cheapest proof of the split, on a
-licensed feed; soccer follows with the weekly engine for 2027-28, as `docs/MARKET.md` lays out.
-*Gate:* one basketball league and SaK run side by side through a month with no sport-specific code outside
+**Phase 4, the second sport: soccer (reordered 4 October 2026, `docs/POOLS.md` section 7).** Soccer comes next, in two
+steps. First prediction pools on soccer, which need only fixtures and results: a `soccer` sports row (positions GK, DEF,
+MID, FWD; halves and extra time; a gameweek day boundary in the competition's time zone), the soccer adapter on
+API-Football into provider-neutral tables (`clubs`, fixtures in `games` with a `sport` and `(sport, ext_id)`, results),
+and gameweek, survivor and season questions on the prediction engine settled from results. Then soccer fantasy on the
+weekly engine: gameweeks as the lineup period, squads with a captain and transfers, FPL-style scoring through the
+sport's vocabulary, the Book's in-play model for two halves. Basketball moves after soccer, on the daily engine.
+*Gate:* a soccer prediction pool settles a month of gameweeks from the feed with no hand edits, and SaK's numbers do
+not move; then a soccer fantasy league and SaK run side by side through a month with no sport-specific code outside
 the adapter and the sports row.
+
+**Prediction leagues (4 October 2026).** A league has a kind: `fantasy` (rosters, a draft, games) or `predict`
+(questions only). A prediction league reuses teams as members' seats, the invites, the chat, the coin ledger, the brand
+and the voice settings, and none of the sport machinery; the site shows it its own home, questions, leaders and chat.
+The engine's tables (`pool_markets`, `pool_positions`, `pool_trades`, `pool_drops`) are league tables under the same
+tenancy rules; question packs (`pool_packs`) are shared, like the sports rows.
 
 ## 8. The new-league checklist
 

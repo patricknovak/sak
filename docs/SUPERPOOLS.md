@@ -1,4 +1,4 @@
-# Super Pools: AI-enhanced fantasy leagues
+# Super Pools: fantasy leagues and prediction pools for any group
 
 Super Pools is the product built from the SaK Superleague site. The SaK league is league 1, the model
 league, and keeps running on the same code and database while the product grows around it. This document is
@@ -7,13 +7,20 @@ the plan of record: what the product is, how leagues are separated, what is shar
 Domains: `superpoolsai.com` (primary) and `superpoolai.com` (redirects to the primary). The market, the
 competition and the road to every sport are in `docs/MARKET.md`; the words and the look in `docs/BRAND.md`.
 
-Hosting (decided by Patrick, 3 October 2026): **Cloudflare Pages** for both the league app and the landing page. It is
+**Direction (Patrick, 4 October 2026):** Super Pools becomes the Polymarket of pools: the interface of a prediction
+market (a price that reads as a probability, a chart that moves, comments, share cards) for private pools of any kind,
+sports first, in Supercoins with no money in or out, built for the long life of a group. Two doors on one engine:
+fantasy pools (hockey today, soccer next) and prediction pools for anything a group watches, tested first with a
+Love Is Blind pool aimed at women for Season 11 (premiere 14 October 2026). The research and the plan are in
+`docs/POOLS.md`.
+
+Hosting (decided by Patrick, 3 October 2026): **Cloudflare** (Workers serving static assets, the successor to Pages) for both the league app and the landing page. It is
 free for commercial use (Vercel's free tier is not, and Vercel Pro is $20 a month per member), the DNS for both domains
 is already on Cloudflare, and wildcard subdomains (`<league>.superpoolsai.com`) route to one deployment, which is what
-league-by-host needs. The move is in `docs/EXPANSION.md` (Phase 2, hosting); until it is done the app is on GitHub
-Pages from `main` and the landing page on Vercel.
+league-by-host needs. The move is in `docs/EXPANSION.md` (Phase 2, hosting). Since 4 October 2026 SaK is live at `sak.superpoolsai.com`
+on Cloudflare beside GitHub Pages, and the landing page moves to Cloudflare at `superpoolsai.com` with the redesign.
 
-Landing page today (until it moves to Cloudflare Pages): Vercel project `superpools` (team
+Landing page until the move (kept for the record): Vercel project `superpools` (team
 `patricknovak1-8908s-projects`, id `prj_SRNe8ClGioGw9vAAOwq3unQ9tbMh`), linked to this repo with root directory
 `landing/`; every push to `main` redeploys it. `superpoolsai.com` serves the page; `www.superpoolsai.com`,
 `superpoolai.com` and `www.superpoolai.com` are 308 redirects to it. DNS lives in Cloudflare (DNS only, no proxy):
@@ -104,6 +111,24 @@ header for one call, and a fan join as a spectator. Still to come with onboardin
 on the site, and the switcher.
 
 ## 7. What is not done yet, in order
+
+**First, from 4 October 2026 (`docs/POOLS.md`):**
+
+- **P1. Prediction pools, the engine.** Questions with two to twelve answers priced by a market maker (LMSR), bought and
+  sold in Supercoins until they close, resolved by the host with a locked rule and a reason on the record; coin drops on a
+  schedule with late joiners caught up; a per-question cap; a leaderboard by net worth with the hit rate; price history
+  for the chart. Works in any league (a Markets tab in a fantasy league) and as a league of its own (`leagues.kind =
+  'predict'`). *Building, migration 145.*
+- **P2. The Love Is Blind pool.** A prediction league with its own brand and no sports on screen: home, questions,
+  leaders, chat; the Season 11 question pack and drop schedule (14, 21, 28 October, 4 November, the reunion); invites by
+  link; share cards. Opens before 14 October for the test; the gate is in `docs/POOLS.md` section 6.
+- **P3. Soccer prediction pools.** Fixtures and results from API-Football (provider-neutral tables), gameweek and
+  survivor questions settled from results, Premier League and MLS first.
+- **P4. Soccer fantasy.** The weekly engine with FPL-style scoring, for the second half of 2026-27 or for 2027-28.
+- **P5. The calendar of pools.** Question packs for The Bachelor, The Traitors, award nights, March Madness and the NHL
+  playoffs; creator-hosted public pools.
+
+Then the list below, which is the fantasy-league plan of record.
 
 The expansion review (`docs/EXPANSION.md`, October 2026) is the detailed version of this list: the eight
 blockers before a second league goes live, the phases and their gates, the sport split, and the new-league
