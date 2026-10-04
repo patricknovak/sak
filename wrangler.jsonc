@@ -1,0 +1,17 @@
+// The Super Pools app on Cloudflare (docs/EXPANSION.md B5, hosting). A Worker that serves the built site (dist/) as
+// static assets, Cloudflare's successor to Pages: unlike Pages it takes a wildcard route, which is what league by host
+// needs (every <web name>.superpoolsai.com is the same app; the app reads the host). Deployed by
+// .github/workflows/cloudflare.yml once the CLOUDFLARE_API_TOKEN and CLOUDFLARE_ACCOUNT_ID secrets exist.
+{
+  "name": "superpools-app",
+  "compatibility_date": "2026-10-01",
+  "assets": {
+    "directory": "./dist",
+    // the app routes in the hash (#/team), so every path is the one page
+    "not_found_handling": "single-page-application"
+  },
+  // step 1 of the move: a preview at superpools-app.<account>.workers.dev beside GitHub Pages
+  "workers_dev": true
+  // step 2 adds the league addresses, with a proxied wildcard DNS record (AAAA * 100::) on superpoolsai.com:
+  // "routes": [{ "pattern": "*.superpoolsai.com/*", "zone_name": "superpoolsai.com" }]
+}
