@@ -83,7 +83,10 @@ results of his own past calls, and what the wider pool knows.
    `open_shadow_league(1, 'sak-shadow')` makes it (SaK's rules and profile, a team per GM team, the same rosters,
    active); `shadow_sync()` mirrors rosters and slots every minute; `shadow_report(league)` lays each day's points
    side by side with the difference, which must be zero from its first full day. Opened 3 October 2026 as league 2
-   (`sak-shadow`); its first full day is 3 October.
+   (`sak-shadow`); its first full day is 3 October. *Day one held (checked 4 October):* all eight teams scored the same
+   on 3 October in both leagues (225.10 points each side, no team off by a hundredth); the shadow's Garry posted only in
+   its own chat, its costs were metered to league 2 ($0.0067 over 5 calls), and its notifications went to its own teams,
+   which have no owners or phones, so no SaK GM heard anything. The gate needs a week of such days (to 10 October).
 4. **The prediction log**, small and early (migration 87, built): `predictions`, written each morning for every
    rostered player playing that night (`predict_tonight`) and scored the next morning on the league's own points
    (`score_predictions`), with `prediction_accuracy` by week and `book_calibration` (the Book's odds against what
