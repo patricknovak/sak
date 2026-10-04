@@ -4,6 +4,7 @@ import { rpc } from '../lib/supabase';
 import { historyChanged, useHistory } from '../lib/history';
 import { useBrand } from '../lib/brand';
 import { Sheet, useAction } from './ui';
+import { parsePastedTable } from '../lib/historyPaste';
 
 // The commissioner writes the league's past seasons in (commish_set_season): a league that played for years somewhere
 // else brings its champions, final tables and last places, and the History tab fills in from them. A season starts from
@@ -23,13 +24,14 @@ export function HistoryEditor() {
   const [season, setSeason] = useState<string | null>(null);
   const [note, setNote] = useState('');
   const [rows, setRows] = useState<Row[]>([]);
+  const [paste, setPaste] = useState<string | null>(null);
   const options = useMemo(() => pastSeasons(league?.season ?? ''), [league?.season]);
   if (!me?.is_commish || !league) return null;
   const have = new Set(seasons.filter((s) => s.rows.length).map((s) => s.season));
 
   const open = (s: string) => {
     const old = seasons.find((x) => x.season === s);
-    setSeason(s); setNote(old?.note ?? '');
+    setSeason(s); setNote(old?.note ?? ''); setPaste(null);
     setRows(old?.rows.length
       ? old.rows.map((r) => ({ team_name: r.team, gm_name: r.gm, team_id: r.teamId ?? null, points: r.points ? String(r.points) : '', prize: r.prize ? String(r.prize) : '', last_place: !!r.peter }))
       : teams.map((t) => ({ team_name: t.name, gm_name: t.gm_name === 'Open seat' ? '' : t.gm_name, team_id: t.id, points: '', prize: '', last_place: false })));
@@ -63,6 +65,31 @@ export function HistoryEditor() {
       <Sheet open={!!season} onClose={() => setSeason(null)} title={`${season ?? ''} final table`} wide>
         <div className="space-y-3">
           <p className="text-xs text-mute">Top to bottom is first to last; move teams with the arrows. Points and prize money are optional. Tick the team that finished last ({brand.booby}).</p>
+          {paste == null ? (
+            <button type="button" className="flex w-full items-center gap-3 rounded-xl border border-dashed border-white/15 bg-white/[.03] p-3 text-left transition hover:bg-white/[.06]" onClick={() => setPaste('')}>
+              <span className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-white/[.06] text-lg">📋</span>
+              <span className="min-w-0 text-sm"><span className="block font-semibold text-slate-100">Paste the final table</span><span className="block text-xs text-mute">Copy it from Yahoo, ESPN, Fantrax, CBS or a spreadsheet, one team a line, and the rows fill in.</span></span>
+            </button>
+          ) : (
+            <div className="space-y-2 rounded-xl border border-white/10 bg-black/25 p-3">
+              <textarea className="input min-h-32 w-full font-mono text-xs" autoFocus placeholder={'1\tIce Holes\tCraig\t1,234.5\n2\tSin Bin\tTodd\t1,198.0'} value={paste} onChange={(e) => setPaste(e.target.value)} />
+              <div className="flex gap-2">
+                <button type="button" className="btn-primary flex-1" disabled={!paste.trim()} onClick={() => {
+                  const got = parsePastedTable(paste);
+                  if (!got.length) return alert('No teams found in that. One team a line, first place first.');
+                  // a team or GM by today's name keeps its link to the team, so its titles count on its page
+                  const norm = (x: string) => x.trim().toLowerCase();
+                  setRows(got.map((g) => {
+                    const t = teams.find((x) => norm(x.name) === norm(g.team_name) || (g.gm_name && norm(x.gm_name) === norm(g.gm_name)));
+                    return { team_name: g.team_name, gm_name: g.gm_name || (t && t.gm_name !== 'Open seat' ? t.gm_name : ''), team_id: t?.id ?? null, points: g.points, prize: '', last_place: false };
+                  }).map((r, i, all) => (i === all.length - 1 ? { ...r, last_place: true } : r)));
+                  setPaste(null);
+                }}>Read {paste.trim() ? parsePastedTable(paste).length : 0} teams</button>
+                <button type="button" className="btn-ghost" onClick={() => setPaste(null)}>Cancel</button>
+              </div>
+              <p className="text-[11px] text-mute">Places, W-L-T records, headers and money columns are left out; the team, its GM and its points come through. The last line is ticked last place; check it below.</p>
+            </div>
+          )}
           <div className="space-y-1.5">
             {rows.map((r, i) => (
               <div key={i} className={`rounded-xl border p-2 ${i === 0 ? 'border-gold/40 bg-gold/[.06]' : 'border-white/10 bg-white/[.03]'}`}>

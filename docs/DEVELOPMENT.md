@@ -108,7 +108,9 @@ results of his own past calls, and what the wider pool knows.
    showed SaK's past reads the caller's league's rows, and a league with no past shows none. Garry reads them as his
    record book (each season's champion and last place, titles by GM). A commissioner writes past seasons in from the
    League page (migration 114, `commish_set_season`, `commish_delete_season`), so a league that played elsewhere
-   arrives with its champions and final tables. Next: imports write them.
+   arrives with its champions and final tables. A season's final table can be pasted straight from Yahoo, ESPN, Fantrax,
+   CBS or a spreadsheet (`src/lib/historyPaste.ts`, tested in `test:nhl`): the team, its GM and its points come through,
+   linked to today's team by name. Next: imports write them.
 7. **Phase 2, people can join** (under way: email sign-in with reset codes, invites, the join page and the switcher done
    3 October 2026, migrations 103 to 105; onboarding part 1, the Platform page, the readiness checklist, going live and
    the league identity editor, migration 106): league by host, realtime and presence
