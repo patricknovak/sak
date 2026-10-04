@@ -216,7 +216,10 @@ The steps above finish the tenancy. `docs/MARKET.md` sets what comes after in th
 14. **Telemetry and the feature board**: pseudonymous per-pool usage tables with a commissioner opt-out, the
     SaK Features page grown into a product-wide board with public statuses and a changelog. *The changelog done (4 October
     2026):* the Features page's What's new tab, a dated timeline from `src/data/changelog.ts` (an entry in the same pull
-    request as the change), with a dot on the tab until a phone has seen the newest. Telemetry waits on the privacy note.
+    request as the change), with a dot on the tab until a phone has seen the newest. The board's first idea shipped the same day: the watch list (a GM's
+    request, migrations 140 to 142): stars on the Players page and player cards, a Home card with free agents first, alerts
+    when a watched player is dropped in season or hurt, and Garry knows the list on the GM's private line. Telemetry waits on
+    the privacy note.
 15. **App-store listing** and the **playoff bracket pool**. (The voice per league with a daily budget is done: item 2,
     migration 99.)
 
