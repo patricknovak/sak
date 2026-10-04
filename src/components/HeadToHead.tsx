@@ -6,7 +6,7 @@ import { rpc } from '../lib/supabase';
 import { fmtPts } from '../lib/format';
 import { useBrand } from '../lib/brand';
 import { categoryOf, fmtCat } from '../lib/categories';
-import { Rank, Section, TeamBadge } from './ui';
+import { Headshot, Pos, Rank, Section, Sheet, TeamBadge } from './ui';
 
 // A head-to-head league (migration 118): each week every team meets one other and the higher started-player points
 // win. The table is wins, losses and ties, then points for; the week's matchups show live.
@@ -132,10 +132,59 @@ export function Bracket({ games, spots }: { games: BracketGame[]; spots: number 
   );
 }
 
+// a matchup player by player (migration 127): each side's started players that week, most points first
+function MatchupPlayers({ x, onClose }: { x: Matchup; onClose: () => void }) {
+  const { team, players, me } = useLeague();
+  const { cat, score } = useScore();
+  const [rows, setRows] = useState<{ team_id: number; player_id: number; pts: number; games: number }[] | null>(null);
+  useEffect(() => { rpc<typeof rows>('h2h_matchup_players', { p_matchup: x.id }).then((r) => setRows(r ?? []), () => setRows([])); }, [x.id]);
+  const col = (id: number, total: number | null) => {
+    const t = team(id);
+    const mine = (rows ?? []).filter((r) => r.team_id === id).sort((a, b) => Number(b.pts) - Number(a.pts));
+    return (
+      <div className="min-w-0">
+        <div className="mb-2 flex flex-col items-center gap-1 text-center">
+          {t && <TeamBadge team={t} size={34} />}
+          <div className={`w-full break-words text-xs font-bold leading-tight ${id === me?.id ? 'text-gold' : 'text-slate-100'}`}>{t?.name}</div>
+          <div className="num font-display text-2xl font-extrabold leading-none text-white">{score(total)}</div>
+          {cat && <div className="text-[9px] font-bold uppercase tracking-wider text-mute">categories</div>}
+        </div>
+        <div className="space-y-1">
+          {mine.map((r) => {
+            const p = players.get(r.player_id);
+            return (
+              <a key={r.player_id} href={`#/player/${r.player_id}`} className="flex items-center gap-1.5 rounded-lg bg-white/[.04] px-1.5 py-1 hover:bg-white/[.07]">
+                <Headshot p={p} size={24} />
+                <span className="min-w-0 flex-1">
+                  <span className="block break-words text-[11px] font-semibold leading-tight text-slate-100">{p?.name ?? 'Player'}</span>
+                  <span className="flex items-center gap-1 text-[10px] text-mute">{p && <Pos p={p.pos} />}{r.games} GP</span>
+                </span>
+                {!cat && <span className="num shrink-0 text-xs font-bold text-white">{fmtPts(Number(r.pts))}</span>}
+              </a>
+            );
+          })}
+          {rows && !mine.length && <p className="px-1 py-2 text-center text-[11px] text-mute">Nobody started yet.</p>}
+        </div>
+      </div>
+    );
+  };
+  return (
+    <Sheet open onClose={onClose} title={`Week ${x.week} · ${day(x.starts)} – ${day(x.ends)}`}>
+      {!rows ? <div className="card h-40 animate-pulse" /> : (
+        <>
+          <div className="grid grid-cols-2 gap-2">{col(x.home_team, x.home_pts)}{x.away_team != null && col(x.away_team, x.away_pts)}</div>
+          <p className="mt-3 text-[11px] text-mute">{cat ? 'Games each started player has played this week; the categories decide it.' : 'Fantasy points from each player while he was in the lineup this week; the bench and IR never count.'}</p>
+        </>
+      )}
+    </Sheet>
+  );
+}
+
 export function MatchupCard({ x }: { x: Matchup }) {
   const { team, me, league } = useLeague();
   const { cat, score } = useScore();
   const [open, setOpen] = useState(false);
+  const [players, setPlayers] = useState(false);
   const side = (id: number | null, pts: number | null, won: boolean) => {
     const t = id ? team(id) : undefined;
     return (
@@ -159,13 +208,23 @@ export function MatchupCard({ x }: { x: Matchup }) {
       {x.away_team == null ? (
         <div className="flex items-center justify-center gap-2 py-3 text-sm text-mute">{team(x.home_team) && <TeamBadge team={team(x.home_team)!} size={24} />}{team(x.home_team)?.name} has the week off</div>
       ) : (
-        <div className="flex items-stretch gap-1">{side(x.home_team, x.home_pts, homeWon)}<div className="self-center px-1 text-xs font-bold text-mute">vs</div>{side(x.away_team, x.away_pts, awayWon)}</div>
+        <button type="button" disabled={x.status === 'upcoming'} onClick={() => setPlayers(true)} aria-label="Player by player"
+          className="flex w-full items-stretch gap-1 rounded-xl text-left transition enabled:hover:bg-white/[.03]">
+          {side(x.home_team, x.home_pts, homeWon)}<div className="self-center px-1 text-xs font-bold text-mute">vs</div>{side(x.away_team, x.away_pts, awayWon)}
+        </button>
       )}
+      {x.away_team != null && x.status !== 'upcoming' && !cat && (
+        <button type="button" onClick={() => setPlayers(true)} className="mt-1 w-full rounded-lg py-1 text-[11px] font-semibold text-sky-300 hover:bg-white/[.04]">Player by player ›</button>
+      )}
+      {players && <MatchupPlayers x={x} onClose={() => setPlayers(false)} />}
       {cat && x.cats && x.away_team != null && x.status !== 'upcoming' && (
         <>
-          <button type="button" onClick={() => setOpen(!open)} className="mt-1 w-full rounded-lg py-1 text-[11px] font-semibold text-sky-300 hover:bg-white/[.04]">
-            {open ? 'Hide the categories' : `Category by category${(() => { const t = Object.values(x.cats).filter((c) => c.win === 'tie').length; return t ? ` · ${t} tied` : ''; })()}`}
-          </button>
+          <div className="mt-1 grid grid-cols-2 gap-1">
+            <button type="button" onClick={() => setOpen(!open)} className="rounded-lg py-1 text-[11px] font-semibold text-sky-300 hover:bg-white/[.04]">
+              {open ? 'Hide the categories' : `Category by category${(() => { const t = Object.values(x.cats).filter((c) => c.win === 'tie').length; return t ? ` · ${t} tied` : ''; })()}`}
+            </button>
+            <button type="button" onClick={() => setPlayers(true)} className="rounded-lg py-1 text-[11px] font-semibold text-sky-300 hover:bg-white/[.04]">Player by player ›</button>
+          </div>
           {open && (
             <div className="mt-1 divide-y divide-white/[.05] rounded-lg bg-black/20 text-sm">
               {(league?.categories ?? Object.keys(x.cats)).filter((k) => x.cats![k]).map((k) => {

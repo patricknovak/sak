@@ -2806,6 +2806,27 @@ update league_rules set format = 'season' where league_id = :wn_league;
 select set_config('request.jwt.claim.sub', '', false);
 select 'head-to-head week alerts', true;
 
+-- ───────────── a matchup, player by player ─────────────
+reset role;
+-- SaK's teams 2 and 5 started players earlier in this test: a matchup between them over those days
+insert into matchups (league_id, week, starts, ends, home_team, away_team) values (1, 99, today_et() - 30, today_et(), 2, 5) returning id as mp_id \gset
+select set_config('app.league_id', '1', false);
+create temp table mp as select * from h2h_matchup_players(:mp_id);
+select pg_temp.expect('both sides'' started players, nobody else', (select count(distinct team_id) from mp) = 2 and (select bool_and(team_id in (2, 5)) from mp));
+select pg_temp.expect('a side''s players add up to its week', abs((select coalesce(sum(pts), 0) from mp where team_id = 2)
+  - (select a_score from _h2h_result(2, 5, today_et() - 30, today_et()))) < 0.05
+  and abs((select coalesce(sum(pts), 0) from mp where team_id = 5) - (select b_score from _h2h_result(2, 5, today_et() - 30, today_et()))) < 0.05);
+drop table mp;
+select set_config('app.league_id', '', false);
+select pg_temp.as_team(9);
+select set_config('request.jwt.claim.sub', (select user_id::text from teams where league_id = (select id from leagues where slug = 'rink') and is_commish), false);
+set role authenticated;
+select pg_temp.expect('another league''s GM sees nothing of it', (select count(*) from h2h_matchup_players(:mp_id)) = 0);
+reset role;
+delete from matchups where id = :mp_id;
+select set_config('request.jwt.claim.sub', '', false);
+select 'a matchup, player by player', true;
+
 -- ───────────── how alive each league is ─────────────
 reset role;
 update teams set last_seen = now() - interval '2 days' where id = 1;
