@@ -57,10 +57,24 @@ async function caller(req: Request) {
   const jwt = (req.headers.get('Authorization') ?? '').replace('Bearer ', '');
   const { data: u } = await db.auth.getUser(jwt);
   if (!u?.user) throw new Fail('Sign in first', 401);
-  const { data: t } = await db.from('teams').select('id,gm_name').eq('user_id', u.user.id).single();
+  // their team in the league they're in (a GM can be in more than one), the way the site's own calls see it
+  const asUser = createClient(URL_, Deno.env.get('SUPABASE_ANON_KEY')!, { auth: { persistSession: false }, global: { headers: { Authorization: `Bearer ${jwt}`, ...(req.headers.get('x-league') ? { 'x-league': req.headers.get('x-league')! } : {}) } } });
+  const { data: mine } = await asUser.rpc('my_team');
+  const { data: t } = mine ? await db.from('teams').select('id,gm_name').eq('id', mine).maybeSingle() : { data: null };
   if (!t) throw new Fail('No team', 404);
-  const { data: a } = await db.from('yahoo_accounts').select('*').eq('team_id', t.id).maybeSingle();
-  return { team: t as { id: number; gm_name: string }, acct: (a ?? null) as Acct | null };
+  // the Yahoo sign-in is the person's: one made from their team in another league serves this one too
+  // (only when this team has no row of its own: a row here is this team's sign-in, or one under way)
+  const { data: theirs } = await db.from('teams').select('id').eq('user_id', u.user.id);
+  const mineAll = (theirs ?? []).map((x: { id: number }) => x.id);
+  let { data: a } = await db.from('yahoo_accounts').select('*').eq('team_id', t.id).maybeSingle();
+  if (!a) {
+    const ids = mineAll.filter((id: number) => id !== t.id);
+    if (ids.length) {
+      const { data: other } = await db.from('yahoo_accounts').select('*').in('team_id', ids).not('refresh_token', 'is', null).order('connected_at', { ascending: false }).limit(1).maybeSingle();
+      if (other) a = other;
+    }
+  }
+  return { team: t as { id: number; gm_name: string }, acct: (a ?? null) as Acct | null, teams: mineAll.length ? mineAll : [t.id] };
 }
 
 // ───────────── OAuth ─────────────
@@ -363,7 +377,7 @@ Deno.serve(async (req) => {
   try {
     const b = await req.json().catch(() => ({}));
     const task = str(b.task);
-    const { team, acct } = await caller(req);
+    const { team, acct, teams } = await caller(req);
     await loadCreds();
     const connected = !!acct?.refresh_token;
 
@@ -386,8 +400,9 @@ Deno.serve(async (req) => {
       return json({ ok: true });
     }
     if (task === 'disconnect') {
-      await db.from('yahoo_accounts').delete().eq('team_id', team.id);
-      bust(team.id);
+      // the sign-in is the person's, so it goes from every league they're in
+      await db.from('yahoo_accounts').delete().in('team_id', teams);
+      teams.forEach((id) => bust(id));
       return json({ ok: true });
     }
     if (!acct) throw new Fail('Connect your Yahoo account first', 412);

@@ -47,6 +47,16 @@ const check = <T>({ data, error }: { data: T; error: unknown }) => {
   if (error) throw error;
   return data;
 };
+// every row of a read: the API hands back at most a thousand a request, and a read across leagues can pass that
+// (with five leagues, tonight's rostered players alone). The read is ordered, so the pages don't overlap.
+async function every<T>(page: (from: number, to: number) => PromiseLike<{ data: T[] | null; error: unknown }>): Promise<T[]> {
+  const out: T[] = [];
+  for (let from = 0; ; from += 1000) {
+    const chunk = (check(await page(from, from + 999)) ?? []) as T[];
+    out.push(...chunk);
+    if (chunk.length < 1000) return out;
+  }
+}
 const norm = (s: string) => s.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/[^a-z]/g, '');
 
 // faceoffs need the (large) play-by-play feed, so only fetch it when some league scores them
@@ -376,7 +386,8 @@ async function gameday() {
     const started = games.filter((g) => STARTED.has(g.state));
     if (started.length) {
       // one entry per player: with several leagues the same player is on several rosters
-      const rostered = [...new Map((check(await db.from('rosters').select('player_id,players!inner(nhl_team,pos)').in('players.nhl_team', started.flatMap((g) => [g.home, g.away]))) as any[])
+      const rostered = [...new Map((await every<any>((a, b) => db.from('rosters').select('player_id,league_id,players!inner(nhl_team,pos)')
+        .in('players.nhl_team', started.flatMap((g) => [g.home, g.away])).order('league_id').order('player_id').range(a, b)))
         .map((r) => [r.player_id, r])).values()];
       for (const g of started) {
         const { data: box } = await db.from('player_games').select('player_id').eq('game_id', g.id);
@@ -421,8 +432,8 @@ async function autoLineupsFor(lid: number) {
     { id: number; auto_mode: Mode; auto_basis: Basis; lineup_touched: string | null }[];
   const todo = teams.filter((t) => t.lineup_touched !== today);
   if (!todo.length) return { teams: 0, skipped_manual: teams.length };
-  const rows = check(await db.from('rosters').select('team_id,player_id,slot,pin').in('team_id', todo.map((t) => t.id))) as
-    { team_id: number; player_id: number; slot: string; pin: string | null }[];
+  const rows = await every<{ team_id: number; player_id: number; slot: string; pin: string | null }>((a, b) =>
+    db.from('rosters').select('team_id,player_id,slot,pin').in('team_id', todo.map((t) => t.id)).order('team_id').order('player_id').range(a, b));
   const ids = rows.map((r) => r.player_id);
   const players = new Map<number, LPlayer>(), season = new Map<number, LSeason>();
   for (let i = 0; i < ids.length; i += 300) {
