@@ -9,8 +9,9 @@ import { bare, useBrand } from '../lib/brand';
 import { Section, Sheet, useAction, PageHeader } from '../components/ui';
 import { Landmark } from 'lucide-react';
 import { PromoVideo } from '../components/PromoVideo';
+import { commishAction } from '../lib/commishLog';
 
-type Tab = 'history' | 'rules' | 'money' | 'votes';   // money moved to its own page (/money)
+type Tab = 'history' | 'rules' | 'money' | 'votes' | 'log';   // money moved to its own page (/money)
 
 export default function LeaguePage() {
   const [params, setParams] = useSearchParams();
@@ -21,13 +22,14 @@ export default function LeaguePage() {
       <PageHeader icon={<Landmark size={22} className="text-gold" />} title="SAK Superleague" sub="She’s A Keeper · est. September 2013 · 13th season" />
       {tab === 'history' && <PromoVideo />}
       <div className="scroll-x flex gap-1">
-        {([['history', '📜 History'], ['rules', '📘 Rules'], ['votes', '🗳️ Proposals']] as const).map(([k, l]) => (
+        {([['history', '📜 History'], ['rules', '📘 Rules'], ['votes', '🗳️ Proposals'], ['log', '🛡️ Commish log']] as const).map(([k, l]) => (
           <button key={k} className={`tab ${tab === k ? 'tab-on' : 'bg-white/[.05]'}`} onClick={() => setParams({ t: k })}>{l}</button>
         ))}
       </div>
       {tab === 'history' && <History />}
       {tab === 'rules' && <Rules />}
       {tab === 'votes' && <Votes />}
+      {tab === 'log' && <CommishLog />}
     </div>
   );
 }
@@ -253,6 +255,49 @@ function Votes() {
           <button className="btn-primary w-full" disabled={busy || !f.title.trim()} onClick={() => run(async () => { await rpc('create_proposal', { p_title: f.title, p_body: f.body }); setOpen(false); setF({ title: '', body: '' }); load(); }, 'Proposal posted')}>Submit</button>
         </div>
       </Sheet>
+    </div>
+  );
+}
+
+// Everything a commissioner did that changes the league, newest first: who, what and when. Every GM sees it.
+interface LogRow { id: number; team_id: number | null; action: string; at: string }
+function CommishLog() {
+  const { team } = useLeague();
+  const [rows, setRows] = useState<LogRow[] | null>(null);
+  useEffect(() => {
+    supabase.from('commish_log').select('id,team_id,action,at').order('at', { ascending: false }).limit(200)
+      .then(({ data }) => setRows((data ?? []) as LogRow[]));
+  }, []);
+  if (!rows) return <div className="card h-40 animate-pulse" />;
+  // grouped by day, the way a GM looks back ("what happened Tuesday?")
+  const days = new Map<string, LogRow[]>();
+  for (const r of rows) {
+    const d = new Date(r.at).toLocaleDateString(undefined, { weekday: 'long', month: 'short', day: 'numeric' });
+    days.set(d, [...(days.get(d) ?? []), r]);
+  }
+  return (
+    <div className="space-y-4">
+      <p className="px-1 text-xs text-mute">Every change a commissioner makes to the league, kept for everyone to see: settings, scoring, moved players and picks, coins, rulings on bets and the draft.</p>
+      {!rows.length && <div className="card p-5 text-center text-sm text-mute">Nothing yet. When a commissioner changes something, it shows up here.</div>}
+      {[...days].map(([d, list]) => (
+        <Section key={d} title={d}>
+          <div className="card divide-y divide-white/[.06]">
+            {list.map((r) => {
+              const t = r.team_id ? team(r.team_id) : undefined;
+              const a = commishAction(r.action);
+              return (
+                <div key={r.id} className="flex items-start gap-3 px-3 py-2.5">
+                  <span className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-white/[.06] text-lg">{a.emoji}</span>
+                  <div className="min-w-0 flex-1 text-sm">
+                    <span className="font-semibold text-slate-100">{t?.gm_name ?? 'A commissioner'}</span> <span className="text-slate-300">{a.text}</span>
+                    <div className="text-xs text-mute">{new Date(r.at).toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' })}</div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </Section>
+      ))}
     </div>
   );
 }

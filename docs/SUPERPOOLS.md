@@ -169,7 +169,9 @@ The steps above finish the tenancy. `docs/MARKET.md` sets what comes after in th
     field and player races against the field, which is what Garry's chat builds from in words ("Oilers to win
     the Cup"). The kinds and subjects are a stat key and a line, so they carry to every sport.
 12. **Commissioner tools the market lacks**: dues tracker (no escrow), co-commissioners, constitution page,
-    audit trail of every override, abandoned-team handover.
+    audit trail of every override, abandoned-team handover. *The audit trail done (migration 110, October 2026):* every
+    commissioner power passes `_commish()`, which now writes a line to `commish_log` (who, what, when; once per
+    action) for the ones that change the league; every GM reads their league's log on the League page (Commish log).
 13. **The sport pulled out of the engine**: a `sports` table, per-sport player, game and stat shapes and
     scoring vocabularies, a sync per sport; the NHL becomes one row. Prerequisite for soccer, basketball and
     the multi-sport pool.
