@@ -49,6 +49,18 @@ const help = (db: Db, league: any): Record<string, string> => ({
   player: 'Tap any player anywhere for his full page: stats, where his points come from, game log, career, news and upcoming games. 👉 #/players',
   features: 'More → League Features lists everything the site does. Comment on any of it, suggest new features, and upvote the ideas you want most; the commish marks them planned, building or shipped. 👉 #/features?t=ideas',
   chat: `Trash Talk is the main room, each GM has a DM, and “Ask ${db.brand.bot.name}” is your private line to me. Say my name anywhere and I’ll show up.`,
+  // how the league is won: its format (migrations 117, 118, 120, 121)
+  format: (() => {
+    const cats: string[] = league?.categories ?? [];
+    const catList = cats.map((c) => c.toUpperCase()).join(', ');
+    const spots = Number(league?.h2h_playoffs ?? 0);
+    const playoffs = spots >= 2 ? ` The top ${spots} make a playoff bracket over the season’s last weeks, one week a round; a tie goes to the higher seed.` : '';
+    if (league?.format === 'h2h') return cats.length
+      ? `Head-to-head categories: one opponent a week (Monday to Sunday). Your starters’ totals go up against theirs in ${cats.length} categories (${catList}); win more of them to win the week. The table is wins, losses and ties.${playoffs} 👉 #/standings`
+      : `Head-to-head: one opponent a week (Monday to Sunday), and whoever’s starters score more fantasy points wins the week. The table is wins, losses and ties, points for breaks ties.${playoffs} 👉 #/standings`;
+    if (cats.length) return `Rotisserie in ${cats.length} categories (${catList}): every team is ranked in each one on its starters’ season totals. First in a category earns as many points as there are teams, last earns one; the most roto points wins. 👉 #/standings`;
+    return `One season-long total: every fantasy point your starters score from opening night counts, the bench and IR never do, and the most points wins. 👉 #/standings`;
+  })(),
 });
 
 async function base(db: Db) {
@@ -140,6 +152,7 @@ export async function answer(db: Db, question: string, askerTeam: number, opts: 
     [/\b(bets?|betting|wagers?|coins?|st\.? patrick)\b/, 'bet'],
     [/\b(alerts?|notifications?|notify|push|buzz)\b/, 'alerts'],
     [/\b(features?|suggest\w*|ideas?|wish ?list|request)\b/, 'features'],
+    [/\b(format|head.to.head|h2h|matchups?|rotisserie|roto|categor(y|ies)|bracket|how (do|does) (we|you|i|the league) win)\b/, 'format'],
   ];
   const topic = topics.find(([re]) => re.test(q))?.[1];
 
