@@ -43,11 +43,17 @@ export function YahooHistory({ have }: { have: Set<string> }) {
   const replacing = [...tick].filter((x) => have.has(x)).sort();
   const write = () => (!replacing.length || confirm(`${replacing.join(', ')} ${replacing.length === 1 ? 'is' : 'are'} already in the league’s history. Replace ${replacing.length === 1 ? 'it' : 'them'} with Yahoo’s table?`)) && run(async () => {
     for (const s of (seasons ?? []).filter((x) => tick.has(x.season))) {
-      const rows = s.teams.map((t, i) => {
-        const gm = t.managers.join(' & ').slice(0, 40) || 'Unknown';
-        const mine = teams.find((x) => norm(x.name) === norm(t.name) || t.managers.some((m) => norm(m) === norm(x.gm_name)));
-        return { team_name: t.name, gm_name: gm, team_id: mine?.id ?? null, points: t.points ?? null, prize: null, last_place: i === s.teams.length - 1 };
+      // today's team for each row: an exact team name first, then a manager's name, each team used once a season (two
+      // managers sharing a nickname mustn't hand one franchise another's banner)
+      const link = new Map<number, number>(), used = new Set<number>();
+      s.teams.forEach((t, i) => { const x = teams.find((y) => !used.has(y.id) && norm(y.name) === norm(t.name)); if (x) { link.set(i, x.id); used.add(x.id); } });
+      s.teams.forEach((t, i) => {
+        if (link.has(i)) return;
+        const x = teams.find((y) => !used.has(y.id) && t.managers.some((m) => norm(m) === norm(y.gm_name)));
+        if (x) { link.set(i, x.id); used.add(x.id); }
       });
+      const rows = s.teams.map((t, i) => ({ team_name: t.name, gm_name: t.managers.join(' & ').slice(0, 40) || 'Unknown', team_id: link.get(i) ?? null,
+        points: t.points ?? null, prize: null, last_place: i === s.teams.length - 1 }));
       await rpc('commish_set_season', { p_season: s.season, p_note: `Played on Yahoo as ${s.name}.`, p_rows: rows });
     }
     historyChanged(league.league_id); setOpen(false);

@@ -2756,6 +2756,16 @@ insert into predictions (league_id, kind, subject, predicted, basis, resolves_on
   (1, 'auto_lineup', jsonb_build_object('team_id', 3, 'date', today_et() - 199), 5.0, 'blend', today_et() - 199, jsonb_build_object('starters', jsonb_build_array(:ap_a, :ap_b))),
   (1, 'auto_lineup', jsonb_build_object('team_id', 3, 'date', today_et() - 198), 4.0, 'blend', today_et() - 198, jsonb_build_object('starters', jsonb_build_array(:ap_a))),
   (:ap_other, 'auto_lineup', jsonb_build_object('team_id', 3, 'date', today_et() - 200), 1.0, 'blend', today_et() - 200, jsonb_build_object('starters', jsonb_build_array(:ap_a)));
+-- a night none of its starters played (his only game postponed), and one where a starter's game was postponed
+insert into games (id, date, start_utc, home, away, state, final_synced) values
+  (7704, today_et() - 197, now() - interval '197 days', (select nhl_team from players where id = :ap_a), 'ZZA', 'PPD', false),
+  (7705, today_et() - 196, now() - interval '196 days', 'TOR', 'MTL', 'OFF', true),
+  (7706, today_et() - 196, now() - interval '196 days', (select nhl_team from players where id = :ap_b), 'ZZB', 'PPD', false);
+insert into player_games (game_id, player_id, date, stats) values (7705, :ap_a, today_et() - 196, '{"g":1,"a":0,"sog":3}');
+insert into lineup_snapshots (game_id, date, team_id, player_id, slot) values (7705, today_et() - 196, 3, :ap_a, 'C');
+insert into predictions (league_id, kind, subject, predicted, basis, resolves_on, detail) values
+  (1, 'auto_lineup', jsonb_build_object('team_id', 3, 'date', today_et() - 197), 7.5, 'blend', today_et() - 197, jsonb_build_object('starters', jsonb_build_array(:ap_a))),
+  (1, 'auto_lineup', jsonb_build_object('team_id', 3, 'date', today_et() - 196), 6.0, 'blend', today_et() - 196, jsonb_build_object('starters', jsonb_build_array(:ap_a, :ap_b)));
 select set_config('app.league_id', '1', false);
 select score_predictions() >= 2 as ap_scored \gset
 select sum(fpts) as ap_want from league_games where game_id = 7701 and player_id in (:ap_a, :ap_b) \gset
@@ -2765,10 +2775,13 @@ select pg_temp.expect('the auto-pilot''s night scores what its starters scored',
 select pg_temp.expect('a night the GM changed isn''t the auto-pilot''s: void', (select status = 'void' and outcome is null from predictions where league_id = 1 and kind = 'auto_lineup' and subject->>'date' = (today_et() - 199)::text));
 select pg_temp.expect('a night still being played waits', (select status = 'open' from predictions where league_id = 1 and kind = 'auto_lineup' and subject->>'date' = (today_et() - 198)::text));
 select pg_temp.expect('another league''s call is left alone', (select status = 'open' from predictions where league_id = :ap_other and kind = 'auto_lineup'));
+select pg_temp.expect('a night none of its starters played is void, not a zero', (select status = 'void' and outcome is null from predictions where league_id = 1 and kind = 'auto_lineup' and subject->>'date' = (today_et() - 197)::text));
+select pg_temp.expect('a night a starter''s game was postponed is void', (select status = 'void' from predictions where league_id = 1 and kind = 'auto_lineup' and subject->>'date' = (today_et() - 196)::text));
+select pg_temp.expect('the calls are counted by kind and status', (select n from prediction_status where kind = 'auto_lineup' and status = 'void') >= 3);
 delete from predictions where kind = 'auto_lineup';
-delete from lineup_snapshots where game_id in (7701, 7702, 7703);
-delete from player_games where game_id in (7701, 7702, 7703);
-delete from games where id in (7701, 7702, 7703);
+delete from lineup_snapshots where game_id in (7701, 7702, 7703, 7705);
+delete from player_games where game_id in (7701, 7702, 7703, 7705);
+delete from games where id in (7701, 7702, 7703, 7704, 7705, 7706);
 select set_config('request.jwt.claim.sub', '', false);
 select 'the auto-pilot''s choices in the prediction log', true;
 

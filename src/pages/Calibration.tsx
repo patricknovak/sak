@@ -38,13 +38,12 @@ export default function Calibration() {
     Promise.all([
       supabase.from('prediction_accuracy').select('*').order('week', { ascending: false }).limit(40),
       supabase.from('book_calibration').select('*').order('kind').order('bucket'),
-      supabase.from('predictions').select('kind,status'),
+      // counted in the database (migration 136): the rows themselves run to thousands
+      supabase.from('prediction_status').select('kind,status,n'),
     ]).then(([a, c, p]) => {
       setAcc((a.data ?? []) as Acc[]);
       setCal((c.data ?? []) as Cal[]);
-      const m = new Map<string, number>();
-      for (const r of (p.data ?? []) as { kind: string; status: string }[]) m.set(`${r.kind}|${r.status}`, (m.get(`${r.kind}|${r.status}`) ?? 0) + 1);
-      setOpen([...m].map(([k, n]) => { const [kind, status] = k.split('|'); return { kind, status, n }; }));
+      setOpen(((p.data ?? []) as Open[]).map((r) => ({ ...r, n: Number(r.n) })));
     });
   }, []);
   if (!acc) return <div className="flex justify-center py-16"><Spinner /></div>;

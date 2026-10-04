@@ -47,15 +47,18 @@ export function PickupAdvisor() {
   const catOn = cats.length > 0;
   const roto = useRoto();
   const myRow = roto?.find((r) => r.team_id === me?.id);
+  // the model changes when the team's places in the table do, not every time the standings refresh (every minute
+  // while games are on): a new model would clear the list and play every move out again
+  const needSig = !roto ? '' : `${roto.length}|${cats.map((k) => myRow?.cats[k]?.pts ?? '-').join(',')}`;
   const model = useMemo(() => {
-    if (!catOn || !roto) return null;
+    if (!catOn || !needSig) return null;
     const pts = Object.fromEntries(cats.map((k) => [k, Number(myRow?.cats[k]?.pts ?? 0)]));
-    return buildModel(cats, [...players.values()], season, myRow ? { pts, teams: roto.length } : undefined);
-  }, [catOn, cats, roto, myRow, players, season]);
+    return buildModel(cats, [...players.values()], season, myRow ? { pts, teams: roto!.length } : undefined);
+  }, [catOn, cats, needSig, players]); // eslint-disable-line react-hooks/exhaustive-deps
   const rates = useMemo(() => {
     if (!model) return null;
     return new Map([...players.values()].map((p) => [p.id, perGame(p, season.get(p.id), cats)]));
-  }, [model, players, season, cats]);
+  }, [model]); // eslint-disable-line react-hooks/exhaustive-deps
   const value = (p: Player): FPlayer => (model && rates ? { ...p, proj: scorePerGame(model, rates.get(p.id) ?? null, p) * gpOf(p) } : pointsValue(p));
   const { busy, run } = useAction();
   const [h, setH] = useState<Horizon>(14);
@@ -162,7 +165,8 @@ export function PickupAdvisor() {
 // where the team trails, from the category table: the categories the advisor leans toward
 function NeedLine({ weight, pts, teams }: { weight: Record<string, number>; pts?: Record<string, { pts: number }>; teams: number }) {
   const behind = Object.entries(weight).filter(([, w]) => w > 1.15).sort((a, b) => b[1] - a[1]).slice(0, 4);
-  if (!behind.length) return <div className="text-[11px] text-mute">Every category counts the same until the table separates.</div>;
+  if (Object.values(weight).every((w) => w === 1)) return <div className="text-[11px] text-mute">Every category counts the same until the table separates.</div>;
+  if (!behind.length) return <div className="text-[11px] text-mute">You’re in the top half of every category, so the advisor weighs them nearly evenly, a little more where you’re lowest.</div>;
   const place = (k: string) => { const n = Math.round(teams + 1 - Number(pts?.[k]?.pts ?? teams)); return `${n}${n === 1 ? 'st' : n === 2 ? 'nd' : n === 3 ? 'rd' : 'th'}`; };
   return (
     <div className="flex flex-wrap items-center gap-1 text-[11px]">
