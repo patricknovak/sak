@@ -6,6 +6,8 @@
 export interface Change { date: string; icon: string; title: string; body: string; to?: string; tag?: 'formats' | 'commish' | 'draft' | 'everyone' }
 
 export const CHANGELOG: Change[] = [
+  { date: '2026-10-04', icon: '🧹', tag: 'everyone', title: 'Small things, tidied', to: '/players',
+    body: 'When your filters leave nobody on the Players page, one tap clears them. The build-a-trade bar on another team\'s page fits a phone. My pools shows each site\'s name in full, the injury report\'s switch no longer runs off the screen, and the Money page never says $-0.' },
   { date: '2026-10-04', icon: '📱', tag: 'everyone', title: 'Names in full on small phones', to: '/standings',
     body: 'Team names wrap onto a second line instead of being cut off: on Home, My team, your profile, the standings, the podium, the scoreboard and Performance. A long surname on a player\'s page shrinks to fit instead of splitting in the middle, and page titles fit the screen.' },
   { date: '2026-10-04', icon: '⭐', tag: 'everyone', title: 'Your watch list', to: '/players?who=watch',
