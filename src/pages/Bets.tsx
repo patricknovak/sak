@@ -129,7 +129,7 @@ export default function Bets() {
     const byTeam = new Map<number, Player[]>();
     for (const r of rosters) if (r.slot !== 'IR') { const p = players.get(r.player_id); if (p) byTeam.set(r.team_id, [...(byTeam.get(r.team_id) ?? []), p]); }
     return { today, games: seasonGames, started, players, rosterOf: (t) => byTeam.get(t) ?? [], caps: (league?.roster ?? {}) as Record<string, number>, seasonStart: league?.season_start, seasonEnd: league?.season_end };
-  }, [seasonGames, games, rosters, players, league]);
+  }, [seasonGames, games, rosters, players, league, sport]);
   const chances = useMemo(() => {
     const out: Record<number, ReturnType<typeof betWinChance>> = {};
     if (!oddsCtx) return out;

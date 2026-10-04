@@ -208,8 +208,10 @@ export async function answer(db: Db, question: string, askerTeam: number, opts: 
   const topic = topics.find(([re]) => re.test(q))?.[1];
 
   // ── standings
-  if (has(/\b(standing|standings|leader|leading|winning|first place|last place|in first|in last|peter|rank|table|who.?s up|points race|where am i)\b/)
-      || (league.format === 'h2h' && has(/\b(my matchup|matchup|this week|who am i (playing|against)|my opponent|my (chances|odds)|chance to win|will i win|am i winning)\b/) && !howTo && !has(/\b(bets?|wagers?)\b/))) {
+  // a question about a bet ("am I winning my bet?") is the Book's, not the table's
+  if ((has(/\b(standing|standings|leader|leading|winning|first place|last place|in first|in last|peter|rank|table|who.?s up|points race|where am i)\b/)
+      || (league.format === 'h2h' && has(/\b(my matchup|matchup|this week|who am i (playing|against)|my opponent|my (chances|odds)|chance to win|will i win|am i winning)\b/) && !howTo))
+      && !has(/\b(bets?|wagers?)\b/)) {
     const ord = (n: number) => `${n}${['st', 'nd', 'rd'][n - 1] ?? 'th'}`;
     // a head-to-head league is ranked by wins, and a GM wants this week's matchup too
     if (league.format === 'h2h') {

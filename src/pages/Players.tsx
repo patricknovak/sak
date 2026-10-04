@@ -19,6 +19,8 @@ export default function Players() {
   // the screen's choices survive a visit to a player's page and back
   const [who, setWho] = useSticky<'avail' | 'all' | 'taken' | 'coming' | 'watch'>('players:who', q.get('who') === 'coming' ? 'coming' : q.get('who') === 'watch' ? 'watch' : 'avail');
   const watch = useWatchlist();
+  // the watch list is a GM's own: a spectator (or a page still loading who's signed in) sees the available players
+  const shown = who === 'watch' && !watch.on ? 'avail' : who;
   // before keepers lock, each team's top scorer is already as good as available: he can't be kept
   const coming = useMemo(() => comingAvailable(players, rosters, league), [players, rosters, league]);
   const comingSet = useMemo(() => new Set(coming.map((p) => p.id)), [coming]);
@@ -27,7 +29,7 @@ export default function Players() {
   const [tab, setTab] = useSticky<'browse' | 'advisor' | 'compare'>('players:tab', q.get('tab') === 'advisor' ? 'advisor' : q.get('tab') === 'compare' ? 'compare' : 'browse');
 
   const list = useMemo(() => pf.apply([...players.values()]
-    .filter((p) => (who === 'all' ? true : who === 'watch' ? watch.ids.has(p.id) : who === 'coming' ? comingSet.has(p.id) : who === 'avail' ? !owner.has(p.id) || comingSet.has(p.id) : owner.has(p.id)))), [players, owner, who, pf.apply, comingSet, watch.ids]);
+    .filter((p) => (shown === 'all' ? true : shown === 'watch' ? watch.ids.has(p.id) : shown === 'coming' ? comingSet.has(p.id) : shown === 'avail' ? !owner.has(p.id) || comingSet.has(p.id) : owner.has(p.id)))), [players, owner, shown, pf.apply, comingSet, watch.ids]);
   const fromTeam = (p: { id: number }) => (comingSet.has(p.id) ? team(owner.get(p.id)?.team_id ?? 0) : undefined);
 
   const used = rosters.filter((r) => r.team_id === me?.id).length;
@@ -47,7 +49,7 @@ export default function Players() {
         <PlayerFilterBar pf={pf}>
           <span className="mx-1 h-5 w-px shrink-0 bg-line" />
           {([['avail', 'Available'], ...(coming.length ? [['coming', '🔓 Coming available']] as const : []), ...(watch.on ? [['watch', `★ Watch list${watch.ids.size ? ` ${watch.ids.size}` : ''}`]] as const : []), ['taken', 'Rostered'], ['all', 'All']] as const).map(([k, l]) => (
-            <button key={k} className={`tab px-2.5 py-1 ${who === k ? 'tab-on' : 'bg-white/[.05]'}`} onClick={() => setWho(k)}>{l}</button>
+            <button key={k} className={`tab px-2.5 py-1 ${shown === k ? 'tab-on' : 'bg-white/[.05]'}`} onClick={() => setWho(k)}>{l}</button>
           ))}
           <span className="mx-1 h-5 w-px shrink-0 bg-line" />
           <button className={`tab px-2.5 py-1 ${!table ? 'tab-on' : 'bg-white/[.05]'}`} onClick={() => setView('list')}>List</button>
@@ -55,7 +57,7 @@ export default function Players() {
         </PlayerFilterBar>
       </div>
 
-      {who === 'coming' && (
+      {shown === 'coming' && (
         <p className="px-1 text-xs text-mute">Each team’s top scorer from 2025-26 can’t be kept, so these players are back in the draft pool no matter what. Everyone else who isn’t kept joins them when keepers lock{league?.keeper_deadline ? ` (${new Date(league.keeper_deadline).toLocaleString(undefined, { weekday: 'short', hour: 'numeric', minute: '2-digit' })})` : ''}.</p>
       )}
       {table ? (
@@ -85,7 +87,8 @@ export default function Players() {
               </div>
             );
           })}
-          {list.length === 0 && (who === 'watch' && !watch.ids.size
+          {list.length === 0 && (shown === 'watch' && !watch.loaded ? <div className="h-24 animate-pulse rounded-xl bg-white/[.03]" />
+            : shown === 'watch' && !watch.ids.size
             ? <div className="p-6 text-center text-sm text-mute"><div className="mb-1 text-2xl text-gold">☆</div>Nobody on your watch list yet. Tap a player’s rank here, or ☆ Watch on his card, to keep an eye on him: he stays on this list, and you hear about it if he’s dropped.</div>
             : <div className="p-6 text-center text-sm text-mute">No players match.</div>)}
         </div>

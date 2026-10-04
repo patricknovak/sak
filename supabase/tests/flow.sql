@@ -2943,23 +2943,31 @@ select 'head-to-head win chances in the prediction log', true;
 
 -- ───────────── the pickup advisor's suggestions in the prediction log ─────────────
 reset role;
-select (array_agg(r.player_id order by r.player_id))[1] as pk_add, (array_agg(r.player_id order by r.player_id))[2] as pk_drop
+select (array_agg(r.player_id order by r.player_id))[1] as pk_add, (array_agg(r.player_id order by r.player_id))[2] as pk_drop,
+  (array_agg(r.player_id order by r.player_id))[3] as pk_add2
 from rosters r join players p on p.id = r.player_id where r.team_id = 3 and p.pos <> 'G' \gset
 select p.id as pk_free from players p where not exists (select 1 from rosters r where r.player_id = p.id) and p.pos <> 'G' order by p.id limit 1 \gset
 -- the move itself, as add_player writes it
 insert into transactions (league_id, season, type, team_id, player_id) values
   (1, '2026-27', 'drop', 3, :pk_drop), (1, '2026-27', 'add', 3, :pk_add);
+-- a second pickup a moment later, with no drop (its own transaction: another moment)
+insert into transactions (league_id, season, type, team_id, player_id, created_at) values (1, '2026-27', 'add', 3, :pk_add2, now() + interval '1 second');
 select pg_temp.as_team(3);
 set role authenticated;
 select pg_temp.expect('a GM logs the pickup they just made', log_pickup_call(:pk_add, :pk_drop, 6.5, today_et() + 14));
 select pg_temp.expect('not one that isn''t on their roster', not log_pickup_call(:pk_free, null, 3, today_et() + 14));
 select pg_temp.expect('not a rostered player they didn''t just add', not log_pickup_call(:pk_drop, null, 3, today_et() + 14));
 select pg_temp.expect('not a drop they didn''t make', not log_pickup_call(:pk_add, :pk_free, 3, today_et() + 14));
-select pg_temp.expect('a promise held to what a stretch can hold', log_pickup_call(:pk_add, null, 100000, today_et() + 1));
+select pg_temp.expect('not without the drop made with it', not log_pickup_call(:pk_add, null, 3, today_et() + 14));
+select pg_temp.expect('not with a drop where there was none', not log_pickup_call(:pk_add2, :pk_drop, 3, today_et() + 14));
+select pg_temp.expect('the same pickup again is quietly the same call', log_pickup_call(:pk_add, :pk_drop, 9, today_et() + 14));
+select pg_temp.expect('a promise held to what a stretch can hold', log_pickup_call(:pk_add2, null, 100000, today_et() + 1));
 reset role;
-select pg_temp.expect('the call is theirs, once', (select count(*) from predictions where kind = 'pickup' and subject->>'team_id' = '3' and predicted = 6.5) = 1);
+select pg_temp.expect('the call is theirs, once', (select count(*) from predictions where kind = 'pickup' and subject->>'team_id' = '3' and subject->>'add' = :'pk_add') = 1
+  and (select predicted = 6.5 and (subject->>'drop')::int = :pk_drop from predictions where kind = 'pickup' and subject->>'add' = :'pk_add'));
 select pg_temp.expect('the cap is 30 a night', (select predicted from predictions where kind = 'pickup' and subject->>'drop' is null) = 60);
 delete from transactions where team_id = 3 and type in ('add', 'drop') and created_at > now() - interval '1 minute';
+delete from transactions where team_id = 3 and player_id = :pk_add2 and type = 'add';
 delete from predictions where kind = 'pickup';
 -- scored on what the new player scored while started, less what the dropped one scored
 insert into games (id, date, start_utc, home, away, state, final_synced) values
@@ -3107,6 +3115,19 @@ insert into transactions (league_id, season, type, team_id, player_id) values (1
 select pg_temp.expect('an add says nothing', (select count(*) from notifications where kind = 'watch') = 1);
 delete from notifications where kind = 'watch';
 delete from transactions where player_id = :wl_p and type in ('add', 'drop') and team_id in (2, 4);
+-- before the draft a drop goes back to the pool, not to free agency: nothing to tell
+select phase as wl_phase from league_rules where league_id = 1 \gset
+update league_rules set phase = 'predraft' where league_id = 1;
+insert into transactions (league_id, season, type, team_id, player_id) values (1, '2026-27', 'drop', 2, :wl_p);
+select pg_temp.expect('a drop before the draft says nothing', not exists (select 1 from notifications where kind = 'watch'));
+update league_rules set phase = :'wl_phase' where league_id = 1;
+delete from transactions where player_id = :wl_p and type = 'drop' and team_id = 2;
+-- a list holds 100
+delete from watchlist where team_id = 3;
+insert into watchlist (league_id, team_id, player_id) select 1, 3, id from players order by id limit 100;
+select pg_temp.raises('a full list takes no more', format('insert into watchlist (league_id, team_id, player_id) values (1, 3, %s)',
+  (select id from players order by id offset 100 limit 1)), 'watch list is full');
+delete from watchlist where team_id = 3;
 delete from watchlist where player_id = :wl_p;
 select set_config('request.jwt.claim.sub', '', false);
 select 'the watch list', true;

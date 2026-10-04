@@ -4,7 +4,7 @@
 //  • Roster vs available: any team's players at each position next to the best free agents there.
 import { useEffect, useMemo, useState } from 'react';
 import { useLeague, useSport } from '../lib/store';
-import { calledOff, plays, positionKeys } from '../lib/sport';
+import { calledOff, notStarted, plays, positionKeys } from '../lib/sport';
 import { rpc } from '../lib/supabase';
 import { etToday, fmtPts } from '../lib/format';
 import { gamesOf, rosPerGame, dressRate } from '../lib/lineup';
@@ -38,7 +38,7 @@ interface Idea { add: Player; drop: Player | null; gain: number; games: number; 
 const gpOf = (p: Player) => (p.proj_gp && p.proj_gp > 0 ? p.proj_gp : p.pos === 'G' ? 58 : 80);
 
 export function PickupAdvisor() {
-  const { me, league, players, rosters, owner, refresh, season } = useLeague();
+  const { me, league, players, rosters, owner, refresh, season, games: tonight, leagueDay } = useLeague();
   const games = useSeasonGames();
   const details = useProjDetails();
   const pointsValue = usePlayerValue();
@@ -63,6 +63,14 @@ export function PickupAdvisor() {
   const { busy, run } = useAction();
   const [h, setH] = useState<Horizon>(14);
   const sport = useSport();
+  // tonight's games already under way are no use to a player picked up now (the call is scored on the games that start
+  // after it), so the advisor plays only the ones still to come
+  const begunKey = tonight.filter((g) => g.date === leagueDay && !notStarted(sport, g.state) && !calledOff(sport, g.state)).map((g) => g.id).join();
+  const ahead = useMemo(() => {
+    if (!games) return null;
+    const begun = new Set(begunKey.split(',').filter(Boolean).map(Number));
+    return begun.size ? games.filter((g) => !(g.id != null && begun.has(g.id))) : games;
+  }, [games, begunKey]);
   const [pos, setPos] = useState<string>('All');
   const [ideas, setIdeas] = useState<Idea[] | null>(null);
   const [detail, setDetail] = useState<number | null>(null);
@@ -72,15 +80,15 @@ export function PickupAdvisor() {
   const rosterMax = Object.entries(caps).filter(([k]) => k !== 'IR').reduce((t, [, n]) => t + n, 0);
   const mine = useMemo(() => rosters.filter((r) => r.team_id === me?.id), [rosters, me?.id]);
   const activeCount = mine.filter((r) => r.slot !== 'IR').length;
-  const gamesIn = (p: Player) => (games ?? []).filter((g) => g.date >= today && g.date <= to && !calledOff(sport, g.state) && (g.home === p.nhl_team || g.away === p.nhl_team)).length;
+  const gamesIn = (p: Player) => (ahead ?? []).filter((g) => g.date >= today && g.date <= to && !calledOff(sport, g.state) && (g.home === p.nhl_team || g.away === p.nhl_team)).length;
 
   useEffect(() => {
-    if (!games || !me || league?.phase !== 'season' || (catOn && !model)) return;
+    if (!ahead || !me || league?.phase !== 'season' || (catOn && !model)) return;
     setIdeas(null);
     const t = setTimeout(() => {
       const roster = mine.filter((r) => r.slot !== 'IR').map((r) => players.get(r.player_id)).filter((p): p is Player => !!p);
       const fp = roster.map(value);
-      const base = forecastTeam(me.id, fp, games, caps, today, 0, to);
+      const base = forecastTeam(me.id, fp, ahead, caps, today, 0, to);
       // who could go: the players doing the least for this lineup over the stretch
       const drops = [...roster].sort((a, b) => ((base.players.get(a.id)?.pts ?? 0) + (base.players.get(a.id)?.benchPts ?? 0) * 0.2) - ((base.players.get(b.id)?.pts ?? 0) + (base.players.get(b.id)?.benchPts ?? 0) * 0.2)).slice(0, h ? 5 : 3);
       const n = h ? 40 : 20;
@@ -99,7 +107,7 @@ export function PickupAdvisor() {
         for (const d of options) {
           const next = d ? fp.filter((x) => x.id !== d.id) : [...fp];
           next.push(v);
-          const f = forecastTeam(me.id, next, games, caps, today, 0, to);
+          const f = forecastTeam(me.id, next, ahead, caps, today, 0, to);
           const gain = f.ros - base.ros;
           if (!bestIdea || gain > bestIdea.gain) bestIdea = { add: p, drop: d, gain, games: g, filled: base.emptySlots - f.emptySlots, exp: v.proj / gamesOf(v) * dressRate(v), dropExp: d ? value(d).proj / gamesOf(d) * dressRate(d) : 0,
             cats: model && rates ? categoryDelta(model, rates, posOf, base.players, f.players) : undefined };
@@ -110,7 +118,7 @@ export function PickupAdvisor() {
       setIdeas(out.sort((a, b) => b.gain - a.gain).slice(0, 12));
     }, 30);
     return () => clearTimeout(t);
-  }, [games, me?.id, h, pos, mine, players, owner, model]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [ahead, me?.id, h, pos, mine, players, owner, model]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const doAdd = (i: Idea) => run(async () => {
     await rpc('add_player', { p_add: i.add.id, p_drop: i.drop?.id ?? null });
