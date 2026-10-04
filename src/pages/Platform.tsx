@@ -13,6 +13,7 @@ import { BrandPreview, ColourPicker, LEAGUE_COLOURS, starterBrand, themed, type 
 import { Wordmark } from '../components/Brand';
 import { Checklist, type Check } from '../components/Readiness';
 import { appLink, leagueUrl } from '../lib/host';
+import { PoolTest } from '../components/PoolTest';
 
 interface Row {
   league_id: number; slug: string; name: string; short_name: string; status: 'setup' | 'active' | 'archived'; created_at: string;
@@ -57,6 +58,8 @@ export default function Platform() {
       </div>
 
       <Requests leagues={rows} reload={load} />
+
+      <PoolTest />
 
       <Section title="Leagues">
         <div className="space-y-3">{rows.map((r) => <LeagueCard key={r.league_id} r={r} reload={load} />)}</div>
