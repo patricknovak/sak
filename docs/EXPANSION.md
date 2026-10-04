@@ -351,13 +351,17 @@ best designed beside a real second sport rather than guessed at.
 **Phase 4, the second sport: soccer (reordered 4 October 2026, `docs/POOLS.md` section 7).** Soccer comes next, in two
 steps. First prediction pools on soccer, which need only fixtures and results: a `soccer` sports row (positions GK, DEF,
 MID, FWD; halves and extra time; a gameweek day boundary in the competition's time zone), the soccer adapter on
-API-Football into provider-neutral tables (`clubs`, fixtures in `games` with a `sport` and `(sport, ext_id)`, results),
+API-Football into provider-neutral tables (`competitions`, `clubs`, `fixtures` keyed by `(provider, ext_id)`; not rows in
+`games`, whose NHL readers match on three-letter codes MLS shares with the NHL: TOR, MTL, VAN, SEA and more),
 and gameweek, survivor and season questions on the prediction engine settled from results. Then soccer fantasy on the
 weekly engine: gameweeks as the lineup period, squads with a captain and transfers, FPL-style scoring through the
 sport's vocabulary, the Book's in-play model for two halves. Basketball moves after soccer, on the daily engine.
 *Gate:* a soccer prediction pool settles a month of gameweeks from the feed with no hand edits, and SaK's numbers do
 not move; then a soccer fantasy league and SaK run side by side through a month with no sport-specific code outside
-the adapter and the sports row.
+the adapter and the sports row. *Step 1 is built (migrations 148-149, live, 4 October 2026): the sports row, the shared
+tables, `soccer_ingest()` (the adapter's one write), `soccer-sync` (fixtures daily, live every two minutes while a match
+is on), result questions a host adds by matchweek (`pool_add_fixtures`), settled by `run_league_jobs('pool-settle')`. It
+waits on the `API_FOOTBALL_KEY` secret.*
 
 **Prediction leagues (4 October 2026).** A league has a kind: `fantasy` (rosters, a draft, games) or `predict`
 (questions only). A prediction league reuses teams as members' seats, the invites, the chat, the coin ledger, the brand

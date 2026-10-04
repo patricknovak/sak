@@ -21,6 +21,8 @@ where n.nspname = 'public' and c.relkind in ('r', 'p')
     'sports',
     -- question packs a prediction pool can load (docs/POOLS.md), read by every pool
     'pool_packs',
+    -- soccer's competitions, clubs and fixtures (migration 148), shared like the NHL's games
+    'competitions', 'clubs', 'fixtures',
     -- one-off backup kept from the 2025-26 roster import (row-level security on, no policies)
     'rosters_2526_backup');
 

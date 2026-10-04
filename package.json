@@ -10,7 +10,7 @@
     "typecheck": "tsc -b",
     "players": "node scripts/build-players.mjs && node scripts/gen-seed-sql.mjs --rosters",
     "test:db": "bash supabase/tests/run.sh",
-    "test:nhl": "node --experimental-strip-types --no-warnings supabase/tests/nhl-stats.test.mjs && node --experimental-strip-types --no-warnings supabase/tests/history-paste.test.mjs && node --experimental-strip-types --no-warnings supabase/tests/cat-pickup.test.mjs && node --experimental-strip-types --no-warnings supabase/tests/sport.test.mjs && node --experimental-strip-types --no-warnings supabase/tests/forecast.test.mjs"
+    "test:nhl": "node --experimental-strip-types --no-warnings supabase/tests/nhl-stats.test.mjs && node --experimental-strip-types --no-warnings supabase/tests/history-paste.test.mjs && node --experimental-strip-types --no-warnings supabase/tests/cat-pickup.test.mjs && node --experimental-strip-types --no-warnings supabase/tests/sport.test.mjs && node --experimental-strip-types --no-warnings supabase/tests/soccer.test.mjs && node --experimental-strip-types --no-warnings supabase/tests/forecast.test.mjs"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.117.1",

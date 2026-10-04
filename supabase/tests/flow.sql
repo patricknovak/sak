@@ -3242,3 +3242,57 @@ select pg_temp.expect('the drop job pays nothing twice', (run_league_jobs('pool-
 select pg_temp.expect('the fantasy jobs skip a prediction pool', not (run_league_jobs('settle-bets') ? :'lib'));
 select set_config('request.jwt.claim.sub', '', false);
 select 'prediction pools', true;
+
+-- ───────────── soccer (migration 148) ─────────────
+-- fixtures come in through the adapter's one write; a pool's host adds a matchweek; the results settle the questions
+reset role;
+select set_config('request.jwt.claim.sub', '', false);
+select pg_temp.expect('soccer states read from the sport', _sport_state('soccer', 'HT') = 'live' and _sport_state('soccer', 'AET') = 'final'
+  and _sport_state('soccer', 'PST') = 'postponed' and _sport_state('soccer', 'NS') = 'scheduled' and _sport_state('soccer', 'ABD') = 'cancelled');
+select set_config('t.fx', jsonb_build_object(
+  'clubs', jsonb_build_array(jsonb_build_object('ext_id', '42', 'name', 'Arsenal', 'short', 'ARS'),
+    jsonb_build_object('ext_id', '49', 'name', 'Chelsea', 'short', 'CHE'), jsonb_build_object('ext_id', '40', 'name', 'Liverpool', 'short', 'LIV')),
+  'fixtures', jsonb_build_array(
+    jsonb_build_object('ext_id', '9001', 'round', 'Regular Season - 8', 'gameweek', 8, 'kickoff', now() + interval '2 days', 'status', 'NS', 'home', '42', 'away', '49'),
+    jsonb_build_object('ext_id', '9002', 'round', 'Regular Season - 8', 'gameweek', 8, 'kickoff', now() + interval '3 days', 'status', 'NS', 'home', '40', 'away', '42'),
+    jsonb_build_object('ext_id', '9003', 'round', 'Regular Season - 9', 'gameweek', 9, 'kickoff', now() + interval '9 days', 'status', 'NS', 'home', '49', 'away', '40')))::text, false);
+select soccer_ingest('epl', current_setting('t.fx')::jsonb);
+select pg_temp.expect('an ingest twice changes nothing', (soccer_ingest('epl', current_setting('t.fx')::jsonb)->>'fixtures')::int = 3
+  and (select count(*) from fixtures) = 3 and (select count(*) from clubs) = 3);
+select pg_temp.expect('a fixture''s date is its date in the competition''s time zone', (select date = (kickoff at time zone 'Europe/London')::date from fixtures where ext_id = '9001'));
+select pg_temp.expect('nothing to pull until a match is near', not _soccer_due());
+select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-000000000082', false);
+set role authenticated;
+select pg_temp.raises('a member can''t add matches', 'select pool_add_fixtures(''epl'')', 'Commissioner only');
+reset role;
+select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-000000000081', false);
+set role authenticated;
+select pg_temp.expect('the next matchweek is on offer', (select gameweek = 8 and matches = 2 and added = 0 from soccer_rounds() where competition = 'epl'));
+select pg_temp.expect('the host adds the next matchweek', pool_add_fixtures('epl') = 2);
+select pg_temp.expect('and adding it again adds nothing', pool_add_fixtures('epl') = 0);
+select pg_temp.expect('each question closes at kick-off with home, draw, away',
+  (select m.closes_at = f.kickoff and m.outcomes->1->>'label' = 'Draw' and m.outcomes->0->>'label' = 'Arsenal'
+   from pool_markets m join fixtures f on f.id = (m.source->>'fixture')::bigint where f.ext_id = '9001'));
+select pg_temp.expect('and the chat hears about it', exists (select 1 from messages where meta ? 'pool_fixtures'));
+select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-000000000082', false);
+select pool_buy((select id from pool_markets where title = 'Arsenal v Chelsea'), 'a1', 100);
+select pool_buy((select id from pool_markets where title = 'Liverpool v Arsenal'), 'a3', 60);
+reset role;
+select set_config('request.jwt.claim.sub', '', false);
+-- the whistle: Arsenal win 2-1; the other match is postponed
+select soccer_ingest('epl', jsonb_build_object('fixtures', jsonb_build_array(
+  jsonb_build_object('ext_id', '9001', 'gameweek', 8, 'kickoff', now() + interval '2 days', 'status', 'FT', 'home', '42', 'away', '49',
+    'home_score', 2, 'away_score', 1, 'home_ft', 2, 'away_ft', 1),
+  jsonb_build_object('ext_id', '9002', 'gameweek', 8, 'kickoff', now() + interval '3 days', 'status', 'PST', 'home', '40', 'away', '42'))));
+select pg_temp.expect('results make the settle job due', _pool_settle_due());
+select pg_temp.expect('the job settles both', (run_league_jobs('pool-settle')->>:'lib')::int = 2);
+select pg_temp.expect('and has nothing left to do', not _pool_settle_due());
+select pg_temp.expect('the win pays a coin a share', (select status = 'resolved' and winner_key = 'a1' and note = 'Full time: Arsenal 2-1 Chelsea'
+  from pool_markets where title = 'Arsenal v Chelsea')
+  and (select sum(amount) from coin_ledger where team_id = :fern and reason like 'Paid: Arsenal v Chelsea%') > 100);
+select pg_temp.expect('the postponed match is voided and refunded', (select status from pool_markets where title = 'Liverpool v Arsenal') = 'void'
+  and (select sum(amount) from coin_ledger where team_id = :fern and reason like '%Liverpool v Arsenal%') = 0);
+select pg_temp.expect('settled in the pool''s own chat', (select league_id from messages where body like '✅ Settled: "Arsenal v Chelsea"%') = :lib);
+select pg_temp.expect('a host can still settle by hand', (select count(*) from pool_markets where league_id = :lib and status = 'open' and source is null) > 0);
+select set_config('request.jwt.claim.sub', '', false);
+select 'soccer', true;

@@ -9,6 +9,7 @@ export interface PoolMarket {
   id: number; title: string; rule: string; category: string | null; outcomes: PoolOutcome[]; q: Record<string, number>;
   b: number; max_stake: number; status: 'open' | 'resolved' | 'void'; closes_at: string; winner_key: string | null; note: string | null;
   created_by: number | null; pack: string | null; sort: number; created_at: string; resolved_at: string | null;
+  source?: { fixture: number; kind: string } | null;   // a question that follows a soccer fixture settles itself
 }
 export interface PoolPosition { market_id: number; team_id: number; outcome: string; shares: number; cost: number; paid: number }
 export interface PoolTrade { id: number; market_id: number; team_id: number; outcome: string; shares: number; coins: number; prices: Record<string, number>; created_at: string }
