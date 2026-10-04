@@ -115,7 +115,9 @@ export function LeagueProvider({ children }: { children: ReactNode }) {
       if (code === 'nhl') setSport(NHL);
       else {
         const { data: sp } = await supabase.from('sports').select('config').eq('id', code).maybeSingle();
-        setSport(sp?.config ? { ...NHL, ...(sp.config as Partial<SportConfig>) } : NHL);
+        // words merge key by key: a row that names only some of them keeps hockey's for the rest
+        const cfg = sp?.config as Partial<SportConfig> | null;
+        setSport(cfg ? { ...NHL, ...cfg, words: { ...NHL.words, ...(cfg.words ?? {}) } } : NHL);
       }
     },
     teams: async () => { const { data } = await supabase.from('teams').select('*').order('id'); if (data) setAllTeams(data as Team[]); },

@@ -291,7 +291,9 @@ insert into public.sports (id, name, config) values ('nhl', 'NHL hockey', $sport
     "starter": "starting goalie"
   }
 }$sport$::jsonb)
-on conflict (id) do update set name = excluded.name, config = excluded.config;
+-- a re-run keeps words added to the row by later migrations (144: Garry's voice) and refreshes the rest
+on conflict (id) do update set name = excluded.name,
+  config = excluded.config || jsonb_build_object('words', coalesce(sports.config->'words', '{}'::jsonb) || (excluded.config->'words'));
 
 do $$ begin
   if not exists (select 1 from pg_constraint where conname = 'leagues_sport_fkey') then

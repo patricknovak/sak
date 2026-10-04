@@ -54,7 +54,7 @@ export function StandingsTable({ rows, view = 'regular', pot = [], peter = false
                   <Link to={`/team/${s.team_id}`} className="flex min-w-0 items-center gap-2">
                     <TeamBadge team={t} size={26} />
                     <span className="min-w-0">
-                      <TeamName team={t} className="line-clamp-2 block break-words text-[13px] font-bold leading-tight" />
+                      <TeamName team={t} className="line-clamp-2 break-words text-[13px] font-bold leading-tight" />
                       <span className="block truncate text-[10px] text-mute">
                         {sub}
                         {online.has(s.team_id) && <span className="text-emerald-400"> · online</span>}
