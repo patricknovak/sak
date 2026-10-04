@@ -300,6 +300,11 @@ built (migrations 92 and 93: `open_shadow_league`, `shadow_sync` every minute, `
 presence per league, B7 brand and history per league, B8 phones, Cloudflare Pages hosting, the platform `create_league`.
 Garry's daily budget.
 *Gate:* a friend's league is created, invited, drafted and scored for two weeks without anyone touching SQL.
+*Walked through on 4 October 2026 (migration 108):* a league opened on the Platform page, its commissioner invited and
+seated, the order drawn, the draft run to the end with open seats picked for them, rosters slotted and the season
+phase set, all through the functions the site calls. Three fixes came out of it: the order draw took every league's
+teams (SaK's too since the shadow league), an open seat waited out the full clock each round (now 4 seconds, like
+autodraft), and a new league opened in the keepers phase with nobody to keep (now ready to draft).
 
 **Phase 3, the sport pulled out.** Section 6 with the NHL as the only sport: `sports` row, adapter interface,
 `SportConfig`, scoring as a list, ids with `sport`. SaK must not notice.
