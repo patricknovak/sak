@@ -7,7 +7,7 @@ import { rpc } from '../lib/supabase';
 import { fmtPts, readable } from '../lib/format';
 import { useBrand } from '../lib/brand';
 import { categoryOf, fmtCat } from '../lib/categories';
-import { forecastTeam, winChance, type FPlayer } from '../lib/forecast';
+import { forecastFromTonight, forecastTeam, winChance, type FPlayer } from '../lib/forecast';
 import { gamesOf, rosPerGame } from '../lib/lineup';
 import { useSeasonGames } from '../lib/projections';
 import type { Player } from '../lib/types';
@@ -205,15 +205,26 @@ function useWinChance(x: Matchup) {
     const from = x.status === 'upcoming' ? x.starts : leagueDay;
     const value = (p: Player): FPlayer => { const s = season.get(p.id); return { ...p, proj: rosPerGame(p.proj, p.pos, s?.gp ?? 0, s?.fpts ?? 0, p.proj_gp) * gamesOf(p) }; };
     const side = (t: number) => {
-      const roster = rosters.filter((r) => r.team_id === t && r.slot !== 'IR').map((r) => players.get(r.player_id)).filter((p): p is Player => !!p).map(value);
-      return from > x.ends ? 0 : forecastTeam(t, roster, ahead, caps, from, 0, x.ends).ros;
+      const rows = rosters.filter((r) => r.team_id === t && r.slot !== 'IR');
+      const roster = rows.map((r) => players.get(r.player_id)).filter((p): p is Player => !!p).map(value);
+      if (from > x.ends) return 0;
+      if (from !== leagueDay || !begun.size) return forecastTeam(t, roster, ahead, caps, from, 0, x.ends).ros;
+      // tonight is on: the slots its started players hold are spoken for
+      const held: Record<string, number> = {};
+      for (const r of rows) {
+        if (r.slot === 'BN') continue;
+        const club = players.get(r.player_id)?.nhl_team;
+        const g = club ? today.find((y) => y.date === leagueDay && (y.home === club || y.away === club)) : undefined;
+        if (g && begun.has(g.id)) held[r.slot] = (held[r.slot] ?? 0) + 1;
+      }
+      return forecastFromTonight(t, roster, ahead, caps, leagueDay, x.ends, held);
     };
     const hr = side(x.home_team), ar = side(x.away_team);
     if (x.status === 'upcoming' && hr + ar <= 0) return null;   // nothing scheduled to go on
     const hNow = x.status === 'upcoming' ? 0 : Number(x.home_pts ?? 0), aNow = x.status === 'upcoming' ? 0 : Number(x.away_pts ?? 0);
     const home = winChance(hNow, hr, aNow, ar);
     return { home, homeProj: hNow + hr, awayProj: aNow + ar };
-  }, [on, x, sched, rosters, players, season, today, leagueDay, league?.roster, league?.categories]);
+  }, [on, x, sched, rosters, players, season, today, leagueDay, league?.roster, league?.categories, sport]);
 }
 
 function WinBar({ x }: { x: Matchup }) {

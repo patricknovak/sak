@@ -228,7 +228,7 @@ export default function Calibration() {
             ))}
           </div>
         ) : <div className="card p-4 text-sm text-mute">{pkWaiting ? `${pkWaiting} pickups are out, waiting on their stretches to finish.` : 'No pickups from the advisor yet. Each one a GM makes from it is logged here and scored when its stretch is over.'}</div>}
-        <p className="mt-2 px-1 text-[11px] text-mute">Lineup points the advisor said a pickup would add over the stretch the GM looked at, against what the new player scored in that lineup less what the dropped player scored.</p>
+        <p className="mt-2 px-1 text-[11px] text-mute">Lineup points the advisor said a pickup would add over the stretch the GM looked at, against what the new player scored in that lineup less what the dropped player scored. A rough check, not like for like: the promise nets out whoever the new player pushed from the lineup, while the result counts all his starts and every point the dropped player scored, started or not.</p>
       </Section>
       <Section title="Waiting on results">
         <div className="card divide-y divide-white/[.06]">

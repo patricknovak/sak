@@ -3,7 +3,7 @@
 // deno-lint-ignore-file no-explicit-any
 import type { SupabaseClient } from 'jsr:@supabase/supabase-js@2';
 import { etDate } from '../_shared/nhl.ts';
-import { forecastTeam, winChance, type FPlayer } from '../_shared/forecast.ts';
+import { forecastFromTonight, forecastTeam, winChance, type FPlayer } from '../_shared/forecast.ts';
 import { gamesOf, rosPerGame } from '../_shared/lineup.ts';
 
 // the league-scoped reads from index.ts, plus the league's names for the wording
@@ -117,13 +117,29 @@ async function matchupChance(db: Db, league: any, m: any, side: number): Promise
     const s = season.get(p.id), pg = p.proj_gp == null ? null : Number(p.proj_gp);
     return [p.id, { ...p, proj_gp: pg, proj: rosPerGame(Number(p.proj), p.pos, Number(s?.gp ?? 0), Number(s?.fpts ?? 0), pg) * gamesOf({ pos: p.pos, proj_gp: pg }) } as FPlayer];
   }));
-  // tonight's games already on are in the points; only the ones to come are forecast
-  const ahead = ((gs ?? []) as any[]).filter((g) => !(g.date === today && !['FUT', 'PRE', 'PPD', 'CNCL'].includes(g.state)));
+  // tonight's games already on are in the points; only the ones to come are forecast, in the slots still open
+  const begun = new Set(((gs ?? []) as any[]).filter((g) => g.date === today && !['FUT', 'PRE', 'PPD', 'CNCL'].includes(g.state)).map((g) => g.id));
+  const ahead = ((gs ?? []) as any[]).filter((g) => !begun.has(g.id));
   const from = m.status === 'upcoming' ? m.starts : today;
-  const rest = (t: number) => forecastTeam(t, ((rows ?? []) as any[]).filter((r) => r.team_id === t).map((r) => players.get(r.player_id)).filter((p): p is FPlayer => !!p),
-    ahead, (league.roster ?? {}) as Record<string, number>, from, 0, m.ends).ros;
+  const caps = (league.roster ?? {}) as Record<string, number>;
+  const rest = (t: number) => {
+    const mine = ((rows ?? []) as any[]).filter((r) => r.team_id === t);
+    const roster = mine.map((r) => players.get(r.player_id)).filter((p): p is FPlayer => !!p);
+    if (from !== today || !begun.size) return forecastTeam(t, roster, ahead, caps, from, 0, m.ends).ros;
+    const held: Record<string, number> = {};
+    for (const r of mine) {
+      if (r.slot === 'BN') continue;
+      const club = players.get(r.player_id)?.nhl_team;
+      const g = club ? ((gs ?? []) as any[]).find((y) => y.date === today && (y.home === club || y.away === club)) : undefined;
+      if (g && begun.has(g.id)) held[r.slot] = (held[r.slot] ?? 0) + 1;
+    }
+    return forecastFromTonight(t, roster, ahead, caps, today, m.ends, held);
+  };
+  const hr = rest(m.home_team), ar = rest(m.away_team);
+  // a week whose games aren't in the schedule yet has nothing to go on (the site shows no chance either)
+  if (m.status === 'upcoming' && hr + ar <= 0) return null;
   const now = (v: unknown) => (m.status === 'upcoming' ? 0 : Number(v ?? 0));
-  const home = winChance(now(m.home_pts), rest(m.home_team), now(m.away_pts), rest(m.away_team));
+  const home = winChance(now(m.home_pts), hr, now(m.away_pts), ar);
   return side === m.home_team ? home : 1 - home;
 }
 
@@ -193,7 +209,7 @@ export async function answer(db: Db, question: string, askerTeam: number, opts: 
 
   // ── standings
   if (has(/\b(standing|standings|leader|leading|winning|first place|last place|in first|in last|peter|rank|table|who.?s up|points race|where am i)\b/)
-      || (league.format === 'h2h' && has(/\b(my matchup|matchup|this week|who am i (playing|against)|my opponent|my (chances|odds)|chance to win|will i win|am i winning)\b/) && !howTo)) {
+      || (league.format === 'h2h' && has(/\b(my matchup|matchup|this week|who am i (playing|against)|my opponent|my (chances|odds)|chance to win|will i win|am i winning)\b/) && !howTo && !has(/\b(bets?|wagers?)\b/))) {
     const ord = (n: number) => `${n}${['st', 'nd', 'rd'][n - 1] ?? 'th'}`;
     // a head-to-head league is ranked by wins, and a GM wants this week's matchup too
     if (league.format === 'h2h') {

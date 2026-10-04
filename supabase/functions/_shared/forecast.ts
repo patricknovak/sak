@@ -78,6 +78,17 @@ export function forecastTeam(team: number, roster: FPlayer[], games: FGame[], ca
   return { team, ros, current, total: current + ros, benchWaste: waste, emptySlots: empty, players: contrib, byPos, cats };
 }
 
+// The rest of a stretch from tonight while tonight's games are on: the slots its started players already hold are
+// taken (`held`, counted by slot from tonight's lineup), so tonight's games still to come fill only the others (a bench
+// goalie in a late game can't take a goalie's spot that's been played); every night after gets every slot. The started
+// games themselves are left out of `games` by the caller: their points are on the board.
+export function forecastFromTonight(team: number, roster: FPlayer[], games: FGame[], caps: Record<string, number>, day: string, to: string, held: Record<string, number>) {
+  const left = Object.fromEntries(Object.entries(caps).map(([k, n]) => [k, Math.max(0, Number(n) - (held[k] ?? 0))]));
+  const tonight = day > to ? 0 : forecastTeam(team, roster, games, left, day, 0, day).ros;
+  const next = new Date(Date.parse(day + 'T12:00:00Z') + 86400000).toISOString().slice(0, 10);
+  return tonight + (next > to ? 0 : forecastTeam(team, roster, games, caps, next, 0, to).ros);
+}
+
 // deterministic normal draws so the page gives the same odds every render
 function rng(seed: number) {
   let s = seed >>> 0;

@@ -2946,12 +2946,20 @@ reset role;
 select (array_agg(r.player_id order by r.player_id))[1] as pk_add, (array_agg(r.player_id order by r.player_id))[2] as pk_drop
 from rosters r join players p on p.id = r.player_id where r.team_id = 3 and p.pos <> 'G' \gset
 select p.id as pk_free from players p where not exists (select 1 from rosters r where r.player_id = p.id) and p.pos <> 'G' order by p.id limit 1 \gset
+-- the move itself, as add_player writes it
+insert into transactions (league_id, season, type, team_id, player_id) values
+  (1, '2026-27', 'drop', 3, :pk_drop), (1, '2026-27', 'add', 3, :pk_add);
 select pg_temp.as_team(3);
 set role authenticated;
 select pg_temp.expect('a GM logs the pickup they just made', log_pickup_call(:pk_add, :pk_drop, 6.5, today_et() + 14));
 select pg_temp.expect('not one that isn''t on their roster', not log_pickup_call(:pk_free, null, 3, today_et() + 14));
+select pg_temp.expect('not a rostered player they didn''t just add', not log_pickup_call(:pk_drop, null, 3, today_et() + 14));
+select pg_temp.expect('not a drop they didn''t make', not log_pickup_call(:pk_add, :pk_free, 3, today_et() + 14));
+select pg_temp.expect('a promise held to what a stretch can hold', log_pickup_call(:pk_add, null, 100000, today_et() + 1));
 reset role;
 select pg_temp.expect('the call is theirs, once', (select count(*) from predictions where kind = 'pickup' and subject->>'team_id' = '3' and predicted = 6.5) = 1);
+select pg_temp.expect('the cap is 30 a night', (select predicted from predictions where kind = 'pickup' and subject->>'drop' is null) = 60);
+delete from transactions where team_id = 3 and type in ('add', 'drop') and created_at > now() - interval '1 minute';
 delete from predictions where kind = 'pickup';
 -- scored on what the new player scored while started, less what the dropped one scored
 insert into games (id, date, start_utc, home, away, state, final_synced) values
@@ -2962,8 +2970,10 @@ insert into player_games (game_id, player_id, date, stats) values
   (7901, :pk_drop, today_et() - 120, '{"g":0,"a":1,"sog":2}');
 insert into lineup_snapshots (game_id, date, team_id, player_id, slot) values
   (7901, today_et() - 120, 3, :pk_add, 'C'), (7902, today_et() - 119, 3, :pk_add, 'BN');
-insert into predictions (league_id, kind, subject, predicted, basis, resolves_on) values
-  (1, 'pickup', jsonb_build_object('team_id', 3, 'add', :pk_add, 'drop', :pk_drop, 'from', today_et() - 121), 4.0, 'advisor', today_et() - 119);
+-- made the afternoon of the first game's day: that night's game counts
+insert into predictions (league_id, kind, subject, predicted, basis, resolves_on, made_at) values
+  (1, 'pickup', jsonb_build_object('team_id', 3, 'add', :pk_add, 'drop', :pk_drop, 'from', today_et() - 120), 4.0, 'advisor', today_et() - 119,
+   now() - interval '120 days 3 hours');
 select set_config('app.league_id', '1', false);
 select (select fpts from league_games where game_id = 7901 and player_id = :pk_add) - (select fpts from league_games where game_id = 7901 and player_id = :pk_drop) as pk_want \gset
 select score_predictions() >= 1 as pk_scored \gset
