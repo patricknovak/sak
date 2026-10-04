@@ -3347,6 +3347,36 @@ reset role;
 select set_config('request.jwt.claim.sub', '', false);
 select 'my pools', true;
 
+-- ───────────── start a pool with no account yet (migration 153) ─────────────
+-- the join function makes the account, then opens the pool through _pool_start_new as the service role
+insert into auth.users (id, email) values ('00000000-0000-0000-0000-000000000091', 'newhost91@example.com'), ('00000000-0000-0000-0000-000000000092', 'newhost92@example.com'),
+  ('00000000-0000-0000-0000-000000000093', 'newhost93@example.com'), ('00000000-0000-0000-0000-000000000094', 'newhost94@example.com') on conflict do nothing;
+set role service_role;
+select _pool_start_new('00000000-0000-0000-0000-000000000091', 'Pod Watchers', '#fb7185', 'love-is-blind-s11', 'Maya', 'iphash-aaaa-1') ->> 'id' as nw \gset
+reset role;
+select pg_temp.expect('a brand-new account hosts its new pool, under the name it gave', (select t.is_commish and t.gm_name = 'Maya' and t.user_id = '00000000-0000-0000-0000-000000000091'
+  from teams t where t.league_id = :nw));
+select pg_temp.expect('it is a member, with the pack loaded and 1,000 coins', exists (select 1 from league_members where user_id = '00000000-0000-0000-0000-000000000091' and league_id = :nw)
+  and (select count(*) from pool_markets where league_id = :nw) = 8 and (select sum(amount) from coin_ledger c join teams t on t.id = c.team_id where t.league_id = :nw) = 1000);
+select pg_temp.expect('and the pool opens for it', (select active_league_id from accounts where user_id = '00000000-0000-0000-0000-000000000091') = :nw);
+set role service_role;
+select pg_temp.raises('an account already in a pool uses My pools instead', $$select _pool_start_new('00000000-0000-0000-0000-000000000091', 'Second Pool', null, null, 'Maya', 'iphash-aaaa-1')$$, 'already in a pool');
+select _pool_start_new('00000000-0000-0000-0000-000000000092', 'Rose Ceremony', null, null, 'Ana', 'iphash-aaaa-1');
+select _pool_start_new('00000000-0000-0000-0000-000000000093', 'Altar Watch', null, null, 'Bea', 'iphash-aaaa-1');
+select pg_temp.raises('three new pools a day from one address', $$select _pool_start_new('00000000-0000-0000-0000-000000000094', 'Fourth Pool', null, null, 'Cy', 'iphash-aaaa-1')$$, 'three new pools');
+select pg_temp.expect('another address still can', (_pool_start_new('00000000-0000-0000-0000-000000000094', 'Fourth Pool', null, null, 'Cy', 'iphash-bbbb-2') ->> 'id') is not null);
+select pg_temp.raises('no address, no pool', $$select _pool_start_new('00000000-0000-0000-0000-000000000094', 'Fifth Pool', null, null, 'Cy', '')$$, 'Couldn');
+reset role;
+-- nobody signed in reaches either door directly
+set role anon;
+select pg_temp.raises('the public can''t call it', $$select _pool_start_new('00000000-0000-0000-0000-000000000094', 'X Pool', null, null, 'Cy', 'iphash-cccc-3')$$, 'permission denied');
+reset role;
+set role authenticated;
+select pg_temp.raises('nor can a signed-in GM', $$select _pool_open('00000000-0000-0000-0000-000000000094', 'X Pool', null, null)$$, 'permission denied');
+reset role;
+select set_config('request.jwt.claim.sub', '', false);
+select 'start a pool, no account', true;
+
 -- ───────────── the injury report's timeline (migration 152) ─────────────
 -- the hourly sync writes the expected return, what it is and the list; a GM reads them through the league's players,
 -- and the status change still lands in the player's history

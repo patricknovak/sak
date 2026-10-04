@@ -132,7 +132,9 @@ export default function Login() {
           </form>
         )}
         {err && <div className="mt-4 rounded-xl border border-red-400/30 bg-red-900/50 px-4 py-3 text-center text-sm text-red-200">{err}</div>}
-        <a href="#/start" className="mt-6 block text-center text-xs text-sky-300/80 underline decoration-sky-300/30 underline-offset-2">Run a pool of your own? Start one on Super Pools</a>
+        {/* a prediction pool starts right away (#/new); a fantasy league is asked for (#/start) */}
+        <a href="#/new" className="mt-6 block text-center text-xs text-sky-300/80 underline decoration-sky-300/30 underline-offset-2">Run a pool of your own? Start one free, right now</a>
+        <a href="#/start" className="mt-2 block text-center text-[11px] text-white/40 underline decoration-white/20 underline-offset-2">Or ask for a fantasy league</a>
         <p className="mt-3 text-center text-xs italic text-mute">{pool ? `Pools for everything you watch, on ${PRODUCT.name}` : other ? `Fantasy hockey on ${PRODUCT.name}` : 'Play fair, play hard and play to win.'}</p>
       </div>
     </div>

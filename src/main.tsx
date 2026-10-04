@@ -31,6 +31,7 @@ const Features = lazy(() => import('./pages/Features'));
 const Costs = lazy(() => import('./pages/Costs'));
 const Platform = lazy(() => import('./pages/Platform'));
 const Start = lazy(() => import('./pages/Start'));
+const NewPool = lazy(() => import('./pages/NewPool'));
 const Calibration = lazy(() => import('./pages/Calibration'));
 const DraftTV = lazy(() => import('./pages/DraftTV'));
 const DraftCentre = lazy(() => import('./pages/DraftCentre'));
@@ -90,6 +91,8 @@ function App() {
   if (join) return <Join code={join[1]} />;
   // asking for a league is open to anyone
   if (pathname === '/start') return <Suspense fallback={null}><Start /></Suspense>;
+  // so is starting a prediction pool (migration 153)
+  if (pathname === '/new') return <Suspense fallback={null}><NewPool /></Suspense>;
   if (!session) return <Login />;
   if (!me) {
     return (
