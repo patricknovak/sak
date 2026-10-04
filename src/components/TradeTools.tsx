@@ -14,6 +14,7 @@ import { useNhlOdds, useProjDetails, useSeasonGames, toneCls, toneIcon } from '.
 import { Headshot, Pos, TeamBadge } from './ui';
 import { Sparkles } from 'lucide-react';
 import { rosPg, scoutNums, trendLabel, useScoutCtx } from './TradeScout';
+import { useCategoryValues } from './PlayerFilters';
 
 // every team's free-agent pickups left, read once and shared by every trade tool on the page
 let pkCache: { at: number; rows: PickupStatus[] } | null = null;
@@ -81,6 +82,11 @@ export function SideCard({ e, name, mine }: { e: SideEval; name: string; mine?: 
 // the players a side gets and sends, each with his fantasy points: this season (and per game) and what he projects to
 // score the rest of the way, with the totals both ways, so a grade always sits next to the points behind it
 function MoveList({ inn, out, c }: { inn: Player[]; out: Player[]; c: ReturnType<typeof useScoutCtx> }) {
+  // a category league also weighs each player on its categories (category value, migration 129)
+  const cvMap = useCategoryValues();
+  const cv = cvMap && cvMap.size ? cvMap : null;
+  const cvFmt = (v: number) => `${v > 0 ? '+' : ''}${v.toFixed(1)}`;
+  const cvSum = (ps: Player[]) => ps.reduce((t, p) => t + (cv?.get(p.id) ?? 0), 0);
   if (!inn.length && !out.length) return null;
   const line = (p: Player) => {
     const n = scoutNums(p, c);
@@ -90,13 +96,13 @@ function MoveList({ inn, out, c }: { inn: Player[]; out: Player[]; c: ReturnType
   const total = (ps: Player[]) => ps.reduce((t, p) => { const n = scoutNums(p, c); return { fp: t.fp + n.fp, ros: t.ros + n.ros }; }, { fp: 0, ros: 0 });
   const block = (label: string, ps: Player[], sign: string, cls: string) => ps.length > 0 && (
     <div>
-      <div className="flex justify-between text-[10px] uppercase tracking-wider text-mute"><span>{label}</span><span className="num normal-case tracking-normal">{fmtPts(total(ps).fp, 0)} FP · {fmtPts(total(ps).ros, 0)} ROS</span></div>
+      <div className="flex justify-between text-[10px] uppercase tracking-wider text-mute"><span>{label}</span><span className="num normal-case tracking-normal">{fmtPts(total(ps).fp, 0)} FP · {fmtPts(total(ps).ros, 0)} ROS{cv && <> · <b className="text-gold">{cvFmt(cvSum(ps))}</b> cat</>}</span></div>
       {ps.map((p) => { const l = line(p); return (
         <div key={p.id} className="flex items-baseline gap-1.5 text-[12px]">
           <span className={`w-3 shrink-0 font-bold ${cls}`}>{sign}</span>
           <div className="min-w-0 flex-1">
             <div className="truncate"><span className="font-semibold text-slate-100">{p.name}</span> <span className="text-mute">{p.elig.join('/')}</span></div>
-            <div className="num text-[11px] text-slate-300">{l.now} · <b className="text-slate-100">{fmtPts(l.ros, 0)}</b> ROS</div>
+            <div className="num text-[11px] text-slate-300">{l.now} · <b className="text-slate-100">{fmtPts(l.ros, 0)}</b> ROS{cv && <> · <b className="text-gold">{cv.get(p.id) != null ? cvFmt(cv.get(p.id)!) : '–'}</b> cat</>}</div>
           </div>
         </div>
       ); })}
