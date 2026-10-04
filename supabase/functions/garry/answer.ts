@@ -32,13 +32,19 @@ const CLOSE = [
   'That’s free advice, which is exactly what your last trade offer was worth.', 'Now stop bugging me and set your lineup.',
 ];
 
-const help = (db: Db): Record<string, string> => ({
+// the season before this one ("2026-27" -> "2025-26"), for the keeper help
+const prevSeason = (s: string) => { const y = Number(String(s).slice(0, 4)); return y ? `${y - 1}-${String(y).slice(2)}` : 'last season’s'; };
+
+// the how-to answers, in the league's own rules (SaK's read exactly as they always did)
+const help = (db: Db, league: any): Record<string, string> => ({
   lineup: 'Lineup tab (bottom menu): tap a player, then tap the slot he should go to. Players lock when their game starts. Or open ⚙️ Lineup tools: “Optimize today” sets the best lineup in one tap, and Auto-pilot (Day / Week / Season) does it for you every morning. Pin anyone you always want in (📌) or never want in (🚫). 👉 #/team',
   trade: 'Tap any team name to open their page, switch to “Scout & trade”, tick the players or picks you want, then Build trade and add what you’re sending. Picks for this draft and next year’s are tradable. The commish approves accepted deals. 👉 #/trades',
-  pickup: 'Players tab → “Available”, tap a player → ➕ Add (you’ll pick who to drop if you’re full). You get 10 free pickups for the season and playoffs, +3 more when the playoffs start. No paying for extras: trade another GM for their spares. 👉 #/players',
-  keeper: 'More → Keepers: tick up to 6 from your 2025-26 roster and hit Save before the deadline. Your 2025-26 top scorer can’t be kept. Miss the deadline and the site keeps your top 6 by points for you. 👉 #/keepers',
+  pickup: `Players tab → “Available”, tap a player → ➕ Add (you’ll pick who to drop if you’re full). You get ${league?.max_acquisitions ?? 10} free pickups for the season and playoffs${Number(league?.playoff_bonus_acq) ? `, +${league.playoff_bonus_acq} more when the playoffs start` : ''}. ${Number(league?.extra_acq_fee) && league?.features?.money !== false ? `Extras cost ${money(Number(league.extra_acq_fee))} each.` : 'No paying for extras: trade another GM for their spares.'} 👉 #/players`,
+  keeper: Number(league?.keepers ?? 6) > 0
+    ? `More → Keepers: tick up to ${league?.keepers ?? 6} from your ${prevSeason(league?.season ?? '')} roster and hit Save before the deadline. ${league?.top_scorer_rule !== false ? `Your ${prevSeason(league?.season ?? '')} top scorer can’t be kept. ` : ''}Miss the deadline and the site keeps your top ${league?.keepers ?? 6} by points for you. 👉 #/keepers`
+    : 'This league has no keepers: every player goes back into the draft each season. 👉 #/draft',
   draft: 'The Draft tab is the draft room: star players to build your queue, flip on Autodraft if you’ll be away, and practise first in the mock draft. Turn on phone alerts so you get buzzed when you’re on the clock. 👉 #/draft',
-  bet: `Side Bets (More menu) → New bet: pick an opponent (or leave it open), terms, and ${db.brand.coin.name} and/or real money. Head-to-head bets track your fantasy points automatically. 👉 #/bets`,
+  bet: `Side Bets (More menu) → New bet: pick an opponent (or leave it open), terms, and ${db.brand.coin.name}${league?.features && league.features.money !== true ? '' : ' and/or real money'}. Head-to-head bets track your fantasy points automatically. 👉 #/bets`,
   alerts: `My Profile → Alerts → Turn on alerts. On iPhone add ${db.league.short_name} to your Home Screen first (Share → Add to Home Screen), open it from there, then turn alerts on. 👉 #/profile`,
   player: 'Tap any player anywhere for his full page: stats, where his points come from, game log, career, news and upcoming games. 👉 #/players',
   features: 'More → League Features lists everything the site does. Comment on any of it, suggest new features, and upvote the ideas you want most; the commish marks them planned, building or shipped. 👉 #/features?t=ideas',
@@ -79,9 +85,9 @@ async function findPlayers(db: Db, q: string) {
 
 // plain: just the facts and the link, no greeting or sign-off (the chat engine writes its own words around them)
 export async function answer(db: Db, question: string, askerTeam: number, opts: { plain?: boolean } = {}): Promise<Answer> {
-  const HELP = help(db);
   const q = norm(question.replace(new RegExp(`@?${db.brand.bot.name}[,:!]?`, 'ig'), ' ')).trim();
   const { league, teams, standings, playoffs } = await base(db);
+  const HELP = help(db, league);
   const byId = new Map(teams.map((t) => [t.id, t]));
   const me = byId.get(askerTeam);
   const gm = me ? '@' + me.gm_name : 'bud';
@@ -115,7 +121,7 @@ export async function answer(db: Db, question: string, askerTeam: number, opts: 
       const s = (season ?? []).find((r: any) => r.player_id === p.id);
       const next = (games ?? []).find((g: any) => g.home === p.nhl_team || g.away === p.nhl_team);
       const owner = o ? (o.team_id === askerTeam ? `yours (${o.slot})` : `owned by ${byId.get(o.team_id)?.name} (${byId.get(o.team_id)?.gm_name})`) : 'a free agent, so go grab him';
-      const form = s && s.gp ? ` ${f1(s.fpts)} SaK pts in ${s.gp} games this season${s.gp14 ? `, ${f1(s.fpts14)} over his last ${s.gp14}` : ''}.` : ` ${f1(p.last_fp)} SaK pts last season, projected ${Math.round(p.proj)} (#${p.rank ?? '–'} overall).`;
+      const form = s && s.gp ? ` ${f1(s.fpts)} ${db.league.short_name} pts in ${s.gp} games this season${s.gp14 ? `, ${f1(s.fpts14)} over his last ${s.gp14}` : ''}.` : ` ${f1(p.last_fp)} ${db.league.short_name} pts last season, projected ${Math.round(p.proj)} (#${p.rank ?? '–'} overall).`;
       const note = p.injury_note ? (p.injury_note.length > 110 ? p.injury_note.slice(0, 110).replace(/\s+\S*$/, '') + '…' : p.injury_note) : '';
       const inj = p.injury_status ? ` Heads up: listed ${p.injury_status}${note ? ` (${note})` : ''}.` : '';
       const nxt = next ? ` Next up: ${next.home === p.nhl_team ? 'vs ' + next.away : '@ ' + next.home} on ${next.date}.` : '';
@@ -244,10 +250,14 @@ export async function answer(db: Db, question: string, askerTeam: number, opts: 
 
   // ── money
   if (has(/\b(money|prize|pot|payout|paid|pay|fund|entry|fee|how much)\b/)) {
+    // money is a league option (league_rules.features); a league without it plays for pride and coins
+    if (league.features && league.features.money !== true) {
+      return reply('money', `No money in this league: it’s for bragging rights and ${db.brand.coin.name}, which can’t be bought or cashed out. Last place still gets ${db.brand.booby}. 👉 #/league?t=rules`);
+    }
     const n = teams.length, entry = Number(league.entry_fee), fund = Number(league.sak_fee), share = Number(league.playoff_share ?? 40) / 100;
     const pool = (entry - fund) * n, split = (league.prize_split ?? [60, 30, 10]).map(Number);
     const pots = (amt: number) => split.map((p: number, i: number) => `${['1st', '2nd', '3rd'][i]} ${money(amt * p / 100)}`).join(', ');
-    return reply('money', `${n} GMs × ${money(entry)}, with ${money(fund)} each to the SaK Fund, makes a ${money(pool)} pool (${db.league.short_name} fund: ${money(fund * n)}). Regular season (${Math.round((1 - share) * 100)}%, ${money(pool * (1 - share))}): ${pots(pool * (1 - share))}. Playoffs (${Math.round(share * 100)}%, ${money(pool * share)}): ${pots(pool * share)}. Last place pays for ${db.brand.booby}. 👉 #/league?t=money`);
+    return reply('money', `${n} GMs × ${money(entry)}, with ${money(fund)} each to the ${db.league.short_name} Fund, makes a ${money(pool)} pool (fund: ${money(fund * n)}). Regular season (${Math.round((1 - share) * 100)}%, ${money(pool * (1 - share))}): ${pots(pool * (1 - share))}. Playoffs (${Math.round(share * 100)}%, ${money(pool * share)}): ${pots(pool * share)}. Last place pays for ${db.brand.booby}. 👉 #/league?t=money`);
   }
 
   // ── rules and deadlines
