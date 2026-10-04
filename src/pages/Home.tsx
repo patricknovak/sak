@@ -14,6 +14,7 @@ import { useHistory } from '../lib/history';
 import { PushCard } from '../components/PushCard';
 import { BankCard, BetResultsCard, LastNightCard, NhlTopCard, TicketsCard } from '../components/HomeCards';
 import { bare, useBrand } from '../lib/brand';
+import { WatchCard } from '../components/WatchCard';
 
 export default function Home() {
   const { me, league, teams, spectators, team, standings: regular, playoffs, rosters, players, draft, picks, gamesByTeam, online, leagueDay } = useLeague();
@@ -257,6 +258,7 @@ export default function Home() {
               </div>
             </Section>
           )}
+          <WatchCard />
 
           <Section icon={<MessageCircle size={17} className="text-blue" />} title="League wire" right={<More to="/chat" label="Chat" />}>
             <div className="card space-y-1 p-2">
