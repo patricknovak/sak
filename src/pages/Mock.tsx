@@ -251,7 +251,7 @@ export default function Mock({ embedded = false }: { embedded?: boolean } = {}) 
           <Section title="Your best value picks">
             <div className="card divide-y divide-white/[.06]">
               {mySteals.slice(0, 3).map((s) => (
-                <div key={s.overall} className="px-3 py-2"><PlayerRow p={s.player} onClick={() => setDetail(s.player.id)} right={<div className="text-right text-xs"><div className="font-bold">#{s.overall}</div><div className={s.value > 0 ? 'text-emerald-300' : 'text-mute'}>{s.value > 0 ? `+${s.value} value` : 'on time'}</div></div>} /></div>
+                <div key={s.overall} className="px-3 py-2"><PlayerRow p={s.player} onClick={() => setDetail(s.player.id)} onInfo={() => setDetail(s.player.id)} right={<div className="text-right text-xs"><div className="font-bold">#{s.overall}</div><div className={s.value > 0 ? 'text-emerald-300' : 'text-mute'}>{s.value > 0 ? `+${s.value} value` : 'on time'}</div></div>} /></div>
               ))}
             </div>
           </Section>
@@ -271,7 +271,7 @@ export default function Mock({ embedded = false }: { embedded?: boolean } = {}) 
         </Section>
         <Section title="Your projected lineup">
           <div className="card divide-y divide-white/[.06]">
-            {lineup.starters.map((s) => <div key={s.p.id} className="flex items-center gap-2 px-3 py-2"><Pos p={s.slot} className="w-10" /><div className="min-w-0 flex-1"><PlayerRow p={s.p} onClick={() => setDetail(s.p.id)} right={<span className="num text-sm font-bold">{fmtPts(s.p.proj, 0)}</span>} /></div></div>)}
+            {lineup.starters.map((s) => <div key={s.p.id} className="flex items-center gap-2 px-3 py-2"><Pos p={s.slot} className="w-10" /><div className="min-w-0 flex-1"><PlayerRow p={s.p} onClick={() => setDetail(s.p.id)} onInfo={() => setDetail(s.p.id)} right={<span className="num text-sm font-bold">{fmtPts(s.p.proj, 0)}</span>} /></div></div>)}
           </div>
         </Section>
         <PlayerSheet id={detail} onClose={() => setDetail(null)} />
@@ -329,7 +329,7 @@ export default function Mock({ embedded = false }: { embedded?: boolean } = {}) 
               return (
                 <div key={p.id} className="flex items-center gap-2 px-2 py-2">
                   <span className="w-7 text-center text-[11px] text-mute">{rank}</span>
-                  <div className="min-w-0 flex-1"><PlayerRow p={p} onClick={() => setDetail(p.id)} sub={<span className={`ml-1 rounded px-1 text-[10px] ${fitClass(fitOf(p, myNeeds))}`}>{fitTag(p)}</span>} /></div>
+                  <div className="min-w-0 flex-1"><PlayerRow p={p} onClick={() => setDetail(p.id)} onInfo={() => setDetail(p.id)} sub={<span className={`ml-1 rounded px-1 text-[10px] ${fitClass(fitOf(p, myNeeds))}`}>{fitTag(p)}</span>} /></div>
                   <div className="w-20 text-right">
                     <div className="num text-sm font-bold">{pf.fmt(p)}</div>
                     <div className="whitespace-nowrap text-[10px] text-mute">{myTurn && value > 8 ? <span className="text-emerald-300">+{value} value</span> : odds != null && !myTurn ? <span className={odds >= 70 ? 'text-emerald-300' : odds >= 35 ? 'text-amber-200' : 'text-red-300/80'}>{odds}% at #{liveOdds!.pick}</span> : pf.label}</div>

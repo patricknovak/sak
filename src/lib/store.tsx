@@ -125,7 +125,7 @@ export function LeagueProvider({ children }: { children: ReactNode }) {
     },
     teams: async () => { const { data } = await supabase.from('teams').select('*').order('id'); if (data) setAllTeams(data as Team[]); },
     players: async () => {
-      const rows = await selectAll<Player>('league_players', 'id,name,first,last_name,pos,elig,nhl_team,num,headshot,last_fp,proj,proj_gp,rank,status,last_stats,injury_note,injury_status,injury_date', 1000, ['id']);
+      const rows = await selectAll<Player>('league_players', 'id,name,first,last_name,pos,elig,nhl_team,num,headshot,last_fp,proj,proj_gp,rank,status,last_stats,injury_note,injury_status,injury_date,injury_return,injury_part,injury_list', 1000, ['id']);
       setPlayers(new Map(rows.map((p) => [p.id, p])));
     },
     rosters: async () => setRosters(await selectAll<Roster>('rosters')),

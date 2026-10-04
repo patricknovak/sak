@@ -32,6 +32,8 @@ export interface Player {
   nhl_team: string | null; num: number | null; headshot: string | null; last_fp: number; proj: number;
   rank: number | null; status: string; last_stats: Record<string, number> | null; injury_note: string | null;
   injury_status: string | null; injury_date: string | null;
+  // the injury report's timeline (migration 152): expected return (an estimate), what it is, the list he's on
+  injury_return?: string | null; injury_part?: string | null; injury_list?: string | null;
   proj_gp?: number | null;   // games the projection covers (starts for goalies)
 }
 // the projection model's detail for one player (loaded on demand)

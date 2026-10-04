@@ -16,7 +16,7 @@
 //   ?task=lineups-late (before puck drop) the auto-pilot again, for late scratches and injuries; skips any team
 //                      whose GM moved players by hand today
 import { createClient } from 'jsr:@supabase/supabase-js@2';
-import { etDate, gameRow, gameStats, NHL, STARTED } from '../_shared/nhl.ts';
+import { etDate, gameRow, gameStats, NHL, readInjury, STARTED } from '../_shared/nhl.ts';
 import { optimize, weekEndOf, STARTING, gamesOf, rosPerGame, type Basis, type LPlayer, type LSeason, type Mode } from '../_shared/lineup.ts';
 import { forecastTeam, winChance, type FPlayer } from '../_shared/forecast.ts';
 import { projectAll, type GoalieSeason, type ProjPlayer, type SkaterSeason } from '../_shared/projections.ts';
@@ -293,32 +293,32 @@ async function nameIndex() {
   return { all, byName };
 }
 
+type Injury = ReturnType<typeof readInjury>;
+const INJ_COLS = ['injury_status', 'injury_note', 'injury_date', 'injury_return', 'injury_part', 'injury_list', 'injury_detail'] as const;
+
 async function injuries() {
   const j = await getJson(`${ESPN}/injuries`);
   const { byName } = await nameIndex();
-  const found = new Map<number, { injury_status: string; injury_note: string | null; injury_date: string | null }>();
+  const found = new Map<number, Injury>();
   for (const team of j.injuries ?? []) {
     for (const i of team.injuries ?? []) {
       const ids = byName.get(norm(i.athlete?.displayName ?? ''));
       if (!ids || ids.length !== 1) continue;
-      found.set(ids[0], {
-        injury_status: i.status ?? i.type?.description ?? 'Injured',
-        injury_note: i.shortComment ?? i.longComment ?? null,
-        injury_date: i.date ?? null,
-      });
+      found.set(ids[0], readInjury(i));
     }
   }
   // clear players who are no longer listed
-  const { data: listed } = await db.from('players').select('id,injury_status,injury_note,injury_date').not('injury_status', 'is', null);
-  const cleared = (listed ?? []).map((p) => p.id).filter((id) => !found.has(id));
-  if (cleared.length) check(await db.from('players').update({ injury_status: null, injury_note: null, injury_date: null }).in('id', cleared));
+  const { data: listed } = await db.from('players').select(INJ_COLS.join(',') + ',id').not('injury_status', 'is', null);
+  const cleared = ((listed ?? []) as any[]).map((p) => p.id as number).filter((id) => !found.has(id));
+  if (cleared.length) check(await db.from('players').update(Object.fromEntries(INJ_COLS.map((k) => [k, null]))).in('id', cleared));
   // and write only the injuries that are new or changed (the same hundred-odd rows were rewritten every 15 minutes)
-  const was = new Map((listed ?? []).map((p) => [p.id as number, p]));
-  const day = (d: unknown) => (d ? String(d).slice(0, 10) : null);
+  const was = new Map(((listed ?? []) as any[]).map((p) => [p.id as number, p]));
+  const same = (k: (typeof INJ_COLS)[number], a: unknown, b: unknown) =>
+    k === 'injury_date' || k === 'injury_return' ? (a ? String(a).slice(0, 10) : null) === (b ? String(b).slice(0, 10) : null) : (a ?? null) === (b ?? null);
   let changed = 0;
   for (const [id, v] of found) {
     const o = was.get(id);
-    if (o && o.injury_status === v.injury_status && (o.injury_note ?? null) === v.injury_note && day(o.injury_date) === day(v.injury_date)) continue;
+    if (o && INJ_COLS.every((k) => same(k, o[k], v[k]))) continue;
     check(await db.from('players').update(v).eq('id', id));
     changed++;
   }

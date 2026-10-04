@@ -2,7 +2,8 @@ import { useEffect, useMemo, useState } from 'react';
 import { useLeague } from '../lib/store';
 import { rpc, supabase } from '../lib/supabase';
 import type { Player } from '../lib/types';
-import { fmtPts } from '../lib/format';
+import { fmtPts, injuryBack } from '../lib/format';
+import { PlayerTag } from './PlayerCard';
 import { Headshot, Pos, useAction } from './ui';
 import { scoutNums, useScoutCtx } from './TradeScout';
 
@@ -49,7 +50,7 @@ export function AddPlayerPanel({ p, onCancel, onDone }: { p: Player; onCancel: (
     <div className="mt-3 space-y-2 rounded-xl border border-sky-400/30 bg-sky-500/[.06] p-2.5">
       <div className="flex items-center gap-2">
         <Headshot p={p} size={34} />
-        <div className="min-w-0 flex-1"><div className="truncate text-sm font-semibold">➕ {p.name} <Pos p={p.pos} /></div><div className="text-[11px] text-mute">{p.nhl_team}{p.injury_status ? <span className="text-red-300"> · {p.injury_status}</span> : ''}</div></div>
+        <div className="min-w-0 flex-1"><div className="flex flex-wrap items-center gap-1 text-sm">➕ <PlayerTag p={p} /> <Pos p={p.pos} /></div><div className="text-[11px] text-mute">{p.nhl_team}{injuryBack(p.injury_return) ? <span className="text-red-300"> · {injuryBack(p.injury_return)}</span> : ''}</div></div>
       </div>
       {nums(inN, p.proj)}
       <div className="text-xs text-slate-300">
@@ -70,8 +71,8 @@ export function AddPlayerPanel({ p, onCancel, onDone }: { p: Player; onCancel: (
               <input type="radio" name="drop" className="h-4 w-4 shrink-0 accent-amber-400" checked={drop === x.id} onChange={() => setDrop(x.id)} />
               <Headshot p={x} size={26} />
               <div className="min-w-0 flex-1 space-y-1">
-                <div className="truncate text-[13px] font-semibold">{x.name} <span className="text-[10px] font-normal text-mute">{x.elig.join('/')} · {slotOf(x.id)}</span></div>
-                <div className={`text-[10px] ${diff > 0 ? 'text-emerald-300' : 'text-red-300'}`}>{diff > 0 ? `${p.name.split(' ').slice(-1)[0]} projects ${fmtPts(diff, 0)} more ROS` : `projects ${fmtPts(-diff, 0)} more ROS than ${p.name.split(' ').slice(-1)[0]}`}{x.injury_status ? <span className="text-red-300"> · {x.injury_status}</span> : ''}</div>
+                <div className="flex flex-wrap items-center gap-x-1.5 text-[13px]"><PlayerTag p={x} /> <span className="text-[10px] font-normal text-mute">{x.elig.join('/')} · {slotOf(x.id)}{injuryBack(x.injury_return) ? ` · ${injuryBack(x.injury_return)}` : ''}</span></div>
+                <div className={`text-[10px] ${diff > 0 ? 'text-emerald-300' : 'text-red-300'}`}>{diff > 0 ? `${p.name.split(' ').slice(-1)[0]} projects ${fmtPts(diff, 0)} more ROS` : `projects ${fmtPts(-diff, 0)} more ROS than ${p.name.split(' ').slice(-1)[0]}`}</div>
                 {nums(n, x.proj)}
               </div>
             </label>

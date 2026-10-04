@@ -7,13 +7,13 @@ import { CalendarDays, Copy, Save, Sparkles, Trash2, Undo2 } from 'lucide-react'
 import { useLeague, useSport } from '../lib/store';
 import { calledOff, hasStarted, plays, positionKeys } from '../lib/sport';
 import { rpc, supabase } from '../lib/supabase';
-import { etToday, fmtPts } from '../lib/format';
+import { etToday, fmtPts, injuryBack } from '../lib/format';
 import { optimize, slotOk as canPlay, gamesOf, availability, type Basis, type LContext } from '../lib/lineup';
 import { lineFor, minSample, rosPoints, statValue, fmtStat, TIMEFRAMES, type Timeframe } from '../lib/playerstats';
 import { useProjDetails, useSeasonGames } from '../lib/projections';
 import type { Game, Player, Roster, Slot } from '../lib/types';
 import { Headshot, useAction } from './ui';
-import { PlayerSheet } from './PlayerCard';
+import { usePlayerInfo } from '../lib/playerInfo';
 import { GameStatusChip, NewsDot } from './GameStatus';
 import { PastDay } from './PastDay';
 
@@ -58,7 +58,9 @@ export function LineupPlanner({ roster }: { roster: Row[] }) {
   useEffect(() => { const el = strip.current, b = todayBtn.current; if (el && b) el.scrollLeft = Math.max(0, b.offsetLeft - el.offsetLeft - 124); }, [days.length]); // eslint-disable-line react-hooks/exhaustive-deps
   const [plans, setPlans] = useState<Map<string, Map<number, string>>>(new Map());
   const [draft, setDraft] = useState<Map<number, string> | null>(null);   // unsaved edits for the selected day
-  const [info, setInfo] = useState<number | null>(null);
+  // a player's card opens over the planner (lib/playerInfo): injury, tonight's status, news, numbers
+  const openInfo = usePlayerInfo();
+  const setInfo = (id: number, tab?: 'news') => openInfo?.(id, tab);
   const [view, setView] = useState<View>('fantasy');
   const [tf, setTf] = useState<Timeframe>(league?.phase === 'season' && windows.size ? 'season' : 'proj');
   const [perGame, setPerGame] = useState(false);
@@ -279,7 +281,6 @@ export function LineupPlanner({ roster }: { roster: Row[] }) {
 
   return (
     <div className="space-y-3">
-      <PlayerSheet id={info} onClose={() => setInfo(null)} />
       {/* the date strip */}
       <div className="card p-2">
         <div className="mb-1.5 flex items-center gap-1.5 px-1 text-xs text-mute"><CalendarDays size={14} /> Pick a day. Set it now, up to {Math.round((new Date(end).getTime() - new Date(today).getTime()) / 86400000)} days out{start < today ? '; scroll left to see how any played day went' : ''}.</div>
@@ -468,8 +469,8 @@ export function LineupPlanner({ roster }: { roster: Row[] }) {
                       <div className="flex items-center gap-1.5">
                         <Headshot p={p} size={22} />
                         <div className="min-w-0">
-                          <div className="truncate font-semibold text-slate-100"><button aria-label={`Compare ${p.name}`} title="Compare" onClick={() => toggleCmp(p.id)} className={`mr-1 ${cmp.includes(p.id) ? '' : 'opacity-30 hover:opacity-80'}`}>⚖️</button><button className="hover:underline" title="Injury, game-day status, news and stats" onClick={() => setInfo(p.id)}>{p.name}</button>{r.pin === 'start' ? ' 📌' : r.pin === 'bench' ? ' 🚫' : ''}{lk ? ' 🔒' : ''} <GameStatusChip id={p.id} date={day} /> <NewsDot id={p.id} onClick={() => setInfo(p.id)} /></div>
-                          <div className="truncate text-[10px] text-mute">{p.elig.join('/')} · {p.nhl_team}{p.injury_status ? <span className="text-red-300"> · {p.injury_status}</span> : ''}</div>
+                          <div className="truncate font-semibold text-slate-100"><button aria-label={`Compare ${p.name}`} title="Compare" onClick={() => toggleCmp(p.id)} className={`mr-1 ${cmp.includes(p.id) ? '' : 'opacity-30 hover:opacity-80'}`}>⚖️</button><button className="hover:underline" title="Injury, game-day status, news and stats" onClick={() => setInfo(p.id)}>{p.name}</button>{r.pin === 'start' ? ' 📌' : r.pin === 'bench' ? ' 🚫' : ''}{lk ? ' 🔒' : ''} <GameStatusChip id={p.id} date={day} onClick={() => setInfo(p.id)} /> <NewsDot id={p.id} onClick={() => setInfo(p.id, 'news')} /></div>
+                          <div className="truncate text-[10px] text-mute">{p.elig.join('/')} · {p.nhl_team}{p.injury_status ? <button type="button" className="text-red-300 hover:underline" title="The injury report" onClick={() => setInfo(p.id)}> · {p.injury_status}{injuryBack(p.injury_return) ? `, ${injuryBack(p.injury_return)}` : ''}</button> : ''}</div>
                         </div>
                       </div>
                     </td>

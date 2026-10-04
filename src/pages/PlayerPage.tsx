@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useSticky } from '../lib/sticky';
+import { InjuryReport } from '../components/InjuryReport';
 import { ProjOutlook } from '../components/ProjOutlook';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { ArrowLeft, CalendarDays, History, Newspaper, Trophy, UserRound } from 'lucide-react';
@@ -142,12 +143,7 @@ export default function PlayerPage() {
       <PlayerActions p={p} />
 
       <GameStatusBox id={p.id} />
-      {p.injury_status && (
-        <div className="card border-red-400/30 p-3 text-sm" style={{ background: 'linear-gradient(135deg, rgba(239,42,79,.14), rgba(15,23,41,.8) 60%)' }}>
-          <div className="font-bold text-red-300">🩹 {p.injury_status}{p.injury_date && <span className="ml-2 text-xs font-normal text-mute">updated {ago(p.injury_date)}</span>}</div>
-          {p.injury_note && <p className="mt-1 text-slate-300">{p.injury_note}</p>}
-        </div>
-      )}
+      <InjuryReport p={p} big />
 
       <div className="scroll-x sticky top-[calc(3rem+var(--banner,0px))] z-20 -mx-3 flex gap-1 border-b border-white/[.07] bg-[#070c18]/85 px-3 py-2 backdrop-blur-xl lg:top-[var(--banner,0px)]">
         {([['overview', 'Overview'], ['log', `Game log${log?.length ? ` (${log.length})` : ''}`], ['career', 'Career'], ['news', `News${news?.length ? ` (${news.length})` : ''}`]] as const).map(([k, l]) => (

@@ -24,6 +24,11 @@ Two things in one repo:
   `src/components`, shared logic in `src/lib`. The app-wide store is `src/lib/store.tsx` (`useLeague()`):
   it loads league, teams, players, rosters, picks, draft, standings, season stats, windows, games,
   notifications and game-day status, subscribes to realtime, and exposes `leagueDay` and `brand`.
+- A player's card opens in place, app-wide (`src/lib/playerInfo.tsx`, `PlayerInfoProvider` in `main.tsx`): `PlayerRow`'s injury,
+  status and news chips and `PlayerTag` (a player named in a sentence) open it over the page, news dot on the News tab.
+  New UI that shows a player uses them rather than linking away. The injury report's timeline (expected return, body
+  part, IR list, the write-up) is on `players` (migration 152, written by nhl-sync's injury task) and drawn by
+  `InjuryReport`.
 - Sport: `src/lib/sport.ts` (`useSport()` from the store): the league's sport as the engine reads it (positions, slots,
   stats, game states, periods), the database's `sports` row with the NHL compiled in. New code that needs a position
   list, a slot rule or a stat label reads it instead of writing hockey in; the rest moves over one place at a time.

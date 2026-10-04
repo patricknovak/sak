@@ -1,38 +1,23 @@
-import { createContext, useCallback, useContext, useEffect, useState, type ReactNode } from 'react';
+import { useEffect, useState, type ReactNode } from 'react';
+import { usePlayerInfo } from '../lib/playerInfo';
 import { Sparkline } from './charts';
 import { useNavigate } from 'react-router-dom';
 import { useLeague, useSport } from '../lib/store';
 import { isFinal, isLive, periodShort } from '../lib/sport';
 import { rpc, supabase } from '../lib/supabase';
 import type { Player } from '../lib/types';
-import { ago, calcFpts, fmtDate, fmtPts, fmtTime, injuryBadge, NHL_COLORS, NHL_TEAMS, STAT_LABELS, teamLogo } from '../lib/format';
+import { calcFpts, injuryBack, fmtDate, fmtPts, fmtTime, injuryBadge, NHL_COLORS, NHL_TEAMS, STAT_LABELS, teamLogo } from '../lib/format';
 import { Headshot, NhlLogo, Pos, Sheet, TeamBadge, TeamName, useAction } from './ui';
 import { ProjOutlook } from './ProjOutlook';
 import { LatestNews, PlayerNewsList, usePlayerNews } from './PlayerNews';
 import { GameStatusBox, GameStatusChip, NewsDot } from './GameStatus';
+import { InjuryReport } from './InjuryReport';
 import { useBrand } from '../lib/brand';
 import { AddPlayerPanel } from './AddPlayer';
 import { useWatchlist } from '../lib/watchlist';
 
-// A page where a GM is weighing players (the trade page) opens a player's card in place: anything under this provider
-// that shows a player (the row's injury, status and news chips, a name in an offer or the comparison) opens it here
-// instead of taking the GM to the player's own page and losing the deal they were building.
-type OpenInfo = (id: number, tab?: 'news') => void;
-const PlayerInfoCtx = createContext<OpenInfo | null>(null);
-export const usePlayerInfo = () => useContext(PlayerInfoCtx);
-export function PlayerInfoProvider({ children }: { children: ReactNode }) {
-  const [info, setInfo] = useState<{ id: number; tab: 'overview' | 'news' } | null>(null);
-  const open = useCallback<OpenInfo>((id, tab) => setInfo({ id, tab: tab ?? 'overview' }), []);
-  return (
-    <PlayerInfoCtx.Provider value={open}>
-      {children}
-      <PlayerSheet id={info?.id ?? null} start={info?.tab} onClose={() => setInfo(null)} />
-    </PlayerInfoCtx.Provider>
-  );
-}
-
 // a player named in a sentence (an offer, a list): the name, his injury and tonight's status, and the news dot, all
-// opening his card when the page has a PlayerInfoProvider
+// opening his card in place (lib/playerInfo)
 export function PlayerTag({ p, className = '' }: { p: Player; className?: string }) {
   const open = usePlayerInfo();
   const b = injuryBadge(p.injury_status);
@@ -40,8 +25,8 @@ export function PlayerTag({ p, className = '' }: { p: Player; className?: string
     <span className={`inline-flex min-w-0 flex-wrap items-center gap-1 align-middle ${className}`}>
       {open ? <button type="button" className="text-left font-semibold text-slate-100 decoration-white/30 underline-offset-2 hover:underline" onClick={(e) => { e.stopPropagation(); open(p.id); }}>{p.name}</button>
         : <span className="font-semibold">{p.name}</span>}
-      {b && (open ? <button type="button" className={`chip shrink-0 cursor-pointer ${b.cls} hover:brightness-125`} title={p.injury_note ?? 'Tap for the injury report'} onClick={(e) => { e.stopPropagation(); open(p.id); }}>{b.label}</button>
-        : <span className={`chip shrink-0 ${b.cls}`} title={p.injury_note ?? ''}>{b.label}</span>)}
+      {b && (open ? <button type="button" className={`chip shrink-0 cursor-pointer ${b.cls} hover:brightness-125`} title={[p.injury_part, injuryBack(p.injury_return), p.injury_note].filter(Boolean).join(' · ') || 'Tap for the injury report'} onClick={(e) => { e.stopPropagation(); open(p.id); }}>{b.label}</button>
+        : <span className={`chip shrink-0 ${b.cls}`} title={[p.injury_part, injuryBack(p.injury_return), p.injury_note].filter(Boolean).join(' · ')}>{b.label}</span>)}
       <GameStatusChip id={p.id} onClick={open ? () => open(p.id) : undefined} />
       <NewsDot id={p.id} onClick={open ? () => open(p.id, 'news') : undefined} />
     </span>
@@ -73,9 +58,9 @@ export function PlayerRow({ p, right, onClick, sub, dim, onInfo: given, wrap, wr
             const b = injuryBadge(p.injury_status);
             if (!b) return null;
             return onInfo
-              ? <button type="button" className={`chip shrink-0 cursor-pointer ${b.cls} hover:brightness-125`} title={p.injury_note ? `${p.injury_note} (tap for more)` : 'Tap for the injury report'}
+              ? <button type="button" className={`chip shrink-0 cursor-pointer ${b.cls} hover:brightness-125`} title={[p.injury_part, injuryBack(p.injury_return), p.injury_note].filter(Boolean).join(' · ') || 'Tap for the injury report'}
                   onClick={(e) => { e.stopPropagation(); onInfo(); }}>{b.label}</button>
-              : <span className={`chip shrink-0 ${b.cls}`} title={p.injury_note ?? ''}>{b.label}</span>;
+              : <span className={`chip shrink-0 ${b.cls}`} title={[p.injury_part, injuryBack(p.injury_return), p.injury_note].filter(Boolean).join(' · ')}>{b.label}</span>;
           })()}
           <GameStatusChip id={p.id} onClick={onInfo ? () => onInfo() : undefined} />
           <NewsDot id={p.id} onClick={onInfo ? () => onInfo('news') : undefined} />
@@ -156,12 +141,7 @@ export function PlayerSheet({ id, onClose, actions, start = 'overview' }: { id: 
       </div>
 
       <GameStatusBox id={p.id} />
-      {p.injury_status && (
-        <div className="mt-3 rounded-xl border border-red-900/60 bg-red-950/40 p-3 text-sm">
-          <div className="font-semibold text-red-300">🩹 {p.injury_status}{p.injury_date && <span className="ml-2 text-xs font-normal text-mute">updated {ago(p.injury_date)}</span>}</div>
-          {p.injury_note && <p className="mt-1 text-slate-300">{p.injury_note}</p>}
-        </div>
-      )}
+      <InjuryReport p={p} />
 
       <div className="mt-3 flex gap-1">
         {([['overview', 'Overview'], ['career', 'Career'], ['news', `News${news?.length ? ` (${news.length})` : ''}`]] as const).map(([k, l]) => (

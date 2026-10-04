@@ -5,6 +5,7 @@ import './index.css';
 import { LeagueProvider, useLeague } from './lib/store';
 import { configured } from './lib/supabase';
 import { Layout } from './components/Layout';
+import { PlayerInfoProvider } from './lib/playerInfo';
 import { Spinner, ToastHost } from './components/ui';
 import { ErrorBoundary, reloadForNewVersion } from './components/ErrorBoundary';
 
@@ -99,6 +100,7 @@ function App() {
   }
   return (
     <Layout>
+      <PlayerInfoProvider>
       <YahooReturnHandler />
       <ErrorBoundary key={pathname}>
       <Suspense fallback={<Loading />}>
@@ -144,6 +146,7 @@ function App() {
         </Routes>
       </Suspense>
       </ErrorBoundary>
+      </PlayerInfoProvider>
     </Layout>
   );
 }

@@ -100,3 +100,26 @@ export function gameStats(box: any, landing: any, pbp?: any): StatLine[] {
   }
   return [...out.values()];
 }
+
+// what the report says about one injury: the status, a readable note, and how long he is out (the expected return,
+// the body part and side, surgery, which list he is on, and the full write-up). The note is the short comment unless
+// that is only a code ("ir", "out", "day-to-day"), when the write-up's first sentence stands in for it.
+// deno-lint-ignore no-explicit-any
+export function readInjury(i: any) {
+  const d = i.details ?? {};
+  const said = (x: unknown) => (typeof x === 'string' && x.trim() && !/^(not specified|undisclosed|other)$/i.test(x.trim()) ? x.trim() : null);
+  const code = (x: unknown) => typeof x !== 'string' || !x.trim() || /^[a-z-]{1,14}$/i.test(x.trim());
+  const short = code(i.shortComment) ? null : String(i.shortComment).trim();
+  const long = code(i.longComment) ? null : String(i.longComment).trim();
+  const part = [said(d.type), said(d.side)?.toLowerCase(), said(d.detail)?.toLowerCase()].filter(Boolean).join(', ') || null;
+  const ret = typeof d.returnDate === 'string' && /^\d{4}-\d{2}-\d{2}/.test(d.returnDate) ? d.returnDate.slice(0, 10) : null;
+  return {
+    injury_status: i.status ?? i.type?.description ?? 'Injured',
+    injury_note: short ?? (long ? long.split(/(?<=\.)\s/)[0] : null),
+    injury_date: i.date ?? null,
+    injury_return: ret,
+    injury_part: d.type === 'Suspension' ? null : part,
+    injury_list: said(d.fantasyStatus?.abbreviation) ?? said(i.type?.abbreviation),
+    injury_detail: long && long !== short ? long : null,
+  };
+}

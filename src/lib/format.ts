@@ -113,6 +113,20 @@ export function calcFpts(stats: Record<string, number | null | undefined>, weigh
   return Math.round(t * 100) / 100;
 }
 
+// the list a player is on, in words (the injury report's own codes)
+export const INJURY_LIST: Record<string, string> = {
+  IR: 'Injured reserve', 'IR-LT': 'Long-term IR', 'IR-NR': 'Non-roster IR', OUT: 'Out', O: 'Out', 'Day-To-Day': 'Day to day', DD: 'Day to day',
+};
+// days from the league day to the injury report's expected return (negative once it has passed)
+export const daysUntil = (d: string) => Math.round((Date.parse(`${d}T12:00:00Z`) - Date.parse(`${etToday()}T12:00:00Z`)) / 864e5);
+export const inDays = (n: number) => (n <= 0 ? 'the report’s date has passed' : n === 1 ? 'tomorrow' : n < 14 ? `in ${n} days` : `in about ${Math.round(n / 7)} weeks`);
+// when he's expected back, for a tooltip or a line: "back ~Oct 27", or null with no date on the report. The date is the
+// report's estimate, so it reads as approximate; once it has passed it is "back any day".
+export function injuryBack(ret: string | null | undefined) {
+  if (!ret) return null;
+  return daysUntil(ret) <= 0 ? 'back any day' : `back ~${fmtDate(ret).replace(/^\w+, /, '')}`;
+}
+
 // short label + colour for injury/suspension status
 export function injuryBadge(status: string | null | undefined) {
   if (!status) return null;
