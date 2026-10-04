@@ -49,9 +49,11 @@ Two things in one repo:
   SaK's numbers kept for old readers; read a league's points through `league_games`, `league_players`,
   `player_season`, `player_windows` (each league's scoring profile, `scoring_profiles`).
 - Hosting: today GitHub Pages from `main` (`.github/workflows/deploy.yml`, builds on push), and the Super Pools landing
-  page (`landing/index.html`) on Vercel. Decided (3 October 2026): both move to **Cloudflare Pages** (free for commercial
-  use, DNS already on Cloudflare, wildcard subdomains for league by host); never plan new work on Vercel. The move is
-  in `docs/EXPANSION.md`.
+  page (`landing/index.html`) on Vercel. Decided (3 October 2026): both move to **Cloudflare** (free for commercial
+  use, DNS already on Cloudflare, wildcard subdomains for league by host); never plan new work on Vercel. Built as
+  Workers serving static assets (`wrangler.jsonc`, `landing/wrangler.jsonc`; Pages can't take a wildcard), deployed by
+  `.github/workflows/cloudflare.yml` once the `CLOUDFLARE_API_TOKEN` and `CLOUDFLARE_ACCOUNT_ID` secrets exist. The
+  move is in `docs/EXPANSION.md`.
 
 ## Time and the league day
 
