@@ -2296,6 +2296,48 @@ select set_config('request.headers', '', false);
 select set_config('request.jwt.claim.sub', '', false);
 select 'league by host', true;
 
+-- ───────────── commissioner tools: co-commissioners and a handover ─────────────
+reset role;
+select id as hand_seat from teams where league_id = :league2 and gm_name = 'Nora Newcomer' \gset
+insert into push_subscriptions (endpoint, team_id, p256dh, auth, league_id) values ('https://push.example/nora', :hand_seat, 'k', 'a', :league2);
+insert into teams (name, abbrev, gm_name, league_id, role) values ('Tundra', 'TUN', 'Open seat', :league2, 'gm') returning id as open_seat \gset
+select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-000000000099', false);
+set role authenticated;
+select pg_temp.expect('the north''s commissioner shares the job', commish_set_cocommish(:hand_seat, true));
+reset role;
+select pg_temp.expect('the co-commissioner is a commissioner in the north', (select role from league_members where user_id = '00000000-0000-0000-0000-000000000096' and league_id = :league2) = 'commish');
+select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-000000000096', false);
+set role authenticated;
+select pg_temp.expect('and has the commissioner''s powers', is_commish() and current_league_id() = :league2);
+-- with two in place, either can step down; the last one can't
+select pg_temp.expect('she takes the original''s role away', not commish_set_cocommish(99, false));
+select pg_temp.raises('the last commissioner can''t step down', format('select commish_set_cocommish(%s, false)', :hand_seat), 'needs a commissioner');
+select commish_set_cocommish(99, true);
+reset role;
+select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-000000000099', false);
+set role authenticated;
+select pg_temp.expect('and he takes hers back', not commish_set_cocommish(:hand_seat, false));
+select pg_temp.raises('an open seat can''t run the league', format('select commish_set_cocommish(%s, true)', :open_seat), 'no GM yet');
+-- the newcomer has moved on: the seat is handed over
+select commish_vacate_seat(:hand_seat) as hand_code \gset
+reset role;
+select pg_temp.expect('the seat is open again, its team kept', (select user_id is null and gm_name = 'Open seat' and name = 'Polar Express' from teams where id = :hand_seat));
+select pg_temp.expect('the old GM is out of the league, their phones too', not exists (select 1 from league_members where user_id = '00000000-0000-0000-0000-000000000096' and league_id = :league2)
+  and not exists (select 1 from push_subscriptions where team_id = :hand_seat));
+select pg_temp.expect('a fresh invite for the seat', (select (v->>'ok')::boolean and v->>'team' = 'Polar Express' from invite_preview(:'hand_code') v));
+select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-000000000099', false);
+set role authenticated;
+select pg_temp.raises('a commissioner can''t vacate their own seat', 'select commish_vacate_seat(99)', 'own seat');
+select pg_temp.raises('nor another league''s', 'select commish_vacate_seat(2)', 'another league');
+reset role;
+select pg_temp.as_team(2);
+set role authenticated;
+select pg_temp.raises('a GM can''t hand over seats', format('select commish_vacate_seat(%s)', :hand_seat), 'Commissioner only');
+select pg_temp.raises('or make commissioners', 'select commish_set_cocommish(3, true)', 'Commissioner only');
+reset role;
+select pg_temp.expect('SaK''s commissioners are untouched', (select array_agg(id order by id) from teams where league_id = 1 and is_commish) = array[1]);
+select set_config('request.jwt.claim.sub', '', false);
+select 'commissioner tools', true;
 -- ───────────── a new league's path to its draft ─────────────
 reset role;
 select pg_temp.as_team(1);

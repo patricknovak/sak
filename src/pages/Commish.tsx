@@ -17,6 +17,7 @@ import { useBrand } from '../lib/brand';
 import { Link } from 'react-router-dom';
 import { LeagueIdentity } from '../components/LeagueIdentity';
 import { SetupGuide } from '../components/SetupGuide';
+import { SeatManager } from '../components/SeatManager';
 
 // datetime-local <-> ISO in the viewer's zone
 const toLocal = (iso: string | null) => {
@@ -264,6 +265,10 @@ export default function Commish() {
 
       <Section title={`${brand.bot.emoji} Shape ${brand.bot.name}`}>
         <GarryShaper />
+      </Section>
+
+      <Section title="🛡️ Seats and commissioners">
+        <SeatManager />
       </Section>
 
       <Section id="invites" title="📨 Invite links">

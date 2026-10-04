@@ -169,7 +169,11 @@ The steps above finish the tenancy. `docs/MARKET.md` sets what comes after in th
     field and player races against the field, which is what Garry's chat builds from in words ("Oilers to win
     the Cup"). The kinds and subjects are a stat key and a line, so they carry to every sport.
 12. **Commissioner tools the market lacks**: dues tracker (no escrow), co-commissioners, constitution page,
-    audit trail of every override, abandoned-team handover.
+    audit trail of every override, abandoned-team handover. *Co-commissioners and the handover done (migration 109,
+    October 2026):* `commish_set_cocommish(team, on)` shares the job with a seated GM (a league always keeps one), and
+    `commish_vacate_seat(team)` takes a departed GM off their team, stops their phones' alerts for it and returns a
+    fresh invite for the seat; the team keeps its roster, picks, coins and history. Both on the Commish page (Seats
+    and commissioners).
 13. **The sport pulled out of the engine**: a `sports` table, per-sport player, game and stat shapes and
     scoring vocabularies, a sync per sport; the NHL becomes one row. Prerequisite for soccer, basketball and
     the multi-sport pool.
