@@ -12,14 +12,16 @@ the sports season and prediction pools for anything the group watches, with the 
 built in, and never any money. A prediction pool looks like a prediction market (every answer has a price that reads as
 a probability and moves as friends pick) and feels like the group chat with a scoreboard.
 
-**Lead line:** Call it before your friends do. **Tagline:** Pools for everything you watch. (Fantasy copy keeps the
-AI-enhanced pool that runs itself.)
+**Tagline (Patrick, 4 October 2026):** Fantasy Pools from the Future. Three lines carry it, always together, in this
+order: fun fantasy pools with friends, for all; AI-enhanced (written so, never "Ai"); fun for all. It heads the home page,
+the share card and `PRODUCT.tagline`. **Lead line** for prediction pools and `together.html`: Call it before your
+friends do (with "Pools for everything you watch"). Fantasy copy still says what it does: the pool that runs itself.
 
 The fantasy door, as it was written for hockey: it starts with hockey. It scores the league from the box scores every night, settles the side bets, sets the lineups GMs planned weeks ago, runs the
 draft, and gives the league a voice that posts the recap, grades the trades and answers "who should I
 start?" in the chat. The commissioner runs the league. Super Pools does the bookkeeping.
 
-**Tagline:** The AI-enhanced pool that runs itself. (In hockey copy, the AI-enhanced hockey pool that runs
+**Fantasy line (under the tagline):** The AI-enhanced pool that runs itself. (In hockey copy, the AI-enhanced hockey pool that runs
 itself; the word "hockey" drops as the sports arrive.)
 
 **Positioning statement.** For commissioners of serious hockey pools (keeper and dynasty leagues, six to
