@@ -6,7 +6,7 @@ import { positionKeys } from '../lib/sport';
 import { rpc, realtimeChannel, supabase } from '../lib/supabase';
 import type { DraftPick, Player, Trade } from '../lib/types';
 import { ago, fmtDateTime, fmtPts } from '../lib/format';
-import { PlayerInfoProvider, PlayerRow, PlayerTag } from '../components/PlayerCard';
+import { PlayerRow, PlayerTag } from '../components/PlayerCard';
 import { Empty, Section, TeamBadge, TeamName, useAction, PageHeader } from '../components/ui';
 import { TradeAnalysis, TradeCompare, TradeFinder, TradeFit, useTradeValuer, usePickupStatus, type BuildSpec } from '../components/TradeTools';
 import { PlayerPeek, ScoutBar, StatStrip, sortPlayers, useScout, useScoutCtx } from '../components/TradeScout';
@@ -353,7 +353,6 @@ export default function Trades() {
   );
 
   return (
-    <PlayerInfoProvider>
     <div className="space-y-5">
       <PageHeader icon={<Repeat2 size={22} className="text-blue" />} title="Trades" sub={<>Deadline {league?.trade_deadline ? fmtDateTime(league.trade_deadline) : 'TBD'}</>} />
 
@@ -554,6 +553,5 @@ export default function Trades() {
           : <div className="space-y-2">{groups.done.map((t) => <Fragment key={t.id}>{tradeCard(t)}</Fragment>)}</div>}
       </Section>
     </div>
-    </PlayerInfoProvider>
   );
 }

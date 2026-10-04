@@ -174,7 +174,7 @@ export default function MyTeam() {
         {x ? (
           <>
             <div className="min-w-0 flex-1">
-              <PlayerRow p={x.p} wrap dim={!offseason && starter && !playing} onInfo={() => setInfo(x.p.id)} />
+              <PlayerRow p={x.p} wrap dim={!offseason && starter && !playing} />
               {parts && (
                 <div className="num mt-1 flex flex-wrap gap-x-2 gap-y-0.5 pl-11 text-[11px] leading-tight text-slate-400">
                   {parts.map((t, i) => <span key={i} className={`whitespace-nowrap ${i === 0 ? 'font-semibold text-slate-200' : ''}`}>{t}</span>)}

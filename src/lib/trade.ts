@@ -11,6 +11,7 @@ import { flexMult, rosPoints } from './playerstats';
 import { lineupStrength } from './grades';
 import { gamesOf, rosPerGame } from './lineup';
 import { forecastPlayoffs, forecastTeam, type FGame, type FPlayer } from './forecast';
+import { injuryBack } from './format';
 
 export const NEED: Record<string, number> = { C: 2, LW: 2, RW: 2, D: 3, G: 2 };
 export const POS = ['C', 'LW', 'RW', 'D', 'G'];
@@ -154,7 +155,7 @@ export function evaluateSide(s: Side, v: Valuer, rosterMax: number, sc?: Sched):
   const warnings: string[] = [];
   const count = (ps: Player[], k: string) => ps.filter((p) => p.pos === k).length;
   for (const k of POS) if (count(final, k) < NEED[k] && count(s.before, k) >= NEED[k]) warnings.push(`Only ${count(final, k)} ${k} left: can't fill ${NEED[k]} starting spot${NEED[k] > 1 ? 's' : ''}`);
-  for (const p of inn) if (p.injury_status && OUT.test(p.injury_status)) warnings.push(`${p.name} is listed ${p.injury_status}`);
+  for (const p of inn) if (p.injury_status && OUT.test(p.injury_status)) warnings.push(`${p.name} is listed ${p.injury_status}${injuryBack(p.injury_return) ? ` (${injuryBack(p.injury_return)})` : ''}`);
   return {
     team: s.team, startersBefore: b.starters, startersAfter: a.starters, startersDelta: a.starters - b.starters,
     depthBefore: b.depth, depthAfter: a.depth, valueOut, valueIn, net: valueIn - valueOut, pos, rosterAfter: active(final), warnings,

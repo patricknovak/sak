@@ -160,7 +160,7 @@ export default function Draft() {
           return (
           <div key={p.id} className="flex items-center gap-2 px-2 py-2">
             <span className="w-6 text-center text-[11px] text-mute">{i + 1}</span>
-            <div className="min-w-0 flex-1"><PlayerRow p={p} dim={maybe} onClick={() => setDetail(p.id)} sub={!spectator && !maybe ? <span className={`ml-1 rounded px-1 text-[10px] ${fitClass(fitOf(p, myNeeds))}`}>{fitTag(p)}</span> : null} /></div>
+            <div className="min-w-0 flex-1"><PlayerRow p={p} dim={maybe} onClick={() => setDetail(p.id)} onInfo={() => setDetail(p.id)} sub={!spectator && !maybe ? <span className={`ml-1 rounded px-1 text-[10px] ${fitClass(fitOf(p, myNeeds))}`}>{fitTag(p)}</span> : null} /></div>
             <div className="w-16 text-right">
               <div className="num text-sm font-semibold">{pf.fmt(p)}</div>
               {maybe
@@ -258,7 +258,7 @@ export default function Draft() {
           return (
             <div key={id} className="flex items-center gap-2 px-2 py-2">
               <span className="w-5 text-center text-xs text-mute">{i + 1}</span>
-              <div className="min-w-0 flex-1"><PlayerRow p={p} dim={gone} onClick={() => setDetail(id)} /></div>
+              <div className="min-w-0 flex-1"><PlayerRow p={p} dim={gone} onClick={() => setDetail(id)} onInfo={() => setDetail(id)} /></div>
               <button className="btn-ghost btn-sm" disabled={i === 0} onClick={() => { const n = [...queue]; [n[i - 1], n[i]] = [n[i], n[i - 1]]; saveQueue(n); }}>↑</button>
               <button className="btn-ghost btn-sm" disabled={i === queue.length - 1} onClick={() => { const n = [...queue]; [n[i + 1], n[i]] = [n[i], n[i + 1]]; saveQueue(n); }}>↓</button>
               <button className="btn-ghost btn-sm" onClick={() => toggleQueue(id)}>✕</button>

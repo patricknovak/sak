@@ -3346,3 +3346,19 @@ select pg_temp.expect('and Fern''s pools are not his', not exists (select 1 from
 reset role;
 select set_config('request.jwt.claim.sub', '', false);
 select 'my pools', true;
+
+-- ───────────── the injury report's timeline (migration 152) ─────────────
+-- the hourly sync writes the expected return, what it is and the list; a GM reads them through the league's players,
+-- and the status change still lands in the player's history
+select id as inj_p from players order by id limit 1 \gset
+update players set injury_status = 'Injured Reserve', injury_note = 'Placed on long-term IR.', injury_return = today_et() + 20,
+  injury_part = 'Knee, left', injury_list = 'IR-LT', injury_detail = 'Expected to miss about three weeks.' where id = :inj_p;
+select pg_temp.as_team(1);
+set role authenticated;
+select pg_temp.expect('a GM sees when he is expected back', (select injury_return = today_et() + 20 and injury_part = 'Knee, left' and injury_list = 'IR-LT'
+  and injury_detail like 'Expected%' from league_players where id = :inj_p));
+select pg_temp.expect('and the listing is in his history', exists (select 1 from player_events where player_id = :inj_p and kind = 'injury' and body like 'Listed Injured Reserve%'));
+reset role;
+update players set injury_status = null, injury_note = null, injury_return = null, injury_part = null, injury_list = null, injury_detail = null where id = :inj_p;
+select set_config('request.jwt.claim.sub', '', false);
+select 'injury timeline', true;

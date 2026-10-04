@@ -2,11 +2,12 @@
 // tab. Tonight's (or last night's) games with recap clips, the top headlines, what the insiders are saying,
 // injury news on league players, and the leaders once the season is under way.
 import { useEffect, useMemo, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { ExternalLink, Play, Radio } from 'lucide-react';
 import { useLeague, useNow } from '../lib/store';
 import { hub, type Leaders, type NewsStory, type XFeed } from '../lib/nhlhub';
-import { ago, fmtTime, injuryBadge } from '../lib/format';
+import { ago, fmtTime, injuryBack, injuryBadge } from '../lib/format';
+import { usePlayerInfo } from '../lib/playerInfo';
 import { Section, TeamBadge } from './ui';
 
 type NTeam = { id: number; abbrev: string; name: string; place: string; score: number | null; sog: number | null; logo: string | null; record: string | null };
@@ -56,6 +57,8 @@ export function TopTab({ onGame }: { onGame: (g: TopGame) => void }) {
     return out;
   }, [news]);
   const posts = (x?.posts ?? []).slice(0, 4);
+  const info = usePlayerInfo();
+  const nav = useNavigate();
   const hurt = useMemo(() => [...players.values()].filter((p) => p.injury_status && owner.has(p.id)).sort((a, b) => (b.injury_date ?? '').localeCompare(a.injury_date ?? '')).slice(0, 5), [players, owner]);
   const topPts = leaders?.skaters?.points?.slice(0, 5) ?? [];
   const seasonOn = topPts.length > 0 && topPts[0].value > 0;
@@ -140,11 +143,14 @@ export function TopTab({ onGame }: { onGame: (g: TopGame) => void }) {
           {hurt.length === 0 ? <div className="card p-4 text-sm text-mute">No league players on the injury list. Enjoy it.</div> : (
             <div className="card divide-y divide-white/[.05]">
               {hurt.map((p) => { const o = owner.get(p.id); const t = o ? team(o.team_id) : undefined; const b = injuryBadge(p.injury_status); return (
-                <Link key={p.id} to={`/player/${p.id}`} className="flex items-center gap-2 px-3 py-2 text-sm hover:bg-white/[.03]">
-                  <span className="min-w-0 flex-1 truncate font-semibold">{p.name} <span className="text-[11px] font-normal text-mute">{p.nhl_team} · {p.pos}</span></span>
+                <button type="button" key={p.id} onClick={() => (info ? info(p.id) : nav(`/player/${p.id}`))} className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm hover:bg-white/[.03]">
+                  <span className="min-w-0 flex-1">
+                    <span className="block truncate font-semibold">{p.name} <span className="text-[11px] font-normal text-mute">{p.nhl_team} · {p.pos}</span></span>
+                    {(p.injury_part || p.injury_return) && <span className="block truncate text-[11px] text-red-200">{[p.injury_part, injuryBack(p.injury_return)].filter(Boolean).join(' · ')}</span>}
+                  </span>
                   {b && <span className={`chip ${b.cls}`}>{b.label}</span>}
                   {t && <TeamBadge team={t} size={16} />}{o?.team_id === me?.id && <span className="text-[10px] text-amber-200">yours</span>}
-                </Link>
+                </button>
               ); })}
             </div>
           )}

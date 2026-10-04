@@ -7,7 +7,7 @@ import { useSticky } from '../lib/sticky';
 import { useLeague, useSport } from '../lib/store';
 import { calledOff, type SportConfig } from '../lib/sport';
 import type { Player, PlayerSeason, PlayerWindow, ProjDetail } from '../lib/types';
-import { etToday, fmtPts } from '../lib/format';
+import { etToday, fmtPts, injuryBack } from '../lib/format';
 import { TIMEFRAMES, fmtStat, lineFor, minSample, rosPoints, statDef, statValue, type Timeframe } from '../lib/playerstats';
 import { gamesOf, rosPerGame } from '../lib/lineup';
 import { useProjDetails, useSeasonGames, toneCls, toneIcon } from '../lib/projections';
@@ -205,7 +205,7 @@ export function PlayerPeek({ p, c }: { p: Player; c: ScoutCtx }) {
         </table>
       </div>
       {n.factors.length > 0 && <ul className="space-y-0.5">{n.factors.slice(0, 3).map((f) => <li key={f.text} className={toneCls[f.tone]}>{toneIcon[f.tone]} <span className="text-slate-300">{f.text}</span></li>)}</ul>}
-      {p.injury_note && <div className="text-amber-200">⚕️ {p.injury_status}: {p.injury_note}</div>}
+      {p.injury_status && <div className="text-amber-200">⚕️ {p.injury_status}{p.injury_part ? ` (${p.injury_part})` : ''}{injuryBack(p.injury_return) ? `, ${injuryBack(p.injury_return)}` : ''}{p.injury_note ? `: ${p.injury_note}` : ''}</div>}
     </div>
   );
 }

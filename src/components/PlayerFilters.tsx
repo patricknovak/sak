@@ -8,7 +8,8 @@ import { NHL_TEAMS } from '../lib/format';
 import { isOut } from '../lib/lineup';
 import { TIMEFRAMES, fmtStat, lineFor, minSample, projLike, statDef, statValue, statsFor, type Line, type Timeframe } from '../lib/playerstats';
 import { Headshot, Pos } from './ui';
-import { injuryBadge } from '../lib/format';
+import { injuryBack, injuryBadge } from '../lib/format';
+import { usePlayerInfo } from '../lib/playerInfo';
 import { useSticky } from '../lib/sticky';
 
 export interface Filter { q: string; pos: 'ALL' | PosT; tf: Timeframe; stat: string; perGame: boolean; hideInjured: boolean; nhl: string; minGp: number }
@@ -157,6 +158,7 @@ export function PlayerFilterBar({ pf, compact, hideSearch, children }: { pf: Pla
 export function StatTable({ list, pf, onPlayer, badge }: { list: Player[]; pf: PlayerFilter; onPlayer: (id: number) => void; badge?: (p: Player) => ReactNode }) {
   const cols = pf.goalie ? GOALIE_COLS : SKATER_COLS;
   const lines = useMemo(() => new Map(list.map((p) => [p.id, pf.line(p)])), [list, pf.line]);
+  const info = usePlayerInfo();
   return (
     <div className="card overflow-x-auto">
       <table className="w-full min-w-max text-xs">
@@ -181,7 +183,9 @@ export function StatTable({ list, pf, onPlayer, badge }: { list: Player[]; pf: P
                   <div className="flex items-center gap-2">
                     <Headshot p={p} size={26} />
                     <div className="min-w-0">
-                      <div className="flex items-center gap-1 whitespace-nowrap font-semibold">{p.name}{b && <span className={`chip ${b.cls}`}>{b.label}</span>}</div>
+                      <div className="flex items-center gap-1 whitespace-nowrap font-semibold">{p.name}{b && (info
+                        ? <button type="button" className={`chip cursor-pointer ${b.cls} hover:brightness-125`} title={[p.injury_part, injuryBack(p.injury_return), p.injury_note].filter(Boolean).join(' · ') || 'The injury report'} onClick={(e) => { e.stopPropagation(); info(p.id); }}>{b.label}</button>
+                        : <span className={`chip ${b.cls}`}>{b.label}</span>)}</div>
                       <div className="flex items-center gap-1 text-[10px] text-mute"><Pos p={p.pos} className="min-w-0 px-1 py-0" />{p.nhl_team ?? 'FA'}{badge?.(p)}</div>
                     </div>
                   </div>

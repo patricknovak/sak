@@ -4,7 +4,8 @@ import { useBrand } from '../lib/brand';
 import { Link, useNavigate } from 'react-router-dom';
 import { useLeague, useNow } from '../lib/store';
 import { hub, type ClubGoalie, type ClubPerson, type ClubSkater, type Leaders, type NewsStory, type XFeed } from '../lib/nhlhub';
-import { ago, fmtPts, fmtTime, injuryBadge, NHL_COLORS, NHL_TEAMS } from '../lib/format';
+import { ago, fmtPts, fmtTime, injuryBack, injuryBadge, INJURY_LIST, NHL_COLORS, NHL_TEAMS } from '../lib/format';
+import { usePlayerInfo } from '../lib/playerInfo';
 import { Section, Sheet, TeamBadge, TeamName } from './ui';
 import { PlayerRow } from './PlayerCard';
 import { ExternalLink, Flame, Heart, Repeat2 } from 'lucide-react';
@@ -232,13 +233,15 @@ export function InjuriesTab() {
   const mine = injured.filter((p) => owner.get(p.id)?.team_id === me?.id);
   const byTeam = teams.map((t) => ({ t, list: injured.filter((p) => owner.get(p.id)?.team_id === t.id) })).filter((x) => x.list.length);
   const fa = injured.filter((p) => !owner.has(p.id) && p.proj > 60);
+  const info = usePlayerInfo();
   const Hurt = ({ id }: { id: number }) => {
     const p = players.get(id)!;
     const b = injuryBadge(p.injury_status);
     return (
-      <div className="px-3 py-2" onClick={() => nav(`/player/${p.id}`)}>
-        <PlayerRow p={p} right={<span className={`chip ${b?.cls}`}>{p.injury_status}</span>} />
-        {p.injury_note && <p className="mt-1 line-clamp-2 pl-12 text-xs text-slate-400">{p.injury_note}</p>}
+      <div className="cursor-pointer px-3 py-2" onClick={() => (info ? info(p.id) : nav(`/player/${p.id}`))}>
+        <PlayerRow p={p} right={<span className={`chip ${b?.cls}`}>{p.injury_list && INJURY_LIST[p.injury_list] && !/^(IR|OUT|O)$/.test(p.injury_list) ? INJURY_LIST[p.injury_list] : p.injury_status}</span>} />
+        {(p.injury_part || p.injury_return) && <p className="mt-1 pl-12 text-xs font-semibold text-red-200">{[p.injury_part, injuryBack(p.injury_return)].filter(Boolean).join(' · ')}</p>}
+        {p.injury_note && <p className="mt-0.5 line-clamp-2 pl-12 text-xs text-slate-400">{p.injury_note}</p>}
       </div>
     );
   };
