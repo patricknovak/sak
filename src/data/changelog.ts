@@ -6,6 +6,8 @@
 export interface Change { date: string; icon: string; title: string; body: string; to?: string; tag?: 'formats' | 'commish' | 'draft' | 'everyone' }
 
 export const CHANGELOG: Change[] = [
+  { date: '2026-10-04', icon: '📱', tag: 'everyone', title: 'Names in full on small phones', to: '/standings',
+    body: 'Team names wrap onto a second line instead of being cut off: on Home, My team, your profile, the standings, the podium, the scoreboard and Performance. A long surname on a player\'s page shrinks to fit instead of splitting in the middle, and page titles fit the screen.' },
   { date: '2026-10-04', icon: '⭐', tag: 'everyone', title: 'Your watch list', to: '/players?who=watch',
     body: 'Star any player to keep an eye on him: tap his rank on the Players page, or ☆ Watch on his card. Watch list on the Players page shows them all, free agents and other teams\' players alike, and if another team drops one, you hear about it on the bell and your phone while he\'s there for the taking. Injury news on them reaches you too, and the Home page keeps the list in view: free agents first, with tonight\'s games. Asked for on the ideas board.' },
   { date: '2026-10-04', icon: '⚔️', tag: 'formats', title: 'Head-to-head leagues', to: '/standings',
