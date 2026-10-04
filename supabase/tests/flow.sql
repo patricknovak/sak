@@ -2777,6 +2777,35 @@ drop table pf_table; drop table pf_br;
 select set_config('request.jwt.claim.sub', '', false);
 select 'payouts follow the format', true;
 
+-- ───────────── head-to-head week alerts ─────────────
+reset role;
+select id as wn_league from leagues where slug = 'rink' \gset
+update league_rules set format = 'h2h', h2h_playoffs = 0, season_start = today_et(), season_end = today_et() + 60 where league_id = :wn_league;
+delete from matchups where league_id = :wn_league;
+select set_config('request.jwt.claim.sub', (select user_id::text from teams where league_id = :wn_league and is_commish), false);
+set role authenticated;
+select commish_make_schedule(0) as wn_weeks \gset
+reset role;
+-- week 1 starts today; pretend the week before it ended yesterday by moving week 2 back a fortnight
+update matchups set starts = today_et() - 7, ends = today_et() - 1 where league_id = :wn_league and week = 2;
+delete from notifications where kind = 'matchup';
+select set_config('app.league_id', :wn_league::text, false);
+select h2h_week_notes() as wn_sent \gset
+select pg_temp.expect('every GM hears this week''s opponent, or the week off', (select count(*) from notifications n join teams t on t.id = n.team_id
+  where t.league_id = :wn_league and n.kind = 'matchup' and (n.body like '%starts today: you vs%' or n.body like '%week off%')) = 3);
+select pg_temp.expect('the two who played last week hear how it went', (select count(*) from notifications n join teams t on t.id = n.team_id
+  where t.league_id = :wn_league and n.kind = 'matchup' and n.body ~ 'you (beat|lost to|tied)') = 2);
+select pg_temp.expect('once each: a second run says nothing new', h2h_week_notes() = 0);
+select set_config('app.league_id', '1', false);
+select pg_temp.expect('a season-total league hears nothing', h2h_week_notes() = 0);
+select set_config('app.league_id', '', false);
+select pg_temp.expect('the morning job knows it', (run_league_jobs('h2h-notes')) is not null);
+delete from notifications where kind = 'matchup';
+delete from matchups where league_id = :wn_league;
+update league_rules set format = 'season' where league_id = :wn_league;
+select set_config('request.jwt.claim.sub', '', false);
+select 'head-to-head week alerts', true;
+
 -- ───────────── how alive each league is ─────────────
 reset role;
 update teams set last_seen = now() - interval '2 days' where id = 1;

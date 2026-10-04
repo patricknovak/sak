@@ -162,7 +162,8 @@ The steps above finish the tenancy. `docs/MARKET.md` sets what comes after in th
     (`_h2h_result`), whoever wins more categories wins the week (and the playoff meeting), categories won break ties on
     the table, and each matchup opens category by category. Payouts follow the format (migration 124): the regular-season
     pot pays the head-to-head or category table, a bracket pays its champion, runner-up and best semifinal loser, and the
-    last-place punishment stays a points-league rule. Next: the each-category variant (every category a win or a
+    last-place punishment stays a points-league rule. Every morning (`h2h-notes`, migration 125) each GM of a head-to-head
+    league hears the week's opponent when a week starts and the result when it ends, the playoffs round by round. Next: the each-category variant (every category a win or a
     loss on the table) if a league asks for it.
 9. **Import with history** from Fantrax, ESPN and CBS (Yahoo exists).
 10. **Contracts, caps, prospect slots and rookie drafts**; guillotine and best ball formats.

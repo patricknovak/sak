@@ -153,7 +153,7 @@ export function Layout({ children }: { children: ReactNode }) {
   if (loc.pathname === '/draft/tv') return <>{children}</>;
 
   const banner = draft?.status === 'live' && !!current && !loc.pathname.startsWith('/draft');
-  const nKind: Record<string, string> = { trade: '🔄', bet: '🎲', mention: '💬', draft: '📋', injury: '🚑', big_night: '🔥', weekly: '🏆', health: '🩺', idea: '💡' };
+  const nKind: Record<string, string> = { trade: '🔄', bet: '🎲', mention: '💬', draft: '📋', injury: '🚑', big_night: '🔥', weekly: '🏆', health: '🩺', idea: '💡', matchup: '⚔️' };
   return (
     <div className="lg:flex" style={{ '--banner': banner ? '2.25rem' : '0px' } as React.CSSProperties}>
       {/* desktop sidebar */}
