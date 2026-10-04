@@ -64,7 +64,8 @@ export function TeamScout({ teamId, hideRoster }: { teamId: number; hideRoster?:
 
   return (
     <div className="space-y-4">
-      <Section icon={<Scale size={16} className="text-blue" />} title={mine ? 'Team strength vs. the league' : `${t?.gm_name}'s strength vs. yours`}>
+      {/* nothing to weigh before anyone has players (a new league before its draft) */}
+      {strength.some((s) => s.mine > 0 || s.their > 0) && <Section icon={<Scale size={16} className="text-blue" />} title={mine ? 'Team strength vs. the league' : `${t?.gm_name}'s strength vs. yours`}>
         <div className="card space-y-2.5 p-3">
           {strength.map((s) => (
             <div key={s.pos} className="flex items-center gap-2">
@@ -91,7 +92,7 @@ export function TeamScout({ teamId, hideRoster }: { teamId: number; hideRoster?:
             </div>
           )}
         </div>
-      </Section>
+      </Section>}
 
       {!hideRoster && <Section title={`${mine ? 'Your' : `${t?.gm_name}'s`} roster (${theirs.length})`}>
         <div className="mb-2"><ScoutBar s={scout} hasG={theirs.some((p) => p.pos === 'G')} /></div>
