@@ -96,7 +96,7 @@ async function recordBook(lid: number): Promise<string> {
 }
 
 const LEAGUE_TABLES = new Set(['messages', 'garry_memory', 'garry_state', 'rosters', 'teams', 'notifications', 'draft_picks', 'draft_state', 'draft_queue',
-  'bets', 'bet_entries', 'coin_ledger', 'lineup_snapshots', 'push_subscriptions', 'markets', 'market_bets', 'trades', 'league_rules']);
+  'bets', 'bet_entries', 'coin_ledger', 'lineup_snapshots', 'push_subscriptions', 'markets', 'market_bets', 'trades', 'league_rules', 'watchlist']);
 // shared NHL data in this league's points: box scores, projections and corrections under its scoring profile
 const LEAGUE_VIEWS: Record<string, string> = { player_games: 'league_games', players: 'league_players', stat_corrections: 'league_corrections' };
 const TEAM_VIEWS = new Set(['standings', 'playoff_standings', 'sak_cup_standings', 'coin_balances', 'team_daily', 'playoff_daily', 'team_bench_daily', 'book_standings', 'coin_races']);
@@ -684,6 +684,20 @@ async function reply(messageId: number, dry = false) {
   return { ...(result as object), learned };
 }
 
+// a GM's watch list (migration 140), for their private line only: each player, whose roster he's on (or free) and how
+// he's doing, so "anyone on my list worth grabbing?" gets a real answer
+async function watchFacts(teamId: number, byId: Map<number, Team>) {
+  const { data: w } = await from('watchlist').select('player_id').eq('team_id', teamId).order('added_at', { ascending: false }).limit(25);
+  const ids = (w ?? []).map((r) => r.player_id as number);
+  if (!ids.length) return [];
+  const [{ data: ps }, { data: rs }] = await Promise.all([
+    from('players').select('id,name,pos,nhl_team,injury_status,proj').in('id', ids),
+    from('rosters').select('player_id,team_id').in('player_id', ids),
+  ]);
+  const own = new Map((rs ?? []).map((r) => [r.player_id as number, r.team_id as number]));
+  return (ps ?? []).map((p) => `${p.name} (${p.pos}, ${p.nhl_team ?? 'no club'}, ${own.has(p.id) ? `on ${byId.get(own.get(p.id)!)?.gm_name ?? 'a'}'s team` : 'free agent'}${p.injury_status ? `, ${p.injury_status}` : ''}, projected ${f1(Number(p.proj ?? 0))})`);
+}
+
 async function converse(m: ChatMsg) {
   const { teams, byId, standings } = await base();
   const asker = byId.get(m.team_id);
@@ -702,12 +716,14 @@ async function converse(m: ChatMsg) {
   const table = [...standings].sort((a, b) => a.rank - b.rank).map((x) => `${x.rank}. ${byId.get(x.team_id)?.gm_name} (${byId.get(x.team_id)?.name}) ${f1(Number(x.points))}`);
   const useful = ans && !['unknown', 'hello', 'chat'].includes(ans.topic);
   const privateLine = m.channel.startsWith('garry:');
+  const watching = privateLine ? await watchFacts(m.team_id, byId).catch(() => []) : [];
   const prompt = [
     `Right now: ${now}`,
     `Where everyone stands: ${table.join(' · ')}`,
     mem.length ? `What you remember (use it when it fits, never list it):\n${mem.map((x) => '- ' + x).join('\n')}` : '',
     mine.length ? `Your last few lines in the chat. Do not reuse their openers, closers, jokes, nudges or catchphrases:\n${mine.map((x) => '- ' + x).join('\n')}` : '',
     `The GMs in this conversation (facts you can use):\n${JSON.stringify(cards)}`,
+    watching.length ? `${asker?.gm_name}'s watch list, the players they've starred (private to them: fine on this line, never in the league chat): ${watching.join('; ')}` : '',
     useful ? `The site's verified answer to the question (use its facts and keep any "👉 #/..." link that fits, in your own words, not its wording):\n${ans!.text}${Object.keys(ans!.facts ?? {}).length ? `\n${JSON.stringify(ans!.facts).slice(0, 1500)}` : ''}` : '',
     `${privateLine ? `This is ${asker?.gm_name}'s private line to you; nobody else reads it.` : 'This is the league chat; everyone reads it.'} The conversation, oldest first; the last line is ${asker?.gm_name}'s and it's the one you answer:\n${lines.join('\n')}`,
     `Decide what ${asker?.gm_name} wants and reply:
