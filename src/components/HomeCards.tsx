@@ -26,13 +26,15 @@ export function NhlTopCard() {
   const [label, setLabel] = useState('Tonight');
   useEffect(() => {
     let dead = false;
-    hub<{ prev: string | null; games: TopGame[] }>('scores', { date: leagueDay }).then(async (s) => {
+    // a reply without its games (the feed hiccuped) reads as no games, not a card stuck loading
+    hub<{ prev: string | null; games?: TopGame[] }>('scores', { date: leagueDay }).then(async (s) => {
       if (dead) return;
-      if (s.games.length || !s.prev) { setGames(s.games); return; }
+      const list = s?.games ?? [];
+      if (list.length || !s?.prev) { setGames(list); return; }
       const p = await hub<{ games: TopGame[] }>('scores', { date: s.prev }).catch(() => null);
       if (!dead) { setLabel('Last night'); setGames(p?.games ?? []); }
     }, () => !dead && setGames([]));
-    const i = setInterval(() => hub<{ games: TopGame[] }>('scores', { date: leagueDay }).then((s) => !dead && s.games.length && setGames(s.games), () => {}), 120_000);
+    const i = setInterval(() => hub<{ games?: TopGame[] }>('scores', { date: leagueDay }).then((s) => !dead && s?.games?.length && setGames(s.games), () => {}), 120_000);
     return () => { dead = true; clearInterval(i); };
   }, [leagueDay]);
   const byNhl = useMemo(() => { const m = new Map<string, Set<number>>(); for (const [, r] of owner) { const p = players.get(r.player_id); if (!p?.nhl_team) continue; const t = m.get(p.nhl_team) ?? new Set(); t.add(r.team_id); m.set(p.nhl_team, t); } return m; }, [owner, players]);

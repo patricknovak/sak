@@ -28,7 +28,7 @@ export function NewsTab() {
   const [items, setItems] = useState<NewsStory[] | null>(null);
   const [err, setErr] = useState<string | null>(null);
   const [filter, setFilter] = useState<'all' | 'mine' | 'trades' | 'NHL.com' | 'Sportsnet' | 'ESPN'>('all');
-  useEffect(() => { hub<{ items: NewsStory[] }>('news').then((r) => setItems(r.items), (e) => setErr(e.message)); }, []);
+  useEffect(() => { hub<{ items?: NewsStory[] }>('news').then((r) => setItems(r?.items ?? []), (e) => setErr(e.message)); }, []);
   // which league players a story mentions (full names only, so "Miller" alone doesn't tag six guys)
   const names = useMemo(() => [...players.values()].filter((p) => p.name.length > 6).map((p) => ({ id: p.id, n: p.name.toLowerCase() })), [players]);
   const mentions = (s: NewsStory) => { const t = `${s.headline} ${s.summary}`.toLowerCase(); return names.filter((x) => t.includes(x.n)).map((x) => x.id); };
