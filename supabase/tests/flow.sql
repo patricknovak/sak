@@ -3306,3 +3306,43 @@ insert into league_invites (code, league_id, team_id, role, created_by, expires_
   values ('kindcheck150', :lib, null, 'gm', '00000000-0000-0000-0000-000000000001', now() + interval '1 day', 5);
 select pg_temp.expect('and so does its invite', invite_preview('kindcheck150')->>'kind' = 'predict');
 select 'host kind', true;
+
+-- ───────────── one account, every pool (migration 151) ─────────────
+reset role;
+select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-000000000082', false);
+set role authenticated;
+select set_config('t.mp', my_pools()::text, false);
+select pg_temp.expect('my pools lists the pool she is in, with where she stands', (select count(*) from jsonb_array_elements(current_setting('t.mp')::jsonb)) = 1
+  and (select (e->'summary'->>'rank')::int >= 1 and e->>'kind' = 'predict' and (e->'summary') ? 'closing'
+       from jsonb_array_elements(current_setting('t.mp')::jsonb) e));
+select set_config('t.op', pool_start('Office Pool', '#f7c548')::text, false);
+select pg_temp.expect('she starts a pool of her own in one step', current_setting('t.op')::jsonb->>'slug' = 'office-pool');
+select pg_temp.expect('and hosts it with the opening coins', (select t.is_commish and cb.balance = 1000 from teams t join coin_balances cb on cb.team_id = t.id
+  where t.league_id = (current_setting('t.op')::jsonb->>'id')::int and t.user_id = '00000000-0000-0000-0000-000000000082'));
+select pg_temp.expect('it is a live prediction pool with no money in it', (select l.kind = 'predict' and l.status = 'active' and not (r.features ? 'money')
+  and l.brand->'wordmark'->>'a' = 'OFFICE' and l.brand->'colors'->>'gold' = '#f7c548'
+  from leagues l join league_rules r on r.league_id = l.id where l.id = (current_setting('t.op')::jsonb->>'id')::int));
+select pg_temp.expect('the new pool is the one she lands in', current_league_id() = (current_setting('t.op')::jsonb->>'id')::int);
+select pg_temp.expect('and both are in her pools', jsonb_array_length(my_pools()) = 2);
+select pg_temp.expect('a name taken gets a number', pool_start('Office Pool')->>'slug' = 'office-pool-2');
+select pg_temp.expect('the app''s own names are never a pool''s', pool_start('App')->>'slug' = 'app-pool');
+select set_config('t.bw', pool_start('Bachelorette Watch', '#fb7185', 'love-is-blind-s11')->>'slug', false);
+select pg_temp.expect('a pack brings its questions and its coins', (select count(*) = 8 and min(l.brand->'coin'->>'name') = 'Goblets'
+  and min(l.brand->'wordmark'->>'a') = 'BACHELORETTE' from pool_markets m join leagues l on l.id = m.league_id where l.slug = current_setting('t.bw')));
+select pool_start('Fifth Pool');
+select pg_temp.raises('five a day', 'select pool_start(''Sixth Pool'')', 'five pools today');
+reset role;
+select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-000000000083', false);
+insert into auth.users (id, email) values ('00000000-0000-0000-0000-000000000083', 'nobody83@example.com') on conflict do nothing;
+set role authenticated;
+select pg_temp.expect('someone in no pool has nothing to list', my_pools() = '[]'::jsonb);
+select pg_temp.raises('and joins one before starting one', 'select pool_start(''Lonely Pool'')', 'Join a pool first');
+reset role;
+select pg_temp.as_team(1);
+set role authenticated;
+select pg_temp.expect('a GM''s fantasy league shows rank, points and what needs him', (select (e->'summary'->>'rank')::int >= 1 and (e->'summary'->>'of')::int >= 8
+  and (e->'summary') ? 'trade_offers' and (e->'summary') ? 'unread_chat' from jsonb_array_elements(my_pools()) e where (e->>'league_id')::int = 1));
+select pg_temp.expect('and Fern''s pools are not his', not exists (select 1 from jsonb_array_elements(my_pools()) e where e->>'slug' like 'office-pool%'));
+reset role;
+select set_config('request.jwt.claim.sub', '', false);
+select 'my pools', true;

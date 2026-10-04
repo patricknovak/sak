@@ -197,6 +197,16 @@ Workers Scripts and Workers Routes permissions (the first run was refused, the r
 league 1, and the service worker and the hashed files carry the cache rules in `public/_headers`. Still to check with
 a signed-in GM: push and the installed app at the new address (a phone's push subscription belongs to the address,
 so GMs turn alerts on again there). Then step 3, telling the GMs, and step 4, the landing page.
+*One app for every pool (4 October 2026, migration 151):* a subdomain per pool would mean a sign-in, an installed app
+and an alerts permission per pool for anyone in several (each address keeps its own storage), so the pool moves into
+the link instead. `app.superpoolsai.com` is the product's one address (the wildcard route already serves it); a pool's
+link is `#/p/<web name>/<page>`, read before the router starts (`src/lib/host.ts`: the tab's league is set and the name
+drops out of the address); invites are made on the app's address (`appLink`). `<web name>.superpoolsai.com` forwards to
+the one app, keeping the page, unless someone is signed in on that address, so SaK's GMs on `sak.superpoolsai.com` see no
+change. My pools (`#/pools`, `my_pools()`) is the switcher, with each pool's standing and what needs attention, and
+`pool_start` opens a prediction pool from inside an account (limits: five a day, 25 in all). Nothing per pool is set up
+outside the database. Still to come: a league's own domain through Cloudflare for SaaS, and one push subscription
+carrying alerts for every pool.
 
 **B6. Money and the Fund are SaK's.** `commish_bill_entries` bills every league's GMs; `commish_post_payouts`
 reads `standings` with the owner's rights, so it ranks, pays and charges the Peter across leagues; `fund` is one

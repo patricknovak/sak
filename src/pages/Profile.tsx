@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react';
 import { PROVIDERS, SERVICES, playerFor } from '../lib/watch';
 import { useLeague } from '../lib/store';
-import { setTabLeague } from '../lib/host';
+import { Link } from 'react-router-dom';
+import { ArrowRight, Layers } from 'lucide-react';
 import { rpc, supabase } from '../lib/supabase';
 import { fmtMoney, fmtPts, NHL_TEAMS, ordinal } from '../lib/format';
 import { useHistory } from '../lib/history';
@@ -164,29 +165,21 @@ export default function Profile() {
   );
 }
 
-// The leagues this account plays in. With more than one, a tap switches: the account remembers it and every page
-// loads for that league.
-interface LeagueRow { league_id: number; slug: string; name: string; short_name: string | null; role: string; team_id: number | null; active: boolean }
+// Every pool on this account lives on My pools (one account, every pool: migration 151); the profile points there.
+interface LeagueRow { league_id: number }
 function MyLeagues() {
-  const { host } = useLeague();
-  const { busy, run } = useAction();
-  const [rows, setRows] = useState<LeagueRow[]>([]);
-  useEffect(() => { rpc<LeagueRow[]>('my_leagues').then((d) => setRows(d ?? []), () => setRows([])); }, []);
-  if (rows.length < 2) return null;
+  const [n, setN] = useState<number | null>(null);
+  useEffect(() => { rpc<LeagueRow[]>('my_leagues').then((d) => setN((d ?? []).length), () => setN(null)); }, []);
   return (
-    <Section title="Your leagues">
-      <div className="card divide-y divide-white/[.06]">
-        {rows.map((l) => (
-          <div key={l.league_id} className="flex items-center gap-2 px-3 py-2.5">
-            <div className="min-w-0 flex-1">
-              <div className="truncate text-sm font-semibold">{l.name}</div>
-              <div className="text-xs text-mute">{l.role === 'commish' ? 'Commissioner' : l.role === 'spectator' ? 'Spectator' : 'GM'}</div>
-            </div>
-            {l.active ? <span className="chip text-emerald-300">Here now</span>
-              : <button className="btn-primary btn-sm" disabled={busy} onClick={() => run(async () => { await rpc('set_active_league', { p_league: l.league_id }); if (host) setTabLeague(l.league_id); window.location.hash = '#/'; window.location.reload(); })}>Switch</button>}
-          </div>
-        ))}
-      </div>
+    <Section title="My pools">
+      <Link to="/pools" className="card flex items-center gap-3 p-3.5 transition hover:border-white/20">
+        <span className="grid h-10 w-10 shrink-0 place-items-center rounded-2xl bg-gold/15 text-gold ring-1 ring-gold/25"><Layers size={19} /></span>
+        <span className="min-w-0 flex-1">
+          <span className="block font-semibold">{n == null ? 'Every pool on your account' : `${n} ${n === 1 ? 'pool' : 'pools'} on your account`}</span>
+          <span className="block text-xs text-mute">See where you stand in each, switch between them, or start a new one.</span>
+        </span>
+        <ArrowRight size={18} className="shrink-0 text-white/50" />
+      </Link>
     </Section>
   );
 }

@@ -314,7 +314,7 @@ export function LeagueProvider({ children }: { children: ReactNode }) {
 
   const gameStatus = useCallback((id: number, date?: string) => statuses.get(`${id}|${date ?? etToday()}`), [statuses, leagueDay]); // eslint-disable-line react-hooks/exhaustive-deps
   const value: Store = {
-    ready: authReady && hostReady && (!session || loaded), host, hostElsewhere: !!host && !!league && league.league_id !== host.id && !tabLeague(), session, me, league, brand, sport, kind, teams, spectators, can, team, players, rosters, owner, picks, draft,
+    ready: authReady && hostReady && (!session || loaded), host, hostElsewhere: !!host && !!league && league.league_id !== host.id && tabLeague() !== league.league_id, session, me, league, brand, sport, kind, teams, spectators, can, team, players, rosters, owner, picks, draft,
     standings, playoffs, cup, season, windows, games, gamesByTeam, notifications, gameStatus, freshNews, online, refresh, serverOffset, leagueDay,
   };
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;

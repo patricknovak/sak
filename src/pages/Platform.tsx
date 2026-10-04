@@ -12,7 +12,7 @@ import { ago } from '../lib/format';
 import { BrandPreview, ColourPicker, LEAGUE_COLOURS, starterBrand, themed, type BrandRow } from '../components/LeagueIdentity';
 import { Wordmark } from '../components/Brand';
 import { Checklist, type Check } from '../components/Readiness';
-import { leagueUrl } from '../lib/host';
+import { appLink, leagueUrl } from '../lib/host';
 
 interface Row {
   league_id: number; slug: string; name: string; short_name: string; status: 'setup' | 'active' | 'archived'; created_at: string;
@@ -27,7 +27,7 @@ const STATUS = {
   archived: { label: 'Archived', cls: 'border-white/10 bg-white/[.06] text-mute' },
 } as const;
 
-const link = (code: string) => `${location.origin}${location.pathname}#/join/${code}`;
+const link = (code: string) => appLink(`/join/${code}`);
 const opened = (iso: string) => new Date(iso).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
 const slugOf = (s: string) => s.toLowerCase().normalize('NFKD').replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 30);
 
@@ -132,7 +132,7 @@ function LeagueCard({ r, reload }: { r: Row; reload: () => Promise<unknown> }) {
           )}
           <div className="mt-4 rounded-xl border border-white/10 bg-black/25 p-3">
             <div className="label text-white/50">Its address</div>
-            <a href={leagueUrl(r.slug)} target="_blank" rel="noreferrer" className="mt-1 block break-all font-mono text-sm text-sky-200 underline decoration-sky-200/30 underline-offset-2">{r.slug}.superpoolsai.com</a>
+            <a href={leagueUrl(r.slug)} target="_blank" rel="noreferrer" className="mt-1 block break-all font-mono text-sm text-sky-200 underline decoration-sky-200/30 underline-offset-2">app.superpoolsai.com/#/p/{r.slug}</a>
             {r.domain && <a href={`https://${r.domain}/`} target="_blank" rel="noreferrer" className="mt-0.5 block break-all font-mono text-sm text-sky-200 underline decoration-sky-200/30 underline-offset-2">{r.domain}</a>}
             <div className="mt-2 flex gap-2">
               <input className="input min-w-0 flex-1 font-mono text-sm" value={domain} placeholder="Its own domain (optional)" inputMode="url" autoCapitalize="none"

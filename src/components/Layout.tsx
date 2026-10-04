@@ -9,7 +9,7 @@ import { currentSubscription } from '../lib/push';
 import { Sheet, TeamBadge } from './ui';
 import {
   Bell, ClipboardList, Dices, Home, Landmark, Lightbulb, LogOut, Menu, MessageCircle, Radio, Repeat2, Search, Shield,
-  Trophy, Tv, UserRound, Globe, Wrench, Wallet, type LucideIcon, BarChart3, Sparkles, Crown, Wand2 } from 'lucide-react';
+  Trophy, Tv, UserRound, Wrench, Wallet, type LucideIcon, BarChart3, Sparkles, Crown, Wand2, Layers, ChevronDown } from 'lucide-react';
 
 type Item = { to: string; label: string; icon: LucideIcon; commish?: boolean; short?: string };   // short: the phone dock's label, one line
 
@@ -109,7 +109,7 @@ export function Layout({ children }: { children: ReactNode }) {
     { to: '/nhl', label: sport.words.centre ?? 'NHL centre', icon: Tv },
   ];
   const moreItems: Item[] = (pool ? [
-    { to: '/yahoo', label: 'My pools', icon: Globe },
+    { to: '/pools', label: 'My pools', icon: Layers },
     { to: '/features', label: 'Ideas', icon: Lightbulb },
     { to: '/profile', label: 'My Profile', icon: UserRound },
     { to: '/host', label: 'Host', icon: Wand2, commish: true },
@@ -117,7 +117,7 @@ export function Layout({ children }: { children: ReactNode }) {
     { to: '/standings', label: 'Standings', icon: Trophy },
     { to: '/questions', label: 'Questions', icon: Sparkles },
     { to: '/players', label: 'Players', icon: Search },
-    { to: '/yahoo', label: 'My pools', icon: Globe },
+    { to: '/pools', label: 'My pools', icon: Layers },
     ...(draftish ? [] : [{ to: '/scoreboard', label: 'Live scoreboard', icon: Radio }, { to: '/performance', label: 'Performance', icon: BarChart3 }]),
     draftish ? { to: '/team', label: 'My Team', icon: Shield } : { to: '/draft', label: 'Draft Centre', icon: ClipboardList },
     { to: '/trades', label: 'Trades', icon: Repeat2 },
@@ -203,6 +203,10 @@ export function Layout({ children }: { children: ReactNode }) {
             <button onClick={() => nav('/')} className="flex items-center gap-2">
               <LeagueMark size={32} className="drop-shadow-[0_4px_10px_rgb(var(--gold-rgb)/.5)]" />
               <WordmarkStack />
+            </button>
+            {/* every pool on this account, one tap away */}
+            <button onClick={() => nav('/pools')} aria-label="My pools" className="grid h-7 w-7 place-items-center rounded-full bg-white/[.06] text-white/70 ring-1 ring-white/10 hover:text-white">
+              <ChevronDown size={15} />
             </button>
             <div className="flex-1" />
             <button className="relative grid h-9 w-9 place-items-center rounded-full bg-white/[.05] ring-1 ring-white/10" onClick={openNotif} aria-label="Notifications">
