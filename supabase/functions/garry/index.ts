@@ -1027,7 +1027,10 @@ async function weekly() {
 
   // power rankings, with movement since last Monday's column
   const n = teams.length;
-  const seasonRank = new Map(h2h?.table.length ? h2h.table.map((s) => [s.team_id, Number(s.rank)]) : standings.map((s) => [s.team_id, Number(s.rank)]));
+  // the season rank is the table the league plays for: W-L-T in head-to-head, roto points in rotisserie, else points
+  const roto = !h2h && league.categories?.length ? (((await L.db.rpc('category_standings')).data ?? []) as any[]) : [];
+  const seasonRank = new Map(h2h?.table.length ? h2h.table.map((s) => [s.team_id, Number(s.rank)])
+    : roto.length ? roto.map((s) => [s.team_id, Number(s.rank)]) : standings.map((s) => [s.team_id, Number(s.rank)]));
   const paceRank = new Map([...two.entries()].sort((a, b) => b[1] - a[1]).map(([id], i) => [id, i + 1]));
   const score = (id: number) => 0.6 * (paceRank.get(id) ?? n) + 0.4 * (seasonRank.get(id) ?? n);
   const { data: prevMsg } = await from('messages').select('meta').eq('kind', 'bot').contains('meta', { type: 'weekly' }).order('id', { ascending: false }).limit(1);
