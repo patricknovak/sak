@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
+import { RotoStandings } from '../components/RotoStandings';
 import { useSticky } from '../lib/sticky';
 import { Link } from 'react-router-dom';
 import { useLeague } from '../lib/store';
@@ -65,6 +66,14 @@ export default function Standings() {
   const pot = isCup ? money.cup : isPo ? money.playoffs : money.regular;
   const last = table[table.length - 1], second = table[table.length - 2];
   const scored = table.some((t) => Number(t.points) !== 0);
+
+  // a rotisserie league ranks by categories, not points
+  if (league?.categories?.length) return (
+    <div className="space-y-5">
+      <PageHeader icon={<Trophy size={22} className="text-gold" />} title="Standings" sub={`${league.season} season · rotisserie`} />
+      <RotoStandings />
+    </div>
+  );
 
   return (
     <div className="space-y-5">

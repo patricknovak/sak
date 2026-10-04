@@ -145,7 +145,10 @@ The steps above finish the tenancy. `docs/MARKET.md` sets what comes after in th
 7. **Tiers and billing.** Free, Plus, Premium, the side-bet add-on and the Super Pool bundle, enforced per
    pool (a `plan` on the league row and a feature gate function), Stripe for the paid tiers.
 8. **Category and rotisserie scoring.** The scoring engine reads the league's categories the way it reads
-    its point weights.
+    its point weights. *Rotisserie done (migration 117, October 2026):* `league_rules.categories` (null for a points league),
+    `category_standings()` ranks every team in each category on its started players' season totals, the Standings page and
+    Home show the category table, and the commissioner switches between points and rotisserie on the Commish page.
+    Head-to-head categories (weekly matchups) are next; Garry's standings answers still read points.
 9. **Import with history** from Fantrax, ESPN and CBS (Yahoo exists).
 10. **Contracts, caps, prospect slots and rookie drafts**; guillotine and best ball formats.
 11. **The Supercoin.** An account-level wallet, the SaK coin ledger migrated onto it, per-pool allowances, the

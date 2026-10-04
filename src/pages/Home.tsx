@@ -1,4 +1,5 @@
 import { StandingsTable } from '../components/StandingsTable';
+import { RotoMini } from '../components/RotoStandings';
 import { useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useLeague, useNow } from '../lib/store';
@@ -190,7 +191,7 @@ export default function Home() {
 
       <div className="grid grid-cols-1 gap-5 lg:grid-cols-2">
         <Section icon={<Trophy size={17} className="text-gold" />} title={phase === 'season' ? (inPlayoffs ? '🏆 Playoff standings' : 'Standings') : lastSeason ? `${lastSeason.season} final standings` : 'The field'} right={<More to="/standings" label="All" />}>
-          {phase === 'season' ? <StandingsTable rows={table} view={inPlayoffs ? 'playoffs' : 'regular'} peter={!inPlayoffs} /> : !lastRows.length ? (
+          {phase === 'season' ? (league?.categories?.length ? <RotoMini /> : <StandingsTable rows={table} view={inPlayoffs ? 'playoffs' : 'regular'} peter={!inPlayoffs} />) : !lastRows.length ? (
           // a league in its first season: the field, seat by seat, until the draft makes it a table
           <div className="space-y-2">
           {me?.is_commish && teams.some((t) => !t.user_id) && (

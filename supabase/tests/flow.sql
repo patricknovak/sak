@@ -2528,3 +2528,38 @@ select pg_temp.raises('a GM can''t change the roster', 'select commish_set_roste
 reset role;
 select set_config('request.jwt.claim.sub', '', false);
 select 'a league''s own roster', true;
+
+-- ───────────── rotisserie ─────────────
+reset role;
+select id as roto_league from leagues where slug = 'sak-shadow' \gset
+update league_rules set categories = array['g', 'a', 'pim', 'sog', 'w', 'gaa', 'svp'] where league_id = :roto_league;
+select set_config('app.league_id', :roto_league::text, false);
+create temp table roto as select * from category_standings();
+select set_config('app.league_id', '', false);
+select pg_temp.expect('every team in the table, every category scored', (select count(*) from roto) = (select count(*) from teams where league_id = :roto_league and role = 'gm')
+  and (select bool_and((select count(*) from jsonb_object_keys(cats)) = 7) from roto));
+-- a category's points run from the team count down to one; ties share; every category hands out the same total
+select pg_temp.expect('each category hands out the same points', (select count(distinct s) = 1 from (
+  select k, sum((cats->k->>'pts')::numeric) as s from roto, jsonb_object_keys(cats) k group by k) x)
+  and (select sum((cats->'g'->>'pts')::numeric) from roto) = (select n * (n + 1) / 2.0 from (select count(*) n from roto) c));
+-- goals: the sum of what the started players scored, from the season's start
+select pg_temp.expect('goals are the started players'' goals', (select bool_and((r.cats->'g'->>'value')::numeric = coalesce((
+  select sum((pg.stats->>'g')::numeric) from lineup_snapshots s join player_games pg on pg.game_id = s.game_id and pg.player_id = s.player_id join games g on g.id = s.game_id
+  where s.team_id = r.team_id and s.slot not in ('BN', 'IR') and g.game_type = 2 and s.date >= (select season_start from league_rules where league_id = :roto_league)), 0)) from roto r));
+select pg_temp.expect('the total is the sum of the categories, ranked', (select bool_and(total = (select sum((cats->k->>'pts')::numeric) from jsonb_object_keys(cats) k)) from roto)
+  and (select rank from roto order by total desc limit 1) = 1);
+-- the commissioner picks the categories
+select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-000000000099', false);
+set role authenticated;
+select pg_temp.expect('a commissioner turns the league to rotisserie, in the catalogue''s order', commish_set_categories(array['svp', 'g', 'a', 'w']) = array['g', 'a', 'w', 'svp']);
+select pg_temp.expect('the site''s league row carries them', (select categories from league) = array['g', 'a', 'w', 'svp']);
+select pg_temp.raises('3 categories at least', 'select commish_set_categories(array[''g'', ''a''])', '3 to 12');
+select pg_temp.raises('from the list', 'select commish_set_categories(array[''g'', ''a'', ''goons''])', 'from the list');
+select pg_temp.expect('and back to points', commish_set_categories(null) is null);
+reset role;
+select pg_temp.expect('SaK stays a points league', (select categories from league_rules where league_id = 1) is null);
+select pg_temp.expect('the changes are on the log', exists (select 1 from commish_log where league_id = :league2 and action = 'commish_set_categories'));
+update league_rules set categories = null where league_id = :roto_league;
+drop table roto;
+select set_config('request.jwt.claim.sub', '', false);
+select 'rotisserie', true;
