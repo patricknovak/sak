@@ -2731,6 +2731,47 @@ delete from markets where id = :gp_open;
 select set_config('request.jwt.claim.sub', '', false);
 select 'Garry''s picks in the prediction log', true;
 
+-- ───────────── the auto-pilot's choices in the prediction log ─────────────
+reset role;
+select (array_agg(r.player_id order by r.player_id))[1] as ap_a, (array_agg(r.player_id order by r.player_id))[2] as ap_b,
+       (array_agg(r.player_id order by r.player_id))[3] as ap_c
+from rosters r join players p on p.id = r.player_id where r.team_id = 3 and p.pos <> 'G' \gset
+select id as ap_other from leagues where slug = 'rink' \gset
+-- three nights: one played as the auto-pilot set it, one the GM changed, one not over yet
+insert into games (id, date, start_utc, home, away, state, final_synced) values
+  (7701, today_et() - 200, now() - interval '200 days', 'TOR', 'MTL', 'OFF', true),
+  (7702, today_et() - 199, now() - interval '199 days', 'TOR', 'MTL', 'OFF', true),
+  (7703, today_et() - 198, now() - interval '198 days', 'TOR', 'MTL', 'LIVE', false);
+insert into player_games (game_id, player_id, date, stats)
+select g, p, today_et() - (7701 + 200 - g), s::jsonb from (values
+  (7701, :ap_a, '{"g":2,"a":1,"sog":5}'), (7701, :ap_b, '{"g":0,"a":1,"sog":2}'), (7701, :ap_c, '{"g":1,"a":0,"sog":1}'),
+  (7702, :ap_a, '{"g":1,"a":0,"sog":3}'), (7702, :ap_b, '{"g":0,"a":0,"sog":1}'), (7702, :ap_c, '{"g":0,"a":2,"sog":2}'),
+  (7703, :ap_a, '{"g":0,"a":0,"sog":1}')) x(g, p, s);
+insert into lineup_snapshots (game_id, date, team_id, player_id, slot) values
+  (7701, today_et() - 200, 3, :ap_a, 'C'), (7701, today_et() - 200, 3, :ap_b, 'LW'), (7701, today_et() - 200, 3, :ap_c, 'BN'),
+  (7702, today_et() - 199, 3, :ap_a, 'C'), (7702, today_et() - 199, 3, :ap_b, 'BN'), (7702, today_et() - 199, 3, :ap_c, 'LW'),
+  (7703, today_et() - 198, 3, :ap_a, 'C');
+insert into predictions (league_id, kind, subject, predicted, basis, resolves_on, detail) values
+  (1, 'auto_lineup', jsonb_build_object('team_id', 3, 'date', today_et() - 200), 6.5, 'blend', today_et() - 200, jsonb_build_object('starters', jsonb_build_array(:ap_a, :ap_b))),
+  (1, 'auto_lineup', jsonb_build_object('team_id', 3, 'date', today_et() - 199), 5.0, 'blend', today_et() - 199, jsonb_build_object('starters', jsonb_build_array(:ap_a, :ap_b))),
+  (1, 'auto_lineup', jsonb_build_object('team_id', 3, 'date', today_et() - 198), 4.0, 'blend', today_et() - 198, jsonb_build_object('starters', jsonb_build_array(:ap_a))),
+  (:ap_other, 'auto_lineup', jsonb_build_object('team_id', 3, 'date', today_et() - 200), 1.0, 'blend', today_et() - 200, jsonb_build_object('starters', jsonb_build_array(:ap_a)));
+select set_config('app.league_id', '1', false);
+select score_predictions() >= 2 as ap_scored \gset
+select sum(fpts) as ap_want from league_games where game_id = 7701 and player_id in (:ap_a, :ap_b) \gset
+select set_config('app.league_id', '', false);
+select pg_temp.expect('the auto-pilot''s night scores what its starters scored', (select outcome = :ap_want and :ap_want > 0
+  and error = outcome - 6.5 and status = 'scored' from predictions where league_id = 1 and kind = 'auto_lineup' and subject->>'date' = (today_et() - 200)::text));
+select pg_temp.expect('a night the GM changed isn''t the auto-pilot''s: void', (select status = 'void' and outcome is null from predictions where league_id = 1 and kind = 'auto_lineup' and subject->>'date' = (today_et() - 199)::text));
+select pg_temp.expect('a night still being played waits', (select status = 'open' from predictions where league_id = 1 and kind = 'auto_lineup' and subject->>'date' = (today_et() - 198)::text));
+select pg_temp.expect('another league''s call is left alone', (select status = 'open' from predictions where league_id = :ap_other and kind = 'auto_lineup'));
+delete from predictions where kind = 'auto_lineup';
+delete from lineup_snapshots where game_id in (7701, 7702, 7703);
+delete from player_games where game_id in (7701, 7702, 7703);
+delete from games where id in (7701, 7702, 7703);
+select set_config('request.jwt.claim.sub', '', false);
+select 'the auto-pilot''s choices in the prediction log', true;
+
 -- ───────────── payouts follow the format ─────────────
 reset role;
 select id as pf_league from leagues where slug = 'rink' \gset

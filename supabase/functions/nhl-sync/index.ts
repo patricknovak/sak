@@ -17,7 +17,7 @@
 //                      whose GM moved players by hand today
 import { createClient } from 'jsr:@supabase/supabase-js@2';
 import { etDate, gameRow, gameStats, NHL, STARTED } from '../_shared/nhl.ts';
-import { optimize, weekEndOf, type Basis, type LPlayer, type LSeason, type Mode } from '../_shared/lineup.ts';
+import { optimize, weekEndOf, STARTING, type Basis, type LPlayer, type LSeason, type Mode } from '../_shared/lineup.ts';
 import { projectAll, type GoalieSeason, type ProjPlayer, type SkaterSeason } from '../_shared/projections.ts';
 import { playoffOdds, type NhlTeamIn, type SeriesIn } from '../_shared/playoffs.ts';
 import { mergeStatus, type GameStatus } from '../_shared/gameday.ts';
@@ -458,16 +458,26 @@ async function autoLineupsFor(lid: number) {
   const games = check(await db.from('games').select('home,away,date,start_utc,state').gte('date', today).lte('date', weekEnd));
   const ctx = { today, weekEnd, now: Date.now(), games: games ?? [], season, caps: league.roster as Record<string, number> };
   const out: Record<number, number | string> = {};
+  const calls: Record<string, unknown>[] = [];
   for (const t of todo) {
     // lineups are daily, so the best lineup is always today's best; optimize() already breaks ties toward
     // the better player for the season, which is what keeps the right guys in idle slots
     const plan = optimize(rows.filter((r) => r.team_id === t.id), players, 'day', t.auto_basis, ctx);
-    if (!plan.moves.length) { out[t.id] = 0; continue; }
-    const { error } = await ldb.rpc('apply_auto_lineup', { p_team: t.id, p_slots: Object.fromEntries(plan.moves.map((m) => [m.player_id, m.to])) });
-    out[t.id] = error ? `error: ${error.message}` : plan.moves.length;
-    if (error) console.error('auto lineup', t.id, error);
+    if (plan.moves.length) {
+      const { error } = await ldb.rpc('apply_auto_lineup', { p_team: t.id, p_slots: Object.fromEntries(plan.moves.map((m) => [m.player_id, m.to])) });
+      out[t.id] = error ? `error: ${error.message}` : plan.moves.length;
+      if (error) { console.error('auto lineup', t.id, error); continue; }
+    } else out[t.id] = 0;
+    // the prediction log: what the auto-pilot expects tonight's lineup to score and whom it started, scored once the
+    // night is final (score_predictions); the late run's call replaces the morning's
+    if (plan.value > 0) calls.push({ league_id: lid, kind: 'auto_lineup', subject: { team_id: t.id, date: today }, predicted: Math.round(plan.value * 100) / 100,
+      basis: t.auto_basis, resolves_on: today, detail: { starters: [...plan.slots].filter(([, s]) => STARTING.includes(s)).map(([id]) => id) } });
   }
-  return { teams: todo.length, skipped_manual: teams.length - todo.length, moves: out };
+  if (calls.length) {
+    const { error } = await db.from('predictions').upsert(calls, { onConflict: 'league_id,kind,subject' });
+    if (error) console.error('auto lineup calls', error.message);
+  }
+  return { teams: todo.length, skipped_manual: teams.length - todo.length, moves: out, calls: calls.length };
 }
 
 // the heavy tasks (every NHL roster, the projection model, weeks of box-score corrections) run for the scheduler,

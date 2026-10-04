@@ -6,6 +6,7 @@
 //   * The Book: every settled market's priced chance against how often it came in (book_calibration), in buckets of ten
 //     points. A well-priced book sits on the line: things priced at 60% happen about 60% of the time.
 //   * Trades: each approved trade's forecast value per team, scored at the end of the regular season.
+//   * The auto-pilot: each lineup it sets, what it expected the starters to score against what they did (migration 132).
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Target } from 'lucide-react';
@@ -22,6 +23,7 @@ const KINDS: Record<string, string> = { winner: 'Who wins', ot: 'Goes to overtim
 const WAIT: Record<string, string> = {
   player_night: 'Player nights', trade_value: 'Trade forecasts (scored at the regular season’s end)',
   draft_value: 'Draft classes (scored at the regular season’s end)', keeper_value: 'Keepers (scored at the regular season’s end)',
+  auto_lineup: 'Auto-pilot lineups (scored when the night is final)',
 };
 const pct = (x: number) => `${Math.round(Number(x) * 100)}%`;
 const f1 = (x: number) => (Math.round(Number(x) * 10) / 10).toFixed(1);
@@ -59,6 +61,14 @@ export default function Calibration() {
   const gpSaid = gpN ? gp.reduce((s, r) => s + Number(r.avg_predicted) * Number(r.n), 0) / gpN : 0;
   const gpCame = gpN ? gp.reduce((s, r) => s + Number(r.avg_outcome) * Number(r.n), 0) / gpN : 0;
   const gpWaiting = open.find((o) => o.kind === 'garry_pick' && o.status === 'open')?.n ?? 0;
+  // the auto-pilot's lineups (migration 132): expected starter points against what the starters scored
+  const ap = acc.filter((r) => r.kind === 'auto_lineup');
+  const apWeeks = [...new Set(ap.map((r) => r.week))].map((week) => {
+    const rs = ap.filter((r) => r.week === week), n = rs.reduce((t, r) => t + Number(r.n), 0);
+    const avg = (k: 'avg_predicted' | 'avg_outcome' | 'bias' | 'avg_miss') => rs.reduce((t, r) => t + Number(r[k]) * Number(r.n), 0) / n;
+    return { week, n, called: avg('avg_predicted'), scored: avg('avg_outcome'), bias: avg('bias'), miss: avg('avg_miss') };
+  });
+  const apWaiting = open.find((o) => o.kind === 'auto_lineup' && o.status === 'open')?.n ?? 0;
   const brier = cal.length ? cal.reduce((s, c) => s + Number(c.brier) * Number(c.n), 0) / cal.reduce((s, c) => s + Number(c.n), 0) : null;
 
   return (
@@ -151,6 +161,25 @@ export default function Calibration() {
         <p className="mt-2 px-1 text-[11px] text-mute">Each pick against the chance its odds gave it when he made it; above the Book’s line means his picks come in more often than the prices say.</p>
       </Section>
 
+      <Section title="The auto-pilot">
+        {apWeeks.length ? (
+          <div className="card overflow-hidden">
+            <div className="grid grid-cols-[1fr_auto_auto_auto_auto] gap-x-3 border-b border-white/[.06] px-3 py-2 text-[11px] font-semibold uppercase tracking-wide text-mute">
+              <span>Week of</span><span className="text-right">Lineups</span><span className="text-right">Called</span><span className="text-right">Scored</span><span className="text-right">Miss</span>
+            </div>
+            {apWeeks.map((r) => (
+              <div key={r.week} className="grid grid-cols-[1fr_auto_auto_auto_auto] gap-x-3 px-3 py-2 text-sm">
+                <span className="text-slate-200">{fmtDate(r.week)}</span>
+                <span className="num text-right text-slate-300">{r.n}</span>
+                <span className="num text-right text-slate-300">{f1(r.called)}</span>
+                <span className="num text-right text-slate-300">{f1(r.scored)}</span>
+                <span className="num text-right font-semibold text-white">{f1(r.miss)}<span className="block text-[11px] font-normal text-mute">{signed(r.bias)}</span></span>
+              </div>
+            ))}
+          </div>
+        ) : <div className="card p-4 text-sm text-mute">{apWaiting ? `${apWaiting} lineups are in, waiting on their nights to finish.` : 'No auto-pilot lineups yet. Each one it sets is logged here and scored once the night is final.'}</div>}
+        <p className="mt-2 px-1 text-[11px] text-mute">Each lineup the auto-pilot sets: the points it expected from its starters, against what they scored. A night the GM changed afterwards is theirs, so it’s left out.</p>
+      </Section>
       <Section title="Waiting on results">
         <div className="card divide-y divide-white/[.06]">
           {open.length ? open.sort((a, b) => a.kind.localeCompare(b.kind)).map((o) => (
