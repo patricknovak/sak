@@ -24,6 +24,20 @@ on Cloudflare beside GitHub Pages, and the landing page is on Cloudflare at `sup
 `podsquad.superpoolsai.com`, and a pool's address speaks the pool's words (`league_by_host` returns its kind, migration
 150). Left on Vercel: only the `superpoolai.com` spelling, a 308 redirect to `superpoolsai.com`.
 
+One account, every pool (decided 4 October 2026, migration 151): the product's home is **one app at
+`app.superpoolsai.com`**, so one sign-in, one installed app and one alerts permission cover every pool a person is in,
+however many there are. A pool's link carries its web name in the path (`app.superpoolsai.com/#/p/podsquad`, and deeper:
+`#/p/podsquad/questions`); invites are `app.superpoolsai.com/#/join/<code>`. A `<web name>.superpoolsai.com` address
+still works as a free vanity link: it forwards to the one app unless someone is already signed in on it (SaK's GMs keep
+`sak.superpoolsai.com`), so nobody collects a sign-in per pool and a new pool needs no DNS, certificate or deploy, only
+its row. A league's own domain (Cloudflare for SaaS) can come later on the same rule. **My pools** (`#/pools`) is the
+account's home: every pool with its crest and colour, where the person stands (rank of how many, points and the gap, or
+coin worth), and what needs them (on the clock, a live draft, trade offers, questions closing with no position, a coin
+drop, unread chat and alerts), each a tap into the right page of that pool (`my_pools()`, one call that reads each pool
+as itself). From there anyone in a pool starts another prediction pool in a few taps, blank or from a pack
+(`pool_start`: a web name made from the name, the starter as host with 1000 coins, five a day and 25 in all per
+account); a fantasy league still starts from `#/start`.
+
 Landing page before the move (kept for the record): Vercel project `superpools` (team
 `patricknovak1-8908s-projects`, id `prj_SRNe8ClGioGw9vAAOwq3unQ9tbMh`), linked to this repo with root directory
 `landing/`; every push to `main` redeploys it. `superpoolsai.com` serves the page; `www.superpoolsai.com`,
@@ -148,8 +162,10 @@ B4 (the scheduler league by league) landed in migrations 81 to 85, B6 (money and
    `league_by_host(host)` maps `<web name>.superpoolsai.com` or a league's own domain to the league and its brand before
    sign-in; the site wears that brand on the sign-in page and names the league in `x-league` on every database request
    (honoured for members only); a GM on another league's address sees their own, with a notice; the platform sets a
-   league's own domain on its Platform card (`platform_set_league_domain`). Live once the site is on Cloudflare Pages
-   with the wildcard `*.superpoolsai.com`.
+   league's own domain on its Platform card (`platform_set_league_domain`). Live on Cloudflare with the wildcard
+   `*.superpoolsai.com` (4 October 2026). *Since migration 151* the pool's link is the path on the one app
+   (`app.superpoolsai.com/#/p/<web name>`) and a subdomain forwards there for anyone not signed in on it; My pools
+   (`my_pools()`) lists an account's pools with where it stands and what needs it, and starts new ones (`pool_start`).
 2. **Garry per league** (done in migration 65, bar the budget). One state row per league (voice notes, the
    commissioner's briefing, where the memory pass got to); the edge function scopes every read and write to
    one league, loops over the active leagues for the cron tasks and takes a reply's league from its message;

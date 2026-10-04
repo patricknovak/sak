@@ -12,6 +12,7 @@ import { answerColor, isOpen, pct, prices, usePool, useCoins, type PoolLeader, t
 import { CallsFeed, closesIn, Coins, MarketCard, PriceChart, TradeSheet } from '../components/Pool';
 import { Empty, PageHeader, Rank, Section, Sheet, TeamBadge, useAction } from '../components/ui';
 import { useEffect } from 'react';
+import { appLink } from '../lib/host';
 
 function useLeaders() {
   const [rows, setRows] = useState<PoolLeader[] | null>(null);
@@ -124,7 +125,7 @@ function InviteCard() {
   const [link, setLink] = useState<string | null>(null);
   const make = () => run(async () => {
     const code = await rpc<string>('pool_invite_link', { p_days: 30, p_uses: 50 });
-    const url = `${location.origin}${location.pathname}#/join/${code}`;
+    const url = appLink(`/join/${code}`);
     setLink(url);
     const text = `Join my ${brand.tagline || league?.name} on Super Pools. No money, just bragging rights.`;
     if (navigator.share) await navigator.share({ title: league?.name, text, url }).catch(() => {});

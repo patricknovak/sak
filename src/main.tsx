@@ -1,4 +1,4 @@
-import { StrictMode, lazy, Suspense } from 'react';
+import { StrictMode, lazy, Suspense, useEffect } from 'react';
 import { createRoot } from 'react-dom/client';
 import { HashRouter, Navigate, Route, Routes, useLocation } from 'react-router-dom';
 import './index.css';
@@ -38,6 +38,7 @@ const Performance = lazy(() => import('./pages/Performance'));
 const NHL = lazy(() => import('./pages/NHL'));
 const Yahoo = lazy(() => import('./pages/Yahoo'));
 const YahooLeague = lazy(() => import('./pages/YahooLeague'));
+const Pools = lazy(() => import('./pages/Pools'));
 // a prediction pool's pages (migration 145)
 const PoolHome = lazy(() => import('./pages/Pool').then((m) => ({ default: m.PoolHome })));
 const Questions = lazy(() => import('./pages/Pool').then((m) => ({ default: m.Questions })));
@@ -45,6 +46,12 @@ const Question = lazy(() => import('./pages/Pool').then((m) => ({ default: m.Que
 const PoolLeaders = lazy(() => import('./pages/Pool').then((m) => ({ default: m.PoolLeaders })));
 const PoolHost = lazy(() => import('./pages/Pool').then((m) => ({ default: m.PoolHost })));
 import { YahooReturnHandler } from './components/YahooConnect';
+
+// a #/p/<pool> link followed without a reload: reload, so the pool in the link opens
+function Reopen() {
+  useEffect(() => { location.reload(); }, []);
+  return <Loading />;
+}
 
 function Loading() {
   return <div className="grid min-h-[50dvh] place-items-center"><Spinner className="h-8 w-8" /></div>;
@@ -107,6 +114,9 @@ function App() {
           <Route path="/scoreboard" element={<Scoreboard />} />
           <Route path="/performance" element={<Performance />} />
           <Route path="/nhl" element={<NHL />} />
+          <Route path="/pools" element={<Pools />} />
+          {/* a pool's link followed inside the app: load the page again so the pool in it opens (host.ts reads it at start) */}
+          <Route path="/p/*" element={<Reopen />} />
           <Route path="/yahoo" element={<Yahoo />} />
           <Route path="/yahoo/:key" element={<YahooLeague />} />
           <Route path="/keepers" element={<Navigate to="/draft?t=keepers" replace />} />

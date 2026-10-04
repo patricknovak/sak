@@ -21,6 +21,7 @@ import { SeatManager } from '../components/SeatManager';
 import { RosterEditor } from '../components/RosterEditor';
 import { CategoryEditor } from '../components/CategoryEditor';
 import { FormatEditor } from '../components/FormatEditor';
+import { appLink } from '../lib/host';
 
 // datetime-local <-> ISO in the viewer's zone
 const toLocal = (iso: string | null) => {
@@ -433,7 +434,7 @@ function Invites() {
     .then(({ data }) => setRows((data ?? []) as Invite[]));
   useEffect(() => { load(); }, []); // eslint-disable-line react-hooks/exhaustive-deps
   const open = teams.filter((t) => t.role === 'gm' && !t.user_id);
-  const link = (code: string) => `${location.origin}${location.pathname}#/join/${code}`;
+  const link = (code: string) => appLink(`/join/${code}`);
   const share = async (code: string) => {
     const url = link(code);
     try { if (navigator.share) { await navigator.share({ title: 'Join the league', url }); return; } } catch { /* fall back to copying */ }
