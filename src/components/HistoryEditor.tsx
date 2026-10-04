@@ -5,6 +5,7 @@ import { historyChanged, useHistory } from '../lib/history';
 import { useBrand } from '../lib/brand';
 import { Sheet, useAction } from './ui';
 import { parsePastedTable } from '../lib/historyPaste';
+import { YahooHistory } from './YahooHistory';
 
 // The commissioner writes the league's past seasons in (commish_set_season): a league that played for years somewhere
 // else brings its champions, final tables and last places, and the History tab fills in from them. A season starts from
@@ -60,6 +61,7 @@ export function HistoryEditor() {
           <option value="">✏️ A past season…</option>
           {options.map((s) => <option key={s} value={s}>{s}{have.has(s) ? ' ✓' : ''}</option>)}
         </select>
+        <div className="w-full"><YahooHistory have={have} /></div>
       </div>
 
       <Sheet open={!!season} onClose={() => setSeason(null)} title={`${season ?? ''} final table`} wide>

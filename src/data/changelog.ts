@@ -20,6 +20,8 @@ export const CHANGELOG: Change[] = [
     body: 'In a category league the pickup advisor looks for the free agents who help where you trail in the table, plays the move out night by night, and shows what it does to each category: +9 shots, +4 PIM, save percentage up.' },
   { date: '2026-10-04', icon: '🛡️', tag: 'commish', title: 'A commissioner\'s toolkit', to: '/commish',
     body: 'Co-commissioners, a clean handover when a GM walks away, a log of every commissioner action on the League page, a constitution page, your own roster slots, and a setup guide that walks a new league to draft night.' },
+  { date: '2026-10-04', icon: '🟣', tag: 'commish', title: 'Your Yahoo past in one go', to: '/league?t=history',
+    body: 'A league that played on Yahoo brings every season Yahoo kept, champions to last place, from the League page: connect Yahoo, pick the league, tick the seasons.' },
   { date: '2026-10-04', icon: '📜', tag: 'commish', title: 'Your league\'s past', to: '/league?t=history',
     body: 'Played somewhere else before? The commissioner writes past seasons in, or pastes a final table straight from Yahoo, ESPN, Fantrax or CBS, and the banners, titles and last places fill in.' },
   { date: '2026-10-03', icon: '✉️', tag: 'everyone', title: 'Email sign-in and invites', to: '/profile',

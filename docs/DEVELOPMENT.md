@@ -110,7 +110,7 @@ results of his own past calls, and what the wider pool knows.
    League page (migration 114, `commish_set_season`, `commish_delete_season`), so a league that played elsewhere
    arrives with its champions and final tables. A season's final table can be pasted straight from Yahoo, ESPN, Fantrax,
    CBS or a spreadsheet (`src/lib/historyPaste.ts`, tested in `test:nhl`): the team, its GM and its points come through,
-   linked to today's team by name. Next: imports write them.
+   linked to today's team by name. A league that played on Yahoo brings every season Yahoo kept in one go (the `history` task walks the league's renew chain; the commissioner ticks the seasons on the League page). Next: Fantrax, ESPN and CBS the same way.
 7. **Phase 2, people can join** (under way: email sign-in with reset codes, invites, the join page and the switcher done
    3 October 2026, migrations 103 to 105; onboarding part 1, the Platform page, the readiness checklist, going live and
    the league identity editor, migration 106): league by host, realtime and presence

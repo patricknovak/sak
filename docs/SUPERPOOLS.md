@@ -138,7 +138,7 @@ B4 (the scheduler league by league) landed in migrations 81 to 85, B6 (money and
    `ops.league_requests`); the Platform page's Requests inbox opens the league in one tap and writes the invite email.
    A new league takes the season's calendar from its template (first and last days, trade deadline, end of the playoffs;
    migration 122), and a head-to-head league's checklist and setup guide want its schedule before it goes live.
-   Still to come: self-serve sign-up and billing for a commissioner, the Yahoo import into a new league.
+   A league that played on Yahoo brings its past in one go (4 October 2026): the commissioner picks the Yahoo league on the League page and every season Yahoo kept (its renew chain, `yahoo?task=history`) comes back with its final table, written in through `commish_set_season`. Still to come: self-serve sign-up and billing for a commissioner, the Yahoo rosters and settings into a new league.
 6. **Billing.** A subscription per league per season (Stripe). Landing page collects interest until then.
 
 The steps above finish the tenancy. `docs/MARKET.md` sets what comes after in three horizons. The first,

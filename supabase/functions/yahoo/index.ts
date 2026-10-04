@@ -266,6 +266,33 @@ async function leagueDetail(acct: Acct, key: string) {
   return { ...l, teams, me, matchups: sb ? arr(sb.league?.scoreboard?.matchups?.matchup).map(matchup) : null };
 }
 
+// a league's past, for the import into a Super Pools league's history: each season Yahoo kept, newest first, by its
+// renew chain (every renewed league names the one before it), with the final table. Read only; at most 25 seasons.
+async function history(acct: Acct, key: string) {
+  need(keyOk(key, 'l'), 'league key');
+  const seasons = [];
+  const seen = new Set<string>();
+  for (let k: string | null = key; k && !seen.has(k) && seasons.length < 25;) {
+    seen.add(k);
+    const St = await yget(acct, `league/${k}/standings`, 3_600_000).catch(() => null);
+    if (!St?.league) break;
+    const l = league(St.league);
+    const teams = arr(St.league.standings?.teams?.team).map(team)
+      .sort((a, b) => (a.rank ?? 99) - (b.rank ?? 99));
+    const y = Number(l.season);
+    seasons.push({
+      key: l.key, name: l.name, season: y ? `${y}-${String((y + 1) % 100).padStart(2, '0')}` : l.season, finished: l.finished, scoring: l.scoring,
+      teams: teams.map((t) => ({ name: t.name, managers: t.managers, rank: t.rank, w: t.w, l: t.l, t: t.t,
+        // a points league's season total; head-to-head points for
+        points: l.scoring === 'point' ? t.points ?? t.pf : t.pf ?? t.points })),
+    });
+    // "427_12345" is the league before this one, as 427.l.12345
+    const renew = str(St.league.renew);
+    k = /^\d+_\d+$/.test(renew) ? renew.replace('_', '.l.') : null;
+  }
+  return { seasons };
+}
+
 async function scoreboard(acct: Acct, key: string, week: number) {
   need(keyOk(key, 'l') && Number.isInteger(week) && week > 0 && week < 60, 'week');
   const sb = await yget(acct, `league/${key}/scoreboard;week=${week}`);
@@ -411,6 +438,7 @@ Deno.serve(async (req) => {
     switch (task) {
       case 'leagues': return json({ leagues: await leagues(acct) });
       case 'league': return json(await leagueDetail(acct, str(b.league_key)));
+      case 'history': return json(await history(acct, str(b.league_key)));
       case 'scoreboard': return json(await scoreboard(acct, str(b.league_key), Number(b.week)));
       case 'roster': return json(await roster(acct, str(b.team_key), b.date ? str(b.date) : undefined));
       case 'set_lineup': return json(await setLineup(acct, b));
