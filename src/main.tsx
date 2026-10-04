@@ -30,6 +30,7 @@ const Features = lazy(() => import('./pages/Features'));
 const Costs = lazy(() => import('./pages/Costs'));
 const Platform = lazy(() => import('./pages/Platform'));
 const Start = lazy(() => import('./pages/Start'));
+const Calibration = lazy(() => import('./pages/Calibration'));
 const DraftTV = lazy(() => import('./pages/DraftTV'));
 const DraftCentre = lazy(() => import('./pages/DraftCentre'));
 const Scoreboard = lazy(() => import('./pages/Scoreboard'));
@@ -118,6 +119,7 @@ function App() {
           <Route path="/features" element={<Features />} />
           <Route path="/costs" element={<Costs />} />
           <Route path="/platform" element={<Platform />} />
+          <Route path="/calibration" element={<Calibration />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </Suspense>
