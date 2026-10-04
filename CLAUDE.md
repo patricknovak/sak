@@ -48,6 +48,11 @@ Two things in one repo:
 - Points: the NHL data is shared, the scoring isn't. `player_games.fpts` and `players.proj / last_fp / rank` are
   SaK's numbers kept for old readers; read a league's points through `league_games`, `league_players`,
   `player_season`, `player_windows` (each league's scoring profile, `scoring_profiles`).
+- Formats: how a league is won is in `league_rules` (and the `league` view): `format` ('season', SaK's total, or 'h2h'
+  weekly matchups on `matchups`), `categories` (null for points; set, it is rotisserie in a season league and weekly
+  categories in an h2h one) and `h2h_playoffs` (0, or the bracket's size). Read the tables through `standings` (points),
+  `category_standings()`, `h2h_scores()` / `h2h_standings()` / `h2h_bracket()` (worked out on read). Anything that ranks
+  teams (payouts, Garry, the Money page) follows the format; SaK's path stays the points table.
 - Hosting: today GitHub Pages from `main` (`.github/workflows/deploy.yml`, builds on push), and the Super Pools landing
   page (`landing/index.html`) on Vercel. Decided (3 October 2026): both move to **Cloudflare** (free for commercial
   use, DNS already on Cloudflare, wildcard subdomains for league by host); never plan new work on Vercel. Built as
