@@ -13,6 +13,8 @@ import { CallsFeed, closesIn, Coins, MarketCard, PriceChart, TradeSheet } from '
 import { Empty, PageHeader, Rank, Section, Sheet, TeamBadge, useAction } from '../components/ui';
 import { useEffect } from 'react';
 import { appLink } from '../lib/host';
+import { shareCard, type CardBrand } from '../lib/shareCard';
+import { Share2 } from 'lucide-react';
 
 function useLeaders() {
   const [rows, setRows] = useState<PoolLeader[] | null>(null);
@@ -194,6 +196,7 @@ export function Question() {
   const { markets, positions, trades, reload } = usePool();
   const { coins, reloadCoins } = useCoins(me?.id);
   const [trade, setTrade] = useState<{ key: string; side: 'buy' | 'sell' } | null>(null);
+  const cardBrand = useCardBrand();
   const m = markets?.find((x) => x.id === Number(id));
   if (markets === null) return <div className="h-60 animate-pulse rounded-3xl bg-white/[.04]" />;
   if (!m) return <Empty icon="🔮" title="That question isn’t here"><Link to="/questions" className="text-sky-300">Back to the questions</Link></Empty>;
@@ -253,7 +256,24 @@ export function Question() {
             );
           })}
           {open && <div className="mt-2 flex items-center justify-between text-sm"><span className="text-mute">Worth now</span><b><Coins n={value} /></b></div>}
-          {open && <button type="button" className="btn-ghost mt-3 w-full" onClick={() => setTrade({ key: mineList[0].outcome, side: 'sell' })}>Sell back</button>}
+          {(() => {
+            // the card: the call that came in once it settles, else the biggest call still riding
+            const won = mineList.filter((h) => h.paid > 0).sort((a, b) => b.paid - a.paid)[0];
+            const big = mineList.filter((h) => h.shares > 0.0001).sort((a, b) => b.shares - a.shares)[0];
+            const h = m.status === 'resolved' ? won : big;
+            if (!h || (m.status !== 'resolved' && m.status !== 'open')) return null;
+            const answer = m.outcomes.find((o) => o.key === h.outcome)?.label ?? '';
+            const base = { brand: cardBrand, who: me?.gm_name ?? '', question: m.title, answer, answerColor: answerColor(m, h.outcome), staked: Math.max(0, h.cost) };
+            return (
+              <div className={`mt-3 grid gap-2 ${open ? 'grid-cols-2' : ''}`}>
+                {open && <button type="button" className="btn-ghost w-full" onClick={() => setTrade({ key: mineList[0].outcome, side: 'sell' })}>Sell back</button>}
+                <ShareButton className={m.status === 'resolved' ? 'btn-gold w-full' : 'btn-ghost w-full'} label={m.status === 'resolved' ? 'Share the win' : 'Share my call'}
+                  make={() => (m.status === 'resolved'
+                    ? shareCard({ kind: 'won', ...base, won: h.paid }, `Called it in ${cardBrand.pool}: ${answer}.`)
+                    : shareCard({ kind: 'call', ...base, chance: h.shares > 0 ? Math.min(0.99, Math.max(0.01, h.cost / h.shares)) : p[h.outcome] ?? 0, pays: h.shares }, `My call in ${cardBrand.pool}: ${answer}.`))} />
+              </div>
+            );
+          })()}
         </div>
       )}
 
@@ -325,7 +345,11 @@ function HostSettle({ m, onDone }: { m: PoolMarket; onDone: () => void }) {
 export function PoolLeaders() {
   const { teams, me } = useLeague();
   const brand = useBrand();
+  const cardBrand = useCardBrand();
   const { leaders } = useLeaders();
+  const shareBoard = () => shareCard({ kind: 'leaders', brand: cardBrand, title: 'The standings',
+    rows: (leaders ?? []).slice(0, 6).map((l) => { const t = teams.find((x) => x.id === l.team_id); return { name: t?.gm_name ?? t?.name ?? '', worth: l.worth, color: t?.color ?? cardBrand.color, me: l.team_id === me?.id }; }) },
+    `The standings in ${cardBrand.pool}.`);
   return (
     <div className="space-y-5">
       <PageHeader icon={<Crown className="h-6 w-6 text-gold" />} title="Leaders" sub={`Net worth: your ${brand.coin.name.toLowerCase()} plus your calls at today’s prices. ${brand.trophy ? `Top of the board takes ${brand.trophy}.` : ''}`} />
@@ -347,7 +371,26 @@ export function PoolLeaders() {
           })}
         </div>
       )}
+      {!!leaders?.length && <ShareButton className="btn-gold w-full py-3" label="Share the standings" make={shareBoard} />}
     </div>
+  );
+}
+
+// the pool's look for a share card
+function useCardBrand(): CardBrand {
+  const brand = useBrand();
+  const { league } = useLeague();
+  return { wordmark: brand.wordmark, color: brand.colors?.gold ?? '#f7c548', coin: brand.coin, pool: league?.name ?? brand.short };
+}
+
+// a share button: draws the card on the phone, then the share sheet (or a saved picture where the phone can't share one)
+function ShareButton({ label, make, className = 'btn-ghost' }: { label: string; make: () => Promise<unknown>; className?: string }) {
+  const [busy, setBusy] = useState(false);
+  return (
+    <button type="button" className={`${className} inline-flex items-center justify-center gap-2`} disabled={busy}
+      onClick={() => { setBusy(true); make().catch(() => {}).finally(() => setBusy(false)); }}>
+      <Share2 className="h-4 w-4" /> {busy ? 'Drawing it…' : label}
+    </button>
   );
 }
 
