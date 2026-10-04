@@ -12,6 +12,8 @@ export default function Login() {
   // on another league's own address the page is that league's (league by host); everywhere else it is SaK's, as always
   const { host, brand } = useLeague();
   const other = !!host && host.id !== 1;
+  // a prediction pool's address speaks the pool's words: no puck, no hockey (docs/BRAND.md)
+  const pool = host?.kind === 'predict';
   const [email, setEmail] = useState(() => { try { return localStorage.getItem('sak-last-email') ?? ''; } catch { return ''; } });
   const [remember, setRem] = useState(remembered);
   const [mode, setMode] = useState<'in' | 'forgot' | 'code'>('in');
@@ -102,7 +104,7 @@ export default function Login() {
             <input id="pw" className="input relative mt-1" type="password" autoComplete="current-password" autoFocus={!!email} value={pw}
               onChange={(e) => setPw(e.target.value)} placeholder={other ? "Your password" : "Your Superleague password"} />
             {rememberBox}
-            <button className="btn-primary relative mt-4 w-full py-3 text-base" disabled={busy || !pw || !okEmail}>{busy ? <Spinner /> : '🏒 Drop the puck'}</button>
+            <button className="btn-primary relative mt-4 w-full py-3 text-base" disabled={busy || !pw || !okEmail}>{busy ? <Spinner /> : pool ? '✨ Sign in' : '🏒 Drop the puck'}</button>
             <button type="button" className="relative mt-3 w-full text-center text-sm text-white/60 underline" onClick={() => go('forgot')}>Forgot your password?</button>
           </form>
         ) : mode === 'forgot' ? (
@@ -131,7 +133,7 @@ export default function Login() {
         )}
         {err && <div className="mt-4 rounded-xl border border-red-400/30 bg-red-900/50 px-4 py-3 text-center text-sm text-red-200">{err}</div>}
         <a href="#/start" className="mt-6 block text-center text-xs text-sky-300/80 underline decoration-sky-300/30 underline-offset-2">Run a pool of your own? Start one on Super Pools</a>
-        <p className="mt-3 text-center text-xs italic text-mute">{other ? `Fantasy hockey on ${PRODUCT.name}` : 'Play fair, play hard and play to win.'}</p>
+        <p className="mt-3 text-center text-xs italic text-mute">{pool ? `Pools for everything you watch, on ${PRODUCT.name}` : other ? `Fantasy hockey on ${PRODUCT.name}` : 'Play fair, play hard and play to win.'}</p>
       </div>
     </div>
   );

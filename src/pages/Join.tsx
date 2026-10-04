@@ -10,7 +10,7 @@ import { themed } from '../components/LeagueIdentity';
 // someone new makes their account right here (the `join` edge function makes it and seats them in one go);
 // someone with an account signs in, or is already signed in, and takes the seat with accept_invite.
 // Either way they land in the league they just joined.
-interface Preview { ok: boolean; reason?: string | null; league_id?: number; league?: string; short?: string; brand?: { colors?: { gold?: string } } | null; role?: 'gm' | 'spectator'; team?: string | null; expires_at?: string }
+interface Preview { ok: boolean; reason?: string | null; league_id?: number; league?: string; short?: string; brand?: { colors?: { gold?: string } } | null; role?: 'gm' | 'spectator'; team?: string | null; expires_at?: string; kind?: 'fantasy' | 'predict' }
 
 const WHY: Record<string, string> = {
   unknown: 'That invite link isn’t right. Ask the commissioner for a new one.',
@@ -78,6 +78,8 @@ export default function Join({ code }: { code: string }) {
   // an open link into a prediction pool (migration 145) has no seat named: the newcomer gets one of their own
   const what = pv?.role === 'spectator' ? 'a spectator place' : pv?.team ? `the ${pv.team} seat` : 'a place of your own';
   const okEmail = /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email.trim());
+  // a prediction pool's invite speaks the pool's words (docs/BRAND.md: no sports words in a pool that is not about sport)
+  const pool = pv?.kind === 'predict', mark = pool ? '✨' : '🏒', noun = pool ? 'pool' : 'league';
 
   return (
     <div className="pt-safe flex min-h-dvh flex-col items-center justify-center px-4 py-10" style={gold ? themed(gold) : undefined}>
@@ -93,22 +95,22 @@ export default function Join({ code }: { code: string }) {
           : !pv.ok ? <div className="card p-5 text-center text-sm text-slate-200">{WHY[pv.reason ?? 'unknown'] ?? WHY.unknown}</div>
           : session ? (
             <div className="card-hero p-5">
-              <p className="relative text-sm text-white/80">You&apos;re signed in{me ? ` as ${me.gm_name}` : ''}. Joining adds this league to your account; you can switch between leagues on your Profile.</p>
+              <p className="relative text-sm text-white/80">You&apos;re signed in{me ? ` as ${me.gm_name}` : ''}. Joining adds this {noun} to your account; you can switch between them on your Profile.</p>
               <button className="btn-primary relative mt-4 w-full py-3 text-base" disabled={busy} onClick={() => { setBusy(true); setErr(''); accept(); }}>
-                {busy ? <Spinner /> : `🏒 Join ${pv.short ?? pv.league}`}
+                {busy ? <Spinner /> : `${mark} Join ${pv.short ?? pv.league}`}
               </button>
               <button type="button" className="relative mt-3 w-full text-center text-sm text-white/60 underline" onClick={() => supabase.auth.signOut()}>Not you? Sign out</button>
             </div>
           ) : mode === 'new' ? (
             <form onSubmit={join} className="card-hero p-5">
               <label className="label relative text-white/70" htmlFor="jname">Your name</label>
-              <input id="jname" className="input relative mt-1" autoComplete="name" value={name} onChange={(e) => setName(e.target.value)} placeholder="What the league calls you" />
+              <input id="jname" className="input relative mt-1" autoComplete="name" value={name} onChange={(e) => setName(e.target.value)} placeholder={`What the ${noun} calls you`} />
               <label className="label relative mt-3 block text-white/70" htmlFor="jemail">Email</label>
               <input id="jemail" className="input relative mt-1" type="email" inputMode="email" autoComplete="username" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="you@example.com" />
               <label className="label relative mt-3 block text-white/70" htmlFor="jpw">Password</label>
               <input id="jpw" className="input relative mt-1" type="password" autoComplete="new-password" value={pw} onChange={(e) => setPw(e.target.value)} placeholder="6+ characters" />
               <input className="input relative mt-2" type="password" autoComplete="new-password" value={pw2} onChange={(e) => setPw2(e.target.value)} placeholder="Same again" />
-              <button className="btn-primary relative mt-4 w-full py-3 text-base" disabled={busy || name.trim().length < 2 || !okEmail || pw.length < 6 || !pw2}>{busy ? <Spinner /> : '🏒 Join the league'}</button>
+              <button className="btn-primary relative mt-4 w-full py-3 text-base" disabled={busy || name.trim().length < 2 || !okEmail || pw.length < 6 || !pw2}>{busy ? <Spinner /> : `${mark} Join the ${noun}`}</button>
               <button type="button" className="relative mt-3 w-full text-center text-sm text-white/60 underline" onClick={() => { setMode('have'); setErr(''); }}>Already have an account? Sign in to join</button>
             </form>
           ) : (
@@ -117,7 +119,7 @@ export default function Join({ code }: { code: string }) {
               <input id="jemail2" className="input relative mt-1" type="email" inputMode="email" autoComplete="username" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="you@example.com" />
               <label className="label relative mt-3 block text-white/70" htmlFor="jpw2">Password</label>
               <input id="jpw2" className="input relative mt-1" type="password" autoComplete="current-password" value={pw} onChange={(e) => setPw(e.target.value)} />
-              <button className="btn-primary relative mt-4 w-full py-3 text-base" disabled={busy || !okEmail || !pw}>{busy ? <Spinner /> : '🏒 Sign in and join'}</button>
+              <button className="btn-primary relative mt-4 w-full py-3 text-base" disabled={busy || !okEmail || !pw}>{busy ? <Spinner /> : `${mark} Sign in and join`}</button>
               <button type="button" className="relative mt-3 w-full text-center text-sm text-white/60 underline" onClick={() => { setMode('new'); setErr(''); }}>New here? Make an account</button>
             </form>
           )}

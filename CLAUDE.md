@@ -61,7 +61,8 @@ Two things in one repo:
   teams (payouts, Garry, the Money page) follows the format; SaK's path stays the points table.
 - Hosting: the app on GitHub Pages from `main` (`.github/workflows/deploy.yml`, builds on push) and on Cloudflare; the
   Super Pools landing page (`landing/index.html`) on Cloudflare (zone routes on the apex and www; off Vercel); every
-  other `<league>.superpoolsai.com` goes to the app through a wildcard zone route. Decided (3 October 2026): both move to **Cloudflare** (free for commercial
+  other `<league>.superpoolsai.com` goes to the app through a wildcard zone route and a proxied `AAAA * 100::` record (live
+  since 4 October 2026: `podsquad.superpoolsai.com`). Decided (3 October 2026): both move to **Cloudflare** (free for commercial
   use, DNS already on Cloudflare, wildcard subdomains for league by host); never plan new work on Vercel. Built as
   Workers serving static assets (`wrangler.jsonc`, `landing/wrangler.jsonc`; Pages can't take a wildcard), deployed by
   `.github/workflows/cloudflare.yml` (the secrets are set; SaK's address there is `sak.superpoolsai.com`). The

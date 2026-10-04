@@ -172,7 +172,7 @@ them (`my_leagues`, `set_active_league`). Presence was already per league. Next:
 use, DNS already on Cloudflare, wildcard subdomains for league by host). The move, with no interruption for GMs:
 (1) a Pages project built from this repo beside GitHub Pages, each pull request getting a preview; (2) SaK at
 `sak.superpoolsai.com`, with sign-in, push and the installed app checked there; (3) GMs told the new address, the old
-GitHub Pages address forwarding to it for a season; (4) the landing page off Vercel onto Cloudflare at `superpoolsai.com` (the `superpools-landing` Worker on zone routes for the apex and www, which take the traffic once those records are proxied);
+GitHub Pages address forwarding to it for a season; (4) the landing page off Vercel onto Cloudflare at `superpoolsai.com` (the `superpools-landing` Worker on zone routes for the apex and www; *done 4 October 2026*, and the wildcard record puts every league's address on the app);
 (5) league by host: the app reads the host, `league_by_host()` returns the league's brand before sign-in, and a new
 league is a subdomain. *Step 5's app side is built (migration 107):* `league_by_host(host)`, the site's `x-league`
 header from the address (`src/lib/host.ts`), the sign-in page in the league's brand with its crest, a notice for a GM
