@@ -2375,6 +2375,38 @@ select pg_temp.raises('a GM can''t rewrite the rules', 'select commish_set_rules
 reset role;
 select set_config('request.jwt.claim.sub', '', false);
 select 'the league''s constitution', true;
+
+-- ───────────── a league's past, written in ─────────────
+reset role;
+select string_agg(season || ':' || sort, ',' order by season) as sak_sorts from league_seasons where league_id = 1 \gset
+select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-000000000099', false);
+set role authenticated;
+select pg_temp.expect('the north''s commissioner writes in a past season', commish_set_season('2024-25', 'Won it on the last night.',
+  '[{"team_name": "North Stars", "gm_name": "Nora", "team_id": 99, "points": 2400.5, "prize": 300}, {"team_name": "Old Timers", "gm_name": "Olaf", "points": 2300}, {"team_name": "Igloo", "gm_name": "Ivy", "points": 1900, "last_place": true}]'::jsonb) = 3);
+select commish_set_season('2023-24', null, '[{"team_name": "Old Timers", "gm_name": "Olaf"}, {"team_name": "North Stars", "gm_name": "Nora", "team_id": 99}]'::jsonb);
+select pg_temp.expect('the seasons read in order, the table in places', (select array_agg(season order by sort) from league_seasons) = array['2023-24', '2024-25']
+  and (select array_agg(team_name order by place) from season_results where season = '2024-25') = array['North Stars', 'Old Timers', 'Igloo']
+  and (select team_id from season_results where season = '2024-25' and place = 1) = 99
+  and (select last_place from season_results where season = '2024-25' and place = 3));
+select pg_temp.expect('writing a season again', commish_set_season('2024-25', null, '[{"team_name": "Old Timers", "gm_name": "Olaf"}, {"team_name": "North Stars", "gm_name": "Nora"}]'::jsonb) = 2);
+select pg_temp.expect('replaces it', (select team_name from season_results where season = '2024-25' and place = 1) = 'Old Timers'
+  and (select count(*) from season_results where season = '2024-25') = 2);
+select pg_temp.raises('the season being played isn''t written by hand', format('select commish_set_season(%L, null, ''[{"team_name":"a","gm_name":"b"},{"team_name":"c","gm_name":"d"}]''::jsonb)', (select season from league)), 'Only past seasons');
+select pg_temp.raises('a season is written like 2019-20', 'select commish_set_season(''2019-21'', null, ''[{"team_name":"a","gm_name":"b"},{"team_name":"c","gm_name":"d"}]''::jsonb)', 'like 2019-20');
+select pg_temp.raises('one last place a season', 'select commish_set_season(''2019-20'', null, ''[{"team_name":"a","gm_name":"b","last_place":true},{"team_name":"c","gm_name":"d","last_place":true}]''::jsonb)', 'One last place');
+select commish_set_season('2022-23', null, '[{"team_name": "Pirates", "gm_name": "Pat", "team_id": 1}, {"team_name": "North Stars", "gm_name": "Nora"}]'::jsonb);
+select pg_temp.expect('a team from another league isn''t linked to it', (select team_id from season_results where season = '2022-23' and place = 1) is null);
+select pg_temp.expect('a season comes out again', commish_delete_season('2023-24'));
+select pg_temp.expect('and is gone', not exists (select 1 from league_seasons where season = '2023-24'));
+reset role;
+select pg_temp.expect('the edits are on the log', (select count(*) from commish_log where league_id = :league2 and action in ('commish_set_season', 'commish_delete_season')) >= 3);
+select pg_temp.expect('SaK''s seasons are untouched, numbers and all', (select string_agg(season || ':' || sort, ',' order by season) from league_seasons where league_id = 1) = :'sak_sorts');
+select pg_temp.as_team(2);
+set role authenticated;
+select pg_temp.raises('a GM can''t write the league''s past', 'select commish_delete_season(''2024-25'')', 'Commissioner only');
+reset role;
+select set_config('request.jwt.claim.sub', '', false);
+select 'a league''s past, written in', true;
 -- ───────────── commissioner tools: co-commissioners and a handover ─────────────
 reset role;
 select id as hand_seat from teams where league_id = :league2 and gm_name = 'Nora Newcomer' \gset
