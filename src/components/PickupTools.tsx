@@ -12,6 +12,7 @@ import { useProjDetails, useSeasonGames, toneCls, toneIcon } from '../lib/projec
 import type { Player } from '../lib/types';
 import { Headshot, Pos, TeamBadge, useAction } from './ui';
 import { PlayerSheet } from './PlayerCard';
+import { useCategoryValues } from './PlayerFilters';
 
 const addDays = (d: string, n: number) => { const x = new Date(d + 'T12:00:00Z'); x.setUTCDate(x.getUTCDate() + n); return x.toISOString().slice(0, 10); };
 const hurt = (p: Player) => !!p.injury_status && /^(out|ir|injured|long|suspen)/i.test(p.injury_status);
@@ -126,15 +127,21 @@ export function PickupAdvisor() {
   );
 }
 
-type Metric = 'ros' | 'proj' | 'pg' | 'season' | 'form';
+type Metric = 'ros' | 'proj' | 'pg' | 'season' | 'form' | 'cat';
 const METRICS: { k: Metric; label: string }[] = [{ k: 'ros', label: 'Rest of season' }, { k: 'pg', label: 'Proj / game' }, { k: 'proj', label: 'Projection' }, { k: 'season', label: 'Season FP/G' }, { k: 'form', label: 'Last 14 FP/G' }];
 
 export function RosterVsAvailable() {
   const { me, teams, team, players, rosters, owner, season, windows } = useLeague();
   const [tid, setTid] = useState<number>(me?.id && me.role !== 'spectator' ? me.id : teams.find((t) => t.role !== 'spectator')?.id ?? 1);
-  const [metric, setMetric] = useState<Metric>('ros');
+  // a category league compares on category value (migration 129), and opens on it
+  const cv = useCategoryValues();
+  const catOn = !!cv && cv.size > 0;
+  const [picked, setMetric] = useState<Metric | null>(null);
+  const metric: Metric = picked ?? (catOn ? 'cat' : 'ros');
+  const metrics = catOn ? [{ k: 'cat' as Metric, label: 'Category value' }, ...METRICS] : METRICS;
   const [detail, setDetail] = useState<number | null>(null);
   const val = (p: Player): number | null => {
+    if (metric === 'cat') return cv?.get(p.id) ?? null;
     const s = season.get(p.id);
     if (metric === 'proj') return p.proj;
     if (metric === 'pg') return p.proj / gamesOf(p);
@@ -143,7 +150,7 @@ export function RosterVsAvailable() {
     const w = windows.get(p.id)?.['14'];
     return w && w.gp >= 2 ? w.fpts / w.gp : null;
   };
-  const fmt = (v: number | null) => (v == null ? '–' : metric === 'pg' || metric === 'season' || metric === 'form' ? v.toFixed(2) : fmtPts(v, 0));
+  const fmt = (v: number | null) => (v == null ? '–' : metric === 'cat' ? `${v > 0 ? '+' : ''}${v.toFixed(1)}` : metric === 'pg' || metric === 'season' || metric === 'form' ? v.toFixed(2) : fmtPts(v, 0));
   const POSS = ['C', 'LW', 'RW', 'D', 'G'] as const;
   const at = (p: Player, pos: string) => (pos === 'G' ? p.pos === 'G' : p.pos !== 'G' && p.elig.includes(pos));
   const mine = rosters.filter((r) => r.team_id === tid).map((r) => players.get(r.player_id)).filter((p): p is Player => !!p);
@@ -154,7 +161,7 @@ export function RosterVsAvailable() {
         <select className="rounded-lg border border-white/10 bg-black/30 px-2 py-1.5 text-sm" value={tid} onChange={(e) => setTid(Number(e.target.value))}>
           {teams.filter((t) => t.role !== 'spectator').map((t) => <option key={t.id} value={t.id}>{t.id === me?.id ? '🏠 My team' : `${t.emoji} ${t.name}`}</option>)}
         </select>
-        <div className="scroll-x flex gap-1">{METRICS.map((m) => <button key={m.k} onClick={() => setMetric(m.k)} className={`shrink-0 rounded-full px-2.5 py-1 text-xs font-semibold ${metric === m.k ? 'bg-gold text-ice' : 'bg-white/[.05] text-mute'}`}>{m.label}</button>)}</div>
+        <div className="scroll-x flex gap-1">{metrics.map((m) => <button key={m.k} onClick={() => setMetric(m.k)} className={`shrink-0 rounded-full px-2.5 py-1 text-xs font-semibold ${metric === m.k ? 'bg-gold text-ice' : 'bg-white/[.05] text-mute'}`}>{m.label}</button>)}</div>
         <div className="w-full text-[11px] text-mute">Each position: {team(tid)?.gm_name}’s players next to the five best free agents there. Green = a free agent better than {team(tid)?.gm_name}’s weakest player at that position.</div>
       </div>
       <div className="grid gap-2 lg:grid-cols-2">

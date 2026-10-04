@@ -15,7 +15,7 @@ export const CHANGELOG: Change[] = [
   { date: '2026-10-04', icon: '👥', tag: 'everyone', title: 'Matchups, player by player', to: '/standings',
     body: 'Tap any head-to-head matchup for both lineups side by side: every started player, his games and his points this week.' },
   { date: '2026-10-04', icon: '🎯', tag: 'draft', title: 'Drafting for categories', to: '/players',
-    body: 'In a category league the Players page, draft room, cheat sheet and mock draft rank by category value (what a player is worth in your league\'s categories), and autodraft picks by it.' },
+    body: 'In a category league the Players page, draft room, cheat sheet and mock draft rank by category value (what a player is worth in your league\'s categories), autodraft picks by it, and Roster vs available compares your players with the free agents on it.' },
   { date: '2026-10-04', icon: '🛡️', tag: 'commish', title: 'A commissioner\'s toolkit', to: '/commish',
     body: 'Co-commissioners, a clean handover when a GM walks away, a log of every commissioner action on the League page, a constitution page, your own roster slots, and a setup guide that walks a new league to draft night.' },
   { date: '2026-10-04', icon: '📜', tag: 'commish', title: 'Your league\'s past', to: '/league?t=history',
