@@ -8,6 +8,7 @@ import { useLeague } from '../lib/store';
 import { supabase } from '../lib/supabase';
 import type { Player } from '../lib/types';
 import { projectedKeepers } from '../lib/grades';
+import { useCategoryValues, useDraftValue } from '../components/PlayerFilters';
 import { availabilityOdds, needsOf, type Outlook, type SimPick, type StartSlot } from '../lib/draftsim';
 import { PlayerSheet } from '../components/PlayerCard';
 import { NeedsStrip } from '../components/RosterNeeds';
@@ -40,7 +41,10 @@ export default function CheatSheet({ embedded = false }: { embedded?: boolean } 
     return m;
   }, [teams, rosters, league?.keepers, league?.top_scorer_rule]);
   const gone = useMemo(() => new Set([...[...keepers.values()].flat(), ...board.filter((b) => b.pid).map((b) => b.pid!)]), [keepers, board]);
-  const pool = useMemo(() => [...players.values()].filter((p) => !gone.has(p.id)).sort((a, b) => b.proj - a.proj), [players, gone]);
+  const dv = useDraftValue();
+  const cv = useCategoryValues();
+  const catOn = !!cv && cv.size > 0;   // a category league ranks and shows category value (migration 129)
+  const pool = useMemo(() => [...players.values()].filter((p) => !gone.has(p.id)).sort((a, b) => dv(b) - dv(a)), [players, gone, dv]);
   const poolRank = useMemo(() => new Map(pool.map((p, i) => [p.id, i + 1])), [pool]);
   const mine = useMemo(() => [...(keepers.get(me?.id ?? -1) ?? []), ...board.filter((b) => b.team === me?.id && b.pid).map((b) => b.pid!)].map((id) => players.get(id)).filter(Boolean) as Player[], [keepers, board, me?.id, players]);
   const needs = useMemo(() => needsOf(mine, caps), [mine, caps]);
@@ -90,7 +94,7 @@ export default function CheatSheet({ embedded = false }: { embedded?: boolean } 
           <span className="mt-0.5 flex gap-1 sm:hidden"><Odds p={p} /></span>
         </span>
       </button>
-      <span className="num w-9 text-right text-sm font-bold">{Math.round(p.proj)}</span>
+      <span className="num w-9 text-right text-sm font-bold">{catOn ? (cv!.get(p.id) != null ? `${cv!.get(p.id)! > 0 ? '+' : ''}${cv!.get(p.id)!.toFixed(1)}` : '–') : Math.round(p.proj)}</span>
       <div className="hidden w-40 shrink-0 justify-end gap-1 sm:flex"><Odds p={p} /></div>
       <button className={`shrink-0 rounded-lg p-1.5 ${queue.has(p.id) ? 'text-gold' : 'text-white/30 hover:text-gold'}`} onClick={() => star(p)} title={queue.has(p.id) ? 'On your queue' : 'Add to my queue'}><Star size={16} fill={queue.has(p.id) ? 'currentColor' : 'none'} /></button>
     </div>
@@ -118,7 +122,7 @@ export default function CheatSheet({ embedded = false }: { embedded?: boolean } 
         </Section>
       ))}
 
-      <Section title="Best available, any position" right={<span className="text-xs text-mute">by projection</span>}>
+      <Section title="Best available, any position" right={<span className="text-xs text-mute">{catOn ? 'by category value' : 'by projection'}</span>}>
         <div className="card divide-y divide-white/[.06] px-2">{pool.slice(0, 12).map((p, i) => <Row key={p.id} p={p} i={i} />)}</div>
       </Section>
       </div>

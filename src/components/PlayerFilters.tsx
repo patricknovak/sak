@@ -33,6 +33,14 @@ export function useCategoryValues() {
   return cv;
 }
 
+// how a draft ranks a player: his category value in a category league, his projected points otherwise. A player with no
+// category value (no recent season) goes below everyone who has one.
+export function useDraftValue() {
+  const cv = useCategoryValues();
+  const on = !!cv && cv.size > 0;
+  return useCallback((p: Player) => (on ? cv!.get(p.id) ?? -1e6 + p.proj / 1000 : p.proj), [on, cv]);
+}
+
 // `keep` names the screen whose filters should survive the GM stepping away and back (Players, the draft room)
 export function usePlayerFilter(init?: Partial<Filter>, keep?: string) {
   const { windows, season } = useLeague();

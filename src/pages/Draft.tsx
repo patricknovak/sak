@@ -10,7 +10,7 @@ import type { DraftPick, Player } from '../lib/types';
 import { countdown, fmtDateTime, fmtPts, readable } from '../lib/format';
 import { ChatPanel } from '../components/ChatPanel';
 import { PlayerRow, PlayerSheet } from '../components/PlayerCard';
-import { PlayerFilterBar, usePlayerFilter } from '../components/PlayerFilters';
+import { PlayerFilterBar, useDraftValue, usePlayerFilter } from '../components/PlayerFilters';
 import { Countdown, Headshot, Sheet, Pos, TeamBadge, TeamName, TeamStack, Toggle, useAction, useToast } from '../components/ui';
 import { ClockRing, POS_BG, celebrate, useWide } from '../components/draftkit';
 import { PushCard } from '../components/PushCard';
@@ -115,7 +115,8 @@ export default function Draft() {
   // each team's 2025-26 top scorer can't be kept, so he's a sure thing for the draft
   const banned = useMemo(() => bannedTopScorers(rosters, league?.top_scorer_rule), [rosters, league?.top_scorer_rule]);
   const available = useMemo(() => pf.apply([...players.values()].filter((p) => !taken(p.id))).slice(0, 150), [players, owner, preKeepers, lockedKept, pf.apply]); // eslint-disable-line react-hooks/exhaustive-deps
-  const poolRank = useMemo(() => new Map([...players.values()].filter((p) => !taken(p.id)).sort((a, b) => b.proj - a.proj).map((p, i) => [p.id, i + 1])), [players, lockedKept, owner, preKeepers]); // eslint-disable-line react-hooks/exhaustive-deps
+  const dv = useDraftValue();
+  const poolRank = useMemo(() => new Map([...players.values()].filter((p) => !taken(p.id)).sort((a, b) => dv(b) - dv(a)).map((p, i) => [p.id, i + 1])), [players, lockedKept, owner, preKeepers, dv]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const draftPlayer = (p: Player) => run(async () => {
     await rpc('draft_pick', { p_player: p.id });
@@ -131,7 +132,7 @@ export default function Draft() {
   }, [rosters, me?.id, preKeepers, players, league?.keepers, league?.top_scorer_rule]);
   const myNeeds = useMemo(() => needsOf(myRoster, caps), [myRoster, caps]);
   const fitTag = (p: Player) => fitLabel(fitOf(p, myNeeds), p.pos);
-  const bestBy = (k: string) => [...players.values()].filter((p) => !taken(p.id) && !likelyKept.has(p.id) && (k === 'G' ? p.pos === 'G' : p.pos !== 'G' && p.elig.includes(k))).sort((a, b) => b.proj - a.proj)[0];
+  const bestBy = (k: string) => [...players.values()].filter((p) => !taken(p.id) && !likelyKept.has(p.id) && (k === 'G' ? p.pos === 'G' : p.pos !== 'G' && p.elig.includes(k))).sort((a, b) => dv(b) - dv(a))[0];
 
   const clockColor = remaining < 10_000 ? 'text-red-400' : remaining < 30_000 ? 'text-amber-300' : 'text-white';
   const status = draft?.status ?? 'scheduled';

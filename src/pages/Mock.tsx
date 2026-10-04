@@ -8,7 +8,7 @@ import { fmtPts, readable } from '../lib/format';
 import { gradeColor, gradeTeams, lineupStrength, pickValues, projectedKeepers } from '../lib/grades';
 import { availabilityOdds, botChoose, fitClass, fitLabel, fitOf, needsOf, simulateDraft, type Outlook, type SimPick } from '../lib/draftsim';
 import { PlayerRow, PlayerSheet } from '../components/PlayerCard';
-import { PlayerFilterBar, usePlayerFilter } from '../components/PlayerFilters';
+import { PlayerFilterBar, useDraftValue, usePlayerFilter } from '../components/PlayerFilters';
 import { NeedsStrip, RosterNeeds } from '../components/RosterNeeds';
 import { Headshot, PageHeader, Pos, Section, TeamBadge, TeamName, useToast } from '../components/ui';
 import { ClockRing, POS_BG, celebrate } from '../components/draftkit';
@@ -57,7 +57,8 @@ export default function Mock({ embedded = false }: { embedded?: boolean } = {}) 
     return m;
   }, [teams, rosters, league?.keepers, league?.top_scorer_rule]);
   const keptIds = useMemo(() => new Set([...keepers.values()].flat()), [keepers]);
-  const pool = useMemo(() => [...players.values()].filter((p) => !keptIds.has(p.id)).sort((a, b) => b.proj - a.proj), [players, keptIds]);
+  const dv = useDraftValue();
+  const pool = useMemo(() => [...players.values()].filter((p) => !keptIds.has(p.id)).sort((a, b) => dv(b) - dv(a)), [players, keptIds, dv]);
   const poolRank = useMemo(() => new Map(pool.map((p, i) => [p.id, i + 1])), [pool]);
   const totalRounds = mode === 'real' ? (league?.draft_rounds ?? 18) : rounds;
 
