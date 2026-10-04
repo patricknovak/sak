@@ -115,8 +115,9 @@ results of his own past calls, and what the wider pool knows.
    linked to today's team by name. A league that played on Yahoo brings every season Yahoo kept in one go (the `history` task walks the league's renew chain; the commissioner ticks the seasons on the League page). Next: Fantrax, ESPN and CBS the same way.
 7. **Phase 2, people can join** (under way: email sign-in with reset codes, invites, the join page and the switcher done
    3 October 2026, migrations 103 to 105; onboarding part 1, the Platform page, the readiness checklist, going live and
-   the league identity editor, migration 106): league by host, realtime and presence
-   per league, phones, Cloudflare Pages hosting (decided 3 October 2026), the Garry budget.
+   the league identity editor, migration 106; league by host, migration 107; realtime and presence per league; phones,
+   migration 100; Garry's daily budget, migration 99). Left: Cloudflare hosting (decided 3 October
+   2026, built as Workers, waiting on the `CLOUDFLARE_API_TOKEN` and `CLOUDFLARE_ACCOUNT_ID` secrets).
 8. **Pool intelligence** once a few leagues are playing, then the horizons in `docs/MARKET.md`.
 
 ## 6. The working method

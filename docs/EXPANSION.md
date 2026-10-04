@@ -307,7 +307,7 @@ built (migrations 92 and 93: `open_shadow_league`, `shadow_sync` every minute, `
 
 **Phase 2, people can join.** B5 sign-in by email and league by host, invites and the switcher, realtime and
 presence per league, B7 brand and history per league, B8 phones, Cloudflare Pages hosting, the platform `create_league`.
-Garry's daily budget.
+Garry's daily budget (done, migration 99).
 *Gate:* a friend's league is created, invited, drafted and scored for two weeks without anyone touching SQL.
 *Walked through on 4 October 2026 (migration 108):* a league opened on the Platform page, its commissioner invited and
 seated, the order drawn, the draft run to the end with open seats picked for them, rosters slotted and the season
