@@ -414,6 +414,13 @@ export function TradeFit({ onPick }: { onPick?: (partner: number) => void }) {
   const fit = me ? partnerFit(me.id, ranks, teams.length).slice(0, 3) : [];
   const cls = (r: number) => (r <= 2 ? 'bg-emerald-500/25 text-emerald-100' : r >= teams.length - 1 ? 'bg-red-500/20 text-red-100' : 'bg-white/[.04] text-slate-300');
   const order = [...teams].sort((a, b) => (a.id === me?.id ? -1 : b.id === me?.id ? 1 : 0));
+  // no rosters yet (a new league before its draft), every team ties first everywhere: say so rather than show a wall of 1s
+  if ([...ranks.values()].every((r) => Object.values(r).every((n) => n === 1))) return (
+    <div className="card flex items-center gap-3 p-4 text-sm text-mute">
+      <span className="text-2xl">🧭</span>
+      <span>Every roster is level so far. Once teams have players, this shows where each one is deep and thin, and who fits you best.</span>
+    </div>
+  );
   return (
     <div className="card space-y-2 p-3">
       <div className="text-xs text-mute">Where every team ranks at each position (1 = deepest), from the players it would start. Green is a strength to trade from, red a need to trade for.</div>
