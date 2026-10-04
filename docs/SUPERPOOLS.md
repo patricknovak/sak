@@ -136,6 +136,8 @@ B4 (the scheduler league by league) landed in migrations 81 to 85, B6 (money and
    the voice's name) on the Commish page, and the league's colour themes the whole site. *Asking for a league (migration
    112):* anyone can ask on the public Start your league page (`#/start`, `request_league`, rate-limited, stored in
    `ops.league_requests`); the Platform page's Requests inbox opens the league in one tap and writes the invite email.
+   A new league takes the season's calendar from its template (first and last days, trade deadline, end of the playoffs;
+   migration 122), and a head-to-head league's checklist and setup guide want its schedule before it goes live.
    Still to come: self-serve sign-up and billing for a commissioner, the Yahoo import into a new league.
 6. **Billing.** A subscription per league per season (Stripe). Landing page collects interest until then.
 

@@ -16,10 +16,17 @@ export function SetupGuide() {
   const { league, teams, draft } = useLeague();
   const brand = useBrand();
   const [status, setStatus] = useState<string | null>(null);
+  const [weeks, setWeeks] = useState(0);
+  const h2h = league?.format === 'h2h';
   useEffect(() => {
     if (!league?.league_id) return;
     supabase.from('leagues').select('status,brand').eq('id', league.league_id).maybeSingle().then(({ data }) => setStatus((data?.status as string) ?? null));
   }, [league?.league_id]);
+  // a head-to-head league plays a schedule (migration 118), made before the season
+  useEffect(() => {
+    if (!h2h) return;
+    supabase.from('matchups').select('week').order('week', { ascending: false }).limit(1).then(({ data }) => setWeeks(Number(data?.[0]?.week ?? 0)));
+  }, [h2h, league?.updated_at]);
   if (!league || !draft || draft.status === 'done' || league.phase === 'season' || league.phase === 'offseason') return null;
 
   const seats = teams.length, filled = teams.filter((t) => t.user_id).length;
@@ -28,6 +35,7 @@ export function SetupGuide() {
     { key: 'look', title: 'Make it yours', detail: `${league.name} · ${brand.short}. Wordmark, colour, prize names and the coins.`, done: true, to: 'identity' },
     { key: 'gms', title: 'Bring in your GMs', detail: filled === seats ? `All ${seats} seats taken.` : `${filled} of ${seats} seats taken. Open seats on draft night are picked for automatically.`, done: filled === seats, to: 'invites' },
     { key: 'rules', title: 'Scoring and roster', detail: 'Worth a look: how points are scored and how many players each team carries.', done: false, to: 'roster', optional: true },
+    ...(h2h ? [{ key: 'schedule', title: 'Make the schedule', detail: weeks ? `${weeks} weeks of matchups${(league.h2h_playoffs ?? 0) >= 2 ? `, then playoffs for the top ${league.h2h_playoffs}` : ''}.` : 'Head-to-head plays a weekly schedule: pick the playoff spots and make it.', done: weeks > 0, to: 'scoring' }] : []),
     ...(keepers ? [{ key: 'keepers', title: 'Keepers', detail: `${teams.filter((t) => t.keepers_submitted).length} of ${seats} GMs have saved theirs. Finalize to open the draft pool.`, done: false, to: 'keepers' }] : []),
     { key: 'when', title: 'Set draft night', detail: league.draft_at ? `${fmtDateTime(league.draft_at)} · ${league.pick_seconds}s a pick · ${league.draft_rounds} rounds` : 'Pick the date, the pick clock and the rounds.', done: !!league.draft_at, to: 'settings' },
     { key: 'order', title: 'Draw the order', detail: draft.order_set ? 'The order is set.' : 'Randomize it, or set it by hand.', done: draft.order_set, to: 'draft' },

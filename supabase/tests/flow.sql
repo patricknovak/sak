@@ -2456,6 +2456,9 @@ set role authenticated;
 select create_league('rink', 'Rink Rats', 'RR', '{}'::jsonb, 3) as league5 \gset
 reset role;
 select pg_temp.expect('a new league opens ready to draft, not in keepers', (select phase from league_rules where league_id = :league5) = 'predraft');
+select pg_temp.expect('and on the season''s calendar: first and last days, the trade deadline', (select r.season_start is not distinct from s.season_start
+  and r.season_end is not distinct from s.season_end and r.trade_deadline is not distinct from s.trade_deadline and r.playoffs_end is not distinct from s.playoffs_end
+  and r.season_start is not null from league_rules r, league_rules s where r.league_id = :league5 and s.league_id = 1));
 select id as rink_seat1 from teams where league_id = :league5 and is_commish \gset
 insert into auth.users (id, email) values ('00000000-0000-0000-0000-0000000000f2', 'rink-commish@example.com');
 select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-000000000001', false);
@@ -2672,6 +2675,38 @@ select set_config('app.league_id', '', false);
 select pg_temp.expect('SaK still plays for points', (select categories from league_rules where league_id = 1) is null);
 select set_config('request.jwt.claim.sub', '', false);
 select 'head-to-head categories', true;
+
+-- ───────────── a head-to-head league's schedule on the checklist ─────────────
+reset role;
+select id as ck_league from leagues where slug = 'rink' \gset
+update league_rules set format = 'h2h', season_start = today_et() + 1, season_end = today_et() + 60 where league_id = :ck_league;
+delete from matchups where league_id = :ck_league;
+select pg_temp.as_team(1);
+set role authenticated;
+select pg_temp.expect('a head-to-head league''s checklist wants its schedule', (select x->>'ok' = 'false' and x->>'required' = 'true'
+  from jsonb_array_elements(league_readiness(:ck_league)) x where x->>'key' = 'schedule'));
+select pg_temp.raises('so it can''t go live without one', format('select platform_set_league_status(%s, ''active'')', :ck_league), 'Head-to-head schedule made');
+select pg_temp.expect('a points league''s checklist has no schedule line', not exists (select 1 from jsonb_array_elements(league_readiness(1)) x where x->>'key' = 'schedule'));
+reset role;
+select set_config('request.jwt.claim.sub', (select user_id::text from teams where league_id = :ck_league and is_commish), false);
+set role authenticated;
+select commish_make_schedule(0) as ck_weeks \gset
+reset role;
+select pg_temp.as_team(1);
+set role authenticated;
+select pg_temp.expect('once it''s made, the line is ticked', (select x->>'ok' = 'true' and x->>'detail' like '%weeks%'
+  from jsonb_array_elements(league_readiness(:ck_league)) x where x->>'key' = 'schedule'));
+reset role;
+delete from matchups where league_id = :ck_league;
+update league_rules set season_start = null where league_id = :ck_league;
+select pg_temp.as_team(1);
+set role authenticated;
+select pg_temp.expect('and the rules line wants the season''s dates', (select x->>'ok' = 'false' and x->>'detail' like '%no first and last days%'
+  from jsonb_array_elements(league_readiness(:ck_league)) x where x->>'key' = 'rules'));
+reset role;
+update league_rules set format = 'season', season_start = today_et() + 1 where league_id = :ck_league;
+select set_config('request.jwt.claim.sub', '', false);
+select 'a head-to-head league''s schedule on the checklist', true;
 
 -- ───────────── how alive each league is ─────────────
 reset role;
