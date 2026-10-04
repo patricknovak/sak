@@ -22,7 +22,7 @@ const STATUS: Record<Status, { label: string; cls: string }> = {
 };
 
 export default function Features() {
-  const { me, team, can } = useLeague();
+  const { me, team, can, league } = useLeague();
   const now = useNow(60_000);
   const { busy, run } = useAction();
   const [params, setParams] = useSearchParams();
@@ -201,7 +201,8 @@ export default function Features() {
 
       {tab === 'built' && (
         <>
-          <PromoVideo only="promo" />
+          {/* SaK's own promo film: another league's page doesn't show it */}
+          {league?.league_id === 1 && <PromoVideo only="promo" />}
           <div className="card-hero flex flex-wrap items-center gap-3 p-4" style={{ '--tc': '#ef2a4f' } as React.CSSProperties}>
             <div className="relative min-w-[13rem] flex-1 text-sm">
               <div className="h-display text-xl">Got an idea?</div>

@@ -2,6 +2,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useSticky } from '../lib/sticky';
 import { useLeague } from '../lib/store';
+import { useBrand } from '../lib/brand';
 import { supabase } from '../lib/supabase';
 import type { DraftPick, PickupStatus, Player } from '../lib/types';
 import { fmtPts } from '../lib/format';
@@ -132,6 +133,7 @@ function MoveList({ inn, out, c }: { inn: Player[]; out: Player[]; c: ReturnType
 // every player in the deal side by side
 export function TradeAnalysis({ sides, compact }: { sides: Side[]; compact?: boolean }) {
   const { me, team, league } = useLeague();
+  const brand = useBrand();
   // the league's own starting lineup, as the forecast plays it: 2C 2LW 2RW 3D 1Util 2G in SaK
   const caps = (league?.roster ?? {}) as Record<string, number>;
   const lineupText = ['C', 'LW', 'RW', 'D', 'Util', 'G'].filter((k) => caps[k]).map((k) => `${caps[k]}${k}`).join(' ');
@@ -147,7 +149,7 @@ export function TradeAnalysis({ sides, compact }: { sides: Side[]; compact?: boo
   const ageOf = (ps: Player[]) => { const a = ps.map((p) => details?.get(p.id)?.proj_meta?.age).filter((x): x is number => x != null); return a.length ? a.reduce((x, y) => x + y, 0) / a.length : null; };
   const grades = sides.map((s, i) => {
     const out = s.before.filter((p) => !s.after.includes(p)), inn = s.after.filter((p) => !s.before.includes(p));
-    return gradeSide(evals[i], { outAge: ageOf(out), inAge: ageOf(inn) });
+    return gradeSide(evals[i], { outAge: ageOf(out), inAge: ageOf(inn), coin: brand.coin.name });
   });
   const ve = verdict(evals, name);
   const cls = { good: 'border-emerald-400/30 bg-emerald-500/10 text-emerald-100', ok: 'border-white/10 bg-white/[.04] text-slate-200', warn: 'border-amber-400/30 bg-amber-500/10 text-amber-100', bad: 'border-red-400/30 bg-red-500/10 text-red-100' }[ve.tone];

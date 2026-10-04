@@ -12,7 +12,7 @@ interface Health { jobs: Job[]; issues: string[]; phase: string; db_time: string
 
 const NAMES: Record<string, string> = {
   'nhl-scores': 'NHL scores & box scores', 'nhl-schedule': 'NHL schedule', 'nhl-players': 'NHL rosters', 'nhl-corrections': 'Stat corrections', 'nhl-injuries': 'Injury report', 'nhl-news': 'NHL news',
-  'garry-daily': 'Garry’s morning post', 'garry-nudge': 'Garry’s lineup nudge', 'garry-weekly': 'Garry’s Monday column', 'auto-lineups': 'Lineup auto-pilot', 'auto-lineups-late': 'Auto-pilot (pre-game)',
+  'garry-daily': '{bot}’s morning post', 'garry-nudge': '{bot}’s lineup nudge', 'garry-weekly': '{bot}’s Monday column', 'auto-lineups': 'Lineup auto-pilot', 'auto-lineups-late': 'Auto-pilot (pre-game)',
   'process-pending': 'Draft clock & trade processor', 'health-check': 'This health check',
 };
 
@@ -55,7 +55,7 @@ export function HealthPanel() {
                 <tbody className="divide-y divide-white/[.05]">
                   {h.jobs.map((j) => (
                     <tr key={j.job}>
-                      <td className="py-1 pr-2">{NAMES[j.job] ?? j.job}<span className="ml-1 text-mute">{j.job}</span></td>
+                      <td className="py-1 pr-2">{(NAMES[j.job] ?? j.job).replace('{bot}', brand.bot.name)}<span className="ml-1 text-mute">{j.job}</span></td>
                       <td className="num pr-2">{j.schedule}</td>
                       <td className="pr-2">{when(j.last)}</td>
                       <td className={j.status === 'succeeded' ? 'text-emerald-300' : j.status ? 'text-red-300' : 'text-mute'}>{j.status ?? 'not yet'}</td>

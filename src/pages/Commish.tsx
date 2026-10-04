@@ -299,7 +299,7 @@ export default function Commish() {
       </Section>
 
       <Section title="🍿 Spectator passes">
-        <p className="mb-2 px-1 text-xs text-mute">A spectator can see the whole league, chat, DM and bet St. Patrick coins, but has no team. Switch any of that off per person, or pause the pass entirely.</p>
+        <p className="mb-2 px-1 text-xs text-mute">A spectator can see the whole league, chat, DM and bet {brand.coin.name}, but has no team. Switch any of that off per person, or pause the pass entirely.</p>
         <div className="space-y-2">
           {spectators.map((t) => {
             const on = (k: string) => t.perms?.[k] !== false;

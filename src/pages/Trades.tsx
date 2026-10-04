@@ -204,7 +204,7 @@ export default function Trades() {
   };
   // offers waiting on you open with the full assessment showing
   const isOpen = (t: Trade) => openTrade === t.id || (canRespond(t) && openTrade !== -t.id);
-  const gradesOf = (t: Trade) => sidesOf(t).map((sd) => gradeSide(evaluateSide(sd, valuer, rosterMax, sched)));
+  const gradesOf = (t: Trade) => sidesOf(t).map((sd) => gradeSide(evaluateSide(sd, valuer, rosterMax, sched), { coin: brand.coin.name }));
   const canRespond = (t: Trade) => !!me && t.status === 'proposed' && (t.parties ? partiesOf(t).includes(me.id) && t.from_team !== me.id && !(t.accepted_by ?? []).includes(me.id) : t.to_team === me.id);
 
   const groups = useMemo(() => ({

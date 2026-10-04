@@ -397,7 +397,7 @@ export function partnerFit(me: number, rank: Map<number, Record<string, number>>
 export interface SideGrade { team: number; grade: string; score: number; notes: { tone: 'good' | 'bad' | 'info'; text: string }[] }
 const LETTERS: [number, string][] = [[25, 'A+'], [15, 'A'], [8, 'A-'], [3, 'B+'], [-3, 'B'], [-8, 'B-'], [-15, 'C+'], [-25, 'C'], [-40, 'D']];
 export const tradeLetter = (score: number) => LETTERS.find(([min]) => score >= min)?.[1] ?? 'F';
-export function gradeSide(e: SideEval, extra: { outAge?: number | null; inAge?: number | null; name?: string } = {}): SideGrade {
+export function gradeSide(e: SideEval, extra: { outAge?: number | null; inAge?: number | null; name?: string; coin?: string } = {}): SideGrade {
   const depth = e.depthAfter - e.depthBefore;
   let score = e.startersDelta + e.net * 0.25 + depth * 0.1;
   const notes: SideGrade['notes'] = [];
@@ -417,7 +417,7 @@ export function gradeSide(e: SideEval, extra: { outAge?: number | null; inAge?: 
   if (auto.length) notes.push({ tone: 'bad', text: `One player too many: has to drop ${auto.map((d) => `${d.p.name}, the weakest he can spare (${r(d.value)} pts the rest of the way)`).join(' and ')}. That's counted.` });
   if (e.fills.length) notes.push({ tone: 'good', text: `Frees a roster spot: ${e.fills.map((f) => `${f.p.name} (${r(f.value)})`).join(', ')}, the best free agent, can fill it with a pickup.` });
   if (Math.abs(e.pickupValue) >= 1) notes.push({ tone: e.pickupValue > 0 ? 'good' : 'bad', text: `Pickups ${e.pickupValue > 0 ? 'in' : 'out'}: worth about ${r(e.pickupValue)} points (what the best free agents add over the weakest player, less for each one already in hand).` });
-  if (e.coinsNet) notes.push({ tone: 'info', text: `${e.coinsNet > 0 ? 'Gets' : 'Pays'} ${Math.abs(e.coinsNet).toLocaleString()} St. Patrick coins: side-bet money, not counted in the grade.` });
+  if (e.coinsNet) notes.push({ tone: 'info', text: `${e.coinsNet > 0 ? 'Gets' : 'Pays'} ${Math.abs(e.coinsNet).toLocaleString()} ${extra.coin ?? 'coins'}: side-bet money, not counted in the grade.` });
   for (const w of e.warnings) { notes.push({ tone: 'bad', text: w }); score -= w.startsWith('Only') ? 12 : 6; }
   return { team: e.team, grade: tradeLetter(score), score, notes };
 }
