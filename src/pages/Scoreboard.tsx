@@ -11,6 +11,8 @@ import { NhlLogo, PageHeader, Pos, Section, TeamBadge } from '../components/ui';
 import type { Game } from '../lib/types';
 import { ChevronLeft, ChevronRight, Radio } from 'lucide-react';
 import { BoxScore, scoringLine } from '../components/BoxScore';
+import { categoryOf, fmtCat } from '../lib/categories';
+import { useRoto } from '../components/RotoStandings';
 
 type Snap = { team_id: number; player_id: number; slot: string; game_id: number };
 type PG = { player_id: number; game_id: number; fpts: number; stats: Record<string, number>; nhl_team: string | null };
@@ -28,6 +30,9 @@ function gameLabel(g: Game) {
 const BENCH = ['BN', 'IR'];
 // the NHL game id carries its kind: 2026020123 is a regular-season game, 2026030111 a playoff game
 const isPlayoffGame = (g: Game) => String(g.id).slice(4, 6) === '03';
+// a category from a night's summed stats: a rate from its totals (no starts behind it: none)
+const nightCat = (o: Record<string, number>, k: string) =>
+  k === 'gaa' ? (o.gs ? (o.ga ?? 0) / o.gs : NaN) : k === 'svp' ? (o.sa ? (o.sv ?? 0) / o.sa : NaN) : k === 'pts' && o.pts == null ? (o.g ?? 0) + (o.a ?? 0) : o[k] ?? 0;
 // a player's game from his side: his club first (the one he played for that night), the opponent, the score
 // with his club's goals first, and where the game stands
 function matchup(g: Game, club: string | null | undefined) {
@@ -114,6 +119,32 @@ export default function Scoreboard() {
     const playing = lines.filter((l) => l.game && LIVE.has(l.game.state)).length;
     return { t, lines, pts, done, playing, left: lines.length - done - playing, benchLines, bench, benchScored: benchLines.some((l) => l.pg), benchSeason: before + bench };
   }).sort((a, b) => b.pts - a.pts || a.t.id - b.t.id), [teams, snaps, rosters, players, slate, pgBy, benchDays, today, playoffNight]); // eslint-disable-line react-hooks/exhaustive-deps
+  // a category league plays the night for its categories: each team's starters' totals, and the night ranked team
+  // against team in each (first earns as many points as there are teams, ties share), the way its table ranks the season
+  const cats = league?.categories ?? [];
+  const catMode = cats.length > 0;
+  const night = useMemo(() => {
+    if (!catMode) return null;
+    const tot = new Map(rows.map((r) => {
+      const o: Record<string, number> = {};
+      for (const l of r.lines) for (const [k, v] of Object.entries(l.pg?.stats ?? {})) o[k] = (o[k] ?? 0) + Number(v);
+      return [r.t.id, o] as const;
+    }));
+    const roto = new Map<number, number>(rows.map((r) => [r.t.id, 0]));
+    for (const k of cats) {
+      const low = !!categoryOf(k)?.low;
+      const vals = rows.map((r) => ({ id: r.t.id, v: nightCat(tot.get(r.t.id)!, k) }));
+      const better = (x: number, y: number) => (!Number.isFinite(y) ? Number.isFinite(x) : Number.isFinite(x) && (low ? x < y : x > y));
+      for (const me of vals) {
+        const ahead = vals.filter((o) => better(o.v, me.v)).length;
+        const tied = vals.filter((o) => o.v === me.v || (!Number.isFinite(o.v) && !Number.isFinite(me.v))).length;
+        roto.set(me.id, roto.get(me.id)! + rows.length + 1 - (ahead + 1 + (tied - 1) / 2));
+      }
+    }
+    return { tot, roto };
+  }, [catMode, rows, cats]);
+  const ordered = useMemo(() => (night ? [...rows].sort((a, b) => night.roto.get(b.t.id)! - night.roto.get(a.t.id)! || a.t.id - b.t.id) : rows), [rows, night]);
+  const rotoTable = useRoto();
   // one player's line on a team card; bench lines are dimmed and their points shown in amber
   const renderLine = (l: ReturnType<typeof side>[number], bench = false) => {
     const p = players.get(l.player_id);
@@ -137,14 +168,15 @@ export default function Scoreboard() {
             </span>
           </span>
         )}
-        <span className={`num w-12 text-right font-bold ${l.pts < 0 ? 'text-red-300' : bench ? 'text-amber-200/90' : ''}`}>{l.pg ? fmtPts(l.pts) : '–'}</span>
+        {!catMode && <span className={`num w-12 text-right font-bold ${l.pts < 0 ? 'text-red-300' : bench ? 'text-amber-200/90' : ''}`}>{l.pg ? fmtPts(l.pts) : '–'}</span>}
       </Link>
     );
   };
   const benchTable = useMemo(() => [...rows].sort((a, b) => b.bench - a.bench || b.benchSeason - a.benchSeason || a.t.id - b.t.id), [rows]);
-  const benchAny = rows.some((r) => r.benchScored || r.benchSeason !== 0);
+  const benchAny = !catMode && rows.some((r) => r.benchScored || r.benchSeason !== 0);
   const scored = standings.some((s) => Number(s.points) !== 0);
-  const rankOf = (id: number) => (scored ? standings.find((s) => s.team_id === id)?.rank : undefined);
+  const rankOf = (id: number) => (catMode ? (league?.format === 'h2h' ? undefined : rotoTable?.find((r) => r.team_id === id)?.rank)
+    : scored ? standings.find((s) => s.team_id === id)?.rank : undefined);
   const anyLive = slate.some((g) => LIVE.has(g.state));
 
   return (
@@ -178,9 +210,9 @@ export default function Scoreboard() {
         </div>
       )}
 
-      <Section title={past ? `Points on ${fmtDate(today)}` : 'Tonight’s points'} right={<span className="text-xs text-mute">tap a team for every starter</span>}>
+      <Section title={catMode ? (past ? `Categories on ${fmtDate(today)}` : 'Tonight’s categories') : past ? `Points on ${fmtDate(today)}` : 'Tonight’s points'} right={<span className="text-xs text-mute">tap a team for every starter</span>}>
         <div className="grid items-start gap-2 xl:grid-cols-2">
-          {rows.map(({ t, lines, pts, done, playing, left, benchLines, bench, benchScored, benchSeason }, i) => {
+          {ordered.map(({ t, lines, pts, done, playing, left, benchLines, bench, benchScored, benchSeason }, i) => {
             const isOpen = open === t.id;
             const top = lines.filter((l) => l.pg).slice(0, 3);
             return (
@@ -192,17 +224,26 @@ export default function Scoreboard() {
                     <div className="truncate font-bold">{t.name} <span className="text-xs font-normal text-mute">· {t.gm_name}{rankOf(t.id) ? ` · ${rankOf(t.id)}${['st', 'nd', 'rd'][(rankOf(t.id)! - 1)] ?? 'th'} overall` : ''}</span></div>
                     <div className="truncate text-xs text-mute">
                       {lines.length === 0 ? (past ? 'No starters with a game' : 'No starters with a game tonight') : `${playing ? `${playing} playing · ` : ''}${done} done · ${left} to come`}
-                      {top.length > 0 && <> · {top.map((l) => `${players.get(l.player_id)?.last_name} ${fmtPts(l.pts)}`).join(', ')}</>}
+                      {!catMode && top.length > 0 && <> · {top.map((l) => `${players.get(l.player_id)?.last_name} ${fmtPts(l.pts)}`).join(', ')}</>}
                     </div>
+                    {night && lines.some((l) => l.pg) && (
+                      <div className="mt-1 flex flex-wrap gap-1">
+                        {cats.map((k) => (
+                          <span key={k} className="inline-flex items-baseline gap-1 rounded-md border border-white/10 bg-white/[.04] px-1.5 py-px text-[10px]">
+                            <span className="font-semibold text-mute">{categoryOf(k)?.short ?? k}</span><span className="num font-bold text-slate-100">{fmtCat(k, Number.isFinite(nightCat(night.tot.get(t.id)!, k)) ? nightCat(night.tot.get(t.id)!, k) : null)}</span>
+                          </span>
+                        ))}
+                      </div>
+                    )}
                   </div>
-                  <div className="text-right"><div className="num font-display text-2xl font-extrabold" style={{ color: readable(t.color) }}>{fmtPts(pts)}</div><div className="text-[10px] text-mute">{past ? 'that night' : 'tonight'}</div>
-                    {benchScored && <div className="num text-[10px] font-semibold text-amber-200" title="Points on the bench and IR: shown, never counted">🪑 {fmtPts(bench)} benched</div>}</div>
+                  <div className="shrink-0 text-right"><div className="num font-display text-2xl font-extrabold" style={{ color: readable(t.color) }}>{night ? fmtPts(night.roto.get(t.id) ?? 0) : fmtPts(pts)}</div><div className="text-[10px] text-mute">{night ? 'roto ' : ''}{past ? 'that night' : 'tonight'}</div>
+                    {!catMode && benchScored && <div className="num text-[10px] font-semibold text-amber-200" title="Points on the bench and IR: shown, never counted">🪑 {fmtPts(bench)} benched</div>}</div>
                 </button>
                 {isOpen && (
                   <div className="divide-y divide-white/[.05] border-t border-white/[.06]">
                     {lines.map((l) => renderLine(l))}
                     {lines.length === 0 && <div className="p-3 text-xs text-mute">Nobody in {t.gm_name}’s starting lineup {past ? 'played that night' : 'plays tonight'}.</div>}
-                    {benchLines.length > 0 && (
+                    {!catMode && benchLines.length > 0 && (
                       <>
                         <div className="flex items-center gap-2 bg-amber-500/[.06] px-3 py-1.5 text-[11px]">
                           <span className="font-semibold uppercase tracking-wider text-amber-200">🪑 Bench & IR</span>
