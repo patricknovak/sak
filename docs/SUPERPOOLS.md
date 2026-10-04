@@ -122,7 +122,7 @@ on the site, and the switcher.
 - **P2. The Love Is Blind pool.** A prediction league with its own brand and no sports on screen: home, questions,
   leaders, chat; the Season 11 question pack and drop schedule (14, 21, 28 October, 4 November, the reunion); invites by
   link; share cards. Opens before 14 October for the test; the gate is in `docs/POOLS.md` section 6. *Opened 4 October:
-  league 3, Pod Squad (`podsquad`), Patrick hosting; it goes active once the pool pages are on `main`.*
+  league 3, Pod Squad (`podsquad`), Patrick hosting; active since the pool pages reached `main` (#204).*
 - **P3. Soccer prediction pools.** Fixtures and results from API-Football (provider-neutral tables), gameweek and
   survivor questions settled from results, Premier League and MLS first. *Step 1 built (migrations 148-149, live): the
   `soccer` sports row, shared `competitions`, `clubs` and `fixtures`, the `soccer-sync` adapter on API-Football, a
