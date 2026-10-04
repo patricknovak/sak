@@ -2,7 +2,8 @@
 // the league counts, and each player's points in the league. Players the league's GMs own are marked with their GM.
 import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { useLeague } from '../lib/store';
+import { useLeague, useSport } from '../lib/store';
+import { isFinal, isLive, periodShort } from '../lib/sport';
 import { supabase } from '../lib/supabase';
 import { fmtPts, fmtTime, STAT_LABELS } from '../lib/format';
 import { NhlLogo, Sheet } from './ui';
@@ -22,6 +23,7 @@ export function scoringLine(stats: Record<string, number>, weights: Record<strin
 
 export function BoxScore({ game, onClose }: { game: Game | null; onClose: () => void }) {
   const { players, owner, team, league } = useLeague();
+  const sport = useSport();
   const brand = useBrand();
   const [rows, setRows] = useState<PG[] | null>(null);
   useEffect(() => {
@@ -49,8 +51,8 @@ export function BoxScore({ game, onClose }: { game: Game | null; onClose: () => 
   }, [game, rows, players]);
 
   if (!game) return null;
-  const live = ['LIVE', 'CRIT'].includes(game.state), done = ['OFF', 'FINAL'].includes(game.state);
-  const status = done ? 'Final' : live ? `${/^\d+$/.test(game.period ?? '') ? 'P' + game.period : game.period ?? ''} ${game.clock ?? ''}`.trim() || 'Live' : fmtTime(game.start_utc);
+  const live = isLive(sport, game.state), done = isFinal(sport, game.state);
+  const status = done ? 'Final' : live ? `${periodShort(sport, game.period)} ${game.clock ?? ''}`.trim() || 'Live' : fmtTime(game.start_utc);
   const owned = (id: number) => { const r = owner.get(id); return r ? team(r.team_id) : undefined; };
   const Name = ({ id, name }: { id: number; name?: string }) => {
     const t = owned(id);

@@ -4,7 +4,8 @@
 // Bench points are shown and never counted; they come from the same puck-drop freeze-frames as the starters.
 import { useEffect, useMemo, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
-import { useLeague, useNow } from '../lib/store';
+import { useLeague, useNow, useSport } from '../lib/store';
+import { extraTime, isFinal, isLive, periodShort, type SportConfig } from '../lib/sport';
 import { selectAll, supabase } from '../lib/supabase';
 import { fmtDate, fmtPts, fmtTime, readable } from '../lib/format';
 import { NhlLogo, PageHeader, Pos, Section, TeamBadge } from '../components/ui';
@@ -17,14 +18,12 @@ import { useRoto } from '../components/RotoStandings';
 type Snap = { team_id: number; player_id: number; slot: string; game_id: number };
 type PG = { player_id: number; game_id: number; fpts: number; stats: Record<string, number>; nhl_team: string | null };
 type BenchDay = { team_id: number; date: string; points: number; game_type: number };
-const LIVE = new Set(['LIVE', 'CRIT']);
-const DONE = new Set(['OFF', 'FINAL']);
 
-function gameLabel(g: Game) {
-  if (g.state === 'PPD') return 'Postponed';
-  if (g.state === 'CNCL') return 'Cancelled';
-  if (DONE.has(g.state)) return 'Final';
-  if (LIVE.has(g.state)) return `${/^\d+$/.test(g.period ?? '') ? 'P' + g.period : g.period ?? ''} ${g.clock ?? ''}`.trim() || 'Live';
+function gameLabel(sport: SportConfig, g: Game) {
+  if (sport.states.postponed.includes(g.state)) return 'Postponed';
+  if (sport.states.cancelled.includes(g.state)) return 'Cancelled';
+  if (isFinal(sport, g.state)) return 'Final';
+  if (isLive(sport, g.state)) return `${periodShort(sport, g.period)} ${g.clock ?? ''}`.trim() || 'Live';
   return fmtTime(g.start_utc);
 }
 const BENCH = ['BN', 'IR'];
@@ -35,23 +34,24 @@ const nightCat = (o: Record<string, number>, k: string) =>
   k === 'gaa' ? (o.gs ? (o.ga ?? 0) / o.gs : NaN) : k === 'svp' ? (o.sa ? (o.sv ?? 0) / o.sa : NaN) : k === 'pts' && o.pts == null ? (o.g ?? 0) + (o.a ?? 0) : o[k] ?? 0;
 // a player's game from his side: his club first (the one he played for that night), the opponent, the score
 // with his club's goals first, and where the game stands
-function matchup(g: Game, club: string | null | undefined) {
+function matchup(sport: SportConfig, g: Game, club: string | null | undefined) {
   const home = club ? club === g.home : true;
   const mine = home ? g.home : g.away, opp = home ? g.away : g.home;
   const my = home ? g.home_score : g.away_score, their = home ? g.away_score : g.home_score;
-  const started = LIVE.has(g.state) || DONE.has(g.state);
-  const extra = DONE.has(g.state) && g.period && !/^\d+$/.test(g.period) ? `/${g.period}` : '';
+  const started = isLive(sport, g.state) || isFinal(sport, g.state);
+  const extra = isFinal(sport, g.state) && extraTime(g.period) ? `/${g.period}` : '';
   return {
     teams: `${mine} ${home ? 'vs' : '@'} ${opp}`,
     score: started && my != null && their != null ? `${my}–${their}` : null,
     tone: !started || my == null || their == null || my === their ? 'text-slate-300' : my > their ? 'text-emerald-300' : 'text-red-300',
-    status: DONE.has(g.state) ? `Final${extra}` : gameLabel(g),
+    status: isFinal(sport, g.state) ? `Final${extra}` : gameLabel(sport, g),
   };
 }
 const addDays = (d: string, n: number) => new Date(Date.UTC(+d.slice(0, 4), +d.slice(5, 7) - 1, +d.slice(8, 10) + n)).toISOString().slice(0, 10);
 
 export default function Scoreboard() {
   const { me, teams, players, rosters, games, league, standings, leagueDay } = useLeague();
+  const sport = useSport();
   const now = useNow(30_000);
   // ?day=YYYY-MM-DD opens a past night; without it the page follows the league day
   const [params, setParams] = useSearchParams();
@@ -101,7 +101,7 @@ export default function Scoreboard() {
     const frozen = new Set(snaps.filter((s) => s.team_id === teamId).map((s) => s.player_id));
     const pending = (past ? [] : rosters).filter((r) => r.team_id === teamId && mine(r.slot) && !frozen.has(r.player_id))
       .map((r) => ({ team_id: teamId, player_id: r.player_id, slot: r.slot, game: gameOf(players.get(r.player_id)?.nhl_team ?? null) }))
-      .filter((r) => r.game && !DONE.has(r.game.state) && !LIVE.has(r.game.state));
+      .filter((r) => r.game && !isFinal(sport, r.game.state) && !isLive(sport, r.game.state));
     return [
       ...live.map((s) => { const g = slate.find((x) => x.id === s.game_id); const pg = pgBy.get(`${s.game_id}:${s.player_id}`); return { ...s, game: g, pg, pts: pg?.fpts ?? 0 }; }),
       ...pending.map((s) => ({ ...s, game_id: s.game!.id, pg: undefined as PG | undefined, pts: 0 })),
@@ -115,10 +115,10 @@ export default function Scoreboard() {
     const pts = lines.reduce((n, l) => n + l.pts, 0);
     const bench = benchLines.reduce((n, l) => n + l.pts, 0);
     const before = benchDays.filter((b) => b.team_id === t.id && b.date < today && b.game_type === (playoffNight ? 3 : 2)).reduce((n, b) => n + b.points, 0);
-    const done = lines.filter((l) => l.game && DONE.has(l.game.state)).length;
-    const playing = lines.filter((l) => l.game && LIVE.has(l.game.state)).length;
+    const done = lines.filter((l) => l.game && isFinal(sport, l.game.state)).length;
+    const playing = lines.filter((l) => l.game && isLive(sport, l.game.state)).length;
     return { t, lines, pts, done, playing, left: lines.length - done - playing, benchLines, bench, benchScored: benchLines.some((l) => l.pg), benchSeason: before + bench };
-  }).sort((a, b) => b.pts - a.pts || a.t.id - b.t.id), [teams, snaps, rosters, players, slate, pgBy, benchDays, today, playoffNight]); // eslint-disable-line react-hooks/exhaustive-deps
+  }).sort((a, b) => b.pts - a.pts || a.t.id - b.t.id), [teams, snaps, rosters, players, slate, pgBy, benchDays, today, playoffNight, sport]); // eslint-disable-line react-hooks/exhaustive-deps
   // a category league plays the night for its categories: each team's starters' totals, and the night ranked team
   // against team in each (first earns as many points as there are teams, ties share), the way its table ranks the season
   const cats = league?.categories ?? [];
@@ -152,19 +152,19 @@ export default function Scoreboard() {
     const g = l.game;
     const goalie = p?.pos === 'G';
     const line = scoringLine(st, (goalie ? league?.scoring.goalie : league?.scoring.skater) ?? {}, goalie) || 'no scoring yet';
-    const mu = g ? matchup(g, l.pg?.nhl_team ?? p?.nhl_team) : null;
+    const mu = g ? matchup(sport, g, l.pg?.nhl_team ?? p?.nhl_team) : null;
     return (
       <Link key={l.player_id} to={`/player/${l.player_id}`} className={`flex items-center gap-2 px-3 py-1.5 text-sm hover:bg-white/[.03] ${bench ? 'bg-amber-500/[.02]' : ''}`}>
         <Pos p={l.slot} className={`min-w-0 px-1 py-0 ${bench ? 'opacity-60' : ''}`} />
         <span className="min-w-0 flex-1"><span className={`block truncate font-semibold ${bench ? 'text-slate-300' : ''}`}>{p?.name}</span>
-          <span className="block truncate text-[11px] text-mute">{l.pg ? line : g ? (LIVE.has(g.state) || DONE.has(g.state) ? 'no scoring yet' : `puck drop ${fmtTime(g.start_utc)}`) : ''}</span></span>
+          <span className="block truncate text-[11px] text-mute">{l.pg ? line : g ? (isLive(sport, g.state) || isFinal(sport, g.state) ? 'no scoring yet' : `${sport.words.start} ${fmtTime(g.start_utc)}`) : ''}</span></span>
         {mu && (
           <span className="w-[86px] shrink-0 text-right leading-tight">
             <span className="block truncate text-[11px] font-semibold text-slate-200">{mu.teams}</span>
             <span className="block truncate text-[10px]">
               {mu.score && <span className={`num font-bold ${mu.tone}`}>{mu.score}</span>}
               {mu.score && <span className="text-mute"> · </span>}
-              <span className={LIVE.has(g!.state) ? 'text-goal' : 'text-mute'}>{mu.status}</span>
+              <span className={isLive(sport, g!.state) ? 'text-goal' : 'text-mute'}>{mu.status}</span>
             </span>
           </span>
         )}
@@ -177,7 +177,7 @@ export default function Scoreboard() {
   const scored = standings.some((s) => Number(s.points) !== 0);
   const rankOf = (id: number) => (catMode ? (league?.format === 'h2h' ? undefined : rotoTable?.find((r) => r.team_id === id)?.rank)
     : scored ? standings.find((s) => s.team_id === id)?.rank : undefined);
-  const anyLive = slate.some((g) => LIVE.has(g.state));
+  const anyLive = slate.some((g) => isLive(sport, g.state));
 
   return (
     <div className="space-y-4">
@@ -195,15 +195,15 @@ export default function Scoreboard() {
       {slate.length > 0 && (
         <div className="scroll-x flex gap-2">
           {slate.map((g) => {
-            const live = LIVE.has(g.state);
+            const live = isLive(sport, g.state);
             return (
               <button type="button" key={g.id} onClick={() => setBox(g)} title="Open the box score"
                 className={`w-40 shrink-0 rounded-2xl border p-2.5 text-left transition hover:border-sky-400/50 ${live ? 'border-goal/40 bg-goal/[.07]' : 'border-white/[.07] bg-white/[.03]'}`}>
-                <div className={`mb-1.5 text-[10px] font-bold uppercase tracking-wider ${live ? 'text-goal' : 'text-mute'}`}>{live && <span className="mr-1 inline-block h-1.5 w-1.5 animate-pulse rounded-full bg-goal align-middle" />}{gameLabel(g)}</div>
+                <div className={`mb-1.5 text-[10px] font-bold uppercase tracking-wider ${live ? 'text-goal' : 'text-mute'}`}>{live && <span className="mr-1 inline-block h-1.5 w-1.5 animate-pulse rounded-full bg-goal align-middle" />}{gameLabel(sport, g)}</div>
                 {[[g.away, g.away_score], [g.home, g.home_score]].map(([abbr, score]) => (
                   <div key={String(abbr)} className="flex items-center gap-1.5 py-0.5 text-sm"><NhlLogo abbr={String(abbr)} size={18} /><span className="flex-1 font-semibold">{abbr}</span><span className="num font-bold">{score ?? ''}</span></div>
                 ))}
-                <div className="mt-1 text-[10px] text-sky-300">{live || ['OFF', 'FINAL'].includes(g.state) ? 'Box score ›' : 'Preview ›'}</div>
+                <div className="mt-1 text-[10px] text-sky-300">{live || isFinal(sport, g.state) ? 'Box score ›' : 'Preview ›'}</div>
               </button>
             );
           })}

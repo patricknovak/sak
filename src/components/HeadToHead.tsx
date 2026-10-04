@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { ArrowRight } from 'lucide-react';
-import { useLeague } from '../lib/store';
+import { useLeague, useSport } from '../lib/store';
+import { calledOff, notStarted } from '../lib/sport';
 import { rpc } from '../lib/supabase';
 import { fmtPts, readable } from '../lib/format';
 import { useBrand } from '../lib/brand';
@@ -191,6 +192,7 @@ function MatchupPlayers({ x, onClose }: { x: Matchup; onClose: () => void }) {
 // board; the ones still to come are forecast.
 function useWinChance(x: Matchup) {
   const { league, rosters, players, season, games: today, leagueDay } = useLeague();
+  const sport = useSport();
   const sched = useSeasonGames();
   const on = !!sched && x.away_team != null && x.status !== 'final' && !league?.categories?.length;
   return useMemo(() => {
@@ -198,7 +200,7 @@ function useWinChance(x: Matchup) {
     const caps = (league?.roster ?? {}) as Record<string, number>;
     // tonight's games already on (or over) are in the points on the board: the forecast plays only the ones to come,
     // so a player in a late game keeps what he's expected to add
-    const begun = new Set(today.filter((g) => g.date === leagueDay && !['FUT', 'PRE', 'PPD', 'CNCL'].includes(g.state)).map((g) => g.id));
+    const begun = new Set(today.filter((g) => g.date === leagueDay && !notStarted(sport, g.state) && !calledOff(sport, g.state)).map((g) => g.id));
     const ahead = begun.size ? sched!.filter((g) => !(g.id != null && begun.has(g.id))) : sched!;
     const from = x.status === 'upcoming' ? x.starts : leagueDay;
     const value = (p: Player): FPlayer => { const s = season.get(p.id); return { ...p, proj: rosPerGame(p.proj, p.pos, s?.gp ?? 0, s?.fpts ?? 0, p.proj_gp) * gamesOf(p) }; };

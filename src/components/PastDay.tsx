@@ -2,6 +2,7 @@
 // line and the league's points, and the team's total for the day. Read-only; the same numbers the standings count.
 import { useEffect, useMemo, useState } from 'react';
 import { useLeague } from '../lib/store';
+import { extraTime } from '../lib/sport';
 import { supabase } from '../lib/supabase';
 import { fmtPts } from '../lib/format';
 import { scoringLine } from './BoxScore';
@@ -66,7 +67,7 @@ export function PastDay({ day, roster, teamId, onInfo }: { day: string; roster: 
     const home = r.g.home === (r.pg?.nhl_team ?? r.p?.nhl_team);
     const opp = home ? r.g.away : r.g.home;
     const score = r.g.home_score != null ? `${home ? r.g.home_score : r.g.away_score}–${home ? r.g.away_score : r.g.home_score}` : '';
-    return `${home ? 'vs' : '@'} ${opp}${score ? ` · ${score}` : ''}${r.g.period === 'OT' || r.g.period === 'SO' ? ` ${r.g.period}` : ''}`;
+    return `${home ? 'vs' : '@'} ${opp}${score ? ` · ${score}` : ''}${extraTime(r.g.period) ? ` ${r.g.period}` : ''}`;
   };
   const dayName = new Date(day + 'T12:00:00Z').toLocaleDateString('en-CA', { weekday: 'long', month: 'long', day: 'numeric', timeZone: 'UTC' });
 

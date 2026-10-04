@@ -4,7 +4,8 @@
 // goalie categories for any timeframe. Used by the trade builder and the team scouting page.
 import { useMemo, type ReactNode } from 'react';
 import { useSticky } from '../lib/sticky';
-import { useLeague } from '../lib/store';
+import { useLeague, useSport } from '../lib/store';
+import { calledOff, type SportConfig } from '../lib/sport';
 import type { Player, PlayerSeason, PlayerWindow, ProjDetail } from '../lib/types';
 import { etToday, fmtPts } from '../lib/format';
 import { TIMEFRAMES, fmtStat, lineFor, minSample, rosPoints, statDef, statValue, type Timeframe } from '../lib/playerstats';
@@ -19,12 +20,13 @@ export const GOALIE_COLS = ['gp', 'w', 'l', 'svp', 'gaa', 'sho', 'sv'];
 const POS_ORDER = ['C', 'LW', 'RW', 'D', 'G'];
 
 // everything the strip, the peek and the sort need, loaded once per page
-export interface ScoutCtx { windows: Map<number, Record<string, PlayerWindow>>; season: Map<number, PlayerSeason>; details: Map<number, ProjDetail> | null; games: Game[] | null; today: string }
+export interface ScoutCtx { windows: Map<number, Record<string, PlayerWindow>>; season: Map<number, PlayerSeason>; details: Map<number, ProjDetail> | null; games: Game[] | null; today: string; sport: SportConfig }
 export function useScoutCtx(): ScoutCtx {
   const { windows, season } = useLeague();
+  const sport = useSport();
   const details = useProjDetails();
   const games = useSeasonGames();
-  return useMemo(() => ({ windows, season, details, games, today: etToday() }), [windows, season, details, games]);
+  return useMemo(() => ({ windows, season, details, games, today: etToday(), sport }), [windows, season, details, games, sport]);
 }
 
 const addDays = (d: string, n: number) => new Date(Date.UTC(+d.slice(0, 4), +d.slice(5, 7) - 1, +d.slice(8, 10) + n)).toISOString().slice(0, 10);
@@ -48,8 +50,8 @@ export function scoutNums(p: Player, c: ScoutCtx): ScoutNums {
   const pace = gp >= 8 ? fp / gp : projPg;
   const trend = w14 && w14.gp >= 3 && pace > 0.2 ? w14.fpg! / pace - 1 : null;
   const m = c.details?.get(p.id)?.proj_meta ?? null;
-  const left = c.games ? c.games.filter((g) => g.date >= c.today && !['PPD', 'CNCL'].includes(g.state) && (g.home === p.nhl_team || g.away === p.nhl_team)).length : 0;
-  const next7 = c.games ? c.games.filter((g) => g.date >= c.today && g.date <= addDays(c.today, 6) && !['PPD', 'CNCL'].includes(g.state) && (g.home === p.nhl_team || g.away === p.nhl_team)).length : 0;
+  const left = c.games ? c.games.filter((g) => g.date >= c.today && !calledOff(c.sport, g.state) && (g.home === p.nhl_team || g.away === p.nhl_team)).length : 0;
+  const next7 = c.games ? c.games.filter((g) => g.date >= c.today && g.date <= addDays(c.today, 6) && !calledOff(c.sport, g.state) && (g.home === p.nhl_team || g.away === p.nhl_team)).length : 0;
   return {
     gp, fp, fpg: gp ? fp / gp : null, w: { '7': win('7'), '14': w14, '30': win('30') }, trend,
     last: p.last_fp, lastGp: p.last_stats?.gp ?? 0,
@@ -171,7 +173,7 @@ export function PlayerPeek({ p, c }: { p: Player; c: ScoutCtx }) {
   const cols = goalie ? ['w', 'l', 'svp', 'gaa', 'sho'] : ['g', 'a', 'pts', 'ppp', 'sog', 'hit', 'blk'];
   const rows: { k: Timeframe; label: string }[] = [{ k: '7', label: 'Last 7 days' }, { k: '14', label: 'Last 14 days' }, { k: '30', label: 'Last 30 days' }, { k: 'season', label: 'This season' }, { k: 'last', label: '’25-26' }];
   const t = trendLabel(n.trend);
-  const week = c.games ? c.games.filter((g) => g.date >= c.today && g.date <= addDays(c.today, 6) && !['PPD', 'CNCL'].includes(g.state) && (g.home === p.nhl_team || g.away === p.nhl_team)).sort((a, b) => a.date.localeCompare(b.date)) : [];
+  const week = c.games ? c.games.filter((g) => g.date >= c.today && g.date <= addDays(c.today, 6) && !calledOff(c.sport, g.state) && (g.home === p.nhl_team || g.away === p.nhl_team)).sort((a, b) => a.date.localeCompare(b.date)) : [];
   return (
     <div className="space-y-2 rounded-xl border border-white/[.08] bg-black/25 p-2 text-xs">
       <div className="grid grid-cols-3 gap-1.5 text-center sm:grid-cols-6">

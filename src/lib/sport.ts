@@ -302,3 +302,16 @@ export const plays = (sport: SportConfig, p: { pos: string; elig: string[] }, po
   p.pos === pos || (groupOf(sport, p.pos) === groupOf(sport, pos) && p.elig.includes(pos));
 // the position keys, in the sport's order
 export const positionKeys = (sport: SportConfig) => sport.positions.map((p) => p.key);
+
+// Where a game stands, from its feed state: not started, under way, over, or called off (postponed or cancelled). A
+// state the sport doesn't list counts as under way, as the pages always treated an unknown one.
+export const isLive = (sport: SportConfig, state: string) => sport.states.live.includes(state);
+export const isFinal = (sport: SportConfig, state: string) => sport.states.final.includes(state);
+export const hasStarted = (sport: SportConfig, state: string) => isLive(sport, state) || isFinal(sport, state);
+export const calledOff = (sport: SportConfig, state: string) => sport.states.postponed.includes(state) || sport.states.cancelled.includes(state);
+export const notStarted = (sport: SportConfig, state: string) => sport.states.scheduled.includes(state);
+// a numbered period is regulation; anything else (overtime, a shootout) is extra time
+export const extraTime = (period: string | null | undefined) => !!period && !/^\d+$/.test(String(period));
+// a period for a live clock: regulation in the sport's words ("2nd"), extra time as the feed names it ("OT", "SO")
+export const periodShort = (sport: SportConfig, period: string | null | undefined) =>
+  !period ? '' : extraTime(period) ? String(period) : sport.periods[String(period)] ?? String(period);

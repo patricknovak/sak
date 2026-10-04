@@ -4,12 +4,12 @@
 // The day column shows today's points once tonight's first game has started; before that it shows yesterday's,
 // so the morning after a game night still reads like a box score instead of a row of dashes.
 import { Link } from 'react-router-dom';
-import { useLeague } from '../lib/store';
+import { useLeague, useSport } from '../lib/store';
+import { hasStarted } from '../lib/sport';
 import { fmtMoney, fmtPts } from '../lib/format';
 import type { Standing } from '../lib/types';
 import { Rank, TeamBadge, TeamName } from './ui';
 
-const STARTED = new Set(['LIVE', 'CRIT', 'OFF', 'FINAL']);
 
 export function StandingsTable({ rows, view = 'regular', pot = [], peter = false }: {
   rows: Standing[];
@@ -18,9 +18,10 @@ export function StandingsTable({ rows, view = 'regular', pot = [], peter = false
   peter?: boolean;         // flag last place for the Peter
 }) {
   const { team, me, online, games, leagueDay } = useLeague();
+  const sport = useSport();
   const table = [...rows].sort((a, b) => a.rank - b.rank);
   const scored = table.some((t) => Number(t.points) !== 0);
-  const tonight = games.some((g) => g.date === leagueDay && STARTED.has(g.state));
+  const tonight = games.some((g) => g.date === leagueDay && hasStarted(sport, g.state));
   const lead = Number(table[0]?.points ?? 0);
   const benchWhen = view === 'cup' ? 'this year' : view === 'playoffs' ? 'in the playoffs' : 'this season';
 

@@ -2,7 +2,7 @@
 // so a page reading it before the row loads and a page reading the row agree.
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
-import { NHL, stateOf, groupOf } from '../../src/lib/sport.ts';
+import { NHL, stateOf, groupOf, isLive, isFinal, hasStarted, calledOff, notStarted, extraTime, periodShort } from '../../src/lib/sport.ts';
 import { STARTING, slotOk } from '../functions/_shared/lineup.ts';
 
 const sql = fs.readFileSync(new URL('../migrations/20261005000135_sports.sql', import.meta.url), 'utf8');
@@ -24,4 +24,16 @@ for (const s of NHL.slots) for (const p of NHL.positions) {
   assert.equal(s.accepts.includes(p.key), slotOk({ pos: p.key, elig: [p.key] }, s.key), `slot ${s.key} and position ${p.key} disagree with slotOk`);
 }
 console.log('ok: the slots agree with the lineup engine');
+// the game-state helpers say exactly what the pages' hockey lists said, an unknown state included (it counts as under way)
+for (const st of ['FUT', 'PRE', 'LIVE', 'CRIT', 'OFF', 'FINAL', 'PPD', 'CNCL', 'WHAT']) {
+  assert.equal(isLive(NHL, st), ['LIVE', 'CRIT'].includes(st), `live ${st}`);
+  assert.equal(isFinal(NHL, st), ['OFF', 'FINAL'].includes(st), `final ${st}`);
+  assert.equal(hasStarted(NHL, st), ['LIVE', 'CRIT', 'OFF', 'FINAL'].includes(st), `started ${st}`);
+  assert.equal(calledOff(NHL, st), ['PPD', 'CNCL'].includes(st), `called off ${st}`);
+  assert.equal(notStarted(NHL, st), ['FUT', 'PRE'].includes(st), `not started ${st}`);
+}
+assert.equal(periodShort(NHL, '2'), '2nd'); assert.equal(periodShort(NHL, 'OT'), 'OT'); assert.equal(periodShort(NHL, 'SO'), 'SO');
+assert.equal(periodShort(NHL, null), ''); assert.equal(periodShort(NHL, '5'), '5');
+assert.ok(extraTime('OT') && extraTime('SO') && !extraTime('3') && !extraTime(null) && !extraTime(''));
+console.log('ok: game states and periods read as the pages read them');
 console.log('sport tests passed');

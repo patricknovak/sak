@@ -6,7 +6,7 @@ import type {
 } from './types';
 import { etCalendarToday, etToday, setLeagueDayHold } from './format';
 import { applyBrandColors, brandOf, SAK_BRAND, type Brand } from './brand';
-import { NHL, type SportConfig } from './sport';
+import { calledOff, isFinal, NHL, type SportConfig } from './sport';
 import { hostLeague, tabLeague, type HostLeague } from './host';
 
 interface Store {
@@ -53,6 +53,10 @@ export function LeagueProvider({ children }: { children: ReactNode }) {
   const [league, setLeague] = useState<League | null>(null);
   const [brand, setBrand] = useState<Brand>(SAK_BRAND);
   const [sport, setSport] = useState<SportConfig>(NHL);
+  // a game that can't change the numbers any more: over, postponed or cancelled (read from loaders and timers)
+  const sportRef = useRef(sport);
+  sportRef.current = sport;
+  const settled = (state: string) => isFinal(sportRef.current, state) || calledOff(sportRef.current, state);
   // league by host: which league this address is, worked out once before anything loads, so the sign-in page wears its
   // brand and every request names it
   const [host, setHost] = useState<HostLeague | null>(null);
@@ -145,7 +149,7 @@ export function LeagueProvider({ children }: { children: ReactNode }) {
       const { data } = await supabase.from('games').select('*').gte('date', today).lte('date', end).order('start_utc');
       if (data) {
         // set the league-day hold before anything renders with these games (a late game from last night still on)
-        const going = (data as Game[]).some((g) => g.date === today && new Date(g.start_utc).getTime() <= Date.now() && !['OFF', 'FINAL', 'PPD', 'CNCL'].includes(g.state));
+        const going = (data as Game[]).some((g) => g.date === today && new Date(g.start_utc).getTime() <= Date.now() && !settled(g.state));
         setLeagueDayHold(going ? today : null);
         setGames(data as Game[]);
       }
@@ -235,7 +239,7 @@ export function LeagueProvider({ children }: { children: ReactNode }) {
     const i1 = window.setInterval(() => {
       if (document.visibilityState !== 'visible') return;
       tick++;
-      const live = gamesRef.current.some((g) => !['OFF', 'FINAL', 'PPD', 'CNCL'].includes(g.state) && Date.parse(g.start_utc) - 30 * 60_000 <= Date.now());
+      const live = gamesRef.current.some((g) => !settled(g.state) && Date.parse(g.start_utc) - 30 * 60_000 <= Date.now());
       if (live || tick % 5 === 0) refresh(['standings', 'games']);
       if (live ? tick % 5 === 0 : tick % 30 === 0) refresh(['season', 'windows', 'gameday']);
     }, 60_000);
@@ -292,7 +296,7 @@ export function LeagueProvider({ children }: { children: ReactNode }) {
     const check = () => {
       const cal = etCalendarToday();
       const y = new Date(new Date(cal + 'T12:00:00Z').getTime() - 86400000).toISOString().slice(0, 10);
-      const going = games.some((g) => g.date === y && new Date(g.start_utc).getTime() <= Date.now() && !['OFF', 'FINAL', 'PPD', 'CNCL'].includes(g.state));
+      const going = games.some((g) => g.date === y && new Date(g.start_utc).getTime() <= Date.now() && !settled(g.state));
       setLeagueDayHold(going ? y : null);
       setLeagueDay(etToday());
     };

@@ -5,7 +5,8 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useSticky } from '../lib/sticky';
 import { Link } from 'react-router-dom';
-import { useLeague } from '../lib/store';
+import { useLeague, useSport } from '../lib/store';
+import { isLive } from '../lib/sport';
 import { rpc } from '../lib/supabase';
 import { fmtDate, fmtPts, readable } from '../lib/format';
 import { Headshot, PageHeader, Pos, Section, Stat, TeamBadge } from '../components/ui';
@@ -25,7 +26,6 @@ const RANGES: { k: RangeKey; label: string }[] = [
 // the categories in the order the box-score lines use them; only the ones the league scores are shown
 const SKATER = ['g', 'a', 'pm', 'ppp', 'shp', 'gwg', 'sog', 'hit', 'blk', 'pim', 'fow'];
 const GOALIE = ['gs', 'w', 'l', 'otl', 'sv', 'ga', 'sho'];
-const LIVE = new Set(['LIVE', 'CRIT']);
 
 const addDays = (d: string, n: number) => new Date(Date.UTC(+d.slice(0, 4), +d.slice(5, 7) - 1, +d.slice(8, 10) + n)).toISOString().slice(0, 10);
 const num = (o: Record<string, number> | null | undefined, k: string) => Number(o?.[k] ?? 0);
@@ -62,6 +62,7 @@ const rankOf = (v: number, all: number[], lowerIsBetter = false) => all.filter((
 
 export default function Performance() {
   const { me, teams, team, players, league, leagueDay, games } = useLeague();
+  const sport = useSport();
   const [rows, setRows] = useState<Day[] | null>(null);
   const [pps, setPps] = useState<PP[]>([]);
   const [effRows, setEffRows] = useState<Eff[]>([]);
@@ -84,7 +85,7 @@ export default function Performance() {
   const allDates = useMemo(() => [...new Set(scored.map((r) => r.date))].sort(), [scored]);
   // "last night" is the latest league day with box scores; while games are on it is tonight so far
   const lastNight = allDates[allDates.length - 1] ?? leagueDay;
-  const tonightLive = lastNight === leagueDay && games.some((g) => g.date === leagueDay && LIVE.has(g.state));
+  const tonightLive = lastNight === leagueDay && games.some((g) => g.date === leagueDay && isLive(sport, g.state));
   const [from, to] = useMemo((): [string, string] => {
     if (range === 'last') return [lastNight, lastNight];
     if (range === 'custom') return [custom.from <= custom.to ? custom.from : custom.to, custom.to >= custom.from ? custom.to : custom.from];

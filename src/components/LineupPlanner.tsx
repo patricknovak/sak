@@ -5,7 +5,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { CalendarDays, Copy, Save, Sparkles, Trash2, Undo2 } from 'lucide-react';
 import { useLeague, useSport } from '../lib/store';
-import { plays, positionKeys } from '../lib/sport';
+import { calledOff, hasStarted, plays, positionKeys } from '../lib/sport';
 import { rpc, supabase } from '../lib/supabase';
 import { etToday, fmtPts } from '../lib/format';
 import { optimize, slotOk as canPlay, gamesOf, availability, type Basis, type LContext } from '../lib/lineup';
@@ -92,12 +92,12 @@ export function LineupPlanner({ roster }: { roster: Row[] }) {
 
   const gamesOn = useMemo(() => {
     const m = new Map<string, Game[]>();
-    for (const g of games ?? []) { if (g.state === 'PPD' || g.state === 'CNCL') continue; m.set(g.date, [...(m.get(g.date) ?? []), g]); }
+    for (const g of games ?? []) { if (calledOff(sport, g.state)) continue; m.set(g.date, [...(m.get(g.date) ?? []), g]); }
     return m;
-  }, [games]);
+  }, [games, sport]);
   const gameFor = (p: Player, d: string) => (gamesOn.get(d) ?? []).find((g) => g.home === p.nhl_team || g.away === p.nhl_team);
   const nowMs = Date.now() + serverOffset;
-  const locked = (p: Player) => { if (day !== today) return false; const g = gameFor(p, today); return !!g && (new Date(g.start_utc).getTime() <= nowMs || ['LIVE', 'CRIT', 'OFF', 'FINAL'].includes(g.state)); };
+  const locked = (p: Player) => { if (day !== today) return false; const g = gameFor(p, today); return !!g && (new Date(g.start_utc).getTime() <= nowMs || hasStarted(sport, g.state)); };
   const perGameProj = (p: Player) => p.proj / gamesOf(p);
   // expected points on a night his team plays: per game × the chance he dresses (or starts, for a goalie)
   // injuries count: day-to-day is about a coin flip, and a hurt goalie's starts go to his healthy partner

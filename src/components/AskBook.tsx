@@ -3,7 +3,7 @@
 // odds the Book would give, and opens it by taking the first ticket. The Book prices nothing it isn't asked
 // for, so the board only carries bets somebody wants; the suggestions show what's worth asking about right now.
 import { useEffect, useMemo, useState } from 'react';
-import { useLeague } from '../lib/store';
+import { useLeague, useSport } from '../lib/store';
 import { rpc, supabase } from '../lib/supabase';
 import type { BookPreview, BookRequest, BookSuggestion, BookTemplate, ClubRace, Game, MarketOption, Player } from '../lib/types';
 import { etToday, fmtDate, fmtDateTime, fmtTime, NHL_TEAMS } from '../lib/format';
@@ -180,10 +180,11 @@ export function AskBook({ onDone, start }: { onDone: () => void; start?: BookReq
 // games in the next two weeks, from tomorrow (tonight's are the Book's own)
 function GamePicker({ req, set, today }: { req: BookRequest; set: (p: Partial<BookRequest>) => void; today: string }) {
   const [games, setGames] = useState<Game[] | null>(null);
+  const scheduled = useSport().states.scheduled;
   useEffect(() => {
-    supabase.from('games').select('*').gt('date', today).lte('date', addDays(today, 14)).in('state', ['FUT', 'PRE']).order('start_utc')
+    supabase.from('games').select('*').gt('date', today).lte('date', addDays(today, 14)).in('state', scheduled).order('start_utc')
       .then(({ data }) => setGames((data ?? []) as Game[]));
-  }, [today]);
+  }, [today, scheduled]);
   const days = useMemo(() => { const m = new Map<string, Game[]>(); for (const g of games ?? []) { if (!m.has(g.date)) m.set(g.date, []); m.get(g.date)!.push(g); } return [...m.entries()]; }, [games]);
   const [day, setDay] = useState<string | null>(null);
   const cur = day ?? days[0]?.[0] ?? null;

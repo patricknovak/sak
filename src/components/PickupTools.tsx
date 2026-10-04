@@ -4,7 +4,7 @@
 //  • Roster vs available: any team's players at each position next to the best free agents there.
 import { useEffect, useMemo, useState } from 'react';
 import { useLeague, useSport } from '../lib/store';
-import { plays, positionKeys } from '../lib/sport';
+import { calledOff, plays, positionKeys } from '../lib/sport';
 import { rpc } from '../lib/supabase';
 import { etToday, fmtPts } from '../lib/format';
 import { gamesOf, rosPerGame, dressRate } from '../lib/lineup';
@@ -72,7 +72,7 @@ export function PickupAdvisor() {
   const rosterMax = Object.entries(caps).filter(([k]) => k !== 'IR').reduce((t, [, n]) => t + n, 0);
   const mine = useMemo(() => rosters.filter((r) => r.team_id === me?.id), [rosters, me?.id]);
   const activeCount = mine.filter((r) => r.slot !== 'IR').length;
-  const gamesIn = (p: Player) => (games ?? []).filter((g) => g.date >= today && g.date <= to && g.state !== 'PPD' && (g.home === p.nhl_team || g.away === p.nhl_team)).length;
+  const gamesIn = (p: Player) => (games ?? []).filter((g) => g.date >= today && g.date <= to && !calledOff(sport, g.state) && (g.home === p.nhl_team || g.away === p.nhl_team)).length;
 
   useEffect(() => {
     if (!games || !me || league?.phase !== 'season' || (catOn && !model)) return;
