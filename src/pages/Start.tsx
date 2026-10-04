@@ -46,7 +46,7 @@ export default function Start() {
 
   return (
     <div className="pt-safe min-h-dvh px-4 py-10" style={themed('#f7c548')}>
-      <div className="mx-auto w-full max-w-md">
+      <div className="mx-auto w-full max-w-md pt-6">
         <div className="mb-6 text-center">
           <div className="mx-auto mb-3 inline-block drop-shadow-[0_10px_30px_rgb(var(--gold-rgb)/.35)]"><ProductMark size={64} /></div>
           <div className="h-display text-4xl leading-none"><span className="text-gold-shine italic">SUPER</span><span className="text-shine ml-2 font-black">POOLS</span></div>
