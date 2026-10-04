@@ -4,7 +4,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useBrand } from '../lib/brand';
 import { Link, useSearchParams } from 'react-router-dom';
-import { useLeague } from '../lib/store';
+import { useLeague, useSport } from '../lib/store';
 import { hub } from '../lib/nhlhub';
 import { fmtPts, fmtTime } from '../lib/format';
 import { PageHeader, Section, Sheet, TeamBadge } from '../components/ui';
@@ -125,6 +125,7 @@ function Video({ id, title, onClose }: { id: string; title: string; onClose: () 
 }
 
 export default function NHL() {
+  const sport = useSport();
   const brand = useBrand();
   const { me, players, rosters, owner, team, teams, leagueDay } = useLeague();
   const [params, setParams] = useSearchParams();
@@ -216,7 +217,7 @@ export default function NHL() {
 
   return (
     <div className="space-y-4">
-      <PageHeader icon={<Radio size={22} className="text-goal" />} title="NHL centre" sub="The top of the NHL day, then scores, news, injuries, the insiders on X, standings, leaders, teams and the schedule, with your players flagged everywhere" />
+      <PageHeader icon={<Radio size={22} className="text-goal" />} title={sport.words.centre ?? 'NHL centre'} sub="The top of the NHL day, then scores, news, injuries, the insiders on X, standings, leaders, teams and the schedule, with your players flagged everywhere" />
       <div className="scroll-x flex gap-1">
         {([['top', '🔥 Top'], ['scores', '🏒 Scores'], ['news', '📰 News'], ['injuries', '🩹 Injuries'], ['x', '𝕏 Insiders'], ['standings', '🏆 Standings'], ['leaders', '📈 Leaders'], ['teams', '🛡️ Teams'], ['schedule', '📅 Schedule']] as const).map(([k, l]) => <button key={k} className={`tab shrink-0 ${tab === k ? 'tab-on' : 'bg-white/[.05]'}`} onClick={() => setTab(k)}>{l}</button>)}
         <Link to="/scoreboard" className="tab ml-auto shrink-0 bg-white/[.05]">📡 {brand.short}</Link>

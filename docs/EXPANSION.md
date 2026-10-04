@@ -334,7 +334,8 @@ its adapter; the Book asks the sport whether a game is live or final, while its 
 overtime) stay hockey's model until a second sport's Book is designed. Garry's voice reads the sport too (migration 144):
 the sports row carries the words his prompts wrote in (the game's name, the rec-league adjective, the room, his one-line
 character), so the NHL's prompts read exactly as before and another sport's league gets its own. The site's "puck drop" in its
-explanations (the lineup lock, a past day, the Book's closing time, the standings' corrections note) reads the same word. Next: the draft simulator, which needs the sport's draft
+explanations (the lineup lock, a past day, the Book's closing time, the standings' corrections note) reads the same word, and the
+centre's name in the nav, its page title and Home's link read `words.centre` ("NHL centre"). Next: the draft simulator, which needs the sport's draft
 rules in its row (depth targets per position, a cap per position, flex spots, the goalie timing it now hard-codes),
 best designed beside a real second sport rather than guessed at.
 

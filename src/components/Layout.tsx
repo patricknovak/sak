@@ -73,7 +73,7 @@ function alertMe() {
 }
 
 export function Layout({ children }: { children: ReactNode }) {
-  const { me, league, brand, draft, picks, notifications, refresh } = useLeague();
+  const { me, league, brand, draft, picks, notifications, refresh, sport } = useLeague();
   const now = useNow(1000);
   const loc = useLocation();
   const nav = useNavigate();
@@ -98,7 +98,8 @@ export function Layout({ children }: { children: ReactNode }) {
     { to: '/', label: 'Home', icon: Home },
     draftish ? { to: '/draft', label: 'Draft Centre', short: 'Draft', icon: ClipboardList } : spectator ? { to: '/standings', label: 'Standings', icon: Trophy } : { to: '/team', label: 'Lineup', icon: Shield },
     { to: '/chat', label: 'Chat', icon: MessageCircle },
-    { to: '/nhl', label: 'NHL centre', icon: Tv },
+    // the sport's own centre ("NHL centre" for hockey), from the sports row
+    { to: '/nhl', label: sport.words.centre ?? 'NHL centre', icon: Tv },
   ];
   const moreItems: Item[] = [
     { to: '/standings', label: 'Standings', icon: Trophy },

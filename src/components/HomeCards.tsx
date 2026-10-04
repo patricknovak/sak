@@ -21,7 +21,7 @@ const status = (g: TopGame) => DONE.has(g.state) ? `Final${g.outcome && g.outcom
 
 // NHL centre, top: live games first, else tonight's slate, else last night's finals
 export function NhlTopCard() {
-  const { leagueDay, players, owner, team } = useLeague();
+  const { leagueDay, players, owner, team, sport } = useLeague();
   const [games, setGames] = useState<TopGame[] | null>(null);
   const [label, setLabel] = useState('Tonight');
   useEffect(() => {
@@ -43,7 +43,7 @@ export function NhlTopCard() {
   const rows = live.length ? live : (games ?? []);
   const title = live.length ? '🔴 Live right now' : games?.every((g) => DONE.has(g.state)) && games.length ? `🏒 ${label}: finals` : `🏒 ${label} around the NHL`;
   return (
-    <Section title={title} right={<More to="/nhl" label="NHL centre" />}>
+    <Section title={title} right={<More to="/nhl" label={sport.words.centre ?? 'NHL centre'} />}>
       <div className="card divide-y divide-white/[.05]">
         {!games && <div className="p-3 text-sm text-mute">Loading…</div>}
         {games && games.length === 0 && <div className="p-3 text-sm text-mute">No NHL games today.</div>}
