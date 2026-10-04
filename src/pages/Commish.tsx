@@ -18,6 +18,7 @@ import { Link } from 'react-router-dom';
 import { LeagueIdentity } from '../components/LeagueIdentity';
 import { SetupGuide } from '../components/SetupGuide';
 import { SeatManager } from '../components/SeatManager';
+import { RosterEditor } from '../components/RosterEditor';
 
 // datetime-local <-> ISO in the viewer's zone
 const toLocal = (iso: string | null) => {
@@ -188,6 +189,10 @@ export default function Commish() {
 
       <Section id="scoring" title="📐 Scoring settings">
         <ScoringEditor />
+      </Section>
+
+      <Section id="roster" title="🧩 Roster">
+        <RosterEditor />
       </Section>
 
       <Section id="settings" title="⚙️ League settings">

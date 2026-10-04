@@ -27,7 +27,7 @@ export function SetupGuide() {
   const steps: Step[] = [
     { key: 'look', title: 'Make it yours', detail: `${league.name} · ${brand.short}. Wordmark, colour, prize names and the coins.`, done: true, to: 'identity' },
     { key: 'gms', title: 'Bring in your GMs', detail: filled === seats ? `All ${seats} seats taken.` : `${filled} of ${seats} seats taken. Open seats on draft night are picked for automatically.`, done: filled === seats, to: 'invites' },
-    { key: 'rules', title: 'Scoring and roster', detail: 'Worth a look: how points are scored and how many players each team carries.', done: false, to: 'scoring', optional: true },
+    { key: 'rules', title: 'Scoring and roster', detail: 'Worth a look: how points are scored and how many players each team carries.', done: false, to: 'roster', optional: true },
     ...(keepers ? [{ key: 'keepers', title: 'Keepers', detail: `${teams.filter((t) => t.keepers_submitted).length} of ${seats} GMs have saved theirs. Finalize to open the draft pool.`, done: false, to: 'keepers' }] : []),
     { key: 'when', title: 'Set draft night', detail: league.draft_at ? `${fmtDateTime(league.draft_at)} · ${league.pick_seconds}s a pick · ${league.draft_rounds} rounds` : 'Pick the date, the pick clock and the rounds.', done: !!league.draft_at, to: 'settings' },
     { key: 'order', title: 'Draw the order', detail: draft.order_set ? 'The order is set.' : 'Randomize it, or set it by hand.', done: draft.order_set, to: 'draft' },

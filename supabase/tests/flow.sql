@@ -2499,3 +2499,32 @@ select pg_temp.expect('and scored once the season is done', (select bool_and(sta
 select pg_temp.expect('nobody else''s draft is touched', not exists (select 1 from predictions where kind = 'draft_value' and league_id not in (1, :league5)));
 select set_config('request.jwt.claim.sub', '', false);
 select 'drafts and keepers join the prediction log', true;
+
+-- ───────────── a league's own roster ─────────────
+reset role;
+select roster::text as pond_roster_before from league_rules where league_id = :league4 \gset
+select id as pond_commish from teams where league_id = :league4 and is_commish \gset
+select user_id as pond_commish_user from teams where id = :pond_commish \gset
+update league_rules set phase = 'predraft' where league_id = :league4;
+update draft_state set order_set = false, status = 'scheduled' where league_id = :league4;
+select set_config('request.jwt.claim.sub', :'pond_commish_user', false);
+set role authenticated;
+select pg_temp.expect('the commissioner sets the league''s own slots, and the draft follows', (commish_set_roster('{"C": 2, "LW": 2, "RW": 2, "D": 4, "G": 2, "Util": 2, "BN": 6, "IR": 1}'::jsonb)->>'rounds')::int = 20 - (select keepers from league));
+select pg_temp.expect('the rules carry it', (select roster->>'D' = '4' and roster->>'BN' = '6' and draft_rounds = 20 - keepers from league));
+select pg_temp.raises('a league needs a goalie', 'select commish_set_roster(''{"C": 2, "LW": 2, "RW": 2, "D": 4, "G": 0, "Util": 2, "BN": 6, "IR": 1}''::jsonb)', 'G takes');
+select pg_temp.raises('every slot is counted', 'select commish_set_roster(''{"C": 2}''::jsonb)', 'needs a count');
+select pg_temp.raises('half a defenceman is no slot', 'select commish_set_roster(''{"C": 2, "LW": 2, "RW": 2, "D": 3.5, "G": 2, "Util": 2, "BN": 6, "IR": 1}''::jsonb)', 'D takes');
+reset role;
+update draft_state set order_set = true where league_id = :league4;
+select set_config('request.jwt.claim.sub', :'pond_commish_user', false);
+set role authenticated;
+select pg_temp.raises('not once the order is drawn', 'select commish_set_roster(''{"C": 2, "LW": 2, "RW": 2, "D": 3, "G": 2, "Util": 1, "BN": 12, "IR": 2}''::jsonb)', 'before the draft order');
+reset role;
+select pg_temp.expect('SaK''s roster is untouched', (select roster from league_rules where league_id = 1) = '{"C": 2, "D": 3, "G": 2, "BN": 12, "IR": 2, "LW": 2, "RW": 2, "Util": 1}'::jsonb);
+select pg_temp.expect('it is on the log', exists (select 1 from commish_log where league_id = :league4 and action = 'commish_set_roster'));
+select pg_temp.as_team(2);
+set role authenticated;
+select pg_temp.raises('a GM can''t change the roster', 'select commish_set_roster(''{}''::jsonb)', 'Commissioner only');
+reset role;
+select set_config('request.jwt.claim.sub', '', false);
+select 'a league''s own roster', true;

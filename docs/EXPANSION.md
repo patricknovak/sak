@@ -313,7 +313,9 @@ Garry's daily budget.
 seated, the order drawn, the draft run to the end with open seats picked for them, rosters slotted and the season
 phase set, all through the functions the site calls. Three fixes came out of it: the order draw took every league's
 teams (SaK's too since the shadow league), an open seat waited out the full clock each round (now 4 seconds, like
-autodraft), and a new league opened in the keepers phase with nobody to keep (now ready to draft).
+autodraft), and a new league opened in the keepers phase with nobody to keep (now ready to draft). A new league can
+set its own roster slots before the draft (migration 116, `commish_set_roster`, the Commish page's Roster section; the
+draft takes one round per spot after the keepers).
 
 **Phase 3, the sport pulled out.** Section 6 with the NHL as the only sport: `sports` row, adapter interface,
 `SportConfig`, scoring as a list, ids with `sport`. SaK must not notice.
