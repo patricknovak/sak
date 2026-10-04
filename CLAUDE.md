@@ -26,7 +26,8 @@ Two things in one repo:
   `leagues.brand`; never hard-code a new league-specific name. The league's colour (`brand.colors.gold`) themes the
   site through CSS variables (`--color-gold`, `--gold-rgb`, `--gold-hi`...; `applyBrandColors`): draw accents with
   `gold` classes or `rgb(var(--gold-rgb)/…)`, never a literal `#f7c548`. The commissioner edits the brand on the
-  Commish page (`commish_set_brand`); the platform opens leagues on `#/platform`. League by host: `src/lib/host.ts`
+  Commish page (`commish_set_brand`); the platform opens leagues on `#/platform`, from requests made on the public
+  `#/start` page (drawn in the product's own colours, docs/BRAND.md). League by host: `src/lib/host.ts`
   reads the address (`league_by_host`), and the site sends that league as `x-league` on REST requests only (the edge
   functions' CORS doesn't list it).
 - Backend: Supabase Postgres (project `quakdkzdafzlhgjvmypg`). Every rule is a SQL function behind

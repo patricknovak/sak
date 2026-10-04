@@ -2296,6 +2296,32 @@ select set_config('request.headers', '', false);
 select set_config('request.jwt.claim.sub', '', false);
 select 'league by host', true;
 
+-- ───────────── asking for a league ─────────────
+reset role;
+select set_config('request.jwt.claim.sub', '', false);
+set role anon;
+select pg_temp.expect('anyone can ask for a league', request_league(' Lou Lake ', 'Lou@Example.com ', 'Lake Shinny', 10, 'yahoo', 'Twelve years on Yahoo'));
+select pg_temp.raises('a request needs an email', 'select request_league(''Lou'', ''not-an-email'', ''Lake'', 10)', 'email address');
+select pg_temp.raises('and a sensible number of teams', 'select request_league(''Lou'', ''lou@example.com'', ''Lake'', 40)', 'Between 2 and 20');
+select request_league('Lou Lake', 'lou@example.com', 'Lake Shinny', 10);
+select request_league('Lou Lake', 'lou@example.com', 'Lake Shinny', 10);
+select pg_temp.raises('one email asks a few times a day at most', 'select request_league(''Lou Lake'', ''lou@example.com'', ''Lake Shinny'', 10)', 'already');
+select pg_temp.raises('the public can''t read the inbox', 'select * from platform_league_requests()', 'permission denied');
+reset role;
+select pg_temp.expect('the inbox is out of the API''s reach', not has_schema_privilege('anon', 'ops', 'usage') and not has_schema_privilege('authenticated', 'ops', 'usage'));
+select pg_temp.as_team(1);
+set role authenticated;
+select pg_temp.expect('the platform hears about it in its bell', exists (select 1 from notifications where team_id = 1 and kind = 'platform' and body like '📮 Lou Lake asked for a league: Lake Shinny, 10 teams'));
+select pg_temp.expect('the platform sees it, trimmed and lower-cased', (select name = 'Lou Lake' and email = 'lou@example.com' and teams = 10 and plays_on = 'yahoo' and status = 'new'
+  from platform_league_requests() order by created_at limit 1));
+select pg_temp.expect('and marks it opened with the league it became', platform_close_request((select min(id) from platform_league_requests()), 'opened', :league2) = 'opened');
+reset role;
+select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-000000000099', false);
+set role authenticated;
+select pg_temp.raises('a commissioner can''t read the platform''s inbox', 'select * from platform_league_requests()', 'Only the platform');
+reset role;
+select set_config('request.jwt.claim.sub', '', false);
+select 'asking for a league', true;
 -- ───────────── the commissioner's log ─────────────
 reset role;
 select pg_temp.expect('the north commissioner''s rebrand earlier is on the north''s log', exists (select 1 from commish_log where league_id = :league2 and team_id = 99 and action = 'commish_set_brand'));
