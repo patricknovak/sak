@@ -4,7 +4,8 @@
   "name": "superpools-landing",
   "compatibility_date": "2026-10-01",
   "assets": { "directory": "." },
-  "workers_dev": true
+  // uploaded with no address until step 4 (the live landing page stays on Vercel until then)
+  "workers_dev": false
   // step 4 points the apex and www here:
   // "routes": [{ "pattern": "superpoolsai.com/*", "zone_name": "superpoolsai.com" }, { "pattern": "www.superpoolsai.com/*", "zone_name": "superpoolsai.com" }]
 }

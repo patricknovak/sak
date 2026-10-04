@@ -10,8 +10,10 @@
     // the app routes in the hash (#/team), so every path is the one page
     "not_found_handling": "single-page-application"
   },
-  // step 1 of the move: a preview at superpools-app.<account>.workers.dev beside GitHub Pages
-  "workers_dev": true
-  // step 2 adds the league addresses, with a proxied wildcard DNS record (AAAA * 100::) on superpoolsai.com:
-  // "routes": [{ "pattern": "*.superpoolsai.com/*", "zone_name": "superpoolsai.com" }]
+  // steps 1 and 2 of the move in one: SaK at sak.superpoolsai.com beside GitHub Pages. A custom domain, so the deploy
+  // makes the DNS record and the certificate itself; the new address is the preview, so no workers.dev one.
+  "workers_dev": false,
+  "routes": [{ "pattern": "sak.superpoolsai.com", "custom_domain": true }]
+  // every other league's address comes next, with a proxied wildcard DNS record (AAAA * 100::) on superpoolsai.com:
+  // { "pattern": "*.superpoolsai.com/*", "zone_name": "superpoolsai.com" }
 }
