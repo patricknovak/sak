@@ -59,8 +59,9 @@ Two things in one repo:
   categories in an h2h one) and `h2h_playoffs` (0, or the bracket's size). Read the tables through `standings` (points),
   `category_standings()`, `h2h_scores()` / `h2h_standings()` / `h2h_bracket()` (worked out on read). Anything that ranks
   teams (payouts, Garry, the Money page) follows the format; SaK's path stays the points table.
-- Hosting: today GitHub Pages from `main` (`.github/workflows/deploy.yml`, builds on push), and the Super Pools landing
-  page (`landing/index.html`) on Vercel. Decided (3 October 2026): both move to **Cloudflare** (free for commercial
+- Hosting: the app on GitHub Pages from `main` (`.github/workflows/deploy.yml`, builds on push) and on Cloudflare; the
+  Super Pools landing page (`landing/index.html`) on Cloudflare (zone routes on the apex and www; off Vercel); every
+  other `<league>.superpoolsai.com` goes to the app through a wildcard zone route. Decided (3 October 2026): both move to **Cloudflare** (free for commercial
   use, DNS already on Cloudflare, wildcard subdomains for league by host); never plan new work on Vercel. Built as
   Workers serving static assets (`wrangler.jsonc`, `landing/wrangler.jsonc`; Pages can't take a wildcard), deployed by
   `.github/workflows/cloudflare.yml` (the secrets are set; SaK's address there is `sak.superpoolsai.com`). The
