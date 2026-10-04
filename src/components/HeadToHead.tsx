@@ -1,4 +1,6 @@
 import { useEffect, useState } from 'react';
+import { Link } from 'react-router-dom';
+import { ArrowRight } from 'lucide-react';
 import { useLeague } from '../lib/store';
 import { rpc } from '../lib/supabase';
 import { fmtPts } from '../lib/format';
@@ -220,7 +222,7 @@ export function HeadToHeadStandings() {
   const { cat } = useScore();
   const [showAll, setShowAll] = useState(false);
   if (!matchups || !rows) return <div className="card h-48 animate-pulse" />;
-  if (!matchups.length) return <div className="card p-4 text-sm text-mute">The schedule isn’t made yet. The commissioner makes it on the Commish page.</div>;
+  if (!matchups.length) return <H2HPreseason />;
   const thisWeek = matchups.filter((x) => x.week === week);
   const mine = matchups.filter((x) => x.status === 'final' && (x.home_team === me?.id || x.away_team === me?.id));
   const playoffs = bracket.length > 0 && <Section title="The playoffs"><Bracket games={bracket} spots={spots} /></Section>;
@@ -241,6 +243,52 @@ export function HeadToHeadStandings() {
           <div className="grid gap-2 sm:grid-cols-2">{(showAll ? mine : mine.slice(-3)).reverse().map((x) => <MatchupCard key={x.id} x={x} />)}</div>
         </Section>
       )}
+    </div>
+  );
+}
+
+// before the schedule exists: what the format is, the field at 0-0-0, and the commissioner's way to the schedule
+function H2HPreseason() {
+  const { league, teams, me } = useLeague();
+  const { cat } = useScore();
+  const spots = league?.h2h_playoffs ?? 0;
+  const facts = [
+    ['📅', 'One opponent a week', 'Monday to Sunday, every team meets every other in turn.'],
+    [cat ? '📊' : '🏒', cat ? 'Win the categories' : 'Outscore them', cat ? `Take more of the ${league?.categories?.length} categories than your opponent to win the week.` : 'More fantasy points from your starters wins the week.'],
+    ['🏆', spots >= 2 ? `Top ${spots} make the playoffs` : 'The table decides it', spots >= 2 ? 'A bracket over the season’s last weeks, one week a round.' : 'Wins, losses and ties, then points for.'],
+  ];
+  return (
+    <div className="space-y-4">
+      <div className="card-hero p-4" style={{ '--tc': 'var(--color-gold)' } as React.CSSProperties}>
+        <div className="relative">
+          <div className="label text-white/60">⚔️ Head-to-head · {league?.season}</div>
+          <h2 className="h-display text-shine mt-0.5 text-2xl leading-none">Week by week</h2>
+          <div className="mt-3 space-y-2">
+            {facts.map(([icon, title, body]) => (
+              <div key={title} className="flex items-start gap-2.5">
+                <span className="grid h-8 w-8 shrink-0 place-items-center rounded-xl bg-white/10 text-base">{icon}</span>
+                <span className="min-w-0"><span className="block text-sm font-semibold text-white">{title}</span><span className="block text-xs text-white/60">{body}</span></span>
+              </div>
+            ))}
+          </div>
+          {me?.is_commish ? (
+            <Link to="/commish" className="btn-primary mt-4 flex w-full items-center justify-center gap-2">Make the schedule <ArrowRight size={16} /></Link>
+          ) : <p className="mt-4 text-xs text-white/60">The schedule comes out once the commissioner makes it.</p>}
+        </div>
+      </div>
+      <Section title="The field">
+        <div className="grid grid-cols-2 gap-2">
+          {teams.map((t) => (
+            <div key={t.id} className={`card flex items-center gap-2 p-2.5 ${t.id === me?.id ? 'ring-1 ring-gold/40' : ''}`}>
+              <TeamBadge team={t} size={30} />
+              <span className="min-w-0 flex-1">
+                <span className={`block break-words text-sm font-bold leading-tight ${t.id === me?.id ? 'text-gold' : 'text-slate-100'}`}>{t.name}</span>
+                <span className="num block text-[11px] text-mute">0-0-0</span>
+              </span>
+            </div>
+          ))}
+        </div>
+      </Section>
     </div>
   );
 }

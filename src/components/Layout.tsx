@@ -11,7 +11,7 @@ import {
   Bell, ClipboardList, Dices, Home, Landmark, Lightbulb, LogOut, Menu, MessageCircle, Radio, Repeat2, Search, Shield,
   Trophy, Tv, UserRound, Globe, Wrench, Wallet, type LucideIcon, BarChart3 } from 'lucide-react';
 
-type Item = { to: string; label: string; icon: LucideIcon; commish?: boolean };
+type Item = { to: string; label: string; icon: LucideIcon; commish?: boolean; short?: string };   // short: the phone dock's label, one line
 
 export function useUnread() {
   const { me } = useLeague();
@@ -96,7 +96,7 @@ export function Layout({ children }: { children: ReactNode }) {
   const spectator = me?.role === 'spectator';
   const items: Item[] = [
     { to: '/', label: 'Home', icon: Home },
-    draftish ? { to: '/draft', label: 'Draft Centre', icon: ClipboardList } : spectator ? { to: '/standings', label: 'Standings', icon: Trophy } : { to: '/team', label: 'Lineup', icon: Shield },
+    draftish ? { to: '/draft', label: 'Draft Centre', short: 'Draft', icon: ClipboardList } : spectator ? { to: '/standings', label: 'Standings', icon: Trophy } : { to: '/team', label: 'Lineup', icon: Shield },
     { to: '/chat', label: 'Chat', icon: MessageCircle },
     { to: '/nhl', label: 'NHL centre', icon: Tv },
   ];
@@ -219,7 +219,7 @@ export function Layout({ children }: { children: ReactNode }) {
                 <span className={`grid h-8 w-12 place-items-center rounded-full transition-all duration-200 ${a ? 'bg-gradient-to-b from-gold/30 to-white/[.06] text-gold shadow-[0_0_18px_-4px_rgb(var(--gold-rgb)/.7)]' : 'text-slate-400'}`}>
                   <i.icon size={20} strokeWidth={a ? 2.4 : 2} />
                 </span>
-                <span className={`text-[10px] font-bold tracking-wide ${a ? 'text-white' : 'text-mute'}`}>{i.label}</span>
+                <span className={`whitespace-nowrap text-[10px] font-bold tracking-wide ${a ? 'text-white' : 'text-mute'}`}>{i.short ?? i.label}</span>
                 {i.to === '/chat' && chatUnread && (chatCount > 0
                   ? <span className="absolute right-[18%] top-1 grid h-4 min-w-4 place-items-center rounded-full border-2 border-[#0d1528] bg-goal px-1 text-[9px] font-bold leading-none text-white">{chatCount > 99 ? '99+' : chatCount}</span>
                   : <span className="absolute right-[24%] top-2 h-2.5 w-2.5 rounded-full border-2 border-[#0d1528] bg-goal" />)}
