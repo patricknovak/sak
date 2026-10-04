@@ -75,7 +75,7 @@ export default function Login() {
     <div className="pt-safe relative flex min-h-dvh flex-col items-center justify-center overflow-hidden px-4 py-10">
       {/* arena lights */}
       <div className="pointer-events-none absolute inset-0">
-        <div className="animate-glow absolute -top-40 left-1/2 h-[520px] w-[820px] -translate-x-1/2 rounded-full" style={{ background: 'radial-gradient(closest-side, rgba(247,197,72,.22), transparent)' }} />
+        <div className="animate-glow absolute -top-40 left-1/2 h-[520px] w-[820px] -translate-x-1/2 rounded-full" style={{ background: 'radial-gradient(closest-side, rgb(var(--gold-rgb)/.22), transparent)' }} />
         <div className="absolute -left-32 top-10 h-[640px] w-40 rotate-[24deg] bg-gradient-to-b from-white/[.10] to-transparent blur-2xl" />
         <div className="absolute -right-32 top-10 h-[640px] w-40 -rotate-[24deg] bg-gradient-to-b from-white/[.10] to-transparent blur-2xl" />
         <div className="absolute bottom-0 left-1/2 h-64 w-[900px] -translate-x-1/2 rounded-[100%] border-t-[6px] border-goal/20" />

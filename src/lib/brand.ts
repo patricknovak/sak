@@ -46,3 +46,25 @@ export function useBrand(): Brand {
   const { brand } = useLeague();
   return brand;
 }
+
+// The league's colour on the page. SaK's gold is what index.css already draws with, so SaK sets nothing; another league's
+// colour replaces the accent and the shades made from it (the shine on the wordmark, the lit tab, the gold buttons).
+const GOLD_VARS = ['--color-gold', '--gold-rgb', '--gold-hi', '--gold-soft', '--gold-lo', '--gold-btn-hi', '--gold-btn-lo'];
+const rgbOf = (hex: string) => [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16));
+const hexOf = (c: number[]) => '#' + c.map((v) => Math.round(Math.max(0, Math.min(255, v))).toString(16).padStart(2, '0')).join('');
+const toward = (c: number[], to: number, t: number) => c.map((v) => v + (to - v) * t);
+
+export function brandShades(gold: string) {
+  const c = rgbOf(gold);
+  return {
+    '--color-gold': gold, '--gold-rgb': c.join(' '),
+    '--gold-hi': hexOf(toward(c, 255, 0.68)), '--gold-soft': hexOf(toward(c, 255, 0.72)), '--gold-lo': hexOf(toward(c, 0, 0.3)),
+    '--gold-btn-hi': hexOf(toward(c, 255, 0.4)), '--gold-btn-lo': hexOf(toward(c, 0, 0.1)),
+  } as Record<string, string>;
+}
+
+export function applyBrandColors(gold: string | undefined) {
+  const root = document.documentElement.style;
+  if (!gold || !/^#[0-9a-f]{6}$/i.test(gold) || gold.toLowerCase() === SAK_BRAND.colors.gold) { GOLD_VARS.forEach((v) => root.removeProperty(v)); return; }
+  Object.entries(brandShades(gold.toLowerCase())).forEach(([k, v]) => root.setProperty(k, v));
+}

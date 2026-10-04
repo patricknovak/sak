@@ -5,7 +5,7 @@ import type {
   DraftPick, DraftState, Game, League, Notification, Player, PlayerSeason, PlayerStatus, PlayerWindow, Roster, Standing, Team,
 } from './types';
 import { etCalendarToday, etToday, setLeagueDayHold } from './format';
-import { brandOf, SAK_BRAND, type Brand } from './brand';
+import { applyBrandColors, brandOf, SAK_BRAND, type Brand } from './brand';
 
 interface Store {
   ready: boolean;
@@ -79,6 +79,8 @@ export function LeagueProvider({ children }: { children: ReactNode }) {
   const can = useCallback((what: string) => !me || me.role !== 'spectator' || (me.perms?.active !== false && me.perms?.[what] !== false), [me]);
   // you're always online to yourself, even before presence syncs
   useEffect(() => { if (me) setOnline((o) => (o.has(me.id) ? o : new Set([...o, me.id]))); }, [me?.id]);
+  // the league's colour themes the page (SaK's gold is the default the stylesheet already draws)
+  useEffect(() => { applyBrandColors(brand.colors.gold); }, [brand.colors.gold]);
   const meRef = useRef(me);
   meRef.current = me;
   const gamesRef = useRef<Game[]>([]);

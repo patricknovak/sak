@@ -101,7 +101,8 @@ results of his own past calls, and what the wider pool knows.
    showed SaK's past reads the caller's league's rows, and a league with no past shows none. Garry reads them as his
    record book (each season's champion and last place, titles by GM). Next: imports write them.
 7. **Phase 2, people can join** (under way: email sign-in with reset codes, invites, the join page and the switcher done
-   3 October 2026, migrations 103 to 105): league by host, realtime and presence
+   3 October 2026, migrations 103 to 105; onboarding part 1, the Platform page, the readiness checklist, going live and
+   the league identity editor, migration 106): league by host, realtime and presence
    per league, phones, Cloudflare Pages hosting (decided 3 October 2026), the Garry budget.
 8. **Pool intelligence** once a few leagues are playing, then the horizons in `docs/MARKET.md`.
 

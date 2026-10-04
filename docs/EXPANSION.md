@@ -309,8 +309,11 @@ the adapter and the sports row.
 
 ## 8. The new-league checklist
 
-Until onboarding is self-serve, a new league goes live only when every line is true. Phase 2 turns this list
-into a `league_readiness(league)` function that the Commissioner page shows.
+Until onboarding is self-serve, a new league goes live only when every line is true. *Built (migration 106):*
+`league_readiness(league)` checks lines 1 to 6 as far as data can (name, rules and scoring profile, the commissioner
+signed in, the draft row, opening coins required; every seat filled and Garry's briefing advisory), the Platform page
+and a new league's Commissioner page show it, and `platform_set_league_status(league, 'active')` refuses until the
+required lines hold. Lines 7 and 8 stay by hand.
 
 1. `leagues` row: slug, name, short name, sport, status `active`, owner, full brand (bot, coin, trophies,
    last-place prize, fund name, colours), domain if any.

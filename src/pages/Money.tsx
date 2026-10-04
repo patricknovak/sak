@@ -98,7 +98,7 @@ export default function Money() {
       {/* the pots */}
       {useMoney && (
       <Section title={`${league?.season} prize pool`} right={<span className="text-xs text-mute">{money.teams} × {fmtMoney(money.entry - money.fund)} after {fmtMoney(money.fund)} each to the {brand.fund}</span>}>
-        <div className="card-hero p-4" style={{ '--tc': '#f7c548' } as React.CSSProperties}>
+        <div className="card-hero p-4" style={{ '--tc': 'var(--color-gold)' } as React.CSSProperties}>
           <div className="relative flex flex-wrap items-baseline gap-x-3">
             <div className="num text-gold-shine font-display text-5xl font-extrabold leading-none">{fmtMoney(money.pool)}</div>
             <div className="text-xs text-white/70">{money.teams} GMs × {fmtMoney(money.entry)} = {fmtMoney(money.entry * money.teams)}, less {fmtMoney(money.fundTotal)} to the {brand.fund}</div>

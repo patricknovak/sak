@@ -81,6 +81,8 @@ where n.nspname = 'public' and p.prosecdef and p.prorettype <> 'trigger'::regtyp
     'platform_invite',
     -- platform admins only: a league's daily budget for Garry's paid model calls
     'set_garry_budget',
+    -- platform admins only: a league's status (setup, active, archived)
+    'platform_set_league_status',
     -- debt: a pick names a player, and rosters hold one row per player across all leagues (rosters key, see EXPANSION.md)
     'draft_pick',
     -- debt: a multi-team trade names its teams inside a json list; each team needs the league check

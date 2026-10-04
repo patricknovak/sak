@@ -23,7 +23,10 @@ Two things in one repo:
   it loads league, teams, players, rosters, picks, draft, standings, season stats, windows, games,
   notifications and game-day status, subscribes to realtime, and exposes `leagueDay` and `brand`.
 - Brand: `src/lib/brand.ts` (`useBrand()`, SaK defaults, `PRODUCT` constants). Names come from
-  `leagues.brand`; never hard-code a new league-specific name.
+  `leagues.brand`; never hard-code a new league-specific name. The league's colour (`brand.colors.gold`) themes the
+  site through CSS variables (`--color-gold`, `--gold-rgb`, `--gold-hi`...; `applyBrandColors`): draw accents with
+  `gold` classes or `rgb(var(--gold-rgb)/…)`, never a literal `#f7c548`. The commissioner edits the brand on the
+  Commish page (`commish_set_brand`); the platform opens leagues on `#/platform`.
 - Backend: Supabase Postgres (project `quakdkzdafzlhgjvmypg`). Every rule is a SQL function behind
   row-level security; the site calls them with `rpc(...)` from `src/lib/supabase.ts`. Views compute
   standings, daily points, coin balances and money.

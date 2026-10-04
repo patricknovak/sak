@@ -160,7 +160,7 @@ export default function Home() {
       <PushCard hideWhenOn compact />
 
       {league?.commish_note && (
-        <div className="card relative overflow-hidden border-amber-400/30 p-4" style={{ background: 'linear-gradient(135deg, rgba(247,197,72,.16), rgba(15,23,41,.8) 60%)' }}>
+        <div className="card relative overflow-hidden border-amber-400/30 p-4" style={{ background: 'linear-gradient(135deg, rgb(var(--gold-rgb)/.16), rgba(15,23,41,.8) 60%)' }}>
           <div className="label flex items-center gap-1.5 text-amber-300"><Megaphone size={13} /> From the commish</div>
           <p className="mt-1.5 whitespace-pre-wrap text-[15px]">{league.commish_note}</p>
         </div>

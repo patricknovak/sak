@@ -564,7 +564,7 @@ export function GameBook({ gameId, away, home }: { gameId: number; away: GameClu
     const yours = tickets.filter((t) => t.market_id === m.id && t.team_id === me?.id && t.pick === o.key).reduce((s, t) => s + t.coins, 0);
     return (
       <button key={o.key} disabled={!canBet || !open(m)} onClick={() => choose(m, o)}
-        className={`relative flex min-w-0 flex-1 flex-col items-center rounded-xl border px-2 text-center transition active:scale-[.97] disabled:opacity-60 disabled:active:scale-100 ${big ? 'py-2.5' : 'py-1.5'} ${on ? 'border-gold bg-gold/15 shadow-[0_0_20px_-6px_rgba(247,197,72,.7)]' : yours ? 'border-sky-400/60 bg-sky-500/10' : 'border-white/10 bg-black/20 hover:border-white/25 hover:bg-white/[.05]'}`}>
+        className={`relative flex min-w-0 flex-1 flex-col items-center rounded-xl border px-2 text-center transition active:scale-[.97] disabled:opacity-60 disabled:active:scale-100 ${big ? 'py-2.5' : 'py-1.5'} ${on ? 'border-gold bg-gold/15 shadow-[0_0_20px_-6px_rgb(var(--gold-rgb)/.7)]' : yours ? 'border-sky-400/60 bg-sky-500/10' : 'border-white/10 bg-black/20 hover:border-white/25 hover:bg-white/[.05]'}`}>
         {big ? (
           <span className="flex items-center gap-1.5 text-sm font-bold">{big.logo && <img src={big.logo} alt="" className="h-7 w-7" />}{big.abbrev}</span>
         ) : <span className="w-full truncate text-xs font-semibold text-slate-200">{o.label}</span>}
