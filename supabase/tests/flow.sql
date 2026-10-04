@@ -2597,3 +2597,14 @@ select pg_temp.expect('SaK still plays the season total', (select format from le
 select pg_temp.expect('the format change and the schedule are on the log', (select count(*) from commish_log where league_id = :h2h_league and action in ('commish_set_format', 'commish_make_schedule')) >= 2);
 select set_config('request.jwt.claim.sub', '', false);
 select 'head-to-head', true;
+
+-- ───────────── how alive each league is ─────────────
+reset role;
+update teams set last_seen = now() - interval '2 days' where id = 1;
+select pg_temp.as_team(1);
+set role authenticated;
+select pg_temp.expect('the platform sees who used each league this week', (select active_7d >= 1 and last_seen is not null from platform_leagues() where league_id = 1)
+  and (select active_7d <= seats from platform_leagues() where league_id = 1));
+reset role;
+select set_config('request.jwt.claim.sub', '', false);
+select 'how alive each league is', true;
