@@ -1,11 +1,7 @@
-import { useEffect, useState } from 'react';
-import { useLeague } from '../lib/store';
-import { rpc, supabase } from '../lib/supabase';
-import { Section } from './ui';
 
 // A new league's checklist (league_readiness): what has to hold before the platform puts it live, and what's worth
-// doing. The platform sees it on each league's card; a new league's commissioner sees it on the Commish page until
-// the league is live.
+// doing. The platform sees it on each league's card; a new league's commissioner follows the Season setup guide on the
+// Commish page (SetupGuide), which carries the same "switched on" step.
 export interface Check { key: string; label: string; ok: boolean; required: boolean; detail: string | null }
 
 export function Checklist({ checks }: { checks: Check[] }) {
@@ -21,26 +17,5 @@ export function Checklist({ checks }: { checks: Check[] }) {
         </li>
       ))}
     </ol>
-  );
-}
-
-export function CommishReadiness() {
-  const { league } = useLeague();
-  const [checks, setChecks] = useState<Check[] | null>(null);
-  useEffect(() => {
-    if (!league?.league_id) return;
-    supabase.from('leagues').select('status').eq('id', league.league_id).maybeSingle().then(({ data }) => {
-      if (data?.status === 'setup') rpc<Check[]>('league_readiness', { p_league: league.league_id }).then(setChecks, () => {});
-    });
-  }, [league?.league_id]);
-  if (!checks) return null;
-  const left = checks.filter((c) => c.required && !c.ok).length;
-  return (
-    <Section title="🚦 Getting the league ready">
-      <div className="card-hero p-4">
-        <p className="relative mb-3 text-sm text-white/80">{left ? `${left} thing${left === 1 ? '' : 's'} to do before Super Pools puts the league live.` : 'Everything needed is done. Super Pools puts the league live next.'}</p>
-        <div className="relative"><Checklist checks={checks} /></div>
-      </div>
-    </Section>
   );
 }
