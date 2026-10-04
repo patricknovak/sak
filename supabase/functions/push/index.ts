@@ -86,9 +86,11 @@ Deno.serve(async (req) => {
     const { data: n } = await db.from('notifications').select('id,team_id,kind,body,link').eq('id', id).single();
     if (!n) return new Response('not found', { status: 404, headers: cors });
     const lg = await leagueOf(n.team_id);
+    // a line that opens with its own emoji ("⚔️ Week 2 starts today…") lends it to the title instead of showing it twice
+    const lead = String(n.body ?? '').match(/^(\p{Extended_Pictographic}\uFE0F?(?:\u200D\p{Extended_Pictographic}\uFE0F?)*)\s+/u);
     const r = await sendToTeam(n.team_id, {
-      title: `${ICONS[n.kind] ?? '🔔'} ${lg.name}`,
-      body: n.body,
+      title: `${lead?.[1] ?? ICONS[n.kind] ?? '🔔'} ${lg.name}`,
+      body: lead ? String(n.body).slice(lead[0].length) : n.body,
       url: lg.site + '#' + (n.link ?? '/'),
       tag: n.kind === 'draft' ? 'draft-clock' : `n${n.id}`,
       urgent: n.kind === 'draft',
