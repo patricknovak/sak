@@ -33,6 +33,7 @@ export default function Money() {
   const [lines, setLines] = useState<LedgerLine[]>([]);
   const [bal, setBal] = useState<MoneyBalance[]>([]);
   const [fund, setFund] = useState<FundStatus | null>(null);
+  const [fundRead, setFundRead] = useState(false);   // the fund's row came back (or there is none): stop the skeleton
   const [fundLines, setFundLines] = useState<FundLine[]>([]);
   const [prices, setPrices] = useState<{ date: string; value_cad: number }[]>([]);
   const [pickups, setPickups] = useState<PickupStatus[]>([]);
@@ -43,7 +44,7 @@ export default function Money() {
   const load = () => {
     selectAll<LedgerLine>('ledger', '*', 1000, ['id']).then((r) => setLines(r.map((l) => ({ ...l, amount: Number(l.amount) })).sort((a, b) => b.id - a.id)), () => {});
     supabase.from('money_balances').select('*').then(({ data }) => setBal(((data ?? []) as MoneyBalance[]).map((b) => ({ ...b, balance: Number(b.balance), owes: Number(b.owes), owed: Number(b.owed), paid_in: Number(b.paid_in), paid_out: Number(b.paid_out) }))));
-    supabase.from('fund_status').select('*').maybeSingle().then(({ data }) => setFund(data ? { ...(data as FundStatus), shares: Number(data.shares), cash: Number(data.cash), stock_cad: Number(data.stock_cad), net_cad: Number(data.net_cad), owed_back: Number(data.owed_back), price_usd: data.price_usd == null ? null : Number(data.price_usd), fx_usdcad: data.fx_usdcad == null ? null : Number(data.fx_usdcad) } : null));
+    supabase.from('fund_status').select('*').maybeSingle().then(({ data }) => { setFundRead(true); setFund(data ? { ...(data as FundStatus), shares: Number(data.shares), cash: Number(data.cash), stock_cad: Number(data.stock_cad), net_cad: Number(data.net_cad), owed_back: Number(data.owed_back), price_usd: data.price_usd == null ? null : Number(data.price_usd), fx_usdcad: data.fx_usdcad == null ? null : Number(data.fx_usdcad) } : null); });
     supabase.from('fund_ledger').select('*').order('date', { ascending: false }).order('id', { ascending: false }).then(({ data }) => setFundLines(((data ?? []) as FundLine[]).map((l) => ({ ...l, cash: Number(l.cash), shares: Number(l.shares) }))));
     supabase.from('fund_prices').select('date,value_cad').order('date').then(({ data }) => setPrices(((data ?? []) as { date: string; value_cad: number }[]).map((p) => ({ ...p, value_cad: Number(p.value_cad) }))));
     supabase.from('pickup_status').select('*').then(({ data }) => setPickups((data ?? []) as PickupStatus[]));
@@ -197,8 +198,12 @@ export default function Money() {
         {/* the fund */}
         <div className="min-w-0 space-y-5">
           {useFund && (
-          <Section title={`🏦 The ${brand.fund}`} right={commish ? <span className="flex gap-1"><button className="btn-ghost btn-sm" onClick={() => setSheet('fund')}>+ Entry</button><button className="btn-ghost btn-sm" onClick={() => setSheet('price')}>Price</button><button className="btn-ghost btn-sm" onClick={() => setSheet('settings')}>Settings</button></span> : undefined}>
-            {!fund ? <div className="card h-40 animate-pulse" /> : (
+          <Section title={`🏦 The ${brand.fund}`}>
+            {/* the commissioner's tools sit under the title, so a long fund name and three buttons both fit a phone */}
+            {commish && <div className="mb-2 flex flex-wrap justify-end gap-1"><button className="btn-ghost btn-sm" onClick={() => setSheet('fund')}>+ Entry</button><button className="btn-ghost btn-sm" onClick={() => setSheet('price')}>Price</button><button className="btn-ghost btn-sm" onClick={() => setSheet('settings')}>Settings</button></div>}
+            {!fund ? (fundRead
+              ? <div className="card flex items-center gap-3 p-4 text-sm text-mute"><span className="text-2xl">🏦</span><span>Nothing in the {brand.fund} yet.{commish ? ' Record its first contribution with + Entry.' : ' The commissioner records each contribution here as it goes in.'}</span></div>
+              : <div className="card h-40 animate-pulse" />) : (
               <div className="card space-y-3 p-4">
                 <div className="flex flex-wrap items-end justify-between gap-2">
                   <div>

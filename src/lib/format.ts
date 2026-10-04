@@ -14,8 +14,12 @@ export const etToday = () => {
 export const fmtPts = (n: number | null | undefined, d = 1) =>
   n == null ? '—' : Number(n).toLocaleString(undefined, { minimumFractionDigits: d, maximumFractionDigits: d });
 
-export const fmtMoney = (n: number | null | undefined) =>
-  n == null ? '—' : '$' + Number(n).toLocaleString(undefined, { minimumFractionDigits: n % 1 ? 2 : 0, maximumFractionDigits: 2 });
+// to the cent, and never "$-0" (an empty total negated, or a rounding crumb below a cent)
+export const fmtMoney = (n: number | null | undefined) => {
+  if (n == null) return '—';
+  const v = Math.round(Number(n) * 100) / 100 || 0;
+  return '$' + v.toLocaleString(undefined, { minimumFractionDigits: v % 1 ? 2 : 0, maximumFractionDigits: 2 });
+};
 
 export const fmtTime = (iso: string) =>
   new Date(iso).toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' });
