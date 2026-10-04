@@ -209,7 +209,9 @@ The steps above finish the tenancy. `docs/MARKET.md` sets what comes after in th
     scoring vocabularies, a sync per sport; the NHL becomes one row. Prerequisite for soccer, basketball and
     the multi-sport pool.
 14. **Telemetry and the feature board**: pseudonymous per-pool usage tables with a commissioner opt-out, the
-    SaK Features page grown into a product-wide board with public statuses and a changelog.
+    SaK Features page grown into a product-wide board with public statuses and a changelog. *The changelog done (4 October
+    2026):* the Features page's What's new tab, a dated timeline from `src/data/changelog.ts` (an entry in the same pull
+    request as the change), with a dot on the tab until a phone has seen the newest. Telemetry waits on the privacy note.
 15. **App-store listing**, the **playoff bracket pool**, and the voice per league with a daily budget.
 
 Then horizon 2 (soccer on licensed data, basketball, the multi-sport pool, the Supercoin prediction market,
