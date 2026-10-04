@@ -1,6 +1,7 @@
 // Shared player filtering and sorting (Players page, draft room, mock draft): any stat, any timeframe.
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react';
-import { useLeague } from '../lib/store';
+import { useLeague, useSport } from '../lib/store';
+import { positionKeys } from '../lib/sport';
 import { supabase } from '../lib/supabase';
 import type { Player, Pos as PosT } from '../lib/types';
 import { NHL_TEAMS } from '../lib/format';
@@ -12,7 +13,6 @@ import { useSticky } from '../lib/sticky';
 
 export interface Filter { q: string; pos: 'ALL' | PosT; tf: Timeframe; stat: string; perGame: boolean; hideInjured: boolean; nhl: string; minGp: number }
 const DEFAULT: Filter = { q: '', pos: 'ALL', tf: 'proj', stat: 'fp', perGame: false, hideInjured: false, nhl: '', minGp: 0 };
-const POSITIONS: ('ALL' | PosT)[] = ['ALL', 'C', 'LW', 'RW', 'D', 'G'];
 const SKATER_COLS = ['gp', 'fp', 'g', 'a', 'pts', 'pm', 'ppp', 'sog', 'hit', 'blk', 'pim', 'gwg', 'shp', 'fow', 'shpct'];
 const GOALIE_COLS = ['gp', 'gs', 'fp', 'w', 'l', 'otl', 'ga', 'sa', 'sv', 'svp', 'sho', 'gaa'];
 
@@ -116,6 +116,7 @@ const chip = (on: boolean) => `shrink-0 rounded-full px-2.5 py-1 text-xs font-se
 
 // the controls: position, timeframe, stat, per-game, injured, NHL team, minimum games
 export function PlayerFilterBar({ pf, compact, hideSearch, children }: { pf: PlayerFilter; compact?: boolean; hideSearch?: boolean; children?: ReactNode }) {
+  const POSITIONS: ('ALL' | PosT)[] = ['ALL', ...positionKeys(useSport())];
   const { f, set, tf, stat, liveOk, goalie } = pf;
   return (
     <div className="space-y-1.5">

@@ -1,5 +1,6 @@
 export type Slot = 'C' | 'LW' | 'RW' | 'D' | 'Util' | 'G' | 'BN' | 'IR';
-export type Pos = 'C' | 'LW' | 'RW' | 'D' | 'G';
+// a position key from the league's sport (src/lib/sport.ts): C, LW, RW, D, G in hockey
+export type Pos = string;
 
 export interface League {
   id: number; league_id: number; name: string; short_name: string; season: string;

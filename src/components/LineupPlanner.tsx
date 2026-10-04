@@ -4,7 +4,8 @@
 // own uses the last plan before it, or today's lineup.
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { CalendarDays, Copy, Save, Sparkles, Trash2, Undo2 } from 'lucide-react';
-import { useLeague } from '../lib/store';
+import { useLeague, useSport } from '../lib/store';
+import { plays, positionKeys } from '../lib/sport';
 import { rpc, supabase } from '../lib/supabase';
 import { etToday, fmtPts } from '../lib/format';
 import { optimize, slotOk as canPlay, gamesOf, availability, type Basis, type LContext } from '../lib/lineup';
@@ -33,11 +34,12 @@ const VIEWS: { k: View; label: string }[] = [
 ];
 const SK = ['gp', 'g', 'a', 'pts', 'pm', 'ppp', 'sog', 'hit', 'blk', 'pim', 'gwg', 'shpct'];
 const GO = ['gp', 'gs', 'w', 'l', 'otl', 'sv', 'ga', 'svp', 'gaa', 'sho'];
-const FILTERS = ['All', 'C', 'LW', 'RW', 'D', 'G', 'Starting', 'Bench', 'Playing'] as const;
-type Filter = (typeof FILTERS)[number];
+type Filter = string;   // All, a position (the sport's), Starting, Bench or Playing
 
 export function LineupPlanner({ roster }: { roster: Row[] }) {
   const { me, league, players, windows, season, refresh, serverOffset } = useLeague();
+  const sport = useSport();
+  const FILTERS = ['All', ...positionKeys(sport), 'Starting', 'Bench', 'Playing'];
   const games = useSeasonGames();
   const details = useProjDetails();
   const { busy, run } = useAction();
@@ -224,8 +226,7 @@ export function LineupPlanner({ roster }: { roster: Row[] }) {
       if (filter === 'Starting') return START.includes(s as Slot);
       if (filter === 'Bench') return s === 'BN' || s === 'IR';
       if (filter === 'Playing') return !!gameFor(x.p, day);
-      if (filter === 'G') return x.p.pos === 'G';
-      return x.p.pos !== 'G' && x.p.elig.includes(filter);
+      return plays(sport, x.p, filter);
     });
     if (goalieCols) list = list.filter((x) => x.p.pos === 'G');
     if (view === 'skater') list = list.filter((x) => x.p.pos !== 'G');

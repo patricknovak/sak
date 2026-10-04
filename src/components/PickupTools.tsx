@@ -4,7 +4,7 @@
 //  • Roster vs available: any team's players at each position next to the best free agents there.
 import { useEffect, useMemo, useState } from 'react';
 import { useLeague, useSport } from '../lib/store';
-import { groupOf, type SportConfig } from '../lib/sport';
+import { plays, positionKeys } from '../lib/sport';
 import { rpc } from '../lib/supabase';
 import { etToday, fmtPts } from '../lib/format';
 import { gamesOf, rosPerGame, dressRate } from '../lib/lineup';
@@ -19,8 +19,6 @@ import { buildModel, categoryDelta, contribution, perGame, scorePerGame, isGoali
 import { categoryOf, fmtCat } from '../lib/categories';
 
 const addDays = (d: string, n: number) => { const x = new Date(d + 'T12:00:00Z'); x.setUTCDate(x.getUTCDate() + n); return x.toISOString().slice(0, 10); };
-// a player plays a position: his own, or one he's eligible for within his group (a skater at a skater's spot)
-const plays = (sport: SportConfig, p: Player, pos: string) => p.pos === pos || (groupOf(sport, p.pos) === groupOf(sport, pos) && p.elig.includes(pos));
 const hurt = (p: Player) => !!p.injury_status && /^(out|ir|injured|long|suspen)/i.test(p.injury_status);
 type Horizon = 7 | 14 | 30 | 0;   // 0 = rest of season
 
@@ -127,7 +125,7 @@ export function PickupAdvisor() {
         <div className="flex flex-wrap items-center gap-1">
           {([7, 14, 30, 0] as Horizon[]).map((x) => <button key={x} onClick={() => setH(x)} className={`rounded-full px-2.5 py-1 text-xs font-semibold ${h === x ? 'bg-gold text-ice' : 'bg-white/[.05] text-mute'}`}>{x ? `Next ${x} days` : 'Rest of season'}</button>)}
           <span className="mx-1 h-4 w-px bg-white/10" />
-          {['All', ...sport.positions.map((x) => x.key)].map((x) => <button key={x} onClick={() => setPos(x)} className={`rounded-lg px-2 py-0.5 text-[11px] font-semibold ${pos === x ? 'bg-white/15 text-white' : 'text-mute'}`}>{x}</button>)}
+          {['All', ...positionKeys(sport)].map((x) => <button key={x} onClick={() => setPos(x)} className={`rounded-lg px-2 py-0.5 text-[11px] font-semibold ${pos === x ? 'bg-white/15 text-white' : 'text-mute'}`}>{x}</button>)}
         </div>
       </div>
       {!ideas ? <div className="card p-6 text-center text-sm text-mute">Playing out {span} with every free agent…</div>
@@ -226,7 +224,7 @@ export function RosterVsAvailable() {
     return w && w.gp >= 2 ? w.fpts / w.gp : null;
   };
   const fmt = (v: number | null) => (v == null ? '–' : metric === 'cat' ? `${v > 0 ? '+' : ''}${v.toFixed(1)}` : metric === 'pg' || metric === 'season' || metric === 'form' ? v.toFixed(2) : fmtPts(v, 0));
-  const POSS = sport.positions.map((x) => x.key);
+  const POSS = positionKeys(sport);
   const at = (p: Player, pos: string) => plays(sport, p, pos);
   const mine = rosters.filter((r) => r.team_id === tid).map((r) => players.get(r.player_id)).filter((p): p is Player => !!p);
   const avail = [...players.values()].filter((p) => !owner.has(p.id) && p.proj > 0);

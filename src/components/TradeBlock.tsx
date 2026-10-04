@@ -2,7 +2,8 @@
 // announced in the league chat and visible to everyone, and each one has a win-win search built in: deals with
 // that GM that use only the players they listed and give them the positions they asked for.
 import { useEffect, useMemo, useState } from 'react';
-import { useLeague } from '../lib/store';
+import { useLeague, useSport } from '../lib/store';
+import { positionKeys } from '../lib/sport';
 import { rpc, realtimeChannel, supabase } from '../lib/supabase';
 import type { Player, TradeBlock as TB } from '../lib/types';
 import { ago, fmtPts } from '../lib/format';
@@ -11,11 +12,11 @@ import { SuggestionRow, useTradeValuer, type BuildSpec } from './TradeTools';
 import { Headshot, Pos, TeamBadge, useAction } from './ui';
 import { Megaphone } from 'lucide-react';
 
-const POS = ['C', 'LW', 'RW', 'D', 'G'];
 const fits = (p: Player, wants: string[]) => wants.includes(p.pos) || p.elig.some((e) => wants.includes(e));
 
 export function TradeBlock({ onBuild }: { onBuild: (b: BuildSpec) => void }) {
   const { me, teams, players, rosters } = useLeague();
+  const POS = positionKeys(useSport());
   const { v, rosterMax, rosterOf, sched } = useTradeValuer();
   const { busy, run } = useAction();
   const [rows, setRows] = useState<TB[]>([]);

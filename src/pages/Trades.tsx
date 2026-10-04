@@ -1,7 +1,8 @@
 import { Fragment, useEffect, useMemo, useState } from 'react';
 import { useSticky } from '../lib/sticky';
 import { useSearchParams } from 'react-router-dom';
-import { useLeague, useNow } from '../lib/store';
+import { useLeague, useNow, useSport } from '../lib/store';
+import { positionKeys } from '../lib/sport';
 import { rpc, realtimeChannel, supabase } from '../lib/supabase';
 import type { DraftPick, Player, Trade } from '../lib/types';
 import { ago, fmtDateTime, fmtPts } from '../lib/format';
@@ -32,13 +33,13 @@ function DropPick({ pool, need, value, onChange, worth }: { pool: Player[]; need
   );
 }
 
-const FILTERS = ['all', 'C', 'LW', 'RW', 'D', 'G', 'picks'];
 
 // a multi-team builder line: one asset, where it comes from and where it goes
 type MItem = { from: number; to: number; player_id?: number; pick_id?: number };
 
 export default function Trades() {
   const { me, teams, team, rosters, players, picks, league, season } = useLeague();
+  const FILTERS = ['all', ...positionKeys(useSport()), 'picks'];
   const brand = useBrand();
   const now = useNow(30_000);
   const [params, setParams] = useSearchParams();

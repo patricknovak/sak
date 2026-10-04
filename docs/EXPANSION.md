@@ -325,8 +325,9 @@ each accepts, the stat vocabulary, game states as the engine's five, periods, th
 lock rule, the words); `leagues.sport` references it. The site carries the same row compiled in (`src/lib/sport.ts`,
 `useSport()` from the store, which loads another sport's row), `supabase/tests/sport.test.mjs` fails if the two drift or
 the slots stop agreeing with the lineup engine, and the flow test checks them against `slot_ok`. First readers moved:
-the pickup advisor's positions and Roster vs available. Next: the position chips and filters across the site, then the
-game-state and period text.
+the pickup advisor's positions and Roster vs available, then (the same day) `Pos` became a string and the position
+chips and filters across the site read the sport (Players, the lineup planner, Trades, the trade block, the team scout,
+Keepers). Next: the draft simulator's slots, then the game-state and period text.
 
 **Phase 4, the second sport.** Basketball on the daily (hockey) engine is the cheapest proof of the split, on a
 licensed feed; soccer follows with the weekly engine for 2027-28, as `docs/MARKET.md` lays out.

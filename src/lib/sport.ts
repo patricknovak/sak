@@ -297,3 +297,8 @@ export const stateOf = (sport: SportConfig, state: string) =>
   (Object.keys(sport.states) as (keyof SportConfig['states'])[]).find((k) => sport.states[k].includes(state)) ?? 'scheduled';
 // a position's group (skater or goalie in hockey)
 export const groupOf = (sport: SportConfig, pos: string) => sport.positions.find((p) => p.key === pos)?.group ?? sport.groups[0]?.key;
+// a player plays a position: his own, or one he's eligible for within his group (a skater at a skater's spot)
+export const plays = (sport: SportConfig, p: { pos: string; elig: string[] }, pos: string) =>
+  p.pos === pos || (groupOf(sport, p.pos) === groupOf(sport, pos) && p.elig.includes(pos));
+// the position keys, in the sport's order
+export const positionKeys = (sport: SportConfig) => sport.positions.map((p) => p.key);

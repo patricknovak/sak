@@ -1,7 +1,8 @@
 import { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ClipboardList, Repeat2, Scale } from 'lucide-react';
-import { useLeague } from '../lib/store';
+import { useLeague, useSport } from '../lib/store';
+import { positionKeys } from '../lib/sport';
 import type { DraftPick, Player } from '../lib/types';
 import { fmtPts, readable } from '../lib/format';
 import { PlayerRow } from './PlayerCard';
@@ -10,7 +11,6 @@ import { PlayerPeek, ScoutBar, StatStrip, sortPlayers, useScout, useScoutCtx } f
 
 // starting slots per position: how many players at each spot actually score for you
 const NEED: Record<string, number> = { C: 2, LW: 2, RW: 2, D: 3, G: 2 };
-const POS = ['C', 'LW', 'RW', 'D', 'G'];
 
 // value of a team's best starters at one position (a player counts at his primary position)
 const posStrength = (ps: Player[], pos: string, val: (p: Player) => number) =>
@@ -18,6 +18,7 @@ const posStrength = (ps: Player[], pos: string, val: (p: Player) => number) =>
 
 export function TeamScout({ teamId, hideRoster }: { teamId: number; hideRoster?: boolean }) {
   const { me, teams, team, rosters, players, picks, season, league, draft } = useLeague();
+  const POS = positionKeys(useSport());
   const nav = useNavigate();
   const mine = teamId === me?.id;
   const inSeason = league?.phase === 'season';
