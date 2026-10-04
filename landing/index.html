@@ -3,15 +3,15 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Super Pools · The pool that runs itself</title>
-  <meta name="description" content="Super Pools is the home for your fantasy league and every pool your group plays. Live scoring from the box scores, lineups that set themselves, side bets in coins, a league voice that talks trash, and questions with odds that move as your buddies call them. Built by a hockey pool that has drafted every fall since 2013. Free to start, never money." />
+  <title>Super Pools · Fantasy pools from the future</title>
+  <meta name="description" content="Fantasy pools from the future: fun fantasy pools with friends, for all, AI-enhanced and free to start. Super Pools is the home for your fantasy league and every pool your group plays. Live scoring from the box scores, lineups that set themselves, side bets in coins, a league voice that talks trash, and questions with odds that move as your buddies call them. Built by a hockey pool that has drafted every fall since 2013. Free to start, never money." />
   <link rel="canonical" href="https://superpoolsai.com/" />
   <link rel="icon" href="./icon.svg" type="image/svg+xml" />
   <meta name="theme-color" content="#0b1220" />
   <meta property="og:type" content="website" />
   <meta property="og:url" content="https://superpoolsai.com/" />
-  <meta property="og:title" content="Super Pools · The pool that runs itself" />
-  <meta property="og:description" content="Your fantasy league and every pool your group plays, in one home. Live scoring, lineups that set themselves, side bets in coins, a league voice. Never money." />
+  <meta property="og:title" content="Super Pools · Fantasy pools from the future" />
+  <meta property="og:description" content="Fun fantasy pools with friends, for all. AI-enhanced, free to start, never money. Your fantasy league and every pool your group plays, in one home. Live scoring, lineups that set themselves, side bets in coins, a league voice. Never money." />
   <meta property="og:image" content="https://superpoolsai.com/og.png" />
   <meta name="twitter:card" content="summary_large_image" />
   <link rel="stylesheet" href="./site.css" />
@@ -22,6 +22,23 @@
     .stage .board { position: relative; z-index: 2; }
     .voice { position: relative; z-index: 3; margin: -18px 10px 0 auto; max-width: 330px; }
     .voice .msg { margin: 0; }
+    /* the headline: "from the Future" in gold running into ice, with a slow shimmer */
+    .future { background: linear-gradient(92deg, #fff1b8 0%, #f7c548 30%, #7dd3fc 62%, #38bdf8 80%, #fff1b8 100%); background-size: 220% 100%;
+      -webkit-background-clip: text; background-clip: text; color: transparent; padding-right: .08em; animation: shimmer 9s ease-in-out infinite alternate; }
+    @keyframes shimmer { from { background-position: 0% 50%; } to { background-position: 100% 50%; } }
+    @media (prefers-reduced-motion: reduce) { .future { animation: none; } }
+    .tags { display: flex; flex-wrap: wrap; gap: 8px; }
+    .tags span { display: inline-flex; align-items: center; gap: 7px; padding: 6px 12px; border-radius: 999px; font-family: 'Barlow Condensed', sans-serif; font-weight: 700;
+      font-size: 13px; letter-spacing: .16em; text-transform: uppercase; border: 1px solid rgba(255,255,255,.12); background: rgba(255,255,255,.04); color: var(--soft); }
+    .tags span::before { content: ''; width: 7px; height: 7px; border-radius: 50%; background: var(--c); box-shadow: 0 0 10px var(--c); }
+    .pillars { display: grid; gap: 12px; grid-template-columns: 1fr; margin-top: 34px; }
+    @media (min-width: 760px) { .pillars { grid-template-columns: repeat(3, 1fr); } .pillar { padding: 18px 20px; } .pillar b { font-size: 24px; } .pillar span { font-size: 14px; } }
+    .hero h1 { font-size: clamp(54px, 8.2vw, 94px); }
+    .pillar { position: relative; overflow: hidden; border-radius: 18px; padding: 14px 14px 13px; border: 1px solid rgba(255,255,255,.09); background: linear-gradient(180deg, rgba(255,255,255,.05), rgba(255,255,255,.015)); }
+    .pillar::before { content: ''; position: absolute; inset: 0 0 auto 0; height: 2px; background: linear-gradient(90deg, var(--c), transparent); }
+    .pillar b { display: block; font-family: 'Barlow Condensed', sans-serif; font-weight: 900; font-size: 20px; line-height: 1.05; letter-spacing: .01em; color: var(--ink); }
+    .pillar b i { font-style: normal; color: var(--c); }
+    .pillar span { display: block; margin-top: 5px; font-size: 12.5px; line-height: 1.45; color: var(--mute); }
   </style>
 </head>
 <body>
@@ -48,14 +65,13 @@
 
     <div class="hero">
       <div>
-        <div class="eyebrow">Fantasy · side bets · pools for every game</div>
-        <h1 class="display">The pool that <span class="l2"><em class="grad-gold">runs itself.</em></span></h1>
-        <p class="lead">Your league, minus the spreadsheet. Points land as the box scores change, lineups set themselves, the side bets settle on their own and a league voice posts the recap and the trash talk. Built by a hockey pool that has drafted every fall since 2013.</p>
+        <div class="tags"><span style="--c:#f7c548">With friends</span><span style="--c:#38bdf8">AI-enhanced</span><span style="--c:#34d399">Fun for all</span></div>
+        <h1 class="display">Fantasy Pools <span class="l2"><em class="future">from the Future.</em></span></h1>
+        <p class="lead">Fun fantasy pools with friends, for all. Points land as the box scores change, lineups set themselves, the side bets settle on their own, and an AI-enhanced league voice posts the recap and the trash talk. Built by a hockey pool that has drafted every fall since 2013.</p>
         <div class="cta">
           <a class="btn btn-gold" href="#join" data-pick="A hockey pool">Bring your pool</a>
           <a class="btn btn-ghost" href="#runs">See how it runs</a>
         </div>
-        <div class="trust"><span>Free to start</span><span>No app to download</span><span>Never real money</span></div>
       </div>
       <div class="stage rv" aria-label="A game night in a sample pool">
         <div class="phone glow-gold" aria-hidden="true"><img src="./img/sak-live.webp" alt="" width="600" height="1200" loading="eager" /></div>
@@ -71,6 +87,12 @@
           <div class="msg bot"><span class="av" style="background:#f7c548">G</span><div class="bub"><small>GARRY · THE LEAGUE VOICE</small>Five Hole Heroes left 11.5 points on the bench again. Somebody check on him.</div></div>
         </div>
       </div>
+    </div>
+
+    <div class="pillars">
+      <div class="pillar" style="--c:#f7c548"><b>Fun fantasy pools <i>with friends</i></b><span>Your league, your buddies, your group chat. One link and everyone is in.</span></div>
+      <div class="pillar" style="--c:#38bdf8"><b><i>AI-enhanced</i> everything</b><span>AI-optimized lineups, recaps, trade grades and odds that know your league.</span></div>
+      <div class="pillar" style="--c:#34d399"><b>Fun <i>for all</i></b><span>Free to start, no app to download, never real money. Everyone is welcome.</span></div>
     </div>
 
     <div class="ticker" aria-label="Sample questions from pools">
