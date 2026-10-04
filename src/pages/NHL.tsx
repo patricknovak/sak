@@ -147,7 +147,8 @@ export default function NHL() {
   const [open, setOpen] = useState<Game | null>(null);
   const [view, setView] = useState<'div' | 'conf' | 'league' | 'wc'>('div');
 
-  const loadScores = useCallback(async (d: string) => { try { setScores(await hub('scores', { date: d })); setErr(null); } catch (e) { setErr((e as Error).message); } }, []);
+  // a reply without its games (the feed hiccuped) reads as no games, not a crashed page
+  const loadScores = useCallback(async (d: string) => { try { const s = await hub<{ date: string; prev: string | null; next: string | null; games?: Game[] }>('scores', { date: d }); setScores({ ...s, games: s?.games ?? [] }); setErr(null); } catch (e) { setErr((e as Error).message); } }, []);
   useEffect(() => { if (tab === 'scores') loadScores(date); }, [tab, date, loadScores]);
   // live games refresh every 30 seconds, a slate that hasn't started every 2 minutes
   const anyLive = !!scores?.games.some((g) => LIVE.has(g.state));

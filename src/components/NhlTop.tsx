@@ -31,8 +31,9 @@ export function TopTab({ onGame }: { onGame: (g: TopGame) => void }) {
   useEffect(() => {
     let dead = false;
     setLast(null);
-    hub<Scores>('scores', { date: leagueDay }).then((s) => { if (dead) return; setToday(s); if (s.prev && !s.games.some((g) => DONE.has(g.state))) hub<Scores>('scores', { date: s.prev }).then((p) => !dead && setLast(p), () => {}); }, () => {});
-    hub<{ items: NewsStory[] }>('news').then((r) => !dead && setNews(r.items), () => {});
+    const whole = (s: Scores | null) => ({ ...s, games: s?.games ?? [] }) as Scores;
+    hub<Scores>('scores', { date: leagueDay }).then((r) => { if (dead) return; const s = whole(r); setToday(s); if (s.prev && !s.games.some((g) => DONE.has(g.state))) hub<Scores>('scores', { date: s.prev }).then((p) => !dead && setLast(whole(p)), () => {}); }, () => {});
+    hub<{ items?: NewsStory[] }>('news').then((r) => !dead && setNews(r?.items ?? []), () => !dead && setNews([]));
     hub<XFeed>('x').then((f) => !dead && setX(f), () => {});
     hub<Leaders>('leaders').then((l) => !dead && setLeaders(l), () => {});
     return () => { dead = true; };
@@ -42,9 +43,10 @@ export function TopTab({ onGame }: { onGame: (g: TopGame) => void }) {
   const byNhl = useMemo(() => { const m = new Map<string, Map<number, number>>(); for (const [, r] of owner) { const p = players.get(r.player_id); if (!p?.nhl_team) continue; const t = m.get(p.nhl_team) ?? new Map(); t.set(r.team_id, (t.get(r.team_id) ?? 0) + 1); m.set(p.nhl_team, t); } return m; }, [owner, players]);
   const gmsIn = (g: TopGame) => { const m = new Map<number, number>(); for (const ab of [g.home.abbrev, g.away.abbrev]) for (const [t, n] of byNhl.get(ab) ?? []) m.set(t, (m.get(t) ?? 0) + n); return [...m.entries()].sort((a, b) => b[1] - a[1]).map(([t]) => t); };
 
-  const liveGames = today?.games.filter((g) => LIVE.has(g.state)) ?? [];
+  // a reply without its games (the feed hiccuped) reads as no games, not a crashed page
+  const liveGames = today?.games?.filter((g) => LIVE.has(g.state)) ?? [];
   const finals = [...(today?.games ?? []), ...(last?.games ?? [])].filter((g) => DONE.has(g.state));
-  const upcoming = today?.games.filter((g) => !LIVE.has(g.state) && !DONE.has(g.state)) ?? [];
+  const upcoming = today?.games?.filter((g) => !LIVE.has(g.state) && !DONE.has(g.state)) ?? [];
   const highlights = finals.filter((g) => g.recap || g.condensed).slice(0, 6);
   // top headlines: newest, one per source first so it isn't all one outlet
   const headlines = useMemo(() => {
@@ -104,7 +106,7 @@ export function TopTab({ onGame }: { onGame: (g: TopGame) => void }) {
       )}
 
       <Section title="📰 Top stories" right={<Link to="/nhl?t=news" className="text-xs text-sky-300">All news ›</Link>}>
-        {!news ? <div className="card p-4 text-sm text-mute">Loading…</div> : (
+        {!news ? <div className="card p-4 text-sm text-mute">Loading…</div> : !headlines.length ? <div className="card p-4 text-sm text-mute">No headlines right now. Check back soon.</div> : (
           <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
             {headlines.map((s, i) => (
               <a key={s.id} href={s.url} target="_blank" rel="noreferrer" className={`card flex overflow-hidden ${i === 0 ? 'sm:col-span-2 lg:col-span-3 sm:flex-row' : 'flex-col'}`}>
