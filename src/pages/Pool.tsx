@@ -20,6 +20,39 @@ function useLeaders() {
   return { leaders: rows, reloadLeaders: load };
 }
 
+// the host's soccer desk: each competition's next matchweek, added as questions in one tap (migration 148). Hidden
+// until the match feed has fixtures to offer.
+interface SoccerRound { competition: string; name: string; short: string; gameweek: number; first_kickoff: string; matches: number; added: number }
+function SoccerRounds({ onAdded }: { onAdded: () => void }) {
+  const [rows, setRows] = useState<SoccerRound[]>([]);
+  const { busy, run } = useAction();
+  const load = () => rpc<SoccerRound[]>('soccer_rounds').then(setRows, () => setRows([]));
+  useEffect(() => { load(); }, []);
+  if (!rows.length) return null;
+  return (
+    <Section title="Soccer matchweeks">
+      <div className="space-y-2">
+        {rows.map((r) => {
+          const left = r.matches - r.added;
+          return (
+            <div key={r.competition} className="card flex flex-wrap items-center gap-3 p-3">
+              <span className="grid h-11 w-11 shrink-0 place-items-center rounded-2xl bg-sky-400/15 text-xl" aria-hidden>⚽</span>
+              <div className="min-w-0 flex-1">
+                <div className="font-semibold">{r.name}</div>
+                <div className="text-xs text-mute"><span className="mr-1.5 inline-block whitespace-nowrap rounded-full bg-sky-400/15 px-2 py-0.5 text-[11px] font-bold tracking-wide text-sky-300">Matchweek {r.gameweek}</span>{r.matches} {r.matches === 1 ? 'match' : 'matches'} · first kick-off {new Date(r.first_kickoff).toLocaleString(undefined, { weekday: 'short', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })}</div>
+              </div>
+              {left > 0
+                ? <button type="button" className="btn-gold shrink-0" disabled={busy} onClick={() => run(async () => { await rpc('pool_add_fixtures', { p_competition: r.competition, p_gameweek: r.gameweek }); load(); onAdded(); }, `${r.short} matchweek ${r.gameweek} is up`)}>Add {left}</button>
+                : <span className="shrink-0 text-sm font-semibold text-emerald-300">All added ✓</span>}
+            </div>
+          );
+        })}
+      </div>
+      <p className="mt-2 px-1 text-xs text-mute">Each match is home, draw or away after ninety minutes, closes at kick-off and settles itself at the final whistle.</p>
+    </Section>
+  );
+}
+
 // ───────────── home ─────────────
 export function PoolHome() {
   const { me, league } = useLeague();
@@ -328,7 +361,7 @@ export function PoolHost() {
   const [drop, setDrop] = useState({ amount: '250', note: '', at: '' });
   const [open, setOpen] = useState(false);
   if (!me?.is_commish) return <Empty icon="🔒" title="For the host">Only the pool’s host asks and settles the questions.</Empty>;
-  const waiting = (markets ?? []).filter((m) => m.status === 'open' && !isOpen(m, now));
+  const waiting = (markets ?? []).filter((m) => m.status === 'open' && !isOpen(m, now) && !m.source);
   const create = () => run(async () => {
     await rpc('pool_create', { p: { title: f.title, rule: f.rule, category: f.category || null, outcomes: f.answers.split('\n').map((s) => s.trim()).filter(Boolean), closes_at: new Date(f.closes).toISOString() } });
     setF({ title: '', answers: 'Yes\nNo', rule: '', category: f.category, closes: f.closes }); setOpen(false); reload();
@@ -340,6 +373,7 @@ export function PoolHost() {
         {waiting.length ? <div className="space-y-2">{waiting.map((m) => <Link key={m.id} to={`/q/${m.id}`} className="card flex items-center justify-between gap-3 p-3"><span className="min-w-0 break-words font-semibold">{m.title}</span><span className="shrink-0 text-sm text-gold">Settle →</span></Link>)}</div>
           : <div className="card p-4 text-sm text-mute">Nothing to settle. Questions land here when they close.</div>}
       </Section>
+      <SoccerRounds onAdded={reload} />
       <Section title="Coin drops">
         <div className="card divide-y divide-white/[.05] p-1">
           {drops.map((d) => <div key={d.id} className="flex items-center justify-between gap-3 px-3 py-2.5 text-sm"><span className="min-w-0 break-words">{d.note}<div className="text-xs text-mute">{new Date(d.at).toLocaleString(undefined, { weekday: 'short', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })}</div></span><b className={new Date(d.at).getTime() <= now ? 'text-mute' : 'text-gold'}>+{d.amount}</b></div>)}

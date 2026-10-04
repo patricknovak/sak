@@ -118,12 +118,16 @@ on the site, and the switcher.
   sold in Supercoins until they close, resolved by the host with a locked rule and a reason on the record; coin drops on a
   schedule with late joiners caught up; a per-question cap; a leaderboard by net worth with the hit rate; price history
   for the chart. Works in any league (a Markets tab in a fantasy league) and as a league of its own (`leagues.kind =
-  'predict'`). *Building, migration 145.*
+  'predict'`). *Built: migrations 145-147 (live), the pages in PR #204.*
 - **P2. The Love Is Blind pool.** A prediction league with its own brand and no sports on screen: home, questions,
   leaders, chat; the Season 11 question pack and drop schedule (14, 21, 28 October, 4 November, the reunion); invites by
-  link; share cards. Opens before 14 October for the test; the gate is in `docs/POOLS.md` section 6.
+  link; share cards. Opens before 14 October for the test; the gate is in `docs/POOLS.md` section 6. *Opened 4 October:
+  league 3, Pod Squad (`podsquad`), Patrick hosting; it goes active once the pool pages are on `main`.*
 - **P3. Soccer prediction pools.** Fixtures and results from API-Football (provider-neutral tables), gameweek and
-  survivor questions settled from results, Premier League and MLS first.
+  survivor questions settled from results, Premier League and MLS first. *Step 1 built (migrations 148-149, live): the
+  `soccer` sports row, shared `competitions`, `clubs` and `fixtures`, the `soccer-sync` adapter on API-Football, a
+  matchweek's result questions added by the host in one tap and settled from the full-time score. Waits on the
+  `API_FOOTBALL_KEY` function secret. Next: survivor and score-predictor pools, season questions.*
 - **P4. Soccer fantasy.** The weekly engine with FPL-style scoring, for the second half of 2026-27 or for 2027-28.
 - **P5. The calendar of pools.** Question packs for The Bachelor, The Traitors, award nights, March Madness and the NHL
   playoffs; creator-hosted public pools.
