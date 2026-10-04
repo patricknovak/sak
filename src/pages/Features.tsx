@@ -203,11 +203,11 @@ export default function Features() {
         <>
           <PromoVideo only="promo" />
           <div className="card-hero flex flex-wrap items-center gap-3 p-4" style={{ '--tc': '#ef2a4f' } as React.CSSProperties}>
-            <div className="relative flex-1 text-sm">
+            <div className="relative min-w-[13rem] flex-1 text-sm">
               <div className="h-display text-xl">Got an idea?</div>
               <div className="text-white/70">Suggest a feature and the league votes on it. The most-wanted ideas get built first.</div>
             </div>
-            <button className="btn-primary relative" onClick={() => setParams({ t: 'ideas' })}>💡 Suggest a feature</button>
+            <button className="btn-primary relative w-full sm:w-auto" onClick={() => setParams({ t: 'ideas' })}>💡 Suggest a feature</button>
           </div>
           {FEATURE_GROUPS.map((g) => (
             <section key={g.key}>
