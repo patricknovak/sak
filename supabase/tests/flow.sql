@@ -3347,6 +3347,39 @@ reset role;
 select set_config('request.jwt.claim.sub', '', false);
 select 'my pools', true;
 
+-- ───────────── pool alerts (migration 154) ─────────────
+-- the earlier pool sections already rang: the matchweek's questions, the settled match, the voided one
+reset role;
+select set_config('request.jwt.claim.sub', '', false);
+select pg_temp.expect('a burst of new questions is one alert that counts them', (select count(*) from notifications where team_id = :fern and kind = 'pool_new') = 1
+  and (select body like '🔮 2 new questions to call%' and link = '/questions' from notifications where team_id = :fern and kind = 'pool_new'));
+select pg_temp.expect('the host is not told about her own questions', not exists (select 1 from notifications n join teams t on t.id = n.team_id
+  where t.league_id = :lib and t.is_commish and n.kind = 'pool_new'));
+select pg_temp.expect('a call that came in says what it won', (select body like '✅ Called it: Arsenal v Chelsea → Arsenal. You won %' from notifications
+  where team_id = :fern and kind = 'pool_settled' and body like '%Arsenal v Chelsea%'));
+select pg_temp.expect('a voided one says the stake came back', exists (select 1 from notifications where team_id = :fern and kind = 'pool_settled' and body like '↩️ Voided: Liverpool v Arsenal. Your 60 came back.'));
+select pg_temp.expect('alerts stay in their pool', not exists (select 1 from notifications n join teams t on t.id = n.team_id where n.kind like 'pool_%' and n.league_id <> t.league_id));
+-- a drop paid now rings every member; one joining later doesn't hear about the drops before them
+select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-000000000081', false);
+set role authenticated;
+select pool_add_drop(300, 'Episode night');
+reset role;
+select pg_temp.expect('coins dropped, with the questions open', (select body like '🪙 300 Goblets dropped: Episode night.%open to call.' and link = '/questions'
+  from notifications where team_id = :fern and kind = 'pool_drop' order by id desc limit 1));
+insert into auth.users (id, email) values ('00000000-0000-0000-0000-000000000086', 'late86@example.com') on conflict do nothing;
+select _accept_invite('00000000-0000-0000-0000-000000000086', :'libcode', 'Lou');
+select pg_temp.expect('a late joiner gets the coins but no alerts for old drops', not exists (select 1 from notifications n join teams t on t.id = n.team_id
+  where t.user_id = '00000000-0000-0000-0000-000000000086' and n.kind = 'pool_drop'));
+-- closing soon: a question closing in two hours that Fern hasn't called, once
+update pool_markets set closes_at = now() + interval '2 hours' where league_id = :lib and title like 'How many couples get engaged%';
+select _pool_nudge_closing(:lib) as nudged \gset
+select pg_temp.expect('the reminder goes to those who haven''t called it', :nudged >= 1
+  and exists (select 1 from notifications where team_id = :fern and kind = 'pool_closing' and body like '⏰ Closes in 2h: How many couples get engaged%'));
+select pg_temp.expect('and only once', _pool_nudge_closing(:lib) = 0);
+select pg_temp.expect('the hourly job runs it', (run_league_jobs('pool-drops')->>:'lib') is not null);
+select set_config('request.jwt.claim.sub', '', false);
+select 'pool alerts', true;
+
 -- ───────────── start a pool with no account yet (migration 153) ─────────────
 -- the join function makes the account, then opens the pool through _pool_start_new as the service role
 insert into auth.users (id, email) values ('00000000-0000-0000-0000-000000000091', 'newhost91@example.com'), ('00000000-0000-0000-0000-000000000092', 'newhost92@example.com'),

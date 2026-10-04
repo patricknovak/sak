@@ -14,14 +14,22 @@ const SITE = 'https://patricknovak.github.io/sak/';
 const cors = { 'Access-Control-Allow-Origin': '*', 'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-league' };
 
 // the league a team plays in, as a push names it: "SAK Superleague" from SaK's wordmark, the league's name
-// otherwise, and its own site when it has a domain
+// otherwise; and where a tap lands: the league's own domain when it has one, SaK's site for SaK (its GMs installed it
+// there), and for every other pool the one app with the pool in the link (migration 151), so the tap opens that pool
+// and not whichever one the phone had open last
+const APP = 'https://app.superpoolsai.com/';
 async function leagueOf(teamId: number) {
   const { data: t } = await db.from('teams').select('league_id').eq('id', teamId).single();
-  const { data: l } = await db.from('leagues').select('name,domain,brand').eq('id', t?.league_id ?? 1).single();
+  const { data: l } = await db.from('leagues').select('id,slug,name,domain,brand').eq('id', t?.league_id ?? 1).single();
   const w = (l?.brand as { wordmark?: { a?: string; b?: string } } | null)?.wordmark;
   const word = (x: string) => x.charAt(0).toUpperCase() + x.slice(1).toLowerCase();
   const name = w?.a ? [w.a, w.b ? word(w.b) : ''].filter(Boolean).join(' ') : (l?.name ?? 'Super Pools');
-  return { name, site: l?.domain ? `https://${l.domain}/` : SITE };
+  const site = l?.domain ? `https://${l.domain}/` : (l?.id ?? 1) === 1 || !l?.slug ? SITE : APP;
+  const open = (link: string | null) => {
+    const path = link && link.startsWith('/') ? link : '/';
+    return site === APP ? `${APP}#/p/${l!.slug}${path === '/' ? '' : path}` : `${site}#${path}`;
+  };
+  return { name, site, open };
 }
 
 // the notifications trigger sends the platform's admin key; the public key alone can't replay a notification
@@ -91,7 +99,7 @@ Deno.serve(async (req) => {
     const r = await sendToTeam(n.team_id, {
       title: `${lead?.[1] ?? ICONS[n.kind] ?? '🔔'} ${lg.name}`,
       body: lead ? String(n.body).slice(lead[0].length) : n.body,
-      url: lg.site + '#' + (n.link ?? '/'),
+      url: lg.open(n.link),
       tag: n.kind === 'draft' ? 'draft-clock' : `n${n.id}`,
       urgent: n.kind === 'draft',
     });

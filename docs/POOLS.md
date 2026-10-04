@@ -136,6 +136,10 @@ the group and the conversation, so the chat is the product and the market is wha
 Season 11 pack, make an account, and the Host page has the invite link ready for the group chat. Joining a pool still
 takes its host's link.
 
+**Alerts.** The pool tells its members when there is something to do (migration 154): coins dropped (with how many
+questions are open), new questions (a burst folds into one alert), a question closing in six hours they haven't
+called, and how each of their calls settled. Each opens that pool's page on the phone.
+
 **The gate.** The test passes if, by the finale on 4 November: three pools or more are running, thirty players or
 more have joined, two thirds of them trade in three of the four drop weeks, and the median player makes five trades
 a week. Whatever the result, we write down what people asked for and what they ignored, and the next show (The
