@@ -9,6 +9,7 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Target } from 'lucide-react';
+import { useBrand } from '../lib/brand';
 import { supabase } from '../lib/supabase';
 import { fmtDate } from '../lib/format';
 import { PageHeader, Section, Spinner } from '../components/ui';
@@ -27,6 +28,7 @@ const f1 = (x: number) => (Math.round(Number(x) * 10) / 10).toFixed(1);
 const signed = (x: number) => `${Number(x) > 0 ? '+' : ''}${f1(x)}`;
 
 export default function Calibration() {
+  const brand = useBrand();
   const [acc, setAcc] = useState<Acc[] | null>(null);
   const [cal, setCal] = useState<Cal[]>([]);
   const [open, setOpen] = useState<Open[]>([]);
@@ -51,6 +53,12 @@ export default function Calibration() {
   const bias = total ? nights.reduce((s, r) => s + Number(r.bias) * Number(r.n), 0) / total : 0;
   const waiting = open.filter((o) => o.status === 'open').reduce((s, o) => s + o.n, 0);
   const kinds = [...new Set(cal.map((c) => c.kind))];
+  // Garry's picks (migration 123): how often they came in against the chance their odds gave them
+  const gp = acc.filter((r) => r.kind === 'garry_pick');
+  const gpN = gp.reduce((s, r) => s + Number(r.n), 0);
+  const gpSaid = gpN ? gp.reduce((s, r) => s + Number(r.avg_predicted) * Number(r.n), 0) / gpN : 0;
+  const gpCame = gpN ? gp.reduce((s, r) => s + Number(r.avg_outcome) * Number(r.n), 0) / gpN : 0;
+  const gpWaiting = open.find((o) => o.kind === 'garry_pick' && o.status === 'open')?.n ?? 0;
   const brier = cal.length ? cal.reduce((s, c) => s + Number(c.brier) * Number(c.n), 0) / cal.reduce((s, c) => s + Number(c.n), 0) : null;
 
   return (
@@ -123,11 +131,31 @@ export default function Calibration() {
         <p className="mt-2 px-1 text-[11px] text-mute">A well-priced book has the two bars level in every row: what it priced at 60% happens about 60% of the time.</p>
       </Section>
 
+      <Section title={`${brand.bot.name}’s picks`}>
+        {gpN ? (
+          <div className="card p-3">
+            <div className="mb-2 flex items-baseline justify-between gap-2">
+              <span className="font-semibold text-slate-100">{gpCame >= gpSaid ? 'Beating the Book' : 'Behind the Book'} by {Math.abs(Math.round((gpCame - gpSaid) * 100))} points</span>
+              <span className="text-[11px] text-mute">{gpN} picks settled</span>
+            </div>
+            <div className="grid grid-cols-[3.75rem_1fr_2.5rem] items-center gap-x-2 gap-y-1 text-[11px]">
+              <span className="text-mute">odds said</span>
+              <span className="h-2 overflow-hidden rounded-full bg-white/[.06]"><span className="block h-full rounded-full bg-sky-400" style={{ width: pct(gpSaid) }} /></span>
+              <span className="num text-right text-slate-300">{pct(gpSaid)}</span>
+              <span className="text-mute">came in</span>
+              <span className="h-2 overflow-hidden rounded-full bg-white/[.06]"><span className="block h-full rounded-full bg-gold" style={{ width: pct(gpCame) }} /></span>
+              <span className="num text-right font-semibold text-white">{pct(gpCame)}</span>
+            </div>
+          </div>
+        ) : <div className="card p-4 text-sm text-mute">{gpWaiting ? `${gpWaiting} picks are out, waiting on their markets to settle.` : `No picks yet. Every pick ${brand.bot.name} gives at the Book is logged here and scored when its market settles.`}</div>}
+        <p className="mt-2 px-1 text-[11px] text-mute">Each pick against the chance its odds gave it when he made it; above the Book’s line means his picks come in more often than the prices say.</p>
+      </Section>
+
       <Section title="Waiting on results">
         <div className="card divide-y divide-white/[.06]">
           {open.length ? open.sort((a, b) => a.kind.localeCompare(b.kind)).map((o) => (
             <div key={o.kind + o.status} className="flex items-center justify-between px-3 py-2 text-sm">
-              <span className="text-slate-200">{WAIT[o.kind] ?? o.kind}</span>
+              <span className="text-slate-200">{o.kind === 'garry_pick' ? `${brand.bot.name}’s picks at the Book (scored when the market settles)` : WAIT[o.kind] ?? o.kind}</span>
               <span className="num text-mute">{o.n} {o.status}</span>
             </div>
           )) : <div className="px-3 py-3 text-sm text-mute">Nothing logged yet.</div>}

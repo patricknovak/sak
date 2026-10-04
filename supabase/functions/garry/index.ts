@@ -1093,12 +1093,21 @@ ${TEMPLATES_SPEC}`,
       if (j && typeof j.reply === 'string') out = { reply: j.reply, picks: Array.isArray(j.picks) ? j.picks : [], requests: Array.isArray(j.requests) ? j.requests : [] };
     } catch { out = null; }
   }
+  const fromModel = !!out;
   if (!out) out = fallback();
   // keep only picks that exist on the board, with a real option
   const byMarket = new Map((open ?? []).map((m) => [m.id, m]));
   const picks = out.picks.filter((p) => p && byMarket.has(Number(p.market_id)) && (byMarket.get(Number(p.market_id))!.options as { key: string }[]).some((o) => o.key === p.pick))
     .slice(0, 4).map((p) => { const m = byMarket.get(Number(p.market_id))!; const o = (m.options as { key: string; label: string; odds: number }[]).find((x) => x.key === p.pick)!;
       return { market_id: m.id, pick: p.pick, why: String(p.why ?? '').slice(0, 200), title: m.title, kind: m.kind, label: o.label, odds: Number(o.odds), closes_at: m.closes_at, backers: backers.get(m.id)?.n ?? 0 }; });
+  // into the prediction log (migration 123): each pick against the chance its odds give it, once per market and option,
+  // scored when the market settles. A log that can't be written never holds up the answer.
+  if (picks.length) {
+    await db.from('predictions').upsert(picks.map((p) => ({
+      league_id: L.lid, kind: 'garry_pick', subject: { market_id: p.market_id, pick: p.pick }, predicted: Math.round(1000 / p.odds) / 1000,
+      basis: fromModel ? 'garry' : 'garry fallback', resolves_on: etDate(new Date(p.closes_at)),
+    })), { onConflict: 'league_id,kind,subject', ignoreDuplicates: true }).then(({ error }) => { if (error) console.error('garry_pick log', error.message); }, () => {});
+  }
   // price the requests as the GM would see them; drop what the Book won't take
   const requests: { request: Record<string, unknown>; why: string; preview: unknown }[] = [];
   for (const r of out.requests.slice(0, 3)) {

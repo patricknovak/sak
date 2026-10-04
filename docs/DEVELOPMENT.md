@@ -91,7 +91,10 @@ results of his own past calls, and what the wider pool knows.
    the rest-of-season points of the players coming in less those going out, scored at the end of the regular season
    on what they actually scored. Drafts and keepers next (migration 115): when a draft is done, each team's draft class
    (`draft_value`) and keepers (`keeper_value`) are forecast for the regular season the same way, and scored at its end
-   on what those players scored. Next kinds: the auto-pilot's choices, Garry's picks. The Calibration page
+   on what those players scored. Garry's picks next (migration 123): every pick he hands a GM at the Book is a
+   `garry_pick` (the chance its odds gave it, once per market and option), scored 1 or 0 when the market settles, so
+   the Calibration page shows whether his picks come in more often than the prices say. Next kind: the auto-pilot's
+   choices. The Calibration page
    (`#/calibration`, platform admins, beside Costs) shows how far off the nightly calls run and which way, the Book's
    priced chances against how often they came in (with its Brier score), and what is still waiting on results.
 5. **B6 money and the Fund**: money per league (migration 86), and both are options a league turns on (migration

@@ -2708,6 +2708,29 @@ update league_rules set format = 'season', season_start = today_et() + 1 where l
 select set_config('request.jwt.claim.sub', '', false);
 select 'a head-to-head league''s schedule on the checklist', true;
 
+-- ───────────── Garry's picks in the prediction log ─────────────
+reset role;
+select id as gp_won, winner_key as gp_key from markets where league_id = 1 and status = 'settled' and winner_key is not null order by id limit 1 \gset
+select id as gp_void from markets where league_id = 1 and status = 'void' order by id limit 1 \gset
+insert into markets (league_id, kind, title, options, closes_at, date) values (1, 'custom', 'Still open', '[{"key":"y","label":"Yes","odds":2.5},{"key":"n","label":"No","odds":1.5}]', now() + interval '1 day', today_et()) returning id as gp_open \gset
+insert into predictions (league_id, kind, subject, predicted, basis, resolves_on) values
+  (1, 'garry_pick', jsonb_build_object('market_id', :gp_won, 'pick', :'gp_key'), 0.4, 'garry', today_et() - 1),
+  (1, 'garry_pick', jsonb_build_object('market_id', :gp_won, 'pick', 'not-' || :'gp_key'), 0.6, 'garry', today_et() - 1),
+  (1, 'garry_pick', jsonb_build_object('market_id', :gp_void, 'pick', 'home'), 0.5, 'garry', today_et() - 1),
+  (1, 'garry_pick', jsonb_build_object('market_id', :gp_open, 'pick', 'y'), 0.4, 'garry', today_et() + 1);
+select set_config('app.league_id', '1', false);
+select score_predictions() >= 3 as gp_scored \gset
+select set_config('app.league_id', '', false);
+select pg_temp.expect('a pick that came in scores 1 against its chance', (select outcome = 1 and error = 0.6 and status = 'scored' from predictions where kind = 'garry_pick' and subject->>'market_id' = :'gp_won' and subject->>'pick' = :'gp_key'));
+select pg_temp.expect('one that didn''t scores 0', (select outcome = 0 and error = -0.6 and status = 'scored' from predictions where kind = 'garry_pick' and subject->>'market_id' = :'gp_won' and subject->>'pick' <> :'gp_key'));
+select pg_temp.expect('a void market voids the pick', (select status = 'void' from predictions where kind = 'garry_pick' and subject->>'market_id' = :'gp_void'));
+select pg_temp.expect('an open market''s pick waits', (select status = 'open' from predictions where kind = 'garry_pick' and subject->>'market_id' = :'gp_open'));
+select pg_temp.expect('one pick per market and option, however many GMs hear it', (select count(*) from pg_indexes where indexname = 'predictions_one_per_subject') = 1);
+delete from predictions where kind = 'garry_pick';
+delete from markets where id = :gp_open;
+select set_config('request.jwt.claim.sub', '', false);
+select 'Garry''s picks in the prediction log', true;
+
 -- ───────────── how alive each league is ─────────────
 reset role;
 update teams set last_seen = now() - interval '2 days' where id = 1;
