@@ -327,7 +327,9 @@ lock rule, the words); `leagues.sport` references it. The site carries the same 
 the slots stop agreeing with the lineup engine, and the flow test checks them against `slot_ok`. First readers moved:
 the pickup advisor's positions and Roster vs available, then (the same day) `Pos` became a string and the position
 chips and filters across the site read the sport (Players, the lineup planner, Trades, the trade block, the team scout,
-Keepers). Next: the draft simulator's slots, then the game-state and period text.
+Keepers). Next: the game-state and period text (`stateOf`), then the draft simulator, which needs the sport's draft
+rules in its row (depth targets per position, a cap per position, flex spots, the goalie timing it now hard-codes),
+best designed beside a real second sport rather than guessed at.
 
 **Phase 4, the second sport.** Basketball on the daily (hockey) engine is the cheapest proof of the split, on a
 licensed feed; soccer follows with the weekly engine for 2027-28, as `docs/MARKET.md` lays out.

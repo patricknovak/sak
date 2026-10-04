@@ -14,6 +14,8 @@ export const CHANGELOG: Change[] = [
     body: 'Rotisserie ranks every team in each category over the season; head-to-head categories plays each week for them. Tap a matchup to see it category by category.' },
   { date: '2026-10-04', icon: '👥', tag: 'everyone', title: 'Matchups, player by player', to: '/standings',
     body: 'Tap any head-to-head matchup for both lineups side by side: every started player, his games and his points this week.' },
+  { date: '2026-10-04', icon: '🤝', tag: 'formats', title: 'Trades graded on your categories', to: '/trades',
+    body: 'In a category league the trade evaluator, the trade finder and the position ranks weigh players on the league\'s categories, so a deal for a big hitter in a hits league grades the way it should.' },
   { date: '2026-10-04', icon: '📋', tag: 'formats', title: 'Performance and the scoreboard in your categories', to: '/performance',
     body: 'In a category league the Performance page ranks every team on the league\'s categories over any stretch you pick, rotisserie style, with your best and weakest categories, and the scoreboard shows each team\'s categories tonight and ranks the night the same way.' },
   { date: '2026-10-04', icon: '📈', tag: 'formats', title: 'Win chances in every matchup', to: '/standings',

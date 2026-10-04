@@ -166,8 +166,12 @@ The steps above finish the tenancy. `docs/MARKET.md` sets what comes after in th
     league hears the week's opponent when a week starts and the result when it ends, the playoffs round by round.
     A category league drafts on its categories (migration 129): `category_values()` values every player on the league's
     categories (last season's pace over his projected games, a z-score against the draftable pool of skaters or goalies),
-    the Players page, draft room and mock draft rank by it in the projection view, and the robot's autopick uses it. The pickup advisor plays a category league's moves out on its categories (`src/lib/catpickup.ts`): each stat per game, on one scale across the pool, weighted to where the team trails in the table, with what the move does to each category. Next: the each-category variant (every category a win or a
-    loss on the table) if a league asks for it.
+    the Players page, draft room and mock draft rank by it in the projection view, and the robot's autopick uses it. The pickup advisor plays a category league's moves out on its categories (`src/lib/catpickup.ts`): each stat per game, on one scale across the pool, weighted to where the team trails in the table, with what the move does to each category. Every page reads the format (4 October 2026): in a category league the Performance page ranks
+    any stretch rotisserie style and the scoreboard shows each team's categories night by night; a head-to-head points
+    matchup shows its live win chance and projected final (logged and scored in the prediction log, migration 137), and
+    the table shows each team's max points for (`lineup_efficiency`, migration 133). The trade evaluator weighs a category
+    league's trades on its categories, put on a points scale so the grades read the same (`pointsScale`). Next: the
+    each-category variant (every category a win or a loss on the table) if a league asks for it.
 9. **Import with history** from Fantrax, ESPN and CBS (Yahoo exists).
 10. **Contracts, caps, prospect slots and rookie drafts**; guillotine and best ball formats.
 11. **The Supercoin.** An account-level wallet, the SaK coin ledger migrated onto it, per-pool allowances, the

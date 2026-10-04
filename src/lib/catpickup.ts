@@ -99,3 +99,20 @@ export function categoryDelta(m: CatModel, rates: Map<number, Record<string, num
   }
   return out;
 }
+
+// A category league's per-game value on a points scale, for the engines that weigh players in points (the trade
+// evaluator, its schedule lineup): the player's category score (the team's needs left out: a trade has two teams),
+// scaled per group so the typical rostered skater, and the typical rostered goalie, is worth what his points say.
+// A player the categories rate below nothing is worth nothing.
+export function pointsScale(m: CatModel, rates: Map<number, Record<string, number> | null>, players: CatPlayer[], pointsPerGame: (p: CatPlayer) => number, rostered: Set<number>) {
+  const median = (xs: number[]) => { const s = [...xs].sort((a, b) => a - b); return s.length ? s[Math.floor(s.length / 2)] : 1; };
+  const scale: Record<string, number> = {};
+  for (const g of ['S', 'G']) {
+    const ratios = players.filter((p) => rostered.has(p.id) && group(p) === g).map((p) => {
+      const s = scorePerGame(m, rates.get(p.id) ?? null, p), pts = pointsPerGame(p);
+      return s > 0 && pts > 0 ? pts / s : null;
+    }).filter((x): x is number => x != null);
+    scale[g] = ratios.length ? median(ratios) : 1;
+  }
+  return (p: CatPlayer) => Math.max(0, scorePerGame(m, rates.get(p.id) ?? null, p)) * scale[group(p)];
+}

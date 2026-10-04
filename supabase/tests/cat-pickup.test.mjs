@@ -1,7 +1,7 @@
 // The category pickup model (src/lib/catpickup.ts): per-game rates, the pool's scales, a team's needs, and a move's
 // effect on each category.
 import assert from 'node:assert/strict';
-import { perGame, buildModel, contribution, scorePerGame, categoryDelta } from '../../src/lib/catpickup.ts';
+import { perGame, buildModel, contribution, scorePerGame, categoryDelta, pointsScale } from '../../src/lib/catpickup.ts';
 
 const ok = (what) => console.log('ok:', what);
 const near = (a, b, what, eps = 1e-6) => { assert.ok(Math.abs(a - b) < eps, `${what}: ${a} vs ${b}`); };
@@ -40,4 +40,21 @@ const pos = new Map(pool.map((p) => [p.id, p.pos]));
 const d = categoryDelta(m, rates, pos, new Map([[1, { starts: 10 }]]), new Map([[2, { starts: 10 }]]));
 near(d.g, 10 * (10 / 80) - 10 * 0.5, 'goals given up'); near(d.hit, 10 * 3 - 10 * 1, 'hits gained');
 ok('category effect of a move');
+// the trade engine's points scale: the typical rostered player is worth his points, the rest by their categories
+{
+  const ps = [
+    { id: 11, pos: 'C', proj: 160, proj_gp: 80, last_stats: { gp: 80, g: 30, hit: 40 } },
+    { id: 12, pos: 'D', proj: 80, proj_gp: 80, last_stats: { gp: 80, g: 5, hit: 250 } },
+    { id: 13, pos: 'LW', proj: 120, proj_gp: 80, last_stats: { gp: 80, g: 20, hit: 100 } },
+  ];
+  const mm = buildModel(['g', 'hit'], ps, new Map());
+  const rr = new Map(ps.map((p) => [p.id, perGame(p, undefined, mm.cats)]));
+  const ppg = (p) => p.proj / 80;
+  const val = pointsScale(mm, rr, ps, ppg, new Set([11, 12, 13]));
+  const ratio = ps.map((p) => ppg(p) / scorePerGame(mm, rr.get(p.id), p)).sort((a, b) => a - b)[1];
+  near(val(ps[2]), scorePerGame(mm, rr.get(13), ps[2]) * ratio, 'scaled by the median rostered ratio');
+  assert.ok(val(ps[1]) > ppg(ps[1]), 'a big hitter is worth more than his points in a hits league');
+  assert.equal(pointsScale(mm, new Map([[11, { g: -1, hit: -1 }]]), [ps[0]], ppg, new Set())({ ...ps[0] }), 0, 'below nothing is nothing');
+  ok('points scale for the trade engine');
+}
 console.log('category pickup tests passed');

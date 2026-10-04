@@ -15,6 +15,8 @@ import { Headshot, Pos, TeamBadge } from './ui';
 import { Sparkles } from 'lucide-react';
 import { rosPg, scoutNums, trendLabel, useScoutCtx } from './TradeScout';
 import { useCategoryValues } from './PlayerFilters';
+import { buildModel, perGame as catPerGame, pointsScale } from '../lib/catpickup';
+import { rosPerGame } from '../lib/lineup';
 
 // every team's free-agent pickups left, read once and shared by every trade tool on the page
 let pkCache: { at: number; rows: PickupStatus[] } | null = null;
@@ -31,7 +33,17 @@ export function useTradeValuer() {
   const { players, season, rosters, teams, league, draft, standings, picks } = useLeague();
   const pk = usePickupStatus();
   const rostered = useMemo(() => new Set(rosters.map((r) => r.player_id)), [rosters]);
-  const v = useMemo(() => makeValuer(players, season, rostered, Math.max(1, teams.length), draft?.season), [players, season, rostered, teams.length, draft?.season]);
+  // a category league weighs a trade on its categories, put on a points scale so the grades read the same way
+  const cats = league?.categories;
+  const perGame = useMemo(() => {
+    if (!cats?.length) return undefined;
+    const all = [...players.values()];
+    const model = buildModel(cats, all, season);
+    const rates = new Map(all.map((p) => [p.id, catPerGame(p, season.get(p.id), cats)]));
+    const pts = (p: Player) => { const s = season.get(p.id); return rosPerGame(Number(p.proj), p.pos, s?.gp ?? 0, s?.fpts ?? 0, p.proj_gp); };
+    return pointsScale(model, rates, all, (p) => pts(p as Player), rostered) as (p: Player) => number;
+  }, [cats, players, season, rostered]);
+  const v = useMemo(() => makeValuer(players, season, rostered, Math.max(1, teams.length), draft?.season, perGame), [players, season, rostered, teams.length, draft?.season, perGame]);
   const caps = (league?.roster ?? {}) as Record<string, number>;
   const rosterMax = Object.entries(caps).filter(([k]) => k !== 'IR').reduce((t, [, n]) => t + n, 0) || 24;
   // how far along the season is (for buy / sell posture)
@@ -43,8 +55,8 @@ export function useTradeValuer() {
   const games = useSeasonGames();
   const nhl = useNhlOdds();
   const sched = useMemo<Sched | undefined>(() => (games && nhl && league
-    ? { games, caps, from: etToday(), to: league.season_end ?? undefined, days: playoffDays(nhl), season, cache: new Map() }
-    : undefined), [games, nhl, league, season]); // eslint-disable-line react-hooks/exhaustive-deps
+    ? { games, caps, from: etToday(), to: league.season_end ?? undefined, days: playoffDays(nhl), season, cache: new Map(), perGame }
+    : undefined), [games, nhl, league, season, perGame]); // eslint-disable-line react-hooks/exhaustive-deps
   // a team as the trade search sees it: roster, who's on IR, pickups left, unused picks
   const ctxOf = (t: number): TeamCtx => ({
     team: t, roster: rosterOf(t), ir: new Set(rosters.filter((r) => r.team_id === t && r.slot === 'IR').map((r) => r.player_id)),
@@ -119,7 +131,11 @@ function MoveList({ inn, out, c }: { inn: Player[]; out: Player[]; c: ReturnType
 // the live read on whatever is in the builder (or on an offer): grades, what each lineup gains or loses, and
 // every player in the deal side by side
 export function TradeAnalysis({ sides, compact }: { sides: Side[]; compact?: boolean }) {
-  const { me, team } = useLeague();
+  const { me, team, league } = useLeague();
+  // the league's own starting lineup, as the forecast plays it: 2C 2LW 2RW 3D 1Util 2G in SaK
+  const caps = (league?.roster ?? {}) as Record<string, number>;
+  const lineupText = ['C', 'LW', 'RW', 'D', 'Util', 'G'].filter((k) => caps[k]).map((k) => `${caps[k]}${k}`).join(' ');
+  const catMode = !!league?.categories?.length;
   const sc = useScoutCtx();
   const { v, rosterMax, sched } = useTradeValuer();
   const details = useProjDetails();
@@ -156,7 +172,7 @@ export function TradeAnalysis({ sides, compact }: { sides: Side[]; compact?: boo
         {evals.map((e) => <SideCard key={e.team} e={e} name={name(e.team)} mine={e.team === me?.id} />)}
       </div>}
       {moving.length > 0 && <TradeCompare moving={moving} />}
-      <p className="px-1 text-[11px] text-mute">Grades weigh the lineup most, then value in and out, then depth, and dock deals that open a hole or take on an injury. Roster spots count: the side that takes in more players than it sends drops its weakest (or the ones its GM names), and the side that sends more gets the best free agent for the open spot if it has a pickup left. Picks are worth about what the player taken there projects to; pickups are worth what the best free agent adds over the weakest player, less for each one already in hand; coins are shown but don't count. Starters = each roster played out day by day over the rest of the real schedule and the playoffs, with the best lineup (2C 2LW 2RW 3D 1Util 2G) every night, from SAK projections blended with this season's pace. That's where multi-position players earn their keep: a C/LW fills whichever spot is empty that night. Value counts them about 5% higher.</p>
+      <p className="px-1 text-[11px] text-mute">Grades weigh the lineup most, then value in and out, then depth, and dock deals that open a hole or take on an injury. Roster spots count: the side that takes in more players than it sends drops its weakest (or the ones its GM names), and the side that sends more gets the best free agent for the open spot if it has a pickup left. Picks are worth about what the player taken there projects to; pickups are worth what the best free agent adds over the weakest player, less for each one already in hand; coins are shown but don't count. Starters = each roster played out day by day over the rest of the real schedule and the playoffs, with the best lineup ({lineupText}) every night, from the projections blended with this season's pace.{catMode ? ' In a category league every number is your categories on a points scale: each player\'s category value (his pace in the league\'s categories against the draftable pool), scaled so a typical rostered skater or goalie is worth his points.' : ''} That's where multi-position players earn their keep: a C/LW fills whichever spot is empty that night. Value counts them about 5% higher.</p>
     </div>
   );
 }
