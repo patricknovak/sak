@@ -13,6 +13,9 @@ import type { Player } from '../lib/types';
 import { Headshot, Pos, TeamBadge, useAction } from './ui';
 import { PlayerSheet } from './PlayerCard';
 import { useCategoryValues } from './PlayerFilters';
+import { useRoto } from './RotoStandings';
+import { buildModel, categoryDelta, contribution, perGame, scorePerGame, isGoalieCat } from '../lib/catpickup';
+import { categoryOf, fmtCat } from '../lib/categories';
 
 const addDays = (d: string, n: number) => { const x = new Date(d + 'T12:00:00Z'); x.setUTCDate(x.getUTCDate() + n); return x.toISOString().slice(0, 10); };
 const hurt = (p: Player) => !!p.injury_status && /^(out|ir|injured|long|suspen)/i.test(p.injury_status);
@@ -28,13 +31,31 @@ function usePlayerValue() {
   };
 }
 
-interface Idea { add: Player; drop: Player | null; gain: number; games: number; filled: number; exp: number; dropExp: number }
+interface Idea { add: Player; drop: Player | null; gain: number; games: number; filled: number; exp: number; dropExp: number; cats?: Record<string, number> }
+
+// the games a season line covers, as the lineup forecast counts them
+const gpOf = (p: Player) => (p.proj_gp && p.proj_gp > 0 ? p.proj_gp : p.pos === 'G' ? 58 : 80);
 
 export function PickupAdvisor() {
-  const { me, league, players, rosters, owner, refresh } = useLeague();
+  const { me, league, players, rosters, owner, refresh, season } = useLeague();
   const games = useSeasonGames();
   const details = useProjDetails();
-  const value = usePlayerValue();
+  const pointsValue = usePlayerValue();
+  // a category league weighs a move by what it does for the categories the team trails in, not by fantasy points
+  const cats = useMemo(() => league?.categories ?? [], [league?.categories]);
+  const catOn = cats.length > 0;
+  const roto = useRoto();
+  const myRow = roto?.find((r) => r.team_id === me?.id);
+  const model = useMemo(() => {
+    if (!catOn || !roto) return null;
+    const pts = Object.fromEntries(cats.map((k) => [k, Number(myRow?.cats[k]?.pts ?? 0)]));
+    return buildModel(cats, [...players.values()], season, myRow ? { pts, teams: roto.length } : undefined);
+  }, [catOn, cats, roto, myRow, players, season]);
+  const rates = useMemo(() => {
+    if (!model) return null;
+    return new Map([...players.values()].map((p) => [p.id, perGame(p, season.get(p.id), cats)]));
+  }, [model, players, season, cats]);
+  const value = (p: Player): FPlayer => (model && rates ? { ...p, proj: scorePerGame(model, rates.get(p.id) ?? null, p) * gpOf(p) } : pointsValue(p));
   const { busy, run } = useAction();
   const [h, setH] = useState<Horizon>(14);
   const [pos, setPos] = useState<'All' | 'C' | 'LW' | 'RW' | 'D' | 'G'>('All');
@@ -49,7 +70,7 @@ export function PickupAdvisor() {
   const gamesIn = (p: Player) => (games ?? []).filter((g) => g.date >= today && g.date <= to && g.state !== 'PPD' && (g.home === p.nhl_team || g.away === p.nhl_team)).length;
 
   useEffect(() => {
-    if (!games || !me || league?.phase !== 'season') return;
+    if (!games || !me || league?.phase !== 'season' || (catOn && !model)) return;
     setIdeas(null);
     const t = setTimeout(() => {
       const roster = mine.filter((r) => r.slot !== 'IR').map((r) => players.get(r.player_id)).filter((p): p is Player => !!p);
@@ -58,9 +79,14 @@ export function PickupAdvisor() {
       // who could go: the players doing the least for this lineup over the stretch
       const drops = [...roster].sort((a, b) => ((base.players.get(a.id)?.pts ?? 0) + (base.players.get(a.id)?.benchPts ?? 0) * 0.2) - ((base.players.get(b.id)?.pts ?? 0) + (base.players.get(b.id)?.benchPts ?? 0) * 0.2)).slice(0, h ? 5 : 3);
       const n = h ? 40 : 20;
-      const pool = [...players.values()].filter((p) => !owner.has(p.id) && p.proj > 0 && !hurt(p) && (pos === 'All' || (pos === 'G' ? p.pos === 'G' : p.pos !== 'G' && p.elig.includes(pos))))
-        .map((p) => ({ p, v: value(p), g: gamesIn(p) }))
-        .sort((a, b) => b.v.proj / gamesOf(b.v) * dressRate(b.v) * (h ? b.g : 82) - a.v.proj / gamesOf(a.v) * dressRate(a.v) * (h ? a.g : 82)).slice(0, n);
+      const rank = (x: { v: FPlayer; g: number }) => x.v.proj / gamesOf(x.v) * dressRate(x.v) * (h ? x.g : 82);
+      const free = [...players.values()].filter((p) => !owner.has(p.id) && p.proj > 0 && !hurt(p) && (pos === 'All' || (pos === 'G' ? p.pos === 'G' : p.pos !== 'G' && p.elig.includes(pos))))
+        .map((p) => ({ p, v: value(p), g: gamesIn(p) }));
+      // category values aren't on one scale across skaters and goalies, so each group brings its own best
+      const pool = catOn
+        ? [...free.filter((x) => x.p.pos !== 'G').sort((a, b) => rank(b) - rank(a)).slice(0, Math.round(n * 0.75)), ...free.filter((x) => x.p.pos === 'G').sort((a, b) => rank(b) - rank(a)).slice(0, Math.round(n * 0.25))]
+        : free.sort((a, b) => rank(b) - rank(a)).slice(0, n);
+      const posOf = new Map([...roster, ...pool.map((x) => x.p)].map((p) => [p.id, p.pos]));
       const out: Idea[] = [];
       for (const { p, v, g } of pool) {
         let bestIdea: Idea | null = null;
@@ -70,14 +96,16 @@ export function PickupAdvisor() {
           next.push(v);
           const f = forecastTeam(me.id, next, games, caps, today, 0, to);
           const gain = f.ros - base.ros;
-          if (!bestIdea || gain > bestIdea.gain) bestIdea = { add: p, drop: d, gain, games: g, filled: base.emptySlots - f.emptySlots, exp: v.proj / gamesOf(v) * dressRate(v), dropExp: d ? value(d).proj / gamesOf(d) * dressRate(d) : 0 };
+          if (!bestIdea || gain > bestIdea.gain) bestIdea = { add: p, drop: d, gain, games: g, filled: base.emptySlots - f.emptySlots, exp: v.proj / gamesOf(v) * dressRate(v), dropExp: d ? value(d).proj / gamesOf(d) * dressRate(d) : 0,
+            cats: model && rates ? categoryDelta(model, rates, posOf, base.players, f.players) : undefined };
         }
-        if (bestIdea && bestIdea.gain > 0.5) out.push(bestIdea);
+        // a category gain is a share of the lineup's weighted output: worth showing from half a percent
+        if (bestIdea && bestIdea.gain > (catOn ? Math.max(0.05, base.ros * 0.005) : 0.5)) out.push(catOn ? { ...bestIdea, gain: bestIdea.gain / Math.max(base.ros, bestIdea.gain) * 100 } : bestIdea);
       }
       setIdeas(out.sort((a, b) => b.gain - a.gain).slice(0, 12));
     }, 30);
     return () => clearTimeout(t);
-  }, [games, me?.id, h, pos, mine, players, owner]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [games, me?.id, h, pos, mine, players, owner, model]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const doAdd = (i: Idea) => run(async () => {
     await rpc('add_player', { p_add: i.add.id, p_drop: i.drop?.id ?? null });
@@ -90,7 +118,8 @@ export function PickupAdvisor() {
   return (
     <div className="space-y-2">
       <div className="card space-y-2 p-3">
-        <div className="text-sm">Every free agent who would make your lineup better over <b>{span}</b>, with the best player to drop for him. It plays your roster out night by night over the real schedule, so games played, open slots and position fit all count.</div>
+        <div className="text-sm">Every free agent who would make your lineup better over <b>{span}</b>{catOn ? ' in your categories' : ''}, with the best player to drop for him. It plays your roster out night by night over the real schedule, so games played, open slots and position fit all count.</div>
+        {model && <NeedLine weight={model.weight} pts={myRow?.cats} teams={roto?.length ?? 0} />}
         <div className="flex flex-wrap items-center gap-1">
           {([7, 14, 30, 0] as Horizon[]).map((x) => <button key={x} onClick={() => setH(x)} className={`rounded-full px-2.5 py-1 text-xs font-semibold ${h === x ? 'bg-gold text-ice' : 'bg-white/[.05] text-mute'}`}>{x ? `Next ${x} days` : 'Rest of season'}</button>)}
           <span className="mx-1 h-4 w-px bg-white/10" />
@@ -108,21 +137,62 @@ export function PickupAdvisor() {
                   <button className="flex min-w-0 flex-1 items-center gap-2 text-left" onClick={() => setDetail(i.add.id)}>
                     <Headshot p={i.add} size={36} />
                     <span className="min-w-0">
-                      <span className="block truncate font-semibold">➕ {i.add.name} <span className="text-[11px] font-normal text-mute">{i.add.elig.join('/')} · {i.add.nhl_team}</span></span>
-                      <span className="block text-[11px] text-slate-300">{i.games} games · {i.exp.toFixed(2)} expected/game{i.filled >= 1 ? ` · fills ${Math.round(i.filled)} empty slot-night${Math.round(i.filled) > 1 ? 's' : ''}` : ''}</span>
-                      {f && <span className={`block truncate text-[11px] ${toneCls[f.tone]}`}>{toneIcon[f.tone]} <span className="text-slate-300">{f.text}</span></span>}
-                      <span className="block truncate text-[11px] text-mute">{i.drop ? <>➖ drop {i.drop.name} ({i.drop.elig.join('/')}, {i.dropExp.toFixed(2)}/game)</> : 'you have an open roster spot'}</span>
+                      <span className="block break-words font-semibold">➕ {i.add.name} <span className="text-[11px] font-normal text-mute">{i.add.elig.join('/')} · {i.add.nhl_team}</span></span>
+                      <span className="block text-[11px] text-slate-300">{i.games} games{model && rates ? bestAt(model, rates.get(i.add.id) ?? null, i.add) : ` · ${i.exp.toFixed(2)} expected/game`}{i.filled >= 1 ? ` · fills ${Math.round(i.filled)} empty slot-night${Math.round(i.filled) > 1 ? 's' : ''}` : ''}</span>
+                      {f && !catOn && <span className={`block truncate text-[11px] ${toneCls[f.tone]}`}>{toneIcon[f.tone]} <span className="text-slate-300">{f.text}</span></span>}
+                      <span className="block break-words text-[11px] text-mute">{i.drop ? <>➖ drop {i.drop.name} ({i.drop.elig.join('/')}{catOn ? '' : `, ${i.dropExp.toFixed(2)}/game`})</> : 'you have an open roster spot'}</span>
                     </span>
                   </button>
-                  <div className="text-right"><div className="num text-lg font-bold text-emerald-300">+{fmtPts(i.gain, 1)}</div><div className="text-[10px] text-mute">pts, {h ? `${h} days` : 'season'}</div></div>
+                  <div className="text-right"><div className="num text-lg font-bold text-emerald-300">+{catOn ? `${i.gain.toFixed(1)}%` : fmtPts(i.gain, 1)}</div><div className="text-[10px] text-mute">{catOn ? 'categories' : 'pts'}, {h ? `${h} days` : 'season'}</div></div>
                   <button className="btn-primary btn-sm" disabled={busy} onClick={() => confirm(`Add ${i.add.name}${i.drop ? ` and drop ${i.drop.name}` : ''}?`) && doAdd(i)}>Add</button>
+                  {i.cats && model && <CatChips d={i.cats} model={model} />}
                 </div>
               );
             })}
           </div>
         )}
-      <p className="px-1 text-[11px] text-mute">Gain = projected lineup points over {span} with the move, minus without it. Free pickups are limited ({league?.max_acquisitions ?? 10} for the regular season and playoffs, +{league?.playoff_bonus_acq ?? 3} when the playoffs start; no paid extras, so trade with another GM for more), so short stretches favour streaming only when the gain is big.</p>
+      <p className="px-1 text-[11px] text-mute">{catOn ? <>Gain = how much more your lineup does in your categories over {span} with the move, weighted to the ones you trail in and on one scale (a category counts by how much it varies between players), as a share of what it does now.</> : <>Gain = projected lineup points over {span} with the move, minus without it.</>} Free pickups are limited ({league?.max_acquisitions ?? 10} for the regular season and playoffs, +{league?.playoff_bonus_acq ?? 3} when the playoffs start; no paid extras, so trade with another GM for more), so short stretches favour streaming only when the gain is big.</p>
       <PlayerSheet id={detail} onClose={() => setDetail(null)} />
+    </div>
+  );
+}
+
+// where the team trails, from the category table: the categories the advisor leans toward
+function NeedLine({ weight, pts, teams }: { weight: Record<string, number>; pts?: Record<string, { pts: number }>; teams: number }) {
+  const behind = Object.entries(weight).filter(([, w]) => w > 1.15).sort((a, b) => b[1] - a[1]).slice(0, 4);
+  if (!behind.length) return <div className="text-[11px] text-mute">Every category counts the same until the table separates.</div>;
+  const place = (k: string) => { const n = Math.round(teams + 1 - Number(pts?.[k]?.pts ?? teams)); return `${n}${n === 1 ? 'st' : n === 2 ? 'nd' : n === 3 ? 'rd' : 'th'}`; };
+  return (
+    <div className="flex flex-wrap items-center gap-1 text-[11px]">
+      <span className="text-mute">Leaning to where you trail:</span>
+      {behind.map(([k]) => <span key={k} className="rounded-lg border border-rose-400/30 bg-rose-400/10 px-1.5 py-0.5 font-semibold text-rose-200">{categoryOf(k)?.short ?? k} <span className="num font-normal text-rose-300/80">{place(k)}</span></span>)}
+    </div>
+  );
+}
+
+// a free agent's two strongest categories against the pool
+function bestAt(m: ReturnType<typeof buildModel>, r: Record<string, number> | null, p: Player) {
+  if (!r) return '';
+  const top = m.cats.filter((k) => isGoalieCat(k) === (p.pos === 'G')).map((k) => [k, contribution(k, r, m.avg) / m.scale[k]] as const).filter(([, v]) => v > 0).sort((a, b) => b[1] - a[1]).slice(0, 2);
+  return top.length ? ` · best at ${top.map(([k]) => categoryOf(k)?.short ?? k).join(', ')}` : '';
+}
+
+// what the move does to each category over the stretch, the biggest effects first (counting stats in their units)
+function CatChips({ d, model }: { d: Record<string, number>; model: ReturnType<typeof buildModel> }) {
+  const rows = Object.entries(d).map(([k, v]) => ({ k, v, w: Math.abs(categoryOf(k)?.rate ? v : v / model.scale[k]) }))
+    .filter((x) => x.w >= 0.05).sort((a, b) => b.w - a.w).slice(0, 5);
+  if (!rows.length) return null;
+  return (
+    <div className="flex w-full flex-wrap gap-1 pl-11">
+      {rows.map(({ k, v }) => {
+        const c = categoryOf(k), up = v > 0;
+        return (
+          <span key={k} className={`inline-flex items-baseline gap-1 rounded-lg border px-1.5 py-0.5 text-[11px] ${up ? 'border-emerald-400/30 bg-emerald-400/10' : 'border-rose-400/30 bg-rose-400/10'}`}>
+            <span className="font-semibold text-mute">{c?.short ?? k}</span>
+            <span className={`num font-bold ${up ? 'text-emerald-300' : 'text-rose-300'}`}>{c?.rate ? (up ? '▲' : '▼') : `${up ? '+' : '−'}${fmtCat(k, Math.abs(v))}`}</span>
+          </span>
+        );
+      })}
     </div>
   );
 }
