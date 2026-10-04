@@ -2772,6 +2772,40 @@ delete from games where id in (7701, 7702, 7703);
 select set_config('request.jwt.claim.sub', '', false);
 select 'the auto-pilot''s choices in the prediction log', true;
 
+-- ───────────── lineup efficiency: the best lineup in hindsight ─────────────
+reset role;
+select (array_agg(r.player_id order by r.player_id))[1] as le_a, (array_agg(r.player_id order by r.player_id))[2] as le_b,
+       (array_agg(r.player_id order by r.player_id))[3] as le_c, (array_agg(r.player_id order by r.player_id))[4] as le_d
+from rosters r join players p on p.id = r.player_id where r.team_id = 3 and p.pos <> 'G' \gset
+insert into games (id, date, start_utc, home, away, state, final_synced) values (7801, today_et() + 150, now() + interval '150 days', 'TOR', 'MTL', 'OFF', true);
+insert into player_games (game_id, player_id, date, stats) values
+  (7801, :le_a, today_et() + 150, '{"g":1,"a":0,"sog":2}'), (7801, :le_b, today_et() + 150, '{"g":0,"a":0,"sog":1}'),
+  (7801, :le_c, today_et() + 150, '{"g":2,"a":1,"sog":6}'), (7801, :le_d, today_et() + 150, '{"g":3,"a":0,"sog":5}');
+-- a and b started; c, the night's best, sat on the bench; d was on IR (not his GM's to start)
+insert into lineup_snapshots (game_id, date, team_id, player_id, slot) values
+  (7801, today_et() + 150, 3, :le_a, 'Util'), (7801, today_et() + 150, 3, :le_b, 'D'), (7801, today_et() + 150, 3, :le_c, 'BN'), (7801, today_et() + 150, 3, :le_d, 'IR');
+select set_config('app.league_id', '1', false);
+select sum(fpts) filter (where player_id in (:le_a, :le_b)) as le_got, sum(fpts) filter (where player_id in (:le_a, :le_b, :le_c) and fpts > 0) as le_best
+from league_games where game_id = 7801 \gset
+select set_config('app.league_id', '', false);
+select pg_temp.as_team(3);
+set role authenticated;
+select pg_temp.expect('the lineup''s points are the starters''', (select points = :le_got from lineup_efficiency(today_et() + 150, today_et() + 150) where team_id = 3));
+select pg_temp.expect('the best counts the benched star, not the man on IR', (select best = :le_best and best > points from lineup_efficiency(today_et() + 150, today_et() + 150) where team_id = 3));
+reset role;
+select pg_temp.expect('a placement that needs a move is found', _best_lineup_points('[{"pts":10,"pos":"C","elig":["C","LW"]},{"pts":8,"pos":"C","elig":["C"]},{"pts":5,"pos":"LW","elig":["LW"]}]', array['C', 'LW']) = 18);
+select pg_temp.expect('a chain of moves too', _best_lineup_points('[{"pts":9,"pos":"C","elig":["C","LW"]},{"pts":8,"pos":"LW","elig":["LW","RW"]},{"pts":7,"pos":"C","elig":["C"]},{"pts":6,"pos":"RW","elig":["RW"]}]', array['C', 'LW', 'RW']) = 24);
+select pg_temp.expect('goalies only in goal, nobody scoring below zero', _best_lineup_points('[{"pts":5,"pos":"G","elig":["G"]},{"pts":-2,"pos":"D","elig":["D"]}]', array['D', 'Util']) = 0);
+select set_config('request.jwt.claim.sub', (select user_id::text from teams where league_id = (select id from leagues where slug = 'rink') and is_commish), false);
+set role authenticated;
+select pg_temp.expect('another league''s GM sees none of it', not exists (select 1 from lineup_efficiency(today_et() + 150, today_et() + 150) where team_id = 3));
+reset role;
+delete from lineup_snapshots where game_id = 7801;
+delete from player_games where game_id = 7801;
+delete from games where id = 7801;
+select set_config('request.jwt.claim.sub', '', false);
+select 'lineup efficiency', true;
+
 -- ───────────── payouts follow the format ─────────────
 reset role;
 select id as pf_league from leagues where slug = 'rink' \gset

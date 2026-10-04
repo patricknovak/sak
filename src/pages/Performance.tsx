@@ -15,6 +15,8 @@ import { BarChart3 } from 'lucide-react';
 
 type Day = { team_id: number; date: string; game_type: number; points: number; bench: number; goalie_points: number; starters: number; benched: number; stats: Record<string, number>; bench_stats: Record<string, number> };
 type PP = { team_id: number; player_id: number; started: number; benched: number; points: number; bench: number; stats: Record<string, number> };
+// a team's night against the best lineup it could have played from the same players (lineup_efficiency)
+type Eff = { team_id: number; date: string; game_type: number; points: number; best: number };
 type RangeKey = 'last' | '7' | '14' | '30' | 'season' | 'custom';
 const RANGES: { k: RangeKey; label: string }[] = [
   { k: 'last', label: 'Last night' }, { k: '7', label: '7 days' }, { k: '14', label: '14 days' }, { k: '30', label: '30 days' }, { k: 'season', label: 'Season' }, { k: 'custom', label: 'Custom' },
@@ -49,6 +51,7 @@ export default function Performance() {
   const { me, teams, team, players, league, leagueDay, games } = useLeague();
   const [rows, setRows] = useState<Day[] | null>(null);
   const [pps, setPps] = useState<PP[]>([]);
+  const [effRows, setEffRows] = useState<Eff[]>([]);
   const [range, setRange] = useSticky<RangeKey>('perf:range', 'last');
   const [custom, setCustom] = useState<{ from: string; to: string }>({ from: addDays(leagueDay, -6), to: leagueDay });
   const [sel, setSel] = useState<number | 'all'>(me?.id ?? 'all');
@@ -60,6 +63,8 @@ export default function Performance() {
   useEffect(() => {
     rpc<Day[]>('performance_days', { p_from: null, p_to: leagueDay })
       .then((d) => setRows(d.map((r) => ({ ...r, points: Number(r.points), bench: Number(r.bench), goalie_points: Number(r.goalie_points) }))), () => setRows([]));
+    rpc<Eff[]>('lineup_efficiency', { p_from: null, p_to: leagueDay })
+      .then((d) => setEffRows(d.map((r) => ({ ...r, points: Number(r.points), best: Number(r.best) }))), () => setEffRows([]));
   }, [leagueDay]);
   const playoffsToo = useMemo(() => (rows ?? []).some((r) => r.game_type === 3), [rows]);
   const scored = useMemo(() => (rows ?? []).filter((r) => r.game_type === phase), [rows, phase]);
@@ -87,16 +92,32 @@ export default function Performance() {
   // a category the league scores negatively (PIM, goals against, losses) is one where fewer is better
   const isLow = (k: string) => { const wt = w?.skater[k] ?? w?.goalie[k]; return wt != null && wt !== 0 ? wt < 0 : !!statDef(k).lowerIsBetter; };
   const aggs = useMemo(() => aggregate(inRange, gmTeams.map((t) => t.id)), [inRange, gmTeams]);
+  // lineup efficiency over the range: what the lineups scored against the best they could have, and the night that
+  // cost the most
+  const eff = useMemo(() => {
+    const m = new Map<number, { points: number; best: number; worst: Eff | null }>();
+    for (const r of effRows) {
+      if (r.game_type !== phase || r.date < from || r.date > to) continue;
+      const e = m.get(r.team_id) ?? { points: 0, best: 0, worst: null };
+      e.points += r.points; e.best += r.best;
+      if (r.best - r.points > 0.05 && (!e.worst || r.best - r.points > e.worst.best - e.worst.points)) e.worst = r;
+      m.set(r.team_id, e);
+    }
+    return m;
+  }, [effRows, phase, from, to]);
+  const effPct = (id: number) => { const e = eff.get(id); return e && e.best > 0 ? e.points / e.best : null; };
+  const bestOf = useMemo(() => new Map(effRows.filter((r) => r.game_type === phase).map((r) => [`${r.team_id}:${r.date}`, r.best])), [effRows, phase]);
   const sorted = useMemo(() => [...aggs].sort((a, b) => {
     if (sortKey === 'pts') return b.points - a.points;
     if (sortKey === 'avg') return (b.days ? b.points / b.days : 0) - (a.days ? a.points / a.days : 0);
     if (sortKey === 'bench') return b.bench - a.bench;
+    if (sortKey === 'eff') return (effPct(b.team_id) ?? -1) - (effPct(a.team_id) ?? -1);
     return isLow(sortKey) ? num(a.cats, sortKey) - num(b.cats, sortKey) : num(b.cats, sortKey) - num(a.cats, sortKey);
-  }), [aggs, sortKey, w]); // eslint-disable-line react-hooks/exhaustive-deps
-  const best = useMemo(() => Object.fromEntries(['pts', 'avg', 'bench', ...cats].map((k) => {
-    const vals = aggs.map((a) => k === 'pts' ? a.points : k === 'avg' ? (a.days ? a.points / a.days : 0) : k === 'bench' ? -a.bench : isLow(k) ? -num(a.cats, k) : num(a.cats, k));
+  }), [aggs, sortKey, w, eff]); // eslint-disable-line react-hooks/exhaustive-deps
+  const best = useMemo(() => Object.fromEntries(['pts', 'avg', 'bench', 'eff', ...cats].map((k) => {
+    const vals = aggs.map((a) => k === 'pts' ? a.points : k === 'avg' ? (a.days ? a.points / a.days : 0) : k === 'bench' ? -a.bench : k === 'eff' ? effPct(a.team_id) ?? 0 : isLow(k) ? -num(a.cats, k) : num(a.cats, k));
     return [k, Math.max(...vals)];
-  })), [aggs, cats, w]); // eslint-disable-line react-hooks/exhaustive-deps
+  })), [aggs, cats, w, eff]); // eslint-disable-line react-hooks/exhaustive-deps
   const leagueAvg = (f: (a: Agg) => number) => (aggs.length ? aggs.reduce((n, a) => n + f(a), 0) / aggs.length : 0);
   // rank of every team on every day in the range, for the day-by-day table and the streaks
   const dayRank = useMemo(() => {
@@ -131,11 +152,15 @@ export default function Performance() {
     out.push({ tone: pos <= 2 ? 'good' : pos >= aggs.length - 1 ? 'bad' : 'info', text: `${name} ${are} ${pos === 1 ? 'first' : `${pos}${['st', 'nd', 'rd'][pos - 1] ?? 'th'}`} of ${aggs.length} over this stretch with ${fmtPts(mine.points)} points, ${fmtPts(mine.points / mine.days)} a day against a league average of ${fmtPts(leagueAvg((a) => (a.days ? a.points / a.days : 0)))}.` });
     if (edge.length) out.push({ tone: 'good', text: `Edge: ${edge.map((c) => `${statDef(c.k).label.toLowerCase()} (${fmtCat(c.k, c.v)}, league avg ${fmtCat(c.k, c.avg)})`).join(', ')}.` });
     if (gap.length) out.push({ tone: 'bad', text: `Gap: ${gap.map((c) => `${statDef(c.k).label.toLowerCase()} (${fmtCat(c.k, c.v)}, league avg ${fmtCat(c.k, c.avg)})`).join(', ')}.` });
-    const total = mine.points + mine.bench;
-    if (mine.bench > 0 && total > 0) {
-      const eff = mine.points / total;
-      const lgEff = leagueAvg((a) => (a.points + a.bench > 0 ? a.points / (a.points + a.bench) : 1));
-      out.push({ tone: eff >= lgEff ? 'info' : 'bad', text: `${fmtPts(mine.bench)} points sat on the bench or IR: ${Math.round(eff * 100)}% of the points available made it into the lineup (league ${Math.round(lgEff * 100)}%).` });
+    // the lineup against the best it could have been from the same players, night by night
+    const e = eff.get(mine.team_id), mePct = effPct(mine.team_id);
+    if (e && mePct != null) {
+      const others = aggs.map((a) => effPct(a.team_id)).filter((x): x is number => x != null);
+      const lgPct = others.length ? others.reduce((n, x) => n + x, 0) / others.length : mePct;
+      const left = e.best - e.points;
+      out.push({ tone: left < 0.05 ? 'good' : mePct >= lgPct ? 'info' : 'bad',
+        text: left < 0.05 ? `Perfect lineups: every night the best possible from the players who played.`
+          : `Lineups scored ${fmtPts(e.points)} of a possible ${fmtPts(e.best)} (${Math.round(mePct * 100)}%, league ${Math.round(lgPct * 100)}%)${e.worst && mine.days > 1 ? `; the night that cost most was ${fmtDate(e.worst.date)}, ${fmtPts(e.worst.best - e.worst.points)} left out` : ''}.` });
     }
     if (mine.goalie > 0 && mine.points > 0) {
       const share = mine.goalie / mine.points, lg = leagueAvg((a) => (a.points > 0 ? a.goalie / a.points : 0));
@@ -161,7 +186,7 @@ export default function Performance() {
     const wins = mine.dates.filter((d) => dayRank.get(`${mine.team_id}:${d}`) === 1).length;
     if (mine.days >= 3 && wins) out.push({ tone: 'info', text: `Won the night ${wins} time${wins > 1 ? 's' : ''} out of ${mine.days}.` });
     return out;
-  }, [mine, aggs, cats, me, team, dayRank, range]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [mine, aggs, cats, me, team, dayRank, range, eff]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const rangeLabel = range === 'last' ? (tonightLive ? 'Tonight so far' : `Last night, ${fmtDate(lastNight)}`) : from === to ? fmtDate(from) : `${fmtDate(from)} to ${fmtDate(to)}`;
   const Th = ({ k, label, title, right = true }: { k: string; label: string; title?: string; right?: boolean }) => (
@@ -209,6 +234,7 @@ export default function Performance() {
                       <Th k="avg" label="Avg" title="Points per game day" />
                       {cats.map((k) => <Th key={k} k={k} label={statDef(k).short} title={statDef(k).label} />)}
                       <Th k="bench" label="Bench" title="Points left on the bench and IR: shown, never counted" />
+                      <Th k="eff" label="Lineup" title="Points scored against the best lineup possible from the same players, night by night" />
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-white/[.05]">
@@ -224,6 +250,7 @@ export default function Performance() {
                           <td className={`num px-2 text-right ${hi('avg', a.days ? a.points / a.days : 0)}`}>{a.days ? fmtPts(a.points / a.days) : '–'}</td>
                           {cats.map((k) => <td key={k} className={`num px-2 text-right ${hi(k, isLow(k) ? -num(a.cats, k) : num(a.cats, k))}`}>{fmtCat(k, num(a.cats, k))}</td>)}
                           <td className={`num px-2 text-right text-mute ${hi('bench', -a.bench)}`}>{a.bench ? fmtPts(a.bench) : '–'}</td>
+                          <td className={`num px-2 text-right ${hi('eff', effPct(a.team_id) ?? 0)}`}>{effPct(a.team_id) != null ? `${Math.round(effPct(a.team_id)! * 100)}%` : '–'}</td>
                         </tr>
                       );
                     })}
@@ -234,12 +261,13 @@ export default function Performance() {
                         <td className="num px-2 text-right">{fmtPts(leagueAvg((a) => (a.days ? a.points / a.days : 0)))}</td>
                         {cats.map((k) => <td key={k} className="num px-2 text-right">{fmtCat(k, leagueAvg((a) => num(a.cats, k)))}</td>)}
                         <td className="num px-2 text-right">{fmtPts(leagueAvg((a) => a.bench))}</td>
+                        <td className="num px-2 text-right">{(() => { const xs = aggs.map((a) => effPct(a.team_id)).filter((x): x is number => x != null); return xs.length ? `${Math.round((xs.reduce((n, x) => n + x, 0) / xs.length) * 100)}%` : '–'; })()}</td>
                       </tr>
                     )}
                   </tbody>
                 </table>
               </div>
-              <div className="border-t border-white/[.06] px-3 py-2 text-[11px] text-mute">Only players in a starting slot at puck drop count. Gold marks the league’s best in each column. Stat corrections from the NHL can move a day for up to a month.</div>
+              <div className="border-t border-white/[.06] px-3 py-2 text-[11px] text-mute">Only players in a starting slot at puck drop count. Lineup is the share of the best lineup possible each night from the players who played (bench, not IR). Gold marks the league’s best in each column. Stat corrections from the NHL can move a day for up to a month.</div>
             </div>
           </Section>
 
@@ -257,7 +285,9 @@ export default function Performance() {
                 <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
                   <Stat label="Points" value={<span style={{ color: readable(team(mine.team_id)?.color ?? '#fff') }}>{fmtPts(mine.points)}</span>} sub={`${rankOf(mine.points, aggs.map((a) => a.points))}${['st', 'nd', 'rd'][rankOf(mine.points, aggs.map((a) => a.points)) - 1] ?? 'th'} of ${aggs.length}`} />
                   <Stat label="Per game day" value={mine.days ? fmtPts(mine.points / mine.days) : '–'} sub={`${mine.days} game day${mine.days === 1 ? '' : 's'}`} />
-                  <Stat label="On the bench" value={<span className="text-amber-200">{fmtPts(mine.bench)}</span>} sub="shown, never counted" />
+                  {effPct(mine.team_id) != null
+                    ? <Stat label="Lineup" value={<span className={effPct(mine.team_id)! >= 0.95 ? 'text-emerald-300' : effPct(mine.team_id)! >= 0.85 ? 'text-slate-100' : 'text-amber-200'}>{Math.round(effPct(mine.team_id)! * 100)}%</span>} sub={`of a possible ${fmtPts(eff.get(mine.team_id)!.best)}`} />
+                    : <Stat label="On the bench" value={<span className="text-amber-200">{fmtPts(mine.bench)}</span>} sub="shown, never counted" />}
                   <Stat label="From goalies" value={mine.points > 0 ? `${Math.round((mine.goalie / mine.points) * 100)}%` : '–'} sub={`${fmtPts(mine.goalie)} points`} />
                 </div>
                 {notes.length > 0 && (
@@ -272,7 +302,7 @@ export default function Performance() {
                     <div className="scroll-x">
                       <table className="w-full min-w-max text-xs">
                         <thead className="bg-white/[.03] text-[10px] uppercase tracking-wider text-mute">
-                          <tr><th className="sticky left-0 z-10 bg-rink px-2 py-1.5 text-left">Day</th><th className="px-2 text-right">Pts</th><th className="px-2 text-right" title="Where the night ranked among the league">Night</th><th className="px-2 text-right" title="Starters with a game">GP</th>{cats.map((k) => <th key={k} className="px-2 text-right" title={statDef(k).label}>{statDef(k).short}</th>)}<th className="px-2 text-right">Bench</th></tr>
+                          <tr><th className="sticky left-0 z-10 bg-rink px-2 py-1.5 text-left">Day</th><th className="px-2 text-right">Pts</th><th className="px-2 text-right" title="The best lineup possible that night from the players who played">Max</th><th className="px-2 text-right" title="Where the night ranked among the league">Night</th><th className="px-2 text-right" title="Starters with a game">GP</th>{cats.map((k) => <th key={k} className="px-2 text-right" title={statDef(k).label}>{statDef(k).short}</th>)}<th className="px-2 text-right">Bench</th></tr>
                         </thead>
                         <tbody className="divide-y divide-white/[.05]">
                           {myDays.map((d) => {
@@ -281,6 +311,7 @@ export default function Performance() {
                               <tr key={d.date} className="hover:bg-white/[.03]">
                                 <td className="sticky left-0 z-10 bg-rink px-2 py-1.5"><Link to={`/scoreboard?day=${d.date}`} className="whitespace-nowrap font-semibold text-sky-300">{fmtDate(d.date)}</Link></td>
                                 <td className="num px-2 text-right font-bold">{fmtPts(d.points)}</td>
+                                {(() => { const b = bestOf.get(`${d.team_id}:${d.date}`); return <td className={`num px-2 text-right ${b == null ? 'text-mute' : b - d.points < 0.05 ? 'text-emerald-300' : 'text-amber-200/80'}`}>{b == null ? '–' : fmtPts(b)}</td>; })()}
                                 <td className={`num px-2 text-right ${r === 1 ? 'font-bold text-gold' : r && r >= aggs.length ? 'text-red-300' : 'text-mute'}`}>{r ? `${r}${['st', 'nd', 'rd'][r - 1] ?? 'th'}` : '–'}</td>
                                 <td className="num px-2 text-right text-mute">{d.starters}</td>
                                 {cats.map((k) => <td key={k} className="num px-2 text-right">{fmtCat(k, num(d.stats, k))}</td>)}
