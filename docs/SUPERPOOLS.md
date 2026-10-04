@@ -174,6 +174,9 @@ The steps above finish the tenancy. `docs/MARKET.md` sets what comes after in th
     `commish_vacate_seat(team)` takes a departed GM off their team, stops their phones' alerts for it and returns a
     fresh invite for the seat; the team keeps its roster, picks, coins and history. Both on the Commish page (Seats
     and commissioners).
+    *The audit trail done (migration 110, October 2026):* every
+    commissioner power passes `_commish()`, which now writes a line to `commish_log` (who, what, when; once per
+    action) for the ones that change the league; every GM reads their league's log on the League page (Commish log).
 13. **The sport pulled out of the engine**: a `sports` table, per-sport player, game and stat shapes and
     scoring vocabularies, a sync per sport; the NHL becomes one row. Prerequisite for soccer, basketball and
     the multi-sport pool.

@@ -2296,6 +2296,37 @@ select set_config('request.headers', '', false);
 select set_config('request.jwt.claim.sub', '', false);
 select 'league by host', true;
 
+-- ───────────── the commissioner's log ─────────────
+reset role;
+select pg_temp.expect('the north commissioner''s rebrand earlier is on the north''s log', exists (select 1 from commish_log where league_id = :league2 and team_id = 99 and action = 'commish_set_brand'));
+-- one line per action, even when one commissioner function calls another inside it
+select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-000000000099', false);
+begin;
+set local role authenticated;
+select commish_update_league('{"pick_seconds": 75}'::jsonb);
+select commish_update_league('{"pick_seconds": 80}'::jsonb);
+select txid_current() as log_tx \gset
+commit;
+select pg_temp.expect('two calls in one transaction are one line', (select count(*) from commish_log where tx = :log_tx) = 1);
+select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-000000000099', false);
+set role authenticated;
+select commish_update_league('{"pick_seconds": 60}'::jsonb);
+select count(*) from commish_accounts();
+reset role;
+select pg_temp.expect('a rules change is a line with who and when', exists (select 1 from commish_log where league_id = :league2 and team_id = 99 and action = 'commish_update_league' and at > now() - interval '1 minute'));
+select pg_temp.expect('reading the account list is not', not exists (select 1 from commish_log where action = 'commish_accounts'));
+-- every member reads their own league's log, nobody writes to it
+select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-000000000096', false);
+set role authenticated;
+select pg_temp.expect('a north GM reads the north''s log and only it', (select count(*) > 0 and bool_and(league_id = :league2) from commish_log));
+select pg_temp.raises('nobody writes to the log by hand', 'insert into commish_log (team_id, action) values (99, ''commish_coins'')', 'permission denied');
+reset role;
+select pg_temp.as_team(2);
+set role authenticated;
+select pg_temp.expect('a SaK GM reads only SaK''s', not exists (select 1 from commish_log where league_id <> 1));
+reset role;
+select set_config('request.jwt.claim.sub', '', false);
+select 'the commissioner''s log', true;
 -- ───────────── commissioner tools: co-commissioners and a handover ─────────────
 reset role;
 select id as hand_seat from teams where league_id = :league2 and gm_name = 'Nora Newcomer' \gset
