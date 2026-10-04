@@ -155,7 +155,7 @@ async function ycall(acct: Acct, method: string, path: string, body?: string, re
       // the Yahoo app only has read access (Yahoo no longer offers Read/Write to every app): remember it so the site
       // sends this GM to Yahoo's own pages for changes instead
       await db.from('yahoo_accounts').update({ write_ok: false, updated_at: new Date().toISOString() }).eq('team_id', acct.team_id);
-      throw new Fail(`Yahoo only lets SaK read your leagues, so this change has to be made on Yahoo itself. Use “Manage on Yahoo”. (${desc || r.status})`, 403);
+      throw new Fail(`Yahoo only lets this site read your leagues, so this change has to be made on Yahoo itself. Use “Manage on Yahoo”. (${desc || r.status})`, 403);
     }
     throw new Fail(`Yahoo: ${desc || r.status}`, r.status === 401 ? 401 : 502);
   }
