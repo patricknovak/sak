@@ -3151,3 +3151,94 @@ update players set injury_status = null, injury_note = null where id in (:wi_fre
 delete from notifications where kind = 'injury';
 delete from watchlist where team_id in (5, :wi_owner);
 select 'injury news for the watch list', true;
+
+-- ───────────── prediction pools (migration 145) ─────────────
+reset role;
+insert into coin_ledger (team_id, amount, reason) values (2, 600, 'pool test grant'), (3, 600, 'pool test grant');
+-- a question in SaK: the commissioner asks it, two GMs trade it
+select pg_temp.as_team(1);
+set role authenticated;
+select pool_create(jsonb_build_object('title', 'Pool test: does the Cup go east?', 'rule', 'The Cup winner''s conference.',
+  'outcomes', jsonb_build_array('East', 'West'), 'closes_at', now() + interval '2 days', 'b', 150, 'max_stake', 300)) as pm \gset
+select set_config('t.pm', :'pm', false);
+select pg_temp.expect('a new question starts even', (select pool_prices(q, b) = '{"a1": 0.5, "a2": 0.5}'::jsonb from pool_markets where id = :pm));
+select pg_temp.expect('and says so in the chat', exists (select 1 from messages where kind = 'system' and (meta->>'pool_market')::bigint = :pm));
+select pg_temp.as_team(2);
+select pool_buy(:pm, 'a1', 100) as pb \gset
+select pg_temp.expect('100 coins at even money buy more than 100 shares', (:'pb'::jsonb->>'shares')::numeric > 100 and (:'pb'::jsonb->>'shares')::numeric < 200);
+select pg_temp.expect('and push East up', (select (pool_prices(q, b)->>'a1')::numeric > 0.6 from pool_markets where id = :pm));
+select pg_temp.expect('prices always add to one', (select abs((pool_prices(q, b)->>'a1')::numeric + (pool_prices(q, b)->>'a2')::numeric - 1) < 0.00001 from pool_markets where id = :pm));
+select pg_temp.expect('the stake is a ledger line', (select sum(amount) from coin_ledger where team_id = 2 and reason like 'Called it: Pool test%') = -100);
+select pg_temp.raises('a cap per question', format('select pool_buy(%s, ''a2'', 250)', :pm), 'Up to 300 coins');
+select pg_temp.raises('only real answers', format('select pool_buy(%s, ''a9'', 10)', :pm), 'one of the answers');
+select pg_temp.raises('a GM can''t settle it', format('select pool_resolve(%s, ''a1'')', :pm), 'Commissioner only');
+select pg_temp.as_team(3);
+select pool_buy(:pm, 'a2', 50);
+select pg_temp.as_team(2);
+select pool_sell(:pm, 'a1') as ps \gset
+select pg_temp.expect('selling hands coins back', (:'ps'::jsonb->>'coins')::int between 50 and 100
+  and (select shares from pool_positions where market_id = :pm and team_id = 2 and outcome = 'a1') = 0);
+select pg_temp.expect('every trade is on the chart', (select count(*) from pool_trades where market_id = :pm) = 3);
+select pg_temp.raises('the words lock once people trade', format('select pool_edit(%s, ''{"title": "Something else"}''::jsonb)', :pm), 'Commissioner only');
+select pg_temp.as_team(1);
+select pg_temp.raises('the host can''t reword a traded question', format('select pool_edit(%s, ''{"title": "Something else"}''::jsonb)', :pm), 'stay as they are');
+select pool_edit(:pm, jsonb_build_object('closes_at', now() + interval '3 days'));
+select pool_resolve(:pm, 'a2', 'Test settle');
+select pg_temp.expect('the winner is paid a coin a share', (select sum(amount) from coin_ledger where team_id = 3 and reason like 'Paid: Pool test%')
+  = (select floor(shares) from pool_positions where market_id = :pm and team_id = 3 and outcome = 'a2'));
+select pg_temp.expect('the leaders count the hit', (select hits from pool_leaders() where team_id = 3) >= 1);
+select pg_temp.as_team(3);
+select pg_temp.raises('a settled question takes no trades', format('select pool_buy(%s, ''a2'', 10)', :pm), 'closed');
+select pg_temp.as_team(1);
+select pg_temp.raises('settled once', format('select pool_resolve(%s, ''a1'')', :pm), 'void it to start over');
+select pool_resolve(:pm, null, 'Test void');
+select pg_temp.expect('a void after a settlement takes back the payout and refunds the stake',
+  (select sum(amount) from coin_ledger where team_id = 3 and (reason like '%Pool test%')) = 0);
+select pg_temp.expect('and puts a seller who sold at a loss back where she started', (select sum(amount) from coin_ledger where team_id = 2 and reason like '%Pool test%') = 0);
+-- the north sees none of it and can't touch it
+select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-000000000099', false);
+select pg_temp.expect('the north sees no SaK questions or trades', (select count(*) from pool_markets) + (select count(*) from pool_trades) + (select count(*) from pool_positions) = 0);
+select pg_temp.raises('nor trades one', format('select pool_buy(%s, ''a1'', 10)', :pm));
+reset role;
+
+-- a prediction pool of its own: the platform opens it with the Love Is Blind pack; the host's open link seats friends
+select pg_temp.as_team(1);
+set role authenticated;
+select platform_open_pool('pod-squad-test', 'Pod Squad', 'PS', 'love-is-blind-s11') as lib \gset
+reset role;
+select set_config('t.lib', :'lib', false);
+select pg_temp.expect('the pool is a prediction league', (select kind from leagues where id = :lib) = 'predict');
+select pg_temp.expect('with the pack''s questions, drops and brand', (select count(*) from pool_markets where league_id = :lib) = 8
+  and (select count(*) from pool_drops where league_id = :lib) = 4 and (select brand->'coin'->>'name' from leagues where id = :lib) = 'Goblets');
+select pg_temp.expect('loading the pack twice adds nothing', _pool_load_pack(:lib, 'love-is-blind-s11', null) = 0);
+insert into auth.users (id, email) values ('00000000-0000-0000-0000-000000000081', 'host81@example.com'), ('00000000-0000-0000-0000-000000000082', 'friend82@example.com');
+insert into league_invites (code, league_id, team_id, role, created_by, expires_at, max_uses)
+  values ('hostseat81', :lib, (select id from teams where league_id = :lib), 'gm', '00000000-0000-0000-0000-000000000001', now() + interval '1 day', 1);
+select _accept_invite('00000000-0000-0000-0000-000000000081', 'hostseat81', 'Hana');
+update leagues set status = 'active' where id = :lib;
+select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-000000000081', false);
+set role authenticated;
+select pool_invite_link(7, 20) as libcode \gset
+reset role;
+select _accept_invite('00000000-0000-0000-0000-000000000082', :'libcode', 'Fern');
+select id as fern from teams where league_id = :lib and user_id = '00000000-0000-0000-0000-000000000082' \gset
+select pg_temp.expect('an open link seats a friend on a team of her own', (select role from teams where id = :fern) = 'gm'
+  and exists (select 1 from league_members where team_id = :fern and league_id = :lib));
+select pg_temp.expect('with the opening coins and every drop so far', (select balance from coin_balances where team_id = :fern)
+  = 1000 + coalesce((select sum(amount) from pool_drops where league_id = :lib and at <= now()), 0));
+select pg_temp.as_team(1);
+set role authenticated;
+select pg_temp.raises('the open link is for prediction pools', 'select pool_invite_link()', 'prediction pools');
+reset role;
+select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-000000000081', false);
+set role authenticated;
+select pool_add_drop(250, 'Bonus night', now() - interval '1 minute');
+select pg_temp.expect('a drop pays every member once', (select count(*) from coin_ledger where reason like 'Coin drop: Bonus night%') = 2);
+select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-000000000082', false);
+select pool_buy((select id from pool_markets where league_id = :lib and title like 'Will a woman propose%'), 'a1', 120);
+select pg_temp.expect('a friend trades in her pool, and sees only it', (select count(*) from pool_trades) = 1 and (select count(*) from teams) = 2);
+reset role;
+select pg_temp.expect('the drop job pays nothing twice', (run_league_jobs('pool-drops')->>:'lib')::int = 0);
+select pg_temp.expect('the fantasy jobs skip a prediction pool', not (run_league_jobs('settle-bets') ? :'lib'));
+select set_config('request.jwt.claim.sub', '', false);
+select 'prediction pools', true;

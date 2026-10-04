@@ -19,6 +19,8 @@ where n.nspname = 'public' and c.relkind in ('r', 'p')
     'stat_corrections', 'scoring_profiles', 'player_game_points', 'player_values', 'hub_cache', 'health_alerts', 'leagues', 'accounts', 'waitlist',
     -- each sport's description (positions, slots, stats), read by every league that plays it
     'sports',
+    -- question packs a prediction pool can load (docs/POOLS.md), read by every pool
+    'pool_packs',
     -- one-off backup kept from the 2025-26 roster import (row-level security on, no policies)
     'rosters_2526_backup');
 
