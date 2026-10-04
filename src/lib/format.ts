@@ -16,7 +16,7 @@ export const fmtPts = (n: number | null | undefined, d = 1) =>
 
 // to the cent, and never "$-0" (an empty total negated, or a rounding crumb below a cent)
 export const fmtMoney = (n: number | null | undefined) => {
-  if (n == null) return '—';
+  if (n == null || Number.isNaN(Number(n))) return '—';
   const v = Math.round(Number(n) * 100) / 100 || 0;
   return '$' + v.toLocaleString(undefined, { minimumFractionDigits: v % 1 ? 2 : 0, maximumFractionDigits: 2 });
 };

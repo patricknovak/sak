@@ -95,7 +95,7 @@ export default function Players() {
       )}
       {list.length > limit && <button className="btn-ghost w-full" onClick={() => setLimit(limit + 100)}>Show more ({list.length - limit} left)</button>}
       {/* nobody through the filters: one tap back to the whole league's players */}
-      {list.length === 0 && shown !== 'watch' && shown !== 'coming' && (shown !== 'all' || pf.f.q || pf.f.pos !== 'ALL' || pf.f.nhl || pf.f.hideInjured || pf.f.minGp > 0) && (
+      {list.length === 0 && players.size > 0 && shown !== 'watch' && shown !== 'coming' && (shown !== 'all' || pf.f.q || pf.f.pos !== 'ALL' || pf.f.nhl || pf.f.hideInjured || pf.f.minGp > 0) && (
         <button className="btn-ghost w-full" onClick={() => { pf.set({ q: '', pos: 'ALL', nhl: '', hideInjured: false, minGp: 0 }); setWho('all'); }}>Clear the filters and show everyone</button>
       )}
       </>}

@@ -151,7 +151,7 @@ export function TeamScout({ teamId, hideRoster }: { teamId: number; hideRoster?:
         <div className="sticky bottom-[calc(84px+env(safe-area-inset-bottom))] z-20 lg:bottom-3">
           <div className="card flex items-center gap-3 p-2.5 shadow-2xl backdrop-blur-md" style={{ background: 'linear-gradient(135deg, rgba(30,70,100,.92), rgba(11,18,34,.96) 55%)' }}>
             {/* the badge gives way on the smallest phones so the prompt keeps its room */}
-            <span className="hidden shrink-0 min-[400px]:block"><TeamBadge team={t} size={30} /></span>
+            <span className="hidden shrink-0 min-[380px]:block"><TeamBadge team={t} size={30} /></span>
             <div className="min-w-0 flex-1 text-sm leading-snug">
               {want.size + wantPicks.size === 0 ? <><b className="text-slate-200">Tick what you want</b><div className="text-[11px] text-mute">players or picks</div></>
                 : <><b>Ask for {want.size} player{want.size === 1 ? '' : 's'}{wantPicks.size ? ` + ${wantPicks.size} pick${wantPicks.size === 1 ? '' : 's'}` : ''}</b><div className="text-[11px] text-mute">{fmtPts(askValue, 0)} pts of value</div></>}

@@ -410,14 +410,15 @@ export function TradeFinder({ onBuild }: { onBuild: (b: BuildSpec) => void }) {
 // who needs what: every team's rank at each position, and the partners whose strengths cover your weak spots while
 // your strengths cover theirs
 export function TradeFit({ onPick }: { onPick?: (partner: number) => void }) {
-  const { me, teams, team } = useLeague();
+  const { me, teams, team, players, rosters } = useLeague();
   const { v, ctxOf } = useTradeValuer();
   const ranks = useMemo(() => positionRanks(teams.map((t) => ctxOf(t.id)), v), [teams, v]); // eslint-disable-line react-hooks/exhaustive-deps
   const fit = me ? partnerFit(me.id, ranks, teams.length).slice(0, 3) : [];
   const cls = (r: number) => (r <= 2 ? 'bg-emerald-500/25 text-emerald-100' : r >= teams.length - 1 ? 'bg-red-500/20 text-red-100' : 'bg-white/[.04] text-slate-300');
   const order = [...teams].sort((a, b) => (a.id === me?.id ? -1 : b.id === me?.id ? 1 : 0));
-  // no rosters yet (a new league before its draft), every team ties first everywhere: say so rather than show a wall of 1s
-  if ([...ranks.values()].every((r) => Object.values(r).every((n) => n === 1))) return (
+  // no rosters yet (a new league before its draft): every team would tie first everywhere, so say so rather than show a
+  // wall of 1s (only once the players have loaded, so a league that has rosters never flashes it)
+  if (players.size > 0 && !rosters.length && teams.length > 1) return (
     <div className="card flex items-center gap-3 p-4 text-sm text-mute">
       <span className="text-2xl">🧭</span>
       <span>Every roster is level so far. Once teams have players, this shows where each one is deep and thin, and who fits you best.</span>
