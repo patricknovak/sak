@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { ArrowRight } from 'lucide-react';
 import { useLeague } from '../lib/store';
@@ -245,13 +245,39 @@ export function MatchupCard({ x }: { x: Matchup }) {
   );
 }
 
-export function H2HTable({ rows, cut = 0 }: { rows: H2HRow[]; cut?: number }) {
+// max points for: what each team's lineups could have scored in the weeks it played (finished weeks, as points for
+// counts them), the best lineup every night from the same players (lineup_efficiency). A points league only; a bye
+// week counts toward neither number.
+function useMaxPf(matchups?: Matchup[] | null) {
+  const { league, leagueDay } = useLeague();
+  const on = !!matchups?.length && !league?.categories?.length;
+  const [eff, setEff] = useState<{ team_id: number; date: string; game_type: number; best: number }[] | null>(null);
+  useEffect(() => {
+    if (!on) { setEff(null); return; }
+    rpc<{ team_id: number; date: string; game_type: number; best: number }[]>('lineup_efficiency', { p_from: null, p_to: leagueDay }).then((x) => setEff(x ?? []), () => setEff([]));
+  }, [on, leagueDay]);
+  return useMemo(() => {
+    if (!on || !eff?.length) return null;
+    const out = new Map<number, number>();
+    for (const x of matchups!) {
+      if (x.status !== 'final' || x.away_team == null) continue;
+      for (const t of [x.home_team, x.away_team]) {
+        const sum = eff.filter((e) => e.team_id === t && e.game_type === 2 && e.date >= x.starts && e.date <= x.ends).reduce((n, e) => n + Number(e.best), 0);
+        out.set(t, (out.get(t) ?? 0) + sum);
+      }
+    }
+    return out;
+  }, [on, eff, matchups]);
+}
+
+export function H2HTable({ rows, cut = 0, matchups }: { rows: H2HRow[]; cut?: number; matchups?: Matchup[] | null }) {
   const { team, me } = useLeague();
   const { cat, score } = useScore();
+  const maxPf = useMaxPf(matchups);
   return (
     <div className="card overflow-hidden">
       <div className="grid grid-cols-[1.5rem_1fr_auto_auto] items-center gap-x-3 border-b border-white/[.06] px-3 py-2 text-[11px] font-semibold uppercase tracking-wide text-mute">
-        <span>#</span><span>Team</span><span className="text-right">W-L-T</span><span className="w-14 text-right" title={cat ? 'Categories won' : 'Points for'}>{cat ? 'Cats' : 'PF'}</span>
+        <span>#</span><span>Team</span><span className="text-right">W-L-T</span><span className="w-14 text-right" title={cat ? 'Categories won' : maxPf ? 'Points for, and the most the best lineups could have scored' : 'Points for'}>{cat ? 'Cats' : 'PF'}</span>
       </div>
       {rows.map((r, i) => {
         const t = team(r.team_id);
@@ -266,7 +292,7 @@ export function H2HTable({ rows, cut = 0 }: { rows: H2HRow[]; cut?: number }) {
             <Rank n={r.rank} />
             <span className="flex min-w-0 items-center gap-2">{t && <TeamBadge team={t} size={26} />}<span className="min-w-0 break-words text-sm font-bold">{t?.name}</span></span>
             <span className="num text-right font-display text-lg font-extrabold">{r.w}-{r.l}-{r.t}</span>
-            <span className="num w-14 text-right text-sm text-slate-300">{score(r.pf)}</span>
+            <span className="num w-14 text-right text-sm text-slate-300">{score(r.pf)}{maxPf?.has(r.team_id) && <span className="block text-[10px] leading-tight text-mute">of {fmtPts(maxPf.get(r.team_id)!, 0)}</span>}</span>
           </div>
           </div>
         );
@@ -293,7 +319,7 @@ export function HeadToHeadStandings() {
         </Section>
       )}
       <Section title={playoffsOn ? 'The regular season' : 'The table'}>
-        <H2HTable rows={rows} cut={Math.min(spots, rows.length)} />
+        <H2HTable rows={rows} cut={Math.min(spots, rows.length)} matchups={matchups} />
         <p className="mt-1 px-1 text-[11px] text-mute">{cat ? 'Win more of the categories to win the week. ' : ''}A win is worth one, a tie a half; {cat ? 'categories won' : 'points for'} break ties. Each week runs Monday to Sunday.{spots >= 2 && ` The top ${spots} make the playoffs.`}</p>
       </Section>
       {!playoffsOn && playoffs}
@@ -369,14 +395,14 @@ export function H2HHome() {
       <div className="space-y-2">
         <div className="px-1 text-[11px] font-bold uppercase tracking-wider text-gold">Playoffs · {roundName(show.round, rounds)}</div>
         <BracketCard g={show} all={bracket} />
-        <H2HTable rows={rows} cut={Math.min(spots, rows.length)} />
+        <H2HTable rows={rows} cut={Math.min(spots, rows.length)} matchups={matchups} />
       </div>
     );
   }
   return (
     <div className="space-y-2">
       {mine && <MatchupCard x={mine} />}
-      <H2HTable rows={rows} cut={Math.min(spots, rows.length)} />
+      <H2HTable rows={rows} cut={Math.min(spots, rows.length)} matchups={matchups} />
     </div>
   );
 }
