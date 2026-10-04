@@ -3,6 +3,8 @@
 // deno-lint-ignore-file no-explicit-any
 import type { SupabaseClient } from 'jsr:@supabase/supabase-js@2';
 import { etDate } from '../_shared/nhl.ts';
+import { forecastTeam, winChance, type FPlayer } from '../_shared/forecast.ts';
+import { gamesOf, rosPerGame } from '../_shared/lineup.ts';
 
 // the league-scoped reads from index.ts, plus the league's names for the wording
 type Db = {
@@ -96,6 +98,35 @@ async function findPlayers(db: Db, q: string) {
 }
 
 // plain: just the facts and the link, no greeting or sign-off (the chat engine writes its own words around them)
+// a head-to-head points matchup's chance for one side, as the site's matchup card shows it (_shared/forecast.ts): the
+// points on the board plus the rest of the week played out with each roster; null when nothing can be worked out
+async function matchupChance(db: Db, league: any, m: any, side: number): Promise<number | null> {
+  if (m.away_team == null || m.status === 'final' || league.categories?.length) return null;
+  const today = String((await db.rpc('today_et')).data ?? etDate(new Date()));
+  const teamsIn = [m.home_team, m.away_team];
+  const { data: rows } = await db.from('rosters').select('team_id,player_id,slot').in('team_id', teamsIn).neq('slot', 'IR');
+  const ids = [...new Set(((rows ?? []) as any[]).map((r) => r.player_id))];
+  if (!ids.length) return null;
+  const [{ data: ps }, { data: ss }, { data: gs }] = await Promise.all([
+    db.from('players').select('id,pos,elig,proj,proj_gp,nhl_team,injury_status').in('id', ids),
+    db.from('player_season').select('player_id,gp,fpts').in('player_id', ids),
+    db.from('games').select('id,date,home,away,state').gte('date', m.status === 'upcoming' ? m.starts : today).lte('date', m.ends),
+  ]);
+  const season = new Map(((ss ?? []) as any[]).map((x) => [x.player_id, x]));
+  const players = new Map(((ps ?? []) as any[]).map((p) => {
+    const s = season.get(p.id), pg = p.proj_gp == null ? null : Number(p.proj_gp);
+    return [p.id, { ...p, proj_gp: pg, proj: rosPerGame(Number(p.proj), p.pos, Number(s?.gp ?? 0), Number(s?.fpts ?? 0), pg) * gamesOf({ pos: p.pos, proj_gp: pg }) } as FPlayer];
+  }));
+  // tonight's games already on are in the points; only the ones to come are forecast
+  const ahead = ((gs ?? []) as any[]).filter((g) => !(g.date === today && !['FUT', 'PRE', 'PPD', 'CNCL'].includes(g.state)));
+  const from = m.status === 'upcoming' ? m.starts : today;
+  const rest = (t: number) => forecastTeam(t, ((rows ?? []) as any[]).filter((r) => r.team_id === t).map((r) => players.get(r.player_id)).filter((p): p is FPlayer => !!p),
+    ahead, (league.roster ?? {}) as Record<string, number>, from, 0, m.ends).ros;
+  const now = (v: unknown) => (m.status === 'upcoming' ? 0 : Number(v ?? 0));
+  const home = winChance(now(m.home_pts), rest(m.home_team), now(m.away_pts), rest(m.away_team));
+  return side === m.home_team ? home : 1 - home;
+}
+
 export async function answer(db: Db, question: string, askerTeam: number, opts: { plain?: boolean } = {}): Promise<Answer> {
   const q = norm(question.replace(new RegExp(`@?${db.brand.bot.name}[,:!]?`, 'ig'), ' ')).trim();
   const { league, teams, standings, playoffs } = await base(db);
@@ -162,7 +193,7 @@ export async function answer(db: Db, question: string, askerTeam: number, opts: 
 
   // ── standings
   if (has(/\b(standing|standings|leader|leading|winning|first place|last place|in first|in last|peter|rank|table|who.?s up|points race|where am i)\b/)
-      || (league.format === 'h2h' && has(/\b(my matchup|matchup|this week|who am i (playing|against)|my opponent)\b/) && !howTo)) {
+      || (league.format === 'h2h' && has(/\b(my matchup|matchup|this week|who am i (playing|against)|my opponent|my (chances|odds)|chance to win|will i win|am i winning)\b/) && !howTo)) {
     const ord = (n: number) => `${n}${['st', 'nd', 'rd'][n - 1] ?? 'th'}`;
     // a head-to-head league is ranked by wins, and a GM wants this week's matchup too
     if (league.format === 'h2h') {
@@ -178,7 +209,9 @@ export async function answer(db: Db, question: string, askerTeam: number, opts: 
       const cats = !!league.categories?.length;
       const sc = (v: any) => (cats ? String(Math.round(Number(v ?? 0))) : f1(v));
       const unit = cats ? ' categories' : '';
-      const vs = m && opp ? ` This week (${m.status === 'live' ? 'live' : 'starts ' + m.starts}): you ${sc(m.home_team === askerTeam ? m.home_pts : m.away_pts)}${unit}, ${byId.get(opp)?.gm_name} ${sc(m.home_team === askerTeam ? m.away_pts : m.home_pts)}.` : m ? ' You have the week off.' : '';
+      const chance = m && opp ? await matchupChance(db, league, m, askerTeam).catch(() => null) : null;
+      const pctTxt = chance == null ? '' : ` Your chance to win it: ${chance > 0 && chance < 1 ? Math.min(99, Math.max(1, Math.round(chance * 100))) : Math.round(chance * 100)}%.`;
+      const vs = m && opp ? ` This week (${m.status === 'live' ? 'live' : 'starts ' + m.starts}): you ${sc(m.home_team === askerTeam ? m.home_pts : m.away_pts)}${unit}, ${byId.get(opp)?.gm_name} ${sc(m.home_team === askerTeam ? m.away_pts : m.home_pts)}.${pctTxt}` : m ? ' You have the week off.' : '';
       // the playoffs (migration 120): the asker's latest playoff game once they're on, else where the line sits
       const spots = Number(league.h2h_playoffs ?? 0);
       let po = '';
@@ -206,7 +239,7 @@ export async function answer(db: Db, question: string, askerTeam: number, opts: 
           po = (mine.seed ?? mine.rank) <= spots ? ` The top ${spots} make the playoffs: you’re in if it ended today.` : ` The top ${spots} make the playoffs: you’re outside the line right now.`;
         }
       }
-      return reply('standings', `${tbl.length && tbl.some((t) => t.w + t.l + t.t > 0) ? `Head-to-head: ${top3}.` : 'No week finished yet, so everyone’s 0-0-0.'}${mine ? ` You’re ${ord(mine.rank)} at ${mine.w}-${mine.l}-${mine.t}.` : ''}${vs}${po} 👉 #/standings`, { top3, mine, matchup: m });
+      return reply('standings', `${tbl.length && tbl.some((t) => t.w + t.l + t.t > 0) ? `Head-to-head: ${top3}.` : 'No week finished yet, so everyone’s 0-0-0.'}${mine ? ` You’re ${ord(mine.rank)} at ${mine.w}-${mine.l}-${mine.t}.` : ''}${vs}${po} 👉 #/standings`, { top3, mine, matchup: m, win_chance: chance });
     }
     // a rotisserie league is ranked by category points
     if (league.categories?.length) {
