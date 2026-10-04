@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { NavLink, useLocation, useNavigate } from 'react-router-dom';
-import { Wordmark, WordmarkStack } from './Brand';
+import { LeagueMark, Wordmark, WordmarkStack } from './Brand';
 import { useLeague, useNow } from '../lib/store';
 import { hasFeature } from '../lib/features';
 import { realtimeChannel, supabase } from '../lib/supabase';
@@ -159,7 +159,7 @@ export function Layout({ children }: { children: ReactNode }) {
       {/* desktop sidebar */}
       <aside className="sticky top-0 hidden h-dvh w-64 shrink-0 flex-col border-r border-white/[.06] bg-[#091020]/70 p-4 backdrop-blur-xl lg:flex">
         <button onClick={() => nav('/')} className="mb-7 flex items-center gap-3 px-1">
-          <img src="./icon.svg" className="h-11 w-11 drop-shadow-[0_6px_16px_rgb(var(--gold-rgb)/.45)]" alt="" />
+          <LeagueMark size={44} className="drop-shadow-[0_6px_16px_rgb(var(--gold-rgb)/.45)]" />
           <Wordmark size="sm" tagline={[brand.tagline, league?.season].filter(Boolean).join(" · ")} className="text-left" />
         </button>
         <nav className="flex flex-col gap-0.5">
@@ -187,7 +187,7 @@ export function Layout({ children }: { children: ReactNode }) {
         <header className="pt-safe sticky top-0 z-30 border-b border-white/[.06] bg-[#05080f]/75 backdrop-blur-xl lg:hidden">
           <div className="flex h-12 items-center gap-2 px-3">
             <button onClick={() => nav('/')} className="flex items-center gap-2">
-              <img src="./icon.svg" className="h-8 w-8 drop-shadow-[0_4px_10px_rgb(var(--gold-rgb)/.5)]" alt="" />
+              <LeagueMark size={32} className="drop-shadow-[0_4px_10px_rgb(var(--gold-rgb)/.5)]" />
               <WordmarkStack />
             </button>
             <div className="flex-1" />

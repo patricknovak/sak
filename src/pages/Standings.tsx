@@ -86,7 +86,7 @@ export default function Standings() {
       </div>
 
       {league?.phase !== 'season' && !scored && (
-        <div className="card p-4 text-sm text-mute">The season hasn’t started. Scoring begins {league?.season_start && fmtDate(league.season_start)}. Last season’s final table is on the <Link className="text-sky-300" to="/league">League page</Link>.</div>
+        <div className="card p-4 text-sm text-mute">The season hasn’t started. {league?.season_start ? <>Scoring begins {fmtDate(league.season_start)}.</> : <>Scoring begins with the first NHL night after the draft.</>}{lastSeason && <> Last season’s final table is on the <Link className="text-sky-300" to="/league">League page</Link>.</>}</div>
       )}
       {isPo && !scored && (
         <div className="card p-4 text-sm text-slate-300">🔥 <b>The {brand.short} playoffs</b> run alongside the NHL playoffs. The regular season table is saved as it stands, and everyone starts the playoffs at zero with their current roster, including any trades and pickups. Same daily lineups, same rules. Every fantasy point scored in an NHL playoff game counts here, and {useMoney ? <>the top three split {money.playoffPct}% of the prize pool for the {bare(brand.playoff)}</> : <>the top team takes the {bare(brand.playoff)}</>}. Players whose NHL team is eliminated stop scoring, so depth on deep playoff teams wins it.</div>

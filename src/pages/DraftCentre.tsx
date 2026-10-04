@@ -16,7 +16,7 @@ const Mock = lazy(() => import('./Mock'));
 type Tab = 'room' | 'keepers' | 'order' | 'analysis' | 'sheet' | 'mock';
 
 export default function DraftCentre() {
-  const { league, draft, me } = useLeague();
+  const { league, draft, me, rosters } = useLeague();
   const [params, setParams] = useSearchParams();
   const phase = league?.phase;
   const draftish = phase === 'keepers' || phase === 'predraft' || phase === 'draft';
@@ -25,7 +25,8 @@ export default function DraftCentre() {
   const gm = me?.role !== 'spectator';
   const tabs = ([
     { k: 'room', label: live ? 'Draft room' : done ? 'Draft board' : 'Draft room', icon: <ClipboardList size={14} />, show: true },
-    { k: 'keepers', label: 'Keepers', icon: <Lock size={14} />, show: true },
+    // a league that has kept nobody yet (a new league's first draft) has no keepers to show
+    { k: 'keepers', label: 'Keepers', icon: <Lock size={14} />, show: phase === 'keepers' || rosters.some((r) => r.acquired === 'keeper') },
     { k: 'order', label: 'Order & picks', icon: <ListOrdered size={14} />, show: true },
     { k: 'analysis', label: 'Analysis', icon: <LineChart size={14} />, show: done || !draftish },
     { k: 'sheet', label: 'Cheat sheet', icon: <NotebookPen size={14} />, show: draftish && gm },
