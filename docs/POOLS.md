@@ -4,7 +4,9 @@ Written 4 October 2026 from three research passes: prediction markets (Polymarke
 products), the pools market (office, sports and reality-TV pools, and who plays them), and soccer data with the
 Love Is Blind calendar. Every number that matters carries its source. This document sets the direction Patrick chose
 on 4 October 2026: Super Pools becomes the Polymarket of pools, for pools of any kind, sports first, played in
-Supercoins with no money in or out, built for the long life of a group. `docs/MARKET.md` keeps the fantasy-league
+Supercoins with no money in or out, built for the long life of a group. `docs/POOL-TYPES.md` (5 October 2026) is the
+plan for sports pools: the kinds people play, one engine for them, the start that asks which kind, and a sport centre
+for each sport. `docs/MARKET.md` keeps the fantasy-league
 market and the road to every sport; `docs/SUPERPOOLS.md` holds the ordered work; `docs/BRAND.md` the words and look.
 
 ## 1. The short version
@@ -102,6 +104,13 @@ price of every call moving as friends pick, and a record that carries from this 
 **Fantasy pools** (sports): rosters, a draft, lineups, live scoring, trades, the Book. Hockey is live; soccer is next
 (section 7).
 
+**Sports pools** (since 5 October 2026, `docs/POOL-TYPES.md`): the kinds of pool people already run for a season or a
+playoff (a bracket, series pick'em with the length, weekly pick'em and confidence, survivor, squares, a player pool,
+confidence by team, the score predictor, a sweepstake, a prop sheet), each one engine that reads its sport, offered
+when a host starts a pool on a sport (what are you following, what kind of pool, how it scores), with a sport centre
+per sport for following it. The questions below are one of those kinds, and every pool can carry them beside its main
+game.
+
 **Prediction pools** (anything): a pool of questions with two to twelve answers each, priced by the market maker,
 bought and sold in Supercoins until the question closes, resolved by the host. A prediction pool can stand alone (a
 Love Is Blind pool, an Oscars night, a March Madness pool) or live inside a fantasy league as its Markets tab (who
@@ -178,10 +187,10 @@ audience it brings:
 
 | When | Pool | Door |
 |---|---|---|
-| Oct-Nov 2026 | Love Is Blind S11 (the test); soccer gameweek, survivor and score pools; the World Series; the NHL season (packs live, migration 159) | prediction |
-| Dec 2026 | MLS Cup; NFL playoff pick'em (questions only, no NFL data needed beyond results) | prediction |
-| Jan-Mar 2027 | The Bachelor, The Traitors, the Oscars and award nights; soccer fantasy half-season | both |
-| Mar-Apr 2027 | March Madness bracket pool; NHL playoff bracket pool | prediction |
+| Oct-Nov 2026 | Love Is Blind S11 (the test); soccer gameweek, survivor and score pools; the World Series (series pick'em, rank the teams, squares, the questions: `docs/POOL-TYPES.md` §7); the NHL season (packs live, migration 159) | prediction, sports |
+| Dec 2026 | MLS Cup; NFL weekly pick'em, confidence and a second-half survivor, then the NFL playoffs | sports |
+| Jan-Mar 2027 | The Bachelor, The Traitors, the Oscars and award nights; Super Bowl squares and prop sheet; the Champions League knockout bracket; soccer fantasy half-season | all three |
+| Mar-Apr 2027 | March Madness (bracket, second chance, eliminator); the NHL playoffs (the player pool, draft or box; the bracket with series length); the NBA playoffs | sports |
 | Jun-Jul 2027 | Women's World Cup 2027 (Brazil, 24 June-25 July); Love Island | prediction |
 | Aug 2027 onward | Premier League 2027-28 fantasy; MLS's first fall-spring season; hockey's second season on Super Pools | both |
 

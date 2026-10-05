@@ -168,6 +168,27 @@ on the site, and the switcher.
   question still to call, soonest deadline first, with when the first call closes; a pool started late takes only the
   questions still open. Next: packs for what airs in the winter (The Traitors, The Bachelor, the award nights).*
 
+**Then, from 5 October 2026 (`docs/POOL-TYPES.md`, Patrick: a sports pool should ask what kind of pool you want and
+give the pool a home for following the sport):**
+
+- **P6. The pool-games engine.** `pool_games` (a game inside a pool: its kind, its event, its rules) and `pool_picks`
+  (one pick per member per thing to pick, hidden until it locks, points from a grader), graders as triggers on results,
+  scoring presets with every knob in words, frozen at the first lock; `series` and `fixture_periods` beside
+  `competitions`, `clubs` and `fixtures`. Kinds in order: series pick'em with the length, confidence by team, squares,
+  then weekly pick'em and confidence, the bracket with a second chance, the player pool (draft and box). The survivor
+  and Call the score move onto it later (expand, then contract). A host settles anything the feed doesn't cover.
+- **P7. The three-step start.** What are you following (the events open now, with their stage), what kind of pool
+  (cards for the kinds that fit the event today, with how long each takes and when it locks), how it scores (a preset,
+  the knobs, a live example, the late-joiner, tie and tiebreaker rules). A pool can run more than one game; one is its
+  crown.
+- **P8. Sport centres.** `/sport/<sport>` from NHL centre's pattern: today's games with the series state, the line
+  score, the bracket or the table, schedule, injuries, leaders, odds, and the pool's ribbon on every game; one
+  `sport-hub` function with an adapter per sport. MLB first (October), then the NFL, soccer and the NBA.
+- **P9. The World Series test.** By 10 October: series pick'em and rank the teams for the LCS and the World Series,
+  through the new start; by 22 October: World Series squares and MLB centre's first version. Patrick's first World
+  Series pool (league 4) was archived on 5 October so his new one starts from the beginning. MLB's data is a decision
+  (`docs/POOL-TYPES.md` §8): host-settled for the test is the recommendation.
+
 Then the list below, which is the fantasy-league plan of record.
 
 The expansion review (`docs/EXPANSION.md`, October 2026) is the detailed version of this list: the eight
@@ -287,7 +308,7 @@ The steps above finish the tenancy. `docs/MARKET.md` sets what comes after in th
     request, migrations 140 to 142): stars on the Players page and player cards, a Home card with free agents first, alerts
     when a watched player is dropped in season or hurt, and Garry knows the list on the GM's private line. Telemetry waits on
     the privacy note.
-15. **App-store listing** and the **playoff bracket pool**. (The voice per league with a daily budget is done: item 2,
+15. **App-store listing** and the **playoff bracket pool** (the bracket is now a kind in P6, `docs/POOL-TYPES.md`). (The voice per league with a daily budget is done: item 2,
     migration 99.)
 
 Then horizon 2 (soccer on licensed data, basketball, the multi-sport pool, the Supercoin prediction market,

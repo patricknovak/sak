@@ -76,7 +76,10 @@ results of his own past calls, and what the wider pool knows.
 
 **Reordered 4 October 2026 (Patrick): prediction pools and the Love Is Blind test come first, soccer next** (`docs/POOLS.md`,
 `docs/SUPERPOOLS.md` P1 to P5). The engine lands as migration 145 with its two-league flow-test section; the Love Is
-Blind pool opens before the 14 October premiere; soccer prediction pools follow on API-Football. The items below
+Blind pool opens before the 14 October premiere; soccer prediction pools follow on API-Football. **Added 5 October 2026 (Patrick): sports pools ask which kind of pool, and each sport gets a centre**
+(`docs/POOL-TYPES.md`, `docs/SUPERPOOLS.md` P6 to P9). The World Series is the test: the pool-games engine with series
+pick'em and rank the teams before the LCS (11 October), squares and MLB centre before the World Series (23 October).
+The items below
 continue alongside: the shadow-league gate runs to 10 October, Cloudflare hosting finishes with the landing page.
 
 1. **Land B1 to B4.** Done 3 October 2026: migrations 81 to 94 live and verified, nhl-sync and Garry deployed, the

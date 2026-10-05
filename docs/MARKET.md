@@ -263,6 +263,19 @@ read, not the stats themselves, and the remedy is a licensed feed once a sport e
 and marks need licences; we draw our own. Abroad, the FPL and Premier League terms forbid building on their
 feed, so soccer runs on licensed data from day one.
 
+### Pools come before fantasy in every sport (5 October 2026)
+
+A sport reaches the product first as pools, which need only the schedule, results and series state, and only later
+as a fantasy league, which needs players, lineups and live stats. The pool types are one engine (`docs/POOL-TYPES.md`):
+a bracket, series pick'em, weekly pick'em and confidence, survivor, squares, the player pool, confidence by team, the
+score predictor, the sweepstake and the questions, offered when a host starts a pool on a sport, each with its presets
+and knobs. Each sport also gets a centre for following it, built from NHL centre. So MLB arrives for the 2026 World
+Series as pools with the host settling results if need be, years before baseball fantasy; the NFL arrives for its
+2026-27 pick'em and survivor season; March Madness and the NBA playoffs arrive in spring 2027 the same way. The market
+for those formats is the biggest in pools (26.6M ESPN brackets in 2026; Circa Survivor's 25,017 entries; one American
+in five in a Super Bowl pool or bet), and none of the hosts that run them (ESPN, Yahoo, CBS, Splash, OfficePools,
+PoolTracker) keeps the group, its chat and its history from one event to the next.
+
 ### The multi-sport pool
 
 A pool whose roster spans sports: a GM drafts, say, four hockey players, three basketball players, three
