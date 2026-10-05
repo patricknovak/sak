@@ -177,6 +177,14 @@ give the pool a home for following the sport):**
   `competitions`, `clubs` and `fixtures`. Kinds in order: series pick'em with the length, confidence by team, squares,
   then weekly pick'em and confidence, the bracket with a second chance, the player pool (draft and box). The survivor
   and Call the score move onto it later (expand, then contract). A host settles anything the feed doesn't cover.
+  *Built (migration 165, live 5 October 2026): `series`, `fixture_periods`, `sport_ingest` (any adapter's one write),
+  `pool_games` and `pool_picks`; Pick the series (winner and length, Classic 1-2-4-8 with 1-1-2-3, Flat, or MLB.com's both
+  or nothing; a pick locks at its Game 1's first pitch; the tiebreaker is the final game's runs) and Rank the teams (the
+  clubs of the starting round N down to 1, each win from the lock paying its rank); points, max possible and the table
+  worked out on read, so a corrected result corrects everything; the pool hears each series' result and who called it,
+  each picker hears their own, and a reminder goes out six hours before a lock. `mlb-sync` (MLB's public Stats API, for
+  testing; Patrick, 5 October: free feeds while we test, paid ones after) fills the MLB Postseason 2026 every two minutes
+  during games (migration 166).*
 - **P7. The three-step start.** What are you following (the events open now, with their stage), what kind of pool
   (cards for the kinds that fit the event today, with how long each takes and when it locks), how it scores (a preset,
   the knobs, a live example, the late-joiner, tie and tiebreaker rules). A pool can run more than one game; one is its
