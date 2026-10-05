@@ -285,6 +285,30 @@ export function Question() {
         </div>
       )}
 
+      {m.status === 'resolved' && m.winner_key && (() => {
+        // who called it: everyone holding the answer that came in, biggest payout first
+        const won = positions.filter((x) => x.market_id === m.id && x.outcome === m.winner_key && Number(x.shares) >= 1)
+          .map((x) => ({ team: teams.find((t) => t.id === x.team_id), paid: Number(x.paid) || Math.floor(Number(x.shares)), price: Number(x.shares) > 0 ? Number(x.cost) / Number(x.shares) : 0 }))
+          .sort((a, b) => b.paid - a.paid);
+        const missed = new Set(positions.filter((x) => x.market_id === m.id && x.outcome !== m.winner_key && Number(x.shares) > 0.0001).map((x) => x.team_id)).size;
+        return (
+          <Section title="Who called it">
+            {won.length ? (
+              <div className="card divide-y divide-white/[.05] p-1">
+                {won.map((w) => (
+                  <div key={w.team?.id} className={`flex items-center gap-3 px-3 py-2.5 ${w.team?.id === me?.id ? 'rounded-xl bg-gold/[.07]' : ''}`}>
+                    <TeamBadge team={w.team} size={30} />
+                    <span className="min-w-0 flex-1"><span className="block break-words font-semibold text-white">{w.team?.gm_name ?? w.team?.name}</span><span className="block text-[11px] text-mute">called at {pct(w.price)}</span></span>
+                    <b className="shrink-0 text-emerald-300">+<Coins n={w.paid} /></b>
+                  </div>
+                ))}
+              </div>
+            ) : <div className="card p-4 text-sm text-mute">Nobody called it. The long shot came in.</div>}
+            {missed > 0 && <p className="mt-2 px-1 text-xs text-mute">{missed} {missed === 1 ? 'player' : 'players'} called something else.</p>}
+          </Section>
+        );
+      })()}
+
       <div className="card p-4">
         <div className="label mb-1">How it settles</div>
         <p className="text-sm leading-relaxed text-slate-300">{m.rule || 'The host settles it from what airs.'}</p>
@@ -350,17 +374,53 @@ function HostSettle({ m, onDone }: { m: PoolMarket; onDone: () => void }) {
 }
 
 // ───────────── leaders ─────────────
+// "Called it": the longest shot to come in so far, the winning call bought at the lowest average price, under even
+// money (a call worth at least ten coins at the payout, so a stray share doesn't take it; the bigger payout breaks a tie)
+function bestCall(markets: PoolMarket[], positions: PoolPosition[]) {
+  let best: { team_id: number; price: number; paid: number; title: string; answer: string } | null = null;
+  for (const m of markets) {
+    if (m.status !== 'resolved' || !m.winner_key) continue;
+    for (const p of positions) {
+      if (p.market_id !== m.id || p.outcome !== m.winner_key || Number(p.shares) < 10 || Number(p.cost) <= 0) continue;
+      const price = Number(p.cost) / Number(p.shares), paid = Number(p.paid) || Math.floor(Number(p.shares));
+      if (price >= 0.5) continue;   // a favourite coming in is no long shot
+      if (!best || price < best.price - 1e-9 || (Math.abs(price - best.price) < 1e-9 && paid > best.paid)) {
+        best = { team_id: p.team_id, price, paid, title: m.title, answer: m.outcomes.find((o) => o.key === m.winner_key)?.label ?? '' };
+      }
+    }
+  }
+  return best;
+}
+
 export function PoolLeaders() {
   const { teams, me } = useLeague();
   const brand = useBrand();
   const cardBrand = useCardBrand();
   const { leaders } = useLeaders();
+  const { markets, positions } = usePool();
+  const best = useMemo(() => bestCall(markets ?? [], positions), [markets, positions]);
   const shareBoard = () => shareCard({ kind: 'leaders', brand: cardBrand, title: 'The standings',
     rows: (leaders ?? []).slice(0, 6).map((l) => { const t = teams.find((x) => x.id === l.team_id); return { name: t?.gm_name ?? t?.name ?? '', worth: l.worth, color: t?.color ?? cardBrand.color, me: l.team_id === me?.id }; }) },
     `The standings in ${cardBrand.pool}.`);
   return (
     <div className="space-y-5">
       <PageHeader icon={<Crown className="h-6 w-6 text-gold" />} title="Leaders" sub={`Net worth: your ${brand.coin.name.toLowerCase()} plus your calls at today’s prices. ${brand.trophy ? `Top of the board takes ${brand.trophy}.` : ''}`} />
+      {best && (() => {
+        const t = teams.find((x) => x.id === best.team_id);
+        return (
+          <div className="relative overflow-hidden rounded-3xl border border-gold/30 p-4" style={{ background: 'radial-gradient(120% 120% at 0% 0%, rgb(var(--gold-rgb)/.22), transparent 60%), linear-gradient(160deg,#18142c,#0b1222 75%)' }}>
+            <div className="flex items-center gap-3">
+              <span className="grid h-12 w-12 shrink-0 place-items-center rounded-2xl bg-gold/20 text-2xl">🎯</span>
+              <div className="min-w-0 flex-1">
+                <div className="text-[11px] font-bold uppercase tracking-[.2em] text-gold">Called it</div>
+                <div className="break-words font-display text-lg font-extrabold leading-tight text-white">{t?.gm_name ?? t?.name}</div>
+              </div>
+              <div className="shrink-0 text-right"><div className="num font-display text-2xl font-extrabold text-gold">{pct(best.price)}</div><div className="text-[11px] text-mute">when called</div></div>
+            </div>
+            <p className="mt-3 text-sm leading-snug text-slate-200"><span className="text-white">{best.answer}</span> on “{best.title}”, the longest shot to come in so far. Paid <Coins n={best.paid} />.</p>
+          </div>
+        );
+      })()}
       {leaders === null ? <div className="h-60 animate-pulse rounded-3xl bg-white/[.04]" /> : (
         <div className="card divide-y divide-white/[.05] p-1">
           {leaders.map((l, i) => {
@@ -370,7 +430,7 @@ export function PoolLeaders() {
                 <Rank n={i + 1} />
                 <TeamBadge team={t} size={36} />
                 <div className="min-w-0 flex-1">
-                  <div className="break-words font-semibold text-white">{t?.gm_name ?? t?.name}</div>
+                  <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5"><span className="break-words font-semibold text-white">{t?.gm_name ?? t?.name}</span>{best?.team_id === l.team_id && <span className="rounded-full bg-gold/15 px-1.5 py-px text-[10px] font-bold uppercase tracking-wider text-gold ring-1 ring-gold/40">🎯 Called it</span>}</div>
                   <div className="text-xs text-mute">{l.calls ? `${l.hits} of ${l.calls} called right` : 'No settled calls yet'} · {l.trades} call{l.trades === 1 ? '' : 's'}</div>
                 </div>
                 <div className="text-right"><div className="font-display text-xl font-extrabold text-gold"><Coins n={l.worth} /></div><div className="text-[11px] text-mute"><Coins n={l.coins} /> in hand</div></div>

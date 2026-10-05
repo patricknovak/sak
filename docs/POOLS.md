@@ -129,7 +129,7 @@ the group and the conversation, so the chat is the product and the market is wha
 - Questions for each drop, written by the host after each batch when the couples are known: will these two make it to
   the altar, who leaves the pods engaged, who gets cold feet first. They close at the next drop, Wednesday 3 am ET.
 - Coins: 1,000 to start, 250 more on each drop night; a cap of 500 per question; the host can pay a bonus drop.
-- The crown: net worth at the reunion, with the hit rate beside it and a "called it" badge for the best long-shot call.
+- The crown: net worth at the reunion, with the hit rate beside it and a "called it" badge for the best long-shot call. *Built: the Leaders page's Called it card and badge, the winning call bought at the lowest price under 50%.*
 - One tap to join from a link in the group chat, no app to download; share cards after every drop.
 
 **Opening a pool.** Anyone can start one, no invite needed (`#/new`, migration 153): name it, pick its colour and the
