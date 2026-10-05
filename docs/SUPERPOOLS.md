@@ -145,7 +145,7 @@ on the site, and the switcher.
   Love Is Blind buttons) takes a pool name, a colour, the pack and the host's email and password, and lands on the Host
   page with the invite link; limits of three a day per address and sixty a day across the platform. Share cards: a member
   posts a picture of their call, a call that came in, or the standings to the group chat, drawn on the phone in the pool's
-  colours (`src/lib/shareCard.ts`; nothing is stored or sent until they share it).*
+  colours (`src/lib/shareCard.ts`; nothing is stored or sent until they share it). The host asks from a starting shape (yes or no, who, how many) or the same question once for each name on a list (every couple) in one go, closing at the next coin drop in a tap (`src/components/AskSheet.tsx`); a new player sees how it works on the pool's home (prices are chances, a right answer pays one coin a share, sell back before it closes, the crown) until they put it away.*
 - **P3. Soccer prediction pools.** Fixtures and results from API-Football (provider-neutral tables), gameweek and
   survivor questions settled from results, Premier League and MLS first. *Step 1 built (migrations 148-149, live): the
   `soccer` sports row, shared `competitions`, `clubs` and `fixtures`, the `soccer-sync` adapter on API-Football, a

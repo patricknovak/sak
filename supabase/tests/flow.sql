@@ -3227,6 +3227,10 @@ select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-000000000081
 set role authenticated;
 select pool_invite_link(7, 20) as libcode \gset
 reset role;
+set role anon;
+select pg_temp.expect('a pool''s invite names its host and how many are in (migration 160)', (select v->>'host' = 'Hana' and (v->>'members')::int = 1
+  from invite_preview(:'libcode') v) and not (invite_preview(:'join_code') ? 'host'));
+reset role;
 select _accept_invite('00000000-0000-0000-0000-000000000082', :'libcode', 'Fern');
 select id as fern from teams where league_id = :lib and user_id = '00000000-0000-0000-0000-000000000082' \gset
 select pg_temp.expect('an open link seats a friend on a team of her own', (select role from teams where id = :fern) = 'gm'

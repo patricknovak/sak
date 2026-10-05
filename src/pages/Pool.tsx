@@ -10,11 +10,13 @@ import { rpc } from '../lib/supabase';
 import { ago, countdown } from '../lib/format';
 import { answerColor, isOpen, pct, prices, usePool, useCoins, type PoolLeader, type PoolMarket, type PoolPosition } from '../lib/pool';
 import { CallsFeed, closesIn, Coins, MarketCard, PriceChart, TradeSheet } from '../components/Pool';
-import { Empty, PageHeader, Rank, Section, Sheet, TeamBadge, useAction } from '../components/ui';
+import { Empty, PageHeader, Rank, Section, TeamBadge, useAction } from '../components/ui';
 import { useEffect } from 'react';
 import { appLink } from '../lib/host';
 import { shareCard, type CardBrand } from '../lib/shareCard';
 import { SurvivorCard, SurvivorStart, useSurvivor } from './Survivor';
+import { AskSheet } from '../components/AskSheet';
+import { PoolHowTo } from '../components/PoolHowTo';
 import { PredictorCard, PredictorStart, usePredictor } from './Predictor';
 import { Share2 } from 'lucide-react';
 
@@ -95,6 +97,8 @@ export function PoolHome() {
           </div>
         )}
       </div>
+
+      {me?.role === 'gm' && <PoolHowTo league={league?.league_id ?? 0} />}
 
       {me?.is_commish && settle.length > 0 && (
         <Link to="/host" className="card flex items-center gap-3 border-amber-400/30 bg-amber-400/[.06] p-4">
@@ -419,15 +423,10 @@ export function PoolHost() {
   const now = useNow(30000);
   const { markets, drops, reload } = usePool();
   const { busy, run } = useAction();
-  const [f, setF] = useState({ title: '', answers: 'Yes\nNo', rule: '', category: '', closes: '' });
   const [drop, setDrop] = useState({ amount: '250', note: '', at: '' });
   const [open, setOpen] = useState(false);
   if (!me?.is_commish) return <Empty icon="🔒" title="For the host">Only the pool’s host asks and settles the questions.</Empty>;
   const waiting = (markets ?? []).filter((m) => m.status === 'open' && !isOpen(m, now) && !m.source);
-  const create = () => run(async () => {
-    await rpc('pool_create', { p: { title: f.title, rule: f.rule, category: f.category || null, outcomes: f.answers.split('\n').map((s) => s.trim()).filter(Boolean), closes_at: new Date(f.closes).toISOString() } });
-    setF({ title: '', answers: 'Yes\nNo', rule: '', category: f.category, closes: f.closes }); setOpen(false); reload();
-  }, 'Question asked');
   return (
     <div className="space-y-5">
       <PageHeader icon={<Wand2 className="h-6 w-6 text-gold" />} title="Host" sub="Ask the questions, settle them from what airs, and keep the coins flowing." right={<button type="button" className="btn-gold inline-flex items-center gap-1.5" onClick={() => setOpen(true)}><Plus className="h-4 w-4" /> Ask</button>} />
@@ -454,19 +453,7 @@ export function PoolHost() {
           {(markets ?? []).map((m) => <Link key={m.id} to={`/q/${m.id}`} className="flex items-center justify-between gap-3 px-3 py-2.5 text-sm"><span className="min-w-0 break-words">{m.title}</span><span className="shrink-0 text-xs text-mute">{closesIn(m, now)}</span></Link>)}
         </div>
       </Section>
-      <Sheet open={open} onClose={() => setOpen(false)} title="Ask the pool">
-        <div className="space-y-3">
-          <label className="block"><span className="label">The question, the way you’d ask the group chat</span><input className="input mt-1 w-full" value={f.title} onChange={(e) => setF({ ...f, title: e.target.value })} placeholder="Will Kara and Tucker say I do?" maxLength={160} /></label>
-          <label className="block"><span className="label">Answers, one a line (2 to 12)</span><textarea className="input mt-1 w-full" rows={4} value={f.answers} onChange={(e) => setF({ ...f, answers: e.target.value })} /></label>
-          <label className="block"><span className="label">How it settles (locked once anyone calls it)</span><textarea className="input mt-1 w-full" rows={2} value={f.rule} onChange={(e) => setF({ ...f, rule: e.target.value })} placeholder="Yes if both say I do at the altar, as aired." /></label>
-          <div className="grid grid-cols-2 gap-2">
-            <label className="block"><span className="label">Group</span><input className="input mt-1 w-full" value={f.category} onChange={(e) => setF({ ...f, category: e.target.value })} placeholder="Drop 2 · Oct 21" maxLength={40} /></label>
-            <label className="block"><span className="label">Closes</span><input className="input mt-1 w-full" type="datetime-local" value={f.closes} onChange={(e) => setF({ ...f, closes: e.target.value })} /></label>
-          </div>
-          <button type="button" className="btn-gold w-full py-3" disabled={busy || f.title.length < 3 || !f.closes} onClick={create}>Ask it</button>
-          <p className="text-xs text-mute">Close it before the episode that answers it drops. The pool hears about it in the chat.</p>
-        </div>
-      </Sheet>
+      <AskSheet open={open} onClose={() => setOpen(false)} drops={drops} onAsked={reload} />
       <div className="flex items-center gap-2 px-1 text-xs text-mute"><Trophy className="h-4 w-4" /> Questions about a show are about what airs.</div>
     </div>
   );
