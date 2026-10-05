@@ -2,7 +2,9 @@
 
 Read this first in every session, then `docs/DEVELOPMENT.md` (how we build: the release order, the working method,
 the knowledge base and the next steps), `docs/SUPERPOOLS.md` (the product plan), `docs/POOLS.md` (the direction since 4
-October 2026: prediction pools for any group, the Love Is Blind test, soccer next), `docs/BRAND.md` (how the product
+October 2026: prediction pools for any group, the Love Is Blind test, soccer next), `docs/POOL-TYPES.md` (since 5 October
+2026: the kinds of sports pool, one engine for them, the three-step start and a sport centre per sport, the World Series
+test), `docs/BRAND.md` (how the product
 is named, described and drawn), `docs/MARKET.md` (the competition and the road to every sport), `docs/EXPANSION.md`
 (what must change before more leagues and sports, in order) and, for how the system is built and what it costs to
 run, `docs/REVIEW-2026-09.md`.

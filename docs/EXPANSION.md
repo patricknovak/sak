@@ -300,7 +300,9 @@ of `{group, stat, points}` read through the sport's vocabulary; `calc_fpts`, `sl
 
 **The front end.** A `SportConfig` read from the sports row drives positions and colours, slot lists, stat
 columns, game-state and period text, team names and logos, the day boundary (matching the server), the
-"centre" page (`/nhl` becomes `/sport/nhl`), and the words ("puck drop", "goalie starts"). About 28 position
+"centre" page (`/nhl` becomes `/sport/nhl`; from 5 October 2026 every sport we run pools on gets one at
+`/sport/<sport>`, fed by one `sport-hub` function with an adapter per sport, `docs/POOL-TYPES.md` §5), and the words
+("puck drop", "goalie starts"). About 28 position
 literals in 20 files, 42 game-state literals in 16 files and the NHL team tables in `format.ts` move onto it.
 
 **Garry.** His persona says hockey ("beer-league dressing room", "hockey decisions only"); it reads the sport's
