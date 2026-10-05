@@ -3201,6 +3201,13 @@ select pg_temp.expect('the north sees no SaK questions or trades', (select count
 select pg_temp.raises('nor trades one', format('select pool_buy(%s, ''a1'', 10)', :pm));
 reset role;
 
+-- the packs' questions carry real dates and a pool skips the ones already closed (migration 159); the test runs on any
+-- day, so each pack whose first question closes within a week moves later until it closes a week from now
+update pool_packs p set markets = (select jsonb_agg(m || jsonb_build_object('closes_at', (m->>'closes_at')::timestamptz + s.shift) order by i)
+                                   from jsonb_array_elements(p.markets) with ordinality t(m, i))
+from (select slug, greatest(interval '0', now() + interval '7 days' - min((m->>'closes_at')::timestamptz)) shift
+      from pool_packs, jsonb_array_elements(markets) m group by slug) s
+where s.slug = p.slug;
 -- a prediction pool of its own: the platform opens it with the Love Is Blind pack; the host's open link seats friends
 select pg_temp.as_team(1);
 set role authenticated;
@@ -3445,6 +3452,26 @@ select pg_temp.expect('a champion question carries the contenders and the field'
 set role anon;
 select pg_temp.expect('the start page lists every pack with its icon', (select count(*) from pool_pack_list() where icon is not null) = (select count(*) from pool_pack_list())
   and exists (select 1 from pool_pack_list() where slug = 'mls-cup-2026' and questions = 5));
+-- the calendar (migration 159): a pack with nothing left to call drops off; one half done lists what is still open, and
+-- a pool started from it gets only those
+reset role;
+insert into pool_packs (slug, name, brand, markets, drops) values
+  ('test-done', 'Done and dusted', '{"icon": "🗓️"}', jsonb_build_array(jsonb_build_object('title', 'Over already?', 'outcomes', jsonb_build_array('Yes', 'No'), 'closes_at', now() - interval '1 day')), '[]'),
+  ('test-half', 'Half time', '{"icon": "⏱️"}', jsonb_build_array(
+     jsonb_build_object('title', 'The first half?', 'outcomes', jsonb_build_array('Yes', 'No'), 'closes_at', now() - interval '1 hour'),
+     jsonb_build_object('title', 'The second half?', 'outcomes', jsonb_build_array('Yes', 'No'), 'closes_at', now() + interval '2 days')), '[]');
+set role anon;
+select pg_temp.expect('a finished pack is off the list; a half-done one lists what is open, soonest first',
+  not exists (select 1 from pool_pack_list() where slug = 'test-done')
+  and (select questions = 1 and next_close > now() from pool_pack_list() where slug = 'test-half')
+  and (select slug from pool_pack_list() limit 1) = 'test-half'
+  and exists (select 1 from pool_pack_list() where slug = 'world-series-2026' and icon = '⚾')
+  and exists (select 1 from pool_pack_list() where slug = 'nhl-2026-27' and questions = 9));
+reset role;
+select pg_temp.expect('a pool takes only the questions still open', _pool_load_pack(:epl, 'test-half', null) = 1
+  and not exists (select 1 from pool_markets where league_id = :epl and title = 'The first half?'));
+delete from pool_markets where league_id = :epl and pack = 'test-half';
+delete from pool_packs where slug in ('test-done', 'test-half');
 reset role;
 select set_config('request.jwt.claim.sub', '', false);
 select 'soccer packs', true;

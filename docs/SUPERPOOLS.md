@@ -162,7 +162,11 @@ on the site, and the switcher.
   matches to call or no survivor pick.*
 - **P4. Soccer fantasy.** The weekly engine with FPL-style scoring, for the second half of 2026-27 or for 2027-28.
 - **P5. The calendar of pools.** Question packs for The Bachelor, The Traitors, award nights, March Madness and the NHL
-  playoffs; creator-hosted public pools.
+  playoffs; creator-hosted public pools. *Started (migration 159, live): the World Series 2026 pack (the pennants, the series, the
+  MVP; from the eight clubs left in the division series) and the NHL 2026-27 pack (the Cup, the Presidents' Trophy, the
+  scoring races); the start pages (`#/new`, My pools) read like a calendar, `pool_pack_list()` listing only packs with a
+  question still to call, soonest deadline first, with when the first call closes; a pool started late takes only the
+  questions still open. Next: packs for what airs in the winter (The Traitors, The Bachelor, the award nights).*
 
 Then the list below, which is the fantasy-league plan of record.
 

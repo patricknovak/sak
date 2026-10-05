@@ -178,7 +178,7 @@ audience it brings:
 
 | When | Pool | Door |
 |---|---|---|
-| Oct-Nov 2026 | Love Is Blind S11 (the test); soccer gameweek and survivor pools; NHL season questions in SaK | prediction |
+| Oct-Nov 2026 | Love Is Blind S11 (the test); soccer gameweek, survivor and score pools; the World Series; the NHL season (packs live, migration 159) | prediction |
 | Dec 2026 | MLS Cup; NFL playoff pick'em (questions only, no NFL data needed beyond results) | prediction |
 | Jan-Mar 2027 | The Bachelor, The Traitors, the Oscars and award nights; soccer fantasy half-season | both |
 | Mar-Apr 2027 | March Madness bracket pool; NHL playoff bracket pool | prediction |

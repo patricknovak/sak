@@ -8,6 +8,7 @@ import { useLeague } from '../lib/store';
 import { Spinner } from '../components/ui';
 import { themed } from '../components/LeagueIdentity';
 import { ProductMark } from './Start';
+import { type Pack, packName, packPlaceholder, packWhen } from '../lib/packs';
 
 // "Start a pool" (#/new), open to anyone: name a pool, pick its colour and its questions, make an account, and land on
 // its Host page with the invite link ready to send. Someone new goes through the `join` function (it makes the account
@@ -16,7 +17,6 @@ import { ProductMark } from './Start';
 // landing page uses. Drawn in the pool's own colour as it is chosen.
 
 const SWATCHES = ['#fb7185', '#38bdf8', '#f7c548', '#34d399', '#c4b5fd', '#f97316'];
-interface Pack { slug: string; name: string; questions: number; color: string | null; icon: string | null; blurb: string | null }
 const rgb = (c: string) => `${parseInt(c.slice(1, 3), 16)} ${parseInt(c.slice(3, 5), 16)} ${parseInt(c.slice(5, 7), 16)}`;
 
 const STEPS = [
@@ -95,8 +95,8 @@ export default function NewPool() {
             <div className="relative flex items-center gap-3">
               <span className="grid h-11 w-11 shrink-0 place-items-center rounded-2xl text-xl" style={{ background: `rgb(${rgb(color)} / .2)` }}>{chosen.icon ?? '✨'}</span>
               <div className="min-w-0">
-                <div className="font-semibold text-white">{chosen.name}</div>
-                <div className="text-xs text-white/70">{chosen.questions} questions ready to go{chosen.blurb ? `. ${chosen.blurb}` : ', and the coin drops'}</div>
+                <div className="text-balance font-semibold text-white">{packName(chosen.name)}</div>
+                <div className="text-xs text-white/70">{chosen.questions} questions ready to go{chosen.blurb ? `. ${chosen.blurb}` : ', and the coin drops'}. {packWhen(chosen).text.replace(/^./, (c) => c.toUpperCase())}.</div>
               </div>
             </div>
           </div>
@@ -105,7 +105,7 @@ export default function NewPool() {
         <form onSubmit={start} className="card-hero p-5">
           <div className="relative space-y-4">
             <label className="block"><span className="label text-white/70">Name your pool</span>
-              <input className="input mt-1 w-full" value={pool} onChange={(e) => setPool(e.target.value)} maxLength={40} placeholder={chosen?.slug.startsWith('love-is-blind') ? 'The Pod Squad' : chosen?.slug.startsWith('premier') ? 'The Sunday League' : chosen?.slug.startsWith('mls') ? 'The Cup Crew' : 'The Group Chat Pool'} /></label>
+              <input className="input mt-1 w-full" value={pool} onChange={(e) => setPool(e.target.value)} maxLength={40} placeholder={packPlaceholder(chosen?.slug)} /></label>
             <div>
               <span className="label text-white/70">Its colour</span>
               <div className="mt-2 flex flex-wrap gap-2.5">
@@ -120,12 +120,12 @@ export default function NewPool() {
             <div>
               <span className="label text-white/70">Start with</span>
               <div className="mt-2 grid gap-2">
-                {[...(packs ?? []).map((p) => ({ slug: p.slug as string | null, name: p.name, icon: p.icon, sub: `${p.questions} questions ready, and the coin drops` })),
-                  { slug: null as string | null, name: 'A blank pool', icon: null, sub: 'Ask your own questions from the Host page' }].map((o) => (
+                {[...(packs ?? []).map((p) => { const w = packWhen(p); return { slug: p.slug as string | null, name: packName(p.name), icon: p.icon, sub: `${p.questions} questions · ${w.text}`, soon: w.soon }; }),
+                  { slug: null as string | null, name: 'A blank pool', icon: null, sub: 'Ask your own questions from the Host page', soon: false }].map((o) => (
                   <button key={o.slug ?? 'blank'} type="button" onClick={() => { setPack(o.slug); const c = packs?.find((x) => x.slug === o.slug)?.color; if (c && /^#[0-9a-f]{6}$/i.test(c)) setColor(c.toLowerCase()); }}
                     className={`flex items-center gap-3 rounded-2xl border p-3 text-left transition ${pack === o.slug ? 'border-white/40 bg-white/[.08]' : 'border-white/10 bg-white/[.03] hover:bg-white/[.06]'}`}>
                     <span className="grid h-9 w-9 shrink-0 place-items-center rounded-xl" style={{ background: `rgb(${rgb(color)} / .18)`, color }}>{o.icon ? <span className="text-lg leading-none">{o.icon}</span> : o.slug ? <Sparkles size={18} /> : <Plus size={18} />}</span>
-                    <span className="min-w-0 flex-1"><span className="block font-semibold text-white">{o.name}</span><span className="block text-xs text-white/60">{o.sub}</span></span>
+                    <span className="min-w-0 flex-1"><span className="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-balance font-semibold text-white">{o.name}{o.soon && <span className="rounded-full bg-amber-400/15 px-1.5 py-px text-[10px] font-bold uppercase tracking-wider text-amber-200 ring-1 ring-amber-400/30">Closing soon</span>}</span><span className="block text-xs text-white/60">{o.sub}</span></span>
                     {pack === o.slug && <Check size={18} className="shrink-0 text-emerald-300" />}
                   </button>
                 ))}
