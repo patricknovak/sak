@@ -10,7 +10,7 @@ import { themed } from '../components/LeagueIdentity';
 // someone new makes their account right here (the `join` edge function makes it and seats them in one go);
 // someone with an account signs in, or is already signed in, and takes the seat with accept_invite.
 // Either way they land in the league they just joined.
-interface Preview { ok: boolean; reason?: string | null; league_id?: number; league?: string; short?: string; brand?: { colors?: { gold?: string } } | null; role?: 'gm' | 'spectator'; team?: string | null; expires_at?: string; kind?: 'fantasy' | 'predict' }
+interface Preview { ok: boolean; reason?: string | null; league_id?: number; league?: string; short?: string; brand?: { colors?: { gold?: string }; tagline?: string; coin?: { name?: string; emoji?: string } } | null; role?: 'gm' | 'spectator'; team?: string | null; expires_at?: string; kind?: 'fantasy' | 'predict' }
 
 const WHY: Record<string, string> = {
   unknown: 'That invite link isn’t right. Ask the commissioner for a new one.',
@@ -88,8 +88,22 @@ export default function Join({ code }: { code: string }) {
           {sak ? <img src="./icon.svg" alt="" className="mx-auto mb-3 h-16 w-16" /> : <span className="mb-3 inline-block"><LeagueCrest short={pv?.short ?? '…'} size={64} /></span>}
           <div className="label text-mute">You&apos;re invited to</div>
           <h1 className="h-display text-shine mt-1 text-3xl leading-tight">{pv?.league ?? '…'}</h1>
-          {pv?.ok && <p className="mt-2 text-sm text-slate-300">Taking {what}{pv.role === 'gm' && pv.team ? ' as its GM' : ''}.</p>}
+          {pv?.ok && (pool
+            ? <p className="mt-2 text-sm text-slate-300">{pv.brand?.tagline ? `${pv.brand.tagline}. ` : ''}Your place is ready.</p>
+            : <p className="mt-2 text-sm text-slate-300">Taking {what}{pv.role === 'gm' && pv.team ? ' as its GM' : ''}.</p>)}
         </div>
+
+        {/* what a pool is, for someone who tapped a link in the group chat */}
+        {pv?.ok && pool && (
+          <div className="mb-4 grid grid-cols-3 gap-2 text-center">
+            {[[pv.brand?.coin?.emoji || '🪙', `1,000 ${(pv.brand?.coin?.name || 'coins').toLowerCase()} to start`], ['🔮', 'Call what happens next'], ['🆓', 'Free, never money']].map(([e, t]) => (
+              <div key={t} className="rounded-2xl border border-white/10 bg-white/[.04] px-2 py-3">
+                <div className="text-xl leading-none">{e}</div>
+                <div className="mt-1.5 text-balance text-[12px] font-semibold leading-tight text-slate-200">{t}</div>
+              </div>
+            ))}
+          </div>
+        )}
 
         {!pv ? <div className="flex justify-center py-8"><Spinner /></div>
           : !pv.ok ? <div className="card p-5 text-center text-sm text-slate-200">{WHY[pv.reason ?? 'unknown'] ?? WHY.unknown}</div>
