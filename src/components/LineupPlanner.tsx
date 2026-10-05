@@ -2,8 +2,10 @@
 // on the page to decide it. Today saves straight to the live lineup; future days save as plans that become the
 // live lineup that morning (and the auto-pilot leaves them alone). Plans carry forward: a day with no plan of its
 // own uses the last plan before it, or today's lineup.
+// Any GM can open another team's daily lineups (migration 164): the same strip and grid, read only, with no saving,
+// optimizing or copying and no start/sit advice, since the lineup isn't theirs to set.
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { CalendarDays, Copy, Save, Sparkles, Trash2, Undo2 } from 'lucide-react';
+import { CalendarDays, Copy, Eye, Save, Sparkles, Trash2, Undo2 } from 'lucide-react';
 import { useLeague, useSport } from '../lib/store';
 import { calledOff, hasStarted, plays, positionKeys } from '../lib/sport';
 import { rpc, supabase } from '../lib/supabase';
@@ -12,7 +14,7 @@ import { optimize, slotOk as canPlay, gamesOf, availability, type Basis, type LC
 import { lineFor, minSample, rosPoints, statValue, fmtStat, TIMEFRAMES, type Timeframe } from '../lib/playerstats';
 import { useProjDetails, useSeasonGames } from '../lib/projections';
 import type { Game, Player, Roster, Slot } from '../lib/types';
-import { Headshot, useAction } from './ui';
+import { Headshot, TeamName, useAction } from './ui';
 import { usePlayerInfo } from '../lib/playerInfo';
 import { GameStatusChip, NewsDot } from './GameStatus';
 import { PastDay } from './PastDay';
@@ -36,8 +38,11 @@ const SK = ['gp', 'g', 'a', 'pts', 'pm', 'ppp', 'sog', 'hit', 'blk', 'pim', 'gwg
 const GO = ['gp', 'gs', 'w', 'l', 'otl', 'sv', 'ga', 'svp', 'gaa', 'sho'];
 type Filter = string;   // All, a position (the sport's), Starting, Bench or Playing
 
-export function LineupPlanner({ roster }: { roster: Row[] }) {
-  const { me, league, players, windows, season, refresh, serverOffset } = useLeague();
+export function LineupPlanner({ roster, teamId }: { roster: Row[]; teamId?: number }) {
+  const { me, teams, league, players, windows, season, refresh, serverOffset } = useLeague();
+  // whose lineups these are: the caller's own, or another team's to look at
+  const owner = (teamId != null ? teams.find((x) => x.id === teamId) : null) ?? me;
+  const readOnly = !!owner && owner.id !== me?.id;
   const sport = useSport();
   const FILTERS = ['All', ...positionKeys(sport), 'Starting', 'Bench', 'Playing'];
   const games = useSeasonGames();
@@ -53,7 +58,7 @@ export function LineupPlanner({ roster }: { roster: Row[] }) {
   const [past, setPast] = useState<Map<string, { points: number; games: number }>>(new Map());
   const strip = useRef<HTMLDivElement>(null);
   const todayBtn = useRef<HTMLButtonElement>(null);
-  useEffect(() => { if (me && start < today) supabase.from('team_daily').select('date,points,games').eq('team_id', me.id).lt('date', today).then(({ data }) => setPast(new Map((data ?? []).map((r) => [r.date, { points: Number(r.points), games: r.games }])))); }, [me?.id, start, today]);
+  useEffect(() => { if (owner && start < today) supabase.from('team_daily').select('date,points,games').eq('team_id', owner.id).lt('date', today).then(({ data }) => setPast(new Map((data ?? []).map((r) => [r.date, { points: Number(r.points), games: r.games }])))); }, [owner?.id, start, today]);
   // open on today, with a couple of played days peeking in from the left
   useEffect(() => { const el = strip.current, b = todayBtn.current; if (el && b) el.scrollLeft = Math.max(0, b.offsetLeft - el.offsetLeft - 124); }, [days.length]); // eslint-disable-line react-hooks/exhaustive-deps
   const [plans, setPlans] = useState<Map<string, Map<number, string>>>(new Map());
@@ -68,12 +73,12 @@ export function LineupPlanner({ roster }: { roster: Row[] }) {
   const [sort, setSort] = useState<{ k: string; dir: 1 | -1 } | null>(null);
   const [copyTo, setCopyTo] = useState(7);
 
-  const loadPlans = () => { if (me) supabase.from('lineup_plans').select('date,player_id,slot').eq('team_id', me.id).gt('date', today).then(({ data }) => {
+  const loadPlans = () => { if (owner) supabase.from('lineup_plans').select('date,player_id,slot').eq('team_id', owner.id).gt('date', today).then(({ data }) => {
     const m = new Map<string, Map<number, string>>();
     for (const r of data ?? []) { const x = m.get(r.date) ?? new Map(); x.set(r.player_id, r.slot); m.set(r.date, x); }
     setPlans(m);
   }); };
-  useEffect(loadPlans, [me?.id, today]); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(loadPlans, [owner?.id, today]); // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => { setDraft(null); }, [day]);
 
   const liveSlots = useMemo(() => new Map(roster.map((x) => [x.p.id, x.r.slot as string])), [roster]);
@@ -283,7 +288,7 @@ export function LineupPlanner({ roster }: { roster: Row[] }) {
     <div className="space-y-3">
       {/* the date strip */}
       <div className="card p-2">
-        <div className="mb-1.5 flex items-center gap-1.5 px-1 text-xs text-mute"><CalendarDays size={14} /> Pick a day. Set it now, up to {Math.round((new Date(end).getTime() - new Date(today).getTime()) / 86400000)} days out{start < today ? '; scroll left to see how any played day went' : ''}.</div>
+        <div className="mb-1.5 flex items-center gap-1.5 px-1 text-xs text-mute"><CalendarDays size={14} /> {readOnly ? <span>Pick a day to see <TeamName team={owner!} />&apos;s lineup for it, up to {Math.round((new Date(end).getTime() - new Date(today).getTime()) / 86400000)} days out{start < today ? '; scroll left for any played day' : ''}.</span> : <>Pick a day. Set it now, up to {Math.round((new Date(end).getTime() - new Date(today).getTime()) / 86400000)} days out{start < today ? '; scroll left to see how any played day went' : ''}.</>}</div>
         <div ref={strip} className="scroll-x flex gap-1 pb-1">
           {days.map((d) => {
             const gone = d < today;
@@ -311,7 +316,7 @@ export function LineupPlanner({ roster }: { roster: Row[] }) {
         </div>
       </div>
 
-      {day < today && me && <PastDay day={day} roster={roster} teamId={me.id} onInfo={setInfo} />}
+      {day < today && owner && <PastDay day={day} roster={roster} teamId={owner.id} onInfo={setInfo} />}
       {day >= today && <>
       {/* the day */}
       <div className="card space-y-2 p-3">
@@ -319,7 +324,12 @@ export function LineupPlanner({ roster }: { roster: Row[] }) {
           <div className="min-w-0 flex-1">
             <div className="font-semibold">{day === today ? 'Today' : new Date(day + 'T12:00:00Z').toLocaleDateString('en-CA', { weekday: 'long', month: 'long', day: 'numeric', timeZone: 'UTC' })}</div>
             <div className="text-xs text-mute">
-              {day === today ? 'Live lineup: saves immediately. Players whose game has started are locked.'
+              {readOnly ? (day === today ? 'Their live lineup. Players whose game has started are locked in.'
+                : eff.source === 'own' ? `${owner!.gm_name} set this day. It becomes their live lineup that morning.`
+                : eff.source ? `No lineup of its own yet: carries forward from ${monthDay(eff.source)}.`
+                : owner!.auto_mode && owner!.auto_mode !== 'off' ? 'Nothing saved: their auto-pilot sets the best lineup that morning.'
+                : 'Nothing saved: today’s lineup carries forward.')
+                : day === today ? 'Live lineup: saves immediately. Players whose game has started are locked.'
                 : eff.source === 'own' ? 'You set this day. It becomes your live lineup that morning.'
                 : eff.source ? `No lineup of its own yet: carries forward from ${monthDay(eff.source)}.`
                 : me?.auto_mode && me.auto_mode !== 'off' ? 'Nothing saved: your auto-pilot will set the best lineup that morning. Save a lineup to take over.'
@@ -335,6 +345,11 @@ export function LineupPlanner({ roster }: { roster: Row[] }) {
           {emptyOnGameDay > 0 && <span className="chip bg-amber-500/15 text-amber-200">{emptyOnGameDay} empty starting slot{emptyOnGameDay > 1 ? 's' : ''}</span>}
           {over.map((o) => <span key={o} className="chip bg-red-500/20 text-red-200">⛔ {o}</span>)}
         </div>
+        {readOnly ? (
+          <div className="flex items-center gap-2 rounded-xl border border-white/[.07] bg-white/[.03] px-2.5 py-2 text-[11px] text-slate-300">
+            <Eye size={14} className="shrink-0 text-gold" /><span>Read only. You can look at <TeamName team={owner!} />&apos;s lineups; only {owner!.gm_name} can change them.</span>
+          </div>
+        ) : <>
         <div className="flex flex-wrap items-center gap-1.5">
           <button className="btn-blue btn-sm" disabled={busy || !games} onClick={() => setDraft(optimizeDay(day, slots))}><Sparkles size={14} /> Optimize this day</button>
           <button className="btn-primary btn-sm" disabled={busy || !dirty || over.length > 0} onClick={save}><Save size={14} /> Save{dirty ? '' : 'd'}</button>
@@ -351,10 +366,11 @@ export function LineupPlanner({ roster }: { roster: Row[] }) {
           <span className="text-mute">Autofill the best lineup day by day:</span>
           {[7, 14, 30].map((n) => <button key={n} className="btn-ghost btn-sm" disabled={busy || !games} onClick={() => confirm(`Set the best lineup for each of the next ${n} days? It replaces any lineup you already saved for those days. Pins are respected.`) && optimizeAhead(n)}>Next {n} days</button>)}
         </div>
+        </>}
       </div>
 
       {/* start / sit */}
-      {best && (
+      {best && !readOnly && (
         <div className="card space-y-2 p-3">
           <div className="flex flex-wrap items-center gap-2">
             <div className="font-semibold">Start / sit{day === today ? ' today' : ` · ${monthDay(day)}`}</div>
@@ -460,10 +476,10 @@ export function LineupPlanner({ roster }: { roster: Row[] }) {
                 return (
                   <tr key={p.id} className={`${START.includes(s as Slot) ? '' : 'text-slate-400'} ${changed ? 'bg-sky-500/[.08]' : ''}`}>
                     <td className="sticky left-0 z-10 bg-rink px-2 py-1">
-                      <select aria-label={`Slot for ${p.name}`} disabled={lk || onIr || me?.role === 'spectator'} title={onIr ? 'On IR: move him off IR on the My Team page' : undefined} value={s} onChange={(e) => setSlot(p.id, e.target.value)}
+                      {readOnly ? <span className={`inline-block w-[52px] rounded-md border px-1 py-0.5 text-center text-[11px] font-bold ${START.includes(s as Slot) ? 'border-sky-400/40 bg-sky-500/15 text-sky-100' : 'border-white/10 bg-black/40 text-slate-300'}`}>{s}</span> : <select aria-label={`Slot for ${p.name}`} disabled={lk || onIr || me?.role === 'spectator'} title={onIr ? 'On IR: move him off IR on the My Team page' : undefined} value={s} onChange={(e) => setSlot(p.id, e.target.value)}
                         className={`w-[52px] rounded-md border px-1 py-0.5 text-[11px] font-bold ${START.includes(s as Slot) ? 'border-sky-400/40 bg-sky-500/15 text-sky-100' : 'border-white/10 bg-black/40 text-slate-300'} disabled:opacity-60`}>
                         {options.map((o) => <option key={o} value={o}>{o}</option>)}
-                      </select>
+                      </select>}
                     </td>
                     <td className="sticky left-[62px] z-10 max-w-[170px] bg-rink px-2">
                       <div className="flex items-center gap-1.5">

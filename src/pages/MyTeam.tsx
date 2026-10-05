@@ -33,7 +33,8 @@ export default function MyTeam() {
   const mine = teamId === me?.id;
   const [sel, setSel] = useState<number | null>(null);
   const [info, setInfo] = useState<number | null>(null);
-  useEffect(() => { setView(teamId === me?.id ? 'lineup' : 'scout'); setSel(null); }, [teamId]); // eslint-disable-line react-hooks/exhaustive-deps
+  // moving from team to team keeps the daily lineups or the stats open, so a GM can flick through every team's
+  useEffect(() => { setView((v) => (v === 'plan' || v === 'stats' ? v : teamId === me?.id ? 'lineup' : 'scout')); setSel(null); }, [teamId]); // eslint-disable-line react-hooks/exhaustive-deps
   const [today, setToday] = useState<Map<number, { fpts: number; stats: Record<string, number> }>>(new Map());
   const [tx, setTx] = useState<Transaction[]>([]);
   const [pk, setPk] = useState<{ used: number; allowed: number } | null>(null);
@@ -279,7 +280,7 @@ export default function MyTeam() {
       <div className="flex flex-wrap items-center gap-1">
         {!mine && <button className={`tab ${view === 'scout' ? 'tab-on' : 'bg-white/[.05]'}`} onClick={() => setView('scout')}>🔍 {me?.role === 'spectator' ? 'Scout' : 'Scout & trade'}</button>}
         <button className={`tab ${view === 'lineup' ? 'tab-on' : 'bg-white/[.05]'}`} onClick={() => setView('lineup')}>🏒 Lineup</button>
-        {mine && league?.phase !== 'keepers' && <button className={`tab ${view === 'plan' ? 'tab-on' : 'bg-white/[.05]'}`} onClick={() => setView('plan')}>📅 Daily lineups</button>}
+        {league?.phase !== 'keepers' && <button className={`tab ${view === 'plan' ? 'tab-on' : 'bg-white/[.05]'}`} onClick={() => setView('plan')}>📅 Daily lineups</button>}
         <button className={`tab ${view === 'stats' ? 'tab-on' : 'bg-white/[.05]'}`} onClick={() => setView('stats')}>📊 Stats</button>
         {view === 'lineup' && (
           <div className="scroll-x ml-auto flex items-center gap-1">
@@ -291,7 +292,7 @@ export default function MyTeam() {
           </div>
         )}
       </div>
-      {view === 'stats' ? <TeamStats teamId={t.id} /> : view === 'plan' && mine ? <LineupPlanner roster={roster} /> : !mine && view === 'scout' ? <TeamScout teamId={t.id} /> : <>
+      {view === 'stats' ? <TeamStats teamId={t.id} /> : view === 'plan' && league?.phase !== 'keepers' ? <LineupPlanner roster={roster} teamId={t.id} /> : !mine && view === 'scout' ? <TeamScout teamId={t.id} /> : <>
       <div className="grid gap-4 lg:grid-cols-2">
         {(!offseason || anyStarter) && (
           <Section title="Starters" className="min-w-0" right={!offseason ? <span className="text-xs text-mute"><span className="mr-1 inline-block h-2 w-2 rounded-full bg-emerald-400" />{playingStarters} of {starterSlots} play tonight</span> : undefined}>
