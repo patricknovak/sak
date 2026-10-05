@@ -22,11 +22,13 @@ const STATUS: Record<Status, { label: string; cls: string }> = {
 };
 
 export default function Features() {
-  const { me, team, can, league } = useLeague();
+  const { me, team, can, league, kind } = useLeague();
+  // a prediction pool has no hockey features to show: its page is the ideas board alone, in the pool's words
+  const pool = kind === 'predict';
   const now = useNow(60_000);
   const { busy, run } = useAction();
   const [params, setParams] = useSearchParams();
-  const tab = params.get('t') === 'ideas' || params.get('idea') ? 'ideas' : params.get('t') === 'new' ? 'new' : 'built';
+  const tab = pool || params.get('t') === 'ideas' || params.get('idea') ? 'ideas' : params.get('t') === 'new' ? 'new' : 'built';
   // the newest change this phone has seen, so the tab can say there's something new
   const [seen, setSeen] = useState(() => { try { return localStorage.getItem('whatsnew-seen') ?? ''; } catch { return ''; } });
   // the newest date and how many changes it has, so one more on the same day lights the dot again (zero-padded so
@@ -86,7 +88,7 @@ export default function Features() {
     if (error) throw error;
     await supabase.from('feature_votes').insert({ idea_id: data.id, team_id: me.id });
     setIdea({ title: '', body: '' }); await load();
-  }, 'Idea posted. The league’s been told to vote 🗳️');
+  }, `Idea posted. The ${pool ? 'pool' : 'league'}’s been told to vote 🗳️`);
   const toggleVote = (id: number) => run(async () => {
     if (!me) return;
     const { error } = iVoted(id)
@@ -164,15 +166,17 @@ export default function Features() {
 
   return (
     <div className="space-y-4">
-      <PageHeader icon="💡" title="League features" sub={`${ALL_FEATURES.length} features built so far. Tell us what you think and what to build next.`} />
+      {pool
+        ? <PageHeader icon="💡" title="Ideas" sub="Tell us what would make the pool better, and vote on what others ask for. We read every one." />
+        : <PageHeader icon="💡" title="League features" sub={`${ALL_FEATURES.length} features built so far. Tell us what you think and what to build next.`} />}
 
-      <div className="flex flex-wrap gap-1">
+      {!pool && <div className="flex flex-wrap gap-1">
         <button className={`tab ${tab === 'built' ? 'tab-on' : 'bg-white/[.05]'}`} onClick={() => setParams({})}>🧰 What’s built</button>
         <button className={`tab ${tab === 'ideas' ? 'tab-on' : 'bg-white/[.05]'}`} onClick={() => setParams({ t: 'ideas' })}>🗳️ Ideas{ideas.length ? ` (${ideas.length})` : ''}</button>
         <button className={`tab relative ${tab === 'new' ? 'tab-on' : 'bg-white/[.05]'}`} onClick={() => setParams({ t: 'new' })}>
           🆕 What’s new{seen < newest && tab !== 'new' && <span className="absolute -right-0.5 -top-0.5 h-2.5 w-2.5 rounded-full bg-gold shadow-[0_0_8px_rgb(var(--gold-rgb)/.9)]" />}
         </button>
-      </div>
+      </div>}
 
       {tab === 'new' && (
         <div className="space-y-5">
@@ -226,11 +230,11 @@ export default function Features() {
         <>
           {!can('ideas') && <div className="card p-4 text-sm text-mute">🔇 Suggesting and voting is switched off for your spectator pass. You can still read everything.</div>}
           {can('ideas') && <form className="card space-y-2 p-3.5" onSubmit={(e) => { e.preventDefault(); suggest(); }}>
-            <div className="font-bold">💡 Suggest a feature</div>
-            <input className="input" placeholder="What should we build? (e.g. Weekly head-to-head side pot)" maxLength={120} value={idea.title} onChange={(e) => setIdea({ ...idea, title: e.target.value })} />
+            <div className="font-bold">💡 {pool ? 'Suggest an idea' : 'Suggest a feature'}</div>
+            <input className="input" placeholder={pool ? 'What would make the pool better? (e.g. a question for every couple)' : 'What should we build? (e.g. Weekly head-to-head side pot)'} maxLength={120} value={idea.title} onChange={(e) => setIdea({ ...idea, title: e.target.value })} />
             <textarea className="input min-h-20" placeholder="Details (optional): how would it work, why would it be fun?" maxLength={2000} value={idea.body} onChange={(e) => setIdea({ ...idea, body: e.target.value })} />
             <div className="flex items-center justify-between gap-2">
-              <span className="text-xs text-mute">Posting it tells the league chat so people can vote.</span>
+              <span className="text-xs text-mute">Posting it tells the {pool ? 'pool' : 'league'} chat so people can vote.</span>
               <button className="btn-primary shrink-0 whitespace-nowrap" disabled={busy || idea.title.trim().length < 3}>Post idea</button>
             </div>
           </form>}

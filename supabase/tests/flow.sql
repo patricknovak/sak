@@ -3406,6 +3406,23 @@ select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-000000000082
 set role authenticated;
 select pg_temp.raises('only the platform sees it', 'select platform_pool_test()', 'Only the platform');
 reset role;
+-- what pool players ask for (migration 161): a pool's idea tells its chat where to vote, and the platform reads every
+-- pool's ideas in one list; nobody else can
+select set_config('app.league_id', :'lib', false);
+insert into feature_ideas (team_id, title, body) values (:fern, 'A question for every couple', 'One tap for the whole cast');
+select pg_temp.expect('a pool''s idea points its chat to More, Ideas', exists (select 1 from messages where league_id = :lib
+  and body like '💡 % suggested an idea: “A question for every couple”. Vote on it under More → Ideas.'));
+select set_config('app.league_id', '', false);
+select set_config('request.jwt.claim.sub', '', false);
+select pg_temp.as_team(1);
+set role authenticated;
+select pg_temp.expect('the platform reads every pool''s ideas', exists (select 1 from jsonb_array_elements(platform_ideas()) x
+  where x->>'title' = 'A question for every couple' and x->>'pool' is not null and (x->>'votes')::int = 0));
+reset role;
+select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-000000000082', false);
+set role authenticated;
+select pg_temp.raises('only the platform reads them', 'select platform_ideas()', 'Only the platform');
+reset role;
 select set_config('request.jwt.claim.sub', '', false);
 select 'pool test scoreboard', true;
 

@@ -103,3 +103,40 @@ export function PoolTest() {
     </Section>
   );
 }
+
+// what pool players ask for (migration 161): every pool's ideas, newest first, with their votes, so the test's lessons
+// are written down as they come in
+interface PoolIdea { id: number; title: string; body: string | null; status: string; created_at: string; pool: string; color: string | null; by: string | null; votes: number; comments: number }
+
+export function PoolIdeas() {
+  const [rows, setRows] = useState<PoolIdea[] | null>(null);
+  useEffect(() => { rpc<PoolIdea[]>('platform_ideas', { p_limit: 40 }).then(setRows, () => setRows(null)); }, []);
+  if (!rows) return null;
+  return (
+    <Section title="What pools ask for">
+      {!rows.length ? <div className="card p-4 text-sm text-mute">No ideas from the pools yet. Members suggest them under More → Ideas.</div> : (
+        <div className="card divide-y divide-white/[.05] p-1">
+          {rows.map((r) => (
+            <div key={r.id} className="flex items-start gap-3 px-3 py-3">
+              <div className="grid w-11 shrink-0 place-items-center rounded-xl bg-white/[.05] py-1.5 text-center">
+                <div className="num font-display text-lg font-extrabold leading-none text-white">{r.votes}</div>
+                <div className="text-[9px] font-bold uppercase tracking-wider text-mute">{r.votes === 1 ? 'vote' : 'votes'}</div>
+              </div>
+              <div className="min-w-0 flex-1">
+                <div className="break-words font-semibold text-white">{r.title}</div>
+                {r.body && <div className="mt-0.5 break-words text-sm text-slate-300">{r.body}</div>}
+                <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-[11px] text-mute">
+                  <span className="inline-flex items-center gap-1 font-semibold" style={{ color: r.color ?? undefined }}><span className="h-2 w-2 rounded-full" style={{ background: r.color ?? '#94a3b8' }} />{r.pool}</span>
+                  {r.by && <span>{r.by}</span>}
+                  <span>{ago(r.created_at)}</span>
+                  {r.comments > 0 && <span>{r.comments} comment{r.comments === 1 ? '' : 's'}</span>}
+                  {r.status !== 'new' && <span className="chip text-[10px]">{r.status}</span>}
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </Section>
+  );
+}
