@@ -31,6 +31,10 @@ Two things in one repo:
   New UI that shows a player uses them rather than linking away. The injury report's timeline (expected return, body
   part, IR list, the write-up) is on `players` (migration 152, written by nhl-sync's injury task) and drawn by
   `InjuryReport`.
+- Lineups: the classic page is My Team (`src/pages/MyTeam.tsx`, its Daily lineups tab `LineupPlanner`); Lineup New
+  (`#/lineup-new`, `src/pages/LineupNew.tsx`, `src/components/lineupnew/`, data in `src/lib/lineupKit.ts`) runs beside it
+  for the league to compare (5 October 2026): Day, Week, Compare and Insights for any team (others read only), saving
+  through the same `set_lineup` and `set_lineup_plans`. Plans are readable league-wide (migration 164).
 - Sport: `src/lib/sport.ts` (`useSport()` from the store): the league's sport as the engine reads it (positions, slots,
   stats, game states, periods), the database's `sports` row with the NHL compiled in. New code that needs a position
   list, a slot rule or a stat label reads it instead of writing hockey in; the rest moves over one place at a time.

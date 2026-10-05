@@ -277,6 +277,12 @@ export default function MyTeam() {
         <Link to="/draft?t=keepers" className="card block bg-amber-500/10 p-3 text-sm text-amber-100">🔒 It’s keeper season: this is your 2025-26 roster. Pick who you keep →</Link>
       )}
 
+      {league?.phase !== 'keepers' && (
+        <Link to="/lineup-new" className="flex items-center gap-2 rounded-2xl border border-gold/30 bg-gold/[.07] px-3 py-2 text-xs text-slate-200">
+          <span className="text-base">✨</span><span className="min-w-0 flex-1"><b className="text-white">Try Lineup New:</b> two-tap moves, the week grid, compare with any team, insights.</span><span className="text-gold">→</span>
+        </Link>
+      )}
+
       <div className="flex flex-wrap items-center gap-1">
         {!mine && <button className={`tab ${view === 'scout' ? 'tab-on' : 'bg-white/[.05]'}`} onClick={() => setView('scout')}>🔍 {me?.role === 'spectator' ? 'Scout' : 'Scout & trade'}</button>}
         <button className={`tab ${view === 'lineup' ? 'tab-on' : 'bg-white/[.05]'}`} onClick={() => setView('lineup')}>🏒 Lineup</button>
