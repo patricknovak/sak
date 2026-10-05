@@ -10,7 +10,7 @@ import { themed } from '../components/LeagueIdentity';
 // someone new makes their account right here (the `join` edge function makes it and seats them in one go);
 // someone with an account signs in, or is already signed in, and takes the seat with accept_invite.
 // Either way they land in the league they just joined.
-interface Preview { ok: boolean; reason?: string | null; league_id?: number; league?: string; short?: string; brand?: { colors?: { gold?: string }; tagline?: string; coin?: { name?: string; emoji?: string } } | null; role?: 'gm' | 'spectator'; team?: string | null; expires_at?: string; kind?: 'fantasy' | 'predict' }
+interface Preview { ok: boolean; reason?: string | null; league_id?: number; league?: string; short?: string; brand?: { colors?: { gold?: string }; tagline?: string; coin?: { name?: string; emoji?: string } } | null; role?: 'gm' | 'spectator'; team?: string | null; expires_at?: string; kind?: 'fantasy' | 'predict'; host?: string | null; members?: number }
 
 const WHY: Record<string, string> = {
   unknown: 'That invite link isn’t right. Ask the commissioner for a new one.',
@@ -89,7 +89,10 @@ export default function Join({ code }: { code: string }) {
           <div className="label text-mute">You&apos;re invited to</div>
           <h1 className="h-display text-shine mt-1 text-3xl leading-tight">{pv?.league ?? '…'}</h1>
           {pv?.ok && (pool
-            ? <p className="mt-2 text-sm text-slate-300">{pv.brand?.tagline ? `${pv.brand.tagline}. ` : ''}Your place is ready.</p>
+            ? <>
+                <p className="mt-2 text-sm text-slate-300">{pv.brand?.tagline ? `${pv.brand.tagline}. ` : ''}Your place is ready.</p>
+                {pv.host && <p className="mt-1 text-sm font-semibold text-white">{pv.host} invited you{pv.members && pv.members > 1 ? ` · ${pv.members} are in` : ''}</p>}
+              </>
             : <p className="mt-2 text-sm text-slate-300">Taking {what}{pv.role === 'gm' && pv.team ? ' as its GM' : ''}.</p>)}
         </div>
 
