@@ -15,6 +15,7 @@ import { useEffect } from 'react';
 import { appLink } from '../lib/host';
 import { shareCard, type CardBrand } from '../lib/shareCard';
 import { SurvivorCard, SurvivorStart, useSurvivor } from './Survivor';
+import { PredictorCard, PredictorStart, usePredictor } from './Predictor';
 import { Share2 } from 'lucide-react';
 
 function useLeaders() {
@@ -114,6 +115,7 @@ export function PoolHome() {
           </Section>
         </>
       )}
+      <PredictorCard />
       <SurvivorCard />
       <Section title="Latest calls" icon={<Sparkles className="h-5 w-5 text-gold" />}><CallsFeed trades={trades} markets={markets ?? []} /></Section>
       <InviteCard />
@@ -385,6 +387,13 @@ function HostSurvivor() {
   return <SurvivorStart onStarted={reload} />;
 }
 
+// and call the score
+function HostPredictor() {
+  const { board, reload } = usePredictor();
+  if (board === undefined || (board && board.status === 'open')) return null;
+  return <PredictorStart onStarted={reload} />;
+}
+
 // the pool's look for a share card
 function useCardBrand(): CardBrand {
   const brand = useBrand();
@@ -427,6 +436,7 @@ export function PoolHost() {
           : <div className="card p-4 text-sm text-mute">Nothing to settle. Questions land here when they close.</div>}
       </Section>
       <SoccerRounds onAdded={reload} />
+      <HostPredictor />
       <HostSurvivor />
       <Section title="Coin drops">
         <div className="card divide-y divide-white/[.05] p-1">

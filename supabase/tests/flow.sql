@@ -3523,6 +3523,102 @@ select set_config('app.league_id', '', false);
 select set_config('request.jwt.claim.sub', '', false);
 select 'last one standing', true;
 
+-- ───────────── call the score (migration 158) ─────────────
+-- Pod Squad calls the scores of two more MLS matchweeks (40, the last 41): Fern and Hana call, Lou forgets
+reset role;
+select set_config('request.jwt.claim.sub', '', false);
+select soccer_ingest('mls', jsonb_build_object('fixtures', jsonb_build_array(
+  jsonb_build_object('ext_id', '7101', 'gameweek', 40, 'kickoff', now() + interval '1 day', 'status', 'NS', 'home', '501', 'away', '502'),
+  jsonb_build_object('ext_id', '7102', 'gameweek', 40, 'kickoff', now() + interval '1 day', 'status', 'NS', 'home', '503', 'away', '504'),
+  jsonb_build_object('ext_id', '7103', 'gameweek', 41, 'kickoff', now() + interval '8 days', 'status', 'NS', 'home', '504', 'away', '501'),
+  jsonb_build_object('ext_id', '7104', 'gameweek', 41, 'kickoff', now() + interval '8 days', 'status', 'NS', 'home', '502', 'away', '503'))));
+select id as fa from fixtures where ext_id = '7101' \gset
+select id as fb from fixtures where ext_id = '7102' \gset
+select id as fc from fixtures where ext_id = '7103' \gset
+select id as fd from fixtures where ext_id = '7104' \gset
+select id as hana from teams where league_id = :lib and is_commish \gset
+select id as lou from teams where league_id = :lib and gm_name = 'Lou' \gset
+select set_config('app.league_id', :'lib', false);
+select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-000000000082', false);
+set role authenticated;
+select pg_temp.raises('only the host starts it', $$select predictor_start('mls')$$, 'Commissioner only');
+reset role;
+select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-000000000081', false);
+set role authenticated;
+select predictor_start('mls') as pr \gset
+select pg_temp.expect('it starts from the next matchweek', (select start_gw from predictors where id = :pr) = 40);
+select pg_temp.raises('one at a time', $$select predictor_start('mls')$$, 'already has a score predictor');
+select pg_temp.expect('Hana calls both', predictor_save(:pr, 40, jsonb_build_array(jsonb_build_object('fixture', :fa, 'home', 1, 'away', 1),
+  jsonb_build_object('fixture', :fb, 'home', 1, 'away', 0)), :fb) = 2);
+reset role;
+select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-000000000082', false);
+set role authenticated;
+select pg_temp.raises('a score is 0 to 20', format('select predictor_save(%s, 40, %L)', :pr, jsonb_build_array(jsonb_build_object('fixture', :fa, 'home', 21, 'away', 0))), 'from 0 to 20');
+select pg_temp.raises('a banker needs a call', format('select predictor_save(%s, 40, %L, %s)', :pr, '[]', :fa), 'score first');
+select predictor_save(:pr, 40, jsonb_build_array(jsonb_build_object('fixture', :fa, 'home', 3, 'away', 0), jsonb_build_object('fixture', :fb, 'home', 0, 'away', 0)), :fb);
+select predictor_save(:pr, 40, jsonb_build_array(jsonb_build_object('fixture', :fa, 'home', 2, 'away', 1)), :fa);
+reset role;
+select pg_temp.expect('a call and the banker can change until kick-off', (select home = 2 and away = 1 and banker from predictor_picks where predictor_id = :pr and team_id = :fern and fixture_id = :fa)
+  and (select count(*) from predictor_picks where predictor_id = :pr and team_id = :fern and banker) = 1);
+set role authenticated;
+select pg_temp.expect('before kick-off she sees her own calls, nobody else''s', (select (f->'mine'->>'home')::int = 2 and f->'calls' = 'null'::jsonb
+  from jsonb_array_elements(predictor_board(:pr)->'fixtures') f where (f->>'id')::bigint = :fa));
+select pg_temp.raises('the table itself is not readable', 'select count(*) from predictor_picks', 'permission denied');
+reset role;
+-- three hours out, the one who hasn't called hears about it, once
+select soccer_ingest('mls', jsonb_build_object('fixtures', jsonb_build_array(
+  jsonb_build_object('ext_id', '7101', 'gameweek', 40, 'kickoff', now() + interval '3 hours', 'status', 'NS', 'home', '501', 'away', '502'),
+  jsonb_build_object('ext_id', '7102', 'gameweek', 40, 'kickoff', now() + interval '3 hours', 'status', 'NS', 'home', '503', 'away', '504'))));
+select _soccer_nudge(:lib) as nudged \gset
+select pg_temp.expect('the reminder goes to the one with matches to call', :nudged = 1
+  and exists (select 1 from notifications where team_id = :lou and kind = 'predictor' and body = '⏰ Matchweek 40 kicks off in 3h. Call the score: 2 matches to call.'));
+select pg_temp.expect('and only once', _soccer_nudge(:lib) = 0);
+-- full time: 2-1 (Fern spot on with her banker, 6) and 2-0 (Hana's banker has the result, 2)
+select soccer_ingest('mls', jsonb_build_object('fixtures', jsonb_build_array(
+  jsonb_build_object('ext_id', '7101', 'gameweek', 40, 'kickoff', now() - interval '2 hours', 'status', 'FT', 'home', '501', 'away', '502', 'home_score', 2, 'away_score', 1, 'home_ft', 2, 'away_ft', 1))));
+select pg_temp.expect('the exact score with a banker is 6, and she hears it', (select points from predictor_picks where predictor_id = :pr and team_id = :fern and fixture_id = :fa) = 6
+  and (select points from predictor_picks where predictor_id = :pr and team_id = :hana and fixture_id = :fa) = 0
+  and exists (select 1 from notifications where team_id = :fern and kind = 'predictor' and body = '🎯 Spot on: Austin FC 2-1 Boston FC. +6 with your banker'));
+select pg_temp.expect('the week isn''t announced while a match is left', not exists (select 1 from messages where league_id = :lib and body like '🎯 Matchweek 40%'));
+select soccer_ingest('mls', jsonb_build_object('fixtures', jsonb_build_array(
+  jsonb_build_object('ext_id', '7102', 'gameweek', 40, 'kickoff', now() - interval '2 hours', 'status', 'FT', 'home', '503', 'away', '504', 'home_score', 3, 'away_score', 0, 'home_ft', 2, 'away_ft', 0))));
+select pg_temp.expect('the result counts from ninety minutes; a banker doubles the result', (select points from predictor_picks where predictor_id = :pr and team_id = :hana and fixture_id = :fb) = 2
+  and (select points from predictor_picks where predictor_id = :pr and team_id = :fern and fixture_id = :fb) = 0);
+select pg_temp.expect('the week is done: the chat hears who won it, and so does she', exists (select 1 from messages where league_id = :lib
+    and body = '🎯 Matchweek 40 is done. Top of the week: Fern with 6 points. Leading the table: Fern on 6.')
+  and exists (select 1 from notifications where team_id = :fern and body = '🏅 You won matchweek 40 with 6 points.'));
+-- a corrected score re-scores the calls, without a second announcement
+select soccer_ingest('mls', jsonb_build_object('fixtures', jsonb_build_array(
+  jsonb_build_object('ext_id', '7101', 'gameweek', 40, 'kickoff', now() - interval '2 hours', 'status', 'FT', 'home', '501', 'away', '502', 'home_score', 1, 'away_score', 1, 'home_ft', 1, 'away_ft', 1))));
+select pg_temp.expect('a correction re-scores', (select points from predictor_picks where predictor_id = :pr and team_id = :hana and fixture_id = :fa) = 3
+  and (select points from predictor_picks where predictor_id = :pr and team_id = :fern and fixture_id = :fa) = 0
+  and (select count(*) from messages where league_id = :lib and body like '🎯 Matchweek 40%') = 1);
+select soccer_ingest('mls', jsonb_build_object('fixtures', jsonb_build_array(
+  jsonb_build_object('ext_id', '7101', 'gameweek', 40, 'kickoff', now() - interval '2 hours', 'status', 'FT', 'home', '501', 'away', '502', 'home_score', 2, 'away_score', 1, 'home_ft', 2, 'away_ft', 1))));
+select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-000000000086', false);
+set role authenticated;
+select pg_temp.expect('after kick-off everyone''s calls show, and the table ranks them', (select jsonb_array_length(f->'calls') = 2
+    from jsonb_array_elements(predictor_board(:pr, 40)->'fixtures') f where (f->>'id')::bigint = :fa)
+  and (predictor_board(:pr, 40)->'table'->0->>'team_id')::int = :fern and (predictor_board(:pr, 40)->'table'->0->>'points')::int = 6
+  and (predictor_board(:pr, 40)->'table'->0->>'exact')::int = 1 and (predictor_board(:pr)->>'gameweek')::int = 41);
+reset role;
+-- the last matchweek: one match kicks off early (too late to call), the other is called off
+update fixtures set kickoff = now() - interval '1 minute' where id = :fc;
+select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-000000000082', false);
+set role authenticated;
+select pg_temp.expect('a match that has kicked off keeps the call it had', predictor_save(:pr, 41, jsonb_build_array(jsonb_build_object('fixture', :fc, 'home', 1, 'away', 1),
+  jsonb_build_object('fixture', :fd, 'home', 1, 'away', 2))) = 1);
+reset role;
+select soccer_ingest('mls', jsonb_build_object('fixtures', jsonb_build_array(
+  jsonb_build_object('ext_id', '7104', 'gameweek', 41, 'kickoff', now() + interval '8 days', 'status', 'PST', 'home', '502', 'away', '503'),
+  jsonb_build_object('ext_id', '7103', 'gameweek', 41, 'kickoff', now() - interval '1 minute', 'status', 'FT', 'home', '504', 'away', '501', 'home_score', 0, 'away_score', 0, 'home_ft', 0, 'away_ft', 0))));
+select pg_temp.expect('a called-off match is void', (select void and points = 0 from predictor_picks where predictor_id = :pr and team_id = :fern and fixture_id = :fd));
+select pg_temp.expect('the season''s last matchweek ends it, and the chat hears who won', (select status = 'done' and winners = array[:fern] from predictors where id = :pr)
+  and exists (select 1 from messages where league_id = :lib and body = '🏆 Call the score is done: Fern, 6 points over the season.'));
+select set_config('app.league_id', '', false);
+select set_config('request.jwt.claim.sub', '', false);
+select 'call the score', true;
+
 -- ───────────── the injury report's timeline (migration 152) ─────────────
 -- the hourly sync writes the expected return, what it is and the list; a GM reads them through the league's players,
 -- and the status change still lands in the player's history

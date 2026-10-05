@@ -4,6 +4,7 @@ import { Shield } from 'lucide-react';
 import { useLeague, useNow } from '../lib/store';
 import { rpc } from '../lib/supabase';
 import { Empty, PageHeader, Section, TeamBadge, useAction } from '../components/ui';
+import { Crest } from '../components/Crest';
 
 // Last one standing (migration 157): every matchweek each player still in picks one club to win, never the same club
 // twice; a draw or a loss and they're out, and a matchweek with no pick is out too. The last one in wins. Picks lock at
@@ -28,12 +29,6 @@ export function useSurvivor() {
 const when = (iso: string) => new Date(iso).toLocaleString(undefined, { weekday: 'short', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' });
 const RESULT = { through: { t: '✓', cls: 'bg-emerald-400/20 text-emerald-200 ring-emerald-400/40' }, out: { t: '✗', cls: 'bg-red-500/20 text-red-200 ring-red-400/40' },
   missed: { t: '–', cls: 'bg-red-500/15 text-red-300 ring-red-400/30' }, void: { t: '↺', cls: 'bg-white/10 text-mute ring-white/15' } } as const;
-
-function Crest({ c, size = 28 }: { c: Club | Pick; size?: number }) {
-  const label = ('short' in c && c.short) || (c.name ?? '?').slice(0, 3).toUpperCase();
-  return c.logo ? <img src={c.logo} alt="" width={size} height={size} className="shrink-0 object-contain" style={{ width: size, height: size }} />
-    : <span className="grid shrink-0 place-items-center rounded-full bg-white/10 text-[10px] font-black text-white" style={{ width: size, height: size }}>{label}</span>;
-}
 
 // the host starts one from the next matchweek of a competition the feed carries
 export function SurvivorStart({ onStarted }: { onStarted: () => void }) {
