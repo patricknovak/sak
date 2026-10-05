@@ -109,6 +109,7 @@ export function Layout({ children }: { children: ReactNode }) {
     { to: '/nhl', label: sport.words.centre ?? 'NHL centre', icon: Tv },
   ];
   const moreItems: Item[] = (pool ? [
+    { to: '/survivor', label: 'Last one standing', icon: Shield },
     { to: '/pools', label: 'My pools', icon: Layers },
     { to: '/features', label: 'Ideas', icon: Lightbulb },
     { to: '/profile', label: 'My Profile', icon: UserRound },

@@ -164,7 +164,8 @@ Soccer is the next sport in both doors, starting with the cheap one.
    Free tier (100 requests a day) for development. *Season questions need none of it (migration 156): the Premier League
    2026-27 pack (the title, the champion's points, the bottom club, the promoted clubs, the Golden Boot total, two
    rivalries; coins on the first of each month) and the MLS Cup 2026 pack (the winner, the conference, the final), settled
-   by the host, are open on `#/new` now.* *Built 4 October 2026 (migrations 148-149): `soccer-sync` reads
+   by the host, are open on `#/new` now.* *The survivor (migration 157): the host starts "Last one standing" on the Premier League or
+   MLS; one club to win each matchweek, each club once; picks stay hidden until kick-off; `fixtures` settles it.* *Built 4 October 2026 (migrations 148-149): `soccer-sync` reads
    API-Football into `competitions`, `clubs` and `fixtures`; the Premier League and MLS are switched on. It starts the
    day the `API_FOOTBALL_KEY` function secret is set.*
 

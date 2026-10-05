@@ -3449,6 +3449,80 @@ reset role;
 select set_config('request.jwt.claim.sub', '', false);
 select 'soccer packs', true;
 
+-- ───────────── last one standing (migration 157) ─────────────
+-- Pod Squad runs a survivor on two MLS matchweeks: Fern, Hana and Lou are in; Lou never picks
+reset role;
+select set_config('request.jwt.claim.sub', '', false);
+select soccer_ingest('mls', jsonb_build_object(
+  'clubs', jsonb_build_array(jsonb_build_object('ext_id', '501', 'name', 'Austin FC', 'short', 'ATX'), jsonb_build_object('ext_id', '502', 'name', 'Boston FC', 'short', 'BOS'),
+    jsonb_build_object('ext_id', '503', 'name', 'Calgary FC', 'short', 'CAL'), jsonb_build_object('ext_id', '504', 'name', 'Denver FC', 'short', 'DEN')),
+  'fixtures', jsonb_build_array(
+    jsonb_build_object('ext_id', '7001', 'gameweek', 30, 'kickoff', now() + interval '1 day', 'status', 'NS', 'home', '501', 'away', '502'),
+    jsonb_build_object('ext_id', '7002', 'gameweek', 30, 'kickoff', now() + interval '1 day', 'status', 'NS', 'home', '503', 'away', '504'),
+    jsonb_build_object('ext_id', '7003', 'gameweek', 31, 'kickoff', now() + interval '8 days', 'status', 'NS', 'home', '501', 'away', '503'),
+    jsonb_build_object('ext_id', '7004', 'gameweek', 31, 'kickoff', now() + interval '8 days', 'status', 'NS', 'home', '502', 'away', '504'))));
+select id as atx from clubs where ext_id = '501' \gset
+select id as bos from clubs where ext_id = '502' \gset
+select id as cal from clubs where ext_id = '503' \gset
+select id as den from clubs where ext_id = '504' \gset
+select set_config('app.league_id', :'lib', false);
+select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-000000000082', false);
+set role authenticated;
+select pg_temp.raises('only the host starts one', $$select survivor_start('mls')$$, 'Commissioner only');
+reset role;
+select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-000000000081', false);
+set role authenticated;
+select survivor_start('mls') as sv \gset
+select pg_temp.expect('it starts from the next matchweek', (select start_gw from survivors where id = :sv) = 30);
+select pg_temp.raises('one at a time', $$select survivor_start('mls')$$, 'already has a survivor');
+select survivor_pick(:sv, :cal);
+reset role;
+select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-000000000082', false);
+set role authenticated;
+select survivor_pick(:sv, :bos);
+select survivor_pick(:sv, :atx);
+select pg_temp.expect('a pick can change until kick-off, one a matchweek', (select count(*) from survivor_picks where survivor_id = :sv and team_id = :fern) = 1
+  and (select club_id from survivor_picks where survivor_id = :sv and team_id = :fern) = :atx);
+select pg_temp.expect('the board shows her own pick before kick-off, not Hana''s', (select jsonb_array_length(p->'picks') from jsonb_array_elements(survivor_board(:sv)->'players') p where (p->>'team_id')::int = :fern) = 1
+  and (select jsonb_array_length(p->'picks') from jsonb_array_elements(survivor_board(:sv)->'players') p where (p->>'team_id')::int <> :fern and (p->'picks') <> '[]'::jsonb) is null);
+reset role;
+-- matchweek 30: Austin win, Calgary v Denver is postponed; Lou made no pick
+select soccer_ingest('mls', jsonb_build_object('fixtures', jsonb_build_array(
+  jsonb_build_object('ext_id', '7001', 'gameweek', 30, 'kickoff', now() + interval '1 day', 'status', 'FT', 'home', '501', 'away', '502', 'home_score', 2, 'away_score', 0, 'home_ft', 2, 'away_ft', 0),
+  jsonb_build_object('ext_id', '7002', 'gameweek', 30, 'kickoff', now() + interval '1 day', 'status', 'PST', 'home', '503', 'away', '504'))));
+select pg_temp.expect('a win is through, a postponed match is void', (select result from survivor_picks where survivor_id = :sv and team_id = :fern) = 'through'
+  and (select result from survivor_picks p join teams t on t.id = p.team_id where p.survivor_id = :sv and t.is_commish) = 'void');
+select pg_temp.expect('no pick is out', exists (select 1 from survivor_picks p join teams t on t.id = p.team_id where p.survivor_id = :sv and t.gm_name = 'Lou' and p.result = 'missed')
+  and exists (select 1 from notifications n join teams t on t.id = n.team_id where t.gm_name = 'Lou' and n.kind = 'survivor' and n.body like '💥 Out: no pick%'));
+select pg_temp.expect('two still in, so it goes on', (select status from survivors where id = :sv) = 'open'
+  and (select count(*) from jsonb_array_elements(survivor_board(:sv)->'players') p where (p->>'alive')::boolean) = 2);
+-- matchweek 31: Fern can't use Austin again; Hana can use Calgary again (its match was called off), then switches to Denver
+select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-000000000082', false);
+set role authenticated;
+select pg_temp.raises('a club once a season', format('select survivor_pick(%s, %s)', :sv, :atx), 'used that club');
+select survivor_pick(:sv, :cal);
+reset role;
+select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-000000000081', false);
+set role authenticated;
+select pg_temp.raises('a club that doesn''t play this week', format('select survivor_pick(%s, %s)', :sv, (select id from clubs where ext_id = '42')), 'doesn''t play');
+select survivor_pick(:sv, :cal);
+select survivor_pick(:sv, :den);
+reset role;
+select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-000000000086', false);
+set role authenticated;
+select pg_temp.raises('someone out can''t pick', format('select survivor_pick(%s, %s)', :sv, :bos), 'out of this one');
+reset role;
+select soccer_ingest('mls', jsonb_build_object('fixtures', jsonb_build_array(
+  jsonb_build_object('ext_id', '7003', 'gameweek', 31, 'kickoff', now() + interval '8 days', 'status', 'FT', 'home', '501', 'away', '503', 'home_score', 0, 'away_score', 1, 'home_ft', 0, 'away_ft', 1),
+  jsonb_build_object('ext_id', '7004', 'gameweek', 31, 'kickoff', now() + interval '8 days', 'status', 'FT', 'home', '502', 'away', '504', 'home_score', 2, 'away_score', 2, 'home_ft', 2, 'away_ft', 2))));
+select pg_temp.expect('a draw is out', (select result from survivor_picks p join teams t on t.id = p.team_id where p.survivor_id = :sv and t.is_commish and p.gameweek = 31) = 'out'
+  and exists (select 1 from notifications n join teams t on t.id = n.team_id where t.is_commish and t.league_id = :lib and n.kind = 'survivor' and n.body like '💥 Out: Denver FC didn''t beat Boston FC (2-2).'));
+select pg_temp.expect('the last one standing wins it, and the chat hears', (select status = 'done' and winners = array[:fern] from survivors where id = :sv)
+  and exists (select 1 from messages where league_id = :lib and body = '🏆 Last one standing: Fern.'));
+select set_config('app.league_id', '', false);
+select set_config('request.jwt.claim.sub', '', false);
+select 'last one standing', true;
+
 -- ───────────── the injury report's timeline (migration 152) ─────────────
 -- the hourly sync writes the expected return, what it is and the list; a GM reads them through the league's players,
 -- and the status change still lands in the player's history

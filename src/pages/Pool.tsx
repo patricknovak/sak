@@ -14,6 +14,7 @@ import { Empty, PageHeader, Rank, Section, Sheet, TeamBadge, useAction } from '.
 import { useEffect } from 'react';
 import { appLink } from '../lib/host';
 import { shareCard, type CardBrand } from '../lib/shareCard';
+import { SurvivorCard, SurvivorStart, useSurvivor } from './Survivor';
 import { Share2 } from 'lucide-react';
 
 function useLeaders() {
@@ -113,6 +114,7 @@ export function PoolHome() {
           </Section>
         </>
       )}
+      <SurvivorCard />
       <Section title="Latest calls" icon={<Sparkles className="h-5 w-5 text-gold" />}><CallsFeed trades={trades} markets={markets ?? []} /></Section>
       <InviteCard />
     </div>
@@ -376,6 +378,13 @@ export function PoolLeaders() {
   );
 }
 
+// the host starts last one standing here once the pool has none running
+function HostSurvivor() {
+  const { board, reload } = useSurvivor();
+  if (board === undefined || (board && board.status === 'open')) return null;
+  return <SurvivorStart onStarted={reload} />;
+}
+
 // the pool's look for a share card
 function useCardBrand(): CardBrand {
   const brand = useBrand();
@@ -418,6 +427,7 @@ export function PoolHost() {
           : <div className="card p-4 text-sm text-mute">Nothing to settle. Questions land here when they close.</div>}
       </Section>
       <SoccerRounds onAdded={reload} />
+      <HostSurvivor />
       <Section title="Coin drops">
         <div className="card divide-y divide-white/[.05] p-1">
           {drops.map((d) => <div key={d.id} className="flex items-center justify-between gap-3 px-3 py-2.5 text-sm"><span className="min-w-0 break-words">{d.note}<div className="text-xs text-mute">{new Date(d.at).toLocaleString(undefined, { weekday: 'short', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })}</div></span><b className={new Date(d.at).getTime() <= now ? 'text-mute' : 'text-gold'}>+{d.amount}</b></div>)}
