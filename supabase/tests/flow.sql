@@ -3380,6 +3380,28 @@ select pg_temp.expect('the hourly job runs it', (run_league_jobs('pool-drops')->
 select set_config('request.jwt.claim.sub', '', false);
 select 'pool alerts', true;
 
+-- ───────────── the Love Is Blind test's scoreboard (migration 155) ─────────────
+reset role;
+insert into ops.platform_admins (user_id) select user_id from teams where id = 1 on conflict do nothing;
+select pg_temp.as_team(1);
+set role authenticated;
+select platform_pool_test() as pt \gset
+reset role;
+select set_config('t.pt', :'pt', false);
+select pg_temp.expect('the scoreboard counts the pools and their players', (current_setting('t.pt')::jsonb->>'pools_live')::int >= 1
+  and (current_setting('t.pt')::jsonb->>'players')::int >= 2
+  and jsonb_array_length(current_setting('t.pt')::jsonb->'weeks') = 4
+  and exists (select 1 from jsonb_array_elements(current_setting('t.pt')::jsonb->'pools') x where (x->>'league_id')::int = :lib and (x->>'calls')::int >= 1));
+select pg_temp.expect('a pool with three players or more is running', (current_setting('t.pt')::jsonb->>'running')::int
+  = (select count(*) from (select t.league_id from teams t join leagues l on l.id = t.league_id where l.kind = 'predict' and l.status = 'active'
+     and t.role = 'gm' and t.user_id is not null group by t.league_id having count(*) >= 3) x));
+select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-000000000082', false);
+set role authenticated;
+select pg_temp.raises('only the platform sees it', 'select platform_pool_test()', 'Only the platform');
+reset role;
+select set_config('request.jwt.claim.sub', '', false);
+select 'pool test scoreboard', true;
+
 -- ───────────── start a pool with no account yet (migration 153) ─────────────
 -- the join function makes the account, then opens the pool through _pool_start_new as the service role
 insert into auth.users (id, email) values ('00000000-0000-0000-0000-000000000091', 'newhost91@example.com'), ('00000000-0000-0000-0000-000000000092', 'newhost92@example.com'),

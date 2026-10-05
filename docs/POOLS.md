@@ -142,7 +142,8 @@ called, and how each of their calls settled. Each opens that pool's page on the 
 
 **The gate.** The test passes if, by the finale on 4 November: three pools or more are running, thirty players or
 more have joined, two thirds of them trade in three of the four drop weeks, and the median player makes five trades
-a week. Whatever the result, we write down what people asked for and what they ignored, and the next show (The
+a week. The Platform page keeps the score live (`platform_pool_test`, migration 155): each mark against its target,
+the drop weeks as they fill in, and every pool with how busy it is. Whatever the result, we write down what people asked for and what they ignored, and the next show (The
 Bachelor and The Traitors in January, the Oscars in March) starts from it.
 
 ## 7. Soccer, the next sport
