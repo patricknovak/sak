@@ -183,7 +183,7 @@ B4 (the scheduler league by league) landed in migrations 81 to 85, B6 (money and
    league's own domain on its Platform card (`platform_set_league_domain`). Live on Cloudflare with the wildcard
    `*.superpoolsai.com` (4 October 2026). *Since migration 151* the pool's link is the path on the one app
    (`app.superpoolsai.com/#/p/<web name>`) and a subdomain forwards there for anyone not signed in on it; My pools
-   (`my_pools()`) lists an account's pools with where it stands and what needs it, and starts new ones (`pool_start`).
+   (`my_pools()`) lists an account's pools with where it stands and what needs it, and starts new ones (`pool_start`). *Invitations to a person (migration 163):* a pool's member invites the people they already play with in their other pools, or anyone by email; the invitation waits on that account's My pools (`my_invites`, join or not now) with an alert in each of their pools, and an email with no account looks the same as one with. Each league's menu shows only what it runs: Questions once a fantasy league has asked one (its commissioner starts from the Commissioner page), Call the score and Last one standing only in a pool that has started one.
 2. **Garry per league** (done in migration 65, bar the budget). One state row per league (voice notes, the
    commissioner's briefing, where the memory pass got to); the edge function scopes every read and write to
    one league, loops over the active leagues for the cron tasks and takes a reply's league from its message;

@@ -156,12 +156,48 @@ function StartSheet({ open, onClose }: { open: boolean; onClose: () => void }) {
   );
 }
 
+// invitations addressed to this account (migration 163): the pool, who asked, how many are in; join or not now
+interface Invite { code: string; league_id: number; name: string; short: string; slug: string; color: string | null; tagline: string | null; host: string | null; members: number; expires_at: string }
+
+function Invitations({ list, reload }: { list: Invite[]; reload: () => void }) {
+  const { busy, run } = useAction();
+  if (!list.length) return null;
+  return (
+    <Section title={`Invitations (${list.length})`}>
+      <div className="grid gap-3 lg:grid-cols-2">
+        {list.map((i) => {
+          const c = hex(i.color ?? undefined);
+          return (
+            <div key={i.code} className="relative overflow-hidden rounded-3xl border p-4" style={{ borderColor: `${c}55`, background: `radial-gradient(120% 120% at 0% 0%, ${c}33, transparent 60%), linear-gradient(160deg,#151a2e,#0b1222 75%)` }}>
+              <div className="flex items-start gap-3">
+                <span className="grid h-12 w-12 shrink-0 place-items-center rounded-2xl text-xl" style={{ background: `${c}26` }}>✉️</span>
+                <div className="min-w-0 flex-1">
+                  <div className="text-[11px] font-bold uppercase tracking-[.18em]" style={{ color: c }}>{i.host ? `${i.host} invited you` : 'You’re invited'}</div>
+                  <div className="break-words font-display text-xl font-extrabold leading-tight text-white">{i.name}</div>
+                  <div className="text-xs text-mute">{[i.tagline, `${i.members} in`].filter(Boolean).join(' · ')}</div>
+                </div>
+              </div>
+              <div className="mt-3 grid grid-cols-[1fr_auto] gap-2">
+                <button type="button" className="btn-gold py-2.5" disabled={busy}
+                  onClick={() => run(async () => { await rpc('accept_invite', { p_code: i.code }); await openPool({ league_id: i.league_id, slug: i.slug }); })}>Join {i.short || 'the pool'}</button>
+                <button type="button" className="btn-ghost px-4" disabled={busy} onClick={() => run(async () => { await rpc('decline_invite', { p_code: i.code }); reload(); }, 'Invitation turned down')}>Not now</button>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </Section>
+  );
+}
+
 export default function Pools() {
   const now = useNow(30000);
   const [rows, setRows] = useState<MyPool[] | null>(null);
   const [starting, setStarting] = useState(false);
+  const [invites, setInvites] = useState<Invite[]>([]);
+  const loadInvites = () => rpc<Invite[]>('my_invites').then((d) => setInvites(d ?? []), () => setInvites([]));
   useEffect(() => {
-    const load = () => rpc<MyPool[]>('my_pools').then((d) => setRows(d ?? []), () => setRows([]));
+    const load = () => { rpc<MyPool[]>('my_pools').then((d) => setRows(d ?? []), () => setRows([])); loadInvites(); };
     load();
     // back on the page after a while in another app: fresh numbers
     const onFocus = () => { if (document.visibilityState === 'visible') load(); };
@@ -175,6 +211,7 @@ export default function Pools() {
       <PageHeader icon={<Layers className="h-6 w-6 text-gold" />} title="My pools"
         sub={rows ? `${rows.length} ${rows.length === 1 ? 'pool' : 'pools'} on one account${waiting ? ` · ${waiting} ${waiting === 1 ? 'needs' : 'need'} you` : ''}` : 'Every pool you’re in, on one account'}
         right={<button type="button" className="btn-gold inline-flex items-center gap-1.5" onClick={() => setStarting(true)}><Plus className="h-4 w-4" /> Start a pool</button>} />
+      <Invitations list={invites} reload={loadInvites} />
       {!rows ? <div className="grid gap-3 lg:grid-cols-2">{[0, 1].map((i) => <Skeleton key={i} className="h-36 rounded-3xl" />)}</div>
         : !rows.length ? <Empty icon="🏆" title="No pools yet">Start one below, or open an invite link a friend sent you.</Empty>
         : <div className="grid gap-3 lg:grid-cols-2">{sorted.map((p) => <PoolCard key={p.league_id} p={p} now={now} />)}</div>}

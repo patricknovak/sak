@@ -3355,6 +3355,27 @@ select pg_temp.expect('a pack brings its questions and its coins', (select count
   and min(l.brand->'wordmark'->>'a') = 'BACHELORETTE' from pool_markets m join leagues l on l.id = m.league_id where l.slug = current_setting('t.bw')));
 select pool_start('Fifth Pool');
 select pg_temp.raises('five a day', 'select pool_start(''Sixth Pool'')', 'five pools today');
+-- invitations to a person (migration 163): Fern, now in the pool she just started, invites Hana, whom she knows from the
+-- Pod Squad; the invitation waits on Hana's My pools with an alert in her other pool, and she joins from there
+select current_league_id() as fifth \gset
+select pg_temp.expect('Fern can invite the people she plays with', exists (select 1 from jsonb_array_elements(pool_invite_candidates()) c
+  where c->>'account' = '00000000-0000-0000-0000-000000000081' and not (c->>'invited')::boolean and c->>'pools' like '%Pod Squad%'));
+select pg_temp.expect('an email with no account looks the same as one with', pool_invite_people(array['00000000-0000-0000-0000-000000000081']::uuid[], array['nobody-here@example.com']) = '{"ok": true}'::jsonb);
+select pool_invite_people(array['00000000-0000-0000-0000-000000000081']::uuid[]);
+reset role;
+select pg_temp.expect('one invitation, however often she asks', (select count(*) from league_invites where invitee = '00000000-0000-0000-0000-000000000081' and league_id = :fifth) = 1
+  and exists (select 1 from notifications n join teams t on t.id = n.team_id where t.user_id = '00000000-0000-0000-0000-000000000081' and n.kind = 'pool_invite'
+              and n.link = '/pools' and n.body like '✉️ % invited you to Fifth Pool. Open My pools to join.'));
+select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-000000000081', false);
+set role authenticated;
+select pg_temp.expect('it waits on her My pools', jsonb_array_length(my_invites()) = 1 and my_invites()->0->>'name' = 'Fifth Pool'
+  and my_invites()->0->>'host' is not null);
+select my_invites()->0->>'code' as icode \gset
+select accept_invite(:'icode');
+select pg_temp.expect('she joins from there, and it is gone from the list', exists (select 1 from league_members where user_id = '00000000-0000-0000-0000-000000000081' and league_id = :fifth)
+  and my_invites() = '[]'::jsonb);
+select decline_invite('not-a-code');
+select set_active_league(:lib);   -- back to the Pod Squad for the sections below
 reset role;
 select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-000000000083', false);
 insert into auth.users (id, email) values ('00000000-0000-0000-0000-000000000083', 'nobody83@example.com') on conflict do nothing;

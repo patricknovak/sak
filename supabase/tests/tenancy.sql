@@ -75,7 +75,7 @@ where n.nspname = 'public' and p.prosecdef and p.prorettype <> 'trigger'::regtyp
     '_acq_allowed', '_acq_used', '_club_games_left', '_club_points_in', '_first_start', '_player_rate', '_race_sofar',
     '_window_label', 'bet_progress', 'player_locked', 'top_scorer',
     -- act only on the caller's own rows (their roster, bet, entry, trade), found through _team()
-    'cancel_bet', 'cancel_trade', 'claim_bet', 'confirm_bet', 'mark_bet_paid', 'leave_pool', 'respond_trade',
+    'cancel_bet', 'cancel_trade', 'claim_bet', 'confirm_bet', 'mark_bet_paid', 'leave_pool', 'respond_trade', 'decline_invite',
     'drop_player', 'move_player', 'set_pin',
     -- check membership themselves
     'accept_invite', 'set_active_league',
