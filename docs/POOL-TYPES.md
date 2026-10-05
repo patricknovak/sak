@@ -298,7 +298,9 @@ and which knobs anyone touches. That goes to the Ideas board and into the NFL (D
 
 ## 8. Decisions for Patrick
 
-1. **MLB data.** Choose one:
+1. **MLB data.** *Decided 5 October 2026 (Patrick): the free feeds for personal use while we test (MLB's Stats API,
+   ESPN's public endpoints), replaced by paid data once testing stops. Squares are in coins, and the World Series runs
+   Pick the series, Rank the teams, Squares and the questions pack.* The choices were:
    - **Host-settled for the test** (recommended for October): the host taps each series' winner and games, and each
      game's score by inning for squares; nothing to license, and the engine is the same. Series state is typed in by
      the host from the Picks page.

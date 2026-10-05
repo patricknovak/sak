@@ -23,6 +23,8 @@ where n.nspname = 'public' and c.relkind in ('r', 'p')
     'pool_packs',
     -- soccer's competitions, clubs and fixtures (migration 148), shared like the NHL's games
     'competitions', 'clubs', 'fixtures',
+    -- a playoff's series and a game's score by inning (migration 165), shared the same way
+    'series', 'fixture_periods',
     -- one-off backup kept from the 2025-26 roster import (row-level security on, no policies)
     'rosters_2526_backup');
 

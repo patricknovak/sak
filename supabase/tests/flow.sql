@@ -3724,3 +3724,147 @@ reset role;
 update players set injury_status = null, injury_note = null, injury_return = null, injury_part = null, injury_list = null, injury_detail = null where id = :inj_p;
 select set_config('request.jwt.claim.sub', '', false);
 select 'injury timeline', true;
+
+-- ───────────── pool games: pick the series, rank the teams (migration 165) ─────────────
+-- Pod Squad runs a baseball postseason: the division series are under way, the championship series and the final next.
+-- Hana hosts; Fern and Hana pick; Lou forgets.
+reset role;
+select set_config('request.jwt.claim.sub', '', false);
+select sport_ingest('mlb-post-2026', jsonb_build_object(
+  'clubs', jsonb_build_array(jsonb_build_object('ext_id', '901', 'name', 'Albany Aces', 'short', 'ALB'), jsonb_build_object('ext_id', '902', 'name', 'Bristol Bats', 'short', 'BRI'),
+    jsonb_build_object('ext_id', '903', 'name', 'Camden Crows', 'short', 'CAM'), jsonb_build_object('ext_id', '904', 'name', 'Dover Dogs', 'short', 'DOV'),
+    jsonb_build_object('ext_id', '906', 'name', 'Fresno Foxes', 'short', 'FRE')),
+  'series', jsonb_build_array(
+    jsonb_build_object('ext_id', 'T_D1', 'round', 2, 'label', 'AL Division Series', 'short', 'ALDS', 'best_of', 5, 'high', '901', 'low', '902', 'starts_at', now() - interval '1 day'),
+    jsonb_build_object('ext_id', 'T_D2', 'round', 2, 'label', 'AL Division Series', 'short', 'ALDS', 'best_of', 5, 'high', '903', 'low', '904', 'starts_at', now() - interval '1 day'),
+    jsonb_build_object('ext_id', 'T_L1', 'round', 3, 'label', 'AL Championship Series', 'short', 'ALCS', 'best_of', 7, 'starts_at', now() + interval '2 days', 'tbd', true),
+    jsonb_build_object('ext_id', 'T_W1', 'round', 4, 'label', 'World Series', 'short', 'WS', 'best_of', 7, 'starts_at', now() + interval '10 days', 'tbd', true)),
+  'fixtures', jsonb_build_array(
+    jsonb_build_object('ext_id', 'g101', 'series', 'T_D1', 'game_no', 1, 'kickoff', now() - interval '1 day', 'state', 'final', 'home', '901', 'away', '902', 'home_score', 3, 'away_score', 1,
+      'periods', jsonb_build_array(jsonb_build_object('n', 1, 'home', 2, 'away', 0), jsonb_build_object('n', 2, 'home', 1, 'away', 1))),
+    jsonb_build_object('ext_id', 'g201', 'series', 'T_D2', 'game_no', 1, 'kickoff', now() - interval '1 day', 'state', 'final', 'home', '903', 'away', '904', 'home_score', 0, 'away_score', 2))));
+select id as alb from clubs where sport = 'mlb' and ext_id = '901' \gset
+select id as bri from clubs where sport = 'mlb' and ext_id = '902' \gset
+select id as dov from clubs where sport = 'mlb' and ext_id = '904' \gset
+select id as fre from clubs where sport = 'mlb' and ext_id = '906' \gset
+select id as alcs from series where ext_id = 'T_L1' \gset
+select id as ws from series where ext_id = 'T_W1' \gset
+select pg_temp.expect('a series takes its wins and state from its games, and a game keeps its line score',
+  (select high_wins = 1 and low_wins = 0 and state = 'live' from series where ext_id = 'T_D1')
+  and (select count(*) from fixture_periods p join fixtures f on f.id = p.fixture_id where f.ext_id = 'g101') = 2);
+select pg_temp.expect('the start page offers the event from its next round', (select (e->>'open_round')::int = 3 and e->>'pack' = 'world-series-2026'
+  from jsonb_array_elements(pool_events()) e where e->>'competition' = 'mlb-post-2026'));
+select set_config('app.league_id', :'lib', false);
+select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-000000000082', false);
+set role authenticated;
+select pg_temp.raises('only the host starts a game', $$select pool_game_start('series', 'mlb-post-2026')$$, 'Commissioner only');
+select pg_temp.raises('or adds games to a new pool', format('select pool_start_games(%s, %L)', :lib, '[{"kind":"series","competition":"mlb-post-2026"}]'), 'Only the pool''s host');
+reset role;
+select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-000000000081', false);
+set role authenticated;
+select pg_temp.raises('a round already started can''t be the start', $$select pool_game_start('series', 'mlb-post-2026', '{"from_round":2}')$$, 'already started');
+select pool_game_start('series', 'mlb-post-2026', '{"preset":"classic"}') as sg \gset
+select pool_game_start('rank', 'mlb-post-2026') as rg \gset
+select pg_temp.expect('it starts from the next round, on the preset''s points', (select (rules->>'from_round')::int = 3 and rules->'points'->>'3' = '4' and rules->'length'->>'3' = '2'
+  from pool_games where id = :sg) and exists (select 1 from messages where league_id = :lib and body like '⚾ Pick the series is on, from the Championship Series%'));
+select pg_temp.raises('one of each kind', $$select pool_game_start('series', 'mlb-post-2026')$$, 'already runs that game');
+select pg_temp.raises('a series whose clubs aren''t set waits', format('select pool_game_pick(%s, %L, %L)', :sg, 's:' || :alcs, jsonb_build_object('winner', :alb, 'games', 5)), 'isn''t set yet');
+select pool_game_pick(:rg, 'rank', jsonb_build_object('order', jsonb_build_array(:dov, :alb)));
+select pool_game_pick(:sg, 'tiebreak', '{"runs":7}');
+reset role;
+select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-000000000082', false);
+set role authenticated;
+select pool_game_pick(:rg, 'rank', jsonb_build_object('order', jsonb_build_array(:alb, :dov, :bri)));
+select pool_game_pick(:sg, 'tiebreak', '{"runs":9}');
+reset role;
+-- the division series end: Albany and Dover meet in the championship series, three hours from now
+select sport_ingest('mlb-post-2026', jsonb_build_object(
+  'series', jsonb_build_array(jsonb_build_object('ext_id', 'T_L1', 'round', 3, 'label', 'AL Championship Series', 'short', 'ALCS', 'best_of', 7, 'high', '901', 'low', '904', 'starts_at', now() + interval '3 hours')),
+  'fixtures', jsonb_build_array(
+    jsonb_build_object('ext_id', 'g102', 'series', 'T_D1', 'game_no', 2, 'kickoff', now() - interval '20 hours', 'state', 'final', 'home', '901', 'away', '902', 'home_score', 5, 'away_score', 1),
+    jsonb_build_object('ext_id', 'g103', 'series', 'T_D1', 'game_no', 3, 'kickoff', now() - interval '19 hours', 'state', 'final', 'home', '902', 'away', '901', 'home_score', 0, 'away_score', 2),
+    jsonb_build_object('ext_id', 'g202', 'series', 'T_D2', 'game_no', 2, 'kickoff', now() - interval '20 hours', 'state', 'final', 'home', '903', 'away', '904', 'home_score', 1, 'away_score', 4),
+    jsonb_build_object('ext_id', 'g203', 'series', 'T_D2', 'game_no', 3, 'kickoff', now() - interval '19 hours', 'state', 'final', 'home', '904', 'away', '903', 'home_score', 2, 'away_score', 3),
+    jsonb_build_object('ext_id', 'g204', 'series', 'T_D2', 'game_no', 4, 'kickoff', now() - interval '18 hours', 'state', 'final', 'home', '904', 'away', '903', 'home_score', 6, 'away_score', 2),
+    jsonb_build_object('ext_id', 'l1', 'series', 'T_L1', 'game_no', 1, 'kickoff', now() + interval '3 hours', 'state', 'scheduled', 'home', '901', 'away', '904'))));
+select pg_temp.expect('a series is won at three of five', (select state = 'final' and winner = :alb and high_wins = 3 from series where ext_id = 'T_D1')
+  and (select state = 'final' and winner = :dov and low_wins = 3 and high_wins = 1 from series where ext_id = 'T_D2'));
+select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-000000000082', false);
+set role authenticated;
+select pg_temp.raises('a best-of-7 goes 4 to 7', format('select pool_game_pick(%s, %L, %L)', :sg, 's:' || :alcs, jsonb_build_object('winner', :alb, 'games', 3)), 'goes 4 to 7');
+select pg_temp.raises('one of the two clubs', format('select pool_game_pick(%s, %L, %L)', :sg, 's:' || :alcs, jsonb_build_object('winner', :bri, 'games', 5)), 'one of the two');
+select pool_game_pick(:sg, 's:' || :alcs, jsonb_build_object('winner', :alb, 'games', 6));
+select pool_game_pick(:sg, 's:' || :alcs, jsonb_build_object('winner', :alb, 'games', 5));
+select pg_temp.expect('before the first pitch she sees her own pick, nobody''s calls', (select (s->'mine'->>'games')::int = 5 and s->'calls' = 'null'::jsonb and (s->>'picked')::int = 1
+  from jsonb_array_elements(pool_game_board(:sg)->'series') s where (s->>'id')::bigint = :alcs));
+select pg_temp.raises('the picks themselves are not readable', 'select count(*) from pool_picks', 'permission denied');
+select pg_temp.expect('the menu knows nothing is left to pick', (select (x->>'to_pick')::int = 0 from jsonb_array_elements(pool_games_list()) x where (x->>'id')::bigint = :sg));
+reset role;
+select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-000000000081', false);
+set role authenticated;
+select pool_game_pick(:sg, 's:' || :alcs, jsonb_build_object('winner', :dov, 'games', 7));
+reset role;
+select _pool_game_nudge(:lib) as gnudged \gset
+select pg_temp.expect('three hours out, the one who hasn''t picked hears it, for the series and the ranking', :gnudged = 2
+  and exists (select 1 from notifications where team_id = :lou and kind = 'pool_game' and body = '⏰ The ALCS starts in 3h. Pick the winner and how many games.')
+  and exists (select 1 from notifications where team_id = :lou and kind = 'pool_game' and body = '⏰ Rank the teams locks in 3h. Put the clubs in order.'));
+select pg_temp.expect('and only once', _pool_game_nudge(:lib) = 0);
+-- first pitch: everything on the series locks, and the calls show
+select sport_ingest('mlb-post-2026', jsonb_build_object('fixtures', jsonb_build_array(
+  jsonb_build_object('ext_id', 'l1', 'series', 'T_L1', 'game_no', 1, 'kickoff', now() - interval '1 hour', 'state', 'live', 'home', '901', 'away', '904', 'home_score', 1, 'away_score', 0))));
+select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-000000000082', false);
+set role authenticated;
+select pg_temp.raises('a pick locks at the first pitch', format('select pool_game_pick(%s, %L, %L)', :sg, 's:' || :alcs, jsonb_build_object('winner', :dov, 'games', 4)), 'picks are locked');
+select pg_temp.raises('so does the ranking', format('select pool_game_pick(%s, %L, %L)', :rg, 'rank', jsonb_build_object('order', jsonb_build_array(:dov, :alb))), 'locked');
+select pg_temp.expect('once it starts everyone''s calls show', (select jsonb_array_length(s->'calls') = 2 and (s->>'locked')::boolean
+  from jsonb_array_elements(pool_game_board(:sg)->'series') s where (s->>'id')::bigint = :alcs));
+select pg_temp.expect('and everyone''s ranking', jsonb_array_length(pool_game_board(:rg)->'rank'->'orders') = 2);
+reset role;
+-- Albany take it in five
+select sport_ingest('mlb-post-2026', jsonb_build_object('fixtures', jsonb_build_array(
+  jsonb_build_object('ext_id', 'l1', 'series', 'T_L1', 'game_no', 1, 'kickoff', now() - interval '1 hour', 'state', 'final', 'home', '901', 'away', '904', 'home_score', 3, 'away_score', 0),
+  jsonb_build_object('ext_id', 'l2', 'series', 'T_L1', 'game_no', 2, 'kickoff', now() - interval '50 minutes', 'state', 'final', 'home', '901', 'away', '904', 'home_score', 2, 'away_score', 1),
+  jsonb_build_object('ext_id', 'l3', 'series', 'T_L1', 'game_no', 3, 'kickoff', now() - interval '40 minutes', 'state', 'final', 'home', '904', 'away', '901', 'home_score', 5, 'away_score', 1),
+  jsonb_build_object('ext_id', 'l4', 'series', 'T_L1', 'game_no', 4, 'kickoff', now() - interval '30 minutes', 'state', 'final', 'home', '904', 'away', '901', 'home_score', 0, 'away_score', 4))));
+select pg_temp.expect('three games in, nothing is settled', (select points from _pool_game_table(:sg) where team_id = :fern) = 0
+  and (select possible from _pool_game_table(:sg) where team_id = :fern) = 6 + 11);
+select sport_ingest('mlb-post-2026', jsonb_build_object('fixtures', jsonb_build_array(
+  jsonb_build_object('ext_id', 'l5', 'series', 'T_L1', 'game_no', 5, 'kickoff', now() - interval '20 minutes', 'state', 'final', 'home', '904', 'away', '901', 'home_score', 2, 'away_score', 6))));
+select pg_temp.expect('the winner and the length: 4 + 2, and she hears it', (select points from _pool_game_table(:sg) where team_id = :fern) = 6
+  and (select points from _pool_game_table(:sg) where team_id = :hana) = 0
+  and exists (select 1 from notifications where team_id = :fern and kind = 'pool_game' and body = '✅ You called it: Albany Aces in 5, length and all. +6'));
+select pg_temp.expect('the chat hears who called it', exists (select 1 from messages where league_id = :lib and body = '🏁 Albany Aces win the ALCS in 5. 1 of 2 called it, 1 with the length.'));
+select pg_temp.expect('the ranking pays each win its rank: 4 wins at 2 and 1 at 1 for Fern, the other way round for Hana',
+  (select points from _pool_game_table(:rg) where team_id = :fern) = 9 and (select points from _pool_game_table(:rg) where team_id = :hana) = 6);
+select pg_temp.expect('Lou, who picked nothing, can still get the final', (select points = 0 and possible = 11 from _pool_game_table(:sg) where team_id = :lou));
+-- the final: Albany against Fresno; Hana has Fresno in 4, Fern Albany in 6
+select sport_ingest('mlb-post-2026', jsonb_build_object(
+  'series', jsonb_build_array(jsonb_build_object('ext_id', 'T_W1', 'round', 4, 'label', 'World Series', 'short', 'WS', 'best_of', 7, 'high', '901', 'low', '906', 'starts_at', now() + interval '1 day'))));
+select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-000000000081', false);
+set role authenticated;
+select pool_game_pick(:sg, 's:' || :ws, jsonb_build_object('winner', :fre, 'games', 4));
+reset role;
+select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-000000000082', false);
+set role authenticated;
+select pool_game_pick(:sg, 's:' || :ws, jsonb_build_object('winner', :alb, 'games', 6));
+reset role;
+select sport_ingest('mlb-post-2026', jsonb_build_object('fixtures', jsonb_build_array(
+  jsonb_build_object('ext_id', 'w1', 'series', 'T_W1', 'game_no', 1, 'kickoff', now() - interval '4 hours', 'state', 'final', 'home', '901', 'away', '906', 'home_score', 1, 'away_score', 2),
+  jsonb_build_object('ext_id', 'w2', 'series', 'T_W1', 'game_no', 2, 'kickoff', now() - interval '3 hours', 'state', 'final', 'home', '901', 'away', '906', 'home_score', 0, 'away_score', 3),
+  jsonb_build_object('ext_id', 'w3', 'series', 'T_W1', 'game_no', 3, 'kickoff', now() - interval '2 hours', 'state', 'final', 'home', '906', 'away', '901', 'home_score', 4, 'away_score', 2),
+  jsonb_build_object('ext_id', 'w4', 'series', 'T_W1', 'game_no', 4, 'kickoff', now() - interval '1 hour', 'state', 'final', 'home', '906', 'away', '901', 'home_score', 5, 'away_score', 2))));
+select pg_temp.expect('a sweep in the final: 8 + 3 for Hana, and the tiebreaker is the last game''s runs', (select points = 11 and tiebreak = 0 from _pool_game_table(:sg) where team_id = :hana)
+  and (select points = 6 and tiebreak = 2 from _pool_game_table(:sg) where team_id = :fern));
+select pg_temp.expect('the last round ends both games and names their winners', (select status = 'done' and winners = array[:hana] from pool_games where id = :sg)
+  and (select status = 'done' and winners = array[:fern] from pool_games where id = :rg)
+  and exists (select 1 from messages where league_id = :lib and body = '🏆 Pick the series is done: Hana, with 11 points.')
+  and exists (select 1 from messages where league_id = :lib and body = '🏆 Rank the teams is done: Fern, with 9 points.'));
+-- another league sees none of it
+select set_config('app.league_id', '', false);
+select pg_temp.as_team(2);
+set role authenticated;
+select pg_temp.raises('another league can''t read the board', format('select pool_game_board(%s)', :sg));
+select pg_temp.expect('nor list the games', pool_games_list() = '[]'::jsonb);
+reset role;
+select set_config('request.jwt.claim.sub', '', false);
+select 'pool games', true;
