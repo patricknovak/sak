@@ -16,7 +16,7 @@ import { ProductMark } from './Start';
 // landing page uses. Drawn in the pool's own colour as it is chosen.
 
 const SWATCHES = ['#fb7185', '#38bdf8', '#f7c548', '#34d399', '#c4b5fd', '#f97316'];
-interface Pack { slug: string; name: string; questions: number; color: string | null }
+interface Pack { slug: string; name: string; questions: number; color: string | null; icon: string | null; blurb: string | null }
 const rgb = (c: string) => `${parseInt(c.slice(1, 3), 16)} ${parseInt(c.slice(3, 5), 16)} ${parseInt(c.slice(5, 7), 16)}`;
 
 const STEPS = [
@@ -93,10 +93,10 @@ export default function NewPool() {
         {chosen && (
           <div className="card-hero mb-4 p-4" style={{ borderColor: `rgb(${rgb(color)} / .45)` }}>
             <div className="relative flex items-center gap-3">
-              <span className="grid h-11 w-11 shrink-0 place-items-center rounded-2xl text-xl" style={{ background: `rgb(${rgb(color)} / .2)` }}>💍</span>
+              <span className="grid h-11 w-11 shrink-0 place-items-center rounded-2xl text-xl" style={{ background: `rgb(${rgb(color)} / .2)` }}>{chosen.icon ?? '✨'}</span>
               <div className="min-w-0">
                 <div className="font-semibold text-white">{chosen.name}</div>
-                <div className="text-xs text-white/70">{chosen.questions} questions ready to go, with the coin drops on every episode night</div>
+                <div className="text-xs text-white/70">{chosen.questions} questions ready to go{chosen.blurb ? `. ${chosen.blurb}` : ', and the coin drops'}</div>
               </div>
             </div>
           </div>
@@ -105,7 +105,7 @@ export default function NewPool() {
         <form onSubmit={start} className="card-hero p-5">
           <div className="relative space-y-4">
             <label className="block"><span className="label text-white/70">Name your pool</span>
-              <input className="input mt-1 w-full" value={pool} onChange={(e) => setPool(e.target.value)} maxLength={40} placeholder={chosen ? 'The Pod Squad' : 'The Group Chat Pool'} /></label>
+              <input className="input mt-1 w-full" value={pool} onChange={(e) => setPool(e.target.value)} maxLength={40} placeholder={chosen?.slug.startsWith('love-is-blind') ? 'The Pod Squad' : chosen?.slug.startsWith('premier') ? 'The Sunday League' : chosen?.slug.startsWith('mls') ? 'The Cup Crew' : 'The Group Chat Pool'} /></label>
             <div>
               <span className="label text-white/70">Its colour</span>
               <div className="mt-2 flex flex-wrap gap-2.5">
@@ -120,11 +120,11 @@ export default function NewPool() {
             <div>
               <span className="label text-white/70">Start with</span>
               <div className="mt-2 grid gap-2">
-                {[...(packs ?? []).map((p) => ({ slug: p.slug as string | null, name: p.name, sub: `${p.questions} questions ready, and the coin drops` })),
-                  { slug: null as string | null, name: 'A blank pool', sub: 'Ask your own questions from the Host page' }].map((o) => (
-                  <button key={o.slug ?? 'blank'} type="button" onClick={() => setPack(o.slug)}
+                {[...(packs ?? []).map((p) => ({ slug: p.slug as string | null, name: p.name, icon: p.icon, sub: `${p.questions} questions ready, and the coin drops` })),
+                  { slug: null as string | null, name: 'A blank pool', icon: null, sub: 'Ask your own questions from the Host page' }].map((o) => (
+                  <button key={o.slug ?? 'blank'} type="button" onClick={() => { setPack(o.slug); const c = packs?.find((x) => x.slug === o.slug)?.color; if (c && /^#[0-9a-f]{6}$/i.test(c)) setColor(c.toLowerCase()); }}
                     className={`flex items-center gap-3 rounded-2xl border p-3 text-left transition ${pack === o.slug ? 'border-white/40 bg-white/[.08]' : 'border-white/10 bg-white/[.03] hover:bg-white/[.06]'}`}>
-                    <span className="grid h-9 w-9 shrink-0 place-items-center rounded-xl" style={{ background: `rgb(${rgb(color)} / .18)`, color }}>{o.slug ? <Sparkles size={18} /> : <Plus size={18} />}</span>
+                    <span className="grid h-9 w-9 shrink-0 place-items-center rounded-xl" style={{ background: `rgb(${rgb(color)} / .18)`, color }}>{o.icon ? <span className="text-lg leading-none">{o.icon}</span> : o.slug ? <Sparkles size={18} /> : <Plus size={18} />}</span>
                     <span className="min-w-0 flex-1"><span className="block font-semibold text-white">{o.name}</span><span className="block text-xs text-white/60">{o.sub}</span></span>
                     {pack === o.slug && <Check size={18} className="shrink-0 text-emerald-300" />}
                   </button>
@@ -146,7 +146,7 @@ export default function NewPool() {
               </div>
             )}
 
-            <button className="btn-primary w-full py-3 text-base" disabled={busy || !ready || (!!session && !member)}>{busy ? <Spinner /> : '✨ Start my pool'}</button>
+            <button className="btn-gold w-full py-3 text-base" disabled={busy || !ready || (!!session && !member)}>{busy ? <Spinner /> : '✨ Start my pool'}</button>
             {!session && <a href="#/" className="block text-center text-sm text-white/60 underline">Already have an account? Sign in, then start it from My pools</a>}
           </div>
         </form>

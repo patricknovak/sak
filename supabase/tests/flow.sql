@@ -3432,6 +3432,23 @@ reset role;
 select set_config('request.jwt.claim.sub', '', false);
 select 'start a pool, no account', true;
 
+-- ───────────── soccer packs (migration 156) ─────────────
+reset role;
+insert into auth.users (id, email) values ('00000000-0000-0000-0000-000000000095', 'gaffer95@example.com') on conflict do nothing;
+set role service_role;
+select _pool_start_new('00000000-0000-0000-0000-000000000095', 'Sunday League', null, 'premier-league-2026-27', 'Sam', 'iphash-dddd-4') ->> 'id' as epl \gset
+reset role;
+select pg_temp.expect('a Premier League pool opens with its questions and its monthly drops', (select count(*) from pool_markets where league_id = :epl and status = 'open') = 9
+  and (select count(*) from pool_drops where league_id = :epl) = 7 and (select brand->>'trophy' from leagues where id = :epl) = 'The Title');
+select pg_temp.expect('a champion question carries the contenders and the field', (select jsonb_array_length(outcomes) = 8 and outcomes->7->>'label' = 'Anyone else'
+  from pool_markets where league_id = :epl and title = 'Who wins the Premier League?'));
+set role anon;
+select pg_temp.expect('the start page lists every pack with its icon', (select count(*) from pool_pack_list() where icon is not null) = (select count(*) from pool_pack_list())
+  and exists (select 1 from pool_pack_list() where slug = 'mls-cup-2026' and questions = 5));
+reset role;
+select set_config('request.jwt.claim.sub', '', false);
+select 'soccer packs', true;
+
 -- ───────────── the injury report's timeline (migration 152) ─────────────
 -- the hourly sync writes the expected return, what it is and the list; a GM reads them through the league's players,
 -- and the status change still lands in the player's history

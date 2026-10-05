@@ -161,7 +161,10 @@ Soccer is the next sport in both doors, starting with the cheap one.
    every 15 seconds, lineups, player match stats, injuries; commercial use allowed), with the tables kept
    provider-neutral so Sportmonks (€29 Starter, stronger contract) can replace it. Never the FPL API (its terms forbid
    commercial use and building a database), FotMob or SofaScore; ESPN's public endpoints only as a cross-check.
-   Free tier (100 requests a day) for development. *Built 4 October 2026 (migrations 148-149): `soccer-sync` reads
+   Free tier (100 requests a day) for development. *Season questions need none of it (migration 156): the Premier League
+   2026-27 pack (the title, the champion's points, the bottom club, the promoted clubs, the Golden Boot total, two
+   rivalries; coins on the first of each month) and the MLS Cup 2026 pack (the winner, the conference, the final), settled
+   by the host, are open on `#/new` now.* *Built 4 October 2026 (migrations 148-149): `soccer-sync` reads
    API-Football into `competitions`, `clubs` and `fixtures`; the Premier League and MLS are switched on. It starts the
    day the `API_FOOTBALL_KEY` function secret is set.*
 

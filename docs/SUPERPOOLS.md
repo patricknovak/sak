@@ -150,7 +150,8 @@ on the site, and the switcher.
   survivor questions settled from results, Premier League and MLS first. *Step 1 built (migrations 148-149, live): the
   `soccer` sports row, shared `competitions`, `clubs` and `fixtures`, the `soccer-sync` adapter on API-Football, a
   matchweek's result questions added by the host in one tap and settled from the full-time score. Waits on the
-  `API_FOOTBALL_KEY` function secret. Next: survivor and score-predictor pools, season questions.*
+  `API_FOOTBALL_KEY` function secret. Season questions built (migration 156): the Premier League 2026-27 and MLS Cup 2026
+  packs, host-settled and needing no match data, startable from `#/new` today. Next: survivor and score-predictor pools.*
 - **P4. Soccer fantasy.** The weekly engine with FPL-style scoring, for the second half of 2026-27 or for 2027-28.
 - **P5. The calendar of pools.** Question packs for The Bachelor, The Traitors, award nights, March Madness and the NHL
   playoffs; creator-hosted public pools.
