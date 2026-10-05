@@ -281,6 +281,30 @@ export function Question() {
         </div>
       )}
 
+      {m.status === 'resolved' && m.winner_key && (() => {
+        // who called it: everyone holding the answer that came in, biggest payout first
+        const won = positions.filter((x) => x.market_id === m.id && x.outcome === m.winner_key && Number(x.shares) >= 1)
+          .map((x) => ({ team: teams.find((t) => t.id === x.team_id), paid: Number(x.paid) || Math.floor(Number(x.shares)), price: Number(x.shares) > 0 ? Number(x.cost) / Number(x.shares) : 0 }))
+          .sort((a, b) => b.paid - a.paid);
+        const missed = new Set(positions.filter((x) => x.market_id === m.id && x.outcome !== m.winner_key && Number(x.shares) > 0.0001).map((x) => x.team_id)).size;
+        return (
+          <Section title="Who called it">
+            {won.length ? (
+              <div className="card divide-y divide-white/[.05] p-1">
+                {won.map((w) => (
+                  <div key={w.team?.id} className={`flex items-center gap-3 px-3 py-2.5 ${w.team?.id === me?.id ? 'rounded-xl bg-gold/[.07]' : ''}`}>
+                    <TeamBadge team={w.team} size={30} />
+                    <span className="min-w-0 flex-1"><span className="block break-words font-semibold text-white">{w.team?.gm_name ?? w.team?.name}</span><span className="block text-[11px] text-mute">called at {pct(w.price)}</span></span>
+                    <b className="shrink-0 text-emerald-300">+<Coins n={w.paid} /></b>
+                  </div>
+                ))}
+              </div>
+            ) : <div className="card p-4 text-sm text-mute">Nobody called it. The long shot came in.</div>}
+            {missed > 0 && <p className="mt-2 px-1 text-xs text-mute">{missed} {missed === 1 ? 'player' : 'players'} called something else.</p>}
+          </Section>
+        );
+      })()}
+
       <div className="card p-4">
         <div className="label mb-1">How it settles</div>
         <p className="text-sm leading-relaxed text-slate-300">{m.rule || 'The host settles it from what airs.'}</p>
