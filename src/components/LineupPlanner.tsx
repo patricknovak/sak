@@ -72,6 +72,7 @@ export function LineupPlanner({ roster, teamId }: { roster: Row[]; teamId?: numb
   const [filter, setFilter] = useState<Filter>('All');
   const [sort, setSort] = useState<{ k: string; dir: 1 | -1 } | null>(null);
   const [copyTo, setCopyTo] = useState(7);
+  const [span, setSpan] = useState(7);   // days across in the by-date table
 
   const loadPlans = () => { if (owner) supabase.from('lineup_plans').select('date,player_id,slot').eq('team_id', owner.id).gt('date', today).then(({ data }) => {
     const m = new Map<string, Map<number, string>>();
@@ -315,6 +316,75 @@ export function LineupPlanner({ roster, teamId }: { roster: Row[]; teamId?: numb
           {start < today && <span><span className="rounded-full bg-gold/15 px-1 text-gold">12.5</span> points scored on a played day</span>}
         </div>
       </div>
+
+      {/* by date: every player down the side, the days ahead across, and where he plays each day */}
+      {games && (() => {
+        const cols = days.filter((d) => d >= today).slice(0, span);
+        const byDay = new Map(cols.map((d) => [d, effective(d).slots]));
+        const order = [...roster].sort((a, b) => ORDER[liveSlots.get(a.p.id) ?? 'BN'] - ORDER[liveSlots.get(b.p.id) ?? 'BN'] || b.p.proj - a.p.proj);
+        return (
+          <div className="card overflow-hidden">
+            <div className="flex flex-wrap items-center gap-2 border-b border-white/[.06] px-3 py-2">
+              <div className="min-w-0 flex-1">
+                <div className="font-semibold">Who plays when</div>
+                <div className="text-[11px] text-mute">{readOnly ? <><TeamName team={owner!} />&apos;s lineup for each day ahead, as it stands now.</> : 'Your lineup for each day ahead, as it stands now.'} Tap a day to open it.</div>
+              </div>
+              <div className="flex gap-1">{[7, 14].map((n) => <button key={n} onClick={() => setSpan(n)} className={`rounded-full px-2.5 py-0.5 text-[11px] font-semibold ${span === n ? 'bg-gold text-ice' : 'bg-white/[.05] text-mute'}`}>{n} days</button>)}</div>
+            </div>
+            <div className="scroll-x">
+              <table className="text-[11px]">
+                <thead>
+                  <tr className="text-[10px] uppercase tracking-wider text-mute">
+                    <th className="sticky left-0 z-10 min-w-[128px] bg-rink px-2 py-1.5 text-left">Player</th>
+                    {cols.map((d) => (
+                      <th key={d} className="px-0.5 py-1">
+                        <button onClick={() => setDay(d)} className={`w-[42px] rounded-lg py-0.5 leading-tight ${d === day ? 'bg-gold/20 text-gold' : 'hover:bg-white/[.06]'}`}>
+                          <span className="block">{d === today ? 'Today' : dayLabel(d)}</span><span className="block font-bold normal-case text-slate-200">{monthDay(d).replace(/^\w+ /, '')}</span>
+                        </button>
+                      </th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-white/[.04]">
+                  {order.map(({ p }) => (
+                    <tr key={p.id}>
+                      <td className="sticky left-0 z-10 bg-rink px-2 py-1">
+                        <button className="block max-w-[150px] text-left" onClick={() => setInfo(p.id)}>
+                          <span className="block break-words font-semibold leading-tight text-slate-100">{p.last_name ?? p.name}</span>
+                          <span className="block text-[10px] text-mute">{p.elig.join('/')} · {p.nhl_team}{hurt(p) ? <span className="text-red-300"> · {p.injury_status}</span> : ''}</span>
+                        </button>
+                      </td>
+                      {cols.map((d) => {
+                        const g = gameFor(p, d);
+                        const slot = byDay.get(d)?.get(p.id) ?? 'BN';
+                        const starts = START.includes(slot as Slot);
+                        const opp = g ? (g.home === p.nhl_team ? g.away : '@' + g.home) : '';
+                        return (
+                          <td key={d} className="px-0.5 py-1 text-center">
+                            {!g ? <span className="text-white/15" title="No game">·</span>
+                              : <span title={`${starts ? slot : slot === 'IR' ? 'On IR' : 'On the bench'} · ${opp}`} className={`mx-auto block w-[42px] rounded-md py-0.5 font-bold leading-tight ${starts ? 'bg-emerald-500/20 text-emerald-200' : slot === 'IR' ? 'bg-red-500/15 text-red-200' : 'bg-amber-500/15 text-amber-200'}`}>
+                                  {slot}<span className="block text-[9px] font-semibold opacity-75">{opp}</span>
+                                </span>}
+                          </td>
+                        );
+                      })}
+                    </tr>
+                  ))}
+                  <tr className="bg-white/[.03] font-semibold">
+                    <td className="sticky left-0 z-10 bg-rink px-2 py-1.5 text-[10px] uppercase tracking-wider text-mute">Starters playing</td>
+                    {cols.map((d) => { const n = roster.filter((x) => gameFor(x.p, d) && START.includes((byDay.get(d)?.get(x.p.id) ?? 'BN') as Slot)).length; return <td key={d} className="num px-0.5 text-center text-slate-200">{n}</td>; })}
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+            <div className="flex flex-wrap gap-x-3 gap-y-0.5 border-t border-white/[.06] px-3 py-1.5 text-[10px] text-mute">
+              <span><span className="rounded bg-emerald-500/20 px-1 text-emerald-200">C</span> starts, with a game</span>
+              <span><span className="rounded bg-amber-500/15 px-1 text-amber-200">BN</span> benched, with a game</span>
+              <span><span className="text-white/30">·</span> no game</span>
+            </div>
+          </div>
+        );
+      })()}
 
       {day < today && owner && <PastDay day={day} roster={roster} teamId={owner.id} onInfo={setInfo} />}
       {day >= today && <>
