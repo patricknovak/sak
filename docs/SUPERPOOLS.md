@@ -155,7 +155,11 @@ on the site, and the switcher.
   starts one on a competition; each matchweek every player still in picks one club to win, a club once a season; a
   draw, a loss or no pick is out, a called-off match lets you through and gives the club back; settled by a trigger on
   `fixtures` as each result comes in, with alerts and the winner posted to the pool. Runs on live fixtures once the
-  feed is on. Next: score-predictor questions.*
+  feed is on. Call the score built (migration 158, live): a coin-free score predictor (`#/predictor`), the host starts it
+  on a competition; every player calls every match, each call open until kick-off; the exact score 3 points, the right
+  result 1, one banker a matchweek doubled; points land at the final whistle through a trigger on `fixtures`, the pool
+  hears each matchweek's winner, and a reminder goes out a few hours before a matchweek's first kick-off to anyone with
+  matches to call or no survivor pick.*
 - **P4. Soccer fantasy.** The weekly engine with FPL-style scoring, for the second half of 2026-27 or for 2027-28.
 - **P5. The calendar of pools.** Question packs for The Bachelor, The Traitors, award nights, March Madness and the NHL
   playoffs; creator-hosted public pools.

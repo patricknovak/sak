@@ -165,7 +165,9 @@ Soccer is the next sport in both doors, starting with the cheap one.
    2026-27 pack (the title, the champion's points, the bottom club, the promoted clubs, the Golden Boot total, two
    rivalries; coins on the first of each month) and the MLS Cup 2026 pack (the winner, the conference, the final), settled
    by the host, are open on `#/new` now.* *The survivor (migration 157): the host starts "Last one standing" on the Premier League or
-   MLS; one club to win each matchweek, each club once; picks stay hidden until kick-off; `fixtures` settles it.* *Built 4 October 2026 (migrations 148-149): `soccer-sync` reads
+   MLS; one club to win each matchweek, each club once; picks stay hidden until kick-off; `fixtures` settles it.* *Call the
+   score (migration 158): every match's score called before kick-off; exact 3, result 1, a banker doubled; a season table
+   and a winner each matchweek.* *Built 4 October 2026 (migrations 148-149): `soccer-sync` reads
    API-Football into `competitions`, `clubs` and `fixtures`; the Premier League and MLS are switched on. It starts the
    day the `API_FOOTBALL_KEY` function secret is set.*
 

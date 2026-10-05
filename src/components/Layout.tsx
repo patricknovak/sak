@@ -8,7 +8,7 @@ import { ago, countdown } from '../lib/format';
 import { currentSubscription } from '../lib/push';
 import { Sheet, TeamBadge } from './ui';
 import {
-  Bell, ClipboardList, Dices, Home, Landmark, Lightbulb, LogOut, Menu, MessageCircle, Radio, Repeat2, Search, Shield,
+  Bell, ClipboardList, Dices, Home, Landmark, Lightbulb, LogOut, Menu, MessageCircle, Radio, Repeat2, Search, Shield, Target,
   Trophy, Tv, UserRound, Wrench, Wallet, type LucideIcon, BarChart3, Sparkles, Crown, Wand2, Layers, ChevronDown } from 'lucide-react';
 
 type Item = { to: string; label: string; icon: LucideIcon; commish?: boolean; short?: string };   // short: the phone dock's label, one line
@@ -109,6 +109,7 @@ export function Layout({ children }: { children: ReactNode }) {
     { to: '/nhl', label: sport.words.centre ?? 'NHL centre', icon: Tv },
   ];
   const moreItems: Item[] = (pool ? [
+    { to: '/predictor', label: 'Call the score', icon: Target },
     { to: '/survivor', label: 'Last one standing', icon: Shield },
     { to: '/pools', label: 'My pools', icon: Layers },
     { to: '/features', label: 'Ideas', icon: Lightbulb },
