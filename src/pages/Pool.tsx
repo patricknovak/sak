@@ -18,7 +18,8 @@ import { SurvivorCard, SurvivorStart, useSurvivor } from './Survivor';
 import { AskSheet } from '../components/AskSheet';
 import { PoolHowTo } from '../components/PoolHowTo';
 import { PredictorCard, PredictorStart, usePredictor } from './Predictor';
-import { Share2 } from 'lucide-react';
+import { Share2, UserPlus } from 'lucide-react';
+import { InvitePeople } from '../components/InvitePeople';
 
 function useLeaders() {
   const [rows, setRows] = useState<PoolLeader[] | null>(null);
@@ -133,6 +134,7 @@ function InviteCard() {
   const brand = useBrand();
   const { busy, run } = useAction();
   const [link, setLink] = useState<string | null>(null);
+  const [inviting, setInviting] = useState(false);
   const make = () => run(async () => {
     // the pool's one open link, the same for the host and every member (migration 162)
     const code = await rpc<string>('pool_share_link');
@@ -150,8 +152,12 @@ function InviteCard() {
         <p className="mt-1 text-sm text-mute">Everyone gets the same {brand.coin.name.toLowerCase()} to start, and every drop. One tap to join, nothing to download.</p>
         {me?.role === 'gm' ? (
           <>
-            <button className="btn-gold mt-3 inline-flex items-center gap-2" disabled={busy} onClick={make}><Link2 className="h-4 w-4" /> Share the invite link</button>
+            <div className="mt-3 flex flex-wrap gap-2">
+              <button className="btn-gold inline-flex items-center gap-2" disabled={busy} onClick={make}><Link2 className="h-4 w-4" /> Share the invite link</button>
+              <button className="btn-ghost inline-flex items-center gap-2" onClick={() => setInviting(true)}><UserPlus className="h-4 w-4" /> Invite people you know</button>
+            </div>
             {link && <div className="mt-2 break-all rounded-xl bg-black/30 px-3 py-2 text-xs text-sky-200">{link}</div>}
+            <InvitePeople open={inviting} onClose={() => setInviting(false)} pool={league?.name ?? 'the pool'} />
           </>
         ) : <p className="mt-3 text-sm text-slate-300">Ask the host for the link and send it to your friends.</p>}
       </div>

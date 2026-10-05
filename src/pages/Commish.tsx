@@ -138,6 +138,14 @@ export default function Commish() {
         </div>
       </Section>
 
+      {/* prediction questions are off the league's menu until it asks one; this is where a commissioner starts */}
+      <Section title="🔮 Questions">
+        <Link to="/host" className="card flex items-center gap-3 p-3 transition hover:border-gold/30">
+          <span className="min-w-0 flex-1 text-sm"><b className="block text-white">Ask the league a question</b><span className="text-mute">Who wins the Cup, who gets traded first: priced like a market, called in coins. Questions shows on the menu once you ask one.</span></span>
+          <span className="shrink-0 text-gold">→</span>
+        </Link>
+      </Section>
+
       <Section id="keepers" title="🔒 Keepers">
         <div className="card space-y-3 p-3">
           <div className="grid grid-cols-2 gap-1.5 sm:grid-cols-4">

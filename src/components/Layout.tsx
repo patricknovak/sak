@@ -91,6 +91,19 @@ export function Layout({ children }: { children: ReactNode }) {
     }).catch(() => {});
   }, [me?.id]);
 
+  // what this league or pool actually runs, so nothing shows that belongs to another: questions (a fantasy league has
+  // the board only once it asks one), and the soccer games (only in a pool that has started one). Row-level security
+  // keeps each count to this league.
+  const [runs, setRuns] = useState({ questions: false, predictor: false, survivor: false });
+  const onHost = loc.pathname === '/host';
+  useEffect(() => {
+    if (!me) return;
+    let live = true;
+    const has = (t: string) => supabase.from(t).select('id', { count: 'exact', head: true }).then(({ count }) => (count ?? 0) > 0, () => false);
+    Promise.all([has('pool_markets'), has('predictors'), has('survivors')]).then(([questions, predictor, survivor]) => { if (live) setRuns({ questions, predictor, survivor }); });
+    return () => { live = false; };
+  }, [me?.id, league?.league_id, onHost]);
+
   const phase = league?.phase;
   const draftish = phase === 'keepers' || phase === 'predraft' || phase === 'draft';
   const spectator = me?.role === 'spectator';
@@ -109,15 +122,15 @@ export function Layout({ children }: { children: ReactNode }) {
     { to: '/nhl', label: sport.words.centre ?? 'NHL centre', icon: Tv },
   ];
   const moreItems: Item[] = (pool ? [
-    { to: '/predictor', label: 'Call the score', icon: Target },
-    { to: '/survivor', label: 'Last one standing', icon: Shield },
+    ...(runs.predictor ? [{ to: '/predictor', label: 'Call the score', icon: Target }] : []),
+    ...(runs.survivor ? [{ to: '/survivor', label: 'Last one standing', icon: Shield }] : []),
     { to: '/pools', label: 'My pools', icon: Layers },
     { to: '/features', label: 'Ideas', icon: Lightbulb },
     { to: '/profile', label: 'My Profile', icon: UserRound },
     { to: '/host', label: 'Host', icon: Wand2, commish: true },
   ] as Item[] : [
     { to: '/standings', label: 'Standings', icon: Trophy },
-    { to: '/questions', label: 'Questions', icon: Sparkles },
+    ...(runs.questions ? [{ to: '/questions', label: 'Questions', icon: Sparkles }] : []),
     { to: '/players', label: 'Players', icon: Search },
     { to: '/pools', label: 'My pools', icon: Layers },
     ...(draftish ? [] : [{ to: '/scoreboard', label: 'Live scoreboard', icon: Radio }, { to: '/performance', label: 'Performance', icon: BarChart3 }]),
