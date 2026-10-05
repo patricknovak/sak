@@ -3229,6 +3229,19 @@ select pool_invite_link(7, 20) as libcode \gset
 reset role;
 select _accept_invite('00000000-0000-0000-0000-000000000082', :'libcode', 'Fern');
 select id as fern from teams where league_id = :lib and user_id = '00000000-0000-0000-0000-000000000082' \gset
+-- any member shares the pool's open link (migration 162): the same link the host made, not a new one
+select set_config('app.league_id', :'lib', false);
+select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-000000000082', false);
+set role authenticated;
+select pg_temp.expect('a member shares the pool''s open link', pool_share_link() = :'libcode');
+reset role;
+select set_config('app.league_id', '', false);
+select set_config('request.jwt.claim.sub', '', false);
+select pg_temp.as_team(1);
+set role authenticated;
+select pg_temp.raises('a league has no open link to share', 'select pool_share_link()', 'prediction pools');
+reset role;
+select set_config('request.jwt.claim.sub', '', false);
 select pg_temp.expect('an open link seats a friend on a team of her own', (select role from teams where id = :fern) = 'gm'
   and exists (select 1 from league_members where team_id = :fern and league_id = :lib));
 select pg_temp.expect('with the opening coins and every drop so far', (select balance from coin_balances where team_id = :fern)
