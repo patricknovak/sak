@@ -133,6 +133,7 @@ export function Layout({ children }: { children: ReactNode }) {
     { to: '/profile', label: 'My Profile', icon: UserRound },
     { to: '/host', label: 'Host', icon: Wand2, commish: true },
   ] as Item[] : [
+    ...(draftish ? [] : [{ to: '/lineup-new', label: 'Lineup New', icon: Sparkles }]),
     { to: '/standings', label: 'Standings', icon: Trophy },
     ...(runs.questions ? [{ to: '/questions', label: 'Questions', icon: Sparkles }] : []),
     { to: '/players', label: 'Players', icon: Search },

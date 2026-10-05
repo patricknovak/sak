@@ -6,6 +6,10 @@
 export interface Change { date: string; icon: string; title: string; body: string; to?: string; tag?: 'formats' | 'commish' | 'draft' | 'everyone' }
 
 export const CHANGELOG: Change[] = [
+  { date: '2026-10-05', icon: '✨', tag: 'everyone', title: 'Lineup New, to try beside the old one', to: '/lineup-new',
+    body: 'A new lineup section under More, next to the one you know. Day: tap a player, then where he goes (the places he fits light up), with an undo, warnings that fix themselves in a tap, and Best lineup listing every change and what it is worth, for today or the next 14 days. Week: who plays when for every player, tap a cell to start or bench him, light nights marked. Compare: your lineup against any team\'s, tonight slot by slot or across the week. Insights: how close your last week came to the best possible, light nights ahead, days with more players than places, goalies\' back-to-backs and who is hot. Any team\'s lineups can be looked at; only your own can be changed.' },
+  { date: '2026-10-05', icon: '📅', tag: 'everyone', title: 'Every team\'s daily lineups', to: '/team',
+    body: 'Open any team\'s page and its Daily lineups: the days ahead as that GM has set them, and every played day as it locked. Who plays when shows each player against the days, so you can see who another GM has playing on which nights. Read only: only the GM changes their own.' },
   { date: '2026-10-04', icon: '🧹', tag: 'everyone', title: 'Small things, tidied', to: '/players',
     body: 'When your filters leave nobody on the Players page, one tap clears them. The build-a-trade bar on another team\'s page fits a phone. My pools shows each site\'s name in full, the injury report\'s switch no longer runs off the screen, and the Money page never says $-0.' },
   { date: '2026-10-04', icon: '📱', tag: 'everyone', title: 'Names in full on small phones', to: '/standings',
