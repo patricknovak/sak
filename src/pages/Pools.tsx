@@ -5,10 +5,11 @@
 import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import { Link } from 'react-router-dom';
 import { ArrowRight, Check, Layers, Plus, Sparkles, Trophy, Upload } from 'lucide-react';
-import { rpc, supabase } from '../lib/supabase';
+import { rpc } from '../lib/supabase';
 import { openPool } from '../lib/host';
 import { useNow } from '../lib/store';
 import { countdown, fmtPts, ordinal } from '../lib/format';
+import { type Pack, packName, packWhen } from '../lib/packs';
 import { Empty, PageHeader, Section, Sheet, Skeleton, useAction } from '../components/ui';
 
 interface PoolSummary {
@@ -106,7 +107,6 @@ function PoolCard({ p, now }: { p: MyPool; now: number }) {
   );
 }
 
-interface Pack { slug: string; name: string; markets: unknown[] }
 
 function StartSheet({ open, onClose }: { open: boolean; onClose: () => void }) {
   const { busy, run } = useAction();
@@ -114,7 +114,7 @@ function StartSheet({ open, onClose }: { open: boolean; onClose: () => void }) {
   const [color, setColor] = useState(SWATCHES[0]);
   const [pack, setPack] = useState<string | null>(null);
   const [packs, setPacks] = useState<Pack[]>([]);
-  useEffect(() => { if (open) supabase.from('pool_packs').select('slug,name,markets').then(({ data }) => setPacks((data ?? []) as Pack[])); }, [open]);
+  useEffect(() => { if (open) rpc<Pack[]>('pool_pack_list').then((d) => setPacks(d ?? []), () => setPacks([])); }, [open]);
   const start = () => run(async () => {
     const r = await rpc<{ id: number; slug: string }>('pool_start', { p_name: name, p_color: color, p_pack: pack });
     await openPool({ league_id: r.id, slug: r.slug }, '/host');
@@ -139,10 +139,10 @@ function StartSheet({ open, onClose }: { open: boolean; onClose: () => void }) {
           <span className="label">Start with</span>
           <div className="mt-2 grid gap-2">
             {[{ slug: null as string | null, name: 'A blank pool', sub: 'Ask your own questions from the Host page' },
-              ...packs.map((p) => ({ slug: p.slug as string | null, name: p.name, sub: `${(p.markets ?? []).length} questions ready to go, and the coin drops` }))].map((o) => (
-              <button key={o.slug ?? 'blank'} type="button" onClick={() => setPack(o.slug)}
+              ...packs.map((p) => ({ slug: p.slug as string | null, name: packName(p.name), icon: p.icon, sub: `${p.questions} questions · ${packWhen(p).text}` }))].map((o) => (
+              <button key={o.slug ?? 'blank'} type="button" onClick={() => { setPack(o.slug); const c = packs.find((x) => x.slug === o.slug)?.color; if (c && /^#[0-9a-f]{6}$/i.test(c)) setColor(c.toLowerCase()); }}
                 className={`flex items-center gap-3 rounded-2xl border p-3 text-left transition ${pack === o.slug ? 'border-white/40 bg-white/[.08]' : 'border-white/10 bg-white/[.03] hover:bg-white/[.06]'}`}>
-                <span className="grid h-9 w-9 shrink-0 place-items-center rounded-xl" style={{ background: `rgb(${rgb(color)} / .18)`, color }}>{o.slug ? <Sparkles size={18} /> : <Plus size={18} />}</span>
+                <span className="grid h-9 w-9 shrink-0 place-items-center rounded-xl" style={{ background: `rgb(${rgb(color)} / .18)`, color }}>{'icon' in o && o.icon ? <span className="text-lg leading-none">{o.icon}</span> : o.slug ? <Sparkles size={18} /> : <Plus size={18} />}</span>
                 <span className="min-w-0 flex-1"><span className="block font-semibold">{o.name}</span><span className="block text-xs text-mute">{o.sub}</span></span>
                 {pack === o.slug && <Check size={18} className="shrink-0 text-emerald-300" />}
               </button>
