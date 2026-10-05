@@ -566,7 +566,15 @@ do $$ begin perform set_lineup_plans(jsonb_build_object((today_et() + 3)::text, 
 exception when others then if sqlerrm not like '%not on your roster%' and sqlerrm not like '%can''t play%' then raise; end if; end $$;
 select 'my plans visible (expect 3 rows)', count(*) from lineup_plans;
 select pg_temp.as_team(2);
-select 'others'' plans hidden (expect 0)', count(*) from lineup_plans;
+-- another GM sees team 1's plans (migration 164) but can't change them: no direct writes, and the plan functions
+-- only ever touch the caller's own team
+select pg_temp.expect('another GM sees team 1''s plans', (select count(*) = 3 from lineup_plans where team_id = 1));
+do $$ begin update lineup_plans set slot = 'BN' where team_id = 1; raise exception 'another GM changed a plan';
+exception when insufficient_privilege then null; end $$;
+do $$ begin delete from lineup_plans where team_id = 1; raise exception 'another GM deleted a plan';
+exception when insufficient_privilege then null; end $$;
+select clear_lineup_plans(array[today_et() + 1, today_et() + 2]);
+select pg_temp.expect('another GM''s clear leaves team 1''s plans', (select count(*) = 3 from lineup_plans where team_id = 1));
 reset role;
 -- the day arrives: pretend tomorrow's plan is today's
 update lineup_plans set date = today_et() where date = today_et() + 1;
