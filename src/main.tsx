@@ -34,6 +34,7 @@ const Start = lazy(() => import('./pages/Start'));
 const NewPool = lazy(() => import('./pages/NewPool'));
 const Survivor = lazy(() => import('./pages/Survivor'));
 const Predictor = lazy(() => import('./pages/Predictor'));
+const Picks = lazy(() => import('./pages/Picks'));
 const Calibration = lazy(() => import('./pages/Calibration'));
 const DraftTV = lazy(() => import('./pages/DraftTV'));
 const DraftCentre = lazy(() => import('./pages/DraftCentre'));
@@ -116,6 +117,7 @@ function App() {
           <Route path="/leaders" element={<PoolLeaders />} />
           <Route path="/survivor" element={<Survivor />} />
           <Route path="/predictor" element={<Predictor />} />
+          <Route path="/picks" element={<Picks />} />
           <Route path="/host" element={<PoolHost />} />
           <Route path="/draft" element={<DraftCentre />} />
           <Route path="/draft/tv" element={<DraftTV />} />
