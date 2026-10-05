@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { FunctionsHttpError } from '@supabase/supabase-js';
-import { Check, Plus, Sparkles } from 'lucide-react';
+import { Check, Lock, Plus, Sparkles } from 'lucide-react';
 import { rpc, setRemember, supabase } from '../lib/supabase';
 import { openPool } from '../lib/host';
 import { useLeague } from '../lib/store';
@@ -9,9 +9,13 @@ import { Spinner } from '../components/ui';
 import { themed } from '../components/LeagueIdentity';
 import { ProductMark } from './Start';
 import { type Pack, packName, packPlaceholder, packWhen } from '../lib/packs';
+import { KINDS, PRESETS, presetExample, type GameKind, type PoolEvent, type SeriesPreset } from '../lib/poolGames';
+import { lockText } from './Picks';
 
-// "Start a pool" (#/new), open to anyone: name a pool, pick its colour and its questions, make an account, and land on
-// its Host page with the invite link ready to send. Someone new goes through the `join` function (it makes the account
+// "Start a pool" (#/new), open to anyone, in steps (docs/POOL-TYPES.md §4): what are you following (a sports event open
+// now, a show's question pack, or anything else), what kind of pool (for a sport: pick the series, rank the teams, the
+// questions; the first one picked is the pool's main game), how it scores (a preset in plain words with a worked
+// example), then its name, colour and the host's account. It lands on the Host page with the invite link ready to send. Someone new goes through the `join` function (it makes the account
 // and the pool together, migration 153, with limits per address and per day); someone signed in who is already in a
 // pool starts it with pool_start, as on My pools. A link can choose the pack (#/new?pack=love-is-blind-s11), which the
 // landing page uses. Drawn in the pool's own colour as it is chosen.
@@ -21,15 +25,31 @@ const rgb = (c: string) => `${parseInt(c.slice(1, 3), 16)} ${parseInt(c.slice(3,
 
 const STEPS = [
   ['🔗', 'Send one link', 'Friends tap it in the group chat, pick a name and they’re in. No app to download.'],
-  ['🪙', 'Call it in coins', 'Everyone starts with 1,000. Prices move as people buy, so a long shot pays big.'],
-  ['👑', 'Wear the crown', 'The leaderboard runs all season. Never money, just bragging rights.'],
+  ['🎯', 'Pick it, rank it, call it', 'Series picks, rankings, or questions priced like a market in coins. Every result lands on its own.'],
+  ['👑', 'Wear the crown', 'The table runs all season. Never money, just bragging rights.'],
 ] as const;
+const SPORT_EMOJI: Record<string, string> = { mlb: '⚾', nhl: '🏒', soccer: '⚽', nfl: '🏈', nba: '🏀' };
+type Following = { type: 'event'; comp: string } | { type: 'pack'; slug: string } | { type: 'blank' } | null;
+
+// a numbered step's heading
+function Step({ n, title, children }: { n: number; title: string; children: React.ReactNode }) {
+  return (
+    <div>
+      <div className="mb-2 flex items-center gap-2"><span className="num grid h-6 w-6 place-items-center rounded-full bg-white/10 text-xs font-black text-white">{n}</span><span className="label text-white/80">{title}</span></div>
+      {children}
+    </div>
+  );
+}
 
 export default function NewPool() {
   const { session, me } = useLeague();
   const [params] = useSearchParams();
   const [packs, setPacks] = useState<Pack[] | null>(null);
   const [pack, setPack] = useState<string | null>(params.get('pack'));
+  const [events, setEvents] = useState<PoolEvent[] | null>(null);
+  const [following, setFollowing] = useState<Following>(null);
+  const [kinds, setKinds] = useState<(GameKind | 'questions')[]>(['series', 'questions']);
+  const [preset, setPreset] = useState<SeriesPreset>('classic');
   const [color, setColor] = useState<string>(SWATCHES[0]);
   const [pool, setPool] = useState('');
   const [name, setName] = useState('');
@@ -40,6 +60,13 @@ export default function NewPool() {
   const [signIn, setSignIn] = useState(false);
 
   useEffect(() => {
+    rpc<PoolEvent[]>('pool_events').then((e) => {
+      setEvents(e ?? []);
+      // a link that names an event's pack opens on the event
+      const ev = (e ?? []).find((x) => x.pack && x.pack === params.get('pack'));
+      if (ev) setFollowing({ type: 'event', comp: ev.competition });
+      else if (params.get('pack')) setFollowing({ type: 'pack', slug: params.get('pack')! });
+    }, () => setEvents([]));
     rpc<Pack[]>('pool_pack_list').then((d) => {
       setPacks(d ?? []);
       // a pack chosen by the link brings its colour
@@ -49,21 +76,40 @@ export default function NewPool() {
     }, () => setPacks([]));
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
   const chosen = useMemo(() => packs?.find((p) => p.slug === pack) ?? null, [packs, pack]);
+  const event = following?.type === 'event' ? events?.find((e) => e.competition === following.comp) ?? null : null;
+  // packs that ride with a sports event are offered inside it, as its questions
+  const eventPacks = new Set((events ?? []).map((e) => e.pack).filter(Boolean));
+  const loosePacks = (packs ?? []).filter((p) => !eventPacks.has(p.slug));
+  const eventPack = event?.pack ? packs?.find((p) => p.slug === event.pack) ?? null : null;
+  const games = event ? kinds.filter((k): k is GameKind => k !== 'questions') : [];
+  const toggle = (k: GameKind | 'questions') => setKinds((ks) => (ks.includes(k) ? ks.filter((x) => x !== k) : [...ks, k]));
+  const choose = (f: Following) => {
+    setFollowing(f);
+    const slug = f?.type === 'pack' ? f.slug : f?.type === 'event' ? events?.find((e) => e.competition === f.comp)?.pack ?? null : null;
+    setPack(f?.type === 'pack' ? f.slug : null);
+    const c = packs?.find((x) => x.slug === slug)?.color;
+    if (c && /^#[0-9a-f]{6}$/i.test(c)) setColor(c.toLowerCase());
+  };
+  // the pack the pool opens with: the one chosen, or the event's own when its questions are ticked
+  const openPack = event ? (kinds.includes('questions') ? event.pack : null) : following?.type === 'pack' ? following.slug : null;
+  const gamesPayload = games.map((k) => ({ kind: k, competition: event!.competition, rules: k === 'series' ? { preset } : {} }));
+  const startGames = async (id: number) => { if (gamesPayload.length) await rpc('pool_start_games', { p_league: id, p_games: gamesPayload }); };
   const okEmail = /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email.trim());
   const member = !!session && !!me;
-  const ready = pool.trim().length >= 3 && (member || (name.trim().length >= 2 && okEmail && pw.length >= 6));
+  const ready = !!following && (!event || kinds.length > 0) && pool.trim().length >= 3 && (member || (name.trim().length >= 2 && okEmail && pw.length >= 6));
 
   const start = async (e: React.FormEvent) => {
     e.preventDefault();
     setBusy(true); setErr(''); setSignIn(false);
     try {
       if (member) {
-        const r = await rpc<{ id: number; slug: string }>('pool_start', { p_name: pool.trim(), p_color: color, p_pack: pack });
+        const r = await rpc<{ id: number; slug: string }>('pool_start', { p_name: pool.trim(), p_color: color, p_pack: openPack });
+        await startGames(r.id);
         await openPool({ league_id: r.id, slug: r.slug }, '/host');
         return;
       }
       const login = email.trim().toLowerCase();
-      const { data, error } = await supabase.functions.invoke('join', { body: { pool: { name: pool.trim(), color, pack }, email: login, password: pw, name: name.trim() } });
+      const { data, error } = await supabase.functions.invoke('join', { body: { pool: { name: pool.trim(), color, pack: openPack }, email: login, password: pw, name: name.trim() } });
       if (error) {
         const body = error instanceof FunctionsHttpError ? await error.context.json().catch(() => null) : null;
         setErr(body?.error ?? 'Couldn’t start the pool right now. Try again in a minute.');
@@ -76,7 +122,10 @@ export default function NewPool() {
       if (se) { setBusy(false); setErr(`Your pool is open, but signing in failed: ${se.message}. Sign in from the main page.`); return; }
       try { localStorage.setItem('sak-last-email', login); } catch { /* nothing to remember with */ }
       const opened = (data as { pool?: { id: number; slug: string } })?.pool;
-      if (opened) await openPool({ league_id: opened.id, slug: opened.slug }, '/host');
+      if (opened) {
+        await startGames(opened.id).catch((x) => setErr(`Your pool is open, but its games didn’t start: ${(x as Error).message}. Add them from the Host page.`));
+        await openPool({ league_id: opened.id, slug: opened.slug }, '/host');
+      }
       else { window.location.hash = '#/'; window.location.reload(); }
     } catch (x) { setErr((x as Error).message); setBusy(false); }
   };
@@ -87,25 +136,91 @@ export default function NewPool() {
         <div className="mb-6 text-center">
           <div className="mx-auto mb-3 inline-block drop-shadow-[0_10px_30px_rgb(var(--gold-rgb)/.35)]"><ProductMark size={56} /></div>
           <h1 className="h-display text-shine text-4xl leading-none">Start a pool</h1>
-          <p className="mt-2 text-sm text-slate-300">Questions about anything your group watches, priced like a market, played in coins. Free, and never money.</p>
+          <p className="mt-2 text-sm text-slate-300">Series picks, rankings and questions for anything your group follows. Free, and never money.</p>
         </div>
 
-        {chosen && (
-          <div className="card-hero mb-4 p-4" style={{ borderColor: `rgb(${rgb(color)} / .45)` }}>
-            <div className="relative flex items-center gap-3">
-              <span className="grid h-11 w-11 shrink-0 place-items-center rounded-2xl text-xl" style={{ background: `rgb(${rgb(color)} / .2)` }}>{chosen.icon ?? '✨'}</span>
-              <div className="min-w-0">
-                <div className="text-balance font-semibold text-white">{packName(chosen.name)}</div>
-                <div className="text-xs text-white/70">{chosen.questions} questions ready to go{chosen.blurb ? `. ${chosen.blurb}` : ', and the coin drops'}. {packWhen(chosen).text.replace(/^./, (c) => c.toUpperCase())}.</div>
-              </div>
-            </div>
-          </div>
-        )}
-
         <form onSubmit={start} className="card-hero p-5">
-          <div className="relative space-y-4">
-            <label className="block"><span className="label text-white/70">Name your pool</span>
-              <input className="input mt-1 w-full" value={pool} onChange={(e) => setPool(e.target.value)} maxLength={40} placeholder={packPlaceholder(chosen?.slug)} /></label>
+          <div className="relative space-y-6">
+            <Step n={1} title="What are you following?">
+              <div className="grid gap-2">
+                {(events ?? []).map((e) => {
+                  const on = following?.type === 'event' && following.comp === e.competition;
+                  return (
+                    <button key={e.competition} type="button" onClick={() => choose({ type: 'event', comp: e.competition })}
+                      className={`flex items-center gap-3 rounded-2xl border p-3 text-left transition ${on ? 'border-white/40 bg-white/[.08]' : 'border-white/10 bg-white/[.03] hover:bg-white/[.06]'}`}>
+                      <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl text-xl" style={{ background: `rgb(${rgb(color)} / .18)` }}>{SPORT_EMOJI[e.sport] ?? '🏆'}</span>
+                      <span className="min-w-0 flex-1">
+                        <span className="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-balance font-semibold text-white">{e.name}<span className="rounded-full bg-red-500/15 px-1.5 py-px text-[10px] font-bold uppercase tracking-wider text-red-200 ring-1 ring-red-400/30">Live now</span></span>
+                        <span className="block text-xs text-white/60">{e.stage ?? 'Under way'} · picks from the {e.open_label}, {lockText(e.next_lock)}</span>
+                      </span>
+                      {on && <Check size={18} className="shrink-0 text-emerald-300" />}
+                    </button>
+                  );
+                })}
+                {[...loosePacks.map((p) => { const w = packWhen(p); return { f: { type: 'pack', slug: p.slug } as Following, key: p.slug, name: packName(p.name), icon: p.icon, sub: `${p.questions} questions · ${w.text}`, soon: w.soon }; }),
+                  { f: { type: 'blank' } as Following, key: 'blank', name: 'Something else', icon: null, sub: 'Ask your own questions from the Host page', soon: false }].map((o) => {
+                  const on = following?.type === o.f?.type && (o.f?.type !== 'pack' || (following?.type === 'pack' && following.slug === o.key));
+                  return (
+                    <button key={o.key} type="button" onClick={() => choose(o.f)}
+                      className={`flex items-center gap-3 rounded-2xl border p-3 text-left transition ${on ? 'border-white/40 bg-white/[.08]' : 'border-white/10 bg-white/[.03] hover:bg-white/[.06]'}`}>
+                      <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl" style={{ background: `rgb(${rgb(color)} / .18)`, color }}>{o.icon ? <span className="text-lg leading-none">{o.icon}</span> : o.key !== 'blank' ? <Sparkles size={18} /> : <Plus size={18} />}</span>
+                      <span className="min-w-0 flex-1"><span className="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-balance font-semibold text-white">{o.name}{o.soon && <span className="rounded-full bg-amber-400/15 px-1.5 py-px text-[10px] font-bold uppercase tracking-wider text-amber-200 ring-1 ring-amber-400/30">Closing soon</span>}</span><span className="block text-xs text-white/60">{o.sub}</span></span>
+                      {on && <Check size={18} className="shrink-0 text-emerald-300" />}
+                    </button>
+                  );
+                })}
+                {(!packs || !events) && <div className="flex justify-center py-2"><Spinner /></div>}
+              </div>
+            </Step>
+
+            {event && (
+              <Step n={2} title="What kind of pool?">
+                <div className="grid gap-2">
+                  {[...event.kinds.map((k) => ({ key: k as GameKind | 'questions', ...KINDS[k], sub: `${KINDS[k].line} ${KINDS[k].time}.` })),
+                    ...(eventPack ? [{ key: 'questions' as const, title: 'The questions', badge: 'In coins', emoji: '🔮', sub: `${eventPack.questions} questions on the ${event.final_label.replace(/^(AL|NL) /, '')} and the pennants, priced like a market: buy what you believe, sell if you change your mind.`, time: '', line: '' }] : [])].map((k) => {
+                    const on = kinds.includes(k.key);
+                    const main = on && kinds.filter((x) => (event.kinds as string[]).includes(x) || x === 'questions')[0] === k.key;
+                    return (
+                      <button key={k.key} type="button" onClick={() => toggle(k.key)}
+                        className={`flex items-start gap-3 rounded-2xl border p-3 text-left transition ${on ? 'border-white/40 bg-white/[.08]' : 'border-white/10 bg-white/[.03] hover:bg-white/[.06]'}`}>
+                        <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl text-xl" style={{ background: `rgb(${rgb(color)} / .18)` }}>{k.emoji}</span>
+                        <span className="min-w-0 flex-1">
+                          <span className="flex flex-wrap items-center gap-x-2 gap-y-0.5 font-semibold text-white">{k.title}
+                            <span className="rounded-full px-1.5 py-px text-[10px] font-bold uppercase tracking-wider ring-1" style={{ color, background: `rgb(${rgb(color)} / .12)`, borderColor: color }}>{k.badge}</span>
+                            {main && <span className="rounded-full bg-white/10 px-1.5 py-px text-[10px] font-bold uppercase tracking-wider text-white/80">Main game</span>}</span>
+                          <span className="mt-0.5 block text-xs leading-snug text-white/60">{k.sub}</span>
+                        </span>
+                        <span className={`mt-1 grid h-6 w-6 shrink-0 place-items-center rounded-md ring-1 ${on ? 'bg-emerald-400 text-[#0b1220] ring-emerald-300' : 'ring-white/25'}`}>{on && <Check size={16} strokeWidth={3} />}</span>
+                      </button>
+                    );
+                  })}
+                  {event.sport === 'mlb' && (
+                    <div className="flex items-start gap-3 rounded-2xl border border-dashed border-white/10 p-3 opacity-70">
+                      <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-white/[.05] text-xl">🔢</span>
+                      <span className="min-w-0 flex-1"><span className="flex items-center gap-2 font-semibold text-white">World Series squares <Lock size={13} className="text-white/50" /></span><span className="block text-xs text-white/60">A 10×10 grid of scores, paid after the 3rd, 6th and the final out. Opens once the {event.final_label} matchup is set; the host adds it then.</span></span>
+                    </div>
+                  )}
+                </div>
+                {!kinds.length && <p className="mt-2 text-xs text-amber-200">Pick at least one.</p>}
+              </Step>
+            )}
+
+            {event && kinds.includes('series') && (
+              <Step n={3} title="How it scores">
+                <div className="grid grid-cols-3 gap-1.5 rounded-2xl bg-black/25 p-1">
+                  {PRESETS.map((p) => <button key={p.key} type="button" onClick={() => setPreset(p.key)} className={`rounded-xl px-2 py-2 text-xs font-bold transition ${preset === p.key ? 'bg-white text-[#0b1220]' : 'text-white/70 hover:text-white'}`}>{p.label}</button>)}
+                </div>
+                <p className="mt-2 text-sm leading-snug text-white/80">{PRESETS.find((p) => p.key === preset)!.line}</p>
+                <p className="mt-1.5 rounded-xl bg-white/[.05] px-3 py-2 text-xs leading-snug text-white/70">{presetExample(preset, event.final_label, event.final_round)} The total runs in the last game breaks a tie.</p>
+                {kinds.includes('rank') && <p className="mt-2 text-xs leading-snug text-white/60">Rank the teams: your top club in the {event.open_label} earns the most for every game it wins, your last club the least.</p>}
+              </Step>
+            )}
+
+            {following && (
+            <Step n={event ? (kinds.includes('series') ? 4 : 3) : 2} title="Name it">
+            <div className="space-y-4">
+            <label className="block"><span className="sr-only">Name your pool</span>
+              <input className="input w-full" value={pool} onChange={(e) => setPool(e.target.value)} maxLength={40} placeholder={packPlaceholder(event ? event.pack : chosen?.slug)} /></label>
             <div>
               <span className="label text-white/70">Its colour</span>
               <div className="mt-2 flex flex-wrap gap-2.5">
@@ -117,21 +232,9 @@ export default function NewPool() {
                 ))}
               </div>
             </div>
-            <div>
-              <span className="label text-white/70">Start with</span>
-              <div className="mt-2 grid gap-2">
-                {[...(packs ?? []).map((p) => { const w = packWhen(p); return { slug: p.slug as string | null, name: packName(p.name), icon: p.icon, sub: `${p.questions} questions · ${w.text}`, soon: w.soon }; }),
-                  { slug: null as string | null, name: 'A blank pool', icon: null, sub: 'Ask your own questions from the Host page', soon: false }].map((o) => (
-                  <button key={o.slug ?? 'blank'} type="button" onClick={() => { setPack(o.slug); const c = packs?.find((x) => x.slug === o.slug)?.color; if (c && /^#[0-9a-f]{6}$/i.test(c)) setColor(c.toLowerCase()); }}
-                    className={`flex items-center gap-3 rounded-2xl border p-3 text-left transition ${pack === o.slug ? 'border-white/40 bg-white/[.08]' : 'border-white/10 bg-white/[.03] hover:bg-white/[.06]'}`}>
-                    <span className="grid h-9 w-9 shrink-0 place-items-center rounded-xl" style={{ background: `rgb(${rgb(color)} / .18)`, color }}>{o.icon ? <span className="text-lg leading-none">{o.icon}</span> : o.slug ? <Sparkles size={18} /> : <Plus size={18} />}</span>
-                    <span className="min-w-0 flex-1"><span className="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-balance font-semibold text-white">{o.name}{o.soon && <span className="rounded-full bg-amber-400/15 px-1.5 py-px text-[10px] font-bold uppercase tracking-wider text-amber-200 ring-1 ring-amber-400/30">Closing soon</span>}</span><span className="block text-xs text-white/60">{o.sub}</span></span>
-                    {pack === o.slug && <Check size={18} className="shrink-0 text-emerald-300" />}
-                  </button>
-                ))}
-                {!packs && <div className="flex justify-center py-2"><Spinner /></div>}
-              </div>
             </div>
+            </Step>
+            )}
 
             {member ? (
               <p className="text-sm text-white/70">You’re signed in as {me!.gm_name}. The pool goes on your account beside the others, on My pools.</p>

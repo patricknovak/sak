@@ -20,6 +20,7 @@ import { PoolHowTo } from '../components/PoolHowTo';
 import { PredictorCard, PredictorStart, usePredictor } from './Predictor';
 import { Share2, UserPlus } from 'lucide-react';
 import { InvitePeople } from '../components/InvitePeople';
+import { HostGames, PoolGameCards, usePoolGames } from './Picks';
 
 function useLeaders() {
   const [rows, setRows] = useState<PoolLeader[] | null>(null);
@@ -80,6 +81,9 @@ export function PoolHome() {
     return open.filter((m) => n.has(m.id)).sort((a, b) => (n.get(b.id) ?? 0) - (n.get(a.id) ?? 0)).slice(0, 2);
   }, [trades, open.length]); // eslint-disable-line react-hooks/exhaustive-deps
   const settle = (markets ?? []).filter((m) => m.status === 'open' && !isOpen(m, now));
+  // a sports pool with games and no questions shows its games, not an empty question board
+  const { games } = usePoolGames();
+  const gamesOnly = !!games?.length && markets !== null && !markets.length;
   return (
     <div className="space-y-6">
       <div className="relative overflow-hidden rounded-[28px] border border-gold/25 p-5" style={{ background: 'radial-gradient(120% 90% at 0% 0%, rgb(var(--gold-rgb)/.30), transparent 55%), radial-gradient(90% 80% at 100% 100%, rgba(167,139,250,.20), transparent 60%), linear-gradient(160deg,#1a1430,#0b1222 70%)' }}>
@@ -99,7 +103,9 @@ export function PoolHome() {
         )}
       </div>
 
-      {me?.role === 'gm' && <PoolHowTo league={league?.league_id ?? 0} />}
+      <PoolGameCards />
+
+      {me?.role === 'gm' && !gamesOnly && <PoolHowTo league={league?.league_id ?? 0} />}
 
       {me?.is_commish && settle.length > 0 && (
         <Link to="/host" className="card flex items-center gap-3 border-amber-400/30 bg-amber-400/[.06] p-4">
@@ -109,7 +115,7 @@ export function PoolHome() {
         </Link>
       )}
 
-      {markets === null ? <div className="h-40 animate-pulse rounded-3xl bg-white/[.04]" /> : !markets.length ? (
+      {gamesOnly ? null : markets === null ? <div className="h-40 animate-pulse rounded-3xl bg-white/[.04]" /> : !markets.length ? (
         <Empty icon="🔮" title="No questions yet">{me?.is_commish ? <Link to="/host" className="btn-gold mt-3 inline-block">Ask the first one</Link> : 'The host is writing them. Check back soon.'}</Empty>
       ) : (
         <>
@@ -122,7 +128,7 @@ export function PoolHome() {
       )}
       <PredictorCard />
       <SurvivorCard />
-      <Section title="Latest calls" icon={<Sparkles className="h-5 w-5 text-gold" />}><CallsFeed trades={trades} markets={markets ?? []} /></Section>
+      {!gamesOnly && <Section title="Latest calls" icon={<Sparkles className="h-5 w-5 text-gold" />}><CallsFeed trades={trades} markets={markets ?? []} /></Section>}
       <InviteCard />
     </div>
   );
@@ -501,6 +507,7 @@ export function PoolHost() {
         {waiting.length ? <div className="space-y-2">{waiting.map((m) => <Link key={m.id} to={`/q/${m.id}`} className="card flex items-center justify-between gap-3 p-3"><span className="min-w-0 break-words font-semibold">{m.title}</span><span className="shrink-0 text-sm text-gold">Settle →</span></Link>)}</div>
           : <div className="card p-4 text-sm text-mute">Nothing to settle. Questions land here when they close.</div>}
       </Section>
+      <HostGames />
       <SoccerRounds onAdded={reload} />
       <HostPredictor />
       <HostSurvivor />

@@ -9,7 +9,7 @@ import { currentSubscription } from '../lib/push';
 import { Sheet, TeamBadge } from './ui';
 import {
   Bell, ClipboardList, Dices, Home, Landmark, Lightbulb, LogOut, Menu, MessageCircle, Radio, Repeat2, Search, Shield, Target,
-  Trophy, Tv, UserRound, Wrench, Wallet, type LucideIcon, BarChart3, Sparkles, Crown, Wand2, Layers, ChevronDown } from 'lucide-react';
+  Trophy, Tv, UserRound, Wrench, Wallet, type LucideIcon, BarChart3, Sparkles, Crown, Wand2, Layers, ChevronDown, Swords } from 'lucide-react';
 
 type Item = { to: string; label: string; icon: LucideIcon; commish?: boolean; short?: string };   // short: the phone dock's label, one line
 
@@ -94,13 +94,13 @@ export function Layout({ children }: { children: ReactNode }) {
   // what this league or pool actually runs, so nothing shows that belongs to another: questions (a fantasy league has
   // the board only once it asks one), and the soccer games (only in a pool that has started one). Row-level security
   // keeps each count to this league.
-  const [runs, setRuns] = useState({ questions: false, predictor: false, survivor: false });
+  const [runs, setRuns] = useState({ questions: false, predictor: false, survivor: false, games: false });
   const onHost = loc.pathname === '/host';
   useEffect(() => {
     if (!me) return;
     let live = true;
     const has = (t: string) => supabase.from(t).select('id', { count: 'exact', head: true }).then(({ count }) => (count ?? 0) > 0, () => false);
-    Promise.all([has('pool_markets'), has('predictors'), has('survivors')]).then(([questions, predictor, survivor]) => { if (live) setRuns({ questions, predictor, survivor }); });
+    Promise.all([has('pool_markets'), has('predictors'), has('survivors'), has('pool_games')]).then(([questions, predictor, survivor, games]) => { if (live) setRuns({ questions, predictor, survivor, games }); });
     return () => { live = false; };
   }, [me?.id, league?.league_id, onHost]);
 
@@ -109,11 +109,14 @@ export function Layout({ children }: { children: ReactNode }) {
   const spectator = me?.role === 'spectator';
   // a prediction pool (migration 145) is questions, leaders, chat: none of the sport's pages
   const pool = kind === 'predict';
+  // a sports pool's games (migration 165) take the second place; its questions show once it has any
+  const poolQuestions = runs.questions || !runs.games;
   const items: Item[] = pool ? [
     { to: '/', label: 'Home', icon: Home },
-    { to: '/questions', label: 'Questions', icon: Sparkles },
+    ...(runs.games ? [{ to: '/picks', label: 'Picks', icon: Swords }] : []),
+    ...(poolQuestions ? [{ to: '/questions', label: 'Questions', icon: Sparkles }] : []),
     { to: '/chat', label: 'Chat', icon: MessageCircle },
-    { to: '/leaders', label: 'Leaders', icon: Crown },
+    ...(runs.games && poolQuestions ? [] : [{ to: '/leaders', label: 'Leaders', icon: Crown }]),
   ] : [
     { to: '/', label: 'Home', icon: Home },
     draftish ? { to: '/draft', label: 'Draft Centre', short: 'Draft', icon: ClipboardList } : spectator ? { to: '/standings', label: 'Standings', icon: Trophy } : { to: '/team', label: 'Lineup', icon: Shield },
@@ -122,6 +125,7 @@ export function Layout({ children }: { children: ReactNode }) {
     { to: '/nhl', label: sport.words.centre ?? 'NHL centre', icon: Tv },
   ];
   const moreItems: Item[] = (pool ? [
+    ...(runs.games && poolQuestions ? [{ to: '/leaders', label: 'Leaders', icon: Crown }] : []),
     ...(runs.predictor ? [{ to: '/predictor', label: 'Call the score', icon: Target }] : []),
     ...(runs.survivor ? [{ to: '/survivor', label: 'Last one standing', icon: Shield }] : []),
     { to: '/pools', label: 'My pools', icon: Layers },
