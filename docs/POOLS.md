@@ -133,8 +133,8 @@ the group and the conversation, so the chat is the product and the market is wha
 - One tap to join from a link in the group chat, no app to download; share cards after every drop.
 
 **Opening a pool.** Anyone can start one, no invite needed (`#/new`, migration 153): name it, pick its colour and the
-Season 11 pack, make an account, and the Host page has the invite link ready for the group chat. Joining a pool still
-takes its host's link.
+Season 11 pack, make an account, and the Host page has the invite link ready for the group chat. Joining a pool takes
+its open link, which any member can share from the pool's home (`pool_share_link`, migration 162).
 
 **Alerts.** The pool tells its members when there is something to do (migration 154): coins dropped (with how many
 questions are open), new questions (a burst folds into one alert), a question closing in six hours they haven't

@@ -134,7 +134,8 @@ function InviteCard() {
   const { busy, run } = useAction();
   const [link, setLink] = useState<string | null>(null);
   const make = () => run(async () => {
-    const code = await rpc<string>('pool_invite_link', { p_days: 30, p_uses: 50 });
+    // the pool's one open link, the same for the host and every member (migration 162)
+    const code = await rpc<string>('pool_share_link');
     const url = appLink(`/join/${code}`);
     setLink(url);
     const text = `Join my ${brand.tagline || league?.name} on Super Pools. No money, just bragging rights.`;
@@ -147,7 +148,7 @@ function InviteCard() {
       <div className="relative">
         <h3 className="font-display text-2xl font-extrabold text-white">Better with the group chat</h3>
         <p className="mt-1 text-sm text-mute">Everyone gets the same {brand.coin.name.toLowerCase()} to start, and every drop. One tap to join, nothing to download.</p>
-        {me?.is_commish ? (
+        {me?.role === 'gm' ? (
           <>
             <button className="btn-gold mt-3 inline-flex items-center gap-2" disabled={busy} onClick={make}><Link2 className="h-4 w-4" /> Share the invite link</button>
             {link && <div className="mt-2 break-all rounded-xl bg-black/30 px-3 py-2 text-xs text-sky-200">{link}</div>}
