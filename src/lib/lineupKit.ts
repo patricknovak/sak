@@ -2,9 +2,10 @@
 // lineup a team has for a day (today's live one, else its own plan, else the last plan before it, else today's,
 // carried forward the way the planner and the morning apply do), who plays that night, how busy the night is, and
 // each player's expected points. Shared by the day view, the week grid, the comparison and the insights.
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useLeague, useSport } from './store';
-import { calledOff, hasStarted } from './sport';
+import { calledOff, hasStarted, isLive } from './sport';
+import { hub } from './nhlhub';
 import { supabase } from './supabase';
 import { etToday } from './format';
 import { availability, gamesOf, slotOk } from './lineup';
@@ -108,3 +109,54 @@ export function useLineupKit(span = 14) {
     lockedOn, dayStats, canPlay, teams, me, players, sport, nowMs };
 }
 export type Kit = ReturnType<typeof useLineupKit>;
+
+// ───────────── tonight's points, refreshed while games are on ─────────────
+// Every player's league points for a day, read once and again every minute while any game that day is live, so the
+// day view, the comparison and the league board move as goals go in.
+export function useDayPoints(kit: Kit, day: string) {
+  const [pts, setPts] = useState<Map<number, number>>(new Map());
+  const live = (kit.gamesOn.get(day) ?? []).some((g) => isLive(kit.sport, g.state));
+  const started = (kit.gamesOn.get(day) ?? []).some((g) => hasStarted(kit.sport, g.state));
+  useEffect(() => {
+    if (day > kit.today || (day === kit.today && !started)) { setPts(new Map()); return; }
+    let alive = true;
+    const load = () => supabase.from('league_games').select('player_id,fpts').eq('date', day).limit(2000)
+      .then(({ data }) => { if (alive) setPts(new Map((data ?? []).map((r) => [r.player_id, Number(r.fpts)]))); });
+    load();
+    const t = live ? window.setInterval(load, 60000) : undefined;
+    return () => { alive = false; window.clearInterval(t); };
+  }, [day, kit.today, live, started]);
+  return { pts, live };
+}
+
+// ───────────── each player's line in a game ─────────────
+// From the NHL centre's lines (worked out from the shift charts; a game not yet started shows each club's lines from
+// its last game): 'L1' to 'L4' for forward lines, 'D1' to 'D3' for pairs, 'G' for the goalie who started. Read for
+// today and tomorrow only, for the games the team's players are in.
+type LP = { id: number } | null;
+interface ClubLines { forwards: LP[][]; defense: LP[][]; goalies: { id: number; starter?: boolean }[] }
+export function useLines(kit: Kit, teamIds: number[], day: string) {
+  const [lines, setLines] = useState<Map<number, string>>(new Map());
+  const gameIds = useMemo(() => {
+    if (day < kit.today || day > addDays(kit.today, 1)) return [];
+    const ids = new Set<number>();
+    for (const tid of teamIds) for (const x of kit.rosterOf(tid)) { const g = kit.gameFor(x.p.nhl_team, day); if (g) ids.add(g.id); }
+    return [...ids].sort();
+  }, [teamIds.join(','), day, kit.today, kit.gamesOn]); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => {
+    if (!gameIds.length) { setLines(new Map()); return; }
+    let alive = true;
+    Promise.all(gameIds.map((id) => hub<{ away: ClubLines | null; home: ClubLines | null }>('lines', { id: String(id) }).catch(() => null))).then((all) => {
+      if (!alive) return;
+      const m = new Map<number, string>();
+      for (const g of all) for (const side of [g?.away, g?.home]) {
+        side?.forwards.forEach((l, i) => l.forEach((p) => p && m.set(p.id, `L${i + 1}`)));
+        side?.defense.forEach((l, i) => l.forEach((p) => p && m.set(p.id, `D${i + 1}`)));
+        side?.goalies.forEach((p, i) => { if (i === 0) m.set(p.id, 'G1'); });
+      }
+      setLines(m);
+    });
+    return () => { alive = false; };
+  }, [gameIds.join(',')]); // eslint-disable-line react-hooks/exhaustive-deps
+  return lines;
+}

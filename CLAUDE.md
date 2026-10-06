@@ -33,7 +33,9 @@ Two things in one repo:
   `InjuryReport`.
 - Lineups: the classic page is My Team (`src/pages/MyTeam.tsx`, its Daily lineups tab `LineupPlanner`); Lineup New
   (`#/lineup-new`, `src/pages/LineupNew.tsx`, `src/components/lineupnew/`, data in `src/lib/lineupKit.ts`) runs beside it
-  for the league to compare (5 October 2026): Day, Week, Compare and Insights for any team (others read only), saving
+  for the league to compare (5 October 2026): Day (with What if), Week, League (every team ranked for a night or a week),
+  Compare and Insights for any team (others read only); live points refresh every minute (`useDayPoints`), lines come from
+  nhl-hub's shift charts (`useLines`); saving
   through the same `set_lineup` and `set_lineup_plans`. Plans are readable league-wide (migration 164).
 - Sport: `src/lib/sport.ts` (`useSport()` from the store): the league's sport as the engine reads it (positions, slots,
   stats, game states, periods), the database's `sports` row with the NHL compiled in. New code that needs a position

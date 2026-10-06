@@ -39,7 +39,7 @@ export function GameLine({ p, g, compact }: { p: Player; g: Game | undefined; co
       <img src={teamLogo(opp)} alt="" className="h-3.5 w-3.5 shrink-0" onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} />
       <b className="font-semibold text-slate-200">{opp}</b>
       {!compact && (started
-        ? <span className={`num font-bold ${live ? 'text-red-300' : 'text-white'}`}>{mine}-{theirs}{live ? ` · ${periodShort(sport, g.period)}` : ' F'}</span>
+        ? <span className={`num inline-flex items-center gap-1 font-bold ${live ? 'text-red-300' : 'text-white'}`}>{live && <span className="relative flex h-1.5 w-1.5"><span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-red-400 opacity-75" /><span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-red-400" /></span>}{mine}-{theirs}{live ? ` · ${periodShort(sport, g.period)}` : ' F'}</span>
         : <span className="text-mute">{new Date(g.start_utc).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}</span>)}
     </span>
   );

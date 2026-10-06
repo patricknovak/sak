@@ -3,7 +3,7 @@
 // light-night starts, starts by position and the expected points day by day).
 import { useEffect, useMemo, useState } from 'react';
 import { Swords } from 'lucide-react';
-import { START, addDays, isStart, monthDay, weekday, type Kit, type Row } from '../../lib/lineupKit';
+import { START, addDays, isStart, monthDay, weekday, useDayPoints, type Kit, type Row } from '../../lib/lineupKit';
 import { Headshot, TeamBadge } from '../ui';
 import { fmt1, GameLine } from './bits';
 import type { Team } from '../../lib/types';
@@ -50,6 +50,8 @@ function Totals({ a, b, va, vb, label }: { a: Team; b: Team; va: number; vb: num
 }
 
 function DayCompare({ kit, a, b, day, onInfo }: { kit: Kit; a: Team; b: Team; day: string; onInfo: (id: number) => void }) {
+  const { pts: live } = useDayPoints(kit, day);
+  const started = live.size > 0;
   const side = (t: Team) => {
     const slots = kit.lineupOf(t.id, day).slots;
     const r = kit.rosterOf(t.id);
@@ -57,35 +59,50 @@ function DayCompare({ kit, a, b, day, onInfo }: { kit: Kit; a: Team; b: Team; da
     for (const x of r) { const s = slots.get(x.p.id) ?? 'BN'; if (isStart(s)) (by[s] ??= []).push(x); }
     for (const k of Object.keys(by)) by[k].sort((x, y) => kit.expPts(y.p) - kit.expPts(x.p));
     const bench = r.filter((x) => slots.get(x.p.id) === 'BN' && kit.gameFor(x.p.nhl_team, day));
-    return { by, bench, stats: kit.dayStats(t.id, day, slots) };
+    const scored = r.reduce((s, x) => s + (isStart(slots.get(x.p.id)) ? live.get(x.p.id) ?? 0 : 0), 0);
+    return { by, bench, scored, stats: kit.dayStats(t.id, day, slots) };
   };
-  const A = useMemo(() => side(a), [a, day, kit]); // eslint-disable-line react-hooks/exhaustive-deps
-  const B = useMemo(() => side(b), [b, day, kit]); // eslint-disable-line react-hooks/exhaustive-deps
+  const A = useMemo(() => side(a), [a, day, kit, live]); // eslint-disable-line react-hooks/exhaustive-deps
+  const B = useMemo(() => side(b), [b, day, kit, live]); // eslint-disable-line react-hooks/exhaustive-deps
   const gameId = (x: Row | undefined) => kit.gameFor(x?.p.nhl_team, day)?.id;
   const bGames = new Set(Object.values(B.by).flat().map(gameId).filter(Boolean));
   const cell = (x: Row | undefined, right: boolean, other: Row | undefined) => {
     if (!x) return <div className={`flex h-full items-center ${right ? 'justify-end' : ''} text-[11px] text-red-300/70`}>Empty</div>;
     const g = kit.gameFor(x.p.nhl_team, day);
-    const v = g ? kit.expPts(x.p) : 0, ov = other && kit.gameFor(other.p.nhl_team, day) ? kit.expPts(other.p) : 0;
+    const val = (y: Row | undefined) => (!y || !kit.gameFor(y.p.nhl_team, day) ? 0 : live.has(y.p.id) && kit.lockedOn(y.p, day) ? live.get(y.p.id)! : kit.expPts(y.p));
+    const v = val(x), ov = val(other);
+    const isLive = live.has(x.p.id) && kit.lockedOn(x.p, day);
     const shared = g && bGames.has(g.id) && !right;
     return (
-      <button type="button" onClick={() => onInfo(x.p.id)} className={`flex w-full min-w-0 items-center gap-2 text-left ${right ? 'flex-row-reverse text-right' : ''}`}>
-        <Headshot p={x.p} size={28} />
+      <button type="button" onClick={() => onInfo(x.p.id)} className={`flex w-full min-w-0 items-center gap-1.5 text-left ${right ? 'flex-row-reverse text-right' : ''}`}>
+        <Headshot p={x.p} size={24} />
         <span className="min-w-0 flex-1">
-          <span className="block break-words text-[13px] font-semibold leading-tight text-white">{x.p.last_name ?? x.p.name}</span>
+          <span className="block text-[12px] font-semibold leading-tight text-white [overflow-wrap:normal]">{x.p.last_name ?? x.p.name}</span>
           <span className={`flex flex-wrap items-center gap-1 ${right ? 'justify-end' : ''}`}><GameLine p={x.p} g={g} compact />{shared && <span className="rounded-full bg-fuchsia-400/15 px-1.5 text-[9px] font-black uppercase text-fuchsia-200" title="Both teams have someone in this game">Same game</span>}</span>
         </span>
-        <span className={`num shrink-0 text-sm font-black ${!g ? 'text-white/25' : v >= ov ? 'text-emerald-300' : 'text-white/80'}`}>{g ? fmt1(v) : '–'}</span>
+        <span className={`num shrink-0 text-sm font-black ${!g ? 'text-white/25' : isLive ? 'text-gold' : v >= ov ? 'text-emerald-300' : 'text-white/80'}`}>{g ? fmt1(v) : '–'}</span>
       </button>
     );
   };
   const rows = START.flatMap((s) => Array.from({ length: kit.caps[s] ?? 0 }, (_, i) => ({ s, i })));
   return (
     <div className="space-y-3">
-      <Totals a={a} b={b} va={A.stats.pts} vb={B.stats.pts} label={`Expected points ${day === kit.today ? 'tonight' : `on ${monthDay(day)}`} · ${A.stats.playing} and ${B.stats.playing} starters play`} />
+      <Totals a={a} b={b} va={started ? A.scored : A.stats.pts} vb={started ? B.scored : B.stats.pts}
+        label={started ? `Points so far tonight · expected ${fmt1(A.stats.pts)} and ${fmt1(B.stats.pts)}` : `Expected points ${day === kit.today ? 'tonight' : `on ${monthDay(day)}`} · ${A.stats.playing} and ${B.stats.playing} starters play`} />
+      {(() => {
+        const val = (y: Row | undefined) => (!y || !kit.gameFor(y.p.nhl_team, day) ? 0 : kit.expPts(y.p));
+        let won = 0, lost = 0;
+        for (const { s, i } of rows) { const x = val(A.by[s]?.[i]), y = val(B.by[s]?.[i]); if (x > y + 0.05) won++; else if (y > x + 0.05) lost++; }
+        return (
+          <div className="flex items-center justify-between gap-2 rounded-2xl bg-white/[.04] px-3 py-2 text-xs ring-1 ring-white/10">
+            <span><b className="text-emerald-300">{a.gm_name}</b> has the edge in <b className="text-white">{won}</b> of {rows.length} places</span>
+            <span><b className="text-white">{lost}</b> to <b style={{ color: b.color }}>{b.gm_name}</b></span>
+          </div>
+        );
+      })()}
       <div className="card divide-y divide-white/[.05] overflow-hidden">
         {rows.map(({ s, i }) => (
-          <div key={s + i} className="grid grid-cols-[1fr_auto_1fr] items-center gap-2 px-2.5 py-2">
+          <div key={s + i} className="grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-1.5 px-2 py-2">
             {cell(A.by[s]?.[i], false, B.by[s]?.[i])}
             <span className="grid h-6 w-9 place-items-center rounded-lg bg-white/[.06] text-[10px] font-black text-mute">{s}</span>
             {cell(B.by[s]?.[i], true, A.by[s]?.[i])}

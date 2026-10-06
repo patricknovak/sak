@@ -2,12 +2,12 @@
 // game-day status; two taps to move anyone (tap a player, the places he can go light up, tap one); warnings that fix
 // themselves in a tap; and the optimizer as a list of changes with what each is worth, for this day or the days ahead.
 import { useEffect, useMemo, useState } from 'react';
-import { AlertTriangle, ArrowRightLeft, Lock, Sparkles, X } from 'lucide-react';
+import { AlertTriangle, ArrowRightLeft, Copy, FlaskConical, Lock, Sparkles, Trophy, X } from 'lucide-react';
 import { useLeague } from '../../lib/store';
-import { rpc, supabase } from '../../lib/supabase';
+import { rpc } from '../../lib/supabase';
 import { optimize, type Basis, type LContext } from '../../lib/lineup';
 import { injuryBack } from '../../lib/format';
-import { START, addDays, hurt, isStart, longDay, monthDay, type Kit, type Row } from '../../lib/lineupKit';
+import { START, addDays, hurt, isStart, longDay, monthDay, useDayPoints, useLines, type Kit, type Row } from '../../lib/lineupKit';
 import { Headshot, Sheet } from '../ui';
 import { GameStatusChip, NewsDot } from '../GameStatus';
 import { diffMoves, fmt1, GameLine, SlotPill, useSave } from './bits';
@@ -118,24 +118,32 @@ export function OptimizeSheet({ kit, teamId, day, open, onClose, initial = 1 }: 
   );
 }
 
-export function DayView({ kit, teamId, day, readOnly, onInfo }: { kit: Kit; teamId: number; day: string; readOnly: boolean; onInfo: (id: number) => void }) {
+export function DayView({ kit, teamId, day, readOnly, onInfo, onLeague }: { kit: Kit; teamId: number; day: string; readOnly: boolean; onInfo: (id: number) => void; onLeague?: () => void }) {
   const { gameStatus, me } = useLeague();
   const { save, busy } = useSave();
   const [sel, setSel] = useState<Sel>(null);
   const [opt, setOpt] = useState(false);
-  const [live, setLive] = useState<Map<number, number>>(new Map());
+  // tonight's points so far (refreshed every minute while a game is on) and each player's line
+  const { pts: live } = useDayPoints(kit, day);
+  const lines = useLines(kit, [teamId], day);
   const roster = kit.rosterOf(teamId);
-  const { slots, source } = kit.lineupOf(teamId, day);
+  const { slots: saved, source } = kit.lineupOf(teamId, day);
+  // what if: moves stay on this phone until saved, with the difference they make shown as they are tried
+  const [trial, setTrial] = useState<Map<number, string> | null>(null);
+  const [copying, setCopying] = useState(false);
+  const [copyBusy, setCopyBusy] = useState(false);
+  const slots = trial ?? saved;
   const stats = kit.dayStats(teamId, day, slots);
+  const savedStats = kit.dayStats(teamId, day, saved);
   const editable = !readOnly && day >= kit.today && me?.role !== 'spectator';
-  useEffect(() => { setSel(null); }, [day, teamId]);
-  // tonight's points so far, for anyone whose game has started
-  const ids = roster.map((x) => x.p.id).join(',');
-  useEffect(() => {
-    if (day !== kit.today || !ids) { setLive(new Map()); return; }
-    supabase.from('league_games').select('player_id,fpts').eq('date', day).in('player_id', ids.split(',').map(Number))
-      .then(({ data }) => setLive(new Map((data ?? []).map((r) => [r.player_id, Number(r.fpts)]))));
-  }, [day, ids, kit.today]);
+  useEffect(() => { setSel(null); setTrial(null); }, [day, teamId]);
+  const trialMoves = trial ? diffMoves(saved, trial) : [];
+  // where this lineup stands tonight against every other team's, on expected points
+  const rank = useMemo(() => {
+    const all = kit.teams.filter((t) => t.role !== 'spectator').map((t) => ({ id: t.id, pts: t.id === teamId ? stats.pts : kit.dayStats(t.id, day).pts }));
+    all.sort((a, b) => b.pts - a.pts);
+    return { at: all.findIndex((x) => x.id === teamId) + 1, of: all.length };
+  }, [kit, teamId, day, stats.pts]);
   const livePts = roster.reduce((t, x) => t + (isStart(slots.get(x.p.id)) ? live.get(x.p.id) ?? 0 : 0), 0);
 
   const locked = (p: Player) => kit.lockedOn(p, day);
@@ -165,6 +173,7 @@ export function DayView({ kit, teamId, day, readOnly, onInfo }: { kit: Kit; team
     else if (selP && !p) { next.set(selP.id, slot); label = `${selP.last_name ?? selP.name} to ${slot === 'BN' ? 'the bench' : slot}`; }
     else if (selP && p) { next.set(selP.id, slot); next.set(p.id, selSlot!); label = `${selP.last_name ?? selP.name} ⇄ ${p.last_name ?? p.name}`; }
     setSel(null);
+    if (trial) { setTrial(next); return; }
     await save(day, next, slots, label);
   };
 
@@ -195,15 +204,17 @@ export function DayView({ kit, teamId, day, readOnly, onInfo }: { kit: Kit; team
     const can = target(p, slot);
     const dim = !!sel && !isSel && !can;
     const pts = live.has(p.id) && lk ? live.get(p.id)! : null;
+    const moved = !!trial && saved.get(p.id) !== slot;
     return (
       <button type="button" onClick={() => tap(p, slot)}
-        className={`group flex w-full items-center gap-2.5 rounded-2xl px-2.5 py-2 text-left transition ${isSel ? 'bg-gold/15 ring-2 ring-gold' : can ? 'bg-emerald-400/[.08] ring-2 ring-emerald-400/60' : 'ring-1 ring-white/[.06] hover:bg-white/[.04]'} ${dim ? 'opacity-40' : ''} ${!isStart(slot) && !isSel && !can ? 'bg-black/10' : ''}`}>
+        className={`group flex w-full items-center gap-2.5 rounded-2xl px-2.5 py-2 text-left transition ${isSel ? 'bg-gold/15 ring-2 ring-gold' : can ? 'bg-emerald-400/[.08] ring-2 ring-emerald-400/60' : 'ring-1 ring-white/[.06] hover:bg-white/[.04]'} ${dim ? 'opacity-40' : ''} ${!isStart(slot) && !isSel && !can ? 'bg-black/10' : ''} ${moved && !isSel && !can ? '!bg-violet-500/10 !ring-violet-300/40' : ''}`}>
         <SlotPill slot={slot} />
-        <Headshot p={p} size={36} />
+        <span role="button" tabIndex={-1} aria-label={`${p.name}'s card`} onClick={(e) => { e.stopPropagation(); onInfo(p.id); }} className="shrink-0 rounded-full transition hover:ring-2 hover:ring-white/30"><Headshot p={p} size={36} /></span>
         <span className="min-w-0 flex-1">
           <span className="flex flex-wrap items-center gap-x-1.5 gap-y-0.5">
-            <span role="link" tabIndex={-1} onClick={(e) => { e.stopPropagation(); onInfo(p.id); }} className="break-words font-semibold leading-tight text-white hover:underline">{p.name}</span>
+            <span className="break-words font-semibold leading-tight text-white">{p.name}</span>
             {x.r.pin === 'start' && <span title="Pinned to start">📌</span>}{x.r.pin === 'bench' && <span title="Pinned to the bench">🚫</span>}
+            {/^[LD]/.test(lines.get(p.id) ?? '') && <span className={`rounded-md px-1.5 py-px text-[9px] font-black ${lines.get(p.id)!.startsWith('L1') || lines.get(p.id) === 'D1' ? 'bg-gold/20 text-gold' : 'bg-white/[.08] text-slate-300'}`} title={lines.get(p.id)!.startsWith('L') ? `Forward line ${lines.get(p.id)!.slice(1)}, from the shift charts` : `Defence pair ${lines.get(p.id)!.slice(1)}, from the shift charts`}>{lines.get(p.id)}</span>}
             {kit.light(day) && g && isStart(slot) && <span className="rounded-full bg-sky-400/15 px-1.5 py-px text-[9px] font-black uppercase tracking-wider text-sky-200" title="A light night: five games or fewer">Light</span>}
             <GameStatusChip id={p.id} date={day} onClick={() => onInfo(p.id)} /><NewsDot id={p.id} onClick={() => onInfo(p.id)} />
           </span>
@@ -237,16 +248,52 @@ export function DayView({ kit, teamId, day, readOnly, onInfo }: { kit: Kit; team
           </div>
         </div>
         <div className="relative mt-3">
-          <div className="mb-1 flex justify-between text-[11px] text-white/70"><span>{stats.playing} of {stats.slotsTotal} starters play</span>{stats.benched > 0 && <span className="text-amber-200">{stats.benched} benched with a game</span>}</div>
+          <div className="mb-1 flex flex-wrap items-center justify-between gap-x-2 text-[11px] text-white/70">
+            <span>{stats.playing} of {stats.slotsTotal} starters play{stats.benched > 0 && <span className="text-amber-200"> · {stats.benched} benched with a game</span>}</span>
+            {rank.of > 1 && <button type="button" onClick={onLeague} className="inline-flex items-center gap-1 rounded-full bg-black/30 px-2 py-0.5 font-bold text-white ring-1 ring-white/15"><Trophy className="h-3 w-3 text-gold" /> {ordinal(rank.at)} of {rank.of} {day === kit.today ? 'tonight' : 'that day'}</button>}
+          </div>
           <div className="flex h-2 gap-0.5 overflow-hidden rounded-full">
             {Array.from({ length: stats.slotsTotal }, (_, i) => <span key={i} className={`flex-1 ${i < stats.playing ? 'bg-emerald-400' : i < stats.filled ? 'bg-white/25' : 'bg-red-400/60'}`} />)}
           </div>
         </div>
-        {editable && (
+        {editable && !trial && (
           <div className="relative mt-3 flex gap-2">
-            <button type="button" className="btn-gold inline-flex flex-1 items-center justify-center gap-1.5" onClick={() => setOpt(true)}><Sparkles className="h-4 w-4" /> Best lineup</button>
-            {sel && <button type="button" className="btn-ghost inline-flex items-center gap-1" onClick={() => setSel(null)}><X className="h-4 w-4" /> Cancel</button>}
+            <button type="button" className="btn-gold inline-flex flex-1 items-center justify-center gap-1.5 whitespace-nowrap px-3" onClick={() => setOpt(true)}><Sparkles className="h-4 w-4 shrink-0" /> Best lineup</button>
+            <button type="button" className="btn-ghost inline-flex items-center gap-1.5 whitespace-nowrap px-3" onClick={() => { setTrial(new Map(saved)); setSel(null); }} title="Try moves without saving them"><FlaskConical className="h-4 w-4" /> What if</button>
+            <button type="button" aria-label="Copy this lineup ahead" title="Copy this lineup to the days ahead" className={`btn-ghost inline-flex items-center ${copying ? 'ring-1 ring-gold/60' : ''}`} onClick={() => setCopying(!copying)}><Copy className="h-4 w-4" /></button>
+            {sel && <button type="button" className="btn-ghost inline-flex items-center gap-1" onClick={() => setSel(null)}><X className="h-4 w-4" /></button>}
           </div>
+        )}
+        {editable && !trial && copying && (
+          <div className="relative mt-2 rounded-2xl bg-black/25 p-3 ring-1 ring-white/10">
+            <div className="text-xs text-white/80">Use this lineup for the days after {day === kit.today ? 'today' : monthDay(day)}. It replaces any lineup saved for them; IR stays as it is.</div>
+            <div className="mt-2 grid grid-cols-4 gap-1.5">
+              {[1, 3, 7, 14].map((n) => (
+                <button key={n} type="button" disabled={copyBusy} className="rounded-xl bg-white/[.06] py-2 text-xs font-bold text-white ring-1 ring-white/10 hover:bg-white/10"
+                  onClick={async () => {
+                    setCopyBusy(true);
+                    try {
+                      const plan = Object.fromEntries(saved);
+                      await rpc('set_lineup_plans', { p_plans: Object.fromEntries(Array.from({ length: n }, (_, i) => [addDays(day, i + 1), plan])) });
+                      await kit.loadPlans([teamId]);
+                      setCopying(false);
+                    } finally { setCopyBusy(false); }
+                  }}>{n === 1 ? 'Next day' : `Next ${n}`}</button>
+              ))}
+            </div>
+          </div>
+        )}
+        {editable && trial && (
+          <div className="fixed inset-x-0 bottom-[84px] z-40 px-4 md:bottom-6"><div className="mx-auto max-w-md rounded-2xl bg-[#1c1433]/95 p-3 shadow-[0_12px_32px_rgba(0,0,0,.55)] ring-1 ring-violet-300/40 backdrop-blur">
+            <div className="flex items-center gap-2 text-sm text-violet-100">
+              <FlaskConical className="h-4 w-4 shrink-0" />
+              <span className="min-w-0 flex-1">{trialMoves.length ? <>Trying {trialMoves.length} {trialMoves.length === 1 ? 'move' : 'moves'}: <b className={stats.pts - savedStats.pts >= 0 ? 'text-emerald-300' : 'text-red-300'}>{stats.pts - savedStats.pts >= 0 ? '+' : ''}{fmt1(stats.pts - savedStats.pts)}</b> expected</> : 'What if: move anyone, nothing saves until you say.'}</span>
+            </div>
+            <div className="mt-2 flex gap-2">
+              <button type="button" className="btn-gold flex-1" disabled={busy || !trialMoves.length} onClick={async () => { if (await save(day, trial, saved, `${trialMoves.length} ${trialMoves.length === 1 ? 'move' : 'moves'} saved`)) setTrial(null); }}>Save {trialMoves.length || ''}</button>
+              <button type="button" className="btn-ghost" onClick={() => { setTrial(null); setSel(null); }}>Discard</button>
+            </div>
+          </div></div>
         )}
       </div>
 
@@ -259,7 +306,7 @@ export function DayView({ kit, teamId, day, readOnly, onInfo }: { kit: Kit; team
       )}
 
       {editable && (
-        <p className="px-1 text-xs text-mute">{sel ? (sel.kind === 'empty' ? `Tap who goes to ${sel.slot}.` : 'Tap where he goes: the green places fit. Tap him again to let go.') : 'Tap a player, then tap where he goes. Players whose game has started are locked.'}</p>
+        <p className="px-1 text-xs text-mute">{sel ? (sel.kind === 'empty' ? `Tap who goes to ${sel.slot}.` : 'Tap where he goes: the green places fit. Tap him again to let go.') : 'Tap a player, then tap where he goes. Tap his photo for his card. Players whose game has started are locked.'}</p>
       )}
 
       {groups.map((gr) => (
@@ -287,4 +334,5 @@ export function DayView({ kit, teamId, day, readOnly, onInfo }: { kit: Kit; team
   );
 }
 
+const ordinal = (n: number) => { const s = ['th', 'st', 'nd', 'rd'], v = n % 100; return n + (s[(v - 20) % 10] ?? s[v] ?? s[0]); };
 const weekdayLong = (d: string) => new Date(d + 'T12:00:00Z').toLocaleDateString('en-CA', { weekday: 'long', timeZone: 'UTC' });
