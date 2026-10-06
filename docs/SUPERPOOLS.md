@@ -149,8 +149,10 @@ on the site, and the switcher.
 - **P3. Soccer prediction pools.** Fixtures and results from API-Football (provider-neutral tables), gameweek and
   survivor questions settled from results, Premier League and MLS first. *Step 1 built (migrations 148-149, live): the
   `soccer` sports row, shared `competitions`, `clubs` and `fixtures`, the `soccer-sync` adapter on API-Football, a
-  matchweek's result questions added by the host in one tap and settled from the full-time score. Waits on the
-  `API_FOOTBALL_KEY` function secret. Season questions built (migration 156): the Premier League 2026-27 and MLS Cup 2026
+  matchweek's result questions added by the host in one tap and settled from the full-time score. *Live on free data
+  since 6 October 2026 (migration 168): with no API-Football key set, every soccer competition reads ESPN's public
+  scoreboard for testing (provider `espn`); the Premier League's 380 matches and MLS's 511 are in, rounds cut from the
+  schedule. A licensed feed replaces it before anyone pays.* Season questions built (migration 156): the Premier League 2026-27 and MLS Cup 2026
   packs, host-settled and needing no match data, startable from `#/new` today. The survivor built (migration 157, live): "Last one standing" (`#/survivor`), the host
   starts one on a competition; each matchweek every player still in picks one club to win, a club once a season; a
   draw, a loss or no pick is out, a called-off match lets you through and gives the club back; settled by a trigger on

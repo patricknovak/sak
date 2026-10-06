@@ -51,3 +51,79 @@ export function afFixture(x: Any): NeutralFixture {
 export function afClub(x: Any): NeutralClub {
   return { ext_id: String(x.team?.id), name: String(x.team?.name ?? ''), short: x.team?.code ?? null, logo: x.team?.logo ?? null };
 }
+
+// ───────────── ESPN's public scoreboard (for testing; docs/POOL-TYPES.md §8) ─────────────
+// Free and keyless, so pools have real matches while we test; a licensed feed replaces it before anyone pays. The
+// statuses are turned into API-Football's short codes, which the sport's config already maps to our states.
+export const ESPN_SOCCER = 'https://site.api.espn.com/apis/site/v2/sports/soccer';
+
+const ESPN_STATUS: Record<string, string> = {
+  STATUS_SCHEDULED: 'NS', STATUS_DELAYED: 'NS', STATUS_FIRST_HALF: '1H', STATUS_HALFTIME: 'HT', STATUS_SECOND_HALF: '2H',
+  STATUS_IN_PROGRESS: 'LIVE', STATUS_END_OF_REGULATION: 'BT', STATUS_OVERTIME: 'ET', STATUS_EXTRA_TIME: 'ET',
+  STATUS_HALFTIME_ET: 'BT', STATUS_END_OF_EXTRATIME: 'BT', STATUS_SHOOTOUT: 'P', STATUS_FULL_TIME: 'FT', STATUS_FINAL: 'FT',
+  STATUS_FINAL_AET: 'AET', STATUS_FINAL_PEN: 'PEN', STATUS_POSTPONED: 'PST', STATUS_CANCELED: 'CANC', STATUS_ABANDONED: 'ABD',
+  STATUS_SUSPENDED: 'SUSP', STATUS_FORFEIT: 'AWD',
+};
+export function espnStatus(t: Any): string {
+  return ESPN_STATUS[String(t?.name ?? '')] ?? (t?.state === 'pre' ? 'NS' : t?.state === 'in' ? 'LIVE' : t?.completed ? 'FT' : 'NS');
+}
+
+// a club from /teams, or from a fixture's competitor
+export function espnClub(t: Any): NeutralClub {
+  return { ext_id: String(t?.id), name: String(t?.displayName ?? t?.name ?? ''), short: t?.abbreviation ?? null,
+    logo: t?.logo ?? t?.logos?.[0]?.href ?? null };
+}
+
+// one event of /scoreboard; ninety is the score after the two halves when it differs from the final (extra time),
+// read from the match's summary by the caller
+export function espnFixture(e: Any, ninety?: { home: number; away: number } | null): NeutralFixture {
+  const c = e.competitions?.[0] ?? {};
+  const home = (c.competitors ?? []).find((x: Any) => x.homeAway === 'home') ?? {};
+  const away = (c.competitors ?? []).find((x: Any) => x.homeAway === 'away') ?? {};
+  const status = espnStatus(e.status?.type);
+  const started = e.status?.type?.state !== 'pre' && !['PST', 'CANC'].includes(status);
+  const final = ['FT', 'AET', 'PEN', 'AWD'].includes(status);
+  const hs = started ? num(home.score) : null, as = started ? num(away.score) : null;
+  const note = (c.notes ?? []).map((n: Any) => n?.headline).find((h: Any) => /matchday|matchweek|round|final|leg/i.test(String(h ?? ''))) ?? null;
+  const v = c.venue ?? e.venue ?? {};
+  return {
+    ext_id: String(e.id),
+    round: note,
+    gameweek: gameweekOf(note),
+    kickoff: new Date(e.date).toISOString(),
+    status,
+    minute: e.status?.type?.state === 'in' ? num(String(e.status?.displayClock ?? '').match(/^\d+/)?.[0]) : null,
+    home: String(home.team?.id), away: String(away.team?.id),
+    home_club: espnClub(home.team), away_club: espnClub(away.team),
+    home_score: hs, away_score: as,
+    home_ft: final ? (ninety ? ninety.home : hs) : null, away_ft: final ? (ninety ? ninety.away : as) : null,
+    home_pens: num(home.shootoutScore), away_pens: num(away.shootoutScore),
+    venue: v.fullName ? [v.fullName, v.address?.city].filter(Boolean).join(', ') : null,
+  };
+}
+
+// the score after ninety minutes from a match summary's periods (the first two)
+export function espnNinety(summary: Any): { home: number; away: number } | null {
+  const cs = summary?.header?.competitions?.[0]?.competitors ?? [];
+  const side = (h: string) => cs.find((x: Any) => x.homeAway === h)?.linescores;
+  const h = side('home'), a = side('away');
+  if (!h || !a || h.length < 2 || a.length < 2) return null;
+  const sum = (l: Any[]) => Number(l[0]?.displayValue ?? l[0]?.value ?? 0) + Number(l[1]?.displayValue ?? l[1]?.value ?? 0);
+  return { home: sum(h), away: sum(a) };
+}
+
+// ESPN has no matchweek for a league, so the season is cut into rounds: in kickoff order, a match joins the current
+// round unless one of its clubs already plays in it or it starts more than four days after the round's first match.
+// Only matches that don't have a round yet take one, so a postponement never renumbers a round pools already use.
+export function assignRounds(fx: NeutralFixture[]): Map<string, number> {
+  const out = new Map<string, number>();
+  const live = fx.filter((f) => !['CANC', 'ABD'].includes(f.status)).sort((a, b) => a.kickoff.localeCompare(b.kickoff));
+  let n = 0, start = 0, clubs = new Set<string>();
+  for (const f of live) {
+    const t = Date.parse(f.kickoff);
+    if (!n || clubs.has(f.home) || clubs.has(f.away) || t - start > 4 * 864e5) { n++; start = t; clubs = new Set(); }
+    clubs.add(f.home); clubs.add(f.away);
+    out.set(f.ext_id, n);
+  }
+  return out;
+}
