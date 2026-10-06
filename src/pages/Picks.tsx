@@ -351,7 +351,7 @@ export default function Picks() {
 
   return (
     <div className="space-y-5 pb-10">
-      <PageHeader icon={<Icon className="h-6 w-6 text-gold" />} title={board.title} sub={`${board.competition_name} · ${sub}`} />
+      <PageHeader icon={<Icon className="h-6 w-6 text-gold" />} title={board.title} sub={`${board.competition_name} · ${sub}`} right={<Link to="/sport/mlb" className="text-xs font-semibold text-sky-300">Scores and bracket →</Link>} />
       {games && games.length > 1 && (
         <div className="scroll-x flex gap-1.5">
           {games.map((g) => { const I = ICON[g.kind]; return (
