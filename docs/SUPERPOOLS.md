@@ -192,6 +192,10 @@ give the pool a home for following the sport):**
 - **P8. Sport centres.** `/sport/<sport>` from NHL centre's pattern: today's games with the series state, the line
   score, the bracket or the table, schedule, injuries, leaders, odds, and the pool's ribbon on every game; one
   `sport-hub` function with an adapter per sport. MLB first (October), then the NFL, soccer and the NBA.
+  *MLB centre built (6 October 2026, `#/sport/mlb`, `src/pages/SportCentre.tsx`): the scoreboard day by day with the
+  line score by inning, R/H/E, the inning and outs live, probable pitchers and the series status, and the bracket from the
+  round in play; the pool's picks and split on every series. It reads the shared tables mlb-sync fills, every minute
+  while a game is on, so it needed no new function.*
 - **P9. The World Series test.** By 10 October: series pick'em and rank the teams for the LCS and the World Series,
   through the new start; by 22 October: World Series squares and MLB centre's first version. Patrick's first World
   Series pool (league 4) was archived on 5 October so his new one starts from the beginning. MLB's data is a decision

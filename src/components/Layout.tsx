@@ -126,6 +126,8 @@ export function Layout({ children }: { children: ReactNode }) {
   ];
   const moreItems: Item[] = (pool ? [
     ...(runs.games && poolQuestions ? [{ to: '/leaders', label: 'Leaders', icon: Crown }] : []),
+    // the sport centre for the pool's games (baseball's postseason first)
+    ...(runs.games ? [{ to: '/sport/mlb', label: 'MLB centre', icon: Tv }] : []),
     ...(runs.predictor ? [{ to: '/predictor', label: 'Call the score', icon: Target }] : []),
     ...(runs.survivor ? [{ to: '/survivor', label: 'Last one standing', icon: Shield }] : []),
     { to: '/pools', label: 'My pools', icon: Layers },
