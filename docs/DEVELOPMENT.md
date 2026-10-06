@@ -78,7 +78,8 @@ results of his own past calls, and what the wider pool knows.
 `docs/SUPERPOOLS.md` P1 to P5). The engine lands as migration 145 with its two-league flow-test section; the Love Is
 Blind pool opens before the 14 October premiere; soccer prediction pools follow on API-Football. **Added 5 October 2026 (Patrick): sports pools ask which kind of pool, and each sport gets a centre**
 (`docs/POOL-TYPES.md`, `docs/SUPERPOOLS.md` P6 to P9). The World Series is the test: the pool-games engine with series
-pick'em and rank the teams before the LCS (11 October), squares and MLB centre before the World Series (23 October).
+pick'em and rank the teams before the LCS (11 October), squares and MLB centre before the World Series (23 October);
+squares landed 6 October (migration 167).
 The items below
 continue alongside: the shadow-league gate runs to 10 October, Cloudflare hosting finishes with the landing page.
 

@@ -202,6 +202,11 @@ give the pool a home for following the sport):**
   through the new start; by 22 October: World Series squares and MLB centre's first version. Patrick's first World
   Series pool (league 4) was archived on 5 October so his new one starts from the beginning. MLB's data is a decision
   (`docs/POOL-TYPES.md` §8): host-settled for the test is the recommendation.
+  *Squares built 6 October (migration 167):* a grid on any series still to start (by default the World Series), 10×10
+  or 5×5, a price per square in coins, paid after the 3rd, the 6th and the final of every game (or the final only),
+  digits drawn from a recorded seed when the grid fills or at Game 1's first pitch, once or fresh each game. The pot is
+  split over the games the series can run to; the last final takes what is left; an empty square passes its coins to
+  the next claimed one. Paid by `sport_ingest` as the feed lands (`pool_square_pays`), the hourly pool job as a backstop.
 
 Then the list below, which is the fantasy-league plan of record.
 

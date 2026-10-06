@@ -287,7 +287,7 @@ start runs from the beginning.
 | 10 October | `pool_games` and `pool_picks`; `series` with the LCS and World Series rows; "Pick the series" (winner and length, points 2-4-8 by round, +2 for the length with the right winner, picks hidden until each Game 1, the split shown after); the three-step start for the World Series; the questions pack as a second game | series pick'em |
 | 10 October | "Rank the teams" over the teams left, scored per game won | confidence by team |
 | 11 October | The pool runs on the LCS: the series cards, the table, max possible points, alerts | |
-| 22 October | World Series squares (a grid per game or one for the series, 3rd, 6th and final; coins in, the pot out; digits drawn when the grid is full) | squares |
+| 22 October | World Series squares (a grid per game or one for the series, 3rd, 6th and final; coins in, the pot out; digits drawn when the grid is full). **Built 6 October, migration 167:** one grid per series, 10×10 or 5×5, one draw or fresh digits each game, the pot split over the games a series can run to | squares |
 | 22 October | MLB centre, first version: today's games with the series state, the line score, probable pitchers, the bracket | sport centre |
 | 23-31 October | The World Series: the series pick, the squares, the prop sheet per game; "what you need to win" from the World Series' outcomes | |
 

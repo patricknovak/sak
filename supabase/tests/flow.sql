@@ -3868,3 +3868,116 @@ select pg_temp.expect('nor list the games', pool_games_list() = '[]'::jsonb);
 reset role;
 select set_config('request.jwt.claim.sub', '', false);
 select 'pool games', true;
+
+-- ───────────── squares (migration 167) ─────────────
+-- Pod Squad puts a 5 by 5 grid on a best-of-3 (fresh digits each game, 10 coins a square, 20 each at most) and a
+-- 10 by 10 grid on a one-game playoff that only Lou plays.
+reset role;
+select set_config('request.jwt.claim.sub', '', false);
+select set_config('app.league_id', '', false);
+select sport_ingest('mlb-post-2026', jsonb_build_object('series', jsonb_build_array(
+  jsonb_build_object('ext_id', 'T_X1', 'round', 4, 'label', 'Exhibition Series', 'short', 'EX', 'best_of', 3, 'high', '903', 'low', '904', 'starts_at', now() + interval '1 day'),
+  jsonb_build_object('ext_id', 'T_X2', 'round', 4, 'label', 'One-Game Playoff', 'short', 'OGP', 'best_of', 1, 'high', '901', 'low', '906', 'starts_at', now() + interval '2 days'))));
+select id as x1 from series where ext_id = 'T_X1' \gset
+select id as x2 from series where ext_id = 'T_X2' \gset
+insert into coin_ledger (team_id, amount, reason) values (:hana, 1000, 'squares test'), (:fern, 1000, 'squares test'), (:lou, 1000, 'squares test');
+select _coins_free(:fern) as fern0 \gset
+select _coins_free(:hana) as hana0 \gset
+select set_config('app.league_id', :'lib', false);
+select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-000000000081', false);
+set role authenticated;
+select pg_temp.raises('a grid is 10 or 5 squares a side', format('select pool_game_start(%L, %L, %L)', 'squares', 'mlb-post-2026', jsonb_build_object('series', :x1, 'size', 7)), 'A grid is');
+select pg_temp.raises('with more than one series left in the last round, the host picks one', $$select pool_game_start('squares', 'mlb-post-2026')$$, 'Pick the series');
+select pool_game_start('squares', 'mlb-post-2026', jsonb_build_object('series', :x1, 'size', 5, 'cost', 10, 'cap', 20, 'digits', 'each')) as qg \gset
+select pool_game_start('squares', 'mlb-post-2026', jsonb_build_object('series', :x2, 'cost', 10)) as qg2 \gset
+select pg_temp.expect('the grid takes its series'' name and the chat hears the price', (select title = 'Exhibition Series squares' and rules->>'pays' = 'innings' from pool_games where id = :qg)
+  and exists (select 1 from messages where league_id = :lib and body like '🔲 Exhibition Series squares are open: 10 coins a square, 25 squares with two digits a side.%'));
+select pg_temp.raises('one grid on a series', format('select pool_game_start(%L, %L, %L)', 'squares', 'mlb-post-2026', jsonb_build_object('series', :x1)), 'already runs');
+reset role;
+select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-000000000082', false);
+set role authenticated;
+select pg_temp.expect('Fern claims two squares for 20 coins', (pool_squares_claim(:qg, array['sq:0:0', 'sq:0:1'])->>'coins')::int = 20);
+reset role;
+select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-000000000081', false);
+set role authenticated;
+select pg_temp.raises('a square has one owner', format('select pool_squares_claim(%s, array[%L])', :qg, 'sq:0:0'), 'already');
+select pg_temp.raises('and is on the grid', format('select pool_squares_claim(%s, array[%L])', :qg, 'sq:5:0'), 'No such square');
+select pg_temp.expect('Hana lets the grid pick ten', jsonb_array_length(pool_squares_claim(:qg, null, 10)->'claimed') = 10);
+select pg_temp.raises('up to the cap', format('select pool_squares_claim(%s, null, 11)', :qg), 'Up to 20 squares each');
+reset role;
+select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-000000000082', false);
+set role authenticated;
+select pg_temp.expect('a square goes back for its coins before the draw', pool_squares_release(:qg, array['sq:0:1']) = 1);
+select pg_temp.expect('the grid shows every claim and the pot, and no digits yet', (select (b->>'claimed')::int = 11 and (b->>'pot')::int = 110 and b->'draw' = 'null'::jsonb and b->>'pay_when' = 'innings'
+  and not (b->>'locked')::boolean and jsonb_array_length(b->'claims') = 11 from (select pool_game_board(:qg)->'squares' b) z));
+reset role;
+select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-000000000086', false);
+set role authenticated;
+select pg_temp.expect('Lou has a grid waiting on him', (select (x->>'to_pick')::int = 1 from jsonb_array_elements(pool_games_list()) x where (x->>'id')::bigint = :qg));
+select pg_temp.expect('Lou takes the one square on the other grid', (pool_squares_claim(:qg2, array['sq:5:5'])->>'coins')::int = 10);
+reset role;
+select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-000000000082', false);
+set role authenticated;
+select pg_temp.expect('the last fourteen squares fill the grid', (pool_squares_claim(:qg, null, 14)->>'full')::boolean);
+select pg_temp.raises('then the grid is closed', format('select pool_squares_claim(%s, null, 1)', :qg), 'digits are drawn');
+select pg_temp.raises('and nothing goes back', format('select pool_squares_release(%s, array[%L])', :qg, 'sq:0:0'), 'digits are drawn');
+reset role;
+select pg_temp.expect('a full grid draws its digits at once: a set per game, each 0 to 9 once, and anyone can check them from the seed',
+  (select draw->>'why' = 'full' and (draw->>'pot')::int = 250 and jsonb_array_length(draw->'sets') = 3
+     and (select array_agg(v::int order by v::int) from jsonb_array_elements_text(draw->'sets'->0->'top') v) = array[0,1,2,3,4,5,6,7,8,9]
+     and draw->'sets'->1->'side' = to_jsonb(_squares_digits(draw->>'seed', 2, 'side'))
+   from pool_games where id = :qg)
+  and exists (select 1 from messages where league_id = :lib and body like '🎲 The digits are drawn for Exhibition Series squares, the grid is full: 25 squares, a pot of 250 coins.%'));
+select pg_temp.expect('the coins went in', _coins_free(:fern) = :fern0 - 150 and _coins_free(:hana) = :hana0 - 100);
+-- Game 1: tied 2-2 after three, the top of the 4th under way
+select sport_ingest('mlb-post-2026', jsonb_build_object('fixtures', jsonb_build_array(
+  jsonb_build_object('ext_id', 'x1g1', 'series', 'T_X1', 'game_no', 1, 'kickoff', now() - interval '1 hour', 'state', 'live', 'home', '903', 'away', '904', 'home_score', 2, 'away_score', 2,
+    'periods', jsonb_build_array(jsonb_build_object('n', 1, 'home', 1, 'away', 0), jsonb_build_object('n', 2, 'home', 0, 'away', 2), jsonb_build_object('n', 3, 'home', 1, 'away', 0),
+      jsonb_build_object('n', 4, 'home', null, 'away', 0))))));
+select pg_temp.expect('after the 3rd: 2-2 names a square and it takes 25% of the game''s third of the pot',
+  (select count(*) = 1 and min(coins) = 20 and min(point) = 3 and min(top_runs) = 2 and min(side_runs) = 2 and bool_and(paid_cell = cell and team_id is not null)
+   from pool_square_pays where game_id = :qg)
+  and (select sum(amount) from coin_ledger where reason = 'Squares: Exhibition Series squares · Game 1, after the 3rd') = 20
+  and exists (select 1 from messages where league_id = :lib and body like '🔲 Game 1, after the 3rd: CAM 2, DOV 2.%takes 20 coins.'));
+select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-000000000082', false);
+set role authenticated;
+select pg_temp.expect('while it''s on, the board shows the square leading', (select g->'now'->>'cell' is not null and g->'now'->>'to' = g->'now'->>'cell'
+  from jsonb_array_elements(pool_game_board(:qg)->'squares'->'games') g where (g->>'game_no')::int = 1));
+reset role;
+-- Camden win Game 1 5-3 and Game 2 4-1: the series ends in two, and the last final takes what the third game would have paid
+select sport_ingest('mlb-post-2026', jsonb_build_object('fixtures', jsonb_build_array(
+  jsonb_build_object('ext_id', 'x1g1', 'series', 'T_X1', 'game_no', 1, 'kickoff', now() - interval '1 hour', 'state', 'final', 'home', '903', 'away', '904', 'home_score', 5, 'away_score', 3,
+    'periods', (select jsonb_agg(jsonb_build_object('n', i, 'home', (array[1,0,1,0,2,0,1,0,null])[i], 'away', (array[0,2,0,0,0,1,0,0,0])[i])) from generate_series(1, 9) i)))));
+select pg_temp.expect('Game 1 pays its 6th and its final', (select count(*) = 3 and sum(coins) = 81 from pool_square_pays where game_id = :qg)
+  and (select top_runs = 4 and side_runs = 3 from pool_square_pays where game_id = :qg and point = 6)
+  and (select top_runs = 5 and side_runs = 3 and coins = 41 from pool_square_pays where game_id = :qg and point = 0));
+select sport_ingest('mlb-post-2026', jsonb_build_object('fixtures', jsonb_build_array(
+  jsonb_build_object('ext_id', 'x1g2', 'series', 'T_X1', 'game_no', 2, 'kickoff', now() - interval '10 minutes', 'state', 'final', 'home', '904', 'away', '903', 'home_score', 1, 'away_score', 4,
+    'periods', (select jsonb_agg(jsonb_build_object('n', i, 'away', (array[0,0,2,0,0,1,1,0,0])[i], 'home', (array[0,1,0,0,0,0,0,0,0])[i])) from generate_series(1, 9) i)))));
+select pg_temp.expect('the series is over in two: the whole pot is paid and the grid is done',
+  (select sum(coins) = 250 and count(*) = 6 from pool_square_pays where game_id = :qg)
+  and (select coins = 250 - 81 - 40 from pool_square_pays p join fixtures f on f.id = p.fixture_id where p.game_id = :qg and f.game_no = 2 and p.point = 0)
+  and (select top_runs = 2 and side_runs = 1 from pool_square_pays p join fixtures f on f.id = p.fixture_id where p.game_id = :qg and f.game_no = 2 and p.point = 3)
+  and (select status = 'done' and cardinality(winners) >= 1 from pool_games where id = :qg)
+  and exists (select 1 from messages where league_id = :lib and body like '🏆 Exhibition Series squares are done:%'));
+select pg_temp.expect('every coin in came back out, and the table counts them', (select sum(amount) from coin_ledger where reason like 'Squares%Exhibition Series squares%') = 0
+  and (select sum(points) from _pool_game_table(:qg)) = 250);
+-- the one-game playoff: the first pitch draws Lou's grid; whatever squares the score names, his is the only claimed one
+select sport_ingest('mlb-post-2026', jsonb_build_object('fixtures', jsonb_build_array(
+  jsonb_build_object('ext_id', 'x2g1', 'series', 'T_X2', 'game_no', 1, 'kickoff', now() - interval '1 minute', 'state', 'live', 'home', '901', 'away', '906', 'home_score', 0, 'away_score', 0))));
+select pg_temp.expect('the first pitch draws a grid that isn''t full', (select draw->>'why' = 'first pitch' and (draw->>'pot')::int = 10 and jsonb_array_length(draw->'sets') = 1 from pool_games where id = :qg2));
+select sport_ingest('mlb-post-2026', jsonb_build_object('fixtures', jsonb_build_array(
+  jsonb_build_object('ext_id', 'x2g1', 'series', 'T_X2', 'game_no', 1, 'kickoff', now() - interval '1 minute', 'state', 'final', 'home', '901', 'away', '906', 'home_score', 7, 'away_score', 3,
+    'periods', (select jsonb_agg(jsonb_build_object('n', i, 'home', (array[3,0,0,1,0,2,0,1,null])[i], 'away', (array[0,1,0,0,2,0,0,0,0])[i])) from generate_series(1, 9) i)))));
+select pg_temp.expect('an empty square passes its coins along to the next claimed one: Lou takes 2, 2 and the last 6',
+  (select array_agg(coins order by case when point = 0 then 99 else point end) = array[2, 2, 6] and bool_and(team_id = :lou and paid_cell = 'sq:5:5')
+   from pool_square_pays where game_id = :qg2)
+  and (select status = 'done' and winners = array[:lou] from pool_games where id = :qg2));
+-- another league can't touch it
+select set_config('app.league_id', '', false);
+select pg_temp.as_team(2);
+set role authenticated;
+select pg_temp.raises('another league can''t claim a square', format('select pool_squares_claim(%s, array[%L])', :qg2, 'sq:0:0'));
+reset role;
+select set_config('request.jwt.claim.sub', '', false);
+select 'squares', true;

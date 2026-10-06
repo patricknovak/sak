@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { FunctionsHttpError } from '@supabase/supabase-js';
-import { Check, Lock, Plus, Sparkles } from 'lucide-react';
+import { Check, Plus, Sparkles } from 'lucide-react';
 import { rpc, setRemember, supabase } from '../lib/supabase';
 import { openPool } from '../lib/host';
 import { useLeague } from '../lib/store';
@@ -9,8 +9,8 @@ import { Spinner } from '../components/ui';
 import { themed } from '../components/LeagueIdentity';
 import { ProductMark } from './Start';
 import { type Pack, packName, packPlaceholder, packWhen } from '../lib/packs';
-import { KINDS, PRESETS, presetExample, type GameKind, type PoolEvent, type SeriesPreset } from '../lib/poolGames';
-import { lockText } from './Picks';
+import { KINDS, PRESETS, SQUARES_DEFAULT, gridFor, gridLabel, presetExample, type GameKind, type PoolEvent, type SeriesPreset, type SquaresRules } from '../lib/poolGames';
+import { SquaresKnobs, lockText } from './Picks';
 
 // "Start a pool" (#/new), open to anyone, in steps (docs/POOL-TYPES.md §4): what are you following (a sports event open
 // now, a show's question pack, or anything else), what kind of pool (for a sport: pick the series, rank the teams, the
@@ -50,6 +50,8 @@ export default function NewPool() {
   const [following, setFollowing] = useState<Following>(null);
   const [kinds, setKinds] = useState<(GameKind | 'questions')[]>(['series', 'questions']);
   const [preset, setPreset] = useState<SeriesPreset>('classic');
+  const [grid, setGrid] = useState<Omit<SquaresRules, 'series'>>(SQUARES_DEFAULT);
+  const [gridOn, setGridOn] = useState<number | null>(null);
   const [color, setColor] = useState<string>(SWATCHES[0]);
   const [pool, setPool] = useState('');
   const [name, setName] = useState('');
@@ -92,7 +94,11 @@ export default function NewPool() {
   };
   // the pack the pool opens with: the one chosen, or the event's own when its questions are ticked
   const openPack = event ? (kinds.includes('questions') ? event.pack : null) : following?.type === 'pack' ? following.slug : null;
-  const gamesPayload = games.map((k) => ({ kind: k, competition: event!.competition, rules: k === 'series' ? { preset } : {} }));
+  // squares go on the series chosen, by default the event's last one still to come
+  const gridSeries = event ? (event.grids ?? []).find((g) => g.id === gridOn) ?? gridFor(event) : null;
+  const offered: GameKind[] = event ? [...event.kinds, ...(gridSeries ? ['squares' as const] : [])] : [];
+  const gamesPayload = games.filter((k) => k !== 'squares' || gridSeries).map((k) => ({ kind: k, competition: event!.competition,
+    rules: k === 'series' ? { preset } : k === 'squares' ? { ...grid, series: gridSeries!.id } : {} }));
   const startGames = async (id: number) => { if (gamesPayload.length) await rpc('pool_start_games', { p_league: id, p_games: gamesPayload }); };
   const okEmail = /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email.trim());
   const member = !!session && !!me;
@@ -176,10 +182,10 @@ export default function NewPool() {
             {event && (
               <Step n={2} title="What kind of pool?">
                 <div className="grid gap-2">
-                  {[...event.kinds.map((k) => ({ key: k as GameKind | 'questions', ...KINDS[k], sub: `${KINDS[k].line} ${KINDS[k].time}.` })),
+                  {[...offered.map((k) => ({ key: k as GameKind | 'questions', ...KINDS[k], sub: `${KINDS[k].line} ${KINDS[k].time}.` })),
                     ...(eventPack ? [{ key: 'questions' as const, title: 'The questions', badge: 'In coins', emoji: '🔮', sub: `${eventPack.questions} questions on the ${event.final_label.replace(/^(AL|NL) /, '')} and the pennants, priced like a market: buy what you believe, sell if you change your mind.`, time: '', line: '' }] : [])].map((k) => {
                     const on = kinds.includes(k.key);
-                    const main = on && kinds.filter((x) => (event.kinds as string[]).includes(x) || x === 'questions')[0] === k.key;
+                    const main = on && kinds.filter((x) => (offered as string[]).includes(x) || x === 'questions')[0] === k.key;
                     return (
                       <button key={k.key} type="button" onClick={() => toggle(k.key)}
                         className={`flex items-start gap-3 rounded-2xl border p-3 text-left transition ${on ? 'border-white/40 bg-white/[.08]' : 'border-white/10 bg-white/[.03] hover:bg-white/[.06]'}`}>
@@ -194,12 +200,6 @@ export default function NewPool() {
                       </button>
                     );
                   })}
-                  {event.sport === 'mlb' && (
-                    <div className="flex items-start gap-3 rounded-2xl border border-dashed border-white/10 p-3 opacity-70">
-                      <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-white/[.05] text-xl">🔢</span>
-                      <span className="min-w-0 flex-1"><span className="flex items-center gap-2 font-semibold text-white">World Series squares <Lock size={13} className="text-white/50" /></span><span className="block text-xs text-white/60">A 10×10 grid of scores, paid after the 3rd, 6th and the final out. Opens once the {event.final_label} matchup is set; the host adds it then.</span></span>
-                    </div>
-                  )}
                 </div>
                 {!kinds.length && <p className="mt-2 text-xs text-amber-200">Pick at least one.</p>}
               </Step>
@@ -216,8 +216,15 @@ export default function NewPool() {
               </Step>
             )}
 
+            {event && gridSeries && kinds.includes('squares') && (
+              <Step n={kinds.includes('series') ? 4 : 3} title="The grid">
+                <SquaresKnobs dark grids={event.grids ?? []} on={gridSeries.id} setOn={setGridOn} grid={grid} setGrid={setGrid} />
+                <p className="mt-2 rounded-xl bg-white/[.05] px-3 py-2 text-xs leading-snug text-white/70">{gridLabel(gridSeries)}. Members claim squares with their coins until the grid fills or Game 1 starts; then the digits are drawn from a seed anyone can check.</p>
+              </Step>
+            )}
+
             {following && (
-            <Step n={event ? (kinds.includes('series') ? 4 : 3) : 2} title="Name it">
+            <Step n={event ? 3 + Number(kinds.includes('series')) + Number(kinds.includes('squares') && !!gridSeries) : 2} title="Name it">
             <div className="space-y-4">
             <label className="block"><span className="sr-only">Name your pool</span>
               <input className="input w-full" value={pool} onChange={(e) => setPool(e.target.value)} maxLength={40} placeholder={packPlaceholder(event ? event.pack : chosen?.slug)} /></label>

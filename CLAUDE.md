@@ -58,7 +58,8 @@ Two things in one repo:
   provider: ESPN's public scoreboard for testing, `espn`, migration 168, or API-Football with `API_FOOTBALL_KEY`;
   `?task=fixtures|live`, platform key only), `mlb-sync` (baseball's postseason from MLB's
   public Stats API into `series`, `fixtures` and `fixture_periods` through `sport_ingest`; platform key only; for testing, a
-  licensed feed replaces it, docs/POOL-TYPES.md §8). Shared code in `supabase/functions/_shared`.
+  licensed feed replaces it, docs/POOL-TYPES.md §8; `sport_ingest` ends by drawing and paying any grid of squares on the
+  event, `_squares_tick`, migration 167). Shared code in `supabase/functions/_shared`.
 - Scheduler: pg_cron jobs call the edge functions through pg_net with the anon key. Job names: nhl-scores
   (gated by `_scores_due()`), nhl-gameday, nhl-injuries, nhl-schedule, season-schedule, nhl-news,
   nhl-players, nhl-players-pregame, nhl-standings, nhl-corrections, nhl-corrections-deep, projections,

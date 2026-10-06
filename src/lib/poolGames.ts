@@ -1,14 +1,32 @@
-// The kinds of sports pool a host can start (docs/POOL-TYPES.md §2, migration 165), in words: what each is, how long
-// it takes, and the scoring presets. The start page and the Host page read the same list.
+// The kinds of sports pool a host can start (docs/POOL-TYPES.md §2, migrations 165 and 167), in words: what each is,
+// how long it takes, and the scoring presets. The start page and the Host page read the same list.
 
-export type GameKind = 'series' | 'rank';
+export type GameKind = 'series' | 'rank' | 'squares';
 export type SeriesPreset = 'classic' | 'flat' | 'exact';
 
 export interface PoolEvent {
   competition: string; sport: string; name: string; pack: string | null; stage: string | null;
   open_round: number; open_label: string; next_lock: string | null; final_round: number; final_label: string; final_starts: string | null;
   kinds: GameKind[];
+  // the series a grid of squares can still go on, last round first
+  grids?: Grid[];
 }
+export interface Grid { id: number; round: number; label: string; short: string | null; best_of: number; starts_at: string | null; tbd: boolean; high: string | null; low: string | null }
+
+// a grid's knobs, as the host chooses them
+export interface SquaresRules { series: number; size: 5 | 10; cost: number; cap: number; pays: 'innings' | 'final'; digits: 'once' | 'each' }
+export const SQUARES_DEFAULT: Omit<SquaresRules, 'series'> = { size: 10, cost: 10, cap: 0, pays: 'innings', digits: 'once' };
+export const SIZES: { key: 5 | 10; label: string; line: string }[] = [
+  { key: 10, label: '10 × 10', line: '100 squares, one digit a side: the classic, for a big group.' },
+  { key: 5, label: '5 × 5', line: '25 squares, two digits a side: better odds each, made for a small group.' },
+];
+export const PAYS: { key: 'innings' | 'final'; label: string; line: string }[] = [
+  { key: 'innings', label: '3rd, 6th, final', line: 'Each game pays three times: 25% after the 3rd, 25% after the 6th, 50% on the final score.' },
+  { key: 'final', label: 'Final score', line: 'Each game pays once, on its final score.' },
+];
+// the grid on an event's last series when it has one, else the first still to come
+export const gridFor = (e: PoolEvent) => (e.grids ?? []).find((g) => g.round === e.final_round) ?? e.grids?.[0] ?? null;
+export const gridLabel = (g: Grid) => (g.high && g.low ? `${g.label}: ${g.high} v ${g.low}` : `${g.label}, matchup to be set`);
 
 export const KINDS: Record<GameKind, { title: string; badge: string; line: string; time: string; emoji: string }> = {
   series: {
@@ -20,6 +38,11 @@ export const KINDS: Record<GameKind, { title: string; badge: string; line: strin
     title: 'Rank the teams', badge: 'Easiest', emoji: '📊',
     line: 'Put the clubs in order once. Your top club is worth the most for every game it wins, all the way to the trophy.',
     time: 'One minute, once',
+  },
+  squares: {
+    title: 'Squares', badge: 'Pure luck', emoji: '🔢',
+    line: 'Claim squares on a grid with coins. The digits are drawn when it fills; the last digit of each club’s runs names the winning square after the 3rd, the 6th and the final of every game.',
+    time: 'Ten seconds',
   },
 };
 

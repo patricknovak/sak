@@ -6,6 +6,8 @@
 export interface Change { date: string; icon: string; title: string; body: string; to?: string; tag?: 'formats' | 'commish' | 'draft' | 'everyone' }
 
 export const CHANGELOG: Change[] = [
+  { date: '2026-10-06', icon: '🔢', tag: 'everyone', title: 'Squares for the World Series', to: '/picks',
+    body: 'A pool can run a grid of squares on a baseball series: claim squares with your coins (or let the grid pick for you), and once the grid fills or Game 1 starts, the digits are drawn for each club. The last digit of each club\'s runs names the winning square after the 3rd, the 6th and the final of every game, and the pot pays out as it happens. 10 by 10 for a big group, 5 by 5 for a small one; the draw comes with a seed anyone can check. The host starts one from the Host page or when starting a pool.' },
   { date: '2026-10-06', icon: '⚾', tag: 'everyone', title: 'MLB centre for baseball pools', to: '/sport/mlb',
     body: 'A pool that runs Pick the series has its own sports page: every postseason game day by day, live with the inning and the outs, the line score by inning with runs, hits and errors, the probable pitchers before first pitch, and the bracket round by round with each series as it stands. Your pick shows on every series, and the pool\'s split once a series starts. It moves every minute while games are on.' },
   { date: '2026-10-06', icon: '🏆', tag: 'everyone', title: 'Lineup New: the whole league, live, and what if', to: '/lineup-new',
