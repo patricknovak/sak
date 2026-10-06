@@ -6,6 +6,8 @@
 export interface Change { date: string; icon: string; title: string; body: string; to?: string; tag?: 'formats' | 'commish' | 'draft' | 'everyone' }
 
 export const CHANGELOG: Change[] = [
+  { date: '2026-10-06', icon: '⚾', tag: 'everyone', title: 'MLB centre for baseball pools', to: '/sport/mlb',
+    body: 'A pool that runs Pick the series has its own sports page: every postseason game day by day, live with the inning and the outs, the line score by inning with runs, hits and errors, the probable pitchers before first pitch, and the bracket round by round with each series as it stands. Your pick shows on every series, and the pool\'s split once a series starts. It moves every minute while games are on.' },
   { date: '2026-10-06', icon: '🏆', tag: 'everyone', title: 'Lineup New: the whole league, live, and what if', to: '/lineup-new',
     body: 'A League tab puts every team\'s lineup for a night on one board, ranked by what it should score and, once the puck drops, by what it has scored, with who left players with a game on the bench; a week view adds up the next seven days. The day view says where your lineup ranks tonight, shows each player\'s line from the shift charts (L1, D2), moves live points every minute while games are on, and has What if: try moves without saving, see the difference, then save or throw them away. Compare counts the places each side has the edge and shows live points. Played days on the date strip show what you scored. Tap a player\'s photo for his card; tap anywhere else on the row to move him.' },
   { date: '2026-10-05', icon: '✨', tag: 'everyone', title: 'Lineup New, to try beside the old one', to: '/lineup-new',
