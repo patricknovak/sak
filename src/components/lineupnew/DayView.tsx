@@ -2,7 +2,7 @@
 // game-day status; two taps to move anyone (tap a player, the places he can go light up, tap one); warnings that fix
 // themselves in a tap; and the optimizer as a list of changes with what each is worth, for this day or the days ahead.
 import { useEffect, useMemo, useState } from 'react';
-import { AlertTriangle, ArrowRightLeft, FlaskConical, Lock, Sparkles, Trophy, X } from 'lucide-react';
+import { AlertTriangle, ArrowRightLeft, Copy, FlaskConical, Lock, Sparkles, Trophy, X } from 'lucide-react';
 import { useLeague } from '../../lib/store';
 import { rpc } from '../../lib/supabase';
 import { optimize, type Basis, type LContext } from '../../lib/lineup';
@@ -130,6 +130,8 @@ export function DayView({ kit, teamId, day, readOnly, onInfo, onLeague }: { kit:
   const { slots: saved, source } = kit.lineupOf(teamId, day);
   // what if: moves stay on this phone until saved, with the difference they make shown as they are tried
   const [trial, setTrial] = useState<Map<number, string> | null>(null);
+  const [copying, setCopying] = useState(false);
+  const [copyBusy, setCopyBusy] = useState(false);
   const slots = trial ?? saved;
   const stats = kit.dayStats(teamId, day, slots);
   const savedStats = kit.dayStats(teamId, day, saved);
@@ -256,9 +258,29 @@ export function DayView({ kit, teamId, day, readOnly, onInfo, onLeague }: { kit:
         </div>
         {editable && !trial && (
           <div className="relative mt-3 flex gap-2">
-            <button type="button" className="btn-gold inline-flex flex-1 items-center justify-center gap-1.5" onClick={() => setOpt(true)}><Sparkles className="h-4 w-4" /> Best lineup</button>
-            <button type="button" className="btn-ghost inline-flex items-center gap-1.5" onClick={() => { setTrial(new Map(saved)); setSel(null); }} title="Try moves without saving them"><FlaskConical className="h-4 w-4" /> What if</button>
+            <button type="button" className="btn-gold inline-flex flex-1 items-center justify-center gap-1.5 whitespace-nowrap px-3" onClick={() => setOpt(true)}><Sparkles className="h-4 w-4 shrink-0" /> Best lineup</button>
+            <button type="button" className="btn-ghost inline-flex items-center gap-1.5 whitespace-nowrap px-3" onClick={() => { setTrial(new Map(saved)); setSel(null); }} title="Try moves without saving them"><FlaskConical className="h-4 w-4" /> What if</button>
+            <button type="button" aria-label="Copy this lineup ahead" title="Copy this lineup to the days ahead" className={`btn-ghost inline-flex items-center ${copying ? 'ring-1 ring-gold/60' : ''}`} onClick={() => setCopying(!copying)}><Copy className="h-4 w-4" /></button>
             {sel && <button type="button" className="btn-ghost inline-flex items-center gap-1" onClick={() => setSel(null)}><X className="h-4 w-4" /></button>}
+          </div>
+        )}
+        {editable && !trial && copying && (
+          <div className="relative mt-2 rounded-2xl bg-black/25 p-3 ring-1 ring-white/10">
+            <div className="text-xs text-white/80">Use this lineup for the days after {day === kit.today ? 'today' : monthDay(day)}. It replaces any lineup saved for them; IR stays as it is.</div>
+            <div className="mt-2 grid grid-cols-4 gap-1.5">
+              {[1, 3, 7, 14].map((n) => (
+                <button key={n} type="button" disabled={copyBusy} className="rounded-xl bg-white/[.06] py-2 text-xs font-bold text-white ring-1 ring-white/10 hover:bg-white/10"
+                  onClick={async () => {
+                    setCopyBusy(true);
+                    try {
+                      const plan = Object.fromEntries(saved);
+                      await rpc('set_lineup_plans', { p_plans: Object.fromEntries(Array.from({ length: n }, (_, i) => [addDays(day, i + 1), plan])) });
+                      await kit.loadPlans([teamId]);
+                      setCopying(false);
+                    } finally { setCopyBusy(false); }
+                  }}>{n === 1 ? 'Next day' : `Next ${n}`}</button>
+              ))}
+            </div>
           </div>
         )}
         {editable && trial && (

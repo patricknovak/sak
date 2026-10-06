@@ -19,6 +19,8 @@ import { InsightsView } from '../components/lineupnew/InsightsView';
 import { LeagueView } from '../components/lineupnew/LeagueView';
 import { supabase } from '../lib/supabase';
 import { useSticky } from '../lib/sticky';
+import { LineupTools } from '../components/LineupTools';
+import { Settings2 } from 'lucide-react';
 
 type Tab = 'day' | 'week' | 'league' | 'compare' | 'insights';
 const TABS: { k: Tab; label: string; icon: typeof ListChecks }[] = [
@@ -34,6 +36,7 @@ export default function LineupNew() {
   const [tab, setTab] = useSticky<Tab>('lineupnew:tab', 'day');
   const [teamId, setTeamId] = useState<number | null>(me?.id ?? null);
   const [day, setDay] = useState(kit.today);
+  const [tools, setTools] = useState(false);
   const gms = teams.filter((t) => t.role !== 'spectator');
   // compare against the team just above in the standings by default (the one to catch), else the next one down
   const [other, setOther] = useState<number | null>(null);
@@ -68,7 +71,8 @@ export default function LineupNew() {
   return (
     <SaveProvider kit={kit}>
       <div className="space-y-4 pb-24">
-        <PageHeader icon={<Sparkles className="h-6 w-6 text-gold" />} title="Lineup New" sub="Set, plan and compare every lineup, any day" right={<Link to="/team" className="text-xs font-semibold text-sky-300">Classic lineup →</Link>} />
+        <PageHeader icon={<Sparkles className="h-6 w-6 text-gold" />} title="Lineup New" sub="Set, plan and compare every lineup, any day" right={<span className="flex items-center gap-2">{me?.role === 'gm' && <button type="button" onClick={() => setTools(true)} className="inline-flex items-center gap-1 rounded-full bg-white/[.06] px-2.5 py-1 text-xs font-semibold text-slate-200 ring-1 ring-white/10"><Settings2 className="h-3.5 w-3.5" /> Auto-pilot{me.auto_mode && me.auto_mode !== 'off' ? ' on' : ''}</button>}<Link to="/team" className="text-xs font-semibold text-sky-300">Classic →</Link></span>} />
+        {me && <LineupTools open={tools} onClose={() => setTools(false)} roster={kit.rosterOf(me.id)} />}
 
         {/* whose lineup */}
         <div className="scroll-x -mx-1 flex gap-1.5 px-1 pb-1">
