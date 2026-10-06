@@ -178,7 +178,9 @@ Soccer is the next sport in both doors, starting with the cheap one.
    score (migration 158): every match's score called before kick-off; exact 3, result 1, a banker doubled; a season table
    and a winner each matchweek.* *Built 4 October 2026 (migrations 148-149): `soccer-sync` reads
    API-Football into `competitions`, `clubs` and `fixtures`; the Premier League and MLS are switched on. It starts the
-   day the `API_FOOTBALL_KEY` function secret is set.*
+   day the `API_FOOTBALL_KEY` function secret is set.* *6 October 2026 (Patrick: free feeds while we test): ESPN's public
+   scoreboard instead, keyless (migration 168, provider `espn`); the Premier League and MLS fixtures are in and score
+   live every two minutes during matches. API-Football stays wired for when a key is set.*
 
 ## 8. Every pool, by the calendar
 
