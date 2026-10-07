@@ -67,8 +67,15 @@ function game(g: any) {
 }
 
 async function scores(date: string) {
-  const j = await get(`/score/${date}`);
-  return { date: j.currentDate ?? date, prev: j.prevDate ?? null, next: j.nextDate ?? null, games: (j.games ?? []).map(game) };
+  // the day's scores carry no radio links; the schedule for the same day does, so they are joined by game
+  const [j, w] = await Promise.all([get(`/score/${date}`), get(`/schedule/${date}`).catch(() => null)]);
+  const radio = new Map<number, { home?: string; away?: string }>();
+  for (const d of w?.gameWeek ?? []) for (const g of d.games ?? []) radio.set(g.id, { home: g.homeTeam?.radioLink, away: g.awayTeam?.radioLink });
+  const games = (j.games ?? []).map((g: any) => {
+    const r = radio.get(g.id);
+    return game(r ? { ...g, homeTeam: { radioLink: r.home, ...g.homeTeam }, awayTeam: { radioLink: r.away, ...g.awayTeam } } : g);
+  });
+  return { date: j.currentDate ?? date, prev: j.prevDate ?? null, next: j.nextDate ?? null, games };
 }
 async function schedule(date: string) {
   const j = await get(`/schedule/${date}`);
