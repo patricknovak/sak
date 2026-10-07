@@ -6,6 +6,8 @@
 export interface Change { date: string; icon: string; title: string; body: string; to?: string; tag?: 'formats' | 'commish' | 'draft' | 'everyone' }
 
 export const CHANGELOG: Change[] = [
+  { date: '2026-10-07', icon: '📺', tag: 'everyone', title: 'Watch live', to: '/watch',
+    body: 'A new page under More for every game of the night: the one with the most of your starters first, then every game with where you can watch it on what you have and a one-tap way into the broadcaster\'s player or your TV provider\'s, team radio, your players\' live points, who else in the league has skin in it, and the recap once it\'s over. Tap "I have them all" if you subscribe to everything and nothing is marked locked. At the bottom: how to see every game this season, in Canada or the US.' },
   { date: '2026-10-06', icon: '🔢', tag: 'everyone', title: 'Squares for the World Series', to: '/picks',
     body: 'A pool can run a grid of squares on a baseball series: claim squares with your coins (or let the grid pick for you), and once the grid fills or Game 1 starts, the digits are drawn for each club. The last digit of each club\'s runs names the winning square after the 3rd, the 6th and the final of every game, and the pot pays out as it happens. 10 by 10 for a big group, 5 by 5 for a small one; the draw comes with a seed anyone can check. The host starts one from the Host page or when starting a pool.' },
   { date: '2026-10-06', icon: '⚾', tag: 'everyone', title: 'MLB centre for baseball pools', to: '/sport/mlb',

@@ -1,6 +1,6 @@
 // Watch live (#/watch): the night's NHL games from the GM's side of the couch. The game that matters most to their team
 // first, then every game with whether they can watch it on what they have (their TV provider, their streaming services,
-// free on CBC Gem) and a one-tap way in, team radio to listen, their players in it with live fantasy points, and the
+// or all of them) and a one-tap way in, team radio to listen, their players in it with live fantasy points, and the
 // NHL's own recap once it's over. SaK can't stream games itself: the rights belong to the broadcasters, so every way in
 // is the broadcaster's own player (docs/WATCH-LIVE.md has the research and the guide to seeing every game).
 import { useCallback, useEffect, useMemo, useState } from 'react';
@@ -8,7 +8,7 @@ import { Link } from 'react-router-dom';
 import { ChevronLeft, ChevronRight, ExternalLink, Headphones, MonitorPlay, Play, Settings2, Tv, Users } from 'lucide-react';
 import { useLeague } from '../lib/store';
 import { hub } from '../lib/nhlhub';
-import { supabase } from '../lib/supabase';
+import { rpc, supabase } from '../lib/supabase';
 import { fmtPts, fmtTime } from '../lib/format';
 import { isStart } from '../lib/lineupKit';
 import { countryOf, playerFor, verdict, watchOptions, type Verdict } from '../lib/watch';
@@ -36,7 +36,13 @@ const TONE: Record<Verdict['state'], string> = {
 const MARK: Record<Verdict['state'], string> = { yes: '✓', free: '★', maybe: '~', no: '🔒', none: '·' };
 
 export default function WatchLive() {
-  const { me, players, rosters, teams, team, leagueDay } = useLeague();
+  const { me, players, rosters, teams, team, leagueDay, refresh } = useLeague();
+  const [saving, setSaving] = useState(false);
+  // one tap: you have every service, so nothing on the page is locked
+  const haveAll = async (on: boolean) => {
+    setSaving(true);
+    try { await rpc('set_tv', { p_tv: { ...(me?.tv ?? {}), all: on } }); await refresh(['teams']); } finally { setSaving(false); }
+  };
   const [date, setDate] = useState(leagueDay);
   const [scores, setScores] = useState<Scores | null>(null);
   const [err, setErr] = useState<string | null>(null);
@@ -89,7 +95,7 @@ export default function WatchLive() {
   const myTonight = rows.reduce((n, r) => n + r.s.starters, 0);
   const myLive = rows.reduce((n, r) => n + r.s.mine.reduce((k, x) => k + (fp.get(x.p.id) ?? 0), 0), 0);
   const player = playerFor(me?.tv?.provider);
-  const setup = me?.tv?.provider || (me?.tv?.services ?? []).length;
+  const setup = me?.tv?.all || me?.tv?.provider || (me?.tv?.services ?? []).length;
   const country = countryOf(me?.tv);
 
   return (
@@ -114,10 +120,14 @@ export default function WatchLive() {
               </div>
             ))}
           </div>
-          <div className="flex flex-wrap items-center gap-2 text-xs text-white/80">
-            <Tv className="h-4 w-4 text-gold" />
-            {setup ? <span className="min-w-0 flex-1">Watching from {country === 'CA' ? 'Canada 🇨🇦' : 'the US 🇺🇸'}{me?.tv?.provider ? <> with <b className="text-white">{me.tv.provider}</b>{player ? ` (${player.name})` : ''}</> : ''}{(me?.tv?.services ?? []).length ? <> · {(me?.tv?.services ?? []).length} streaming service{(me?.tv?.services ?? []).length === 1 ? '' : 's'}</> : ''}</span>
+          <div className="flex items-start gap-2 text-xs leading-snug text-white/80">
+            <Tv className="mt-px h-4 w-4 shrink-0 text-gold" />
+            {me?.tv?.all ? <span className="min-w-0 flex-1">You have <b className="text-white">every service</b>: every game opens straight in its broadcaster’s player{me.tv.provider ? <> or your <b className="text-white">{me.tv.provider}</b> player</> : ''}.</span>
+              : setup ? <span className="min-w-0 flex-1">Watching from {country === 'CA' ? 'Canada 🇨🇦' : 'the US 🇺🇸'}{me?.tv?.provider ? <> with <b className="text-white">{me.tv.provider}</b>{player ? ` (${player.name})` : ''}</> : ''}{(me?.tv?.services ?? []).length ? <> · {(me?.tv?.services ?? []).length} streaming service{(me?.tv?.services ?? []).length === 1 ? '' : 's'}</> : ''}</span>
               : <span className="min-w-0 flex-1">Tell us your TV provider and streaming services, and every game says whether you can watch it.</span>}
+          </div>
+          <div className="flex flex-wrap gap-2 text-xs">
+            {me && <button type="button" disabled={saving} onClick={() => haveAll(!me.tv?.all)} className={`inline-flex items-center gap-1 rounded-full px-2.5 py-1 font-semibold ring-1 ${me.tv?.all ? 'bg-emerald-400/20 text-emerald-100 ring-emerald-400/50' : 'bg-gold text-[#0b1220] ring-gold'}`}>{me.tv?.all ? '✓ I have them all' : 'I have them all'}</button>}
             <Link to="/profile" className="inline-flex items-center gap-1 rounded-full bg-white/10 px-2.5 py-1 font-semibold text-white ring-1 ring-white/15"><Settings2 className="h-3.5 w-3.5" /> {setup ? 'Change' : 'Set up'}</Link>
           </div>
         </div>
@@ -143,9 +153,9 @@ export default function WatchLive() {
                 onRadio={setRadio} onVideo={setVideo} radio={radio} video={video} />
             ))}
           </div>
-          <div className="mt-2 flex flex-wrap gap-x-3 gap-y-1 px-1 text-[10px] text-mute">
-            {(['yes', 'free', 'maybe', 'no'] as const).map((k) => <span key={k}><span className={`mr-1 inline-grid h-4 min-w-4 place-items-center rounded-full px-1 ring-1 ${TONE[k]}`}>{MARK[k]}</span>{{ yes: 'You can watch', free: 'Free', maybe: 'Regional, if you’re in the area', no: 'Needs a service you don’t have' }[k]}</span>)}
-          </div>
+          {!me?.tv?.all && <div className="mt-2 flex flex-wrap gap-x-3 gap-y-1 px-1 text-[10px] text-mute">
+            {(['yes', 'maybe', 'no'] as const).map((k) => <span key={k}><span className={`mr-1 inline-grid h-4 min-w-4 place-items-center rounded-full px-1 ring-1 ${TONE[k]}`}>{MARK[k]}</span>{{ yes: 'You can watch', maybe: 'Regional, if you’re in the area', no: 'Needs a service you don’t have' }[k]}</span>)}
+          </div>}
         </Section>
       )}
 
@@ -226,7 +236,7 @@ function GameRow({ r, hero, fp, team, open, onToggle, onRadio, onVideo, radio, v
 
         {/* the quick ways in, without opening the card */}
         <div className="flex flex-wrap gap-1.5 border-t border-white/[.06] px-3 py-2">
-          {!done && v.best && <button type="button" onClick={() => openTab(v.best!.url)} className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-bold ${v.state === 'yes' || v.state === 'free' ? 'btn-gold' : 'bg-white/[.06] text-white ring-1 ring-white/15'}`}><Tv className="h-3.5 w-3.5" /> {v.state === 'no' ? `Get ${v.best.name}` : `Watch on ${v.best.name}`} <ExternalLink className="h-3 w-3 opacity-70" /></button>}
+          {!done && v.best && <button type="button" onClick={() => openTab(v.best!.url)} className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-bold ${v.state === 'yes' || v.state === 'free' ? 'btn-gold' : 'bg-white/[.06] text-white ring-1 ring-white/15'}`}><Tv className="h-3.5 w-3.5" /> {v.best.name === 'Out-of-market' ? (v.state === 'no' ? 'Get out-of-market' : 'Watch out-of-market') : v.state === 'no' ? `Get ${v.best.name}` : `Watch on ${v.best.name}`} <ExternalLink className="h-3 w-3 opacity-70" /></button>}
           {!done && [g.away, g.home].filter((t) => t.radio).map((t) => <button key={t.abbrev} type="button" onClick={() => onRadio(radio?.url === t.radio ? null : { url: t.radio!, label: `${t.abbrev}` })} className={`inline-flex items-center gap-1 rounded-full px-3 py-1.5 text-xs font-semibold ring-1 ${radio?.url === t.radio ? 'bg-emerald-400/20 text-emerald-100 ring-emerald-400/50' : 'bg-white/[.04] text-slate-200 ring-white/10'}`}><Headphones className="h-3.5 w-3.5" /> {t.abbrev} radio</button>)}
           {done && g.recap && <button type="button" onClick={() => onVideo({ id: g.recap!, title: `${g.away.abbrev} @ ${g.home.abbrev}: recap` })} className="inline-flex items-center gap-1 rounded-full bg-white/[.06] px-3 py-1.5 text-xs font-semibold text-white ring-1 ring-white/15"><Play className="h-3.5 w-3.5" /> Recap</button>}
           {done && g.condensed && <button type="button" onClick={() => onVideo({ id: g.condensed!, title: `${g.away.abbrev} @ ${g.home.abbrev}: condensed game` })} className="inline-flex items-center gap-1 rounded-full bg-white/[.06] px-3 py-1.5 text-xs font-semibold text-white ring-1 ring-white/15"><Play className="h-3.5 w-3.5" /> Condensed game</button>}

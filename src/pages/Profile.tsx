@@ -21,7 +21,7 @@ export default function Profile() {
   const toast = useToast();
   const { busy, run } = useAction();
   const [f, setF] = useState<Partial<Team>>({});
-  const [tv, setTv] = useState<{ provider?: string; services?: string[] }>({});
+  const [tv, setTv] = useState<{ provider?: string; services?: string[]; all?: boolean }>({});
   useEffect(() => { setTv(me?.tv ?? {}); }, [me?.id]); // eslint-disable-line react-hooks/exhaustive-deps
   const [pw, setPw] = useState({ a: '', b: '' });
   const yst = useYahooStatus();
@@ -86,7 +86,11 @@ export default function Profile() {
               <option value="">None / streaming only</option>{PROVIDERS.map((p) => <option key={p} value={p}>{p}</option>)}
             </select></label>
           {playerFor(tv.provider) && <p className="text-xs text-mute">Your games will open in <b>{playerFor(tv.provider)!.name}</b>: {playerFor(tv.provider)!.how}</p>}
-          <div>
+          <label className={`flex cursor-pointer items-start gap-2 rounded-xl border px-2.5 py-2 text-sm ${tv.all ? 'border-emerald-400/50 bg-emerald-500/10' : 'border-white/[.08] bg-white/[.03]'}`}>
+            <input type="checkbox" className="mt-0.5 h-4 w-4 accent-emerald-400" checked={!!tv.all} onChange={() => setTv({ ...tv, all: !tv.all })} />
+            <span className="min-w-0"><span className="font-semibold">I have them all</span><span className="block text-[11px] text-mute">Every service and channel: every game opens straight in its broadcaster’s player, nothing marked locked.</span></span>
+          </label>
+          {!tv.all && <div>
             <div className="label mb-1">Services and channels you can sign in to</div>
             <div className="grid gap-1.5 sm:grid-cols-2">
               {SERVICES.map((sv) => {
@@ -99,7 +103,7 @@ export default function Profile() {
                 );
               })}
             </div>
-          </div>
+          </div>}
           <button className="btn-primary" disabled={busy} onClick={() => run(async () => { await rpc('set_tv', { p_tv: tv }); await refresh(['teams']); }, 'Saved. Watch buttons will match your services.')}>Save</button>
         </div>
       </Section>
