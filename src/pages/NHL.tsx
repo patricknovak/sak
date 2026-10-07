@@ -298,14 +298,6 @@ function GameSheet({ g, onClose, gmsIn, teamOf, ownerOf, inPool }: { g: Game | n
           <div className="flex flex-wrap items-center gap-1.5 text-xs"><span className="text-mute">{brand.short} players in this game:</span>{gms.map(([t, n]) => <span key={t} className="flex items-center gap-1 rounded-full bg-white/[.05] px-2 py-0.5"><TeamBadge team={teamOf(t)} size={14} />{teamOf(t)?.gm_name} <span className="num text-mute">{n}</span></span>)}</div>
         )}
 
-        <Section title="Bet this game">
-          <GameBook gameId={x.id} away={x.away} home={x.home} />
-        </Section>
-
-        <Section title="Lines">
-          <GameLines gameId={x.id} date={x.date} live={live} away={x.away} home={x.home} onOpen={onClose} />
-        </Section>
-
         {(d?.scoring?.some((p) => p.goals.length) || x.goals.length > 0) && (
           <Section title="Scoring">
             <div className="card divide-y divide-white/[.05]">
@@ -375,6 +367,15 @@ function GameSheet({ g, onClose, gmsIn, teamOf, ownerOf, inPool }: { g: Game | n
           </Section>
         )}
         {!d && <div className="p-4 text-center text-xs text-mute">Loading the box score…</div>}
+
+        {/* the lines and the Book come last, after the game itself */}
+        <Section title="Lines">
+          <GameLines gameId={x.id} date={x.date} live={live} away={x.away} home={x.home} onOpen={onClose} />
+        </Section>
+
+        <Section title="Bet this game">
+          <GameBook gameId={x.id} away={x.away} home={x.home} />
+        </Section>
       </div>
     </Sheet>
   );
