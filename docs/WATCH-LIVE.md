@@ -97,6 +97,10 @@ Live games have no playback position to keep in step, so a second screen works n
    - The schedule lists an HLS `radioLink` per team (`d2igy0yla8zi0u.cloudfront.net/...`). It is NHL.com's own player feed, and the same terms apply.
    - Linking to the station or the nhl.com game page is the safe form.
    - The Canucks' radio moved to 104.9 Kiss Radio after Sportsnet 650 closed.
+   - **Decided 7 October 2026 (Patrick): keep listening to games in NHL centre** (and in Watch live).
+   - The schedule hands out uppercase links (`/TOR/...`), which the host refuses (403) this season; the lowercase form (`/tor/20262027/tor-radio.m3u8`) is live. It allows any site to load it (`access-control-allow-origin: *`).
+   - `radioUrl` lowercases the path in the player (`src/components/LiveWatch.tsx`) and in nhl-hub.
+   - Checked live on 6 October 2026 against the Leafs' game: the playlist, the 128K stream and its AAC segments all return 200.
 4. **A live rink tracker.**
    - Play-by-play (`/gamecenter/{id}/play-by-play`) has x/y coordinates, the zone and the type of every shot, hit, faceoff and goal. That is enough to draw a live event map within seconds.
    - The goal-replay tracking (`pptReplayUrl`) refuses requests without an nhl.com referrer. It isn't meant for third parties, so leave it.
@@ -144,9 +148,10 @@ Live games have no playback position to keep in step, so a second screen works n
    - a chat thread per game;
    - "your player scored" moments from the play-by-play;
    - the live rink tracker from play-by-play coordinates.
-3. **Decision for Patrick: NHL video and radio inside the app.** The clips and radio NHL centre and Watch live play inline come from NHL.com. The NHL's terms forbid embedding in a site that requires registration. Two choices:
-   - **Recommended:** link out to nhl.com's video pages and the stations;
-   - keep them inline while SaK is a private, non-commercial league, and switch to links before Super Pools charges anyone.
+3. **NHL video and radio inside the app.** The clips and radio NHL centre and Watch live play inline come from NHL.com, and the NHL's terms forbid embedding in a site that requires registration.
+   - *Decided 7 October 2026 (Patrick): radio stays playable in NHL centre and Watch live.*
+   - Keep the clips and radio inline while SaK is a private, non-commercial league.
+   - Revisit them, with links out to nhl.com and the stations, before Super Pools charges anyone.
 4. **Skip paid live-video licensing.** It isn't sold at this scale.
 5. **Before Super Pools takes money:** re-read the broadcasters' and the NHL's terms with a lawyer, and keep the "where to watch" links plain web links.
 

@@ -7,6 +7,12 @@ import { useLeague } from '../lib/store';
 import { rpc } from '../lib/supabase';
 import { watchOptions, playerFor, PROVIDERS } from '../lib/watch';
 
+// the NHL's team radio streams live under lowercase team codes this season ('/tor/20262027/tor-radio.m3u8'); the schedule
+// still hands out uppercase ones ('/TOR/...'), which the stream host refuses (403), so the player asks for lowercase
+export const radioUrl = (url: string) => {
+  try { const u = new URL(url); if (/cloudfront\.net$/.test(u.hostname)) u.pathname = u.pathname.toLowerCase(); return u.toString(); } catch { return url; }
+};
+
 export const LIVE = new Set(['LIVE', 'CRIT']), DONE = new Set(['OFF', 'FINAL']);
 export const BRIGHTCOVE = (id: string) => `https://players.brightcove.net/6415718365001/default_default/index.html?videoId=${id}`;
 export const NET: Record<string, string> = { SN: 'Sportsnet', SNP: 'Sportsnet Pacific', SNW: 'Sportsnet West', SNO: 'Sportsnet Ontario', SNE: 'Sportsnet East', SN1: 'Sportsnet One', SN360: 'Sportsnet 360', TVAS: 'TVA Sports', CBC: 'CBC', ESPN: 'ESPN', 'ESPN+': 'ESPN+', ABC: 'ABC', TNT: 'TNT', TBS: 'TBS', MAX: 'Max', HULU: 'Hulu', NHLN: 'NHL Network', PRIME: 'Prime Video', AMZN: 'Prime Video', SCRIPPS: 'Scripps' };
@@ -64,11 +70,12 @@ export function RadioPlayer({ url, label, onClose }: { url: string; label: strin
     const el = ref.current; if (!el) return;
     let hls: { destroy: () => void } | null = null;
     (async () => {
-      if (el.canPlayType('application/vnd.apple.mpegurl')) { el.src = url; el.play().catch(() => {}); return; }
+      const src = radioUrl(url);
+      if (el.canPlayType('application/vnd.apple.mpegurl')) { el.src = src; el.play().catch(() => {}); return; }
       try {
         const Hls = (await import('hls.js')).default;
         if (!Hls.isSupported()) { setErr('This browser can’t play the stream.'); return; }
-        const h = new Hls(); hls = h; h.loadSource(url); h.attachMedia(el);
+        const h = new Hls(); hls = h; h.loadSource(src); h.attachMedia(el);
         h.on(Hls.Events.MANIFEST_PARSED, () => { el.play().catch(() => {}); });
         h.on(Hls.Events.ERROR, (_e: unknown, d: { fatal?: boolean }) => { if (d.fatal) setErr('Stream unavailable right now (it usually starts near puck drop).'); });
       } catch { setErr('Could not load the player.'); }

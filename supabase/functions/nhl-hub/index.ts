@@ -30,6 +30,13 @@ const xSharedTtl = () => {
   return h >= 11 || h < 1 ? 600_000 : 3_600_000;
 };
 
+// team radio streams live under lowercase team codes this season ('/tor/20262027/tor-radio.m3u8'); the schedule still
+// hands out uppercase ones, which the stream host refuses (403)
+const radioUrl = (url: string | null | undefined) => {
+  if (!url) return null;
+  try { const u = new URL(url); if (/cloudfront\.net$/.test(u.hostname)) u.pathname = u.pathname.toLowerCase(); return u.toString(); } catch { return url; }
+};
+
 async function get(path: string) {
   const r = await fetch(`${NHL}${path}`, { headers: { 'user-agent': 'sak-league' } });
   if (!r.ok) throw new Error(`NHL ${path}: ${r.status}`);
@@ -39,7 +46,7 @@ const txt = (v: any) => (v && typeof v === 'object' ? v.default ?? '' : v ?? '')
 const clipId = (path?: string | null) => { const m = /-(\d{10,})$/.exec(path ?? ''); return m ? m[1] : null; };
 
 function team(t: any) {
-  return { id: t.id, abbrev: t.abbrev, name: txt(t.commonName) || txt(t.name) || t.abbrev, place: txt(t.placeName), score: t.score ?? null, sog: t.sog ?? null, logo: t.logo ?? t.darkLogo ?? null, radio: t.radioLink ?? null, record: t.record ?? null };
+  return { id: t.id, abbrev: t.abbrev, name: txt(t.commonName) || txt(t.name) || t.abbrev, place: txt(t.placeName), score: t.score ?? null, sog: t.sog ?? null, logo: t.logo ?? t.darkLogo ?? null, radio: radioUrl(t.radioLink), record: t.record ?? null };
 }
 function game(g: any) {
   return {
