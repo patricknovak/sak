@@ -66,9 +66,73 @@ function game(g: any) {
   };
 }
 
+// ───────────── straight to the game on Sportsnet+ ─────────────
+// Sportsnet+'s player (watch.sportsnet.ca) lists every live and upcoming event in its public catalogue, each NHL game
+// with its own page in the player: the national broadcast, each team's feed, the French one. Joining them to the NHL's
+// games lets Watch live and NHL centre open the game itself instead of a home page (Patrick, 7 October 2026: "Fastest
+// route possible to games"). It's the broadcaster's own player behind the viewer's own sign-in; nothing is restreamed.
+const SN_PLAYER = 'https://watch.sportsnet.ca';
+const SN_LIST = 'https://production-cdn.d3-rgr-diva.com/api/lists/22268?page=1&page_size=100';
+type SnFeed = { start: number; home: string; away: string; url: string; label: string; lang: string; master: boolean; live: boolean };
+let snCache: { at: number; feeds: SnFeed[] } | null = null;
+async function snFeeds(): Promise<SnFeed[]> {
+  if (snCache && Date.now() - snCache.at < 120_000) return snCache.feeds;
+  try {
+    const r = await fetch(SN_LIST, { headers: { accept: 'application/json', 'user-agent': 'sak-league' } });
+    if (!r.ok) throw new Error(`sportsnet ${r.status}`);
+    const j = await r.json();
+    const feeds = (j.items ?? []).filter((x: any) => x.customFields?.League === 'nhl' && x.watchPath && x.eventStartDate).map((x: any) => {
+      const cf = x.customFields;
+      const fr = cf.BroadcastLanguage === 'fr';
+      // 'Canadiens Broadcast: Carolina @ Montreal' is that team's own feed; no name is the national broadcast
+      const team = String(cf.BroadcastName ?? '').split(':')[0].replace(/\s*Broadcast$/i, '').trim();
+      return {
+        start: Date.parse(x.eventStartDate), home: String(cf.HomeTeamToggle ?? ''), away: String(cf.AwayTeamToggle ?? ''),
+        url: SN_PLAYER + x.watchPath, lang: fr ? 'fr' : 'en', master: cf.IsMaster === true || cf.IsMaster === 'true',
+        live: cf.VideoStatus === 'Live', label: fr ? 'En français' : team ? `${team} feed` : 'National broadcast',
+      };
+    });
+    snCache = { at: Date.now(), feeds };
+    return feeds;
+  } catch (e) {
+    console.error('sportsnet feeds', e);
+    return snCache?.feeds ?? [];
+  }
+}
+const plain = (s: string) => s.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/[^a-z ]/g, '').replace(/\s+/g, ' ').trim();
+// Sportsnet+ names a club by its city ('Montreal', 'Utah', 'New York Rangers'); the NHL's scores give the club's name
+const CITY: Record<string, string> = {
+  ANA: 'Anaheim', BOS: 'Boston', BUF: 'Buffalo', CGY: 'Calgary', CAR: 'Carolina', CHI: 'Chicago', COL: 'Colorado', CBJ: 'Columbus',
+  DAL: 'Dallas', DET: 'Detroit', EDM: 'Edmonton', FLA: 'Florida', LAK: 'Los Angeles', MIN: 'Minnesota', MTL: 'Montreal', NSH: 'Nashville',
+  NJD: 'New Jersey', NYI: 'New York Islanders', NYR: 'New York Rangers', OTT: 'Ottawa', PHI: 'Philadelphia', PIT: 'Pittsburgh',
+  SJS: 'San Jose', SEA: 'Seattle', STL: 'St Louis', TBL: 'Tampa Bay', TOR: 'Toronto', UTA: 'Utah', VAN: 'Vancouver', VGK: 'Vegas',
+  WSH: 'Washington', WPG: 'Winnipeg',
+};
+type SnTeam = { abbrev: string; place: string; name: string };
+const sameTeam = (s: string, t: SnTeam) => {
+  const n = plain(s), city = plain(CITY[t.abbrev] ?? t.place), name = plain(t.name);
+  return !!n && (n === city || (!!name && n.includes(name)) || (!!city && n === `${city} ${name}`));
+};
+// the Sportsnet+ pages for one game: the English main broadcast first, then the other feeds, French last
+function snFor(feeds: SnFeed[], g: { start: string; home: SnTeam; away: SnTeam }) {
+  const t = Date.parse(g.start);
+  return feeds.filter((f) => Math.abs(f.start - t) <= 90 * 60_000 && sameTeam(f.home, g.home) && sameTeam(f.away, g.away))
+    .sort((a, b) => Number(a.lang === 'fr') - Number(b.lang === 'fr') || Number(b.master) - Number(a.master))
+    .map(({ url, label, lang, master, live }) => ({ url, label, lang, master, live }));
+}
+
 async function scores(date: string) {
-  const j = await get(`/score/${date}`);
-  return { date: j.currentDate ?? date, prev: j.prevDate ?? null, next: j.nextDate ?? null, games: (j.games ?? []).map(game) };
+  // the day's scores carry no radio links; the schedule for the same day does, so they are joined by game
+  const [j, w] = await Promise.all([get(`/score/${date}`), get(`/schedule/${date}`).catch(() => null)]);
+  const radio = new Map<number, { home?: string; away?: string }>();
+  for (const d of w?.gameWeek ?? []) for (const g of d.games ?? []) radio.set(g.id, { home: g.homeTeam?.radioLink, away: g.awayTeam?.radioLink });
+  const sn = await snFeeds();
+  const games = (j.games ?? []).map((g: any) => {
+    const r = radio.get(g.id);
+    const x = game(r ? { ...g, homeTeam: { radioLink: r.home, ...g.homeTeam }, awayTeam: { radioLink: r.away, ...g.awayTeam } } : g);
+    return { ...x, sn: snFor(sn, x) };
+  });
+  return { date: j.currentDate ?? date, prev: j.prevDate ?? null, next: j.nextDate ?? null, games };
 }
 async function schedule(date: string) {
   const j = await get(`/schedule/${date}`);
@@ -102,8 +166,9 @@ async function gameDetail(id: string) {
   const skater = (p: any) => ({ id: p.playerId, num: p.sweaterNumber, name: txt(p.name), pos: p.position, g: p.goals, a: p.assists, pts: p.points, pm: p.plusMinus, pim: p.pim, sog: p.sog, hit: p.hits, blk: p.blockedShots, toi: p.toi, fo: p.faceoffWinningPctg });
   const goalie = (p: any) => ({ id: p.playerId, num: p.sweaterNumber, name: txt(p.name), pos: 'G', sa: p.saveShotsAgainst, svp: p.savePctg, ga: p.goalsAgainst, toi: p.toi, decision: p.decision ?? null, starter: p.starter ?? false });
   const side = (t: any) => (t ? { forwards: (t.forwards ?? []).map(skater), defense: (t.defense ?? []).map(skater), goalies: (t.goalies ?? []).map(goalie) } : null);
+  const base = game({ ...l, goals: [] });
   return {
-    ...game({ ...l, goals: [] }),
+    ...base, sn: snFor(await snFeeds(), base),
     scoring: (l.summary?.scoring ?? []).map((p: any) => ({
       period: p.periodDescriptor?.number, type: p.periodDescriptor?.periodType,
       goals: (p.goals ?? []).map((x: any) => ({

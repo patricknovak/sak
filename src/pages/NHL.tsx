@@ -15,11 +15,11 @@ import { GameLines } from '../components/GameLines';
 import { GameBook } from '../components/Book';
 import { watchOptions } from '../lib/watch';
 import { supabase } from '../lib/supabase';
-import { DONE, LIVE, NET, RadioPlayer, Video, WatchBox } from '../components/LiveWatch';
+import { DONE, LIVE, NET, RadioPlayer, Video, WatchBox, type SnFeed } from '../components/LiveWatch';
 
 type NTeam = { id: number; abbrev: string; name: string; place: string; score: number | null; sog: number | null; logo: string | null; radio: string | null; record: string | null };
 type Goal = { period: number; type?: string; time: string; playerId: number; name: string; team: string; strength: string; modifier: string; goalsToDate: number; away: number; home: number; mugshot: string | null; assists: { playerId: number; name: string; n: number }[]; clip: string | null };
-type Game = { id: number; date?: string; type: number; state: string; scheduleState: string; start: string; venue: string; period: { n: number; type: string } | null; clock: { time: string; running: boolean; intermission: boolean } | null; home: NTeam; away: NTeam; outcome: string | null; tv: { network: string; market: string; country: string }[]; goals: Goal[]; recap: string | null; condensed: string | null; link: string | null };
+type Game = { id: number; date?: string; type: number; state: string; scheduleState: string; start: string; venue: string; period: { n: number; type: string } | null; clock: { time: string; running: boolean; intermission: boolean } | null; home: NTeam; away: NTeam; outcome: string | null; tv: { network: string; market: string; country: string }[]; goals: Goal[]; recap: string | null; condensed: string | null; link: string | null; sn?: SnFeed[] };
 type Skater = { id: number; num: number; name: string; pos: string; g: number; a: number; pts: number; pm: number; pim: number; sog: number; hit: number; blk: number; toi: string; fo: number };
 type Goalie = { id: number; num: number; name: string; pos: 'G'; sa: string; svp: number | null; ga: number; toi: string; decision: string | null; starter: boolean };
 type Detail = Game & { scoring: { period: number; type: string; goals: Goal[] }[]; stars: { star: number; playerId: number; team: string; name: string; pos: string; g?: number; a?: number; pts?: number; svp?: number; ga?: number; headshot: string | null }[]; penalties: { period: number; items: { time: string; team: string; who: string; desc: string; min: number }[] }[]; box: { home: { forwards: Skater[]; defense: Skater[]; goalies: Goalie[] } | null; away: { forwards: Skater[]; defense: Skater[]; goalies: Goalie[] } | null } | null };
@@ -283,7 +283,7 @@ function GameSheet({ g, onClose, gmsIn, teamOf, ownerOf, inPool }: { g: Game | n
         <div className="text-center text-xs text-mute">{x.venue}{x.date ? ` · ${fmtDay(x.date)}` : ''} · {fmtTime(x.start)}{x.tv.length > 0 && <> · 📺 {x.tv.map((t) => `${NET[t.network] ?? t.network}${t.country === 'CA' ? ' 🇨🇦' : t.country === 'US' ? ' 🇺🇸' : ''}`).join(', ')}</>}</div>
 
         {/* watch, listen, replay */}
-        {!done && watch.length > 0 && <WatchBox watch={watch} channels={x.tv.map((t) => NET[t.network] ?? t.network)} />}
+        {!done && watch.length > 0 && <WatchBox watch={watch} channels={x.tv.map((t) => NET[t.network] ?? t.network)} sn={x.sn ?? g.sn} />}
         <div className="flex flex-wrap gap-1.5">
           {x.link && <a href={x.link} target="_blank" rel="noreferrer" className="btn-ghost btn-sm"><Tv size={14} /> Game page on NHL.com <ExternalLink size={11} /></a>}
           {[x.away, x.home].filter((t) => t.radio).map((t) => <button key={t.abbrev} className={`btn-ghost btn-sm ${radio?.url === t.radio ? 'text-emerald-300' : ''}`} onClick={() => setRadio(radio?.url === t.radio ? null : { url: t.radio!, label: t.abbrev })}><Headphones size={14} /> {t.abbrev} radio</button>)}
