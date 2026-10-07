@@ -9,7 +9,7 @@ import { currentSubscription } from '../lib/push';
 import { Sheet, TeamBadge } from './ui';
 import {
   Bell, ClipboardList, Dices, Home, Landmark, Lightbulb, LogOut, Menu, MessageCircle, Radio, Repeat2, Search, Shield, Target,
-  Trophy, Tv, UserRound, Wrench, Wallet, type LucideIcon, BarChart3, Sparkles, Crown, Wand2, Layers, ChevronDown, Swords } from 'lucide-react';
+  Trophy, Tv, UserRound, Wrench, Wallet, type LucideIcon, BarChart3, Sparkles, Crown, Wand2, Layers, ChevronDown, Swords, MonitorPlay } from 'lucide-react';
 
 type Item = { to: string; label: string; icon: LucideIcon; commish?: boolean; short?: string };   // short: the phone dock's label, one line
 
@@ -136,6 +136,8 @@ export function Layout({ children }: { children: ReactNode }) {
     { to: '/host', label: 'Host', icon: Wand2, commish: true },
   ] as Item[] : [
     ...(draftish ? [] : [{ to: '/lineup-new', label: 'Lineup New', icon: Sparkles }]),
+    // where to watch tonight's games (hockey leagues: the NHL's broadcasts)
+    ...(sport.words.centre === 'NHL centre' ? [{ to: '/watch', label: 'Watch live', icon: MonitorPlay }] : []),
     { to: '/standings', label: 'Standings', icon: Trophy },
     ...(runs.questions ? [{ to: '/questions', label: 'Questions', icon: Sparkles }] : []),
     { to: '/players', label: 'Players', icon: Search },

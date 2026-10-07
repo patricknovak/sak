@@ -24,7 +24,7 @@ export interface Team {
   joined_season: string | null; auto_lineup: boolean; autodraft: boolean; keepers_submitted: boolean; last_seen: string | null;
   auto_mode: 'off' | 'day' | 'week' | 'season'; auto_basis: 'proj' | 'form' | 'season' | 'ros'; lineup_touched: string | null;
   role: 'gm' | 'spectator'; perms: Record<string, boolean>;   // spectators: {chat, dm, bets, ideas, active}, missing = allowed
-  tv: { provider?: string; services?: string[] };             // where this GM watches: TV provider and streaming services
+  tv: { provider?: string; services?: string[]; all?: boolean }; // where this GM watches: TV provider, streaming services, or all of them
 }
 
 export interface Player {

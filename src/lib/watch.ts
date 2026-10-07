@@ -5,17 +5,19 @@
 
 export interface Service { k: string; name: string; note: string; country: 'CA' | 'US' | 'ANY'; url: string; nets: string[] }
 
-// broadcaster live pages, keyed by the network codes the NHL schedule uses
+// broadcaster live pages, keyed by the network codes the NHL schedule uses (2026-27 rights, docs/WATCH-LIVE.md: Rogers has
+// every national game in Canada and sub-licenses Wednesdays to Prime Video and French to TVA; CBC no longer carries the
+// NHL; in the US ESPN and TNT share the national games and local TV moved to team apps, Prime and DAZN)
 export const SERVICES: Service[] = [
-  { k: 'sn', name: 'Sportsnet+', note: 'Sportsnet+ subscription, or sign in with your TV provider (Telus, Rogers, Bell, Shaw, Cogeco…)', country: 'CA', url: 'https://www.sportsnetplus.ca/', nets: ['SN', 'SNP', 'SNW', 'SNO', 'SNE', 'SN1', 'SN360', 'SNF', 'SNNOW', 'SN+', 'SNPLUS'] },
-  { k: 'tsn', name: 'TSN', note: 'TSN+ subscription, or sign in with your TV provider', country: 'CA', url: 'https://www.tsn.ca/live/', nets: ['TSN', 'TSN1', 'TSN2', 'TSN3', 'TSN4', 'TSN5', 'TSN+'] },
-  { k: 'cbc', name: 'CBC Gem', note: 'Free with a CBC account (Hockey Night in Canada)', country: 'CA', url: 'https://gem.cbc.ca/section/live', nets: ['CBC', 'CITY', 'CITYTV'] },
-  { k: 'tva', name: 'TVA Sports', note: 'Sign in with your TV provider (French)', country: 'CA', url: 'https://www.tvasports.ca/en-direct', nets: ['TVAS', 'TVAS2'] },
-  { k: 'rds', name: 'RDS', note: 'Sign in with your TV provider (French)', country: 'CA', url: 'https://www.rds.ca/emissions/en-direct/', nets: ['RDS', 'RDS2'] },
-  { k: 'espn', name: 'ESPN / ESPN+', note: 'ESPN+ subscription, or sign in with your US TV provider', country: 'US', url: 'https://www.espn.com/watch/', nets: ['ESPN', 'ESPN+', 'ESPN2', 'ABC', 'ESPNPLUS', 'HULU'] },
-  { k: 'tnt', name: 'TNT / Max', note: 'Max subscription, or sign in with your US TV provider', country: 'US', url: 'https://www.max.com/', nets: ['TNT', 'TBS', 'TRUTV', 'MAX'] },
-  { k: 'prime', name: 'Prime Video', note: 'Monday Night Hockey (Canada) with a Prime membership', country: 'ANY', url: 'https://www.primevideo.com/', nets: ['PRIME', 'AMZN', 'AMAZON'] },
-  { k: 'nhltv', name: 'Out-of-market', note: 'Every out-of-market game: Sportsnet+ Premium in Canada, ESPN+ in the US', country: 'ANY', url: 'https://www.sportsnetplus.ca/', nets: ['NHLN', 'NHLTV'] },
+  { k: 'sn', name: 'Sportsnet+', note: 'Every national game in Canada, Monday Night Hockey included (Standard, or Premium for every out-of-market game too), or sign in with your TV provider', country: 'CA', url: 'https://www.sportsnetplus.ca/', nets: ['SN', 'SNP', 'SNW', 'SNO', 'SNE', 'SN1', 'SN360', 'SNF', 'SNNOW', 'SN+', 'SNPLUS', 'SPORTSNET', 'SPORTSNET+'] },
+  { k: 'tsn', name: 'TSN', note: 'Jets, Senators, Canadiens (English) and some Leafs games in their regions; TSN subscription, or sign in with your TV provider', country: 'CA', url: 'https://www.tsn.ca/live/', nets: ['TSN', 'TSN1', 'TSN2', 'TSN3', 'TSN4', 'TSN5', 'TSN+'] },
+  { k: 'prime', name: 'Prime Video', note: 'Wednesday night national games in Canada with a Prime membership; in the US, local games for six teams', country: 'ANY', url: 'https://www.primevideo.com/', nets: ['PRIME', 'AMZN', 'AMAZON', 'PRIMEVIDEO'] },
+  { k: 'tva', name: 'TVA Sports', note: 'French national games and the Canadiens; sign in with your TV provider', country: 'CA', url: 'https://www.tvasports.ca/en-direct', nets: ['TVAS', 'TVAS2', 'TVAS-D', 'TVASPORTS'] },
+  { k: 'rds', name: 'RDS', note: 'Canadiens and Senators regional games in French; sign in with your TV provider', country: 'CA', url: 'https://www.rds.ca/emissions/en-direct/', nets: ['RDS', 'RDS2', 'RDSI'] },
+  { k: 'espn', name: 'ESPN', note: 'ESPN Select or Unlimited, or sign in with your US TV provider; includes NHL Power Play (out-of-market)', country: 'US', url: 'https://www.espn.com/watch/', nets: ['ESPN', 'ESPN+', 'ESPN2', 'ABC', 'ESPNPLUS', 'HULU', 'DISNEY+'] },
+  { k: 'tnt', name: 'TNT / HBO Max', note: 'HBO Max Standard or Premium (Basic with Ads has no live sports), or sign in with your US TV provider', country: 'US', url: 'https://www.hbomax.com/', nets: ['TNT', 'TBS', 'TRUTV', 'MAX', 'HBOMAX'] },
+  { k: 'dazn', name: 'DAZN', note: 'Rangers, Islanders, Devils, Sabres (MSG) and Kings local games in the US; NHL.TV outside North America', country: 'ANY', url: 'https://www.dazn.com/', nets: ['MSG', 'MSG-B', 'MSGSN', 'MSGSN2', 'MSG2', 'DAZN'] },
+  { k: 'nhltv', name: 'Out-of-market', note: 'Every out-of-market game: Sportsnet+ Premium in Canada, NHL Power Play on ESPN in the US', country: 'ANY', url: 'https://www.sportsnetplus.ca/', nets: ['NHLN', 'NHLTV'] },
 ];
 export const PROVIDERS = ['Telus', 'Rogers', 'Bell', 'Shaw', 'Vidéotron', 'Cogeco', 'Eastlink', 'SaskTel', 'Xfinity', 'Spectrum', 'DirecTV', 'YouTube TV', 'Other'];
 
@@ -35,18 +37,21 @@ export const PROVIDER_PLAYERS: Record<string, ProviderPlayer> = {
 };
 export const playerFor = (provider?: string | null) => (provider ? PROVIDER_PLAYERS[provider] : undefined);
 
-export interface TvPrefs { provider?: string; services?: string[] }
+// all: the GM has every service and channel (Patrick, 7 October 2026: "I already have access to all the content via
+// subscriptions"), so every game opens straight in its broadcaster's player, nothing locked
+export interface TvPrefs { provider?: string; services?: string[]; all?: boolean }
 
-const REGIONAL = /^(MSG|NBCS|NESN|BSN|FDS|SCRIPPS|KHN|KTVD|KCOP|ALT|ROOT|SNLA|CHSN|MNMT|TVAS|SNPLUS|VICTORY|GULF|UTAH|KONG|ESPN\+)/i;
+const REGIONAL = /^(NBCS|NESN|BSN|FDS|SCRIPPS|KHN|KTVD|KCOP|ALT|ROOT|SNLA|CHSN|MNMT|TVAS|SNPLUS|VICTORY|GULF|UTAH|KONG|ESPN\+)/i;
 export function serviceFor(network: string): Service | undefined {
-  const n = network.toUpperCase();
+  // the schedule writes some networks in words ('Prime Video', 'Disney+'): match them without spaces
+  const n = network.toUpperCase().replace(/\s+/g, '');
   return SERVICES.find((s) => s.nets.includes(n)) ?? (REGIONAL.test(n) ? SERVICES.find((s) => s.k === 'nhltv') : undefined);
 }
 
 export interface WatchOption { network: string; service: Service; have: boolean; country: string }
 // every way to watch a game, the GM's own services first
 export function watchOptions(tv: { network: string; country?: string }[], prefs: TvPrefs | null | undefined): WatchOption[] {
-  const have = new Set(prefs?.services ?? []);
+  const have = new Set(prefs?.all ? SERVICES.map((s) => s.k) : prefs?.services ?? []);
   const seen = new Set<string>();
   const out: WatchOption[] = [];
   for (const b of tv) {
@@ -58,4 +63,65 @@ export function watchOptions(tv: { network: string; country?: string }[], prefs:
   // NHL.tv covers what the national broadcasters don't (out-of-market); the game page on NHL.com always knows
   if (!seen.has('nhltv') && tv.length) { const s = SERVICES.find((x) => x.k === 'nhltv')!; out.push({ network: 'NHL.TV', service: s, have: have.has('nhltv'), country: 'ANY' }); }
   return out.sort((a, b) => Number(b.have) - Number(a.have));
+}
+
+// ───────────── Watch live (#/watch) ─────────────
+// The country a GM watches from: their TV provider says it; a GM with streaming only follows their services; Canada by
+// default (the league's home).
+const US_PROVIDERS = new Set(['Xfinity', 'Spectrum', 'DirecTV', 'YouTube TV']);
+export function countryOf(prefs: TvPrefs | null | undefined): 'CA' | 'US' {
+  if (prefs?.provider) return US_PROVIDERS.has(prefs.provider) ? 'US' : 'CA';
+  const sv = (prefs?.services ?? []).map((k) => SERVICES.find((s) => s.k === k)?.country);
+  return sv.includes('US') && !sv.includes('CA') ? 'US' : 'CA';
+}
+
+// where every game nobody local carries is: Centre Ice on Sportsnet+ Premium in Canada, NHL Power Play on ESPN in the US
+export const OUT_OF_MARKET: Record<'CA' | 'US', { name: string; url: string }> = {
+  CA: { name: 'Sportsnet+ Premium', url: 'https://www.sportsnetplus.ca/' },
+  US: { name: 'NHL Power Play (ESPN)', url: 'https://www.espn.com/watch/' },
+};
+
+// the order a GM with everything is sent in: the English national broadcasters first
+const RANK = ['sn', 'prime', 'tsn', 'espn', 'tnt', 'dazn', 'tva', 'rds'];
+const rankOf = (k: string) => (RANK.indexOf(k) < 0 ? RANK.length : RANK.indexOf(k));
+const FRENCH = new Set(['tva', 'rds']);
+// TV providers in Western Canada, outside every TSN team's region
+const WEST = new Set(['Telus', 'Shaw', 'SaskTel']);
+
+export type Verdict = { state: 'yes' | 'free' | 'maybe' | 'no' | 'none'; line: string; best?: { name: string; url: string } };
+// can this GM watch this game, and where: on a service they have, on their TV provider's player (a national channel),
+// (or free over the air), on a regional feed that may be blacked out where they live, or only with a service they don't have
+export function verdict(tv: { network: string; market?: string; country?: string }[], prefs: TvPrefs | null | undefined): Verdict {
+  const home = countryOf(prefs);
+  const mine = tv.filter((b) => (b.country ?? '').toUpperCase() === home);
+  const feeds = mine.length ? mine : tv;
+  if (!feeds.length) return { state: 'none', line: 'No broadcast listed yet' };
+  const opts = watchOptions(feeds, prefs);
+  if (prefs?.all) {
+    // everything is unlocked: go straight to the broadcaster carrying it where they watch. A game nobody in their country
+    // carries (a third of the season: US clubs on their local channels) is out-of-market: Sportsnet+ Premium in Canada,
+    // NHL Power Play on ESPN in the US. A game only on US local channels is the same for a US viewer outside that market.
+    // English first: a game Canada only lists on TVA Sports or RDS is in English out of market on Sportsnet+ Premium
+    const o = mine.length ? opts.filter((x) => x.service.k !== 'nhltv').sort((a, b) => rankOf(a.service.k) - rankOf(b.service.k))[0] : undefined;
+    if (o && FRENCH.has(o.service.k)) return { state: 'yes', line: `In English on ${OUT_OF_MARKET.CA.name}, in French on ${o.service.name}`, best: OUT_OF_MARKET.CA };
+    if (!o) return { state: 'yes', line: `Out-of-market: on ${OUT_OF_MARKET[home].name}`, best: OUT_OF_MARKET[home] };
+    // TSN's regional games (Jets, Senators, Canadiens, some Leafs) are blacked out in the West, where Sportsnet+ Premium has them
+    const tsnOnly = o.service.k === 'tsn' && !feeds.some((b) => (b.market ?? 'N') === 'N' && ['sn', 'prime'].includes(serviceFor(b.network)?.k ?? ''));
+    if (tsnOnly && WEST.has(prefs.provider ?? '')) return { state: 'yes', line: `Out-of-market here: on ${OUT_OF_MARKET.CA.name} (TSN in the team's region)`, best: OUT_OF_MARKET.CA };
+    const regional = feeds.some((b) => b.market === 'H' || b.market === 'A') && !feeds.some((b) => (b.market ?? 'N') === 'N');
+    return { state: 'yes', line: `On ${o.service.name}${regional ? ' (regional feed)' : ''}`, best: { name: o.service.name, url: o.service.url } };
+  }
+  const have = opts.find((o) => o.have && o.service.k !== 'nhltv');
+  if (have) return { state: 'yes', line: `On ${have.service.name}, which you have`, best: { name: have.service.name, url: have.service.url } };
+  const player = playerFor(prefs?.provider);
+  const national = feeds.filter((b) => (b.market ?? 'N') === 'N');
+  const cable = national.map((b) => serviceFor(b.network)).find((s) => s && ['sn', 'tsn', 'tva', 'rds', 'espn', 'tnt'].includes(s.k));
+  if (player && cable) return { state: 'yes', line: `On ${cable.name}: in your ${prefs!.provider} package`, best: { name: player.name, url: player.url } };
+  const regional = feeds.find((b) => b.market === 'H' || b.market === 'A');
+  if (regional && player) {
+    const s = serviceFor(regional.network);
+    return { state: 'maybe', line: `Regional feed${s ? ` on ${s.name}` : ''}: in your package if you're in the team's region`, best: { name: player.name, url: player.url } };
+  }
+  const first = opts.find((o) => o.service.k !== 'nhltv') ?? opts[0];
+  return first ? { state: 'no', line: `Needs ${first.service.name}`, best: { name: first.service.name, url: first.service.url } } : { state: 'none', line: 'No broadcast listed yet' };
 }
