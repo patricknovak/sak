@@ -2,16 +2,39 @@
 // box of ways to watch (the GM's own TV provider first, then the broadcasters), team radio and the NHL's own videos.
 import { useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { ExternalLink, Headphones, Tv } from 'lucide-react';
+import { ExternalLink, Headphones, Play, Tv } from 'lucide-react';
 import { useLeague } from '../lib/store';
 import { rpc } from '../lib/supabase';
-import { watchOptions, playerFor, PROVIDERS } from '../lib/watch';
+import { watchOptions, playerFor, PROVIDERS, type TvPrefs } from '../lib/watch';
 
 // the NHL's team radio streams live under lowercase team codes this season ('/tor/20262027/tor-radio.m3u8'); the schedule
 // still hands out uppercase ones ('/TOR/...'), which the stream host refuses (403), so the player asks for lowercase
 export const radioUrl = (url: string) => {
   try { const u = new URL(url); if (/cloudfront\.net$/.test(u.hostname)) u.pathname = u.pathname.toLowerCase(); return u.toString(); } catch { return url; }
 };
+
+// a game's own page in the Sportsnet+ player (nhl-hub joins them from Sportsnet+'s catalogue): one tap opens the game
+// itself, signed in as the viewer, with each team's feed and the French broadcast beside the main one
+export interface SnFeed { url: string; label: string; lang: string; master: boolean; live: boolean }
+// the game opens straight in Sportsnet+ for a viewer with everything, or with Sportsnet+, or whose best way in is it
+export const goesStraight = (sn: SnFeed[] | undefined, prefs: TvPrefs | null | undefined, bestName?: string) =>
+  !!sn?.length && (!!prefs?.all || (prefs?.services ?? []).includes('sn') || !!bestName?.startsWith('Sportsnet+'));
+
+export function GameFeeds({ feeds, title }: { feeds: SnFeed[]; title?: string }) {
+  const [main, ...rest] = feeds;
+  return (
+    <div className="flex flex-wrap items-center gap-1.5">
+      <button type="button" onClick={() => openTab(main.url)} className="btn-gold inline-flex items-center gap-1.5 rounded-full px-3.5 py-1.5 text-xs font-black">
+        <Play className="h-3.5 w-3.5 fill-current" /> {title ?? 'Watch the game'}<span className="font-semibold opacity-75">· Sportsnet+</span>
+      </button>
+      {rest.map((f) => (
+        <button key={f.url} type="button" onClick={() => openTab(f.url)} className="inline-flex items-center gap-1 rounded-full bg-white/[.06] px-2.5 py-1.5 text-[11px] font-semibold text-white ring-1 ring-white/15">
+          <Play className="h-3 w-3" /> {f.label}
+        </button>
+      ))}
+    </div>
+  );
+}
 
 export const LIVE = new Set(['LIVE', 'CRIT']), DONE = new Set(['OFF', 'FINAL']);
 export const BRIGHTCOVE = (id: string) => `https://players.brightcove.net/6415718365001/default_default/index.html?videoId=${id}`;
@@ -24,7 +47,7 @@ export const openTab = (url: string) => { window.open(url, '_blank', 'noopener,n
 
 // where to watch this game: the GM's own TV provider player first (one sign-in, every channel), then the
 // broadcasters' players. A GM who hasn't said what they have gets a one-tap provider picker right here.
-export function WatchBox({ watch, channels }: { watch: ReturnType<typeof watchOptions>; channels: string[] }) {
+export function WatchBox({ watch, channels, sn }: { watch: ReturnType<typeof watchOptions>; channels: string[]; sn?: SnFeed[] }) {
   const { me, refresh } = useLeague();
   const [saving, setSaving] = useState(false);
   const player = playerFor(me?.tv?.provider);
@@ -36,6 +59,7 @@ export function WatchBox({ watch, channels }: { watch: ReturnType<typeof watchOp
   return (
     <div className="rounded-xl border border-white/[.08] bg-white/[.03] p-2.5">
       <div className="mb-1.5 flex items-center justify-between text-[11px] font-bold uppercase tracking-wider text-mute"><span>Watch live</span>{channels.length > 0 && <span className="normal-case tracking-normal">📺 {channels.join(' · ')}</span>}</div>
+      {goesStraight(sn, me?.tv) && <div className="mb-2"><GameFeeds feeds={sn!} /></div>}
       <div className="flex flex-wrap gap-1.5">
         {player && <button className={btn(true)} onClick={() => openTab(player.url)} title={player.how}><Tv size={14} /> {player.name} <span className="text-[10px] font-normal text-sky-200/80">your {me?.tv?.provider}</span><ExternalLink size={11} className="opacity-60" /></button>}
         {watch.map((w) => (

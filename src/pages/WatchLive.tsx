@@ -13,12 +13,12 @@ import { fmtPts, fmtTime } from '../lib/format';
 import { isStart } from '../lib/lineupKit';
 import { countryOf, playerFor, verdict, watchOptions, type Verdict } from '../lib/watch';
 import { WATCH_GUIDE } from '../lib/watchGuide';
-import { DONE, LIVE, NET, RadioPlayer, Video, WatchBox, openTab } from '../components/LiveWatch';
+import { DONE, GameFeeds, LIVE, NET, RadioPlayer, Video, WatchBox, goesStraight, openTab, type SnFeed } from '../components/LiveWatch';
 import { PageHeader, Section, TeamBadge } from '../components/ui';
 import type { Player } from '../lib/types';
 
 type NTeam = { id: number; abbrev: string; name: string; place: string; score: number | null; sog: number | null; logo: string | null; radio: string | null; record: string | null };
-type Game = { id: number; type: number; state: string; scheduleState: string; start: string; venue: string; period: { n: number; type: string } | null; clock: { time: string; running: boolean; intermission: boolean } | null; home: NTeam; away: NTeam; outcome: string | null; tv: { network: string; market: string; country: string }[]; recap: string | null; condensed: string | null; link: string | null };
+type Game = { id: number; type: number; state: string; scheduleState: string; start: string; venue: string; period: { n: number; type: string } | null; clock: { time: string; running: boolean; intermission: boolean } | null; home: NTeam; away: NTeam; outcome: string | null; tv: { network: string; market: string; country: string }[]; recap: string | null; condensed: string | null; link: string | null; sn?: SnFeed[] };
 type Scores = { date: string; prev: string | null; next: string | null; games: Game[] };
 
 const fmtDay = (d: string) => new Date(d + 'T12:00:00Z').toLocaleDateString(undefined, { weekday: 'long', month: 'short', day: 'numeric', timeZone: 'UTC' });
@@ -228,7 +228,7 @@ function GameRow({ r, hero, fp, team, open, onToggle, onRadio, onVideo, radio, v
             </div>
           </div>
           <div className="mt-2.5 flex flex-wrap items-center gap-1.5">
-            {!done && <span className={`inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-[11px] font-semibold ring-1 ${TONE[v.state]}`}><span>{MARK[v.state]}</span>{v.line}</span>}
+            {!done && <span className={`inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-[11px] font-semibold ring-1 ${TONE[goesStraight(g.sn, me?.tv, v.best?.name) ? 'yes' : v.state]}`}><span>{MARK[goesStraight(g.sn, me?.tv, v.best?.name) ? 'yes' : v.state]}</span>{goesStraight(g.sn, me?.tv, v.best?.name) ? `${g.sn![0].label} on Sportsnet+` : v.line}</span>}
             {s.mine.length > 0 && <span className="inline-flex items-center gap-1 rounded-full bg-gold/15 px-2.5 py-1 text-[11px] font-semibold text-gold ring-1 ring-gold/40">{s.starters} of yours{s.mine.length > s.starters ? ` (+${s.mine.length - s.starters} benched)` : ''}{(live || done) && ` · ${fmtPts(myPts)} pts`}</span>}
             {s.others.slice(0, 4).map(([t, n]) => <span key={t} className="inline-flex items-center gap-1 rounded-full bg-white/[.05] py-0.5 pl-0.5 pr-2 text-[10px] text-slate-300 ring-1 ring-white/10"><TeamBadge team={team(t)} size={16} />{n}</span>)}
           </div>
@@ -236,7 +236,8 @@ function GameRow({ r, hero, fp, team, open, onToggle, onRadio, onVideo, radio, v
 
         {/* the quick ways in, without opening the card */}
         <div className="flex flex-wrap gap-1.5 border-t border-white/[.06] px-3 py-2">
-          {!done && v.best && <button type="button" onClick={() => openTab(v.best!.url)} className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-bold ${v.state === 'yes' || v.state === 'free' ? 'btn-gold' : 'bg-white/[.06] text-white ring-1 ring-white/15'}`}><Tv className="h-3.5 w-3.5" /> {v.best.name === 'Out-of-market' ? (v.state === 'no' ? 'Get out-of-market' : 'Watch out-of-market') : v.state === 'no' ? `Get ${v.best.name}` : `Watch on ${v.best.name}`} <ExternalLink className="h-3 w-3 opacity-70" /></button>}
+          {!done && goesStraight(g.sn, me?.tv, v.best?.name) && <GameFeeds feeds={g.sn!} title={LIVE.has(g.state) ? 'Watch live' : 'Watch the game'} />}
+          {!done && v.best && !goesStraight(g.sn, me?.tv, v.best?.name) && <button type="button" onClick={() => openTab(v.best!.url)} className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-bold ${v.state === 'yes' || v.state === 'free' ? 'btn-gold' : 'bg-white/[.06] text-white ring-1 ring-white/15'}`}><Tv className="h-3.5 w-3.5" /> {v.best.name === 'Out-of-market' ? (v.state === 'no' ? 'Get out-of-market' : 'Watch out-of-market') : v.state === 'no' ? `Get ${v.best.name}` : `Watch on ${v.best.name}`} <ExternalLink className="h-3 w-3 opacity-70" /></button>}
           {!done && [g.away, g.home].filter((t) => t.radio).map((t) => <button key={t.abbrev} type="button" onClick={() => onRadio(radio?.url === t.radio ? null : { url: t.radio!, label: `${t.abbrev}` })} className={`inline-flex items-center gap-1 rounded-full px-3 py-1.5 text-xs font-semibold ring-1 ${radio?.url === t.radio ? 'bg-emerald-400/20 text-emerald-100 ring-emerald-400/50' : 'bg-white/[.04] text-slate-200 ring-white/10'}`}><Headphones className="h-3.5 w-3.5" /> {t.abbrev} radio</button>)}
           {done && g.recap && <button type="button" onClick={() => onVideo({ id: g.recap!, title: `${g.away.abbrev} @ ${g.home.abbrev}: recap` })} className="inline-flex items-center gap-1 rounded-full bg-white/[.06] px-3 py-1.5 text-xs font-semibold text-white ring-1 ring-white/15"><Play className="h-3.5 w-3.5" /> Recap</button>}
           {done && g.condensed && <button type="button" onClick={() => onVideo({ id: g.condensed!, title: `${g.away.abbrev} @ ${g.home.abbrev}: condensed game` })} className="inline-flex items-center gap-1 rounded-full bg-white/[.06] px-3 py-1.5 text-xs font-semibold text-white ring-1 ring-white/15"><Play className="h-3.5 w-3.5" /> Condensed game</button>}
@@ -246,7 +247,7 @@ function GameRow({ r, hero, fp, team, open, onToggle, onRadio, onVideo, radio, v
 
         {open && (
           <div className="space-y-3 border-t border-white/[.06] p-3">
-            {!done && opts.length > 0 && <WatchBox watch={opts} channels={nets} />}
+            {!done && opts.length > 0 && <WatchBox watch={opts} channels={nets} sn={goesStraight(g.sn, me?.tv, v.best?.name) ? undefined : g.sn} />}
             {s.mine.length > 0 && (
               <div>
                 <div className="mb-1.5 text-[11px] font-bold uppercase tracking-wider text-mute">Your players</div>
