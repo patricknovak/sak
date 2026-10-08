@@ -166,6 +166,12 @@ they lock (`pool_picks`), results graded on read from the shared event tables, a
 3. **The host's desk for every game.** Settle what the feed missed, pool by pool (an override on a result, never a
    change to the shared tables, with the reason on the record); enter a pick for a member who asked; change a rule
    until the first lock and freeze it after. Every pool type can then run with no feed at all.
+   *Built 8 October 2026 (migration 172):* `pool_game_set_rules` (frozen at the first lock; a pick'em's scoring only
+   before anyone picks), `pool_host_pick` (a pick'em round, a series pick or the ranking for a member, under their locks,
+   and they hear it), `pool_result_set` (a pick'em match settled for the pool alone, in `pool_result_overrides` with the
+   reason everyone sees; the round and the game end as if the feed had sent it). All on the commissioner's log. Still to
+   come: settling a series or a grid by hand (the MLB feed has not needed it), and picking for a member from the site
+   for series (the database takes it already).
 4. **Contract the old kinds.** Last one standing and Call the score become `pool_games` kinds (`survivor`, `score`),
    their tables and pages read through the engine, the old tables retired once the numbers match.
 5. **The learning loop.** Each lock writes the pool's pick split to the prediction log as a forecast, scored when

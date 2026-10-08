@@ -334,6 +334,7 @@ export default function Picks() {
   const { games } = usePoolGames();
   const gid = Number(params.get('g')) || games?.[0]?.id || null;
   const [board, setBoard] = useState<GameBoard | null | undefined>(undefined);
+  const [actAs, setActAs] = useState<{ team: number; name: string } | null>(null);
   const now = useNow(60000);
   const load = useCallback(() => { if (gid) rpc<GameBoard>('pool_game_board', { p_game: gid }).then(setBoard, () => setBoard(null)); }, [gid]);
   useEffect(() => { setBoard(undefined); load(); }, [load]);
@@ -383,13 +384,77 @@ export default function Picks() {
           ))}
         </div>
       )}
-      {pk ? <PickemGame key={board.id} gameId={board.id} first={pk} status={board.status} name={name} reload={load} />
+      {actAs && pk && (
+        <div className="flex items-center gap-3 rounded-2xl border border-amber-400/30 bg-amber-400/[.08] p-3 text-sm text-amber-100">
+          <span className="min-w-0 flex-1"><b>Entering picks for {actAs.name}.</b> Their own picks stay private; what you save here replaces theirs for these matches.</span>
+          <button type="button" className="btn-ghost shrink-0" onClick={() => setActAs(null)}>Done</button>
+        </div>
+      )}
+      {pk ? <PickemGame key={`${board.id}-${actAs?.team ?? 'me'}`} gameId={board.id} first={pk} status={board.status} name={name} reload={load} actAs={actAs ?? undefined} />
         : sq ? <SquaresGame data={sq} gameId={board.id} status={board.status} reload={load} name={name} />
         : board.kind === 'series' ? <SeriesGame board={board} reload={load} name={name} />
         : board.kind === 'rank' ? <RankGame board={board} reload={load} name={name} />
         : <div className="card p-4 text-sm text-mute">This kind of game is newer than this page. Pull down to refresh, or reopen the app.</div>}
+      {me?.is_commish && board.status === 'open' && !actAs && <HostDesk board={board} reload={load} onActAs={setActAs} />}
       <GameTable board={board} />
     </div>
+  );
+}
+
+// the host's desk for a game (migration 172): its rules until the first lock, and picks entered for a member who asked.
+// A pick'em match is settled by hand from its own card.
+function HostDesk({ board, reload, onActAs }: { board: GameBoard; reload: () => void; onActAs: (a: { team: number; name: string }) => void }) {
+  const { teams, me } = useLeague();
+  const { busy, run } = useAction();
+  const pk = board.pickem;
+  const [preset, setPreset] = useState<string>(board.rules.preset ?? 'classic');
+  const [toRound, setToRound] = useState<number>(pk?.to_round ?? 0);
+  if (board.kind !== 'pickem' && board.kind !== 'series') return null;
+  // the server has the last word; this hides the rules once the game has plainly locked
+  const locked = pk ? pk.round > pk.from_round || pk.fixtures.some((f) => f.locked && f.picked > 0) : !!board.series?.some((s) => s.locked);
+  const picked = pk ? pk.fixtures.some((f) => f.picked > 0) : false;
+  const members = teams.filter((t) => t.role === 'gm' && t.id !== me?.id);
+  const changed = preset !== (board.rules.preset ?? 'classic') || (pk && toRound !== pk.to_round);
+  const chip = (on: boolean) => `rounded-full px-3 py-1.5 text-xs font-semibold ring-1 transition ${on ? 'bg-gold text-[#0b1220] ring-gold' : 'bg-white/[.04] text-slate-200 ring-white/10'} disabled:opacity-40`;
+  return (
+    <Section title="Host">
+      <div className="card space-y-4 p-4">
+        <div>
+          <div className="mb-1.5 text-[11px] font-bold uppercase tracking-[.14em] text-mute">The rules</div>
+          {locked ? <p className="text-sm text-mute">The rules froze at the first lock, so everyone plays the game they joined.</p> : (
+            <div className="space-y-2">
+              <div className="flex flex-wrap gap-1.5">
+                {(pk ? PICKEM_PRESETS : PRESETS).map((x) => (
+                  <button key={x.key} type="button" disabled={!!pk && picked && x.key !== preset} onClick={() => setPreset(x.key)} className={chip(preset === x.key)}>{x.label}</button>
+                ))}
+              </div>
+              {pk && picked && <p className="text-[11px] text-mute">Picks are in, so the scoring stays.</p>}
+              {pk && pk.rounds.length > 1 && (
+                <label className="flex items-center gap-2 text-sm text-slate-200">Runs to
+                  <select className="input py-1.5 text-sm" value={toRound} onChange={(e) => setToRound(Number(e.target.value))}>
+                    {pk.rounds.map((r) => <option key={r.round} value={r.round}>{pk.word} {r.round}</option>)}
+                  </select>
+                </label>
+              )}
+              <button type="button" className="btn-gold w-full" disabled={busy || !changed}
+                onClick={() => run(async () => { await rpc('pool_game_set_rules', { p_game: board.id, p_rules: { preset, ...(pk ? { to_round: toRound } : {}) } }); reload(); }, 'The rules are changed')}>
+                Change the rules
+              </button>
+              <p className="text-[11px] leading-snug text-mute">Rules can change until the first lock; the pool hears about it.</p>
+            </div>
+          )}
+        </div>
+        {pk && members.length > 0 && (
+          <div>
+            <div className="mb-1.5 text-[11px] font-bold uppercase tracking-[.14em] text-mute">Pick for a player who asked</div>
+            <div className="flex flex-wrap gap-1.5">
+              {members.map((t) => <button key={t.id} type="button" onClick={() => onActAs({ team: t.id, name: t.gm_name ?? t.name })} className={chip(false)}>{t.gm_name ?? t.name}</button>)}
+            </div>
+          </div>
+        )}
+        {pk && <p className="text-[11px] leading-snug text-mute">A match the feed got wrong or left hanging: tap Settle by hand on its card once it has kicked off.</p>}
+      </div>
+    </Section>
   );
 }
 

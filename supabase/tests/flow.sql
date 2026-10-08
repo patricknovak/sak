@@ -4177,3 +4177,72 @@ select pg_temp.expect('the NFL has its row and its season on ESPN', (select not 
   and (select provider = 'espn' and ext_id = 'football/nfl' and active from competitions where id = 'nfl')
   and _round_word('nfl') = 'Week');
 select 'nfl', true;
+
+-- ───────────── the host's desk (migration 172) ─────────────
+-- Hana runs a pick'em on the Desk Cup: she changes its rules before the first lock, enters Lou's picks when he asks,
+-- and settles a match the feed left hanging.
+reset role;
+select set_config('request.jwt.claim.sub', '', false);
+select set_config('app.league_id', '', false);
+insert into competitions (id, sport, name, short, season, provider, ext_id, ext_season, active)
+values ('pk-desk', 'soccer', 'Desk Cup', 'DC', '2026', 'api-football', 'pkd', '2026', true) on conflict (id) do nothing;
+select soccer_ingest('pk-desk', jsonb_build_object('fixtures', jsonb_build_array(
+  jsonb_build_object('ext_id', 'dk-11', 'gameweek', 1, 'kickoff', now() + interval '1 day', 'status', 'NS', 'home', 'pk1', 'away', 'pk2', 'home_club', jsonb_build_object('ext_id', 'pk1'), 'away_club', jsonb_build_object('ext_id', 'pk2')),
+  jsonb_build_object('ext_id', 'dk-12', 'gameweek', 1, 'kickoff', now() + interval '1 day', 'status', 'NS', 'home', 'pk3', 'away', 'pk4', 'home_club', jsonb_build_object('ext_id', 'pk3'), 'away_club', jsonb_build_object('ext_id', 'pk4')),
+  jsonb_build_object('ext_id', 'dk-21', 'gameweek', 2, 'kickoff', now() + interval '8 days', 'status', 'NS', 'home', 'pk1', 'away', 'pk3', 'home_club', jsonb_build_object('ext_id', 'pk1'), 'away_club', jsonb_build_object('ext_id', 'pk3')))));
+select id as d11 from fixtures where ext_id = 'dk-11' \gset
+select id as d12 from fixtures where ext_id = 'dk-12' \gset
+select set_config('app.league_id', :'lib', false);
+select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-000000000081', false);
+set role authenticated;
+select pool_game_start('pickem', 'pk-desk') as dk \gset
+reset role;
+select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-000000000082', false);
+set role authenticated;
+select pg_temp.raises('only the host changes the rules', format('select pool_game_set_rules(%s, %L)', :dk, '{"preset":"confidence"}'), 'Commissioner only');
+select pg_temp.raises('or picks for someone', format('select pool_host_pick(%s, %s, %L)', :dk, :lou, '{}'), 'Commissioner only');
+reset role;
+select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-000000000081', false);
+set role authenticated;
+select pg_temp.expect('before anyone picks, the host switches the scoring and shortens it to one round',
+  pool_game_set_rules(:dk, '{"preset":"confidence"}')->>'preset' = 'confidence'
+  and (pool_game_set_rules(:dk, '{"to_round":1}')->>'to_round')::int = 1);
+select pg_temp.expect('where it starts stays put', (select (rules->>'from_round')::int = 1 and rules->>'preset' = 'confidence' from pool_games where id = :dk)
+  and exists (select 1 from messages where league_id = :lib and body = '📝 The host changed the rules of Desk Cup pick''em before the first lock.'));
+select pg_temp.expect('the host enters Lou''s round when he asks', (pool_host_pick(:dk, :lou, jsonb_build_object('round', 1, 'picks',
+  jsonb_build_array(jsonb_build_object('fixture', :d11, 'pick', 'H', 'conf', 2), jsonb_build_object('fixture', :d12, 'pick', 'A', 'conf', 1)))))::int = 2);
+select pg_temp.raises('only for a player in the pool', format('select pool_host_pick(%s, 2, %L)', :dk, jsonb_build_object('round', 1, 'picks', '[]'::jsonb)), 'player in this pool');
+select pg_temp.raises('once picks are in, the scoring stays', format('select pool_game_set_rules(%s, %L)', :dk, '{"preset":"classic"}'), 'Picks are in');
+reset role;
+select pg_temp.expect('Lou hears it, and the log keeps it', exists (select 1 from notifications where team_id = :lou and body = '📝 The host entered a pick for you in Desk Cup pick''em.')
+  and exists (select 1 from commish_log where league_id = :lib and action = 'pool_host_pick')
+  and exists (select 1 from commish_log where league_id = :lib and action = 'pool_game_set_rules'));
+-- the first match kicks off, and the feed stalls at half-time
+select soccer_ingest('pk-desk', jsonb_build_object('fixtures', jsonb_build_array(
+  jsonb_build_object('ext_id', 'dk-11', 'gameweek', 1, 'kickoff', now() + interval '1 day', 'status', 'HT', 'home', 'pk1', 'away', 'pk2', 'home_score', 2, 'away_score', 0))));
+select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-000000000081', false);
+set role authenticated;
+select pg_temp.raises('after the first lock the rules are frozen', format('select pool_game_set_rules(%s, %L)', :dk, '{"to_round":2}'), 'froze at the first lock');
+select pg_temp.raises('a match is settled by hand only once it has kicked off', format('select pool_result_set(%s, %s, %L, %L)', :dk, :d12, 'A', 'early'), 'hasn''t kicked off');
+select pg_temp.raises('and with the reason', format('select pool_result_set(%s, %s, %L, %L)', :dk, :d11, 'H', ''), 'Say why');
+select pg_temp.expect('the host settles the stalled match for this pool', pool_result_set(:dk, :d11, 'h', 'The feed stuck at half-time; Pine won 2-0') = 'H');
+select pg_temp.expect('the board shows the result and why', (select f->>'result' = 'H' and f->'host'->>'reason' = 'The feed stuck at half-time; Pine won 2-0' and (f->>'locked')::boolean
+  from jsonb_array_elements(pool_pickem_board(:dk, 1)->'fixtures') f where (f->>'id')::bigint = :d11));
+reset role;
+select pg_temp.expect('the shared match stays as the feed has it', (select state = 'live' from fixtures where id = :d11)
+  and (select points = 2 from _pool_game_table(:dk) where team_id = :lou));
+-- the other match ends on the feed: the round, and the game, are over
+select soccer_ingest('pk-desk', jsonb_build_object('fixtures', jsonb_build_array(
+  jsonb_build_object('ext_id', 'dk-12', 'gameweek', 1, 'kickoff', now() + interval '1 day', 'status', 'FT', 'home', 'pk3', 'away', 'pk4', 'home_score', 0, 'away_score', 1, 'home_ft', 0, 'away_ft', 1))));
+select pg_temp.expect('the round counts the host''s result with the feed''s: Lou 2 + 1, and wins it', (select points = 3 from _pool_game_table(:dk) where team_id = :lou)
+  and (select status = 'done' and winners = array[:lou] from pool_games where id = :dk)
+  and exists (select 1 from messages where league_id = :lib and body = '🏆 Desk Cup pick''em is done: Lou, with 3 points.'));
+-- another league can't touch it
+select set_config('app.league_id', '', false);
+select pg_temp.as_team(1);
+set role authenticated;
+select pg_temp.raises('another league''s host can''t settle a match here', format('select pool_result_set(%s, %s, %L, %L)', :dk, :d11, 'A', 'nope'));
+select pg_temp.expect('nor read this pool''s results', (select count(*) from pool_result_overrides where fixture_id = :d11) = 0);
+reset role;
+select set_config('request.jwt.claim.sub', '', false);
+select 'host desk', true;

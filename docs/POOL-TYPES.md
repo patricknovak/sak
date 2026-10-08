@@ -335,8 +335,8 @@ and which knobs anyone touches. That goes to the Ideas board and into the NFL (D
 *Reviewed 8 October 2026.* Built so far: the engine (§3) with Pick the series, Rank the teams and squares, the
 three-step start (§4), MLB centre (§5), and from §6 the live table, max possible, the elimination mark ("can't catch
 first"), the pick split after each lock, rolling locks per series and the climb alerts (the scoreboard, migration 169).
-Still open from §6: "what you need to win", the rules page written before the first lock, and the host's tools (a pick
-for a guest, a rule changed before the first lock, a result the feed missed). The infrastructure order is in
+Still open from §6: "what you need to win" and the rules page written before the first lock. The host's tools (a pick
+for a guest, a rule changed before the first lock, a result the feed missed) landed 8 October (migration 172). The infrastructure order is in
 `docs/DEVELOPMENT.md` §6; weekly pick'em comes first because it runs on any competition with fixtures, so the NFL (below)
 and soccer share it.
 

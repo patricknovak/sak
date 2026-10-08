@@ -6,6 +6,8 @@
 export interface Change { date: string; icon: string; title: string; body: string; to?: string; tag?: 'formats' | 'commish' | 'draft' | 'everyone' }
 
 export const CHANGELOG: Change[] = [
+  { date: '2026-10-08', icon: '📝', tag: 'commish', title: 'The host\'s desk', to: '/picks',
+    body: 'A pool\'s host can change a game\'s rules until the first lock (the pool hears it), enter a round of picks for a player who asked, and settle a pick\'em match by hand when the feed gets it wrong or leaves it hanging: a side, a draw or void, with the reason shown to everyone on the match. It counts for that pool only, and every action is on the host\'s log.' },
   { date: '2026-10-08', icon: '🏈', tag: 'everyone', title: 'NFL pick\'em', to: '/pools',
     body: 'The NFL is in: every game of the season week by week, scores as they happen, and the playoffs once their teams are set. A pool can run a pick\'em on it from Week 5, Classic or Confidence, each pick locking at its own kickoff. A tie counts for nobody.' },
   { date: '2026-10-08', icon: '✅', tag: 'everyone', title: 'Pick\'em for the Premier League and MLS', to: '/picks',
