@@ -4859,3 +4859,22 @@ select pg_temp.raises('another league can''t read it', format('select pool_game_
 reset role;
 select set_config('request.jwt.claim.sub', '', false);
 select 'bracket', true;
+
+-- ───────────── chance to win in the bracket (migration 186) ─────────────
+-- The Bracket Cup again (migration 185's section): after the first round Hana has three right and Akron, Erie and her
+-- champion still alive; Fern has one and Gary.
+select set_config('app.league_id', :'lib', false);
+update pool_games set status = 'open' where id = :bg;
+select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-000000000082', false);
+set role authenticated;
+select pool_game_chances(:bg) as bch \gset
+select pg_temp.expect('Hana is the favourite, Lou has none, and the chances add up to one',
+  (select (e->>'chance')::numeric from jsonb_array_elements(:'bch'::jsonb) e where (e->>'team_id')::int = :hana)
+    > (select (e->>'chance')::numeric from jsonb_array_elements(:'bch'::jsonb) e where (e->>'team_id')::int = :fern)
+  and (select (e->>'chance')::numeric = 0 from jsonb_array_elements(:'bch'::jsonb) e where (e->>'team_id')::int = :lou)
+  and abs((select sum((e->>'chance')::numeric) from jsonb_array_elements(:'bch'::jsonb) e) - 1) < 0.01);
+reset role;
+update pool_games set status = 'done' where id = :bg;
+select set_config('app.league_id', '', false);
+select set_config('request.jwt.claim.sub', '', false);
+select 'bracket chances', true;

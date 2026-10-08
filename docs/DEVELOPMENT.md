@@ -218,9 +218,10 @@ they lock (`pool_picks`), results graded on read from the shared event tables, a
    point a series; what's still possible counts picks whose club is still in; the final's runs break a tie. The tree is
    read from each round's order (`_bracket_tree`; `_bracket_ok` says where a bracket can start: every later round
    halves to a final of one). The site's picker goes round by round on a phone, clears later picks an earlier change
-   broke, and shows right, wrong and everyone's champion once locked. Still to come: the NFL's playoffs and March
-   Madness come as single games, so they want an adapter that files each as a best-of-1 series; and a bracket's chance
-   to win. The player pool is next after it.
+   broke, and shows right, wrong and everyone's champion once locked. Its chance to win once locked (migration 186: the
+   tree played out round by round). Still to come: the NFL's playoffs and March Madness come as single games, so they
+   want an adapter that files each as a best-of-1 series (in a postseason competition of its own, so the season's
+   pick'em keeps its rounds). The player pool is next after it.
 
 *Where 8 October left it (migrations 172 to 185, PR #243):* items 1 to 3 and 5 built, item 6 built for pick'em, Pick
 the series and Rank the teams, item 7's bracket built on series, item 4 begun (last one standing starts through the
