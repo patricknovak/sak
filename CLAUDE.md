@@ -74,7 +74,9 @@ Two things in one repo:
   through a client with the service key and an `x-league` header (`dbFor(league)` in nhl-sync and Garry).
 - Points: the NHL data is shared, the scoring isn't. `player_games.fpts` and `players.proj / last_fp / rank` are
   SaK's numbers kept for old readers; read a league's points through `league_games`, `league_players`,
-  `player_season`, `player_windows` (each league's scoring profile, `scoring_profiles`).
+  `player_season`, `player_windows` (each league's scoring profile, `scoring_profiles`). `player_games` also carries the box pool's goal alert
+  (`player_games_box_goal`, migration 192): it returns at once when no box pool is open and turns its own errors into
+  warnings, so it never holds up a stats write.
 - Formats: how a league is won is in `league_rules` (and the `league` view): `format` ('season', SaK's total, or 'h2h'
   weekly matchups on `matchups`), `categories` (null for points; set, it is rotisserie in a season league and weekly
   categories in an h2h one) and `h2h_playoffs` (0, or the bracket's size). Read the tables through `standings` (points),
