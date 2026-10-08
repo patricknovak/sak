@@ -4957,6 +4957,10 @@ select pg_temp.raises('the boxes stay once teams are in', format('select pool_ga
 select pool_host_pick(:bxg, :lou, '{"thing": "box", "pick": {"players": [990003, 990008, 990013, 990018, 990023]}}');
 reset role;
 select set_config('request.jwt.claim.sub', '', false);
+-- two hours to the first puck drop: nobody who has a team in hears the reminder (migration 195)
+update games set start_utc = now() + interval '2 hours' where id = 2099029101;
+select _pool_game_nudge(:lib);
+select pg_temp.expect('no reminder for a member whose team is in', not exists (select 1 from notifications where team_id in (:hana, :fern, :lou) and body like '⏰ The box pool locks%'));
 -- the first night starts and is played
 update games set start_utc = now() - interval '3 hours', state = 'OFF' where id = 2099029101;
 insert into player_games (game_id, player_id, date, stats) values
