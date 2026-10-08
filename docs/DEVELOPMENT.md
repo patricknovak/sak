@@ -197,7 +197,9 @@ they lock (`pool_picks`), results graded on read from the shared event tables, a
    here (each undecided match drawn from the pool's own smoothed split, an unpicked match a guess; a long season's
    guesses drawn whole from their normal shape, about a third of a second for an NFL season), shown on the Table as
    "Chance to win" and on every row. The first look each day logs each member's chance (`pool_win`), scored when the
-   game ends. Still to come: series rounds and brackets played out exactly, and "what you need" in words.
+   game ends. *Pick the series, the same day (migration 176):* each series with its matchup set is played out exactly
+   from where it stands (the chance of each winner and length from the pool's split, C(k-1, a-1) p^a (1-p)^(k-a)), a
+   series not yet set or not yet picked a guess. Still to come: Rank the teams, brackets, and "what you need" in words.
 7. **The bracket and the player pool**, for the NHL playoffs and March Madness (`docs/POOL-TYPES.md` §9).
 
 Alongside: the World Series test (the LCS from 11 October, the World Series from 23 October) needs its games started

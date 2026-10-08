@@ -445,7 +445,7 @@ export function PoolLeaders() {
             );
           })()}
           <BoardRows g={g} extra={g.kind === 'questions' ? (r) => { const l = leaders?.find((x) => x.team_id === r.team_id); return l ? <> · <Coins n={l.coins} /> in hand</> : null; }
-            : chances ? (r) => { const c = chances.get(r.team_id); return c != null ? <> · <span className={c >= 0.25 ? 'text-emerald-300' : ''}>{c > 0 && c < 0.01 ? '<1%' : `${Math.round(c * 100)}%`} to win</span></> : null; } : undefined} />
+            : chances ? (r) => { const c = chances.get(r.team_id); return c ? <> · <span className={c >= 0.25 ? 'text-emerald-300' : ''}>{c > 0 && c < 0.01 ? '<1%' : `${Math.round(c * 100)}%`} to win</span></> : null; } : undefined} />
           <ShareButton className="btn-gold w-full py-3" label="Share the table" make={async () => shareBoard()} />
         </>
       )}

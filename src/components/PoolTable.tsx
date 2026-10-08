@@ -113,11 +113,11 @@ export function BoardRows({ g, extra }: { g: BoardGame; extra?: (r: BoardRow) =>
   );
 }
 
-// each member's chance of finishing first (migration 175): a pick'em still open is played out a thousand times from
-// the pool's own picks; anything else has none to show yet
+// each member's chance of finishing first (migrations 175 and 176): a pick'em or Pick the series still open is played
+// out a thousand times from the pool's own picks; anything else has none to show yet
 export function useChances(g: BoardGame | undefined) {
   const [chances, setChances] = useState<Map<number, number> | null>(null);
-  const id = g && g.kind === 'pickem' && g.status === 'open' && g.key.startsWith('game:') ? Number(g.key.slice(5)) : null;
+  const id = g && (g.kind === 'pickem' || g.kind === 'series') && g.status === 'open' && g.key.startsWith('game:') ? Number(g.key.slice(5)) : null;
   useEffect(() => {
     setChances(null);
     if (!id) return;
@@ -162,7 +162,9 @@ export function ChanceCard({ g, chances }: { g: BoardGame; chances: Map<number, 
         {shown.slice(0, 4).map(([id, c]) => <span key={id} className={id === me?.id ? 'font-semibold text-gold' : ''}>{name(id)} {pctOf(c)}</span>)}
         {shown.length > 4 && <span>+{shown.length - 4} more</span>}
       </div>
-      <p className="mt-2 text-[11px] leading-snug text-mute">The {g.title.replace(/^The /, '')} played out a thousand times from here: each match drawn from how the pool picked it, a match you haven’t picked as a guess.</p>
+      <p className="mt-2 text-[11px] leading-snug text-mute">{g.kind === 'series'
+        ? `${g.title} played out a thousand times from here: each series game by game from where it stands, its odds from how the pool picked it; a series you haven’t picked yet as a guess.`
+        : `The ${g.title.replace(/^The /, '')} played out a thousand times from here: each match drawn from how the pool picked it, a match you haven’t picked as a guess.`}</p>
     </div>
   );
 }

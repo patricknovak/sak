@@ -9,7 +9,7 @@ export const CHANGELOG: Change[] = [
   { date: '2026-10-08', icon: '📜', tag: 'everyone', title: 'The rules, written down', to: '/picks',
     body: 'Every pick\'em, series and ranking game now has its rules at the foot of its page, written from its own settings: what scores, when picks lock, what happens to a game called off, how a tie is broken and what the host can do. They\'re fixed from the first lock.' },
   { date: '2026-10-08', icon: '🎲', tag: 'everyone', title: 'Your chance to win', to: '/leaders',
-    body: 'A pick\'em\'s Table now shows everyone\'s chance of finishing first: the rest of the game played out a thousand times, each match drawn from how the pool picked it. It moves as the results come in.' },
+    body: 'A pick\'em\'s or Pick the series\' Table now shows everyone\'s chance of finishing first: the rest of the game played out a thousand times, each match or series drawn from how the pool picked it. It moves as the results come in.' },
   { date: '2026-10-08', icon: '📺', tag: 'everyone', title: 'NFL centre and Match centre', to: '/pools',
     body: 'A pool with a game on the NFL or a soccer league gets its own centre in the More menu: every game of the week with the score and the quarter or the minute while it is on, your pick on each, and how the pool picked once it kicks off. The Table tab ranks the league from the results.' },
   { date: '2026-10-08', icon: '🛡️', tag: 'everyone', title: 'Last one standing on the NFL', to: '/survivor',

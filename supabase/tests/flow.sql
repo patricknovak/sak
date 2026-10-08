@@ -4467,3 +4467,50 @@ select pg_temp.raises('another league can''t read them', format('select pool_gam
 reset role;
 select set_config('request.jwt.claim.sub', '', false);
 select 'chances', true;
+
+-- ───────────── chances to win in Pick the series (migration 176) ─────────────
+-- An LCS then a World Series: Hana takes the higher seed in 4, Fern the lower seed in 7, Lou never picks. Up 3-0, the
+-- higher seed makes Hana the favourite.
+reset role;
+select set_config('request.jwt.claim.sub', '', false);
+select set_config('app.league_id', '', false);
+insert into competitions (id, sport, name, short, season, provider, ext_id, ext_season, active)
+values ('ws-odds', 'mlb', 'Odds Series', 'OS', '2026', 'mlb', 'ws-odds', '2026', true) on conflict (id) do nothing;
+select sport_ingest('ws-odds', jsonb_build_object(
+  'clubs', jsonb_build_array(jsonb_build_object('ext_id', '951', 'name', 'Erie Eagles', 'short', 'ERI'), jsonb_build_object('ext_id', '952', 'name', 'Flint Flyers', 'short', 'FLI')),
+  'series', jsonb_build_array(
+    jsonb_build_object('ext_id', 'O_L1', 'round', 1, 'label', 'Championship Series', 'short', 'CS', 'best_of', 7, 'high', '951', 'low', '952', 'starts_at', now() + interval '2 days'),
+    jsonb_build_object('ext_id', 'O_W1', 'round', 2, 'label', 'World Series', 'short', 'WS', 'best_of', 7, 'starts_at', now() + interval '10 days', 'tbd', true))));
+select id as eri from clubs where sport = 'mlb' and ext_id = '951' \gset
+select id as fli from clubs where sport = 'mlb' and ext_id = '952' \gset
+select id as ocs from series where ext_id = 'O_L1' \gset
+select set_config('app.league_id', :'lib', false);
+select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-000000000081', false);
+set role authenticated;
+select pool_game_start('series', 'ws-odds', '{"preset":"classic"}') as osg \gset
+select pool_game_pick(:osg, 's:' || :ocs, jsonb_build_object('winner', :eri, 'games', 4));
+reset role;
+select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-000000000082', false);
+set role authenticated;
+select pool_game_pick(:osg, 's:' || :ocs, jsonb_build_object('winner', :fli, 'games', 7));
+select pool_game_chances(:osg) as sc0 \gset
+select pg_temp.expect('before the first pitch every member has a chance, adding up to one',
+  jsonb_array_length(:'sc0'::jsonb) = :members
+  and abs((select sum((e->>'chance')::numeric) from jsonb_array_elements(:'sc0'::jsonb) e) - 1) < 0.01
+  and (select bool_and((e->>'chance')::numeric > 0) from jsonb_array_elements(:'sc0'::jsonb) e where (e->>'team_id')::int in (:hana, :fern, :lou)));
+reset role;
+select pg_temp.expect('the series chances are logged as a forecast of their own kind', (select count(*) from predictions where kind = 'pool_win' and basis = 'series' and (subject->>'game')::bigint = :osg) = :members);
+select sport_ingest('ws-odds', jsonb_build_object('fixtures', jsonb_build_array(
+  jsonb_build_object('ext_id', 'o1', 'series', 'O_L1', 'game_no', 1, 'kickoff', now() - interval '3 days', 'state', 'final', 'home', '951', 'away', '952', 'home_score', 5, 'away_score', 1),
+  jsonb_build_object('ext_id', 'o2', 'series', 'O_L1', 'game_no', 2, 'kickoff', now() - interval '2 days', 'state', 'final', 'home', '951', 'away', '952', 'home_score', 4, 'away_score', 2),
+  jsonb_build_object('ext_id', 'o3', 'series', 'O_L1', 'game_no', 3, 'kickoff', now() - interval '1 day', 'state', 'final', 'home', '952', 'away', '951', 'home_score', 0, 'away_score', 3))));
+select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-000000000086', false);
+set role authenticated;
+select pool_game_chances(:osg) as sc1 \gset
+select pg_temp.expect('up 3-0, the higher seed makes Hana the clear favourite over Fern, who needs four straight from the lower seed',
+  (select (e->>'chance')::numeric from jsonb_array_elements(:'sc1'::jsonb) e where (e->>'team_id')::int = :hana)
+    > (select (e->>'chance')::numeric + 0.2 from jsonb_array_elements(:'sc1'::jsonb) e where (e->>'team_id')::int = :fern));
+reset role;
+select set_config('app.league_id', '', false);
+select set_config('request.jwt.claim.sub', '', false);
+select 'series chances', true;
