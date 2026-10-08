@@ -257,8 +257,10 @@ they lock (`pool_picks`), results graded on read from the shared event tables, a
    (`_box_rate`), shown while picking and, once locked, summed for each team.
    *The morning line (migration 194):* once a night's games are final, the pool's chat hears who had the night (with
    their best player's line) and who leads, once a night, from the hourly pool job.
+   *In the prediction log (migration 197):* at the lock each team's expected points for the window (`box_points`),
+   scored on the points made when the pool is done; the Calibration page can read it once there are pools to judge.
 
-*Where 8 October left it (migrations 172 to 194, PR #243):* items 1 to 3 and 5 built, item 6 built for pick'em, Pick
+*Where 8 October left it (migrations 172 to 197, PR #243):* items 1 to 3 and 5 built, item 6 built for pick'em, Pick
 the series and Rank the teams, item 7's bracket built on series and its box pool on the NHL season, item 4 begun (last one standing starts through the
 engine's door). Beside them: NFL
 centre and Match centre, the market's view on each match, results by hand for every game on fixtures, the rules

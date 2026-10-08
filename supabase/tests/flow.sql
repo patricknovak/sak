@@ -5004,6 +5004,10 @@ select pg_temp.expect('Hana is the favourite over Lou, and the chances add up to
   (select (e->>'chance')::numeric from jsonb_array_elements(:'bxch'::jsonb) e where (e->>'team_id')::int = :hana)
     > (select (e->>'chance')::numeric from jsonb_array_elements(:'bxch'::jsonb) e where (e->>'team_id')::int = :lou)
   and abs((select sum((e->>'chance')::numeric) from jsonb_array_elements(:'bxch'::jsonb) e) - 1) < 0.01);
+-- the prediction log (migration 197): a forecast for each team once it locks, once
+select _players_log(:lib) as bxl \gset
+select pg_temp.expect('each team''s expected points go in the log, once', :bxl = 3 and _players_log(:lib) = 0);
+select pg_temp.expect('with a forecast above nothing', (select predicted > 0 from predictions where kind = 'box_points' and (subject->>'game')::bigint = :bxg and (subject->>'team_id')::int = :hana));
 select pg_temp.expect('not done while nights are left', _players_settle(:lib) = 0);
 -- the week is over: the nights move into the past and the second is played
 update games set date = date - 50, start_utc = start_utc - interval '50 days', state = 'OFF' where id in (2099029101, 2099029102);
@@ -5019,6 +5023,8 @@ select _players_settle(:lib) as bxn \gset
 select pg_temp.expect('the morning after, Hana wins it', :bxn = 1
   and (select status = 'done' and winners = array[:hana] from pool_games where id = :bxg)
   and exists (select 1 from messages where league_id = :lib and body = '🏆 The box pool is done: Hana, with 4 points.'));
+select pg_temp.expect('and each forecast is scored on the points made', (select status = 'scored' and outcome = 4 and error = 4 - predicted
+  from predictions where kind = 'box_points' and (subject->>'game')::bigint = :bxg and (subject->>'team_id')::int = :hana));
 select set_config('app.league_id', '', false);
 select pg_temp.as_team(2);
 set role authenticated;
