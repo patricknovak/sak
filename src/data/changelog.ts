@@ -6,6 +6,8 @@
 export interface Change { date: string; icon: string; title: string; body: string; to?: string; tag?: 'formats' | 'commish' | 'draft' | 'everyone' }
 
 export const CHANGELOG: Change[] = [
+  { date: '2026-10-08', icon: '✅', tag: 'everyone', title: 'Pick\'em for the Premier League and MLS', to: '/picks',
+    body: 'A pool can run a weekly pick\'em: every match of a round, pick the winner or a draw, each pick locking at its own kick-off so anyone can join any week. Classic gives a point for every right pick; Confidence has you number the round\'s picks, your surest highest, and a right one earns its number. Once a match kicks off you see how the pool split; when a round ends the pool hears who won it and you hear how you did. Start one from My pools or the Host page.' },
   { date: '2026-10-08', icon: '👑', tag: 'everyone', title: 'One table for every game in a pool', to: '/leaders',
     body: 'A pool\'s Leaders page is now its Table: every game the pool runs (the questions, Pick the series, Rank the teams, squares, last one standing, Call the score) one tap apart, each ranked the same way, with arrows for who moved today, what each member can still reach, and a mark on anyone who can no longer finish first. The host names the pool\'s main game; the home ranks you by it. Climb into first, or three places or more, and you hear about it.' },
   { date: '2026-10-07', icon: '📺', tag: 'everyone', title: 'Watch live', to: '/watch',

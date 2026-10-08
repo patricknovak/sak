@@ -104,6 +104,10 @@ or takes the favourite, or the home side; late joiners start at zero, the lowest
 **Good:** drag-to-rank that works on a phone, the pick split after lock, the weekly winner banner, points still
 possible.
 
+*Built 8 October 2026 (migration 170): the `pickem` kind on `fixtures`, Classic and Confidence, draws where the sport
+has them (`sports.config.draws`), the round's name from the sport (`words.round`). Against the spread and a tiebreaker
+wait for the NFL.*
+
 ### 2.5 Survivor (last one standing, eliminator)
 
 **How it works:** pick one team a week to win; a loss puts you out; each team once. Built for soccer (migration 157),
@@ -327,6 +331,14 @@ and which knobs anyone touches. That goes to the Ideas board and into the NFL (D
    pool keeps one currency. The alternative is squares for points only.
 
 ## 9. The order after the World Series
+
+*Reviewed 8 October 2026.* Built so far: the engine (§3) with Pick the series, Rank the teams and squares, the
+three-step start (§4), MLB centre (§5), and from §6 the live table, max possible, the elimination mark ("can't catch
+first"), the pick split after each lock, rolling locks per series and the climb alerts (the scoreboard, migration 169).
+Still open from §6: "what you need to win", the rules page written before the first lock, and the host's tools (a pick
+for a guest, a rule changed before the first lock, a result the feed missed). The infrastructure order is in
+`docs/DEVELOPMENT.md` §6; weekly pick'em comes first because it runs on any competition with fixtures, so the NFL (below)
+and soccer share it.
 
 1. The NFL: weekly pick'em and confidence and a second-half survivor (the season is in week 5; playoffs from
    January), on ESPN's site API for results and spreads until a licensed feed; NFL centre, first version.

@@ -1,17 +1,19 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
-import { ArrowDown, ArrowUp, Check, ChevronDown, Grid3x3, Lock, ListOrdered, Minus, Plus, Swords, Trophy } from 'lucide-react';
+import { ArrowDown, ArrowUp, Check, ChevronDown, Grid3x3, ListChecks, Lock, ListOrdered, Minus, Plus, Swords, Trophy } from 'lucide-react';
 import { useLeague, useNow } from '../lib/store';
 import { rpc } from '../lib/supabase';
 import { Empty, PageHeader, Section, TeamBadge, useAction } from '../components/ui';
 import { Crest } from '../components/Crest';
-import { KINDS, PAYS, PRESETS, SIZES, SQUARES_DEFAULT, gridLabel, type PoolEvent, type SeriesPreset, type SquaresRules } from '../lib/poolGames';
+import { KINDS, PAYS, PICKEM_PRESETS, PRESETS, SIZES, SQUARES_DEFAULT, gridLabel, type PickemPreset, type PoolEvent, type SeriesPreset, type SquaresRules } from '../lib/poolGames';
 import { SquaresGame, type SquaresData } from '../components/Squares';
+import { PickemGame, type PickemData } from '../components/Pickem';
 
 // The pool's games (migration 165, docs/POOL-TYPES.md): Pick the series (each series' winner and how many games it
 // goes, locked at its Game 1) and Rank the teams (the clubs in order; every win pays its club's rank). Points, the most
 // still possible and the table come from the database on every read, so a result lands the moment the feed has it.
-// Everyone else's picks show once a series starts. Squares (migration 167) have their own page in components/Squares.
+// Everyone else's picks show once a series starts. Squares (migration 167) and weekly pick'em (migration 170) have their
+// own components.
 
 export interface Club { id: number; name: string; short: string | null; logo: string | null; color: string | null }
 interface Pick { winner: number; games: number }
@@ -25,14 +27,15 @@ interface Series {
 interface RankClub extends Club { alive: boolean; in_field: boolean; wins: number; left: number }
 interface TableRow { team_id: number; points: number; possible: number; right: number; exact: number; picked: number; tiebreak: number | null }
 export interface GameBoard {
-  id: number; kind: 'series' | 'rank' | 'squares'; title: string; status: 'open' | 'done'; winners: number[] | null; competition_name: string; me: number;
+  id: number; kind: 'series' | 'rank' | 'squares' | 'pickem'; title: string; status: 'open' | 'done'; winners: number[] | null; competition: string; competition_name: string; me: number;
   rules: { preset?: string; from_round: number; points?: Record<string, number>; length?: Record<string, number>; exact_only?: boolean };
   rounds: { round: number; label: string; best_of: number }[]; table: TableRow[];
   series?: Series[]; tiebreak?: { locks_at: string | null; locked: boolean; mine: number | null; label: string };
   rank?: { locks_at: string | null; locked: boolean; round_label: string; field: number; clubs: RankClub[]; mine: number[] | null; orders: { team_id: number; order: number[] }[] | null };
   squares?: SquaresData;
+  pickem?: PickemData;
 }
-export interface PoolGame { id: number; kind: 'series' | 'rank' | 'squares'; series?: number | null; title: string; status: 'open' | 'done'; competition: string; to_pick: number; next_lock: string | null }
+export interface PoolGame { id: number; kind: 'series' | 'rank' | 'squares' | 'pickem'; series?: number | null; title: string; status: 'open' | 'done'; competition: string; to_pick: number; next_lock: string | null }
 
 export function usePoolGames() {
   const { me, league } = useLeague();
@@ -52,7 +55,7 @@ export const lockText = (iso: string | null, tbd = false) => {
 const ordinal = (n: number) => { const s = ['th', 'st', 'nd', 'rd'], v = n % 100; return n + (s[(v - 20) % 10] ?? s[v] ?? s[0]); };
 const pts = (n: number) => `${n} ${n === 1 ? 'pt' : 'pts'}`;
 const hue = (c: Club | null | undefined) => c?.color ?? 'rgb(var(--gold-rgb))';
-const ICON = { series: Swords, rank: ListOrdered, squares: Grid3x3 } as const;
+const ICON = { series: Swords, rank: ListOrdered, squares: Grid3x3, pickem: ListChecks } as const;
 
 // a series' wins as dots: the number it takes to win, filled as they come
 function WinDots({ wins, need, color }: { wins: number; need: number; color: string }) {
@@ -287,14 +290,14 @@ function GameTable({ board }: { board: GameBoard }) {
               <div className="min-w-0 flex-1">
                 <div className="break-words font-semibold text-white">{t?.gm_name ?? t?.name}</div>
                 <div className="text-[11px] text-mute">{board.kind === 'squares' ? `${r.picked} ${r.picked === 1 ? 'square' : 'squares'} · ${r.right} ${r.right === 1 ? 'hit' : 'hits'}`
-                  : `${board.kind === 'series' ? `${r.right} right · ${r.exact} with the length · ${r.picked} picked` : r.picked ? 'Ranked' : 'Not ranked yet'} · up to ${r.possible}`}</div>
+                  : `${board.kind === 'series' ? `${r.right} right · ${r.exact} with the length · ${r.picked} picked` : board.kind === 'pickem' ? `${r.right} right · ${r.picked} picked` : r.picked ? 'Ranked' : 'Not ranked yet'} · up to ${r.possible}`}</div>
               </div>
               <span className="num shrink-0 text-xl font-black text-white">{r.points}</span>
             </div>
           );
         })}
       </div>
-      <p className="mt-2 px-1 text-xs text-mute">{board.kind === 'squares' ? 'Coins each player’s squares have taken.' : `Up to: the most each player can still finish with. ${board.kind === 'series' ? 'A tie goes to the closest tiebreaker.' : ''}`}</p>
+      <p className="mt-2 px-1 text-xs text-mute">{board.kind === 'squares' ? 'Coins each player’s squares have taken.' : `Up to: the most each player can still finish with${board.kind === 'pickem' ? ', every match still to come picked right' : ''}. ${board.kind === 'series' ? 'A tie goes to the closest tiebreaker.' : ''}`}</p>
     </Section>
   );
 }
@@ -307,7 +310,7 @@ export function PoolGameCards() {
   return (
     <div className="grid gap-3 md:grid-cols-2">
       {games.map((g) => {
-        const Icon = ICON[g.kind];
+        const Icon = ICON[g.kind] ?? Swords;
         return (
           <Link key={g.id} to={`/picks?g=${g.id}`} className="card-hero flex items-center gap-3 p-4 transition hover:border-gold/40">
             <span className="relative grid h-12 w-12 shrink-0 place-items-center rounded-2xl bg-gold/15"><Icon className="h-6 w-6 text-gold" /></span>
@@ -346,20 +349,22 @@ export default function Picks() {
   if (!board) return <div className="h-60 animate-pulse rounded-3xl bg-white/[.04]" />;
   const rank = board.table.findIndex((r) => r.team_id === board.me);
   const mine = board.table[rank];
-  const Icon = ICON[board.kind];
+  const Icon = ICON[board.kind] ?? Swords;
   const winners = (board.winners ?? []).map(name);
   const sq = board.squares;
-  const sub = sq ? `${sq.cost} coins a square · ${sq.pay_when === 'innings' ? 'pays after the 3rd, 6th and final' : 'pays on the final score'}`
+  const pk = board.pickem;
+  const sub = pk ? (pk.confidence ? 'Confidence: number your picks, a right one earns its number' : 'A point for every right pick')
+    : sq ? `${sq.cost} coins a square · ${sq.pay_when === 'innings' ? 'pays after the 3rd, 6th and final' : 'pays on the final score'}`
     : board.kind === 'series'
     ? (board.rules.exact_only ? 'Winner and length both right, or nothing' : `Points by round: ${board.rounds.map((r) => board.rules.points?.[String(r.round)]).join('-')}, plus ${board.rounds.map((r) => board.rules.length?.[String(r.round)]).join('-')} for the length`)
     : 'Every win pays its club’s rank';
 
   return (
     <div className="space-y-5 pb-10">
-      <PageHeader icon={<Icon className="h-6 w-6 text-gold" />} title={board.title} sub={`${board.competition_name} · ${sub}`} right={<Link to="/sport/mlb" className="text-xs font-semibold text-sky-300">Scores and bracket →</Link>} />
+      <PageHeader icon={<Icon className="h-6 w-6 text-gold" />} title={board.title} sub={`${board.competition_name} · ${sub}`} right={board.competition?.startsWith('mlb') ? <Link to="/sport/mlb" className="text-xs font-semibold text-sky-300">Scores and bracket →</Link> : undefined} />
       {games && games.length > 1 && (
         <div className="scroll-x flex gap-1.5">
-          {games.map((g) => { const I = ICON[g.kind]; return (
+          {games.map((g) => { const I = ICON[g.kind] ?? Swords; return (
             <button key={g.id} type="button" onClick={() => setParams({ g: String(g.id) })} className={`tab inline-flex shrink-0 items-center gap-1.5 ${g.id === board.id ? 'tab-on' : 'bg-white/[.05]'}`}>
               <I className="h-4 w-4" /> {g.title}{g.to_pick > 0 && <span className="h-1.5 w-1.5 rounded-full bg-amber-300" />}
             </button>); })}
@@ -369,7 +374,7 @@ export default function Picks() {
         <div className="card-hero p-5 text-center"><div className="relative"><div className="text-5xl">🏆</div><div className="h-display text-shine mt-2 text-3xl">{winners.join(' and ') || 'Nobody'}</div><div className="mt-1 text-sm text-white/70">{sq ? `took the most coins in ${board.title}` : `won ${board.title}`}</div></div></div>
       ) : mine && !sq && (
         <div className="grid grid-cols-3 gap-2">
-          {[['Rank', ordinal(rank + 1), `of ${board.table.length}`], ['Points', String(mine.points), board.kind === 'series' ? `${mine.right} right` : 'so far'], ['Up to', String(mine.possible), 'still possible']].map(([k, v, s]) => (
+          {[['Rank', ordinal(rank + 1), `of ${board.table.length}`], ['Points', String(mine.points), board.kind === 'series' || board.kind === 'pickem' ? `${mine.right} right` : 'so far'], ['Up to', String(mine.possible), 'still possible']].map(([k, v, s]) => (
             <div key={k} className="rounded-2xl border border-white/10 bg-white/[.04] p-3">
               <div className="text-[10px] font-bold uppercase tracking-[.18em] text-mute">{k}</div>
               <div className="num mt-0.5 text-2xl font-black text-white">{v}</div>
@@ -378,8 +383,11 @@ export default function Picks() {
           ))}
         </div>
       )}
-      {sq ? <SquaresGame data={sq} gameId={board.id} status={board.status} reload={load} name={name} />
-        : board.kind === 'series' ? <SeriesGame board={board} reload={load} name={name} /> : <RankGame board={board} reload={load} name={name} />}
+      {pk ? <PickemGame key={board.id} gameId={board.id} first={pk} status={board.status} name={name} reload={load} />
+        : sq ? <SquaresGame data={sq} gameId={board.id} status={board.status} reload={load} name={name} />
+        : board.kind === 'series' ? <SeriesGame board={board} reload={load} name={name} />
+        : board.kind === 'rank' ? <RankGame board={board} reload={load} name={name} />
+        : <div className="card p-4 text-sm text-mute">This kind of game is newer than this page. Pull down to refresh, or reopen the app.</div>}
       <GameTable board={board} />
     </div>
   );
@@ -391,11 +399,12 @@ export function HostGames() {
   const { games, reload } = usePoolGames();
   const [events, setEvents] = useState<PoolEvent[]>([]);
   const [preset, setPreset] = useState<SeriesPreset>('classic');
+  const [pkPreset, setPkPreset] = useState<PickemPreset>('classic');
   const [grid, setGrid] = useState<Omit<SquaresRules, 'series'>>(SQUARES_DEFAULT);
   const [on, setOn] = useState<number | null>(null);
   const { busy, run } = useAction();
-  useEffect(() => { rpc<PoolEvent[]>('pool_events').then((e) => setEvents(e ?? []), () => setEvents([])); }, []);
-  const offers = events.flatMap((e) => e.kinds.filter((k) => !games?.some((g) => g.competition === e.competition && g.kind === k && g.status === 'open')).map((k) => ({ e, k })));
+  useEffect(() => { rpc<PoolEvent[]>('pool_event_list').then((e) => setEvents(e ?? []), () => setEvents([])); }, []);
+  const offers = events.flatMap((e) => e.kinds.filter((k) => k in KINDS && !games?.some((g) => g.competition === e.competition && g.kind === k && g.status === 'open')).map((k) => ({ e, k })));
   const grids = events.flatMap((e) => (e.grids ?? []).filter((s) => !games?.some((g) => g.kind === 'squares' && g.series === s.id && g.status === 'open')).map((s) => ({ e, s })));
   const series = grids.find((x) => x.s.id === on) ?? grids[0];
   if (!games || (!offers.length && !grids.length)) return null;
@@ -408,14 +417,20 @@ export function HostGames() {
               <span className="grid h-11 w-11 shrink-0 place-items-center rounded-2xl bg-gold/15 text-xl">{KINDS[k].emoji}</span>
               <div className="min-w-0 flex-1">
                 <div className="font-semibold text-white">{KINDS[k].title} <span className="text-mute">· {e.name}</span></div>
-                <div className="text-xs text-mute">{KINDS[k].line} From the {e.open_label}, first lock {lockText(e.next_lock)}.</div>
+                <div className="text-xs text-mute">{KINDS[k].line} From {k === 'pickem' ? e.open_label : `the ${e.open_label}`}, first lock {lockText(e.next_lock)}.</div>
               </div>
             </div>
+            {k === 'pickem' && (
+              <div>
+                <div className="flex flex-wrap gap-1.5">{PICKEM_PRESETS.map((p) => <button key={p.key} type="button" onClick={() => setPkPreset(p.key)} className={`rounded-full px-3 py-1 text-xs font-semibold ring-1 ${pkPreset === p.key ? 'bg-gold text-[#0b1220] ring-gold' : 'bg-white/[.04] text-slate-200 ring-white/10'}`}>{p.label}</button>)}</div>
+                <p className="mt-1.5 text-[11px] leading-snug text-mute">{PICKEM_PRESETS.find((p) => p.key === pkPreset)!.line}</p>
+              </div>
+            )}
             {k === 'series' && (
               <div className="flex flex-wrap gap-1.5">{PRESETS.map((p) => <button key={p.key} type="button" onClick={() => setPreset(p.key)} className={`rounded-full px-3 py-1 text-xs font-semibold ring-1 ${preset === p.key ? 'bg-gold text-[#0b1220] ring-gold' : 'bg-white/[.04] text-slate-200 ring-white/10'}`}>{p.label}</button>)}</div>
             )}
             <button type="button" className="btn-gold w-full" disabled={busy}
-              onClick={() => run(async () => { await rpc('pool_game_start', { p_kind: k, p_competition: e.competition, p_rules: k === 'series' ? { preset } : {} }); reload(); }, `${KINDS[k].title} is on`)}>
+              onClick={() => run(async () => { await rpc('pool_game_start', { p_kind: k, p_competition: e.competition, p_rules: k === 'series' ? { preset } : k === 'pickem' ? { preset: pkPreset } : {} }); reload(); }, `${KINDS[k].title} is on`)}>
               Start {KINDS[k].title.toLowerCase()}
             </button>
           </div>

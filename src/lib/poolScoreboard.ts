@@ -4,7 +4,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { rpc } from './supabase';
 
-export type BoardKind = 'questions' | 'series' | 'rank' | 'squares' | 'survivor' | 'score';
+export type BoardKind = 'questions' | 'series' | 'rank' | 'squares' | 'pickem' | 'survivor' | 'score';
 export interface BoardRow { team_id: number; rank: number; score: number; possible: number | null; alive: boolean | null; line: string | null; move: number | null }
 export interface BoardMine { rank: number; score: number; possible: number | null; alive: boolean | null; line: string | null; move: number | null; behind: number }
 export interface BoardGame { key: string; kind: BoardKind; title: string; status: 'open' | 'done'; link: string; members: number; crown: boolean; mine: BoardMine | null; rows: BoardRow[] }
@@ -16,9 +16,14 @@ export const BOARD_KIND: Record<BoardKind, { icon: string; unit: (n: number) => 
   series: { icon: '⚾', unit: (n) => (n === 1 ? 'pt' : 'pts'), blurb: 'Points for each series called, more for the length.' },
   rank: { icon: '📊', unit: (n) => (n === 1 ? 'pt' : 'pts'), blurb: 'Every win pays the rank you gave that club.' },
   squares: { icon: '🔲', unit: () => '', coins: true, blurb: 'Coins won by your squares.' },
+  pickem: { icon: '✅', unit: (n) => (n === 1 ? 'pt' : 'pts'), blurb: 'Points for every right pick, round by round.' },
   survivor: { icon: '🛡️', unit: (n) => (n === 1 ? 'week' : 'weeks'), blurb: 'Still in first, then the matchweeks survived.' },
   score: { icon: '🎯', unit: (n) => (n === 1 ? 'pt' : 'pts'), blurb: 'Points for every result and exact score called.' },
 };
+
+// a kind this copy of the site doesn't know yet (the database learns kinds before every phone reloads) reads plainly
+// instead of breaking the page
+export const kindOf = (k: string) => BOARD_KIND[k as BoardKind] ?? { icon: '🏆', unit: (n: number) => (n === 1 ? 'pt' : 'pts'), blurb: 'Ranked by points.' };
 
 const num = (x: unknown) => (x == null ? null : Number(x));
 

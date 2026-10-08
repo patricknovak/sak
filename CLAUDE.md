@@ -84,7 +84,9 @@ Two things in one repo:
   `poolLink` in `src/lib/host.ts`); a `<web name>` subdomain forwards to it unless someone is signed in on that address.
   My pools (`#/pools`) reads `my_pools()` and starts prediction pools with `pool_start`. Every pool's games share one scoreboard
   (`pool_scoreboard()`, migration 169): a new kind of game adds a branch to `_pool_rows()` and gets the table, movement,
-  climb alerts and the main-game crown (`league_rules.crown`) with it. Decided (3 October 2026): both move to **Cloudflare** (free for commercial
+  climb alerts and the main-game crown (`league_rules.crown`) with it. Weekly pick'em (migration 170) is the first kind on
+  `fixtures`: any competition whose matches come in rounds; the start page and the host's desk list events through
+  `pool_event_list()` (`pool_events()` stays for older copies of the site). Decided (3 October 2026): both move to **Cloudflare** (free for commercial
   use, DNS already on Cloudflare, wildcard subdomains for league by host); never plan new work on Vercel. Built as
   Workers serving static assets (`wrangler.jsonc`, `landing/wrangler.jsonc`; Pages can't take a wildcard), deployed by
   `.github/workflows/cloudflare.yml` (the secrets are set; SaK's address there is `sak.superpoolsai.com`). The

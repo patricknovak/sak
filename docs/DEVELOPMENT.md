@@ -3,19 +3,30 @@
 The review of how the product is being built, and the working method that comes out of it. `docs/SUPERPOOLS.md`
 is what we build and in what order; `docs/EXPANSION.md` is what has to change before more leagues and sports;
 this is how we build it so that every week of work lands, stays landed and makes the product smarter.
-Reviewed 3 October 2026, after migrations 81 to 85 (Super Pools B1 to B4).
+Reviewed 3 October 2026, after migrations 81 to 85 (Super Pools B1 to B4); reviewed again 8 October 2026, after migration 169
+(the pool scoreboard): section 1 and section 6 are that review.
 
 ## 1. Where we are
 
-- One live league, SaK: eight GMs, used every night, on a React 19 + Supabase stack with edge functions, a
-  scheduler and an LLM voice (Garry, on Grok, metered per feature and league).
-- 85 migrations. Every rule is a SQL function behind row-level security, and every league table is bound to its
-  league and checked by the tenancy guardrails on every test run.
-- Phase 1 of the expansion plan is four blockers in: rosters, the draft, scoring and the scheduler are per
-  league (B1 to B4). Left in Phase 1: B6 (money and the Fund) and the medium SQL items, then the shadow-league
-  week that is the phase's gate.
-- The flow test drives a whole season in SQL (1,750 lines): keepers, the draft, lineups, scoring, trades, bets,
-  the Book, money, and a second league beside SaK that must never see or change it.
+*As of 8 October 2026, migration 169.*
+
+- **SaK**, the live league: eight GMs, used every night, on React 19 + Supabase with edge functions, a scheduler and
+  an LLM voice (Garry, on Grok, metered per feature and league). The season is under way; Lineup New runs beside My
+  Team for the league to compare, Watch live and the NHL centre's radio, lines and game Book are live.
+- **The tenancy is done and proven.** Rosters, the draft, scoring, the scheduler, money and the Fund, phones and
+  Garry are per league (Phase 1); people can join (email sign-in, invites, the switcher, onboarding, league by host,
+  one account for every pool: Phase 2). The shadow league (league 2) has matched SaK to the hundredth on every full day
+  since it opened (3 to 7 October); its gate closes on 10 October.
+- **Super Pools is live as prediction pools.** The questions engine (LMSR prices in coins, drops, the crown), the Love
+  Is Blind pool (Pod Squad, league 3), self-serve start with no account (`#/new`), the calendar of packs, share cards,
+  alerts and person invites. On the sports side: shared event tables (`competitions`, `clubs`, `fixtures`, `series`,
+  `fixture_periods`) fed by `soccer-sync` (ESPN for testing) and `mlb-sync` (MLB's Stats API for testing); last one
+  standing and Call the score on soccer; the pool-games engine with Pick the series, Rank the teams and squares for the
+  baseball postseason; MLB centre; and the scoreboard over every kind (migration 169).
+- **Use so far is the founder's.** Four live pools, each with one or two members, nine calls in all; the Love Is Blind
+  gate (three pools, thirty players by 4 November) is the first real test, and the premiere is 14 October.
+- 169 migrations; the flow test drives a whole fantasy season and every pool kind in SQL (about 4,100 lines), with a
+  second league beside each that must never see or change it; CI runs it on every pull request.
 
 ## 2. What is working, and stays
 
@@ -132,7 +143,37 @@ continue alongside: the shadow-league gate runs to 10 October, Cloudflare hostin
    `sak.superpoolsai.com` on 4 October; the landing page moves with its redesign.
 8. **Pool intelligence** once a few leagues are playing, then the horizons in `docs/MARKET.md`.
 
-## 6. The working method
+## 6. The pool infrastructure, in order (8 October 2026 review)
+
+What is built gives every pool one shape: a game has a kind, an event and rules (`pool_games`), picks hidden until
+they lock (`pool_picks`), results graded on read from the shared event tables, and one scoreboard over every kind
+(`_pool_rows()`, the arrows, the climb alerts, the main game). What a pool still can't do, and the order to build it:
+
+1. **Weekly pick'em on the engine.** A fixture kind: each round's matches, pick the winner (a draw where the sport
+   has one), optional confidence points, each pick locking at its own kick-off, graded on read from `fixtures`. It runs
+   on any competition with fixtures, so soccer has it today and the NFL the day its feed lands; it is the first kind
+   built on fixtures rather than series, and the shape the survivor and Call the score move onto (item 4).
+   *Built 8 October 2026 (migration 170):* the `pickem` kind, Classic or Confidence, on the Premier League and MLS today;
+   the start page and the host's desk read `pool_event_list()` (the postseason events plus every competition with
+   rounds); a round's end tells the pool who won it and each picker how they did; the scoreboard reads it as it reads
+   every kind. A kind the site doesn't know yet reads plainly instead of breaking the page.
+2. **The NFL on ESPN.** The `nfl` sports row, its competition, the ESPN scoreboard adapter (soccer-sync's, by sport),
+   weekly rounds; pick'em and a second-half survivor on it; NFL centre's first version later.
+3. **The host's desk for every game.** Settle what the feed missed, pool by pool (an override on a result, never a
+   change to the shared tables, with the reason on the record); enter a pick for a member who asked; change a rule
+   until the first lock and freeze it after. Every pool type can then run with no feed at all.
+4. **Contract the old kinds.** Last one standing and Call the score become `pool_games` kinds (`survivor`, `score`),
+   their tables and pages read through the engine, the old tables retired once the numbers match.
+5. **The learning loop.** Each lock writes the pool's pick split to the prediction log as a forecast, scored when
+   the result is in, so we learn how good a group's consensus is, sport by sport.
+6. **What you need to win.** The outcomes left, played out exactly where they are few (a bracket, a series round) and
+   by simulation where they are many (a pick'em, a player pool), shown on the Table for each member.
+7. **The bracket and the player pool**, for the NHL playoffs and March Madness (`docs/POOL-TYPES.md` §9).
+
+Alongside: the World Series test (the LCS from 11 October, the World Series from 23 October) needs its games started
+in the World Series pool (league 5, the questions only so far), and the Love Is Blind test needs players.
+
+## 7. The working method
 
 - **Every change, in this order:** migration written; `npm run test:db` green locally; live state checked
   (fingerprints of the functions being replaced); migration applied to live and verified (fingerprints match the

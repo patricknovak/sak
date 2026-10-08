@@ -94,13 +94,15 @@ export function Layout({ children }: { children: ReactNode }) {
   // what this league or pool actually runs, so nothing shows that belongs to another: questions (a fantasy league has
   // the board only once it asks one), and the soccer games (only in a pool that has started one). Row-level security
   // keeps each count to this league.
-  const [runs, setRuns] = useState({ questions: false, predictor: false, survivor: false, games: false });
+  const [runs, setRuns] = useState({ questions: false, predictor: false, survivor: false, games: false, mlb: false });
   const onHost = loc.pathname === '/host';
   useEffect(() => {
     if (!me) return;
     let live = true;
     const has = (t: string) => supabase.from(t).select('id', { count: 'exact', head: true }).then(({ count }) => (count ?? 0) > 0, () => false);
-    Promise.all([has('pool_markets'), has('predictors'), has('survivors'), has('pool_games')]).then(([questions, predictor, survivor, games]) => { if (live) setRuns({ questions, predictor, survivor, games }); });
+    // the baseball centre only for a pool with a game on the MLB postseason (a soccer pick'em has no use for it)
+    const mlb = supabase.from('pool_games').select('id', { count: 'exact', head: true }).like('competition', 'mlb%').then(({ count }) => (count ?? 0) > 0, () => false);
+    Promise.all([has('pool_markets'), has('predictors'), has('survivors'), has('pool_games'), mlb]).then(([questions, predictor, survivor, games, mlbOn]) => { if (live) setRuns({ questions, predictor, survivor, games, mlb: mlbOn }); });
     return () => { live = false; };
   }, [me?.id, league?.league_id, onHost]);
 
@@ -128,7 +130,7 @@ export function Layout({ children }: { children: ReactNode }) {
   const moreItems: Item[] = (pool ? [
     ...(runs.games && poolQuestions ? [{ to: '/questions', label: 'Questions', icon: Sparkles }] : []),
     // the sport centre for the pool's games (baseball's postseason first)
-    ...(runs.games ? [{ to: '/sport/mlb', label: 'MLB centre', icon: Tv }] : []),
+    ...(runs.mlb ? [{ to: '/sport/mlb', label: 'MLB centre', icon: Tv }] : []),
     ...(runs.predictor ? [{ to: '/predictor', label: 'Call the score', icon: Target }] : []),
     ...(runs.survivor ? [{ to: '/survivor', label: 'Last one standing', icon: Shield }] : []),
     { to: '/pools', label: 'My pools', icon: Layers },

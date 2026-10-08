@@ -190,7 +190,10 @@ give the pool a home for following the sport):**
 - **P7. The three-step start.** What are you following (the events open now, with their stage), what kind of pool
   (cards for the kinds that fit the event today, with how long each takes and when it locks), how it scores (a preset,
   the knobs, a live example, the late-joiner, tie and tiebreaker rules). A pool can run more than one game; one is its
-  crown.
+  crown. *Built (5 and 6 October 2026, `#/new` and My pools): the events open now with their stage, the kinds that fit
+  each with when it locks, a preset per kind with its knobs in words and a live example; the crown is the main game
+  (migration 169). Still to come: the late-joiner, tie and tiebreaker rules written on the pool's Rules page before the
+  first lock.*
 - **P8. Sport centres.** `/sport/<sport>` from NHL centre's pattern: today's games with the series state, the line
   score, the bracket or the table, schedule, injuries, leaders, odds, and the pool's ribbon on every game; one
   `sport-hub` function with an adapter per sport. MLB first (October), then the NFL, soccer and the NBA.
@@ -202,6 +205,10 @@ give the pool a home for following the sport):**
   through the new start; by 22 October: World Series squares and MLB centre's first version. Patrick's first World
   Series pool (league 4) was archived on 5 October so his new one starts from the beginning. MLB's data is a decision
   (`docs/POOL-TYPES.md` §8): host-settled for the test is the recommendation.
+  *Where it stands on 8 October:* the engine, the feed (mlb-sync, every two minutes during games), squares and MLB centre
+  are live, and the LCS rows are in (NLCS Brewers v Dodgers from 11 October, ALCS Rays v the Guardians-White Sox winner
+  from 12 October). Patrick's World Series pool (league 5) runs the question pack only: Pick the series and Rank the
+  teams go on from its Host page before the NLCS's first pitch, squares before the World Series.
   *Squares built 6 October (migration 167):* a grid on any series still to start (by default the World Series), 10×10
   or 5×5, a price per square in coins, paid after the 3rd, the 6th and the final of every game (or the final only),
   digits drawn from a recorded seed when the grid fills or at Game 1's first pitch, once or fresh each game. The pot is
@@ -215,6 +222,14 @@ give the pool a home for following the sport):**
   pool job keeps `pool_standing` and tells a member who climbs into first or three places or more (once a game a day).
   A new kind of game adds one branch to `_pool_rows()` and gets the table, the arrows, the alerts and the crown with it
   (`docs/POOL-TYPES.md` §3).
+- **P11. The pool infrastructure, in order** (the 8 October 2026 review; the detail is `docs/DEVELOPMENT.md` §6):
+  weekly pick'em on the engine (any competition with fixtures, confidence points optional); the NFL on ESPN; the
+  host's desk for every game (settle what the feed missed, a pick for a member, rules until the first lock); last one
+  standing and Call the score onto the engine; the pick split in the prediction log; what you need to win; then the
+  bracket and the player pool for the spring. *Weekly pick'em built 8 October 2026 (migration 170): every match of a
+  round, the winner or a draw, each pick locking at its own kick-off; Classic (a point a right pick) or Confidence (each
+  round's picks numbered, a right one earns its number); on any competition whose matches come in rounds, so the
+  Premier League and MLS have it now and the NFL the day its feed lands.*
 
 Then the list below, which is the fantasy-league plan of record.
 
