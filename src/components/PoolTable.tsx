@@ -164,7 +164,7 @@ export function ChanceCard({ g, chances }: { g: BoardGame; chances: Map<number, 
       </div>
       <p className="mt-2 text-[11px] leading-snug text-mute">{g.kind === 'series'
         ? `${g.title} played out a thousand times from here: each series game by game from where it stands, its odds from how the pool picked it; a series you haven’t picked yet as a guess.`
-        : `The ${g.title.replace(/^The /, '')} played out a thousand times from here: each match drawn from how the pool picked it, a match you haven’t picked as a guess.`}</p>
+        : `The ${g.title.replace(/^The /, '')} played out a thousand times from here: each match drawn from the market’s view where there is one, else from how the pool picked it; a match you haven’t picked as a guess.`}</p>
     </div>
   );
 }

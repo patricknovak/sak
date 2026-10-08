@@ -4677,3 +4677,34 @@ select pg_temp.expect('and only once', _pool_game_nudge(:lib) = 0);
 update pool_games set status = 'done' where id = :nflpk;
 select set_config('app.league_id', '', false);
 select 'last call', true;
+
+-- ───────────── chance to win from the market (migration 181) ─────────────
+-- One match, Hana on the home side, Fern on the away side: the pool alone can't split them, the market can.
+reset role;
+select set_config('request.jwt.claim.sub', '', false);
+select set_config('app.league_id', '', false);
+insert into competitions (id, sport, name, short, season, provider, ext_id, ext_season, active)
+values ('pk-mko', 'soccer', 'Line Cup', 'LC', '2026', 'espn', 'mko', '2026', true) on conflict (id) do nothing;
+select soccer_ingest('pk-mko', jsonb_build_object(
+  'clubs', jsonb_build_array(jsonb_build_object('ext_id', 'lc1', 'name', 'Leyton', 'short', 'LEY'), jsonb_build_object('ext_id', 'lc2', 'name', 'Morecambe', 'short', 'MOR')),
+  'fixtures', jsonb_build_array(jsonb_build_object('ext_id', 'lc-1', 'gameweek', 1, 'kickoff', now() + interval '1 day', 'status', 'NS', 'home', 'lc1', 'away', 'lc2',
+    'odds', jsonb_build_object('home', 0.9, 'away', 0.04, 'draw', 0.06)))));
+select id as lc1 from fixtures where ext_id = 'lc-1' \gset
+select set_config('app.league_id', :'lib', false);
+select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-000000000081', false);
+set role authenticated;
+select pool_game_start('pickem', 'pk-mko') as lcg \gset
+select pool_pickem_save(:lcg, 1, jsonb_build_array(jsonb_build_object('fixture', :lc1, 'pick', 'H')));
+reset role;
+select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-000000000082', false);
+set role authenticated;
+select pool_pickem_save(:lcg, 1, jsonb_build_array(jsonb_build_object('fixture', :lc1, 'pick', 'A')));
+select pool_game_chances(:lcg) as lch \gset
+select pg_temp.expect('the market''s 90% makes the home pick the clear favourite',
+  (select (e->>'chance')::numeric from jsonb_array_elements(:'lch'::jsonb) e where (e->>'team_id')::int = :hana)
+    > (select (e->>'chance')::numeric + 0.3 from jsonb_array_elements(:'lch'::jsonb) e where (e->>'team_id')::int = :fern));
+reset role;
+update pool_games set status = 'done' where id = :lcg;
+select set_config('app.league_id', '', false);
+select set_config('request.jwt.claim.sub', '', false);
+select 'chances from the market', true;
