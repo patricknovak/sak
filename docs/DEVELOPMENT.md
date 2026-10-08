@@ -213,18 +213,21 @@ they lock (`pool_picks`), results graded on read from the shared event tables, a
    pool's split (migration 181). Rank the teams once its order locks (migration 182): every series drawn at even odds,
    the last round formed from the two winners before it. Still to come: brackets, and "what you need" in words.
 7. **The bracket and the player pool**, for the NHL playoffs and March Madness (`docs/POOL-TYPES.md` §9).
-   *Shaped 8 October 2026, not built:* a `bracket` kind on `series` (every winner picked before the first lock, points by
-   round, what is still possible as clubs go out). It needs the tree: either `series.next_id` from the feed or, where each
-   round halves, the order within a round (the rank chances already form the World Series from the two LCS winners this
-   way, migration 182). The NFL's playoffs come as single games (weeks 19 to 22), so a bracket on them wants an adapter
-   that files each game as a best-of-1 series. The splices: `_pool_game_rules`, `_pool_game_create`, `_pool_game_table`,
-   `pool_game_board`, `_pool_rows`, `_pool_game_nudge`, `pool_event_list`'s kinds; and a round-by-round picker on phones.
+   *The bracket built 8 October 2026 (migration 185):* a `bracket` kind on `series`: every winner from a round to the
+   final in one pick, checked round by round, locked at the round's first game; Classic doubles each round, Flat is a
+   point a series; what's still possible counts picks whose club is still in; the final's runs break a tie. The tree is
+   read from each round's order (`_bracket_tree`; `_bracket_ok` says where a bracket can start: every later round
+   halves to a final of one). The site's picker goes round by round on a phone, clears later picks an earlier change
+   broke, and shows right, wrong and everyone's champion once locked. Still to come: the NFL's playoffs and March
+   Madness come as single games, so they want an adapter that files each as a best-of-1 series; and a bracket's chance
+   to win. The player pool is next after it.
 
-*Where 8 October left it (migrations 172 to 184, PR #243):* items 1 to 3 and 5 built, item 6 built for pick'em, Pick
-the series and Rank the teams, item 4 begun (last one standing starts through the engine's door). Beside them: NFL
+*Where 8 October left it (migrations 172 to 185, PR #243):* items 1 to 3 and 5 built, item 6 built for pick'em, Pick
+the series and Rank the teams, item 7's bracket built on series, item 4 begun (last one standing starts through the
+engine's door). Beside them: NFL
 centre and Match centre, the market's view on each match, results by hand for every game on fixtures, the rules
-written down, last calls and second reminders. Next, in order: the bracket (item 7, for the NFL playoffs in January),
-then the contraction (item 4).
+written down, last calls and second reminders. Next, in order: single games as best-of-1 series (so the bracket
+runs on the NFL playoffs in January and March Madness), the player pool (item 7), then the contraction (item 4).
 
 Alongside: the World Series test (the LCS from 11 October, the World Series from 23 October) needs its games started
 in the World Series pool (league 5, the questions only so far), and the Love Is Blind test needs players.

@@ -2,7 +2,7 @@
 // how long it takes, and the scoring presets. The start page and the Host page read the same list.
 
 // 'survivor' is last one standing (its own tables, migration 157): the start page and the host offer it like the rest
-export type GameKind = 'series' | 'rank' | 'squares' | 'pickem' | 'survivor';
+export type GameKind = 'series' | 'rank' | 'squares' | 'pickem' | 'survivor' | 'bracket';
 export type PickemPreset = 'classic' | 'confidence';
 export type SeriesPreset = 'classic' | 'flat' | 'exact';
 
@@ -48,6 +48,11 @@ export const KINDS: Record<GameKind, { title: string; badge: string; line: strin
     title: 'Pick\'em', badge: 'Every week', emoji: '✅',
     line: 'Pick the winner of every match, round by round, or a draw where the sport has them. Each pick locks at its own kick-off, so you can join any week.',
     time: 'Two minutes a round',
+  },
+  bracket: {
+    title: 'The bracket', badge: 'All the way', emoji: '🏆',
+    line: 'Pick the winner of every series through to the final, all before the first game. Later rounds are worth more, and a broken bracket can still climb.',
+    time: 'Three minutes, once',
   },
   survivor: {
     title: 'Last one standing', badge: 'Lose once, out', emoji: '🛡️',

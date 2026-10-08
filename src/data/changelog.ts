@@ -6,6 +6,8 @@
 export interface Change { date: string; icon: string; title: string; body: string; to?: string; tag?: 'formats' | 'commish' | 'draft' | 'everyone' }
 
 export const CHANGELOG: Change[] = [
+  { date: '2026-10-08', icon: '🏆', tag: 'everyone', title: 'The bracket', to: '/pools',
+    body: 'A new pool game for any playoff played in series: pick the winner of every series through to the final before the first game, with later rounds worth more. Change an early pick and the page clears what it broke; once it locks, every pick shows right or wrong and everyone\'s champion shows.' },
   { date: '2026-10-08', icon: '📈', tag: 'everyone', title: 'What the market expects', to: '/pools',
     body: 'NFL centre and Match centre now show what the bookmakers expect from each game before it starts, as a chance and a margin (no prices, nothing to bet on), right beside how your pool picked it. Pick\'em and Last one standing show each side\'s chance on the buttons you pick from. Who\'s smarter, your group or the market?' },
   { date: '2026-10-08', icon: '✍️', tag: 'commish', title: 'Settle any match by hand', to: '/survivor',

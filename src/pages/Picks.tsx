@@ -8,6 +8,7 @@ import { Crest } from '../components/Crest';
 import { KINDS, PAYS, PICKEM_PRESETS, PRESETS, SIZES, SQUARES_DEFAULT, gridLabel, type PickemPreset, type PoolEvent, type SeriesPreset, type SquaresRules } from '../lib/poolGames';
 import { SquaresGame, type SquaresData } from '../components/Squares';
 import { PickemGame, type PickemData } from '../components/Pickem';
+import { BracketGame, type BracketData } from '../components/Bracket';
 import { useSurvivor } from './Survivor';
 
 // The pool's games (migration 165, docs/POOL-TYPES.md): Pick the series (each series' winner and how many games it
@@ -28,15 +29,16 @@ interface Series {
 interface RankClub extends Club { alive: boolean; in_field: boolean; wins: number; left: number }
 interface TableRow { team_id: number; points: number; possible: number; right: number; exact: number; picked: number; tiebreak: number | null }
 export interface GameBoard {
-  id: number; kind: 'series' | 'rank' | 'squares' | 'pickem'; title: string; status: 'open' | 'done'; winners: number[] | null; competition: string; competition_name: string; me: number;
+  id: number; kind: 'series' | 'rank' | 'squares' | 'pickem' | 'bracket'; title: string; status: 'open' | 'done'; winners: number[] | null; competition: string; competition_name: string; me: number;
   rules: { preset?: string; from_round: number; points?: Record<string, number>; length?: Record<string, number>; exact_only?: boolean };
   rounds: { round: number; label: string; best_of: number }[]; table: TableRow[];
   series?: Series[]; tiebreak?: { locks_at: string | null; locked: boolean; mine: number | null; label: string };
   rank?: { locks_at: string | null; locked: boolean; round_label: string; field: number; clubs: RankClub[]; mine: number[] | null; orders: { team_id: number; order: number[] }[] | null };
   squares?: SquaresData;
   pickem?: PickemData;
+  bracket?: BracketData;
 }
-export interface PoolGame { id: number; kind: 'series' | 'rank' | 'squares' | 'pickem'; series?: number | null; title: string; status: 'open' | 'done'; competition: string; to_pick: number; next_lock: string | null }
+export interface PoolGame { id: number; kind: 'series' | 'rank' | 'squares' | 'pickem' | 'bracket'; series?: number | null; title: string; status: 'open' | 'done'; competition: string; to_pick: number; next_lock: string | null }
 
 export function usePoolGames() {
   const { me, league } = useLeague();
@@ -56,7 +58,7 @@ export const lockText = (iso: string | null, tbd = false) => {
 const ordinal = (n: number) => { const s = ['th', 'st', 'nd', 'rd'], v = n % 100; return n + (s[(v - 20) % 10] ?? s[v] ?? s[0]); };
 const pts = (n: number) => `${n} ${n === 1 ? 'pt' : 'pts'}`;
 const hue = (c: Club | null | undefined) => c?.color ?? 'rgb(var(--gold-rgb))';
-const ICON = { series: Swords, rank: ListOrdered, squares: Grid3x3, pickem: ListChecks } as const;
+const ICON = { series: Swords, rank: ListOrdered, squares: Grid3x3, pickem: ListChecks, bracket: Trophy } as const;
 
 // a series' wins as dots: the number it takes to win, filled as they come
 function WinDots({ wins, need, color }: { wins: number; need: number; color: string }) {
@@ -286,6 +288,9 @@ function RankGame({ board, reload, name, actAs }: { board: GameBoard; reload: ()
   );
 }
 
+// a bracket's scoring: Classic doubles each round, Flat is a point a series
+const BRACKET_PRESETS = [{ key: 'classic', label: 'Classic', line: 'Each round worth double the one before.' }, { key: 'flat', label: 'Flat', line: 'A point for every right winner.' }];
+
 // the rules, written down from the game's own settings (docs/POOL-TYPES.md §6): what scores, when picks lock, what a
 // late joiner plays, what happens to a game called off, how a tie is broken, and what the host may do. They can change
 // only until the first lock (migration 172), and everyone hears when they do.
@@ -312,6 +317,14 @@ function GameRules({ board }: { board: GameBoard }) {
     lines.push('Each series locks at the first pitch of its Game 1; a later round opens to picks once its matchup is set.');
     lines.push('Join any time: you play every series still to start.');
     if (board.tiebreak) lines.push(`A tie on points goes to whoever is closest on the total runs in the last game of the ${board.tiebreak.label}.`);
+  } else if (board.bracket) {
+    const br = board.bracket;
+    const byRound = [...new Map(br.series.map((x) => [x.round, x])).values()];
+    lines.push(`Pick the winner of every series, from the ${byRound[0]?.label ?? 'first round'} to the ${byRound[byRound.length - 1]?.label ?? 'final'}, all before the first game; a later winner is one you picked in a series before it.`);
+    lines.push(byRound.map((x) => `${x.label}: ${x.points} ${x.points === 1 ? 'point' : 'points'}`).join(' · ') + ', for each right winner.');
+    lines.push('The whole bracket locks with the first game, and you can change it until then.');
+    lines.push('A pick whose club is knocked out can’t score, so what’s still possible shrinks as the clubs go out.');
+    if (br.tiebreak.label) lines.push(`A tie on points goes to whoever is closest on the total runs in the last game of the ${br.tiebreak.label}.`);
   } else if (rk) {
     lines.push(`Put the clubs in order once. At the first pitch of the ${rk.round_label} the ${rk.field || ''} clubs still in are ranked in your order: your top club pays ${rk.field || 'the most'} for every game it wins, your last pays 1.`.replace('the  clubs', 'the clubs'));
     lines.push('Clubs out by the lock don’t count, and your order is final from then on.');
@@ -320,7 +333,7 @@ function GameRules({ board }: { board: GameBoard }) {
   lines.push('Everyone’s picks stay hidden until they lock; the pool’s split shows after.');
   lines.push(`The host can enter a pick for you if you ask (you’ll hear about it)${pk ? ', and settle a match the feed gets wrong, with the reason shown on the match' : ''}.`);
   lines.push('Points only: nothing is bought, sold or paid.');
-  const frozen = board.status === 'done' || (pk ? pk.round > pk.from_round || pk.fixtures.some((f) => f.locked && f.picked > 0) : rk ? rk.locked : !!board.series?.some((s) => s.locked));
+  const frozen = board.status === 'done' || (pk ? pk.round > pk.from_round || pk.fixtures.some((f) => f.locked && f.picked > 0) : board.bracket ? board.bracket.locked : rk ? rk.locked : !!board.series?.some((s) => s.locked));
   return (
     <div className="card overflow-hidden">
       <button type="button" onClick={() => setOpen(!open)} className="flex w-full items-center justify-between gap-3 px-4 py-3 text-left">
@@ -353,7 +366,7 @@ function GameTable({ board }: { board: GameBoard }) {
               <div className="min-w-0 flex-1">
                 <div className="break-words font-semibold text-white">{t?.gm_name ?? t?.name}</div>
                 <div className="text-[11px] text-mute">{board.kind === 'squares' ? `${r.picked} ${r.picked === 1 ? 'square' : 'squares'} · ${r.right} ${r.right === 1 ? 'hit' : 'hits'}`
-                  : `${board.kind === 'series' ? `${r.right} right · ${r.exact} with the length · ${r.picked} picked` : board.kind === 'pickem' ? `${r.right} right · ${r.picked} picked` : r.picked ? 'Ranked' : 'Not ranked yet'} · up to ${r.possible}`}</div>
+                  : `${board.kind === 'series' ? `${r.right} right · ${r.exact} with the length · ${r.picked} picked` : board.kind === 'pickem' ? `${r.right} right · ${r.picked} picked` : board.kind === 'bracket' ? (r.picked ? `${r.right} right` : 'No bracket yet') : r.picked ? 'Ranked' : 'Not ranked yet'} · up to ${r.possible}`}</div>
               </div>
               <span className="num shrink-0 text-xl font-black text-white">{r.points}</span>
             </div>
@@ -421,6 +434,7 @@ export default function Picks() {
     : sq ? `${sq.cost} coins a square · ${sq.pay_when === 'innings' ? 'pays after the 3rd, 6th and final' : 'pays on the final score'}`
     : board.kind === 'series'
     ? (board.rules.exact_only ? 'Winner and length both right, or nothing' : `Points by round: ${board.rounds.map((r) => board.rules.points?.[String(r.round)]).join('-')}, plus ${board.rounds.map((r) => board.rules.length?.[String(r.round)]).join('-')} for the length`)
+    : board.bracket ? `Every winner to the final · ${[...new Map(board.bracket.series.map((x) => [x.round, x.points])).values()].join('-')} points by round`
     : 'Every win pays its club’s rank';
 
   return (
@@ -449,12 +463,13 @@ export default function Picks() {
       )}
       {actAs && (
         <div className="flex items-center gap-3 rounded-2xl border border-amber-400/30 bg-amber-400/[.08] p-3 text-sm text-amber-100">
-          <span className="min-w-0 flex-1"><b>Entering picks for {actAs.name}.</b> Their own picks stay private; what you save here replaces theirs{pk ? ' for these matches' : board.kind === 'rank' ? '' : ' for each series you pick'}.</span>
+          <span className="min-w-0 flex-1"><b>Entering picks for {actAs.name}.</b> Their own picks stay private; what you save here replaces theirs{pk ? ' for these matches' : board.kind === 'rank' || board.kind === 'bracket' ? '' : ' for each series you pick'}.</span>
           <button type="button" className="btn-ghost shrink-0" onClick={() => setActAs(null)}>Done</button>
         </div>
       )}
       {pk ? <PickemGame key={`${board.id}-${actAs?.team ?? 'me'}`} gameId={board.id} first={pk} status={board.status} name={name} reload={load} actAs={actAs ?? undefined} />
         : sq ? <SquaresGame data={sq} gameId={board.id} status={board.status} reload={load} name={name} />
+        : board.kind === 'bracket' && board.bracket ? <BracketGame key={`${board.id}-${actAs?.team ?? 'me'}`} gameId={board.id} data={board.bracket} status={board.status} reload={load} actAs={actAs ?? undefined} />
         : board.kind === 'series' ? <SeriesGame key={`${board.id}-${actAs?.team ?? 'me'}`} board={board} reload={load} name={name} actAs={actAs ?? undefined} />
         : board.kind === 'rank' ? <RankGame key={`${board.id}-${actAs?.team ?? 'me'}`} board={board} reload={load} name={name} actAs={actAs ?? undefined} />
         : <div className="card p-4 text-sm text-mute">This kind of game is newer than this page. Pull down to refresh, or reopen the app.</div>}
@@ -473,10 +488,10 @@ function HostDesk({ board, reload, onActAs }: { board: GameBoard; reload: () => 
   const pk = board.pickem;
   const [preset, setPreset] = useState<string>(board.rules.preset ?? 'classic');
   const [toRound, setToRound] = useState<number>(pk?.to_round ?? 0);
-  if (board.kind !== 'pickem' && board.kind !== 'series' && board.kind !== 'rank') return null;
+  if (board.kind !== 'pickem' && board.kind !== 'series' && board.kind !== 'rank' && board.kind !== 'bracket') return null;
   const rules = board.kind !== 'rank';
   // the server has the last word; this hides the rules once the game has plainly locked
-  const locked = pk ? pk.round > pk.from_round || pk.fixtures.some((f) => f.locked && f.picked > 0) : !!board.series?.some((s) => s.locked);
+  const locked = pk ? pk.round > pk.from_round || pk.fixtures.some((f) => f.locked && f.picked > 0) : board.bracket ? board.bracket.locked : !!board.series?.some((s) => s.locked);
   const picked = pk ? pk.fixtures.some((f) => f.picked > 0) : false;
   const members = teams.filter((t) => t.role === 'gm' && t.id !== me?.id);
   const changed = preset !== (board.rules.preset ?? 'classic') || (pk && toRound !== pk.to_round);
@@ -490,7 +505,7 @@ function HostDesk({ board, reload, onActAs }: { board: GameBoard; reload: () => 
             : locked ? <p className="text-sm text-mute">The rules froze at the first lock, so everyone plays the game they joined.</p> : (
             <div className="space-y-2">
               <div className="flex flex-wrap gap-1.5">
-                {(pk ? PICKEM_PRESETS : PRESETS).map((x) => (
+                {(pk ? PICKEM_PRESETS : board.kind === 'bracket' ? BRACKET_PRESETS : PRESETS).map((x) => (
                   <button key={x.key} type="button" disabled={!!pk && picked && x.key !== preset} onClick={() => setPreset(x.key)} className={chip(preset === x.key)}>{x.label}</button>
                 ))}
               </div>
@@ -510,7 +525,7 @@ function HostDesk({ board, reload, onActAs }: { board: GameBoard; reload: () => 
             </div>
           )}
         </div>
-        {members.length > 0 && !(board.kind === 'rank' && board.rank?.locked) && (
+        {members.length > 0 && !(board.kind === 'rank' && board.rank?.locked) && !(board.kind === 'bracket' && board.bracket?.locked) && (
           <div>
             <div className="mb-1.5 text-[11px] font-bold uppercase tracking-[.14em] text-mute">Pick for a player who asked</div>
             <div className="flex flex-wrap gap-1.5">

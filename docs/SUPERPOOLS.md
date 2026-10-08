@@ -231,6 +231,8 @@ give the pool a home for following the sport):**
   round's picks numbered, a right one earns its number); on any competition whose matches come in rounds, so the
   Premier League and MLS have it now and the NFL the day its feed lands.* *The NFL on ESPN built 8 October 2026 (migration
   171): its 2026 season, every week through the Super Bowl, fed by soccer-sync, so a pool can run an NFL pick'em from Week 5.*
+  *The bracket, 8 October 2026 (migration 185): every series winner to the final, picked before the first game, on any
+  event played in series whose rounds halve to a final (the NHL playoffs, the MLB postseason from the LCS).*
   *The market's view, 8 October 2026 (migration 178): each match keeps what the bookmakers expected at kick-off (as
   chances, never a price to bet), shown in the centres and set beside the crowd on Calibration.*
   *Results by hand for every game on fixtures, 8 October 2026 (migration 177): last one standing and Call the score run
