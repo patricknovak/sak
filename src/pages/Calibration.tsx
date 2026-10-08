@@ -32,6 +32,7 @@ const WAIT: Record<string, string> = {
   player_night: 'Player nights', trade_value: 'Trade forecasts (scored at the regular season’s end)',
   draft_value: 'Draft classes (scored at the regular season’s end)', keeper_value: 'Keepers (scored at the regular season’s end)',
   auto_lineup: 'Auto-pilot lineups (scored when the night is final)',
+  box_points: 'Box pool teams’ expected points (scored when the pool is done)',
   h2h_win: 'Head-to-head win chances (scored when the week ends)',
   pool_split: 'Pools’ pick splits (scored at the final whistle)',
   pool_win: 'Pool members’ chances to win (scored when the game ends)',
@@ -102,6 +103,13 @@ export default function Calibration() {
   const pkSaid = pkN ? pk.reduce((t, r) => t + Number(r.avg_predicted) * Number(r.n), 0) / pkN : 0;
   const pkCame = pkN ? pk.reduce((t, r) => t + Number(r.avg_outcome) * Number(r.n), 0) / pkN : 0;
   const pkWaiting = open.find((o) => o.kind === 'pickup' && o.status === 'open')?.n ?? 0;
+  // the box pool (migration 197): each team's expected points for the window at the lock, against the points it made
+  const bx = acc.filter((r) => r.kind === 'box_points');
+  const bxN = bx.reduce((t, r) => t + Number(r.n), 0);
+  const bxSaid = bxN ? bx.reduce((t, r) => t + Number(r.avg_predicted) * Number(r.n), 0) / bxN : 0;
+  const bxCame = bxN ? bx.reduce((t, r) => t + Number(r.avg_outcome) * Number(r.n), 0) / bxN : 0;
+  const bxMiss = bxN ? bx.reduce((t, r) => t + Number(r.avg_miss) * Number(r.n), 0) / bxN : 0;
+  const bxWaiting = open.find((o) => o.kind === 'box_points' && o.status === 'open')?.n ?? 0;
   const brier = cal.length ? cal.reduce((s, c) => s + Number(c.brier) * Number(c.n), 0) / cal.reduce((s, c) => s + Number(c.n), 0) : null;
 
   return (
@@ -322,6 +330,20 @@ export default function Calibration() {
           </div>
         ) : <div className="card p-4 text-sm text-mute">{pkWaiting ? `${pkWaiting} pickups are out, waiting on their stretches to finish.` : 'No pickups from the advisor yet. Each one a GM makes from it is logged here and scored when its stretch is over.'}</div>}
         <p className="mt-2 px-1 text-[11px] text-mute">Lineup points the advisor said a pickup would add over the stretch the GM looked at, against what the new player scored in that lineup less what the dropped player scored. A rough check, not like for like: the promise nets out whoever the new player pushed from the lineup, while the result counts all his starts and every point the dropped player scored, started or not.</p>
+      </Section>
+      <Section title="Box pool forecasts">
+        {bxN ? (
+          <div className="grid grid-cols-3 gap-2">
+            {[{ v: bxSaid.toFixed(1), l: 'Expected', s: `${bxN} teams scored` }, { v: bxCame.toFixed(1), l: 'Made', s: bxCame >= bxSaid ? 'at or above' : 'below' }, { v: bxMiss.toFixed(1), l: 'Off by', s: 'on average' }].map((x) => (
+              <div key={x.l} className="rounded-2xl border border-white/[.07] bg-white/[.04] px-3 py-2.5">
+                <div className="num font-display text-2xl font-extrabold leading-none text-white">{x.v}</div>
+                <div className="label mt-1">{x.l}</div>
+                <div className="mt-0.5 text-[11px] leading-tight text-mute">{x.s}</div>
+              </div>
+            ))}
+          </div>
+        ) : <div className="card p-4 text-sm text-mute">{bxWaiting ? `${bxWaiting} box pool teams are out, waiting on their pools to finish.` : 'No box pools finished yet. Each team’s expected points are logged when its pool locks and scored when it ends.'}</div>}
+        <p className="mt-2 px-1 text-[11px] text-mute">Each team’s points as the boxes expected them at the lock (every player’s projection a game, times his club’s games), against what the team made. Close numbers mean the boxes were dealt fairly.</p>
       </Section>
       <Section title="Waiting on results">
         <div className="card divide-y divide-white/[.06]">
