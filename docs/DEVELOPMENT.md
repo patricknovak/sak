@@ -198,7 +198,9 @@ they lock (`pool_picks`), results graded on read from the shared event tables, a
    *The market beside it, the same day (migration 178):* soccer-sync keeps ESPN's pre-match lines on each match as the
    market's view (each side's chance with the margin out, the spread, the total; no bookmaker, no link), frozen at
    kick-off; the crowd's forecast records what the market gave its favourite, and Calibration shows the two side by side.
-   The centres show it on each match.
+   The centres show it on each match. *Every chance on one page (migration 183):* `chance_calibration` buckets every
+   probability the product gives (head-to-head wins, a pool's favourite, a member's chance to win) against what came in,
+   per league, on Calibration ("Every chance").
 6. **What you need to win.** The outcomes left, played out exactly where they are few (a bracket, a series round) and
    by simulation where they are many (a pick'em, a player pool), shown on the Table for each member.
    *Built for pick'em 8 October 2026 (migration 175):* `pool_game_chances` plays a pick'em out a thousand times from

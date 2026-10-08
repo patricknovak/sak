@@ -22,6 +22,9 @@ interface Cal { kind: string; bucket: number; n: number; expected: number; happe
 interface Open { kind: string; status: string; n: number }
 // a pool's pick split as a forecast (migration 174): by sport and by how many agreed, how often the favourite was right
 interface Crowd { sport: string; bucket: number; n: number; said: number; right_share: number; pools: number; market?: number | null; priced?: number }
+// every chance the product gives (migration 183), bucketed in tenths
+interface Chance { kind: string; bucket: number; n: number; expected: number; happened: number; brier: number }
+const CHANCES: Record<string, string> = { pool_win: 'Chance to win a pool game', pool_split: 'A pool’s favourite', h2h_win: 'Head-to-head win chances' };
 const SPORT: Record<string, string> = { soccer: 'Soccer', nfl: 'NFL football', mlb: 'Baseball', nhl: 'Hockey' };
 
 const KINDS: Record<string, string> = { winner: 'Who wins', ot: 'Goes to overtime', total: 'Over / under', prop: 'Player props', race: 'Races', season: 'Season markets' };
@@ -44,6 +47,7 @@ export default function Calibration() {
   const [cal, setCal] = useState<Cal[]>([]);
   const [open, setOpen] = useState<Open[]>([]);
   const [crowd, setCrowd] = useState<Crowd[]>([]);
+  const [chances, setChances] = useState<Chance[]>([]);
   useEffect(() => {
     Promise.all([
       // every week (a few rows a week per kind): the summaries cover the season, the tables show the latest weeks
@@ -53,7 +57,9 @@ export default function Calibration() {
       supabase.from('prediction_status').select('kind,status,n'),
       // every pool's for a platform admin, the pool's own for anyone else
       supabase.rpc('crowd_calibration'),
-    ]).then(([a, c, p, cr]) => {
+      supabase.from('chance_calibration').select('*').order('kind').order('bucket'),
+    ]).then(([a, c, p, cr, ch]) => {
+      setChances(((ch.data ?? []) as Chance[]).map((r) => ({ ...r, bucket: Number(r.bucket), n: Number(r.n), expected: Number(r.expected), happened: Number(r.happened), brier: Number(r.brier) })));
       setCrowd(((cr.data ?? []) as Crowd[]).map((r) => ({ ...r, bucket: Number(r.bucket), n: Number(r.n), said: Number(r.said), right_share: Number(r.right_share),
         market: r.market == null ? null : Number(r.market), priced: Number(r.priced ?? 0) })));
       setAcc((a.data ?? []) as Acc[]);
@@ -166,6 +172,42 @@ export default function Calibration() {
           </div>
         ) : <div className="card p-4 text-sm text-mute">No settled markets yet.</div>}
         <p className="mt-2 px-1 text-[11px] text-mute">A well-priced book has the two bars level in every row: what it priced at 60% happens about 60% of the time.</p>
+      </Section>
+
+      <Section title="Every chance">
+        {chances.length ? (
+          <div className="grid gap-3 sm:grid-cols-2">
+            {[...new Set(chances.map((c) => c.kind))].map((k) => {
+              const rows = chances.filter((c) => c.kind === k);
+              const n = rows.reduce((t, c) => t + c.n, 0);
+              const brierAll = rows.reduce((t, c) => t + c.brier * c.n, 0) / n;
+              return (
+                <div key={k} className="card p-3">
+                  <div className="mb-2 flex items-baseline justify-between gap-2">
+                    <span className="font-semibold text-slate-100">{CHANCES[k] ?? k}</span>
+                    <span className="text-[11px] text-mute">{n} scored · Brier {brierAll.toFixed(3)}</span>
+                  </div>
+                  <div className="space-y-2.5">
+                    {rows.map((c) => (
+                      <div key={c.bucket}>
+                        <div className="flex items-baseline justify-between text-[11px] text-mute"><span>Given {Math.round(c.bucket * 100)}–{Math.round(c.bucket * 100) + 10}%</span><span>{c.n}</span></div>
+                        <div className="mt-1 grid grid-cols-[3.75rem_1fr_2.5rem] items-center gap-x-2 gap-y-1 text-[11px]">
+                          <span className="text-mute">given</span>
+                          <span className="h-2 overflow-hidden rounded-full bg-white/[.06]"><span className="block h-full rounded-full bg-sky-400" style={{ width: pct(c.expected) }} /></span>
+                          <span className="num text-right text-slate-300">{pct(c.expected)}</span>
+                          <span className="text-mute">came in</span>
+                          <span className="h-2 overflow-hidden rounded-full bg-white/[.06]"><span className="block h-full rounded-full bg-gold" style={{ width: pct(c.happened) }} /></span>
+                          <span className="num text-right font-semibold text-white">{pct(c.happened)}</span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        ) : <div className="card p-4 text-sm text-mute">No chances scored yet. They are scored as games end: head-to-head weeks, pool matches, pool games.</div>}
+        <p className="mt-2 px-1 text-[11px] text-mute">Every probability the product shows, scored against what happened: a well-made chance comes in as often as it says.</p>
       </Section>
 
       <Section title="The crowd">

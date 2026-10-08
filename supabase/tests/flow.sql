@@ -4758,3 +4758,19 @@ update pool_games set status = 'done' where id = :rkg;
 select set_config('app.league_id', '', false);
 select set_config('request.jwt.claim.sub', '', false);
 select 'rank chances', true;
+
+-- ───────────── every chance against what happened (migration 183) ─────────────
+select set_config('app.league_id', :'lib', false);
+select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-000000000082', false);
+set role authenticated;
+select pg_temp.expect('the pool''s chances read in tenths, its own only', (select sum(n) from chance_calibration where kind = 'pool_win')
+  = (select count(*) from predictions where kind = 'pool_win' and status = 'scored')
+  and exists (select 1 from chance_calibration where kind = 'pool_split'));
+reset role;
+select set_config('app.league_id', '', false);
+select pg_temp.as_team(2);
+set role authenticated;
+select pg_temp.expect('another league sees none of them', not exists (select 1 from chance_calibration where kind in ('pool_win', 'pool_split')));
+reset role;
+select set_config('request.jwt.claim.sub', '', false);
+select 'chance calibration', true;
