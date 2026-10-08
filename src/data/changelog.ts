@@ -6,6 +6,8 @@
 export interface Change { date: string; icon: string; title: string; body: string; to?: string; tag?: 'formats' | 'commish' | 'draft' | 'everyone' }
 
 export const CHANGELOG: Change[] = [
+  { date: '2026-10-08', icon: '📺', tag: 'everyone', title: 'NFL centre and Match centre', to: '/pools',
+    body: 'A pool with a game on the NFL or a soccer league gets its own centre in the More menu: every game of the week with the score and the quarter or the minute while it is on, your pick on each, and how the pool picked once it kicks off. The Table tab ranks the league from the results.' },
   { date: '2026-10-08', icon: '🛡️', tag: 'everyone', title: 'Last one standing on the NFL', to: '/survivor',
     body: 'Last one standing now runs on the NFL as well as soccer: one team to win each week, never the same one twice, and a loss or a tie puts you out. It runs to the end of the regular season, and whoever is still in then shares it. Start it beside pick\'em when you open a pool or from the Host page, and the host can enter a pick for a player who asks.' },
   { date: '2026-10-08', icon: '📝', tag: 'commish', title: 'The host\'s desk', to: '/picks',

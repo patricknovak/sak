@@ -38,6 +38,7 @@ const Picks = lazy(() => import('./pages/Picks'));
 const LineupNew = lazy(() => import('./pages/LineupNew'));
 const WatchLive = lazy(() => import('./pages/WatchLive'));
 const SportCentre = lazy(() => import('./pages/SportCentre'));
+const RoundCentre = lazy(() => import('./pages/RoundCentre'));
 const Calibration = lazy(() => import('./pages/Calibration'));
 const DraftTV = lazy(() => import('./pages/DraftTV'));
 const DraftCentre = lazy(() => import('./pages/DraftCentre'));
@@ -124,6 +125,7 @@ function App() {
           <Route path="/lineup-new" element={<LineupNew />} />
           <Route path="/watch" element={<WatchLive />} />
           <Route path="/sport/:sport" element={<SportCentre />} />
+          <Route path="/centre/:competition" element={<RoundCentre />} />
           <Route path="/host" element={<PoolHost />} />
           <Route path="/draft" element={<DraftCentre />} />
           <Route path="/draft/tv" element={<DraftTV />} />

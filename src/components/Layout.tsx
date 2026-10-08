@@ -7,6 +7,7 @@ import { realtimeChannel, supabase } from '../lib/supabase';
 import { ago, countdown } from '../lib/format';
 import { currentSubscription } from '../lib/push';
 import { Sheet, TeamBadge } from './ui';
+import { centreName } from '../lib/poolGames';
 import {
   Bell, ClipboardList, Dices, Home, Landmark, Lightbulb, LogOut, Menu, MessageCircle, Radio, Repeat2, Search, Shield, Target,
   Trophy, Tv, UserRound, Wrench, Wallet, type LucideIcon, BarChart3, Sparkles, Crown, Wand2, Layers, ChevronDown, Swords, MonitorPlay } from 'lucide-react';
@@ -95,6 +96,8 @@ export function Layout({ children }: { children: ReactNode }) {
   // the board only once it asks one), and the soccer games (only in a pool that has started one). Row-level security
   // keeps each count to this league.
   const [runs, setRuns] = useState({ questions: false, predictor: false, survivor: false, games: false, mlb: false });
+  // the competition played in rounds the pool's games are on (a pick'em, last one standing, Call the score), for its centre
+  const [rounds, setRounds] = useState<{ id: string; sport: string } | null>(null);
   const onHost = loc.pathname === '/host';
   useEffect(() => {
     if (!me) return;
@@ -103,6 +106,16 @@ export function Layout({ children }: { children: ReactNode }) {
     // the baseball centre only for a pool with a game on the MLB postseason (a soccer pick'em has no use for it)
     const mlb = supabase.from('pool_games').select('id', { count: 'exact', head: true }).like('competition', 'mlb%').then(({ count }) => (count ?? 0) > 0, () => false);
     Promise.all([has('pool_markets'), has('predictors'), has('survivors'), has('pool_games'), mlb]).then(([questions, predictor, survivor, games, mlbOn]) => { if (live) setRuns({ questions, predictor, survivor, games, mlb: mlbOn }); });
+    const first = (t: string, kind?: string) => {
+      let q = supabase.from(t).select('competition').order('id', { ascending: false }).limit(1);
+      if (kind) q = q.eq('kind', kind);
+      return q.then(({ data }) => (data?.[0] as { competition: string } | undefined)?.competition ?? null, () => null);
+    };
+    Promise.all([first('pool_games', 'pickem'), first('survivors'), first('predictors')]).then(async (cs) => {
+      const id = cs.find(Boolean) ?? null;
+      const sp = id ? (await supabase.from('competitions').select('sport').eq('id', id).maybeSingle()).data?.sport as string | undefined : undefined;
+      if (live) setRounds(id && sp ? { id, sport: sp } : null);
+    });
     return () => { live = false; };
   }, [me?.id, league?.league_id, onHost]);
 
@@ -131,6 +144,7 @@ export function Layout({ children }: { children: ReactNode }) {
     ...(runs.games && poolQuestions ? [{ to: '/questions', label: 'Questions', icon: Sparkles }] : []),
     // the sport centre for the pool's games (baseball's postseason first)
     ...(runs.mlb ? [{ to: '/sport/mlb', label: 'MLB centre', icon: Tv }] : []),
+    ...(rounds ? [{ to: `/centre/${rounds.id}`, label: centreName(rounds.sport), icon: Tv }] : []),
     ...(runs.predictor ? [{ to: '/predictor', label: 'Call the score', icon: Target }] : []),
     ...(runs.survivor ? [{ to: '/survivor', label: 'Last one standing', icon: Shield }] : []),
     { to: '/pools', label: 'My pools', icon: Layers },

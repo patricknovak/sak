@@ -162,7 +162,12 @@ they lock (`pool_picks`), results graded on read from the shared event tables, a
    *Built 8 October 2026 (migration 171):* the `nfl` sports row (no draws, its rounds are Weeks) and the NFL's 2026 season
    on ESPN; soccer-sync reads ESPN by sport, the NFL week by week (weeks 1 to 18, the playoffs as 19 to 22 once their
    teams are set) through the same ingest and live task. Live with 272 games, weeks 1 to 4 final, so pick'em on the NFL
-   starts from Week 5. NFL centre is still to come.
+   starts from Week 5.
+   *NFL centre and Match centre, first version, 8 October 2026 (site only):* `#/centre/<competition>` for any
+   competition played in rounds: the round strip, every match with its score and the minute or quarter while it is on,
+   your pick and the pool's split once it kicks off, and the table worked out from the results (points for soccer, the
+   record for the NFL). In the More menu of a pool with a game on one. Still to come: box scores, standings by
+   division, odds.
    *The survivor on the NFL, 8 October 2026 (migration 173):* last one standing runs on any competition played in
    rounds, in the sport's words (weeks and teams, a tie is out), to a last round (the competition's last known one, so
    an NFL survivor started now runs the regular season; whoever is still in then shares it). The start page and the

@@ -80,3 +80,6 @@ export const PICKEM_PRESETS: { key: PickemPreset; label: string; line: string; e
   { key: 'classic', label: 'Classic', line: 'A point for every right pick. The most points wins.', example: 'Ten matches in a round: get seven right, 7 points.' },
   { key: 'confidence', label: 'Confidence', line: 'Number each round\'s picks from 1 up to its number of matches, your surest highest. A right pick earns its number.', example: 'Ten matches: your surest pick is ×10. Right, 10 points; wrong, nothing, so a long shot goes low.' },
 ];
+
+// the centre for a competition played in rounds (#/centre/<competition>), by its sport
+export const centreName = (sport: string | null | undefined) => (sport === 'nfl' ? 'NFL centre' : 'Match centre');
