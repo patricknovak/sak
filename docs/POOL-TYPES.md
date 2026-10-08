@@ -237,6 +237,27 @@ Every type is a pick, a lock, a grader and a scoring profile. So:
   (`docs/DEVELOPMENT.md` §4) and is scored when the series ends, so we learn how good a group's consensus is, sport by
   sport.
 
+### Adding a kind of game: every place it touches
+
+Written down from the bracket (migration 185), so the next kind (the player pool) misses nothing. A kind that lives on
+`pool_games` threads through these; one with its own tables (survivor, predictor) needs its own engine and a branch in
+`_pool_rows()` instead.
+
+- **Database, one migration:** the `pool_games_kind_check` constraint; `_pool_game_rules` (its rule presets and
+  defaults); `_pool_game_create` (what it is built on, and the check that the event can carry it); `_pool_game_table`
+  (score, possible, right calls, picked, tiebreak); `pool_game_board` (what a member sees) and `pool_games_list` (the
+  menu's "to pick"); `_pool_game_pick_as` (the shape of a pick, checked, and the host picking for a member);
+  `_pool_game_locked` (when it locks); `_pool_game_nudge` (the reminders); `_pool_rows()` (its line on the pool's one
+  table); `pool_event_list` (the kinds an event offers, so the start page and the host's desk show it);
+  `pool_game_chances` (its chances to win, once it can have them, and the `pool_win` log comes with it).
+- **Tests:** a section in `supabase/tests/flow.sql` that starts it, picks, locks, scores and reads the table, with a
+  second league that can't see or touch it; `tenancy.sql` passes untouched if every new function checks its league.
+- **Site:** `src/lib/poolGames.ts` (`GameKind`, `KINDS`); `src/lib/poolScoreboard.ts` (its board entry);
+  `src/pages/Picks.tsx` (the board type, `ICON`, the render branch, the host's desk presets, `GameRules`, the table
+  line, the subtitle); `src/pages/NewPool.tsx` and the host's desk (`HostGames`) where it is offered;
+  `src/components/PoolTable.tsx` (`useChances`); a changelog entry; screenshots at 360 and 390 px, open and locked.
+- **Docs:** this file (§2, §9), `docs/DEVELOPMENT.md` §6 and `docs/SUPERPOOLS.md`, in the same pull request.
+
 ## 4. Starting a sports pool
 
 The start page (`#/new` and My pools) becomes three short steps, phone-first, in the pool's colour as it is chosen.
