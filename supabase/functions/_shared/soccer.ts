@@ -8,7 +8,11 @@ export interface NeutralFixture {
   home: string; away: string; home_club: NeutralClub; away_club: NeutralClub;
   home_score: number | null; away_score: number | null; home_ft: number | null; away_ft: number | null;
   home_pens: number | null; away_pens: number | null; venue: string | null;
+  // what the market expected before kick-off, when the provider carries it: each side's chance with the bookmaker's
+  // margin taken out, the home side's spread (negative: favoured) and the total; never a bookmaker's name or link
+  odds?: NeutralOdds | null;
 }
+export interface NeutralOdds { home: number; away: number; draw: number | null; line: number | null; total: number | null }
 
 // ───────────── API-Football (v3.football.api-sports.io) ─────────────
 export const API_FOOTBALL = 'https://v3.football.api-sports.io';
@@ -104,7 +108,30 @@ export function espnFixture(e: Any, ninety?: { home: number; away: number } | nu
     home_ft: final ? (ninety ? ninety.home : hs) : null, away_ft: final ? (ninety ? ninety.away : as) : null,
     home_pens: num(home.shootoutScore), away_pens: num(away.shootoutScore),
     venue: v.fullName ? [v.fullName, v.address?.city].filter(Boolean).join(', ') : null,
+    odds: e.status?.type?.state === 'pre' ? espnOdds(c) : null,
   };
+}
+
+// an American price ('-125', '+105') as the chance it implies
+function implied(price: unknown): number | null {
+  const n = Number(String(price ?? '').replace(/^\+/, ''));
+  if (!Number.isFinite(n) || n === 0) return null;
+  return n < 0 ? -n / (-n + 100) : 100 / (n + 100);
+}
+
+// the first bookmaker's closing moneylines on an ESPN event, as chances that add up to one
+export function espnOdds(c: Any): NeutralOdds | null {
+  const o = (c?.odds ?? [])[0];
+  if (!o) return null;
+  const ml = o.moneyline ?? {};
+  const price = (side: 'home' | 'away' | 'draw') => ml[side]?.close?.odds ?? ml[side]?.open?.odds
+    ?? (side === 'draw' ? o.drawOdds?.moneyLine : o[`${side}TeamOdds`]?.moneyLine);
+  const h = implied(price('home')), a = implied(price('away')), d = implied(price('draw'));
+  if (h == null || a == null) return null;
+  const sum = h + a + (d ?? 0);
+  const r = (x: number) => Math.round((x / sum) * 1000) / 1000;
+  const line = num(o.pointSpread?.home?.close?.line ?? o.pointSpread?.home?.open?.line);
+  return { home: r(h), away: r(a), draw: d == null ? null : r(d), line: line == null || !Number.isFinite(line) ? null : line, total: num(o.overUnder) };
 }
 
 // the score after ninety minutes from a match summary's periods (the first two)

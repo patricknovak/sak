@@ -21,7 +21,7 @@ interface Acc { kind: string; week: string; basis: string | null; n: number; avg
 interface Cal { kind: string; bucket: number; n: number; expected: number; happened: number; brier: number }
 interface Open { kind: string; status: string; n: number }
 // a pool's pick split as a forecast (migration 174): by sport and by how many agreed, how often the favourite was right
-interface Crowd { sport: string; bucket: number; n: number; said: number; right_share: number; pools: number }
+interface Crowd { sport: string; bucket: number; n: number; said: number; right_share: number; pools: number; market?: number | null; priced?: number }
 const SPORT: Record<string, string> = { soccer: 'Soccer', nfl: 'NFL football', mlb: 'Baseball', nhl: 'Hockey' };
 
 const KINDS: Record<string, string> = { winner: 'Who wins', ot: 'Goes to overtime', total: 'Over / under', prop: 'Player props', race: 'Races', season: 'Season markets' };
@@ -54,7 +54,8 @@ export default function Calibration() {
       // every pool's for a platform admin, the pool's own for anyone else
       supabase.rpc('crowd_calibration'),
     ]).then(([a, c, p, cr]) => {
-      setCrowd(((cr.data ?? []) as Crowd[]).map((r) => ({ ...r, bucket: Number(r.bucket), n: Number(r.n), said: Number(r.said), right_share: Number(r.right_share) })));
+      setCrowd(((cr.data ?? []) as Crowd[]).map((r) => ({ ...r, bucket: Number(r.bucket), n: Number(r.n), said: Number(r.said), right_share: Number(r.right_share),
+        market: r.market == null ? null : Number(r.market), priced: Number(r.priced ?? 0) })));
       setAcc((a.data ?? []) as Acc[]);
       setCal((c.data ?? []) as Cal[]);
       setOpen(((p.data ?? []) as Open[]).map((r) => ({ ...r, n: Number(r.n) })));
@@ -188,6 +189,11 @@ export default function Calibration() {
                           <span className="text-mute">agreed</span>
                           <span className="h-2 overflow-hidden rounded-full bg-white/[.06]"><span className="block h-full rounded-full bg-sky-400" style={{ width: pct(c.said) }} /></span>
                           <span className="num text-right text-slate-300">{pct(c.said)}</span>
+                          {c.market != null && <>
+                            <span className="text-mute">market</span>
+                            <span className="h-2 overflow-hidden rounded-full bg-white/[.06]"><span className="block h-full rounded-full bg-violet-400" style={{ width: pct(c.market) }} /></span>
+                            <span className="num text-right text-slate-300">{pct(c.market)}</span>
+                          </>}
                           <span className="text-mute">right</span>
                           <span className="h-2 overflow-hidden rounded-full bg-white/[.06]"><span className="block h-full rounded-full bg-gold" style={{ width: pct(c.right_share) }} /></span>
                           <span className="num text-right font-semibold text-white">{pct(c.right_share)}</span>
@@ -200,7 +206,7 @@ export default function Calibration() {
             })}
           </div>
         ) : <div className="card p-4 text-sm text-mute">No pool’s picks scored yet. Each pick’em match with three picks or more counts once it’s final.</div>}
-        <p className="mt-2 px-1 text-[11px] text-mute">Each pick’em match is a forecast from its pool: the side most of them picked, and how many agreed. A wise crowd is right about as often as it agrees.</p>
+        <p className="mt-2 px-1 text-[11px] text-mute">Each pick’em match is a forecast from its pool: the side most of them picked, and how many agreed. A wise crowd is right about as often as it agrees; the market bar is what the bookmakers gave the same side at kick-off, where the feed carried a line.</p>
       </Section>
 
       <Section title={`${brand.bot.name}’s picks`}>

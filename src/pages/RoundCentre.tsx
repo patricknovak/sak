@@ -17,6 +17,8 @@ import { useSticky } from '../lib/sticky';
 interface Fixture {
   id: number; kickoff: string; date: string; state: 'scheduled' | 'live' | 'final' | 'postponed' | 'cancelled'; status: string | null; minute: number | null;
   gameweek: number | null; round: string | null; home_club: number; away_club: number; home_score: number | null; away_score: number | null; venue: string | null;
+  // the market's view at kick-off (migration 178): each side's chance, the home side's spread, the total
+  detail: { odds?: { home: number; away: number; draw: number | null; line: number | null; total: number | null } } | null;
 }
 interface Competition { id: string; name: string; short: string | null; sport: string; tz: string }
 type Side = 'H' | 'D' | 'A';
@@ -42,7 +44,7 @@ function useCompetition(id: string) {
     if (!c) return;
     const [{ data: cl }, { data: fx }] = await Promise.all([
       supabase.from('clubs').select('id,name,short,logo,color').eq('sport', c.sport),
-      supabase.from('fixtures').select('id,kickoff,date,state,status,minute,gameweek,round,home_club,away_club,home_score,away_score,venue')
+      supabase.from('fixtures').select('id,kickoff,date,state,status,minute,gameweek,round,home_club,away_club,home_score,away_score,venue,detail')
         .eq('competition', id).not('gameweek', 'is', null).order('kickoff').limit(2000),
     ]);
     setClubs(new Map(((cl ?? []) as Club[]).map((x) => [x.id, x])));
@@ -91,6 +93,14 @@ function MatchCard({ f, clubs, sp, pk }: { f: Fixture; clubs: Map<number, Club>;
   const order: [Club | undefined, 'home' | 'away'][] = sp.awayFirst ? [[away, 'away'], [home, 'home']] : [[home, 'home'], [away, 'away']];
   const split = pk?.split;
   const total = split ? (split.H ?? 0) + (split.D ?? 0) + (split.A ?? 0) : 0;
+  // what the market expected: the favourite and its chance, by how much, and the total
+  const o = f.detail?.odds;
+  const market = o ? (() => {
+    const homeFav = o.home >= o.away;
+    const fav = homeFav ? home : away, p = homeFav ? o.home : o.away;
+    const by = o.line != null && o.line !== 0 ? Math.abs(o.line) : null;
+    return `${fav?.short ?? fav?.name ?? ''} ${Math.round(p * 100)}%${sp.draws && o.draw != null ? ` · draw ${Math.round(o.draw * 100)}%` : ''}${by && !sp.draws ? ` · by ${by}` : ''}${o.total != null ? ` · ${sp.draws ? 'goals' : 'total'} ${o.total}` : ''}`;
+  })() : null;
   return (
     <div className={`card overflow-hidden ${live ? 'border-red-400/40 shadow-[0_0_24px_rgba(248,113,113,.12)]' : ''}`}>
       <div className="flex items-center justify-between gap-2 border-b border-white/[.06] px-3.5 py-2 text-[11px]">
@@ -99,8 +109,9 @@ function MatchCard({ f, clubs, sp, pk }: { f: Fixture; clubs: Map<number, Club>;
           : <span className="text-mute">{over ? (sp.awayFirst ? 'Final' : 'Full time') : f.state === 'postponed' ? 'Postponed' : f.state === 'cancelled' ? 'Called off' : time(f.kickoff)}</span>}
       </div>
       <div className="space-y-2.5 px-3.5 py-3">{order.map(([c, side]) => <div key={side}>{row(c, side)}</div>)}</div>
-      {(pk?.mine?.pick === 'D' || (split && total > 0) || f.venue) && (
+      {(pk?.mine?.pick === 'D' || (split && total > 0) || f.venue || market) && (
         <div className="space-y-1.5 border-t border-white/[.06] px-3.5 py-2 text-[11px] text-mute">
+          {market && <div className="flex justify-between gap-2"><span>{f.state === 'scheduled' ? 'The market expects' : 'The market expected'}</span><b className="text-right font-semibold text-slate-200">{market}</b></div>}
           {pk?.mine?.pick === 'D' && <div><span className="rounded-full bg-gold/20 px-1.5 text-[9px] font-black uppercase tracking-wider text-gold">Your pick · a draw</span></div>}
           {split && total > 0 && (
             <div>

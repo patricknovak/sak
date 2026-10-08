@@ -194,6 +194,10 @@ they lock (`pool_picks`), results graded on read from the shared event tables, a
    favourite writes `pool_split` (the favourite's share, made at kick-off), scored at the final whistle by the pool's
    own result (a host's ruling re-scores it); `crowd_calibration()` reads it by sport and split, every pool's for a
    platform admin, on the Calibration page ("The crowd"). Series picks and the survivor are next on the same log.
+   *The market beside it, the same day (migration 178):* soccer-sync keeps ESPN's pre-match lines on each match as the
+   market's view (each side's chance with the margin out, the spread, the total; no bookmaker, no link), frozen at
+   kick-off; the crowd's forecast records what the market gave its favourite, and Calibration shows the two side by side.
+   The centres show it on each match.
 6. **What you need to win.** The outcomes left, played out exactly where they are few (a bracket, a series round) and
    by simulation where they are many (a pick'em, a player pool), shown on the Table for each member.
    *Built for pick'em 8 October 2026 (migration 175):* `pool_game_chances` plays a pick'em out a thousand times from

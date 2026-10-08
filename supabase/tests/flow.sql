@@ -4600,3 +4600,51 @@ select pg_temp.raises('another pool''s host can''t settle it', format('select po
 reset role;
 select set_config('request.jwt.claim.sub', '', false);
 select 'results by hand', true;
+
+-- ───────────── the market beside the crowd (migration 178) ─────────────
+-- The Market Cup's one match comes with the market's view; it moves before kick-off, then freezes. All three pick the
+-- home side, which the market gave 61%.
+reset role;
+select set_config('request.jwt.claim.sub', '', false);
+select set_config('app.league_id', '', false);
+insert into competitions (id, sport, name, short, season, provider, ext_id, ext_season, active)
+values ('pk-mkt', 'soccer', 'Market Cup', 'MC', '2026', 'espn', 'mkt', '2026', true) on conflict (id) do nothing;
+select soccer_ingest('pk-mkt', jsonb_build_object(
+  'clubs', jsonb_build_array(jsonb_build_object('ext_id', 'mk1', 'name', 'Mansfield', 'short', 'MAN'), jsonb_build_object('ext_id', 'mk2', 'name', 'Newport', 'short', 'NEW')),
+  'fixtures', jsonb_build_array(jsonb_build_object('ext_id', 'mk-1', 'gameweek', 1, 'kickoff', now() + interval '1 day', 'status', 'NS', 'home', 'mk1', 'away', 'mk2',
+    'odds', jsonb_build_object('home', 0.55, 'away', 0.2, 'draw', 0.25, 'line', -0.5, 'total', 2.5)))));
+select id as mk1 from fixtures where ext_id = 'mk-1' \gset
+select soccer_ingest('pk-mkt', jsonb_build_object('fixtures', jsonb_build_array(jsonb_build_object('ext_id', 'mk-1', 'gameweek', 1, 'kickoff', now() + interval '1 day',
+  'status', 'NS', 'home', 'mk1', 'away', 'mk2', 'odds', jsonb_build_object('home', 0.61, 'away', 0.17, 'draw', 0.22, 'line', -1, 'total', 2.5)))));
+select pg_temp.expect('the market''s view rides with the match, and moves before kick-off', (select (detail->'odds'->>'home')::numeric = 0.61 and (detail->'odds'->>'line')::numeric = -1 from fixtures where id = :mk1));
+select set_config('app.league_id', :'lib', false);
+select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-000000000081', false);
+set role authenticated;
+select pool_game_start('pickem', 'pk-mkt') as mkg \gset
+select pool_pickem_save(:mkg, 1, jsonb_build_array(jsonb_build_object('fixture', :mk1, 'pick', 'H')));
+reset role;
+select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-000000000082', false);
+set role authenticated;
+select pool_pickem_save(:mkg, 1, jsonb_build_array(jsonb_build_object('fixture', :mk1, 'pick', 'H')));
+reset role;
+select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-000000000086', false);
+set role authenticated;
+select pool_pickem_save(:mkg, 1, jsonb_build_array(jsonb_build_object('fixture', :mk1, 'pick', 'H')));
+reset role;
+select soccer_ingest('pk-mkt', jsonb_build_object('fixtures', jsonb_build_array(jsonb_build_object('ext_id', 'mk-1', 'gameweek', 1, 'kickoff', now() - interval '10 minutes',
+  'status', '1H', 'home', 'mk1', 'away', 'mk2', 'home_score', 0, 'away_score', 0, 'odds', jsonb_build_object('home', 0.3, 'away', 0.4, 'draw', 0.3)))));
+select soccer_ingest('pk-mkt', jsonb_build_object('fixtures', jsonb_build_array(jsonb_build_object('ext_id', 'mk-1', 'gameweek', 1, 'kickoff', now() - interval '10 minutes',
+  'status', '2H', 'home', 'mk1', 'away', 'mk2', 'home_score', 0, 'away_score', 1, 'odds', jsonb_build_object('home', 0.1, 'away', 0.7, 'draw', 0.2)))));
+select pg_temp.expect('under way, the closing line stays', (select (detail->'odds'->>'home')::numeric = 0.61 from fixtures where id = :mk1));
+select pg_temp.expect('the crowd''s forecast carries the market''s chance for its favourite', (select predicted = 1 and (detail->>'market')::numeric = 0.61
+  from predictions where kind = 'pool_split' and subject = jsonb_build_object('game', :mkg, 'fixture', :mk1)));
+select soccer_ingest('pk-mkt', jsonb_build_object('fixtures', jsonb_build_array(jsonb_build_object('ext_id', 'mk-1', 'gameweek', 1, 'kickoff', now() - interval '10 minutes',
+  'status', 'FT', 'home', 'mk1', 'away', 'mk2', 'home_score', 0, 'away_score', 1, 'home_ft', 0, 'away_ft', 1))));
+select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-000000000082', false);
+set role authenticated;
+select pg_temp.expect('the calibration reads the market beside the crowd', (select market = 0.61 and priced = 1 and right_share = 0 from crowd_calibration() where bucket = 0.9 and sport = 'soccer' and n = 1)
+  or (select priced >= 1 from crowd_calibration() where bucket = 0.9 and sport = 'soccer'));
+reset role;
+select set_config('app.league_id', '', false);
+select set_config('request.jwt.claim.sub', '', false);
+select 'market', true;
