@@ -179,8 +179,7 @@ body.rosy .ticks li::before { box-shadow: 0 0 12px rgba(251,113,133,.6); }
 
 /* the calendar */
 .cal { display: grid; gap: 10px; grid-template-columns: repeat(2, 1fr); }
-@media (min-width: 760px) { .cal { grid-template-columns: repeat(3, 1fr); } }
-@media (min-width: 1040px) { .cal { grid-template-columns: repeat(6, 1fr); } }
+@media (min-width: 760px) { .cal { grid-template-columns: repeat(4, 1fr); } }
 .cal div { border-radius: 18px; padding: 14px; background: var(--boards); border: 1px solid var(--line); }
 .cal .hot { border-color: rgba(247,197,72,.45); background: linear-gradient(180deg, rgba(247,197,72,.13), var(--boards)); }
 .cal .hot2 { border-color: rgba(56,189,248,.4); background: linear-gradient(180deg, rgba(56,189,248,.12), var(--boards)); }
