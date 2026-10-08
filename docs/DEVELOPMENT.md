@@ -222,7 +222,15 @@ they lock (`pool_picks`), results graded on read from the shared event tables, a
    tree played out round by round). *The NFL's playoffs as series (migration 187):* `competitions.format` ('rounds' or
    'series'); `nfl-post-2026`, which soccer-sync fills through `espnPlayoffPayload` (each playoff game a best-of-1
    series, the AFC's before the NFC's, the Pro Bowl left out; tested on last season's playoffs), so the bracket runs from
-   the Divisional round. The same change keeps the Pro Bowl out of the season's weeks. *In football's words (migration
+   the Divisional round. The same change keeps the Pro Bowl out of the season's weeks. *March Madness, worked out 8
+   October 2026 (not built):* ESPN's men's scoreboard (`basketball/mens-college-basketball`, `groups=100`, by date)
+   names each game's region and round in its note ("... - East Region - 1st Round") and each team's seed in
+   `curatedRank.current`; within a region the first round goes in the bracket's seed order (1-16, 8-9, 5-12, 4-13,
+   6-11, 3-14, 7-10, 2-15), so the tree is right through the Elite Eight. The Final Four's pairing of regions isn't in
+   ESPN's feed until those games are drawn, so it goes on the competition when the field is announced (a `regions` list
+   in Final Four order, entered on the Platform page) and the adapter orders the regions by it. The First Four are
+   left out: a first-round slot whose team is still to be decided fills once that game is played, and the bracket
+   locks only once every first-round team is set (`_bracket_ok` already insists on it). *In football's words (migration
    190):* the board sends the sport's words for the start of a game and its score, so the tiebreaker is the Super Bowl's
    total points (0 to 150; runs 0 to 60, goals 0 to 30) and the news says kickoff; a single game is picked on the winner
    alone, its length points riding with it. Still to come: March Madness,
