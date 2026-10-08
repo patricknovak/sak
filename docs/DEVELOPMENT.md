@@ -162,7 +162,12 @@ they lock (`pool_picks`), results graded on read from the shared event tables, a
    *Built 8 October 2026 (migration 171):* the `nfl` sports row (no draws, its rounds are Weeks) and the NFL's 2026 season
    on ESPN; soccer-sync reads ESPN by sport, the NFL week by week (weeks 1 to 18, the playoffs as 19 to 22 once their
    teams are set) through the same ingest and live task. Live with 272 games, weeks 1 to 4 final, so pick'em on the NFL
-   starts from Week 5. The survivor and NFL centre are still to come.
+   starts from Week 5. NFL centre is still to come.
+   *The survivor on the NFL, 8 October 2026 (migration 173):* last one standing runs on any competition played in
+   rounds, in the sport's words (weeks and teams, a tie is out), to a last round (the competition's last known one, so
+   an NFL survivor started now runs the regular season; whoever is still in then shares it). The start page and the
+   host's Add a game offer it beside pick'em (`pool_event_list` kinds; `pool_game_start('survivor', ...)`), and the host
+   can enter a member's pick (`survivor_host_pick`).
 3. **The host's desk for every game.** Settle what the feed missed, pool by pool (an override on a result, never a
    change to the shared tables, with the reason on the record); enter a pick for a member who asked; change a rule
    until the first lock and freeze it after. Every pool type can then run with no feed at all.
@@ -173,7 +178,8 @@ they lock (`pool_picks`), results graded on read from the shared event tables, a
    come: settling a series or a grid by hand (the MLB feed has not needed it), and picking for a member from the site
    for series (the database takes it already).
 4. **Contract the old kinds.** Last one standing and Call the score become `pool_games` kinds (`survivor`, `score`),
-   their tables and pages read through the engine, the old tables retired once the numbers match.
+   their tables and pages read through the engine, the old tables retired once the numbers match. The engine's door is
+   already shared (migration 173: `pool_game_start` and a new pool's games start a survivor); the tables are next.
 5. **The learning loop.** Each lock writes the pool's pick split to the prediction log as a forecast, scored when
    the result is in, so we learn how good a group's consensus is, sport by sport.
 6. **What you need to win.** The outcomes left, played out exactly where they are few (a bracket, a series round) and

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Link, useSearchParams } from 'react-router-dom';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { ArrowDown, ArrowUp, Check, ChevronDown, Grid3x3, ListChecks, Lock, ListOrdered, Minus, Plus, Swords, Trophy } from 'lucide-react';
 import { useLeague, useNow } from '../lib/store';
 import { rpc } from '../lib/supabase';
@@ -8,6 +8,7 @@ import { Crest } from '../components/Crest';
 import { KINDS, PAYS, PICKEM_PRESETS, PRESETS, SIZES, SQUARES_DEFAULT, gridLabel, type PickemPreset, type PoolEvent, type SeriesPreset, type SquaresRules } from '../lib/poolGames';
 import { SquaresGame, type SquaresData } from '../components/Squares';
 import { PickemGame, type PickemData } from '../components/Pickem';
+import { useSurvivor } from './Survivor';
 
 // The pool's games (migration 165, docs/POOL-TYPES.md): Pick the series (each series' winner and how many games it
 // goes, locked at its Game 1) and Rank the teams (the clubs in order; every win pays its club's rank). Points, the most
@@ -468,8 +469,12 @@ export function HostGames() {
   const [grid, setGrid] = useState<Omit<SquaresRules, 'series'>>(SQUARES_DEFAULT);
   const [on, setOn] = useState<number | null>(null);
   const { busy, run } = useAction();
+  const nav = useNavigate();
+  // last one standing lives in its own tables, one at a time per pool
+  const { board: survivor } = useSurvivor();
   useEffect(() => { rpc<PoolEvent[]>('pool_event_list').then((e) => setEvents(e ?? []), () => setEvents([])); }, []);
-  const offers = events.flatMap((e) => e.kinds.filter((k) => k in KINDS && !games?.some((g) => g.competition === e.competition && g.kind === k && g.status === 'open')).map((k) => ({ e, k })));
+  const offers = events.flatMap((e) => e.kinds.filter((k) => k in KINDS && !(k === 'survivor' && survivor?.status === 'open')
+    && !games?.some((g) => g.competition === e.competition && g.kind === k && g.status === 'open')).map((k) => ({ e, k })));
   const grids = events.flatMap((e) => (e.grids ?? []).filter((s) => !games?.some((g) => g.kind === 'squares' && g.series === s.id && g.status === 'open')).map((s) => ({ e, s })));
   const series = grids.find((x) => x.s.id === on) ?? grids[0];
   if (!games || (!offers.length && !grids.length)) return null;
@@ -482,7 +487,7 @@ export function HostGames() {
               <span className="grid h-11 w-11 shrink-0 place-items-center rounded-2xl bg-gold/15 text-xl">{KINDS[k].emoji}</span>
               <div className="min-w-0 flex-1">
                 <div className="font-semibold text-white">{KINDS[k].title} <span className="text-mute">· {e.name}</span></div>
-                <div className="text-xs text-mute">{KINDS[k].line} From {k === 'pickem' ? e.open_label : `the ${e.open_label}`}, first lock {lockText(e.next_lock)}.</div>
+                <div className="text-xs text-mute">{KINDS[k].line} From {k === 'pickem' || k === 'survivor' ? e.open_label : `the ${e.open_label}`}{k === 'survivor' ? ` to ${e.final_label}` : ''}, first lock {lockText(e.next_lock)}.</div>
               </div>
             </div>
             {k === 'pickem' && (
@@ -495,7 +500,7 @@ export function HostGames() {
               <div className="flex flex-wrap gap-1.5">{PRESETS.map((p) => <button key={p.key} type="button" onClick={() => setPreset(p.key)} className={`rounded-full px-3 py-1 text-xs font-semibold ring-1 ${preset === p.key ? 'bg-gold text-[#0b1220] ring-gold' : 'bg-white/[.04] text-slate-200 ring-white/10'}`}>{p.label}</button>)}</div>
             )}
             <button type="button" className="btn-gold w-full" disabled={busy}
-              onClick={() => run(async () => { await rpc('pool_game_start', { p_kind: k, p_competition: e.competition, p_rules: k === 'series' ? { preset } : k === 'pickem' ? { preset: pkPreset } : {} }); reload(); }, `${KINDS[k].title} is on`)}>
+              onClick={() => run(async () => { await rpc('pool_game_start', { p_kind: k, p_competition: e.competition, p_rules: k === 'series' ? { preset } : k === 'pickem' ? { preset: pkPreset } : {} }); if (k === 'survivor') nav('/survivor'); else reload(); }, `${KINDS[k].title} is on`)}>
               Start {KINDS[k].title.toLowerCase()}
             </button>
           </div>

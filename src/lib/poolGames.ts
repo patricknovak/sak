@@ -1,7 +1,8 @@
 // The kinds of sports pool a host can start (docs/POOL-TYPES.md §2, migrations 165, 167 and 170), in words: what each is,
 // how long it takes, and the scoring presets. The start page and the Host page read the same list.
 
-export type GameKind = 'series' | 'rank' | 'squares' | 'pickem';
+// 'survivor' is last one standing (its own tables, migration 157): the start page and the host offer it like the rest
+export type GameKind = 'series' | 'rank' | 'squares' | 'pickem' | 'survivor';
 export type PickemPreset = 'classic' | 'confidence';
 export type SeriesPreset = 'classic' | 'flat' | 'exact';
 
@@ -9,8 +10,9 @@ export interface PoolEvent {
   competition: string; sport: string; name: string; pack: string | null; stage: string | null;
   open_round: number; open_label: string; next_lock: string | null; final_round: number; final_label: string; final_starts: string | null;
   kinds: GameKind[];
-  // what the sport calls a round ('Matchweek'), on an event that comes in rounds of matches
+  // what the sport calls a round ('Matchweek') and a side ('club', 'team'), on an event that comes in rounds of matches
   word?: string;
+  club_word?: string;
   // the series a grid of squares can still go on, last round first
   grids?: Grid[];
 }
@@ -46,6 +48,11 @@ export const KINDS: Record<GameKind, { title: string; badge: string; line: strin
     title: 'Pick\'em', badge: 'Every week', emoji: '✅',
     line: 'Pick the winner of every match, round by round, or a draw where the sport has them. Each pick locks at its own kick-off, so you can join any week.',
     time: 'Two minutes a round',
+  },
+  survivor: {
+    title: 'Last one standing', badge: 'Lose once, out', emoji: '🛡️',
+    line: 'Pick one winner every round, never the same side twice. Lose once and you’re out; the last one in wins it.',
+    time: 'Ten seconds a round',
   },
   squares: {
     title: 'Squares', badge: 'Pure luck', emoji: '🔢',

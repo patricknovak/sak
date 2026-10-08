@@ -6,6 +6,8 @@
 export interface Change { date: string; icon: string; title: string; body: string; to?: string; tag?: 'formats' | 'commish' | 'draft' | 'everyone' }
 
 export const CHANGELOG: Change[] = [
+  { date: '2026-10-08', icon: '🛡️', tag: 'everyone', title: 'Last one standing on the NFL', to: '/survivor',
+    body: 'Last one standing now runs on the NFL as well as soccer: one team to win each week, never the same one twice, and a loss or a tie puts you out. It runs to the end of the regular season, and whoever is still in then shares it. Start it beside pick\'em when you open a pool or from the Host page, and the host can enter a pick for a player who asks.' },
   { date: '2026-10-08', icon: '📝', tag: 'commish', title: 'The host\'s desk', to: '/picks',
     body: 'A pool\'s host can change a game\'s rules until the first lock (the pool hears it), enter a round of picks for a player who asked, and settle a pick\'em match by hand when the feed gets it wrong or leaves it hanging: a side, a draw or void, with the reason shown to everyone on the match. It counts for that pool only, and every action is on the host\'s log.' },
   { date: '2026-10-08', icon: '🏈', tag: 'everyone', title: 'NFL pick\'em', to: '/pools',

@@ -206,6 +206,11 @@ export default function NewPool() {
                   })}
                 </div>
                 {!kinds.length && <p className="mt-2 text-xs text-amber-200">Pick at least one.</p>}
+                {kinds.includes('survivor') && (
+                  <p className="mt-2 rounded-xl bg-white/[.05] px-3 py-2 text-xs leading-snug text-white/70">
+                    Last one standing runs from {event.open_label} to {event.final_label}: one {event.club_word ?? 'club'} to win each {(event.word ?? 'round').toLowerCase()}, never the same one twice. {event.sport === 'soccer' ? 'A draw or a loss' : 'A loss'} and you’re out; whoever is still in at the end shares it.
+                  </p>
+                )}
               </Step>
             )}
 

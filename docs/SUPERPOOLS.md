@@ -231,6 +231,8 @@ give the pool a home for following the sport):**
   round's picks numbered, a right one earns its number); on any competition whose matches come in rounds, so the
   Premier League and MLS have it now and the NFL the day its feed lands.* *The NFL on ESPN built 8 October 2026 (migration
   171): its 2026 season, every week through the Super Bowl, fed by soccer-sync, so a pool can run an NFL pick'em from Week 5.*
+  *Last one standing on the NFL, 8 October 2026 (migration 173): any competition played in rounds, in its own words,
+  to a last round where those still in share it; offered beside pick'em on the start page and the host's page.*
   *The host's desk built 8 October 2026 (migration 172): the rules until the first lock, a pick entered for a member who
   asked, and a pick'em match settled by hand for the pool alone with the reason shown, all on the commissioner's log.*
 

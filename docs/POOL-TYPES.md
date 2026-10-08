@@ -341,7 +341,8 @@ for a guest, a rule changed before the first lock, a result the feed missed) lan
 and soccer share it.
 
 1. The NFL: weekly pick'em and confidence and a second-half survivor (the season is in week 5; playoffs from
-   January), on ESPN's site API for results and spreads until a licensed feed; NFL centre, first version.
+   January), on ESPN's site API for results and spreads until a licensed feed; NFL centre, first version. Pick'em
+   (migration 170), the season's feed (171) and the survivor on its weeks (173) are built; NFL centre is next.
 2. Soccer on the same engine: the score predictor and the survivor move onto `pool_games`; the Champions League
    knockout bracket (February); soccer centre on API-Football.
 3. Super Bowl squares and the prop sheet (February 2027).
