@@ -179,9 +179,9 @@ they lock (`pool_picks`), results graded on read from the shared event tables, a
    *Built 8 October 2026 (migration 172):* `pool_game_set_rules` (frozen at the first lock; a pick'em's scoring only
    before anyone picks), `pool_host_pick` (a pick'em round, a series pick or the ranking for a member, under their locks,
    and they hear it), `pool_result_set` (a pick'em match settled for the pool alone, in `pool_result_overrides` with the
-   reason everyone sees; the round and the game end as if the feed had sent it). All on the commissioner's log. Still to
-   come: settling a series or a grid by hand (the MLB feed has not needed it), and picking for a member from the site
-   for series (the database takes it already).
+   reason everyone sees; the round and the game end as if the feed had sent it). All on the commissioner's log. Picking for
+   a member from the site covers series and the ranking too (8 October). Still to come: settling a series or a grid by
+   hand (the MLB feed has not needed it).
 4. **Contract the old kinds.** Last one standing and Call the score become `pool_games` kinds (`survivor`, `score`),
    their tables and pages read through the engine, the old tables retired once the numbers match. The engine's door is
    already shared (migration 173: `pool_game_start` and a new pool's games start a survivor); the tables are next.

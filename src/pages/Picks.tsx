@@ -167,16 +167,25 @@ function SeriesCard({ s, board, onPick, busy, name }: { s: Series; board: GameBo
   );
 }
 
-function SeriesGame({ board, reload, name }: { board: GameBoard; reload: () => void; name: (id: number) => string }) {
+// a game's picks for yourself, or (the host, migration 172) for a member who asked: their own picks stay private, so
+// the host starts from a blank slate and what they save replaces the member's
+const savePick = (board: GameBoard, thing: string, pick: unknown, actAs?: { team: number }) => actAs
+  ? rpc('pool_host_pick', { p_game: board.id, p_team: actAs.team, p_pick: { thing, pick } })
+  : rpc('pool_game_pick', { p_game: board.id, p_thing: thing, p_pick: pick });
+
+function SeriesGame({ board, reload, name, actAs }: { board: GameBoard; reload: () => void; name: (id: number) => string; actAs?: { team: number; name: string } }) {
   const { busy, run } = useAction();
   const [local, setLocal] = useState<Record<number, Partial<Pick>>>({});
   const [runs, setRuns] = useState<number | null>(null);
-  useEffect(() => { setLocal({}); }, [board]);
-  const series = useMemo(() => (board.series ?? []).map((s) => ({ ...s, mine: (local[s.id] ? { ...s.mine, ...local[s.id] } : s.mine) as Pick | null })), [board, local]);
+  useEffect(() => { if (!actAs) setLocal({}); }, [board]); // eslint-disable-line react-hooks/exhaustive-deps
+  const series = useMemo(() => (board.series ?? []).map((s) => {
+    const base = actAs ? null : s.mine;
+    return { ...s, mine: (local[s.id] ? { ...base, ...local[s.id] } : base) as Pick | null };
+  }), [board, local, actAs]);
   const onPick = (s: Series, p: Partial<Pick>) => {
     const next = { ...(s.mine ?? {}), ...p } as Partial<Pick>;
     setLocal((l) => ({ ...l, [s.id]: next }));
-    if (next.winner && next.games) run(async () => { await rpc('pool_game_pick', { p_game: board.id, p_thing: `s:${s.id}`, p_pick: next }); reload(); });
+    if (next.winner && next.games) run(async () => { await savePick(board, `s:${s.id}`, next, actAs); reload(); }, actAs ? `Saved for ${actAs.name}` : undefined);
   };
   const rounds = board.rounds.map((r) => ({ ...r, list: series.filter((s) => s.round === r.round) })).filter((r) => r.list.length);
   const tb = board.tiebreak;
@@ -188,7 +197,7 @@ function SeriesGame({ board, reload, name }: { board: GameBoard; reload: () => v
           <div className="grid gap-3 md:grid-cols-2">{r.list.map((s) => <SeriesCard key={s.id} s={s} board={board} onPick={onPick} busy={busy} name={name} />)}</div>
         </Section>
       ))}
-      {tb && board.status === 'open' && (
+      {tb && board.status === 'open' && !actAs && (
         <Section title="The tiebreaker">
           <div className="card flex flex-wrap items-center gap-3 p-4">
             <div className="min-w-0 flex-1">
@@ -212,15 +221,15 @@ function SeriesGame({ board, reload, name }: { board: GameBoard; reload: () => v
   );
 }
 
-function RankGame({ board, reload, name }: { board: GameBoard; reload: () => void; name: (id: number) => string }) {
+function RankGame({ board, reload, name, actAs }: { board: GameBoard; reload: () => void; name: (id: number) => string; actAs?: { team: number; name: string } }) {
   const { busy, run } = useAction();
   const rk = board.rank!;
   const byId = useMemo(() => new Map(rk.clubs.map((c) => [c.id, c])), [rk.clubs]);
   const base = useMemo(() => {
-    const mine = (rk.mine ?? []).filter((id) => byId.has(id));
+    const mine = (actAs ? [] : rk.mine ?? []).filter((id) => byId.has(id));
     const rest = rk.clubs.filter((c) => c.alive && !mine.includes(c.id)).map((c) => c.id);
     return [...mine, ...rest];
-  }, [rk, byId]);
+  }, [rk, byId, actAs]);
   const [order, setOrder] = useState<number[] | null>(null);
   const [open, setOpen] = useState(false);
   useEffect(() => { setOrder(null); }, [board]);
@@ -258,9 +267,9 @@ function RankGame({ board, reload, name }: { board: GameBoard; reload: () => voi
       <p className="mt-2 px-1 text-xs text-mute">
         {rk.locked ? 'Each win pays its club’s number.' : `At the lock the ${rk.field || 'clubs'} in the ${rk.round_label} are ranked in your order: your top club pays ${rk.field || 'the most'} for every game it wins, your last pays 1. Clubs out by then don't count.`}
       </p>
-      {!rk.locked && (dirty || !rk.mine) && board.status === 'open' && (
-        <button type="button" className="btn-gold mt-3 w-full py-3" disabled={busy} onClick={() => run(async () => { await rpc('pool_game_pick', { p_game: board.id, p_thing: 'rank', p_pick: { order: list } }); reload(); }, 'Your order is in')}>
-          {rk.mine ? 'Save the new order' : 'Lock in this order'}
+      {!rk.locked && (actAs || dirty || !rk.mine) && board.status === 'open' && (
+        <button type="button" className="btn-gold mt-3 w-full py-3" disabled={busy} onClick={() => run(async () => { await savePick(board, 'rank', { order: list }, actAs); reload(); }, actAs ? `${actAs.name}’s order is in` : 'Your order is in')}>
+          {actAs ? `Save this order for ${actAs.name}` : rk.mine ? 'Save the new order' : 'Lock in this order'}
         </button>
       )}
       {rk.orders && rk.orders.length > 0 && (
@@ -385,16 +394,16 @@ export default function Picks() {
           ))}
         </div>
       )}
-      {actAs && pk && (
+      {actAs && (
         <div className="flex items-center gap-3 rounded-2xl border border-amber-400/30 bg-amber-400/[.08] p-3 text-sm text-amber-100">
-          <span className="min-w-0 flex-1"><b>Entering picks for {actAs.name}.</b> Their own picks stay private; what you save here replaces theirs for these matches.</span>
+          <span className="min-w-0 flex-1"><b>Entering picks for {actAs.name}.</b> Their own picks stay private; what you save here replaces theirs{pk ? ' for these matches' : board.kind === 'rank' ? '' : ' for each series you pick'}.</span>
           <button type="button" className="btn-ghost shrink-0" onClick={() => setActAs(null)}>Done</button>
         </div>
       )}
       {pk ? <PickemGame key={`${board.id}-${actAs?.team ?? 'me'}`} gameId={board.id} first={pk} status={board.status} name={name} reload={load} actAs={actAs ?? undefined} />
         : sq ? <SquaresGame data={sq} gameId={board.id} status={board.status} reload={load} name={name} />
-        : board.kind === 'series' ? <SeriesGame board={board} reload={load} name={name} />
-        : board.kind === 'rank' ? <RankGame board={board} reload={load} name={name} />
+        : board.kind === 'series' ? <SeriesGame key={`${board.id}-${actAs?.team ?? 'me'}`} board={board} reload={load} name={name} actAs={actAs ?? undefined} />
+        : board.kind === 'rank' ? <RankGame key={`${board.id}-${actAs?.team ?? 'me'}`} board={board} reload={load} name={name} actAs={actAs ?? undefined} />
         : <div className="card p-4 text-sm text-mute">This kind of game is newer than this page. Pull down to refresh, or reopen the app.</div>}
       {me?.is_commish && board.status === 'open' && !actAs && <HostDesk board={board} reload={load} onActAs={setActAs} />}
       <GameTable board={board} />
@@ -410,7 +419,8 @@ function HostDesk({ board, reload, onActAs }: { board: GameBoard; reload: () => 
   const pk = board.pickem;
   const [preset, setPreset] = useState<string>(board.rules.preset ?? 'classic');
   const [toRound, setToRound] = useState<number>(pk?.to_round ?? 0);
-  if (board.kind !== 'pickem' && board.kind !== 'series') return null;
+  if (board.kind !== 'pickem' && board.kind !== 'series' && board.kind !== 'rank') return null;
+  const rules = board.kind !== 'rank';
   // the server has the last word; this hides the rules once the game has plainly locked
   const locked = pk ? pk.round > pk.from_round || pk.fixtures.some((f) => f.locked && f.picked > 0) : !!board.series?.some((s) => s.locked);
   const picked = pk ? pk.fixtures.some((f) => f.picked > 0) : false;
@@ -422,7 +432,8 @@ function HostDesk({ board, reload, onActAs }: { board: GameBoard; reload: () => 
       <div className="card space-y-4 p-4">
         <div>
           <div className="mb-1.5 text-[11px] font-bold uppercase tracking-[.14em] text-mute">The rules</div>
-          {locked ? <p className="text-sm text-mute">The rules froze at the first lock, so everyone plays the game they joined.</p> : (
+          {!rules ? <p className="text-sm text-mute">Rank the teams has no rules to change: every win pays the rank its club was given.</p>
+            : locked ? <p className="text-sm text-mute">The rules froze at the first lock, so everyone plays the game they joined.</p> : (
             <div className="space-y-2">
               <div className="flex flex-wrap gap-1.5">
                 {(pk ? PICKEM_PRESETS : PRESETS).map((x) => (
@@ -445,7 +456,7 @@ function HostDesk({ board, reload, onActAs }: { board: GameBoard; reload: () => 
             </div>
           )}
         </div>
-        {pk && members.length > 0 && (
+        {members.length > 0 && !(board.kind === 'rank' && board.rank?.locked) && (
           <div>
             <div className="mb-1.5 text-[11px] font-bold uppercase tracking-[.14em] text-mute">Pick for a player who asked</div>
             <div className="flex flex-wrap gap-1.5">
