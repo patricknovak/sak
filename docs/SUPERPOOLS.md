@@ -226,7 +226,10 @@ give the pool a home for following the sport):**
   weekly pick'em on the engine (any competition with fixtures, confidence points optional); the NFL on ESPN; the
   host's desk for every game (settle what the feed missed, a pick for a member, rules until the first lock); last one
   standing and Call the score onto the engine; the pick split in the prediction log; what you need to win; then the
-  bracket and the player pool for the spring.
+  bracket and the player pool for the spring. *Weekly pick'em built 8 October 2026 (migration 170): every match of a
+  round, the winner or a draw, each pick locking at its own kick-off; Classic (a point a right pick) or Confidence (each
+  round's picks numbered, a right one earns its number); on any competition whose matches come in rounds, so the
+  Premier League and MLS have it now and the NFL the day its feed lands.*
 
 Then the list below, which is the fantasy-league plan of record.
 

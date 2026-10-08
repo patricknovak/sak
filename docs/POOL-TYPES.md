@@ -104,6 +104,10 @@ or takes the favourite, or the home side; late joiners start at zero, the lowest
 **Good:** drag-to-rank that works on a phone, the pick split after lock, the weekly winner banner, points still
 possible.
 
+*Built 8 October 2026 (migration 170): the `pickem` kind on `fixtures`, Classic and Confidence, draws where the sport
+has them (`sports.config.draws`), the round's name from the sport (`words.round`). Against the spread and a tiebreaker
+wait for the NFL.*
+
 ### 2.5 Survivor (last one standing, eliminator)
 
 **How it works:** pick one team a week to win; a loss puts you out; each team once. Built for soccer (migration 157),

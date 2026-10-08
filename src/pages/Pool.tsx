@@ -21,7 +21,7 @@ import { PredictorCard, PredictorStart, usePredictor } from './Predictor';
 import { Share2, UserPlus } from 'lucide-react';
 import { InvitePeople } from '../components/InvitePeople';
 import { HostGames, PoolGameCards, usePoolGames } from './Picks';
-import { BOARD_KIND, usePoolScoreboard } from '../lib/poolScoreboard';
+import { kindOf, usePoolScoreboard } from '../lib/poolScoreboard';
 import { BoardRows, GameChips, Move, MyPlace } from '../components/PoolTable';
 
 function useLeaders() {
@@ -96,7 +96,7 @@ export function PoolHome() {
         <div className="mt-4 grid grid-cols-3 gap-2">
           <div className="rounded-2xl bg-black/25 px-3 py-2.5 ring-1 ring-white/10"><div className="label">To spend</div><div className="font-display text-2xl font-extrabold text-white"><Coins n={coins} /></div></div>
           <div className="rounded-2xl bg-black/25 px-3 py-2.5 ring-1 ring-white/10"><div className="label">Worth</div><div className="font-display text-2xl font-extrabold text-white"><Coins n={mine?.worth} /></div></div>
-          <Link to="/leaders" className="rounded-2xl bg-black/25 px-3 py-2.5 ring-1 ring-white/10 hover:bg-black/35"><div className="label truncate">{main && board!.games.length > 1 ? `${BOARD_KIND[main.kind].icon} Rank` : 'Rank'}</div>
+          <Link to="/leaders" className="rounded-2xl bg-black/25 px-3 py-2.5 ring-1 ring-white/10 hover:bg-black/35"><div className="label truncate">{main && board!.games.length > 1 ? `${kindOf(main.kind).icon} Rank` : 'Rank'}</div>
             <div className="flex items-baseline gap-1 font-display text-2xl font-extrabold text-white">{main?.mine ? main.mine.rank : '–'}<span className="text-sm font-bold text-mute">of {main?.members ?? '–'}</span><Move n={main?.mine?.move} /></div></Link>
         </div>
         {nextDrop && (
@@ -421,7 +421,7 @@ export function PoolLeaders() {
   const games = board?.games ?? [];
   const g = games.find((x) => x.key === params.get('g')) ?? games[0];
   const shareBoard = () => g && shareCard({ kind: 'leaders', brand: cardBrand, title: g.title,
-    rows: g.rows.slice(0, 6).map((r) => { const t = teams.find((x) => x.id === r.team_id); const k = BOARD_KIND[g.kind];
+    rows: g.rows.slice(0, 6).map((r) => { const t = teams.find((x) => x.id === r.team_id); const k = kindOf(g.kind);
       return { name: t?.gm_name ?? t?.name ?? '', worth: r.score, rank: r.rank, label: k.coins ? undefined : `${Number.isInteger(r.score) ? r.score : r.score.toFixed(1)} ${k.unit(r.score)}`, color: t?.color ?? cardBrand.color, me: r.team_id === me?.id }; }) },
     `The ${g.title} table in ${cardBrand.pool}.`);
   return (
@@ -499,7 +499,7 @@ function HostCrown() {
             <button key={g.key} type="button" disabled={busy || g.crown}
               onClick={() => run(async () => { await rpc('pool_set_crown', { p_game: g.key }); await reload(); }, `${g.title} is the main game`)}
               className={`flex items-center gap-3 rounded-2xl px-3 py-2.5 text-left ring-1 transition ${g.crown ? 'bg-gold/[.12] ring-gold/50' : 'bg-white/[.03] ring-white/10 hover:bg-white/[.06]'}`}>
-              <span className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-white/[.06] text-lg" aria-hidden>{BOARD_KIND[g.kind].icon}</span>
+              <span className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-white/[.06] text-lg" aria-hidden>{kindOf(g.kind).icon}</span>
               <span className="min-w-0 flex-1"><span className="block break-words font-semibold text-white">{g.title}</span><span className="block text-xs text-mute">{g.status === 'open' ? 'On now' : 'Finished'} · {g.members} in it</span></span>
               {g.crown ? <span className="shrink-0 text-sm font-bold text-gold">👑 Main</span> : <span className="shrink-0 rounded-full bg-sky-400/10 px-2.5 py-1 text-xs font-bold text-sky-300 ring-1 ring-sky-400/30">Make main</span>}
             </button>

@@ -1,13 +1,16 @@
-// The kinds of sports pool a host can start (docs/POOL-TYPES.md §2, migrations 165 and 167), in words: what each is,
+// The kinds of sports pool a host can start (docs/POOL-TYPES.md §2, migrations 165, 167 and 170), in words: what each is,
 // how long it takes, and the scoring presets. The start page and the Host page read the same list.
 
-export type GameKind = 'series' | 'rank' | 'squares';
+export type GameKind = 'series' | 'rank' | 'squares' | 'pickem';
+export type PickemPreset = 'classic' | 'confidence';
 export type SeriesPreset = 'classic' | 'flat' | 'exact';
 
 export interface PoolEvent {
   competition: string; sport: string; name: string; pack: string | null; stage: string | null;
   open_round: number; open_label: string; next_lock: string | null; final_round: number; final_label: string; final_starts: string | null;
   kinds: GameKind[];
+  // what the sport calls a round ('Matchweek'), on an event that comes in rounds of matches
+  word?: string;
   // the series a grid of squares can still go on, last round first
   grids?: Grid[];
 }
@@ -39,6 +42,11 @@ export const KINDS: Record<GameKind, { title: string; badge: string; line: strin
     line: 'Put the clubs in order once. Your top club is worth the most for every game it wins, all the way to the trophy.',
     time: 'One minute, once',
   },
+  pickem: {
+    title: 'Pick\'em', badge: 'Every week', emoji: '✅',
+    line: 'Pick the winner of every match, round by round, or a draw where the sport has them. Each pick locks at its own kick-off, so you can join any week.',
+    time: 'Two minutes a round',
+  },
   squares: {
     title: 'Squares', badge: 'Pure luck', emoji: '🔢',
     line: 'Claim squares on a grid with coins. The digits are drawn when it fills; the last digit of each club’s runs names the winning square after the 3rd, the 6th and the final of every game.',
@@ -60,3 +68,8 @@ export function presetExample(p: SeriesPreset, finalLabel: string, finalRound: n
   if (p === 'exact') return `Pick a club in 6 in the ${label}: they win in 6, 1 point; they win in 5, nothing.`;
   return `Pick a club in 6 in the ${label}: they win in 6, ${w} + ${l} = ${w + l} points; they win in 7, ${w}.`;
 }
+
+export const PICKEM_PRESETS: { key: PickemPreset; label: string; line: string; example: string }[] = [
+  { key: 'classic', label: 'Classic', line: 'A point for every right pick. The most points wins.', example: 'Ten matches in a round: get seven right, 7 points.' },
+  { key: 'confidence', label: 'Confidence', line: 'Number each round\'s picks from 1 up to its number of matches, your surest highest. A right pick earns its number.', example: 'Ten matches: your surest pick is ×10. Right, 10 points; wrong, nothing, so a long shot goes low.' },
+];

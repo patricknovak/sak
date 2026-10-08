@@ -4052,3 +4052,120 @@ select pg_temp.expect('a fantasy league keeps no standings', _pool_mark() = 0);
 select set_config('app.league_id', '', false);
 select set_config('request.jwt.claim.sub', '', false);
 select 'pool scoreboard', true;
+
+-- ───────────── weekly pick'em (migration 170) ─────────────
+-- Pod Squad runs a Confidence pick'em on the Test Cup's matchweeks 5 and 6 (matchweek 4 is played): Fern, Hana and Lou
+-- pick; a sport with no draws refuses one.
+reset role;
+select set_config('request.jwt.claim.sub', '', false);
+select set_config('app.league_id', '', false);
+insert into competitions (id, sport, name, short, season, provider, ext_id, ext_season, active)
+values ('pk-test', 'soccer', 'Test Cup', 'TC', '2026', 'api-football', 'pk', '2026', true) on conflict (id) do nothing;
+select soccer_ingest('pk-test', jsonb_build_object(
+  'clubs', jsonb_build_array(jsonb_build_object('ext_id', 'pk1', 'name', 'Pine FC', 'short', 'PIN'), jsonb_build_object('ext_id', 'pk2', 'name', 'Quay FC', 'short', 'QUA'),
+    jsonb_build_object('ext_id', 'pk3', 'name', 'Rook FC', 'short', 'ROO'), jsonb_build_object('ext_id', 'pk4', 'name', 'Sand FC', 'short', 'SAN')),
+  'fixtures', jsonb_build_array(
+    jsonb_build_object('ext_id', 'pk-40', 'gameweek', 4, 'kickoff', now() - interval '3 days', 'status', 'FT', 'home', 'pk1', 'away', 'pk4', 'home_score', 1, 'away_score', 0, 'home_ft', 1, 'away_ft', 0),
+    jsonb_build_object('ext_id', 'pk-51', 'gameweek', 5, 'kickoff', now() + interval '1 day', 'status', 'NS', 'home', 'pk1', 'away', 'pk2'),
+    jsonb_build_object('ext_id', 'pk-52', 'gameweek', 5, 'kickoff', now() + interval '1 day', 'status', 'NS', 'home', 'pk3', 'away', 'pk4'),
+    jsonb_build_object('ext_id', 'pk-61', 'gameweek', 6, 'kickoff', now() + interval '8 days', 'status', 'NS', 'home', 'pk1', 'away', 'pk3'),
+    jsonb_build_object('ext_id', 'pk-62', 'gameweek', 6, 'kickoff', now() + interval '8 days', 'status', 'NS', 'home', 'pk2', 'away', 'pk4'))));
+select id as m51 from fixtures where ext_id = 'pk-51' \gset
+select id as m52 from fixtures where ext_id = 'pk-52' \gset
+select id as m61 from fixtures where ext_id = 'pk-61' \gset
+select id as m62 from fixtures where ext_id = 'pk-62' \gset
+select pg_temp.expect('the start page offers pick''em on a competition with rounds, from its next one; the old list is unchanged',
+  (select e->'kinds' = '["pickem"]'::jsonb and (e->>'open_round')::int = 5 and e->>'open_label' = 'Matchweek 5' and e->>'stage' = 'Matchweek 5 next'
+   from jsonb_array_elements(pool_event_list()) e where e->>'competition' = 'pk-test')
+  and not exists (select 1 from jsonb_array_elements(pool_events()) e where e->>'competition' = 'pk-test'));
+select set_config('app.league_id', :'lib', false);
+select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-000000000081', false);
+set role authenticated;
+select pg_temp.raises('a round already played can''t be the start', $$select pool_game_start('pickem', 'pk-test', '{"from_round":4}')$$, 'That round is over');
+select pg_temp.raises('Classic or Confidence', $$select pool_game_start('pickem', 'pk-test', '{"preset":"spread"}')$$, 'Classic or Confidence');
+select pool_game_start('pickem', 'pk-test', '{"preset":"confidence"}') as pk \gset
+select pg_temp.expect('it runs from the next round to the last, with draws, named for its competition',
+  (select title = 'Test Cup pick''em' and rules->>'preset' = 'confidence' and (rules->>'from_round')::int = 5 and (rules->>'to_round')::int = 6
+     and (rules->>'draws')::boolean from pool_games where id = :pk)
+  and exists (select 1 from messages where league_id = :lib and body like '✅ Test Cup pick''em is on from Matchweek 5: pick the winner of every match, or a draw. Each pick locks at its kick-off.%'));
+select pg_temp.raises('one pick''em on a competition', $$select pool_game_start('pickem', 'pk-test')$$, 'already runs that game');
+select pool_pickem_save(:pk, 5, jsonb_build_array(jsonb_build_object('fixture', :m51, 'pick', 'H', 'conf', 1), jsonb_build_object('fixture', :m52, 'pick', 'A', 'conf', 2)));
+reset role;
+select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-000000000082', false);
+set role authenticated;
+select pg_temp.raises('each confidence number once a round', format('select pool_pickem_save(%s, 5, %L)', :pk,
+  jsonb_build_array(jsonb_build_object('fixture', :m51, 'pick', 'H', 'conf', 2), jsonb_build_object('fixture', :m52, 'pick', 'D', 'conf', 2))), 'once a round');
+select pg_temp.raises('from 1 to the round''s matches', format('select pool_pickem_save(%s, 5, %L)', :pk, jsonb_build_array(jsonb_build_object('fixture', :m51, 'pick', 'H', 'conf', 3))), 'from 1 to 2');
+select pg_temp.raises('a match in the round', format('select pool_pickem_save(%s, 5, %L)', :pk, jsonb_build_array(jsonb_build_object('fixture', :m61, 'pick', 'H', 'conf', 1))), 'isn''t in this round');
+select pg_temp.expect('Fern picks the round', pool_pickem_save(:pk, 5, jsonb_build_array(jsonb_build_object('fixture', :m51, 'pick', 'H', 'conf', 2), jsonb_build_object('fixture', :m52, 'pick', 'D', 'conf', 1))) = 2);
+select pg_temp.expect('before kick-off she sees her own picks and nobody''s calls',
+  (select (f->'mine'->>'pick') = 'H' and (f->'mine'->>'conf')::int = 2 and f->'split' = 'null'::jsonb and f->'calls' = 'null'::jsonb and (f->>'picked')::int = 2
+   from jsonb_array_elements(pool_game_board(:pk)->'pickem'->'fixtures') f where (f->>'id')::bigint = :m51)
+  and (pool_game_board(:pk)->'pickem'->>'round')::int = 5 and (pool_game_board(:pk)->'pickem'->>'word') = 'Matchweek');
+select pg_temp.raises('the picks themselves are not readable', 'select count(*) from pool_picks', 'permission denied');
+select pg_temp.expect('nothing left to pick this round', (select (x->>'to_pick')::int = 0 from jsonb_array_elements(pool_games_list()) x where (x->>'id')::bigint = :pk));
+reset role;
+select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-000000000086', false);
+set role authenticated;
+select pg_temp.expect('Lou has two to pick', (select (x->>'to_pick')::int = 2 from jsonb_array_elements(pool_games_list()) x where (x->>'id')::bigint = :pk));
+select pool_pickem_save(:pk, 5, jsonb_build_array(jsonb_build_object('fixture', :m51, 'pick', 'A', 'conf', 2), jsonb_build_object('fixture', :m52, 'pick', 'H', 'conf', 1)));
+reset role;
+select pg_temp.expect('before a ball is kicked, Fern can reach 2 + 1 this round and 2 + 1 the next', (select points = 0 and possible = 6 and picked = 2 from _pool_game_table(:pk) where team_id = :fern));
+-- matchweek 5: Pine beat Quay 2-0, Rook and Sand draw 1-1
+select soccer_ingest('pk-test', jsonb_build_object('fixtures', jsonb_build_array(
+  jsonb_build_object('ext_id', 'pk-51', 'gameweek', 5, 'kickoff', now() + interval '1 day', 'status', 'FT', 'home', 'pk1', 'away', 'pk2', 'home_score', 2, 'away_score', 0, 'home_ft', 2, 'away_ft', 0),
+  jsonb_build_object('ext_id', 'pk-52', 'gameweek', 5, 'kickoff', now() + interval '1 day', 'status', 'FT', 'home', 'pk3', 'away', 'pk4', 'home_score', 1, 'away_score', 1, 'home_ft', 1, 'away_ft', 1))));
+select pg_temp.expect('a right pick earns its confidence: Fern 2 + 1, Hana 1, Lou none',
+  (select points = 3 and right_calls = 2 from _pool_game_table(:pk) where team_id = :fern)
+  and (select points = 1 and right_calls = 1 from _pool_game_table(:pk) where team_id = :hana)
+  and (select points = 0 from _pool_game_table(:pk) where team_id = :lou));
+select pg_temp.expect('the round''s end is news: the chat hears the best of the week, and each picker their own round',
+  exists (select 1 from messages where league_id = :lib and body = '✅ Matchweek 5 is done in Test Cup pick''em. Top of the matchweek: Fern with 3 points. Leading: Fern on 3.')
+  and exists (select 1 from notifications where team_id = :fern and kind = 'pool_game' and body = '🏅 You won Matchweek 5 in Test Cup pick''em: 2 of 2 right, 3 points.')
+  and exists (select 1 from notifications where team_id = :lou and kind = 'pool_game' and body = '✅ Matchweek 5 in Test Cup pick''em: 0 of 2 right, 0 points.'));
+select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-000000000082', false);
+set role authenticated;
+select pg_temp.expect('a played match locks, and shows the pool''s split', pool_pickem_save(:pk, 5, jsonb_build_array(jsonb_build_object('fixture', :m51, 'pick', 'A', 'conf', 2))) = 0
+  and (select f->'mine'->>'pick' = 'H' and f->'split' = '{"A": 1, "D": 0, "H": 2}'::jsonb and jsonb_array_length(f->'calls') = 3 and f->>'result' = 'H'
+       from jsonb_array_elements(pool_pickem_board(:pk, 5)->'fixtures') f where (f->>'id')::bigint = :m51));
+select pool_pickem_save(:pk, 6, jsonb_build_array(jsonb_build_object('fixture', :m61, 'pick', 'H', 'conf', 2), jsonb_build_object('fixture', :m62, 'pick', 'A', 'conf', 1)));
+reset role;
+-- matchweek 6: Pine v Rook is postponed, Sand win at Quay
+select soccer_ingest('pk-test', jsonb_build_object('fixtures', jsonb_build_array(
+  jsonb_build_object('ext_id', 'pk-61', 'gameweek', 6, 'kickoff', now() + interval '8 days', 'status', 'PST', 'home', 'pk1', 'away', 'pk3'),
+  jsonb_build_object('ext_id', 'pk-62', 'gameweek', 6, 'kickoff', now() + interval '8 days', 'status', 'FT', 'home', 'pk2', 'away', 'pk4', 'home_score', 0, 'away_score', 1, 'home_ft', 0, 'away_ft', 1))));
+select pg_temp.expect('a postponed match counts for nobody, and the last round ends the game with its winner',
+  (select points = 4 and possible = 4 from _pool_game_table(:pk) where team_id = :fern)
+  and (select status = 'done' and winners = array[:fern] from pool_games where id = :pk)
+  and exists (select 1 from messages where league_id = :lib and body = '🏆 Test Cup pick''em is done: Fern, with 4 points.'));
+select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-000000000082', false);
+set role authenticated;
+select pg_temp.expect('the scoreboard reads it like any other game', (select (r->>'rank')::int = 1 and r->>'line' = '3 right from 4 picked'
+  from jsonb_array_elements(pool_scoreboard()->'games') g, jsonb_array_elements(g->'rows') r where g->>'key' = 'game:' || :pk and (r->>'team_id')::int = :fern));
+select pg_temp.raises('and nothing more is picked once it is done', format('select pool_pickem_save(%s, 6, %L)', :pk, '[]'), 'That one is over');
+reset role;
+-- a sport with no draws: a no-draw competition refuses one
+insert into competitions (id, sport, name, short, season, provider, ext_id, ext_season, active)
+values ('pk-nodraw', 'mlb', 'Test Bowl', 'TB', '2026', 'mlb-statsapi', 'pkn', '2026', true) on conflict (id) do nothing;
+insert into fixtures (sport, competition, provider, ext_id, season, gameweek, kickoff, date, home_club, away_club, state)
+values ('mlb', 'pk-nodraw', 'mlb-statsapi', 'pkn-1', '2026', 1, now() + interval '2 days', (now() + interval '2 days')::date, :alb, :bri, 'scheduled');
+select id as nd1 from fixtures where ext_id = 'pkn-1' \gset
+select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-000000000081', false);
+set role authenticated;
+select pool_game_start('pickem', 'pk-nodraw') as pk2 \gset
+select pg_temp.expect('a sport with no draws says so, and Classic needs no numbers', (select not (rules->>'draws')::boolean and rules->>'preset' = 'classic' from pool_games where id = :pk2)
+  and exists (select 1 from messages where league_id = :lib and body = '✅ Test Bowl pick''em is on from Round 1: pick the winner of every match. Each pick locks at its first pitch.'));
+select pg_temp.raises('no draw to pick', format('select pool_pickem_save(%s, 1, %L)', :pk2, jsonb_build_array(jsonb_build_object('fixture', :nd1, 'pick', 'D'))), 'no draws');
+select pg_temp.expect('a pick and taking it back', pool_pickem_save(:pk2, 1, jsonb_build_array(jsonb_build_object('fixture', :nd1, 'pick', 'H'))) = 1
+  and pool_pickem_save(:pk2, 1, jsonb_build_array(jsonb_build_object('fixture', :nd1, 'pick', null))) = 0);
+reset role;
+select pg_temp.expect('which leaves nothing picked', (select picked = 0 from _pool_game_table(:pk2) where team_id = :hana));
+-- another league sees none of it
+select set_config('app.league_id', '', false);
+select pg_temp.as_team(2);
+set role authenticated;
+select pg_temp.raises('another league can''t read the round', format('select pool_pickem_board(%s, 5)', :pk));
+select pg_temp.raises('nor pick in it', format('select pool_pickem_save(%s, 1, %L)', :pk2, '[]'));
+reset role;
+select set_config('request.jwt.claim.sub', '', false);
+select 'pick''em', true;

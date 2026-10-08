@@ -153,6 +153,10 @@ they lock (`pool_picks`), results graded on read from the shared event tables, a
    has one), optional confidence points, each pick locking at its own kick-off, graded on read from `fixtures`. It runs
    on any competition with fixtures, so soccer has it today and the NFL the day its feed lands; it is the first kind
    built on fixtures rather than series, and the shape the survivor and Call the score move onto (item 4).
+   *Built 8 October 2026 (migration 170):* the `pickem` kind, Classic or Confidence, on the Premier League and MLS today;
+   the start page and the host's desk read `pool_event_list()` (the postseason events plus every competition with
+   rounds); a round's end tells the pool who won it and each picker how they did; the scoreboard reads it as it reads
+   every kind. A kind the site doesn't know yet reads plainly instead of breaking the page.
 2. **The NFL on ESPN.** The `nfl` sports row, its competition, the ESPN scoreboard adapter (soccer-sync's, by sport),
    weekly rounds; pick'em and a second-half survivor on it; NFL centre's first version later.
 3. **The host's desk for every game.** Settle what the feed missed, pool by pool (an override on a result, never a

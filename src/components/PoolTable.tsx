@@ -3,7 +3,7 @@
 import { Link } from 'react-router-dom';
 import { ArrowDown, ArrowUp, ChevronRight } from 'lucide-react';
 import { useLeague } from '../lib/store';
-import { BOARD_KIND, outOfIt, type BoardGame, type BoardRow } from '../lib/poolScoreboard';
+import { kindOf, outOfIt, type BoardGame, type BoardRow } from '../lib/poolScoreboard';
 import { Coins } from './Pool';
 import { Rank, TeamBadge } from './ui';
 
@@ -20,7 +20,7 @@ export function Move({ n, size = 12 }: { n: number | null | undefined; size?: nu
 
 // a score as its kind counts it: coins, points or weeks survived
 export function BoardScore({ g, v, big }: { g: BoardGame; v: number; big?: boolean }) {
-  const k = BOARD_KIND[g.kind];
+  const k = kindOf(g.kind);
   if (k.coins) return <Coins n={v} />;
   return <>{fmt(v)}<span className={`ml-1 font-sans font-bold text-mute ${big ? 'text-sm' : 'text-[11px]'}`}>{k.unit(v)}</span></>;
 }
@@ -33,7 +33,7 @@ export function GameChips({ games, sel, onPick }: { games: BoardGame[]; sel: str
       {games.map((g) => (
         <button key={g.key} type="button" onClick={() => onPick(g.key)}
           className={`flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-bold ring-1 transition ${g.key === sel ? 'bg-gold text-ice ring-gold' : 'bg-white/[.04] text-slate-200 ring-white/10 hover:bg-white/[.08]'}`}>
-          <span aria-hidden>{g.crown ? '👑' : BOARD_KIND[g.kind].icon}</span>{g.title}
+          <span aria-hidden>{g.crown ? '👑' : kindOf(g.kind).icon}</span>{g.title}
           {g.status === 'done' && <span className={`rounded-full px-1.5 py-px text-[9px] uppercase tracking-wider ${g.key === sel ? 'bg-black/15' : 'bg-white/10 text-mute'}`}>Final</span>}
         </button>
       ))}
@@ -44,7 +44,7 @@ export function GameChips({ games, sel, onPick }: { games: BoardGame[]; sel: str
 // the caller's place in a game, as the hero of its table
 export function MyPlace({ g, solo }: { g: BoardGame; solo?: boolean }) {
   const m = g.mine;
-  const k = BOARD_KIND[g.kind];
+  const k = kindOf(g.kind);
   const second = g.rows.find((r) => r.rank > 1);
   // coins carry their emoji and run to four figures: a size down so three tiles fit a 360 px phone
   const val = `font-display font-extrabold text-white ${k.coins ? 'text-lg' : 'text-2xl'}`;
