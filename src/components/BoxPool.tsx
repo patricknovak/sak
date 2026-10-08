@@ -16,6 +16,8 @@ export interface BoxPlayer {
   pts: number; g: number; a: number; gp: number; left: number; games: number; taken: number | null;
   // what he's expected to add in his club's games still to come (migration 193; older servers don't send it)
   to_come?: number;
+  // his next game in the window (migration 199): under way first, else the next to start
+  next?: { start: string; state: string; home: boolean; opp: string; for: number | null; against: number | null; line: Record<string, number> | null } | null;
   season: Record<string, number> | null;
 }
 export interface BoxData {
@@ -34,6 +36,15 @@ const outlook = (p: BoxPlayer) => {
   return p.pos === 'G' ? `${Math.round(s.w ?? 0)} W · ${Math.round(s.sho ?? 0)} SO a season` : `${Math.round(s.g ?? 0)} G · ${Math.round(s.a ?? 0)} A a season`;
 };
 const last = (name: string) => name.split(' ').slice(1).join(' ') || name;
+// a game is tonight when it's on, or starts on today's date in Eastern time (the league's day)
+const etDay = (d: Date) => d.toLocaleDateString('en-CA', { timeZone: 'America/New_York' });
+const liveState = (s: string) => s === 'LIVE' || s === 'CRIT';
+const tonight = (p: BoxPlayer) => !!p.next && (liveState(p.next.state) || etDay(new Date(p.next.start)) === etDay(new Date()));
+const lineOf = (p: BoxPlayer) => {
+  const l = p.next?.line;
+  if (!l) return '';
+  return p.pos === 'G' ? (l.w ? 'the win' : l.sv != null ? `${l.sv} saves` : '') : [l.g ? `${l.g} G` : '', l.a ? `${l.a} A` : ''].filter(Boolean).join(' · ');
+};
 
 export function BoxPoolGame({ gameId, data, status, reload, actAs }: {
   gameId: number; data: BoxData; status: 'open' | 'done'; reload: () => void; actAs?: { team: number; name: string };
@@ -82,6 +93,38 @@ export function BoxPoolGame({ gameId, data, status, reload, actAs }: {
           <span className="rounded-full bg-white/[.06] px-2.5 py-1 text-slate-200 ring-1 ring-white/10">{scoring}</span>
         </div>
       </div>
+
+      {/* once locked: which of yours play tonight, and how it's going */}
+      {!open && status === 'open' && (() => {
+        const on = picks.map((id) => (id != null ? byId.get(id) : undefined)).filter((p): p is BoxPlayer => !!p && tonight(p));
+        if (!on.length) return null;
+        return (
+          <Section title="Tonight" right={<span className="text-xs text-mute">{on.length} of yours on</span>}>
+            <div className="card divide-y divide-white/[.05] p-1">
+              {on.sort((a, b) => Number(liveState(b.next!.state)) - Number(liveState(a.next!.state)) || a.next!.start.localeCompare(b.next!.start)).map((p) => {
+                const n = p.next!, live = liveState(n.state), ln = lineOf(p);
+                return (
+                  <div key={p.id} className="flex items-center gap-2.5 px-2 py-2">
+                    <Headshot p={face(p)} size={34} />
+                    <span className="min-w-0 flex-1">
+                      <span className="block text-[14px] font-semibold leading-tight text-white">{p.name}</span>
+                      <span className="mt-0.5 flex flex-wrap items-center gap-x-1.5 text-[11px] text-mute">
+                        <NhlLogo abbr={p.team} size={14} />{n.home ? 'vs' : 'at'} <NhlLogo abbr={n.opp} size={14} />{n.opp}
+                        {live && n.for != null && <span className="text-slate-200">· {n.for}-{n.against}</span>}
+                      </span>
+                    </span>
+                    <span className="shrink-0 text-right">
+                      {live ? <span className="inline-flex items-center gap-1 rounded-full bg-red-500/15 px-2 py-0.5 text-[10px] font-black uppercase text-red-200"><span className="h-1.5 w-1.5 animate-pulse rounded-full bg-red-400" />Live</span>
+                        : <span className="text-xs font-semibold text-slate-200">{new Date(n.start).toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' })}</span>}
+                      {ln && <span className="mt-0.5 block text-[11px] font-semibold text-gold">{ln}</span>}
+                    </span>
+                  </div>
+                );
+              })}
+            </div>
+          </Section>
+        );
+      })()}
 
       {data.boxes.map((b, bi) => (
         <Section key={b.label} title={b.label} right={<span className="text-xs text-mute">{open ? (picks[bi] != null ? last(byId.get(picks[bi]!)?.name ?? '') : 'Take one') : `Box ${bi + 1}`}</span>}>

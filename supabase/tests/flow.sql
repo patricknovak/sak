@@ -4981,6 +4981,10 @@ select pg_temp.expect('once locked, everyone''s team shows, and who took whom', 
 -- what's still to come (migration 193): the best forward has one game left, about 1.4 points a game
 select pg_temp.expect('the board says what each player should still add', (select (b->'players'->'boxes'->0->'players'->0->>'to_come')::numeric = 1.4
   from (select pool_game_board(:bxg) b) x));
+-- and his next game (migration 199): the second night, at home to the other club
+select pg_temp.expect('the board says who he plays next', (select b->'players'->'boxes'->0->'players'->0->'next'->>'opp' = 'BXA'
+    and b->'players'->'boxes'->0->'players'->0->'next'->>'state' = 'FUT'
+  from (select pool_game_board(:bxg) b) x));
 reset role;
 select pg_temp.expect('Hana 3 with two goals and an assist, Fern 3 from an assist and a win, Lou nothing yet',
   (select points = 3 and right_calls = 2 and exact = 1 and picked = 1 from _pool_game_table(:bxg) where team_id = :hana)
