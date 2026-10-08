@@ -20,6 +20,9 @@ import { PageHeader, Section, Spinner } from '../components/ui';
 interface Acc { kind: string; week: string; basis: string | null; n: number; avg_predicted: number; avg_outcome: number; bias: number; avg_miss: number }
 interface Cal { kind: string; bucket: number; n: number; expected: number; happened: number; brier: number }
 interface Open { kind: string; status: string; n: number }
+// a pool's pick split as a forecast (migration 174): by sport and by how many agreed, how often the favourite was right
+interface Crowd { sport: string; bucket: number; n: number; said: number; right_share: number; pools: number }
+const SPORT: Record<string, string> = { soccer: 'Soccer', nfl: 'NFL football', mlb: 'Baseball', nhl: 'Hockey' };
 
 const KINDS: Record<string, string> = { winner: 'Who wins', ot: 'Goes to overtime', total: 'Over / under', prop: 'Player props', race: 'Races', season: 'Season markets' };
 const WAIT: Record<string, string> = {
@@ -27,6 +30,7 @@ const WAIT: Record<string, string> = {
   draft_value: 'Draft classes (scored at the regular season’s end)', keeper_value: 'Keepers (scored at the regular season’s end)',
   auto_lineup: 'Auto-pilot lineups (scored when the night is final)',
   h2h_win: 'Head-to-head win chances (scored when the week ends)',
+  pool_split: 'Pools’ pick splits (scored at the final whistle)',
   pickup: 'Pickups the advisor suggested (scored when the stretch is over)',
 };
 const pct = (x: number) => `${Math.round(Number(x) * 100)}%`;
@@ -38,6 +42,7 @@ export default function Calibration() {
   const [acc, setAcc] = useState<Acc[] | null>(null);
   const [cal, setCal] = useState<Cal[]>([]);
   const [open, setOpen] = useState<Open[]>([]);
+  const [crowd, setCrowd] = useState<Crowd[]>([]);
   useEffect(() => {
     Promise.all([
       // every week (a few rows a week per kind): the summaries cover the season, the tables show the latest weeks
@@ -45,7 +50,10 @@ export default function Calibration() {
       supabase.from('book_calibration').select('*').order('kind').order('bucket'),
       // counted in the database (migration 136): the rows themselves run to thousands
       supabase.from('prediction_status').select('kind,status,n'),
-    ]).then(([a, c, p]) => {
+      // every pool's for a platform admin, the pool's own for anyone else
+      supabase.rpc('crowd_calibration'),
+    ]).then(([a, c, p, cr]) => {
+      setCrowd(((cr.data ?? []) as Crowd[]).map((r) => ({ ...r, bucket: Number(r.bucket), n: Number(r.n), said: Number(r.said), right_share: Number(r.right_share) })));
       setAcc((a.data ?? []) as Acc[]);
       setCal((c.data ?? []) as Cal[]);
       setOpen(((p.data ?? []) as Open[]).map((r) => ({ ...r, n: Number(r.n) })));
@@ -156,6 +164,42 @@ export default function Calibration() {
           </div>
         ) : <div className="card p-4 text-sm text-mute">No settled markets yet.</div>}
         <p className="mt-2 px-1 text-[11px] text-mute">A well-priced book has the two bars level in every row: what it priced at 60% happens about 60% of the time.</p>
+      </Section>
+
+      <Section title="The crowd">
+        {crowd.length ? (
+          <div className="grid gap-3 sm:grid-cols-2">
+            {[...new Set(crowd.map((c) => c.sport))].map((sp) => {
+              const rows = crowd.filter((c) => c.sport === sp);
+              const n = rows.reduce((t, c) => t + c.n, 0);
+              const right = rows.reduce((t, c) => t + c.right_share * c.n, 0) / n;
+              return (
+                <div key={sp} className="card p-3">
+                  <div className="mb-2 flex items-baseline justify-between gap-2">
+                    <span className="font-semibold text-slate-100">{SPORT[sp] ?? sp}</span>
+                    <span className="text-[11px] text-mute">{n} matches · favourite right {pct(right)}</span>
+                  </div>
+                  <div className="space-y-2.5">
+                    {rows.map((c) => (
+                      <div key={c.bucket}>
+                        <div className="flex items-baseline justify-between text-[11px] text-mute"><span>{c.bucket >= 0.9 ? '90% or more agreed' : `${Math.round(c.bucket * 100)}–${Math.round(c.bucket * 100) + 10}% agreed`}</span><span>{c.n} · {c.pools} {c.pools === 1 ? 'pool' : 'pools'}</span></div>
+                        <div className="mt-1 grid grid-cols-[3.75rem_1fr_2.5rem] items-center gap-x-2 gap-y-1 text-[11px]">
+                          <span className="text-mute">agreed</span>
+                          <span className="h-2 overflow-hidden rounded-full bg-white/[.06]"><span className="block h-full rounded-full bg-sky-400" style={{ width: pct(c.said) }} /></span>
+                          <span className="num text-right text-slate-300">{pct(c.said)}</span>
+                          <span className="text-mute">right</span>
+                          <span className="h-2 overflow-hidden rounded-full bg-white/[.06]"><span className="block h-full rounded-full bg-gold" style={{ width: pct(c.right_share) }} /></span>
+                          <span className="num text-right font-semibold text-white">{pct(c.right_share)}</span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        ) : <div className="card p-4 text-sm text-mute">No pool’s picks scored yet. Each pick’em match with three picks or more counts once it’s final.</div>}
+        <p className="mt-2 px-1 text-[11px] text-mute">Each pick’em match is a forecast from its pool: the side most of them picked, and how many agreed. A wise crowd is right about as often as it agrees.</p>
       </Section>
 
       <Section title={`${brand.bot.name}’s picks`}>

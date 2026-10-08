@@ -4325,3 +4325,83 @@ select pg_temp.raises('another league''s host can''t pick in it', format('select
 reset role;
 select set_config('request.jwt.claim.sub', '', false);
 select 'survivor on rounds', true;
+
+-- ───────────── the crowd in the prediction log (migration 174) ─────────────
+-- Pod Squad picks a round of the Crowd Cup: all three back Ashford, two of three back Chelmsford away, and the third
+-- match splits three ways (no favourite, left out). Chelmsford's match goes live and the host settles it by hand; the
+-- feed finishes the rest.
+reset role;
+select set_config('request.jwt.claim.sub', '', false);
+select set_config('app.league_id', '', false);
+insert into competitions (id, sport, name, short, season, provider, ext_id, ext_season, active)
+values ('pk-crowd', 'soccer', 'Crowd Cup', 'CC', '2026', 'api-football', 'pkc', '2026', true) on conflict (id) do nothing;
+select soccer_ingest('pk-crowd', jsonb_build_object(
+  'clubs', jsonb_build_array(jsonb_build_object('ext_id', 'cc1', 'name', 'Ashford', 'short', 'ASH'), jsonb_build_object('ext_id', 'cc2', 'name', 'Bexley', 'short', 'BEX'),
+    jsonb_build_object('ext_id', 'cc3', 'name', 'Croydon', 'short', 'CRO'), jsonb_build_object('ext_id', 'cc4', 'name', 'Chelmsford', 'short', 'CHE'),
+    jsonb_build_object('ext_id', 'cc5', 'name', 'Epsom', 'short', 'EPS'), jsonb_build_object('ext_id', 'cc6', 'name', 'Fulham Vale', 'short', 'FUL')),
+  'fixtures', jsonb_build_array(
+    jsonb_build_object('ext_id', 'cr-1', 'gameweek', 1, 'kickoff', now() + interval '1 day', 'status', 'NS', 'home', 'cc1', 'away', 'cc2'),
+    jsonb_build_object('ext_id', 'cr-2', 'gameweek', 1, 'kickoff', now() + interval '1 day', 'status', 'NS', 'home', 'cc3', 'away', 'cc4'),
+    jsonb_build_object('ext_id', 'cr-3', 'gameweek', 1, 'kickoff', now() + interval '1 day', 'status', 'NS', 'home', 'cc5', 'away', 'cc6'))));
+select id as cr1 from fixtures where ext_id = 'cr-1' \gset
+select id as cr2 from fixtures where ext_id = 'cr-2' \gset
+select id as cr3 from fixtures where ext_id = 'cr-3' \gset
+select set_config('app.league_id', :'lib', false);
+select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-000000000081', false);
+set role authenticated;
+select pool_game_start('pickem', 'pk-crowd') as crg \gset
+select pool_pickem_save(:crg, 1, jsonb_build_array(jsonb_build_object('fixture', :cr1, 'pick', 'H'), jsonb_build_object('fixture', :cr2, 'pick', 'H'), jsonb_build_object('fixture', :cr3, 'pick', 'H')));
+reset role;
+select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-000000000082', false);
+set role authenticated;
+select pool_pickem_save(:crg, 1, jsonb_build_array(jsonb_build_object('fixture', :cr1, 'pick', 'H'), jsonb_build_object('fixture', :cr2, 'pick', 'A'), jsonb_build_object('fixture', :cr3, 'pick', 'D')));
+reset role;
+select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-000000000086', false);
+set role authenticated;
+select pool_pickem_save(:crg, 1, jsonb_build_array(jsonb_build_object('fixture', :cr1, 'pick', 'H'), jsonb_build_object('fixture', :cr2, 'pick', 'A'), jsonb_build_object('fixture', :cr3, 'pick', 'A')));
+reset role;
+select pg_temp.expect('nothing is written before kick-off', not exists (select 1 from predictions where kind = 'pool_split' and (subject->>'game')::bigint = :crg));
+select soccer_ingest('pk-crowd', jsonb_build_object('fixtures', jsonb_build_array(
+  jsonb_build_object('ext_id', 'cr-2', 'gameweek', 1, 'kickoff', now() + interval '1 day', 'status', '1H', 'home', 'cc3', 'away', 'cc4'))));
+select pg_temp.expect('at kick-off the pool''s split is a forecast: Chelmsford away, two in three',
+  (select predicted = 0.667 and basis = 'soccer' and status = 'open' and league_id = :lib and detail->>'fav' = 'A' and (detail->>'picks')::int = 3
+   from predictions where kind = 'pool_split' and subject = jsonb_build_object('game', :crg, 'fixture', :cr2)));
+select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-000000000081', false);
+set role authenticated;
+select pool_result_set(:crg, :cr2, 'A', 'The feed froze at half-time');
+reset role;
+select pg_temp.expect('the host''s result scores it: the favourite was right', (select status = 'scored' and outcome = 1 and error = 0.333
+  from predictions where kind = 'pool_split' and subject = jsonb_build_object('game', :crg, 'fixture', :cr2)));
+select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-000000000081', false);
+set role authenticated;
+select pool_result_set(:crg, :cr2, null, null);
+reset role;
+select pg_temp.expect('handed back to the feed, it waits again', (select status = 'open' and outcome is null
+  from predictions where kind = 'pool_split' and subject = jsonb_build_object('game', :crg, 'fixture', :cr2)));
+select soccer_ingest('pk-crowd', jsonb_build_object('fixtures', jsonb_build_array(
+  jsonb_build_object('ext_id', 'cr-1', 'gameweek', 1, 'kickoff', now() + interval '1 day', 'status', 'FT', 'home', 'cc1', 'away', 'cc2', 'home_score', 2, 'away_score', 0, 'home_ft', 2, 'away_ft', 0),
+  jsonb_build_object('ext_id', 'cr-2', 'gameweek', 1, 'kickoff', now() + interval '1 day', 'status', 'FT', 'home', 'cc3', 'away', 'cc4', 'home_score', 1, 'away_score', 1, 'home_ft', 1, 'away_ft', 1),
+  jsonb_build_object('ext_id', 'cr-3', 'gameweek', 1, 'kickoff', now() + interval '1 day', 'status', 'FT', 'home', 'cc5', 'away', 'cc6', 'home_score', 0, 'away_score', 3, 'home_ft', 0, 'away_ft', 3))));
+select pg_temp.expect('the feed scores the rest: a unanimous favourite right, a draw beats an away favourite, a three-way split left out',
+  (select status = 'scored' and predicted = 1 and outcome = 1 from predictions where kind = 'pool_split' and subject = jsonb_build_object('game', :crg, 'fixture', :cr1))
+  and (select status = 'scored' and outcome = 0 from predictions where kind = 'pool_split' and subject = jsonb_build_object('game', :crg, 'fixture', :cr2))
+  and not exists (select 1 from predictions where kind = 'pool_split' and subject = jsonb_build_object('game', :crg, 'fixture', :cr3)));
+select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-000000000082', false);
+set role authenticated;
+select pg_temp.expect('a member reads how good the pool''s consensus is, by sport and split',
+  (select sum(n) = (select count(*) from predictions where kind = 'pool_split' and status = 'scored') and bool_and(sport = 'soccer') from crowd_calibration())
+  and (select n = 1 and said = 1 and right_share = 1 from crowd_calibration() where bucket = 0.9));
+reset role;
+select set_config('app.league_id', '', false);
+select pg_temp.as_team(2);
+set role authenticated;
+select pg_temp.expect('another league reads none of it', not exists (select 1 from crowd_calibration())
+  and not exists (select 1 from predictions where kind = 'pool_split'));
+reset role;
+select count(*) as crowd_n from predictions where kind = 'pool_split' and status = 'scored' \gset
+select pg_temp.as_team(1);
+set role authenticated;
+select pg_temp.expect('a platform admin reads every pool''s crowd', (select sum(n) from crowd_calibration()) = :crowd_n and :crowd_n >= 2);
+reset role;
+select set_config('request.jwt.claim.sub', '', false);
+select 'crowd', true;

@@ -182,6 +182,10 @@ they lock (`pool_picks`), results graded on read from the shared event tables, a
    already shared (migration 173: `pool_game_start` and a new pool's games start a survivor); the tables are next.
 5. **The learning loop.** Each lock writes the pool's pick split to the prediction log as a forecast, scored when
    the result is in, so we learn how good a group's consensus is, sport by sport.
+   *Built for pick'em 8 October 2026 (migration 174):* at kick-off each pick'em match with three picks or more and one
+   favourite writes `pool_split` (the favourite's share, made at kick-off), scored at the final whistle by the pool's
+   own result (a host's ruling re-scores it); `crowd_calibration()` reads it by sport and split, every pool's for a
+   platform admin, on the Calibration page ("The crowd"). Series picks and the survivor are next on the same log.
 6. **What you need to win.** The outcomes left, played out exactly where they are few (a bracket, a series round) and
    by simulation where they are many (a pick'em, a player pool), shown on the Table for each member.
 7. **The bracket and the player pool**, for the NHL playoffs and March Madness (`docs/POOL-TYPES.md` §9).
