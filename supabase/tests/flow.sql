@@ -4954,6 +4954,12 @@ reset role;
 select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-000000000081', false);
 set role authenticated;
 select pg_temp.raises('the boxes stay once teams are in', format('select pool_game_set_rules(%s, %L)', :bxg, '{"scoring": {"g": 2}}'), 'the boxes stay');
+-- a change that doesn't name the window keeps it (migration 196): the same rules again pass, the window untouched
+select pool_game_set_rules(:bxg, '{"preset": "quick"}');
+reset role;
+select pg_temp.expect('the window is as it was', (select rules->>'length' = 'week' and rules->>'to' = (today_et() + 42)::text from pool_games where id = :bxg));
+select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-000000000081', false);
+set role authenticated;
 select pool_host_pick(:bxg, :lou, '{"thing": "box", "pick": {"players": [990003, 990008, 990013, 990018, 990023]}}');
 reset role;
 select set_config('request.jwt.claim.sub', '', false);
