@@ -374,7 +374,10 @@ and soccer share it.
 3. Super Bowl squares and the prop sheet (February 2027).
 4. March Madness (March 2027): the bracket with a second chance and the Eliminator.
 5. The NHL playoffs (April 2027): the player pool (draft and box), the bracket with series length, series pick'em,
-   confidence by team; NHL centre gains the bracket and the pool ribbon.
+   confidence by team; NHL centre gains the bracket and the pool ribbon. *Ready 8 October 2026:* the feed (`nhl-post-2027`
+   through mlb-sync, migration 191, tested on the 2026 playoffs), so Pick the series, the bracket from the first round and
+   Rank the teams run on it the day the NHL draws its bracket; the box pool runs on the regular season (migrations 188
+   to 196, with goal alerts and a morning line), its playoffs version to come.
 6. The NBA playoffs (April 2027) on the same engine, once its feed is settled.
 7. Later: win totals, best ball, the daily streak, the sweepstake for the 2027 Women's World Cup.
 
