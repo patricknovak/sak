@@ -198,7 +198,7 @@ export default function RoundCentre() {
   const round = picked ?? current;
   const { gameId, byFixture } = usePoolRound(competition, round);
   const [others, setOthers] = useState<Competition[]>([]);
-  useEffect(() => { supabase.from('competitions').select('id,name,short,sport,tz').eq('active', true).in('sport', Object.keys(SPORTS)).order('sort').then(({ data }) => setOthers((data ?? []) as Competition[])); }, []);
+  useEffect(() => { supabase.from('competitions').select('id,name,short,sport,tz').eq('active', true).eq('format', 'rounds').in('sport', Object.keys(SPORTS)).order('sort').then(({ data }) => setOthers((data ?? []) as Competition[])); }, []);
   const strip = useRef<HTMLDivElement>(null);
   useEffect(() => { const el = strip.current?.querySelector<HTMLElement>('[data-on="1"]'); if (el && strip.current) strip.current.scrollLeft = Math.max(0, el.offsetLeft - strip.current.offsetLeft - 100); }, [round, tab, rounds.length]);
   const tz = comp?.tz ?? 'America/New_York';

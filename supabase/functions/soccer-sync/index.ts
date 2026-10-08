@@ -6,9 +6,11 @@
 // and keyless, for testing (Patrick, 6 October 2026), until a licensed feed replaces it. Both tasks need the platform
 // key (x-admin-key), as the scheduler sends it. Every request is metered at no price, per provider, so the dashboard
 // shows how much each is used. ESPN serves other sports the same way: the NFL (migration 171) comes in by week, regular
-// season and playoffs, through the same ingest and the same live task, so pick'em has its weeks.
+// season and playoffs, through the same ingest and the same live task, so pick'em has its weeks. A postseason competition
+// (`format` 'series', migration 187: the NFL's playoffs) files each playoff game as a best-of-1 series through
+// sport_ingest, so the bracket runs on it.
 import { createClient } from 'jsr:@supabase/supabase-js@2';
-import { afClub, afFixture, API_FOOTBALL, assignRounds, espnClub, espnFixture, espnNinety, espnPath, ESPN, type NeutralFixture } from '../_shared/soccer.ts';
+import { afClub, afFixture, API_FOOTBALL, assignRounds, espnClub, espnFixture, espnNinety, espnPath, espnPlayoffPayload, ESPN, type NeutralFixture } from '../_shared/soccer.ts';
 
 const db = createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!, {
   auth: { persistSession: false },
@@ -33,7 +35,7 @@ async function af(path: string): Promise<any[]> {
   return j.response ?? [];
 }
 
-interface Competition { id: string; sport: string; ext_id: string; ext_season: string; season: string; provider: string }
+interface Competition { id: string; sport: string; ext_id: string; ext_season: string; season: string; provider: string; format?: string }
 
 // deno-lint-ignore no-explicit-any
 async function espn(path: string): Promise<any> {
@@ -67,8 +69,9 @@ async function espnWeeks(c: Competition) {
   const cal: any[] = first?.leagues?.[0]?.calendar ?? [];
   // deno-lint-ignore no-explicit-any
   const regular: any[] = cal.find((x) => String(x.value) === '2')?.entries ?? [];
+  // the Pro Bowl is an exhibition between all-star sides, not a playoff round
   // deno-lint-ignore no-explicit-any
-  const playoffs: any[] = cal.find((x) => String(x.value) === '3')?.entries ?? [];
+  const playoffs: any[] = (cal.find((x) => String(x.value) === '3')?.entries ?? []).filter((w: any) => !/pro bowl/i.test(String(w.label ?? '')));
   const weeks = [
     ...regular.map((w, i) => ({ type: 2, value: String(w.value ?? i + 1), week: Number(w.value ?? i + 1), label: `Week ${w.value ?? i + 1}` })),
     ...playoffs.map((w, i) => ({ type: 3, value: String(w.value ?? i + 1), week: regular.length + i + 1, label: String(w.label ?? `Playoffs ${i + 1}`) })),
@@ -79,17 +82,33 @@ async function espnWeeks(c: Competition) {
     for (const e of page?.events ?? []) {
       // the playoff slots are filed before their teams are known; they come in once ESPN names both
       const c0 = e.competitions?.[0]?.competitors ?? [];
-      if (c0.length < 2 || c0.some((x: { team?: { id?: unknown; abbreviation?: string } }) => !x.team?.id || Number(x.team.id) <= 0 || x.team.abbreviation === 'TBD')) continue;
+      if (c0.length < 2 || c0.some((x: { team?: { id?: unknown; abbreviation?: string } }) => !x.team?.id || Number(x.team.id) <= 0 || ['TBD', 'AFC', 'NFC'].includes(String(x.team.abbreviation)))) continue;
       fx.push({ ...espnFixture(e, null, { week: w.week, label: w.label, clock: false }), season: c.season } as NeutralFixture);
     }
   }
   return check(await db.rpc('soccer_ingest', { p_competition: c.id, p: { clubs, fixtures: fx } }));
 }
 
+// a postseason played in single games, filed as best-of-1 series (the bracket's shape): each playoff round's page, then
+// espnPlayoffPayload turns them into series and their games
+async function espnPlayoffSeries(c: Competition) {
+  const base = `/${espnPath(c.sport, c.ext_id)}`;
+  const season = c.ext_season ? `dates=${c.ext_season}&` : '';
+  const first = await espn(`${base}/scoreboard?${season}seasontype=2&week=1`);
+  // deno-lint-ignore no-explicit-any
+  const cal: any[] = first?.leagues?.[0]?.calendar ?? [];
+  // deno-lint-ignore no-explicit-any
+  const rounds: any[] = (cal.find((x) => String(x.value) === '3')?.entries ?? []).filter((w: any) => !/pro bowl/i.test(String(w.label ?? '')));
+  const pages = [];
+  for (const w of rounds) pages.push(await espn(`${base}/scoreboard?${season}seasontype=3&week=${w.value}`));
+  return check(await db.rpc('sport_ingest', { p_competition: c.id, p: espnPlayoffPayload(rounds, pages) }));
+}
+
 const month = (d: Date) => `${d.getUTCFullYear()}${String(d.getUTCMonth() + 1).padStart(2, '0')}`;
 
 // an ESPN competition's clubs and its whole season, a month at a time; new matches take their round
 async function espnSeason(c: Competition) {
+  if (c.format === 'series') return espnPlayoffSeries(c);
   if (c.sport !== 'soccer') return espnWeeks(c);
   const teams = (await espn(`/soccer/${c.ext_id}/teams`))?.sports?.[0]?.leagues?.[0]?.teams ?? [];
   const clubs = teams.map((t: { team: unknown }) => espnClub(t.team));
@@ -111,7 +130,7 @@ async function espnSeason(c: Competition) {
 }
 
 async function fixtures() {
-  const comps = check(await db.from('competitions').select('id,sport,ext_id,ext_season,season,provider').eq('active', true).in('provider', ['api-football', 'espn'])) as Competition[];
+  const comps = check(await db.from('competitions').select('id,sport,ext_id,ext_season,season,provider,format').eq('active', true).in('provider', ['api-football', 'espn'])) as Competition[];
   const out: Record<string, unknown> = {};
   for (const c of comps) {
     try {
@@ -141,7 +160,7 @@ async function live() {
     .in('provider', ['api-football', 'espn']).in('state', ['scheduled', 'live'])
     .gte('kickoff', new Date(now - 4 * 3600e3).toISOString()).lte('kickoff', new Date(now + 5 * 60e3).toISOString())) as
     { ext_id: string; competition: string; provider: string; kickoff: string }[];
-  const comps = new Map((check(await db.from('competitions').select('id,sport,ext_id').eq('provider', 'espn')) as { id: string; sport: string; ext_id: string }[]).map((c) => [c.id, c]));
+  const comps = new Map((check(await db.from('competitions').select('id,sport,ext_id,ext_season,season,provider,format').eq('provider', 'espn')) as Competition[]).map((c) => [c.id, c]));
   const byComp = new Map<string, typeof due>();
   for (const f of due) byComp.set(f.competition, [...(byComp.get(f.competition) ?? []), f]);
   const out: Record<string, unknown> = {};
@@ -149,6 +168,8 @@ async function live() {
     try {
       if (list[0].provider === 'espn') {
         const c = comps.get(comp)!;
+        // a postseason in series: its few playoff weeks again, whole
+        if (c.format === 'series') { out[comp] = await espnPlayoffSeries(c); continue; }
         const want = new Set(list.map((f) => f.ext_id));
         // deno-lint-ignore no-explicit-any
         const events = new Map<string, any>();

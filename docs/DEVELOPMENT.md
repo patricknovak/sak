@@ -219,16 +219,18 @@ they lock (`pool_picks`), results graded on read from the shared event tables, a
    read from each round's order (`_bracket_tree`; `_bracket_ok` says where a bracket can start: every later round
    halves to a final of one). The site's picker goes round by round on a phone, clears later picks an earlier change
    broke, and shows right, wrong and everyone's champion once locked. Its chance to win once locked (migration 186: the
-   tree played out round by round). Still to come: the NFL's playoffs and March Madness come as single games, so they
-   want an adapter that files each as a best-of-1 series (in a postseason competition of its own, so the season's
-   pick'em keeps its rounds). The player pool is next after it.
+   tree played out round by round). *The NFL's playoffs as series (migration 187):* `competitions.format` ('rounds' or
+   'series'); `nfl-post-2026`, which soccer-sync fills through `espnPlayoffPayload` (each playoff game a best-of-1
+   series, the AFC's before the NFC's, the Pro Bowl left out; tested on last season's playoffs), so the bracket runs from
+   the Divisional round. The same change keeps the Pro Bowl out of the season's weeks. Still to come: March Madness,
+   whose bracket order wants ESPN's region and seed. The player pool is next after it.
 
-*Where 8 October left it (migrations 172 to 185, PR #243):* items 1 to 3 and 5 built, item 6 built for pick'em, Pick
+*Where 8 October left it (migrations 172 to 187, PR #243):* items 1 to 3 and 5 built, item 6 built for pick'em, Pick
 the series and Rank the teams, item 7's bracket built on series, item 4 begun (last one standing starts through the
 engine's door). Beside them: NFL
 centre and Match centre, the market's view on each match, results by hand for every game on fixtures, the rules
-written down, last calls and second reminders. Next, in order: single games as best-of-1 series (so the bracket
-runs on the NFL playoffs in January and March Madness), the player pool (item 7), then the contraction (item 4).
+written down, last calls and second reminders. Next, in order: the player pool (item 7), March Madness's bracket
+order, then the contraction (item 4).
 
 Alongside: the World Series test (the LCS from 11 October, the World Series from 23 October) needs its games started
 in the World Series pool (league 5, the questions only so far), and the Love Is Blind test needs players.

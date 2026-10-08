@@ -134,6 +134,36 @@ export function espnOdds(c: Any): NeutralOdds | null {
   return { home: r(h), away: r(a), draw: d == null ? null : r(d), line: line == null || !Number.isFinite(line) ? null : line, total: num(o.overUnder) };
 }
 
+// a playoff played in single games (the NFL's), as best-of-1 series for sport_ingest: rounds in order (the Pro Bowl
+// left out by the caller), each round's AFC games before its NFC games so the two conference finals meet in the last;
+// a game keeps ESPN's id with a 'P' so the season's competition keeps its own copy for pick'em. All-star sides
+// ('AFC', 'NFC') and teams not yet named are skipped.
+const PLAYOFF_STATE: Record<string, string> = { FT: 'final', AET: 'final', PEN: 'final', AWD: 'final', NS: 'scheduled', PST: 'postponed', CANC: 'cancelled', ABD: 'cancelled' };
+export function espnPlayoffPayload(rounds: { label?: string }[], pages: Any[]) {
+  const clubs = new Map<string, NeutralClub>();
+  const series: Any[] = [], fixtures: Any[] = [];
+  const named = (e: Any) => {
+    const cs = e.competitions?.[0]?.competitors ?? [];
+    return cs.length === 2 && !cs.some((x: Any) => !x.team?.id || Number(x.team.id) <= 0 || ['TBD', 'AFC', 'NFC'].includes(String(x.team.abbreviation)));
+  };
+  const head = (e: Any) => String(e.competitions?.[0]?.notes?.[0]?.headline ?? '');
+  const conf = (e: Any) => (/^NFC/i.test(head(e)) ? 'NFC' : /^AFC/i.test(head(e)) ? 'AFC' : '');
+  pages.forEach((page, i) => {
+    const label = String(rounds[i]?.label ?? `Round ${i + 1}`);
+    const code = /wild/i.test(label) ? 'WC' : /divisional/i.test(label) ? 'DIV' : /super/i.test(label) ? 'SB' : /conf|champ/i.test(label) ? 'CC' : `R${i + 1}`;
+    const evs = (page?.events ?? []).filter(named).sort((a: Any, b: Any) => (conf(a) === 'NFC' ? 1 : 0) - (conf(b) === 'NFC' ? 1 : 0) || String(a.date).localeCompare(String(b.date)));
+    evs.forEach((e: Any, k: number) => {
+      const fx = espnFixture(e, null, { week: null, label: null, clock: false });
+      clubs.set(fx.home, fx.home_club); clubs.set(fx.away, fx.away_club);
+      series.push({ ext_id: `P${e.id}`, round: i + 1, label: head(e).replace(/\s*Playoffs$/i, '') || label, short: conf(e) ? `${conf(e)} ${code}` : code,
+        best_of: 1, high: fx.home, low: fx.away, starts_at: fx.kickoff, tbd: false, sort: k + 1 });
+      fixtures.push({ ext_id: `P${e.id}`, series: `P${e.id}`, game_no: 1, kickoff: fx.kickoff, state: PLAYOFF_STATE[fx.status] ?? 'live', status: fx.status,
+        home: fx.home, away: fx.away, home_score: fx.home_score, away_score: fx.away_score, venue: fx.venue });
+    });
+  });
+  return { clubs: [...clubs.values()], series, fixtures };
+}
+
 // the score after ninety minutes from a match summary's periods (the first two)
 export function espnNinety(summary: Any): { home: number; away: number } | null {
   const cs = summary?.header?.competitions?.[0]?.competitors ?? [];

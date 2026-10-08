@@ -57,7 +57,9 @@ Two things in one repo:
   `player-info`, `push`, `yahoo`, `join` (makes a newcomer's account from an invite link and seats them, or with `pool` in the body opens a prediction pool for someone new: `#/new`, migration 153, three a day per address and sixty a day in all), `soccer-sync` (soccer fixtures and results per competition's
   provider: ESPN's public scoreboard for testing, `espn`, migration 168, or API-Football with `API_FOOTBALL_KEY`;
   `?task=fixtures|live`, platform key only; ESPN's other sports ride it too: the NFL by week, migration 171; ESPN's
-  pre-match lines ride along as `fixtures.detail.odds`, chances only, frozen at kick-off, migration 178), `mlb-sync` (baseball's postseason from MLB's
+  pre-match lines ride along as `fixtures.detail.odds`, chances only, frozen at kick-off, migration 178; a competition
+  with `format` 'series' is a postseason: the NFL's playoffs come in as best-of-1 series through `sport_ingest`, migration
+  187), `mlb-sync` (baseball's postseason from MLB's
   public Stats API into `series`, `fixtures` and `fixture_periods` through `sport_ingest`; platform key only; for testing, a
   licensed feed replaces it, docs/POOL-TYPES.md §8; `sport_ingest` ends by drawing and paying any grid of squares on the
   event, `_squares_tick`, migration 167). Shared code in `supabase/functions/_shared`.
@@ -89,7 +91,8 @@ Two things in one repo:
   `fixtures`: any competition whose matches come in rounds; last one standing runs on the same competitions in the
   sport's words (migration 173, `pool_game_start('survivor', ...)`), and `#/centre/<competition>` is their centre
   (`src/pages/RoundCentre.tsx`: NFL centre, Match centre); a pool's own result on a match (the host's, in
-  `pool_result_overrides`, read through `_pool_fixture`) settles every game on it (migration 177); the start page and the host's desk list events through
+  `pool_result_overrides`, read through `_pool_fixture`) settles every game on it (migration 177); the bracket
+  (migration 185) is a kind on `series`, its tree read from each round's order (`_bracket_tree`); the start page and the host's desk list events through
   `pool_event_list()` (`pool_events()` stays for older copies of the site). Decided (3 October 2026): both move to **Cloudflare** (free for commercial
   use, DNS already on Cloudflare, wildcard subdomains for league by host); never plan new work on Vercel. Built as
   Workers serving static assets (`wrangler.jsonc`, `landing/wrangler.jsonc`; Pages can't take a wildcard), deployed by
