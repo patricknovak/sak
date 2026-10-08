@@ -98,6 +98,7 @@ export function Layout({ children }: { children: ReactNode }) {
   const [runs, setRuns] = useState({ questions: false, predictor: false, survivor: false, games: false, mlb: false });
   // the competition played in rounds the pool's games are on (a pick'em, last one standing, Call the score), for its centre
   const [rounds, setRounds] = useState<{ id: string; sport: string } | null>(null);
+  const [nflPost, setNflPost] = useState(false);
   const onHost = loc.pathname === '/host';
   useEffect(() => {
     if (!me) return;
@@ -105,6 +106,9 @@ export function Layout({ children }: { children: ReactNode }) {
     const has = (t: string) => supabase.from(t).select('id', { count: 'exact', head: true }).then(({ count }) => (count ?? 0) > 0, () => false);
     // the baseball centre only for a pool with a game on the MLB postseason (a soccer pick'em has no use for it)
     const mlb = supabase.from('pool_games').select('id', { count: 'exact', head: true }).like('competition', 'mlb%').then(({ count }) => (count ?? 0) > 0, () => false);
+    // the NFL's playoffs played as series (a bracket, migration 187) have the series centre too
+    supabase.from('pool_games').select('id', { count: 'exact', head: true }).like('competition', 'nfl-post%')
+      .then(({ count }) => { if (live) setNflPost((count ?? 0) > 0); }, () => {});
     Promise.all([has('pool_markets'), has('predictors'), has('survivors'), has('pool_games'), mlb]).then(([questions, predictor, survivor, games, mlbOn]) => { if (live) setRuns({ questions, predictor, survivor, games, mlb: mlbOn }); });
     const first = (t: string, kind?: string) => {
       let q = supabase.from(t).select('competition').order('id', { ascending: false }).limit(1);
@@ -144,6 +148,7 @@ export function Layout({ children }: { children: ReactNode }) {
     ...(runs.games && poolQuestions ? [{ to: '/questions', label: 'Questions', icon: Sparkles }] : []),
     // the sport centre for the pool's games (baseball's postseason first)
     ...(runs.mlb ? [{ to: '/sport/mlb', label: 'MLB centre', icon: Tv }] : []),
+    ...(nflPost ? [{ to: '/sport/nfl', label: 'NFL playoffs', icon: Tv }] : []),
     ...(rounds ? [{ to: `/centre/${rounds.id}`, label: centreName(rounds.sport), icon: Tv }] : []),
     ...(runs.predictor ? [{ to: '/predictor', label: 'Call the score', icon: Target }] : []),
     ...(runs.survivor ? [{ to: '/survivor', label: 'Last one standing', icon: Shield }] : []),
