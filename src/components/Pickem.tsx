@@ -10,6 +10,7 @@ import { rpc } from '../lib/supabase';
 import { useAction } from './ui';
 import { Crest } from './Crest';
 import type { Club } from '../pages/Picks';
+import { chance, useMarket } from '../lib/market';
 
 type Side = 'H' | 'D' | 'A';
 interface PkPick { pick: Side; conf?: number }
@@ -50,6 +51,7 @@ export function PickemGame({ gameId, first, status: gameStatus, name, reload, ac
   const [draft, setDraft] = useState<Record<number, PkPick | null>>({});
   const [open, setOpen] = useState<number | null>(null);
   const { busy, run } = useAction();
+  const market = useMarket(data.fixtures.map((f) => f.id));
   // a new board from the page (the minute refresh) replaces the round shown only when it is the same round
   useEffect(() => { if (first.round === data.round) setData(first); }, [first]); // eslint-disable-line react-hooks/exhaustive-deps
   const go = (round: number) => rpc<PickemData>('pool_pickem_board', { p_game: gameId, p_round: round }).then((d) => { if (d) { setData(d); setDraft({}); } });
@@ -114,6 +116,7 @@ export function PickemGame({ gameId, first, status: gameStatus, name, reload, ac
 
       {data.fixtures.map((f) => {
         const p = pickOf(f);
+        const mk = market.get(f.id);
         const st = status(f);
         const done = f.result != null;
         const right = done && p && p.pick === f.result;
@@ -128,9 +131,9 @@ export function PickemGame({ gameId, first, status: gameStatus, name, reload, ac
             </div>
             {/* the match: crests, names and the score once it's on */}
             <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-2 px-3 py-2">
-              <div className="flex min-w-0 items-center gap-2"><Crest c={f.home} size={30} /><span className="min-w-0 break-words text-sm font-semibold leading-tight text-white">{f.home.name}</span></div>
+              <div className="flex min-w-0 items-center gap-2"><Crest c={f.home} size={30} /><span className="min-w-0 text-balance break-words text-[13px] font-semibold leading-tight text-white min-[400px]:text-sm">{f.home.name}</span></div>
               <span className="num text-center font-display text-xl font-extrabold text-white">{f.home_score != null && f.state !== 'scheduled' ? `${f.home_score}–${f.away_score}` : <span className="text-sm text-mute">v</span>}</span>
-              <div className="flex min-w-0 flex-row-reverse items-center gap-2 text-right"><Crest c={f.away} size={30} /><span className="min-w-0 break-words text-sm font-semibold leading-tight text-white">{f.away.name}</span></div>
+              <div className="flex min-w-0 flex-row-reverse items-center gap-2 text-right"><Crest c={f.away} size={30} /><span className="min-w-0 text-balance break-words text-[13px] font-semibold leading-tight text-white min-[400px]:text-sm">{f.away.name}</span></div>
             </div>
             {/* the pick: three (or two) buttons, then the confidence number */}
             <div className="flex items-center gap-1.5 px-3 pb-3">
@@ -142,6 +145,8 @@ export function PickemGame({ gameId, first, status: gameStatus, name, reload, ac
                     <button key={s.k} type="button" disabled={f.locked || !canPick} onClick={() => choose(f, s.k)}
                       className={`flex min-h-10 items-center justify-center gap-1 rounded-xl px-2 py-2 text-xs font-bold ring-1 transition ${on ? (done ? (won ? 'bg-emerald-400 text-[#0b1220] ring-emerald-300' : 'bg-red-400/25 text-red-100 ring-red-400/40') : 'bg-gold text-[#0b1220] ring-gold') : won ? 'bg-emerald-400/10 text-emerald-200 ring-emerald-400/30' : 'bg-white/[.04] text-slate-200 ring-white/10 enabled:hover:bg-white/[.08]'} disabled:cursor-default`}>
                       {on && <Check className="h-3.5 w-3.5" strokeWidth={3} />}{s.label}
+                      {/* what the market gave this side before kick-off */}
+                      {mk && <span className={`num font-semibold ${on ? 'opacity-70' : 'text-mute'}`}>{chance(s.k === 'H' ? mk.home : s.k === 'A' ? mk.away : mk.draw)}</span>}
                     </button>
                   );
                 })}

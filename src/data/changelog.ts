@@ -7,7 +7,7 @@ export interface Change { date: string; icon: string; title: string; body: strin
 
 export const CHANGELOG: Change[] = [
   { date: '2026-10-08', icon: '📈', tag: 'everyone', title: 'What the market expects', to: '/pools',
-    body: 'NFL centre and Match centre now show what the bookmakers expect from each game before it starts, as a chance and a margin (no prices, nothing to bet on), right beside how your pool picked it. Who\'s smarter, your group or the market?' },
+    body: 'NFL centre and Match centre now show what the bookmakers expect from each game before it starts, as a chance and a margin (no prices, nothing to bet on), right beside how your pool picked it. Pick\'em and Last one standing show each side\'s chance on the buttons you pick from. Who\'s smarter, your group or the market?' },
   { date: '2026-10-08', icon: '✍️', tag: 'commish', title: 'Settle any match by hand', to: '/survivor',
     body: 'When the scores feed freezes, a pool\'s host can settle a match on the Last one standing and Call the score pages too: a side, a draw, void or the score, with the reason everyone sees. It settles every game the pool runs on that match, for that pool only, and Hand back lets the feed decide again.' },
   { date: '2026-10-08', icon: '📜', tag: 'everyone', title: 'The rules, written down', to: '/picks',

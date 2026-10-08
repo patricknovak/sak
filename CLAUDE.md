@@ -168,8 +168,10 @@ wasn't applied); #75 was the hotfix.
 - Retire an old function signature with `alter function ... rename to ..._before_x` plus a revoke when a
   `drop function` would break callers mid-deploy.
 - Edge functions: `.github/workflows/functions.yml` deploys every function on merge to `main` once the
-  `SUPABASE_ACCESS_TOKEN` GitHub Actions secret exists. Until then (or for a fix that can't wait for a merge),
-  deploy with the connector's `deploy_edge_function`, sending the full contents of `<fn>/index.ts` and every
+  `SUPABASE_ACCESS_TOKEN` GitHub Actions secret exists (it does: soccer-sync v6 came from the workflow). For a change
+  that can't wait for a merge, run the workflow's own command from a session with `SUPABASE_ACCESS_TOKEN`:
+  `npx -y supabase@2 functions deploy <fn> --project-ref quakdkzdafzlhgjvmypg --use-api` (exact files, JWT verification
+  kept on; 8 October 2026). Otherwise deploy with the connector's `deploy_edge_function`, sending the full contents of `<fn>/index.ts` and every
   `_shared/*.ts` it imports, then compare the deployed files with the repo. Pitfall: a literal `\uXXXX` in source
   is decoded once more by that deploy path; send it as `\\u005cuXXXX`.
 - The site deploys itself on merge to `main`.

@@ -7,6 +7,7 @@ import { Empty, PageHeader, Section, TeamBadge, useAction } from '../components/
 import { Crest } from '../components/Crest';
 import type { PoolEvent } from '../lib/poolGames';
 import { HostResult, useOverrides } from '../components/HostResult';
+import { chance, useMarket } from '../lib/market';
 
 // Last one standing (migrations 157 and 173): every round each player still in picks one side to win, never the same
 // one twice; a loss (or a draw, where the sport has them) and they're out, and a round with no pick is out too. The last
@@ -101,6 +102,8 @@ export default function Survivor() {
   // the host entering this round's pick for a player who asked
   const [actAs, setActAs] = useState<number | null>(null);
   const { overrides, reload: reloadOverrides } = useOverrides((board?.fixtures ?? []).map((f) => f.id));
+  // the market's chance for each side: last one standing is a hunt for the safest pick you haven't used
+  const market = useMarket((board?.fixtures ?? []).map((f) => f.id));
   if (board === undefined) return <div className="h-60 animate-pulse rounded-3xl bg-white/[.04]" />;
   if (!board) return (
     <div className="space-y-5">
@@ -169,6 +172,7 @@ export default function Survivor() {
               const locked = new Date(f.kickoff).getTime() <= now || f.state !== 'scheduled';
               const side = (c: Club, where: 'Home' | 'Away') => {
                 const on = current?.club_id === c.id, gone = used.has(c.id);
+                const mk = market.get(f.id), p = mk ? (where === 'Home' ? mk.home : mk.away) : null;
                 return (
                   <button type="button" disabled={!canPick || locked || gone || busy} onClick={() => pickClub(c)}
                     className={`flex min-w-0 flex-col items-center gap-1.5 rounded-xl border px-2 py-2.5 text-center transition disabled:cursor-default
@@ -176,6 +180,7 @@ export default function Survivor() {
                     <Crest c={c} size={34} />
                     <span className="text-balance text-sm font-semibold leading-tight text-white">{c.name}</span>
                     <span className={`text-[10px] font-bold uppercase tracking-wider ${on ? 'text-gold' : 'text-mute'}`}>{on ? (proxy ? 'Their pick' : 'Your pick') : gone ? 'Used' : where}</span>
+                    {p != null && !gone && <span className={`num text-[11px] font-semibold ${p >= 0.7 ? 'text-emerald-300' : 'text-slate-300'}`}>{chance(p)} to win</span>}
                   </button>
                 );
               };
