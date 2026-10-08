@@ -6,6 +6,8 @@
 export interface Change { date: string; icon: string; title: string; body: string; to?: string; tag?: 'formats' | 'commish' | 'draft' | 'everyone' }
 
 export const CHANGELOG: Change[] = [
+  { date: '2026-10-08', icon: '🧮', tag: 'everyone', title: 'What you need, in words', to: '/leaders',
+    body: 'The top of each game\'s Table now says where you stand in a sentence: how many can still catch you, how much you have to make up on the leader and what\'s still possible for you, or that first is out of reach, or yours already.' },
   { date: '2026-10-08', icon: '🏒', tag: 'everyone', title: 'The box pool', to: '/pools',
     body: 'The hockey pool, with no draft night: the NHL\'s best players are dealt into evenly matched boxes, and everyone takes one player from each. Goals and assists count, a goalie\'s win and shutout too, live every night for a week, four weeks or the rest of the season, with an alert when one of yours scores and a line in the chat each morning on who had the night. Once it locks, every player shows his points and how many took him, and everyone\'s team shows.' },
   { date: '2026-10-08', icon: '🏆', tag: 'everyone', title: 'The bracket', to: '/pools',

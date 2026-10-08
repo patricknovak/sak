@@ -43,11 +43,31 @@ export function GameChips({ games, sel, onPick }: { games: BoardGame[]; sel: str
   );
 }
 
+// what the caller needs, in words, from the game's own numbers: first clinched, who can still catch the leader, or how
+// much there is to make up and what's left to do it with (a game with no "still possible", or one in coins, says nothing)
+function needLine(g: BoardGame, m: NonNullable<BoardGame['mine']>, meId: number, name: (id: number) => string): string | null {
+  if (g.status !== 'open' || m.possible == null || kindOf(g.kind).coins) return null;
+  const others = g.rows.filter((r) => r.team_id !== meId);
+  const left = m.possible - m.score;
+  if (m.rank === 1) {
+    if (!others.length) return null;
+    const chasing = others.filter((r) => r.possible == null || r.possible >= m.score).length;
+    return chasing === 0 ? 'First is yours: nobody can catch you now.'
+      : `${chasing === 1 ? 'One member' : `${chasing} members`} can still catch you, with ${fmt(left)} still possible for you.`;
+  }
+  const lead = g.rows[0];
+  if (!lead) return null;
+  if (m.possible < lead.score) return `Out of first: even every pick right from here leaves you ${fmt(lead.score - m.possible)} short of ${name(lead.team_id)}.`;
+  return `Make up ${fmt(m.behind)} on ${name(lead.team_id)}, with ${fmt(left)} still possible for you.`;
+}
+
 // the caller's place in a game, as the hero of its table
 export function MyPlace({ g, solo }: { g: BoardGame; solo?: boolean }) {
+  const { teams, me } = useLeague();
   const m = g.mine;
   const k = kindOf(g.kind);
   const second = g.rows.find((r) => r.rank > 1);
+  const need = m && me ? needLine(g, m, me.id, (id) => { const t = teams.find((x) => x.id === id); return t?.gm_name ?? t?.name ?? 'the leader'; }) : null;
   // coins carry their emoji and run to four figures: a size down so three tiles fit a 360 px phone
   const val = `font-display font-extrabold text-white ${k.coins ? 'text-lg' : 'text-2xl'}`;
   const tile = 'min-w-0 overflow-hidden rounded-2xl bg-black/25 px-3 py-2 ring-1 ring-white/10';
@@ -76,6 +96,7 @@ export function MyPlace({ g, solo }: { g: BoardGame; solo?: boolean }) {
             <div className="text-[11px] text-mute">{m.possible != null && g.status === 'open' ? `${fmt(m.possible)} still possible` : m.rank === 1 ? 'over 2nd' : 'behind'}</div></div>
         </div>
       ) : <p className="mt-3 text-sm text-mute">You’re watching this one: members’ places are below.</p>}
+      {need && <p className="mt-2.5 text-[13px] leading-snug text-slate-200">{need}</p>}
       <Link to={g.link} className="mt-3 inline-flex items-center gap-1 text-sm font-semibold text-sky-300">Open {g.title.replace(/^The /, 'the ')} <ChevronRight size={14} /></Link>
     </div>
   );

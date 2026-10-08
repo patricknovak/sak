@@ -211,7 +211,9 @@ they lock (`pool_picks`), results graded on read from the shared event tables, a
    from where it stands (the chance of each winner and length from the pool's split, C(k-1, a-1) p^a (1-p)^(k-a)), a
    series not yet set or not yet picked a guess. A pick'em match with the market's line draws from it rather than the
    pool's split (migration 181). Rank the teams once its order locks (migration 182): every series drawn at even odds,
-   the last round formed from the two winners before it. Still to come: brackets, and "what you need" in words.
+   the last round formed from the two winners before it. Brackets came with migration 186. *"What you need" in words, the same day (site only):* the top of each game's Table
+   says how many can still catch the leader, how much a member has to make up and with what, or that first is out of
+   reach or already theirs, from the game's own "still possible".
 7. **The bracket and the player pool**, for the NHL playoffs and March Madness (`docs/POOL-TYPES.md` §9).
    *The bracket built 8 October 2026 (migration 185):* a `bracket` kind on `series`: every winner from a round to the
    final in one pick, checked round by round, locked at the round's first game; Classic doubles each round, Flat is a
