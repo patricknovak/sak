@@ -4664,5 +4664,16 @@ select pg_temp.expect('a round under way still gets a last call before its final
   exists (select 1 from notifications where team_id = :lou and kind = 'survivor' and body = '⏰ Last call for week 10: its last game kicks off in 5h. Pick your team or you''re out.'));
 select pg_temp.expect('and only once', _soccer_nudge(:lib) = 0);
 update survivors set status = 'done' where id = :lsv;
+-- pick'em on the same week: its Thursday game is played, Sunday's still to pick
+select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-000000000081', false);
+set role authenticated;
+select pool_game_start('pickem', 'nfl') as nflpk \gset
+reset role;
+select set_config('request.jwt.claim.sub', '', false);
+select _pool_game_nudge(:lib) as pn \gset
+select pg_temp.expect('pick''em gets a second reminder before the rest of a round under way, in the sport''s words',
+  exists (select 1 from notifications where team_id = :lou and kind = 'pool_game' and body = '⏰ The rest of week 10 kicks off in 5h. You have one game still to pick in NFL pick''em.'));
+select pg_temp.expect('and only once', _pool_game_nudge(:lib) = 0);
+update pool_games set status = 'done' where id = :nflpk;
 select set_config('app.league_id', '', false);
 select 'last call', true;
