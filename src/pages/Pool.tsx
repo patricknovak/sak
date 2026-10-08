@@ -2,7 +2,7 @@
 // the board of questions, one question with its chart and its trade, the leaders, and the host's desk. A pool of kind
 // 'predict' sees only these; a fantasy league reaches the board from More.
 import { useMemo, useState } from 'react';
-import { Link, useNavigate, useParams } from 'react-router-dom';
+import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { CalendarClock, Crown, Flame, Link2, Plus, Sparkles, Trophy, Wand2 } from 'lucide-react';
 import { useLeague, useNow } from '../lib/store';
 import { useBrand } from '../lib/brand';
@@ -10,7 +10,7 @@ import { rpc } from '../lib/supabase';
 import { ago, countdown } from '../lib/format';
 import { answerColor, isOpen, pct, prices, usePool, useCoins, type PoolLeader, type PoolMarket, type PoolPosition } from '../lib/pool';
 import { CallsFeed, closesIn, Coins, MarketCard, PriceChart, TradeSheet } from '../components/Pool';
-import { Empty, PageHeader, Rank, Section, TeamBadge, useAction } from '../components/ui';
+import { Empty, PageHeader, Section, TeamBadge, useAction } from '../components/ui';
 import { useEffect } from 'react';
 import { appLink } from '../lib/host';
 import { shareCard, type CardBrand } from '../lib/shareCard';
@@ -21,6 +21,8 @@ import { PredictorCard, PredictorStart, usePredictor } from './Predictor';
 import { Share2, UserPlus } from 'lucide-react';
 import { InvitePeople } from '../components/InvitePeople';
 import { HostGames, PoolGameCards, usePoolGames } from './Picks';
+import { BOARD_KIND, usePoolScoreboard } from '../lib/poolScoreboard';
+import { BoardRows, GameChips, Move, MyPlace } from '../components/PoolTable';
 
 function useLeaders() {
   const [rows, setRows] = useState<PoolLeader[] | null>(null);
@@ -71,7 +73,9 @@ export function PoolHome() {
   const { coins } = useCoins(me?.id);
   const { leaders } = useLeaders();
   const nextDrop = drops.find((d) => new Date(d.at).getTime() > now);
-  const rank = leaders ? leaders.findIndex((l) => l.team_id === me?.id) + 1 : 0;
+  // the rank the hero shows is the pool's main game's (the questions' net worth when that's all the pool runs)
+  const { board } = usePoolScoreboard();
+  const main = board?.games[0];
   const mine = leaders?.find((l) => l.team_id === me?.id);
   const open = (markets ?? []).filter((m) => isOpen(m, now));
   const closing = [...open].sort((a, b) => a.closes_at.localeCompare(b.closes_at)).slice(0, 4);
@@ -92,7 +96,8 @@ export function PoolHome() {
         <div className="mt-4 grid grid-cols-3 gap-2">
           <div className="rounded-2xl bg-black/25 px-3 py-2.5 ring-1 ring-white/10"><div className="label">To spend</div><div className="font-display text-2xl font-extrabold text-white"><Coins n={coins} /></div></div>
           <div className="rounded-2xl bg-black/25 px-3 py-2.5 ring-1 ring-white/10"><div className="label">Worth</div><div className="font-display text-2xl font-extrabold text-white"><Coins n={mine?.worth} /></div></div>
-          <div className="rounded-2xl bg-black/25 px-3 py-2.5 ring-1 ring-white/10"><div className="label">Rank</div><div className="font-display text-2xl font-extrabold text-white">{rank ? `${rank}` : '–'}<span className="text-sm font-bold text-mute"> of {leaders?.length ?? '–'}</span></div></div>
+          <Link to="/leaders" className="rounded-2xl bg-black/25 px-3 py-2.5 ring-1 ring-white/10 hover:bg-black/35"><div className="label truncate">{main && board!.games.length > 1 ? `${BOARD_KIND[main.kind].icon} Rank` : 'Rank'}</div>
+            <div className="flex items-baseline gap-1 font-display text-2xl font-extrabold text-white">{main?.mine ? main.mine.rank : '–'}<span className="text-sm font-bold text-mute">of {main?.members ?? '–'}</span><Move n={main?.mine?.move} /></div></Link>
         </div>
         {nextDrop && (
           <div className="mt-3 flex items-center gap-3 rounded-2xl bg-white/[.06] px-3 py-2.5 ring-1 ring-white/10">
@@ -407,52 +412,40 @@ function bestCall(markets: PoolMarket[], positions: PoolPosition[]) {
 
 export function PoolLeaders() {
   const { teams, me } = useLeague();
-  const brand = useBrand();
   const cardBrand = useCardBrand();
   const { leaders } = useLeaders();
   const { markets, positions } = usePool();
+  const { board } = usePoolScoreboard();
+  const [params, setParams] = useSearchParams();
   const best = useMemo(() => bestCall(markets ?? [], positions), [markets, positions]);
-  const shareBoard = () => shareCard({ kind: 'leaders', brand: cardBrand, title: 'The standings',
-    rows: (leaders ?? []).slice(0, 6).map((l) => { const t = teams.find((x) => x.id === l.team_id); return { name: t?.gm_name ?? t?.name ?? '', worth: l.worth, color: t?.color ?? cardBrand.color, me: l.team_id === me?.id }; }) },
-    `The standings in ${cardBrand.pool}.`);
+  const games = board?.games ?? [];
+  const g = games.find((x) => x.key === params.get('g')) ?? games[0];
+  const shareBoard = () => g && shareCard({ kind: 'leaders', brand: cardBrand, title: g.title,
+    rows: g.rows.slice(0, 6).map((r) => { const t = teams.find((x) => x.id === r.team_id); const k = BOARD_KIND[g.kind];
+      return { name: t?.gm_name ?? t?.name ?? '', worth: r.score, rank: r.rank, label: k.coins ? undefined : `${Number.isInteger(r.score) ? r.score : r.score.toFixed(1)} ${k.unit(r.score)}`, color: t?.color ?? cardBrand.color, me: r.team_id === me?.id }; }) },
+    `The ${g.title} table in ${cardBrand.pool}.`);
   return (
     <div className="space-y-5">
-      <PageHeader icon={<Crown className="h-6 w-6 text-gold" />} title="Leaders" sub={`Net worth: your ${brand.coin.name.toLowerCase()} plus your calls at today’s prices. ${brand.trophy ? `Top of the board takes ${brand.trophy}.` : ''}`} />
-      {best && (() => {
-        const t = teams.find((x) => x.id === best.team_id);
-        return (
-          <div className="relative overflow-hidden rounded-3xl border border-gold/30 p-4" style={{ background: 'radial-gradient(120% 120% at 0% 0%, rgb(var(--gold-rgb)/.22), transparent 60%), linear-gradient(160deg,#18142c,#0b1222 75%)' }}>
-            <div className="flex items-center gap-3">
-              <span className="grid h-12 w-12 shrink-0 place-items-center rounded-2xl bg-gold/20 text-2xl">🎯</span>
-              <div className="min-w-0 flex-1">
-                <div className="text-[11px] font-bold uppercase tracking-[.2em] text-gold">Called it</div>
-                <div className="break-words font-display text-lg font-extrabold leading-tight text-white">{t?.gm_name ?? t?.name}</div>
-              </div>
-              <div className="shrink-0 text-right"><div className="num font-display text-2xl font-extrabold text-gold">{pct(best.price)}</div><div className="text-[11px] text-mute">when called</div></div>
-            </div>
-            <p className="mt-3 text-sm leading-snug text-slate-200"><span className="text-white">{best.answer}</span> on “{best.title}”, the longest shot to come in so far. Paid <Coins n={best.paid} />.</p>
-          </div>
-        );
-      })()}
-      {leaders === null ? <div className="h-60 animate-pulse rounded-3xl bg-white/[.04]" /> : (
-        <div className="card divide-y divide-white/[.05] p-1">
-          {leaders.map((l, i) => {
-            const t = teams.find((x) => x.id === l.team_id);
+      <PageHeader icon={<Crown className="h-6 w-6 text-gold" />} title="Table" sub={games.length > 1 ? 'Every game in the pool, ranked. The arrows show today’s moves.' : 'Where everyone stands. The arrows show today’s moves.'} />
+      {board === undefined ? <div className="h-60 animate-pulse rounded-3xl bg-white/[.04]" /> : !g ? (
+        <Empty icon="🏁" title="No games yet">{me?.is_commish ? <Link to="/host" className="btn-gold mt-3 inline-block">Start one</Link> : 'The host is setting the pool up. Check back soon.'}</Empty>
+      ) : (
+        <>
+          <GameChips games={games} sel={g.key} onPick={(key) => setParams({ g: key }, { replace: true })} />
+          <MyPlace g={g} solo={games.length < 2} />
+          {g.kind === 'questions' && best && (() => {
+            const t = teams.find((x) => x.id === best.team_id);
             return (
-              <div key={l.team_id} className={`flex items-center gap-3 rounded-xl px-3 py-3 ${l.team_id === me?.id ? 'bg-gold/[.07]' : ''}`}>
-                <Rank n={i + 1} />
-                <TeamBadge team={t} size={36} />
-                <div className="min-w-0 flex-1">
-                  <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5"><span className="break-words font-semibold text-white">{t?.gm_name ?? t?.name}</span>{best?.team_id === l.team_id && <span className="rounded-full bg-gold/15 px-1.5 py-px text-[10px] font-bold uppercase tracking-wider text-gold ring-1 ring-gold/40">🎯 Called it</span>}</div>
-                  <div className="text-xs text-mute">{l.calls ? `${l.hits} of ${l.calls} called right` : 'No settled calls yet'} · {l.trades} call{l.trades === 1 ? '' : 's'}</div>
-                </div>
-                <div className="text-right"><div className="font-display text-xl font-extrabold text-gold"><Coins n={l.worth} /></div><div className="text-[11px] text-mute"><Coins n={l.coins} /> in hand</div></div>
+              <div className="card flex items-center gap-3 p-3">
+                <span className="grid h-10 w-10 shrink-0 place-items-center rounded-2xl bg-gold/15 text-xl" aria-hidden>🎯</span>
+                <p className="min-w-0 flex-1 text-sm leading-snug text-slate-200"><b className="text-white">{t?.gm_name ?? t?.name}</b> called <span className="text-white">{best.answer}</span> on “{best.title}” at {pct(best.price)}, the longest shot to come in so far. Paid <Coins n={best.paid} />.</p>
               </div>
             );
-          })}
-        </div>
+          })()}
+          <BoardRows g={g} extra={g.kind === 'questions' ? (r) => { const l = leaders?.find((x) => x.team_id === r.team_id); return l ? <> · <Coins n={l.coins} /> in hand</> : null; } : undefined} />
+          <ShareButton className="btn-gold w-full py-3" label="Share the table" make={async () => shareBoard()} />
+        </>
       )}
-      {!!leaders?.length && <ShareButton className="btn-gold w-full py-3" label="Share the standings" make={shareBoard} />}
     </div>
   );
 }
@@ -490,6 +483,33 @@ function ShareButton({ label, make, className = 'btn-ghost' }: { label: string; 
 }
 
 // ───────────── the host's desk ─────────────
+// the host names the pool's main game: the one the home's rank and the Table lead with, whose winner wears the crown.
+// Only worth asking once the pool runs more than one game.
+function HostCrown() {
+  const { board, reload } = usePoolScoreboard();
+  const { busy, run } = useAction();
+  const games = board?.games ?? [];
+  if (games.length < 2) return null;
+  return (
+    <Section title="The main game">
+      <div className="card space-y-3 p-3">
+        <p className="text-sm text-slate-300">The pool’s home ranks everyone by this one, the Table leads with it, and its winner wins the pool.</p>
+        <div className="grid gap-2">
+          {games.map((g) => (
+            <button key={g.key} type="button" disabled={busy || g.crown}
+              onClick={() => run(async () => { await rpc('pool_set_crown', { p_game: g.key }); await reload(); }, `${g.title} is the main game`)}
+              className={`flex items-center gap-3 rounded-2xl px-3 py-2.5 text-left ring-1 transition ${g.crown ? 'bg-gold/[.12] ring-gold/50' : 'bg-white/[.03] ring-white/10 hover:bg-white/[.06]'}`}>
+              <span className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-white/[.06] text-lg" aria-hidden>{BOARD_KIND[g.kind].icon}</span>
+              <span className="min-w-0 flex-1"><span className="block break-words font-semibold text-white">{g.title}</span><span className="block text-xs text-mute">{g.status === 'open' ? 'On now' : 'Finished'} · {g.members} in it</span></span>
+              {g.crown ? <span className="shrink-0 text-sm font-bold text-gold">👑 Main</span> : <span className="shrink-0 rounded-full bg-sky-400/10 px-2.5 py-1 text-xs font-bold text-sky-300 ring-1 ring-sky-400/30">Make main</span>}
+            </button>
+          ))}
+        </div>
+      </div>
+    </Section>
+  );
+}
+
 export function PoolHost() {
   const { me } = useLeague();
   const brand = useBrand();
@@ -508,6 +528,7 @@ export function PoolHost() {
           : <div className="card p-4 text-sm text-mute">Nothing to settle. Questions land here when they close.</div>}
       </Section>
       <HostGames />
+      <HostCrown />
       <SoccerRounds onAdded={reload} />
       <HostPredictor />
       <HostSurvivor />

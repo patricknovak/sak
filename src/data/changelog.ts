@@ -6,6 +6,8 @@
 export interface Change { date: string; icon: string; title: string; body: string; to?: string; tag?: 'formats' | 'commish' | 'draft' | 'everyone' }
 
 export const CHANGELOG: Change[] = [
+  { date: '2026-10-08', icon: '👑', tag: 'everyone', title: 'One table for every game in a pool', to: '/leaders',
+    body: 'A pool\'s Leaders page is now its Table: every game the pool runs (the questions, Pick the series, Rank the teams, squares, last one standing, Call the score) one tap apart, each ranked the same way, with arrows for who moved today, what each member can still reach, and a mark on anyone who can no longer finish first. The host names the pool\'s main game; the home ranks you by it. Climb into first, or three places or more, and you hear about it.' },
   { date: '2026-10-07', icon: '📺', tag: 'everyone', title: 'Watch live', to: '/watch',
     body: 'A new page under More for every game of the night: the one with the most of your starters first, then every game with where you can watch it on what you have and a one-tap way into the broadcaster\'s player or your TV provider\'s, team radio, your players\' live points, who else in the league has skin in it, and the recap once it\'s over. Tap "I have them all" if you subscribe to everything and nothing is marked locked. At the bottom: how to see every game this season, in Canada or the US.' },
   { date: '2026-10-06', icon: '🔢', tag: 'everyone', title: 'Squares for the World Series', to: '/picks',

@@ -207,6 +207,14 @@ give the pool a home for following the sport):**
   digits drawn from a recorded seed when the grid fills or at Game 1's first pitch, once or fresh each game. The pot is
   split over the games the series can run to; the last final takes what is left; an empty square passes its coins to
   the next claimed one. Paid by `sport_ingest` as the feed lands (`pool_square_pays`), the hourly pool job as a backstop.
+- **P10. The pool scoreboard (every kind, one table).** *Built 8 October 2026 (migration 169):* `_pool_rows()` reads every
+  game a pool runs (the questions' net worth, Pick the series, Rank the teams, squares, last one standing, Call the score)
+  into one shape: a score, the most still possible, still in or out, a tiebreak and a line of detail per member per
+  game. `pool_scoreboard()` ranks each game, puts the pool's main game first (`league_rules.crown`, named by the host
+  with `pool_set_crown`, else the first open game) and gives each member's movement since the day began. The hourly
+  pool job keeps `pool_standing` and tells a member who climbs into first or three places or more (once a game a day).
+  A new kind of game adds one branch to `_pool_rows()` and gets the table, the arrows, the alerts and the crown with it
+  (`docs/POOL-TYPES.md` §3).
 
 Then the list below, which is the fantasy-league plan of record.
 

@@ -220,6 +220,15 @@ Every type is a pick, a lock, a grader and a scoring profile. So:
   providers on the same tables; the NHL keeps its own tables until the sport split moves it (`docs/EXPANSION.md` §6).
 - **Expand, then contract:** `survivors` and `predictors` stay as they are and become `pool_games` of kind `survivor`
   and `score` in a later change, once the new tables carry the World Series test.
+- **One scoreboard over every kind** (built 8 October 2026, migration 169). Whatever a game's rules, its table reads
+  into one shape through `_pool_rows()`: per member, a `score` (highest first), `possible` (the most they can still
+  finish with, or null), `alive` (still in, for elimination games; ranked first), a `tiebreak` (lowest first) and a
+  `line` of detail. `pool_scoreboard()` ranks every game, leads with the pool's main game (the host's `pool_set_crown`,
+  else the first open game) and adds each member's movement since the day began from `pool_standing`, which the hourly
+  pool job keeps (and which tells a member who climbs into first, or three places or more). **To add a kind:** write its
+  engine and board, then one branch in `_pool_rows()`; the table, the arrows, the climb alerts, the crown and the Table
+  page come with it. The cross-game features in §6 (max possible, the elimination tracker, "what you need to win") are
+  built on this shape, once, for every kind.
 - **The learning loop:** the pool's pick split per series is a forecast; it goes in the prediction log
   (`docs/DEVELOPMENT.md` §4) and is scored when the series ends, so we learn how good a group's consensus is, sport by
   sport.
