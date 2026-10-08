@@ -4974,6 +4974,14 @@ select pg_temp.expect('Hana 3 with two goals and an assist, Fern 3 from an assis
   and (select points = 3 from _pool_game_table(:bxg) where team_id = :fern)
   and (select points = 0 and picked = 1 from _pool_game_table(:bxg) where team_id = :lou));
 select pg_temp.expect('the pool''s table reads it', (select line = '2 goals, 1 assist' from _pool_rows() where game = 'game:' || :bxg and team_id = :hana));
+-- goal alerts (migration 192): Hana hears her forward's two goals, Fern her goalie's win, Lou nothing
+select pg_temp.expect('Hana hears the goals, Fern the win, Lou nothing',
+  exists (select 1 from notifications where team_id = :hana and body = '🚨 Box Forward 1 scores 2 for you in the box pool: +2')
+  and exists (select 1 from notifications where team_id = :fern and body = '🥅 Box Goalie 22 gets the win for you in the box pool: +2')
+  and not exists (select 1 from notifications where team_id = :lou and kind = 'pool_game' and body like '🚨%'));
+update player_games set stats = '{"g": 2, "a": 2}' where game_id = 2099029101 and player_id = 990001;
+select pg_temp.expect('an assist added is no goal', (select count(*) from notifications where team_id = :hana and body like '🚨 Box Forward 1%') = 1);
+update player_games set stats = '{"g": 2, "a": 1}' where game_id = 2099029101 and player_id = 990001;
 -- the chance to win (migration 189): one night left, Hana three up with the better players
 select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-000000000081', false);
 set role authenticated;
