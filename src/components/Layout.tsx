@@ -107,16 +107,17 @@ export function Layout({ children }: { children: ReactNode }) {
   const phase = league?.phase;
   const draftish = phase === 'keepers' || phase === 'predraft' || phase === 'draft';
   const spectator = me?.role === 'spectator';
-  // a prediction pool (migration 145) is questions, leaders, chat: none of the sport's pages
+  // a prediction pool (migration 145) is questions, the table, chat: none of the sport's pages
   const pool = kind === 'predict';
   // a sports pool's games (migration 165) take the second place; its questions show once it has any
   const poolQuestions = runs.questions || !runs.games;
   const items: Item[] = pool ? [
     { to: '/', label: 'Home', icon: Home },
     ...(runs.games ? [{ to: '/picks', label: 'Picks', icon: Swords }] : []),
-    ...(poolQuestions ? [{ to: '/questions', label: 'Questions', icon: Sparkles }] : []),
+    // the questions keep their place unless the pool also runs sports games: then the Table (every game) takes it
+    ...(poolQuestions && !runs.games ? [{ to: '/questions', label: 'Questions', icon: Sparkles }] : []),
     { to: '/chat', label: 'Chat', icon: MessageCircle },
-    ...(runs.games && poolQuestions ? [] : [{ to: '/leaders', label: 'Leaders', icon: Crown }]),
+    { to: '/leaders', label: 'Table', icon: Crown },
   ] : [
     { to: '/', label: 'Home', icon: Home },
     draftish ? { to: '/draft', label: 'Draft Centre', short: 'Draft', icon: ClipboardList } : spectator ? { to: '/standings', label: 'Standings', icon: Trophy } : { to: '/team', label: 'Lineup', icon: Shield },
@@ -125,7 +126,7 @@ export function Layout({ children }: { children: ReactNode }) {
     { to: '/nhl', label: sport.words.centre ?? 'NHL centre', icon: Tv },
   ];
   const moreItems: Item[] = (pool ? [
-    ...(runs.games && poolQuestions ? [{ to: '/leaders', label: 'Leaders', icon: Crown }] : []),
+    ...(runs.games && poolQuestions ? [{ to: '/questions', label: 'Questions', icon: Sparkles }] : []),
     // the sport centre for the pool's games (baseball's postseason first)
     ...(runs.games ? [{ to: '/sport/mlb', label: 'MLB centre', icon: Tv }] : []),
     ...(runs.predictor ? [{ to: '/predictor', label: 'Call the score', icon: Target }] : []),

@@ -3981,3 +3981,74 @@ select pg_temp.raises('another league can''t claim a square', format('select poo
 reset role;
 select set_config('request.jwt.claim.sub', '', false);
 select 'squares', true;
+
+-- ───────────── the pool scoreboard (migration 169) ─────────────
+-- Pod Squad now runs the questions, two sports games, two grids, last one standing and call the score: one table
+-- reads them all.
+reset role;
+select set_config('request.jwt.claim.sub', '', false);
+select set_config('app.league_id', :'lib', false);
+select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-000000000082', false);
+set role authenticated;
+select pool_scoreboard() as sb \gset
+select pg_temp.expect('every game the pool runs is on the scoreboard, each with every member',
+  (select count(*) from jsonb_array_elements(:'sb'::jsonb->'games')) = 7
+  and (select bool_and(jsonb_array_length(g->'rows') = (select count(*) from teams where league_id = :lib and role = 'gm')) from jsonb_array_elements(:'sb'::jsonb->'games') g)
+  and (select array_agg(g->>'key' order by g->>'key') from jsonb_array_elements(:'sb'::jsonb->'games') g)
+      = (select array_agg(k order by k) from unnest(array['questions', 'game:' || :sg, 'game:' || :rg, 'game:' || :qg, 'game:' || :qg2, 'survivor:' || :sv, 'predictor:' || :pr]) k));
+select pg_temp.expect('the main game comes first and is marked', (select g->>'key' = :'sb'::jsonb->>'crown' and (g->>'crown')::boolean from jsonb_array_elements(:'sb'::jsonb->'games') with ordinality x(g, i) where i = 1));
+select pg_temp.expect('a sports game ranks by its own table: Hana''s 11 tops Fern''s 6, and Fern sees her place',
+  (select (r->>'rank')::int = 1 and (r->>'score')::int = 11 from jsonb_array_elements(:'sb'::jsonb->'games') g, jsonb_array_elements(g->'rows') r where g->>'key' = 'game:' || :sg and (r->>'team_id')::int = :hana)
+  and (select (g->'mine'->>'rank')::int = 2 and (g->'mine'->>'behind')::int = 5 from jsonb_array_elements(:'sb'::jsonb->'games') g where g->>'key' = 'game:' || :sg));
+select pg_temp.expect('last one standing ranks its winner first, then whoever lasted longest', (select (r->>'team_id')::int = :fern and (r->>'alive')::boolean and r->>'line' = 'Won it'
+  from jsonb_array_elements(:'sb'::jsonb->'games') g, jsonb_array_elements(g->'rows') r where g->>'key' = 'survivor:' || :sv and (r->>'rank')::int = 1)
+  and (select (r->>'rank')::int = 2 and r->>'line' = 'Out in matchweek 31' from jsonb_array_elements(:'sb'::jsonb->'games') g, jsonb_array_elements(g->'rows') r where g->>'key' = 'survivor:' || :sv and (r->>'team_id')::int = :hana));
+select pg_temp.expect('a grid has no "still possible"', (select bool_and(r->'possible' = 'null'::jsonb) from jsonb_array_elements(:'sb'::jsonb->'games') g, jsonb_array_elements(g->'rows') r where g->>'key' = 'game:' || :qg));
+select pg_temp.raises('only the host names the main game', format('select pool_set_crown(%L)', 'game:' || :rg), 'Commissioner only');
+reset role;
+select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-000000000081', false);
+set role authenticated;
+select pg_temp.raises('and only one the pool runs', $$select pool_set_crown('game:999999')$$, 'doesn''t run that game');
+select pg_temp.expect('the host names it', pool_set_crown('game:' || :rg) = 'game:' || :rg);
+select pg_temp.expect('and it leads the scoreboard', pool_scoreboard()->'games'->0->>'key' = 'game:' || :rg);
+select pg_temp.expect('and can hand it back to the default', pool_set_crown(null) is not null);
+select pg_temp.expect('which clears the choice', (select crown from league_rules where league_id = :lib) is null);
+reset role;
+-- the hourly look: the first records where everyone stands and tells nobody. The pool job above has already looked
+-- (sections 145 and 154), and the squares' coins have moved everyone's net worth since by a random draw, so start this
+-- pool's standings afresh to make this the first look
+delete from pool_standing where league_id = :lib;
+select _pool_mark() as mark1 \gset
+select pg_temp.expect('the first look records every member in every game and alerts nobody', :mark1 = 0
+  and (select count(*) from pool_standing where league_id = :lib) = 7 * (select count(*) from teams where league_id = :lib and role = 'gm'));
+-- pretend the series game is still on, with Fern fifth and Hana second at the last look
+update pool_games set status = 'open' where id = :sg;
+update pool_standing set rank = 5, day_rank = 5 where league_id = :lib and game = 'game:' || :sg and team_id = :fern;
+update pool_standing set rank = 2, day_rank = 2 where league_id = :lib and game = 'game:' || :sg and team_id = :hana;
+select _pool_mark() as mark2 \gset
+select pg_temp.expect('climbing three places, or into first, is news', :mark2 = 2
+  and exists (select 1 from notifications where team_id = :fern and kind = 'pool_rank' and body = '📈 Up 3 places to 2nd in Pick the series.' and link = '/picks?g=' || :sg)
+  and exists (select 1 from notifications where team_id = :hana and kind = 'pool_rank' and body = '👑 You''re top of Pick the series.'));
+update pool_standing set rank = 5 where league_id = :lib and game = 'game:' || :sg and team_id = :fern;
+select pg_temp.expect('once a game a day', _pool_mark() = 0);
+select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-000000000082', false);
+set role authenticated;
+select pg_temp.expect('the arrows count from where the day began: Fern is up 3', (select (g->'mine'->>'move')::int = 3 from jsonb_array_elements(pool_scoreboard()->'games') g where g->>'key' = 'game:' || :sg));
+reset role;
+-- a new day starts the arrows again from the last look
+update pool_standing set day = day - 1 where league_id = :lib and game = 'game:' || :sg and team_id = :fern;
+select _pool_mark();
+select pg_temp.expect('a new day: yesterday''s last place is today''s start', (select day_rank = 2 and rank = 2 and day = today_et() from pool_standing where league_id = :lib and game = 'game:' || :sg and team_id = :fern));
+update pool_games set status = 'done' where id = :sg;
+-- another league sees none of it, and a fantasy league has no standings to keep
+select set_config('app.league_id', '', false);
+select pg_temp.as_team(2);
+set role authenticated;
+select pg_temp.expect('another league''s scoreboard has none of Pod Squad''s games', not exists (select 1 from jsonb_array_elements(pool_scoreboard()->'games') g where g->>'key' like 'game:%' or g->>'key' like 'survivor:%'));
+select pg_temp.raises('nor reads the standings', 'select count(*) from pool_standing', 'permission denied');
+reset role;
+select set_config('app.league_id', '1', false);
+select pg_temp.expect('a fantasy league keeps no standings', _pool_mark() = 0);
+select set_config('app.league_id', '', false);
+select set_config('request.jwt.claim.sub', '', false);
+select 'pool scoreboard', true;

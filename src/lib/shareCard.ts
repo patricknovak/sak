@@ -6,7 +6,7 @@ export interface CardBrand { wordmark: { a: string; b: string }; color: string; 
 export type ShareCard =
   | { kind: 'call'; brand: CardBrand; who: string; question: string; answer: string; answerColor: string; chance: number; pays: number; staked: number }
   | { kind: 'won'; brand: CardBrand; who: string; question: string; answer: string; answerColor: string; won: number; staked: number }
-  | { kind: 'leaders'; brand: CardBrand; title: string; rows: { name: string; worth: number; color: string; me?: boolean }[] };
+  | { kind: 'leaders'; brand: CardBrand; title: string; rows: { name: string; worth: number; color: string; me?: boolean; rank?: number; label?: string }[] };
 
 const W = 1080, H = 1350;
 const DISPLAY = "'Barlow Condensed', 'Inter', system-ui, sans-serif", SANS = "'Inter', system-ui, sans-serif";
@@ -57,12 +57,12 @@ export async function drawCard(c: ShareCard): Promise<Blob> {
       const y = 330 + i * 140;
       ctx.fillStyle = r.me ? `${col}2e` : '#ffffff0d';
       ctx.beginPath(); ctx.roundRect(60, y, W - 120, 118, 28); ctx.fill();
-      ctx.font = `900 64px ${DISPLAY}`; ctx.fillStyle = i === 0 ? col : '#ffffff99'; ctx.fillText(String(i + 1), 100, y + 82);
+      ctx.font = `900 64px ${DISPLAY}`; ctx.fillStyle = i === 0 ? col : '#ffffff99'; ctx.fillText(String(r.rank ?? i + 1), 100, y + 82);
       ctx.fillStyle = r.color; ctx.beginPath(); ctx.arc(205, y + 59, 26, 0, Math.PI * 2); ctx.fill();
       const name = fit(ctx, r.name, 470, 1, 50, 34, (px) => `700 ${px}px ${SANS}`);
       ctx.fillStyle = '#ffffff'; ctx.fillText(name.lines[0], 252, y + 76);
       ctx.font = `800 52px ${DISPLAY}`; ctx.fillStyle = i === 0 ? col : '#ffffffdd'; ctx.textAlign = 'right';
-      ctx.fillText(`${c.brand.coin.emoji} ${n(r.worth)}`, W - 100, y + 78); ctx.textAlign = 'left';
+      ctx.fillText(r.label ?? `${c.brand.coin.emoji} ${n(r.worth)}`, W - 100, y + 78); ctx.textAlign = 'left';
     });
   } else {
     eyebrow(c.kind === 'call' ? (c.who ? `${c.who}’s call` : 'My call') : (c.who ? `${c.who} called it` : 'Called it'), 270, c.kind === 'won' ? '#34d399' : col);
