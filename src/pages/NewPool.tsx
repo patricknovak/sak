@@ -206,6 +206,11 @@ export default function NewPool() {
                   })}
                 </div>
                 {!kinds.length && <p className="mt-2 text-xs text-amber-200">Pick at least one.</p>}
+                {kinds.includes('players') && (
+                  <p className="mt-2 rounded-xl bg-white/[.05] px-3 py-2 text-xs leading-snug text-white/70">
+                    The box pool runs four weeks from {event.open_label}: ten boxes of the league’s best, six players each, and everyone takes one from every box. A goal or an assist is a point, a goalie’s win two and a shutout one more. The host can make it a week, the rest of the season or five boxes before the first puck drop.
+                  </p>
+                )}
                 {kinds.includes('survivor') && (
                   <p className="mt-2 rounded-xl bg-white/[.05] px-3 py-2 text-xs leading-snug text-white/70">
                     Last one standing runs from {event.open_label} to {event.final_label}: one {event.club_word ?? 'club'} to win each {(event.word ?? 'round').toLowerCase()}, never the same one twice. {event.sport === 'soccer' ? 'A draw or a loss' : 'A loss'} and you’re out; whoever is still in at the end shares it.

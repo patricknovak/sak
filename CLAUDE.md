@@ -93,7 +93,8 @@ Two things in one repo:
   (`src/pages/RoundCentre.tsx`: NFL centre, Match centre); a pool's own result on a match (the host's, in
   `pool_result_overrides`, read through `_pool_fixture`) settles every game on it (migration 177); the bracket
   (migration 185) is a kind on `series`, its tree read from each round's order (`_bracket_tree`); the start page and the host's desk list events through
-  `pool_event_list()` (`pool_events()` stays for older copies of the site). Decided (3 October 2026): both move to **Cloudflare** (free for commercial
+  `pool_event_list()` (`pool_events()` stays for older copies of the site). The box pool (migration 188) is the first kind on nhl-sync's own `games` and
+  `player_games` (competition `nhl-2026`, format 'players'): one player a box, its boxes kept in the game's rules. Decided (3 October 2026): both move to **Cloudflare** (free for commercial
   use, DNS already on Cloudflare, wildcard subdomains for league by host); never plan new work on Vercel. Built as
   Workers serving static assets (`wrangler.jsonc`, `landing/wrangler.jsonc`; Pages can't take a wildcard), deployed by
   `.github/workflows/cloudflare.yml` (the secrets are set; SaK's address there is `sak.superpoolsai.com`). The

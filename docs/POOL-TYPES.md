@@ -151,7 +151,9 @@ squares cost coins and the pot pays the winners, so it stays a pool, not a marke
 one per club, a re-pick between rounds.
 **Data:** playoff rosters, player box scores, series state (to shade the eliminated).
 **Fits:** the start of a playoff. The Canadian NHL playoff pool is our home audience and nhl-sync already has the box
-scores, so the NHL's April 2027 playoffs are its first run.
+scores, so the NHL's April 2027 playoffs are its first run. *The box version runs on the regular season now (migration
+188): a week, four weeks or the rest of it, from the next night with games, the boxes dealt by expected points in the
+window; the playoffs' version adds the clubs going out.*
 **Good:** "players left" for each owner, projected points left, elimination shading, goal alerts.
 **Pitfall:** owners whose players go out early stop looking; a re-draft after round 1 or a second-half pool keeps them.
 

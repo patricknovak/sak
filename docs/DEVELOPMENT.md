@@ -223,14 +223,23 @@ they lock (`pool_picks`), results graded on read from the shared event tables, a
    'series'); `nfl-post-2026`, which soccer-sync fills through `espnPlayoffPayload` (each playoff game a best-of-1
    series, the AFC's before the NFC's, the Pro Bowl left out; tested on last season's playoffs), so the bracket runs from
    the Divisional round. The same change keeps the Pro Bowl out of the season's weeks. Still to come: March Madness,
-   whose bracket order wants ESPN's region and seed. The player pool is next after it.
+   whose bracket order wants ESPN's region and seed.
+   *The box pool built 8 October 2026 (migration 188):* the player pool without a draft night, on nhl-sync's own
+   `games` and `player_games` (a competition of a third format, 'players': `nhl-2026`). The best players are dealt into
+   boxes when the game starts, forwards, defence and goalies each ranked by the points they're expected to score in the
+   pool's nights (their projection per game, times their club's games in the window, times the share they play), the
+   hurt left out; Classic is ten boxes of six, Quick five of five; a week, four weeks or the rest of the season. One
+   player a box, locked at the first puck drop; goals and assists count, a goalie's win 2 and a shutout 1 more, live; the
+   hourly pool job names the winners the morning after the last night. The same change lets the host enter a bracket for
+   a member (refused since 185). Still to come for it: the playoffs' version (clubs going out shaded, on the NHL
+   playoffs' own event), a snake draft, a chance to win.
 
-*Where 8 October left it (migrations 172 to 187, PR #243):* items 1 to 3 and 5 built, item 6 built for pick'em, Pick
-the series and Rank the teams, item 7's bracket built on series, item 4 begun (last one standing starts through the
+*Where 8 October left it (migrations 172 to 188, PR #243):* items 1 to 3 and 5 built, item 6 built for pick'em, Pick
+the series and Rank the teams, item 7's bracket built on series and its box pool on the NHL season, item 4 begun (last one standing starts through the
 engine's door). Beside them: NFL
 centre and Match centre, the market's view on each match, results by hand for every game on fixtures, the rules
-written down, last calls and second reminders. Next, in order: the player pool (item 7), March Madness's bracket
-order, then the contraction (item 4).
+written down, last calls and second reminders. Next, in order: March Madness's bracket order, the box pool's
+chance to win and its playoffs version, then the contraction (item 4).
 
 Alongside: the World Series test (the LCS from 11 October, the World Series from 23 October) needs its games started
 in the World Series pool (league 5, the questions only so far), and the Love Is Blind test needs players.

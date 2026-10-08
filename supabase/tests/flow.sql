@@ -4906,3 +4906,87 @@ update competitions set active = false where id = 'nfl-po-test';
 select set_config('app.league_id', '', false);
 select set_config('request.jwt.claim.sub', '', false);
 select 'nfl playoffs', true;
+
+-- ───────────── the box pool (migration 188) ─────────────
+-- Two clubs that meet twice in a week forty days out (regular-season ids: a game's type is read from its id),
+-- fifteen forwards, five defence and five goalies between them.
+-- Quick is five boxes of five, the best forwards in box 1. Hana takes the first in every box, Fern the second, and the
+-- host enters Lou's team for him. The first night: Hana's top forward scores twice and sets one up, Fern's goalie wins.
+reset role;
+select set_config('request.jwt.claim.sub', '', false);
+select set_config('app.league_id', '', false);
+insert into players (id, name, pos, elig, last_fp, proj, status, nhl_team, proj_stats)
+select 990000 + i, 'Box ' || case when i <= 15 then 'Forward ' when i <= 20 then 'Defence ' else 'Goalie ' end || i,
+  case when i <= 15 then 'C' when i <= 20 then 'D' else 'G' end, array[case when i <= 15 then 'C' when i <= 20 then 'D' else 'G' end], 0, 0, 'active',
+  case when i % 2 = 0 then 'BXA' else 'BXB' end,
+  case when i <= 20 then jsonb_build_object('gp', 82, 'g', 60 - i * 2, 'a', 60 - i * 2) else jsonb_build_object('gp', 60, 'w', 60 - i, 'sho', 3) end
+from generate_series(1, 25) i on conflict (id) do nothing;
+insert into games (id, date, start_utc, home, away, state) values
+  (2099029101, today_et() + 40, (today_et() + 40)::timestamp + interval '23 hours', 'BXA', 'BXB', 'FUT'),
+  (2099029102, today_et() + 42, (today_et() + 42)::timestamp + interval '23 hours', 'BXB', 'BXA', 'FUT') on conflict do nothing;
+select set_config('app.league_id', :'lib', false);
+select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-000000000081', false);
+set role authenticated;
+select pg_temp.expect('the start page offers a box pool on the NHL season', exists (select 1 from jsonb_array_elements(pool_event_list()) e
+  where e->>'competition' = 'nhl-2026' and e->'kinds' = '["players"]'::jsonb));
+select pool_game_start('players', 'nhl-2026', jsonb_build_object('preset', 'quick', 'length', 'week', 'from', today_et() + 40)) as bxg \gset
+select pg_temp.expect('it is on: five boxes of five, the best forwards first, the goalies last',
+  (select title = 'The box pool' and jsonb_array_length(rules->'boxes') = 5 and rules->'boxes'->0->>'label' = 'Forwards 1'
+     and rules->'boxes'->0->'players' = '[990001, 990002, 990003, 990004, 990005]'::jsonb and rules->'boxes'->4->>'label' = 'Goalies'
+     -- a week, cut at the season's last night (here the second game)
+     and rules->>'to' = (today_et() + 42)::text from pool_games where id = :bxg)
+  and exists (select 1 from messages where league_id = :lib and body like '🏒 The box pool is open: take one player from each of 5 boxes%'));
+select pg_temp.raises('one from every box', format('select pool_game_pick(%s, %L, %L)', :bxg, 'box', '{"players": [990001]}'), 'every box');
+select pg_temp.raises('only from its own box', format('select pool_game_pick(%s, %L, %L)', :bxg, 'box', '{"players": [990006, 990001, 990011, 990016, 990021]}'), 'isn''t in Forwards 1');
+select pool_game_pick(:bxg, 'box', '{"players": [990001, 990006, 990011, 990016, 990021]}');
+reset role;
+select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-000000000082', false);
+set role authenticated;
+select pool_game_pick(:bxg, 'box', '{"players": [990002, 990007, 990012, 990017, 990022]}');
+select pg_temp.expect('the board shows the boxes and her own team, nobody else''s before the lock',
+  (select jsonb_array_length(b->'players'->'boxes') = 5 and b->'players'->'mine' = '[990002, 990007, 990012, 990017, 990022]'::jsonb
+     and b->'players'->'teams' = 'null'::jsonb and (b->'players'->'boxes'->0->'players'->0->>'games')::int = 2 from (select pool_game_board(:bxg) b) x));
+reset role;
+select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-000000000081', false);
+set role authenticated;
+select pg_temp.raises('the boxes stay once teams are in', format('select pool_game_set_rules(%s, %L)', :bxg, '{"scoring": {"g": 2}}'), 'the boxes stay');
+select pool_host_pick(:bxg, :lou, '{"thing": "box", "pick": {"players": [990003, 990008, 990013, 990018, 990023]}}');
+reset role;
+select set_config('request.jwt.claim.sub', '', false);
+-- the first night starts and is played
+update games set start_utc = now() - interval '3 hours', state = 'OFF' where id = 2099029101;
+insert into player_games (game_id, player_id, date, stats) values
+  (2099029101, 990001, today_et() + 40, '{"g": 2, "a": 1}'), (2099029101, 990002, today_et() + 40, '{"g": 0, "a": 1}'),
+  (2099029101, 990022, today_et() + 40, '{"w": 1, "sho": 0, "sv": 30}'), (2099029101, 990021, today_et() + 40, '{"w": 0, "l": 1}');
+select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-000000000081', false);
+set role authenticated;
+select pg_temp.raises('locked at the first puck drop', format('select pool_game_pick(%s, %L, %L)', :bxg, 'box', '{"players": [990002, 990006, 990011, 990016, 990021]}'), 'locked');
+select pg_temp.expect('once locked, everyone''s team shows, and who took whom', (select jsonb_array_length(b->'players'->'teams') = 3
+  and (b->'players'->'boxes'->0->'players'->0->>'taken')::int = 1 and (b->'players'->'boxes'->0->'players'->0->>'pts')::int = 3
+  from (select pool_game_board(:bxg) b) x));
+reset role;
+select pg_temp.expect('Hana 3 with two goals and an assist, Fern 3 from an assist and a win, Lou nothing yet',
+  (select points = 3 and right_calls = 2 and exact = 1 and picked = 1 from _pool_game_table(:bxg) where team_id = :hana)
+  and (select points = 3 from _pool_game_table(:bxg) where team_id = :fern)
+  and (select points = 0 and picked = 1 from _pool_game_table(:bxg) where team_id = :lou));
+select pg_temp.expect('the pool''s table reads it', (select line = '2 goals, 1 assist' from _pool_rows() where game = 'game:' || :bxg and team_id = :hana));
+select pg_temp.expect('not done while nights are left', _players_settle(:lib) = 0);
+-- the week is over: the nights move into the past and the second is played
+update games set date = date - 50, start_utc = start_utc - interval '50 days', state = 'OFF' where id in (2099029101, 2099029102);
+update player_games set date = date - 50 where game_id = 2099029101;
+insert into player_games (game_id, player_id, date, stats) values (2099029102, 990001, today_et() - 8, '{"g": 1, "a": 0}');
+update pool_games set rules = rules || jsonb_build_object('from', today_et() - 10, 'to', today_et() - 4) where id = :bxg;
+select _players_settle(:lib) as bxn \gset
+select pg_temp.expect('the morning after, Hana wins it', :bxn = 1
+  and (select status = 'done' and winners = array[:hana] from pool_games where id = :bxg)
+  and exists (select 1 from messages where league_id = :lib and body = '🏆 The box pool is done: Hana, with 4 points.'));
+select set_config('app.league_id', '', false);
+select pg_temp.as_team(2);
+set role authenticated;
+select pg_temp.raises('another league can''t read it', format('select pool_game_board(%s)', :bxg));
+reset role;
+delete from player_games where game_id in (2099029101, 2099029102);
+delete from games where id in (2099029101, 2099029102);
+update players set status = 'unrostered' where id between 990001 and 990025;
+select set_config('request.jwt.claim.sub', '', false);
+select 'box pool', true;
