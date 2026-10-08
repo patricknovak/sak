@@ -286,6 +286,59 @@ function RankGame({ board, reload, name, actAs }: { board: GameBoard; reload: ()
   );
 }
 
+// the rules, written down from the game's own settings (docs/POOL-TYPES.md §6): what scores, when picks lock, what a
+// late joiner plays, what happens to a game called off, how a tie is broken, and what the host may do. They can change
+// only until the first lock (migration 172), and everyone hears when they do.
+function GameRules({ board }: { board: GameBoard }) {
+  const [open, setOpen] = useState(false);
+  const pk = board.pickem, rk = board.rank;
+  const lines: string[] = [];
+  if (pk) {
+    lines.push(pk.confidence
+      ? `Pick every match${pk.draws ? ' (either side or a draw)' : ''} and give each a number from 1 to the size of the round, each number once a round. A right pick earns its number.`
+      : `Pick the winner of every match${pk.draws ? ', or a draw' : ''}. A right pick is worth a point.`);
+    lines.push(`It runs from ${pk.word} ${pk.from_round} to ${pk.word} ${pk.to_round}. Each pick locks at its own kick-off, and you can change it until then.`);
+    lines.push(pk.draws ? 'The result after ninety minutes and stoppage time counts: extra time and penalties don’t.' : 'A tie counts for nobody: no one picked it.');
+    lines.push('Join any time: you play every match still to kick off. A match called off counts for nobody.');
+    lines.push('The most points wins. A tie on points shares it.');
+  } else if (board.kind === 'series') {
+    const rs = board.rounds.filter((r) => r.round >= board.rules.from_round);
+    for (const r of rs) {
+      const p = board.rules.points?.[r.round] ?? 1, l = board.rules.length?.[r.round] ?? 0;
+      lines.push(board.rules.exact_only
+        ? `${r.label}: ${p} ${p === 1 ? 'point' : 'points'} only when the winner and the number of games are both right.`
+        : `${r.label}: ${p} ${p === 1 ? 'point' : 'points'} for the winner${l ? `, ${l} more when the number of games is right too` : ''}.`);
+    }
+    lines.push('Each series locks at the first pitch of its Game 1; a later round opens to picks once its matchup is set.');
+    lines.push('Join any time: you play every series still to start.');
+    if (board.tiebreak) lines.push(`A tie on points goes to whoever is closest on the total runs in the last game of the ${board.tiebreak.label}.`);
+  } else if (rk) {
+    lines.push(`Put the clubs in order once. At the first pitch of the ${rk.round_label} the ${rk.field || ''} clubs still in are ranked in your order: your top club pays ${rk.field || 'the most'} for every game it wins, your last pays 1.`.replace('the  clubs', 'the clubs'));
+    lines.push('Clubs out by the lock don’t count, and your order is final from then on.');
+    lines.push('The most points wins. A tie on points shares it.');
+  } else return null;
+  lines.push('Everyone’s picks stay hidden until they lock; the pool’s split shows after.');
+  lines.push(`The host can enter a pick for you if you ask (you’ll hear about it)${pk ? ', and settle a match the feed gets wrong, with the reason shown on the match' : ''}.`);
+  lines.push('Points only: nothing is bought, sold or paid.');
+  const frozen = board.status === 'done' || (pk ? pk.round > pk.from_round || pk.fixtures.some((f) => f.locked && f.picked > 0) : rk ? rk.locked : !!board.series?.some((s) => s.locked));
+  return (
+    <div className="card overflow-hidden">
+      <button type="button" onClick={() => setOpen(!open)} className="flex w-full items-center justify-between gap-3 px-4 py-3 text-left">
+        <span className="min-w-0">
+          <span className="block font-semibold text-white">The rules</span>
+          <span className="block text-[11px] text-mute">{frozen ? 'Set before the first lock and fixed since' : 'The host can change them until the first lock; you’ll hear if they do'}</span>
+        </span>
+        <ChevronDown className={`h-4 w-4 shrink-0 text-mute transition ${open ? 'rotate-180' : ''}`} />
+      </button>
+      {open && (
+        <ol className="space-y-2 border-t border-white/[.06] px-4 py-3 text-sm leading-snug text-slate-200">
+          {lines.map((l, i) => <li key={i} className="flex gap-2.5"><span className="num mt-px w-4 shrink-0 text-right text-xs font-black text-gold">{i + 1}</span><span className="min-w-0">{l}</span></li>)}
+        </ol>
+      )}
+    </div>
+  );
+}
+
 function GameTable({ board }: { board: GameBoard }) {
   const { teams } = useLeague();
   return (
@@ -407,6 +460,7 @@ export default function Picks() {
         : <div className="card p-4 text-sm text-mute">This kind of game is newer than this page. Pull down to refresh, or reopen the app.</div>}
       {me?.is_commish && board.status === 'open' && !actAs && <HostDesk board={board} reload={load} onActAs={setActAs} />}
       <GameTable board={board} />
+      <GameRules board={board} />
     </div>
   );
 }

@@ -6,6 +6,8 @@
 export interface Change { date: string; icon: string; title: string; body: string; to?: string; tag?: 'formats' | 'commish' | 'draft' | 'everyone' }
 
 export const CHANGELOG: Change[] = [
+  { date: '2026-10-08', icon: '📜', tag: 'everyone', title: 'The rules, written down', to: '/picks',
+    body: 'Every pick\'em, series and ranking game now has its rules at the foot of its page, written from its own settings: what scores, when picks lock, what happens to a game called off, how a tie is broken and what the host can do. They\'re fixed from the first lock.' },
   { date: '2026-10-08', icon: '🎲', tag: 'everyone', title: 'Your chance to win', to: '/leaders',
     body: 'A pick\'em\'s Table now shows everyone\'s chance of finishing first: the rest of the game played out a thousand times, each match drawn from how the pool picked it. It moves as the results come in.' },
   { date: '2026-10-08', icon: '📺', tag: 'everyone', title: 'NFL centre and Match centre', to: '/pools',
