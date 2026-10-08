@@ -31,6 +31,7 @@ const WAIT: Record<string, string> = {
   auto_lineup: 'Auto-pilot lineups (scored when the night is final)',
   h2h_win: 'Head-to-head win chances (scored when the week ends)',
   pool_split: 'Pools’ pick splits (scored at the final whistle)',
+  pool_win: 'Pool members’ chances to win (scored when the game ends)',
   pickup: 'Pickups the advisor suggested (scored when the stretch is over)',
 };
 const pct = (x: number) => `${Math.round(Number(x) * 100)}%`;

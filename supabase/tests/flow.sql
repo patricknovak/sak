@@ -4405,3 +4405,65 @@ select pg_temp.expect('a platform admin reads every pool''s crowd', (select sum(
 reset role;
 select set_config('request.jwt.claim.sub', '', false);
 select 'crowd', true;
+
+-- ───────────── chances to win (migration 175) ─────────────
+-- A one-round pick'em on the Odds Cup: Hana and Fern pick both matches, Lou picks neither; the first match goes Hana's
+-- and Fern's way, so Lou can only guess his way to a share of it.
+reset role;
+select set_config('request.jwt.claim.sub', '', false);
+select set_config('app.league_id', '', false);
+insert into competitions (id, sport, name, short, season, provider, ext_id, ext_season, active)
+values ('pk-odds', 'soccer', 'Odds Cup', 'OC', '2026', 'api-football', 'pko', '2026', true) on conflict (id) do nothing;
+select soccer_ingest('pk-odds', jsonb_build_object(
+  'clubs', jsonb_build_array(jsonb_build_object('ext_id', 'oc1', 'name', 'Oxford', 'short', 'OXF'), jsonb_build_object('ext_id', 'oc2', 'name', 'Reading', 'short', 'REA'),
+    jsonb_build_object('ext_id', 'oc3', 'name', 'Swindon', 'short', 'SWI'), jsonb_build_object('ext_id', 'oc4', 'name', 'Slough', 'short', 'SLO')),
+  'fixtures', jsonb_build_array(
+    jsonb_build_object('ext_id', 'od-1', 'gameweek', 1, 'kickoff', now() + interval '1 day', 'status', 'NS', 'home', 'oc1', 'away', 'oc2'),
+    jsonb_build_object('ext_id', 'od-2', 'gameweek', 1, 'kickoff', now() + interval '2 days', 'status', 'NS', 'home', 'oc3', 'away', 'oc4'))));
+select id as od1 from fixtures where ext_id = 'od-1' \gset
+select id as od2 from fixtures where ext_id = 'od-2' \gset
+select count(*) as members from teams where league_id = :lib and role = 'gm' \gset
+select set_config('app.league_id', :'lib', false);
+select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-000000000081', false);
+set role authenticated;
+select pool_game_start('pickem', 'pk-odds') as og \gset
+select pool_pickem_save(:og, 1, jsonb_build_array(jsonb_build_object('fixture', :od1, 'pick', 'H'), jsonb_build_object('fixture', :od2, 'pick', 'H')));
+reset role;
+select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-000000000082', false);
+set role authenticated;
+select pool_pickem_save(:og, 1, jsonb_build_array(jsonb_build_object('fixture', :od1, 'pick', 'H'), jsonb_build_object('fixture', :od2, 'pick', 'A')));
+select pool_game_chances(:og) as ch0 \gset
+select pg_temp.expect('before a ball is kicked every member has a chance, and they add up to one',
+  jsonb_array_length(:'ch0'::jsonb) = :members
+  and abs((select sum((e->>'chance')::numeric) from jsonb_array_elements(:'ch0'::jsonb) e) - 1) < 0.01
+  and (select bool_and((e->>'chance')::numeric > 0) from jsonb_array_elements(:'ch0'::jsonb) e where (e->>'team_id')::int in (:hana, :fern, :lou)));
+reset role;
+select pg_temp.expect('the first look logs each member''s chance, once a day', (select count(*) from predictions where kind = 'pool_win' and (subject->>'game')::bigint = :og and status = 'open') = :members);
+select soccer_ingest('pk-odds', jsonb_build_object('fixtures', jsonb_build_array(
+  jsonb_build_object('ext_id', 'od-1', 'gameweek', 1, 'kickoff', now() + interval '1 day', 'status', 'FT', 'home', 'oc1', 'away', 'oc2', 'home_score', 1, 'away_score', 0, 'home_ft', 1, 'away_ft', 0))));
+select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-000000000082', false);
+set role authenticated;
+select pool_game_chances(:og) as ch1 \gset
+select pg_temp.expect('a point up with one to play, Hana and Fern are far likelier than Lou, who can only guess his way to a share',
+  (select (e->>'chance')::numeric from jsonb_array_elements(:'ch1'::jsonb) e where (e->>'team_id')::int = :hana)
+    > (select (e->>'chance')::numeric + 0.2 from jsonb_array_elements(:'ch1'::jsonb) e where (e->>'team_id')::int = :lou)
+  and (select (e->>'chance')::numeric from jsonb_array_elements(:'ch1'::jsonb) e where (e->>'team_id')::int = :fern)
+    > (select (e->>'chance')::numeric + 0.2 from jsonb_array_elements(:'ch1'::jsonb) e where (e->>'team_id')::int = :lou));
+reset role;
+select pg_temp.expect('still one forecast a day each', (select count(*) from predictions where kind = 'pool_win' and (subject->>'game')::bigint = :og) = :members);
+select soccer_ingest('pk-odds', jsonb_build_object('fixtures', jsonb_build_array(
+  jsonb_build_object('ext_id', 'od-2', 'gameweek', 1, 'kickoff', now() + interval '2 days', 'status', 'FT', 'home', 'oc3', 'away', 'oc4', 'home_score', 0, 'away_score', 2, 'home_ft', 0, 'away_ft', 2))));
+select pg_temp.expect('Fern wins it, and the chances are scored: hers a hit, the rest misses', (select status = 'done' and winners = array[:fern] from pool_games where id = :og)
+  and (select outcome = 1 and status = 'scored' from predictions where kind = 'pool_win' and (subject->>'game')::bigint = :og and (subject->>'team_id')::int = :fern)
+  and (select bool_and(outcome = 0) from predictions where kind = 'pool_win' and (subject->>'game')::bigint = :og and (subject->>'team_id')::int <> :fern));
+select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-000000000086', false);
+set role authenticated;
+select pg_temp.expect('over, the chances are its winners', (select (e->>'chance')::numeric = 1 and (e->>'team_id')::int = :fern from jsonb_array_elements(pool_game_chances(:og)) e));
+reset role;
+select set_config('app.league_id', '', false);
+select pg_temp.as_team(2);
+set role authenticated;
+select pg_temp.raises('another league can''t read them', format('select pool_game_chances(%s)', :og));
+reset role;
+select set_config('request.jwt.claim.sub', '', false);
+select 'chances', true;

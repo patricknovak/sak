@@ -193,6 +193,11 @@ they lock (`pool_picks`), results graded on read from the shared event tables, a
    platform admin, on the Calibration page ("The crowd"). Series picks and the survivor are next on the same log.
 6. **What you need to win.** The outcomes left, played out exactly where they are few (a bracket, a series round) and
    by simulation where they are many (a pick'em, a player pool), shown on the Table for each member.
+   *Built for pick'em 8 October 2026 (migration 175):* `pool_game_chances` plays a pick'em out a thousand times from
+   here (each undecided match drawn from the pool's own smoothed split, an unpicked match a guess; a long season's
+   guesses drawn whole from their normal shape, about a third of a second for an NFL season), shown on the Table as
+   "Chance to win" and on every row. The first look each day logs each member's chance (`pool_win`), scored when the
+   game ends. Still to come: series rounds and brackets played out exactly, and "what you need" in words.
 7. **The bracket and the player pool**, for the NHL playoffs and March Madness (`docs/POOL-TYPES.md` §9).
 
 Alongside: the World Series test (the LCS from 11 October, the World Series from 23 October) needs its games started

@@ -1,8 +1,10 @@
 // The pool's Table (migration 169): every game the pool runs, one tap apart, each ranked the same way whatever its kind.
 // The main game leads; the arrows count from where the day began; a row that can no longer finish first says so.
+import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { ArrowDown, ArrowUp, ChevronRight } from 'lucide-react';
+import { ArrowDown, ArrowUp, ChevronRight, Dices } from 'lucide-react';
 import { useLeague } from '../lib/store';
+import { rpc } from '../lib/supabase';
 import { kindOf, outOfIt, type BoardGame, type BoardRow } from '../lib/poolScoreboard';
 import { Coins } from './Pool';
 import { Rank, TeamBadge } from './ui';
@@ -107,6 +109,60 @@ export function BoardRows({ g, extra }: { g: BoardGame; extra?: (r: BoardRow) =>
           </div>
         );
       })}
+    </div>
+  );
+}
+
+// each member's chance of finishing first (migration 175): a pick'em still open is played out a thousand times from
+// the pool's own picks; anything else has none to show yet
+export function useChances(g: BoardGame | undefined) {
+  const [chances, setChances] = useState<Map<number, number> | null>(null);
+  const id = g && g.kind === 'pickem' && g.status === 'open' && g.key.startsWith('game:') ? Number(g.key.slice(5)) : null;
+  useEffect(() => {
+    setChances(null);
+    if (!id) return;
+    let live = true;
+    rpc<{ team_id: number; chance: number }[]>('pool_game_chances', { p_game: id })
+      .then((r) => { if (live) setChances(new Map((r ?? []).map((x) => [x.team_id, Number(x.chance)]))); }, () => {});
+    return () => { live = false; };
+  }, [id]);
+  return chances;
+}
+
+const pctOf = (x: number) => (x > 0 && x < 0.01 ? '<1%' : x > 0.99 && x < 1 ? '>99%' : `${Math.round(x * 100)}%`);
+
+// the caller's chance beside the favourite's, and every member's as one bar
+export function ChanceCard({ g, chances }: { g: BoardGame; chances: Map<number, number> }) {
+  const { teams, me } = useLeague();
+  const rows = [...chances.entries()].sort((a, b) => b[1] - a[1]);
+  const mine = me ? chances.get(me.id) : undefined;
+  const [favId, fav] = rows[0] ?? [0, 0];
+  const name = (id: number) => { const t = teams.find((x) => x.id === id); return t?.gm_name ?? t?.name ?? ''; };
+  const shown = rows.filter(([, c]) => c >= 0.005);
+  return (
+    <div className="card p-4">
+      <div className="flex items-start gap-3">
+        <span className="grid h-10 w-10 shrink-0 place-items-center rounded-2xl bg-gold/15"><Dices className="h-5 w-5 text-gold" /></span>
+        <div className="min-w-0 flex-1">
+          <div className="label">Chance to win</div>
+          <div className="flex flex-wrap items-baseline gap-x-2">
+            {mine != null ? <span className="font-display text-3xl font-extrabold text-white">{pctOf(mine)}</span> : null}
+            <span className="text-sm text-mute">{mine != null ? (favId === me?.id ? 'you’re the favourite' : `${name(favId)} is the favourite at ${pctOf(fav)}`) : `${name(favId)} leads the odds at ${pctOf(fav)}`}</span>
+          </div>
+        </div>
+      </div>
+      {/* every member's share of the thousand runs, the favourite first; each part names its member on hover and below */}
+      <div className="mt-3 flex h-2.5 overflow-hidden rounded-full bg-white/[.06]">
+        {shown.map(([id, c], i) => {
+          const t = teams.find((x) => x.id === id);
+          return <span key={id} title={`${name(id)} ${pctOf(c)}`} className={i ? 'ml-0.5' : ''} style={{ width: `${c * 100}%`, background: id === me?.id ? 'rgb(var(--gold-rgb))' : t?.color ?? 'rgb(148 163 184)', opacity: id === me?.id ? 1 : 0.7 }} />;
+        })}
+      </div>
+      <div className="mt-2 flex flex-wrap gap-x-3 gap-y-1 text-[11px] text-mute">
+        {shown.slice(0, 4).map(([id, c]) => <span key={id} className={id === me?.id ? 'font-semibold text-gold' : ''}>{name(id)} {pctOf(c)}</span>)}
+        {shown.length > 4 && <span>+{shown.length - 4} more</span>}
+      </div>
+      <p className="mt-2 text-[11px] leading-snug text-mute">The {g.title.replace(/^The /, '')} played out a thousand times from here: each match drawn from how the pool picked it, a match you haven’t picked as a guess.</p>
     </div>
   );
 }

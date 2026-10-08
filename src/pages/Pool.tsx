@@ -22,7 +22,7 @@ import { Share2, UserPlus } from 'lucide-react';
 import { InvitePeople } from '../components/InvitePeople';
 import { HostGames, PoolGameCards, usePoolGames } from './Picks';
 import { kindOf, usePoolScoreboard } from '../lib/poolScoreboard';
-import { BoardRows, GameChips, Move, MyPlace } from '../components/PoolTable';
+import { BoardRows, ChanceCard, GameChips, Move, MyPlace, useChances } from '../components/PoolTable';
 
 function useLeaders() {
   const [rows, setRows] = useState<PoolLeader[] | null>(null);
@@ -420,6 +420,7 @@ export function PoolLeaders() {
   const best = useMemo(() => bestCall(markets ?? [], positions), [markets, positions]);
   const games = board?.games ?? [];
   const g = games.find((x) => x.key === params.get('g')) ?? games[0];
+  const chances = useChances(g);
   const shareBoard = () => g && shareCard({ kind: 'leaders', brand: cardBrand, title: g.title,
     rows: g.rows.slice(0, 6).map((r) => { const t = teams.find((x) => x.id === r.team_id); const k = kindOf(g.kind);
       return { name: t?.gm_name ?? t?.name ?? '', worth: r.score, rank: r.rank, label: k.coins ? undefined : `${Number.isInteger(r.score) ? r.score : r.score.toFixed(1)} ${k.unit(r.score)}`, color: t?.color ?? cardBrand.color, me: r.team_id === me?.id }; }) },
@@ -433,6 +434,7 @@ export function PoolLeaders() {
         <>
           <GameChips games={games} sel={g.key} onPick={(key) => setParams({ g: key }, { replace: true })} />
           <MyPlace g={g} solo={games.length < 2} />
+          {chances && chances.size > 0 && <ChanceCard g={g} chances={chances} />}
           {g.kind === 'questions' && best && (() => {
             const t = teams.find((x) => x.id === best.team_id);
             return (
@@ -442,7 +444,8 @@ export function PoolLeaders() {
               </div>
             );
           })()}
-          <BoardRows g={g} extra={g.kind === 'questions' ? (r) => { const l = leaders?.find((x) => x.team_id === r.team_id); return l ? <> · <Coins n={l.coins} /> in hand</> : null; } : undefined} />
+          <BoardRows g={g} extra={g.kind === 'questions' ? (r) => { const l = leaders?.find((x) => x.team_id === r.team_id); return l ? <> · <Coins n={l.coins} /> in hand</> : null; }
+            : chances ? (r) => { const c = chances.get(r.team_id); return c != null ? <> · <span className={c >= 0.25 ? 'text-emerald-300' : ''}>{c > 0 && c < 0.01 ? '<1%' : `${Math.round(c * 100)}%`} to win</span></> : null; } : undefined} />
           <ShareButton className="btn-gold w-full py-3" label="Share the table" make={async () => shareBoard()} />
         </>
       )}
