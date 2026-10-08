@@ -4169,3 +4169,11 @@ select pg_temp.raises('nor pick in it', format('select pool_pickem_save(%s, 1, %
 reset role;
 select set_config('request.jwt.claim.sub', '', false);
 select 'pick''em', true;
+
+-- ───────────── the NFL on ESPN (migration 171) ─────────────
+-- the sport and its season are in, with no draws and its rounds called Weeks; a pick'em on it reads the same way
+select pg_temp.expect('the NFL has its row and its season on ESPN', (select not (config->>'draws')::boolean and config->'words'->>'round' = 'Week'
+     and _sport_state('nfl', 'FT') = 'final' and _sport_state('nfl', 'NS') = 'scheduled' and _sport_state('nfl', 'PST') = 'postponed' from sports where id = 'nfl')
+  and (select provider = 'espn' and ext_id = 'football/nfl' and active from competitions where id = 'nfl')
+  and _round_word('nfl') = 'Week');
+select 'nfl', true;

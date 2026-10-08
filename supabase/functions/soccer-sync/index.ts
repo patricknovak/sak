@@ -5,9 +5,10 @@
 // key its competitions are skipped. ESPN's public scoreboard (provider 'espn', ext_id the league's slug, 'eng.1') is free
 // and keyless, for testing (Patrick, 6 October 2026), until a licensed feed replaces it. Both tasks need the platform
 // key (x-admin-key), as the scheduler sends it. Every request is metered at no price, per provider, so the dashboard
-// shows how much each is used.
+// shows how much each is used. ESPN serves other sports the same way: the NFL (migration 171) comes in by week, regular
+// season and playoffs, through the same ingest and the same live task, so pick'em has its weeks.
 import { createClient } from 'jsr:@supabase/supabase-js@2';
-import { afClub, afFixture, API_FOOTBALL, assignRounds, espnClub, espnFixture, espnNinety, ESPN_SOCCER, type NeutralFixture } from '../_shared/soccer.ts';
+import { afClub, afFixture, API_FOOTBALL, assignRounds, espnClub, espnFixture, espnNinety, espnPath, ESPN, type NeutralFixture } from '../_shared/soccer.ts';
 
 const db = createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!, {
   auth: { persistSession: false },
@@ -32,12 +33,12 @@ async function af(path: string): Promise<any[]> {
   return j.response ?? [];
 }
 
-interface Competition { id: string; ext_id: string; ext_season: string; season: string; provider: string }
+interface Competition { id: string; sport: string; ext_id: string; ext_season: string; season: string; provider: string }
 
 // deno-lint-ignore no-explicit-any
 async function espn(path: string): Promise<any> {
-  // ESPN turns away Deno's own user agent (403)
-  const r = await fetch(`${ESPN_SOCCER}${path}`, { headers: { 'user-agent': 'SuperPools/1.0', accept: 'application/json' } });
+  // ESPN turns away Deno's own user agent (403); the path starts with the sport ('/soccer/eng.1/...', '/football/nfl/...')
+  const r = await fetch(`${ESPN}${path}`, { headers: { 'user-agent': 'SuperPools/1.0', accept: 'application/json' } });
   espnCalls++;
   if (!r.ok) throw new Error(`espn ${path}: ${r.status}`);
   return r.json();
@@ -49,25 +50,56 @@ async function espnFixtures(slug: string, events: any[]): Promise<NeutralFixture
   const out: NeutralFixture[] = [];
   for (const e of events) {
     const st = e.status?.type?.name;
-    const ninety = st === 'STATUS_FINAL_AET' || st === 'STATUS_FINAL_PEN' ? espnNinety(await espn(`/${slug}/summary?event=${e.id}`).catch(() => null)) : null;
+    const ninety = st === 'STATUS_FINAL_AET' || st === 'STATUS_FINAL_PEN' ? espnNinety(await espn(`/soccer/${slug}/summary?event=${e.id}`).catch(() => null)) : null;
     out.push(espnFixture(e, ninety));
   }
   return out;
+}
+
+// a sport that plays in weeks (the NFL): the regular season week by week, then the playoffs as the weeks after it, each
+// game keeping ESPN's name for its round ('Wild Card'); its clubs from /teams
+async function espnWeeks(c: Competition) {
+  const base = `/${espnPath(c.sport, c.ext_id)}`;
+  const teams = (await espn(`${base}/teams`))?.sports?.[0]?.leagues?.[0]?.teams ?? [];
+  const clubs = teams.map((t: { team: unknown }) => espnClub(t.team));
+  const first = await espn(`${base}/scoreboard?seasontype=2&week=1`);
+  // deno-lint-ignore no-explicit-any
+  const cal: any[] = first?.leagues?.[0]?.calendar ?? [];
+  // deno-lint-ignore no-explicit-any
+  const regular: any[] = cal.find((x) => String(x.value) === '2')?.entries ?? [];
+  // deno-lint-ignore no-explicit-any
+  const playoffs: any[] = cal.find((x) => String(x.value) === '3')?.entries ?? [];
+  const weeks = [
+    ...regular.map((w, i) => ({ type: 2, value: String(w.value ?? i + 1), week: Number(w.value ?? i + 1), label: `Week ${w.value ?? i + 1}` })),
+    ...playoffs.map((w, i) => ({ type: 3, value: String(w.value ?? i + 1), week: regular.length + i + 1, label: String(w.label ?? `Playoffs ${i + 1}`) })),
+  ];
+  const fx: NeutralFixture[] = [];
+  for (const w of weeks) {
+    const page = w.type === 2 && w.value === '1' ? first : await espn(`${base}/scoreboard?seasontype=${w.type}&week=${w.value}`);
+    for (const e of page?.events ?? []) {
+      // the playoff slots are filed before their teams are known; they come in once ESPN names both
+      const c0 = e.competitions?.[0]?.competitors ?? [];
+      if (c0.length < 2 || c0.some((x: { team?: { id?: unknown; abbreviation?: string } }) => !x.team?.id || Number(x.team.id) <= 0 || x.team.abbreviation === 'TBD')) continue;
+      fx.push({ ...espnFixture(e, null, { week: w.week, label: w.label, clock: false }), season: c.season } as NeutralFixture);
+    }
+  }
+  return check(await db.rpc('soccer_ingest', { p_competition: c.id, p: { clubs, fixtures: fx } }));
 }
 
 const month = (d: Date) => `${d.getUTCFullYear()}${String(d.getUTCMonth() + 1).padStart(2, '0')}`;
 
 // an ESPN competition's clubs and its whole season, a month at a time; new matches take their round
 async function espnSeason(c: Competition) {
-  const teams = (await espn(`/${c.ext_id}/teams`))?.sports?.[0]?.leagues?.[0]?.teams ?? [];
+  if (c.sport !== 'soccer') return espnWeeks(c);
+  const teams = (await espn(`/soccer/${c.ext_id}/teams`))?.sports?.[0]?.leagues?.[0]?.teams ?? [];
   const clubs = teams.map((t: { team: unknown }) => espnClub(t.team));
-  const first = await espn(`/${c.ext_id}/scoreboard?dates=${month(new Date())}`);
+  const first = await espn(`/soccer/${c.ext_id}/scoreboard?dates=${month(new Date())}`);
   const season = first?.leagues?.[0]?.season ?? {};
   const from = new Date(season.startDate ?? Date.now()), to = new Date(season.endDate ?? Date.now());
   // deno-lint-ignore no-explicit-any
   const events = new Map<string, any>();
   for (let d = new Date(Date.UTC(from.getUTCFullYear(), from.getUTCMonth(), 1)); d <= to; d = new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth() + 1, 1))) {
-    const page = month(d) === month(new Date()) ? first : await espn(`/${c.ext_id}/scoreboard?dates=${month(d)}`);
+    const page = month(d) === month(new Date()) ? first : await espn(`/soccer/${c.ext_id}/scoreboard?dates=${month(d)}`);
     for (const e of page?.events ?? []) events.set(String(e.id), e);
   }
   const fx = (await espnFixtures(c.ext_id, [...events.values()])).map((f) => ({ ...f, season: c.season }));
@@ -79,7 +111,7 @@ async function espnSeason(c: Competition) {
 }
 
 async function fixtures() {
-  const comps = check(await db.from('competitions').select('id,ext_id,ext_season,season,provider').eq('active', true).in('provider', ['api-football', 'espn'])) as Competition[];
+  const comps = check(await db.from('competitions').select('id,sport,ext_id,ext_season,season,provider').eq('active', true).in('provider', ['api-football', 'espn'])) as Competition[];
   const out: Record<string, unknown> = {};
   for (const c of comps) {
     try {
@@ -109,21 +141,24 @@ async function live() {
     .in('provider', ['api-football', 'espn']).in('state', ['scheduled', 'live'])
     .gte('kickoff', new Date(now - 4 * 3600e3).toISOString()).lte('kickoff', new Date(now + 5 * 60e3).toISOString())) as
     { ext_id: string; competition: string; provider: string; kickoff: string }[];
-  const slugs = new Map((check(await db.from('competitions').select('id,ext_id').eq('provider', 'espn')) as { id: string; ext_id: string }[]).map((c) => [c.id, c.ext_id]));
+  const comps = new Map((check(await db.from('competitions').select('id,sport,ext_id').eq('provider', 'espn')) as { id: string; sport: string; ext_id: string }[]).map((c) => [c.id, c]));
   const byComp = new Map<string, typeof due>();
   for (const f of due) byComp.set(f.competition, [...(byComp.get(f.competition) ?? []), f]);
   const out: Record<string, unknown> = {};
   for (const [comp, list] of byComp) {
     try {
       if (list[0].provider === 'espn') {
-        const slug = slugs.get(comp)!;
+        const c = comps.get(comp)!;
         const want = new Set(list.map((f) => f.ext_id));
         // deno-lint-ignore no-explicit-any
         const events = new Map<string, any>();
         for (const day of new Set(list.flatMap((f) => espnDays(f.kickoff)))) {
-          for (const e of (await espn(`/${slug}/scoreboard?dates=${day}`))?.events ?? []) if (want.has(String(e.id))) events.set(String(e.id), e);
+          for (const e of (await espn(`/${espnPath(c.sport, c.ext_id)}/scoreboard?dates=${day}`))?.events ?? []) if (want.has(String(e.id))) events.set(String(e.id), e);
         }
-        out[comp] = check(await db.rpc('soccer_ingest', { p_competition: comp, p: { fixtures: await espnFixtures(slug, [...events.values()]) } }));
+        // a game's week was set by the season pull; a live update keeps it (the ingest keeps a round it isn't sent)
+        const fx = c.sport === 'soccer' ? await espnFixtures(c.ext_id, [...events.values()])
+          : [...events.values()].map((e) => espnFixture(e, null, { week: null, label: null, clock: false }));
+        out[comp] = check(await db.rpc('soccer_ingest', { p_competition: comp, p: { fixtures: fx } }));
         continue;
       }
       if (!KEY) continue;

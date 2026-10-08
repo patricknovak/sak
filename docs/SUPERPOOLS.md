@@ -229,7 +229,8 @@ give the pool a home for following the sport):**
   bracket and the player pool for the spring. *Weekly pick'em built 8 October 2026 (migration 170): every match of a
   round, the winner or a draw, each pick locking at its own kick-off; Classic (a point a right pick) or Confidence (each
   round's picks numbered, a right one earns its number); on any competition whose matches come in rounds, so the
-  Premier League and MLS have it now and the NFL the day its feed lands.*
+  Premier League and MLS have it now and the NFL the day its feed lands.* *The NFL on ESPN built 8 October 2026 (migration
+  171): its 2026 season, every week through the Super Bowl, fed by soccer-sync, so a pool can run an NFL pick'em from Week 5.*
 
 Then the list below, which is the fantasy-league plan of record.
 
