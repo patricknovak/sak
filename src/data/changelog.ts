@@ -7,7 +7,7 @@ export interface Change { date: string; icon: string; title: string; body: strin
 
 export const CHANGELOG: Change[] = [
   { date: '2026-10-08', icon: '🏒', tag: 'everyone', title: 'The box pool', to: '/pools',
-    body: 'The hockey pool, with no draft night: the NHL\'s best players are dealt into evenly matched boxes, and everyone takes one player from each. Goals and assists count, a goalie\'s win and shutout too, live every night for a week, four weeks or the rest of the season, with an alert when one of yours scores. Once it locks, every player shows his points and how many took him, and everyone\'s team shows.' },
+    body: 'The hockey pool, with no draft night: the NHL\'s best players are dealt into evenly matched boxes, and everyone takes one player from each. Goals and assists count, a goalie\'s win and shutout too, live every night for a week, four weeks or the rest of the season, with an alert when one of yours scores and a line in the chat each morning on who had the night. Once it locks, every player shows his points and how many took him, and everyone\'s team shows.' },
   { date: '2026-10-08', icon: '🏆', tag: 'everyone', title: 'The bracket', to: '/pools',
     body: 'A new pool game for any playoff played in series: pick the winner of every series through to the final before the first game, with later rounds worth more. Change an early pick and the page clears what it broke; once it locks, every pick shows right or wrong and everyone\'s champion shows.' },
   { date: '2026-10-08', icon: '📈', tag: 'everyone', title: 'What the market expects', to: '/pools',

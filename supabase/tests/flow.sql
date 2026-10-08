@@ -5000,6 +5000,11 @@ update games set date = date - 50, start_utc = start_utc - interval '50 days', s
 update player_games set date = date - 50 where game_id = 2099029101;
 insert into player_games (game_id, player_id, date, stats) values (2099029102, 990001, today_et() - 8, '{"g": 1, "a": 0}');
 update pool_games set rules = rules || jsonb_build_object('from', today_et() - 10, 'to', today_et() - 4) where id = :bxg;
+-- the morning line (migration 194): the second night was Hana's alone, once
+select pg_temp.expect('the pool hears who had the night and who leads', _players_recap(:lib, today_et() - 8) = 1);
+select pg_temp.expect('in so many words, once', exists (select 1 from messages where league_id = :lib
+    and body = '🏒 Last night in the box pool: Hana had the night, +1 (Box Forward 1: 1 G). Hana leads with 4.')
+  and _players_recap(:lib, today_et() - 8) = 0);
 select _players_settle(:lib) as bxn \gset
 select pg_temp.expect('the morning after, Hana wins it', :bxn = 1
   and (select status = 'done' and winners = array[:hana] from pool_games where id = :bxg)
