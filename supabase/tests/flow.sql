@@ -5023,6 +5023,8 @@ select _players_settle(:lib) as bxn \gset
 select pg_temp.expect('the morning after, Hana wins it', :bxn = 1
   and (select status = 'done' and winners = array[:hana] from pool_games where id = :bxg)
   and exists (select 1 from messages where league_id = :lib and body = '🏆 The box pool is done: Hana, with 4 points.'));
+select pg_temp.expect('the host hears it, with the next one to deal (migration 198)', exists (select 1 from notifications where team_id = :hana and link = '/host'
+  and body = '🏒 The box pool is done. Deal the next one from the Host page: fresh boxes, and everyone starts level.'));
 select pg_temp.expect('and each forecast is scored on the points made', (select status = 'scored' and outcome = 4 and error = 4 - predicted
   from predictions where kind = 'box_points' and (subject->>'game')::bigint = :bxg and (subject->>'team_id')::int = :hana));
 select set_config('app.league_id', '', false);
