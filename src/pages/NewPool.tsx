@@ -146,7 +146,7 @@ export default function NewPool() {
         <div className="mb-6 text-center">
           <div className="mx-auto mb-3 inline-block drop-shadow-[0_10px_30px_rgb(var(--gold-rgb)/.35)]"><ProductMark size={56} /></div>
           <h1 className="h-display text-shine text-4xl leading-none">Start a pool</h1>
-          <p className="mt-2 text-sm text-slate-300">Pick'em, series picks, rankings and questions for anything your group follows. Free, and never money.</p>
+          <p className="mt-2 text-sm text-slate-300">Pick'em, series picks, hockey pools, rankings and questions for anything your group follows. Free, and never money.</p>
         </div>
 
         <form onSubmit={start} className="card-hero p-5">
@@ -161,7 +161,7 @@ export default function NewPool() {
                       <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl text-xl" style={{ background: `rgb(${rgb(color)} / .18)` }}>{SPORT_EMOJI[e.sport] ?? '🏆'}</span>
                       <span className="min-w-0 flex-1">
                         <span className="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-balance font-semibold text-white">{e.name}<span className="rounded-full bg-red-500/15 px-1.5 py-px text-[10px] font-bold uppercase tracking-wider text-red-200 ring-1 ring-red-400/30">Live now</span></span>
-                        <span className="block text-xs text-white/60">{e.stage ?? 'Under way'} · picks from {e.word ? e.open_label : `the ${e.open_label}`}, {lockText(e.next_lock)}</span>
+                        <span className="block text-xs text-white/60">{e.stage ?? 'Under way'} · {e.kinds.includes('players') ? `from the next puck drop, ${lockText(e.next_lock)}` : `picks from ${e.word ? e.open_label : `the ${e.open_label}`}, ${lockText(e.next_lock)}`}</span>
                       </span>
                       {on && <Check size={18} className="shrink-0 text-emerald-300" />}
                     </button>
