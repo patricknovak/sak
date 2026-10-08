@@ -172,7 +172,8 @@ they lock (`pool_picks`), results graded on read from the shared event tables, a
    rounds, in the sport's words (weeks and teams, a tie is out), to a last round (the competition's last known one, so
    an NFL survivor started now runs the regular season; whoever is still in then shares it). The start page and the
    host's Add a game offer it beside pick'em (`pool_event_list` kinds; `pool_game_start('survivor', ...)`), and the host
-   can enter a member's pick (`survivor_host_pick`).
+   can enter a member's pick (`survivor_host_pick`). Its reminders speak the sport too, with a last call before a
+   round's final kick-off for anyone still without a pick, since the NFL's week opens on a Thursday (migration 179).
 3. **The host's desk for every game.** Settle what the feed missed, pool by pool (an override on a result, never a
    change to the shared tables, with the reason on the record); enter a pick for a member who asked; change a rule
    until the first lock and freeze it after. Every pool type can then run with no feed at all.

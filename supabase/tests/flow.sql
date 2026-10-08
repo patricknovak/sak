@@ -4648,3 +4648,21 @@ reset role;
 select set_config('app.league_id', '', false);
 select set_config('request.jwt.claim.sub', '', false);
 select 'market', true;
+
+-- ───────────── reminders in the sport's words, and a last call (migration 179) ─────────────
+-- An NFL survivor: Thursday's game has kicked off, Sunday's is five hours out; Lou hasn't picked.
+reset role;
+select set_config('request.jwt.claim.sub', '', false);
+select set_config('app.league_id', '', false);
+select soccer_ingest('nfl', jsonb_build_object('fixtures', jsonb_build_array(
+  jsonb_build_object('ext_id', 'nfl-101', 'gameweek', 10, 'kickoff', now() - interval '2 days', 'status', 'FT', 'home', 'nf1', 'away', 'nf2', 'home_score', 20, 'away_score', 17, 'home_ft', 20, 'away_ft', 17),
+  jsonb_build_object('ext_id', 'nfl-102', 'gameweek', 10, 'kickoff', now() + interval '5 hours', 'status', 'NS', 'home', 'nf3', 'away', 'nf4'))));
+select set_config('app.league_id', :'lib', false);
+insert into survivors (league_id, competition, start_gw, end_gw, created_by) values (:lib, 'nfl', 10, 10, :hana) returning id as lsv \gset
+select _soccer_nudge(:lib) as ln \gset
+select pg_temp.expect('a round under way still gets a last call before its final kick-off, in the sport''s words',
+  exists (select 1 from notifications where team_id = :lou and kind = 'survivor' and body = '⏰ Last call for week 10: its last game kicks off in 5h. Pick your team or you''re out.'));
+select pg_temp.expect('and only once', _soccer_nudge(:lib) = 0);
+update survivors set status = 'done' where id = :lsv;
+select set_config('app.league_id', '', false);
+select 'last call', true;
