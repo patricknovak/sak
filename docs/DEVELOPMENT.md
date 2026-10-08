@@ -232,14 +232,16 @@ they lock (`pool_picks`), results graded on read from the shared event tables, a
    player a box, locked at the first puck drop; goals and assists count, a goalie's win 2 and a shutout 1 more, live; the
    hourly pool job names the winners the morning after the last night. The same change lets the host enter a bracket for
    a member (refused since 185). Still to come for it: the playoffs' version (clubs going out shaded, on the NHL
-   playoffs' own event), a snake draft, a chance to win.
+   playoffs' own event), a snake draft. *Its chance to win, the same day (migration 189):* once teams lock, the rest of
+   the window played out a thousand times, each player's points in his club's games still to come drawn around his
+   projection (a Poisson count as a rounded normal), the same draw for every member who took him.
 
-*Where 8 October left it (migrations 172 to 188, PR #243):* items 1 to 3 and 5 built, item 6 built for pick'em, Pick
+*Where 8 October left it (migrations 172 to 189, PR #243):* items 1 to 3 and 5 built, item 6 built for pick'em, Pick
 the series and Rank the teams, item 7's bracket built on series and its box pool on the NHL season, item 4 begun (last one standing starts through the
 engine's door). Beside them: NFL
 centre and Match centre, the market's view on each match, results by hand for every game on fixtures, the rules
 written down, last calls and second reminders. Next, in order: March Madness's bracket order, the box pool's
-chance to win and its playoffs version, then the contraction (item 4).
+playoffs version, then the contraction (item 4).
 
 Alongside: the World Series test (the LCS from 11 October, the World Series from 23 October) needs its games started
 in the World Series pool (league 5, the questions only so far), and the Love Is Blind test needs players.

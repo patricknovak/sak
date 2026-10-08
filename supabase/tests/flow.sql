@@ -4970,6 +4970,15 @@ select pg_temp.expect('Hana 3 with two goals and an assist, Fern 3 from an assis
   and (select points = 3 from _pool_game_table(:bxg) where team_id = :fern)
   and (select points = 0 and picked = 1 from _pool_game_table(:bxg) where team_id = :lou));
 select pg_temp.expect('the pool''s table reads it', (select line = '2 goals, 1 assist' from _pool_rows() where game = 'game:' || :bxg and team_id = :hana));
+-- the chance to win (migration 189): one night left, Hana three up with the better players
+select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-000000000081', false);
+set role authenticated;
+select pool_game_chances(:bxg) as bxch \gset
+reset role;
+select pg_temp.expect('Hana is the favourite over Lou, and the chances add up to one',
+  (select (e->>'chance')::numeric from jsonb_array_elements(:'bxch'::jsonb) e where (e->>'team_id')::int = :hana)
+    > (select (e->>'chance')::numeric from jsonb_array_elements(:'bxch'::jsonb) e where (e->>'team_id')::int = :lou)
+  and abs((select sum((e->>'chance')::numeric) from jsonb_array_elements(:'bxch'::jsonb) e) - 1) < 0.01);
 select pg_temp.expect('not done while nights are left', _players_settle(:lib) = 0);
 -- the week is over: the nights move into the past and the second is played
 update games set date = date - 50, start_utc = start_utc - interval '50 days', state = 'OFF' where id in (2099029101, 2099029102);

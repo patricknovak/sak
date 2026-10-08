@@ -113,11 +113,11 @@ export function BoardRows({ g, extra }: { g: BoardGame; extra?: (r: BoardRow) =>
   );
 }
 
-// each member's chance of finishing first (migrations 175, 176 and 182): a pick'em, Pick the series or a locked Rank the
-// teams still open is played out a thousand times; anything else has none to show yet
+// each member's chance of finishing first (migrations 175, 176, 182, 186 and 189): a pick'em, Pick the series, or a
+// locked Rank the teams, bracket or box pool still open is played out a thousand times; anything else has none yet
 export function useChances(g: BoardGame | undefined) {
   const [chances, setChances] = useState<Map<number, number> | null>(null);
-  const id = g && (g.kind === 'pickem' || g.kind === 'series' || g.kind === 'rank' || g.kind === 'bracket') && g.status === 'open' && g.key.startsWith('game:') ? Number(g.key.slice(5)) : null;
+  const id = g && (g.kind === 'pickem' || g.kind === 'series' || g.kind === 'rank' || g.kind === 'bracket' || g.kind === 'players') && g.status === 'open' && g.key.startsWith('game:') ? Number(g.key.slice(5)) : null;
   useEffect(() => {
     setChances(null);
     if (!id) return;
@@ -200,7 +200,9 @@ export function ChanceCard({ g, chances }: { g: BoardGame; chances: Map<number, 
         {shown.slice(0, 4).map(([id, c]) => <span key={id} className={id === me?.id ? 'font-semibold text-gold' : ''}>{name(id)} {pctOf(c)}</span>)}
         {shown.length > 4 && <span>+{shown.length - 4} more</span>}
       </div>
-      <p className="mt-2 text-[11px] leading-snug text-mute">{g.kind === 'bracket'
+      <p className="mt-2 text-[11px] leading-snug text-mute">{g.kind === 'players'
+        ? `The rest of the box pool played out a thousand times: every player's points in his club's games still to come drawn around what he's expected to score, the same for everyone who took him.`
+        : g.kind === 'bracket'
         ? `The rest of the bracket played out a thousand times: each series from where it stands at even odds a game, the next round between the winners drawn below it.`
         : g.kind === 'rank'
         ? `The rest of the postseason played out a thousand times: every series game by game at even odds, the last round from the winners before it; each win pays what you ranked its club.`
