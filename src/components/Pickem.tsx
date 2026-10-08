@@ -166,7 +166,7 @@ export function PickemGame({ gameId, first, status: gameStatus, name, reload }: 
         </div>
       )}
       <p className="px-1 text-xs text-mute">
-        {data.confidence ? `Number your picks from 1 to ${data.size}: your surest is ${data.size}, and a right pick earns its number. Taking a number another match has swaps the two.` : 'A right pick is a point.'} Each pick locks at its own kick-off{data.draws ? '; a draw is the result after ninety minutes' : ''}. A postponed match counts for nobody.
+        {data.confidence ? `Number your picks from 1 to ${data.size}: your surest is ${data.size}, and a right pick earns its number. Taking a number another match has swaps the two.` : 'A right pick is a point.'} Each pick locks at its own kick-off{data.draws ? '; a draw is the result after ninety minutes' : '; a tie counts for nobody'}. A postponed match counts for nobody.
       </p>
     </div>
   );

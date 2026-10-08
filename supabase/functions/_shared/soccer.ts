@@ -54,8 +54,12 @@ export function afClub(x: Any): NeutralClub {
 
 // ───────────── ESPN's public scoreboard (for testing; docs/POOL-TYPES.md §8) ─────────────
 // Free and keyless, so pools have real matches while we test; a licensed feed replaces it before anyone pays. The
-// statuses are turned into API-Football's short codes, which the sport's config already maps to our states.
-export const ESPN_SOCCER = 'https://site.api.espn.com/apis/site/v2/sports/soccer';
+// statuses are turned into API-Football's short codes, which each sport's config maps to our states (the NFL's row reads
+// the same codes, migration 171). A competition's `ext_id` is a soccer league's slug ('eng.1') or, for another sport,
+// its path under ESPN's sports ('football/nfl').
+export const ESPN = 'https://site.api.espn.com/apis/site/v2/sports';
+export const ESPN_SOCCER = `${ESPN}/soccer`;
+export const espnPath = (sport: string, extId: string) => (sport === 'soccer' ? `soccer/${extId}` : extId);
 
 const ESPN_STATUS: Record<string, string> = {
   STATUS_SCHEDULED: 'NS', STATUS_DELAYED: 'NS', STATUS_FIRST_HALF: '1H', STATUS_HALFTIME: 'HT', STATUS_SECOND_HALF: '2H',
@@ -75,8 +79,9 @@ export function espnClub(t: Any): NeutralClub {
 }
 
 // one event of /scoreboard; ninety is the score after the two halves when it differs from the final (extra time),
-// read from the match's summary by the caller
-export function espnFixture(e: Any, ninety?: { home: number; away: number } | null): NeutralFixture {
+// read from the match's summary by the caller. A sport with its own rounds (the NFL's weeks) passes the round's number
+// and name, and its clock counts down a quarter, so it has no match minute.
+export function espnFixture(e: Any, ninety?: { home: number; away: number } | null, round?: { week: number | null; label: string | null; clock?: boolean }): NeutralFixture {
   const c = e.competitions?.[0] ?? {};
   const home = (c.competitors ?? []).find((x: Any) => x.homeAway === 'home') ?? {};
   const away = (c.competitors ?? []).find((x: Any) => x.homeAway === 'away') ?? {};
@@ -88,11 +93,11 @@ export function espnFixture(e: Any, ninety?: { home: number; away: number } | nu
   const v = c.venue ?? e.venue ?? {};
   return {
     ext_id: String(e.id),
-    round: note,
-    gameweek: gameweekOf(note),
+    round: round ? round.label : note,
+    gameweek: round ? round.week : gameweekOf(note),
     kickoff: new Date(e.date).toISOString(),
     status,
-    minute: e.status?.type?.state === 'in' ? num(String(e.status?.displayClock ?? '').match(/^\d+/)?.[0]) : null,
+    minute: e.status?.type?.state === 'in' && round?.clock !== false ? num(String(e.status?.displayClock ?? '').match(/^\d+/)?.[0]) : null,
     home: String(home.team?.id), away: String(away.team?.id),
     home_club: espnClub(home.team), away_club: espnClub(away.team),
     home_score: hs, away_score: as,

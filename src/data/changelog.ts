@@ -6,6 +6,8 @@
 export interface Change { date: string; icon: string; title: string; body: string; to?: string; tag?: 'formats' | 'commish' | 'draft' | 'everyone' }
 
 export const CHANGELOG: Change[] = [
+  { date: '2026-10-08', icon: '🏈', tag: 'everyone', title: 'NFL pick\'em', to: '/pools',
+    body: 'The NFL is in: every game of the season week by week, scores as they happen, and the playoffs once their teams are set. A pool can run a pick\'em on it from Week 5, Classic or Confidence, each pick locking at its own kickoff. A tie counts for nobody.' },
   { date: '2026-10-08', icon: '✅', tag: 'everyone', title: 'Pick\'em for the Premier League and MLS', to: '/picks',
     body: 'A pool can run a weekly pick\'em: every match of a round, pick the winner or a draw, each pick locking at its own kick-off so anyone can join any week. Classic gives a point for every right pick; Confidence has you number the round\'s picks, your surest highest, and a right one earns its number. Once a match kicks off you see how the pool split; when a round ends the pool hears who won it and you hear how you did. Start one from My pools or the Host page.' },
   { date: '2026-10-08', icon: '👑', tag: 'everyone', title: 'One table for every game in a pool', to: '/leaders',

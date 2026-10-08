@@ -159,6 +159,10 @@ they lock (`pool_picks`), results graded on read from the shared event tables, a
    every kind. A kind the site doesn't know yet reads plainly instead of breaking the page.
 2. **The NFL on ESPN.** The `nfl` sports row, its competition, the ESPN scoreboard adapter (soccer-sync's, by sport),
    weekly rounds; pick'em and a second-half survivor on it; NFL centre's first version later.
+   *Built 8 October 2026 (migration 171):* the `nfl` sports row (no draws, its rounds are Weeks) and the NFL's 2026 season
+   on ESPN; soccer-sync reads ESPN by sport, the NFL week by week (weeks 1 to 18, the playoffs as 19 to 22 once their
+   teams are set) through the same ingest and live task. Live with 272 games, weeks 1 to 4 final, so pick'em on the NFL
+   starts from Week 5. The survivor and NFL centre are still to come.
 3. **The host's desk for every game.** Settle what the feed missed, pool by pool (an override on a result, never a
    change to the shared tables, with the reason on the record); enter a pick for a member who asked; change a rule
    until the first lock and freeze it after. Every pool type can then run with no feed at all.

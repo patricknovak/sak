@@ -324,7 +324,7 @@ and which knobs anyone touches. That goes to the Ideas board and into the NFL (D
      (to be priced and its postseason series checked), or SportsDataIO, Sportradar.
    *Done:* MLB's Stats API feeds the postseason (mlb-sync, migration 165); soccer reads ESPN's public scoreboard
    (soccer-sync, migration 168: the Premier League and MLS, rounds cut from the schedule since ESPN has none). The NFL
-   on ESPN comes with its first pool kind (pick'em or survivor).
+   on ESPN came with its first pool kind, pick'em (migration 171: its weeks are ESPN's own, the playoffs after them).
 2. **Which kinds the World Series offers first.** Recommended: Pick the series (main game), Rank the teams, Squares
    (from the 22nd), the questions pack.
 3. **Squares in coins.** Recommended: a square costs coins from the pool's balance and the pot pays the winners, so the
