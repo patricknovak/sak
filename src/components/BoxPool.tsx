@@ -14,6 +14,8 @@ import { Headshot, NhlLogo, Pos, Section, TeamBadge, useAction } from './ui';
 export interface BoxPlayer {
   id: number; name: string; pos: string; team: string; headshot: string | null; injury: string | null;
   pts: number; g: number; a: number; gp: number; left: number; games: number; taken: number | null;
+  // what he's expected to add in his club's games still to come (migration 193; older servers don't send it)
+  to_come?: number;
   season: Record<string, number> | null;
 }
 export interface BoxData {
@@ -48,6 +50,8 @@ export function BoxPoolGame({ gameId, data, status, reload, actAs }: {
   const total = data.boxes.length;
   const dirty = draft != null && JSON.stringify(draft) !== JSON.stringify(data.boxes.map((_, i) => saved[i] ?? null));
   const myPts = picks.reduce<number>((s, id) => s + (id != null ? byId.get(id)?.pts ?? 0 : 0), 0);
+  const comeOf = (ids: (number | null)[]) => ids.reduce<number>((s, id) => s + (id != null ? Number(byId.get(id)?.to_come ?? 0) : 0), 0);
+  const myCome = comeOf(picks);
   const choose = (box: number, id: number) => setDraft(picks.map((x, i) => (i === box ? id : x)));
   const save = () => run(async () => {
     const pick = { players: picks };
@@ -69,7 +73,7 @@ export function BoxPoolGame({ gameId, data, status, reload, actAs }: {
             <div className="font-display text-xl font-extrabold text-white">
               {open ? `${done} of ${total} picked` : `${myPts} ${myPts === 1 ? 'point' : 'points'}`}
             </div>
-            <div className="text-[11px] text-mute">{open ? `Locks ${lockText(data.locks_at)}` : data.locked && status === 'open' ? `${data.nights_left} of ${data.nights} nights left` : 'Over'}</div>
+            <div className="text-[11px] text-mute">{open ? `Locks ${lockText(data.locks_at)}${done && myCome ? ` · about ${Math.round(myCome)} points expected` : ''}` : data.locked && status === 'open' ? `${data.nights_left} of ${data.nights} nights left${myCome ? ` · about ${Math.round(myCome)} more to come` : ''}` : 'Over'}</div>
           </div>
           {!open && <Lock className="h-4 w-4 shrink-0 text-mute" />}
         </div>
@@ -97,10 +101,17 @@ export function BoxPoolGame({ gameId, data, status, reload, actAs }: {
                       <span className="mt-0.5 flex flex-wrap items-center gap-x-1.5 text-[11px] text-mute">
                         <NhlLogo abbr={p.team} size={14} /><Pos p={p.pos} />
                         <span>{open ? outlook(p) : p.pos === 'G' ? `${p.gp} GP` : `${p.g} G · ${p.a} A`}</span>
-                        <span>· {open ? `${p.games} games` : `${p.left} left`}</span>
+                        {!open && <span>· {p.left} left{p.to_come ? ` · ≈${Math.round(Number(p.to_come))} more` : ''}</span>}
                       </span>
                     </span>
                   </button>
+                  {/* picking: what he's expected to score in the pool's nights */}
+                  {open && (
+                    <span className="shrink-0 text-right">
+                      <span className="num block text-base font-black leading-none text-white">{p.to_come != null ? `≈${Number(p.to_come).toFixed(1)}` : p.games}</span>
+                      <span className="block text-[10px] text-mute">{p.to_come != null ? `in ${p.games} GP` : 'games'}</span>
+                    </span>
+                  )}
                   {!open && (
                     <span className="shrink-0 text-right">
                       <span className="num block text-lg font-black leading-none text-white">{p.pts}</span>
@@ -130,14 +141,14 @@ export function BoxPoolGame({ gameId, data, status, reload, actAs }: {
       {data.teams && data.teams.length > 0 && (
         <Section title="Everyone's team" icon={<Users className="h-4 w-4" />}>
           <div className="card divide-y divide-white/[.05] p-1">
-            {[...data.teams].map((t) => ({ ...t, pts: t.players.reduce((s, id) => s + (byId.get(id)?.pts ?? 0), 0) })).sort((a, b) => b.pts - a.pts).map((t) => {
+            {[...data.teams].map((t) => ({ ...t, pts: t.players.reduce((s, id) => s + (byId.get(id)?.pts ?? 0), 0), come: comeOf(t.players) })).sort((a, b) => b.pts - a.pts).map((t) => {
               const tm = teams.find((x) => x.id === t.team_id);
               return (
                 <div key={t.team_id} className="px-3 py-2.5">
                   <div className="flex items-center gap-2.5">
                     <TeamBadge team={tm} size={28} />
                     <span className="min-w-0 flex-1 break-words text-sm font-semibold text-white">{tm?.gm_name ?? tm?.name}</span>
-                    <span className="num text-lg font-black text-white">{t.pts}</span>
+                    <span className="shrink-0 text-right"><span className="num block text-lg font-black leading-none text-white">{t.pts}</span>{status === 'open' && t.come > 0 && <span className="block text-[10px] text-mute">≈{Math.round(t.come)} to come</span>}</span>
                   </div>
                   <div className="mt-1.5 flex flex-wrap gap-1">
                     {t.players.map((id) => { const p = byId.get(id); return p && (

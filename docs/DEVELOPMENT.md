@@ -253,9 +253,10 @@ they lock (`pool_picks`), results graded on read from the shared event tables, a
    projection (a Poisson count as a rounded normal), the same draw for every member who took him.
    *Goal alerts (migration 192):* a member hears each goal a player on their team scores and each win their goalie gets,
    while the game is on (a trigger on `player_games` that returns at once when no box pool is open, and never blocks the
-   write).
+   write). *Still to come (migration 193):* each player's expected points in his club's games left in the window
+   (`_box_rate`), shown while picking and, once locked, summed for each team.
 
-*Where 8 October left it (migrations 172 to 192, PR #243):* items 1 to 3 and 5 built, item 6 built for pick'em, Pick
+*Where 8 October left it (migrations 172 to 193, PR #243):* items 1 to 3 and 5 built, item 6 built for pick'em, Pick
 the series and Rank the teams, item 7's bracket built on series and its box pool on the NHL season, item 4 begun (last one standing starts through the
 engine's door). Beside them: NFL
 centre and Match centre, the market's view on each match, results by hand for every game on fixtures, the rules
