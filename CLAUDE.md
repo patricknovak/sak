@@ -87,7 +87,8 @@ Two things in one repo:
   climb alerts and the main-game crown (`league_rules.crown`) with it. Weekly pick'em (migration 170) is the first kind on
   `fixtures`: any competition whose matches come in rounds; last one standing runs on the same competitions in the
   sport's words (migration 173, `pool_game_start('survivor', ...)`), and `#/centre/<competition>` is their centre
-  (`src/pages/RoundCentre.tsx`: NFL centre, Match centre); the start page and the host's desk list events through
+  (`src/pages/RoundCentre.tsx`: NFL centre, Match centre); a pool's own result on a match (the host's, in
+  `pool_result_overrides`, read through `_pool_fixture`) settles every game on it (migration 177); the start page and the host's desk list events through
   `pool_event_list()` (`pool_events()` stays for older copies of the site). Decided (3 October 2026): both move to **Cloudflare** (free for commercial
   use, DNS already on Cloudflare, wildcard subdomains for league by host); never plan new work on Vercel. Built as
   Workers serving static assets (`wrangler.jsonc`, `landing/wrangler.jsonc`; Pages can't take a wildcard), deployed by

@@ -6,6 +6,8 @@
 export interface Change { date: string; icon: string; title: string; body: string; to?: string; tag?: 'formats' | 'commish' | 'draft' | 'everyone' }
 
 export const CHANGELOG: Change[] = [
+  { date: '2026-10-08', icon: '✍️', tag: 'commish', title: 'Settle any match by hand', to: '/survivor',
+    body: 'When the scores feed freezes, a pool\'s host can settle a match on the Last one standing and Call the score pages too: a side, a draw, void or the score, with the reason everyone sees. It settles every game the pool runs on that match, for that pool only, and Hand back lets the feed decide again.' },
   { date: '2026-10-08', icon: '📜', tag: 'everyone', title: 'The rules, written down', to: '/picks',
     body: 'Every pick\'em, series and ranking game now has its rules at the foot of its page, written from its own settings: what scores, when picks lock, what happens to a game called off, how a tie is broken and what the host can do. They\'re fixed from the first lock.' },
   { date: '2026-10-08', icon: '🎲', tag: 'everyone', title: 'Your chance to win', to: '/leaders',

@@ -231,6 +231,8 @@ give the pool a home for following the sport):**
   round's picks numbered, a right one earns its number); on any competition whose matches come in rounds, so the
   Premier League and MLS have it now and the NFL the day its feed lands.* *The NFL on ESPN built 8 October 2026 (migration
   171): its 2026 season, every week through the Super Bowl, fed by soccer-sync, so a pool can run an NFL pick'em from Week 5.*
+  *Results by hand for every game on fixtures, 8 October 2026 (migration 177): last one standing and Call the score run
+  with no feed at all, settled per pool from the host's result (a score where the game needs one).*
   *Chance to win, 8 October 2026 (migration 175): a pick'em's Table shows each member's chance of finishing first,
   from a thousand run-throughs of the matches left, logged daily and scored at the end.*
   *NFL centre and Match centre, 8 October 2026: a centre for every competition played in rounds (`#/centre/<id>`), the

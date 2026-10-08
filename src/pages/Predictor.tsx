@@ -5,6 +5,7 @@ import { useLeague, useNow } from '../lib/store';
 import { rpc } from '../lib/supabase';
 import { Empty, PageHeader, Section, TeamBadge, useAction } from '../components/ui';
 import { Crest } from '../components/Crest';
+import { HostResult, useOverrides } from '../components/HostResult';
 
 // Call the score (migration 158): every player calls the score of every match in a matchweek, each call open until its
 // kick-off. The exact score is 3 points, the right result 1, and one banker a week counts double. Points land at the
@@ -116,6 +117,7 @@ export default function Predictor() {
   const [draft, setDraft] = useState<Record<number, { home: number | null; away: number | null }>>({});
   const [banker, setBanker] = useState<number | null>(null);
   const [showCalls, setShowCalls] = useState<number | null>(null);
+  const { overrides, reload: reloadOverrides } = useOverrides((board?.fixtures ?? []).map((f) => f.id));
   useEffect(() => { setDraft({}); setBanker(null); }, [board?.gameweek, board?.id]);
   const name = (id: number) => { const t = teams.find((x) => x.id === id); return t?.gm_name ?? t?.name ?? '?'; };
 
@@ -203,7 +205,7 @@ export default function Predictor() {
             return (
               <div key={f.id} className={`card p-3 ${isBank ? 'border-gold/40 shadow-[0_0_22px_rgb(var(--gold-rgb)/.15)]' : ''}`}>
                 <div className="mb-2 flex items-center justify-between gap-2 text-[11px] text-mute">
-                  <span className={live ? 'font-bold text-red-300' : ''}>{done ? 'Full time' : f.state === 'postponed' ? 'Postponed' : f.state === 'cancelled' ? 'Called off' : live ? `● Live${f.minute ? ` ${f.minute}′` : ''}` : when(f.kickoff)}</span>
+                  <span className={live && !overrides.has(f.id) ? 'font-bold text-red-300' : ''}>{overrides.has(f.id) ? 'Settled by the host' : done ? 'Full time' : f.state === 'postponed' ? 'Postponed' : f.state === 'cancelled' ? 'Called off' : live ? `● Live${f.minute ? ` ${f.minute}′` : ''}` : when(f.kickoff)}</span>
                   {(done || live) && f.home_score != null && <b className="num text-sm text-white">{f.home_score} - {f.away_score}</b>}
                 </div>
                 <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-2">
@@ -237,6 +239,7 @@ export default function Predictor() {
                     </button>
                   )}
                 </div>
+                <HostResult fixture={f} home={f.home} away={f.away} override={overrides.get(f.id)} draws score onDone={() => { reload(); reloadOverrides(); }} />
                 {showCalls === f.id && f.calls && (
                   <div className="mt-2 flex flex-wrap gap-1.5 border-t border-white/[.06] pt-2">
                     {f.calls.map((c) => (

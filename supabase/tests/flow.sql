@@ -4514,3 +4514,89 @@ reset role;
 select set_config('app.league_id', '', false);
 select set_config('request.jwt.claim.sub', '', false);
 select 'series chances', true;
+
+-- ───────────── results by hand for every game (migration 177) ─────────────
+-- Pod Squad runs last one standing and Call the score on the Hand Cup. The feed freezes: the host settles Ashby v
+-- Barnet 2-1 by hand and voids Cobham v Dorking; then hands Ashby v Barnet back, and the feed has Barnet winning 1-0.
+reset role;
+select set_config('request.jwt.claim.sub', '', false);
+select set_config('app.league_id', '', false);
+insert into competitions (id, sport, name, short, season, provider, ext_id, ext_season, active)
+values ('hb-cup', 'soccer', 'Hand Cup', 'HC', '2026', 'api-football', 'hbc', '2026', true) on conflict (id) do nothing;
+select soccer_ingest('hb-cup', jsonb_build_object(
+  'clubs', jsonb_build_array(jsonb_build_object('ext_id', 'hb1', 'name', 'Ashby', 'short', 'ASB'), jsonb_build_object('ext_id', 'hb2', 'name', 'Barnet Vale', 'short', 'BAR'),
+    jsonb_build_object('ext_id', 'hb3', 'name', 'Cobham', 'short', 'COB'), jsonb_build_object('ext_id', 'hb4', 'name', 'Dorking', 'short', 'DOR')),
+  'fixtures', jsonb_build_array(
+    jsonb_build_object('ext_id', 'hb-11', 'gameweek', 1, 'kickoff', now() + interval '1 day', 'status', 'NS', 'home', 'hb1', 'away', 'hb2'),
+    jsonb_build_object('ext_id', 'hb-12', 'gameweek', 1, 'kickoff', now() + interval '1 day', 'status', 'NS', 'home', 'hb3', 'away', 'hb4'),
+    jsonb_build_object('ext_id', 'hb-21', 'gameweek', 2, 'kickoff', now() + interval '8 days', 'status', 'NS', 'home', 'hb1', 'away', 'hb3'))));
+select id as hb11 from fixtures where ext_id = 'hb-11' \gset
+select id as hb12 from fixtures where ext_id = 'hb-12' \gset
+select id as hb21 from fixtures where ext_id = 'hb-21' \gset
+select id as asb from clubs where ext_id = 'hb1' \gset
+select id as bar from clubs where ext_id = 'hb2' \gset
+select id as cob from clubs where ext_id = 'hb3' \gset
+select set_config('app.league_id', :'lib', false);
+select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-000000000081', false);
+set role authenticated;
+select survivor_start('hb-cup') as hsv \gset
+select predictor_start('hb-cup') as hpr \gset
+select survivor_pick(:hsv, :bar);
+select predictor_save(:hpr, 1, jsonb_build_array(jsonb_build_object('fixture', :hb11, 'home', 0, 'away', 1)));
+select pg_temp.raises('a match not yet kicked off can''t be settled', format('select pool_fixture_result_set(%s, %L, null, null, %L)', :hb11, 'H', 'early'), 'hasn''t kicked off');
+reset role;
+select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-000000000082', false);
+set role authenticated;
+select survivor_pick(:hsv, :asb);
+select predictor_save(:hpr, 1, jsonb_build_array(jsonb_build_object('fixture', :hb11, 'home', 2, 'away', 1)));
+select pg_temp.raises('only the host settles', format('select pool_fixture_result_set(%s, %L, null, null, %L)', :hb11, 'H', 'mine'), 'Commissioner only');
+reset role;
+select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-000000000086', false);
+set role authenticated;
+select survivor_pick(:hsv, :cob);
+reset role;
+-- both kick off, and the feed freezes
+select soccer_ingest('hb-cup', jsonb_build_object('fixtures', jsonb_build_array(
+  jsonb_build_object('ext_id', 'hb-11', 'gameweek', 1, 'kickoff', now() - interval '1 hour', 'status', '1H', 'home', 'hb1', 'away', 'hb2', 'home_score', 0, 'away_score', 0),
+  jsonb_build_object('ext_id', 'hb-12', 'gameweek', 1, 'kickoff', now() - interval '1 hour', 'status', '1H', 'home', 'hb3', 'away', 'hb4', 'home_score', 0, 'away_score', 0))));
+select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-000000000081', false);
+set role authenticated;
+select pg_temp.raises('a score has both sides', format('select pool_fixture_result_set(%s, null, 2, null, %L)', :hb11, 'The feed froze'), 'both sides');
+select pg_temp.raises('a match the pool''s games aren''t on', format('select pool_fixture_result_set(%s, %L, null, null, %L)', :od1, 'H', 'The feed froze'), 'isn''t in one of');
+select pg_temp.expect('the host settles Ashby v Barnet 2-1', pool_fixture_result_set(:hb11, null, 2, 1, 'The feed froze at half-time') = 'H');
+reset role;
+select pg_temp.expect('last one standing settles from it: Fern through on Ashby, Hana out on Barnet',
+  (select result from survivor_picks where survivor_id = :hsv and team_id = :fern) = 'through'
+  and (select result from survivor_picks where survivor_id = :hsv and team_id = :hana) = 'out'
+  and exists (select 1 from notifications where team_id = :fern and kind = 'survivor' and body = '🛡️ Through: Ashby beat Barnet Vale 2-1.'));
+select pg_temp.expect('and Call the score: Fern spot on, Hana nothing', (select points from predictor_picks where predictor_id = :hpr and team_id = :fern) = 3
+  and (select points from predictor_picks where predictor_id = :hpr and team_id = :hana) = 0
+  and exists (select 1 from messages where league_id = :lib and body = '📝 The host settled Ashby 2-1 Barnet Vale: Ashby win. The feed froze at half-time'));
+select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-000000000081', false);
+set role authenticated;
+select pool_fixture_result_set(:hb12, 'void', null, null, 'Abandoned for floodlight failure');
+reset role;
+select pg_temp.expect('a void lets Lou through and closes the round by hand: the next one is in play',
+  (select result from survivor_picks where survivor_id = :hsv and team_id = :lou) = 'void'
+  and _survivor_week(:hsv) = 2 and (select status from survivors where id = :hsv) = 'open');
+select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-000000000081', false);
+set role authenticated;
+select pg_temp.expect('handed back, Ashby v Barnet waits for the feed again', pool_fixture_result_set(:hb11, null, null, null, null) is null);
+reset role;
+select pg_temp.expect('its picks are open again', (select result from survivor_picks where survivor_id = :hsv and team_id = :fern) is null
+  and (select points from predictor_picks where predictor_id = :hpr and team_id = :fern) is null);
+select soccer_ingest('hb-cup', jsonb_build_object('fixtures', jsonb_build_array(
+  jsonb_build_object('ext_id', 'hb-11', 'gameweek', 1, 'kickoff', now() - interval '1 hour', 'status', 'FT', 'home', 'hb1', 'away', 'hb2', 'home_score', 0, 'away_score', 1, 'home_ft', 0, 'away_ft', 1))));
+select pg_temp.expect('the feed settles it now: Barnet won, so Hana is through and Fern out; Hana''s call was spot on',
+  (select result from survivor_picks where survivor_id = :hsv and team_id = :hana) = 'through'
+  and (select result from survivor_picks where survivor_id = :hsv and team_id = :fern) = 'out'
+  and (select points from predictor_picks where predictor_id = :hpr and team_id = :hana) = 3
+  and (select points from predictor_picks where predictor_id = :hpr and team_id = :fern) = 0);
+select pg_temp.expect('the void stays the host''s, whatever the feed does', (select outcome from pool_result_overrides where league_id = :lib and fixture_id = :hb12) = 'void');
+select set_config('app.league_id', '', false);
+select pg_temp.as_team(1);
+set role authenticated;
+select pg_temp.raises('another pool''s host can''t settle it', format('select pool_fixture_result_set(%s, %L, null, null, %L)', :hb11, 'H', 'nope'), 'isn''t in one of');
+reset role;
+select set_config('request.jwt.claim.sub', '', false);
+select 'results by hand', true;

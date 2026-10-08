@@ -6,6 +6,7 @@ import { rpc } from '../lib/supabase';
 import { Empty, PageHeader, Section, TeamBadge, useAction } from '../components/ui';
 import { Crest } from '../components/Crest';
 import type { PoolEvent } from '../lib/poolGames';
+import { HostResult, useOverrides } from '../components/HostResult';
 
 // Last one standing (migrations 157 and 173): every round each player still in picks one side to win, never the same
 // one twice; a loss (or a draw, where the sport has them) and they're out, and a round with no pick is out too. The last
@@ -99,6 +100,7 @@ export default function Survivor() {
   const { busy, run } = useAction();
   // the host entering this round's pick for a player who asked
   const [actAs, setActAs] = useState<number | null>(null);
+  const { overrides, reload: reloadOverrides } = useOverrides((board?.fixtures ?? []).map((f) => f.id));
   if (board === undefined) return <div className="h-60 animate-pulse rounded-3xl bg-white/[.04]" />;
   if (!board) return (
     <div className="space-y-5">
@@ -180,10 +182,11 @@ export default function Survivor() {
               return (
                 <div key={f.id} className="card p-2.5">
                   <div className="mb-2 flex items-center justify-between px-1 text-[11px] text-mute">
-                    <span>{f.state === 'final' ? 'Final' : locked ? 'Under way' : when(f.kickoff)}</span>
+                    <span>{overrides.has(f.id) ? 'Settled by the host' : f.state === 'final' ? 'Final' : locked ? 'Under way' : when(f.kickoff)}</span>
                     {f.state === 'final' && <b className="num text-sm text-white">{f.home_score} - {f.away_score}</b>}
                   </div>
                   <div className="grid grid-cols-2 gap-2">{side(f.home, 'Home')}{side(f.away, 'Away')}</div>
+                  <HostResult fixture={f} home={f.home} away={f.away} override={overrides.get(f.id)} draws={draws} onDone={() => { reload(); reloadOverrides(); }} />
                 </div>
               );
             })}
