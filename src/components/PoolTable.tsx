@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { ArrowDown, ArrowUp, ChevronRight, Dices } from 'lucide-react';
 import { useLeague } from '../lib/store';
-import { rpc } from '../lib/supabase';
+import { rpc, supabase } from '../lib/supabase';
 import { kindOf, outOfIt, type BoardGame, type BoardRow } from '../lib/poolScoreboard';
 import { Coins } from './Pool';
 import { Rank, TeamBadge } from './ui';
@@ -132,8 +132,39 @@ export function useChances(g: BoardGame | undefined) {
 const pctOf = (x: number) => (x > 0 && x < 0.01 ? '<1%' : x > 0.99 && x < 1 ? '>99%' : `${Math.round(x * 100)}%`);
 
 // the caller's chance beside the favourite's, and every member's as one bar
+// the caller's chance day by day, from the prediction log (each day's first look writes it, migration 175)
+function useChanceTrend(g: BoardGame, team: number | undefined) {
+  const [trend, setTrend] = useState<{ predicted: number; day: string }[]>([]);
+  const id = g.key.startsWith('game:') ? g.key.slice(5) : null;
+  useEffect(() => {
+    if (!id || !team) return;
+    supabase.from('predictions').select('predicted,subject').eq('kind', 'pool_win').eq('subject->>game', id).eq('subject->>team_id', String(team)).order('made_at').limit(120)
+      .then(({ data }) => setTrend(((data ?? []) as { predicted: number; subject: { date: string } }[]).map((r) => ({ predicted: Number(r.predicted), day: r.subject.date }))));
+  }, [id, team]);
+  return trend;
+}
+
+// a chance's days as a small line, scaled to its own range so a move from 18% to 31% reads, with a soft fill below
+function TrendLine({ values, w = 84, h = 30 }: { values: number[]; w?: number; h?: number }) {
+  const lo = Math.min(...values), hi = Math.max(...values), span = Math.max(hi - lo, 0.04);
+  const x = (i: number) => 2 + (i / (values.length - 1)) * (w - 4);
+  const y = (v: number) => h - 3 - ((v - lo) / span) * (h - 6);
+  const line = values.map((v, i) => `${i ? 'L' : 'M'}${x(i).toFixed(1)},${y(v).toFixed(1)}`).join('');
+  const up = values[values.length - 1] >= values[0];
+  const c = up ? 'rgb(110 231 183)' : 'rgb(252 165 165)';
+  return (
+    <svg width={w} height={h} viewBox={`0 0 ${w} ${h}`} aria-hidden>
+      <defs><linearGradient id="trend-fill" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stopColor={c} stopOpacity=".28" /><stop offset="1" stopColor={c} stopOpacity="0" /></linearGradient></defs>
+      <path d={`${line}L${x(values.length - 1).toFixed(1)},${h}L${x(0).toFixed(1)},${h}Z`} fill="url(#trend-fill)" />
+      <path d={line} fill="none" stroke={c} strokeWidth={2} strokeLinejoin="round" strokeLinecap="round" />
+      <circle cx={x(values.length - 1)} cy={y(values[values.length - 1])} r={2.5} fill={c} />
+    </svg>
+  );
+}
+
 export function ChanceCard({ g, chances }: { g: BoardGame; chances: Map<number, number> }) {
   const { teams, me } = useLeague();
+  const trend = useChanceTrend(g, me?.id);
   const rows = [...chances.entries()].sort((a, b) => b[1] - a[1]);
   const mine = me ? chances.get(me.id) : undefined;
   const [favId, fav] = rows[0] ?? [0, 0];
@@ -150,6 +181,13 @@ export function ChanceCard({ g, chances }: { g: BoardGame; chances: Map<number, 
             <span className="text-sm text-mute">{mine != null ? (favId === me?.id ? 'you’re the favourite' : `${name(favId)} is the favourite at ${pctOf(fav)}`) : `${name(favId)} leads the odds at ${pctOf(fav)}`}</span>
           </div>
         </div>
+        {/* how it has moved, a day at a time */}
+        {trend.length > 1 && (
+          <div className="shrink-0 text-right">
+            <TrendLine values={trend.map((t) => t.predicted)} />
+            <div className="text-[10px] text-mute">from {pctOf(trend[0].predicted)} on {new Date(trend[0].day + 'T12:00:00Z').toLocaleDateString(undefined, { month: 'short', day: 'numeric', timeZone: 'UTC' })}</div>
+          </div>
+        )}
       </div>
       {/* every member's share of the thousand runs, the favourite first; each part names its member on hover and below */}
       <div className="mt-3 flex h-2.5 overflow-hidden rounded-full bg-white/[.06]">
