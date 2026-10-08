@@ -4014,7 +4014,10 @@ select pg_temp.expect('and it leads the scoreboard', pool_scoreboard()->'games'-
 select pg_temp.expect('and can hand it back to the default', pool_set_crown(null) is not null);
 select pg_temp.expect('which clears the choice', (select crown from league_rules where league_id = :lib) is null);
 reset role;
--- the hourly look: the first records where everyone stands and tells nobody
+-- the hourly look: the first records where everyone stands and tells nobody. The pool job above has already looked
+-- (sections 145 and 154), and the squares' coins have moved everyone's net worth since by a random draw, so start this
+-- pool's standings afresh to make this the first look
+delete from pool_standing where league_id = :lib;
 select _pool_mark() as mark1 \gset
 select pg_temp.expect('the first look records every member in every game and alerts nobody', :mark1 = 0
   and (select count(*) from pool_standing where league_id = :lib) = 7 * (select count(*) from teams where league_id = :lib and role = 'gm'));
