@@ -113,11 +113,11 @@ export function BoardRows({ g, extra }: { g: BoardGame; extra?: (r: BoardRow) =>
   );
 }
 
-// each member's chance of finishing first (migrations 175 and 176): a pick'em or Pick the series still open is played
-// out a thousand times from the pool's own picks; anything else has none to show yet
+// each member's chance of finishing first (migrations 175, 176 and 182): a pick'em, Pick the series or a locked Rank the
+// teams still open is played out a thousand times; anything else has none to show yet
 export function useChances(g: BoardGame | undefined) {
   const [chances, setChances] = useState<Map<number, number> | null>(null);
-  const id = g && (g.kind === 'pickem' || g.kind === 'series') && g.status === 'open' && g.key.startsWith('game:') ? Number(g.key.slice(5)) : null;
+  const id = g && (g.kind === 'pickem' || g.kind === 'series' || g.kind === 'rank') && g.status === 'open' && g.key.startsWith('game:') ? Number(g.key.slice(5)) : null;
   useEffect(() => {
     setChances(null);
     if (!id) return;
@@ -162,7 +162,9 @@ export function ChanceCard({ g, chances }: { g: BoardGame; chances: Map<number, 
         {shown.slice(0, 4).map(([id, c]) => <span key={id} className={id === me?.id ? 'font-semibold text-gold' : ''}>{name(id)} {pctOf(c)}</span>)}
         {shown.length > 4 && <span>+{shown.length - 4} more</span>}
       </div>
-      <p className="mt-2 text-[11px] leading-snug text-mute">{g.kind === 'series'
+      <p className="mt-2 text-[11px] leading-snug text-mute">{g.kind === 'rank'
+        ? `The rest of the postseason played out a thousand times: every series game by game at even odds, the last round from the winners before it; each win pays what you ranked its club.`
+        : g.kind === 'series'
         ? `${g.title} played out a thousand times from here: each series game by game from where it stands, its odds from how the pool picked it; a series you haven’t picked yet as a guess.`
         : `The ${g.title.replace(/^The /, '')} played out a thousand times from here: each match drawn from the market’s view where there is one, else from how the pool picked it; a match you haven’t picked as a guess.`}</p>
     </div>

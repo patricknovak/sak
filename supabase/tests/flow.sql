@@ -4708,3 +4708,53 @@ update pool_games set status = 'done' where id = :lcg;
 select set_config('app.league_id', '', false);
 select set_config('request.jwt.claim.sub', '', false);
 select 'chances from the market', true;
+
+-- ───────────── chance to win in Rank the teams (migration 182) ─────────────
+-- Two championship series, then a World Series of their winners. Hana ranks Ogden first, Fern ranks Reno first; once
+-- the order locks, Ogden goes 3-0 up and Hana is the favourite.
+reset role;
+select set_config('request.jwt.claim.sub', '', false);
+select set_config('app.league_id', '', false);
+insert into competitions (id, sport, name, short, season, provider, ext_id, ext_season, active)
+values ('rk-odds', 'mlb', 'Rank Series', 'RS', '2026', 'mlb', 'rk-odds', '2026', true) on conflict (id) do nothing;
+select sport_ingest('rk-odds', jsonb_build_object(
+  'clubs', jsonb_build_array(jsonb_build_object('ext_id', '961', 'name', 'Ogden Owls', 'short', 'OGD'), jsonb_build_object('ext_id', '962', 'name', 'Provo Pines', 'short', 'PRO'),
+    jsonb_build_object('ext_id', '963', 'name', 'Quincy Quails', 'short', 'QUI'), jsonb_build_object('ext_id', '964', 'name', 'Reno Rams', 'short', 'REN')),
+  'series', jsonb_build_array(
+    jsonb_build_object('ext_id', 'K_L1', 'round', 1, 'label', 'AL Championship Series', 'short', 'ALCS', 'best_of', 7, 'high', '961', 'low', '962', 'starts_at', now() + interval '1 day'),
+    jsonb_build_object('ext_id', 'K_L2', 'round', 1, 'label', 'NL Championship Series', 'short', 'NLCS', 'best_of', 7, 'high', '963', 'low', '964', 'starts_at', now() + interval '1 day'),
+    jsonb_build_object('ext_id', 'K_W1', 'round', 2, 'label', 'World Series', 'short', 'WS', 'best_of', 7, 'starts_at', now() + interval '10 days', 'tbd', true))));
+select id as ogd from clubs where sport = 'mlb' and ext_id = '961' \gset
+select id as pro from clubs where sport = 'mlb' and ext_id = '962' \gset
+select id as qui from clubs where sport = 'mlb' and ext_id = '963' \gset
+select id as ren from clubs where sport = 'mlb' and ext_id = '964' \gset
+select set_config('app.league_id', :'lib', false);
+select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-000000000081', false);
+set role authenticated;
+select pool_game_start('rank', 'rk-odds') as rkg \gset
+select pool_game_pick(:rkg, 'rank', jsonb_build_object('order', jsonb_build_array(:ogd, :pro, :qui, :ren)));
+select pg_temp.expect('before the lock there are no chances: the order can still change', pool_game_chances(:rkg) = '[]'::jsonb);
+reset role;
+select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-000000000082', false);
+set role authenticated;
+select pool_game_pick(:rkg, 'rank', jsonb_build_object('order', jsonb_build_array(:ren, :qui, :pro, :ogd)));
+reset role;
+select set_config('request.jwt.claim.sub', '', false);
+update series set starts_at = now() - interval '1 hour' where competition = 'rk-odds' and round = 1;
+select sport_ingest('rk-odds', jsonb_build_object('fixtures', jsonb_build_array(
+  jsonb_build_object('ext_id', 'k1', 'series', 'K_L1', 'game_no', 1, 'kickoff', now() - interval '50 minutes', 'state', 'final', 'home', '961', 'away', '962', 'home_score', 4, 'away_score', 1),
+  jsonb_build_object('ext_id', 'k2', 'series', 'K_L1', 'game_no', 2, 'kickoff', now() - interval '40 minutes', 'state', 'final', 'home', '961', 'away', '962', 'home_score', 3, 'away_score', 2),
+  jsonb_build_object('ext_id', 'k3', 'series', 'K_L1', 'game_no', 3, 'kickoff', now() - interval '30 minutes', 'state', 'final', 'home', '962', 'away', '961', 'home_score', 0, 'away_score', 5))));
+select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-000000000086', false);
+set role authenticated;
+select pool_game_chances(:rkg) as rkc \gset
+select pg_temp.expect('locked and Ogden 3-0 up, Hana is the favourite; the chances add up to one',
+  (select (e->>'chance')::numeric from jsonb_array_elements(:'rkc'::jsonb) e where (e->>'team_id')::int = :hana)
+    > (select (e->>'chance')::numeric + 0.2 from jsonb_array_elements(:'rkc'::jsonb) e where (e->>'team_id')::int = :fern)
+  and abs((select sum((e->>'chance')::numeric) from jsonb_array_elements(:'rkc'::jsonb) e) - 1) < 0.01);
+reset role;
+select pg_temp.expect('logged as a forecast of its own kind', exists (select 1 from predictions where kind = 'pool_win' and basis = 'rank' and (subject->>'game')::bigint = :rkg));
+update pool_games set status = 'done' where id = :rkg;
+select set_config('app.league_id', '', false);
+select set_config('request.jwt.claim.sub', '', false);
+select 'rank chances', true;

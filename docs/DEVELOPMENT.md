@@ -208,7 +208,8 @@ they lock (`pool_picks`), results graded on read from the shared event tables, a
    game ends. *Pick the series, the same day (migration 176):* each series with its matchup set is played out exactly
    from where it stands (the chance of each winner and length from the pool's split, C(k-1, a-1) p^a (1-p)^(k-a)), a
    series not yet set or not yet picked a guess. A pick'em match with the market's line draws from it rather than the
-   pool's split (migration 181). Still to come: Rank the teams, brackets, and "what you need" in words.
+   pool's split (migration 181). Rank the teams once its order locks (migration 182): every series drawn at even odds,
+   the last round formed from the two winners before it. Still to come: brackets, and "what you need" in words.
 7. **The bracket and the player pool**, for the NHL playoffs and March Madness (`docs/POOL-TYPES.md` §9).
 
 Alongside: the World Series test (the LCS from 11 October, the World Series from 23 October) needs its games started
