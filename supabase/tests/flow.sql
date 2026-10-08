@@ -4774,3 +4774,88 @@ select pg_temp.expect('another league sees none of them', not exists (select 1 f
 reset role;
 select set_config('request.jwt.claim.sub', '', false);
 select 'chance calibration', true;
+
+-- ───────────── the bracket (migration 185) ─────────────
+-- Eight clubs, four series, then two, then the final. Hana takes Akron all the way, Fern takes Gary; Lou never fills
+-- one in. After the first round, Hana has three right and can still reach eleven.
+reset role;
+select set_config('request.jwt.claim.sub', '', false);
+select set_config('app.league_id', '', false);
+insert into competitions (id, sport, name, short, season, provider, ext_id, ext_season, active)
+values ('br-cup', 'mlb', 'Bracket Cup', 'BC', '2026', 'mlb', 'br-cup', '2026', true) on conflict (id) do nothing;
+select sport_ingest('br-cup', jsonb_build_object(
+  'clubs', (select jsonb_agg(jsonb_build_object('ext_id', 'b' || i, 'name', n, 'short', upper(left(n, 3)))) from unnest(array['Akron', 'Boise', 'Canton', 'Dayton', 'Erie', 'Fargo', 'Gary', 'Helena']) with ordinality u(n, i)),
+  'series', jsonb_build_array(
+    jsonb_build_object('ext_id', 'B11', 'round', 1, 'label', 'Quarterfinal', 'short', 'QF1', 'best_of', 7, 'high', 'b1', 'low', 'b2', 'starts_at', now() + interval '1 day', 'sort', 1),
+    jsonb_build_object('ext_id', 'B12', 'round', 1, 'label', 'Quarterfinal', 'short', 'QF2', 'best_of', 7, 'high', 'b3', 'low', 'b4', 'starts_at', now() + interval '1 day', 'sort', 2),
+    jsonb_build_object('ext_id', 'B13', 'round', 1, 'label', 'Quarterfinal', 'short', 'QF3', 'best_of', 7, 'high', 'b5', 'low', 'b6', 'starts_at', now() + interval '1 day', 'sort', 3),
+    jsonb_build_object('ext_id', 'B14', 'round', 1, 'label', 'Quarterfinal', 'short', 'QF4', 'best_of', 7, 'high', 'b7', 'low', 'b8', 'starts_at', now() + interval '1 day', 'sort', 4),
+    jsonb_build_object('ext_id', 'B21', 'round', 2, 'label', 'Semifinal', 'short', 'SF1', 'best_of', 7, 'starts_at', now() + interval '9 days', 'tbd', true, 'sort', 1),
+    jsonb_build_object('ext_id', 'B22', 'round', 2, 'label', 'Semifinal', 'short', 'SF2', 'best_of', 7, 'starts_at', now() + interval '9 days', 'tbd', true, 'sort', 2),
+    jsonb_build_object('ext_id', 'B31', 'round', 3, 'label', 'Final', 'short', 'F', 'best_of', 7, 'starts_at', now() + interval '18 days', 'tbd', true, 'sort', 1))));
+select id as ak from clubs where sport = 'mlb' and ext_id = 'b1' \gset
+select id as bo from clubs where sport = 'mlb' and ext_id = 'b2' \gset
+select id as ca from clubs where sport = 'mlb' and ext_id = 'b3' \gset
+select id as da from clubs where sport = 'mlb' and ext_id = 'b4' \gset
+select id as er from clubs where sport = 'mlb' and ext_id = 'b5' \gset
+select id as fa from clubs where sport = 'mlb' and ext_id = 'b6' \gset
+select id as ga from clubs where sport = 'mlb' and ext_id = 'b7' \gset
+select id as q1 from series where ext_id = 'B11' \gset
+select id as q2 from series where ext_id = 'B12' \gset
+select id as q3 from series where ext_id = 'B13' \gset
+select id as q4 from series where ext_id = 'B14' \gset
+select id as s1 from series where ext_id = 'B21' \gset
+select id as s2 from series where ext_id = 'B22' \gset
+select id as f1 from series where ext_id = 'B31' \gset
+select set_config('app.league_id', :'lib', false);
+select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-000000000081', false);
+set role authenticated;
+select pg_temp.expect('the start page offers a bracket where the rounds make one', exists (select 1 from jsonb_array_elements(pool_event_list()) e
+  where e->>'competition' = 'br-cup' and e->'kinds' ? 'bracket'));
+select pool_game_start('bracket', 'br-cup') as bg \gset
+select pg_temp.expect('it is on, doubling by round', (select title = 'The bracket' and rules->'points' = '{"1": 1, "2": 2, "3": 4}'::jsonb from pool_games where id = :bg)
+  and exists (select 1 from messages where league_id = :lib and body like '🏆 The bracket is open, from the Quarterfinal%'));
+select pg_temp.raises('every series needs a winner', format('select pool_game_pick(%s, %L, %L)', :bg, 'bracket',
+  jsonb_build_object('winners', jsonb_build_object(:q1, :ak))), 'every series');
+select pg_temp.raises('a winner goes on only from below', format('select pool_game_pick(%s, %L, %L)', :bg, 'bracket',
+  jsonb_build_object('winners', jsonb_build_object(:q1, :ak, :q2, :ca, :q3, :er, :q4, :ga, :s1, :er, :s2, :er, :f1, :er))), 'only from a series before it');
+select pool_game_pick(:bg, 'bracket', jsonb_build_object('winners', jsonb_build_object(:q1, :ak, :q2, :ca, :q3, :er, :q4, :ga, :s1, :ak, :s2, :er, :f1, :ak)));
+select pool_game_pick(:bg, 'tiebreak', '{"runs": 8}');
+reset role;
+select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-000000000082', false);
+set role authenticated;
+select pool_game_pick(:bg, 'bracket', jsonb_build_object('winners', jsonb_build_object(:q1, :bo, :q2, :ca, :q3, :fa, :q4, :ga, :s1, :ca, :s2, :ga, :f1, :ga)));
+select pg_temp.expect('the board shows the tree and her own bracket, nobody''s champion before the lock',
+  (select jsonb_array_length(b->'bracket'->'series') = 7 and (b->'bracket'->'mine'->>(:f1)::text)::bigint = :ga and b->'bracket'->'champions' = 'null'::jsonb
+   from (select pool_game_board(:bg) b) x));
+reset role;
+select set_config('request.jwt.claim.sub', '', false);
+-- the first round starts (the lock) and finishes: Akron, Dayton, Erie and Gary go through
+update series set starts_at = now() - interval '1 day' where competition = 'br-cup' and round = 1;
+update series set state = 'final', high_wins = case when ext_id in ('B11', 'B13', 'B14') then 4 else 2 end,
+  low_wins = case when ext_id = 'B12' then 4 else 1 end,
+  winner = case ext_id when 'B11' then :ak when 'B12' then :da when 'B13' then :er else :ga end
+where competition = 'br-cup' and round = 1;
+select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-000000000081', false);
+set role authenticated;
+select pg_temp.raises('locked at the first game', format('select pool_game_pick(%s, %L, %L)', :bg, 'bracket',
+  jsonb_build_object('winners', jsonb_build_object(:q1, :ak, :q2, :ca, :q3, :er, :q4, :ga, :s1, :ak, :s2, :er, :f1, :ak))), 'locked');
+reset role;
+select pg_temp.expect('three right and eleven still possible for Hana; one and seven for Fern; nothing for Lou, who never filled one in',
+  (select points = 3 and possible = 11 and right_calls = 3 and picked = 1 from _pool_game_table(:bg) where team_id = :hana)
+  and (select points = 1 and possible = 7 from _pool_game_table(:bg) where team_id = :fern)
+  and (select points = 0 and possible = 0 and picked = 0 from _pool_game_table(:bg) where team_id = :lou));
+select pg_temp.expect('the pool''s table reads it', (select line = '3 right' from _pool_rows() where game = 'game:' || :bg and team_id = :hana)
+  and (select line = 'No bracket yet' from _pool_rows() where game = 'game:' || :bg and team_id = :lou));
+select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-000000000086', false);
+set role authenticated;
+select pg_temp.expect('once locked, everyone''s champion shows', (select jsonb_array_length(pool_game_board(:bg)->'bracket'->'champions') = 2));
+reset role;
+update pool_games set status = 'done' where id = :bg;
+select set_config('app.league_id', '', false);
+select pg_temp.as_team(2);
+set role authenticated;
+select pg_temp.raises('another league can''t read it', format('select pool_game_board(%s)', :bg));
+reset role;
+select set_config('request.jwt.claim.sub', '', false);
+select 'bracket', true;
