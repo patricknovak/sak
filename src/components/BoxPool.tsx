@@ -71,7 +71,7 @@ export function BoxPoolGame({ gameId, data, status, reload, actAs }: {
           <div className="min-w-0 flex-1">
             <div className="label">{actAs ? `${actAs.name}'s team` : 'Your team'}</div>
             <div className="font-display text-xl font-extrabold text-white">
-              {open ? `${done} of ${total} picked` : `${myPts} ${myPts === 1 ? 'point' : 'points'}`}
+              {open ? `${done} of ${total} picked` : !done ? <span className="text-white/50">No team this time</span> : `${myPts} ${myPts === 1 ? 'point' : 'points'}`}
             </div>
             <div className="text-[11px] text-mute">{open ? `Locks ${lockText(data.locks_at)}${done && myCome ? ` · about ${Math.round(myCome)} points expected` : ''}` : data.locked && status === 'open' ? `${data.nights_left} of ${data.nights} nights left${myCome ? ` · about ${Math.round(myCome)} more to come` : ''}` : 'Over'}</div>
           </div>
