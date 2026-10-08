@@ -157,8 +157,12 @@ export function espnPlayoffPayload(rounds: { label?: string }[], pages: Any[]) {
       clubs.set(fx.home, fx.home_club); clubs.set(fx.away, fx.away_club);
       series.push({ ext_id: `P${e.id}`, round: i + 1, label: head(e).replace(/\s*Playoffs$/i, '') || label, short: conf(e) ? `${conf(e)} ${code}` : code,
         best_of: 1, high: fx.home, low: fx.away, starts_at: fx.kickoff, tbd: false, sort: k + 1 });
+      // the score by quarter (overtime a fifth), for squares that pay by the quarter
+      const lines = (side: string) => (e.competitions?.[0]?.competitors ?? []).find((x: Any) => x.homeAway === side)?.linescores ?? [];
+      const h = lines('home'), a = lines('away');
+      const periods = h.map((x: Any, j: number) => ({ n: j + 1, home: Number(x?.value ?? x?.displayValue ?? 0), away: a[j] != null ? Number(a[j]?.value ?? a[j]?.displayValue ?? 0) : null }));
       fixtures.push({ ext_id: `P${e.id}`, series: `P${e.id}`, game_no: 1, kickoff: fx.kickoff, state: PLAYOFF_STATE[fx.status] ?? 'live', status: fx.status,
-        home: fx.home, away: fx.away, home_score: fx.home_score, away_score: fx.away_score, venue: fx.venue });
+        home: fx.home, away: fx.away, home_score: fx.home_score, away_score: fx.away_score, venue: fx.venue, periods });
     });
   });
   return { clubs: [...clubs.values()], series, fixtures };

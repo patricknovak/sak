@@ -2,7 +2,7 @@
 // soccer_ingest() writes. The sample items follow API-Football v3's documented shape.
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
-import { afClub, afFixture, gameweekOf } from '../functions/_shared/soccer.ts';
+import { afClub, afFixture, espnPlayoffPayload, gameweekOf } from '../functions/_shared/soccer.ts';
 
 const sql = fs.readFileSync(new URL('../migrations/20261005000148_soccer.sql', import.meta.url), 'utf8');
 const row = JSON.parse(sql.match(/\$sport\$([\s\S]*?)\$sport\$/)[1]);
@@ -50,3 +50,12 @@ const pen = afFixture(sample('PEN', { home: 1, away: 1 }, { home: 1, away: 1 }, 
 assert.deepEqual([pen.home_pens, pen.away_pens], [4, 3]);
 assert.deepEqual(afClub({ team: { id: 42, name: 'Arsenal', code: 'ARS', logo: 'a.png' } }), { ext_id: '42', name: 'Arsenal', short: 'ARS', logo: 'a.png' });
 console.log('ok: API-Football fixtures and clubs parse into neutral rows');
+
+// the NFL's playoffs (migration 187): a game is a best-of-1 series, and its score by quarter rides along for squares
+const side = (homeAway, id, abbr, score, q) => ({ homeAway, score: String(score), team: { id, abbreviation: abbr, displayName: abbr }, linescores: q.map((value) => ({ value })) });
+const sb = espnPlayoffPayload([{ label: 'Super Bowl' }], [{ events: [{ id: '401', date: '2026-02-08T23:30Z', status: { type: { state: 'post', name: 'STATUS_FINAL', completed: true } },
+  competitions: [{ notes: [{ headline: 'Super Bowl LX' }], competitors: [side('home', '21', 'PHI', 27, [7, 10, 0, 10]), side('away', '12', 'KC', 24, [3, 7, 7, 7])] }] }] }]);
+assert.equal(sb.series.length, 1); assert.equal(sb.series[0].best_of, 1); assert.equal(sb.series[0].short, 'SB');
+assert.deepEqual(sb.fixtures[0].periods, [{ n: 1, home: 7, away: 3 }, { n: 2, home: 10, away: 7 }, { n: 3, home: 0, away: 7 }, { n: 4, home: 10, away: 7 }]);
+assert.equal(sb.fixtures[0].state, 'final');
+console.log('ok: the NFL playoffs carry their quarters');
