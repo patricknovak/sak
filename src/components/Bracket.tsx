@@ -8,7 +8,7 @@ import { useLeague } from '../lib/store';
 import { rpc } from '../lib/supabase';
 import { Section, TeamBadge, useAction } from './ui';
 import { Crest } from './Crest';
-import type { Club } from '../pages/Picks';
+import { lastGameOf, type Club, type Words } from '../pages/Picks';
 
 export interface BSeries {
   id: number; round: number; label: string; short: string | null; best_of: number; pos: number; next: number | null;
@@ -23,8 +23,9 @@ export interface BracketData {
 
 const lockText = (iso: string | null) => (iso ? new Date(iso).toLocaleString(undefined, { weekday: 'short', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }) : 'when the first game is set');
 
-export function BracketGame({ gameId, data, status, reload, actAs }: {
+export function BracketGame({ gameId, data, status, reload, actAs, words }: {
   gameId: number; data: BracketData; status: 'open' | 'done'; reload: () => void; actAs?: { team: number; name: string };
+  words: Words & { guess: number };
 }) {
   const { teams } = useLeague();
   const { busy, run } = useAction();
@@ -69,7 +70,7 @@ export function BracketGame({ gameId, data, status, reload, actAs }: {
     else await rpc('pool_game_pick', { p_game: gameId, p_thing: 'bracket', p_pick: { winners: picks } });
     setDraft(null); reload();
   }, actAs ? `${actAs.name}'s bracket is in` : 'Your bracket is in');
-  const tbv = runs ?? data.tiebreak.mine ?? 8;
+  const tbv = runs ?? data.tiebreak.mine ?? words.guess;
 
   return (
     <div className="space-y-4">
@@ -128,16 +129,16 @@ export function BracketGame({ gameId, data, status, reload, actAs }: {
           {!actAs && data.tiebreak.label && (
             <div className="card flex flex-wrap items-center gap-3 p-4">
               <div className="min-w-0 flex-1">
-                <div className="font-semibold text-white">Tiebreaker: total runs in the last game of the {data.tiebreak.label}</div>
+                <div className="font-semibold text-white">Tiebreaker: total {words.score} in {lastGameOf(data.tiebreak.label, data.series.every((x) => x.best_of === 1))}</div>
                 <div className="text-xs text-mute">Closest breaks a tie on points. Locks with the bracket.</div>
               </div>
               <div className="flex items-center gap-1.5">
                 <button type="button" aria-label="One fewer" disabled={busy || tbv <= 0} onClick={() => setRuns(Math.max(0, tbv - 1))} className="grid h-10 w-10 place-items-center rounded-xl bg-white/[.06] ring-1 ring-white/10 disabled:opacity-30"><Minus className="h-4 w-4" /></button>
                 <div className="num grid h-10 w-12 place-items-center rounded-xl bg-black/30 text-xl font-black text-white">{tbv}</div>
-                <button type="button" aria-label="One more" disabled={busy || tbv >= 60} onClick={() => setRuns(Math.min(60, tbv + 1))} className="grid h-10 w-10 place-items-center rounded-xl bg-white/[.06] ring-1 ring-white/10 disabled:opacity-30"><Plus className="h-4 w-4" /></button>
+                <button type="button" aria-label="One more" disabled={busy || tbv >= words.cap} onClick={() => setRuns(Math.min(words.cap, tbv + 1))} className="grid h-10 w-10 place-items-center rounded-xl bg-white/[.06] ring-1 ring-white/10 disabled:opacity-30"><Plus className="h-4 w-4" /></button>
               </div>
               {runs != null && runs !== data.tiebreak.mine && (
-                <button type="button" className="btn-ghost w-full" disabled={busy} onClick={() => run(async () => { await rpc('pool_game_pick', { p_game: gameId, p_thing: 'tiebreak', p_pick: { runs: tbv } }); setRuns(null); reload(); }, 'Tiebreaker saved')}>Save {tbv} runs</button>
+                <button type="button" className="btn-ghost w-full" disabled={busy} onClick={() => run(async () => { await rpc('pool_game_pick', { p_game: gameId, p_thing: 'tiebreak', p_pick: { runs: tbv } }); setRuns(null); reload(); }, 'Tiebreaker saved')}>Save {tbv} {words.score}</button>
               )}
             </div>
           )}

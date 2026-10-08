@@ -222,7 +222,10 @@ they lock (`pool_picks`), results graded on read from the shared event tables, a
    tree played out round by round). *The NFL's playoffs as series (migration 187):* `competitions.format` ('rounds' or
    'series'); `nfl-post-2026`, which soccer-sync fills through `espnPlayoffPayload` (each playoff game a best-of-1
    series, the AFC's before the NFC's, the Pro Bowl left out; tested on last season's playoffs), so the bracket runs from
-   the Divisional round. The same change keeps the Pro Bowl out of the season's weeks. Still to come: March Madness,
+   the Divisional round. The same change keeps the Pro Bowl out of the season's weeks. *In football's words (migration
+   190):* the board sends the sport's words for the start of a game and its score, so the tiebreaker is the Super Bowl's
+   total points (0 to 150; runs 0 to 60, goals 0 to 30) and the news says kickoff; a single game is picked on the winner
+   alone, its length points riding with it. Still to come: March Madness,
    whose bracket order wants ESPN's region and seed.
    *The box pool built 8 October 2026 (migration 188):* the player pool without a draft night, on nhl-sync's own
    `games` and `player_games` (a competition of a third format, 'players': `nhl-2026`). The best players are dealt into
@@ -236,7 +239,7 @@ they lock (`pool_picks`), results graded on read from the shared event tables, a
    the window played out a thousand times, each player's points in his club's games still to come drawn around his
    projection (a Poisson count as a rounded normal), the same draw for every member who took him.
 
-*Where 8 October left it (migrations 172 to 189, PR #243):* items 1 to 3 and 5 built, item 6 built for pick'em, Pick
+*Where 8 October left it (migrations 172 to 190, PR #243):* items 1 to 3 and 5 built, item 6 built for pick'em, Pick
 the series and Rank the teams, item 7's bracket built on series and its box pool on the NHL season, item 4 begun (last one standing starts through the
 engine's door). Beside them: NFL
 centre and Match centre, the market's view on each match, results by hand for every game on fixtures, the rules

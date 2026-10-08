@@ -38,6 +38,8 @@ export interface GameBoard {
   squares?: SquaresData;
   pickem?: PickemData;
   bracket?: BracketData;
+  // the sport's words (migration 190): what starts a game, what a tiebreaker counts and how high it goes
+  words?: Words;
   players?: BoxData;
 }
 export interface PoolGame { id: number; kind: 'series' | 'rank' | 'squares' | 'pickem' | 'bracket' | 'players'; series?: number | null; title: string; status: 'open' | 'done'; competition: string; to_pick: number; next_lock: string | null }
@@ -60,6 +62,16 @@ export const lockText = (iso: string | null, tbd = false) => {
 const ordinal = (n: number) => { const s = ['th', 'st', 'nd', 'rd'], v = n % 100; return n + (s[(v - 20) % 10] ?? s[v] ?? s[0]); };
 const pts = (n: number) => `${n} ${n === 1 ? 'pt' : 'pts'}`;
 const hue = (c: Club | null | undefined) => c?.color ?? 'rgb(var(--gold-rgb))';
+// a game's sport words, with baseball's for an older server that doesn't send them; `guess` is where a tiebreaker starts
+export interface Words { start: string; score: string; cap: number }
+// single games all the way (the NFL's playoffs): no lengths to call, and the final is one game
+export const singles = (b: { rounds?: { best_of: number }[] }) => !!b.rounds?.length && b.rounds.every((r) => r.best_of === 1);
+export const lastGameOf = (label: string, single: boolean) => (single ? `the ${label}` : `the last game of the ${label}`);
+export const wordsOf = (b: { words?: Words }) => {
+  const w = b.words ?? { start: 'first pitch', score: 'runs', cap: 60 };
+  return { ...w, guess: w.score === 'points' ? 45 : w.score === 'goals' ? 3 : 8 };
+};
+
 const ICON = { series: Swords, rank: ListOrdered, squares: Grid3x3, pickem: ListChecks, bracket: Trophy, players: Users } as const;
 
 // a series' wins as dots: the number it takes to win, filled as they come
@@ -75,8 +87,10 @@ function WinDots({ wins, need, color }: { wins: number; need: number; color: str
 function seriesState(s: Series): string {
   const a = s.high, b = s.low;
   if (!a || !b) return s.starts_at ? `Starts ${lockText(s.starts_at, s.tbd)}` : 'Clubs to be decided';
-  if (s.state === 'final') { const w = s.winner === a.id ? a : b; return `${w.short ?? w.name} win it in ${s.high_wins + s.low_wins}`; }
-  if (s.state === 'scheduled') return `Game 1 · ${lockText(s.starts_at, s.tbd)}`;
+  if (s.state === 'final') { const w = s.winner === a.id ? a : b; return s.best_of === 1 ? `${w.short ?? w.name} win` : `${w.short ?? w.name} win it in ${s.high_wins + s.low_wins}`; }
+  if (s.state === 'scheduled') return s.best_of === 1 ? lockText(s.starts_at, s.tbd) : `Game 1 · ${lockText(s.starts_at, s.tbd)}`;
+  // a single game under way: just live
+  if (s.best_of === 1) return 'Live';
   const lead = s.high_wins === s.low_wins ? `Tied ${s.high_wins}-${s.low_wins}` : s.high_wins > s.low_wins ? `${a.short} lead ${s.high_wins}-${s.low_wins}` : `${b.short} lead ${s.low_wins}-${s.high_wins}`;
   const n = s.next;
   if (n?.state === 'live') return `${lead} · Game ${n.game_no} live${n.detail?.inning ? `, ${n.detail.half === 'Top' ? 'top' : 'bottom'} ${ordinal(n.detail.inning)}` : ''}`;
@@ -124,7 +138,7 @@ function SeriesCard({ s, board, onPick, busy, name }: { s: Series; board: GameBo
             </button>
           );
         })}
-        {canPick && s.mine && (
+        {canPick && s.mine && s.best_of > 1 && (
           <div className="flex flex-wrap items-center gap-1.5 pt-1">
             <span className="mr-1 text-[11px] font-semibold text-mute">In</span>
             {lengths.map((n) => (
@@ -139,12 +153,12 @@ function SeriesCard({ s, board, onPick, busy, name }: { s: Series; board: GameBo
         {s.mine ? (
           <span className="flex items-center gap-1.5 text-slate-200">
             {s.locked && <Lock className="h-3 w-3 text-mute" />}
-            Your pick: <b className="text-white">{clubs.find((c) => c?.id === s.mine!.winner)?.short} in {s.mine.games}</b>
+            Your pick: <b className="text-white">{clubs.find((c) => c?.id === s.mine!.winner)?.short}{s.best_of > 1 ? ` in ${s.mine.games}` : ''}</b>
             {s.points != null && <span className={`rounded-full px-2 py-0.5 text-[10px] font-black ring-1 ${s.points > 0 ? 'bg-emerald-400/15 text-emerald-200 ring-emerald-400/30' : 'bg-white/[.06] text-mute ring-white/10'}`}>+{s.points}</span>}
           </span>
-        ) : canPick ? <span className="text-amber-200">Tap who wins, then how many games</span>
+        ) : canPick ? <span className="text-amber-200">{s.best_of > 1 ? 'Tap who wins, then how many games' : 'Tap who wins'}</span>
           : s.locked ? <span className="text-mute">No pick</span> : <span className="text-mute">Opens when both clubs are set</span>}
-        <span className="text-mute">{board.rules.exact_only ? `${pts(winPts)} for both` : `${pts(winPts)}${lenPts ? ` · +${lenPts} length` : ''}`}</span>
+        <span className="text-mute">{board.rules.exact_only ? (s.best_of === 1 ? pts(winPts) : `${pts(winPts)} for both`) : s.best_of === 1 ? pts(winPts + lenPts) : `${pts(winPts)}${lenPts ? ` · +${lenPts} length` : ''}`}</span>
       </div>
       {s.locked && calls.length > 0 && (
         <div className="border-t border-white/[.06]">
@@ -187,17 +201,19 @@ function SeriesGame({ board, reload, name, actAs }: { board: GameBoard; reload: 
     return { ...s, mine: (local[s.id] ? { ...base, ...local[s.id] } : base) as Pick | null };
   }), [board, local, actAs]);
   const onPick = (s: Series, p: Partial<Pick>) => {
-    const next = { ...(s.mine ?? {}), ...p } as Partial<Pick>;
+    // a single game (the NFL's playoffs) has only one length: the winner is the whole pick
+    const next = { ...(s.mine ?? {}), ...p, ...(s.best_of === 1 ? { games: 1 } : {}) } as Partial<Pick>;
     setLocal((l) => ({ ...l, [s.id]: next }));
     if (next.winner && next.games) run(async () => { await savePick(board, `s:${s.id}`, next, actAs); reload(); }, actAs ? `Saved for ${actAs.name}` : undefined);
   };
   const rounds = board.rounds.map((r) => ({ ...r, list: series.filter((s) => s.round === r.round) })).filter((r) => r.list.length);
   const tb = board.tiebreak;
-  const tbv = runs ?? tb?.mine ?? 8;
+  const w = wordsOf(board);
+  const tbv = runs ?? tb?.mine ?? w.guess;
   return (
     <>
       {rounds.map((r) => (
-        <Section key={r.round} title={r.label} right={<span className="text-xs text-mute">Best of {r.best_of}</span>}>
+        <Section key={r.round} title={r.label} right={<span className="text-xs text-mute">{r.best_of === 1 ? 'Single games' : `Best of ${r.best_of}`}</span>}>
           <div className="grid gap-3 md:grid-cols-2">{r.list.map((s) => <SeriesCard key={s.id} s={s} board={board} onPick={onPick} busy={busy} name={name} />)}</div>
         </Section>
       ))}
@@ -205,17 +221,17 @@ function SeriesGame({ board, reload, name, actAs }: { board: GameBoard; reload: 
         <Section title="The tiebreaker">
           <div className="card flex flex-wrap items-center gap-3 p-4">
             <div className="min-w-0 flex-1">
-              <div className="font-semibold text-white">Total runs in the last game of the {tb.label}</div>
+              <div className="font-semibold text-white">Total {w.score} in {lastGameOf(tb.label, singles(board))}</div>
               <div className="text-xs text-mute">{tb.locked ? 'Locked' : `Locks ${lockText(tb.locks_at)}`}. Closest breaks a tie on points.</div>
             </div>
             <div className="flex items-center gap-1.5">
               <button type="button" aria-label="One fewer" disabled={tb.locked || busy || tbv <= 0} onClick={() => setRuns(Math.max(0, tbv - 1))} className="grid h-10 w-10 place-items-center rounded-xl bg-white/[.06] ring-1 ring-white/10 disabled:opacity-30"><Minus className="h-4 w-4" /></button>
               <div className={`num grid h-10 w-12 place-items-center rounded-xl bg-black/30 text-xl font-black ${tb.mine == null && runs == null ? 'text-white/40' : 'text-white'}`}>{tbv}</div>
-              <button type="button" aria-label="One more" disabled={tb.locked || busy || tbv >= 60} onClick={() => setRuns(Math.min(60, tbv + 1))} className="grid h-10 w-10 place-items-center rounded-xl bg-white/[.06] ring-1 ring-white/10 disabled:opacity-30"><Plus className="h-4 w-4" /></button>
+              <button type="button" aria-label="One more" disabled={tb.locked || busy || tbv >= w.cap} onClick={() => setRuns(Math.min(w.cap, tbv + 1))} className="grid h-10 w-10 place-items-center rounded-xl bg-white/[.06] ring-1 ring-white/10 disabled:opacity-30"><Plus className="h-4 w-4" /></button>
             </div>
             {!tb.locked && (runs != null && runs !== tb.mine || tb.mine == null) && (
               <button type="button" className="btn-gold w-full" disabled={busy} onClick={() => run(async () => { await rpc('pool_game_pick', { p_game: board.id, p_thing: 'tiebreak', p_pick: { runs: tbv } }); setRuns(null); reload(); }, 'Tiebreaker saved')}>
-                Save {tbv} runs
+                Save {tbv} {w.score}
               </button>
             )}
           </div>
@@ -315,13 +331,15 @@ function GameRules({ board }: { board: GameBoard }) {
     const rs = board.rounds.filter((r) => r.round >= board.rules.from_round);
     for (const r of rs) {
       const p = board.rules.points?.[r.round] ?? 1, l = board.rules.length?.[r.round] ?? 0;
-      lines.push(board.rules.exact_only
+      // a single game's length is always right, so its points ride with the winner
+      const one = r.best_of === 1 && !board.rules.exact_only ? p + l : null;
+      lines.push(one != null ? `${r.label}: ${one} ${one === 1 ? 'point' : 'points'} for the winner.` : board.rules.exact_only
         ? `${r.label}: ${p} ${p === 1 ? 'point' : 'points'} only when the winner and the number of games are both right.`
         : `${r.label}: ${p} ${p === 1 ? 'point' : 'points'} for the winner${l ? `, ${l} more when the number of games is right too` : ''}.`);
     }
-    lines.push('Each series locks at the first pitch of its Game 1; a later round opens to picks once its matchup is set.');
+    lines.push(`Each series locks at the ${wordsOf(board).start} of its first game; a later round opens to picks once its matchup is set.`);
     lines.push('Join any time: you play every series still to start.');
-    if (board.tiebreak) lines.push(`A tie on points goes to whoever is closest on the total runs in the last game of the ${board.tiebreak.label}.`);
+    if (board.tiebreak) lines.push(`A tie on points goes to whoever is closest on the total ${wordsOf(board).score} in ${lastGameOf(board.tiebreak.label, singles(board))}.`);
   } else if (board.bracket) {
     const br = board.bracket;
     const byRound = [...new Map(br.series.map((x) => [x.round, x])).values()];
@@ -329,7 +347,7 @@ function GameRules({ board }: { board: GameBoard }) {
     lines.push(byRound.map((x) => `${x.label}: ${x.points} ${x.points === 1 ? 'point' : 'points'}`).join(' · ') + ', for each right winner.');
     lines.push('The whole bracket locks with the first game, and you can change it until then.');
     lines.push('A pick whose club is knocked out can’t score, so what’s still possible shrinks as the clubs go out.');
-    if (br.tiebreak.label) lines.push(`A tie on points goes to whoever is closest on the total runs in the last game of the ${br.tiebreak.label}.`);
+    if (br.tiebreak.label) lines.push(`A tie on points goes to whoever is closest on the total ${wordsOf(board).score} in ${lastGameOf(br.tiebreak.label, br.series.every((x) => x.best_of === 1))}.`);
   } else if (board.players) {
     const bp = board.players, s = bp.scoring;
     lines.push(`Take one player from each of the ${bp.boxes.length} boxes. The boxes were dealt when the pool started: the players expected to score the most in these nights, forwards first, then defence, then goalies, the best in box 1.`);
@@ -337,7 +355,7 @@ function GameRules({ board }: { board: GameBoard }) {
     lines.push('Your team locks at the first puck drop of the first night, and you can change it until then. A player who gets hurt stays on your team.');
     lines.push('The most points wins. A tie on points shares it.');
   } else if (rk) {
-    lines.push(`Put the clubs in order once. At the first pitch of the ${rk.round_label} the ${rk.field || ''} clubs still in are ranked in your order: your top club pays ${rk.field || 'the most'} for every game it wins, your last pays 1.`.replace('the  clubs', 'the clubs'));
+    lines.push(`Put the clubs in order once. At the first ${wordsOf(board).start} of the ${rk.round_label} the ${rk.field || ''} clubs still in are ranked in your order: your top club pays ${rk.field || 'the most'} for every game it wins, your last pays 1.`.replace('the  clubs', 'the clubs'));
     lines.push('Clubs out by the lock don’t count, and your order is final from then on.');
     lines.push('The most points wins. A tie on points shares it.');
   } else return null;
@@ -377,7 +395,7 @@ function GameTable({ board }: { board: GameBoard }) {
               <div className="min-w-0 flex-1">
                 <div className="break-words font-semibold text-white">{t?.gm_name ?? t?.name}</div>
                 <div className="text-[11px] text-mute">{board.kind === 'squares' ? `${r.picked} ${r.picked === 1 ? 'square' : 'squares'} · ${r.right} ${r.right === 1 ? 'hit' : 'hits'}`
-                  : `${board.kind === 'series' ? `${r.right} right · ${r.exact} with the length · ${r.picked} picked` : board.kind === 'pickem' ? `${r.right} right · ${r.picked} picked` : board.kind === 'bracket' ? (r.picked ? `${r.right} right` : 'No bracket yet') : r.picked ? 'Ranked' : 'Not ranked yet'}${r.possible != null ? ` · up to ${r.possible}` : ''}`}</div>
+                  : `${board.kind === 'series' ? (singles(board) ? `${r.right} right · ${r.picked} picked` : `${r.right} right · ${r.exact} with the length · ${r.picked} picked`) : board.kind === 'pickem' ? `${r.right} right · ${r.picked} picked` : board.kind === 'bracket' ? (r.picked ? `${r.right} right` : 'No bracket yet') : r.picked ? 'Ranked' : 'Not ranked yet'}${r.possible != null ? ` · up to ${r.possible}` : ''}`}</div>
               </div>
               <span className="num shrink-0 text-xl font-black text-white">{r.points}</span>
             </div>
@@ -444,7 +462,7 @@ export default function Picks() {
   const sub = pk ? (pk.confidence ? 'Confidence: number your picks, a right one earns its number' : 'A point for every right pick')
     : sq ? `${sq.cost} coins a square · ${sq.pay_when === 'innings' ? 'pays after the 3rd, 6th and final' : 'pays on the final score'}`
     : board.kind === 'series'
-    ? (board.rules.exact_only ? 'Winner and length both right, or nothing' : `Points by round: ${board.rounds.map((r) => board.rules.points?.[String(r.round)]).join('-')}, plus ${board.rounds.map((r) => board.rules.length?.[String(r.round)]).join('-')} for the length`)
+    ? (board.rules.exact_only ? 'Winner and length both right, or nothing' : `Points by round: ${board.rounds.map((r) => (board.rules.points?.[String(r.round)] ?? 1) + (singles(board) ? board.rules.length?.[String(r.round)] ?? 0 : 0)).join('-')}${singles(board) ? '' : `, plus ${board.rounds.map((r) => board.rules.length?.[String(r.round)]).join('-')} for the length`}`)
     : board.players ? `One player from each of ${board.players.boxes.length} boxes · goals and assists`
     : board.bracket ? `Every winner to the final · ${[...new Map(board.bracket.series.map((x) => [x.round, x.points])).values()].join('-')} points by round`
     : 'Every win pays its club’s rank';
@@ -481,7 +499,7 @@ export default function Picks() {
       )}
       {pk ? <PickemGame key={`${board.id}-${actAs?.team ?? 'me'}`} gameId={board.id} first={pk} status={board.status} name={name} reload={load} actAs={actAs ?? undefined} />
         : sq ? <SquaresGame data={sq} gameId={board.id} status={board.status} reload={load} name={name} />
-        : board.kind === 'bracket' && board.bracket ? <BracketGame key={`${board.id}-${actAs?.team ?? 'me'}`} gameId={board.id} data={board.bracket} status={board.status} reload={load} actAs={actAs ?? undefined} />
+        : board.kind === 'bracket' && board.bracket ? <BracketGame key={`${board.id}-${actAs?.team ?? 'me'}`} gameId={board.id} data={board.bracket} words={wordsOf(board)} status={board.status} reload={load} actAs={actAs ?? undefined} />
         : board.kind === 'players' && board.players ? <BoxPoolGame key={`${board.id}-${actAs?.team ?? 'me'}`} gameId={board.id} data={board.players} status={board.status} reload={load} actAs={actAs ?? undefined} />
         : board.kind === 'series' ? <SeriesGame key={`${board.id}-${actAs?.team ?? 'me'}`} board={board} reload={load} name={name} actAs={actAs ?? undefined} />
         : board.kind === 'rank' ? <RankGame key={`${board.id}-${actAs?.team ?? 'me'}`} board={board} reload={load} name={name} actAs={actAs ?? undefined} />

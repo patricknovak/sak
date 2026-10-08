@@ -3766,7 +3766,7 @@ select pg_temp.raises('a round already started can''t be the start', $$select po
 select pool_game_start('series', 'mlb-post-2026', '{"preset":"classic"}') as sg \gset
 select pool_game_start('rank', 'mlb-post-2026') as rg \gset
 select pg_temp.expect('it starts from the next round, on the preset''s points', (select (rules->>'from_round')::int = 3 and rules->'points'->>'3' = '4' and rules->'length'->>'3' = '2'
-  from pool_games where id = :sg) and exists (select 1 from messages where league_id = :lib and body like '⚾ Pick the series is on, from the Championship Series%'));
+  from pool_games where id = :sg) and exists (select 1 from messages where league_id = :lib and body = '⚔️ Pick the series is on, from the Championship Series: call each series and how many games it goes. Each pick locks at its Game 1''s first pitch.'));
 select pg_temp.raises('one of each kind', $$select pool_game_start('series', 'mlb-post-2026')$$, 'already runs that game');
 select pg_temp.raises('a series whose clubs aren''t set waits', format('select pool_game_pick(%s, %L, %L)', :sg, 's:' || :alcs, jsonb_build_object('winner', :alb, 'games', 5)), 'isn''t set yet');
 select pool_game_pick(:rg, 'rank', jsonb_build_object('order', jsonb_build_array(:dov, :alb)));
@@ -4900,6 +4900,10 @@ select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-000000000081
 set role authenticated;
 select pool_game_start('bracket', 'nfl-po-test') as nbg \gset
 select pg_temp.expect('a bracket on the playoffs, doubling from the Divisional round', (select rules->'points' = '{"2": 1, "3": 2, "4": 4}'::jsonb from pool_games where id = :nbg));
+-- in football's words (migration 190): the Super Bowl's total points break a tie, up to 150
+select pg_temp.expect('the board speaks football', (select b->'words' = '{"start": "kickoff", "score": "points", "cap": 150}'::jsonb from (select pool_game_board(:nbg) b) x));
+select pool_game_pick(:nbg, 'tiebreak', '{"runs": 98}');
+select pg_temp.raises('a tiebreaker past a football score', format('select pool_game_pick(%s, %L, %L)', :nbg, 'tiebreak', '{"runs": 151}'), 'Total points: a number from 0 to 150');
 reset role;
 update pool_games set status = 'done' where id = :nbg;
 update competitions set active = false where id = 'nfl-po-test';
