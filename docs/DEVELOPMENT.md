@@ -230,7 +230,12 @@ they lock (`pool_picks`), results graded on read from the shared event tables, a
    ESPN's feed until those games are drawn, so it goes on the competition when the field is announced (a `regions` list
    in Final Four order, entered on the Platform page) and the adapter orders the regions by it. The First Four are
    left out: a first-round slot whose team is still to be decided fills once that game is played, and the bracket
-   locks only once every first-round team is set (`_bracket_ok` already insists on it). *In football's words (migration
+   locks only once every first-round team is set (`_bracket_ok` already insists on it).
+   *The Stanley Cup playoffs as series, built 8 October 2026 (migration 191):* mlb-sync, the postseason feed, reads the
+   NHL's bracket (`/v1/playoff-bracket/<year>`) and each series' games for competitions with provider 'nhl-api'
+   (`_shared/nhlPlayoffs.ts`). The NHL letters its series in bracket order, so the bracket runs from the first round.
+   Tested on the 2026 playoffs (every series as the NHL had it); `nhl-post-2027` fills when the NHL draws its bracket,
+   and the two-minute live cadence (`_mlb_due`) covers it. *In football's words (migration
    190):* the board sends the sport's words for the start of a game and its score, so the tiebreaker is the Super Bowl's
    total points (0 to 150; runs 0 to 60, goals 0 to 30) and the news says kickoff; a single game is picked on the winner
    alone, its length points riding with it. Still to come: March Madness,
@@ -247,7 +252,7 @@ they lock (`pool_picks`), results graded on read from the shared event tables, a
    the window played out a thousand times, each player's points in his club's games still to come drawn around his
    projection (a Poisson count as a rounded normal), the same draw for every member who took him.
 
-*Where 8 October left it (migrations 172 to 190, PR #243):* items 1 to 3 and 5 built, item 6 built for pick'em, Pick
+*Where 8 October left it (migrations 172 to 191, PR #243):* items 1 to 3 and 5 built, item 6 built for pick'em, Pick
 the series and Rank the teams, item 7's bracket built on series and its box pool on the NHL season, item 4 begun (last one standing starts through the
 engine's door). Beside them: NFL
 centre and Match centre, the market's view on each match, results by hand for every game on fixtures, the rules

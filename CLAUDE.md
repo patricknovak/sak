@@ -60,7 +60,8 @@ Two things in one repo:
   pre-match lines ride along as `fixtures.detail.odds`, chances only, frozen at kick-off, migration 178; a competition
   with `format` 'series' is a postseason: the NFL's playoffs come in as best-of-1 series through `sport_ingest`, migration
   187), `mlb-sync` (baseball's postseason from MLB's
-  public Stats API into `series`, `fixtures` and `fixture_periods` through `sport_ingest`; platform key only; for testing, a
+  public Stats API into `series`, `fixtures` and `fixture_periods` through `sport_ingest`, and the Stanley Cup playoffs from
+  the NHL's bracket for competitions with provider 'nhl-api', migration 191; platform key only; for testing, a
   licensed feed replaces it, docs/POOL-TYPES.md §8; `sport_ingest` ends by drawing and paying any grid of squares on the
   event, `_squares_tick`, migration 167). Shared code in `supabase/functions/_shared`.
 - Scheduler: pg_cron jobs call the edge functions through pg_net with the anon key. Job names: nhl-scores
