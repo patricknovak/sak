@@ -129,7 +129,7 @@ function SeriesCard({ s, board, onPick, busy, name }: { s: Series; board: GameBo
               <span className="relative min-w-0 flex-1">
                 <span className="block break-words font-bold leading-tight text-white">{c.name}</span>
                 <span className="mt-1 flex items-center gap-2 text-[10px] font-semibold uppercase tracking-wider text-mute">
-                  {i === 0 ? 'Home field' : 'Visitors'}{(s.state !== 'scheduled') && <WinDots wins={wins} need={need} color={hue(c)} />}
+                  {i === 0 ? (wordsOf(board).start === 'puck drop' ? 'Home ice' : 'Home field') : 'Visitors'}{(s.state !== 'scheduled') && <WinDots wins={wins} need={need} color={hue(c)} />}
                 </span>
               </span>
               {s.locked && calls.length > 0 && <span className="num relative shrink-0 text-sm font-black text-white/80">{share(c.id)}%</span>}
