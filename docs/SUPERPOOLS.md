@@ -257,6 +257,10 @@ give the pool a home for following the sport):**
   by hand from the Platform page when the feed stalls; standings by division and conference and box scores in NFL
   centre; the prop sheet (eight auto-settled calls on one playoff game, for the LCS and the World Series); the
   second-chance bracket; and the Eliminator (last one standing on March Madness and the NFL's playoffs).*
+  *Later the same day (migrations 213 to 219):* fixes from two independent reviews; hockey's score by period from the NHL,
+  so Stanley Cup grids pay by the period and sheets run on it; prop sheets and squares on any NFL game of the week, not
+  only the playoffs; prop sheets that score live as the game decides each call, with a chance to win once locked; and
+  NFL centre linking each game's sheet and grid.*
 
 Then the list below, which is the fantasy-league plan of record.
 
