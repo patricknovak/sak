@@ -6,6 +6,8 @@
 export interface Change { date: string; icon: string; title: string; body: string; to?: string; tag?: 'formats' | 'commish' | 'draft' | 'everyone' }
 
 export const CHANGELOG: Change[] = [
+  { date: '2026-10-09', icon: '🛡️', tag: 'everyone', title: 'The Eliminator', to: '/pools',
+    body: 'Last one standing now runs on single-game tournaments: March Madness and the NFL playoffs. Pick one team to win each round, never the same team twice; a loss and you\'re out, and whoever survives the final wins it.' },
   { date: '2026-10-09', icon: '📊', tag: 'everyone', title: 'Box scores in NFL centre', to: '/pools',
     body: 'Every NFL game that has kicked off opens its box score in NFL centre: the team stats side by side, each side\'s passing, rushing and receiving leaders, and every scoring play with the score after it, live while the game is on.' },
   { date: '2026-10-09', icon: '🏆', tag: 'everyone', title: 'A second-chance bracket', to: '/pools',

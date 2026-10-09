@@ -386,7 +386,10 @@ and soccer share it.
    (migration 201):* `ncaam-2027` fills from ESPN in mid-March, 63 slots in bracket order; the second chance and the
    Eliminator are still to come. *The second chance built 9 October 2026 (migration 211):* once a pool's bracket has
    locked, the host opens a "Second-chance bracket" from a later round (the Sweet 16, or any postseason's next round),
-   a fresh bracket for everyone on the scoreboard beside the first. The Eliminator is still to come.
+   a fresh bracket for everyone on the scoreboard beside the first. *The Eliminator, the same day (migration 212):* last
+   one standing on a tournament of single games (March Madness, the NFL's playoffs as series): each game carries its
+   round (`fixtures.gameweek`, from `sport_ingest`), so the survivor runs on it unchanged to the tournament's last round;
+   the start page offers it beside the bracket.
 5. The NHL playoffs (April 2027): the player pool (draft and box), the bracket with series length, series pick'em,
    confidence by team; NHL centre gains the bracket and the pool ribbon. *Ready 8 October 2026:* the feed (`nhl-post-2027`
    through mlb-sync, migration 191, tested on the 2026 playoffs), so Pick the series, the bracket from the first round and

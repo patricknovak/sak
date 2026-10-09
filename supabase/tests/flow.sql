@@ -5336,6 +5336,72 @@ update competitions set active = false where id = 'props-test';
 select set_config('request.jwt.claim.sub', '', false);
 select 'prop sheet', true;
 
+-- ───────────── the Eliminator (migration 212) ─────────────
+-- A four-team tournament of single games. Round 1: Hana takes Ash, Fern takes Dale, Lou takes Cove; Ash and Dale win, so
+-- Lou is out. The final is Ash against Dale: each has used one of them, so Hana must take Dale and Fern Ash. Ash wins it.
+reset role;
+select set_config('request.jwt.claim.sub', '', false);
+select set_config('app.league_id', '', false);
+update pool_games set status = 'done' where kind = 'survivor' and league_id = :lib and status = 'open';
+insert into competitions (id, sport, name, short, season, provider, ext_id, ext_season, active, format)
+values ('elim-test', 'ncaab', 'Elim Test', 'ET', '2027', 'espn', 'basketball/elim', '2027', true, 'series') on conflict (id) do nothing;
+select sport_ingest('elim-test', jsonb_build_object(
+  'clubs', '[{"ext_id": "e1", "name": "Ash", "short": "ASH"}, {"ext_id": "e2", "name": "Birch", "short": "BIR"}, {"ext_id": "e3", "name": "Cove", "short": "COV"}, {"ext_id": "e4", "name": "Dale", "short": "DAL"}]'::jsonb,
+  'series', '[{"ext_id": "elim:1", "round": 1, "label": "Semifinal", "best_of": 1, "high": "e1", "low": "e2", "sort": 1},
+              {"ext_id": "elim:2", "round": 1, "label": "Semifinal", "best_of": 1, "high": "e3", "low": "e4", "sort": 2},
+              {"ext_id": "elim:3", "round": 2, "label": "Final", "best_of": 1, "sort": 3}]'::jsonb,
+  'fixtures', jsonb_build_array(
+    jsonb_build_object('ext_id', 'eg1', 'series', 'elim:1', 'game_no', 1, 'kickoff', now() + interval '1 day', 'state', 'scheduled', 'home', 'e1', 'away', 'e2'),
+    jsonb_build_object('ext_id', 'eg2', 'series', 'elim:2', 'game_no', 1, 'kickoff', now() + interval '1 day', 'state', 'scheduled', 'home', 'e3', 'away', 'e4'))));
+select (select id from clubs where provider = 'espn' and sport = 'ncaab' and ext_id = 'e1') as eash, (select id from clubs where provider = 'espn' and sport = 'ncaab' and ext_id = 'e3') as ecove,
+  (select id from clubs where provider = 'espn' and sport = 'ncaab' and ext_id = 'e4') as edale \gset
+select pg_temp.expect('a single game carries its round', (select gameweek = 1 from fixtures where provider = 'espn' and ext_id = 'eg1'));
+select set_config('app.league_id', :'lib', false);
+select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-000000000081', false);
+set role authenticated;
+select pg_temp.expect('the start page offers the Eliminator on the tournament', exists (select 1 from jsonb_array_elements(pool_event_list()) e
+  where e->>'competition' = 'elim-test' and e->'kinds' ? 'survivor'));
+select pool_game_start('survivor', 'elim-test') as esv \gset
+select survivor_pick(:esv, :eash);
+reset role;
+select pg_temp.expect('it runs from round 1 to the final', (select start_gw = 1 and end_gw = 2 from pool_survivors where id = :esv));
+select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-000000000082', false);
+set role authenticated;
+select survivor_pick(:esv, :edale);
+reset role;
+select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-000000000081', false);
+set role authenticated;
+select survivor_host_pick(:esv, :lou, :ecove);
+reset role;
+select set_config('request.jwt.claim.sub', '', false);
+-- round 1: Ash and Dale win; the final's matchup is set and its game comes in, carrying round 2
+select sport_ingest('elim-test', jsonb_build_object(
+  'series', '[{"ext_id": "elim:3", "round": 2, "label": "Final", "best_of": 1, "high": "e1", "low": "e4", "sort": 3}]'::jsonb,
+  'fixtures', jsonb_build_array(
+    jsonb_build_object('ext_id', 'eg1', 'series', 'elim:1', 'game_no', 1, 'kickoff', now() - interval '3 hours', 'state', 'final', 'home', 'e1', 'away', 'e2', 'home_score', 70, 'away_score', 61),
+    jsonb_build_object('ext_id', 'eg2', 'series', 'elim:2', 'game_no', 1, 'kickoff', now() - interval '3 hours', 'state', 'final', 'home', 'e3', 'away', 'e4', 'home_score', 58, 'away_score', 66),
+    jsonb_build_object('ext_id', 'eg3', 'series', 'elim:3', 'game_no', 1, 'kickoff', now() + interval '2 days', 'state', 'scheduled', 'home', 'e1', 'away', 'e4'))));
+select pg_temp.expect('Lou is out, the other two through, and it goes on to the final',
+  (select status = 'open' from pool_games where id = :esv) and not _survivor_alive(:esv, :lou) and _survivor_alive(:esv, :hana) and _survivor_alive(:esv, :fern)
+  and _survivor_week(:esv) = 2);
+select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-000000000081', false);
+set role authenticated;
+select pg_temp.raises('a team once', format('select survivor_pick(%s, %s)', :esv, :eash), 'used that team already');
+select survivor_pick(:esv, :edale);
+reset role;
+select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-000000000082', false);
+set role authenticated;
+select survivor_pick(:esv, :eash);
+reset role;
+select set_config('request.jwt.claim.sub', '', false);
+select sport_ingest('elim-test', jsonb_build_object('fixtures', jsonb_build_array(
+  jsonb_build_object('ext_id', 'eg3', 'series', 'elim:3', 'game_no', 1, 'kickoff', now() - interval '2 hours', 'state', 'final', 'home', 'e1', 'away', 'e4', 'home_score', 75, 'away_score', 72))));
+select pg_temp.expect('Ash takes the final: Fern is the last one standing',
+  (select status = 'done' and winners = array[:fern] from pool_games where id = :esv));
+update competitions set active = false where id = 'elim-test';
+select set_config('request.jwt.claim.sub', '', false);
+select 'eliminator', true;
+
 -- ───────────── the Stanley Cup playoffs as series (migration 191) ─────────────
 -- The 2026 playoffs as mlb-sync files them from the NHL's bracket (logos, venues and details left out): every series'
 -- result as the NHL had it, and a bracket from the first round, the letters' order making the tree.
