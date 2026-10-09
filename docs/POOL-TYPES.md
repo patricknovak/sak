@@ -139,7 +139,8 @@ squares cost coins and the pot pays the winners, so it stays a pool, not a marke
 night), not only a postseason series: the game stands in as a series of one (`_squares_series`, `_squares_fixtures`),
 so the claims, the draw at kickoff, the board and the quarters' payouts are the same code, and `soccer_ingest` settles
 the grids as the weekly feed lands. Offered through `pool_event_list`'s `game_grids`, picked in the same game picker as
-the prop sheet; a level final is still the grid's last.
+the prop sheet; a level final is still the grid's last. A game put off waits for its new kickoff; one called off hands
+back what's left of the pot (migration 219).
 
 ### 2.7 Player pool (draft, box or open)
 

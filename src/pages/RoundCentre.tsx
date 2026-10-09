@@ -78,12 +78,12 @@ function usePoolRound(competition: string, round: number | null) {
   const onMatch = new Map<number, OnMatch[]>();
   for (const x of games ?? []) {
     if ((x.kind !== 'props' && x.kind !== 'squares') || x.competition !== competition || !x.fixture) continue;
-    onMatch.set(x.fixture, [...(onMatch.get(x.fixture) ?? []), { id: x.id, kind: x.kind, open: x.status === 'open' }]);
+    onMatch.set(x.fixture, [...(onMatch.get(x.fixture) ?? []), { id: x.id, kind: x.kind, open: x.status === 'open', mine: !x.to_pick }]);
   }
   return { gameId: g?.id, byFixture, onMatch, inGame: board != null && round != null && round >= board.from_round && round <= board.to_round };
 }
 
-interface OnMatch { id: number; kind: 'props' | 'squares'; open: boolean }
+interface OnMatch { id: number; kind: 'props' | 'squares'; open: boolean; mine: boolean }
 
 function MatchCard({ f, clubs, sp, pk, sport, on }: { f: Fixture; clubs: Map<number, Club>; sp: (typeof SPORTS)[string]; pk?: PkFixture; sport?: string; on?: OnMatch[] }) {
   const [box, setBox] = useState(false);
@@ -157,7 +157,7 @@ function MatchCard({ f, clubs, sp, pk, sport, on }: { f: Fixture; clubs: Map<num
       {on?.map((x) => ({ ...x, open: x.open && f.state === 'scheduled' && new Date(f.kickoff) > new Date() })).map((x) => (
         <Link key={x.id} to={`/picks?g=${x.id}`} className="flex items-center justify-between gap-2 border-t border-white/[.06] bg-gold/[.06] px-3.5 py-2 text-[12px] font-semibold text-white hover:bg-gold/[.1]">
           <span>{x.kind === 'props' ? '📋 The pool\'s prop sheet' : '🔲 The pool\'s squares'}</span>
-          <span className="text-gold">{x.kind === 'props' ? (x.open ? 'Make your calls →' : 'See the calls →') : (x.open ? 'Claim a square →' : 'See the grid →')}</span>
+          <span className="text-gold">{x.kind === 'props' ? (x.open ? 'Make your calls →' : 'See the calls →') : (x.open && !x.mine ? 'Claim a square →' : 'See the grid →')}</span>
         </Link>
       ))}
       {boxable && (

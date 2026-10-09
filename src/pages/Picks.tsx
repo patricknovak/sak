@@ -725,12 +725,17 @@ export function SquaresKnobs({ grids, on, setOn, grid, setGrid, dark, sport }: {
     <div><div className="mb-1.5 text-[11px] font-bold uppercase tracking-[.14em] text-mute">{label}</div><div className="flex flex-wrap gap-1.5">{children}</div>{note && <p className="mt-1.5 text-[11px] leading-snug text-mute">{note}</p>}</div>
   );
   const cur = grids.find((g) => g.id === on);
+  const series = grids.filter((g) => !g.fixture), week = grids.filter((g) => g.fixture);
   return (
     <div className="space-y-3">
       {/* a postseason's few series as chips; an NFL week's games in the game picker, under their week */}
-      {grids.some((g) => g.fixture)
-        ? <div><div className="mb-1.5 text-[11px] font-bold uppercase tracking-[.14em] text-mute">On</div><SheetPicker dark={dark} games={grids.map(gridGame)} on={on} setOn={setOn} /></div>
-        : grids.length > 1 && row('On', grids.map((g) => <button key={g.id} type="button" onClick={() => setOn(g.id)} className={chip(g.id === on)}>{g.short ?? g.label}{g.high && g.low ? ` · ${g.high} v ${g.low}` : ''}</button>))}
+      {grids.length > 1 && (
+        <div>
+          <div className="mb-1.5 text-[11px] font-bold uppercase tracking-[.14em] text-mute">On</div>
+          {series.length > 0 && <div className="flex flex-wrap gap-1.5">{series.map((g) => <button key={g.id} type="button" onClick={() => setOn(g.id)} className={chip(g.id === on)}>{g.short ?? g.label}{g.high && g.low ? ` · ${g.high} v ${g.low}` : ''}</button>)}</div>}
+          {week.length > 0 && <div className={series.length ? 'mt-2.5' : ''}><SheetPicker dark={dark} games={week.map(gridGame)} on={on} setOn={setOn} /></div>}
+        </div>
+      )}
       {cur && <p className="text-xs text-slate-300">{gridLabel(cur)} · {cur.best_of === 1 ? `${(START_WORD[sport ?? ''] ?? 'start').replace(/^./, (c) => c.toUpperCase())} ${lockText(cur.starts_at, cur.tbd)}` : `Game 1 ${lockText(cur.starts_at, cur.tbd)} · up to ${cur.best_of} games`}</p>}
       {row('Grid', SIZES.map((x) => <button key={x.key} type="button" onClick={() => setGrid({ ...grid, size: x.key })} className={chip(grid.size === x.key)}>{x.label}</button>), SIZES.find((x) => x.key === grid.size)!.line)}
       {row('A square costs', [5, 10, 25, 50].map((c) => <button key={c} type="button" onClick={() => setGrid({ ...grid, cost: c })} className={chip(grid.cost === c)}>{c} coins</button>),

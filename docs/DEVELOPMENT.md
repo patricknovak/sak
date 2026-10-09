@@ -330,6 +330,12 @@ week's game (migration 217):* a grid's rules name a fixture as well as a series;
 every squares function is unchanged in shape, and `soccer_ingest` settles the grids after the sheets. *A sheet scores
 live (migration 218):* `_props_answers` returns the calls the game has already decided while it is on (the final's
 answers are unchanged), the sheet's table and board read them, and a locked sheet has a chance to win (item 6).
+*Review fixes for 215 to 217 (migration 219, mlb-sync):* a second independent review found nothing severe; fixed: a grid
+on a week's game put off waits for its new kickoff and one called off hands back what's left of the pot; a grid pays a
+period only once the feed has sent it, so a game that lands final with no score by period pays its final alone (never
+the 0-0 square); `nhlPeriods` sends nothing for a landing with no scoring summary and one bad landing no longer stops
+the bracket's sync; the NFL's playoff weeks read as ESPN names them; the host's grid picker keeps series as chips beside
+the week's games.
 
 Alongside: the World Series test (the LCS from 11 October, the World Series from 23 October) needs its games started
 in the World Series pool (league 5, the questions only so far), and the Love Is Blind test needs players.

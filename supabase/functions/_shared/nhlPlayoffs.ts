@@ -24,8 +24,10 @@ const clubOf = (t: J) => ({
 
 // a game's score by period from its /v1/gamecenter/<id>/landing: each period's goals carry the running score, so a
 // period's goals are its last running score less the one before; a period with no goals is 0-0 (filled in up to the
-// period the game is in); a shootout isn't a period (squares and prop sheets read regulation and overtime)
+// period the game is in); a shootout isn't a period (squares and prop sheets read regulation and overtime). A landing
+// with no scoring summary sends nothing rather than a row of 0-0 periods, so a grid never pays a period it didn't see.
 export function nhlPeriods(landing: J): { n: number; home: number; away: number }[] {
+  if (!Array.isArray(landing?.summary?.scoring)) return [];
   const by = new Map<number, { home: number; away: number }>();
   let last = landing?.periodDescriptor?.number ?? 0;
   if (landing?.periodDescriptor?.periodType === 'SO') last -= 1;

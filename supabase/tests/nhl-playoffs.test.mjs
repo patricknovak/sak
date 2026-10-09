@@ -49,6 +49,8 @@ assert.deepEqual(nhlPeriods({ periodDescriptor: { number: 4, periodType: 'OT' },
   { periodDescriptor: { number: 4, periodType: 'OT' }, goals: [{ homeScore: 1, awayScore: 1 }] }] } }),
   [{ n: 1, home: 0, away: 0 }, { n: 2, home: 1, away: 0 }, { n: 3, home: 0, away: 0 }, { n: 4, home: 0, away: 1 }]);
 assert.deepEqual(nhlPeriods({ periodDescriptor: { number: 5, periodType: 'SO' }, summary: { scoring: [{ periodDescriptor: { number: 5, periodType: 'SO' }, goals: [{ homeScore: 3, awayScore: 2 }] }] } }).length, 4);
+// a landing with no scoring summary sends no periods, never a row of made-up 0-0s (migration 219)
+assert.deepEqual(nhlPeriods({ periodDescriptor: { number: 3, periodType: 'REG' } }), []);
 // a game's periods ride with its fixture when given
 const withP = nhlPlayoffPayload('20252026', bracket, games, { [p.fixtures[0].ext_id]: [{ n: 1, home: 1, away: 0 }] });
 assert.deepEqual(withP.fixtures[0].periods, [{ n: 1, home: 1, away: 0 }]);

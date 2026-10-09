@@ -5507,6 +5507,35 @@ select pg_temp.expect('the half, the 3rd and a level final pay, the whole pot to
      and sum(coins) = 30 from pool_square_pays where game_id = :wsq)
   and (select status = 'done' and winners = array[:hana] from pool_games where id = :wsq));
 select set_config('app.league_id', '', false);
+-- (migration 219) a grid on a game called off hands its coins back; one on a game that lands final with no score by
+-- quarter pays the final alone, the whole pot, and never the 0-0 square for the quarters it didn't see
+select soccer_ingest('nfl', jsonb_build_object('fixtures', jsonb_build_array(
+  jsonb_build_object('ext_id', 'nfl-213', 'gameweek', 13, 'kickoff', now() + interval '3 days', 'status', 'NS', 'home', 'nf1', 'away', 'nf2'),
+  jsonb_build_object('ext_id', 'nfl-214', 'gameweek', 14, 'kickoff', now() + interval '10 days', 'status', 'NS', 'home', 'nf2', 'away', 'nf1', 'round', 'Week 14'))));
+select id as wcf from fixtures where provider = 'espn' and ext_id = 'nfl-213' \gset
+select id as wnf from fixtures where provider = 'espn' and ext_id = 'nfl-214' \gset
+select set_config('app.league_id', :'lib', false);
+select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-000000000081', false);
+set role authenticated;
+select pool_game_start('squares', 'nfl', jsonb_build_object('fixture', :wcf, 'size', 5, 'cost', 10)) as wcq \gset
+select pool_game_start('squares', 'nfl', jsonb_build_object('fixture', :wnf, 'size', 5, 'cost', 10)) as wnq \gset
+select pool_squares_claim(:wcq, array['sq:1:1', 'sq:3:3']);
+select pool_squares_claim(:wnq, array['sq:0:0', 'sq:1:2']);
+reset role;
+select set_config('request.jwt.claim.sub', '', false);
+select coalesce(sum(amount), 0) as before_cx from coin_ledger where team_id = :hana \gset
+select soccer_ingest('nfl', jsonb_build_object('fixtures', jsonb_build_array(
+  jsonb_build_object('ext_id', 'nfl-213', 'gameweek', 13, 'kickoff', now() - interval '1 hour', 'status', 'CANC', 'home', 'nf1', 'away', 'nf2'),
+  jsonb_build_object('ext_id', 'nfl-214', 'gameweek', 14, 'kickoff', now() - interval '4 hours', 'status', 'FT', 'home', 'nf2', 'away', 'nf1', 'round', 'Week 14',
+    'home_score', 13, 'away_score', 10, 'home_ft', 13, 'away_ft', 10))));
+select pg_temp.expect('a game called off: the grid is done and Hana has her 20 coins back',
+  (select status = 'done' and winners = '{}' and draw is null from pool_games where id = :wcq)
+  and (select sum(amount) from coin_ledger where team_id = :hana) - :before_cx = 20 + 20
+  and exists (select 1 from coin_ledger where team_id = :hana and amount = 20 and reason like 'Squares back: Week 13: BUF at KC squares · called off'));
+select pg_temp.expect('a final with no quarters pays the final alone, the whole pot, and the week reads as the feed names it',
+  (select count(*) = 1 and min(point) = 0 and sum(coins) = 20 from pool_square_pays where game_id = :wnq)
+  and (select status = 'done' and title = 'Week 14: KC at BUF squares' from pool_games where id = :wnq));
+select set_config('app.league_id', '', false);
 select 'nfl week squares', true;
 
 -- ───────────── the Stanley Cup playoffs as series (migration 191) ─────────────

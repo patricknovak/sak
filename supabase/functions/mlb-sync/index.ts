@@ -120,7 +120,9 @@ async function nhlPlayoffs(c: { id: string; ext_season: string }) {
   const periods: Record<string, { n: number; home: number; away: number }[]> = {};
   await Promise.all(recent.map(async (g: J) => {
     const l = await fetch(`${NHL}/gamecenter/${g.id}/landing`).catch(() => null);
-    if (l?.ok) periods[String(g.id)] = nhlPeriods(await l.json());
+    // one bad landing leaves its game without periods this run, never the whole bracket unsynced
+    const body = l?.ok ? await l.json().catch(() => null) : null;
+    if (body) periods[String(g.id)] = nhlPeriods(body);
   }));
   return check(await db.rpc('sport_ingest', { p_competition: c.id, p: nhlPlayoffPayload(c.ext_season, bracket, games, periods) }));
 }
