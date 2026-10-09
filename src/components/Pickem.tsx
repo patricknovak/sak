@@ -8,6 +8,8 @@ import { Check, ChevronLeft, ChevronRight, Lock } from 'lucide-react';
 import { useLeague } from '../lib/store';
 import { rpc } from '../lib/supabase';
 import { useAction } from './ui';
+import { ShareButton, useCardBrand } from './ShareButton';
+import { shareCard } from '../lib/shareCard';
 import { Crest } from './Crest';
 import type { Club } from '../pages/Picks';
 import { chance, useMarket } from '../lib/market';
@@ -101,6 +103,20 @@ export function PickemGame({ gameId, first, status: gameStatus, name, reload, ac
   const idx = data.rounds.findIndex((x) => x.round === data.round);
   const openLeft = data.fixtures.filter((f) => !f.locked && !pickOf(f)).length;
   const missingConf = data.confidence && data.fixtures.some((f) => !f.locked && pickOf(f) && !pickOf(f)!.conf);
+  const cardBrand = useCardBrand();
+  // my round as a picture, once a pick has locked: the decided ones first, as many as fit
+  const lockedMine = data.fixtures.filter((f) => f.locked && f.mine);
+  const shareRound = () => {
+    const side = (f: PkFixture, s: Side) => (s === 'H' ? short(f.home) : s === 'A' ? short(f.away) : 'Draw');
+    // soccer names the home side first, football the visitors
+    const rows = lockedMine.map((f) => ({ q: data.draws ? `${short(f.home)} v ${short(f.away)}` : `${short(f.away)} at ${short(f.home)}`,
+      answer: `${side(f, f.mine!.pick)}${data.confidence && f.mine!.conf ? ` · ${f.mine!.conf}` : ''}`,
+      right: f.void || f.result == null ? null : f.result === f.mine!.pick }))
+      .sort((a, b) => Number(b.right != null) - Number(a.right != null));
+    const hits = rows.filter((x) => x.right).length, decided = rows.filter((x) => x.right != null).length;
+    return shareCard({ kind: 'sheet', eyebrow: 'My picks', brand: cardBrand, who: '', title: `${data.word} ${data.round}`,
+      score: decided ? `${hits} of ${decided} right` : `${rows.length} picks in`, rows }, `My ${data.word} ${data.round} picks.`);
+  };
 
   return (
     <div className="space-y-3">
@@ -214,6 +230,7 @@ export function PickemGame({ gameId, first, status: gameStatus, name, reload, ac
           </button>
         </div>
       )}
+      {!actAs && lockedMine.length > 0 && <ShareButton className="btn-ghost w-full" label={`Share my ${data.word.toLowerCase()} ${data.round} picks`} make={shareRound} />}
       <p className="px-1 text-xs text-mute">
         {data.confidence ? `Number your picks from 1 to ${data.size}: your surest is ${data.size}, and a right pick earns its number. Taking a number another match has swaps the two.` : 'A right pick is a point.'} Each pick locks at its own kick-off{data.draws ? '; a draw is the result after ninety minutes' : '; a tie counts for nobody'}. A postponed match counts for nobody.
       </p>
