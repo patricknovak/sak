@@ -6,6 +6,8 @@
 export interface Change { date: string; icon: string; title: string; body: string; to?: string; tag?: 'formats' | 'commish' | 'draft' | 'everyone' }
 
 export const CHANGELOG: Change[] = [
+  { date: '2026-10-09', icon: '📊', tag: 'everyone', title: 'Box scores in NFL centre', to: '/pools',
+    body: 'Every NFL game that has kicked off opens its box score in NFL centre: the team stats side by side, each side\'s passing, rushing and receiving leaders, and every scoring play with the score after it, live while the game is on.' },
   { date: '2026-10-09', icon: '🏆', tag: 'everyone', title: 'A second-chance bracket', to: '/pools',
     body: 'Busted bracket? Once a pool\'s bracket has locked, the host can open a second-chance bracket from a later round (the Sweet 16 in March, the next round of any playoffs), a fresh start for everyone that runs beside the first.' },
   { date: '2026-10-09', icon: '📋', tag: 'everyone', title: 'The prop sheet', to: '/pools',

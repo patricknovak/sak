@@ -5,7 +5,8 @@
 // shared tables soccer-sync fills (fixtures, clubs), every minute while a match is on.
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
-import { CalendarDays, ListOrdered, Radio, Tv } from 'lucide-react';
+import { BarChart3, CalendarDays, ListOrdered, Radio, Tv } from 'lucide-react';
+import { EspnBox } from '../components/EspnBox';
 import { useLeague, useNow } from '../lib/store';
 import { rpc, supabase } from '../lib/supabase';
 import { Empty, PageHeader } from '../components/ui';
@@ -15,7 +16,7 @@ import type { PickemData, PkFixture } from '../components/Pickem';
 import { useSticky } from '../lib/sticky';
 
 interface Fixture {
-  id: number; kickoff: string; date: string; state: 'scheduled' | 'live' | 'final' | 'postponed' | 'cancelled'; status: string | null; minute: number | null;
+  id: number; ext_id?: string; kickoff: string; date: string; state: 'scheduled' | 'live' | 'final' | 'postponed' | 'cancelled'; status: string | null; minute: number | null;
   gameweek: number | null; round: string | null; home_club: number; away_club: number; home_score: number | null; away_score: number | null; venue: string | null;
   // the market's view at kick-off (migration 178): each side's chance, the home side's spread, the total
   detail: { odds?: { home: number; away: number; draw: number | null; line: number | null; total: number | null } } | null;
@@ -49,7 +50,7 @@ function useCompetition(id: string) {
     if (!c) return;
     const [{ data: cl }, { data: fx }] = await Promise.all([
       supabase.from('clubs').select('id,name,short,logo,color').eq('sport', c.sport),
-      supabase.from('fixtures').select('id,kickoff,date,state,status,minute,gameweek,round,home_club,away_club,home_score,away_score,venue,detail')
+      supabase.from('fixtures').select('id,ext_id,kickoff,date,state,status,minute,gameweek,round,home_club,away_club,home_score,away_score,venue,detail')
         .eq('competition', id).not('gameweek', 'is', null).order('kickoff').limit(2000),
     ]);
     setClubs(new Map(((cl ?? []) as Club[]).map((x) => [x.id, x])));
@@ -76,7 +77,10 @@ function usePoolRound(competition: string, round: number | null) {
   return { gameId: g?.id, byFixture, inGame: board != null && round != null && round >= board.from_round && round <= board.to_round };
 }
 
-function MatchCard({ f, clubs, sp, pk }: { f: Fixture; clubs: Map<number, Club>; sp: (typeof SPORTS)[string]; pk?: PkFixture }) {
+function MatchCard({ f, clubs, sp, pk, sport }: { f: Fixture; clubs: Map<number, Club>; sp: (typeof SPORTS)[string]; pk?: PkFixture; sport?: string }) {
+  const [box, setBox] = useState(false);
+  // a box score from ESPN's summary, for a game that has started (NFL centre)
+  const boxable = sport === 'nfl' && !!f.ext_id && (f.state === 'live' || f.state === 'final');
   const home = clubs.get(f.home_club), away = clubs.get(f.away_club);
   const live = f.state === 'live', over = f.state === 'final';
   const clock = live ? (sp.awayFirst ? (QUARTER[f.status ?? ''] ?? f.status ?? 'Live') : f.minute != null ? `${f.minute}'` : (f.status === 'HT' ? 'Half-time' : 'Live')) : null;
@@ -141,6 +145,12 @@ function MatchCard({ f, clubs, sp, pk }: { f: Fixture; clubs: Map<number, Club>;
           {f.venue && <div className="truncate">{f.venue}</div>}
         </div>
       )}
+      {boxable && (
+        <button type="button" onClick={() => setBox(!box)} className="flex w-full items-center justify-center gap-1.5 border-t border-white/[.06] py-2 text-[11px] font-bold uppercase tracking-wider text-slate-300 hover:bg-white/[.03]">
+          <BarChart3 className="h-3.5 w-3.5" />{box ? 'Hide the box score' : 'Box score'}
+        </button>
+      )}
+      {boxable && box && <EspnBox sport="football/nfl" id={f.ext_id!} live={f.state === 'live'} />}
     </div>
   );
 }
@@ -282,7 +292,7 @@ export default function RoundCentre() {
             <div key={d}>
               <div className="mb-2 flex items-center gap-2 px-1"><span className="text-[10px] font-black uppercase tracking-[.2em] text-mute">{d}</span><span className="h-px flex-1 bg-white/[.06]" /></div>
               <div className="grid gap-3 md:grid-cols-2">
-                {matches.filter((f) => dayLabel(f.kickoff, tz) === d).map((f) => <MatchCard key={f.id} f={f} clubs={clubs} sp={sp} pk={byFixture.get(f.id)} />)}
+                {matches.filter((f) => dayLabel(f.kickoff, tz) === d).map((f) => <MatchCard key={f.id} f={f} clubs={clubs} sp={sp} pk={byFixture.get(f.id)} sport={comp?.sport} />)}
               </div>
             </div>
           ))}
