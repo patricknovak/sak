@@ -101,6 +101,8 @@ export function Layout({ children }: { children: ReactNode }) {
   const [nflPost, setNflPost] = useState(false);
   // March Madness (migration 201) has the series centre too
   const [ncaa, setNcaa] = useState(false);
+  // and the NBA's playoffs (migration 220)
+  const [nbaPost, setNbaPost] = useState(false);
   // a box pool on the NHL season (migration 188) has the NHL centre: tonight's games and who scored
   const [nhl, setNhl] = useState(false);
   // a game on the Stanley Cup playoffs (nhl-post-*) has the bracket centre too
@@ -122,6 +124,8 @@ export function Layout({ children }: { children: ReactNode }) {
       .then(({ count }) => { if (live) setNflPost((count ?? 0) > 0); }, () => {});
     supabase.from('pool_games').select('id', { count: 'exact', head: true }).like('competition', 'ncaam%')
       .then(({ count }) => { if (live) setNcaa((count ?? 0) > 0); }, () => {});
+    supabase.from('pool_games').select('id', { count: 'exact', head: true }).like('competition', 'nba-post%')
+      .then(({ count }) => { if (live) setNbaPost((count ?? 0) > 0); }, () => {});
     supabase.from('pool_games').select('id', { count: 'exact', head: true }).like('competition', 'nhl%')
       .then(({ count }) => { if (live) setNhl((count ?? 0) > 0); }, () => {});
     supabase.from('pool_games').select('id', { count: 'exact', head: true }).like('competition', 'nhl-post%')
@@ -168,6 +172,7 @@ export function Layout({ children }: { children: ReactNode }) {
     ...(runs.mlb ? [{ to: '/sport/mlb', label: 'MLB centre', icon: Tv }] : []),
     ...(nflPost ? [{ to: '/sport/nfl', label: 'NFL playoffs', icon: Tv }] : []),
     ...(ncaa ? [{ to: '/sport/ncaab', label: 'March Madness', icon: Tv }] : []),
+    ...(nbaPost ? [{ to: '/sport/nba', label: 'NBA playoffs', icon: Tv }] : []),
     ...(nhl ? [{ to: '/nhl', label: 'NHL centre', icon: Tv }] : []),
     ...(nhlPost ? [{ to: '/sport/nhl', label: 'Stanley Cup playoffs', icon: Tv }] : []),
     ...(rounds ? [{ to: `/centre/${rounds.id}`, label: centreName(rounds.sport), icon: Tv }] : []),
