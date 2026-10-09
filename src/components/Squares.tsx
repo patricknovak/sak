@@ -96,7 +96,8 @@ export function SquaresGame({ data, gameId, status, reload, name }: { data: Squa
   const cardBrand = useCardBrand();
   // my squares as a picture once the digits are drawn: each one's numbers and what it has taken
   const shareMine = () => {
-    const first = data.draw!.sets[0];
+    // the digits of the game on show (a grid drawn for every game has a set each)
+    const first = set ?? data.draw!.sets[0];
     const cells = data.claims.filter((c) => c.team_id === me?.id).map((c) => c.cell);
     const took = (cell: string) => data.pays.filter((p) => p.paid_cell === cell && p.coins > 0).reduce((s, p) => s + p.coins, 0);
     const rows = cells.map((cell) => {
@@ -106,7 +107,7 @@ export function SquaresGame({ data, gameId, status, reload, name }: { data: Squa
         answer: coins > 0 ? `+${coins.toLocaleString()}` : '–', right: coins > 0 ? true : null };
     }).sort((a, b) => Number(b.right) - Number(a.right));
     const total = cells.reduce((s, cell) => s + took(cell), 0);
-    return shareCard({ kind: 'sheet', eyebrow: 'My squares', brand: cardBrand, who: '', title: top && side ? `${top.name} v ${side.name}` : data.series.label,
+    return shareCard({ kind: 'sheet', eyebrow: 'My squares', brand: cardBrand, who: '', title: `${top && side ? `${top.name} v ${side.name}` : data.series.label}${data.draw!.sets.length > 1 ? ` · Game ${Math.min(shown, data.draw!.sets.length)}` : ''}`,
       score: total > 0 ? `${total.toLocaleString()} ${cardBrand.coin.name.toLowerCase()} won` : `${cells.length} ${cells.length === 1 ? 'square' : 'squares'}`, rows },
       total > 0 ? `My squares took ${total.toLocaleString()} ${cardBrand.coin.name.toLowerCase()}.` : 'My squares.');
   };

@@ -5736,6 +5736,61 @@ select pg_temp.expect('and ends with it: Hana''s run of 1 wins, and the pool hea
   and (select status = 'done' and winners = array[:hana] from pool_games where id = :seg)
   and exists (select 1 from messages where league_id = :lib and body like '🔥 The daily streak is over: % won it with a run of 1.'));
 update competitions set active = false where id = 'st-end';
+-- review fixes (migration 234): a game a decided series didn't need, a tie, a game put off and a game moved
+insert into competitions (id, sport, name, short, season, provider, ext_id, ext_season, active, format)
+values ('st-fix', 'mlb', 'Streak fixes', 'SF', '2026', 'mlb-statsapi', 'stf', '2026', true, 'series') on conflict (id) do nothing;
+insert into series (sport, competition, provider, ext_id, round, label, short, best_of, high_club, low_club, state, tbd, winner, high_wins, low_wins)
+select 'mlb', 'st-fix', 'mlb-statsapi', 'stf-s', 1, 'Test Series', 'TS', 7, home_club, away_club, 'scheduled', false, null, 3, 2 from fixtures where id = :st1;
+select id as sfs from series where ext_id = 'stf-s' \gset
+insert into fixtures (sport, competition, provider, ext_id, season, gameweek, kickoff, date, home_club, away_club, state, series_id, game_no)
+select 'mlb', 'st-fix', 'mlb-statsapi', 'stf-' || n, '2026', 1, ((current_date + n)::timestamp + time '19:00') at time zone 'America/New_York',
+  current_date + n, home_club, away_club, 'scheduled', :sfs, n + 5
+from fixtures cross join generate_series(1, 2) n where id = :st1;
+select (select id from fixtures where ext_id = 'stf-1') sf1, (select id from fixtures where ext_id = 'stf-2') sf2 \gset
+insert into fixtures (sport, competition, provider, ext_id, season, gameweek, kickoff, date, home_club, away_club, state)
+select 'mlb', 'st-fix', 'mlb-statsapi', 'stf-' || n, '2026', 1, ((current_date + 1)::timestamp + time '13:00' + n * interval '1 hour') at time zone 'America/New_York',
+  current_date + 1, home_club, away_club, 'scheduled'
+from fixtures cross join generate_series(3, 4) n where id = :st1;
+select (select id from fixtures where ext_id = 'stf-3') sf3, (select id from fixtures where ext_id = 'stf-4') sf4 \gset
+select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-000000000081', false);
+set role authenticated;
+select pool_game_start('streak', 'st-fix') as sfg \gset
+-- day one: Game 6 picked; it is put off, which frees the day for another game that day
+select pool_game_pick(:sfg, 'streak', jsonb_build_object('fixture', :sf1, 'pick', 'H'));
+reset role;
+update fixtures set state = 'postponed' where id = :sf1;
+select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-000000000081', false);
+set role authenticated;
+select pool_game_pick(:sfg, 'streak', jsonb_build_object('fixture', :sf3, 'pick', 'A'));
+reset role;
+select pg_temp.expect('a game put off frees its day', (select count(*) = 1 and bool_and((pick->>'fixture')::bigint = :sf3) from pool_picks where game_id = :sfg));
+-- the series ends in Game 5's place: Game 7 (day two) isn't needed, so it isn't offered and can't be picked
+update series set state = 'final', high_wins = 4, winner = high_club where id = :sfs;
+select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-000000000081', false);
+set role authenticated;
+select pg_temp.raises('a game its series didn''t need', format('select pool_game_pick(%s, ''streak'', ''{"fixture": %s, "pick": "H"}'')', :sfg, :sf2), 'its series is over');
+select pg_temp.expect('nor is it on the board', not exists (select 1 from jsonb_array_elements(pool_game_board(:sfg)->'streak'->'days') d
+  cross join jsonb_array_elements(d->'games') x where (x->>'id')::bigint = :sf2));
+-- the picked game moves onto day two; picking day one again leaves it there, one pick on each day
+reset role;
+update fixtures set kickoff = ((current_date + 2)::timestamp + time '13:00') at time zone 'America/New_York' where id = :sf3;
+select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-000000000081', false);
+set role authenticated;
+select pool_game_pick(:sfg, 'streak', jsonb_build_object('fixture', :sf4, 'pick', 'H'));
+reset role;
+select pg_temp.expect('a moved game takes its pick to its new day', (select count(*) = 2 from pool_picks where game_id = :sfg)
+  and (select count(distinct day) = 2 from _streak_picks(:sfg)));
+-- a tie in baseball counts for nothing; the host settles a game for a pool that runs only the streak
+update fixtures set state = 'final', kickoff = now() - interval '3 hours', home_score = 3, away_score = 3 where id = :sf4;
+select pg_temp.expect('a tie where the sport has no draws counts for nothing', (select void and is_right is null from _streak_picks(:sfg) where fixture = :sf4));
+select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-000000000081', false);
+set role authenticated;
+select pool_fixture_result_set(:sf4, null, 4, 3, 'Walk-off in the 10th, feed stuck');
+reset role;
+select pg_temp.expect('the host''s word settles the streak', (select is_right from _streak_picks(:sfg) where fixture = :sf4));
+update competitions set active = false where id in ('st-fix');
+update fixtures set state = 'cancelled' where competition = 'st-fix' and state = 'scheduled';
+select set_config('request.jwt.claim.sub', '', false);
 select set_config('app.league_id', '', false);
 select 'daily streak', true;
 

@@ -356,7 +356,8 @@ game's sheet reads plainly, an NFL week no longer defaults to a sheet on every g
 best-of-7 sports. *A nudge for the host (migration 230):* a pool that follows an event through its question pack but runs
 no game on it hears, once a round, when the next round's matchups are set and it starts within two days (the hourly
 pool job, `_pool_host_nudge`). *The daily streak (migrations 231 to 233):* a kind ('streak') on any event with games, one
-winner a day, the longest run of right picks wins (docs/POOL-TYPES.md §9 item 7).
+winner a day, the longest run of right picks wins (docs/POOL-TYPES.md §9 item 7); a fifth review's fixes in 234 (games a series
+didn't need, ties, a game put off, a game moved; the host's event nudge kept per event).
 
 Alongside: the World Series test (the LCS from 11 October, the World Series from 23 October) needs its games started
 in the World Series pool (league 5, the questions only so far), and the Love Is Blind test needs players.

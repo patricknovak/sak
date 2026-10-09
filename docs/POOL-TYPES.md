@@ -439,7 +439,9 @@ and soccer share it.
    host's result counts). A day's pick moves to any of its games still to come until the picked one starts; everyone's
    side shows once a game starts; a reminder before each day's first game; the host picks for a member who asked. It ends
    with its event (migration 233, `_streak_close` in the hourly pool job): no game still to come and every series decided,
-   the longest run crowned and the pool told.
+   the longest run crowned and the pool told. *Review fixes (migration 234):* a game a decided series didn't need is never
+   offered and a pick on one counts for nothing, a tie where the sport has no draws counts for nothing, a picked game put
+   off frees its day, a pick follows its game to the day it is on now, and the host settles a game for a streak-only pool.
 
 ## 10. Sources
 

@@ -6,6 +6,7 @@ import { Share2 } from 'lucide-react';
 import { useBrand } from '../lib/brand';
 import { useLeague } from '../lib/store';
 import type { CardBrand } from '../lib/shareCard';
+import { useToast } from './ui';
 
 // the pool's look for a share card
 export function useCardBrand(): CardBrand {
@@ -17,9 +18,10 @@ export function useCardBrand(): CardBrand {
 // a share button: draws the card on the phone, then the share sheet (or a saved picture where the phone can't share one)
 export function ShareButton({ label, make, className = 'btn-ghost' }: { label: string; make: () => Promise<unknown>; className?: string }) {
   const [busy, setBusy] = useState(false);
+  const toast = useToast();
   return (
     <button type="button" className={`${className} inline-flex items-center justify-center gap-2`} disabled={busy}
-      onClick={() => { setBusy(true); make().catch(() => {}).finally(() => setBusy(false)); }}>
+      onClick={() => { setBusy(true); make().catch((e: Error) => { if (e?.name !== 'AbortError') toast('Couldn’t draw the picture on this phone. Try a screenshot instead.', 'err'); }).finally(() => setBusy(false)); }}>
       <Share2 className="h-4 w-4" /> {busy ? 'Drawing it…' : label}
     </button>
   );

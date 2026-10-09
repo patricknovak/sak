@@ -40,12 +40,14 @@ export function StreakGameView({ gameId, data, status, reload, actAs }: {
   const { teams } = useLeague();
   const { busy, run } = useAction();
   const today = etToday();
-  const [dayAt, setDayAt] = useState(() => Math.max(0, data.days.findIndex((d) => d.games.some((g) => !g.locked))));
-  const day = data.days[Math.min(dayAt, data.days.length - 1)];
+  // the day on show, kept by its date so a reload that drops a finished day doesn't move it
+  const [dayKey, setDayKey] = useState<string | null>(null);
+  const day = data.days.find((d) => d.day === dayKey) ?? data.days.find((d) => d.games.some((g) => !g.locked)) ?? data.days[0];
   const nameOf = (id: number) => teams.find((t) => t.id === id)?.gm_name ?? 'Someone';
   // the host picking for someone sees none of their picks, only the games
   const mine = actAs ? null : day?.mine ?? null;
-  const dayLocked = !!mine && !!day?.games.find((g) => g.id === mine.fixture)?.locked;
+  // the day locks once its picked game is under way or over; one put off or called off frees it
+  const dayLocked = !!mine && !!day?.games.find((g) => g.id === mine.fixture && g.locked && !g.void);
   const pick = (g: StreakGame, side: Side) => run(async () => {
     if (actAs) await rpc('pool_host_pick', { p_game: gameId, p_team: actAs.team, p_pick: { thing: 'streak', pick: { fixture: g.id, pick: side } } });
     else await rpc('pool_game_pick', { p_game: gameId, p_thing: 'streak', p_pick: { fixture: g.id, pick: side } });
@@ -93,8 +95,8 @@ export function StreakGameView({ gameId, data, status, reload, actAs }: {
       {/* the days ahead */}
       {data.days.length > 0 && (
         <div className="scroll-x flex gap-1.5">
-          {data.days.map((d, i) => (
-            <button key={d.day} type="button" onClick={() => setDayAt(i)} className={`tab inline-flex shrink-0 items-center gap-1.5 ${d.day === day?.day ? 'tab-on' : 'bg-white/[.05]'}`}>
+          {data.days.map((d) => (
+            <button key={d.day} type="button" onClick={() => setDayKey(d.day)} className={`tab inline-flex shrink-0 items-center gap-1.5 ${d.day === day?.day ? 'tab-on' : 'bg-white/[.05]'}`}>
               {dayName(d.day, today)}
               {!actAs && (d.mine ? <Check className="h-3.5 w-3.5 text-emerald-300" /> : d.games.some((g) => !g.locked) && <span className="h-1.5 w-1.5 rounded-full bg-amber-300" />)}
             </button>
