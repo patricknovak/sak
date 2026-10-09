@@ -5061,3 +5061,52 @@ select pg_temp.expect('a bracket from the first round, A and B feeding I, M and 
   and (select n.ext_id = '20252026:O' from _bracket_tree('nhl-po-test', 1) t join series x on x.id = t.series_id join series n on n.id = t.next_id where x.ext_id = '20252026:N'));
 update competitions set active = false where id = 'nhl-po-test';
 select 'nhl playoffs', true;
+
+-- ───────────── squares by the quarter (migration 200) ─────────────
+-- A Super Bowl grid: Hana takes three squares, the rest stay empty. Kickoff draws the digits; it pays after the 1st
+-- quarter, at the half, after the 3rd and on the final, 20/20/20/40, each to the square named or the next claimed one
+-- along its row, so all of it comes to Hana. The chat hears it in football's words, with no "Game 1".
+reset role;
+select set_config('request.jwt.claim.sub', '', false);
+select set_config('app.league_id', '', false);
+insert into competitions (id, sport, name, short, season, provider, ext_id, ext_season, active, format)
+values ('nfl-sq-test', 'nfl', 'NFL Playoffs (squares test)', 'NFL', '2026', 'espn', 'football/nfl', '2026', true, 'series') on conflict (id) do nothing;
+select sport_ingest('nfl-sq-test', jsonb_build_object(
+  'clubs', jsonb_build_array(jsonb_build_object('ext_id', 'sqk', 'name', 'Kansas City Chiefs', 'short', 'KC'), jsonb_build_object('ext_id', 'sqp', 'name', 'Philadelphia Eagles', 'short', 'PHI')),
+  'series', jsonb_build_array(jsonb_build_object('ext_id', 'SQSB', 'round', 1, 'label', 'Super Bowl', 'short', 'SB', 'best_of', 1, 'high', 'sqk', 'low', 'sqp',
+    'starts_at', now() + interval '2 days', 'sort', 1))));
+select id as sbs from series where ext_id = 'SQSB' \gset
+select set_config('app.league_id', :'lib', false);
+select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-000000000081', false);
+set role authenticated;
+select pg_temp.raises('football doesn''t pay by the inning', format('select pool_game_start(%L, %L, %L)', 'squares', 'nfl-sq-test', jsonb_build_object('series', :sbs, 'pays', 'innings')), 'every quarter');
+select pool_game_start('squares', 'nfl-sq-test', jsonb_build_object('series', :sbs, 'size', 5, 'cost', 10)) as fsq \gset
+select pg_temp.expect('a football grid pays by the quarter, and says so', (select rules->>'pays' = 'quarters' and rules->'points' = '[1, 2, 3, 0]'::jsonb
+    and rules->'weights' = '[20, 20, 20, 40]'::jsonb from pool_games where id = :fsq)
+  and exists (select 1 from messages where league_id = :lib and body = '🔲 Super Bowl squares are open: 10 coins a square, 25 squares with two digits a side. The digits are drawn when the grid fills or at kickoff, and the pot pays after the 1st quarter, at the half, after the 3rd quarter and on the final.'));
+select pool_squares_claim(:fsq, array['sq:0:0', 'sq:2:3', 'sq:4:4']);
+select pg_temp.expect('the board speaks football', (select b->'words' = '{"start": "kickoff", "score": "points", "period": "quarter"}'::jsonb from (select pool_game_board(:fsq)->'squares' b) x));
+reset role;
+-- kickoff, then a 7-3 first quarter with the second under way
+select sport_ingest('nfl-sq-test', jsonb_build_object('fixtures', jsonb_build_array(
+  jsonb_build_object('ext_id', 'SQSB', 'series', 'SQSB', 'game_no', 1, 'kickoff', now() - interval '20 minutes', 'state', 'live', 'home', 'sqk', 'away', 'sqp', 'home_score', 7, 'away_score', 3,
+    'periods', jsonb_build_array(jsonb_build_object('n', 1, 'home', 7, 'away', 3), jsonb_build_object('n', 2, 'home', 0, 'away', 0))))));
+select pg_temp.expect('kickoff draws the grid, and the 1st quarter pays a fifth of the pot',
+  (select draw->>'why' = 'kickoff' and (draw->>'pot')::int = 30 from pool_games where id = :fsq)
+  and (select count(*) = 1 and min(coins) = 6 and min(point) = 1 and bool_and(team_id = :hana) from pool_square_pays where game_id = :fsq)
+  and exists (select 1 from messages where league_id = :lib and body like '🔲 After the 1st quarter: KC 7, PHI 3. Hana%square takes 6 coins.')
+  and (select sum(amount) from coin_ledger where reason = 'Squares: Super Bowl squares · after the 1st quarter') = 6);
+-- the final, after 17-10 at the half and 24-17 after three
+select sport_ingest('nfl-sq-test', jsonb_build_object('fixtures', jsonb_build_array(
+  jsonb_build_object('ext_id', 'SQSB', 'series', 'SQSB', 'game_no', 1, 'kickoff', now() - interval '4 hours', 'state', 'final', 'home', 'sqk', 'away', 'sqp', 'home_score', 31, 'away_score', 24,
+    'periods', jsonb_build_array(jsonb_build_object('n', 1, 'home', 7, 'away', 3), jsonb_build_object('n', 2, 'home', 10, 'away', 7),
+      jsonb_build_object('n', 3, 'home', 7, 'away', 7), jsonb_build_object('n', 4, 'home', 7, 'away', 7))))));
+select pg_temp.expect('the half, the 3rd and the final pay, the whole pot to Hana, and the grid is done',
+  (select array_agg(top_runs || '-' || side_runs order by case when point = 0 then 99 else point end) = array['7-3', '17-10', '24-17', '31-24']
+     and sum(coins) = 30 from pool_square_pays where game_id = :fsq)
+  and (select status = 'done' and winners = array[:hana] from pool_games where id = :fsq)
+  and exists (select 1 from messages where league_id = :lib and body like '🔲 At the half: KC 17, PHI 10.%'));
+update competitions set active = false where id = 'nfl-sq-test';
+select set_config('app.league_id', '', false);
+select set_config('request.jwt.claim.sub', '', false);
+select 'football squares', true;

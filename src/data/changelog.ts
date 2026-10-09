@@ -6,6 +6,8 @@
 export interface Change { date: string; icon: string; title: string; body: string; to?: string; tag?: 'formats' | 'commish' | 'draft' | 'everyone' }
 
 export const CHANGELOG: Change[] = [
+  { date: '2026-10-09', icon: '🏈', tag: 'everyone', title: 'Super Bowl squares', to: '/pools',
+    body: 'Squares now work on football: a grid on any NFL playoff game, the Super Bowl included, pays after the 1st quarter, at the half, after the 3rd and on the final score, with the digits drawn at kickoff. Baseball\'s grids still pay by the inning.' },
   { date: '2026-10-08', icon: '🧮', tag: 'everyone', title: 'What you need, in words', to: '/leaders',
     body: 'The top of each game\'s Table now says where you stand in a sentence: how many can still catch you, how much you have to make up on the leader and what\'s still possible for you, or that first is out of reach, or yours already.' },
   { date: '2026-10-08', icon: '🏒', tag: 'everyone', title: 'The box pool', to: '/pools',

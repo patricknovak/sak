@@ -226,8 +226,8 @@ export default function NewPool() {
                 <div className="grid grid-cols-3 gap-1.5 rounded-2xl bg-black/25 p-1">
                   {PRESETS.map((p) => <button key={p.key} type="button" onClick={() => setPreset(p.key)} className={`rounded-xl px-2 py-2 text-xs font-bold transition ${preset === p.key ? 'bg-white text-[#0b1220]' : 'text-white/70 hover:text-white'}`}>{p.label}</button>)}
                 </div>
-                <p className="mt-2 text-sm leading-snug text-white/80">{PRESETS.find((p) => p.key === preset)!.line}</p>
-                <p className="mt-1.5 rounded-xl bg-white/[.05] px-3 py-2 text-xs leading-snug text-white/70">{presetExample(preset, event.final_label, event.final_round)} The total runs in the last game breaks a tie.</p>
+                <p className="mt-2 text-sm leading-snug text-white/80">{event.sport === 'nfl' ? 'Every game is a single game, so a right winner takes the round’s points: the later the round, the more it’s worth.' : PRESETS.find((p) => p.key === preset)!.line}</p>
+                <p className="mt-1.5 rounded-xl bg-white/[.05] px-3 py-2 text-xs leading-snug text-white/70">{presetExample(preset, event.final_label, event.final_round, event.sport === 'nfl')} The total {event.sport === 'mlb' ? 'runs' : event.sport === 'nhl' ? 'goals' : 'points'} in the last game breaks a tie.</p>
                 {kinds.includes('rank') && <p className="mt-2 text-xs leading-snug text-white/60">Rank the teams: your top club in the {event.open_label} earns the most for every game it wins, your last club the least.</p>}
               </Step>
             )}
@@ -256,8 +256,8 @@ export default function NewPool() {
 
             {event && gridSeries && kinds.includes('squares') && (
               <Step n={kinds.includes('series') ? 4 : 3} title="The grid">
-                <SquaresKnobs dark grids={event.grids ?? []} on={gridSeries.id} setOn={setGridOn} grid={grid} setGrid={setGrid} />
-                <p className="mt-2 rounded-xl bg-white/[.05] px-3 py-2 text-xs leading-snug text-white/70">{gridLabel(gridSeries)}. Members claim squares with their coins until the grid fills or Game 1 starts; then the digits are drawn from a seed anyone can check.</p>
+                <SquaresKnobs dark grids={event.grids ?? []} on={gridSeries.id} setOn={setGridOn} grid={grid} setGrid={setGrid} sport={event.sport} />
+                <p className="mt-2 rounded-xl bg-white/[.05] px-3 py-2 text-xs leading-snug text-white/70">{gridLabel(gridSeries)}. Members claim squares with their coins until the grid fills or {gridSeries.best_of > 1 ? 'Game 1 starts' : 'the game starts'}; then the digits are drawn from a seed anyone can check.</p>
               </Step>
             )}
 

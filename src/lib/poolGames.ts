@@ -19,16 +19,24 @@ export interface PoolEvent {
 export interface Grid { id: number; round: number; label: string; short: string | null; best_of: number; starts_at: string | null; tbd: boolean; high: string | null; low: string | null }
 
 // a grid's knobs, as the host chooses them
-export interface SquaresRules { series: number; size: 5 | 10; cost: number; cap: number; pays: 'innings' | 'final'; digits: 'once' | 'each' }
+export type SquaresPays = 'innings' | 'quarters' | 'periods' | 'final';
+export interface SquaresRules { series: number; size: 5 | 10; cost: number; cap: number; pays: SquaresPays; digits: 'once' | 'each' }
 export const SQUARES_DEFAULT: Omit<SquaresRules, 'series'> = { size: 10, cost: 10, cap: 0, pays: 'innings', digits: 'once' };
 export const SIZES: { key: 5 | 10; label: string; line: string }[] = [
   { key: 10, label: '10 × 10', line: '100 squares, one digit a side: the classic, for a big group.' },
   { key: 5, label: '5 × 5', line: '25 squares, two digits a side: better odds each, made for a small group.' },
 ];
-export const PAYS: { key: 'innings' | 'final'; label: string; line: string }[] = [
-  { key: 'innings', label: '3rd, 6th, final', line: 'Each game pays three times: 25% after the 3rd, 25% after the 6th, 50% on the final score.' },
-  { key: 'final', label: 'Final score', line: 'Each game pays once, on its final score.' },
+// what a grid can pay on, by sport (migration 200): its periods, or the final score only; the first is the default
+export const PAYS: { key: SquaresPays; label: string; line: string; sports: string[] }[] = [
+  { key: 'innings', label: '3rd, 6th, final', line: 'Each game pays three times: 25% after the 3rd, 25% after the 6th, 50% on the final score.', sports: ['mlb'] },
+  { key: 'quarters', label: 'Every quarter', line: 'Pays four times: 20% after the 1st quarter, 20% at the half, 20% after the 3rd quarter and 40% on the final score.', sports: ['nfl'] },
+  { key: 'periods', label: 'Every period', line: 'Each game pays three times: 25% after the 1st period, 25% after the 2nd, 50% on the final score.', sports: ['nhl'] },
+  { key: 'final', label: 'Final score', line: 'Each game pays once, on its final score.', sports: [] },
 ];
+export const paysFor = (sport: string | null | undefined) => PAYS.filter((p) => !p.sports.length || p.sports.includes(sport ?? ''));
+// what starts a game, by sport, for the grid's lock line
+export const START_WORD: Record<string, string> = { mlb: 'first pitch', nfl: 'kickoff', nhl: 'puck drop' };
+
 // the grid on an event's last series when it has one, else the first still to come
 export const gridFor = (e: PoolEvent) => (e.grids ?? []).find((g) => g.round === e.final_round) ?? e.grids?.[0] ?? null;
 export const gridLabel = (g: Grid) => (g.high && g.low ? `${g.label}: ${g.high} v ${g.low}` : `${g.label}, matchup to be set`);
@@ -66,7 +74,7 @@ export const KINDS: Record<GameKind, { title: string; badge: string; line: strin
   },
   squares: {
     title: 'Squares', badge: 'Pure luck', emoji: '🔢',
-    line: 'Claim squares on a grid with coins. The digits are drawn when it fills; the last digit of each club’s runs names the winning square after the 3rd, the 6th and the final of every game.',
+    line: 'Claim squares on a grid with coins. The digits are drawn when it fills; the last digit of each side’s score names the winning square at each checkpoint: innings in baseball, quarters in football.',
     time: 'Ten seconds',
   },
 };
@@ -78,10 +86,12 @@ export const PRESETS: { key: SeriesPreset; label: string; line: string; points: 
 ];
 
 // a worked example for a preset, from the event's last round: "Your club in 6, and they win in 6: 8 + 3 = 11 points"
-export function presetExample(p: SeriesPreset, finalLabel: string, finalRound: number): string {
+// single games (the NFL's playoffs): there is no length to call, so a right winner takes both parts
+export function presetExample(p: SeriesPreset, finalLabel: string, finalRound: number, single = false): string {
   const pr = PRESETS.find((x) => x.key === p)!;
   const w = pr.points[finalRound - 1] ?? 1, l = pr.length[finalRound - 1] ?? 0;
   const label = finalLabel.replace(/^(AL|NL) /, '');
+  if (single) return `Pick the winner of the ${label}: right, ${p === 'exact' ? w : w + l} ${(p === 'exact' ? w : w + l) === 1 ? 'point' : 'points'}. Later rounds are worth more.`;
   if (p === 'exact') return `Pick a club in 6 in the ${label}: they win in 6, 1 point; they win in 5, nothing.`;
   return `Pick a club in 6 in the ${label}: they win in 6, ${w} + ${l} = ${w + l} points; they win in 7, ${w}.`;
 }

@@ -5,7 +5,7 @@ import { useLeague, useNow } from '../lib/store';
 import { rpc } from '../lib/supabase';
 import { Empty, PageHeader, Section, TeamBadge, useAction } from '../components/ui';
 import { Crest } from '../components/Crest';
-import { KINDS, PAYS, PICKEM_PRESETS, PRESETS, SIZES, SQUARES_DEFAULT, gridLabel, type PickemPreset, type PoolEvent, type SeriesPreset, type SquaresRules } from '../lib/poolGames';
+import { KINDS, PICKEM_PRESETS, PRESETS, SIZES, SQUARES_DEFAULT, START_WORD, gridLabel, paysFor, type PickemPreset, type PoolEvent, type SeriesPreset, type SquaresRules } from '../lib/poolGames';
 import { SquaresGame, type SquaresData } from '../components/Squares';
 import { PickemGame, type PickemData } from '../components/Pickem';
 import { BracketGame, type BracketData } from '../components/Bracket';
@@ -460,7 +460,7 @@ export default function Picks() {
   const sq = board.squares;
   const pk = board.pickem;
   const sub = pk ? (pk.confidence ? 'Confidence: number your picks, a right one earns its number' : 'A point for every right pick')
-    : sq ? `${sq.cost} coins a square · ${sq.pay_when === 'innings' ? 'pays after the 3rd, 6th and final' : 'pays on the final score'}`
+    : sq ? `${sq.cost} coins a square · ${sq.pay_when === 'innings' ? 'pays after the 3rd, 6th and final' : sq.pay_when === 'quarters' ? 'pays every quarter' : sq.pay_when === 'periods' ? 'pays every period' : 'pays on the final score'}`
     : board.kind === 'series'
     ? (board.rules.exact_only ? 'Winner and length both right, or nothing' : `Points by round: ${board.rounds.map((r) => (board.rules.points?.[String(r.round)] ?? 1) + (singles(board) ? board.rules.length?.[String(r.round)] ?? 0 : 0)).join('-')}${singles(board) ? '' : `, plus ${board.rounds.map((r) => board.rules.length?.[String(r.round)]).join('-')} for the length`}`)
     : board.players ? `One player from each of ${board.players.boxes.length} boxes · goals and assists`
@@ -637,7 +637,7 @@ export function HostGames() {
                 <div className="text-xs text-mute">{KINDS.squares.line}</div>
               </div>
             </div>
-            <SquaresKnobs grids={grids.map((x) => x.s)} on={series.s.id} setOn={setOn} grid={grid} setGrid={setGrid} />
+            <SquaresKnobs grids={grids.map((x) => x.s)} on={series.s.id} setOn={setOn} grid={grid} setGrid={setGrid} sport={series.e.sport} />
             <button type="button" className="btn-gold w-full" disabled={busy}
               onClick={() => run(async () => { await rpc('pool_game_start', { p_kind: 'squares', p_competition: series.e.competition, p_rules: { ...grid, series: series.s.id } }); reload(); setOn(null); }, 'The grid is open')}>
               Open the grid
@@ -650,10 +650,13 @@ export function HostGames() {
 }
 
 // a grid's settings: which series, its size, the price of a square, when it pays and how often the digits are drawn
-export function SquaresKnobs({ grids, on, setOn, grid, setGrid, dark }: {
+export function SquaresKnobs({ grids, on, setOn, grid, setGrid, dark, sport }: {
   grids: { id: number; label: string; high: string | null; low: string | null; starts_at: string | null; tbd: boolean; round: number; short: string | null; best_of: number }[];
-  on: number; setOn: (id: number) => void; grid: Omit<SquaresRules, 'series'>; setGrid: (g: Omit<SquaresRules, 'series'>) => void; dark?: boolean;
+  on: number; setOn: (id: number) => void; grid: Omit<SquaresRules, 'series'>; setGrid: (g: Omit<SquaresRules, 'series'>) => void; dark?: boolean; sport?: string;
 }) {
+  // the sport's own checkpoints: a choice it can't use (baseball's innings on a football grid) falls back to its first
+  const pays = paysFor(sport);
+  useEffect(() => { if (!pays.some((p) => p.key === grid.pays)) setGrid({ ...grid, pays: pays[0].key }); }, [sport]); // eslint-disable-line react-hooks/exhaustive-deps
   const chip = (sel: boolean) => `rounded-full px-3 py-1.5 text-xs font-semibold ring-1 transition ${sel ? (dark ? 'bg-white text-[#0b1220] ring-white' : 'bg-gold text-[#0b1220] ring-gold') : 'bg-white/[.04] text-slate-200 ring-white/10'}`;
   const row = (label: string, children: React.ReactNode, note?: string) => (
     <div><div className="mb-1.5 text-[11px] font-bold uppercase tracking-[.14em] text-mute">{label}</div><div className="flex flex-wrap gap-1.5">{children}</div>{note && <p className="mt-1.5 text-[11px] leading-snug text-mute">{note}</p>}</div>
@@ -662,12 +665,12 @@ export function SquaresKnobs({ grids, on, setOn, grid, setGrid, dark }: {
   return (
     <div className="space-y-3">
       {grids.length > 1 && row('On', grids.map((g) => <button key={g.id} type="button" onClick={() => setOn(g.id)} className={chip(g.id === on)}>{g.short ?? g.label}{g.high && g.low ? ` · ${g.high} v ${g.low}` : ''}</button>))}
-      {cur && <p className="text-xs text-slate-300">{gridLabel(cur)} · Game 1 {lockText(cur.starts_at, cur.tbd)} · up to {cur.best_of} games</p>}
+      {cur && <p className="text-xs text-slate-300">{gridLabel(cur)} · {cur.best_of === 1 ? `${(START_WORD[sport ?? ''] ?? 'start').replace(/^./, (c) => c.toUpperCase())} ${lockText(cur.starts_at, cur.tbd)}` : `Game 1 ${lockText(cur.starts_at, cur.tbd)} · up to ${cur.best_of} games`}</p>}
       {row('Grid', SIZES.map((x) => <button key={x.key} type="button" onClick={() => setGrid({ ...grid, size: x.key })} className={chip(grid.size === x.key)}>{x.label}</button>), SIZES.find((x) => x.key === grid.size)!.line)}
       {row('A square costs', [5, 10, 25, 50].map((c) => <button key={c} type="button" onClick={() => setGrid({ ...grid, cost: c })} className={chip(grid.cost === c)}>{c} coins</button>),
         `A full grid is a pot of ${(grid.cost * grid.size * grid.size).toLocaleString()} coins.`)}
-      {row('Pays', PAYS.map((x) => <button key={x.key} type="button" onClick={() => setGrid({ ...grid, pays: x.key })} className={chip(grid.pays === x.key)}>{x.label}</button>), PAYS.find((x) => x.key === grid.pays)!.line)}
-      {row('Digits', ([['once', 'One draw'], ['each', 'Fresh each game']] as const).map(([k, l]) => <button key={k} type="button" onClick={() => setGrid({ ...grid, digits: k })} className={chip(grid.digits === k)}>{l}</button>),
+      {row('Pays', pays.map((x) => <button key={x.key} type="button" onClick={() => setGrid({ ...grid, pays: x.key })} className={chip(grid.pays === x.key)}>{x.label}</button>), (pays.find((x) => x.key === grid.pays) ?? pays[0]).line)}
+      {(cur?.best_of ?? 2) > 1 && row('Digits', ([['once', 'One draw'], ['each', 'Fresh each game']] as const).map(([k, l]) => <button key={k} type="button" onClick={() => setGrid({ ...grid, digits: k })} className={chip(grid.digits === k)}>{l}</button>),
         grid.digits === 'once' ? 'The same numbers all series: a good square stays good.' : 'New numbers every game, so a bad square gets another chance.')}
     </div>
   );

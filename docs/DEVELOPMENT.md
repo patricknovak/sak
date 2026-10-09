@@ -241,7 +241,9 @@ they lock (`pool_picks`), results graded on read from the shared event tables, a
    190):* the board sends the sport's words for the start of a game and its score, so the tiebreaker is the Super Bowl's
    total points (0 to 150; runs 0 to 60, goals 0 to 30) and the news says kickoff; a single game is picked on the winner
    alone, its length points riding with it. Each playoff game also carries its score by quarter (`fixture_periods`,
-   overtime a fifth), the groundwork for Super Bowl squares that pay by the quarter. Still to come: March Madness,
+   overtime a fifth). *Squares by the quarter (migration 200, 9 October 2026):* a grid pays after each period its sport
+   plays (`rules.pays` 'innings', 'quarters' or 'periods', or 'final'), and the chat, the ledger and the page say it in the
+   sport's words (`_squares_moment`, the board's `words`); a single game drops its "Game 1". Still to come: March Madness,
    whose bracket order wants ESPN's region and seed.
    *The box pool built 8 October 2026 (migration 188):* the player pool without a draft night, on nhl-sync's own
    `games` and `player_games` (a competition of a third format, 'players': `nhl-2026`). The best players are dealt into
