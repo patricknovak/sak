@@ -694,7 +694,7 @@ export function HostGames() {
                     <div className="text-[13px] font-semibold text-white">Every {e.name} game</div>
                     <div className="text-[11px] leading-snug text-mute">{auto.has(e.competition) ? 'On: each sheet opens a day and a half before the game' : 'A sheet opens by itself before each game'}</div>
                   </div>
-                  <Toggle on={auto.has(e.competition)} onChange={(v) => run(async () => {
+                  <Toggle on={auto.has(e.competition)} onChange={(v) => !busy && run(async () => {
                     const n = await rpc<number>('pool_auto_sheets_set', { p_competition: e.competition, p_on: v });
                     await loadAuto(); if (n) reload();
                   }, v ? 'Sheets will open by themselves' : 'Automatic sheets are off')} />

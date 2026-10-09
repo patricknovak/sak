@@ -5748,6 +5748,19 @@ select sport_ingest('nba-post-2027', jsonb_build_object('fixtures', jsonb_build_
   'periods', '[{"n": 1, "home": 30, "away": 25}, {"n": 2, "home": 20, "away": 28}, {"n": 3, "home": 27, "away": 24}, {"n": 4, "home": 27, "away": 22}]'::jsonb))));
 select pg_temp.expect('and settles: Detroit by 5, under the total, 55 in the 1st, Orlando held to 99',
   (select a = '{"winner": "H", "total": "U", "margin": "1", "first": "H", "half": "A", "early": "O", "extra": "N", "held": "Y"}'::jsonb from (select _props_answers(:nbap) a) x));
+-- automatic sheets open on a series' next game only (migration 225): Game 2 tonight, not Game 3 the night after
+select sport_ingest('nba-post-2027', jsonb_build_object('fixtures', jsonb_build_array(
+  jsonb_build_object('ext_id', 'Bt2', 'series', 'nba:2027:R1:E:0', 'game_no', 2, 'kickoff', now() + interval '10 hours', 'state', 'scheduled', 'home', '8', 'away', '19'),
+  jsonb_build_object('ext_id', 'Bt3', 'series', 'nba:2027:R1:E:0', 'game_no', 3, 'kickoff', now() + interval '30 hours', 'state', 'scheduled', 'home', '19', 'away', '8'))));
+select set_config('app.league_id', :'lib', false);
+select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-000000000081', false);
+set role authenticated;
+select pool_auto_sheets_set('nba-post-2027', true);
+reset role;
+select pg_temp.expect('a sheet on Game 2, none yet on Game 3', exists (select 1 from pool_games g join fixtures f on f.id = (g.rules->>'fixture')::bigint
+    where g.league_id = :lib and g.kind = 'props' and f.ext_id = 'Bt2')
+  and not exists (select 1 from pool_games g join fixtures f on f.id = (g.rules->>'fixture')::bigint where g.league_id = :lib and g.kind = 'props' and f.ext_id = 'Bt3'));
+select pg_temp.raises('one open sheet a game, whatever the path', format('insert into pool_games (league_id, kind, competition, title, rules) select g.league_id, g.kind, g.competition, g.title, g.rules from pool_games g join fixtures f on f.id = (g.rules->>''fixture'')::bigint where g.league_id = %s and g.kind = ''props'' and f.ext_id = ''Bt2''', :lib), 'pool_games_one_open_sheet');
 update competitions set active = false where id = 'nba-post-2027';
 select set_config('app.league_id', '', false);
 select set_config('request.jwt.claim.sub', '', false);

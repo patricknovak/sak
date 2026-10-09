@@ -44,6 +44,8 @@ const short = (round: number, c: Conf) => (round === 1 ? `${c} R1` : round === 2
 
 export function nbaPlayoffPayload(season: string, pages: J[], standings: J, full = true) {
   const seeds = nbaSeeds(standings);
+  // standings without the league's teams (a bad response) would leave every game unplaced: send nothing this run
+  if (seeds.size < 16) return { clubs: [], series: [], fixtures: [] };
   const series = new Map<string, J>();
   const key = (round: number, c: Conf, slot: number) => `nba:${season}:R${round}:${round < 4 ? c : 'F'}:${slot}`;
   // East's series before West's in every round, so each pair of a round feeds the series below it
@@ -69,9 +71,10 @@ export function nbaPlayoffPayload(season: string, pages: J[], standings: J, full
     if (!round) continue;
     const ids: string[] = (c0.competitors ?? []).map((x: J) => String(x.team?.id ?? '')).filter((id: string) => seeds.has(id));
     if (ids.length !== 2) continue;
-    // the better seed on top; the Finals by the better record
-    const rank = (id: string) => (round === 4 ? -seeds.get(id)!.pct : seeds.get(id)!.seed);
-    ids.sort((a, b) => rank(a) - rank(b));
+    // the better seed on top; the Finals by the better record, then the better seed, then the team's id, so the two
+    // never swap places from one run to the next
+    const s = (id: string) => seeds.get(id)!;
+    ids.sort((a, b) => (round === 4 ? s(b).pct - s(a).pct : 0) || s(a).seed - s(b).seed || a.localeCompare(b));
     const top = seeds.get(ids[0])!;
     const conf: Conf = /^West/i.test(note) ? 'W' : /^East/i.test(note) ? 'E' : top.conf;
     const first = SLOT[Math.min(seeds.get(ids[0])!.seed, seeds.get(ids[1])!.seed)];

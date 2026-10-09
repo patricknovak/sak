@@ -340,7 +340,12 @@ seeds from its standings, fifteen series in bracket order from the first day (do
 on it pay by the quarter (migration 221) and its games take prop sheets (222). *Sheets on every game, automatically (migration 223):* the host's switch per
 event (`pool_auto_sheets`), opened by the hourly pool job a day and a half before each game. *The pools in play on the
 Platform page (migration 224):* `platform_pool_games()`, every live pool's sports games with how many have picked, for
-watching a test like the World Series.
+watching a test like the World Series. *Review fixes for 218 to 223 (migration 225, soccer-sync):* a third
+independent review found nothing severe; fixed: a grid on a game called off is marked done before it refunds (two runs
+can't refund twice), one open sheet a game is a unique index, automatic sheets open only on a series' next game (never
+an "if necessary" one), a live 1st-period call waits for that period's score, the NBA Finals' order never flips and a run
+without the league's seeds sends nothing. The sport centres draw each sport's own line score (quarters, periods,
+overtime; runs, hits and errors for baseball only).
 
 Alongside: the World Series test (the LCS from 11 October, the World Series from 23 October) needs its games started
 in the World Series pool (league 5, the questions only so far), and the Love Is Blind test needs players.

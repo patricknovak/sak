@@ -42,4 +42,6 @@ const finalsDay = data.events.filter((e) => /NBA Finals - Game 2/.test(e.competi
 const live = nbaPlayoffPayload('2026', [{ events: finalsDay }], data.standings, false);
 assert.deepEqual(live.series.map((s) => s.ext_id), ['nba:2026:R4:F:0']);
 assert.equal(live.fixtures[0].game_no, 2);
+// standings that don't name the league's teams send nothing, rather than every series as undecided
+assert.deepEqual(nbaPlayoffPayload('2026', [{ events: data.events }], { children: [] }), { clubs: [], series: [], fixtures: [] });
 console.log('nba playoffs ok');
