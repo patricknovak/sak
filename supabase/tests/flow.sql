@@ -5297,6 +5297,10 @@ select pg_temp.expect('once locked, a member with no sheet has nothing still pos
 set role authenticated;
 select pg_temp.expect('once it starts, the split and every sheet show', (select (b->'props'->'split'->'winner'->>'H')::int = 2 and jsonb_array_length(b->'props'->'sheets') = 3
   from (select pool_game_board(:prg) b) x));
+select pg_temp.expect('once locked, each sheet has its chance to win (migration 218): Hana and Lou''s twin sheets alike, all of it shared out',
+  (select abs(sum((e->>'chance')::numeric) - 1) < 0.01 and count(*) filter (where (e->>'chance')::numeric > 0) = 3
+     and min((e->>'chance')::numeric) filter (where (e->>'team_id')::int in (:hana, :lou)) = max((e->>'chance')::numeric) filter (where (e->>'team_id')::int in (:hana, :lou))
+   from jsonb_array_elements(pool_game_chances(:prg)) e));
 reset role;
 select set_config('request.jwt.claim.sub', '', false);
 -- the home side wins 5-2 in nine
@@ -5425,6 +5429,23 @@ select pool_game_start('props', 'nfl', jsonb_build_object('fixture', :wkf)) as w
 select pool_game_pick(:wkp, 'props', '{"answers": {"winner": "H", "total": "U", "margin": "1", "first": "H", "half": "H", "early": "O", "extra": "N", "held": "Y"}, "total": 45}');
 reset role;
 select pg_temp.expect('in football''s words, from the week', (select title like 'Props · Week 11: %' and rules->'questions'->5->>'q' = '1st-quarter points: over or under 9.5?' from pool_games where id = :wkp));
+select set_config('request.jwt.claim.sub', '', false);
+-- under way (migration 218): the 1st quarter is over at 7-3, so the leader after it and its ten points are in; who wins,
+-- the total and a side held to 10 wait. Two right so far, the other six still possible, and the only sheet in can't lose.
+select soccer_ingest('nfl', jsonb_build_object('fixtures', jsonb_build_array(
+  jsonb_build_object('ext_id', 'nfl-211', 'gameweek', 11, 'kickoff', now() - interval '40 minutes', 'status', 'LIVE', 'home', 'nf1', 'away', 'nf2',
+    'home_score', 7, 'away_score', 3, 'periods', '[{"n": 1, "home": 7, "away": 3}, {"n": 2, "home": 0, "away": 0}]'::jsonb))));
+select pg_temp.expect('a sheet scores as the game goes',
+  (select points = 2 and possible = 8 from _props_table(:wkp) where team_id = :hana)
+  and (select a->>'first' = 'H' and a->>'early' = 'O' and a->'winner' = 'null'::jsonb and a->'held' = 'null'::jsonb from (select _props_answers(:wkp) a) x)
+  and (select status = 'open' from pool_games where id = :wkp));
+select set_config('app.league_id', :'lib', false);
+select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-000000000081', false);
+set role authenticated;
+select pg_temp.expect('the board shows the calls decided, and the one sheet in is sure to win',
+  (select b->'answers'->>'first' = 'H' from (select pool_game_board(:wkp)->'props' b) x)
+  and (select (e->>'chance')::numeric = 1 from jsonb_array_elements(pool_game_chances(:wkp)) e where (e->>'team_id')::int = :hana));
+reset role;
 select set_config('request.jwt.claim.sub', '', false);
 select soccer_ingest('nfl', jsonb_build_object('fixtures', jsonb_build_array(
   jsonb_build_object('ext_id', 'nfl-211', 'gameweek', 11, 'kickoff', now() - interval '4 hours', 'status', 'FT', 'home', 'nf1', 'away', 'nf2',

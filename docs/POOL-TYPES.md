@@ -389,7 +389,12 @@ and soccer share it.
    each game of a series still going in the next week (`pool_event_list`'s `sheets`), one sheet a game; a game the
    series didn't need ends its sheet with no winner. *On an NFL week too (migration 216):* ESPN's weekly scoreboard
    sends each game's quarters (`espnFixture`'s `periods`), `soccer_ingest` writes them and settles the sheets, and any
-   NFL game in the next week takes a sheet ("Week 6: KC at JAX"), offered beside pick'em.
+   NFL game in the next week takes a sheet ("Week 6: KC at JAX"), offered beside pick'em. *Live, the same day (migration
+   218):* a call the game has already decided counts while it is on (the 1st once the 2nd begins, the halfway mark once
+   the next period does, the over once passed, early scoring as it happens, extra time once it starts, a shutout or a
+   side held to 10 broken), so the sheet's table moves with the game; who wins and every "no" only the final proves
+   wait for it. Once locked, each member's chance to win (`_props_chances`: each open call drawn from the pool's split,
+   who wins from the market's line where there is one; a tie on calls shares it).
 4. March Madness (March 2027): the bracket with a second chance and the Eliminator. *The bracket's feed built 9 October 2026
    (migration 201):* `ncaam-2027` fills from ESPN in mid-March, 63 slots in bracket order; the second chance and the
    Eliminator are still to come. *The second chance built 9 October 2026 (migration 211):* once a pool's bracket has

@@ -6,6 +6,8 @@
 export interface Change { date: string; icon: string; title: string; body: string; to?: string; tag?: 'formats' | 'commish' | 'draft' | 'everyone' }
 
 export const CHANGELOG: Change[] = [
+  { date: '2026-10-09', icon: '📋', tag: 'everyone', title: 'Prop sheets score live', to: '/pools',
+    body: 'Your prop sheet now ticks as the game goes: who led after the 1st, the over once it\'s passed, a shutout broken, each call marked right or wrong the moment the game decides it. Once the sheet locks, the Table shows everyone\'s chance to win it.' },
   { date: '2026-10-09', icon: '🔲', tag: 'everyone', title: 'Squares on any NFL game', to: '/pools',
     body: 'A grid of squares now goes on any NFL game this week, not just the playoffs: Sunday night, Monday night, the game your group cares about. The digits are drawn at kickoff and it pays after every quarter, the same as the Super Bowl grid. In NFL centre, each game links straight to the pool\'s grid and prop sheet on it.' },
   { date: '2026-10-09', icon: '🛡️', tag: 'everyone', title: 'The Eliminator', to: '/pools',

@@ -134,11 +134,11 @@ export function BoardRows({ g, extra }: { g: BoardGame; extra?: (r: BoardRow) =>
   );
 }
 
-// each member's chance of finishing first (migrations 175, 176, 182, 186 and 189): a pick'em, Pick the series, or a
-// locked Rank the teams, bracket or box pool still open is played out a thousand times; anything else has none yet
+// each member's chance of finishing first (migrations 175, 176, 182, 186, 189 and 218): a pick'em, Pick the series, or
+// a locked Rank the teams, bracket, box pool or prop sheet still open is played out a thousand times; anything else has none yet
 export function useChances(g: BoardGame | undefined) {
   const [chances, setChances] = useState<Map<number, number> | null>(null);
-  const id = g && (g.kind === 'pickem' || g.kind === 'series' || g.kind === 'rank' || g.kind === 'bracket' || g.kind === 'players') && g.status === 'open' && g.key.startsWith('game:') ? Number(g.key.slice(5)) : null;
+  const id = g && (g.kind === 'pickem' || g.kind === 'series' || g.kind === 'rank' || g.kind === 'bracket' || g.kind === 'players' || g.kind === 'props') && g.status === 'open' && g.key.startsWith('game:') ? Number(g.key.slice(5)) : null;
   useEffect(() => {
     setChances(null);
     if (!id) return;

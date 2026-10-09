@@ -327,7 +327,9 @@ half, so hockey grids pay by the period again and prop sheets run on the Stanley
 feed's quarters ride in with each game (`espnFixture` `periods`, written by `soccer_ingest`, which settles the sheets at
 the end of each run in its own exception block), so a sheet goes on any NFL game in the next week. *Squares on an NFL
 week's game (migration 217):* a grid's rules name a fixture as well as a series; the game reads as a series of one, so
-every squares function is unchanged in shape, and `soccer_ingest` settles the grids after the sheets.
+every squares function is unchanged in shape, and `soccer_ingest` settles the grids after the sheets. *A sheet scores
+live (migration 218):* `_props_answers` returns the calls the game has already decided while it is on (the final's
+answers are unchanged), the sheet's table and board read them, and a locked sheet has a chance to win (item 6).
 
 Alongside: the World Series test (the LCS from 11 October, the World Series from 23 October) needs its games started
 in the World Series pool (league 5, the questions only so far), and the Love Is Blind test needs players.

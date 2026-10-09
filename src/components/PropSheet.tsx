@@ -1,6 +1,7 @@
 // The prop sheet (migration 208): eight calls on one game of a postseason, a point each, settled from the score and the
 // score by period, with the game's total for the tiebreak. Until the first pitch the sheet is yours to change; once it
-// starts, each call shows how the pool split, and once the game is final, which answer was right and everyone's sheet.
+// starts, each call shows how the pool split and everyone's sheet, and each answer as soon as the game decides it
+// (migration 218: the 1st inning once the 2nd begins, the over once it's passed), so the sheet scores as it goes.
 import { useState } from 'react';
 import { Check, Lock, X } from 'lucide-react';
 import { useLeague } from '../lib/store';
@@ -37,7 +38,8 @@ export function PropSheetGame({ gameId, data, status, reload, actAs, scoreWord =
   const g = data.game;
   const final = g.state === 'final';
   const live = g.state === 'live';
-  const right = final && data.answers ? data.questions.filter((q) => data.answers![q.key] != null && data.answers![q.key] === (saved?.answers ?? {})[q.key]).length : 0;
+  const right = data.answers ? data.questions.filter((q) => data.answers![q.key] != null && data.answers![q.key] === (saved?.answers ?? {})[q.key]).length : 0;
+  const decided = data.answers ? data.questions.filter((q) => data.answers![q.key] != null).length : 0;
   const save = () => run(async () => {
     const pick = { answers, total: Number(tot) };
     if (actAs) await rpc('pool_host_pick', { p_game: gameId, p_team: actAs.team, p_pick: { thing: 'props', pick } });
@@ -83,7 +85,8 @@ export function PropSheetGame({ gameId, data, status, reload, actAs, scoreWord =
           </div>
         )}
         <div className="mt-3 flex flex-wrap gap-1.5 text-[11px]">
-          <span className="rounded-full bg-white/[.06] px-2.5 py-1 font-semibold text-white ring-1 ring-white/10">{open ? `${made} of ${data.questions.length} called` : final ? `${right} of ${data.questions.length} right` : `${data.picked} ${data.picked === 1 ? 'sheet' : 'sheets'} in`}</span>
+          <span className="rounded-full bg-white/[.06] px-2.5 py-1 font-semibold text-white ring-1 ring-white/10">{open ? `${made} of ${data.questions.length} called` : final ? `${right} of ${data.questions.length} right`
+            : live && saved ? `${right} right so far · ${data.questions.length - decided} to play` : `${data.picked} ${data.picked === 1 ? 'sheet' : 'sheets'} in`}</span>
           <span className="rounded-full bg-white/[.06] px-2.5 py-1 text-slate-200 ring-1 ring-white/10">A point a call · closest total breaks a tie</span>
         </div>
       </div>
@@ -101,8 +104,9 @@ export function PropSheetGame({ gameId, data, status, reload, actAs, scoreWord =
                 <div className="mb-2 flex items-start gap-2">
                   <span className="num mt-px grid h-5 w-5 shrink-0 place-items-center rounded-md bg-white/[.07] text-[10px] font-black text-mute">{qi + 1}</span>
                   <span className="flex-1 text-[14px] font-semibold leading-snug text-white">{q.q}</span>
-                  {final && mine && (ans == null ? <span className="text-[10px] font-bold uppercase text-mute">Void</span>
-                    : ans === mine ? <Check className="h-5 w-5 shrink-0 text-emerald-300" strokeWidth={3} /> : <X className="h-5 w-5 shrink-0 text-red-300" strokeWidth={3} />)}
+                  {mine && (ans != null ? (ans === mine ? <Check className="h-5 w-5 shrink-0 text-emerald-300" strokeWidth={3} /> : <X className="h-5 w-5 shrink-0 text-red-300" strokeWidth={3} />)
+                    : final ? <span className="text-[10px] font-bold uppercase text-mute">Void</span>
+                    : live ? <span className="shrink-0 text-[10px] font-bold uppercase tracking-wider text-mute">To play</span> : null)}
                 </div>
                 <div className="grid gap-1.5" style={{ gridTemplateColumns: `repeat(${q.options.length}, minmax(0, 1fr))` }}>
                   {q.options.map((o) => {
@@ -154,12 +158,12 @@ export function PropSheetGame({ gameId, data, status, reload, actAs, scoreWord =
                 <span className="flex shrink-0 gap-0.5">
                   {data.questions.map((q) => {
                     const a = data.answers?.[q.key];
-                    const cls = !final || a == null ? 'bg-white/15' : a === s.answers[q.key] ? 'bg-emerald-400' : 'bg-red-400/70';
+                    const cls = a == null ? 'bg-white/15' : a === s.answers[q.key] ? 'bg-emerald-400' : 'bg-red-400/70';
                     return <span key={q.key} className={`h-2.5 w-2.5 rounded-sm ${cls}`} title={q.q} />;
                   })}
                 </span>
                 <span className="num w-14 shrink-0 text-right text-xs text-mute">total {s.total}</span>
-                {final && <span className="num w-6 shrink-0 text-right text-base font-black text-white">{s.right}</span>}
+                {(final || decided > 0) && <span className="num w-6 shrink-0 text-right text-base font-black text-white">{s.right}</span>}
               </div>
             ))}
           </div>
