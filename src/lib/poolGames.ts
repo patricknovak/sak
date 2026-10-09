@@ -17,10 +17,14 @@ export interface PoolEvent {
   grids?: Grid[];
   // the games a prop sheet can still go on, soonest first (migration 208)
   sheets?: SheetGame[];
+  // an NFL week's games a grid of squares can go on (migration 217), apart from the series grids
+  game_grids?: SheetGame[];
 }
 export interface SheetGame { id: number; kickoff: string; game_no: number | null; label: string; home: string; away: string }
 export const sheetLabel = (g: SheetGame) => `${g.label}${g.game_no ? ` Game ${g.game_no}` : ''}: ${g.away} at ${g.home}`;
-export interface Grid { id: number; round: number; label: string; short: string | null; best_of: number; starts_at: string | null; tbd: boolean; high: string | null; low: string | null }
+export interface Grid { id: number; round: number; label: string; short: string | null; best_of: number; starts_at: string | null; tbd: boolean; high: string | null; low: string | null;
+  // a grid on one week's game: its fixture (the grid's id is the fixture's, negated, so it never meets a series' id)
+  fixture?: number }
 
 // a grid's knobs, as the host chooses them
 export type SquaresPays = 'innings' | 'quarters' | 'periods' | 'final';
@@ -41,9 +45,16 @@ export const paysFor = (sport: string | null | undefined) => PAYS.filter((p) => 
 // what starts a game, by sport, for the grid's lock line
 export const START_WORD: Record<string, string> = { mlb: 'first pitch', nfl: 'kickoff', nhl: 'puck drop' };
 
+// every grid an event offers: its series, then an NFL week's games, each a series of one
+export const eventGrids = (e: PoolEvent): Grid[] => [...(e.grids ?? []), ...(e.game_grids ?? []).map((g) => ({
+  id: -g.id, fixture: g.id, round: 0, label: g.label, short: `${g.away} at ${g.home}`, best_of: 1, starts_at: g.kickoff, tbd: false, high: g.home, low: g.away }))];
+// what a grid's rules name: its series, or its week's game
+export const gridRules = (g: Grid) => (g.fixture ? { fixture: g.fixture } : { series: g.id });
+// a week's game as the game picker draws it
+export const gridGame = (g: Grid): SheetGame => ({ id: g.id, kickoff: g.starts_at ?? '', game_no: null, label: g.label, home: g.high ?? '', away: g.low ?? '' });
 // the grid on an event's last series when it has one, else the first still to come
-export const gridFor = (e: PoolEvent) => (e.grids ?? []).find((g) => g.round === e.final_round) ?? e.grids?.[0] ?? null;
-export const gridLabel = (g: Grid) => (g.high && g.low ? `${g.label}: ${g.high} v ${g.low}` : `${g.label}, matchup to be set`);
+export const gridFor = (e: PoolEvent) => { const gs = eventGrids(e); return gs.find((g) => !g.fixture && g.round === e.final_round) ?? gs[0] ?? null; };
+export const gridLabel = (g: Grid) => (g.fixture ? `${g.label}: ${g.low} at ${g.high}` : g.high && g.low ? `${g.label}: ${g.high} v ${g.low}` : `${g.label}, matchup to be set`);
 
 export const KINDS: Record<GameKind, { title: string; badge: string; line: string; time: string; emoji: string }> = {
   series: {

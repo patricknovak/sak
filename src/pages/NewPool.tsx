@@ -9,7 +9,7 @@ import { Spinner } from '../components/ui';
 import { themed } from '../components/LeagueIdentity';
 import { ProductMark } from './Start';
 import { type Pack, packName, packPlaceholder, packWhen } from '../lib/packs';
-import { KINDS, PICKEM_PRESETS, PRESETS, SQUARES_DEFAULT, gridFor, gridLabel, presetExample, sheetLabel, type GameKind, type PickemPreset, type PoolEvent, type SeriesPreset, type SquaresRules } from '../lib/poolGames';
+import { KINDS, PICKEM_PRESETS, PRESETS, SQUARES_DEFAULT, eventGrids, gridFor, gridLabel, gridRules, presetExample, sheetLabel, type GameKind, type PickemPreset, type PoolEvent, type SeriesPreset, type SquaresRules } from '../lib/poolGames';
 import { SheetPicker, SquaresKnobs, lockText } from './Picks';
 
 // "Start a pool" (#/new), open to anyone, in steps (docs/POOL-TYPES.md §4): what are you following (a sports event open
@@ -102,12 +102,12 @@ export default function NewPool() {
   // the pack the pool opens with: the one chosen, or the event's own when its questions are ticked
   const openPack = event ? (kinds.includes('questions') ? event.pack : null) : following?.type === 'pack' ? following.slug : null;
   // squares go on the series chosen, by default the event's last one still to come
-  const gridSeries = event ? (event.grids ?? []).find((g) => g.id === gridOn) ?? gridFor(event) : null;
+  const gridSeries = event ? eventGrids(event).find((g) => g.id === gridOn) ?? gridFor(event) : null;
   // a prop sheet goes on the game chosen, by default the soonest still to start
   const sheetGame = event ? (event.sheets ?? []).find((g) => g.id === sheetOn) ?? event.sheets?.[0] ?? null : null;
   const offered: GameKind[] = event ? [...event.kinds.filter((k) => k in KINDS), ...(gridSeries ? ['squares' as const] : [])] : [];
   const gamesPayload = games.filter((k) => (k !== 'squares' || gridSeries) && (k !== 'props' || sheetGame)).map((k) => ({ kind: k, competition: event!.competition,
-    rules: k === 'series' ? { preset } : k === 'pickem' ? { preset: pkPreset } : k === 'players' ? box : k === 'squares' ? { ...grid, series: gridSeries!.id }
+    rules: k === 'series' ? { preset } : k === 'pickem' ? { preset: pkPreset } : k === 'players' ? box : k === 'squares' ? { ...grid, ...gridRules(gridSeries!) }
       : k === 'props' ? { fixture: sheetGame!.id } : {} }));
   const startGames = async (id: number) => { if (gamesPayload.length) await rpc('pool_start_games', { p_league: id, p_games: gamesPayload }); };
   const okEmail = /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email.trim());
@@ -260,7 +260,7 @@ export default function NewPool() {
 
             {event && gridSeries && kinds.includes('squares') && (
               <Step n={3 + Number(kinds.includes('series')) + Number(kinds.includes('players'))} title="The grid">
-                <SquaresKnobs dark grids={event.grids ?? []} on={gridSeries.id} setOn={setGridOn} grid={grid} setGrid={setGrid} sport={event.sport} />
+                <SquaresKnobs dark grids={eventGrids(event)} on={gridSeries.id} setOn={setGridOn} grid={grid} setGrid={setGrid} sport={event.sport} />
                 <p className="mt-2 rounded-xl bg-white/[.05] px-3 py-2 text-xs leading-snug text-white/70">{gridLabel(gridSeries)}. Members claim squares with their coins until the grid fills or {gridSeries.best_of > 1 ? 'Game 1 starts' : 'the game starts'}; then the digits are drawn from a seed anyone can check.</p>
               </Step>
             )}

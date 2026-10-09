@@ -5,7 +5,7 @@ import { useLeague, useNow } from '../lib/store';
 import { rpc } from '../lib/supabase';
 import { Empty, PageHeader, Section, TeamBadge, useAction } from '../components/ui';
 import { Crest } from '../components/Crest';
-import { KINDS, PICKEM_PRESETS, PRESETS, SIZES, SQUARES_DEFAULT, START_WORD, gridLabel, paysFor, type PickemPreset, type PoolEvent, type SeriesPreset, type SheetGame, type SquaresRules } from '../lib/poolGames';
+import { KINDS, PICKEM_PRESETS, PRESETS, SIZES, SQUARES_DEFAULT, START_WORD, eventGrids, gridGame, gridLabel, gridRules, paysFor, type Grid, type PickemPreset, type PoolEvent, type SeriesPreset, type SheetGame, type SquaresRules } from '../lib/poolGames';
 import { SquaresGame, type SquaresData } from '../components/Squares';
 import { PickemGame, type PickemData } from '../components/Pickem';
 import { BracketGame, type BracketData } from '../components/Bracket';
@@ -614,7 +614,7 @@ export function HostGames() {
     // a bracket that has locked leaves room for a second chance from a later round (migration 211)
     && !games?.some((g) => g.competition === e.competition && g.kind === k && g.status === 'open' && !(k === 'bracket' && g.locked && (g.from_round ?? 0) < e.open_round))).map((k) => ({ e, k })));
   const second = (e: PoolEvent, k: string) => k === 'bracket' && !!games?.some((g) => g.competition === e.competition && g.kind === 'bracket' && (g.from_round ?? 0) < e.open_round);
-  const grids = events.flatMap((e) => (e.grids ?? []).filter((s) => !games?.some((g) => g.kind === 'squares' && g.series === s.id && g.status === 'open')).map((s) => ({ e, s })));
+  const grids = events.flatMap((e) => eventGrids(e).filter((s) => !games?.some((g) => g.kind === 'squares' && (s.fixture ? g.fixture === s.fixture : g.series === s.id) && g.status === 'open')).map((s) => ({ e, s })));
   const series = grids.find((x) => x.s.id === on) ?? grids[0];
   // a prop sheet goes on any game still to start that has none yet
   const sheets = events.flatMap((e) => (e.sheets ?? []).filter((s) => !games?.some((g) => g.kind === 'props' && g.fixture === s.id && g.status === 'open')).map((s) => ({ e, s })));
@@ -658,7 +658,7 @@ export function HostGames() {
             </div>
             <SquaresKnobs grids={grids.map((x) => x.s)} on={series.s.id} setOn={setOn} grid={grid} setGrid={setGrid} sport={series.e.sport} />
             <button type="button" className="btn-gold w-full" disabled={busy}
-              onClick={() => run(async () => { await rpc('pool_game_start', { p_kind: 'squares', p_competition: series.e.competition, p_rules: { ...grid, series: series.s.id } }); reload(); setOn(null); }, 'The grid is open')}>
+              onClick={() => run(async () => { await rpc('pool_game_start', { p_kind: 'squares', p_competition: series.e.competition, p_rules: { ...grid, ...gridRules(series.s) } }); reload(); setOn(null); }, 'The grid is open')}>
               Open the grid
             </button>
           </div>
@@ -714,7 +714,7 @@ export function SheetPicker({ games, on, setOn, dark }: { games: SheetGame[]; on
 
 // a grid's settings: which series, its size, the price of a square, when it pays and how often the digits are drawn
 export function SquaresKnobs({ grids, on, setOn, grid, setGrid, dark, sport }: {
-  grids: { id: number; label: string; high: string | null; low: string | null; starts_at: string | null; tbd: boolean; round: number; short: string | null; best_of: number }[];
+  grids: Grid[];
   on: number; setOn: (id: number) => void; grid: Omit<SquaresRules, 'series'>; setGrid: (g: Omit<SquaresRules, 'series'>) => void; dark?: boolean; sport?: string;
 }) {
   // the sport's own checkpoints: a choice it can't use (baseball's innings on a football grid) falls back to its first
@@ -727,7 +727,10 @@ export function SquaresKnobs({ grids, on, setOn, grid, setGrid, dark, sport }: {
   const cur = grids.find((g) => g.id === on);
   return (
     <div className="space-y-3">
-      {grids.length > 1 && row('On', grids.map((g) => <button key={g.id} type="button" onClick={() => setOn(g.id)} className={chip(g.id === on)}>{g.short ?? g.label}{g.high && g.low ? ` · ${g.high} v ${g.low}` : ''}</button>))}
+      {/* a postseason's few series as chips; an NFL week's games in the game picker, under their week */}
+      {grids.some((g) => g.fixture)
+        ? <div><div className="mb-1.5 text-[11px] font-bold uppercase tracking-[.14em] text-mute">On</div><SheetPicker dark={dark} games={grids.map(gridGame)} on={on} setOn={setOn} /></div>
+        : grids.length > 1 && row('On', grids.map((g) => <button key={g.id} type="button" onClick={() => setOn(g.id)} className={chip(g.id === on)}>{g.short ?? g.label}{g.high && g.low ? ` · ${g.high} v ${g.low}` : ''}</button>))}
       {cur && <p className="text-xs text-slate-300">{gridLabel(cur)} · {cur.best_of === 1 ? `${(START_WORD[sport ?? ''] ?? 'start').replace(/^./, (c) => c.toUpperCase())} ${lockText(cur.starts_at, cur.tbd)}` : `Game 1 ${lockText(cur.starts_at, cur.tbd)} · up to ${cur.best_of} games`}</p>}
       {row('Grid', SIZES.map((x) => <button key={x.key} type="button" onClick={() => setGrid({ ...grid, size: x.key })} className={chip(grid.size === x.key)}>{x.label}</button>), SIZES.find((x) => x.key === grid.size)!.line)}
       {row('A square costs', [5, 10, 25, 50].map((c) => <button key={c} type="button" onClick={() => setGrid({ ...grid, cost: c })} className={chip(grid.cost === c)}>{c} coins</button>),

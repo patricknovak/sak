@@ -135,6 +135,11 @@ on Super Bowl LX), the Stanley Cup Final.
 **Good:** pure luck, loved by people who don't follow the sport, the most shared pool there is. In Supercoins the
 squares cost coins and the pot pays the winners, so it stays a pool, not a market.
 **Pitfalls:** digits stay hidden until the grid is full, and the draw has to be seen to be fair (a recorded seed).
+*On any NFL game, 9 October 2026 (migration 217):* a grid goes on one game of an NFL week too (Sunday night, Monday
+night), not only a postseason series: the game stands in as a series of one (`_squares_series`, `_squares_fixtures`),
+so the claims, the draw at kickoff, the board and the quarters' payouts are the same code, and `soccer_ingest` settles
+the grids as the weekly feed lands. Offered through `pool_event_list`'s `game_grids`, picked in the same game picker as
+the prop sheet; a level final is still the grid's last.
 
 ### 2.7 Player pool (draft, box or open)
 
@@ -195,7 +200,7 @@ longest run in the group).
 | Weekly pick'em | ○ | ○ | ✔✔ | ○ | ✔ | ○ | ✔ |
 | Confidence (rank games) | ○ | ○ | ✔✔ | ○ | ○ | | ✔ |
 | Survivor | ○ | ○ | ✔✔ | ○ | ✔ | ✔ (Eliminator) | ✔ |
-| Squares | ✔ (World Series) | ○ | ✔✔ (Super Bowl) | ○ | ○ | ○ | |
+| Squares | ✔ (World Series) | ○ | ✔✔ (Super Bowl, any week's game) | ○ | ○ | ○ | |
 | Player pool | ✔ | ✔✔ | ✔ | ✔ | ○ | | ✔ (fantasy) |
 | Score predictor | ○ | ○ | ○ | ○ | ✔✔ | | ✔ |
 | Sweepstake | ✔ | ✔ | ○ | ○ | ✔✔ | ○ | |

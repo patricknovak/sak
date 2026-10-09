@@ -325,7 +325,9 @@ from the NHL's gamecenter landing (`nhlPeriods`: each period's goals from the ru
 overtime a period, a shootout not; tested on the 2026 Cup Final), for the games on now or over in the last day and a
 half, so hockey grids pay by the period again and prop sheets run on the Stanley Cup. *Prop sheets on an NFL week (migration 216):* the weekly
 feed's quarters ride in with each game (`espnFixture` `periods`, written by `soccer_ingest`, which settles the sheets at
-the end of each run in its own exception block), so a sheet goes on any NFL game in the next week.
+the end of each run in its own exception block), so a sheet goes on any NFL game in the next week. *Squares on an NFL
+week's game (migration 217):* a grid's rules name a fixture as well as a series; the game reads as a series of one, so
+every squares function is unchanged in shape, and `soccer_ingest` settles the grids after the sheets.
 
 Alongside: the World Series test (the LCS from 11 October, the World Series from 23 October) needs its games started
 in the World Series pool (league 5, the questions only so far), and the Love Is Blind test needs players.

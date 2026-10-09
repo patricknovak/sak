@@ -5437,6 +5437,57 @@ select pg_temp.expect('the quarters are in, and the sheet settles itself: seven 
 select set_config('request.jwt.claim.sub', '', false);
 select 'nfl week sheet', true;
 
+-- ───────────── squares on an NFL week's game (migration 217) ─────────────
+-- Monday night of Week 12: Hana opens a 5 by 5 grid on the one game, takes three squares and the rest stay empty.
+-- Kickoff draws the digits, each quarter pays to the square named or the next claimed one along, and a level final is
+-- still the last: the grid is done, the whole pot to Hana.
+reset role;
+select set_config('request.jwt.claim.sub', '', false);
+select set_config('app.league_id', '', false);
+select soccer_ingest('nfl', jsonb_build_object('fixtures', jsonb_build_array(
+  jsonb_build_object('ext_id', 'nfl-212', 'gameweek', 12, 'kickoff', now() + interval '2 days', 'status', 'NS', 'home', 'nf1', 'away', 'nf2'))));
+select id as wsf from fixtures where provider = 'espn' and ext_id = 'nfl-212' \gset
+select pg_temp.expect('a week''s games are offered for a grid, apart from the series grids',
+  exists (select 1 from jsonb_array_elements(pool_event_list()) e, jsonb_array_elements(e->'game_grids') g
+          where e->>'competition' = 'nfl' and (g->>'id')::bigint = :wsf and e->'grids' = '[]'::jsonb));
+select set_config('app.league_id', :'lib', false);
+select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-000000000081', false);
+set role authenticated;
+select pool_game_start('squares', 'nfl', jsonb_build_object('fixture', :wsf, 'size', 5, 'cost', 10)) as wsq \gset
+select pg_temp.raises('one grid on a game', format('select pool_game_start(%L, %L, %L)', 'squares', 'nfl', jsonb_build_object('fixture', :wsf)), 'already runs');
+select pg_temp.raises('a game already played takes no grid', format('select pool_game_start(%L, %L, %L)', 'squares', 'nfl', jsonb_build_object('fixture', :wkf)), 'has started');
+select pool_squares_claim(:wsq, array['sq:0:0', 'sq:2:3', 'sq:4:4']);
+select pg_temp.expect('the board reads the week''s game as a series of one',
+  (select b->'series'->>'label' = 'Week 12' and (b->'series'->>'fixture')::bigint = :wsf and (b->'series'->>'best_of')::int = 1
+     and b->'top'->>'short' = 'KC' and b->'side'->>'short' = 'BUF' and (b->>'claimed')::int = 3 and (b->>'pot')::int = 30
+     and b->'words'->>'start' = 'kickoff' and jsonb_array_length(b->'games') = 1 and (b->'games'->0->>'game_no')::int = 1
+     from (select pool_game_board(:wsq)->'squares' b) x)
+  and (select (x->>'to_pick')::int = 0 from jsonb_array_elements(pool_games_list()) x where (x->>'id')::bigint = :wsq));
+reset role;
+select pg_temp.expect('in football''s words, from the week', (select title = 'Week 12: BUF at KC squares' and rules->>'pays' = 'quarters'
+    and rules ? 'fixture' and not rules ? 'series' from pool_games where id = :wsq)
+  and exists (select 1 from messages where league_id = :lib and body like '🔲 Week 12: BUF at KC squares are open: 10 coins a square, 25 squares%at kickoff, and the pot pays after the 1st quarter%'));
+select set_config('request.jwt.claim.sub', '', false);
+-- kickoff, a 7-3 first quarter with the second under way
+select soccer_ingest('nfl', jsonb_build_object('fixtures', jsonb_build_array(
+  jsonb_build_object('ext_id', 'nfl-212', 'gameweek', 12, 'kickoff', now() - interval '20 minutes', 'status', 'LIVE', 'home', 'nf1', 'away', 'nf2',
+    'home_score', 7, 'away_score', 3, 'periods', '[{"n": 1, "home": 7, "away": 3}, {"n": 2, "home": 0, "away": 0}]'::jsonb))));
+select pg_temp.expect('kickoff draws the grid, and the 1st quarter pays a fifth of the pot',
+  (select draw->>'why' = 'kickoff' and (draw->>'pot')::int = 30 and (draw->>'top')::bigint = (select home_club from fixtures where id = :wsf) from pool_games where id = :wsq)
+  and (select count(*) = 1 and min(coins) = 6 and min(point) = 1 and min(game_no) = 1 and bool_and(team_id = :hana) from pool_square_pays where game_id = :wsq)
+  and exists (select 1 from messages where league_id = :lib and body like '🔲 After the 1st quarter: KC 7, BUF 3. Hana%square takes 6 coins.'));
+-- a level final, 20-20, after 10-10 at the half and 17-10 after three
+select soccer_ingest('nfl', jsonb_build_object('fixtures', jsonb_build_array(
+  jsonb_build_object('ext_id', 'nfl-212', 'gameweek', 12, 'kickoff', now() - interval '4 hours', 'status', 'FT', 'home', 'nf1', 'away', 'nf2',
+    'home_score', 20, 'away_score', 20, 'home_ft', 20, 'away_ft', 20,
+    'periods', '[{"n": 1, "home": 7, "away": 3}, {"n": 2, "home": 3, "away": 7}, {"n": 3, "home": 7, "away": 0}, {"n": 4, "home": 3, "away": 10}]'::jsonb))));
+select pg_temp.expect('the half, the 3rd and a level final pay, the whole pot to Hana, and the grid is done',
+  (select array_agg(top_runs || '-' || side_runs order by case when point = 0 then 99 else point end) = array['7-3', '10-10', '17-10', '20-20']
+     and sum(coins) = 30 from pool_square_pays where game_id = :wsq)
+  and (select status = 'done' and winners = array[:hana] from pool_games where id = :wsq));
+select set_config('app.league_id', '', false);
+select 'nfl week squares', true;
+
 -- ───────────── the Stanley Cup playoffs as series (migration 191) ─────────────
 -- The 2026 playoffs as mlb-sync files them from the NHL's bracket (logos, venues and details left out): every series'
 -- result as the NHL had it, and a bracket from the first round, the letters' order making the tree.

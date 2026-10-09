@@ -56,7 +56,8 @@ Two things in one repo:
   data, cached in `hub_cache`; `?task=lines` works out each club's lines from the NHL's shift charts; `?task=espn` trims one game's ESPN summary into a box score for NFL centre), `garry` (the league voice; the LLM is Grok via xAI, `XAI_API_KEY`),
   `player-info`, `push`, `yahoo`, `join` (makes a newcomer's account from an invite link and seats them, or with `pool` in the body opens a prediction pool for someone new: `#/new`, migration 153, three a day per address and sixty a day in all), `soccer-sync` (soccer fixtures and results per competition's
   provider: ESPN's public scoreboard for testing, `espn`, migration 168, or API-Football with `API_FOOTBALL_KEY`;
-  `?task=fixtures|live`, platform key only; ESPN's other sports ride it too: the NFL by week, migration 171; ESPN's
+  `?task=fixtures|live`, platform key only; ESPN's other sports ride it too: the NFL by week, migration 171, each game's quarters with it, and `soccer_ingest` ends by
+  settling the prop sheets and squares on its games, migrations 216 and 217; ESPN's
   pre-match lines ride along as `fixtures.detail.odds`, chances only, frozen at kick-off, migration 178; a competition
   with `format` 'series' is a postseason: the NFL's playoffs come in as best-of-1 series through `sport_ingest`, migration
   187; March Madness as 63 single-game series in bracket order, day by day in March only, migration 201), `mlb-sync` (baseball's postseason from MLB's

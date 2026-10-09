@@ -21,7 +21,7 @@ export interface SqGame {
 }
 export interface SqPay { game_no: number; point: number; top_runs: number; side_runs: number; cell: string; paid_cell: string | null; team_id: number | null; coins: number; at: string }
 export interface SquaresData {
-  series: { id: number; label: string; short: string | null; best_of: number; state: string; starts_at: string | null; tbd: boolean; winner: number | null; top_wins: number; side_wins: number };
+  series: { id: number | null; fixture?: number | null; label: string; short: string | null; best_of: number; state: string; starts_at: string | null; tbd: boolean; winner: number | null; top_wins: number; side_wins: number };
   top: SqClub | null; side: SqClub | null;
   size: 5 | 10; cost: number; cap: number; pay_when: 'innings' | 'quarters' | 'periods' | 'final'; digits: 'once' | 'each'; points: number[]; weights: number[];
   // the sport's words (migration 200); an older server sends none, which is baseball's
@@ -67,6 +67,8 @@ export function SquaresGame({ data, gameId, status, reload, name }: { data: Squa
   const w = data.words ?? BASEBALL;
   // one game (a Super Bowl) needs no game numbers
   const single = data.series.best_of === 1;
+  // a grid on one game of an NFL week (migration 217): away at home, under its week
+  const week = !!data.series.fixture;
 
   // the game the edges show: the one on now, else the next to play, else the last played
   const live = data.games.find((g) => g.state === 'live');
@@ -126,9 +128,11 @@ export function SquaresGame({ data, gameId, status, reload, name }: { data: Squa
           <div className="flex items-center gap-3">
             <div className="flex -space-x-2">{top && <Crest c={top} size={36} />}{side && <Crest c={side} size={36} />}</div>
             <div className="min-w-0 flex-1">
-              <div className="break-words font-bold leading-tight text-white">{top && side ? `${top.name} v ${side.name}` : `${data.series.label}, matchup to be set`}</div>
+              <div className="break-words font-bold leading-tight text-white">{top && side ? (week ? `${side.name} at ${top.name}` : `${top.name} v ${side.name}`) : `${data.series.label}, matchup to be set`}</div>
               <div className="text-xs text-white/70">
-                {data.series.state === 'final' ? `Over: ${data.series.top_wins > data.series.side_wins ? topName : sideName} win it ${Math.max(data.series.top_wins, data.series.side_wins)}-${Math.min(data.series.top_wins, data.series.side_wins)}`
+                {week && `${data.series.label} · `}
+                {data.series.state === 'final' ? (single && data.games[0] ? `Final: ${topName} ${data.games[0].top_runs ?? 0}, ${sideName} ${data.games[0].side_runs ?? 0}`
+                    : `Over: ${data.series.top_wins > data.series.side_wins ? topName : sideName} win it ${Math.max(data.series.top_wins, data.series.side_wins)}-${Math.min(data.series.top_wins, data.series.side_wins)}`)
                   : data.series.state === 'live' ? (single ? 'On now' : `${topName} ${data.series.top_wins} · ${sideName} ${data.series.side_wins} in the series`)
                   : data.locks_at ? `${single ? cap(w.start) : 'Game 1'} ${DT.format(new Date(data.locks_at))}${data.series.tbd ? ' (time to be set)' : ''}` : 'Dates to be set'}
               </div>
