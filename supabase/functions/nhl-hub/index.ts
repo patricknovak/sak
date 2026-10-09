@@ -11,6 +11,8 @@
 //   ?task=lines&id=<gameId>         each club's lines for a game: four forward lines, three defence pairs and the goalies,
 //                                   worked out from the NHL's shift charts (a game that has started: its own 5-on-5; one
 //                                   that hasn't: each club's last game)
+//   ?task=espn&sport=football/nfl&id=<event>  one game's box score from ESPN's public summary (NFL centre): each team's
+//                                   stats, its leaders, and the scoring plays (cached for the game's state)
 //   ?task=x                         NHL insiders on X: through the X API when X_BEARER_TOKEN is set, otherwise through
 //                                   Grok's X search with the XAI_API_KEY the league already uses for Garry (shared cache
 //                                   in hub_cache so the whole league costs one search every few minutes)
@@ -486,6 +488,34 @@ async function clubLines(gameId: number, abbr: string) {
   return { forwards, defense, goalies, extras: [...left, ...dl] };
 }
 
+// a game's box score from ESPN's public summary, trimmed for NFL centre: the team stats a fan reads first, each side's
+// passing, rushing and receiving leaders, and every scoring play with the score after it
+const ESPN_SPORTS = new Set(['football/nfl']);
+const NFL_STATS: [string, string][] = [['totalYards', 'Total yards'], ['netPassingYards', 'Passing'], ['rushingYards', 'Rushing'], ['firstDowns', '1st downs'],
+  ['thirdDownEff', '3rd downs'], ['redZoneAttempts', 'Red zone'], ['turnovers', 'Turnovers'], ['sacksYardsLost', 'Sacked'], ['totalPenaltiesYards', 'Penalties'], ['possessionTime', 'Possession']];
+async function espnBox(sport: string, id: string) {
+  if (!ESPN_SPORTS.has(sport) || !id) throw new Error('bad request');
+  // ESPN refuses a request with no user agent (soccer-sync sends the same one)
+  const r = await fetch(`https://site.api.espn.com/apis/site/v2/sports/${sport}/summary?event=${id}`, { headers: { 'user-agent': 'SuperPools/1.0', accept: 'application/json' } });
+  if (!r.ok) throw new Error(`espn ${r.status}`);
+  const d = await r.json();
+  const state = d.header?.competitions?.[0]?.status?.type?.state ?? 'pre';
+  const teams = (d.boxscore?.teams ?? []).map((t: any) => {
+    const by = new Map((t.statistics ?? []).map((x: any) => [x.name, x.displayValue]));
+    return { abbrev: t.team?.abbreviation, name: t.team?.displayName, logo: t.team?.logo ?? null, color: t.team?.color ? `#${t.team.color}` : null,
+      home: t.homeAway === 'home', stats: NFL_STATS.filter(([k]) => by.has(k)).map(([k, label]) => ({ key: k, label, value: by.get(k) })) };
+  });
+  const leaders = (d.leaders ?? []).map((t: any) => ({ abbrev: t.team?.abbreviation,
+    rows: (t.leaders ?? []).slice(0, 3).filter((c: any) => c.leaders?.length).map((c: any) => {
+      const l = c.leaders[0];
+      return { cat: String(c.displayName ?? '').replace(/ Yards$/, ''), name: l.athlete?.shortName ?? l.athlete?.displayName, headshot: l.athlete?.headshot?.href ?? null, line: l.displayValue };
+    }) }));
+  const scoring = (d.scoringPlays ?? []).map((p: any) => ({ q: p.period?.number, clock: p.clock?.displayValue, abbrev: p.team?.abbreviation,
+    type: p.scoringType?.abbreviation ?? null, text: p.text, away: p.awayScore, home: p.homeScore }));
+  // a game on now changes every play; a finished one doesn't
+  return { state, teams, leaders, scoring, ttl: state === 'in' ? 30_000 : state === 'post' ? 21_600_000 : 600_000 };
+}
+
 async function gameLines(id: string) {
   const land = await get(`/gamecenter/${id}/landing`);
   const started = ['LIVE', 'CRIT', 'OFF', 'FINAL'].includes(land.gameState);
@@ -510,14 +540,15 @@ Deno.serve(async (req) => {
   const date = url.searchParams.get('date') ?? 'now';
   const id = url.searchParams.get('id') ?? '';
   const abbrev = (url.searchParams.get('abbrev') ?? '').toUpperCase();
-  if (!/^(now|\d{4}-\d{2}-\d{2})$/.test(date) || !/^\d{0,12}$/.test(id) || !/^[A-Z]{0,3}$/.test(abbrev)) return Response.json({ error: 'bad request' }, { status: 400, headers: cors });
-  const key = `${task}:${date}:${id}:${abbrev}`;
+  const sport = url.searchParams.get('sport') ?? '';
+  if (!/^(now|\d{4}-\d{2}-\d{2})$/.test(date) || !/^\d{0,12}$/.test(id) || !/^[A-Z]{0,3}$/.test(abbrev) || !/^[a-z./-]{0,40}$/.test(sport)) return Response.json({ error: 'bad request' }, { status: 400, headers: cors });
+  const key = `${task}:${date}:${id}:${abbrev}:${sport}`;
   const hit = cache.get(key);
   if (hit && Date.now() - hit.at < hit.ttl) return Response.json(hit.body, { headers: { ...cors, 'x-cache': 'hit' } });
   try {
     const body = task === 'standings' ? await standings() : task === 'schedule' ? await schedule(date) : task === 'game' ? await gameDetail(id)
       : task === 'news' ? await news() : task === 'x' ? await xfeed() : task === 'leaders' ? await leaders() : task === 'team' ? await club(abbrev)
-      : task === 'lines' ? await gameLines(id) : await scores(date);
+      : task === 'lines' ? await gameLines(id) : task === 'espn' ? await espnBox(sport, id) : await scores(date);
     const ttl = (body as { ttl?: number })?.ttl ?? TTL[task as keyof typeof TTL] ?? 20_000;
     cache.set(key, { at: Date.now(), ttl, body });
     if (cache.size > 200) for (const [k, v] of cache) if (Date.now() - v.at > v.ttl) cache.delete(k);

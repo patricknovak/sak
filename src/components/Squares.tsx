@@ -1,4 +1,5 @@
-// Squares (migration 167, docs/POOL-TYPES.md §2.6): the grid on one series, in coins. Before the draw: tap squares to
+// Squares (migrations 167 and 200, docs/POOL-TYPES.md §2.6): the grid on one series, in coins, in the sport's words
+// (innings and the first pitch for baseball, quarters and kickoff for football). Before the draw: tap squares to
 // claim them (or let the grid pick), tap your own to hand them back; everyone's claims show as they land. Once the grid
 // fills or Game 1 starts, the digits appear on the edges and every checkpoint (after the 3rd, the 6th, the final) lights
 // the square the score names, with the coins it took. The square leading a game on now pulses.
@@ -8,6 +9,8 @@ import { useLeague } from '../lib/store';
 import { rpc } from '../lib/supabase';
 import { useCoins } from '../lib/pool';
 import { useAction } from './ui';
+import { ShareButton, useCardBrand } from './ShareButton';
+import { shareCard } from '../lib/shareCard';
 import { Crest } from './Crest';
 import type { Team } from '../lib/types';
 
@@ -20,18 +23,27 @@ export interface SqGame {
 }
 export interface SqPay { game_no: number; point: number; top_runs: number; side_runs: number; cell: string; paid_cell: string | null; team_id: number | null; coins: number; at: string }
 export interface SquaresData {
-  series: { id: number; label: string; short: string | null; best_of: number; state: string; starts_at: string | null; tbd: boolean; winner: number | null; top_wins: number; side_wins: number };
+  series: { id: number | null; fixture?: number | null; label: string; short: string | null; best_of: number; state: string; starts_at: string | null; tbd: boolean; winner: number | null; top_wins: number; side_wins: number };
   top: SqClub | null; side: SqClub | null;
-  size: 5 | 10; cost: number; cap: number; pay_when: 'innings' | 'final'; digits: 'once' | 'each'; points: number[]; weights: number[];
+  size: 5 | 10; cost: number; cap: number; pay_when: 'innings' | 'quarters' | 'periods' | 'final'; digits: 'once' | 'each'; points: number[]; weights: number[];
+  // the sport's words (migration 200); an older server sends none, which is baseball's
+  words?: SqWords;
   locks_at: string | null; locked: boolean; claimed: number; pot: number;
   claims: { cell: string; team_id: number }[];
-  draw: { seed: string; at: string; why: 'full' | 'first pitch'; sets: { top: number[]; side: number[] }[] } | null;
+  draw: { seed: string; at: string; why: string; sets: { top: number[]; side: number[] }[] } | null;
   games: SqGame[]; pays: SqPay[]; paid: number;
 }
 
 const ordinal = (n: number) => { const s = ['th', 'st', 'nd', 'rd'], v = n % 100; return n + (s[(v - 20) % 10] ?? s[v] ?? s[0]); };
-export const pointLabel = (p: number) => (p === 0 ? 'Final' : `After the ${ordinal(p)}`);
-const pointShort = (p: number) => (p === 0 ? 'F' : ordinal(p));
+export interface SqWords { start: string; score: string; period: string }
+const BASEBALL: SqWords = { start: 'first pitch', score: 'runs', period: 'inning' };
+// a checkpoint, in the sport's words: after the 3rd (baseball), after the 1st quarter and the half (football)
+export const pointLabel = (p: number, period = 'inning') => (p === 0 ? 'Final' : period === 'quarter' && p === 2 ? 'Half'
+  : period === 'inning' ? `After the ${ordinal(p)}` : `After the ${ordinal(p)} ${period}`);
+const pointShort = (p: number, period = 'inning') => (p === 0 ? 'F' : period === 'quarter' ? (p === 2 ? 'Half' : `Q${p}`) : period === 'period' ? `P${p}` : ordinal(p));
+// how many periods a game has, for its line score
+const PERIODS: Record<string, number> = { inning: 9, quarter: 4, period: 3, half: 2 };
+const cap = (t: string) => t.charAt(0).toUpperCase() + t.slice(1);
 const DT = new Intl.DateTimeFormat(undefined, { weekday: 'short', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' });
 const cellOf = (r: number, c: number) => `sq:${r}:${c}`;
 const clubHue = (c: SqClub | null) => c?.color ?? 'rgb(var(--gold-rgb))';
@@ -54,6 +66,11 @@ export function SquaresGame({ data, gameId, status, reload, name }: { data: Squa
   const open = status === 'open' && !data.locked;
   const canClaim = open && me?.role === 'gm';
   const mine = data.claims.filter((c) => c.team_id === me?.id).length;
+  const w = data.words ?? BASEBALL;
+  // one game (a Super Bowl) needs no game numbers
+  const single = data.series.best_of === 1;
+  // a grid on one game of an NFL week (migration 217): away at home, under its week
+  const week = !!data.series.fixture;
 
   // the game the edges show: the one on now, else the next to play, else the last played
   const live = data.games.find((g) => g.state === 'live');
@@ -76,6 +93,24 @@ export function SquaresGame({ data, gameId, status, reload, name }: { data: Squa
     return m;
   }, [data.pays, data.digits, shown]);
   const leading = shownGame?.state === 'live' ? shownGame.now : null;
+  const cardBrand = useCardBrand();
+  // my squares as a picture once the digits are drawn: each one's numbers and what it has taken
+  const shareMine = () => {
+    // the digits of the game on show (a grid drawn for every game has a set each)
+    const first = set ?? data.draw!.sets[0];
+    const cells = data.claims.filter((c) => c.team_id === me?.id).map((c) => c.cell);
+    const took = (cell: string) => data.pays.filter((p) => p.paid_cell === cell && p.coins > 0).reduce((s, p) => s + p.coins, 0);
+    const rows = cells.map((cell) => {
+      const [, r, c] = cell.split(':').map(Number);
+      const coins = took(cell);
+      return { q: `${topName} ${(edge(first.top, c, size) ?? []).join('/')} · ${sideName} ${(edge(first.side, r, size) ?? []).join('/')}`,
+        answer: coins > 0 ? `+${coins.toLocaleString()}` : '–', right: coins > 0 ? true : null };
+    }).sort((a, b) => Number(b.right) - Number(a.right));
+    const total = cells.reduce((s, cell) => s + took(cell), 0);
+    return shareCard({ kind: 'sheet', eyebrow: 'My squares', brand: cardBrand, who: '', title: `${top && side ? `${top.name} v ${side.name}` : data.series.label}${data.draw!.sets.length > 1 ? ` · Game ${Math.min(shown, data.draw!.sets.length)}` : ''}`,
+      score: total > 0 ? `${total.toLocaleString()} ${cardBrand.coin.name.toLowerCase()} won` : `${cells.length} ${cells.length === 1 ? 'square' : 'squares'}`, rows },
+      total > 0 ? `My squares took ${total.toLocaleString()} ${cardBrand.coin.name.toLowerCase()}.` : 'My squares.');
+  };
 
   const picked = [...pick];
   const toClaim = picked.filter((c) => !owner.has(c));
@@ -113,11 +148,13 @@ export function SquaresGame({ data, gameId, status, reload, name }: { data: Squa
           <div className="flex items-center gap-3">
             <div className="flex -space-x-2">{top && <Crest c={top} size={36} />}{side && <Crest c={side} size={36} />}</div>
             <div className="min-w-0 flex-1">
-              <div className="break-words font-bold leading-tight text-white">{top && side ? `${top.name} v ${side.name}` : `${data.series.label}, matchup to be set`}</div>
+              <div className="break-words font-bold leading-tight text-white">{top && side ? (week ? `${side.name} at ${top.name}` : `${top.name} v ${side.name}`) : `${data.series.label}, matchup to be set`}</div>
               <div className="text-xs text-white/70">
-                {data.series.state === 'final' ? `Over: ${data.series.top_wins > data.series.side_wins ? topName : sideName} win it ${Math.max(data.series.top_wins, data.series.side_wins)}-${Math.min(data.series.top_wins, data.series.side_wins)}`
-                  : data.series.state === 'live' ? `${topName} ${data.series.top_wins} · ${sideName} ${data.series.side_wins} in the series`
-                  : data.locks_at ? `Game 1 ${DT.format(new Date(data.locks_at))}${data.series.tbd ? ' (time to be set)' : ''}` : 'Dates to be set'}
+                {week && `${data.series.label} · `}
+                {data.series.state === 'final' ? (single && data.games[0] ? `Final: ${topName} ${data.games[0].top_runs ?? 0}, ${sideName} ${data.games[0].side_runs ?? 0}`
+                    : `Over: ${data.series.top_wins > data.series.side_wins ? topName : sideName} win it ${Math.max(data.series.top_wins, data.series.side_wins)}-${Math.min(data.series.top_wins, data.series.side_wins)}`)
+                  : data.series.state === 'live' ? (single ? 'On now' : `${topName} ${data.series.top_wins} · ${sideName} ${data.series.side_wins} in the series`)
+                  : data.locks_at ? `${single ? cap(w.start) : 'Game 1'} ${DT.format(new Date(data.locks_at))}${data.series.tbd ? ' (time to be set)' : ''}` : 'Dates to be set'}
               </div>
             </div>
           </div>
@@ -133,14 +170,14 @@ export function SquaresGame({ data, gameId, status, reload, name }: { data: Squa
           {!data.draw && (
             <div>
               <div className="h-2 overflow-hidden rounded-full bg-black/30"><div className="h-full rounded-full bg-gold transition-all" style={{ width: `${(data.claimed / (size * size)) * 100}%` }} /></div>
-              <p className="mt-1.5 text-[11px] text-white/70">{status === 'done' ? 'Nobody claimed a square.' : `${left} left. The digits are drawn the moment the grid fills, or at Game 1's first pitch.`}</p>
+              <p className="mt-1.5 text-[11px] text-white/70">{status === 'done' ? 'Nobody claimed a square.' : `${left} left. The digits are drawn the moment the grid fills, or at ${single ? '' : 'Game 1’s '}${w.start}.`}</p>
             </div>
           )}
           {live && data.draw && (
             <div className="flex items-center gap-2 rounded-2xl bg-red-500/10 px-3 py-2 text-xs ring-1 ring-red-400/30">
               <span className="relative flex h-2 w-2 shrink-0"><span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-red-400 opacity-75" /><span className="relative inline-flex h-2 w-2 rounded-full bg-red-400" /></span>
               <span className="min-w-0 flex-1 text-white">
-                <b>Game {live.game_no}</b>{live.detail?.inning ? `, ${live.detail.half === 'Top' ? 'top' : 'bottom'} ${ordinal(live.detail.inning)}` : ''}: {topName} {live.top_runs ?? 0}, {sideName} {live.side_runs ?? 0}.
+                <b>{single ? 'Live' : `Game ${live.game_no}`}</b>{live.detail?.inning ? `, ${live.detail.half === 'Top' ? 'top' : 'bottom'} ${ordinal(live.detail.inning)}` : ''}: {topName} {live.top_runs ?? 0}, {sideName} {live.side_runs ?? 0}.
                 {live.now?.team_id ? <> Leading: <b>{name(live.now.team_id)}</b>{live.now.to !== live.now.cell ? ' (next square along)' : ''}</> : ''}
               </span>
             </div>
@@ -165,12 +202,12 @@ export function SquaresGame({ data, gameId, status, reload, name }: { data: Squa
       {/* the grid */}
       <div className="card p-2.5 sm:p-3">
         <div className="mb-1.5 flex items-center gap-1.5 pl-7 text-[11px] font-black uppercase tracking-[.14em]" style={{ color: clubHue(top) }}>
-          {top && <Crest c={top} size={18} />} {topName} <span className="text-white/40">runs →</span>
+          {top && <Crest c={top} size={18} />} {topName} <span className="text-white/40">{w.score} →</span>
         </div>
         <div className="flex gap-1">
           <div className="flex w-6 shrink-0 items-center justify-center">
             <span className="flex items-center gap-1.5 whitespace-nowrap text-[11px] font-black uppercase tracking-[.14em] [writing-mode:vertical-rl] rotate-180" style={{ color: clubHue(side) }}>
-              {sideName} <span className="text-white/40">runs →</span>
+              {sideName} <span className="text-white/40">{w.score} →</span>
             </span>
           </div>
           <div className="grid min-w-0 flex-1 gap-[3px]" style={{ gridTemplateColumns: `minmax(1.4rem, .7fr) repeat(${size}, minmax(0, 1fr))` }}>
@@ -194,7 +231,7 @@ export function SquaresGame({ data, gameId, status, reload, name }: { data: Squa
                 const isMine = o != null && o === me?.id;
                 return (
                   <Square key={cell} t={t} mine={isMine} sel={sel} giving={sel && isMine} hit={hit} lead={lead} free={o == null} tappable={canClaim && (o == null || isMine)}
-                    textSize={cellPx} onTap={() => tap(cell)} label={`Row ${r + 1}, column ${c + 1}${t ? `: ${t.gm_name}` : ', free'}`} />
+                    textSize={cellPx} period={w.period} onTap={() => tap(cell)} label={`Row ${r + 1}, column ${c + 1}${t ? `: ${t.gm_name}` : ', free'}`} />
                 );
               }),
             ])}
@@ -243,45 +280,45 @@ export function SquaresGame({ data, gameId, status, reload, name }: { data: Squa
       {/* what it pays */}
       <div className="card p-3.5">
         <div className="mb-2 flex items-center justify-between gap-2">
-          <span className="label">What each game pays</span>
-          <span className="text-[11px] text-mute">{data.series.best_of} games at most · the last final takes the rest</span>
+          <span className="label">{single ? 'What it pays' : 'What each game pays'}</span>
+          <span className="text-[11px] text-mute">{single ? 'One game' : `${data.series.best_of} games at most · the last final takes the rest`}</span>
         </div>
-        <div className={`grid gap-2 ${data.points.length === 3 ? 'grid-cols-3' : 'grid-cols-1'}`}>
+        <div className={`grid gap-2 ${data.points.length === 4 ? 'grid-cols-2 sm:grid-cols-4' : data.points.length === 3 ? 'grid-cols-3' : 'grid-cols-1'}`}>
           {data.points.map((p, i) => (
             <div key={p} className="rounded-2xl bg-white/[.04] px-3 py-2 text-center ring-1 ring-white/10">
-              <div className="text-[10px] font-bold uppercase tracking-[.14em] text-mute">{pointLabel(p)}</div>
+              <div className="text-[10px] font-bold uppercase tracking-[.14em] text-mute">{pointLabel(p, w.period)}</div>
               <div className="num text-lg font-black text-gold">{share(data.weights[i]).toLocaleString()}</div>
-              <div className="text-[10px] text-mute">{data.weights[i]}% of a game</div>
+              <div className="text-[10px] text-mute">{data.weights[i]}%{single ? '' : ' of a game'}</div>
             </div>
           ))}
         </div>
-        <p className="mt-2 text-[11px] leading-snug text-mute">The last digit of each club&apos;s runs names the square. An empty square passes its coins along the row to the next claimed one. {data.draw ? '' : 'Amounts grow with the pot until the draw.'}</p>
+        <p className="mt-2 text-[11px] leading-snug text-mute">The last digit of each club&apos;s {w.score} names the square. An empty square passes its coins along the row to the next claimed one. {data.draw ? '' : 'Amounts grow with the pot until the draw.'}</p>
       </div>
 
       {/* every game so far */}
       {data.games.length > 0 && data.draw && (
         <div className="space-y-2">
-          <div className="label px-1">Game by game</div>
+          <div className="label px-1">{single ? 'The game' : 'Game by game'}</div>
           {data.games.map((g) => {
             const pays = data.pays.filter((p) => p.game_no === g.game_no);
             return (
               <div key={g.fixture} className="card overflow-hidden">
                 <div className="flex items-center justify-between gap-2 border-b border-white/[.06] px-3.5 py-2">
-                  <span className="text-[11px] font-black uppercase tracking-[.16em] text-white">Game {g.game_no}</span>
+                  <span className="text-[11px] font-black uppercase tracking-[.16em] text-white">{single ? data.series.label : `Game ${g.game_no}`}</span>
                   <span className={`num text-xs font-bold ${g.state === 'live' ? 'text-red-300' : 'text-slate-200'}`}>
                     {g.top_runs != null ? `${topName} ${g.top_runs} · ${sideName} ${g.side_runs}` : DT.format(new Date(g.kickoff))}{g.state === 'final' ? ' · F' : g.state === 'live' ? ' · live' : ''}
                   </span>
                 </div>
-                {g.innings.length > 0 && <LineScore g={g} topName={topName} sideName={sideName} points={data.points} />}
+                {g.innings.length > 0 && <LineScore g={g} topName={topName} sideName={sideName} points={data.points} periods={PERIODS[w.period] ?? 9} />}
                 <div className="flex flex-wrap gap-1.5 p-2.5">
                   {data.points.map((p) => {
                     const x = pays.find((y) => y.point === p);
-                    if (!x) return <span key={p} className="rounded-full bg-white/[.03] px-2.5 py-1 text-[11px] text-mute ring-1 ring-white/[.06]">{pointLabel(p)} · to come</span>;
+                    if (!x) return <span key={p} className="rounded-full bg-white/[.03] px-2.5 py-1 text-[11px] text-mute ring-1 ring-white/[.06]">{pointLabel(p, w.period)} · to come</span>;
                     const t = team(x.team_id);
                     return (
                       <span key={p} className={`inline-flex items-center gap-1.5 rounded-full py-1 pl-1.5 pr-2.5 text-[11px] ring-1 ${x.team_id === me?.id ? 'bg-gold/15 ring-gold/40' : 'bg-white/[.04] ring-white/10'}`}>
                         <span className="grid h-5 w-5 place-items-center rounded-full text-xs" style={{ background: t ? `color-mix(in srgb, ${t.color} 40%, transparent)` : undefined }}>{t?.emoji ?? '·'}</span>
-                        <b className="text-white">{pointShort(p)}</b><span className="num text-slate-300">{x.top_runs}-{x.side_runs}</span>
+                        <b className="text-white">{pointShort(p, w.period)}</b><span className="num text-slate-300">{x.top_runs}-{x.side_runs}</span>
                         <span className="font-semibold text-white">{t?.gm_name ?? 'nobody'}</span>
                         <span className="num font-black text-gold">+{x.coins}</span>
                       </span>
@@ -315,11 +352,12 @@ export function SquaresGame({ data, gameId, status, reload, name }: { data: Squa
       )}
 
       {/* the draw, checkable */}
+      {data.draw && mine > 0 && <ShareButton className="btn-ghost w-full" label="Share my squares" make={shareMine} />}
       {data.draw ? (
         <div className="flex items-start gap-2.5 rounded-2xl border border-white/[.06] bg-white/[.02] p-3 text-[11px] leading-snug text-mute">
           <ShieldCheck className="mt-px h-4 w-4 shrink-0 text-emerald-300" />
           <span className="min-w-0 break-words">
-            Drawn {DT.format(new Date(data.draw.at))}, {data.draw.why === 'full' ? 'the moment the grid filled' : 'at the first pitch'}{data.digits === 'each' ? ', fresh digits for each game' : ''}.
+            Drawn {DT.format(new Date(data.draw.at))}, {data.draw.why === 'full' ? 'the moment the grid filled' : `at ${data.draw.why === 'first pitch' ? 'the first pitch' : data.draw.why}`}{data.digits === 'each' ? ', fresh digits for each game' : ''}.
             Seed <code className="rounded bg-white/[.06] px-1 text-slate-300">{data.draw.seed}</code>: each digit sits in the order of md5(seed:game:side:digit), so anyone can check it.
           </span>
         </div>
@@ -334,9 +372,9 @@ export function SquaresGame({ data, gameId, status, reload, name }: { data: Squa
 }
 
 // one square: its owner's emoji on their colour, yours ringed in gold, a pick waiting dashed, coins it took in a badge
-function Square({ t, mine, sel, giving, hit, lead, free, tappable, textSize, onTap, label }: {
+function Square({ t, mine, sel, giving, hit, lead, free, tappable, textSize, period, onTap, label }: {
   t: Team | undefined; mine: boolean; sel: boolean; giving: boolean; hit: { coins: number; points: number[] } | undefined; lead: boolean; free: boolean;
-  tappable: boolean; textSize: string; onTap: () => void; label: string;
+  tappable: boolean; textSize: string; period: string; onTap: () => void; label: string;
 }) {
   const bg = t ? `color-mix(in srgb, ${t.color} ${hit ? 70 : 34}%, #0b1220)` : undefined;
   return (
@@ -351,16 +389,16 @@ function Square({ t, mine, sel, giving, hit, lead, free, tappable, textSize, onT
         : sel ? <span className="text-[10px] font-black text-gold">+</span> : null}
       {hit && (
         <span className="num absolute -right-1 -top-1 z-10 rounded-full bg-gold px-1 text-[8px] font-black leading-[12px] text-[#0b1220] shadow">
-          {hit.points.length > 1 ? `×${hit.points.length}` : hit.points[0] === 0 ? 'F' : pointShort(hit.points[0])}
+          {hit.points.length > 1 ? `×${hit.points.length}` : hit.points[0] === 0 ? 'F' : pointShort(hit.points[0], period)}
         </span>
       )}
     </button>
   );
 }
 
-// a game's runs by inning, the checkpoint innings marked
-function LineScore({ g, topName, sideName, points }: { g: SqGame; topName: string; sideName: string; points: number[] }) {
-  const n = Math.max(9, ...g.innings.map((i) => i.n));
+// a game's score by period (innings, quarters), the checkpoints marked
+function LineScore({ g, topName, sideName, points, periods }: { g: SqGame; topName: string; sideName: string; points: number[]; periods: number }) {
+  const n = Math.max(periods, ...g.innings.map((i) => i.n));
   const by = new Map(g.innings.map((i) => [i.n, i]));
   return (
     <div className="scroll-x px-2.5 pt-2">

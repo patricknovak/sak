@@ -6,7 +6,9 @@ export interface CardBrand { wordmark: { a: string; b: string }; color: string; 
 export type ShareCard =
   | { kind: 'call'; brand: CardBrand; who: string; question: string; answer: string; answerColor: string; chance: number; pays: number; staked: number }
   | { kind: 'won'; brand: CardBrand; who: string; question: string; answer: string; answerColor: string; won: number; staked: number }
-  | { kind: 'leaders'; brand: CardBrand; title: string; rows: { name: string; worth: number; color: string; me?: boolean; rank?: number; label?: string }[] };
+  | { kind: 'leaders'; brand: CardBrand; title: string; rows: { name: string; worth: number; color: string; me?: boolean; rank?: number; label?: string }[] }
+  // a prop sheet: the game, each call with the answer given and whether it came in (null while it's still to play)
+  | { kind: 'sheet'; brand: CardBrand; who: string; title: string; score: string; rows: { q: string; answer: string; right: boolean | null }[]; eyebrow?: string };
 
 const W = 1080, H = 1350;
 const DISPLAY = "'Barlow Condensed', 'Inter', system-ui, sans-serif", SANS = "'Inter', system-ui, sans-serif";
@@ -50,7 +52,26 @@ export async function drawCard(c: ShareCard): Promise<Blob> {
 
   const eyebrow = (t: string, y: number, color = col) => { ctx.font = `800 34px ${SANS}`; ctx.fillStyle = color; ctx.fillText(t.toUpperCase().split('').join(String.fromCharCode(8202)), 80, y); };
 
-  if (c.kind === 'leaders') {
+  if (c.kind === 'sheet') {
+    eyebrow(c.eyebrow ?? (c.who ? `${c.who}’s sheet` : 'My sheet'), 250);
+    const t = fit(ctx, c.title, W - 160, 2, 64, 44, (px) => `800 ${px}px ${DISPLAY}`);
+    ctx.fillStyle = '#ffffff';
+    t.lines.forEach((l, i) => ctx.fillText(l, 80, 330 + i * t.px * 1.02));
+    const top = 330 + (t.lines.length - 1) * t.px * 1.02 + 50;
+    // a few calls get taller rows, so the card doesn't sit half empty
+    const rows = c.rows.slice(0, 8), rh = Math.min(rows.length <= 3 ? 150 : rows.length <= 5 ? 120 : 96, Math.floor((H - 330 - top) / Math.max(rows.length, 1)));
+    rows.forEach((r, i) => {
+      const y = top + i * rh;
+      const tone = r.right === true ? '#34d399' : r.right === false ? '#f87171' : '#ffffff';
+      ctx.fillStyle = r.right === true ? '#34d39922' : r.right === false ? '#f8717118' : '#ffffff0d';
+      ctx.beginPath(); ctx.roundRect(60, y, W - 120, rh - 14, 22); ctx.fill();
+      const q = fit(ctx, r.q, 560, 1, rh >= 120 ? 36 : 30, 22, (px) => `600 ${px}px ${SANS}`);
+      ctx.fillStyle = '#ffffffb3'; ctx.fillText(q.lines[0], 92, y + (rh - 14) / 2 + q.px * 0.35);
+      const a = fit(ctx, `${r.right === true ? '✓ ' : r.right === false ? '✗ ' : ''}${r.answer}`, 300, 1, rh >= 120 ? 56 : 40, 26, (px) => `800 ${px}px ${DISPLAY}`);
+      ctx.fillStyle = tone; ctx.textAlign = 'right'; ctx.fillText(a.lines[0], W - 92, y + (rh - 14) / 2 + a.px * 0.35); ctx.textAlign = 'left';
+    });
+    ctx.font = `900 96px ${DISPLAY}`; ctx.fillStyle = col; ctx.fillText(c.score, 80, H - 210);
+  } else if (c.kind === 'leaders') {
     eyebrow(c.title, 270);
     const rows = c.rows.slice(0, 6);
     rows.forEach((r, i) => {

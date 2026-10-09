@@ -3,6 +3,7 @@
 // assists count, a goalie's wins and shutouts too, from the pool's first night to its last. Until the first puck drop
 // the team can change; after it, each player shows what he has scored and how many took him, and everyone's team shows.
 // The host can fill one in for a member who asked.
+// On the Stanley Cup playoffs (migration 202) the window runs to the Cup, and a player whose club is knocked out is shaded.
 import { useMemo, useState } from 'react';
 import { Check, Info, Lock, Users } from 'lucide-react';
 import { useLeague } from '../lib/store';
@@ -16,13 +17,18 @@ export interface BoxPlayer {
   pts: number; g: number; a: number; gp: number; left: number; games: number; taken: number | null;
   // what he's expected to add in his club's games still to come (migration 193; older servers don't send it)
   to_come?: number;
+  // in the playoffs, his club has lost a series (migration 202)
+  out?: boolean;
   // his next game in the window (migration 199): under way first, else the next to start
   next?: { start: string; state: string; home: boolean; opp: string; for: number | null; against: number | null; line: Record<string, number> | null } | null;
   season: Record<string, number> | null;
 }
 export interface BoxData {
   locks_at: string | null; locked: boolean; from: string; to: string; scoring: { g: number; a: number; w: number; sho: number };
-  nights: number; nights_left: number; boxes: { label: string; pos: 'F' | 'D' | 'G'; players: BoxPlayer[] }[];
+  nights: number; nights_left: number;
+  // the Stanley Cup playoffs (migration 202): the window runs to the Cup, and clubs drop out
+  playoffs?: boolean; clubs_left?: number | null;
+  boxes: { label: string; pos: 'F' | 'D' | 'G'; players: BoxPlayer[] }[];
   mine: number[] | null; picked: number; teams: { team_id: number; players: number[] }[] | null;
 }
 
@@ -84,12 +90,12 @@ export function BoxPoolGame({ gameId, data, status, reload, actAs }: {
             <div className="font-display text-xl font-extrabold text-white">
               {open ? `${done} of ${total} picked` : !done ? <span className="text-white/50">No team this time</span> : `${myPts} ${myPts === 1 ? 'point' : 'points'}`}
             </div>
-            <div className="text-[11px] text-mute">{open ? `Locks ${lockText(data.locks_at)}${done && myCome ? ` · about ${Math.round(myCome)} points expected` : ''}` : data.locked && status === 'open' ? `${data.nights_left} of ${data.nights} nights left${myCome ? ` · about ${Math.round(myCome)} more to come` : ''}` : 'Over'}</div>
+            <div className="text-[11px] text-mute">{open ? `Locks ${lockText(data.locks_at)}${done && myCome ? ` · about ${Math.round(myCome)} points expected` : ''}` : data.locked && status === 'open' ? `${data.playoffs ? `${data.clubs_left ?? 16} clubs still in` : `${data.nights_left} of ${data.nights} nights left`}${myCome ? ` · about ${Math.round(myCome)} more to come` : ''}` : 'Over'}</div>
           </div>
           {!open && <Lock className="h-4 w-4 shrink-0 text-mute" />}
         </div>
         <div className="mt-3 flex flex-wrap gap-1.5 text-[11px]">
-          <span className="rounded-full bg-white/[.06] px-2.5 py-1 font-semibold text-white ring-1 ring-white/10">{day(data.from)} to {day(data.to)}</span>
+          <span className="rounded-full bg-white/[.06] px-2.5 py-1 font-semibold text-white ring-1 ring-white/10">{data.playoffs ? `${day(data.from)} to the Cup` : `${day(data.from)} to ${day(data.to)}`}</span>
           <span className="rounded-full bg-white/[.06] px-2.5 py-1 text-slate-200 ring-1 ring-white/10">{scoring}</span>
         </div>
       </div>
@@ -133,18 +139,19 @@ export function BoxPoolGame({ gameId, data, status, reload, actAs }: {
               const on = picks[bi] === p.id;
               const hurt = p.injury && p.injury !== 'Day-To-Day';
               return (
-                <div key={p.id} className={`flex items-center gap-2.5 rounded-xl px-2 py-2 ${on ? 'bg-gold/[.12] ring-1 ring-gold/60' : ''}`}>
+                <div key={p.id} className={`flex items-center gap-2.5 rounded-xl px-2 py-2 ${on ? 'bg-gold/[.12] ring-1 ring-gold/60' : ''} ${p.out ? 'opacity-50' : ''}`}>
                   <button type="button" disabled={!open || busy} onClick={() => choose(bi, p.id)} className="flex min-w-0 flex-1 items-center gap-2.5 text-left disabled:cursor-default">
                     <Headshot p={face(p)} size={38} />
                     <span className="min-w-0 flex-1">
                       <span className="flex flex-wrap items-center gap-x-1.5 gap-y-0.5">
                         <span className="text-[14px] font-semibold leading-tight text-white">{p.name}</span>
-                        {p.injury && <span className={`rounded px-1 py-px text-[9px] font-black uppercase ${hurt ? 'bg-red-500/20 text-red-200' : 'bg-amber-400/15 text-amber-200'}`}>{p.injury === 'Day-To-Day' ? 'DTD' : p.injury}</span>}
+                        {p.out && <span className="rounded bg-white/10 px-1 py-px text-[9px] font-black uppercase text-slate-300">Out</span>}
+                        {p.injury && !p.out && <span className={`rounded px-1 py-px text-[9px] font-black uppercase ${hurt ? 'bg-red-500/20 text-red-200' : 'bg-amber-400/15 text-amber-200'}`}>{p.injury === 'Day-To-Day' ? 'DTD' : p.injury}</span>}
                       </span>
                       <span className="mt-0.5 flex flex-wrap items-center gap-x-1.5 text-[11px] text-mute">
                         <NhlLogo abbr={p.team} size={14} /><Pos p={p.pos} />
                         <span>{open ? outlook(p) : p.pos === 'G' ? `${p.gp} GP` : `${p.g} G · ${p.a} A`}</span>
-                        {!open && <span>· {p.left} left{p.to_come ? ` · ≈${Math.round(Number(p.to_come))} more` : ''}</span>}
+                        {!open && !p.out && <span>· {p.left} left{p.to_come ? ` · ≈${Math.round(Number(p.to_come))} more` : ''}</span>}
                       </span>
                     </span>
                   </button>

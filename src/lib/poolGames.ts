@@ -2,7 +2,7 @@
 // how long it takes, and the scoring presets. The start page and the Host page read the same list.
 
 // 'survivor' is last one standing (its own tables, migration 157): the start page and the host offer it like the rest
-export type GameKind = 'series' | 'rank' | 'squares' | 'pickem' | 'survivor' | 'bracket' | 'players';
+export type GameKind = 'series' | 'rank' | 'squares' | 'pickem' | 'survivor' | 'bracket' | 'players' | 'props' | 'streak' | 'sweep';
 export type PickemPreset = 'classic' | 'confidence';
 export type SeriesPreset = 'classic' | 'flat' | 'exact';
 
@@ -15,23 +15,46 @@ export interface PoolEvent {
   club_word?: string;
   // the series a grid of squares can still go on, last round first
   grids?: Grid[];
+  // the games a prop sheet can still go on, soonest first (migration 208)
+  sheets?: SheetGame[];
+  // an NFL week's games a grid of squares can go on (migration 217), apart from the series grids
+  game_grids?: SheetGame[];
 }
-export interface Grid { id: number; round: number; label: string; short: string | null; best_of: number; starts_at: string | null; tbd: boolean; high: string | null; low: string | null }
+export interface SheetGame { id: number; kickoff: string; game_no: number | null; label: string; home: string; away: string }
+export const sheetLabel = (g: SheetGame) => `${g.label}${g.game_no ? ` Game ${g.game_no}` : ''}: ${g.away} at ${g.home}`;
+export interface Grid { id: number; round: number; label: string; short: string | null; best_of: number; starts_at: string | null; tbd: boolean; high: string | null; low: string | null;
+  // a grid on one week's game: its fixture (the grid's id is the fixture's, negated, so it never meets a series' id)
+  fixture?: number }
 
 // a grid's knobs, as the host chooses them
-export interface SquaresRules { series: number; size: 5 | 10; cost: number; cap: number; pays: 'innings' | 'final'; digits: 'once' | 'each' }
+export type SquaresPays = 'innings' | 'quarters' | 'periods' | 'final';
+export interface SquaresRules { series: number; size: 5 | 10; cost: number; cap: number; pays: SquaresPays; digits: 'once' | 'each' }
 export const SQUARES_DEFAULT: Omit<SquaresRules, 'series'> = { size: 10, cost: 10, cap: 0, pays: 'innings', digits: 'once' };
 export const SIZES: { key: 5 | 10; label: string; line: string }[] = [
   { key: 10, label: '10 × 10', line: '100 squares, one digit a side: the classic, for a big group.' },
   { key: 5, label: '5 × 5', line: '25 squares, two digits a side: better odds each, made for a small group.' },
 ];
-export const PAYS: { key: 'innings' | 'final'; label: string; line: string }[] = [
-  { key: 'innings', label: '3rd, 6th, final', line: 'Each game pays three times: 25% after the 3rd, 25% after the 6th, 50% on the final score.' },
-  { key: 'final', label: 'Final score', line: 'Each game pays once, on its final score.' },
+// what a grid can pay on, by sport (migration 200): its periods, or the final score only; the first is the default
+export const PAYS: { key: SquaresPays; label: string; line: string; sports: string[] }[] = [
+  { key: 'innings', label: '3rd, 6th, final', line: 'Each game pays three times: 25% after the 3rd, 25% after the 6th, 50% on the final score.', sports: ['mlb'] },
+  { key: 'quarters', label: 'Every quarter', line: 'Pays four times a game: 20% after the 1st quarter, 20% at the half, 20% after the 3rd quarter and 40% on the final score.', sports: ['nfl', 'nba'] },
+  { key: 'periods', label: 'Every period', line: 'Each game pays three times: 25% after the 1st period, 25% after the 2nd, 50% on the final score.', sports: ['nhl'] },
+  { key: 'final', label: 'Final score', line: 'Each game pays once, on its final score.', sports: [] },
 ];
+export const paysFor = (sport: string | null | undefined) => PAYS.filter((p) => !p.sports.length || p.sports.includes(sport ?? ''));
+// what starts a game, by sport, for the grid's lock line
+export const START_WORD: Record<string, string> = { mlb: 'first pitch', nfl: 'kickoff', nhl: 'puck drop', nba: 'tip-off', ncaab: 'tip-off' };
+
+// every grid an event offers: its series, then an NFL week's games, each a series of one
+export const eventGrids = (e: PoolEvent): Grid[] => [...(e.grids ?? []), ...(e.game_grids ?? []).map((g) => ({
+  id: -g.id, fixture: g.id, round: 0, label: g.label, short: `${g.away} at ${g.home}`, best_of: 1, starts_at: g.kickoff, tbd: false, high: g.home, low: g.away }))];
+// what a grid's rules name: its series, or its week's game
+export const gridRules = (g: Grid) => (g.fixture ? { fixture: g.fixture } : { series: g.id });
+// a week's game as the game picker draws it
+export const gridGame = (g: Grid): SheetGame => ({ id: g.id, kickoff: g.starts_at ?? '', game_no: null, label: g.label, home: g.high ?? '', away: g.low ?? '' });
 // the grid on an event's last series when it has one, else the first still to come
-export const gridFor = (e: PoolEvent) => (e.grids ?? []).find((g) => g.round === e.final_round) ?? e.grids?.[0] ?? null;
-export const gridLabel = (g: Grid) => (g.high && g.low ? `${g.label}: ${g.high} v ${g.low}` : `${g.label}, matchup to be set`);
+export const gridFor = (e: PoolEvent) => { const gs = eventGrids(e); return gs.find((g) => !g.fixture && g.round === e.final_round) ?? gs[0] ?? null; };
+export const gridLabel = (g: Grid) => (g.fixture ? `${g.label}: ${g.low} at ${g.high}` : g.high && g.low ? `${g.label}: ${g.high} v ${g.low}` : `${g.label}, matchup to be set`);
 
 export const KINDS: Record<GameKind, { title: string; badge: string; line: string; time: string; emoji: string }> = {
   series: {
@@ -59,6 +82,21 @@ export const KINDS: Record<GameKind, { title: string; badge: string; line: strin
     line: 'Take one player from each box of evenly matched NHL players. Goals and assists count, and a goalie’s wins and shutouts, every night until the pool ends. No draft night needed.',
     time: 'Five minutes, once',
   },
+  props: {
+    title: 'The prop sheet', badge: 'One game', emoji: '📋',
+    line: 'Eight calls on one game: who wins, the total, the margin, who leads early and at the halfway mark, and more. A point each, settled from the score, no host needed.',
+    time: 'One minute, once',
+  },
+  sweep: {
+    title: 'The sweepstake', badge: 'Pure luck', emoji: '🎩',
+    line: 'Everyone in the pool is dealt clubs from the hat at the first game. Nothing to pick: hold the champion and you win it.',
+    time: 'No time at all',
+  },
+  streak: {
+    title: 'The daily streak', badge: 'Every day', emoji: '🔥',
+    line: 'Pick one winner a day from that day’s games. A right pick adds one to your run, a wrong one starts it again, and a day off breaks nothing. The longest run wins.',
+    time: 'Ten seconds a day',
+  },
   survivor: {
     title: 'Last one standing', badge: 'Lose once, out', emoji: '🛡️',
     line: 'Pick one winner every round, never the same side twice. Lose once and you’re out; the last one in wins it.',
@@ -66,7 +104,7 @@ export const KINDS: Record<GameKind, { title: string; badge: string; line: strin
   },
   squares: {
     title: 'Squares', badge: 'Pure luck', emoji: '🔢',
-    line: 'Claim squares on a grid with coins. The digits are drawn when it fills; the last digit of each club’s runs names the winning square after the 3rd, the 6th and the final of every game.',
+    line: 'Claim squares on a grid with coins. The digits are drawn when it fills; the last digit of each side’s score names the winning square at each checkpoint: innings in baseball, quarters in football.',
     time: 'Ten seconds',
   },
 };
@@ -78,10 +116,12 @@ export const PRESETS: { key: SeriesPreset; label: string; line: string; points: 
 ];
 
 // a worked example for a preset, from the event's last round: "Your club in 6, and they win in 6: 8 + 3 = 11 points"
-export function presetExample(p: SeriesPreset, finalLabel: string, finalRound: number): string {
+// single games (the NFL's playoffs): there is no length to call, so a right winner takes both parts
+export function presetExample(p: SeriesPreset, finalLabel: string, finalRound: number, single = false): string {
   const pr = PRESETS.find((x) => x.key === p)!;
   const w = pr.points[finalRound - 1] ?? 1, l = pr.length[finalRound - 1] ?? 0;
   const label = finalLabel.replace(/^(AL|NL) /, '');
+  if (single) return `Pick the winner of the ${label}: right, ${p === 'exact' ? w : w + l} ${(p === 'exact' ? w : w + l) === 1 ? 'point' : 'points'}. Later rounds are worth more.`;
   if (p === 'exact') return `Pick a club in 6 in the ${label}: they win in 6, 1 point; they win in 5, nothing.`;
   return `Pick a club in 6 in the ${label}: they win in 6, ${w} + ${l} = ${w + l} points; they win in 7, ${w}.`;
 }

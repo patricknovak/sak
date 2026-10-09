@@ -1,15 +1,20 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
-import { ArrowDown, ArrowUp, Check, ChevronDown, Grid3x3, ListChecks, Lock, ListOrdered, Minus, Plus, Swords, Trophy, Users } from 'lucide-react';
+import { ArrowDown, ArrowUp, Check, ChevronDown, ClipboardList, Flame, Grid3x3, Shuffle, ListChecks, Lock, ListOrdered, Minus, Plus, Swords, Trophy, Users } from 'lucide-react';
 import { useLeague, useNow } from '../lib/store';
-import { rpc } from '../lib/supabase';
-import { Empty, PageHeader, Section, TeamBadge, useAction } from '../components/ui';
+import { rpc, supabase } from '../lib/supabase';
+import { Empty, PageHeader, Section, TeamBadge, Toggle, useAction } from '../components/ui';
 import { Crest } from '../components/Crest';
-import { KINDS, PAYS, PICKEM_PRESETS, PRESETS, SIZES, SQUARES_DEFAULT, gridLabel, type PickemPreset, type PoolEvent, type SeriesPreset, type SquaresRules } from '../lib/poolGames';
+import { ShareButton, useCardBrand } from '../components/ShareButton';
+import { shareCard } from '../lib/shareCard';
+import { KINDS, PICKEM_PRESETS, PRESETS, SIZES, SQUARES_DEFAULT, START_WORD, eventGrids, gridGame, gridLabel, gridRules, paysFor, type Grid, type PickemPreset, type PoolEvent, type SeriesPreset, type SheetGame, type SquaresRules } from '../lib/poolGames';
 import { SquaresGame, type SquaresData } from '../components/Squares';
 import { PickemGame, type PickemData } from '../components/Pickem';
 import { BracketGame, type BracketData } from '../components/Bracket';
 import { BoxPoolGame, type BoxData } from '../components/BoxPool';
+import { PropSheetGame, type PropsData } from '../components/PropSheet';
+import { StreakGameView, type StreakData } from '../components/Streak';
+import { SweepGame, type SweepData } from '../components/Sweep';
 import { useSurvivor } from './Survivor';
 
 // The pool's games (migration 165, docs/POOL-TYPES.md): Pick the series (each series' winner and how many games it
@@ -30,7 +35,7 @@ interface Series {
 interface RankClub extends Club { alive: boolean; in_field: boolean; wins: number; left: number }
 interface TableRow { team_id: number; points: number; possible: number; right: number; exact: number; picked: number; tiebreak: number | null }
 export interface GameBoard {
-  id: number; kind: 'series' | 'rank' | 'squares' | 'pickem' | 'bracket' | 'players'; title: string; status: 'open' | 'done'; winners: number[] | null; competition: string; competition_name: string; me: number;
+  id: number; kind: 'series' | 'rank' | 'squares' | 'pickem' | 'bracket' | 'players' | 'props' | 'streak' | 'sweep'; title: string; status: 'open' | 'done'; winners: number[] | null; competition: string; competition_name: string; me: number;
   rules: { preset?: string; from_round: number; points?: Record<string, number>; length?: Record<string, number>; exact_only?: boolean };
   rounds: { round: number; label: string; best_of: number }[]; table: TableRow[];
   series?: Series[]; tiebreak?: { locks_at: string | null; locked: boolean; mine: number | null; label: string };
@@ -41,8 +46,11 @@ export interface GameBoard {
   // the sport's words (migration 190): what starts a game, what a tiebreaker counts and how high it goes
   words?: Words;
   players?: BoxData;
+  props?: PropsData;
+  streak?: StreakData;
+  sweep?: SweepData;
 }
-export interface PoolGame { id: number; kind: 'series' | 'rank' | 'squares' | 'pickem' | 'bracket' | 'players'; series?: number | null; title: string; status: 'open' | 'done'; competition: string; to_pick: number; next_lock: string | null }
+export interface PoolGame { id: number; kind: 'series' | 'rank' | 'squares' | 'pickem' | 'bracket' | 'players' | 'props' | 'streak' | 'sweep'; series?: number | null; fixture?: number | null; from_round?: number | null; locked?: boolean; drawn?: boolean | null; title: string; status: 'open' | 'done'; competition: string; to_pick: number; next_lock: string | null }
 
 export function usePoolGames() {
   const { me, league } = useLeague();
@@ -69,10 +77,11 @@ export const singles = (b: { rounds?: { best_of: number }[] }) => !!b.rounds?.le
 export const lastGameOf = (label: string, single: boolean) => (single ? `the ${label}` : `the last game of the ${label}`);
 export const wordsOf = (b: { words?: Words }) => {
   const w = b.words ?? { start: 'first pitch', score: 'runs', cap: 60 };
-  return { ...w, guess: w.score === 'points' ? 45 : w.score === 'goals' ? 3 : 8 };
+  // a starting guess near a typical game's total: football's 45, basketball's 140 (its cap is 300), hockey's 6
+  return { ...w, guess: w.cap >= 300 ? 140 : w.score === 'points' ? 45 : w.score === 'goals' ? 6 : 8 };
 };
 
-const ICON = { series: Swords, rank: ListOrdered, squares: Grid3x3, pickem: ListChecks, bracket: Trophy, players: Users } as const;
+const ICON = { series: Swords, rank: ListOrdered, squares: Grid3x3, pickem: ListChecks, bracket: Trophy, players: Users, props: ClipboardList, streak: Flame, sweep: Shuffle } as const;
 
 // a series' wins as dots: the number it takes to win, filled as they come
 function WinDots({ wins, need, color }: { wins: number; need: number; color: string }) {
@@ -210,6 +219,22 @@ function SeriesGame({ board, reload, name, actAs }: { board: GameBoard; reload: 
   const tb = board.tiebreak;
   const w = wordsOf(board);
   const tbv = runs ?? tb?.mine ?? w.guess;
+  const cardBrand = useCardBrand();
+  // my calls as a picture, once one has locked: the latest round first, as many as fit
+  const locked = series.filter((s) => s.locked && s.mine);
+  const shareMine = () => {
+    const club = (id: number, s: Series) => (s.high?.id === id ? s.high : s.low);
+    const rows = [...locked].sort((a, b) => b.round - a.round).slice(0, 8).map((s) => {
+      const c = club(s.mine!.winner, s);
+      const decided = s.state === 'final' && s.winner != null;
+      return { q: s.high && s.low ? `${s.short ?? s.label} · ${s.high.short ?? s.high.name} v ${s.low.short ?? s.low.name}` : s.label,
+        answer: `${c?.short ?? c?.name ?? '–'}${s.best_of > 1 ? ` in ${s.mine!.games}` : ''}`,
+        right: decided ? s.winner === s.mine!.winner : null };
+    });
+    const me = board.table.find((t) => t.team_id === board.me);
+    return shareCard({ kind: 'sheet', eyebrow: 'My series calls', brand: cardBrand, who: '', title: board.title, score: `${me?.points ?? 0} ${me?.points === 1 ? 'point' : 'points'}`, rows },
+      `My calls in ${board.title}.`);
+  };
   return (
     <>
       {rounds.map((r) => (
@@ -237,6 +262,7 @@ function SeriesGame({ board, reload, name, actAs }: { board: GameBoard; reload: 
           </div>
         </Section>
       )}
+      {!actAs && locked.length > 0 && <ShareButton className="btn-ghost w-full" label="Share my calls" make={shareMine} />}
     </>
   );
 }
@@ -327,6 +353,17 @@ function GameRules({ board }: { board: GameBoard }) {
     lines.push(pk.draws ? 'The result after ninety minutes and stoppage time counts: extra time and penalties don’t.' : 'A tie counts for nobody: no one picked it.');
     lines.push('Join any time: you play every match still to kick off. A match called off counts for nobody.');
     lines.push('The most points wins. A tie on points shares it.');
+  } else if (board.sweep) {
+    lines.push(`At the first game of the ${board.sweep.round_label ?? 'round'}, every player in the pool is dealt clubs from the hat at random, round the pool in turn, so some may hold one more. The host can draw it sooner.`);
+    lines.push('Every club still to play from that round on is in the hat, byes included. Where the pool is bigger than the field, players share a club.');
+    lines.push('Nothing to pick. Whoever holds the champion wins it; a shared champion shares the win.');
+    lines.push('Until then the table ranks players by how far their best club has gone.');
+  } else if (board.streak) {
+    lines.push(`Each day there are games, pick the winner of one of them${board.streak.draws ? ', or a draw' : ''}. One pick a day.`);
+    lines.push('A right pick adds one to your run; a wrong one starts it again at nothing. A day you skip breaks nothing, and nor does a game called off' + (board.streak.draws ? '.' : ' or a tie.'));
+    lines.push(`You can change the day’s pick to any of its games still to come until your game’s ${wordsOf(board).start}; then it stays.`);
+    lines.push('Join any day: the run starts with your first pick.');
+    lines.push('The longest run wins it. A tie goes to the run going now, then shares it.');
   } else if (board.kind === 'series') {
     const rs = board.rounds.filter((r) => r.round >= board.rules.from_round);
     for (const r of rs) {
@@ -350,10 +387,17 @@ function GameRules({ board }: { board: GameBoard }) {
     if (br.tiebreak.label) lines.push(`A tie on points goes to whoever is closest on the total ${wordsOf(board).score} in ${lastGameOf(br.tiebreak.label, br.series.every((x) => x.best_of === 1))}.`);
   } else if (board.players) {
     const bp = board.players, s = bp.scoring;
-    lines.push(`Take one player from each of the ${bp.boxes.length} boxes. The boxes were dealt when the pool started: the players expected to score the most in these nights, forwards first, then defence, then goalies, the best in box 1.`);
-    lines.push(`A goal is worth ${s.g}, an assist ${s.a}, a goalie’s win ${s.w}${s.sho ? ` and a shutout ${s.sho} more` : ''}. Every game from ${new Date(`${bp.from}T12:00:00`).toLocaleDateString(undefined, { month: 'long', day: 'numeric' })} to ${new Date(`${bp.to}T12:00:00`).toLocaleDateString(undefined, { month: 'long', day: 'numeric' })} counts, live as it’s played.`);
-    lines.push('Your team locks at the first puck drop of the first night, and you can change it until then. A player who gets hurt stays on your team.');
+    const md = (iso: string) => new Date(`${iso}T12:00:00`).toLocaleDateString(undefined, { month: 'long', day: 'numeric' });
+    lines.push(`Take one player from each of the ${bp.boxes.length} boxes. The boxes were dealt when the pool started: the players expected to score the most ${bp.playoffs ? 'in the playoffs, on how far their clubs are expected to go' : 'in these nights'}, forwards first, then defence, then goalies, the best in box 1.`);
+    lines.push(`A goal is worth ${s.g}, an assist ${s.a}, a goalie’s win ${s.w}${s.sho ? ` and a shutout ${s.sho} more` : ''}. ${bp.playoffs ? `Every playoff game from ${md(bp.from)} to the end of the Stanley Cup Final` : `Every game from ${md(bp.from)} to ${md(bp.to)}`} counts, live as it’s played.`);
+    lines.push(`Your team locks at the first puck drop ${bp.playoffs ? 'of the playoffs' : 'of the first night'}, and you can change it until then. A player who gets hurt stays on your team${bp.playoffs ? ', and so does one whose club is knocked out: he just has no games left' : ''}.`);
     lines.push('The most points wins. A tie on points shares it.');
+  } else if (board.props) {
+    const pr = board.props;
+    lines.push(`${pr.questions.length} calls on ${pr.game.away.short ?? pr.game.away.name} at ${pr.game.home.short ?? pr.game.home.name}, each worth a point. Answer every one, and the game's total ${wordsOf(board).score} for the tiebreak.`);
+    lines.push(`The sheet locks at the ${wordsOf(board).start}, and you can change it until then. Once it starts, everyone's sheet and the pool's split show.`);
+    lines.push('Everything is settled from the final score and the score by period, so nobody has to settle it by hand. A call the score can\'t settle counts for nobody.');
+    lines.push('The most right wins; the closest total breaks a tie. A game called off counts for nobody.');
   } else if (rk) {
     lines.push(`Put the clubs in order once. At the first ${wordsOf(board).start} of the ${rk.round_label} the ${rk.field || ''} clubs still in are ranked in your order: your top club pays ${rk.field || 'the most'} for every game it wins, your last pays 1.`.replace('the  clubs', 'the clubs'));
     lines.push('Clubs out by the lock don’t count, and your order is final from then on.');
@@ -362,7 +406,7 @@ function GameRules({ board }: { board: GameBoard }) {
   lines.push('Everyone’s picks stay hidden until they lock; the pool’s split shows after.');
   lines.push(`The host can enter a pick for you if you ask (you’ll hear about it)${pk ? ', and settle a match the feed gets wrong, with the reason shown on the match' : ''}.`);
   lines.push('Points only: nothing is bought, sold or paid.');
-  const frozen = board.status === 'done' || (pk ? pk.round > pk.from_round || pk.fixtures.some((f) => f.locked && f.picked > 0) : board.bracket ? board.bracket.locked : board.players ? board.players.locked : rk ? rk.locked : !!board.series?.some((s) => s.locked));
+  const frozen = board.status === 'done' || !!board.streak || !!board.sweep || (pk ? pk.round > pk.from_round || pk.fixtures.some((f) => f.locked && f.picked > 0) : board.bracket ? board.bracket.locked : board.players ? board.players.locked : rk ? rk.locked : !!board.series?.some((s) => s.locked));
   return (
     <div className="card overflow-hidden">
       <button type="button" onClick={() => setOpen(!open)} className="flex w-full items-center justify-between gap-3 px-4 py-3 text-left">
@@ -395,14 +439,14 @@ function GameTable({ board }: { board: GameBoard }) {
               <div className="min-w-0 flex-1">
                 <div className="break-words font-semibold text-white">{t?.gm_name ?? t?.name}</div>
                 <div className="text-[11px] text-mute">{board.kind === 'squares' ? `${r.picked} ${r.picked === 1 ? 'square' : 'squares'} · ${r.right} ${r.right === 1 ? 'hit' : 'hits'}`
-                  : `${board.kind === 'series' ? (singles(board) ? `${r.right} right · ${r.picked} picked` : `${r.right} right · ${r.exact} with the length · ${r.picked} picked`) : board.kind === 'pickem' ? `${r.right} right · ${r.picked} picked` : board.kind === 'bracket' ? (r.picked ? `${r.right} right` : 'No bracket yet') : r.picked ? 'Ranked' : 'Not ranked yet'}${r.possible != null ? ` · up to ${r.possible}` : ''}`}</div>
+                  : `${board.kind === 'series' ? (singles(board) ? `${r.right} right · ${r.picked} picked` : `${r.right} right · ${r.exact} with the length · ${r.picked} picked`) : board.kind === 'pickem' ? `${r.right} right · ${r.picked} picked` : board.kind === 'bracket' ? (r.picked ? `${r.right} right` : 'No bracket yet') : board.kind === 'props' ? (r.picked ? `${r.right} right` : 'No sheet yet') : board.kind === 'streak' ? (r.picked ? `${r.exact} now · ${r.right} right from ${r.picked}` : 'Nothing picked yet') : board.kind === 'sweep' ? (r.picked ? `${r.right} of ${r.picked} still in` : board.sweep?.drawn ? 'Joined after the draw' : 'In the hat') : r.picked ? 'Ranked' : 'Not ranked yet'}${r.possible != null && board.kind !== 'streak' && board.kind !== 'sweep' ? ` · up to ${r.possible}` : ''}`}</div>
               </div>
               <span className="num shrink-0 text-xl font-black text-white">{r.points}</span>
             </div>
           );
         })}
       </div>
-      <p className="mt-2 px-1 text-xs text-mute">{board.kind === 'squares' ? 'Coins each player’s squares have taken.' : `Up to: the most each player can still finish with${board.kind === 'pickem' ? ', every match still to come picked right' : ''}. ${board.kind === 'series' ? 'A tie goes to the closest tiebreaker.' : ''}`}</p>
+      <p className="mt-2 px-1 text-xs text-mute">{board.kind === 'squares' ? 'Coins each player’s squares have taken.' : board.kind === 'streak' ? 'Each player’s longest run of right picks; the run going now breaks a tie.' : board.kind === 'sweep' ? 'Rounds won by each player’s best club from the hat. The champion’s holder wins it.' : `Up to: the most each player can still finish with${board.kind === 'pickem' ? ', every match still to come picked right' : ''}. ${board.kind === 'series' ? 'A tie goes to the closest tiebreaker.' : ''}`}</p>
     </Section>
   );
 }
@@ -411,24 +455,37 @@ function GameTable({ board }: { board: GameBoard }) {
 export function PoolGameCards() {
   const { me } = useLeague();
   const { games } = usePoolGames();
+  const [showDone, setShowDone] = useState(false);
   if (!games?.length) return null;
+  // what waits on you first (the soonest lock first), then the rest still going; finished games fold away once there
+  // are a few (a sheet on every World Series game adds up)
+  const lockAt = (g: PoolGame) => (g.next_lock ? Date.parse(g.next_lock) : Infinity);
+  const open = games.filter((g) => g.status === 'open')
+    .sort((a, b) => Number(b.to_pick > 0) - Number(a.to_pick > 0) || lockAt(a) - lockAt(b) || a.id - b.id);
+  const done = games.filter((g) => g.status !== 'open').sort((a, b) => b.id - a.id);
+  const fold = done.length > 2 && !showDone;
   return (
     <div className="grid gap-3 md:grid-cols-2">
-      {games.map((g) => {
+      {[...open, ...(fold ? [] : done)].map((g) => {
         const Icon = ICON[g.kind] ?? Swords;
         return (
           <Link key={g.id} to={`/picks?g=${g.id}`} className="card-hero flex items-center gap-3 p-4 transition hover:border-gold/40">
             <span className="relative grid h-12 w-12 shrink-0 place-items-center rounded-2xl bg-gold/15"><Icon className="h-6 w-6 text-gold" /></span>
             <span className="relative min-w-0 flex-1">
               <span className="block font-semibold text-white">{g.title}</span>
-              <span className="block text-xs text-white/70">{g.status === 'done' ? 'Done: see who won' : g.next_lock ? `${g.kind === 'squares' ? 'Grid closes' : 'Next lock'} ${lockText(g.next_lock)}` : g.kind === 'squares' ? 'Digits drawn: follow the games' : 'Picks open as each round is set'}</span>
+              <span className="block text-xs text-white/70">{g.status === 'done' ? 'Done: see who won' : g.next_lock ? `${g.kind === 'squares' ? 'Grid closes' : g.kind === 'sweep' ? 'The hat is drawn' : 'Next lock'} ${lockText(g.next_lock)}` : g.kind === 'squares' ? 'Digits drawn: follow the games' : g.kind === 'sweep' ? (g.drawn ? 'The hat is drawn: follow your clubs' : 'The hat is drawn at the first game') : 'Picks open as each round is set'}</span>
             </span>
-            {g.status === 'open' && me?.role === 'gm' && (g.to_pick > 0
+            {g.status === 'open' && me?.role === 'gm' && g.kind !== 'sweep' && (g.to_pick > 0
               ? <span className="chip relative shrink-0 border-amber-400/40 text-amber-200">{g.kind === 'rank' ? 'To rank' : g.kind === 'squares' ? 'Claim a square' : `${g.to_pick} to pick`}</span>
               : <span className="chip relative shrink-0 border-emerald-400/40 text-emerald-200">All in</span>)}
           </Link>
         );
       })}
+      {done.length > 2 && (
+        <button type="button" onClick={() => setShowDone(!showDone)} className="rounded-2xl border border-white/[.07] bg-white/[.03] px-4 py-3 text-left text-sm font-semibold text-slate-300 hover:text-white md:col-span-2">
+          {showDone ? 'Hide the finished games' : `Show ${done.length} finished games`}
+        </button>
+      )}
     </div>
   );
 }
@@ -436,7 +493,9 @@ export function PoolGameCards() {
 export default function Picks() {
   const { me, teams } = useLeague();
   const [params, setParams] = useSearchParams();
-  const { games } = usePoolGames();
+  const { games: listed } = usePoolGames();
+  // games still going first (one waiting on you first of all), the finished ones after
+  const games = listed ? [...listed].sort((a, b) => Number(a.status !== 'open') - Number(b.status !== 'open') || Number(b.to_pick > 0) - Number(a.to_pick > 0) || a.id - b.id) : listed;
   const gid = Number(params.get('g')) || games?.[0]?.id || null;
   const [board, setBoard] = useState<GameBoard | null | undefined>(undefined);
   const [actAs, setActAs] = useState<{ team: number; name: string } | null>(null);
@@ -460,10 +519,13 @@ export default function Picks() {
   const sq = board.squares;
   const pk = board.pickem;
   const sub = pk ? (pk.confidence ? 'Confidence: number your picks, a right one earns its number' : 'A point for every right pick')
-    : sq ? `${sq.cost} coins a square · ${sq.pay_when === 'innings' ? 'pays after the 3rd, 6th and final' : 'pays on the final score'}`
+    : sq ? `${sq.cost} coins a square · ${sq.pay_when === 'innings' ? 'pays after the 3rd, 6th and final' : sq.pay_when === 'quarters' ? 'pays every quarter' : sq.pay_when === 'periods' ? 'pays every period' : 'pays on the final score'}`
     : board.kind === 'series'
     ? (board.rules.exact_only ? 'Winner and length both right, or nothing' : `Points by round: ${board.rounds.map((r) => (board.rules.points?.[String(r.round)] ?? 1) + (singles(board) ? board.rules.length?.[String(r.round)] ?? 0 : 0)).join('-')}${singles(board) ? '' : `, plus ${board.rounds.map((r) => board.rules.length?.[String(r.round)]).join('-')} for the length`}`)
     : board.players ? `One player from each of ${board.players.boxes.length} boxes · goals and assists`
+    : board.props ? `${board.props.questions.length} calls on the game · a point each`
+    : board.streak ? 'One winner a day · the longest run of right picks wins'
+    : board.sweep ? 'Clubs dealt from the hat · hold the champion and win'
     : board.bracket ? `Every winner to the final · ${[...new Map(board.bracket.series.map((x) => [x.round, x.points])).values()].join('-')} points by round`
     : 'Every win pays its club’s rank';
 
@@ -480,9 +542,9 @@ export default function Picks() {
       )}
       {board.status === 'done' ? (
         <div className="card-hero p-5 text-center"><div className="relative"><div className="text-5xl">🏆</div><div className="h-display text-shine mt-2 text-3xl">{winners.join(' and ') || 'Nobody'}</div><div className="mt-1 text-sm text-white/70">{sq ? `took the most coins in ${board.title}` : `won ${board.title}`}</div></div></div>
-      ) : mine && !sq && (
+      ) : mine && !sq && board.kind !== 'streak' && board.kind !== 'sweep' && (
         <div className="grid grid-cols-3 gap-2">
-          {[['Rank', ordinal(rank + 1), `of ${board.table.length}`], ['Points', String(mine.points), board.kind === 'series' || board.kind === 'pickem' ? `${mine.right} right` : board.kind === 'players' ? `${mine.right} G · ${mine.exact} A` : 'so far'], board.kind === 'players' ? ['Picked by', String(board.players?.picked ?? 0), 'in the pool'] : ['Up to', String(mine.possible), 'still possible']].map(([k, v, s]) => (
+          {[['Rank', ordinal(rank + 1), `of ${board.table.length}`], ['Points', String(mine.points), board.kind === 'series' || board.kind === 'pickem' || board.kind === 'props' ? `${mine.right} right` : board.kind === 'players' ? `${mine.right} G · ${mine.exact} A` : 'so far'], board.kind === 'players' ? ['Picked by', String(board.players?.picked ?? 0), 'in the pool'] : ['Up to', String(mine.possible), 'still possible']].map(([k, v, s]) => (
             <div key={k} className="rounded-2xl border border-white/10 bg-white/[.04] p-3">
               <div className="text-[10px] font-bold uppercase tracking-[.18em] text-mute">{k}</div>
               <div className="num mt-0.5 text-2xl font-black text-white">{v}</div>
@@ -493,13 +555,17 @@ export default function Picks() {
       )}
       {actAs && (
         <div className="flex items-center gap-3 rounded-2xl border border-amber-400/30 bg-amber-400/[.08] p-3 text-sm text-amber-100">
-          <span className="min-w-0 flex-1"><b>Entering picks for {actAs.name}.</b> Their own picks stay private; what you save here replaces theirs{pk ? ' for these matches' : board.kind === 'rank' || board.kind === 'bracket' || board.kind === 'players' ? '' : ' for each series you pick'}.</span>
+          <span className="min-w-0 flex-1"><b>Entering picks for {actAs.name}.</b> Their own picks stay private; what you save here replaces theirs{pk ? ' for these matches' : board.kind === 'streak' ? ' for the day' : board.kind === 'rank' || board.kind === 'bracket' || board.kind === 'players' ? '' : ' for each series you pick'}.</span>
           <button type="button" className="btn-ghost shrink-0" onClick={() => setActAs(null)}>Done</button>
         </div>
       )}
       {pk ? <PickemGame key={`${board.id}-${actAs?.team ?? 'me'}`} gameId={board.id} first={pk} status={board.status} name={name} reload={load} actAs={actAs ?? undefined} />
         : sq ? <SquaresGame data={sq} gameId={board.id} status={board.status} reload={load} name={name} />
         : board.kind === 'bracket' && board.bracket ? <BracketGame key={`${board.id}-${actAs?.team ?? 'me'}`} gameId={board.id} data={board.bracket} words={wordsOf(board)} status={board.status} reload={load} actAs={actAs ?? undefined} />
+        : board.kind === 'props' && board.props ? <PropSheetGame key={`${board.id}-${actAs?.team ?? 'me'}`} gameId={board.id} data={board.props} status={board.status} reload={load} actAs={actAs ?? undefined}
+            scoreWord={wordsOf(board).score} cap={wordsOf(board).cap} />
+        : board.kind === 'sweep' && board.sweep ? <SweepGame gameId={board.id} data={board.sweep} status={board.status} reload={load} />
+        : board.kind === 'streak' && board.streak ? <StreakGameView key={`${board.id}-${actAs?.team ?? 'me'}`} gameId={board.id} data={board.streak} status={board.status} reload={load} actAs={actAs ?? undefined} />
         : board.kind === 'players' && board.players ? <BoxPoolGame key={`${board.id}-${actAs?.team ?? 'me'}`} gameId={board.id} data={board.players} status={board.status} reload={load} actAs={actAs ?? undefined} />
         : board.kind === 'series' ? <SeriesGame key={`${board.id}-${actAs?.team ?? 'me'}`} board={board} reload={load} name={name} actAs={actAs ?? undefined} />
         : board.kind === 'rank' ? <RankGame key={`${board.id}-${actAs?.team ?? 'me'}`} board={board} reload={load} name={name} actAs={actAs ?? undefined} />
@@ -522,8 +588,8 @@ function HostDesk({ board, reload, onActAs }: { board: GameBoard; reload: () => 
   // a box pool's window ('week', 'month', 'season'): the same key a series game uses for its length points
   const boxLen = board.kind === 'players' ? String((board.rules as { length?: unknown }).length ?? 'month') : 'month';
   const [len, setLen] = useState<string>(boxLen);
-  if (board.kind !== 'pickem' && board.kind !== 'series' && board.kind !== 'rank' && board.kind !== 'bracket' && board.kind !== 'players') return null;
-  const rules = board.kind !== 'rank';
+  if (board.kind !== 'pickem' && board.kind !== 'series' && board.kind !== 'rank' && board.kind !== 'bracket' && board.kind !== 'players' && board.kind !== 'props' && board.kind !== 'streak') return null;
+  const rules = board.kind !== 'rank' && board.kind !== 'props' && board.kind !== 'streak';
   // the server has the last word; this hides the rules once the game has plainly locked
   const locked = pk ? pk.round > pk.from_round || pk.fixtures.some((f) => f.locked && f.picked > 0) : board.bracket ? board.bracket.locked : board.players ? board.players.locked : !!board.series?.some((s) => s.locked);
   // a box pool's boxes stay once a team is in, like a pick'em's scoring
@@ -537,7 +603,7 @@ function HostDesk({ board, reload, onActAs }: { board: GameBoard; reload: () => 
       <div className="card space-y-4 p-4">
         <div>
           <div className="mb-1.5 text-[11px] font-bold uppercase tracking-[.14em] text-mute">The rules</div>
-          {!rules ? <p className="text-sm text-mute">Rank the teams has no rules to change: every win pays the rank its club was given.</p>
+          {!rules ? <p className="text-sm text-mute">{board.kind === 'props' ? 'The sheet has no rules to change: every call is a point, settled from the score.' : board.kind === 'streak' ? 'The streak has no rules to change: one winner a day, the longest run wins.' : 'Rank the teams has no rules to change: every win pays the rank its club was given.'}</p>
             : locked ? <p className="text-sm text-mute">The rules froze at the first lock, so everyone plays the game they joined.</p> : (
             <div className="space-y-2">
               <div className="flex flex-wrap gap-1.5">
@@ -546,7 +612,7 @@ function HostDesk({ board, reload, onActAs }: { board: GameBoard; reload: () => 
                 ))}
               </div>
               {presetLock && picked && <p className="text-[11px] text-mute">{pk ? 'Picks are in, so the scoring stays.' : 'Teams are in, so the boxes stay.'}</p>}
-              {board.kind === 'players' && (
+              {board.kind === 'players' && !board.players?.playoffs && (
                 <div className="flex flex-wrap gap-1.5">
                   {[['week', 'A week'], ['month', 'Four weeks'], ['season', 'The season']].map(([k, l]) => (
                     <button key={k} type="button" disabled={picked && k !== len} onClick={() => setLen(k)} className={chip(len === k)}>{l}</button>
@@ -561,14 +627,14 @@ function HostDesk({ board, reload, onActAs }: { board: GameBoard; reload: () => 
                 </label>
               )}
               <button type="button" className="btn-gold w-full" disabled={busy || !changed}
-                onClick={() => run(async () => { await rpc('pool_game_set_rules', { p_game: board.id, p_rules: { preset, ...(pk ? { to_round: toRound } : {}), ...(board.kind === 'players' ? { length: len } : {}) } }); reload(); }, 'The rules are changed')}>
+                onClick={() => run(async () => { await rpc('pool_game_set_rules', { p_game: board.id, p_rules: { preset, ...(pk ? { to_round: toRound } : {}), ...(board.kind === 'players' && !board.players?.playoffs ? { length: len } : {}) } }); reload(); }, 'The rules are changed')}>
                 Change the rules
               </button>
               <p className="text-[11px] leading-snug text-mute">Rules can change until the first lock; the pool hears about it.</p>
             </div>
           )}
         </div>
-        {members.length > 0 && !(board.kind === 'rank' && board.rank?.locked) && !(board.kind === 'bracket' && board.bracket?.locked) && !(board.kind === 'players' && board.players?.locked) && (
+        {members.length > 0 && !(board.kind === 'rank' && board.rank?.locked) && !(board.kind === 'bracket' && board.bracket?.locked) && !(board.kind === 'players' && board.players?.locked) && !(board.kind === 'props' && board.props?.locked) && (
           <div>
             <div className="mb-1.5 text-[11px] font-bold uppercase tracking-[.14em] text-mute">Pick for a player who asked</div>
             <div className="flex flex-wrap gap-1.5">
@@ -584,23 +650,39 @@ function HostDesk({ board, reload, onActAs }: { board: GameBoard; reload: () => 
 
 // the host adds a game the pool doesn't run yet, on an event that still has a round to start from; squares go on any
 // series still to start that has no grid yet
+// sports whose postseason is played in best-of series: their brackets can carry a bonus for calling the games
+export const SERIES_SPORTS = ['mlb', 'nhl', 'nba'];
+
 export function HostGames() {
   const { games, reload } = usePoolGames();
   const [events, setEvents] = useState<PoolEvent[]>([]);
   const [preset, setPreset] = useState<SeriesPreset>('classic');
   const [pkPreset, setPkPreset] = useState<PickemPreset>('classic');
+  // a bracket on best-of-7s can carry a point for calling the games (migration 228)
+  const [gamesBonus, setGamesBonus] = useState(true);
   const [grid, setGrid] = useState<Omit<SquaresRules, 'series'>>(SQUARES_DEFAULT);
   const [on, setOn] = useState<number | null>(null);
+  const [sheetOn, setSheetOn] = useState<number | null>(null);
   const { busy, run } = useAction();
   const nav = useNavigate();
   // last one standing lives in its own tables, one at a time per pool
   const { board: survivor } = useSurvivor();
   useEffect(() => { rpc<PoolEvent[]>('pool_event_list').then((e) => setEvents(e ?? []), () => setEvents([])); }, []);
-  const offers = events.flatMap((e) => e.kinds.filter((k) => k in KINDS && !(k === 'survivor' && survivor?.status === 'open')
-    && !games?.some((g) => g.competition === e.competition && g.kind === k && g.status === 'open')).map((k) => ({ e, k })));
-  const grids = events.flatMap((e) => (e.grids ?? []).filter((s) => !games?.some((g) => g.kind === 'squares' && g.series === s.id && g.status === 'open')).map((s) => ({ e, s })));
+  // the events the pool opens a sheet on every game of, by itself (migration 223)
+  const [auto, setAuto] = useState<Set<string>>(new Set());
+  const loadAuto = () => supabase.from('pool_auto_sheets').select('competition').then(({ data }) => setAuto(new Set((data ?? []).map((x: { competition: string }) => x.competition))), () => {});
+  useEffect(() => { loadAuto(); }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  const offers = events.flatMap((e) => e.kinds.filter((k) => k in KINDS && k !== 'props' && !(k === 'survivor' && survivor?.status === 'open')
+    // a bracket that has locked leaves room for a second chance from a later round (migration 211)
+    && !games?.some((g) => g.competition === e.competition && g.kind === k && g.status === 'open' && !(k === 'bracket' && g.locked && (g.from_round ?? 0) < e.open_round))).map((k) => ({ e, k })));
+  const second = (e: PoolEvent, k: string) => k === 'bracket' && !!games?.some((g) => g.competition === e.competition && g.kind === 'bracket' && (g.from_round ?? 0) < e.open_round);
+  const grids = events.flatMap((e) => eventGrids(e).filter((s) => !games?.some((g) => g.kind === 'squares' && (s.fixture ? g.fixture === s.fixture : g.series === s.id) && g.status === 'open')).map((s) => ({ e, s })));
   const series = grids.find((x) => x.s.id === on) ?? grids[0];
-  if (!games || (!offers.length && !grids.length)) return null;
+  // a prop sheet goes on any game still to start that has none yet
+  const sheets = events.flatMap((e) => (e.sheets ?? []).filter((s) => !games?.some((g) => g.kind === 'props' && g.fixture === s.id && g.status === 'open')).map((s) => ({ e, s })));
+  const sheet = sheets.find((x) => x.s.id === sheetOn) ?? sheets[0];
+  const sheetEvents = events.filter((e) => e.kinds.includes('props') || auto.has(e.competition));
+  if (!games || (!offers.length && !grids.length && !sheets.length && !sheetEvents.length)) return null;
   return (
     <Section title="Add a game">
       <div className="space-y-2">
@@ -609,8 +691,8 @@ export function HostGames() {
             <div className="flex items-start gap-3">
               <span className="grid h-11 w-11 shrink-0 place-items-center rounded-2xl bg-gold/15 text-xl">{KINDS[k].emoji}</span>
               <div className="min-w-0 flex-1">
-                <div className="font-semibold text-white">{KINDS[k].title} <span className="text-mute">· {e.name}</span></div>
-                <div className="text-xs text-mute">{KINDS[k].line} {k === 'players' ? `From ${e.open_label}, four weeks; first puck drop ${lockText(e.next_lock)}.` : <>From {k === 'pickem' || k === 'survivor' ? e.open_label : `the ${e.open_label}`}{k === 'survivor' ? ` to ${e.final_label}` : ''}, first lock {lockText(e.next_lock)}.</>}</div>
+                <div className="font-semibold text-white">{second(e, k) ? 'Second-chance bracket' : KINDS[k].title} <span className="text-mute">· {e.name}</span></div>
+                <div className="text-xs text-mute">{KINDS[k].line} {k === 'sweep' ? `The hat is drawn at the first game of the ${e.open_label}, ${lockText(e.next_lock)}.` : k === 'streak' ? 'It starts with the next game and runs as long as the event does.' : k === 'players' ? (e.open_round ? `All through the playoffs, to the Cup; first puck drop ${lockText(e.next_lock)}.` : `From ${e.open_label}, four weeks; first puck drop ${lockText(e.next_lock)}.`) : <>From {k === 'pickem' || k === 'survivor' ? e.open_label : `the ${e.open_label}`}{k === 'survivor' ? ` to ${e.final_label}` : ''}, first lock {lockText(e.next_lock)}.</>}</div>
               </div>
             </div>
             {k === 'pickem' && (
@@ -619,12 +701,18 @@ export function HostGames() {
                 <p className="mt-1.5 text-[11px] leading-snug text-mute">{PICKEM_PRESETS.find((p) => p.key === pkPreset)!.line}</p>
               </div>
             )}
+            {k === 'bracket' && SERIES_SPORTS.includes(e.sport) && (
+              <div className="flex items-center justify-between gap-3 rounded-2xl bg-black/20 px-3 py-1 ring-1 ring-white/[.06]">
+                <span className="text-[13px] font-semibold text-white">Call the games too<span className="block text-[11px] font-normal text-mute">A point more when a series goes exactly as long as you said</span></span>
+                <Toggle on={gamesBonus} onChange={setGamesBonus} />
+              </div>
+            )}
             {k === 'series' && (
               <div className="flex flex-wrap gap-1.5">{PRESETS.map((p) => <button key={p.key} type="button" onClick={() => setPreset(p.key)} className={`rounded-full px-3 py-1 text-xs font-semibold ring-1 ${preset === p.key ? 'bg-gold text-[#0b1220] ring-gold' : 'bg-white/[.04] text-slate-200 ring-white/10'}`}>{p.label}</button>)}</div>
             )}
             <button type="button" className="btn-gold w-full" disabled={busy}
-              onClick={() => run(async () => { await rpc('pool_game_start', { p_kind: k, p_competition: e.competition, p_rules: k === 'series' ? { preset } : k === 'pickem' ? { preset: pkPreset } : {} }); if (k === 'survivor') nav('/survivor'); else reload(); }, `${KINDS[k].title} is on`)}>
-              Start {KINDS[k].title.toLowerCase()}
+              onClick={() => run(async () => { await rpc('pool_game_start', { p_kind: k, p_competition: e.competition, p_rules: k === 'series' ? { preset } : k === 'pickem' ? { preset: pkPreset } : k === 'bracket' && SERIES_SPORTS.includes(e.sport) ? { games_bonus: gamesBonus ? 1 : 0 } : {} }); if (k === 'survivor') nav('/survivor'); else reload(); }, `${KINDS[k].title} is on`)}>
+              Start {second(e, k) ? 'the second-chance bracket' : KINDS[k].title.toLowerCase()}
             </button>
           </div>
         ))}
@@ -637,11 +725,46 @@ export function HostGames() {
                 <div className="text-xs text-mute">{KINDS.squares.line}</div>
               </div>
             </div>
-            <SquaresKnobs grids={grids.map((x) => x.s)} on={series.s.id} setOn={setOn} grid={grid} setGrid={setGrid} />
+            <SquaresKnobs grids={grids.map((x) => x.s)} on={series.s.id} setOn={setOn} grid={grid} setGrid={setGrid} sport={series.e.sport} />
             <button type="button" className="btn-gold w-full" disabled={busy}
-              onClick={() => run(async () => { await rpc('pool_game_start', { p_kind: 'squares', p_competition: series.e.competition, p_rules: { ...grid, series: series.s.id } }); reload(); setOn(null); }, 'The grid is open')}>
+              onClick={() => run(async () => { await rpc('pool_game_start', { p_kind: 'squares', p_competition: series.e.competition, p_rules: { ...grid, ...gridRules(series.s) } }); reload(); setOn(null); }, 'The grid is open')}>
               Open the grid
             </button>
+          </div>
+        )}
+        {(sheet || sheetEvents.length > 0) && (
+          <div className="card space-y-3 p-4">
+            <div className="flex items-start gap-3">
+              <span className="grid h-11 w-11 shrink-0 place-items-center rounded-2xl bg-gold/15 text-xl">{KINDS.props.emoji}</span>
+              <div className="min-w-0 flex-1">
+                <div className="font-semibold text-white">{KINDS.props.title}{sheet ? <span className="text-mute"> · {sheet.e.name}</span> : null}</div>
+                <div className="text-xs text-mute">{KINDS.props.line}</div>
+              </div>
+            </div>
+            {sheet && (
+              <>
+                <SheetPicker games={sheets.map((x) => x.s)} on={sheet.s.id} setOn={setSheetOn} />
+                <button type="button" className="btn-gold w-full" disabled={busy}
+                  onClick={() => run(async () => { await rpc('pool_game_start', { p_kind: 'props', p_competition: sheet.e.competition, p_rules: { fixture: sheet.s.id } }); reload(); setSheetOn(null); }, 'The sheet is open')}>
+                  Open the sheet
+                </button>
+              </>
+            )}
+            {/* or every game of an event, by itself: a sheet opens a day and a half before each one starts */}
+            <div className="space-y-1 rounded-2xl bg-black/20 p-3 ring-1 ring-white/[.06]">
+              {sheetEvents.map((e) => (
+                <div key={e.competition} className="flex items-center justify-between gap-3">
+                  <div className="min-w-0">
+                    <div className="text-[13px] font-semibold text-white">Every {e.name} game</div>
+                    <div className="text-[11px] leading-snug text-mute">{auto.has(e.competition) ? 'On: each sheet opens a day and a half before the game' : 'A sheet opens by itself before each game'}</div>
+                  </div>
+                  <Toggle on={auto.has(e.competition)} onChange={(v) => !busy && run(async () => {
+                    const n = await rpc<number>('pool_auto_sheets_set', { p_competition: e.competition, p_on: v });
+                    await loadAuto(); if (n) reload();
+                  }, v ? 'Sheets will open by themselves' : 'Automatic sheets are off')} />
+                </div>
+              ))}
+            </div>
           </div>
         )}
       </div>
@@ -649,25 +772,64 @@ export function HostGames() {
   );
 }
 
+// which game a prop sheet goes on: the games still to start this week, soonest first, under their week or series, two
+// to a row so a full NFL Sunday fits on a phone
+const SHORT_TIME = new Intl.DateTimeFormat(undefined, { weekday: 'short', hour: 'numeric', minute: '2-digit' });
+export function SheetPicker({ games, on, setOn, dark }: { games: SheetGame[]; on: number; setOn: (id: number) => void; dark?: boolean }) {
+  const groups = [...new Set(games.map((g) => g.label))];
+  return (
+    <div className="space-y-2.5">
+      {groups.map((label) => (
+        <div key={label}>
+          {groups.length > 1 || games.length > 2 ? <div className="mb-1 text-[10px] font-black uppercase tracking-[.14em] text-mute">{label}</div> : null}
+          <div className="grid grid-cols-2 gap-1.5">
+            {games.filter((g) => g.label === label).map((g) => {
+              const sel = g.id === on;
+              return (
+                <button key={g.id} type="button" onClick={() => setOn(g.id)}
+                  className={`rounded-xl px-2.5 py-2 text-left ring-1 transition ${sel ? (dark ? 'bg-white text-[#0b1220] ring-white' : 'bg-gold/[.14] text-white ring-gold/70') : 'bg-white/[.04] text-slate-200 ring-white/10'}`}>
+                  <span className="block text-[13px] font-bold leading-snug">{g.game_no ? `Game ${g.game_no} · ` : ''}{g.away} at {g.home}</span>
+                  <span className={`block text-[11px] ${sel && dark ? 'text-[#0b1220]/70' : 'text-mute'}`}>{SHORT_TIME.format(new Date(g.kickoff))}</span>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
 // a grid's settings: which series, its size, the price of a square, when it pays and how often the digits are drawn
-export function SquaresKnobs({ grids, on, setOn, grid, setGrid, dark }: {
-  grids: { id: number; label: string; high: string | null; low: string | null; starts_at: string | null; tbd: boolean; round: number; short: string | null; best_of: number }[];
-  on: number; setOn: (id: number) => void; grid: Omit<SquaresRules, 'series'>; setGrid: (g: Omit<SquaresRules, 'series'>) => void; dark?: boolean;
+export function SquaresKnobs({ grids, on, setOn, grid, setGrid, dark, sport }: {
+  grids: Grid[];
+  on: number; setOn: (id: number) => void; grid: Omit<SquaresRules, 'series'>; setGrid: (g: Omit<SquaresRules, 'series'>) => void; dark?: boolean; sport?: string;
 }) {
+  // the sport's own checkpoints: a choice it can't use (baseball's innings on a football grid) falls back to its first
+  const pays = paysFor(sport);
+  useEffect(() => { if (!pays.some((p) => p.key === grid.pays)) setGrid({ ...grid, pays: pays[0].key }); }, [sport]); // eslint-disable-line react-hooks/exhaustive-deps
   const chip = (sel: boolean) => `rounded-full px-3 py-1.5 text-xs font-semibold ring-1 transition ${sel ? (dark ? 'bg-white text-[#0b1220] ring-white' : 'bg-gold text-[#0b1220] ring-gold') : 'bg-white/[.04] text-slate-200 ring-white/10'}`;
   const row = (label: string, children: React.ReactNode, note?: string) => (
     <div><div className="mb-1.5 text-[11px] font-bold uppercase tracking-[.14em] text-mute">{label}</div><div className="flex flex-wrap gap-1.5">{children}</div>{note && <p className="mt-1.5 text-[11px] leading-snug text-mute">{note}</p>}</div>
   );
   const cur = grids.find((g) => g.id === on);
+  const series = grids.filter((g) => !g.fixture), week = grids.filter((g) => g.fixture);
   return (
     <div className="space-y-3">
-      {grids.length > 1 && row('On', grids.map((g) => <button key={g.id} type="button" onClick={() => setOn(g.id)} className={chip(g.id === on)}>{g.short ?? g.label}{g.high && g.low ? ` · ${g.high} v ${g.low}` : ''}</button>))}
-      {cur && <p className="text-xs text-slate-300">{gridLabel(cur)} · Game 1 {lockText(cur.starts_at, cur.tbd)} · up to {cur.best_of} games</p>}
+      {/* a postseason's few series as chips; an NFL week's games in the game picker, under their week */}
+      {grids.length > 1 && (
+        <div>
+          <div className="mb-1.5 text-[11px] font-bold uppercase tracking-[.14em] text-mute">On</div>
+          {series.length > 0 && <div className="flex flex-wrap gap-1.5">{series.map((g) => <button key={g.id} type="button" onClick={() => setOn(g.id)} className={chip(g.id === on)}>{g.short ?? g.label}{g.high && g.low ? ` · ${g.high} v ${g.low}` : ''}</button>)}</div>}
+          {week.length > 0 && <div className={series.length ? 'mt-2.5' : ''}><SheetPicker dark={dark} games={week.map(gridGame)} on={on} setOn={setOn} /></div>}
+        </div>
+      )}
+      {cur && <p className="text-xs text-slate-300">{gridLabel(cur)} · {cur.best_of === 1 ? `${(START_WORD[sport ?? ''] ?? 'start').replace(/^./, (c) => c.toUpperCase())} ${lockText(cur.starts_at, cur.tbd)}` : `Game 1 ${lockText(cur.starts_at, cur.tbd)} · up to ${cur.best_of} games`}</p>}
       {row('Grid', SIZES.map((x) => <button key={x.key} type="button" onClick={() => setGrid({ ...grid, size: x.key })} className={chip(grid.size === x.key)}>{x.label}</button>), SIZES.find((x) => x.key === grid.size)!.line)}
       {row('A square costs', [5, 10, 25, 50].map((c) => <button key={c} type="button" onClick={() => setGrid({ ...grid, cost: c })} className={chip(grid.cost === c)}>{c} coins</button>),
         `A full grid is a pot of ${(grid.cost * grid.size * grid.size).toLocaleString()} coins.`)}
-      {row('Pays', PAYS.map((x) => <button key={x.key} type="button" onClick={() => setGrid({ ...grid, pays: x.key })} className={chip(grid.pays === x.key)}>{x.label}</button>), PAYS.find((x) => x.key === grid.pays)!.line)}
-      {row('Digits', ([['once', 'One draw'], ['each', 'Fresh each game']] as const).map(([k, l]) => <button key={k} type="button" onClick={() => setGrid({ ...grid, digits: k })} className={chip(grid.digits === k)}>{l}</button>),
+      {row('Pays', pays.map((x) => <button key={x.key} type="button" onClick={() => setGrid({ ...grid, pays: x.key })} className={chip(grid.pays === x.key)}>{x.label}</button>), (pays.find((x) => x.key === grid.pays) ?? pays[0]).line)}
+      {(cur?.best_of ?? 2) > 1 && row('Digits', ([['once', 'One draw'], ['each', 'Fresh each game']] as const).map(([k, l]) => <button key={k} type="button" onClick={() => setGrid({ ...grid, digits: k })} className={chip(grid.digits === k)}>{l}</button>),
         grid.digits === 'once' ? 'The same numbers all series: a good square stays good.' : 'New numbers every game, so a bad square gets another chance.')}
     </div>
   );

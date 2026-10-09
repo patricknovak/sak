@@ -5,12 +5,12 @@ import { Check, Plus, Sparkles } from 'lucide-react';
 import { rpc, setRemember, supabase } from '../lib/supabase';
 import { openPool } from '../lib/host';
 import { useLeague } from '../lib/store';
-import { Spinner } from '../components/ui';
+import { Spinner, Toggle } from '../components/ui';
 import { themed } from '../components/LeagueIdentity';
 import { ProductMark } from './Start';
 import { type Pack, packName, packPlaceholder, packWhen } from '../lib/packs';
-import { KINDS, PICKEM_PRESETS, PRESETS, SQUARES_DEFAULT, gridFor, gridLabel, presetExample, type GameKind, type PickemPreset, type PoolEvent, type SeriesPreset, type SquaresRules } from '../lib/poolGames';
-import { SquaresKnobs, lockText } from './Picks';
+import { KINDS, PICKEM_PRESETS, PRESETS, SQUARES_DEFAULT, eventGrids, gridFor, gridLabel, gridRules, presetExample, sheetLabel, type GameKind, type PickemPreset, type PoolEvent, type SeriesPreset, type SquaresRules } from '../lib/poolGames';
+import { SERIES_SPORTS, SheetPicker, SquaresKnobs, lockText } from './Picks';
 
 // "Start a pool" (#/new), open to anyone, in steps (docs/POOL-TYPES.md §4): what are you following (a sports event open
 // now, a show's question pack, or anything else), what kind of pool (for a sport: pick the series, rank the teams, the
@@ -28,7 +28,7 @@ const STEPS = [
   ['🎯', 'Pick it, rank it, call it', 'Series picks, rankings, or questions priced like a market in coins. Every result lands on its own.'],
   ['👑', 'Wear the crown', 'The table runs all season. Never money, just bragging rights.'],
 ] as const;
-const SPORT_EMOJI: Record<string, string> = { mlb: '⚾', nhl: '🏒', soccer: '⚽', nfl: '🏈', nba: '🏀' };
+const SPORT_EMOJI: Record<string, string> = { mlb: '⚾', nhl: '🏒', soccer: '⚽', nfl: '🏈', nba: '🏀', ncaab: '🏀' };
 type Following = { type: 'event'; comp: string } | { type: 'pack'; slug: string } | { type: 'blank' } | null;
 
 // a numbered step's heading
@@ -55,6 +55,10 @@ export default function NewPool() {
   const [box, setBox] = useState<{ preset: 'classic' | 'quick'; length: 'week' | 'month' | 'season' }>({ preset: 'classic', length: 'month' });
   const [grid, setGrid] = useState<Omit<SquaresRules, 'series'>>(SQUARES_DEFAULT);
   const [gridOn, setGridOn] = useState<number | null>(null);
+  const [sheetOn, setSheetOn] = useState<number | null>(null);
+  // and a sheet on every game after it, by itself (migration 227): on by default for a postseason, off for a week of
+  // the NFL's regular season (sixteen sheets a week is a lot to ask)
+  const [everySheetSet, setEverySheet] = useState<boolean | null>(null);
   const [color, setColor] = useState<string>(SWATCHES[0]);
   const [pool, setPool] = useState('');
   const [name, setName] = useState('');
@@ -101,10 +105,16 @@ export default function NewPool() {
   // the pack the pool opens with: the one chosen, or the event's own when its questions are ticked
   const openPack = event ? (kinds.includes('questions') ? event.pack : null) : following?.type === 'pack' ? following.slug : null;
   // squares go on the series chosen, by default the event's last one still to come
-  const gridSeries = event ? (event.grids ?? []).find((g) => g.id === gridOn) ?? gridFor(event) : null;
+  const gridSeries = event ? eventGrids(event).find((g) => g.id === gridOn) ?? gridFor(event) : null;
+  // a prop sheet goes on the game chosen, by default the soonest still to start
+  const everySheet = everySheetSet ?? !event?.word;
+  const sheetGame = event ? (event.sheets ?? []).find((g) => g.id === sheetOn) ?? event.sheets?.[0] ?? null : null;
   const offered: GameKind[] = event ? [...event.kinds.filter((k) => k in KINDS), ...(gridSeries ? ['squares' as const] : [])] : [];
-  const gamesPayload = games.filter((k) => k !== 'squares' || gridSeries).map((k) => ({ kind: k, competition: event!.competition,
-    rules: k === 'series' ? { preset } : k === 'pickem' ? { preset: pkPreset } : k === 'players' ? box : k === 'squares' ? { ...grid, series: gridSeries!.id } : {} }));
+  const gamesPayload = games.filter((k) => (k !== 'squares' || gridSeries) && (k !== 'props' || sheetGame)).map((k) => ({ kind: k, competition: event!.competition,
+    rules: k === 'series' ? { preset } : k === 'pickem' ? { preset: pkPreset } : k === 'players' ? box : k === 'squares' ? { ...grid, ...gridRules(gridSeries!) }
+      : k === 'props' ? { fixture: sheetGame!.id, ...(everySheet ? { auto: true } : {}) }
+      // a bracket on best-of-7s takes a point for calling the games too (migration 228)
+      : k === 'bracket' && SERIES_SPORTS.includes(event!.sport) ? { games_bonus: 1 } : {} }));
   const startGames = async (id: number) => { if (gamesPayload.length) await rpc('pool_start_games', { p_league: id, p_games: gamesPayload }); };
   const okEmail = /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email.trim());
   const member = !!session && !!me;
@@ -163,7 +173,7 @@ export default function NewPool() {
                       <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl text-xl" style={{ background: `rgb(${rgb(color)} / .18)` }}>{SPORT_EMOJI[e.sport] ?? '🏆'}</span>
                       <span className="min-w-0 flex-1">
                         <span className="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-balance font-semibold text-white">{e.name}<span className="rounded-full bg-red-500/15 px-1.5 py-px text-[10px] font-bold uppercase tracking-wider text-red-200 ring-1 ring-red-400/30">Live now</span></span>
-                        <span className="block text-xs text-white/60">{e.stage ?? 'Under way'} · {e.kinds.includes('players') ? `from the next puck drop, ${lockText(e.next_lock)}` : `picks from ${e.word ? e.open_label : `the ${e.open_label}`}, ${lockText(e.next_lock)}`}</span>
+                        <span className="block text-xs text-white/60">{e.stage ?? 'Under way'} · {e.kinds.includes('players') && !e.open_round ? `from the next puck drop, ${lockText(e.next_lock)}` : `picks from ${e.word ? e.open_label : `the ${e.open_label}`}, ${lockText(e.next_lock)}`}</span>
                       </span>
                       {on && <Check size={18} className="shrink-0 text-emerald-300" />}
                     </button>
@@ -210,7 +220,7 @@ export default function NewPool() {
                 {!kinds.length && <p className="mt-2 text-xs text-amber-200">Pick at least one.</p>}
                 {kinds.includes('players') && (
                   <p className="mt-2 rounded-xl bg-white/[.05] px-3 py-2 text-xs leading-snug text-white/70">
-                    The box pool starts {event.open_label}: everyone takes one player from every box of the league’s best. A goal or an assist is a point, a goalie’s win two and a shutout one more. The host can change the size and the nights until the first puck drop.
+                    {event.open_round ? 'The box pool runs all through the playoffs: everyone takes one player from every box of the best in the first round, dealt on how far their clubs are expected to go.' : `The box pool starts ${event.open_label}: everyone takes one player from every box of the league’s best.`} A goal or an assist is a point, a goalie’s win two and a shutout one more. The host can change the size{event.open_round ? '' : ' and the nights'} until the first puck drop.
                   </p>
                 )}
                 {kinds.includes('survivor') && (
@@ -226,21 +236,21 @@ export default function NewPool() {
                 <div className="grid grid-cols-3 gap-1.5 rounded-2xl bg-black/25 p-1">
                   {PRESETS.map((p) => <button key={p.key} type="button" onClick={() => setPreset(p.key)} className={`rounded-xl px-2 py-2 text-xs font-bold transition ${preset === p.key ? 'bg-white text-[#0b1220]' : 'text-white/70 hover:text-white'}`}>{p.label}</button>)}
                 </div>
-                <p className="mt-2 text-sm leading-snug text-white/80">{PRESETS.find((p) => p.key === preset)!.line}</p>
-                <p className="mt-1.5 rounded-xl bg-white/[.05] px-3 py-2 text-xs leading-snug text-white/70">{presetExample(preset, event.final_label, event.final_round)} The total runs in the last game breaks a tie.</p>
+                <p className="mt-2 text-sm leading-snug text-white/80">{event.sport === 'nfl' ? 'Every game is a single game, so a right winner takes the round’s points: the later the round, the more it’s worth.' : PRESETS.find((p) => p.key === preset)!.line}</p>
+                <p className="mt-1.5 rounded-xl bg-white/[.05] px-3 py-2 text-xs leading-snug text-white/70">{presetExample(preset, event.final_label, event.final_round, event.sport === 'nfl')} The total {event.sport === 'mlb' ? 'runs' : event.sport === 'nhl' ? 'goals' : 'points'} in the last game breaks a tie.</p>
                 {kinds.includes('rank') && <p className="mt-2 text-xs leading-snug text-white/60">Rank the teams: your top club in the {event.open_label} earns the most for every game it wins, your last club the least.</p>}
               </Step>
             )}
 
             {event && kinds.includes('players') && (
-              <Step n={3} title="Its size and nights">
+              <Step n={3 + Number(kinds.includes('series'))} title={event.open_round ? 'Its size' : 'Its size and nights'}>
                 <div className="grid grid-cols-2 gap-1.5 rounded-2xl bg-black/25 p-1">
                   {([['classic', 'Ten boxes of six'], ['quick', 'Five boxes of five']] as const).map(([k, l]) => <button key={k} type="button" onClick={() => setBox({ ...box, preset: k })} className={`rounded-xl px-2 py-2 text-xs font-bold transition ${box.preset === k ? 'bg-white text-[#0b1220]' : 'text-white/70 hover:text-white'}`}>{l}</button>)}
                 </div>
-                <div className="mt-1.5 grid grid-cols-3 gap-1.5 rounded-2xl bg-black/25 p-1">
+                {!event.open_round && <div className="mt-1.5 grid grid-cols-3 gap-1.5 rounded-2xl bg-black/25 p-1">
                   {([['week', 'A week'], ['month', 'Four weeks'], ['season', 'The season']] as const).map(([k, l]) => <button key={k} type="button" onClick={() => setBox({ ...box, length: k })} className={`rounded-xl px-2 py-2 text-xs font-bold transition ${box.length === k ? 'bg-white text-[#0b1220]' : 'text-white/70 hover:text-white'}`}>{l}</button>)}
-                </div>
-                <p className="mt-2 text-sm leading-snug text-white/80">{box.preset === 'classic' ? 'Seven boxes of forwards, two of defence and one of goalies: sixty of the league’s best to choose from.' : 'Three boxes of forwards, one of defence and one of goalies: quick to fill in.'} {box.length === 'week' ? 'Seven nights from the first puck drop.' : box.length === 'month' ? 'Four weeks from the first puck drop.' : 'Every night to the end of the regular season.'}</p>
+                </div>}
+                <p className="mt-2 text-sm leading-snug text-white/80">{box.preset === 'classic' ? 'Seven boxes of forwards, two of defence and one of goalies: sixty of the league’s best to choose from.' : 'Three boxes of forwards, one of defence and one of goalies: quick to fill in.'} {event.open_round ? 'Every playoff game from the first puck drop to the Cup; a player whose club is knocked out has nothing more to add.' : box.length === 'week' ? 'Seven nights from the first puck drop.' : box.length === 'month' ? 'Four weeks from the first puck drop.' : 'Every night to the end of the regular season.'}</p>
               </Step>
             )}
 
@@ -255,14 +265,25 @@ export default function NewPool() {
             )}
 
             {event && gridSeries && kinds.includes('squares') && (
-              <Step n={kinds.includes('series') ? 4 : 3} title="The grid">
-                <SquaresKnobs dark grids={event.grids ?? []} on={gridSeries.id} setOn={setGridOn} grid={grid} setGrid={setGrid} />
-                <p className="mt-2 rounded-xl bg-white/[.05] px-3 py-2 text-xs leading-snug text-white/70">{gridLabel(gridSeries)}. Members claim squares with their coins until the grid fills or Game 1 starts; then the digits are drawn from a seed anyone can check.</p>
+              <Step n={3 + Number(kinds.includes('series')) + Number(kinds.includes('players'))} title="The grid">
+                <SquaresKnobs dark grids={eventGrids(event)} on={gridSeries.id} setOn={setGridOn} grid={grid} setGrid={setGrid} sport={event.sport} />
+                <p className="mt-2 rounded-xl bg-white/[.05] px-3 py-2 text-xs leading-snug text-white/70">{gridLabel(gridSeries)}. Members claim squares with their coins until the grid fills or {gridSeries.best_of > 1 ? 'Game 1 starts' : 'the game starts'}; then the digits are drawn from a seed anyone can check.</p>
+              </Step>
+            )}
+
+            {event && sheetGame && kinds.includes('props') && (
+              <Step n={3 + Number(kinds.includes('series') || kinds.includes('pickem')) + Number(kinds.includes('players')) + Number(kinds.includes('squares') && !!gridSeries)} title="The game">
+                <SheetPicker dark games={event.sheets ?? []} on={sheetGame.id} setOn={setSheetOn} />
+                <p className="mt-2 rounded-xl bg-white/[.05] px-3 py-2 text-xs leading-snug text-white/70">{sheetLabel(sheetGame)}: eight calls on the game, a point each, settled from the score. Everyone's sheet locks at the start.</p>
+                <div className="mt-2 flex items-center justify-between gap-3 rounded-xl bg-white/[.05] px-3 py-1">
+                  <span className="text-[13px] font-semibold text-white">A sheet on every game after it<span className="block text-[11px] font-normal text-white/60">Each opens by itself a day and a half before the game</span></span>
+                  <Toggle on={everySheet} onChange={setEverySheet} />
+                </div>
               </Step>
             )}
 
             {following && (
-            <Step n={event ? 3 + Number(kinds.includes('series') || kinds.includes('pickem') || kinds.includes('players')) + Number(kinds.includes('squares') && !!gridSeries) : 2} title="Name it">
+            <Step n={event ? 3 + Number(kinds.includes('series') || kinds.includes('pickem')) + Number(kinds.includes('players')) + Number(kinds.includes('squares') && !!gridSeries) + Number(kinds.includes('props') && !!sheetGame) : 2} title="Name it">
             <div className="space-y-4">
             <label className="block"><span className="sr-only">Name your pool</span>
               <input className="input w-full" value={pool} onChange={(e) => setPool(e.target.value)} maxLength={40} placeholder={packPlaceholder(event ? event.pack : chosen?.slug)} /></label>

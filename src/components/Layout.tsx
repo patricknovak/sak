@@ -99,30 +99,48 @@ export function Layout({ children }: { children: ReactNode }) {
   // the competition played in rounds the pool's games are on (a pick'em, last one standing, Call the score), for its centre
   const [rounds, setRounds] = useState<{ id: string; sport: string } | null>(null);
   const [nflPost, setNflPost] = useState(false);
+  // March Madness (migration 201) has the series centre too
+  const [ncaa, setNcaa] = useState(false);
+  // and the NBA's playoffs (migration 220)
+  const [nbaPost, setNbaPost] = useState(false);
   // a box pool on the NHL season (migration 188) has the NHL centre: tonight's games and who scored
   const [nhl, setNhl] = useState(false);
+  // a game on the Stanley Cup playoffs (nhl-post-*) has the bracket centre too
+  const [nhlPost, setNhlPost] = useState(false);
   const onHost = loc.pathname === '/host';
   useEffect(() => {
     if (!me) return;
     let live = true;
     const has = (t: string) => supabase.from(t).select('id', { count: 'exact', head: true }).then(({ count }) => (count ?? 0) > 0, () => false);
+    // last one standing and Call the score are pool games since migrations 203 and 204, with pages of their own
+    const hasKind = (kinds: string[], not = false) => {
+      const q = supabase.from('pool_games').select('id', { count: 'exact', head: true });
+      return (not ? q.not('kind', 'in', `(${kinds.join(',')})`) : q.in('kind', kinds)).then(({ count }) => (count ?? 0) > 0, () => false);
+    };
     // the baseball centre only for a pool with a game on the MLB postseason (a soccer pick'em has no use for it)
     const mlb = supabase.from('pool_games').select('id', { count: 'exact', head: true }).like('competition', 'mlb%').then(({ count }) => (count ?? 0) > 0, () => false);
     // the NFL's playoffs played as series (a bracket, migration 187) have the series centre too
     supabase.from('pool_games').select('id', { count: 'exact', head: true }).like('competition', 'nfl-post%')
       .then(({ count }) => { if (live) setNflPost((count ?? 0) > 0); }, () => {});
+    supabase.from('pool_games').select('id', { count: 'exact', head: true }).like('competition', 'ncaam%')
+      .then(({ count }) => { if (live) setNcaa((count ?? 0) > 0); }, () => {});
+    supabase.from('pool_games').select('id', { count: 'exact', head: true }).like('competition', 'nba-post%')
+      .then(({ count }) => { if (live) setNbaPost((count ?? 0) > 0); }, () => {});
     supabase.from('pool_games').select('id', { count: 'exact', head: true }).like('competition', 'nhl%')
       .then(({ count }) => { if (live) setNhl((count ?? 0) > 0); }, () => {});
-    Promise.all([has('pool_markets'), has('predictors'), has('survivors'), has('pool_games'), mlb]).then(([questions, predictor, survivor, games, mlbOn]) => { if (live) setRuns({ questions, predictor, survivor, games, mlb: mlbOn }); });
+    supabase.from('pool_games').select('id', { count: 'exact', head: true }).like('competition', 'nhl-post%')
+      .then(({ count }) => { if (live) setNhlPost((count ?? 0) > 0); }, () => {});
+    Promise.all([has('pool_markets'), hasKind(['score']), hasKind(['survivor']), hasKind(['survivor', 'score'], true), mlb]).then(([questions, predictor, survivor, games, mlbOn]) => { if (live) setRuns({ questions, predictor, survivor, games, mlb: mlbOn }); });
     const first = (t: string, kind?: string) => {
       let q = supabase.from(t).select('competition').order('id', { ascending: false }).limit(1);
       if (kind) q = q.eq('kind', kind);
       return q.then(({ data }) => (data?.[0] as { competition: string } | undefined)?.competition ?? null, () => null);
     };
-    Promise.all([first('pool_games', 'pickem'), first('survivors'), first('predictors')]).then(async (cs) => {
+    Promise.all([first('pool_games', 'pickem'), first('pool_games', 'survivor'), first('pool_games', 'score')]).then(async (cs) => {
       const id = cs.find(Boolean) ?? null;
-      const sp = id ? (await supabase.from('competitions').select('sport').eq('id', id).maybeSingle()).data?.sport as string | undefined : undefined;
-      if (live) setRounds(id && sp ? { id, sport: sp } : null);
+      const c = id ? (await supabase.from('competitions').select('sport,format').eq('id', id).maybeSingle()).data as { sport: string; format: string | null } | null : null;
+      // a tournament played in series (the Eliminator) has its own centre; this one is for rounds of matches
+      if (live) setRounds(id && c && c.format !== 'series' ? { id, sport: c.sport } : null);
     });
     return () => { live = false; };
   }, [me?.id, league?.league_id, onHost]);
@@ -153,7 +171,10 @@ export function Layout({ children }: { children: ReactNode }) {
     // the sport centre for the pool's games (baseball's postseason first)
     ...(runs.mlb ? [{ to: '/sport/mlb', label: 'MLB centre', icon: Tv }] : []),
     ...(nflPost ? [{ to: '/sport/nfl', label: 'NFL playoffs', icon: Tv }] : []),
+    ...(ncaa ? [{ to: '/sport/ncaab', label: 'March Madness', icon: Tv }] : []),
+    ...(nbaPost ? [{ to: '/sport/nba', label: 'NBA playoffs', icon: Tv }] : []),
     ...(nhl ? [{ to: '/nhl', label: 'NHL centre', icon: Tv }] : []),
+    ...(nhlPost ? [{ to: '/sport/nhl', label: 'Stanley Cup playoffs', icon: Tv }] : []),
     ...(rounds ? [{ to: `/centre/${rounds.id}`, label: centreName(rounds.sport), icon: Tv }] : []),
     ...(runs.predictor ? [{ to: '/predictor', label: 'Call the score', icon: Target }] : []),
     ...(runs.survivor ? [{ to: '/survivor', label: 'Last one standing', icon: Shield }] : []),

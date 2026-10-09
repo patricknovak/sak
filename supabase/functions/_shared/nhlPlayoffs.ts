@@ -22,8 +22,32 @@ const clubOf = (t: J) => ({
   logo: t.darkLogo ?? (t.abbrev ? `https://assets.nhle.com/logos/nhl/svg/${t.abbrev}_dark.svg` : null),
 });
 
-// `bracket` is /v1/playoff-bracket/<year>; `games` each series' /v1/schedule/playoff-series/<season>/<letter>, by letter
-export function nhlPlayoffPayload(season: string, bracket: J, games: Record<string, J>) {
+// a game's score by period from its /v1/gamecenter/<id>/landing: each period's goals carry the running score, so a
+// period's goals are its last running score less the one before; a period with no goals is 0-0 (filled in up to the
+// period the game is in); a shootout isn't a period (squares and prop sheets read regulation and overtime). A landing
+// with no scoring summary sends nothing rather than a row of 0-0 periods, so a grid never pays a period it didn't see.
+export function nhlPeriods(landing: J): { n: number; home: number; away: number }[] {
+  if (!Array.isArray(landing?.summary?.scoring)) return [];
+  const by = new Map<number, { home: number; away: number }>();
+  let last = landing?.periodDescriptor?.number ?? 0;
+  if (landing?.periodDescriptor?.periodType === 'SO') last -= 1;
+  let h = 0, a = 0;
+  for (const p of [...(landing?.summary?.scoring ?? [])].sort((x: J, y: J) => (x.periodDescriptor?.number ?? 0) - (y.periodDescriptor?.number ?? 0))) {
+    const n = p.periodDescriptor?.number;
+    if (!n || p.periodDescriptor?.periodType === 'SO') continue;
+    const goals: J[] = p.goals ?? [];
+    const end = goals.length ? goals[goals.length - 1] : null;
+    const eh = end?.homeScore ?? h, ea = end?.awayScore ?? a;
+    by.set(n, { home: eh - h, away: ea - a });
+    h = eh; a = ea;
+    last = Math.max(last, n);
+  }
+  return Array.from({ length: Math.max(0, last) }, (_, i) => ({ n: i + 1, ...(by.get(i + 1) ?? { home: 0, away: 0 }) }));
+}
+
+// `bracket` is /v1/playoff-bracket/<year>; `games` each series' /v1/schedule/playoff-series/<season>/<letter>, by letter;
+// `periods` each game's score by period (nhlPeriods), for the games the caller fetched them for
+export function nhlPlayoffPayload(season: string, bracket: J, games: Record<string, J>, periods: Record<string, { n: number; home: number; away: number }[]> = {}) {
   const clubs = new Map<string, J>();
   const series: J[] = [];
   const fixtures: J[] = [];
@@ -49,6 +73,7 @@ export function nhlPlayoffPayload(season: string, bracket: J, games: Record<stri
         home: String(g.homeTeam.id), away: String(g.awayTeam.id), home_score: g.homeTeam.score ?? null, away_score: g.awayTeam.score ?? null,
         venue: g.venue?.default ?? null,
         detail: { period: g.periodDescriptor?.number ?? null, period_type: g.periodDescriptor?.periodType ?? null, if_necessary: !!g.ifNecessary },
+        ...(periods[String(g.id)] ? { periods: periods[String(g.id)] } : {}),
       });
     }
   }

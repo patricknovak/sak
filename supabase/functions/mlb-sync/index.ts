@@ -9,7 +9,7 @@
 // pools are a private test, and a licensed feed replaces it before anything is sold (§8). It asks for no more than a
 // request every ten seconds; we make one every two minutes at most.
 import { createClient } from 'jsr:@supabase/supabase-js@2';
-import { nhlPlayoffPayload } from '../_shared/nhlPlayoffs.ts';
+import { nhlPeriods, nhlPlayoffPayload } from '../_shared/nhlPlayoffs.ts';
 
 const db = createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!, {
   auth: { persistSession: false },
@@ -113,7 +113,18 @@ async function nhlPlayoffs(c: { id: string; ext_season: string }) {
     const g = await fetch(`${NHL}/schedule/playoff-series/${c.ext_season}/${String(s.seriesLetter).toLowerCase()}`);
     if (g.ok) games[String(s.seriesLetter).toUpperCase()] = await g.json();
   }
-  return check(await db.rpc('sport_ingest', { p_competition: c.id, p: nhlPlayoffPayload(c.ext_season, bracket, games) }));
+  // each game's score by period (squares and prop sheets pay from it), for the games on now or over in the last day
+  // and a half: a handful of calls a playoff night
+  const recent = Object.values(games).flatMap((x: J) => x.games ?? []).filter((g: J) =>
+    ['LIVE', 'CRIT'].includes(g.gameState) || (['OFF', 'FINAL'].includes(g.gameState) && Date.now() - Date.parse(g.startTimeUTC) < 36 * 3600e3));
+  const periods: Record<string, { n: number; home: number; away: number }[]> = {};
+  await Promise.all(recent.map(async (g: J) => {
+    const l = await fetch(`${NHL}/gamecenter/${g.id}/landing`).catch(() => null);
+    // one bad landing leaves its game without periods this run, never the whole bracket unsynced
+    const body = l?.ok ? await l.json().catch(() => null) : null;
+    if (body) periods[String(g.id)] = nhlPeriods(body);
+  }));
+  return check(await db.rpc('sport_ingest', { p_competition: c.id, p: nhlPlayoffPayload(c.ext_season, bracket, games, periods) }));
 }
 
 async function adminCall(req: Request) {

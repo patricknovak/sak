@@ -135,6 +135,12 @@ on Super Bowl LX), the Stanley Cup Final.
 **Good:** pure luck, loved by people who don't follow the sport, the most shared pool there is. In Supercoins the
 squares cost coins and the pot pays the winners, so it stays a pool, not a market.
 **Pitfalls:** digits stay hidden until the grid is full, and the draw has to be seen to be fair (a recorded seed).
+*On any NFL game, 9 October 2026 (migration 217):* a grid goes on one game of an NFL week too (Sunday night, Monday
+night), not only a postseason series: the game stands in as a series of one (`_squares_series`, `_squares_fixtures`),
+so the claims, the draw at kickoff, the board and the quarters' payouts are the same code, and `soccer_ingest` settles
+the grids as the weekly feed lands. Offered through `pool_event_list`'s `game_grids`, picked in the same game picker as
+the prop sheet; a level final is still the grid's last. A game put off waits for its new kickoff; one called off hands
+back what's left of the pot (migration 219).
 
 ### 2.7 Player pool (draft, box or open)
 
@@ -195,7 +201,7 @@ longest run in the group).
 | Weekly pick'em | ○ | ○ | ✔✔ | ○ | ✔ | ○ | ✔ |
 | Confidence (rank games) | ○ | ○ | ✔✔ | ○ | ○ | | ✔ |
 | Survivor | ○ | ○ | ✔✔ | ○ | ✔ | ✔ (Eliminator) | ✔ |
-| Squares | ✔ (World Series) | ○ | ✔✔ (Super Bowl) | ○ | ○ | ○ | |
+| Squares | ✔ (World Series) | ○ | ✔✔ (Super Bowl, any week's game) | ○ | ○ | ○ | |
 | Player pool | ✔ | ✔✔ | ✔ | ✔ | ○ | | ✔ (fantasy) |
 | Score predictor | ○ | ○ | ○ | ○ | ✔✔ | | ✔ |
 | Sweepstake | ✔ | ✔ | ○ | ○ | ✔✔ | ○ | |
@@ -225,7 +231,8 @@ Every type is a pick, a lock, a grader and a scoring profile. So:
   score). The bracket is the `series` rows with their `feeds_into` links. MLB, the NFL and the NBA arrive as new
   providers on the same tables; the NHL keeps its own tables until the sport split moves it (`docs/EXPANSION.md` §6).
 - **Expand, then contract:** `survivors` and `predictors` stay as they are and become `pool_games` of kind `survivor`
-  and `score` in a later change, once the new tables carry the World Series test.
+  and `score` in a later change, once the new tables carry the World Series test. *Done 9 October 2026 (migrations 203
+  and 204): both are `pool_games` kinds now, the old tables copied across and left for a later drop.*
 - **One scoreboard over every kind** (built 8 October 2026, migration 169). Whatever a game's rules, its table reads
   into one shape through `_pool_rows()`: per member, a `score` (highest first), `possible` (the most they can still
   finish with, or null), `alive` (still in, for elimination games; ranked first), a `tiebreak` (lowest first) and a
@@ -371,15 +378,80 @@ and soccer share it.
    (`#/centre/nfl`, the same page as soccer's Match centre) are built.
 2. Soccer on the same engine: the score predictor and the survivor move onto `pool_games`; the Champions League
    knockout bracket (February); soccer centre on API-Football.
-3. Super Bowl squares and the prop sheet (February 2027).
-4. March Madness (March 2027): the bracket with a second chance and the Eliminator.
+3. Super Bowl squares and the prop sheet (February 2027). *Squares by the quarter built 9 October 2026 (migration 200):* a grid on
+   any NFL playoff game pays after the 1st quarter, at the half, after the 3rd and on the final (20/20/20/40), drawn at
+   kickoff, in football's words; hockey's pays by the period, from the Stanley Cup feed's score by period (`nhlPeriods`,
+   migration 215). *The prop sheet built 9 October 2026 (migrations 208 and
+   209), ready for the World Series:* a `props` game on one game of a postseason (baseball, football or hockey): eight
+   calls in the sport's words (who wins, the total over or under the market's line or the sport's usual, the margin, who
+   leads after the first period and at the halfway mark, the first period's scoring, extra time, a shutout or in
+   football a side held to 10), a point each, the total as the tiebreak, locked at the start, all settled from the
+   score and the score by period at the end of each feed run (`_props_tick`), so the host settles nothing. Offered on
+   each game of a series still going in the next week (`pool_event_list`'s `sheets`), one sheet a game; a game the
+   series didn't need ends its sheet with no winner. *On an NFL week too (migration 216):* ESPN's weekly scoreboard
+   sends each game's quarters (`espnFixture`'s `periods`), `soccer_ingest` writes them and settles the sheets, and any
+   NFL game in the next week takes a sheet ("Week 6: KC at JAX"), offered beside pick'em. *Live, the same day (migration
+   218):* a call the game has already decided counts while it is on (the 1st once the 2nd begins, the halfway mark once
+   the next period does, the over once passed, early scoring as it happens, extra time once it starts, a shutout or a
+   side held to 10 broken), so the sheet's table moves with the game; who wins and every "no" only the final proves
+   wait for it. Once locked, each member's chance to win (`_props_chances`: each open call drawn from the pool's split,
+   who wins from the market's line where there is one; a tie on calls shares it). *Every game, automatically (migration
+   223):* a host turns it on once for an event (`pool_auto_sheets_set`, a switch on the host's Add a game) and the hourly
+   pool job opens a sheet on each of its games a day and a half before it starts (`_props_auto`), so a World Series pool
+   needn't open one by hand for every game; the start page offers it with a new pool's first sheet, on by default
+   for a postseason and off for an NFL week (migration 227). *A season of sheets (migration 226):* once a pool has two sheets or more on
+   an event, the scoreboard adds a row ranking the calls right across all of them, sheets won breaking a tie (kind
+   `props_all`).
+4. March Madness (March 2027): the bracket with a second chance and the Eliminator. *The bracket's feed built 9 October 2026
+   (migration 201):* `ncaam-2027` fills from ESPN in mid-March, 63 slots in bracket order; the second chance and the
+   Eliminator are still to come. *The second chance built 9 October 2026 (migration 211):* once a pool's bracket has
+   locked, the host opens a "Second-chance bracket" from a later round (the Sweet 16, or any postseason's next round),
+   a fresh bracket for everyone on the scoreboard beside the first. *The Eliminator, the same day (migration 212):* last
+   one standing on a tournament of single games (March Madness, the NFL's playoffs as series): each game carries its
+   round (`fixtures.gameweek`, from `sport_ingest`), so the survivor runs on it unchanged to the tournament's last round;
+   the start page offers it beside the bracket.
 5. The NHL playoffs (April 2027): the player pool (draft and box), the bracket with series length, series pick'em,
    confidence by team; NHL centre gains the bracket and the pool ribbon. *Ready 8 October 2026:* the feed (`nhl-post-2027`
    through mlb-sync, migration 191, tested on the 2026 playoffs), so Pick the series, the bracket from the first round and
    Rank the teams run on it the day the NHL draws its bracket; the box pool runs on the regular season (migrations 188
-   to 196, with goal alerts and a morning line), its playoffs version to come.
-6. The NBA playoffs (April 2027) on the same engine, once its feed is settled.
-7. Later: win totals, best ball, the daily streak, the sweepstake for the 2027 Women's World Cup.
+   to 196, with goal alerts and a morning line), and its playoffs version on the first round's clubs, dealt on each club's
+   expected playoff games, is ready too (migration 202, 9 October 2026). A pool with a game on the playoffs gets the
+   bracket centre (`#/sport/nhl`, "Stanley Cup playoffs") in its menu beside NHL centre. *The bracket with series length
+   (migration 228):* the host can add a bonus for calling how many games each series goes (`rules.games_bonus`, a point
+   by default on a new pool's bracket on best-of-7s; a switch on the host's Add a game), scored when the winner is right
+   and the series went exactly that long; still possible while the other side hasn't won too many games for it. The
+   chance to win reads the winners alone.
+6. The NBA playoffs (April 2027) on the same engine, once its feed is settled. *The feed built 9 October 2026 (migration
+   220):* `nba-post-2027` fills from ESPN's public scoreboard (`nbaPlayoffPayload`, `_shared/nbaPlayoffs.ts`): ESPN
+   names each game's round, conference and number but no seeds, so they come from its standings; the better seed in a
+   game fixes its place (1v8, 4v5, 3v6, 2v7, East before West), all fifteen best-of-7 series exist from the first day
+   and each game finds its own series, so the daily run sends the whole postseason and a live run only yesterday, today
+   and tomorrow. The play-in is left out. Tested on the 2026 playoffs (every series and result as ESPN had them, the
+   tree exact). Pick the series, a bracket from the first round and Rank the teams run on it once the field is drawn.
+   Squares on an NBA series pay by the quarter, every game (migration 221), and each game takes a prop sheet in
+   basketball's words (migration 222: the total over or under the market's line or 220.5, margins of 1 to 5, 6 to 10 and
+   11 or more, 1st-quarter points over or under 54.5, overtime, a side held under 100).
+7. Later: win totals, best ball, the daily streak, the sweepstake for the 2027 Women's World Cup. *The daily streak built 9
+   October 2026 (migrations 231 and 232):* a `pool_games` kind ('streak') on any event with games still to come, a
+   postseason or a season of rounds: one winner a day from that day's games (`pool_picks` 'd:<the game's Eastern date>'),
+   a right pick adds one to the run, a wrong one starts it again, a day off or a game called off breaks nothing; the
+   longest run wins, the run going now breaks a tie (`_streak_table`, worked out on read from `_pool_fixture`, so the
+   host's result counts). A day's pick moves to any of its games still to come until the picked one starts; everyone's
+   side shows once a game starts; a reminder before each day's first game; the host picks for a member who asked. It ends
+   with its event (migration 233, `_streak_close` in the hourly pool job): no game still to come and every series decided,
+   the longest run crowned and the pool told. *Review fixes (migration 234):* a game a decided series didn't need is never
+   offered and a pick on one counts for nothing, a tie where the sport has no draws counts for nothing, a picked game put
+   off frees its day, a pick follows its game to the day it is on now, and the host settles a game for a streak-only pool. *In the prediction log (migration 235):* the pool's split on
+   each game its members picked, written once it starts and scored by the pool's result, as pick'em's is.
+   *The sweepstake built 9 October 2026 (migration 236):* a `pool_games` kind ('sweep') on any event played in series, once
+   a round's matchups are all set and not started: at its first game (the hourly pool job, `_sweep_tick`) or sooner when the
+   host draws (`pool_sweep_draw`), every player in the pool is dealt clubs at random (an equal share each, the odd ones held
+   by nobody; shared where the pool is bigger than the field), kept in the game's rules (`rules.deal`). Whoever holds the
+   champion wins; the table ranks by the rounds a player's best club has won. The series settler leaves it alone. *Review
+   fixes (migration 237):* the field is every club from the round on, byes included, offered only once the whole bracket
+   is filed (S series, S + 1 clubs, one series last: `_sweep_shape`); dealt round the pool in turn so nothing is left in
+   the hat; crowned only once every series is decided and one club never lost (`_sweep_champion`). The streak closes
+   only after a quiet week, and keeps one pick a day however the feed moves games.
 
 ## 10. Sources
 

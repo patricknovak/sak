@@ -5,7 +5,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Globe2 } from 'lucide-react';
-import { rpc } from '../lib/supabase';
+import { rpc, supabase } from '../lib/supabase';
 import { brandOf, PRODUCT, type Brand } from '../lib/brand';
 import { PageHeader, Section, Spinner, useAction } from '../components/ui';
 import { ago } from '../lib/format';
@@ -14,6 +14,8 @@ import { Wordmark } from '../components/Brand';
 import { Checklist, type Check } from '../components/Readiness';
 import { appLink, leagueUrl } from '../lib/host';
 import { PoolIdeas, PoolTest } from '../components/PoolTest';
+import { PoolGamesPlatform } from '../components/PoolGamesPlatform';
+import { GameFix } from '../components/GameFix';
 
 interface Row {
   league_id: number; slug: string; name: string; short_name: string; status: 'setup' | 'active' | 'archived'; created_at: string;
@@ -61,7 +63,12 @@ export default function Platform() {
 
       <PoolTest />
 
+      <PoolGamesPlatform />
+
       <PoolIdeas />
+
+      <GameFix />
+      <Tournaments />
 
       <Section title="Leagues">
         <div className="space-y-3">{rows.map((r) => <LeagueCard key={r.league_id} r={r} reload={load} />)}</div>
@@ -71,6 +78,55 @@ export default function Platform() {
         <NewLeague taken={rows.map((r) => r.slug)} onMade={load} />
       </Section>
     </div>
+  );
+}
+
+// March Madness (migration 201): the Final Four's pairing of regions, set when the field is announced, so the bracket's
+// tree is right from the first round. The first two regions meet in one Final Four game, the last two in the other.
+const REGIONS = ['East', 'South', 'West', 'Midwest'];
+function Tournaments() {
+  const { busy, run } = useAction();
+  const [rows, setRows] = useState<{ id: string; name: string; detail: { regions?: string[] } | null }[] | null>(null);
+  const [order, setOrder] = useState<Record<string, string[]>>({});
+  const load = () => supabase.from('competitions').select('id,name,detail').eq('sport', 'ncaab').eq('active', true).order('id')
+    .then(({ data }) => setRows((data ?? []) as { id: string; name: string; detail: { regions?: string[] } | null }[]));
+  useEffect(() => { load(); }, []);
+  if (!rows?.length) return null;
+  return (
+    <Section title="Tournaments">
+      <div className="space-y-2">
+        {rows.map((t) => {
+          const cur = order[t.id] ?? t.detail?.regions ?? REGIONS;
+          const set = (i: number, v: string) => { const n = [...cur]; const j = n.indexOf(v); if (j >= 0) n[j] = n[i]; n[i] = v; setOrder({ ...order, [t.id]: n }); };
+          return (
+            <div key={t.id} className="card space-y-3 p-4">
+              <div className="flex flex-wrap items-baseline justify-between gap-2">
+                <span className="font-semibold text-white">{t.name}</span>
+                <span className="text-[11px] text-mute">{t.detail?.regions ? 'Final Four pairing set' : 'Pairing not set: the Final Four games will pair them once drawn'}</span>
+              </div>
+              <div className="grid grid-cols-2 gap-2">
+                {[0, 1].map((g) => (
+                  <div key={g} className="rounded-2xl bg-white/[.04] p-2.5 ring-1 ring-white/10">
+                    <div className="label mb-1.5">Final Four game {g + 1}</div>
+                    <div className="flex flex-col gap-1.5">
+                      {[g * 2, g * 2 + 1].map((i) => (
+                        <select key={i} className="input py-1.5 text-sm" value={cur[i]} onChange={(e) => set(i, e.target.value)}>
+                          {REGIONS.map((r) => <option key={r} value={r}>{r}</option>)}
+                        </select>
+                      ))}
+                    </div>
+                  </div>
+                ))}
+              </div>
+              <button type="button" className="btn-gold w-full" disabled={busy}
+                onClick={() => run(async () => { await rpc('platform_set_regions', { p_competition: t.id, p_regions: cur }); await load(); }, 'Pairing saved')}>
+                Save the pairing
+              </button>
+            </div>
+          );
+        })}
+      </div>
+    </Section>
   );
 }
 

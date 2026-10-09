@@ -229,7 +229,7 @@ export default function Calibration() {
                 <div key={sp} className="card p-3">
                   <div className="mb-2 flex items-baseline justify-between gap-2">
                     <span className="font-semibold text-slate-100">{SPORT[sp] ?? sp}</span>
-                    <span className="text-[11px] text-mute">{n} matches · favourite right {pct(right)}</span>
+                    <span className="text-[11px] text-mute">{n} {n === 1 ? 'call' : 'calls'} · favourite right {pct(right)}</span>
                   </div>
                   <div className="space-y-2.5">
                     {rows.map((c) => (
@@ -255,8 +255,8 @@ export default function Calibration() {
               );
             })}
           </div>
-        ) : <div className="card p-4 text-sm text-mute">No pool’s picks scored yet. Each pick’em match with three picks or more counts once it’s final.</div>}
-        <p className="mt-2 px-1 text-[11px] text-mute">Each pick’em match is a forecast from its pool: the side most of them picked, and how many agreed. A wise crowd is right about as often as it agrees; the market bar is what the bookmakers gave the same side at kick-off, where the feed carried a line.</p>
+        ) : <div className="card p-4 text-sm text-mute">No pool’s picks scored yet. Each pick’em match, series and prop call with three picks or more counts once it’s over.</div>}
+        <p className="mt-2 px-1 text-[11px] text-mute">Each pick’em match, each series in Pick the series and each prop call is a forecast from its pool: the side most of them picked, and how many agreed. A wise crowd is right about as often as it agrees; the market bar is what the bookmakers gave the same side at kick-off, where the feed carried a line.</p>
       </Section>
 
       <Section title={`${brand.bot.name}’s picks`}>

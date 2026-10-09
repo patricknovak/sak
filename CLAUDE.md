@@ -53,17 +53,22 @@ Two things in one repo:
   standings, daily points, coin balances and money.
 - Edge functions in `supabase/functions`: `nhl-sync` (scores, box scores, lineup snapshots, schedule,
   injuries, game-day status, news, projections, auto-lineups; tasks via `?task=`), `nhl-hub` (NHL centre
-  data, cached in `hub_cache`; `?task=lines` works out each club's lines from the NHL's shift charts), `garry` (the league voice; the LLM is Grok via xAI, `XAI_API_KEY`),
+  data, cached in `hub_cache`; `?task=lines` works out each club's lines from the NHL's shift charts; `?task=espn` trims one game's ESPN summary into a box score for NFL centre), `garry` (the league voice; the LLM is Grok via xAI, `XAI_API_KEY`),
   `player-info`, `push`, `yahoo`, `join` (makes a newcomer's account from an invite link and seats them, or with `pool` in the body opens a prediction pool for someone new: `#/new`, migration 153, three a day per address and sixty a day in all), `soccer-sync` (soccer fixtures and results per competition's
   provider: ESPN's public scoreboard for testing, `espn`, migration 168, or API-Football with `API_FOOTBALL_KEY`;
-  `?task=fixtures|live`, platform key only; ESPN's other sports ride it too: the NFL by week, migration 171; ESPN's
+  `?task=fixtures|live`, platform key only; ESPN's other sports ride it too: the NFL by week, migration 171, each game's quarters with it, and `soccer_ingest` ends by
+  settling the prop sheets and squares on its games, migrations 216 and 217; ESPN's
   pre-match lines ride along as `fixtures.detail.odds`, chances only, frozen at kick-off, migration 178; a competition
   with `format` 'series' is a postseason: the NFL's playoffs come in as best-of-1 series through `sport_ingest`, migration
-  187), `mlb-sync` (baseball's postseason from MLB's
+  187; March Madness as 63 single-game series in bracket order, day by day in March only, migration 201; the NBA playoffs as
+  fifteen best-of-7 series, seeds from ESPN's standings, mid-April to late June only, migration 220), `mlb-sync` (baseball's postseason from MLB's
   public Stats API into `series`, `fixtures` and `fixture_periods` through `sport_ingest`, and the Stanley Cup playoffs from
-  the NHL's bracket for competitions with provider 'nhl-api', migration 191; platform key only; for testing, a
+  the NHL's bracket for competitions with provider 'nhl-api', migration 191, with each recent game's score by period from its
+  gamecenter landing, `nhlPeriods`, migration 215; platform key only; for testing, a
   licensed feed replaces it, docs/POOL-TYPES.md §8; `sport_ingest` ends by drawing and paying any grid of squares on the
-  event, `_squares_tick`, migration 167). Shared code in `supabase/functions/_shared`.
+  event, `_squares_tick`, migration 167; a platform admin fixes a game the feed got wrong from the Platform page,
+  `platform_game_fix`, and the feed leaves it alone until handed back, migration 206; the hourly pool job, pool-drops, opens
+  a pool's automatic prop sheets, `_props_auto`, migration 223). Shared code in `supabase/functions/_shared`.
 - Scheduler: pg_cron jobs call the edge functions through pg_net with the anon key. Job names: nhl-scores
   (gated by `_scores_due()`), nhl-gameday, nhl-injuries, nhl-schedule, season-schedule, nhl-news,
   nhl-players, nhl-players-pregame, nhl-standings, nhl-corrections, nhl-corrections-deep, projections,
@@ -92,12 +97,15 @@ Two things in one repo:
   (`pool_scoreboard()`, migration 169): a new kind of game adds a branch to `_pool_rows()` and gets the table, movement,
   climb alerts and the main-game crown (`league_rules.crown`) with it. Weekly pick'em (migration 170) is the first kind on
   `fixtures`: any competition whose matches come in rounds; last one standing runs on the same competitions in the
-  sport's words (migration 173, `pool_game_start('survivor', ...)`), and `#/centre/<competition>` is their centre
+  sport's words (migration 173, `pool_game_start('survivor', ...)`); it and Call the score are `pool_games` kinds ('survivor',
+  'score', migrations 203 and 204), read through the `pool_survivors` / `pool_predictors` views and their pick views, and `#/centre/<competition>` is their centre
   (`src/pages/RoundCentre.tsx`: NFL centre, Match centre); a pool's own result on a match (the host's, in
   `pool_result_overrides`, read through `_pool_fixture`) settles every game on it (migration 177); the bracket
-  (migration 185) is a kind on `series`, its tree read from each round's order (`_bracket_tree`); the start page and the host's desk list events through
+  (migration 185) is a kind on `series`, its tree read from each round's order (`_bracket_tree`); the prop sheet (migration 208)
+  is a kind on one postseason game, eight calls settled from the score and the score by period (`_props_tick`, run by `sport_ingest`); the daily streak (migration 231) is a kind on any event's games, one winner a day, the longest run of right picks winning (`_streak_table`, read from `_pool_fixture`); the sweepstake (migration 236) deals an event's clubs from the hat (`rules.deal`, `_sweep_tick`); the start page and the host's desk list events through
   `pool_event_list()` (`pool_events()` stays for older copies of the site). The box pool (migration 188) is the first kind on nhl-sync's own `games` and
-  `player_games` (competition `nhl-2026`, format 'players'): one player a box, its boxes kept in the game's rules. Decided (3 October 2026): both move to **Cloudflare** (free for commercial
+  `player_games` (competition `nhl-2026`, format 'players'): one player a box, its boxes kept in the game's rules; on an NHL series competition
+  it runs all through the playoffs (migration 202, `_box_team_games`). Decided (3 October 2026): both move to **Cloudflare** (free for commercial
   use, DNS already on Cloudflare, wildcard subdomains for league by host); never plan new work on Vercel. Built as
   Workers serving static assets (`wrangler.jsonc`, `landing/wrangler.jsonc`; Pages can't take a wildcard), deployed by
   `.github/workflows/cloudflare.yml` (the secrets are set; SaK's address there is `sak.superpoolsai.com`). The
@@ -225,7 +233,7 @@ wasn't applied); #75 was the hotfix.
 - Expand, then contract: add the new path beside the old, move the readers, prove the numbers match, retire the
   old path in a later change (the debt list is in `docs/DEVELOPMENT.md`).
 - The product learns: a new prediction or grade (projection, trade or draft grade, odds, a Garry pick, a pool's pick
-  split at kick-off, migration 174; a member's chance to win, 175) is written to the prediction log once it exists and scored when the result is in; a league's history lives in the
+  split at kick-off, migration 174, and on a streak's games too, 235, and on a series at its first game, 205, and on each prop call, 210; a member's chance to win, 175) is written to the prediction log once it exists and scored when the result is in; a league's history lives in the
   database, never in code. See `docs/DEVELOPMENT.md` section 4.
 - Flow-test sections end signed out (`reset role` and an empty `request.jwt.claim.sub`), so the next section
   doesn't run as another league's GM.

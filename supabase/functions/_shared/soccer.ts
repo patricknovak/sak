@@ -11,6 +11,8 @@ export interface NeutralFixture {
   // what the market expected before kick-off, when the provider carries it: each side's chance with the bookmaker's
   // margin taken out, the home side's spread (negative: favoured) and the total; never a bookmaker's name or link
   odds?: NeutralOdds | null;
+  // the score by period (football's quarters, soccer's halves) once it has started, from the scoreboard's linescores
+  periods?: { n: number; home: number | null; away: number | null }[];
 }
 export interface NeutralOdds { home: number; away: number; draw: number | null; line: number | null; total: number | null }
 
@@ -109,7 +111,15 @@ export function espnFixture(e: Any, ninety?: { home: number; away: number } | nu
     home_pens: num(home.shootoutScore), away_pens: num(away.shootoutScore),
     venue: v.fullName ? [v.fullName, v.address?.city].filter(Boolean).join(', ') : null,
     odds: e.status?.type?.state === 'pre' ? espnOdds(c) : null,
+    periods: started ? espnLines(home, away) : [],
   };
+}
+
+// each period's score from a scoreboard event's linescores (prop sheets and squares read it)
+function espnLines(home: Any, away: Any) {
+  const h: Any[] = home.linescores ?? [], a: Any[] = away.linescores ?? [];
+  return Array.from({ length: Math.max(h.length, a.length) }, (_, j) => ({ n: j + 1,
+    home: h[j] != null ? num(h[j]?.value ?? h[j]?.displayValue) : null, away: a[j] != null ? num(a[j]?.value ?? a[j]?.displayValue) : null }));
 }
 
 // an American price ('-125', '+105') as the chance it implies
@@ -138,7 +148,7 @@ export function espnOdds(c: Any): NeutralOdds | null {
 // left out by the caller), each round's AFC games before its NFC games so the two conference finals meet in the last;
 // a game keeps ESPN's id with a 'P' so the season's competition keeps its own copy for pick'em. All-star sides
 // ('AFC', 'NFC') and teams not yet named are skipped.
-const PLAYOFF_STATE: Record<string, string> = { FT: 'final', AET: 'final', PEN: 'final', AWD: 'final', NS: 'scheduled', PST: 'postponed', CANC: 'cancelled', ABD: 'cancelled' };
+export const PLAYOFF_STATE: Record<string, string> = { FT: 'final', AET: 'final', PEN: 'final', AWD: 'final', NS: 'scheduled', PST: 'postponed', CANC: 'cancelled', ABD: 'cancelled' };
 export function espnPlayoffPayload(rounds: { label?: string }[], pages: Any[]) {
   const clubs = new Map<string, NeutralClub>();
   const series: Any[] = [], fixtures: Any[] = [];
@@ -166,6 +176,80 @@ export function espnPlayoffPayload(rounds: { label?: string }[], pages: Any[]) {
     });
   });
   return { clubs: [...clubs.values()], series, fixtures };
+}
+
+// March Madness (migration 201, docs/DEVELOPMENT.md §6 item 7): the men's tournament as 63 single-game series, every slot
+// there from the start so the bracket can open before the first game. ESPN's scoreboard (by date, `groups=100`) names
+// each game's region and round in its note ("... - East Region - 1st Round") and each team's seed in
+// `curatedRank.current`. Within a region the first round goes in the bracket's seed order (1-16, 8-9, 5-12, 4-13, 6-11,
+// 3-14, 7-10, 2-15), so a team's seed says which slot it plays in every round to the Elite Eight. The regions go in Final
+// Four order: as the competition names them (`competitions.detail.regions`, set when the field is announced), else as
+// the Final Four games pair them once they're drawn, else alphabetically. The First Four are left out: a first-round
+// slot fills its last team once that game is played.
+const SEED_PAIRS = [[1, 16], [8, 9], [5, 12], [4, 13], [6, 11], [3, 14], [7, 10], [2, 15]];
+const TOURNEY_ROUNDS = ['', 'First Round', 'Second Round', 'Sweet 16', 'Elite Eight', 'Final Four', 'National Championship'];
+const tourneyRound = (h: string) => (/first four/i.test(h) ? 0 : /1st round/i.test(h) ? 1 : /2nd round/i.test(h) ? 2 : /sweet 16/i.test(h) ? 3
+  : /elite 8|elite eight/i.test(h) ? 4 : /final four/i.test(h) ? 5 : /championship/i.test(h) ? 6 : -1);
+const seedSlot = (seed: number) => SEED_PAIRS.findIndex((p) => p.includes(seed));
+export function espnTournamentPayload(season: string, pages: Any[], order?: string[] | null) {
+  const seen = new Map<string, Any>();
+  for (const page of pages) for (const e of page?.events ?? []) seen.set(String(e.id), e);
+  const games = [...seen.values()].map((e) => {
+    const c = e.competitions?.[0] ?? {};
+    const h = String(c.notes?.[0]?.headline ?? '');
+    return { e, h, round: tourneyRound(h), region: /- (\w+) Region -/.exec(h)?.[1] ?? null,
+      teams: (c.competitors ?? []).filter((x: Any) => x.team?.id && Number(x.team.id) > 0 && String(x.team.abbreviation ?? '') !== 'TBD')
+        .map((x: Any) => ({ id: String(x.team.id), seed: Number(x.curatedRank?.current) || null })) };
+  }).filter((g) => g.round >= 1).sort((a, b) => String(a.e.date).localeCompare(String(b.e.date)) || String(a.e.id).localeCompare(String(b.e.id)));
+  // each team's region and seed, from the rounds that name a region
+  const teamRegion = new Map<string, string>(), teamSeed = new Map<string, number>();
+  for (const g of games) for (const t of g.teams) { if (g.region) teamRegion.set(t.id, g.region); if (t.seed) teamSeed.set(t.id, t.seed); }
+  const named = [...new Set(games.map((g) => g.region).filter(Boolean) as string[])];
+  // the order the competition gives stands as given (all four slots exist before a region's first game is listed)
+  let regions = order && order.length === 4 ? [...order] : [];
+  if (regions.length !== 4) {
+    // the Final Four pairs them once its games are drawn
+    const ff = games.filter((g) => g.round === 5).map((g) => g.teams.map((t: Any) => teamRegion.get(t.id)).filter(Boolean) as string[]);
+    const paired = ff.flat();
+    regions = paired.length === 4 && new Set(paired).size === 4 ? paired : [...named].sort();
+  }
+  const ri = (r: string | null | undefined) => (r ? regions.indexOf(r) : -1);
+  const clubs = new Map<string, NeutralClub>();
+  const series = new Map<string, Any>();
+  const key = (round: number, region: number, pos: number) => `${season}:R${round}:${round <= 4 ? regions[region] : 'N'}:${pos}`;
+  // every slot, the later rounds still to be decided
+  for (let round = 1; round <= 6; round++) {
+    const per = round <= 4 ? 8 >> (round - 1) : 1;
+    const groups = round <= 4 ? 4 : round === 5 ? 2 : 1;
+    for (let r = 0; r < groups; r++) for (let p = 0; p < per; p++) {
+      const pos = round <= 4 ? p : r;
+      const region = round <= 4 ? regions[r] : null;
+      series.set(key(round, r, pos), { ext_id: key(round, r, pos), round, label: TOURNEY_ROUNDS[round],
+        short: round === 1 ? `${region} ${SEED_PAIRS[p][0]}v${SEED_PAIRS[p][1]}` : round <= 4 ? region : round === 5 ? 'Final Four' : 'Final',
+        best_of: 1, high: null, low: null, starts_at: null, tbd: true, sort: round <= 4 ? r * per + p + 1 : pos + 1 });
+    }
+  }
+  const fixtures: Any[] = [];
+  for (const g of games) {
+    const t0 = g.teams[0];
+    if (!t0) continue;
+    const r = ri(teamRegion.get(t0.id) ?? g.region);
+    const s0 = teamSeed.get(t0.id) ?? 0;
+    const slot = g.round <= 4 ? (seedSlot(s0) >> (g.round - 1)) : g.round === 5 ? r >> 1 : 0;
+    if ((g.round <= 5 && r < 0) || slot < 0) continue;
+    const k = key(g.round, g.round <= 4 ? r : g.round === 5 ? slot : 0, slot);
+    const sr = series.get(k);
+    if (!sr) continue;
+    const fx = espnFixture(g.e, null, { week: null, label: null, clock: false });
+    // the top of the bracket first: the better seed in a region, the earlier region in the Final Four
+    const place = (id: string) => (g.round <= 4 ? (teamSeed.get(id) ?? 99) : ri(teamRegion.get(id)) * 100 + seedSlot(teamSeed.get(id) ?? 0));
+    const ids = g.teams.map((t: Any) => t.id).sort((a: string, b: string) => place(a) - place(b));
+    sr.high = ids[0] ?? null; sr.low = ids[1] ?? null; sr.tbd = ids.length < 2; sr.starts_at = fx.kickoff;
+    for (const [id, club] of [[fx.home, fx.home_club], [fx.away, fx.away_club]] as const) if (g.teams.some((t: Any) => t.id === id)) clubs.set(id, club);
+    if (ids.length === 2) fixtures.push({ ext_id: `M${g.e.id}`, series: k, game_no: 1, kickoff: fx.kickoff, state: PLAYOFF_STATE[fx.status] ?? 'live', status: fx.status,
+      home: fx.home, away: fx.away, home_score: fx.home_score, away_score: fx.away_score, venue: fx.venue });
+  }
+  return { clubs: [...clubs.values()], series: [...series.values()], fixtures, regions };
 }
 
 // the score after ninety minutes from a match summary's periods (the first two)

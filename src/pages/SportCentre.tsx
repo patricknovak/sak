@@ -23,7 +23,7 @@ interface Series { id: number; round: number; label: string; short: string | nul
 interface Period { fixture_id: number; n: number; home: number | null; away: number | null }
 interface Competition { id: string; name: string; sport: string; tz: string }
 
-const NAMES: Record<string, string> = { mlb: 'MLB centre', nfl: 'NFL playoffs' };
+const NAMES: Record<string, string> = { mlb: 'MLB centre', nfl: 'NFL playoffs', ncaab: 'March Madness', nba: 'NBA playoffs', nhl: 'Stanley Cup playoffs' };
 const dayKey = (iso: string, tz: string) => new Date(iso).toLocaleDateString('en-CA', { timeZone: tz });
 const dayLabel = (d: string) => new Date(d + 'T12:00:00Z').toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric', timeZone: 'UTC' });
 const time = (iso: string) => new Date(iso).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
@@ -81,11 +81,22 @@ function Outs({ n }: { n: number }) {
   return <span className="inline-flex gap-0.5" aria-label={`${n} out`}>{[0, 1, 2].map((i) => <span key={i} className={`h-1.5 w-1.5 rounded-full ${i < n ? 'bg-amber-300' : 'bg-white/15'}`} />)}</span>;
 }
 
-function GameCard({ f, clubs, periods, series, pick, baseball }: { f: Fixture; clubs: Map<number, Club>; periods: Period[]; series?: Series; pick?: { winner: number; games: number } | null; baseball: boolean }) {
+// each sport's regulation periods for the line score (innings, quarters, periods, halves); past them it's overtime
+const REGS: Record<string, number> = { mlb: 9, nfl: 4, nba: 4, nhl: 3, ncaab: 2 };
+// a round's heading from its first series, without the league or conference it's in ("NL Division Series" ->
+// "Division Series", "East Semifinals" -> "Conference Semifinals")
+const roundName = (label = '') => {
+  const m = /^(AL|NL|AFC|NFC|East|West|Eastern|Western) (.*)$/.exec(label);
+  if (!m) return label;
+  return /^(East|West)$/.test(m[1]) && /^(Semifinals|Finals)$/.test(m[2]) ? `Conference ${m[2]}` : m[2];
+};
+
+function GameCard({ f, clubs, periods, series, pick, baseball, sheet, regs = 9 }: { f: Fixture; clubs: Map<number, Club>; periods: Period[]; series?: Series; pick?: { winner: number; games: number } | null; baseball: boolean; sheet?: { id: number; open: boolean }; regs?: number }) {
   const home = clubs.get(f.home_club), away = clubs.get(f.away_club);
   const d = f.detail ?? {};
   const live = f.state === 'live', done = f.state === 'final';
-  const innings = Math.max(9, ...periods.map((p) => p.n));
+  const innings = Math.max(regs, ...periods.map((p) => p.n));
+  const head = (n: number) => (baseball || n <= regs ? String(n) : n === regs + 1 ? 'OT' : `${n - regs}OT`);
   const row = (c: Club | undefined, side: 'home' | 'away') => {
     const runs = side === 'home' ? f.home_score : f.away_score, other = side === 'home' ? f.away_score : f.home_score;
     const won = done && runs != null && other != null && runs > other;
@@ -113,14 +124,14 @@ function GameCard({ f, clubs, periods, series, pick, baseball }: { f: Fixture; c
       {periods.length > 0 && (
         <div className="scroll-x border-t border-white/[.06] px-2 py-2">
           <table className="num w-full text-center text-[11px]">
-            <thead><tr className="text-mute"><th className="w-12 px-1 text-left font-semibold" />{Array.from({ length: innings }, (_, i) => <th key={i} className="px-1 font-semibold">{i + 1}</th>)}<th className="border-l border-white/10 px-1.5 font-black text-white">R</th><th className="px-1.5">H</th><th className="px-1.5">E</th></tr></thead>
+            <thead><tr className="text-mute"><th className="w-12 px-1 text-left font-semibold" />{Array.from({ length: innings }, (_, i) => <th key={i} className="px-1 font-semibold">{head(i + 1)}</th>)}<th className="border-l border-white/10 px-1.5 font-black text-white">{baseball ? 'R' : 'T'}</th>{baseball && <><th className="px-1.5">H</th><th className="px-1.5">E</th></>}</tr></thead>
             <tbody>
               {(['away', 'home'] as const).map((side) => (
                 <tr key={side} className="text-slate-200">
                   <td className="px-1 text-left font-bold text-white">{(side === 'home' ? home : away)?.short}</td>
                   {Array.from({ length: innings }, (_, i) => { const p = periods.find((x) => x.n === i + 1); const v = p?.[side]; return <td key={i} className={`px-1 ${v ? 'font-black text-white' : 'text-slate-400'}`}>{v ?? (p ? 'x' : '')}</td>; })}
                   <td className="border-l border-white/10 px-1.5 font-black text-white">{side === 'home' ? f.home_score : f.away_score}</td>
-                  <td className="px-1.5">{d.hits?.[side] ?? ''}</td><td className="px-1.5">{d.errors?.[side] ?? ''}</td>
+                  {baseball && <><td className="px-1.5">{d.hits?.[side] ?? ''}</td><td className="px-1.5">{d.errors?.[side] ?? ''}</td></>}
                 </tr>
               ))}
             </tbody>
@@ -130,6 +141,12 @@ function GameCard({ f, clubs, periods, series, pick, baseball }: { f: Fixture; c
       <div className="flex flex-wrap items-center justify-between gap-2 border-t border-white/[.06] px-3.5 py-2 text-[11px] text-mute">
         <span>{d.series_status ?? ''}</span>{f.venue && <span>{f.venue}</span>}
       </div>
+      {/* the pool's prop sheet on this game (migration 208) */}
+      {sheet && (
+        <Link to={`/picks?g=${sheet.id}`} className="flex items-center justify-between gap-2 border-t border-white/[.06] bg-gold/[.06] px-3.5 py-2 text-[12px] font-semibold text-white hover:bg-gold/[.1]">
+          <span>📋 The pool&apos;s prop sheet</span><span className="text-gold">{sheet.open ? 'Make your calls →' : 'See the calls →'}</span>
+        </Link>
+      )}
     </div>
   );
 }
@@ -160,8 +177,15 @@ function SeriesCard({ s, clubs, pick, split }: { s: Series; clubs: Map<number, C
 
 export default function SportCentre() {
   const { sport = 'mlb' } = useParams();
-  const { comp, clubs, series, fixtures, periods, live } = useEvent(sport);
+  const { comp, clubs, series, fixtures: everyGame, periods, live } = useEvent(sport);
+  // a series over before its "if needed" games: MLB keeps them on the schedule, never to be played, so they go
+  const over = useMemo(() => new Set(series.filter((s) => s.state === 'final').map((s) => s.id)), [series]);
+  const fixtures = useMemo(() => everyGame.filter((f) => !(f.state === 'scheduled' && f.series_id && over.has(f.series_id))), [everyGame, over]);
   const { board, gameId } = usePoolPicks(comp?.id);
+  // the pool's prop sheets on this event's games, by game
+  const { games: poolGames } = usePoolGames();
+  const sheets = new Map((poolGames ?? []).filter((g) => g.kind === 'props' && g.fixture && g.competition === comp?.id)
+    .map((g) => [g.fixture!, { id: g.id, open: g.status === 'open' && g.to_pick > 0 }]));
   const [tab, setTab] = useSticky<'scores' | 'bracket'>(`centre:${sport}:tab`, 'scores');
   const tz = comp?.tz ?? 'America/New_York';
   const days = useMemo(() => [...new Set(fixtures.map((f) => f.date ?? dayKey(f.kickoff, tz)))].sort(), [fixtures, tz]);
@@ -216,7 +240,8 @@ export default function SportCentre() {
           </div>
           {!games.length ? <div className="card p-4 text-sm text-mute">No games this day.</div> : (
             <div className="grid gap-3 md:grid-cols-2">
-              {games.map((f) => <GameCard key={f.id} baseball={sport === 'mlb'} f={f} clubs={clubs} periods={periods.get(f.id) ?? []} series={f.series_id ? seriesById.get(f.series_id) : undefined} pick={f.series_id ? picks.get(f.series_id) : null} />)}
+              {games.map((f) => <GameCard key={f.id} baseball={sport === 'mlb'} regs={REGS[sport] ?? 9} f={f} clubs={clubs} periods={periods.get(f.id) ?? []} series={f.series_id ? seriesById.get(f.series_id) : undefined} pick={f.series_id ? picks.get(f.series_id) : null}
+                sheet={sheets.get(f.id)} />)}
             </div>
           )}
         </>
@@ -228,7 +253,7 @@ export default function SportCentre() {
             const list = series.filter((s) => s.round === r).sort((a, b) => a.sort - b.sort || a.id - b.id);
             return (
               <div key={r}>
-                <div className="mb-2 flex items-center gap-2 px-1"><span className="text-[10px] font-black uppercase tracking-[.2em] text-mute">{list[0]?.label.replace(/^(AL|NL) /, '')}</span><span className="h-px flex-1 bg-white/[.06]" /></div>
+                <div className="mb-2 flex items-center gap-2 px-1"><span className="text-[10px] font-black uppercase tracking-[.2em] text-mute">{roundName(list[0]?.label)}</span><span className="h-px flex-1 bg-white/[.06]" /></div>
                 <div className="grid gap-2 sm:grid-cols-2">{list.map((s) => <SeriesCard key={s.id} s={s} clubs={clubs} pick={picks.get(s.id)} split={splits.get(s.id)} />)}</div>
               </div>
             );

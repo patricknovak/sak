@@ -178,7 +178,7 @@ give the pool a home for following the sport):**
   scoring presets with every knob in words, frozen at the first lock; `series` and `fixture_periods` beside
   `competitions`, `clubs` and `fixtures`. Kinds in order: series pick'em with the length, confidence by team, squares,
   then weekly pick'em and confidence, the bracket with a second chance, the player pool (draft and box). The survivor
-  and Call the score move onto it later (expand, then contract). A host settles anything the feed doesn't cover.
+  and Call the score moved onto it on 9 October 2026 (migrations 203 and 204; the old tables wait to be dropped). A host settles anything the feed doesn't cover.
   *Built (migration 165, live 5 October 2026): `series`, `fixture_periods`, `sport_ingest` (any adapter's one write),
   `pool_games` and `pool_picks`; Pick the series (winner and length, Classic 1-2-4-8 with 1-1-2-3, Flat, or MLB.com's both
   or nothing; a pick locks at its Game 1's first pitch; the tiebreaker is the final game's runs) and Rank the teams (the
@@ -228,7 +228,7 @@ give the pool a home for following the sport):**
   standing and Call the score onto the engine; the pick split in the prediction log; what you need to win; then the
   bracket and the player pool for the spring. *The box pool built 8 October 2026 (migration 188): one player from each
   box of evenly matched NHL players, goals, assists and goalie wins counting live, on the regular season from any night;
-  the playoffs' version comes in April. With its chance to win, goal alerts, points still to come and a morning line in
+  the playoffs' version is ready for April (migration 202, 9 October 2026). With its chance to win, goal alerts, points still to come and a morning line in
   the chat (migrations 189 to 196). The Stanley Cup playoffs' feed is ready for April (migration 191).* *Weekly pick'em built 8 October 2026 (migration 170): every match of a
   round, the winner or a draw, each pick locking at its own kick-off; Classic (a point a right pick) or Confidence (each
   round's picks numbered, a right one earns its number); on any competition whose matches come in rounds, so the
@@ -251,6 +251,25 @@ give the pool a home for following the sport):**
   to a last round where those still in share it; offered beside pick'em on the start page and the host's page.*
   *The host's desk built 8 October 2026 (migration 172): the rules until the first lock, a pick entered for a member who
   asked, and a pick'em match settled by hand for the pool alone with the reason shown, all on the commissioner's log.*
+  *9 October 2026 (migrations 200 to 212, PR #244):* squares by the quarter for football; March Madness on ESPN's feed;
+  the box pool's playoffs version; last one standing and Call the score moved onto `pool_games` (the contraction, old
+  tables kept until dropped with Patrick's yes); series picks and prop calls in the prediction log; a postseason game set
+  by hand from the Platform page when the feed stalls; standings by division and conference and box scores in NFL
+  centre; the prop sheet (eight auto-settled calls on one playoff game, for the LCS and the World Series); the
+  second-chance bracket; and the Eliminator (last one standing on March Madness and the NFL's playoffs).*
+  *Later the same day (migrations 213 to 219):* fixes from two independent reviews; hockey's score by period from the NHL,
+  so Stanley Cup grids pay by the period and sheets run on it; prop sheets and squares on any NFL game of the week, not
+  only the playoffs; prop sheets that score live as the game decides each call, with a chance to win once locked; and
+  NFL centre linking each game's sheet and grid.*
+  *Then (migrations 219 to 228):* the NBA playoffs on ESPN's feed (fifteen series in bracket order, seeds from the
+  standings), with squares by the quarter and prop sheets in basketball's words; prop sheets on every game of an event by
+  themselves (a host's switch, or ticked when a pool starts) and every sheet added up on the scoreboard; the bracket with
+  series length (a bonus for calling the games); the Platform page's view of every pool's games; and fixes from two more
+  independent reviews.*
+  *And (migrations 229 to 238):* share cards for every kind of pick; a nudge for a host whose pool follows an event with
+  no game on it; the daily streak (one winner a day from any event's games, the longest run of right picks wins, its
+  splits in the prediction log); the sweepstake (an event's clubs dealt from the hat, whoever holds the champion wins);
+  and fixes from three more independent reviews.*
 
 Then the list below, which is the fantasy-league plan of record.
 

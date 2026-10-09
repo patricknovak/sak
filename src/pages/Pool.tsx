@@ -13,12 +13,13 @@ import { CallsFeed, closesIn, Coins, MarketCard, PriceChart, TradeSheet } from '
 import { Empty, PageHeader, Section, TeamBadge, useAction } from '../components/ui';
 import { useEffect } from 'react';
 import { appLink } from '../lib/host';
-import { shareCard, type CardBrand } from '../lib/shareCard';
+import { shareCard } from '../lib/shareCard';
 import { SurvivorCard, SurvivorStart, useSurvivor } from './Survivor';
 import { AskSheet } from '../components/AskSheet';
 import { PoolHowTo } from '../components/PoolHowTo';
 import { PredictorCard, PredictorStart, usePredictor } from './Predictor';
-import { Share2, UserPlus } from 'lucide-react';
+import { UserPlus } from 'lucide-react';
+import { ShareButton, useCardBrand } from '../components/ShareButton';
 import { InvitePeople } from '../components/InvitePeople';
 import { HostGames, PoolGameCards, usePoolGames } from './Picks';
 import { kindOf, usePoolScoreboard } from '../lib/poolScoreboard';
@@ -476,24 +477,6 @@ function HostPredictor() {
   const { board, reload } = usePredictor();
   if (board === undefined || (board && board.status === 'open')) return null;
   return <PredictorStart onStarted={reload} />;
-}
-
-// the pool's look for a share card
-function useCardBrand(): CardBrand {
-  const brand = useBrand();
-  const { league } = useLeague();
-  return { wordmark: brand.wordmark, color: brand.colors?.gold ?? '#f7c548', coin: brand.coin, pool: league?.name ?? brand.short };
-}
-
-// a share button: draws the card on the phone, then the share sheet (or a saved picture where the phone can't share one)
-function ShareButton({ label, make, className = 'btn-ghost' }: { label: string; make: () => Promise<unknown>; className?: string }) {
-  const [busy, setBusy] = useState(false);
-  return (
-    <button type="button" className={`${className} inline-flex items-center justify-center gap-2`} disabled={busy}
-      onClick={() => { setBusy(true); make().catch(() => {}).finally(() => setBusy(false)); }}>
-      <Share2 className="h-4 w-4" /> {busy ? 'Drawing it…' : label}
-    </button>
-  );
 }
 
 // ───────────── the host's desk ─────────────
