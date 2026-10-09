@@ -102,7 +102,7 @@ Two things in one repo:
   (`src/pages/RoundCentre.tsx`: NFL centre, Match centre); a pool's own result on a match (the host's, in
   `pool_result_overrides`, read through `_pool_fixture`) settles every game on it (migration 177); the bracket
   (migration 185) is a kind on `series`, its tree read from each round's order (`_bracket_tree`); the prop sheet (migration 208)
-  is a kind on one postseason game, eight calls settled from the score and the score by period (`_props_tick`, run by `sport_ingest`); the start page and the host's desk list events through
+  is a kind on one postseason game, eight calls settled from the score and the score by period (`_props_tick`, run by `sport_ingest`); the daily streak (migration 231) is a kind on any event's games, one winner a day, the longest run of right picks winning (`_streak_table`, read from `_pool_fixture`); the start page and the host's desk list events through
   `pool_event_list()` (`pool_events()` stays for older copies of the site). The box pool (migration 188) is the first kind on nhl-sync's own `games` and
   `player_games` (competition `nhl-2026`, format 'players'): one player a box, its boxes kept in the game's rules; on an NHL series competition
   it runs all through the playoffs (migration 202, `_box_team_games`). Decided (3 October 2026): both move to **Cloudflare** (free for commercial

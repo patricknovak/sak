@@ -2,7 +2,7 @@
 // how long it takes, and the scoring presets. The start page and the Host page read the same list.
 
 // 'survivor' is last one standing (its own tables, migration 157): the start page and the host offer it like the rest
-export type GameKind = 'series' | 'rank' | 'squares' | 'pickem' | 'survivor' | 'bracket' | 'players' | 'props';
+export type GameKind = 'series' | 'rank' | 'squares' | 'pickem' | 'survivor' | 'bracket' | 'players' | 'props' | 'streak';
 export type PickemPreset = 'classic' | 'confidence';
 export type SeriesPreset = 'classic' | 'flat' | 'exact';
 
@@ -86,6 +86,11 @@ export const KINDS: Record<GameKind, { title: string; badge: string; line: strin
     title: 'The prop sheet', badge: 'One game', emoji: '📋',
     line: 'Eight calls on one game: who wins, the total, the margin, who leads early and at the halfway mark, and more. A point each, settled from the score, no host needed.',
     time: 'One minute, once',
+  },
+  streak: {
+    title: 'The daily streak', badge: 'Every day', emoji: '🔥',
+    line: 'Pick one winner a day from that day’s games. A right pick adds one to your run, a wrong one starts it again, and a day off breaks nothing. The longest run wins.',
+    time: 'Ten seconds a day',
   },
   survivor: {
     title: 'Last one standing', badge: 'Lose once, out', emoji: '🛡️',

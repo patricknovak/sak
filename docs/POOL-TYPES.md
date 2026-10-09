@@ -431,7 +431,13 @@ and soccer share it.
    Squares on an NBA series pay by the quarter, every game (migration 221), and each game takes a prop sheet in
    basketball's words (migration 222: the total over or under the market's line or 220.5, margins of 1 to 5, 6 to 10 and
    11 or more, 1st-quarter points over or under 54.5, overtime, a side held under 100).
-7. Later: win totals, best ball, the daily streak, the sweepstake for the 2027 Women's World Cup.
+7. Later: win totals, best ball, the daily streak, the sweepstake for the 2027 Women's World Cup. *The daily streak built 9
+   October 2026 (migrations 231 and 232):* a `pool_games` kind ('streak') on any event with games still to come, a
+   postseason or a season of rounds: one winner a day from that day's games (`pool_picks` 'd:<the game's Eastern date>'),
+   a right pick adds one to the run, a wrong one starts it again, a day off or a game called off breaks nothing; the
+   longest run wins, the run going now breaks a tie (`_streak_table`, worked out on read from `_pool_fixture`, so the
+   host's result counts). A day's pick moves to any of its games still to come until the picked one starts; everyone's
+   side shows once a game starts; a reminder before each day's first game; the host picks for a member who asked.
 
 ## 10. Sources
 

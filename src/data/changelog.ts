@@ -6,6 +6,8 @@
 export interface Change { date: string; icon: string; title: string; body: string; to?: string; tag?: 'formats' | 'commish' | 'draft' | 'everyone' }
 
 export const CHANGELOG: Change[] = [
+  { date: '2026-10-09', icon: '🔥', tag: 'everyone', title: 'The daily streak', to: '/pools',
+    body: 'A new pool game on any event with games: pick one winner a day from that day\'s games. A right pick adds one to your run, a wrong one starts it again, and a day off breaks nothing. The longest run wins, you hear before each day\'s first game, and your run shares to the group chat as a picture.' },
   { date: '2026-10-09', icon: '📤', tag: 'everyone', title: 'Share your picks as a picture', to: '/pools',
     body: 'Once a week\'s picks, a prop sheet, a bracket or a series call locks, or a grid\'s digits are drawn, share it to the group chat as a picture: every call you made (your champion first on a bracket), ticked or crossed as the games decide them, and your score. Drawn on your phone in the pool\'s colours.' },
   { date: '2026-10-09', icon: '🏆', tag: 'everyone', title: 'Call the games in your bracket', to: '/pools',
