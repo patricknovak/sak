@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
-import { ArrowDown, ArrowUp, Check, ChevronDown, ClipboardList, Flame, Grid3x3, ListChecks, Lock, ListOrdered, Minus, Plus, Swords, Trophy, Users } from 'lucide-react';
+import { ArrowDown, ArrowUp, Check, ChevronDown, ClipboardList, Flame, Grid3x3, Shuffle, ListChecks, Lock, ListOrdered, Minus, Plus, Swords, Trophy, Users } from 'lucide-react';
 import { useLeague, useNow } from '../lib/store';
 import { rpc, supabase } from '../lib/supabase';
 import { Empty, PageHeader, Section, TeamBadge, Toggle, useAction } from '../components/ui';
@@ -14,6 +14,7 @@ import { BracketGame, type BracketData } from '../components/Bracket';
 import { BoxPoolGame, type BoxData } from '../components/BoxPool';
 import { PropSheetGame, type PropsData } from '../components/PropSheet';
 import { StreakGameView, type StreakData } from '../components/Streak';
+import { SweepGame, type SweepData } from '../components/Sweep';
 import { useSurvivor } from './Survivor';
 
 // The pool's games (migration 165, docs/POOL-TYPES.md): Pick the series (each series' winner and how many games it
@@ -34,7 +35,7 @@ interface Series {
 interface RankClub extends Club { alive: boolean; in_field: boolean; wins: number; left: number }
 interface TableRow { team_id: number; points: number; possible: number; right: number; exact: number; picked: number; tiebreak: number | null }
 export interface GameBoard {
-  id: number; kind: 'series' | 'rank' | 'squares' | 'pickem' | 'bracket' | 'players' | 'props' | 'streak'; title: string; status: 'open' | 'done'; winners: number[] | null; competition: string; competition_name: string; me: number;
+  id: number; kind: 'series' | 'rank' | 'squares' | 'pickem' | 'bracket' | 'players' | 'props' | 'streak' | 'sweep'; title: string; status: 'open' | 'done'; winners: number[] | null; competition: string; competition_name: string; me: number;
   rules: { preset?: string; from_round: number; points?: Record<string, number>; length?: Record<string, number>; exact_only?: boolean };
   rounds: { round: number; label: string; best_of: number }[]; table: TableRow[];
   series?: Series[]; tiebreak?: { locks_at: string | null; locked: boolean; mine: number | null; label: string };
@@ -47,8 +48,9 @@ export interface GameBoard {
   players?: BoxData;
   props?: PropsData;
   streak?: StreakData;
+  sweep?: SweepData;
 }
-export interface PoolGame { id: number; kind: 'series' | 'rank' | 'squares' | 'pickem' | 'bracket' | 'players' | 'props' | 'streak'; series?: number | null; fixture?: number | null; from_round?: number | null; locked?: boolean; title: string; status: 'open' | 'done'; competition: string; to_pick: number; next_lock: string | null }
+export interface PoolGame { id: number; kind: 'series' | 'rank' | 'squares' | 'pickem' | 'bracket' | 'players' | 'props' | 'streak' | 'sweep'; series?: number | null; fixture?: number | null; from_round?: number | null; locked?: boolean; title: string; status: 'open' | 'done'; competition: string; to_pick: number; next_lock: string | null }
 
 export function usePoolGames() {
   const { me, league } = useLeague();
@@ -79,7 +81,7 @@ export const wordsOf = (b: { words?: Words }) => {
   return { ...w, guess: w.cap >= 300 ? 140 : w.score === 'points' ? 45 : w.score === 'goals' ? 6 : 8 };
 };
 
-const ICON = { series: Swords, rank: ListOrdered, squares: Grid3x3, pickem: ListChecks, bracket: Trophy, players: Users, props: ClipboardList, streak: Flame } as const;
+const ICON = { series: Swords, rank: ListOrdered, squares: Grid3x3, pickem: ListChecks, bracket: Trophy, players: Users, props: ClipboardList, streak: Flame, sweep: Shuffle } as const;
 
 // a series' wins as dots: the number it takes to win, filled as they come
 function WinDots({ wins, need, color }: { wins: number; need: number; color: string }) {
@@ -351,6 +353,11 @@ function GameRules({ board }: { board: GameBoard }) {
     lines.push(pk.draws ? 'The result after ninety minutes and stoppage time counts: extra time and penalties don’t.' : 'A tie counts for nobody: no one picked it.');
     lines.push('Join any time: you play every match still to kick off. A match called off counts for nobody.');
     lines.push('The most points wins. A tie on points shares it.');
+  } else if (board.sweep) {
+    lines.push(`At the first game of the ${board.sweep.round_label ?? 'round'}, every player in the pool is dealt clubs from the hat at random, an equal share each. The host can draw it sooner.`);
+    lines.push('Clubs left over once the shares are equal stay in the hat, held by nobody; where the pool is bigger than the field, players share a club.');
+    lines.push('Nothing to pick. Whoever holds the champion wins it; a shared champion shares the win.');
+    lines.push('Until then the table ranks players by how far their best club has gone.');
   } else if (board.streak) {
     lines.push(`Each day there are games, pick the winner of one of them${board.streak.draws ? ', or a draw' : ''}. One pick a day.`);
     lines.push('A right pick adds one to your run; a wrong one starts it again at nothing. A day you skip breaks nothing, and nor does a game called off' + (board.streak.draws ? '.' : ' or a tie.'));
@@ -399,7 +406,7 @@ function GameRules({ board }: { board: GameBoard }) {
   lines.push('Everyone’s picks stay hidden until they lock; the pool’s split shows after.');
   lines.push(`The host can enter a pick for you if you ask (you’ll hear about it)${pk ? ', and settle a match the feed gets wrong, with the reason shown on the match' : ''}.`);
   lines.push('Points only: nothing is bought, sold or paid.');
-  const frozen = board.status === 'done' || !!board.streak || (pk ? pk.round > pk.from_round || pk.fixtures.some((f) => f.locked && f.picked > 0) : board.bracket ? board.bracket.locked : board.players ? board.players.locked : rk ? rk.locked : !!board.series?.some((s) => s.locked));
+  const frozen = board.status === 'done' || !!board.streak || !!board.sweep || (pk ? pk.round > pk.from_round || pk.fixtures.some((f) => f.locked && f.picked > 0) : board.bracket ? board.bracket.locked : board.players ? board.players.locked : rk ? rk.locked : !!board.series?.some((s) => s.locked));
   return (
     <div className="card overflow-hidden">
       <button type="button" onClick={() => setOpen(!open)} className="flex w-full items-center justify-between gap-3 px-4 py-3 text-left">
@@ -432,14 +439,14 @@ function GameTable({ board }: { board: GameBoard }) {
               <div className="min-w-0 flex-1">
                 <div className="break-words font-semibold text-white">{t?.gm_name ?? t?.name}</div>
                 <div className="text-[11px] text-mute">{board.kind === 'squares' ? `${r.picked} ${r.picked === 1 ? 'square' : 'squares'} · ${r.right} ${r.right === 1 ? 'hit' : 'hits'}`
-                  : `${board.kind === 'series' ? (singles(board) ? `${r.right} right · ${r.picked} picked` : `${r.right} right · ${r.exact} with the length · ${r.picked} picked`) : board.kind === 'pickem' ? `${r.right} right · ${r.picked} picked` : board.kind === 'bracket' ? (r.picked ? `${r.right} right` : 'No bracket yet') : board.kind === 'props' ? (r.picked ? `${r.right} right` : 'No sheet yet') : board.kind === 'streak' ? (r.picked ? `${r.exact} now · ${r.right} right from ${r.picked}` : 'Nothing picked yet') : r.picked ? 'Ranked' : 'Not ranked yet'}${r.possible != null && board.kind !== 'streak' ? ` · up to ${r.possible}` : ''}`}</div>
+                  : `${board.kind === 'series' ? (singles(board) ? `${r.right} right · ${r.picked} picked` : `${r.right} right · ${r.exact} with the length · ${r.picked} picked`) : board.kind === 'pickem' ? `${r.right} right · ${r.picked} picked` : board.kind === 'bracket' ? (r.picked ? `${r.right} right` : 'No bracket yet') : board.kind === 'props' ? (r.picked ? `${r.right} right` : 'No sheet yet') : board.kind === 'streak' ? (r.picked ? `${r.exact} now · ${r.right} right from ${r.picked}` : 'Nothing picked yet') : board.kind === 'sweep' ? (r.picked ? `${r.right} of ${r.picked} still in` : 'In the hat') : r.picked ? 'Ranked' : 'Not ranked yet'}${r.possible != null && board.kind !== 'streak' && board.kind !== 'sweep' ? ` · up to ${r.possible}` : ''}`}</div>
               </div>
               <span className="num shrink-0 text-xl font-black text-white">{r.points}</span>
             </div>
           );
         })}
       </div>
-      <p className="mt-2 px-1 text-xs text-mute">{board.kind === 'squares' ? 'Coins each player’s squares have taken.' : board.kind === 'streak' ? 'Each player’s longest run of right picks; the run going now breaks a tie.' : `Up to: the most each player can still finish with${board.kind === 'pickem' ? ', every match still to come picked right' : ''}. ${board.kind === 'series' ? 'A tie goes to the closest tiebreaker.' : ''}`}</p>
+      <p className="mt-2 px-1 text-xs text-mute">{board.kind === 'squares' ? 'Coins each player’s squares have taken.' : board.kind === 'streak' ? 'Each player’s longest run of right picks; the run going now breaks a tie.' : board.kind === 'sweep' ? 'Rounds won by each player’s best club from the hat. The champion’s holder wins it.' : `Up to: the most each player can still finish with${board.kind === 'pickem' ? ', every match still to come picked right' : ''}. ${board.kind === 'series' ? 'A tie goes to the closest tiebreaker.' : ''}`}</p>
     </Section>
   );
 }
@@ -518,6 +525,7 @@ export default function Picks() {
     : board.players ? `One player from each of ${board.players.boxes.length} boxes · goals and assists`
     : board.props ? `${board.props.questions.length} calls on the game · a point each`
     : board.streak ? 'One winner a day · the longest run of right picks wins'
+    : board.sweep ? 'Clubs dealt from the hat · hold the champion and win'
     : board.bracket ? `Every winner to the final · ${[...new Map(board.bracket.series.map((x) => [x.round, x.points])).values()].join('-')} points by round`
     : 'Every win pays its club’s rank';
 
@@ -534,7 +542,7 @@ export default function Picks() {
       )}
       {board.status === 'done' ? (
         <div className="card-hero p-5 text-center"><div className="relative"><div className="text-5xl">🏆</div><div className="h-display text-shine mt-2 text-3xl">{winners.join(' and ') || 'Nobody'}</div><div className="mt-1 text-sm text-white/70">{sq ? `took the most coins in ${board.title}` : `won ${board.title}`}</div></div></div>
-      ) : mine && !sq && board.kind !== 'streak' && (
+      ) : mine && !sq && board.kind !== 'streak' && board.kind !== 'sweep' && (
         <div className="grid grid-cols-3 gap-2">
           {[['Rank', ordinal(rank + 1), `of ${board.table.length}`], ['Points', String(mine.points), board.kind === 'series' || board.kind === 'pickem' || board.kind === 'props' ? `${mine.right} right` : board.kind === 'players' ? `${mine.right} G · ${mine.exact} A` : 'so far'], board.kind === 'players' ? ['Picked by', String(board.players?.picked ?? 0), 'in the pool'] : ['Up to', String(mine.possible), 'still possible']].map(([k, v, s]) => (
             <div key={k} className="rounded-2xl border border-white/10 bg-white/[.04] p-3">
@@ -556,6 +564,7 @@ export default function Picks() {
         : board.kind === 'bracket' && board.bracket ? <BracketGame key={`${board.id}-${actAs?.team ?? 'me'}`} gameId={board.id} data={board.bracket} words={wordsOf(board)} status={board.status} reload={load} actAs={actAs ?? undefined} />
         : board.kind === 'props' && board.props ? <PropSheetGame key={`${board.id}-${actAs?.team ?? 'me'}`} gameId={board.id} data={board.props} status={board.status} reload={load} actAs={actAs ?? undefined}
             scoreWord={wordsOf(board).score} cap={wordsOf(board).cap} />
+        : board.kind === 'sweep' && board.sweep ? <SweepGame gameId={board.id} data={board.sweep} status={board.status} reload={load} />
         : board.kind === 'streak' && board.streak ? <StreakGameView key={`${board.id}-${actAs?.team ?? 'me'}`} gameId={board.id} data={board.streak} status={board.status} reload={load} actAs={actAs ?? undefined} />
         : board.kind === 'players' && board.players ? <BoxPoolGame key={`${board.id}-${actAs?.team ?? 'me'}`} gameId={board.id} data={board.players} status={board.status} reload={load} actAs={actAs ?? undefined} />
         : board.kind === 'series' ? <SeriesGame key={`${board.id}-${actAs?.team ?? 'me'}`} board={board} reload={load} name={name} actAs={actAs ?? undefined} />
@@ -683,7 +692,7 @@ export function HostGames() {
               <span className="grid h-11 w-11 shrink-0 place-items-center rounded-2xl bg-gold/15 text-xl">{KINDS[k].emoji}</span>
               <div className="min-w-0 flex-1">
                 <div className="font-semibold text-white">{second(e, k) ? 'Second-chance bracket' : KINDS[k].title} <span className="text-mute">· {e.name}</span></div>
-                <div className="text-xs text-mute">{KINDS[k].line} {k === 'streak' ? 'It starts with the next game and runs as long as the event does.' : k === 'players' ? (e.open_round ? `All through the playoffs, to the Cup; first puck drop ${lockText(e.next_lock)}.` : `From ${e.open_label}, four weeks; first puck drop ${lockText(e.next_lock)}.`) : <>From {k === 'pickem' || k === 'survivor' ? e.open_label : `the ${e.open_label}`}{k === 'survivor' ? ` to ${e.final_label}` : ''}, first lock {lockText(e.next_lock)}.</>}</div>
+                <div className="text-xs text-mute">{KINDS[k].line} {k === 'sweep' ? `The hat is drawn at the first game of the ${e.open_label}, ${lockText(e.next_lock)}.` : k === 'streak' ? 'It starts with the next game and runs as long as the event does.' : k === 'players' ? (e.open_round ? `All through the playoffs, to the Cup; first puck drop ${lockText(e.next_lock)}.` : `From ${e.open_label}, four weeks; first puck drop ${lockText(e.next_lock)}.`) : <>From {k === 'pickem' || k === 'survivor' ? e.open_label : `the ${e.open_label}`}{k === 'survivor' ? ` to ${e.final_label}` : ''}, first lock {lockText(e.next_lock)}.</>}</div>
               </div>
             </div>
             {k === 'pickem' && (

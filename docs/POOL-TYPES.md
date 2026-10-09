@@ -443,6 +443,11 @@ and soccer share it.
    offered and a pick on one counts for nothing, a tie where the sport has no draws counts for nothing, a picked game put
    off frees its day, a pick follows its game to the day it is on now, and the host settles a game for a streak-only pool. *In the prediction log (migration 235):* the pool's split on
    each game its members picked, written once it starts and scored by the pool's result, as pick'em's is.
+   *The sweepstake built 9 October 2026 (migration 236):* a `pool_games` kind ('sweep') on any event played in series, once
+   a round's matchups are all set and not started: at its first game (the hourly pool job, `_sweep_tick`) or sooner when the
+   host draws (`pool_sweep_draw`), every player in the pool is dealt clubs at random (an equal share each, the odd ones held
+   by nobody; shared where the pool is bigger than the field), kept in the game's rules (`rules.deal`). Whoever holds the
+   champion wins; the table ranks by the rounds a player's best club has won. The series settler leaves it alone.
 
 ## 10. Sources
 

@@ -4,7 +4,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { rpc } from './supabase';
 
-export type BoardKind = 'questions' | 'series' | 'rank' | 'squares' | 'pickem' | 'survivor' | 'score' | 'bracket' | 'players' | 'props' | 'props_all' | 'streak';
+export type BoardKind = 'questions' | 'series' | 'rank' | 'squares' | 'pickem' | 'survivor' | 'score' | 'bracket' | 'players' | 'props' | 'props_all' | 'streak' | 'sweep';
 export interface BoardRow { team_id: number; rank: number; score: number; possible: number | null; alive: boolean | null; line: string | null; move: number | null }
 export interface BoardMine { rank: number; score: number; possible: number | null; alive: boolean | null; line: string | null; move: number | null; behind: number }
 export interface BoardGame { key: string; kind: BoardKind; title: string; status: 'open' | 'done'; link: string; members: number; crown: boolean; mine: BoardMine | null; rows: BoardRow[] }
@@ -22,6 +22,7 @@ export const BOARD_KIND: Record<BoardKind, { icon: string; unit: (n: number) => 
   // every sheet on an event added up (migration 226)
   props_all: { icon: '📋', unit: (n) => (n === 1 ? 'call' : 'calls'), blurb: 'Calls right across every prop sheet on the event; the most sheets won breaks a tie.' },
   players: { icon: '🏒', unit: (n) => (n === 1 ? 'pt' : 'pts'), blurb: 'Goals, assists and goalie wins from one player in each box.' },
+  sweep: { icon: '🎩', unit: (n) => (n === 1 ? 'round' : 'rounds'), blurb: 'How far your best club from the hat has gone; the champion\'s holder wins.' },
   streak: { icon: '🔥', unit: (n) => (n === 1 ? 'in a row' : 'in a row'), blurb: 'The longest run of right picks, one a day; the run going now breaks a tie.' },
   survivor: { icon: '🛡️', unit: (n) => (n === 1 ? 'week' : 'weeks'), blurb: 'Still in first, then the matchweeks survived.' },
   score: { icon: '🎯', unit: (n) => (n === 1 ? 'pt' : 'pts'), blurb: 'Points for every result and exact score called.' },
