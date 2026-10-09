@@ -5,7 +5,7 @@ import { useLeague, useNow } from '../lib/store';
 import { rpc } from '../lib/supabase';
 import { Empty, PageHeader, Section, TeamBadge, useAction } from '../components/ui';
 import { Crest } from '../components/Crest';
-import { KINDS, PICKEM_PRESETS, PRESETS, SIZES, SQUARES_DEFAULT, START_WORD, gridLabel, paysFor, sheetLabel, type PickemPreset, type PoolEvent, type SeriesPreset, type SheetGame, type SquaresRules } from '../lib/poolGames';
+import { KINDS, PICKEM_PRESETS, PRESETS, SIZES, SQUARES_DEFAULT, START_WORD, gridLabel, paysFor, type PickemPreset, type PoolEvent, type SeriesPreset, type SheetGame, type SquaresRules } from '../lib/poolGames';
 import { SquaresGame, type SquaresData } from '../components/Squares';
 import { PickemGame, type PickemData } from '../components/Pickem';
 import { BracketGame, type BracketData } from '../components/Bracket';
@@ -684,20 +684,30 @@ export function HostGames() {
   );
 }
 
-// which game a prop sheet goes on: the postseason's games still to start this week, soonest first
+// which game a prop sheet goes on: the games still to start this week, soonest first, under their week or series, two
+// to a row so a full NFL Sunday fits on a phone
+const SHORT_TIME = new Intl.DateTimeFormat(undefined, { weekday: 'short', hour: 'numeric', minute: '2-digit' });
 export function SheetPicker({ games, on, setOn, dark }: { games: SheetGame[]; on: number; setOn: (id: number) => void; dark?: boolean }) {
+  const groups = [...new Set(games.map((g) => g.label))];
   return (
-    <div className="grid gap-1.5">
-      {games.map((g) => {
-        const sel = g.id === on;
-        return (
-          <button key={g.id} type="button" onClick={() => setOn(g.id)}
-            className={`rounded-xl px-3 py-2 text-left ring-1 transition ${sel ? (dark ? 'bg-white text-[#0b1220] ring-white' : 'bg-gold/[.14] text-white ring-gold/70') : 'bg-white/[.04] text-slate-200 ring-white/10'}`}>
-            <span className="block text-sm font-semibold leading-snug">{sheetLabel(g)}</span>
-            <span className={`block text-[11px] ${sel && dark ? 'text-[#0b1220]/70' : 'text-mute'}`}>{lockText(g.kickoff)}</span>
-          </button>
-        );
-      })}
+    <div className="space-y-2.5">
+      {groups.map((label) => (
+        <div key={label}>
+          {groups.length > 1 || games.length > 2 ? <div className="mb-1 text-[10px] font-black uppercase tracking-[.14em] text-mute">{label}</div> : null}
+          <div className="grid grid-cols-2 gap-1.5">
+            {games.filter((g) => g.label === label).map((g) => {
+              const sel = g.id === on;
+              return (
+                <button key={g.id} type="button" onClick={() => setOn(g.id)}
+                  className={`rounded-xl px-2.5 py-2 text-left ring-1 transition ${sel ? (dark ? 'bg-white text-[#0b1220] ring-white' : 'bg-gold/[.14] text-white ring-gold/70') : 'bg-white/[.04] text-slate-200 ring-white/10'}`}>
+                  <span className="block text-[13px] font-bold leading-snug">{g.game_no ? `Game ${g.game_no} · ` : ''}{g.away} at {g.home}</span>
+                  <span className={`block text-[11px] ${sel && dark ? 'text-[#0b1220]/70' : 'text-mute'}`}>{SHORT_TIME.format(new Date(g.kickoff))}</span>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      ))}
     </div>
   );
 }
