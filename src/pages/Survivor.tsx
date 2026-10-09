@@ -12,7 +12,8 @@ import { chance, useMarket } from '../lib/market';
 // Last one standing (migrations 157 and 173): every round each player still in picks one side to win, never the same
 // one twice; a loss (or a draw, where the sport has them) and they're out, and a round with no pick is out too. The last
 // one in wins; whoever is still in when the last round is done shares it. Picks lock at their game's start and settle
-// themselves at the final whistle. The words are the sport's: soccer's matchweeks and clubs, the NFL's weeks and teams.
+// themselves at the final whistle. The words are the sport's: soccer's matchweeks and clubs, the NFL's weeks and teams, a
+// tournament's rounds (the Eliminator, migration 212).
 interface Club { id: number; name: string; short: string | null; logo: string | null }
 interface Fixture { id: number; kickoff: string; state: string; home: Club; away: Club; home_score: number | null; away_score: number | null }
 interface Pick { gameweek: number; club_id: number | null; short: string | null; name: string | null; logo: string | null; result: 'through' | 'out' | 'missed' | 'void' | null; locked: boolean }
@@ -108,7 +109,7 @@ export default function Survivor() {
   if (!board) return (
     <div className="space-y-5">
       <PageHeader icon={<Shield className="h-6 w-6 text-gold" />} title="Last one standing" sub="Pick a winner every round. Lose once and you're out." />
-      {me?.is_commish ? <SurvivorStart onStarted={reload} /> : <Empty icon="🛡️" title="Not started yet">The host starts it on a competition played in rounds: soccer&apos;s matchweeks or the NFL&apos;s weeks.</Empty>}
+      {me?.is_commish ? <SurvivorStart onStarted={reload} /> : <Empty icon="🛡️" title="Not started yet">The host starts it on a competition played in rounds: soccer&apos;s matchweeks, the NFL&apos;s weeks, or a tournament&apos;s rounds as the Eliminator.</Empty>}
     </div>
   );
   const { W, w, short, club, match, draws } = words(board);
