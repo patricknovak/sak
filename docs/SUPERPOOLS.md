@@ -261,6 +261,11 @@ give the pool a home for following the sport):**
   so Stanley Cup grids pay by the period and sheets run on it; prop sheets and squares on any NFL game of the week, not
   only the playoffs; prop sheets that score live as the game decides each call, with a chance to win once locked; and
   NFL centre linking each game's sheet and grid.*
+  *Then (migrations 219 to 228):* the NBA playoffs on ESPN's feed (fifteen series in bracket order, seeds from the
+  standings), with squares by the quarter and prop sheets in basketball's words; prop sheets on every game of an event by
+  themselves (a host's switch, or ticked when a pool starts) and every sheet added up on the scoreboard; the bracket with
+  series length (a bonus for calling the games); the Platform page's view of every pool's games; and fixes from two more
+  independent reviews.*
 
 Then the list below, which is the fantasy-league plan of record.
 
