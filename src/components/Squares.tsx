@@ -9,6 +9,8 @@ import { useLeague } from '../lib/store';
 import { rpc } from '../lib/supabase';
 import { useCoins } from '../lib/pool';
 import { useAction } from './ui';
+import { ShareButton, useCardBrand } from './ShareButton';
+import { shareCard } from '../lib/shareCard';
 import { Crest } from './Crest';
 import type { Team } from '../lib/types';
 
@@ -91,6 +93,23 @@ export function SquaresGame({ data, gameId, status, reload, name }: { data: Squa
     return m;
   }, [data.pays, data.digits, shown]);
   const leading = shownGame?.state === 'live' ? shownGame.now : null;
+  const cardBrand = useCardBrand();
+  // my squares as a picture once the digits are drawn: each one's numbers and what it has taken
+  const shareMine = () => {
+    const first = data.draw!.sets[0];
+    const cells = data.claims.filter((c) => c.team_id === me?.id).map((c) => c.cell);
+    const took = (cell: string) => data.pays.filter((p) => p.paid_cell === cell && p.coins > 0).reduce((s, p) => s + p.coins, 0);
+    const rows = cells.map((cell) => {
+      const [, r, c] = cell.split(':').map(Number);
+      const coins = took(cell);
+      return { q: `${topName} ${(edge(first.top, c, size) ?? []).join('/')} · ${sideName} ${(edge(first.side, r, size) ?? []).join('/')}`,
+        answer: coins > 0 ? `+${coins.toLocaleString()}` : '–', right: coins > 0 ? true : null };
+    }).sort((a, b) => Number(b.right) - Number(a.right));
+    const total = cells.reduce((s, cell) => s + took(cell), 0);
+    return shareCard({ kind: 'sheet', eyebrow: 'My squares', brand: cardBrand, who: '', title: top && side ? `${top.name} v ${side.name}` : data.series.label,
+      score: total > 0 ? `${total.toLocaleString()} ${cardBrand.coin.name.toLowerCase()} won` : `${cells.length} ${cells.length === 1 ? 'square' : 'squares'}`, rows },
+      total > 0 ? `My squares took ${total.toLocaleString()} ${cardBrand.coin.name.toLowerCase()}.` : 'My squares.');
+  };
 
   const picked = [...pick];
   const toClaim = picked.filter((c) => !owner.has(c));
@@ -332,6 +351,7 @@ export function SquaresGame({ data, gameId, status, reload, name }: { data: Squa
       )}
 
       {/* the draw, checkable */}
+      {data.draw && mine > 0 && <ShareButton className="btn-ghost w-full" label="Share my squares" make={shareMine} />}
       {data.draw ? (
         <div className="flex items-start gap-2.5 rounded-2xl border border-white/[.06] bg-white/[.02] p-3 text-[11px] leading-snug text-mute">
           <ShieldCheck className="mt-px h-4 w-4 shrink-0 text-emerald-300" />
