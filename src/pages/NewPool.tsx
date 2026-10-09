@@ -5,7 +5,7 @@ import { Check, Plus, Sparkles } from 'lucide-react';
 import { rpc, setRemember, supabase } from '../lib/supabase';
 import { openPool } from '../lib/host';
 import { useLeague } from '../lib/store';
-import { Spinner } from '../components/ui';
+import { Spinner, Toggle } from '../components/ui';
 import { themed } from '../components/LeagueIdentity';
 import { ProductMark } from './Start';
 import { type Pack, packName, packPlaceholder, packWhen } from '../lib/packs';
@@ -56,6 +56,8 @@ export default function NewPool() {
   const [grid, setGrid] = useState<Omit<SquaresRules, 'series'>>(SQUARES_DEFAULT);
   const [gridOn, setGridOn] = useState<number | null>(null);
   const [sheetOn, setSheetOn] = useState<number | null>(null);
+  // and a sheet on every game after it, by itself (migration 227)
+  const [everySheet, setEverySheet] = useState(true);
   const [color, setColor] = useState<string>(SWATCHES[0]);
   const [pool, setPool] = useState('');
   const [name, setName] = useState('');
@@ -108,7 +110,7 @@ export default function NewPool() {
   const offered: GameKind[] = event ? [...event.kinds.filter((k) => k in KINDS), ...(gridSeries ? ['squares' as const] : [])] : [];
   const gamesPayload = games.filter((k) => (k !== 'squares' || gridSeries) && (k !== 'props' || sheetGame)).map((k) => ({ kind: k, competition: event!.competition,
     rules: k === 'series' ? { preset } : k === 'pickem' ? { preset: pkPreset } : k === 'players' ? box : k === 'squares' ? { ...grid, ...gridRules(gridSeries!) }
-      : k === 'props' ? { fixture: sheetGame!.id } : {} }));
+      : k === 'props' ? { fixture: sheetGame!.id, ...(everySheet ? { auto: true } : {}) } : {} }));
   const startGames = async (id: number) => { if (gamesPayload.length) await rpc('pool_start_games', { p_league: id, p_games: gamesPayload }); };
   const okEmail = /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email.trim());
   const member = !!session && !!me;
@@ -268,7 +270,11 @@ export default function NewPool() {
             {event && sheetGame && kinds.includes('props') && (
               <Step n={3 + Number(kinds.includes('series') || kinds.includes('pickem')) + Number(kinds.includes('players')) + Number(kinds.includes('squares') && !!gridSeries)} title="The game">
                 <SheetPicker dark games={event.sheets ?? []} on={sheetGame.id} setOn={setSheetOn} />
-                <p className="mt-2 rounded-xl bg-white/[.05] px-3 py-2 text-xs leading-snug text-white/70">{sheetLabel(sheetGame)}: eight calls on the game, a point each, settled from the score. Everyone's sheet locks at the start; add a sheet for the next game from the Host page.</p>
+                <p className="mt-2 rounded-xl bg-white/[.05] px-3 py-2 text-xs leading-snug text-white/70">{sheetLabel(sheetGame)}: eight calls on the game, a point each, settled from the score. Everyone's sheet locks at the start.</p>
+                <div className="mt-2 flex items-center justify-between gap-3 rounded-xl bg-white/[.05] px-3 py-1">
+                  <span className="text-[13px] font-semibold text-white">A sheet on every game after it<span className="block text-[11px] font-normal text-white/60">Each opens by itself a day and a half before the game</span></span>
+                  <Toggle on={everySheet} onChange={setEverySheet} />
+                </div>
               </Step>
             )}
 

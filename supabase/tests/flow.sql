@@ -5570,6 +5570,22 @@ set role authenticated;
 select pool_auto_sheets_set('nfl', false);
 reset role;
 select pg_temp.expect('off is off', not exists (select 1 from pool_auto_sheets where league_id = :lib));
+-- from the start page (migration 227): a new pool's first sheet can turn on a sheet for every game too
+select set_config('request.jwt.claim.sub', '', false);
+select soccer_ingest('nfl', jsonb_build_object('fixtures', jsonb_build_array(
+  jsonb_build_object('ext_id', 'nfl-217', 'gameweek', 15, 'kickoff', now() + interval '2 days', 'status', 'NS', 'home', 'nf2', 'away', 'nf1'))));
+select id as af3 from fixtures where provider = 'espn' and ext_id = 'nfl-217' \gset
+select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-000000000081', false);
+set role authenticated;
+select pool_start_games(:lib, jsonb_build_array(jsonb_build_object('kind', 'props', 'competition', 'nfl', 'rules', jsonb_build_object('fixture', :af3, 'auto', true))));
+reset role;
+select pg_temp.expect('the chosen game has its sheet and every game will', exists (select 1 from pool_games where league_id = :lib and kind = 'props'
+    and (rules->>'fixture')::bigint = :af3 and not rules ? 'auto')
+  and exists (select 1 from pool_auto_sheets where league_id = :lib and competition = 'nfl'));
+set role authenticated;
+select pool_auto_sheets_set('nfl', false);
+reset role;
+select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-000000000081', false);
 select pg_temp.expect('every NFL sheet added up on the scoreboard (migration 226): Hana''s seven, and the Week 11 sheet she won',
   exists (select 1 from _pool_rows() r where r.game = 'props:nfl' and r.kind = 'props_all' and r.team_id = :hana and r.score >= 7
           and r.tiebreak = -1 and r.line like '%right on 1 sheet, 1 won' and r.title = 'Every prop sheet · ' || (select name from competitions where id = 'nfl')));
