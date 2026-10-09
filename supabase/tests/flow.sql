@@ -5714,6 +5714,28 @@ select pg_temp.expect('a reminder before the day''s first game, once',
   (select count(*) = 1 from notifications where team_id = :hana and body like '🔥 The day''s first game starts in%')
   and _pool_game_nudge(:lib) = 0);
 update fixtures set state = 'cancelled' where ext_id in ('nfl-305', 'nfl-306');
+-- the streak ends with its event (migration 233): a one-game event, Hana's pick right, the pool job crowns her
+insert into competitions (id, sport, name, short, season, provider, ext_id, ext_season, active)
+values ('st-end', 'mlb', 'Streak test', 'ST', '2026', 'mlb-statsapi', 'ste', '2026', true) on conflict (id) do nothing;
+insert into fixtures (sport, competition, provider, ext_id, season, gameweek, kickoff, date, home_club, away_club, state)
+select 'mlb', 'st-end', 'mlb-statsapi', 'ste-1', '2026', 1, now() + interval '2 days', (now() + interval '2 days')::date, home_club, away_club, 'scheduled'
+from fixtures where id = :st1;
+select id as se1 from fixtures where ext_id = 'ste-1' \gset
+select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-000000000081', false);
+set role authenticated;
+select pool_game_start('streak', 'st-end') as seg \gset
+select pool_game_pick(:seg, 'streak', jsonb_build_object('fixture', :se1, 'pick', 'A'));
+reset role;
+select set_config('request.jwt.claim.sub', '', false);
+select pg_temp.expect('a streak stays open while its event has a game to come', _streak_close(:lib) = 0);
+update fixtures set state = 'final', kickoff = now() - interval '3 hours', home_score = 2, away_score = 5 where id = :se1;
+select _streak_close(:lib) as sc1 \gset
+select _streak_close(:lib) as sc2 \gset
+select pg_temp.expect('and ends with it: Hana''s run of 1 wins, and the pool hears, once',
+  :sc1 = 1 and :sc2 = 0
+  and (select status = 'done' and winners = array[:hana] from pool_games where id = :seg)
+  and exists (select 1 from messages where league_id = :lib and body like '🔥 The daily streak is over: % won it with a run of 1.'));
+update competitions set active = false where id = 'st-end';
 select set_config('app.league_id', '', false);
 select 'daily streak', true;
 

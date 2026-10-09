@@ -437,7 +437,9 @@ and soccer share it.
    a right pick adds one to the run, a wrong one starts it again, a day off or a game called off breaks nothing; the
    longest run wins, the run going now breaks a tie (`_streak_table`, worked out on read from `_pool_fixture`, so the
    host's result counts). A day's pick moves to any of its games still to come until the picked one starts; everyone's
-   side shows once a game starts; a reminder before each day's first game; the host picks for a member who asked.
+   side shows once a game starts; a reminder before each day's first game; the host picks for a member who asked. It ends
+   with its event (migration 233, `_streak_close` in the hourly pool job): no game still to come and every series decided,
+   the longest run crowned and the pool told.
 
 ## 10. Sources
 

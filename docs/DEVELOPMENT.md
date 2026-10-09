@@ -355,7 +355,7 @@ series length (migration 228):* a bonus for calling each series' games, `rules.g
 game's sheet reads plainly, an NFL week no longer defaults to a sheet on every game, and the games bonus shows only on
 best-of-7 sports. *A nudge for the host (migration 230):* a pool that follows an event through its question pack but runs
 no game on it hears, once a round, when the next round's matchups are set and it starts within two days (the hourly
-pool job, `_pool_host_nudge`). *The daily streak (migrations 231 and 232):* a kind ('streak') on any event with games, one
+pool job, `_pool_host_nudge`). *The daily streak (migrations 231 to 233):* a kind ('streak') on any event with games, one
 winner a day, the longest run of right picks wins (docs/POOL-TYPES.md §9 item 7).
 
 Alongside: the World Series test (the LCS from 11 October, the World Series from 23 October) needs its games started
