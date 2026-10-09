@@ -251,6 +251,12 @@ give the pool a home for following the sport):**
   to a last round where those still in share it; offered beside pick'em on the start page and the host's page.*
   *The host's desk built 8 October 2026 (migration 172): the rules until the first lock, a pick entered for a member who
   asked, and a pick'em match settled by hand for the pool alone with the reason shown, all on the commissioner's log.*
+  *9 October 2026 (migrations 200 to 212, PR #244):* squares by the quarter for football; March Madness on ESPN's feed;
+  the box pool's playoffs version; last one standing and Call the score moved onto `pool_games` (the contraction, old
+  tables kept until dropped with Patrick's yes); series picks and prop calls in the prediction log; a postseason game set
+  by hand from the Platform page when the feed stalls; standings by division and conference and box scores in NFL
+  centre; the prop sheet (eight auto-settled calls on one playoff game, for the LCS and the World Series); the
+  second-chance bracket; and the Eliminator (last one standing on March Madness and the NFL's playoffs).*
 
 Then the list below, which is the fantasy-league plan of record.
 
