@@ -10,7 +10,7 @@ import { themed } from '../components/LeagueIdentity';
 import { ProductMark } from './Start';
 import { type Pack, packName, packPlaceholder, packWhen } from '../lib/packs';
 import { KINDS, PICKEM_PRESETS, PRESETS, SQUARES_DEFAULT, eventGrids, gridFor, gridLabel, gridRules, presetExample, sheetLabel, type GameKind, type PickemPreset, type PoolEvent, type SeriesPreset, type SquaresRules } from '../lib/poolGames';
-import { SheetPicker, SquaresKnobs, lockText } from './Picks';
+import { SINGLE_GAMES, SheetPicker, SquaresKnobs, lockText } from './Picks';
 
 // "Start a pool" (#/new), open to anyone, in steps (docs/POOL-TYPES.md §4): what are you following (a sports event open
 // now, a show's question pack, or anything else), what kind of pool (for a sport: pick the series, rank the teams, the
@@ -110,7 +110,9 @@ export default function NewPool() {
   const offered: GameKind[] = event ? [...event.kinds.filter((k) => k in KINDS), ...(gridSeries ? ['squares' as const] : [])] : [];
   const gamesPayload = games.filter((k) => (k !== 'squares' || gridSeries) && (k !== 'props' || sheetGame)).map((k) => ({ kind: k, competition: event!.competition,
     rules: k === 'series' ? { preset } : k === 'pickem' ? { preset: pkPreset } : k === 'players' ? box : k === 'squares' ? { ...grid, ...gridRules(gridSeries!) }
-      : k === 'props' ? { fixture: sheetGame!.id, ...(everySheet ? { auto: true } : {}) } : {} }));
+      : k === 'props' ? { fixture: sheetGame!.id, ...(everySheet ? { auto: true } : {}) }
+      // a bracket on best-of-7s takes a point for calling the games too (migration 228)
+      : k === 'bracket' && !SINGLE_GAMES.includes(event!.sport) ? { games_bonus: 1 } : {} }));
   const startGames = async (id: number) => { if (gamesPayload.length) await rpc('pool_start_games', { p_league: id, p_games: gamesPayload }); };
   const okEmail = /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email.trim());
   const member = !!session && !!me;

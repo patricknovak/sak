@@ -6,6 +6,8 @@
 export interface Change { date: string; icon: string; title: string; body: string; to?: string; tag?: 'formats' | 'commish' | 'draft' | 'everyone' }
 
 export const CHANGELOG: Change[] = [
+  { date: '2026-10-09', icon: '🏆', tag: 'everyone', title: 'Call the games in your bracket', to: '/pools',
+    body: 'Brackets on best-of-seven playoffs can now take a bonus for calling how long each series goes: pick the winner, then tap 4, 5, 6 or 7. A series that goes exactly that long is worth a point more. Ready for the Stanley Cup and the NBA playoffs.' },
   { date: '2026-10-09', icon: '📋', tag: 'everyone', title: 'Every prop sheet, added up', to: '/leaders',
     body: 'Play a sheet on every game and the Table keeps a running total: the calls you got right across all of them, with the sheets you won breaking a tie, so a whole World Series of sheets has a winner.' },
   { date: '2026-10-09', icon: '📋', tag: 'commish', title: 'A prop sheet on every game, by itself', to: '/host',

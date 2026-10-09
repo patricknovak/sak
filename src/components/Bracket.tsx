@@ -17,6 +17,8 @@ export interface BSeries {
 }
 export interface BracketData {
   locks_at: string | null; locked: boolean; series: BSeries[]; mine: Record<string, number> | null; picked: number;
+  // how many games each series goes, where the host added a bonus for calling it (migration 228)
+  lengths?: Record<string, number> | null; games_bonus?: number;
   champions: { team_id: number; club: number }[] | null;
   tiebreak: { locks_at: string | null; locked: boolean; mine: number | null; label: string | null };
 }
@@ -33,6 +35,10 @@ export function BracketGame({ gameId, data, status, reload, actAs, words }: {
   const saved = actAs ? {} : data.mine ?? {};
   const [draft, setDraft] = useState<Record<string, number> | null>(null);
   const picks = draft ?? saved;
+  const bonus = data.games_bonus ?? 0;
+  const savedLens = actAs ? {} : data.lengths ?? {};
+  const [lensDraft, setLensDraft] = useState<Record<string, number> | null>(null);
+  const lens = lensDraft ?? savedLens;
   const [runs, setRuns] = useState<number | null>(null);
   const open = status === 'open' && !data.locked;
   const byId = useMemo(() => new Map(data.series.map((s) => [s.id, s])), [data.series]);
@@ -62,13 +68,14 @@ export function BracketGame({ gameId, data, status, reload, actAs, words }: {
   const done = data.series.filter((s) => picks[String(s.id)]).length;
   const final = data.series.find((s) => s.next == null);
   const champ = final ? clubs.get(picks[String(final.id)] ?? -1) : undefined;
-  const dirty = draft != null && JSON.stringify(draft) !== JSON.stringify(saved);
+  const dirty = (draft != null && JSON.stringify(draft) !== JSON.stringify(saved)) || (lensDraft != null && JSON.stringify(lensDraft) !== JSON.stringify(savedLens));
   const out = new Set<number>();
   data.series.forEach((s) => { if (s.state === 'final' && s.winner) { const l = s.winner === s.high?.id ? s.low?.id : s.high?.id; if (l) out.add(l); } });
   const save = () => run(async () => {
-    if (actAs) await rpc('pool_host_pick', { p_game: gameId, p_team: actAs.team, p_pick: { thing: 'bracket', pick: { winners: picks } } });
-    else await rpc('pool_game_pick', { p_game: gameId, p_thing: 'bracket', p_pick: { winners: picks } });
-    setDraft(null); reload();
+    const pick = { winners: picks, ...(bonus ? { lengths: lens } : {}) };
+    if (actAs) await rpc('pool_host_pick', { p_game: gameId, p_team: actAs.team, p_pick: { thing: 'bracket', pick } });
+    else await rpc('pool_game_pick', { p_game: gameId, p_thing: 'bracket', p_pick: pick });
+    setDraft(null); setLensDraft(null); reload();
   }, actAs ? `${actAs.name}'s bracket is in` : 'Your bracket is in');
   const tbv = runs ?? data.tiebreak.mine ?? words.guess;
 
@@ -88,7 +95,7 @@ export function BracketGame({ gameId, data, status, reload, actAs, words }: {
       {rounds.map((r) => {
         const list = data.series.filter((s) => s.round === r).sort((a, b) => a.pos - b.pos);
         return (
-          <Section key={r} title={list[0]?.label ?? `Round ${r}`} right={<span className="text-xs text-mute">{list[0]?.points} {list[0]?.points === 1 ? 'pt' : 'pts'} each</span>}>
+          <Section key={r} title={list[0]?.label ?? `Round ${r}`} right={<span className="text-xs text-mute">{list[0]?.points} {list[0]?.points === 1 ? 'pt' : 'pts'} each{bonus && (list[0]?.best_of ?? 1) > 1 ? ` · +${bonus} for the games` : ''}</span>}>
             <div className="grid gap-2 sm:grid-cols-2">
               {list.map((s) => {
                 const opts = options(s);
@@ -116,6 +123,25 @@ export function BracketGame({ gameId, data, status, reload, actAs, words }: {
                         );
                       })}
                     </div>
+                    {/* how many games: the fewest the series can take to the most, a bonus when it goes exactly that long */}
+                    {bonus > 0 && s.best_of > 1 && mine && (() => {
+                      const need = Math.floor(s.best_of / 2) + 1, len = lens[String(s.id)];
+                      const went = decided ? s.high_wins + s.low_wins : null;
+                      return (
+                        <div className="mt-1.5 flex items-center gap-1.5 px-1">
+                          <span className="text-[11px] text-mute">In</span>
+                          {Array.from({ length: s.best_of - need + 1 }, (_, i) => need + i).map((n) => {
+                            const on = len === n, hit = on && went === n && s.winner === mine;
+                            return (
+                              <button key={n} type="button" disabled={!open || busy} onClick={() => setLensDraft({ ...lens, [String(s.id)]: n })}
+                                className={`num h-7 min-w-7 rounded-lg px-1.5 text-[12px] font-bold ring-1 transition disabled:cursor-default
+                                  ${hit ? 'bg-emerald-400/20 text-emerald-100 ring-emerald-400/50' : on && went != null ? 'bg-red-500/10 text-red-200/80 ring-red-400/30' : on ? 'bg-gold/15 text-white ring-gold' : 'bg-white/[.03] text-slate-300 ring-white/10'}`}>{n}</button>
+                            );
+                          })}
+                          {went != null && <span className="ml-auto text-[11px] text-mute">went {went}</span>}
+                        </div>
+                      );
+                    })()}
                   </div>
                 );
               })}

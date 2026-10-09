@@ -416,7 +416,11 @@ and soccer share it.
    Rank the teams run on it the day the NHL draws its bracket; the box pool runs on the regular season (migrations 188
    to 196, with goal alerts and a morning line), and its playoffs version on the first round's clubs, dealt on each club's
    expected playoff games, is ready too (migration 202, 9 October 2026). A pool with a game on the playoffs gets the
-   bracket centre (`#/sport/nhl`, "Stanley Cup playoffs") in its menu beside NHL centre.
+   bracket centre (`#/sport/nhl`, "Stanley Cup playoffs") in its menu beside NHL centre. *The bracket with series length
+   (migration 228):* the host can add a bonus for calling how many games each series goes (`rules.games_bonus`, a point
+   by default on a new pool's bracket on best-of-7s; a switch on the host's Add a game), scored when the winner is right
+   and the series went exactly that long; still possible while the other side hasn't won too many games for it. The
+   chance to win reads the winners alone.
 6. The NBA playoffs (April 2027) on the same engine, once its feed is settled. *The feed built 9 October 2026 (migration
    220):* `nba-post-2027` fills from ESPN's public scoreboard (`nbaPlayoffPayload`, `_shared/nbaPlayoffs.ts`): ESPN
    names each game's round, conference and number but no seeds, so they come from its standings; the better seed in a

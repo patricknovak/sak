@@ -4814,14 +4814,19 @@ select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-000000000081
 set role authenticated;
 select pg_temp.expect('the start page offers a bracket where the rounds make one', exists (select 1 from jsonb_array_elements(pool_event_list()) e
   where e->>'competition' = 'br-cup' and e->'kinds' ? 'bracket'));
-select pool_game_start('bracket', 'br-cup') as bg \gset
+-- with a point for calling the games too (migration 228)
+select pool_game_start('bracket', 'br-cup', '{"games_bonus": 1}') as bg \gset
 select pg_temp.expect('it is on, doubling by round', (select title = 'The bracket' and rules->'points' = '{"1": 1, "2": 2, "3": 4}'::jsonb from pool_games where id = :bg)
   and exists (select 1 from messages where league_id = :lib and body like '🏆 The bracket is open, from the Quarterfinal%'));
 select pg_temp.raises('every series needs a winner', format('select pool_game_pick(%s, %L, %L)', :bg, 'bracket',
   jsonb_build_object('winners', jsonb_build_object(:q1, :ak))), 'every series');
 select pg_temp.raises('a winner goes on only from below', format('select pool_game_pick(%s, %L, %L)', :bg, 'bracket',
   jsonb_build_object('winners', jsonb_build_object(:q1, :ak, :q2, :ca, :q3, :er, :q4, :ga, :s1, :er, :s2, :er, :f1, :er))), 'only from a series before it');
-select pool_game_pick(:bg, 'bracket', jsonb_build_object('winners', jsonb_build_object(:q1, :ak, :q2, :ca, :q3, :er, :q4, :ga, :s1, :ak, :s2, :er, :f1, :ak)));
+select pg_temp.raises('a best-of-7 goes 4 to 7', format('select pool_game_pick(%s, %L, %L)', :bg, 'bracket',
+  jsonb_build_object('winners', jsonb_build_object(:q1, :ak, :q2, :ca, :q3, :er, :q4, :ga, :s1, :ak, :s2, :er, :f1, :ak), 'lengths', jsonb_build_object(:q1, 3))), '4 to 7 games');
+-- Akron in five and Erie in seven
+select pool_game_pick(:bg, 'bracket', jsonb_build_object('winners', jsonb_build_object(:q1, :ak, :q2, :ca, :q3, :er, :q4, :ga, :s1, :ak, :s2, :er, :f1, :ak),
+  'lengths', jsonb_build_object(:q1, 5, :q3, 7)));
 select pool_game_pick(:bg, 'tiebreak', '{"runs": 8}');
 reset role;
 select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-000000000082', false);
@@ -4843,11 +4848,11 @@ set role authenticated;
 select pg_temp.raises('locked at the first game', format('select pool_game_pick(%s, %L, %L)', :bg, 'bracket',
   jsonb_build_object('winners', jsonb_build_object(:q1, :ak, :q2, :ca, :q3, :er, :q4, :ga, :s1, :ak, :s2, :er, :f1, :ak))), 'locked');
 reset role;
-select pg_temp.expect('three right and eleven still possible for Hana; one and seven for Fern; nothing for Lou, who never filled one in',
-  (select points = 3 and possible = 11 and right_calls = 3 and picked = 1 from _pool_game_table(:bg) where team_id = :hana)
+select pg_temp.expect('three right and Akron in five, twelve still possible for Hana; one and seven for Fern; nothing for Lou, who never filled one in',
+  (select points = 4 and possible = 12 and right_calls = 3 and exact = 1 and picked = 1 from _pool_game_table(:bg) where team_id = :hana)
   and (select points = 1 and possible = 7 from _pool_game_table(:bg) where team_id = :fern)
   and (select points = 0 and possible = 0 and picked = 0 from _pool_game_table(:bg) where team_id = :lou));
-select pg_temp.expect('the pool''s table reads it', (select line = '3 right' from _pool_rows() where game = 'game:' || :bg and team_id = :hana)
+select pg_temp.expect('the pool''s table reads it', (select line = '3 right' and score = 4 from _pool_rows() where game = 'game:' || :bg and team_id = :hana)
   and (select line = 'No bracket yet' from _pool_rows() where game = 'game:' || :bg and team_id = :lou));
 select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-000000000086', false);
 set role authenticated;
