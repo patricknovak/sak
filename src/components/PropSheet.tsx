@@ -8,6 +8,8 @@ import { useLeague } from '../lib/store';
 import { rpc } from '../lib/supabase';
 import { Crest } from './Crest';
 import { Section, useAction } from './ui';
+import { ShareButton, useCardBrand } from './ShareButton';
+import { shareCard } from '../lib/shareCard';
 import type { Club } from '../pages/Picks';
 
 export interface PropQuestion { key: string; q: string; line?: number; options: { v: string; label: string }[] }
@@ -47,6 +49,17 @@ export function PropSheetGame({ gameId, data, status, reload, actAs, scoreWord =
     setDraft(null); setTotal(null); reload();
   }, actAs ? `${actAs.name}'s sheet is in` : 'Your sheet is in');
   const nameOf = (id: number) => teams.find((t) => t.id === id)?.gm_name ?? 'Someone';
+  const cardBrand = useCardBrand();
+  // my sheet as a picture for the group chat, once it has locked (before then it would hand out the calls)
+  const shareMine = () => {
+    const mine = saved?.answers ?? {};
+    const title = `${g.label ?? ''}${g.game_no ? ` Game ${g.game_no}` : ''}: ${g.away.short ?? g.away.name} at ${g.home.short ?? g.home.name}`;
+    return shareCard({ kind: 'sheet', brand: cardBrand, who: '', title,
+      score: final ? `${right} of ${data.questions.length}` : `${right} right so far`,
+      rows: data.questions.map((q) => ({ q: q.q, answer: q.options.find((o) => o.v === mine[q.key])?.label ?? '–',
+        right: data.answers?.[q.key] == null ? null : data.answers[q.key] === mine[q.key] })) },
+      final ? `I called ${right} of ${data.questions.length} on ${title}.` : `My sheet on ${title}.`);
+  };
 
   return (
     <div className="space-y-4">
@@ -147,6 +160,8 @@ export function PropSheetGame({ gameId, data, status, reload, actAs, scoreWord =
       {open && !dirty && !actAs && data.mine && (
         <p className="flex items-center justify-center gap-1.5 text-center text-xs text-mute"><Check className="h-3.5 w-3.5 text-emerald-300" /> Your sheet is in. Change any call until the start.</p>
       )}
+
+      {!open && saved && <ShareButton className="btn-ghost w-full" label="Share my sheet" make={shareMine} />}
 
       {/* everyone's sheets, once it starts */}
       {data.sheets && data.sheets.length > 0 && (

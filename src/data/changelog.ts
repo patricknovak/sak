@@ -6,6 +6,8 @@
 export interface Change { date: string; icon: string; title: string; body: string; to?: string; tag?: 'formats' | 'commish' | 'draft' | 'everyone' }
 
 export const CHANGELOG: Change[] = [
+  { date: '2026-10-09', icon: '📤', tag: 'everyone', title: 'Share your prop sheet', to: '/pools',
+    body: 'Once a prop sheet locks, share it to the group chat as a picture: every call you made, ticked or crossed as the game decides it, and your score. Drawn on your phone in the pool\'s colours.' },
   { date: '2026-10-09', icon: '🏆', tag: 'everyone', title: 'Call the games in your bracket', to: '/pools',
     body: 'Brackets on best-of-seven playoffs can now take a bonus for calling how long each series goes: pick the winner, then tap 4, 5, 6 or 7. A series that goes exactly that long is worth a point more. Ready for the Stanley Cup and the NBA playoffs.' },
   { date: '2026-10-09', icon: '📋', tag: 'everyone', title: 'Every prop sheet, added up', to: '/leaders',
