@@ -50,7 +50,7 @@ export interface GameBoard {
   streak?: StreakData;
   sweep?: SweepData;
 }
-export interface PoolGame { id: number; kind: 'series' | 'rank' | 'squares' | 'pickem' | 'bracket' | 'players' | 'props' | 'streak' | 'sweep'; series?: number | null; fixture?: number | null; from_round?: number | null; locked?: boolean; title: string; status: 'open' | 'done'; competition: string; to_pick: number; next_lock: string | null }
+export interface PoolGame { id: number; kind: 'series' | 'rank' | 'squares' | 'pickem' | 'bracket' | 'players' | 'props' | 'streak' | 'sweep'; series?: number | null; fixture?: number | null; from_round?: number | null; locked?: boolean; drawn?: boolean | null; title: string; status: 'open' | 'done'; competition: string; to_pick: number; next_lock: string | null }
 
 export function usePoolGames() {
   const { me, league } = useLeague();
@@ -473,7 +473,7 @@ export function PoolGameCards() {
             <span className="relative grid h-12 w-12 shrink-0 place-items-center rounded-2xl bg-gold/15"><Icon className="h-6 w-6 text-gold" /></span>
             <span className="relative min-w-0 flex-1">
               <span className="block font-semibold text-white">{g.title}</span>
-              <span className="block text-xs text-white/70">{g.status === 'done' ? 'Done: see who won' : g.next_lock ? `${g.kind === 'squares' ? 'Grid closes' : g.kind === 'sweep' ? 'The hat is drawn' : 'Next lock'} ${lockText(g.next_lock)}` : g.kind === 'squares' ? 'Digits drawn: follow the games' : g.kind === 'sweep' ? 'The hat is drawn: follow your clubs' : 'Picks open as each round is set'}</span>
+              <span className="block text-xs text-white/70">{g.status === 'done' ? 'Done: see who won' : g.next_lock ? `${g.kind === 'squares' ? 'Grid closes' : g.kind === 'sweep' ? 'The hat is drawn' : 'Next lock'} ${lockText(g.next_lock)}` : g.kind === 'squares' ? 'Digits drawn: follow the games' : g.kind === 'sweep' ? (g.drawn ? 'The hat is drawn: follow your clubs' : 'The hat is drawn at the first game') : 'Picks open as each round is set'}</span>
             </span>
             {g.status === 'open' && me?.role === 'gm' && g.kind !== 'sweep' && (g.to_pick > 0
               ? <span className="chip relative shrink-0 border-amber-400/40 text-amber-200">{g.kind === 'rank' ? 'To rank' : g.kind === 'squares' ? 'Claim a square' : `${g.to_pick} to pick`}</span>

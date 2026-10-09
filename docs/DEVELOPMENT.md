@@ -359,7 +359,7 @@ pool job, `_pool_host_nudge`). *The daily streak (migrations 231 to 233):* a kin
 winner a day, the longest run of right picks wins (docs/POOL-TYPES.md §9 item 7); a fifth review's fixes in 234 (games a series
 didn't need, ties, a game put off, a game moved; the host's event nudge kept per event); the streak's split in the prediction log (235); the sweepstake
 (236: the field dealt from the hat, whoever holds the champion wins); a sixth review's fixes in 237 (byes, unfiled rounds,
-the deal round the pool, the crown, the streak's quiet week).
+the deal round the pool, the crown, the streak's quiet week), and a seventh's in 238 (none severe).
 
 Alongside: the World Series test (the LCS from 11 October, the World Series from 23 October) needs its games started
 in the World Series pool (league 5, the questions only so far), and the Love Is Blind test needs players.

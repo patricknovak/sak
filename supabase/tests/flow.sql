@@ -5833,6 +5833,8 @@ select pool_game_start('sweep', 'sweep-test') as swg \gset
 select pg_temp.expect('nothing drawn yet', (select b->'drawn' = 'false' and (b->>'players')::int = 3 from (select pool_game_board(:swg)->'sweep' b) x));
 select pool_sweep_draw(:swg);
 select pg_temp.raises('the hat is drawn once', format('select pool_sweep_draw(%s)', :swg), 'already drawn');
+select pg_temp.raises('no rules to change on a sweepstake', format('select pool_game_set_rules(%s, ''{}'')', :swg), 'rules');
+select pg_temp.expect('the list says the hat is drawn', (select (g->>'drawn')::boolean from jsonb_array_elements(pool_games_list()) g where (g->>'id')::bigint = :swg));
 reset role;
 select pg_temp.expect('three players, the four clubs dealt round in turn (one holds two, none left in the hat), and each hears what they drew',
   (select count(*) = 3 and sum(jsonb_array_length(d.value)) = 4 and max(jsonb_array_length(d.value)) = 2 from pool_games g, jsonb_each(g.rules->'deal') d where g.id = :swg)
