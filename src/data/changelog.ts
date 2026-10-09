@@ -6,6 +6,16 @@
 export interface Change { date: string; icon: string; title: string; body: string; to?: string; tag?: 'formats' | 'commish' | 'draft' | 'everyone' }
 
 export const CHANGELOG: Change[] = [
+  { date: '2026-10-09', icon: '🏒', tag: 'everyone', title: 'Lineup, brighter', to: '/team',
+    body: 'Your Lineup page opens on a Tonight card: points tonight (or expected points before puck drop), the starting slots lit for everyone who plays, where you rank on the night and who of yours is on the ice with each opponent and score. Players with a game today glow green (red while live). In Daily lineups, Who plays when is now at the bottom.' },
+  { date: '2026-10-09', icon: '⚖️', tag: 'everyone', title: 'Sit or start', to: '/team',
+    body: 'A new tool on the Lineup page: the swaps worth making tonight, a benched player with a game who should outscore a starter he can replace, each with the reasons and a one-tap swap. Or put any two of your players head to head: expected points tonight and this week, games left, how likely he plays and his recent form, with a verdict.' },
+  { date: '2026-10-09', icon: '📊', tag: 'everyone', title: 'Your players against everyone\'s', to: '/team',
+    body: 'Lineup Stats can now put your players beside any other GM\'s, or every GM\'s, in one table: every stat for every player, sortable, filtered by position, with each team\'s totals underneath.' },
+  { date: '2026-10-09', icon: '📺', tag: 'everyone', title: 'Tonight\'s points, team by team', to: '/scoreboard',
+    body: 'On the live scoreboard each team now sits above the next, with every starter listed: his club\'s logo, who he plays, the puck drop, the live score or the final, and his points. It also says when the numbers last updated.' },
+  { date: '2026-10-09', icon: '📝', tag: 'everyone', title: 'The weekly review', to: '/performance',
+    body: 'Performance has a Weekly review: every team\'s week graded, with points, how the lineups did against the best possible, the best performer, and suggestions to improve: free agents worth adding and who to drop, a trade idea with the right partner, IR housekeeping, goalie starts and the week ahead.' },
   { date: '2026-10-09', icon: '🎩', tag: 'everyone', title: 'The sweepstake', to: '/pools',
     body: 'The office classic on any playoff: at the first game, everyone in the pool is dealt clubs from the hat at random. Nothing to pick and no skill needed: hold the champion and you win it. The host can draw the hat early, everyone hears what they drew, and your draw shares to the group chat as a picture.' },
   { date: '2026-10-09', icon: '🔥', tag: 'everyone', title: 'The daily streak', to: '/pools',

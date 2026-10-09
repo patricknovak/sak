@@ -13,12 +13,10 @@ import { Headshot, PageHeader, Pos, Section, Stat, TeamBadge } from '../componen
 import { PointsRace, Sparkline } from '../components/charts';
 import { statDef } from '../lib/playerstats';
 import { categoryOf } from '../lib/categories';
+import { addDays, aggregate, catVal, fmtCat, GOALIE_KEYS, num, rankOf, rotoTable, sd, type Agg, type Day, type Eff, type PP } from '../lib/perf';
 import { BarChart3 } from 'lucide-react';
+import { WeeklyReview } from '../components/WeeklyReview';
 
-type Day = { team_id: number; date: string; game_type: number; points: number; bench: number; goalie_points: number; starters: number; benched: number; stats: Record<string, number>; bench_stats: Record<string, number> };
-type PP = { team_id: number; player_id: number; started: number; benched: number; points: number; bench: number; stats: Record<string, number> };
-// a team's night against the best lineup it could have played from the same players (lineup_efficiency)
-type Eff = { team_id: number; date: string; game_type: number; points: number; best: number };
 type RangeKey = 'last' | '7' | '14' | '30' | 'season' | 'custom';
 const RANGES: { k: RangeKey; label: string }[] = [
   { k: 'last', label: 'Last night' }, { k: '7', label: '7 days' }, { k: '14', label: '14 days' }, { k: '30', label: '30 days' }, { k: 'season', label: 'Season' }, { k: 'custom', label: 'Custom' },
@@ -26,39 +24,6 @@ const RANGES: { k: RangeKey; label: string }[] = [
 // the categories in the order the box-score lines use them; only the ones the league scores are shown
 const SKATER = ['g', 'a', 'pm', 'ppp', 'shp', 'gwg', 'sog', 'hit', 'blk', 'pim', 'fow'];
 const GOALIE = ['gs', 'w', 'l', 'otl', 'sv', 'ga', 'sho'];
-
-const addDays = (d: string, n: number) => new Date(Date.UTC(+d.slice(0, 4), +d.slice(5, 7) - 1, +d.slice(8, 10) + n)).toISOString().slice(0, 10);
-const num = (o: Record<string, number> | null | undefined, k: string) => Number(o?.[k] ?? 0);
-const fmtCat = (k: string, v: number) => {
-  if (!Number.isFinite(v)) return '–';
-  const rate = categoryOf(k)?.rate;
-  if (rate === 'pct') return v.toFixed(3).replace(/^0/, '');
-  if (rate === 'avg') return v.toFixed(2);
-  return k === 'pm' && v > 0 ? `+${v}` : String(Math.round(v * 10) / 10);
-};
-// a category's value from summed box-score stats: a rate from its totals (no starts behind it: no value)
-const catVal = (o: Record<string, number> | null | undefined, k: string): number =>
-  k === 'gaa' ? (num(o, 'gs') ? num(o, 'ga') / num(o, 'gs') : NaN)
-  : k === 'svp' ? (num(o, 'sa') ? num(o, 'sv') / num(o, 'sa') : NaN)
-  : k === 'pts' && o?.pts == null ? num(o, 'g') + num(o, 'a') : num(o, k);
-const GOALIE_KEYS = new Set([...['gs', 'w', 'l', 'otl', 'sv', 'ga', 'sho'], 'sa', 'gaa', 'svp']);
-const sd = (xs: number[]) => { if (xs.length < 2) return 0; const m = xs.reduce((a, b) => a + b, 0) / xs.length; return Math.sqrt(xs.reduce((a, b) => a + (b - m) ** 2, 0) / (xs.length - 1)); };
-
-// one team's totals over a range
-interface Agg { team_id: number; points: number; bench: number; goalie: number; days: number; starters: number; cats: Record<string, number>; daily: number[]; dates: string[] }
-function aggregate(rows: Day[], teamIds: number[]): Agg[] {
-  return teamIds.map((id) => {
-    const mine = rows.filter((r) => r.team_id === id).sort((a, b) => a.date.localeCompare(b.date));
-    const cats: Record<string, number> = {};
-    for (const r of mine) for (const [k, v] of Object.entries(r.stats)) cats[k] = (cats[k] ?? 0) + Number(v);
-    return {
-      team_id: id, points: mine.reduce((n, r) => n + r.points, 0), bench: mine.reduce((n, r) => n + r.bench, 0), goalie: mine.reduce((n, r) => n + r.goalie_points, 0),
-      days: mine.length, starters: mine.reduce((n, r) => n + r.starters, 0), cats, daily: mine.map((r) => r.points), dates: mine.map((r) => r.date),
-    };
-  });
-}
-// rank of a value among a list, 1 = best; low numbers win for the categories that hurt
-const rankOf = (v: number, all: number[], lowerIsBetter = false) => all.filter((x) => (lowerIsBetter ? x < v : x > v)).length + 1;
 
 export default function Performance() {
   const { me, teams, team, players, league, leagueDay, games } = useLeague();
@@ -71,6 +36,8 @@ export default function Performance() {
   const [sel, setSel] = useState<number | 'all'>(me?.id ?? 'all');
   const [sortKey, setSortKey] = useSticky<string>('perf:sort', 'pts');
   const [phase, setPhase] = useSticky<2 | 3>('perf:phase', 2);
+  // the stretch view (any range, the table and the charts) or the weekly review (every team graded, with suggestions)
+  const [view, setView] = useSticky<'stats' | 'week'>('perf:view', 'stats');
   const gmTeams = useMemo(() => teams.filter((t) => t.role === 'gm'), [teams]);
 
   // the whole season once; ranges are sliced here
@@ -124,23 +91,7 @@ export default function Performance() {
   }, [effRows, phase, from, to]);
   // rotisserie points over the stretch: in each category first earns as many as there are teams, last one, ties share
   // (a rate with nothing behind it is last), as category_standings counts the season
-  const roto = useMemo(() => {
-    const out = new Map<number, { total: number; place: Record<string, number> }>(aggs.map((a) => [a.team_id, { total: 0, place: {} }]));
-    if (!catMode) return out;
-    const n = aggs.length;
-    for (const k of cats) {
-      const vals = aggs.map((a) => ({ id: a.team_id, v: catVal(a.cats, k) }));
-      const better = (x: number, y: number) => (!Number.isFinite(y) ? Number.isFinite(x) : Number.isFinite(x) && (isLow(k) ? x < y : x > y));
-      for (const me of vals) {
-        const ahead = vals.filter((o) => better(o.v, me.v)).length;
-        const tied = vals.filter((o) => o.v === me.v || (!Number.isFinite(o.v) && !Number.isFinite(me.v))).length;
-        const e = out.get(me.id)!;
-        e.total += n + 1 - (ahead + 1 + (tied - 1) / 2);
-        e.place[k] = ahead + 1;
-      }
-    }
-    return out;
-  }, [aggs, cats, catMode]); // eslint-disable-line react-hooks/exhaustive-deps
+  const roto = useMemo(() => (catMode ? rotoTable(aggs, cats, isLow) : new Map(aggs.map((a) => [a.team_id, { total: 0, place: {} as Record<string, number> }]))), [aggs, cats, catMode]); // eslint-disable-line react-hooks/exhaustive-deps
   const effPct = (id: number) => { const e = eff.get(id); return e && e.best > 0 ? e.points / e.best : null; };
   const bestOf = useMemo(() => new Map(effRows.filter((r) => r.game_type === phase).map((r) => [`${r.team_id}:${r.date}`, r.best])), [effRows, phase]);
   const sorted = useMemo(() => [...aggs].sort((a, b) => {
@@ -242,6 +193,12 @@ export default function Performance() {
       <PageHeader icon={<BarChart3 size={22} className="text-gold" />} title="Performance" sub="Every point that counted, by day and by category, for your team and everyone else’s." />
       {league?.phase !== 'season' && !rows?.length && <div className="rounded-xl border border-amber-400/20 bg-amber-500/10 p-3 text-sm text-amber-100">The season hasn’t started. Once it does, every game day lands here the morning after.</div>}
 
+      <div className="scroll-x flex gap-1">
+        {([['stats', '📊 Stats'], ['week', '📝 Weekly review']] as const).map(([k, l]) => <button key={k} className={`tab shrink-0 ${view === k ? 'tab-on' : 'bg-white/[.05]'}`} onClick={() => setView(k)}>{l}</button>)}
+        {view === 'week' && playoffsToo && <button className={`tab ml-auto shrink-0 px-3 py-1.5 ${phase === 3 ? 'tab-on' : 'bg-white/[.05]'}`} onClick={() => setPhase(phase === 3 ? 2 : 3)}>{phase === 3 ? 'Playoffs' : 'Regular season'}</button>}
+      </div>
+
+      {view === 'week' ? (rows === null ? <div className="card p-4 text-sm text-mute">Loading the season…</div> : <WeeklyReview rows={rows} effRows={effRows} phase={phase} catMode={catMode} cats={cats} isLow={isLow} />) : <>
       <div className="card space-y-2 p-3">
         <div className="scroll-x flex gap-1">
           {RANGES.map((r) => <button key={r.k} className={`tab shrink-0 px-3 py-1.5 ${range === r.k ? 'tab-on' : 'bg-white/[.05]'}`} onClick={() => setRange(r.k)}>{r.label}</button>)}
@@ -435,6 +392,7 @@ export default function Performance() {
           )}
         </>
       )}
+      </>}
     </div>
   );
 }
