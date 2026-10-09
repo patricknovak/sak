@@ -1,8 +1,10 @@
 // The pool's Table (migration 169): every game the pool runs, one tap apart, each ranked the same way whatever its kind.
 // The main game leads; the arrows count from where the day began; a row that can no longer finish first says so.
+import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { ArrowDown, ArrowUp, ChevronRight } from 'lucide-react';
+import { ArrowDown, ArrowUp, ChevronRight, Dices } from 'lucide-react';
 import { useLeague } from '../lib/store';
+import { rpc, supabase } from '../lib/supabase';
 import { kindOf, outOfIt, type BoardGame, type BoardRow } from '../lib/poolScoreboard';
 import { Coins } from './Pool';
 import { Rank, TeamBadge } from './ui';
@@ -41,11 +43,31 @@ export function GameChips({ games, sel, onPick }: { games: BoardGame[]; sel: str
   );
 }
 
+// what the caller needs, in words, from the game's own numbers: first clinched, who can still catch the leader, or how
+// much there is to make up and what's left to do it with (a game with no "still possible", or one in coins, says nothing)
+function needLine(g: BoardGame, m: NonNullable<BoardGame['mine']>, meId: number, name: (id: number) => string): string | null {
+  if (g.status !== 'open' || m.possible == null || kindOf(g.kind).coins) return null;
+  const others = g.rows.filter((r) => r.team_id !== meId);
+  const left = m.possible - m.score;
+  if (m.rank === 1) {
+    if (!others.length) return null;
+    const chasing = others.filter((r) => r.possible == null || r.possible >= m.score).length;
+    return chasing === 0 ? 'First is yours: nobody can catch you now.'
+      : `${chasing === 1 ? 'One member' : `${chasing} members`} can still catch you, with ${fmt(left)} still possible for you.`;
+  }
+  const lead = g.rows[0];
+  if (!lead) return null;
+  if (m.possible < lead.score) return `Out of first: even every pick right from here leaves you ${fmt(lead.score - m.possible)} short of ${name(lead.team_id)}.`;
+  return `Make up ${fmt(m.behind)} on ${name(lead.team_id)}, with ${fmt(left)} still possible for you.`;
+}
+
 // the caller's place in a game, as the hero of its table
 export function MyPlace({ g, solo }: { g: BoardGame; solo?: boolean }) {
+  const { teams, me } = useLeague();
   const m = g.mine;
   const k = kindOf(g.kind);
   const second = g.rows.find((r) => r.rank > 1);
+  const need = m && me ? needLine(g, m, me.id, (id) => { const t = teams.find((x) => x.id === id); return t?.gm_name ?? t?.name ?? 'the leader'; }) : null;
   // coins carry their emoji and run to four figures: a size down so three tiles fit a 360 px phone
   const val = `font-display font-extrabold text-white ${k.coins ? 'text-lg' : 'text-2xl'}`;
   const tile = 'min-w-0 overflow-hidden rounded-2xl bg-black/25 px-3 py-2 ring-1 ring-white/10';
@@ -74,6 +96,7 @@ export function MyPlace({ g, solo }: { g: BoardGame; solo?: boolean }) {
             <div className="text-[11px] text-mute">{m.possible != null && g.status === 'open' ? `${fmt(m.possible)} still possible` : m.rank === 1 ? 'over 2nd' : 'behind'}</div></div>
         </div>
       ) : <p className="mt-3 text-sm text-mute">You’re watching this one: members’ places are below.</p>}
+      {need && <p className="mt-2.5 text-[13px] leading-snug text-slate-200">{need}</p>}
       <Link to={g.link} className="mt-3 inline-flex items-center gap-1 text-sm font-semibold text-sky-300">Open {g.title.replace(/^The /, 'the ')} <ChevronRight size={14} /></Link>
     </div>
   );
@@ -107,6 +130,106 @@ export function BoardRows({ g, extra }: { g: BoardGame; extra?: (r: BoardRow) =>
           </div>
         );
       })}
+    </div>
+  );
+}
+
+// each member's chance of finishing first (migrations 175, 176, 182, 186 and 189): a pick'em, Pick the series, or a
+// locked Rank the teams, bracket or box pool still open is played out a thousand times; anything else has none yet
+export function useChances(g: BoardGame | undefined) {
+  const [chances, setChances] = useState<Map<number, number> | null>(null);
+  const id = g && (g.kind === 'pickem' || g.kind === 'series' || g.kind === 'rank' || g.kind === 'bracket' || g.kind === 'players') && g.status === 'open' && g.key.startsWith('game:') ? Number(g.key.slice(5)) : null;
+  useEffect(() => {
+    setChances(null);
+    if (!id) return;
+    let live = true;
+    rpc<{ team_id: number; chance: number }[]>('pool_game_chances', { p_game: id })
+      .then((r) => { if (live) setChances(new Map((r ?? []).map((x) => [x.team_id, Number(x.chance)]))); }, () => {});
+    return () => { live = false; };
+  }, [id]);
+  return chances;
+}
+
+const pctOf = (x: number) => (x > 0 && x < 0.01 ? '<1%' : x > 0.99 && x < 1 ? '>99%' : `${Math.round(x * 100)}%`);
+
+// the caller's chance beside the favourite's, and every member's as one bar
+// the caller's chance day by day, from the prediction log (each day's first look writes it, migration 175)
+function useChanceTrend(g: BoardGame, team: number | undefined) {
+  const [trend, setTrend] = useState<{ predicted: number; day: string }[]>([]);
+  const id = g.key.startsWith('game:') ? g.key.slice(5) : null;
+  useEffect(() => {
+    if (!id || !team) return;
+    supabase.from('predictions').select('predicted,subject').eq('kind', 'pool_win').eq('subject->>game', id).eq('subject->>team_id', String(team)).order('made_at').limit(120)
+      .then(({ data }) => setTrend(((data ?? []) as { predicted: number; subject: { date: string } }[]).map((r) => ({ predicted: Number(r.predicted), day: r.subject.date }))));
+  }, [id, team]);
+  return trend;
+}
+
+// a chance's days as a small line, scaled to its own range so a move from 18% to 31% reads, with a soft fill below
+function TrendLine({ values, w = 84, h = 30 }: { values: number[]; w?: number; h?: number }) {
+  const lo = Math.min(...values), hi = Math.max(...values), span = Math.max(hi - lo, 0.04);
+  const x = (i: number) => 2 + (i / (values.length - 1)) * (w - 4);
+  const y = (v: number) => h - 3 - ((v - lo) / span) * (h - 6);
+  const line = values.map((v, i) => `${i ? 'L' : 'M'}${x(i).toFixed(1)},${y(v).toFixed(1)}`).join('');
+  const up = values[values.length - 1] >= values[0];
+  const c = up ? 'rgb(110 231 183)' : 'rgb(252 165 165)';
+  return (
+    <svg width={w} height={h} viewBox={`0 0 ${w} ${h}`} aria-hidden>
+      <defs><linearGradient id="trend-fill" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stopColor={c} stopOpacity=".28" /><stop offset="1" stopColor={c} stopOpacity="0" /></linearGradient></defs>
+      <path d={`${line}L${x(values.length - 1).toFixed(1)},${h}L${x(0).toFixed(1)},${h}Z`} fill="url(#trend-fill)" />
+      <path d={line} fill="none" stroke={c} strokeWidth={2} strokeLinejoin="round" strokeLinecap="round" />
+      <circle cx={x(values.length - 1)} cy={y(values[values.length - 1])} r={2.5} fill={c} />
+    </svg>
+  );
+}
+
+export function ChanceCard({ g, chances }: { g: BoardGame; chances: Map<number, number> }) {
+  const { teams, me } = useLeague();
+  const trend = useChanceTrend(g, me?.id);
+  const rows = [...chances.entries()].sort((a, b) => b[1] - a[1]);
+  const mine = me ? chances.get(me.id) : undefined;
+  const [favId, fav] = rows[0] ?? [0, 0];
+  const name = (id: number) => { const t = teams.find((x) => x.id === id); return t?.gm_name ?? t?.name ?? ''; };
+  const shown = rows.filter(([, c]) => c >= 0.005);
+  return (
+    <div className="card p-4">
+      <div className="flex items-start gap-3">
+        <span className="grid h-10 w-10 shrink-0 place-items-center rounded-2xl bg-gold/15"><Dices className="h-5 w-5 text-gold" /></span>
+        <div className="min-w-0 flex-1">
+          <div className="label">Chance to win</div>
+          <div className="flex flex-wrap items-baseline gap-x-2">
+            {mine != null ? <span className="font-display text-3xl font-extrabold text-white">{pctOf(mine)}</span> : null}
+            <span className="text-sm text-mute">{mine != null ? (favId === me?.id ? 'you’re the favourite' : `${name(favId)} is the favourite at ${pctOf(fav)}`) : `${name(favId)} leads the odds at ${pctOf(fav)}`}</span>
+          </div>
+        </div>
+        {/* how it has moved, a day at a time */}
+        {trend.length > 1 && (
+          <div className="shrink-0 text-right">
+            <TrendLine values={trend.map((t) => t.predicted)} />
+            <div className="text-[10px] text-mute">from {pctOf(trend[0].predicted)} on {new Date(trend[0].day + 'T12:00:00Z').toLocaleDateString(undefined, { month: 'short', day: 'numeric', timeZone: 'UTC' })}</div>
+          </div>
+        )}
+      </div>
+      {/* every member's share of the thousand runs, the favourite first; each part names its member on hover and below */}
+      <div className="mt-3 flex h-2.5 overflow-hidden rounded-full bg-white/[.06]">
+        {shown.map(([id, c], i) => {
+          const t = teams.find((x) => x.id === id);
+          return <span key={id} title={`${name(id)} ${pctOf(c)}`} className={i ? 'ml-0.5' : ''} style={{ width: `${c * 100}%`, background: id === me?.id ? 'rgb(var(--gold-rgb))' : t?.color ?? 'rgb(148 163 184)', opacity: id === me?.id ? 1 : 0.7 }} />;
+        })}
+      </div>
+      <div className="mt-2 flex flex-wrap gap-x-3 gap-y-1 text-[11px] text-mute">
+        {shown.slice(0, 4).map(([id, c]) => <span key={id} className={id === me?.id ? 'font-semibold text-gold' : ''}>{name(id)} {pctOf(c)}</span>)}
+        {shown.length > 4 && <span>+{shown.length - 4} more</span>}
+      </div>
+      <p className="mt-2 text-[11px] leading-snug text-mute">{g.kind === 'players'
+        ? `The rest of the box pool played out a thousand times: every player's points in his club's games still to come drawn around what he's expected to score, the same for everyone who took him.`
+        : g.kind === 'bracket'
+        ? `The rest of the bracket played out a thousand times: each series from where it stands at even odds a game, the next round between the winners drawn below it.`
+        : g.kind === 'rank'
+        ? `The rest of the postseason played out a thousand times: every series game by game at even odds, the last round from the winners before it; each win pays what you ranked its club.`
+        : g.kind === 'series'
+        ? `${g.title} played out a thousand times from here: each series game by game from where it stands, its odds from how the pool picked it; a series you haven’t picked yet as a guess.`
+        : `The ${g.title.replace(/^The /, '')} played out a thousand times from here: each match drawn from the market’s view where there is one, else from how the pool picked it; a match you haven’t picked as a guess.`}</p>
     </div>
   );
 }

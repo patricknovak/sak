@@ -162,17 +162,126 @@ they lock (`pool_picks`), results graded on read from the shared event tables, a
    *Built 8 October 2026 (migration 171):* the `nfl` sports row (no draws, its rounds are Weeks) and the NFL's 2026 season
    on ESPN; soccer-sync reads ESPN by sport, the NFL week by week (weeks 1 to 18, the playoffs as 19 to 22 once their
    teams are set) through the same ingest and live task. Live with 272 games, weeks 1 to 4 final, so pick'em on the NFL
-   starts from Week 5. The survivor and NFL centre are still to come.
+   starts from Week 5.
+   *NFL centre and Match centre, first version, 8 October 2026 (site only):* `#/centre/<competition>` for any
+   competition played in rounds: the round strip, every match with its score and the minute or quarter while it is on,
+   your pick and the pool's split once it kicks off, and the table worked out from the results (points for soccer, the
+   record for the NFL). In the More menu of a pool with a game on one. Still to come: box scores, standings by
+   division, odds.
+   *The survivor on the NFL, 8 October 2026 (migration 173):* last one standing runs on any competition played in
+   rounds, in the sport's words (weeks and teams, a tie is out), to a last round (the competition's last known one, so
+   an NFL survivor started now runs the regular season; whoever is still in then shares it). The start page and the
+   host's Add a game offer it beside pick'em (`pool_event_list` kinds; `pool_game_start('survivor', ...)`), and the host
+   can enter a member's pick (`survivor_host_pick`). Its reminders speak the sport too, with a last call before a
+   round's final kick-off for anyone still without a pick, since the NFL's week opens on a Thursday (migration 179).
 3. **The host's desk for every game.** Settle what the feed missed, pool by pool (an override on a result, never a
    change to the shared tables, with the reason on the record); enter a pick for a member who asked; change a rule
    until the first lock and freeze it after. Every pool type can then run with no feed at all.
+   *Built 8 October 2026 (migration 172):* `pool_game_set_rules` (frozen at the first lock; a pick'em's scoring only
+   before anyone picks), `pool_host_pick` (a pick'em round, a series pick or the ranking for a member, under their locks,
+   and they hear it), `pool_result_set` (a pick'em match settled for the pool alone, in `pool_result_overrides` with the
+   reason everyone sees; the round and the game end as if the feed had sent it). All on the commissioner's log. Picking for
+   a member from the site covers series and the ranking too (8 October). *Every game on fixtures, the same day
+   (migration 177):* last one standing and Call the score settle per pool from the pool's own result, the host's result
+   can carry a score, and `pool_fixture_result_set` settles a match for every game the pool runs on it (Settle by hand
+   on the Survivor and Call the score pages). Still to come: settling a series or a grid by hand (the MLB feed has not
+   needed it).
 4. **Contract the old kinds.** Last one standing and Call the score become `pool_games` kinds (`survivor`, `score`),
-   their tables and pages read through the engine, the old tables retired once the numbers match.
+   their tables and pages read through the engine, the old tables retired once the numbers match. The engine's door is
+   already shared (migration 173: `pool_game_start` and a new pool's games start a survivor); the tables are next.
 5. **The learning loop.** Each lock writes the pool's pick split to the prediction log as a forecast, scored when
    the result is in, so we learn how good a group's consensus is, sport by sport.
+   *Built for pick'em 8 October 2026 (migration 174):* at kick-off each pick'em match with three picks or more and one
+   favourite writes `pool_split` (the favourite's share, made at kick-off), scored at the final whistle by the pool's
+   own result (a host's ruling re-scores it); `crowd_calibration()` reads it by sport and split, every pool's for a
+   platform admin, on the Calibration page ("The crowd"). Series picks and the survivor are next on the same log.
+   *The market beside it, the same day (migration 178):* soccer-sync keeps ESPN's pre-match lines on each match as the
+   market's view (each side's chance with the margin out, the spread, the total; no bookmaker, no link), frozen at
+   kick-off; the crowd's forecast records what the market gave its favourite, and Calibration shows the two side by side.
+   The centres show it on each match. *Every chance on one page (migration 183):* `chance_calibration` buckets every
+   probability the product gives (head-to-head wins, a pool's favourite, a member's chance to win) against what came in,
+   per league, on Calibration ("Every chance").
 6. **What you need to win.** The outcomes left, played out exactly where they are few (a bracket, a series round) and
    by simulation where they are many (a pick'em, a player pool), shown on the Table for each member.
+   *Built for pick'em 8 October 2026 (migration 175):* `pool_game_chances` plays a pick'em out a thousand times from
+   here (each undecided match drawn from the pool's own smoothed split, an unpicked match a guess; a long season's
+   guesses drawn whole from their normal shape, about a third of a second for an NFL season), shown on the Table as
+   "Chance to win" and on every row. The first look each day logs each member's chance (`pool_win`), scored when the
+   game ends. *Pick the series, the same day (migration 176):* each series with its matchup set is played out exactly
+   from where it stands (the chance of each winner and length from the pool's split, C(k-1, a-1) p^a (1-p)^(k-a)), a
+   series not yet set or not yet picked a guess. A pick'em match with the market's line draws from it rather than the
+   pool's split (migration 181). Rank the teams once its order locks (migration 182): every series drawn at even odds,
+   the last round formed from the two winners before it. Brackets came with migration 186. *"What you need" in words, the same day (site only):* the top of each game's Table
+   says how many can still catch the leader, how much a member has to make up and with what, or that first is out of
+   reach or already theirs, from the game's own "still possible".
 7. **The bracket and the player pool**, for the NHL playoffs and March Madness (`docs/POOL-TYPES.md` §9).
+   *The bracket built 8 October 2026 (migration 185):* a `bracket` kind on `series`: every winner from a round to the
+   final in one pick, checked round by round, locked at the round's first game; Classic doubles each round, Flat is a
+   point a series; what's still possible counts picks whose club is still in; the final's runs break a tie. The tree is
+   read from each round's order (`_bracket_tree`; `_bracket_ok` says where a bracket can start: every later round
+   halves to a final of one). The site's picker goes round by round on a phone, clears later picks an earlier change
+   broke, and shows right, wrong and everyone's champion once locked. Its chance to win once locked (migration 186: the
+   tree played out round by round). *The NFL's playoffs as series (migration 187):* `competitions.format` ('rounds' or
+   'series'); `nfl-post-2026`, which soccer-sync fills through `espnPlayoffPayload` (each playoff game a best-of-1
+   series, the AFC's before the NFC's, the Pro Bowl left out; tested on last season's playoffs), so the bracket runs from
+   the Divisional round. The same change keeps the Pro Bowl out of the season's weeks. *March Madness, worked out 8
+   October 2026 (not built):* ESPN's men's scoreboard (`basketball/mens-college-basketball`, `groups=100`, by date)
+   names each game's region and round in its note ("... - East Region - 1st Round") and each team's seed in
+   `curatedRank.current`; within a region the first round goes in the bracket's seed order (1-16, 8-9, 5-12, 4-13,
+   6-11, 3-14, 7-10, 2-15), so the tree is right through the Elite Eight. The Final Four's pairing of regions isn't in
+   ESPN's feed until those games are drawn, so it goes on the competition when the field is announced (a `regions` list
+   in Final Four order, entered on the Platform page) and the adapter orders the regions by it. The First Four are
+   left out: a first-round slot whose team is still to be decided fills once that game is played, and the bracket
+   locks only once every first-round team is set (`_bracket_ok` already insists on it).
+   *The Stanley Cup playoffs as series, built 8 October 2026 (migration 191):* mlb-sync, the postseason feed, reads the
+   NHL's bracket (`/v1/playoff-bracket/<year>`) and each series' games for competitions with provider 'nhl-api'
+   (`_shared/nhlPlayoffs.ts`). The NHL letters its series in bracket order, so the bracket runs from the first round.
+   Tested on the 2026 playoffs (every series as the NHL had it); `nhl-post-2027` fills when the NHL draws its bracket,
+   and the two-minute live cadence (`_mlb_due`) covers it. *In football's words (migration
+   190):* the board sends the sport's words for the start of a game and its score, so the tiebreaker is the Super Bowl's
+   total points (0 to 150; runs 0 to 60, goals 0 to 30) and the news says kickoff; a single game is picked on the winner
+   alone, its length points riding with it. Each playoff game also carries its score by quarter (`fixture_periods`,
+   overtime a fifth), the groundwork for Super Bowl squares that pay by the quarter. Still to come: March Madness,
+   whose bracket order wants ESPN's region and seed.
+   *The box pool built 8 October 2026 (migration 188):* the player pool without a draft night, on nhl-sync's own
+   `games` and `player_games` (a competition of a third format, 'players': `nhl-2026`). The best players are dealt into
+   boxes when the game starts, forwards, defence and goalies each ranked by the points they're expected to score in the
+   pool's nights (their projection per game, times their club's games in the window, times the share they play), the
+   hurt left out; Classic is ten boxes of six, Quick five of five; a week, four weeks or the rest of the season. One
+   player a box, locked at the first puck drop; goals and assists count, a goalie's win 2 and a shutout 1 more, live; the
+   hourly pool job names the winners the morning after the last night. The same change lets the host enter a bracket for
+   a member (refused since 185). Still to come for it: the playoffs' version (clubs going out shaded, on the NHL
+   playoffs' own event), a snake draft. *Its chance to win, the same day (migration 189):* once teams lock, the rest of
+   the window played out a thousand times, each player's points in his club's games still to come drawn around his
+   projection (a Poisson count as a rounded normal), the same draw for every member who took him.
+   *Goal alerts (migration 192):* a member hears each goal a player on their team scores and each win their goalie gets,
+   while the game is on (a trigger on `player_games` that returns at once when no box pool is open, and never blocks the
+   write). *Still to come (migration 193):* each player's expected points in his club's games left in the window
+   (`_box_rate`), shown while picking and, once locked, summed for each team.
+   *The morning line (migration 194):* once a night's games are final, the pool's chat hears who had the night (with
+   their best player's line) and who leads, once a night, from the hourly pool job.
+   *In the prediction log (migration 197):* at the lock each team's expected points for the window (`box_points`),
+   scored on the points made when the pool is done; the Calibration page can read it once there are pools to judge.
+   *The next one (migration 198):* when a box pool is done the host hears it, with an invitation to deal the next.
+   *Tonight (migration 199):* the board sends each player's next game in the window; once locked, the page leads with
+   which of a member's players are on tonight, at what time or live with the score and their line.
+   *The playoffs' version, worked out 8 October 2026 (for April):* the same kind on a series competition of the NHL
+   (`nhl-post-2027`): `_box_games` counts game type 3 as well as 2 (a regular-season window ends before the playoffs,
+   so nothing changes for it); `_players_rules` takes the first round's clubs (`clubs.short` is the NHL abbreviation)
+   and its first puck drop (the window runs to the Cup final), and deals the boxes on each club's expected playoff
+   games (`nhl_teams.exp_po_games`, kept by nhl-sync's standings task) in place of the window's schedule;
+   `_players_lock` falls back to the first round's `starts_at`; a player whose club lost a series is out (the board
+   shades him); the games still to come for a club still in are the more of its scheduled games and its expected games
+   less those played (`to_come`, the chance to win and the forecast read it); it settles when the final series is
+   final; `pool_event_list` offers it on an NHL series event before the first round starts; the site words the window
+   as "all through the playoffs" and hides the window choice.
+
+*Where 8 October left it (migrations 172 to 199, PR #243):* items 1 to 3 and 5 built, item 6 built for pick'em, Pick
+the series and Rank the teams, item 7's bracket built on series and its box pool on the NHL season, item 4 begun (last one standing starts through the
+engine's door). Beside them: NFL
+centre and Match centre, the market's view on each match, results by hand for every game on fixtures, the rules
+written down, last calls and second reminders. Next, in order: March Madness's bracket order, the box pool's
+playoffs version, then the contraction (item 4).
 
 Alongside: the World Series test (the LCS from 11 October, the World Series from 23 October) needs its games started
 in the World Series pool (league 5, the questions only so far), and the Love Is Blind test needs players.

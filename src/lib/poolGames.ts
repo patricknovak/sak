@@ -1,7 +1,8 @@
 // The kinds of sports pool a host can start (docs/POOL-TYPES.md §2, migrations 165, 167 and 170), in words: what each is,
 // how long it takes, and the scoring presets. The start page and the Host page read the same list.
 
-export type GameKind = 'series' | 'rank' | 'squares' | 'pickem';
+// 'survivor' is last one standing (its own tables, migration 157): the start page and the host offer it like the rest
+export type GameKind = 'series' | 'rank' | 'squares' | 'pickem' | 'survivor' | 'bracket' | 'players';
 export type PickemPreset = 'classic' | 'confidence';
 export type SeriesPreset = 'classic' | 'flat' | 'exact';
 
@@ -9,8 +10,9 @@ export interface PoolEvent {
   competition: string; sport: string; name: string; pack: string | null; stage: string | null;
   open_round: number; open_label: string; next_lock: string | null; final_round: number; final_label: string; final_starts: string | null;
   kinds: GameKind[];
-  // what the sport calls a round ('Matchweek'), on an event that comes in rounds of matches
+  // what the sport calls a round ('Matchweek') and a side ('club', 'team'), on an event that comes in rounds of matches
   word?: string;
+  club_word?: string;
   // the series a grid of squares can still go on, last round first
   grids?: Grid[];
 }
@@ -47,6 +49,21 @@ export const KINDS: Record<GameKind, { title: string; badge: string; line: strin
     line: 'Pick the winner of every match, round by round, or a draw where the sport has them. Each pick locks at its own kick-off, so you can join any week.',
     time: 'Two minutes a round',
   },
+  bracket: {
+    title: 'The bracket', badge: 'All the way', emoji: '🏆',
+    line: 'Pick the winner of every series through to the final, all before the first game. Later rounds are worth more, and a broken bracket can still climb.',
+    time: 'Three minutes, once',
+  },
+  players: {
+    title: 'The box pool', badge: 'The hockey pool', emoji: '🏒',
+    line: 'Take one player from each box of evenly matched NHL players. Goals and assists count, and a goalie’s wins and shutouts, every night until the pool ends. No draft night needed.',
+    time: 'Five minutes, once',
+  },
+  survivor: {
+    title: 'Last one standing', badge: 'Lose once, out', emoji: '🛡️',
+    line: 'Pick one winner every round, never the same side twice. Lose once and you’re out; the last one in wins it.',
+    time: 'Ten seconds a round',
+  },
   squares: {
     title: 'Squares', badge: 'Pure luck', emoji: '🔢',
     line: 'Claim squares on a grid with coins. The digits are drawn when it fills; the last digit of each club’s runs names the winning square after the 3rd, the 6th and the final of every game.',
@@ -73,3 +90,6 @@ export const PICKEM_PRESETS: { key: PickemPreset; label: string; line: string; e
   { key: 'classic', label: 'Classic', line: 'A point for every right pick. The most points wins.', example: 'Ten matches in a round: get seven right, 7 points.' },
   { key: 'confidence', label: 'Confidence', line: 'Number each round\'s picks from 1 up to its number of matches, your surest highest. A right pick earns its number.', example: 'Ten matches: your surest pick is ×10. Right, 10 points; wrong, nothing, so a long shot goes low.' },
 ];
+
+// the centre for a competition played in rounds (#/centre/<competition>), by its sport
+export const centreName = (sport: string | null | undefined) => (sport === 'nfl' ? 'NFL centre' : 'Match centre');

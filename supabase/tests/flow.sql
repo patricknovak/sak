@@ -3766,7 +3766,7 @@ select pg_temp.raises('a round already started can''t be the start', $$select po
 select pool_game_start('series', 'mlb-post-2026', '{"preset":"classic"}') as sg \gset
 select pool_game_start('rank', 'mlb-post-2026') as rg \gset
 select pg_temp.expect('it starts from the next round, on the preset''s points', (select (rules->>'from_round')::int = 3 and rules->'points'->>'3' = '4' and rules->'length'->>'3' = '2'
-  from pool_games where id = :sg) and exists (select 1 from messages where league_id = :lib and body like '⚾ Pick the series is on, from the Championship Series%'));
+  from pool_games where id = :sg) and exists (select 1 from messages where league_id = :lib and body = '⚔️ Pick the series is on, from the Championship Series: call each series and how many games it goes. Each pick locks at its Game 1''s first pitch.'));
 select pg_temp.raises('one of each kind', $$select pool_game_start('series', 'mlb-post-2026')$$, 'already runs that game');
 select pg_temp.raises('a series whose clubs aren''t set waits', format('select pool_game_pick(%s, %L, %L)', :sg, 's:' || :alcs, jsonb_build_object('winner', :alb, 'games', 5)), 'isn''t set yet');
 select pool_game_pick(:rg, 'rank', jsonb_build_object('order', jsonb_build_array(:dov, :alb)));
@@ -4074,8 +4074,8 @@ select id as m51 from fixtures where ext_id = 'pk-51' \gset
 select id as m52 from fixtures where ext_id = 'pk-52' \gset
 select id as m61 from fixtures where ext_id = 'pk-61' \gset
 select id as m62 from fixtures where ext_id = 'pk-62' \gset
-select pg_temp.expect('the start page offers pick''em on a competition with rounds, from its next one; the old list is unchanged',
-  (select e->'kinds' = '["pickem"]'::jsonb and (e->>'open_round')::int = 5 and e->>'open_label' = 'Matchweek 5' and e->>'stage' = 'Matchweek 5 next'
+select pg_temp.expect('the start page offers pick''em and last one standing on a competition with rounds, from its next one; the old list is unchanged',
+  (select e->'kinds' = '["pickem", "survivor"]'::jsonb and (e->>'open_round')::int = 5 and e->>'open_label' = 'Matchweek 5' and e->>'stage' = 'Matchweek 5 next'
    from jsonb_array_elements(pool_event_list()) e where e->>'competition' = 'pk-test')
   and not exists (select 1 from jsonb_array_elements(pool_events()) e where e->>'competition' = 'pk-test'));
 select set_config('app.league_id', :'lib', false);
@@ -4177,3 +4177,887 @@ select pg_temp.expect('the NFL has its row and its season on ESPN', (select not 
   and (select provider = 'espn' and ext_id = 'football/nfl' and active from competitions where id = 'nfl')
   and _round_word('nfl') = 'Week');
 select 'nfl', true;
+
+-- ───────────── the host's desk (migration 172) ─────────────
+-- Hana runs a pick'em on the Desk Cup: she changes its rules before the first lock, enters Lou's picks when he asks,
+-- and settles a match the feed left hanging.
+reset role;
+select set_config('request.jwt.claim.sub', '', false);
+select set_config('app.league_id', '', false);
+insert into competitions (id, sport, name, short, season, provider, ext_id, ext_season, active)
+values ('pk-desk', 'soccer', 'Desk Cup', 'DC', '2026', 'api-football', 'pkd', '2026', true) on conflict (id) do nothing;
+select soccer_ingest('pk-desk', jsonb_build_object('fixtures', jsonb_build_array(
+  jsonb_build_object('ext_id', 'dk-11', 'gameweek', 1, 'kickoff', now() + interval '1 day', 'status', 'NS', 'home', 'pk1', 'away', 'pk2', 'home_club', jsonb_build_object('ext_id', 'pk1'), 'away_club', jsonb_build_object('ext_id', 'pk2')),
+  jsonb_build_object('ext_id', 'dk-12', 'gameweek', 1, 'kickoff', now() + interval '1 day', 'status', 'NS', 'home', 'pk3', 'away', 'pk4', 'home_club', jsonb_build_object('ext_id', 'pk3'), 'away_club', jsonb_build_object('ext_id', 'pk4')),
+  jsonb_build_object('ext_id', 'dk-21', 'gameweek', 2, 'kickoff', now() + interval '8 days', 'status', 'NS', 'home', 'pk1', 'away', 'pk3', 'home_club', jsonb_build_object('ext_id', 'pk1'), 'away_club', jsonb_build_object('ext_id', 'pk3')))));
+select id as d11 from fixtures where ext_id = 'dk-11' \gset
+select id as d12 from fixtures where ext_id = 'dk-12' \gset
+select set_config('app.league_id', :'lib', false);
+select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-000000000081', false);
+set role authenticated;
+select pool_game_start('pickem', 'pk-desk') as dk \gset
+reset role;
+select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-000000000082', false);
+set role authenticated;
+select pg_temp.raises('only the host changes the rules', format('select pool_game_set_rules(%s, %L)', :dk, '{"preset":"confidence"}'), 'Commissioner only');
+select pg_temp.raises('or picks for someone', format('select pool_host_pick(%s, %s, %L)', :dk, :lou, '{}'), 'Commissioner only');
+reset role;
+select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-000000000081', false);
+set role authenticated;
+select pg_temp.expect('before anyone picks, the host switches the scoring and shortens it to one round',
+  pool_game_set_rules(:dk, '{"preset":"confidence"}')->>'preset' = 'confidence'
+  and (pool_game_set_rules(:dk, '{"to_round":1}')->>'to_round')::int = 1);
+select pg_temp.expect('where it starts stays put', (select (rules->>'from_round')::int = 1 and rules->>'preset' = 'confidence' from pool_games where id = :dk)
+  and exists (select 1 from messages where league_id = :lib and body = '📝 The host changed the rules of Desk Cup pick''em before the first lock.'));
+select pg_temp.expect('the host enters Lou''s round when he asks', (pool_host_pick(:dk, :lou, jsonb_build_object('round', 1, 'picks',
+  jsonb_build_array(jsonb_build_object('fixture', :d11, 'pick', 'H', 'conf', 2), jsonb_build_object('fixture', :d12, 'pick', 'A', 'conf', 1)))))::int = 2);
+select pg_temp.raises('only for a player in the pool', format('select pool_host_pick(%s, 2, %L)', :dk, jsonb_build_object('round', 1, 'picks', '[]'::jsonb)), 'player in this pool');
+select pg_temp.raises('once picks are in, the scoring stays', format('select pool_game_set_rules(%s, %L)', :dk, '{"preset":"classic"}'), 'Picks are in');
+reset role;
+select pg_temp.expect('Lou hears it, and the log keeps it', exists (select 1 from notifications where team_id = :lou and body = '📝 The host entered a pick for you in Desk Cup pick''em.')
+  and exists (select 1 from commish_log where league_id = :lib and action = 'pool_host_pick')
+  and exists (select 1 from commish_log where league_id = :lib and action = 'pool_game_set_rules'));
+-- the first match kicks off, and the feed stalls at half-time
+select soccer_ingest('pk-desk', jsonb_build_object('fixtures', jsonb_build_array(
+  jsonb_build_object('ext_id', 'dk-11', 'gameweek', 1, 'kickoff', now() + interval '1 day', 'status', 'HT', 'home', 'pk1', 'away', 'pk2', 'home_score', 2, 'away_score', 0))));
+select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-000000000081', false);
+set role authenticated;
+select pg_temp.raises('after the first lock the rules are frozen', format('select pool_game_set_rules(%s, %L)', :dk, '{"to_round":2}'), 'froze at the first lock');
+select pg_temp.raises('a match is settled by hand only once it has kicked off', format('select pool_result_set(%s, %s, %L, %L)', :dk, :d12, 'A', 'early'), 'hasn''t kicked off');
+select pg_temp.raises('and with the reason', format('select pool_result_set(%s, %s, %L, %L)', :dk, :d11, 'H', ''), 'Say why');
+select pg_temp.expect('the host settles the stalled match for this pool', pool_result_set(:dk, :d11, 'h', 'The feed stuck at half-time; Pine won 2-0') = 'H');
+select pg_temp.expect('the board shows the result and why', (select f->>'result' = 'H' and f->'host'->>'reason' = 'The feed stuck at half-time; Pine won 2-0' and (f->>'locked')::boolean
+  from jsonb_array_elements(pool_pickem_board(:dk, 1)->'fixtures') f where (f->>'id')::bigint = :d11));
+reset role;
+select pg_temp.expect('the shared match stays as the feed has it', (select state = 'live' from fixtures where id = :d11)
+  and (select points = 2 from _pool_game_table(:dk) where team_id = :lou));
+-- the other match ends on the feed: the round, and the game, are over
+select soccer_ingest('pk-desk', jsonb_build_object('fixtures', jsonb_build_array(
+  jsonb_build_object('ext_id', 'dk-12', 'gameweek', 1, 'kickoff', now() + interval '1 day', 'status', 'FT', 'home', 'pk3', 'away', 'pk4', 'home_score', 0, 'away_score', 1, 'home_ft', 0, 'away_ft', 1))));
+select pg_temp.expect('the round counts the host''s result with the feed''s: Lou 2 + 1, and wins it', (select points = 3 from _pool_game_table(:dk) where team_id = :lou)
+  and (select status = 'done' and winners = array[:lou] from pool_games where id = :dk)
+  and exists (select 1 from messages where league_id = :lib and body = '🏆 Desk Cup pick''em is done: Lou, with 3 points.'));
+-- another league can't touch it
+select set_config('app.league_id', '', false);
+select pg_temp.as_team(1);
+set role authenticated;
+select pg_temp.raises('another league''s host can''t settle a match here', format('select pool_result_set(%s, %s, %L, %L)', :dk, :d11, 'A', 'nope'));
+select pg_temp.expect('nor read this pool''s results', (select count(*) from pool_result_overrides where fixture_id = :d11) = 0);
+reset role;
+select set_config('request.jwt.claim.sub', '', false);
+select 'host desk', true;
+
+-- ───────────── last one standing on the NFL (migration 173) ─────────────
+-- Hana starts one on two NFL weeks from the engine's door and picks Lou's team when he asks; a tie puts Lou out; Fern
+-- and Hana are both still in when the last week is done, so they share it.
+reset role;
+select set_config('request.jwt.claim.sub', '', false);
+select set_config('app.league_id', '', false);
+select soccer_ingest('nfl', jsonb_build_object(
+  'clubs', jsonb_build_array(jsonb_build_object('ext_id', 'nf1', 'name', 'Kansas City', 'short', 'KC'), jsonb_build_object('ext_id', 'nf2', 'name', 'Buffalo', 'short', 'BUF'),
+    jsonb_build_object('ext_id', 'nf3', 'name', 'Detroit', 'short', 'DET'), jsonb_build_object('ext_id', 'nf4', 'name', 'Philadelphia', 'short', 'PHI')),
+  'fixtures', jsonb_build_array(
+    jsonb_build_object('ext_id', 'nfl-71', 'gameweek', 7, 'kickoff', now() + interval '1 day', 'status', 'NS', 'home', 'nf1', 'away', 'nf2'),
+    jsonb_build_object('ext_id', 'nfl-72', 'gameweek', 7, 'kickoff', now() + interval '1 day', 'status', 'NS', 'home', 'nf3', 'away', 'nf4'),
+    jsonb_build_object('ext_id', 'nfl-81', 'gameweek', 8, 'kickoff', now() + interval '8 days', 'status', 'NS', 'home', 'nf1', 'away', 'nf4'),
+    jsonb_build_object('ext_id', 'nfl-82', 'gameweek', 8, 'kickoff', now() + interval '8 days', 'status', 'NS', 'home', 'nf2', 'away', 'nf3'),
+    jsonb_build_object('ext_id', 'nfl-91', 'gameweek', 9, 'kickoff', now() + interval '15 days', 'status', 'NS', 'home', 'nf1', 'away', 'nf3'))));
+select id as kc from clubs where ext_id = 'nf1' \gset
+select id as buf from clubs where ext_id = 'nf2' \gset
+select id as det from clubs where ext_id = 'nf3' \gset
+select set_config('app.league_id', :'lib', false);
+select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-000000000081', false);
+set role authenticated;
+select pg_temp.expect('the start page offers last one standing on the NFL, in weeks and teams', exists (select 1 from jsonb_array_elements(pool_event_list()) e
+  where e->>'competition' = 'nfl' and e->'kinds' ? 'survivor' and e->'kinds' ? 'pickem' and e->>'word' = 'Week' and e->>'club_word' = 'team' and (e->>'open_round')::int = 7));
+select pg_temp.raises('a round with nothing left to kick off can''t start it', $$select pool_game_start('survivor', 'mls', '{"from_round": 31}')$$, 'under way');
+select pool_game_start('survivor', 'nfl', '{"to_round": 8}') as nsv \gset
+select pg_temp.expect('it runs weeks 7 to 8, and the chat hears it in the sport''s words', (select start_gw = 7 and end_gw = 8 from survivors where id = :nsv)
+  and exists (select 1 from messages where league_id = :lib and body = '🛡️ Last one standing starts in week 7 of the NFL: pick one team to win each week, never the same team twice. A loss or a tie and you''re out. It runs to week 8; whoever is still in then shares it.'));
+select pg_temp.expect('the board speaks the sport', (select b->>'word' = 'Week' and b->>'club_word' = 'team' and b->>'match_word' = 'game' and (b->>'draws')::boolean = false
+  and (b->>'end_gw')::int = 8 and (b->>'gameweek')::int = 7 and jsonb_array_length(b->'fixtures') = 2 from survivor_board(:nsv) b));
+select survivor_pick(:nsv, :buf);
+select pg_temp.expect('the host picks Lou''s team when he asks', survivor_host_pick(:nsv, :lou, :det) = 7);
+select pg_temp.raises('only for a player in the pool', format('select survivor_host_pick(%s, 2, %s)', :nsv, :det));
+reset role;
+select pg_temp.expect('and he hears it', exists (select 1 from notifications where team_id = :lou and kind = 'survivor' and body = '📝 The host picked Detroit for you in week 7 of Last one standing.'));
+select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-000000000082', false);
+set role authenticated;
+select pg_temp.raises('a member can''t pick for someone else', format('select survivor_host_pick(%s, %s, %s)', :nsv, :lou, :kc), 'Commissioner only');
+select survivor_pick(:nsv, :det);
+reset role;
+-- week 7: Buffalo and Detroit win; anyone else in the pool made no pick and is out
+select soccer_ingest('nfl', jsonb_build_object('fixtures', jsonb_build_array(
+  jsonb_build_object('ext_id', 'nfl-71', 'gameweek', 7, 'kickoff', now() + interval '1 day', 'status', 'FT', 'home', 'nf1', 'away', 'nf2', 'home_score', 20, 'away_score', 27, 'home_ft', 20, 'away_ft', 27),
+  jsonb_build_object('ext_id', 'nfl-72', 'gameweek', 7, 'kickoff', now() + interval '1 day', 'status', 'FT', 'home', 'nf3', 'away', 'nf4', 'home_score', 31, 'away_score', 17, 'home_ft', 31, 'away_ft', 17))));
+select pg_temp.expect('three through, so it goes on; a missed week reads in weeks', (select status = 'open' from survivors where id = :nsv)
+  and (select count(*) from survivor_picks where survivor_id = :nsv and result = 'through') = 3
+  and (not exists (select 1 from survivor_picks where survivor_id = :nsv and result = 'missed')
+       or exists (select 1 from notifications where kind = 'survivor' and body = '💥 Out: no pick in week 7.')));
+select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-000000000081', false);
+set role authenticated;
+select pg_temp.raises('a team once', format('select survivor_pick(%s, %s)', :nsv, :buf), 'used that team already');
+select survivor_pick(:nsv, :kc);
+reset role;
+select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-000000000082', false);
+set role authenticated;
+select survivor_pick(:nsv, :kc);
+reset role;
+select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-000000000086', false);
+set role authenticated;
+select survivor_pick(:nsv, :buf);
+reset role;
+-- week 8, the last: Kansas City win, Buffalo and Detroit tie
+select soccer_ingest('nfl', jsonb_build_object('fixtures', jsonb_build_array(
+  jsonb_build_object('ext_id', 'nfl-81', 'gameweek', 8, 'kickoff', now() + interval '8 days', 'status', 'FT', 'home', 'nf1', 'away', 'nf4', 'home_score', 30, 'away_score', 10, 'home_ft', 30, 'away_ft', 10),
+  jsonb_build_object('ext_id', 'nfl-82', 'gameweek', 8, 'kickoff', now() + interval '8 days', 'status', 'FT', 'home', 'nf2', 'away', 'nf3', 'home_score', 20, 'away_score', 20, 'home_ft', 20, 'away_ft', 20))));
+select pg_temp.expect('a tie is out', (select result from survivor_picks where survivor_id = :nsv and team_id = :lou and gameweek = 8) = 'out'
+  and exists (select 1 from notifications where team_id = :lou and kind = 'survivor' and body = '💥 Out: Buffalo didn''t beat Detroit (20-20).'));
+select pg_temp.expect('the last week done, the two still in share it', (select status = 'done' and winners @> array[:fern, :hana] and cardinality(winners) = 2 from survivors where id = :nsv)
+  and exists (select 1 from messages where league_id = :lib and body = '🏆 Last one standing: Fern and Hana. Still in after week 8, they share it.'));
+select pg_temp.expect('the pool''s table reads it in weeks', (select line = 'Out in week 8' from _pool_rows() where game = 'survivor:' || :nsv and team_id = :lou)
+  and (select bool_and(alive) from _pool_rows() where game = 'survivor:' || :nsv and team_id in (:fern, :hana)));
+-- another league can't touch it
+select set_config('app.league_id', '', false);
+select pg_temp.as_team(1);
+set role authenticated;
+select pg_temp.raises('another league''s host can''t pick in it', format('select survivor_host_pick(%s, %s, %s)', :nsv, :lou, :kc));
+reset role;
+select set_config('request.jwt.claim.sub', '', false);
+select 'survivor on rounds', true;
+
+-- ───────────── the crowd in the prediction log (migration 174) ─────────────
+-- Pod Squad picks a round of the Crowd Cup: all three back Ashford, two of three back Chelmsford away, and the third
+-- match splits three ways (no favourite, left out). Chelmsford's match goes live and the host settles it by hand; the
+-- feed finishes the rest.
+reset role;
+select set_config('request.jwt.claim.sub', '', false);
+select set_config('app.league_id', '', false);
+insert into competitions (id, sport, name, short, season, provider, ext_id, ext_season, active)
+values ('pk-crowd', 'soccer', 'Crowd Cup', 'CC', '2026', 'api-football', 'pkc', '2026', true) on conflict (id) do nothing;
+select soccer_ingest('pk-crowd', jsonb_build_object(
+  'clubs', jsonb_build_array(jsonb_build_object('ext_id', 'cc1', 'name', 'Ashford', 'short', 'ASH'), jsonb_build_object('ext_id', 'cc2', 'name', 'Bexley', 'short', 'BEX'),
+    jsonb_build_object('ext_id', 'cc3', 'name', 'Croydon', 'short', 'CRO'), jsonb_build_object('ext_id', 'cc4', 'name', 'Chelmsford', 'short', 'CHE'),
+    jsonb_build_object('ext_id', 'cc5', 'name', 'Epsom', 'short', 'EPS'), jsonb_build_object('ext_id', 'cc6', 'name', 'Fulham Vale', 'short', 'FUL')),
+  'fixtures', jsonb_build_array(
+    jsonb_build_object('ext_id', 'cr-1', 'gameweek', 1, 'kickoff', now() + interval '1 day', 'status', 'NS', 'home', 'cc1', 'away', 'cc2'),
+    jsonb_build_object('ext_id', 'cr-2', 'gameweek', 1, 'kickoff', now() + interval '1 day', 'status', 'NS', 'home', 'cc3', 'away', 'cc4'),
+    jsonb_build_object('ext_id', 'cr-3', 'gameweek', 1, 'kickoff', now() + interval '1 day', 'status', 'NS', 'home', 'cc5', 'away', 'cc6'))));
+select id as cr1 from fixtures where ext_id = 'cr-1' \gset
+select id as cr2 from fixtures where ext_id = 'cr-2' \gset
+select id as cr3 from fixtures where ext_id = 'cr-3' \gset
+select set_config('app.league_id', :'lib', false);
+select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-000000000081', false);
+set role authenticated;
+select pool_game_start('pickem', 'pk-crowd') as crg \gset
+select pool_pickem_save(:crg, 1, jsonb_build_array(jsonb_build_object('fixture', :cr1, 'pick', 'H'), jsonb_build_object('fixture', :cr2, 'pick', 'H'), jsonb_build_object('fixture', :cr3, 'pick', 'H')));
+reset role;
+select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-000000000082', false);
+set role authenticated;
+select pool_pickem_save(:crg, 1, jsonb_build_array(jsonb_build_object('fixture', :cr1, 'pick', 'H'), jsonb_build_object('fixture', :cr2, 'pick', 'A'), jsonb_build_object('fixture', :cr3, 'pick', 'D')));
+reset role;
+select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-000000000086', false);
+set role authenticated;
+select pool_pickem_save(:crg, 1, jsonb_build_array(jsonb_build_object('fixture', :cr1, 'pick', 'H'), jsonb_build_object('fixture', :cr2, 'pick', 'A'), jsonb_build_object('fixture', :cr3, 'pick', 'A')));
+reset role;
+select pg_temp.expect('nothing is written before kick-off', not exists (select 1 from predictions where kind = 'pool_split' and (subject->>'game')::bigint = :crg));
+select soccer_ingest('pk-crowd', jsonb_build_object('fixtures', jsonb_build_array(
+  jsonb_build_object('ext_id', 'cr-2', 'gameweek', 1, 'kickoff', now() + interval '1 day', 'status', '1H', 'home', 'cc3', 'away', 'cc4'))));
+select pg_temp.expect('at kick-off the pool''s split is a forecast: Chelmsford away, two in three',
+  (select predicted = 0.667 and basis = 'soccer' and status = 'open' and league_id = :lib and detail->>'fav' = 'A' and (detail->>'picks')::int = 3
+   from predictions where kind = 'pool_split' and subject = jsonb_build_object('game', :crg, 'fixture', :cr2)));
+select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-000000000081', false);
+set role authenticated;
+select pool_result_set(:crg, :cr2, 'A', 'The feed froze at half-time');
+reset role;
+select pg_temp.expect('the host''s result scores it: the favourite was right', (select status = 'scored' and outcome = 1 and error = 0.333
+  from predictions where kind = 'pool_split' and subject = jsonb_build_object('game', :crg, 'fixture', :cr2)));
+select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-000000000081', false);
+set role authenticated;
+select pool_result_set(:crg, :cr2, null, null);
+reset role;
+select pg_temp.expect('handed back to the feed, it waits again', (select status = 'open' and outcome is null
+  from predictions where kind = 'pool_split' and subject = jsonb_build_object('game', :crg, 'fixture', :cr2)));
+select soccer_ingest('pk-crowd', jsonb_build_object('fixtures', jsonb_build_array(
+  jsonb_build_object('ext_id', 'cr-1', 'gameweek', 1, 'kickoff', now() + interval '1 day', 'status', 'FT', 'home', 'cc1', 'away', 'cc2', 'home_score', 2, 'away_score', 0, 'home_ft', 2, 'away_ft', 0),
+  jsonb_build_object('ext_id', 'cr-2', 'gameweek', 1, 'kickoff', now() + interval '1 day', 'status', 'FT', 'home', 'cc3', 'away', 'cc4', 'home_score', 1, 'away_score', 1, 'home_ft', 1, 'away_ft', 1),
+  jsonb_build_object('ext_id', 'cr-3', 'gameweek', 1, 'kickoff', now() + interval '1 day', 'status', 'FT', 'home', 'cc5', 'away', 'cc6', 'home_score', 0, 'away_score', 3, 'home_ft', 0, 'away_ft', 3))));
+select pg_temp.expect('the feed scores the rest: a unanimous favourite right, a draw beats an away favourite, a three-way split left out',
+  (select status = 'scored' and predicted = 1 and outcome = 1 from predictions where kind = 'pool_split' and subject = jsonb_build_object('game', :crg, 'fixture', :cr1))
+  and (select status = 'scored' and outcome = 0 from predictions where kind = 'pool_split' and subject = jsonb_build_object('game', :crg, 'fixture', :cr2))
+  and not exists (select 1 from predictions where kind = 'pool_split' and subject = jsonb_build_object('game', :crg, 'fixture', :cr3)));
+select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-000000000082', false);
+set role authenticated;
+select pg_temp.expect('a member reads how good the pool''s consensus is, by sport and split',
+  (select sum(n) = (select count(*) from predictions where kind = 'pool_split' and status = 'scored') and bool_and(sport = 'soccer') from crowd_calibration())
+  and (select n = 1 and said = 1 and right_share = 1 from crowd_calibration() where bucket = 0.9));
+reset role;
+select set_config('app.league_id', '', false);
+select pg_temp.as_team(2);
+set role authenticated;
+select pg_temp.expect('another league reads none of it', not exists (select 1 from crowd_calibration())
+  and not exists (select 1 from predictions where kind = 'pool_split'));
+reset role;
+select count(*) as crowd_n from predictions where kind = 'pool_split' and status = 'scored' \gset
+select pg_temp.as_team(1);
+set role authenticated;
+select pg_temp.expect('a platform admin reads every pool''s crowd', (select sum(n) from crowd_calibration()) = :crowd_n and :crowd_n >= 2);
+reset role;
+select set_config('request.jwt.claim.sub', '', false);
+select 'crowd', true;
+
+-- ───────────── chances to win (migration 175) ─────────────
+-- A one-round pick'em on the Odds Cup: Hana and Fern pick both matches, Lou picks neither; the first match goes Hana's
+-- and Fern's way, so Lou can only guess his way to a share of it.
+reset role;
+select set_config('request.jwt.claim.sub', '', false);
+select set_config('app.league_id', '', false);
+insert into competitions (id, sport, name, short, season, provider, ext_id, ext_season, active)
+values ('pk-odds', 'soccer', 'Odds Cup', 'OC', '2026', 'api-football', 'pko', '2026', true) on conflict (id) do nothing;
+select soccer_ingest('pk-odds', jsonb_build_object(
+  'clubs', jsonb_build_array(jsonb_build_object('ext_id', 'oc1', 'name', 'Oxford', 'short', 'OXF'), jsonb_build_object('ext_id', 'oc2', 'name', 'Reading', 'short', 'REA'),
+    jsonb_build_object('ext_id', 'oc3', 'name', 'Swindon', 'short', 'SWI'), jsonb_build_object('ext_id', 'oc4', 'name', 'Slough', 'short', 'SLO')),
+  'fixtures', jsonb_build_array(
+    jsonb_build_object('ext_id', 'od-1', 'gameweek', 1, 'kickoff', now() + interval '1 day', 'status', 'NS', 'home', 'oc1', 'away', 'oc2'),
+    jsonb_build_object('ext_id', 'od-2', 'gameweek', 1, 'kickoff', now() + interval '2 days', 'status', 'NS', 'home', 'oc3', 'away', 'oc4'))));
+select id as od1 from fixtures where ext_id = 'od-1' \gset
+select id as od2 from fixtures where ext_id = 'od-2' \gset
+select count(*) as members from teams where league_id = :lib and role = 'gm' \gset
+select set_config('app.league_id', :'lib', false);
+select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-000000000081', false);
+set role authenticated;
+select pool_game_start('pickem', 'pk-odds') as og \gset
+select pool_pickem_save(:og, 1, jsonb_build_array(jsonb_build_object('fixture', :od1, 'pick', 'H'), jsonb_build_object('fixture', :od2, 'pick', 'H')));
+reset role;
+select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-000000000082', false);
+set role authenticated;
+select pool_pickem_save(:og, 1, jsonb_build_array(jsonb_build_object('fixture', :od1, 'pick', 'H'), jsonb_build_object('fixture', :od2, 'pick', 'A')));
+select pool_game_chances(:og) as ch0 \gset
+select pg_temp.expect('before a ball is kicked every member has a chance, and they add up to one',
+  jsonb_array_length(:'ch0'::jsonb) = :members
+  and abs((select sum((e->>'chance')::numeric) from jsonb_array_elements(:'ch0'::jsonb) e) - 1) < 0.01
+  and (select bool_and((e->>'chance')::numeric > 0) from jsonb_array_elements(:'ch0'::jsonb) e where (e->>'team_id')::int in (:hana, :fern, :lou)));
+reset role;
+select pg_temp.expect('the first look logs each member''s chance, once a day', (select count(*) from predictions where kind = 'pool_win' and (subject->>'game')::bigint = :og and status = 'open') = :members);
+select soccer_ingest('pk-odds', jsonb_build_object('fixtures', jsonb_build_array(
+  jsonb_build_object('ext_id', 'od-1', 'gameweek', 1, 'kickoff', now() + interval '1 day', 'status', 'FT', 'home', 'oc1', 'away', 'oc2', 'home_score', 1, 'away_score', 0, 'home_ft', 1, 'away_ft', 0))));
+select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-000000000082', false);
+set role authenticated;
+select pool_game_chances(:og) as ch1 \gset
+select pg_temp.expect('a point up with one to play, Hana and Fern are far likelier than Lou, who can only guess his way to a share',
+  (select (e->>'chance')::numeric from jsonb_array_elements(:'ch1'::jsonb) e where (e->>'team_id')::int = :hana)
+    > (select (e->>'chance')::numeric + 0.2 from jsonb_array_elements(:'ch1'::jsonb) e where (e->>'team_id')::int = :lou)
+  and (select (e->>'chance')::numeric from jsonb_array_elements(:'ch1'::jsonb) e where (e->>'team_id')::int = :fern)
+    > (select (e->>'chance')::numeric + 0.2 from jsonb_array_elements(:'ch1'::jsonb) e where (e->>'team_id')::int = :lou));
+reset role;
+select pg_temp.expect('still one forecast a day each', (select count(*) from predictions where kind = 'pool_win' and (subject->>'game')::bigint = :og) = :members);
+select soccer_ingest('pk-odds', jsonb_build_object('fixtures', jsonb_build_array(
+  jsonb_build_object('ext_id', 'od-2', 'gameweek', 1, 'kickoff', now() + interval '2 days', 'status', 'FT', 'home', 'oc3', 'away', 'oc4', 'home_score', 0, 'away_score', 2, 'home_ft', 0, 'away_ft', 2))));
+select pg_temp.expect('Fern wins it, and the chances are scored: hers a hit, the rest misses', (select status = 'done' and winners = array[:fern] from pool_games where id = :og)
+  and (select outcome = 1 and status = 'scored' from predictions where kind = 'pool_win' and (subject->>'game')::bigint = :og and (subject->>'team_id')::int = :fern)
+  and (select bool_and(outcome = 0) from predictions where kind = 'pool_win' and (subject->>'game')::bigint = :og and (subject->>'team_id')::int <> :fern));
+select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-000000000086', false);
+set role authenticated;
+select pg_temp.expect('over, the chances are its winners', (select (e->>'chance')::numeric = 1 and (e->>'team_id')::int = :fern from jsonb_array_elements(pool_game_chances(:og)) e));
+reset role;
+select set_config('app.league_id', '', false);
+select pg_temp.as_team(2);
+set role authenticated;
+select pg_temp.raises('another league can''t read them', format('select pool_game_chances(%s)', :og));
+reset role;
+select set_config('request.jwt.claim.sub', '', false);
+select 'chances', true;
+
+-- ───────────── chances to win in Pick the series (migration 176) ─────────────
+-- An LCS then a World Series: Hana takes the higher seed in 4, Fern the lower seed in 7, Lou never picks. Up 3-0, the
+-- higher seed makes Hana the favourite.
+reset role;
+select set_config('request.jwt.claim.sub', '', false);
+select set_config('app.league_id', '', false);
+insert into competitions (id, sport, name, short, season, provider, ext_id, ext_season, active)
+values ('ws-odds', 'mlb', 'Odds Series', 'OS', '2026', 'mlb', 'ws-odds', '2026', true) on conflict (id) do nothing;
+select sport_ingest('ws-odds', jsonb_build_object(
+  'clubs', jsonb_build_array(jsonb_build_object('ext_id', '951', 'name', 'Erie Eagles', 'short', 'ERI'), jsonb_build_object('ext_id', '952', 'name', 'Flint Flyers', 'short', 'FLI')),
+  'series', jsonb_build_array(
+    jsonb_build_object('ext_id', 'O_L1', 'round', 1, 'label', 'Championship Series', 'short', 'CS', 'best_of', 7, 'high', '951', 'low', '952', 'starts_at', now() + interval '2 days'),
+    jsonb_build_object('ext_id', 'O_W1', 'round', 2, 'label', 'World Series', 'short', 'WS', 'best_of', 7, 'starts_at', now() + interval '10 days', 'tbd', true))));
+select id as eri from clubs where sport = 'mlb' and ext_id = '951' \gset
+select id as fli from clubs where sport = 'mlb' and ext_id = '952' \gset
+select id as ocs from series where ext_id = 'O_L1' \gset
+select set_config('app.league_id', :'lib', false);
+select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-000000000081', false);
+set role authenticated;
+select pool_game_start('series', 'ws-odds', '{"preset":"classic"}') as osg \gset
+select pool_game_pick(:osg, 's:' || :ocs, jsonb_build_object('winner', :eri, 'games', 4));
+reset role;
+select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-000000000082', false);
+set role authenticated;
+select pool_game_pick(:osg, 's:' || :ocs, jsonb_build_object('winner', :fli, 'games', 7));
+select pool_game_chances(:osg) as sc0 \gset
+select pg_temp.expect('before the first pitch every member has a chance, adding up to one',
+  jsonb_array_length(:'sc0'::jsonb) = :members
+  and abs((select sum((e->>'chance')::numeric) from jsonb_array_elements(:'sc0'::jsonb) e) - 1) < 0.01
+  and (select bool_and((e->>'chance')::numeric > 0) from jsonb_array_elements(:'sc0'::jsonb) e where (e->>'team_id')::int in (:hana, :fern, :lou)));
+reset role;
+select pg_temp.expect('the series chances are logged as a forecast of their own kind', (select count(*) from predictions where kind = 'pool_win' and basis = 'series' and (subject->>'game')::bigint = :osg) = :members);
+select sport_ingest('ws-odds', jsonb_build_object('fixtures', jsonb_build_array(
+  jsonb_build_object('ext_id', 'o1', 'series', 'O_L1', 'game_no', 1, 'kickoff', now() - interval '3 days', 'state', 'final', 'home', '951', 'away', '952', 'home_score', 5, 'away_score', 1),
+  jsonb_build_object('ext_id', 'o2', 'series', 'O_L1', 'game_no', 2, 'kickoff', now() - interval '2 days', 'state', 'final', 'home', '951', 'away', '952', 'home_score', 4, 'away_score', 2),
+  jsonb_build_object('ext_id', 'o3', 'series', 'O_L1', 'game_no', 3, 'kickoff', now() - interval '1 day', 'state', 'final', 'home', '952', 'away', '951', 'home_score', 0, 'away_score', 3))));
+select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-000000000086', false);
+set role authenticated;
+select pool_game_chances(:osg) as sc1 \gset
+select pg_temp.expect('up 3-0, the higher seed makes Hana the clear favourite over Fern, who needs four straight from the lower seed',
+  (select (e->>'chance')::numeric from jsonb_array_elements(:'sc1'::jsonb) e where (e->>'team_id')::int = :hana)
+    > (select (e->>'chance')::numeric + 0.2 from jsonb_array_elements(:'sc1'::jsonb) e where (e->>'team_id')::int = :fern));
+reset role;
+select set_config('app.league_id', '', false);
+select set_config('request.jwt.claim.sub', '', false);
+select 'series chances', true;
+
+-- ───────────── results by hand for every game (migration 177) ─────────────
+-- Pod Squad runs last one standing and Call the score on the Hand Cup. The feed freezes: the host settles Ashby v
+-- Barnet 2-1 by hand and voids Cobham v Dorking; then hands Ashby v Barnet back, and the feed has Barnet winning 1-0.
+reset role;
+select set_config('request.jwt.claim.sub', '', false);
+select set_config('app.league_id', '', false);
+insert into competitions (id, sport, name, short, season, provider, ext_id, ext_season, active)
+values ('hb-cup', 'soccer', 'Hand Cup', 'HC', '2026', 'api-football', 'hbc', '2026', true) on conflict (id) do nothing;
+select soccer_ingest('hb-cup', jsonb_build_object(
+  'clubs', jsonb_build_array(jsonb_build_object('ext_id', 'hb1', 'name', 'Ashby', 'short', 'ASB'), jsonb_build_object('ext_id', 'hb2', 'name', 'Barnet Vale', 'short', 'BAR'),
+    jsonb_build_object('ext_id', 'hb3', 'name', 'Cobham', 'short', 'COB'), jsonb_build_object('ext_id', 'hb4', 'name', 'Dorking', 'short', 'DOR')),
+  'fixtures', jsonb_build_array(
+    jsonb_build_object('ext_id', 'hb-11', 'gameweek', 1, 'kickoff', now() + interval '1 day', 'status', 'NS', 'home', 'hb1', 'away', 'hb2'),
+    jsonb_build_object('ext_id', 'hb-12', 'gameweek', 1, 'kickoff', now() + interval '1 day', 'status', 'NS', 'home', 'hb3', 'away', 'hb4'),
+    jsonb_build_object('ext_id', 'hb-21', 'gameweek', 2, 'kickoff', now() + interval '8 days', 'status', 'NS', 'home', 'hb1', 'away', 'hb3'))));
+select id as hb11 from fixtures where ext_id = 'hb-11' \gset
+select id as hb12 from fixtures where ext_id = 'hb-12' \gset
+select id as hb21 from fixtures where ext_id = 'hb-21' \gset
+select id as asb from clubs where ext_id = 'hb1' \gset
+select id as bar from clubs where ext_id = 'hb2' \gset
+select id as cob from clubs where ext_id = 'hb3' \gset
+select set_config('app.league_id', :'lib', false);
+select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-000000000081', false);
+set role authenticated;
+select survivor_start('hb-cup') as hsv \gset
+select predictor_start('hb-cup') as hpr \gset
+select survivor_pick(:hsv, :bar);
+select predictor_save(:hpr, 1, jsonb_build_array(jsonb_build_object('fixture', :hb11, 'home', 0, 'away', 1)));
+select pg_temp.raises('a match not yet kicked off can''t be settled', format('select pool_fixture_result_set(%s, %L, null, null, %L)', :hb11, 'H', 'early'), 'hasn''t kicked off');
+reset role;
+select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-000000000082', false);
+set role authenticated;
+select survivor_pick(:hsv, :asb);
+select predictor_save(:hpr, 1, jsonb_build_array(jsonb_build_object('fixture', :hb11, 'home', 2, 'away', 1)));
+select pg_temp.raises('only the host settles', format('select pool_fixture_result_set(%s, %L, null, null, %L)', :hb11, 'H', 'mine'), 'Commissioner only');
+reset role;
+select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-000000000086', false);
+set role authenticated;
+select survivor_pick(:hsv, :cob);
+reset role;
+-- both kick off, and the feed freezes
+select soccer_ingest('hb-cup', jsonb_build_object('fixtures', jsonb_build_array(
+  jsonb_build_object('ext_id', 'hb-11', 'gameweek', 1, 'kickoff', now() - interval '1 hour', 'status', '1H', 'home', 'hb1', 'away', 'hb2', 'home_score', 0, 'away_score', 0),
+  jsonb_build_object('ext_id', 'hb-12', 'gameweek', 1, 'kickoff', now() - interval '1 hour', 'status', '1H', 'home', 'hb3', 'away', 'hb4', 'home_score', 0, 'away_score', 0))));
+select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-000000000081', false);
+set role authenticated;
+select pg_temp.raises('a score has both sides', format('select pool_fixture_result_set(%s, null, 2, null, %L)', :hb11, 'The feed froze'), 'both sides');
+select pg_temp.raises('a match the pool''s games aren''t on', format('select pool_fixture_result_set(%s, %L, null, null, %L)', :od1, 'H', 'The feed froze'), 'isn''t in one of');
+select pg_temp.expect('the host settles Ashby v Barnet 2-1', pool_fixture_result_set(:hb11, null, 2, 1, 'The feed froze at half-time') = 'H');
+reset role;
+select pg_temp.expect('last one standing settles from it: Fern through on Ashby, Hana out on Barnet',
+  (select result from survivor_picks where survivor_id = :hsv and team_id = :fern) = 'through'
+  and (select result from survivor_picks where survivor_id = :hsv and team_id = :hana) = 'out'
+  and exists (select 1 from notifications where team_id = :fern and kind = 'survivor' and body = '🛡️ Through: Ashby beat Barnet Vale 2-1.'));
+select pg_temp.expect('and Call the score: Fern spot on, Hana nothing', (select points from predictor_picks where predictor_id = :hpr and team_id = :fern) = 3
+  and (select points from predictor_picks where predictor_id = :hpr and team_id = :hana) = 0
+  and exists (select 1 from messages where league_id = :lib and body = '📝 The host settled Ashby 2-1 Barnet Vale: Ashby win. The feed froze at half-time'));
+select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-000000000081', false);
+set role authenticated;
+select pool_fixture_result_set(:hb12, 'void', null, null, 'Abandoned for floodlight failure');
+reset role;
+select pg_temp.expect('a void lets Lou through and closes the round by hand: the next one is in play',
+  (select result from survivor_picks where survivor_id = :hsv and team_id = :lou) = 'void'
+  and _survivor_week(:hsv) = 2 and (select status from survivors where id = :hsv) = 'open');
+select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-000000000081', false);
+set role authenticated;
+select pg_temp.expect('handed back, Ashby v Barnet waits for the feed again', pool_fixture_result_set(:hb11, null, null, null, null) is null);
+reset role;
+select pg_temp.expect('its picks are open again', (select result from survivor_picks where survivor_id = :hsv and team_id = :fern) is null
+  and (select points from predictor_picks where predictor_id = :hpr and team_id = :fern) is null);
+select soccer_ingest('hb-cup', jsonb_build_object('fixtures', jsonb_build_array(
+  jsonb_build_object('ext_id', 'hb-11', 'gameweek', 1, 'kickoff', now() - interval '1 hour', 'status', 'FT', 'home', 'hb1', 'away', 'hb2', 'home_score', 0, 'away_score', 1, 'home_ft', 0, 'away_ft', 1))));
+select pg_temp.expect('the feed settles it now: Barnet won, so Hana is through and Fern out; Hana''s call was spot on',
+  (select result from survivor_picks where survivor_id = :hsv and team_id = :hana) = 'through'
+  and (select result from survivor_picks where survivor_id = :hsv and team_id = :fern) = 'out'
+  and (select points from predictor_picks where predictor_id = :hpr and team_id = :hana) = 3
+  and (select points from predictor_picks where predictor_id = :hpr and team_id = :fern) = 0);
+select pg_temp.expect('the void stays the host''s, whatever the feed does', (select outcome from pool_result_overrides where league_id = :lib and fixture_id = :hb12) = 'void');
+select set_config('app.league_id', '', false);
+select pg_temp.as_team(1);
+set role authenticated;
+select pg_temp.raises('another pool''s host can''t settle it', format('select pool_fixture_result_set(%s, %L, null, null, %L)', :hb11, 'H', 'nope'), 'isn''t in one of');
+reset role;
+select set_config('request.jwt.claim.sub', '', false);
+select 'results by hand', true;
+
+-- ───────────── the market beside the crowd (migration 178) ─────────────
+-- The Market Cup's one match comes with the market's view; it moves before kick-off, then freezes. All three pick the
+-- home side, which the market gave 61%.
+reset role;
+select set_config('request.jwt.claim.sub', '', false);
+select set_config('app.league_id', '', false);
+insert into competitions (id, sport, name, short, season, provider, ext_id, ext_season, active)
+values ('pk-mkt', 'soccer', 'Market Cup', 'MC', '2026', 'espn', 'mkt', '2026', true) on conflict (id) do nothing;
+select soccer_ingest('pk-mkt', jsonb_build_object(
+  'clubs', jsonb_build_array(jsonb_build_object('ext_id', 'mk1', 'name', 'Mansfield', 'short', 'MAN'), jsonb_build_object('ext_id', 'mk2', 'name', 'Newport', 'short', 'NEW')),
+  'fixtures', jsonb_build_array(jsonb_build_object('ext_id', 'mk-1', 'gameweek', 1, 'kickoff', now() + interval '1 day', 'status', 'NS', 'home', 'mk1', 'away', 'mk2',
+    'odds', jsonb_build_object('home', 0.55, 'away', 0.2, 'draw', 0.25, 'line', -0.5, 'total', 2.5)))));
+select id as mk1 from fixtures where ext_id = 'mk-1' \gset
+select soccer_ingest('pk-mkt', jsonb_build_object('fixtures', jsonb_build_array(jsonb_build_object('ext_id', 'mk-1', 'gameweek', 1, 'kickoff', now() + interval '1 day',
+  'status', 'NS', 'home', 'mk1', 'away', 'mk2', 'odds', jsonb_build_object('home', 0.61, 'away', 0.17, 'draw', 0.22, 'line', -1, 'total', 2.5)))));
+select pg_temp.expect('the market''s view rides with the match, and moves before kick-off', (select (detail->'odds'->>'home')::numeric = 0.61 and (detail->'odds'->>'line')::numeric = -1 from fixtures where id = :mk1));
+select set_config('app.league_id', :'lib', false);
+select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-000000000081', false);
+set role authenticated;
+select pool_game_start('pickem', 'pk-mkt') as mkg \gset
+select pool_pickem_save(:mkg, 1, jsonb_build_array(jsonb_build_object('fixture', :mk1, 'pick', 'H')));
+reset role;
+select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-000000000082', false);
+set role authenticated;
+select pool_pickem_save(:mkg, 1, jsonb_build_array(jsonb_build_object('fixture', :mk1, 'pick', 'H')));
+reset role;
+select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-000000000086', false);
+set role authenticated;
+select pool_pickem_save(:mkg, 1, jsonb_build_array(jsonb_build_object('fixture', :mk1, 'pick', 'H')));
+reset role;
+select soccer_ingest('pk-mkt', jsonb_build_object('fixtures', jsonb_build_array(jsonb_build_object('ext_id', 'mk-1', 'gameweek', 1, 'kickoff', now() - interval '10 minutes',
+  'status', '1H', 'home', 'mk1', 'away', 'mk2', 'home_score', 0, 'away_score', 0, 'odds', jsonb_build_object('home', 0.3, 'away', 0.4, 'draw', 0.3)))));
+select soccer_ingest('pk-mkt', jsonb_build_object('fixtures', jsonb_build_array(jsonb_build_object('ext_id', 'mk-1', 'gameweek', 1, 'kickoff', now() - interval '10 minutes',
+  'status', '2H', 'home', 'mk1', 'away', 'mk2', 'home_score', 0, 'away_score', 1, 'odds', jsonb_build_object('home', 0.1, 'away', 0.7, 'draw', 0.2)))));
+select pg_temp.expect('under way, the closing line stays', (select (detail->'odds'->>'home')::numeric = 0.61 from fixtures where id = :mk1));
+select pg_temp.expect('the crowd''s forecast carries the market''s chance for its favourite', (select predicted = 1 and (detail->>'market')::numeric = 0.61
+  from predictions where kind = 'pool_split' and subject = jsonb_build_object('game', :mkg, 'fixture', :mk1)));
+select soccer_ingest('pk-mkt', jsonb_build_object('fixtures', jsonb_build_array(jsonb_build_object('ext_id', 'mk-1', 'gameweek', 1, 'kickoff', now() - interval '10 minutes',
+  'status', 'FT', 'home', 'mk1', 'away', 'mk2', 'home_score', 0, 'away_score', 1, 'home_ft', 0, 'away_ft', 1))));
+select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-000000000082', false);
+set role authenticated;
+select pg_temp.expect('the calibration reads the market beside the crowd', (select market = 0.61 and priced = 1 and right_share = 0 from crowd_calibration() where bucket = 0.9 and sport = 'soccer' and n = 1)
+  or (select priced >= 1 from crowd_calibration() where bucket = 0.9 and sport = 'soccer'));
+reset role;
+select set_config('app.league_id', '', false);
+select set_config('request.jwt.claim.sub', '', false);
+select 'market', true;
+
+-- ───────────── reminders in the sport's words, and a last call (migration 179) ─────────────
+-- An NFL survivor: Thursday's game has kicked off, Sunday's is five hours out; Lou hasn't picked.
+reset role;
+select set_config('request.jwt.claim.sub', '', false);
+select set_config('app.league_id', '', false);
+select soccer_ingest('nfl', jsonb_build_object('fixtures', jsonb_build_array(
+  jsonb_build_object('ext_id', 'nfl-101', 'gameweek', 10, 'kickoff', now() - interval '2 days', 'status', 'FT', 'home', 'nf1', 'away', 'nf2', 'home_score', 20, 'away_score', 17, 'home_ft', 20, 'away_ft', 17),
+  jsonb_build_object('ext_id', 'nfl-102', 'gameweek', 10, 'kickoff', now() + interval '5 hours', 'status', 'NS', 'home', 'nf3', 'away', 'nf4'))));
+select set_config('app.league_id', :'lib', false);
+insert into survivors (league_id, competition, start_gw, end_gw, created_by) values (:lib, 'nfl', 10, 10, :hana) returning id as lsv \gset
+select _soccer_nudge(:lib) as ln \gset
+select pg_temp.expect('a round under way still gets a last call before its final kick-off, in the sport''s words',
+  exists (select 1 from notifications where team_id = :lou and kind = 'survivor' and body = '⏰ Last call for week 10: its last game kicks off in 5h. Pick your team or you''re out.'));
+select pg_temp.expect('and only once', _soccer_nudge(:lib) = 0);
+update survivors set status = 'done' where id = :lsv;
+-- pick'em on the same week: its Thursday game is played, Sunday's still to pick
+select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-000000000081', false);
+set role authenticated;
+select pool_game_start('pickem', 'nfl') as nflpk \gset
+reset role;
+select set_config('request.jwt.claim.sub', '', false);
+select _pool_game_nudge(:lib) as pn \gset
+select pg_temp.expect('pick''em gets a second reminder before the rest of a round under way, in the sport''s words',
+  exists (select 1 from notifications where team_id = :lou and kind = 'pool_game' and body = '⏰ The rest of week 10 kicks off in 5h. You have one game still to pick in NFL pick''em.'));
+select pg_temp.expect('and only once', _pool_game_nudge(:lib) = 0);
+update pool_games set status = 'done' where id = :nflpk;
+select set_config('app.league_id', '', false);
+select 'last call', true;
+
+-- ───────────── chance to win from the market (migration 181) ─────────────
+-- One match, Hana on the home side, Fern on the away side: the pool alone can't split them, the market can.
+reset role;
+select set_config('request.jwt.claim.sub', '', false);
+select set_config('app.league_id', '', false);
+insert into competitions (id, sport, name, short, season, provider, ext_id, ext_season, active)
+values ('pk-mko', 'soccer', 'Line Cup', 'LC', '2026', 'espn', 'mko', '2026', true) on conflict (id) do nothing;
+select soccer_ingest('pk-mko', jsonb_build_object(
+  'clubs', jsonb_build_array(jsonb_build_object('ext_id', 'lc1', 'name', 'Leyton', 'short', 'LEY'), jsonb_build_object('ext_id', 'lc2', 'name', 'Morecambe', 'short', 'MOR')),
+  'fixtures', jsonb_build_array(jsonb_build_object('ext_id', 'lc-1', 'gameweek', 1, 'kickoff', now() + interval '1 day', 'status', 'NS', 'home', 'lc1', 'away', 'lc2',
+    'odds', jsonb_build_object('home', 0.9, 'away', 0.04, 'draw', 0.06)))));
+select id as lc1 from fixtures where ext_id = 'lc-1' \gset
+select set_config('app.league_id', :'lib', false);
+select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-000000000081', false);
+set role authenticated;
+select pool_game_start('pickem', 'pk-mko') as lcg \gset
+select pool_pickem_save(:lcg, 1, jsonb_build_array(jsonb_build_object('fixture', :lc1, 'pick', 'H')));
+reset role;
+select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-000000000082', false);
+set role authenticated;
+select pool_pickem_save(:lcg, 1, jsonb_build_array(jsonb_build_object('fixture', :lc1, 'pick', 'A')));
+select pool_game_chances(:lcg) as lch \gset
+select pg_temp.expect('the market''s 90% makes the home pick the clear favourite',
+  (select (e->>'chance')::numeric from jsonb_array_elements(:'lch'::jsonb) e where (e->>'team_id')::int = :hana)
+    > (select (e->>'chance')::numeric + 0.3 from jsonb_array_elements(:'lch'::jsonb) e where (e->>'team_id')::int = :fern));
+reset role;
+update pool_games set status = 'done' where id = :lcg;
+select set_config('app.league_id', '', false);
+select set_config('request.jwt.claim.sub', '', false);
+select 'chances from the market', true;
+
+-- ───────────── chance to win in Rank the teams (migration 182) ─────────────
+-- Two championship series, then a World Series of their winners. Hana ranks Ogden first, Fern ranks Reno first; once
+-- the order locks, Ogden goes 3-0 up and Hana is the favourite.
+reset role;
+select set_config('request.jwt.claim.sub', '', false);
+select set_config('app.league_id', '', false);
+insert into competitions (id, sport, name, short, season, provider, ext_id, ext_season, active)
+values ('rk-odds', 'mlb', 'Rank Series', 'RS', '2026', 'mlb', 'rk-odds', '2026', true) on conflict (id) do nothing;
+select sport_ingest('rk-odds', jsonb_build_object(
+  'clubs', jsonb_build_array(jsonb_build_object('ext_id', '961', 'name', 'Ogden Owls', 'short', 'OGD'), jsonb_build_object('ext_id', '962', 'name', 'Provo Pines', 'short', 'PRO'),
+    jsonb_build_object('ext_id', '963', 'name', 'Quincy Quails', 'short', 'QUI'), jsonb_build_object('ext_id', '964', 'name', 'Reno Rams', 'short', 'REN')),
+  'series', jsonb_build_array(
+    jsonb_build_object('ext_id', 'K_L1', 'round', 1, 'label', 'AL Championship Series', 'short', 'ALCS', 'best_of', 7, 'high', '961', 'low', '962', 'starts_at', now() + interval '1 day'),
+    jsonb_build_object('ext_id', 'K_L2', 'round', 1, 'label', 'NL Championship Series', 'short', 'NLCS', 'best_of', 7, 'high', '963', 'low', '964', 'starts_at', now() + interval '1 day'),
+    jsonb_build_object('ext_id', 'K_W1', 'round', 2, 'label', 'World Series', 'short', 'WS', 'best_of', 7, 'starts_at', now() + interval '10 days', 'tbd', true))));
+select id as ogd from clubs where sport = 'mlb' and ext_id = '961' \gset
+select id as pro from clubs where sport = 'mlb' and ext_id = '962' \gset
+select id as qui from clubs where sport = 'mlb' and ext_id = '963' \gset
+select id as ren from clubs where sport = 'mlb' and ext_id = '964' \gset
+select set_config('app.league_id', :'lib', false);
+select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-000000000081', false);
+set role authenticated;
+select pool_game_start('rank', 'rk-odds') as rkg \gset
+select pool_game_pick(:rkg, 'rank', jsonb_build_object('order', jsonb_build_array(:ogd, :pro, :qui, :ren)));
+select pg_temp.expect('before the lock there are no chances: the order can still change', pool_game_chances(:rkg) = '[]'::jsonb);
+reset role;
+select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-000000000082', false);
+set role authenticated;
+select pool_game_pick(:rkg, 'rank', jsonb_build_object('order', jsonb_build_array(:ren, :qui, :pro, :ogd)));
+reset role;
+select set_config('request.jwt.claim.sub', '', false);
+update series set starts_at = now() - interval '1 hour' where competition = 'rk-odds' and round = 1;
+select sport_ingest('rk-odds', jsonb_build_object('fixtures', jsonb_build_array(
+  jsonb_build_object('ext_id', 'k1', 'series', 'K_L1', 'game_no', 1, 'kickoff', now() - interval '50 minutes', 'state', 'final', 'home', '961', 'away', '962', 'home_score', 4, 'away_score', 1),
+  jsonb_build_object('ext_id', 'k2', 'series', 'K_L1', 'game_no', 2, 'kickoff', now() - interval '40 minutes', 'state', 'final', 'home', '961', 'away', '962', 'home_score', 3, 'away_score', 2),
+  jsonb_build_object('ext_id', 'k3', 'series', 'K_L1', 'game_no', 3, 'kickoff', now() - interval '30 minutes', 'state', 'final', 'home', '962', 'away', '961', 'home_score', 0, 'away_score', 5))));
+select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-000000000086', false);
+set role authenticated;
+select pool_game_chances(:rkg) as rkc \gset
+select pg_temp.expect('locked and Ogden 3-0 up, Hana is the favourite; the chances add up to one',
+  (select (e->>'chance')::numeric from jsonb_array_elements(:'rkc'::jsonb) e where (e->>'team_id')::int = :hana)
+    > (select (e->>'chance')::numeric + 0.2 from jsonb_array_elements(:'rkc'::jsonb) e where (e->>'team_id')::int = :fern)
+  and abs((select sum((e->>'chance')::numeric) from jsonb_array_elements(:'rkc'::jsonb) e) - 1) < 0.01);
+reset role;
+select pg_temp.expect('logged as a forecast of its own kind', exists (select 1 from predictions where kind = 'pool_win' and basis = 'rank' and (subject->>'game')::bigint = :rkg));
+update pool_games set status = 'done' where id = :rkg;
+select set_config('app.league_id', '', false);
+select set_config('request.jwt.claim.sub', '', false);
+select 'rank chances', true;
+
+-- ───────────── every chance against what happened (migration 183) ─────────────
+select set_config('app.league_id', :'lib', false);
+select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-000000000082', false);
+set role authenticated;
+select pg_temp.expect('the pool''s chances read in tenths, its own only', (select sum(n) from chance_calibration where kind = 'pool_win')
+  = (select count(*) from predictions where kind = 'pool_win' and status = 'scored')
+  and exists (select 1 from chance_calibration where kind = 'pool_split'));
+reset role;
+select set_config('app.league_id', '', false);
+select pg_temp.as_team(2);
+set role authenticated;
+select pg_temp.expect('another league sees none of them', not exists (select 1 from chance_calibration where kind in ('pool_win', 'pool_split')));
+reset role;
+select set_config('request.jwt.claim.sub', '', false);
+select 'chance calibration', true;
+
+-- ───────────── the bracket (migration 185) ─────────────
+-- Eight clubs, four series, then two, then the final. Hana takes Akron all the way, Fern takes Gary; Lou never fills
+-- one in. After the first round, Hana has three right and can still reach eleven.
+reset role;
+select set_config('request.jwt.claim.sub', '', false);
+select set_config('app.league_id', '', false);
+insert into competitions (id, sport, name, short, season, provider, ext_id, ext_season, active)
+values ('br-cup', 'mlb', 'Bracket Cup', 'BC', '2026', 'mlb', 'br-cup', '2026', true) on conflict (id) do nothing;
+select sport_ingest('br-cup', jsonb_build_object(
+  'clubs', (select jsonb_agg(jsonb_build_object('ext_id', 'b' || i, 'name', n, 'short', upper(left(n, 3)))) from unnest(array['Akron', 'Boise', 'Canton', 'Dayton', 'Erie', 'Fargo', 'Gary', 'Helena']) with ordinality u(n, i)),
+  'series', jsonb_build_array(
+    jsonb_build_object('ext_id', 'B11', 'round', 1, 'label', 'Quarterfinal', 'short', 'QF1', 'best_of', 7, 'high', 'b1', 'low', 'b2', 'starts_at', now() + interval '1 day', 'sort', 1),
+    jsonb_build_object('ext_id', 'B12', 'round', 1, 'label', 'Quarterfinal', 'short', 'QF2', 'best_of', 7, 'high', 'b3', 'low', 'b4', 'starts_at', now() + interval '1 day', 'sort', 2),
+    jsonb_build_object('ext_id', 'B13', 'round', 1, 'label', 'Quarterfinal', 'short', 'QF3', 'best_of', 7, 'high', 'b5', 'low', 'b6', 'starts_at', now() + interval '1 day', 'sort', 3),
+    jsonb_build_object('ext_id', 'B14', 'round', 1, 'label', 'Quarterfinal', 'short', 'QF4', 'best_of', 7, 'high', 'b7', 'low', 'b8', 'starts_at', now() + interval '1 day', 'sort', 4),
+    jsonb_build_object('ext_id', 'B21', 'round', 2, 'label', 'Semifinal', 'short', 'SF1', 'best_of', 7, 'starts_at', now() + interval '9 days', 'tbd', true, 'sort', 1),
+    jsonb_build_object('ext_id', 'B22', 'round', 2, 'label', 'Semifinal', 'short', 'SF2', 'best_of', 7, 'starts_at', now() + interval '9 days', 'tbd', true, 'sort', 2),
+    jsonb_build_object('ext_id', 'B31', 'round', 3, 'label', 'Final', 'short', 'F', 'best_of', 7, 'starts_at', now() + interval '18 days', 'tbd', true, 'sort', 1))));
+select id as ak from clubs where sport = 'mlb' and ext_id = 'b1' \gset
+select id as bo from clubs where sport = 'mlb' and ext_id = 'b2' \gset
+select id as ca from clubs where sport = 'mlb' and ext_id = 'b3' \gset
+select id as da from clubs where sport = 'mlb' and ext_id = 'b4' \gset
+select id as er from clubs where sport = 'mlb' and ext_id = 'b5' \gset
+select id as fa from clubs where sport = 'mlb' and ext_id = 'b6' \gset
+select id as ga from clubs where sport = 'mlb' and ext_id = 'b7' \gset
+select id as q1 from series where ext_id = 'B11' \gset
+select id as q2 from series where ext_id = 'B12' \gset
+select id as q3 from series where ext_id = 'B13' \gset
+select id as q4 from series where ext_id = 'B14' \gset
+select id as s1 from series where ext_id = 'B21' \gset
+select id as s2 from series where ext_id = 'B22' \gset
+select id as f1 from series where ext_id = 'B31' \gset
+select set_config('app.league_id', :'lib', false);
+select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-000000000081', false);
+set role authenticated;
+select pg_temp.expect('the start page offers a bracket where the rounds make one', exists (select 1 from jsonb_array_elements(pool_event_list()) e
+  where e->>'competition' = 'br-cup' and e->'kinds' ? 'bracket'));
+select pool_game_start('bracket', 'br-cup') as bg \gset
+select pg_temp.expect('it is on, doubling by round', (select title = 'The bracket' and rules->'points' = '{"1": 1, "2": 2, "3": 4}'::jsonb from pool_games where id = :bg)
+  and exists (select 1 from messages where league_id = :lib and body like '🏆 The bracket is open, from the Quarterfinal%'));
+select pg_temp.raises('every series needs a winner', format('select pool_game_pick(%s, %L, %L)', :bg, 'bracket',
+  jsonb_build_object('winners', jsonb_build_object(:q1, :ak))), 'every series');
+select pg_temp.raises('a winner goes on only from below', format('select pool_game_pick(%s, %L, %L)', :bg, 'bracket',
+  jsonb_build_object('winners', jsonb_build_object(:q1, :ak, :q2, :ca, :q3, :er, :q4, :ga, :s1, :er, :s2, :er, :f1, :er))), 'only from a series before it');
+select pool_game_pick(:bg, 'bracket', jsonb_build_object('winners', jsonb_build_object(:q1, :ak, :q2, :ca, :q3, :er, :q4, :ga, :s1, :ak, :s2, :er, :f1, :ak)));
+select pool_game_pick(:bg, 'tiebreak', '{"runs": 8}');
+reset role;
+select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-000000000082', false);
+set role authenticated;
+select pool_game_pick(:bg, 'bracket', jsonb_build_object('winners', jsonb_build_object(:q1, :bo, :q2, :ca, :q3, :fa, :q4, :ga, :s1, :ca, :s2, :ga, :f1, :ga)));
+select pg_temp.expect('the board shows the tree and her own bracket, nobody''s champion before the lock',
+  (select jsonb_array_length(b->'bracket'->'series') = 7 and (b->'bracket'->'mine'->>(:f1)::text)::bigint = :ga and b->'bracket'->'champions' = 'null'::jsonb
+   from (select pool_game_board(:bg) b) x));
+reset role;
+select set_config('request.jwt.claim.sub', '', false);
+-- the first round starts (the lock) and finishes: Akron, Dayton, Erie and Gary go through
+update series set starts_at = now() - interval '1 day' where competition = 'br-cup' and round = 1;
+update series set state = 'final', high_wins = case when ext_id in ('B11', 'B13', 'B14') then 4 else 2 end,
+  low_wins = case when ext_id = 'B12' then 4 else 1 end,
+  winner = case ext_id when 'B11' then :ak when 'B12' then :da when 'B13' then :er else :ga end
+where competition = 'br-cup' and round = 1;
+select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-000000000081', false);
+set role authenticated;
+select pg_temp.raises('locked at the first game', format('select pool_game_pick(%s, %L, %L)', :bg, 'bracket',
+  jsonb_build_object('winners', jsonb_build_object(:q1, :ak, :q2, :ca, :q3, :er, :q4, :ga, :s1, :ak, :s2, :er, :f1, :ak))), 'locked');
+reset role;
+select pg_temp.expect('three right and eleven still possible for Hana; one and seven for Fern; nothing for Lou, who never filled one in',
+  (select points = 3 and possible = 11 and right_calls = 3 and picked = 1 from _pool_game_table(:bg) where team_id = :hana)
+  and (select points = 1 and possible = 7 from _pool_game_table(:bg) where team_id = :fern)
+  and (select points = 0 and possible = 0 and picked = 0 from _pool_game_table(:bg) where team_id = :lou));
+select pg_temp.expect('the pool''s table reads it', (select line = '3 right' from _pool_rows() where game = 'game:' || :bg and team_id = :hana)
+  and (select line = 'No bracket yet' from _pool_rows() where game = 'game:' || :bg and team_id = :lou));
+select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-000000000086', false);
+set role authenticated;
+select pg_temp.expect('once locked, everyone''s champion shows', (select jsonb_array_length(pool_game_board(:bg)->'bracket'->'champions') = 2));
+reset role;
+update pool_games set status = 'done' where id = :bg;
+select set_config('app.league_id', '', false);
+select pg_temp.as_team(2);
+set role authenticated;
+select pg_temp.raises('another league can''t read it', format('select pool_game_board(%s)', :bg));
+reset role;
+select set_config('request.jwt.claim.sub', '', false);
+select 'bracket', true;
+
+-- ───────────── chance to win in the bracket (migration 186) ─────────────
+-- The Bracket Cup again (migration 185's section): after the first round Hana has three right and Akron, Erie and her
+-- champion still alive; Fern has one and Gary.
+select set_config('app.league_id', :'lib', false);
+update pool_games set status = 'open' where id = :bg;
+select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-000000000082', false);
+set role authenticated;
+select pool_game_chances(:bg) as bch \gset
+select pg_temp.expect('Hana is the favourite, Lou has none, and the chances add up to one',
+  (select (e->>'chance')::numeric from jsonb_array_elements(:'bch'::jsonb) e where (e->>'team_id')::int = :hana)
+    > (select (e->>'chance')::numeric from jsonb_array_elements(:'bch'::jsonb) e where (e->>'team_id')::int = :fern)
+  and (select (e->>'chance')::numeric = 0 from jsonb_array_elements(:'bch'::jsonb) e where (e->>'team_id')::int = :lou)
+  and abs((select sum((e->>'chance')::numeric) from jsonb_array_elements(:'bch'::jsonb) e) - 1) < 0.01);
+reset role;
+update pool_games set status = 'done' where id = :bg;
+select set_config('app.league_id', '', false);
+select set_config('request.jwt.claim.sub', '', false);
+select 'bracket chances', true;
+
+-- ───────────── the NFL's playoffs as series, and a bracket on them (migration 187) ─────────────
+-- Last season's playoffs as soccer-sync files them (the Wild Card round played, the Divisional round next, the later
+-- rounds' slots not yet drawn): the bracket can start from the Divisional round, the AFC's games feeding the AFC final.
+reset role;
+select set_config('request.jwt.claim.sub', '', false);
+select set_config('app.league_id', '', false);
+insert into competitions (id, sport, name, short, season, provider, ext_id, ext_season, active, format)
+values ('nfl-po-test', 'nfl', 'NFL Playoffs (test)', 'NFL', '2025', 'espn', 'football/nfl', '2025', true, 'series') on conflict (id) do nothing;
+select sport_ingest('nfl-po-test', '{"clubs":[{"ext_id":"30","name":"Jacksonville Jaguars","short":"JAX","logo":null},{"ext_id":"2","name":"Buffalo Bills","short":"BUF","logo":null},{"ext_id":"17","name":"New England Patriots","short":"NE","logo":null},{"ext_id":"24","name":"Los Angeles Chargers","short":"LAC","logo":null},{"ext_id":"23","name":"Pittsburgh Steelers","short":"PIT","logo":null},{"ext_id":"34","name":"Houston Texans","short":"HOU","logo":null},{"ext_id":"29","name":"Carolina Panthers","short":"CAR","logo":null},{"ext_id":"14","name":"Los Angeles Rams","short":"LAR","logo":null},{"ext_id":"3","name":"Chicago Bears","short":"CHI","logo":null},{"ext_id":"9","name":"Green Bay Packers","short":"GB","logo":null},{"ext_id":"21","name":"Philadelphia Eagles","short":"PHI","logo":null},{"ext_id":"25","name":"San Francisco 49ers","short":"SF","logo":null},{"ext_id":"7","name":"Denver Broncos","short":"DEN","logo":null},{"ext_id":"26","name":"Seattle Seahawks","short":"SEA","logo":null}],"series":[{"ext_id":"P401772977","round":1,"label":"AFC Wild Card","short":"AFC WC","best_of":1,"high":"30","low":"2","starts_at":"2026-01-11T18:00:00.000Z","tbd":false,"sort":1},{"ext_id":"P401772978","round":1,"label":"AFC Wild Card","short":"AFC WC","best_of":1,"high":"17","low":"24","starts_at":"2026-01-12T01:15:00.000Z","tbd":false,"sort":2},{"ext_id":"P401772976","round":1,"label":"AFC Wild Card","short":"AFC WC","best_of":1,"high":"23","low":"34","starts_at":"2026-01-13T01:15:00.000Z","tbd":false,"sort":3},{"ext_id":"P401772979","round":1,"label":"NFC Wild Card","short":"NFC WC","best_of":1,"high":"29","low":"14","starts_at":"2026-01-10T21:30:00.000Z","tbd":false,"sort":4},{"ext_id":"P401772981","round":1,"label":"NFC Wild Card","short":"NFC WC","best_of":1,"high":"3","low":"9","starts_at":"2026-01-11T01:00:00.000Z","tbd":false,"sort":5},{"ext_id":"P401772980","round":1,"label":"NFC Wild Card","short":"NFC WC","best_of":1,"high":"21","low":"25","starts_at":"2026-01-11T21:30:00.000Z","tbd":false,"sort":6},{"ext_id":"P401772982","round":2,"label":"AFC Divisional","short":"AFC DIV","best_of":1,"high":"7","low":"2","starts_at":"2099-01-17T21:30:00Z","tbd":false,"sort":1},{"ext_id":"P401772983","round":2,"label":"AFC Divisional","short":"AFC DIV","best_of":1,"high":"17","low":"34","starts_at":"2099-01-17T21:30:00Z","tbd":false,"sort":2},{"ext_id":"P401772984","round":2,"label":"NFC Divisional","short":"NFC DIV","best_of":1,"high":"26","low":"25","starts_at":"2099-01-17T21:30:00Z","tbd":false,"sort":3},{"ext_id":"P401772985","round":2,"label":"NFC Divisional","short":"NFC DIV","best_of":1,"high":"3","low":"14","starts_at":"2099-01-17T21:30:00Z","tbd":false,"sort":4},{"ext_id":"PAFC","round":3,"label":"AFC Championship","short":"AFC CC","best_of":1,"tbd":true,"sort":1},{"ext_id":"PNFC","round":3,"label":"NFC Championship","short":"NFC CC","best_of":1,"tbd":true,"sort":2},{"ext_id":"PSB","round":4,"label":"Super Bowl","short":"SB","best_of":1,"tbd":true,"sort":1}],"fixtures":[{"ext_id":"P401772977","series":"P401772977","game_no":1,"kickoff":"2026-01-11T18:00:00.000Z","state":"final","status":"FT","home":"30","away":"2","home_score":24,"away_score":27,"venue":"EverBank Stadium, Jacksonville"},{"ext_id":"P401772978","series":"P401772978","game_no":1,"kickoff":"2026-01-12T01:15:00.000Z","state":"final","status":"FT","home":"17","away":"24","home_score":16,"away_score":3,"venue":"Gillette Stadium, Foxborough"},{"ext_id":"P401772976","series":"P401772976","game_no":1,"kickoff":"2026-01-13T01:15:00.000Z","state":"final","status":"FT","home":"23","away":"34","home_score":6,"away_score":30,"venue":"Acrisure Stadium, Pittsburgh"},{"ext_id":"P401772979","series":"P401772979","game_no":1,"kickoff":"2026-01-10T21:30:00.000Z","state":"final","status":"FT","home":"29","away":"14","home_score":31,"away_score":34,"venue":"Bank of America Stadium, Charlotte"},{"ext_id":"P401772981","series":"P401772981","game_no":1,"kickoff":"2026-01-11T01:00:00.000Z","state":"final","status":"FT","home":"3","away":"9","home_score":31,"away_score":27,"venue":"Soldier Field, Chicago"},{"ext_id":"P401772980","series":"P401772980","game_no":1,"kickoff":"2026-01-11T21:30:00.000Z","state":"final","status":"FT","home":"21","away":"25","home_score":19,"away_score":23,"venue":"Lincoln Financial Field, Philadelphia"},{"ext_id":"P401772982","series":"P401772982","game_no":1,"kickoff":"2099-01-17T21:30:00Z","state":"scheduled","status":"NS","home":"7","away":"2","home_score":null,"away_score":null,"venue":"Empower Field at Mile High, Denver"},{"ext_id":"P401772983","series":"P401772983","game_no":1,"kickoff":"2099-01-17T21:30:00Z","state":"scheduled","status":"NS","home":"17","away":"34","home_score":null,"away_score":null,"venue":"Gillette Stadium, Foxborough"},{"ext_id":"P401772984","series":"P401772984","game_no":1,"kickoff":"2099-01-17T21:30:00Z","state":"scheduled","status":"NS","home":"26","away":"25","home_score":null,"away_score":null,"venue":"Lumen Field, Seattle"},{"ext_id":"P401772985","series":"P401772985","game_no":1,"kickoff":"2099-01-17T21:30:00Z","state":"scheduled","status":"NS","home":"3","away":"14","home_score":null,"away_score":null,"venue":"Soldier Field, Chicago"}]}'::jsonb);
+select pg_temp.expect('the playoffs offer a bracket from the Divisional round, beside the series kinds', exists (select 1 from jsonb_array_elements(pool_event_list()) e
+  where e->>'competition' = 'nfl-po-test' and (e->>'open_round')::int = 2 and e->'kinds' ? 'bracket' and e->'kinds' ? 'series'));
+select pg_temp.expect('the AFC''s Divisional games feed the AFC final, the conference finals the Super Bowl',
+  (select bool_and(t.next_id = (select id from series where ext_id = 'PAFC')) from _bracket_tree('nfl-po-test', 2) t join series s on s.id = t.series_id where s.short = 'AFC DIV')
+  and (select bool_and(t.next_id = (select id from series where ext_id = 'PNFC')) from _bracket_tree('nfl-po-test', 2) t join series s on s.id = t.series_id where s.short = 'NFC DIV')
+  and (select bool_and(t.next_id = (select id from series where ext_id = 'PSB')) from _bracket_tree('nfl-po-test', 2) t join series s on s.id = t.series_id where s.round = 3));
+select pg_temp.expect('the Wild Card round can''t start one: the NFL reseeds after it', not _bracket_ok('nfl-po-test', 1));
+select set_config('app.league_id', :'lib', false);
+select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-000000000081', false);
+set role authenticated;
+select pool_game_start('bracket', 'nfl-po-test') as nbg \gset
+select pg_temp.expect('a bracket on the playoffs, doubling from the Divisional round', (select rules->'points' = '{"2": 1, "3": 2, "4": 4}'::jsonb from pool_games where id = :nbg));
+-- in football's words (migration 190): the Super Bowl's total points break a tie, up to 150
+select pg_temp.expect('the board speaks football', (select b->'words' = '{"start": "kickoff", "score": "points", "cap": 150}'::jsonb from (select pool_game_board(:nbg) b) x));
+select pool_game_pick(:nbg, 'tiebreak', '{"runs": 98}');
+select pg_temp.raises('a tiebreaker past a football score', format('select pool_game_pick(%s, %L, %L)', :nbg, 'tiebreak', '{"runs": 151}'), 'Total points: a number from 0 to 150');
+reset role;
+update pool_games set status = 'done' where id = :nbg;
+update competitions set active = false where id = 'nfl-po-test';
+select set_config('app.league_id', '', false);
+select set_config('request.jwt.claim.sub', '', false);
+select 'nfl playoffs', true;
+
+-- ───────────── the box pool (migration 188) ─────────────
+-- Two clubs that meet twice in a week forty days out (regular-season ids: a game's type is read from its id),
+-- fifteen forwards, five defence and five goalies between them.
+-- Quick is five boxes of five, the best forwards in box 1. Hana takes the first in every box, Fern the second, and the
+-- host enters Lou's team for him. The first night: Hana's top forward scores twice and sets one up, Fern's goalie wins.
+reset role;
+select set_config('request.jwt.claim.sub', '', false);
+select set_config('app.league_id', '', false);
+insert into players (id, name, pos, elig, last_fp, proj, status, nhl_team, proj_stats)
+select 990000 + i, 'Box ' || case when i <= 15 then 'Forward ' when i <= 20 then 'Defence ' else 'Goalie ' end || i,
+  case when i <= 15 then 'C' when i <= 20 then 'D' else 'G' end, array[case when i <= 15 then 'C' when i <= 20 then 'D' else 'G' end], 0, 0, 'active',
+  case when i % 2 = 0 then 'BXA' else 'BXB' end,
+  case when i <= 20 then jsonb_build_object('gp', 82, 'g', 60 - i * 2, 'a', 60 - i * 2) else jsonb_build_object('gp', 60, 'w', 60 - i, 'sho', 3) end
+from generate_series(1, 25) i on conflict (id) do nothing;
+insert into games (id, date, start_utc, home, away, state) values
+  (2099029101, today_et() + 40, (today_et() + 40)::timestamp + interval '23 hours', 'BXA', 'BXB', 'FUT'),
+  (2099029102, today_et() + 42, (today_et() + 42)::timestamp + interval '23 hours', 'BXB', 'BXA', 'FUT') on conflict do nothing;
+select set_config('app.league_id', :'lib', false);
+select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-000000000081', false);
+set role authenticated;
+select pg_temp.expect('the start page offers a box pool on the NHL season', exists (select 1 from jsonb_array_elements(pool_event_list()) e
+  where e->>'competition' = 'nhl-2026' and e->'kinds' = '["players"]'::jsonb));
+select pool_game_start('players', 'nhl-2026', jsonb_build_object('preset', 'quick', 'length', 'week', 'from', today_et() + 40)) as bxg \gset
+select pg_temp.expect('it is on: five boxes of five, the best forwards first, the goalies last',
+  (select title = 'The box pool' and jsonb_array_length(rules->'boxes') = 5 and rules->'boxes'->0->>'label' = 'Forwards 1'
+     and rules->'boxes'->0->'players' = '[990001, 990002, 990003, 990004, 990005]'::jsonb and rules->'boxes'->4->>'label' = 'Goalies'
+     -- a week, cut at the season's last night (here the second game)
+     and rules->>'to' = (today_et() + 42)::text from pool_games where id = :bxg)
+  and exists (select 1 from messages where league_id = :lib and body like '🏒 The box pool is open: take one player from each of 5 boxes%'));
+select pg_temp.raises('one from every box', format('select pool_game_pick(%s, %L, %L)', :bxg, 'box', '{"players": [990001]}'), 'every box');
+select pg_temp.raises('only from its own box', format('select pool_game_pick(%s, %L, %L)', :bxg, 'box', '{"players": [990006, 990001, 990011, 990016, 990021]}'), 'isn''t in Forwards 1');
+select pool_game_pick(:bxg, 'box', '{"players": [990001, 990006, 990011, 990016, 990021]}');
+reset role;
+select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-000000000082', false);
+set role authenticated;
+select pool_game_pick(:bxg, 'box', '{"players": [990002, 990007, 990012, 990017, 990022]}');
+select pg_temp.expect('the board shows the boxes and her own team, nobody else''s before the lock',
+  (select jsonb_array_length(b->'players'->'boxes') = 5 and b->'players'->'mine' = '[990002, 990007, 990012, 990017, 990022]'::jsonb
+     and b->'players'->'teams' = 'null'::jsonb and (b->'players'->'boxes'->0->'players'->0->>'games')::int = 2 from (select pool_game_board(:bxg) b) x));
+reset role;
+select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-000000000081', false);
+set role authenticated;
+select pg_temp.raises('the boxes stay once teams are in', format('select pool_game_set_rules(%s, %L)', :bxg, '{"scoring": {"g": 2}}'), 'the boxes stay');
+-- a change that doesn't name the window keeps it (migration 196): the same rules again pass, the window untouched
+select pool_game_set_rules(:bxg, '{"preset": "quick"}');
+reset role;
+select pg_temp.expect('the window is as it was', (select rules->>'length' = 'week' and rules->>'to' = (today_et() + 42)::text from pool_games where id = :bxg));
+select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-000000000081', false);
+set role authenticated;
+select pool_host_pick(:bxg, :lou, '{"thing": "box", "pick": {"players": [990003, 990008, 990013, 990018, 990023]}}');
+reset role;
+select set_config('request.jwt.claim.sub', '', false);
+-- two hours to the first puck drop: nobody who has a team in hears the reminder (migration 195)
+update games set start_utc = now() + interval '2 hours' where id = 2099029101;
+select _pool_game_nudge(:lib);
+select pg_temp.expect('no reminder for a member whose team is in', not exists (select 1 from notifications where team_id in (:hana, :fern, :lou) and body like '⏰ The box pool locks%'));
+-- the first night starts and is played
+update games set start_utc = now() - interval '3 hours', state = 'OFF' where id = 2099029101;
+insert into player_games (game_id, player_id, date, stats) values
+  (2099029101, 990001, today_et() + 40, '{"g": 2, "a": 1}'), (2099029101, 990002, today_et() + 40, '{"g": 0, "a": 1}'),
+  (2099029101, 990022, today_et() + 40, '{"w": 1, "sho": 0, "sv": 30}'), (2099029101, 990021, today_et() + 40, '{"w": 0, "l": 1}');
+select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-000000000081', false);
+set role authenticated;
+select pg_temp.raises('locked at the first puck drop', format('select pool_game_pick(%s, %L, %L)', :bxg, 'box', '{"players": [990002, 990006, 990011, 990016, 990021]}'), 'locked');
+select pg_temp.expect('once locked, everyone''s team shows, and who took whom', (select jsonb_array_length(b->'players'->'teams') = 3
+  and (b->'players'->'boxes'->0->'players'->0->>'taken')::int = 1 and (b->'players'->'boxes'->0->'players'->0->>'pts')::int = 3
+  from (select pool_game_board(:bxg) b) x));
+-- what's still to come (migration 193): the best forward has one game left, about 1.4 points a game
+select pg_temp.expect('the board says what each player should still add', (select (b->'players'->'boxes'->0->'players'->0->>'to_come')::numeric = 1.4
+  from (select pool_game_board(:bxg) b) x));
+-- and his next game (migration 199): the second night, at home to the other club
+select pg_temp.expect('the board says who he plays next', (select b->'players'->'boxes'->0->'players'->0->'next'->>'opp' = 'BXA'
+    and b->'players'->'boxes'->0->'players'->0->'next'->>'state' = 'FUT'
+  from (select pool_game_board(:bxg) b) x));
+reset role;
+select pg_temp.expect('Hana 3 with two goals and an assist, Fern 3 from an assist and a win, Lou nothing yet',
+  (select points = 3 and right_calls = 2 and exact = 1 and picked = 1 from _pool_game_table(:bxg) where team_id = :hana)
+  and (select points = 3 from _pool_game_table(:bxg) where team_id = :fern)
+  and (select points = 0 and picked = 1 from _pool_game_table(:bxg) where team_id = :lou));
+select pg_temp.expect('the pool''s table reads it', (select line = '2 goals, 1 assist' from _pool_rows() where game = 'game:' || :bxg and team_id = :hana));
+-- goal alerts (migration 192): Hana hears her forward's two goals, Fern her goalie's win, Lou nothing
+select pg_temp.expect('Hana hears the goals, Fern the win, Lou nothing',
+  exists (select 1 from notifications where team_id = :hana and body = '🚨 Box Forward 1 scores 2 for you in the box pool: +2')
+  and exists (select 1 from notifications where team_id = :fern and body = '🥅 Box Goalie 22 gets the win for you in the box pool: +2')
+  and not exists (select 1 from notifications where team_id = :lou and kind = 'pool_game' and body like '🚨%'));
+update player_games set stats = '{"g": 2, "a": 2}' where game_id = 2099029101 and player_id = 990001;
+select pg_temp.expect('an assist added is no goal', (select count(*) from notifications where team_id = :hana and body like '🚨 Box Forward 1%') = 1);
+update player_games set stats = '{"g": 2, "a": 1}' where game_id = 2099029101 and player_id = 990001;
+-- the chance to win (migration 189): one night left, Hana three up with the better players
+select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-000000000081', false);
+set role authenticated;
+select pool_game_chances(:bxg) as bxch \gset
+reset role;
+select pg_temp.expect('Hana is the favourite over Lou, and the chances add up to one',
+  (select (e->>'chance')::numeric from jsonb_array_elements(:'bxch'::jsonb) e where (e->>'team_id')::int = :hana)
+    > (select (e->>'chance')::numeric from jsonb_array_elements(:'bxch'::jsonb) e where (e->>'team_id')::int = :lou)
+  and abs((select sum((e->>'chance')::numeric) from jsonb_array_elements(:'bxch'::jsonb) e) - 1) < 0.01);
+-- the prediction log (migration 197): a forecast for each team once it locks, once
+select _players_log(:lib) as bxl \gset
+select pg_temp.expect('each team''s expected points go in the log, once', :bxl = 3 and _players_log(:lib) = 0);
+select pg_temp.expect('with a forecast above nothing', (select predicted > 0 from predictions where kind = 'box_points' and (subject->>'game')::bigint = :bxg and (subject->>'team_id')::int = :hana));
+select pg_temp.expect('not done while nights are left', _players_settle(:lib) = 0);
+-- the week is over: the nights move into the past and the second is played
+update games set date = date - 50, start_utc = start_utc - interval '50 days', state = 'OFF' where id in (2099029101, 2099029102);
+update player_games set date = date - 50 where game_id = 2099029101;
+insert into player_games (game_id, player_id, date, stats) values (2099029102, 990001, today_et() - 8, '{"g": 1, "a": 0}');
+update pool_games set rules = rules || jsonb_build_object('from', today_et() - 10, 'to', today_et() - 4) where id = :bxg;
+-- the morning line (migration 194): the second night was Hana's alone, once
+select pg_temp.expect('the pool hears who had the night and who leads', _players_recap(:lib, today_et() - 8) = 1);
+select pg_temp.expect('in so many words, once', exists (select 1 from messages where league_id = :lib
+    and body = '🏒 Last night in the box pool: Hana had the night, +1 (Box Forward 1: 1 G). Hana leads with 4.')
+  and _players_recap(:lib, today_et() - 8) = 0);
+select _players_settle(:lib) as bxn \gset
+select pg_temp.expect('the morning after, Hana wins it', :bxn = 1
+  and (select status = 'done' and winners = array[:hana] from pool_games where id = :bxg)
+  and exists (select 1 from messages where league_id = :lib and body = '🏆 The box pool is done: Hana, with 4 points.'));
+select pg_temp.expect('the host hears it, with the next one to deal (migration 198)', exists (select 1 from notifications where team_id = :hana and link = '/host'
+  and body = '🏒 The box pool is done. Deal the next one from the Host page: fresh boxes, and everyone starts level.'));
+select pg_temp.expect('and each forecast is scored on the points made', (select status = 'scored' and outcome = 4 and error = 4 - predicted
+  from predictions where kind = 'box_points' and (subject->>'game')::bigint = :bxg and (subject->>'team_id')::int = :hana));
+select set_config('app.league_id', '', false);
+select pg_temp.as_team(2);
+set role authenticated;
+select pg_temp.raises('another league can''t read it', format('select pool_game_board(%s)', :bxg));
+reset role;
+delete from player_games where game_id in (2099029101, 2099029102);
+delete from games where id in (2099029101, 2099029102);
+update players set status = 'unrostered' where id between 990001 and 990025;
+select set_config('request.jwt.claim.sub', '', false);
+select 'box pool', true;
+
+-- ───────────── the Stanley Cup playoffs as series (migration 191) ─────────────
+-- The 2026 playoffs as mlb-sync files them from the NHL's bracket (logos, venues and details left out): every series'
+-- result as the NHL had it, and a bracket from the first round, the letters' order making the tree.
+reset role;
+select set_config('request.jwt.claim.sub', '', false);
+select set_config('app.league_id', '', false);
+insert into competitions (id, sport, name, short, season, provider, ext_id, ext_season, active, format)
+values ('nhl-po-test', 'nhl', 'Stanley Cup Playoffs (test)', 'NHL', '2026', 'nhl-api', 'nhl', '20252026', true, 'series') on conflict (id) do nothing;
+select sport_ingest('nhl-po-test', '{"clubs":[{"ext_id":"7","name":"Buffalo Sabres","short":"BUF","color":null,"logo":null},{"ext_id":"6","name":"Boston Bruins","short":"BOS","color":null,"logo":null},{"ext_id":"14","name":"Tampa Bay Lightning","short":"TBL","color":null,"logo":null},{"ext_id":"8","name":"Montr\u00e9al Canadiens","short":"MTL","color":null,"logo":null},{"ext_id":"12","name":"Carolina Hurricanes","short":"CAR","color":null,"logo":null},{"ext_id":"9","name":"Ottawa Senators","short":"OTT","color":null,"logo":null},{"ext_id":"5","name":"Pittsburgh Penguins","short":"PIT","color":null,"logo":null},{"ext_id":"4","name":"Philadelphia Flyers","short":"PHI","color":null,"logo":null},{"ext_id":"21","name":"Colorado Avalanche","short":"COL","color":null,"logo":null},{"ext_id":"26","name":"Los Angeles Kings","short":"LAK","color":null,"logo":null},{"ext_id":"25","name":"Dallas Stars","short":"DAL","color":null,"logo":null},{"ext_id":"30","name":"Minnesota Wild","short":"MIN","color":null,"logo":null},{"ext_id":"54","name":"Vegas Golden Knights","short":"VGK","color":null,"logo":null},{"ext_id":"68","name":"Utah Mammoth","short":"UTA","color":null,"logo":null},{"ext_id":"22","name":"Edmonton Oilers","short":"EDM","color":null,"logo":null},{"ext_id":"24","name":"Anaheim Ducks","short":"ANA","color":null,"logo":null}],"series":[{"ext_id":"20252026:A","round":1,"label":"1st Round","short":"R1","best_of":7,"high":"7","low":"6","starts_at":"2026-04-19T23:30:00Z","tbd":false,"sort":1},{"ext_id":"20252026:B","round":1,"label":"1st Round","short":"R1","best_of":7,"high":"14","low":"8","starts_at":"2026-04-19T21:45:00Z","tbd":false,"sort":2},{"ext_id":"20252026:C","round":1,"label":"1st Round","short":"R1","best_of":7,"high":"12","low":"9","starts_at":"2026-04-18T19:00:00Z","tbd":false,"sort":3},{"ext_id":"20252026:D","round":1,"label":"1st Round","short":"R1","best_of":7,"high":"5","low":"4","starts_at":"2026-04-19T00:00:00Z","tbd":false,"sort":4},{"ext_id":"20252026:E","round":1,"label":"1st Round","short":"R1","best_of":7,"high":"21","low":"26","starts_at":"2026-04-19T19:00:00Z","tbd":false,"sort":5},{"ext_id":"20252026:F","round":1,"label":"1st Round","short":"R1","best_of":7,"high":"25","low":"30","starts_at":"2026-04-18T21:30:00Z","tbd":false,"sort":6},{"ext_id":"20252026:G","round":1,"label":"1st Round","short":"R1","best_of":7,"high":"54","low":"68","starts_at":"2026-04-20T02:00:00Z","tbd":false,"sort":7},{"ext_id":"20252026:H","round":1,"label":"1st Round","short":"R1","best_of":7,"high":"22","low":"24","starts_at":"2026-04-21T02:00:00Z","tbd":false,"sort":8},{"ext_id":"20252026:I","round":2,"label":"2nd Round","short":"R2","best_of":7,"high":"7","low":"8","starts_at":"2026-05-06T23:00:00Z","tbd":false,"sort":9},{"ext_id":"20252026:J","round":2,"label":"2nd Round","short":"R2","best_of":7,"high":"12","low":"4","starts_at":"2026-05-03T00:00:00Z","tbd":false,"sort":10},{"ext_id":"20252026:K","round":2,"label":"2nd Round","short":"R2","best_of":7,"high":"21","low":"30","starts_at":"2026-05-04T01:00:00Z","tbd":false,"sort":11},{"ext_id":"20252026:L","round":2,"label":"2nd Round","short":"R2","best_of":7,"high":"54","low":"24","starts_at":"2026-05-05T01:30:00Z","tbd":false,"sort":12},{"ext_id":"20252026:M","round":3,"label":"Eastern Conference Finals","short":"ECF","best_of":7,"high":"12","low":"8","starts_at":"2026-05-22T00:00:00Z","tbd":false,"sort":13},{"ext_id":"20252026:N","round":3,"label":"Western Conference Finals","short":"WCF","best_of":7,"high":"21","low":"54","starts_at":"2026-05-21T00:00:00Z","tbd":false,"sort":14},{"ext_id":"20252026:O","round":4,"label":"Stanley Cup Final","short":"SCF","best_of":7,"high":"12","low":"54","starts_at":"2026-06-03T00:00:00Z","tbd":false,"sort":15}],"fixtures":[{"ext_id":"2025030111","series":"20252026:A","game_no":1,"kickoff":"2026-04-19T23:30:00Z","state":"final","home":"7","away":"6","home_score":4,"away_score":3},{"ext_id":"2025030112","series":"20252026:A","game_no":2,"kickoff":"2026-04-21T23:30:00Z","state":"final","home":"7","away":"6","home_score":2,"away_score":4},{"ext_id":"2025030113","series":"20252026:A","game_no":3,"kickoff":"2026-04-23T23:00:00Z","state":"final","home":"6","away":"7","home_score":1,"away_score":3},{"ext_id":"2025030114","series":"20252026:A","game_no":4,"kickoff":"2026-04-26T18:00:00Z","state":"final","home":"6","away":"7","home_score":1,"away_score":6},{"ext_id":"2025030115","series":"20252026:A","game_no":5,"kickoff":"2026-04-28T23:30:00Z","state":"final","home":"7","away":"6","home_score":1,"away_score":2},{"ext_id":"2025030116","series":"20252026:A","game_no":6,"kickoff":"2026-05-01T23:30:00Z","state":"final","home":"6","away":"7","home_score":1,"away_score":4},{"ext_id":"2025030121","series":"20252026:B","game_no":1,"kickoff":"2026-04-19T21:45:00Z","state":"final","home":"14","away":"8","home_score":3,"away_score":4},{"ext_id":"2025030122","series":"20252026:B","game_no":2,"kickoff":"2026-04-21T23:00:00Z","state":"final","home":"14","away":"8","home_score":3,"away_score":2},{"ext_id":"2025030123","series":"20252026:B","game_no":3,"kickoff":"2026-04-24T23:00:00Z","state":"final","home":"8","away":"14","home_score":3,"away_score":2},{"ext_id":"2025030124","series":"20252026:B","game_no":4,"kickoff":"2026-04-26T23:00:00Z","state":"final","home":"8","away":"14","home_score":2,"away_score":3},{"ext_id":"2025030125","series":"20252026:B","game_no":5,"kickoff":"2026-04-29T23:00:00Z","state":"final","home":"14","away":"8","home_score":2,"away_score":3},{"ext_id":"2025030126","series":"20252026:B","game_no":6,"kickoff":"2026-05-01T23:00:00Z","state":"final","home":"8","away":"14","home_score":0,"away_score":1},{"ext_id":"2025030127","series":"20252026:B","game_no":7,"kickoff":"2026-05-03T22:00:00Z","state":"final","home":"14","away":"8","home_score":1,"away_score":2},{"ext_id":"2025030131","series":"20252026:C","game_no":1,"kickoff":"2026-04-18T19:00:00Z","state":"final","home":"12","away":"9","home_score":2,"away_score":0},{"ext_id":"2025030132","series":"20252026:C","game_no":2,"kickoff":"2026-04-20T23:30:00Z","state":"final","home":"12","away":"9","home_score":3,"away_score":2},{"ext_id":"2025030133","series":"20252026:C","game_no":3,"kickoff":"2026-04-23T23:30:00Z","state":"final","home":"9","away":"12","home_score":1,"away_score":2},{"ext_id":"2025030134","series":"20252026:C","game_no":4,"kickoff":"2026-04-25T19:00:00Z","state":"final","home":"9","away":"12","home_score":2,"away_score":4},{"ext_id":"2025030141","series":"20252026:D","game_no":1,"kickoff":"2026-04-19T00:00:00Z","state":"final","home":"5","away":"4","home_score":2,"away_score":3},{"ext_id":"2025030142","series":"20252026:D","game_no":2,"kickoff":"2026-04-20T23:00:00Z","state":"final","home":"5","away":"4","home_score":0,"away_score":3},{"ext_id":"2025030143","series":"20252026:D","game_no":3,"kickoff":"2026-04-22T23:00:00Z","state":"final","home":"4","away":"5","home_score":5,"away_score":2},{"ext_id":"2025030144","series":"20252026:D","game_no":4,"kickoff":"2026-04-26T00:00:00Z","state":"final","home":"4","away":"5","home_score":2,"away_score":4},{"ext_id":"2025030145","series":"20252026:D","game_no":5,"kickoff":"2026-04-27T23:00:00Z","state":"final","home":"5","away":"4","home_score":3,"away_score":2},{"ext_id":"2025030146","series":"20252026:D","game_no":6,"kickoff":"2026-04-29T23:30:00Z","state":"final","home":"4","away":"5","home_score":1,"away_score":0},{"ext_id":"2025030151","series":"20252026:E","game_no":1,"kickoff":"2026-04-19T19:00:00Z","state":"final","home":"21","away":"26","home_score":2,"away_score":1},{"ext_id":"2025030152","series":"20252026:E","game_no":2,"kickoff":"2026-04-22T02:00:00Z","state":"final","home":"21","away":"26","home_score":2,"away_score":1},{"ext_id":"2025030153","series":"20252026:E","game_no":3,"kickoff":"2026-04-24T02:00:00Z","state":"final","home":"26","away":"21","home_score":2,"away_score":4},{"ext_id":"2025030154","series":"20252026:E","game_no":4,"kickoff":"2026-04-26T20:30:00Z","state":"final","home":"26","away":"21","home_score":1,"away_score":5},{"ext_id":"2025030161","series":"20252026:F","game_no":1,"kickoff":"2026-04-18T21:30:00Z","state":"final","home":"25","away":"30","home_score":1,"away_score":6},{"ext_id":"2025030162","series":"20252026:F","game_no":2,"kickoff":"2026-04-21T01:30:00Z","state":"final","home":"25","away":"30","home_score":4,"away_score":2},{"ext_id":"2025030163","series":"20252026:F","game_no":3,"kickoff":"2026-04-23T01:30:00Z","state":"final","home":"30","away":"25","home_score":3,"away_score":4},{"ext_id":"2025030164","series":"20252026:F","game_no":4,"kickoff":"2026-04-25T21:30:00Z","state":"final","home":"30","away":"25","home_score":3,"away_score":2},{"ext_id":"2025030165","series":"20252026:F","game_no":5,"kickoff":"2026-04-29T00:00:00Z","state":"final","home":"25","away":"30","home_score":2,"away_score":4},{"ext_id":"2025030166","series":"20252026:F","game_no":6,"kickoff":"2026-04-30T23:30:00Z","state":"final","home":"30","away":"25","home_score":5,"away_score":2},{"ext_id":"2025030171","series":"20252026:G","game_no":1,"kickoff":"2026-04-20T02:00:00Z","state":"final","home":"54","away":"68","home_score":4,"away_score":2},{"ext_id":"2025030172","series":"20252026:G","game_no":2,"kickoff":"2026-04-22T01:30:00Z","state":"final","home":"54","away":"68","home_score":2,"away_score":3},{"ext_id":"2025030173","series":"20252026:G","game_no":3,"kickoff":"2026-04-25T01:30:00Z","state":"final","home":"68","away":"54","home_score":4,"away_score":2},{"ext_id":"2025030174","series":"20252026:G","game_no":4,"kickoff":"2026-04-28T01:30:00Z","state":"final","home":"68","away":"54","home_score":4,"away_score":5},{"ext_id":"2025030175","series":"20252026:G","game_no":5,"kickoff":"2026-04-30T02:00:00Z","state":"final","home":"54","away":"68","home_score":5,"away_score":4},{"ext_id":"2025030176","series":"20252026:G","game_no":6,"kickoff":"2026-05-02T02:00:00Z","state":"final","home":"68","away":"54","home_score":1,"away_score":5},{"ext_id":"2025030181","series":"20252026:H","game_no":1,"kickoff":"2026-04-21T02:00:00Z","state":"final","home":"22","away":"24","home_score":4,"away_score":3},{"ext_id":"2025030182","series":"20252026:H","game_no":2,"kickoff":"2026-04-23T02:00:00Z","state":"final","home":"22","away":"24","home_score":4,"away_score":6},{"ext_id":"2025030183","series":"20252026:H","game_no":3,"kickoff":"2026-04-25T02:00:00Z","state":"final","home":"24","away":"22","home_score":7,"away_score":4},{"ext_id":"2025030184","series":"20252026:H","game_no":4,"kickoff":"2026-04-27T01:30:00Z","state":"final","home":"24","away":"22","home_score":4,"away_score":3},{"ext_id":"2025030185","series":"20252026:H","game_no":5,"kickoff":"2026-04-29T02:00:00Z","state":"final","home":"22","away":"24","home_score":4,"away_score":1},{"ext_id":"2025030186","series":"20252026:H","game_no":6,"kickoff":"2026-05-01T02:00:00Z","state":"final","home":"24","away":"22","home_score":5,"away_score":2},{"ext_id":"2025030211","series":"20252026:I","game_no":1,"kickoff":"2026-05-06T23:00:00Z","state":"final","home":"7","away":"8","home_score":4,"away_score":2},{"ext_id":"2025030212","series":"20252026:I","game_no":2,"kickoff":"2026-05-08T23:00:00Z","state":"final","home":"7","away":"8","home_score":1,"away_score":5},{"ext_id":"2025030213","series":"20252026:I","game_no":3,"kickoff":"2026-05-10T23:00:00Z","state":"final","home":"8","away":"7","home_score":6,"away_score":2},{"ext_id":"2025030214","series":"20252026:I","game_no":4,"kickoff":"2026-05-12T23:00:00Z","state":"final","home":"8","away":"7","home_score":2,"away_score":3},{"ext_id":"2025030215","series":"20252026:I","game_no":5,"kickoff":"2026-05-14T23:00:00Z","state":"final","home":"7","away":"8","home_score":3,"away_score":6},{"ext_id":"2025030216","series":"20252026:I","game_no":6,"kickoff":"2026-05-17T00:00:00Z","state":"final","home":"8","away":"7","home_score":3,"away_score":8},{"ext_id":"2025030217","series":"20252026:I","game_no":7,"kickoff":"2026-05-18T23:30:00Z","state":"final","home":"7","away":"8","home_score":2,"away_score":3},{"ext_id":"2025030221","series":"20252026:J","game_no":1,"kickoff":"2026-05-03T00:00:00Z","state":"final","home":"12","away":"4","home_score":3,"away_score":0},{"ext_id":"2025030222","series":"20252026:J","game_no":2,"kickoff":"2026-05-04T23:00:00Z","state":"final","home":"12","away":"4","home_score":3,"away_score":2},{"ext_id":"2025030223","series":"20252026:J","game_no":3,"kickoff":"2026-05-08T00:00:00Z","state":"final","home":"4","away":"12","home_score":1,"away_score":4},{"ext_id":"2025030224","series":"20252026:J","game_no":4,"kickoff":"2026-05-09T22:00:00Z","state":"final","home":"4","away":"12","home_score":2,"away_score":3},{"ext_id":"2025030231","series":"20252026:K","game_no":1,"kickoff":"2026-05-04T01:00:00Z","state":"final","home":"21","away":"30","home_score":9,"away_score":6},{"ext_id":"2025030232","series":"20252026:K","game_no":2,"kickoff":"2026-05-06T00:00:00Z","state":"final","home":"21","away":"30","home_score":5,"away_score":2},{"ext_id":"2025030233","series":"20252026:K","game_no":3,"kickoff":"2026-05-10T01:00:00Z","state":"final","home":"30","away":"21","home_score":5,"away_score":1},{"ext_id":"2025030234","series":"20252026:K","game_no":4,"kickoff":"2026-05-12T00:00:00Z","state":"final","home":"30","away":"21","home_score":2,"away_score":5},{"ext_id":"2025030235","series":"20252026:K","game_no":5,"kickoff":"2026-05-14T00:00:00Z","state":"final","home":"21","away":"30","home_score":4,"away_score":3},{"ext_id":"2025030241","series":"20252026:L","game_no":1,"kickoff":"2026-05-05T01:30:00Z","state":"final","home":"54","away":"24","home_score":3,"away_score":1},{"ext_id":"2025030242","series":"20252026:L","game_no":2,"kickoff":"2026-05-07T01:30:00Z","state":"final","home":"54","away":"24","home_score":1,"away_score":3},{"ext_id":"2025030243","series":"20252026:L","game_no":3,"kickoff":"2026-05-09T01:30:00Z","state":"final","home":"24","away":"54","home_score":2,"away_score":6},{"ext_id":"2025030244","series":"20252026:L","game_no":4,"kickoff":"2026-05-11T01:30:00Z","state":"final","home":"24","away":"54","home_score":4,"away_score":3},{"ext_id":"2025030245","series":"20252026:L","game_no":5,"kickoff":"2026-05-13T01:30:00Z","state":"final","home":"54","away":"24","home_score":3,"away_score":2},{"ext_id":"2025030246","series":"20252026:L","game_no":6,"kickoff":"2026-05-15T01:30:00Z","state":"final","home":"24","away":"54","home_score":1,"away_score":5},{"ext_id":"2025030311","series":"20252026:M","game_no":1,"kickoff":"2026-05-22T00:00:00Z","state":"final","home":"12","away":"8","home_score":2,"away_score":6},{"ext_id":"2025030312","series":"20252026:M","game_no":2,"kickoff":"2026-05-23T23:00:00Z","state":"final","home":"12","away":"8","home_score":3,"away_score":2},{"ext_id":"2025030313","series":"20252026:M","game_no":3,"kickoff":"2026-05-26T00:00:00Z","state":"final","home":"8","away":"12","home_score":2,"away_score":3},{"ext_id":"2025030314","series":"20252026:M","game_no":4,"kickoff":"2026-05-28T00:00:00Z","state":"final","home":"8","away":"12","home_score":0,"away_score":4},{"ext_id":"2025030315","series":"20252026:M","game_no":5,"kickoff":"2026-05-30T00:00:00Z","state":"final","home":"12","away":"8","home_score":6,"away_score":1},{"ext_id":"2025030321","series":"20252026:N","game_no":1,"kickoff":"2026-05-21T00:00:00Z","state":"final","home":"21","away":"54","home_score":2,"away_score":4},{"ext_id":"2025030322","series":"20252026:N","game_no":2,"kickoff":"2026-05-23T00:00:00Z","state":"final","home":"21","away":"54","home_score":1,"away_score":3},{"ext_id":"2025030323","series":"20252026:N","game_no":3,"kickoff":"2026-05-25T00:00:00Z","state":"final","home":"54","away":"21","home_score":5,"away_score":3},{"ext_id":"2025030324","series":"20252026:N","game_no":4,"kickoff":"2026-05-27T01:00:00Z","state":"final","home":"54","away":"21","home_score":2,"away_score":1},{"ext_id":"2025030411","series":"20252026:O","game_no":1,"kickoff":"2026-06-03T00:00:00Z","state":"final","home":"12","away":"54","home_score":4,"away_score":5},{"ext_id":"2025030412","series":"20252026:O","game_no":2,"kickoff":"2026-06-05T00:00:00Z","state":"final","home":"12","away":"54","home_score":4,"away_score":3},{"ext_id":"2025030413","series":"20252026:O","game_no":3,"kickoff":"2026-06-07T00:00:00Z","state":"final","home":"54","away":"12","home_score":5,"away_score":4},{"ext_id":"2025030414","series":"20252026:O","game_no":4,"kickoff":"2026-06-10T00:00:00Z","state":"final","home":"54","away":"12","home_score":3,"away_score":5},{"ext_id":"2025030415","series":"20252026:O","game_no":5,"kickoff":"2026-06-12T00:00:00Z","state":"final","home":"12","away":"54","home_score":4,"away_score":2},{"ext_id":"2025030416","series":"20252026:O","game_no":6,"kickoff":"2026-06-15T00:00:00Z","state":"final","home":"54","away":"12","home_score":0,"away_score":3}]}'::jsonb);
+select pg_temp.expect('every series ends as the NHL had it: Carolina over Vegas in six for the Cup',
+  (select count(*) = 15 and count(*) filter (where state = 'final') = 15 from series where competition = 'nhl-po-test')
+  and (select c.short = 'CAR' and s.high_wins + s.low_wins = 6 from series s join clubs c on c.id = s.winner where s.competition = 'nhl-po-test' and s.round = 4)
+  and (select c.short = 'MTL' from series s join clubs c on c.id = s.winner where s.ext_id = '20252026:B'));
+select pg_temp.expect('a bracket from the first round, A and B feeding I, M and N the final',
+  _bracket_ok('nhl-po-test', 1)
+  and (select n.ext_id = '20252026:I' from _bracket_tree('nhl-po-test', 1) t join series x on x.id = t.series_id join series n on n.id = t.next_id where x.ext_id = '20252026:B')
+  and (select n.ext_id = '20252026:O' from _bracket_tree('nhl-po-test', 1) t join series x on x.id = t.series_id join series n on n.id = t.next_id where x.ext_id = '20252026:N'));
+update competitions set active = false where id = 'nhl-po-test';
+select 'nhl playoffs', true;

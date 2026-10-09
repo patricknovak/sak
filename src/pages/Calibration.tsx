@@ -20,13 +20,22 @@ import { PageHeader, Section, Spinner } from '../components/ui';
 interface Acc { kind: string; week: string; basis: string | null; n: number; avg_predicted: number; avg_outcome: number; bias: number; avg_miss: number }
 interface Cal { kind: string; bucket: number; n: number; expected: number; happened: number; brier: number }
 interface Open { kind: string; status: string; n: number }
+// a pool's pick split as a forecast (migration 174): by sport and by how many agreed, how often the favourite was right
+interface Crowd { sport: string; bucket: number; n: number; said: number; right_share: number; pools: number; market?: number | null; priced?: number }
+// every chance the product gives (migration 183), bucketed in tenths
+interface Chance { kind: string; bucket: number; n: number; expected: number; happened: number; brier: number }
+const CHANCES: Record<string, string> = { pool_win: 'Chance to win a pool game', pool_split: 'A pool’s favourite', h2h_win: 'Head-to-head win chances' };
+const SPORT: Record<string, string> = { soccer: 'Soccer', nfl: 'NFL football', mlb: 'Baseball', nhl: 'Hockey' };
 
 const KINDS: Record<string, string> = { winner: 'Who wins', ot: 'Goes to overtime', total: 'Over / under', prop: 'Player props', race: 'Races', season: 'Season markets' };
 const WAIT: Record<string, string> = {
   player_night: 'Player nights', trade_value: 'Trade forecasts (scored at the regular season’s end)',
   draft_value: 'Draft classes (scored at the regular season’s end)', keeper_value: 'Keepers (scored at the regular season’s end)',
   auto_lineup: 'Auto-pilot lineups (scored when the night is final)',
+  box_points: 'Box pool teams’ expected points (scored when the pool is done)',
   h2h_win: 'Head-to-head win chances (scored when the week ends)',
+  pool_split: 'Pools’ pick splits (scored at the final whistle)',
+  pool_win: 'Pool members’ chances to win (scored when the game ends)',
   pickup: 'Pickups the advisor suggested (scored when the stretch is over)',
 };
 const pct = (x: number) => `${Math.round(Number(x) * 100)}%`;
@@ -38,6 +47,8 @@ export default function Calibration() {
   const [acc, setAcc] = useState<Acc[] | null>(null);
   const [cal, setCal] = useState<Cal[]>([]);
   const [open, setOpen] = useState<Open[]>([]);
+  const [crowd, setCrowd] = useState<Crowd[]>([]);
+  const [chances, setChances] = useState<Chance[]>([]);
   useEffect(() => {
     Promise.all([
       // every week (a few rows a week per kind): the summaries cover the season, the tables show the latest weeks
@@ -45,7 +56,13 @@ export default function Calibration() {
       supabase.from('book_calibration').select('*').order('kind').order('bucket'),
       // counted in the database (migration 136): the rows themselves run to thousands
       supabase.from('prediction_status').select('kind,status,n'),
-    ]).then(([a, c, p]) => {
+      // every pool's for a platform admin, the pool's own for anyone else
+      supabase.rpc('crowd_calibration'),
+      supabase.from('chance_calibration').select('*').order('kind').order('bucket'),
+    ]).then(([a, c, p, cr, ch]) => {
+      setChances(((ch.data ?? []) as Chance[]).map((r) => ({ ...r, bucket: Number(r.bucket), n: Number(r.n), expected: Number(r.expected), happened: Number(r.happened), brier: Number(r.brier) })));
+      setCrowd(((cr.data ?? []) as Crowd[]).map((r) => ({ ...r, bucket: Number(r.bucket), n: Number(r.n), said: Number(r.said), right_share: Number(r.right_share),
+        market: r.market == null ? null : Number(r.market), priced: Number(r.priced ?? 0) })));
       setAcc((a.data ?? []) as Acc[]);
       setCal((c.data ?? []) as Cal[]);
       setOpen(((p.data ?? []) as Open[]).map((r) => ({ ...r, n: Number(r.n) })));
@@ -86,6 +103,13 @@ export default function Calibration() {
   const pkSaid = pkN ? pk.reduce((t, r) => t + Number(r.avg_predicted) * Number(r.n), 0) / pkN : 0;
   const pkCame = pkN ? pk.reduce((t, r) => t + Number(r.avg_outcome) * Number(r.n), 0) / pkN : 0;
   const pkWaiting = open.find((o) => o.kind === 'pickup' && o.status === 'open')?.n ?? 0;
+  // the box pool (migration 197): each team's expected points for the window at the lock, against the points it made
+  const bx = acc.filter((r) => r.kind === 'box_points');
+  const bxN = bx.reduce((t, r) => t + Number(r.n), 0);
+  const bxSaid = bxN ? bx.reduce((t, r) => t + Number(r.avg_predicted) * Number(r.n), 0) / bxN : 0;
+  const bxCame = bxN ? bx.reduce((t, r) => t + Number(r.avg_outcome) * Number(r.n), 0) / bxN : 0;
+  const bxMiss = bxN ? bx.reduce((t, r) => t + Number(r.avg_miss) * Number(r.n), 0) / bxN : 0;
+  const bxWaiting = open.find((o) => o.kind === 'box_points' && o.status === 'open')?.n ?? 0;
   const brier = cal.length ? cal.reduce((s, c) => s + Number(c.brier) * Number(c.n), 0) / cal.reduce((s, c) => s + Number(c.n), 0) : null;
 
   return (
@@ -156,6 +180,83 @@ export default function Calibration() {
           </div>
         ) : <div className="card p-4 text-sm text-mute">No settled markets yet.</div>}
         <p className="mt-2 px-1 text-[11px] text-mute">A well-priced book has the two bars level in every row: what it priced at 60% happens about 60% of the time.</p>
+      </Section>
+
+      <Section title="Every chance">
+        {chances.length ? (
+          <div className="grid gap-3 sm:grid-cols-2">
+            {[...new Set(chances.map((c) => c.kind))].map((k) => {
+              const rows = chances.filter((c) => c.kind === k);
+              const n = rows.reduce((t, c) => t + c.n, 0);
+              const brierAll = rows.reduce((t, c) => t + c.brier * c.n, 0) / n;
+              return (
+                <div key={k} className="card p-3">
+                  <div className="mb-2 flex items-baseline justify-between gap-2">
+                    <span className="font-semibold text-slate-100">{CHANCES[k] ?? k}</span>
+                    <span className="text-[11px] text-mute">{n} scored · Brier {brierAll.toFixed(3)}</span>
+                  </div>
+                  <div className="space-y-2.5">
+                    {rows.map((c) => (
+                      <div key={c.bucket}>
+                        <div className="flex items-baseline justify-between text-[11px] text-mute"><span>Given {Math.round(c.bucket * 100)}–{Math.round(c.bucket * 100) + 10}%</span><span>{c.n}</span></div>
+                        <div className="mt-1 grid grid-cols-[3.75rem_1fr_2.5rem] items-center gap-x-2 gap-y-1 text-[11px]">
+                          <span className="text-mute">given</span>
+                          <span className="h-2 overflow-hidden rounded-full bg-white/[.06]"><span className="block h-full rounded-full bg-sky-400" style={{ width: pct(c.expected) }} /></span>
+                          <span className="num text-right text-slate-300">{pct(c.expected)}</span>
+                          <span className="text-mute">came in</span>
+                          <span className="h-2 overflow-hidden rounded-full bg-white/[.06]"><span className="block h-full rounded-full bg-gold" style={{ width: pct(c.happened) }} /></span>
+                          <span className="num text-right font-semibold text-white">{pct(c.happened)}</span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        ) : <div className="card p-4 text-sm text-mute">No chances scored yet. They are scored as games end: head-to-head weeks, pool matches, pool games.</div>}
+        <p className="mt-2 px-1 text-[11px] text-mute">Every probability the product shows, scored against what happened: a well-made chance comes in as often as it says.</p>
+      </Section>
+
+      <Section title="The crowd">
+        {crowd.length ? (
+          <div className="grid gap-3 sm:grid-cols-2">
+            {[...new Set(crowd.map((c) => c.sport))].map((sp) => {
+              const rows = crowd.filter((c) => c.sport === sp);
+              const n = rows.reduce((t, c) => t + c.n, 0);
+              const right = rows.reduce((t, c) => t + c.right_share * c.n, 0) / n;
+              return (
+                <div key={sp} className="card p-3">
+                  <div className="mb-2 flex items-baseline justify-between gap-2">
+                    <span className="font-semibold text-slate-100">{SPORT[sp] ?? sp}</span>
+                    <span className="text-[11px] text-mute">{n} matches · favourite right {pct(right)}</span>
+                  </div>
+                  <div className="space-y-2.5">
+                    {rows.map((c) => (
+                      <div key={c.bucket}>
+                        <div className="flex items-baseline justify-between text-[11px] text-mute"><span>{c.bucket >= 0.9 ? '90% or more agreed' : `${Math.round(c.bucket * 100)}–${Math.round(c.bucket * 100) + 10}% agreed`}</span><span>{c.n} · {c.pools} {c.pools === 1 ? 'pool' : 'pools'}</span></div>
+                        <div className="mt-1 grid grid-cols-[3.75rem_1fr_2.5rem] items-center gap-x-2 gap-y-1 text-[11px]">
+                          <span className="text-mute">agreed</span>
+                          <span className="h-2 overflow-hidden rounded-full bg-white/[.06]"><span className="block h-full rounded-full bg-sky-400" style={{ width: pct(c.said) }} /></span>
+                          <span className="num text-right text-slate-300">{pct(c.said)}</span>
+                          {c.market != null && <>
+                            <span className="text-mute">market</span>
+                            <span className="h-2 overflow-hidden rounded-full bg-white/[.06]"><span className="block h-full rounded-full bg-violet-400" style={{ width: pct(c.market) }} /></span>
+                            <span className="num text-right text-slate-300">{pct(c.market)}</span>
+                          </>}
+                          <span className="text-mute">right</span>
+                          <span className="h-2 overflow-hidden rounded-full bg-white/[.06]"><span className="block h-full rounded-full bg-gold" style={{ width: pct(c.right_share) }} /></span>
+                          <span className="num text-right font-semibold text-white">{pct(c.right_share)}</span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        ) : <div className="card p-4 text-sm text-mute">No pool’s picks scored yet. Each pick’em match with three picks or more counts once it’s final.</div>}
+        <p className="mt-2 px-1 text-[11px] text-mute">Each pick’em match is a forecast from its pool: the side most of them picked, and how many agreed. A wise crowd is right about as often as it agrees; the market bar is what the bookmakers gave the same side at kick-off, where the feed carried a line.</p>
       </Section>
 
       <Section title={`${brand.bot.name}’s picks`}>
@@ -229,6 +330,20 @@ export default function Calibration() {
           </div>
         ) : <div className="card p-4 text-sm text-mute">{pkWaiting ? `${pkWaiting} pickups are out, waiting on their stretches to finish.` : 'No pickups from the advisor yet. Each one a GM makes from it is logged here and scored when its stretch is over.'}</div>}
         <p className="mt-2 px-1 text-[11px] text-mute">Lineup points the advisor said a pickup would add over the stretch the GM looked at, against what the new player scored in that lineup less what the dropped player scored. A rough check, not like for like: the promise nets out whoever the new player pushed from the lineup, while the result counts all his starts and every point the dropped player scored, started or not.</p>
+      </Section>
+      <Section title="Box pool forecasts">
+        {bxN ? (
+          <div className="grid grid-cols-3 gap-2">
+            {[{ v: bxSaid.toFixed(1), l: 'Expected', s: `${bxN} teams scored` }, { v: bxCame.toFixed(1), l: 'Made', s: bxCame >= bxSaid ? 'at or above' : 'below' }, { v: bxMiss.toFixed(1), l: 'Off by', s: 'on average' }].map((x) => (
+              <div key={x.l} className="rounded-2xl border border-white/[.07] bg-white/[.04] px-3 py-2.5">
+                <div className="num font-display text-2xl font-extrabold leading-none text-white">{x.v}</div>
+                <div className="label mt-1">{x.l}</div>
+                <div className="mt-0.5 text-[11px] leading-tight text-mute">{x.s}</div>
+              </div>
+            ))}
+          </div>
+        ) : <div className="card p-4 text-sm text-mute">{bxWaiting ? `${bxWaiting} box pool teams are out, waiting on their pools to finish.` : 'No box pools finished yet. Each team’s expected points are logged when its pool locks and scored when it ends.'}</div>}
+        <p className="mt-2 px-1 text-[11px] text-mute">Each team’s points as the boxes expected them at the lock (every player’s projection a game, times his club’s games), against what the team made. Close numbers mean the boxes were dealt fairly.</p>
       </Section>
       <Section title="Waiting on results">
         <div className="card divide-y divide-white/[.06]">

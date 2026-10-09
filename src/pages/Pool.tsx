@@ -22,7 +22,8 @@ import { Share2, UserPlus } from 'lucide-react';
 import { InvitePeople } from '../components/InvitePeople';
 import { HostGames, PoolGameCards, usePoolGames } from './Picks';
 import { kindOf, usePoolScoreboard } from '../lib/poolScoreboard';
-import { BoardRows, GameChips, Move, MyPlace } from '../components/PoolTable';
+import { BoardRows, ChanceCard, GameChips, Move, MyPlace, useChances } from '../components/PoolTable';
+import { ChevronRight, Dices } from 'lucide-react';
 
 function useLeaders() {
   const [rows, setRows] = useState<PoolLeader[] | null>(null);
@@ -76,6 +77,9 @@ export function PoolHome() {
   // the rank the hero shows is the pool's main game's (the questions' net worth when that's all the pool runs)
   const { board } = usePoolScoreboard();
   const main = board?.games[0];
+  // the main game's chance to win, when it can be played out (pick'em, series, a locked ranking)
+  const chances = useChances(main);
+  const myChance = me ? chances?.get(me.id) : undefined;
   const mine = leaders?.find((l) => l.team_id === me?.id);
   const open = (markets ?? []).filter((m) => isOpen(m, now));
   const closing = [...open].sort((a, b) => a.closes_at.localeCompare(b.closes_at)).slice(0, 4);
@@ -99,6 +103,13 @@ export function PoolHome() {
           <Link to="/leaders" className="rounded-2xl bg-black/25 px-3 py-2.5 ring-1 ring-white/10 hover:bg-black/35"><div className="label truncate">{main && board!.games.length > 1 ? `${kindOf(main.kind).icon} Rank` : 'Rank'}</div>
             <div className="flex items-baseline gap-1 font-display text-2xl font-extrabold text-white">{main?.mine ? main.mine.rank : '–'}<span className="text-sm font-bold text-mute">of {main?.members ?? '–'}</span><Move n={main?.mine?.move} /></div></Link>
         </div>
+        {main && myChance != null && (
+          <Link to={`/leaders?g=${encodeURIComponent(main.key)}`} className="mt-2 flex items-center gap-2 rounded-2xl bg-black/20 px-3 py-2 text-sm ring-1 ring-white/10 hover:bg-black/30">
+            <Dices className="h-4 w-4 shrink-0 text-gold" />
+            <span className="min-w-0 flex-1 text-slate-200"><b className="font-display text-base font-extrabold text-white">{myChance > 0 && myChance < 0.01 ? '<1%' : `${Math.round(myChance * 100)}%`}</b> chance to win {main.title}</span>
+            <ChevronRight className="h-4 w-4 shrink-0 text-mute" />
+          </Link>
+        )}
         {nextDrop && (
           <div className="mt-3 flex items-center gap-3 rounded-2xl bg-white/[.06] px-3 py-2.5 ring-1 ring-white/10">
             <CalendarClock className="h-5 w-5 shrink-0 text-gold" />
@@ -420,6 +431,7 @@ export function PoolLeaders() {
   const best = useMemo(() => bestCall(markets ?? [], positions), [markets, positions]);
   const games = board?.games ?? [];
   const g = games.find((x) => x.key === params.get('g')) ?? games[0];
+  const chances = useChances(g);
   const shareBoard = () => g && shareCard({ kind: 'leaders', brand: cardBrand, title: g.title,
     rows: g.rows.slice(0, 6).map((r) => { const t = teams.find((x) => x.id === r.team_id); const k = kindOf(g.kind);
       return { name: t?.gm_name ?? t?.name ?? '', worth: r.score, rank: r.rank, label: k.coins ? undefined : `${Number.isInteger(r.score) ? r.score : r.score.toFixed(1)} ${k.unit(r.score)}`, color: t?.color ?? cardBrand.color, me: r.team_id === me?.id }; }) },
@@ -433,6 +445,7 @@ export function PoolLeaders() {
         <>
           <GameChips games={games} sel={g.key} onPick={(key) => setParams({ g: key }, { replace: true })} />
           <MyPlace g={g} solo={games.length < 2} />
+          {chances && chances.size > 0 && <ChanceCard g={g} chances={chances} />}
           {g.kind === 'questions' && best && (() => {
             const t = teams.find((x) => x.id === best.team_id);
             return (
@@ -442,7 +455,8 @@ export function PoolLeaders() {
               </div>
             );
           })()}
-          <BoardRows g={g} extra={g.kind === 'questions' ? (r) => { const l = leaders?.find((x) => x.team_id === r.team_id); return l ? <> · <Coins n={l.coins} /> in hand</> : null; } : undefined} />
+          <BoardRows g={g} extra={g.kind === 'questions' ? (r) => { const l = leaders?.find((x) => x.team_id === r.team_id); return l ? <> · <Coins n={l.coins} /> in hand</> : null; }
+            : chances ? (r) => { const c = chances.get(r.team_id); return c ? <> · <span className={c >= 0.25 ? 'text-emerald-300' : ''}>{c > 0 && c < 0.01 ? '<1%' : `${Math.round(c * 100)}%`} to win</span></> : null; } : undefined} />
           <ShareButton className="btn-gold w-full py-3" label="Share the table" make={async () => shareBoard()} />
         </>
       )}

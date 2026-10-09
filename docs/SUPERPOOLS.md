@@ -226,11 +226,31 @@ give the pool a home for following the sport):**
   weekly pick'em on the engine (any competition with fixtures, confidence points optional); the NFL on ESPN; the
   host's desk for every game (settle what the feed missed, a pick for a member, rules until the first lock); last one
   standing and Call the score onto the engine; the pick split in the prediction log; what you need to win; then the
-  bracket and the player pool for the spring. *Weekly pick'em built 8 October 2026 (migration 170): every match of a
+  bracket and the player pool for the spring. *The box pool built 8 October 2026 (migration 188): one player from each
+  box of evenly matched NHL players, goals, assists and goalie wins counting live, on the regular season from any night;
+  the playoffs' version comes in April. With its chance to win, goal alerts, points still to come and a morning line in
+  the chat (migrations 189 to 196). The Stanley Cup playoffs' feed is ready for April (migration 191).* *Weekly pick'em built 8 October 2026 (migration 170): every match of a
   round, the winner or a draw, each pick locking at its own kick-off; Classic (a point a right pick) or Confidence (each
   round's picks numbered, a right one earns its number); on any competition whose matches come in rounds, so the
   Premier League and MLS have it now and the NFL the day its feed lands.* *The NFL on ESPN built 8 October 2026 (migration
   171): its 2026 season, every week through the Super Bowl, fed by soccer-sync, so a pool can run an NFL pick'em from Week 5.*
+  *The bracket, 8 October 2026 (migration 185): every series winner to the final, picked before the first game, on any
+  event played in series whose rounds halve to a final (the NHL playoffs, the MLB postseason from the LCS, the NFL's
+  playoffs from the Divisional round, migration 187).*
+  *The market's view, 8 October 2026 (migration 178): each match keeps what the bookmakers expected at kick-off (as
+  chances, never a price to bet), shown in the centres and set beside the crowd on Calibration.*
+  *Results by hand for every game on fixtures, 8 October 2026 (migration 177): last one standing and Call the score run
+  with no feed at all, settled per pool from the host's result (a score where the game needs one).*
+  *Chance to win, 8 October 2026 (migration 175): a pick'em's Table shows each member's chance of finishing first,
+  from a thousand run-throughs of the matches left, logged daily and scored at the end.*
+  *NFL centre and Match centre, 8 October 2026: a centre for every competition played in rounds (`#/centre/<id>`), the
+  round's matches live with your pick and the pool's split, and the table from the results.*
+  *The crowd in the prediction log, 8 October 2026 (migration 174): every pick'em match's split is a forecast, scored at
+  the final whistle; Calibration shows, sport by sport, how often a pool's favourite is right for how many agreed.*
+  *Last one standing on the NFL, 8 October 2026 (migration 173): any competition played in rounds, in its own words,
+  to a last round where those still in share it; offered beside pick'em on the start page and the host's page.*
+  *The host's desk built 8 October 2026 (migration 172): the rules until the first lock, a pick entered for a member who
+  asked, and a pick'em match settled by hand for the pool alone with the reason shown, all on the commissioner's log.*
 
 Then the list below, which is the fantasy-league plan of record.
 

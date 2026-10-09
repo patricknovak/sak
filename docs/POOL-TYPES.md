@@ -151,7 +151,9 @@ squares cost coins and the pot pays the winners, so it stays a pool, not a marke
 one per club, a re-pick between rounds.
 **Data:** playoff rosters, player box scores, series state (to shade the eliminated).
 **Fits:** the start of a playoff. The Canadian NHL playoff pool is our home audience and nhl-sync already has the box
-scores, so the NHL's April 2027 playoffs are its first run.
+scores, so the NHL's April 2027 playoffs are its first run. *The box version runs on the regular season now (migration
+188): a week, four weeks or the rest of it, from the next night with games, the boxes dealt by expected points in the
+window; the playoffs' version adds the clubs going out.*
 **Good:** "players left" for each owner, projected points left, elimination shading, goal alerts.
 **Pitfall:** owners whose players go out early stop looking; a re-draft after round 1 or a second-half pool keeps them.
 
@@ -236,6 +238,27 @@ Every type is a pick, a lock, a grader and a scoring profile. So:
 - **The learning loop:** the pool's pick split per series is a forecast; it goes in the prediction log
   (`docs/DEVELOPMENT.md` §4) and is scored when the series ends, so we learn how good a group's consensus is, sport by
   sport.
+
+### Adding a kind of game: every place it touches
+
+Written down from the bracket (migration 185), so the next kind (the player pool) misses nothing. A kind that lives on
+`pool_games` threads through these; one with its own tables (survivor, predictor) needs its own engine and a branch in
+`_pool_rows()` instead.
+
+- **Database, one migration:** the `pool_games_kind_check` constraint; `_pool_game_rules` (its rule presets and
+  defaults); `_pool_game_create` (what it is built on, and the check that the event can carry it); `_pool_game_table`
+  (score, possible, right calls, picked, tiebreak); `pool_game_board` (what a member sees) and `pool_games_list` (the
+  menu's "to pick"); `_pool_game_pick_as` (the shape of a pick, checked, and the host picking for a member);
+  `_pool_game_locked` (when it locks); `_pool_game_nudge` (the reminders); `_pool_rows()` (its line on the pool's one
+  table); `pool_event_list` (the kinds an event offers, so the start page and the host's desk show it);
+  `pool_game_chances` (its chances to win, once it can have them, and the `pool_win` log comes with it).
+- **Tests:** a section in `supabase/tests/flow.sql` that starts it, picks, locks, scores and reads the table, with a
+  second league that can't see or touch it; `tenancy.sql` passes untouched if every new function checks its league.
+- **Site:** `src/lib/poolGames.ts` (`GameKind`, `KINDS`); `src/lib/poolScoreboard.ts` (its board entry);
+  `src/pages/Picks.tsx` (the board type, `ICON`, the render branch, the host's desk presets, `GameRules`, the table
+  line, the subtitle); `src/pages/NewPool.tsx` and the host's desk (`HostGames`) where it is offered;
+  `src/components/PoolTable.tsx` (`useChances`); a changelog entry; screenshots at 360 and 390 px, open and locked.
+- **Docs:** this file (§2, §9), `docs/DEVELOPMENT.md` §6 and `docs/SUPERPOOLS.md`, in the same pull request.
 
 ## 4. Starting a sports pool
 
@@ -335,19 +358,26 @@ and which knobs anyone touches. That goes to the Ideas board and into the NFL (D
 *Reviewed 8 October 2026.* Built so far: the engine (§3) with Pick the series, Rank the teams and squares, the
 three-step start (§4), MLB centre (§5), and from §6 the live table, max possible, the elimination mark ("can't catch
 first"), the pick split after each lock, rolling locks per series and the climb alerts (the scoreboard, migration 169).
-Still open from §6: "what you need to win", the rules page written before the first lock, and the host's tools (a pick
-for a guest, a rule changed before the first lock, a result the feed missed). The infrastructure order is in
+From §6, 8 October: "what you need to win" for pick'em and Pick the series (migrations 175 and 176, the chance to win
+on the Table; Rank the teams too, migration 182); the bracket on series (migration 185) and the rules written down on every game's page from its own settings ("The rules", fixed at the first
+lock). The host's tools (a pick
+for a guest, a rule changed before the first lock, a result the feed missed) landed 8 October (migration 172). The infrastructure order is in
 `docs/DEVELOPMENT.md` §6; weekly pick'em comes first because it runs on any competition with fixtures, so the NFL (below)
 and soccer share it.
 
 1. The NFL: weekly pick'em and confidence and a second-half survivor (the season is in week 5; playoffs from
-   January), on ESPN's site API for results and spreads until a licensed feed; NFL centre, first version.
+   January), on ESPN's site API for results and spreads until a licensed feed; NFL centre, first version. Pick'em
+   (migration 170), the season's feed (171), the survivor on its weeks (173) and NFL centre's first version
+   (`#/centre/nfl`, the same page as soccer's Match centre) are built.
 2. Soccer on the same engine: the score predictor and the survivor move onto `pool_games`; the Champions League
    knockout bracket (February); soccer centre on API-Football.
 3. Super Bowl squares and the prop sheet (February 2027).
 4. March Madness (March 2027): the bracket with a second chance and the Eliminator.
 5. The NHL playoffs (April 2027): the player pool (draft and box), the bracket with series length, series pick'em,
-   confidence by team; NHL centre gains the bracket and the pool ribbon.
+   confidence by team; NHL centre gains the bracket and the pool ribbon. *Ready 8 October 2026:* the feed (`nhl-post-2027`
+   through mlb-sync, migration 191, tested on the 2026 playoffs), so Pick the series, the bracket from the first round and
+   Rank the teams run on it the day the NHL draws its bracket; the box pool runs on the regular season (migrations 188
+   to 196, with goal alerts and a morning line), its playoffs version to come.
 6. The NBA playoffs (April 2027) on the same engine, once its feed is settled.
 7. Later: win totals, best ball, the daily streak, the sweepstake for the 2027 Women's World Cup.
 

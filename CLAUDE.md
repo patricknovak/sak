@@ -56,8 +56,12 @@ Two things in one repo:
   data, cached in `hub_cache`; `?task=lines` works out each club's lines from the NHL's shift charts), `garry` (the league voice; the LLM is Grok via xAI, `XAI_API_KEY`),
   `player-info`, `push`, `yahoo`, `join` (makes a newcomer's account from an invite link and seats them, or with `pool` in the body opens a prediction pool for someone new: `#/new`, migration 153, three a day per address and sixty a day in all), `soccer-sync` (soccer fixtures and results per competition's
   provider: ESPN's public scoreboard for testing, `espn`, migration 168, or API-Football with `API_FOOTBALL_KEY`;
-  `?task=fixtures|live`, platform key only; ESPN's other sports ride it too: the NFL by week, migration 171), `mlb-sync` (baseball's postseason from MLB's
-  public Stats API into `series`, `fixtures` and `fixture_periods` through `sport_ingest`; platform key only; for testing, a
+  `?task=fixtures|live`, platform key only; ESPN's other sports ride it too: the NFL by week, migration 171; ESPN's
+  pre-match lines ride along as `fixtures.detail.odds`, chances only, frozen at kick-off, migration 178; a competition
+  with `format` 'series' is a postseason: the NFL's playoffs come in as best-of-1 series through `sport_ingest`, migration
+  187), `mlb-sync` (baseball's postseason from MLB's
+  public Stats API into `series`, `fixtures` and `fixture_periods` through `sport_ingest`, and the Stanley Cup playoffs from
+  the NHL's bracket for competitions with provider 'nhl-api', migration 191; platform key only; for testing, a
   licensed feed replaces it, docs/POOL-TYPES.md §8; `sport_ingest` ends by drawing and paying any grid of squares on the
   event, `_squares_tick`, migration 167). Shared code in `supabase/functions/_shared`.
 - Scheduler: pg_cron jobs call the edge functions through pg_net with the anon key. Job names: nhl-scores
@@ -70,7 +74,9 @@ Two things in one repo:
   through a client with the service key and an `x-league` header (`dbFor(league)` in nhl-sync and Garry).
 - Points: the NHL data is shared, the scoring isn't. `player_games.fpts` and `players.proj / last_fp / rank` are
   SaK's numbers kept for old readers; read a league's points through `league_games`, `league_players`,
-  `player_season`, `player_windows` (each league's scoring profile, `scoring_profiles`).
+  `player_season`, `player_windows` (each league's scoring profile, `scoring_profiles`). `player_games` also carries the box pool's goal alert
+  (`player_games_box_goal`, migration 192): it returns at once when no box pool is open and turns its own errors into
+  warnings, so it never holds up a stats write.
 - Formats: how a league is won is in `league_rules` (and the `league` view): `format` ('season', SaK's total, or 'h2h'
   weekly matchups on `matchups`), `categories` (null for points; set, it is rotisserie in a season league and weekly
   categories in an h2h one) and `h2h_playoffs` (0, or the bracket's size). Read the tables through `standings` (points),
@@ -85,8 +91,13 @@ Two things in one repo:
   My pools (`#/pools`) reads `my_pools()` and starts prediction pools with `pool_start`. Every pool's games share one scoreboard
   (`pool_scoreboard()`, migration 169): a new kind of game adds a branch to `_pool_rows()` and gets the table, movement,
   climb alerts and the main-game crown (`league_rules.crown`) with it. Weekly pick'em (migration 170) is the first kind on
-  `fixtures`: any competition whose matches come in rounds; the start page and the host's desk list events through
-  `pool_event_list()` (`pool_events()` stays for older copies of the site). Decided (3 October 2026): both move to **Cloudflare** (free for commercial
+  `fixtures`: any competition whose matches come in rounds; last one standing runs on the same competitions in the
+  sport's words (migration 173, `pool_game_start('survivor', ...)`), and `#/centre/<competition>` is their centre
+  (`src/pages/RoundCentre.tsx`: NFL centre, Match centre); a pool's own result on a match (the host's, in
+  `pool_result_overrides`, read through `_pool_fixture`) settles every game on it (migration 177); the bracket
+  (migration 185) is a kind on `series`, its tree read from each round's order (`_bracket_tree`); the start page and the host's desk list events through
+  `pool_event_list()` (`pool_events()` stays for older copies of the site). The box pool (migration 188) is the first kind on nhl-sync's own `games` and
+  `player_games` (competition `nhl-2026`, format 'players'): one player a box, its boxes kept in the game's rules. Decided (3 October 2026): both move to **Cloudflare** (free for commercial
   use, DNS already on Cloudflare, wildcard subdomains for league by host); never plan new work on Vercel. Built as
   Workers serving static assets (`wrangler.jsonc`, `landing/wrangler.jsonc`; Pages can't take a wildcard), deployed by
   `.github/workflows/cloudflare.yml` (the secrets are set; SaK's address there is `sak.superpoolsai.com`). The
@@ -164,8 +175,10 @@ wasn't applied); #75 was the hotfix.
 - Retire an old function signature with `alter function ... rename to ..._before_x` plus a revoke when a
   `drop function` would break callers mid-deploy.
 - Edge functions: `.github/workflows/functions.yml` deploys every function on merge to `main` once the
-  `SUPABASE_ACCESS_TOKEN` GitHub Actions secret exists. Until then (or for a fix that can't wait for a merge),
-  deploy with the connector's `deploy_edge_function`, sending the full contents of `<fn>/index.ts` and every
+  `SUPABASE_ACCESS_TOKEN` GitHub Actions secret exists (it does: soccer-sync v6 came from the workflow). For a change
+  that can't wait for a merge, run the workflow's own command from a session with `SUPABASE_ACCESS_TOKEN`:
+  `npx -y supabase@2 functions deploy <fn> --project-ref quakdkzdafzlhgjvmypg --use-api` (exact files, JWT verification
+  kept on; 8 October 2026). Otherwise deploy with the connector's `deploy_edge_function`, sending the full contents of `<fn>/index.ts` and every
   `_shared/*.ts` it imports, then compare the deployed files with the repo. Pitfall: a literal `\uXXXX` in source
   is decoded once more by that deploy path; send it as `\\u005cuXXXX`.
 - The site deploys itself on merge to `main`.
@@ -211,8 +224,8 @@ wasn't applied); #75 was the hotfix.
   `league_has()` / `_feature()`, the site `hasFeature()` (`src/lib/features.ts`). SaK has both; a new league neither.
 - Expand, then contract: add the new path beside the old, move the readers, prove the numbers match, retire the
   old path in a later change (the debt list is in `docs/DEVELOPMENT.md`).
-- The product learns: a new prediction or grade (projection, trade or draft grade, odds, a Garry pick) is
-  written to the prediction log once it exists and scored when the result is in; a league's history lives in the
+- The product learns: a new prediction or grade (projection, trade or draft grade, odds, a Garry pick, a pool's pick
+  split at kick-off, migration 174; a member's chance to win, 175) is written to the prediction log once it exists and scored when the result is in; a league's history lives in the
   database, never in code. See `docs/DEVELOPMENT.md` section 4.
 - Flow-test sections end signed out (`reset role` and an empty `request.jwt.claim.sub`), so the next section
   doesn't run as another league's GM.

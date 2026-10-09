@@ -23,7 +23,7 @@ interface Series { id: number; round: number; label: string; short: string | nul
 interface Period { fixture_id: number; n: number; home: number | null; away: number | null }
 interface Competition { id: string; name: string; sport: string; tz: string }
 
-const NAMES: Record<string, string> = { mlb: 'MLB' };
+const NAMES: Record<string, string> = { mlb: 'MLB centre', nfl: 'NFL playoffs' };
 const dayKey = (iso: string, tz: string) => new Date(iso).toLocaleDateString('en-CA', { timeZone: tz });
 const dayLabel = (d: string) => new Date(d + 'T12:00:00Z').toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric', timeZone: 'UTC' });
 const time = (iso: string) => new Date(iso).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
@@ -37,7 +37,8 @@ function useEvent(sport: string) {
   const [fixtures, setFixtures] = useState<Fixture[]>([]);
   const [periods, setPeriods] = useState<Map<number, Period[]>>(new Map());
   const load = useCallback(async () => {
-    const { data: cs } = await supabase.from('competitions').select('id,name,sport,tz').eq('sport', sport).eq('active', true).order('sort').limit(1);
+    // the sport's postseason, played in series (migration 187: the NFL's season in weeks has its own centre)
+    const { data: cs } = await supabase.from('competitions').select('id,name,sport,tz').eq('sport', sport).eq('active', true).eq('format', 'series').order('sort').limit(1);
     const c = (cs?.[0] as Competition | undefined) ?? null;
     setComp(c);
     if (!c) return;
@@ -80,7 +81,7 @@ function Outs({ n }: { n: number }) {
   return <span className="inline-flex gap-0.5" aria-label={`${n} out`}>{[0, 1, 2].map((i) => <span key={i} className={`h-1.5 w-1.5 rounded-full ${i < n ? 'bg-amber-300' : 'bg-white/15'}`} />)}</span>;
 }
 
-function GameCard({ f, clubs, periods, series, pick }: { f: Fixture; clubs: Map<number, Club>; periods: Period[]; series?: Series; pick?: { winner: number; games: number } | null }) {
+function GameCard({ f, clubs, periods, series, pick, baseball }: { f: Fixture; clubs: Map<number, Club>; periods: Period[]; series?: Series; pick?: { winner: number; games: number } | null; baseball: boolean }) {
   const home = clubs.get(f.home_club), away = clubs.get(f.away_club);
   const d = f.detail ?? {};
   const live = f.state === 'live', done = f.state === 'final';
@@ -95,7 +96,7 @@ function GameCard({ f, clubs, periods, series, pick }: { f: Fixture; clubs: Map<
         {c && <Crest c={c} size={32} />}
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-x-2"><span className="break-words font-bold text-white">{c?.name}</span>{pick?.winner === c?.id && <span className="rounded-full bg-gold/20 px-1.5 text-[9px] font-black uppercase tracking-wider text-gold">Your pick</span>}</div>
-          <div className="text-[11px] text-mute">{f.state === 'scheduled' ? (prob ? prob : 'Probable to be named') : series ? `${wins} ${wins === 1 ? 'win' : 'wins'} in the series` : ''}</div>
+          <div className="text-[11px] text-mute">{f.state === 'scheduled' ? (baseball ? (prob ? prob : 'Probable to be named') : '') : series && series.best_of > 1 ? `${wins} ${wins === 1 ? 'win' : 'wins'} in the series` : ''}</div>
         </div>
         <span className={`num shrink-0 text-2xl font-black ${won ? 'text-white' : 'text-slate-300'}`}>{runs ?? ''}</span>
       </div>
@@ -104,7 +105,7 @@ function GameCard({ f, clubs, periods, series, pick }: { f: Fixture; clubs: Map<
   return (
     <div className={`card overflow-hidden ${live ? 'border-red-400/40 shadow-[0_0_24px_rgba(248,113,113,.12)]' : ''}`}>
       <div className="flex flex-wrap items-center justify-between gap-2 border-b border-white/[.06] px-3.5 py-2 text-[11px]">
-        <span className="font-black uppercase tracking-[.14em] text-white">{series?.short ?? ''}{f.game_no ? ` · Game ${f.game_no}` : ''}{d.if_necessary && f.state === 'scheduled' ? ' · if needed' : ''}</span>
+        <span className="font-black uppercase tracking-[.14em] text-white">{series?.short ?? ''}{f.game_no && (series?.best_of ?? 2) > 1 ? ` · Game ${f.game_no}` : ''}{d.if_necessary && f.state === 'scheduled' ? ' · if needed' : ''}</span>
         {live ? <span className="inline-flex items-center gap-1.5 font-bold text-red-300"><span className="relative flex h-2 w-2"><span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-red-400 opacity-75" /><span className="relative inline-flex h-2 w-2 rounded-full bg-red-400" /></span>{d.half === 'Top' ? 'Top' : d.half === 'Bottom' ? 'Bot' : d.half ?? ''} {d.inning ? ord(d.inning) : ''} {d.outs != null && <Outs n={d.outs} />}</span>
           : <span className="text-mute">{done ? 'Final' : f.state === 'postponed' ? 'Postponed' : f.state === 'cancelled' ? 'Cancelled' : d.tbd ? 'Time to be set' : time(f.kickoff)}</span>}
       </div>
@@ -190,7 +191,7 @@ export default function SportCentre() {
   if (!comp) return <Empty icon="📺" title="Nothing on yet">This sport has no event running right now.</Empty>;
   return (
     <div className="space-y-4 pb-10">
-      <PageHeader icon={<Tv className="h-6 w-6 text-gold" />} title={`${NAMES[sport] ?? sport.toUpperCase()} centre`} sub={comp.name}
+      <PageHeader icon={<Tv className="h-6 w-6 text-gold" />} title={NAMES[sport] ?? `${sport.toUpperCase()} centre`} sub={comp.name}
         right={gameId ? <Link to={`/picks?g=${gameId}`} className="text-xs font-semibold text-sky-300">Your picks →</Link> : undefined} />
       <div className="grid grid-cols-2 gap-1.5 rounded-2xl bg-black/25 p-1">
         {([['scores', 'Scores', CalendarDays], ['bracket', 'Bracket', Trophy]] as const).map(([k, l, I]) => (
@@ -215,7 +216,7 @@ export default function SportCentre() {
           </div>
           {!games.length ? <div className="card p-4 text-sm text-mute">No games this day.</div> : (
             <div className="grid gap-3 md:grid-cols-2">
-              {games.map((f) => <GameCard key={f.id} f={f} clubs={clubs} periods={periods.get(f.id) ?? []} series={f.series_id ? seriesById.get(f.series_id) : undefined} pick={f.series_id ? picks.get(f.series_id) : null} />)}
+              {games.map((f) => <GameCard key={f.id} baseball={sport === 'mlb'} f={f} clubs={clubs} periods={periods.get(f.id) ?? []} series={f.series_id ? seriesById.get(f.series_id) : undefined} pick={f.series_id ? picks.get(f.series_id) : null} />)}
             </div>
           )}
         </>
@@ -235,7 +236,7 @@ export default function SportCentre() {
           {board && <p className="px-1 text-[11px] text-mute">Your picks show on each series; the pool&apos;s split shows once a series starts.</p>}
         </div>
       )}
-      <p className="px-1 text-[11px] text-mute">From MLB&apos;s public feed, every two minutes while games are on.</p>
+      <p className="px-1 text-[11px] text-mute">{sport === 'mlb' ? 'From MLB’s public feed' : 'From the league’s public scoreboard'}, every two minutes while games are on.</p>
     </div>
   );
 }

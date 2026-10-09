@@ -1,12 +1,15 @@
-// mlb-sync: baseball's postseason for pool games (migration 165, docs/POOL-TYPES.md §5 and §7).
+// mlb-sync: baseball's postseason for pool games (migration 165, docs/POOL-TYPES.md §5 and §7), and the Stanley Cup
+// playoffs beside it (migration 191).
 //   one task: every series of each active MLB competition, with its games, their line scores, probable pitchers and the
-//   series state, in one request to MLB's public Stats API, written through sport_ingest().
+//   series state, in one request to MLB's public Stats API, written through sport_ingest(); then each active NHL
+//   playoffs competition from the NHL's bracket and each series' schedule (`_shared/nhlPlayoffs.ts`).
 // The scheduler calls it every two minutes while a game is on or about to start (_mlb_due) and every half hour
 // otherwise, so a later round's clubs and first-pitch times land as soon as MLB sets them.
 // The feed: statsapi.mlb.com, free and keyless. Its notice allows individual, non-commercial use; we read it while the
 // pools are a private test, and a licensed feed replaces it before anything is sold (§8). It asks for no more than a
 // request every ten seconds; we make one every two minutes at most.
 import { createClient } from 'jsr:@supabase/supabase-js@2';
+import { nhlPlayoffPayload } from '../_shared/nhlPlayoffs.ts';
 
 const db = createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!, {
   auth: { persistSession: false },
@@ -95,6 +98,24 @@ async function season(c: { id: string; ext_season: string }) {
   return check(await db.rpc('sport_ingest', { p_competition: c.id, p: { clubs: [...clubs.values()], series, fixtures } }));
 }
 
+// the Stanley Cup playoffs: the bracket for the season's spring (ext_season '20262027' is the 2027 bracket), then the
+// games of every series whose clubs are set. Before the NHL draws the bracket there is nothing to write.
+async function nhlPlayoffs(c: { id: string; ext_season: string }) {
+  const NHL = 'https://api-web.nhle.com/v1';
+  const r = await fetch(`${NHL}/playoff-bracket/${c.ext_season.slice(4)}`);
+  if (r.status === 404) return { series: 0 };
+  if (!r.ok) throw new Error(`NHL ${r.status}`);
+  const bracket = await r.json();
+  if (!bracket?.series?.length) return { series: 0 };
+  const games: Record<string, J> = {};
+  for (const s of bracket.series) {
+    if (!s.topSeedTeam?.id || !s.bottomSeedTeam?.id) continue;
+    const g = await fetch(`${NHL}/schedule/playoff-series/${c.ext_season}/${String(s.seriesLetter).toLowerCase()}`);
+    if (g.ok) games[String(s.seriesLetter).toUpperCase()] = await g.json();
+  }
+  return check(await db.rpc('sport_ingest', { p_competition: c.id, p: nhlPlayoffPayload(c.ext_season, bracket, games) }));
+}
+
 async function adminCall(req: Request) {
   const key = req.headers.get('x-admin-key');
   if (!key) return false;
@@ -108,6 +129,8 @@ Deno.serve(async (req) => {
     const comps = check(await db.from('competitions').select('id,ext_season').eq('active', true).eq('provider', 'mlb-statsapi')) as { id: string; ext_season: string }[];
     const out: Record<string, unknown> = {};
     for (const c of comps) out[c.id] = await season(c);
+    const nhl = check(await db.from('competitions').select('id,ext_season').eq('active', true).eq('provider', 'nhl-api')) as { id: string; ext_season: string }[];
+    for (const c of nhl) out[c.id] = await nhlPlayoffs(c);
     return Response.json({ ok: true, competitions: out });
   } catch (e) {
     console.error('mlb-sync', e);
