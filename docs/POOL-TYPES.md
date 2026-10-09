@@ -374,8 +374,9 @@ and soccer share it.
    knockout bracket (February); soccer centre on API-Football.
 3. Super Bowl squares and the prop sheet (February 2027). *Squares by the quarter built 9 October 2026 (migration 200):* a grid on
    any NFL playoff game pays after the 1st quarter, at the half, after the 3rd and on the final (20/20/20/40), drawn at
-   kickoff, in football's words; hockey's pays by the period. *The prop sheet built 9 October 2026 (migrations 208 and
-   209), ready for the World Series:* a `props` game on one game of a postseason (baseball, football or hockey): eight
+   kickoff, in football's words; hockey's pays on the final score until the Stanley Cup feed carries the score by period
+   (migration 214). *The prop sheet built 9 October 2026 (migrations 208 and
+   209), ready for the World Series:* a `props` game on one game of a postseason (baseball or football; hockey once its feed carries periods): eight
    calls in the sport's words (who wins, the total over or under the market's line or the sport's usual, the margin, who
    leads after the first period and at the halfway mark, the first period's scoring, extra time, a shutout or in
    football a side held to 10), a point each, the total as the tiebreak, locked at the start, all settled from the

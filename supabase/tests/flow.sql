@@ -5292,6 +5292,9 @@ select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-000000000082
 set role authenticated;
 select pg_temp.raises('the sheet locks at the first pitch', format('select pool_game_pick(%s, %L, %L)', :prg, 'props',
   '{"answers": {"winner": "H", "total": "U", "margin": "2", "first": "H", "half": "H", "early": "Y", "extra": "N", "shutout": "N"}, "total": 7}'), 'locked');
+reset role;
+select pg_temp.expect('once locked, a member with no sheet has nothing still possible (migration 213)', not exists (select 1 from _pool_game_table(:prg) where picked = 0 and possible > 0));
+set role authenticated;
 select pg_temp.expect('once it starts, the split and every sheet show', (select (b->'props'->'split'->'winner'->>'H')::int = 2 and jsonb_array_length(b->'props'->'sheets') = 3
   from (select pool_game_board(:prg) b) x));
 reset role;
@@ -5322,7 +5325,10 @@ select id as pfx5 from fixtures where provider = 'mlb' and ext_id = 'pg5' \gset
 select set_config('app.league_id', :'lib', false);
 select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-000000000081', false);
 set role authenticated;
-select pool_game_start('props', 'props-test', jsonb_build_object('fixture', :pfx5)) as prg5 \gset
+-- calls a host hands in are ignored: the sheet is always the server's (migration 214)
+select pool_game_start('props', 'props-test', jsonb_build_object('fixture', :pfx5, 'questions', '[{"q": "x"}]'::jsonb)) as prg5 \gset
+select pg_temp.raises('a sheet has no rules to change', format('select pool_game_set_rules(%s, %L)', :prg5, '{"questions": []}'), 'no rules to change');
+select pg_temp.expect('the sheet is the server''s eight calls', (select jsonb_array_length(rules->'questions') = 8 and rules->'questions'->0->>'key' = 'winner' from pool_games where id = :prg5));
 reset role;
 select set_config('request.jwt.claim.sub', '', false);
 -- the series is over in four

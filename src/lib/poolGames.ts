@@ -34,7 +34,7 @@ export const SIZES: { key: 5 | 10; label: string; line: string }[] = [
 export const PAYS: { key: SquaresPays; label: string; line: string; sports: string[] }[] = [
   { key: 'innings', label: '3rd, 6th, final', line: 'Each game pays three times: 25% after the 3rd, 25% after the 6th, 50% on the final score.', sports: ['mlb'] },
   { key: 'quarters', label: 'Every quarter', line: 'Pays four times: 20% after the 1st quarter, 20% at the half, 20% after the 3rd quarter and 40% on the final score.', sports: ['nfl'] },
-  { key: 'periods', label: 'Every period', line: 'Each game pays three times: 25% after the 1st period, 25% after the 2nd, 50% on the final score.', sports: ['nhl'] },
+  { key: 'periods', label: 'Every period', line: 'Each game pays three times: 25% after the 1st period, 25% after the 2nd, 50% on the final score.', sports: [] }, // hockey's, once its playoff feed carries the score by period (migration 214)
   { key: 'final', label: 'Final score', line: 'Each game pays once, on its final score.', sports: [] },
 ];
 export const paysFor = (sport: string | null | undefined) => PAYS.filter((p) => !p.sports.length || p.sports.includes(sport ?? ''));
