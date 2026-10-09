@@ -229,7 +229,7 @@ wasn't applied); #75 was the hotfix.
 - Expand, then contract: add the new path beside the old, move the readers, prove the numbers match, retire the
   old path in a later change (the debt list is in `docs/DEVELOPMENT.md`).
 - The product learns: a new prediction or grade (projection, trade or draft grade, odds, a Garry pick, a pool's pick
-  split at kick-off, migration 174, and on a series at its first game, 205; a member's chance to win, 175) is written to the prediction log once it exists and scored when the result is in; a league's history lives in the
+  split at kick-off, migration 174, and on a series at its first game, 205, and on each prop call, 210; a member's chance to win, 175) is written to the prediction log once it exists and scored when the result is in; a league's history lives in the
   database, never in code. See `docs/DEVELOPMENT.md` section 4.
 - Flow-test sections end signed out (`reset role` and an empty `request.jwt.claim.sub`), so the next section
   doesn't run as another league's GM.

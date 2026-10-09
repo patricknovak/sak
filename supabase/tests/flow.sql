@@ -5272,6 +5272,8 @@ select set_config('request.jwt.claim.sub', '', false);
 -- the first pitch: locked
 select sport_ingest('props-test', jsonb_build_object('fixtures', jsonb_build_array(jsonb_build_object('ext_id', 'pg1', 'series', 'props:1', 'game_no', 1,
   'kickoff', now() - interval '2 hours', 'state', 'live', 'home', 'p91', 'away', 'p92', 'home_score', 1, 'away_score', 0))));
+select pg_temp.expect('at the first pitch each call''s split goes in the log (migration 210)', (select count(*) = 8 from predictions where kind = 'pool_split' and (subject->>'game')::bigint = :prg)
+  and (select predicted = 0.667 and detail->>'fav' = 'H' and basis = 'mlb' from predictions where kind = 'pool_split' and subject = jsonb_build_object('game', :prg, 'call', 'winner')));
 select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-000000000082', false);
 set role authenticated;
 select pg_temp.raises('the sheet locks at the first pitch', format('select pool_game_pick(%s, %L, %L)', :prg, 'props',
@@ -5290,6 +5292,8 @@ select pg_temp.expect('done: Hana and Lou seven, Fern five, and Lou''s total tak
   and (select points = 7 and tiebreak = 1 from _pool_game_table(:prg) where team_id = :hana)
   and (select points = 5 from _pool_game_table(:prg) where team_id = :fern)
   and (select points = 7 and tiebreak = 0 from _pool_game_table(:prg) where team_id = :lou));
+select pg_temp.expect('each call''s split is scored on its answer', (select status = 'scored' and outcome = 1 from predictions where kind = 'pool_split' and subject = jsonb_build_object('game', :prg, 'call', 'winner'))
+  and (select status = 'scored' and outcome = 0 from predictions where kind = 'pool_split' and subject = jsonb_build_object('game', :prg, 'call', 'shutout')));
 select pg_temp.expect('the chat hears, and each sheet hears how it did', exists (select 1 from messages where league_id = :lib
     and body = '📋 The prop sheet on PA at PH is done: Lou, with 7 of 8 right.')
   and exists (select 1 from notifications where team_id = :lou and body = '📋 PA at PH: you called 7 of 8. You won the sheet.')

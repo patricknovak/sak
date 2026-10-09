@@ -215,7 +215,9 @@ they lock (`pool_picks`), results graded on read from the shared event tables, a
    platform admin, on the Calibration page ("The crowd"). Series picks and the survivor are next on the same log.
    *Series picks, 9 October 2026 (migration 205):* at a series' first game each Pick the series game on it writes
    `pool_split` (the club most of the pool picked and its share; three picks or more, no even split), scored when the
-   series is over; the Calibration page counts them with the matches. The survivor's picks are next.
+   series is over; the Calibration page counts them with the matches. *Prop calls, the same day (migration 210):* once a
+   prop sheet's game starts, each call with three sheets or more and one favourite answer writes `pool_split` (subject
+   the game and the call), scored on the call's answer when the game is final. The survivor's picks are next.
    *The market beside it, the same day (migration 178):* soccer-sync keeps ESPN's pre-match lines on each match as the
    market's view (each side's chance with the margin out, the spread, the total; no bookmaker, no link), frozen at
    kick-off; the crowd's forecast records what the market gave its favourite, and Calibration shows the two side by side.

@@ -255,8 +255,8 @@ export default function Calibration() {
               );
             })}
           </div>
-        ) : <div className="card p-4 text-sm text-mute">No pool’s picks scored yet. Each pick’em match and each series with three picks or more counts once it’s over.</div>}
-        <p className="mt-2 px-1 text-[11px] text-mute">Each pick’em match and each series in Pick the series is a forecast from its pool: the side most of them picked, and how many agreed. A wise crowd is right about as often as it agrees; the market bar is what the bookmakers gave the same side at kick-off, where the feed carried a line.</p>
+        ) : <div className="card p-4 text-sm text-mute">No pool’s picks scored yet. Each pick’em match, series and prop call with three picks or more counts once it’s over.</div>}
+        <p className="mt-2 px-1 text-[11px] text-mute">Each pick’em match, each series in Pick the series and each prop call is a forecast from its pool: the side most of them picked, and how many agreed. A wise crowd is right about as often as it agrees; the market bar is what the bookmakers gave the same side at kick-off, where the feed carried a line.</p>
       </Section>
 
       <Section title={`${brand.bot.name}’s picks`}>
