@@ -5808,6 +5808,53 @@ select set_config('request.jwt.claim.sub', '', false);
 select set_config('app.league_id', '', false);
 select 'daily streak', true;
 
+-- ───────────── the sweepstake (migration 236) ─────────────
+-- Four clubs, two semifinals and a final; three players in the pool: one club each, one left in the hat. The host
+-- draws, the semifinals and the final are played, and whoever holds the champion wins it.
+reset role;
+select set_config('request.jwt.claim.sub', '', false);
+select set_config('app.league_id', '', false);
+insert into competitions (id, sport, name, short, season, provider, ext_id, ext_season, active, format)
+values ('sweep-test', 'mlb', 'Sweep test', 'SW', '2026', 'mlb-statsapi', 'swt', '2026', true, 'series') on conflict (id) do nothing;
+select sport_ingest('sweep-test', jsonb_build_object('clubs', '[{"ext_id": "sw1", "name": "Sweep One", "short": "SW1"}, {"ext_id": "sw2", "name": "Sweep Two", "short": "SW2"}, {"ext_id": "sw3", "name": "Sweep Three", "short": "SW3"}, {"ext_id": "sw4", "name": "Sweep Four", "short": "SW4"}]'::jsonb,
+  'series', jsonb_build_array(
+    jsonb_build_object('ext_id', 'sw:1:a', 'round', 1, 'label', 'Semifinal', 'short', 'SF', 'best_of', 7, 'high', 'sw1', 'low', 'sw2', 'starts_at', now() + interval '2 days', 'tbd', false, 'sort', 1),
+    jsonb_build_object('ext_id', 'sw:1:b', 'round', 1, 'label', 'Semifinal', 'short', 'SF', 'best_of', 7, 'high', 'sw3', 'low', 'sw4', 'starts_at', now() + interval '2 days', 'tbd', false, 'sort', 2),
+    jsonb_build_object('ext_id', 'sw:2', 'round', 2, 'label', 'Final', 'short', 'F', 'best_of', 7, 'high', null, 'low', null, 'starts_at', null, 'tbd', true, 'sort', 3))));
+select set_config('app.league_id', :'lib', false);
+select pg_temp.expect('the event offers the sweepstake while its round is set and not started',
+  exists (select 1 from jsonb_array_elements(pool_event_list()) e where e->>'competition' = 'sweep-test' and e->'kinds' ? 'sweep'));
+select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-000000000081', false);
+set role authenticated;
+select pool_game_start('sweep', 'sweep-test') as swg \gset
+select pg_temp.expect('nothing drawn yet', (select b->'drawn' = 'false' and (b->>'players')::int = 3 from (select pool_game_board(:swg)->'sweep' b) x));
+select pool_sweep_draw(:swg);
+select pg_temp.raises('the hat is drawn once', format('select pool_sweep_draw(%s)', :swg), 'already drawn');
+reset role;
+select pg_temp.expect('three players, a club each, one left in the hat, and each hears what they drew',
+  (select count(*) = 3 and bool_and(jsonb_array_length(d.value) = 1) from pool_games g, jsonb_each(g.rules->'deal') d where g.id = :swg)
+  and (select jsonb_array_length(rules->'unheld') = 1 from pool_games where id = :swg)
+  and (select count(*) = 3 from notifications where body like '🎩 You drew Sweep %'));
+-- the semifinals and the final: Sweep One and Sweep Four through, Sweep One the champion
+update series set state = 'final', high_wins = 4, low_wins = 1, winner = high_club where competition = 'sweep-test' and ext_id = 'sw:1:a';
+update series set state = 'final', high_wins = 2, low_wins = 4, winner = low_club where competition = 'sweep-test' and ext_id = 'sw:1:b';
+select pg_temp.expect('not over while the final is to play', _sweep_tick(:lib) = 0);
+update series set state = 'final', high_wins = 4, low_wins = 3, tbd = false,
+  high_club = (select winner from series where competition = 'sweep-test' and ext_id = 'sw:1:a'),
+  low_club = (select winner from series where competition = 'sweep-test' and ext_id = 'sw:1:b'),
+  winner = (select winner from series where competition = 'sweep-test' and ext_id = 'sw:1:a') where competition = 'sweep-test' and ext_id = 'sw:2';
+select (select id from clubs where ext_id = 'sw1' order by id desc limit 1) as sw1c \gset
+select _sweep_tick(:lib) as swt1 \gset
+select pg_temp.expect('whoever held the champion wins it, two series won, and the pool hears',
+  :swt1 = 1 and (select status = 'done' and coalesce(winners, '{}') = coalesce((select array_agg(d.key::int) from pool_games g2, jsonb_each(g2.rules->'deal') d
+      where g2.id = :swg and d.value @> to_jsonb(:sw1c::bigint)), '{}') from pool_games where id = :swg)
+  and (select coalesce(bool_and(points = 2), true) from _sweep_table(:swg) t where t.team_id in (select unnest(winners) from pool_games where id = :swg))
+  and exists (select 1 from messages where league_id = :lib and (body like '🏆 The sweepstake is won: % held Sweep One.' or body = '🎩 The sweepstake is over: Sweep One won it, and nobody held them.')));
+update competitions set active = false where id = 'sweep-test';
+select set_config('app.league_id', '', false);
+select set_config('request.jwt.claim.sub', '', false);
+select 'sweepstake', true;
+
 -- ───────────── the Stanley Cup playoffs as series (migration 191) ─────────────
 -- The 2026 playoffs as mlb-sync files them from the NHL's bracket (logos, venues and details left out): every series'
 -- result as the NHL had it, and a bracket from the first round, the letters' order making the tree.
