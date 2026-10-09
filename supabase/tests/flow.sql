@@ -5788,6 +5788,20 @@ set role authenticated;
 select pool_fixture_result_set(:sf4, null, 4, 3, 'Walk-off in the 10th, feed stuck');
 reset role;
 select pg_temp.expect('the host''s word settles the streak', (select is_right from _streak_picks(:sfg) where fixture = :sf4));
+-- the streak's split in the prediction log (migration 235): three of the pool on one game, two on the home side
+insert into fixtures (sport, competition, provider, ext_id, season, gameweek, kickoff, date, home_club, away_club, state)
+select 'mlb', 'st-fix', 'mlb-statsapi', 'stf-9', '2026', 1, now() + interval '3 days', (now() + interval '3 days')::date, home_club, away_club, 'scheduled'
+from fixtures where id = :st1;
+select id as sf9 from fixtures where ext_id = 'stf-9' \gset
+select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-000000000081', false);
+set role authenticated;
+select pool_host_pick(:sfg, t.id, jsonb_build_object('thing', 'streak', 'pick', jsonb_build_object('fixture', :sf9, 'pick', case when t.gm_name = 'Lou' then 'A' else 'H' end)))
+from teams t where t.league_id = :lib and t.role = 'gm' and t.gm_name in ('Hana', 'Fern', 'Lou');
+reset role;
+update fixtures set state = 'live', kickoff = now() - interval '1 hour' where id = :sf9;
+update fixtures set state = 'final', home_score = 5, away_score = 2 where id = :sf9;
+select pg_temp.expect('the pool''s split on a streak game is logged and scored', (select predicted = 0.667 and detail->>'fav' = 'H' and status = 'scored' and outcome = 1
+  from predictions where kind = 'pool_split' and (subject->>'game')::bigint = :sfg and (subject->>'fixture')::bigint = :sf9));
 update competitions set active = false where id in ('st-fix');
 update fixtures set state = 'cancelled' where competition = 'st-fix' and state = 'scheduled';
 select set_config('request.jwt.claim.sub', '', false);

@@ -441,7 +441,8 @@ and soccer share it.
    with its event (migration 233, `_streak_close` in the hourly pool job): no game still to come and every series decided,
    the longest run crowned and the pool told. *Review fixes (migration 234):* a game a decided series didn't need is never
    offered and a pick on one counts for nothing, a tie where the sport has no draws counts for nothing, a picked game put
-   off frees its day, a pick follows its game to the day it is on now, and the host settles a game for a streak-only pool.
+   off frees its day, a pick follows its game to the day it is on now, and the host settles a game for a streak-only pool. *In the prediction log (migration 235):* the pool's split on
+   each game its members picked, written once it starts and scored by the pool's result, as pick'em's is.
 
 ## 10. Sources
 
