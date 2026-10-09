@@ -4077,7 +4077,7 @@ select id as m52 from fixtures where ext_id = 'pk-52' \gset
 select id as m61 from fixtures where ext_id = 'pk-61' \gset
 select id as m62 from fixtures where ext_id = 'pk-62' \gset
 select pg_temp.expect('the start page offers pick''em and last one standing on a competition with rounds, from its next one; the old list is unchanged',
-  (select e->'kinds' = '["pickem", "survivor"]'::jsonb and (e->>'open_round')::int = 5 and e->>'open_label' = 'Matchweek 5' and e->>'stage' = 'Matchweek 5 next'
+  (select e->'kinds' = '["pickem", "survivor", "streak"]'::jsonb and (e->>'open_round')::int = 5 and e->>'open_label' = 'Matchweek 5' and e->>'stage' = 'Matchweek 5 next'
    from jsonb_array_elements(pool_event_list()) e where e->>'competition' = 'pk-test')
   and not exists (select 1 from jsonb_array_elements(pool_events()) e where e->>'competition' = 'pk-test'));
 select set_config('app.league_id', :'lib', false);
@@ -5645,6 +5645,75 @@ select pg_temp.expect('the host hears the round is near, once', :nudge1 = 1 and 
 update competitions set active = false, pack = null where id = 'nudge-test';
 select set_config('app.league_id', '', false);
 select 'host nudge', true;
+
+-- ───────────── the daily streak (migration 231) ─────────────
+-- Four NFL days ahead, one game each and a second on the fourth. Hana starts the streak and picks the home side on days
+-- one, two and four, the visitors on day three. Home sides win all four: two right, a miss, one right; her best run is 2
+-- and she is on 1.
+reset role;
+select set_config('request.jwt.claim.sub', '', false);
+select set_config('app.league_id', '', false);
+select soccer_ingest('nfl', jsonb_build_object('fixtures', (select jsonb_agg(jsonb_build_object('ext_id', 'nfl-30' || d, 'gameweek', 14,
+  'kickoff', ((current_date + d)::timestamp + time '13:00') at time zone 'America/New_York',
+  'status', 'NS', 'home', 'nf1', 'away', 'nf2')) from generate_series(1, 4) d)));
+select soccer_ingest('nfl', jsonb_build_object('fixtures', jsonb_build_array(jsonb_build_object('ext_id', 'nfl-305', 'gameweek', 14,
+  'kickoff', ((current_date + 4)::timestamp + time '13:05') at time zone 'America/New_York', 'status', 'NS', 'home', 'nf1', 'away', 'nf2'))));
+select (select id from fixtures where ext_id = 'nfl-301') st1, (select id from fixtures where ext_id = 'nfl-302') st2,
+  (select id from fixtures where ext_id = 'nfl-303') st3, (select id from fixtures where ext_id = 'nfl-304') st4,
+  (select id from fixtures where ext_id = 'nfl-305') st5 \gset
+select set_config('app.league_id', :'lib', false);
+select pg_temp.expect('the NFL offers the streak', exists (select 1 from jsonb_array_elements(pool_event_list()) e where e->>'competition' = 'nfl' and e->'kinds' ? 'streak'));
+select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-000000000081', false);
+set role authenticated;
+select pool_game_start('streak', 'nfl') as stg \gset
+select pg_temp.raises('one streak an event', 'select pool_game_start(''streak'', ''nfl'')', 'This pool already runs that game');
+select pool_game_pick(:stg, 'streak', jsonb_build_object('fixture', :st1, 'pick', 'H'));
+select pool_game_pick(:stg, 'streak', jsonb_build_object('fixture', :st2, 'pick', 'H'));
+select pool_game_pick(:stg, 'streak', jsonb_build_object('fixture', :st3, 'pick', 'A'));
+select pool_game_pick(:stg, 'streak', jsonb_build_object('fixture', :st5, 'pick', 'A'));
+select pool_game_pick(:stg, 'streak', jsonb_build_object('fixture', :st4, 'pick', 'H'));
+select pg_temp.raises('no draws in football', format('select pool_game_pick(%s, ''streak'', ''{"fixture": %s, "pick": "D"}'')', :stg, :st1), 'Pick one of the two sides');
+select pg_temp.expect('the board has the next three days with games, the first day''s pick in',
+  (select jsonb_array_length(b->'days') = 3 from (select pool_game_board(:stg)->'streak' b) x)
+  and (select (d->'mine'->>'fixture')::bigint = :st1 and x->'locked' = 'false' and x->'calls' = 'null'::jsonb and x->>'label' = 'Week 14'
+       from jsonb_array_elements(pool_game_board(:stg)->'streak'->'days') d cross join jsonb_array_elements(d->'games') x
+       where (d->>'day')::date = current_date + 1 and (x->>'id')::bigint = :st1)
+  -- and the list counts the next day with games as one to pick until it is picked
+  and (select (g->>'to_pick')::int = case when exists (select 1 from jsonb_array_elements(pool_game_board(:stg)->'streak'->'days') d
+                                                       where d->'mine' = 'null'::jsonb and (d->>'day')::date = (select min((f.kickoff at time zone 'America/New_York')::date) from fixtures f
+                                                         where f.competition = 'nfl' and f.state = 'scheduled' and f.kickoff > now() and f.home_club is not null))
+                                          then 1 else 0 end
+       from jsonb_array_elements(pool_games_list()) g where (g->>'id')::bigint = :stg));
+reset role;
+select pg_temp.expect('one pick a day: the fourth day''s moved from the late game to the early one',
+  (select count(*) = 4 from pool_picks where game_id = :stg)
+  and (select (pick->>'fixture')::bigint = :st4 from pool_picks where game_id = :stg and thing = 'd:' || (current_date + 4)));
+select set_config('request.jwt.claim.sub', '', false);
+-- the fourth day's early game starts: the day's pick stays, even for the late game still to come
+select soccer_ingest('nfl', jsonb_build_object('fixtures', jsonb_build_array(jsonb_build_object('ext_id', 'nfl-304', 'gameweek', 14,
+  'kickoff', ((current_date + 4)::timestamp + time '13:00') at time zone 'America/New_York', 'status', 'LIVE', 'home', 'nf1', 'away', 'nf2', 'home_score', 0, 'away_score', 0))));
+select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-000000000081', false);
+set role authenticated;
+select pg_temp.raises('a day''s pick stays once its game starts', format('select pool_game_pick(%s, ''streak'', ''{"fixture": %s, "pick": "H"}'')', :stg, :st5), 'Your pick for that day has started');
+reset role;
+select set_config('request.jwt.claim.sub', '', false);
+-- the four games end, home sides all: right, right, wrong, right
+select soccer_ingest('nfl', jsonb_build_object('fixtures', (select jsonb_agg(jsonb_build_object('ext_id', 'nfl-30' || d, 'gameweek', 14,
+  'kickoff', now() - make_interval(days => 5 - d), 'status', 'FT', 'home', 'nf1', 'away', 'nf2', 'home_score', 24, 'away_score', 17, 'home_ft', 24, 'away_ft', 17))
+  from generate_series(1, 4) d)));
+select pg_temp.expect('best run 2, on 1 now, three right from four',
+  (select points = 2 and exact = 1 and right_calls = 3 and picked = 4 and tiebreak = -1 from _pool_game_table(:stg) where team_id = :hana)
+  and (select line = 'Best run 2, 1 now' and score = 2 and possible is null from _pool_rows() where game = 'game:' || :stg and team_id = :hana));
+-- a day's first game under six hours away and no pick for it: a reminder, once
+select soccer_ingest('nfl', jsonb_build_object('fixtures', jsonb_build_array(jsonb_build_object('ext_id', 'nfl-306', 'gameweek', 14,
+  'kickoff', now() + interval '2 hours', 'status', 'NS', 'home', 'nf1', 'away', 'nf2'))));
+select _pool_game_nudge(:lib) as stn \gset
+select pg_temp.expect('a reminder before the day''s first game, once',
+  (select count(*) = 1 from notifications where team_id = :hana and body like '🔥 The day''s first game starts in%')
+  and _pool_game_nudge(:lib) = 0);
+update fixtures set state = 'cancelled' where ext_id in ('nfl-305', 'nfl-306');
+select set_config('app.league_id', '', false);
+select 'daily streak', true;
 
 -- ───────────── the Stanley Cup playoffs as series (migration 191) ─────────────
 -- The 2026 playoffs as mlb-sync files them from the NHL's bracket (logos, venues and details left out): every series'
