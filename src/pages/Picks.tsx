@@ -5,6 +5,8 @@ import { useLeague, useNow } from '../lib/store';
 import { rpc, supabase } from '../lib/supabase';
 import { Empty, PageHeader, Section, TeamBadge, Toggle, useAction } from '../components/ui';
 import { Crest } from '../components/Crest';
+import { ShareButton, useCardBrand } from '../components/ShareButton';
+import { shareCard } from '../lib/shareCard';
 import { KINDS, PICKEM_PRESETS, PRESETS, SIZES, SQUARES_DEFAULT, START_WORD, eventGrids, gridGame, gridLabel, gridRules, paysFor, type Grid, type PickemPreset, type PoolEvent, type SeriesPreset, type SheetGame, type SquaresRules } from '../lib/poolGames';
 import { SquaresGame, type SquaresData } from '../components/Squares';
 import { PickemGame, type PickemData } from '../components/Pickem';
@@ -213,6 +215,22 @@ function SeriesGame({ board, reload, name, actAs }: { board: GameBoard; reload: 
   const tb = board.tiebreak;
   const w = wordsOf(board);
   const tbv = runs ?? tb?.mine ?? w.guess;
+  const cardBrand = useCardBrand();
+  // my calls as a picture, once one has locked: the latest round first, as many as fit
+  const locked = series.filter((s) => s.locked && s.mine);
+  const shareMine = () => {
+    const club = (id: number, s: Series) => (s.high?.id === id ? s.high : s.low);
+    const rows = [...locked].sort((a, b) => b.round - a.round).slice(0, 8).map((s) => {
+      const c = club(s.mine!.winner, s);
+      const decided = s.state === 'final' && s.winner != null;
+      return { q: s.high && s.low ? `${s.short ?? s.label} · ${s.high.short ?? s.high.name} v ${s.low.short ?? s.low.name}` : s.label,
+        answer: `${c?.short ?? c?.name ?? '–'}${s.best_of > 1 ? ` in ${s.mine!.games}` : ''}`,
+        right: decided ? s.winner === s.mine!.winner : null };
+    });
+    const me = board.table.find((t) => t.team_id === board.me);
+    return shareCard({ kind: 'sheet', eyebrow: 'My series calls', brand: cardBrand, who: '', title: board.title, score: `${me?.points ?? 0} ${me?.points === 1 ? 'point' : 'points'}`, rows },
+      `My calls in ${board.title}.`);
+  };
   return (
     <>
       {rounds.map((r) => (
@@ -240,6 +258,7 @@ function SeriesGame({ board, reload, name, actAs }: { board: GameBoard; reload: 
           </div>
         </Section>
       )}
+      {!actAs && locked.length > 0 && <ShareButton className="btn-ghost w-full" label="Share my calls" make={shareMine} />}
     </>
   );
 }

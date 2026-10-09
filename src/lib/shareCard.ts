@@ -58,15 +58,16 @@ export async function drawCard(c: ShareCard): Promise<Blob> {
     ctx.fillStyle = '#ffffff';
     t.lines.forEach((l, i) => ctx.fillText(l, 80, 330 + i * t.px * 1.02));
     const top = 330 + (t.lines.length - 1) * t.px * 1.02 + 50;
-    const rows = c.rows.slice(0, 8), rh = Math.min(96, Math.floor((H - 330 - top) / Math.max(rows.length, 1)));
+    // a few calls get taller rows, so the card doesn't sit half empty
+    const rows = c.rows.slice(0, 8), rh = Math.min(rows.length <= 3 ? 150 : rows.length <= 5 ? 120 : 96, Math.floor((H - 330 - top) / Math.max(rows.length, 1)));
     rows.forEach((r, i) => {
       const y = top + i * rh;
       const tone = r.right === true ? '#34d399' : r.right === false ? '#f87171' : '#ffffff';
       ctx.fillStyle = r.right === true ? '#34d39922' : r.right === false ? '#f8717118' : '#ffffff0d';
       ctx.beginPath(); ctx.roundRect(60, y, W - 120, rh - 14, 22); ctx.fill();
-      const q = fit(ctx, r.q, 560, 1, 30, 22, (px) => `600 ${px}px ${SANS}`);
+      const q = fit(ctx, r.q, 560, 1, rh >= 120 ? 36 : 30, 22, (px) => `600 ${px}px ${SANS}`);
       ctx.fillStyle = '#ffffffb3'; ctx.fillText(q.lines[0], 92, y + (rh - 14) / 2 + q.px * 0.35);
-      const a = fit(ctx, `${r.right === true ? '✓ ' : r.right === false ? '✗ ' : ''}${r.answer}`, 300, 1, 40, 26, (px) => `800 ${px}px ${DISPLAY}`);
+      const a = fit(ctx, `${r.right === true ? '✓ ' : r.right === false ? '✗ ' : ''}${r.answer}`, 300, 1, rh >= 120 ? 56 : 40, 26, (px) => `800 ${px}px ${DISPLAY}`);
       ctx.fillStyle = tone; ctx.textAlign = 'right'; ctx.fillText(a.lines[0], W - 92, y + (rh - 14) / 2 + a.px * 0.35); ctx.textAlign = 'left';
     });
     ctx.font = `900 96px ${DISPLAY}`; ctx.fillStyle = col; ctx.fillText(c.score, 80, H - 210);
