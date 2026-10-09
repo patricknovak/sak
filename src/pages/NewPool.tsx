@@ -10,7 +10,7 @@ import { themed } from '../components/LeagueIdentity';
 import { ProductMark } from './Start';
 import { type Pack, packName, packPlaceholder, packWhen } from '../lib/packs';
 import { KINDS, PICKEM_PRESETS, PRESETS, SQUARES_DEFAULT, eventGrids, gridFor, gridLabel, gridRules, presetExample, sheetLabel, type GameKind, type PickemPreset, type PoolEvent, type SeriesPreset, type SquaresRules } from '../lib/poolGames';
-import { SINGLE_GAMES, SheetPicker, SquaresKnobs, lockText } from './Picks';
+import { SERIES_SPORTS, SheetPicker, SquaresKnobs, lockText } from './Picks';
 
 // "Start a pool" (#/new), open to anyone, in steps (docs/POOL-TYPES.md §4): what are you following (a sports event open
 // now, a show's question pack, or anything else), what kind of pool (for a sport: pick the series, rank the teams, the
@@ -56,8 +56,9 @@ export default function NewPool() {
   const [grid, setGrid] = useState<Omit<SquaresRules, 'series'>>(SQUARES_DEFAULT);
   const [gridOn, setGridOn] = useState<number | null>(null);
   const [sheetOn, setSheetOn] = useState<number | null>(null);
-  // and a sheet on every game after it, by itself (migration 227)
-  const [everySheet, setEverySheet] = useState(true);
+  // and a sheet on every game after it, by itself (migration 227): on by default for a postseason, off for a week of
+  // the NFL's regular season (sixteen sheets a week is a lot to ask)
+  const [everySheetSet, setEverySheet] = useState<boolean | null>(null);
   const [color, setColor] = useState<string>(SWATCHES[0]);
   const [pool, setPool] = useState('');
   const [name, setName] = useState('');
@@ -106,13 +107,14 @@ export default function NewPool() {
   // squares go on the series chosen, by default the event's last one still to come
   const gridSeries = event ? eventGrids(event).find((g) => g.id === gridOn) ?? gridFor(event) : null;
   // a prop sheet goes on the game chosen, by default the soonest still to start
+  const everySheet = everySheetSet ?? !event?.word;
   const sheetGame = event ? (event.sheets ?? []).find((g) => g.id === sheetOn) ?? event.sheets?.[0] ?? null : null;
   const offered: GameKind[] = event ? [...event.kinds.filter((k) => k in KINDS), ...(gridSeries ? ['squares' as const] : [])] : [];
   const gamesPayload = games.filter((k) => (k !== 'squares' || gridSeries) && (k !== 'props' || sheetGame)).map((k) => ({ kind: k, competition: event!.competition,
     rules: k === 'series' ? { preset } : k === 'pickem' ? { preset: pkPreset } : k === 'players' ? box : k === 'squares' ? { ...grid, ...gridRules(gridSeries!) }
       : k === 'props' ? { fixture: sheetGame!.id, ...(everySheet ? { auto: true } : {}) }
       // a bracket on best-of-7s takes a point for calling the games too (migration 228)
-      : k === 'bracket' && !SINGLE_GAMES.includes(event!.sport) ? { games_bonus: 1 } : {} }));
+      : k === 'bracket' && SERIES_SPORTS.includes(event!.sport) ? { games_bonus: 1 } : {} }));
   const startGames = async (id: number) => { if (gamesPayload.length) await rpc('pool_start_games', { p_league: id, p_games: gamesPayload }); };
   const okEmail = /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email.trim());
   const member = !!session && !!me;

@@ -399,7 +399,7 @@ and soccer share it.
    223):* a host turns it on once for an event (`pool_auto_sheets_set`, a switch on the host's Add a game) and the hourly
    pool job opens a sheet on each of its games a day and a half before it starts (`_props_auto`), so a World Series pool
    needn't open one by hand for every game; the start page offers it with a new pool's first sheet, on by default
-   (migration 227). *A season of sheets (migration 226):* once a pool has two sheets or more on
+   for a postseason and off for an NFL week (migration 227). *A season of sheets (migration 226):* once a pool has two sheets or more on
    an event, the scoreboard adds a row ranking the calls right across all of them, sheets won breaking a tie (kind
    `props_all`).
 4. March Madness (March 2027): the bracket with a second chance and the Eliminator. *The bracket's feed built 9 October 2026

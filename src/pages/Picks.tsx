@@ -612,8 +612,8 @@ function HostDesk({ board, reload, onActAs }: { board: GameBoard; reload: () => 
 
 // the host adds a game the pool doesn't run yet, on an event that still has a round to start from; squares go on any
 // series still to start that has no grid yet
-// sports whose postseason is single games: their brackets have no series length to call
-export const SINGLE_GAMES = ['nfl', 'ncaab'];
+// sports whose postseason is played in best-of series: their brackets can carry a bonus for calling the games
+export const SERIES_SPORTS = ['mlb', 'nhl', 'nba'];
 
 export function HostGames() {
   const { games, reload } = usePoolGames();
@@ -663,7 +663,7 @@ export function HostGames() {
                 <p className="mt-1.5 text-[11px] leading-snug text-mute">{PICKEM_PRESETS.find((p) => p.key === pkPreset)!.line}</p>
               </div>
             )}
-            {k === 'bracket' && !SINGLE_GAMES.includes(e.sport) && (
+            {k === 'bracket' && SERIES_SPORTS.includes(e.sport) && (
               <div className="flex items-center justify-between gap-3 rounded-2xl bg-black/20 px-3 py-1 ring-1 ring-white/[.06]">
                 <span className="text-[13px] font-semibold text-white">Call the games too<span className="block text-[11px] font-normal text-mute">A point more when a series goes exactly as long as you said</span></span>
                 <Toggle on={gamesBonus} onChange={setGamesBonus} />
@@ -673,7 +673,7 @@ export function HostGames() {
               <div className="flex flex-wrap gap-1.5">{PRESETS.map((p) => <button key={p.key} type="button" onClick={() => setPreset(p.key)} className={`rounded-full px-3 py-1 text-xs font-semibold ring-1 ${preset === p.key ? 'bg-gold text-[#0b1220] ring-gold' : 'bg-white/[.04] text-slate-200 ring-white/10'}`}>{p.label}</button>)}</div>
             )}
             <button type="button" className="btn-gold w-full" disabled={busy}
-              onClick={() => run(async () => { await rpc('pool_game_start', { p_kind: k, p_competition: e.competition, p_rules: k === 'series' ? { preset } : k === 'pickem' ? { preset: pkPreset } : k === 'bracket' && !SINGLE_GAMES.includes(e.sport) ? { games_bonus: gamesBonus ? 1 : 0 } : {} }); if (k === 'survivor') nav('/survivor'); else reload(); }, `${KINDS[k].title} is on`)}>
+              onClick={() => run(async () => { await rpc('pool_game_start', { p_kind: k, p_competition: e.competition, p_rules: k === 'series' ? { preset } : k === 'pickem' ? { preset: pkPreset } : k === 'bracket' && SERIES_SPORTS.includes(e.sport) ? { games_bonus: gamesBonus ? 1 : 0 } : {} }); if (k === 'survivor') nav('/survivor'); else reload(); }, `${KINDS[k].title} is on`)}>
               Start {second(e, k) ? 'the second-chance bracket' : KINDS[k].title.toLowerCase()}
             </button>
           </div>
