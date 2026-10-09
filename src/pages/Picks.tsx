@@ -2,8 +2,8 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { ArrowDown, ArrowUp, Check, ChevronDown, ClipboardList, Grid3x3, ListChecks, Lock, ListOrdered, Minus, Plus, Swords, Trophy, Users } from 'lucide-react';
 import { useLeague, useNow } from '../lib/store';
-import { rpc } from '../lib/supabase';
-import { Empty, PageHeader, Section, TeamBadge, useAction } from '../components/ui';
+import { rpc, supabase } from '../lib/supabase';
+import { Empty, PageHeader, Section, TeamBadge, Toggle, useAction } from '../components/ui';
 import { Crest } from '../components/Crest';
 import { KINDS, PICKEM_PRESETS, PRESETS, SIZES, SQUARES_DEFAULT, START_WORD, eventGrids, gridGame, gridLabel, gridRules, paysFor, type Grid, type PickemPreset, type PoolEvent, type SeriesPreset, type SheetGame, type SquaresRules } from '../lib/poolGames';
 import { SquaresGame, type SquaresData } from '../components/Squares';
@@ -610,6 +610,10 @@ export function HostGames() {
   // last one standing lives in its own tables, one at a time per pool
   const { board: survivor } = useSurvivor();
   useEffect(() => { rpc<PoolEvent[]>('pool_event_list').then((e) => setEvents(e ?? []), () => setEvents([])); }, []);
+  // the events the pool opens a sheet on every game of, by itself (migration 223)
+  const [auto, setAuto] = useState<Set<string>>(new Set());
+  const loadAuto = () => supabase.from('pool_auto_sheets').select('competition').then(({ data }) => setAuto(new Set((data ?? []).map((x: { competition: string }) => x.competition))), () => {});
+  useEffect(() => { loadAuto(); }, []); // eslint-disable-line react-hooks/exhaustive-deps
   const offers = events.flatMap((e) => e.kinds.filter((k) => k in KINDS && k !== 'props' && !(k === 'survivor' && survivor?.status === 'open')
     // a bracket that has locked leaves room for a second chance from a later round (migration 211)
     && !games?.some((g) => g.competition === e.competition && g.kind === k && g.status === 'open' && !(k === 'bracket' && g.locked && (g.from_round ?? 0) < e.open_round))).map((k) => ({ e, k })));
@@ -619,7 +623,8 @@ export function HostGames() {
   // a prop sheet goes on any game still to start that has none yet
   const sheets = events.flatMap((e) => (e.sheets ?? []).filter((s) => !games?.some((g) => g.kind === 'props' && g.fixture === s.id && g.status === 'open')).map((s) => ({ e, s })));
   const sheet = sheets.find((x) => x.s.id === sheetOn) ?? sheets[0];
-  if (!games || (!offers.length && !grids.length && !sheets.length)) return null;
+  const sheetEvents = events.filter((e) => e.kinds.includes('props') || auto.has(e.competition));
+  if (!games || (!offers.length && !grids.length && !sheets.length && !sheetEvents.length)) return null;
   return (
     <Section title="Add a game">
       <div className="space-y-2">
@@ -663,20 +668,39 @@ export function HostGames() {
             </button>
           </div>
         )}
-        {sheet && (
+        {(sheet || sheetEvents.length > 0) && (
           <div className="card space-y-3 p-4">
             <div className="flex items-start gap-3">
               <span className="grid h-11 w-11 shrink-0 place-items-center rounded-2xl bg-gold/15 text-xl">{KINDS.props.emoji}</span>
               <div className="min-w-0 flex-1">
-                <div className="font-semibold text-white">{KINDS.props.title} <span className="text-mute">· {sheet.e.name}</span></div>
+                <div className="font-semibold text-white">{KINDS.props.title}{sheet ? <span className="text-mute"> · {sheet.e.name}</span> : null}</div>
                 <div className="text-xs text-mute">{KINDS.props.line}</div>
               </div>
             </div>
-            <SheetPicker games={sheets.map((x) => x.s)} on={sheet.s.id} setOn={setSheetOn} />
-            <button type="button" className="btn-gold w-full" disabled={busy}
-              onClick={() => run(async () => { await rpc('pool_game_start', { p_kind: 'props', p_competition: sheet.e.competition, p_rules: { fixture: sheet.s.id } }); reload(); setSheetOn(null); }, 'The sheet is open')}>
-              Open the sheet
-            </button>
+            {sheet && (
+              <>
+                <SheetPicker games={sheets.map((x) => x.s)} on={sheet.s.id} setOn={setSheetOn} />
+                <button type="button" className="btn-gold w-full" disabled={busy}
+                  onClick={() => run(async () => { await rpc('pool_game_start', { p_kind: 'props', p_competition: sheet.e.competition, p_rules: { fixture: sheet.s.id } }); reload(); setSheetOn(null); }, 'The sheet is open')}>
+                  Open the sheet
+                </button>
+              </>
+            )}
+            {/* or every game of an event, by itself: a sheet opens a day and a half before each one starts */}
+            <div className="space-y-1 rounded-2xl bg-black/20 p-3 ring-1 ring-white/[.06]">
+              {sheetEvents.map((e) => (
+                <div key={e.competition} className="flex items-center justify-between gap-3">
+                  <div className="min-w-0">
+                    <div className="text-[13px] font-semibold text-white">Every {e.name} game</div>
+                    <div className="text-[11px] leading-snug text-mute">{auto.has(e.competition) ? 'On: each sheet opens a day and a half before the game' : 'A sheet opens by itself before each game'}</div>
+                  </div>
+                  <Toggle on={auto.has(e.competition)} onChange={(v) => run(async () => {
+                    const n = await rpc<number>('pool_auto_sheets_set', { p_competition: e.competition, p_on: v });
+                    await loadAuto(); if (n) reload();
+                  }, v ? 'Sheets will open by themselves' : 'Automatic sheets are off')} />
+                </div>
+              ))}
+            </div>
           </div>
         )}
       </div>

@@ -5538,6 +5538,42 @@ select pg_temp.expect('a final with no quarters pays the final alone, the whole 
 select set_config('app.league_id', '', false);
 select 'nfl week squares', true;
 
+-- ───────────── prop sheets on every game, automatically (migration 223) ─────────────
+-- Hana turns them on for the NFL: a sheet opens at once on each game within a day and a half that has none (tonight's
+-- Week 15 game), not on the one three days off; the hourly job opens nothing twice; a member can't turn it on; off is off.
+reset role;
+select set_config('request.jwt.claim.sub', '', false);
+select set_config('app.league_id', '', false);
+select soccer_ingest('nfl', jsonb_build_object('fixtures', jsonb_build_array(
+  jsonb_build_object('ext_id', 'nfl-215', 'gameweek', 15, 'kickoff', now() + interval '20 hours', 'status', 'NS', 'home', 'nf1', 'away', 'nf2'),
+  jsonb_build_object('ext_id', 'nfl-216', 'gameweek', 15, 'kickoff', now() + interval '3 days', 'status', 'NS', 'home', 'nf2', 'away', 'nf1'))));
+select id as af1 from fixtures where provider = 'espn' and ext_id = 'nfl-215' \gset
+select id as af2 from fixtures where provider = 'espn' and ext_id = 'nfl-216' \gset
+select set_config('app.league_id', :'lib', false);
+select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-000000000082', false);
+set role authenticated;
+select pg_temp.raises('only the host turns it on', format('select pool_auto_sheets_set(%L, true)', 'nfl'), 'Commissioner only');
+reset role;
+select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-000000000081', false);
+set role authenticated;
+select pool_auto_sheets_set('nfl', true) as opened \gset
+reset role;
+select pg_temp.expect('on: tonight''s game has its sheet, the one three days off waits',
+  :opened >= 1
+  and exists (select 1 from pool_games where league_id = :lib and kind = 'props' and (rules->>'fixture')::bigint = :af1 and status = 'open')
+  and not exists (select 1 from pool_games where league_id = :lib and kind = 'props' and (rules->>'fixture')::bigint = :af2)
+  and exists (select 1 from pool_auto_sheets where league_id = :lib and competition = 'nfl'));
+select count(*) as sheets_now from pool_games where league_id = :lib and kind = 'props' \gset
+select pg_temp.expect('the hourly job opens nothing twice', _props_auto(:lib) = 0
+  and (select count(*) from pool_games where league_id = :lib and kind = 'props') = :sheets_now);
+set role authenticated;
+select pool_auto_sheets_set('nfl', false);
+reset role;
+select pg_temp.expect('off is off', not exists (select 1 from pool_auto_sheets where league_id = :lib));
+select set_config('app.league_id', '', false);
+select set_config('request.jwt.claim.sub', '', false);
+select 'automatic sheets', true;
+
 -- ───────────── the Stanley Cup playoffs as series (migration 191) ─────────────
 -- The 2026 playoffs as mlb-sync files them from the NHL's bracket (logos, venues and details left out): every series'
 -- result as the NHL had it, and a bracket from the first round, the letters' order making the tree.
