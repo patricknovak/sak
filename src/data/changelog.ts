@@ -6,8 +6,8 @@
 export interface Change { date: string; icon: string; title: string; body: string; to?: string; tag?: 'formats' | 'commish' | 'draft' | 'everyone' }
 
 export const CHANGELOG: Change[] = [
-  { date: '2026-10-09', icon: '📤', tag: 'everyone', title: 'Share your sheet, bracket, series calls or squares', to: '/pools',
-    body: 'Once a prop sheet, a bracket or a series call locks, or a grid\'s digits are drawn, share it to the group chat as a picture: every call you made (your champion first on a bracket), ticked or crossed as the games decide them, and your score. Drawn on your phone in the pool\'s colours.' },
+  { date: '2026-10-09', icon: '📤', tag: 'everyone', title: 'Share your picks as a picture', to: '/pools',
+    body: 'Once a week\'s picks, a prop sheet, a bracket or a series call locks, or a grid\'s digits are drawn, share it to the group chat as a picture: every call you made (your champion first on a bracket), ticked or crossed as the games decide them, and your score. Drawn on your phone in the pool\'s colours.' },
   { date: '2026-10-09', icon: '🏆', tag: 'everyone', title: 'Call the games in your bracket', to: '/pools',
     body: 'Brackets on best-of-seven playoffs can now take a bonus for calling how long each series goes: pick the winner, then tap 4, 5, 6 or 7. A series that goes exactly that long is worth a point more. Ready for the Stanley Cup and the NBA playoffs.' },
   { date: '2026-10-09', icon: '📋', tag: 'everyone', title: 'Every prop sheet, added up', to: '/leaders',
