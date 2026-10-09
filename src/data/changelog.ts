@@ -6,6 +6,8 @@
 export interface Change { date: string; icon: string; title: string; body: string; to?: string; tag?: 'formats' | 'commish' | 'draft' | 'everyone' }
 
 export const CHANGELOG: Change[] = [
+  { date: '2026-10-09', icon: '🏀', tag: 'everyone', title: 'The NBA playoffs are coming', to: '/pools',
+    body: 'Pools can run on the NBA playoffs next spring: pick every series and how many games it goes, fill in a bracket from the first round to the Finals, or rank the teams. All fifteen series are ready the day the field is set in April.' },
   { date: '2026-10-09', icon: '📋', tag: 'everyone', title: 'Prop sheets score live', to: '/pools',
     body: 'Your prop sheet now ticks as the game goes: who led after the 1st, the over once it\'s passed, a shutout broken, each call marked right or wrong the moment the game decides it. Once the sheet locks, the Table shows everyone\'s chance to win it.' },
   { date: '2026-10-09', icon: '🔲', tag: 'everyone', title: 'Squares on any NFL game', to: '/pools',

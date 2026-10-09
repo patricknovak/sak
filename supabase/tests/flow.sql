@@ -5646,3 +5646,34 @@ reset role;
 update competitions set active = false where id in ('mm-test', 'mm-next');
 select set_config('request.jwt.claim.sub', '', false);
 select 'march madness', true;
+
+-- ───────────── the NBA playoffs (migration 220) ─────────────
+-- The field drawn (the 2026 first round as ESPN had it, through nbaPlayoffPayload): fifteen best-of-7 series in bracket
+-- order, the first round's clubs set, the rest to be decided; a month before the first tip-off the event offers Pick the
+-- series, Rank the teams and a bracket from the first round, in basketball's words, the tiebreaker to 300 points.
+reset role;
+select set_config('request.jwt.claim.sub', '', false);
+select set_config('app.league_id', '', false);
+select pg_temp.expect('the NBA has its sport row and its 2027 postseason', exists (select 1 from sports where id = 'nba' and config->'words'->>'start' = 'tip-off')
+  and exists (select 1 from competitions where id = 'nba-post-2027' and format = 'series' and ext_id = 'basketball/nba'));
+select sport_ingest('nba-post-2027', '{"clubs":[{"ext_id":"5","name":"Cleveland Cavaliers","short":"CLE"},{"ext_id":"28","name":"Toronto Raptors","short":"TOR"},{"ext_id":"7","name":"Denver Nuggets","short":"DEN"},{"ext_id":"16","name":"Minnesota Timberwolves","short":"MIN"},{"ext_id":"18","name":"New York Knicks","short":"NY"},{"ext_id":"1","name":"Atlanta Hawks","short":"ATL"},{"ext_id":"13","name":"Los Angeles Lakers","short":"LAL"},{"ext_id":"10","name":"Houston Rockets","short":"HOU"},{"ext_id":"2","name":"Boston Celtics","short":"BOS"},{"ext_id":"20","name":"Philadelphia 76ers","short":"PHI"},{"ext_id":"25","name":"Oklahoma City Thunder","short":"OKC"},{"ext_id":"21","name":"Phoenix Suns","short":"PHX"},{"ext_id":"8","name":"Detroit Pistons","short":"DET"},{"ext_id":"19","name":"Orlando Magic","short":"ORL"},{"ext_id":"24","name":"San Antonio Spurs","short":"SA"},{"ext_id":"22","name":"Portland Trail Blazers","short":"POR"}],"series":[{"ext_id":"nba:2027:R1:E:0","round":1,"label":"East 1st Round","short":"E R1","best_of":7,"high":"8","low":"19","starts_at":null,"tbd":false,"sort":1},{"ext_id":"nba:2027:R1:E:1","round":1,"label":"East 1st Round","short":"E R1","best_of":7,"high":"5","low":"28","starts_at":null,"tbd":false,"sort":2},{"ext_id":"nba:2027:R1:E:2","round":1,"label":"East 1st Round","short":"E R1","best_of":7,"high":"18","low":"1","starts_at":null,"tbd":false,"sort":3},{"ext_id":"nba:2027:R1:E:3","round":1,"label":"East 1st Round","short":"E R1","best_of":7,"high":"2","low":"20","starts_at":null,"tbd":false,"sort":4},{"ext_id":"nba:2027:R1:W:0","round":1,"label":"West 1st Round","short":"W R1","best_of":7,"high":"25","low":"21","starts_at":null,"tbd":false,"sort":5},{"ext_id":"nba:2027:R1:W:1","round":1,"label":"West 1st Round","short":"W R1","best_of":7,"high":"13","low":"10","starts_at":null,"tbd":false,"sort":6},{"ext_id":"nba:2027:R1:W:2","round":1,"label":"West 1st Round","short":"W R1","best_of":7,"high":"7","low":"16","starts_at":null,"tbd":false,"sort":7},{"ext_id":"nba:2027:R1:W:3","round":1,"label":"West 1st Round","short":"W R1","best_of":7,"high":"24","low":"22","starts_at":null,"tbd":false,"sort":8},{"ext_id":"nba:2027:R2:E:0","round":2,"label":"East Semifinals","short":"E Semis","best_of":7,"high":null,"low":null,"starts_at":null,"tbd":true,"sort":9},{"ext_id":"nba:2027:R2:E:1","round":2,"label":"East Semifinals","short":"E Semis","best_of":7,"high":null,"low":null,"starts_at":null,"tbd":true,"sort":10},{"ext_id":"nba:2027:R2:W:0","round":2,"label":"West Semifinals","short":"W Semis","best_of":7,"high":null,"low":null,"starts_at":null,"tbd":true,"sort":11},{"ext_id":"nba:2027:R2:W:1","round":2,"label":"West Semifinals","short":"W Semis","best_of":7,"high":null,"low":null,"starts_at":null,"tbd":true,"sort":12},{"ext_id":"nba:2027:R3:E:0","round":3,"label":"East Finals","short":"ECF","best_of":7,"high":null,"low":null,"starts_at":null,"tbd":true,"sort":13},{"ext_id":"nba:2027:R3:W:0","round":3,"label":"West Finals","short":"WCF","best_of":7,"high":null,"low":null,"starts_at":null,"tbd":true,"sort":14},{"ext_id":"nba:2027:R4:F:0","round":4,"label":"NBA Finals","short":"Finals","best_of":7,"high":null,"low":null,"starts_at":null,"tbd":true,"sort":15}],"fixtures":[]}'::jsonb);
+update series set starts_at = now() + interval '30 days' + sort * interval '1 hour' where competition = 'nba-post-2027' and round = 1;
+select pg_temp.expect('fifteen series in bracket order, the first round set',
+  (select count(*) = 15 and count(*) filter (where round = 1 and high_club is not null and low_club is not null) = 8 and bool_and(best_of = 7)
+   from series where competition = 'nba-post-2027')
+  and (select string_agg(h.short || '-' || l.short, ' ' order by s.sort) = 'DET-ORL CLE-TOR NY-ATL BOS-PHI OKC-PHX LAL-HOU DEN-MIN SA-POR'
+       from series s join clubs h on h.id = s.high_club join clubs l on l.id = s.low_club where s.competition = 'nba-post-2027' and s.round = 1));
+select set_config('app.league_id', :'lib', false);
+select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-000000000081', false);
+set role authenticated;
+select pg_temp.expect('the event offers the series, the ranking and a bracket from the first round',
+  exists (select 1 from jsonb_array_elements(pool_event_list()) e where e->>'competition' = 'nba-post-2027'
+          and e->'kinds' ?& array['series', 'rank', 'bracket'] and (e->>'open_round')::int = 1));
+select pool_game_start('bracket', 'nba-post-2027', '{}'::jsonb) as nbab \gset
+reset role;
+select pg_temp.expect('a bracket on it, its tiebreaker the Finals'' points up to 300', (select kind = 'bracket' and (rules->>'from_round')::int = 1 from pool_games where id = :nbab)
+  and _score_cap('nba-post-2027') = 300);
+update competitions set active = false where id = 'nba-post-2027';
+select set_config('app.league_id', '', false);
+select set_config('request.jwt.claim.sub', '', false);
+select 'nba playoffs', true;

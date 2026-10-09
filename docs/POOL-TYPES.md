@@ -411,7 +411,13 @@ and soccer share it.
    to 196, with goal alerts and a morning line), and its playoffs version on the first round's clubs, dealt on each club's
    expected playoff games, is ready too (migration 202, 9 October 2026). A pool with a game on the playoffs gets the
    bracket centre (`#/sport/nhl`, "Stanley Cup playoffs") in its menu beside NHL centre.
-6. The NBA playoffs (April 2027) on the same engine, once its feed is settled.
+6. The NBA playoffs (April 2027) on the same engine, once its feed is settled. *The feed built 9 October 2026 (migration
+   220):* `nba-post-2027` fills from ESPN's public scoreboard (`nbaPlayoffPayload`, `_shared/nbaPlayoffs.ts`): ESPN
+   names each game's round, conference and number but no seeds, so they come from its standings; the better seed in a
+   game fixes its place (1v8, 4v5, 3v6, 2v7, East before West), all fifteen best-of-7 series exist from the first day
+   and each game finds its own series, so the daily run sends the whole postseason and a live run only yesterday, today
+   and tomorrow. The play-in is left out. Tested on the 2026 playoffs (every series and result as ESPN had them, the
+   tree exact). Pick the series, a bracket from the first round and Rank the teams run on it once the field is drawn.
 7. Later: win totals, best ball, the daily streak, the sweepstake for the 2027 Women's World Cup.
 
 ## 10. Sources

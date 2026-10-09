@@ -335,7 +335,8 @@ on a week's game put off waits for its new kickoff and one called off hands back
 period only once the feed has sent it, so a game that lands final with no score by period pays its final alone (never
 the 0-0 square); `nhlPeriods` sends nothing for a landing with no scoring summary and one bad landing no longer stops
 the bracket's sync; the NFL's playoff weeks read as ESPN names them; the host's grid picker keeps series as chips beside
-the week's games.
+the week's games. *The NBA playoffs' feed (migration 220, soccer-sync):* `nba-post-2027` from ESPN's scoreboard,
+seeds from its standings, fifteen series in bracket order from the first day (docs/POOL-TYPES.md §9 item 6).
 
 Alongside: the World Series test (the LCS from 11 October, the World Series from 23 October) needs its games started
 in the World Series pool (league 5, the questions only so far), and the Love Is Blind test needs players.

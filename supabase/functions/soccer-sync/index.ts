@@ -10,6 +10,7 @@
 // (`format` 'series', migration 187: the NFL's playoffs) files each playoff game as a best-of-1 series through
 // sport_ingest, so the bracket runs on it.
 import { createClient } from 'jsr:@supabase/supabase-js@2';
+import { nbaPlayoffPayload } from '../_shared/nbaPlayoffs.ts';
 import { afClub, afFixture, API_FOOTBALL, assignRounds, espnClub, espnFixture, espnNinety, espnPath, espnPlayoffPayload, espnTournamentPayload, ESPN, type NeutralFixture } from '../_shared/soccer.ts';
 
 const db = createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!, {
@@ -40,7 +41,8 @@ interface Competition { id: string; sport: string; ext_id: string; ext_season: s
 // deno-lint-ignore no-explicit-any
 async function espn(path: string): Promise<any> {
   // ESPN turns away Deno's own user agent (403); the path starts with the sport ('/soccer/eng.1/...', '/football/nfl/...')
-  const r = await fetch(`${ESPN}${path}`, { headers: { 'user-agent': 'SuperPools/1.0', accept: 'application/json' } });
+  // a path is under the site API; a whole address (the NBA's standings) is fetched as it is
+  const r = await fetch(path.startsWith('https://') ? path : `${ESPN}${path}`, { headers: { 'user-agent': 'SuperPools/1.0', accept: 'application/json' } });
   espnCalls++;
   if (!r.ok) throw new Error(`espn ${path}: ${r.status}`);
   return r.json();
@@ -118,8 +120,26 @@ async function espnTournament(c: Competition) {
   const p = espnTournamentPayload(c.ext_season, pages, c.detail?.regions ?? null);
   return check(await db.rpc('sport_ingest', { p_competition: c.id, p: { clubs: p.clubs, series: p.series, fixtures: p.fixtures } }));
 }
-// a postseason in series: the NFL's playoff weeks, or a tournament by the day
-const espnPostseason = (c: Competition) => (c.sport === 'ncaab' ? espnTournament(c) : espnPlayoffSeries(c));
+// the NBA playoffs (migration 220): the seeds from the standings, then the postseason day by day from mid-April to
+// late June, or on a live run only yesterday, today and tomorrow (each game finds its own series); outside those months
+// there is nothing to fetch, so the rest of the year costs no requests
+async function espnNba(c: Competition, full: boolean) {
+  const y = Number(c.ext_season), now = Date.now();
+  const from = Date.UTC(y, 3, 12), to = Date.UTC(y, 5, 25);
+  if (now < from - 7 * 864e5 || now > to + 7 * 864e5) return { series: 0 };
+  const standings = await espn(`https://site.api.espn.com/apis/v2/sports/basketball/nba/standings?season=${y}`);
+  const days: string[] = [];
+  const ny = (t: number) => new Intl.DateTimeFormat('en-CA', { timeZone: 'America/New_York', year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date(t)).replaceAll('-', '');
+  if (full) for (let t = from; t <= Math.min(to, now + 7 * 864e5); t += 864e5) days.push(new Date(t).toISOString().slice(0, 10).replaceAll('-', ''));
+  else for (const d of [-1, 0, 1]) days.push(ny(now + d * 864e5));
+  const pages = [];
+  for (const day of days) pages.push(await espn(`/${espnPath(c.sport, c.ext_id)}/scoreboard?dates=${day}&limit=100`));
+  return check(await db.rpc('sport_ingest', { p_competition: c.id, p: nbaPlayoffPayload(c.ext_season, pages, standings, full) }));
+}
+// a postseason in series: the NFL's playoff weeks, a tournament by the day, or the NBA's series; a live run of the
+// NBA's sends only the days around now
+const espnPostseason = (c: Competition, full = true) =>
+  (c.sport === 'ncaab' ? espnTournament(c) : c.sport === 'nba' ? espnNba(c, full) : espnPlayoffSeries(c));
 
 const month = (d: Date) => `${d.getUTCFullYear()}${String(d.getUTCMonth() + 1).padStart(2, '0')}`;
 
@@ -186,7 +206,7 @@ async function live() {
       if (list[0].provider === 'espn') {
         const c = comps.get(comp)!;
         // a postseason in series: its few playoff weeks again, whole
-        if (c.format === 'series') { out[comp] = await espnPostseason(c); continue; }
+        if (c.format === 'series') { out[comp] = await espnPostseason(c, false); continue; }
         const want = new Set(list.map((f) => f.ext_id));
         // deno-lint-ignore no-explicit-any
         const events = new Map<string, any>();

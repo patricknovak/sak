@@ -148,7 +148,7 @@ export function espnOdds(c: Any): NeutralOdds | null {
 // left out by the caller), each round's AFC games before its NFC games so the two conference finals meet in the last;
 // a game keeps ESPN's id with a 'P' so the season's competition keeps its own copy for pick'em. All-star sides
 // ('AFC', 'NFC') and teams not yet named are skipped.
-const PLAYOFF_STATE: Record<string, string> = { FT: 'final', AET: 'final', PEN: 'final', AWD: 'final', NS: 'scheduled', PST: 'postponed', CANC: 'cancelled', ABD: 'cancelled' };
+export const PLAYOFF_STATE: Record<string, string> = { FT: 'final', AET: 'final', PEN: 'final', AWD: 'final', NS: 'scheduled', PST: 'postponed', CANC: 'cancelled', ABD: 'cancelled' };
 export function espnPlayoffPayload(rounds: { label?: string }[], pages: Any[]) {
   const clubs = new Map<string, NeutralClub>();
   const series: Any[] = [], fixtures: Any[] = [];
