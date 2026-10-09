@@ -6,6 +6,8 @@
 export interface Change { date: string; icon: string; title: string; body: string; to?: string; tag?: 'formats' | 'commish' | 'draft' | 'everyone' }
 
 export const CHANGELOG: Change[] = [
+  { date: '2026-10-09', icon: '🏒', tag: 'everyone', title: 'The playoff box pool', to: '/pools',
+    body: 'The box pool now runs on the Stanley Cup playoffs too: the boxes are dealt from the sixteen clubs in the first round, on how far each is expected to go, and every playoff game counts all the way to the Cup. When a club is knocked out its players are shaded with nothing more to add. Ready the day the bracket is drawn in April.' },
   { date: '2026-10-09', icon: '🏀', tag: 'everyone', title: 'March Madness is coming', to: '/pools',
     body: 'The bracket now runs on the men\'s college basketball tournament: all 63 games in bracket order, from the first round to the championship, ready the day the field is announced in March. Later rounds are worth more, and the tiebreaker is the total points in the final.' },
   { date: '2026-10-09', icon: '🏈', tag: 'everyone', title: 'Super Bowl squares', to: '/pools',

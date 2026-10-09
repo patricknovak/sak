@@ -228,7 +228,7 @@ give the pool a home for following the sport):**
   standing and Call the score onto the engine; the pick split in the prediction log; what you need to win; then the
   bracket and the player pool for the spring. *The box pool built 8 October 2026 (migration 188): one player from each
   box of evenly matched NHL players, goals, assists and goalie wins counting live, on the regular season from any night;
-  the playoffs' version comes in April. With its chance to win, goal alerts, points still to come and a morning line in
+  the playoffs' version is ready for April (migration 202, 9 October 2026). With its chance to win, goal alerts, points still to come and a morning line in
   the chat (migrations 189 to 196). The Stanley Cup playoffs' feed is ready for April (migration 191).* *Weekly pick'em built 8 October 2026 (migration 170): every match of a
   round, the winner or a draw, each pick locking at its own kick-off; Classic (a point a right pick) or Confidence (each
   round's picks numbered, a right one earns its number); on any competition whose matches come in rounds, so the

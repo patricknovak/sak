@@ -5042,6 +5042,95 @@ update players set status = 'unrostered' where id between 990001 and 990025;
 select set_config('request.jwt.claim.sub', '', false);
 select 'box pool', true;
 
+-- ───────────── the box pool on the playoffs (migration 202) ─────────────
+-- A first round of one series forty days out: BXA, expected to play six games, against BXB, expected to play five.
+-- The boxes are dealt on those games, so BXA's second forward leads the first box. It locks at the first puck drop,
+-- BXB's players are shaded once BXB is out, and it's done with the final (here the one series).
+reset role;
+select set_config('request.jwt.claim.sub', '', false);
+select set_config('app.league_id', '', false);
+update players set status = 'active' where id between 990001 and 990025;
+insert into nhl_teams (abbrev, name, exp_po_games) values ('BXA', 'Box A', 6), ('BXB', 'Box B', 5)
+  on conflict (abbrev) do update set exp_po_games = excluded.exp_po_games;
+insert into competitions (id, sport, name, short, season, provider, ext_id, ext_season, active, format)
+values ('nhl-po-box', 'nhl', 'Stanley Cup Playoffs (box test)', 'NHL', '2027', 'nhl-api', 'nhl', '20262027', true, 'series') on conflict (id) do nothing;
+select sport_ingest('nhl-po-box', jsonb_build_object(
+  'clubs', '[{"ext_id": "901", "name": "Box A", "short": "BXA"}, {"ext_id": "902", "name": "Box B", "short": "BXB"}]'::jsonb,
+  'series', jsonb_build_array(jsonb_build_object('ext_id', 'box:A', 'round', 1, 'label', '1st Round', 'short', 'R1', 'best_of', 7,
+    'high', '901', 'low', '902', 'starts_at', (today_et() + 40)::timestamp + interval '23 hours', 'tbd', false, 'sort', 1)),
+  'fixtures', '[]'::jsonb));
+select set_config('app.league_id', :'lib', false);
+select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-000000000081', false);
+set role authenticated;
+select pg_temp.expect('the start page offers a box pool on the playoffs before the first round', exists (select 1 from jsonb_array_elements(pool_event_list()) e
+  where e->>'competition' = 'nhl-po-box' and e->'kinds' ? 'players'));
+select pool_game_start('players', 'nhl-po-box', '{"preset": "quick"}') as bxp \gset
+reset role;
+select pg_temp.expect('it is on, from the first puck drop to the Cup, on each club''s expected games',
+  (select rules->>'length' = 'playoffs' and (rules->>'playoffs')::boolean and rules->>'from' = (today_et() + 40)::text
+     and jsonb_array_length(rules->'boxes') = 5
+     -- forwards 1 to 15 score less down the list; BXA (the even ones) plays a game more
+     and rules->'boxes'->0->'players' = '[990002, 990004, 990001, 990006, 990003]'::jsonb from pool_games where id = :bxp)
+  and exists (select 1 from messages where league_id = :lib and body like '🏒 The playoff box pool is open: take one player from each of 5 boxes%all the way to the Cup%'));
+select jsonb_build_object('players', jsonb_agg(b->'players'->0 order by o)) p1, jsonb_build_object('players', jsonb_agg(b->'players'->1 order by o)) p2
+from pool_games, jsonb_array_elements(rules->'boxes') with ordinality x(b, o) where id = :bxp \gset
+select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-000000000081', false);
+set role authenticated;
+select pool_game_pick(:bxp, 'box', :'p1');
+select pg_temp.expect('before the puck drops: the playoffs, both clubs in, each player''s club expected to play its games',
+  (select (b->'players'->>'playoffs')::boolean and (b->'players'->>'clubs_left')::int = 2 and not (b->'players'->>'locked')::boolean
+     and (b->'players'->'boxes'->0->'players'->0->>'games')::int = 6 and (b->'players'->'boxes'->0->'players'->2->>'games')::int = 5
+     and not (b->'players'->'boxes'->0->'players'->2->>'out')::boolean
+   from (select pool_game_board(:bxp) b) x));
+reset role;
+select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-000000000082', false);
+set role authenticated;
+select pool_game_pick(:bxp, 'box', :'p2');
+reset role;
+select set_config('request.jwt.claim.sub', '', false);
+-- Game 1 is played (a playoff game: type 3), and the standings task brings BXA's games to come down to five
+insert into games (id, date, start_utc, home, away, state) values
+  (2099030101, today_et() + 40, now() - interval '3 hours', 'BXA', 'BXB', 'OFF') on conflict do nothing;
+insert into player_games (game_id, player_id, date, stats) values
+  (2099030101, 990002, today_et() + 40, '{"g": 1, "a": 1}'), (2099030101, 990004, today_et() + 40, '{"g": 0, "a": 1}');
+update nhl_teams set exp_po_games = 5 where abbrev = 'BXA';
+update nhl_teams set exp_po_games = 4 where abbrev = 'BXB';
+select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-000000000081', false);
+set role authenticated;
+select pg_temp.raises('locked at the first puck drop', format('select pool_game_pick(%s, %L, %L)', :bxp, 'box', :'p2'), 'locked');
+select pg_temp.expect('a playoff game counts: Hana 2, Fern 1, and five games to come for BXA',
+  (select (b->'players'->'boxes'->0->'players'->0->>'pts')::int = 2 and (b->'players'->'boxes'->0->'players'->0->>'left')::int = 5
+     and (b->'players'->'boxes'->0->'players'->0->>'games')::int = 6
+   from (select pool_game_board(:bxp) b) x));
+reset role;
+select pg_temp.expect('on the table too', (select points = 2 from _pool_game_table(:bxp) where team_id = :hana)
+  and (select points = 1 from _pool_game_table(:bxp) where team_id = :fern));
+select pg_temp.expect('the chances count each club''s games to come, and add up to one',
+  (select abs(sum(chance) - 1) < 0.01 and max(chance) filter (where team_id = :hana) > max(chance) filter (where team_id = :fern)
+   from _players_chances(:bxp)));
+select _players_log(:lib) as bxpl \gset
+select pg_temp.expect('each team''s forecast counts the games played and expected', :bxpl = 2
+  and (select predicted > 0 from predictions where kind = 'box_points' and (subject->>'game')::bigint = :bxp and (subject->>'team_id')::int = :hana));
+select pg_temp.expect('not done while the playoffs run', _players_settle(:lib) = 0);
+-- BXA sweeps: BXB is out
+update series set state = 'final', high_wins = 4, winner = high_club, updated_at = now() where competition = 'nhl-po-box';
+select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-000000000081', false);
+set role authenticated;
+select pg_temp.expect('a club that loses is out: its players shaded, with nothing to come',
+  (select (b->'players'->>'clubs_left')::int = 1 and (b->'players'->'boxes'->0->'players'->2->>'out')::boolean
+     and (b->'players'->'boxes'->0->'players'->2->>'left')::int = 0 and (b->'players'->'boxes'->0->'players'->2->>'to_come')::numeric = 0
+     and not (b->'players'->'boxes'->0->'players'->0->>'out')::boolean
+   from (select pool_game_board(:bxp) b) x));
+reset role;
+select _players_settle(:lib) as bxpn \gset
+select pg_temp.expect('the final is over: done, Hana wins it', :bxpn = 1
+  and (select status = 'done' and winners = array[:hana] from pool_games where id = :bxp));
+delete from player_games where game_id = 2099030101;
+delete from games where id = 2099030101;
+update players set status = 'unrostered' where id between 990001 and 990025;
+select set_config('request.jwt.claim.sub', '', false);
+select 'box pool playoffs', true;
+
 -- ───────────── the Stanley Cup playoffs as series (migration 191) ─────────────
 -- The 2026 playoffs as mlb-sync files them from the NHL's bracket (logos, venues and details left out): every series'
 -- result as the NHL had it, and a bracket from the first round, the letters' order making the tree.

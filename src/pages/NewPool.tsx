@@ -163,7 +163,7 @@ export default function NewPool() {
                       <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl text-xl" style={{ background: `rgb(${rgb(color)} / .18)` }}>{SPORT_EMOJI[e.sport] ?? '🏆'}</span>
                       <span className="min-w-0 flex-1">
                         <span className="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-balance font-semibold text-white">{e.name}<span className="rounded-full bg-red-500/15 px-1.5 py-px text-[10px] font-bold uppercase tracking-wider text-red-200 ring-1 ring-red-400/30">Live now</span></span>
-                        <span className="block text-xs text-white/60">{e.stage ?? 'Under way'} · {e.kinds.includes('players') ? `from the next puck drop, ${lockText(e.next_lock)}` : `picks from ${e.word ? e.open_label : `the ${e.open_label}`}, ${lockText(e.next_lock)}`}</span>
+                        <span className="block text-xs text-white/60">{e.stage ?? 'Under way'} · {e.kinds.includes('players') && !e.open_round ? `from the next puck drop, ${lockText(e.next_lock)}` : `picks from ${e.word ? e.open_label : `the ${e.open_label}`}, ${lockText(e.next_lock)}`}</span>
                       </span>
                       {on && <Check size={18} className="shrink-0 text-emerald-300" />}
                     </button>
@@ -210,7 +210,7 @@ export default function NewPool() {
                 {!kinds.length && <p className="mt-2 text-xs text-amber-200">Pick at least one.</p>}
                 {kinds.includes('players') && (
                   <p className="mt-2 rounded-xl bg-white/[.05] px-3 py-2 text-xs leading-snug text-white/70">
-                    The box pool starts {event.open_label}: everyone takes one player from every box of the league’s best. A goal or an assist is a point, a goalie’s win two and a shutout one more. The host can change the size and the nights until the first puck drop.
+                    {event.open_round ? 'The box pool runs all through the playoffs: everyone takes one player from every box of the best in the first round, dealt on how far their clubs are expected to go.' : `The box pool starts ${event.open_label}: everyone takes one player from every box of the league’s best.`} A goal or an assist is a point, a goalie’s win two and a shutout one more. The host can change the size{event.open_round ? '' : ' and the nights'} until the first puck drop.
                   </p>
                 )}
                 {kinds.includes('survivor') && (
@@ -233,14 +233,14 @@ export default function NewPool() {
             )}
 
             {event && kinds.includes('players') && (
-              <Step n={3} title="Its size and nights">
+              <Step n={3 + Number(kinds.includes('series'))} title={event.open_round ? 'Its size' : 'Its size and nights'}>
                 <div className="grid grid-cols-2 gap-1.5 rounded-2xl bg-black/25 p-1">
                   {([['classic', 'Ten boxes of six'], ['quick', 'Five boxes of five']] as const).map(([k, l]) => <button key={k} type="button" onClick={() => setBox({ ...box, preset: k })} className={`rounded-xl px-2 py-2 text-xs font-bold transition ${box.preset === k ? 'bg-white text-[#0b1220]' : 'text-white/70 hover:text-white'}`}>{l}</button>)}
                 </div>
-                <div className="mt-1.5 grid grid-cols-3 gap-1.5 rounded-2xl bg-black/25 p-1">
+                {!event.open_round && <div className="mt-1.5 grid grid-cols-3 gap-1.5 rounded-2xl bg-black/25 p-1">
                   {([['week', 'A week'], ['month', 'Four weeks'], ['season', 'The season']] as const).map(([k, l]) => <button key={k} type="button" onClick={() => setBox({ ...box, length: k })} className={`rounded-xl px-2 py-2 text-xs font-bold transition ${box.length === k ? 'bg-white text-[#0b1220]' : 'text-white/70 hover:text-white'}`}>{l}</button>)}
-                </div>
-                <p className="mt-2 text-sm leading-snug text-white/80">{box.preset === 'classic' ? 'Seven boxes of forwards, two of defence and one of goalies: sixty of the league’s best to choose from.' : 'Three boxes of forwards, one of defence and one of goalies: quick to fill in.'} {box.length === 'week' ? 'Seven nights from the first puck drop.' : box.length === 'month' ? 'Four weeks from the first puck drop.' : 'Every night to the end of the regular season.'}</p>
+                </div>}
+                <p className="mt-2 text-sm leading-snug text-white/80">{box.preset === 'classic' ? 'Seven boxes of forwards, two of defence and one of goalies: sixty of the league’s best to choose from.' : 'Three boxes of forwards, one of defence and one of goalies: quick to fill in.'} {event.open_round ? 'Every playoff game from the first puck drop to the Cup; a player whose club is knocked out has nothing more to add.' : box.length === 'week' ? 'Seven nights from the first puck drop.' : box.length === 'month' ? 'Four weeks from the first puck drop.' : 'Every night to the end of the regular season.'}</p>
               </Step>
             )}
 
@@ -255,14 +255,14 @@ export default function NewPool() {
             )}
 
             {event && gridSeries && kinds.includes('squares') && (
-              <Step n={kinds.includes('series') ? 4 : 3} title="The grid">
+              <Step n={3 + Number(kinds.includes('series')) + Number(kinds.includes('players'))} title="The grid">
                 <SquaresKnobs dark grids={event.grids ?? []} on={gridSeries.id} setOn={setGridOn} grid={grid} setGrid={setGrid} sport={event.sport} />
                 <p className="mt-2 rounded-xl bg-white/[.05] px-3 py-2 text-xs leading-snug text-white/70">{gridLabel(gridSeries)}. Members claim squares with their coins until the grid fills or {gridSeries.best_of > 1 ? 'Game 1 starts' : 'the game starts'}; then the digits are drawn from a seed anyone can check.</p>
               </Step>
             )}
 
             {following && (
-            <Step n={event ? 3 + Number(kinds.includes('series') || kinds.includes('pickem') || kinds.includes('players')) + Number(kinds.includes('squares') && !!gridSeries) : 2} title="Name it">
+            <Step n={event ? 3 + Number(kinds.includes('series') || kinds.includes('pickem')) + Number(kinds.includes('players')) + Number(kinds.includes('squares') && !!gridSeries) : 2} title="Name it">
             <div className="space-y-4">
             <label className="block"><span className="sr-only">Name your pool</span>
               <input className="input w-full" value={pool} onChange={(e) => setPool(e.target.value)} maxLength={40} placeholder={packPlaceholder(event ? event.pack : chosen?.slug)} /></label>

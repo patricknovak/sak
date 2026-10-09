@@ -270,15 +270,16 @@ they lock (`pool_picks`), results graded on read from the shared event tables, a
    *The next one (migration 198):* when a box pool is done the host hears it, with an invitation to deal the next.
    *Tonight (migration 199):* the board sends each player's next game in the window; once locked, the page leads with
    which of a member's players are on tonight, at what time or live with the score and their line.
-   *The playoffs' version, worked out 8 October 2026 (for April):* the same kind on a series competition of the NHL
+   *The playoffs' version, built 9 October 2026 (migration 202, for April):* the same kind on a series competition of the NHL
    (`nhl-post-2027`): `_box_games` counts game type 3 as well as 2 (a regular-season window ends before the playoffs,
    so nothing changes for it); `_players_rules` takes the first round's clubs (`clubs.short` is the NHL abbreviation)
    and its first puck drop (the window runs to the Cup final), and deals the boxes on each club's expected playoff
    games (`nhl_teams.exp_po_games`, kept by nhl-sync's standings task) in place of the window's schedule;
    `_players_lock` falls back to the first round's `starts_at`; a player whose club lost a series is out (the board
    shades him); the games still to come for a club still in are the more of its scheduled games and its expected games
-   less those played (`to_come`, the chance to win and the forecast read it); it settles when the final series is
-   final; `pool_event_list` offers it on an NHL series event before the first round starts; the site words the window
+   (`_box_team_games`: games played plus, for a club still in, the more of its scheduled games and
+   `exp_po_games`, which already counts the series as they stand; `to_come`, the chance to win and the forecast read
+   it); it settles when the final series is final; `pool_event_list` offers it on an NHL series event before the first round starts; the site words the window
    as "all through the playoffs" and hides the window choice.
 
 *Where 8 October left it (migrations 172 to 199, PR #243):* items 1 to 3 and 5 built, item 6 built for pick'em, Pick
@@ -286,7 +287,8 @@ the series and Rank the teams, item 7's bracket built on series and its box pool
 engine's door). Beside them: NFL
 centre and Match centre, the market's view on each match, results by hand for every game on fixtures, the rules
 written down, last calls and second reminders. Next, in order: the box pool's playoffs version, then the contraction
-(item 4). *9 October added* Super Bowl squares by the quarter (migration 200) and March Madness (201), PR #244.
+(item 4). *9 October added* Super Bowl squares by the quarter (migration 200), March Madness (201) and the box pool's
+playoffs version (202), PR #244. Next: the contraction (item 4).
 
 Alongside: the World Series test (the LCS from 11 October, the World Series from 23 October) needs its games started
 in the World Series pool (league 5, the questions only so far), and the Love Is Blind test needs players.

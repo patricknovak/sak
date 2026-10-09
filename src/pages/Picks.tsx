@@ -351,9 +351,10 @@ function GameRules({ board }: { board: GameBoard }) {
     if (br.tiebreak.label) lines.push(`A tie on points goes to whoever is closest on the total ${wordsOf(board).score} in ${lastGameOf(br.tiebreak.label, br.series.every((x) => x.best_of === 1))}.`);
   } else if (board.players) {
     const bp = board.players, s = bp.scoring;
-    lines.push(`Take one player from each of the ${bp.boxes.length} boxes. The boxes were dealt when the pool started: the players expected to score the most in these nights, forwards first, then defence, then goalies, the best in box 1.`);
-    lines.push(`A goal is worth ${s.g}, an assist ${s.a}, a goalie’s win ${s.w}${s.sho ? ` and a shutout ${s.sho} more` : ''}. Every game from ${new Date(`${bp.from}T12:00:00`).toLocaleDateString(undefined, { month: 'long', day: 'numeric' })} to ${new Date(`${bp.to}T12:00:00`).toLocaleDateString(undefined, { month: 'long', day: 'numeric' })} counts, live as it’s played.`);
-    lines.push('Your team locks at the first puck drop of the first night, and you can change it until then. A player who gets hurt stays on your team.');
+    const md = (iso: string) => new Date(`${iso}T12:00:00`).toLocaleDateString(undefined, { month: 'long', day: 'numeric' });
+    lines.push(`Take one player from each of the ${bp.boxes.length} boxes. The boxes were dealt when the pool started: the players expected to score the most ${bp.playoffs ? 'in the playoffs, on how far their clubs are expected to go' : 'in these nights'}, forwards first, then defence, then goalies, the best in box 1.`);
+    lines.push(`A goal is worth ${s.g}, an assist ${s.a}, a goalie’s win ${s.w}${s.sho ? ` and a shutout ${s.sho} more` : ''}. ${bp.playoffs ? `Every playoff game from ${md(bp.from)} to the end of the Stanley Cup Final` : `Every game from ${md(bp.from)} to ${md(bp.to)}`} counts, live as it’s played.`);
+    lines.push(`Your team locks at the first puck drop ${bp.playoffs ? 'of the playoffs' : 'of the first night'}, and you can change it until then. A player who gets hurt stays on your team${bp.playoffs ? ', and so does one whose club is knocked out: he just has no games left' : ''}.`);
     lines.push('The most points wins. A tie on points shares it.');
   } else if (rk) {
     lines.push(`Put the clubs in order once. At the first ${wordsOf(board).start} of the ${rk.round_label} the ${rk.field || ''} clubs still in are ranked in your order: your top club pays ${rk.field || 'the most'} for every game it wins, your last pays 1.`.replace('the  clubs', 'the clubs'));
@@ -547,7 +548,7 @@ function HostDesk({ board, reload, onActAs }: { board: GameBoard; reload: () => 
                 ))}
               </div>
               {presetLock && picked && <p className="text-[11px] text-mute">{pk ? 'Picks are in, so the scoring stays.' : 'Teams are in, so the boxes stay.'}</p>}
-              {board.kind === 'players' && (
+              {board.kind === 'players' && !board.players?.playoffs && (
                 <div className="flex flex-wrap gap-1.5">
                   {[['week', 'A week'], ['month', 'Four weeks'], ['season', 'The season']].map(([k, l]) => (
                     <button key={k} type="button" disabled={picked && k !== len} onClick={() => setLen(k)} className={chip(len === k)}>{l}</button>
@@ -562,7 +563,7 @@ function HostDesk({ board, reload, onActAs }: { board: GameBoard; reload: () => 
                 </label>
               )}
               <button type="button" className="btn-gold w-full" disabled={busy || !changed}
-                onClick={() => run(async () => { await rpc('pool_game_set_rules', { p_game: board.id, p_rules: { preset, ...(pk ? { to_round: toRound } : {}), ...(board.kind === 'players' ? { length: len } : {}) } }); reload(); }, 'The rules are changed')}>
+                onClick={() => run(async () => { await rpc('pool_game_set_rules', { p_game: board.id, p_rules: { preset, ...(pk ? { to_round: toRound } : {}), ...(board.kind === 'players' && !board.players?.playoffs ? { length: len } : {}) } }); reload(); }, 'The rules are changed')}>
                 Change the rules
               </button>
               <p className="text-[11px] leading-snug text-mute">Rules can change until the first lock; the pool hears about it.</p>
@@ -611,7 +612,7 @@ export function HostGames() {
               <span className="grid h-11 w-11 shrink-0 place-items-center rounded-2xl bg-gold/15 text-xl">{KINDS[k].emoji}</span>
               <div className="min-w-0 flex-1">
                 <div className="font-semibold text-white">{KINDS[k].title} <span className="text-mute">· {e.name}</span></div>
-                <div className="text-xs text-mute">{KINDS[k].line} {k === 'players' ? `From ${e.open_label}, four weeks; first puck drop ${lockText(e.next_lock)}.` : <>From {k === 'pickem' || k === 'survivor' ? e.open_label : `the ${e.open_label}`}{k === 'survivor' ? ` to ${e.final_label}` : ''}, first lock {lockText(e.next_lock)}.</>}</div>
+                <div className="text-xs text-mute">{KINDS[k].line} {k === 'players' ? (e.open_round ? `All through the playoffs, to the Cup; first puck drop ${lockText(e.next_lock)}.` : `From ${e.open_label}, four weeks; first puck drop ${lockText(e.next_lock)}.`) : <>From {k === 'pickem' || k === 'survivor' ? e.open_label : `the ${e.open_label}`}{k === 'survivor' ? ` to ${e.final_label}` : ''}, first lock {lockText(e.next_lock)}.</>}</div>
               </div>
             </div>
             {k === 'pickem' && (
