@@ -13,8 +13,11 @@ import { TIMEFRAMES, lineFor, type Timeframe } from '../lib/playerstats';
 import { LineupTools, useOptimizer } from '../components/LineupTools';
 import { LineupPlanner } from '../components/LineupPlanner';
 import { TeamForecastCard } from '../components/TeamForecast';
-import { Pos, Section, TeamBadge, TeamName, useAction } from '../components/ui';
+import { Section, TeamBadge, TeamName, useAction } from '../components/ui';
 import { irOk } from '../lib/lineup';
+import { useLineupKit, longDay, monthDay, weekday } from '../lib/lineupKit';
+import { GameLine, SlotPill, fmt1 } from '../components/lineupnew/bits';
+import { SitStart, useSitStart, type Swap } from '../components/SitStart';
 
 const STARTERS: Slot[] = ['C', 'LW', 'RW', 'D', 'Util', 'G'];
 
@@ -62,6 +65,8 @@ export default function MyTeam() {
   const roster = useMemo(() => rosters.filter((r) => r.team_id === teamId).map((r) => ({ r, p: players.get(r.player_id)! })).filter((x) => x.p), [rosters, players, teamId]);
 
   const opt = useOptimizer(roster);
+  // Lineup New's numbers: tonight's games, each player's expected points, every team's night
+  const kit = useLineupKit(7);
   const PIN_NEXT: Record<string, 'start' | 'bench' | null> = { none: 'start', start: 'bench', bench: null };
   const cyclePin = (x: { r: Roster; p: Player }) => {
     const next = PIN_NEXT[x.r.pin ?? 'none'];
@@ -156,6 +161,19 @@ export default function MyTeam() {
   // the next lineup lock: the earliest of my players' games today that hasn't started
   const nextLock = roster.map((x) => gamesByTeam(x.p.nhl_team)).filter((g): g is NonNullable<typeof g> => !!g && new Date(g.start_utc).getTime() > now && !calledOff(sport, g.state))
     .sort((a, b) => a.start_utc.localeCompare(b.start_utc))[0];
+  // tonight at a glance: expected points, the league's rank on them, and who of mine is on the ice
+  const expTonight = rows.reduce((tot, r) => tot + (r.x && playsToday(r.x.p) ? kit.expPts(r.x.p) : 0), 0);
+  const anyStarted = rows.some((r) => r.x && locked(r.x.p));
+  const nightRank = (() => {
+    const gms = teams.filter((x) => x.role === 'gm');
+    if (!gms.length || !teamId) return null;
+    const mineExp = kit.dayStats(teamId, kit.today).pts;
+    return { rank: gms.filter((x) => kit.dayStats(x.id, kit.today).pts > mineExp + 1e-9).length + 1, of: gms.length };
+  })();
+  const onIce = rows.filter((r) => r.x && playsToday(r.x.p)).map((r) => r.x!);
+  const sitStart = useSitStart(kit, roster, (x) => locked(x.p), (x, slot) => slotOk(x.p, slot), rows.filter((r) => !r.x).map((r) => r.slot));
+  const doSwap = (sw: Swap) => run(async () => { await rpc('move_player', { p_player: sw.start.p.id, p_slot: sw.slot, p_swap: sw.sit?.p.id ?? null }); await refresh(['rosters']); },
+    sw.sit ? `${sw.start.p.name} starts, ${sw.sit.p.name} sits` : `${sw.start.p.name} starts at ${sw.slot}`);
 
   const Row = ({ slot, x }: { slot: Slot; x?: { r: Roster; p: Player } }) => {
     const isSel = x && x.p.id === sel;
@@ -170,8 +188,8 @@ export default function MyTeam() {
     const parts = x ? statLine(x.p) : null;
     return (
       <div onClick={() => tap(slot, x)}
-        className={`flex cursor-pointer items-start gap-2 border-l-[3px] px-2 py-2 transition sm:px-2.5 ${isSel ? 'bg-sky-500/20 ring-1 ring-inset ring-sky-400' : target ? 'bg-emerald-500/10 ring-1 ring-inset ring-emerald-500/60' : ''} ${offseason || !x ? 'border-transparent' : live ? 'border-goal' : playing ? 'border-emerald-400/80' : starter ? 'border-white/15' : 'border-transparent'}`}>
-        <Pos p={slot} className="mt-2 w-9 shrink-0 sm:w-10" />
+        className={`flex cursor-pointer items-start gap-2 border-l-[3px] px-2 py-2 transition sm:px-2.5 ${isSel ? 'bg-sky-500/20 ring-1 ring-inset ring-sky-400' : target ? 'bg-emerald-500/10 ring-1 ring-inset ring-emerald-500/60' : !offseason && x && live ? 'bg-gradient-to-r from-red-500/[.10] to-transparent' : !offseason && x && playing ? 'bg-gradient-to-r from-emerald-500/[.09] to-transparent' : ''} ${offseason || !x ? 'border-transparent' : live ? 'border-goal' : playing ? 'border-emerald-400/80' : starter ? 'border-white/15' : 'border-transparent'}`}>
+        <span className="mt-1"><SlotPill slot={slot} /></span>
         {x ? (
           <>
             <div className="min-w-0 flex-1">
@@ -199,7 +217,7 @@ export default function MyTeam() {
               {offseason ? <div className="text-sm font-semibold">{fmtPts(x.p.last_fp, 0)}</div>
                 : tp || done ? <div className={`text-sm font-semibold ${tp && tp.fpts > 0 ? 'text-emerald-300' : ''}`}>{fmtPts(tp?.fpts ?? 0, 1)}{done && <span className="ml-1 text-[10px] font-normal text-mute">final</span>}</div>
                 : live ? <div className="text-xs font-semibold text-goal">● LIVE</div>
-                : playing ? <div className="inline-block whitespace-nowrap rounded-md bg-emerald-500/15 px-1.5 py-0.5 text-[11px] font-semibold text-emerald-200">{fmtTime(g!.start_utc)}</div>
+                : playing ? <div className="text-right"><div className="num text-sm font-bold text-emerald-200">{fmt1(kit.expPts(x.p))}</div><div className="text-[9px] font-semibold uppercase tracking-wider text-mute">exp · {fmtTime(g!.start_utc)}</div></div>
                 : <div className="inline-block whitespace-nowrap rounded-md bg-white/[.06] px-1.5 py-0.5 text-[11px] text-mute">No game</div>}
               {offseason
                 ? <div className="whitespace-nowrap text-[10px] text-mute">’25-26</div>
@@ -242,12 +260,50 @@ export default function MyTeam() {
       </div>
 
       {mine && league?.phase === 'season' && (
-        <div className="card space-y-2 p-3">
-          <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
-            <div className="text-sm"><span className="num font-display text-2xl font-extrabold">{fmtPts(todayTotal)}</span> <span className="text-mute">pts today</span></div>
-            <div className="text-sm"><span className={`num font-semibold ${playingStarters < gameDayStarters ? 'text-amber-300' : 'text-emerald-300'}`}>{playingStarters}</span><span className="text-mute"> of {starterSlots} starters play tonight</span>{gameDayStarters === 0 && <span className="text-mute"> · quiet night for your roster</span>}</div>
-            {benchTotal > 0 && <div className="text-xs text-amber-300" title="Points your bench and IR scored today. They don’t count.">{fmtPts(benchTotal)} left on the bench</div>}
+        <div className="card-hero relative overflow-hidden p-4 sm:p-5">
+          <div className="pointer-events-none absolute -right-10 -top-10 h-40 w-40 rounded-full bg-gold/10 blur-3xl" />
+          <div className="relative flex flex-wrap items-start gap-3">
+            <div className="min-w-0 flex-1">
+              <div className="text-[10px] font-black uppercase tracking-[.2em] text-gold">Tonight</div>
+              <div className="h-display text-[clamp(17px,5.2vw,26px)] uppercase leading-tight text-white"><span className="sm:hidden">{weekday(kit.today)}, {monthDay(kit.today)}</span><span className="hidden sm:inline">{longDay(kit.today)}</span></div>
+              <div className="text-xs text-white/70">The live lineup · {kit.nightSize(kit.today)} NHL {kit.nightSize(kit.today) === 1 ? 'game' : 'games'}{kit.light(kit.today) ? ' · a light night' : ''}</div>
+            </div>
+            <div className="shrink-0 text-right">
+              <div className="num font-display text-4xl font-extrabold leading-none text-white">{anyStarted ? fmtPts(todayTotal) : fmt1(expTonight)}</div>
+              <div className="text-[11px] text-white/60">{anyStarted ? 'points tonight' : 'expected pts'}</div>
+            </div>
           </div>
+          {/* the starting slots, lit for each starter who plays tonight */}
+          <div className="relative mt-3 flex flex-wrap items-center justify-between gap-2 text-xs">
+            <span className="text-white/80"><b className={`num ${playingStarters < starterSlots && benchPlaying.length ? 'text-amber-300' : 'text-emerald-300'}`}>{playingStarters}</b> of {starterSlots} starters play{gameDayStarters === 0 ? ' · a quiet night for your roster' : ''}</span>
+            {nightRank && <span className="chip border-gold/40 bg-gold/10 text-gold">🏆 {ordinal(nightRank.rank)} of {nightRank.of} tonight</span>}
+          </div>
+          <div className="relative mt-1.5 flex gap-1">
+            {rows.map((r, i) => {
+              const g = r.x ? gamesByTeam(r.x.p.nhl_team) : undefined;
+              const on = !!r.x && playsToday(r.x.p);
+              return <span key={i} className={`h-1.5 flex-1 rounded-full ${on && g && isLive(sport, g.state) ? 'animate-pulse bg-red-400' : on ? 'bg-emerald-400' : 'bg-white/15'}`} />;
+            })}
+          </div>
+          {/* who of mine is on the ice tonight */}
+          {onIce.length > 0 && (
+            <div className="scroll-x relative mt-3 flex gap-1.5 pb-0.5">
+              {onIce.map((x) => {
+                const g = gamesByTeam(x.p.nhl_team);
+                const tp = today.get(x.p.id);
+                return (
+                  <button key={x.p.id} type="button" onClick={() => setInfo(x.p.id)} className="flex shrink-0 items-center gap-1.5 rounded-xl bg-black/25 px-2 py-1.5 text-left ring-1 ring-white/10 hover:ring-gold/40">
+                    <SlotPill slot={x.r.slot} size="sm" />
+                    <span className="min-w-0">
+                      <span className="block whitespace-nowrap text-xs font-bold text-white">{x.p.last_name ?? x.p.name}{tp ? <span className="num ml-1 text-emerald-300">{fmtPts(tp.fpts, 1)}</span> : null}</span>
+                      <span className="block"><GameLine p={x.p} g={g} /></span>
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+          )}
+          <div className="relative mt-3">
           {(benchedWithGames.length > 0 || emptyStarters > 0 || doubtful.length > 0) && (
             <div className="flex flex-wrap gap-1.5 text-[11px]">
               {benchedWithGames.length > 0 && <button className="chip bg-amber-500/15 text-amber-200" onClick={() => document.getElementById('bench-playing')?.scrollIntoView({ behavior: 'smooth', block: 'start' })}>⚠️ {benchedWithGames.length} on the bench with a game tonight</button>}
@@ -255,14 +311,17 @@ export default function MyTeam() {
               {doubtful.map(({ p, s }) => <button key={p.id} className="chip bg-amber-500/15 text-amber-200" onClick={() => setInfo(p.id)}>⚠️ {p.last_name ?? p.name}: {{ backup: 'backup goalie', out: 'out', scratched: 'scratched', gtd: 'game-time call' }[s.status as 'backup']}</button>)}
             </div>
           )}
-          <div className="flex flex-wrap items-center gap-2">
-            <button className="btn-blue" disabled={busy || opt.busy} onClick={() => opt.apply(opt.plan('day'), 'today')}>✨ Optimize today</button>
-            <button className="btn-ghost" onClick={() => setView('plan')}>📅 Daily lineups</button>
-            <button className="btn-ghost" onClick={() => setTools(true)}>⚙️ Tools</button>
           </div>
-          <div className="text-xs text-mute">
+          <div className="relative mt-3 grid grid-cols-3 gap-2">
+            <button className="btn-gold col-span-3" disabled={busy || opt.busy} onClick={() => opt.apply(opt.plan('day'), 'today')}>✨ Best lineup tonight</button>
+            <button className="btn-ghost px-2 text-xs" onClick={() => document.getElementById('sit-start')?.scrollIntoView({ behavior: 'smooth', block: 'start' })}>⚖️ Sit or start{sitStart.swaps.length ? ` (${sitStart.swaps.length})` : ''}</button>
+            <button className="btn-ghost px-2 text-xs" onClick={() => setView('plan')}>📅 Daily lineups</button>
+            <button className="btn-ghost px-2 text-xs" onClick={() => setTools(true)}>⚙️ Tools</button>
+          </div>
+          <div className="relative mt-2 text-xs text-mute">
             🔒 Players lock at their {sport.words.start}{nextLock ? <>; next lock <span className="text-slate-200">{fmtTime(nextLock.start_utc)}</span> ({nextLock.away} @ {nextLock.home})</> : ''}. Auto-pilot <button className="font-semibold text-sky-300 hover:underline" onClick={() => setTools(true)}>{me?.auto_mode && me.auto_mode !== 'off' ? `on · ${{ proj: 'projection', form: 'hot hand', season: 'season avg', ros: 'rest of season' }[me.auto_basis ?? 'proj']}` : 'off'}</button>{roster.some((x) => x.r.pin) && <> · {roster.filter((x) => x.r.pin).length} pinned</>}{st?.bench ? <> · {fmtPts(st.bench)} benched this season</> : null}
           </div>
+          {benchTotal > 0 && <div className="relative mt-1 text-xs text-amber-300" title="Points your bench and IR scored today. They don’t count.">{fmtPts(benchTotal)} left on the bench today</div>}
         </div>
       )}
       {mine && league?.phase !== 'season' && league?.phase !== 'keepers' && (
@@ -307,6 +366,11 @@ export default function MyTeam() {
           </Section>
         )}
         <div className="min-w-0 space-y-4">
+          {!offseason && roster.length > 1 && (
+            <div id="sit-start" className="scroll-mt-20">
+              <SitStart kit={kit} roster={roster} swaps={sitStart.swaps} exp={sitStart.exp} weekGames={weekGames} mine={mine} busy={busy} onSwap={doSwap} onInfo={setInfo} />
+            </div>
+          )}
           {offseason && !anyStarter ? (
             <Section title={`Roster (${bench.length})`}>
               <div className="card divide-y divide-white/[.06] overflow-hidden">
