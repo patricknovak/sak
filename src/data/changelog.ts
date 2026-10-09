@@ -6,6 +6,8 @@
 export interface Change { date: string; icon: string; title: string; body: string; to?: string; tag?: 'formats' | 'commish' | 'draft' | 'everyone' }
 
 export const CHANGELOG: Change[] = [
+  { date: '2026-10-09', icon: '📋', tag: 'commish', title: 'A prop sheet on every game, by itself', to: '/host',
+    body: 'Hosts can switch on automatic prop sheets for an event: a sheet opens on each game a day and a half before it starts, so a World Series or NFL pool gets one for every game without anyone opening them by hand.' },
   { date: '2026-10-09', icon: '🏀', tag: 'everyone', title: 'The NBA playoffs are coming', to: '/pools',
     body: 'Pools can run on the NBA playoffs next spring: pick every series and how many games it goes, fill in a bracket from the first round to the Finals, or rank the teams. Squares on a series pay after every quarter of every game, and every game takes a prop sheet. All fifteen series are ready the day the field is set in April.' },
   { date: '2026-10-09', icon: '📋', tag: 'everyone', title: 'Prop sheets score live', to: '/pools',
