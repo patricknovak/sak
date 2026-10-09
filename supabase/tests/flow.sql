@@ -5673,6 +5673,8 @@ select pool_game_pick(:stg, 'streak', jsonb_build_object('fixture', :st3, 'pick'
 select pool_game_pick(:stg, 'streak', jsonb_build_object('fixture', :st5, 'pick', 'A'));
 select pool_game_pick(:stg, 'streak', jsonb_build_object('fixture', :st4, 'pick', 'H'));
 select pg_temp.raises('no draws in football', format('select pool_game_pick(%s, ''streak'', ''{"fixture": %s, "pick": "D"}'')', :stg, :st1), 'Pick one of the two sides');
+-- the host can enter a member's pick (migration 232); here Hana's own, through the same door
+select pool_host_pick(:stg, :hana, jsonb_build_object('thing', 'streak', 'pick', jsonb_build_object('fixture', :st1, 'pick', 'H')));
 select pg_temp.expect('the board has the next three days with games, the first day''s pick in',
   (select jsonb_array_length(b->'days') = 3 from (select pool_game_board(:stg)->'streak' b) x)
   and (select (d->'mine'->>'fixture')::bigint = :st1 and x->'locked' = 'false' and x->'calls' = 'null'::jsonb and x->>'label' = 'Week 14'
