@@ -353,7 +353,9 @@ per event once a pool has two sheets on it, the calls right across them, sheets 
 series length (migration 228):* a bonus for calling each series' games, `rules.games_bonus` and `pick.lengths`. *Review fixes for 224 to 228 (migration
 229):* a fourth review found nothing severe; the live early and half calls wait for their periods' scores, a race on one
 game's sheet reads plainly, an NFL week no longer defaults to a sheet on every game, and the games bonus shows only on
-best-of-7 sports.
+best-of-7 sports. *A nudge for the host (migration 230):* a pool that follows an event through its question pack but runs
+no game on it hears, once a round, when the next round's matchups are set and it starts within two days (the hourly
+pool job, `_pool_host_nudge`).
 
 Alongside: the World Series test (the LCS from 11 October, the World Series from 23 October) needs its games started
 in the World Series pool (league 5, the questions only so far), and the Love Is Blind test needs players.

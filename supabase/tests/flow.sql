@@ -5629,6 +5629,23 @@ select set_config('app.league_id', '', false);
 select set_config('request.jwt.claim.sub', '', false);
 select 'platform pool games', true;
 
+-- ───────────── a nudge for the host (migration 230) ─────────────
+-- A pool that follows an event through its pack, with no game on it, hears once a round when the next round is near.
+reset role;
+select set_config('request.jwt.claim.sub', '', false);
+select set_config('app.league_id', '', false);
+insert into competitions (id, sport, name, short, season, provider, ext_id, ext_season, active, format, pack)
+values ('nudge-test', 'mlb', 'Nudge test', 'NT', '2026', 'mlb', 'nt', '2026', true, 'series', 'love-is-blind-s11') on conflict (id) do nothing;
+select sport_ingest('nudge-test', jsonb_build_object('series', jsonb_build_array(jsonb_build_object('ext_id', 'nudge:1', 'round', 2, 'label', 'NL Championship Series',
+  'short', 'NLCS', 'best_of', 7, 'high', 'p91', 'low', 'p92', 'starts_at', now() + interval '30 hours', 'tbd', false, 'sort', 1))));
+select set_config('app.league_id', :'lib', false);
+select _pool_host_nudge(:lib) as nudge1 \gset
+select pg_temp.expect('the host hears the round is near, once', :nudge1 = 1 and _pool_host_nudge(:lib) = 0
+  and exists (select 1 from notifications where team_id = :hana and body like '🎯 The Championship Series starts %. Add a game on it for the pool%' and link = '/host'));
+update competitions set active = false, pack = null where id = 'nudge-test';
+select set_config('app.league_id', '', false);
+select 'host nudge', true;
+
 -- ───────────── the Stanley Cup playoffs as series (migration 191) ─────────────
 -- The 2026 playoffs as mlb-sync files them from the NHL's bracket (logos, venues and details left out): every series'
 -- result as the NHL had it, and a bracket from the first round, the letters' order making the tree.
