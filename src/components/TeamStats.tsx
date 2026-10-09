@@ -1,6 +1,7 @@
 // Every stat for one team: totals by category with the team's league rank in each, and a full per-player
-// table, for any timeframe (projection, last season, this season, last 30 / 14 / 7 days).
-import { useMemo } from 'react';
+// table, for any timeframe (projection, last season, this season, last 30 / 14 / 7 days). "Compare with" puts another
+// GM's players, or every GM's, in the same table (TeamCompare).
+import { useCallback, useMemo } from 'react';
 import { useSticky } from '../lib/sticky';
 import { useNavigate } from 'react-router-dom';
 import { useLeague } from '../lib/store';
@@ -8,7 +9,8 @@ import type { Player } from '../lib/types';
 import { fmtPts } from '../lib/format';
 import { TIMEFRAMES, fmtStat, lineFor, projLike, statDef, statValue, type Line, type Timeframe } from '../lib/playerstats';
 import { PlayerFilterBar, StatTable, usePlayerFilter } from './PlayerFilters';
-import { Section } from './ui';
+import { Section, TeamBadge } from './ui';
+import { TeamCompare } from './TeamCompare';
 
 const SKATER = ['fp', 'gp', 'g', 'a', 'pts', 'pm', 'ppp', 'shp', 'gwg', 'sog', 'hit', 'blk', 'pim', 'fow', 'shpct'];
 const GOALIE = ['fp', 'gp', 'gs', 'w', 'l', 'otl', 'ga', 'sa', 'sv', 'sho', 'svp', 'gaa'];
@@ -25,14 +27,19 @@ function sumLines(lines: Line[]): Line {
 const teamTotals = (line: Line, keys: string[]): Totals => Object.fromEntries(keys.map((k) => [k, statValue(line, k, false, { gp: 1, sog: 1 })]));
 
 export function TeamStats({ teamId }: { teamId: number }) {
-  const { teams, rosters, players, windows, season, league } = useLeague();
+  const { teams, rosters, players, windows, season, league, me } = useLeague();
   const nav = useNavigate();
   const inSeason = league?.phase === 'season';
   const [tf, setTf] = useSticky<Timeframe>('teamstats:tf', inSeason ? 'season' : 'last');
   const [scope, setScope] = useSticky<'starters' | 'roster'>('teamstats:scope', 'roster');
   const liveOk = windows.size > 0;
   const tfOk = !liveOk && TIMEFRAMES.find((t) => t.k === tf)?.live ? 'last' : tf;
-  const line = (p: Player) => lineFor(p, tfOk, windows.get(p.id), season.get(p.id));
+  const line = useCallback((p: Player) => lineFor(p, tfOk, windows.get(p.id), season.get(p.id)), [tfOk, windows, season]);
+  // who else is in the table: nobody (this team alone), one other GM, or every GM
+  const [vs, setVs] = useSticky<'none' | 'all' | number>('teamstats:vs', 'none');
+  const others = teams.filter((t) => t.id !== teamId);
+  const vsOk = vs === 'all' || (typeof vs === 'number' && others.some((t) => t.id === vs)) ? vs : 'none';
+  const vsIds = vsOk === 'all' ? others.map((t) => t.id) : typeof vsOk === 'number' ? [vsOk] : [];
 
   // totals for every GM team, so this one can be ranked
   const league8 = useMemo(() => teams.map((t) => {
@@ -85,8 +92,21 @@ export function TeamStats({ teamId }: { teamId: number }) {
           <button className={chip(scope === 'roster')} onClick={() => setScope('roster')}>Whole roster</button>
           <button className={chip(scope === 'starters')} onClick={() => setScope('starters')}>Starters</button>
         </div>
+        {others.length > 0 && (
+          <div className="scroll-x flex items-center gap-1">
+            <span className="shrink-0 pr-1 text-[11px] font-semibold uppercase tracking-wider text-mute">Compare</span>
+            <button className={chip(vsOk === 'none')} onClick={() => setVs('none')}>Just this team</button>
+            {others.map((t) => (
+              <button key={t.id} className={`${chip(vsOk === t.id)} inline-flex items-center gap-1.5 !py-0.5 !pl-1`} onClick={() => setVs(t.id)} title={`${t.name} · ${t.gm_name}`}>
+                <TeamBadge team={t} size={20} />{t.id === me?.id ? 'You' : t.gm_name}
+              </button>
+            ))}
+            <button className={chip(vsOk === 'all')} onClick={() => setVs('all')}>Every GM</button>
+          </div>
+        )}
       </div>
 
+      {vsIds.length > 0 ? <TeamCompare baseId={teamId} vsIds={vsIds} tf={tfOk} scope={scope} line={line} /> : <>
       <Section title={`Team totals · ${TIMEFRAMES.find((t) => t.k === tfOk)?.label}`} right={totalRank && <span className="text-xs text-mute">rank among {teams.length} teams in each stat</span>}>
         <div className="card p-3">
           <div className="mb-3 flex items-baseline gap-3">
@@ -114,6 +134,7 @@ export function TeamStats({ teamId }: { teamId: number }) {
         <div className="mb-2"><PlayerFilterBar pf={pf} compact hideSearch /></div>
         <StatTable list={list} pf={pf} onPlayer={(id) => nav(`/player/${id}`)} />
       </Section>
+      </>}
     </div>
   );
 }
