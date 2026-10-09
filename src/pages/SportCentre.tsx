@@ -81,7 +81,7 @@ function Outs({ n }: { n: number }) {
   return <span className="inline-flex gap-0.5" aria-label={`${n} out`}>{[0, 1, 2].map((i) => <span key={i} className={`h-1.5 w-1.5 rounded-full ${i < n ? 'bg-amber-300' : 'bg-white/15'}`} />)}</span>;
 }
 
-function GameCard({ f, clubs, periods, series, pick, baseball }: { f: Fixture; clubs: Map<number, Club>; periods: Period[]; series?: Series; pick?: { winner: number; games: number } | null; baseball: boolean }) {
+function GameCard({ f, clubs, periods, series, pick, baseball, sheet }: { f: Fixture; clubs: Map<number, Club>; periods: Period[]; series?: Series; pick?: { winner: number; games: number } | null; baseball: boolean; sheet?: { id: number; open: boolean } }) {
   const home = clubs.get(f.home_club), away = clubs.get(f.away_club);
   const d = f.detail ?? {};
   const live = f.state === 'live', done = f.state === 'final';
@@ -130,6 +130,12 @@ function GameCard({ f, clubs, periods, series, pick, baseball }: { f: Fixture; c
       <div className="flex flex-wrap items-center justify-between gap-2 border-t border-white/[.06] px-3.5 py-2 text-[11px] text-mute">
         <span>{d.series_status ?? ''}</span>{f.venue && <span>{f.venue}</span>}
       </div>
+      {/* the pool's prop sheet on this game (migration 208) */}
+      {sheet && (
+        <Link to={`/picks?g=${sheet.id}`} className="flex items-center justify-between gap-2 border-t border-white/[.06] bg-gold/[.06] px-3.5 py-2 text-[12px] font-semibold text-white hover:bg-gold/[.1]">
+          <span>📋 The pool&apos;s prop sheet</span><span className="text-gold">{sheet.open ? 'Make your calls →' : 'See the calls →'}</span>
+        </Link>
+      )}
     </div>
   );
 }
@@ -160,8 +166,15 @@ function SeriesCard({ s, clubs, pick, split }: { s: Series; clubs: Map<number, C
 
 export default function SportCentre() {
   const { sport = 'mlb' } = useParams();
-  const { comp, clubs, series, fixtures, periods, live } = useEvent(sport);
+  const { comp, clubs, series, fixtures: everyGame, periods, live } = useEvent(sport);
+  // a series over before its "if needed" games: MLB keeps them on the schedule, never to be played, so they go
+  const over = useMemo(() => new Set(series.filter((s) => s.state === 'final').map((s) => s.id)), [series]);
+  const fixtures = useMemo(() => everyGame.filter((f) => !(f.state === 'scheduled' && f.series_id && over.has(f.series_id))), [everyGame, over]);
   const { board, gameId } = usePoolPicks(comp?.id);
+  // the pool's prop sheets on this event's games, by game
+  const { games: poolGames } = usePoolGames();
+  const sheets = new Map((poolGames ?? []).filter((g) => g.kind === 'props' && g.fixture && g.competition === comp?.id)
+    .map((g) => [g.fixture!, { id: g.id, open: g.status === 'open' && g.to_pick > 0 }]));
   const [tab, setTab] = useSticky<'scores' | 'bracket'>(`centre:${sport}:tab`, 'scores');
   const tz = comp?.tz ?? 'America/New_York';
   const days = useMemo(() => [...new Set(fixtures.map((f) => f.date ?? dayKey(f.kickoff, tz)))].sort(), [fixtures, tz]);
@@ -216,7 +229,8 @@ export default function SportCentre() {
           </div>
           {!games.length ? <div className="card p-4 text-sm text-mute">No games this day.</div> : (
             <div className="grid gap-3 md:grid-cols-2">
-              {games.map((f) => <GameCard key={f.id} baseball={sport === 'mlb'} f={f} clubs={clubs} periods={periods.get(f.id) ?? []} series={f.series_id ? seriesById.get(f.series_id) : undefined} pick={f.series_id ? picks.get(f.series_id) : null} />)}
+              {games.map((f) => <GameCard key={f.id} baseball={sport === 'mlb'} f={f} clubs={clubs} periods={periods.get(f.id) ?? []} series={f.series_id ? seriesById.get(f.series_id) : undefined} pick={f.series_id ? picks.get(f.series_id) : null}
+                sheet={sheets.get(f.id)} />)}
             </div>
           )}
         </>
