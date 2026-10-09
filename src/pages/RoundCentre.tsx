@@ -74,10 +74,18 @@ function usePoolRound(competition: string, round: number | null) {
     rpc<PickemData>('pool_pickem_board', { p_game: g.id, p_round: round }).then(setBoard, () => setBoard(null));
   }, [g?.id, round, kind]); // eslint-disable-line react-hooks/exhaustive-deps
   const byFixture = new Map((board?.round === round ? board.fixtures : []).map((f) => [f.id, f]));
-  return { gameId: g?.id, byFixture, inGame: board != null && round != null && round >= board.from_round && round <= board.to_round };
+  // the pool's games on one match: a prop sheet (migration 216) or a grid of squares (217), by match
+  const onMatch = new Map<number, OnMatch[]>();
+  for (const x of games ?? []) {
+    if ((x.kind !== 'props' && x.kind !== 'squares') || x.competition !== competition || !x.fixture) continue;
+    onMatch.set(x.fixture, [...(onMatch.get(x.fixture) ?? []), { id: x.id, kind: x.kind, open: x.status === 'open' }]);
+  }
+  return { gameId: g?.id, byFixture, onMatch, inGame: board != null && round != null && round >= board.from_round && round <= board.to_round };
 }
 
-function MatchCard({ f, clubs, sp, pk, sport }: { f: Fixture; clubs: Map<number, Club>; sp: (typeof SPORTS)[string]; pk?: PkFixture; sport?: string }) {
+interface OnMatch { id: number; kind: 'props' | 'squares'; open: boolean }
+
+function MatchCard({ f, clubs, sp, pk, sport, on }: { f: Fixture; clubs: Map<number, Club>; sp: (typeof SPORTS)[string]; pk?: PkFixture; sport?: string; on?: OnMatch[] }) {
   const [box, setBox] = useState(false);
   // a box score from ESPN's summary, for a game that has started (NFL centre)
   const boxable = sport === 'nfl' && !!f.ext_id && (f.state === 'live' || f.state === 'final');
@@ -145,6 +153,13 @@ function MatchCard({ f, clubs, sp, pk, sport }: { f: Fixture; clubs: Map<number,
           {f.venue && <div className="truncate">{f.venue}</div>}
         </div>
       )}
+      {/* the pool's sheet or grid on this game, a tap away: open until kickoff */}
+      {on?.map((x) => ({ ...x, open: x.open && f.state === 'scheduled' && new Date(f.kickoff) > new Date() })).map((x) => (
+        <Link key={x.id} to={`/picks?g=${x.id}`} className="flex items-center justify-between gap-2 border-t border-white/[.06] bg-gold/[.06] px-3.5 py-2 text-[12px] font-semibold text-white hover:bg-gold/[.1]">
+          <span>{x.kind === 'props' ? '📋 The pool\'s prop sheet' : '🔲 The pool\'s squares'}</span>
+          <span className="text-gold">{x.kind === 'props' ? (x.open ? 'Make your calls →' : 'See the calls →') : (x.open ? 'Claim a square →' : 'See the grid →')}</span>
+        </Link>
+      ))}
       {boxable && (
         <button type="button" onClick={() => setBox(!box)} className="flex w-full items-center justify-center gap-1.5 border-t border-white/[.06] py-2 text-[11px] font-bold uppercase tracking-wider text-slate-300 hover:bg-white/[.03]">
           <BarChart3 className="h-3.5 w-3.5" />{box ? 'Hide the box score' : 'Box score'}
@@ -243,7 +258,7 @@ export default function RoundCentre() {
   const current = rounds.find((r) => fixtures.some((f) => f.gameweek === r && !done(f))) ?? rounds[rounds.length - 1] ?? null;
   const [picked, setPicked] = useState<number | null>(null);
   const round = picked ?? current;
-  const { gameId, byFixture } = usePoolRound(competition, round);
+  const { gameId, byFixture, onMatch } = usePoolRound(competition, round);
   const [others, setOthers] = useState<Competition[]>([]);
   useEffect(() => { supabase.from('competitions').select('id,name,short,sport,tz').eq('active', true).eq('format', 'rounds').in('sport', Object.keys(SPORTS)).order('sort').then(({ data }) => setOthers((data ?? []) as Competition[])); }, []);
   const strip = useRef<HTMLDivElement>(null);
@@ -292,7 +307,7 @@ export default function RoundCentre() {
             <div key={d}>
               <div className="mb-2 flex items-center gap-2 px-1"><span className="text-[10px] font-black uppercase tracking-[.2em] text-mute">{d}</span><span className="h-px flex-1 bg-white/[.06]" /></div>
               <div className="grid gap-3 md:grid-cols-2">
-                {matches.filter((f) => dayLabel(f.kickoff, tz) === d).map((f) => <MatchCard key={f.id} f={f} clubs={clubs} sp={sp} pk={byFixture.get(f.id)} sport={comp?.sport} />)}
+                {matches.filter((f) => dayLabel(f.kickoff, tz) === d).map((f) => <MatchCard key={f.id} f={f} clubs={clubs} sp={sp} pk={byFixture.get(f.id)} sport={comp?.sport} on={onMatch.get(f.id)} />)}
               </div>
             </div>
           ))}

@@ -7,7 +7,7 @@ export interface Change { date: string; icon: string; title: string; body: strin
 
 export const CHANGELOG: Change[] = [
   { date: '2026-10-09', icon: '🔲', tag: 'everyone', title: 'Squares on any NFL game', to: '/pools',
-    body: 'A grid of squares now goes on any NFL game this week, not just the playoffs: Sunday night, Monday night, the game your group cares about. The digits are drawn at kickoff and it pays after every quarter, the same as the Super Bowl grid.' },
+    body: 'A grid of squares now goes on any NFL game this week, not just the playoffs: Sunday night, Monday night, the game your group cares about. The digits are drawn at kickoff and it pays after every quarter, the same as the Super Bowl grid. In NFL centre, each game links straight to the pool\'s grid and prop sheet on it.' },
   { date: '2026-10-09', icon: '🛡️', tag: 'everyone', title: 'The Eliminator', to: '/pools',
     body: 'Last one standing now runs on single-game tournaments: March Madness and the NFL playoffs. Pick one team to win each round, never the same team twice; a loss and you\'re out, and whoever survives the final wins it.' },
   { date: '2026-10-09', icon: '📊', tag: 'everyone', title: 'Box scores in NFL centre', to: '/pools',
