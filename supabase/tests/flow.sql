@@ -5225,6 +5225,99 @@ update competitions set active = false where id = 'fix-test';
 select set_config('request.jwt.claim.sub', '', false);
 select 'game by hand', true;
 
+-- ───────────── the prop sheet (migration 208) ─────────────
+-- Game 1 of a best-of-7 tomorrow. Hana and Lou (the host enters his) get seven of eight; Fern five. The home side wins 5-2,
+-- led 1-0 after the 1st and 3-2 after five, nine innings, nobody shut out. Lou's total is spot on, so he takes it.
+reset role;
+select set_config('request.jwt.claim.sub', '', false);
+select set_config('app.league_id', '', false);
+insert into competitions (id, sport, name, short, season, provider, ext_id, ext_season, active, format)
+values ('props-test', 'mlb', 'Props test', 'PT', '2026', 'mlb', 'pt', '2026', true, 'series') on conflict (id) do nothing;
+select sport_ingest('props-test', jsonb_build_object(
+  'clubs', '[{"ext_id": "p91", "name": "Props Home", "short": "PH"}, {"ext_id": "p92", "name": "Props Away", "short": "PA"}]'::jsonb,
+  'series', jsonb_build_array(jsonb_build_object('ext_id', 'props:1', 'round', 1, 'label', 'Props Series', 'short', 'PS', 'best_of', 7,
+    'high', 'p91', 'low', 'p92', 'starts_at', now() + interval '1 day', 'tbd', false, 'sort', 1)),
+  'fixtures', jsonb_build_array(jsonb_build_object('ext_id', 'pg1', 'series', 'props:1', 'game_no', 1, 'kickoff', now() + interval '1 day',
+    'state', 'scheduled', 'home', 'p91', 'away', 'p92'))));
+select id as pfx from fixtures where provider = 'mlb' and ext_id = 'pg1' \gset
+select set_config('app.league_id', :'lib', false);
+select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-000000000081', false);
+set role authenticated;
+select pg_temp.expect('the start page offers a sheet on the game', exists (select 1 from jsonb_array_elements(pool_event_list()) e
+  where e->>'competition' = 'props-test' and e->'kinds' ? 'props' and (e->'sheets'->0->>'id')::bigint = :pfx and e->'sheets'->0->>'away' = 'PA'));
+select pool_game_start('props', 'props-test', jsonb_build_object('fixture', :pfx)) as prg \gset
+select pg_temp.raises('one sheet a game', format('select pool_game_start(%L, %L, %L)', 'props', 'props-test', jsonb_build_object('fixture', :pfx)), 'already runs that game');
+reset role;
+select pg_temp.expect('eight calls in baseball''s words, the total at the usual 8.5, and the chat hears',
+  (select title = 'Props · PS Game 1: PA at PH' and jsonb_array_length(rules->'questions') = 8
+     and rules->'questions'->1->>'q' = 'Total runs: over or under 8.5?' and rules->'questions'->5->>'q' = 'A run in the 1st inning?'
+   from pool_games where id = :prg)
+  and exists (select 1 from messages where league_id = :lib and body = '📋 The prop sheet is open on PS Game 1: PA at PH: 8 calls on the game, a point each, and the total breaks a tie. It locks at the first pitch.'));
+select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-000000000081', false);
+set role authenticated;
+select pg_temp.raises('every call', format('select pool_game_pick(%s, %L, %L)', :prg, 'props', '{"answers": {"winner": "H"}, "total": 8}'), 'Make every call');
+select pg_temp.raises('an answer on the sheet', format('select pool_game_pick(%s, %L, %L)', :prg, 'props',
+  '{"answers": {"winner": "X", "total": "U", "margin": "2", "first": "H", "half": "H", "early": "Y", "extra": "N", "shutout": "Y"}, "total": 8}'), 'isn''t one of the answers');
+select pool_game_pick(:prg, 'props', '{"answers": {"winner": "H", "total": "U", "margin": "2", "first": "H", "half": "H", "early": "Y", "extra": "N", "shutout": "Y"}, "total": 8}');
+select pool_host_pick(:prg, :lou, '{"thing": "props", "pick": {"answers": {"winner": "H", "total": "U", "margin": "2", "first": "H", "half": "H", "early": "Y", "extra": "N", "shutout": "Y"}, "total": 7}}');
+select pg_temp.expect('before the start nobody sees the split', (select b->'props'->'split' = 'null'::jsonb and (b->'props'->>'picked')::int = 2
+  and b->'props'->'mine'->'answers'->>'margin' = '2' from (select pool_game_board(:prg) b) x));
+reset role;
+select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-000000000082', false);
+set role authenticated;
+select pool_game_pick(:prg, 'props', '{"answers": {"winner": "A", "total": "U", "margin": "1", "first": "H", "half": "A", "early": "Y", "extra": "N", "shutout": "N"}, "total": 9}');
+select pg_temp.expect('the menu knows her sheet is in', (select (x->>'to_pick')::int = 0 from jsonb_array_elements(pool_games_list()) x where (x->>'id')::bigint = :prg));
+reset role;
+select set_config('request.jwt.claim.sub', '', false);
+-- the first pitch: locked
+select sport_ingest('props-test', jsonb_build_object('fixtures', jsonb_build_array(jsonb_build_object('ext_id', 'pg1', 'series', 'props:1', 'game_no', 1,
+  'kickoff', now() - interval '2 hours', 'state', 'live', 'home', 'p91', 'away', 'p92', 'home_score', 1, 'away_score', 0))));
+select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-000000000082', false);
+set role authenticated;
+select pg_temp.raises('the sheet locks at the first pitch', format('select pool_game_pick(%s, %L, %L)', :prg, 'props',
+  '{"answers": {"winner": "H", "total": "U", "margin": "2", "first": "H", "half": "H", "early": "Y", "extra": "N", "shutout": "N"}, "total": 7}'), 'locked');
+select pg_temp.expect('once it starts, the split and every sheet show', (select (b->'props'->'split'->'winner'->>'H')::int = 2 and jsonb_array_length(b->'props'->'sheets') = 3
+  from (select pool_game_board(:prg) b) x));
+reset role;
+select set_config('request.jwt.claim.sub', '', false);
+-- the home side wins 5-2 in nine
+select sport_ingest('props-test', jsonb_build_object('fixtures', jsonb_build_array(jsonb_build_object('ext_id', 'pg1', 'series', 'props:1', 'game_no', 1,
+  'kickoff', now() - interval '2 hours', 'state', 'final', 'home', 'p91', 'away', 'p92', 'home_score', 5, 'away_score', 2,
+  'periods', '[{"n": 1, "home": 1, "away": 0}, {"n": 2, "home": 0, "away": 0}, {"n": 3, "home": 0, "away": 1}, {"n": 4, "home": 2, "away": 0},
+    {"n": 5, "home": 0, "away": 1}, {"n": 6, "home": 1, "away": 0}, {"n": 7, "home": 0, "away": 0}, {"n": 8, "home": 1, "away": 0}, {"n": 9, "home": null, "away": 0}]'::jsonb))));
+select pg_temp.expect('done: Hana and Lou seven, Fern five, and Lou''s total takes it',
+  (select status = 'done' and winners = array[:lou] from pool_games where id = :prg)
+  and (select points = 7 and tiebreak = 1 from _pool_game_table(:prg) where team_id = :hana)
+  and (select points = 5 from _pool_game_table(:prg) where team_id = :fern)
+  and (select points = 7 and tiebreak = 0 from _pool_game_table(:prg) where team_id = :lou));
+select pg_temp.expect('the chat hears, and each sheet hears how it did', exists (select 1 from messages where league_id = :lib
+    and body = '📋 The prop sheet on PA at PH is done: Lou, with 7 of 8 right.')
+  and exists (select 1 from notifications where team_id = :lou and body = '📋 PA at PH: you called 7 of 8. You won the sheet.')
+  and exists (select 1 from notifications where team_id = :fern and body = '📋 PA at PH: you called 5 of 8.'));
+select set_config('app.league_id', :'lib', false);
+select pg_temp.expect('and the scoreboard reads it', exists (select 1 from _pool_rows() r where r.game = 'game:' || :prg and r.kind = 'props' and r.team_id = :lou and r.line = '7 right'));
+select set_config('app.league_id', '', false);
+-- a Game 5 the series never needs (migration 209): a sheet on it ends with no winner, and it isn't offered once the series is over
+select sport_ingest('props-test', jsonb_build_object('fixtures', jsonb_build_array(jsonb_build_object('ext_id', 'pg5', 'series', 'props:1', 'game_no', 5,
+  'kickoff', now() + interval '3 days', 'state', 'scheduled', 'home', 'p91', 'away', 'p92'))));
+select id as pfx5 from fixtures where provider = 'mlb' and ext_id = 'pg5' \gset
+select set_config('app.league_id', :'lib', false);
+select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-000000000081', false);
+set role authenticated;
+select pool_game_start('props', 'props-test', jsonb_build_object('fixture', :pfx5)) as prg5 \gset
+reset role;
+select set_config('request.jwt.claim.sub', '', false);
+-- the series is over in four
+update series set state = 'final', winner = high_club, high_wins = 4 where provider = 'mlb' and ext_id = 'props:1';
+select _props_tick('props-test');
+select pg_temp.expect('a game the series didn''t need: done, no winner, and the chat hears',
+  (select status = 'done' and winners = '{}' from pool_games where id = :prg5)
+  and exists (select 1 from messages where league_id = :lib and body = '📋 The series ended before PA at PH, so its prop sheet counts for nobody.')
+  and jsonb_array_length(_props_games('props-test')) = 0);
+update competitions set active = false where id = 'props-test';
+select set_config('request.jwt.claim.sub', '', false);
+select 'prop sheet', true;
+
 -- ───────────── the Stanley Cup playoffs as series (migration 191) ─────────────
 -- The 2026 playoffs as mlb-sync files them from the NHL's bracket (logos, venues and details left out): every series'
 -- result as the NHL had it, and a bracket from the first round, the letters' order making the tree.

@@ -6,6 +6,8 @@
 export interface Change { date: string; icon: string; title: string; body: string; to?: string; tag?: 'formats' | 'commish' | 'draft' | 'everyone' }
 
 export const CHANGELOG: Change[] = [
+  { date: '2026-10-09', icon: '📋', tag: 'everyone', title: 'The prop sheet', to: '/pools',
+    body: 'A new game for any playoff game: eight calls on it (who wins, the total, the margin, who leads after the 1st and at the halfway mark, a run in the 1st, extra innings, a shutout), a point each, with your total as the tiebreak. It locks at the first pitch and settles itself from the score, so nobody has to mark it. Add one for any LCS or World Series game from the Host page.' },
   { date: '2026-10-09', icon: '🏈', tag: 'everyone', title: 'Standings by division', to: '/pools',
     body: 'The Table in NFL centre now splits into the eight divisions and the two conferences, each leader marked, and Match centre does the same for MLS\'s two conferences. Switch back to the whole league any time.' },
   { date: '2026-10-09', icon: '🏒', tag: 'everyone', title: 'The playoff box pool', to: '/pools',

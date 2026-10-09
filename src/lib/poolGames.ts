@@ -2,7 +2,7 @@
 // how long it takes, and the scoring presets. The start page and the Host page read the same list.
 
 // 'survivor' is last one standing (its own tables, migration 157): the start page and the host offer it like the rest
-export type GameKind = 'series' | 'rank' | 'squares' | 'pickem' | 'survivor' | 'bracket' | 'players';
+export type GameKind = 'series' | 'rank' | 'squares' | 'pickem' | 'survivor' | 'bracket' | 'players' | 'props';
 export type PickemPreset = 'classic' | 'confidence';
 export type SeriesPreset = 'classic' | 'flat' | 'exact';
 
@@ -15,7 +15,11 @@ export interface PoolEvent {
   club_word?: string;
   // the series a grid of squares can still go on, last round first
   grids?: Grid[];
+  // the games a prop sheet can still go on, soonest first (migration 208)
+  sheets?: SheetGame[];
 }
+export interface SheetGame { id: number; kickoff: string; game_no: number | null; label: string; home: string; away: string }
+export const sheetLabel = (g: SheetGame) => `${g.label}${g.game_no ? ` Game ${g.game_no}` : ''}: ${g.away} at ${g.home}`;
 export interface Grid { id: number; round: number; label: string; short: string | null; best_of: number; starts_at: string | null; tbd: boolean; high: string | null; low: string | null }
 
 // a grid's knobs, as the host chooses them
@@ -66,6 +70,11 @@ export const KINDS: Record<GameKind, { title: string; badge: string; line: strin
     title: 'The box pool', badge: 'The hockey pool', emoji: '🏒',
     line: 'Take one player from each box of evenly matched NHL players. Goals and assists count, and a goalie’s wins and shutouts, every night until the pool ends. No draft night needed.',
     time: 'Five minutes, once',
+  },
+  props: {
+    title: 'The prop sheet', badge: 'One game', emoji: '📋',
+    line: 'Eight calls on one game: who wins, the total, the margin, who leads early and at the halfway mark, and more. A point each, settled from the score, no host needed.',
+    time: 'One minute, once',
   },
   survivor: {
     title: 'Last one standing', badge: 'Lose once, out', emoji: '🛡️',

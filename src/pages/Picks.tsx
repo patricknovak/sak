@@ -1,15 +1,16 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
-import { ArrowDown, ArrowUp, Check, ChevronDown, Grid3x3, ListChecks, Lock, ListOrdered, Minus, Plus, Swords, Trophy, Users } from 'lucide-react';
+import { ArrowDown, ArrowUp, Check, ChevronDown, ClipboardList, Grid3x3, ListChecks, Lock, ListOrdered, Minus, Plus, Swords, Trophy, Users } from 'lucide-react';
 import { useLeague, useNow } from '../lib/store';
 import { rpc } from '../lib/supabase';
 import { Empty, PageHeader, Section, TeamBadge, useAction } from '../components/ui';
 import { Crest } from '../components/Crest';
-import { KINDS, PICKEM_PRESETS, PRESETS, SIZES, SQUARES_DEFAULT, START_WORD, gridLabel, paysFor, type PickemPreset, type PoolEvent, type SeriesPreset, type SquaresRules } from '../lib/poolGames';
+import { KINDS, PICKEM_PRESETS, PRESETS, SIZES, SQUARES_DEFAULT, START_WORD, gridLabel, paysFor, sheetLabel, type PickemPreset, type PoolEvent, type SeriesPreset, type SheetGame, type SquaresRules } from '../lib/poolGames';
 import { SquaresGame, type SquaresData } from '../components/Squares';
 import { PickemGame, type PickemData } from '../components/Pickem';
 import { BracketGame, type BracketData } from '../components/Bracket';
 import { BoxPoolGame, type BoxData } from '../components/BoxPool';
+import { PropSheetGame, type PropsData } from '../components/PropSheet';
 import { useSurvivor } from './Survivor';
 
 // The pool's games (migration 165, docs/POOL-TYPES.md): Pick the series (each series' winner and how many games it
@@ -30,7 +31,7 @@ interface Series {
 interface RankClub extends Club { alive: boolean; in_field: boolean; wins: number; left: number }
 interface TableRow { team_id: number; points: number; possible: number; right: number; exact: number; picked: number; tiebreak: number | null }
 export interface GameBoard {
-  id: number; kind: 'series' | 'rank' | 'squares' | 'pickem' | 'bracket' | 'players'; title: string; status: 'open' | 'done'; winners: number[] | null; competition: string; competition_name: string; me: number;
+  id: number; kind: 'series' | 'rank' | 'squares' | 'pickem' | 'bracket' | 'players' | 'props'; title: string; status: 'open' | 'done'; winners: number[] | null; competition: string; competition_name: string; me: number;
   rules: { preset?: string; from_round: number; points?: Record<string, number>; length?: Record<string, number>; exact_only?: boolean };
   rounds: { round: number; label: string; best_of: number }[]; table: TableRow[];
   series?: Series[]; tiebreak?: { locks_at: string | null; locked: boolean; mine: number | null; label: string };
@@ -41,8 +42,9 @@ export interface GameBoard {
   // the sport's words (migration 190): what starts a game, what a tiebreaker counts and how high it goes
   words?: Words;
   players?: BoxData;
+  props?: PropsData;
 }
-export interface PoolGame { id: number; kind: 'series' | 'rank' | 'squares' | 'pickem' | 'bracket' | 'players'; series?: number | null; title: string; status: 'open' | 'done'; competition: string; to_pick: number; next_lock: string | null }
+export interface PoolGame { id: number; kind: 'series' | 'rank' | 'squares' | 'pickem' | 'bracket' | 'players' | 'props'; series?: number | null; fixture?: number | null; title: string; status: 'open' | 'done'; competition: string; to_pick: number; next_lock: string | null }
 
 export function usePoolGames() {
   const { me, league } = useLeague();
@@ -73,7 +75,7 @@ export const wordsOf = (b: { words?: Words }) => {
   return { ...w, guess: w.cap >= 300 ? 140 : w.score === 'points' ? 45 : w.score === 'goals' ? 6 : 8 };
 };
 
-const ICON = { series: Swords, rank: ListOrdered, squares: Grid3x3, pickem: ListChecks, bracket: Trophy, players: Users } as const;
+const ICON = { series: Swords, rank: ListOrdered, squares: Grid3x3, pickem: ListChecks, bracket: Trophy, players: Users, props: ClipboardList } as const;
 
 // a series' wins as dots: the number it takes to win, filled as they come
 function WinDots({ wins, need, color }: { wins: number; need: number; color: string }) {
@@ -356,6 +358,12 @@ function GameRules({ board }: { board: GameBoard }) {
     lines.push(`A goal is worth ${s.g}, an assist ${s.a}, a goalie’s win ${s.w}${s.sho ? ` and a shutout ${s.sho} more` : ''}. ${bp.playoffs ? `Every playoff game from ${md(bp.from)} to the end of the Stanley Cup Final` : `Every game from ${md(bp.from)} to ${md(bp.to)}`} counts, live as it’s played.`);
     lines.push(`Your team locks at the first puck drop ${bp.playoffs ? 'of the playoffs' : 'of the first night'}, and you can change it until then. A player who gets hurt stays on your team${bp.playoffs ? ', and so does one whose club is knocked out: he just has no games left' : ''}.`);
     lines.push('The most points wins. A tie on points shares it.');
+  } else if (board.props) {
+    const pr = board.props;
+    lines.push(`${pr.questions.length} calls on ${pr.game.away.short ?? pr.game.away.name} at ${pr.game.home.short ?? pr.game.home.name}, each worth a point. Answer every one, and the game's total ${wordsOf(board).score} for the tiebreak.`);
+    lines.push(`The sheet locks at the ${wordsOf(board).start}, and you can change it until then. Once it starts, everyone's sheet and the pool's split show.`);
+    lines.push('Everything is settled from the final score and the score by period, so nobody has to settle it by hand. A call the score can\'t settle counts for nobody.');
+    lines.push('The most right wins; the closest total breaks a tie. A game called off counts for nobody.');
   } else if (rk) {
     lines.push(`Put the clubs in order once. At the first ${wordsOf(board).start} of the ${rk.round_label} the ${rk.field || ''} clubs still in are ranked in your order: your top club pays ${rk.field || 'the most'} for every game it wins, your last pays 1.`.replace('the  clubs', 'the clubs'));
     lines.push('Clubs out by the lock don’t count, and your order is final from then on.');
@@ -397,7 +405,7 @@ function GameTable({ board }: { board: GameBoard }) {
               <div className="min-w-0 flex-1">
                 <div className="break-words font-semibold text-white">{t?.gm_name ?? t?.name}</div>
                 <div className="text-[11px] text-mute">{board.kind === 'squares' ? `${r.picked} ${r.picked === 1 ? 'square' : 'squares'} · ${r.right} ${r.right === 1 ? 'hit' : 'hits'}`
-                  : `${board.kind === 'series' ? (singles(board) ? `${r.right} right · ${r.picked} picked` : `${r.right} right · ${r.exact} with the length · ${r.picked} picked`) : board.kind === 'pickem' ? `${r.right} right · ${r.picked} picked` : board.kind === 'bracket' ? (r.picked ? `${r.right} right` : 'No bracket yet') : r.picked ? 'Ranked' : 'Not ranked yet'}${r.possible != null ? ` · up to ${r.possible}` : ''}`}</div>
+                  : `${board.kind === 'series' ? (singles(board) ? `${r.right} right · ${r.picked} picked` : `${r.right} right · ${r.exact} with the length · ${r.picked} picked`) : board.kind === 'pickem' ? `${r.right} right · ${r.picked} picked` : board.kind === 'bracket' ? (r.picked ? `${r.right} right` : 'No bracket yet') : board.kind === 'props' ? (r.picked ? `${r.right} right` : 'No sheet yet') : r.picked ? 'Ranked' : 'Not ranked yet'}${r.possible != null ? ` · up to ${r.possible}` : ''}`}</div>
               </div>
               <span className="num shrink-0 text-xl font-black text-white">{r.points}</span>
             </div>
@@ -466,6 +474,7 @@ export default function Picks() {
     : board.kind === 'series'
     ? (board.rules.exact_only ? 'Winner and length both right, or nothing' : `Points by round: ${board.rounds.map((r) => (board.rules.points?.[String(r.round)] ?? 1) + (singles(board) ? board.rules.length?.[String(r.round)] ?? 0 : 0)).join('-')}${singles(board) ? '' : `, plus ${board.rounds.map((r) => board.rules.length?.[String(r.round)]).join('-')} for the length`}`)
     : board.players ? `One player from each of ${board.players.boxes.length} boxes · goals and assists`
+    : board.props ? `${board.props.questions.length} calls on the game · a point each`
     : board.bracket ? `Every winner to the final · ${[...new Map(board.bracket.series.map((x) => [x.round, x.points])).values()].join('-')} points by round`
     : 'Every win pays its club’s rank';
 
@@ -484,7 +493,7 @@ export default function Picks() {
         <div className="card-hero p-5 text-center"><div className="relative"><div className="text-5xl">🏆</div><div className="h-display text-shine mt-2 text-3xl">{winners.join(' and ') || 'Nobody'}</div><div className="mt-1 text-sm text-white/70">{sq ? `took the most coins in ${board.title}` : `won ${board.title}`}</div></div></div>
       ) : mine && !sq && (
         <div className="grid grid-cols-3 gap-2">
-          {[['Rank', ordinal(rank + 1), `of ${board.table.length}`], ['Points', String(mine.points), board.kind === 'series' || board.kind === 'pickem' ? `${mine.right} right` : board.kind === 'players' ? `${mine.right} G · ${mine.exact} A` : 'so far'], board.kind === 'players' ? ['Picked by', String(board.players?.picked ?? 0), 'in the pool'] : ['Up to', String(mine.possible), 'still possible']].map(([k, v, s]) => (
+          {[['Rank', ordinal(rank + 1), `of ${board.table.length}`], ['Points', String(mine.points), board.kind === 'series' || board.kind === 'pickem' || board.kind === 'props' ? `${mine.right} right` : board.kind === 'players' ? `${mine.right} G · ${mine.exact} A` : 'so far'], board.kind === 'players' ? ['Picked by', String(board.players?.picked ?? 0), 'in the pool'] : ['Up to', String(mine.possible), 'still possible']].map(([k, v, s]) => (
             <div key={k} className="rounded-2xl border border-white/10 bg-white/[.04] p-3">
               <div className="text-[10px] font-bold uppercase tracking-[.18em] text-mute">{k}</div>
               <div className="num mt-0.5 text-2xl font-black text-white">{v}</div>
@@ -502,6 +511,8 @@ export default function Picks() {
       {pk ? <PickemGame key={`${board.id}-${actAs?.team ?? 'me'}`} gameId={board.id} first={pk} status={board.status} name={name} reload={load} actAs={actAs ?? undefined} />
         : sq ? <SquaresGame data={sq} gameId={board.id} status={board.status} reload={load} name={name} />
         : board.kind === 'bracket' && board.bracket ? <BracketGame key={`${board.id}-${actAs?.team ?? 'me'}`} gameId={board.id} data={board.bracket} words={wordsOf(board)} status={board.status} reload={load} actAs={actAs ?? undefined} />
+        : board.kind === 'props' && board.props ? <PropSheetGame key={`${board.id}-${actAs?.team ?? 'me'}`} gameId={board.id} data={board.props} status={board.status} reload={load} actAs={actAs ?? undefined}
+            scoreWord={wordsOf(board).score} cap={wordsOf(board).cap} />
         : board.kind === 'players' && board.players ? <BoxPoolGame key={`${board.id}-${actAs?.team ?? 'me'}`} gameId={board.id} data={board.players} status={board.status} reload={load} actAs={actAs ?? undefined} />
         : board.kind === 'series' ? <SeriesGame key={`${board.id}-${actAs?.team ?? 'me'}`} board={board} reload={load} name={name} actAs={actAs ?? undefined} />
         : board.kind === 'rank' ? <RankGame key={`${board.id}-${actAs?.team ?? 'me'}`} board={board} reload={load} name={name} actAs={actAs ?? undefined} />
@@ -524,8 +535,8 @@ function HostDesk({ board, reload, onActAs }: { board: GameBoard; reload: () => 
   // a box pool's window ('week', 'month', 'season'): the same key a series game uses for its length points
   const boxLen = board.kind === 'players' ? String((board.rules as { length?: unknown }).length ?? 'month') : 'month';
   const [len, setLen] = useState<string>(boxLen);
-  if (board.kind !== 'pickem' && board.kind !== 'series' && board.kind !== 'rank' && board.kind !== 'bracket' && board.kind !== 'players') return null;
-  const rules = board.kind !== 'rank';
+  if (board.kind !== 'pickem' && board.kind !== 'series' && board.kind !== 'rank' && board.kind !== 'bracket' && board.kind !== 'players' && board.kind !== 'props') return null;
+  const rules = board.kind !== 'rank' && board.kind !== 'props';
   // the server has the last word; this hides the rules once the game has plainly locked
   const locked = pk ? pk.round > pk.from_round || pk.fixtures.some((f) => f.locked && f.picked > 0) : board.bracket ? board.bracket.locked : board.players ? board.players.locked : !!board.series?.some((s) => s.locked);
   // a box pool's boxes stay once a team is in, like a pick'em's scoring
@@ -539,7 +550,7 @@ function HostDesk({ board, reload, onActAs }: { board: GameBoard; reload: () => 
       <div className="card space-y-4 p-4">
         <div>
           <div className="mb-1.5 text-[11px] font-bold uppercase tracking-[.14em] text-mute">The rules</div>
-          {!rules ? <p className="text-sm text-mute">Rank the teams has no rules to change: every win pays the rank its club was given.</p>
+          {!rules ? <p className="text-sm text-mute">{board.kind === 'props' ? 'The sheet has no rules to change: every call is a point, settled from the score.' : 'Rank the teams has no rules to change: every win pays the rank its club was given.'}</p>
             : locked ? <p className="text-sm text-mute">The rules froze at the first lock, so everyone plays the game they joined.</p> : (
             <div className="space-y-2">
               <div className="flex flex-wrap gap-1.5">
@@ -570,7 +581,7 @@ function HostDesk({ board, reload, onActAs }: { board: GameBoard; reload: () => 
             </div>
           )}
         </div>
-        {members.length > 0 && !(board.kind === 'rank' && board.rank?.locked) && !(board.kind === 'bracket' && board.bracket?.locked) && !(board.kind === 'players' && board.players?.locked) && (
+        {members.length > 0 && !(board.kind === 'rank' && board.rank?.locked) && !(board.kind === 'bracket' && board.bracket?.locked) && !(board.kind === 'players' && board.players?.locked) && !(board.kind === 'props' && board.props?.locked) && (
           <div>
             <div className="mb-1.5 text-[11px] font-bold uppercase tracking-[.14em] text-mute">Pick for a player who asked</div>
             <div className="flex flex-wrap gap-1.5">
@@ -593,16 +604,20 @@ export function HostGames() {
   const [pkPreset, setPkPreset] = useState<PickemPreset>('classic');
   const [grid, setGrid] = useState<Omit<SquaresRules, 'series'>>(SQUARES_DEFAULT);
   const [on, setOn] = useState<number | null>(null);
+  const [sheetOn, setSheetOn] = useState<number | null>(null);
   const { busy, run } = useAction();
   const nav = useNavigate();
   // last one standing lives in its own tables, one at a time per pool
   const { board: survivor } = useSurvivor();
   useEffect(() => { rpc<PoolEvent[]>('pool_event_list').then((e) => setEvents(e ?? []), () => setEvents([])); }, []);
-  const offers = events.flatMap((e) => e.kinds.filter((k) => k in KINDS && !(k === 'survivor' && survivor?.status === 'open')
+  const offers = events.flatMap((e) => e.kinds.filter((k) => k in KINDS && k !== 'props' && !(k === 'survivor' && survivor?.status === 'open')
     && !games?.some((g) => g.competition === e.competition && g.kind === k && g.status === 'open')).map((k) => ({ e, k })));
   const grids = events.flatMap((e) => (e.grids ?? []).filter((s) => !games?.some((g) => g.kind === 'squares' && g.series === s.id && g.status === 'open')).map((s) => ({ e, s })));
   const series = grids.find((x) => x.s.id === on) ?? grids[0];
-  if (!games || (!offers.length && !grids.length)) return null;
+  // a prop sheet goes on any game still to start that has none yet
+  const sheets = events.flatMap((e) => (e.sheets ?? []).filter((s) => !games?.some((g) => g.kind === 'props' && g.fixture === s.id && g.status === 'open')).map((s) => ({ e, s })));
+  const sheet = sheets.find((x) => x.s.id === sheetOn) ?? sheets[0];
+  if (!games || (!offers.length && !grids.length && !sheets.length)) return null;
   return (
     <Section title="Add a game">
       <div className="space-y-2">
@@ -646,8 +661,42 @@ export function HostGames() {
             </button>
           </div>
         )}
+        {sheet && (
+          <div className="card space-y-3 p-4">
+            <div className="flex items-start gap-3">
+              <span className="grid h-11 w-11 shrink-0 place-items-center rounded-2xl bg-gold/15 text-xl">{KINDS.props.emoji}</span>
+              <div className="min-w-0 flex-1">
+                <div className="font-semibold text-white">{KINDS.props.title} <span className="text-mute">· {sheet.e.name}</span></div>
+                <div className="text-xs text-mute">{KINDS.props.line}</div>
+              </div>
+            </div>
+            <SheetPicker games={sheets.map((x) => x.s)} on={sheet.s.id} setOn={setSheetOn} />
+            <button type="button" className="btn-gold w-full" disabled={busy}
+              onClick={() => run(async () => { await rpc('pool_game_start', { p_kind: 'props', p_competition: sheet.e.competition, p_rules: { fixture: sheet.s.id } }); reload(); setSheetOn(null); }, 'The sheet is open')}>
+              Open the sheet
+            </button>
+          </div>
+        )}
       </div>
     </Section>
+  );
+}
+
+// which game a prop sheet goes on: the postseason's games still to start this week, soonest first
+export function SheetPicker({ games, on, setOn, dark }: { games: SheetGame[]; on: number; setOn: (id: number) => void; dark?: boolean }) {
+  return (
+    <div className="grid gap-1.5">
+      {games.map((g) => {
+        const sel = g.id === on;
+        return (
+          <button key={g.id} type="button" onClick={() => setOn(g.id)}
+            className={`rounded-xl px-3 py-2 text-left ring-1 transition ${sel ? (dark ? 'bg-white text-[#0b1220] ring-white' : 'bg-gold/[.14] text-white ring-gold/70') : 'bg-white/[.04] text-slate-200 ring-white/10'}`}>
+            <span className="block text-sm font-semibold leading-snug">{sheetLabel(g)}</span>
+            <span className={`block text-[11px] ${sel && dark ? 'text-[#0b1220]/70' : 'text-mute'}`}>{lockText(g.kickoff)}</span>
+          </button>
+        );
+      })}
+    </div>
   );
 }
 

@@ -374,7 +374,14 @@ and soccer share it.
    knockout bracket (February); soccer centre on API-Football.
 3. Super Bowl squares and the prop sheet (February 2027). *Squares by the quarter built 9 October 2026 (migration 200):* a grid on
    any NFL playoff game pays after the 1st quarter, at the half, after the 3rd and on the final (20/20/20/40), drawn at
-   kickoff, in football's words; hockey's pays by the period. The prop sheet is still to come.
+   kickoff, in football's words; hockey's pays by the period. *The prop sheet built 9 October 2026 (migrations 208 and
+   209), ready for the World Series:* a `props` game on one game of a postseason (baseball, football or hockey): eight
+   calls in the sport's words (who wins, the total over or under the market's line or the sport's usual, the margin, who
+   leads after the first period and at the halfway mark, the first period's scoring, extra time, a shutout or in
+   football a side held to 10), a point each, the total as the tiebreak, locked at the start, all settled from the
+   score and the score by period at the end of each feed run (`_props_tick`), so the host settles nothing. Offered on
+   each game of a series still going in the next week (`pool_event_list`'s `sheets`), one sheet a game; a game the
+   series didn't need ends its sheet with no winner.
 4. March Madness (March 2027): the bracket with a second chance and the Eliminator. *The bracket's feed built 9 October 2026
    (migration 201):* `ncaam-2027` fills from ESPN in mid-March, 63 slots in bracket order; the second chance and the
    Eliminator are still to come.

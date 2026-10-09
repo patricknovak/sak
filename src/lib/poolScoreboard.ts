@@ -4,7 +4,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { rpc } from './supabase';
 
-export type BoardKind = 'questions' | 'series' | 'rank' | 'squares' | 'pickem' | 'survivor' | 'score' | 'bracket' | 'players';
+export type BoardKind = 'questions' | 'series' | 'rank' | 'squares' | 'pickem' | 'survivor' | 'score' | 'bracket' | 'players' | 'props';
 export interface BoardRow { team_id: number; rank: number; score: number; possible: number | null; alive: boolean | null; line: string | null; move: number | null }
 export interface BoardMine { rank: number; score: number; possible: number | null; alive: boolean | null; line: string | null; move: number | null; behind: number }
 export interface BoardGame { key: string; kind: BoardKind; title: string; status: 'open' | 'done'; link: string; members: number; crown: boolean; mine: BoardMine | null; rows: BoardRow[] }
@@ -18,6 +18,7 @@ export const BOARD_KIND: Record<BoardKind, { icon: string; unit: (n: number) => 
   squares: { icon: '🔲', unit: () => '', coins: true, blurb: 'Coins won by your squares.' },
   pickem: { icon: '✅', unit: (n) => (n === 1 ? 'pt' : 'pts'), blurb: 'Points for every right pick, round by round.' },
   bracket: { icon: '🏆', unit: (n) => (n === 1 ? 'pt' : 'pts'), blurb: 'Points for each right winner, more each round.' },
+  props: { icon: '📋', unit: (n) => (n === 1 ? 'call' : 'calls'), blurb: 'Calls right on the game; the closest total breaks a tie.' },
   players: { icon: '🏒', unit: (n) => (n === 1 ? 'pt' : 'pts'), blurb: 'Goals, assists and goalie wins from one player in each box.' },
   survivor: { icon: '🛡️', unit: (n) => (n === 1 ? 'week' : 'weeks'), blurb: 'Still in first, then the matchweeks survived.' },
   score: { icon: '🎯', unit: (n) => (n === 1 ? 'pt' : 'pts'), blurb: 'Points for every result and exact score called.' },
