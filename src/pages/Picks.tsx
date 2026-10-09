@@ -473,9 +473,9 @@ export function PoolGameCards() {
             <span className="relative grid h-12 w-12 shrink-0 place-items-center rounded-2xl bg-gold/15"><Icon className="h-6 w-6 text-gold" /></span>
             <span className="relative min-w-0 flex-1">
               <span className="block font-semibold text-white">{g.title}</span>
-              <span className="block text-xs text-white/70">{g.status === 'done' ? 'Done: see who won' : g.next_lock ? `${g.kind === 'squares' ? 'Grid closes' : 'Next lock'} ${lockText(g.next_lock)}` : g.kind === 'squares' ? 'Digits drawn: follow the games' : 'Picks open as each round is set'}</span>
+              <span className="block text-xs text-white/70">{g.status === 'done' ? 'Done: see who won' : g.next_lock ? `${g.kind === 'squares' ? 'Grid closes' : g.kind === 'sweep' ? 'The hat is drawn' : 'Next lock'} ${lockText(g.next_lock)}` : g.kind === 'squares' ? 'Digits drawn: follow the games' : g.kind === 'sweep' ? 'The hat is drawn: follow your clubs' : 'Picks open as each round is set'}</span>
             </span>
-            {g.status === 'open' && me?.role === 'gm' && (g.to_pick > 0
+            {g.status === 'open' && me?.role === 'gm' && g.kind !== 'sweep' && (g.to_pick > 0
               ? <span className="chip relative shrink-0 border-amber-400/40 text-amber-200">{g.kind === 'rank' ? 'To rank' : g.kind === 'squares' ? 'Claim a square' : `${g.to_pick} to pick`}</span>
               : <span className="chip relative shrink-0 border-emerald-400/40 text-emerald-200">All in</span>)}
           </Link>
