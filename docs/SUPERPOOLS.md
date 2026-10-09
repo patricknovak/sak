@@ -266,6 +266,10 @@ give the pool a home for following the sport):**
   themselves (a host's switch, or ticked when a pool starts) and every sheet added up on the scoreboard; the bracket with
   series length (a bonus for calling the games); the Platform page's view of every pool's games; and fixes from two more
   independent reviews.*
+  *And (migrations 229 to 238):* share cards for every kind of pick; a nudge for a host whose pool follows an event with
+  no game on it; the daily streak (one winner a day from any event's games, the longest run of right picks wins, its
+  splits in the prediction log); the sweepstake (an event's clubs dealt from the hat, whoever holds the champion wins);
+  and fixes from three more independent reviews.*
 
 Then the list below, which is the fantasy-league plan of record.
 
