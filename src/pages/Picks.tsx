@@ -44,7 +44,7 @@ export interface GameBoard {
   players?: BoxData;
   props?: PropsData;
 }
-export interface PoolGame { id: number; kind: 'series' | 'rank' | 'squares' | 'pickem' | 'bracket' | 'players' | 'props'; series?: number | null; fixture?: number | null; title: string; status: 'open' | 'done'; competition: string; to_pick: number; next_lock: string | null }
+export interface PoolGame { id: number; kind: 'series' | 'rank' | 'squares' | 'pickem' | 'bracket' | 'players' | 'props'; series?: number | null; fixture?: number | null; from_round?: number | null; locked?: boolean; title: string; status: 'open' | 'done'; competition: string; to_pick: number; next_lock: string | null }
 
 export function usePoolGames() {
   const { me, league } = useLeague();
@@ -611,7 +611,9 @@ export function HostGames() {
   const { board: survivor } = useSurvivor();
   useEffect(() => { rpc<PoolEvent[]>('pool_event_list').then((e) => setEvents(e ?? []), () => setEvents([])); }, []);
   const offers = events.flatMap((e) => e.kinds.filter((k) => k in KINDS && k !== 'props' && !(k === 'survivor' && survivor?.status === 'open')
-    && !games?.some((g) => g.competition === e.competition && g.kind === k && g.status === 'open')).map((k) => ({ e, k })));
+    // a bracket that has locked leaves room for a second chance from a later round (migration 211)
+    && !games?.some((g) => g.competition === e.competition && g.kind === k && g.status === 'open' && !(k === 'bracket' && g.locked && (g.from_round ?? 0) < e.open_round))).map((k) => ({ e, k })));
+  const second = (e: PoolEvent, k: string) => k === 'bracket' && !!games?.some((g) => g.competition === e.competition && g.kind === 'bracket' && (g.from_round ?? 0) < e.open_round);
   const grids = events.flatMap((e) => (e.grids ?? []).filter((s) => !games?.some((g) => g.kind === 'squares' && g.series === s.id && g.status === 'open')).map((s) => ({ e, s })));
   const series = grids.find((x) => x.s.id === on) ?? grids[0];
   // a prop sheet goes on any game still to start that has none yet
@@ -626,7 +628,7 @@ export function HostGames() {
             <div className="flex items-start gap-3">
               <span className="grid h-11 w-11 shrink-0 place-items-center rounded-2xl bg-gold/15 text-xl">{KINDS[k].emoji}</span>
               <div className="min-w-0 flex-1">
-                <div className="font-semibold text-white">{KINDS[k].title} <span className="text-mute">· {e.name}</span></div>
+                <div className="font-semibold text-white">{second(e, k) ? 'Second-chance bracket' : KINDS[k].title} <span className="text-mute">· {e.name}</span></div>
                 <div className="text-xs text-mute">{KINDS[k].line} {k === 'players' ? (e.open_round ? `All through the playoffs, to the Cup; first puck drop ${lockText(e.next_lock)}.` : `From ${e.open_label}, four weeks; first puck drop ${lockText(e.next_lock)}.`) : <>From {k === 'pickem' || k === 'survivor' ? e.open_label : `the ${e.open_label}`}{k === 'survivor' ? ` to ${e.final_label}` : ''}, first lock {lockText(e.next_lock)}.</>}</div>
               </div>
             </div>
@@ -641,7 +643,7 @@ export function HostGames() {
             )}
             <button type="button" className="btn-gold w-full" disabled={busy}
               onClick={() => run(async () => { await rpc('pool_game_start', { p_kind: k, p_competition: e.competition, p_rules: k === 'series' ? { preset } : k === 'pickem' ? { preset: pkPreset } : {} }); if (k === 'survivor') nav('/survivor'); else reload(); }, `${KINDS[k].title} is on`)}>
-              Start {KINDS[k].title.toLowerCase()}
+              Start {second(e, k) ? 'the second-chance bracket' : KINDS[k].title.toLowerCase()}
             </button>
           </div>
         ))}

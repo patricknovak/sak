@@ -4853,6 +4853,20 @@ select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-000000000086
 set role authenticated;
 select pg_temp.expect('once locked, everyone''s champion shows', (select jsonb_array_length(pool_game_board(:bg)->'bracket'->'champions') = 2));
 reset role;
+-- a second chance (migration 211): with the first bracket locked, the host opens another from the semifinals
+update series s set high_club = x.h, low_club = x.l
+from (select t.next_id, min(c.winner) h, max(c.winner) l from _bracket_tree('br-cup', 1) t join series c on c.id = t.series_id where t.round = 1 group by t.next_id) x
+where s.id = x.next_id and s.high_club is null;
+select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-000000000081', false);
+set role authenticated;
+select pg_temp.expect('the game list says the first one is locked, from round 1', (select (x->>'locked')::boolean and (x->>'from_round')::int = 1
+  from jsonb_array_elements(pool_games_list()) x where (x->>'id')::bigint = :bg));
+select pool_game_start('bracket', 'br-cup') as bg2 \gset
+select pg_temp.raises('one second chance from a round', $$select pool_game_start('bracket', 'br-cup')$$, 'already runs that game');
+reset role;
+select pg_temp.expect('a second-chance bracket from the next round, and the chat hears', (select title = 'Second-chance bracket' and (rules->>'from_round')::int = 2 from pool_games where id = :bg2)
+  and exists (select 1 from messages where league_id = :lib and body like '🏆 The second-chance bracket is open, from the %: a fresh bracket for everyone, busted or not.%'));
+update pool_games set status = 'done' where id = :bg2;
 update pool_games set status = 'done' where id = :bg;
 select set_config('app.league_id', '', false);
 select pg_temp.as_team(2);

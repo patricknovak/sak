@@ -312,7 +312,8 @@ centre and Match centre, the market's view on each match, results by hand for ev
 written down, last calls and second reminders. Next, in order: the box pool's playoffs version, then the contraction
 (item 4). *9 October added* Super Bowl squares by the quarter (migration 200), March Madness (201), the box pool's
 playoffs version (202), the contraction (203 and 204), series picks in the prediction log (205), a postseason game by hand (206), standings by division in the centres
-(207) and the prop sheet (208 and 209, docs/POOL-TYPES.md §9 item 3), PR #244.
+(207), the prop sheet (208 and 209, docs/POOL-TYPES.md §9 item 3), prop calls in the prediction log (210) and the
+second-chance bracket (211), PR #244.
 
 Alongside: the World Series test (the LCS from 11 October, the World Series from 23 October) needs its games started
 in the World Series pool (league 5, the questions only so far), and the Love Is Blind test needs players.
