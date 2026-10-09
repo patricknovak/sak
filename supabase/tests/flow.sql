@@ -3563,7 +3563,7 @@ reset role;
 select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-000000000081', false);
 set role authenticated;
 select survivor_start('mls') as sv \gset
-select pg_temp.expect('it starts from the next matchweek', (select start_gw from survivors where id = :sv) = 30);
+select pg_temp.expect('it starts from the next matchweek', (select start_gw from pool_survivors where id = :sv) = 30);
 select pg_temp.raises('one at a time', $$select survivor_start('mls')$$, 'already has a survivor');
 select survivor_pick(:sv, :cal);
 reset role;
@@ -3571,8 +3571,10 @@ select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-000000000082
 set role authenticated;
 select survivor_pick(:sv, :bos);
 select survivor_pick(:sv, :atx);
-select pg_temp.expect('a pick can change until kick-off, one a matchweek', (select count(*) from survivor_picks where survivor_id = :sv and team_id = :fern) = 1
-  and (select club_id from survivor_picks where survivor_id = :sv and team_id = :fern) = :atx);
+reset role;
+select pg_temp.expect('a pick can change until kick-off, one a matchweek', (select count(*) from pool_survivor_picks where survivor_id = :sv and team_id = :fern) = 1
+  and (select club_id from pool_survivor_picks where survivor_id = :sv and team_id = :fern) = :atx);
+set role authenticated;
 select pg_temp.expect('the board shows her own pick before kick-off, not Hana''s', (select jsonb_array_length(p->'picks') from jsonb_array_elements(survivor_board(:sv)->'players') p where (p->>'team_id')::int = :fern) = 1
   and (select jsonb_array_length(p->'picks') from jsonb_array_elements(survivor_board(:sv)->'players') p where (p->>'team_id')::int <> :fern and (p->'picks') <> '[]'::jsonb) is null);
 reset role;
@@ -3580,11 +3582,11 @@ reset role;
 select soccer_ingest('mls', jsonb_build_object('fixtures', jsonb_build_array(
   jsonb_build_object('ext_id', '7001', 'gameweek', 30, 'kickoff', now() + interval '1 day', 'status', 'FT', 'home', '501', 'away', '502', 'home_score', 2, 'away_score', 0, 'home_ft', 2, 'away_ft', 0),
   jsonb_build_object('ext_id', '7002', 'gameweek', 30, 'kickoff', now() + interval '1 day', 'status', 'PST', 'home', '503', 'away', '504'))));
-select pg_temp.expect('a win is through, a postponed match is void', (select result from survivor_picks where survivor_id = :sv and team_id = :fern) = 'through'
-  and (select result from survivor_picks p join teams t on t.id = p.team_id where p.survivor_id = :sv and t.is_commish) = 'void');
-select pg_temp.expect('no pick is out', exists (select 1 from survivor_picks p join teams t on t.id = p.team_id where p.survivor_id = :sv and t.gm_name = 'Lou' and p.result = 'missed')
+select pg_temp.expect('a win is through, a postponed match is void', (select result from pool_survivor_picks where survivor_id = :sv and team_id = :fern) = 'through'
+  and (select result from pool_survivor_picks p join teams t on t.id = p.team_id where p.survivor_id = :sv and t.is_commish) = 'void');
+select pg_temp.expect('no pick is out', exists (select 1 from pool_survivor_picks p join teams t on t.id = p.team_id where p.survivor_id = :sv and t.gm_name = 'Lou' and p.result = 'missed')
   and exists (select 1 from notifications n join teams t on t.id = n.team_id where t.gm_name = 'Lou' and n.kind = 'survivor' and n.body like '💥 Out: no pick%'));
-select pg_temp.expect('two still in, so it goes on', (select status from survivors where id = :sv) = 'open'
+select pg_temp.expect('two still in, so it goes on', (select status from pool_survivors where id = :sv) = 'open'
   and (select count(*) from jsonb_array_elements(survivor_board(:sv)->'players') p where (p->>'alive')::boolean) = 2);
 -- matchweek 31: Fern can't use Austin again; Hana can use Calgary again (its match was called off), then switches to Denver
 select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-000000000082', false);
@@ -3605,9 +3607,9 @@ reset role;
 select soccer_ingest('mls', jsonb_build_object('fixtures', jsonb_build_array(
   jsonb_build_object('ext_id', '7003', 'gameweek', 31, 'kickoff', now() + interval '8 days', 'status', 'FT', 'home', '501', 'away', '503', 'home_score', 0, 'away_score', 1, 'home_ft', 0, 'away_ft', 1),
   jsonb_build_object('ext_id', '7004', 'gameweek', 31, 'kickoff', now() + interval '8 days', 'status', 'FT', 'home', '502', 'away', '504', 'home_score', 2, 'away_score', 2, 'home_ft', 2, 'away_ft', 2))));
-select pg_temp.expect('a draw is out', (select result from survivor_picks p join teams t on t.id = p.team_id where p.survivor_id = :sv and t.is_commish and p.gameweek = 31) = 'out'
+select pg_temp.expect('a draw is out', (select result from pool_survivor_picks p join teams t on t.id = p.team_id where p.survivor_id = :sv and t.is_commish and p.gameweek = 31) = 'out'
   and exists (select 1 from notifications n join teams t on t.id = n.team_id where t.is_commish and t.league_id = :lib and n.kind = 'survivor' and n.body like '💥 Out: Denver FC didn''t beat Boston FC (2-2).'));
-select pg_temp.expect('the last one standing wins it, and the chat hears', (select status = 'done' and winners = array[:fern] from survivors where id = :sv)
+select pg_temp.expect('the last one standing wins it, and the chat hears', (select status = 'done' and winners = array[:fern] from pool_survivors where id = :sv)
   and exists (select 1 from messages where league_id = :lib and body = '🏆 Last one standing: Fern.'));
 select set_config('app.league_id', '', false);
 select set_config('request.jwt.claim.sub', '', false);
@@ -4272,7 +4274,7 @@ select pg_temp.expect('the start page offers last one standing on the NFL, in we
   where e->>'competition' = 'nfl' and e->'kinds' ? 'survivor' and e->'kinds' ? 'pickem' and e->>'word' = 'Week' and e->>'club_word' = 'team' and (e->>'open_round')::int = 7));
 select pg_temp.raises('a round with nothing left to kick off can''t start it', $$select pool_game_start('survivor', 'mls', '{"from_round": 31}')$$, 'under way');
 select pool_game_start('survivor', 'nfl', '{"to_round": 8}') as nsv \gset
-select pg_temp.expect('it runs weeks 7 to 8, and the chat hears it in the sport''s words', (select start_gw = 7 and end_gw = 8 from survivors where id = :nsv)
+select pg_temp.expect('it runs weeks 7 to 8, and the chat hears it in the sport''s words', (select start_gw = 7 and end_gw = 8 from pool_survivors where id = :nsv)
   and exists (select 1 from messages where league_id = :lib and body = '🛡️ Last one standing starts in week 7 of the NFL: pick one team to win each week, never the same team twice. A loss or a tie and you''re out. It runs to week 8; whoever is still in then shares it.'));
 select pg_temp.expect('the board speaks the sport', (select b->>'word' = 'Week' and b->>'club_word' = 'team' and b->>'match_word' = 'game' and (b->>'draws')::boolean = false
   and (b->>'end_gw')::int = 8 and (b->>'gameweek')::int = 7 and jsonb_array_length(b->'fixtures') = 2 from survivor_board(:nsv) b));
@@ -4290,9 +4292,9 @@ reset role;
 select soccer_ingest('nfl', jsonb_build_object('fixtures', jsonb_build_array(
   jsonb_build_object('ext_id', 'nfl-71', 'gameweek', 7, 'kickoff', now() + interval '1 day', 'status', 'FT', 'home', 'nf1', 'away', 'nf2', 'home_score', 20, 'away_score', 27, 'home_ft', 20, 'away_ft', 27),
   jsonb_build_object('ext_id', 'nfl-72', 'gameweek', 7, 'kickoff', now() + interval '1 day', 'status', 'FT', 'home', 'nf3', 'away', 'nf4', 'home_score', 31, 'away_score', 17, 'home_ft', 31, 'away_ft', 17))));
-select pg_temp.expect('three through, so it goes on; a missed week reads in weeks', (select status = 'open' from survivors where id = :nsv)
-  and (select count(*) from survivor_picks where survivor_id = :nsv and result = 'through') = 3
-  and (not exists (select 1 from survivor_picks where survivor_id = :nsv and result = 'missed')
+select pg_temp.expect('three through, so it goes on; a missed week reads in weeks', (select status = 'open' from pool_survivors where id = :nsv)
+  and (select count(*) from pool_survivor_picks where survivor_id = :nsv and result = 'through') = 3
+  and (not exists (select 1 from pool_survivor_picks where survivor_id = :nsv and result = 'missed')
        or exists (select 1 from notifications where kind = 'survivor' and body = '💥 Out: no pick in week 7.')));
 select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-000000000081', false);
 set role authenticated;
@@ -4311,9 +4313,9 @@ reset role;
 select soccer_ingest('nfl', jsonb_build_object('fixtures', jsonb_build_array(
   jsonb_build_object('ext_id', 'nfl-81', 'gameweek', 8, 'kickoff', now() + interval '8 days', 'status', 'FT', 'home', 'nf1', 'away', 'nf4', 'home_score', 30, 'away_score', 10, 'home_ft', 30, 'away_ft', 10),
   jsonb_build_object('ext_id', 'nfl-82', 'gameweek', 8, 'kickoff', now() + interval '8 days', 'status', 'FT', 'home', 'nf2', 'away', 'nf3', 'home_score', 20, 'away_score', 20, 'home_ft', 20, 'away_ft', 20))));
-select pg_temp.expect('a tie is out', (select result from survivor_picks where survivor_id = :nsv and team_id = :lou and gameweek = 8) = 'out'
+select pg_temp.expect('a tie is out', (select result from pool_survivor_picks where survivor_id = :nsv and team_id = :lou and gameweek = 8) = 'out'
   and exists (select 1 from notifications where team_id = :lou and kind = 'survivor' and body = '💥 Out: Buffalo didn''t beat Detroit (20-20).'));
-select pg_temp.expect('the last week done, the two still in share it', (select status = 'done' and winners @> array[:fern, :hana] and cardinality(winners) = 2 from survivors where id = :nsv)
+select pg_temp.expect('the last week done, the two still in share it', (select status = 'done' and winners @> array[:fern, :hana] and cardinality(winners) = 2 from pool_survivors where id = :nsv)
   and exists (select 1 from messages where league_id = :lib and body = '🏆 Last one standing: Fern and Hana. Still in after week 8, they share it.'));
 select pg_temp.expect('the pool''s table reads it in weeks', (select line = 'Out in week 8' from _pool_rows() where game = 'survivor:' || :nsv and team_id = :lou)
   and (select bool_and(alive) from _pool_rows() where game = 'survivor:' || :nsv and team_id in (:fern, :hana)));
@@ -4566,8 +4568,8 @@ select pg_temp.raises('a match the pool''s games aren''t on', format('select poo
 select pg_temp.expect('the host settles Ashby v Barnet 2-1', pool_fixture_result_set(:hb11, null, 2, 1, 'The feed froze at half-time') = 'H');
 reset role;
 select pg_temp.expect('last one standing settles from it: Fern through on Ashby, Hana out on Barnet',
-  (select result from survivor_picks where survivor_id = :hsv and team_id = :fern) = 'through'
-  and (select result from survivor_picks where survivor_id = :hsv and team_id = :hana) = 'out'
+  (select result from pool_survivor_picks where survivor_id = :hsv and team_id = :fern) = 'through'
+  and (select result from pool_survivor_picks where survivor_id = :hsv and team_id = :hana) = 'out'
   and exists (select 1 from notifications where team_id = :fern and kind = 'survivor' and body = '🛡️ Through: Ashby beat Barnet Vale 2-1.'));
 select pg_temp.expect('and Call the score: Fern spot on, Hana nothing', (select points from predictor_picks where predictor_id = :hpr and team_id = :fern) = 3
   and (select points from predictor_picks where predictor_id = :hpr and team_id = :hana) = 0
@@ -4577,19 +4579,19 @@ set role authenticated;
 select pool_fixture_result_set(:hb12, 'void', null, null, 'Abandoned for floodlight failure');
 reset role;
 select pg_temp.expect('a void lets Lou through and closes the round by hand: the next one is in play',
-  (select result from survivor_picks where survivor_id = :hsv and team_id = :lou) = 'void'
-  and _survivor_week(:hsv) = 2 and (select status from survivors where id = :hsv) = 'open');
+  (select result from pool_survivor_picks where survivor_id = :hsv and team_id = :lou) = 'void'
+  and _survivor_week(:hsv) = 2 and (select status from pool_survivors where id = :hsv) = 'open');
 select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-000000000081', false);
 set role authenticated;
 select pg_temp.expect('handed back, Ashby v Barnet waits for the feed again', pool_fixture_result_set(:hb11, null, null, null, null) is null);
 reset role;
-select pg_temp.expect('its picks are open again', (select result from survivor_picks where survivor_id = :hsv and team_id = :fern) is null
+select pg_temp.expect('its picks are open again', (select result from pool_survivor_picks where survivor_id = :hsv and team_id = :fern) is null
   and (select points from predictor_picks where predictor_id = :hpr and team_id = :fern) is null);
 select soccer_ingest('hb-cup', jsonb_build_object('fixtures', jsonb_build_array(
   jsonb_build_object('ext_id', 'hb-11', 'gameweek', 1, 'kickoff', now() - interval '1 hour', 'status', 'FT', 'home', 'hb1', 'away', 'hb2', 'home_score', 0, 'away_score', 1, 'home_ft', 0, 'away_ft', 1))));
 select pg_temp.expect('the feed settles it now: Barnet won, so Hana is through and Fern out; Hana''s call was spot on',
-  (select result from survivor_picks where survivor_id = :hsv and team_id = :hana) = 'through'
-  and (select result from survivor_picks where survivor_id = :hsv and team_id = :fern) = 'out'
+  (select result from pool_survivor_picks where survivor_id = :hsv and team_id = :hana) = 'through'
+  and (select result from pool_survivor_picks where survivor_id = :hsv and team_id = :fern) = 'out'
   and (select points from predictor_picks where predictor_id = :hpr and team_id = :hana) = 3
   and (select points from predictor_picks where predictor_id = :hpr and team_id = :fern) = 0);
 select pg_temp.expect('the void stays the host''s, whatever the feed does', (select outcome from pool_result_overrides where league_id = :lib and fixture_id = :hb12) = 'void');
@@ -4658,12 +4660,12 @@ select soccer_ingest('nfl', jsonb_build_object('fixtures', jsonb_build_array(
   jsonb_build_object('ext_id', 'nfl-101', 'gameweek', 10, 'kickoff', now() - interval '2 days', 'status', 'FT', 'home', 'nf1', 'away', 'nf2', 'home_score', 20, 'away_score', 17, 'home_ft', 20, 'away_ft', 17),
   jsonb_build_object('ext_id', 'nfl-102', 'gameweek', 10, 'kickoff', now() + interval '5 hours', 'status', 'NS', 'home', 'nf3', 'away', 'nf4'))));
 select set_config('app.league_id', :'lib', false);
-insert into survivors (league_id, competition, start_gw, end_gw, created_by) values (:lib, 'nfl', 10, 10, :hana) returning id as lsv \gset
+insert into pool_games (league_id, kind, competition, title, rules, created_by) values (:lib, 'survivor', 'nfl', 'Last one standing', '{"start_gw": 10, "end_gw": 10}', :hana) returning id as lsv \gset
 select _soccer_nudge(:lib) as ln \gset
 select pg_temp.expect('a round under way still gets a last call before its final kick-off, in the sport''s words',
   exists (select 1 from notifications where team_id = :lou and kind = 'survivor' and body = '⏰ Last call for week 10: its last game kicks off in 5h. Pick your team or you''re out.'));
 select pg_temp.expect('and only once', _soccer_nudge(:lib) = 0);
-update survivors set status = 'done' where id = :lsv;
+update pool_games set status = 'done' where id = :lsv;
 -- pick'em on the same week: its Thursday game is played, Sunday's still to pick
 select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-000000000081', false);
 set role authenticated;
