@@ -7,6 +7,8 @@ import { useLeague } from '../lib/store';
 import { rpc } from '../lib/supabase';
 import { Crest } from './Crest';
 import { Section, TeamBadge, useAction } from './ui';
+import { ShareButton, useCardBrand } from './ShareButton';
+import { shareCard } from '../lib/shareCard';
 import type { Club } from '../pages/Picks';
 
 export interface SweepClub extends Club { won: number; alive: boolean; holders: number[] }
@@ -23,6 +25,12 @@ export function SweepGame({ gameId, data, status, reload }: { gameId: number; da
   const { busy, run } = useAction();
   const mine = data.field.filter((c) => data.mine.includes(c.id));
   const name = (id: number) => teams.find((t) => t.id === id)?.gm_name ?? 'Someone';
+  const cardBrand = useCardBrand();
+  // what I drew as a picture for the group chat: each club, ticked once it is champion, crossed once out
+  const shareMine = () => shareCard({ kind: 'sheet', eyebrow: 'My sweepstake', brand: cardBrand, who: '', title: `I drew ${mine.length === 1 ? mine[0].short ?? mine[0].name : `${mine.length} clubs`}`,
+    score: data.champion && data.mine.includes(data.champion) ? 'I hold the champion' : mine.length === 1 ? (mine[0].alive ? 'Still in' : 'Out') : `${mine.filter((c) => c.alive).length} of ${mine.length} still in`,
+    rows: mine.map((c) => ({ q: c.name, answer: data.champion === c.id ? 'Champions' : c.alive ? roundsWord(c.won) : 'Out',
+      right: data.champion === c.id ? true : c.alive ? null : false })) }, `I drew ${mine.map((c) => c.name).join(' and ')} in the sweepstake.`);
   const draw = () => run(async () => { await rpc('pool_sweep_draw', { p_game: gameId }); reload(); }, 'The hat is drawn');
 
   return (
@@ -65,6 +73,7 @@ export function SweepGame({ gameId, data, status, reload }: { gameId: number; da
         <div className="card p-4 text-sm text-mute">The hat was drawn before you joined, so you hold no club this time. Cheer on someone else's.</div>
       ) : null}
 
+      {data.drawn && mine.length > 0 && <ShareButton className="btn-ghost w-full" label="Share my draw" make={shareMine} />}
       <Section title={data.drawn ? 'Who holds whom' : 'In the hat'}>
         <div className="card divide-y divide-white/[.05] p-1">
           {data.field.map((c) => (

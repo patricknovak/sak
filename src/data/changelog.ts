@@ -7,7 +7,7 @@ export interface Change { date: string; icon: string; title: string; body: strin
 
 export const CHANGELOG: Change[] = [
   { date: '2026-10-09', icon: '🎩', tag: 'everyone', title: 'The sweepstake', to: '/pools',
-    body: 'The office classic on any playoff: at the first game, everyone in the pool is dealt clubs from the hat at random. Nothing to pick and no skill needed: hold the champion and you win it. The host can draw the hat early, and everyone hears what they drew.' },
+    body: 'The office classic on any playoff: at the first game, everyone in the pool is dealt clubs from the hat at random. Nothing to pick and no skill needed: hold the champion and you win it. The host can draw the hat early, everyone hears what they drew, and your draw shares to the group chat as a picture.' },
   { date: '2026-10-09', icon: '🔥', tag: 'everyone', title: 'The daily streak', to: '/pools',
     body: 'A new pool game on any event with games: pick one winner a day from that day\'s games. A right pick adds one to your run, a wrong one starts it again, and a day off breaks nothing. The longest run wins, you hear before each day\'s first game, and your run shares to the group chat as a picture.' },
   { date: '2026-10-09', icon: '📤', tag: 'everyone', title: 'Share your picks as a picture', to: '/pools',
