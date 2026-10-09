@@ -6,6 +6,8 @@
 export interface Change { date: string; icon: string; title: string; body: string; to?: string; tag?: 'formats' | 'commish' | 'draft' | 'everyone' }
 
 export const CHANGELOG: Change[] = [
+  { date: '2026-10-09', icon: '📋', tag: 'everyone', title: 'Every prop sheet, added up', to: '/leaders',
+    body: 'Play a sheet on every game and the Table keeps a running total: the calls you got right across all of them, with the sheets you won breaking a tie, so a whole World Series of sheets has a winner.' },
   { date: '2026-10-09', icon: '📋', tag: 'commish', title: 'A prop sheet on every game, by itself', to: '/host',
     body: 'Hosts can switch on automatic prop sheets for an event: a sheet opens on each game a day and a half before it starts, so a World Series or NFL pool gets one for every game without anyone opening them by hand.' },
   { date: '2026-10-09', icon: '🏀', tag: 'everyone', title: 'The NBA playoffs are coming', to: '/pools',

@@ -345,7 +345,8 @@ independent review found nothing severe; fixed: a grid on a game called off is m
 can't refund twice), one open sheet a game is a unique index, automatic sheets open only on a series' next game (never
 an "if necessary" one), a live 1st-period call waits for that period's score, the NBA Finals' order never flips and a run
 without the league's seeds sends nothing. The sport centres draw each sport's own line score (quarters, periods,
-overtime; runs, hits and errors for baseball only).
+overtime; runs, hits and errors for baseball only). *Every prop sheet added up (migration 226):* a scoreboard row
+per event once a pool has two sheets on it, the calls right across them, sheets won breaking a tie.
 
 Alongside: the World Series test (the LCS from 11 October, the World Series from 23 October) needs its games started
 in the World Series pool (league 5, the questions only so far), and the Love Is Blind test needs players.

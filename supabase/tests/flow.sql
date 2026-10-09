@@ -5570,6 +5570,9 @@ set role authenticated;
 select pool_auto_sheets_set('nfl', false);
 reset role;
 select pg_temp.expect('off is off', not exists (select 1 from pool_auto_sheets where league_id = :lib));
+select pg_temp.expect('every NFL sheet added up on the scoreboard (migration 226): Hana''s seven, and the Week 11 sheet she won',
+  exists (select 1 from _pool_rows() r where r.game = 'props:nfl' and r.kind = 'props_all' and r.team_id = :hana and r.score >= 7
+          and r.tiebreak = -1 and r.line like '%right on 1 sheet, 1 won' and r.title = 'Every prop sheet · ' || (select name from competitions where id = 'nfl')));
 select set_config('app.league_id', '', false);
 select set_config('request.jwt.claim.sub', '', false);
 select 'automatic sheets', true;
