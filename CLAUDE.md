@@ -31,7 +31,7 @@ Two things in one repo:
   New UI that shows a player uses them rather than linking away. The injury report's timeline (expected return, body
   part, IR list, the write-up) is on `players` (migration 152, written by nhl-sync's injury task) and drawn by
   `InjuryReport`.
-- Lineups: the classic page is My Team (`src/pages/MyTeam.tsx`, its Daily lineups tab `LineupPlanner`); Lineup New
+- Lineups: the classic page is My Team (`src/pages/MyTeam.tsx`, its Daily lineups tab `LineupPlanner`; since 9 October 2026 it opens on a Tonight card drawn with Lineup New's pieces and the kit, with Sit or start, `src/components/SitStart.tsx`, and its Stats compare any or every GM, `TeamCompare`); the live scoreboard's Tonight's points lists every starter team by team; Performance has a Weekly review (`WeeklyReview`, deterministic suggestions from the trade finder and free agents); Lineup New
   (`#/lineup-new`, `src/pages/LineupNew.tsx`, `src/components/lineupnew/`, data in `src/lib/lineupKit.ts`) runs beside it
   for the league to compare (5 October 2026): Day (with What if), Week, League (every team ranked for a night or a week),
   Compare and Insights for any team (others read only); live points refresh every minute (`useDayPoints`), lines come from
