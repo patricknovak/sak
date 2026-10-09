@@ -6,6 +6,8 @@
 export interface Change { date: string; icon: string; title: string; body: string; to?: string; tag?: 'formats' | 'commish' | 'draft' | 'everyone' }
 
 export const CHANGELOG: Change[] = [
+  { date: '2026-10-09', icon: '🏈', tag: 'everyone', title: 'Standings by division', to: '/pools',
+    body: 'The Table in NFL centre now splits into the eight divisions and the two conferences, each leader marked, and Match centre does the same for MLS\'s two conferences. Switch back to the whole league any time.' },
   { date: '2026-10-09', icon: '🏒', tag: 'everyone', title: 'The playoff box pool', to: '/pools',
     body: 'The box pool now runs on the Stanley Cup playoffs too: the boxes are dealt from the sixteen clubs in the first round, on how far each is expected to go, and every playoff game counts all the way to the Cup. When a club is knocked out its players are shaded with nothing more to add. Ready the day the bracket is drawn in April.' },
   { date: '2026-10-09', icon: '🏀', tag: 'everyone', title: 'March Madness is coming', to: '/pools',
