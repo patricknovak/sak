@@ -2,7 +2,7 @@
 // soccer_ingest() writes. The sample items follow API-Football v3's documented shape.
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
-import { afClub, afFixture, espnPlayoffPayload, espnTournamentPayload, gameweekOf } from '../functions/_shared/soccer.ts';
+import { afClub, afFixture, espnFixture, espnPlayoffPayload, espnTournamentPayload, gameweekOf } from '../functions/_shared/soccer.ts';
 
 const sql = fs.readFileSync(new URL('../migrations/20261005000148_soccer.sql', import.meta.url), 'utf8');
 const row = JSON.parse(sql.match(/\$sport\$([\s\S]*?)\$sport\$/)[1]);
@@ -82,3 +82,13 @@ assert.equal(slot('2027:R5:N:0').tbd, true, 'the Final Four waits for its teams'
 assert.equal(t.fixtures.length, 3, 'the First Four is left out');
 assert.ok(!t.fixtures.some((f) => f.home === '90'));
 console.log('ok: March Madness slots by seed and region');
+
+// a weekly game's score by quarter rides along once it has started (migration 216: prop sheets on an NFL week)
+const wk = (state, lines) => ({ id: '9', date: '2026-10-11T17:00:00Z', status: { type: { state, name: state === 'post' ? 'STATUS_FINAL' : state === 'in' ? 'STATUS_IN_PROGRESS' : 'STATUS_SCHEDULED' } },
+  competitions: [{ competitors: [
+    { homeAway: 'home', score: '20', team: { id: '1', displayName: 'Home', abbreviation: 'HOM' }, linescores: lines.map((x) => ({ value: x[0] })) },
+    { homeAway: 'away', score: '17', team: { id: '2', displayName: 'Away', abbreviation: 'AWY' }, linescores: lines.map((x) => ({ value: x[1] })) }] }] });
+assert.deepEqual(espnFixture(wk('post', [[7, 3], [6, 7], [0, 7], [7, 0]]), null, { week: 6, label: 'Week 6', clock: false }).periods,
+  [{ n: 1, home: 7, away: 3 }, { n: 2, home: 6, away: 7 }, { n: 3, home: 0, away: 7 }, { n: 4, home: 7, away: 0 }]);
+assert.deepEqual(espnFixture(wk('pre', []), null, { week: 6, label: 'Week 6', clock: false }).periods, []);
+console.log('ok: a weekly game carries its quarters');

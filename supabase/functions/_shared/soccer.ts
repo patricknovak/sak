@@ -11,6 +11,8 @@ export interface NeutralFixture {
   // what the market expected before kick-off, when the provider carries it: each side's chance with the bookmaker's
   // margin taken out, the home side's spread (negative: favoured) and the total; never a bookmaker's name or link
   odds?: NeutralOdds | null;
+  // the score by period (football's quarters, soccer's halves) once it has started, from the scoreboard's linescores
+  periods?: { n: number; home: number | null; away: number | null }[];
 }
 export interface NeutralOdds { home: number; away: number; draw: number | null; line: number | null; total: number | null }
 
@@ -109,7 +111,15 @@ export function espnFixture(e: Any, ninety?: { home: number; away: number } | nu
     home_pens: num(home.shootoutScore), away_pens: num(away.shootoutScore),
     venue: v.fullName ? [v.fullName, v.address?.city].filter(Boolean).join(', ') : null,
     odds: e.status?.type?.state === 'pre' ? espnOdds(c) : null,
+    periods: started ? espnLines(home, away) : [],
   };
+}
+
+// each period's score from a scoreboard event's linescores (prop sheets and squares read it)
+function espnLines(home: Any, away: Any) {
+  const h: Any[] = home.linescores ?? [], a: Any[] = away.linescores ?? [];
+  return Array.from({ length: Math.max(h.length, a.length) }, (_, j) => ({ n: j + 1,
+    home: h[j] != null ? num(h[j]?.value ?? h[j]?.displayValue) : null, away: a[j] != null ? num(a[j]?.value ?? a[j]?.displayValue) : null }));
 }
 
 // an American price ('-125', '+105') as the chance it implies

@@ -382,7 +382,9 @@ and soccer share it.
    football a side held to 10), a point each, the total as the tiebreak, locked at the start, all settled from the
    score and the score by period at the end of each feed run (`_props_tick`), so the host settles nothing. Offered on
    each game of a series still going in the next week (`pool_event_list`'s `sheets`), one sheet a game; a game the
-   series didn't need ends its sheet with no winner.
+   series didn't need ends its sheet with no winner. *On an NFL week too (migration 216):* ESPN's weekly scoreboard
+   sends each game's quarters (`espnFixture`'s `periods`), `soccer_ingest` writes them and settles the sheets, and any
+   NFL game in the next week takes a sheet ("Week 6: KC at JAX"), offered beside pick'em.
 4. March Madness (March 2027): the bracket with a second chance and the Eliminator. *The bracket's feed built 9 October 2026
    (migration 201):* `ncaam-2027` fills from ESPN in mid-March, 63 slots in bracket order; the second chance and the
    Eliminator are still to come. *The second chance built 9 October 2026 (migration 211):* once a pool's bracket has

@@ -323,7 +323,9 @@ pay on the final and hockey gets no prop sheets until `_shared/nhlPlayoffs.ts` s
 *Hockey's periods, the same day (migration 215):* mlb-sync sends each Stanley Cup game's score by period, worked out
 from the NHL's gamecenter landing (`nhlPeriods`: each period's goals from the running score, a scoreless period 0-0,
 overtime a period, a shootout not; tested on the 2026 Cup Final), for the games on now or over in the last day and a
-half, so hockey grids pay by the period again and prop sheets run on the Stanley Cup.
+half, so hockey grids pay by the period again and prop sheets run on the Stanley Cup. *Prop sheets on an NFL week (migration 216):* the weekly
+feed's quarters ride in with each game (`espnFixture` `periods`, written by `soccer_ingest`, which settles the sheets at
+the end of each run in its own exception block), so a sheet goes on any NFL game in the next week.
 
 Alongside: the World Series test (the LCS from 11 October, the World Series from 23 October) needs its games started
 in the World Series pool (league 5, the questions only so far), and the Love Is Blind test needs players.

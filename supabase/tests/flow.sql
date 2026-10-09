@@ -5408,6 +5408,35 @@ update competitions set active = false where id = 'elim-test';
 select set_config('request.jwt.claim.sub', '', false);
 select 'eliminator', true;
 
+-- ───────────── a prop sheet on an NFL week (migration 216) ─────────────
+-- Week 11, tomorrow: Hana fills a sheet. The home side wins 24-20, 7-3 after the 1st, 17-10 at the half, 10 points in the
+-- 1st quarter, no overtime, nobody held to 10: everything she called but the last.
+reset role;
+select set_config('request.jwt.claim.sub', '', false);
+select set_config('app.league_id', '', false);
+select soccer_ingest('nfl', jsonb_build_object('fixtures', jsonb_build_array(
+  jsonb_build_object('ext_id', 'nfl-211', 'gameweek', 11, 'kickoff', now() + interval '1 day', 'status', 'NS', 'home', 'nf1', 'away', 'nf2'))));
+select id as wkf from fixtures where provider = 'espn' and ext_id = 'nfl-211' \gset
+select pg_temp.expect('an NFL week''s game takes a sheet', exists (select 1 from jsonb_array_elements(_props_games('nfl')) g where (g->>'id')::bigint = :wkf and g->>'label' = 'Week 11'));
+select set_config('app.league_id', :'lib', false);
+select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-000000000081', false);
+set role authenticated;
+select pool_game_start('props', 'nfl', jsonb_build_object('fixture', :wkf)) as wkp \gset
+select pool_game_pick(:wkp, 'props', '{"answers": {"winner": "H", "total": "U", "margin": "1", "first": "H", "half": "H", "early": "O", "extra": "N", "held": "Y"}, "total": 45}');
+reset role;
+select pg_temp.expect('in football''s words, from the week', (select title like 'Props · Week 11: %' and rules->'questions'->5->>'q' = '1st-quarter points: over or under 9.5?' from pool_games where id = :wkp));
+select set_config('request.jwt.claim.sub', '', false);
+select soccer_ingest('nfl', jsonb_build_object('fixtures', jsonb_build_array(
+  jsonb_build_object('ext_id', 'nfl-211', 'gameweek', 11, 'kickoff', now() - interval '4 hours', 'status', 'FT', 'home', 'nf1', 'away', 'nf2',
+    'home_score', 24, 'away_score', 20, 'home_ft', 24, 'away_ft', 20,
+    'periods', '[{"n": 1, "home": 7, "away": 3}, {"n": 2, "home": 10, "away": 7}, {"n": 3, "home": 0, "away": 7}, {"n": 4, "home": 7, "away": 3}]'::jsonb))));
+select pg_temp.expect('the quarters are in, and the sheet settles itself: seven of eight',
+  (select count(*) = 4 from fixture_periods where fixture_id = :wkf)
+  and (select status = 'done' and winners = array[:hana] from pool_games where id = :wkp)
+  and (select points = 7 and tiebreak = 1 from _pool_game_table(:wkp) where team_id = :hana));
+select set_config('request.jwt.claim.sub', '', false);
+select 'nfl week sheet', true;
+
 -- ───────────── the Stanley Cup playoffs as series (migration 191) ─────────────
 -- The 2026 playoffs as mlb-sync files them from the NHL's bracket (logos, venues and details left out): every series'
 -- result as the NHL had it, and a bracket from the first round, the letters' order making the tree.
