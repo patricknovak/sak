@@ -320,8 +320,10 @@ second-chance bracket (211), NFL centre's box scores (nhl-hub) and the Eliminato
 independent review of 200 to 212 (213 and 214: a sheet's calls are always the server's and a sheet has no rules to change;
 `sport_ingest` runs squares and sheets in their own exception blocks so a pool game can never stop the feed; hockey grids
 pay on the final and hockey gets no prop sheets until `_shared/nhlPlayoffs.ts` sends the score by period), PR #244.
-*Next for hockey:* send each Stanley Cup game's score by period from the NHL's gamecenter (its linescore) through
-`sport_ingest`, then reopen 'periods' for hockey grids and prop sheets.
+*Hockey's periods, the same day (migration 215):* mlb-sync sends each Stanley Cup game's score by period, worked out
+from the NHL's gamecenter landing (`nhlPeriods`: each period's goals from the running score, a scoreless period 0-0,
+overtime a period, a shootout not; tested on the 2026 Cup Final), for the games on now or over in the last day and a
+half, so hockey grids pay by the period again and prop sheets run on the Stanley Cup.
 
 Alongside: the World Series test (the LCS from 11 October, the World Series from 23 October) needs its games started
 in the World Series pool (league 5, the questions only so far), and the Love Is Blind test needs players.
