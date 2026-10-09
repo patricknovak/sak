@@ -63,7 +63,8 @@ Two things in one repo:
   public Stats API into `series`, `fixtures` and `fixture_periods` through `sport_ingest`, and the Stanley Cup playoffs from
   the NHL's bracket for competitions with provider 'nhl-api', migration 191; platform key only; for testing, a
   licensed feed replaces it, docs/POOL-TYPES.md §8; `sport_ingest` ends by drawing and paying any grid of squares on the
-  event, `_squares_tick`, migration 167). Shared code in `supabase/functions/_shared`.
+  event, `_squares_tick`, migration 167; a platform admin fixes a game the feed got wrong from the Platform page,
+  `platform_game_fix`, and the feed leaves it alone until handed back, migration 206). Shared code in `supabase/functions/_shared`.
 - Scheduler: pg_cron jobs call the edge functions through pg_net with the anon key. Job names: nhl-scores
   (gated by `_scores_due()`), nhl-gameday, nhl-injuries, nhl-schedule, season-schedule, nhl-news,
   nhl-players, nhl-players-pregame, nhl-standings, nhl-corrections, nhl-corrections-deep, projections,

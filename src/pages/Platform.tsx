@@ -14,6 +14,7 @@ import { Wordmark } from '../components/Brand';
 import { Checklist, type Check } from '../components/Readiness';
 import { appLink, leagueUrl } from '../lib/host';
 import { PoolIdeas, PoolTest } from '../components/PoolTest';
+import { GameFix } from '../components/GameFix';
 
 interface Row {
   league_id: number; slug: string; name: string; short_name: string; status: 'setup' | 'active' | 'archived'; created_at: string;
@@ -63,6 +64,7 @@ export default function Platform() {
 
       <PoolIdeas />
 
+      <GameFix />
       <Tournaments />
 
       <Section title="Leagues">

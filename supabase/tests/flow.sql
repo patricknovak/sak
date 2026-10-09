@@ -5175,6 +5175,56 @@ reset role;
 select set_config('request.jwt.claim.sub', '', false);
 select 'series split', true;
 
+-- ───────────── a postseason game by hand (migration 206) ─────────────
+-- A best-of-3 whose feed stalls: a platform admin enters Game 1 (with its innings) and Game 2, the series is won, and
+-- the feed's late, wrong Game 2 is ignored until the game is handed back.
+reset role;
+select set_config('request.jwt.claim.sub', '', false);
+select set_config('app.league_id', '', false);
+insert into competitions (id, sport, name, short, season, provider, ext_id, ext_season, active, format)
+values ('fix-test', 'mlb', 'Fix test', 'FX', '2026', 'mlb', 'fx', '2026', true, 'series') on conflict (id) do nothing;
+select sport_ingest('fix-test', jsonb_build_object(
+  'clubs', '[{"ext_id": "x91", "name": "Fix High", "short": "FXH"}, {"ext_id": "x92", "name": "Fix Low", "short": "FXL"}]'::jsonb,
+  'series', jsonb_build_array(jsonb_build_object('ext_id', 'fix:1', 'round', 1, 'label', 'Fix Series', 'short', 'FS', 'best_of', 3,
+    'high', 'x91', 'low', 'x92', 'starts_at', now() - interval '1 day', 'tbd', false, 'sort', 1)),
+  'fixtures', jsonb_build_array(
+    jsonb_build_object('ext_id', 'fx1', 'series', 'fix:1', 'game_no', 1, 'kickoff', now() - interval '1 day', 'state', 'live', 'home', 'x91', 'away', 'x92', 'home_score', 1, 'away_score', 0),
+    jsonb_build_object('ext_id', 'fx2', 'series', 'fix:1', 'game_no', 2, 'kickoff', now() - interval '3 hours', 'state', 'scheduled', 'home', 'x92', 'away', 'x91'))));
+select id as fx1 from fixtures where provider = 'mlb' and ext_id = 'fx1' \gset
+select id as fx2 from fixtures where provider = 'mlb' and ext_id = 'fx2' \gset
+select pg_temp.as_team(2);
+set role authenticated;
+select pg_temp.raises('only a platform admin fixes a game', format('select platform_game_fix(%s, 3, 1, %L, null, %L)', :fx1, 'final', 'feed stalled'), 'Platform admins only');
+reset role;
+select pg_temp.as_team(1);
+set role authenticated;
+select pg_temp.raises('a reason goes on the record', format('select platform_game_fix(%s, 3, 1)', :fx1), 'Say why');
+select pg_temp.raises('a playoff game has a winner', format('select platform_game_fix(%s, 2, 2, %L, null, %L)', :fx1, 'final', 'feed stalled'), 'has a winner');
+select platform_game_fix(:fx1, 3, 1, 'final', '[{"n": 1, "home": 1, "away": 0}, {"n": 2, "home": 2, "away": 1}]', 'feed stalled after the 7th');
+select platform_game_fix(:fx2, 2, 5, 'final', null, 'feed stalled');
+reset role;
+select pg_temp.expect('the series follows: two wins for the high seed, final, and the games are marked',
+  (select state = 'final' and high_wins = 2 and low_wins = 0 and winner = high_club from series where provider = 'mlb' and ext_id = 'fix:1')
+  and (select detail->'by_hand'->>'reason' = 'feed stalled after the 7th' from fixtures where id = :fx1)
+  and (select count(*) = 2 from fixture_periods where fixture_id = :fx1));
+-- the feed comes back with a wrong Game 2: it is left alone
+select sport_ingest('fix-test', jsonb_build_object('fixtures', jsonb_build_array(
+  jsonb_build_object('ext_id', 'fx2', 'series', 'fix:1', 'game_no', 2, 'kickoff', now() - interval '3 hours', 'state', 'final', 'home', 'x92', 'away', 'x91', 'home_score', 9, 'away_score', 0))));
+select pg_temp.expect('the feed leaves a game set by hand alone', (select home_score = 2 and away_score = 5 from fixtures where id = :fx2)
+  and (select winner = high_club from series where provider = 'mlb' and ext_id = 'fix:1'));
+select pg_temp.as_team(1);
+set role authenticated;
+select platform_game_fix(:fx2, null, null, null);
+reset role;
+select sport_ingest('fix-test', jsonb_build_object('fixtures', jsonb_build_array(
+  jsonb_build_object('ext_id', 'fx2', 'series', 'fix:1', 'game_no', 2, 'kickoff', now() - interval '3 hours', 'state', 'final', 'home', 'x92', 'away', 'x91', 'home_score', 9, 'away_score', 0))));
+select pg_temp.expect('handed back, the feed writes it again and the series follows',
+  (select home_score = 9 and not (detail ? 'by_hand') from fixtures where id = :fx2)
+  and (select state = 'live' and high_wins = 1 and low_wins = 1 and winner is null from series where provider = 'mlb' and ext_id = 'fix:1'));
+update competitions set active = false where id = 'fix-test';
+select set_config('request.jwt.claim.sub', '', false);
+select 'game by hand', true;
+
 -- ───────────── the Stanley Cup playoffs as series (migration 191) ─────────────
 -- The 2026 playoffs as mlb-sync files them from the NHL's bracket (logos, venues and details left out): every series'
 -- result as the NHL had it, and a bracket from the first round, the letters' order making the tree.

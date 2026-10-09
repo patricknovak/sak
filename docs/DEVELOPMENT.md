@@ -188,8 +188,11 @@ they lock (`pool_picks`), results graded on read from the shared event tables, a
    a member from the site covers series and the ranking too (8 October). *Every game on fixtures, the same day
    (migration 177):* last one standing and Call the score settle per pool from the pool's own result, the host's result
    can carry a score, and `pool_fixture_result_set` settles a match for every game the pool runs on it (Settle by hand
-   on the Survivor and Call the score pages). Still to come: settling a series or a grid by hand (the MLB feed has not
-   needed it).
+   on the Survivor and Call the score pages). *A postseason game by hand, 9 October 2026 (migration 206):* a series is
+   shared by every pool on it, so its fix is the platform's: `platform_game_fix` (the Platform page's Fix a game card,
+   the last three days' games of every series competition) sets a game's score, state and score by period with a
+   reason, marks it `fixtures.detail.by_hand`, and reruns the ingest's series step, so the series, every pool on it and
+   the squares follow; `sport_ingest` leaves a game marked by hand alone until it is handed back.
 4. **Contract the old kinds.** Last one standing and Call the score become `pool_games` kinds (`survivor`, `score`),
    their tables and pages read through the engine, the old tables retired once the numbers match. The engine's door is
    already shared (migration 173: `pool_game_start` and a new pool's games start a survivor); the tables are next.
@@ -303,7 +306,7 @@ engine's door). Beside them: NFL
 centre and Match centre, the market's view on each match, results by hand for every game on fixtures, the rules
 written down, last calls and second reminders. Next, in order: the box pool's playoffs version, then the contraction
 (item 4). *9 October added* Super Bowl squares by the quarter (migration 200), March Madness (201), the box pool's
-playoffs version (202), the contraction (203 and 204) and series picks in the prediction log (205), PR #244.
+playoffs version (202), the contraction (203 and 204), series picks in the prediction log (205) and a postseason game by hand (206), PR #244.
 
 Alongside: the World Series test (the LCS from 11 October, the World Series from 23 October) needs its games started
 in the World Series pool (league 5, the questions only so far), and the Love Is Blind test needs players.
