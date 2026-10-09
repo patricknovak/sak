@@ -4871,6 +4871,13 @@ select pg_temp.raises('one second chance from a round', $$select pool_game_start
 reset role;
 select pg_temp.expect('a second-chance bracket from the next round, and the chat hears', (select title = 'Second-chance bracket' and (rules->>'from_round')::int = 2 from pool_games where id = :bg2)
   and exists (select 1 from messages where league_id = :lib and body like '🏆 The second-chance bracket is open, from the %: a fresh bracket for everyone, busted or not.%'));
+-- the games called on a series still going (migration 228): Akron in six stays possible while Dayton has two wins, not three
+update pool_picks set pick = jsonb_set(pick, '{lengths}', pick->'lengths' || jsonb_build_object(:s1::text, 6)) where game_id = :bg and team_id = :hana and thing = 'bracket';
+update series set state = 'live', high_wins = case when high_club = :ak then 1 else 2 end, low_wins = case when high_club = :ak then 2 else 1 end where id = :s1;
+select possible as p_two from _bracket_table(:bg) where team_id = :hana \gset
+update series set high_wins = case when high_club = :ak then 1 else 3 end, low_wins = case when high_club = :ak then 3 else 1 end where id = :s1;
+select pg_temp.expect('Akron in six goes once Dayton has three', (select possible from _bracket_table(:bg) where team_id = :hana) = :p_two - 1);
+update series set state = 'scheduled', high_wins = 0, low_wins = 0 where id = :s1;
 update pool_games set status = 'done' where id = :bg2;
 update pool_games set status = 'done' where id = :bg;
 select set_config('app.league_id', '', false);
@@ -5594,6 +5601,14 @@ select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-000000000081
 select pg_temp.expect('every NFL sheet added up on the scoreboard (migration 226): Hana''s seven, and the Week 11 sheet she won',
   exists (select 1 from _pool_rows() r where r.game = 'props:nfl' and r.kind = 'props_all' and r.team_id = :hana and r.score >= 7
           and r.tiebreak = -1 and r.line like '%right on 1 sheet, 1 won' and r.title = 'Every prop sheet · ' || (select name from competitions where id = 'nfl')));
+-- a second sheet in (tonight's game): two sheets on the row, its eight calls still possible on top
+select (select possible from _pool_rows() r where r.game = 'props:nfl' and r.team_id = :hana) as allposs \gset
+set role authenticated;
+select pool_game_pick((select id from pool_games where league_id = :lib and kind = 'props' and (rules->>'fixture')::bigint = :af1),
+  'props', '{"answers": {"winner": "H", "total": "O", "margin": "8", "first": "H", "half": "H", "early": "O", "extra": "N", "held": "N"}, "total": 50}');
+reset role;
+select pg_temp.expect('two sheets added up', exists (select 1 from _pool_rows() r where r.game = 'props:nfl' and r.team_id = :hana
+  and r.line like '%right on 2 sheets, 1 won' and r.score >= 7 and r.possible = :allposs));
 select set_config('app.league_id', '', false);
 select set_config('request.jwt.claim.sub', '', false);
 select 'automatic sheets', true;
