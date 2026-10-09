@@ -178,7 +178,7 @@ give the pool a home for following the sport):**
   scoring presets with every knob in words, frozen at the first lock; `series` and `fixture_periods` beside
   `competitions`, `clubs` and `fixtures`. Kinds in order: series pick'em with the length, confidence by team, squares,
   then weekly pick'em and confidence, the bracket with a second chance, the player pool (draft and box). The survivor
-  and Call the score move onto it later (expand, then contract). A host settles anything the feed doesn't cover.
+  and Call the score moved onto it on 9 October 2026 (migrations 203 and 204; the old tables wait to be dropped). A host settles anything the feed doesn't cover.
   *Built (migration 165, live 5 October 2026): `series`, `fixture_periods`, `sport_ingest` (any adapter's one write),
   `pool_games` and `pool_picks`; Pick the series (winner and length, Classic 1-2-4-8 with 1-1-2-3, Flat, or MLB.com's both
   or nothing; a pick locks at its Game 1's first pitch; the tiebreaker is the final game's runs) and Rank the teams (the

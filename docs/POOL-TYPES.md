@@ -225,7 +225,8 @@ Every type is a pick, a lock, a grader and a scoring profile. So:
   score). The bracket is the `series` rows with their `feeds_into` links. MLB, the NFL and the NBA arrive as new
   providers on the same tables; the NHL keeps its own tables until the sport split moves it (`docs/EXPANSION.md` §6).
 - **Expand, then contract:** `survivors` and `predictors` stay as they are and become `pool_games` of kind `survivor`
-  and `score` in a later change, once the new tables carry the World Series test.
+  and `score` in a later change, once the new tables carry the World Series test. *Done 9 October 2026 (migrations 203
+  and 204): both are `pool_games` kinds now, the old tables copied across and left for a later drop.*
 - **One scoreboard over every kind** (built 8 October 2026, migration 169). Whatever a game's rules, its table reads
   into one shape through `_pool_rows()`: per member, a `score` (highest first), `possible` (the most they can still
   finish with, or null), `alive` (still in, for elimination games; ranked first), a `tiebreak` (lowest first) and a

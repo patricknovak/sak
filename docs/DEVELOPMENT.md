@@ -59,7 +59,9 @@ Reviewed 3 October 2026, after migrations 81 to 85 (Super Pools B1 to B4); revie
 `player_games.fpts` and `players.proj / last_fp / rank` (SaK's numbers kept for old readers), `stat_corrections.old_fpts
 / new_fpts`, the `*_before_*` function signatures renamed out of the way, `run_auto_lineups` (superseded by
 nhl-sync's auto-pilot), `src/data/history.ts` (section 4; no page reads it now, only the generator script), `fund.id` (the
-fund is keyed by league since migration 95).
+fund is keyed by league since migration 95). And, since migrations 203 and 204, the old `survivors`, `survivor_picks`,
+`predictors` and `predictor_picks` tables (copied into `pool_games` and `pool_picks`, read by nothing; dropping them needs
+Patrick's yes) and `survivor_start_before_end`.
 
 ## 4. The knowledge base: every league makes every league smarter
 
@@ -189,6 +191,14 @@ they lock (`pool_picks`), results graded on read from the shared event tables, a
 4. **Contract the old kinds.** Last one standing and Call the score become `pool_games` kinds (`survivor`, `score`),
    their tables and pages read through the engine, the old tables retired once the numbers match. The engine's door is
    already shared (migration 173: `pool_game_start` and a new pool's games start a survivor); the tables are next.
+   *Built 9 October 2026 (migrations 203 and 204):* a survivor is a `pool_games` row of kind 'survivor' (its first and
+   last rounds in `rules`) with a `pool_picks` row per round ('gw:<n>': the club, its match and how it came out); Call the
+   score is kind 'score' (`posted` holds the rounds the pool has heard) with a row per call ('f:<match>': the round, the
+   score, the banker, its points). Every function reads them through `pool_survivors` / `pool_survivor_picks` and
+   `pool_predictors` / `pool_predictor_picks`, views in the old tables' shape (the pick views for the functions only, so
+   calls stay hidden until they lock), and the site's calls are unchanged. The old rows were copied across (one live
+   survivor, league 6; it kept its id and its board reads the same) and the scoreboard keeps both on their own branch
+   and page. The old tables stay, read by nothing, until Patrick says they can go (the debt list above).
 5. **The learning loop.** Each lock writes the pool's pick split to the prediction log as a forecast, scored when
    the result is in, so we learn how good a group's consensus is, sport by sport.
    *Built for pick'em 8 October 2026 (migration 174):* at kick-off each pick'em match with three picks or more and one
@@ -287,8 +297,8 @@ the series and Rank the teams, item 7's bracket built on series and its box pool
 engine's door). Beside them: NFL
 centre and Match centre, the market's view on each match, results by hand for every game on fixtures, the rules
 written down, last calls and second reminders. Next, in order: the box pool's playoffs version, then the contraction
-(item 4). *9 October added* Super Bowl squares by the quarter (migration 200), March Madness (201) and the box pool's
-playoffs version (202), PR #244. Next: the contraction (item 4).
+(item 4). *9 October added* Super Bowl squares by the quarter (migration 200), March Madness (201), the box pool's
+playoffs version (202) and the contraction (203 and 204), PR #244.
 
 Alongside: the World Series test (the LCS from 11 October, the World Series from 23 October) needs its games started
 in the World Series pool (league 5, the questions only so far), and the Love Is Blind test needs players.
