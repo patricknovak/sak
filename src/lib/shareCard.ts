@@ -8,7 +8,7 @@ export type ShareCard =
   | { kind: 'won'; brand: CardBrand; who: string; question: string; answer: string; answerColor: string; won: number; staked: number }
   | { kind: 'leaders'; brand: CardBrand; title: string; rows: { name: string; worth: number; color: string; me?: boolean; rank?: number; label?: string }[] }
   // a prop sheet: the game, each call with the answer given and whether it came in (null while it's still to play)
-  | { kind: 'sheet'; brand: CardBrand; who: string; title: string; score: string; rows: { q: string; answer: string; right: boolean | null }[] };
+  | { kind: 'sheet'; brand: CardBrand; who: string; title: string; score: string; rows: { q: string; answer: string; right: boolean | null }[]; eyebrow?: string };
 
 const W = 1080, H = 1350;
 const DISPLAY = "'Barlow Condensed', 'Inter', system-ui, sans-serif", SANS = "'Inter', system-ui, sans-serif";
@@ -53,7 +53,7 @@ export async function drawCard(c: ShareCard): Promise<Blob> {
   const eyebrow = (t: string, y: number, color = col) => { ctx.font = `800 34px ${SANS}`; ctx.fillStyle = color; ctx.fillText(t.toUpperCase().split('').join(String.fromCharCode(8202)), 80, y); };
 
   if (c.kind === 'sheet') {
-    eyebrow(c.who ? `${c.who}’s sheet` : 'My sheet', 250);
+    eyebrow(c.eyebrow ?? (c.who ? `${c.who}’s sheet` : 'My sheet'), 250);
     const t = fit(ctx, c.title, W - 160, 2, 64, 44, (px) => `800 ${px}px ${DISPLAY}`);
     ctx.fillStyle = '#ffffff';
     t.lines.forEach((l, i) => ctx.fillText(l, 80, 330 + i * t.px * 1.02));

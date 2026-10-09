@@ -7,6 +7,8 @@ import { Check, Crown, Lock, Minus, Plus, Trophy } from 'lucide-react';
 import { useLeague } from '../lib/store';
 import { rpc } from '../lib/supabase';
 import { Section, TeamBadge, useAction } from './ui';
+import { ShareButton, useCardBrand } from './ShareButton';
+import { shareCard } from '../lib/shareCard';
 import { Crest } from './Crest';
 import { lastGameOf, type Club, type Words } from '../pages/Picks';
 
@@ -78,6 +80,20 @@ export function BracketGame({ gameId, data, status, reload, actAs, words }: {
     setDraft(null); setLensDraft(null); reload();
   }, actAs ? `${actAs.name}'s bracket is in` : 'Your bracket is in');
   const tbv = runs ?? data.tiebreak.mine ?? words.guess;
+  const cardBrand = useCardBrand();
+  // my bracket as a picture, once it locks: the final first, then each round down, as far as eight picks go
+  const shareMine = () => {
+    const rows = [...data.series].sort((a, b) => b.round - a.round || a.pos - b.pos).slice(0, 8).map((s) => {
+      const pick = saved[String(s.id)], c = clubs.get(pick);
+      const decided = s.state === 'final' && s.winner != null;
+      return { q: s.high && s.low ? `${s.short ?? s.label} · ${s.high.short ?? s.high.name} v ${s.low.short ?? s.low.name}` : s.label, answer: c?.short ?? c?.name ?? '–', right: decided ? s.winner === pick : out.has(pick) ? false : null };
+    });
+    const ch = final ? clubs.get(saved[String(final.id)] ?? -1) : undefined;
+    const hits = data.series.filter((s) => s.state === 'final' && s.winner != null && s.winner === saved[String(s.id)]).length;
+    return shareCard({ kind: 'sheet', eyebrow: 'My bracket', brand: cardBrand, who: '', title: ch ? `${ch.name} to win it all` : 'My bracket',
+      score: `${hits} right so far`, rows },
+      ch ? `My bracket has ${ch.name} all the way.` : 'My bracket.');
+  };
 
   return (
     <div className="space-y-4">
@@ -173,6 +189,8 @@ export function BracketGame({ gameId, data, status, reload, actAs, words }: {
           </button>
         </div>
       )}
+
+      {data.locked && !actAs && data.mine && <ShareButton className="btn-ghost w-full" label="Share my bracket" make={shareMine} />}
 
       {data.champions && data.champions.length > 0 && (
         <Section title="Everyone's champion">
