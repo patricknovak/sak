@@ -421,10 +421,18 @@ function GameTable({ board }: { board: GameBoard }) {
 export function PoolGameCards() {
   const { me } = useLeague();
   const { games } = usePoolGames();
+  const [showDone, setShowDone] = useState(false);
   if (!games?.length) return null;
+  // what waits on you first (the soonest lock first), then the rest still going; finished games fold away once there
+  // are a few (a sheet on every World Series game adds up)
+  const lockAt = (g: PoolGame) => (g.next_lock ? Date.parse(g.next_lock) : Infinity);
+  const open = games.filter((g) => g.status === 'open')
+    .sort((a, b) => Number(b.to_pick > 0) - Number(a.to_pick > 0) || lockAt(a) - lockAt(b) || a.id - b.id);
+  const done = games.filter((g) => g.status !== 'open').sort((a, b) => b.id - a.id);
+  const fold = done.length > 2 && !showDone;
   return (
     <div className="grid gap-3 md:grid-cols-2">
-      {games.map((g) => {
+      {[...open, ...(fold ? [] : done)].map((g) => {
         const Icon = ICON[g.kind] ?? Swords;
         return (
           <Link key={g.id} to={`/picks?g=${g.id}`} className="card-hero flex items-center gap-3 p-4 transition hover:border-gold/40">
@@ -439,6 +447,11 @@ export function PoolGameCards() {
           </Link>
         );
       })}
+      {done.length > 2 && (
+        <button type="button" onClick={() => setShowDone(!showDone)} className="rounded-2xl border border-white/[.07] bg-white/[.03] px-4 py-3 text-left text-sm font-semibold text-slate-300 hover:text-white md:col-span-2">
+          {showDone ? 'Hide the finished games' : `Show ${done.length} finished games`}
+        </button>
+      )}
     </div>
   );
 }
@@ -446,7 +459,9 @@ export function PoolGameCards() {
 export default function Picks() {
   const { me, teams } = useLeague();
   const [params, setParams] = useSearchParams();
-  const { games } = usePoolGames();
+  const { games: listed } = usePoolGames();
+  // games still going first (one waiting on you first of all), the finished ones after
+  const games = listed ? [...listed].sort((a, b) => Number(a.status !== 'open') - Number(b.status !== 'open') || Number(b.to_pick > 0) - Number(a.to_pick > 0) || a.id - b.id) : listed;
   const gid = Number(params.get('g')) || games?.[0]?.id || null;
   const [board, setBoard] = useState<GameBoard | null | undefined>(undefined);
   const [actAs, setActAs] = useState<{ team: number; name: string } | null>(null);
