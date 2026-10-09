@@ -109,6 +109,8 @@ continue alongside: the shadow-league gate runs to 10 October, Cloudflare hostin
    on 3 October in both leagues (225.10 points each side, no team off by a hundredth); the shadow's Garry posted only in
    its own chat, its costs were metered to league 2 ($0.0067 over 5 calls), and its notifications went to its own teams,
    which have no owners or phones, so no SaK GM heard anything. The gate needs a week of such days (to 10 October).
+   *Six days held (checked 9 October):* every day from 3 to 8 October matched team by team, no team off by a hundredth
+   (3 October now reads 226.10 on both sides after a stat correction); 9 October closes the week.
 4. **The prediction log**, small and early (migration 87, built): `predictions`, written each morning for every
    rostered player playing that night (`predict_tonight`) and scored the next morning on the league's own points
    (`score_predictions`), with `prediction_accuracy` by week and `book_calibration` (the Book's odds against what
@@ -205,6 +207,9 @@ they lock (`pool_picks`), results graded on read from the shared event tables, a
    favourite writes `pool_split` (the favourite's share, made at kick-off), scored at the final whistle by the pool's
    own result (a host's ruling re-scores it); `crowd_calibration()` reads it by sport and split, every pool's for a
    platform admin, on the Calibration page ("The crowd"). Series picks and the survivor are next on the same log.
+   *Series picks, 9 October 2026 (migration 205):* at a series' first game each Pick the series game on it writes
+   `pool_split` (the club most of the pool picked and its share; three picks or more, no even split), scored when the
+   series is over; the Calibration page counts them with the matches. The survivor's picks are next.
    *The market beside it, the same day (migration 178):* soccer-sync keeps ESPN's pre-match lines on each match as the
    market's view (each side's chance with the margin out, the spread, the total; no bookmaker, no link), frozen at
    kick-off; the crowd's forecast records what the market gave its favourite, and Calibration shows the two side by side.
@@ -298,7 +303,7 @@ engine's door). Beside them: NFL
 centre and Match centre, the market's view on each match, results by hand for every game on fixtures, the rules
 written down, last calls and second reminders. Next, in order: the box pool's playoffs version, then the contraction
 (item 4). *9 October added* Super Bowl squares by the quarter (migration 200), March Madness (201), the box pool's
-playoffs version (202) and the contraction (203 and 204), PR #244.
+playoffs version (202), the contraction (203 and 204) and series picks in the prediction log (205), PR #244.
 
 Alongside: the World Series test (the LCS from 11 October, the World Series from 23 October) needs its games started
 in the World Series pool (league 5, the questions only so far), and the Love Is Blind test needs players.

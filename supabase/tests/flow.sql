@@ -5133,6 +5133,48 @@ update players set status = 'unrostered' where id between 990001 and 990025;
 select set_config('request.jwt.claim.sub', '', false);
 select 'box pool playoffs', true;
 
+-- ───────────── the pool's split on a series (migration 205) ─────────────
+-- A best-of-7 a day out: Hana and Fern take the high seed, Lou the low. At the first pitch the pool's split goes in the
+-- log (two in three for the high seed); the low seed wins it, so the favourite was wrong.
+reset role;
+select set_config('request.jwt.claim.sub', '', false);
+select set_config('app.league_id', '', false);
+insert into competitions (id, sport, name, short, season, provider, ext_id, ext_season, active, format)
+values ('split-test', 'mlb', 'Split test', 'ST', '2026', 'mlb', 'st', '2026', true, 'series') on conflict (id) do nothing;
+select sport_ingest('split-test', jsonb_build_object(
+  'clubs', '[{"ext_id": "s91", "name": "Split High", "short": "SPH"}, {"ext_id": "s92", "name": "Split Low", "short": "SPL"}]'::jsonb,
+  'series', jsonb_build_array(jsonb_build_object('ext_id', 'split:1', 'round', 1, 'label', 'Split Series', 'short', 'SS', 'best_of', 7,
+    'high', 's91', 'low', 's92', 'starts_at', now() + interval '1 day', 'tbd', false, 'sort', 1)),
+  'fixtures', '[]'::jsonb));
+select id as sps from series where ext_id = 'split:1' \gset
+select high_club as sph, low_club as spl from series where id = :sps \gset
+select set_config('app.league_id', :'lib', false);
+select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-000000000081', false);
+set role authenticated;
+select pool_game_start('series', 'split-test', '{"preset": "classic"}') as spg \gset
+select pool_game_pick(:spg, 's:' || :sps, jsonb_build_object('winner', :sph, 'games', 5));
+select pool_host_pick(:spg, :lou, jsonb_build_object('thing', 's:' || :sps, 'pick', jsonb_build_object('winner', :spl, 'games', 7)));
+reset role;
+select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-000000000082', false);
+set role authenticated;
+select pool_game_pick(:spg, 's:' || :sps, jsonb_build_object('winner', :sph, 'games', 6));
+reset role;
+select set_config('request.jwt.claim.sub', '', false);
+select pg_temp.expect('nothing is written before the first pitch', not exists (select 1 from predictions where kind = 'pool_split' and (subject->>'game')::bigint = :spg));
+update series set state = 'live', starts_at = now() - interval '1 hour' where id = :sps;
+select pg_temp.expect('at the first pitch the split is in the log: the high seed, two in three',
+  (select predicted = 0.667 and status = 'open' and basis = 'mlb' and (detail->>'fav')::bigint = :sph and (detail->>'picks')::int = 3
+   from predictions where kind = 'pool_split' and subject = jsonb_build_object('game', :spg, 'series', :sps)));
+update series set state = 'final', winner = low_club, low_wins = 4, high_wins = 2 where id = :sps;
+select pg_temp.expect('the low seed wins it: the favourite was wrong',
+  (select status = 'scored' and outcome = 0 and error = -0.667 from predictions where kind = 'pool_split' and subject = jsonb_build_object('game', :spg, 'series', :sps)));
+select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-000000000081', false);
+set role authenticated;
+select pg_temp.expect('the pool reads it back with its matches', exists (select 1 from crowd_calibration() where sport = 'mlb' and bucket = 0.6));
+reset role;
+select set_config('request.jwt.claim.sub', '', false);
+select 'series split', true;
+
 -- ───────────── the Stanley Cup playoffs as series (migration 191) ─────────────
 -- The 2026 playoffs as mlb-sync files them from the NHL's bracket (logos, venues and details left out): every series'
 -- result as the NHL had it, and a bracket from the first round, the letters' order making the tree.
