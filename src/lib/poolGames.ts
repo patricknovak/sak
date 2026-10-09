@@ -37,13 +37,13 @@ export const SIZES: { key: 5 | 10; label: string; line: string }[] = [
 // what a grid can pay on, by sport (migration 200): its periods, or the final score only; the first is the default
 export const PAYS: { key: SquaresPays; label: string; line: string; sports: string[] }[] = [
   { key: 'innings', label: '3rd, 6th, final', line: 'Each game pays three times: 25% after the 3rd, 25% after the 6th, 50% on the final score.', sports: ['mlb'] },
-  { key: 'quarters', label: 'Every quarter', line: 'Pays four times: 20% after the 1st quarter, 20% at the half, 20% after the 3rd quarter and 40% on the final score.', sports: ['nfl'] },
+  { key: 'quarters', label: 'Every quarter', line: 'Pays four times a game: 20% after the 1st quarter, 20% at the half, 20% after the 3rd quarter and 40% on the final score.', sports: ['nfl', 'nba'] },
   { key: 'periods', label: 'Every period', line: 'Each game pays three times: 25% after the 1st period, 25% after the 2nd, 50% on the final score.', sports: ['nhl'] },
   { key: 'final', label: 'Final score', line: 'Each game pays once, on its final score.', sports: [] },
 ];
 export const paysFor = (sport: string | null | undefined) => PAYS.filter((p) => !p.sports.length || p.sports.includes(sport ?? ''));
 // what starts a game, by sport, for the grid's lock line
-export const START_WORD: Record<string, string> = { mlb: 'first pitch', nfl: 'kickoff', nhl: 'puck drop' };
+export const START_WORD: Record<string, string> = { mlb: 'first pitch', nfl: 'kickoff', nhl: 'puck drop', nba: 'tip-off', ncaab: 'tip-off' };
 
 // every grid an event offers: its series, then an NFL week's games, each a series of one
 export const eventGrids = (e: PoolEvent): Grid[] => [...(e.grids ?? []), ...(e.game_grids ?? []).map((g) => ({

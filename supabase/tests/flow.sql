@@ -5670,9 +5670,13 @@ select pg_temp.expect('the event offers the series, the ranking and a bracket fr
   exists (select 1 from jsonb_array_elements(pool_event_list()) e where e->>'competition' = 'nba-post-2027'
           and e->'kinds' ?& array['series', 'rank', 'bracket'] and (e->>'open_round')::int = 1));
 select pool_game_start('bracket', 'nba-post-2027', '{}'::jsonb) as nbab \gset
+-- a grid on a first-round series pays by the quarter, every game (migration 221)
+select pool_game_start('squares', 'nba-post-2027', jsonb_build_object('series', (select id from series where competition = 'nba-post-2027' and sort = 1))) as nbasq \gset
 reset role;
 select pg_temp.expect('a bracket on it, its tiebreaker the Finals'' points up to 300', (select kind = 'bracket' and (rules->>'from_round')::int = 1 from pool_games where id = :nbab)
   and _score_cap('nba-post-2027') = 300);
+select pg_temp.expect('NBA squares pay by the quarter, every game', (select rules->>'pays' = 'quarters' and rules->'points' = '[1, 2, 3, 0]'::jsonb from pool_games where id = :nbasq)
+  and exists (select 1 from messages where league_id = :lib and body like '🔲 East 1st Round squares are open:%after the 1st quarter, at the half, after the 3rd quarter and on the final of every game.'));
 update competitions set active = false where id = 'nba-post-2027';
 select set_config('app.league_id', '', false);
 select set_config('request.jwt.claim.sub', '', false);
