@@ -5728,7 +5728,10 @@ select pool_game_pick(:seg, 'streak', jsonb_build_object('fixture', :se1, 'pick'
 reset role;
 select set_config('request.jwt.claim.sub', '', false);
 select pg_temp.expect('a streak stays open while its event has a game to come', _streak_close(:lib) = 0);
+-- a quiet week after the last game (migration 237: never in a gap between rounds)
 update fixtures set state = 'final', kickoff = now() - interval '3 hours', home_score = 2, away_score = 5 where id = :se1;
+select pg_temp.expect('not straight after the last game: it might be a gap between rounds', _streak_close(:lib) = 0);
+update fixtures set kickoff = now() - interval '8 days' where id = :se1;
 select _streak_close(:lib) as sc1 \gset
 select _streak_close(:lib) as sc2 \gset
 select pg_temp.expect('and ends with it: Hana''s run of 1 wins, and the pool hears, once',
@@ -5831,9 +5834,9 @@ select pg_temp.expect('nothing drawn yet', (select b->'drawn' = 'false' and (b->
 select pool_sweep_draw(:swg);
 select pg_temp.raises('the hat is drawn once', format('select pool_sweep_draw(%s)', :swg), 'already drawn');
 reset role;
-select pg_temp.expect('three players, a club each, one left in the hat, and each hears what they drew',
-  (select count(*) = 3 and bool_and(jsonb_array_length(d.value) = 1) from pool_games g, jsonb_each(g.rules->'deal') d where g.id = :swg)
-  and (select jsonb_array_length(rules->'unheld') = 1 from pool_games where id = :swg)
+select pg_temp.expect('three players, the four clubs dealt round in turn (one holds two, none left in the hat), and each hears what they drew',
+  (select count(*) = 3 and sum(jsonb_array_length(d.value)) = 4 and max(jsonb_array_length(d.value)) = 2 from pool_games g, jsonb_each(g.rules->'deal') d where g.id = :swg)
+  and (select jsonb_array_length(rules->'unheld') = 0 and (rules->>'series_n')::int = 3 and jsonb_array_length(rules->'field') = 4 from pool_games where id = :swg)
   and (select count(*) = 3 from notifications where body like '🎩 You drew Sweep %'));
 -- the semifinals and the final: Sweep One and Sweep Four through, Sweep One the champion
 update series set state = 'final', high_wins = 4, low_wins = 1, winner = high_club where competition = 'sweep-test' and ext_id = 'sw:1:a';
@@ -5850,7 +5853,20 @@ select pg_temp.expect('whoever held the champion wins it, two series won, and th
       where g2.id = :swg and d.value @> to_jsonb(:sw1c::bigint)), '{}') from pool_games where id = :swg)
   and (select coalesce(bool_and(points = 2), true) from _sweep_table(:swg) t where t.team_id in (select unnest(winners) from pool_games where id = :swg))
   and exists (select 1 from messages where league_id = :lib and (body like '🏆 The sweepstake is won: % held Sweep One.' or body = '🎩 The sweepstake is over: Sweep One won it, and nobody held them.')));
-update competitions set active = false where id = 'sweep-test';
+-- byes and unfiled rounds (migration 237): a round of two series feeding a round where two more clubs wait (MLB's top
+-- seeds) is a field of six; a round whose next round isn't filed yet (the NFL's) waits
+insert into competitions (id, sport, name, short, season, provider, ext_id, ext_season, active, format)
+values ('sweep-bye', 'mlb', 'Sweep bye', 'SB', '2026', 'mlb-statsapi', 'swb', '2026', true, 'series') on conflict (id) do nothing;
+insert into series (sport, competition, provider, ext_id, round, label, best_of, high_club, low_club, state, tbd, starts_at)
+select 'mlb', 'sweep-bye', 'mlb-statsapi', 'swb:' || r || ':' || k, r, 'R' || r, 3,
+  case when r = 1 then c[k * 2 - 1] when r = 2 then c[4 + k] end, case when r = 1 then c[k * 2] end, 'scheduled', r > 1, now() + interval '2 days'
+from (select array_agg(id order by id) c from clubs where ext_id in ('sw1', 'sw2', 'sw3', 'sw4', 'p91', 'p92')) z,
+  (values (1, 1), (1, 2), (2, 1), (2, 2), (3, 1)) v(r, k);
+select pg_temp.expect('a bye''s clubs are in the field, and an event whose next round is unfiled waits',
+  (select array_length(clubs, 1) = 6 and series_n = 5 and complete from _sweep_shape('sweep-bye', 1))
+  and _sweep_ok('sweep-bye', 1)
+  and not _sweep_ok('sweep-test', 3) is true);
+update competitions set active = false where id in ('sweep-test', 'sweep-bye');
 select set_config('app.league_id', '', false);
 select set_config('request.jwt.claim.sub', '', false);
 select 'sweepstake', true;

@@ -354,8 +354,8 @@ function GameRules({ board }: { board: GameBoard }) {
     lines.push('Join any time: you play every match still to kick off. A match called off counts for nobody.');
     lines.push('The most points wins. A tie on points shares it.');
   } else if (board.sweep) {
-    lines.push(`At the first game of the ${board.sweep.round_label ?? 'round'}, every player in the pool is dealt clubs from the hat at random, an equal share each. The host can draw it sooner.`);
-    lines.push('Clubs left over once the shares are equal stay in the hat, held by nobody; where the pool is bigger than the field, players share a club.');
+    lines.push(`At the first game of the ${board.sweep.round_label ?? 'round'}, every player in the pool is dealt clubs from the hat at random, round the pool in turn, so some may hold one more. The host can draw it sooner.`);
+    lines.push('Every club still to play from that round on is in the hat, byes included. Where the pool is bigger than the field, players share a club.');
     lines.push('Nothing to pick. Whoever holds the champion wins it; a shared champion shares the win.');
     lines.push('Until then the table ranks players by how far their best club has gone.');
   } else if (board.streak) {
@@ -439,7 +439,7 @@ function GameTable({ board }: { board: GameBoard }) {
               <div className="min-w-0 flex-1">
                 <div className="break-words font-semibold text-white">{t?.gm_name ?? t?.name}</div>
                 <div className="text-[11px] text-mute">{board.kind === 'squares' ? `${r.picked} ${r.picked === 1 ? 'square' : 'squares'} · ${r.right} ${r.right === 1 ? 'hit' : 'hits'}`
-                  : `${board.kind === 'series' ? (singles(board) ? `${r.right} right · ${r.picked} picked` : `${r.right} right · ${r.exact} with the length · ${r.picked} picked`) : board.kind === 'pickem' ? `${r.right} right · ${r.picked} picked` : board.kind === 'bracket' ? (r.picked ? `${r.right} right` : 'No bracket yet') : board.kind === 'props' ? (r.picked ? `${r.right} right` : 'No sheet yet') : board.kind === 'streak' ? (r.picked ? `${r.exact} now · ${r.right} right from ${r.picked}` : 'Nothing picked yet') : board.kind === 'sweep' ? (r.picked ? `${r.right} of ${r.picked} still in` : 'In the hat') : r.picked ? 'Ranked' : 'Not ranked yet'}${r.possible != null && board.kind !== 'streak' && board.kind !== 'sweep' ? ` · up to ${r.possible}` : ''}`}</div>
+                  : `${board.kind === 'series' ? (singles(board) ? `${r.right} right · ${r.picked} picked` : `${r.right} right · ${r.exact} with the length · ${r.picked} picked`) : board.kind === 'pickem' ? `${r.right} right · ${r.picked} picked` : board.kind === 'bracket' ? (r.picked ? `${r.right} right` : 'No bracket yet') : board.kind === 'props' ? (r.picked ? `${r.right} right` : 'No sheet yet') : board.kind === 'streak' ? (r.picked ? `${r.exact} now · ${r.right} right from ${r.picked}` : 'Nothing picked yet') : board.kind === 'sweep' ? (r.picked ? `${r.right} of ${r.picked} still in` : board.sweep?.drawn ? 'Joined after the draw' : 'In the hat') : r.picked ? 'Ranked' : 'Not ranked yet'}${r.possible != null && board.kind !== 'streak' && board.kind !== 'sweep' ? ` · up to ${r.possible}` : ''}`}</div>
               </div>
               <span className="num shrink-0 text-xl font-black text-white">{r.points}</span>
             </div>

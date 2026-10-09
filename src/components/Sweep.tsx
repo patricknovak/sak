@@ -34,7 +34,7 @@ export function SweepGame({ gameId, data, status, reload }: { gameId: number; da
             <div className="text-5xl">🎩</div>
             <div className="h-display mt-2 text-2xl text-white">The hat is full</div>
             <p className="mx-auto mt-1 max-w-xs text-sm text-slate-300">
-              {data.field.length} clubs from the {data.round_label ?? 'round'}, dealt at random to the {data.players} {data.players === 1 ? 'player' : 'players'} in the pool
+              {data.field.length} clubs from the {data.round_label ?? 'round'} on, dealt at random to the {data.players} {data.players === 1 ? 'player' : 'players'} in the pool
               {data.locks_at ? ` at the first game, ${when(data.locks_at)}` : ''}. Nothing to pick: hold the champion and you win it.
             </p>
             {me?.is_commish && status === 'open' && (
@@ -61,9 +61,9 @@ export function SweepGame({ gameId, data, status, reload }: { gameId: number; da
             ))}
           </div>
         </Section>
-      ) : (
+      ) : me?.role === 'gm' ? (
         <div className="card p-4 text-sm text-mute">The hat was drawn before you joined, so you hold no club this time. Cheer on someone else's.</div>
-      )}
+      ) : null}
 
       <Section title={data.drawn ? 'Who holds whom' : 'In the hat'}>
         <div className="card divide-y divide-white/[.05] p-1">
@@ -71,13 +71,13 @@ export function SweepGame({ gameId, data, status, reload }: { gameId: number; da
             <div key={c.id} className={`flex items-center gap-3 px-3 py-2.5 ${c.alive ? '' : 'opacity-55'} ${data.mine.includes(c.id) ? 'rounded-xl bg-gold/[.06]' : ''}`}>
               <Crest c={c} size={30} />
               <div className="min-w-0 flex-1">
-                <div className="truncate text-sm font-bold text-white">{c.name}</div>
+                <div className="break-words text-sm font-bold leading-tight text-white">{c.name}</div>
                 <div className="text-[11px] text-mute">{data.champion === c.id ? 'Champions' : c.alive ? roundsWord(c.won) : 'Out'}</div>
               </div>
               {data.drawn && (c.holders.length ? (
                 <div className="flex shrink-0 items-center gap-1.5">
                   <div className="flex -space-x-2">{c.holders.slice(0, 4).map((h) => <TeamBadge key={h} team={teams.find((t) => t.id === h)} size={24} />)}</div>
-                  <span className="max-w-[7rem] truncate text-xs font-semibold text-slate-200">{c.holders.length === 1 ? name(c.holders[0]) : `${c.holders.length} players`}</span>
+                  <span className="text-right text-xs font-semibold leading-tight text-slate-200">{c.holders.length === 1 ? name(c.holders[0]) : `${c.holders.length} players`}</span>
                 </div>
               ) : <span className="shrink-0 text-[11px] italic text-mute">Nobody</span>)}
             </div>
@@ -85,7 +85,7 @@ export function SweepGame({ gameId, data, status, reload }: { gameId: number; da
         </div>
       </Section>
       <p className="px-1 text-xs text-mute">
-        Every player in the pool when the hat is drawn gets an equal share of the clubs{data.drawn && data.unheld.length ? `; the ${data.unheld.length} left over stay in the hat, held by nobody` : ''}. Where the pool is bigger than the field, players share a club. Whoever holds the champion wins; the table ranks players by how far their best club has gone.
+        The clubs are dealt round the pool in turn to every player in it when the hat is drawn, so some may hold one more; where the pool is bigger than the field, players share a club. Whoever holds the champion wins; the table ranks players by how far their best club has gone.
       </p>
     </div>
   );

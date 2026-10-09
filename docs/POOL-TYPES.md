@@ -447,7 +447,11 @@ and soccer share it.
    a round's matchups are all set and not started: at its first game (the hourly pool job, `_sweep_tick`) or sooner when the
    host draws (`pool_sweep_draw`), every player in the pool is dealt clubs at random (an equal share each, the odd ones held
    by nobody; shared where the pool is bigger than the field), kept in the game's rules (`rules.deal`). Whoever holds the
-   champion wins; the table ranks by the rounds a player's best club has won. The series settler leaves it alone.
+   champion wins; the table ranks by the rounds a player's best club has won. The series settler leaves it alone. *Review
+   fixes (migration 237):* the field is every club from the round on, byes included, offered only once the whole bracket
+   is filed (S series, S + 1 clubs, one series last: `_sweep_shape`); dealt round the pool in turn so nothing is left in
+   the hat; crowned only once every series is decided and one club never lost (`_sweep_champion`). The streak closes
+   only after a quiet week, and keeps one pick a day however the feed moves games.
 
 ## 10. Sources
 
