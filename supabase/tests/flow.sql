@@ -5677,6 +5677,25 @@ select pg_temp.expect('a bracket on it, its tiebreaker the Finals'' points up to
   and _score_cap('nba-post-2027') = 300);
 select pg_temp.expect('NBA squares pay by the quarter, every game', (select rules->>'pays' = 'quarters' and rules->'points' = '[1, 2, 3, 0]'::jsonb from pool_games where id = :nbasq)
   and exists (select 1 from messages where league_id = :lib and body like '🔲 East 1st Round squares are open:%after the 1st quarter, at the half, after the 3rd quarter and on the final of every game.'));
+-- a prop sheet on Game 1 in basketball's words, settled from the score and the quarters (migration 222)
+select sport_ingest('nba-post-2027', jsonb_build_object('fixtures', jsonb_build_array(jsonb_build_object('ext_id', 'Bt1', 'series', 'nba:2027:R1:E:0',
+  'game_no', 1, 'kickoff', now() + interval '2 days', 'state', 'scheduled', 'home', '8', 'away', '19'))));
+select id as nbaf from fixtures where provider = 'espn' and ext_id = 'Bt1' \gset
+select set_config('app.league_id', :'lib', false);
+select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-000000000081', false);
+set role authenticated;
+select pool_game_start('props', 'nba-post-2027', jsonb_build_object('fixture', :nbaf)) as nbap \gset
+reset role;
+select set_config('request.jwt.claim.sub', '', false);
+select pg_temp.expect('an NBA sheet asks in basketball''s words', (select rules->'questions'->1->>'q' = 'Total points: over or under 220.5?'
+    and rules->'questions'->2->'options'->2->>'label' = '11 or more' and rules->'questions'->3->>'q' = 'Who leads after the 1st quarter?'
+    and rules->'questions'->5->>'q' = '1st-quarter points: over or under 54.5?' and rules->'questions'->7->>'q' = 'A side held under 100 points?'
+  from pool_games where id = :nbap));
+select sport_ingest('nba-post-2027', jsonb_build_object('fixtures', jsonb_build_array(jsonb_build_object('ext_id', 'Bt1', 'series', 'nba:2027:R1:E:0',
+  'game_no', 1, 'kickoff', now() - interval '3 hours', 'state', 'final', 'home', '8', 'away', '19', 'home_score', 104, 'away_score', 99,
+  'periods', '[{"n": 1, "home": 30, "away": 25}, {"n": 2, "home": 20, "away": 28}, {"n": 3, "home": 27, "away": 24}, {"n": 4, "home": 27, "away": 22}]'::jsonb))));
+select pg_temp.expect('and settles: Detroit by 5, under the total, 55 in the 1st, Orlando held to 99',
+  (select a = '{"winner": "H", "total": "U", "margin": "1", "first": "H", "half": "A", "early": "O", "extra": "N", "held": "Y"}'::jsonb from (select _props_answers(:nbap) a) x));
 update competitions set active = false where id = 'nba-post-2027';
 select set_config('app.league_id', '', false);
 select set_config('request.jwt.claim.sub', '', false);

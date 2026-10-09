@@ -418,7 +418,9 @@ and soccer share it.
    and each game finds its own series, so the daily run sends the whole postseason and a live run only yesterday, today
    and tomorrow. The play-in is left out. Tested on the 2026 playoffs (every series and result as ESPN had them, the
    tree exact). Pick the series, a bracket from the first round and Rank the teams run on it once the field is drawn.
-   Squares on an NBA series pay by the quarter, every game (migration 221).
+   Squares on an NBA series pay by the quarter, every game (migration 221), and each game takes a prop sheet in
+   basketball's words (migration 222: the total over or under the market's line or 220.5, margins of 1 to 5, 6 to 10 and
+   11 or more, 1st-quarter points over or under 54.5, overtime, a side held under 100).
 7. Later: win totals, best ball, the daily streak, the sweepstake for the 2027 Women's World Cup.
 
 ## 10. Sources
