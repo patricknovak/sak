@@ -224,13 +224,17 @@ they lock (`pool_picks`), results graded on read from the shared event tables, a
    tree played out round by round). *The NFL's playoffs as series (migration 187):* `competitions.format` ('rounds' or
    'series'); `nfl-post-2026`, which soccer-sync fills through `espnPlayoffPayload` (each playoff game a best-of-1
    series, the AFC's before the NFC's, the Pro Bowl left out; tested on last season's playoffs), so the bracket runs from
-   the Divisional round. The same change keeps the Pro Bowl out of the season's weeks. *March Madness, worked out 8
-   October 2026 (not built):* ESPN's men's scoreboard (`basketball/mens-college-basketball`, `groups=100`, by date)
+   the Divisional round. The same change keeps the Pro Bowl out of the season's weeks. *March Madness, built 9 October 2026
+   (migration 201):* ESPN's men's scoreboard (`basketball/mens-college-basketball`, `groups=100`, by date)
    names each game's region and round in its note ("... - East Region - 1st Round") and each team's seed in
    `curatedRank.current`; within a region the first round goes in the bracket's seed order (1-16, 8-9, 5-12, 4-13,
    6-11, 3-14, 7-10, 2-15), so the tree is right through the Elite Eight. The Final Four's pairing of regions isn't in
-   ESPN's feed until those games are drawn, so it goes on the competition when the field is announced (a `regions` list
-   in Final Four order, entered on the Platform page) and the adapter orders the regions by it. The First Four are
+   ESPN's feed until those games are drawn, so it goes on the competition when the field is announced (`competitions.detail.regions`
+   in Final Four order, set on the Platform page's Tournaments card through `platform_set_regions`; until then the Final
+   Four games pair them once drawn, else alphabetically) and the adapter (`espnTournamentPayload`) orders the regions by
+   it. Every one of the 63 slots exists from the start (later rounds to be decided), so the bracket opens on the first
+   round. soccer-sync fetches the tournament day by day from 12 March to 10 April only (`ncaam-2027`, sport `ncaab`);
+   tested on the 2026 tournament, every result as ESPN had it and the tree exact. Its tiebreaker runs to 300 points. The First Four are
    left out: a first-round slot whose team is still to be decided fills once that game is played, and the bracket
    locks only once every first-round team is set (`_bracket_ok` already insists on it).
    *The Stanley Cup playoffs as series, built 8 October 2026 (migration 191):* mlb-sync, the postseason feed, reads the
@@ -243,8 +247,7 @@ they lock (`pool_picks`), results graded on read from the shared event tables, a
    alone, its length points riding with it. Each playoff game also carries its score by quarter (`fixture_periods`,
    overtime a fifth). *Squares by the quarter (migration 200, 9 October 2026):* a grid pays after each period its sport
    plays (`rules.pays` 'innings', 'quarters' or 'periods', or 'final'), and the chat, the ledger and the page say it in the
-   sport's words (`_squares_moment`, the board's `words`); a single game drops its "Game 1". Still to come: March Madness,
-   whose bracket order wants ESPN's region and seed.
+   sport's words (`_squares_moment`, the board's `words`); a single game drops its "Game 1".
    *The box pool built 8 October 2026 (migration 188):* the player pool without a draft night, on nhl-sync's own
    `games` and `player_games` (a competition of a third format, 'players': `nhl-2026`). The best players are dealt into
    boxes when the game starts, forwards, defence and goalies each ranked by the points they're expected to score in the
@@ -282,8 +285,8 @@ they lock (`pool_picks`), results graded on read from the shared event tables, a
 the series and Rank the teams, item 7's bracket built on series and its box pool on the NHL season, item 4 begun (last one standing starts through the
 engine's door). Beside them: NFL
 centre and Match centre, the market's view on each match, results by hand for every game on fixtures, the rules
-written down, last calls and second reminders. Next, in order: March Madness's bracket order, the box pool's
-playoffs version, then the contraction (item 4).
+written down, last calls and second reminders. Next, in order: the box pool's playoffs version, then the contraction
+(item 4). *9 October added* Super Bowl squares by the quarter (migration 200) and March Madness (201), PR #244.
 
 Alongside: the World Series test (the LCS from 11 October, the World Series from 23 October) needs its games started
 in the World Series pool (league 5, the questions only so far), and the Love Is Blind test needs players.

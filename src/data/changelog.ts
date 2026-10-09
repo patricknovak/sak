@@ -6,6 +6,8 @@
 export interface Change { date: string; icon: string; title: string; body: string; to?: string; tag?: 'formats' | 'commish' | 'draft' | 'everyone' }
 
 export const CHANGELOG: Change[] = [
+  { date: '2026-10-09', icon: '🏀', tag: 'everyone', title: 'March Madness is coming', to: '/pools',
+    body: 'The bracket now runs on the men\'s college basketball tournament: all 63 games in bracket order, from the first round to the championship, ready the day the field is announced in March. Later rounds are worth more, and the tiebreaker is the total points in the final.' },
   { date: '2026-10-09', icon: '🏈', tag: 'everyone', title: 'Super Bowl squares', to: '/pools',
     body: 'Squares now work on football: a grid on any NFL playoff game, the Super Bowl included, pays after the 1st quarter, at the half, after the 3rd and on the final score, with the digits drawn at kickoff. Baseball\'s grids still pay by the inning.' },
   { date: '2026-10-08', icon: '🧮', tag: 'everyone', title: 'What you need, in words', to: '/leaders',

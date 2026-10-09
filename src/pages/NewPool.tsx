@@ -28,7 +28,7 @@ const STEPS = [
   ['🎯', 'Pick it, rank it, call it', 'Series picks, rankings, or questions priced like a market in coins. Every result lands on its own.'],
   ['👑', 'Wear the crown', 'The table runs all season. Never money, just bragging rights.'],
 ] as const;
-const SPORT_EMOJI: Record<string, string> = { mlb: '⚾', nhl: '🏒', soccer: '⚽', nfl: '🏈', nba: '🏀' };
+const SPORT_EMOJI: Record<string, string> = { mlb: '⚾', nhl: '🏒', soccer: '⚽', nfl: '🏈', nba: '🏀', ncaab: '🏀' };
 type Following = { type: 'event'; comp: string } | { type: 'pack'; slug: string } | { type: 'blank' } | null;
 
 // a numbered step's heading

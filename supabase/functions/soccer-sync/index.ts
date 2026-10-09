@@ -10,7 +10,7 @@
 // (`format` 'series', migration 187: the NFL's playoffs) files each playoff game as a best-of-1 series through
 // sport_ingest, so the bracket runs on it.
 import { createClient } from 'jsr:@supabase/supabase-js@2';
-import { afClub, afFixture, API_FOOTBALL, assignRounds, espnClub, espnFixture, espnNinety, espnPath, espnPlayoffPayload, ESPN, type NeutralFixture } from '../_shared/soccer.ts';
+import { afClub, afFixture, API_FOOTBALL, assignRounds, espnClub, espnFixture, espnNinety, espnPath, espnPlayoffPayload, espnTournamentPayload, ESPN, type NeutralFixture } from '../_shared/soccer.ts';
 
 const db = createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!, {
   auth: { persistSession: false },
@@ -35,7 +35,7 @@ async function af(path: string): Promise<any[]> {
   return j.response ?? [];
 }
 
-interface Competition { id: string; sport: string; ext_id: string; ext_season: string; season: string; provider: string; format?: string }
+interface Competition { id: string; sport: string; ext_id: string; ext_season: string; season: string; provider: string; format?: string; detail?: { regions?: string[] } | null }
 
 // deno-lint-ignore no-explicit-any
 async function espn(path: string): Promise<any> {
@@ -104,11 +104,28 @@ async function espnPlayoffSeries(c: Competition) {
   return check(await db.rpc('sport_ingest', { p_competition: c.id, p: espnPlayoffPayload(rounds, pages) }));
 }
 
+// March Madness (migration 201): the tournament day by day, from the week before the First Four to the final; outside
+// March and early April there is nothing to fetch, so the rest of the year costs no requests
+async function espnTournament(c: Competition) {
+  const y = Number(c.ext_season), now = Date.now();
+  const from = Date.UTC(y, 2, 12), to = Date.UTC(y, 3, 10);
+  if (now < from - 7 * 864e5 || now > to + 7 * 864e5) return { series: 0 };
+  const pages = [];
+  for (let t = from; t <= to; t += 864e5) {
+    const day = new Date(t).toISOString().slice(0, 10).replaceAll('-', '');
+    pages.push(await espn(`/${espnPath(c.sport, c.ext_id)}/scoreboard?dates=${day}&groups=100&limit=100`));
+  }
+  const p = espnTournamentPayload(c.ext_season, pages, c.detail?.regions ?? null);
+  return check(await db.rpc('sport_ingest', { p_competition: c.id, p: { clubs: p.clubs, series: p.series, fixtures: p.fixtures } }));
+}
+// a postseason in series: the NFL's playoff weeks, or a tournament by the day
+const espnPostseason = (c: Competition) => (c.sport === 'ncaab' ? espnTournament(c) : espnPlayoffSeries(c));
+
 const month = (d: Date) => `${d.getUTCFullYear()}${String(d.getUTCMonth() + 1).padStart(2, '0')}`;
 
 // an ESPN competition's clubs and its whole season, a month at a time; new matches take their round
 async function espnSeason(c: Competition) {
-  if (c.format === 'series') return espnPlayoffSeries(c);
+  if (c.format === 'series') return espnPostseason(c);
   if (c.sport !== 'soccer') return espnWeeks(c);
   const teams = (await espn(`/soccer/${c.ext_id}/teams`))?.sports?.[0]?.leagues?.[0]?.teams ?? [];
   const clubs = teams.map((t: { team: unknown }) => espnClub(t.team));
@@ -130,7 +147,7 @@ async function espnSeason(c: Competition) {
 }
 
 async function fixtures() {
-  const comps = check(await db.from('competitions').select('id,sport,ext_id,ext_season,season,provider,format').eq('active', true).in('provider', ['api-football', 'espn'])) as Competition[];
+  const comps = check(await db.from('competitions').select('id,sport,ext_id,ext_season,season,provider,format,detail').eq('active', true).in('provider', ['api-football', 'espn'])) as Competition[];
   const out: Record<string, unknown> = {};
   for (const c of comps) {
     try {
@@ -160,7 +177,7 @@ async function live() {
     .in('provider', ['api-football', 'espn']).in('state', ['scheduled', 'live'])
     .gte('kickoff', new Date(now - 4 * 3600e3).toISOString()).lte('kickoff', new Date(now + 5 * 60e3).toISOString())) as
     { ext_id: string; competition: string; provider: string; kickoff: string }[];
-  const comps = new Map((check(await db.from('competitions').select('id,sport,ext_id,ext_season,season,provider,format').eq('provider', 'espn')) as Competition[]).map((c) => [c.id, c]));
+  const comps = new Map((check(await db.from('competitions').select('id,sport,ext_id,ext_season,season,provider,format,detail').eq('provider', 'espn')) as Competition[]).map((c) => [c.id, c]));
   const byComp = new Map<string, typeof due>();
   for (const f of due) byComp.set(f.competition, [...(byComp.get(f.competition) ?? []), f]);
   const out: Record<string, unknown> = {};
@@ -169,7 +186,7 @@ async function live() {
       if (list[0].provider === 'espn') {
         const c = comps.get(comp)!;
         // a postseason in series: its few playoff weeks again, whole
-        if (c.format === 'series') { out[comp] = await espnPlayoffSeries(c); continue; }
+        if (c.format === 'series') { out[comp] = await espnPostseason(c); continue; }
         const want = new Set(list.map((f) => f.ext_id));
         // deno-lint-ignore no-explicit-any
         const events = new Map<string, any>();

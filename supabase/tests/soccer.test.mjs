@@ -2,7 +2,7 @@
 // soccer_ingest() writes. The sample items follow API-Football v3's documented shape.
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
-import { afClub, afFixture, espnPlayoffPayload, gameweekOf } from '../functions/_shared/soccer.ts';
+import { afClub, afFixture, espnPlayoffPayload, espnTournamentPayload, gameweekOf } from '../functions/_shared/soccer.ts';
 
 const sql = fs.readFileSync(new URL('../migrations/20261005000148_soccer.sql', import.meta.url), 'utf8');
 const row = JSON.parse(sql.match(/\$sport\$([\s\S]*?)\$sport\$/)[1]);
@@ -59,3 +59,26 @@ assert.equal(sb.series.length, 1); assert.equal(sb.series[0].best_of, 1); assert
 assert.deepEqual(sb.fixtures[0].periods, [{ n: 1, home: 7, away: 3 }, { n: 2, home: 10, away: 7 }, { n: 3, home: 0, away: 7 }, { n: 4, home: 10, away: 7 }]);
 assert.equal(sb.fixtures[0].state, 'final');
 console.log('ok: the NFL playoffs carry their quarters');
+
+// March Madness (migration 201): 63 slots from the start, each game in the slot its seeds lead to, the regions in Final
+// Four order as the competition names them, the First Four left out
+const team = (homeAway, id, abbr, seed, score) => ({ homeAway, score: String(score), curatedRank: { current: seed }, team: { id, abbreviation: abbr, displayName: abbr } });
+const mm = (id, date, headline, a, b) => ({ id, date, status: { type: { state: 'post', name: 'STATUS_FINAL', completed: true } },
+  competitions: [{ notes: [{ headline: `NCAA Men's Basketball Championship - ${headline}` }], competitors: [a, b] }] });
+const t = espnTournamentPayload('2027', [{ events: [
+  mm('1', '2027-03-16T23:00Z', 'West Region - First Four', team('home', '90', 'FF1', 11, 70), team('away', '91', 'FF2', 11, 60)),
+  mm('2', '2027-03-18T16:00Z', 'East Region - 1st Round', team('home', '10', 'EA5', 5, 77), team('away', '11', 'EA12', 12, 70)),
+  mm('3', '2027-03-18T19:00Z', 'South Region - 1st Round', team('home', '20', 'SO1', 1, 90), team('away', '21', 'SO16', 16, 50)),
+  mm('4', '2027-03-20T19:00Z', 'South Region - 2nd Round', team('home', '20', 'SO1', 1, 80), team('away', '22', 'SO8', 8, 71)),
+] }], ['South', 'East', 'West', 'Midwest']);
+assert.equal(t.series.length, 63, 'every slot, from the start');
+assert.deepEqual(t.regions, ['South', 'East', 'West', 'Midwest']);
+const slot = (k) => t.series.find((x) => x.ext_id === k);
+assert.equal(slot('2027:R1:East:2').high, '10', 'a 5 v 12 is the third game of its region');
+assert.equal(slot('2027:R1:East:2').low, '11');
+assert.equal(slot('2027:R1:East:2').sort, 8 + 3, 'East second in Final Four order: after South\'s eight');
+assert.equal(slot('2027:R2:South:0').high, '20', 'the 1 v 8 winner meets in the region\'s first second-round slot');
+assert.equal(slot('2027:R5:N:0').tbd, true, 'the Final Four waits for its teams');
+assert.equal(t.fixtures.length, 3, 'the First Four is left out');
+assert.ok(!t.fixtures.some((f) => f.home === '90'));
+console.log('ok: March Madness slots by seed and region');

@@ -59,7 +59,7 @@ Two things in one repo:
   `?task=fixtures|live`, platform key only; ESPN's other sports ride it too: the NFL by week, migration 171; ESPN's
   pre-match lines ride along as `fixtures.detail.odds`, chances only, frozen at kick-off, migration 178; a competition
   with `format` 'series' is a postseason: the NFL's playoffs come in as best-of-1 series through `sport_ingest`, migration
-  187), `mlb-sync` (baseball's postseason from MLB's
+  187; March Madness as 63 single-game series in bracket order, day by day in March only, migration 201), `mlb-sync` (baseball's postseason from MLB's
   public Stats API into `series`, `fixtures` and `fixture_periods` through `sport_ingest`, and the Stanley Cup playoffs from
   the NHL's bracket for competitions with provider 'nhl-api', migration 191; platform key only; for testing, a
   licensed feed replaces it, docs/POOL-TYPES.md §8; `sport_ingest` ends by drawing and paying any grid of squares on the

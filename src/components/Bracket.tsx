@@ -98,11 +98,11 @@ export function BracketGame({ gameId, data, status, reload, actAs, words }: {
                   <div key={s.id} className="card p-2.5">
                     <div className="mb-1.5 flex items-center justify-between px-1 text-[10px] font-black uppercase tracking-[.14em]">
                       <span className="text-white">{s.short ?? s.label}</span>
-                      <span className="text-mute">{decided ? `Final ${Math.max(s.high_wins, s.low_wins)}-${Math.min(s.high_wins, s.low_wins)}` : s.state === 'live' ? `${s.high_wins}-${s.low_wins}` : `Best of ${s.best_of}`}</span>
+                      <span className="text-mute">{decided ? (s.best_of === 1 ? 'Final' : `Final ${Math.max(s.high_wins, s.low_wins)}-${Math.min(s.high_wins, s.low_wins)}`) : s.state === 'live' ? (s.best_of === 1 ? 'Live' : `${s.high_wins}-${s.low_wins}`) : s.best_of === 1 ? (s.starts_at ? new Date(s.starts_at).toLocaleString(undefined, { weekday: 'short', hour: 'numeric', minute: '2-digit' }) : '') : `Best of ${s.best_of}`}</span>
                     </div>
                     <div className="grid grid-cols-2 gap-1.5">
                       {opts.map((c, i) => {
-                        if (!c) return <div key={i} className="grid min-h-12 place-items-center rounded-xl border border-dashed border-white/10 px-2 text-center text-[11px] text-mute">Pick the series before</div>;
+                        if (!c) return <div key={i} className="grid min-h-12 place-items-center rounded-xl border border-dashed border-white/10 px-2 text-center text-[11px] text-mute">{s.best_of === 1 ? 'Pick the game before' : 'Pick the series before'}</div>;
                         const on = mine === c.id;
                         const right = decided && on && s.winner === c.id, wrong = on && (decided ? s.winner !== c.id : out.has(c.id));
                         return (

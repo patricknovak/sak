@@ -374,7 +374,9 @@ and soccer share it.
 3. Super Bowl squares and the prop sheet (February 2027). *Squares by the quarter built 9 October 2026 (migration 200):* a grid on
    any NFL playoff game pays after the 1st quarter, at the half, after the 3rd and on the final (20/20/20/40), drawn at
    kickoff, in football's words; hockey's pays by the period. The prop sheet is still to come.
-4. March Madness (March 2027): the bracket with a second chance and the Eliminator.
+4. March Madness (March 2027): the bracket with a second chance and the Eliminator. *The bracket's feed built 9 October 2026
+   (migration 201):* `ncaam-2027` fills from ESPN in mid-March, 63 slots in bracket order; the second chance and the
+   Eliminator are still to come.
 5. The NHL playoffs (April 2027): the player pool (draft and box), the bracket with series length, series pick'em,
    confidence by team; NHL centre gains the bracket and the pool ribbon. *Ready 8 October 2026:* the feed (`nhl-post-2027`
    through mlb-sync, migration 191, tested on the 2026 playoffs), so Pick the series, the bracket from the first round and

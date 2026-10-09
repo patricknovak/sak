@@ -23,7 +23,7 @@ interface Series { id: number; round: number; label: string; short: string | nul
 interface Period { fixture_id: number; n: number; home: number | null; away: number | null }
 interface Competition { id: string; name: string; sport: string; tz: string }
 
-const NAMES: Record<string, string> = { mlb: 'MLB centre', nfl: 'NFL playoffs' };
+const NAMES: Record<string, string> = { mlb: 'MLB centre', nfl: 'NFL playoffs', ncaab: 'March Madness', nhl: 'Stanley Cup playoffs' };
 const dayKey = (iso: string, tz: string) => new Date(iso).toLocaleDateString('en-CA', { timeZone: tz });
 const dayLabel = (d: string) => new Date(d + 'T12:00:00Z').toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric', timeZone: 'UTC' });
 const time = (iso: string) => new Date(iso).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });

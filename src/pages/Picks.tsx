@@ -69,7 +69,8 @@ export const singles = (b: { rounds?: { best_of: number }[] }) => !!b.rounds?.le
 export const lastGameOf = (label: string, single: boolean) => (single ? `the ${label}` : `the last game of the ${label}`);
 export const wordsOf = (b: { words?: Words }) => {
   const w = b.words ?? { start: 'first pitch', score: 'runs', cap: 60 };
-  return { ...w, guess: w.score === 'points' ? 45 : w.score === 'goals' ? 3 : 8 };
+  // a starting guess near a typical game's total: football's 45, basketball's 140 (its cap is 300), hockey's 6
+  return { ...w, guess: w.cap >= 300 ? 140 : w.score === 'points' ? 45 : w.score === 'goals' ? 6 : 8 };
 };
 
 const ICON = { series: Swords, rank: ListOrdered, squares: Grid3x3, pickem: ListChecks, bracket: Trophy, players: Users } as const;
