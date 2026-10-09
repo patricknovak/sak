@@ -5809,6 +5809,14 @@ update competitions set active = false where id in ('st-fix');
 update fixtures set state = 'cancelled' where competition = 'st-fix' and state = 'scheduled';
 select set_config('request.jwt.claim.sub', '', false);
 select set_config('app.league_id', '', false);
+-- another league can't read it or pick in it
+select set_config('app.league_id', '', false);
+select pg_temp.as_team(2);
+set role authenticated;
+select pg_temp.raises('another league can''t read a streak', format('select pool_game_board(%s)', :stg));
+select pg_temp.raises('or pick in it', format('select pool_game_pick(%s, ''streak'', ''{"fixture": %s, "pick": "H"}'')', :stg, :st1));
+reset role;
+select set_config('request.jwt.claim.sub', '', false);
 select 'daily streak', true;
 
 -- ───────────── the sweepstake (migration 236) ─────────────
@@ -5868,6 +5876,15 @@ select pg_temp.expect('a bye''s clubs are in the field, and an event whose next 
   (select array_length(clubs, 1) = 6 and series_n = 5 and complete from _sweep_shape('sweep-bye', 1))
   and _sweep_ok('sweep-bye', 1)
   and not _sweep_ok('sweep-test', 3) is true);
+-- another league's host can't read or draw it
+select set_config('app.league_id', '', false);
+select pg_temp.as_team(1);
+set role authenticated;
+select pg_temp.raises('another league can''t read a sweepstake', format('select pool_game_board(%s)', :swg));
+select pg_temp.raises('nor its host draw it', format('select pool_sweep_draw(%s)', :swg));
+reset role;
+select set_config('request.jwt.claim.sub', '', false);
+select set_config('app.league_id', :'lib', false);
 update competitions set active = false where id in ('sweep-test', 'sweep-bye');
 select set_config('app.league_id', '', false);
 select set_config('request.jwt.claim.sub', '', false);
