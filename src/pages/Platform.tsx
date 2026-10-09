@@ -14,6 +14,7 @@ import { Wordmark } from '../components/Brand';
 import { Checklist, type Check } from '../components/Readiness';
 import { appLink, leagueUrl } from '../lib/host';
 import { PoolIdeas, PoolTest } from '../components/PoolTest';
+import { PoolGamesPlatform } from '../components/PoolGamesPlatform';
 import { GameFix } from '../components/GameFix';
 
 interface Row {
@@ -61,6 +62,8 @@ export default function Platform() {
       <Requests leagues={rows} reload={load} />
 
       <PoolTest />
+
+      <PoolGamesPlatform />
 
       <PoolIdeas />
 

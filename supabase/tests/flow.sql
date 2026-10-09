@@ -5574,6 +5574,22 @@ select set_config('app.league_id', '', false);
 select set_config('request.jwt.claim.sub', '', false);
 select 'automatic sheets', true;
 
+-- ───────────── the pools in play, for the platform (migration 224) ─────────────
+select set_config('app.league_id', :'lib', false);
+select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-000000000081', false);
+set role authenticated;
+select pg_temp.raises('a host is not a platform admin', 'select platform_pool_games()', 'Platform admins only');
+reset role;
+select pg_temp.as_team(1);
+set role authenticated;
+select pg_temp.expect('the platform sees each pool''s games, who has picked and its automatic events',
+  exists (select 1 from jsonb_array_elements(platform_pool_games()) l where (l->>'league_id')::int = :lib
+          and jsonb_array_length(l->'games') > 5 and exists (select 1 from jsonb_array_elements(l->'games') g where (g->>'pickers')::int >= 1)));
+reset role;
+select set_config('app.league_id', '', false);
+select set_config('request.jwt.claim.sub', '', false);
+select 'platform pool games', true;
+
 -- ───────────── the Stanley Cup playoffs as series (migration 191) ─────────────
 -- The 2026 playoffs as mlb-sync files them from the NHL's bracket (logos, venues and details left out): every series'
 -- result as the NHL had it, and a bracket from the first round, the letters' order making the tree.
