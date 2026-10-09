@@ -3,20 +3,22 @@
 // The bench is tracked too: what each GM left on the bench and IR that night and over the season so far.
 // Bench points are shown and never counted; they come from the same puck-drop freeze-frames as the starters.
 import { useEffect, useMemo, useState } from 'react';
-import { Link, useSearchParams } from 'react-router-dom';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { useLeague, useNow, useSport } from '../lib/store';
 import { extraTime, isFinal, isLive, periodShort, type SportConfig } from '../lib/sport';
 import { selectAll, supabase } from '../lib/supabase';
-import { fmtDate, fmtPts, fmtTime, readable } from '../lib/format';
+import { fmtDate, fmtDateTime, fmtPts, fmtTime, NHL_COLORS, ordinal, readable, teamLogo } from '../lib/format';
 import { NhlLogo, PageHeader, Pos, Section, TeamBadge } from '../components/ui';
+import { PlayerTag } from '../components/PlayerCard';
+import { usePlayerInfo } from '../lib/playerInfo';
 import type { Game } from '../lib/types';
-import { ChevronLeft, ChevronRight, Radio } from 'lucide-react';
+import { ChevronDown, ChevronLeft, ChevronRight, Radio } from 'lucide-react';
 import { BoxScore, scoringLine } from '../components/BoxScore';
 import { categoryOf, fmtCat } from '../lib/categories';
 import { useRoto } from '../components/RotoStandings';
 
 type Snap = { team_id: number; player_id: number; slot: string; game_id: number };
-type PG = { player_id: number; game_id: number; fpts: number; stats: Record<string, number>; nhl_team: string | null };
+type PG = { player_id: number; game_id: number; fpts: number; stats: Record<string, number>; nhl_team: string | null; updated_at?: string | null };
 type BenchDay = { team_id: number; date: string; points: number; game_type: number };
 
 function gameLabel(sport: SportConfig, g: Game) {
@@ -32,21 +34,44 @@ const isPlayoffGame = (g: Game) => String(g.id).slice(4, 6) === '03';
 // a category from a night's summed stats: a rate from its totals (no starts behind it: none)
 const nightCat = (o: Record<string, number>, k: string) =>
   k === 'gaa' ? (o.gs ? (o.ga ?? 0) / o.gs : NaN) : k === 'svp' ? (o.sa ? (o.sv ?? 0) / o.sa : NaN) : k === 'pts' && o.pts == null ? (o.g ?? 0) + (o.a ?? 0) : o[k] ?? 0;
-// a player's game from his side: his club first (the one he played for that night), the opponent, the score
-// with his club's goals first, and where the game stands
+// a player's game from his side: his club (the one he played for that night), the opponent home or away, the score
+// with his club's goals first, where the game stands, and once it is final whether his club won
 function matchup(sport: SportConfig, g: Game, club: string | null | undefined) {
   const home = club ? club === g.home : true;
-  const mine = home ? g.home : g.away, opp = home ? g.away : g.home;
+  const opp = home ? g.away : g.home;
   const my = home ? g.home_score : g.away_score, their = home ? g.away_score : g.home_score;
-  const started = isLive(sport, g.state) || isFinal(sport, g.state);
-  const extra = isFinal(sport, g.state) && extraTime(g.period) ? `/${g.period}` : '';
+  const live = isLive(sport, g.state), final = isFinal(sport, g.state);
+  const off = sport.states.postponed.includes(g.state) || sport.states.cancelled.includes(g.state);
+  const extra = final && extraTime(g.period) ? `/${g.period}` : '';
+  const scored = (live || final) && my != null && their != null;
   return {
-    teams: `${mine} ${home ? 'vs' : '@'} ${opp}`,
-    score: started && my != null && their != null ? `${my}–${their}` : null,
-    tone: !started || my == null || their == null || my === their ? 'text-slate-300' : my > their ? 'text-emerald-300' : 'text-red-300',
-    status: isFinal(sport, g.state) ? `Final${extra}` : gameLabel(sport, g),
+    home, opp, live, final, off,
+    score: scored ? `${my}–${their}` : null,
+    tone: !scored || my === their ? 'text-slate-200' : my! > their! ? 'text-emerald-300' : 'text-red-300',
+    result: final && scored && my !== their ? (my! > their! ? 'W' : 'L') : null,
+    status: final ? `Final${extra}` : gameLabel(sport, g),
   };
 }
+// a club's crest in a small tile; without the logo (offline, a new club) its abbreviation in its colour
+function ClubTile({ abbr, size = 30, dim }: { abbr?: string | null; size?: number; dim?: boolean }) {
+  const [err, setErr] = useState(false);
+  const c = (abbr && NHL_COLORS[abbr]) || '#243152';
+  return (
+    <span className={`grid shrink-0 place-items-center rounded-xl ring-1 ring-inset ring-white/[.07] ${dim ? 'opacity-60' : ''}`} title={abbr ?? undefined}
+      style={{ width: size + 6, height: size + 6, background: `radial-gradient(circle at 50% 35%, color-mix(in oklab, ${c} 28%, transparent), rgba(255,255,255,.02) 75%)` }}>
+      {abbr && !err ? <img src={teamLogo(abbr)} alt={abbr} width={size} height={size} loading="lazy" onError={() => setErr(true)} />
+        : <span className="text-[9px] font-extrabold tracking-wide text-slate-200">{abbr ?? '–'}</span>}
+    </span>
+  );
+}
+// how long ago, in plain words, for the "updated" line
+const sinceWords = (ms: number) => {
+  const m = Math.floor(Math.max(0, ms) / 60_000);
+  if (m < 1) return 'just now';
+  if (m < 60) return `${m} min ago`;
+  const h = Math.floor(m / 60);
+  return h < 24 ? `${h} h ${m % 60 ? `${m % 60} min ` : ''}ago` : `${Math.floor(h / 24)} d ago`;
+};
 const addDays = (d: string, n: number) => new Date(Date.UTC(+d.slice(0, 4), +d.slice(5, 7) - 1, +d.slice(8, 10) + n)).toISOString().slice(0, 10);
 
 export default function Scoreboard() {
@@ -58,14 +83,29 @@ export default function Scoreboard() {
   const asked = params.get('day');
   const today = asked && /^\d{4}-\d{2}-\d{2}$/.test(asked) && asked < leagueDay ? asked : leagueDay;
   const past = today !== leagueDay;
-  const goTo = (d: string) => { if (d >= leagueDay) params.delete('day'); else params.set('day', d); setParams(params, { replace: true }); setOpen(me?.id ?? null); };
+  const goTo = (d: string) => { if (d >= leagueDay) params.delete('day'); else params.set('day', d); setParams(params, { replace: true }); };
   const seasonStart = league?.season_start ?? null;
-  const slate = useMemo(() => games.filter((g) => g.date === today).sort((a, b) => a.start_utc.localeCompare(b.start_utc)), [games, today]);
+  // the store holds games from yesterday on; an older night reads its own slate once
+  const [oldGames, setOldGames] = useState<Game[]>([]);
+  const stored = games.some((g) => g.date === today);
+  useEffect(() => {
+    if (stored) return;
+    let alive = true;
+    supabase.from('games').select('*').eq('date', today).then(({ data }) => { if (alive) setOldGames(((data ?? []) as Game[]).filter((g) => g.date === today)); });
+    return () => { alive = false; };
+  }, [today, stored]);
+  const slate = useMemo(() => (stored ? games : oldGames).filter((g) => g.date === today).sort((a, b) => a.start_utc.localeCompare(b.start_utc)), [games, oldGames, stored, today]);
   const [snaps, setSnaps] = useState<Snap[]>([]);
   const [pgs, setPgs] = useState<PG[]>([]);
-  const [open, setOpen] = useState<number | null>(me?.id ?? null);
+  const [checked, setChecked] = useState<number | null>(null);
+  // every team's starters show; a tap on a team folds them away, and its bench opens on request
+  const [shut, setShut] = useState<Set<number>>(new Set());
+  const [benchOn, setBenchOn] = useState<Set<number>>(new Set());
+  const flip = (set: Set<number>, id: number, on?: boolean) => { const n = new Set(set); if (on ?? !n.has(id)) n.add(id); else n.delete(id); return n; };
   const [box, setBox] = useState<Game | null>(null);
   const [benchDays, setBenchDays] = useState<BenchDay[]>([]);
+  const openInfo = usePlayerInfo();
+  const navigate = useNavigate();
 
   // freeze-frames are taken at puck drop, box scores every minute: poll both while the page is open
   useEffect(() => {
@@ -73,9 +113,10 @@ export default function Scoreboard() {
     const load = async () => {
       const [{ data: s }, { data: p }] = await Promise.all([
         supabase.from('lineup_snapshots').select('team_id,player_id,slot,game_id').eq('date', today),
-        supabase.from('league_games').select('player_id,game_id,fpts,stats,nhl_team').eq('date', today),
+        supabase.from('league_games').select('player_id,game_id,fpts,stats,nhl_team,updated_at').eq('date', today),
       ]);
       if (!alive) return;
+      setChecked(Date.now());
       setSnaps((s ?? []) as Snap[]);
       setPgs(((p ?? []) as PG[]).map((x) => ({ ...x, fpts: Number(x.fpts) })));
     };
@@ -145,31 +186,48 @@ export default function Scoreboard() {
   }, [catMode, rows, cats]);
   const ordered = useMemo(() => (night ? [...rows].sort((a, b) => night.roto.get(b.t.id)! - night.roto.get(a.t.id)! || a.t.id - b.t.id) : rows), [rows, night]);
   const rotoTable = useRoto();
-  // one player's line on a team card; bench lines are dimmed and their points shown in amber
+  // one player's line on a team card: his club's crest, his name (a tap opens his card where you are), the slot he
+  // fills, who his club plays (vs at home, @ away) and where that game stands, his scoring and his points.
+  // Bench lines are dimmed and their points shown in amber.
   const renderLine = (l: ReturnType<typeof side>[number], bench = false) => {
     const p = players.get(l.player_id);
     const st = l.pg?.stats ?? {};
     const g = l.game;
     const goalie = p?.pos === 'G';
-    const line = scoringLine(st, (goalie ? league?.scoring.goalie : league?.scoring.skater) ?? {}, goalie) || 'no scoring yet';
-    const mu = g ? matchup(sport, g, l.pg?.nhl_team ?? p?.nhl_team) : null;
+    const club = l.pg?.nhl_team ?? p?.nhl_team ?? null;
+    const line = l.pg ? scoringLine(st, (goalie ? league?.scoring.goalie : league?.scoring.skater) ?? {}, goalie) : '';
+    const mu = g ? matchup(sport, g, club) : null;
+    const card = () => (openInfo ? openInfo(l.player_id) : navigate(`/player/${l.player_id}`));
     return (
-      <Link key={l.player_id} to={`/player/${l.player_id}`} className={`flex items-center gap-2 px-3 py-1.5 text-sm hover:bg-white/[.03] ${bench ? 'bg-amber-500/[.02]' : ''}`}>
-        <Pos p={l.slot} className={`min-w-0 px-1 py-0 ${bench ? 'opacity-60' : ''}`} />
-        <span className="min-w-0 flex-1"><span className={`block truncate font-semibold ${bench ? 'text-slate-300' : ''}`}>{p?.name}</span>
-          <span className="block truncate text-[11px] text-mute">{l.pg ? line : g ? (isLive(sport, g.state) || isFinal(sport, g.state) ? 'no scoring yet' : `${sport.words.start} ${fmtTime(g.start_utc)}`) : ''}</span></span>
-        {mu && (
-          <span className="w-[86px] shrink-0 text-right leading-tight">
-            <span className="block truncate text-[11px] font-semibold text-slate-200">{mu.teams}</span>
-            <span className="block truncate text-[10px]">
+      <div key={l.player_id} role="button" tabIndex={0} onClick={card} onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); card(); } }}
+        className={`flex cursor-pointer items-center gap-2.5 px-3 py-2 transition hover:bg-white/[.03] focus-visible:bg-white/[.05] focus-visible:outline-none ${bench ? 'bg-amber-500/[.02]' : ''}`}>
+        <ClubTile abbr={club} size={26} dim={bench} />
+        {/* stacked on a phone; on a wide screen the name, the game and the scoring sit in columns */}
+        <div className="min-w-0 flex-1 md:grid md:grid-cols-[minmax(0,15rem)_minmax(0,14rem)_minmax(0,1fr)] md:items-center md:gap-4">
+          <div className={`flex flex-wrap items-center gap-x-1.5 gap-y-0.5 text-sm leading-tight ${bench ? 'opacity-80' : ''}`}>
+            {p ? <PlayerTag p={p} className="break-words" /> : <span className="font-semibold text-mute">Player {l.player_id}</span>}
+            <Pos p={l.slot} className={`px-1 py-0 ${bench ? 'opacity-70' : ''}`} />
+            {p?.pos && p.pos !== l.slot && <span className="text-[10px] font-bold text-mute">{p.pos}</span>}
+          </div>
+          {mu && (
+            <div className="mt-1 flex flex-wrap items-center gap-x-1.5 gap-y-0.5 text-[11px] leading-tight md:mt-0 md:text-xs">
+              <span className="inline-flex items-center gap-1 font-semibold text-slate-200">
+                <span className="text-mute">{mu.home ? 'vs' : '@'}</span><NhlLogo abbr={mu.opp} size={14} />{mu.opp}
+              </span>
+              <span className="text-white/20">·</span>
+              {mu.live ? (
+                <span className="inline-flex items-center gap-1 font-bold text-goal"><span className="h-1.5 w-1.5 animate-pulse rounded-full bg-goal" />{mu.status}</span>
+              ) : mu.final ? <span className="font-semibold text-slate-400">{mu.status}</span>
+                : mu.off ? <span className="font-semibold text-amber-200">{mu.status}</span>
+                  : <span className="text-slate-300">{sport.words.start ? `${sport.words.start[0].toUpperCase()}${sport.words.start.slice(1)} ` : ''}{fmtTime(g!.start_utc)}</span>}
               {mu.score && <span className={`num font-bold ${mu.tone}`}>{mu.score}</span>}
-              {mu.score && <span className="text-mute"> · </span>}
-              <span className={isLive(sport, g!.state) ? 'text-goal' : 'text-mute'}>{mu.status}</span>
-            </span>
-          </span>
-        )}
-        {!catMode && <span className={`num w-12 text-right font-bold ${l.pts < 0 ? 'text-red-300' : bench ? 'text-amber-200/90' : ''}`}>{l.pg ? fmtPts(l.pts) : '–'}</span>}
-      </Link>
+              {mu.result && <span className={`rounded px-1 text-[9px] font-extrabold leading-[14px] ${mu.result === 'W' ? 'bg-emerald-400/15 text-emerald-300' : 'bg-red-400/15 text-red-300'}`}>{mu.result}</span>}
+            </div>
+          )}
+          {(line || mu?.live || mu?.final) && <div className="mt-0.5 text-[11px] leading-tight text-mute md:mt-0 md:text-xs">{line || (mu?.final ? 'no scoring' : 'no scoring yet')}</div>}
+        </div>
+        {!catMode && <span className={`num w-11 shrink-0 text-right text-[15px] font-bold ${l.pts < 0 ? 'text-red-300' : bench ? 'text-amber-200/90' : l.pg ? 'text-slate-100' : 'text-mute'}`}>{l.pg ? fmtPts(l.pts) : '–'}</span>}
+      </div>
     );
   };
   const benchTable = useMemo(() => [...rows].sort((a, b) => b.bench - a.bench || b.benchSeason - a.benchSeason || a.t.id - b.t.id), [rows]);
@@ -178,6 +236,28 @@ export default function Scoreboard() {
   const rankOf = (id: number) => (catMode ? (league?.format === 'h2h' ? undefined : rotoTable?.find((r) => r.team_id === id)?.rank)
     : scored ? standings.find((s) => s.team_id === id)?.rank : undefined);
   const anyLive = slate.some((g) => isLive(sport, g.state));
+  // when the night's numbers last moved: the newest box-score line the NHL feed wrote for the day (each write stamps
+  // it), or before any game has a line, when this page last asked
+  const lastLine = useMemo(() => pgs.reduce((m, p) => Math.max(m, p.updated_at ? Date.parse(p.updated_at) || 0 : 0), 0), [pgs]);
+  const fresh = past
+    ? (lastLine ? { head: 'Box scores final', sub: `last update ${fmtDateTime(new Date(lastLine).toISOString())}` } : null)
+    : {
+      head: lastLine ? `Updated ${fmtTime(new Date(lastLine).toISOString())}` : checked ? `Checked ${fmtTime(new Date(checked).toISOString())}` : 'Checking…',
+      sub: lastLine ? sinceWords(now - lastLine) : 'no box scores yet tonight',
+    };
+  const liveDot = !past && anyLive && <span className="h-1.5 w-1.5 shrink-0 animate-pulse rounded-full bg-goal" />;
+  // beside the title on a wide screen; on a phone a line of its own under it, so the title keeps its width
+  const updated = fresh && (
+    <span className="hidden shrink-0 whitespace-nowrap text-right text-[11px] leading-tight sm:block">
+      <span className="inline-flex items-center gap-1 font-semibold text-slate-200">{liveDot}{fresh.head}</span>
+      <span className="block text-mute">{fresh.sub}</span>
+    </span>
+  );
+  const updatedLine = fresh && (
+    <div className="-mt-1 mb-2.5 flex flex-wrap items-center gap-x-1.5 px-1 text-[11px] leading-tight sm:hidden">
+      {liveDot}<span className="font-semibold text-slate-200">{fresh.head}</span><span className="text-mute">· {fresh.sub}</span>
+    </div>
+  );
 
   return (
     <div className="space-y-4">
@@ -210,21 +290,31 @@ export default function Scoreboard() {
         </div>
       )}
 
-      <Section title={catMode ? (past ? `Categories on ${fmtDate(today)}` : 'Tonight’s categories') : past ? `Points on ${fmtDate(today)}` : 'Tonight’s points'} right={<span className="text-xs text-mute">tap a team for every starter</span>}>
-        <div className="grid items-start gap-2 xl:grid-cols-2">
+      <Section title={catMode ? (past ? `Categories on ${fmtDate(today)}` : 'Tonight’s categories') : past ? `Points on ${fmtDate(today)}` : 'Tonight’s points'} right={updated}>
+        {updatedLine}
+        <div className="space-y-2.5">
           {ordered.map(({ t, lines, pts, done, playing, left, benchLines, bench, benchScored, benchSeason }, i) => {
-            const isOpen = open === t.id;
+            const isOpen = !shut.has(t.id);
+            const benchOpen = benchOn.has(t.id);
             const top = lines.filter((l) => l.pg).slice(0, 3);
+            const rank = rankOf(t.id);
+            const n = Math.max(1, lines.length);
             return (
               <div key={t.id} id={`sb-${t.id}`} className={`card scroll-mt-20 overflow-hidden ${t.id === me?.id ? 'ring-1 ring-sky-400/40' : ''}`}>
-                <button className="flex w-full items-center gap-3 p-3 text-left" onClick={() => setOpen(isOpen ? null : t.id)}>
-                  <span className="num w-5 text-center text-sm font-bold text-mute">{i + 1}</span>
+                <button className="relative flex w-full items-center gap-2.5 p-3 text-left" aria-expanded={isOpen} onClick={() => setShut(flip(shut, t.id))}>
+                  <span className="num w-5 shrink-0 text-center text-sm font-bold text-mute">{i + 1}</span>
                   <TeamBadge team={t} size={36} />
                   <div className="min-w-0 flex-1">
-                    <div className="line-clamp-2 break-words font-bold leading-tight">{t.name} <span className="text-xs font-normal text-mute">· {t.gm_name}{rankOf(t.id) ? ` · ${rankOf(t.id)}${['st', 'nd', 'rd'][(rankOf(t.id)! - 1)] ?? 'th'} overall` : ''}</span></div>
-                    <div className="truncate text-xs text-mute">
-                      {lines.length === 0 ? (past ? 'No starters with a game' : 'No starters with a game tonight') : `${playing ? `${playing} playing · ` : ''}${done} done · ${left} to come`}
-                      {!catMode && top.length > 0 && <> · {top.map((l) => `${players.get(l.player_id)?.last_name} ${fmtPts(l.pts)}`).join(', ')}</>}
+                    <div className="break-words font-bold leading-tight">{t.name}</div>
+                    <div className="mt-0.5 text-xs text-mute">{t.gm_name}{rank ? ` · ${ordinal(rank)} overall` : ''}</div>
+                    <div className="mt-0.5 flex flex-wrap items-center gap-x-1 gap-y-1 text-xs text-mute">
+                      {lines.length === 0 ? <span>{past ? 'No starters with a game' : 'No starters with a game tonight'}</span> : <>
+                        {playing > 0 && <span className="whitespace-nowrap font-semibold text-goal">{playing} playing ·</span>}
+                        <span className="whitespace-nowrap">{done} done ·</span>
+                        <span className="whitespace-nowrap">{left} to come</span>
+                      </>}
+                      {!catMode && benchScored && <span className="num whitespace-nowrap rounded-md border border-amber-400/25 bg-amber-500/10 px-1.5 text-[10px] font-semibold leading-[18px] text-amber-200" title="Points on the bench and IR: shown, never counted">🪑 {fmtPts(bench)} benched</span>}
+                      {!catMode && !isOpen && top.length > 0 && <span>· {top.map((l) => `${players.get(l.player_id)?.last_name} ${fmtPts(l.pts)}`).join(', ')}</span>}
                     </div>
                     {night && lines.some((l) => l.pg) && (
                       <div className="mt-1 flex flex-wrap gap-1">
@@ -236,8 +326,15 @@ export default function Scoreboard() {
                       </div>
                     )}
                   </div>
-                  <div className="shrink-0 text-right"><div className="num font-display text-2xl font-extrabold" style={{ color: readable(t.color) }}>{night ? fmtPts(night.roto.get(t.id) ?? 0) : fmtPts(pts)}</div><div className="text-[10px] text-mute">{night ? (league?.format === 'h2h' ? 'category pts ' : 'roto ') : ''}{past ? 'that night' : 'tonight'}</div>
-                    {!catMode && benchScored && <div className="num text-[10px] font-semibold text-amber-200" title="Points on the bench and IR: shown, never counted">🪑 {fmtPts(bench)} benched</div>}</div>
+                  <div className="shrink-0 text-right"><div className="num font-display text-2xl font-extrabold leading-none" style={{ color: readable(t.color) }}>{night ? fmtPts(night.roto.get(t.id) ?? 0) : fmtPts(pts)}</div><div className="mt-1 text-[10px] text-mute">{night ? (league?.format === 'h2h' ? 'category pts ' : 'roto ') : ''}{past ? 'that night' : 'tonight'}</div></div>
+                  <ChevronDown size={16} className={`-ml-1 shrink-0 text-mute transition ${isOpen ? 'rotate-180' : ''}`} />
+                  {lines.length > 0 && (
+                    // the night's progress: done, on the ice, still to come
+                    <span className="absolute inset-x-3 bottom-0 flex h-[3px] overflow-hidden rounded-full bg-white/[.06]" aria-hidden>
+                      <span className="bg-slate-400/60" style={{ width: `${(done / n) * 100}%` }} />
+                      <span className="animate-pulse bg-goal" style={{ width: `${(playing / n) * 100}%` }} />
+                    </span>
+                  )}
                 </button>
                 {isOpen && (
                   <div className="divide-y divide-white/[.05] border-t border-white/[.06]">
@@ -245,12 +342,16 @@ export default function Scoreboard() {
                     {lines.length === 0 && <div className="p-3 text-xs text-mute">Nobody in {t.gm_name}’s starting lineup {past ? 'played that night' : 'plays tonight'}.</div>}
                     {!catMode && benchLines.length > 0 && (
                       <>
-                        <div className="flex items-center gap-2 bg-amber-500/[.06] px-3 py-1.5 text-[11px]">
-                          <span className="font-semibold uppercase tracking-wider text-amber-200">🪑 Bench & IR</span>
-                          <span className="flex-1 text-mute">shown, never counted</span>
-                          <span className="num text-amber-200">{fmtPts(bench)} {past ? 'that night' : 'tonight'} · {fmtPts(benchSeason)} {playoffNight ? 'playoffs' : 'season'}</span>
-                        </div>
-                        {benchLines.map((l) => renderLine(l, true))}
+                        <button type="button" aria-expanded={benchOpen} onClick={() => setBenchOn(flip(benchOn, t.id))}
+                          className="flex w-full items-center gap-2 bg-amber-500/[.06] px-3 py-2 text-left text-[11px] transition hover:bg-amber-500/[.09]">
+                          <span className="min-w-0 flex-1">
+                            <span className="block font-semibold uppercase tracking-wider text-amber-200">🪑 Bench & IR · {benchLines.length}</span>
+                            <span className="block text-mute"><span className="num text-amber-200/90">{fmtPts(bench)} {past ? 'that night' : 'tonight'} · {fmtPts(benchSeason)} {playoffNight ? 'playoffs' : 'season'}</span> · shown, never counted</span>
+                          </span>
+                          <span className="shrink-0 text-[10px] font-semibold text-amber-200/80">{benchOpen ? 'Hide' : 'Show'}</span>
+                          <ChevronDown size={14} className={`shrink-0 text-amber-200/70 transition ${benchOpen ? 'rotate-180' : ''}`} />
+                        </button>
+                        {benchOpen && benchLines.map((l) => renderLine(l, true))}
                       </>
                     )}
                   </div>
@@ -274,7 +375,7 @@ export default function Scoreboard() {
                   return (
                     <tr key={t.id} className={t.id === me?.id ? 'bg-white/[.05]' : ''}>
                       <td className="px-3 py-2">
-                        <button className="flex min-w-0 items-center gap-2 text-left" onClick={() => { setOpen(t.id); document.getElementById(`sb-${t.id}`)?.scrollIntoView({ behavior: 'smooth', block: 'start' }); }}>
+                        <button className="flex min-w-0 items-center gap-2 text-left" onClick={() => { setShut(flip(shut, t.id, false)); setBenchOn(flip(benchOn, t.id, true)); document.getElementById(`sb-${t.id}`)?.scrollIntoView({ behavior: 'smooth', block: 'start' }); }}>
                           <TeamBadge team={t} size={26} />
                           <span className="min-w-0"><span className="block truncate font-semibold">{t.gm_name}</span>
                             <span className="block truncate text-[11px] text-mute">{top ? `${players.get(top.player_id)?.last_name ?? players.get(top.player_id)?.name} ${fmtPts(top.pts)} on the bench` : t.name}</span></span>
@@ -293,7 +394,7 @@ export default function Scoreboard() {
       )}
       <BoxScore game={box ? slate.find((g) => g.id === box.id) ?? box : null} onClose={() => setBox(null)} />
       {past ? <p className="px-1 text-center text-[11px] text-mute">Final box scores. Stat corrections from the NHL can still move a line for up to a month.</p>
-        : <p className="px-1 text-center text-[11px] text-mute">Points follow the NHL box scores, which update about once a minute. Last check {new Date(now).toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' })}.</p>}
+        : <p className="px-1 text-center text-[11px] text-mute">Points follow the NHL box scores, which update about once a minute; this page checks every minute{checked ? ` (last check ${fmtTime(new Date(checked).toISOString())})` : ''}.</p>}
     </div>
   );
 }
