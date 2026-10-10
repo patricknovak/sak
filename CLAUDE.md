@@ -55,7 +55,8 @@ Two things in one repo:
   injuries, game-day status, news, projections, auto-lineups; tasks via `?task=`; `?task=players` marks a player on no
   NHL roster, with no injury on file and no game in five days, `status` 'unrostered', and the projections give him no
   games, so retired and unsigned players stop showing as pickups, 10 October 2026), `nhl-hub` (NHL centre
-  data, cached in `hub_cache`; `?task=lines` works out each club's lines from the NHL's shift charts; `?task=espn` trims one game's ESPN summary into a box score for NFL centre), `garry` (the league voice; the LLM is Grok via xAI, `XAI_API_KEY`),
+  data, cached in `hub_cache`; `?task=sport-news|sport-standings|sport-injuries|sport-leaders&sport=<espn path>` is every
+  other sport's centre desk from ESPN, `src/components/SportDesk.tsx`, 10 October 2026; `?task=lines` works out each club's lines from the NHL's shift charts; `?task=espn` trims one game's ESPN summary into a box score for NFL centre), `garry` (the league voice; the LLM is Grok via xAI, `XAI_API_KEY`),
   `player-info`, `push`, `yahoo`, `join` (makes a newcomer's account from an invite link and seats them, or with `pool` in the body opens a prediction pool for someone new: `#/new`, migration 153, three a day per address and sixty a day in all), `soccer-sync` (soccer fixtures and results per competition's
   provider: ESPN's public scoreboard for testing, `espn`, migration 168, or API-Football with `API_FOOTBALL_KEY`;
   `?task=fixtures|live`, platform key only; ESPN's other sports ride it too: the NFL by week, migration 171, each game's quarters with it, and `soccer_ingest` ends by
@@ -100,7 +101,10 @@ Two things in one repo:
   since 4 October 2026: `podsquad.superpoolsai.com`). One account, every pool (migration 151): the product's one address is
   `app.superpoolsai.com`; a pool's link is `#/p/<web name>/<page>` there and invites are `#/join/<code>` there (`appLink`,
   `poolLink` in `src/lib/host.ts`); a `<web name>` subdomain forwards to it unless someone is signed in on that address.
-  My pools (`#/pools`) reads `my_pools()` and starts prediction pools with `pool_start`. Every pool's games share one scoreboard
+  My pools (`#/pools`) reads `my_pools()`; every start goes through `#/new` (a sports pool, a questions pool, or a fantasy
+  league of your own with `fantasy_start`, opened in setup and taken live with `commish_go_live`), and a host deletes a
+  pool with `pool_delete` (migration 242). A pool's pages keep to its own events, `pool_competitions()`
+  (`src/lib/poolOwn.ts`): read it rather than every competition when a pool page lists events. Every pool's games share one scoreboard
   (`pool_scoreboard()`, migration 169): a new kind of game adds a branch to `_pool_rows()` and gets the table, movement,
   climb alerts and the main-game crown (`league_rules.crown`) with it. Weekly pick'em (migration 170) is the first kind on
   `fixtures`: any competition whose matches come in rounds; last one standing runs on the same competitions in the

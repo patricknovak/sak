@@ -16,6 +16,8 @@ import { PropSheetGame, type PropsData } from '../components/PropSheet';
 import { StreakGameView, type StreakData } from '../components/Streak';
 import { SweepGame, type SweepData } from '../components/Sweep';
 import { useSurvivor } from './Survivor';
+import { usePredictor } from './Predictor';
+import { follows, usePoolCompetitions } from '../lib/poolOwn';
 import { trackFirstCall } from '../lib/analytics';
 
 // The pool's games (migration 165, docs/POOL-TYPES.md): Pick the series (each series' winner and how many games it
@@ -510,7 +512,7 @@ export default function Picks() {
   if (games && !games.length) return (
     <div className="space-y-5">
       <PageHeader icon={<Swords className="h-6 w-6 text-gold" />} title="Picks" sub="Series, rankings and more" />
-      <Empty icon="⚾" title="No games in this pool yet">{me?.is_commish ? <Link to="/host" className="btn-gold mt-3 inline-block">Add one from the Host page</Link> : 'The host adds them.'}</Empty>
+      <Empty icon="🏆" title="No games in this pool yet">{me?.is_commish ? <Link to="/host" className="btn-gold mt-3 inline-block">Add one from the Host page</Link> : 'The host adds them.'}</Empty>
     </div>
   );
   if (!board) return <div className="h-60 animate-pulse rounded-3xl bg-white/[.04]" />;
@@ -657,7 +659,6 @@ export const SERIES_SPORTS = ['mlb', 'nhl', 'nba'];
 
 export function HostGames() {
   const { games, reload } = usePoolGames();
-  const [events, setEvents] = useState<PoolEvent[]>([]);
   const [preset, setPreset] = useState<SeriesPreset>('classic');
   const [pkPreset, setPkPreset] = useState<PickemPreset>('classic');
   // a bracket on best-of-7s can carry a point for calling the games (migration 228)
@@ -669,12 +670,22 @@ export function HostGames() {
   const nav = useNavigate();
   // last one standing lives in its own tables, one at a time per pool
   const { board: survivor } = useSurvivor();
+  // and Call the score too
+  const { board: predictor } = usePredictor();
+  const [everyEvent, setEvents] = useState<PoolEvent[]>([]);
   useEffect(() => { rpc<PoolEvent[]>('pool_event_list').then((e) => setEvents(e ?? []), () => setEvents([])); }, []);
+  // the pool's own events first: a game on another sport's event is a tap further, so an MLB pool's host isn't shown
+  // the Premier League's matchweeks unless they ask
+  const own = usePoolCompetitions();
+  const [more, setMore] = useState(false);
+  const mine = everyEvent.filter((e) => follows(own, e.competition));
+  const events = more ? everyEvent : mine;
+  const elsewhere = everyEvent.length - mine.length;
   // the events the pool opens a sheet on every game of, by itself (migration 223)
   const [auto, setAuto] = useState<Set<string>>(new Set());
   const loadAuto = () => supabase.from('pool_auto_sheets').select('competition').then(({ data }) => setAuto(new Set((data ?? []).map((x: { competition: string }) => x.competition))), () => {});
   useEffect(() => { loadAuto(); }, []); // eslint-disable-line react-hooks/exhaustive-deps
-  const offers = events.flatMap((e) => e.kinds.filter((k) => k in KINDS && k !== 'props' && !(k === 'survivor' && survivor?.status === 'open')
+  const offers = events.flatMap((e) => e.kinds.filter((k) => k in KINDS && k !== 'props' && !(k === 'survivor' && survivor?.status === 'open') && !(k === 'score' && predictor?.status === 'open')
     // a bracket that has locked leaves room for a second chance from a later round (migration 211)
     && !games?.some((g) => g.competition === e.competition && g.kind === k && g.status === 'open' && !(k === 'bracket' && g.locked && (g.from_round ?? 0) < e.open_round))).map((k) => ({ e, k })));
   const second = (e: PoolEvent, k: string) => k === 'bracket' && !!games?.some((g) => g.competition === e.competition && g.kind === 'bracket' && (g.from_round ?? 0) < e.open_round);
@@ -684,7 +695,12 @@ export function HostGames() {
   const sheets = events.flatMap((e) => (e.sheets ?? []).filter((s) => !games?.some((g) => g.kind === 'props' && g.fixture === s.id && g.status === 'open')).map((s) => ({ e, s })));
   const sheet = sheets.find((x) => x.s.id === sheetOn) ?? sheets[0];
   const sheetEvents = events.filter((e) => e.kinds.includes('props') || auto.has(e.competition));
-  if (!games || (!offers.length && !grids.length && !sheets.length && !sheetEvents.length)) return null;
+  const moreButton = elsewhere > 0 && (
+    <button type="button" onClick={() => setMore(!more)} className="w-full rounded-2xl border border-dashed border-white/15 px-3 py-2.5 text-sm font-semibold text-slate-300 hover:border-white/30 hover:text-white">
+      {more ? 'Only this pool’s events' : `A game on another event (${elsewhere} more)`}
+    </button>
+  );
+  if (!games || (!offers.length && !grids.length && !sheets.length && !sheetEvents.length)) return elsewhere > 0 ? <Section title="Add a game">{moreButton}</Section> : null;
   return (
     <Section title="Add a game">
       <div className="space-y-2">
@@ -694,7 +710,7 @@ export function HostGames() {
               <span className="grid h-11 w-11 shrink-0 place-items-center rounded-2xl bg-gold/15 text-xl">{KINDS[k].emoji}</span>
               <div className="min-w-0 flex-1">
                 <div className="font-semibold text-white">{second(e, k) ? 'Second-chance bracket' : KINDS[k].title} <span className="text-mute">· {e.name}</span></div>
-                <div className="text-xs text-mute">{KINDS[k].line} {k === 'sweep' ? `The hat is drawn at the first game of the ${e.open_label}, ${lockText(e.next_lock)}.` : k === 'streak' ? 'It starts with the next game and runs as long as the event does.' : k === 'players' ? (e.open_round ? `All through the playoffs, to the Cup; first puck drop ${lockText(e.next_lock)}.` : `From ${e.open_label}, four weeks; first puck drop ${lockText(e.next_lock)}.`) : <>From {k === 'pickem' || k === 'survivor' ? e.open_label : `the ${e.open_label}`}{k === 'survivor' ? ` to ${e.final_label}` : ''}, first lock {lockText(e.next_lock)}.</>}</div>
+                <div className="text-xs text-mute">{KINDS[k].line} {k === 'sweep' ? `The hat is drawn at the first game of the ${e.open_label}, ${lockText(e.next_lock)}.` : k === 'streak' ? 'It starts with the next game and runs as long as the event does.' : k === 'players' ? (e.open_round ? `All through the playoffs, to the Cup; first puck drop ${lockText(e.next_lock)}.` : `From ${e.open_label}, four weeks; first puck drop ${lockText(e.next_lock)}.`) : <>From {k === 'pickem' || k === 'survivor' || k === 'score' ? e.open_label : `the ${e.open_label}`}{k === 'survivor' ? ` to ${e.final_label}` : ''}, first lock {lockText(e.next_lock)}.</>}</div>
               </div>
             </div>
             {k === 'pickem' && (
@@ -713,7 +729,7 @@ export function HostGames() {
               <div className="flex flex-wrap gap-1.5">{PRESETS.map((p) => <button key={p.key} type="button" onClick={() => setPreset(p.key)} className={`rounded-full px-3 py-1 text-xs font-semibold ring-1 ${preset === p.key ? 'bg-gold text-[#0b1220] ring-gold' : 'bg-white/[.04] text-slate-200 ring-white/10'}`}>{p.label}</button>)}</div>
             )}
             <button type="button" className="btn-gold w-full" disabled={busy}
-              onClick={() => run(async () => { await rpc('pool_game_start', { p_kind: k, p_competition: e.competition, p_rules: k === 'series' ? { preset } : k === 'pickem' ? { preset: pkPreset } : k === 'bracket' && SERIES_SPORTS.includes(e.sport) ? { games_bonus: gamesBonus ? 1 : 0 } : {} }); if (k === 'survivor') nav('/survivor'); else reload(); }, `${KINDS[k].title} is on`)}>
+              onClick={() => run(async () => { await rpc('pool_game_start', { p_kind: k, p_competition: e.competition, p_rules: k === 'series' ? { preset } : k === 'pickem' ? { preset: pkPreset } : k === 'bracket' && SERIES_SPORTS.includes(e.sport) ? { games_bonus: gamesBonus ? 1 : 0 } : {} }); if (k === 'survivor') nav('/survivor'); else if (k === 'score') nav('/predictor'); else reload(); }, `${KINDS[k].title} is on`)}>
               Start {second(e, k) ? 'the second-chance bracket' : KINDS[k].title.toLowerCase()}
             </button>
           </div>
@@ -769,6 +785,7 @@ export function HostGames() {
             </div>
           </div>
         )}
+        {moreButton}
       </div>
     </Section>
   );

@@ -11,6 +11,8 @@ import { useBrand } from '../lib/brand';
 
 const REACTIONS = ['🔥', '😂', '🤡', '👏', '💀', '🍺', '🚨', '🪣'];
 const ASK_GARRY = ['Roast me', 'Trash talk the leader', 'Tell me a joke', 'Who’s winning?', 'How’s my lineup?', 'Who should I pick up?', 'How do trades work?', 'What’s the prize money?', 'When’s the draft?', 'How do keepers work?', 'What’s the scoring?'];
+// a prediction pool has no lineups, draft or keepers to ask about
+const ASK_POOL = ['Roast me', 'Trash talk the leader', 'Tell me a joke', 'Who’s winning?', 'How does the pool score?'];
 // Garry points at pages with "👉 #/path"; those become buttons
 const LINK_LABEL: [string, string][] = [['/player/', 'Player page'], ['/team', 'My lineup'], ['/standings', 'Standings'], ['/trades', 'Trades'], ['/players', 'Players'],
   ['/draft?t=keepers', 'Keepers'], ['/draft', 'Draft room'], ['/bets', 'Side bets'], ['/performance', 'Performance'], ['/profile', 'Profile'], ['/nhl?t=injuries', 'Injuries'], ['/nhl', 'NHL centre'], ['/features', 'Features'], ['/money', 'Money'], ['/league', 'Rulebook']];
@@ -20,9 +22,13 @@ const CHIRPS = ['🚨 REACH!', 'Steal of the draft 🥷', 'Enjoy {booby} 🪣', 
 
 // channel 'all' is the merged feed: every channel this GM can see except the draft room, newest last; posting from it goes to Trash Talk
 export function ChatPanel({ channel, compact, className = '' }: { channel: string; compact?: boolean; className?: string }) {
-  const { me, team, teams, can } = useLeague();
+  const { me, team, teams, can, league, kind } = useLeague();
   const brand = useBrand();
   const bot = brand.bot.name;
+  // realtime checks a row's league without this tab's league (the x-league header rides on REST only), so with two
+  // pools open another pool's messages would arrive here: a row from another league is dropped on sight
+  const lid = league?.league_id ?? null;
+  const theirs = (row: { league_id?: number | null } | null | undefined) => lid != null && row?.league_id != null && row.league_id !== lid;
   const chirps = CHIRPS.map((c) => c.replace('{booby}', brand.booby.replace(/^The /, 'the ')));
   const all = channel === 'all';
   const postTo = all ? 'general' : channel;
@@ -60,14 +66,15 @@ export function ChatPanel({ channel, compact, className = '' }: { channel: strin
     const ch = realtimeChannel(`chat-${channel}`)
       .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'messages', ...(all ? {} : { filter: `channel=eq.${channel}` }) }, (p) => {
         const n = p.new as Message;
-        if (all && n.channel === 'draft') return;
+        if (theirs(n) || (all && n.channel === 'draft')) return;
         setMsgs((m) => (m.some((x) => x.id === n.id) ? m : [...m, n]));
       })
       .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'messages', ...(all ? {} : { filter: `channel=eq.${channel}` }) }, (p) => {
+        if (theirs(p.new as Message)) return;
         setMsgs((m) => m.map((x) => (x.id === (p.new as Message).id ? (p.new as Message) : x)));
       })
       .on('postgres_changes', { event: '*', schema: 'public', table: 'reactions' }, (p) => {
-        if (p.eventType === 'INSERT') setReactions((r) => [...r, p.new as Reaction]);
+        if (p.eventType === 'INSERT' && !theirs(p.new as Reaction)) setReactions((r) => [...r, p.new as Reaction]);
         if (p.eventType === 'DELETE') {
           const o = p.old as Reaction;
           setReactions((r) => r.filter((x) => !(x.message_id === o.message_id && x.team_id === o.team_id && x.emoji === o.emoji)));
@@ -75,7 +82,7 @@ export function ChatPanel({ channel, compact, className = '' }: { channel: strin
       })
       .subscribe();
     return () => { supabase.removeChannel(ch); };
-  }, [channel, load]);
+  }, [channel, load, lid]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // keep pinned to the bottom unless the user scrolled up
   useLayoutEffect(() => {
@@ -247,7 +254,7 @@ export function ChatPanel({ channel, compact, className = '' }: { channel: strin
       <div className="border-t border-white/[.07] bg-[#0b1222]/70 p-2 backdrop-blur-xl">
         {isGarry && !text && (
           <div className="scroll-x mb-1 flex gap-1">
-            {[...ASK_GARRY.slice(0, 1), ...(roastTarget ? [`Roast ${roastTarget}`] : []), ...ASK_GARRY.slice(1)].map((q) => <button key={q} className="chip shrink-0 py-1 text-xs" onClick={() => send(q)}>{q}</button>)}
+            {[...ASK_GARRY.slice(0, 1), ...(roastTarget ? [`Roast ${roastTarget}`] : []), ...(kind === 'predict' ? ASK_POOL : ASK_GARRY).slice(1)].map((q) => <button key={q} className="chip shrink-0 py-1 text-xs" onClick={() => send(q)}>{q}</button>)}
           </div>
         )}
         {replyTo && (

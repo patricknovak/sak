@@ -94,6 +94,8 @@ where n.nspname = 'public' and p.prosecdef and p.prorettype <> 'trigger'::regtyp
     'platform_close_request',
     -- platform admins only: a league's own web address
     'platform_set_league_domain',
+    -- deletes a whole pool: checks the caller hosts it (or started the league, still in setup) or is the platform
+    'pool_delete',
     -- debt: a pick names a player, and rosters hold one row per player across all leagues (rosters key, see EXPANSION.md)
     'draft_pick',
     -- debt: a multi-team trade names its teams inside a json list; each team needs the league check

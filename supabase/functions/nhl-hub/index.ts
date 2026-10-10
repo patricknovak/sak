@@ -13,6 +13,8 @@
 //                                   that hasn't: each club's last game)
 //   ?task=espn&sport=football/nfl&id=<event>  one game's box score from ESPN's public summary (NFL centre): each team's
 //                                   stats, its leaders, and the scoring plays (cached for the game's state)
+//   ?task=sport-news|sport-standings|sport-injuries|sport-leaders&sport=soccer/eng.1  every other sport's centre: ESPN's
+//                                   headlines, table, injury report and leaders (top scorers for soccer), cached in hub_cache
 //   ?task=x                         NHL insiders on X: through the X API when X_BEARER_TOKEN is set, otherwise through
 //                                   Grok's X search with the XAI_API_KEY the league already uses for Garry (shared cache
 //                                   in hub_cache so the whole league costs one search every few minutes)
@@ -516,6 +518,109 @@ async function espnBox(sport: string, id: string) {
   return { state, teams, leaders, scoring, ttl: state === 'in' ? 30_000 : state === 'post' ? 21_600_000 : 600_000 };
 }
 
+// ── Every other sport's centre (#/sport, #/centre): the news, the table, the injury report and the leaders from ESPN's
+// public feeds, trimmed to what the page draws. Each is kept in hub_cache as well as in memory, so a cold start
+// doesn't pull ESPN's whole injury report (megabytes) again for the next person to open the tab.
+const SPORT_TASKS = { 'sport-news': 600_000, 'sport-standings': 1_800_000, 'sport-injuries': 3_600_000, 'sport-leaders': 3_600_000 } as const;
+type SportTask = keyof typeof SPORT_TASKS;
+const sportOk = (s: string) => /^(football\/nfl|baseball\/mlb|basketball\/(nba|wnba|mens-college-basketball)|soccer\/[a-z0-9.]{3,20})$/.test(s);
+const espn = async (url: string) => {
+  const r = await fetch(url, { headers: { 'user-agent': 'SuperPools/1.0', accept: 'application/json' } });
+  if (!r.ok) throw new Error(`espn ${r.status}`);
+  return r.json();
+};
+const stat = (e: any, name: string) => (e.stats ?? []).find((x: any) => x.name === name);
+// the table's columns, each sport's usual ones, in its own words
+const COLS: Record<string, [string, string][]> = {
+  soccer: [['gamesPlayed', 'P'], ['wins', 'W'], ['ties', 'D'], ['losses', 'L'], ['pointDifferential', 'GD'], ['points', 'Pts']],
+  football: [['wins', 'W'], ['losses', 'L'], ['ties', 'T'], ['winPercent', 'Pct'], ['pointsFor', 'PF'], ['pointsAgainst', 'PA'], ['streak', 'Strk']],
+  baseball: [['wins', 'W'], ['losses', 'L'], ['winPercent', 'Pct'], ['gamesBehind', 'GB'], ['streak', 'Strk']],
+  basketball: [['wins', 'W'], ['losses', 'L'], ['winPercent', 'Pct'], ['gamesBehind', 'GB'], ['streak', 'Strk']],
+};
+
+async function sportNews(sport: string) {
+  const d = await espn(`https://site.api.espn.com/apis/site/v2/sports/${sport}/news?limit=30`);
+  return { items: (d.articles ?? []).filter((a: any) => a.headline).map((a: any) => ({
+    id: String(a.id), headline: a.headline, blurb: a.description ?? null, image: a.images?.[0]?.url ?? null, link: a.links?.web?.href ?? null,
+    at: a.published ?? a.lastModified ?? null, premium: !!a.premium,
+    tags: (a.categories ?? []).filter((c: any) => c.type === 'team' || c.type === 'athlete').map((c: any) => c.description ?? c.athlete?.displayName).filter(Boolean).slice(0, 3),
+  })) };
+}
+
+async function sportStandings(sport: string) {
+  const d = await espn(`https://site.api.espn.com/apis/v2/sports/${sport}/standings`);
+  const cols = COLS[sport.split('/')[0]] ?? COLS.basketball;
+  const soccer = sport.startsWith('soccer/');
+  // a league with groups (conferences, leagues) comes as children; a single table as the standings themselves
+  const groups = (d.children?.length ? d.children : [d]).filter((g: any) => g.standings?.entries?.length).map((g: any) => {
+    const rows = (g.standings.entries as any[]).map((e) => ({
+      abbrev: e.team?.abbreviation ?? null, name: e.team?.displayName ?? e.team?.name ?? '', short: e.team?.shortDisplayName ?? null,
+      logo: e.team?.logos?.[0]?.href ?? null, seed: Number(stat(e, soccer ? 'rank' : 'playoffSeed')?.value ?? 0) || null,
+      pct: Number(stat(e, 'winPercent')?.value ?? 0), pts: Number(stat(e, 'points')?.value ?? 0), gd: Number(stat(e, 'pointDifferential')?.value ?? 0),
+      cells: cols.map(([k]) => stat(e, k)?.displayValue ?? '–'),
+      note: e.note?.description ? { text: e.note.description, color: e.note.color ?? null } : null,
+    }));
+    // ESPN's order isn't always the table's: soccer by points then goal difference, the rest by seed or win rate
+    rows.sort((a, b) => soccer ? (b.pts - a.pts) || (b.gd - a.gd) : (a.seed && b.seed ? a.seed - b.seed : b.pct - a.pct));
+    return { name: g.name ?? g.abbreviation ?? '', rows: rows.map(({ pct: _p, pts: _q, gd: _g, ...r }) => r) };
+  });
+  return { season: d.season?.displayName ?? d.seasons?.[0]?.displayName ?? null, cols: cols.map(([, l]) => l), groups };
+}
+
+async function sportInjuries(sport: string) {
+  const d = await espn(`https://site.api.espn.com/apis/site/v2/sports/${sport}/injuries`);
+  const teams = (d.injuries ?? []).map((t: any) => ({
+    team: t.displayName ?? '', logo: null as string | null,
+    rows: (t.injuries ?? []).filter((j: any) => j.status && j.status !== 'Active').slice(0, 20).map((j: any) => ({
+      name: j.athlete?.displayName ?? '', pos: j.athlete?.position?.abbreviation ?? null, headshot: j.athlete?.headshot?.href ?? null,
+      status: j.status, part: j.details?.type && j.details.type !== 'Not Specified' ? j.details.type : null,
+      back: j.details?.returnDate ?? null, note: j.shortComment ?? null, at: j.date ?? null,
+    })),
+  })).filter((t: any) => t.rows.length);
+  return { teams };
+}
+
+async function sportLeaders(sport: string) {
+  if (sport.startsWith('soccer/')) {
+    // soccer's leaders are the scoring charts: goals and assists
+    const d = await espn(`https://site.api.espn.com/apis/site/v2/sports/${sport}/statistics`);
+    return { cats: (d.stats ?? []).map((c: any) => ({ name: c.displayName ?? (c.name === 'goalsLeaders' ? 'Goals' : 'Assists'),
+      rows: (c.leaders ?? []).slice(0, 10).map((l: any) => ({ name: l.athlete?.displayName ?? '', team: l.athlete?.team?.abbreviation ?? null, pos: null, headshot: null,
+        value: String(l.value ?? (l.displayValue ?? '').split(': ').pop() ?? ''),
+        sub: ((m) => (m ? `${m[1]} matches` : null))(/Matches: (\d+)/.exec(l.displayValue ?? '')) })) })) };
+  }
+  const d = await espn(`https://site.web.api.espn.com/apis/site/v3/sports/${sport}/leaders`);
+  return { cats: ((d.leaders?.categories ?? []) as any[]).slice(0, 10).map((c) => ({ name: c.displayName ?? c.name,
+    rows: (c.leaders ?? []).slice(0, 10).map((l: any) => ({ name: l.athlete?.displayName ?? '', team: l.team?.abbreviation ?? l.athlete?.team?.abbreviation ?? null,
+      pos: l.athlete?.position?.abbreviation ?? null, headshot: l.athlete?.headshot?.href ?? null, value: leaderValue(Number(l.value), c.displayName ?? c.name, l.displayValue),
+      // baseball's display is the player's line ("8-19, 4 HR, 9 RBI"): worth keeping under the number
+      sub: /[a-z,]/i.test(String(l.displayValue ?? '')) ? l.displayValue : null })) })) };
+}
+// a leader's number the way the sport writes it: .312 batting, 2.85 ERA, 33.5 a game, 1381 yards
+function leaderValue(v: number, cat: string, display: unknown) {
+  if (!Number.isFinite(v)) return String(display ?? '');
+  if (/earned run|whip/i.test(cat)) return v.toFixed(2);
+  if (/average|percentage|on-base|slugging/i.test(cat) && v < 10) return v < 1 ? v.toFixed(3).replace(/^0/, '') : v.toFixed(3);
+  return Number.isInteger(v) ? String(v) : v.toFixed(1);
+}
+
+async function sportTask(task: SportTask, sport: string) {
+  if (!sportOk(sport)) throw new Error('bad request');
+  const key = `${task}:${sport}`, ttl = SPORT_TASKS[task];
+  const { data: hit } = await db.from('hub_cache').select('body,at').eq('key', key).maybeSingle();
+  if (hit && Date.now() - new Date(hit.at).getTime() < ttl) return { ...(hit.body as object), ttl };
+  try {
+    const body = task === 'sport-news' ? await sportNews(sport) : task === 'sport-standings' ? await sportStandings(sport)
+      : task === 'sport-injuries' ? await sportInjuries(sport) : await sportLeaders(sport);
+    await db.from('hub_cache').upsert({ key, body, at: new Date().toISOString() });
+    return { ...body, ttl };
+  } catch (e) {
+    // ESPN down: the last copy beats an error
+    if (hit) return { ...(hit.body as object), stale: true, ttl: 120_000 };
+    throw e;
+  }
+}
+
 async function gameLines(id: string) {
   const land = await get(`/gamecenter/${id}/landing`);
   const started = ['LIVE', 'CRIT', 'OFF', 'FINAL'].includes(land.gameState);
@@ -541,14 +646,15 @@ Deno.serve(async (req) => {
   const id = url.searchParams.get('id') ?? '';
   const abbrev = (url.searchParams.get('abbrev') ?? '').toUpperCase();
   const sport = url.searchParams.get('sport') ?? '';
-  if (!/^(now|\d{4}-\d{2}-\d{2})$/.test(date) || !/^\d{0,12}$/.test(id) || !/^[A-Z]{0,3}$/.test(abbrev) || !/^[a-z./-]{0,40}$/.test(sport)) return Response.json({ error: 'bad request' }, { status: 400, headers: cors });
+  if (!/^(now|\d{4}-\d{2}-\d{2})$/.test(date) || !/^\d{0,12}$/.test(id) || !/^[A-Z]{0,3}$/.test(abbrev) || !/^[a-z0-9./-]{0,40}$/.test(sport)) return Response.json({ error: 'bad request' }, { status: 400, headers: cors });
   const key = `${task}:${date}:${id}:${abbrev}:${sport}`;
   const hit = cache.get(key);
   if (hit && Date.now() - hit.at < hit.ttl) return Response.json(hit.body, { headers: { ...cors, 'x-cache': 'hit' } });
   try {
     const body = task === 'standings' ? await standings() : task === 'schedule' ? await schedule(date) : task === 'game' ? await gameDetail(id)
       : task === 'news' ? await news() : task === 'x' ? await xfeed() : task === 'leaders' ? await leaders() : task === 'team' ? await club(abbrev)
-      : task === 'lines' ? await gameLines(id) : task === 'espn' ? await espnBox(sport, id) : await scores(date);
+      : task === 'lines' ? await gameLines(id) : task === 'espn' ? await espnBox(sport, id)
+      : task in SPORT_TASKS ? await sportTask(task as SportTask, sport) : await scores(date);
     const ttl = (body as { ttl?: number })?.ttl ?? TTL[task as keyof typeof TTL] ?? 20_000;
     cache.set(key, { at: Date.now(), ttl, body });
     if (cache.size > 200) for (const [k, v] of cache) if (Date.now() - v.at > v.ttl) cache.delete(k);

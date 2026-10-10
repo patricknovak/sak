@@ -60,10 +60,10 @@ export interface DraftState {
 
 export interface Message {
   id: number; channel: string; team_id: number | null; kind: 'user' | 'system' | 'bot'; body: string;
-  meta: Record<string, unknown> | null; reply_to: number | null; created_at: string; edited_at: string | null; deleted: boolean;
+  meta: Record<string, unknown> | null; reply_to: number | null; created_at: string; edited_at: string | null; deleted: boolean; league_id?: number | null;
 }
 
-export interface Reaction { message_id: number; team_id: number; emoji: string }
+export interface Reaction { message_id: number; team_id: number; emoji: string; league_id?: number | null }
 
 export interface Game {
   id: number; date: string; start_utc: string; home: string; away: string; state: string;

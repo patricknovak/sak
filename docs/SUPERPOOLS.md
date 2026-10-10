@@ -194,14 +194,31 @@ give the pool a home for following the sport):**
   crown. *Built (5 and 6 October 2026, `#/new` and My pools): the events open now with their stage, the kinds that fit
   each with when it locks, a preset per kind with its knobs in words and a live example; the crown is the main game
   (migration 169). Still to come: the late-joiner, tie and tiebreaker rules written on the pool's Rules page before the
-  first lock.*
+  first lock.* *Rebuilt 10 October 2026 (migration 242, Patrick: "only question type pools are available"): `#/new` asks
+  first what you are starting, a sports pool, a questions pool or a fantasy league, and My pools sends every start there
+  (its old one-step sheet offered questions only). A sport lists its events by sport, the kinds open on the chosen event,
+  and every other kind greyed with when it opens (`KIND_ORDER`, `KIND_WHEN`); Call the score joins the kinds on soccer's
+  rounds. A fantasy league is self-serve (`fantasy_start`): teams, season total or head-to-head with its playoffs, points
+  or categories, keepers and the draft, on SaK's NHL rules otherwise; it opens in setup and its starter takes it live
+  from the Commish page's checklist (`commish_go_live`). A host deletes a pool from its card on My pools or the Host
+  page, typing its name (`pool_delete`; a league only while in setup, the platform any but SaK).*
 - **P8. Sport centres.** `/sport/<sport>` from NHL centre's pattern: today's games with the series state, the line
   score, the bracket or the table, schedule, injuries, leaders, odds, and the pool's ribbon on every game; one
   `sport-hub` function with an adapter per sport. MLB first (October), then the NFL, soccer and the NBA.
   *MLB centre built (6 October 2026, `#/sport/mlb`, `src/pages/SportCentre.tsx`): the scoreboard day by day with the
   line score by inning, R/H/E, the inning and outs live, probable pitchers and the series status, and the bracket from the
   round in play; the pool's picks and split on every series. It reads the shared tables mlb-sync fills, every minute
-  while a game is on, so it needed no new function.*
+  while a game is on, so it needed no new function.* *The desk for every sport (10 October 2026):* the centres for the
+  NFL, soccer, MLB, the NBA and March Madness have News, Standings, Injuries and Leaders (top scorers for soccer) beside
+  their scores, from ESPN's public feeds through nhl-hub (`?task=sport-*`, cached in hub_cache), drawn by
+  `src/components/SportDesk.tsx`; the pool's clubs are highlighted. A pool's centres keep to its own events
+  (`pool_competitions()`): the switcher lists only them and MLB centre opens on the pool's event.
+- **P12. A pool keeps to its own events (10 October 2026, migration 242).** Every SQL read a member sees was already
+  the pool's own; what crossed over was the site reading the shared catalogue: the host's desk offered every
+  competition (Premier League matchweeks in an MLB pool), the centres switched between every league, and chat's
+  realtime carried another open pool's messages (realtime doesn't know the tab's league). `pool_competitions()` names the
+  pool's events; the host's desk, the centres and Add a game keep to them (other events a tap away), and chat drops a
+  row from another league.
 - **P9. The World Series test.** By 10 October: series pick'em and rank the teams for the LCS and the World Series,
   through the new start; by 22 October: World Series squares and MLB centre's first version. Patrick's first World
   Series pool (league 4) was archived on 5 October so his new one starts from the beginning. MLB's data is a decision

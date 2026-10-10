@@ -1,27 +1,35 @@
 import { useEffect, useState } from 'react';
 import { useLeague } from '../lib/store';
-import { supabase } from '../lib/supabase';
+import { rpc, supabase } from '../lib/supabase';
+import { useAction } from './ui';
 import { useBrand } from '../lib/brand';
 import { fmtDateTime } from '../lib/format';
 
 // The commissioner's season setup, in the order it happens: the league's look, the GMs, the rules, draft night, the
-// order, the platform switching the league on, the draft. Each step is ticked from what the league already holds and
+// order, the platform switching the league on (or, for a league its commissioner started, migration 242, the
+// commissioner taking it live: commish_go_live), the draft. Each step is ticked from what the league already holds and
 // jumps to the part of this page that does it. It shows until the draft is done, so it is there for a new league's
 // first season and again for every league's next one.
-interface Step { key: string; title: string; detail: string; done: boolean; to?: string; optional?: boolean }
+interface Step { key: string; title: string; detail: string; done: boolean; to?: string; optional?: boolean; live?: boolean }
 
 const jump = (id: string) => document.getElementById(id)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
 
 export function SetupGuide() {
-  const { league, teams, draft } = useLeague();
+  const { league, teams, draft, session } = useLeague();
   const brand = useBrand();
+  const { busy, run } = useAction();
   const [status, setStatus] = useState<string | null>(null);
+  const [mine, setMine] = useState(false);
   const [weeks, setWeeks] = useState(0);
   const h2h = league?.format === 'h2h';
   useEffect(() => {
     if (!league?.league_id) return;
-    supabase.from('leagues').select('status,brand').eq('id', league.league_id).maybeSingle().then(({ data }) => setStatus((data?.status as string) ?? null));
-  }, [league?.league_id]);
+    supabase.from('leagues').select('status,owner_user').eq('id', league.league_id).maybeSingle().then(({ data }) => {
+      setStatus((data?.status as string) ?? null);
+      setMine(!!session?.user?.id && data?.owner_user === session.user.id);
+    });
+  }, [league?.league_id, session?.user?.id]);
+  const goLive = () => run(async () => { await rpc('commish_go_live'); setStatus('active'); }, `${league?.name ?? 'The league'} is live`);
   // a head-to-head league plays a schedule (migration 118), made before the season
   useEffect(() => {
     if (!h2h) return;
@@ -39,7 +47,9 @@ export function SetupGuide() {
     ...(keepers ? [{ key: 'keepers', title: 'Keepers', detail: `${teams.filter((t) => t.keepers_submitted).length} of ${seats} GMs have saved theirs. Finalize to open the draft pool.`, done: false, to: 'keepers' }] : []),
     { key: 'when', title: 'Set draft night', detail: league.draft_at ? `${fmtDateTime(league.draft_at)} · ${league.pick_seconds}s a pick · ${league.draft_rounds} rounds` : 'Pick the date, the pick clock and the rounds.', done: !!league.draft_at, to: 'settings' },
     { key: 'order', title: 'Draw the order', detail: draft.order_set ? 'The order is set.' : 'Randomize it, or set it by hand.', done: draft.order_set, to: 'draft' },
-    ...(status && status !== 'active' ? [{ key: 'live', title: 'Super Pools switches you on', detail: 'Once your commissioner seat is in, the league goes on the nightly jobs: scores, lineups and the Book.', done: false }] : []),
+    ...(status && status !== 'active' ? [mine
+      ? { key: 'live', title: 'Take it live', detail: 'Once the steps above are done, switch it on: the nightly jobs start (scores, lineups and the Book).', done: false, live: true }
+      : { key: 'live', title: 'Super Pools switches you on', detail: 'Once your commissioner seat is in, the league goes on the nightly jobs: scores, lineups and the Book.', done: false }] : []),
     { key: 'go', title: 'Drop the puck', detail: draft.status === 'live' || draft.status === 'paused' ? 'The draft is on.' : 'Start the draft from the draft room when everyone is in.', done: draft.status === 'live' || draft.status === 'paused', to: 'draft' },
   ];
   const next = steps.find((x) => !x.done && !x.optional);
@@ -68,6 +78,7 @@ export function SetupGuide() {
                   <span className="block break-words text-xs text-white/55">{x.detail}</span>
                 </span>
                 {x.to && <span className="mt-1 shrink-0 text-white/40">›</span>}
+                {x.live && <button type="button" className="btn-gold shrink-0 px-3 py-1.5 text-xs" disabled={busy} onClick={goLive}>🏒 Go live</button>}
               </>
             );
             return (
