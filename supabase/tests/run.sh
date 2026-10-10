@@ -12,4 +12,6 @@ done
 $PSQL -d sak_test -f supabase/tests/flow.sql > /tmp/sak-flow.out
 # the tenancy guardrails: every table, view and callable function keeps to its league
 $PSQL -d sak_test -f supabase/tests/tenancy.sql >> /tmp/sak-flow.out
+# anon grants, team_directory and the public key's surface (migration 240)
+$PSQL -d sak_test -f supabase/tests/security.sql >> /tmp/sak-flow.out
 echo "database flow test passed"
