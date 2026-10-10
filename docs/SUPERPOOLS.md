@@ -100,8 +100,9 @@ SQL functions never rely on the column default of 1. The flow test opens a secon
 neither league sees the other's teams, rosters, chat, bets, money, lineup plans or standings.
 
 Still open from this step: `current_league_id()` falls back to league 1 for a signed-in user with no team row
-(today that is nobody; accounts replaced the fallback for anyone with a membership), and `team_directory` stays the public list
-of every team on the login page until the app is served per host (step 1).
+(today that is nobody; accounts replaced the fallback for anyone with a membership). `team_directory` is the
+public list of team names and colours for the caller's league (migration 104 dropped emails; migration 240 made
+it `security_invoker` with a narrow anon grant on `teams`), used today as the site's health check.
 
 ## 5. Every rule reads its own league's row (done in migration 62)
 

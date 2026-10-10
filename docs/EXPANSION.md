@@ -142,16 +142,7 @@ north at once (each its own board, chat line and prop name), checks the service 
 refused unknown job. Left for later: the SaK Fund's price (B6) and the health check, which are platform-wide.
 
 **B5. Sign-in and choosing a league.** (Realtime done, October 2026: a league's tables are heard for that league
-only on inserts and updates; deletes, which Realtime can't filter, still arrive from every league and cost a refetch.) The login page reads `team_directory` with the public key: every
-league's teams and every GM's login email (live today for SaK's eight). The client never sends `x-league`;
-nothing calls `my_leagues`, `set_active_league` or `accept_invite`; there is no sign-up, invite page or
-league switcher. Realtime listeners have no `league_id` filter (deletes skip row-level security, so every
-league would refetch on every other league's deletes) and presence is one global `online` channel.
-*Fix:* sign in by email, then pick the league (or league by host, plan step 1); a pre-sign-in
-`league_by_host()` that returns only the brand; `x-league` on every request; a switcher that sets the active
-league and resubscribes; `filter: league_id=eq.N` on every per-league subscription; presence per league.
-*Decision for Patrick:* the team-picker login is friendly for SaK but exposes emails; moving SaK to email
-sign-in (with "remember me") closes that today.
+only on inserts and updates; deletes, which Realtime can't filter, still arrive from every league and cost a refetch.)
 *Decided (Patrick, 3 October 2026):* email sign-in with "remember me", rolled out without signing anyone out.
 Step 1 (migration 103): the sign-in page asks for email and password, with "Remember me on this device" (on by default;
 off keeps the session in sessionStorage); the commissioner puts each GM's real email on their account from the Commish
@@ -162,6 +153,8 @@ commissioner, and from invites once they exist), and "Forgot your password?" ema
 the new password on the sign-in page (works on any device). Auth email goes through Resend (SMTP, set 3 October 2026):
 SAK Superleague <no-reply@superpoolsai.com>, domain verified (DKIM, SPF on `send`, DMARC `p=none` to tighten once mail
 has flowed a while), 30 auth emails an hour. GMs change their password any time on their Profile.
+*Security harden (migration 240):* `team_directory` runs as the caller; anon keeps only the non-secret team columns
+for the health check; PUBLIC/anon execute is revoked on SECURITY DEFINER RPCs the signed-out site does not call.
 *Joining and the switcher done (migration 105, the `join` edge function):* the commissioner makes invite links on the
 Commish page (an open seat, once; a spectator place, up to five times; 14 days); the link opens `#/join/<code>`, which
 shows the league and seat before sign-in (`invite_preview`). Someone new makes their account there (the `join`
