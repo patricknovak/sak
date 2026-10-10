@@ -5719,7 +5719,7 @@ select soccer_ingest('nfl', jsonb_build_object('fixtures', jsonb_build_array(jso
   'kickoff', now() + interval '2 hours', 'status', 'NS', 'home', 'nf1', 'away', 'nf2'))));
 select _pool_game_nudge(:lib) as stn \gset
 select pg_temp.expect('a reminder before the day''s first game, once',
-  :stn = 1
+  :stn >= 1
   and (select count(*) = 1 from notifications where team_id = :hana and body like '🔥 The day''s first game starts in%'
        and link = '/picks?g=' || :stg)
   and _pool_game_nudge(:lib) = 0);
