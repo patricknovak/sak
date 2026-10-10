@@ -16,6 +16,7 @@ import { PropSheetGame, type PropsData } from '../components/PropSheet';
 import { StreakGameView, type StreakData } from '../components/Streak';
 import { SweepGame, type SweepData } from '../components/Sweep';
 import { useSurvivor } from './Survivor';
+import { trackFirstCall } from '../lib/analytics';
 
 // The pool's games (migration 165, docs/POOL-TYPES.md): Pick the series (each series' winner and how many games it
 // goes, locked at its Game 1) and Rank the teams (the clubs in order; every win pays its club's rank). Points, the most
@@ -196,9 +197,10 @@ function SeriesCard({ s, board, onPick, busy, name }: { s: Series; board: GameBo
 
 // a game's picks for yourself, or (the host, migration 172) for a member who asked: their own picks stay private, so
 // the host starts from a blank slate and what they save replaces the member's
-const savePick = (board: GameBoard, thing: string, pick: unknown, actAs?: { team: number }) => actAs
-  ? rpc('pool_host_pick', { p_game: board.id, p_team: actAs.team, p_pick: { thing, pick } })
-  : rpc('pool_game_pick', { p_game: board.id, p_thing: thing, p_pick: pick });
+const savePick = async (board: GameBoard, thing: string, pick: unknown, actAs?: { team: number }) => {
+  if (actAs) await rpc('pool_host_pick', { p_game: board.id, p_team: actAs.team, p_pick: { thing, pick } });
+  else { await rpc('pool_game_pick', { p_game: board.id, p_thing: thing, p_pick: pick }); trackFirstCall(thing); }
+};
 
 function SeriesGame({ board, reload, name, actAs }: { board: GameBoard; reload: () => void; name: (id: number) => string; actAs?: { team: number; name: string } }) {
   const { busy, run } = useAction();

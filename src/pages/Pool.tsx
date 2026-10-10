@@ -14,6 +14,7 @@ import { Empty, PageHeader, Section, TeamBadge, useAction } from '../components/
 import { useEffect } from 'react';
 import { appLink } from '../lib/host';
 import { shareCard } from '../lib/shareCard';
+import { track } from '../lib/analytics';
 import { SurvivorCard, SurvivorStart, useSurvivor } from './Survivor';
 import { AskSheet } from '../components/AskSheet';
 import { PoolHowTo } from '../components/PoolHowTo';
@@ -166,6 +167,7 @@ function InviteCard() {
     const text = `Join my ${brand.tagline || league?.name} on Super Pools. No money, just bragging rights.`;
     if (navigator.share) await navigator.share({ title: league?.name, text, url }).catch(() => {});
     else await navigator.clipboard?.writeText(url).catch(() => {});
+    track('invite_share');
   });
   return (
     <div className="card relative overflow-hidden p-5">

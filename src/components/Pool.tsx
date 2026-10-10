@@ -9,6 +9,7 @@ import { countdown, ago } from '../lib/format';
 import { useBrand } from '../lib/brand';
 import { answerColor, isOpen, pct, prices, quoteBuy, quoteSell, type PoolMarket, type PoolPosition, type PoolTrade } from '../lib/pool';
 import { Sheet, TeamBadge, useAction } from './ui';
+import { trackFirstCall } from '../lib/analytics';
 
 // the pool's coin, with its name ("1,250 Goblets")
 export function Coins({ n, className = '' }: { n: number | null | undefined; className?: string }) {
@@ -129,6 +130,7 @@ export function TradeSheet({ m, start, onClose, onDone, coins, held }: {
   const go = () => run(async () => {
     if (side === 'buy') await rpc('pool_buy', { p_market: m.id, p_outcome: key, p_coins: amount });
     else await rpc('pool_sell', { p_market: m.id, p_outcome: key, p_shares: sellShare >= 0.999 ? null : sellN });
+    trackFirstCall(side === 'buy' ? 'call' : 'sell');
     onDone(); onClose();
   }, side === 'buy' ? `Called it: ${label}` : `Sold ${label}`);
   return (

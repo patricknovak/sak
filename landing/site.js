@@ -1,7 +1,88 @@
 // Super Pools landing pages: the reveal on scroll, the live board and the try-it question (both fictional, drawn in
-// the page), the premiere countdown, and the waitlist. Every piece checks its element exists, so each page uses what it has.
+// the page), the premiere countdown, the waitlist, consented GA4 and first-touch UTM. Every piece checks its element
+// exists, so each page uses what it has.
 document.documentElement.classList.add('js');
 var still = window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+// GA4 measurement ID: leave empty until the property exists; nothing loads while blank.
+var GA4_ID = '';
+var CONSENT_KEY = 'sp_analytics_consent';
+var TOUCH_KEY = 'sp_first_touch';
+
+function spStoreGet(k) { try { return localStorage.getItem(k); } catch (e) { return null; } }
+function spStoreSet(k, v) { try { localStorage.setItem(k, v); } catch (e) { /* private mode */ } }
+
+// First-touch UTM + referrer, captured once on the first landing visit.
+(function captureTouch() {
+  if (spStoreGet(TOUCH_KEY)) return;
+  var q = new URLSearchParams(location.search);
+  var get = function (k) { var v = (q.get(k) || '').trim(); return v ? v.slice(0, 200) : null; };
+  spStoreSet(TOUCH_KEY, JSON.stringify({
+    utm_source: get('utm_source'), utm_medium: get('utm_medium'), utm_campaign: get('utm_campaign'),
+    utm_content: get('utm_content'), utm_term: get('utm_term'),
+    referrer: document.referrer ? document.referrer.slice(0, 500) : null
+  }));
+})();
+
+function spAttribution() {
+  try {
+    var t = JSON.parse(spStoreGet(TOUCH_KEY) || '{}');
+    var out = {};
+    ['utm_source', 'utm_medium', 'utm_campaign', 'utm_content', 'utm_term', 'referrer'].forEach(function (k) {
+      if (t[k]) out[k] = String(t[k]).slice(0, k === 'referrer' ? 500 : 160);
+    });
+    return out;
+  } catch (e) { return {}; }
+}
+
+// Consented GA4 (Consent Mode v2). Defaults denied; gtag loads only after Accept, and only when GA4_ID is set.
+(function analytics() {
+  if (!GA4_ID) return;
+  window.dataLayer = window.dataLayer || [];
+  function gtag() { dataLayer.push(arguments); }
+  window.gtag = gtag;
+  gtag('consent', 'default', {
+    ad_storage: 'denied', ad_user_data: 'denied', ad_personalization: 'denied',
+    analytics_storage: 'denied', wait_for_update: 500
+  });
+  gtag('js', new Date());
+  gtag('config', GA4_ID, { send_page_view: true, anonymize_ip: true });
+
+  function loadTag() {
+    if (document.getElementById('sp-ga4')) return;
+    var s = document.createElement('script');
+    s.id = 'sp-ga4'; s.async = true;
+    s.src = 'https://www.googletagmanager.com/gtag/js?id=' + encodeURIComponent(GA4_ID);
+    document.head.appendChild(s);
+  }
+  function setConsent(granted) {
+    spStoreSet(CONSENT_KEY, granted ? 'granted' : 'denied');
+    gtag('consent', 'update', { analytics_storage: granted ? 'granted' : 'denied' });
+    if (granted) loadTag();
+    var bar = document.getElementById('sp-consent');
+    if (bar) bar.remove();
+  }
+  if (spStoreGet(CONSENT_KEY) === 'granted') { gtag('consent', 'update', { analytics_storage: 'granted' }); loadTag(); return; }
+  if (spStoreGet(CONSENT_KEY) === 'denied') return;
+
+  function showBanner() {
+    if (document.getElementById('sp-consent')) return;
+    var bar = document.createElement('div');
+    bar.id = 'sp-consent';
+    bar.setAttribute('role', 'dialog');
+    bar.setAttribute('aria-label', 'Analytics cookies');
+    bar.innerHTML = '<div class="sp-consent-inner"><p>We use optional analytics cookies to see which pools people start. No ads, never money, never your email.</p>'
+      + '<div class="sp-consent-actions"><button type="button" class="btn btn-ghost btn-sm" data-c="0">No thanks</button>'
+      + '<button type="button" class="btn btn-gold btn-sm" data-c="1">Accept</button></div></div>';
+    bar.addEventListener('click', function (e) {
+      var b = e.target.closest('[data-c]'); if (!b) return;
+      setConsent(b.getAttribute('data-c') === '1');
+    });
+    document.body.appendChild(bar);
+  }
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', showBanner);
+  else showBanner();
+})();
 
 // reveal on scroll
 (function () {
@@ -106,10 +187,20 @@ document.querySelectorAll('[data-pick]').forEach(function (a) {
     if (form.website.value) return;  // a bot filled the hidden field
     if (!/^[^@\s]+@[^@\s]+\.[^@\s]{2,}$/.test(email)) { msg.className = 'msgline err wide'; msg.textContent = 'That address does not look right.'; return; }
     var btn = form.querySelector('button'); btn.disabled = true; msg.className = 'msgline wide'; msg.textContent = 'One moment.';
-    fetch(API, {
-      method: 'POST',
-      headers: { apikey: KEY, Authorization: 'Bearer ' + KEY, 'Content-Type': 'application/json', Prefer: 'return=minimal' },
-      body: JSON.stringify({ email: email, league: pick, note: note || null, source: (location.hostname + location.pathname).slice(0, 120) })
+    var base = { email: email, league: pick, note: note || null, source: (location.hostname + location.pathname).slice(0, 120) };
+    var withAttr = Object.assign({}, base, spAttribution());
+    function post(body) {
+      return fetch(API, {
+        method: 'POST',
+        headers: { apikey: KEY, Authorization: 'Bearer ' + KEY, 'Content-Type': 'application/json', Prefer: 'return=minimal' },
+        body: JSON.stringify(body)
+      });
+    }
+    // send UTM columns when live; if PostgREST rejects unknown columns, retry without (safe before the migration)
+    post(withAttr).then(function (r) {
+      if (r.status === 201 || r.status === 409) return r;
+      if (r.status === 400 || r.status === 403) return post(base);
+      return r;
     }).then(function (r) {
       if (r.status === 201) { msg.className = 'msgline ok wide'; msg.textContent = pick === 'Love Is Blind pool' ? 'You are on the list. Your invite comes before the pods open.' : 'You are on the list. We will write when your pool can open.'; form.reset(); }
       else if (r.status === 409) { msg.className = 'msgline ok wide'; msg.textContent = 'You were already on the list. We have not forgotten.'; }

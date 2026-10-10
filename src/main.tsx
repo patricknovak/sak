@@ -8,6 +8,10 @@ import { Layout } from './components/Layout';
 import { PlayerInfoProvider } from './lib/playerInfo';
 import { Spinner, ToastHost } from './components/ui';
 import { ErrorBoundary, reloadForNewVersion } from './components/ErrorBoundary';
+import { ConsentBanner } from './components/ConsentBanner';
+import { initAnalytics, trackPageView } from './lib/analytics';
+
+initAnalytics();
 
 // Vite fires this when a lazily-loaded page can't be fetched (stale tab after a deploy)
 window.addEventListener('vite:preloadError', (e) => { if (reloadForNewVersion()) e.preventDefault(); });
@@ -64,6 +68,13 @@ function Reopen() {
 
 function Loading() {
   return <div className="grid min-h-[50dvh] place-items-center"><Spinner className="h-8 w-8" /></div>;
+}
+
+// HashRouter page views for GA4 (only after consent; no-op when the ID is empty)
+function AnalyticsRoute() {
+  const { pathname, search } = useLocation();
+  useEffect(() => { trackPageView(`${pathname}${search}`); }, [pathname, search]);
+  return null;
 }
 
 function App() {
@@ -173,7 +184,9 @@ createRoot(document.getElementById('root')!).render(
     <HashRouter>
       <ToastHost>
         <LeagueProvider>
+          <AnalyticsRoute />
           <App />
+          <ConsentBanner />
         </LeagueProvider>
       </ToastHost>
     </HashRouter>

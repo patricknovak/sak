@@ -13,6 +13,7 @@ import { shareCard } from '../lib/shareCard';
 import { Crest } from './Crest';
 import type { Club } from '../pages/Picks';
 import { chance, useMarket } from '../lib/market';
+import { trackFirstCall } from '../lib/analytics';
 
 type Side = 'H' | 'D' | 'A';
 interface PkPick { pick: Side; conf?: number }
@@ -88,6 +89,7 @@ export function PickemGame({ gameId, first, status: gameStatus, name, reload, ac
     const picks = data.fixtures.filter((f) => !f.locked && f.id in draft).map((f) => ({ fixture: f.id, pick: draft[f.id]?.pick ?? null, conf: draft[f.id]?.conf ?? null }));
     if (actAs) await rpc('pool_host_pick', { p_game: gameId, p_team: actAs.team, p_pick: { round: data.round, picks } });
     else await rpc('pool_pickem_save', { p_game: gameId, p_round: data.round, p_picks: picks });
+    if (!actAs) trackFirstCall('pickem');
     await go(data.round);
     reload();
   }, actAs ? `${actAs.name}'s picks are in` : 'Your picks are in');

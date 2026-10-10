@@ -10,8 +10,10 @@ Brand, copy and positioning rules live in `docs/BRAND.md`; the product it descri
 - `index.html`: the home, sports first (the fantasy door, questions with odds, the founding league, where it's going) with
   a door to `together.html`, pools for any group (Love Is Blind, women's sports), in rose. Both use `site.css` and
   `site.js` (the reveal on scroll, the live board and the try-it question drawn in the page, the premiere countdown, the
-  waitlist). The waitlist posts to `public.waitlist` through PostgREST with the publishable key; the "what do you want
-  to play" choice goes in `league` and the optional free text in `note`.
+  waitlist, consented GA4 when `GA4_ID` is set, and first-touch UTM/referrer capture for the waitlist). The waitlist posts
+  to `public.waitlist` through PostgREST with the publishable key; the "what do you want to play" choice goes in `league`
+  and the optional free text in `note`. `sitemap.xml` lists the public pages (Cloudflare currently serves a managed
+  `robots.txt`, so the sitemap is not referenced from the repo).
 - `img/`: the phone screens. Pool screens come from a sample pool; SaK screens from the league's own site with
   every name changed (the anonymized fixtures). 600 px wide WebP; never a screen with a real GM's name or a cash prize.
 - `icon.svg`: the mark (the faceoff dot) on its tile; also the favicon. `img/sak-icon.svg` is SaK's crest.

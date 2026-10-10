@@ -75,6 +75,14 @@ header { display: flex; align-items: center; justify-content: space-between; gap
 .glow-rose { box-shadow: 0 50px 90px -40px rgba(0,0,0,.95), 0 0 0 1px rgba(255,255,255,.12) inset, 0 0 90px -24px rgba(251,113,133,.55); }
 .glow-ice { box-shadow: 0 50px 90px -40px rgba(0,0,0,.95), 0 0 0 1px rgba(255,255,255,.12) inset, 0 0 90px -24px rgba(56,189,248,.45); }
 
+/* analytics consent floor (shown only when GA4_ID is set and the visitor has not chosen) */
+#sp-consent { position: fixed; inset: auto 0 0 0; z-index: 80; padding: 12px 12px max(12px, env(safe-area-inset-bottom)); pointer-events: none; display: flex; justify-content: center; }
+#sp-consent .sp-consent-inner { pointer-events: auto; width: 100%; max-width: 420px; border-radius: 18px; padding: 14px 14px 12px; border: 1px solid rgba(255,255,255,.12);
+  background: rgba(11,18,32,.94); backdrop-filter: blur(10px); box-shadow: 0 18px 50px -20px rgba(0,0,0,.85); }
+#sp-consent p { margin: 0; font-size: 13px; line-height: 1.45; color: var(--soft); }
+#sp-consent .sp-consent-actions { display: flex; gap: 8px; margin-top: 12px; }
+#sp-consent .sp-consent-actions .btn { flex: 1; }
+
 /* cards */
 .card { background: linear-gradient(180deg, rgba(255,255,255,.045), rgba(255,255,255,.015)); border: 1px solid var(--line); border-radius: 22px; padding: 22px; }
 .card h3 { margin: 10px 0 6px; font-size: 19px; }
