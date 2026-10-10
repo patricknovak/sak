@@ -22,6 +22,7 @@
     .stage .board { position: relative; z-index: 2; }
     .voice { position: relative; z-index: 3; margin: -18px 10px 0 auto; max-width: 330px; }
     .voice .msg { margin: 0; }
+    .board > .sample-cap { margin: -2px 2px 10px; }
     /* the headline: "from the Future" in gold running into ice, with a slow shimmer */
     .future { background: linear-gradient(92deg, #fff1b8 0%, #f7c548 30%, #7dd3fc 62%, #38bdf8 80%, #fff1b8 100%); background-size: 220% 100%;
       -webkit-background-clip: text; background-clip: text; color: transparent; padding-right: .08em; animation: shimmer 9s ease-in-out infinite alternate; }
@@ -77,16 +78,15 @@
         <div class="phone glow-gold" aria-hidden="true"><img src="./img/sak-live.webp" alt="" width="600" height="1200" loading="eager" /></div>
         <div class="board" id="board">
           <div class="board-h"><b>TONIGHT</b><span class="live">Live · 9 games</span></div>
+          <p class="sample-cap">Sample pool</p>
           <div class="row" data-t="Hat Trick Club" data-p="31.5"><span class="rk">1</span><span class="tm"><b>Hat Trick Club</b><span>4 playing · 2 done</span></span><span class="pts"><span class="bump"></span><span class="v">31.5</span><small>tonight</small></span></div>
           <div class="row" data-t="Top Shelf" data-p="29.0"><span class="rk">2</span><span class="tm"><b>Top Shelf</b><span>5 playing · 1 done</span></span><span class="pts"><span class="bump"></span><span class="v">29.0</span><small>tonight</small></span></div>
           <div class="row" data-t="Zamboni Drivers" data-p="26.4"><span class="rk">3</span><span class="tm"><b>Zamboni Drivers</b><span>3 playing · 3 done</span></span><span class="pts"><span class="bump"></span><span class="v">26.4</span><small>tonight</small></span></div>
           <div class="row" data-t="Five Hole Heroes" data-p="24.0"><span class="rk">4</span><span class="tm"><b>Five Hole Heroes</b><span>6 playing</span></span><span class="pts"><span class="bump"></span><span class="v">24.0</span><small>tonight</small></span></div>
           <div class="event" id="board-ev"><b>Live</b> · points land as the box scores change</div>
-          <p class="sample-cap">Sample pool</p>
         </div>
         <div class="voice">
           <div class="msg bot"><span class="av" style="background:#f7c548">G</span><div class="bub"><small>GARRY · THE LEAGUE VOICE</small>Five Hole Heroes left 11.5 points on the bench again. Somebody check on him.</div></div>
-          <p class="sample-cap">Sample pool</p>
         </div>
       </div>
     </div>

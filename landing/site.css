@@ -250,7 +250,7 @@ input::placeholder { color: var(--dim); }
 .tier.hot { border-color: rgba(247,197,72,.45); box-shadow: 0 0 60px -30px rgba(247,197,72,.5); }
 
 /* sample caption under fictional demos (live board, Garry chat) */
-.sample-cap { margin: 8px 4px 0; font-size: 11px; font-weight: 600; letter-spacing: .12em; text-transform: uppercase; color: var(--mute); }
+.sample-cap { margin: 8px 4px 0; font-size: 11px; font-weight: 700; letter-spacing: .14em; text-transform: uppercase; color: var(--soft); }
 
 /* faq */
 .faq details { border-top: 1px solid var(--line); padding: 16px 0; }
