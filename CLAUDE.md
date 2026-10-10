@@ -87,6 +87,11 @@ Two things in one repo:
   categories in an h2h one) and `h2h_playoffs` (0, or the bracket's size). Read the tables through `standings` (points),
   `category_standings()`, `h2h_scores()` / `h2h_standings()` / `h2h_bracket()` (worked out on read). Anything that ranks
   teams (payouts, Garry, the Money page) follows the format; SaK's path stays the points table.
+- Analytics (migration 241): consented GA4 on the app (`VITE_GA4_ID`) and landing (`GA4_ID` in `landing/site.js`); empty
+  means nothing loads. Consent Mode v2 defaults to denied; a banner loads gtag only after Accept. Funnel events
+  `pool_start`, `invite_share`, `join`, `first_call`, `sign_up` (no PII). First-touch UTM/referrer on `waitlist` and
+  `private.pool_signups`. `accounts.is_test` (platform-admin `set_account_is_test`). `mission_control_counts` for the
+  portfolio Mission Control (passcode hash in `mission_control.counts_passcode`, never committed). Landing `sitemap.xml`.
 - Hosting: the app on GitHub Pages from `main` (`.github/workflows/deploy.yml`, builds on push) and on Cloudflare; the
   Super Pools landing page (`landing/index.html`) on Cloudflare (zone routes on the apex and www; off Vercel); every
   other `<league>.superpoolsai.com` goes to the app through a wildcard zone route and a proxied `AAAA * 100::` record (live

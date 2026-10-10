@@ -389,8 +389,14 @@ The steps above finish the tenancy. `docs/MARKET.md` sets what comes after in th
     2026):* the Features page's What's new tab, a dated timeline from `src/data/changelog.ts` (an entry in the same pull
     request as the change), with a dot on the tab until a phone has seen the newest. The board's first idea shipped the same day: the watch list (a GM's
     request, migrations 140 to 142): stars on the Players page and player cards, a Home card with free agents first, alerts
-    when a watched player is dropped in season or hurt, and Garry knows the list on the GM's private line. Telemetry waits on
-    the privacy note.
+    when a watched player is dropped in season or hurt, and Garry knows the list on the GM's private line. *Analytics
+    foundation (migration 241, 10 October 2026):* consented GA4 on the landing and the app (Consent Mode v2, measurement ID
+    from `VITE_GA4_ID` / a landing constant, empty means nothing loads), funnel events (`pool_start`, `invite_share`, `join`,
+    `first_call`, `sign_up`) with no PII, a landing `sitemap.xml`, first-touch UTM/referrer on `waitlist` and
+    `private.pool_signups`, `accounts.is_test` (admin-only to change, backfilled from the test email filter), and
+    `mission_control_counts` (anon + passcode hash in `mission_control.counts_passcode`, never committed) returning
+    real-user, pool, member, action and weekly-active-pool-player counts for Mission Control. Per-pool usage tables and the
+    privacy note are still to come.
 15. **App-store listing** and the **playoff bracket pool** (the bracket is now a kind in P6, `docs/POOL-TYPES.md`). (The voice per league with a daily budget is done: item 2,
     migration 99.)
 

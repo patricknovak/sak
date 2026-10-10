@@ -11,6 +11,7 @@ import { ProductMark } from './Start';
 import { type Pack, packName, packPlaceholder, packWhen } from '../lib/packs';
 import { KINDS, PICKEM_PRESETS, PRESETS, SQUARES_DEFAULT, eventGrids, gridFor, gridLabel, gridRules, presetExample, sheetLabel, type GameKind, type PickemPreset, type PoolEvent, type SeriesPreset, type SquaresRules } from '../lib/poolGames';
 import { SERIES_SPORTS, SheetPicker, SquaresKnobs, lockText } from './Picks';
+import { attributionFields, track } from '../lib/analytics';
 
 // "Start a pool" (#/new), open to anyone, in steps (docs/POOL-TYPES.md §4): what are you following (a sports event open
 // now, a show's question pack, or anything else), what kind of pool (for a sport: pick the series, rank the teams, the
@@ -127,11 +128,13 @@ export default function NewPool() {
       if (member) {
         const r = await rpc<{ id: number; slug: string }>('pool_start', { p_name: pool.trim(), p_color: color, p_pack: openPack });
         await startGames(r.id);
+        track('pool_start', openPack ? { pack: openPack } : undefined);
         await openPool({ league_id: r.id, slug: r.slug }, '/host');
         return;
       }
       const login = email.trim().toLowerCase();
-      const { data, error } = await supabase.functions.invoke('join', { body: { pool: { name: pool.trim(), color, pack: openPack }, email: login, password: pw, name: name.trim() } });
+      // attribution rides along; the join function drops it when the columns are not live yet
+      const { data, error } = await supabase.functions.invoke('join', { body: { pool: { name: pool.trim(), color, pack: openPack }, email: login, password: pw, name: name.trim(), ...attributionFields() } });
       if (error) {
         const body = error instanceof FunctionsHttpError ? await error.context.json().catch(() => null) : null;
         setErr(body?.error ?? 'Couldn’t start the pool right now. Try again in a minute.');
@@ -143,6 +146,8 @@ export default function NewPool() {
       const { error: se } = await supabase.auth.signInWithPassword({ email: login, password: pw });
       if (se) { setBusy(false); setErr(`Your pool is open, but signing in failed: ${se.message}. Sign in from the main page.`); return; }
       try { localStorage.setItem('sak-last-email', login); } catch { /* nothing to remember with */ }
+      track('sign_up');
+      track('pool_start', openPack ? { pack: openPack } : undefined);
       const opened = (data as { pool?: { id: number; slug: string } })?.pool;
       if (opened) {
         await startGames(opened.id).catch((x) => setErr(`Your pool is open, but its games didn’t start: ${(x as Error).message}. Add them from the Host page.`));

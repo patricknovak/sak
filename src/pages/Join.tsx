@@ -5,6 +5,7 @@ import { useLeague } from '../lib/store';
 import { Spinner } from '../components/ui';
 import { LeagueCrest } from '../components/Brand';
 import { themed } from '../components/LeagueIdentity';
+import { attributionFields, track } from '../lib/analytics';
 
 // The page an invite link opens (#/join/<code>), signed in or not. It shows what the invite is for, then:
 // someone new makes their account right here (the `join` edge function makes it and seats them in one go);
@@ -37,7 +38,7 @@ export default function Join({ code }: { code: string }) {
   useEffect(() => { rpc<Preview>('invite_preview', { p_code: code }).then(setPv, () => setPv({ ok: false, reason: 'unknown' })); }, [code]);
 
   const accept = async () => {
-    try { await rpc('accept_invite', { p_code: code }); goHome(); }
+    try { await rpc('accept_invite', { p_code: code }); track('join'); goHome(); }
     catch (e) { setBusy(false); setErr((e as Error).message); }
   };
 
@@ -47,7 +48,8 @@ export default function Join({ code }: { code: string }) {
     if (pw !== pw2) { setErr('The two passwords don’t match.'); return; }
     setBusy(true); setErr('');
     const login = email.trim().toLowerCase();
-    const { error } = await supabase.functions.invoke('join', { body: { code, email: login, password: pw, name: name.trim() } });
+    // attribution is first-touch UTM/referrer; the join function ignores unknown fields if the SQL is not live yet
+    const { error } = await supabase.functions.invoke('join', { body: { code, email: login, password: pw, name: name.trim(), ...attributionFields() } });
     if (error) {
       const body = error instanceof FunctionsHttpError ? await error.context.json().catch(() => null) : null;
       setBusy(false);
@@ -59,6 +61,8 @@ export default function Join({ code }: { code: string }) {
     const { error: se } = await supabase.auth.signInWithPassword({ email: login, password: pw });
     if (se) { setBusy(false); setErr(`You're in, but signing in failed: ${se.message}. Sign in from the main page.`); return; }
     try { localStorage.setItem('sak-last-email', login); } catch { /* nothing to remember with */ }
+    track('sign_up');
+    track('join');
     goHome();
   };
 

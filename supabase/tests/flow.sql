@@ -6071,3 +6071,42 @@ update competitions set active = false where id = 'nba-post-2027';
 select set_config('app.league_id', '', false);
 select set_config('request.jwt.claim.sub', '', false);
 select 'nba playoffs', true;
+
+-- ───────────── analytics foundation (migration 241): Mission Control counts + is_test ─────────────
+reset role;
+select set_config('request.jwt.claim.sub', '', false);
+select set_config('app.league_id', '', false);
+-- passcode hash lives only in the test DB (never committed for production)
+insert into mission_control.counts_passcode (sha256_hex)
+values (encode(extensions.digest('flow-test-mc-passcode', 'sha256'), 'hex'))
+on conflict do nothing;
+select pg_temp.raises('a wrong Mission Control passcode is forbidden',
+  $$select * from mission_control_counts(now() - interval '1 day', now(), now() - interval '7 days', now(), 'nope')$$,
+  'forbidden');
+-- seed GMs use @sakleague.app addresses, so they count as real; the function returns a row
+select pg_temp.expect('Mission Control counts return a row for a good passcode',
+  (select users_all >= 0 and pools_all >= 0 and members_all >= 0 and actions_all >= 0 and weekly_active_pool_players >= 0
+   from mission_control_counts(now() - interval '1 day', now(), now() - interval '7 days', now(), 'flow-test-mc-passcode')));
+-- email filter is the fallback even before is_test is flipped: a qa@ address must not raise users_all
+select users_all as mc_users from mission_control_counts(now() - interval '1 day', now(), now() - interval '7 days', now(), 'flow-test-mc-passcode') \gset
+insert into auth.users (id, email) values ('00000000-0000-0000-0000-0000000000aa', 'qa@example.com')
+on conflict (id) do update set email = excluded.email;
+insert into accounts (user_id, is_test) values ('00000000-0000-0000-0000-0000000000aa', false)
+on conflict (user_id) do update set is_test = false;
+select pg_temp.expect('the email filter excludes a qa@ address',
+  (select users_all from mission_control_counts(now() - interval '1 day', now(), now() - interval '7 days', now(), 'flow-test-mc-passcode')) = :mc_users);
+-- platform admin can flip is_test; a plain GM cannot
+select pg_temp.as_team(2);
+set role authenticated;
+select pg_temp.raises('only a platform admin sets is_test',
+  $$select set_account_is_test('00000000-0000-0000-0000-0000000000aa', true)$$, 'Platform admins only');
+reset role;
+-- team 1 is the SaK commissioner and a platform admin in the flow
+select pg_temp.as_team(1);
+set role authenticated;
+select set_account_is_test('00000000-0000-0000-0000-0000000000aa', true);
+reset role;
+select pg_temp.expect('is_test sticks after the admin sets it',
+  (select is_test from accounts where user_id = '00000000-0000-0000-0000-0000000000aa'));
+select set_config('request.jwt.claim.sub', '', false);
+select 'analytics foundation', true;

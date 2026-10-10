@@ -11,6 +11,7 @@ import { useNow } from '../lib/store';
 import { countdown, fmtPts, ordinal } from '../lib/format';
 import { type Pack, packName, packWhen } from '../lib/packs';
 import { Empty, PageHeader, Section, Sheet, Skeleton, useAction } from '../components/ui';
+import { track } from '../lib/analytics';
 
 interface PoolSummary {
   rank?: number; of?: number; points?: number; today?: number; back?: number; record?: string;
@@ -117,6 +118,7 @@ function StartSheet({ open, onClose }: { open: boolean; onClose: () => void }) {
   useEffect(() => { if (open) rpc<Pack[]>('pool_pack_list').then((d) => setPacks(d ?? []), () => setPacks([])); }, [open]);
   const start = () => run(async () => {
     const r = await rpc<{ id: number; slug: string }>('pool_start', { p_name: name, p_color: color, p_pack: pack });
+    track('pool_start', pack ? { pack } : undefined);
     await openPool({ league_id: r.id, slug: r.slug }, '/host');
   });
   return (
@@ -179,7 +181,7 @@ function Invitations({ list, reload }: { list: Invite[]; reload: () => void }) {
               </div>
               <div className="mt-3 grid grid-cols-[1fr_auto] gap-2">
                 <button type="button" className="btn-gold py-2.5" disabled={busy}
-                  onClick={() => run(async () => { await rpc('accept_invite', { p_code: i.code }); await openPool({ league_id: i.league_id, slug: i.slug }); })}>Join {i.short || 'the pool'}</button>
+                  onClick={() => run(async () => { await rpc('accept_invite', { p_code: i.code }); track('join'); await openPool({ league_id: i.league_id, slug: i.slug }); })}>Join {i.short || 'the pool'}</button>
                 <button type="button" className="btn-ghost px-4" disabled={busy} onClick={() => run(async () => { await rpc('decline_invite', { p_code: i.code }); reload(); }, 'Invitation turned down')}>Not now</button>
               </div>
             </div>

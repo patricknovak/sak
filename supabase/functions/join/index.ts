@@ -28,9 +28,25 @@ async function addressHash(req: Request) {
   return Array.from(new Uint8Array(d), (x) => x.toString(16).padStart(2, '0')).join('');
 }
 
+// first-touch UTM/referrer from the site (optional; ignored when the SQL columns are not live yet)
+function attribution(b: Record<string, unknown>) {
+  const clip = (v: unknown, n: number) => {
+    const s = String(v ?? '').trim();
+    return s ? s.slice(0, n) : null;
+  };
+  return {
+    p_utm_source: clip(b.utm_source, 120),
+    p_utm_medium: clip(b.utm_medium, 120),
+    p_utm_campaign: clip(b.utm_campaign, 160),
+    p_utm_content: clip(b.utm_content, 160),
+    p_utm_term: clip(b.utm_term, 160),
+    p_referrer: clip(b.referrer, 500),
+  };
+}
+
 // someone new opens a pool: the door's limits first, then the account, then the pool with them as its host. If the pool
 // can't be opened the account is removed again, so a failed start leaves nothing behind.
-async function startPool(req: Request, b: { pool?: { name?: string; color?: string; pack?: string }; email?: string; password?: string; name?: string }) {
+async function startPool(req: Request, b: { pool?: { name?: string; color?: string; pack?: string }; email?: string; password?: string; name?: string } & Record<string, unknown>) {
   const pool = String(b.pool?.name ?? '').trim().replace(/\s+/g, ' ').slice(0, 40);
   const color = /^#[0-9a-f]{6}$/i.test(String(b.pool?.color ?? '')) ? String(b.pool!.color).toLowerCase() : null;
   const pack = /^[a-z0-9-]{3,60}$/.test(String(b.pool?.pack ?? '')) ? String(b.pool!.pack) : null;
@@ -55,18 +71,23 @@ async function startPool(req: Request, b: { pool?: { name?: string; color?: stri
     console.error('create user', ue);
     return reply(500, { error: 'Couldn’t make your account. Try again in a minute.' });
   }
-  const { data: opened, error: pe } = await db.rpc('_pool_start_new', { p_user: made.user.id, p_name: pool, p_color: color, p_pack: pack, p_host: name, p_ip: ip });
-  if (pe) {
-    await db.auth.admin.deleteUser(made.user.id);
-    return reply(400, { error: pe.message.replace(/^.*?ERROR:\s*/, '') });
+  const base = { p_user: made.user.id, p_name: pool, p_color: color, p_pack: pack, p_host: name, p_ip: ip };
+  // try with attribution first; fall back if the migration is not live yet (safe to merge before SQL)
+  let started = await db.rpc('_pool_start_new', { ...base, ...attribution(b) });
+  if (started.error && /utm_|referrer|could not find|PGRST202|42883/i.test(started.error.message)) {
+    started = await db.rpc('_pool_start_new', base);
   }
-  return reply(200, { ok: true, pool: opened });
+  if (started.error) {
+    await db.auth.admin.deleteUser(made.user.id);
+    return reply(400, { error: started.error.message.replace(/^.*?ERROR:\s*/, '') });
+  }
+  return reply(200, { ok: true, pool: started.data });
 }
 
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: cors });
   if (req.method !== 'POST') return reply(405, { error: 'POST only' });
-  const b = await req.json().catch(() => ({})) as { code?: string; email?: string; password?: string; name?: string; pool?: { name?: string; color?: string; pack?: string } };
+  const b = await req.json().catch(() => ({})) as { code?: string; email?: string; password?: string; name?: string; pool?: { name?: string; color?: string; pack?: string } } & Record<string, unknown>;
   if (b.pool) return startPool(req, b);
   const code = String(b.code ?? '').trim().toLowerCase();
   const email = String(b.email ?? '').trim().toLowerCase();
