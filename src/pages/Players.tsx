@@ -29,7 +29,7 @@ export default function Players() {
   const [tab, setTab] = useSticky<'browse' | 'advisor' | 'compare'>('players:tab', q.get('tab') === 'advisor' ? 'advisor' : q.get('tab') === 'compare' ? 'compare' : 'browse');
 
   const list = useMemo(() => pf.apply([...players.values()]
-    .filter((p) => (shown === 'all' ? true : shown === 'watch' ? watch.ids.has(p.id) : shown === 'coming' ? comingSet.has(p.id) : shown === 'avail' ? !owner.has(p.id) || comingSet.has(p.id) : owner.has(p.id)))), [players, owner, shown, pf.apply, comingSet, watch.ids]);
+    .filter((p) => (shown === 'all' ? true : shown === 'watch' ? watch.ids.has(p.id) : shown === 'coming' ? comingSet.has(p.id) : shown === 'avail' ? (!owner.has(p.id) && p.status !== 'unrostered') || comingSet.has(p.id) : owner.has(p.id)))), [players, owner, shown, pf.apply, comingSet, watch.ids]);
   const fromTeam = (p: { id: number }) => (comingSet.has(p.id) ? team(owner.get(p.id)?.team_id ?? 0) : undefined);
 
   const used = rosters.filter((r) => r.team_id === me?.id).length;

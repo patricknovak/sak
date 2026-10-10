@@ -6,6 +6,10 @@
 export interface Change { date: string; icon: string; title: string; body: string; to?: string; tag?: 'formats' | 'commish' | 'draft' | 'everyone' }
 
 export const CHANGELOG: Change[] = [
+  { date: '2026-10-10', icon: '🧠', tag: 'everyone', title: 'Best lineup starts the players who play', to: '/team',
+    body: 'Best lineup (and the auto-pilot) now always starts a player with a game over one without, whichever way you rank them. A cold start no longer counts as zero: his recent form is weighed against his season and projection, so a slow first week can\'t bench him behind an idle star. A player you pin to start only keeps the spot on nights he plays.' },
+  { date: '2026-10-10', icon: '🧹', tag: 'everyone', title: 'Retired players off the free-agent list', to: '/players',
+    body: 'Players on no NHL roster (retired, unsigned or playing elsewhere) are marked Not in NHL, projected for no games and left out of the available players. Injured players are kept, and anyone who signs or is called up comes straight back.' },
   { date: '2026-10-09', icon: '🏒', tag: 'everyone', title: 'Lineup, brighter', to: '/team',
     body: 'Your Lineup page opens on a Tonight card: points tonight (or expected points before puck drop), the starting slots lit for everyone who plays, where you rank on the night and who of yours is on the ice with each opponent and score. Players with a game today glow green (red while live). In Daily lineups, Who plays when is now at the bottom.' },
   { date: '2026-10-09', icon: '⚖️', tag: 'everyone', title: 'Sit or start', to: '/team',

@@ -62,6 +62,8 @@ export function PlayerRow({ p, right, onClick, sub, dim, onInfo: given, wrap, wr
                   onClick={(e) => { e.stopPropagation(); onInfo(); }}>{b.label}</button>
               : <span className={`chip shrink-0 ${b.cls}`} title={[p.injury_part, injuryBack(p.injury_return), p.injury_note].filter(Boolean).join(' · ')}>{b.label}</span>;
           })()}
+          {/* retired, unsigned or in the minors: nhl-sync's roster check marks him */}
+          {p.status === 'unrostered' && <span className="chip shrink-0 bg-white/[.06] text-mute" title="Not on any NHL roster: retired, unsigned or playing elsewhere">Not in NHL</span>}
           <GameStatusChip id={p.id} onClick={onInfo ? () => onInfo() : undefined} />
           <NewsDot id={p.id} onClick={onInfo ? () => onInfo('news') : undefined} />
         </div>

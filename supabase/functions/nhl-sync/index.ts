@@ -176,12 +176,19 @@ async function projections() {
   }
   const players: ProjPlayer[] = [];
   for (let from = 0; from < 20000;) {
-    const chunk = check(await db.from('players').select('id,pos,birth,nhl_team,injury_status').order('id').range(from, from + 999)) as ProjPlayer[];
+    const chunk = check(await db.from('players').select('id,pos,birth,nhl_team,injury_status,status').order('id').range(from, from + 999)) as (ProjPlayer & { status: string })[];
     if (!chunk.length) break;
     players.push(...chunk);
     from += chunk.length;
   }
-  const out = projectAll(players, skaters, goalies, lg!.scoring, latest);
+  // a player on no NHL roster (retired, unsigned, gone to Europe or the AHL) is projected for no games until he is
+  // back on one: his past seasons stay on his card, but he no longer looks like a pickup worth points
+  const off = new Set((players as (ProjPlayer & { status: string })[]).filter((p) => p.status === 'unrostered').map((p) => p.id));
+  const note = { tone: 'bad' as const, text: 'Not on an NHL roster, so no games are projected until he is.' };
+  const out = projectAll(players, skaters, goalies, lg!.scoring, latest).map((x) => off.has(x.id)
+    ? { ...x, stats: {}, gp: 0, meta: { ...x.meta, fpg: 0, trend: null, factors: [note, ...x.meta.factors] } } : x);
+  const projected = new Set(out.map((x) => x.id));
+  for (const id of off) if (!projected.has(id)) out.push({ id, stats: {}, gp: 0, meta: { lo: 1, hi: 1, age: null, fpg: 0, trend: null, factors: [note], hist: [], model: 'off-roster' } });
   let n = 0;
   for (let i = 0; i < out.length; i += 400) n += check(await db.rpc('set_projections', { p: out.slice(i, i + 400) })) as number;
   return { projected: n, players: players.length, seasons: sum.length + gsum.length };
@@ -276,7 +283,25 @@ async function players() {
     .filter((r) => { const o = have.get(r.id); return !o || FIELDS.some((f) => (o[f] ?? null) !== ((r as Record<string, unknown>)[f] ?? null)); })
     .map((r) => ({ ...r, updated_at: new Date().toISOString() }));
   for (let i = 0; i < rows.length; i += 300) check(await db.from('players').upsert(rows.slice(i, i + 300)));
-  return { players: seen.length, changed: rows.length, added: rows.filter((r) => !have.has(r.id)).length };
+  const back = rows.filter((r) => have.get(r.id)?.status === 'unrostered').length;
+  const gone = await offRoster(new Set(seen.map((p) => p.id)));
+  // a player who left or came back changes what he's projected for: rerun the projections (a handful of requests)
+  const reprojected = gone + back > 0 ? (await projections()).projected : 0;
+  return { players: seen.length, changed: rows.length, added: rows.filter((r) => !have.has(r.id)).length, off_roster: gone, back, reprojected };
+}
+
+// Retired, unsigned and minor-league players stay in the table (their history, old trades and drafts point at them)
+// but are marked 'unrostered' so the site stops offering them. Only after a full read of all 32 rosters, only players
+// with no injury on file (the NHL leaves injured reserve off the current roster), and only once he hasn't dressed for
+// five days, so a waiver claim or a call-up the feed hasn't caught up on is left alone.
+async function offRoster(seen: Set<number>) {
+  if (seen.size < 600) throw new Error(`only ${seen.size} players on NHL rosters: not marking anyone off a roster`);
+  const since = new Date(Date.now() - 5 * 86400000).toISOString().slice(0, 10);
+  const recent = new Set((await every<{ player_id: number }>((a, b) => db.from('player_games').select('player_id').gte('date', since).order('player_id').order('date').range(a, b))).map((r) => r.player_id));
+  const active = await every<{ id: number }>((a, b) => db.from('players').select('id').eq('status', 'active').is('injury_status', null).order('id').range(a, b));
+  const ids = active.map((p) => p.id).filter((id) => !seen.has(id) && !recent.has(id));
+  for (let i = 0; i < ids.length; i += 300) check(await db.from('players').update({ status: 'unrostered', updated_at: new Date().toISOString() }).in('id', ids.slice(i, i + 300)));
+  return ids.length;
 }
 
 async function nameIndex() {
