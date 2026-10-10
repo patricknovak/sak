@@ -241,12 +241,16 @@ input::placeholder { color: var(--dim); }
 /* tiers */
 .tiers { display: grid; gap: 14px; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); }
 .tier { display: flex; flex-direction: column; }
-.tier h3 { font-family: 'Barlow Condensed', sans-serif; font-weight: 900; font-size: 30px; margin: 0; }
+.tier h3 { font-family: 'Barlow Condensed', sans-serif; font-weight: 900; font-size: 30px; margin: 0; display: flex; align-items: center; flex-wrap: wrap; gap: 8px; }
 .tier .for { font-size: 13px; color: var(--mute); margin: 2px 0 12px; }
 .tier ul { margin: 0; padding: 0 0 0 18px; color: var(--soft); font-size: 14px; }
 .tier li { margin: 4px 0; }
 .tier .price { margin-top: auto; padding-top: 14px; font-family: 'Barlow Condensed', sans-serif; font-weight: 700; font-size: 20px; letter-spacing: .04em; color: var(--gold); }
+.tier .price-note { margin: 4px 0 0; font-size: 12px; line-height: 1.35; color: var(--mute); }
 .tier.hot { border-color: rgba(247,197,72,.45); box-shadow: 0 0 60px -30px rgba(247,197,72,.5); }
+
+/* sample caption under fictional demos (live board, Garry chat) */
+.sample-cap { margin: 8px 4px 0; font-size: 11px; font-weight: 600; letter-spacing: .12em; text-transform: uppercase; color: var(--mute); }
 
 /* faq */
 .faq details { border-top: 1px solid var(--line); padding: 16px 0; }
