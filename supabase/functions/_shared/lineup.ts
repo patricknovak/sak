@@ -60,15 +60,28 @@ export function rosPerGame(proj: number, pos: string, gp: number, fpts: number, 
   return (1 - w) * base + w * (fpts / gp);
 }
 
-// fantasy points per game under the chosen basis (falls back to the projection when there's no sample)
+// a small sample pulled toward what we already expect: the sample's points plus `k` games at the expected rate.
+// A handful of games says little (four scoreless games is a cold week, not a player worth nothing), so the
+// sample earns its weight as it grows; with k games behind it, it counts as much as the expectation.
+export const shrunk = (pts: number, gp: number, prior: number, k: number) => (pts + k * prior) / (gp + k);
+
+// fantasy points per game under the chosen basis. Recent form and the season's average are read against the
+// rest-of-season expectation rather than taken raw, so a short slump or a hot week moves a player without
+// deciding for him (October 2026: four scoreless games made a projected 1.7-a-game winger worth nothing to the
+// auto-pilot, and it benched him for a starter with no game).
 export function perGame(p: LPlayer, basis: Basis, ctx: LContext) {
   const base = p.proj / gamesOf(p);
   const s = ctx.season.get(p.id);
-  if (basis === 'ros') return rosPerGame(p.proj, p.pos, s?.gp ?? 0, s?.fpts ?? 0, p.proj_gp);
-  if (basis === 'form' && s?.gp14 && s.gp14 >= 2 && s.fpts14 != null) return s.fpts14 / s.gp14;
-  if ((basis === 'season' || basis === 'form') && s && s.gp >= 5) return s.fpts / s.gp;
+  const ros = rosPerGame(p.proj, p.pos, s?.gp ?? 0, s?.fpts ?? 0, p.proj_gp);
+  if (basis === 'ros') return ros;
+  if (basis === 'form' && s?.gp14 && s.fpts14 != null) return shrunk(s.fpts14, s.gp14, ros, 6);
+  if ((basis === 'season' || basis === 'form') && s && s.gp > 0) return shrunk(s.fpts, s.gp, base, 10);
   return base;
 }
+
+// the least a player with a game tonight is worth in a starting slot: more than any starter with no game (who
+// scores nothing) however cold his numbers, so the optimizer never sits a player who plays for one who doesn't
+export const PLAYS_FLOOR = 0.01;
 
 // the chance he's in the lineup on a night his team plays: a starting goalie starts about 70% of games, a
 // backup far fewer, a skater nearly all (from his projected games)
@@ -109,7 +122,13 @@ export function worth(p: LPlayer, mode: Mode, basis: Basis, ctx: LContext) {
   const chance = ctx.avail?.get(p.id) ?? dressRate(p) * healthFactor(p.injury_status);
   const pg = perGame(p, basis, ctx) * chance;
   // tonight we may know for sure: a confirmed starter plays, the backup almost never does, a scratch doesn't
-  if (mode === 'day') { const sc = statusChance(p.gs); return gameToday(p.nhl_team, ctx) ? (sc == null ? pg : perGame(p, basis, ctx) * sc) : 0; }
+  if (mode === 'day') {
+    if (!gameToday(p.nhl_team, ctx)) return 0;
+    const sc = statusChance(p.gs);
+    // a confirmed scratch or a backup goalie may truly be worth nothing; anyone else who plays beats an idle starter
+    if (sc === 0) return 0;
+    return Math.max(PLAYS_FLOOR, sc == null ? pg : perGame(p, basis, ctx) * sc);
+  }
   if (mode === 'week') return gamesLeftThisWeek(p.nhl_team, ctx) * pg;
   return pg * 82;
 }
@@ -178,10 +197,16 @@ export function optimize(rows: LRow[], players: Map<number, LPlayer>, mode: Mode
   for (const s of STARTING) for (let i = 0; i < Math.max(0, caps[s] ?? 0); i++) cols.push(s);
   const BIG = 1e9;
   const cost = candidates.map(({ r, p }) => {
-    const val = w(p) + (worth(p, 'season', basis, ctx) * 1e-6); // tiny tie-break toward better players
+    const v = w(p);
+    // a tiny tie-break toward the better player for the season (it decides only between players worth the same,
+    // e.g. who sits in a slot nobody playing tonight can fill); always far smaller than PLAYS_FLOOR
+    const val = v + Math.max(0, worth(p, 'season', basis, ctx)) * 1e-6;
+    // a pin to start means "always start him when he plays": it counts only when he is worth something in this
+    // mode (a game tonight, games left this week), so a pinned player with no game never takes a slot from one who has
+    const pinned = r.pin === 'start' && (mode === 'season' || v > 0);
     const row = cols.map((s) => {
       if (!slotOk(p, s) || r.pin === 'bench') return BIG;
-      return -(val + (r.pin === 'start' ? 1e6 : 0));
+      return -(val + (pinned ? 1e6 : 0));
     });
     return [...row, ...candidates.map(() => 0)];
   });

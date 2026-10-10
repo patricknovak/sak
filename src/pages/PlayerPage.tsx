@@ -117,6 +117,7 @@ export default function PlayerPage() {
             <div className="mt-1.5 flex flex-wrap items-center gap-1">
               {p.elig.map((e) => <Pos key={e} p={e} />)}
               {inj && <span className={`chip ${inj.cls}`}>{p.injury_status}</span>}
+              {p.status === 'unrostered' && <span className="chip bg-white/[.06] text-mute">Not on an NHL roster</span>}
               {bio?.hhof && <span className="chip border-gold/40 text-gold">Hall of Fame</span>}
               {bio?.top100 && <span className="chip border-gold/40 text-gold">NHL Top 100</span>}
             </div>
