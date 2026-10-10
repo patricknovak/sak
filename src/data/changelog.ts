@@ -6,6 +6,12 @@
 export interface Change { date: string; icon: string; title: string; body: string; to?: string; tag?: 'formats' | 'commish' | 'draft' | 'everyone' }
 
 export const CHANGELOG: Change[] = [
+  { date: '2026-10-10', icon: '🏆', tag: 'everyone', title: 'Start any kind of pool, or a league', to: '/pools',
+    body: 'Starting something now asks first what it is: a sports pool, a questions pool or a fantasy league. A sports pool lists the leagues on now and every kind of pool, from pick\'em and brackets to last one standing, Call the score, squares and the box pool, with the ones not open yet and when they will be. A fantasy league is yours to set up: teams, season total or head-to-head, points or categories, keepers and the draft.' },
+  { date: '2026-10-10', icon: '📺', tag: 'everyone', title: 'A centre for every sport', to: '/pools',
+    body: 'The NFL, soccer, MLB and NBA centres now have the news, the standings, the injury report and the league leaders beside the scores, like NHL centre, with your pool\'s clubs highlighted.' },
+  { date: '2026-10-10', icon: '🗑️', tag: 'everyone', title: 'Delete a pool', to: '/pools',
+    body: 'A host can delete a pool from its card on My pools or from the Host page, typing its name to be sure. Each pool now keeps to its own events: no Premier League in a baseball pool.' },
   { date: '2026-10-10', icon: '🧠', tag: 'everyone', title: 'Best lineup starts the players who play', to: '/team',
     body: 'Best lineup (and the auto-pilot) now always starts a player with a game over one without, whichever way you rank them. A cold start no longer counts as zero: his recent form is weighed against his season and projection, so a slow first week can\'t bench him behind an idle star. A player you pin to start only keeps the spot on nights he plays.' },
   { date: '2026-10-10', icon: '🧹', tag: 'everyone', title: 'Retired players off the free-agent list', to: '/players',

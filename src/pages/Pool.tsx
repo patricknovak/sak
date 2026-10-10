@@ -3,7 +3,7 @@
 // 'predict' sees only these; a fantasy league reaches the board from More.
 import { useMemo, useState } from 'react';
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom';
-import { CalendarClock, Crown, Flame, Link2, Plus, Sparkles, Trophy, Wand2 } from 'lucide-react';
+import { CalendarClock, Crown, Flame, Link2, Plus, Sparkles, Trash2, Trophy, Wand2 } from 'lucide-react';
 import { useLeague, useNow } from '../lib/store';
 import { useBrand } from '../lib/brand';
 import { rpc } from '../lib/supabase';
@@ -15,13 +15,15 @@ import { useEffect } from 'react';
 import { appLink } from '../lib/host';
 import { shareCard } from '../lib/shareCard';
 import { track } from '../lib/analytics';
-import { SurvivorCard, SurvivorStart, useSurvivor } from './Survivor';
+import { SurvivorCard } from './Survivor';
 import { AskSheet } from '../components/AskSheet';
 import { PoolHowTo } from '../components/PoolHowTo';
-import { PredictorCard, PredictorStart, usePredictor } from './Predictor';
+import { PredictorCard } from './Predictor';
 import { UserPlus } from 'lucide-react';
 import { ShareButton, useCardBrand } from '../components/ShareButton';
 import { InvitePeople } from '../components/InvitePeople';
+import { DeletePool } from '../components/DeletePool';
+import { usePoolCompetitions } from '../lib/poolOwn';
 import { HostGames, PoolGameCards, usePoolGames } from './Picks';
 import { kindOf, usePoolScoreboard } from '../lib/poolScoreboard';
 import { BoardRows, ChanceCard, GameChips, Move, MyPlace, useChances } from '../components/PoolTable';
@@ -42,11 +44,14 @@ function SoccerRounds({ onAdded }: { onAdded: () => void }) {
   const { busy, run } = useAction();
   const load = () => rpc<SoccerRound[]>('soccer_rounds').then(setRows, () => setRows([]));
   useEffect(() => { load(); }, []);
-  if (!rows.length) return null;
+  // only the pool's own soccer leagues (the feed's list carries every league, and the NFL's weeks too)
+  const own = usePoolCompetitions();
+  const list = rows.filter((r) => own?.some((c) => c.id === r.competition && c.sport === 'soccer'));
+  if (!list.length) return null;
   return (
-    <Section title="Soccer matchweeks">
+    <Section title="Matchweek questions">
       <div className="space-y-2">
-        {rows.map((r) => {
+        {list.map((r) => {
           const left = r.matches - r.added;
           return (
             <div key={r.competition} className="card flex flex-wrap items-center gap-3 p-3">
@@ -467,20 +472,6 @@ export function PoolLeaders() {
   );
 }
 
-// the host starts last one standing here once the pool has none running
-function HostSurvivor() {
-  const { board, reload } = useSurvivor();
-  if (board === undefined || (board && board.status === 'open')) return null;
-  return <SurvivorStart onStarted={reload} />;
-}
-
-// and call the score
-function HostPredictor() {
-  const { board, reload } = usePredictor();
-  if (board === undefined || (board && board.status === 'open')) return null;
-  return <PredictorStart onStarted={reload} />;
-}
-
 // ───────────── the host's desk ─────────────
 // the host names the pool's main game: the one the home's rank and the Table lead with, whose winner wears the crown.
 // Only worth asking once the pool runs more than one game.
@@ -510,7 +501,8 @@ function HostCrown() {
 }
 
 export function PoolHost() {
-  const { me } = useLeague();
+  const { me, league } = useLeague();
+  const [deleting, setDeleting] = useState(false);
   const brand = useBrand();
   const now = useNow(30000);
   const { markets, drops, reload } = usePool();
@@ -529,8 +521,6 @@ export function PoolHost() {
       <HostGames />
       <HostCrown />
       <SoccerRounds onAdded={reload} />
-      <HostPredictor />
-      <HostSurvivor />
       <Section title="Coin drops">
         <div className="card divide-y divide-white/[.05] p-1">
           {drops.map((d) => <div key={d.id} className="flex items-center justify-between gap-3 px-3 py-2.5 text-sm"><span className="min-w-0 break-words">{d.note}<div className="text-xs text-mute">{new Date(d.at).toLocaleString(undefined, { weekday: 'short', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })}</div></span><b className={new Date(d.at).getTime() <= now ? 'text-mute' : 'text-gold'}>+{d.amount}</b></div>)}
@@ -549,6 +539,15 @@ export function PoolHost() {
       </Section>
       <AskSheet open={open} onClose={() => setOpen(false)} drops={drops} onAsked={reload} />
       <div className="flex items-center gap-2 px-1 text-xs text-mute"><Trophy className="h-4 w-4" /> Questions about a show are about what airs.</div>
+      <Section title="Delete the pool">
+        <div className="card flex flex-wrap items-center gap-3 border-red-400/20 p-4">
+          <span className="grid h-11 w-11 shrink-0 place-items-center rounded-2xl bg-red-500/15 text-red-300"><Trash2 className="h-5 w-5" /></span>
+          <div className="min-w-0 flex-1"><div className="font-semibold text-white">Done with {league?.name ?? 'this pool'}?</div><div className="text-xs text-mute">Deletes it for everyone, with every game, pick and coin in it. You type its name to be sure.</div></div>
+          <button type="button" className="shrink-0 rounded-xl px-3 py-2 text-sm font-bold text-red-300 ring-1 ring-red-400/40 hover:bg-red-500/10" onClick={() => setDeleting(true)}>Delete…</button>
+        </div>
+      </Section>
+      {league && <DeletePool pool={{ league_id: league.league_id, name: league.name, kind: 'predict' }} open={deleting} onClose={() => setDeleting(false)}
+        onDone={() => { location.hash = '#/pools'; location.reload(); }} />}
     </div>
   );
 }

@@ -2,10 +2,11 @@
 // the NFL's weeks, beside baseball's bracket centre. Round by round: every match with its score, the minute or the
 // quarter while it is on, and, in a pool that runs a pick'em on it, your pick and the pool's split once it kicks off.
 // The table is worked out from the results the feed keeps (points for soccer, the record for the NFL). It reads the
-// shared tables soccer-sync fills (fixtures, clubs), every minute while a match is on.
+// shared tables soccer-sync fills (fixtures, clubs), every minute while a match is on. Beside them, the sport's news,
+// injury report and leaders (SportDesk), like NHL centre. In a pool, the switcher lists the pool's own competitions only.
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
-import { BarChart3, CalendarDays, ListOrdered, Radio, Tv } from 'lucide-react';
+import { BarChart3, CalendarDays, ListOrdered, Tv } from 'lucide-react';
 import { EspnBox } from '../components/EspnBox';
 import { useLeague, useNow } from '../lib/store';
 import { rpc, supabase } from '../lib/supabase';
@@ -14,6 +15,8 @@ import { Crest } from '../components/Crest';
 import { usePoolGames, type Club } from './Picks';
 import type { PickemData, PkFixture } from '../components/Pickem';
 import { useSticky } from '../lib/sticky';
+import { CentreTabs, SportDesk, deskTabs, espnPath, type DeskTab } from '../components/SportDesk';
+import { follows, usePoolCompetitions } from '../lib/poolOwn';
 
 interface Fixture {
   id: number; ext_id?: string; kickoff: string; date: string; state: 'scheduled' | 'live' | 'final' | 'postponed' | 'cancelled'; status: string | null; minute: number | null;
@@ -22,7 +25,7 @@ interface Fixture {
   detail: { odds?: { home: number; away: number; draw: number | null; line: number | null; total: number | null } } | null;
 }
 interface Competition {
-  id: string; name: string; short: string | null; sport: string; tz: string;
+  id: string; name: string; short: string | null; sport: string; tz: string; ext_id?: string | null;
   // its divisions or conferences (migration 207): each a name, its parent and its clubs by short name
   detail?: { groups?: Group[]; group_word?: string; parent_word?: string } | null;
 }
@@ -44,7 +47,7 @@ function useCompetition(id: string) {
   const [clubs, setClubs] = useState<Map<number, Club>>(new Map());
   const [fixtures, setFixtures] = useState<Fixture[]>([]);
   const load = useCallback(async () => {
-    const { data: cs } = await supabase.from('competitions').select('id,name,short,sport,tz,detail').eq('id', id).limit(1);
+    const { data: cs } = await supabase.from('competitions').select('id,name,short,sport,tz,detail,ext_id').eq('id', id).limit(1);
     const c = (cs?.[0] as Competition | undefined) ?? null;
     setComp(c);
     if (!c) return;
@@ -252,15 +255,22 @@ export default function RoundCentre() {
   const nav = useNavigate();
   const { comp, clubs, fixtures, live } = useCompetition(competition);
   const sp = SPORTS[comp?.sport ?? ''] ?? SPORTS.soccer;
-  const [tab, setTab] = useSticky<'scores' | 'table'>(`centre:${competition}:tab`, 'scores');
+  const [saved, setTab] = useSticky<'scores' | 'table' | DeskTab>(`centre:${competition}:tab`, 'scores');
+  const espn = espnPath(comp);
+  const desk = deskTabs(espn, { standings: false });
+  // a tab remembered from another competition this one doesn't have (soccer keeps no injury report) opens on the scores
+  const tab = saved === 'scores' || saved === 'table' || desk.some(([k]) => k === saved) ? saved : 'scores';
   const rounds = useMemo(() => [...new Set(fixtures.map((f) => f.gameweek!))].sort((a, b) => a - b), [fixtures]);
   // open on the round being played: the first with a match not yet done
   const current = rounds.find((r) => fixtures.some((f) => f.gameweek === r && !done(f))) ?? rounds[rounds.length - 1] ?? null;
   const [picked, setPicked] = useState<number | null>(null);
   const round = picked ?? current;
   const { gameId, byFixture, onMatch } = usePoolRound(competition, round);
-  const [others, setOthers] = useState<Competition[]>([]);
+  const [all, setOthers] = useState<Competition[]>([]);
   useEffect(() => { supabase.from('competitions').select('id,name,short,sport,tz').eq('active', true).eq('format', 'rounds').in('sport', Object.keys(SPORTS)).order('sort').then(({ data }) => setOthers((data ?? []) as Competition[])); }, []);
+  // a pool's centre switches between its own competitions only (an NFL pool has no use for the Premier League)
+  const own = usePoolCompetitions();
+  const others = all.filter((c) => follows(own, c.id));
   const strip = useRef<HTMLDivElement>(null);
   useEffect(() => { const el = strip.current?.querySelector<HTMLElement>('[data-on="1"]'); if (el && strip.current) strip.current.scrollLeft = Math.max(0, el.offsetLeft - strip.current.offsetLeft - 100); }, [round, tab, rounds.length]);
   const tz = comp?.tz ?? 'America/New_York';
@@ -281,11 +291,8 @@ export default function RoundCentre() {
           ))}
         </div>
       )}
-      <div className="grid grid-cols-2 gap-1.5 rounded-2xl bg-black/25 p-1">
-        {([['scores', 'Scores', CalendarDays], ['table', 'Table', ListOrdered]] as const).map(([k, l, I]) => (
-          <button key={k} type="button" onClick={() => setTab(k)} className={`inline-flex items-center justify-center gap-1.5 rounded-xl py-2 text-xs font-bold ${tab === k ? 'bg-white text-[#0b1220]' : 'text-white/70'}`}><I className="h-4 w-4" /> {l}{k === 'scores' && live && <Radio className="h-3.5 w-3.5 animate-pulse text-red-400" />}</button>
-        ))}
-      </div>
+      <CentreTabs tab={tab} setTab={setTab} live={live} tabs={[['scores', 'Scores', CalendarDays], ['table', 'Table', ListOrdered], ...desk]} />
+      {espn && tab !== 'scores' && tab !== 'table' && <SportDesk tab={tab} sport={espn} />}
 
       {tab === 'scores' && (
         <>
@@ -316,7 +323,7 @@ export default function RoundCentre() {
       )}
 
       {tab === 'table' && comp && <Table fixtures={fixtures} clubs={clubs} sp={sp} comp={comp} />}
-      <p className="px-1 text-[11px] text-mute">From the {sp.round === 'Week' ? 'NFL' : 'league'}&apos;s public scoreboard, every minute while {sp.game}s are on.{tab === 'table' ? ` Worked out from the results here${sp.draws ? '' : '; the NFL breaks ties by more than the record'}.` : ''}</p>
+      {(tab === 'scores' || tab === 'table') && <p className="px-1 text-[11px] text-mute">From the {sp.round === 'Week' ? 'NFL' : 'league'}&apos;s public scoreboard, every minute while {sp.game}s are on.{tab === 'table' ? ` Worked out from the results here${sp.draws ? '' : '; the NFL breaks ties by more than the record'}.` : ''}</p>}
     </div>
   );
 }

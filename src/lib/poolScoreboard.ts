@@ -13,7 +13,7 @@ export interface Scoreboard { crown: string | null; games: BoardGame[] }
 // how each kind reads: an icon, what its score counts, and whether the score is coins
 export const BOARD_KIND: Record<BoardKind, { icon: string; unit: (n: number) => string; coins?: boolean; blurb: string }> = {
   questions: { icon: '🔮', unit: () => '', coins: true, blurb: 'Net worth: coins in hand plus every call at today’s price.' },
-  series: { icon: '⚾', unit: (n) => (n === 1 ? 'pt' : 'pts'), blurb: 'Points for each series called, more for the length.' },
+  series: { icon: '⚔️', unit: (n) => (n === 1 ? 'pt' : 'pts'), blurb: 'Points for each series called, more for the length.' },
   rank: { icon: '📊', unit: (n) => (n === 1 ? 'pt' : 'pts'), blurb: 'Every win pays the rank you gave that club.' },
   squares: { icon: '🔲', unit: () => '', coins: true, blurb: 'Coins won by your squares.' },
   pickem: { icon: '✅', unit: (n) => (n === 1 ? 'pt' : 'pts'), blurb: 'Points for every right pick, round by round.' },

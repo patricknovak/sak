@@ -4076,8 +4076,8 @@ select id as m51 from fixtures where ext_id = 'pk-51' \gset
 select id as m52 from fixtures where ext_id = 'pk-52' \gset
 select id as m61 from fixtures where ext_id = 'pk-61' \gset
 select id as m62 from fixtures where ext_id = 'pk-62' \gset
-select pg_temp.expect('the start page offers pick''em and last one standing on a competition with rounds, from its next one; the old list is unchanged',
-  (select e->'kinds' = '["pickem", "survivor", "streak"]'::jsonb and (e->>'open_round')::int = 5 and e->>'open_label' = 'Matchweek 5' and e->>'stage' = 'Matchweek 5 next'
+select pg_temp.expect('the start page offers pick''em, last one standing and Call the score (migration 242) on a competition with rounds, from its next one; the old list is unchanged',
+  (select e->'kinds' = '["pickem", "survivor", "score", "streak"]'::jsonb and (e->>'open_round')::int = 5 and e->>'open_label' = 'Matchweek 5' and e->>'stage' = 'Matchweek 5 next'
    from jsonb_array_elements(pool_event_list()) e where e->>'competition' = 'pk-test')
   and not exists (select 1 from jsonb_array_elements(pool_events()) e where e->>'competition' = 'pk-test'));
 select set_config('app.league_id', :'lib', false);
@@ -6110,3 +6110,79 @@ select pg_temp.expect('is_test sticks after the admin sets it',
   (select is_test from accounts where user_id = '00000000-0000-0000-0000-0000000000aa'));
 select set_config('request.jwt.claim.sub', '', false);
 select 'analytics foundation', true;
+
+-- ───────────── a pool keeps to its own events, a host deletes a pool, a fantasy league self-serve (migration 242) ─────────────
+reset role;
+select set_config('app.league_id', '', false);
+insert into competitions (id, sport, name, short, season, provider, ext_id, ext_season, active)
+values ('del-test', 'soccer', 'Delete Test League', 'DTL', '2026', 'espn', 'del.1', '2026', false) on conflict (id) do nothing;
+select pg_temp.as_team(3);
+set role authenticated;
+select pool_start('Doomed Pool', '#38bdf8')->>'id' as dp \gset
+select pg_temp.expect('a new pool follows no event yet', not exists (select 1 from pool_competitions()));
+reset role;
+insert into pool_auto_sheets (league_id, competition, by_team) values (:dp, 'del-test', (select id from teams where league_id = :dp and is_commish));
+insert into messages (channel, kind, body, league_id, team_id) values ('general', 'user', 'see you all', :dp, (select id from teams where league_id = :dp and is_commish));
+select pg_temp.as_team(3);
+set role authenticated;
+select pg_temp.expect('then the events it plays on, and only those', (select array_agg(id) = array['del-test'] from pool_competitions()));
+select set_active_league(1);
+select pg_temp.expect('and not in another league', not exists (select 1 from pool_competitions() where id = 'del-test'));
+select set_active_league(:dp);
+reset role;
+select pg_temp.as_team(4);
+set role authenticated;
+select pg_temp.raises('only its host deletes a pool', format('select pool_delete(%s, ''Doomed Pool'')', :dp), 'Only the pool''s host');
+select pg_temp.raises('and never the SaK Superleague', 'select pool_delete(1, ''SaK Superleague'')', 'stays as it is');
+reset role;
+select pg_temp.as_team(3);
+set role authenticated;
+select pg_temp.raises('the host types its name to be sure', format('select pool_delete(%s, ''Doomed'')', :dp), 'Type the name exactly');
+select pg_temp.expect('the host deletes it', (pool_delete(:dp, ' doomed pool ')->>'deleted')::int = :dp);
+reset role;
+select pg_temp.expect('and nothing of it is left in any league table', not exists (select 1 from leagues where id = :dp)
+  and (select bool_and(n = 0) from (select (xpath('/row/c/text()', query_to_xml(format('select count(*) as c from public.%I where league_id = %s', c.relname, :dp), false, true, '')))[1]::text::int n
+       from pg_class c join pg_namespace s on s.oid = c.relnamespace join pg_attribute a on a.attrelid = c.oid and a.attname = 'league_id' and not a.attisdropped
+       where s.nspname = 'public' and c.relkind = 'r') x));
+select pg_temp.expect('its host lands back in a league of theirs', (select active_league_id from accounts where user_id = '00000000-0000-0000-0000-000000000003') = 1);
+-- a fantasy league, started by a GM with the choices made up front
+select pg_temp.as_team(3);
+set role authenticated;
+select pg_temp.raises('categories from the list', $$select fantasy_start('Bad Cats', null, 6, 'h2h', array['zzz', 'g', 'a'])$$, 'Pick categories from the list');
+select pg_temp.raises('four teams at least', $$select fantasy_start('Tiny League', null, 3)$$, '4 to 20 teams');
+select fantasy_start('Garage League', '#22c55e', 6, 'h2h', array['g', 'a', 'sog', 'hit'], 3, 4, false)->>'id' as gl \gset
+reset role;
+select pg_temp.expect('it opens in setup, with its starter as commissioner and the other seats open', (select l.status = 'setup' and l.kind is distinct from 'predict'
+    and (select count(*) from teams where league_id = :gl) = 6
+    and (select count(*) from teams where league_id = :gl and gm_name = 'Open seat') = 5
+    and exists (select 1 from teams where league_id = :gl and is_commish and user_id = '00000000-0000-0000-0000-000000000003')
+  from leagues l where l.id = :gl));
+select pg_temp.expect('with the choices it was started with', (select format = 'h2h' and categories = array['g', 'a', 'sog', 'hit'] and keepers = 3 and not snake
+  and h2h_playoffs = 4 and phase = 'predraft' and not (coalesce(features, '{}'::jsonb) ? 'money') from league_rules where league_id = :gl));
+select pg_temp.as_team(3);
+set role authenticated;
+select pg_temp.expect('it is the league the starter lands in', current_league_id() = :gl);
+select pg_temp.expect('a league ready on the checklist goes live from its starter''s own page', commish_go_live() = 'active');
+select pg_temp.raises('once', 'select commish_go_live()', 'already live');
+select pg_temp.raises('and a live league is not deleted from its own page', format('select pool_delete(%s, ''Garage League'')', :gl), 'only before it goes live');
+select fantasy_start('Second Garage')->>'id' as sg \gset
+select pg_temp.raises('two a day', $$select fantasy_start('Third Garage')$$, 'two leagues today');
+reset role;
+select pg_temp.as_team(4);
+set role authenticated;
+select pg_temp.raises('only its starter deletes a league in setup', format('select pool_delete(%s, ''Second Garage'')', :sg), 'Only the person who started');
+reset role;
+select pg_temp.as_team(3);
+set role authenticated;
+select pg_temp.expect('its starter deletes it while it is being set up', (pool_delete(:sg, 'Second Garage')->>'deleted')::int = :sg);
+reset role;
+select pg_temp.expect('gone with its seats', not exists (select 1 from leagues where id = :sg) and not exists (select 1 from teams where league_id = :sg));
+-- the platform deletes a live one (the test league above), all of it
+select pg_temp.as_team(1);
+set role authenticated;
+select pg_temp.expect('the platform deletes any league but SaK', (pool_delete(:gl, 'garage league')->>'deleted')::int = :gl);
+reset role;
+select pg_temp.expect('with its matchups', not exists (select 1 from leagues where id = :gl) and not exists (select 1 from matchups where league_id = :gl));
+select set_config('app.league_id', '', false);
+select set_config('request.jwt.claim.sub', '', false);
+select 'own events and delete', true;

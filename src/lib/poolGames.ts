@@ -2,7 +2,7 @@
 // how long it takes, and the scoring presets. The start page and the Host page read the same list.
 
 // 'survivor' is last one standing (its own tables, migration 157): the start page and the host offer it like the rest
-export type GameKind = 'series' | 'rank' | 'squares' | 'pickem' | 'survivor' | 'bracket' | 'players' | 'props' | 'streak' | 'sweep';
+export type GameKind = 'series' | 'rank' | 'squares' | 'pickem' | 'survivor' | 'score' | 'bracket' | 'players' | 'props' | 'streak' | 'sweep';
 export type PickemPreset = 'classic' | 'confidence';
 export type SeriesPreset = 'classic' | 'flat' | 'exact';
 
@@ -102,11 +102,33 @@ export const KINDS: Record<GameKind, { title: string; badge: string; line: strin
     line: 'Pick one winner every round, never the same side twice. Lose once and you’re out; the last one in wins it.',
     time: 'Ten seconds a round',
   },
+  score: {
+    title: 'Call the score', badge: 'Every match', emoji: '🎯',
+    line: 'Call the score of every match, round by round. The exact score is 3 points, the right result 1, and the banker you pick each round counts double.',
+    time: 'Three minutes a round',
+  },
   squares: {
     title: 'Squares', badge: 'Pure luck', emoji: '🔢',
     line: 'Claim squares on a grid with coins. The digits are drawn when it fills; the last digit of each side’s score names the winning square at each checkpoint: innings in baseball, quarters in football.',
     time: 'Ten seconds',
   },
+};
+
+// every kind in the order the start page lists them, and when one isn't open on an event, why: so a host sees the whole
+// menu, not just what today's events happen to offer
+export const KIND_ORDER: GameKind[] = ['pickem', 'series', 'bracket', 'survivor', 'score', 'players', 'props', 'squares', 'rank', 'streak', 'sweep'];
+export const KIND_WHEN: Record<GameKind, string> = {
+  pickem: 'On a league played in weeks or matchweeks: the NFL, the Premier League, MLS.',
+  series: 'On a postseason played in series: the World Series, the Stanley Cup, the NBA playoffs.',
+  bracket: 'Before a postseason’s first round: the NFL playoffs, March Madness, the Stanley Cup.',
+  survivor: 'On a league played in rounds, or a tournament of single games.',
+  score: 'On a soccer league: the Premier League, MLS.',
+  players: 'On the NHL: the regular season, or the playoffs before the first round.',
+  props: 'On a single game still to come: a postseason game or an NFL week.',
+  squares: 'On a series or a big game still to come: the World Series, the Super Bowl.',
+  rank: 'On a postseason before it starts.',
+  streak: 'On any event with games still to come.',
+  sweep: 'On a postseason, until its round starts.',
 };
 
 export const PRESETS: { key: SeriesPreset; label: string; line: string; points: number[]; length: number[] }[] = [

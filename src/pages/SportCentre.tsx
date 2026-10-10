@@ -2,16 +2,20 @@
 // Baseball first: the postseason's scoreboard day by day (each game's line score by inning with runs, hits and
 // errors, the inning and the outs while it is on, the probable pitchers before it starts, the series as it stands)
 // and the bracket round by round. A pool that runs Pick the series sees its own pick on every series. It reads the
-// shared event tables mlb-sync fills (series, fixtures, fixture_periods), every minute while a game is on.
+// shared event tables mlb-sync fills (series, fixtures, fixture_periods), every minute while a game is on. In a pool it
+// opens on the pool's own event of the sport. Beside the scores and the bracket, the sport's news, standings, injury
+// report and leaders (SportDesk), like NHL centre.
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
-import { CalendarDays, Radio, Trophy, Tv } from 'lucide-react';
+import { CalendarDays, Trophy, Tv } from 'lucide-react';
 import { useLeague, useNow } from '../lib/store';
 import { rpc, supabase } from '../lib/supabase';
 import { Empty, PageHeader } from '../components/ui';
 import { Crest } from '../components/Crest';
 import { usePoolGames, type Club, type GameBoard } from './Picks';
 import { useSticky } from '../lib/sticky';
+import { CentreTabs, SportDesk, deskTabs, espnPath, type DeskTab } from '../components/SportDesk';
+import { usePoolCompetitions } from '../lib/poolOwn';
 
 interface Fixture {
   id: number; kickoff: string; date: string; state: 'scheduled' | 'live' | 'final' | 'postponed' | 'cancelled'; status: string | null;
@@ -21,7 +25,7 @@ interface Fixture {
 }
 interface Series { id: number; round: number; label: string; short: string | null; best_of: number; high_club: number | null; low_club: number | null; high_wins: number; low_wins: number; winner: number | null; state: string; starts_at: string | null; sort: number }
 interface Period { fixture_id: number; n: number; home: number | null; away: number | null }
-interface Competition { id: string; name: string; sport: string; tz: string }
+interface Competition { id: string; name: string; sport: string; tz: string; ext_id: string | null }
 
 const NAMES: Record<string, string> = { mlb: 'MLB centre', nfl: 'NFL playoffs', ncaab: 'March Madness', nba: 'NBA playoffs', nhl: 'Stanley Cup playoffs' };
 const dayKey = (iso: string, tz: string) => new Date(iso).toLocaleDateString('en-CA', { timeZone: tz });
@@ -30,15 +34,18 @@ const time = (iso: string) => new Date(iso).toLocaleTimeString([], { hour: 'nume
 const ord = (n: number) => { const s = ['th', 'st', 'nd', 'rd'], v = n % 100; return n + (s[(v - 20) % 10] ?? s[v] ?? s[0]); };
 
 // everything the centre shows for a competition, refreshed every minute while a game is on
-function useEvent(sport: string) {
+function useEvent(sport: string, pref: string | null | undefined) {
   const [comp, setComp] = useState<Competition | null | undefined>(undefined);
   const [clubs, setClubs] = useState<Map<number, Club>>(new Map());
   const [series, setSeries] = useState<Series[]>([]);
   const [fixtures, setFixtures] = useState<Fixture[]>([]);
   const [periods, setPeriods] = useState<Map<number, Period[]>>(new Map());
   const load = useCallback(async () => {
-    // the sport's postseason, played in series (migration 187: the NFL's season in weeks has its own centre)
-    const { data: cs } = await supabase.from('competitions').select('id,name,sport,tz').eq('sport', sport).eq('active', true).eq('format', 'series').order('sort').limit(1);
+    // the sport's postseason, played in series (migration 187: the NFL's season in weeks has its own centre): the
+    // pool's own when it plays one, else the sport's first running; nothing until the pool's list is in
+    if (pref === undefined) return;
+    const q = supabase.from('competitions').select('id,name,sport,tz,ext_id');
+    const { data: cs } = await (pref ? q.eq('id', pref) : q.eq('sport', sport).eq('active', true).eq('format', 'series').order('sort')).limit(1);
     const c = (cs?.[0] as Competition | undefined) ?? null;
     setComp(c);
     if (!c) return;
@@ -59,7 +66,7 @@ function useEvent(sport: string) {
       for (const v of m.values()) v.sort((a, b) => a.n - b.n);
       setPeriods(m);
     }
-  }, [sport]);
+  }, [sport, pref]);
   useEffect(() => { load(); }, [load]);
   const live = fixtures.some((f) => f.state === 'live');
   const now = useNow(live ? 60000 : 600000);
@@ -177,7 +184,9 @@ function SeriesCard({ s, clubs, pick, split }: { s: Series; clubs: Map<number, C
 
 export default function SportCentre() {
   const { sport = 'mlb' } = useParams();
-  const { comp, clubs, series, fixtures: everyGame, periods, live } = useEvent(sport);
+  const own = usePoolCompetitions();
+  const pref = own === undefined ? undefined : own?.find((c) => c.sport === sport && c.format === 'series')?.id ?? null;
+  const { comp, clubs, series, fixtures: everyGame, periods, live } = useEvent(sport, pref);
   // a series over before its "if needed" games: MLB keeps them on the schedule, never to be played, so they go
   const over = useMemo(() => new Set(series.filter((s) => s.state === 'final').map((s) => s.id)), [series]);
   const fixtures = useMemo(() => everyGame.filter((f) => !(f.state === 'scheduled' && f.series_id && over.has(f.series_id))), [everyGame, over]);
@@ -186,7 +195,12 @@ export default function SportCentre() {
   const { games: poolGames } = usePoolGames();
   const sheets = new Map((poolGames ?? []).filter((g) => g.kind === 'props' && g.fixture && g.competition === comp?.id)
     .map((g) => [g.fixture!, { id: g.id, open: g.status === 'open' && g.to_pick > 0 }]));
-  const [tab, setTab] = useSticky<'scores' | 'bracket'>(`centre:${sport}:tab`, 'scores');
+  const [saved, setTab] = useSticky<'scores' | 'bracket' | DeskTab>(`centre:${sport}:tab`, 'scores');
+  const espn = espnPath(comp);
+  const desk = deskTabs(espn);
+  const tab = saved === 'scores' || saved === 'bracket' || desk.some(([k]) => k === saved) ? saved : 'scores';
+  // the clubs still in this event, highlighted on the standings and first on the injury report
+  const follow = useMemo(() => [...new Set(series.flatMap((s) => [s.high_club, s.low_club]).filter((x): x is number => !!x))].map((id) => clubs.get(id)?.name).filter((x): x is string => !!x), [series, clubs]);
   const tz = comp?.tz ?? 'America/New_York';
   const days = useMemo(() => [...new Set(fixtures.map((f) => f.date ?? dayKey(f.kickoff, tz)))].sort(), [fixtures, tz]);
   const today = new Date().toLocaleDateString('en-CA', { timeZone: tz });
@@ -217,11 +231,8 @@ export default function SportCentre() {
     <div className="space-y-4 pb-10">
       <PageHeader icon={<Tv className="h-6 w-6 text-gold" />} title={NAMES[sport] ?? `${sport.toUpperCase()} centre`} sub={comp.name}
         right={gameId ? <Link to={`/picks?g=${gameId}`} className="text-xs font-semibold text-sky-300">Your picks →</Link> : undefined} />
-      <div className="grid grid-cols-2 gap-1.5 rounded-2xl bg-black/25 p-1">
-        {([['scores', 'Scores', CalendarDays], ['bracket', 'Bracket', Trophy]] as const).map(([k, l, I]) => (
-          <button key={k} type="button" onClick={() => setTab(k)} className={`inline-flex items-center justify-center gap-1.5 rounded-xl py-2 text-xs font-bold ${tab === k ? 'bg-white text-[#0b1220]' : 'text-white/70'}`}><I className="h-4 w-4" /> {l}{k === 'scores' && live && <Radio className="h-3.5 w-3.5 animate-pulse text-red-400" />}</button>
-        ))}
-      </div>
+      <CentreTabs tab={tab} setTab={setTab} live={live} tabs={[['scores', 'Scores', CalendarDays], ['bracket', 'Bracket', Trophy], ...desk]} />
+      {espn && tab !== 'scores' && tab !== 'bracket' && <SportDesk tab={tab} sport={espn} follow={follow} />}
 
       {tab === 'scores' && (
         <>
@@ -261,7 +272,7 @@ export default function SportCentre() {
           {board && <p className="px-1 text-[11px] text-mute">Your picks show on each series; the pool&apos;s split shows once a series starts.</p>}
         </div>
       )}
-      <p className="px-1 text-[11px] text-mute">{sport === 'mlb' ? 'From MLB’s public feed' : 'From the league’s public scoreboard'}, every two minutes while games are on.</p>
+      {(tab === 'scores' || tab === 'bracket') && <p className="px-1 text-[11px] text-mute">{sport === 'mlb' ? 'From MLB’s public feed' : 'From the league’s public scoreboard'}, every two minutes while games are on.</p>}
     </div>
   );
 }

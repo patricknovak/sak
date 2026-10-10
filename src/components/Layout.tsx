@@ -15,7 +15,8 @@ import {
 type Item = { to: string; label: string; icon: LucideIcon; commish?: boolean; short?: string };   // short: the phone dock's label, one line
 
 export function useUnread() {
-  const { me } = useLeague();
+  const { me, league } = useLeague();
+  const lid = league?.league_id ?? null;
   const [latest, setLatest] = useState<Record<string, number>>({});
   const [reads, setReads] = useState<Record<string, number>>({});
   const [recent, setRecent] = useState<{ id: number; channel: string; team_id: number | null }[]>([]);   // the last 200 messages, for the count
@@ -35,12 +36,15 @@ export function useUnread() {
     load();
     const ch = realtimeChannel('unread')
       .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'messages' }, (p) => {
-        const m = p.new as { id: number; channel: string; team_id: number | null };
+        const m = p.new as { id: number; channel: string; team_id: number | null; league_id?: number | null };
+        // another pool's message, open in another tab, isn't this pool's news (realtime doesn't know the tab's league)
+        if (lid != null && m.league_id != null && m.league_id !== lid) return;
         setLatest((l) => ({ ...l, [m.channel]: Math.max(l[m.channel] ?? 0, m.id) }));
         setRecent((r) => (r.some((x) => x.id === m.id) ? r : [m, ...r].slice(0, 300)));
       })
       .on('postgres_changes', { event: '*', schema: 'public', table: 'chat_reads' }, (p) => {
-        const r = p.new as { channel: string; last_read_id: number };
+        const r = p.new as { channel: string; last_read_id: number; league_id?: number | null };
+        if (lid != null && r?.league_id != null && r.league_id !== lid) return;
         if (r?.channel) setReads((x) => ({ ...x, [r.channel]: r.last_read_id }));
       })
       .subscribe();
@@ -51,7 +55,7 @@ export function useUnread() {
     const onWake = () => { if (document.visibilityState === 'visible') load(); };
     document.addEventListener('visibilitychange', onWake);
     return () => { supabase.removeChannel(ch); window.removeEventListener('sak:read', onRead); document.removeEventListener('visibilitychange', onWake); };
-  }, [me?.id]);
+  }, [me?.id, lid]);
   const unread = (c: string) => (latest[c] ?? 0) > (reads[c] ?? 0);
   const any = Object.keys(latest).some((c) => c !== 'draft' && unread(c));
   // how many messages you haven't seen (everything but the draft room and your own posts; 200+ shows as 99+)

@@ -16,6 +16,7 @@ import { appLink, leagueUrl } from '../lib/host';
 import { PoolIdeas, PoolTest } from '../components/PoolTest';
 import { PoolGamesPlatform } from '../components/PoolGamesPlatform';
 import { GameFix } from '../components/GameFix';
+import { DeletePool } from '../components/DeletePool';
 
 interface Row {
   league_id: number; slug: string; name: string; short_name: string; status: 'setup' | 'active' | 'archived'; created_at: string;
@@ -136,6 +137,7 @@ function LeagueCard({ r, reload }: { r: Row; reload: () => Promise<unknown> }) {
   const [checks, setChecks] = useState<Check[] | null>(null);
   const [invite, setInvite] = useState<string | null>(null);
   const [domain, setDomain] = useState(r.domain ?? '');
+  const [deleting, setDeleting] = useState(false);
   const brand: Brand = useMemo(() => brandOf(r.brand as Partial<Brand> | null, r.short_name), [r.brand, r.short_name]);
   const model = r.league_id === 1;
   useEffect(() => { if (open && !checks) rpc<Check[]>('league_readiness', { p_league: r.league_id }).then(setChecks, () => setChecks([])); }, [open]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -218,6 +220,9 @@ function LeagueCard({ r, reload }: { r: Row; reload: () => Promise<unknown> }) {
               )}
               {r.status === 'active' && <button className="btn-ghost btn-sm w-full" disabled={busy} onClick={() => confirm(`Archive ${r.name}? Its nightly jobs stop; nothing is deleted.`) && setStatus('archived', 'Archived')}>Archive this league</button>}
               {r.status === 'archived' && <button className="btn-ghost btn-sm w-full" disabled={busy} onClick={() => setStatus('setup', 'Back in setup')}>Bring it back to setup</button>}
+              {/* for good (migration 242): every row it holds; archiving keeps them */}
+              <button className="btn-sm w-full rounded-xl text-red-300 ring-1 ring-red-400/30 hover:bg-red-500/10" disabled={busy} onClick={() => setDeleting(true)}>Delete this league…</button>
+              <DeletePool pool={{ league_id: r.league_id, name: r.name }} open={deleting} onClose={() => setDeleting(false)} onDone={() => { setDeleting(false); reload(); }} />
             </div>
           )}
         </div>
