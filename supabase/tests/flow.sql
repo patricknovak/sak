@@ -4677,6 +4677,10 @@ select pg_temp.expect('pick''em gets a second reminder before the rest of a roun
   exists (select 1 from notifications where team_id = :lou and kind = 'pool_game' and body = '⏰ The rest of week 10 kicks off in 5h. You have one game still to pick in NFL pick''em.'));
 select pg_temp.expect('and only once', _pool_game_nudge(:lib) = 0);
 update pool_games set status = 'done' where id = :nflpk;
+-- Sunday's game was only for the last-call window; leave it scheduled and a later streak reminder
+-- (nfl-306 at now()+2h) can fall on a different Eastern day from this now()+5h kickoff when CI runs
+-- near midnight ET, so the streak section would see two "day's first game" nudges instead of one.
+update fixtures set state = 'cancelled' where ext_id = 'nfl-102';
 select set_config('app.league_id', '', false);
 select 'last call', true;
 
@@ -5706,12 +5710,18 @@ select soccer_ingest('nfl', jsonb_build_object('fixtures', (select jsonb_agg(jso
 select pg_temp.expect('best run 2, on 1 now, three right from four',
   (select points = 2 and exact = 1 and right_calls = 3 and picked = 4 and tiebreak = -1 from _pool_game_table(:stg) where team_id = :hana)
   and (select line = 'Best run 2, 1 now' and score = 2 and possible is null from _pool_rows() where game = 'game:' || :stg and team_id = :hana));
--- a day's first game under six hours away and no pick for it: a reminder, once
+-- a day's first game under six hours away and no pick for it: a reminder, once.
+-- Pin to one Eastern day: cancel any other NFL fixture still scheduled inside the six-hour nudge
+-- window so a leftover from an earlier section can't sit on the far side of midnight ET.
+update fixtures set state = 'cancelled' where competition = 'nfl' and state = 'scheduled'
+  and kickoff > now() and kickoff <= now() + interval '6 hours' and ext_id is distinct from 'nfl-306';
 select soccer_ingest('nfl', jsonb_build_object('fixtures', jsonb_build_array(jsonb_build_object('ext_id', 'nfl-306', 'gameweek', 14,
   'kickoff', now() + interval '2 hours', 'status', 'NS', 'home', 'nf1', 'away', 'nf2'))));
 select _pool_game_nudge(:lib) as stn \gset
 select pg_temp.expect('a reminder before the day''s first game, once',
-  (select count(*) = 1 from notifications where team_id = :hana and body like '🔥 The day''s first game starts in%')
+  :stn = 1
+  and (select count(*) = 1 from notifications where team_id = :hana and body like '🔥 The day''s first game starts in%'
+       and link = '/picks?g=' || :stg)
   and _pool_game_nudge(:lib) = 0);
 update fixtures set state = 'cancelled' where ext_id in ('nfl-305', 'nfl-306');
 -- the streak ends with its event (migration 233): a one-game event, Hana's pick right, the pool job crowns her
