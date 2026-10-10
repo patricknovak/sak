@@ -5707,6 +5707,9 @@ select pg_temp.expect('best run 2, on 1 now, three right from four',
   (select points = 2 and exact = 1 and right_calls = 3 and picked = 4 and tiebreak = -1 from _pool_game_table(:stg) where team_id = :hana)
   and (select line = 'Best run 2, 1 now' and score = 2 and possible is null from _pool_rows() where game = 'game:' || :stg and team_id = :hana));
 -- a day's first game under six hours away and no pick for it: a reminder, once
+-- (earlier sections leave other NFL fixtures in the six-hour window; clear them so only this day nudges)
+update fixtures set state = 'cancelled'
+ where competition = 'nfl' and state = 'scheduled' and kickoff between now() and now() + interval '6 hours';
 select soccer_ingest('nfl', jsonb_build_object('fixtures', jsonb_build_array(jsonb_build_object('ext_id', 'nfl-306', 'gameweek', 14,
   'kickoff', now() + interval '2 hours', 'status', 'NS', 'home', 'nf1', 'away', 'nf2'))));
 select _pool_game_nudge(:lib) as stn \gset

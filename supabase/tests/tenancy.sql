@@ -50,12 +50,11 @@ where n.nspname = 'public' and c.relkind in ('r', 'p')
   and c.relname not in ('league_members', 'league_invites');   -- both always write their league explicitly
 
 -- 4. Views run with the caller's rights, so they inherit the league bound.
+--    team_directory joined them in migration 240 (anon keeps a narrow column grant + RLS on teams).
 select pg_temp.none('a view that does not run as the caller (security_invoker)', string_agg(c.relname, ', '))
 from pg_class c join pg_namespace n on n.oid = c.relnamespace
 where n.nspname = 'public' and c.relkind = 'v'
-  and not coalesce(c.reloptions::text ~ 'security_invoker=(true|on)', false)
-  and c.relname not in (
-    'team_directory');   -- the league's team names and colours, readable before sign-in (no addresses since migration 104)
+  and not coalesce(c.reloptions::text ~ 'security_invoker=(true|on)', false);
 
 -- 5. An internal helper that writes (a payout, a ledger line) is the database's own business: nobody calls it directly.
 select pg_temp.none('an internal (_name) security-definer function that writes and can be called from the API', string_agg(p.proname, ', '))
