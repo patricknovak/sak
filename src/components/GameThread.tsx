@@ -3,42 +3,67 @@
 // written under the chat rules every other channel follows; the merged chat feed and the chat tab's badge leave it out,
 // and the scoreboard's game chips carry its count and its unread dot instead. Above the chat: who in the league has a
 // player in the game and what he has tonight, and the live room's swings for this game.
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import { useLeague } from '../lib/store';
 import { supabase, realtimeChannel } from '../lib/supabase';
 import { swingWords, useLiveRoom } from '../lib/liveRoom';
 import { fmtPts, fmtTime } from '../lib/format';
-import { TeamBadge } from './ui';
+import { Sheet, TeamBadge } from './ui';
 import { ChatPanel } from './ChatPanel';
 import type { Game } from '../lib/types';
 
 export const threadOf = (gameId: number) => `game:${gameId}`;
+// a pool's match on the shared fixtures (soccer, the NFL, baseball's postseason...): its own namespace beside the NHL's
+// game ids, under the same 'game:' prefix so the chat feed and the badge leave it out the same way
+export const fixtureThread = (fixtureId: number) => `game:fx${fixtureId}`;
 
-// how many messages each of these games' threads holds, kept up to date as people post
-export function useThreadCounts(gameIds: number[]) {
+// how many messages each of these threads holds, kept up to date as people post
+export function useChannelCounts(channels: string[]) {
   const { league } = useLeague();
   const lid = league?.league_id ?? null;
-  const key = gameIds.slice().sort().join(',');
-  const [counts, setCounts] = useState<Map<number, number>>(new Map());
+  const key = channels.slice().sort().join(',');
+  const [counts, setCounts] = useState<Map<string, number>>(new Map());
   useEffect(() => {
-    if (!gameIds.length) { setCounts(new Map()); return; }
+    if (!channels.length) { setCounts(new Map()); return; }
     let alive = true;
-    supabase.from('messages').select('channel').in('channel', gameIds.map(threadOf)).limit(2000).then(({ data }) => {
+    supabase.from('messages').select('channel').in('channel', channels).limit(2000).then(({ data }) => {
       if (!alive) return;
-      const m = new Map<number, number>();
-      for (const r of data ?? []) { const id = Number(String(r.channel).slice(5)); m.set(id, (m.get(id) ?? 0) + 1); }
+      const m = new Map<string, number>();
+      for (const r of data ?? []) m.set(String(r.channel), (m.get(String(r.channel)) ?? 0) + 1);
       setCounts(m);
     });
-    const wanted = new Set(gameIds.map(threadOf));
+    const wanted = new Set(channels);
     const ch = realtimeChannel('game-threads').on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'messages' }, (p) => {
       const n = p.new as { channel: string; league_id?: number | null };
       if (!wanted.has(n.channel) || (lid != null && n.league_id != null && n.league_id !== lid)) return;
-      const id = Number(n.channel.slice(5));
-      setCounts((c) => new Map(c).set(id, (c.get(id) ?? 0) + 1));
+      setCounts((c) => new Map(c).set(n.channel, (c.get(n.channel) ?? 0) + 1));
     }).subscribe();
     return () => { alive = false; supabase.removeChannel(ch); };
   }, [key, lid]); // eslint-disable-line react-hooks/exhaustive-deps
   return counts;
+}
+
+// the same, by NHL game id
+export function useThreadCounts(gameIds: number[]) {
+  const counts = useChannelCounts(gameIds.map(threadOf));
+  return useMemo(() => new Map(gameIds.map((id) => [id, counts.get(threadOf(id)) ?? 0] as [number, number]).filter(([, n]) => n > 0)), [counts, gameIds.join(',')]); // eslint-disable-line react-hooks/exhaustive-deps
+}
+
+// a game's thread on its own, in a sheet: what a pool opens from its live room and its match centre
+export function ThreadSheet({ channel, title, head, onClose }: { channel: string | null; title: ReactNode; head?: ReactNode; onClose: () => void }) {
+  return (
+    <Sheet open={!!channel} onClose={onClose} title={title}>
+      {channel && (
+        <div className="flex flex-col gap-3">
+          {head}
+          <div className="card flex h-[56dvh] min-h-[320px] flex-col overflow-hidden">
+            <div className="border-b border-line px-3 py-2 text-sm font-semibold">💬 The pool’s thread for this game</div>
+            <ChatPanel channel={channel} compact className="flex-1" />
+          </div>
+        </div>
+      )}
+    </Sheet>
+  );
 }
 
 type Line = { player_id: number; fpts: number };

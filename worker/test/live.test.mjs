@@ -15,6 +15,7 @@ const check = (c, m) => { if (!c) { console.error('FAIL', m); process.exit(1); }
 const a = await open(); a.send(JSON.stringify({ t: 'hello', token: tok('u1') }));
 const n = await until(a, (m) => m.t === 'night');
 check(n.me === 1 && n.games.length === 2 && n.snaps.length === 4 && n.pgs.length === 3, 'a member gets the night: 2 games, 4 frozen lines, 3 box lines');
+check(n.pts.length === 4, 'and every player\'s points tonight, starters or not (4 lines)');
 check(n.swings.filter((s) => s.early).length === 3, `the night so far: 2 starters' lines and 1 final (${n.swings.map((s) => s.kind + (s.player ?? s.game)).join(' ')})`);
 check(!n.swings.some((s) => s.player === 21), 'a benched player is never a swing');
 const b = await open(); b.send(JSON.stringify({ t: 'hello', token: tok('u2') }));
@@ -38,12 +39,20 @@ check([...c.msgs, ...d.msgs].every((m) => m.t === 'denied'), 'nothing but "denie
 const st = JSON.parse(fs.readFileSync(STATE, 'utf8'));
 st.pgs.push({ player_id: 20, game_id: 1, fpts: 3.5, stats: { g: 1, sog: 1 }, nhl_team: 'MTL', updated_at: new Date().toISOString() });
 st.games[0].away_score = 1; st.games[0].clock = '08:12';
+st.gen = (st.gen ?? 0) + 1; // the box scores moved
 fs.writeFileSync(STATE, JSON.stringify(st));
 const tk = await until(b, (m) => m.t === 'tick' && m.swings.length);
 const sw = tk.swings.find((s) => s.kind === 'p');
 check(sw && sw.team === 2 && sw.player === 20 && sw.d === 3.5 && sw.what.g === 1 && !sw.early, 'the goal is a swing: team 2, +3.5, one goal');
 check(tk.swings.some((s) => s.kind === 'g' && s.score.join() === '1,1'), 'the game moving to 1–1 is a swing');
 check(tk.pgs.length === 1 && tk.games.length === 1 && !tk.snaps, 'only what moved goes out');
+check(tk.pts.length === 1 && tk.pts[0].player_id === 20, 'the night\'s points carry the one line that moved');
+// with the counter still, the room doesn't read the points again
+const c0 = await (await fetch('http://127.0.0.1:8799/count')).json();
+const st2 = JSON.parse(fs.readFileSync(STATE, 'utf8')); st2.games[0].clock = '07:00'; fs.writeFileSync(STATE, JSON.stringify(st2));
+await until(b, (m) => m.t === 'tick' && m.games.length && m.games[0].clock === '07:00');
+const c1 = await (await fetch('http://127.0.0.1:8799/count')).json();
+check(c1.lineReads === c0.lineReads, `a clock moving alone reads no points (${c1.lineReads - c0.lineReads} reads)`);
 await until(a, (m) => m.t === 'tick' && m.swings.length);
 check(true, 'everyone in the room hears it');
 

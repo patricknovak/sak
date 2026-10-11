@@ -12,18 +12,19 @@ const init = {
   snaps: [{ team_id: 1, player_id: 10, slot: 'C', game_id: 1 }, { team_id: 2, player_id: 20, slot: 'LW', game_id: 1 }, { team_id: 2, player_id: 21, slot: 'BN', game_id: 2 }, { team_id: 1, player_id: 11, slot: 'D', game_id: 2 }],
   pgs: [{ player_id: 10, game_id: 1, fpts: 3, stats: { g: 1, sog: 3 }, nhl_team: 'TOR', updated_at: new Date(Date.now() - 600e3).toISOString() },
         { player_id: 11, game_id: 2, fpts: 2.5, stats: { a: 1, blk: 2 }, nhl_team: 'EDM', updated_at: new Date(Date.now() - 1800e3).toISOString() },
-        { player_id: 21, game_id: 2, fpts: 4, stats: { g: 1, a: 1 }, nhl_team: 'EDM', updated_at: null }],
+        { player_id: 21, game_id: 2, fpts: 4, stats: { g: 1, a: 1 }, nhl_team: 'EDM', updated_at: null },
+        { player_id: 99, game_id: 2, fpts: 1.5, stats: { a: 1 }, nhl_team: 'CGY', updated_at: null }],
 };
 fs.writeFileSync(S, JSON.stringify(init));
 const sub = (auth) => { try { return JSON.parse(Buffer.from(auth.split('.')[1], 'base64url')).sub; } catch { return null; } };
-let reads = 0, ticks = 0, autopicks = 0;
+let reads = 0, ticks = 0, autopicks = 0, lineReads = 0;
 http.createServer((req, res) => {
   const u = new URL(req.url, 'http://x');
   const who = sub((req.headers.authorization ?? '').replace('Bearer ', ''));
   const lg = req.headers['x-league'];
   const st = JSON.parse(fs.readFileSync(S, 'utf8'));
   const j = (b, c = 200) => { res.writeHead(c, { 'content-type': 'application/json' }); res.end(JSON.stringify(b)); };
-  if (u.pathname === '/count') return j({ reads, ticks, autopicks });
+  if (u.pathname === '/count') return j({ reads, ticks, autopicks, lineReads });
   if (!who || who === 'forged') return j({ message: 'JWT invalid' }, 401);
   if (who === 'down') return j({ message: 'unavailable' }, 503);
   const t = u.pathname.replace('/rest/v1/', '');
@@ -56,6 +57,8 @@ http.createServer((req, res) => {
   if (t === 'draft_picks') return j((st.draft?.picks ?? []).filter((p) => p.player_id != null).sort((a, b) => b.overall - a.overall).slice(0, 12));
   if (t === 'games') return j(st.games);
   if (t === 'lineup_snapshots') return j(st.snaps);
-  if (t === 'league_games') { const ids = u.searchParams.get('player_id').slice(4, -1).split(',').map(Number); return j(st.pgs.filter((p) => ids.includes(p.player_id))); }
+  // the box scores' counter (migration 248): the test moves it with every new line
+  if (t === 'stats_gen') return j([{ gen: st.gen ?? 0 }]);
+  if (t === 'league_games') { lineReads++; const f = u.searchParams.get('player_id'); const ids = f ? f.slice(4, -1).split(',').map(Number) : null; return j(st.pgs.filter((p) => !ids || ids.includes(p.player_id))); }
   j([], 404);
 }).listen(8799, () => console.log('mock on 8799'));

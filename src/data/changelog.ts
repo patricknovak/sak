@@ -6,6 +6,14 @@
 export interface Change { date: string; icon: string; title: string; body: string; to?: string; tag?: 'formats' | 'commish' | 'draft' | 'everyone' }
 
 export const CHANGELOG: Change[] = [
+  { date: '2026-10-11', icon: '📜', tag: 'commish', title: 'Bring your past from ESPN', to: '/league',
+    body: 'A league that played on ESPN brings its history in one go: on the League page, paste the ESPN league\'s link and every season it kept comes back with its final table, champions to last place, ready to tick and bring in. The league must be viewable to the public on ESPN.' },
+  { date: '2026-10-11', icon: '🗡️', tag: 'everyone', title: 'A Traitors pool', to: '/pools',
+    body: 'Start a pool on The Traitors: New Blood from Start a pool: call every round table from episode 6, who reaches the end and whether a Traitor takes the money, with coins on every episode night through the finale on 19 November.' },
+  { date: '2026-10-11', icon: '🚨', tag: 'everyone', title: 'The live room on your home page', to: '/',
+    body: 'On a game night your home page now shows the league\'s live room, the way a pool\'s home does: who\'s watching, the latest swings with their reactions, and tonight\'s scoreboard a tap away. Tap a game for its sheet.' },
+  { date: '2026-10-11', icon: '💬', tag: 'everyone', title: 'A thread for every game in your pool', to: '/picks',
+    body: 'Every match in a pool now has its own chat. Tap Talk on a pick\'em match, a game chip in the pool\'s live room, or Thread in the match centre: the score sits on top and the pool talks it over below. Each game shows how busy its thread is.' },
   { date: '2026-10-11', icon: '⏱️', tag: 'everyone', title: 'One score, every page', to: '/nhl?t=scores',
     body: 'Scores and clocks now move within seconds of the NHL, and every page shows the same one at the same moment: the scoreboard, NHL centre, My Team and the home page all read from one place. Tonight\'s points land on every page together the moment a box score has them, with nothing to refresh.' },
   { date: '2026-10-11', icon: '📺', tag: 'everyone', title: 'Every game, one tap from anywhere', to: '/nhl?t=scores',

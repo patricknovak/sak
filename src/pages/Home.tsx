@@ -15,9 +15,12 @@ import { PushCard } from '../components/PushCard';
 import { BankCard, BetResultsCard, LastNightCard, NhlTopCard, TicketsCard } from '../components/HomeCards';
 import { bare, useBrand } from '../lib/brand';
 import { WatchCard } from '../components/WatchCard';
+import { LiveRoomCard } from '../components/LiveRoomCard';
+import { useGameSheet } from '../components/GameSheet';
 
 export default function Home() {
-  const { me, league, teams, spectators, team, standings: regular, playoffs, rosters, players, draft, picks, gamesByTeam, online, dayPoints } = useLeague();
+  const { me, league, teams, spectators, team, standings: regular, playoffs, rosters, players, draft, picks, gamesByTeam, online, dayPoints, games, leagueDay } = useLeague();
+  const gameSheet = useGameSheet();
   const brand = useBrand();
   const now = useNow(1000);
   const nav = useNavigate();
@@ -151,6 +154,9 @@ export default function Home() {
       </div>
 
       <PushCard hideWhenOn compact />
+
+      {/* game night: the league's live room, its latest swings and who's watching, the full scoreboard a tap away */}
+      {phase === 'season' && <LiveRoomCard slate={games.filter((g) => g.date === leagueDay)} onGame={(id) => gameSheet.open(id)} max={4} scoreboard />}
 
       {league?.commish_note && (
         <div className="card relative overflow-hidden border-amber-400/30 p-4" style={{ background: 'linear-gradient(135deg, rgb(var(--gold-rgb)/.16), rgba(15,23,41,.8) 60%)' }}>

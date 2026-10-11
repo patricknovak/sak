@@ -4,7 +4,8 @@
 // earned. The round's points and the table come from the database on every read. The host (migration 172) can enter a
 // round for a member who asked, and settle a match the feed left hanging, for this pool only, with the reason shown.
 import { useEffect, useMemo, useState } from 'react';
-import { Check, ChevronLeft, ChevronRight, Lock } from 'lucide-react';
+import { Check, ChevronLeft, ChevronRight, Lock, MessageCircle } from 'lucide-react';
+import { fixtureThread, ThreadSheet, useChannelCounts } from './GameThread';
 import { useLeague } from '../lib/store';
 import { rpc } from '../lib/supabase';
 import { useAction } from './ui';
@@ -55,6 +56,10 @@ export function PickemGame({ gameId, first, status: gameStatus, name, reload, ac
   const [open, setOpen] = useState<number | null>(null);
   const { busy, run } = useAction();
   const market = useMarket(data.fixtures.map((f) => f.id));
+  // each match's thread in the pool, with how busy it is
+  const [thread, setThread] = useState<number | null>(null);
+  const talk = useChannelCounts(useMemo(() => data.fixtures.map((f) => fixtureThread(f.id)), [data.fixtures]));
+  const tf = data.fixtures.find((f) => f.id === thread);
   // a new board from the page (the minute refresh) replaces the round shown only when it is the same round
   useEffect(() => { if (first.round === data.round) setData(first); }, [first]); // eslint-disable-line react-hooks/exhaustive-deps
   const go = (round: number) => rpc<PickemData>('pool_pickem_board', { p_game: gameId, p_round: round }).then((d) => { if (d) { setData(d); setDraft({}); } });
@@ -146,6 +151,7 @@ export function PickemGame({ gameId, first, status: gameStatus, name, reload, ac
               <span className={`font-bold uppercase tracking-wider ${st.live ? 'text-red-300' : 'text-mute'}`}>{st.live && <span className="mr-1 inline-block h-1.5 w-1.5 animate-pulse rounded-full bg-red-400 align-middle" />}{st.text}</span>
               {f.locked && !done && !f.void && <Lock className="h-3 w-3 text-mute" aria-label="Locked" />}
               <span className="ml-auto text-mute">{f.picked} picked</span>
+              <button type="button" onClick={() => setThread(f.id)} aria-label="This match's thread" className={`-my-1 inline-flex items-center gap-1 rounded-full px-2 py-1 font-bold ring-1 ${talk.get(fixtureThread(f.id)) ? 'bg-sky-400/15 text-sky-200 ring-sky-400/30' : 'bg-white/[.04] text-slate-300 ring-white/10'}`}><MessageCircle className="h-3 w-3" />{talk.get(fixtureThread(f.id)) || 'Talk'}</button>
             </div>
             {/* the match: crests, names and the score once it's on */}
             <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-2 px-3 py-2">
@@ -236,6 +242,14 @@ export function PickemGame({ gameId, first, status: gameStatus, name, reload, ac
       <p className="px-1 text-xs text-mute">
         {data.confidence ? `Number your picks from 1 to ${data.size}: your surest is ${data.size}, and a right pick earns its number. Taking a number another match has swaps the two.` : 'A right pick is a point.'} Each pick locks at its own kick-off{data.draws ? '; a draw is the result after ninety minutes' : '; a tie counts for nobody'}. A postponed match counts for nobody.
       </p>
+      <ThreadSheet channel={tf ? fixtureThread(tf.id) : null} onClose={() => setThread(null)} title={tf ? `${short(tf.home)} v ${short(tf.away)}` : ''}
+        head={tf && (
+          <div className={`grid grid-cols-[1fr_auto_1fr] items-center gap-2 rounded-2xl p-3 ring-1 ${status(tf).live ? 'bg-red-400/[.07] ring-red-400/30' : 'bg-white/[.04] ring-white/[.06]'}`}>
+            <div className="flex min-w-0 items-center gap-2"><Crest c={tf.home} size={26} /><span className="min-w-0 break-words text-[13px] font-semibold leading-tight text-white">{tf.home.name}</span></div>
+            <div className="text-center"><div className="num font-display text-xl font-extrabold text-white">{tf.home_score != null && tf.state !== 'scheduled' ? `${tf.home_score}–${tf.away_score}` : 'v'}</div><div className={`text-[10px] font-bold uppercase tracking-wider ${status(tf).live ? 'text-red-300' : 'text-mute'}`}>{status(tf).text}</div></div>
+            <div className="flex min-w-0 flex-row-reverse items-center gap-2 text-right"><Crest c={tf.away} size={26} /><span className="min-w-0 break-words text-[13px] font-semibold leading-tight text-white">{tf.away.name}</span></div>
+          </div>
+        )} />
     </div>
   );
 }

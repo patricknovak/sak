@@ -49,6 +49,9 @@ interface Store {
   // realtime, migration 248) and shared by every page, so every page shows the same number at the same moment
   dayPoints: Map<number, DayPoint>;
   pointsDay: string;           // the day dayPoints holds (the league day when it was read)
+  // the league's live room hands over tonight's points (all of them on joining, then what moved): while it does, the
+  // store reads none of its own (E5's edge half: one read a league, not one a phone)
+  roomPoints: (day: string, rows: ({ player_id: number } & DayPoint)[], full: boolean) => void;
 }
 
 export interface DayPoint { fpts: number; stats: Record<string, number>; game_id: number; nhl_team: string | null; updated_at: string | null }
@@ -115,6 +118,19 @@ export function LeagueProvider({ children }: { children: ReactNode }) {
   meRef.current = me;
   const gamesRef = useRef<Game[]>([]);
   gamesRef.current = games;
+  // when the live room last handed over points: while it is feeding them, the store leaves its own reads alone
+  const roomFedAt = useRef(0);
+  const roomFed = () => Date.now() - roomFedAt.current < 90_000;
+  const roomPoints = useCallback((day: string, rows: ({ player_id: number } & DayPoint)[], full: boolean) => {
+    roomFedAt.current = Date.now();
+    if (!rows.length && !full) return;   // the room is still feeding, and nothing moved
+    setDayPoints((cur) => {
+      if (day !== etToday()) return cur;
+      const m = full || cur.day !== day ? new Map<number, DayPoint>() : new Map(cur.pts);
+      for (const r of rows) m.set(r.player_id, { fpts: Number(r.fpts), stats: r.stats ?? {}, game_id: r.game_id, nhl_team: r.nhl_team, updated_at: r.updated_at ?? null });
+      return { day, pts: m };
+    });
+  }, []);
   const kindRef = useRef(kind);
   kindRef.current = kind;
 
@@ -263,7 +279,7 @@ export function LeagueProvider({ children }: { children: ReactNode }) {
       }
     }
     // the box scores moved (stats_gen, migration 248): tonight's points and the standings read once, for every page
-    ch.on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'stats_gen' }, () => { bump('points', 3000); bump('standings', 3000); });
+    ch.on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'stats_gen' }, () => { if (!roomFed()) bump('points', 3000); bump('standings', 3000); });
     ch.subscribe();
     // live scoring: while a game is on (or about to drop the puck) standings refresh every minute and season stats
     // every 5; with nothing on, the numbers can't move, so every 5 and every 30. Game starts and finals arrive by
@@ -274,7 +290,7 @@ export function LeagueProvider({ children }: { children: ReactNode }) {
       tick++;
       const live = gamesRef.current.some((g) => !settled(g.state) && Date.parse(g.start_utc) - 30 * 60_000 <= Date.now());
       // scores, clocks and points arrive by realtime as they move; this is the backstop for a dropped connection
-      if (tick % 5 === 0) refresh(live ? ['standings', 'games', 'points'] : ['standings', 'games']);
+      if (tick % 5 === 0) refresh(live && !roomFed() ? ['standings', 'games', 'points'] : ['standings', 'games']);
       if (live ? tick % 5 === 0 : tick % 30 === 0) refresh(['season', 'windows', 'gameday']);
     }, 60_000);
     const onVis = () => { if (document.visibilityState === 'visible') refresh(['draft', 'picks', 'rosters', 'standings', 'notifications', 'gameday', 'games', 'points']); };
@@ -361,7 +377,7 @@ export function LeagueProvider({ children }: { children: ReactNode }) {
   const value: Store = {
     ready: authReady && hostReady && (!session || loaded), host, hostElsewhere: !!host && !!league && league.league_id !== host.id && tabLeague() !== league.league_id, session, me, league, brand, sport, kind, teams, spectators, can, team, players, rosters, owner, picks, draft,
     standings, playoffs, cup, season, windows, games, gamesLive, gamesByTeam, notifications, gameStatus, freshNews, online, draftRoom, refresh, serverOffset, leagueDay,
-    dayPoints: dayPoints.pts, pointsDay: dayPoints.day,
+    dayPoints: dayPoints.pts, pointsDay: dayPoints.day, roomPoints,
   };
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
 }

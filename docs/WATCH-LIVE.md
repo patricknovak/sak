@@ -3,7 +3,7 @@
 Researched 6 and 7 October 2026 for Patrick's ask: "Make a new section for watch live and do some deep research on how to
 provide live sports streaming to the SaK league for all NHL games." Prices are before tax and change often. Items marked
 **[unconfirmed]** were not checked against a 2026-27 source and come from earlier seasons or a single secondary source.
-The section is `#/watch` (`src/pages/WatchLive.tsx`); its guide is `src/lib/watchGuide.ts`.
+The section was `#/watch` (`src/pages/WatchLive.tsx`) until 11 October 2026; it now lives in NHL centre's Scores tab and each game's sheet (section 5). Its guide is `src/lib/watchGuide.ts`.
 
 **The rule.** SaK can't stream NHL games. The rights belong to the broadcasters, and no licence for live NHL video exists
 that a small app can buy: Sportradar's live streams go only to licensed sportsbooks. Restreaming, screen-sharing a game,

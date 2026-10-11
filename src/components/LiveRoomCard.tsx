@@ -1,6 +1,7 @@
 // The live room on the scoreboard: who's watching tonight, and the night's swings as they happen (every point a starter
 // scores, every goal and final in a game with a starter in it), newest first, each with the room's reactions.
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { Link } from 'react-router-dom';
 import { SmilePlus } from 'lucide-react';
 import { useLeague } from '../lib/store';
 import { REACTIONS, swingWords, useLiveRoom, type Swing } from '../lib/liveRoom';
@@ -11,7 +12,8 @@ import type { Game } from '../lib/types';
 
 const SHOW = 8;
 
-export function LiveRoomCard({ slate, onGame }: { slate: Game[]; onGame?: (gameId: number) => void }) {
+// max: how many swings show before 'the whole night' (the home page shows a few, with the scoreboard a tap away)
+export function LiveRoomCard({ slate, onGame, max = SHOW, scoreboard }: { slate: Game[]; onGame?: (gameId: number) => void; max?: number; scoreboard?: boolean }) {
   const { me, team } = useLeague();
   const room = useLiveRoom();
   const [all, setAll] = useState(false);
@@ -23,7 +25,7 @@ export function LiveRoomCard({ slate, onGame }: { slate: Game[]; onGame?: (gameI
   // the room's swings, with the league's own climbs up the standings (as the pools' rooms show them) in among them
   const list = useMemo(() => [...room.swings.filter((s) => s.kind === 'p' || ours.has(s.game)), ...climbs].sort((a, b) => a.at.localeCompare(b.at)).reverse(), [room.swings, ours, climbs]);
   if (room.status === 'off') return null;
-  const shown = all ? list : list.slice(0, SHOW);
+  const shown = all ? list : list.slice(0, max);
   const firstEarly = shown.findIndex((s) => s.early);
   const watching = room.watching.map((id) => team(id)).filter(Boolean);
 
@@ -67,7 +69,10 @@ export function LiveRoomCard({ slate, onGame }: { slate: Game[]; onGame?: (gameI
           ))}
         </ul>
       )}
-      {list.length > SHOW && (
+      {scoreboard && (
+        <Link to="/scoreboard" className="flex items-center justify-center gap-1 border-t border-white/[.06] px-3 py-2 text-center text-xs font-semibold text-sky-300 transition hover:bg-white/[.03]">Tonight’s scoreboard, team by team ›</Link>
+      )}
+      {!scoreboard && list.length > max && (
         <button type="button" className="w-full border-t border-white/[.06] px-3 py-2 text-center text-xs font-semibold text-sky-300 transition hover:bg-white/[.03]" onClick={() => setAll(!all)}>
           {all ? 'Show the latest' : `The whole night · ${list.length} swings`}
         </button>

@@ -29,7 +29,7 @@ Two things in one repo:
   October 2026): every page's scores, clocks and tonight's points come from the store and nowhere else. `games` rows are
   applied as realtime sends them (nhl-sync's clock task writes them every 20 seconds while a game is on, the `nhl-clock`
   job, migrations 246 and 247), and `dayPoints` (tonight's points, player by player) is read once each time a box score
-  moves (realtime on `stats_gen`, migration 248), with a five-minute backstop. New live UI reads `games` and `dayPoints`;
+  moves (realtime on `stats_gen`, migration 248), with a five-minute backstop; while the league's live room is feeding them (`roomPoints`: every player's line on joining, then what moved, read by the room once for the league whenever `stats_gen` moves) the store reads none of its own. New live UI reads `games` and `dayPoints`;
   it never polls `league_games` or the NHL's feed for a score. NHL centre lays the store's score and clock over the
   feed (`overlay`, `useOverlay` in `src/lib/nhlGame.ts`).
 - Any NHL game opens in one sheet, app-wide (`useGameSheet().open(id)`, `GameSheetProvider` in `main.tsx`, the body
@@ -132,7 +132,7 @@ Two things in one repo:
   alarm is the pick clock (it calls `draft_tick` the moment a deadline passes), it pushes every pick, and the store's
   4-second draft poll stands down while it is live; both rooms share `worker/room.ts`. A thread per game is chat channel
   `game:<game id>` (`GameThread` in the game sheet, first when opened from the scoreboard while the game is on; left out of the merged chat feed and
-  the chat badge, counted on the scoreboard's game chips instead). `/api/live/<league>/pool/<day>` is a prediction pool's
+  the chat badge, counted on the scoreboard's game chips instead); a pool's match on the shared fixtures is `game:fx<fixture id>` (`fixtureThread`, `ThreadSheet` and `useChannelCounts` in `GameThread.tsx`), opened from the pool room's chips, pick'em's Talk and the match centre, and a box pool's NHL game keeps `game:<game id>`. `/api/live/<league>/pool/<day>` is a prediction pool's
   room for the day (`worker/pool.ts`, `usePoolRoom` in `src/lib/poolRoom.ts`, `PoolRoomCard` on the pool's home): today's
   games on its events, their scores and members climbing its table, pushed; the rest is the built site. The plan for the edge is `docs/DEVELOPMENT.md` §8.3; the
   Super Pools landing page (`landing/index.html`) on Cloudflare (zone routes on the apex and www; off Vercel); every
