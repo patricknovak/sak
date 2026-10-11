@@ -3,6 +3,7 @@ import { RotoMini } from '../components/RotoStandings';
 import { H2HHome } from '../components/HeadToHead';
 import { useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
+import { usePoll } from '../lib/poll';
 import { useLeague, useNow } from '../lib/store';
 import { realtimeChannel, supabase } from '../lib/supabase';
 import type { Bet, Message, Trade } from '../lib/types';
@@ -17,7 +18,7 @@ import { bare, useBrand } from '../lib/brand';
 import { WatchCard } from '../components/WatchCard';
 
 export default function Home() {
-  const { me, league, teams, spectators, team, standings: regular, playoffs, rosters, players, draft, picks, gamesByTeam, online, leagueDay } = useLeague();
+  const { me, league, teams, spectators, team, standings: regular, playoffs, rosters, players, draft, picks, gamesByTeam, online, leagueDay, gamesLive } = useLeague();
   const brand = useBrand();
   const now = useNow(1000);
   const nav = useNavigate();
@@ -41,14 +42,8 @@ export default function Home() {
   }, []);
 
   // today's live fantasy points per player
-  useEffect(() => {
-    if (league?.phase !== 'season') return;
-    const load = () => supabase.from('league_games').select('player_id,fpts').eq('date', leagueDay)
-      .then(({ data }) => setTodayPts(new Map((data ?? []).map((r) => [r.player_id, Number(r.fpts)]))));
-    load();
-    const i = setInterval(load, 60_000);
-    return () => clearInterval(i);
-  }, [league?.phase, leagueDay]);
+  usePoll(() => { if (league?.phase === 'season') supabase.from('league_games').select('player_id,fpts').eq('date', leagueDay)
+    .then(({ data }) => setTodayPts(new Map((data ?? []).map((r) => [r.player_id, Number(r.fpts)])))); }, 60_000, league?.phase === 'season' && gamesLive, [league?.phase, leagueDay]);
 
   // once NHL playoff games are being scored, Home follows the playoff race
   const inPlayoffs = playoffs.some((t) => Number(t.points) !== 0);

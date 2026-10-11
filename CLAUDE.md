@@ -72,7 +72,10 @@ Two things in one repo:
   event, `_squares_tick`, migration 167; a platform admin fixes a game the feed got wrong from the Platform page,
   `platform_game_fix`, and the feed leaves it alone until handed back, migration 206; the hourly pool job, pool-drops, opens
   a pool's automatic prop sheets, `_props_auto`, migration 223). Shared code in `supabase/functions/_shared`.
-- Scheduler: pg_cron jobs call the edge functions through pg_net with the anon key. Job names: nhl-scores
+- Scheduler: pg_cron jobs call the edge functions through pg_net with `_edge_headers(true)` (the anon key plus the
+  platform's admin key, read when the job runs); nhl-sync refuses every task without the admin key and Garry its
+  scheduled ones (daily, nudge, weekly, moments, draftprep; migration 243, 11 October 2026). Garry keeps the league a
+  request works for per request (`AsyncLocalStorage`, `runs`), never in a module variable. Job names: nhl-scores
   (gated by `_scores_due()`), nhl-gameday, nhl-injuries, nhl-schedule, season-schedule, nhl-news,
   nhl-players, nhl-players-pregame, nhl-standings, nhl-corrections, nhl-corrections-deep, projections,
   auto-lineups, auto-lineups-late, garry-daily, garry-weekly, garry-nudge, garry-moments, open-book, settle-book,

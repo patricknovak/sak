@@ -42,6 +42,7 @@ interface Store {
   refresh: (what?: Table[]) => Promise<void>;
   serverOffset: number;        // ms to add to Date.now() to match the database clock
   leagueDay: string;           // today for the league: last night until its final game ends
+  gamesLive: boolean;          // a game is on, or drops the puck within half an hour: what live polls key on
 }
 
 type Table = 'league' | 'teams' | 'rosters' | 'picks' | 'draft' | 'standings' | 'season' | 'windows' | 'games' | 'notifications' | 'players' | 'gameday';
@@ -309,13 +310,15 @@ export function LeagueProvider({ children }: { children: ReactNode }) {
     const i = window.setInterval(check, 60_000);
     return () => window.clearInterval(i);
   }, [games]);
+  // the same test the minute tick uses; games arrive by realtime as they start and end, and refresh every 5 minutes
+  const gamesLive = useMemo(() => games.some((g) => !settled(g.state) && Date.parse(g.start_utc) - 30 * 60_000 <= Date.now()), [games]); // eslint-disable-line react-hooks/exhaustive-deps
   const gamesByTeam = useCallback((nhl: string | null | undefined, date = etToday()) =>
     nhl ? games.find((g) => g.date === date && (g.home === nhl || g.away === nhl)) : undefined, [games, leagueDay]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const gameStatus = useCallback((id: number, date?: string) => statuses.get(`${id}|${date ?? etToday()}`), [statuses, leagueDay]); // eslint-disable-line react-hooks/exhaustive-deps
   const value: Store = {
     ready: authReady && hostReady && (!session || loaded), host, hostElsewhere: !!host && !!league && league.league_id !== host.id && tabLeague() !== league.league_id, session, me, league, brand, sport, kind, teams, spectators, can, team, players, rosters, owner, picks, draft,
-    standings, playoffs, cup, season, windows, games, gamesByTeam, notifications, gameStatus, freshNews, online, refresh, serverOffset, leagueDay,
+    standings, playoffs, cup, season, windows, games, gamesLive, gamesByTeam, notifications, gameStatus, freshNews, online, refresh, serverOffset, leagueDay,
   };
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
 }

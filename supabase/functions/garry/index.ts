@@ -20,6 +20,7 @@
 // together with the commissioner's briefing (garry_state.briefing): what he should know about the league.
 // deno-lint-ignore-file no-explicit-any
 import { createClient } from 'jsr:@supabase/supabase-js@2';
+import { AsyncLocalStorage } from 'node:async_hooks';
 import { etDate } from '../_shared/nhl.ts';
 import { gradeTeams, lineupStrength, type GP } from '../_shared/grades.ts';
 import { answer } from './answer.ts';
@@ -66,7 +67,17 @@ const dbFor = (lid: number) => createClient(Deno.env.get('SUPABASE_URL')!, Deno.
 type Words = { game: string; rec: string; room: string; voice: string; start: string };
 const NHL_WORDS: Words = { game: 'hockey', rec: 'beer-league', room: 'dressing room', voice: 'a loud, lovable Canadian beer-league dressing-room guy', start: 'puck drop' };
 type Ctx = { lid: number; info: { id: number; name: string; short_name: string }; brand: Brand; ids: number[]; db: typeof db; history: string; words: Words };
-let L: Ctx = { lid: 1, info: { id: 1, name: "She's A Keeper", short_name: 'SaK' }, brand: SAK_BRAND, ids: [], db, history: '', words: NHL_WORDS };
+const HOME: Ctx = { lid: 1, info: { id: 1, name: "She's A Keeper", short_name: 'SaK' }, brand: SAK_BRAND, ids: [], db, history: '', words: NHL_WORDS };
+// The league a request is working for, and the feature its model calls are billed to, kept per request: the runtime
+// serves overlapping requests from one isolate, so a chat reply landing during the morning column's loop over leagues
+// would otherwise swap the league mid-run (posting to one league with another's facts, billing the wrong one).
+// Every request runs inside runs.run (Deno.serve below); L reads and writes that request's own league.
+type Run = { L: Ctx; feature: string };
+const runs = new AsyncLocalStorage<Run>();
+const L: Ctx = new Proxy({} as Ctx, {
+  get: (_t, k) => Reflect.get(runs.getStore()?.L ?? HOME, k),
+  set: (_t, k, v) => { const r = runs.getStore(); return r ? Reflect.set(r.L, k, v) : false; },
+});
 const W = () => L.words;
 const cap = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
 const coin = () => L.brand.coin;
@@ -78,7 +89,9 @@ async function enter(lid: number) {
   const { data: sp } = await db.from('sports').select('config').eq('id', lg.sport ?? 'nhl').maybeSingle();
   const words = { ...NHL_WORDS, ...((sp?.config as { words?: Partial<Words> } | null)?.words ?? {}) };
   const { data: teams } = await db.from('teams').select('id').eq('league_id', lid).eq('role', 'gm');
-  L = { lid, info: { id: lg.id, name: lg.name, short_name: lg.short_name }, brand: brandOf(lg.brand as Partial<Brand>), ids: (teams ?? []).map((t) => t.id), db: dbFor(lid),
+  const run = runs.getStore();
+  if (!run) throw new Error('enter() outside a request');
+  run.L = { lid, info: { id: lg.id, name: lg.name, short_name: lg.short_name }, brand: brandOf(lg.brand as Partial<Brand>), ids: (teams ?? []).map((t) => t.id), db: dbFor(lid),
     history: await recordBook(lid), words };
 }
 
@@ -177,13 +190,15 @@ async function state(): Promise<State | null> {
 // the league's daily budget for model calls (garry_budget, migration 99): once it's spent he uses his canned lines for
 // that league until tomorrow, as when the model is down. Asked before each call; if the check itself fails he carries
 // on, so a missing function never mutes him
-const spent = new Set<number>();
+// kept by Eastern day and league, so a warm isolate unmutes the league at midnight
+const spent = new Set<string>();
 async function budgetLeft(): Promise<boolean> {
-  if (spent.has(L.lid)) return false;
+  const mark = `${etDate(new Date())}:${L.lid}`;
+  if (spent.has(mark)) return false;
   const { data, error } = await db.rpc('garry_budget', { p_league: L.lid });
   if (error || !data) return true;
   if (Number((data as { left?: number }).left ?? 1) > 0) return true;
-  spent.add(L.lid);
+  spent.add(mark);
   console.warn('garry budget spent for league', L.lid, data);
   return false;
 }
@@ -221,7 +236,7 @@ async function grok(system: string, user: string, maxTokens = 1200, temperature 
 }
 
 // what this run is for, so every model call is billed to a feature on the running-costs dashboard (garry.reply, ...)
-let FEATURE = 'garry.daily';
+const feature = () => runs.getStore()?.feature ?? 'garry.daily';
 // today's model calls and tokens on the league's state row, so the cost of Garry's talking can be read any time, and
 // the call's price on the running-costs ledger, by league and feature
 async function meter(u: { prompt_tokens?: number; completion_tokens?: number; prompt_tokens_details?: { cached_tokens?: number }; completion_tokens_details?: { reasoning_tokens?: number }; cost_in_usd_ticks?: number } | undefined) {
@@ -229,7 +244,7 @@ async function meter(u: { prompt_tokens?: number; completion_tokens?: number; pr
   const reasoning = u?.completion_tokens_details?.reasoning_tokens ?? 0;
   // xAI prices the call itself, in ticks of a ten-billionth of a dollar; failing that, grok-4.3's list prices
   const usd = u?.cost_in_usd_ticks != null ? u.cost_in_usd_ticks / 1e10 : ((input - cached) * 1.25 + cached * 0.2 + (output + reasoning) * 2.5) / 1e6;
-  await db.rpc('meter_cost', { p_league: L.lid, p_source: 'xai', p_feature: FEATURE, p_calls: 1, p_input: input, p_cached: cached,
+  await db.rpc('meter_cost', { p_league: L.lid, p_source: 'xai', p_feature: feature(), p_calls: 1, p_input: input, p_cached: cached,
     p_output: output + reasoning, p_usd: usd }).then(() => {}, (e) => console.error('meter_cost', e));
   const st = await state();
   if (!st) return;
@@ -1419,11 +1434,24 @@ async function runTask(task: string, req: Request) {
   return daily();
 }
 
-Deno.serve(async (req) => {
+// the scheduled runs (the morning column, the nudge, the weekly, the moments, draft prep): the cron jobs send the
+// platform's admin key; the public key, which ships in the site, can't start them (each is model calls and chat posts)
+const SCHEDULED = new Set(['daily', 'nudge', 'weekly', 'moments', 'draftprep']);
+async function adminKeyOk(req: Request) {
+  const key = req.headers.get('x-admin-key');
+  if (!key) return false;
+  const { data } = await db.rpc('admin_key_ok', { p_key: key });
+  return data === true;
+}
+
+Deno.serve((req) => runs.run({ L: { ...HOME }, feature: 'garry.daily' }, () => handle(req)));
+
+async function handle(req: Request) {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: cors });
   const url = new URL(req.url);
   const task = url.searchParams.get('task') ?? 'daily';
-  FEATURE = `garry.${task}`;
+  runs.getStore()!.feature = `garry.${task}`;
+  if (SCHEDULED.has(task) && !(await adminKeyOk(req))) return json({ task, ok: false, error: 'Scheduled runs only' }, 403);
   try {
     if (task === 'reply') {
       const { message_id } = await req.json();
@@ -1479,4 +1507,4 @@ Deno.serve(async (req) => {
     console.error(task, e);
     return json({ task, ok: false, error: String((e as Error)?.message ?? e) }, 500);
   }
-});
+}

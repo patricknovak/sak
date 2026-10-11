@@ -1,7 +1,8 @@
 // The pool scoreboard (migration 169): every game a pool runs, read into one shape. Each game's own engine keeps its
 // rules; `pool_scoreboard()` ranks every game, leads with the pool's main game and carries each member's movement since
 // the day began, so the Table page, the home's rank and anything built later read one thing whatever the kind.
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useState } from 'react';
+import { usePoll } from './poll';
 import { rpc } from './supabase';
 
 export type BoardKind = 'questions' | 'series' | 'rank' | 'squares' | 'pickem' | 'survivor' | 'score' | 'bracket' | 'players' | 'props' | 'props_all' | 'streak' | 'sweep';
@@ -44,12 +45,8 @@ export function usePoolScoreboard() {
       rows: g.rows.map((r) => ({ ...r, score: Number(r.score), possible: num(r.possible) })),
     })),
   } : null), () => setBoard(null)), []);
-  useEffect(() => {
-    load();
-    // the tables move with results: look again every minute while the page is open
-    const i = window.setInterval(load, 60_000);
-    return () => window.clearInterval(i);
-  }, [load]);
+  // the tables move with results: look again every minute while the page is on screen
+  usePoll(load, 60_000, true, [load]);
   return { board, reload: load };
 }
 

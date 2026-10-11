@@ -1,6 +1,7 @@
 import { Fragment, useEffect, useMemo, useState } from 'react';
 import { useSticky } from '../lib/sticky';
 import { Link, useNavigate, useParams } from 'react-router-dom';
+import { usePoll } from '../lib/poll';
 import { useLeague, useNow, useSport } from '../lib/store';
 import { calledOff, hasStarted, isFinal, isLive } from '../lib/sport';
 import { rpc, supabase } from '../lib/supabase';
@@ -26,7 +27,7 @@ const slotOk = (p: Player, s: Slot) =>
 
 export default function MyTeam() {
   const { id } = useParams();
-  const { me, league, teams, team, rosters, players, standings, season, windows, games, gamesByTeam, gameStatus, refresh } = useLeague();
+  const { me, league, teams, team, rosters, players, standings, season, windows, games, gamesByTeam, gameStatus, refresh, gamesLive } = useLeague();
   const sport = useSport();
   const now = useNow(15_000);
   const nav = useNavigate();
@@ -75,14 +76,8 @@ export default function MyTeam() {
   };
 
   const rosterKey = roster.map((x) => x.p.id).join(',');
-  useEffect(() => {
-    if (!roster.length) return;
-    const load = () => supabase.from('league_games').select('player_id,fpts,stats').eq('date', etToday()).in('player_id', roster.map((x) => x.p.id))
-      .then(({ data }) => setToday(new Map((data ?? []).map((d) => [d.player_id, { fpts: Number(d.fpts), stats: d.stats }]))));
-    load();
-    const i = setInterval(load, 60_000);
-    return () => clearInterval(i);
-  }, [rosterKey, teamId]);
+  usePoll(() => { if (roster.length) supabase.from('league_games').select('player_id,fpts,stats').eq('date', etToday()).in('player_id', roster.map((x) => x.p.id))
+    .then(({ data }) => setToday(new Map((data ?? []).map((d) => [d.player_id, { fpts: Number(d.fpts), stats: d.stats }])))); }, 60_000, roster.length > 0 && gamesLive, [rosterKey, teamId]);
 
   useEffect(() => {
     if (!teamId) return;
