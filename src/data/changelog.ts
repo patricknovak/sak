@@ -6,6 +6,14 @@
 export interface Change { date: string; icon: string; title: string; body: string; to?: string; tag?: 'formats' | 'commish' | 'draft' | 'everyone' }
 
 export const CHANGELOG: Change[] = [
+  { date: '2026-10-11', icon: '⏱️', tag: 'everyone', title: 'One score, every page', to: '/nhl?t=scores',
+    body: 'Scores and clocks now move within seconds of the NHL, and every page shows the same one at the same moment: the scoreboard, NHL centre, My Team and the home page all read from one place. Tonight\'s points land on every page together the moment a box score has them, with nothing to refresh.' },
+  { date: '2026-10-11', icon: '📺', tag: 'everyone', title: 'Every game, one tap from anywhere', to: '/nhl?t=scores',
+    body: 'Tap any NHL game, on the scoreboard, NHL centre or the home page, and the same sheet opens: the score, where you can watch it on what you have and team radio, your league\'s players in it with their points, the goals with their clips, the thread, the box score with everyone\'s fantasy points, and its lines and bets. Radio keeps playing while you look around. Watch live is now NHL centre\'s Scores tab: whether you can watch each game, the one to watch, your players and points in it, and where the league has skin in it.' },
+  { date: '2026-10-11', icon: '🧭', tag: 'everyone', title: 'Easier to find your way', to: '/',
+    body: 'More (and the sidebar on a computer) now groups its pages: Tonight, Your team, The league and You. The live scoreboard lights up while a game is on, NHL centre leads with the league\'s own night, and you can sign out from the sidebar.' },
+  { date: '2026-10-11', icon: '📈', tag: 'everyone', title: 'Who moved tonight', to: '/standings',
+    body: 'The standings show each team\'s move tonight with an arrow, the live room tells every climb up the table as it happens, and Share the table turns the standings into a picture for the group chat.' },
   { date: '2026-10-11', icon: '🏒', tag: 'everyone', title: 'Lineup New is now part of My Team', to: '/team',
     body: 'One lineup section again. My Team keeps its Tonight card and the lineup you know, and gains what Lineup New tried: an undo after every move, What if (try moves, see what they are worth tonight, then save or throw them away), Best lineup as a list of changes for today or the next 3, 7 or 14 days, warnings that fix in a tap, and each player\'s line from the shift charts. New tabs beside the lineup: Week (who plays when, tap a cell to start or bench), League (every team\'s night on one board), Compare (your lineup against any team\'s) and Insights. Any team\'s page has them too, read only. Old Lineup New links land here.' },
   { date: '2026-10-11', icon: '📡', tag: 'everyone', title: 'Game day in your pool', to: '/',

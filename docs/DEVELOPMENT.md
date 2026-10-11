@@ -15,7 +15,7 @@ Paid subscribed: section 1 and section 8 are that review.
   scheduler) and an LLM voice (Garry, on Grok, metered per feature and league), served from Cloudflare. The season is
   under way: My Team's Tonight card, Sit or start and the compare tools, Lineup New (folded into My Team on 11 October:
   Week, League, Compare and Insights tabs, What if and an undo), the live scoreboard, the weekly
-  review, Watch live and NHL centre's radio, lines and game Book. The lineup optimizer was rebuilt on 10 October (a
+  review, NHL centre (Watch live joined its Scores tab on 11 October) with radio, lines and the game Book, one game sheet on every page and one live clock (8.5). The lineup optimizer was rebuilt on 10 October (a
   player with a game always outranks an idle one) and players on no NHL roster drop out of the free agents.
 - **The tenancy is done and proven.** Phase 1's gate is met: the shadow league (league 2) matched SaK to the hundredth,
   team by team, on every full day from 3 to 10 October (`shadow_report(2)`, eight days, no team off by a hundredth).
@@ -462,3 +462,23 @@ Worker reads Postgres directly.
 4. **Billing and tiers** (SUPERPOOLS item 6), with the Supercoin wallet after it.
 5. **Imports** (ESPN, Fantrax, CBS) and **the app-store listing**, the two doors MARKET.md names for fantasy leagues.
 
+
+### 8.5 One live clock, one game sheet, one lineup (11 October 2026, Patrick: "updates should be coordinated ... in the lowest cost way possible")
+
+Before: the scoreboard read the games table (written once a minute), NHL centre read the NHL's feed through nhl-hub
+every 30 seconds, and six pages polled tonight's points on their own minute timers, so the scoreboard and NHL centre
+showed different scores on the same night and each phone read the night several times a minute.
+
+Now there is one source per number, and every page reads it:
+
+| Number | One source | How it moves | Cost |
+|---|---|---|---|
+| Score, period, clock, state | the `games` table | nhl-sync's clock task every 20 s while a game is on (`nhl-clock`, gated by `_clock_due()`, migrations 246 and 247), each changed row pushed by realtime and applied in place by the store | about 810 light function calls a game night (two NHL score feeds each); nothing on an off night; no client reads |
+| Tonight's fantasy points | `league_games`, read into the store's `dayPoints` | read once each time a box score moves (realtime on `stats_gen`, migration 248), five-minute backstop | one read per change per phone, instead of six polls a minute per phone |
+| Goals, clips, shots, broadcasters, box score | nhl-hub through the edge cache | NHL centre every minute while a game is on, the game sheet every 30 s, both edge-cached | one function call per refresh window per location |
+
+NHL centre lays the store's score and clock over the feed (`src/lib/nhlGame.ts`), so its cards, its front tab, the
+home card and the game sheet agree with the scoreboard to the second. Every NHL game opens in one sheet from any page
+(`GameSheet`), which took in the scoreboard's box score and NHL centre's game page, and Watch live became NHL centre's
+Scores tab. Lineup New was folded into My Team (Lineup, Week, Daily lineups, League, Compare, Insights, Stats). More and
+the sidebar are grouped. The pools' table moves, share card and climbs came to the league's standings and live room.
