@@ -28,6 +28,9 @@ const appHost = (h: string) => !h || h === 'localhost' || /^[\d.]+$/.test(h) || 
 const APP = 'https://app.superpoolsai.com/';
 export const appBase = () => (PRODUCT_DOMAIN.test(location.hostname) ? APP : `${location.origin}${location.pathname}`);
 export const appLink = (path: string) => `${appBase()}#${path.startsWith('/') ? path : `/${path}`}`;
+// an invite to share: on the product's addresses the short link the app's Worker answers (app.superpoolsai.com/j/<code>),
+// which unfurls in a group chat with the pool's own name, host and picture (worker/preview.ts); elsewhere the app's own
+export const inviteLink = (code: string) => (PRODUCT_DOMAIN.test(location.hostname) ? `${APP}j/${code}` : appLink(`/join/${code}`));
 // a pool's link: the app with the pool's web name in the path, and a page inside it if given
 export const poolLink = (slug: string, path = '') => appLink(`/p/${slug}${path && path !== '/' ? path : ''}`);
 // kept for the Platform page's "this league's address"

@@ -12,7 +12,7 @@ import { answerColor, isOpen, pct, prices, usePool, useCoins, type PoolLeader, t
 import { CallsFeed, closesIn, Coins, MarketCard, PriceChart, TradeSheet } from '../components/Pool';
 import { Empty, PageHeader, Section, TeamBadge, useAction } from '../components/ui';
 import { useEffect } from 'react';
-import { appLink } from '../lib/host';
+import { inviteLink } from '../lib/host';
 import { shareCard } from '../lib/shareCard';
 import { track } from '../lib/analytics';
 import { SurvivorCard } from './Survivor';
@@ -167,7 +167,7 @@ function InviteCard() {
   const make = () => run(async () => {
     // the pool's one open link, the same for the host and every member (migration 162)
     const code = await rpc<string>('pool_share_link');
-    const url = appLink(`/join/${code}`);
+    const url = inviteLink(code);
     setLink(url);
     const text = `Join my ${brand.tagline || league?.name} on Super Pools. No money, just bragging rights.`;
     if (navigator.share) await navigator.share({ title: league?.name, text, url }).catch(() => {});

@@ -5,11 +5,25 @@
 {
   "name": "superpools-app",
   "compatibility_date": "2026-10-01",
+  // the edge code (worker/index.ts, 11 October 2026, Workers Paid): the sports data cache (/api/hub) and the link
+  // previews (/j/<code>, /p/<web name>, /og/…); every other path is the built site, served as before
+  "main": "./worker/index.ts",
   "assets": {
     "directory": "./dist",
+    "binding": "ASSETS",
     // the app routes in the hash (#/team), so every path is the one page
-    "not_found_handling": "single-page-application"
+    "not_found_handling": "single-page-application",
+    // the paths the Worker answers itself; the rest go straight to the files
+    "run_worker_first": ["/api/*", "/j/*", "/p/*", "/og/*"]
   },
+  // the fonts the preview pictures are drawn in, as raw bytes
+  "rules": [{ "type": "Data", "globs": ["**/*.ttf"], "fallthrough": true }],
+  // Postgres's public address and its public key (the same key the site ships): the Worker reads only what that key may
+  "vars": {
+    "SUPABASE_URL": "https://quakdkzdafzlhgjvmypg.supabase.co",
+    "SUPABASE_ANON": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InF1YWtka3pkYWZ6bGhnanZteXBnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTAyMjEzOTQsImV4cCI6MjEwNTc5NzM5NH0.aAkN2kU_Sg4i1PGXpinOEKaNK2BNbcbLx1c4rc4ZroA"
+  },
+  "observability": { "enabled": true },
   // steps 1 and 2 of the move in one: SaK at sak.superpoolsai.com beside GitHub Pages. A custom domain, so the deploy
   // makes the DNS record and the certificate itself; the new address is the preview, so no workers.dev one.
   "workers_dev": false,

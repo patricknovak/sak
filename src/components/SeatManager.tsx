@@ -2,12 +2,12 @@ import { useState } from 'react';
 import { useLeague } from '../lib/store';
 import { rpc } from '../lib/supabase';
 import { TeamBadge, useAction } from './ui';
-import { appLink } from '../lib/host';
+import { inviteLink } from '../lib/host';
 
 // Every GM seat in the league, for its commissioners: who runs the league with you (co-commissioners have every power
 // you have), and handing over a team whose GM has gone. A handover keeps the team as it is (roster, picks, coins,
 // history) and gives back an invite link for the seat's next GM.
-const link = (code: string) => appLink(`/join/${code}`);
+const link = (code: string) => inviteLink(code);
 
 export function SeatManager() {
   const { teams, me, refresh } = useLeague();

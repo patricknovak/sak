@@ -39,8 +39,8 @@ and it treats the chat, the bets and the league's history as the point, not a si
 - **The users are the GMs.** Eight to fourteen people who check the app on their phone every night of the
   season. Phone-first is a brand rule, not a technical note.
 - **Hockey first, Canada first, then the world.** "Pool" is the Canadian word for a fantasy league, which is
-  why the product is called what it is. The NHL is the only sport at launch; soccer and cricket are the
-  sports that take it abroad, and the name travels because a pool is a pool everywhere.
+  why the product is called what it is. The NHL was the only sport at launch (pools now run on the NFL, MLB,
+  soccer, the NBA and March Madness too, October 2026); soccer and cricket are the sports that take it abroad, and the name travels because a pool is a pool everywhere.
 - **Sports fans first, mostly men, everyone welcome** (Patrick, 4 October 2026). The people who run and play pools are
   mostly men, and the home page speaks to them first: the commissioner and his league, sports first, the fantasy door,
   then questions with odds on the games they already argue about. It never shuts anyone out: a clear door on the home
@@ -76,7 +76,7 @@ The long version, with sources, is `docs/MARKET.md`.
 
 | | Yahoo / ESPN | Fantrax | Sleeper | Super Pools |
 |---|---|---|---|---|
-| Hockey | an afterthought to football | deep, dated | none | the only sport |
+| Hockey | an afterthought to football | deep, dated | none | the home sport (pools run on every sport) |
 | Keeper leagues | basic | strong | basic | built around them |
 | Scoring | nightly | nightly | nightly | live from the box scores, per-player locks, corrections |
 | Side bets, book | no | no | no | yes, settled from the box scores |

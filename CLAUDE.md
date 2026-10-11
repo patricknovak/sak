@@ -98,7 +98,11 @@ Two things in one repo:
   `pool_start`, `invite_share`, `join`, `first_call`, `sign_up` (no PII). First-touch UTM/referrer on `waitlist` and
   `private.pool_signups`. `accounts.is_test` (platform-admin `set_account_is_test`). `mission_control_counts` for the
   portfolio Mission Control (passcode hash in `mission_control.counts_passcode`, never committed). Landing `sitemap.xml`.
-- Hosting: the app on GitHub Pages from `main` (`.github/workflows/deploy.yml`, builds on push) and on Cloudflare; the
+- Hosting: the app on Cloudflare (every address; the GitHub Pages copy from `.github/workflows/deploy.yml` stays until
+  EXPANSION B5 step 3) as a Worker with its own edge code (`worker/`, Workers Paid since 11 October 2026): `/api/hub`
+  caches the sports data at the edge (the site's `hub()` reads it on the product's addresses), `/j/<code>` and
+  `/p/<web name>` are link previews with a picture drawn per pool (`/og/...`), and invites are shared as `/j/` links
+  (`inviteLink` in `src/lib/host.ts`); the rest is the built site. The plan for the edge is `docs/DEVELOPMENT.md` §8.3; the
   Super Pools landing page (`landing/index.html`) on Cloudflare (zone routes on the apex and www; off Vercel); every
   other `<league>.superpoolsai.com` goes to the app through a wildcard zone route and a proxied `AAAA * 100::` record (live
   since 4 October 2026: `podsquad.superpoolsai.com`). One account, every pool (migration 151): the product's one address is
