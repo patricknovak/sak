@@ -6,6 +6,8 @@
 export interface Change { date: string; icon: string; title: string; body: string; to?: string; tag?: 'formats' | 'commish' | 'draft' | 'everyone' }
 
 export const CHANGELOG: Change[] = [
+  { date: '2026-10-11', icon: '⏱️', tag: 'draft', title: 'A draft clock that keeps time', to: '/draft',
+    body: 'On draft night the clock is now kept live for the whole league: when a pick runs out of time it is made on the second (it used to take up to ten), a team on autodraft picks the moment its turn comes, and every pick reaches every phone at once. Look for Live clock under the countdown.' },
   { date: '2026-10-11', icon: '🚨', tag: 'everyone', title: 'The live room on game nights', to: '/scoreboard',
     body: 'On a game night the live scoreboard is now a room the whole league shares: the points move the moment the box score has them, a feed shows every swing (a goal, an assist, a win, a minus) as it lands, you can see who else is watching and react to any swing. When one of your starters scores, a banner tells you wherever you are in the app.' },
   { date: '2026-10-11', icon: '🔗', tag: 'everyone', title: 'Invites that look like your pool', to: '/pools',

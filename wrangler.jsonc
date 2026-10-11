@@ -24,9 +24,10 @@
     "SUPABASE_ANON": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InF1YWtka3pkYWZ6bGhnanZteXBnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTAyMjEzOTQsImV4cCI6MjEwNTc5NzM5NH0.aAkN2kU_Sg4i1PGXpinOEKaNK2BNbcbLx1c4rc4ZroA"
   },
   "observability": { "enabled": true },
-  // the live rooms (worker/live.ts): one per league per game night, SQLite-backed Durable Objects
-  "durable_objects": { "bindings": [{ "name": "LIVE", "class_name": "LiveRoom" }] },
-  "migrations": [{ "tag": "live-room-1", "new_sqlite_classes": ["LiveRoom"] }],
+  // the live rooms, SQLite-backed Durable Objects: one per league per game night (worker/live.ts) and one per league for
+  // its draft (worker/draft.ts)
+  "durable_objects": { "bindings": [{ "name": "LIVE", "class_name": "LiveRoom" }, { "name": "DRAFT", "class_name": "DraftRoom" }] },
+  "migrations": [{ "tag": "live-room-1", "new_sqlite_classes": ["LiveRoom"] }, { "tag": "draft-room-1", "new_sqlite_classes": ["DraftRoom"] }],
   // steps 1 and 2 of the move in one: SaK at sak.superpoolsai.com beside GitHub Pages. A custom domain, so the deploy
   // makes the DNS record and the certificate itself; the new address is the preview, so no workers.dev one.
   "workers_dev": false,

@@ -1,5 +1,7 @@
 // A stand-in for PostgREST for the live room's test (npm run test:live): u1 (team 1) and u2 (team 2) are members of any
 // league but 3, u9 of league 3 only; 'forged' is a token the database refuses, 'down' a database that doesn't answer.
+// A draft lives in the same state file (draft.test.mjs sets it); rpc/draft_tick makes the pick on the clock once its
+// deadline has passed, as the database does.
 import http from 'node:http';
 import fs from 'node:fs';
 const day = process.argv[2];
@@ -14,14 +16,14 @@ const init = {
 };
 fs.writeFileSync(S, JSON.stringify(init));
 const sub = (auth) => { try { return JSON.parse(Buffer.from(auth.split('.')[1], 'base64url')).sub; } catch { return null; } };
-let reads = 0;
+let reads = 0, ticks = 0, autopicks = 0;
 http.createServer((req, res) => {
   const u = new URL(req.url, 'http://x');
   const who = sub((req.headers.authorization ?? '').replace('Bearer ', ''));
   const lg = req.headers['x-league'];
   const st = JSON.parse(fs.readFileSync(S, 'utf8'));
   const j = (b, c = 200) => { res.writeHead(c, { 'content-type': 'application/json' }); res.end(JSON.stringify(b)); };
-  if (u.pathname === '/count') return j({ reads });
+  if (u.pathname === '/count') return j({ reads, ticks, autopicks });
   if (!who || who === 'forged') return j({ message: 'JWT invalid' }, 401);
   if (who === 'down') return j({ message: 'unavailable' }, 503);
   const t = u.pathname.replace('/rest/v1/', '');
@@ -31,6 +33,22 @@ http.createServer((req, res) => {
     // x-league is honoured only for a member: anyone else reads their own league
     return j(mem && String(mem[1]) === lg ? [{ id: mem[0], league_id: mem[1] }] : []);
   }
+  if (t === 'rpc/draft_tick' && req.method === 'POST') {
+    ticks++;
+    const d = st.draft;
+    if (d && d.state.status === 'live' && Date.parse(d.state.deadline) <= Date.now()) {
+      autopicks++;
+      const pk = d.picks.find((p) => p.overall === d.state.current_overall);
+      Object.assign(pk, { player_id: 100 + pk.overall, picked_at: new Date().toISOString(), auto: true });
+      const more = d.picks.some((p) => p.player_id == null);
+      Object.assign(d.state, more ? { current_overall: d.state.current_overall + 1, deadline: new Date(Date.now() + d.clock).toISOString() } : { status: 'done', current_overall: null, deadline: null });
+      d.state.updated_at = new Date().toISOString();
+      fs.writeFileSync(S, JSON.stringify(st));
+    }
+    return j(null);
+  }
+  if (t === 'draft_state') return j(st.draft ? [st.draft.state] : []);
+  if (t === 'draft_picks') return j((st.draft?.picks ?? []).filter((p) => p.player_id != null).sort((a, b) => b.overall - a.overall).slice(0, 12));
   if (t === 'games') return j(st.games);
   if (t === 'lineup_snapshots') return j(st.snaps);
   if (t === 'league_games') { const ids = u.searchParams.get('player_id').slice(4, -1).split(',').map(Number); return j(st.pgs.filter((p) => ids.includes(p.player_id))); }

@@ -107,7 +107,10 @@ Two things in one repo:
   (`inviteLink` in `src/lib/host.ts`); `/api/live/<league>/<day>` is the league's live room for a game night, a Durable
   Object (`worker/live.ts`) the app joins while a game is on (`LiveRoomProvider`, `useLiveRoom()` in `src/lib/liveRoom.tsx`):
   it reads the night with a member's own sign-in and pushes the scoreboard's data, the night's swings, who's watching and
-  reactions, so new game-night UI reads `useLiveRoom()` rather than polling; the rest is the built site. The plan for the edge is `docs/DEVELOPMENT.md` §8.3; the
+  reactions, so new game-night UI reads `useLiveRoom()` rather than polling; `/api/live/<league>/draft` is the league's
+  draft room (`worker/draft.ts`, `useDraftRoom` in `src/lib/draftRoom.ts`, joined by the store while the draft is on): its
+  alarm is the pick clock (it calls `draft_tick` the moment a deadline passes), it pushes every pick, and the store's
+  4-second draft poll stands down while it is live; both rooms share `worker/room.ts`; the rest is the built site. The plan for the edge is `docs/DEVELOPMENT.md` §8.3; the
   Super Pools landing page (`landing/index.html`) on Cloudflare (zone routes on the apex and www; off Vercel); every
   other `<league>.superpoolsai.com` goes to the app through a wildcard zone route and a proxied `AAAA * 100::` record (live
   since 4 October 2026: `podsquad.superpoolsai.com`). One account, every pool (migration 151): the product's one address is
