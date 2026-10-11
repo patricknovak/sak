@@ -6,6 +6,8 @@
 export interface Change { date: string; icon: string; title: string; body: string; to?: string; tag?: 'formats' | 'commish' | 'draft' | 'everyone' }
 
 export const CHANGELOG: Change[] = [
+  { date: '2026-10-11', icon: '💬', tag: 'everyone', title: 'A thread for every game', to: '/scoreboard',
+    body: 'Every NHL game on the live scoreboard now has its own chat. Tap a game: the thread opens first while it is on, with whose players are in it and what they have tonight, the swings from that game, and the league talking it over. Ask the league\'s voice in there and it answers in the thread. The game chips show how busy each thread is.' },
   { date: '2026-10-11', icon: '⏱️', tag: 'draft', title: 'A draft clock that keeps time', to: '/draft',
     body: 'On draft night the clock is now kept live for the whole league: when a pick runs out of time it is made on the second (it used to take up to ten), a team on autodraft picks the moment its turn comes, and every pick reaches every phone at once. Look for Live clock under the countdown.' },
   { date: '2026-10-11', icon: '🚨', tag: 'everyone', title: 'The live room on game nights', to: '/scoreboard',

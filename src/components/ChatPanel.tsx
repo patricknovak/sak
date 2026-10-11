@@ -20,7 +20,8 @@ const linkLabel = (path: string) => LINK_LABEL.find(([p]) => path.startsWith(p))
 
 const CHIRPS = ['🚨 REACH!', 'Steal of the draft 🥷', 'Enjoy {booby} 🪣', 'Sell me that guy 💰', 'Who? 🤔', 'Lock it in 🔒', 'GG 🍺', 'Scoreboard. 📈'];
 
-// channel 'all' is the merged feed: every channel this GM can see except the draft room, newest last; posting from it goes to Trash Talk
+// channel 'all' is the merged feed: every channel this GM can see except the draft room and the game threads, newest
+// last; posting from it goes to Trash Talk. A game's thread is channel 'game:<game id>' (GameThread, in the box score).
 export function ChatPanel({ channel, compact, className = '' }: { channel: string; compact?: boolean; className?: string }) {
   const { me, team, teams, can, league, kind } = useLeague();
   const brand = useBrand();
@@ -48,7 +49,8 @@ export function ChatPanel({ channel, compact, className = '' }: { channel: strin
 
   const load = useCallback(async (before?: number) => {
     let q = supabase.from('messages').select('*').order('id', { ascending: false }).limit(80);
-    q = all ? q.neq('channel', 'draft') : q.eq('channel', channel);
+    // the merged feed leaves out the draft room and the game threads (each game's chat lives beside its score)
+    q = all ? q.neq('channel', 'draft').not('channel', 'like', 'game:%') : q.eq('channel', channel);
     if (before) q = q.lt('id', before);
     const { data } = await q;
     const rows = ((data ?? []) as Message[]).reverse();
@@ -66,7 +68,7 @@ export function ChatPanel({ channel, compact, className = '' }: { channel: strin
     const ch = realtimeChannel(`chat-${channel}`)
       .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'messages', ...(all ? {} : { filter: `channel=eq.${channel}` }) }, (p) => {
         const n = p.new as Message;
-        if (theirs(n) || (all && n.channel === 'draft')) return;
+        if (theirs(n) || (all && (n.channel === 'draft' || n.channel.startsWith('game:')))) return;
         setMsgs((m) => (m.some((x) => x.id === n.id) ? m : [...m, n]));
       })
       .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'messages', ...(all ? {} : { filter: `channel=eq.${channel}` }) }, (p) => {
