@@ -359,7 +359,10 @@ The steps above finish the tenancy. `docs/MARKET.md` sets what comes after in th
     the table shows each team's max points for (`lineup_efficiency`, migration 133). The trade evaluator weighs a category
     league's trades on its categories, put on a points scale so the grades read the same (`pointsScale`). Next: the
     each-category variant (every category a win or a loss on the table) if a league asks for it.
-9. **Import with history** from Fantrax, ESPN and CBS (Yahoo exists).
+9. **Import with history** from Fantrax, ESPN and CBS (Yahoo exists). *ESPN's history done (11 October 2026,
+   `src/components/EspnHistory.tsx`):* the commissioner pastes the ESPN league's link on the League page and every season
+   ESPN kept comes back with its final table, written through `commish_set_season` like Yahoo's; ESPN's API answers the
+   browser for a league made viewable to the public, so no server of ours is involved. Rosters and settings next.
 10. **Contracts, caps, prospect slots and rookie drafts**; guillotine and best ball formats.
 11. **The Supercoin.** An account-level wallet, the SaK coin ledger migrated onto it, per-pool allowances, the
     Book and side bets as the add-on, the ledger visible in every pool. Never for sale, never cashed out.

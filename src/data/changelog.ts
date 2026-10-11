@@ -6,6 +6,8 @@
 export interface Change { date: string; icon: string; title: string; body: string; to?: string; tag?: 'formats' | 'commish' | 'draft' | 'everyone' }
 
 export const CHANGELOG: Change[] = [
+  { date: '2026-10-11', icon: '📜', tag: 'commish', title: 'Bring your past from ESPN', to: '/league',
+    body: 'A league that played on ESPN brings its history in one go: on the League page, paste the ESPN league\'s link and every season it kept comes back with its final table, champions to last place, ready to tick and bring in. The league must be viewable to the public on ESPN.' },
   { date: '2026-10-11', icon: '🗡️', tag: 'everyone', title: 'A Traitors pool', to: '/pools',
     body: 'Start a pool on The Traitors: New Blood from Start a pool: call every round table from episode 6, who reaches the end and whether a Traitor takes the money, with coins on every episode night through the finale on 19 November.' },
   { date: '2026-10-11', icon: '🚨', tag: 'everyone', title: 'The live room on your home page', to: '/',
