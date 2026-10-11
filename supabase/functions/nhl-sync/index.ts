@@ -86,6 +86,13 @@ async function syncGames(ids: number[], parallel = 1) {
   return lines;
 }
 
+// a failure here never fails the run: the views work the numbers out live until the cron job's next try
+async function keepStats() {
+  const { data, error } = await db.rpc('refresh_stats_cache');
+  if (error) console.warn('refresh_stats_cache', error.message);
+  return Number(data ?? 0);
+}
+
 async function scores() {
   const now = new Date();
   const days = [etDate(new Date(now.getTime() - 86400000)), etDate(now)];
@@ -107,7 +114,9 @@ async function scores() {
   const lines = await syncGames(todo);
   // a player in today's box score plays for that team, even if the roster feed hasn't caught up with a trade
   const moved = lines ? check(await db.rpc('sync_teams_from_box')) : 0;
-  return { games: games.length, snapshots: snaps, synced: todo.length, lines, moved };
+  // the players' season and windows, kept ready for every page (migration 244): rebuilt now the numbers have moved
+  const kept = lines ? await keepStats() : 0;
+  return { games: games.length, snapshots: snaps, synced: todo.length, lines, moved, kept };
 }
 
 // the NHL revises stats (assists, hits, blocks, goalie decisions) after review; re-pull recent finals
@@ -117,6 +126,7 @@ async function corrections(days: number) {
   const ids = (data ?? []).map((g) => g.id);
   const lines = await syncGames(ids, 4);
   const told = check(await db.rpc('notify_corrections'));
+  await keepStats();
   return { rechecked: ids.length, days, lines, teams_told: told };
 }
 

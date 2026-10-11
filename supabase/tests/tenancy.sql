@@ -26,7 +26,10 @@ where n.nspname = 'public' and c.relkind in ('r', 'p')
     -- a playoff's series and a game's score by inning (migration 165), shared the same way
     'series', 'fixture_periods',
     -- one-off backup kept from the 2025-26 roster import (row-level security on, no policies)
-    'rosters_2526_backup');
+    'rosters_2526_backup',
+    -- each scoring profile's kept season and windows, and the counter that dates them (migration 244), shared like
+    -- player_game_points, which they're made from
+    'stats_gen', 'player_windows_cache', 'player_season_cache', 'stats_cache_state');
 
 -- 2. A league's table has row-level security on, and every policy on it is bound to the caller's league.
 select pg_temp.none('a league table without row-level security', string_agg(c.relname, ', '))

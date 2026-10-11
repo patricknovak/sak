@@ -79,13 +79,15 @@ Two things in one repo:
   (gated by `_scores_due()`), nhl-gameday, nhl-injuries, nhl-schedule, season-schedule, nhl-news,
   nhl-players, nhl-players-pregame, nhl-standings, nhl-corrections, nhl-corrections-deep, projections,
   auto-lineups, auto-lineups-late, garry-daily, garry-weekly, garry-nudge, garry-moments, open-book, settle-book,
-  settle-bets, expire-bets, h2h-notes, pool-drops, pool-settle, soccer-fixtures, soccer-live (gated by `_soccer_due()`), mlb-live (gated by `_mlb_due()`), mlb-schedule, process-pending (every 10 s), health-check, fund-price, cron-history, cost-snapshot,
+  settle-bets, expire-bets, h2h-notes, pool-drops, pool-settle, soccer-fixtures, soccer-live (gated by `_soccer_due()`), mlb-live (gated by `_mlb_due()`), mlb-schedule, process-pending (every 10 s), stats-cache, health-check, fund-price, cron-history, cost-snapshot,
   cost-watch. A job that does a league's work runs once per active league: in SQL through
   `run_league_jobs(job)` (sets `app.league_id`, one league's failure doesn't stop the others), in an edge function
   through a client with the service key and an `x-league` header (`dbFor(league)` in nhl-sync and Garry).
 - Points: the NHL data is shared, the scoring isn't. `player_games.fpts` and `players.proj / last_fp / rank` are
   SaK's numbers kept for old readers; read a league's points through `league_games`, `league_players`,
-  `player_season`, `player_windows` (each league's scoring profile, `scoring_profiles`). `player_games` also carries the box pool's goal alert
+  `player_season`, `player_windows` (each league's scoring profile, `scoring_profiles`; since migration 244 they read a
+  per-profile cache rebuilt by nhl-sync's scores run and the `stats-cache` job, and compute live whenever `stats_gen`
+  says a stat moved since, so a new reader never sees stale numbers). `player_games` also carries the box pool's goal alert
   (`player_games_box_goal`, migration 192): it returns at once when no box pool is open and turns its own errors into
   warnings, so it never holds up a stats write.
 - Formats: how a league is won is in `league_rules` (and the `league` view): `format` ('season', SaK's total, or 'h2h'

@@ -9,7 +9,7 @@ Paid subscribed: section 1 and section 8 are that review.
 
 ## 1. Where we are
 
-*As of 11 October 2026, migration 243.*
+*As of 11 October 2026, migration 245.*
 
 - **SaK**, the live league: eight GMs, used every night, on React 19 + Supabase (Postgres rules, edge functions, a
   scheduler) and an LLM voice (Garry, on Grok, metered per feature and league), served from Cloudflare. The season is
@@ -444,7 +444,7 @@ Worker reads Postgres directly.
 | E2 | Link previews: `/j/<code>` and `/p/<web name>` pages with the pool's own tags, and a 1200×630 picture drawn per pool (satori and resvg in the Worker, cached a day at the edge; worker/preview.ts) | every pool's invite unfurling as "SAK Superleague" with a broken picture | **Built 11 October** |
 | E3 | Hardening found by the review: every scheduled task needs the admin key (migration 243); Garry's league kept per request; the scores task writes only games that moved; polls stop when the page is hidden or nothing is live | open endpoints, a cross-league race, needless realtime churn | **Built 11 October** (PR #252) |
 | E4 | A Durable Object per league or pool: the live room (presence, the night's swings, a thread per game), the draft clock on its alarm, fan-out over WebSockets; Postgres pushes to it after each write | Supabase Realtime's per-subscriber checks, the 4-second draft poll, the 10-second `process-pending` job | Next |
-| E5 | One live snapshot per league at the edge (standings, tonight's points, the windows), refreshed by the scores run; first `player_windows` and `player_season` made materialized in Postgres | 6 to 10 reads a minute per open page on game night, aggregate views recomputed per page | Next (the SQL half first) |
+| E5 | One live snapshot per league at the edge (standings, tonight's points, the windows), refreshed by the scores run; first `player_windows` and `player_season` made materialized in Postgres | 6 to 10 reads a minute per open page on game night, aggregate views recomputed per page | **SQL half built 11 October** (migrations 244 and 245: `player_windows` and `player_season` read a per-profile cache, 135 ms to 8 ms, rebuilt by the scores run and a minute cron, live views whenever a stat has moved since; same numbers to the hundredth); the edge snapshot next |
 | E6 | Push through a Queue with retries and batching (VAPID in the Worker) | a fire-and-forget pg_net call per notification | Later |
 | E7 | Ingestion on Cron Triggers and Queues (per-game box-score jobs, retries, logs), writing through the API | pg_net calls with 55-second timeouts and no retry | Later |
 | E8 | AI Gateway in front of xAI (Garry, the X feed); Workers AI for small jobs | direct calls | Later |
@@ -455,7 +455,7 @@ Worker reads Postgres directly.
 1. **This week (the LCS and the Love Is Blind premiere, 14 October):** the World Series pool's games started from its
    Host page; invites shared as `/j/` links (done); Pod Squad and two more Love Is Blind pools filled by people Patrick
    knows; the winter question packs (The Traitors, The Bachelor) drafted before their premieres.
-2. **E5's SQL half** (materialized windows and season, refreshed by the scores run) and the GitHub Pages copy retired
+2. **E5's edge half** (one snapshot per league at the edge; the SQL half is built) and the GitHub Pages copy retired
    (EXPANSION B5 step 3), once a SaK GM has checked push alerts and the installed app on `sak.superpoolsai.com`.
 3. **E4, the live room**, first for draft night and game nights in SaK, then every pool.
 4. **Billing and tiers** (SUPERPOOLS item 6), with the Supercoin wallet after it.

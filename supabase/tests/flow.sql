@@ -6186,3 +6186,61 @@ select pg_temp.expect('with its matchups', not exists (select 1 from leagues whe
 select set_config('app.league_id', '', false);
 select set_config('request.jwt.claim.sub', '', false);
 select 'own events and delete', true;
+
+-- ───────────── the kept season and windows (migration 244) ─────────────
+-- player_windows and player_season read each profile's kept answer while it is current, and work it out live otherwise:
+-- either way a league's reader sees exactly the live numbers, under its own scoring
+reset role;
+select set_config('request.jwt.claim.sub', '', false);
+select set_config('app.league_id', '', false);
+create or replace function pg_temp.stats_sig(live boolean) returns text language plpgsql as $$
+declare w text; s text;
+begin
+  if live then
+    select string_agg(player_id || ':' || win || ':' || gp || ':' || fpts || ':' || totals::text, ',' order by player_id, win) into w from player_windows_live;
+    select string_agg(player_id || ':' || gp || ':' || fpts || ':' || coalesce(fpts14::text, '-') || ':' || totals::text || ':' || gp14, ',' order by player_id) into s from player_season_live;
+  else
+    select string_agg(player_id || ':' || win || ':' || gp || ':' || fpts || ':' || totals::text, ',' order by player_id, win) into w from player_windows;
+    select string_agg(player_id || ':' || gp || ':' || fpts || ':' || coalesce(fpts14::text, '-') || ':' || totals::text || ':' || gp14, ',' order by player_id) into s from player_season;
+  end if;
+  return md5(coalesce(w, '') || '|' || coalesce(s, ''));
+end $$;
+delete from stats_cache_state;
+-- the north scores differently from SaK (its own profile), so each must read its own kept answer
+select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-000000000099', false);
+set role authenticated;
+select commish_update_scoring((select jsonb_set(scoring, '{skater,hit}', to_jsonb(coalesce((scoring->'skater'->>'hit')::numeric, 0) + 3)) from league));
+reset role;
+select set_config('request.jwt.claim.sub', '', false);
+select pg_temp.as_team(1);
+set role authenticated;
+select pg_temp.expect('nothing kept yet: SaK reads the live numbers', not _stats_fresh(current_profile_id()) and pg_temp.stats_sig(false) = pg_temp.stats_sig(true));
+reset role;
+select pg_temp.expect('the refresh builds every profile in use', refresh_stats_cache() >= 2);
+select pg_temp.expect('and leaves nothing to do the second time', refresh_stats_cache() = 0);
+select pg_temp.as_team(1);
+set role authenticated;
+select pg_temp.expect('SaK reads its kept numbers, the same as the live ones', _stats_fresh(current_profile_id()) and pg_temp.stats_sig(false) = pg_temp.stats_sig(true));
+select pg_temp.stats_sig(false) as sak_sig \gset
+reset role;
+select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-000000000099', false);
+set role authenticated;
+select pg_temp.expect('the north reads its own kept numbers, under its own scoring', _stats_fresh(current_profile_id())
+  and pg_temp.stats_sig(false) = pg_temp.stats_sig(true) and pg_temp.stats_sig(false) <> :'sak_sig');
+reset role;
+-- a stat correction moves the counter: the kept answer is out of date at once and the views work it out live
+update player_games set stats = stats || '{"hit": 9}'::jsonb where (game_id, player_id) = (select game_id, player_id from player_games order by date desc, game_id, player_id limit 1);
+select pg_temp.as_team(1);
+set role authenticated;
+select pg_temp.expect('after a correction the views read live, with the correction in', not _stats_fresh(current_profile_id())
+  and pg_temp.stats_sig(false) = pg_temp.stats_sig(true) and pg_temp.stats_sig(false) <> :'sak_sig');
+reset role;
+select refresh_stats_cache();
+select pg_temp.as_team(1);
+set role authenticated;
+select pg_temp.expect('and the next refresh keeps the corrected numbers', _stats_fresh(current_profile_id()) and pg_temp.stats_sig(false) = pg_temp.stats_sig(true));
+reset role;
+select pg_temp.raises('the public key can''t rebuild it', 'set role anon; select refresh_stats_cache()', 'permission denied');
+reset role;
+select set_config('request.jwt.claim.sub', '', false);
+select 'stats cache', true;
