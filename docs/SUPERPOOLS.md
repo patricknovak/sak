@@ -415,6 +415,12 @@ The steps above finish the tenancy. `docs/MARKET.md` sets what comes after in th
     privacy note are still to come.
 15. **App-store listing** and the **playoff bracket pool** (the bracket is now a kind in P6, `docs/POOL-TYPES.md`). (The voice per league with a daily budget is done: item 2,
     migration 99.)
+16. **Game nights for every league and pool** (done 11 October 2026; `docs/DEVELOPMENT.md` §8.3 E4, E5 and §8.5). One
+    live clock: scores and clocks every 20 seconds while a game is on, tonight's points read once per box-score change and
+    carried by the league's live room at the edge, so every page shows the same number at the same moment. The live room
+    (who's watching, every swing, reactions, climbs up the standings) on the scoreboard and the home page, a pool's room on
+    its home; a thread for every game in a league and in a pool; one game sheet from any page (where to watch, radio, the
+    box score, lines and bets). Lineup New folded into My Team and Watch live into NHL centre; More grouped.
 
 Then horizon 2 (soccer on licensed data, basketball, the multi-sport pool, the Supercoin prediction market,
 the Super Pool bundle, the public API) and horizon 3 (cricket free-to-play, baseball, football and college,
