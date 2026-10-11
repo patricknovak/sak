@@ -86,18 +86,37 @@ async function syncGames(ids: number[], parallel = 1) {
   return lines;
 }
 
+// a failure here never fails the run: the views work the numbers out live until the cron job's next try
+async function keepStats() {
+  const { data, error } = await db.rpc('refresh_stats_cache');
+  if (error) console.warn('refresh_stats_cache', error.message);
+  return Number(data ?? 0);
+}
+
 async function scores() {
   const now = new Date();
   const days = [etDate(new Date(now.getTime() - 86400000)), etDate(now)];
   const games = (await Promise.all(days.map((d) => get(`/score/${d}`)))).flatMap((j) => j.games ?? []).filter((g: any) => g.gameType === 2 || g.gameType === 3); // regular season and playoffs (no preseason)
-  if (games.length) check(await db.from('games').upsert(games.map(gameRow)));
+  // write only the games whose line moved: every write fans out to each open browser through realtime, and the task
+  // runs every minute on game nights, so rewriting all of yesterday's and today's games had every client refetch them
+  if (games.length) {
+    const rows = games.map(gameRow);
+    const have = new Map(((check(await db.from('games').select('id,date,start_utc,home,away,state,home_score,away_score,period,clock').in('id', rows.map((r) => r.id))) ?? []) as Record<string, unknown>[]).map((g) => [g.id as number, g]));
+    const same = (r: ReturnType<typeof gameRow>, o: Record<string, unknown> | undefined) => !!o && o.date === r.date
+      && new Date(String(o.start_utc)).getTime() === new Date(r.start_utc).getTime()
+      && (['home', 'away', 'state', 'home_score', 'away_score', 'period', 'clock'] as const).every((k) => (o[k] ?? null) === (r[k] ?? null));
+    const moved = rows.filter((r) => !same(r, have.get(r.id)));
+    if (moved.length) check(await db.from('games').upsert(moved));
+  }
   const snaps = check(await db.rpc('take_snapshots'));
   const { data: open } = await db.from('games').select('id,state').in('date', days).eq('final_synced', false);
   const todo = (open ?? []).filter((g) => STARTED.has(g.state)).map((g) => g.id);
   const lines = await syncGames(todo);
   // a player in today's box score plays for that team, even if the roster feed hasn't caught up with a trade
   const moved = lines ? check(await db.rpc('sync_teams_from_box')) : 0;
-  return { games: games.length, snapshots: snaps, synced: todo.length, lines, moved };
+  // the players' season and windows, kept ready for every page (migration 244): rebuilt now the numbers have moved
+  const kept = lines ? await keepStats() : 0;
+  return { games: games.length, snapshots: snaps, synced: todo.length, lines, moved, kept };
 }
 
 // the NHL revises stats (assists, hits, blocks, goalie decisions) after review; re-pull recent finals
@@ -107,6 +126,7 @@ async function corrections(days: number) {
   const ids = (data ?? []).map((g) => g.id);
   const lines = await syncGames(ids, 4);
   const told = check(await db.rpc('notify_corrections'));
+  await keepStats();
   return { rechecked: ids.length, days, lines, teams_told: told };
 }
 
@@ -558,9 +578,9 @@ async function h2hCallsFor(lid: number) {
   return { calls: error ? 0 : calls.length };
 }
 
-// the heavy tasks (every NHL roster, the projection model, weeks of box-score corrections) run for the scheduler,
-// which sends the platform's admin key; the public key alone can't start them
-const HEAVY = new Set(['players', 'projections', 'corrections']);
+// Every task runs for the scheduler alone, which sends the platform's admin key (migration 243): the site never calls
+// this function, and the public key, which ships in the site, can't start a run (each pulls the NHL's or ESPN's feeds
+// and writes the league's numbers).
 async function adminCall(req: Request) {
   const key = req.headers.get('x-admin-key');
   if (!key) return false;
@@ -570,7 +590,7 @@ async function adminCall(req: Request) {
 
 Deno.serve(async (req) => {
   const task = new URL(req.url).searchParams.get('task') ?? 'scores';
-  if (HEAVY.has(task) && !(await adminCall(req))) return Response.json({ task, ok: false, error: 'This task needs the platform key' }, { status: 403 });
+  if (!(await adminCall(req))) return Response.json({ task, ok: false, error: 'This task needs the platform key' }, { status: 403 });
   try {
     const result =
       task === 'schedule' ? await schedule()

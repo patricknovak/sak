@@ -1,8 +1,19 @@
 // Client for the nhl-hub edge function (a caching proxy in front of the NHL's public API).
 import { supabase } from './supabase';
 
+// On the product's addresses the app's own Worker answers /api/hub from Cloudflare's edge cache (worker/hub.ts): one
+// call to the function per refresh window per location instead of one per person. Anywhere else (the GitHub Pages copy,
+// a dev server) it calls the function directly.
+const EDGE = /(^|\.)superpools?ai\.com$/.test(location.hostname);
+
 export async function hub<T>(task: string, q: Record<string, string> = {}): Promise<T> {
   const qs = new URLSearchParams({ task, ...q }).toString();
+  if (EDGE) {
+    const r = await fetch(`/api/hub?${qs}`).catch(() => null);
+    const body = r ? await r.json().catch(() => null) : null;
+    if (r?.ok && body && !body.error) return body as T;
+    // the edge had nothing to give: ask the function itself
+  }
   const { data, error } = await supabase.functions.invoke(`nhl-hub?${qs}`, { method: 'GET' });
   if (error) throw error;
   if (data?.error) throw new Error(data.error);

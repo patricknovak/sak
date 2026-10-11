@@ -138,9 +138,11 @@ components, one nightly sync):
   reactions; push notifications; a Yahoo import; a league fund and money ledger.
 - Phone-first, no ads, test suite over the whole draft-to-settlement flow, per-league policies in place.
 
-What the market has that we do not, in the order it costs us leagues:
+What the market has that we do not, in the order it costs us leagues. *Checked 11 October 2026: items 1 to 6 below
+are now built (rotisserie and head-to-head, migrations 117 to 121; self-serve start, `fantasy_start`, migration 242;
+dues, co-commissioners, the constitution and the audit trail); the list is kept as the record of why.*
 
-1. Head-to-head categories and rotisserie scoring. We are points-only. A large share of hockey leagues
+1. Head-to-head categories and rotisserie scoring. We were points-only (built since). A large share of hockey leagues
    are category leagues; Fantrax, Yahoo and ESPN all offer them. This is the single biggest gate.
 2. Onboarding without us: sign up, name the league, invite, import, set rules, draft. Today a league is a
    migration we run by hand.

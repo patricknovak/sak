@@ -6,6 +6,10 @@
 export interface Change { date: string; icon: string; title: string; body: string; to?: string; tag?: 'formats' | 'commish' | 'draft' | 'everyone' }
 
 export const CHANGELOG: Change[] = [
+  { date: '2026-10-11', icon: '🔗', tag: 'everyone', title: 'Invites that look like your pool', to: '/pools',
+    body: 'An invite link pasted into a group chat now shows your pool\'s own name, colour and who invited them, on a picture drawn for it, instead of a plain link. Tap it and you land on the join page.' },
+  { date: '2026-10-11', icon: '⚡', tag: 'everyone', title: 'Faster sport centres', to: '/pools',
+    body: 'Scores, standings, news and injuries in every sport\'s centre now come from the edge of the network, close to you: the second person to open them on a game night gets them in a blink.' },
   { date: '2026-10-10', icon: '🏆', tag: 'everyone', title: 'Start any kind of pool, or a league', to: '/pools',
     body: 'Starting something now asks first what it is: a sports pool, a questions pool or a fantasy league. A sports pool lists the leagues on now and every kind of pool, from pick\'em and brackets to last one standing, Call the score, squares and the box pool, with the ones not open yet and when they will be. A fantasy league is yours to set up: teams, season total or head-to-head, points or categories, keepers and the draft.' },
   { date: '2026-10-10', icon: '📺', tag: 'everyone', title: 'A centre for every sport', to: '/pools',

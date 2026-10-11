@@ -27,6 +27,8 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npm run build
+      # the app's edge code (worker/, Cloudflare): typed against the Workers runtime
+      - run: npx tsc -p worker/tsconfig.json
       - run: npm run test:nhl
 
   database:

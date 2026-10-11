@@ -12,7 +12,7 @@ import { ago } from '../lib/format';
 import { BrandPreview, ColourPicker, LEAGUE_COLOURS, starterBrand, themed, type BrandRow } from '../components/LeagueIdentity';
 import { Wordmark } from '../components/Brand';
 import { Checklist, type Check } from '../components/Readiness';
-import { appLink, leagueUrl } from '../lib/host';
+import { leagueUrl, inviteLink } from '../lib/host';
 import { PoolIdeas, PoolTest } from '../components/PoolTest';
 import { PoolGamesPlatform } from '../components/PoolGamesPlatform';
 import { GameFix } from '../components/GameFix';
@@ -31,7 +31,7 @@ const STATUS = {
   archived: { label: 'Archived', cls: 'border-white/10 bg-white/[.06] text-mute' },
 } as const;
 
-const link = (code: string) => appLink(`/join/${code}`);
+const link = (code: string) => inviteLink(code);
 const opened = (iso: string) => new Date(iso).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
 const slugOf = (s: string) => s.toLowerCase().normalize('NFKD').replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 30);
 

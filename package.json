@@ -7,7 +7,7 @@
     "dev": "vite",
     "build": "tsc -b && vite build",
     "preview": "vite preview",
-    "typecheck": "tsc -b",
+    "typecheck": "tsc -b && tsc -p worker/tsconfig.json",
     "players": "node scripts/build-players.mjs && node scripts/gen-seed-sql.mjs --rosters",
     "test:db": "bash supabase/tests/run.sh",
     "test:nhl": "node --experimental-strip-types --no-warnings supabase/tests/nhl-stats.test.mjs && node --experimental-strip-types --no-warnings supabase/tests/history-paste.test.mjs && node --experimental-strip-types --no-warnings supabase/tests/cat-pickup.test.mjs && node --experimental-strip-types --no-warnings supabase/tests/sport.test.mjs && node --experimental-strip-types --no-warnings supabase/tests/soccer.test.mjs && node --experimental-strip-types --no-warnings supabase/tests/forecast.test.mjs && node --experimental-strip-types --no-warnings supabase/tests/injury.test.mjs && node --experimental-strip-types --no-warnings supabase/tests/nhl-playoffs.test.mjs && node --experimental-strip-types --no-warnings supabase/tests/nba-playoffs.test.mjs && node --experimental-strip-types --no-warnings supabase/tests/lineup.test.mjs"
@@ -23,12 +23,16 @@
     "react-router-dom": "^7.18.4"
   },
   "devDependencies": {
+    "@cloudflare/workers-types": "^5.20261011.1",
+    "@resvg/resvg-wasm": "^2.6.2",
     "@tailwindcss/vite": "^4.3.3",
     "@types/react": "^19.3.0",
     "@types/react-dom": "^19.3.0",
     "@vitejs/plugin-react": "^6.1.1",
+    "satori": "^0.15.2",
     "tailwindcss": "^4.3.3",
     "typescript": "^7.0.2",
-    "vite": "^8.3.0"
+    "vite": "^8.3.0",
+    "yoga-wasm-web": "^0.3.3"
   }
 }

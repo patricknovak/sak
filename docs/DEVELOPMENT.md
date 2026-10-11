@@ -4,29 +4,33 @@ The review of how the product is being built, and the working method that comes 
 is what we build and in what order; `docs/EXPANSION.md` is what has to change before more leagues and sports;
 this is how we build it so that every week of work lands, stays landed and makes the product smarter.
 Reviewed 3 October 2026, after migrations 81 to 85 (Super Pools B1 to B4); reviewed again 8 October 2026, after migration 169
-(the pool scoreboard): section 1 and section 6 are that review.
+(the pool scoreboard): section 6 is that review; and on 11 October 2026, after migration 243, with Cloudflare Workers
+Paid subscribed: section 1 and section 8 are that review.
 
 ## 1. Where we are
 
-*As of 8 October 2026, migration 169.*
+*As of 11 October 2026, migration 245.*
 
-- **SaK**, the live league: eight GMs, used every night, on React 19 + Supabase with edge functions, a scheduler and
-  an LLM voice (Garry, on Grok, metered per feature and league). The season is under way; Lineup New runs beside My
-  Team for the league to compare, Watch live and the NHL centre's radio, lines and game Book are live.
-- **The tenancy is done and proven.** Rosters, the draft, scoring, the scheduler, money and the Fund, phones and
-  Garry are per league (Phase 1); people can join (email sign-in, invites, the switcher, onboarding, league by host,
-  one account for every pool: Phase 2). The shadow league (league 2) has matched SaK to the hundredth on every full day
-  since it opened (3 to 7 October); its gate closes on 10 October.
-- **Super Pools is live as prediction pools.** The questions engine (LMSR prices in coins, drops, the crown), the Love
-  Is Blind pool (Pod Squad, league 3), self-serve start with no account (`#/new`), the calendar of packs, share cards,
-  alerts and person invites. On the sports side: shared event tables (`competitions`, `clubs`, `fixtures`, `series`,
-  `fixture_periods`) fed by `soccer-sync` (ESPN for testing) and `mlb-sync` (MLB's Stats API for testing); last one
-  standing and Call the score on soccer; the pool-games engine with Pick the series, Rank the teams and squares for the
-  baseball postseason; MLB centre; and the scoreboard over every kind (migration 169).
-- **Use so far is the founder's.** Four live pools, each with one or two members, nine calls in all; the Love Is Blind
-  gate (three pools, thirty players by 4 November) is the first real test, and the premiere is 14 October.
-- 169 migrations; the flow test drives a whole fantasy season and every pool kind in SQL (about 4,100 lines), with a
-  second league beside each that must never see or change it; CI runs it on every pull request.
+- **SaK**, the live league: eight GMs, used every night, on React 19 + Supabase (Postgres rules, edge functions, a
+  scheduler) and an LLM voice (Garry, on Grok, metered per feature and league), served from Cloudflare. The season is
+  under way: My Team's Tonight card, Sit or start and the compare tools, Lineup New, the live scoreboard, the weekly
+  review, Watch live and NHL centre's radio, lines and game Book. The lineup optimizer was rebuilt on 10 October (a
+  player with a game always outranks an idle one) and players on no NHL roster drop out of the free agents.
+- **The tenancy is done and proven.** Phase 1's gate is met: the shadow league (league 2) matched SaK to the hundredth,
+  team by team, on every full day from 3 to 10 October (`shadow_report(2)`, eight days, no team off by a hundredth).
+  Phase 2 (people can join) is built: email sign-in, invites, the switcher, onboarding, league by host, one account for
+  every pool, and since 10 October a fantasy league anyone in a pool can start themselves (`fantasy_start`).
+- **Super Pools is live as prediction pools for any group.** The questions engine (LMSR prices in coins), packs, and a
+  sports-pool engine with eleven kinds (pick'em, the series, the bracket, last one standing, Call the score, the box
+  pool, prop sheets, squares, rank the teams, the daily streak, the sweepstake) on shared event tables fed for the NFL,
+  MLB, the NHL playoffs, soccer, the NBA and March Madness; one scoreboard over every kind, chances to win, the learning
+  loop; a centre per sport with news, standings, injuries and leaders (10 October). The start page offers every kind.
+- **Use so far is the founder's.** Five live pools besides SaK (Pod Squad has two members; the others one), and one
+  pool game on the whole platform. The World Series pool has its question pack but no games yet, with the LCS starting
+  11 October. The Love Is Blind gate (three pools, thirty players by 4 November) is the first real test of the product
+  with strangers; the premiere is 14 October.
+- 243 migrations; the flow test drives a whole fantasy season and every pool kind in SQL, with a second league beside
+  each that must never see or change it; CI runs it, the build and the Worker's types on every pull request.
 
 ## 2. What is working, and stays
 
@@ -110,7 +114,9 @@ continue alongside: the shadow-league gate runs to 10 October, Cloudflare hostin
    its own chat, its costs were metered to league 2 ($0.0067 over 5 calls), and its notifications went to its own teams,
    which have no owners or phones, so no SaK GM heard anything. The gate needs a week of such days (to 10 October).
    *Six days held (checked 9 October):* every day from 3 to 8 October matched team by team, no team off by a hundredth
-   (3 October now reads 226.10 on both sides after a stat correction); 9 October closes the week.
+   (3 October now reads 226.10 on both sides after a stat correction); 9 October closes the week. *The gate is met
+   (checked 11 October):* every full day from 3 to 10 October matched for all eight teams, a difference of 0.00 each
+   day. The shadow league can be archived whenever Patrick says (its sync runs every minute until then).
 4. **The prediction log**, small and early (migration 87, built): `predictions`, written each morning for every
    rostered player playing that night (`predict_tonight`) and scored the next morning on the league's own points
    (`score_predictions`), with `prediction_accuracy` by week and `book_calibration` (the Book's odds against what
@@ -144,8 +150,10 @@ continue alongside: the shadow-league gate runs to 10 October, Cloudflare hostin
    3 October 2026, migrations 103 to 105; onboarding part 1, the Platform page, the readiness checklist, going live and
    the league identity editor, migration 106; league by host, migration 107; realtime and presence per league; phones,
    migration 100; Garry's daily budget, migration 99). Cloudflare hosting (decided 3 October 2026, built as Workers): SaK live at
-   `sak.superpoolsai.com` on 4 October; the landing page moves with its redesign.
-8. **Pool intelligence** once a few leagues are playing, then the horizons in `docs/MARKET.md`.
+   `sak.superpoolsai.com` and the landing page on Cloudflare since 4 October; every address is served by Cloudflare; what
+   is left of the move is retiring the GitHub Pages copy (EXPANSION B5 step 3). Workers Paid since 11 October: section 8.
+8. **Pool intelligence** once a few leagues are playing, then the horizons in `docs/MARKET.md`. The order from here is
+   section 8.4.
 
 ## 6. The pool infrastructure, in order (8 October 2026 review)
 
@@ -380,3 +388,76 @@ in the World Series pool (league 5, the questions only so far), and the Love Is 
 - **Measure what the product claims.** A new prediction or grade writes to the prediction log; a new paid call
   meters its cost.
 - **Keep the docs true in the same pull request** as the change: the plan, the blockers, CLAUDE.md.
+
+## 8. The 11 October 2026 review: what is built, what sets it apart, and the edge
+
+Two audits on 11 October: the plans against the code and the live database, and the architecture for cost, speed and
+safety, with Cloudflare Workers Paid subscribed that day ($5 a month: 10 million requests and 30 million CPU-ms
+included, Durable Objects with SQLite and WebSockets, Queues, KV, R2, Cron Triggers, Workers AI, Browser Rendering).
+
+### 8.1 Built against the plan
+
+- **Ahead of plan:** the sports-pool engine (eleven kinds where the plan named five), the sport centres (every sport's
+  desk, built 10 October where the plan had MLB only), self-serve fantasy leagues (the plan said "later, with billing"),
+  rotisserie, head-to-head, dues, co-commissioners, the constitution and the audit trail (MARKET.md's list of what the
+  market had that we didn't is now built), the prediction log on every forecast the product makes.
+- **Gates:** Phase 1's shadow-league gate is met (section 5 item 3). The World Series test is not met in the pool: the
+  engine, the feed, MLB centre and squares are built, but the World Series pool (league 5) has no games; they are
+  started from its Host page (Add a game), the LCS from 11 October. The Love Is Blind gate (4 November) needs players,
+  not code.
+- **Not started:** billing and tiers (Stripe), the account-level Supercoin wallet, ESPN, Fantrax and CBS history
+  imports (Yahoo and paste work), contracts, salary caps, prospects, guillotine and best ball, the app-store listing,
+  per-pool usage telemetry, winter question packs (The Traitors, The Bachelor, award nights).
+- **Stale in the docs, fixed in this review:** this section 1 (it read 8 October and 169 migrations); the shadow gate's
+  result; the landing page's move (done 4 October); "Cloudflare Pages" where it is Workers; MARKET.md's "we are
+  points-only"; BRAND.md's "the NHL is the only sport".
+
+### 8.2 What sets it apart, and what still has to
+
+Built and unlike anyone: one account for every kind of group game, fantasy and pools side by side; a league voice that
+knows the league's history and talks in chat; prices that move like a market with no money in it; "what you need to
+win" and chances on every table; the product grading its own forecasts in public; every sport's centre inside the pool.
+What would make it unmistakable next, in order of what a new group feels first:
+
+1. **The link is the product's front door.** A pool grows by a link in a group chat. Done 11 October: every invite and
+   pool link unfurls with the pool's own name, host, colour and a picture drawn for it (section 8.3, E2).
+2. **Live, together.** The night a game is on, the pool should feel like a room: who's watching, the swing of each
+   call as it happens, a thread per game, "your pick just scored". Durable Objects (E4) are the tool: one live room per
+   league or pool, pushed to every phone over a WebSocket, instead of every phone polling.
+3. **The draft night that runs itself.** The draft clock on a Durable Object alarm, picks fanned out in under a second,
+   the 10-second database poll retired (E4).
+4. **A voice that's quick and cheap enough to say more.** Garry on an AI Gateway (E8): caching, a fallback model,
+   per-league limits at the edge; small jobs (moments triage, memory notes) on Workers AI.
+5. **Money through the door, never in the game.** Tiers and billing (SUPERPOOLS item 6) so a league or a host pays for
+   more; Supercoins stay play money.
+
+### 8.3 The edge plan (Cloudflare Workers Paid)
+
+Postgres stays the source of truth: every rule, row-level security, Auth and the writing work (nhl-sync, soccer-sync,
+mlb-sync, Garry, Yahoo, join) stay on Supabase. Cloudflare takes what is read by many and written by few, what must be
+instant, and what must happen exactly on time. No D1 (it would split the source of truth); Hyperdrive only once a
+Worker reads Postgres directly.
+
+| # | What | Replaces | Status |
+|---|---|---|---|
+| E1 | `/api/hub`: the sports data every centre reads, cached at Cloudflare's edge with serve-stale-while-refreshing (worker/hub.ts) | every open page calling the nhl-hub function with its own token, uncachable | **Built 11 October** (a cached read in 7 ms against 1.2 s) |
+| E2 | Link previews: `/j/<code>` and `/p/<web name>` pages with the pool's own tags, and a 1200×630 picture drawn per pool (satori and resvg in the Worker, cached a day at the edge; worker/preview.ts) | every pool's invite unfurling as "SAK Superleague" with a broken picture | **Built 11 October** |
+| E3 | Hardening found by the review: every scheduled task needs the admin key (migration 243); Garry's league kept per request; the scores task writes only games that moved; polls stop when the page is hidden or nothing is live | open endpoints, a cross-league race, needless realtime churn | **Built 11 October** (PR #252) |
+| E4 | A Durable Object per league or pool: the live room (presence, the night's swings, a thread per game), the draft clock on its alarm, fan-out over WebSockets; Postgres pushes to it after each write | Supabase Realtime's per-subscriber checks, the 4-second draft poll, the 10-second `process-pending` job | Next |
+| E5 | One live snapshot per league at the edge (standings, tonight's points, the windows), refreshed by the scores run; first `player_windows` and `player_season` made materialized in Postgres | 6 to 10 reads a minute per open page on game night, aggregate views recomputed per page | **SQL half built 11 October** (migrations 244 and 245: `player_windows` and `player_season` read a per-profile cache, 135 ms to 8 ms, rebuilt by the scores run and a minute cron, live views whenever a stat has moved since; same numbers to the hundredth); the edge snapshot next |
+| E6 | Push through a Queue with retries and batching (VAPID in the Worker) | a fire-and-forget pg_net call per notification | Later |
+| E7 | Ingestion on Cron Triggers and Queues (per-game box-score jobs, retries, logs), writing through the API | pg_net calls with 55-second timeouts and no retry | Later |
+| E8 | AI Gateway in front of xAI (Garry, the X feed); Workers AI for small jobs | direct calls | Later |
+| E9 | R2 for the promo videos and anything people upload (logos, avatars); `public/*.mp4` out of every deploy | 17 MB in each site deploy | Later |
+
+### 8.4 The order from here
+
+1. **This week (the LCS and the Love Is Blind premiere, 14 October):** the World Series pool's games started from its
+   Host page; invites shared as `/j/` links (done); Pod Squad and two more Love Is Blind pools filled by people Patrick
+   knows; the winter question packs (The Traitors, The Bachelor) drafted before their premieres.
+2. **E5's edge half** (one snapshot per league at the edge; the SQL half is built) and the GitHub Pages copy retired
+   (EXPANSION B5 step 3), once a SaK GM has checked push alerts and the installed app on `sak.superpoolsai.com`.
+3. **E4, the live room**, first for draft night and game nights in SaK, then every pool.
+4. **Billing and tiers** (SUPERPOOLS item 6), with the Supercoin wallet after it.
+5. **Imports** (ESPN, Fantrax, CBS) and **the app-store listing**, the two doors MARKET.md names for fantasy leagues.
+

@@ -72,17 +72,22 @@ Two things in one repo:
   event, `_squares_tick`, migration 167; a platform admin fixes a game the feed got wrong from the Platform page,
   `platform_game_fix`, and the feed leaves it alone until handed back, migration 206; the hourly pool job, pool-drops, opens
   a pool's automatic prop sheets, `_props_auto`, migration 223). Shared code in `supabase/functions/_shared`.
-- Scheduler: pg_cron jobs call the edge functions through pg_net with the anon key. Job names: nhl-scores
+- Scheduler: pg_cron jobs call the edge functions through pg_net with `_edge_headers(true)` (the anon key plus the
+  platform's admin key, read when the job runs); nhl-sync refuses every task without the admin key and Garry its
+  scheduled ones (daily, nudge, weekly, moments, draftprep; migration 243, 11 October 2026). Garry keeps the league a
+  request works for per request (`AsyncLocalStorage`, `runs`), never in a module variable. Job names: nhl-scores
   (gated by `_scores_due()`), nhl-gameday, nhl-injuries, nhl-schedule, season-schedule, nhl-news,
   nhl-players, nhl-players-pregame, nhl-standings, nhl-corrections, nhl-corrections-deep, projections,
   auto-lineups, auto-lineups-late, garry-daily, garry-weekly, garry-nudge, garry-moments, open-book, settle-book,
-  settle-bets, expire-bets, h2h-notes, pool-drops, pool-settle, soccer-fixtures, soccer-live (gated by `_soccer_due()`), mlb-live (gated by `_mlb_due()`), mlb-schedule, process-pending (every 10 s), health-check, fund-price, cron-history, cost-snapshot,
+  settle-bets, expire-bets, h2h-notes, pool-drops, pool-settle, soccer-fixtures, soccer-live (gated by `_soccer_due()`), mlb-live (gated by `_mlb_due()`), mlb-schedule, process-pending (every 10 s), stats-cache, health-check, fund-price, cron-history, cost-snapshot,
   cost-watch. A job that does a league's work runs once per active league: in SQL through
   `run_league_jobs(job)` (sets `app.league_id`, one league's failure doesn't stop the others), in an edge function
   through a client with the service key and an `x-league` header (`dbFor(league)` in nhl-sync and Garry).
 - Points: the NHL data is shared, the scoring isn't. `player_games.fpts` and `players.proj / last_fp / rank` are
   SaK's numbers kept for old readers; read a league's points through `league_games`, `league_players`,
-  `player_season`, `player_windows` (each league's scoring profile, `scoring_profiles`). `player_games` also carries the box pool's goal alert
+  `player_season`, `player_windows` (each league's scoring profile, `scoring_profiles`; since migration 244 they read a
+  per-profile cache rebuilt by nhl-sync's scores run and the `stats-cache` job, and compute live whenever `stats_gen`
+  says a stat moved since, so a new reader never sees stale numbers). `player_games` also carries the box pool's goal alert
   (`player_games_box_goal`, migration 192): it returns at once when no box pool is open and turns its own errors into
   warnings, so it never holds up a stats write.
 - Formats: how a league is won is in `league_rules` (and the `league` view): `format` ('season', SaK's total, or 'h2h'
@@ -95,7 +100,11 @@ Two things in one repo:
   `pool_start`, `invite_share`, `join`, `first_call`, `sign_up` (no PII). First-touch UTM/referrer on `waitlist` and
   `private.pool_signups`. `accounts.is_test` (platform-admin `set_account_is_test`). `mission_control_counts` for the
   portfolio Mission Control (passcode hash in `mission_control.counts_passcode`, never committed). Landing `sitemap.xml`.
-- Hosting: the app on GitHub Pages from `main` (`.github/workflows/deploy.yml`, builds on push) and on Cloudflare; the
+- Hosting: the app on Cloudflare (every address; the GitHub Pages copy from `.github/workflows/deploy.yml` stays until
+  EXPANSION B5 step 3) as a Worker with its own edge code (`worker/`, Workers Paid since 11 October 2026): `/api/hub`
+  caches the sports data at the edge (the site's `hub()` reads it on the product's addresses), `/j/<code>` and
+  `/p/<web name>` are link previews with a picture drawn per pool (`/og/...`), and invites are shared as `/j/` links
+  (`inviteLink` in `src/lib/host.ts`); the rest is the built site. The plan for the edge is `docs/DEVELOPMENT.md` §8.3; the
   Super Pools landing page (`landing/index.html`) on Cloudflare (zone routes on the apex and www; off Vercel); every
   other `<league>.superpoolsai.com` goes to the app through a wildcard zone route and a proxied `AAAA * 100::` record (live
   since 4 October 2026: `podsquad.superpoolsai.com`). One account, every pool (migration 151): the product's one address is

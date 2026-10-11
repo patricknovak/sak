@@ -193,8 +193,7 @@ give the pool a home for following the sport):**
   the knobs, a live example, the late-joiner, tie and tiebreaker rules). A pool can run more than one game; one is its
   crown. *Built (5 and 6 October 2026, `#/new` and My pools): the events open now with their stage, the kinds that fit
   each with when it locks, a preset per kind with its knobs in words and a live example; the crown is the main game
-  (migration 169). Still to come: the late-joiner, tie and tiebreaker rules written on the pool's Rules page before the
-  first lock.* *Rebuilt 10 October 2026 (migration 242, Patrick: "only question type pools are available"): `#/new` asks
+  (migration 169); the late-joiner, tie and tiebreaker rules are written on the pool's Rules page (POOL-TYPES §9).* *Rebuilt 10 October 2026 (migration 242, Patrick: "only question type pools are available"): `#/new` asks
   first what you are starting, a sports pool, a questions pool or a fantasy league, and My pools sends every start there
   (its old one-step sheet offered questions only). A sport lists its events by sport, the kinds open on the chosen event,
   and every other kind greyed with when it opens (`KIND_ORDER`, `KIND_WHEN`); Call the score joins the kinds on soccer's
