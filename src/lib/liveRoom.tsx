@@ -51,7 +51,7 @@ export function swingWords(what: Record<string, number> = {}): { head: string; r
 }
 
 export function LiveRoomProvider({ children }: { children: ReactNode }) {
-  const { session, me, league, kind, leagueDay, gamesLive, players, team } = useLeague();
+  const { session, me, league, kind, leagueDay, gamesLive, players, team, roomPoints } = useLeague();
   const [room, setRoom] = useState<Omit<Room, 'react'>>(OFF);
   const [alert, setAlert] = useState<Swing | null>(null);
   const ws = useRef<WebSocket | null>(null);
@@ -75,7 +75,7 @@ export function LiveRoomProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     if (!want || leagueId == null) { setRoom(OFF); return; }
-    let alive = true, tries = 0, timer: number | undefined;
+    let alive = true, tries = 0, timer: number | undefined, feeds = false;
     const day = leagueDay;
     const hello = async (s: WebSocket, t: 'hello' | 'auth') => {
       const { data } = await supabase.auth.getSession();
@@ -93,8 +93,13 @@ export function LiveRoomProvider({ children }: { children: ReactNode }) {
         try { m = JSON.parse(ev.data); } catch { return; }
         if (m.t === 'night') {
           tries = 0;
+          // tonight's points for every player, once for the league: the store takes them instead of reading its own
+          feeds = Array.isArray(m.pts);
+          if (feeds) roomPoints(day, m.pts as RoomLine[], true);
           setRoom((r) => ({ ...r, status: 'live', day, night: { games: m.games as Game[], snaps: m.snaps as RoomSnap[], pgs: m.pgs as RoomLine[], at: m.at as number }, swings: m.swings as Swing[] }));
         } else if (m.t === 'tick') {
+          // every tick says the room is still feeding the points, whatever moved (a room that never sent any isn't)
+          if (feeds) roomPoints(day, Array.isArray(m.pts) ? m.pts as RoomLine[] : [], false);
           setRoom((r) => {
             if (!r.night) return r;
             const games = new Map(r.night.games.map((g) => [g.id, g]));

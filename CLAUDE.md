@@ -29,7 +29,7 @@ Two things in one repo:
   October 2026): every page's scores, clocks and tonight's points come from the store and nowhere else. `games` rows are
   applied as realtime sends them (nhl-sync's clock task writes them every 20 seconds while a game is on, the `nhl-clock`
   job, migrations 246 and 247), and `dayPoints` (tonight's points, player by player) is read once each time a box score
-  moves (realtime on `stats_gen`, migration 248), with a five-minute backstop. New live UI reads `games` and `dayPoints`;
+  moves (realtime on `stats_gen`, migration 248), with a five-minute backstop; while the league's live room is feeding them (`roomPoints`: every player's line on joining, then what moved, read by the room once for the league whenever `stats_gen` moves) the store reads none of its own. New live UI reads `games` and `dayPoints`;
   it never polls `league_games` or the NHL's feed for a score. NHL centre lays the store's score and clock over the
   feed (`overlay`, `useOverlay` in `src/lib/nhlGame.ts`).
 - Any NHL game opens in one sheet, app-wide (`useGameSheet().open(id)`, `GameSheetProvider` in `main.tsx`, the body

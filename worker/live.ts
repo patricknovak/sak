@@ -46,7 +46,7 @@ export class LiveRoom extends Room<Night> {
   protected async welcome(ws: WebSocket, team: number) {
     let state = await this.ctx.storage.get<State>('state');
     if (!state || Date.now() - state.at > 30_000) { await this.read().catch((e) => console.warn('live read', e)); state = await this.ctx.storage.get<State>('state'); }
-    this.send(ws, { t: 'night', day: this.day, me: team, ...(state ?? { games: [], snaps: [], pgs: [], at: 0 }), swings: (await this.ctx.storage.get<Swing[]>('feed')) ?? [] });
+    this.send(ws, { t: 'night', day: this.day, me: team, ...(state ?? { games: [], snaps: [], pgs: [], at: 0 }), pts: (await this.ctx.storage.get<PG[]>('pts')) ?? [], swings: (await this.ctx.storage.get<Swing[]>('feed')) ?? [] });
     await this.wake(20_000);
   }
 
@@ -93,14 +93,23 @@ export class LiveRoom extends Room<Night> {
     if (!gr.ok || !sr.ok) { console.warn('live read', this.league, day, gr.status, sr.status); return; }
     const games = (await gr.json()) as Game[];
     const snaps = (await sr.json()) as Snap[];
-    // the box-score lines of the players frozen into a lineup tonight: what the scoreboard shows, and all the room keeps
-    let pgs: PG[] = [];
-    const ids = [...new Set(snaps.map((s) => s.player_id))];
-    if (ids.length) {
-      const pr = await this.rest(token, `league_games?select=player_id,game_id,fpts,stats,nhl_team,updated_at&date=eq.${day}&player_id=in.(${ids.join(',')})`);
+    // tonight's points for every player, read again only when the box scores have moved (stats_gen, migration 248, a
+    // one-row counter): once for the league instead of once a phone (E5's edge half). The phones in the room take them
+    // from here and skip their own reads; a database without the counter is read every beat, as before.
+    const gr2 = await this.rest(token, 'stats_gen?select=gen');
+    const gen = gr2.ok ? Number(((await gr2.json()) as { gen: number }[])[0]?.gen ?? NaN) : NaN;
+    const ptsOld = await this.ctx.storage.get<PG[]>('pts');
+    let all = ptsOld ?? [];
+    if (!ptsOld || !Number.isFinite(gen) || gen !== (await this.ctx.storage.get<number>('gen'))) {
+      const pr = await this.rest(token, `league_games?select=player_id,game_id,fpts,stats,nhl_team,updated_at&date=eq.${day}`);
       if (!pr.ok) { console.warn('live read lines', this.league, pr.status); return; }
-      pgs = ((await pr.json()) as PG[]).map((p) => ({ ...p, fpts: num(p.fpts) }));
+      all = ((await pr.json()) as PG[]).map((p) => ({ ...p, fpts: num(p.fpts) }));
+      await this.ctx.storage.put('pts', all);
+      if (Number.isFinite(gen)) await this.ctx.storage.put('gen', gen);
     }
+    // the box-score lines of the players frozen into a lineup tonight: what the scoreboard shows, and the swings' source
+    const ids = new Set(snaps.map((s) => s.player_id));
+    const pgs: PG[] = all.filter((p) => ids.has(p.player_id));
     const before = await this.ctx.storage.get<State>('state');
     const next: State = { games, snaps, pgs, at: Date.now() };
     const swings = this.swings(before ?? null, next);
@@ -112,14 +121,17 @@ export class LiveRoom extends Room<Night> {
     // what changed goes out: the games and lines that moved, the lineups whole when a puck drop froze more of them
     const gOld = new Map((before?.games ?? []).map((g) => [g.id, JSON.stringify(g)]));
     const pOld = new Map((before?.pgs ?? []).map((p) => [key(p.game_id, p.player_id), `${p.fpts}|${JSON.stringify(p.stats)}`]));
+    const ptOld = new Map((ptsOld ?? []).map((p) => [key(p.game_id, p.player_id), `${p.fpts}|${JSON.stringify(p.stats)}`]));
     const tick = {
       t: 'tick', at: next.at,
       games: games.filter((g) => gOld.get(g.id) !== JSON.stringify(g)),
       pgs: pgs.filter((p) => pOld.get(key(p.game_id, p.player_id)) !== `${p.fpts}|${JSON.stringify(p.stats)}`),
       snaps: before && before.snaps.length === snaps.length ? undefined : snaps,
+      // every player's line that moved, starters or not: the points every page in the app shows
+      pts: all === ptsOld ? [] : all.filter((p) => !ptsOld || ptOld.get(key(p.game_id, p.player_id)) !== `${p.fpts}|${JSON.stringify(p.stats)}`),
       swings,
     };
-    if (tick.games.length || tick.pgs.length || tick.snaps || swings.length) this.all(tick);
+    if (tick.games.length || tick.pgs.length || tick.pts.length || tick.snaps || swings.length) this.all(tick);
   }
 
   // what moved between two reads of the night
