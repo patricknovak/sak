@@ -13,7 +13,8 @@ Paid subscribed: section 1 and section 8 are that review.
 
 - **SaK**, the live league: eight GMs, used every night, on React 19 + Supabase (Postgres rules, edge functions, a
   scheduler) and an LLM voice (Garry, on Grok, metered per feature and league), served from Cloudflare. The season is
-  under way: My Team's Tonight card, Sit or start and the compare tools, Lineup New, the live scoreboard, the weekly
+  under way: My Team's Tonight card, Sit or start and the compare tools, Lineup New (folded into My Team on 11 October:
+  Week, League, Compare and Insights tabs, What if and an undo), the live scoreboard, the weekly
   review, Watch live and NHL centre's radio, lines and game Book. The lineup optimizer was rebuilt on 10 October (a
   player with a game always outranks an idle one) and players on no NHL roster drop out of the free agents.
 - **The tenancy is done and proven.** Phase 1's gate is met: the shadow league (league 2) matched SaK to the hundredth,

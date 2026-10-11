@@ -1,4 +1,4 @@
-// Lineup New, side by side: a team's lineup against any other team's, for one day slot by slot (who plays, against
+// My Team's Compare tab, side by side: a team's lineup against any other team's, for one day slot by slot (who plays, against
 // whom, what each should score, and where the two meet in the same game) or across the days ahead (starter games,
 // light-night starts, starts by position and the expected points day by day).
 import { useEffect, useMemo, useState } from 'react';

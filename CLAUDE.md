@@ -31,12 +31,17 @@ Two things in one repo:
   New UI that shows a player uses them rather than linking away. The injury report's timeline (expected return, body
   part, IR list, the write-up) is on `players` (migration 152, written by nhl-sync's injury task) and drawn by
   `InjuryReport`.
-- Lineups: the classic page is My Team (`src/pages/MyTeam.tsx`, its Daily lineups tab `LineupPlanner`; since 9 October 2026 it opens on a Tonight card drawn with Lineup New's pieces and the kit, with Sit or start, `src/components/SitStart.tsx`, and its Stats compare any or every GM, `TeamCompare`); the live scoreboard's Tonight's points lists every starter team by team; Performance has a Weekly review (`WeeklyReview`, deterministic suggestions from the trade finder and free agents); Lineup New
-  (`#/lineup-new`, `src/pages/LineupNew.tsx`, `src/components/lineupnew/`, data in `src/lib/lineupKit.ts`) runs beside it
-  for the league to compare (5 October 2026): Day (with What if), Week, League (every team ranked for a night or a week),
-  Compare and Insights for any team (others read only); live points refresh every minute (`useDayPoints`), lines come from
-  nhl-hub's shift charts (`useLines`); saving
-  through the same `set_lineup` and `set_lineup_plans`. Plans are readable league-wide (migration 164).
+- Lineups: one place, My Team (`src/pages/MyTeam.tsx`, `#/team` and `#/team/:id`): the Tonight card (Best lineup as a
+  list of changes, `src/components/lineup/OptimizeSheet.tsx`; What if; warnings with Fix; Sit or start,
+  `src/components/SitStart.tsx`) over the tabs Lineup (two-tap moves saved through `set_lineup` with an undo,
+  `SaveProvider`/`useSave`; IR moves stay on `move_player`; line badges from nhl-hub's shift charts, `useLines`), Week,
+  Daily lineups (`LineupPlanner`), League (every team ranked for a night or a week), Compare, Insights and Stats (any or
+  every GM, `TeamCompare`); another team's page opens on Scout & trade with the same views read only. The views are in
+  `src/components/lineup/`, the data in `src/lib/lineupKit.ts` (live points every minute, `useDayPoints`). Lineup New,
+  tried beside it from 5 October, was folded in and retired on 11 October 2026; `#/lineup-new` forwards to `#/team`.
+  The live scoreboard's Tonight's points lists every starter team by team; Performance has a Weekly review
+  (`WeeklyReview`, deterministic suggestions from the trade finder and free agents). Later days save through
+  `set_lineup_plans`; plans are readable league-wide (migration 164).
 - Sport: `src/lib/sport.ts` (`useSport()` from the store): the league's sport as the engine reads it (positions, slots,
   stats, game states, periods), the database's `sports` row with the NHL compiled in. New code that needs a position
   list, a slot rule or a stat label reads it instead of writing hockey in; the rest moves over one place at a time.

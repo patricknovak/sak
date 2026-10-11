@@ -38,7 +38,8 @@ const SK = ['gp', 'g', 'a', 'pts', 'pm', 'ppp', 'sog', 'hit', 'blk', 'pim', 'gwg
 const GO = ['gp', 'gs', 'w', 'l', 'otl', 'sv', 'ga', 'svp', 'gaa', 'sho'];
 type Filter = string;   // All, a position (the sport's), Starting, Bench or Playing
 
-export function LineupPlanner({ roster, teamId }: { roster: Row[]; teamId?: number }) {
+// initialDay: open on that day rather than today (My Team's week grid and insights send a GM to the day they tapped)
+export function LineupPlanner({ roster, teamId, initialDay }: { roster: Row[]; teamId?: number; initialDay?: string }) {
   const { me, teams, league, players, windows, season, refresh, serverOffset } = useLeague();
   // whose lineups these are: the caller's own, or another team's to look at
   const owner = (teamId != null ? teams.find((x) => x.id === teamId) : null) ?? me;
@@ -54,13 +55,14 @@ export function LineupPlanner({ roster, teamId }: { roster: Row[]; teamId?: numb
   // the strip runs from opening night (a played day shows how the team did) to 60 days out
   const start = league?.season_start && league.season_start < today ? league.season_start : today;
   const days = useMemo(() => { const out: string[] = []; for (let d = start; d <= end; d = addDays(d, 1)) out.push(d); return out; }, [start, end]);
-  const [day, setDay] = useState(today);
+  const [day, setDay] = useState(initialDay && initialDay >= start ? initialDay : today);
+  useEffect(() => { if (initialDay && initialDay >= start) setDay(initialDay); }, [initialDay]); // eslint-disable-line react-hooks/exhaustive-deps
   const [past, setPast] = useState<Map<string, { points: number; games: number }>>(new Map());
   const strip = useRef<HTMLDivElement>(null);
   const todayBtn = useRef<HTMLButtonElement>(null);
   useEffect(() => { if (owner && start < today) supabase.from('team_daily').select('date,points,games').eq('team_id', owner.id).lt('date', today).then(({ data }) => setPast(new Map((data ?? []).map((r) => [r.date, { points: Number(r.points), games: r.games }])))); }, [owner?.id, start, today]);
-  // open on today, with a couple of played days peeking in from the left
-  useEffect(() => { const el = strip.current, b = todayBtn.current; if (el && b) el.scrollLeft = Math.max(0, b.offsetLeft - el.offsetLeft - 124); }, [days.length]); // eslint-disable-line react-hooks/exhaustive-deps
+  // open on today (or the day asked for), with a couple of days before it peeking in from the left
+  useEffect(() => { const el = strip.current, b = todayBtn.current; if (el && b) el.scrollLeft = Math.max(0, b.offsetLeft - el.offsetLeft - 124); }, [days.length, initialDay]); // eslint-disable-line react-hooks/exhaustive-deps
   const [plans, setPlans] = useState<Map<string, Map<number, string>>>(new Map());
   const [draft, setDraft] = useState<Map<number, string> | null>(null);   // unsaved edits for the selected day
   // a player's card opens over the planner (lib/playerInfo): injury, tonight's status, news, numbers
@@ -298,7 +300,7 @@ export function LineupPlanner({ roster, teamId }: { roster: Row[]; teamId?: numb
             const own = plans.has(d);
             const on = d === day;
             return (
-              <button key={d} ref={d === today ? todayBtn : undefined} onClick={() => setDay(d)} className={`relative flex w-[58px] shrink-0 flex-col items-center rounded-xl border px-1 py-1.5 text-center transition ${on ? 'border-gold bg-gold/15' : gone ? 'border-white/[.05] bg-black/20 hover:bg-white/[.05]' : 'border-white/[.07] bg-white/[.03] hover:bg-white/[.07]'}`}>
+              <button key={d} ref={d === (initialDay && initialDay >= start ? initialDay : today) ? todayBtn : undefined} onClick={() => setDay(d)} className={`relative flex w-[58px] shrink-0 flex-col items-center rounded-xl border px-1 py-1.5 text-center transition ${on ? 'border-gold bg-gold/15' : gone ? 'border-white/[.05] bg-black/20 hover:bg-white/[.05]' : 'border-white/[.07] bg-white/[.03] hover:bg-white/[.07]'}`}>
                 <span className="text-[10px] font-semibold uppercase text-mute">{d === today ? 'Today' : dayLabel(d)}</span>
                 <span className={`text-sm font-bold ${gone ? 'text-slate-300' : ''}`}>{monthDay(d).replace(/^\w+ /, '')}</span>
                 <span className="text-[9px] text-mute">{monthDay(d).split(' ')[0]}</span>

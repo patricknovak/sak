@@ -189,7 +189,6 @@ export function Layout({ children }: { children: ReactNode }) {
     { to: '/profile', label: 'My Profile', icon: UserRound },
     { to: '/host', label: 'Host', icon: Wand2, commish: true },
   ] as Item[] : [
-    ...(draftish ? [] : [{ to: '/lineup-new', label: 'Lineup New', icon: Sparkles }]),
     // where to watch tonight's games (hockey leagues: the NHL's broadcasts)
     ...(sport.words.centre === 'NHL centre' ? [{ to: '/watch', label: 'Watch live', icon: MonitorPlay }] : []),
     { to: '/standings', label: 'Standings', icon: Trophy },

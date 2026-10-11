@@ -1,7 +1,7 @@
-// What Lineup New reads, for any team and any day (docs/DEVELOPMENT.md, the lineup research of 5 October 2026): the
+// What My Team's lineup tabs read (the Tonight card, Week, League, Compare, Insights), for any team and any day (docs/DEVELOPMENT.md, the lineup research of 5 October 2026): the
 // lineup a team has for a day (today's live one, else its own plan, else the last plan before it, else today's,
 // carried forward the way the planner and the morning apply do), who plays that night, how busy the night is, and
-// each player's expected points. Shared by the day view, the week grid, the comparison and the insights.
+// each player's expected points. Shared by the lineup, the week grid, the league board, the comparison and the insights.
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useLeague, useSport } from './store';
 import { calledOff, hasStarted, isLive } from './sport';
@@ -112,19 +112,28 @@ export type Kit = ReturnType<typeof useLineupKit>;
 
 // ───────────── tonight's points, refreshed while games are on ─────────────
 // Every player's league points for a day, read once and again every minute while any game that day is live, so the
-// day view, the comparison and the league board move as goals go in.
+// lineup, the comparison and the league board move as goals go in. Tonight's games come from the store, which the
+// realtime feed keeps current (the season's schedule is read once, so its game states go stale while the page is
+// open): the first puck drop starts the reads and the last final reads the night once more. A phone with the app in
+// the background asks for nothing until it comes back.
 export function useDayPoints(kit: Kit, day: string) {
+  const { games: tonight } = useLeague();
   const [pts, setPts] = useState<Map<number, number>>(new Map());
-  const live = (kit.gamesOn.get(day) ?? []).some((g) => isLive(kit.sport, g.state));
-  const started = (kit.gamesOn.get(day) ?? []).some((g) => hasStarted(kit.sport, g.state));
+  const fresh = day === kit.today ? tonight.filter((g) => g.date === day) : [];
+  const ofDay = fresh.length ? fresh : kit.gamesOn.get(day) ?? [];
+  const live = ofDay.some((g) => isLive(kit.sport, g.state));
+  const started = ofDay.some((g) => hasStarted(kit.sport, g.state));
   useEffect(() => {
     if (day > kit.today || (day === kit.today && !started)) { setPts(new Map()); return; }
     let alive = true;
     const load = () => supabase.from('league_games').select('player_id,fpts').eq('date', day).limit(2000)
       .then(({ data }) => { if (alive) setPts(new Map((data ?? []).map((r) => [r.player_id, Number(r.fpts)]))); });
     load();
-    const t = live ? window.setInterval(load, 60000) : undefined;
-    return () => { alive = false; window.clearInterval(t); };
+    const seen = () => document.visibilityState === 'visible';
+    const t = live ? window.setInterval(() => { if (seen()) load(); }, 60000) : undefined;
+    const back = () => { if (live && seen()) load(); };
+    document.addEventListener('visibilitychange', back);
+    return () => { alive = false; window.clearInterval(t); document.removeEventListener('visibilitychange', back); };
   }, [day, kit.today, live, started]);
   return { pts, live };
 }

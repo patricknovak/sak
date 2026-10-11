@@ -1,7 +1,12 @@
-import { Fragment, useEffect, useMemo, useState } from 'react';
+// A team's page (#/team, #/team/:id): the hero, tonight's card and every lineup view in one place. Since 11 October
+// 2026 it holds what Lineup New tried beside it: the lineup with an undo after every move, What if, the best lineup as
+// a list of changes, warnings that fix in a tap and each player's line; the week grid; Daily lineups; the whole league
+// on one board; any two lineups side by side; the insights; and the stats. Another team's page opens on scouting, with
+// the same views read only.
+import { Fragment, useEffect, useMemo, useRef, useState } from 'react';
+import { AlertTriangle, FlaskConical } from 'lucide-react';
 import { useSticky } from '../lib/sticky';
 import { Link, useNavigate, useParams } from 'react-router-dom';
-import { usePoll } from '../lib/poll';
 import { useLeague, useNow, useSport } from '../lib/store';
 import { calledOff, hasStarted, isFinal, isLive } from '../lib/sport';
 import { rpc, supabase } from '../lib/supabase';
@@ -11,13 +16,18 @@ import { PlayerRow, PlayerSheet } from '../components/PlayerCard';
 import { TeamScout } from '../components/TeamScout';
 import { TeamStats } from '../components/TeamStats';
 import { TIMEFRAMES, lineFor, type Timeframe } from '../lib/playerstats';
-import { LineupTools, useOptimizer } from '../components/LineupTools';
+import { LineupTools } from '../components/LineupTools';
 import { LineupPlanner } from '../components/LineupPlanner';
 import { TeamForecastCard } from '../components/TeamForecast';
 import { Section, TeamBadge, TeamName, useAction } from '../components/ui';
 import { irOk } from '../lib/lineup';
-import { useLineupKit, longDay, monthDay, weekday } from '../lib/lineupKit';
-import { GameLine, SlotPill, fmt1 } from '../components/lineupnew/bits';
+import { useLineupKit, useDayPoints, useLines, hurt, longDay, monthDay, weekday, type Kit } from '../lib/lineupKit';
+import { GameLine, SaveProvider, SlotPill, diffMoves, fmt1, useSave } from '../components/lineup/bits';
+import { OptimizeSheet } from '../components/lineup/OptimizeSheet';
+import { WeekView } from '../components/lineup/WeekView';
+import { LeagueView } from '../components/lineup/LeagueView';
+import { CompareView } from '../components/lineup/CompareView';
+import { InsightsView } from '../components/lineup/InsightsView';
 import { SitStart, useSitStart, type Swap } from '../components/SitStart';
 
 const STARTERS: Slot[] = ['C', 'LW', 'RW', 'D', 'Util', 'G'];
@@ -25,9 +35,21 @@ const STARTERS: Slot[] = ['C', 'LW', 'RW', 'D', 'Util', 'G'];
 const slotOk = (p: Player, s: Slot) =>
   s === 'BN' ? true : s === 'IR' ? irOk(p.injury_status) : s === 'Util' ? p.pos !== 'G' : s === 'G' ? p.pos === 'G' : p.pos !== 'G' && p.elig.includes(s);   // IR: injury report only, not suspensions
 
+type View = 'scout' | 'lineup' | 'week' | 'plan' | 'league' | 'compare' | 'insights' | 'stats';
+// the views that stay open while a GM flicks from team to team (the lineup and scouting follow whose page it is)
+const KEEP: View[] = ['plan', 'stats', 'week', 'league', 'compare', 'insights'];
+type Row = { r: Roster; p: Player };
+
+// the lineup kit (tonight's games, expected points, every team's lineups a month ahead) and saving with an undo wrap
+// the whole page, so every view saves the same way
 export default function MyTeam() {
+  const kit = useLineupKit(30);
+  return <SaveProvider kit={kit}><TeamPage kit={kit} /></SaveProvider>;
+}
+
+function TeamPage({ kit }: { kit: Kit }) {
   const { id } = useParams();
-  const { me, league, teams, team, rosters, players, standings, season, windows, games, gamesByTeam, gameStatus, refresh, gamesLive } = useLeague();
+  const { me, league, teams, team, rosters, players, standings, season, windows, games, gamesByTeam, gameStatus, refresh } = useLeague();
   const sport = useSport();
   const now = useNow(15_000);
   const nav = useNavigate();
@@ -37,14 +59,30 @@ export default function MyTeam() {
   const mine = teamId === me?.id;
   const [sel, setSel] = useState<number | null>(null);
   const [info, setInfo] = useState<number | null>(null);
-  // moving from team to team keeps the daily lineups or the stats open, so a GM can flick through every team's
-  useEffect(() => { setView((v) => (v === 'plan' || v === 'stats' ? v : teamId === me?.id ? 'lineup' : 'scout')); setSel(null); }, [teamId]); // eslint-disable-line react-hooks/exhaustive-deps
-  const [today, setToday] = useState<Map<number, { fpts: number; stats: Record<string, number> }>>(new Map());
+  // what if: trial moves kept on this phone, slot by player, until the GM saves or throws them away
+  const [trial, setTrial] = useState<Map<number, string> | null>(null);
+  const [opt, setOpt] = useState(false);
+  // the day Daily lineups opens on when the week grid or the insights send a GM there
+  const [planDay, setPlanDay] = useState<string | undefined>(undefined);
+  // your own team remembers which tab you were on (another team's page always opens on the scouting view)
+  const [view, setView] = useSticky<View>(id ? null : 'myteam:view', id ? 'scout' : 'lineup');
+  // moving from team to team keeps the daily lineups, the stats, the week, the league, the comparison or the insights
+  // open, so a GM can flick through every team's; a jump from the league board asks for a view of its own
+  const nextView = useRef<View | null>(null);
+  useEffect(() => {
+    const n = nextView.current;
+    nextView.current = null;
+    setView((v) => n ?? (KEEP.includes(v) ? v : teamId === me?.id ? 'lineup' : 'scout'));
+    setSel(null); setTrial(null);
+  }, [teamId]); // eslint-disable-line react-hooks/exhaustive-deps
+  const goTeam = (tid: number, v: View) => {
+    if (tid === teamId) { setView(v); return; }
+    nextView.current = v;
+    nav(tid === me?.id ? '/team' : `/team/${tid}`);
+  };
   const [tx, setTx] = useState<Transaction[]>([]);
   const [pk, setPk] = useState<{ used: number; allowed: number } | null>(null);
   useEffect(() => { if (teamId) supabase.from('pickup_status').select('used,allowed').eq('team_id', teamId).maybeSingle().then(({ data }) => setPk(data as { used: number; allowed: number } | null)); }, [teamId, rosters]);
-  // your own team remembers which tab you were on (another team's page always opens on the scouting view)
-  const [view, setView] = useSticky<'scout' | 'lineup' | 'plan' | 'stats'>(id ? null : 'myteam:view', id ? 'scout' : 'lineup');
   // the stat line under each player in the lineup
   const liveOk = windows.size > 0;
   const [tf, setTf] = useSticky<Timeframe>('myteam:tf', league?.phase === 'season' ? 'season' : 'last');
@@ -63,21 +101,57 @@ export default function MyTeam() {
   };
   const [tools, setTools] = useState(false);
 
-  const roster = useMemo(() => rosters.filter((r) => r.team_id === teamId).map((r) => ({ r, p: players.get(r.player_id)! })).filter((x) => x.p), [rosters, players, teamId]);
+  // the roster as saved, and as the page draws it: in What if, each player in his trial slot
+  const saved0 = useMemo(() => rosters.filter((r) => r.team_id === teamId).map((r) => ({ r, p: players.get(r.player_id)! })).filter((x) => x.p), [rosters, players, teamId]);
+  const saved = useMemo(() => new Map(saved0.map((x) => [x.p.id, x.r.slot as string])), [saved0]);
+  const roster = useMemo(() => (trial ? saved0.map((x) => ({ r: { ...x.r, slot: (trial.get(x.p.id) ?? x.r.slot) as Slot }, p: x.p })) : saved0), [saved0, trial]);
+  const slots = trial ?? saved;
+  const { save, busy: saving } = useSave();
 
-  const opt = useOptimizer(roster);
-  // Lineup New's numbers: tonight's games, each player's expected points, every team's night
-  const kit = useLineupKit(7);
   const PIN_NEXT: Record<string, 'start' | 'bench' | null> = { none: 'start', start: 'bench', bench: null };
-  const cyclePin = (x: { r: Roster; p: Player }) => {
+  const cyclePin = (x: Row) => {
     const next = PIN_NEXT[x.r.pin ?? 'none'];
     run(async () => { await rpc('set_pin', { p_player: x.p.id, p_pin: next }); await refresh(['rosters']); },
       next === 'start' ? `📌 ${x.p.name} always starts when he plays` : next === 'bench' ? `🚫 ${x.p.name} stays on the bench` : `${x.p.name} unpinned`);
   };
 
-  const rosterKey = roster.map((x) => x.p.id).join(',');
-  usePoll(() => { if (roster.length) supabase.from('league_games').select('player_id,fpts,stats').eq('date', etToday()).in('player_id', roster.map((x) => x.p.id))
-    .then(({ data }) => setToday(new Map((data ?? []).map((d) => [d.player_id, { fpts: Number(d.fpts), stats: d.stats }])))); }, 60_000, roster.length > 0 && gamesLive, [rosterKey, teamId]);
+  // tonight's points so far, read again every minute while a game is on, and each player's line from the shift charts
+  const { pts: today } = useDayPoints(kit, kit.today);
+  const lines = useLines(kit, teamId ? [teamId] : [], kit.today);
+
+  // the views a GM can open here: Week, League, Compare and Insights are about the season's games
+  const inSeason = league?.phase === 'season';
+  const tabs: { k: View; label: string }[] = [
+    ...(!mine ? [{ k: 'scout' as View, label: me?.role === 'spectator' ? '🔍 Scout' : '🔍 Scout & trade' }] : []),
+    { k: 'lineup', label: '🏒 Lineup' },
+    ...(inSeason ? [{ k: 'week' as View, label: '🗓️ Week' }] : []),
+    ...(league?.phase !== 'keepers' ? [{ k: 'plan' as View, label: '📅 Daily lineups' }] : []),
+    ...(inSeason ? [{ k: 'league' as View, label: '🏆 League' }, { k: 'compare' as View, label: '⚖️ Compare' }, { k: 'insights' as View, label: '💡 Insights' }] : []),
+    { k: 'stats', label: '📊 Stats' },
+  ];
+  const cur: View = tabs.some((x) => x.k === view) ? view : mine ? 'lineup' : 'scout';
+  // trial moves belong to the lineup: leaving it throws them away
+  useEffect(() => { if (cur !== 'lineup') setTrial(null); }, [cur]);
+  // the open tab scrolled into the row, so a remembered Insights isn't hidden off the right edge of a phone
+  const tabRow = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const el = tabRow.current, b = el?.querySelector<HTMLElement>('[data-on="1"]');
+    if (el && b && (b.offsetLeft - el.offsetLeft < el.scrollLeft || b.offsetLeft - el.offsetLeft + b.offsetWidth > el.scrollLeft + el.clientWidth)) el.scrollLeft = b.offsetLeft - el.offsetLeft - 16;
+  }, [cur]);
+  // the lineups ahead: the team on screen always, every team's once the league board or a comparison is open
+  const gmIds = teams.filter((x) => x.role !== 'spectator').map((x) => x.id);
+  useEffect(() => { if (teamId) kit.loadPlans([teamId]); }, [teamId]); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { if (cur === 'league' || cur === 'compare') kit.loadPlans(gmIds); }, [cur, gmIds.length]); // eslint-disable-line react-hooks/exhaustive-deps
+  // the comparison opens against the team just above in the standings (the one to catch), else the next one down
+  const [other, setOther] = useState<number | null>(null);
+  useEffect(() => {
+    if (!teamId || (other && other !== teamId)) return;
+    const order = [...standings].sort((a, b) => a.rank - b.rank).map((x) => x.team_id);
+    const i = order.indexOf(teamId);
+    setOther((i >= 0 ? order[i - 1] ?? order[i + 1] : undefined) ?? gmIds.find((x) => x !== teamId) ?? null);
+  }, [teamId, other, standings]); // eslint-disable-line react-hooks/exhaustive-deps
+  // a day picked on the week grid or in the insights: today is the lineup, a day ahead its daily lineup
+  const openDay = (d: string) => { if (d <= kit.today) setView('lineup'); else { setPlanDay(d); setView('plan'); } };
 
   useEffect(() => {
     if (!teamId) return;
@@ -96,7 +170,7 @@ export default function MyTeam() {
   // lay out slot instances
   const cap = (league?.roster ?? {}) as Record<Slot, number>;
   const bySlot = (s: Slot) => roster.filter((x) => x.r.slot === s).sort((a, b) => b.p.proj - a.p.proj);
-  const rows: { slot: Slot; x?: { r: Roster; p: Player } }[] = [];
+  const rows: { slot: Slot; x?: Row }[] = [];
   for (const s of STARTERS) {
     const occ = bySlot(s);
     for (let i = 0; i < Math.max(cap[s] ?? 0, occ.length); i++) rows.push({ slot: s, x: occ[i] });
@@ -105,32 +179,59 @@ export default function MyTeam() {
   const ir = bySlot('IR');
   const selected = roster.find((x) => x.p.id === sel);
 
-  const canTarget = (slot: Slot, occupant?: { p: Player; r: Roster }) => {
+  const canTarget = (slot: Slot, occupant?: Row) => {
     if (!selected || !mine) return false;
     if (occupant?.p.id === selected.p.id) return false;
     if (!slotOk(selected.p, slot)) return false;
     if (occupant && locked(occupant.p)) return false;
     if (!occupant && slot === selected.r.slot) return false;
     if (!occupant && slot !== 'BN' && slot !== 'IR' && bySlot(slot).length >= (cap[slot] ?? 0)) return false;
+    // IR is set for real or not at all: What if leaves it as it is
+    if (trial && (slot === 'IR' || selected.r.slot === 'IR')) return false;
+    // a swap sends the other player to the selected one's place, or to the bench when he can't play it
+    if (occupant && !slotOk(occupant.p, selected.r.slot) && selected.r.slot !== 'BN' && bench.length >= (cap.BN ?? 12)) return false;
     return true;
   };
 
-  const tap = (slot: Slot, x?: { r: Roster; p: Player }) => {
+  // a move as the lineup it makes: the player into the slot, and whoever was there into his old place (or the bench
+  // when he can't play it), the way the server's single move has always worked
+  const short = (p: Player) => p.last_name ?? p.name;
+  const moved = (who: Row, slot: Slot, occ?: Row) => {
+    const from = who.r.slot as Slot;
+    const next = new Map(slots);
+    next.set(who.p.id, slot);
+    if (!occ) return { next, label: `${short(who.p)} to ${slot === 'BN' ? 'the bench' : slot}` };
+    const back: Slot = slotOk(occ.p, from) ? from : 'BN';
+    next.set(occ.p.id, back);
+    return { next, label: back === from ? `${short(who.p)} ⇄ ${short(occ.p)}` : `${short(who.p)} to ${slot}, ${short(occ.p)} to the bench` };
+  };
+  const working = busy || saving;
+  const tap = (slot: Slot, x?: Row) => {
     if (!mine || league?.phase === 'keepers') { if (x) nav(`/player/${x.p.id}`); return; }
+    if (working) return;
     if (selected) {
       if (x?.p.id === selected.p.id) { setSel(null); return; }
       if (canTarget(slot, x)) {
-        const who = selected.p;
+        const who = selected;
         setSel(null);
-        run(async () => { await rpc('move_player', { p_player: who.id, p_slot: slot, p_swap: x?.p.id ?? null }); await refresh(['rosters']); });
+        // on and off IR stays the single move it was (the lineup save leaves IR alone); everything else saves the
+        // whole lineup, with an undo
+        if (slot === 'IR' || who.r.slot === 'IR') {
+          run(async () => { await rpc('move_player', { p_player: who.p.id, p_slot: slot, p_swap: x?.p.id ?? null }); await refresh(['rosters']); });
+          return;
+        }
+        const m = moved(who, slot, x);
+        if (trial) setTrial(m.next);
+        else save(kit.today, m.next, saved, m.label);
         return;
       }
-      if (x && !locked(x.p)) { setSel(x.p.id); return; }
+      if (x && !locked(x.p) && !(trial && x.r.slot === 'IR')) { setSel(x.p.id); return; }
       setSel(null);
       return;
     }
     if (x) {
       if (locked(x.p)) { nav(`/player/${x.p.id}`); return; }
+      if (trial && x.r.slot === 'IR') return;
       setSel(x.p.id);
     }
   };
@@ -139,9 +240,8 @@ export default function MyTeam() {
   // before the season there's no lineup to set: show the roster with last season's numbers
   const offseason = league?.phase !== 'season';
   const anyStarter = rows.some((r) => r.x);
-  const todayTotal = rows.filter((r) => r.x).reduce((tot, r) => tot + (today.get(r.x!.p.id)?.fpts ?? 0), 0);
-  const benchTotal = [...bench, ...ir].reduce((tot, x) => tot + (today.get(x.p.id)?.fpts ?? 0), 0);   // shown, never counted
-  const benchedWithGames = bench.filter((x) => gamesByTeam(x.p.nhl_team) && !locked(x.p));
+  const todayTotal = rows.filter((r) => r.x).reduce((tot, r) => tot + (today.get(r.x!.p.id) ?? 0), 0);
+  const benchTotal = [...bench, ...ir].reduce((tot, x) => tot + (today.get(x.p.id) ?? 0), 0);   // shown, never counted
   const emptyStarters = rows.filter((r) => !r.x).length;
   // who's actually on the ice tonight: starters whose club plays, out of the slots the league gives
   const playsToday = (p: Player) => { const g = gamesByTeam(p.nhl_team); return !!g && !calledOff(sport, g.state); };
@@ -162,15 +262,36 @@ export default function MyTeam() {
   const nightRank = (() => {
     const gms = teams.filter((x) => x.role === 'gm');
     if (!gms.length || !teamId) return null;
-    const mineExp = kit.dayStats(teamId, kit.today).pts;
-    return { rank: gms.filter((x) => kit.dayStats(x.id, kit.today).pts > mineExp + 1e-9).length + 1, of: gms.length };
+    const mineExp = kit.dayStats(teamId, kit.today, slots).pts;
+    return { rank: gms.filter((x) => x.id !== teamId && kit.dayStats(x.id, kit.today).pts > mineExp + 1e-9).length + 1, of: gms.length };
   })();
   const onIce = rows.filter((r) => r.x && playsToday(r.x.p)).map((r) => r.x!);
   const sitStart = useSitStart(kit, roster, (x) => locked(x.p), (x, slot) => slotOk(x.p, slot), rows.filter((r) => !r.x).map((r) => r.slot));
-  const doSwap = (sw: Swap) => run(async () => { await rpc('move_player', { p_player: sw.start.p.id, p_slot: sw.slot, p_swap: sw.sit?.p.id ?? null }); await refresh(['rosters']); },
-    sw.sit ? `${sw.start.p.name} starts, ${sw.sit.p.name} sits` : `${sw.start.p.name} starts at ${sw.slot}`);
+  // a sit or start swap is a move like any other: saved with an undo, or tried in What if
+  const doSwap = (sw: Swap) => {
+    const m = moved(sw.start, sw.slot, sw.sit ?? undefined);
+    if (trial) { setTrial(m.next); return; }
+    save(kit.today, m.next, saved, sw.sit ? `${short(sw.start.p)} starts, ${short(sw.sit.p)} sits` : `${short(sw.start.p)} starts at ${sw.slot}`);
+  };
 
-  const Row = ({ slot, x }: { slot: Slot; x?: { r: Roster; p: Player } }) => {
+  // what needs fixing tonight, each with a tap to the thing it is about, and Fix for the best lineup
+  const benchedPlaying = bench.filter((x) => playsToday(x.p) && !hurt(x.p) && !locked(x.p));
+  const idleStarters = rows.filter((r) => r.x && !playsToday(r.x.p) && !locked(r.x.p));
+  const hurtStarters = rows.filter((r) => r.x && hurt(r.x.p) && !locked(r.x.p)).map((r) => r.x!);
+  const toBench = () => document.getElementById('bench-playing')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  const STATUS_WORDS: Record<string, string> = { backup: 'backup goalie tonight', out: 'out tonight', scratched: 'scratched tonight', gtd: 'a game-time call' };
+  const warnings: { key: string; text: string; onClick?: () => void }[] = mine && !offseason ? [
+    ...(emptyStarters > 0 ? [{ key: 'empty', text: `${emptyStarters} empty starting ${emptyStarters === 1 ? 'slot' : 'slots'}`, onClick: benchedPlaying.length ? toBench : undefined }] : []),
+    ...(benchedPlaying.length && idleStarters.length ? [{ key: 'idle', text: `${benchedPlaying.length} on the bench with a game while ${idleStarters.length} ${idleStarters.length === 1 ? 'starter sits' : 'starters sit'} idle`, onClick: toBench }] : []),
+    ...hurtStarters.map((x) => ({ key: `h${x.p.id}`, text: `${x.p.name} is ${x.p.injury_status}`, onClick: () => setInfo(x.p.id) })),
+    ...doubtful.filter(({ p }) => !hurtStarters.some((h) => h.p.id === p.id))
+      .map(({ p, s }) => ({ key: `d${p.id}`, text: `${p.name}: ${STATUS_WORDS[s.status] ?? s.status}`, onClick: () => setInfo(p.id) })),
+  ] : [];
+  // What if's running sum: the trial lineup's expected points against the saved one's
+  const trialMoves = trial ? diffMoves(saved, trial) : [];
+  const trialGain = trial && teamId ? kit.dayStats(teamId, kit.today, trial).pts - kit.dayStats(teamId, kit.today, saved).pts : 0;
+
+  const Row = ({ slot, x }: { slot: Slot; x?: Row }) => {
     const isSel = x && x.p.id === sel;
     const target = canTarget(slot, x);
     const g = x ? gamesByTeam(x.p.nhl_team) : undefined;
@@ -181,14 +302,20 @@ export default function MyTeam() {
     const done = !!g && isFinal(sport, g.state);
     const starter = slot !== 'BN' && slot !== 'IR';
     const parts = x ? statLine(x.p) : null;
+    const tried = !!trial && !!x && saved.get(x.p.id) !== slot;
+    const ln = x ? lines.get(x.p.id) : undefined;
     return (
       <div onClick={() => tap(slot, x)}
-        className={`flex cursor-pointer items-start gap-2 border-l-[3px] px-2 py-2 transition sm:px-2.5 ${isSel ? 'bg-sky-500/20 ring-1 ring-inset ring-sky-400' : target ? 'bg-emerald-500/10 ring-1 ring-inset ring-emerald-500/60' : !offseason && x && live ? 'bg-gradient-to-r from-red-500/[.10] to-transparent' : !offseason && x && playing ? 'bg-gradient-to-r from-emerald-500/[.09] to-transparent' : ''} ${offseason || !x ? 'border-transparent' : live ? 'border-goal' : playing ? 'border-emerald-400/80' : starter ? 'border-white/15' : 'border-transparent'}`}>
+        className={`flex cursor-pointer items-start gap-2 border-l-[3px] px-2 py-2 transition sm:px-2.5 ${isSel ? 'bg-sky-500/20 ring-1 ring-inset ring-sky-400' : target ? 'bg-emerald-500/10 ring-1 ring-inset ring-emerald-500/60' : tried ? 'bg-violet-500/10 ring-1 ring-inset ring-violet-300/40' : !offseason && x && live ? 'bg-gradient-to-r from-red-500/[.10] to-transparent' : !offseason && x && playing ? 'bg-gradient-to-r from-emerald-500/[.09] to-transparent' : ''} ${offseason || !x ? 'border-transparent' : live ? 'border-goal' : playing ? 'border-emerald-400/80' : starter ? 'border-white/15' : 'border-transparent'}`}>
         <span className="mt-1"><SlotPill slot={slot} /></span>
         {x ? (
           <>
             <div className="min-w-0 flex-1">
-              <PlayerRow p={x.p} wrap dim={!offseason && starter && !playing} />
+              <PlayerRow p={x.p} wrap dim={!offseason && starter && !playing} badges={!offseason && <>
+                {/* his forward line or defence pair tonight, from the shift charts; the top line in the league's colour */}
+                {ln && /^[LD]/.test(ln) && <span className={`rounded-md px-1.5 py-px text-[9px] font-black ${ln === 'L1' || ln === 'D1' ? 'bg-gold/20 text-gold' : 'bg-white/[.08] text-slate-300'}`} title={ln.startsWith('L') ? `Forward line ${ln.slice(1)}, from the shift charts` : `Defence pair ${ln.slice(1)}, from the shift charts`}>{ln}</span>}
+                {kit.light(kit.today) && playing && starter && <span className="rounded-full bg-sky-400/15 px-1.5 py-px text-[9px] font-black uppercase tracking-wider text-sky-200" title="A light night: five games or fewer">Light</span>}
+              </>} />
               {parts && (
                 <div className="num mt-1 flex flex-wrap gap-x-2 gap-y-0.5 pl-11 text-[11px] leading-tight text-slate-400">
                   {parts.map((t, i) => <span key={i} className={`whitespace-nowrap ${i === 0 ? 'font-semibold text-slate-200' : ''}`}>{t}</span>)}
@@ -210,7 +337,7 @@ export default function MyTeam() {
             </div>
             <div className="flex shrink-0 flex-col items-end gap-1">
               {offseason ? <div className="text-sm font-semibold">{fmtPts(x.p.last_fp, 0)}</div>
-                : tp || done ? <div className={`text-sm font-semibold ${tp && tp.fpts > 0 ? 'text-emerald-300' : ''}`}>{fmtPts(tp?.fpts ?? 0, 1)}{done && <span className="ml-1 text-[10px] font-normal text-mute">final</span>}</div>
+                : tp != null || done ? <div className={`text-sm font-semibold ${tp != null && tp > 0 ? 'text-emerald-300' : ''}`}>{fmtPts(tp ?? 0, 1)}{done && <span className="ml-1 text-[10px] font-normal text-mute">final</span>}</div>
                 : live ? <div className="text-xs font-semibold text-goal">● LIVE</div>
                 : playing ? <div className="text-right"><div className="num text-sm font-bold text-emerald-200">{fmt1(kit.expPts(x.p))}</div><div className="text-[9px] font-semibold uppercase tracking-wider text-mute">exp · {fmtTime(g!.start_utc)}</div></div>
                 : <div className="inline-block whitespace-nowrap rounded-md bg-white/[.06] px-1.5 py-0.5 text-[11px] text-mute">No game</div>}
@@ -239,7 +366,7 @@ export default function MyTeam() {
     );
   }
   return (
-    <div className="space-y-4">
+    <div className={`space-y-4 ${trial ? 'pb-36' : ''}`}>
       <PlayerSheet id={info} onClose={() => setInfo(null)} />
       <div className="card-hero flex flex-wrap items-center gap-3 p-4" style={{ '--tc': t.color } as React.CSSProperties}>
         <div className="pointer-events-none absolute -right-4 -top-6 select-none text-[120px] leading-none opacity-[.08]">{t.emoji}</div>
@@ -261,7 +388,7 @@ export default function MyTeam() {
             <div className="min-w-0 flex-1">
               <div className="text-[10px] font-black uppercase tracking-[.2em] text-gold">Tonight</div>
               <div className="h-display text-[clamp(17px,5.2vw,26px)] uppercase leading-tight text-white"><span className="sm:hidden">{weekday(kit.today)}, {monthDay(kit.today)}</span><span className="hidden sm:inline">{longDay(kit.today)}</span></div>
-              <div className="text-xs text-white/70">The live lineup · {kit.nightSize(kit.today)} NHL {kit.nightSize(kit.today) === 1 ? 'game' : 'games'}{kit.light(kit.today) ? ' · a light night' : ''}</div>
+              <div className="text-xs text-white/70">{trial ? 'What if: trying moves, nothing saved yet' : 'The live lineup'} · {kit.nightSize(kit.today)} NHL {kit.nightSize(kit.today) === 1 ? 'game' : 'games'}{kit.light(kit.today) ? ' · a light night' : ''}</div>
             </div>
             <div className="shrink-0 text-right">
               <div className="num font-display text-4xl font-extrabold leading-none text-white">{anyStarted ? fmtPts(todayTotal) : fmt1(expTonight)}</div>
@@ -271,7 +398,7 @@ export default function MyTeam() {
           {/* the starting slots, lit for each starter who plays tonight */}
           <div className="relative mt-3 flex flex-wrap items-center justify-between gap-2 text-xs">
             <span className="text-white/80"><b className={`num ${playingStarters < starterSlots && benchPlaying.length ? 'text-amber-300' : 'text-emerald-300'}`}>{playingStarters}</b> of {starterSlots} starters play{gameDayStarters === 0 ? ' · a quiet night for your roster' : ''}</span>
-            {nightRank && <span className="chip border-gold/40 bg-gold/10 text-gold">🏆 {ordinal(nightRank.rank)} of {nightRank.of} tonight</span>}
+            {nightRank && <button type="button" onClick={() => setView('league')} className="chip border-gold/40 bg-gold/10 text-gold">🏆 {ordinal(nightRank.rank)} of {nightRank.of} tonight</button>}
           </div>
           <div className="relative mt-1.5 flex gap-1">
             {rows.map((r, i) => {
@@ -290,7 +417,7 @@ export default function MyTeam() {
                   <button key={x.p.id} type="button" onClick={() => setInfo(x.p.id)} className="flex shrink-0 items-center gap-1.5 rounded-xl bg-black/25 px-2 py-1.5 text-left ring-1 ring-white/10 hover:ring-gold/40">
                     <SlotPill slot={x.r.slot} size="sm" />
                     <span className="min-w-0">
-                      <span className="block whitespace-nowrap text-xs font-bold text-white">{x.p.last_name ?? x.p.name}{tp ? <span className="num ml-1 text-emerald-300">{fmtPts(tp.fpts, 1)}</span> : null}</span>
+                      <span className="block whitespace-nowrap text-xs font-bold text-white">{x.p.last_name ?? x.p.name}{tp != null ? <span className="num ml-1 text-emerald-300">{fmtPts(tp, 1)}</span> : null}</span>
                       <span className="block"><GameLine p={x.p} g={g} /></span>
                     </span>
                   </button>
@@ -298,19 +425,24 @@ export default function MyTeam() {
               })}
             </div>
           )}
-          <div className="relative mt-3">
-          {(benchedWithGames.length > 0 || emptyStarters > 0 || doubtful.length > 0) && (
-            <div className="flex flex-wrap gap-1.5 text-[11px]">
-              {benchedWithGames.length > 0 && <button className="chip bg-amber-500/15 text-amber-200" onClick={() => document.getElementById('bench-playing')?.scrollIntoView({ behavior: 'smooth', block: 'start' })}>⚠️ {benchedWithGames.length} on the bench with a game tonight</button>}
-              {emptyStarters > 0 && <span className="chip bg-amber-500/15 text-amber-200">⚠️ {emptyStarters} empty starting slot{emptyStarters > 1 ? 's' : ''}</span>}
-              {doubtful.map(({ p, s }) => <button key={p.id} className="chip bg-amber-500/15 text-amber-200" onClick={() => setInfo(p.id)}>⚠️ {p.last_name ?? p.name}: {{ backup: 'backup goalie', out: 'out', scratched: 'scratched', gtd: 'game-time call' }[s.status as 'backup']}</button>)}
+          {warnings.length > 0 && (
+            <div className="relative mt-3 flex items-start gap-2.5 rounded-2xl border border-amber-400/30 bg-amber-400/[.07] p-3">
+              <AlertTriangle className="mt-0.5 h-5 w-5 shrink-0 text-amber-300" />
+              <div className="min-w-0 flex-1 space-y-1 text-[13px] leading-snug text-amber-100">
+                {warnings.map((w) => w.onClick
+                  ? <button key={w.key} type="button" onClick={w.onClick} className="block text-left underline decoration-amber-300/40 underline-offset-2 hover:decoration-amber-300">{w.text}</button>
+                  : <span key={w.key} className="block">{w.text}</span>)}
+              </div>
+              {!trial && <button type="button" onClick={() => setOpt(true)} className="shrink-0 rounded-full bg-amber-300 px-3 py-1 text-xs font-black text-[#0b1220]">Fix</button>}
             </div>
           )}
-          </div>
           <div className="relative mt-3 grid grid-cols-3 gap-2">
-            <button className="btn-gold col-span-3" disabled={busy || opt.busy} onClick={() => opt.apply(opt.plan('day'), 'today')}>✨ Best lineup tonight</button>
+            {!trial && <>
+              <button className="btn-gold col-span-2 whitespace-nowrap px-2" disabled={working} onClick={() => setOpt(true)}>✨ Best lineup tonight</button>
+              <button className="btn-ghost inline-flex items-center justify-center gap-1.5 whitespace-nowrap px-2" disabled={working} title="Try moves without saving them" onClick={() => { setTrial(new Map(saved)); setSel(null); }}><FlaskConical className="h-4 w-4 shrink-0" /> What if</button>
+            </>}
             <button className="btn-ghost px-2 text-xs" onClick={() => document.getElementById('sit-start')?.scrollIntoView({ behavior: 'smooth', block: 'start' })}>⚖️ Sit or start{sitStart.swaps.length ? ` (${sitStart.swaps.length})` : ''}</button>
-            <button className="btn-ghost px-2 text-xs" onClick={() => setView('plan')}>📅 Daily lineups</button>
+            <button className="btn-ghost px-2 text-xs" onClick={() => { setPlanDay(undefined); setView('plan'); }}>📅 Daily lineups</button>
             <button className="btn-ghost px-2 text-xs" onClick={() => setTools(true)}>⚙️ Tools</button>
           </div>
           <div className="relative mt-2 text-xs text-mute">
@@ -326,44 +458,61 @@ export default function MyTeam() {
           <span className="text-mute">›</span>
         </button>
       )}
-      {mine && <LineupTools open={tools} onClose={() => setTools(false)} roster={roster} />}
+      {mine && <LineupTools open={tools} onClose={() => setTools(false)} roster={saved0} />}
+      {mine && inSeason && <OptimizeSheet kit={kit} teamId={t.id} day={kit.today} open={opt} onClose={() => setOpt(false)} />}
+      {/* What if: the trial's moves and what they're worth, then save them all (with an undo) or throw them away */}
+      {mine && trial && cur === 'lineup' && (
+        <div className="fixed inset-x-0 bottom-[84px] z-40 px-4 md:bottom-6"><div className="mx-auto max-w-md rounded-2xl bg-[#1c1433]/95 p-3 shadow-[0_12px_32px_rgba(0,0,0,.55)] ring-1 ring-violet-300/40 backdrop-blur">
+          <div className="flex items-center gap-2 text-sm text-violet-100">
+            <FlaskConical className="h-4 w-4 shrink-0" />
+            <span className="min-w-0 flex-1">{trialMoves.length ? <>Trying {trialMoves.length} {trialMoves.length === 1 ? 'move' : 'moves'}: <b className={trialGain >= 0 ? 'text-emerald-300' : 'text-red-300'}>{trialGain >= 0 ? '+' : ''}{fmt1(trialGain)}</b> expected tonight</> : 'What if: move anyone, nothing saves until you say.'}</span>
+          </div>
+          <div className="mt-2 flex gap-2">
+            <button type="button" className="btn-gold flex-1" disabled={working || !trialMoves.length} onClick={async () => { if (await save(kit.today, trial, saved, `${trialMoves.length} ${trialMoves.length === 1 ? 'move' : 'moves'} saved`)) { setTrial(null); setSel(null); } }}>Save{trialMoves.length ? ` ${trialMoves.length}` : ''}</button>
+            <button type="button" className="btn-ghost" onClick={() => { setTrial(null); setSel(null); }}>Discard</button>
+          </div>
+        </div></div>
+      )}
       {league?.phase === 'keepers' && mine && (
         <Link to="/draft?t=keepers" className="card block bg-amber-500/10 p-3 text-sm text-amber-100">🔒 It’s keeper season: this is your 2025-26 roster. Pick who you keep →</Link>
       )}
 
-      {league?.phase !== 'keepers' && (
-        <Link to="/lineup-new" className="flex items-center gap-2 rounded-2xl border border-gold/30 bg-gold/[.07] px-3 py-2 text-xs text-slate-200">
-          <span className="text-base">✨</span><span className="min-w-0 flex-1"><b className="text-white">Try Lineup New:</b> two-tap moves, the week grid, compare with any team, insights.</span><span className="text-gold">→</span>
-        </Link>
-      )}
-
-      <div className="flex flex-wrap items-center gap-1">
-        {!mine && <button className={`tab ${view === 'scout' ? 'tab-on' : 'bg-white/[.05]'}`} onClick={() => setView('scout')}>🔍 {me?.role === 'spectator' ? 'Scout' : 'Scout & trade'}</button>}
-        <button className={`tab ${view === 'lineup' ? 'tab-on' : 'bg-white/[.05]'}`} onClick={() => setView('lineup')}>🏒 Lineup</button>
-        {league?.phase !== 'keepers' && <button className={`tab ${view === 'plan' ? 'tab-on' : 'bg-white/[.05]'}`} onClick={() => setView('plan')}>📅 Daily lineups</button>}
-        <button className={`tab ${view === 'stats' ? 'tab-on' : 'bg-white/[.05]'}`} onClick={() => setView('stats')}>📊 Stats</button>
-        {view === 'lineup' && (
-          <div className="scroll-x ml-auto flex items-center gap-1">
-            <span className="text-[10px] uppercase tracking-wider text-mute">Lines</span>
-            {TIMEFRAMES.filter((x) => x.k !== 'proj' && x.k !== 'ros').map((x) => (
-              <button key={x.k} disabled={x.live && !liveOk} title={x.live && !liveOk ? 'Once the season starts' : x.label} onClick={() => setTf(x.k)}
-                className={`shrink-0 rounded-full px-2 py-0.5 text-[11px] font-semibold disabled:opacity-35 ${tfOk === x.k ? 'bg-sky-500 text-ice' : 'bg-white/[.05] text-mute'}`}>{x.short}</button>
-            ))}
-          </div>
-        )}
+      {/* the views, in a row that scrolls sideways on a phone */}
+      <div ref={tabRow} className="scroll-x -mx-1 flex items-center gap-1 px-1 pb-0.5">
+        {tabs.map((x) => (
+          <button key={x.k} type="button" data-on={cur === x.k ? '1' : undefined} className={`tab whitespace-nowrap ${cur === x.k ? 'tab-on' : 'bg-white/[.05]'}`}
+            onClick={() => { if (x.k === 'plan') setPlanDay(undefined); setView(x.k); }}>{x.label}</button>
+        ))}
       </div>
-      {view === 'stats' ? <TeamStats teamId={t.id} /> : view === 'plan' && league?.phase !== 'keepers' ? <LineupPlanner roster={roster} teamId={t.id} /> : !mine && view === 'scout' ? <TeamScout teamId={t.id} /> : <>
+      {cur === 'lineup' && (
+        <div className="scroll-x -mt-2 flex items-center gap-1">
+          <span className="mr-0.5 shrink-0 text-[10px] uppercase tracking-wider text-mute">Stat lines</span>
+          {TIMEFRAMES.filter((x) => x.k !== 'proj' && x.k !== 'ros').map((x) => (
+            <button key={x.k} disabled={x.live && !liveOk} title={x.live && !liveOk ? 'Once the season starts' : x.label} onClick={() => setTf(x.k)}
+              className={`shrink-0 rounded-full px-2 py-0.5 text-[11px] font-semibold disabled:opacity-35 ${tfOk === x.k ? 'bg-sky-500 text-ice' : 'bg-white/[.05] text-mute'}`}>{x.short}</button>
+          ))}
+        </div>
+      )}
+      {cur === 'stats' ? <TeamStats teamId={t.id} />
+        : cur === 'plan' ? <LineupPlanner roster={saved0} teamId={t.id} initialDay={planDay} />
+        : cur === 'scout' ? <TeamScout teamId={t.id} />
+        : cur === 'week' ? <WeekView kit={kit} teamId={t.id} from={kit.today} readOnly={!mine} onDay={openDay} onInfo={setInfo} />
+        : cur === 'league' ? <LeagueView kit={kit} day={kit.today} onView={(tid) => goTeam(tid, 'lineup')}
+            onCompare={(tid) => { setOther(tid); goTeam(me && me.role !== 'spectator' ? me.id : t.id, 'compare'); }} />
+        : cur === 'compare' ? <CompareView kit={kit} teamId={t.id} other={other} setOther={setOther} day={kit.today} onInfo={setInfo} />
+        : cur === 'insights' ? <InsightsView kit={kit} teamId={t.id} onDay={openDay} onInfo={setInfo} />
+        : <>
       <div className="grid gap-4 lg:grid-cols-2">
         {(!offseason || anyStarter) && (
           <Section title="Starters" className="min-w-0" right={!offseason ? <span className="text-xs text-mute"><span className="mr-1 inline-block h-2 w-2 rounded-full bg-emerald-400" />{playingStarters} of {starterSlots} play tonight</span> : undefined}>
-            {mine && !offseason && <p className="mb-1.5 px-1 text-[11px] text-mute">Tap a player, then tap the slot he should go to. Green bar: his club plays tonight. Grey: no game, he sits idle.</p>}
+            {mine && !offseason && <p className="mb-1.5 px-1 text-[11px] text-mute">{trial ? 'What if: tap a player, then the slot he should go to. Nothing saves until you tap Save.' : 'Tap a player, then tap the slot he should go to. Green bar: his club plays tonight. Grey: no game, he sits idle.'}</p>}
             <div className="card divide-y divide-white/[.06] overflow-hidden">{rows.map((r, i) => <Fragment key={i}>{Row({ slot: r.slot, x: r.x })}</Fragment>)}</div>
           </Section>
         )}
         <div className="min-w-0 space-y-4">
           {!offseason && roster.length > 1 && (
             <div id="sit-start" className="scroll-mt-20">
-              <SitStart kit={kit} roster={roster} swaps={sitStart.swaps} exp={sitStart.exp} weekGames={weekGames} mine={mine} busy={busy} onSwap={doSwap} onInfo={setInfo} />
+              <SitStart kit={kit} roster={roster} swaps={sitStart.swaps} exp={sitStart.exp} weekGames={weekGames} mine={mine} busy={working} onSwap={doSwap} onInfo={setInfo} />
             </div>
           )}
           {offseason && !anyStarter ? (
@@ -394,7 +543,7 @@ export default function MyTeam() {
           <Section title={`IR (${ir.length}/${cap.IR ?? 2})`}>
             <div className="card divide-y divide-white/[.06] overflow-hidden">
               {ir.map((x) => <Fragment key={x.p.id}>{Row({ slot: 'IR', x })}</Fragment>)}
-              {selected && selected.r.slot !== 'IR' && ir.length < (cap.IR ?? 2) && Row({ slot: 'IR' })}
+              {selected && selected.r.slot !== 'IR' && !trial && ir.length < (cap.IR ?? 2) && Row({ slot: 'IR' })}
               {ir.length === 0 && !selected && <div className="p-3 text-xs text-mute">Injured players only, not suspended ones.</div>}
             </div>
             {mine && !offseason && (() => {
