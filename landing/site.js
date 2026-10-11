@@ -1,6 +1,7 @@
-// Super Pools landing pages: the reveal on scroll, the live board and the try-it question (both fictional, drawn in
-// the page), the premiere countdown, the waitlist, consented GA4 and first-touch UTM. Every piece checks its element
-// exists, so each page uses what it has.
+// Super Pools landing pages: the reveal on scroll, the live board with its goal horn, the game-night demos (the swings,
+// the draft clock) and the try-it question (all fictional, drawn in the page), the events open right now (real, from the
+// app), the premiere countdown, the waitlist, consented GA4 and first-touch UTM. Every piece checks its element exists,
+// so each page uses what it has.
 document.documentElement.classList.add('js');
 var still = window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches;
 
@@ -101,12 +102,34 @@ document.querySelectorAll('[data-pick]').forEach(function (a) {
 (function () {
   var board = document.getElementById('board'); if (!board) return;
   var rows = Array.prototype.slice.call(board.querySelectorAll('.row')), ev = document.getElementById('board-ev');
+  // [team, points, what happened, a goal sounds the horn]
   var plays = [
-    ['Top Shelf', 3.0, 'McDavid scores on the power play'], ['Hat Trick Club', 2.0, 'Makar assist, his second tonight'],
+    ['Top Shelf', 3.0, 'McDavid scores on the power play', 'McDavid, on the power play'], ['Hat Trick Club', 2.0, 'Makar assist, his second tonight'],
     ['Zamboni Drivers', 4.6, 'Shesterkin stops 38 for the win'], ['Five Hole Heroes', 1.5, 'Pastrnak: 6 shots, a goal disallowed'],
-    ['Hat Trick Club', 3.0, 'MacKinnon goal, 1:12 into the third'], ['Top Shelf', 1.0, 'Hughes power-play assist'],
-    ['Five Hole Heroes', 3.5, 'Kaprizov from the slot'], ['Zamboni Drivers', 2.0, 'Kucherov to Point, again']
+    ['Hat Trick Club', 3.0, 'MacKinnon goal, 1:12 into the third', 'MacKinnon, 1:12 into the third'], ['Top Shelf', 1.0, 'Hughes power-play assist'],
+    ['Five Hole Heroes', 3.5, 'Kaprizov from the slot', 'Kaprizov, from the slot'], ['Zamboni Drivers', 2.0, 'Kucherov to Point, again']
   ];
+  var colors = { 'Hat Trick Club': '#f7c548', 'Top Shelf': '#38bdf8', 'Zamboni Drivers': '#c4b5fd', 'Five Hole Heroes': '#34d399' };
+  var horn = document.getElementById('horn'), hornTimer;
+  function sound(p) {
+    if (!horn) return;
+    var ring = horn.querySelector('.ring');
+    ring.style.background = colors[p[0]]; ring.textContent = p[0].charAt(0);
+    document.getElementById('horn-t').textContent = p[3]; document.getElementById('horn-p').textContent = '+' + p[1].toFixed(1);
+    horn.querySelector('small').textContent = 'Goal · ' + p[0];
+    horn.classList.add('on'); clearTimeout(hornTimer); hornTimer = setTimeout(function () { horn.classList.remove('on'); }, 2300);
+  }
+  // the room reacts: a few faces rise off the row that just moved
+  function react(r, big) {
+    var faces = big ? ['🔥', '😱', '🔥', '👏'] : ['👏', '🔥'];
+    faces.forEach(function (f, k) {
+      setTimeout(function () {
+        var e = document.createElement('span'); e.className = 'rise'; e.textContent = f;
+        e.style.left = (r.offsetLeft + r.offsetWidth - 70 + k * 14) + 'px'; e.style.top = (r.offsetTop + r.offsetHeight / 2 - 12 + parseFloat((r.style.transform.match(/-?[\d.]+/) || [0])[0])) + 'px';
+        board.appendChild(e); setTimeout(function () { e.remove(); }, 2000);
+      }, k * 160);
+    });
+  }
   var i = 0, h = rows[0].offsetHeight + 7;
   function place() {
     var sorted = rows.slice().sort(function (a, b) { return parseFloat(b.dataset.p) - parseFloat(a.dataset.p); });
@@ -121,6 +144,8 @@ document.querySelectorAll('[data-pick]').forEach(function (a) {
     r.classList.add('flash'); setTimeout(function () { r.classList.remove('flash'); }, 1600);
     if (ev) ev.innerHTML = '<b>' + p[0] + '</b> +' + p[1].toFixed(1) + ' · ' + p[2];
     place();
+    if (p[3]) sound(p);
+    setTimeout(function () { react(r, !!p[3]); }, 520);
   }, 2600);
 })();
 
@@ -159,6 +184,114 @@ document.querySelectorAll('[data-pick]').forEach(function (a) {
       rc.innerHTML = '100 coins bought <b>' + Math.round(lo) + ' shares</b> of ' + (k === 'y' ? 'East' : 'West') + '. If it hits, you collect <b>' + Math.round(lo) + '</b>. You moved the price from ' + Math.round(was * 100) + '% to ' + Math.round(p * 100) + '%. ' + left + ' coins left.';
     });
   });
+})();
+
+// game night is a room: the night's swings, landing one after another (a fictional pool)
+(function () {
+  var feed = document.getElementById('feed'); if (!feed) return;
+  var swings = [
+    ['H', '#f7c548', 'Goal', 'MacKinnon', 'Hat Trick Club · vs DAL', 3.0, ['🔥 4', '😱 1']],
+    ['T', '#38bdf8', 'Assist', 'Quinn Hughes', 'Top Shelf · @ VAN', 2.0, ['👏 2']],
+    ['Z', '#c4b5fd', 'Win', 'Shesterkin', 'Zamboni Drivers · 38 saves', 4.6, ['🧊 3']],
+    ['F', '#34d399', '2 SOG · 1 HIT', 'Kaprizov', 'Five Hole Heroes · vs CHI', 1.0, []],
+    ['T', '#38bdf8', 'Goal', 'McDavid', 'Top Shelf · power play', 3.5, ['🔥 6', '😂 2']],
+    ['F', '#34d399', '−1 +/−', 'Brady Tkachuk', 'Five Hole Heroes · @ OTT', -0.5, ['😂 3']]
+  ];
+  var i = 0;
+  function add() {
+    var w = swings[i++ % swings.length], hot = w[2] === 'Goal' || w[2] === 'Win';
+    var el = document.createElement('div'); el.className = 'sw' + (hot ? ' hot' : '');
+    el.innerHTML = '<span class="tb" style="background:' + w[1] + '">' + w[0] + '</span><span class="w"><small>' + w[2] + '</small><b>' + w[3] + '</b> <i>' + w[4] + '</i></span>'
+      + '<span class="d' + (w[5] < 0 ? ' neg' : '') + '">' + (w[5] < 0 ? '' : '+') + w[5].toFixed(1) + '</span>'
+      + (w[6].length ? '<span class="rx">' + w[6].map(function (x) { return '<span>' + x + '</span>'; }).join('') + '</span>' : '');
+    feed.insertBefore(el, feed.children[1] || null);
+    while (feed.children.length > 5) feed.removeChild(feed.lastChild);
+  }
+  for (var k = 0; k < 4; k++) add();
+  if (!still) setInterval(add, 2600);
+})();
+
+// the draft clock: six seconds, then the pick is made on the second (a fictional draft)
+(function () {
+  var box = document.getElementById('clock'); if (!box) return;
+  var arc = document.getElementById('arc'), secs = document.getElementById('secs'), pin = document.getElementById('pickin'), pk = document.getElementById('pickp');
+  var picks = [['Top Shelf', 'Quinn Hughes, D', 11], ['Zamboni Drivers', 'Jack Eichel, C', 12], ['Hat Trick Club', 'Igor Shesterkin, G', 13], ['Five Hole Heroes', 'Kirill Kaprizov, LW', 14]];
+  var n = 0, t = 6, LEN = 452;
+  function show() {
+    secs.textContent = '0:0' + t; arc.style.strokeDashoffset = String(LEN * (1 - t / 6)); arc.classList.toggle('late', t <= 2);
+  }
+  function round() {
+    var p = picks[n++ % picks.length];
+    box.querySelector('.who2').innerHTML = '<span>Round 2 · Pick ' + p[2] + '</span><span>' + p[0] + '</span>';
+    pk.textContent = p[1]; pin.querySelector('small').textContent = p[0] + ' · pick ' + p[2] + ' · made by the clock';
+    pin.classList.remove('on'); t = 6; show();
+    var iv = setInterval(function () {
+      t--; show();
+      if (t === 0) { clearInterval(iv); pin.classList.add('on'); setTimeout(round, 2800); }
+    }, 1000);
+  }
+  if (still) { t = 0; show(); pin.classList.add('on'); return; }
+  round();
+})();
+
+// open right now: the events open on Super Pools this minute, read from the app's own list with the publishable key,
+// each with a countdown to its next lock. If the list can't be read, the board shows the seasons that are always on.
+(function () {
+  var box = document.getElementById('now'); if (!box) return;
+  var tag = document.getElementById('now-tag');
+  var APP = 'https://app.superpoolsai.com/#/new';
+  var KEY = 'sb_publishable_AMcluryqKenfAO6vFJ2f1A_50DhQz1b';
+  var KIND = { pickem: "Pick'em", survivor: 'Last one standing', score: 'Call the score', streak: 'Daily streak', props: 'Prop sheet', players: 'Box pool',
+    series: 'Series calls', rank: 'Rank the teams', bracket: 'Bracket', sweep: 'Sweepstake', squares: 'Squares' };
+  var LOOK = { nhl: ['NHL', '#f7c548'], nfl: ['NFL', '#38bdf8'], mlb: ['MLB', '#34d399'], nba: ['NBA', '#fb923c'], epl: ['EPL', '#c4b5fd'], mls: ['MLS', '#2dd4bf'], ncaa: ['NCAA', '#fb7185'], soccer: ['FC', '#c4b5fd'] };
+  var esc = function (x) { return String(x == null ? '' : x).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); };
+  function look(e) { return LOOK[e.competition] || LOOK[(e.competition || '').split('-')[0]] || LOOK[e.sport] || ['GO', '#94a3b8']; }
+  function left(ms) {
+    if (ms <= 0) return null;
+    var d = Math.floor(ms / 864e5), h = Math.floor(ms % 864e5 / 36e5), m = Math.floor(ms % 36e5 / 6e4), s = Math.floor(ms % 6e4 / 1e3);
+    return d ? d + 'd ' + h + 'h' : h ? h + 'h ' + String(m).padStart(2, '0') + 'm' : m + ':' + String(s).padStart(2, '0');
+  }
+  function matches(e) {
+    var now = Date.now(), out = [];
+    (e.grids || []).forEach(function (g) { if (!g.tbd && g.high && g.low) out.push(g.low + ' v ' + g.high + ' · ' + (g.short || g.label)); });
+    if (!out.length) (e.sheets || []).filter(function (x) { return Date.parse(x.kickoff) > now; }).slice(0, 3).forEach(function (x) { out.push(x.away + ' @ ' + x.home); });
+    return out.slice(0, 3);
+  }
+  function card(e) {
+    var lk = look(e), link = e.pack ? APP + '?pack=' + encodeURIComponent(e.pack) : APP + '?comp=' + encodeURIComponent(e.competition);
+    var kinds = (e.kinds || []).map(function (k) { return KIND[k] || k; });
+    var m = matches(e);
+    return '<a class="ev rv in" href="' + link + '" style="--c:' + lk[1] + '">'
+      + '<div class="top"><span class="badge">' + lk[0] + '</span><div><h3>' + esc(e.name) + '</h3><div class="stage">' + esc(e.stage || e.open_label || '') + '</div></div></div>'
+      + (e.next_lock ? '<div class="lock" data-at="' + Date.parse(e.next_lock) + '"><span>Next lock in</span><b>…</b></div>' : '<div class="lock"><b>Open</b></div>')
+      + (m.length ? '<div class="match">' + m.map(function (x) { return '<span>' + esc(x) + '</span>'; }).join('') + '</div>' : '')
+      + (kinds.length ? '<div class="kinds">' + kinds.map(function (k) { return '<span>' + esc(k) + '</span>'; }).join('') + (e.pack ? '<span>Questions</span>' : '') + '</div>' : '')
+      + '<span class="go">Start a pool on it</span></a>';
+  }
+  function tick() {
+    box.querySelectorAll('.lock[data-at]').forEach(function (l) {
+      var t = left(Number(l.getAttribute('data-at')) - Date.now());
+      if (t) l.querySelector('b').textContent = t;
+      else { l.classList.add('live'); l.innerHTML = '<span>Under way</span><b>Live</b>'; l.removeAttribute('data-at'); }
+    });
+  }
+  var always = [
+    { name: 'NHL 2026-27', competition: 'nhl-2026', stage: 'The regular season', kinds: ['players'] },
+    { name: 'NFL', competition: 'nfl', stage: 'Every week of the season', kinds: ['pickem', 'survivor', 'props', 'streak'] },
+    { name: 'Premier League', competition: 'epl', stage: 'Every matchweek', kinds: ['pickem', 'survivor', 'score', 'streak'] }
+  ];
+  function draw(list, real) {
+    list.sort(function (a, b) { return (Date.parse(a.next_lock) || 9e15) - (Date.parse(b.next_lock) || 9e15); });
+    box.innerHTML = list.map(card).join('') + '<a class="ev rv in" href="' + APP + '?type=questions" style="--c:#f7c548"><div class="top"><span class="badge">ASK</span><div><h3>Anything else</h3><div class="evstage">The game you\'re watching, the office, the family</div></div></div>'
+      + '<div class="lock"><b>Your call</b></div><div class="kinds"><span>Questions with odds</span><span>Your own rules</span></div><span class="go">Ask your own questions</span></a>';
+    if (tag) tag.textContent = real ? list.length + ' events open now' : 'Open all season';
+    tick();
+  }
+  fetch('https://quakdkzdafzlhgjvmypg.supabase.co/rest/v1/rpc/pool_event_list', { method: 'POST', headers: { apikey: KEY, 'Content-Type': 'application/json' }, body: '{}' })
+    .then(function (r) { if (!r.ok) throw new Error(r.status); return r.json(); })
+    .then(function (d) { if (!Array.isArray(d) || !d.length) throw new Error('empty'); draw(d, true); })
+    .catch(function () { draw(always, false); });
+  setInterval(tick, 1000);
 })();
 
 // the premiere countdown: Love Is Blind Season 11 drops Wednesday 14 October 2026 at 3 am ET (07:00 UTC)

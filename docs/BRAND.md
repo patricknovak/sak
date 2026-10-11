@@ -146,11 +146,18 @@ no generated art, no mascots.
 
 ## 7. Where it applies today
 
-- `landing/index.html`, the home, sports first (rebuilt again 4 October 2026): "The pool that runs itself" with a live
-  board and the league voice drawn in HTML (fictional pool), the commissioner's chores as features, a sample chat, a
-  question you can call with pretend coins (the real market maker, in the page), the SaK Superleague's own screens (names
-  changed), a pool for every season, where it's going (the road and the mission), the door to pools for any group, the
-  Supercoin, tiers, the waitlist and questions.
+- `landing/index.html`, the home, sports first (rebuilt 4 October 2026, brought up to the product 11 October 2026): the
+  tagline over a live board that is now a live room (who's watching, a goal horn, reactions rising off a row; fictional
+  pool, drawn in HTML); "Start a pool, free" into the app as the first button; open right now (the real events, read
+  from the app's own `pool_event_list()` with the publishable key, each with a countdown to its next lock and a link
+  straight into a pool on it, `#/new?comp=` or `?pack=`; the seasons that are always on if the list can't be read);
+  game night is a room (three working demos: the night's swings, the draft clock, an invite link unfurling in a group
+  chat); the commissioner's chores as features; a sample chat; every kind of pool (the fantasy league as the feature
+  tile, eleven sports kinds and questions, on seven competitions); a question you can call with pretend coins (the real
+  market maker, in the page); the SaK Superleague's own screens (names changed); a pool for every season; shipping
+  every week (what just landed, dated, and what is being built now, from `docs/DEVELOPMENT.md` §8.4); where it's going;
+  the door to pools for any group; the Supercoin; tiers; the two ways in (start a pool now, or bring your fantasy league
+  through the waitlist); and questions. Keep "Just shipped" and "Being built now" true when a step lands.
 - `landing/together.html`, pools for any group, in rose: the Love Is Blind pool for Season 11, women's sports pools, a
   pool for every season, private and never money, its own waitlist choice. Both pages share `landing/site.css` and
   `landing/site.js`; both waitlists write to `public.waitlist` through PostgREST with the publishable key (the choice in

@@ -7,10 +7,13 @@ deployed by `.github/workflows/cloudflare.yml` on every push to `main`. It answe
 Brand, copy and positioning rules live in `docs/BRAND.md`; the product it describes in `docs/POOLS.md` and
 `docs/SUPERPOOLS.md`.
 
-- `index.html`: the home, sports first (the fantasy door, questions with odds, the founding league, where it's going) with
-  a door to `together.html`, pools for any group (Love Is Blind, women's sports), in rose. Both use `site.css` and
-  `site.js` (the reveal on scroll, the live board and the try-it question drawn in the page, the premiere countdown, the
-  waitlist, consented GA4 when `GA4_ID` is set, and first-touch UTM/referrer capture for the waitlist). The waitlist posts
+- `index.html`: the home, sports first (the live room in the hero, the events open right now, game night as a room,
+  every kind of pool, questions with odds, the founding league, shipping every week, where it's going) with a door to
+  `together.html`, pools for any group (Love Is Blind, women's sports), in rose. Both use `site.css` and `site.js` (the
+  reveal on scroll, the live board with its goal horn, the game-night demos and the try-it question drawn in the page,
+  the open-right-now board read live from the app's `pool_event_list()` with the publishable key and a fallback when it
+  can't be read, the premiere countdown, the waitlist, consented GA4 when `GA4_ID` is set, and first-touch UTM/referrer
+  capture for the waitlist). The "Just shipped" and "Being built now" lists are written by hand: keep them true. The waitlist posts
   to `public.waitlist` through PostgREST with the publishable key; the "what do you want to play" choice goes in `league`
   and the optional free text in `note`. `sitemap.xml` lists the public pages (Cloudflare currently serves a managed
   `robots.txt`, so the sitemap is not referenced from the repo).

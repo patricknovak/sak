@@ -21,8 +21,8 @@ import { FantasyStart } from '../components/FantasyStart';
 // questions; the first one picked is the pool's main game), how it scores (a preset in plain words with a worked
 // example), then its name, colour and the host's account. It lands on the Host page with the invite link ready to send. Someone new goes through the `join` function (it makes the account
 // and the pool together, migration 153, with limits per address and per day); someone signed in who is already in a
-// pool starts it with pool_start, as on My pools. A link can choose the pack (#/new?pack=love-is-blind-s11), which the
-// landing page uses. Drawn in the pool's own colour as it is chosen.
+// pool starts it with pool_start, as on My pools. A link can choose the pack (#/new?pack=love-is-blind-s11) or the event
+// (#/new?comp=nfl), which the landing page uses. Drawn in the pool's own colour as it is chosen.
 
 const SWATCHES = ['#fb7185', '#38bdf8', '#f7c548', '#34d399', '#c4b5fd', '#f97316'];
 const rgb = (c: string) => `${parseInt(c.slice(1, 3), 16)} ${parseInt(c.slice(3, 5), 16)} ${parseInt(c.slice(5, 7), 16)}`;
@@ -85,7 +85,8 @@ export default function NewPool() {
     rpc<PoolEvent[]>('pool_event_list').then((e) => {
       setEvents(e ?? []);
       // a link that names an event's pack opens on the event
-      const ev = (e ?? []).find((x) => x.pack && x.pack === params.get('pack'));
+      // (or names the event itself, #/new?comp=nfl, as the landing page's open-right-now board does)
+      const ev = (e ?? []).find((x) => (x.pack && x.pack === params.get('pack')) || x.competition === params.get('comp'));
       if (ev) { setMode('sports'); setFollowing({ type: 'event', comp: ev.competition }); setKinds([ev.kinds[0], ...(ev.pack ? ['questions' as const] : [])]); }
       else if (params.get('pack')) { setMode('questions'); setFollowing({ type: 'pack', slug: params.get('pack')! }); }
     }, () => setEvents([]));
