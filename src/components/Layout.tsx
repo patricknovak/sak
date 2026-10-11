@@ -10,9 +10,12 @@ import { Sheet, TeamBadge } from './ui';
 import { centreName } from '../lib/poolGames';
 import {
   Bell, ClipboardList, Dices, Home, Landmark, Lightbulb, LogOut, Menu, MessageCircle, Radio, Repeat2, Search, Shield, Target,
-  Trophy, Tv, UserRound, Wrench, Wallet, type LucideIcon, BarChart3, Sparkles, Crown, Wand2, Layers, ChevronDown, Swords, MonitorPlay } from 'lucide-react';
+  Trophy, Tv, UserRound, Wrench, Wallet, type LucideIcon, BarChart3, Sparkles, Crown, Wand2, Layers, ChevronDown, Swords } from 'lucide-react';
 
-type Item = { to: string; label: string; icon: LucideIcon; commish?: boolean; short?: string };   // short: the phone dock's label, one line
+// short: the phone dock's label, one line; group: the heading it sits under in More and the sidebar
+type Item = { to: string; label: string; icon: LucideIcon; commish?: boolean; short?: string; group?: Group };
+type Group = 'Tonight' | 'Your team' | 'The league' | 'Play' | 'Sport centres' | 'You';
+const GROUPS: Group[] = ['Tonight', 'Play', 'Your team', 'Sport centres', 'The league', 'You'];
 
 export function useUnread() {
   const { me, league } = useLeague();
@@ -80,7 +83,7 @@ function alertMe() {
 }
 
 export function Layout({ children }: { children: ReactNode }) {
-  const { me, league, brand, draft, picks, notifications, refresh, sport, kind } = useLeague();
+  const { me, league, brand, draft, picks, notifications, refresh, sport, kind, gamesLive } = useLeague();
   const now = useNow(1000);
   const loc = useLocation();
   const nav = useNavigate();
@@ -173,39 +176,40 @@ export function Layout({ children }: { children: ReactNode }) {
     { to: '/nhl', label: sport.words.centre ?? 'NHL centre', icon: Tv },
   ];
   const moreItems: Item[] = (pool ? [
-    ...(runs.games && poolQuestions ? [{ to: '/questions', label: 'Questions', icon: Sparkles }] : []),
+    ...(runs.games && poolQuestions ? [{ to: '/questions', label: 'Questions', icon: Sparkles, group: 'Play' }] : []),
+    ...(runs.predictor ? [{ to: '/predictor', label: 'Call the score', icon: Target, group: 'Play' }] : []),
+    ...(runs.survivor ? [{ to: '/survivor', label: 'Last one standing', icon: Shield, group: 'Play' }] : []),
     // the sport centre for the pool's games (baseball's postseason first)
-    ...(runs.mlb ? [{ to: '/sport/mlb', label: 'MLB centre', icon: Tv }] : []),
-    ...(nflPost ? [{ to: '/sport/nfl', label: 'NFL playoffs', icon: Tv }] : []),
-    ...(ncaa ? [{ to: '/sport/ncaab', label: 'March Madness', icon: Tv }] : []),
-    ...(nbaPost ? [{ to: '/sport/nba', label: 'NBA playoffs', icon: Tv }] : []),
-    ...(nhl ? [{ to: '/nhl', label: 'NHL centre', icon: Tv }] : []),
-    ...(nhlPost ? [{ to: '/sport/nhl', label: 'Stanley Cup playoffs', icon: Tv }] : []),
-    ...(rounds ? [{ to: `/centre/${rounds.id}`, label: centreName(rounds.sport), icon: Tv }] : []),
-    ...(runs.predictor ? [{ to: '/predictor', label: 'Call the score', icon: Target }] : []),
-    ...(runs.survivor ? [{ to: '/survivor', label: 'Last one standing', icon: Shield }] : []),
-    { to: '/pools', label: 'My pools', icon: Layers },
-    { to: '/features', label: 'Ideas', icon: Lightbulb },
-    { to: '/profile', label: 'My Profile', icon: UserRound },
-    { to: '/host', label: 'Host', icon: Wand2, commish: true },
+    ...(runs.mlb ? [{ to: '/sport/mlb', label: 'MLB centre', icon: Tv, group: 'Sport centres' }] : []),
+    ...(nflPost ? [{ to: '/sport/nfl', label: 'NFL playoffs', icon: Tv, group: 'Sport centres' }] : []),
+    ...(ncaa ? [{ to: '/sport/ncaab', label: 'March Madness', icon: Tv, group: 'Sport centres' }] : []),
+    ...(nbaPost ? [{ to: '/sport/nba', label: 'NBA playoffs', icon: Tv, group: 'Sport centres' }] : []),
+    ...(nhl ? [{ to: '/nhl', label: 'NHL centre', icon: Tv, group: 'Sport centres' }] : []),
+    ...(nhlPost ? [{ to: '/sport/nhl', label: 'Stanley Cup playoffs', icon: Tv, group: 'Sport centres' }] : []),
+    ...(rounds ? [{ to: `/centre/${rounds.id}`, label: centreName(rounds.sport), icon: Tv, group: 'Sport centres' }] : []),
+    { to: '/host', label: 'Host', icon: Wand2, commish: true, group: 'You' },
+    { to: '/pools', label: 'My pools', icon: Layers, group: 'You' },
+    { to: '/profile', label: 'My Profile', icon: UserRound, group: 'You' },
+    { to: '/features', label: 'Ideas', icon: Lightbulb, group: 'You' },
   ] as Item[] : [
-    ...(draftish ? [] : [{ to: '/lineup-new', label: 'Lineup New', icon: Sparkles }]),
-    // where to watch tonight's games (hockey leagues: the NHL's broadcasts)
-    ...(sport.words.centre === 'NHL centre' ? [{ to: '/watch', label: 'Watch live', icon: MonitorPlay }] : []),
-    { to: '/standings', label: 'Standings', icon: Trophy },
-    ...(runs.questions ? [{ to: '/questions', label: 'Questions', icon: Sparkles }] : []),
-    { to: '/players', label: 'Players', icon: Search },
-    { to: '/pools', label: 'My pools', icon: Layers },
-    ...(draftish ? [] : [{ to: '/scoreboard', label: 'Live scoreboard', icon: Radio }, { to: '/performance', label: 'Performance', icon: BarChart3 }]),
-    draftish ? { to: '/team', label: 'My Team', icon: Shield } : { to: '/draft', label: 'Draft Centre', icon: ClipboardList },
-    { to: '/trades', label: 'Trades', icon: Repeat2 },
-    { to: '/bets', label: 'Side Bets', icon: Dices },
-    ...(hasFeature(league, 'money') || hasFeature(league, 'fund') ? [{ to: '/money', label: 'Money', icon: Wallet }] : []),
-    { to: '/league', label: 'League & History', icon: Landmark },
-    { to: '/features', label: 'League Features', icon: Lightbulb },
-    { to: '/profile', label: 'My Profile', icon: UserRound },
-    { to: '/commish', label: 'Commissioner', icon: Wrench, commish: true },
-  ]).filter((i) => (!i.commish || me?.is_commish) && !(spectator && i.to === '/team'));
+    // game night: the league's live scoreboard (every page's scores agree, so this is where the night is told)
+    ...(draftish ? [] : [{ to: '/scoreboard', label: 'Live scoreboard', icon: Radio, group: 'Tonight' }]),
+    ...(runs.questions ? [{ to: '/questions', label: 'Questions', icon: Sparkles, group: 'Tonight' }] : []),
+    draftish ? { to: '/team', label: 'My Team', icon: Shield, group: 'Your team' } : { to: '/draft', label: 'Draft Centre', icon: ClipboardList, group: 'Your team' },
+    { to: '/players', label: 'Players', icon: Search, group: 'Your team' },
+    { to: '/trades', label: 'Trades', icon: Repeat2, group: 'Your team' },
+    ...(draftish ? [] : [{ to: '/performance', label: 'Performance', icon: BarChart3, group: 'Your team' }]),
+    { to: '/standings', label: 'Standings', icon: Trophy, group: 'The league' },
+    { to: '/bets', label: 'Side Bets', icon: Dices, group: 'The league' },
+    ...(hasFeature(league, 'money') || hasFeature(league, 'fund') ? [{ to: '/money', label: 'Money', icon: Wallet, group: 'The league' }] : []),
+    { to: '/league', label: 'League & History', icon: Landmark, group: 'The league' },
+    { to: '/commish', label: 'Commissioner', icon: Wrench, commish: true, group: 'You' },
+    { to: '/pools', label: 'My pools', icon: Layers, group: 'You' },
+    { to: '/profile', label: 'My Profile', icon: UserRound, group: 'You' },
+    { to: '/features', label: 'League Features', icon: Lightbulb, group: 'You' },
+  ] as Item[]).filter((i) => (!i.commish || me?.is_commish) && !(spectator && i.to === '/team') && !items.some((x) => x.to === i.to));
+  // More and the sidebar, in their groups
+  const grouped = GROUPS.map((g) => ({ g, items: moreItems.filter((i) => (i.group ?? 'You') === g) })).filter((x) => x.items.length);
 
   // who's on the clock?
   const current = useMemo(() => picks.find((p) => p.overall === draft?.current_overall && draft?.season === p.season), [picks, draft]);
@@ -254,23 +258,30 @@ export function Layout({ children }: { children: ReactNode }) {
           <LeagueMark size={44} className="drop-shadow-[0_6px_16px_rgb(var(--gold-rgb)/.45)]" />
           <Wordmark size="sm" tagline={[brand.tagline, league?.season].filter(Boolean).join(" · ")} className="text-left" />
         </button>
-        <nav className="flex flex-col gap-0.5">
-          {[...items, ...moreItems].filter((i, n, a) => a.findIndex((x) => x.to === i.to) === n).map((i) => {
-            const a = isActive(i.to);
-            return (
-              <NavLink key={i.to} to={i.to} end={i.to === '/'} className={`relative flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-semibold transition ${a ? 'bg-gradient-to-r from-white/[.14] to-white/[.03] text-white shadow-[inset_0_1px_0_rgba(255,255,255,.08)]' : 'text-slate-400 hover:bg-white/[.05] hover:text-slate-100'}`}>
-                {a && <span className="accent-bar absolute bottom-2 left-0 top-2 w-1 rounded-r-full" />}
-                <i.icon size={18} strokeWidth={a ? 2.4 : 2} className={a ? 'text-gold' : ''} />{i.label}
-                {i.to === '/chat' && chatUnread && <span className="ml-auto grid h-5 min-w-5 place-items-center rounded-full bg-goal px-1.5 text-[11px] font-bold text-white shadow-[0_0_8px_rgba(239,42,79,.9)]">{chatCount > 99 ? '99+' : chatCount || ''}</span>}
-                {i.to === '/draft' && draft?.status === 'live' && <span className="ml-auto h-2 w-2 animate-pulse rounded-full bg-emerald-400" />}
-              </NavLink>
-            );
-          })}
+        <nav className="-mx-1 flex min-h-0 flex-1 flex-col gap-0.5 overflow-y-auto px-1">
+          {[{ g: null as Group | null, items }, ...grouped].map(({ g, items: list }) => (
+            <div key={g ?? 'main'} className={g ? 'mt-3' : ''}>
+              {g && <div className="mb-1 px-3 text-[10px] font-black uppercase tracking-[.18em] text-mute/80">{g}</div>}
+              {list.map((i) => {
+                const a = isActive(i.to);
+                return (
+                  <NavLink key={i.to} to={i.to} end={i.to === '/'} className={`relative flex items-center gap-3 rounded-xl px-3 py-2 text-sm font-semibold transition ${a ? 'bg-gradient-to-r from-white/[.14] to-white/[.03] text-white shadow-[inset_0_1px_0_rgba(255,255,255,.08)]' : 'text-slate-400 hover:bg-white/[.05] hover:text-slate-100'}`}>
+                    {a && <span className="accent-bar absolute bottom-2 left-0 top-2 w-1 rounded-r-full" />}
+                    <i.icon size={18} strokeWidth={a ? 2.4 : 2} className={a ? 'text-gold' : ''} />{i.label}
+                    {i.to === '/chat' && chatUnread && <span className="ml-auto grid h-5 min-w-5 place-items-center rounded-full bg-goal px-1.5 text-[11px] font-bold text-white shadow-[0_0_8px_rgba(239,42,79,.9)]">{chatCount > 99 ? '99+' : chatCount || ''}</span>}
+                    {i.to === '/draft' && draft?.status === 'live' && <span className="ml-auto h-2 w-2 animate-pulse rounded-full bg-emerald-400" />}
+                    {i.to === '/scoreboard' && gamesLive && <span className="ml-auto h-2 w-2 animate-pulse rounded-full bg-goal" />}
+                  </NavLink>
+                );
+              })}
+            </div>
+          ))}
         </nav>
-        <div className="mt-auto flex items-center gap-2.5 rounded-2xl border border-white/[.07] bg-white/[.03] p-2.5">
+        <div className="mt-3 flex shrink-0 items-center gap-2.5 rounded-2xl border border-white/[.07] bg-white/[.03] p-2.5">
           <TeamBadge team={me ?? undefined} size={36} />
           <div className="min-w-0 flex-1"><div className="truncate text-sm font-bold">{me?.name}</div><div className="text-xs text-mute">GM {me?.gm_name}</div></div>
           <button className="btn-ghost btn-sm relative" onClick={openNotif} aria-label="Notifications"><Bell size={16} />{unreadN > 0 && <span className="absolute -right-1 -top-1 grid h-4 min-w-4 place-items-center rounded-full bg-goal px-1 text-[10px] font-bold">{unreadN}</span>}</button>
+          <button className="btn-ghost btn-sm" onClick={() => supabase.auth.signOut()} aria-label="Sign out" title="Sign out"><LogOut size={16} /></button>
         </div>
       </aside>
 
@@ -283,8 +294,8 @@ export function Layout({ children }: { children: ReactNode }) {
               <WordmarkStack />
             </button>
             {/* every pool on this account, one tap away */}
-            <button onClick={() => nav('/pools')} aria-label="My pools" className="grid h-7 w-7 place-items-center rounded-full bg-white/[.06] text-white/70 ring-1 ring-white/10 hover:text-white">
-              <ChevronDown size={15} />
+            <button onClick={() => nav('/pools')} aria-label="My pools: switch league or pool" title="My pools" className="flex h-7 items-center gap-0.5 rounded-full bg-white/[.06] pl-1.5 pr-1 text-white/70 ring-1 ring-white/10 hover:text-white">
+              <Layers size={13} /><ChevronDown size={13} />
             </button>
             <div className="flex-1" />
             <button className="relative grid h-9 w-9 place-items-center rounded-full bg-white/[.05] ring-1 ring-white/10" onClick={openNotif} aria-label="Notifications">
@@ -331,11 +342,19 @@ export function Layout({ children }: { children: ReactNode }) {
       </nav>
 
       <Sheet open={more} onClose={() => setMore(false)} title="More">
-        <div className="stagger grid grid-cols-2 gap-2">
-          {moreItems.map((i) => (
-            <button key={i.to} onClick={() => { setMore(false); nav(i.to); }} className="card flex items-center gap-2.5 px-3 py-3 text-left text-sm font-semibold transition active:scale-[.97]">
-              <span className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-gradient-to-br from-white/15 to-white/[.03] ring-1 ring-white/10"><i.icon size={18} /></span>{i.label}
-            </button>
+        <div className="space-y-4">
+          {grouped.map(({ g, items: list }) => (
+            <div key={g}>
+              <div className="mb-1.5 px-1 text-[10px] font-black uppercase tracking-[.18em] text-mute">{g}</div>
+              <div className="stagger grid grid-cols-2 gap-2">
+                {list.map((i) => (
+                  <button key={i.to} onClick={() => { setMore(false); nav(i.to); }} className={`card relative flex items-center gap-2.5 px-3 py-3 text-left text-sm font-semibold transition active:scale-[.97] ${isActive(i.to) ? 'border-gold/40' : ''}`}>
+                    <span className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-gradient-to-br from-white/15 to-white/[.03] ring-1 ring-white/10"><i.icon size={18} /></span><span className="min-w-0 leading-tight">{i.label}</span>
+                    {i.to === '/scoreboard' && gamesLive && <span className="absolute right-2 top-2 h-2 w-2 animate-pulse rounded-full bg-goal" />}
+                  </button>
+                ))}
+              </div>
+            </div>
           ))}
         </div>
         <button className="btn-ghost mt-4 w-full" onClick={() => { setMore(false); supabase.auth.signOut(); }}><LogOut size={16} /> Sign out</button>

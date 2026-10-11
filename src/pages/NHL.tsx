@@ -28,7 +28,7 @@ type Row = { abbrev: string; name: string; common: string; logo: string | null; 
 export default function NHL() {
   const sport = useSport();
   const brand = useBrand();
-  const { me, players, rosters, team, teams, leagueDay, dayPoints, pointsDay, refresh } = useLeague();
+  const { me, players, rosters, team, teams, leagueDay, dayPoints, pointsDay, refresh, gamesLive } = useLeague();
   const sheet = useGameSheet();
   const { one } = useOverlay();
   const [params, setParams] = useSearchParams();
@@ -129,8 +129,9 @@ export default function NHL() {
     <div className="space-y-4">
       <PageHeader icon={<Radio size={22} className="text-goal" />} title={sport.words.centre ?? 'NHL centre'} sub="Every game live, where you can watch it and who in the league has skin in it, then the news, injuries, insiders, standings, leaders, teams and the schedule" />
       <div className="scroll-x flex gap-1">
+        {/* the league's own night first: the scoreboard, lit while a game is on */}
+        <Link to="/scoreboard" className={`tab flex shrink-0 items-center gap-1.5 ${gamesLive ? 'bg-goal/15 text-white ring-1 ring-goal/40' : 'bg-white/[.05]'}`}>{gamesLive ? <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-goal" /> : '📡'} {brand.short} tonight</Link>
         {([['top', '🔥 Top'], ['scores', '🏒 Scores'], ['news', '📰 News'], ['injuries', '🩹 Injuries'], ['x', '𝕏 Insiders'], ['standings', '🏆 Standings'], ['leaders', '📈 Leaders'], ['teams', '🛡️ Teams'], ['schedule', '📅 Schedule']] as const).map(([k, l]) => <button key={k} className={`tab shrink-0 ${tab === k ? 'tab-on' : 'bg-white/[.05]'}`} onClick={() => setTab(k)}>{l}</button>)}
-        <Link to="/scoreboard" className="tab ml-auto shrink-0 bg-white/[.05]">📡 {brand.short}</Link>
       </div>
       {err && <div className="rounded-xl border border-amber-400/20 bg-amber-500/10 p-3 text-sm text-amber-100">NHL data didn’t load: {err}</div>}
 
