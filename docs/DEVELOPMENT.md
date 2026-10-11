@@ -424,8 +424,8 @@ What would make it unmistakable next, in order of what a new group feels first:
 2. **Live, together.** The night a game is on, the pool should feel like a room: who's watching, the swing of each
    call as it happens, a thread per game, "your pick just scored". Durable Objects (E4) are the tool: one live room per
    league or pool, pushed to every phone over a WebSocket, instead of every phone polling.
-3. **The draft night that runs itself.** The draft clock on a Durable Object alarm, picks fanned out in under a second,
-   the 10-second database poll retired (E4).
+3. **The draft night that runs itself.** Done 11 October: the draft clock on a Durable Object alarm, an expired pick made
+   on the second, picks fanned out in under a second, the 4-second poll standing down while the room is live (E4).
 4. **A voice that's quick and cheap enough to say more.** Garry on an AI Gateway (E8): caching, a fallback model,
    per-league limits at the edge; small jobs (moments triage, memory notes) on Workers AI.
 5. **Money through the door, never in the game.** Tiers and billing (SUPERPOOLS item 6) so a league or a host pays for
@@ -443,7 +443,7 @@ Worker reads Postgres directly.
 | E1 | `/api/hub`: the sports data every centre reads, cached at Cloudflare's edge with serve-stale-while-refreshing (worker/hub.ts) | every open page calling the nhl-hub function with its own token, uncachable | **Built 11 October** (a cached read in 7 ms against 1.2 s) |
 | E2 | Link previews: `/j/<code>` and `/p/<web name>` pages with the pool's own tags, and a 1200×630 picture drawn per pool (satori and resvg in the Worker, cached a day at the edge; worker/preview.ts) | every pool's invite unfurling as "SAK Superleague" with a broken picture | **Built 11 October** |
 | E3 | Hardening found by the review: every scheduled task needs the admin key (migration 243); Garry's league kept per request; the scores task writes only games that moved; polls stop when the page is hidden or nothing is live | open endpoints, a cross-league race, needless realtime churn | **Built 11 October** (PR #252) |
-| E4 | A Durable Object per league or pool: the live room (presence, the night's swings, a thread per game), the draft clock on its alarm, fan-out over WebSockets; Postgres pushes to it after each write | Supabase Realtime's per-subscriber checks, the 4-second draft poll, the 10-second `process-pending` job | Next |
+| E4 | A Durable Object per league or pool: the live room (presence, the night's swings, a thread per game), the draft clock on its alarm, fan-out over WebSockets | Supabase Realtime's per-subscriber checks, the 4-second draft poll, the 10-second `process-pending` job, the scoreboard's minute poll per phone | **Game nights built 11 October** (`worker/live.ts`, `src/lib/liveRoom.tsx`): a room per league per league day, joined from the app while a game is on. It reads the night (slate, frozen lineups, starters' box lines) once every 20 s for everyone, with a member's own sign-in (so it sees only what a GM sees, and needs no key of its own), works out the swings, keeps them for the night, and pushes changes; who's watching, reactions on a swing, and a goal alert for your starters anywhere in the app. The scoreboard reads from it and falls back to its own minute poll off the product's addresses. **The draft clock built 11 October** (`worker/draft.ts`, `src/lib/draftRoom.ts`): a draft room per league whose alarm is set to the pick's deadline and asks for the autopick (`draft_tick`, with a member's sign-in) the moment it passes, about 0.1 s after the clock runs out against up to 10 s on `process-pending`; every pick goes to every phone at once (the picking phone tells the room, and the room looks every 2 s besides, once for the league), and the store's 4-second draft poll stands down while the room is live. Both rooms share `worker/room.ts`. Next: a thread per game, then pools' game nights |
 | E5 | One live snapshot per league at the edge (standings, tonight's points, the windows), refreshed by the scores run; first `player_windows` and `player_season` made materialized in Postgres | 6 to 10 reads a minute per open page on game night, aggregate views recomputed per page | **SQL half built 11 October** (migrations 244 and 245: `player_windows` and `player_season` read a per-profile cache, 135 ms to 8 ms, rebuilt by the scores run and a minute cron, live views whenever a stat has moved since; same numbers to the hundredth); the edge snapshot next |
 | E6 | Push through a Queue with retries and batching (VAPID in the Worker) | a fire-and-forget pg_net call per notification | Later |
 | E7 | Ingestion on Cron Triggers and Queues (per-game box-score jobs, retries, logs), writing through the API | pg_net calls with 55-second timeouts and no retry | Later |
@@ -457,7 +457,7 @@ Worker reads Postgres directly.
    knows; the winter question packs (The Traitors, The Bachelor) drafted before their premieres.
 2. **E5's edge half** (one snapshot per league at the edge; the SQL half is built) and the GitHub Pages copy retired
    (EXPANSION B5 step 3), once a SaK GM has checked push alerts and the installed app on `sak.superpoolsai.com`.
-3. **E4, the live room**, first for draft night and game nights in SaK, then every pool.
+3. **E4, the live room**: game nights and the draft clock are built (11 October); next a thread per game, then every pool's game nights.
 4. **Billing and tiers** (SUPERPOOLS item 6), with the Supercoin wallet after it.
 5. **Imports** (ESPN, Fantrax, CBS) and **the app-store listing**, the two doors MARKET.md names for fantasy leagues.
 

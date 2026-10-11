@@ -8,6 +8,7 @@ import { etCalendarToday, etToday, setLeagueDayHold } from './format';
 import { applyBrandColors, brandOf, SAK_BRAND, type Brand } from './brand';
 import { calledOff, isFinal, NHL, type SportConfig } from './sport';
 import { hostLeague, tabLeague, type HostLeague } from './host';
+import { useDraftRoom } from './draftRoom';
 
 interface Store {
   ready: boolean;
@@ -39,6 +40,7 @@ interface Store {
   gameStatus: (id: number, date?: string) => PlayerStatus | undefined;   // will he play? (today, or a given day)
   freshNews: Map<number, number>;   // players with headlines, trades, injury or lineup news in the last 48 hours
   online: Set<number>;
+  draftRoom: boolean;           // the draft room at the edge is live: the clock and the picks come from it
   refresh: (what?: Table[]) => Promise<void>;
   serverOffset: number;        // ms to add to Date.now() to match the database clock
   leagueDay: string;           // today for the league: last night until its final game ends
@@ -283,15 +285,27 @@ export function LeagueProvider({ children }: { children: ReactNode }) {
     return () => { cancelled = true; if (ch) supabase.removeChannel(ch); };
   }, [me?.id, presenceLeague]);
 
-  // safety net for flaky phone connections: poll the draft while it's live
   const draftLive = draft?.status === 'live' || draft?.status === 'paused' || (draft?.status === 'scheduled' && draft.order_set);
+  // the draft room at the edge (lib/draftRoom): it keeps the pick clock and pushes every pick the moment it's made.
+  // Its word is taken for the draft and the picks it carries, so the board moves the moment a pick is made.
+  const roomOverall = useRef<number | null>(null);
+  const draftRoom = useDraftRoom(!!session && !!me && draftLive, league?.league_id ?? null, (st, made) => {
+    setDraft(st);
+    if (made.length) {
+      const by = new Map(made.map((p) => [p.id, p]));
+      setPicks((all) => all.map((p) => (by.has(p.id) ? { ...p, ...by.get(p.id)! } : p)));
+    }
+    // the pick on the clock moved (a pick, or an undo): the whole board and the rosters read again behind it
+    if (st.current_overall !== roomOverall.current) { roomOverall.current = st.current_overall; refresh(['picks', 'rosters']); }
+  });
+  // safety net for flaky phone connections: poll the draft while it's live, unless the draft room is doing it for us
   useEffect(() => {
-    if (!session || !draftLive) return;
+    if (!session || !draftLive || draftRoom) return;
     const i = window.setInterval(() => {
       if (document.visibilityState === 'visible') refresh(['draft', 'picks', 'rosters', 'league']);
     }, 4000);
     return () => clearInterval(i);
-  }, [uid, draftLive, refresh]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [uid, draftLive, draftRoom, refresh]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const owner = useMemo(() => new Map(rosters.map((r) => [r.player_id, r])), [rosters]);
   const teamMap = useMemo(() => new Map(allTeams.map((t) => [t.id, t])), [allTeams]);
@@ -318,7 +332,7 @@ export function LeagueProvider({ children }: { children: ReactNode }) {
   const gameStatus = useCallback((id: number, date?: string) => statuses.get(`${id}|${date ?? etToday()}`), [statuses, leagueDay]); // eslint-disable-line react-hooks/exhaustive-deps
   const value: Store = {
     ready: authReady && hostReady && (!session || loaded), host, hostElsewhere: !!host && !!league && league.league_id !== host.id && tabLeague() !== league.league_id, session, me, league, brand, sport, kind, teams, spectators, can, team, players, rosters, owner, picks, draft,
-    standings, playoffs, cup, season, windows, games, gamesLive, gamesByTeam, notifications, gameStatus, freshNews, online, refresh, serverOffset, leagueDay,
+    standings, playoffs, cup, season, windows, games, gamesLive, gamesByTeam, notifications, gameStatus, freshNews, online, draftRoom, refresh, serverOffset, leagueDay,
   };
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
 }

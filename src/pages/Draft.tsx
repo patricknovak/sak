@@ -23,7 +23,7 @@ import { Tv } from 'lucide-react';
 type Tab = 'players' | 'board' | 'queue' | 'team' | 'chat' | 'call';
 
 export default function Draft() {
-  const { me, league, teams, spectators, team, players, rosters, owner, picks, draft, online, refresh } = useLeague();
+  const { me, league, teams, spectators, team, players, rosters, owner, picks, draft, online, draftRoom, refresh } = useLeague();
   const now = useNow(500);
   const { busy, run: runRaw } = useAction();
   const toast = useToast();
@@ -338,7 +338,11 @@ export default function Draft() {
               <div className="text-[11px] font-semibold uppercase tracking-wider text-white/60">Round {current.round} · Pick {current.overall} of {board.length}{current.team_id !== current.original_team && ` · via ${team(current.original_team)?.abbrev}`}</div>
               <div className="h-display truncate text-xl leading-tight">{myTurn ? <span className="text-white">⏰ Your pick!</span> : <TeamName team={team(current.team_id)} />}</div>
             </div>
-            <div className={`num font-display text-5xl font-extrabold leading-none ${clockColor} ${remaining < 10_000 && status !== 'paused' ? 'animate-pulse' : ''}`}>{status === 'paused' ? '⏸' : countdown(remaining)}</div>
+            <div className="shrink-0 text-right">
+              <div className={`num font-display text-5xl font-extrabold leading-none ${clockColor} ${remaining < 10_000 && status !== 'paused' ? 'animate-pulse' : ''}`}>{status === 'paused' ? '⏸' : countdown(remaining)}</div>
+              {/* the draft room keeps the clock: a pick that runs out is made on the second, and every pick reaches every phone at once */}
+              {draftRoom && <div className="mt-1 inline-flex items-center gap-1 text-[9px] font-bold uppercase tracking-[.14em] text-emerald-300" title="Live: every pick reaches every phone the moment it's made"><span className="h-1.5 w-1.5 animate-pulse rounded-full bg-emerald-400" />Live clock</div>}
+            </div>
           </div>
           <div className="scroll-x mt-1.5 flex items-center gap-1.5 text-[11px] text-mute">
             <span className="shrink-0">Up next:</span>

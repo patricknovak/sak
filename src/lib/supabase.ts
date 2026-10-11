@@ -43,8 +43,13 @@ export const supabase = createClient(SUPABASE_URL || 'http://localhost', import.
 export async function rpc<T = unknown>(fn: string, args?: Record<string, unknown>): Promise<T> {
   const { data, error } = await supabase.rpc(fn, args);
   if (error) throw new Error(error.message.replace(/^.*?ERROR:\s*/, ''));
+  for (const f of afterRpc) f(fn);
   return data as T;
 }
+// told the name of every call that went through, once it has: the draft room (lib/draftRoom) hears a pick this way and
+// passes it to every phone at once
+const afterRpc = new Set<(fn: string) => void>();
+export const onRpc = (f: (fn: string) => void) => { afterRpc.add(f); return () => { afterRpc.delete(f); }; };
 
 // fetch every row of a table/view (PostgREST caps responses at 1000 rows)
 export async function selectAll<T>(table: string, columns = '*', page = 1000, order: string[] = []): Promise<T[]> {
