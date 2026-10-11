@@ -40,7 +40,8 @@ export function PlayerTag({ p, className = '' }: { p: Player; className?: string
 // with the news tab first when it was the news dot, so a GM can weigh it without leaving the page
 // `wrapName`: only the name and its chips wrap (the trade lists, where an injury and the news dot share a phone's width
 // with the name), and the stat line stays on one
-export function PlayerRow({ p, right, onClick, sub, dim, onInfo: given, wrap, wrapName }: { p: Player; right?: ReactNode; onClick?: () => void; sub?: ReactNode; dim?: boolean; onInfo?: (tab?: 'news') => void; wrap?: boolean; wrapName?: boolean }) {
+// badges: small marks drawn right after the name (the lineup's forward line or pair, a light night)
+export function PlayerRow({ p, right, onClick, sub, dim, onInfo: given, wrap, wrapName, badges }: { p: Player; right?: ReactNode; onClick?: () => void; sub?: ReactNode; dim?: boolean; onInfo?: (tab?: 'news') => void; wrap?: boolean; wrapName?: boolean; badges?: ReactNode }) {
   const { gamesByTeam } = useLeague();
   const open = usePlayerInfo();
   const onInfo = given ?? (open ? (tab?: 'news') => open(p.id, tab) : undefined);
@@ -54,6 +55,7 @@ export function PlayerRow({ p, right, onClick, sub, dim, onInfo: given, wrap, wr
       <div className="min-w-0 flex-1">
         <div className={wrap || wrapName ? 'flex flex-wrap items-center gap-x-1.5 gap-y-0.5' : 'flex items-center gap-1.5'}>
           <span className={wrap || wrapName ? 'break-words font-semibold leading-tight' : 'truncate font-semibold'}>{p.name}</span>
+          {badges}
           {(() => {
             const b = injuryBadge(p.injury_status);
             if (!b) return null;

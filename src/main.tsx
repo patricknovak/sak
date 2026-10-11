@@ -41,7 +41,6 @@ const NewPool = lazy(() => import('./pages/NewPool'));
 const Survivor = lazy(() => import('./pages/Survivor'));
 const Predictor = lazy(() => import('./pages/Predictor'));
 const Picks = lazy(() => import('./pages/Picks'));
-const LineupNew = lazy(() => import('./pages/LineupNew'));
 const SportCentre = lazy(() => import('./pages/SportCentre'));
 const RoundCentre = lazy(() => import('./pages/RoundCentre'));
 const Calibration = lazy(() => import('./pages/Calibration'));
@@ -135,7 +134,8 @@ function App() {
           <Route path="/survivor" element={<Survivor />} />
           <Route path="/predictor" element={<Predictor />} />
           <Route path="/picks" element={<Picks />} />
-          <Route path="/lineup-new" element={<LineupNew />} />
+          {/* Lineup New became part of My Team (11 October 2026): old links land there */}
+          <Route path="/lineup-new" element={<Navigate to="/team" replace />} />
           {/* Watch live joined NHL centre's scores (11 October 2026) */}
           <Route path="/watch" element={<Navigate to="/nhl?t=scores" replace />} />
           <Route path="/sport/:sport" element={<SportCentre />} />

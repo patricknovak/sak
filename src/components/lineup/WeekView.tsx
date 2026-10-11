@@ -1,4 +1,4 @@
-// Lineup New, the week: every player down the side, the days across. A cell is his slot that day with the opponent:
+// My Team's Week tab: every player down the side, the days across. A cell is his slot that day with the opponent:
 // green when he starts with a game, amber when he sits with one, a dot with no game. Light nights are tinted. On your
 // own team a tap starts or benches him for that day (into an open slot, or in place of a starter with no game, or of
 // the weakest starter he can replace). The foot of each column counts the starters who play and what they should score.
@@ -8,7 +8,7 @@ import { useLeague } from '../../lib/store';
 import { START, addDays, hurt, isStart, monthDay, weekday, type Kit } from '../../lib/lineupKit';
 import { Headshot } from '../ui';
 import { fmt1, useSave } from './bits';
-import { OptimizeSheet } from './DayView';
+import { OptimizeSheet } from './OptimizeSheet';
 import type { Player } from '../../lib/types';
 
 export function WeekView({ kit, teamId, from, readOnly, onDay, onInfo }: { kit: Kit; teamId: number; from: string; readOnly: boolean; onDay: (d: string) => void; onInfo: (id: number) => void }) {

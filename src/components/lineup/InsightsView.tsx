@@ -1,4 +1,4 @@
-// Lineup New, the read: how well the team's lineups have done against the best they could have been, and what the next
+// My Team's Insights tab, the read: how well the team's lineups have done against the best they could have been, and what the next
 // two weeks hold (light nights, days with more players than places, who plays most, the goalies' back-to-backs, who is
 // hot and who is cold). Each one ends in a tap to the day it is about.
 import { useEffect, useState } from 'react';

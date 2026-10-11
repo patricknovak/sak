@@ -1,7 +1,7 @@
-// What Lineup New reads, for any team and any day (docs/DEVELOPMENT.md, the lineup research of 5 October 2026): the
+// What My Team's lineup tabs read (the Tonight card, Week, League, Compare, Insights), for any team and any day (docs/DEVELOPMENT.md, the lineup research of 5 October 2026): the
 // lineup a team has for a day (today's live one, else its own plan, else the last plan before it, else today's,
 // carried forward the way the planner and the morning apply do), who plays that night, how busy the night is, and
-// each player's expected points. Shared by the day view, the week grid, the comparison and the insights.
+// each player's expected points. Shared by the lineup, the week grid, the league board, the comparison and the insights.
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useLeague, useSport } from './store';
 import { calledOff, hasStarted, isLive } from './sport';
