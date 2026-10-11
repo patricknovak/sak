@@ -45,9 +45,15 @@ interface Store {
   serverOffset: number;        // ms to add to Date.now() to match the database clock
   leagueDay: string;           // today for the league: last night until its final game ends
   gamesLive: boolean;          // a game is on, or drops the puck within half an hour: what live polls key on
+  // tonight's fantasy points, player by player, for the league day: read once each time a box score moves (stats_gen by
+  // realtime, migration 248) and shared by every page, so every page shows the same number at the same moment
+  dayPoints: Map<number, DayPoint>;
+  pointsDay: string;           // the day dayPoints holds (the league day when it was read)
 }
 
-type Table = 'league' | 'teams' | 'rosters' | 'picks' | 'draft' | 'standings' | 'season' | 'windows' | 'games' | 'notifications' | 'players' | 'gameday';
+export interface DayPoint { fpts: number; stats: Record<string, number>; game_id: number; nhl_team: string | null; updated_at: string | null }
+
+type Table = 'league' | 'teams' | 'rosters' | 'picks' | 'draft' | 'standings' | 'season' | 'windows' | 'games' | 'notifications' | 'players' | 'gameday' | 'points';
 
 const Ctx = createContext<Store | null>(null);
 
@@ -83,6 +89,7 @@ export function LeagueProvider({ children }: { children: ReactNode }) {
   const [season, setSeason] = useState<Map<number, PlayerSeason>>(new Map());
   const [windows, setWindows] = useState<Map<number, Record<string, PlayerWindow>>>(new Map());
   const [games, setGames] = useState<Game[]>([]);
+  const [dayPoints, setDayPoints] = useState<{ day: string; pts: Map<number, DayPoint> }>({ day: '', pts: new Map() });
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [statuses, setStatuses] = useState<Map<string, PlayerStatus>>(new Map());
   const [freshNews, setFreshNews] = useState<Map<number, number>>(new Map());
@@ -108,6 +115,8 @@ export function LeagueProvider({ children }: { children: ReactNode }) {
   meRef.current = me;
   const gamesRef = useRef<Game[]>([]);
   gamesRef.current = games;
+  const kindRef = useRef(kind);
+  kindRef.current = kind;
 
   const loaders: Record<Table, () => Promise<void>> = useMemo(() => ({
     league: async () => {
@@ -161,6 +170,13 @@ export function LeagueProvider({ children }: { children: ReactNode }) {
         setLeagueDayHold(going ? today : null);
         setGames(data as Game[]);
       }
+    },
+    points: async () => {
+      const day = etToday();
+      // a prediction pool has no lineups: nothing on its pages reads fantasy points
+      if (kindRef.current !== 'fantasy') { setDayPoints({ day, pts: new Map() }); return; }
+      const rows = await selectAll<{ player_id: number; game_id: number; nhl_team: string | null; fpts: number; stats: Record<string, number>; updated_at: string | null }>('league_games', 'player_id,game_id,nhl_team,fpts,stats,updated_at', 1000, ['player_id', 'game_id'], (q) => q.eq('date', day));
+      setDayPoints({ day, pts: new Map(rows.map((r) => [r.player_id, { fpts: Number(r.fpts), stats: r.stats ?? {}, game_id: r.game_id, nhl_team: r.nhl_team, updated_at: r.updated_at }])) });
     },
     notifications: async () => {
       const { data } = await supabase.from('notifications').select('*').order('id', { ascending: false }).limit(50);
@@ -228,6 +244,13 @@ export function LeagueProvider({ children }: { children: ReactNode }) {
       const on = (payload: { new: Record<string, unknown> | null }) => {
         // draft state is latency-sensitive: apply it directly
         if (table === 'draft_state' && payload.new && 'status' in payload.new) { setDraft(payload.new as unknown as DraftState); return; }
+        // a game's score and clock (the clock job writes them every 20 seconds while a game is on, migration 247): the
+        // row is applied as it comes, so every page moves together without reading the slate again
+        if (table === 'games' && payload.new && 'id' in payload.new) {
+          const row = payload.new as unknown as Game;
+          const known = gamesRef.current.some((g) => g.id === row.id);
+          if (known) { setGames((all) => all.map((g) => (g.id === row.id ? { ...g, ...row } : g))); return; }
+        }
         map[table].forEach((t) => bump(t, table === 'games' ? 2000 : 250));
       };
       if (rtLeague != null && perLeague.has(table)) {
@@ -239,6 +262,8 @@ export function LeagueProvider({ children }: { children: ReactNode }) {
         ch.on('postgres_changes', { event: '*', schema: 'public', table }, on);
       }
     }
+    // the box scores moved (stats_gen, migration 248): tonight's points and the standings read once, for every page
+    ch.on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'stats_gen' }, () => { bump('points', 3000); bump('standings', 3000); });
     ch.subscribe();
     // live scoring: while a game is on (or about to drop the puck) standings refresh every minute and season stats
     // every 5; with nothing on, the numbers can't move, so every 5 and every 30. Game starts and finals arrive by
@@ -248,10 +273,11 @@ export function LeagueProvider({ children }: { children: ReactNode }) {
       if (document.visibilityState !== 'visible') return;
       tick++;
       const live = gamesRef.current.some((g) => !settled(g.state) && Date.parse(g.start_utc) - 30 * 60_000 <= Date.now());
-      if (live || tick % 5 === 0) refresh(['standings', 'games']);
+      // scores, clocks and points arrive by realtime as they move; this is the backstop for a dropped connection
+      if (tick % 5 === 0) refresh(live ? ['standings', 'games', 'points'] : ['standings', 'games']);
       if (live ? tick % 5 === 0 : tick % 30 === 0) refresh(['season', 'windows', 'gameday']);
     }, 60_000);
-    const onVis = () => { if (document.visibilityState === 'visible') refresh(['draft', 'picks', 'rosters', 'standings', 'notifications', 'gameday']); };
+    const onVis = () => { if (document.visibilityState === 'visible') refresh(['draft', 'picks', 'rosters', 'standings', 'notifications', 'gameday', 'games', 'points']); };
     document.addEventListener('visibilitychange', onVis);
     return () => {
       supabase.removeChannel(ch);
@@ -324,6 +350,8 @@ export function LeagueProvider({ children }: { children: ReactNode }) {
     const i = window.setInterval(check, 60_000);
     return () => window.clearInterval(i);
   }, [games]);
+  // the league day turned over (last night's final game ended, or the morning came): tonight's points start again
+  useEffect(() => { if (loaded && dayPoints.day && dayPoints.day !== leagueDay) refresh(['points']); }, [leagueDay, loaded]); // eslint-disable-line react-hooks/exhaustive-deps
   // the same test the minute tick uses; games arrive by realtime as they start and end, and refresh every 5 minutes
   const gamesLive = useMemo(() => games.some((g) => !settled(g.state) && Date.parse(g.start_utc) - 30 * 60_000 <= Date.now()), [games]); // eslint-disable-line react-hooks/exhaustive-deps
   const gamesByTeam = useCallback((nhl: string | null | undefined, date = etToday()) =>
@@ -333,6 +361,7 @@ export function LeagueProvider({ children }: { children: ReactNode }) {
   const value: Store = {
     ready: authReady && hostReady && (!session || loaded), host, hostElsewhere: !!host && !!league && league.league_id !== host.id && tabLeague() !== league.league_id, session, me, league, brand, sport, kind, teams, spectators, can, team, players, rosters, owner, picks, draft,
     standings, playoffs, cup, season, windows, games, gamesLive, gamesByTeam, notifications, gameStatus, freshNews, online, draftRoom, refresh, serverOffset, leagueDay,
+    dayPoints: dayPoints.pts, pointsDay: dayPoints.day,
   };
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
 }

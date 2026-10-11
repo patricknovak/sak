@@ -93,21 +93,30 @@ async function keepStats() {
   return Number(data ?? 0);
 }
 
-async function scores() {
+// The scores and clocks of last night's and tonight's games, written where they moved. On its own this is the clock
+// task: every 20 seconds while a game is on (migration 247), so every page shows the same score and clock within
+// seconds of the NHL, while the box scores keep their minute.
+async function clock() {
   const now = new Date();
   const days = [etDate(new Date(now.getTime() - 86400000)), etDate(now)];
   const games = (await Promise.all(days.map((d) => get(`/score/${d}`)))).flatMap((j) => j.games ?? []).filter((g: any) => g.gameType === 2 || g.gameType === 3); // regular season and playoffs (no preseason)
-  // write only the games whose line moved: every write fans out to each open browser through realtime, and the task
-  // runs every minute on game nights, so rewriting all of yesterday's and today's games had every client refetch them
+  // write only the games whose line moved: every write fans out to each open browser through realtime
+  let moved = 0;
   if (games.length) {
     const rows = games.map(gameRow);
     const have = new Map(((check(await db.from('games').select('id,date,start_utc,home,away,state,home_score,away_score,period,clock').in('id', rows.map((r) => r.id))) ?? []) as Record<string, unknown>[]).map((g) => [g.id as number, g]));
     const same = (r: ReturnType<typeof gameRow>, o: Record<string, unknown> | undefined) => !!o && o.date === r.date
       && new Date(String(o.start_utc)).getTime() === new Date(r.start_utc).getTime()
       && (['home', 'away', 'state', 'home_score', 'away_score', 'period', 'clock'] as const).every((k) => (o[k] ?? null) === (r[k] ?? null));
-    const moved = rows.filter((r) => !same(r, have.get(r.id)));
-    if (moved.length) check(await db.from('games').upsert(moved));
+    const changed = rows.filter((r) => !same(r, have.get(r.id)));
+    if (changed.length) check(await db.from('games').upsert(changed));
+    moved = changed.length;
   }
+  return { days, games: games.length, moved };
+}
+
+async function scores() {
+  const { days, games } = await clock();
   const snaps = check(await db.rpc('take_snapshots'));
   const { data: open } = await db.from('games').select('id,state').in('date', days).eq('final_synced', false);
   const todo = (open ?? []).filter((g) => STARTED.has(g.state)).map((g) => g.id);
@@ -116,7 +125,7 @@ async function scores() {
   const moved = lines ? check(await db.rpc('sync_teams_from_box')) : 0;
   // the players' season and windows, kept ready for every page (migration 244): rebuilt now the numbers have moved
   const kept = lines ? await keepStats() : 0;
-  return { games: games.length, snapshots: snaps, synced: todo.length, lines, moved, kept };
+  return { games, snapshots: snaps, synced: todo.length, lines, moved, kept };
 }
 
 // the NHL revises stats (assists, hits, blocks, goalie decisions) after review; re-pull recent finals
@@ -603,6 +612,7 @@ Deno.serve(async (req) => {
       : task === 'injuries' ? await injuries()
       : task === 'news' ? await news()
       : task === 'gameday' ? await gameday()
+      : task === 'clock' ? await clock()
       : task === 'daily' ? { lineups: await autoLineups(), h2h_calls: await h2hCalls() }
       : task === 'lineups-late' ? { lineups: await autoLineups() }
       : await scores();

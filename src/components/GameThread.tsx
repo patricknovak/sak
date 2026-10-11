@@ -43,50 +43,62 @@ export function useThreadCounts(gameIds: number[]) {
 
 type Line = { player_id: number; fpts: number };
 
-export function GameThread({ game, lines }: { game: Game; lines: Line[] | null }) {
+// the league's starters in this game, each with his GM and what he has tonight, the best night first
+export function LeagueInGame({ lines }: { lines: Line[] | null }) {
   const { owner, team, players, me } = useLeague();
-  const room = useLiveRoom();
-  // the league's players in this game, each with his GM and what he has tonight, the best night first
   const ours = useMemo(() => (lines ?? [])
     .map((l) => ({ ...l, r: owner.get(l.player_id), p: players.get(l.player_id) }))
     .filter((x) => x.r && x.r.slot !== 'BN' && x.r.slot !== 'IR')
     .sort((a, b) => b.fpts - a.fpts), [lines, owner, players]);
-  const swings = useMemo(() => room.swings.filter((s) => s.game === game.id && s.kind === 'p' && !s.early).slice(-4).reverse(), [room.swings, game.id]);
+  if (!ours.length) return null;
+  return (
+    <div>
+      <div className="mb-1.5 text-[10px] font-bold uppercase tracking-[.14em] text-mute">Your league in this game</div>
+      <div className="scroll-x flex gap-1.5 pb-0.5">
+        {ours.map((x) => {
+          const t = team(x.r!.team_id);
+          return (
+            <span key={x.player_id} className={`flex shrink-0 items-center gap-1.5 rounded-full border py-1 pl-1 pr-2.5 text-xs ${t?.id === me?.id ? 'border-sky-400/40 bg-sky-400/10' : 'border-white/10 bg-white/[.04]'}`}>
+              <TeamBadge team={t} size={20} />
+              <span className="font-semibold text-slate-100">{x.p?.last_name ?? x.p?.name ?? `#${x.player_id}`}</span>
+              <span className={`num font-bold ${x.fpts > 0 ? 'text-emerald-300' : x.fpts < 0 ? 'text-red-300' : 'text-mute'}`}>{fmtPts(x.fpts)}</span>
+            </span>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
 
+// the live room's swings in this game: every point a starter scored, newest first
+export function GameSwings({ gameId }: { gameId: number }) {
+  const { team, players } = useLeague();
+  const room = useLiveRoom();
+  const swings = useMemo(() => room.swings.filter((s) => s.game === gameId && s.kind === 'p' && !s.early).slice(-4).reverse(), [room.swings, gameId]);
+  if (!swings.length) return null;
+  return (
+    <div className="rounded-2xl border border-goal/25 bg-goal/[.05] px-3 py-2">
+      <div className="mb-1 flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-[.14em] text-goal"><span className="h-1.5 w-1.5 animate-pulse rounded-full bg-goal" />Swings in this game</div>
+      {swings.map((s) => {
+        const w = swingWords(s.what);
+        return (
+          <div key={s.id} className="flex items-center gap-2 py-0.5 text-xs">
+            <TeamBadge team={team(s.team)} size={18} />
+            <span className="min-w-0 flex-1 truncate"><span className="font-semibold text-slate-100">{players.get(s.player!)?.last_name ?? 'Player'}</span> <span className="text-mute">{w.head.toLowerCase()} · {fmtTime(s.at)}</span></span>
+            <span className={`num font-bold ${(s.d ?? 0) >= 0 ? 'text-emerald-300' : 'text-red-300'}`}>{(s.d ?? 0) >= 0 ? '+' : ''}{fmtPts(s.d)}</span>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+// the thread itself; above it (unless the sheet shows them on its Game tab) the league's players in the game and its swings
+export function GameThread({ game, lines, chatOnly }: { game: Pick<Game, 'id'>; lines: Line[] | null; chatOnly?: boolean }) {
   return (
     <div className="flex flex-col gap-3">
-      {ours.length > 0 && (
-        <div>
-          <div className="mb-1.5 text-[10px] font-bold uppercase tracking-[.14em] text-mute">Your league in this game</div>
-          <div className="scroll-x flex gap-1.5 pb-0.5">
-            {ours.map((x) => {
-              const t = team(x.r!.team_id);
-              return (
-                <span key={x.player_id} className={`flex shrink-0 items-center gap-1.5 rounded-full border py-1 pl-1 pr-2.5 text-xs ${t?.id === me?.id ? 'border-sky-400/40 bg-sky-400/10' : 'border-white/10 bg-white/[.04]'}`}>
-                  <TeamBadge team={t} size={20} />
-                  <span className="font-semibold text-slate-100">{x.p?.last_name ?? x.p?.name ?? `#${x.player_id}`}</span>
-                  <span className={`num font-bold ${x.fpts > 0 ? 'text-emerald-300' : x.fpts < 0 ? 'text-red-300' : 'text-mute'}`}>{fmtPts(x.fpts)}</span>
-                </span>
-              );
-            })}
-          </div>
-        </div>
-      )}
-      {swings.length > 0 && (
-        <div className="rounded-2xl border border-goal/25 bg-goal/[.05] px-3 py-2">
-          <div className="mb-1 flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-[.14em] text-goal"><span className="h-1.5 w-1.5 animate-pulse rounded-full bg-goal" />Swings in this game</div>
-          {swings.map((s) => {
-            const w = swingWords(s.what);
-            return (
-              <div key={s.id} className="flex items-center gap-2 py-0.5 text-xs">
-                <TeamBadge team={team(s.team)} size={18} />
-                <span className="min-w-0 flex-1 truncate"><span className="font-semibold text-slate-100">{players.get(s.player!)?.last_name ?? 'Player'}</span> <span className="text-mute">{w.head.toLowerCase()} · {fmtTime(s.at)}</span></span>
-                <span className={`num font-bold ${(s.d ?? 0) >= 0 ? 'text-emerald-300' : 'text-red-300'}`}>{(s.d ?? 0) >= 0 ? '+' : ''}{fmtPts(s.d)}</span>
-              </div>
-            );
-          })}
-        </div>
-      )}
+      {!chatOnly && <LeagueInGame lines={lines} />}
+      {!chatOnly && <GameSwings gameId={game.id} />}
       <div className="card flex h-[52dvh] min-h-[320px] flex-col overflow-hidden">
         <div className="border-b border-line px-3 py-2 text-sm font-semibold">💬 The league’s thread for this game</div>
         <ChatPanel channel={threadOf(game.id)} compact className="flex-1" />

@@ -7,6 +7,7 @@ import { configured } from './lib/supabase';
 import { Layout } from './components/Layout';
 import { PlayerInfoProvider } from './lib/playerInfo';
 import { LiveRoomProvider } from './lib/liveRoom';
+import { GameSheetProvider } from './components/GameSheet';
 import { Spinner, ToastHost } from './components/ui';
 import { ErrorBoundary, reloadForNewVersion } from './components/ErrorBoundary';
 import { ConsentBanner } from './components/ConsentBanner';
@@ -41,7 +42,6 @@ const Survivor = lazy(() => import('./pages/Survivor'));
 const Predictor = lazy(() => import('./pages/Predictor'));
 const Picks = lazy(() => import('./pages/Picks'));
 const LineupNew = lazy(() => import('./pages/LineupNew'));
-const WatchLive = lazy(() => import('./pages/WatchLive'));
 const SportCentre = lazy(() => import('./pages/SportCentre'));
 const RoundCentre = lazy(() => import('./pages/RoundCentre'));
 const Calibration = lazy(() => import('./pages/Calibration'));
@@ -123,6 +123,7 @@ function App() {
   return (
     <Layout>
       <PlayerInfoProvider>
+      <GameSheetProvider>
       <YahooReturnHandler />
       <ErrorBoundary key={pathname}>
       <Suspense fallback={<Loading />}>
@@ -135,7 +136,8 @@ function App() {
           <Route path="/predictor" element={<Predictor />} />
           <Route path="/picks" element={<Picks />} />
           <Route path="/lineup-new" element={<LineupNew />} />
-          <Route path="/watch" element={<WatchLive />} />
+          {/* Watch live joined NHL centre's scores (11 October 2026) */}
+          <Route path="/watch" element={<Navigate to="/nhl?t=scores" replace />} />
           <Route path="/sport/:sport" element={<SportCentre />} />
           <Route path="/centre/:competition" element={<RoundCentre />} />
           <Route path="/host" element={<PoolHost />} />
@@ -175,6 +177,7 @@ function App() {
         </Routes>
       </Suspense>
       </ErrorBoundary>
+      </GameSheetProvider>
       </PlayerInfoProvider>
     </Layout>
   );

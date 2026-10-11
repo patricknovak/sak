@@ -52,10 +52,12 @@ const afterRpc = new Set<(fn: string) => void>();
 export const onRpc = (f: (fn: string) => void) => { afterRpc.add(f); return () => { afterRpc.delete(f); }; };
 
 // fetch every row of a table/view (PostgREST caps responses at 1000 rows)
-export async function selectAll<T>(table: string, columns = '*', page = 1000, order: string[] = []): Promise<T[]> {
+type Select = ReturnType<ReturnType<typeof supabase.from>['select']>;
+export async function selectAll<T>(table: string, columns = '*', page = 1000, order: string[] = [], where?: (q: Select) => Select): Promise<T[]> {
   const out: T[] = [];
   for (let from = 0; ; from += page) {
     let q = supabase.from(table).select(columns);
+    if (where) q = where(q as unknown as Select) as unknown as typeof q;
     for (const c of order) q = q.order(c); // a stable order keeps pages from overlapping
     const { data, error } = await q.range(from, from + page - 1);
     if (error) throw error;

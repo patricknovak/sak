@@ -5,7 +5,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { useLeague, useNow, useSport } from '../lib/store';
-import { extraTime, isFinal, isLive, periodShort, type SportConfig } from '../lib/sport';
+import { extraTime, hasStarted, isFinal, isLive, periodShort, type SportConfig } from '../lib/sport';
 import { selectAll, supabase } from '../lib/supabase';
 import { fmtDate, fmtDateTime, fmtPts, fmtTime, NHL_COLORS, ordinal, readable, teamLogo } from '../lib/format';
 import { NhlLogo, PageHeader, Pos, Section, TeamBadge } from '../components/ui';
@@ -13,7 +13,7 @@ import { PlayerTag } from '../components/PlayerCard';
 import { usePlayerInfo } from '../lib/playerInfo';
 import type { Game } from '../lib/types';
 import { ChevronDown, ChevronLeft, ChevronRight, Radio } from 'lucide-react';
-import { BoxScore, scoringLine } from '../components/BoxScore';
+import { scoringLine, useGameSheet } from '../components/GameSheet';
 import { categoryOf, fmtCat } from '../lib/categories';
 import { useRoto } from '../components/RotoStandings';
 import { useLiveRoom } from '../lib/liveRoom';
@@ -79,7 +79,7 @@ const sinceWords = (ms: number) => {
 const addDays = (d: string, n: number) => new Date(Date.UTC(+d.slice(0, 4), +d.slice(5, 7) - 1, +d.slice(8, 10) + n)).toISOString().slice(0, 10);
 
 export default function Scoreboard() {
-  const { me, teams, players, rosters, games, league, standings, leagueDay } = useLeague();
+  const { me, teams, players, rosters, games, league, standings, leagueDay, dayPoints, pointsDay } = useLeague();
   const sport = useSport();
   const now = useNow(30_000);
   // ?day=YYYY-MM-DD opens a past night; without it the page follows the league day
@@ -108,9 +108,11 @@ export default function Scoreboard() {
       .sort((a, b) => a.start_utc.localeCompare(b.start_utc));
   }, [games, oldGames, stored, today, roomNight]);
   const [polledSnaps, setSnaps] = useState<Snap[]>([]);
-  const [polledPgs, setPgs] = useState<PG[]>([]);
+  const [pastPgs, setPastPgs] = useState<PG[]>([]);
   const snaps: Snap[] = roomNight?.snaps ?? polledSnaps;
-  const pgs: PG[] = roomNight?.pgs ?? polledPgs;
+  // tonight's points are the store's (read once each time a box score moves, the same numbers every page shows); an
+  // earlier night reads its own once
+  const pgs: PG[] = useMemo(() => (past ? pastPgs : pointsDay === today ? [...dayPoints].map(([player_id, x]) => ({ player_id, ...x })) : []), [past, pastPgs, dayPoints, pointsDay, today]);
   const inRoom = !!roomNight;
   // each game's thread: how much talk it has, and whether any of it is new to you
   const threads = useThreadCounts(slate.map((g) => g.id));
@@ -120,30 +122,24 @@ export default function Scoreboard() {
   const [shut, setShut] = useState<Set<number>>(new Set());
   const [benchOn, setBenchOn] = useState<Set<number>>(new Set());
   const flip = (set: Set<number>, id: number, on?: boolean) => { const n = new Set(set); if (on ?? !n.has(id)) n.add(id); else n.delete(id); return n; };
-  const [box, setBox] = useState<Game | null>(null);
+  const sheet = useGameSheet();
+  // a game opens on its thread while it's on or once it has talk in it, on the game otherwise
+  const openGame = (g: Game) => sheet.open(g.id, { tab: isLive(sport, g.state) || (threads.get(g.id) ?? 0) > 0 ? 'thread' : 'game' });
   const [benchDays, setBenchDays] = useState<BenchDay[]>([]);
   const openInfo = usePlayerInfo();
   const navigate = useNavigate();
 
-  // freeze-frames are taken at puck drop, box scores every minute: poll both while the page is open
+  // freeze-frames are taken at puck drop: read them again as each game starts (the room carries them when it's live)
+  const started = slate.filter((g) => hasStarted(sport, g.state)).length;
   useEffect(() => {
     let alive = true;
-    const load = async () => {
-      const [{ data: s }, { data: p }] = await Promise.all([
-        supabase.from('lineup_snapshots').select('team_id,player_id,slot,game_id').eq('date', today),
-        supabase.from('league_games').select('player_id,game_id,fpts,stats,nhl_team,updated_at').eq('date', today),
-      ]);
-      if (!alive) return;
-      setChecked(Date.now());
-      setSnaps((s ?? []) as Snap[]);
-      setPgs(((p ?? []) as PG[]).map((x) => ({ ...x, fpts: Number(x.fpts) })));
-    };
     if (inRoom) return () => { alive = false; };
-    load();
-    if (past) return () => { alive = false; };
-    const i = window.setInterval(() => { if (document.visibilityState === 'visible') load(); }, 60_000);
-    return () => { alive = false; window.clearInterval(i); };
-  }, [today, slate.length, past, inRoom]);
+    supabase.from('lineup_snapshots').select('team_id,player_id,slot,game_id').eq('date', today)
+      .then(({ data }) => { if (!alive) return; setChecked(Date.now()); setSnaps((data ?? []) as Snap[]); });
+    if (past) supabase.from('league_games').select('player_id,game_id,fpts,stats,nhl_team,updated_at').eq('date', today)
+      .then(({ data }) => { if (alive) setPastPgs(((data ?? []) as PG[]).map((x) => ({ ...x, fpts: Number(x.fpts) }))); });
+    return () => { alive = false; };
+  }, [today, started, past, inRoom]);
 
   // every earlier night's bench, for the season tally (tonight's comes from the box scores below)
   useEffect(() => {
@@ -281,7 +277,7 @@ export default function Scoreboard() {
   return (
     <div className="space-y-4">
       <PageHeader icon={<Radio size={22} className={anyLive ? 'animate-pulse text-goal' : past ? 'text-mute' : 'text-goal'} />} title={past ? 'Scoreboard' : 'Live scoreboard'}
-        sub={past ? `${fmtDate(today)} · ${slate.length ? `${slate.length} NHL game${slate.length > 1 ? 's' : ''}, final` : 'no NHL games'}` : slate.length ? `${slate.length} NHL game${slate.length > 1 ? 's' : ''} tonight · ${inRoom ? 'live, as it happens' : 'updates every minute'}` : 'No NHL games today.'}
+        sub={past ? `${fmtDate(today)} · ${slate.length ? `${slate.length} NHL game${slate.length > 1 ? 's' : ''}, final` : 'no NHL games'}` : slate.length ? `${slate.length} NHL game${slate.length > 1 ? 's' : ''} tonight · live, as it happens` : 'No NHL games today.'}
         right={<div className="flex items-center gap-1">
           <button className="btn-ghost btn-sm px-2" aria-label="Previous day" disabled={!!seasonStart && addDays(today, -1) < seasonStart} onClick={() => goTo(addDays(today, -1))}><ChevronLeft size={16} /></button>
           <button className="btn-ghost btn-sm px-2" aria-label="Next day" disabled={!past} onClick={() => goTo(addDays(today, 1))}><ChevronRight size={16} /></button>
@@ -296,7 +292,7 @@ export default function Scoreboard() {
           {slate.map((g) => {
             const live = isLive(sport, g.state);
             return (
-              <button type="button" key={g.id} onClick={() => setBox(g)} title="Open the game: its thread and box score"
+              <button type="button" key={g.id} onClick={() => openGame(g)} title="Open the game: its thread, box score and where to watch"
                 className={`w-40 shrink-0 rounded-2xl border p-2.5 text-left transition hover:border-sky-400/50 ${live ? 'border-goal/40 bg-goal/[.07]' : 'border-white/[.07] bg-white/[.03]'}`}>
                 <div className={`mb-1.5 text-[10px] font-bold uppercase tracking-wider ${live ? 'text-goal' : 'text-mute'}`}>{live && <span className="mr-1 inline-block h-1.5 w-1.5 animate-pulse rounded-full bg-goal align-middle" />}{gameLabel(sport, g)}</div>
                 {[[g.away, g.away_score], [g.home, g.home_score]].map(([abbr, score]) => (
@@ -317,7 +313,7 @@ export default function Scoreboard() {
         </div>
       )}
 
-      {!past && <LiveRoomCard slate={slate} onGame={(id) => { const g = slate.find((x) => x.id === id); if (g) setBox(g); }} />}
+      {!past && <LiveRoomCard slate={slate} onGame={(id) => { const g = slate.find((x) => x.id === id); if (g) openGame(g); }} />}
 
       <Section title={catMode ? (past ? `Categories on ${fmtDate(today)}` : 'Tonight’s categories') : past ? `Points on ${fmtDate(today)}` : 'Tonight’s points'} right={updated}>
         {updatedLine}
@@ -421,9 +417,8 @@ export default function Scoreboard() {
           </div>
         </Section>
       )}
-      <BoxScore game={box ? slate.find((g) => g.id === box.id) ?? box : null} onClose={() => setBox(null)} threads={threads} unread={unread} />
       {past ? <p className="px-1 text-center text-[11px] text-mute">Final box scores. Stat corrections from the NHL can still move a line for up to a month.</p>
-        : <p className="px-1 text-center text-[11px] text-mute">Points follow the NHL box scores, which update about once a minute; {inRoom ? 'the live room passes each change on the moment it lands' : `this page checks every minute${checked ? ` (last check ${fmtTime(new Date(checked).toISOString())})` : ''}`}.</p>}
+        : <p className="px-1 text-center text-[11px] text-mute">Scores and clocks follow the NHL within seconds; points follow its box scores, about once a minute, and every page here shows each change the moment it lands.</p>}
     </div>
   );
 }
