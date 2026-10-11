@@ -6,6 +6,7 @@ import { LeagueProvider, useLeague } from './lib/store';
 import { configured } from './lib/supabase';
 import { Layout } from './components/Layout';
 import { PlayerInfoProvider } from './lib/playerInfo';
+import { LiveRoomProvider } from './lib/liveRoom';
 import { Spinner, ToastHost } from './components/ui';
 import { ErrorBoundary, reloadForNewVersion } from './components/ErrorBoundary';
 import { ConsentBanner } from './components/ConsentBanner';
@@ -185,7 +186,9 @@ createRoot(document.getElementById('root')!).render(
       <ToastHost>
         <LeagueProvider>
           <AnalyticsRoute />
-          <App />
+          <LiveRoomProvider>
+            <App />
+          </LiveRoomProvider>
           <ConsentBanner />
         </LeagueProvider>
       </ToastHost>

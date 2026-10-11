@@ -6,3 +6,4 @@ dist
 supabase/.temp
 tsconfig.tsbuildinfo
 .wrangler/
+.live-state.json

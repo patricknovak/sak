@@ -104,7 +104,10 @@ Two things in one repo:
   EXPANSION B5 step 3) as a Worker with its own edge code (`worker/`, Workers Paid since 11 October 2026): `/api/hub`
   caches the sports data at the edge (the site's `hub()` reads it on the product's addresses), `/j/<code>` and
   `/p/<web name>` are link previews with a picture drawn per pool (`/og/...`), and invites are shared as `/j/` links
-  (`inviteLink` in `src/lib/host.ts`); the rest is the built site. The plan for the edge is `docs/DEVELOPMENT.md` §8.3; the
+  (`inviteLink` in `src/lib/host.ts`); `/api/live/<league>/<day>` is the league's live room for a game night, a Durable
+  Object (`worker/live.ts`) the app joins while a game is on (`LiveRoomProvider`, `useLiveRoom()` in `src/lib/liveRoom.tsx`):
+  it reads the night with a member's own sign-in and pushes the scoreboard's data, the night's swings, who's watching and
+  reactions, so new game-night UI reads `useLiveRoom()` rather than polling; the rest is the built site. The plan for the edge is `docs/DEVELOPMENT.md` §8.3; the
   Super Pools landing page (`landing/index.html`) on Cloudflare (zone routes on the apex and www; off Vercel); every
   other `<league>.superpoolsai.com` goes to the app through a wildcard zone route and a proxied `AAAA * 100::` record (live
   since 4 October 2026: `podsquad.superpoolsai.com`). One account, every pool (migration 151): the product's one address is
@@ -145,6 +148,7 @@ npm run typecheck          # tsc -b
 npm run build              # tsc -b && vite build
 npm run test:db            # full database flow test against a local Postgres (see below)
 npm run test:nhl           # scoring/stat parsing tests
+npm run test:live          # the live room (worker/live.ts) under wrangler dev against a stand-in database
 npx vite preview --port 4174 --strictPort   # serve dist/ for browser checks
 ```
 

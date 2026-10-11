@@ -6,6 +6,8 @@
 export interface Change { date: string; icon: string; title: string; body: string; to?: string; tag?: 'formats' | 'commish' | 'draft' | 'everyone' }
 
 export const CHANGELOG: Change[] = [
+  { date: '2026-10-11', icon: '🚨', tag: 'everyone', title: 'The live room on game nights', to: '/scoreboard',
+    body: 'On a game night the live scoreboard is now a room the whole league shares: the points move the moment the box score has them, a feed shows every swing (a goal, an assist, a win, a minus) as it lands, you can see who else is watching and react to any swing. When one of your starters scores, a banner tells you wherever you are in the app.' },
   { date: '2026-10-11', icon: '🔗', tag: 'everyone', title: 'Invites that look like your pool', to: '/pools',
     body: 'An invite link pasted into a group chat now shows your pool\'s own name, colour and who invited them, on a picture drawn for it, instead of a plain link. Tap it and you land on the join page.' },
   { date: '2026-10-11', icon: '⚡', tag: 'everyone', title: 'Faster sport centres', to: '/pools',
