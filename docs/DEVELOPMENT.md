@@ -455,7 +455,9 @@ Worker reads Postgres directly.
 
 1. **This week (the LCS and the Love Is Blind premiere, 14 October):** the World Series pool's games started from its
    Host page; invites shared as `/j/` links (done); Pod Squad and two more Love Is Blind pools filled by people Patrick
-   knows; the winter question packs (The Traitors, The Bachelor) drafted before their premieres.
+   knows; the winter question packs: **The Traitors: New Blood** is live (11 October, migration 249: the finale, the season
+   and each episode's round table, 11 questions, coins every episode night; NBC's season runs to 19 November), The
+   Bachelor's waits on ABC naming its lead and date.
 2. **The GitHub Pages copy retired** (EXPANSION B5 step 3), once a SaK GM has checked push alerts and the installed app on
    `sak.superpoolsai.com` (E5's edge half is built: the live room carries tonight's points).
 3. **E4, the live room**: game nights, the draft clock, a thread per game, pools' game nights and a thread per pool game are built (11 October), the box pool's NHL games included.

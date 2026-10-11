@@ -6,6 +6,8 @@
 export interface Change { date: string; icon: string; title: string; body: string; to?: string; tag?: 'formats' | 'commish' | 'draft' | 'everyone' }
 
 export const CHANGELOG: Change[] = [
+  { date: '2026-10-11', icon: '🗡️', tag: 'everyone', title: 'A Traitors pool', to: '/pools',
+    body: 'Start a pool on The Traitors: New Blood from Start a pool: call every round table from episode 6, who reaches the end and whether a Traitor takes the money, with coins on every episode night through the finale on 19 November.' },
   { date: '2026-10-11', icon: '🚨', tag: 'everyone', title: 'The live room on your home page', to: '/',
     body: 'On a game night your home page now shows the league\'s live room, the way a pool\'s home does: who\'s watching, the latest swings with their reactions, and tonight\'s scoreboard a tap away. Tap a game for its sheet.' },
   { date: '2026-10-11', icon: '💬', tag: 'everyone', title: 'A thread for every game in your pool', to: '/picks',
