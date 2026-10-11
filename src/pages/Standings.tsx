@@ -15,6 +15,8 @@ import { PLACES, prizes } from '../lib/prizes';
 import { hasFeature } from '../lib/features';
 import { PointsRace } from '../components/charts';
 import { StandingsTable } from '../components/StandingsTable';
+import { ShareButton, useCardBrand } from '../components/ShareButton';
+import { shareCard } from '../lib/shareCard';
 
 interface Daily { team_id: number; date: string; points: number }
 
@@ -116,6 +118,7 @@ export default function Standings() {
       <div className="grid items-start gap-5 xl:grid-cols-[minmax(0,1.35fr)_minmax(0,1fr)]">
       <div className="space-y-2">
       <StandingsTable rows={table} view={view} pot={useMoney ? pot : []} peter={useMoney && view === 'regular'} />
+      {scored && <ShareTable rows={table} title={isCup ? bare(brand.trophy) : isPo ? `${bare(brand.playoff)} table` : 'The standings'} />}
       {scored && <p className="px-1 text-[11px] text-mute">🪑 Bench: points left on the bench and IR {isCup ? 'this year' : isPo ? 'in the playoffs' : 'this season'}, shown and never counted. Tonight’s bench is on the <Link className="text-sky-300" to="/scoreboard">scoreboard</Link>, every day of it on the <Link className="text-sky-300" to="/performance">Performance page</Link>.</p>}
       {useMoney && view === 'regular' && scored && last && second && (
         <p className="px-1 text-xs text-mute">🪣 {bare(brand.booby)} Punishment if the regular season ended now: {team(last.team_id)?.gm_name} owes {fmtMoney(Math.round((second.points - last.points) * 100) / 100)} to the {brand.fund}.</p>
@@ -169,5 +172,16 @@ function Corrections() {
       </div>
       <p className="mt-1 px-1 text-xs text-mute">Points follow the lineup at {start}: a correction counts for whoever started the player that night. Teams it moves get a note.</p>
     </Section>
+  );
+}
+
+// the table as a picture for the group chat (the pools' share card, in the league's colours): drawn on the phone
+function ShareTable({ rows, title }: { rows: { team_id: number; rank: number; points: number | string }[]; title: string }) {
+  const { team, me } = useLeague();
+  const card = useCardBrand();
+  return (
+    <ShareButton label="Share the table" className="btn-ghost w-full" make={() => shareCard({ kind: 'leaders', brand: card, title,
+      rows: rows.slice(0, 6).map((s) => { const t = team(s.team_id); return { name: t?.name ?? '', worth: Number(s.points), rank: s.rank, label: `${fmtPts(Number(s.points))} pts`, color: t?.color ?? card.color, me: s.team_id === me?.id }; }) },
+      `${title} in ${card.pool}.`)} />
   );
 }
