@@ -6,7 +6,8 @@
 // injury report and leaders (SportDesk), like NHL centre. In a pool, the switcher lists the pool's own competitions only.
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
-import { BarChart3, CalendarDays, ListOrdered, Tv } from 'lucide-react';
+import { BarChart3, CalendarDays, ListOrdered, MessageCircle, Tv } from 'lucide-react';
+import { fixtureThread, ThreadSheet, useChannelCounts } from '../components/GameThread';
 import { EspnBox } from '../components/EspnBox';
 import { useLeague, useNow } from '../lib/store';
 import { rpc, supabase } from '../lib/supabase';
@@ -88,7 +89,7 @@ function usePoolRound(competition: string, round: number | null) {
 
 interface OnMatch { id: number; kind: 'props' | 'squares'; open: boolean; mine: boolean }
 
-function MatchCard({ f, clubs, sp, pk, sport, on }: { f: Fixture; clubs: Map<number, Club>; sp: (typeof SPORTS)[string]; pk?: PkFixture; sport?: string; on?: OnMatch[] }) {
+function MatchCard({ f, clubs, sp, pk, sport, on, talk, onThread }: { f: Fixture; clubs: Map<number, Club>; sp: (typeof SPORTS)[string]; pk?: PkFixture; sport?: string; on?: OnMatch[]; talk?: number; onThread?: () => void }) {
   const [box, setBox] = useState(false);
   // a box score from ESPN's summary, for a game that has started (NFL centre)
   const boxable = sport === 'nfl' && !!f.ext_id && (f.state === 'live' || f.state === 'final');
@@ -163,6 +164,12 @@ function MatchCard({ f, clubs, sp, pk, sport, on }: { f: Fixture; clubs: Map<num
           <span className="text-gold">{x.kind === 'props' ? (x.open ? 'Make your calls →' : 'See the calls →') : (x.open && !x.mine ? 'Claim a square →' : 'See the grid →')}</span>
         </Link>
       ))}
+      {/* the pool's own talk about this match */}
+      {onThread && (
+        <button type="button" onClick={onThread} className={`flex w-full items-center justify-center gap-1.5 border-t border-white/[.06] py-2 text-[11px] font-bold uppercase tracking-wider hover:bg-white/[.03] ${talk ? 'text-sky-200' : 'text-slate-300'}`}>
+          <MessageCircle className="h-3.5 w-3.5" />{talk ? `Thread · ${talk}` : live ? 'Talk about it' : 'Thread'}
+        </button>
+      )}
       {boxable && (
         <button type="button" onClick={() => setBox(!box)} className="flex w-full items-center justify-center gap-1.5 border-t border-white/[.06] py-2 text-[11px] font-bold uppercase tracking-wider text-slate-300 hover:bg-white/[.03]">
           <BarChart3 className="h-3.5 w-3.5" />{box ? 'Hide the box score' : 'Box score'}
@@ -275,6 +282,10 @@ export default function RoundCentre() {
   useEffect(() => { const el = strip.current?.querySelector<HTMLElement>('[data-on="1"]'); if (el && strip.current) strip.current.scrollLeft = Math.max(0, el.offsetLeft - strip.current.offsetLeft - 100); }, [round, tab, rounds.length]);
   const tz = comp?.tz ?? 'America/New_York';
   const matches = fixtures.filter((f) => f.gameweek === round);
+  // each match's thread in the pool, with how busy it is
+  const [thread, setThread] = useState<number | null>(null);
+  const talk = useChannelCounts(useMemo(() => matches.map((f) => fixtureThread(f.id)), [matches.map((f) => f.id).join(',')])); // eslint-disable-line react-hooks/exhaustive-deps
+  const tf = fixtures.find((f) => f.id === thread);
   const days = [...new Set(matches.map((f) => dayLabel(f.kickoff, tz)))];
 
   if (comp === undefined) return <div className="h-60 animate-pulse rounded-3xl bg-white/[.04]" />;
@@ -314,7 +325,7 @@ export default function RoundCentre() {
             <div key={d}>
               <div className="mb-2 flex items-center gap-2 px-1"><span className="text-[10px] font-black uppercase tracking-[.2em] text-mute">{d}</span><span className="h-px flex-1 bg-white/[.06]" /></div>
               <div className="grid gap-3 md:grid-cols-2">
-                {matches.filter((f) => dayLabel(f.kickoff, tz) === d).map((f) => <MatchCard key={f.id} f={f} clubs={clubs} sp={sp} pk={byFixture.get(f.id)} sport={comp?.sport} on={onMatch.get(f.id)} />)}
+                {matches.filter((f) => dayLabel(f.kickoff, tz) === d).map((f) => <MatchCard key={f.id} f={f} clubs={clubs} sp={sp} pk={byFixture.get(f.id)} sport={comp?.sport} on={onMatch.get(f.id)} talk={talk.get(fixtureThread(f.id))} onThread={() => setThread(f.id)} />)}
               </div>
             </div>
           ))}
@@ -324,6 +335,17 @@ export default function RoundCentre() {
 
       {tab === 'table' && comp && <Table fixtures={fixtures} clubs={clubs} sp={sp} comp={comp} />}
       {(tab === 'scores' || tab === 'table') && <p className="px-1 text-[11px] text-mute">From the {sp.round === 'Week' ? 'NFL' : 'league'}&apos;s public scoreboard, every minute while {sp.game}s are on.{tab === 'table' ? ` Worked out from the results here${sp.draws ? '' : '; the NFL breaks ties by more than the record'}.` : ''}</p>}
+      <ThreadSheet channel={tf ? fixtureThread(tf.id) : null} onClose={() => setThread(null)}
+        title={tf ? (sp.awayFirst ? `${clubs.get(tf.away_club)?.short ?? ''} @ ${clubs.get(tf.home_club)?.short ?? ''}` : `${clubs.get(tf.home_club)?.short ?? ''} v ${clubs.get(tf.away_club)?.short ?? ''}`) : ''}
+        head={tf && (
+          <div className={`space-y-2 rounded-2xl p-3 ring-1 ${tf.state === 'live' ? 'bg-red-400/[.07] ring-red-400/30' : 'bg-white/[.04] ring-white/[.06]'}`}>
+            {(sp.awayFirst ? [[tf.away_club, tf.away_score], [tf.home_club, tf.home_score]] : [[tf.home_club, tf.home_score], [tf.away_club, tf.away_score]]).map(([id, sc]) => {
+              const c = clubs.get(id as number);
+              return <div key={String(id)} className="flex items-center gap-2.5">{c && <Crest c={c} size={24} />}<span className="min-w-0 flex-1 font-bold text-white">{c?.name ?? 'To be decided'}</span><span className="num text-xl font-black">{tf.state === 'scheduled' ? '' : sc ?? ''}</span></div>;
+            })}
+            <div className="text-[11px] font-bold uppercase tracking-wider text-mute">{tf.state === 'live' ? <span className="text-red-300">Live{tf.minute != null && !sp.awayFirst ? ` · ${tf.minute}'` : ''}</span> : tf.state === 'final' ? (sp.awayFirst ? 'Final' : 'Full time') : time(tf.kickoff)}</div>
+          </div>
+        )} />
     </div>
   );
 }

@@ -132,7 +132,7 @@ Two things in one repo:
   alarm is the pick clock (it calls `draft_tick` the moment a deadline passes), it pushes every pick, and the store's
   4-second draft poll stands down while it is live; both rooms share `worker/room.ts`. A thread per game is chat channel
   `game:<game id>` (`GameThread` in the game sheet, first when opened from the scoreboard while the game is on; left out of the merged chat feed and
-  the chat badge, counted on the scoreboard's game chips instead). `/api/live/<league>/pool/<day>` is a prediction pool's
+  the chat badge, counted on the scoreboard's game chips instead); a pool's match on the shared fixtures is `game:fx<fixture id>` (`fixtureThread`, `ThreadSheet` and `useChannelCounts` in `GameThread.tsx`), opened from the pool room's chips, pick'em's Talk and the match centre, and a box pool's NHL game keeps `game:<game id>`. `/api/live/<league>/pool/<day>` is a prediction pool's
   room for the day (`worker/pool.ts`, `usePoolRoom` in `src/lib/poolRoom.ts`, `PoolRoomCard` on the pool's home): today's
   games on its events, their scores and members climbing its table, pushed; the rest is the built site. The plan for the edge is `docs/DEVELOPMENT.md` §8.3; the
   Super Pools landing page (`landing/index.html`) on Cloudflare (zone routes on the apex and www; off Vercel); every

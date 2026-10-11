@@ -6,6 +6,8 @@
 export interface Change { date: string; icon: string; title: string; body: string; to?: string; tag?: 'formats' | 'commish' | 'draft' | 'everyone' }
 
 export const CHANGELOG: Change[] = [
+  { date: '2026-10-11', icon: '💬', tag: 'everyone', title: 'A thread for every game in your pool', to: '/picks',
+    body: 'Every match in a pool now has its own chat. Tap Talk on a pick\'em match, a game chip in the pool\'s live room, or Thread in the match centre: the score sits on top and the pool talks it over below. Each game shows how busy its thread is.' },
   { date: '2026-10-11', icon: '⏱️', tag: 'everyone', title: 'One score, every page', to: '/nhl?t=scores',
     body: 'Scores and clocks now move within seconds of the NHL, and every page shows the same one at the same moment: the scoreboard, NHL centre, My Team and the home page all read from one place. Tonight\'s points land on every page together the moment a box score has them, with nothing to refresh.' },
   { date: '2026-10-11', icon: '📺', tag: 'everyone', title: 'Every game, one tap from anywhere', to: '/nhl?t=scores',

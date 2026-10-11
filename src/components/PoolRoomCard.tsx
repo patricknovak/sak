@@ -1,10 +1,13 @@
 // The pool's live room on its home page (lib/poolRoom): today's games on the pool's events with their live scores,
 // who's watching, and the day's swings: a game starting, a score, a final, a member climbing the table. Shown only
 // once the room is live and the day has something in it. A box pool's games are the NHL's own, shown by their logos.
+import { useMemo, useState } from 'react';
+import { MessageCircle } from 'lucide-react';
 import { useLeague } from '../lib/store';
 import type { PoolClub, PoolFixture, PoolRoom } from '../lib/poolRoom';
 import { fmtTime, ordinal } from '../lib/format';
 import { NhlLogo, TeamBadge } from './ui';
+import { fixtureThread, threadOf, ThreadSheet, useChannelCounts } from './GameThread';
 
 const LIVE = (s: string) => s === 'live';
 const DONE = (s: string) => ['final', 'postponed', 'cancelled', 'abandoned'].includes(s);
@@ -23,24 +26,46 @@ const side = (f: PoolFixture, clubs: Map<number, PoolClub>, home: boolean) => {
   return { c: id != null ? clubs.get(id) : undefined, abbr: home ? f.home_abbr : f.away_abbr };
 };
 
-function GameChip({ f, clubs }: { f: PoolFixture; clubs: Map<number, PoolClub> }) {
+// a game's thread: an NHL game (the box pool's) by its NHL id, a match on the shared fixtures in its own namespace
+export const poolThread = (f: Pick<PoolFixture, 'id' | 'home_abbr'>) => (f.home_abbr ? threadOf(f.id) : fixtureThread(f.id));
+
+function GameChip({ f, clubs, talk, onOpen }: { f: PoolFixture; clubs: Map<number, PoolClub>; talk: number; onOpen: () => void }) {
   const live = LIVE(f.state), done = DONE(f.state);
   return (
-    <div className={`w-[9.5rem] shrink-0 rounded-2xl border p-2.5 ${live ? 'border-goal/40 bg-goal/[.07]' : 'border-white/[.07] bg-white/[.03]'}`}>
-      <div className={`mb-1 text-[10px] font-bold uppercase tracking-wider ${live ? 'text-goal' : 'text-mute'}`}>
-        {live && <span className="mr-1 inline-block h-1.5 w-1.5 animate-pulse rounded-full bg-goal align-middle" />}
-        {live ? f.minute || 'Live' : done ? (f.state === 'final' ? 'Final' : f.state) : fmtTime(f.kickoff)}
+    <button type="button" onClick={onOpen} title="Open this game's thread" className={`w-[9.5rem] shrink-0 rounded-2xl border p-2.5 text-left transition active:scale-[.98] ${live ? 'border-goal/40 bg-goal/[.07]' : 'border-white/[.07] bg-white/[.03] hover:bg-white/[.05]'}`}>
+      <div className={`mb-1 flex items-center gap-1 text-[10px] font-bold uppercase tracking-wider ${live ? 'text-goal' : 'text-mute'}`}>
+        {live && <span className="inline-block h-1.5 w-1.5 animate-pulse rounded-full bg-goal" />}
+        <span className="min-w-0 flex-1 truncate">{live ? f.minute || 'Live' : done ? (f.state === 'final' ? 'Final' : f.state) : fmtTime(f.kickoff)}</span>
+        <span className={`inline-flex shrink-0 items-center gap-0.5 normal-case tracking-normal ${talk ? 'text-sky-300' : 'text-mute/70'}`}><MessageCircle size={10} />{talk || ''}</span>
       </div>
       {([[false, f.away_score], [true, f.home_score]] as const).map(([home, sc]) => (
         <div key={String(home)} className="flex items-center justify-between py-0.5 text-sm"><Club {...side(f, clubs, home)} /><span className="num font-bold">{sc ?? ''}</span></div>
       ))}
+    </button>
+  );
+}
+
+// the score above a game's thread
+function ThreadHead({ f, clubs }: { f: PoolFixture; clubs: Map<number, PoolClub> }) {
+  const live = LIVE(f.state), done = DONE(f.state);
+  return (
+    <div className={`flex items-center gap-3 rounded-2xl p-3 ring-1 ${live ? 'bg-goal/[.08] ring-goal/30' : 'bg-white/[.04] ring-white/[.06]'}`}>
+      <div className="min-w-0 flex-1 space-y-1 text-sm">
+        {([[false, f.away_score], [true, f.home_score]] as const).map(([home, sc]) => (
+          <div key={String(home)} className="flex items-center justify-between gap-2"><Club {...side(f, clubs, home)} /><span className="num text-lg font-black">{sc ?? ''}</span></div>
+        ))}
+      </div>
+      <span className={`shrink-0 text-[11px] font-bold uppercase tracking-wider ${live ? 'text-goal' : 'text-mute'}`}>{live ? f.minute || 'Live' : done ? (f.state === 'final' ? 'Final' : f.state) : fmtTime(f.kickoff)}</span>
     </div>
   );
 }
 
 export function PoolRoomCard({ room }: { room: PoolRoom }) {
   const { team, me } = useLeague();
+  const [open, setOpen] = useState<number | null>(null);
+  const counts = useChannelCounts(useMemo(() => room.fixtures.map(poolThread), [room.fixtures]));
   if (!room.live || (!room.fixtures.length && !room.swings.length)) return null;
+  const at = room.fixtures.find((f) => f.id === open);
   const fx = new Map(room.fixtures.map((f) => [f.id, f]));
   const watching = room.watching.map((id) => team(id)).filter(Boolean);
   const feed = room.swings.slice().reverse().slice(0, 6);
@@ -63,7 +88,8 @@ export function PoolRoomCard({ room }: { room: PoolRoom }) {
           </div>
         )}
       </div>
-      {room.fixtures.length > 0 && <div className="scroll-x flex gap-2 px-3 py-3">{room.fixtures.map((f) => <GameChip key={f.id} f={f} clubs={room.clubs} />)}</div>}
+      {room.fixtures.length > 0 && <div className="scroll-x flex gap-2 px-3 py-3">{room.fixtures.map((f) => <GameChip key={f.id} f={f} clubs={room.clubs} talk={counts.get(poolThread(f)) ?? 0} onOpen={() => setOpen(f.id)} />)}</div>}
+      <ThreadSheet channel={at ? poolThread(at) : null} onClose={() => setOpen(null)} title={at ? `${side(at, room.clubs, false).abbr ?? side(at, room.clubs, false).c?.short ?? ''} v ${side(at, room.clubs, true).abbr ?? side(at, room.clubs, true).c?.short ?? ''}` : ''} head={at && <ThreadHead f={at} clubs={room.clubs} />} />
       {feed.length > 0 && (
         <ul className="divide-y divide-white/[.05] border-t border-white/[.06]">
           {feed.map((s) => {
@@ -82,7 +108,7 @@ export function PoolRoomCard({ room }: { room: PoolRoom }) {
             const [a, h] = s.score ?? [null, null];
             const done = DONE(s.state ?? '');
             return (
-              <li key={s.id} className="flex items-center gap-2 px-3 py-2 text-xs">
+              <li key={s.id} className="flex cursor-pointer items-center gap-2 px-3 py-2 text-xs hover:bg-white/[.03]" onClick={() => setOpen(f.id)} title="Open this game's thread">
                 <span className="w-12 shrink-0 text-[10px] font-bold uppercase tracking-wider text-mute">{done ? 'Final' : a == null ? 'Start' : 'Score'}</span>
                 <span className="min-w-0 flex-1">
                   <span className="inline-flex flex-wrap items-center gap-1.5"><Club {...side(f, room.clubs, false)} /><span className="num font-extrabold text-white">{a ?? ''}</span><span className="text-mute">–</span><span className="num font-extrabold text-white">{h ?? ''}</span><Club {...side(f, room.clubs, true)} /></span>
