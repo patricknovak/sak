@@ -1,14 +1,14 @@
 // Sit or start (the Lineup page): with every starting slot filled and players on the bench, which ones should play
 // tonight. Two parts: the swaps worth making (a benched player with a game who is expected to outscore a starter he
 // can replace, with the reasons and a one-tap swap), and a head-to-head comparison of any two of the team's players,
-// tonight and over the week, on the numbers a GM decides with. Expected points are Lineup New's: projected points per
+// tonight and over the week, on the numbers a GM decides with. Expected points are the lineup kit's: projected points per
 // game times the chance he plays (src/lib/lineupKit.ts).
 import { useMemo, useState } from 'react';
 import { ArrowLeftRight, Scale } from 'lucide-react';
 import { useLeague } from '../lib/store';
 import { fmtPts } from '../lib/format';
 import { hurt, isStart, type Kit, type Row } from '../lib/lineupKit';
-import { GameLine, SlotPill, fmt1 } from './lineupnew/bits';
+import { GameLine, SlotPill, fmt1 } from './lineup/bits';
 import { PlayerTag } from './PlayerCard';
 import type { Slot } from '../lib/types';
 

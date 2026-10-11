@@ -2,7 +2,7 @@
 // The main game leads; the arrows count from where the day began; a row that can no longer finish first says so.
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { ArrowDown, ArrowUp, ChevronRight, Dices } from 'lucide-react';
+import { ChevronRight, Dices } from 'lucide-react';
 import { useLeague } from '../lib/store';
 import { rpc, supabase } from '../lib/supabase';
 import { kindOf, outOfIt, type BoardGame, type BoardRow } from '../lib/poolScoreboard';
@@ -12,13 +12,9 @@ import { Rank, TeamBadge } from './ui';
 const ordinal = (n: number) => `${n}${n % 100 >= 11 && n % 100 <= 13 ? 'th' : (['th', 'st', 'nd', 'rd'][n % 10] ?? 'th')}`;
 const fmt = (n: number) => (Number.isInteger(n) ? String(n) : n.toFixed(1));
 
-// up or down since the day began
-export function Move({ n, size = 12 }: { n: number | null | undefined; size?: number }) {
-  if (!n) return null;
-  return n > 0
-    ? <span className="inline-flex items-center gap-px text-[11px] font-bold text-emerald-300" title={`Up ${n} today`}><ArrowUp size={size} strokeWidth={3} />{n}</span>
-    : <span className="inline-flex items-center gap-px text-[11px] font-bold text-red-300" title={`Down ${-n} today`}><ArrowDown size={size} strokeWidth={3} />{-n}</span>;
-}
+// up or down since the day began (drawn in ui, shared with the league's standings)
+export { Move } from './ui';
+import { Move } from './ui';
 
 // a score as its kind counts it: coins, points or weeks survived
 export function BoardScore({ g, v, big }: { g: BoardGame; v: number; big?: boolean }) {

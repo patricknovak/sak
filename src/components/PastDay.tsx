@@ -5,7 +5,7 @@ import { useLeague, useSport } from '../lib/store';
 import { extraTime } from '../lib/sport';
 import { supabase } from '../lib/supabase';
 import { fmtPts } from '../lib/format';
-import { scoringLine } from './BoxScore';
+import { scoringLine } from './GameSheet';
 import { Headshot, Pos } from './ui';
 import type { Game, Player, Roster } from '../lib/types';
 import { useBrand } from '../lib/brand';

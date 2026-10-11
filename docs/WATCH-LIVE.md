@@ -116,7 +116,9 @@ Live games have no playback position to keep in step, so a second screen works n
 
 ## 5. What the section does
 
-`#/watch`, Watch live, under More in hockey leagues:
+Since 11 October 2026 this lives in NHL centre's **Scores** tab (`#/nhl?t=scores`; `#/watch` forwards there) and on every
+game's sheet (`src/components/GameSheet.tsx`, opened from any page): Watch live as a page of its own went, so a GM finds
+tonight's games, where to watch them and the league's stake in each in one place. What it shows:
 - **Tonight at a glance:**
   - the games, and how many are on now;
   - how many the GM can watch with what they have;

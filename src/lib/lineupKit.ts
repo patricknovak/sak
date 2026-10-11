@@ -1,7 +1,7 @@
-// What Lineup New reads, for any team and any day (docs/DEVELOPMENT.md, the lineup research of 5 October 2026): the
+// What My Team's lineup tabs read (the Tonight card, Week, League, Compare, Insights), for any team and any day (docs/DEVELOPMENT.md, the lineup research of 5 October 2026): the
 // lineup a team has for a day (today's live one, else its own plan, else the last plan before it, else today's,
 // carried forward the way the planner and the morning apply do), who plays that night, how busy the night is, and
-// each player's expected points. Shared by the day view, the week grid, the comparison and the insights.
+// each player's expected points. Shared by the lineup, the week grid, the league board, the comparison and the insights.
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useLeague, useSport } from './store';
 import { calledOff, hasStarted, isLive } from './sport';
@@ -25,9 +25,18 @@ export const hurt = (p: Player) => !!p.injury_status && /^(out|ir|injured|long|s
 export const LIGHT = 5;
 
 export function useLineupKit(span = 14) {
-  const { league, players, rosters, serverOffset, teams, me } = useLeague();
+  const { league, players, rosters, serverOffset, teams, me, games: live } = useLeague();
   const sport = useSport();
-  const games = useSeasonGames();
+  const season = useSeasonGames();
+  // the season's schedule, with the store's games laid over it: their scores, states and clocks move by realtime, so a
+  // lock or a live game shows here the moment it does everywhere else
+  const games = useMemo(() => {
+    if (!live.length) return season;
+    const fresh = new Map(live.map((g) => [g.id, g]));
+    const out = (season ?? []).map((g) => fresh.get(g.id) ?? g);
+    const have = new Set(out.map((g) => g.id));
+    return [...out, ...live.filter((g) => !have.has(g.id))];
+  }, [season, live]);
   const today = etToday();
   const caps = (league?.roster ?? {}) as Record<string, number>;
   const last = addDays(today, span);
@@ -110,22 +119,22 @@ export function useLineupKit(span = 14) {
 }
 export type Kit = ReturnType<typeof useLineupKit>;
 
-// ───────────── tonight's points, refreshed while games are on ─────────────
-// Every player's league points for a day, read once and again every minute while any game that day is live, so the
-// day view, the comparison and the league board move as goals go in.
+// ───────────── a day's points ─────────────
+// Every player's league points for a day. Tonight's are the store's (read once each time a box score moves, the same
+// numbers every page shows); an earlier day is read once.
 export function useDayPoints(kit: Kit, day: string) {
-  const [pts, setPts] = useState<Map<number, number>>(new Map());
+  const { dayPoints, pointsDay } = useLeague();
+  const [old, setOld] = useState<Map<number, number>>(new Map());
   const live = (kit.gamesOn.get(day) ?? []).some((g) => isLive(kit.sport, g.state));
-  const started = (kit.gamesOn.get(day) ?? []).some((g) => hasStarted(kit.sport, g.state));
+  const tonight = day === pointsDay;
   useEffect(() => {
-    if (day > kit.today || (day === kit.today && !started)) { setPts(new Map()); return; }
+    if (tonight || day >= kit.today) { setOld(new Map()); return; }
     let alive = true;
-    const load = () => supabase.from('league_games').select('player_id,fpts').eq('date', day).limit(2000)
-      .then(({ data }) => { if (alive) setPts(new Map((data ?? []).map((r) => [r.player_id, Number(r.fpts)]))); });
-    load();
-    const t = live ? window.setInterval(load, 60000) : undefined;
-    return () => { alive = false; window.clearInterval(t); };
-  }, [day, kit.today, live, started]);
+    supabase.from('league_games').select('player_id,fpts').eq('date', day).limit(2000)
+      .then(({ data }) => { if (alive) setOld(new Map((data ?? []).map((r) => [r.player_id, Number(r.fpts)]))); });
+    return () => { alive = false; };
+  }, [day, kit.today, tonight]);
+  const pts = useMemo(() => (tonight ? new Map([...dayPoints].map(([id, x]) => [id, x.fpts])) : old), [tonight, dayPoints, old]);
   return { pts, live };
 }
 

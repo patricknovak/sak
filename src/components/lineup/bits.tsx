@@ -1,4 +1,4 @@
-// The small pieces Lineup New is drawn with: the slot pill, the game line, expected points, and saving a day's lineup
+// The small pieces My Team's lineup tabs are drawn with: the slot pill, the game line, expected points, and saving a day's lineup
 // (today straight to the live lineup, a later day as that day's plan) with an undo.
 import { createContext, useCallback, useContext, useRef, useState, type ReactNode } from 'react';
 import { Undo2 } from 'lucide-react';

@@ -8,7 +8,7 @@ import { useLeague, useSport } from '../lib/store';
 import { hasStarted } from '../lib/sport';
 import { fmtMoney, fmtPts } from '../lib/format';
 import type { Standing } from '../lib/types';
-import { Rank, TeamBadge, TeamName } from './ui';
+import { Move, Rank, TeamBadge, TeamName } from './ui';
 
 
 export function StandingsTable({ rows, view = 'regular', pot = [], peter = false }: {
@@ -23,6 +23,9 @@ export function StandingsTable({ rows, view = 'regular', pot = [], peter = false
   const scored = table.some((t) => Number(t.points) !== 0);
   const tonight = games.some((g) => g.date === leagueDay && hasStarted(sport, g.state));
   const lead = Number(table[0]?.points ?? 0);
+  // the moves tonight, as the pools' tables show them: each team's place before today's points against its place now
+  const before = new Map([...table].sort((a, b) => (Number(b.points) - Number(b.today ?? 0)) - (Number(a.points) - Number(a.today ?? 0)))
+    .map((s, _i, all) => [s.team_id, 1 + all.findIndex((x) => Number(x.points) - Number(x.today ?? 0) === Number(s.points) - Number(s.today ?? 0))]));
   const benchWhen = view === 'cup' ? 'this year' : view === 'playoffs' ? 'in the playoffs' : 'this season';
 
   return (
@@ -49,7 +52,7 @@ export function StandingsTable({ rows, view = 'regular', pot = [], peter = false
             ].filter(Boolean).join(' · ');
             return (
               <tr key={s.team_id} className={s.team_id === me?.id ? 'bg-white/[.05]' : ''}>
-                <td className="py-2 pl-2 pr-1">{scored ? <Rank n={s.rank} /> : <span className="grid h-7 w-7 place-items-center text-mute">–</span>}</td>
+                <td className="py-2 pl-2 pr-1">{scored ? <span className="flex flex-col items-center gap-0.5"><Rank n={s.rank} />{tonight && <Move n={(before.get(s.team_id) ?? s.rank) - s.rank} size={10} />}</span> : <span className="grid h-7 w-7 place-items-center text-mute">–</span>}</td>
                 <td className="w-full max-w-0 px-1">
                   <Link to={`/team/${s.team_id}`} className="flex min-w-0 items-center gap-2">
                     <TeamBadge team={t} size={26} />

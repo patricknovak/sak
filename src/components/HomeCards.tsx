@@ -11,6 +11,8 @@ import { betMoves, ticketOutcome } from '../lib/betresults';
 import { useBook } from './Book';
 import { Coin, Rank, Section, TeamBadge } from './ui';
 import type { TopGame } from './NhlTop';
+import { useGameSheet } from './GameSheet';
+import { useOverlay } from '../lib/nhlGame';
 import type { Bet, BetEntry, CoinBalance, MarketKind } from '../lib/types';
 import { useBrand } from '../lib/brand';
 
@@ -22,7 +24,11 @@ const status = (g: TopGame) => DONE.has(g.state) ? `Final${g.outcome && g.outcom
 // NHL centre, top: live games first, else tonight's slate, else last night's finals
 export function NhlTopCard() {
   const { leagueDay, players, owner, team, sport } = useLeague();
-  const [games, setGames] = useState<TopGame[] | null>(null);
+  const sheet = useGameSheet();
+  const { one } = useOverlay();
+  const [feed, setGames] = useState<TopGame[] | null>(null);
+  // the scores and clocks are the league's own, the same as every page (lib/nhlGame)
+  const games = useMemo(() => feed?.map((g) => one({ ...g, home: { ...g.home, radio: null }, away: { ...g.away, radio: null } })) ?? null, [feed, one]);
   const [label, setLabel] = useState('Tonight');
   useEffect(() => {
     let dead = false;
@@ -34,7 +40,8 @@ export function NhlTopCard() {
       const p = await hub<{ games: TopGame[] }>('scores', { date: s.prev }).catch(() => null);
       if (!dead) { setLabel('Last night'); setGames(p?.games ?? []); }
     }, () => !dead && setGames([]));
-    const i = setInterval(() => hub<{ games?: TopGame[] }>('scores', { date: leagueDay }).then((s) => !dead && s?.games?.length && setGames(s.games), () => {}), 120_000);
+    // a slate that's on is read again every two minutes for what the scores don't carry; nothing while the page is hidden
+    const i = setInterval(() => { if (document.visibilityState === 'visible') hub<{ games?: TopGame[] }>('scores', { date: leagueDay }).then((s) => !dead && s?.games?.length && setGames(s.games), () => {}); }, 120_000);
     return () => { dead = true; clearInterval(i); };
   }, [leagueDay]);
   const byNhl = useMemo(() => { const m = new Map<string, Set<number>>(); for (const [, r] of owner) { const p = players.get(r.player_id); if (!p?.nhl_team) continue; const t = m.get(p.nhl_team) ?? new Set(); t.add(r.team_id); m.set(p.nhl_team, t); } return m; }, [owner, players]);
@@ -50,13 +57,13 @@ export function NhlTopCard() {
         {rows.slice(0, 5).map((g) => {
           const on = LIVE.has(g.state), done = DONE.has(g.state);
           return (
-            <Link key={g.id} to="/nhl" className="flex items-center gap-2 px-3 py-1.5 text-sm hover:bg-white/[.03]">
+            <button type="button" key={g.id} onClick={() => sheet.open(g.id)} className="flex w-full items-center gap-2 px-3 py-1.5 text-left text-sm hover:bg-white/[.03]">
               <span className={`num w-14 shrink-0 text-[11px] ${on ? 'font-bold text-red-300' : 'text-mute'}`}>{on && <span className="mr-1 inline-block h-1.5 w-1.5 animate-pulse rounded-full bg-red-400" />}{status(g)}</span>
               {g.away.logo && <img src={g.away.logo} alt="" className="h-5 w-5" />}<span className="font-semibold">{g.away.abbrev}</span>
               {(done || on) ? <span className="num font-bold">{g.away.score}–{g.home.score}</span> : <span className="text-mute">@</span>}
               {g.home.logo && <img src={g.home.logo} alt="" className="h-5 w-5" />}<span className="font-semibold">{g.home.abbrev}</span>
               <span className="ml-auto flex items-center gap-1">{gmsIn(g).map((t) => <TeamBadge key={t} team={team(t)} size={12} />)}</span>
-            </Link>
+            </button>
           );
         })}
         {rows.length > 5 && <Link to="/nhl?t=scores" className="block px-3 py-1.5 text-center text-xs text-sky-300">{rows.length - 5} more ›</Link>}

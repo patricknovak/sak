@@ -240,6 +240,14 @@ export function Countdown({ ms, size = 'lg' }: { ms: number; size?: 'md' | 'lg' 
 }
 
 // 1/2/3 get medals, everyone else a plain number
+// up or down since the day began (the pools' tables and the league's standings)
+export function Move({ n, size = 12 }: { n: number | null | undefined; size?: number }) {
+  if (!n) return null;
+  return n > 0
+    ? <span className="inline-flex items-center gap-px text-[11px] font-bold text-emerald-300" title={`Up ${n} today`}><svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={3} strokeLinecap="round" strokeLinejoin="round" aria-hidden><path d="M12 19V5M5 12l7-7 7 7" /></svg>{n}</span>
+    : <span className="inline-flex items-center gap-px text-[11px] font-bold text-red-300" title={`Down ${-n} today`}><svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={3} strokeLinecap="round" strokeLinejoin="round" aria-hidden><path d="M12 5v14M19 12l-7 7-7-7" /></svg>{-n}</span>;
+}
+
 export function Rank({ n }: { n: number }) {
   const medal = ['from-[#fff1b8] via-[#f7c548] to-[#b97c06] text-[#3b2a00]', 'from-white via-[#cfd8ea] to-[#8a97b3] text-[#1b2438]', 'from-[#ffd2a8] via-[#d98b4a] to-[#8a4b1c] text-[#2e1606]'][n - 1];
   if (!medal) return <span className="num grid h-7 w-7 shrink-0 place-items-center font-display text-lg font-bold text-mute">{n}</span>;

@@ -25,18 +25,38 @@ Two things in one repo:
 - Front end: React 19 + Vite + TypeScript + Tailwind v4, `HashRouter`. Pages in `src/pages`, components in
   `src/components`, shared logic in `src/lib`. The app-wide store is `src/lib/store.tsx` (`useLeague()`):
   it loads league, teams, players, rosters, picks, draft, standings, season stats, windows, games,
-  notifications and game-day status, subscribes to realtime, and exposes `leagueDay` and `brand`.
+  notifications and game-day status, subscribes to realtime, and exposes `leagueDay` and `brand`. One live clock (11
+  October 2026): every page's scores, clocks and tonight's points come from the store and nowhere else. `games` rows are
+  applied as realtime sends them (nhl-sync's clock task writes them every 20 seconds while a game is on, the `nhl-clock`
+  job, migrations 246 and 247), and `dayPoints` (tonight's points, player by player) is read once each time a box score
+  moves (realtime on `stats_gen`, migration 248), with a five-minute backstop. New live UI reads `games` and `dayPoints`;
+  it never polls `league_games` or the NHL's feed for a score. NHL centre lays the store's score and clock over the
+  feed (`overlay`, `useOverlay` in `src/lib/nhlGame.ts`).
+- Any NHL game opens in one sheet, app-wide (`useGameSheet().open(id)`, `GameSheetProvider` in `main.tsx`, the body
+  `src/components/GameSheetBody.tsx` loaded on first use): the game (where to watch on what the GM has, team radio that
+  keeps playing across pages, the league's players with their points, goals with clips, stars, penalties), its thread,
+  the box score with fantasy points and its lines and bets. NHL centre's Scores tab holds what Watch live was (the
+  verdicts, the one to watch, where the league has skin in it, how to see every game; `NhlGameCard`); `#/watch`
+  forwards there.
+- Navigation (`src/components/Layout.tsx`): the dock keeps four places and More; More and the desktop sidebar list the
+  rest under groups (`Tonight`, `Your team`, `The league`, `You`; a pool's `Play`, `Sport centres`, `You`), and nothing
+  in the dock repeats in More. A new page joins a group rather than the end of a list.
 - A player's card opens in place, app-wide (`src/lib/playerInfo.tsx`, `PlayerInfoProvider` in `main.tsx`): `PlayerRow`'s injury,
   status and news chips and `PlayerTag` (a player named in a sentence) open it over the page, news dot on the News tab.
   New UI that shows a player uses them rather than linking away. The injury report's timeline (expected return, body
   part, IR list, the write-up) is on `players` (migration 152, written by nhl-sync's injury task) and drawn by
   `InjuryReport`.
-- Lineups: the classic page is My Team (`src/pages/MyTeam.tsx`, its Daily lineups tab `LineupPlanner`; since 9 October 2026 it opens on a Tonight card drawn with Lineup New's pieces and the kit, with Sit or start, `src/components/SitStart.tsx`, and its Stats compare any or every GM, `TeamCompare`); the live scoreboard's Tonight's points lists every starter team by team; Performance has a Weekly review (`WeeklyReview`, deterministic suggestions from the trade finder and free agents); Lineup New
-  (`#/lineup-new`, `src/pages/LineupNew.tsx`, `src/components/lineupnew/`, data in `src/lib/lineupKit.ts`) runs beside it
-  for the league to compare (5 October 2026): Day (with What if), Week, League (every team ranked for a night or a week),
-  Compare and Insights for any team (others read only); live points refresh every minute (`useDayPoints`), lines come from
-  nhl-hub's shift charts (`useLines`); saving
-  through the same `set_lineup` and `set_lineup_plans`. Plans are readable league-wide (migration 164).
+- Lineups: one place, My Team (`src/pages/MyTeam.tsx`, `#/team` and `#/team/:id`): the Tonight card (Best lineup as a
+  list of changes, `src/components/lineup/OptimizeSheet.tsx`; What if; warnings with Fix; Sit or start,
+  `src/components/SitStart.tsx`) over the tabs Lineup (two-tap moves saved through `set_lineup` with an undo,
+  `SaveProvider`/`useSave`; IR moves stay on `move_player`; line badges from nhl-hub's shift charts, `useLines`), Week,
+  Daily lineups (`LineupPlanner`), League (every team ranked for a night or a week), Compare, Insights and Stats (any or
+  every GM, `TeamCompare`); another team's page opens on Scout & trade with the same views read only. The views are in
+  `src/components/lineup/`, the data in `src/lib/lineupKit.ts` (tonight's points from the store's `dayPoints`, `useDayPoints`). Lineup New,
+  tried beside it from 5 October, was folded in and retired on 11 October 2026; `#/lineup-new` forwards to `#/team`.
+  The live scoreboard's Tonight's points lists every starter team by team; Performance has a Weekly review
+  (`WeeklyReview`, deterministic suggestions from the trade finder and free agents). Later days save through
+  `set_lineup_plans`; plans are readable league-wide (migration 164).
 - Sport: `src/lib/sport.ts` (`useSport()` from the store): the league's sport as the engine reads it (positions, slots,
   stats, game states, periods), the database's `sports` row with the NHL compiled in. New code that needs a position
   list, a slot rule or a stat label reads it instead of writing hockey in; the rest moves over one place at a time.
@@ -76,7 +96,7 @@ Two things in one repo:
   platform's admin key, read when the job runs); nhl-sync refuses every task without the admin key and Garry its
   scheduled ones (daily, nudge, weekly, moments, draftprep; migration 243, 11 October 2026). Garry keeps the league a
   request works for per request (`AsyncLocalStorage`, `runs`), never in a module variable. Job names: nhl-scores
-  (gated by `_scores_due()`), nhl-gameday, nhl-injuries, nhl-schedule, season-schedule, nhl-news,
+  (gated by `_scores_due()`), nhl-clock (every 20 seconds, gated by `_clock_due()`), nhl-gameday, nhl-injuries, nhl-schedule, season-schedule, nhl-news,
   nhl-players, nhl-players-pregame, nhl-standings, nhl-corrections, nhl-corrections-deep, projections,
   auto-lineups, auto-lineups-late, garry-daily, garry-weekly, garry-nudge, garry-moments, open-book, settle-book,
   settle-bets, expire-bets, h2h-notes, pool-drops, pool-settle, soccer-fixtures, soccer-live (gated by `_soccer_due()`), mlb-live (gated by `_mlb_due()`), mlb-schedule, process-pending (every 10 s), stats-cache, health-check, fund-price, cron-history, cost-snapshot,
@@ -111,7 +131,7 @@ Two things in one repo:
   draft room (`worker/draft.ts`, `useDraftRoom` in `src/lib/draftRoom.ts`, joined by the store while the draft is on): its
   alarm is the pick clock (it calls `draft_tick` the moment a deadline passes), it pushes every pick, and the store's
   4-second draft poll stands down while it is live; both rooms share `worker/room.ts`. A thread per game is chat channel
-  `game:<game id>` (`GameThread` in the box score sheet, first while the game is on; left out of the merged chat feed and
+  `game:<game id>` (`GameThread` in the game sheet, first when opened from the scoreboard while the game is on; left out of the merged chat feed and
   the chat badge, counted on the scoreboard's game chips instead). `/api/live/<league>/pool/<day>` is a prediction pool's
   room for the day (`worker/pool.ts`, `usePoolRoom` in `src/lib/poolRoom.ts`, `PoolRoomCard` on the pool's home): today's
   games on its events, their scores and members climbing its table, pushed; the rest is the built site. The plan for the edge is `docs/DEVELOPMENT.md` §8.3; the

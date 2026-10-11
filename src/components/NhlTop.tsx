@@ -8,6 +8,7 @@ import { useLeague, useNow } from '../lib/store';
 import { hub, type Leaders, type NewsStory, type XFeed } from '../lib/nhlhub';
 import { ago, fmtTime, injuryBack, injuryBadge } from '../lib/format';
 import { usePlayerInfo } from '../lib/playerInfo';
+import { useOverlay } from '../lib/nhlGame';
 import { Section, TeamBadge } from './ui';
 
 type NTeam = { id: number; abbrev: string; name: string; place: string; score: number | null; sog: number | null; logo: string | null; record: string | null };
@@ -23,8 +24,12 @@ const status = (g: TopGame) => DONE.has(g.state) ? `Final${g.outcome && g.outcom
 export function TopTab({ onGame }: { onGame: (g: TopGame) => void }) {
   const { players, owner, team, me, leagueDay } = useLeague();
   const now = useNow(60_000);
-  const [today, setToday] = useState<Scores | null>(null);
-  const [last, setLast] = useState<Scores | null>(null);
+  const [feedToday, setToday] = useState<Scores | null>(null);
+  const [feedLast, setLast] = useState<Scores | null>(null);
+  // the scores and clocks are the league's own, the same as every page (lib/nhlGame)
+  const { one } = useOverlay();
+  const today = useMemo(() => (feedToday ? { ...feedToday, games: (feedToday.games ?? []).map((g) => one({ ...g, home: { ...g.home, radio: null }, away: { ...g.away, radio: null } })) } : null), [feedToday, one]);
+  const last = useMemo(() => (feedLast ? { ...feedLast, games: (feedLast.games ?? []).map((g) => one({ ...g, home: { ...g.home, radio: null }, away: { ...g.away, radio: null } })) } : null), [feedLast, one]);
   const [news, setNews] = useState<NewsStory[] | null>(null);
   const [x, setX] = useState<XFeed | null>(null);
   const [leaders, setLeaders] = useState<Leaders | null>(null);
@@ -39,6 +44,13 @@ export function TopTab({ onGame }: { onGame: (g: TopGame) => void }) {
     hub<Leaders>('leaders').then((l) => !dead && setLeaders(l), () => {});
     return () => { dead = true; };
   }, [leagueDay]);
+  // while a game is on, the feed is read again each minute for the goals and the shots (the score moves on its own)
+  const anyOn = !!feedToday?.games?.some((g) => LIVE.has(g.state) || (!DONE.has(g.state) && Date.parse(g.start) <= now));
+  useEffect(() => {
+    if (!anyOn) return;
+    const i = window.setInterval(() => { if (document.visibilityState === 'visible') hub<Scores>('scores', { date: leagueDay }).then((r) => r?.games && setToday(r), () => {}); }, 60_000);
+    return () => window.clearInterval(i);
+  }, [anyOn, leagueDay]);
 
   // which league players play for an NHL club, for the badges
   const byNhl = useMemo(() => { const m = new Map<string, Map<number, number>>(); for (const [, r] of owner) { const p = players.get(r.player_id); if (!p?.nhl_team) continue; const t = m.get(p.nhl_team) ?? new Map(); t.set(r.team_id, (t.get(r.team_id) ?? 0) + 1); m.set(p.nhl_team, t); } return m; }, [owner, players]);

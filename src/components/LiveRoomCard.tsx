@@ -1,11 +1,11 @@
 // The live room on the scoreboard: who's watching tonight, and the night's swings as they happen (every point a starter
 // scores, every goal and final in a game with a starter in it), newest first, each with the room's reactions.
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { SmilePlus } from 'lucide-react';
 import { useLeague } from '../lib/store';
 import { REACTIONS, swingWords, useLiveRoom, type Swing } from '../lib/liveRoom';
 import { fmtPts, fmtTime, ordinal } from '../lib/format';
-import { NhlLogo, TeamBadge } from './ui';
+import { Move, NhlLogo, TeamBadge } from './ui';
 import { PlayerTag } from './PlayerCard';
 import type { Game } from '../lib/types';
 
@@ -19,7 +19,9 @@ export function LiveRoomCard({ slate, onGame }: { slate: Game[]; onGame?: (gameI
   const games = useMemo(() => new Map(slate.map((g) => [g.id, g])), [slate]);
   // a game's swings only where a starter is in it: the room is about the league's night, not every NHL goal
   const ours = useMemo(() => new Set(room.night?.snaps.filter((s) => s.slot !== 'BN' && s.slot !== 'IR').map((s) => s.game_id) ?? []), [room.night]);
-  const list = useMemo(() => room.swings.filter((s) => s.kind === 'p' || ours.has(s.game)).slice().reverse(), [room.swings, ours]);
+  const climbs = useClimbs(room.status === 'live');
+  // the room's swings, with the league's own climbs up the standings (as the pools' rooms show them) in among them
+  const list = useMemo(() => [...room.swings.filter((s) => s.kind === 'p' || ours.has(s.game)), ...climbs].sort((a, b) => a.at.localeCompare(b.at)).reverse(), [room.swings, ours, climbs]);
   if (room.status === 'off') return null;
   const shown = all ? list : list.slice(0, SHOW);
   const firstEarly = shown.findIndex((s) => s.early);
@@ -55,10 +57,12 @@ export function LiveRoomCard({ slate, onGame }: { slate: Game[]; onGame?: (gameI
           {shown.map((s, i) => (
             <li key={s.id}>
               {i === firstEarly && <div className="bg-white/[.02] px-3 py-1 text-[10px] font-bold uppercase tracking-wider text-mute">Earlier tonight</div>}
-              {s.kind === 'p'
-                ? <PlayerSwing s={s} mine={s.team === me?.id} game={games.get(s.game)} picking={picking === s.id} onPick={() => setPicking(picking === s.id ? null : s.id)}
+              {s.kind === 'climb'
+                ? <ClimbSwing s={s as Climb} mine={(s as Climb).team === me?.id} />
+                : s.kind === 'p'
+                ? <PlayerSwing s={s as Swing} mine={s.team === me?.id} game={games.get(s.game)} picking={picking === s.id} onPick={() => setPicking(picking === s.id ? null : s.id)}
                     onReact={(e) => { room.react(s.id, e); setPicking(null); }} myTeam={me?.id} />
-                : <GameSwing s={s} game={games.get(s.game)} onOpen={onGame} />}
+                : <GameSwing s={s as Swing} game={games.get((s as Swing).game)} onOpen={onGame} />}
             </li>
           ))}
         </ul>
@@ -147,5 +151,35 @@ function GameSwing({ s, game, onOpen }: { s: Swing; game?: Game; onOpen?: (gameI
       </span>
       {onOpen && <span className="shrink-0 text-[11px] font-semibold text-sky-300">💬 Thread ›</span>}
     </button>
+  );
+}
+
+// a team climbing the standings tonight, worked out on the phone from the standings the store reads as points move
+type Climb = { id: number; at: string; kind: 'climb'; early?: boolean; team: number; from: number; to: number };
+function useClimbs(on: boolean) {
+  const { standings } = useLeague();
+  const last = useRef<Map<number, number> | null>(null);
+  const [climbs, setClimbs] = useState<Climb[]>([]);
+  useEffect(() => {
+    const now = new Map(standings.map((s) => [s.team_id, s.rank]));
+    const was = last.current;
+    last.current = now;
+    if (!on || !was || !standings.some((s) => Number(s.points) !== 0)) return;
+    const at = new Date().toISOString();
+    const up = standings.filter((s) => (was.get(s.team_id) ?? s.rank) > s.rank).map((s, i) => ({ id: -(Date.now() * 10 + i), at, kind: 'climb' as const, team: s.team_id, from: was.get(s.team_id)!, to: s.rank }));
+    if (up.length) setClimbs((c) => [...c, ...up].slice(-20));
+  }, [standings, on]);
+  return climbs;
+}
+
+function ClimbSwing({ s, mine }: { s: Climb; mine: boolean }) {
+  const { team } = useLeague();
+  const t = team(s.team);
+  return (
+    <div className={`flex items-center gap-2.5 px-3 py-2 text-sm ${mine ? 'bg-sky-400/[.06]' : ''}`}>
+      <TeamBadge team={t} size={26} />
+      <span className="min-w-0 flex-1 leading-tight"><b className="text-slate-100">{t?.gm_name ?? 'A team'}</b> <span className="text-slate-300">climbs to {ordinal(s.to)} in the standings</span><span className="block text-[11px] text-mute">{fmtTime(s.at)}</span></span>
+      <span className="num shrink-0 rounded-lg bg-emerald-400/15 px-1.5 py-0.5 text-xs font-extrabold"><Move n={s.from - s.to} /></span>
+    </div>
   );
 }

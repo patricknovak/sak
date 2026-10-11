@@ -1,4 +1,4 @@
-// Lineup New, the whole league: every team's lineup for a day on one board, ranked by what it should score (or has
+// My Team's League tab, the whole league: every team's lineup for a day on one board, ranked by what it should score (or has
 // scored, once tonight's games start): starters who play, players left on the bench with a game, empty places and
 // light-night starts. A week mode adds the next seven days up, team by team. Tap a team to look at its lineup, or
 // to put it beside yours.

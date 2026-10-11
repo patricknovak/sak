@@ -3,7 +3,6 @@ import { RotoMini } from '../components/RotoStandings';
 import { H2HHome } from '../components/HeadToHead';
 import { useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { usePoll } from '../lib/poll';
 import { useLeague, useNow } from '../lib/store';
 import { realtimeChannel, supabase } from '../lib/supabase';
 import type { Bet, Message, Trade } from '../lib/types';
@@ -18,7 +17,7 @@ import { bare, useBrand } from '../lib/brand';
 import { WatchCard } from '../components/WatchCard';
 
 export default function Home() {
-  const { me, league, teams, spectators, team, standings: regular, playoffs, rosters, players, draft, picks, gamesByTeam, online, leagueDay, gamesLive } = useLeague();
+  const { me, league, teams, spectators, team, standings: regular, playoffs, rosters, players, draft, picks, gamesByTeam, online, dayPoints } = useLeague();
   const brand = useBrand();
   const now = useNow(1000);
   const nav = useNavigate();
@@ -26,7 +25,6 @@ export default function Home() {
   const [feed, setFeed] = useState<Message[]>([]);
   const [bets, setBets] = useState<Bet[]>([]);
   const [trades, setTrades] = useState<Trade[]>([]);
-  const [todayPts, setTodayPts] = useState<Map<number, number>>(new Map());
 
   useEffect(() => {
     const load = () => {
@@ -41,9 +39,6 @@ export default function Home() {
     return () => { supabase.removeChannel(ch); };
   }, []);
 
-  // today's live fantasy points per player
-  usePoll(() => { if (league?.phase === 'season') supabase.from('league_games').select('player_id,fpts').eq('date', leagueDay)
-    .then(({ data }) => setTodayPts(new Map((data ?? []).map((r) => [r.player_id, Number(r.fpts)])))); }, 60_000, league?.phase === 'season' && gamesLive, [league?.phase, leagueDay]);
 
   // once NHL playoff games are being scored, Home follows the playoff race
   const inPlayoffs = playoffs.some((t) => Number(t.points) !== 0);
@@ -132,7 +127,7 @@ export default function Home() {
             <div className="grid grid-cols-3 gap-2 sm:col-span-2">
               <Stat label={inPlayoffs ? 'Playoff rank' : 'Rank'} value={ordinal(mine.rank)} sub={`of ${teams.length}`} />
               <Stat label={inPlayoffs ? 'Playoff pts' : 'Points'} value={fmtPts(mine.points)} sub={leader && leader.team_id !== me?.id ? `${fmtPts(leader.points - mine.points)} back` : 'Leading 👑'} />
-              <Stat label="Today" value={fmtPts(myStarters.reduce((t, x) => t + (todayPts.get(x.p.id) ?? 0), 0))} sub={`${playingTonight.length} playing`} />
+              <Stat label="Today" value={fmtPts(myStarters.reduce((t, x) => t + (dayPoints.get(x.p.id)?.fpts ?? 0), 0))} sub={`${playingTonight.length} playing`} />
             </div>
           )}
         </div>
@@ -242,7 +237,7 @@ export default function Home() {
                 {playingTonight.length === 0 && <div className="p-4 text-sm text-mute">None of your starters play today.</div>}
                 {playingTonight.map(({ r, p }) => (
                   <div key={p.id} className="px-3 py-2">
-                    <PlayerRow p={p} onClick={() => open(p.id)} right={<div className="text-right"><div className="text-[10px] text-mute">{r.slot}</div><div className="num font-bold">{fmtPts(todayPts.get(p.id) ?? 0, 1)}</div></div>} />
+                    <PlayerRow p={p} onClick={() => open(p.id)} right={<div className="text-right"><div className="text-[10px] text-mute">{r.slot}</div><div className="num font-bold">{fmtPts(dayPoints.get(p.id)?.fpts ?? 0, 1)}</div></div>} />
                   </div>
                 ))}
                 {benchedPlaying.length > 0 && (
