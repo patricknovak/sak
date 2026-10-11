@@ -7,7 +7,7 @@ import { useLeague } from './store';
 import { supabase } from './supabase';
 import { etToday } from './format';
 
-export type PoolFixture = { id: number; competition: string; kickoff: string; home_club: number; away_club: number; state: string; minute: string | null; home_score: number | null; away_score: number | null };
+export type PoolFixture = { id: number; competition: string; kickoff: string; home_club: number | null; away_club: number | null; home_abbr?: string; away_abbr?: string; state: string; minute: string | null; home_score: number | null; away_score: number | null };
 export type PoolClub = { id: number; short: string | null; name: string; color: string | null };
 export type PoolTable = { key: string; title: string; kind: string; rows: { team_id: number; rank: number; score: number }[] } | null;
 export type PoolSwing = {

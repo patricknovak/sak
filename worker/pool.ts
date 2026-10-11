@@ -6,7 +6,9 @@
 import type { Env } from './index';
 import { Room } from './room';
 
-type Fixture = { id: number; competition: string; kickoff: string; home_club: number; away_club: number; state: string; minute: string | null; home_score: number | null; away_score: number | null };
+// a game on the pool's events; an NHL game for a box pool (read from the NHL's own games) carries its clubs' abbreviations
+type Fixture = { id: number; competition: string; kickoff: string; home_club: number | null; away_club: number | null; home_abbr?: string; away_abbr?: string; state: string; minute: string | null; home_score: number | null; away_score: number | null };
+type NhlGame = { id: number; start_utc: string; home: string; away: string; state: string; period: string | null; clock: string | null; home_score: number | null; away_score: number | null };
 type Club = { id: number; short: string | null; name: string; color: string | null };
 type Row = { team_id: number; rank: number; score: number };
 type Table = { key: string; title: string; kind: string; rows: Row[] } | null;
@@ -61,7 +63,10 @@ export class PoolRoom extends Room<Night> {
     const [br, cr] = await Promise.all([this.rest(token, 'rpc/pool_scoreboard', post), this.rest(token, 'rpc/pool_competitions', post)]);
     if (!br.ok || !cr.ok) { console.warn('pool read', this.league, br.status, cr.status); return; }
     const board = (await br.json()) as { games?: { key: string; title: string; kind: string; rows: Row[] }[] } | null;
-    const comps = ((await cr.json()) as { id: string }[]).map((c) => c.id);
+    const own = (await cr.json()) as { id: string; format: string | null }[];
+    // a box pool's event is the NHL season itself: its games are the NHL's, not the pools' fixtures
+    const comps = own.filter((c) => c.format !== 'players').map((c) => c.id);
+    const box = own.find((c) => c.format === 'players');
     // the pool's main game leads the board; its table is the one the room watches
     const g = board?.games?.[0];
     const table: Table = g ? { key: g.key, title: g.title, kind: g.kind, rows: g.rows.map((r) => ({ team_id: r.team_id, rank: Number(r.rank), score: Number(r.score) })) } : null;
@@ -72,11 +77,15 @@ export class PoolRoom extends Room<Night> {
       fixtures = (await fr.json()) as Fixture[];
       // the clubs' names and colours, once
       const known = new Map(((await this.ctx.storage.get<Club[]>('clubs')) ?? []).map((c) => [c.id, c]));
-      const want = [...new Set(fixtures.flatMap((f) => [f.home_club, f.away_club]))].filter((id) => id != null && !known.has(id));
+      const want = [...new Set(fixtures.flatMap((f) => [f.home_club, f.away_club]))].filter((id): id is number => id != null && !known.has(id));
       if (want.length) {
         const kr = await this.rest(token, `clubs?select=id,short,name,color&id=in.(${want.join(',')})`);
         if (kr.ok) { for (const c of (await kr.json()) as Club[]) known.set(c.id, c); await this.ctx.storage.put('clubs', [...known.values()]); }
       }
+    }
+    if (box) {
+      const nr = await this.rest(token, `games?select=id,start_utc,home,away,state,period,clock,home_score,away_score&date=eq.${this.day}&order=start_utc`);
+      if (nr.ok) fixtures = [...fixtures, ...((await nr.json()) as NhlGame[]).map((g) => nhlFixture(g, box.id))];
     }
     const before = await this.ctx.storage.get<State>('state');
     const next: State = { fixtures, table, at: Date.now() };
@@ -115,6 +124,14 @@ export class PoolRoom extends Room<Night> {
     }
     return out;
   }
+}
+
+// an NHL game in the pool room's words: live, final or scheduled, the period and clock as the minute
+function nhlFixture(g: NhlGame, competition: string): Fixture {
+  const state = ['LIVE', 'CRIT'].includes(g.state) ? 'live' : ['OFF', 'FINAL'].includes(g.state) ? 'final' : g.state === 'PPD' ? 'postponed' : g.state === 'CNCL' ? 'cancelled' : 'scheduled';
+  const period = g.period ? (/^\d$/.test(g.period) ? ['1st', '2nd', '3rd'][Number(g.period) - 1] ?? g.period : g.period) : null;
+  return { id: g.id, competition, kickoff: g.start_utc, home_club: null, away_club: null, home_abbr: g.home, away_abbr: g.away, state,
+    minute: state === 'live' ? [period, g.clock].filter(Boolean).join(' ') || null : null, home_score: g.home_score, away_score: g.away_score };
 }
 
 // /api/live/<league>/pool/<day>: to the pool's room for that day

@@ -49,7 +49,7 @@ http.createServer((req, res) => {
   }
   // a prediction pool's table, events, games and clubs (pool.test.mjs sets them)
   if (t === 'rpc/pool_scoreboard') return j(st.pool ? { crown: null, games: [st.pool.table] } : null);
-  if (t === 'rpc/pool_competitions') return j(st.pool ? st.pool.comps.map((id) => ({ id })) : []);
+  if (t === 'rpc/pool_competitions') return j(st.pool ? [...st.pool.comps.map((id) => ({ id, format: null })), ...(st.pool.box ? [{ id: st.pool.box, format: 'players' }] : [])] : []);
   if (t === 'fixtures') return j(st.pool ? st.pool.fixtures : []);
   if (t === 'clubs') return j(st.pool ? st.pool.clubs : []);
   if (t === 'draft_state') return j(st.draft ? [st.draft.state] : []);

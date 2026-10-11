@@ -1,22 +1,27 @@
 // The pool's live room on its home page (lib/poolRoom): today's games on the pool's events with their live scores,
 // who's watching, and the day's swings: a game starting, a score, a final, a member climbing the table. Shown only
-// once the room is live and the day has something in it.
+// once the room is live and the day has something in it. A box pool's games are the NHL's own, shown by their logos.
 import { useLeague } from '../lib/store';
 import type { PoolClub, PoolFixture, PoolRoom } from '../lib/poolRoom';
 import { fmtTime, ordinal } from '../lib/format';
-import { TeamBadge } from './ui';
+import { NhlLogo, TeamBadge } from './ui';
 
 const LIVE = (s: string) => s === 'live';
 const DONE = (s: string) => ['final', 'postponed', 'cancelled', 'abandoned'].includes(s);
 
-function Club({ c }: { c?: PoolClub }) {
+// a club: its colour and short name from the pool's events, or an NHL club (the box pool) by its abbreviation and logo
+function Club({ c, abbr }: { c?: PoolClub; abbr?: string }) {
   return (
     <span className="inline-flex items-center gap-1.5 font-semibold text-slate-100">
-      <span className="h-2.5 w-2.5 shrink-0 rounded-full ring-1 ring-white/20" style={{ background: c?.color ?? '#475569' }} />
-      {c?.short ?? c?.name ?? '–'}
+      {abbr ? <NhlLogo abbr={abbr} size={14} /> : <span className="h-2.5 w-2.5 shrink-0 rounded-full ring-1 ring-white/20" style={{ background: c?.color ?? '#475569' }} />}
+      {abbr ?? c?.short ?? c?.name ?? '–'}
     </span>
   );
 }
+const side = (f: PoolFixture, clubs: Map<number, PoolClub>, home: boolean) => {
+  const id = home ? f.home_club : f.away_club;
+  return { c: id != null ? clubs.get(id) : undefined, abbr: home ? f.home_abbr : f.away_abbr };
+};
 
 function GameChip({ f, clubs }: { f: PoolFixture; clubs: Map<number, PoolClub> }) {
   const live = LIVE(f.state), done = DONE(f.state);
@@ -26,8 +31,8 @@ function GameChip({ f, clubs }: { f: PoolFixture; clubs: Map<number, PoolClub> }
         {live && <span className="mr-1 inline-block h-1.5 w-1.5 animate-pulse rounded-full bg-goal align-middle" />}
         {live ? f.minute || 'Live' : done ? (f.state === 'final' ? 'Final' : f.state) : fmtTime(f.kickoff)}
       </div>
-      {([[f.away_club, f.away_score], [f.home_club, f.home_score]] as const).map(([id, sc]) => (
-        <div key={id} className="flex items-center justify-between py-0.5 text-sm"><Club c={clubs.get(id)} /><span className="num font-bold">{sc ?? ''}</span></div>
+      {([[false, f.away_score], [true, f.home_score]] as const).map(([home, sc]) => (
+        <div key={String(home)} className="flex items-center justify-between py-0.5 text-sm"><Club {...side(f, clubs, home)} /><span className="num font-bold">{sc ?? ''}</span></div>
       ))}
     </div>
   );
@@ -80,7 +85,7 @@ export function PoolRoomCard({ room }: { room: PoolRoom }) {
               <li key={s.id} className="flex items-center gap-2 px-3 py-2 text-xs">
                 <span className="w-12 shrink-0 text-[10px] font-bold uppercase tracking-wider text-mute">{done ? 'Final' : a == null ? 'Start' : 'Score'}</span>
                 <span className="min-w-0 flex-1">
-                  <span className="inline-flex flex-wrap items-center gap-1.5"><Club c={room.clubs.get(f.away_club)} /><span className="num font-extrabold text-white">{a ?? ''}</span><span className="text-mute">–</span><span className="num font-extrabold text-white">{h ?? ''}</span><Club c={room.clubs.get(f.home_club)} /></span>
+                  <span className="inline-flex flex-wrap items-center gap-1.5"><Club {...side(f, room.clubs, false)} /><span className="num font-extrabold text-white">{a ?? ''}</span><span className="text-mute">–</span><span className="num font-extrabold text-white">{h ?? ''}</span><Club {...side(f, room.clubs, true)} /></span>
                   <span className="block text-[11px] text-mute">{s.minute ? `${s.minute} · ` : ''}{fmtTime(s.at)}</span>
                 </span>
               </li>

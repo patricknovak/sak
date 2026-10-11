@@ -44,8 +44,14 @@ check(!tk.swings.some((s) => s.kind === 't' && s.team === 2), 'dropping a place 
 check(tk.fixtures.length === 1 && tk.table && tk.table.rows[1].team_id === 3, 'only what moved goes out, the new table with it');
 await until(a, (m) => m.t === 'tick' && m.swings.length);
 check(true, 'everyone in the room hears it');
+// the pool adds a box pool: the NHL's own games join the day, by their clubs' abbreviations
+write((st) => { st.pool.box = 'nhl-2026'; });
+const bx = await until(a, (m) => m.t === 'tick' && m.all && m.all.length === 4);
+const tor = bx.all.find((f) => f.home_abbr === 'TOR');
+check(tor && tor.state === 'live' && /^2nd \d\d:\d\d$/.test(tor.minute) && tor.home_club === null, "a box pool's NHL games join the day, live with period and clock");
+check(bx.all.some((f) => f.home_abbr === 'EDM' && f.state === 'final'), 'a final NHL game reads as final');
 const late = await open(); late.send(JSON.stringify({ t: 'hello', token: tok('u2') }));
 const n2 = await until(late, (m) => m.t === 'pool');
-check(n2.swings.length === 2 && n2.fixtures[0].away_score === 10, 'a late phone sees the day so far');
+check(n2.swings.length >= 2 && n2.fixtures.length === 4 && n2.fixtures[0].away_score === 10, 'a late phone sees the day so far');
 a.close(); b.close(); late.close();
 process.exit(0);
