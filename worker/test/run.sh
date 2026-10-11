@@ -1,5 +1,5 @@
 #!/bin/bash
-# npm run test:live: the live rooms (worker/live.ts, worker/draft.ts) under wrangler dev, reading from a stand-in database
+# npm run test:live: the live rooms (worker/live.ts, worker/draft.ts, worker/pool.ts) under wrangler dev, reading from a stand-in database
 # (live-mock.mjs), driven by live.test.mjs. Needs a built site in dist/ (npm run build).
 set -e
 cd "$(dirname "$0")/../.."
@@ -11,3 +11,4 @@ trap 'kill $MOCK 2>/dev/null; kill -- -$DEV 2>/dev/null; rm -f worker/test/.live
 for i in $(seq 1 60); do curl -s -o /dev/null http://127.0.0.1:8787/ && break; sleep 2; done
 node worker/test/live.test.mjs "$DAY"
 node worker/test/draft.test.mjs
+node worker/test/pool.test.mjs "$DAY"

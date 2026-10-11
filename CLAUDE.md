@@ -112,7 +112,9 @@ Two things in one repo:
   alarm is the pick clock (it calls `draft_tick` the moment a deadline passes), it pushes every pick, and the store's
   4-second draft poll stands down while it is live; both rooms share `worker/room.ts`. A thread per game is chat channel
   `game:<game id>` (`GameThread` in the box score sheet, first while the game is on; left out of the merged chat feed and
-  the chat badge, counted on the scoreboard's game chips instead); the rest is the built site. The plan for the edge is `docs/DEVELOPMENT.md` §8.3; the
+  the chat badge, counted on the scoreboard's game chips instead). `/api/live/<league>/pool/<day>` is a prediction pool's
+  room for the day (`worker/pool.ts`, `usePoolRoom` in `src/lib/poolRoom.ts`, `PoolRoomCard` on the pool's home): today's
+  games on its events, their scores and members climbing its table, pushed; the rest is the built site. The plan for the edge is `docs/DEVELOPMENT.md` §8.3; the
   Super Pools landing page (`landing/index.html`) on Cloudflare (zone routes on the apex and www; off Vercel); every
   other `<league>.superpoolsai.com` goes to the app through a wildcard zone route and a proxied `AAAA * 100::` record (live
   since 4 October 2026: `podsquad.superpoolsai.com`). One account, every pool (migration 151): the product's one address is

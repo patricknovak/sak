@@ -25,9 +25,9 @@
   },
   "observability": { "enabled": true },
   // the live rooms, SQLite-backed Durable Objects: one per league per game night (worker/live.ts) and one per league for
-  // its draft (worker/draft.ts)
-  "durable_objects": { "bindings": [{ "name": "LIVE", "class_name": "LiveRoom" }, { "name": "DRAFT", "class_name": "DraftRoom" }] },
-  "migrations": [{ "tag": "live-room-1", "new_sqlite_classes": ["LiveRoom"] }, { "tag": "draft-room-1", "new_sqlite_classes": ["DraftRoom"] }],
+  // its draft (worker/draft.ts) and one per prediction pool per day (worker/pool.ts)
+  "durable_objects": { "bindings": [{ "name": "LIVE", "class_name": "LiveRoom" }, { "name": "DRAFT", "class_name": "DraftRoom" }, { "name": "POOL", "class_name": "PoolRoom" }] },
+  "migrations": [{ "tag": "live-room-1", "new_sqlite_classes": ["LiveRoom"] }, { "tag": "draft-room-1", "new_sqlite_classes": ["DraftRoom"] }, { "tag": "pool-room-1", "new_sqlite_classes": ["PoolRoom"] }],
   // steps 1 and 2 of the move in one: SaK at sak.superpoolsai.com beside GitHub Pages. A custom domain, so the deploy
   // makes the DNS record and the certificate itself; the new address is the preview, so no workers.dev one.
   "workers_dev": false,

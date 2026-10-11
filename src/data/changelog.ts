@@ -6,6 +6,8 @@
 export interface Change { date: string; icon: string; title: string; body: string; to?: string; tag?: 'formats' | 'commish' | 'draft' | 'everyone' }
 
 export const CHANGELOG: Change[] = [
+  { date: '2026-10-11', icon: '📡', tag: 'everyone', title: 'Game day in your pool', to: '/',
+    body: 'A pool\'s home now has a live room on game days: today\'s games on your pool\'s events with their live scores, who else is watching, and every swing as it lands, from a score or a final to a member climbing the table. The table moves with it.' },
   { date: '2026-10-11', icon: '💬', tag: 'everyone', title: 'A thread for every game', to: '/scoreboard',
     body: 'Every NHL game on the live scoreboard now has its own chat. Tap a game: the thread opens first while it is on, with whose players are in it and what they have tonight, the swings from that game, and the league talking it over. Ask the league\'s voice in there and it answers in the thread. The game chips show how busy each thread is.' },
   { date: '2026-10-11', icon: '⏱️', tag: 'draft', title: 'A draft clock that keeps time', to: '/draft',

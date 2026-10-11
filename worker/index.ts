@@ -8,17 +8,20 @@
 //   /og/j/<code>.png, /og/p/<web name>.png   the preview pictures those pages point at
 //   /api/live/<league>/<day>   the league's live room for that game night (a WebSocket; worker/live.ts)
 //   /api/live/<league>/draft   the league's draft room: the pick clock and every pick, live (a WebSocket; worker/draft.ts)
+//   /api/live/<league>/pool/<day>   a prediction pool's room for the day: its games and its table, live (worker/pool.ts)
 // Everything else is the app, unchanged. Postgres stays the source of truth: the Worker reads only what the public key
 // may (invite_preview, league_by_host) and the public sports feeds.
 import { hub } from './hub';
 import { live, LiveRoom } from './live';
 import { draftRoom, DraftRoom } from './draft';
+import { poolRoom, PoolRoom } from './pool';
 import { inviteImage, invitePage, poolImage, poolPage } from './preview';
 
 export interface Env {
   ASSETS: Fetcher;
   LIVE: DurableObjectNamespace<LiveRoom>;
   DRAFT: DurableObjectNamespace<DraftRoom>;
+  POOL: DurableObjectNamespace<PoolRoom>;
   SUPABASE_URL: string;
   SUPABASE_ANON: string;
 }
@@ -30,6 +33,7 @@ export default {
     try {
       if (p === '/api/hub') return await hub(req, env, ctx);
       if (/^\/api\/live\/\d+\/draft$/.test(p)) return await draftRoom(req, env);
+      if (/^\/api\/live\/\d+\/pool\//.test(p)) return await poolRoom(req, env);
       if (p.startsWith('/api/live/')) return await live(req, env);
       let m = /^\/og\/j\/([a-z0-9-]{4,64})\.png$/i.exec(p);
       if (m) return await inviteImage(m[1], req, env, ctx);
@@ -49,4 +53,4 @@ export default {
   },
 } satisfies ExportedHandler<Env>;
 
-export { LiveRoom, DraftRoom };
+export { LiveRoom, DraftRoom, PoolRoom };
