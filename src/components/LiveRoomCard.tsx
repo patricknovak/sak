@@ -11,7 +11,7 @@ import type { Game } from '../lib/types';
 
 const SHOW = 8;
 
-export function LiveRoomCard({ slate }: { slate: Game[] }) {
+export function LiveRoomCard({ slate, onGame }: { slate: Game[]; onGame?: (gameId: number) => void }) {
   const { me, team } = useLeague();
   const room = useLiveRoom();
   const [all, setAll] = useState(false);
@@ -58,7 +58,7 @@ export function LiveRoomCard({ slate }: { slate: Game[] }) {
               {s.kind === 'p'
                 ? <PlayerSwing s={s} mine={s.team === me?.id} game={games.get(s.game)} picking={picking === s.id} onPick={() => setPicking(picking === s.id ? null : s.id)}
                     onReact={(e) => { room.react(s.id, e); setPicking(null); }} myTeam={me?.id} />
-                : <GameSwing s={s} game={games.get(s.game)} />}
+                : <GameSwing s={s} game={games.get(s.game)} onOpen={onGame} />}
             </li>
           ))}
         </ul>
@@ -127,14 +127,15 @@ function PlayerSwing({ s, mine, game, picking, onPick, onReact, myTeam }: { s: S
   );
 }
 
-// a game in the night: puck drop, the score moving, the final
-function GameSwing({ s, game }: { s: Swing; game?: Game }) {
+// a game in the night: puck drop, the score moving, the final; a tap opens the game's thread
+function GameSwing({ s, game, onOpen }: { s: Swing; game?: Game; onOpen?: (gameId: number) => void }) {
   if (!game) return null;
   const [a, h] = s.score ?? [null, null];
   const final = ['OFF', 'FINAL'].includes(s.state ?? '');
   const label = final ? `Final${s.period && !['3', 'REG'].includes(String(s.period)) ? `/${s.period}` : ''}` : a == null ? 'Puck drop' : `${/^\d$/.test(String(s.period)) ? ordinal(Number(s.period)) : s.period ?? ''} ${s.clock ?? ''}`.trim();
   return (
-    <div className={`flex items-center gap-2 px-3 py-2 text-xs ${s.early ? 'opacity-80' : ''}`}>
+    <button type="button" onClick={() => onOpen?.(game.id)} disabled={!onOpen} title="Open this game's thread"
+      className={`flex w-full items-center gap-2 px-3 py-2 text-left text-xs transition enabled:hover:bg-white/[.03] ${s.early ? 'opacity-80' : ''}`}>
       <span className="w-12 shrink-0 text-[10px] font-bold uppercase tracking-wider text-mute">{final ? 'Final' : a == null ? 'Start' : 'Goal'}</span>
       <span className="min-w-0 flex-1">
         <span className="inline-flex items-center gap-1.5 whitespace-nowrap font-semibold text-slate-200">
@@ -144,6 +145,7 @@ function GameSwing({ s, game }: { s: Swing; game?: Game }) {
         </span>
         <span className="block text-[11px] text-mute">{label} · {fmtTime(s.at)}</span>
       </span>
-    </div>
+      {onOpen && <span className="shrink-0 text-[11px] font-semibold text-sky-300">💬 Thread ›</span>}
+    </button>
   );
 }

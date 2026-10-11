@@ -18,6 +18,8 @@ import { categoryOf, fmtCat } from '../lib/categories';
 import { useRoto } from '../components/RotoStandings';
 import { useLiveRoom } from '../lib/liveRoom';
 import { LiveRoomCard } from '../components/LiveRoomCard';
+import { threadOf, useThreadCounts } from '../components/GameThread';
+import { useUnread } from '../components/Layout';
 
 type Snap = { team_id: number; player_id: number; slot: string; game_id: number };
 type PG = { player_id: number; game_id: number; fpts: number; stats: Record<string, number>; nhl_team: string | null; updated_at?: string | null };
@@ -110,6 +112,9 @@ export default function Scoreboard() {
   const snaps: Snap[] = roomNight?.snaps ?? polledSnaps;
   const pgs: PG[] = roomNight?.pgs ?? polledPgs;
   const inRoom = !!roomNight;
+  // each game's thread: how much talk it has, and whether any of it is new to you
+  const threads = useThreadCounts(slate.map((g) => g.id));
+  const { unread } = useUnread();
   const [checked, setChecked] = useState<number | null>(null);
   // every team's starters show; a tap on a team folds them away, and its bench opens on request
   const [shut, setShut] = useState<Set<number>>(new Set());
@@ -291,20 +296,28 @@ export default function Scoreboard() {
           {slate.map((g) => {
             const live = isLive(sport, g.state);
             return (
-              <button type="button" key={g.id} onClick={() => setBox(g)} title="Open the box score"
+              <button type="button" key={g.id} onClick={() => setBox(g)} title="Open the game: its thread and box score"
                 className={`w-40 shrink-0 rounded-2xl border p-2.5 text-left transition hover:border-sky-400/50 ${live ? 'border-goal/40 bg-goal/[.07]' : 'border-white/[.07] bg-white/[.03]'}`}>
                 <div className={`mb-1.5 text-[10px] font-bold uppercase tracking-wider ${live ? 'text-goal' : 'text-mute'}`}>{live && <span className="mr-1 inline-block h-1.5 w-1.5 animate-pulse rounded-full bg-goal align-middle" />}{gameLabel(sport, g)}</div>
                 {[[g.away, g.away_score], [g.home, g.home_score]].map(([abbr, score]) => (
                   <div key={String(abbr)} className="flex items-center gap-1.5 py-0.5 text-sm"><NhlLogo abbr={String(abbr)} size={18} /><span className="flex-1 font-semibold">{abbr}</span><span className="num font-bold">{score ?? ''}</span></div>
                 ))}
-                <div className="mt-1 text-[10px] text-sky-300">{live || isFinal(sport, g.state) ? 'Box score ›' : 'Preview ›'}</div>
+                <div className="mt-1 flex items-center justify-between gap-1 text-[10px]">
+                  <span className="text-sky-300">{live || isFinal(sport, g.state) ? 'Box score ›' : 'Preview ›'}</span>
+                  {(threads.get(g.id) ?? 0) > 0 && (
+                    <span className={`relative inline-flex items-center gap-0.5 rounded-full px-1.5 font-semibold ${unread(threadOf(g.id)) ? 'bg-goal/20 text-white' : 'bg-white/[.06] text-slate-300'}`} title="Messages in this game's thread">
+                      💬 <span className="num">{threads.get(g.id)}</span>
+                      {unread(threadOf(g.id)) && <span className="absolute -right-0.5 -top-0.5 h-2 w-2 rounded-full bg-goal" />}
+                    </span>
+                  )}
+                </div>
               </button>
             );
           })}
         </div>
       )}
 
-      {!past && <LiveRoomCard slate={slate} />}
+      {!past && <LiveRoomCard slate={slate} onGame={(id) => { const g = slate.find((x) => x.id === id); if (g) setBox(g); }} />}
 
       <Section title={catMode ? (past ? `Categories on ${fmtDate(today)}` : 'Tonight’s categories') : past ? `Points on ${fmtDate(today)}` : 'Tonight’s points'} right={updated}>
         {updatedLine}
@@ -408,7 +421,7 @@ export default function Scoreboard() {
           </div>
         </Section>
       )}
-      <BoxScore game={box ? slate.find((g) => g.id === box.id) ?? box : null} onClose={() => setBox(null)} />
+      <BoxScore game={box ? slate.find((g) => g.id === box.id) ?? box : null} onClose={() => setBox(null)} threads={threads} unread={unread} />
       {past ? <p className="px-1 text-center text-[11px] text-mute">Final box scores. Stat corrections from the NHL can still move a line for up to a month.</p>
         : <p className="px-1 text-center text-[11px] text-mute">Points follow the NHL box scores, which update about once a minute; {inRoom ? 'the live room passes each change on the moment it lands' : `this page checks every minute${checked ? ` (last check ${fmtTime(new Date(checked).toISOString())})` : ''}`}.</p>}
     </div>

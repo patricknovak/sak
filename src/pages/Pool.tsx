@@ -1,6 +1,8 @@
 // A prediction pool's pages (docs/POOLS.md): the home (your coins, the next drop, what is closing, the latest calls),
 // the board of questions, one question with its chart and its trade, the leaders, and the host's desk. A pool of kind
 // 'predict' sees only these; a fantasy league reaches the board from More.
+import { usePoolRoom } from '../lib/poolRoom';
+import { PoolRoomCard } from '../components/PoolRoomCard';
 import { useMemo, useState } from 'react';
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { CalendarClock, Crown, Flame, Link2, Plus, Sparkles, Trash2, Trophy, Wand2 } from 'lucide-react';
@@ -82,8 +84,10 @@ export function PoolHome() {
   const { leaders } = useLeaders();
   const nextDrop = drops.find((d) => new Date(d.at).getTime() > now);
   // the rank the hero shows is the pool's main game's (the questions' net worth when that's all the pool runs)
-  const { board } = usePoolScoreboard();
+  const { board, reload } = usePoolScoreboard();
   const main = board?.games[0];
+  // the pool's live room for the day: its games and its table, pushed; the board reads again when the table moves
+  const room = usePoolRoom(reload);
   // the main game's chance to win, when it can be played out (pick'em, series, a locked ranking)
   const chances = useChances(main);
   const myChance = me ? chances?.get(me.id) : undefined;
@@ -125,6 +129,8 @@ export function PoolHome() {
           </div>
         )}
       </div>
+
+      <PoolRoomCard room={room} />
 
       <PoolGameCards />
 

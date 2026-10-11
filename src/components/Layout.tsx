@@ -57,9 +57,11 @@ export function useUnread() {
     return () => { supabase.removeChannel(ch); window.removeEventListener('sak:read', onRead); document.removeEventListener('visibilitychange', onWake); };
   }, [me?.id, lid]);
   const unread = (c: string) => (latest[c] ?? 0) > (reads[c] ?? 0);
-  const any = Object.keys(latest).some((c) => c !== 'draft' && unread(c));
-  // how many messages you haven't seen (everything but the draft room and your own posts; 200+ shows as 99+)
-  const count = recent.filter((m) => m.channel !== 'draft' && m.team_id !== me?.id && m.id > (reads[m.channel] ?? 0)).length;
+  // the chat tab's badge leaves out the draft room and the game threads, which show their own on the scoreboard
+  const own = (c: string) => c === 'draft' || c.startsWith('game:');
+  const any = Object.keys(latest).some((c) => !own(c) && unread(c));
+  // how many messages you haven't seen (everything but the draft room, the game threads and your own posts; 200+ shows as 99+)
+  const count = recent.filter((m) => !own(m.channel) && m.team_id !== me?.id && m.id > (reads[m.channel] ?? 0)).length;
   return { unread, any, count, markRead: (c: string, id: number) => setReads((r) => ({ ...r, [c]: Math.max(r[c] ?? 0, id) })) };
 }
 

@@ -1,5 +1,6 @@
 // A game's box score, from the same numbers the league scores: every skater and goalie who dressed, the stats
 // the league counts, and each player's points in the league. Players the league's GMs own are marked with their GM.
+// Beside it, the game's thread (GameThread): the league's chat about this game, first while the game is on.
 import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useLeague, useSport } from '../lib/store';
@@ -7,6 +8,7 @@ import { isFinal, isLive, periodShort } from '../lib/sport';
 import { supabase } from '../lib/supabase';
 import { fmtPts, fmtTime, STAT_LABELS } from '../lib/format';
 import { NhlLogo, Sheet } from './ui';
+import { GameThread, threadOf } from './GameThread';
 import type { Game } from '../lib/types';
 import { useBrand } from '../lib/brand';
 
@@ -21,11 +23,18 @@ export function scoringLine(stats: Record<string, number>, weights: Record<strin
     .map((k) => (k === 'pm' ? `${stats[k] > 0 ? '+' : ''}${stats[k]}` : `${stats[k]} ${STAT_LABELS[k] ?? k}`)).join(' · ');
 }
 
-export function BoxScore({ game, onClose }: { game: Game | null; onClose: () => void }) {
+export function BoxScore({ game, onClose, threads, unread }: { game: Game | null; onClose: () => void; threads?: Map<number, number>; unread?: (channel: string) => boolean }) {
   const { players, owner, team, league } = useLeague();
+  // the thread first while the game is on (or once it has talk in it), the box score otherwise
+  const [tab, setTab] = useState<'thread' | 'box'>('box');
   const sport = useSport();
   const brand = useBrand();
   const [rows, setRows] = useState<PG[] | null>(null);
+  const openId = game?.id;
+  useEffect(() => {
+    if (!game) return;
+    setTab(isLive(sport, game.state) || (threads?.get(game.id) ?? 0) > 0 ? 'thread' : 'box');
+  }, [openId]); // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => {
     if (!game) return;
     let alive = true;
@@ -67,7 +76,20 @@ export function BoxScore({ game, onClose }: { game: Game | null; onClose: () => 
     <Sheet open={!!game} onClose={onClose} wide title={
       <span className="flex items-center gap-2"><NhlLogo abbr={game.away} size={20} />{game.away} {game.away_score ?? ''} <span className="text-mute">@</span> {game.home} {game.home_score ?? ''}<NhlLogo abbr={game.home} size={20} /><span className={`ml-1 text-xs ${live ? 'text-goal' : 'text-mute'}`}>{status}</span></span>
     }>
-      {rows === null ? <div className="py-8 text-center text-sm text-mute">Loading the box score…</div>
+      <div className="mb-3 grid grid-cols-2 gap-1 rounded-2xl border border-white/[.07] bg-white/[.03] p-1 text-sm font-semibold">
+        {(['thread', 'box'] as const).map((k) => {
+          const n = threads?.get(game.id) ?? 0;
+          return (
+            <button key={k} type="button" onClick={() => setTab(k)} aria-pressed={tab === k}
+              className={`relative flex items-center justify-center gap-1.5 rounded-xl py-2 transition ${tab === k ? 'bg-white text-ice shadow-[0_6px_18px_-8px_rgba(255,255,255,.6)]' : 'text-slate-300 hover:bg-white/[.05]'}`}>
+              {k === 'thread' ? <>💬 Thread{n > 0 && <span className="num rounded-full bg-black/20 px-1.5 text-[11px]">{n}</span>}</> : <>📊 Box score</>}
+              {k === 'thread' && tab !== 'thread' && unread?.(threadOf(game.id)) && <span className="absolute right-2 top-1.5 h-2 w-2 rounded-full bg-goal" />}
+            </button>
+          );
+        })}
+      </div>
+      {tab === 'thread' ? <GameThread game={game} lines={rows} />
+      : rows === null ? <div className="py-8 text-center text-sm text-mute">Loading the box score…</div>
         : rows.length === 0 ? <div className="py-8 text-center text-sm text-mute">No box score yet: it fills in once the puck drops (about a minute behind the NHL).</div>
         : (
           <div className="space-y-4">
