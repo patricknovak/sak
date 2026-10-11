@@ -6,6 +6,8 @@
 export interface Change { date: string; icon: string; title: string; body: string; to?: string; tag?: 'formats' | 'commish' | 'draft' | 'everyone' }
 
 export const CHANGELOG: Change[] = [
+  { date: '2026-10-11', icon: '🚨', tag: 'everyone', title: 'The live room on your home page', to: '/',
+    body: 'On a game night your home page now shows the league\'s live room, the way a pool\'s home does: who\'s watching, the latest swings with their reactions, and tonight\'s scoreboard a tap away. Tap a game for its sheet.' },
   { date: '2026-10-11', icon: '💬', tag: 'everyone', title: 'A thread for every game in your pool', to: '/picks',
     body: 'Every match in a pool now has its own chat. Tap Talk on a pick\'em match, a game chip in the pool\'s live room, or Thread in the match centre: the score sits on top and the pool talks it over below. Each game shows how busy its thread is.' },
   { date: '2026-10-11', icon: '⏱️', tag: 'everyone', title: 'One score, every page', to: '/nhl?t=scores',
