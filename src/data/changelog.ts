@@ -6,6 +6,8 @@
 export interface Change { date: string; icon: string; title: string; body: string; to?: string; tag?: 'formats' | 'commish' | 'draft' | 'everyone' }
 
 export const CHANGELOG: Change[] = [
+  { date: '2026-10-12', icon: '📐', tag: 'commish', title: 'Copy your scoring from Fantrax', to: '/commish',
+    body: 'Coming from a Fantrax points league? In the scoring settings on the Commish page, paste its link and every stat both sites keep takes Fantrax\'s value. Check them, then save.' },
   { date: '2026-10-12', icon: '📜', tag: 'commish', title: 'Bring your past from Fantrax', to: '/league',
     body: 'A league that played on Fantrax brings its history too: on the League page, paste each season\'s Fantrax link (Fantrax gives every season its own), and each comes back with its final table, champions to last place. Say which team here each Fantrax team was, and their titles and last places follow them.' },
   { date: '2026-10-12', icon: '🚨', tag: 'everyone', title: 'Your pick just scored', to: '/',

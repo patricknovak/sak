@@ -464,7 +464,7 @@ Worker reads Postgres directly.
    `sak.superpoolsai.com` (E5's edge half is built: the live room carries tonight's points).
 3. **E4, the live room**: game nights, the draft clock, a thread per game, pools' game nights and a thread per pool game are built (11 October), the box pool's NHL games included.
 4. **Billing and tiers** (SUPERPOOLS item 6), with the Supercoin wallet after it.
-5. **Imports** (ESPN's and Fantrax's history done 11 and 12 October; rosters and settings next) and **the app-store listing**, the two doors MARKET.md names for fantasy leagues.
+5. **Imports** (ESPN's and Fantrax's history done 11 and 12 October, and Fantrax's scoring; rosters next) and **the app-store listing**, the two doors MARKET.md names for fantasy leagues.
 
 
 ### 8.5 One live clock, one game sheet, one lineup (11 October 2026, Patrick: "updates should be coordinated ... in the lowest cost way possible")
