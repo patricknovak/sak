@@ -5,8 +5,8 @@
 document.documentElement.classList.add('js');
 var still = window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches;
 
-// GA4 measurement ID: leave empty until the property exists; nothing loads while blank.
-var GA4_ID = '';
+// GA4 measurement ID (public). Empty means nothing loads; consent still gates the tag.
+var GA4_ID = 'G-1QP4G3BP5N';
 var CONSENT_KEY = 'sp_analytics_consent';
 var TOUCH_KEY = 'sp_first_touch';
 
