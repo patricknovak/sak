@@ -424,7 +424,9 @@ What would make it unmistakable next, in order of what a new group feels first:
    pool link unfurls with the pool's own name, host, colour and a picture drawn for it (section 8.3, E2).
 2. **Live, together.** The night a game is on, the pool should feel like a room: who's watching, the swing of each
    call as it happens, a thread per game, "your pick just scored". Durable Objects (E4) are the tool: one live room per
-   league or pool, pushed to every phone over a WebSocket, instead of every phone polling.
+   league or pool, pushed to every phone over a WebSocket, instead of every phone polling. Done 11 and 12 October: the live room on
+   a league's and a pool's home, a thread for every game, and "your pick just scored" (a pool member's pick'em pick or
+   last-one-standing club scores and a banner says so, from the pool room's own scores against the member's picks).
 3. **The draft night that runs itself.** Done 11 October: the draft clock on a Durable Object alarm, an expired pick made
    on the second, picks fanned out in under a second, the 4-second poll standing down while the room is live (E4).
 4. **A voice that's quick and cheap enough to say more.** Garry on an AI Gateway (E8): caching, a fallback model,
