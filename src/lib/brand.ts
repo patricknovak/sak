@@ -18,8 +18,17 @@ export interface Brand {
   colors: { gold: string };
 }
 
-// the product behind the league (docs/BRAND.md): the name, the line under it, and where it lives
-export const PRODUCT = { name: 'Super Pools', tagline: 'Fantasy pools from the future', domain: 'superpoolsai.com', url: 'https://superpoolsai.com' } as const;
+// the product behind the league (docs/BRAND.md): the name, the line under it, and where it lives.
+// Supercoins is the product currency (landing/index.html, BRAND.md); a pool may still nickname its coins
+// (Goblets for Love Is Blind on together.html, St. Patrick coins for SaK).
+export const PRODUCT = {
+  name: 'Super Pools',
+  tagline: 'Fantasy pools from the future',
+  domain: 'superpoolsai.com',
+  url: 'https://superpoolsai.com',
+  wordmark: { a: 'SUPER', b: 'POOLS' },
+  coin: { name: 'Supercoins', emoji: '🪙' },
+} as const;
 
 export const SAK_BRAND: Brand = {
   wordmark: { a: 'SAK', b: 'SUPERLEAGUE' }, tagline: 'She’s A Keeper', short: 'SaK', trophy: 'The SAK Cup', regular: 'The Johnson',

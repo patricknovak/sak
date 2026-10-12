@@ -13,6 +13,7 @@ import { KIND_ORDER, KIND_WHEN, KINDS, PICKEM_PRESETS, PRESETS, SQUARES_DEFAULT,
 import { SERIES_SPORTS, SheetPicker, SquaresKnobs, lockText } from './Picks';
 import { attributionFields, track } from '../lib/analytics';
 import { FantasyStart } from '../components/FantasyStart';
+import { PRODUCT } from '../lib/brand';
 
 // "Start a pool" (#/new), open to anyone, in steps (docs/POOL-TYPES.md §4). First what you're starting: a sports pool,
 // a questions pool or a fantasy league (migration 242: a league of your own, its choices made up front). Then, for a
@@ -29,7 +30,7 @@ const rgb = (c: string) => `${parseInt(c.slice(1, 3), 16)} ${parseInt(c.slice(3,
 
 const STEPS = [
   ['🔗', 'Send one link', 'Friends tap it in the group chat, pick a name and they’re in. No app to download.'],
-  ['🎯', 'Pick it, rank it, call it', 'Series picks, rankings, or questions priced like a market in coins. Every result lands on its own.'],
+  ['🎯', 'Pick it, rank it, call it', 'Series picks, rankings, or questions priced like a market in Supercoins. Every result lands on its own.'],
   ['👑', 'Wear the crown', 'The table runs all season. Never money, just bragging rights.'],
 ] as const;
 const SPORT_EMOJI: Record<string, string> = { mlb: '⚾', nhl: '🏒', soccer: '⚽', nfl: '🏈', nba: '🏀', ncaab: '🏀' };
@@ -38,7 +39,7 @@ type Mode = 'sports' | 'questions' | 'fantasy';
 const SPORT_NAME: Record<string, string> = { mlb: 'Baseball', nhl: 'Hockey', soccer: 'Soccer', nfl: 'Football', nba: 'Basketball', ncaab: 'College basketball' };
 const MODES: { key: Mode; emoji: string; title: string; line: string }[] = [
   { key: 'sports', emoji: '🏆', title: 'A sports pool', line: 'Pick’em, brackets, series picks, last one standing, Call the score, squares, prop sheets, the hockey box pool: on a league that’s on now.' },
-  { key: 'questions', emoji: '🔮', title: 'A questions pool', line: 'Questions priced like a market in coins: a TV show, an awards night, the office bake-off. Start from a pack or ask your own.' },
+  { key: 'questions', emoji: '🔮', title: 'A questions pool', line: 'Questions priced like a market in Supercoins: a TV show, an awards night, the office bake-off. Start from a pack or ask your own.' },
   { key: 'fantasy', emoji: '🏒', title: 'A fantasy league', line: 'Draft a team of NHL players and play the season: points or categories, season total or head-to-head, keepers or not.' },
 ];
 
@@ -81,6 +82,7 @@ export default function NewPool() {
   const typed = params.get('type');
   const [mode, setMode] = useState<Mode | null>(typed === 'sports' || typed === 'questions' || typed === 'fantasy' ? typed : null);
 
+  useEffect(() => { document.title = PRODUCT.name; }, []);
   useEffect(() => {
     rpc<PoolEvent[]>('pool_event_list').then((e) => {
       setEvents(e ?? []);
@@ -255,7 +257,7 @@ export default function NewPool() {
               <Step title="What kind of pool?">
                 <div className="grid gap-2">
                   {[...offered.map((k) => ({ key: k as GameKind | 'questions', ...KINDS[k], sub: `${KINDS[k].line} ${KINDS[k].time}.` })),
-                    ...(eventPack ? [{ key: 'questions' as const, title: 'The questions', badge: 'In coins', emoji: '🔮', sub: `${eventPack.questions} questions on the ${event.final_label.replace(/^(AL|NL) /, '')} and the pennants, priced like a market: buy what you believe, sell if you change your mind.`, time: '', line: '' }] : [])].map((k) => {
+                    ...(eventPack ? [{ key: 'questions' as const, title: 'The questions', badge: 'In Supercoins', emoji: '🔮', sub: `${eventPack.questions} questions on the ${event.final_label.replace(/^(AL|NL) /, '')} and the pennants, priced like a market: buy what you believe, sell if you change your mind.`, time: '', line: '' }] : [])].map((k) => {
                     const on = kinds.includes(k.key);
                     const main = on && kinds.filter((x) => (offered as string[]).includes(x) || x === 'questions')[0] === k.key;
                     return (
@@ -341,7 +343,7 @@ export default function NewPool() {
             {event && gridSeries && kinds.includes('squares') && (
               <Step title="The grid">
                 <SquaresKnobs dark grids={eventGrids(event)} on={gridSeries.id} setOn={setGridOn} grid={grid} setGrid={setGrid} sport={event.sport} />
-                <p className="mt-2 rounded-xl bg-white/[.05] px-3 py-2 text-xs leading-snug text-white/70">{gridLabel(gridSeries)}. Members claim squares with their coins until the grid fills or {gridSeries.best_of > 1 ? 'Game 1 starts' : 'the game starts'}; then the digits are drawn from a seed anyone can check.</p>
+                <p className="mt-2 rounded-xl bg-white/[.05] px-3 py-2 text-xs leading-snug text-white/70">{gridLabel(gridSeries)}. Members claim squares with their Supercoins until the grid fills or {gridSeries.best_of > 1 ? 'Game 1 starts' : 'the game starts'}; then the digits are drawn from a seed anyone can check.</p>
               </Step>
             )}
 
@@ -409,7 +411,7 @@ export default function NewPool() {
             </div>
           ))}
         </div>}
-        <p className="mt-4 text-center text-[11px] text-mute">Super Pools is free and runs on coins with no cash value. Nothing to buy, nothing to cash out.</p>
+        <p className="mt-4 text-center text-[11px] text-mute">Super Pools is free and runs on Supercoins with no cash value. Nothing to buy, nothing to cash out.</p>
       </div>
     </div>
   );

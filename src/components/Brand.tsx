@@ -43,11 +43,13 @@ export function LeagueCrest({ short, size = 96 }: { short: string; size?: number
 }
 
 // The league's mark wherever the site shows one: SaK's drawn badge for SaK, the crest for every other league.
-// Signed out on a league's own address it is that league's.
+// Signed out on a league's own address it is that league's. On the product app with no league yet, nothing here
+// (Login and #/new draw the product mark themselves).
 export function LeagueMark({ size, className = '', short }: { size: number; className?: string; short?: string }) {
   const { league, host } = useLeague();
   const brand = useBrand();
-  const id = league?.league_id ?? host?.id ?? 1;
+  const id = league?.league_id ?? host?.id;
   if (!short && id === 1) return <img src="./icon.svg" alt="" className={className} style={{ width: size, height: size }} />;
+  if (!short && id == null) return <img src="./icon.svg" alt="" className={className} style={{ width: size, height: size }} />;
   return <span className={`inline-block ${className}`}><LeagueCrest short={short ?? brand.short} size={size} /></span>;
 }

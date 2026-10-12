@@ -22,6 +22,8 @@ export const setTabLeague = (id: number | null) => { try { if (id) sessionStorag
 const PRODUCT_DOMAIN = /(^|\.)superpools?ai\.com$/;
 const appHost = (h: string) => !h || h === 'localhost' || /^[\d.]+$/.test(h) || /\.(github\.io|pages\.dev|vercel\.app)$/.test(h)
   || /^(www\.|app\.)?superpools?ai\.com$/.test(h);
+// the product's one app (app.superpoolsai.com, localhost, Pages): no league owns the address, so the chrome is Super Pools
+export const isProductHost = (h = typeof location !== 'undefined' ? location.hostname : '') => appHost(h.toLowerCase());
 
 // the one app's address: app.superpoolsai.com on the product's domain, this page's own address anywhere else (a dev
 // server, the GitHub Pages copy), so a link made there still works there
