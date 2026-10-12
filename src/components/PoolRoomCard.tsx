@@ -1,10 +1,10 @@
 // The pool's live room on its home page (lib/poolRoom): today's games on the pool's events with their live scores,
 // who's watching, and the day's swings: a game starting, a score, a final, a member climbing the table. Shown only
 // once the room is live and the day has something in it. A box pool's games are the NHL's own, shown by their logos.
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { MessageCircle } from 'lucide-react';
 import { useLeague } from '../lib/store';
-import type { PoolClub, PoolFixture, PoolRoom } from '../lib/poolRoom';
+import type { Cheer, PoolClub, PoolFixture, PoolRoom } from '../lib/poolRoom';
 import { fmtTime, ordinal } from '../lib/format';
 import { NhlLogo, TeamBadge } from './ui';
 import { fixtureThread, threadOf, ThreadSheet, useChannelCounts } from './GameThread';
@@ -60,6 +60,31 @@ function ThreadHead({ f, clubs }: { f: PoolFixture; clubs: Map<number, PoolClub>
   );
 }
 
+// your pick just scored: the side you're on in a game (your pick'em pick, your last-one-standing club) scores, and the
+// pool says so over the page like the league's goal horn; a tap opens the game's thread, seven seconds and it goes
+function CheerAlert({ cheer, f, clubs, onOpen, onDone }: { cheer: Cheer; f: PoolFixture; clubs: Map<number, PoolClub>; onOpen: () => void; onDone: () => void }) {
+  useEffect(() => { const t = window.setTimeout(onDone, 7000); return () => window.clearTimeout(t); }, [cheer.id, onDone]);
+  const mine = side(f, clubs, cheer.side === 'H'), them = side(f, clubs, cheer.side !== 'H');
+  const [a, h] = [f.away_score ?? 0, f.home_score ?? 0];
+  return (
+    <div className="pointer-events-none fixed inset-x-0 top-0 z-[61] flex justify-center p-3 pt-safe">
+      <button type="button" onClick={() => { onDone(); onOpen(); }}
+        className="animate-slideup pointer-events-auto flex w-full max-w-sm items-center gap-3 rounded-2xl border border-goal/40 bg-[#0b1426]/90 px-3.5 py-2.5 text-left shadow-2xl shadow-black/50 backdrop-blur-xl">
+        <span className="relative grid h-10 w-10 shrink-0 place-items-center">
+          <span className="absolute inset-0 animate-ping rounded-full bg-goal/25" />
+          {mine.abbr ? <NhlLogo abbr={mine.abbr} size={34} /> : <span className="h-8 w-8 rounded-full ring-2 ring-white/20" style={{ background: mine.c?.color ?? '#475569' }} />}
+        </span>
+        <span className="min-w-0 flex-1">
+          <span className="block text-[10px] font-extrabold uppercase tracking-[.14em] text-goal">🚨 Your pick just scored</span>
+          <span className="block break-words text-sm font-bold leading-tight text-white">{mine.c?.name ?? mine.abbr ?? 'Your side'}</span>
+          <span className="block text-[11px] text-mute">against {them.c?.short ?? them.c?.name ?? them.abbr ?? 'them'} · tap for the thread</span>
+        </span>
+        <span className="num shrink-0 rounded-xl bg-goal/15 px-2 py-1 font-display text-lg font-extrabold text-goal">{cheer.side === 'H' ? `${h}–${a}` : `${a}–${h}`}</span>
+      </button>
+    </div>
+  );
+}
+
 export function PoolRoomCard({ room }: { room: PoolRoom }) {
   const { team, me } = useLeague();
   const [open, setOpen] = useState<number | null>(null);
@@ -70,8 +95,10 @@ export function PoolRoomCard({ room }: { room: PoolRoom }) {
   const watching = room.watching.map((id) => team(id)).filter(Boolean);
   const feed = room.swings.slice().reverse().slice(0, 6);
   const anyLive = room.fixtures.some((f) => LIVE(f.state));
+  const cheered = room.cheer ? fx.get(room.cheer.fixture) : undefined;
   return (
     <section className="card overflow-hidden" aria-label="Live room">
+      {room.cheer && cheered && room.clearCheer && <CheerAlert cheer={room.cheer} f={cheered} clubs={room.clubs} onOpen={() => setOpen(cheered.id)} onDone={room.clearCheer} />}
       <div className="flex items-center gap-3 border-b border-white/[.06] bg-gradient-to-r from-goal/[.10] via-transparent to-transparent px-3 py-2.5">
         <span className="relative flex h-2.5 w-2.5 shrink-0">
           {anyLive && <span className="absolute inset-0 animate-ping rounded-full bg-goal/60" />}

@@ -38,6 +38,12 @@ const ANON_KEY = Deno.env.get('SUPABASE_ANON_KEY') ?? '';
 const MODEL = Deno.env.get('GARRY_MODEL') || 'grok-4.3';
 type Effort = 'none' | 'low' | 'medium';
 const GROK_URL = 'https://api.x.ai/v1/chat/completions';
+// Cloudflare's AI Gateway in front of xAI (docs/DEVELOPMENT.md §8.3, E8), once it is set up: AI_GATEWAY_URL is the
+// gateway's Grok endpoint (https://gateway.ai.cloudflare.com/v1/<account>/<gateway>/grok), AI_GATEWAY_TOKEN its token if
+// the gateway asks for one. Every call is then logged and counted there, by league, with the gateway's caching and rate
+// limits; a gateway that fails sends the call straight to xAI, so the voice never goes quiet because of it.
+const GATEWAY = Deno.env.get('AI_GATEWAY_URL')?.replace(/\/+$/, '') || null;
+const GATEWAY_TOKEN = Deno.env.get('AI_GATEWAY_TOKEN') || null;
 // the site calls two tasks from the browser (the commissioner's shaping buttons, the Book's private line), so the
 // browser's preflight has to be answered and every reply has to carry the CORS headers
 const cors = { 'Access-Control-Allow-Origin': '*', 'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-admin-key', 'Access-Control-Allow-Methods': 'GET, POST, OPTIONS' };
@@ -206,20 +212,32 @@ async function budgetLeft(): Promise<boolean> {
 async function grok(system: string, user: string, maxTokens = 1200, temperature = 0.9, json = false, effort: Effort = 'none'): Promise<string | null> {
   if (!apiKey) return null;
   if (!(await budgetLeft())) return null;
-  const call = async (extra: boolean) => {
+  const send = async (extra: boolean, direct: boolean) => {
     const ctl = new AbortController();
     const timer = setTimeout(() => ctl.abort(), 40_000);
+    const gw = GATEWAY && !direct;
     try {
-      return await fetch(GROK_URL, {
+      return await fetch(gw ? `${GATEWAY}/v1/chat/completions` : GROK_URL, {
         method: 'POST',
         // one conversation id per league routes its calls to the same server, so the shared prompt start is served
-        // from xAI's cache at the cached-token rate
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${apiKey}`, 'x-grok-conv-id': `garry-league-${L.lid}` },
+        // from xAI's cache at the cached-token rate; through the gateway, the league rides along for its logs
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${apiKey}`, 'x-grok-conv-id': `garry-league-${L.lid}`,
+          ...(gw ? { 'cf-aig-metadata': JSON.stringify({ league: L.lid }), ...(GATEWAY_TOKEN ? { 'cf-aig-authorization': `Bearer ${GATEWAY_TOKEN}` } : {}) } : {}) },
         signal: ctl.signal,
         body: JSON.stringify({ model: MODEL, max_tokens: maxTokens, messages: [{ role: 'system', content: system }, { role: 'user', content: user }],
           ...(extra ? { temperature, reasoning_effort: effort } : {}), ...(json ? { response_format: { type: 'json_object' } } : {}) }),
       });
     } finally { clearTimeout(timer); }
+  };
+  // through the gateway when there is one; straight to xAI when the gateway itself can't be reached or fails
+  const call = async (extra: boolean) => {
+    if (!GATEWAY) return send(extra, true);
+    try {
+      const r = await send(extra, false);
+      if (r.status < 500 && r.status !== 401 && r.status !== 403) return r;
+      console.warn('ai gateway', r.status, (await r.text()).slice(0, 200));
+    } catch (e) { console.warn('ai gateway', e); }
+    return send(extra, true);
   };
   try {
     let res = await call(true);

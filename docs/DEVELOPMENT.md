@@ -62,11 +62,11 @@ Paid subscribed: section 1 and section 8 are that review.
 
 **Compatibility debt to retire** once Phase 1's gate is passed and the edge functions read the league views:
 `player_games.fpts` and `players.proj / last_fp / rank` (SaK's numbers kept for old readers), `stat_corrections.old_fpts
-/ new_fpts`, the `*_before_*` function signatures renamed out of the way, `run_auto_lineups` (superseded by
-nhl-sync's auto-pilot), `src/data/history.ts` (section 4; no page reads it now, only the generator script), `fund.id` (the
-fund is keyed by league since migration 95). And, since migrations 203 and 204, the old `survivors`, `survivor_picks`,
-`predictors` and `predictor_picks` tables (copied into `pool_games` and `pool_picks`, read by nothing; dropping them needs
-Patrick's yes) and `survivor_start_before_end`.
+/ new_fpts`, `fund.id` (the fund is keyed by league since migration 95), and, since migrations 203 and 204, the old
+`survivors`, `survivor_picks`, `predictors` and `predictor_picks` tables (copied into `pool_games` and `pool_picks`, read by
+nothing). Each holds data, so each goes on Patrick's yes. *Retired 12 October 2026 (the gate passed 11 October):* the
+`*_before_*` function signatures, `survivor_start_before_end` and `run_auto_lineups` (migration 250: nothing called them),
+and `src/data/history.ts` with its generator (the history lives in the database since migration 89).
 
 ## 4. The knowledge base: every league makes every league smarter
 
@@ -75,8 +75,8 @@ on it, and every league imported with its history, should make the tools better 
 built in this order:
 
 1. **League memory.** A league's past lives in the database, not in code: seasons, final standings, champions
-   and last places, prizes, drafts, keepers, trades and transactions, by `league_id`. SaK's history moves out of
-   `src/data/history.ts`; imports (Yahoo now, Fantrax, ESPN and CBS next) bring a league's past with it. Garry,
+   and last places, prizes, drafts, keepers, trades and transactions, by `league_id`. SaK's history moved out of
+   code into the database (migration 89); imports (Yahoo and ESPN now, Fantrax and CBS next) bring a league's past with it. Garry,
    the trade and draft tools and the history pages read it. Every league starts with its own story.
 2. **The prediction log.** Everything the product predicts is written down with its inputs and scored when the
    result is in: projections, lineup choices, trade grades, draft and keeper grades, the Book's odds, Garry's
@@ -424,7 +424,9 @@ What would make it unmistakable next, in order of what a new group feels first:
    pool link unfurls with the pool's own name, host, colour and a picture drawn for it (section 8.3, E2).
 2. **Live, together.** The night a game is on, the pool should feel like a room: who's watching, the swing of each
    call as it happens, a thread per game, "your pick just scored". Durable Objects (E4) are the tool: one live room per
-   league or pool, pushed to every phone over a WebSocket, instead of every phone polling.
+   league or pool, pushed to every phone over a WebSocket, instead of every phone polling. Done 11 and 12 October: the live room on
+   a league's and a pool's home, a thread for every game, and "your pick just scored" (a pool member's pick'em pick or
+   last-one-standing club scores and a banner says so, from the pool room's own scores against the member's picks).
 3. **The draft night that runs itself.** Done 11 October: the draft clock on a Durable Object alarm, an expired pick made
    on the second, picks fanned out in under a second, the 4-second poll standing down while the room is live (E4).
 4. **A voice that's quick and cheap enough to say more.** Garry on an AI Gateway (E8): caching, a fallback model,
@@ -448,7 +450,7 @@ Worker reads Postgres directly.
 | E5 | One live snapshot per league at the edge (standings, tonight's points, the windows), refreshed by the scores run; first `player_windows` and `player_season` made materialized in Postgres | 6 to 10 reads a minute per open page on game night, aggregate views recomputed per page | **SQL half built 11 October** (migrations 244 and 245: `player_windows` and `player_season` read a per-profile cache, 135 ms to 8 ms, rebuilt by the scores run and a minute cron, live views whenever a stat has moved since; same numbers to the hundredth). **The edge half built 11 October** through the live room rather than a separate snapshot: each beat the room reads `stats_gen` (one row) and reads tonight's points for every player only when it has moved, once for the league, and pushes the lines that changed; the phones in the room take them into the store's `dayPoints` and skip their own reads (a clock moving alone reads no points, `npm run test:live`). Standings stay on the store's own read per box-score change |
 | E6 | Push through a Queue with retries and batching (VAPID in the Worker) | a fire-and-forget pg_net call per notification | Later |
 | E7 | Ingestion on Cron Triggers and Queues (per-game box-score jobs, retries, logs), writing through the API | pg_net calls with 55-second timeouts and no retry | Later |
-| E8 | AI Gateway in front of xAI (Garry, the X feed); Workers AI for small jobs | direct calls | Later |
+| E8 | AI Gateway in front of xAI (Garry, the X feed); Workers AI for small jobs | direct calls | **Garry's side built 12 October**: with the function secret `AI_GATEWAY_URL` set to the gateway's Grok endpoint (`https://gateway.ai.cloudflare.com/v1/<account>/<gateway>/grok`, plus `AI_GATEWAY_TOKEN` if the gateway is authenticated) every model call goes through it, tagged with its league, and falls back to xAI directly if the gateway fails; unset, nothing changes. Waiting on the gateway itself: the cloud environment's Cloudflare token has no AI Gateway permission, so Patrick creates it (AI › AI Gateway › Create, name `superpools`) and sets the secret. The X feed and Workers AI next |
 | E9 | R2 for the promo videos and anything people upload (logos, avatars); `public/*.mp4` out of every deploy | 17 MB in each site deploy | Later |
 
 ### 8.4 The order from here
