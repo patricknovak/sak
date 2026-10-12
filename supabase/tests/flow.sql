@@ -2082,8 +2082,8 @@ select pg_temp.expect('the first offer closed as countered', (select status from
 select pg_temp.expect('the counter names the offer it answers', (select counter_of from trades where id = :counter_offer) = :first_offer
   and (select status from trades where id = :counter_offer) = 'proposed');
 select pg_temp.expect('Patrick is told it was countered', exists (select 1 from notifications where team_id = 1 and body like '% countered your trade offer'));
-select pg_temp.expect('the old signature is closed', not has_function_privilege('authenticated',
-  'public.propose_trade_before_counter(int, int[], int[], int[], int[], text, int, int, int, int, int[])', 'execute'));
+select pg_temp.expect('the old signature is gone (migration 250)',
+  to_regprocedure('public.propose_trade_before_counter(int, int[], int[], int[], int[], text, int, int, int, int, int[])') is null);
 -- the north can't counter SaK's offers
 select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-000000000099', false);
 set role authenticated;

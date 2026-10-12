@@ -62,11 +62,11 @@ Paid subscribed: section 1 and section 8 are that review.
 
 **Compatibility debt to retire** once Phase 1's gate is passed and the edge functions read the league views:
 `player_games.fpts` and `players.proj / last_fp / rank` (SaK's numbers kept for old readers), `stat_corrections.old_fpts
-/ new_fpts`, the `*_before_*` function signatures renamed out of the way, `run_auto_lineups` (superseded by
-nhl-sync's auto-pilot), `src/data/history.ts` (section 4; no page reads it now, only the generator script), `fund.id` (the
-fund is keyed by league since migration 95). And, since migrations 203 and 204, the old `survivors`, `survivor_picks`,
-`predictors` and `predictor_picks` tables (copied into `pool_games` and `pool_picks`, read by nothing; dropping them needs
-Patrick's yes) and `survivor_start_before_end`.
+/ new_fpts`, `fund.id` (the fund is keyed by league since migration 95), and, since migrations 203 and 204, the old
+`survivors`, `survivor_picks`, `predictors` and `predictor_picks` tables (copied into `pool_games` and `pool_picks`, read by
+nothing). Each holds data, so each goes on Patrick's yes. *Retired 12 October 2026 (the gate passed 11 October):* the
+`*_before_*` function signatures, `survivor_start_before_end` and `run_auto_lineups` (migration 250: nothing called them),
+and `src/data/history.ts` with its generator (the history lives in the database since migration 89).
 
 ## 4. The knowledge base: every league makes every league smarter
 
@@ -75,8 +75,8 @@ on it, and every league imported with its history, should make the tools better 
 built in this order:
 
 1. **League memory.** A league's past lives in the database, not in code: seasons, final standings, champions
-   and last places, prizes, drafts, keepers, trades and transactions, by `league_id`. SaK's history moves out of
-   `src/data/history.ts`; imports (Yahoo now, Fantrax, ESPN and CBS next) bring a league's past with it. Garry,
+   and last places, prizes, drafts, keepers, trades and transactions, by `league_id`. SaK's history moved out of
+   code into the database (migration 89); imports (Yahoo and ESPN now, Fantrax and CBS next) bring a league's past with it. Garry,
    the trade and draft tools and the history pages read it. Every league starts with its own story.
 2. **The prediction log.** Everything the product predicts is written down with its inputs and scored when the
    result is in: projections, lineup choices, trade grades, draft and keeper grades, the Book's odds, Garry's
