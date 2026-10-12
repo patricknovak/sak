@@ -76,7 +76,7 @@ built in this order:
 
 1. **League memory.** A league's past lives in the database, not in code: seasons, final standings, champions
    and last places, prizes, drafts, keepers, trades and transactions, by `league_id`. SaK's history moved out of
-   code into the database (migration 89); imports (Yahoo and ESPN now, Fantrax and CBS next) bring a league's past with it. Garry,
+   code into the database (migration 89); imports (Yahoo, ESPN and Fantrax now; CBS by paste) bring a league's past with it. Garry,
    the trade and draft tools and the history pages read it. Every league starts with its own story.
 2. **The prediction log.** Everything the product predicts is written down with its inputs and scored when the
    result is in: projections, lineup choices, trade grades, draft and keeper grades, the Book's odds, Garry's
@@ -146,7 +146,7 @@ continue alongside: the shadow-league gate runs to 10 October, Cloudflare hostin
    League page (migration 114, `commish_set_season`, `commish_delete_season`), so a league that played elsewhere
    arrives with its champions and final tables. A season's final table can be pasted straight from Yahoo, ESPN, Fantrax,
    CBS or a spreadsheet (`src/lib/historyPaste.ts`, tested in `test:nhl`): the team, its GM and its points come through,
-   linked to today's team by name. A league that played on Yahoo brings every season Yahoo kept in one go (the `history` task walks the league's renew chain; the commissioner ticks the seasons on the League page). Next: Fantrax, ESPN and CBS the same way.
+   linked to today's team by name. A league that played on Yahoo brings every season Yahoo kept in one go (the `history` task walks the league's renew chain; the commissioner ticks the seasons on the League page). ESPN (11 October) and Fantrax (12 October) the same way, from their public APIs in the browser; CBS needs a sign-in, so it stays on paste.
 7. **Phase 2, people can join** (under way: email sign-in with reset codes, invites, the join page and the switcher done
    3 October 2026, migrations 103 to 105; onboarding part 1, the Platform page, the readiness checklist, going live and
    the league identity editor, migration 106; league by host, migration 107; realtime and presence per league; phones,
@@ -406,8 +406,8 @@ included, Durable Objects with SQLite and WebSockets, Queues, KV, R2, Cron Trigg
   engine, the feed, MLB centre and squares are built, but the World Series pool (league 5) has no games; they are
   started from its Host page (Add a game), the LCS from 11 October. The Love Is Blind gate (4 November) needs players,
   not code.
-- **Not started:** billing and tiers (Stripe), the account-level Supercoin wallet, ESPN, Fantrax and CBS history
-  imports (Yahoo and paste work), contracts, salary caps, prospects, guillotine and best ball, the app-store listing,
+- **Not started:** billing and tiers (Stripe), the account-level Supercoin wallet, CBS history
+  import (Yahoo, ESPN, Fantrax and paste work), contracts, salary caps, prospects, guillotine and best ball, the app-store listing,
   per-pool usage telemetry, winter question packs (The Traitors, The Bachelor, award nights).
 - **Stale in the docs, fixed in this review:** this section 1 (it read 8 October and 169 migrations); the shadow gate's
   result; the landing page's move (done 4 October); "Cloudflare Pages" where it is Workers; MARKET.md's "we are
@@ -464,7 +464,7 @@ Worker reads Postgres directly.
    `sak.superpoolsai.com` (E5's edge half is built: the live room carries tonight's points).
 3. **E4, the live room**: game nights, the draft clock, a thread per game, pools' game nights and a thread per pool game are built (11 October), the box pool's NHL games included.
 4. **Billing and tiers** (SUPERPOOLS item 6), with the Supercoin wallet after it.
-5. **Imports** (ESPN, Fantrax, CBS) and **the app-store listing**, the two doors MARKET.md names for fantasy leagues.
+5. **Imports** (ESPN's and Fantrax's history done 11 and 12 October; rosters and settings next) and **the app-store listing**, the two doors MARKET.md names for fantasy leagues.
 
 
 ### 8.5 One live clock, one game sheet, one lineup (11 October 2026, Patrick: "updates should be coordinated ... in the lowest cost way possible")

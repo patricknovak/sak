@@ -362,7 +362,11 @@ The steps above finish the tenancy. `docs/MARKET.md` sets what comes after in th
 9. **Import with history** from Fantrax, ESPN and CBS (Yahoo exists). *ESPN's history done (11 October 2026,
    `src/components/EspnHistory.tsx`):* the commissioner pastes the ESPN league's link on the League page and every season
    ESPN kept comes back with its final table, written through `commish_set_season` like Yahoo's; ESPN's API answers the
-   browser for a league made viewable to the public, so no server of ours is involved. Rosters and settings next.
+   browser for a league made viewable to the public, so no server of ours is involved. *Fantrax's history done (12 October
+   2026, `src/components/FantraxHistory.tsx`):* Fantrax starts a new league link each season, so the commissioner pastes one
+   link a season; its public API (which answers any website) gives each season's standings, read in Fantrax's order with
+   the season's points (or points for, head to head). It doesn't name managers, so Who's who asks which team here each
+   Fantrax team was, matched by name to start with. Rosters and settings next; CBS needs a sign-in, so it stays on paste.
 10. **Contracts, caps, prospect slots and rookie drafts**; guillotine and best ball formats.
 11. **The Supercoin.** An account-level wallet, the SaK coin ledger migrated onto it, per-pool allowances, the
     Book and side bets as the add-on, the ledger visible in every pool. Never for sale, never cashed out.
