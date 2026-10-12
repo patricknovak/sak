@@ -1,5 +1,5 @@
 // Consented GA4 (Consent Mode v2) and first-touch UTM/referrer for Super Pools.
-// Measurement ID from VITE_GA4_ID: empty means nothing loads and no network calls.
+// Measurement ID from VITE_GA4_ID (.env.production); empty means nothing loads and no network calls.
 // Funnel events carry no PII (no email, name, or user id).
 
 const GA_ID = (import.meta.env.VITE_GA4_ID as string | undefined)?.trim() ?? '';
