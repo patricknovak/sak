@@ -4,6 +4,18 @@
 import { useBrand } from '../lib/brand';
 import { useLeague } from '../lib/store';
 
+// the product's faceoff-dot mark (docs/BRAND.md): used on #/start, #/new and the product sign-in
+export function ProductMark({ size = 56 }: { size?: number }) {
+  return (
+    <svg viewBox="0 0 64 64" width={size} height={size} aria-hidden className="text-gold">
+      <rect width="64" height="64" rx="14" fill="#111b30" />
+      <circle cx="32" cy="32" r="17" fill="none" stroke="currentColor" strokeWidth="4" />
+      <circle cx="32" cy="32" r="4.5" fill="currentColor" />
+      <g stroke="currentColor" strokeWidth="2.6" strokeLinecap="round"><line x1="25" y1="8" x2="25" y2="12.5" /><line x1="39" y1="8" x2="39" y2="12.5" /><line x1="25" y1="51.5" x2="25" y2="56" /><line x1="39" y1="51.5" x2="39" y2="56" /></g>
+    </svg>
+  );
+}
+
 // `mark` draws someone else's wordmark (a preview, another league's card) instead of the league on screen
 export function Wordmark({ size = 'md', tagline, className = '', mark }: { size?: 'sm' | 'md' | 'lg' | 'xl'; tagline?: string; className?: string; mark?: { a: string; b: string } }) {
   const s = { sm: 'text-xl', md: 'text-2xl', lg: 'text-3xl sm:text-4xl', xl: 'text-6xl' }[size];

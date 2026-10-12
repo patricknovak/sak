@@ -1,10 +1,9 @@
 import { useEffect, useState } from 'react';
 import { remembered, setRemember, supabase } from '../lib/supabase';
 import { Spinner } from '../components/ui';
-import { LeagueCrest, Wordmark } from '../components/Brand';
+import { LeagueCrest, ProductMark, Wordmark } from '../components/Brand';
 import { useLeague } from '../lib/store';
 import { PRODUCT } from '../lib/brand';
-import { ProductMark } from './Start';
 
 // Sign in with your email and password (Patrick's call, October 2026; every SaK account has its own email since step 2).
 // Forgot your password: the league emails you a code, you type it with a new password, and you're in. The code works

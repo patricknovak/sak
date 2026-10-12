@@ -3,6 +3,7 @@ import { rpc } from '../lib/supabase';
 import { PRODUCT } from '../lib/brand';
 import { Spinner } from '../components/ui';
 import { themed } from '../components/LeagueIdentity';
+import { ProductMark } from '../components/Brand';
 
 // "Start your league" (#/start), open to anyone, signed in or not: the way a commissioner asks Super Pools for a league
 // until sign-up is self-serve. The request lands in the Platform page's inbox (request_league), and the league comes
@@ -14,17 +15,6 @@ const POINTS = [
   ['🎙️', 'It talks back', 'A league voice you name that posts the recap, grades the trades and answers “who should I start?” in the chat.'],
   ['🔒', 'Built by a keeper league', 'Keepers, a draft room with a clock and a TV board, trade reviews, the money between friends. Thirteen seasons of rules, baked in.'],
 ];
-
-export function ProductMark({ size = 56 }: { size?: number }) {
-  return (
-    <svg viewBox="0 0 64 64" width={size} height={size} aria-hidden className="text-gold">
-      <rect width="64" height="64" rx="14" fill="#111b30" />
-      <circle cx="32" cy="32" r="17" fill="none" stroke="currentColor" strokeWidth="4" />
-      <circle cx="32" cy="32" r="4.5" fill="currentColor" />
-      <g stroke="currentColor" strokeWidth="2.6" strokeLinecap="round"><line x1="25" y1="8" x2="25" y2="12.5" /><line x1="39" y1="8" x2="39" y2="12.5" /><line x1="25" y1="51.5" x2="25" y2="56" /><line x1="39" y1="51.5" x2="39" y2="56" /></g>
-    </svg>
-  );
-}
 
 export default function Start() {
   const [f, setF] = useState({ name: '', email: '', league: '', teams: 10, plays: '' as string, note: '' });

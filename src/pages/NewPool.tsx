@@ -7,7 +7,7 @@ import { openPool } from '../lib/host';
 import { useLeague } from '../lib/store';
 import { Spinner, Toggle } from '../components/ui';
 import { themed } from '../components/LeagueIdentity';
-import { ProductMark } from './Start';
+import { ProductMark } from '../components/Brand';
 import { type Pack, packName, packPlaceholder, packWhen } from '../lib/packs';
 import { KIND_ORDER, KIND_WHEN, KINDS, PICKEM_PRESETS, PRESETS, SQUARES_DEFAULT, eventGrids, gridFor, gridLabel, gridRules, presetExample, sheetLabel, type GameKind, type PickemPreset, type PoolEvent, type SeriesPreset, type SquaresRules } from '../lib/poolGames';
 import { SERIES_SPORTS, SheetPicker, SquaresKnobs, lockText } from './Picks';
