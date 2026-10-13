@@ -577,7 +577,9 @@ Built 13 October, live:
 - **Migration 256, rosters from Fantrax** (§8.4 item 6's imports' rosters): `commish_import_rosters` writes each team named
   whole, everyone on the bench (IR kept), refusing a team bigger than the league's roster by name and a player who is on
   a team not named; the Commish page's Roster section reads a league's rosters from Fantrax's public API, matches players
-  by name and club (then last name, first initial and club), and lists what it couldn't match.
+  by name and club (then last name, first initial and club), and lists what it couldn't match; the same sheet reads ESPN's
+  rosters for a league made viewable to the public (checked against a stub of ESPN's shape: no public hockey league was
+  found to read live).
 - **The pool's chat:** in a prediction pool Garry's replies read the pool's board (every open question with its prices
   and closing time, the asker's own calls, what settled lately and who called it) instead of the fantasy answer engine,
   which had an NHL slate to offer a Love Is Blind pool. The Questions page lists the group closing soonest first.

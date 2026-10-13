@@ -20,6 +20,7 @@ import { SetupGuide } from '../components/SetupGuide';
 import { SeatManager } from '../components/SeatManager';
 import { RosterEditor } from '../components/RosterEditor';
 import { FantraxRosters } from '../components/FantraxRosters';
+import { EspnRosters } from '../components/EspnRosters';
 import { CategoryEditor } from '../components/CategoryEditor';
 import { FormatEditor } from '../components/FormatEditor';
 import { inviteLink } from '../lib/host';
@@ -207,7 +208,7 @@ export default function Commish() {
 
       <Section id="roster" title="🧩 Roster">
         <RosterEditor />
-        <div className="mt-2"><FantraxRosters /></div>
+        <div className="mt-2 grid gap-2 sm:grid-cols-2"><FantraxRosters /><EspnRosters /></div>
       </Section>
 
       <Section id="settings" title="⚙️ League settings">
