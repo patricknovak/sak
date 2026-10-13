@@ -1084,7 +1084,7 @@ async function callerMayRun(req: Request) {
   return m?.role === 'commish';
 }
 // which leagues a request is about: ?league=N, else a signed-in person's active league, else every active league
-async function leaguesFor(req: Request, url: URL): Promise<number[]> {
+async function leaguesFor(req: Request, url: URL, task = ''): Promise<number[]> {
   const asked = Number(url.searchParams.get('league'));
   if (asked > 0) return [asked];
   const token = (req.headers.get('Authorization') ?? '').replace(/^Bearer /i, '');
@@ -1097,8 +1097,12 @@ async function leaguesFor(req: Request, url: URL): Promise<number[]> {
       if (m) return [m.league_id];
     }
   }
-  // a prediction pool has no games and no hockey to talk about: the scheduled posts are for fantasy leagues
-  const { data: all } = await db.from('leagues').select('id').eq('status', 'active').eq('kind', 'fantasy').order('id');
+  // a prediction pool has no games and no hockey to talk about, so the scheduled posts are for fantasy leagues, except
+  // the morning: a pool's morning (poolDaily) posts on the days something happened or is about to (13 October 2026;
+  // the first scheduled run left the pools out and Pod Squad got no post on the premiere's eve)
+  let q = db.from('leagues').select('id').eq('status', 'active');
+  if (task !== 'daily') q = q.eq('kind', 'fantasy');
+  const { data: all } = await q.order('id');
   return (all ?? []).map((l) => l.id);
 }
 
@@ -1780,7 +1784,7 @@ async function handle(req: Request) {
       const result = await bookChat({ id: t.id, gm_name: t.gm_name }, token, msgs);
       return json({ task, ok: true, llm: apiKey ? MODEL : false, league: L.lid, result });
     }
-    const leagues = await leaguesFor(req, url);
+    const leagues = await leaguesFor(req, url, task);
     const results: Record<number, unknown> = {};
     for (const lid of leagues) {
       await enter(lid);
