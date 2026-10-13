@@ -1,7 +1,7 @@
 {
-  "name": "SAK Superleague",
-  "short_name": "SAK",
-  "description": "She's A Keeper fantasy hockey league",
+  "name": "Super Pools",
+  "short_name": "Super Pools",
+  "description": "Fantasy leagues and prediction pools for any group. Fun for all, never money.",
   "start_url": "./",
   "scope": "./",
   "display": "standalone",

@@ -1,11 +1,13 @@
 import { useEffect, useState } from 'react';
 import { FunctionsHttpError } from '@supabase/supabase-js';
-import { rpc, setRemember, supabase } from '../lib/supabase';
+import { rpc, setLeagueHeader, setRemember, supabase } from '../lib/supabase';
 import { useLeague } from '../lib/store';
 import { Spinner } from '../components/ui';
 import { LeagueCrest } from '../components/Brand';
 import { themed } from '../components/LeagueIdentity';
 import { attributionFields, track } from '../lib/analytics';
+import { PRODUCT } from '../lib/brand';
+import { setTabLeague } from '../lib/host';
 
 // The page an invite link opens (#/join/<code>), signed in or not. It shows what the invite is for, then:
 // someone new makes their account right here (the `join` edge function makes it and seats them in one go);
@@ -21,8 +23,12 @@ const WHY: Record<string, string> = {
   taken: 'Someone has already taken that seat.',
 };
 
-// into the league just joined: its pages load fresh for it
-const goHome = () => { window.location.hash = '#/'; window.location.reload(); };
+// into the league just joined: pin this tab to it so the reload reads its coins and table, not a stale one
+const goHome = (leagueId?: number | null) => {
+  if (leagueId) { setTabLeague(leagueId); setLeagueHeader(leagueId); }
+  window.location.hash = '#/';
+  window.location.reload();
+};
 
 export default function Join({ code }: { code: string }) {
   const { session, me } = useLeague();
@@ -38,8 +44,11 @@ export default function Join({ code }: { code: string }) {
   useEffect(() => { rpc<Preview>('invite_preview', { p_code: code }).then(setPv, () => setPv({ ok: false, reason: 'unknown' })); }, [code]);
 
   const accept = async () => {
-    try { await rpc('accept_invite', { p_code: code }); track('join'); goHome(); }
-    catch (e) { setBusy(false); setErr((e as Error).message); }
+    try {
+      const leagueId = await rpc<number>('accept_invite', { p_code: code });
+      track('join');
+      goHome(leagueId ?? pv?.league_id);
+    } catch (e) { setBusy(false); setErr((e as Error).message); }
   };
 
   // someone new: make the account and take the seat, then sign in
@@ -49,7 +58,7 @@ export default function Join({ code }: { code: string }) {
     setBusy(true); setErr('');
     const login = email.trim().toLowerCase();
     // attribution is first-touch UTM/referrer; the join function ignores unknown fields if the SQL is not live yet
-    const { error } = await supabase.functions.invoke('join', { body: { code, email: login, password: pw, name: name.trim(), ...attributionFields() } });
+    const { data, error } = await supabase.functions.invoke('join', { body: { code, email: login, password: pw, name: name.trim(), ...attributionFields() } });
     if (error) {
       const body = error instanceof FunctionsHttpError ? await error.context.json().catch(() => null) : null;
       setBusy(false);
@@ -63,7 +72,8 @@ export default function Join({ code }: { code: string }) {
     try { localStorage.setItem('sak-last-email', login); } catch { /* nothing to remember with */ }
     track('sign_up');
     track('join');
-    goHome();
+    const leagueId = typeof (data as { league?: number } | null)?.league === 'number' ? (data as { league: number }).league : pv?.league_id;
+    goHome(leagueId);
   };
 
   // someone with an account: sign in, then take the seat
@@ -103,7 +113,7 @@ export default function Join({ code }: { code: string }) {
         {/* what a pool is, for someone who tapped a link in the group chat */}
         {pv?.ok && pool && (
           <div className="mb-4 grid grid-cols-3 gap-2 text-center">
-            {[[pv.brand?.coin?.emoji || '🪙', `1,000 ${(pv.brand?.coin?.name || 'coins').toLowerCase()} to start`], ['🔮', 'Call what happens next'], ['🆓', 'Free, never money']].map(([e, t]) => (
+            {[[pv.brand?.coin?.emoji || PRODUCT.coin.emoji, `1,000 ${(pv.brand?.coin?.name || PRODUCT.coin.name).toLowerCase()} to start`], ['🔮', 'Call what happens next'], ['🆓', 'Free, never money']].map(([e, t]) => (
               <div key={t} className="rounded-2xl border border-white/10 bg-white/[.04] px-2 py-3">
                 <div className="text-xl leading-none">{e}</div>
                 <div className="mt-1.5 text-balance text-[12px] font-semibold leading-tight text-slate-200">{t}</div>

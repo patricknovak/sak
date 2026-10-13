@@ -8,6 +8,7 @@ import { ago, countdown } from '../lib/format';
 import { currentSubscription } from '../lib/push';
 import { Sheet, TeamBadge } from './ui';
 import { centreName } from '../lib/poolGames';
+import { PRODUCT } from '../lib/brand';
 import {
   Bell, ClipboardList, Dices, Home, Landmark, Lightbulb, LogOut, Menu, MessageCircle, Radio, Repeat2, Search, Shield, Target,
   Trophy, Tv, UserRound, Wrench, Wallet, type LucideIcon, BarChart3, Sparkles, Crown, Wand2, Layers, ChevronDown, Swords } from 'lucide-react';
@@ -225,8 +226,12 @@ export function Layout({ children }: { children: ReactNode }) {
     }
   }, [myTurn, current]);
   useEffect(() => {
-    document.title = myTurn ? `⏰ YOUR PICK · ${countdown(remaining)}` : league?.league_id === 1 || !league ? 'SAK Superleague' : league.name;
-  }, [myTurn, Math.floor(remaining / 1000)]);
+    // SaK keeps its own title; every other pool uses its name; the product app with no league yet is Super Pools
+    document.title = myTurn ? `⏰ YOUR PICK · ${countdown(remaining)}`
+      : league?.league_id === 1 ? 'SAK Superleague'
+      : league?.name ? league.name
+      : PRODUCT.name;
+  }, [myTurn, Math.floor(remaining / 1000), league?.league_id, league?.name]);
 
   // any open client keeps the draft clock honest (the server double-checks the deadline)
   const ticking = useRef(false);

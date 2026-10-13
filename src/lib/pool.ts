@@ -79,14 +79,15 @@ export function usePool() {
   return { markets, positions, trades, drops, reload: load };
 }
 
-// a member's coins to spend (the ledger less what open side bets hold)
+// a member's coins to spend (the ledger less what open side bets hold). null while loading or with no seat yet,
+// so the home never flashes "0" before the opening balance is read.
 export function useCoins(teamId: number | undefined) {
   const [coins, setCoins] = useState<number | null>(null);
   const load = useCallback(async () => {
-    if (!teamId) return;
+    if (!teamId) { setCoins(null); return; }
     const { data } = await supabase.from('coin_balances').select('balance,escrow').eq('team_id', teamId).maybeSingle();
     setCoins(data ? Number(data.balance) - Number(data.escrow) : 0);
   }, [teamId]);
-  useEffect(() => { load(); }, [load]);
+  useEffect(() => { setCoins(null); load(); }, [load]);
   return { coins, reloadCoins: load };
 }
