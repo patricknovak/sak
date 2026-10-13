@@ -6,6 +6,8 @@
 export interface Change { date: string; icon: string; title: string; body: string; to?: string; tag?: 'formats' | 'commish' | 'draft' | 'everyone' }
 
 export const CHANGELOG: Change[] = [
+  { date: '2026-10-13', icon: '🎙️', tag: 'everyone', title: 'The league\'s voice gets smarter', to: '/chat',
+    body: 'The league\'s voice now only tells you to change your lineup when there\'s a real move: someone on your bench who plays tonight, can fill the slot, and gains you points. No more calls to bench a player nobody can replace, or to sit a day-to-day guy who\'s playing. The morning column leads with the real story (who passed whom, the tight races, the week\'s hottest and coldest teams, bench calls that actually cost points, and NHL news about your own players), and ask it about your lineup in chat for the same straight answer.' },
   { date: '2026-10-12', icon: '📐', tag: 'commish', title: 'Copy your scoring from Fantrax', to: '/commish',
     body: 'Coming from a Fantrax points league? In the scoring settings on the Commish page, paste its link and every stat both sites keep takes Fantrax\'s value. Check them, then save.' },
   { date: '2026-10-12', icon: '📜', tag: 'commish', title: 'Bring your past from Fantrax', to: '/league',

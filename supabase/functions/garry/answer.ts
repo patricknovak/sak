@@ -5,12 +5,15 @@ import type { SupabaseClient } from 'jsr:@supabase/supabase-js@2';
 import { etDate } from '../_shared/nhl.ts';
 import { forecastFromTonight, forecastTeam, winChance, type FPlayer } from '../_shared/forecast.ts';
 import { gamesOf, rosPerGame } from '../_shared/lineup.ts';
+import type { Night } from './tonight.ts';
 
 // the league-scoped reads from index.ts, plus the league's names for the wording
 type Db = {
   from: (table: string) => ReturnType<SupabaseClient['from']>;
   rpc: (fn: string, args?: Record<string, unknown>) => ReturnType<SupabaseClient['rpc']>;
   brand: { bot: { name: string }; coin: { name: string }; booby: string }; league: { short_name: string };
+  // tonight as the optimizer sees it (tonight.ts): the one source of lineup advice
+  night?: (day: string) => Promise<Night>;
 };
 export interface Answer { text: string; topic: string; facts: Record<string, unknown> }
 
@@ -324,6 +327,18 @@ export async function answer(db: Db, question: string, askerTeam: number, opts: 
     if (hurt.length) issues.push(`you’re starting injured ${hurt.map((r: any) => pl.get(r.player_id).name).join(', ')}`);
     if (idle.length && benchPlaying.length) issues.push(`${idle.length} starter${idle.length > 1 ? 's have' : ' has'} no game today while ${benchPlaying.slice(0, 3).map((r: any) => pl.get(r.player_id).name).join(', ')} sit${benchPlaying.length > 1 ? '' : 's'} on your bench`);
     const pilot = me?.auto_mode && me.auto_mode !== 'off' ? ` Auto-pilot is on (${me.auto_mode} mode), so I set it every morning, but I won’t touch it after you move someone yourself.` : ' Pro tip: turn on Auto-pilot in ⚙️ Lineup tools and let the robot do your job.';
+    // the real answer: the same best lineup the site's Optimize and the auto-pilot work out, so the advice is only ever a
+    // move you can make (someone who plays tonight, can fill the slot, and gains you points)
+    const n = league.phase === 'season' && db.night ? await db.night(today).catch(() => null) : null;
+    const t = n?.teams.get(askerTeam);
+    if (n && t) {
+      const sw = t.swaps.slice(0, 4).map((w) => (w.sit ? `${w.start} (${w.start_game}) in for ${w.sit} (${w.sit_why})` : `${w.start} (${w.start_game}) into the empty slot`) + (w.shuffle ? `, shuffling ${w.shuffle.join(', ')}` : ''));
+      const stuck = t.idle_no_fix.length ? ` ${t.idle_no_fix.join(', ')} ${t.idle_no_fix.length > 1 ? 'are' : 'is'} sitting tonight and nobody on your bench who plays can take ${t.idle_no_fix.length > 1 ? 'those spots' : 'the spot'}, so there’s nothing to do there but a pickup.` : '';
+      const body = !n.games ? 'No NHL games today, so there’s nothing to set.'
+        : t.swaps.length ? `Best lineup tonight is worth about ${f1(t.gain)} more: ${sw.join('; ')}.${t.autopilot ? ' Auto-pilot makes these before puck drop.' : ' ⚙️ Lineup tools → “Optimize today” does it in one tap.'}${stuck}`
+        : `You’re set: ${t.can_fill} of ${t.slots} starters play tonight and nobody on the bench would do better.${stuck}`;
+      return reply('my-lineup', body + ' 👉 #/team', { can_fill: t.can_fill, slots: t.slots, swaps: t.swaps, idle_no_fix: t.idle_no_fix, autopilot: t.autopilot });
+    }
     const body = league.phase !== 'season'
       ? `No lineups to set until the season starts. For now, worry about your keepers and your draft queue.`
       : issues.length
