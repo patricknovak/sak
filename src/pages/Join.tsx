@@ -53,8 +53,10 @@ export default function Join({ code }: { code: string }) {
   // the first call, picked before the account exists and placed the moment they're in (migration 255)
   const [call, setCall] = useState<string | null>(null);
   const FIRST_STAKE = 100;
-  const placeFirstCall = async () => {
+  const placeFirstCall = async (leagueId?: number | null) => {
     if (!call || !pv?.next_market) return;
+    // the call goes to the pool just joined, not to whichever pool this tab was in before
+    if (leagueId) setLeagueHeader(leagueId);
     try { await rpc('pool_buy', { p_market: pv.next_market, p_outcome: call, p_coins: FIRST_STAKE }); trackFirstCall('join'); }
     catch { /* the question closed or the pool changed while they typed: they're in, and the board is a tap away */ }
   };
@@ -65,7 +67,7 @@ export default function Join({ code }: { code: string }) {
     try {
       const leagueId = await rpc<number>('accept_invite', { p_code: code });
       track('join');
-      await placeFirstCall();
+      await placeFirstCall(leagueId ?? pv?.league_id);
       goHome(leagueId ?? pv?.league_id);
     } catch (e) { setBusy(false); setErr((e as Error).message); }
   };
@@ -91,7 +93,7 @@ export default function Join({ code }: { code: string }) {
     track('sign_up');
     track('join');
     const leagueId = typeof (data as { league?: number } | null)?.league === 'number' ? (data as { league: number }).league : pv?.league_id;
-    await placeFirstCall();
+    await placeFirstCall(leagueId);
     goHome(leagueId);
   };
 
