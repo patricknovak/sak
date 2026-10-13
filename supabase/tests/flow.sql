@@ -3335,6 +3335,8 @@ select pg_temp.expect('the postponed match is voided and refunded', (select stat
   and (select sum(amount) from coin_ledger where team_id = :fern and reason like '%Liverpool v Arsenal%') = 0);
 select pg_temp.expect('settled in the pool''s own chat', (select league_id from messages where body like '✅ Settled: "Arsenal v Chelsea"%') = :lib);
 select pg_temp.expect('and the line names who called it (migration 257)', (select body like '%Called it: %(% of %)' or body like '%Nobody called it' from messages where body like '✅ Settled: "Arsenal v Chelsea"%' limit 1));
+select pg_temp.expect('and the pool''s forecast is on the prediction log, scored (migration 260)', exists (select 1 from predictions p join pool_markets m on m.id = (p.subject->>'market')::bigint
+  where p.kind = 'pool_question' and m.title = 'Arsenal v Chelsea' and p.league_id = :lib and p.status = 'scored' and p.outcome in (0, 1) and p.predicted between 0 and 1 and p.detail ? 'fav'));
 select pg_temp.expect('a host can still settle by hand', (select count(*) from pool_markets where league_id = :lib and status = 'open' and source is null) > 0);
 select set_config('request.jwt.claim.sub', '', false);
 select 'soccer', true;
