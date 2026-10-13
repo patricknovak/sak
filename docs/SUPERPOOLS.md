@@ -373,8 +373,12 @@ The steps above finish the tenancy. `docs/MARKET.md` sets what comes after in th
    link a season; its public API (which answers any website) gives each season's standings, read in Fantrax's order with
    the season's points (or points for, head to head). It doesn't name managers, so Who's who asks which team here each
    Fantrax team was, matched by name to start with. A points league's scoring copies too (Copy the scoring from Fantrax,
-   in the Commish page's scoring editor, every stat both sites keep, shown to check before saving). Rosters next (Fantrax
-   counts forwards where we have C, LW and RW, so slots stay hand-set); CBS needs a sign-in, so it stays on paste.
+   in the Commish page's scoring editor, every stat both sites keep, shown to check before saving). *Rosters done (13 October 2026,
+   `src/components/FantraxRosters.tsx`, migration 256):* the commissioner pastes the league's link under Roster on the Commish page,
+   every team comes back with its players matched to ours by name and club (Fantrax's public roster call and its player id
+   map), says which team here each one is, and `commish_import_rosters` writes each team whole, everyone on the bench (IR
+   kept) since Fantrax counts forwards where we have centres and wings; a prospect in the minors or a spelling we don't
+   have is listed and left out. CBS needs a sign-in, so it stays on paste.
 10. **Contracts, caps, prospect slots and rookie drafts**; guillotine and best ball formats.
 11. **The Supercoin.** An account-level wallet, the SaK coin ledger migrated onto it, per-pool allowances, the
     Book and side bets as the add-on, the ledger visible in every pool. Never for sale, never cashed out.

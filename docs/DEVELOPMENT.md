@@ -574,6 +574,10 @@ Built 13 October, live:
   wait on the member's call, one tap from the first; once a question closes and until the host settles it, its page shows
   where everyone stands (every member's call, answer by answer, who sat it out), so the group watches knowing who said
   what. A first call from an invite lands in the pool just joined, whichever pool the tab was in before.
+- **Migration 256, rosters from Fantrax** (§8.4 item 6's imports' rosters): `commish_import_rosters` writes each team named
+  whole, everyone on the bench (IR kept), refusing a team bigger than the league's roster by name and a player who is on
+  a team not named; the Commish page's Roster section reads a league's rosters from Fantrax's public API, matches players
+  by name and club (then last name, first initial and club), and lists what it couldn't match.
 - **The pool's chat:** in a prediction pool Garry's replies read the pool's board (every open question with its prices
   and closing time, the asker's own calls, what settled lately and who called it) instead of the fantasy answer engine,
   which had an NHL slate to offer a Love Is Blind pool. The Questions page lists the group closing soonest first.

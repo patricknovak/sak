@@ -6236,6 +6236,30 @@ set role authenticated;
 select pg_temp.expect('its starter deletes it while it is being set up', (pool_delete(:sg, 'Second Garage')->>'deleted')::int = :sg);
 reset role;
 select pg_temp.expect('gone with its seats', not exists (select 1 from leagues where id = :sg) and not exists (select 1 from teams where league_id = :sg));
+
+-- rosters brought in from another site (migration 256): each team named is replaced whole, everyone on the bench (IR kept),
+-- a player on a team not named stays theirs, and the commissioner's log has it
+select min(id) as ip1, max(id) as ip2 from players \gset
+select (select min(id) from teams where league_id = :gl and role = 'gm') as gt1, (select max(id) from teams where league_id = :gl and role = 'gm') as gt2 \gset
+select pg_temp.as_team(3);
+set role authenticated;
+select pg_temp.expect('the commissioner brings two teams'' rosters in', (commish_import_rosters(format('[{"team_id": %s, "players": [{"player_id": %s}, {"player_id": %s, "slot": "IR"}]}, {"team_id": %s, "players": []}]', :gt1, :ip1, :ip2, :gt2)::jsonb)->>'players')::int = 2);
+reset role;
+select pg_temp.expect('on the bench, IR kept, marked as imported', (select count(*) = 2 and bool_and(acquired = 'import') and count(*) filter (where slot = 'IR') = 1 and count(*) filter (where slot = 'BN') = 1 from rosters where league_id = :gl and team_id = :gt1));
+select pg_temp.as_team(3);
+set role authenticated;
+select pg_temp.raises('a player on a team not named stays theirs', format('select commish_import_rosters(''[{"team_id": %s, "players": [{"player_id": %s}]}]'')', :gt2, :ip1), 'Already on a team not in this import');
+select pg_temp.raises('a player goes to one team', format('select commish_import_rosters(''[{"team_id": %s, "players": [{"player_id": %s}]}, {"team_id": %s, "players": [{"player_id": %s}]}]'')', :gt1, :ip1, :gt2, :ip1), 'named for two teams');
+select pg_temp.raises('a team is one of ours', 'select commish_import_rosters(''[{"team_id": 1, "players": []}]'')', 'not in this league');
+select set_config('t.ri', (commish_import_rosters(format('[{"team_id": %s, "players": [{"player_id": %s}]}]', :gt1, :ip2)::jsonb)->>'players'), false);
+select pg_temp.expect('run again, the team is replaced whole', current_setting('t.ri')::int = 1 and (select count(*) from rosters where league_id = :gl and team_id = :gt1) = 1);
+select pg_temp.expect('and it is on the commissioner''s log', exists (select 1 from commish_log where league_id = :gl and action = 'commish_import_rosters'));
+reset role;
+select pg_temp.as_team(4);
+set role authenticated;
+select pg_temp.raises('commissioner only', format('select commish_import_rosters(''[{"team_id": %s, "players": []}]'')', :gt1), 'Commissioner only');
+reset role;
+select set_config('request.jwt.claim.sub', '', false);
 -- the platform deletes a live one (the test league above), all of it
 select pg_temp.as_team(1);
 set role authenticated;
