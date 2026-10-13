@@ -6,6 +6,8 @@
 export interface Change { date: string; icon: string; title: string; body: string; to?: string; tag?: 'formats' | 'commish' | 'draft' | 'everyone' }
 
 export const CHANGELOG: Change[] = [
+  { date: '2026-10-13', icon: '📣', tag: 'everyone', title: 'Your pool\'s voice speaks on game days', to: '/chat',
+    body: 'A pool on games now hears from its voice the way a show pool does on a drop day: the morning post says which picks lock before tomorrow (the round, when, and who still has to pick, by name), and what\'s on tonight on the pool\'s events. Ask it in the chat who hasn\'t picked yet or what\'s on this week and it knows. Your pool\'s home says it too: the next lock, the countdown and whether your pick is in, one tap from the picks.' },
   { date: '2026-10-13', icon: '🔒', tag: 'everyone', title: 'Your privacy, plainly', to: '/privacy',
     body: 'A page that says everything we keep to run a pool and nothing else: your name and email, your calls, picks and messages, who sees them (the people in your pool, nobody outside it), the analytics choice, and how to leave or be deleted. Linked from the cookie banner and the landing page.' },
   { date: '2026-10-13', icon: '🧳', tag: 'commish', title: 'Bring your rosters from Fantrax, ESPN or Yahoo', to: '/commish',

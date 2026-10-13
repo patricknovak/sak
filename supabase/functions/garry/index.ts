@@ -274,7 +274,9 @@ async function grok(system: string, user: string, maxTokens = 1200, temperature 
     if (!res.ok) { console.error('grok', res.status, (await res.text()).slice(0, 300)); return null; }
     const j = await res.json();
     await meter(j?.usage).catch(() => {});
-    return String(j?.choices?.[0]?.message?.content ?? '').trim() || null;
+    // the brand writes no em dash (docs/BRAND.md): the model's become a comma, and the JSON answers are left alone
+    const out = String(j?.choices?.[0]?.message?.content ?? '').trim();
+    return (json ? out : out.replace(/\s*—\s*/g, ', ')) || null;
   } catch (e) {
     console.error('grok', e);
     return null;
@@ -534,6 +536,17 @@ async function storylines(yday: { team_id: number; points: number }[], standings
   };
 }
 
+// what's ahead on the pool's own events (pool_ahead, migration 264): the games about to be played and every pick
+// that locks in the window with who still hasn't made it, for the morning post and the chat
+type PoolAhead = { games: { fixture: number; event: string; home: string; away: string; at: string; series: string | null; game_no: number | null }[];
+  locks: { game: number; kind: string; title: string; round: string; at: string; matches?: number; under_way?: boolean; still_to_pick: string[]; of: number }[] };
+async function poolAhead(hours: number): Promise<PoolAhead> {
+  const { data, error } = await L.db.rpc('pool_ahead', { p_hours: hours });
+  if (error) console.error('pool_ahead', error.message);
+  const a = (data ?? {}) as Partial<PoolAhead>;
+  return { games: a.games ?? [], locks: a.locks ?? [] };
+}
+
 // a prediction pool's board for the chat: every open question with its prices and when it closes, the asker's own
 // calls, and what settled lately with who called it, so "what closes tonight?" and "did I get the engagement one?"
 // get real answers
@@ -563,7 +576,11 @@ async function poolFacts(asker: number, byId: Map<number, Team>) {
   const settled = all.filter((m) => m.status === 'resolved').sort((a, b) => (b.resolved_at ?? '').localeCompare(a.resolved_at ?? '')).slice(0, 8).map((m) => ({
     question: m.title, answer: label(m, m.winner_key), called_it: [...new Set((pos ?? []).filter((p) => p.market_id === m.id && Number(p.shares) > 0 && p.outcome === m.winner_key).map((p) => name(p.team_id)))],
     askers_call: held(m.id, asker).map((k) => label(m, k)) }));
+  const ahead = await poolAhead(72);
   return { open_questions: open, closed_waiting_on_the_host: waiting, settled_lately: settled,
+    // the pool's games on its own events in the next three days, and the picks that lock, with who's still to pick
+    ...(ahead.games.length ? { games_on_the_pools_events_next_3_days: ahead.games.slice(0, 16).map((g) => ({ match: `${g.home} v ${g.away}`, event: g.series ? `${g.series}${g.game_no ? ` game ${g.game_no}` : ''}` : g.event, at_utc: g.at })) } : {}),
+    ...(ahead.locks.length ? { picks_that_lock_next_3_days: ahead.locks.map((l) => ({ game: l.title, round: l.round, locks_at_utc: l.at, still_to_pick: l.still_to_pick, of: l.of })) } : {}),
     // the site's own words for the things a new member asks, so the voice never improvises a tap that isn't there
     how_to: {
       call_a_question: 'Questions tab, tap the question, tap an answer, choose the coins, Call it. A call can be sold back any time before the question closes. 👉 #/questions',
@@ -584,13 +601,15 @@ async function poolDaily() {
   const today = etDate(new Date());
   if (await alreadyPosted('pool-day', today)) return { skipped: 'already posted' };
   const since = new Date(Date.now() - 26 * 3600000).toISOString(), until = new Date(Date.now() + 30 * 3600000).toISOString(), now = new Date().toISOString();
-  const [{ data: ms }, { data: drops }, { data: pos }, { data: said }] = await Promise.all([
+  const [{ data: ms }, { data: drops }, { data: pos }, { data: said }, ahead] = await Promise.all([
     from('pool_markets').select('id,title,outcomes,status,winner_key,closes_at,resolved_at,created_at'),
     from('pool_drops').select('at,amount,note').gte('at', since).lte('at', until),
     from('pool_positions').select('market_id,team_id,outcome,shares'),
     // what the pool's own machinery said since yesterday: a round settled, a series won, someone out of the survivor,
     // squares paid, new questions from a pack (every kind of pool game posts its results here)
     from('messages').select('body,meta').eq('kind', 'system').gte('created_at', since).order('id').limit(30),
+    // and the pool's games: what's about to be played on its events, and the picks that lock before tomorrow
+    poolAhead(30),
   ]);
   const machinery = (said ?? []).filter((x) => !(x.meta as Record<string, unknown> | null)?.pool_start).map((x) => String(x.body).replace(/\s+/g, ' ').slice(0, 220));
   const all = (ms ?? []) as PoolMarket[];
@@ -620,7 +639,11 @@ async function poolDaily() {
   const c = coin();
   const paid = (drops ?? []).filter((d) => d.at <= now).map((d) => `${Number(d.amount)} ${c.name} dropped into every member's purse (${d.note})`);
   const coming = (drops ?? []).filter((d) => d.at > now).map((d) => `${Number(d.amount)} ${c.name} drop into every member's purse ${when(d.at)} (${d.note})`);
-  if (!settled.length && !voided.length && !closing.length && !opened.length && !paid.length && !machinery.length) return { skipped: 'nothing happened' };
+  // the games on the pool's events in the next day, each as a sentence with its time in the members' words
+  const tonight = ahead.games.slice(0, 8).map((g) => `${g.home} v ${g.away}${g.series ? ` (${g.series}${g.game_no ? ` game ${g.game_no}` : ''})` : ` (${g.event})`} ${when(g.at)}`);
+  const locking = ahead.locks.map((l) => ({ game: l.title, round: l.round, locks: when(l.at), ...(l.matches ? { matches: l.matches } : {}),
+    ...(l.under_way ? { the_round_is_already_under_way: true } : {}), still_to_pick: l.still_to_pick, of: l.of }));
+  if (!settled.length && !voided.length && !closing.length && !opened.length && !paid.length && !machinery.length && !tonight.length && !locking.length) return { skipped: 'nothing happened' };
   const { data: sb } = await L.db.rpc('pool_scoreboard');
   const games = ((sb as { games?: { title: string; kind?: string; status?: string; crown?: boolean; rows?: { team_id: number; rank: number; score: number; move?: number; line?: string; alive?: boolean | null }[] }[] } | null)?.games ?? []);
   const main = games.find((g) => g.crown) ?? games[0];
@@ -636,6 +659,10 @@ async function poolDaily() {
     // each member's count, so "@X still has three to call" is never a guess
     members_still_to_call: teams.map((t) => ({ member: t.gm_name, questions_left: closing.filter((x) => x.not_called_yet.includes(t.gm_name)).length, of: closing.length })).filter((x) => x.questions_left > 0),
     closed_waiting_on_the_host: waiting, new_questions: opened,
+    picks_locking_in_the_next_day: locking, ...(ahead.games.length > tonight.length ? { games_on_the_pools_events_in_the_next_day: ahead.games.length } : {}),
+    tonights_games_on_the_pools_events: tonight,
+    // each member's picks still to make, across the pool's games
+    members_still_to_pick: teams.map((t) => ({ member: t.gm_name, picks_left: locking.filter((l) => l.still_to_pick.includes(t.gm_name)).length })).filter((x) => x.picks_left > 0),
     ...(brandNew ? { the_pool_just_opened_with_questions: all.length } : {}),
     table: table.length > 1 && table.some((r) => r.moved) ? { game: main?.title, rows: table.slice(0, 6) } : null,
     ...(machinery.length ? { since_yesterday_the_pool_said: machinery } : {}),
@@ -646,8 +673,10 @@ async function poolDaily() {
     paid.length ? `${c.emoji} ${paid.join('; ')}.` : '',
     closing.length ? `Closing soon: ${closing.map((x) => `"${x.question}"`).join(', ')}.${closing.some((x) => x.not_called_yet.length) ? ` Still to call: ${[...new Set(closing.flatMap((x) => x.not_called_yet))].map((n) => '@' + n).join(', ')}.` : ''}` : '',
     opened.length ? `${opened.length} new question${opened.length === 1 ? '' : 's'} to call.` : '',
+    locking.length ? `${locking.map((l) => `${l.round} of ${l.game} locks ${l.locks}`).join('; ')}.${locking.some((l) => l.still_to_pick.length) ? ` Still to pick: ${[...new Set(locking.flatMap((l) => l.still_to_pick))].map((n) => '@' + n).join(', ')}.` : ''}` : '',
+    tonight.length ? `On: ${tonight.join('; ')}.` : '',
   ].filter(Boolean).join(' ');
-  const body = await write(`Write this morning's post for the pool's chat, as the friend who's most into this and runs the group chat. Lead with the one thing that matters today, in this order: a question that settled (the answer, who called it, who didn't), a result the pool's games posted since yesterday (since_yesterday_the_pool_said: a round won, someone out, a series called), coins that dropped, questions that close in the next day (say when, in the words given, and tag each member who hasn't called yet as @Name so their phone buzzes), questions waiting on the host, new questions. The table only when the facts give one. One sharp chirp built on those facts, worked into the post (never labelled as a chirp), never about a lineup or a sport the facts don't mention. Call the coins by their name. Every number comes straight from the facts and is quoted as given: how many questions close, each amount of coins, each member's calls left. Say nothing about what didn't happen (an empty list, a zero, a host who hasn't asked anything): only what did. A result is reported as the facts give it, never with how it came about. As short as the facts are: one line is fine on a one-fact day, never more than 110 words, no headers.`, facts, fb, 110, teams.filter((t) => closing.some((x) => x.not_called_yet.includes(t.gm_name))).map((t) => t.id));
+  const body = await write(`Write this morning's post for the pool's chat, as the friend who's most into this and runs the group chat. Lead with the one thing that matters today, in this order: a question that settled (the answer, who called it, who didn't), a result the pool's games posted since yesterday (since_yesterday_the_pool_said: a round won, someone out, a series called), coins that dropped, questions that close in the next day (say when, in the words given, and tag each member who hasn't called yet as @Name so their phone buzzes), a pick that locks in the next day (the round and the game it belongs to, when, and tag each member still to pick as @Name), tonight's games on the pool's events (the matchup and the time, as given), questions waiting on the host, new questions. The table only when the facts give one. One sharp chirp built on those facts, worked into the post (never labelled as a chirp), never about a lineup or a sport the facts don't mention. Call the coins by their name. Every number comes straight from the facts and is quoted as given: how many questions close, each amount of coins, each member's calls left. Say nothing about what didn't happen (an empty list, a zero, a host who hasn't asked anything): only what did. A result is reported as the facts give it, never with how it came about. As short as the facts are: one line is fine on a one-fact day, never more than 110 words, no headers.`, facts, fb, 110, teams.filter((t) => closing.some((x) => x.not_called_yet.includes(t.gm_name)) || locking.some((l) => l.still_to_pick.includes(t.gm_name))).map((t) => t.id));
   await post(body, { type: 'pool-day', date: today });
   // the day's reason to open the pool, on the phone too: one bell per seated member, the post's first line, to the chat
   if (!dry()) {
@@ -656,7 +685,7 @@ async function poolDaily() {
     const { error } = await from('notifications').insert((seated ?? []).map((t) => ({ team_id: t.id, kind: 'pool_day', body: `${L.brand.bot.emoji} ${bot()}: ${first}`, link: '/chat' })));
     if (error) console.error('pool-day bells', error.message);
   }
-  return { posted: 'pool-day', settled: settled.length, closing: closing.length, opened: opened.length, drops: paid.length };
+  return { posted: 'pool-day', settled: settled.length, closing: closing.length, opened: opened.length, drops: paid.length, locking: locking.length, games: ahead.games.length };
 }
 
 // ─────────────── daily ───────────────

@@ -52,3 +52,18 @@ export function usePoolScoreboard() {
 
 // a row can't finish first: the game is on, it says what's still possible, and that's short of the leader
 export const outOfIt = (g: BoardGame, r: BoardRow) => g.status === 'open' && r.possible != null && r.possible < (g.rows[0]?.score ?? 0);
+
+// what's ahead on the pool's own events (pool_ahead, migration 264): the games about to be played and every pick that
+// locks in the next day, with who still hasn't made it; the home's hero points at the soonest lock
+export type AheadLock = { game: number; kind: string; title: string; round: string; at: string; matches?: number; under_way?: boolean; still_to_pick: string[]; of: number };
+export type AheadGame = { fixture: number; event: string; home: string; away: string; at: string; series: string | null; game_no: number | null };
+export type Ahead = { games: AheadGame[]; locks: AheadLock[]; members: number };
+export function usePoolAhead(hours = 30) {
+  const [ahead, setAhead] = useState<Ahead | null | undefined>(undefined);
+  const load = useCallback(() => rpc<Ahead>('pool_ahead', { p_hours: hours }).then((a) => setAhead(a ? { games: a.games ?? [], locks: a.locks ?? [], members: a.members ?? 0 } : null), () => setAhead(null)), [hours]);
+  // a lock passes and a pick lands: look again every five minutes while the page is on screen
+  usePoll(load, 300_000, true, [load]);
+  return { ahead, reload: load };
+}
+// where a game's picks are made
+export const lockLink = (l: AheadLock) => (l.kind === 'survivor' ? '/survivor' : l.kind === 'score' ? '/predictor' : `/picks?g=${l.game}`);

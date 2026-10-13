@@ -27,7 +27,8 @@ import { InvitePeople } from '../components/InvitePeople';
 import { DeletePool } from '../components/DeletePool';
 import { usePoolCompetitions } from '../lib/poolOwn';
 import { HostGames, PoolGameCards, usePoolGames } from './Picks';
-import { kindOf, usePoolScoreboard } from '../lib/poolScoreboard';
+import { kindOf, lockLink, usePoolAhead, usePoolScoreboard } from '../lib/poolScoreboard';
+import { Lock } from 'lucide-react';
 import { BoardRows, ChanceCard, GameChips, Move, MyPlace, useChances } from '../components/PoolTable';
 import { ChevronRight, Dices } from 'lucide-react';
 
@@ -106,6 +107,11 @@ export function PoolHome() {
   const settle = (markets ?? []).filter((m) => m.status === 'open' && !isOpen(m, now));
   // a sports pool with games and no questions shows its games, not an empty question board
   const { games } = usePoolGames();
+  // the soonest pick that locks before tomorrow on the pool's games, and whether the member is in it (the games'
+  // last call, beside the questions')
+  const { ahead } = usePoolAhead();
+  const lock = (ahead?.locks ?? []).filter((l) => new Date(l.at).getTime() > now).sort((a, b) => a.at.localeCompare(b.at))[0];
+  const lockMissing = !!lock && !!me && lock.still_to_pick.includes(me.gm_name);
   const gamesOnly = !!games?.length && markets !== null && !markets.length;
   return (
     <div className="space-y-6">
@@ -133,6 +139,16 @@ export function PoolHome() {
               <div className="text-xs text-mute">{uncalled.length === 0 ? 'You have called every one of them.' : uncalled.length === today.length ? 'You have not called any of them yet.' : `${uncalled.length} still waiting on your call.`}</div>
             </div>
             <span className="shrink-0 text-sm font-bold text-gold">{uncalled.length ? 'Call it →' : 'Review →'}</span>
+          </Link>
+        )}
+        {lock && me?.role === 'gm' && (
+          <Link to={lockLink(lock)} className={`mt-3 flex items-center gap-3 rounded-2xl px-3 py-2.5 ring-1 ${lockMissing ? 'bg-gold/15 ring-gold/40 hover:bg-gold/20' : 'bg-white/[.06] ring-white/10 hover:bg-white/10'}`}>
+            <Lock className={`h-5 w-5 shrink-0 ${lockMissing ? 'text-gold' : 'text-emerald-300'}`} />
+            <div className="min-w-0 flex-1 text-sm leading-snug">
+              <b className="text-white">{lock.round[0].toUpperCase() + lock.round.slice(1)}{lock.under_way ? ', the rest of it,' : ''} locks in {countdown(new Date(lock.at).getTime() - now)}</b>
+              <div className="text-xs text-mute">{lock.title}{lock.matches && lock.matches > 1 ? ` · ${lock.matches} to pick` : ''} · {lockMissing ? (lock.still_to_pick.length === 1 ? 'only your pick is missing.' : `${lock.still_to_pick.length} of ${lock.of} still to pick, you among them.`) : lock.still_to_pick.length ? `you're in; ${lock.still_to_pick.length} of ${lock.of} still to pick.` : 'everyone is in.'}</div>
+            </div>
+            <span className="shrink-0 text-sm font-bold text-gold">{lockMissing ? 'Pick →' : 'See →'}</span>
           </Link>
         )}
         {nextDrop && (

@@ -9,7 +9,7 @@ Paid subscribed: section 1 and section 8 are that review.
 
 ## 1. Where we are
 
-*As of 13 October 2026, migration 263.*
+*As of 13 October 2026, migration 264.*
 
 - **SaK**, the live league: eight GMs, used every night, on React 19 + Supabase (Postgres rules, edge functions, a
   scheduler) and an LLM voice (Garry, on Grok, metered per feature and league), served from Cloudflare. The season is
@@ -29,7 +29,7 @@ Paid subscribed: section 1 and section 8 are that review.
 - **Use so far is the founder's.** Four prediction pools besides SaK, one or two members each, one pick between them
   and no chat (section 9.2, 13 October). The Love Is Blind gate (three pools, thirty players by 4 November) is the first
   real test of the product with strangers; the premiere is 14 October, and the week's build for it is section 9.5.
-- 263 migrations; the flow test drives a whole fantasy season and every pool kind in SQL, with a second league beside
+- 264 migrations; the flow test drives a whole fantasy season and every pool kind in SQL, with a second league beside
   each that must never see or change it; CI runs it, the build and the Worker's types on every pull request.
 
 ## 2. What is working, and stays
@@ -465,7 +465,9 @@ Worker reads Postgres directly.
    every Monday: pools started, links shared, joins, first calls, calls per member, chat messages. The numbers decide
    what's next, not the feature list.
 3. **The voice in every pool** (item 1's drop-day voice generalised: the Traitors' episode nights, the World Series
-   games, a soccer gameweek): a reason to open the app that isn't a push.
+   games, a soccer gameweek): a reason to open the app that isn't a push. *Built 13 October (section 9.5, migration
+   264): the morning post reads the pool's own events too, the picks that lock before tomorrow with who's still to pick,
+   and tonight's games; the chat knows the next three days.*
 4. **Shorten the stranger's path** once the funnel shows where it leaks: today a link opens a preview (good), then four
    fields (name, email, password twice) before a first call. The first call before the account is the candidate. *Built
    13 October: the link's preview asks the first question (text thread and page), the answer is picked before the form,
@@ -619,6 +621,16 @@ Built 13 October, live:
   task (the other scheduled tasks still skip them). Deployed the same hour, and the day's post run by hand for Pod Squad
   and the test pool (the drop and the four questions closing at 3 am, the member with three calls left tagged, the eight
   new questions): the first live pool post.
+- **Migration 264, the voice in every pool** (§8.4 item 3): `pool_ahead(hours)` is the pool's next day on its own
+  events: the games about to be played (home, away, the series and game number) and every pick that locks in the
+  window, kind by kind (the round still to be played for pick'em, last one standing and Call the score, the day for the
+  streak, each series set and yet to start, the bracket's, the order's, the box pool's and the prop sheet's one lock),
+  each with the members still to pick. The morning post now speaks on a game day as it does on a drop day: the lock
+  (the round, when, each member still to pick tagged) and tonight's games on the pool's events, after what settled and
+  before the questions; a pool with nothing of the kind stays quiet as before. The chat's facts carry the next three
+  days, so "who hasn't picked?" and "what's on tonight?" get real answers. The pool's home reads it too (`usePoolAhead`):
+  the hero's last call for the games, beside the questions', is the soonest lock before tomorrow (the round, the countdown,
+  how many still to pick and whether the member is among them), one tap from the picks.
 - **The pool's chat:** in a prediction pool Garry's replies read the pool's board (every open question with its prices
   and closing time, the asker's own calls, what settled lately and who called it) instead of the fantasy answer engine,
   which had an NHL slate to offer a Love Is Blind pool. The Questions page lists the group closing soonest first.
