@@ -5,7 +5,7 @@ import { useLeague } from '../lib/store';
 import { Spinner } from '../components/ui';
 import { LeagueCrest } from '../components/Brand';
 import { themed } from '../components/LeagueIdentity';
-import { attributionFields, track } from '../lib/analytics';
+import { attributionFields, track, trackFirstCall } from '../lib/analytics';
 import { PRODUCT } from '../lib/brand';
 import { setTabLeague } from '../lib/host';
 
@@ -55,7 +55,7 @@ export default function Join({ code }: { code: string }) {
   const FIRST_STAKE = 100;
   const placeFirstCall = async () => {
     if (!call || !pv?.next_market) return;
-    try { await rpc('pool_buy', { p_market: pv.next_market, p_outcome: call, p_coins: FIRST_STAKE }); track('first_call'); }
+    try { await rpc('pool_buy', { p_market: pv.next_market, p_outcome: call, p_coins: FIRST_STAKE }); trackFirstCall('join'); }
     catch { /* the question closed or the pool changed while they typed: they're in, and the board is a tap away */ }
   };
 
