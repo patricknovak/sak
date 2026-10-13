@@ -4794,6 +4794,16 @@ select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-000000000081
 set role authenticated;
 select pool_game_start('pickem', 'pk-mko') as lcg \gset
 select pool_pickem_save(:lcg, 1, jsonb_build_array(jsonb_build_object('fixture', :lc1, 'pick', 'H')));
+-- the pool's next day (migration 264, pool_ahead): the match about to be played and the pick that locks, with who's still to pick
+select pool_ahead() as ah \gset
+select pg_temp.expect('pool_ahead lists the match on the pool''s event, home and away by name',
+  exists (select 1 from jsonb_array_elements(:'ah'::jsonb->'games') x where (x->>'fixture')::bigint = :lc1 and x->>'home' = 'Leyton' and x->>'away' = 'Morecambe' and x->>'event' = 'Line Cup'));
+select pg_temp.expect('and the pick''em round that locks at its kick-off, Hana picked, Fern and Lou still to pick',
+  exists (select 1 from jsonb_array_elements(:'ah'::jsonb->'locks') x where (x->>'game')::bigint = :lcg and x->>'kind' = 'pickem' and x->>'round' = 'Matchweek 1'
+          and (x->>'matches')::int = 1 and not (x->>'under_way')::boolean and x->'still_to_pick' = '["Fern", "Lou"]'::jsonb and (x->>'of')::int = 3));
+select pg_temp.expect('a window shorter than the kick-off has neither the match nor the lock in it',
+  not exists (select 1 from jsonb_array_elements(pool_ahead(12)->'locks') x where (x->>'game')::bigint = :lcg)
+  and not exists (select 1 from jsonb_array_elements(pool_ahead(12)->'games') x where (x->>'fixture')::bigint = :lc1));
 reset role;
 select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-000000000082', false);
 set role authenticated;
@@ -4832,6 +4842,9 @@ select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-000000000081
 set role authenticated;
 select pool_game_start('rank', 'rk-odds') as rkg \gset
 select pool_game_pick(:rkg, 'rank', jsonb_build_object('order', jsonb_build_array(:ogd, :pro, :qui, :ren)));
+select pg_temp.expect('rank the teams locks at the first series: Hana''s order is in, Fern''s and Lou''s not (pool_ahead)',
+  exists (select 1 from jsonb_array_elements(pool_ahead()->'locks') x where (x->>'game')::bigint = :rkg and x->>'kind' = 'rank' and x->>'round' = 'the order'
+          and x->'still_to_pick' = '["Fern", "Lou"]'::jsonb and (x->>'at')::timestamptz between now() + interval '23 hours' and now() + interval '25 hours'));
 select pg_temp.expect('before the lock there are no chances: the order can still change', pool_game_chances(:rkg) = '[]'::jsonb);
 reset role;
 select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-000000000082', false);
@@ -4847,6 +4860,8 @@ select sport_ingest('rk-odds', jsonb_build_object('fixtures', jsonb_build_array(
 select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-000000000086', false);
 set role authenticated;
 select pool_game_chances(:rkg) as rkc \gset
+select pg_temp.expect('once the order has locked there is nothing left to pick on it (pool_ahead)',
+  not exists (select 1 from jsonb_array_elements(pool_ahead()->'locks') x where (x->>'game')::bigint = :rkg));
 select pg_temp.expect('locked and Ogden 3-0 up, Hana is the favourite; the chances add up to one',
   (select (e->>'chance')::numeric from jsonb_array_elements(:'rkc'::jsonb) e where (e->>'team_id')::int = :hana)
     > (select (e->>'chance')::numeric + 0.2 from jsonb_array_elements(:'rkc'::jsonb) e where (e->>'team_id')::int = :fern)

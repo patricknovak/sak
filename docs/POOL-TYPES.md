@@ -257,7 +257,8 @@ Written down from the bracket (migration 185), so the next kind (the player pool
   (score, possible, right calls, picked, tiebreak); `pool_game_board` (what a member sees) and `pool_games_list` (the
   menu's "to pick"); `_pool_game_pick_as` (the shape of a pick, checked, and the host picking for a member);
   `_pool_game_locked` (when it locks); `_pool_game_nudge` (the reminders); `_pool_rows()` (its line on the pool's one
-  table); `pool_event_list` (the kinds an event offers, so the start page and the host's desk show it);
+  table); `pool_ahead()` (its lock in the pool's next day, with who's still to pick, so the pool's voice says so);
+  `pool_event_list` (the kinds an event offers, so the start page and the host's desk show it);
   `pool_game_chances` (its chances to win, once it can have them, and the `pool_win` log comes with it).
 - **Tests:** a section in `supabase/tests/flow.sql` that starts it, picks, locks, scores and reads the table, with a
   second league that can't see or touch it; `tenancy.sql` passes untouched if every new function checks its league.
@@ -317,6 +318,8 @@ need, and the centre reads the rest live and cached.
 - Postponed and suspended games: a pick follows the game (`gamePk`), not the date; survivor's rule for a called-off
   game is set up front (through, today).
 - Never money, never "bet now": an alert says what changed in your pool.
+- The pool's voice on a game day (migration 264, `pool_ahead()`): the morning post says what locks before tomorrow, who
+  still has to pick, and what's on tonight on the pool's events, the way it says what closes in a show pool.
 
 ## 7. The World Series test (October 2026)
 
