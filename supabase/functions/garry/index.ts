@@ -563,7 +563,15 @@ async function poolFacts(asker: number, byId: Map<number, Team>) {
   const settled = all.filter((m) => m.status === 'resolved').sort((a, b) => (b.resolved_at ?? '').localeCompare(a.resolved_at ?? '')).slice(0, 8).map((m) => ({
     question: m.title, answer: label(m, m.winner_key), called_it: [...new Set((pos ?? []).filter((p) => p.market_id === m.id && Number(p.shares) > 0 && p.outcome === m.winner_key).map((p) => name(p.team_id)))],
     askers_call: held(m.id, asker).map((k) => label(m, k)) }));
-  return { open_questions: open, closed_waiting_on_the_host: waiting, settled_lately: settled };
+  return { open_questions: open, closed_waiting_on_the_host: waiting, settled_lately: settled,
+    // the site's own words for the things a new member asks, so the voice never improvises a tap that isn't there
+    how_to: {
+      call_a_question: 'Questions tab, tap the question, tap an answer, choose the coins, Call it. A call can be sold back any time before the question closes. 👉 #/questions',
+      see_the_table: 'The Table tab ranks every member by net worth: coins in hand plus what their calls are worth at today\'s prices. 👉 #/standings',
+      invite_a_friend: 'Any member shares the pool\'s link from My pools; the host\'s open link is on the Host page. 👉 #/pools',
+      settle_a_question: 'The host opens the question after it closes and taps the answer that happened; everyone holding it is paid a coin a share. 👉 #/questions',
+      ask_a_question: 'The host writes new questions on the Host page (members too, where the host allows it). 👉 #/host',
+    } };
 }
 
 // ─────────────── a prediction pool's morning ───────────────
@@ -604,27 +612,31 @@ async function poolDaily() {
   // a pool that opened yesterday has every question "new": that's the pool opening, not news
   const brandNew = all.length > 0 && all.every((m) => m.created_at > since);
   const opened = brandNew ? [] : all.filter((m) => m.status === 'open' && m.created_at > since).map((m) => m.title);
-  const paid = (drops ?? []).filter((d) => d.at <= now).map((d) => ({ coins: Number(d.amount), note: d.note }));
-  const coming = (drops ?? []).filter((d) => d.at > now).map((d) => ({ coins: Number(d.amount), note: d.note, when: when(d.at) }));
+  // the drops as sentences, so the amount is never re-read as something else
+  const c = coin();
+  const paid = (drops ?? []).filter((d) => d.at <= now).map((d) => `${Number(d.amount)} ${c.name} dropped into every member's purse (${d.note})`);
+  const coming = (drops ?? []).filter((d) => d.at > now).map((d) => `${Number(d.amount)} ${c.name} drop into every member's purse ${when(d.at)} (${d.note})`);
   if (!settled.length && !voided.length && !closing.length && !opened.length && !paid.length) return { skipped: 'nothing happened' };
   const { data: sb } = await L.db.rpc('pool_scoreboard');
   const games = ((sb as { games?: { title: string; crown?: boolean; rows?: { team_id: number; rank: number; score: number; move?: number }[] }[] } | null)?.games ?? []);
   const main = games.find((g) => g.crown) ?? games[0];
   const table = (main?.rows ?? []).slice().sort((a, b) => a.rank - b.rank).map((r) => ({ rank: r.rank, member: name(r.team_id), score: f1(Number(r.score)), moved: r.move ?? 0 }));
-  const c = coin();
   const facts = {
     members: teams.length, the_coins_are_called: `${c.name} ${c.emoji}`, settled_since_yesterday: settled, voided, coins_dropped_today: paid, coins_dropping_soon: coming,
-    closing_in_the_next_day: closing, closed_waiting_on_the_host: waiting, new_questions: opened,
+    questions_closing_in_the_next_day: closing.length, closing_in_the_next_day: closing,
+    // each member's count, so "@X still has three to call" is never a guess
+    members_still_to_call: teams.map((t) => ({ member: t.gm_name, questions_left: closing.filter((x) => x.not_called_yet.includes(t.gm_name)).length, of: closing.length })).filter((x) => x.questions_left > 0),
+    closed_waiting_on_the_host: waiting, new_questions: opened,
     ...(brandNew ? { the_pool_just_opened_with_questions: all.length } : {}),
     table: table.length > 1 && table.some((r) => r.moved) ? { game: main?.title, rows: table.slice(0, 6) } : null,
   };
   const fb = [
     settled.length ? `${settled.map((x) => `"${x.question}": ${x.answer}${x.called_it.length ? ` (${x.called_it.join(', ')} called it)` : ''}`).join('. ')}.` : '',
-    paid.length ? `${paid.map((d) => `${d.coins} ${c.emoji} ${c.name} dropped (${d.note})`).join('; ')}.` : '',
+    paid.length ? `${c.emoji} ${paid.join('; ')}.` : '',
     closing.length ? `Closing soon: ${closing.map((x) => `"${x.question}"`).join(', ')}.${closing.some((x) => x.not_called_yet.length) ? ` Still to call: ${[...new Set(closing.flatMap((x) => x.not_called_yet))].map((n) => '@' + n).join(', ')}.` : ''}` : '',
     opened.length ? `${opened.length} new question${opened.length === 1 ? '' : 's'} to call.` : '',
   ].filter(Boolean).join(' ');
-  const body = await write(`Write this morning's post for the pool's chat, as the friend who's most into this and runs the group chat. Lead with the one thing that matters today, in this order: a question that settled (the answer, who called it, who didn't), coins that dropped, questions that close in the next day (say when, in the words given, and tag each member who hasn't called yet as @Name so their phone buzzes), questions waiting on the host, new questions. The table only when the facts give one. One sharp chirp built on those facts, worked into the post (never labelled as a chirp), never about a lineup or a sport the facts don't mention. Call the coins by their name. Short lines, no headers, 50 to 110 words.`, facts, fb, 110, teams.filter((t) => closing.some((x) => x.not_called_yet.includes(t.gm_name))).map((t) => t.id));
+  const body = await write(`Write this morning's post for the pool's chat, as the friend who's most into this and runs the group chat. Lead with the one thing that matters today, in this order: a question that settled (the answer, who called it, who didn't), coins that dropped, questions that close in the next day (say when, in the words given, and tag each member who hasn't called yet as @Name so their phone buzzes), questions waiting on the host, new questions. The table only when the facts give one. One sharp chirp built on those facts, worked into the post (never labelled as a chirp), never about a lineup or a sport the facts don't mention. Call the coins by their name. Every number comes straight from the facts and is quoted as given: how many questions close, each amount of coins, each member's calls left. Short lines, no headers, 50 to 110 words.`, facts, fb, 110, teams.filter((t) => closing.some((x) => x.not_called_yet.includes(t.gm_name))).map((t) => t.id));
   await post(body, { type: 'pool-day', date: today });
   // the day's reason to open the pool, on the phone too: one bell per seated member, the post's first line, to the chat
   if (!dry()) {
