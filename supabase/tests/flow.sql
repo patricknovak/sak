@@ -3194,6 +3194,7 @@ select pg_temp.raises('the words lock once people trade', format('select pool_ed
 select pg_temp.as_team(1);
 select pg_temp.raises('the host can''t reword a traded question', format('select pool_edit(%s, ''{"title": "Something else"}''::jsonb)', :pm), 'stay as they are');
 select pool_edit(:pm, jsonb_build_object('closes_at', now() + interval '3 days'));
+select pg_temp.expect('a closing time the host set is marked as theirs (migration 259)', (select (source->>'host_closes')::boolean from pool_markets where id = :pm));
 select pool_resolve(:pm, 'a2', 'Test settle');
 select pg_temp.expect('the winner is paid a coin a share', (select sum(amount) from coin_ledger where team_id = 3 and reason like 'Paid: Pool test%')
   = (select floor(shares) from pool_positions where market_id = :pm and team_id = 3 and outcome = 'a2'));
@@ -3584,6 +3585,9 @@ update pool_packs set markets = (select jsonb_agg(case when x->>'title' = 'Quest
   from jsonb_array_elements(markets) x) where slug = 'test-grow';
 select pg_temp.expect('a copy the host moved later than the pack keeps its own time', _pool_pack_refresh(:epl) = 0
   and (select closes_at > now() + interval '39 days' from pool_markets where league_id = :epl and pack = 'test-grow' and title = 'Question two?'));
+update pool_markets set closes_at = now() + interval '2 days', source = '{"host_closes": true}'::jsonb where league_id = :epl and pack = 'test-grow' and title = 'Question two?';
+select pg_temp.expect('a copy whose closing time the host set by hand is left alone, even earlier than the pack (migration 259)', _pool_pack_refresh(:epl) = 0
+  and (select closes_at < now() + interval '3 days' from pool_markets where league_id = :epl and pack = 'test-grow' and title = 'Question two?'));
 delete from notifications where kind = 'pool_new' and body like '%Grows later%';
 delete from messages where meta->>'pool_pack' = 'test-grow' or (meta->>'moved')::boolean;
 delete from pool_markets where pack = 'test-grow';

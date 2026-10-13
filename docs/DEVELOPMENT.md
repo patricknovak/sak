@@ -9,7 +9,7 @@ Paid subscribed: section 1 and section 8 are that review.
 
 ## 1. Where we are
 
-*As of 13 October 2026, migration 257.*
+*As of 13 October 2026, migration 259.*
 
 - **SaK**, the live league: eight GMs, used every night, on React 19 + Supabase (Postgres rules, edge functions, a
   scheduler) and an LLM voice (Garry, on Grok, metered per feature and league), served from Cloudflare. The season is
@@ -29,7 +29,7 @@ Paid subscribed: section 1 and section 8 are that review.
 - **Use so far is the founder's.** Four prediction pools besides SaK, one or two members each, one pick between them
   and no chat (section 9.2, 13 October). The Love Is Blind gate (three pools, thirty players by 4 November) is the first
   real test of the product with strangers; the premiere is 14 October, and the week's build for it is section 9.5.
-- 257 migrations; the flow test drives a whole fantasy season and every pool kind in SQL, with a second league beside
+- 259 migrations; the flow test drives a whole fantasy season and every pool kind in SQL, with a second league beside
   each that must never see or change it; CI runs it, the build and the Worker's types on every pull request.
 
 ## 2. What is working, and stays
@@ -602,7 +602,9 @@ Built 13 October, live:
   anything ("Called it: Priya, Sam (2 of 7)", or "Nobody called it"), so a drop night's settle is a moment in the chat.
 - **Migration 258:** a pack question whose closing time moved later (the reunion's placeholder date, once Netflix names
   it) reaches every open copy that still closes earlier, with a line in the pool's chat; a copy the host moved later
-  than the pack keeps its own time, and a closed copy is left alone. The pack is corrected once; every pool follows.
+  than the pack keeps its own time, and a closed copy is left alone. The pack is corrected once; every pool follows. **Migration 259:** a closing time the host set by hand is marked
+  (`source.host_closes`, set by `pool_edit`) and the refresh leaves it alone, so a host who closes a question early isn't undone
+  by the hour.
 - **The morning run includes the pools:** the first scheduled run (14:00 UTC, 13 October) listed fantasy leagues only,
   so Pod Squad got no post on the premiere's eve; `leaguesFor` now includes active prediction pools for the `daily`
   task (the other scheduled tasks still skip them). Deployed the same hour, and the day's post run by hand for Pod Squad
