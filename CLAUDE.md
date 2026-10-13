@@ -120,7 +120,7 @@ Two things in one repo:
   Accept. Funnel events `pool_start`, `invite_share`, `join`, `first_call`, `sign_up` (no PII). First-touch UTM/referrer
   on `waitlist` and `private.pool_signups`. `accounts.is_test` (platform-admin `set_account_is_test`).
   `mission_control_counts` for the portfolio Mission Control (passcode hash in `mission_control.counts_passcode`, never
-  committed). Landing `sitemap.xml`.
+  committed). `platform_week()` (migration 253) is the platform admins' week on the Platform page: pools, people, calls, messages, each league's week and when it was last alive. Landing `sitemap.xml`.
 - Hosting: the app on Cloudflare (every address; the GitHub Pages copy from `.github/workflows/deploy.yml` stays until
   EXPANSION B5 step 3) as a Worker with its own edge code (`worker/`, Workers Paid since 11 October 2026): `/api/hub`
   caches the sports data at the edge (the site's `hub()` reads it on the product's addresses), `/j/<code>` and

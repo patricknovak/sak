@@ -564,4 +564,8 @@ Built 13 October, live:
   pool and Pod Squad; the first live post is the morning of 13 October (the premiere's questions close that night).
 - **Migration 252:** the invite link's preview carries the pool's next question, when it closes and how many are open,
   and the join page shows it above the sign-up as "First up", so a stranger sees the game before the form.
+- **Migration 253:** `platform_week()`, the week's numbers for platform admins (pools started, people joined, calls
+  made, chat messages, links made, the waitlist, each against all time; every league with its members, its week's calls
+  and callers and messages, and when it was last alive, the quietest last), the "This week" card at the top of the
+  Platform page. Section 8.4 item 2's Monday read.
 
