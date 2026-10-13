@@ -94,6 +94,10 @@ export function PoolHome() {
   const mine = leaders?.find((l) => l.team_id === me?.id);
   const open = (markets ?? []).filter((m) => isOpen(m, now));
   const closing = [...open].sort((a, b) => a.closes_at.localeCompare(b.closes_at)).slice(0, 4);
+  // the day's last call: what closes within the day and which of it the member hasn't called (a drop night's questions
+  // close at 3 am; the hero says so above the fold, pointing at the first one still open to them)
+  const today = open.filter((m) => new Date(m.closes_at).getTime() - now < 864e5);
+  const uncalled = today.filter((m) => !positions.some((p) => p.market_id === m.id && p.team_id === me?.id && (p.shares > 0.0001 || p.paid > 0)));
   const hot = useMemo(() => {
     const day = now - 864e5, n = new Map<number, number>();
     trades.forEach((t) => { if (new Date(t.created_at).getTime() > day) n.set(t.market_id, (n.get(t.market_id) ?? 0) + 1); });
@@ -119,6 +123,16 @@ export function PoolHome() {
             <Dices className="h-4 w-4 shrink-0 text-gold" />
             <span className="min-w-0 flex-1 text-slate-200"><b className="font-display text-base font-extrabold text-white">{myChance > 0 && myChance < 0.01 ? '<1%' : `${Math.round(myChance * 100)}%`}</b> chance to win {main.title}</span>
             <ChevronRight className="h-4 w-4 shrink-0 text-mute" />
+          </Link>
+        )}
+        {today.length > 0 && me?.role === 'gm' && (
+          <Link to={uncalled.length ? `/q/${uncalled[0].id}` : '/questions'} className={`mt-3 flex items-center gap-3 rounded-2xl px-3 py-2.5 ring-1 ${uncalled.length ? 'bg-gold/15 ring-gold/40 hover:bg-gold/20' : 'bg-white/[.06] ring-white/10 hover:bg-white/10'}`}>
+            <Flame className={`h-5 w-5 shrink-0 ${uncalled.length ? 'text-gold' : 'text-emerald-300'}`} />
+            <div className="min-w-0 flex-1 text-sm leading-snug">
+              <b className="text-white">{today.length === 1 ? 'One question closes' : `${today.length} questions close`} {new Date(today[0].closes_at).getTime() - now < 36e5 ? 'within the hour' : 'today'}</b>
+              <div className="text-xs text-mute">{uncalled.length === 0 ? 'You have called every one of them.' : uncalled.length === today.length ? 'You have not called any of them yet.' : `${uncalled.length} still waiting on your call.`}</div>
+            </div>
+            <span className="shrink-0 text-sm font-bold text-gold">{uncalled.length ? 'Call it →' : 'Review →'}</span>
           </Link>
         )}
         {nextDrop && (
