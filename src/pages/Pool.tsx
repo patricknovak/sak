@@ -260,7 +260,10 @@ function DropCard() {
 export function Questions() {
   const { markets, positions, trades } = usePool();
   const now = useNow(30000);
-  const [tab, setTab] = useState<'open' | 'mine' | 'settled'>('open');
+  // the tab can come from the address (#/questions?tab=settled), so a bell or a card can open the one it means
+  const [params] = useSearchParams();
+  const asked = params.get('tab');
+  const [tab, setTab] = useState<'open' | 'mine' | 'settled'>(asked === 'mine' || asked === 'settled' ? asked : 'open');
   const { me } = useLeague();
   const { drop } = useDrop(now);
   const list = (markets ?? []).filter((m) => tab === 'open' ? m.status === 'open'
