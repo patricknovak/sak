@@ -458,17 +458,21 @@ Worker reads Postgres directly.
    close at each drop (21 and 28 October), not only at the premiere and the finale; a pack's new questions reach every
    pool already on it by themselves (the hourly pool job), with a line in the pool's chat; the pool's voice speaks on
    drop days (what settled, what's open, who's up, a last call). Patrick fills Pod Squad and two more pools with people
-   he knows: the gate (three pools, thirty players by 4 November) is people, not code.
+   he knows: the gate (three pools, thirty players by 4 November) is people, not code. *Built 13 October (section 9.5):
+   the drop questions, the pack refresh, the morning post, the host's settle bell, the last call on the home, where
+   everyone stands once calls lock, the drop's share card, the couple questions ready to ask, the landing page.*
 2. **Measure the first week.** The GA4 funnel is wired; read it, and the per-pool counts (`mission_control_counts`),
    every Monday: pools started, links shared, joins, first calls, calls per member, chat messages. The numbers decide
    what's next, not the feature list.
 3. **The voice in every pool** (item 1's drop-day voice generalised: the Traitors' episode nights, the World Series
    games, a soccer gameweek): a reason to open the app that isn't a push.
 4. **Shorten the stranger's path** once the funnel shows where it leaks: today a link opens a preview (good), then four
-   fields (name, email, password twice) before a first call. The first call before the account is the candidate.
+   fields (name, email, password twice) before a first call. The first call before the account is the candidate. *Built
+   13 October: the link's preview asks the first question (text thread and page), the answer is picked before the form,
+   the password is asked once, and the call lands the moment they're in.*
 5. **Billing and tiers** and the Supercoin wallet, once there are pools to bill (SUPERPOOLS items 7 and 11).
 6. **The GitHub Pages copy retired** after a SaK GM checks push alerts and the installed app on `sak.superpoolsai.com`;
-   imports' rosters; the app-store listing. The winter packs (The Bachelor when ABC names its lead) ride item 3.
+   imports' rosters (*done 13 October: Fantrax, ESPN and Yahoo, migration 256*); the app-store listing. The winter packs (The Bachelor when ABC names its lead) ride item 3.
 
 ### 8.5 One live clock, one game sheet, one lineup (11 October 2026, Patrick: "updates should be coordinated ... in the lowest cost way possible")
 
@@ -575,7 +579,8 @@ Built 13 October, live:
   where everyone stands (every member's call, answer by answer, who sat it out), so the group watches knowing who said
   what. A first call from an invite lands in the pool just joined, whichever pool the tab was in before.
   The drop's share card (POOLS.md §6, share cards after every drop): on the Questions page's Settled tab for four days after
-  a settle, the member's calls on it right or wrong with the score, drawn as the sheet card.
+  a settle, the member's calls on it right or wrong with the score, drawn as the sheet card. The Ask sheet's One for each shape carries the couple questions ready to ask once the cast is
+  known (POOLS.md §6's questions for each drop), one tap each with its rule.
 - **Migration 256, rosters from Fantrax** (§8.4 item 6's imports' rosters): `commish_import_rosters` writes each team named
   whole, everyone on the bench (IR kept), refusing a team bigger than the league's roster by name and a player who is on
   a team not named; the Commish page's Roster section reads a league's rosters from Fantrax's public API, matches players

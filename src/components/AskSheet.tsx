@@ -10,6 +10,15 @@ import { Sheet, useAction } from './ui';
 // before (a burst of new questions folds into one alert).
 
 type Shape = 'yesno' | 'who' | 'many' | 'each';
+// the questions a show pool asks about each couple the moment the cast is known (docs/POOLS.md §6: written by the host
+// after each drop); one tap fills the pattern and its rule, the host adds the names
+const EACH_PRESETS: { chip: string; title: string; rule: string }[] = [
+  { chip: 'Make it to the altar', title: 'Will {name} make it to the altar?', rule: 'Yes if {name} stand at the altar at a wedding the show airs, whatever they say there.' },
+  { chip: 'Both say I do', title: 'Will {name} both say “I do”?', rule: 'Yes if both of {name} say “I do” at the altar, as aired.' },
+  { chip: 'Still engaged next drop', title: 'Will {name} still be engaged when the next drop ends?', rule: 'Yes if {name} are still engaged as the last episode of the next drop ends. A split the show airs by then counts as over.' },
+  { chip: 'Together at the reunion', title: 'Will {name} be together at the reunion?', rule: 'Yes if {name} say at the reunion that they are together, married or not.' },
+  { chip: 'Meet the family goes badly', title: 'Does a family member of {name} say on camera they are against it?', rule: 'Yes if a parent, sibling or other family member of either of {name} says on camera that they do not support the engagement or the wedding.' },
+];
 const SHAPES: { key: Shape; label: string; icon: typeof CircleHelp; title: string; answers: string; rule: string }[] = [
   { key: 'yesno', label: 'Yes or no', icon: CircleHelp, title: 'Does it happen before the finale?', answers: 'Yes\nNo', rule: 'Yes if it happens on screen before the finale, as aired.' },
   { key: 'who', label: 'Who', icon: Users, title: 'Who is first to go home?', answers: '', rule: 'The first one to leave, as aired. Anyone not named counts as Anyone else.' },
@@ -81,6 +90,17 @@ export function AskSheet({ open, onClose, drops, onAsked }: { open: boolean; onC
         <label className="block"><span className="label">{shape === 'each' ? 'The question, with {name} where each name goes' : 'The question, the way you’d ask the group chat'}</span>
           <input className="input mt-1 w-full" value={f.title} onChange={(e) => setF({ ...f, title: e.target.value })} placeholder={cur.title} maxLength={160} /></label>
 
+        {shape === 'each' && (
+          <div>
+            <span className="label">Ready to ask, once the cast is known</span>
+            <div className="mt-1.5 flex flex-wrap gap-1.5">
+              {EACH_PRESETS.map((q) => (
+                <button key={q.title} type="button" onClick={() => setF({ ...f, title: q.title, rule: q.rule, answers: 'Yes\nNo' })}
+                  className={`rounded-full border px-3 py-1 text-xs font-semibold transition ${f.title === q.title ? 'border-gold/60 bg-gold/15 text-white' : 'border-white/10 bg-white/[.04] text-slate-200 hover:bg-white/[.08]'}`}>{q.chip}</button>
+              ))}
+            </div>
+          </div>
+        )}
         {shape === 'each' && (
           <label className="block"><span className="label">The names, one a line (a couple, a contestant, a team)</span>
             <textarea className="input mt-1 w-full" rows={4} value={f.names} onChange={(e) => setF({ ...f, names: e.target.value })} placeholder={'Kara & Tucker\nMia & Jordan\nAva & Leo'} /></label>
