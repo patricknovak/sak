@@ -164,6 +164,7 @@ export default function Profile() {
         📱 <span className="text-slate-200">Install the app:</span> on iPhone tap Share → “Add to Home Screen”; on Android tap ⋮ → “Install app”. It opens full-screen like a native app.
       </div>
       <button className="btn-ghost w-full" onClick={() => supabase.auth.signOut()}>Sign out</button>
+      <p className="text-center text-[11px] text-mute"><a href="#/privacy" className="underline decoration-white/20 underline-offset-2">What we keep about you</a></p>
       </div>
     </div>
   );
