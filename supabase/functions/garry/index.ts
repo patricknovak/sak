@@ -24,6 +24,7 @@ import { AsyncLocalStorage } from 'node:async_hooks';
 import { etDate } from '../_shared/nhl.ts';
 import { gradeTeams, lineupStrength, type GP } from '../_shared/grades.ts';
 import { answer } from './answer.ts';
+import { night, type Night, type TeamNight } from './tonight.ts';
 import { gradeAllKeepers, type KP } from '../_shared/keepers.ts';
 
 const db = createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!, {
@@ -72,13 +73,14 @@ const dbFor = (lid: number) => createClient(Deno.env.get('SUPABASE_URL')!, Deno.
 // the words his voice uses that belong to the sport (the league's `sports` row, migration 144); the NHL's until it loads
 type Words = { game: string; rec: string; room: string; voice: string; start: string };
 const NHL_WORDS: Words = { game: 'hockey', rec: 'beer-league', room: 'dressing room', voice: 'a loud, lovable Canadian beer-league dressing-room guy', start: 'puck drop' };
-type Ctx = { lid: number; info: { id: number; name: string; short_name: string }; brand: Brand; ids: number[]; db: typeof db; history: string; words: Words };
-const HOME: Ctx = { lid: 1, info: { id: 1, name: "She's A Keeper", short_name: 'SaK' }, brand: SAK_BRAND, ids: [], db, history: '', words: NHL_WORDS };
+type Ctx = { lid: number; info: { id: number; name: string; short_name: string }; brand: Brand; ids: number[]; db: typeof db; history: string; words: Words; kind: 'fantasy' | 'predict' };
+const HOME: Ctx = { lid: 1, info: { id: 1, name: "She's A Keeper", short_name: 'SaK' }, brand: SAK_BRAND, ids: [], db, history: '', words: NHL_WORDS, kind: 'fantasy' };
 // The league a request is working for, and the feature its model calls are billed to, kept per request: the runtime
 // serves overlapping requests from one isolate, so a chat reply landing during the morning column's loop over leagues
 // would otherwise swap the league mid-run (posting to one league with another's facts, billing the wrong one).
 // Every request runs inside runs.run (Deno.serve below); L reads and writes that request's own league.
-type Run = { L: Ctx; feature: string };
+// dry: a platform admin's preview (?dry=1): every post and coin award is kept on the run and returned, nothing written
+type Run = { L: Ctx; feature: string; dry?: boolean; drafts?: { body: string; meta: Record<string, unknown> }[] };
 const runs = new AsyncLocalStorage<Run>();
 const L: Ctx = new Proxy({} as Ctx, {
   get: (_t, k) => Reflect.get(runs.getStore()?.L ?? HOME, k),
@@ -90,7 +92,7 @@ const coin = () => L.brand.coin;
 const bot = () => L.brand.bot.name;
 
 async function enter(lid: number) {
-  const { data: lg } = await db.from('leagues').select('id,name,short_name,brand,sport').eq('id', lid).maybeSingle();
+  const { data: lg } = await db.from('leagues').select('id,name,short_name,brand,sport,kind').eq('id', lid).maybeSingle();
   if (!lg) throw new Error(`no league ${lid}`);
   const { data: sp } = await db.from('sports').select('config').eq('id', lg.sport ?? 'nhl').maybeSingle();
   const words = { ...NHL_WORDS, ...((sp?.config as { words?: Partial<Words> } | null)?.words ?? {}) };
@@ -98,7 +100,7 @@ async function enter(lid: number) {
   const run = runs.getStore();
   if (!run) throw new Error('enter() outside a request');
   run.L = { lid, info: { id: lg.id, name: lg.name, short_name: lg.short_name }, brand: brandOf(lg.brand as Partial<Brand>), ids: (teams ?? []).map((t) => t.id), db: dbFor(lid),
-    history: await recordBook(lid), words };
+    history: await recordBook(lid), words, kind: lg.kind === 'predict' ? 'predict' : 'fantasy' };
 }
 
 // the league's record book, from its own history rows (league memory, migration 89): each season's champion and last
@@ -146,26 +148,48 @@ function from(table: string): QB {
   return L.db.from(LEAGUE_VIEWS[table] ?? table);
 }
 // what answer.ts gets: the same scoped reads, plus the brand for its wording
-const facade = () => ({ from, rpc: (fn: string, args?: Record<string, unknown>) => L.db.rpc(fn, args), brand: L.brand, league: L.info });
+const facade = () => ({ from, rpc: (fn: string, args?: Record<string, unknown>) => L.db.rpc(fn, args), brand: L.brand, league: L.info, night: (day: string) => night(L.db, L.lid, day) });
 
 // who he is, for this league: the brand's names, and whatever the commissioner briefed him with
 function persona(briefing?: string | null) {
   const { trophy, booby } = L.brand;
-  const text = `You are ${bot()}, the resident chirper of ${L.info.name} (${L.info.short_name} for short), a fantasy ${W().game} league of
-${L.ids.length} GMs who play for bragging rights and ${coin().name} (the league's side-bet currency, everyone started with 1,000).
-You live in the league chat.
+  const pool = L.kind === 'predict';
+  const who = pool
+    ? `You are ${bot()}, the voice of ${L.info.name}, a prediction pool of ${L.ids.length} members who call what happens (the questions and games on the pool's own events) for ${coin().name}, play money that never turns into real money. You live in the pool's chat.`
+    : `You are ${bot()}, the resident chirper of ${L.info.name} (${L.info.short_name} for short), a fantasy ${W().game} league of
+${L.ids.length} GMs who play for ${trophy}, bragging rights and ${coin().name} (the league's side-bet currency, everyone started with 1,000;
+${booby} is the last-place prize). You live in the league chat.`;
+  const sense = pool
+    ? `How you think: you know the events this pool calls, and a call is only as good as what happens next. The table, who's
+climbing, a bold call that landed or blew up, a pick nobody else made: that's your material. Never invent a result, an odd
+or a pick; if you don't know, say so in character.`
+    : `How you think (you know ${W().game} and fantasy ${W().game} cold, and it shows):
+- Lineup advice is only advice when there's a move to make: someone who plays tonight, can fill that slot, and replaces a
+  starter who won't play or is clearly worse. A starter with no game costs nothing when nobody on the bench plays. A
+  day-to-day player usually plays. An injured starter is only a problem when someone can take his spot. Never tell a GM to
+  bench, swap or start anyone unless the facts give you that exact move.
+- Goalies swing nights: a confirmed starter against a backup is the biggest single call of the day.
+- The season is long: one night rarely decides anything. The gaps, the week's form, who passed whom, the schedule and a
+  bench call that really cost points are what matter, so that's what you talk about.
+- You follow the NHL itself: a hot streak, an injury, a debut, a goalie controversy. Tie it to the GM whose roster it hits.`;
+  const text = `${who}
 
-Voice: ${W().voice}. Quick, punchy, specific, funny. Roast everyone equally,
-leader and last place alike (${booby} is the last-place prize; the champion wins ${trophy}). Keep it PG-13: no
-slurs, nothing about anyone's family, looks, jobs or real-life problems; the chirps are about ${W().game} decisions only.
+Voice: ${W().voice}. Quick, punchy, specific, funny: the guy who's watched every game and remembers everything said in
+the room. Roast everyone equally, leader and last place alike. The funniest line is the true one: a pass in the standings,
+a 0.4-point race, the player who's carried someone all month, a GM's own words thrown back at them, a running gag. Specific
+beats generic every time. Keep it PG-13: no slurs, nothing about anyone's family, looks, jobs or real-life problems; the
+chirps are about ${pool ? 'their calls' : `${W().game} decisions`}, results, bets and chat only.
+
+${sense}
+
 Use the facts given; never invent stats, scores, players or league history (past finishes, titles, years): history comes
-only from the league's record book, the commissioner's briefing or what you remember. Tag a GM as @Name only when the post is really about them:
-every tag pings their phone. Use at most 3 emoji.
+only from the league's record book, the commissioner's briefing or what you remember. Tag someone as @Name only when the
+post is really about them: every tag pings a phone. Use at most 3 emoji.
 
-Most posts can end with one nudge that gets people participating (fix a lineup, make a trade offer, put
-${coin().name} on something, call someone out), but vary it, skip it when it doesn't fit, and never use the same one
-twice in a row. No stock openers ("Great question", "Pull up a stool") and no catchphrase on every post: a regular
-in a ${W().room} doesn't repeat himself. Plain text only, no markdown headers.`;
+End with a nudge only when a fact sets it up (a real swap, a trade that fits, a market worth backing, a race that's on).
+Never beg the chat to talk, bet or trade for its own sake, and never call anyone out for being quiet. No stock openers
+("Great question", "Pull up a stool") and no catchphrase on every post: a regular in a ${W().room} doesn't repeat himself.
+Plain text only, no markdown headers.`;
   const book = L.history ? `\n\nThe league's record book (true, from its own records; use it when the past comes up, never recite it):\n${L.history}` : '';
   return (briefing ? `${text}\n\nWhat the commissioner told you about this league (true; use it naturally, never recite it):\n${briefing}` : text) + book;
 }
@@ -275,7 +299,25 @@ async function meter(u: { prompt_tokens?: number; completion_tokens?: number; pr
 }
 
 // where things stand right now, in one line for every prompt: it outranks his voice notes, which can be days old
+// a prediction pool's right-now: its table (the main game's, from the one scoreboard every pool shares) and how many
+// members, no NHL slate and no fantasy phase
+async function poolSituation(): Promise<string> {
+  const { teams, byId } = await base();
+  const today = etDate(new Date());
+  const { data } = await L.db.rpc('pool_scoreboard');
+  const games = ((data as { games?: { title: string; crown?: boolean; status?: string; rows?: { team_id: number; rank: number; score: number; line?: string }[] }[] } | null)?.games ?? []);
+  const main = games.find((g) => g.crown) ?? games[0];
+  const rows = (main?.rows ?? []).slice().sort((a, b) => a.rank - b.rank);
+  const name = (id: number) => byId.get(id)?.gm_name ?? 'someone';
+  return [
+    `Today is ${today}.`, `${teams.length} members.`,
+    games.length ? `Games in the pool: ${games.map((g) => `${g.title}${g.status ? ` (${g.status})` : ''}`).join(', ')}.` : 'Nothing to call yet.',
+    rows.length > 1 ? `${main!.title} table: ${rows.slice(0, 5).map((r) => `${r.rank}. ${name(r.team_id)} ${f1(Number(r.score))}${r.line ? ` (${r.line})` : ''}`).join(', ')}${rows.length > 5 ? `; last: ${name(rows.at(-1)!.team_id)}` : ''}.` : '',
+  ].filter(Boolean).join(' ');
+}
+
 async function situation(): Promise<string> {
+  if (L.kind === 'predict') return poolSituation();
   const { league, teams, byId, standings } = await base();
   const today = ((await db.rpc('today_et')).data as string | null) ?? etDate(new Date());
   const { data: games } = await from('games').select('state').eq('date', today);
@@ -290,6 +332,9 @@ async function situation(): Promise<string> {
     (games ?? []).length ? `${(games ?? []).length} NHL games today (${live} live, ${done} final).` : 'No NHL games today.',
     scored && table[0] ? `Leader: ${byId.get(table[0].team_id)?.gm_name} (${f1(Number(table[0].points))}); last: ${byId.get(table.at(-1)!.team_id)?.gm_name} (${f1(Number(table.at(-1)!.points))}).` : '',
     league.phase === 'season' ? 'Keepers and the draft are done: never tell anyone to submit keepers or prep for the draft.' : '',
+    league.format === 'h2h' ? `Won in weekly head-to-head matchups${league.categories?.length ? ', category by category' : ' on points'}${league.h2h_playoffs ? `, with a ${league.h2h_playoffs}-team playoff` : ''}.`
+      : league.categories?.length ? 'Won on rotisserie categories over the whole season.'
+      : 'Won on total fantasy points over the whole regular season: one table, every night adds up.',
     `${teams.length} GMs.`,
   ];
   return parts.filter(Boolean).join(' ');
@@ -309,6 +354,7 @@ async function recentLines(n = 6): Promise<string[]> {
 
 // every post Garry writes: the persona, his current voice notes, and what he remembers
 async function write(task: string, facts: unknown, fallback: string, maxWords = 180, focus: number[] = []): Promise<string> {
+  if (dry()) runs.getStore()!.drafts = [...(runs.getStore()!.drafts ?? []), { body: '', meta: { task, facts } }];
   if (!apiKey) return fallback;
   const { byId } = await base();
   const [mem, st, now, mine] = await Promise.all([recall(byId, focus), state(), situation(), recentLines(6)]);
@@ -316,8 +362,8 @@ async function write(task: string, facts: unknown, fallback: string, maxWords = 
     `Right now: ${now}`,
     mem.length ? `Things you remember about the league and its GMs (use them naturally when relevant, never list them, never contradict the facts):\n${mem.map((m) => '- ' + m).join('\n')}` : '',
     mine.length ? `Your last few posts (don't reuse their openers, jokes or nudges):\n${mine.map((m) => '- ' + m).join('\n')}` : '',
-    `${task}\nKeep it under ${maxWords} words.\n\nFacts (JSON):\n${JSON.stringify(facts)}`,
-  ].filter(Boolean).join('\n\n'));
+    `${task}\nKeep it under ${maxWords} words. Every number, stat and result you write is in the facts or what you remember; if it isn't, leave it out.\n\nFacts (JSON):\n${JSON.stringify(facts)}`,
+  ].filter(Boolean).join('\n\n'), 1200, 0.75);
   return text || fallback;
 }
 
@@ -375,7 +421,9 @@ Nothing that goes stale: no deadlines, no "set your keepers" or "get ready for t
   return { evolved: true };
 }
 
+const dry = () => !!runs.getStore()?.dry;
 async function post(body: string, meta: Record<string, unknown>) {
+  if (dry()) { runs.getStore()!.drafts = [...(runs.getStore()!.drafts ?? []), { body: body.slice(0, 2000), meta }]; return; }
   const { error } = await from('messages').insert({ channel: 'general', kind: 'bot', body: body.slice(0, 2000), meta: { bot: 'garry', ...meta } });
   if (error) throw error;
 }
@@ -392,6 +440,7 @@ async function postLong(body: string, meta: Record<string, unknown>) {
 }
 
 async function alreadyPosted(type: string, date: string) {
+  if (dry()) return false;
   const { data } = await from('messages').select('id').eq('kind', 'bot').contains('meta', { type, date }).limit(1);
   return (data ?? []).length > 0;
 }
@@ -407,10 +456,86 @@ async function base() {
   return { league, teams: teams as Team[], byId, standings: (standings ?? []) as any[] };
 }
 
+// a box-score line in words ("2 G, 1 A, 4 SOG" or "W, 31 SV, 2 GA"), so a post never has to guess what a player did
+function statWords(st: Record<string, number> | null | undefined) {
+  if (!st) return '';
+  const k = (n: unknown, l: string) => (Number(n) ? `${Number(n)} ${l}` : '');
+  if (st.sv != null || st.ga != null || st.w != null) return [st.w ? 'W' : st.l ? 'L' : st.otl ? 'OTL' : '', k(st.sv, 'SV'), `${Number(st.ga ?? 0)} GA`, st.sho ? 'shutout' : ''].filter(Boolean).join(', ');
+  return [k(st.g, 'G'), k(st.a, 'A'), k(st.ppp, 'PPP'), k(st.sog, 'SOG'), k(st.hit, 'HIT'), k(st.blk, 'BLK'), st.pm ? `${st.pm > 0 ? '+' : ''}${st.pm}` : ''].filter(Boolean).join(', ') || 'no points';
+}
+
+// a bench player who outscored a starter whose slot he could have filled: the real cost of a lineup call, each starter
+// counted once, the biggest misses first
+function benchCost(snaps: { team_id: number; player_id: number; slot: string }[], pg: Map<number, { fpts: unknown }>,
+  pinfo: Map<number, { pos: string; elig: string[] }>, pname: Map<number, string>, byId: Map<number, Team>) {
+  const pts = (id: number) => (pg.has(id) ? Number(pg.get(id)!.fpts) : 0);
+  const fits = (id: number, slot: string) => { const p = pinfo.get(id); return !!p && (slot === 'Util' ? p.pos !== 'G' : slot === 'G' ? p.pos === 'G' : p.pos !== 'G' && p.elig.includes(slot)); };
+  const out: { gm: string | undefined; player: string | undefined; fpts: number; over: string | undefined; over_fpts: number; cost: number }[] = [];
+  for (const tid of new Set(snaps.map((s) => s.team_id))) {
+    const mine = snaps.filter((s) => s.team_id === tid);
+    const used = new Set<number>();
+    for (const b of mine.filter((s) => s.slot === 'BN' && pts(s.player_id) >= 3).sort((a, b) => pts(b.player_id) - pts(a.player_id))) {
+      const st = mine.filter((s) => !['BN', 'IR'].includes(s.slot) && !used.has(s.player_id) && fits(b.player_id, s.slot) && pts(s.player_id) < pts(b.player_id))
+        .sort((a, b) => pts(a.player_id) - pts(b.player_id))[0];
+      if (!st) continue;
+      used.add(st.player_id);
+      out.push({ gm: byId.get(tid)?.gm_name, player: pname.get(b.player_id), fpts: pts(b.player_id), over: pname.get(st.player_id), over_fpts: pts(st.player_id), cost: Math.round((pts(b.player_id) - pts(st.player_id)) * 10) / 10 });
+    }
+  }
+  return out.filter((x) => x.cost >= 2).sort((a, b) => b.cost - a.cost).slice(0, 3);
+}
+
+// what's really going on in a points league this morning: who passed whom yesterday, how close each race is, the
+// week's form, how many starters each team can put on the ice tonight, and the NHL news about the league's players
+async function storylines(yday: { team_id: number; points: number }[], standings: any[], byId: Map<number, Team>, yesterday: string) {
+  const gm = (id: number) => byId.get(id)?.gm_name ?? 'someone';
+  const now = [...standings].map((s) => ({ id: s.team_id as number, pts: Number(s.points), rank: Number(s.rank) })).sort((a, b) => a.rank - b.rank);
+  const before = now.map((s) => ({ ...s, pts: s.pts - Number(yday.find((d) => d.team_id === s.id)?.points ?? 0) })).sort((a, b) => b.pts - a.pts);
+  const rankBefore = new Map(before.map((s, i) => [s.id, i + 1]));
+  const passed: string[] = [];
+  for (const a of now) for (const b of now) {
+    if (a.rank < b.rank && (rankBefore.get(a.id) ?? 0) > (rankBefore.get(b.id) ?? 0)) passed.push(`${gm(a.id)} passed ${gm(b.id)} (now ${ORD(a.rank)})`);
+  }
+  const gaps = now.slice(1).map((s, i) => ({ gm: gm(s.id), rank: s.rank, behind: gm(now[i].id), by: Math.round((now[i].pts - s.pts) * 10) / 10 }));
+  const weekAgo = addDaysIso(yesterday, -6);
+  const { data: wk } = await from('team_daily').select('team_id,points').gte('date', weekAgo).lte('date', yesterday);
+  const form = [...(wk ?? []).reduce((m, r) => m.set(r.team_id, (m.get(r.team_id) ?? 0) + Number(r.points)), new Map<number, number>())]
+    .sort((a, b) => b[1] - a[1]).map(([id, p]) => ({ gm: gm(id), points: Math.round(p * 10) / 10 }));
+  const today = etDate(new Date());
+  const n = await night(L.db, L.lid, today).catch(() => null);
+  // tonight's slate matters only where it's lopsided: a team that can't put a full lineup on the ice
+  const short = n ? [...n.teams.values()].filter((t) => t.can_fill < t.slots).sort((a, b) => a.can_fill - b.can_fill) : [];
+  const tonight = n?.games ? { nhl_games: n.games, ...(short.length ? { short_handed_tonight: short.map((t) => ({ gm: gm(t.team_id), starters_who_play: `${t.can_fill} of ${t.slots}` })) } : { every_team_can_field_a_full_lineup: true }) } : { nhl_games: 0 };
+  // the NHL's news from the last day about players on the league's rosters
+  const { data: rs } = await from('rosters').select('team_id,player_id,slot');
+  const owner = new Map((rs ?? []).map((r) => [r.player_id as number, r.team_id as number]));
+  const { data: news } = await db.from('news').select('headline,player_ids,published').gt('published', new Date(Date.now() - 30 * 3600000).toISOString()).order('published', { ascending: false }).limit(40);
+  const items = (news ?? []).map((a) => ({ headline: a.headline as string, ids: ((a.player_ids ?? []) as number[]).filter((id) => owner.has(id)) }))
+    .filter((a) => a.ids.length && !/fantasy|pickups|waiver|rankings/i.test(a.headline) && !/\?\s*$/.test(a.headline)).slice(0, 5);
+  // each story with the league's players it's about, whose team they're on and what they really scored last night, so
+  // the column never adds a stat the headline doesn't have
+  const nids = [...new Set(items.flatMap((a) => a.ids))];
+  const [{ data: np }, { data: ng }] = nids.length ? await Promise.all([
+    from('players').select('id,name').in('id', nids),
+    from('player_games').select('player_id,fpts,stats').eq('date', yesterday).in('player_id', nids),
+  ]) : [{ data: [] }, { data: [] }];
+  const nname = new Map((np ?? []).map((p) => [p.id as number, p.name as string]));
+  const nfp = new Map((ng ?? []).map((g) => [g.player_id as number, Number(g.fpts)]));
+  const nline = new Map((ng ?? []).map((g) => [g.player_id as number, statWords(g.stats as Record<string, number>)]));
+  const about = items.map((a) => ({ headline: a.headline, players: a.ids.map((id) => ({ player: nname.get(id) ?? 'unknown', on_team_of: gm(owner.get(id)!),
+    last_night: nfp.has(id) ? `${Math.round(nfp.get(id)! * 10) / 10} fantasy points (${nline.get(id)})` : 'did not play' })) }));
+  return {
+    standings_moves: passed.slice(0, 6), races: gaps.filter((g) => g.by <= 6), gap_first_to_last: Math.round(((now[0]?.pts ?? 0) - (now.at(-1)?.pts ?? 0)) * 10) / 10,
+    last_7_days: form, tonight, nhl_news_about_their_players: about,
+  };
+}
+
 // ─────────────── daily ───────────────
 async function daily() {
-  await learn().catch((e) => console.error('learn', e));
-  await evolve().catch((e) => console.error('evolve', e));
+  if (!dry()) {
+    await learn().catch((e) => console.error('learn', e));
+    await evolve().catch((e) => console.error('evolve', e));
+  }
   const { league, teams, byId, standings: regStandings } = await base();
   let standings = regStandings;
   const today = etDate(new Date());
@@ -450,26 +575,32 @@ async function daily() {
   const ids = [...new Set((snaps ?? []).map((s) => s.player_id))];
   const [{ data: pgs }, { data: players }] = await Promise.all([
     from('player_games').select('player_id,fpts,stats').eq('date', yesterday).in('player_id', ids),
-    from('players').select('id,name,nhl_team').in('id', ids),
+    from('players').select('id,name,nhl_team,pos,elig').in('id', ids),
   ]);
   const pname = new Map((players ?? []).map((p) => [p.id, p.name]));
+  const pinfo = new Map((players ?? []).map((p) => [p.id, { pos: String(p.pos ?? ''), elig: (p.elig ?? []) as string[] }]));
   const pg = new Map((pgs ?? []).map((p) => [p.player_id, p]));
   const lines = (snaps ?? []).filter((s) => pg.has(s.player_id)).map((s) => ({
-    gm: byId.get(s.team_id)?.gm_name, team: byId.get(s.team_id)?.name, player: pname.get(s.player_id),
-    slot: s.slot, fpts: Number(pg.get(s.player_id)!.fpts), stats: pg.get(s.player_id)!.stats,
+    gm: byId.get(s.team_id)?.gm_name, team: byId.get(s.team_id)?.name, team_id: s.team_id, player_id: s.player_id, player: pname.get(s.player_id),
+    slot: s.slot, fpts: Number(pg.get(s.player_id)!.fpts), line: statWords(pg.get(s.player_id)!.stats as Record<string, number>),
   }));
   const active = lines.filter((l) => !['BN', 'IR'].includes(l.slot)).sort((a, b) => b.fpts - a.fpts);
-  const benchRegret = lines.filter((l) => l.slot === 'BN' && l.fpts >= 4).sort((a, b) => b.fpts - a.fpts).slice(0, 3);
+  // points left on the bench, only where they really cost something: a bench player who outscored a starter whose
+  // slot he could have taken (a defenceman's points don't count against a centre's slot), each starter used once
+  const benchRegret = benchCost(snaps ?? [], pg, pinfo, pname, byId);
   const dayTable = [...daily].sort((a, b) => b.points - a.points).map((d) => ({ gm: byId.get(d.team_id)?.gm_name, team: byId.get(d.team_id)?.name, points: Number(d.points) }));
   const season = [...standings].sort((a, b) => a.rank - b.rank).map((s) => ({ rank: s.rank, gm: byId.get(s.team_id)?.gm_name, team: byId.get(s.team_id)?.name, points: Number(s.points) }));
   const winner = [...daily].sort((a, b) => b.points - a.points)[0];
 
   // daily bonus: the top team of the day gets a few coins
-  await from('coin_ledger').insert({ team_id: winner.team_id, amount: DAILY_BONUS, reason: `${bot()}'s Dangler of the Day (${yesterday})` });
+  if (!dry()) await from('coin_ledger').insert({ team_id: winner.team_id, amount: DAILY_BONUS, reason: `${bot()}'s Dangler of the Day (${yesterday})` });
 
-  const { data: chat } = await from('messages').select('team_id').eq('kind', 'user').gte('created_at', new Date(Date.now() - 7 * 86400000).toISOString());
-  const talkers = new Set((chat ?? []).map((m) => m.team_id));
-  const lurkers = teams.filter((t) => !talkers.has(t.id)).map((t) => t.gm_name);
+  // the stories behind the table: who passed whom, how close the races are, who's hot this week, who's loaded for
+  // tonight, and the NHL news about the league's own players
+  // (a head-to-head or rotisserie league isn't won on the points table, so its races come from its own facts above)
+  const pointsTable = !playoffs && league.format !== 'h2h' && !league.categories?.length;
+  const stories = await storylines(daily as any[], standings, byId, yesterday).catch((e) => { console.error('storylines', e); return null; });
+  if (stories && !pointsTable) { delete (stories as Partial<typeof stories>).standings_moves; delete (stories as Partial<typeof stories>).races; delete (stories as Partial<typeof stories>).gap_first_to_last; }
 
   // a head-to-head or rotisserie league isn't won on the points table: its own table, and the week's matchups so far
   let formatFacts: Record<string, unknown> = {};
@@ -495,7 +626,7 @@ async function daily() {
     top_performers: active.slice(0, 3), worst_starters: active.slice(-2).reverse(), left_on_bench: benchRegret,
     daily_bonus: { gm: byId.get(winner.team_id)?.gm_name, coins: DAILY_BONUS },
     stage: playoffs ? `${L.info.short_name} playoffs (NHL playoff games only; separate table and ${league.playoff_share ?? 40}% of the prize pool)` : 'regular season',
-    last_place_watch: playoffs || formatLine ? null : season.at(-1), quiet_in_chat_this_week: lurkers,
+    last_place_watch: playoffs || formatLine ? null : season.at(-1), ...(stories ?? {}),
   };
   const top = active[0];
   const fallback = [
@@ -503,12 +634,10 @@ async function daily() {
     `Yesterday: ${dayTable.map((d) => `${d.gm} ${f1(d.points)}`).join(' · ')}.`,
     `${dayTable[0].gm} takes the day ${pick(['and the bragging rights', `like it was a ${W().rec} final`, 'with zero humility'])} and pockets ${DAILY_BONUS} ${coin().emoji} coins.`,
     top ? `Star of the night: ${top.player} with ${f1(top.fpts)} for @${top.gm}.` : '',
-    benchRegret[0] ? `Meanwhile @${benchRegret[0].gm} left ${benchRegret[0].player} (${f1(benchRegret[0].fpts)} pts) on the bench. Set your lineup, buddy.` : '',
+    benchRegret[0] ? `Meanwhile @${benchRegret[0].gm} left ${benchRegret[0].player} (${f1(benchRegret[0].fpts)}) on the bench over ${benchRegret[0].over} (${f1(benchRegret[0].over_fpts)}).` : '',
     playoffs ? `Playoff table: ${season.slice(0, 3).map((x) => `${x.rank}. @${x.gm} ${f1(x.points)}`).join(', ')}.` : formatLine || `${L.brand.booby} watch: @${season.at(-1)?.gm} sitting in the basement at ${f1(season.at(-1)?.points ?? 0)}.`,
-    lurkers.length ? `Haven't heard a peep this week from ${lurkers.map((n) => '@' + n).join(', ')}. Say something.` : '',
-    pick([`Who wants to put 100 ${coin().emoji} on tonight?`, 'Trade offers are free. Your dignity isn\'t.', `Set your lineups before ${W().start}.`]),
   ].filter(Boolean).join(' ');
-  const body = await write(`Write this morning's recap of yesterday's ${L.info.short_name} ${playoffs ? 'playoff ' : ''}results for the league chat.`, facts, fallback, 220);
+  const body = await write(`Write this morning's column on yesterday's ${L.info.short_name} ${playoffs ? 'playoff ' : ''}results for the league chat. Lead with the best story in the facts (a pass in the standings, a tight race, a big night, a costly bench call, a hot or cold week), not a list of scores; work in the NHL news about the GMs' own players if any is there (a headline says only what it says: add no stat, result or role it doesn't give; what the player did last night is given beside it), and tonight's slate if it sets up something. It's a column the league reads for the laughs: at least two sharp, specific chirps (the GM who got passed, the one who blew a bench call, the one whose star is out, the leader who barely moved), each built on a fact given, and a running gag or something a GM said if one fits. No closing call to bet, trade or talk unless a fact sets it up.`, facts, fallback, 220);
   await post(body, { type: 'recap', date: yesterday });
   return { posted: 'recap', bonus: facts.daily_bonus };
 }
@@ -529,31 +658,25 @@ async function nudge() {
   }
   if (league.phase !== 'season') return { skipped: league.phase };
 
-  const { data: games } = await from('games').select('home,away,start_utc').eq('date', today);
-  if (!games?.length) return { skipped: 'no games today' };
-  const playing = new Set(games.flatMap((g) => [g.home, g.away]));
-  const { data: rosters } = await from('rosters').select('team_id,player_id,slot');
-  const { data: players } = await from('players').select('id,name,nhl_team,injury_status').in('id', (rosters ?? []).map((r) => r.player_id));
-  const pl = new Map((players ?? []).map((p) => [p.id, p]));
-  const cap = league.roster as Record<string, number>;
-  const issues: { gm: string; problems: string[] }[] = [];
-  for (const t of teams) {
-    const mine = (rosters ?? []).filter((r) => r.team_id === t.id);
-    const problems: string[] = [];
-    const starters = mine.filter((r) => !['BN', 'IR'].includes(r.slot));
-    const idle = starters.filter((r) => !playing.has(pl.get(r.player_id)?.nhl_team ?? ''));
-    const benchPlaying = mine.filter((r) => r.slot === 'BN' && playing.has(pl.get(r.player_id)?.nhl_team ?? ''));
-    const hurt = starters.filter((r) => pl.get(r.player_id)?.injury_status);
-    const empty = Object.entries(cap).filter(([s]) => !['BN', 'IR'].includes(s)).reduce((n, [s, c]) => n + Math.max(0, c - mine.filter((r) => r.slot === s).length), 0);
-    if (empty) problems.push(`${empty} empty starting slot${empty > 1 ? 's' : ''}`);
-    if (idle.length && benchPlaying.length) problems.push(`${idle.length} starter${idle.length > 1 ? 's' : ''} with no game while ${benchPlaying.map((r) => pl.get(r.player_id)?.name).slice(0, 2).join(' and ')} sit${benchPlaying.length > 1 ? '' : 's'} on the bench`);
-    if (hurt.length) problems.push(`starting injured ${hurt.map((r) => `${pl.get(r.player_id)?.name} (${pl.get(r.player_id)?.injury_status})`).join(', ')}`);
-    if (problems.length) issues.push({ gm: t.gm_name, problems });
-  }
-  if (!issues.length) return { skipped: 'all lineups clean' };
-  const fb = `🚨 Lineup check before ${W().start}: ${issues.map((i) => `@${i.gm}: ${i.problems.join('; ')}`).join(' · ')}. Tap Lineup, or flip on auto-set in your profile and let the robot do your job.`;
-  await post(await write('Call out these lineup problems before tonight\'s games, then tell them to fix it.', { games_today: games.length, issues }, fb, 120), { type: 'nudge', date: today });
-  return { posted: 'lineup nudge', teams: issues.length };
+  // tonight as the optimizer sees it: a GM is named only for a swap they can make that gains real points tonight, and
+  // only if nobody else will make it (the auto-pilot sets every lineup that's on it and wasn't hand-set today)
+  const n = await night(L.db, L.lid, today);
+  if (!n.games) return { skipped: 'no games today' };
+  const issues = teams.map((t) => ({ t, x: n.teams.get(t.id) })).filter((i): i is { t: Team; x: TeamNight } => !!i.x && !i.x.autopilot && i.x.gain >= 1)
+    .map(({ t, x }) => ({
+      gm: t.gm_name,
+      swaps: x.swaps.slice(0, 3).map((w) => (w.sit ? `start ${w.start} (${w.start_pos}, ${w.start_game}) for ${w.sit} (${w.sit_why})` : `start ${w.start} (${w.start_pos}, ${w.start_game}) in the empty slot`)
+        + (w.shuffle ? `, moving ${w.shuffle.join(', ')} to make room` : '')),
+      points_on_the_table: Number(x.gain.toFixed(1)),
+      starters_playing_now: `${x.set_now} of ${x.slots}`, starters_playing_if_fixed: `${x.can_fill} of ${x.slots}`,
+    }));
+  const covered = teams.filter((t) => n.teams.get(t.id)?.autopilot).map((t) => t.gm_name);
+  if (dry()) runs.getStore()!.drafts = [...(runs.getStore()!.drafts ?? []), { body: '', meta: { night: Object.fromEntries([...n.teams].map(([id, x]) => [byId.get(id)?.gm_name ?? id, x])) } }];
+  if (!issues.length) return { skipped: 'no lineup worth fixing', autopilot: covered };
+  const fb = `🚨 Before ${W().start}: ${issues.map((i) => `@${i.gm}: ${i.swaps.join('; ')}`).join(' · ')}.`;
+  await post(await write(`Lineup check before tonight's ${n.games} games. For each GM listed, name the exact swap (or swaps) given, with the reason given (only that reason: "projects lower" means the numbers like the other guy tonight, nothing about form or streaks), in one punchy line each; every swap is one they can make right now and it gains them points tonight. Say nothing about any other GM's lineup, and invent no other moves.`,
+    { games_tonight: n.games, gms: issues }, fb, 110, teams.filter((t) => issues.some((i) => i.gm === t.gm_name)).map((t) => t.id)), { type: 'nudge', date: today });
+  return { posted: 'lineup nudge', teams: issues.length, autopilot: covered };
 }
 
 // ─────────────── reply ───────────────
@@ -607,10 +730,10 @@ async function chirp(m: { id: number; channel: string; team_id: number; body: st
       const st = standings.find((s) => s.team_id === t.id);
       const mine = (bets ?? []).filter((b) => b.creator_team === t.id || b.opponent_team === t.id);
       return { gm: t.gm_name, team: t.name, standing: st && Number(st.points) > 0 ? { rank: st.rank, points: Number(st.points) } : 'no games yet',
-        keepers_submitted: t.keepers_submitted, auto_lineup: t.auto_lineup, bet_record: `${mine.filter((b) => b.winner_team === t.id).length}-${mine.filter((b) => b.winner_team && b.winner_team !== t.id).length}`, coins: (bals ?? []).find((b) => b.team_id === t.id)?.balance ?? null };
+        ...(league.phase === 'keepers' ? { keepers_submitted: t.keepers_submitted } : {}), bet_record: `${mine.filter((b) => b.winner_team === t.id).length}-${mine.filter((b) => b.winner_team && b.winner_team !== t.id).length}`, coins: (bals ?? []).find((b) => b.team_id === t.id)?.balance ?? null };
     });
-    const task = `${asker?.gm_name} asked you to trash talk every GM in the league, one by one. One short, specific line each (all ${teams.length} of them, the asker included), built on their standing, keepers, bets and what you remember about them. ${cap(W().game)} decisions only. Finish with one challenge for the room.`;
-    const fallback = [`${L.brand.bot.emoji} Fine. Everyone gets one.`, ...teams.map((t) => { const st = standings.find((s) => s.team_id === t.id); return `@${t.gm_name}: ${st && Number(st.points) > 0 ? `sitting ${st.rank}${['st', 'nd', 'rd'][st.rank - 1] ?? 'th'}` : 'no points yet'}${t.keepers_submitted ? '' : ' and still hasn’t submitted keepers'}. ${pick(['Bold strategy.', 'The bench is where dreams go to die.', 'Set your lineup.', 'Group chat GM.', 'Big talk, small box scores.'])}`; }), 'Now somebody put coins on it.'].join('\n');
+    const task = `${asker?.gm_name} asked you to trash talk every GM in the league, one by one. One short, specific line each (all ${teams.length} of them, the asker included), built on their standing, ${league.phase === 'keepers' ? 'keepers, ' : ''}bets and what you remember about them. ${cap(W().game)} decisions only.`;
+    const fallback = [`${L.brand.bot.emoji} Fine. Everyone gets one.`, ...teams.map((t) => { const st = standings.find((s) => s.team_id === t.id); return `@${t.gm_name}: ${st && Number(st.points) > 0 ? `sitting ${st.rank}${['st', 'nd', 'rd'][st.rank - 1] ?? 'th'}` : 'no points yet'}${league.phase === 'keepers' && !t.keepers_submitted ? ' and still hasn’t submitted keepers' : ''}. ${pick(['Bold strategy.', 'Group chat GM.', 'Big talk, small box scores.', 'Somehow still in it.'])}`; })].join('\n');
     const body = await write(task, facts, fallback, 260, teams.map((t) => t.id));
     const { error } = await from('messages').insert({ channel: m.channel, kind: 'bot', body, reply_to: m.id, meta: { bot: 'garry', type: 'chirp', kind: 'roast', target: null, everyone: true } });
     if (error) throw error;
@@ -659,7 +782,7 @@ const esc = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 const ORD = (n: number) => `${n}${['st', 'nd', 'rd'][((n + 90) % 100 - 10) % 10 - 1] ?? 'th'}`;
 
 // one card per GM: where they stand, who carries them, who's hurt, how they bet, what they've said lately
-async function gmCards(ids: number[], byId: Map<number, Team>, standings: any[]) {
+async function gmCards(ids: number[], byId: Map<number, Team>, standings: any[], n: Night | null = null) {
   if (!ids.length) return [];
   const [{ data: rows }, { data: bets }, { data: bals }, { data: said }, { data: modes }] = await Promise.all([
     from('rosters').select('team_id,player_id,slot').in('team_id', ids),
@@ -691,6 +814,12 @@ async function gmCards(ids: number[], byId: Map<number, Team>, standings: any[])
       bets_won_lost: `${mb.filter((b) => b.winner_team === id).length}-${mb.filter((b) => b.winner_team && b.winner_team !== id).length}`,
       coins_free: bal ? Number(bal.balance) - Number(bal.escrow) : null,
       said_lately: (said ?? []).filter((x) => x.team_id === id).slice(0, 3).map((x) => x.body.slice(0, 100)),
+      // tonight from the optimizer: the only lineup advice he may give, and what can't be fixed (not advice, a fact)
+      ...(n?.games && n.teams.get(id) ? { tonight: ((x) => ({
+        starters_who_play: `${x.can_fill} of ${x.slots}`,
+        moves_worth_making: x.swaps.map((w) => (w.sit ? `${w.start} (${w.start_game}) in for ${w.sit} (${w.sit_why}), +${w.gain}` : `${w.start} into the empty slot, +${w.gain}`)),
+        auto_pilot_sets_it: x.autopilot, sitting_with_no_fix: x.idle_no_fix,
+      }))(n.teams.get(id)!) } : {}),
     };
   });
 }
@@ -747,10 +876,12 @@ async function converse(m: ChatMsg) {
   const mentioned = teams.filter((t) => t.id !== m.team_id && (new RegExp(`\\b${esc(t.gm_name.toLowerCase())}\\b`).test(lower) || lower.includes(t.name.toLowerCase())));
   const everyone = /\b(everyone|everybody|every (gm|team|one)|each (gm|team)|the (whole )?league|all (the )?(gms|teams)|all of (us|you))\b/.test(lower);
   const cardIds = everyone ? teams.map((t) => t.id) : [m.team_id, ...mentioned.map((t) => t.id)];
+  const { league } = await base();
+  const n = L.kind === 'fantasy' && league?.phase === 'season' ? await night(L.db, L.lid, etDate(new Date())).catch(() => null) : null;
   const [st, now, mine, thread, cards, ans, mem] = await Promise.all([
     state(), situation(), recentLines(5),
     from('messages').select('id,team_id,kind,body').eq('channel', m.channel).eq('deleted', false).lte('id', m.id).order('id', { ascending: false }).limit(12),
-    gmCards(cardIds, byId, standings),
+    L.kind === 'predict' ? Promise.resolve([]) : gmCards(cardIds, byId, standings, n),
     answer(facade(), m.body, m.team_id, { plain: true }).catch(() => null),
     recall(byId, [m.team_id, ...mentioned.map((t) => t.id)], 25),
   ]);
@@ -761,7 +892,7 @@ async function converse(m: ChatMsg) {
   const watching = privateLine ? await watchFacts(m.team_id, byId).catch(() => []) : [];
   const prompt = [
     `Right now: ${now}`,
-    `Where everyone stands: ${table.join(' · ')}`,
+    table.length ? `Where everyone stands: ${table.join(' · ')}` : '',
     mem.length ? `What you remember (use it when it fits, never list it):\n${mem.map((x) => '- ' + x).join('\n')}` : '',
     mine.length ? `Your last few lines in the chat. Do not reuse their openers, closers, jokes, nudges or catchphrases:\n${mine.map((x) => '- ' + x).join('\n')}` : '',
     `The GMs in this conversation (facts you can use):\n${JSON.stringify(cards)}`,
@@ -773,6 +904,7 @@ async function converse(m: ChatMsg) {
 - "roast": they asked you to trash talk someone, themselves or everyone (then one specific line per GM). ${cap(W().game)} decisions, results, bets and chat only.
 - "joke": they want something funny. Make it about this league if you can.
 - "banter": anything else: talking to you, about you, at you, or about someone. React like a guy in the room: agree, argue, chirp back, take a side, have an opinion. Never list what you can do.
+Lineup advice comes only from a GM's "tonight" facts: name a move only if it's in moves_worth_making; if there are none, they're set, and a player in sitting_with_no_fix is nothing to fix (say so, or chirp the bad luck). Never tell anyone to bench or swap otherwise.
 Rules: 1 to 4 sentences (a roast of everyone: one line per GM). Talk to ${asker?.gm_name} about what they said; bring in other GMs only when they asked about them or it's the point. Tag at most two GMs (every @ pings a phone), except in a roast of everyone. Don't run down the standings unless they asked. Read the room: praise for another GM is not a request to roast them, and sarcasm is sarcasm. Use only the facts given and what you remember; if you don't know something, say so in character. No stock openers, nothing from your last few lines, and a nudge only if it fits.
 Return JSON only: {"mode": "answer"|"roast"|"joke"|"banter", "target": "<first name of the GM you're roasting, or null>", "reply": "<your message>"}`,
   ].filter(Boolean).join('\n\n');
@@ -1435,6 +1567,8 @@ async function assess(asked: string | null, force = false) {
 }
 
 async function runTask(task: string, req: Request) {
+  // a prediction pool has no lineups, no slate and no fantasy table: his scheduled posts are for fantasy leagues
+  if (L.kind === 'predict' && SCHEDULED.has(task)) return { skipped: 'a prediction pool' };
   if (task === 'nudge') return nudge();
   if (task === 'moments') return moments();
   if (task === 'assess') {
@@ -1470,6 +1604,8 @@ async function handle(req: Request) {
   const task = url.searchParams.get('task') ?? 'daily';
   runs.getStore()!.feature = `garry.${task}`;
   if (SCHEDULED.has(task) && !(await adminKeyOk(req))) return json({ task, ok: false, error: 'Scheduled runs only' }, 403);
+  // a preview of a scheduled post: what it would say, with the facts it was given, posted nowhere (admin key only, above)
+  if (SCHEDULED.has(task) && url.searchParams.get('dry') === '1') runs.getStore()!.dry = true;
   try {
     if (task === 'reply') {
       const { message_id } = await req.json();
@@ -1515,7 +1651,11 @@ async function handle(req: Request) {
     const results: Record<number, unknown> = {};
     for (const lid of leagues) {
       await enter(lid);
-      try { results[lid] = await runTask(task, req); }
+      runs.getStore()!.drafts = [];
+      try {
+        results[lid] = await runTask(task, req);
+        if (dry()) results[lid] = { result: results[lid], drafts: runs.getStore()!.drafts };
+      }
       catch (e) { console.error(task, lid, e); results[lid] = { error: String((e as Error)?.message ?? e) }; }
     }
     const one = leagues.length === 1 ? results[leagues[0]] : null;
