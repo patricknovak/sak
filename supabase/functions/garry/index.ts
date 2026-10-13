@@ -274,7 +274,9 @@ async function grok(system: string, user: string, maxTokens = 1200, temperature 
     if (!res.ok) { console.error('grok', res.status, (await res.text()).slice(0, 300)); return null; }
     const j = await res.json();
     await meter(j?.usage).catch(() => {});
-    return String(j?.choices?.[0]?.message?.content ?? '').trim() || null;
+    // the brand writes no em dash (docs/BRAND.md): the model's become a comma, and the JSON answers are left alone
+    const out = String(j?.choices?.[0]?.message?.content ?? '').trim();
+    return (json ? out : out.replace(/\s*—\s*/g, ', ')) || null;
   } catch (e) {
     console.error('grok', e);
     return null;
