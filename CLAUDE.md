@@ -124,7 +124,7 @@ Two things in one repo:
 - Hosting: the app on Cloudflare (every address; the GitHub Pages copy from `.github/workflows/deploy.yml` stays until
   EXPANSION B5 step 3) as a Worker with its own edge code (`worker/`, Workers Paid since 11 October 2026): `/api/hub`
   caches the sports data at the edge (the site's `hub()` reads it on the product's addresses), `/j/<code>` and
-  `/p/<web name>` are link previews with a picture drawn per pool (`/og/...`), and invites are shared as `/j/` links
+  `/p/<web name>` are link previews with a picture drawn per pool (`/og/...`; a pool invite's asks its first question, from `invite_preview`), and invites are shared as `/j/` links
   (`inviteLink` in `src/lib/host.ts`); `/api/live/<league>/<day>` is the league's live room for a game night, a Durable
   Object (`worker/live.ts`) the app joins while a game is on (`LiveRoomProvider`, `useLiveRoom()` in `src/lib/liveRoom.tsx`):
   it reads the night with a member's own sign-in and pushes the scoreboard's data, the night's swings, who's watching and
