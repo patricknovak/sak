@@ -223,7 +223,7 @@ function InviteCard() {
       <div className="pointer-events-none absolute -right-10 -top-10 h-40 w-40 rounded-full bg-gold/20 blur-3xl" />
       <div className="relative">
         <h3 className="font-display text-2xl font-extrabold text-white">Better with the group chat</h3>
-        <p className="mt-1 text-sm text-mute">Everyone gets the same {brand.coin.name.toLowerCase()} to start, and every drop. One tap to join, nothing to download.</p>
+        <p className="mt-1 text-sm text-mute">Everyone gets the same {brand.coin.name.toLowerCase()} to start, and every drop. They join with a name, email and password — nothing to download.</p>
         {me?.role === 'gm' ? (
           <>
             <div className="mt-3 flex flex-wrap gap-2">

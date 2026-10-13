@@ -146,9 +146,9 @@ export const inviteImage = (code: string, req: Request, env: Env, ctx: Execution
     name: i.league,
     // a pool's picture asks its first question; who invited you and how many are in move to the chips
     line: fantasy ? (i.brand?.tagline ?? 'Draft, lineups, trash talk and the table.')
-      : i.next_question ? `First up: ${i.next_question}` : `${i.host ? `${i.host} invited you` : 'Join in one tap'}${i.members ? ` · ${i.members} in` : ''}`,
+      : i.next_question ? `First up: ${i.next_question}` : `${i.host ? `${i.host} invited you` : 'Sign up and join'}${i.members ? ` · ${i.members} in` : ''}`,
     chips: fantasy ? ['Fantasy league', 'Phone-first']
-      : i.next_question ? [i.host ? `${i.host} invited you` : 'Join in one tap', ...(i.members ? [`${i.members} in`] : []), 'Free, never money'] : ['Free', 'Never money', 'Bragging rights'],
+      : i.next_question ? [i.host ? `${i.host} invited you` : 'Sign up and join', ...(i.members ? [`${i.members} in`] : []), 'Free, never money'] : ['Free', 'Never money', 'Bragging rights'],
     cta: i.ok ? 'Join →' : 'Ask for a new link',
   });
 });
