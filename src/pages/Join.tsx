@@ -47,7 +47,7 @@ export default function Join({ code }: { code: string }) {
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [pw, setPw] = useState('');
-  const [pw2, setPw2] = useState('');
+  const [show, setShow] = useState(false);
   const [err, setErr] = useState('');
   const [busy, setBusy] = useState(false);
 
@@ -64,7 +64,6 @@ export default function Join({ code }: { code: string }) {
   // someone new: make the account and take the seat, then sign in
   const join = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (pw !== pw2) { setErr('The two passwords don’t match.'); return; }
     setBusy(true); setErr('');
     const login = email.trim().toLowerCase();
     // attribution is first-touch UTM/referrer; the join function ignores unknown fields if the SQL is not live yet
@@ -158,9 +157,11 @@ export default function Join({ code }: { code: string }) {
               <label className="label relative mt-3 block text-white/70" htmlFor="jemail">Email</label>
               <input id="jemail" className="input relative mt-1" type="email" inputMode="email" autoComplete="username" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="you@example.com" />
               <label className="label relative mt-3 block text-white/70" htmlFor="jpw">Password</label>
-              <input id="jpw" className="input relative mt-1" type="password" autoComplete="new-password" value={pw} onChange={(e) => setPw(e.target.value)} placeholder="6+ characters" />
-              <input className="input relative mt-2" type="password" autoComplete="new-password" value={pw2} onChange={(e) => setPw2(e.target.value)} placeholder="Same again" />
-              <button className="btn-primary relative mt-4 w-full py-3 text-base" disabled={busy || name.trim().length < 2 || !okEmail || pw.length < 6 || !pw2}>{busy ? <Spinner /> : `${mark} Join the ${noun}`}</button>
+              <div className="relative mt-1">
+                <input id="jpw" className="input w-full pr-16" type={show ? 'text' : 'password'} autoComplete="new-password" value={pw} onChange={(e) => setPw(e.target.value)} placeholder="6+ characters" />
+                <button type="button" className="absolute inset-y-0 right-3 text-xs font-semibold text-white/70" onClick={() => setShow((v) => !v)} aria-label={show ? 'Hide the password' : 'Show the password'}>{show ? 'Hide' : 'Show'}</button>
+              </div>
+              <button className="btn-primary relative mt-4 w-full py-3 text-base" disabled={busy || name.trim().length < 2 || !okEmail || pw.length < 6}>{busy ? <Spinner /> : `${mark} Join the ${noun}`}</button>
               <button type="button" className="relative mt-3 w-full text-center text-sm text-white/60 underline" onClick={() => { setMode('have'); setErr(''); }}>Already have an account? Sign in to join</button>
             </form>
           ) : (

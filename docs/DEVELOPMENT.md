@@ -574,4 +574,6 @@ Built 13 October, live:
 - **The pool's chat:** in a prediction pool Garry's replies read the pool's board (every open question with its prices
   and closing time, the asker's own calls, what settled lately and who called it) instead of the fantasy answer engine,
   which had an NHL slate to offer a Love Is Blind pool. The Questions page lists the group closing soonest first.
+- **The join form** asks for a password once, with Show, instead of twice: a stranger's path is now the preview, the
+  first call, three fields, the pool.
 
