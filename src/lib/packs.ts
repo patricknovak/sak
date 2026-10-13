@@ -6,16 +6,39 @@ export interface Pack {
 }
 
 const DAY = 864e5;
+const ET = 'America/New_York';
 
-// when a pack's calls run out, in a few words: the first deadline while it is within a fortnight, else the last month
+// Eastern calendar day (YYYY-MM-DD): packs and Netflix drops are timed in ET, same as the league day
+function etYmd(ms: number): string {
+  return new Date(ms).toLocaleDateString('en-CA', { timeZone: ET });
+}
+
+// calendar days from today to the close in ET, so "tomorrow" means the next Eastern day, not the next 24 hours.
+// A premiere at Wed 3am ET looked like "tomorrow" on Monday evening when counted in raw hours.
+function calendarDaysUntil(closeIso: string, now = Date.now()): number {
+  const close = new Date(closeIso).getTime();
+  if (!Number.isFinite(close)) return Number.POSITIVE_INFINITY;
+  const [ay, am, ad] = etYmd(now).split('-').map(Number);
+  const [by, bm, bd] = etYmd(close).split('-').map(Number);
+  return Math.round((Date.UTC(by, bm - 1, bd) - Date.UTC(ay, am - 1, ad)) / DAY);
+}
+
+function etDate(iso: string, opts: Intl.DateTimeFormatOptions) {
+  return new Date(iso).toLocaleDateString('en-US', { timeZone: ET, ...opts });
+}
+
+// when a pack's calls run out, from the pack's real next_close (pool_pack_list): today / tomorrow, else the same
+// weekday-date the questions show ("Closes Wed, Oct 14"), else the last month once it is more than a fortnight out
 export function packWhen(p: Pack, now = Date.now()): { text: string; soon: boolean } {
   const next = new Date(p.next_close).getTime();
-  const days = Math.floor((next - now) / DAY);
+  const days = calendarDaysUntil(p.next_close, now);
   if (days < 14) {
-    const text = days <= 0 ? 'the first call closes today' : days === 1 ? 'the first call closes tomorrow' : `the first call closes in ${days}\u00a0days`;
-    return { text, soon: days < 3 };
+    const when = days <= 0 ? 'today'
+      : days === 1 ? 'tomorrow'
+      : etDate(p.next_close, { weekday: 'short', month: 'short', day: 'numeric' });
+    return { text: `the first call closes ${when}`, soon: days < 3 };
   }
-  return { text: `runs to ${new Date(p.last_close).toLocaleDateString(undefined, { month: 'long', year: next - now > 300 * DAY ? 'numeric' : undefined })}`, soon: false };
+  return { text: `runs to ${etDate(p.last_close, { month: 'long', year: next - now > 300 * DAY ? 'numeric' : undefined })}`, soon: false };
 }
 
 // a pool name to suggest for a pack

@@ -11,10 +11,11 @@ import { answerColor, isOpen, pct, prices, quoteBuy, quoteSell, type PoolMarket,
 import { Sheet, TeamBadge, useAction } from './ui';
 import { trackFirstCall } from '../lib/analytics';
 
-// the pool's coin, with its name ("1,250 Goblets")
+// the pool's coin, with its name ("1,250 Goblets" / "1,000 Supercoins"); null means still loading, not zero
 export function Coins({ n, className = '' }: { n: number | null | undefined; className?: string }) {
   const brand = useBrand();
-  return <span className={`num whitespace-nowrap ${className}`}>{brand.coin.emoji} {Math.round(n ?? 0).toLocaleString()}</span>;
+  if (n == null) return <span className={`num whitespace-nowrap text-mute ${className}`}>{brand.coin.emoji} –</span>;
+  return <span className={`num whitespace-nowrap ${className}`}>{brand.coin.emoji} {Math.round(n).toLocaleString()}</span>;
 }
 
 // how long until a question closes, in words

@@ -1,7 +1,7 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { remembered, setRemember, supabase } from '../lib/supabase';
 import { Spinner } from '../components/ui';
-import { LeagueCrest, Wordmark } from '../components/Brand';
+import { LeagueCrest, ProductMark, Wordmark } from '../components/Brand';
 import { useLeague } from '../lib/store';
 import { PRODUCT } from '../lib/brand';
 
@@ -9,11 +9,17 @@ import { PRODUCT } from '../lib/brand';
 // Forgot your password: the league emails you a code, you type it with a new password, and you're in. The code works
 // on any device (no link to open on the right phone).
 export default function Login() {
-  // on another league's own address the page is that league's (league by host); everywhere else it is SaK's, as always
+  // league by host: SaK's own address keeps SaK; another pool's address wears that pool; the product app
+  // (app.superpoolsai.com) is Super Pools, never SaK
   const { host, brand } = useLeague();
+  const sak = host?.id === 1;
   const other = !!host && host.id !== 1;
+  const product = !host;
   // a prediction pool's address speaks the pool's words: no puck, no hockey (docs/BRAND.md)
   const pool = host?.kind === 'predict';
+  useEffect(() => {
+    document.title = product ? PRODUCT.name : other ? (host.name || PRODUCT.name) : 'SAK Superleague';
+  }, [product, other, host?.name]);
   const [email, setEmail] = useState(() => { try { return localStorage.getItem('sak-last-email') ?? ''; } catch { return ''; } });
   const [remember, setRem] = useState(remembered);
   const [mode, setMode] = useState<'in' | 'forgot' | 'code'>('in');
@@ -91,10 +97,14 @@ export default function Login() {
         <div className="mb-8 text-center">
           <div className="relative mx-auto mb-4 h-24 w-24">
             <div className="absolute inset-0 animate-glow rounded-[28px] bg-gold/40 blur-2xl" />
-            {other ? <span className="relative"><LeagueCrest short={host.short_name} /></span> : <img src="./icon.svg" alt="" className="relative h-24 w-24 drop-shadow-2xl" />}
+            {other ? <span className="relative"><LeagueCrest short={host.short_name} /></span>
+              : product ? <span className="relative grid h-24 w-24 place-items-center"><ProductMark size={96} /></span>
+              : <img src="./icon.svg" alt="" className="relative h-24 w-24 drop-shadow-2xl" />}
           </div>
-          <h1><Wordmark size="lg" /></h1>
-          <p className="mt-2 text-xs font-bold uppercase tracking-[.3em] text-mute">{other ? (brand.tagline && brand.tagline !== 'She’s A Keeper' ? brand.tagline : `A ${PRODUCT.name} league`) : 'She’s A Keeper · est. 2013 · 2026-27'}</p>
+          <h1><Wordmark size="lg" mark={product ? PRODUCT.wordmark : undefined} /></h1>
+          <p className="mt-2 text-xs font-bold uppercase tracking-[.3em] text-mute">{product ? PRODUCT.tagline
+            : other ? (brand.tagline && brand.tagline !== 'She’s A Keeper' ? brand.tagline : `A ${PRODUCT.name} league`)
+            : 'She’s A Keeper · est. 2013 · 2026-27'}</p>
         </div>
 
         {mode === 'in' ? (
@@ -102,9 +112,9 @@ export default function Login() {
             {emailField}
             <label className="label relative mt-3 block text-white/70" htmlFor="pw">Password</label>
             <input id="pw" className="input relative mt-1" type="password" autoComplete="current-password" autoFocus={!!email} value={pw}
-              onChange={(e) => setPw(e.target.value)} placeholder={other ? "Your password" : "Your Superleague password"} />
+              onChange={(e) => setPw(e.target.value)} placeholder={sak ? 'Your Superleague password' : 'Your password'} />
             {rememberBox}
-            <button className="btn-primary relative mt-4 w-full py-3 text-base" disabled={busy || !pw || !okEmail}>{busy ? <Spinner /> : pool ? '✨ Sign in' : '🏒 Drop the puck'}</button>
+            <button className="btn-primary relative mt-4 w-full py-3 text-base" disabled={busy || !pw || !okEmail}>{busy ? <Spinner /> : pool || product ? '✨ Sign in' : '🏒 Drop the puck'}</button>
             <button type="button" className="relative mt-3 w-full text-center text-sm text-white/60 underline" onClick={() => go('forgot')}>Forgot your password?</button>
           </form>
         ) : mode === 'forgot' ? (
@@ -135,7 +145,7 @@ export default function Login() {
         {/* a prediction pool starts right away (#/new); a fantasy league is asked for (#/start) */}
         <a href="#/new" className="mt-6 block text-center text-xs text-sky-300/80 underline decoration-sky-300/30 underline-offset-2">Run a pool of your own? Start one free, right now</a>
         <a href="#/start" className="mt-2 block text-center text-[11px] text-white/40 underline decoration-white/20 underline-offset-2">Or ask for a fantasy league</a>
-        <p className="mt-3 text-center text-xs italic text-mute">{pool ? `Pools for everything you watch, on ${PRODUCT.name}` : other ? `Fantasy hockey on ${PRODUCT.name}` : 'Play fair, play hard and play to win.'}</p>
+        <p className="mt-3 text-center text-xs italic text-mute">{product || pool ? `Pools for everything you watch, on ${PRODUCT.name}` : other ? `Fantasy hockey on ${PRODUCT.name}` : 'Play fair, play hard and play to win.'}</p>
       </div>
     </div>
   );

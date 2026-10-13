@@ -12,6 +12,7 @@ import { Spinner, ToastHost } from './components/ui';
 import { ErrorBoundary, reloadForNewVersion } from './components/ErrorBoundary';
 import { ConsentBanner } from './components/ConsentBanner';
 import { initAnalytics, trackPageView } from './lib/analytics';
+import { PRODUCT } from './lib/brand';
 
 initAnalytics();
 
@@ -84,8 +85,8 @@ function App() {
     return (
       <div className="grid min-h-dvh place-items-center p-6 text-center">
         <div className="card max-w-md p-6">
-          <div className="text-4xl">🏒</div>
-          <h1 className="h-display mt-2 text-2xl">SAK Superleague</h1>
+          <div className="text-4xl">✨</div>
+          <h1 className="h-display mt-2 text-2xl">{PRODUCT.name}</h1>
           <p className="mt-2 text-sm text-mute">This build has no database configured. Set VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY in <code>.env</code>.</p>
         </div>
       </div>
@@ -99,7 +100,7 @@ function App() {
             <div className="absolute inset-0 animate-glow rounded-[24px] bg-goal/40 blur-2xl" />
             <img src="./icon.svg" alt="" className="relative h-20 w-20 animate-pulse" />
           </div>
-          <div className="h-display text-shine text-xl tracking-[.2em]">Loading the barn…</div>
+          <div className="h-display text-shine text-xl tracking-[.2em]">{PRODUCT.name}</div>
         </div>
       </div>
     );
