@@ -600,6 +600,9 @@ Built 13 October, live:
   the premiere says what's next instead (drop 2, drop 3, the weddings, the reunion), then that the season is in the books.
 - **Migration 257:** the chat line a settle leaves names who called it, biggest call first, against how many called
   anything ("Called it: Priya, Sam (2 of 7)", or "Nobody called it"), so a drop night's settle is a moment in the chat.
+- **Migration 258:** a pack question whose closing time moved later (the reunion's placeholder date, once Netflix names
+  it) reaches every open copy that still closes earlier, with a line in the pool's chat; a copy the host moved later
+  than the pack keeps its own time, and a closed copy is left alone. The pack is corrected once; every pool follows.
 - **The morning run includes the pools:** the first scheduled run (14:00 UTC, 13 October) listed fantasy leagues only,
   so Pod Squad got no post on the premiere's eve; `leaguesFor` now includes active prediction pools for the `daily`
   task (the other scheduled tasks still skip them). Deployed the same hour, and the day's post run by hand for Pod Squad

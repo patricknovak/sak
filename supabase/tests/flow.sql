@@ -3570,8 +3570,22 @@ select pg_temp.expect('every seated member hears it in the bell',
 select pg_temp.expect('a second refresh adds nothing', _pool_pack_refresh(:epl) = 0);
 select pg_temp.expect('a pool on another pack is untouched', _pool_pack_refresh(:lib) = 0
   and not exists (select 1 from pool_markets where league_id = :lib and pack = 'test-grow'));
+-- a pack question's closing time moved later reaches every open copy (migration 258), said once in the chat; a copy
+-- the host moved later than the pack keeps its own time; a closed copy is left alone
+update pool_packs set markets = (select jsonb_agg(case when x->>'title' = 'Question two?' then jsonb_set(x, '{closes_at}', to_jsonb((now() + interval '20 days')::timestamptz::text)) else x end)
+  from jsonb_array_elements(markets) x) where slug = 'test-grow';
+select set_config('t.mv', _pool_pack_refresh(:epl)::text, false);
+select pg_temp.expect('the pack''s later date reaches the pool''s open copy', current_setting('t.mv') = '1'
+  and (select closes_at > now() + interval '19 days' from pool_markets where league_id = :epl and pack = 'test-grow' and title = 'Question two?')
+  and exists (select 1 from messages where league_id = :epl and kind = 'system' and body like '📅 "Question two?" now closes %' and (meta->>'moved')::boolean));
+select pg_temp.expect('and only once', _pool_pack_refresh(:epl) = 0);
+update pool_markets set closes_at = now() + interval '40 days' where league_id = :epl and pack = 'test-grow' and title = 'Question two?';
+update pool_packs set markets = (select jsonb_agg(case when x->>'title' = 'Question two?' then jsonb_set(x, '{closes_at}', to_jsonb((now() + interval '30 days')::timestamptz::text)) else x end)
+  from jsonb_array_elements(markets) x) where slug = 'test-grow';
+select pg_temp.expect('a copy the host moved later than the pack keeps its own time', _pool_pack_refresh(:epl) = 0
+  and (select closes_at > now() + interval '39 days' from pool_markets where league_id = :epl and pack = 'test-grow' and title = 'Question two?'));
 delete from notifications where kind = 'pool_new' and body like '%Grows later%';
-delete from messages where meta->>'pool_pack' = 'test-grow';
+delete from messages where meta->>'pool_pack' = 'test-grow' or (meta->>'moved')::boolean;
 delete from pool_markets where pack = 'test-grow';
 delete from pool_packs where slug = 'test-grow';
 reset role;
