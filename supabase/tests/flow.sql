@@ -3223,7 +3223,7 @@ select platform_open_pool('pod-squad-test', 'Pod Squad', 'PS', 'love-is-blind-s1
 reset role;
 select set_config('t.lib', :'lib', false);
 select pg_temp.expect('the pool is a prediction league', (select kind from leagues where id = :lib) = 'predict');
-select pg_temp.expect('with the pack''s questions, drops and brand', (select count(*) from pool_markets where league_id = :lib) = 8
+select pg_temp.expect('with the pack''s questions, drops and brand', (select count(*) from pool_markets where league_id = :lib) = 16
   and (select count(*) from pool_drops where league_id = :lib) = 4 and (select brand->'coin'->>'name' from leagues where id = :lib) = 'Goblets');
 select pg_temp.expect('loading the pack twice adds nothing', _pool_load_pack(:lib, 'love-is-blind-s11', null) = 0);
 insert into auth.users (id, email) values ('00000000-0000-0000-0000-000000000081', 'host81@example.com'), ('00000000-0000-0000-0000-000000000082', 'friend82@example.com');
@@ -3359,7 +3359,7 @@ select pg_temp.expect('and both are in her pools', jsonb_array_length(my_pools()
 select pg_temp.expect('a name taken gets a number', pool_start('Office Pool')->>'slug' = 'office-pool-2');
 select pg_temp.expect('the app''s own names are never a pool''s', pool_start('App')->>'slug' = 'app-pool');
 select set_config('t.bw', pool_start('Bachelorette Watch', '#fb7185', 'love-is-blind-s11')->>'slug', false);
-select pg_temp.expect('a pack brings its questions and its coins', (select count(*) = 8 and min(l.brand->'coin'->>'name') = 'Goblets'
+select pg_temp.expect('a pack brings its questions and its coins', (select count(*) = 16 and min(l.brand->'coin'->>'name') = 'Goblets'
   and min(l.brand->'wordmark'->>'a') = 'BACHELORETTE' from pool_markets m join leagues l on l.id = m.league_id where l.slug = current_setting('t.bw')));
 select pool_start('Fifth Pool');
 select pg_temp.raises('five a day', 'select pool_start(''Sixth Pool'')', 'five pools today');
@@ -3482,7 +3482,7 @@ reset role;
 select pg_temp.expect('a brand-new account hosts its new pool, under the name it gave', (select t.is_commish and t.gm_name = 'Maya' and t.user_id = '00000000-0000-0000-0000-000000000091'
   from teams t where t.league_id = :nw));
 select pg_temp.expect('it is a member, with the pack loaded and 1,000 coins', exists (select 1 from league_members where user_id = '00000000-0000-0000-0000-000000000091' and league_id = :nw)
-  and (select count(*) from pool_markets where league_id = :nw) = 8 and (select sum(amount) from coin_ledger c join teams t on t.id = c.team_id where t.league_id = :nw) = 1000);
+  and (select count(*) from pool_markets where league_id = :nw) = 16 and (select sum(amount) from coin_ledger c join teams t on t.id = c.team_id where t.league_id = :nw) = 1000);
 select pg_temp.expect('and the pool opens for it', (select active_league_id from accounts where user_id = '00000000-0000-0000-0000-000000000091') = :nw);
 set role service_role;
 select pg_temp.raises('an account already in a pool uses My pools instead', $$select _pool_start_new('00000000-0000-0000-0000-000000000091', 'Second Pool', null, null, 'Maya', 'iphash-aaaa-1')$$, 'already in a pool');
@@ -3538,6 +3538,36 @@ delete from pool_packs where slug in ('test-done', 'test-half');
 reset role;
 select set_config('request.jwt.claim.sub', '', false);
 select 'soccer packs', true;
+
+-- a pack grows after a pool started on it (migration 251): the hourly job adds the new question to every pool on the
+-- pack, once, says so in the pool's chat and each member's bell, and a pool on another pack hears nothing
+reset role;
+insert into pool_packs (slug, name, brand, markets, drops) values
+  ('test-grow', 'Grows later', '{"icon": "🌱"}', jsonb_build_array(jsonb_build_object('title', 'Question one?', 'outcomes', jsonb_build_array('Yes', 'No'), 'closes_at', now() + interval '2 days')), '[]');
+select pg_temp.expect('the pool takes the pack''s first question', _pool_load_pack(:epl, 'test-grow', null) = 1);
+update pool_packs set markets = markets || jsonb_build_array(
+  jsonb_build_object('title', 'Question two?', 'outcomes', jsonb_build_array('Yes', 'No'), 'closes_at', now() + interval '3 days'),
+  jsonb_build_object('title', 'Already shut?', 'outcomes', jsonb_build_array('Yes', 'No'), 'closes_at', now() - interval '1 hour'))
+  where slug = 'test-grow';
+select set_config('t.rf', _pool_pack_refresh(:epl)::text, false);
+select pg_temp.expect('the refresh adds the question still open, and only it', current_setting('t.rf') = '1'
+  and exists (select 1 from pool_markets where league_id = :epl and pack = 'test-grow' and title = 'Question two?')
+  and not exists (select 1 from pool_markets where league_id = :epl and title = 'Already shut?'));
+select pg_temp.expect('the pool''s chat says what arrived', exists (select 1 from messages where league_id = :epl and kind = 'system'
+  and body like '🔮 1 new question from Grows later: "Question two?"' and meta->>'pool_pack' = 'test-grow'));
+select pg_temp.expect('every seated member hears it in the bell',
+  (select count(*) from notifications n join teams t on t.id = n.team_id where t.league_id = :epl and n.kind = 'pool_new' and n.body like '🔮 1 new question to call from Grows later')
+  = (select count(*) from teams where league_id = :epl and role = 'gm' and user_id is not null));
+select pg_temp.expect('a second refresh adds nothing', _pool_pack_refresh(:epl) = 0);
+select pg_temp.expect('a pool on another pack is untouched', _pool_pack_refresh(:lib) = 0
+  and not exists (select 1 from pool_markets where league_id = :lib and pack = 'test-grow'));
+delete from notifications where kind = 'pool_new' and body like '%Grows later%';
+delete from messages where meta->>'pool_pack' = 'test-grow';
+delete from pool_markets where pack = 'test-grow';
+delete from pool_packs where slug = 'test-grow';
+reset role;
+select set_config('request.jwt.claim.sub', '', false);
+select 'pack refresh', true;
 
 -- ───────────── last one standing (migration 157) ─────────────
 -- Pod Squad runs a survivor on two MLS matchweeks: Fern, Hana and Lou are in; Lou never picks

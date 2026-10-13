@@ -453,19 +453,23 @@ Worker reads Postgres directly.
 | E8 | AI Gateway in front of xAI (Garry, the X feed); Workers AI for small jobs | direct calls | **Garry's side built 12 October**: with the function secret `AI_GATEWAY_URL` set to the gateway's Grok endpoint (`https://gateway.ai.cloudflare.com/v1/<account>/<gateway>/grok`, plus `AI_GATEWAY_TOKEN` if the gateway is authenticated) every model call goes through it, tagged with its league, and falls back to xAI directly if the gateway fails; unset, nothing changes. Waiting on the gateway itself: the cloud environment's Cloudflare token has no AI Gateway permission, so Patrick creates it (AI › AI Gateway › Create, name `superpools`) and sets the secret. The X feed and Workers AI next |
 | E9 | R2 for the promo videos and anything people upload (logos, avatars); `public/*.mp4` out of every deploy | 17 MB in each site deploy | Later |
 
-### 8.4 The order from here
+### 8.4 The order from here (reset 13 October 2026, section 9)
 
-1. **This week (the LCS and the Love Is Blind premiere, 14 October):** the World Series pool's games started from its
-   Host page; invites shared as `/j/` links (done); Pod Squad and two more Love Is Blind pools filled by people Patrick
-   knows; the winter question packs: **The Traitors: New Blood** is live (11 October, migration 249: the finale, the season
-   and each episode's round table, 11 questions, coins every episode night; NBC's season runs to 19 November), The
-   Bachelor's waits on ABC naming its lead and date.
-2. **The GitHub Pages copy retired** (EXPANSION B5 step 3), once a SaK GM has checked push alerts and the installed app on
-   `sak.superpoolsai.com` (E5's edge half is built: the live room carries tonight's points).
-3. **E4, the live room**: game nights, the draft clock, a thread per game, pools' game nights and a thread per pool game are built (11 October), the box pool's NHL games included.
-4. **Billing and tiers** (SUPERPOOLS item 6), with the Supercoin wallet after it.
-5. **Imports** (ESPN's and Fantrax's history done 11 and 12 October, and Fantrax's scoring; rosters next) and **the app-store listing**, the two doors MARKET.md names for fantasy leagues.
-
+1. **Love Is Blind, premiere 14 October: a pool worth coming back to every Wednesday.** The pack gets questions that
+   close at each drop (21 and 28 October), not only at the premiere and the finale; a pack's new questions reach every
+   pool already on it by themselves (the hourly pool job), with a line in the pool's chat; the pool's voice speaks on
+   drop days (what settled, what's open, who's up, a last call). Patrick fills Pod Squad and two more pools with people
+   he knows: the gate (three pools, thirty players by 4 November) is people, not code.
+2. **Measure the first week.** The GA4 funnel is wired; read it, and the per-pool counts (`mission_control_counts`),
+   every Monday: pools started, links shared, joins, first calls, calls per member, chat messages. The numbers decide
+   what's next, not the feature list.
+3. **The voice in every pool** (item 1's drop-day voice generalised: the Traitors' episode nights, the World Series
+   games, a soccer gameweek): a reason to open the app that isn't a push.
+4. **Shorten the stranger's path** once the funnel shows where it leaks: today a link opens a preview (good), then four
+   fields (name, email, password twice) before a first call. The first call before the account is the candidate.
+5. **Billing and tiers** and the Supercoin wallet, once there are pools to bill (SUPERPOOLS items 7 and 11).
+6. **The GitHub Pages copy retired** after a SaK GM checks push alerts and the installed app on `sak.superpoolsai.com`;
+   imports' rosters; the app-store listing. The winter packs (The Bachelor when ABC names its lead) ride item 3.
 
 ### 8.5 One live clock, one game sheet, one lineup (11 October 2026, Patrick: "updates should be coordinated ... in the lowest cost way possible")
 
@@ -486,3 +490,69 @@ home card and the game sheet agree with the scoreboard to the second. Every NHL 
 (`GameSheet`), which took in the scoreboard's box score and NHL centre's game page, and Watch live became NHL centre's
 Scores tab. Lineup New was folded into My Team (Lineup, Week, Daily lineups, League, Compare, Insights, Stats). More and
 the sidebar are grouped. The pools' table moves, share card and climbs came to the league's standings and live room.
+
+## 9. The 13 October 2026 review: a week of building against the market
+
+Patrick asked for a review of the last week against the pools market, the plan re-ordered by value, and the build to go
+on from there.
+
+### 9.1 What the week built (6 to 13 October, 221 commits on main)
+
+Ahead of every plan on surface: the whole sports-pool engine (pick'em, last one standing, Call the score, the series,
+the bracket, prop sheets, squares by the quarter, rank the teams, the daily streak, the sweepstake, the box pool) on
+shared feeds for six sports; a centre per sport; share cards for every kind; the pool scoreboard with chances to win;
+the live room (a Durable Object per league or pool: presence, swings, a thread per game, "your pick just scored"), the
+draft clock on an alarm, one live clock and one game sheet in SaK; the home and navigation reworked; link previews with
+a picture per pool; the edge cache; history imports from ESPN and Fantrax and Fantrax's scoring; the Traitors pack;
+analytics with consent; the security and scheduled-task hardening; the compatibility debt retired; and Garry rebuilt so
+every lineup call is a real move and every column is built on real stories (PR #262).
+
+### 9.2 What the numbers say
+
+Read from the live database on 13 October:
+
+| | |
+|---|---|
+| Fantasy leagues in use | SaK: 8 GMs, 108 chat messages, lineups set nightly (the only live league) |
+| Prediction pools open | 4 (Pod Squad, PLIC, PLC, a test Love Is Blind pool): 1 to 2 members each |
+| Picks in every prediction pool, ever | 1 |
+| Chat messages in every prediction pool, ever | 0 |
+| Waitlist | 1 |
+
+The product has a season's worth of surface and no second group. Everything built this week is ready for people who
+have not arrived. The one real test on the calendar is tomorrow: Love Is Blind's premiere (14 October, 3 am ET on
+Netflix) and the gate of three pools and thirty players by 4 November.
+
+### 9.3 The market, re-read
+
+- **Bracketology** is the incumbent for exactly this audience: a Love Is Blind fantasy league in an app (3.6 to 3.9
+  stars; "won't load", scoring confusion, a cash "Pools" mode its own reviews resent), picks locking each week when
+  the batch drops, scores "within 72 hours". It has no chat, no voice and no group memory. Our pack beat it on
+  the premiere and the finale, and lost to it in between: four of its eight questions close at the premiere and four
+  on 4 and 11 November, so a member had nothing to call on 21 or 28 October. Fixed in this review (section 8.4 item 1).
+- **Splash absorbed RunYourPool and OfficeFootballPool** into one login, real money, a 10% take and a commissioner
+  rewards programme; its October 2026 features are golf. Office pools stay where they were: spreadsheets, or sites
+  that look like 2009, with premium tiers of $10 a year. Polymarket's newest feature is still group chat.
+- **The position holds.** Nobody combines a phone-first pool, a chat with a voice in it, no money, and a group that
+  keeps its history across seasons and shows. What the week proved is that the engine is there; what it did not prove
+  is that a group of strangers will use it, because none has tried.
+
+### 9.4 What was wrong, and what to do first
+
+1. **The pack ran out of questions between drops.** A reality-show pool lives on Wednesdays. The pack gets questions
+   per drop, written about what the show airs (no names needed before the cast is known), the way the Traitors pack
+   already does per episode.
+2. **A pack's new questions never reached an open pool.** `_pool_load_pack` adds only what a pool doesn't have, but
+   nothing called it after the start: no job, no button. The hourly pool job now reloads every open pool's packs, and
+   the pool's chat says what arrived.
+3. **A prediction pool had no voice.** Garry's scheduled posts skip pools (rightly: no lineups, no slate). So a pool
+   with no games is a quiet list of odds; nothing ever says "the premiere's questions settle tonight" or "you're up to
+   second". The drop-day post is the pool's reason to open the app, and the one thing the incumbents don't have.
+4. **The plan was ordered by what was fun to build.** Section 8.4 is re-ordered by what gets a second group through
+   the door and keeps it: the premiere, the numbers, the voice, the stranger's path, then billing, then the rest.
+
+### 9.5 What was built from this review
+
+Recorded as it lands (13 October): the pack's drop questions and the pack refresh job (migration 251), the pool voice
+on drop days (Garry, `pool` task).
+
