@@ -13,7 +13,7 @@ import { setTabLeague } from '../lib/host';
 // someone new makes their account right here (the `join` edge function makes it and seats them in one go);
 // someone with an account signs in, or is already signed in, and takes the seat with accept_invite.
 // Either way they land in the league they just joined.
-interface Preview { ok: boolean; reason?: string | null; league_id?: number; league?: string; short?: string; brand?: { colors?: { gold?: string }; tagline?: string; coin?: { name?: string; emoji?: string } } | null; role?: 'gm' | 'spectator'; team?: string | null; expires_at?: string; kind?: 'fantasy' | 'predict'; host?: string | null; members?: number; open_questions?: number; next_question?: string | null; next_closes?: string | null }
+interface Preview { ok: boolean; reason?: string | null; league_id?: number; league?: string; short?: string; brand?: { colors?: { gold?: string }; tagline?: string; coin?: { name?: string; emoji?: string } } | null; role?: 'gm' | 'spectator'; team?: string | null; expires_at?: string; kind?: 'fantasy' | 'predict'; host?: string | null; members?: number; open_questions?: number; next_market?: number | null; next_question?: string | null; next_closes?: string | null; next_outcomes?: { key: string; label: string; pct: number }[] | null }
 
 const WHY: Record<string, string> = {
   unknown: 'That invite link isn’t right. Ask the commissioner for a new one.',
@@ -50,6 +50,14 @@ export default function Join({ code }: { code: string }) {
   const [show, setShow] = useState(false);
   const [err, setErr] = useState('');
   const [busy, setBusy] = useState(false);
+  // the first call, picked before the account exists and placed the moment they're in (migration 255)
+  const [call, setCall] = useState<string | null>(null);
+  const FIRST_STAKE = 100;
+  const placeFirstCall = async () => {
+    if (!call || !pv?.next_market) return;
+    try { await rpc('pool_buy', { p_market: pv.next_market, p_outcome: call, p_coins: FIRST_STAKE }); track('first_call'); }
+    catch { /* the question closed or the pool changed while they typed: they're in, and the board is a tap away */ }
+  };
 
   useEffect(() => { rpc<Preview>('invite_preview', { p_code: code }).then(setPv, () => setPv({ ok: false, reason: 'unknown' })); }, [code]);
 
@@ -57,6 +65,7 @@ export default function Join({ code }: { code: string }) {
     try {
       const leagueId = await rpc<number>('accept_invite', { p_code: code });
       track('join');
+      await placeFirstCall();
       goHome(leagueId ?? pv?.league_id);
     } catch (e) { setBusy(false); setErr((e as Error).message); }
   };
@@ -82,6 +91,7 @@ export default function Join({ code }: { code: string }) {
     track('sign_up');
     track('join');
     const leagueId = typeof (data as { league?: number } | null)?.league === 'number' ? (data as { league: number }).league : pv?.league_id;
+    await placeFirstCall();
     goHome(leagueId);
   };
 
@@ -137,6 +147,22 @@ export default function Join({ code }: { code: string }) {
             <div className="label relative text-white/70">First up{pv.open_questions && pv.open_questions > 1 ? ` · ${pv.open_questions} open to call` : ''}</div>
             <div className="relative mt-1 text-balance text-lg font-bold leading-snug text-white">{pv.next_question}</div>
             {pv.next_closes && <div className="relative mt-1.5 text-xs text-white/70">Closes {closesWords(pv.next_closes)}</div>}
+            {pv.next_outcomes && pv.next_outcomes.length > 0 && (
+              <div className="relative mt-3">
+                <div className="flex flex-wrap gap-2">
+                  {pv.next_outcomes.map((o) => (
+                    <button key={o.key} type="button" onClick={() => setCall(call === o.key ? null : o.key)}
+                      className={`rounded-full border px-3 py-1.5 text-sm font-semibold transition ${call === o.key ? 'border-white bg-white text-[#1a0a10]' : 'border-white/25 bg-white/[.08] text-white hover:bg-white/[.14]'}`}>
+                      {o.label} <span className={`num ${call === o.key ? 'text-[#1a0a10]/70' : 'text-white/60'}`}>{o.pct}%</span>
+                    </button>
+                  ))}
+                </div>
+                <div className="mt-2 text-xs text-white/70">
+                  {call ? <>Your first call: <b className="text-white">{pv.next_outcomes.find((o) => o.key === call)?.label}</b> for {FIRST_STAKE} {(pv.brand?.coin?.name || PRODUCT.coin.name).toLowerCase()}, placed the moment you&apos;re in.</>
+                    : 'Tap an answer to make it your first call. The numbers are the pool’s chances.'}
+                </div>
+              </div>
+            )}
           </div>
         )}
 

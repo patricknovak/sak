@@ -3243,6 +3243,9 @@ select pg_temp.expect('a pool''s invite names its host and how many are in (migr
   from invite_preview(:'libcode') v) and not (invite_preview(:'join_code') ? 'host'));
 select pg_temp.expect('and the first call to make (migration 252)', (select (v->>'open_questions')::int = 16 and v->>'next_question' = 'How many couples get engaged in the pods?'
   and (v->>'next_closes')::timestamptz > now() from invite_preview(:'libcode') v) and not (invite_preview(:'join_code') ? 'next_question'));
+select pg_temp.expect('with its answers and the pool''s chances (migration 255)', (select (v->>'next_market')::bigint > 0
+  and jsonb_array_length(v->'next_outcomes') = 5 and (select sum((o->>'pct')::int) between 98 and 102 from jsonb_array_elements(v->'next_outcomes') o)
+  and v->'next_outcomes'->0->>'label' = '4 or fewer' from invite_preview(:'libcode') v));
 reset role;
 select _accept_invite('00000000-0000-0000-0000-000000000082', :'libcode', 'Fern');
 select id as fern from teams where league_id = :lib and user_id = '00000000-0000-0000-0000-000000000082' \gset

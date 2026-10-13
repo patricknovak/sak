@@ -576,6 +576,10 @@ Built 13 October, live:
   which had an NHL slate to offer a Love Is Blind pool. The Questions page lists the group closing soonest first.
 - **The join form** asks for a password once, with Show, instead of twice: a stranger's path is now the preview, the
   first call, three fields, the pool.
+- **Migration 255, the first call before the account** (section 8.4 item 4): the invite's preview carries the first
+  question's answers with the pool's chances; the join page shows them as chips, a stranger taps one, and the call (100
+  coins) is placed the moment they're in, before the account's first page. If the question closed while they typed,
+  they're in and the board is a tap away. The GA4 funnel's `first_call` fires with it.
 - **The pool's morning rings the bell:** each seated member gets the post's first line as a notification (and the push,
   where they allow it), since chat posts don't push and the post is the day's reason to open the pool.
 
