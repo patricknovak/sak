@@ -294,13 +294,30 @@ document.querySelectorAll('[data-pick]').forEach(function (a) {
   setInterval(tick, 1000);
 })();
 
-// the premiere countdown: Love Is Blind Season 11 drops Wednesday 14 October 2026 at 3 am ET (07:00 UTC)
+// Love Is Blind Season 11 by the calendar (Netflix drops at 3 am ET): the countdown counts to whatever is next, and once
+// the pods are open the copy written for before the premiere says what's next instead. An element with data-next holds
+// a template ({next} is "drop 2 lands", {date} "October 21"); it keeps its own words until the premiere has aired.
+var LIB_STAGES = [
+  { at: Date.UTC(2026, 9, 14, 7), next: 'the pods open', date: 'October 14' },
+  { at: Date.UTC(2026, 9, 21, 7), next: 'drop 2 lands', date: 'October 21' },
+  { at: Date.UTC(2026, 9, 28, 7), next: 'drop 3 lands', date: 'October 28' },
+  { at: Date.UTC(2026, 10, 4, 8), next: 'the weddings land', date: 'November 4' },
+  { at: Date.UTC(2026, 10, 11, 8), next: 'the reunion drops', date: 'November 11' },
+];
+function libStage() { for (var i = 0; i < LIB_STAGES.length; i++) if (LIB_STAGES[i].at > Date.now()) return i; return -1; }
+(function () {
+  var i = libStage();
+  if (i > 0) document.querySelectorAll('[data-next]').forEach(function (el) {
+    el.textContent = el.getAttribute('data-next').replace('{next}', LIB_STAGES[i].next).replace('{date}', LIB_STAGES[i].date);
+  });
+  if (i < 0) document.querySelectorAll('[data-done]').forEach(function (el) { el.textContent = el.getAttribute('data-done'); });
+})();
 (function () {
   var box = document.getElementById('premiere'); if (!box) return;
-  var at = Date.UTC(2026, 9, 14, 7, 0, 0);
   function tick() {
-    var ms = Math.max(0, at - Date.now()), d = Math.floor(ms / 864e5), h = Math.floor(ms % 864e5 / 36e5), m = Math.floor(ms % 36e5 / 6e4);
-    if (ms === 0) { box.innerHTML = '<div style="min-width:auto;padding:10px 14px"><b style="font-size:24px">The pods are open</b></div>'; return; }
+    var i = libStage();
+    if (i < 0) { box.innerHTML = '<div style="min-width:auto;padding:10px 14px"><b style="font-size:24px">Season 11 is in the books</b></div>'; return; }
+    var ms = Math.max(0, LIB_STAGES[i].at - Date.now()), d = Math.floor(ms / 864e5), h = Math.floor(ms % 864e5 / 36e5), m = Math.floor(ms % 36e5 / 6e4);
     box.querySelector('[data-u=d]').textContent = d; box.querySelector('[data-u=h]').textContent = String(h).padStart(2, '0'); box.querySelector('[data-u=m]').textContent = String(m).padStart(2, '0');
   }
   tick(); setInterval(tick, 30000);

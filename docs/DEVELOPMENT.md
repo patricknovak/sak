@@ -586,6 +586,11 @@ Built 13 October, live:
 - **The privacy note** (`#/privacy`, SUPERPOOLS item 14): what is kept, who sees it, the analytics choice, email and the
   voice, where it lives, how to leave or be deleted; from the consent banner and the landing's footer. The setup guide
   gains "Bring what you had" (seasons, scoring and rosters from Fantrax or ESPN) for a league that played elsewhere.
+- **The landing's Love Is Blind page** (`landing/love-is-blind.html`, in the sitemap, linked from the show page): what a
+  stranger searching for the pool this week lands on: every question by drop with its answers, the drop dates, three
+  steps, the questions people ask, one start button. The landing's Love Is Blind copy follows the calendar (`LIB_STAGES` in
+  `landing/site.js`): the countdown counts to whatever is next, and once the pods are open every line written for before
+  the premiere says what's next instead (drop 2, drop 3, the weddings, the reunion), then that the season is in the books.
 - **The pool's chat:** in a prediction pool Garry's replies read the pool's board (every open question with its prices
   and closing time, the asker's own calls, what settled lately and who called it) instead of the fantasy answer engine,
   which had an NHL slate to offer a Love Is Blind pool. The Questions page lists the group closing soonest first.
