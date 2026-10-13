@@ -96,7 +96,7 @@ export function PoolHome() {
   const closing = [...open].sort((a, b) => a.closes_at.localeCompare(b.closes_at)).slice(0, 4);
   // the day's last call: what closes within the day and which of it the member hasn't called (a drop night's questions
   // close at 3 am; the hero says so above the fold, pointing at the first one still open to them)
-  const today = open.filter((m) => new Date(m.closes_at).getTime() - now < 864e5);
+  const today = open.filter((m) => new Date(m.closes_at).getTime() - now < 864e5).sort((a, b) => a.closes_at.localeCompare(b.closes_at));
   const uncalled = today.filter((m) => !positions.some((p) => p.market_id === m.id && p.team_id === me?.id && (p.shares > 0.0001 || p.paid > 0)));
   const hot = useMemo(() => {
     const day = now - 864e5, n = new Map<number, number>();

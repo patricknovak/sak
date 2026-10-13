@@ -147,7 +147,13 @@ its open link, which any member can share from the pool's home (`pool_share_link
 
 **Alerts.** The pool tells its members when there is something to do (migration 154): coins dropped (with how many
 questions are open), new questions (a burst folds into one alert), a question closing in six hours they haven't
-called, and how each of their calls settled. Each opens that pool's page on the phone.
+called, and how each of their calls settled. Each opens that pool's page on the phone. *Since 13 October 2026:* the pool's
+voice posts on the mornings something happened or is about to (what settled and who called it, coins dropped, what
+closes in the next day with an @ for each member who hasn't called, what waits on the host, new questions), with the
+post's first line as a bell; the host's bell rings eight hours after a question closes unsettled; a settle names who
+called it in the chat; the home says the day's last call and, once calls lock, a question's page shows where everyone
+stands; after a settle, the drop's share card (every call right or wrong, with the score) sits on the home and the
+Questions page.
 
 **The gate.** The test passes if, by the finale on 4 November: three pools or more are running, thirty players or
 more have joined, two thirds of them trade in three of the four drop weeks, and the median player makes five trades
