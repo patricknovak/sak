@@ -210,11 +210,15 @@ export function Questions() {
   const list = (markets ?? []).filter((m) => tab === 'open' ? m.status === 'open'
     : tab === 'settled' ? m.status !== 'open'
     : positions.some((p) => p.market_id === m.id && p.team_id === me?.id && (p.shares > 0.0001 || p.paid > 0)));
+  // the group closing soonest first (a pack's drop questions arrive after its season ones, migration 251), each group
+  // soonest first too; settled questions newest first
   const groups = useMemo(() => {
     const g = new Map<string, PoolMarket[]>();
-    list.forEach((m) => { const k = m.category ?? 'Questions'; g.set(k, [...(g.get(k) ?? []), m]); });
+    const key = (m: PoolMarket) => (tab === 'settled' ? -(Date.parse(m.resolved_at ?? m.closes_at) || 0) : Date.parse(m.closes_at) || 0);
+    [...list].sort((a, b) => key(a) - key(b) || (a.sort ?? 0) - (b.sort ?? 0) || a.id - b.id)
+      .forEach((m) => { const k = m.category ?? 'Questions'; g.set(k, [...(g.get(k) ?? []), m]); });
     return [...g.entries()];
-  }, [list]);
+  }, [list, tab]);
   return (
     <div className="space-y-5">
       <PageHeader icon={<Sparkles className="h-6 w-6 text-gold" />} title="Questions" sub="Every answer has a price. Call it before your friends do." />

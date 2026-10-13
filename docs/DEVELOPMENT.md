@@ -571,4 +571,7 @@ Built 13 October, live:
 - **Migration 254:** `_pool_settle_nudge` in the hourly pool job: eight hours after a question closes with no result,
   the host's bell says it waits on them (the questions folded into one line, each nudging once), with the link to call
   it. The host's nudges covered events only; the premiere's questions close at 3 am and the host settles that evening.
+- **The pool's chat:** in a prediction pool Garry's replies read the pool's board (every open question with its prices
+  and closing time, the asker's own calls, what settled lately and who called it) instead of the fantasy answer engine,
+  which had an NHL slate to offer a Love Is Blind pool. The Questions page lists the group closing soonest first.
 

@@ -531,6 +531,38 @@ async function storylines(yday: { team_id: number; points: number }[], standings
   };
 }
 
+// a prediction pool's board for the chat: every open question with its prices and when it closes, the asker's own
+// calls, and what settled lately with who called it, so "what closes tonight?" and "did I get the engagement one?"
+// get real answers
+async function poolFacts(asker: number, byId: Map<number, Team>) {
+  const [{ data: ms }, { data: pos }] = await Promise.all([
+    from('pool_markets').select('id,title,outcomes,status,winner_key,closes_at,resolved_at,q,b,category').order('closes_at'),
+    from('pool_positions').select('market_id,team_id,outcome,shares'),
+  ]);
+  const all = (ms ?? []) as (PoolMarket & { q: Record<string, number>; b: number; category: string | null })[];
+  const name = (id: number) => byId.get(id)?.gm_name ?? 'someone';
+  const label = (m: PoolMarket, key: string | null) => m.outcomes.find((o) => o.key === key)?.label ?? '?';
+  // the pool's prices: the market maker's rule (LMSR), as the site works them out
+  const price = (q: Record<string, number>, b: number, keys: string[]) => {
+    const z = keys.map((k) => Math.exp((Number(q[k] ?? 0)) / (Number(b) || 1)));
+    const sum = z.reduce((t, v) => t + v, 0);
+    return Object.fromEntries(keys.map((k, i) => [k, Math.round(100 * z[i] / sum)]));
+  };
+  const now = new Date().toISOString();
+  const held = (mid: number, who: number) => (pos ?? []).filter((p) => p.market_id === mid && p.team_id === who && Number(p.shares) > 0).map((p) => p.outcome);
+  const open = all.filter((m) => m.status === 'open' && m.closes_at > now).slice(0, 24).map((m) => {
+    const pr = price(m.q, m.b, m.outcomes.map((o) => o.key));
+    return { question: m.title, group: m.category, closes_at_utc: m.closes_at, prices: Object.fromEntries(m.outcomes.map((o) => [o.label, `${pr[o.key]}%`])),
+      callers: [...new Set((pos ?? []).filter((p) => p.market_id === m.id && Number(p.shares) > 0).map((p) => name(p.team_id)))].length,
+      askers_call: held(m.id, asker).map((k) => label(m, k)) };
+  });
+  const waiting = all.filter((m) => m.status === 'open' && m.closes_at <= now).map((m) => ({ question: m.title, askers_call: held(m.id, asker).map((k) => label(m, k)) }));
+  const settled = all.filter((m) => m.status === 'resolved').sort((a, b) => (b.resolved_at ?? '').localeCompare(a.resolved_at ?? '')).slice(0, 8).map((m) => ({
+    question: m.title, answer: label(m, m.winner_key), called_it: [...new Set((pos ?? []).filter((p) => p.market_id === m.id && Number(p.shares) > 0 && p.outcome === m.winner_key).map((p) => name(p.team_id)))],
+    askers_call: held(m.id, asker).map((k) => label(m, k)) }));
+  return { open_questions: open, closed_waiting_on_the_host: waiting, settled_lately: settled };
+}
+
 // ─────────────── a prediction pool's morning ───────────────
 // The pool's voice speaks on the days that matter (docs/DEVELOPMENT.md §9: a pool with no games was a quiet list of
 // odds): a question settled and who called it, the coins a drop paid, questions that close tonight and who hasn't
@@ -946,20 +978,23 @@ async function converse(m: ChatMsg) {
     state(), situation(), recentLines(5),
     from('messages').select('id,team_id,kind,body').eq('channel', m.channel).eq('deleted', false).lte('id', m.id).order('id', { ascending: false }).limit(12),
     L.kind === 'predict' ? Promise.resolve([]) : gmCards(cardIds, byId, standings, n),
-    answer(facade(), m.body, m.team_id, { plain: true }).catch(() => null),
+    // a pool's facts come from its questions, never from the fantasy answer engine (no NHL slate in a Love Is Blind pool)
+    L.kind === 'predict' ? Promise.resolve(null) : answer(facade(), m.body, m.team_id, { plain: true }).catch(() => null),
     recall(byId, [m.team_id, ...mentioned.map((t) => t.id)], 25),
   ]);
   const lines = (thread.data ?? []).reverse().map((x) => `${x.kind === 'bot' ? bot() : byId.get(x.team_id)?.gm_name ?? 'someone'}: ${x.body.replace(/\s+/g, ' ').slice(0, 280)}`);
   const table = [...standings].sort((a, b) => a.rank - b.rank).map((x) => `${x.rank}. ${byId.get(x.team_id)?.gm_name} (${byId.get(x.team_id)?.name}) ${f1(Number(x.points))}`);
   const useful = ans && !['unknown', 'hello', 'chat'].includes(ans.topic);
   const privateLine = m.channel.startsWith('garry:');
+  const poolBoard = L.kind === 'predict' ? await poolFacts(m.team_id, byId).catch(() => null) : null;
   const watching = privateLine ? await watchFacts(m.team_id, byId).catch(() => []) : [];
   const prompt = [
     `Right now: ${now}`,
     table.length ? `Where everyone stands: ${table.join(' · ')}` : '',
     mem.length ? `What you remember (use it when it fits, never list it):\n${mem.map((x) => '- ' + x).join('\n')}` : '',
     mine.length ? `Your last few lines in the chat. Do not reuse their openers, closers, jokes, nudges or catchphrases:\n${mine.map((x) => '- ' + x).join('\n')}` : '',
-    `The GMs in this conversation (facts you can use):\n${JSON.stringify(cards)}`,
+    cards.length ? `The GMs in this conversation (facts you can use):\n${JSON.stringify(cards)}` : '',
+    poolBoard ? `The pool's board (facts you can use; a price is the pool's chance, in percent):\n${JSON.stringify(poolBoard)}` : '',
     watching.length ? `${asker?.gm_name}'s watch list, the players they've starred (private to them: fine on this line, never in the league chat): ${watching.join('; ')}` : '',
     useful ? `The site's verified answer to the question (use its facts and keep any "👉 #/..." link that fits, in your own words, not its wording):\n${ans!.text}${Object.keys(ans!.facts ?? {}).length ? `\n${JSON.stringify(ans!.facts).slice(0, 1500)}` : ''}` : '',
     `${privateLine ? `This is ${asker?.gm_name}'s private line to you; nobody else reads it.` : 'This is the league chat; everyone reads it.'} The conversation, oldest first; the last line is ${asker?.gm_name}'s and it's the one you answer:\n${lines.join('\n')}`,
