@@ -362,8 +362,8 @@ async function write(task: string, facts: unknown, fallback: string, maxWords = 
     `Right now: ${now}`,
     mem.length ? `Things you remember about the league and its GMs (use them naturally when relevant, never list them, never contradict the facts):\n${mem.map((m) => '- ' + m).join('\n')}` : '',
     mine.length ? `Your last few posts (don't reuse their openers, jokes or nudges):\n${mine.map((m) => '- ' + m).join('\n')}` : '',
-    `${task}\nKeep it under ${maxWords} words.\n\nFacts (JSON):\n${JSON.stringify(facts)}`,
-  ].filter(Boolean).join('\n\n'));
+    `${task}\nKeep it under ${maxWords} words. Every number, stat and result you write is in the facts or what you remember; if it isn't, leave it out.\n\nFacts (JSON):\n${JSON.stringify(facts)}`,
+  ].filter(Boolean).join('\n\n'), 1200, 0.75);
   return text || fallback;
 }
 
@@ -456,6 +456,14 @@ async function base() {
   return { league, teams: teams as Team[], byId, standings: (standings ?? []) as any[] };
 }
 
+// a box-score line in words ("2 G, 1 A, 4 SOG" or "W, 31 SV, 2 GA"), so a post never has to guess what a player did
+function statWords(st: Record<string, number> | null | undefined) {
+  if (!st) return '';
+  const k = (n: unknown, l: string) => (Number(n) ? `${Number(n)} ${l}` : '');
+  if (st.sv != null || st.ga != null || st.w != null) return [st.w ? 'W' : st.l ? 'L' : st.otl ? 'OTL' : '', k(st.sv, 'SV'), `${Number(st.ga ?? 0)} GA`, st.sho ? 'shutout' : ''].filter(Boolean).join(', ');
+  return [k(st.g, 'G'), k(st.a, 'A'), k(st.ppp, 'PPP'), k(st.sog, 'SOG'), k(st.hit, 'HIT'), k(st.blk, 'BLK'), st.pm ? `${st.pm > 0 ? '+' : ''}${st.pm}` : ''].filter(Boolean).join(', ') || 'no points';
+}
+
 // a bench player who outscored a starter whose slot he could have filled: the real cost of a lineup call, each starter
 // counted once, the biggest misses first
 function benchCost(snaps: { team_id: number; player_id: number; slot: string }[], pg: Map<number, { fpts: unknown }>,
@@ -502,9 +510,20 @@ async function storylines(yday: { team_id: number; points: number }[], standings
   const { data: rs } = await from('rosters').select('team_id,player_id,slot');
   const owner = new Map((rs ?? []).map((r) => [r.player_id as number, r.team_id as number]));
   const { data: news } = await db.from('news').select('headline,player_ids,published').gt('published', new Date(Date.now() - 30 * 3600000).toISOString()).order('published', { ascending: false }).limit(40);
-  const about = (news ?? []).map((a) => ({ headline: a.headline as string, gms: [...new Set(((a.player_ids ?? []) as number[]).filter((id) => owner.has(id)).map((id) => gm(owner.get(id)!)))] }))
-    .filter((a) => a.gms.length && !/fantasy|pickups|waiver|rankings/i.test(a.headline) && !/\?\s*$/.test(a.headline)).slice(0, 5)
-    .map((a) => `${a.headline} (on ${a.gms.join(' and ')}'s team${a.gms.length > 1 ? 's' : ''})`);
+  const items = (news ?? []).map((a) => ({ headline: a.headline as string, ids: ((a.player_ids ?? []) as number[]).filter((id) => owner.has(id)) }))
+    .filter((a) => a.ids.length && !/fantasy|pickups|waiver|rankings/i.test(a.headline) && !/\?\s*$/.test(a.headline)).slice(0, 5);
+  // each story with the league's players it's about, whose team they're on and what they really scored last night, so
+  // the column never adds a stat the headline doesn't have
+  const nids = [...new Set(items.flatMap((a) => a.ids))];
+  const [{ data: np }, { data: ng }] = nids.length ? await Promise.all([
+    from('players').select('id,name').in('id', nids),
+    from('player_games').select('player_id,fpts,stats').eq('date', yesterday).in('player_id', nids),
+  ]) : [{ data: [] }, { data: [] }];
+  const nname = new Map((np ?? []).map((p) => [p.id as number, p.name as string]));
+  const nfp = new Map((ng ?? []).map((g) => [g.player_id as number, Number(g.fpts)]));
+  const nline = new Map((ng ?? []).map((g) => [g.player_id as number, statWords(g.stats as Record<string, number>)]));
+  const about = items.map((a) => ({ headline: a.headline, players: a.ids.map((id) => ({ player: nname.get(id) ?? 'unknown', on_team_of: gm(owner.get(id)!),
+    last_night: nfp.has(id) ? `${Math.round(nfp.get(id)! * 10) / 10} fantasy points (${nline.get(id)})` : 'did not play' })) }));
   return {
     standings_moves: passed.slice(0, 6), races: gaps.filter((g) => g.by <= 6), gap_first_to_last: Math.round(((now[0]?.pts ?? 0) - (now.at(-1)?.pts ?? 0)) * 10) / 10,
     last_7_days: form, tonight, nhl_news_about_their_players: about,
@@ -563,7 +582,7 @@ async function daily() {
   const pg = new Map((pgs ?? []).map((p) => [p.player_id, p]));
   const lines = (snaps ?? []).filter((s) => pg.has(s.player_id)).map((s) => ({
     gm: byId.get(s.team_id)?.gm_name, team: byId.get(s.team_id)?.name, team_id: s.team_id, player_id: s.player_id, player: pname.get(s.player_id),
-    slot: s.slot, fpts: Number(pg.get(s.player_id)!.fpts), stats: pg.get(s.player_id)!.stats,
+    slot: s.slot, fpts: Number(pg.get(s.player_id)!.fpts), line: statWords(pg.get(s.player_id)!.stats as Record<string, number>),
   }));
   const active = lines.filter((l) => !['BN', 'IR'].includes(l.slot)).sort((a, b) => b.fpts - a.fpts);
   // points left on the bench, only where they really cost something: a bench player who outscored a starter whose
@@ -618,7 +637,7 @@ async function daily() {
     benchRegret[0] ? `Meanwhile @${benchRegret[0].gm} left ${benchRegret[0].player} (${f1(benchRegret[0].fpts)}) on the bench over ${benchRegret[0].over} (${f1(benchRegret[0].over_fpts)}).` : '',
     playoffs ? `Playoff table: ${season.slice(0, 3).map((x) => `${x.rank}. @${x.gm} ${f1(x.points)}`).join(', ')}.` : formatLine || `${L.brand.booby} watch: @${season.at(-1)?.gm} sitting in the basement at ${f1(season.at(-1)?.points ?? 0)}.`,
   ].filter(Boolean).join(' ');
-  const body = await write(`Write this morning's column on yesterday's ${L.info.short_name} ${playoffs ? 'playoff ' : ''}results for the league chat. Lead with the best story in the facts (a pass in the standings, a tight race, a big night, a costly bench call, a hot or cold week), not a list of scores; work in the NHL news about the GMs' own players if any is there, and tonight's slate if it sets up something. Every chirp hangs on a fact given. No closing call to bet, trade or talk unless a fact sets it up.`, facts, fallback, 220);
+  const body = await write(`Write this morning's column on yesterday's ${L.info.short_name} ${playoffs ? 'playoff ' : ''}results for the league chat. Lead with the best story in the facts (a pass in the standings, a tight race, a big night, a costly bench call, a hot or cold week), not a list of scores; work in the NHL news about the GMs' own players if any is there (a headline says only what it says: add no stat, result or role it doesn't give; what the player did last night is given beside it), and tonight's slate if it sets up something. It's a column the league reads for the laughs: at least two sharp, specific chirps (the GM who got passed, the one who blew a bench call, the one whose star is out, the leader who barely moved), each built on a fact given, and a running gag or something a GM said if one fits. No closing call to bet, trade or talk unless a fact sets it up.`, facts, fallback, 220);
   await post(body, { type: 'recap', date: yesterday });
   return { posted: 'recap', bonus: facts.daily_bonus };
 }
@@ -655,7 +674,7 @@ async function nudge() {
   if (dry()) runs.getStore()!.drafts = [...(runs.getStore()!.drafts ?? []), { body: '', meta: { night: Object.fromEntries([...n.teams].map(([id, x]) => [byId.get(id)?.gm_name ?? id, x])) } }];
   if (!issues.length) return { skipped: 'no lineup worth fixing', autopilot: covered };
   const fb = `🚨 Before ${W().start}: ${issues.map((i) => `@${i.gm}: ${i.swaps.join('; ')}`).join(' · ')}.`;
-  await post(await write(`Lineup check before tonight's ${n.games} games. For each GM listed, name the exact swap (or swaps) given, with the reason, in one punchy line each; every swap is one they can make right now and it gains them points tonight. Say nothing about any other GM's lineup, and invent no other moves.`,
+  await post(await write(`Lineup check before tonight's ${n.games} games. For each GM listed, name the exact swap (or swaps) given, with the reason given (only that reason: "projects lower" means the numbers like the other guy tonight, nothing about form or streaks), in one punchy line each; every swap is one they can make right now and it gains them points tonight. Say nothing about any other GM's lineup, and invent no other moves.`,
     { games_tonight: n.games, gms: issues }, fb, 110, teams.filter((t) => issues.some((i) => i.gm === t.gm_name)).map((t) => t.id)), { type: 'nudge', date: today });
   return { posted: 'lineup nudge', teams: issues.length, autopilot: covered };
 }
