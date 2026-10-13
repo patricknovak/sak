@@ -568,4 +568,7 @@ Built 13 October, live:
   made, chat messages, links made, the waitlist, each against all time; every league with its members, its week's calls
   and callers and messages, and when it was last alive, the quietest last), the "This week" card at the top of the
   Platform page. Section 8.4 item 2's Monday read.
+- **Migration 254:** `_pool_settle_nudge` in the hourly pool job: eight hours after a question closes with no result,
+  the host's bell says it waits on them (the questions folded into one line, each nudging once), with the link to call
+  it. The host's nudges covered events only; the premiere's questions close at 3 am and the host settles that evening.
 

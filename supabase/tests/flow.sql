@@ -3574,6 +3574,27 @@ reset role;
 select set_config('request.jwt.claim.sub', '', false);
 select 'pack refresh', true;
 
+-- a question that closed and waits on the host (migration 254): eight hours on, the host hears once, in one bell for
+-- however many wait; a question still open, or one settled, says nothing, and a second run adds nothing
+reset role;
+select set_config('app.league_id', :'epl'::text, false);
+insert into pool_markets (league_id, title, outcomes, q, b, closes_at, created_by)
+  values (:epl, 'Waited all day?', '[{"key":"a1","label":"Yes"},{"key":"a2","label":"No"}]', '{"a1":0,"a2":0}', 50, now() - interval '9 hours', null),
+         (:epl, 'Closed just now?', '[{"key":"a1","label":"Yes"},{"key":"a2","label":"No"}]', '{"a1":0,"a2":0}', 50, now() - interval '1 hour', null);
+select set_config('t.sn', _pool_settle_nudge(:epl)::text, false);
+select pg_temp.expect('the host hears about the question that waited, not the one that just closed', current_setting('t.sn') = '1'
+  and exists (select 1 from notifications n join teams t on t.id = n.team_id where t.league_id = :epl and t.is_commish and n.kind = 'pool_settle'
+              and n.body like '⚖️ "Waited all day?" closed and waits on you%' and n.link like '/q/%'));
+select pg_temp.expect('and only once', _pool_settle_nudge(:epl) = 0);
+select set_config('app.league_id', '', false);
+select pg_temp.expect('another league''s run touches nothing here', _pool_settle_nudge(:epl) = 0);
+delete from notifications where kind = 'pool_settle';
+delete from private.soccer_nudged where game like 'settle:%';
+delete from pool_markets where league_id = :epl and title in ('Waited all day?', 'Closed just now?');
+reset role;
+select set_config('request.jwt.claim.sub', '', false);
+select 'settle nudge', true;
+
 -- ───────────── last one standing (migration 157) ─────────────
 -- Pod Squad runs a survivor on two MLS matchweeks: Fern, Hana and Lou are in; Lou never picks
 reset role;
