@@ -5,7 +5,7 @@ import { useLeague } from '../lib/store';
 import { Spinner } from '../components/ui';
 import { LeagueCrest } from '../components/Brand';
 import { themed } from '../components/LeagueIdentity';
-import { attributionFields, track } from '../lib/analytics';
+import { attributionFields, track, trackFirstCall } from '../lib/analytics';
 import { PRODUCT } from '../lib/brand';
 import { setTabLeague } from '../lib/host';
 
@@ -13,7 +13,7 @@ import { setTabLeague } from '../lib/host';
 // someone new makes their account right here (the `join` edge function makes it and seats them in one go);
 // someone with an account signs in, or is already signed in, and takes the seat with accept_invite.
 // Either way they land in the league they just joined.
-interface Preview { ok: boolean; reason?: string | null; league_id?: number; league?: string; short?: string; brand?: { colors?: { gold?: string }; tagline?: string; coin?: { name?: string; emoji?: string } } | null; role?: 'gm' | 'spectator'; team?: string | null; expires_at?: string; kind?: 'fantasy' | 'predict'; host?: string | null; members?: number }
+interface Preview { ok: boolean; reason?: string | null; league_id?: number; league?: string; short?: string; brand?: { colors?: { gold?: string }; tagline?: string; coin?: { name?: string; emoji?: string } } | null; role?: 'gm' | 'spectator'; team?: string | null; expires_at?: string; kind?: 'fantasy' | 'predict'; host?: string | null; members?: number; open_questions?: number; next_market?: number | null; next_question?: string | null; next_closes?: string | null; next_outcomes?: { key: string; label: string; pct: number }[] | null }
 
 const WHY: Record<string, string> = {
   unknown: 'That invite link isn’t right. Ask the commissioner for a new one.',
@@ -22,6 +22,16 @@ const WHY: Record<string, string> = {
   used: 'That invite has already been used. Ask the commissioner for a new one.',
   taken: 'Someone has already taken that seat.',
 };
+
+// when a question closes, in the reader's own clock: "tomorrow at 3:00 a.m.", "Wednesday at 8:00 p.m.", "in 40 minutes"
+function closesWords(iso: string) {
+  const d = new Date(iso), ms = d.getTime() - Date.now();
+  if (ms < 3600000) return `in ${Math.max(1, Math.round(ms / 60000))} minutes`;
+  const day = new Date(), tomorrow = new Date(Date.now() + 86400000);
+  const same = (a: Date, b: Date) => a.toDateString() === b.toDateString();
+  const when = same(d, day) ? 'today' : same(d, tomorrow) ? 'tomorrow' : ms < 6 * 86400000 ? d.toLocaleDateString(undefined, { weekday: 'long' }) : d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+  return `${when} at ${d.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' })}`;
+}
 
 // into the league just joined: pin this tab to it so the reload reads its coins and table, not a stale one
 const goHome = (leagueId?: number | null) => {
@@ -37,9 +47,19 @@ export default function Join({ code }: { code: string }) {
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [pw, setPw] = useState('');
-  const [pw2, setPw2] = useState('');
+  const [show, setShow] = useState(false);
   const [err, setErr] = useState('');
   const [busy, setBusy] = useState(false);
+  // the first call, picked before the account exists and placed the moment they're in (migration 255)
+  const [call, setCall] = useState<string | null>(null);
+  const FIRST_STAKE = 100;
+  const placeFirstCall = async (leagueId?: number | null) => {
+    if (!call || !pv?.next_market) return;
+    // the call goes to the pool just joined, not to whichever pool this tab was in before
+    if (leagueId) setLeagueHeader(leagueId);
+    try { await rpc('pool_buy', { p_market: pv.next_market, p_outcome: call, p_coins: FIRST_STAKE }); trackFirstCall('join'); }
+    catch { /* the question closed or the pool changed while they typed: they're in, and the board is a tap away */ }
+  };
 
   useEffect(() => { rpc<Preview>('invite_preview', { p_code: code }).then(setPv, () => setPv({ ok: false, reason: 'unknown' })); }, [code]);
 
@@ -47,6 +67,7 @@ export default function Join({ code }: { code: string }) {
     try {
       const leagueId = await rpc<number>('accept_invite', { p_code: code });
       track('join');
+      await placeFirstCall(leagueId ?? pv?.league_id);
       goHome(leagueId ?? pv?.league_id);
     } catch (e) { setBusy(false); setErr((e as Error).message); }
   };
@@ -54,7 +75,6 @@ export default function Join({ code }: { code: string }) {
   // someone new: make the account and take the seat, then sign in
   const join = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (pw !== pw2) { setErr('The two passwords don’t match.'); return; }
     setBusy(true); setErr('');
     const login = email.trim().toLowerCase();
     // attribution is first-touch UTM/referrer; the join function ignores unknown fields if the SQL is not live yet
@@ -73,6 +93,7 @@ export default function Join({ code }: { code: string }) {
     track('sign_up');
     track('join');
     const leagueId = typeof (data as { league?: number } | null)?.league === 'number' ? (data as { league: number }).league : pv?.league_id;
+    await placeFirstCall(leagueId);
     goHome(leagueId);
   };
 
@@ -122,6 +143,31 @@ export default function Join({ code }: { code: string }) {
           </div>
         )}
 
+        {/* the first call, before the form: what the pool is asking right now and when it closes (migration 252) */}
+        {pv?.ok && pool && pv.next_question && (
+          <div className="card-hero mb-4 p-4">
+            <div className="label relative text-white/70">First up{pv.open_questions && pv.open_questions > 1 ? ` · ${pv.open_questions} open to call` : ''}</div>
+            <div className="relative mt-1 text-balance text-lg font-bold leading-snug text-white">{pv.next_question}</div>
+            {pv.next_closes && <div className="relative mt-1.5 text-xs text-white/70">Closes {closesWords(pv.next_closes)}</div>}
+            {pv.next_outcomes && pv.next_outcomes.length > 0 && (
+              <div className="relative mt-3">
+                <div className="flex flex-wrap gap-2">
+                  {pv.next_outcomes.map((o) => (
+                    <button key={o.key} type="button" onClick={() => setCall(call === o.key ? null : o.key)}
+                      className={`rounded-full border px-3 py-1.5 text-sm font-semibold transition ${call === o.key ? 'border-white bg-white text-[#1a0a10]' : 'border-white/25 bg-white/[.08] text-white hover:bg-white/[.14]'}`}>
+                      {o.label} <span className={`num ${call === o.key ? 'text-[#1a0a10]/70' : 'text-white/60'}`}>{o.pct}%</span>
+                    </button>
+                  ))}
+                </div>
+                <div className="mt-2 text-xs text-white/70">
+                  {call ? <>Your first call: <b className="text-white">{pv.next_outcomes.find((o) => o.key === call)?.label}</b> for {FIRST_STAKE} {(pv.brand?.coin?.name || PRODUCT.coin.name).toLowerCase()}, placed the moment you&apos;re in.</>
+                    : 'Tap an answer to make it your first call. The numbers are the pool’s chances.'}
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+
         {!pv ? <div className="flex justify-center py-8"><Spinner /></div>
           : !pv.ok ? <div className="card p-5 text-center text-sm text-slate-200">{WHY[pv.reason ?? 'unknown'] ?? WHY.unknown}</div>
           : session ? (
@@ -139,9 +185,11 @@ export default function Join({ code }: { code: string }) {
               <label className="label relative mt-3 block text-white/70" htmlFor="jemail">Email</label>
               <input id="jemail" className="input relative mt-1" type="email" inputMode="email" autoComplete="username" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="you@example.com" />
               <label className="label relative mt-3 block text-white/70" htmlFor="jpw">Password</label>
-              <input id="jpw" className="input relative mt-1" type="password" autoComplete="new-password" value={pw} onChange={(e) => setPw(e.target.value)} placeholder="6+ characters" />
-              <input className="input relative mt-2" type="password" autoComplete="new-password" value={pw2} onChange={(e) => setPw2(e.target.value)} placeholder="Same again" />
-              <button className="btn-primary relative mt-4 w-full py-3 text-base" disabled={busy || name.trim().length < 2 || !okEmail || pw.length < 6 || !pw2}>{busy ? <Spinner /> : `${mark} Join the ${noun}`}</button>
+              <div className="relative mt-1">
+                <input id="jpw" className="input w-full pr-16" type={show ? 'text' : 'password'} autoComplete="new-password" value={pw} onChange={(e) => setPw(e.target.value)} placeholder="6+ characters" />
+                <button type="button" className="absolute inset-y-0 right-3 text-xs font-semibold text-white/70" onClick={() => setShow((v) => !v)} aria-label={show ? 'Hide the password' : 'Show the password'}>{show ? 'Hide' : 'Show'}</button>
+              </div>
+              <button className="btn-primary relative mt-4 w-full py-3 text-base" disabled={busy || name.trim().length < 2 || !okEmail || pw.length < 6}>{busy ? <Spinner /> : `${mark} Join the ${noun}`}</button>
               <button type="button" className="relative mt-3 w-full text-center text-sm text-white/60 underline" onClick={() => { setMode('have'); setErr(''); }}>Already have an account? Sign in to join</button>
             </form>
           ) : (

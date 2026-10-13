@@ -76,7 +76,7 @@ function SoccerRounds({ onAdded }: { onAdded: () => void }) {
 
 // ───────────── home ─────────────
 export function PoolHome() {
-  const { me, league } = useLeague();
+  const { me, league, teams } = useLeague();
   const brand = useBrand();
   const now = useNow(1000);
   const { markets, positions, trades, drops } = usePool();
@@ -94,6 +94,10 @@ export function PoolHome() {
   const mine = leaders?.find((l) => l.team_id === me?.id);
   const open = (markets ?? []).filter((m) => isOpen(m, now));
   const closing = [...open].sort((a, b) => a.closes_at.localeCompare(b.closes_at)).slice(0, 4);
+  // the day's last call: what closes within the day and which of it the member hasn't called (a drop night's questions
+  // close at 3 am; the hero says so above the fold, pointing at the first one still open to them)
+  const today = open.filter((m) => new Date(m.closes_at).getTime() - now < 864e5).sort((a, b) => a.closes_at.localeCompare(b.closes_at));
+  const uncalled = today.filter((m) => !positions.some((p) => p.market_id === m.id && p.team_id === me?.id && (p.shares > 0.0001 || p.paid > 0)));
   const hot = useMemo(() => {
     const day = now - 864e5, n = new Map<number, number>();
     trades.forEach((t) => { if (new Date(t.created_at).getTime() > day) n.set(t.market_id, (n.get(t.market_id) ?? 0) + 1); });
@@ -121,6 +125,16 @@ export function PoolHome() {
             <ChevronRight className="h-4 w-4 shrink-0 text-mute" />
           </Link>
         )}
+        {today.length > 0 && me?.role === 'gm' && (
+          <Link to={uncalled.length ? `/q/${uncalled[0].id}` : '/questions'} className={`mt-3 flex items-center gap-3 rounded-2xl px-3 py-2.5 ring-1 ${uncalled.length ? 'bg-gold/15 ring-gold/40 hover:bg-gold/20' : 'bg-white/[.06] ring-white/10 hover:bg-white/10'}`}>
+            <Flame className={`h-5 w-5 shrink-0 ${uncalled.length ? 'text-gold' : 'text-emerald-300'}`} />
+            <div className="min-w-0 flex-1 text-sm leading-snug">
+              <b className="text-white">{today.length === 1 ? 'One question closes' : `${today.length} questions close`} {new Date(today[0].closes_at).getTime() - now < 36e5 ? 'within the hour' : 'today'}</b>
+              <div className="text-xs text-mute">{uncalled.length === 0 ? 'You have called every one of them.' : uncalled.length === today.length ? 'You have not called any of them yet.' : `${uncalled.length} still waiting on your call.`}</div>
+            </div>
+            <span className="shrink-0 text-sm font-bold text-gold">{uncalled.length ? 'Call it →' : 'Review →'}</span>
+          </Link>
+        )}
         {nextDrop && (
           <div className="mt-3 flex items-center gap-3 rounded-2xl bg-white/[.06] px-3 py-2.5 ring-1 ring-white/10">
             <CalendarClock className="h-5 w-5 shrink-0 text-gold" />
@@ -131,6 +145,10 @@ export function PoolHome() {
       </div>
 
       <PoolRoomCard room={room} />
+
+      {/* a pool of two or three is a group chat that hasn't been told yet: the host's invite sits up top until it has
+          grown (the gate is people, docs/DEVELOPMENT.md §8.4 item 1) */}
+      {me?.is_commish && teams.filter((t) => t.role === 'gm' && t.user_id).length < 4 && <InviteCard />}
 
       <PoolGameCards />
 
@@ -148,6 +166,7 @@ export function PoolHome() {
         <Empty icon="🔮" title="No questions yet">{me?.is_commish ? <Link to="/host" className="btn-gold mt-3 inline-block">Ask the first one</Link> : 'The host is writing them. Check back soon.'}</Empty>
       ) : (
         <>
+          <DropCard />
           {hot.length > 0 && <Section title="Moving now" icon={<Flame className="h-5 w-5 text-gold" />}><div className="grid gap-3 md:grid-cols-2">{hot.map((m) => <MarketCard key={m.id} m={m} positions={positions} trades={trades} compact />)}</div></Section>}
           <Section title="Closing soon" icon={<CalendarClock className="h-5 w-5 text-gold" />} right={<Link to="/questions" className="text-sm font-semibold text-sky-300">All {markets.length} →</Link>}>
             {closing.length ? <div className="grid gap-3 md:grid-cols-2">{closing.map((m) => <MarketCard key={m.id} m={m} positions={positions} trades={trades} compact />)}</div>
@@ -158,7 +177,7 @@ export function PoolHome() {
       <PredictorCard />
       <SurvivorCard />
       {!gamesOnly && <Section title="Latest calls" icon={<Sparkles className="h-5 w-5 text-gold" />}><CallsFeed trades={trades} markets={markets ?? []} /></Section>}
-      <InviteCard />
+      {!(me?.is_commish && teams.filter((t) => t.role === 'gm' && t.user_id).length < 4) && <InviteCard />}
     </div>
   );
 }
@@ -170,12 +189,15 @@ function InviteCard() {
   const { busy, run } = useAction();
   const [link, setLink] = useState<string | null>(null);
   const [inviting, setInviting] = useState(false);
+  const { markets } = usePool();
   const make = () => run(async () => {
     // the pool's one open link, the same for the host and every member (migration 162)
     const code = await rpc<string>('pool_share_link');
     const url = inviteLink(code);
     setLink(url);
-    const text = `Join my ${brand.tagline || league?.name} on Super Pools. No money, just bragging rights.`;
+    // the text asks the question closing soonest, the way the link's preview does (migration 252): the pitch is the game
+    const next = (markets ?? []).filter((m) => isOpen(m, Date.now())).sort((a, b) => a.closes_at.localeCompare(b.closes_at))[0];
+    const text = `Join my ${brand.tagline || league?.name} on Super Pools.${next ? ` First up: "${next.title}"` : ''} No money, just bragging rights.`;
     if (navigator.share) await navigator.share({ title: league?.name, text, url }).catch(() => {});
     else await navigator.clipboard?.writeText(url).catch(() => {});
     track('invite_share');
@@ -201,20 +223,65 @@ function InviteCard() {
   );
 }
 
+// the drop's card (docs/POOLS.md §6, share cards after every drop): the member's calls on what settled in the last four
+// days, right or wrong, with the score; on the home and the Questions page's Settled tab while the drop is fresh
+function useDrop(now: number) {
+  const { markets, positions } = usePool();
+  const { me } = useLeague();
+  const cardBrand = useCardBrand();
+  const drop = useMemo(() => {
+    const fresh = (markets ?? []).filter((m) => m.status === 'resolved' && m.winner_key && m.resolved_at && now - Date.parse(m.resolved_at) < 4 * 864e5);
+    const rows = fresh.map((m) => {
+      const mine = positions.filter((p) => p.market_id === m.id && p.team_id === me?.id && (p.shares > 0.0001 || p.paid > 0)).sort((a, b) => b.shares - a.shares)[0];
+      if (!mine) return null;
+      return { q: m.title, answer: m.outcomes.find((o) => o.key === mine.outcome)?.label ?? '', right: mine.outcome === m.winner_key, at: Date.parse(m.resolved_at!) };
+    }).filter((r): r is NonNullable<typeof r> => !!r).sort((a, b) => b.at - a.at);
+    return rows.length ? { rows, right: rows.filter((r) => r.right).length } : null;
+  }, [markets, positions, me?.id, now]);
+  const share = () => drop && shareCard({ kind: 'sheet', eyebrow: 'My calls', brand: cardBrand, who: me?.gm_name ?? '', title: drop.right === drop.rows.length ? 'Called every one' : drop.right === 0 ? 'Not my drop' : `${drop.right} of ${drop.rows.length} called`,
+    score: `${drop.right}/${drop.rows.length}`, rows: drop.rows.map(({ q, answer, right }) => ({ q, answer, right })) },
+    `${drop.right} of ${drop.rows.length} called in ${cardBrand.pool}.`);
+  return { drop, share };
+}
+
+function DropCard() {
+  const now = useNow(60000);
+  const { drop, share } = useDrop(now);
+  if (!drop) return null;
+  return (
+    <div className="card-hero flex flex-col gap-3 p-4 sm:flex-row sm:items-center">
+      <div className="min-w-0 flex-1">
+        <div className="label relative text-white/70">This drop</div>
+        <div className="relative font-display text-2xl font-extrabold text-white">{drop.right} of {drop.rows.length} called</div>
+        <div className="relative text-xs text-white/70">{drop.right === drop.rows.length ? 'Every one. Tell them.' : drop.right === 0 ? 'Next drop is a fresh start.' : 'Your calls on what settled, right and wrong, on one card.'}</div>
+      </div>
+      <ShareButton className="btn-gold relative w-full shrink-0 sm:w-auto" label="Share my drop" make={async () => share()} />
+    </div>
+  );
+}
+
 // ───────────── the board ─────────────
 export function Questions() {
   const { markets, positions, trades } = usePool();
   const now = useNow(30000);
-  const [tab, setTab] = useState<'open' | 'mine' | 'settled'>('open');
+  // the tab can come from the address (#/questions?tab=settled), so a bell or a card can open the one it means
+  const [params] = useSearchParams();
+  const asked = params.get('tab');
+  const [tab, setTab] = useState<'open' | 'mine' | 'settled'>(asked === 'mine' || asked === 'settled' ? asked : 'open');
   const { me } = useLeague();
+  const { drop } = useDrop(now);
   const list = (markets ?? []).filter((m) => tab === 'open' ? m.status === 'open'
     : tab === 'settled' ? m.status !== 'open'
     : positions.some((p) => p.market_id === m.id && p.team_id === me?.id && (p.shares > 0.0001 || p.paid > 0)));
+  // the group closing soonest first (a pack's drop questions arrive after its season ones, migration 251), each group
+  // soonest first too; settled questions newest first
   const groups = useMemo(() => {
     const g = new Map<string, PoolMarket[]>();
-    list.forEach((m) => { const k = m.category ?? 'Questions'; g.set(k, [...(g.get(k) ?? []), m]); });
+    const key = (m: PoolMarket) => (tab === 'settled' ? -(Date.parse(m.resolved_at ?? m.closes_at) || 0) : Date.parse(m.closes_at) || 0);
+    [...list].sort((a, b) => key(a) - key(b) || (a.sort ?? 0) - (b.sort ?? 0) || a.id - b.id)
+      .forEach((m) => { const k = m.category ?? 'Questions'; g.set(k, [...(g.get(k) ?? []), m]); });
     return [...g.entries()];
-  }, [list]);
+  }, [list, tab]);
   return (
     <div className="space-y-5">
       <PageHeader icon={<Sparkles className="h-6 w-6 text-gold" />} title="Questions" sub="Every answer has a price. Call it before your friends do." />
@@ -225,6 +292,7 @@ export function Questions() {
           </button>
         ))}
       </div>
+      {tab === 'settled' && drop && <DropCard />}
       {markets === null ? <div className="h-40 animate-pulse rounded-3xl bg-white/[.04]" />
         : !list.length ? <Empty icon="🔮" title={tab === 'mine' ? 'No calls yet' : tab === 'settled' ? 'Nothing settled yet' : 'Nothing open'}>{tab === 'mine' ? 'Pick a question and call it.' : null}</Empty>
         : groups.map(([g, ms]) => (
@@ -327,6 +395,35 @@ export function Question() {
           })()}
         </div>
       )}
+
+      {!open && m.status === 'open' && (() => {
+        // the calls are locked and the host hasn't settled yet (a drop day, from 3 am until the evening): everyone's
+        // call on the question, answer by answer, so the group can watch knowing who said what
+        const rows = m.outcomes.map((o) => ({ o, who: positions.filter((x) => x.market_id === m.id && x.outcome === o.key && Number(x.shares) >= 1)
+          .map((x) => ({ team: teams.find((t) => t.id === x.team_id), shares: Math.floor(Number(x.shares)) })).sort((a, b) => b.shares - a.shares) })).filter((r) => r.who.length);
+        const quiet = teams.filter((t) => t.role === 'gm' && t.user_id && !positions.some((x) => x.market_id === m.id && x.team_id === t.id && Number(x.shares) >= 1));
+        return (
+          <Section title="Where everyone stands" icon={<Sparkles className="h-5 w-5 text-gold" />}>
+            {rows.length ? (
+              <div className="card divide-y divide-white/[.05] p-1">
+                {rows.map(({ o, who }) => (
+                  <div key={o.key} className="px-3 py-2.5">
+                    <div className="flex items-center gap-2 text-sm"><span className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ background: answerColor(m, o.key) }} /><b className="min-w-0 flex-1 break-words text-white">{o.label}</b><span className="shrink-0 text-xs text-mute">{who.length} {who.length === 1 ? 'call' : 'calls'}</span></div>
+                    <div className="mt-1.5 flex flex-wrap gap-1.5">
+                      {who.map((w) => (
+                        <span key={w.team?.id} className={`flex items-center gap-1.5 rounded-full py-0.5 pl-0.5 pr-2.5 text-xs ring-1 ${w.team?.id === me?.id ? 'bg-gold/15 ring-gold/40 text-white' : 'bg-white/[.05] ring-white/10 text-slate-200'}`}>
+                          <TeamBadge team={w.team} size={20} /><span className="font-semibold">{(w.team?.gm_name ?? w.team?.name ?? '').split(' ')[0]}</span><span className="num text-mute">{w.shares}</span>
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : <div className="card p-4 text-sm text-mute">Nobody called this one before it closed.</div>}
+            <p className="mt-2 px-1 text-xs text-mute">Calls are locked. {quiet.length > 0 ? `${quiet.length === 1 ? `${(quiet[0].gm_name ?? quiet[0].name).split(' ')[0]} sat this one out` : `${quiet.length} sat this one out`}. ` : ''}The host settles it once the episodes are in.</p>
+          </Section>
+        );
+      })()}
 
       {m.status === 'resolved' && m.winner_key && (() => {
         // who called it: everyone holding the answer that came in, biggest payout first
@@ -517,9 +614,27 @@ export function PoolHost() {
   const [open, setOpen] = useState(false);
   if (!me?.is_commish) return <Empty icon="🔒" title="For the host">Only the pool’s host asks and settles the questions.</Empty>;
   const waiting = (markets ?? []).filter((m) => m.status === 'open' && !isOpen(m, now) && !m.source);
+  // what's next for the host, in order (a drop night for a first-time host: the questions close by themselves, then
+  // they wait to be settled, then the coins drop, then the couple questions get asked)
+  const soon = (markets ?? []).filter((m) => isOpen(m, now) && new Date(m.closes_at).getTime() - now < 864e5).sort((x, y) => x.closes_at.localeCompare(y.closes_at));
+  const nextDrop = drops.find((d) => new Date(d.at).getTime() > now);
+  const next: { icon: string; text: string; to?: string; act?: () => void }[] = [
+    ...(soon.length ? [{ icon: '⏳', text: `${soon.length === 1 ? 'One question closes' : `${soon.length} questions close`} ${closesIn(soon[0], now).replace(/^Closes /, '')}. Nothing to do until then: the pool nudges anyone who hasn’t called.`, to: '/questions' }] : []),
+    ...(waiting.length ? [{ icon: '⚖️', text: `${waiting.length === 1 ? 'One question has' : `${waiting.length} questions have`} closed and wait on you: settle each from what aired, by its rule.`, to: `/q/${waiting[0].id}` }] : []),
+    ...(nextDrop ? [{ icon: '🪙', text: `${nextDrop.amount} ${brand.coin.name.toLowerCase()} for everyone in ${countdown(new Date(nextDrop.at).getTime() - now)} (${nextDrop.note}).` }] : []),
+    { icon: '✍️', text: 'Something to ask? Once the cast is known, the couple questions are ready under Ask, One for each.', act: () => setOpen(true) },
+  ];
   return (
     <div className="space-y-5">
       <PageHeader icon={<Wand2 className="h-6 w-6 text-gold" />} title="Host" sub="Ask the questions, settle them from what airs, and keep the coins flowing." right={<button type="button" className="btn-gold inline-flex items-center gap-1.5" onClick={() => setOpen(true)}><Plus className="h-4 w-4" /> Ask</button>} />
+      <div className="card divide-y divide-white/[.05] p-1">
+        <div className="label px-3 pb-1 pt-2">What’s next</div>
+        {next.map((n, i) => {
+          const inner = <><span className="shrink-0 text-lg" aria-hidden>{n.icon}</span><span className="min-w-0 flex-1 break-words text-sm leading-snug text-slate-200">{n.text}</span>{(n.to || n.act) && <span className="shrink-0 text-mute">→</span>}</>;
+          const cls = 'flex items-center gap-3 px-3 py-2.5 text-left';
+          return n.to ? <Link key={i} to={n.to} className={cls}>{inner}</Link> : n.act ? <button key={i} type="button" onClick={n.act} className={`${cls} w-full`}>{inner}</button> : <div key={i} className={cls}>{inner}</div>;
+        })}
+      </div>
       <Section title={`Waiting on you (${waiting.length})`}>
         {waiting.length ? <div className="space-y-2">{waiting.map((m) => <Link key={m.id} to={`/q/${m.id}`} className="card flex items-center justify-between gap-3 p-3"><span className="min-w-0 break-words font-semibold">{m.title}</span><span className="shrink-0 text-sm text-gold">Settle →</span></Link>)}</div>
           : <div className="card p-4 text-sm text-mute">Nothing to settle. Questions land here when they close.</div>}

@@ -24,7 +24,7 @@ interface Open { kind: string; status: string; n: number }
 interface Crowd { sport: string; bucket: number; n: number; said: number; right_share: number; pools: number; market?: number | null; priced?: number }
 // every chance the product gives (migration 183), bucketed in tenths
 interface Chance { kind: string; bucket: number; n: number; expected: number; happened: number; brier: number }
-const CHANCES: Record<string, string> = { pool_win: 'Chance to win a pool game', pool_split: 'A pool’s favourite', h2h_win: 'Head-to-head win chances' };
+const CHANCES: Record<string, string> = { pool_win: 'Chance to win a pool game', pool_split: 'A pool’s favourite', pool_question: 'A pool’s priced favourite on its questions', h2h_win: 'Head-to-head win chances' };
 const SPORT: Record<string, string> = { soccer: 'Soccer', nfl: 'NFL football', mlb: 'Baseball', nhl: 'Hockey' };
 
 const KINDS: Record<string, string> = { winner: 'Who wins', ot: 'Goes to overtime', total: 'Over / under', prop: 'Player props', race: 'Races', season: 'Season markets' };
@@ -35,6 +35,7 @@ const WAIT: Record<string, string> = {
   box_points: 'Box pool teams’ expected points (scored when the pool is done)',
   h2h_win: 'Head-to-head win chances (scored when the week ends)',
   pool_split: 'Pools’ pick splits (scored at the final whistle)',
+  pool_question: 'Pools’ questions, the answer priced highest at the close (scored at the settle)',
   pool_win: 'Pool members’ chances to win (scored when the game ends)',
   pickup: 'Pickups the advisor suggested (scored when the stretch is over)',
 };

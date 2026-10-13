@@ -95,7 +95,10 @@ async function enter(lid: number) {
   const { data: lg } = await db.from('leagues').select('id,name,short_name,brand,sport,kind').eq('id', lid).maybeSingle();
   if (!lg) throw new Error(`no league ${lid}`);
   const { data: sp } = await db.from('sports').select('config').eq('id', lg.sport ?? 'nhl').maybeSingle();
-  const words = { ...NHL_WORDS, ...((sp?.config as { words?: Partial<Words> } | null)?.words ?? {}) };
+  // a prediction pool isn't a hockey league: its words are the group chat's, whatever sport its events are
+  const words = lg.kind === 'predict'
+    ? { game: 'pool', rec: 'group-chat', room: 'group chat', voice: "the friend who's most into this and runs the group chat: warm, quick, a little wicked", start: 'the next close' }
+    : { ...NHL_WORDS, ...((sp?.config as { words?: Partial<Words> } | null)?.words ?? {}) };
   const { data: teams } = await db.from('teams').select('id').eq('league_id', lid).eq('role', 'gm');
   const run = runs.getStore();
   if (!run) throw new Error('enter() outside a request');
@@ -124,7 +127,8 @@ async function recordBook(lid: number): Promise<string> {
 }
 
 const LEAGUE_TABLES = new Set(['messages', 'garry_memory', 'garry_state', 'rosters', 'teams', 'notifications', 'draft_picks', 'draft_state', 'draft_queue',
-  'bets', 'bet_entries', 'coin_ledger', 'lineup_snapshots', 'push_subscriptions', 'markets', 'market_bets', 'trades', 'league_rules', 'watchlist']);
+  'bets', 'bet_entries', 'coin_ledger', 'lineup_snapshots', 'push_subscriptions', 'markets', 'market_bets', 'trades', 'league_rules', 'watchlist',
+  'pool_markets', 'pool_drops', 'pool_positions', 'pool_trades', 'pool_picks', 'pool_games']);
 // shared NHL data in this league's points: box scores, projections and corrections under its scoring profile
 const LEAGUE_VIEWS: Record<string, string> = { player_games: 'league_games', players: 'league_players', stat_corrections: 'league_corrections' };
 const TEAM_VIEWS = new Set(['standings', 'playoff_standings', 'sak_cup_standings', 'coin_balances', 'team_daily', 'playoff_daily', 'team_bench_daily', 'book_standings', 'coin_races']);
@@ -530,6 +534,131 @@ async function storylines(yday: { team_id: number; points: number }[], standings
   };
 }
 
+// a prediction pool's board for the chat: every open question with its prices and when it closes, the asker's own
+// calls, and what settled lately with who called it, so "what closes tonight?" and "did I get the engagement one?"
+// get real answers
+async function poolFacts(asker: number, byId: Map<number, Team>) {
+  const [{ data: ms }, { data: pos }] = await Promise.all([
+    from('pool_markets').select('id,title,outcomes,status,winner_key,closes_at,resolved_at,q,b,category').order('closes_at'),
+    from('pool_positions').select('market_id,team_id,outcome,shares'),
+  ]);
+  const all = (ms ?? []) as (PoolMarket & { q: Record<string, number>; b: number; category: string | null })[];
+  const name = (id: number) => byId.get(id)?.gm_name ?? 'someone';
+  const label = (m: PoolMarket, key: string | null) => m.outcomes.find((o) => o.key === key)?.label ?? '?';
+  // the pool's prices: the market maker's rule (LMSR), as the site works them out
+  const price = (q: Record<string, number>, b: number, keys: string[]) => {
+    const z = keys.map((k) => Math.exp((Number(q[k] ?? 0)) / (Number(b) || 1)));
+    const sum = z.reduce((t, v) => t + v, 0);
+    return Object.fromEntries(keys.map((k, i) => [k, Math.round(100 * z[i] / sum)]));
+  };
+  const now = new Date().toISOString();
+  const held = (mid: number, who: number) => (pos ?? []).filter((p) => p.market_id === mid && p.team_id === who && Number(p.shares) > 0).map((p) => p.outcome);
+  const open = all.filter((m) => m.status === 'open' && m.closes_at > now).slice(0, 24).map((m) => {
+    const pr = price(m.q, m.b, m.outcomes.map((o) => o.key));
+    return { question: m.title, group: m.category, closes_at_utc: m.closes_at, prices: Object.fromEntries(m.outcomes.map((o) => [o.label, `${pr[o.key]}%`])),
+      callers: [...new Set((pos ?? []).filter((p) => p.market_id === m.id && Number(p.shares) > 0).map((p) => name(p.team_id)))].length,
+      askers_call: held(m.id, asker).map((k) => label(m, k)) };
+  });
+  const waiting = all.filter((m) => m.status === 'open' && m.closes_at <= now).map((m) => ({ question: m.title, askers_call: held(m.id, asker).map((k) => label(m, k)) }));
+  const settled = all.filter((m) => m.status === 'resolved').sort((a, b) => (b.resolved_at ?? '').localeCompare(a.resolved_at ?? '')).slice(0, 8).map((m) => ({
+    question: m.title, answer: label(m, m.winner_key), called_it: [...new Set((pos ?? []).filter((p) => p.market_id === m.id && Number(p.shares) > 0 && p.outcome === m.winner_key).map((p) => name(p.team_id)))],
+    askers_call: held(m.id, asker).map((k) => label(m, k)) }));
+  return { open_questions: open, closed_waiting_on_the_host: waiting, settled_lately: settled,
+    // the site's own words for the things a new member asks, so the voice never improvises a tap that isn't there
+    how_to: {
+      call_a_question: 'Questions tab, tap the question, tap an answer, choose the coins, Call it. A call can be sold back any time before the question closes. 👉 #/questions',
+      see_the_table: 'The Table tab ranks every member by net worth: coins in hand plus what their calls are worth at today\'s prices. 👉 #/standings',
+      invite_a_friend: 'Any member shares the pool\'s link from My pools; the host\'s open link is on the Host page. 👉 #/pools',
+      settle_a_question: 'The host opens the question after it closes and taps the answer that happened; everyone holding it is paid a coin a share. 👉 #/questions',
+      ask_a_question: 'The host writes new questions on the Host page (members too, where the host allows it). 👉 #/host',
+    } };
+}
+
+// ─────────────── a prediction pool's morning ───────────────
+// The pool's voice speaks on the days that matter (docs/DEVELOPMENT.md §9: a pool with no games was a quiet list of
+// odds): a question settled and who called it, the coins a drop paid, questions that close tonight and who hasn't
+// called them, questions that just arrived, and the table when it moved. Nothing happened, nothing posted.
+type PoolMarket = { id: number; title: string; outcomes: { key: string; label: string }[]; status: string; winner_key: string | null; closes_at: string; resolved_at: string | null; created_at: string };
+async function poolDaily() {
+  const { teams, byId } = await base();
+  const today = etDate(new Date());
+  if (await alreadyPosted('pool-day', today)) return { skipped: 'already posted' };
+  const since = new Date(Date.now() - 26 * 3600000).toISOString(), until = new Date(Date.now() + 30 * 3600000).toISOString(), now = new Date().toISOString();
+  const [{ data: ms }, { data: drops }, { data: pos }, { data: said }] = await Promise.all([
+    from('pool_markets').select('id,title,outcomes,status,winner_key,closes_at,resolved_at,created_at'),
+    from('pool_drops').select('at,amount,note').gte('at', since).lte('at', until),
+    from('pool_positions').select('market_id,team_id,outcome,shares'),
+    // what the pool's own machinery said since yesterday: a round settled, a series won, someone out of the survivor,
+    // squares paid, new questions from a pack (every kind of pool game posts its results here)
+    from('messages').select('body,meta').eq('kind', 'system').gte('created_at', since).order('id').limit(30),
+  ]);
+  const machinery = (said ?? []).filter((x) => !(x.meta as Record<string, unknown> | null)?.pool_start).map((x) => String(x.body).replace(/\s+/g, ' ').slice(0, 220));
+  const all = (ms ?? []) as PoolMarket[];
+  const name = (id: number) => byId.get(id)?.gm_name ?? 'someone';
+  const label = (m: PoolMarket, key: string | null) => m.outcomes.find((o) => o.key === key)?.label ?? '?';
+  const holders = (m: PoolMarket, key: string | null) => (pos ?? []).filter((p) => p.market_id === m.id && Number(p.shares) > 0 && p.outcome === key).map((p) => name(p.team_id));
+  const settled = all.filter((m) => m.status === 'resolved' && m.resolved_at && m.resolved_at > since).map((m) => ({
+    question: m.title, answer: label(m, m.winner_key), called_it: holders(m, m.winner_key),
+    missed_it: [...new Set((pos ?? []).filter((p) => p.market_id === m.id && Number(p.shares) > 0 && p.outcome !== m.winner_key).map((p) => name(p.team_id)))],
+  }));
+  const voided = all.filter((m) => m.status === 'void' && m.resolved_at && m.resolved_at > since).map((m) => m.title);
+  // a closing time in the members' words: Eastern, with tonight or tomorrow
+  const when = (iso: string) => {
+    const d = new Date(iso);
+    const day = etDate(d) === today ? 'today' : etDate(d) === etDate(new Date(Date.now() + 86400000)) ? 'tomorrow' : d.toLocaleDateString('en-CA', { timeZone: 'America/Toronto', weekday: 'long' });
+    return `${day} at ${d.toLocaleTimeString('en-CA', { timeZone: 'America/Toronto', hour: 'numeric', minute: '2-digit' }).replace(/\.\s?/g, '').toLowerCase()} ET`;
+  };
+  const closing = all.filter((m) => m.status === 'open' && m.closes_at > now && m.closes_at <= until).map((m) => ({
+    question: m.title, closes: when(m.closes_at),
+    not_called_yet: teams.filter((t) => !(pos ?? []).some((p) => p.market_id === m.id && p.team_id === t.id && Number(p.shares) > 0)).map((t) => t.gm_name),
+  }));
+  const waiting = all.filter((m) => m.status === 'open' && m.closes_at <= now).map((m) => m.title);
+  // a pool that opened yesterday has every question "new": that's the pool opening, not news
+  const brandNew = all.length > 0 && all.every((m) => m.created_at > since);
+  const opened = brandNew ? [] : all.filter((m) => m.status === 'open' && m.created_at > since).map((m) => m.title);
+  // the drops as sentences, so the amount is never re-read as something else
+  const c = coin();
+  const paid = (drops ?? []).filter((d) => d.at <= now).map((d) => `${Number(d.amount)} ${c.name} dropped into every member's purse (${d.note})`);
+  const coming = (drops ?? []).filter((d) => d.at > now).map((d) => `${Number(d.amount)} ${c.name} drop into every member's purse ${when(d.at)} (${d.note})`);
+  if (!settled.length && !voided.length && !closing.length && !opened.length && !paid.length && !machinery.length) return { skipped: 'nothing happened' };
+  const { data: sb } = await L.db.rpc('pool_scoreboard');
+  const games = ((sb as { games?: { title: string; kind?: string; status?: string; crown?: boolean; rows?: { team_id: number; rank: number; score: number; move?: number; line?: string; alive?: boolean | null }[] }[] } | null)?.games ?? []);
+  const main = games.find((g) => g.crown) ?? games[0];
+  const table = (main?.rows ?? []).slice().sort((a, b) => a.rank - b.rank).map((r) => ({ rank: r.rank, member: name(r.team_id), score: f1(Number(r.score)), moved: r.move ?? 0 }));
+  // the pool's other games (pick'em, the survivor, the series...): each table's top, with who moved
+  const others = games.filter((g) => g !== main && (g.rows?.length ?? 0) > 1).map((g) => ({ game: g.title, kind: g.kind, status: g.status,
+    top: (g.rows ?? []).slice().sort((a, b) => a.rank - b.rank).slice(0, 5).map((r) => ({ rank: r.rank, member: name(r.team_id), score: f1(Number(r.score)), moved: r.move ?? 0, ...(r.alive === false ? { out: true } : {}), ...(r.line ? { line: r.line } : {}) })) }));
+  // nothing empty goes to the voice: a zero or an empty list is a thing to narrate, and it will
+  const prune = (o: Record<string, unknown>) => Object.fromEntries(Object.entries(o).filter(([, v]) => v != null && v !== 0 && v !== false && !(Array.isArray(v) && !v.length)));
+  const facts = prune({
+    members: teams.length, ...(paid.length || coming.length || settled.length ? { the_coins_are_called: `${c.name} ${c.emoji}` } : {}), settled_since_yesterday: settled, voided, coins_dropped_today: paid, coins_dropping_soon: coming,
+    questions_closing_in_the_next_day: closing.length, closing_in_the_next_day: closing,
+    // each member's count, so "@X still has three to call" is never a guess
+    members_still_to_call: teams.map((t) => ({ member: t.gm_name, questions_left: closing.filter((x) => x.not_called_yet.includes(t.gm_name)).length, of: closing.length })).filter((x) => x.questions_left > 0),
+    closed_waiting_on_the_host: waiting, new_questions: opened,
+    ...(brandNew ? { the_pool_just_opened_with_questions: all.length } : {}),
+    table: table.length > 1 && table.some((r) => r.moved) ? { game: main?.title, rows: table.slice(0, 6) } : null,
+    ...(machinery.length ? { since_yesterday_the_pool_said: machinery } : {}),
+    ...(others.some((g) => g.top.some((r) => r.moved)) ? { other_games: others.filter((g) => g.top.some((r) => r.moved)) } : {}),
+  });
+  const fb = [
+    settled.length ? `${settled.map((x) => `"${x.question}": ${x.answer}${x.called_it.length ? ` (${x.called_it.join(', ')} called it)` : ''}`).join('. ')}.` : '',
+    paid.length ? `${c.emoji} ${paid.join('; ')}.` : '',
+    closing.length ? `Closing soon: ${closing.map((x) => `"${x.question}"`).join(', ')}.${closing.some((x) => x.not_called_yet.length) ? ` Still to call: ${[...new Set(closing.flatMap((x) => x.not_called_yet))].map((n) => '@' + n).join(', ')}.` : ''}` : '',
+    opened.length ? `${opened.length} new question${opened.length === 1 ? '' : 's'} to call.` : '',
+  ].filter(Boolean).join(' ');
+  const body = await write(`Write this morning's post for the pool's chat, as the friend who's most into this and runs the group chat. Lead with the one thing that matters today, in this order: a question that settled (the answer, who called it, who didn't), a result the pool's games posted since yesterday (since_yesterday_the_pool_said: a round won, someone out, a series called), coins that dropped, questions that close in the next day (say when, in the words given, and tag each member who hasn't called yet as @Name so their phone buzzes), questions waiting on the host, new questions. The table only when the facts give one. One sharp chirp built on those facts, worked into the post (never labelled as a chirp), never about a lineup or a sport the facts don't mention. Call the coins by their name. Every number comes straight from the facts and is quoted as given: how many questions close, each amount of coins, each member's calls left. Say nothing about what didn't happen (an empty list, a zero, a host who hasn't asked anything): only what did. A result is reported as the facts give it, never with how it came about. As short as the facts are: one line is fine on a one-fact day, never more than 110 words, no headers.`, facts, fb, 110, teams.filter((t) => closing.some((x) => x.not_called_yet.includes(t.gm_name))).map((t) => t.id));
+  await post(body, { type: 'pool-day', date: today });
+  // the day's reason to open the pool, on the phone too: one bell per seated member, the post's first line, to the chat
+  if (!dry()) {
+    const first = body.split(/\n+/)[0].replace(/\s+/g, ' ').slice(0, 140);
+    const { data: seated } = await from('teams').select('id').eq('role', 'gm').not('user_id', 'is', null);
+    const { error } = await from('notifications').insert((seated ?? []).map((t) => ({ team_id: t.id, kind: 'pool_day', body: `${L.brand.bot.emoji} ${bot()}: ${first}`, link: '/chat' })));
+    if (error) console.error('pool-day bells', error.message);
+  }
+  return { posted: 'pool-day', settled: settled.length, closing: closing.length, opened: opened.length, drops: paid.length };
+}
+
 // ─────────────── daily ───────────────
 async function daily() {
   if (!dry()) {
@@ -882,26 +1011,29 @@ async function converse(m: ChatMsg) {
     state(), situation(), recentLines(5),
     from('messages').select('id,team_id,kind,body').eq('channel', m.channel).eq('deleted', false).lte('id', m.id).order('id', { ascending: false }).limit(12),
     L.kind === 'predict' ? Promise.resolve([]) : gmCards(cardIds, byId, standings, n),
-    answer(facade(), m.body, m.team_id, { plain: true }).catch(() => null),
+    // a pool's facts come from its questions, never from the fantasy answer engine (no NHL slate in a Love Is Blind pool)
+    L.kind === 'predict' ? Promise.resolve(null) : answer(facade(), m.body, m.team_id, { plain: true }).catch(() => null),
     recall(byId, [m.team_id, ...mentioned.map((t) => t.id)], 25),
   ]);
   const lines = (thread.data ?? []).reverse().map((x) => `${x.kind === 'bot' ? bot() : byId.get(x.team_id)?.gm_name ?? 'someone'}: ${x.body.replace(/\s+/g, ' ').slice(0, 280)}`);
   const table = [...standings].sort((a, b) => a.rank - b.rank).map((x) => `${x.rank}. ${byId.get(x.team_id)?.gm_name} (${byId.get(x.team_id)?.name}) ${f1(Number(x.points))}`);
   const useful = ans && !['unknown', 'hello', 'chat'].includes(ans.topic);
   const privateLine = m.channel.startsWith('garry:');
+  const poolBoard = L.kind === 'predict' ? await poolFacts(m.team_id, byId).catch(() => null) : null;
   const watching = privateLine ? await watchFacts(m.team_id, byId).catch(() => []) : [];
   const prompt = [
     `Right now: ${now}`,
     table.length ? `Where everyone stands: ${table.join(' · ')}` : '',
     mem.length ? `What you remember (use it when it fits, never list it):\n${mem.map((x) => '- ' + x).join('\n')}` : '',
     mine.length ? `Your last few lines in the chat. Do not reuse their openers, closers, jokes, nudges or catchphrases:\n${mine.map((x) => '- ' + x).join('\n')}` : '',
-    `The GMs in this conversation (facts you can use):\n${JSON.stringify(cards)}`,
+    cards.length ? `The GMs in this conversation (facts you can use):\n${JSON.stringify(cards)}` : '',
+    poolBoard ? `The pool's board (facts you can use; a price is the pool's chance, in percent):\n${JSON.stringify(poolBoard)}` : '',
     watching.length ? `${asker?.gm_name}'s watch list, the players they've starred (private to them: fine on this line, never in the league chat): ${watching.join('; ')}` : '',
     useful ? `The site's verified answer to the question (use its facts and keep any "👉 #/..." link that fits, in your own words, not its wording):\n${ans!.text}${Object.keys(ans!.facts ?? {}).length ? `\n${JSON.stringify(ans!.facts).slice(0, 1500)}` : ''}` : '',
     `${privateLine ? `This is ${asker?.gm_name}'s private line to you; nobody else reads it.` : 'This is the league chat; everyone reads it.'} The conversation, oldest first; the last line is ${asker?.gm_name}'s and it's the one you answer:\n${lines.join('\n')}`,
     `Decide what ${asker?.gm_name} wants and reply:
-- "answer": a question about the league, a player, a team, the rules or the site. Answer it straight with the real numbers, then one jab.
-- "roast": they asked you to trash talk someone, themselves or everyone (then one specific line per GM). ${cap(W().game)} decisions, results, bets and chat only.
+- "answer": a question about the ${L.kind === 'predict' ? 'pool, a question on its board, the odds, the table' : 'league, a player, a team'}, the rules or the site. Answer it straight with the real numbers, then one jab.
+- "roast": they asked you to trash talk someone, themselves or everyone (then one specific line per ${L.kind === 'predict' ? 'member' : 'GM'}). ${L.kind === 'predict' ? 'Their calls' : `${cap(W().game)} decisions`}, results, bets and chat only.
 - "joke": they want something funny. Make it about this league if you can.
 - "banter": anything else: talking to you, about you, at you, or about someone. React like a guy in the room: agree, argue, chirp back, take a side, have an opinion. Never list what you can do.
 Lineup advice comes only from a GM's "tonight" facts: name a move only if it's in moves_worth_making; if there are none, they're set, and a player in sitting_with_no_fix is nothing to fix (say so, or chirp the bad luck). Never tell anyone to bench or swap otherwise.
@@ -952,7 +1084,7 @@ async function callerMayRun(req: Request) {
   return m?.role === 'commish';
 }
 // which leagues a request is about: ?league=N, else a signed-in person's active league, else every active league
-async function leaguesFor(req: Request, url: URL): Promise<number[]> {
+async function leaguesFor(req: Request, url: URL, task = ''): Promise<number[]> {
   const asked = Number(url.searchParams.get('league'));
   if (asked > 0) return [asked];
   const token = (req.headers.get('Authorization') ?? '').replace(/^Bearer /i, '');
@@ -965,8 +1097,12 @@ async function leaguesFor(req: Request, url: URL): Promise<number[]> {
       if (m) return [m.league_id];
     }
   }
-  // a prediction pool has no games and no hockey to talk about: the scheduled posts are for fantasy leagues
-  const { data: all } = await db.from('leagues').select('id').eq('status', 'active').eq('kind', 'fantasy').order('id');
+  // a prediction pool has no games and no hockey to talk about, so the scheduled posts are for fantasy leagues, except
+  // the morning: a pool's morning (poolDaily) posts on the days something happened or is about to (13 October 2026;
+  // the first scheduled run left the pools out and Pod Squad got no post on the premiere's eve)
+  let q = db.from('leagues').select('id').eq('status', 'active');
+  if (task !== 'daily') q = q.eq('kind', 'fantasy');
+  const { data: all } = await q.order('id');
   return (all ?? []).map((l) => l.id);
 }
 
@@ -1567,8 +1703,9 @@ async function assess(asked: string | null, force = false) {
 }
 
 async function runTask(task: string, req: Request) {
-  // a prediction pool has no lineups, no slate and no fantasy table: his scheduled posts are for fantasy leagues
-  if (L.kind === 'predict' && SCHEDULED.has(task)) return { skipped: 'a prediction pool' };
+  // a prediction pool has no lineups, no slate and no fantasy table: its one scheduled post is the morning column on
+  // days something happened or is about to (poolDaily); the rest of his scheduled runs are for fantasy leagues
+  if (L.kind === 'predict' && SCHEDULED.has(task)) return task === 'daily' ? poolDaily() : { skipped: 'a prediction pool' };
   if (task === 'nudge') return nudge();
   if (task === 'moments') return moments();
   if (task === 'assess') {
@@ -1647,7 +1784,7 @@ async function handle(req: Request) {
       const result = await bookChat({ id: t.id, gm_name: t.gm_name }, token, msgs);
       return json({ task, ok: true, llm: apiKey ? MODEL : false, league: L.lid, result });
     }
-    const leagues = await leaguesFor(req, url);
+    const leagues = await leaguesFor(req, url, task);
     const results: Record<number, unknown> = {};
     for (const lid of leagues) {
       await enter(lid);

@@ -16,7 +16,7 @@ import inter700 from './fonts/inter-700.ttf';
 import type { Env } from './index';
 
 interface Brand { colors?: { gold?: string }; tagline?: string; wordmark?: { a?: string; b?: string } }
-interface Invite { ok: boolean; reason: string | null; league?: string; short?: string; brand?: Brand | null; kind?: string; host?: string | null; members?: number; team?: string | null }
+interface Invite { ok: boolean; reason: string | null; league?: string; short?: string; brand?: Brand | null; kind?: string; host?: string | null; members?: number; team?: string | null; next_question?: string | null; open_questions?: number }
 interface Pool { id: number; slug: string; name: string; kind?: string; brand?: Brand | null; status?: string }
 
 const PRODUCT = { name: 'Super Pools', site: 'superpoolsai.com', gold: '#f7c548' };
@@ -63,8 +63,9 @@ export async function invitePage(code: string, url: URL, env: Env) {
   const title = i.ok ? `You're invited to ${i.league}` : i.league;
   const description = !i.ok ? `This invite has ${i.reason === 'expired' ? 'expired' : 'been used'}. Ask for a fresh link.`
     : fantasy ? `Take ${i.team ? `the ${i.team} seat` : 'a seat'} in ${i.league}${i.brand?.tagline ? `: ${i.brand.tagline}` : ''}. Draft, lineups, trash talk and the table, on ${PRODUCT.name}.`
-    : `${i.host ? `${i.host} invited you. ` : ''}${i.members ? `${i.members} ${i.members === 1 ? 'player is' : 'players are'} in. ` : ''}Make your calls in a tap. Free, never money: just bragging rights.`;
-  const image = `${url.origin}/og/j/${encodeURIComponent(code)}.png?v=${tag(`${i.league}|${color}|${i.host}|${i.members}|${i.ok}`)}`;
+    // the first question is the pitch (migration 252): the link in a text thread already asks it
+    : `${i.host ? `${i.host} invited you. ` : ''}${i.next_question ? `First up: "${i.next_question}" ` : ''}${i.members ? `${i.members} ${i.members === 1 ? 'player is' : 'players are'} in. ` : ''}Make your calls in a tap. Free, never money: just bragging rights.`;
+  const image = `${url.origin}/og/j/${encodeURIComponent(code)}.png?v=${tag(`${i.league}|${color}|${i.host}|${i.members}|${i.ok}|${i.next_question ?? ''}`)}`;
   return page({ title, description, image, url: url.href, go, color });
 }
 
@@ -143,8 +144,11 @@ export const inviteImage = (code: string, req: Request, env: Env, ctx: Execution
   return card({
     color: hex(i.brand?.colors?.gold), eyebrow: i.ok ? (fantasy ? 'You’re drafted in' : 'You’re invited') : 'This invite is closed',
     name: i.league,
-    line: fantasy ? (i.brand?.tagline ?? 'Draft, lineups, trash talk and the table.') : `${i.host ? `${i.host} invited you` : 'Join in one tap'}${i.members ? ` · ${i.members} in` : ''}`,
-    chips: fantasy ? ['Fantasy league', 'Phone-first'] : ['Free', 'Never money', 'Bragging rights'],
+    // a pool's picture asks its first question; who invited you and how many are in move to the chips
+    line: fantasy ? (i.brand?.tagline ?? 'Draft, lineups, trash talk and the table.')
+      : i.next_question ? `First up: ${i.next_question}` : `${i.host ? `${i.host} invited you` : 'Join in one tap'}${i.members ? ` · ${i.members} in` : ''}`,
+    chips: fantasy ? ['Fantasy league', 'Phone-first']
+      : i.next_question ? [i.host ? `${i.host} invited you` : 'Join in one tap', ...(i.members ? [`${i.members} in`] : []), 'Free, never money'] : ['Free', 'Never money', 'Bragging rights'],
     cta: i.ok ? 'Join →' : 'Ask for a new link',
   });
 });

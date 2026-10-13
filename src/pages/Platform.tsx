@@ -60,6 +60,8 @@ export default function Platform() {
         ))}
       </div>
 
+      <WeekNumbers />
+
       <Requests leagues={rows} reload={load} />
 
       <PoolTest />
@@ -356,6 +358,51 @@ function Requests({ leagues, reload }: { leagues: Row[]; reload: () => Promise<u
           </div>
         ))}
       </div>
+    </Section>
+  );
+}
+
+// The week's numbers (migration 253): what the product did in the last seven days against all time, and every league by
+// when it was last alive, the quietest last. Read every Monday; the numbers decide what's next (docs/DEVELOPMENT.md §8.4).
+type Week = { since: string; week: Record<string, number>; all_time: Record<string, number>;
+  leagues: { id: number; name: string; kind: 'fantasy' | 'predict'; status: string; members: number; joined_7d: number; calls_7d: number; callers_7d: number; messages_7d: number; last_alive: string | null }[] };
+function WeekNumbers() {
+  const [w, setW] = useState<Week | null>(null);
+  useEffect(() => { rpc<Week>('platform_week').then((r) => setW(r), () => setW(null)); }, []);
+  if (!w) return null;
+  const ago = (iso: string | null) => {
+    if (!iso) return 'never';
+    const h = Math.round((Date.now() - new Date(iso).getTime()) / 3600000);
+    return h < 1 ? 'just now' : h < 24 ? `${h}h ago` : `${Math.round(h / 24)}d ago`;
+  };
+  const tiles: [string, number, number][] = [
+    ['Pools started', w.week.pools_started, w.all_time.pools], ['People joined', w.week.people_joined, w.all_time.people],
+    ['First calls', w.week.first_calls ?? 0, w.all_time.first_calls ?? 0],
+    ['Calls made', w.week.calls, w.all_time.calls], ['Chat messages', w.week.messages, w.all_time.messages],
+    ['Links made', w.week.links_made, w.week.links_made], ['Waitlist', w.week.waitlist, w.all_time.waitlist],
+  ];
+  return (
+    <Section title="This week" right={<span className="text-xs text-mute">since {new Date(w.since).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}</span>}>
+      <div className="grid grid-cols-3 gap-2">
+        {tiles.map(([l, v, all]) => (
+          <div key={l} className="rounded-2xl border border-white/[.07] bg-white/[.04] px-2 py-2.5 text-center">
+            <div className="num font-display text-2xl font-extrabold leading-none text-white">{v}</div>
+            <div className="label mt-1">{l}</div>
+            <div className="num mt-0.5 text-[10px] text-mute">{all} all time</div>
+          </div>
+        ))}
+      </div>
+      <ul className="mt-3 divide-y divide-white/[.05] rounded-2xl border border-white/[.07] bg-white/[.03]">
+        {w.leagues.map((l) => (
+          <li key={l.id} className="px-3 py-2 text-sm">
+            <div className="flex items-baseline gap-2">
+              <span className="min-w-0 flex-1 truncate font-semibold text-slate-100">{l.name} <span className="font-normal text-[11px] text-mute">{l.kind === 'predict' ? 'pool' : 'league'}</span></span>
+              <span className={`num shrink-0 text-xs ${l.last_alive && Date.now() - new Date(l.last_alive).getTime() < 2 * 86400000 ? 'text-emerald-300' : 'text-mute'}`}>{ago(l.last_alive)}</span>
+            </div>
+            <div className="num mt-0.5 text-xs text-slate-300">{l.members} {l.members === 1 ? 'member' : 'members'}{l.joined_7d ? <span className="text-emerald-300"> +{l.joined_7d}</span> : ''} · {l.calls_7d} calls{l.callers_7d ? ` by ${l.callers_7d}` : ''} · {l.messages_7d} msgs</div>
+          </li>
+        ))}
+      </ul>
     </Section>
   );
 }

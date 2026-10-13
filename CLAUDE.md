@@ -57,6 +57,10 @@ Two things in one repo:
   The live scoreboard's Tonight's points lists every starter team by team; Performance has a Weekly review
   (`WeeklyReview`, deterministic suggestions from the trade finder and free agents). Later days save through
   `set_lineup_plans`; plans are readable league-wide (migration 164).
+- Imports (SUPERPOOLS item 9): history from Yahoo, ESPN and Fantrax (`*History.tsx` on the League page), scoring from Fantrax
+  (the Commish page's scoring editor), rosters from Fantrax, ESPN and Yahoo (`commish_import_rosters`, migration 256; one sheet,
+  `src/components/RosterImport.tsx`, a reader per site, the name matching in `src/lib/rosterMatch.ts`; each team written whole,
+  everyone on the bench, IR kept). A new site's import reads its public API from the browser; never a server of ours.
 - Sport: `src/lib/sport.ts` (`useSport()` from the store): the league's sport as the engine reads it (positions, slots,
   stats, game states, periods), the database's `sports` row with the NHL compiled in. New code that needs a position
   list, a slot rule or a stat label reads it instead of writing hockey in; the rest moves over one place at a time.
@@ -120,11 +124,11 @@ Two things in one repo:
   Accept. Funnel events `pool_start`, `invite_share`, `join`, `first_call`, `sign_up` (no PII). First-touch UTM/referrer
   on `waitlist` and `private.pool_signups`. `accounts.is_test` (platform-admin `set_account_is_test`).
   `mission_control_counts` for the portfolio Mission Control (passcode hash in `mission_control.counts_passcode`, never
-  committed). Landing `sitemap.xml`.
+  committed). `platform_week()` (migration 253) is the platform admins' week on the Platform page: pools, people, first calls within fifteen minutes of joining (migration 262), calls, messages, each league's week and when it was last alive. Landing `sitemap.xml`.
 - Hosting: the app on Cloudflare (every address; the GitHub Pages copy from `.github/workflows/deploy.yml` stays until
   EXPANSION B5 step 3) as a Worker with its own edge code (`worker/`, Workers Paid since 11 October 2026): `/api/hub`
   caches the sports data at the edge (the site's `hub()` reads it on the product's addresses), `/j/<code>` and
-  `/p/<web name>` are link previews with a picture drawn per pool (`/og/...`), and invites are shared as `/j/` links
+  `/p/<web name>` are link previews with a picture drawn per pool (`/og/...`; a pool invite's asks its first question, from `invite_preview`), and invites are shared as `/j/` links
   (`inviteLink` in `src/lib/host.ts`); `/api/live/<league>/<day>` is the league's live room for a game night, a Durable
   Object (`worker/live.ts`) the app joins while a game is on (`LiveRoomProvider`, `useLiveRoom()` in `src/lib/liveRoom.tsx`):
   it reads the night with a member's own sign-in and pushes the scoreboard's data, the night's swings, who's watching and
@@ -136,14 +140,17 @@ Two things in one repo:
   the chat badge, counted on the scoreboard's game chips instead); a pool's match on the shared fixtures is `game:fx<fixture id>` (`fixtureThread`, `ThreadSheet` and `useChannelCounts` in `GameThread.tsx`), opened from the pool room's chips, pick'em's Talk and the match centre, and a box pool's NHL game keeps `game:<game id>`. `/api/live/<league>/pool/<day>` is a prediction pool's
   room for the day (`worker/pool.ts`, `usePoolRoom` in `src/lib/poolRoom.ts`, `PoolRoomCard` on the pool's home): today's
   games on its events, their scores and members climbing its table, pushed; the rest is the built site. The plan for the edge is `docs/DEVELOPMENT.md` §8.3; the
-  Super Pools landing page (`landing/index.html`) on Cloudflare (zone routes on the apex and www; off Vercel); every
+  Super Pools landing page (`landing/index.html`, with `together.html` for the shows and `love-is-blind.html` for the
+  show pool itself, their Love Is Blind copy following the calendar through `LIB_STAGES` in `site.js`; the privacy note
+  is the app's `#/privacy`) on Cloudflare (zone routes on the apex and www; off Vercel); every
   other `<league>.superpoolsai.com` goes to the app through a wildcard zone route and a proxied `AAAA * 100::` record (live
   since 4 October 2026: `podsquad.superpoolsai.com`). One account, every pool (migration 151): the product's one address is
   `app.superpoolsai.com`; a pool's link is `#/p/<web name>/<page>` there and invites are `#/join/<code>` there (`appLink`,
   `poolLink` in `src/lib/host.ts`); a `<web name>` subdomain forwards to it unless someone is signed in on that address.
   My pools (`#/pools`) reads `my_pools()`; every start goes through `#/new` (a sports pool, a questions pool, or a fantasy
   league of your own with `fantasy_start`, opened in setup and taken live with `commish_go_live`), and a host deletes a
-  pool with `pool_delete` (migration 242). A pool's pages keep to its own events, `pool_competitions()`
+  pool with `pool_delete` (migration 242). A pack's new questions reach every open pool on it through the hourly pool job
+  (`_pool_pack_refresh`, migration 251; a pack question's later closing time reaches every open copy too, migration 258), and an invite's preview carries the pool's next question (migration 252). A pool's pages keep to its own events, `pool_competitions()`
   (`src/lib/poolOwn.ts`): read it rather than every competition when a pool page lists events. Every pool's games share one scoreboard
   (`pool_scoreboard()`, migration 169): a new kind of game adds a branch to `_pool_rows()` and gets the table, movement,
   climb alerts and the main-game crown (`league_rules.crown`) with it. Weekly pick'em (migration 170) is the first kind on

@@ -9,6 +9,7 @@ import { useLeague } from '../lib/store';
 import { yahoo, nhlAbbr, openYahoo, BENCH, SCORING, type YLeagueFull, type YMatchup, type YPlayer, type YRoster, type YTeam, type YTransaction, type YTransactions } from '../lib/yahoo';
 import { Empty, PageHeader, Section, Sheet, Spinner, useAction } from '../components/ui';
 import { YahooMark, useYahooStatus } from '../components/YahooConnect';
+import { YahooRosters } from '../components/YahooRosters';
 
 type Tab = 'standings' | 'matchups' | 'team' | 'players' | 'moves' | 'manage' | 'more';
 const shift = (d: string, n: number) => { const x = new Date(d + 'T12:00:00Z'); x.setUTCDate(x.getUTCDate() + n); return x.toISOString().slice(0, 10); };
@@ -454,6 +455,8 @@ function MoreTab({ L }: { L: YLeagueFull }) {
   const links = base ? [['League home', base], ['Standings', `${base}/standings`], ['Players', `${base}/players`], ['Transactions', `${base}/transactions`], ['League settings', `${base}/settings`], ['Message board', `${base}/messages`]] : [];
   return (
     <div className="space-y-3">
+      {/* the commissioner here brings this league's rosters in (migration 256) */}
+      <YahooRosters L={L} />
       <Section title="On Yahoo">
         <div className="grid gap-1.5 sm:grid-cols-2">
           {links.map(([l, u]) => <a key={l} href={u} target="_blank" rel="noreferrer" className="card flex items-center justify-between px-3 py-2.5 text-sm"><span>{l}</span><ExternalLink size={14} className="text-mute" /></a>)}

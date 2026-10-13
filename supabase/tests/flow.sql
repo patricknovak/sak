@@ -2223,6 +2223,9 @@ set role authenticated;
 select create_league('pond', 'Pond Hockey Pool', 'PHP', '{}'::jsonb, 3) as league4 \gset
 select pg_temp.expect('the platform sees every league with its seats', (select seats = 3 and filled = 0 and status = 'setup' and not commish_seated
   from platform_leagues() where league_id = :league4) and exists (select 1 from platform_leagues() where league_id = 1));
+select pg_temp.expect('the week''s numbers read for the platform (migration 253)', (select (w->'all_time'->>'leagues')::int >= 2 and (w->'week'->>'calls')::int >= 0
+  and jsonb_array_length(w->'leagues') >= 2 and (w->'leagues'->0) ? 'last_alive' and (w->'leagues'->0) ? 'callers_7d'
+  and (w->'week') ? 'first_calls' and (w->'all_time'->>'first_calls')::int >= 0 from platform_week() w));
 select pg_temp.expect('a new league isn''t ready until its commissioner is in', (select bool_and((x->>'ok')::boolean) filter (where x->>'key' in ('name', 'rules', 'draft', 'coins'))
   and not bool_or((x->>'ok')::boolean) filter (where x->>'key' = 'commish') from jsonb_array_elements(league_readiness(:league4)) x));
 select pg_temp.raises('it can''t go live before then', format('select platform_set_league_status(%s, ''active'')', :league4), 'Commissioner signed in');
@@ -2244,6 +2247,7 @@ select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-000000000099
 set role authenticated;
 select pg_temp.raises('a commissioner can''t switch leagues on', format('select platform_set_league_status(%s, ''archived'')', :league4), 'Only the platform');
 select pg_temp.raises('nor list the platform''s leagues', 'select * from platform_leagues()', 'Only the platform');
+select pg_temp.raises('nor read the week''s numbers (migration 253)', 'select platform_week()', 'Platform admins only');
 select pg_temp.raises('nor read another league''s checklist', format('select league_readiness(%s)', :league4), 'Only the platform');
 select pg_temp.expect('but reads her own', jsonb_array_length(league_readiness(:league2)) = 7);
 -- the north's commissioner gives her league its identity
@@ -3191,6 +3195,7 @@ select pg_temp.raises('the words lock once people trade', format('select pool_ed
 select pg_temp.as_team(1);
 select pg_temp.raises('the host can''t reword a traded question', format('select pool_edit(%s, ''{"title": "Something else"}''::jsonb)', :pm), 'stay as they are');
 select pool_edit(:pm, jsonb_build_object('closes_at', now() + interval '3 days'));
+select pg_temp.expect('a closing time the host set is marked as theirs (migration 259)', (select (source->>'host_closes')::boolean from pool_markets where id = :pm));
 select pool_resolve(:pm, 'a2', 'Test settle');
 select pg_temp.expect('the winner is paid a coin a share', (select sum(amount) from coin_ledger where team_id = 3 and reason like 'Paid: Pool test%')
   = (select floor(shares) from pool_positions where market_id = :pm and team_id = 3 and outcome = 'a2'));
@@ -3223,7 +3228,7 @@ select platform_open_pool('pod-squad-test', 'Pod Squad', 'PS', 'love-is-blind-s1
 reset role;
 select set_config('t.lib', :'lib', false);
 select pg_temp.expect('the pool is a prediction league', (select kind from leagues where id = :lib) = 'predict');
-select pg_temp.expect('with the pack''s questions, drops and brand', (select count(*) from pool_markets where league_id = :lib) = 8
+select pg_temp.expect('with the pack''s questions, drops and brand', (select count(*) from pool_markets where league_id = :lib) = 16
   and (select count(*) from pool_drops where league_id = :lib) = 4 and (select brand->'coin'->>'name' from leagues where id = :lib) = 'Goblets');
 select pg_temp.expect('loading the pack twice adds nothing', _pool_load_pack(:lib, 'love-is-blind-s11', null) = 0);
 insert into auth.users (id, email) values ('00000000-0000-0000-0000-000000000081', 'host81@example.com'), ('00000000-0000-0000-0000-000000000082', 'friend82@example.com');
@@ -3238,6 +3243,11 @@ reset role;
 set role anon;
 select pg_temp.expect('a pool''s invite names its host and how many are in (migration 160)', (select v->>'host' = 'Hana' and (v->>'members')::int = 1
   from invite_preview(:'libcode') v) and not (invite_preview(:'join_code') ? 'host'));
+select pg_temp.expect('and the first call to make (migration 252)', (select (v->>'open_questions')::int = 16 and v->>'next_question' = 'How many couples get engaged in the pods?'
+  and (v->>'next_closes')::timestamptz > now() from invite_preview(:'libcode') v) and not (invite_preview(:'join_code') ? 'next_question'));
+select pg_temp.expect('with its answers and the pool''s chances (migration 255)', (select (v->>'next_market')::bigint > 0
+  and jsonb_array_length(v->'next_outcomes') = 5 and (select sum((o->>'pct')::int) between 98 and 102 from jsonb_array_elements(v->'next_outcomes') o)
+  and v->'next_outcomes'->0->>'label' = '4 or fewer' from invite_preview(:'libcode') v));
 reset role;
 select _accept_invite('00000000-0000-0000-0000-000000000082', :'libcode', 'Fern');
 select id as fern from teams where league_id = :lib and user_id = '00000000-0000-0000-0000-000000000082' \gset
@@ -3325,6 +3335,10 @@ select pg_temp.expect('the win pays a coin a share', (select status = 'resolved'
 select pg_temp.expect('the postponed match is voided and refunded', (select status from pool_markets where title = 'Liverpool v Arsenal') = 'void'
   and (select sum(amount) from coin_ledger where team_id = :fern and reason like '%Liverpool v Arsenal%') = 0);
 select pg_temp.expect('settled in the pool''s own chat', (select league_id from messages where body like '✅ Settled: "Arsenal v Chelsea"%') = :lib);
+select pg_temp.expect('and the line names who called it (migration 257)', (select body like '%Called it: %(% of %)' or body like '%Nobody called it' from messages where body like '✅ Settled: "Arsenal v Chelsea"%' limit 1));
+select pg_temp.expect('and the pool''s forecast is on the prediction log, scored (migration 260)', exists (select 1 from predictions p join pool_markets m on m.id = (p.subject->>'market')::bigint
+  where p.kind = 'pool_question' and m.title = 'Arsenal v Chelsea' and p.league_id = :lib and p.status = 'scored' and p.outcome in (0, 1) and p.predicted between 0 and 1 and p.detail ? 'fav'));
+select pg_temp.expect('and the Calibration page counts it with the other chances (migration 261)', exists (select 1 from chance_calibration where kind = 'pool_question' and n >= 1));
 select pg_temp.expect('a host can still settle by hand', (select count(*) from pool_markets where league_id = :lib and status = 'open' and source is null) > 0);
 select set_config('request.jwt.claim.sub', '', false);
 select 'soccer', true;
@@ -3359,7 +3373,7 @@ select pg_temp.expect('and both are in her pools', jsonb_array_length(my_pools()
 select pg_temp.expect('a name taken gets a number', pool_start('Office Pool')->>'slug' = 'office-pool-2');
 select pg_temp.expect('the app''s own names are never a pool''s', pool_start('App')->>'slug' = 'app-pool');
 select set_config('t.bw', pool_start('Bachelorette Watch', '#fb7185', 'love-is-blind-s11')->>'slug', false);
-select pg_temp.expect('a pack brings its questions and its coins', (select count(*) = 8 and min(l.brand->'coin'->>'name') = 'Goblets'
+select pg_temp.expect('a pack brings its questions and its coins', (select count(*) = 16 and min(l.brand->'coin'->>'name') = 'Goblets'
   and min(l.brand->'wordmark'->>'a') = 'BACHELORETTE' from pool_markets m join leagues l on l.id = m.league_id where l.slug = current_setting('t.bw')));
 select pool_start('Fifth Pool');
 select pg_temp.raises('five a day', 'select pool_start(''Sixth Pool'')', 'five pools today');
@@ -3482,7 +3496,7 @@ reset role;
 select pg_temp.expect('a brand-new account hosts its new pool, under the name it gave', (select t.is_commish and t.gm_name = 'Maya' and t.user_id = '00000000-0000-0000-0000-000000000091'
   from teams t where t.league_id = :nw));
 select pg_temp.expect('it is a member, with the pack loaded and 1,000 coins', exists (select 1 from league_members where user_id = '00000000-0000-0000-0000-000000000091' and league_id = :nw)
-  and (select count(*) from pool_markets where league_id = :nw) = 8 and (select sum(amount) from coin_ledger c join teams t on t.id = c.team_id where t.league_id = :nw) = 1000);
+  and (select count(*) from pool_markets where league_id = :nw) = 16 and (select sum(amount) from coin_ledger c join teams t on t.id = c.team_id where t.league_id = :nw) = 1000);
 select pg_temp.expect('and the pool opens for it', (select active_league_id from accounts where user_id = '00000000-0000-0000-0000-000000000091') = :nw);
 set role service_role;
 select pg_temp.raises('an account already in a pool uses My pools instead', $$select _pool_start_new('00000000-0000-0000-0000-000000000091', 'Second Pool', null, null, 'Maya', 'iphash-aaaa-1')$$, 'already in a pool');
@@ -3538,6 +3552,89 @@ delete from pool_packs where slug in ('test-done', 'test-half');
 reset role;
 select set_config('request.jwt.claim.sub', '', false);
 select 'soccer packs', true;
+
+-- a pack grows after a pool started on it (migration 251): the hourly job adds the new question to every pool on the
+-- pack, once, says so in the pool's chat and each member's bell, and a pool on another pack hears nothing
+reset role;
+insert into pool_packs (slug, name, brand, markets, drops) values
+  ('test-grow', 'Grows later', '{"icon": "🌱"}', jsonb_build_array(jsonb_build_object('title', 'Question one?', 'outcomes', jsonb_build_array('Yes', 'No'), 'closes_at', now() + interval '2 days')), '[]');
+select pg_temp.expect('the pool takes the pack''s first question', _pool_load_pack(:epl, 'test-grow', null) = 1);
+update pool_packs set markets = markets || jsonb_build_array(
+  jsonb_build_object('title', 'Question two?', 'outcomes', jsonb_build_array('Yes', 'No'), 'closes_at', now() + interval '3 days'),
+  jsonb_build_object('title', 'Already shut?', 'outcomes', jsonb_build_array('Yes', 'No'), 'closes_at', now() - interval '1 hour'))
+  where slug = 'test-grow';
+select set_config('t.rf', _pool_pack_refresh(:epl)::text, false);
+select pg_temp.expect('the refresh adds the question still open, and only it', current_setting('t.rf') = '1'
+  and exists (select 1 from pool_markets where league_id = :epl and pack = 'test-grow' and title = 'Question two?')
+  and not exists (select 1 from pool_markets where league_id = :epl and title = 'Already shut?'));
+select pg_temp.expect('the pool''s chat says what arrived', exists (select 1 from messages where league_id = :epl and kind = 'system'
+  and body like '🔮 1 new question from Grows later: "Question two?"' and meta->>'pool_pack' = 'test-grow'));
+select pg_temp.expect('every seated member hears it in the bell',
+  (select count(*) from notifications n join teams t on t.id = n.team_id where t.league_id = :epl and n.kind = 'pool_new' and n.body like '🔮 1 new question to call from Grows later')
+  = (select count(*) from teams where league_id = :epl and role = 'gm' and user_id is not null));
+select pg_temp.expect('a second refresh adds nothing', _pool_pack_refresh(:epl) = 0);
+select pg_temp.expect('a pool on another pack is untouched', _pool_pack_refresh(:lib) = 0
+  and not exists (select 1 from pool_markets where league_id = :lib and pack = 'test-grow'));
+-- a pack question's closing time moved later reaches every open copy (migration 258), said once in the chat; a copy
+-- the host moved later than the pack keeps its own time; a closed copy is left alone
+update pool_packs set markets = (select jsonb_agg(case when x->>'title' = 'Question two?' then jsonb_set(x, '{closes_at}', to_jsonb((now() + interval '20 days')::timestamptz::text)) else x end)
+  from jsonb_array_elements(markets) x) where slug = 'test-grow';
+select set_config('t.mv', _pool_pack_refresh(:epl)::text, false);
+select pg_temp.expect('the pack''s later date reaches the pool''s open copy', current_setting('t.mv') = '1'
+  and (select closes_at > now() + interval '19 days' from pool_markets where league_id = :epl and pack = 'test-grow' and title = 'Question two?')
+  and exists (select 1 from messages where league_id = :epl and kind = 'system' and body like '📅 "Question two?" now closes %' and (meta->>'moved')::boolean));
+select pg_temp.expect('and only once', _pool_pack_refresh(:epl) = 0);
+update pool_markets set closes_at = now() + interval '40 days' where league_id = :epl and pack = 'test-grow' and title = 'Question two?';
+update pool_packs set markets = (select jsonb_agg(case when x->>'title' = 'Question two?' then jsonb_set(x, '{closes_at}', to_jsonb((now() + interval '30 days')::timestamptz::text)) else x end)
+  from jsonb_array_elements(markets) x) where slug = 'test-grow';
+select pg_temp.expect('a copy the host moved later than the pack keeps its own time', _pool_pack_refresh(:epl) = 0
+  and (select closes_at > now() + interval '39 days' from pool_markets where league_id = :epl and pack = 'test-grow' and title = 'Question two?'));
+update pool_markets set closes_at = now() + interval '2 days', source = '{"host_closes": true}'::jsonb where league_id = :epl and pack = 'test-grow' and title = 'Question two?';
+select pg_temp.expect('a copy whose closing time the host set by hand is left alone, even earlier than the pack (migration 259)', _pool_pack_refresh(:epl) = 0
+  and (select closes_at < now() + interval '3 days' from pool_markets where league_id = :epl and pack = 'test-grow' and title = 'Question two?'));
+-- a pack's drop reaches the pool once, and a corrected date moves it rather than doubling it (migration 263); a drop
+-- already paid stays as paid
+update pool_packs set drops = jsonb_build_array(jsonb_build_object('note', 'Seedling drop', 'amount', 100, 'at', now() + interval '5 days')) where slug = 'test-grow';
+select _pool_load_pack(:epl, 'test-grow', null);
+select _pool_load_pack(:epl, 'test-grow', null);
+select pg_temp.expect('the pack''s drop comes in once', (select count(*) from pool_drops where league_id = :epl and note = 'Seedling drop') = 1);
+update pool_packs set drops = jsonb_build_array(jsonb_build_object('note', 'Seedling drop', 'amount', 150, 'at', now() + interval '6 days')) where slug = 'test-grow';
+select _pool_load_pack(:epl, 'test-grow', null);
+select pg_temp.expect('a corrected date and amount move the pool''s copy, still one', (select count(*) = 1 and bool_and(amount = 150 and at > now() + interval '5 days 12 hours') from pool_drops where league_id = :epl and note = 'Seedling drop'));
+insert into coin_ledger (team_id, amount, reason) select min(id), 0, format('Coin drop: Seedling drop [drop %s]', (select id from pool_drops where league_id = :epl and note = 'Seedling drop')) from teams where league_id = :epl and role = 'gm';
+update pool_packs set drops = jsonb_build_array(jsonb_build_object('note', 'Seedling drop', 'amount', 200, 'at', now() + interval '7 days')) where slug = 'test-grow';
+select _pool_load_pack(:epl, 'test-grow', null);
+select pg_temp.expect('a drop somebody has been paid stays as paid', (select amount = 150 from pool_drops where league_id = :epl and note = 'Seedling drop'));
+delete from coin_ledger where reason like 'Coin drop: Seedling drop%';
+delete from pool_drops where note = 'Seedling drop';
+delete from notifications where kind = 'pool_new' and body like '%Grows later%';
+delete from messages where meta->>'pool_pack' = 'test-grow' or (meta->>'moved')::boolean;
+delete from pool_markets where pack = 'test-grow';
+delete from pool_packs where slug = 'test-grow';
+reset role;
+select set_config('request.jwt.claim.sub', '', false);
+select 'pack refresh', true;
+
+-- a question that closed and waits on the host (migration 254): eight hours on, the host hears once, in one bell for
+-- however many wait; a question still open, or one settled, says nothing, and a second run adds nothing
+reset role;
+select set_config('app.league_id', :'epl'::text, false);
+insert into pool_markets (league_id, title, outcomes, q, b, closes_at, created_by)
+  values (:epl, 'Waited all day?', '[{"key":"a1","label":"Yes"},{"key":"a2","label":"No"}]', '{"a1":0,"a2":0}', 50, now() - interval '9 hours', null),
+         (:epl, 'Closed just now?', '[{"key":"a1","label":"Yes"},{"key":"a2","label":"No"}]', '{"a1":0,"a2":0}', 50, now() - interval '1 hour', null);
+select set_config('t.sn', _pool_settle_nudge(:epl)::text, false);
+select pg_temp.expect('the host hears about the question that waited, not the one that just closed', current_setting('t.sn') = '1'
+  and exists (select 1 from notifications n join teams t on t.id = n.team_id where t.league_id = :epl and t.is_commish and n.kind = 'pool_settle'
+              and n.body like '⚖️ "Waited all day?" closed and waits on you%' and n.link like '/q/%'));
+select pg_temp.expect('and only once', _pool_settle_nudge(:epl) = 0);
+select set_config('app.league_id', '', false);
+select pg_temp.expect('another league''s run touches nothing here', _pool_settle_nudge(:epl) = 0);
+delete from notifications where kind = 'pool_settle';
+delete from private.soccer_nudged where game like 'settle:%';
+delete from pool_markets where league_id = :epl and title in ('Waited all day?', 'Closed just now?');
+reset role;
+select set_config('request.jwt.claim.sub', '', false);
+select 'settle nudge', true;
 
 -- ───────────── last one standing (migration 157) ─────────────
 -- Pod Squad runs a survivor on two MLS matchweeks: Fern, Hana and Lou are in; Lou never picks
@@ -6177,6 +6274,30 @@ set role authenticated;
 select pg_temp.expect('its starter deletes it while it is being set up', (pool_delete(:sg, 'Second Garage')->>'deleted')::int = :sg);
 reset role;
 select pg_temp.expect('gone with its seats', not exists (select 1 from leagues where id = :sg) and not exists (select 1 from teams where league_id = :sg));
+
+-- rosters brought in from another site (migration 256): each team named is replaced whole, everyone on the bench (IR kept),
+-- a player on a team not named stays theirs, and the commissioner's log has it
+select min(id) as ip1, max(id) as ip2 from players \gset
+select (select min(id) from teams where league_id = :gl and role = 'gm') as gt1, (select max(id) from teams where league_id = :gl and role = 'gm') as gt2 \gset
+select pg_temp.as_team(3);
+set role authenticated;
+select pg_temp.expect('the commissioner brings two teams'' rosters in', (commish_import_rosters(format('[{"team_id": %s, "players": [{"player_id": %s}, {"player_id": %s, "slot": "IR"}]}, {"team_id": %s, "players": []}]', :gt1, :ip1, :ip2, :gt2)::jsonb)->>'players')::int = 2);
+reset role;
+select pg_temp.expect('on the bench, IR kept, marked as imported', (select count(*) = 2 and bool_and(acquired = 'import') and count(*) filter (where slot = 'IR') = 1 and count(*) filter (where slot = 'BN') = 1 from rosters where league_id = :gl and team_id = :gt1));
+select pg_temp.as_team(3);
+set role authenticated;
+select pg_temp.raises('a player on a team not named stays theirs', format('select commish_import_rosters(''[{"team_id": %s, "players": [{"player_id": %s}]}]'')', :gt2, :ip1), 'Already on a team not in this import');
+select pg_temp.raises('a player goes to one team', format('select commish_import_rosters(''[{"team_id": %s, "players": [{"player_id": %s}]}, {"team_id": %s, "players": [{"player_id": %s}]}]'')', :gt1, :ip1, :gt2, :ip1), 'named for two teams');
+select pg_temp.raises('a team is one of ours', 'select commish_import_rosters(''[{"team_id": 1, "players": []}]'')', 'not in this league');
+select set_config('t.ri', (commish_import_rosters(format('[{"team_id": %s, "players": [{"player_id": %s}]}]', :gt1, :ip2)::jsonb)->>'players'), false);
+select pg_temp.expect('run again, the team is replaced whole', current_setting('t.ri')::int = 1 and (select count(*) from rosters where league_id = :gl and team_id = :gt1) = 1);
+select pg_temp.expect('and it is on the commissioner''s log', exists (select 1 from commish_log where league_id = :gl and action = 'commish_import_rosters'));
+reset role;
+select pg_temp.as_team(4);
+set role authenticated;
+select pg_temp.raises('commissioner only', format('select commish_import_rosters(''[{"team_id": %s, "players": []}]'')', :gt1), 'Commissioner only');
+reset role;
+select set_config('request.jwt.claim.sub', '', false);
 -- the platform deletes a live one (the test league above), all of it
 select pg_temp.as_team(1);
 set role authenticated;

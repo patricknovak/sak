@@ -19,6 +19,8 @@ import { LeagueIdentity } from '../components/LeagueIdentity';
 import { SetupGuide } from '../components/SetupGuide';
 import { SeatManager } from '../components/SeatManager';
 import { RosterEditor } from '../components/RosterEditor';
+import { FantraxRosters } from '../components/FantraxRosters';
+import { EspnRosters } from '../components/EspnRosters';
 import { CategoryEditor } from '../components/CategoryEditor';
 import { FormatEditor } from '../components/FormatEditor';
 import { inviteLink } from '../lib/host';
@@ -206,6 +208,13 @@ export default function Commish() {
 
       <Section id="roster" title="🧩 Roster">
         <RosterEditor />
+        <div className="mt-2 grid gap-2 sm:grid-cols-2"><FantraxRosters /><EspnRosters />
+          {/* Yahoo needs the GM's own sign-in, so its rosters come in from the Yahoo league's page under My pools */}
+          <Link to="/yahoo" className="flex w-full items-center gap-3 rounded-xl border border-dashed border-sky-400/30 bg-sky-500/[.06] p-3 text-left transition hover:bg-sky-500/10">
+            <span className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-sky-500/20 text-[10px] font-black tracking-tight text-sky-100">Y!</span>
+            <span className="min-w-0 text-sm"><span className="block font-semibold text-slate-100">Bring the rosters from Yahoo</span><span className="block text-xs text-mute">Open your Yahoo league under My pools; its More tab brings every team in.</span></span>
+          </Link>
+        </div>
       </Section>
 
       <Section id="settings" title="⚙️ League settings">

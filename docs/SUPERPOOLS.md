@@ -147,6 +147,12 @@ on the site, and the switcher.
   page with the invite link; limits of three a day per address and sixty a day across the platform. Share cards: a member
   posts a picture of their call, a call that came in, or the standings to the group chat, drawn on the phone in the pool's
   colours (`src/lib/shareCard.ts`; nothing is stored or sent until they share it). The host asks from a starting shape (yes or no, who, how many) or the same question once for each name on a list (every couple) in one go, closing at the next coin drop in a tap (`src/components/AskSheet.tsx`); a new player sees how it works on the pool's home (prices are chances, a right answer pays one coin a share, sell back before it closes, the crown) until they put it away.*
+  *13 October 2026 (docs/DEVELOPMENT.md §9, the review before the premiere):* the pack has four questions for each
+  middle drop (21 and 28 October) so there is something to call every Wednesday; a pack's new questions reach every open
+  pool on it through the hourly pool job (migration 251); the pool's voice posts on the mornings that matter and rings
+  each member's bell; the host hears when a question waits on them (migration 254); the invite link shows the first
+  question with its answers and the pool's chances, and a stranger's first call is placed the moment they are in
+  (migrations 252 and 255).
 - **P3. Soccer prediction pools.** Fixtures and results from API-Football (provider-neutral tables), gameweek and
   survivor questions settled from results, Premier League and MLS first. *Step 1 built (migrations 148-149, live): the
   `soccer` sports row, shared `competitions`, `clubs` and `fixtures`, the `soccer-sync` adapter on API-Football, a
@@ -367,8 +373,16 @@ The steps above finish the tenancy. `docs/MARKET.md` sets what comes after in th
    link a season; its public API (which answers any website) gives each season's standings, read in Fantrax's order with
    the season's points (or points for, head to head). It doesn't name managers, so Who's who asks which team here each
    Fantrax team was, matched by name to start with. A points league's scoring copies too (Copy the scoring from Fantrax,
-   in the Commish page's scoring editor, every stat both sites keep, shown to check before saving). Rosters next (Fantrax
-   counts forwards where we have C, LW and RW, so slots stay hand-set); CBS needs a sign-in, so it stays on paste.
+   in the Commish page's scoring editor, every stat both sites keep, shown to check before saving). *Rosters done (13 October 2026,
+   `src/components/FantraxRosters.tsx`, migration 256):* the commissioner pastes the league's link under Roster on the Commish page,
+   every team comes back with its players matched to ours by name and club (Fantrax's public roster call and its player id
+   map), says which team here each one is, and `commish_import_rosters` writes each team whole, everyone on the bench (IR
+   kept) since Fantrax counts forwards where we have centres and wings; a prospect in the minors or a spelling we don't
+   have is listed and left out. The same sheet reads ESPN's rosters (`src/components/EspnRosters.tsx`, the mRoster view of the
+   API its history comes in through, clubs from ESPN's pro-team list), checked against a stub of ESPN's shape until a
+   public hockey league turns up to read; the matching is shared (`src/lib/rosterMatch.ts`); and a Yahoo league's rosters come in from its page under My pools
+   (`src/components/YahooRosters.tsx`, one roster call a team through the Yahoo function, no link to paste since the GM is
+   signed in there; the commissioner here sees it). CBS needs a sign-in, so it stays on paste.
 10. **Contracts, caps, prospect slots and rookie drafts**; guillotine and best ball formats.
 11. **The Supercoin.** An account-level wallet, the SaK coin ledger migrated onto it, per-pool allowances, the
     Book and side bets as the add-on, the ledger visible in every pool. Never for sale, never cashed out.
@@ -421,8 +435,9 @@ The steps above finish the tenancy. `docs/MARKET.md` sets what comes after in th
     `first_call`, `sign_up`) with no PII, a landing `sitemap.xml`, first-touch UTM/referrer on `waitlist` and
     `private.pool_signups`, `accounts.is_test` (admin-only to change, backfilled from the test email filter), and
     `mission_control_counts` (anon + passcode hash in `mission_control.counts_passcode`, never committed) returning
-    real-user, pool, member, action and weekly-active-pool-player counts for Mission Control. Per-pool usage tables and the
-    privacy note are still to come.
+    real-user, pool, member, action and weekly-active-pool-player counts for Mission Control. *The privacy note done (13 October 2026, `src/pages/Privacy.tsx`, `#/privacy`, open to anyone):* what is kept, who sees it,
+    the analytics choice, email and the voice, where it lives, how to leave or be deleted; linked from the consent banner and
+    the landing's footer, and changed in the same pull request as the code it describes. Per-pool usage tables are still to come.
 15. **App-store listing** and the **playoff bracket pool** (the bracket is now a kind in P6, `docs/POOL-TYPES.md`). (The voice per league with a daily budget is done: item 2,
     migration 99.)
 16. **Game nights for every league and pool** (done 11 October 2026; `docs/DEVELOPMENT.md` §8.3 E4, E5 and §8.5). One
