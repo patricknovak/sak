@@ -221,6 +221,21 @@ export function Questions() {
   const now = useNow(30000);
   const [tab, setTab] = useState<'open' | 'mine' | 'settled'>('open');
   const { me } = useLeague();
+  const cardBrand = useCardBrand();
+  // the drop's card (docs/POOLS.md §6, share cards after every drop): the member's calls on what settled in the last four
+  // days, right or wrong, with the score, shared from the Settled tab while the drop is fresh
+  const drop = useMemo(() => {
+    const fresh = (markets ?? []).filter((m) => m.status === 'resolved' && m.winner_key && m.resolved_at && now - Date.parse(m.resolved_at) < 4 * 864e5);
+    const rows = fresh.map((m) => {
+      const mine = positions.filter((p) => p.market_id === m.id && p.team_id === me?.id && (p.shares > 0.0001 || p.paid > 0)).sort((a, b) => b.shares - a.shares)[0];
+      if (!mine) return null;
+      return { q: m.title, answer: m.outcomes.find((o) => o.key === mine.outcome)?.label ?? '', right: mine.outcome === m.winner_key, at: Date.parse(m.resolved_at!) };
+    }).filter((r): r is NonNullable<typeof r> => !!r).sort((a, b) => b.at - a.at);
+    return rows.length ? { rows, right: rows.filter((r) => r.right).length } : null;
+  }, [markets, positions, me?.id, now]);
+  const shareDrop = () => drop && shareCard({ kind: 'sheet', eyebrow: 'My calls', brand: cardBrand, who: me?.gm_name ?? '', title: drop.right === drop.rows.length ? 'Called every one' : drop.right === 0 ? 'Not my drop' : `${drop.right} of ${drop.rows.length} called`,
+    score: `${drop.right}/${drop.rows.length}`, rows: drop.rows.map(({ q, answer, right }) => ({ q, answer, right })) },
+    `${drop.right} of ${drop.rows.length} called in ${cardBrand.pool}.`);
   const list = (markets ?? []).filter((m) => tab === 'open' ? m.status === 'open'
     : tab === 'settled' ? m.status !== 'open'
     : positions.some((p) => p.market_id === m.id && p.team_id === me?.id && (p.shares > 0.0001 || p.paid > 0)));
@@ -243,6 +258,16 @@ export function Questions() {
           </button>
         ))}
       </div>
+      {tab === 'settled' && drop && (
+        <div className="card-hero flex flex-col gap-3 p-4 sm:flex-row sm:items-center">
+          <div className="min-w-0 flex-1">
+            <div className="label relative text-white/70">This drop</div>
+            <div className="relative font-display text-2xl font-extrabold text-white">{drop.right} of {drop.rows.length} called</div>
+            <div className="relative text-xs text-white/70">{drop.right === drop.rows.length ? 'Every one. Tell them.' : drop.right === 0 ? 'Next drop is a fresh start.' : 'Your calls on what settled, right and wrong, on one card.'}</div>
+          </div>
+          <ShareButton className="btn-gold relative w-full shrink-0 sm:w-auto" label="Share my drop" make={async () => shareDrop()} />
+        </div>
+      )}
       {markets === null ? <div className="h-40 animate-pulse rounded-3xl bg-white/[.04]" />
         : !list.length ? <Empty icon="🔮" title={tab === 'mine' ? 'No calls yet' : tab === 'settled' ? 'Nothing settled yet' : 'Nothing open'}>{tab === 'mine' ? 'Pick a question and call it.' : null}</Empty>
         : groups.map(([g, ms]) => (

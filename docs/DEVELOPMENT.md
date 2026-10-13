@@ -574,6 +574,8 @@ Built 13 October, live:
   wait on the member's call, one tap from the first; once a question closes and until the host settles it, its page shows
   where everyone stands (every member's call, answer by answer, who sat it out), so the group watches knowing who said
   what. A first call from an invite lands in the pool just joined, whichever pool the tab was in before.
+  The drop's share card (POOLS.md §6, share cards after every drop): on the Questions page's Settled tab for four days after
+  a settle, the member's calls on it right or wrong with the score, drawn as the sheet card.
 - **Migration 256, rosters from Fantrax** (§8.4 item 6's imports' rosters): `commish_import_rosters` writes each team named
   whole, everyone on the bench (IR kept), refusing a team bigger than the league's roster by name and a player who is on
   a team not named; the Commish page's Roster section reads a league's rosters from Fantrax's public API, matches players
