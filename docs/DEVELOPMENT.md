@@ -596,6 +596,13 @@ Built 13 October, live:
   steps, the questions people ask, one start button. The landing's Love Is Blind copy follows the calendar (`LIB_STAGES` in
   `landing/site.js`): the countdown counts to whatever is next, and once the pods are open every line written for before
   the premiere says what's next instead (drop 2, drop 3, the weddings, the reunion), then that the season is in the books.
+- **Migration 257:** the chat line a settle leaves names who called it, biggest call first, against how many called
+  anything ("Called it: Priya, Sam (2 of 7)", or "Nobody called it"), so a drop night's settle is a moment in the chat.
+- **The morning run includes the pools:** the first scheduled run (14:00 UTC, 13 October) listed fantasy leagues only,
+  so Pod Squad got no post on the premiere's eve; `leaguesFor` now includes active prediction pools for the `daily`
+  task (the other scheduled tasks still skip them). Deployed the same hour, and the day's post run by hand for Pod Squad
+  and the test pool (the drop and the four questions closing at 3 am, the member with three calls left tagged, the eight
+  new questions): the first live pool post.
 - **The pool's chat:** in a prediction pool Garry's replies read the pool's board (every open question with its prices
   and closing time, the asker's own calls, what settled lately and who called it) instead of the fantasy answer engine,
   which had an NHL slate to offer a Love Is Blind pool. The Questions page lists the group closing soonest first.
