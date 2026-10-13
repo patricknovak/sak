@@ -628,7 +628,9 @@ Built 13 October, live:
   each with the members still to pick. The morning post now speaks on a game day as it does on a drop day: the lock
   (the round, when, each member still to pick tagged) and tonight's games on the pool's events, after what settled and
   before the questions; a pool with nothing of the kind stays quiet as before. The chat's facts carry the next three
-  days, so "who hasn't picked?" and "what's on tonight?" get real answers. The same read is for the site's next card.
+  days, so "who hasn't picked?" and "what's on tonight?" get real answers. The pool's home reads it too (`usePoolAhead`):
+  the hero's last call for the games, beside the questions', is the soonest lock before tomorrow (the round, the countdown,
+  how many still to pick and whether the member is among them), one tap from the picks.
 - **The pool's chat:** in a prediction pool Garry's replies read the pool's board (every open question with its prices
   and closing time, the asker's own calls, what settled lately and who called it) instead of the fantasy answer engine,
   which had an NHL slate to offer a Love Is Blind pool. The Questions page lists the group closing soonest first.
