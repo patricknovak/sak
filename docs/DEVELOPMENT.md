@@ -580,6 +580,9 @@ Built 13 October, live:
   question's answers with the pool's chances; the join page shows them as chips, a stranger taps one, and the call (100
   coins) is placed the moment they're in, before the account's first page. If the question closed while they typed,
   they're in and the board is a tap away. The GA4 funnel's `first_call` fires with it.
+- **The pool's voice, tuned on live previews:** the group chat's words (not a hockey league's), the drops and each
+  member's calls left as sentences and counts it quotes as given, and the site's own how-to in its chat board (calling,
+  the table, inviting, settling, asking), so it never improvises a tap that isn't there.
 - **The pool's morning rings the bell:** each seated member gets the post's first line as a notification (and the push,
   where they allow it), since chat posts don't push and the post is the day's reason to open the pool.
 
