@@ -580,6 +580,9 @@ Built 13 October, live:
   by name and club (then last name, first initial and club), and lists what it couldn't match; the same sheet reads ESPN's
   rosters for a league made viewable to the public (checked against a stub of ESPN's shape: no public hockey league was
   found to read live).
+- **The privacy note** (`#/privacy`, SUPERPOOLS item 14): what is kept, who sees it, the analytics choice, email and the
+  voice, where it lives, how to leave or be deleted; from the consent banner and the landing's footer. The setup guide
+  gains "Bring what you had" (seasons, scoring and rosters from Fantrax or ESPN) for a league that played elsewhere.
 - **The pool's chat:** in a prediction pool Garry's replies read the pool's board (every open question with its prices
   and closing time, the asker's own calls, what settled lately and who called it) instead of the fantasy answer engine,
   which had an NHL slate to offer a Love Is Blind pool. The Questions page lists the group closing soonest first.

@@ -6,6 +6,8 @@
 export interface Change { date: string; icon: string; title: string; body: string; to?: string; tag?: 'formats' | 'commish' | 'draft' | 'everyone' }
 
 export const CHANGELOG: Change[] = [
+  { date: '2026-10-13', icon: '🔒', tag: 'everyone', title: 'Your privacy, plainly', to: '/privacy',
+    body: 'A page that says everything we keep to run a pool and nothing else: your name and email, your calls, picks and messages, who sees them (the people in your pool, nobody outside it), the analytics choice, and how to leave or be deleted. Linked from the cookie banner and the landing page.' },
   { date: '2026-10-13', icon: '🧳', tag: 'commish', title: 'Bring your rosters from Fantrax or ESPN', to: '/commish',
     body: 'Moving a league over from Fantrax or ESPN? Under Roster on the Commish page, paste the league\'s link and every team\'s players come back matched to ours by name and club. Say which team here each one is, and they\'re written in, everyone on the bench with IR kept, so the first lineup sorts the starters. Anyone Fantrax has that we don\'t (a prospect in the minors, a different spelling) is listed and left out.' },
   { date: '2026-10-13', icon: '💍', tag: 'everyone', title: 'Something to call every Wednesday', to: '/questions',

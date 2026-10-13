@@ -433,8 +433,9 @@ The steps above finish the tenancy. `docs/MARKET.md` sets what comes after in th
     `first_call`, `sign_up`) with no PII, a landing `sitemap.xml`, first-touch UTM/referrer on `waitlist` and
     `private.pool_signups`, `accounts.is_test` (admin-only to change, backfilled from the test email filter), and
     `mission_control_counts` (anon + passcode hash in `mission_control.counts_passcode`, never committed) returning
-    real-user, pool, member, action and weekly-active-pool-player counts for Mission Control. Per-pool usage tables and the
-    privacy note are still to come.
+    real-user, pool, member, action and weekly-active-pool-player counts for Mission Control. *The privacy note done (13 October 2026, `src/pages/Privacy.tsx`, `#/privacy`, open to anyone):* what is kept, who sees it,
+    the analytics choice, email and the voice, where it lives, how to leave or be deleted; linked from the consent banner and
+    the landing's footer, and changed in the same pull request as the code it describes. Per-pool usage tables are still to come.
 15. **App-store listing** and the **playoff bracket pool** (the bracket is now a kind in P6, `docs/POOL-TYPES.md`). (The voice per league with a daily budget is done: item 2,
     migration 99.)
 16. **Game nights for every league and pool** (done 11 October 2026; `docs/DEVELOPMENT.md` §8.3 E4, E5 and §8.5). One

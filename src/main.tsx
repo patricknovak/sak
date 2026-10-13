@@ -39,6 +39,7 @@ const Costs = lazy(() => import('./pages/Costs'));
 const Platform = lazy(() => import('./pages/Platform'));
 const Start = lazy(() => import('./pages/Start'));
 const NewPool = lazy(() => import('./pages/NewPool'));
+const Privacy = lazy(() => import('./pages/Privacy'));
 const Survivor = lazy(() => import('./pages/Survivor'));
 const Predictor = lazy(() => import('./pages/Predictor'));
 const Picks = lazy(() => import('./pages/Picks'));
@@ -112,6 +113,8 @@ function App() {
   if (pathname === '/start') return <Suspense fallback={null}><Start /></Suspense>;
   // so is starting a prediction pool (migration 153)
   if (pathname === '/new') return <Suspense fallback={null}><NewPool /></Suspense>;
+  // and the privacy note (what we keep, who sees it), linked from the consent banner and the landing page
+  if (pathname === '/privacy') return <Suspense fallback={null}><Privacy /></Suspense>;
   if (!session) return <Login />;
   if (!me) {
     return (

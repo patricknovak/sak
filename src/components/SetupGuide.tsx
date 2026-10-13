@@ -15,7 +15,7 @@ interface Step { key: string; title: string; detail: string; done: boolean; to?:
 const jump = (id: string) => document.getElementById(id)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
 
 export function SetupGuide() {
-  const { league, teams, draft, session } = useLeague();
+  const { league, teams, draft, session, rosters } = useLeague();
   const brand = useBrand();
   const { busy, run } = useAction();
   const [status, setStatus] = useState<string | null>(null);
@@ -43,6 +43,9 @@ export function SetupGuide() {
     { key: 'look', title: 'Make it yours', detail: `${league.name} · ${brand.short}. Wordmark, colour, prize names and the coins.`, done: true, to: 'identity' },
     { key: 'gms', title: 'Bring in your GMs', detail: filled === seats ? `All ${seats} seats taken.` : `${filled} of ${seats} seats taken. Open seats on draft night are picked for automatically.`, done: filled === seats, to: 'invites' },
     { key: 'rules', title: 'Scoring and roster', detail: 'Worth a look: how points are scored and how many players each team carries.', done: false, to: 'roster', optional: true },
+    // a league that played elsewhere brings its past, its scoring and its rosters from the other site's link (item 9 of
+    // the product plan): the step is done once any team has players before the draft
+    { key: 'bring', title: 'Bring what you had', detail: rosters.length ? `${rosters.length} players are in from before.` : 'Played on Fantrax or ESPN? Your seasons, your scoring and every team’s roster come in from the league’s link.', done: rosters.length > 0, to: 'roster', optional: true },
     ...(h2h ? [{ key: 'schedule', title: 'Make the schedule', detail: weeks ? `${weeks} weeks of matchups${(league.h2h_playoffs ?? 0) >= 2 ? `, then playoffs for the top ${league.h2h_playoffs}` : ''}.` : 'Head-to-head plays a weekly schedule: pick the playoff spots and make it.', done: weeks > 0, to: 'scoring' }] : []),
     ...(keepers ? [{ key: 'keepers', title: 'Keepers', detail: `${teams.filter((t) => t.keepers_submitted).length} of ${seats} GMs have saved theirs. Finalize to open the draft pool.`, done: false, to: 'keepers' }] : []),
     { key: 'when', title: 'Set draft night', detail: league.draft_at ? `${fmtDateTime(league.draft_at)} · ${league.pick_seconds}s a pick · ${league.draft_rounds} rounds` : 'Pick the date, the pick clock and the rounds.', done: !!league.draft_at, to: 'settings' },
