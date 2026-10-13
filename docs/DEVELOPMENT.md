@@ -581,7 +581,8 @@ Built 13 October, live:
   The drop's share card (POOLS.md §6, share cards after every drop): on the Questions page's Settled tab for four days after
   a settle, the member's calls on it right or wrong with the score, drawn as the sheet card; the same card sits on the
   pool's home while the drop is fresh. The Ask sheet's One for each shape carries the couple questions ready to ask once the cast is
-  known (POOLS.md §6's questions for each drop), one tap each with its rule.
+  known (POOLS.md §6's questions for each drop), one tap each with its rule. The Host page opens with What's next (what closes and when, what
+  waits to be settled, the next drop, the couple questions), for a first-time host on a drop night.
 - **Migration 256, rosters from Fantrax** (§8.4 item 6's imports' rosters): `commish_import_rosters` writes each team named
   whole, everyone on the bench (IR kept), refusing a team bigger than the league's roster by name and a player who is on
   a team not named; the Commish page's Roster section reads a league's rosters from Fantrax's public API, matches players

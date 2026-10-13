@@ -610,9 +610,27 @@ export function PoolHost() {
   const [open, setOpen] = useState(false);
   if (!me?.is_commish) return <Empty icon="🔒" title="For the host">Only the pool’s host asks and settles the questions.</Empty>;
   const waiting = (markets ?? []).filter((m) => m.status === 'open' && !isOpen(m, now) && !m.source);
+  // what's next for the host, in order (a drop night for a first-time host: the questions close by themselves, then
+  // they wait to be settled, then the coins drop, then the couple questions get asked)
+  const soon = (markets ?? []).filter((m) => isOpen(m, now) && new Date(m.closes_at).getTime() - now < 864e5).sort((x, y) => x.closes_at.localeCompare(y.closes_at));
+  const nextDrop = drops.find((d) => new Date(d.at).getTime() > now);
+  const next: { icon: string; text: string; to?: string; act?: () => void }[] = [
+    ...(soon.length ? [{ icon: '⏳', text: `${soon.length === 1 ? 'One question closes' : `${soon.length} questions close`} ${closesIn(soon[0], now).replace(/^Closes /, '')}. Nothing to do until then: the pool nudges anyone who hasn’t called.`, to: '/questions' }] : []),
+    ...(waiting.length ? [{ icon: '⚖️', text: `${waiting.length === 1 ? 'One question has' : `${waiting.length} questions have`} closed and wait on you: settle each from what aired, by its rule.`, to: `/q/${waiting[0].id}` }] : []),
+    ...(nextDrop ? [{ icon: '🪙', text: `${nextDrop.amount} ${brand.coin.name.toLowerCase()} for everyone in ${countdown(new Date(nextDrop.at).getTime() - now)} (${nextDrop.note}).` }] : []),
+    { icon: '✍️', text: 'Something to ask? Once the cast is known, the couple questions are ready under Ask, One for each.', act: () => setOpen(true) },
+  ];
   return (
     <div className="space-y-5">
       <PageHeader icon={<Wand2 className="h-6 w-6 text-gold" />} title="Host" sub="Ask the questions, settle them from what airs, and keep the coins flowing." right={<button type="button" className="btn-gold inline-flex items-center gap-1.5" onClick={() => setOpen(true)}><Plus className="h-4 w-4" /> Ask</button>} />
+      <div className="card divide-y divide-white/[.05] p-1">
+        <div className="label px-3 pb-1 pt-2">What’s next</div>
+        {next.map((n, i) => {
+          const inner = <><span className="shrink-0 text-lg" aria-hidden>{n.icon}</span><span className="min-w-0 flex-1 break-words text-sm leading-snug text-slate-200">{n.text}</span>{(n.to || n.act) && <span className="shrink-0 text-mute">→</span>}</>;
+          const cls = 'flex items-center gap-3 px-3 py-2.5 text-left';
+          return n.to ? <Link key={i} to={n.to} className={cls}>{inner}</Link> : n.act ? <button key={i} type="button" onClick={n.act} className={`${cls} w-full`}>{inner}</button> : <div key={i} className={cls}>{inner}</div>;
+        })}
+      </div>
       <Section title={`Waiting on you (${waiting.length})`}>
         {waiting.length ? <div className="space-y-2">{waiting.map((m) => <Link key={m.id} to={`/q/${m.id}`} className="card flex items-center justify-between gap-3 p-3"><span className="min-w-0 break-words font-semibold">{m.title}</span><span className="shrink-0 text-sm text-gold">Settle →</span></Link>)}</div>
           : <div className="card p-4 text-sm text-mute">Nothing to settle. Questions land here when they close.</div>}
