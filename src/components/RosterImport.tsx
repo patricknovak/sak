@@ -62,7 +62,8 @@ export function RosterImport({ source }: { source: RosterSource }) {
   const twice = going.some((t, i) => going.findIndex((u) => who[u.id] === who[t.id]) !== i);
   const over = going.filter((t) => t.picks.filter((p) => p.player_id && !p.ir).length > max);
   const matched = going.reduce((n, t) => n + t.picks.filter((p) => p.player_id).length, 0);
-  const write = () => run(async () => {
+  // each team written is replaced whole, so the commissioner says so before anything moves (SaK is production)
+  const write = () => confirm(`Bring in ${matched} players on ${going.length} team${going.length === 1 ? '' : 's'}? Each of those teams is replaced whole with what ${source.title} has; a team left out keeps what it has.`) && run(async () => {
     await rpc('commish_import_rosters', { p_teams: going.map((t) => ({ team_id: who[t.id], players: t.picks.filter((p) => p.player_id).map((p) => ({ player_id: p.player_id, slot: p.ir ? 'IR' : 'BN' })) })) });
     await refresh(['rosters']);
     setOpen(false);
