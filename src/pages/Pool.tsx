@@ -76,7 +76,7 @@ function SoccerRounds({ onAdded }: { onAdded: () => void }) {
 
 // ───────────── home ─────────────
 export function PoolHome() {
-  const { me, league } = useLeague();
+  const { me, league, teams } = useLeague();
   const brand = useBrand();
   const now = useNow(1000);
   const { markets, positions, trades, drops } = usePool();
@@ -146,6 +146,10 @@ export function PoolHome() {
 
       <PoolRoomCard room={room} />
 
+      {/* a pool of two or three is a group chat that hasn't been told yet: the host's invite sits up top until it has
+          grown (the gate is people, docs/DEVELOPMENT.md §8.4 item 1) */}
+      {me?.is_commish && teams.filter((t) => t.role === 'gm' && t.user_id).length < 4 && <InviteCard />}
+
       <PoolGameCards />
 
       {me?.role === 'gm' && !gamesOnly && <PoolHowTo league={league?.league_id ?? 0} />}
@@ -173,7 +177,7 @@ export function PoolHome() {
       <PredictorCard />
       <SurvivorCard />
       {!gamesOnly && <Section title="Latest calls" icon={<Sparkles className="h-5 w-5 text-gold" />}><CallsFeed trades={trades} markets={markets ?? []} /></Section>}
-      <InviteCard />
+      {!(me?.is_commish && teams.filter((t) => t.role === 'gm' && t.user_id).length < 4) && <InviteCard />}
     </div>
   );
 }
