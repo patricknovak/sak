@@ -579,7 +579,8 @@ Built 13 October, live:
   where everyone stands (every member's call, answer by answer, who sat it out), so the group watches knowing who said
   what. A first call from an invite lands in the pool just joined, whichever pool the tab was in before.
   The drop's share card (POOLS.md §6, share cards after every drop): on the Questions page's Settled tab for four days after
-  a settle, the member's calls on it right or wrong with the score, drawn as the sheet card. The Ask sheet's One for each shape carries the couple questions ready to ask once the cast is
+  a settle, the member's calls on it right or wrong with the score, drawn as the sheet card; the same card sits on the
+  pool's home while the drop is fresh. The Ask sheet's One for each shape carries the couple questions ready to ask once the cast is
   known (POOLS.md §6's questions for each drop), one tap each with its rule.
 - **Migration 256, rosters from Fantrax** (§8.4 item 6's imports' rosters): `commish_import_rosters` writes each team named
   whole, everyone on the bench (IR kept), refusing a team bigger than the league's roster by name and a player who is on
