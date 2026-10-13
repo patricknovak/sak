@@ -377,6 +377,7 @@ function WeekNumbers() {
   };
   const tiles: [string, number, number][] = [
     ['Pools started', w.week.pools_started, w.all_time.pools], ['People joined', w.week.people_joined, w.all_time.people],
+    ['First calls', w.week.first_calls ?? 0, w.all_time.first_calls ?? 0],
     ['Calls made', w.week.calls, w.all_time.calls], ['Chat messages', w.week.messages, w.all_time.messages],
     ['Links made', w.week.links_made, w.week.links_made], ['Waitlist', w.week.waitlist, w.all_time.waitlist],
   ];

@@ -2224,7 +2224,8 @@ select create_league('pond', 'Pond Hockey Pool', 'PHP', '{}'::jsonb, 3) as leagu
 select pg_temp.expect('the platform sees every league with its seats', (select seats = 3 and filled = 0 and status = 'setup' and not commish_seated
   from platform_leagues() where league_id = :league4) and exists (select 1 from platform_leagues() where league_id = 1));
 select pg_temp.expect('the week''s numbers read for the platform (migration 253)', (select (w->'all_time'->>'leagues')::int >= 2 and (w->'week'->>'calls')::int >= 0
-  and jsonb_array_length(w->'leagues') >= 2 and (w->'leagues'->0) ? 'last_alive' and (w->'leagues'->0) ? 'callers_7d' from platform_week() w));
+  and jsonb_array_length(w->'leagues') >= 2 and (w->'leagues'->0) ? 'last_alive' and (w->'leagues'->0) ? 'callers_7d'
+  and (w->'week') ? 'first_calls' and (w->'all_time'->>'first_calls')::int >= 0 from platform_week() w));
 select pg_temp.expect('a new league isn''t ready until its commissioner is in', (select bool_and((x->>'ok')::boolean) filter (where x->>'key' in ('name', 'rules', 'draft', 'coins'))
   and not bool_or((x->>'ok')::boolean) filter (where x->>'key' = 'commish') from jsonb_array_elements(league_readiness(:league4)) x));
 select pg_temp.raises('it can''t go live before then', format('select platform_set_league_status(%s, ''active'')', :league4), 'Commissioner signed in');
