@@ -576,4 +576,6 @@ Built 13 October, live:
   which had an NHL slate to offer a Love Is Blind pool. The Questions page lists the group closing soonest first.
 - **The join form** asks for a password once, with Show, instead of twice: a stranger's path is now the preview, the
   first call, three fields, the pool.
+- **The pool's morning rings the bell:** each seated member gets the post's first line as a notification (and the push,
+  where they allow it), since chat posts don't push and the post is the day's reason to open the pool.
 

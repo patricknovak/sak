@@ -623,6 +623,13 @@ async function poolDaily() {
   ].filter(Boolean).join(' ');
   const body = await write(`Write this morning's post for the pool's chat, as the friend who's most into this and runs the group chat. Lead with the one thing that matters today, in this order: a question that settled (the answer, who called it, who didn't), coins that dropped, questions that close in the next day (say when, in the words given, and tag each member who hasn't called yet as @Name so their phone buzzes), questions waiting on the host, new questions. The table only when the facts give one. One sharp chirp built on those facts, worked into the post (never labelled as a chirp), never about a lineup or a sport the facts don't mention. Call the coins by their name. Short lines, no headers, 50 to 110 words.`, facts, fb, 110, teams.filter((t) => closing.some((x) => x.not_called_yet.includes(t.gm_name))).map((t) => t.id));
   await post(body, { type: 'pool-day', date: today });
+  // the day's reason to open the pool, on the phone too: one bell per seated member, the post's first line, to the chat
+  if (!dry()) {
+    const first = body.split(/\n+/)[0].replace(/\s+/g, ' ').slice(0, 140);
+    const { data: seated } = await from('teams').select('id').eq('role', 'gm').not('user_id', 'is', null);
+    const { error } = await from('notifications').insert((seated ?? []).map((t) => ({ team_id: t.id, kind: 'pool_day', body: `${L.brand.bot.emoji} ${bot()}: ${first}`, link: '/chat' })));
+    if (error) console.error('pool-day bells', error.message);
+  }
   return { posted: 'pool-day', settled: settled.length, closing: closing.length, opened: opened.length, drops: paid.length };
 }
 
