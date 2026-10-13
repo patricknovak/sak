@@ -3592,6 +3592,21 @@ select pg_temp.expect('a copy the host moved later than the pack keeps its own t
 update pool_markets set closes_at = now() + interval '2 days', source = '{"host_closes": true}'::jsonb where league_id = :epl and pack = 'test-grow' and title = 'Question two?';
 select pg_temp.expect('a copy whose closing time the host set by hand is left alone, even earlier than the pack (migration 259)', _pool_pack_refresh(:epl) = 0
   and (select closes_at < now() + interval '3 days' from pool_markets where league_id = :epl and pack = 'test-grow' and title = 'Question two?'));
+-- a pack's drop reaches the pool once, and a corrected date moves it rather than doubling it (migration 263); a drop
+-- already paid stays as paid
+update pool_packs set drops = jsonb_build_array(jsonb_build_object('note', 'Seedling drop', 'amount', 100, 'at', now() + interval '5 days')) where slug = 'test-grow';
+select _pool_load_pack(:epl, 'test-grow', null);
+select _pool_load_pack(:epl, 'test-grow', null);
+select pg_temp.expect('the pack''s drop comes in once', (select count(*) from pool_drops where league_id = :epl and note = 'Seedling drop') = 1);
+update pool_packs set drops = jsonb_build_array(jsonb_build_object('note', 'Seedling drop', 'amount', 150, 'at', now() + interval '6 days')) where slug = 'test-grow';
+select _pool_load_pack(:epl, 'test-grow', null);
+select pg_temp.expect('a corrected date and amount move the pool''s copy, still one', (select count(*) = 1 and bool_and(amount = 150 and at > now() + interval '5 days 12 hours') from pool_drops where league_id = :epl and note = 'Seedling drop'));
+insert into coin_ledger (team_id, amount, reason) select min(id), 0, format('Coin drop: Seedling drop [drop %s]', (select id from pool_drops where league_id = :epl and note = 'Seedling drop')) from teams where league_id = :epl and role = 'gm';
+update pool_packs set drops = jsonb_build_array(jsonb_build_object('note', 'Seedling drop', 'amount', 200, 'at', now() + interval '7 days')) where slug = 'test-grow';
+select _pool_load_pack(:epl, 'test-grow', null);
+select pg_temp.expect('a drop somebody has been paid stays as paid', (select amount = 150 from pool_drops where league_id = :epl and note = 'Seedling drop'));
+delete from coin_ledger where reason like 'Coin drop: Seedling drop%';
+delete from pool_drops where note = 'Seedling drop';
 delete from notifications where kind = 'pool_new' and body like '%Grows later%';
 delete from messages where meta->>'pool_pack' = 'test-grow' or (meta->>'moved')::boolean;
 delete from pool_markets where pack = 'test-grow';
