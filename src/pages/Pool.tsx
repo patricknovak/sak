@@ -184,12 +184,15 @@ function InviteCard() {
   const { busy, run } = useAction();
   const [link, setLink] = useState<string | null>(null);
   const [inviting, setInviting] = useState(false);
+  const { markets } = usePool();
   const make = () => run(async () => {
     // the pool's one open link, the same for the host and every member (migration 162)
     const code = await rpc<string>('pool_share_link');
     const url = inviteLink(code);
     setLink(url);
-    const text = `Join my ${brand.tagline || league?.name} on Super Pools. No money, just bragging rights.`;
+    // the text asks the question closing soonest, the way the link's preview does (migration 252): the pitch is the game
+    const next = (markets ?? []).filter((m) => isOpen(m, Date.now())).sort((a, b) => a.closes_at.localeCompare(b.closes_at))[0];
+    const text = `Join my ${brand.tagline || league?.name} on Super Pools.${next ? ` First up: "${next.title}"` : ''} No money, just bragging rights.`;
     if (navigator.share) await navigator.share({ title: league?.name, text, url }).catch(() => {});
     else await navigator.clipboard?.writeText(url).catch(() => {});
     track('invite_share');
