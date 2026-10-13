@@ -579,7 +579,8 @@ Built 13 October, live:
   a team not named; the Commish page's Roster section reads a league's rosters from Fantrax's public API, matches players
   by name and club (then last name, first initial and club), and lists what it couldn't match; the same sheet reads ESPN's
   rosters for a league made viewable to the public (checked against a stub of ESPN's shape: no public hockey league was
-  found to read live).
+  found to read live); a Yahoo league's rosters come in from its page under My pools through the Yahoo function, no link
+  to paste. One sheet (`RosterImport`), a reader per site.
 - **The privacy note** (`#/privacy`, SUPERPOOLS item 14): what is kept, who sees it, the analytics choice, email and the
   voice, where it lives, how to leave or be deleted; from the consent banner and the landing's footer. The setup guide
   gains "Bring what you had" (seasons, scoring and rosters from Fantrax or ESPN) for a league that played elsewhere.

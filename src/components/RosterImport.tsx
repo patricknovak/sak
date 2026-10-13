@@ -13,6 +13,8 @@ import { normName, playerMatcher, type ImportTeam } from '../lib/rosterMatch';
 // and the GM adds him from the Players page. One sheet, a reader per site (FantraxRosters, EspnRosters).
 export interface RosterSource {
   key: string; mark: string; title: string; blurb: string; sheet: string; label: string; placeholder: string;
+  // a site the GM is already signed into (Yahoo) needs no link: the sheet reads the league it was opened for
+  noLink?: boolean;
   // the site's rosters at that link, matched with the matcher given; 'missing' means no league at the link, 'private' a
   // league its manager hasn't made viewable
   read: (link: string, match: (name: string, club: string | null) => number | null) => Promise<{ name: string; note: string | null; teams: ImportTeam[] }>;
@@ -36,7 +38,7 @@ export function RosterImport({ source }: { source: RosterSource }) {
   const max = Object.entries((league.roster as Record<string, number>) ?? {}).filter(([k]) => k !== 'IR').reduce((t, [, v]) => t + (v ?? 0), 0);
 
   const find = async () => {
-    if (!link.trim()) return;
+    if (!link.trim() && !source.noLink) return;
     setErr(null); setFound(null); setLoading(true);
     try {
       const got = await source.read(link, playerMatcher(players));
@@ -76,9 +78,11 @@ export function RosterImport({ source }: { source: RosterSource }) {
       <Sheet open={open} onClose={() => setOpen(false)} title={source.sheet} wide>
         <div className="space-y-3">
           <div className="space-y-1.5">
-            <label className="block text-xs text-mute" htmlFor={`${source.key}-roster-link`}>{source.label}</label>
-            <input id={`${source.key}-roster-link`} className="input w-full font-mono text-xs" placeholder={source.placeholder} value={link} onChange={(e) => setLink(e.target.value)} />
-            <button type="button" className="btn-primary w-full" disabled={loading || !link.trim()} onClick={find}>{loading ? 'Reading…' : 'Read the rosters'}</button>
+            {source.noLink ? <p className="text-xs text-mute">{source.label}</p> : <>
+              <label className="block text-xs text-mute" htmlFor={`${source.key}-roster-link`}>{source.label}</label>
+              <input id={`${source.key}-roster-link`} className="input w-full font-mono text-xs" placeholder={source.placeholder} value={link} onChange={(e) => setLink(e.target.value)} />
+            </>}
+            <button type="button" className="btn-primary w-full" disabled={loading || (!link.trim() && !source.noLink)} onClick={find}>{loading ? 'Reading…' : 'Read the rosters'}</button>
           </div>
           {err && <div className="rounded-xl border border-red-400/30 bg-red-500/10 p-3 text-sm leading-snug">{err}</div>}
           {loading && <div className="h-24 animate-pulse rounded-xl bg-white/[.04]" />}

@@ -380,7 +380,9 @@ The steps above finish the tenancy. `docs/MARKET.md` sets what comes after in th
    kept) since Fantrax counts forwards where we have centres and wings; a prospect in the minors or a spelling we don't
    have is listed and left out. The same sheet reads ESPN's rosters (`src/components/EspnRosters.tsx`, the mRoster view of the
    API its history comes in through, clubs from ESPN's pro-team list), checked against a stub of ESPN's shape until a
-   public hockey league turns up to read; the matching is shared (`src/lib/rosterMatch.ts`). CBS needs a sign-in, so it stays on paste.
+   public hockey league turns up to read; the matching is shared (`src/lib/rosterMatch.ts`); and a Yahoo league's rosters come in from its page under My pools
+   (`src/components/YahooRosters.tsx`, one roster call a team through the Yahoo function, no link to paste since the GM is
+   signed in there; the commissioner here sees it). CBS needs a sign-in, so it stays on paste.
 10. **Contracts, caps, prospect slots and rookie drafts**; guillotine and best ball formats.
 11. **The Supercoin.** An account-level wallet, the SaK coin ledger migrated onto it, per-pool allowances, the
     Book and side bets as the add-on, the ledger visible in every pool. Never for sale, never cashed out.

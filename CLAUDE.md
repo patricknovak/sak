@@ -57,6 +57,10 @@ Two things in one repo:
   The live scoreboard's Tonight's points lists every starter team by team; Performance has a Weekly review
   (`WeeklyReview`, deterministic suggestions from the trade finder and free agents). Later days save through
   `set_lineup_plans`; plans are readable league-wide (migration 164).
+- Imports (SUPERPOOLS item 9): history from Yahoo, ESPN and Fantrax (`*History.tsx` on the League page), scoring from Fantrax
+  (the Commish page's scoring editor), rosters from Fantrax, ESPN and Yahoo (`commish_import_rosters`, migration 256; one sheet,
+  `src/components/RosterImport.tsx`, a reader per site, the name matching in `src/lib/rosterMatch.ts`; each team written whole,
+  everyone on the bench, IR kept). A new site's import reads its public API from the browser; never a server of ours.
 - Sport: `src/lib/sport.ts` (`useSport()` from the store): the league's sport as the engine reads it (positions, slots,
   stats, game states, periods), the database's `sports` row with the NHL compiled in. New code that needs a position
   list, a slot rule or a stat label reads it instead of writing hockey in; the rest moves over one place at a time.
