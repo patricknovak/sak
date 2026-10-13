@@ -95,7 +95,10 @@ async function enter(lid: number) {
   const { data: lg } = await db.from('leagues').select('id,name,short_name,brand,sport,kind').eq('id', lid).maybeSingle();
   if (!lg) throw new Error(`no league ${lid}`);
   const { data: sp } = await db.from('sports').select('config').eq('id', lg.sport ?? 'nhl').maybeSingle();
-  const words = { ...NHL_WORDS, ...((sp?.config as { words?: Partial<Words> } | null)?.words ?? {}) };
+  // a prediction pool isn't a hockey league: its words are the group chat's, whatever sport its events are
+  const words = lg.kind === 'predict'
+    ? { game: 'pool', rec: 'group-chat', room: 'group chat', voice: "the friend who's most into this and runs the group chat: warm, quick, a little wicked", start: 'the next close' }
+    : { ...NHL_WORDS, ...((sp?.config as { words?: Partial<Words> } | null)?.words ?? {}) };
   const { data: teams } = await db.from('teams').select('id').eq('league_id', lid).eq('role', 'gm');
   const run = runs.getStore();
   if (!run) throw new Error('enter() outside a request');
@@ -1006,8 +1009,8 @@ async function converse(m: ChatMsg) {
     useful ? `The site's verified answer to the question (use its facts and keep any "👉 #/..." link that fits, in your own words, not its wording):\n${ans!.text}${Object.keys(ans!.facts ?? {}).length ? `\n${JSON.stringify(ans!.facts).slice(0, 1500)}` : ''}` : '',
     `${privateLine ? `This is ${asker?.gm_name}'s private line to you; nobody else reads it.` : 'This is the league chat; everyone reads it.'} The conversation, oldest first; the last line is ${asker?.gm_name}'s and it's the one you answer:\n${lines.join('\n')}`,
     `Decide what ${asker?.gm_name} wants and reply:
-- "answer": a question about the league, a player, a team, the rules or the site. Answer it straight with the real numbers, then one jab.
-- "roast": they asked you to trash talk someone, themselves or everyone (then one specific line per GM). ${cap(W().game)} decisions, results, bets and chat only.
+- "answer": a question about the ${L.kind === 'predict' ? 'pool, a question on its board, the odds, the table' : 'league, a player, a team'}, the rules or the site. Answer it straight with the real numbers, then one jab.
+- "roast": they asked you to trash talk someone, themselves or everyone (then one specific line per ${L.kind === 'predict' ? 'member' : 'GM'}). ${L.kind === 'predict' ? 'Their calls' : `${cap(W().game)} decisions`}, results, bets and chat only.
 - "joke": they want something funny. Make it about this league if you can.
 - "banter": anything else: talking to you, about you, at you, or about someone. React like a guy in the room: agree, argue, chirp back, take a side, have an opinion. Never list what you can do.
 Lineup advice comes only from a GM's "tonight" facts: name a move only if it's in moves_worth_making; if there are none, they're set, and a player in sitting_with_no_fix is nothing to fix (say so, or chirp the bad luck). Never tell anyone to bench or swap otherwise.
