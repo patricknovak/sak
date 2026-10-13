@@ -3238,6 +3238,8 @@ reset role;
 set role anon;
 select pg_temp.expect('a pool''s invite names its host and how many are in (migration 160)', (select v->>'host' = 'Hana' and (v->>'members')::int = 1
   from invite_preview(:'libcode') v) and not (invite_preview(:'join_code') ? 'host'));
+select pg_temp.expect('and the first call to make (migration 252)', (select (v->>'open_questions')::int = 16 and v->>'next_question' = 'How many couples get engaged in the pods?'
+  and (v->>'next_closes')::timestamptz > now() from invite_preview(:'libcode') v) and not (invite_preview(:'join_code') ? 'next_question'));
 reset role;
 select _accept_invite('00000000-0000-0000-0000-000000000082', :'libcode', 'Fern');
 select id as fern from teams where league_id = :lib and user_id = '00000000-0000-0000-0000-000000000082' \gset

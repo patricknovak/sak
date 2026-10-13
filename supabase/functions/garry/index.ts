@@ -124,7 +124,8 @@ async function recordBook(lid: number): Promise<string> {
 }
 
 const LEAGUE_TABLES = new Set(['messages', 'garry_memory', 'garry_state', 'rosters', 'teams', 'notifications', 'draft_picks', 'draft_state', 'draft_queue',
-  'bets', 'bet_entries', 'coin_ledger', 'lineup_snapshots', 'push_subscriptions', 'markets', 'market_bets', 'trades', 'league_rules', 'watchlist']);
+  'bets', 'bet_entries', 'coin_ledger', 'lineup_snapshots', 'push_subscriptions', 'markets', 'market_bets', 'trades', 'league_rules', 'watchlist',
+  'pool_markets', 'pool_drops', 'pool_positions', 'pool_trades', 'pool_picks', 'pool_games']);
 // shared NHL data in this league's points: box scores, projections and corrections under its scoring profile
 const LEAGUE_VIEWS: Record<string, string> = { player_games: 'league_games', players: 'league_players', stat_corrections: 'league_corrections' };
 const TEAM_VIEWS = new Set(['standings', 'playoff_standings', 'sak_cup_standings', 'coin_balances', 'team_daily', 'playoff_daily', 'team_bench_daily', 'book_standings', 'coin_races']);
@@ -528,6 +529,69 @@ async function storylines(yday: { team_id: number; points: number }[], standings
     standings_moves: passed.slice(0, 6), races: gaps.filter((g) => g.by <= 6), gap_first_to_last: Math.round(((now[0]?.pts ?? 0) - (now.at(-1)?.pts ?? 0)) * 10) / 10,
     last_7_days: form, tonight, nhl_news_about_their_players: about,
   };
+}
+
+// ─────────────── a prediction pool's morning ───────────────
+// The pool's voice speaks on the days that matter (docs/DEVELOPMENT.md §9: a pool with no games was a quiet list of
+// odds): a question settled and who called it, the coins a drop paid, questions that close tonight and who hasn't
+// called them, questions that just arrived, and the table when it moved. Nothing happened, nothing posted.
+type PoolMarket = { id: number; title: string; outcomes: { key: string; label: string }[]; status: string; winner_key: string | null; closes_at: string; resolved_at: string | null; created_at: string };
+async function poolDaily() {
+  const { teams, byId } = await base();
+  const today = etDate(new Date());
+  if (await alreadyPosted('pool-day', today)) return { skipped: 'already posted' };
+  const since = new Date(Date.now() - 26 * 3600000).toISOString(), until = new Date(Date.now() + 30 * 3600000).toISOString(), now = new Date().toISOString();
+  const [{ data: ms }, { data: drops }, { data: pos }] = await Promise.all([
+    from('pool_markets').select('id,title,outcomes,status,winner_key,closes_at,resolved_at,created_at'),
+    from('pool_drops').select('at,amount,note').gte('at', since).lte('at', until),
+    from('pool_positions').select('market_id,team_id,outcome,shares'),
+  ]);
+  const all = (ms ?? []) as PoolMarket[];
+  const name = (id: number) => byId.get(id)?.gm_name ?? 'someone';
+  const label = (m: PoolMarket, key: string | null) => m.outcomes.find((o) => o.key === key)?.label ?? '?';
+  const holders = (m: PoolMarket, key: string | null) => (pos ?? []).filter((p) => p.market_id === m.id && Number(p.shares) > 0 && p.outcome === key).map((p) => name(p.team_id));
+  const settled = all.filter((m) => m.status === 'resolved' && m.resolved_at && m.resolved_at > since).map((m) => ({
+    question: m.title, answer: label(m, m.winner_key), called_it: holders(m, m.winner_key),
+    missed_it: [...new Set((pos ?? []).filter((p) => p.market_id === m.id && Number(p.shares) > 0 && p.outcome !== m.winner_key).map((p) => name(p.team_id)))],
+  }));
+  const voided = all.filter((m) => m.status === 'void' && m.resolved_at && m.resolved_at > since).map((m) => m.title);
+  // a closing time in the members' words: Eastern, with tonight or tomorrow
+  const when = (iso: string) => {
+    const d = new Date(iso);
+    const day = etDate(d) === today ? 'today' : etDate(d) === etDate(new Date(Date.now() + 86400000)) ? 'tomorrow' : d.toLocaleDateString('en-CA', { timeZone: 'America/Toronto', weekday: 'long' });
+    return `${day} at ${d.toLocaleTimeString('en-CA', { timeZone: 'America/Toronto', hour: 'numeric', minute: '2-digit' }).replace(/\.\s?/g, '').toLowerCase()} ET`;
+  };
+  const closing = all.filter((m) => m.status === 'open' && m.closes_at > now && m.closes_at <= until).map((m) => ({
+    question: m.title, closes: when(m.closes_at),
+    not_called_yet: teams.filter((t) => !(pos ?? []).some((p) => p.market_id === m.id && p.team_id === t.id && Number(p.shares) > 0)).map((t) => t.gm_name),
+  }));
+  const waiting = all.filter((m) => m.status === 'open' && m.closes_at <= now).map((m) => m.title);
+  // a pool that opened yesterday has every question "new": that's the pool opening, not news
+  const brandNew = all.length > 0 && all.every((m) => m.created_at > since);
+  const opened = brandNew ? [] : all.filter((m) => m.status === 'open' && m.created_at > since).map((m) => m.title);
+  const paid = (drops ?? []).filter((d) => d.at <= now).map((d) => ({ coins: Number(d.amount), note: d.note }));
+  const coming = (drops ?? []).filter((d) => d.at > now).map((d) => ({ coins: Number(d.amount), note: d.note, when: when(d.at) }));
+  if (!settled.length && !voided.length && !closing.length && !opened.length && !paid.length) return { skipped: 'nothing happened' };
+  const { data: sb } = await L.db.rpc('pool_scoreboard');
+  const games = ((sb as { games?: { title: string; crown?: boolean; rows?: { team_id: number; rank: number; score: number; move?: number }[] }[] } | null)?.games ?? []);
+  const main = games.find((g) => g.crown) ?? games[0];
+  const table = (main?.rows ?? []).slice().sort((a, b) => a.rank - b.rank).map((r) => ({ rank: r.rank, member: name(r.team_id), score: f1(Number(r.score)), moved: r.move ?? 0 }));
+  const c = coin();
+  const facts = {
+    members: teams.length, the_coins_are_called: `${c.name} ${c.emoji}`, settled_since_yesterday: settled, voided, coins_dropped_today: paid, coins_dropping_soon: coming,
+    closing_in_the_next_day: closing, closed_waiting_on_the_host: waiting, new_questions: opened,
+    ...(brandNew ? { the_pool_just_opened_with_questions: all.length } : {}),
+    table: table.length > 1 && table.some((r) => r.moved) ? { game: main?.title, rows: table.slice(0, 6) } : null,
+  };
+  const fb = [
+    settled.length ? `${settled.map((x) => `"${x.question}": ${x.answer}${x.called_it.length ? ` (${x.called_it.join(', ')} called it)` : ''}`).join('. ')}.` : '',
+    paid.length ? `${paid.map((d) => `${d.coins} ${c.emoji} ${c.name} dropped (${d.note})`).join('; ')}.` : '',
+    closing.length ? `Closing soon: ${closing.map((x) => `"${x.question}"`).join(', ')}.${closing.some((x) => x.not_called_yet.length) ? ` Still to call: ${[...new Set(closing.flatMap((x) => x.not_called_yet))].map((n) => '@' + n).join(', ')}.` : ''}` : '',
+    opened.length ? `${opened.length} new question${opened.length === 1 ? '' : 's'} to call.` : '',
+  ].filter(Boolean).join(' ');
+  const body = await write(`Write this morning's post for the pool's chat, as the friend who's most into this and runs the group chat. Lead with the one thing that matters today, in this order: a question that settled (the answer, who called it, who didn't), coins that dropped, questions that close in the next day (say when, in the words given, and tag each member who hasn't called yet as @Name so their phone buzzes), questions waiting on the host, new questions. The table only when the facts give one. One sharp chirp built on those facts, worked into the post (never labelled as a chirp), never about a lineup or a sport the facts don't mention. Call the coins by their name. Short lines, no headers, 50 to 110 words.`, facts, fb, 110, teams.filter((t) => closing.some((x) => x.not_called_yet.includes(t.gm_name))).map((t) => t.id));
+  await post(body, { type: 'pool-day', date: today });
+  return { posted: 'pool-day', settled: settled.length, closing: closing.length, opened: opened.length, drops: paid.length };
 }
 
 // ─────────────── daily ───────────────
@@ -1567,8 +1631,9 @@ async function assess(asked: string | null, force = false) {
 }
 
 async function runTask(task: string, req: Request) {
-  // a prediction pool has no lineups, no slate and no fantasy table: his scheduled posts are for fantasy leagues
-  if (L.kind === 'predict' && SCHEDULED.has(task)) return { skipped: 'a prediction pool' };
+  // a prediction pool has no lineups, no slate and no fantasy table: its one scheduled post is the morning column on
+  // days something happened or is about to (poolDaily); the rest of his scheduled runs are for fantasy leagues
+  if (L.kind === 'predict' && SCHEDULED.has(task)) return task === 'daily' ? poolDaily() : { skipped: 'a prediction pool' };
   if (task === 'nudge') return nudge();
   if (task === 'moments') return moments();
   if (task === 'assess') {

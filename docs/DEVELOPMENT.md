@@ -553,6 +553,15 @@ Netflix) and the gate of three pools and thirty players by 4 November.
 
 ### 9.5 What was built from this review
 
-Recorded as it lands (13 October): the pack's drop questions and the pack refresh job (migration 251), the pool voice
-on drop days (Garry, `pool` task).
+Built 13 October, live:
+
+- **Migration 251:** the Love Is Blind pack gains four questions for each of its two middle drops (21 and 28 October),
+  about what the show airs, no cast named; `_pool_pack_refresh` runs in the hourly pool job and gives every open pool
+  its packs' new questions (a line in the chat, a bell per member). The test pool and Pod Squad got theirs the same hour.
+- **The pool's morning (Garry, `daily` in a prediction pool):** posts only on a day something happened or is about to:
+  a question settled (the answer, who called it), coins dropped, questions closing in the next day with an @ for each
+  member who hasn't called, questions waiting on the host, new questions, the table when it moved. Previewed on the test
+  pool and Pod Squad; the first live post is the morning of 13 October (the premiere's questions close that night).
+- **Migration 252:** the invite link's preview carries the pool's next question, when it closes and how many are open,
+  and the join page shows it above the sign-up as "First up", so a stranger sees the game before the form.
 

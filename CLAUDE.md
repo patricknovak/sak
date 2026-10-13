@@ -143,7 +143,8 @@ Two things in one repo:
   `poolLink` in `src/lib/host.ts`); a `<web name>` subdomain forwards to it unless someone is signed in on that address.
   My pools (`#/pools`) reads `my_pools()`; every start goes through `#/new` (a sports pool, a questions pool, or a fantasy
   league of your own with `fantasy_start`, opened in setup and taken live with `commish_go_live`), and a host deletes a
-  pool with `pool_delete` (migration 242). A pool's pages keep to its own events, `pool_competitions()`
+  pool with `pool_delete` (migration 242). A pack's new questions reach every open pool on it through the hourly pool job
+  (`_pool_pack_refresh`, migration 251), and an invite's preview carries the pool's next question (migration 252). A pool's pages keep to its own events, `pool_competitions()`
   (`src/lib/poolOwn.ts`): read it rather than every competition when a pool page lists events. Every pool's games share one scoreboard
   (`pool_scoreboard()`, migration 169): a new kind of game adds a branch to `_pool_rows()` and gets the table, movement,
   climb alerts and the main-game crown (`league_rules.crown`) with it. Weekly pick'em (migration 170) is the first kind on

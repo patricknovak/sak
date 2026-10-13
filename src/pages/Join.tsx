@@ -13,7 +13,7 @@ import { setTabLeague } from '../lib/host';
 // someone new makes their account right here (the `join` edge function makes it and seats them in one go);
 // someone with an account signs in, or is already signed in, and takes the seat with accept_invite.
 // Either way they land in the league they just joined.
-interface Preview { ok: boolean; reason?: string | null; league_id?: number; league?: string; short?: string; brand?: { colors?: { gold?: string }; tagline?: string; coin?: { name?: string; emoji?: string } } | null; role?: 'gm' | 'spectator'; team?: string | null; expires_at?: string; kind?: 'fantasy' | 'predict'; host?: string | null; members?: number }
+interface Preview { ok: boolean; reason?: string | null; league_id?: number; league?: string; short?: string; brand?: { colors?: { gold?: string }; tagline?: string; coin?: { name?: string; emoji?: string } } | null; role?: 'gm' | 'spectator'; team?: string | null; expires_at?: string; kind?: 'fantasy' | 'predict'; host?: string | null; members?: number; open_questions?: number; next_question?: string | null; next_closes?: string | null }
 
 const WHY: Record<string, string> = {
   unknown: 'That invite link isn’t right. Ask the commissioner for a new one.',
@@ -22,6 +22,16 @@ const WHY: Record<string, string> = {
   used: 'That invite has already been used. Ask the commissioner for a new one.',
   taken: 'Someone has already taken that seat.',
 };
+
+// when a question closes, in the reader's own clock: "tomorrow at 3:00 a.m.", "Wednesday at 8:00 p.m.", "in 40 minutes"
+function closesWords(iso: string) {
+  const d = new Date(iso), ms = d.getTime() - Date.now();
+  if (ms < 3600000) return `in ${Math.max(1, Math.round(ms / 60000))} minutes`;
+  const day = new Date(), tomorrow = new Date(Date.now() + 86400000);
+  const same = (a: Date, b: Date) => a.toDateString() === b.toDateString();
+  const when = same(d, day) ? 'today' : same(d, tomorrow) ? 'tomorrow' : ms < 6 * 86400000 ? d.toLocaleDateString(undefined, { weekday: 'long' }) : d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+  return `${when} at ${d.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' })}`;
+}
 
 // into the league just joined: pin this tab to it so the reload reads its coins and table, not a stale one
 const goHome = (leagueId?: number | null) => {
@@ -119,6 +129,15 @@ export default function Join({ code }: { code: string }) {
                 <div className="mt-1.5 text-balance text-[12px] font-semibold leading-tight text-slate-200">{t}</div>
               </div>
             ))}
+          </div>
+        )}
+
+        {/* the first call, before the form: what the pool is asking right now and when it closes (migration 252) */}
+        {pv?.ok && pool && pv.next_question && (
+          <div className="card-hero mb-4 p-4">
+            <div className="label relative text-white/70">First up{pv.open_questions && pv.open_questions > 1 ? ` · ${pv.open_questions} open to call` : ''}</div>
+            <div className="relative mt-1 text-balance text-lg font-bold leading-snug text-white">{pv.next_question}</div>
+            {pv.next_closes && <div className="relative mt-1.5 text-xs text-white/70">Closes {closesWords(pv.next_closes)}</div>}
           </div>
         )}
 
