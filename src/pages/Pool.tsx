@@ -346,6 +346,35 @@ export function Question() {
         </div>
       )}
 
+      {!open && m.status === 'open' && (() => {
+        // the calls are locked and the host hasn't settled yet (a drop day, from 3 am until the evening): everyone's
+        // call on the question, answer by answer, so the group can watch knowing who said what
+        const rows = m.outcomes.map((o) => ({ o, who: positions.filter((x) => x.market_id === m.id && x.outcome === o.key && Number(x.shares) >= 1)
+          .map((x) => ({ team: teams.find((t) => t.id === x.team_id), shares: Math.floor(Number(x.shares)) })).sort((a, b) => b.shares - a.shares) })).filter((r) => r.who.length);
+        const quiet = teams.filter((t) => t.role === 'gm' && t.user_id && !positions.some((x) => x.market_id === m.id && x.team_id === t.id && Number(x.shares) >= 1));
+        return (
+          <Section title="Where everyone stands" icon={<Sparkles className="h-5 w-5 text-gold" />}>
+            {rows.length ? (
+              <div className="card divide-y divide-white/[.05] p-1">
+                {rows.map(({ o, who }) => (
+                  <div key={o.key} className="px-3 py-2.5">
+                    <div className="flex items-center gap-2 text-sm"><span className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ background: answerColor(m, o.key) }} /><b className="min-w-0 flex-1 break-words text-white">{o.label}</b><span className="shrink-0 text-xs text-mute">{who.length} {who.length === 1 ? 'call' : 'calls'}</span></div>
+                    <div className="mt-1.5 flex flex-wrap gap-1.5">
+                      {who.map((w) => (
+                        <span key={w.team?.id} className={`flex items-center gap-1.5 rounded-full py-0.5 pl-0.5 pr-2.5 text-xs ring-1 ${w.team?.id === me?.id ? 'bg-gold/15 ring-gold/40 text-white' : 'bg-white/[.05] ring-white/10 text-slate-200'}`}>
+                          <TeamBadge team={w.team} size={20} /><span className="font-semibold">{(w.team?.gm_name ?? w.team?.name ?? '').split(' ')[0]}</span><span className="num text-mute">{w.shares}</span>
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : <div className="card p-4 text-sm text-mute">Nobody called this one before it closed.</div>}
+            <p className="mt-2 px-1 text-xs text-mute">Calls are locked. {quiet.length > 0 ? `${quiet.length === 1 ? `${(quiet[0].gm_name ?? quiet[0].name).split(' ')[0]} sat this one out` : `${quiet.length} sat this one out`}. ` : ''}The host settles it once the episodes are in.</p>
+          </Section>
+        );
+      })()}
+
       {m.status === 'resolved' && m.winner_key && (() => {
         // who called it: everyone holding the answer that came in, biggest payout first
         const won = positions.filter((x) => x.market_id === m.id && x.outcome === m.winner_key && Number(x.shares) >= 1)
