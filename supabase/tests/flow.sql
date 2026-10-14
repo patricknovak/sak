@@ -3739,6 +3739,21 @@ select set_config('app.league_id', '', false);
 select pg_temp.expect('another league''s run touches nothing here', _pool_feed_nudge(:epl) = 0);
 select pg_temp.raises('a member can''t run it', 'set role authenticated; select _pool_feed_nudge(1)', 'permission denied');
 reset role;
+-- the host's settle panel reads the same answer (migration 273); another league's member can't read it
+select set_config('t.fq', (select id::text from pool_markets where pack = 'test-feed' and title = 'Who wins A?'), false);
+select set_config('t.fq2', (select id::text from pool_markets where pack = 'test-feed' and title = 'Not listed?'), false);
+select set_config('request.jwt.claim.sub', (select user_id::text from teams where league_id = :epl and is_commish), false);
+select set_config('app.league_id', :'epl'::text, false);
+set role authenticated;
+select pg_temp.expect('the host reads the feed''s answer on the question', pool_feed_answer(current_setting('t.fq')::bigint) = '{"key":"a2","label":"Feed Falcons","series":"Test LCS A"}'::jsonb
+  and pool_feed_answer(current_setting('t.fq2')::bigint) is null);
+reset role;
+select pg_temp.as_team(2);
+select set_config('app.league_id', '1', false);
+set role authenticated;
+select pg_temp.raises('another league''s member can''t read it', format('select pool_feed_answer(%s)', current_setting('t.fq')));
+reset role;
+select set_config('request.jwt.claim.sub', '', false);
 delete from notifications where kind = 'pool_settle' and body like '📡%';
 delete from private.soccer_nudged where game like 'feed:%';
 delete from pool_markets where pack = 'test-feed';

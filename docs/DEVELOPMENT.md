@@ -9,7 +9,7 @@ Paid subscribed: section 1 and section 8 are that review.
 
 ## 1. Where we are
 
-*As of 14 October 2026, migration 272.*
+*As of 14 October 2026, migration 273.*
 
 - **SaK**, the live league: eight GMs, used every night, on React 19 + Supabase (Postgres rules, edge functions, a
   scheduler) and an LLM voice (Garry, on Grok, metered per feature and league), served from Cloudflare. The season is
@@ -29,7 +29,7 @@ Paid subscribed: section 1 and section 8 are that review.
 - **Use so far is the founder's.** Four prediction pools besides SaK, one or two members each, one pick between them
   and no chat (section 9.2, 13 October). The Love Is Blind gate (three pools, thirty players by 4 November) is the first
   real test of the product with strangers; the premiere is 14 October, and the week's build for it is section 9.5.
-- 272 migrations; the flow test drives a whole fantasy season and every pool kind in SQL, with a second league beside
+- 273 migrations; the flow test drives a whole fantasy season and every pool kind in SQL, with a second league beside
   each that must never see or change it; CI runs it, the build and the Worker's types on every pull request.
 
 ## 2. What is working, and stays
@@ -692,7 +692,8 @@ Built for SaK and, as every SaK change is, for every league:
   whether a round reached a seventh game). Once the series is decided, each host of a pool where the question is still
   open gets one bell with the answer and a link to it; the host still calls it, so coins move only on a person's say.
   The World Series pack's seven series questions carry it, so the pennants and the seven-game question the SaK World
-  Series pool waits on announce themselves when the Championship Series end.
+  Series pool waits on announce themselves when the Championship Series end. The host's settle panel shows the same
+  answer with a button to settle it (`pool_feed_answer`, migration 273).
 - **What the first real week says** (7 to 14 October, test accounts left out): one pool started, one person joined,
   one first call inside fifteen minutes, ten calls (both in Trystan's pools), ten chat messages (all in SaK), no call from
   a real member in Pod Squad. All time: 3 real pools, 1 league, 8 people, 20 calls, 3 first calls. The gate (three pools,

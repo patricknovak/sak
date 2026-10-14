@@ -100,7 +100,7 @@ Two things in one repo:
   gamecenter landing, `nhlPeriods`, migration 215; platform key only; for testing, a
   licensed feed replaces it, docs/POOL-TYPES.md §8; `sport_ingest` ends by drawing and paying any grid of squares on the
   event, `_squares_tick`, migration 167; a platform admin fixes a game the feed got wrong from the Platform page,
-  `platform_game_fix`, and the feed leaves it alone until handed back, migration 206; a pack question that names its series in `feed` bells the pool's host with the answer once the series is decided, and the host still calls it, `_pool_feed_nudge`, migration 272; the hourly pool job, pool-drops, opens
+  `platform_game_fix`, and the feed leaves it alone until handed back, migration 206; a pack question that names its series in `feed` bells the pool's host with the answer once the series is decided, and the host still calls it, from the settle panel's one-tap answer, `_pool_feed_nudge` and `pool_feed_answer`, migrations 272 and 273; the hourly pool job, pool-drops, opens
   a pool's automatic prop sheets, `_props_auto`, migration 223). Shared code in `supabase/functions/_shared`.
 - Scheduler: pg_cron jobs call the edge functions through pg_net with `_edge_headers(true)` (the anon key plus the
   platform's admin key, read when the job runs); nhl-sync refuses every task without the admin key and Garry its

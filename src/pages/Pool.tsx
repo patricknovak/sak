@@ -502,10 +502,27 @@ function HostSettle({ m, onDone }: { m: PoolMarket; onDone: () => void }) {
   const [win, setWin] = useState<string>('');
   const [note, setNote] = useState('');
   const [closeAt, setCloseAt] = useState('');
+  // what the feed says, when the question follows a decided series (migration 273): the host settles with one tap
+  const [feed, setFeed] = useState<{ key: string; label: string; series: string } | null>(null);
+  useEffect(() => {
+    if (m.status !== 'open') return;
+    let live = true;
+    rpc<{ key: string; label: string; series: string } | null>('pool_feed_answer', { p_market: m.id }).then((a) => { if (live) setFeed(a ?? null); }).catch(() => {});
+    return () => { live = false; };
+  }, [m.id, m.status]);
   if (m.status === 'void') return null;
   return (
     <div className="card border-gold/25 p-4">
       <div className="label mb-2">Host · settle this question</div>
+      {m.status === 'open' && feed && (
+        <div className="mb-3 rounded-xl border border-emerald-400/30 bg-emerald-400/[.07] p-3">
+          <div className="text-sm text-white">📡 The feed has it: <b>{feed.label}</b>{feed.series ? <span className="text-mute"> ({feed.series})</span> : null}</div>
+          <button type="button" className="btn-gold mt-2 w-full" disabled={busy}
+            onClick={() => confirm(`Settle "${m.title}" as ${feed.label}? Everyone holding it gets paid.`) && run(async () => { await rpc('pool_resolve', { p_market: m.id, p_winner: feed.key, p_note: note || `From the feed: ${feed.label}${feed.series ? `, ${feed.series}` : ''}.` }); onDone(); }, 'Settled')}>
+            Settle it as {feed.label}
+          </button>
+        </div>
+      )}
       {m.status === 'open' && (
         <>
           <select className="input w-full" value={win} onChange={(e) => setWin(e.target.value)}>
@@ -518,8 +535,8 @@ function HostSettle({ m, onDone }: { m: PoolMarket; onDone: () => void }) {
             Settle it
           </button>
           <div className="mt-3 flex gap-2">
-            <input className="input flex-1" type="datetime-local" value={closeAt} onChange={(e) => setCloseAt(e.target.value)} aria-label="New closing time" />
-            <button type="button" className="btn-ghost" disabled={busy || !closeAt} onClick={() => run(async () => { await rpc('pool_edit', { p_market: m.id, p: { closes_at: new Date(closeAt).toISOString() } }); onDone(); }, 'Closing time moved')}>Move close</button>
+            <input className="input min-w-0 flex-1" type="datetime-local" value={closeAt} onChange={(e) => setCloseAt(e.target.value)} aria-label="New closing time" />
+            <button type="button" className="btn-ghost shrink-0" disabled={busy || !closeAt} onClick={() => run(async () => { await rpc('pool_edit', { p_market: m.id, p: { closes_at: new Date(closeAt).toISOString() } }); onDone(); }, 'Closing time moved')}>Move close</button>
           </div>
         </>
       )}
