@@ -1410,7 +1410,7 @@ async function draftPrep() {
     team_id: g.id, kind: 'draftprep', link: g.queue === 0 ? '/draft/sheet' : '/profile',
     body: `📋 Draft in ${hours}h. ${g.queue === 0 ? 'Your queue is empty: star your targets so autodraft has a list. ' : ''}${!g.alerts_on ? 'Alerts are off: turn them on so you know when you are on the clock.' : ''}`.trim(),
   }));
-  if (notes.length) await from('notifications').insert(notes);
+  if (notes.length && !dry()) await from('notifications').insert(notes);
   return { posted: slotKey, no_queue: noQueue.map((g) => g.gm), no_alerts: noAlerts.map((g) => g.gm) };
 }
 
@@ -1558,13 +1558,25 @@ async function weekly() {
   const rankings = teams.map((t) => ({ team_id: t.id, s: score(t.id) })).sort((a, b) => a.s - b.s)
     .map((r, i) => ({ team_id: r.team_id, rank: i + 1, prev: prev.get(r.team_id) ?? null, gm: byId.get(r.team_id)?.gm_name, team: byId.get(r.team_id)?.name,
       last14: Math.round((two.get(r.team_id) ?? 0) * 10) / 10, season_rank: seasonRank.get(r.team_id) ?? null }));
+  // each team's season place with its gaps in words, on its own row, so a ranking line never borrows another row's gap
+  // (a dry run on 14 October had Terry "11.9 off the leader": 11.9 was his gap to Patrick, second)
+  const ordered = [...standings].sort((a, b) => Number(a.rank) - Number(b.rank));
+  const seasonLine = (id: number, rank: number | null) => {
+    if (rank == null) return null;
+    const i = ordered.findIndex((x) => x.team_id === id);
+    if (h2h || roto.length || i < 0 || ordered.length < 2) return `${ORD(rank)} in the season`;
+    const pts = (k: number) => Number(ordered[k].points), gm = (k: number) => byId.get(ordered[k].team_id)?.gm_name ?? '?';
+    if (i === 0) return `${ORD(rank)} in the season, leads ${gm(1)} (2nd) by ${f1(pts(0) - pts(1))}`;
+    return `${ORD(rank)} in the season, ${f1(pts(i - 1) - pts(i))} behind ${gm(i - 1)} (${ORD(Number(ordered[i - 1].rank))})${i > 1 ? `, ${f1(pts(0) - pts(i))} behind the leader ${gm(0)}` : ''}`;
+  };
   const arrow = (r: { rank: number; prev: number | null }) => r.prev == null ? 'new' : r.prev > r.rank ? `▲${r.prev - r.rank}` : r.prev < r.rank ? `▼${r.rank - r.prev}` : '–';
 
-  await from('coin_ledger').insert({ team_id: best.team_id, amount: WEEKLY_BONUS, reason: `${bot()}'s Team of the Week (${start} to ${end})` });
-  await from('notifications').insert({ team_id: best.team_id, kind: 'weekly', body: `🏆 Team of the Week! ${f1(best.points)} points and ${WEEKLY_BONUS} ${coin().emoji} coins from ${bot()}`, link: '/chat' });
+  // a dry run pays nothing and rings no one (until 14 October 2026 it paid the bonus and rang the bell on every preview)
+  if (!dry()) await from('coin_ledger').insert({ team_id: best.team_id, amount: WEEKLY_BONUS, reason: `${bot()}'s Team of the Week (${start} to ${end})` });
+  if (!dry()) await from('notifications').insert({ team_id: best.team_id, kind: 'weekly', body: `🏆 Team of the Week! ${f1(best.points)} points and ${WEEKLY_BONUS} ${coin().emoji} coins from ${bot()}`, link: '/chat' });
 
   const facts = { week: { start, end }, week_table: table, team_of_the_week: { ...best, coins: WEEKLY_BONUS }, bust_of_the_week: worst, player_of_the_week: star,
-    power_rankings: rankings.map((r) => ({ rank: r.rank, gm: r.gm, team: r.team, move: arrow(r), last_14_days: r.last14, season_rank: r.season_rank })),
+    power_rankings: rankings.map((r) => ({ rank: r.rank, gm: r.gm, team: r.team, move: arrow(r), last_14_days: r.last14, season: seasonLine(r.team_id, r.season_rank) })),
     // the season table's gaps in words, so "a point behind the leader" is read, never worked out (a points table only)
     ...(!h2h && !roto.length && standings.length > 1 ? { season_table: [...standings].sort((a, b) => Number(a.rank) - Number(b.rank)).map((x, i, all) =>
       `${ORD(Number(x.rank))}: ${byId.get(x.team_id)?.gm_name ?? '?'}, ${f1(Number(x.points))}${i ? `, ${f1(Number(all[i - 1].points) - Number(x.points))} behind ${byId.get(all[i - 1].team_id)?.gm_name ?? '?'}` : ''}`) } : {}),
@@ -1585,7 +1597,7 @@ async function weekly() {
     `Power rankings: ${rankings.map((r) => `${r.rank}. ${r.gm} (${arrow(r)})`).join(' · ')}.`,
     pick(['Trade deadline energy, please. Somebody make an offer.', 'Put some coins on next week\'s Team of the Week.', `Set your lineups. ${bot()} is watching.`]),
   ].filter(Boolean).join('\n');
-  const body = await write(`Write your Monday column for the league chat: ${h2h?.results.length ? `lead with the week's head-to-head ${h2h.playoff ? 'playoff ' : ''}results (every matchup: who beat whom and by how much, a tie as a tie), then ` : ''}Team of the Week (and their coin bonus), Bust of the Week, Player of the Week, ${lineups ? 'one line on lineup management (the sharpest manager and who left the most points out, from lineup_management), ' : ''}then the power rankings as a numbered list with the movement arrows given. One dry line per team.`, facts, fallback, (h2h?.results.length ? 340 : 260) + (lineups ? 40 : 0), [], { numbers: true });
+  const body = await write(`Write your Monday column for the league chat: ${h2h?.results.length ? `lead with the week's head-to-head ${h2h.playoff ? 'playoff ' : ''}results (every matchup: who beat whom and by how much, a tie as a tie), then ` : ''}Team of the Week (and their coin bonus), Bust of the Week, Player of the Week, ${lineups ? 'one line on lineup management (the sharpest manager and who left the most points out, from lineup_management), ' : ''}then the power rankings as a numbered list with the movement arrows given. One dry line per team, built on that row's own last_14_days and season as given, never another row's gap.`, facts, fallback, (h2h?.results.length ? 340 : 260) + (lineups ? 40 : 0), [], { numbers: true });
   await post(body, { type: 'weekly', date: end, rankings: rankings.map((r) => ({ team_id: r.team_id, rank: r.rank, prev: r.prev })), team_of_week: best.team_id });
   return { posted: 'weekly', team_of_week: best.gm, star };
 }
@@ -1794,7 +1806,7 @@ async function moments() {
       }
     }
   }
-  await from('garry_state').update({ moments: cur });
+  if (!dry()) await from('garry_state').update({ moments: cur });
   if (!pick) return { skipped: 'nothing worth it' };
   const body = await write(pick.task, pick.facts, pick.fallback, 70, pick.focus, { numbers: true });
   await post(body, { type: 'moment', key: pick.key, date: day });

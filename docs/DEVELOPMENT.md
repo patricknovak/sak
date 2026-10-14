@@ -699,6 +699,11 @@ Built for SaK and, as every SaK change is, for every league:
   the sentences that name the trailing GM or their team with that number: behind, back or trailing pass; clear, ahead or
   leads are rewritten. Deployed; dry runs read the table right. Loose comparisons ("roughly the same margin") still get
   through: the check reads numbers and directions, not how two numbers compare.
+- **A dry run writes nothing**: the Monday column paid its Team of the Week bonus and rang the bell on every preview
+  (`?dry=1`), so previews on 13 and 14 October put four extra 5-coin rows (204, 225, 226, 227) and four bells on SaK's
+  team 1. The bonus, the bell, draft prep's bells and the in-game moments' state are now skipped on a dry run. Each power
+  ranking row carries its own season line ("6th in the season, 0.3 behind Trystan (5th), 37.4 behind the leader Jason"),
+  so a row never borrows another's gap.
 - **What the first real week says** (7 to 14 October, test accounts left out): one pool started, one person joined,
   one first call inside fifteen minutes, ten calls (both in Trystan's pools), ten chat messages (all in SaK), no call from
   a real member in Pod Squad. All time: 3 real pools, 1 league, 8 people, 20 calls, 3 first calls. The gate (three pools,
