@@ -33,7 +33,8 @@ function Mark({ label, value, target, note, pct }: { label: string; value: strin
 export function PoolTest() {
   const [t, setT] = useState<Test | null>(null);
   useEffect(() => { rpc<Test>('platform_pool_test').then(setT, () => setT(null)); }, []);
-  if (!t) return null;
+  // an answer without its weeks (no test pool on file, an older database) draws nothing rather than taking the page down
+  if (!t?.weeks?.length) return null;
   const now = Date.now();
   const premiere = new Date(t.weeks[0].from).getTime();
   // the median that counts: this week's once it is under way, else the last finished week's

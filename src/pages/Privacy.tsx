@@ -14,6 +14,7 @@ const SECTIONS: { title: string; body: string[] }[] = [
     'The host of a pool can see who has joined and what they have called, and can settle questions and delete the pool. Deleting a pool deletes everything in it.',
   ] },
   { title: 'Analytics', body: [
+    'Inside the app we keep a daily count of how often each page of a pool is opened and by how many of its members, with no names: a member is counted by a code that changes every day, so no one\'s visits can be followed. It tells us which pages people use. A pool\'s host can switch it off for the pool.',
     'If you accept the analytics banner, we load Google Analytics to count which pools get started, which invite links get shared and which pages get used. We send no names, emails or messages to it, only that something happened. If you say no thanks, nothing loads, and you can change your mind from the banner any time it shows again.',
   ] },
   { title: 'Email and the voice', body: [

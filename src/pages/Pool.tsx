@@ -25,6 +25,7 @@ import { UserPlus } from 'lucide-react';
 import { ShareButton, useCardBrand } from '../components/ShareButton';
 import { InvitePeople } from '../components/InvitePeople';
 import { DeletePool } from '../components/DeletePool';
+import { LeagueFeatures } from '../components/LeagueFeatures';
 import { usePoolCompetitions } from '../lib/poolOwn';
 import { HostGames, PoolGameCards, usePoolGames } from './Picks';
 import { kindOf, lockLink, usePoolAhead, usePoolScoreboard } from '../lib/poolScoreboard';
@@ -677,6 +678,7 @@ export function PoolHost() {
       </Section>
       <AskSheet open={open} onClose={() => setOpen(false)} drops={drops} onAsked={reload} />
       <div className="flex items-center gap-2 px-1 text-xs text-mute"><Trophy className="h-4 w-4" /> Questions about a show are about what airs.</div>
+      <Section title="Pool settings"><LeagueFeatures only={['usage']} /></Section>
       <Section title="Delete the pool">
         <div className="card flex flex-wrap items-center gap-3 border-red-400/20 p-4">
           <span className="grid h-11 w-11 shrink-0 place-items-center rounded-2xl bg-red-500/15 text-red-300"><Trash2 className="h-5 w-5" /></span>

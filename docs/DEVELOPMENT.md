@@ -9,7 +9,7 @@ Paid subscribed: section 1 and section 8 are that review.
 
 ## 1. Where we are
 
-*As of 14 October 2026, migration 265.*
+*As of 14 October 2026, migration 271.*
 
 - **SaK**, the live league: eight GMs, used every night, on React 19 + Supabase (Postgres rules, edge functions, a
   scheduler) and an LLM voice (Garry, on Grok, metered per feature and league), served from Cloudflare. The season is
@@ -29,7 +29,7 @@ Paid subscribed: section 1 and section 8 are that review.
 - **Use so far is the founder's.** Four prediction pools besides SaK, one or two members each, one pick between them
   and no chat (section 9.2, 13 October). The Love Is Blind gate (three pools, thirty players by 4 November) is the first
   real test of the product with strangers; the premiere is 14 October, and the week's build for it is section 9.5.
-- 265 migrations; the flow test drives a whole fantasy season and every pool kind in SQL, with a second league beside
+- 271 migrations; the flow test drives a whole fantasy season and every pool kind in SQL, with a second league beside
   each that must never see or change it; CI runs it, the build and the Worker's types on every pull request.
 
 ## 2. What is working, and stays
@@ -659,3 +659,35 @@ Built for SaK and, as every SaK change is, for every league:
 - **League transactions on the home page**: every add, drop and trade, the draft and the keepers on a tap, by GM and kind.
 - **The roster against the free agents**: Players, Browse, "GM vs available" (one GM's players among every available one,
   in their colour); My Team, Stats, Compare, "Best available" (the best free agent at each of the roster's positions).
+
+### 9.7 The premiere morning, 14 October 2026
+
+- **The pool's morning post told Pod Squad something false**: that the premiere's questions "close tomorrow 3 am ET",
+  four hours after they had closed, and it re-announced the day before's new questions (the voice had read its own
+  eve-of-premiere post). Pool posts now stand on their facts alone (`write(..., { fresh, check })`), closed questions are
+  told as closed and locked, what's new counts from the last morning post, and a check (every number in the facts, no
+  closing or calls or locks the facts don't have) rewrites a bad draft once and then falls back to the plain line.
+- **The league's posts get the same number check** (the morning column, the 5 pm nudge, the Monday column, the in-game
+  moments), with the voice's memory and the league's right-now counted as known. It catches invented numbers, not wrong
+  arithmetic, so the morning column's facts now carry the arithmetic: each GM's rank change ("Trystan up 2 spots, 7th to
+  5th"), one line per GM who passed others with the count, and each race as who leads whom by how much. Dry runs on SaK
+  read the spots, passes and gaps right where they had read "three spots" for two and turned a lead into a deficit.
+- **The chat filter checked against SaK's 470 real messages**: the draft's picks no longer count as transactions; a
+  test holds every kind (`chat-filter.test.mjs`).
+- **The Monday read comes to Patrick** (§8.4 item 2, migrations 266 and 267): a bell each Monday with the week's
+  pools, people, first calls, calls, messages and the busiest pool. **Migration 268** leaves test accounts' calls and
+  chat out of the week, as it already left out their membership; **migration 269** counts a pool or league as started only
+  when one real member is in it (the TEST pool had counted).
+- **A pool's Monday** (§8.4 item 3): the weekly run now posts in prediction pools too (`poolWeekly`): what settled that
+  week and who called it, the table with each gap, the members who made no call all week (tagged, to bring them back), and
+  the week ahead day by day (coins dropping, questions closing, picks locking). Fresh facts and the same check; nothing to
+  say, nothing posted. Dry runs on Pod Squad and the test pool read the drop and the four questions closing on 21 October.
+- **What people open** (SUPERPOOLS item 14, migrations 270 and 271): a daily count per league and page of opens and of
+  members who opened it, a member counted by a hash of their account, the day and the league (a new one every day, no
+  name kept), from the site's layout once a page per session per day (`src/lib/usage.ts`, `usage_hit`); the commissioner
+  switches it off under League features, a pool's host under Pool settings; platform admins read the last week on the
+  Platform page (`platform_usage()`, "What people open"); members read only their league's counts. The privacy note says so.
+- **What the first real week says** (7 to 14 October, test accounts left out): one pool started, one person joined,
+  one first call inside fifteen minutes, ten calls (both in Trystan's pools), ten chat messages (all in SaK), no call from
+  a real member in Pod Squad. All time: 3 real pools, 1 league, 8 people, 20 calls, 3 first calls. The gate (three pools,
+  thirty players by 4 November) is people: the next drop is 21 October.
