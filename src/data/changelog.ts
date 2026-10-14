@@ -6,6 +6,8 @@
 export interface Change { date: string; icon: string; title: string; body: string; to?: string; tag?: 'formats' | 'commish' | 'draft' | 'everyone' }
 
 export const CHANGELOG: Change[] = [
+  { date: '2026-10-14', icon: '🗓️', tag: 'everyone', title: 'Your pool\'s Monday', to: '/chat',
+    body: 'Every Monday your pool\'s voice sums up the week: what settled and who called it, the table, a nudge for anyone who sat the week out, and what\'s coming, day by day, before the next drop.' },
   { date: '2026-10-14', icon: '📊', tag: 'commish', title: 'Which pages your league opens, with no names', to: '/privacy',
     body: 'The app now keeps a daily count of how often each page is opened and by how many members, with no names: a member is counted by a code that changes every day. It tells us which pages to make better. A commissioner can switch it off under League features on the Commish page, a pool\'s host under Pool settings.' },
   { date: '2026-10-14', icon: '🧮', tag: 'everyone', title: 'Your roster count leaves IR out', to: '/players',

@@ -412,7 +412,7 @@ function factCheck(facts: unknown, fallback: string, { closing, locking }: { clo
     if (bad) return bad;
     if (!closing && /\bclos(e|es|ing)\b[^.!?]*\b(tonight|tomorrow|today)\b/i.test(body)) return 'it says questions close soon, but none do: the ones in closed_waiting_on_the_host have already closed';
     if (!closing && /\b(needs?|has|have|got) to call\b|\bstill (to )?call\b|\b(yet|left) to call\b|\bcalls? (left|to make)\b/i.test(body)) return 'it asks members to call questions, but none can be called now: the closed ones are locked';
-    if (!locking && /\block(s|ed)?\b|\bpicks?\b/i.test(body)) return 'it talks about picks or locks, and the facts have none';
+    if (!locking && /\block(s|ed)?\b/i.test(body)) return 'it says something locks, and the facts have nothing that does';
     return null;
   };
 }
@@ -640,6 +640,66 @@ async function poolFacts(asker: number, byId: Map<number, Team>) {
       settle_a_question: 'The host opens the question after it closes and taps the answer that happened; everyone holding it is paid a coin a share. 👉 #/questions',
       ask_a_question: 'The host writes new questions on the Host page (members too, where the host allows it). 👉 #/host',
     } };
+}
+
+// ─────────────── a prediction pool's week ───────────────
+// The voice in every pool on a quiet week too (docs/DEVELOPMENT.md §8.4 item 3): Monday, the table, what settled in the
+// week and who called it, who hasn't made a call all week, and what's coming in the next seven days (questions closing,
+// coins dropping, picks locking). Nothing to say, nothing posted.
+async function poolWeekly() {
+  const { teams, byId } = await base();
+  const today = etDate(new Date());
+  if (await alreadyPosted('pool-week', today)) return { skipped: 'already posted' };
+  const nowMs = Date.now(), now = new Date(nowMs).toISOString(), since = new Date(nowMs - 7 * 86400000).toISOString(), until = new Date(nowMs + 7 * 86400000).toISOString();
+  const [{ data: ms }, { data: pos }, { data: drops }, { data: calls }, ahead, { data: sb }] = await Promise.all([
+    from('pool_markets').select('id,title,outcomes,status,winner_key,closes_at,resolved_at,created_at'),
+    from('pool_positions').select('market_id,team_id,outcome,shares'),
+    from('pool_drops').select('at,amount,note').gt('at', now).lte('at', until).order('at'),
+    from('pool_trades').select('team_id').gt('created_at', since),
+    poolAhead(168),
+    L.db.rpc('pool_scoreboard'),
+  ]);
+  const all = (ms ?? []) as PoolMarket[];
+  const name = (id: number) => byId.get(id)?.gm_name ?? 'someone';
+  const label = (m: PoolMarket, key: string | null) => m.outcomes.find((o) => o.key === key)?.label ?? '?';
+  const day = (iso: string) => new Date(iso).toLocaleDateString('en-US', { timeZone: 'America/Toronto', weekday: 'long', month: 'long', day: 'numeric' });
+  const at = (iso: string) => `${day(iso)} at ${new Date(iso).toLocaleTimeString('en-CA', { timeZone: 'America/Toronto', hour: 'numeric', minute: '2-digit' }).replace(/\.\s?/g, '').toLowerCase()} ET`;
+  const settled = all.filter((m) => m.status === 'resolved' && m.resolved_at && m.resolved_at > since).map((m) => {
+    const right = [...new Set((pos ?? []).filter((p) => p.market_id === m.id && Number(p.shares) > 0 && p.outcome === m.winner_key).map((p) => name(p.team_id)))];
+    return `"${m.title}": ${label(m, m.winner_key)}${right.length ? ` (called by ${right.join(', ')})` : ' (nobody called it)'}`;
+  });
+  const closing = all.filter((m) => m.status === 'open' && m.closes_at > now && m.closes_at <= until).sort((a, b) => a.closes_at.localeCompare(b.closes_at));
+  // the closing days, each with how many questions close then
+  const byDay = [...closing.reduce((mp, m) => mp.set(at(m.closes_at), (mp.get(at(m.closes_at)) ?? 0) + 1), new Map<string, number>())].map(([when, n]) => `${n} question${n === 1 ? '' : 's'} close ${when}`);
+  const c = coin();
+  const coming = (drops ?? []).map((d) => `${Number(d.amount)} ${c.name} drop into every member's purse ${at(d.at)} (${d.note})`);
+  const locks = ahead.locks.map((l) => `${l.round} of ${l.title} locks ${at(l.at)}`);
+  const callers = new Set((calls ?? []).map((x) => x.team_id));
+  const quiet = all.some((m) => m.status === 'open' || (m.resolved_at && m.resolved_at > since)) ? teams.filter((t) => !callers.has(t.id)).map((t) => t.gm_name) : [];
+  const games = ((sb as { games?: { title: string; crown?: boolean; rows?: { team_id: number; rank: number; score: number }[] }[] } | null)?.games ?? []);
+  const main = games.find((g) => g.crown) ?? games[0];
+  // each row with its gap to the one above, so "ten back" is read, never worked out
+  const table = (main?.rows ?? []).slice().sort((a, b) => a.rank - b.rank).slice(0, 6).map((r, i, rows) =>
+    `${ORD(r.rank)} ${name(r.team_id)} ${f1(Number(r.score))}${i ? `, ${f1(Number(rows[i - 1].score) - Number(r.score))} behind ${name(rows[i - 1].team_id)}` : ''}`);
+  if (!settled.length && !byDay.length && !coming.length && !locks.length) return { skipped: 'a quiet week ahead and behind' };
+  const prune = (o: Record<string, unknown>) => Object.fromEntries(Object.entries(o).filter(([, v]) => v != null && !(Array.isArray(v) && !v.length)));
+  const facts = prune({
+    members: teams.length, the_coins_are_called: `${c.name} ${c.emoji}`,
+    settled_this_week: settled, table: table.length > 1 ? { game: main?.title, rows: table } : null,
+    no_call_all_week: quiet,
+    the_week_ahead: [...coming, ...byDay, ...locks],
+  });
+  const fb = [
+    `${L.brand.bot.emoji} The week in ${L.info.name}.`,
+    settled.length ? `Settled: ${settled.join('; ')}.` : '',
+    table.length > 1 ? `The table: ${table.join(', ')}.` : '',
+    [...coming, ...byDay, ...locks].length ? `This week: ${[...coming, ...byDay, ...locks].join('; ')}.` : '',
+  ].filter(Boolean).join(' ');
+  const body = await write(`Write this Monday's post for the pool's chat, as the friend who's most into this and runs the group chat: the week that was and the week ahead. Lead with what settled and who called it (or that nobody did), then the table if the facts give one, then the week ahead in order (each day and what happens then, as given). Tag the members in no_call_all_week as @Name with one line to get them back in, warm not preachy. One sharp chirp built on those facts, worked into a sentence, never labelled. Say nothing about what didn't happen (no settled questions: leave the week that was out). No headings or labels ("Week ahead:", "Table:"): it reads as a message from a friend. Call the coins by their name. Every number and day comes from the facts as given. Never more than 120 words.`,
+    facts, fb, 120, teams.filter((t) => quiet.includes(t.gm_name)).map((t) => t.id),
+    { fresh: true, check: factCheck(facts, fb, { closing: byDay.length > 0, locking: locks.length > 0 }) });
+  await post(body, { type: 'pool-week', date: today });
+  return { posted: 'pool-week', settled: settled.length, ahead: byDay.length + coming.length + locks.length, quiet: quiet.length };
 }
 
 // ─────────────── a prediction pool's morning ───────────────
@@ -1196,7 +1256,8 @@ async function leaguesFor(req: Request, url: URL, task = ''): Promise<number[]> 
   // the morning: a pool's morning (poolDaily) posts on the days something happened or is about to (13 October 2026;
   // the first scheduled run left the pools out and Pod Squad got no post on the premiere's eve)
   let q = db.from('leagues').select('id').eq('status', 'active');
-  if (task !== 'daily') q = q.eq('kind', 'fantasy');
+  // and the Monday post: a pool's week (poolWeekly), 14 October 2026
+  if (task !== 'daily' && task !== 'weekly') q = q.eq('kind', 'fantasy');
   const { data: all } = await q.order('id');
   return (all ?? []).map((l) => l.id);
 }
@@ -1803,7 +1864,7 @@ async function assess(asked: string | null, force = false) {
 async function runTask(task: string, req: Request) {
   // a prediction pool has no lineups, no slate and no fantasy table: its one scheduled post is the morning column on
   // days something happened or is about to (poolDaily); the rest of his scheduled runs are for fantasy leagues
-  if (L.kind === 'predict' && SCHEDULED.has(task)) return task === 'daily' ? poolDaily() : { skipped: 'a prediction pool' };
+  if (L.kind === 'predict' && SCHEDULED.has(task)) return task === 'daily' ? poolDaily() : task === 'weekly' ? poolWeekly() : { skipped: 'a prediction pool' };
   if (task === 'nudge') return nudge();
   if (task === 'moments') return moments();
   if (task === 'assess') {

@@ -678,6 +678,10 @@ Built for SaK and, as every SaK change is, for every league:
   pools, people, first calls, calls, messages and the busiest pool. **Migration 268** leaves test accounts' calls and
   chat out of the week, as it already left out their membership; **migration 269** counts a pool or league as started only
   when one real member is in it (the TEST pool had counted).
+- **A pool's Monday** (§8.4 item 3): the weekly run now posts in prediction pools too (`poolWeekly`): what settled that
+  week and who called it, the table with each gap, the members who made no call all week (tagged, to bring them back), and
+  the week ahead day by day (coins dropping, questions closing, picks locking). Fresh facts and the same check; nothing to
+  say, nothing posted. Dry runs on Pod Squad and the test pool read the drop and the four questions closing on 21 October.
 - **What people open** (SUPERPOOLS item 14, migrations 270 and 271): a daily count per league and page of opens and of
   members who opened it, a member counted by a hash of their account, the day and the league (a new one every day, no
   name kept), from the site's layout once a page per session per day (`src/lib/usage.ts`, `usage_hit`); the commissioner
