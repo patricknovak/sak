@@ -26,8 +26,11 @@ function sumLines(lines: (Line | null)[]): Line {
 }
 const ord = (n: number) => `${n}${['st', 'nd', 'rd'][n - 1] ?? 'th'}`;
 
-export function TeamCompare({ baseId, vsIds, tf, scope, line }: {
+// `extra` is a group that isn't a team: the best available players at the team's own positions (the Stats tab's
+// "Best available"), drawn and totalled like a team so the roster sits against what the free agents would give
+export function TeamCompare({ baseId, vsIds, tf, scope, line, extra }: {
   baseId: number; vsIds: number[]; tf: Timeframe; scope: 'starters' | 'roster'; line: (p: Player) => Line | null;
+  extra?: { team: Team; players: Player[] };
 }) {
   const { teams, rosters, players, me } = useLeague();
   const POSITIONS = ['ALL', ...positionKeys(useSport())];
@@ -43,15 +46,16 @@ export function TeamCompare({ baseId, vsIds, tf, scope, line }: {
   // the teams in the table: this page's team first, then the others in league order
   const shown = useMemo(() => {
     const ids = [baseId, ...vsIds.filter((id) => id !== baseId)];
-    return ids.map((id) => teams.find((t) => t.id === id)).filter((t): t is Team => !!t);
-  }, [teams, baseId, vsIds]);
+    return [...ids.map((id) => teams.find((t) => t.id === id)).filter((t): t is Team => !!t), ...(extra ? [extra.team] : [])];
+  }, [teams, baseId, vsIds, extra]);
   const order = useMemo(() => new Map(shown.map((t, i) => [t.id, i])), [shown]);
 
   const rows = useMemo<Row[]>(() => rosters
     .filter((r) => order.has(r.team_id) && (scope === 'roster' || STARTING.has(r.slot)))
     .map((r) => ({ p: players.get(r.player_id), team: shown[order.get(r.team_id)!] }))
     .filter((x): x is { p: Player; team: Team } => !!x.p)
-    .map((x) => ({ ...x, line: line(x.p) })), [rosters, players, order, shown, scope, line]);
+    .concat(extra ? extra.players.map((p) => ({ p, team: extra.team })) : [])
+    .map((x) => ({ ...x, line: line(x.p) })), [rosters, players, order, shown, scope, line, extra]);
   const match = (p: Player) => pos === 'ALL' || (pos === 'G' ? p.pos === 'G' : p.elig.includes(pos));
   const picked = rows.filter((r) => match(r.p));
   const skaters = picked.filter((r) => r.p.pos !== 'G');
