@@ -124,6 +124,7 @@ export function PoolHome() {
           <Link to="/leaders" className="rounded-2xl bg-black/25 px-3 py-2.5 ring-1 ring-white/10 hover:bg-black/35"><div className="label truncate">{main && board!.games.length > 1 ? `${kindOf(main.kind).icon} Rank` : 'Rank'}</div>
             <div className="flex items-baseline gap-1 font-display text-2xl font-extrabold text-white">{main?.mine ? main.mine.rank : '–'}<span className="text-sm font-bold text-mute">of {main?.members ?? '–'}</span><Move n={main?.mine?.move} /></div></Link>
         </div>
+        <p className="mt-2 text-[11px] text-mute">{brand.coin.name} are play coins, never real money.</p>
         {main && myChance != null && (
           <Link to={`/leaders?g=${encodeURIComponent(main.key)}`} className="mt-2 flex items-center gap-2 rounded-2xl bg-black/20 px-3 py-2 text-sm ring-1 ring-white/10 hover:bg-black/30">
             <Dices className="h-4 w-4 shrink-0 text-gold" />
@@ -223,7 +224,7 @@ function InviteCard() {
       <div className="pointer-events-none absolute -right-10 -top-10 h-40 w-40 rounded-full bg-gold/20 blur-3xl" />
       <div className="relative">
         <h3 className="font-display text-2xl font-extrabold text-white">Better with the group chat</h3>
-        <p className="mt-1 text-sm text-mute">Everyone gets the same {brand.coin.name.toLowerCase()} to start, and every drop. One tap to join, nothing to download.</p>
+        <p className="mt-1 text-sm text-mute">Everyone gets the same {brand.coin.name.toLowerCase()} to start, and every drop. They join with a name, email and password — nothing to download.</p>
         {me?.role === 'gm' ? (
           <>
             <div className="mt-3 flex flex-wrap gap-2">
