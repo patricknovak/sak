@@ -337,6 +337,8 @@ async function situation(): Promise<string> {
     league.phase === 'season' ? `Regular season, day ${day ?? '?'}.` : league.phase === 'keepers' ? 'Keeper season: GMs are picking keepers.' : league.phase === 'predraft' ? 'Keepers are locked; the draft is coming.' : league.phase === 'draft' ? 'The draft is on.' : `Phase: ${league.phase}.`,
     (games ?? []).length ? `${(games ?? []).length} NHL games today (${live} live, ${done} final).` : 'No NHL games today.',
     scored && table[0] ? `Leader: ${byId.get(table[0].team_id)?.gm_name} (${f1(Number(table[0].points))}); last: ${byId.get(table.at(-1)!.team_id)?.gm_name} (${f1(Number(table.at(-1)!.points))}).` : '',
+    // the whole table with each gap in words (a points league), so "a point behind" is read, never worked out
+    scored && league.format !== 'h2h' && !league.categories?.length ? `The table: ${table.map((t, i) => `${ORD(Number(t.rank))} ${byId.get(t.team_id)?.gm_name} ${f1(Number(t.points))}${i ? ` (${f1(Number(table[i - 1].points) - Number(t.points))} behind ${byId.get(table[i - 1].team_id)?.gm_name})` : ''}`).join(', ')}.` : '',
     league.phase === 'season' ? 'Keepers and the draft are done: never tell anyone to submit keepers or prep for the draft.' : '',
     league.format === 'h2h' ? `Won in weekly head-to-head matchups${league.categories?.length ? ', category by category' : ' on points'}${league.h2h_playoffs ? `, with a ${league.h2h_playoffs}-team playoff` : ''}.`
       : league.categories?.length ? 'Won on rotisserie categories over the whole season.'
@@ -1124,11 +1126,20 @@ Lineup advice comes only from a GM's "tonight" facts: name a move only if it's i
 Rules: 1 to 4 sentences (a roast of everyone: one line per GM). Talk to ${asker?.gm_name} about what they said; bring in other GMs only when they asked about them or it's the point. Tag at most two GMs (every @ pings a phone), except in a roast of everyone. Don't run down the standings unless they asked. Read the room: praise for another GM is not a request to roast them, and sarcasm is sarcasm. Use only the facts given and what you remember; if you don't know something, say so in character. No stock openers, nothing from your last few lines, and a nudge only if it fits.
 Return JSON only: {"mode": "answer"|"roast"|"joke"|"banter", "target": "<first name of the GM you're roasting, or null>", "reply": "<your message>"}`,
   ].filter(Boolean).join('\n\n');
-  const text = await grok(system(st), prompt, everyone ? 1100 : 600, 0.9, true, 'none');
+  let text = await grok(system(st), prompt, everyone ? 1100 : 600, 0.9, true, 'none');
   let j: { mode?: string; target?: string | null; reply?: string } | null = null;
   try { j = JSON.parse(text ?? ''); } catch { j = null; }
-  const body = String(j?.reply ?? '').trim();
+  let body = String(j?.reply ?? '').trim();
   if (!body) return null;
+  // every number in a reply comes from what he was given or what the GM said; one that doesn't is written again once
+  const bad = numbersCheck(prompt + ' ' + m.body, {})(body);
+  if (bad) {
+    console.warn('converse: rewriting', bad);
+    text = await grok(system(st), `${prompt}\n\nYour first reply was wrong: ${bad}. Answer again from the facts only.`, everyone ? 1100 : 600, 0.7, true, 'none');
+    try { const k = JSON.parse(text ?? ''); if (String(k?.reply ?? '').trim()) { j = k; body = String(k.reply).trim(); } } catch { /* keep the first */ }
+  }
+  // the brand writes no em dash (docs/BRAND.md); the JSON answer kept the model's, so the reply drops them here
+  body = body.replace(/\s*—\s*/g, ', ');
   const mode = ['answer', 'roast', 'joke', 'banter'].includes(String(j?.mode)) ? String(j!.mode) : 'banter';
   const target = j?.target ? teams.find((t) => t.gm_name.toLowerCase() === String(j!.target).toLowerCase().replace(/^@/, '')) : undefined;
   return { mode, reply: body.slice(0, everyone ? 2000 : 1200), topic: useful ? ans!.topic : mode, target_id: target?.id ?? null };
