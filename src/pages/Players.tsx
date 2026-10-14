@@ -48,13 +48,15 @@ export default function Players() {
   }, [shown, vsTeam, list]); // eslint-disable-line react-hooks/exhaustive-deps
   const fromTeam = (p: { id: number }) => (comingSet.has(p.id) ? team(owner.get(p.id)?.team_id ?? 0) : undefined);
 
-  const used = rosters.filter((r) => r.team_id === me?.id).length;
+  // the count against the roster limit: players on IR free their spot (the limit leaves IR out too)
+  const used = rosters.filter((r) => r.team_id === me?.id && r.slot !== 'IR').length;
+  const onIr = rosters.filter((r) => r.team_id === me?.id && r.slot === 'IR').length;
   const table = view === 'table' && !projLike(pf.tf);
 
   return (
     <div className="space-y-3">
       <PageHeader icon={<Search size={22} className="text-blue" />} title="Players"
-        sub={<>Roster {used}/{Object.entries(league?.roster ?? {}).reduce((t, [k, v]) => t + (k === 'IR' ? 0 : v), 0)} {league?.phase !== 'season' && '· pickups open after the draft'}</>} />
+        sub={<>Roster {used}/{Object.entries(league?.roster ?? {}).reduce((t, [k, v]) => t + (k === 'IR' ? 0 : v), 0)}{onIr > 0 && ` · ${onIr} on IR`} {league?.phase !== 'season' && '· pickups open after the draft'}</>} />
       <div className="scroll-x flex gap-1">
         {([['browse', '🔍 Browse'], ['advisor', '✨ Pickup advisor'], ['compare', '⚖️ Roster vs available']] as const).map(([k, l]) => (
           <button key={k} className={`tab shrink-0 ${tab === k ? 'tab-on' : 'bg-white/[.05]'}`} onClick={() => setTab(k)}>{l}</button>

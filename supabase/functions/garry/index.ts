@@ -392,6 +392,9 @@ async function write(task: string, facts: unknown, fallback: string, maxWords = 
 const NUMBER_WORDS: Record<string, string> = { one: '1', two: '2', three: '3', four: '4', five: '5', six: '6', seven: '7', eight: '8', nine: '9', ten: '10', eleven: '11', twelve: '12' };
 function factCheck(facts: unknown, fallback: string, { closing, locking }: { closing: boolean; locking: boolean }) {
   const known = new Set((JSON.stringify(facts) + ' ' + fallback).match(/\d+/g) ?? []);
+  // how many of each thing the facts list is a number the post may say ("four questions closed")
+  const count = (v: unknown): void => { if (Array.isArray(v)) { known.add(String(v.length)); v.forEach(count); } else if (v && typeof v === 'object') Object.values(v).forEach(count); };
+  count(facts);
   return (body: string) => {
     const words = body.toLowerCase().replace(/\b(one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve)\b/g, (w) => NUMBER_WORDS[w]);
     const nums = (words.replace(/@\S+/g, '').match(/\d+/g) ?? []).filter((n) => !known.has(n));
