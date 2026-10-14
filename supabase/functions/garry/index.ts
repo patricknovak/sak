@@ -1470,6 +1470,9 @@ async function weekly() {
 
   const facts = { week: { start, end }, week_table: table, team_of_the_week: { ...best, coins: WEEKLY_BONUS }, bust_of_the_week: worst, player_of_the_week: star,
     power_rankings: rankings.map((r) => ({ rank: r.rank, gm: r.gm, team: r.team, move: arrow(r), last_14_days: r.last14, season_rank: r.season_rank })),
+    // the season table's gaps in words, so "a point behind the leader" is read, never worked out (a points table only)
+    ...(!h2h && !roto.length && standings.length > 1 ? { season_table: [...standings].sort((a, b) => Number(a.rank) - Number(b.rank)).map((x, i, all) =>
+      `${ORD(Number(x.rank))}: ${byId.get(x.team_id)?.gm_name ?? '?'}, ${f1(Number(x.points))}${i ? `, ${f1(Number(all[i - 1].points) - Number(x.points))} behind ${byId.get(all[i - 1].team_id)?.gm_name ?? '?'}` : ''}`) } : {}),
     ...(lineups ? { lineup_management: { note: 'share of the best lineup possible each night from the same players', ...lineups } } : {}),
     ...(h2h ? { format: league.categories?.length ? 'head-to-head, categories won' : 'head-to-head, points',
       [h2h.playoff ? 'playoff_results' : 'matchup_results']: h2h.results,
