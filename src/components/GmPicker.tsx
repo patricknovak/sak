@@ -16,9 +16,11 @@ export function GmPicker({ value, onChange, allLabel = 'Every GM', spectators = 
   useEffect(() => {
     if (!open) return;
     const off = (e: MouseEvent | TouchEvent) => { if (!ref.current?.contains(e.target as Node)) setOpen(false); };
+    const esc = (e: KeyboardEvent) => { if (e.key === 'Escape') setOpen(false); };
     document.addEventListener('mousedown', off);
     document.addEventListener('touchstart', off);
-    return () => { document.removeEventListener('mousedown', off); document.removeEventListener('touchstart', off); };
+    document.addEventListener('keydown', esc);
+    return () => { document.removeEventListener('mousedown', off); document.removeEventListener('touchstart', off); document.removeEventListener('keydown', esc); };
   }, [open]);
   const row = (active: boolean) => `flex w-full items-center gap-2.5 rounded-xl px-2.5 py-2 text-left text-sm ${active ? 'bg-white/10 font-semibold' : 'hover:bg-white/[.06]'}`;
   return (

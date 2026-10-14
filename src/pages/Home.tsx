@@ -18,6 +18,7 @@ import { WatchCard } from '../components/WatchCard';
 import { LiveRoomCard } from '../components/LiveRoomCard';
 import { LeagueTransactions } from '../components/LeagueTransactions';
 import { liveRoomOn } from '../lib/features';
+import { chatKinds } from '../lib/chatFilter';
 import { useGameSheet } from '../components/GameSheet';
 
 export default function Home() {
@@ -33,7 +34,9 @@ export default function Home() {
 
   useEffect(() => {
     const load = () => {
-      supabase.from('messages').select('*').eq('channel', 'general').order('id', { ascending: false }).limit(4).then(({ data }) => setFeed((data ?? []) as Message[]));
+      // the wire is the league talking; its moves have their own card now (League transactions), so they're left out here
+      supabase.from('messages').select('*').eq('channel', 'general').order('id', { ascending: false }).limit(16)
+        .then(({ data }) => setFeed(((data ?? []) as Message[]).filter((m) => !chatKinds(m).has('moves')).slice(0, 4)));
       supabase.from('bets').select('*').in('status', ['open', 'accepted']).order('id', { ascending: false }).then(({ data }) => setBets((data ?? []) as Bet[]));
       supabase.from('trades').select('*').in('status', ['proposed', 'accepted']).then(({ data }) => setTrades((data ?? []) as Trade[]));
     };
