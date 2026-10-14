@@ -2237,6 +2237,11 @@ select count(*) as t2_msgs from messages where team_id = 2 and kind = 'user' \gs
 insert into accounts (user_id, is_test) select user_id, true from teams where id = 2 on conflict (user_id) do update set is_test = true;
 select pg_temp.expect('a test account''s messages leave the week''s numbers', (platform_week()->'all_time'->>'messages')::int = :msgs_before - :t2_msgs);
 update accounts set is_test = false where user_id = (select user_id from teams where id = 2);
+-- and a league whose only members are test accounts isn't counted as started (migration 269)
+select (platform_week()->'all_time'->>'leagues')::int as lg_before \gset
+insert into accounts (user_id, is_test) select m.user_id, true from league_members m where m.league_id = :league2 on conflict (user_id) do update set is_test = true;
+select pg_temp.expect('a league of test accounts only leaves the count', (platform_week()->'all_time'->>'leagues')::int = :lg_before - 1);
+update accounts set is_test = false where user_id in (select user_id from league_members where league_id = :league2);
 -- the Monday read (migration 266): one bell per platform admin, on their own team, with the week's numbers
 select set_config('t.sub_before', coalesce(current_setting('request.jwt.claim.sub', true), ''), false);
 select _platform_monday() as mon \gset
