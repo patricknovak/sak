@@ -6,6 +6,8 @@
 export interface Change { date: string; icon: string; title: string; body: string; to?: string; tag?: 'formats' | 'commish' | 'draft' | 'everyone' }
 
 export const CHANGELOG: Change[] = [
+  { date: '2026-10-14', icon: '📊', tag: 'commish', title: 'Which pages your league opens, with no names', to: '/privacy',
+    body: 'The app now keeps a daily count of how often each page is opened and by how many members, with no names: a member is counted by a code that changes every day. It tells us which pages to make better. A commissioner can switch it off under League features on the Commish page, a pool\'s host under Pool settings.' },
   { date: '2026-10-14', icon: '🧮', tag: 'everyone', title: 'Your roster count leaves IR out', to: '/players',
     body: 'The Players page counted a player on IR against your roster limit, which leaves IR out, so a full roster with one on IR read 25 of 24. It now counts the active roster and says how many are on IR beside it.' },
   { date: '2026-10-14', icon: '💬', tag: 'everyone', title: 'One chat, with a filter', to: '/chat',

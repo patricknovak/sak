@@ -1775,7 +1775,7 @@ select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-000000000099
 set role authenticated;
 select pg_temp.expect('a new league starts without money or a fund', not league_has('money') and not league_has('fund'));
 select pg_temp.raises('no money, no billing', 'select commish_bill_entries()', 'doesn''t keep its money');
-select pg_temp.raises('features are money, the fund and the live room only', 'select commish_update_league(''{"features": {"casino": true}}'')', 'Features are money, fund and live_room');
+select pg_temp.raises('features are money, the fund, the live room and the page counts only', 'select commish_update_league(''{"features": {"casino": true}}'')', 'Features are money, fund, live_room and usage');
 select commish_update_league('{"features": {"money": true}}');
 -- the live room is on until the commissioner turns it off (migration 265), and turning it off keeps the rest
 select commish_update_league('{"features": {"live_room": false}}');
@@ -2251,6 +2251,43 @@ select pg_temp.expect('and leaves whoever was signed in as they were', coalesce(
 select pg_temp.as_team(1);
 set role authenticated;
 select pg_temp.raises('a member can''t send it', 'select _platform_monday()', 'permission denied');
+-- what members open (migration 270): opens and members per page per day, no names; nothing once switched off
+reset role;
+select set_config('t.lg_was', coalesce(current_setting('app.league_id', true), ''), false);
+select set_config('app.league_id', '1', false);
+set role authenticated;
+select usage_hit('team'); select usage_hit('team'); select usage_hit('chat'); select usage_hit('Not A Page!');
+reset role;
+select pg_temp.as_team(2);
+set role authenticated;
+select usage_hit('team');
+select pg_temp.expect('two GMs, three opens of the team page, two members', (select opens = 3 and members = 2 from usage_daily where league_id = 1 and day = today_et() and page = 'team'));
+select pg_temp.expect('a page name that isn''t one is not counted', not exists (select 1 from usage_daily where page ilike 'not%'));
+select pg_temp.expect('a member reads the league''s own rows', exists (select 1 from usage_daily where page = 'chat'));
+reset role;
+select set_config('app.league_id', current_setting('t.league2'), false);
+select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-000000000099', false);
+set role authenticated;
+select usage_hit('team');
+select pg_temp.expect('another league''s member sees only their league''s rows', not exists (select 1 from usage_daily where league_id = 1));
+reset role;
+select pg_temp.expect('and their open is theirs', (select opens = 1 from usage_daily where league_id = current_setting('t.league2')::int and page = 'team')
+  and (select opens = 3 from usage_daily where league_id = 1 and day = today_et() and page = 'team'));
+select pg_temp.expect('members can only read the counts (migration 271)', (select string_agg(privilege_type, ',' order by privilege_type) = 'SELECT'
+  from information_schema.role_table_grants where table_name = 'usage_daily' and grantee = 'authenticated'));
+select pg_temp.expect('nothing that names anyone is kept', not exists (select 1 from information_schema.columns where table_name = 'usage_daily' and column_name in ('team_id', 'user_id')));
+select set_config('app.league_id', '1', false);
+select pg_temp.as_team(1);
+set role authenticated;
+select pg_temp.expect('the platform reads every league''s week', exists (select 1 from jsonb_array_elements(platform_usage()) x where (x->>'league_id')::int = 1 and x->'pages'->0->>'page' = 'team'));
+select commish_update_league('{"features": {"usage": false}}');
+select usage_hit('team');
+select pg_temp.expect('switched off, the league counts nothing', (select opens = 3 from usage_daily where league_id = 1 and day = today_et() and page = 'team'));
+select commish_update_league('{"features": {"usage": true}}');
+reset role;
+select set_config('app.league_id', current_setting('t.lg_was'), false);
+select pg_temp.as_team(1);
+set role authenticated;
 select pg_temp.expect('a new league isn''t ready until its commissioner is in', (select bool_and((x->>'ok')::boolean) filter (where x->>'key' in ('name', 'rules', 'draft', 'coins'))
   and not bool_or((x->>'ok')::boolean) filter (where x->>'key' = 'commish') from jsonb_array_elements(league_readiness(:league4)) x));
 select pg_temp.raises('it can''t go live before then', format('select platform_set_league_status(%s, ''active'')', :league4), 'Commissioner signed in');

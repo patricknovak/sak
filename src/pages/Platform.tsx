@@ -61,6 +61,7 @@ export default function Platform() {
       </div>
 
       <WeekNumbers />
+      <PageUse />
 
       <Requests leagues={rows} reload={load} />
 
@@ -403,6 +404,40 @@ function WeekNumbers() {
           </li>
         ))}
       </ul>
+    </Section>
+  );
+}
+
+// which pages each league's members open, the last week (migration 270: counts only, no names); the Monday read says how
+// many called and talked, this says what they came for
+type Use = { league_id: number; name: string; kind: string; pages: { page: string; opens: number; member_days: number }[] };
+function PageUse() {
+  const [u, setU] = useState<Use[] | null>(null);
+  useEffect(() => { rpc<Use[]>('platform_usage', { p_days: 7 }).then((r) => setU(r ?? []), () => setU(null)); }, []);
+  if (!u) return null;
+  return (
+    <Section title="What people open" right={<span className="text-xs text-mute">last 7 days · opens · visits</span>}>
+      {u.length === 0 ? <div className="card p-4 text-sm text-mute">Nothing counted yet: pages are counted from 14 October 2026.</div> : (
+        <div className="space-y-2">
+          {u.map((l) => {
+            const top = Math.max(1, ...l.pages.map((p) => p.opens));
+            return (
+              <div key={l.league_id} className="card p-3">
+                <div className="mb-2 flex items-baseline gap-2 text-sm"><span className="min-w-0 flex-1 truncate font-semibold text-white">{l.name}</span><span className="text-[11px] text-mute">{l.kind === 'predict' ? 'pool' : 'league'}</span></div>
+                <div className="space-y-1">
+                  {l.pages.slice(0, 8).map((p) => (
+                    <div key={p.page} className="flex items-center gap-2 text-xs">
+                      <span className="w-20 shrink-0 truncate font-semibold text-slate-200">{p.page}</span>
+                      <span className="h-1.5 min-w-0 flex-1 overflow-hidden rounded-full bg-white/[.06]"><span className="block h-full rounded-full bg-gold/70" style={{ width: `${Math.max(3, (100 * p.opens) / top)}%` }} /></span>
+                      <span className="num w-16 shrink-0 whitespace-nowrap text-right text-mute" title={`${p.opens} opens by ${p.member_days} member-day${p.member_days === 1 ? '' : 's'}`}><b className="text-slate-200">{p.opens}</b> · {p.member_days}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
     </Section>
   );
 }

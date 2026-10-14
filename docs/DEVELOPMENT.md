@@ -9,7 +9,7 @@ Paid subscribed: section 1 and section 8 are that review.
 
 ## 1. Where we are
 
-*As of 14 October 2026, migration 269.*
+*As of 14 October 2026, migration 271.*
 
 - **SaK**, the live league: eight GMs, used every night, on React 19 + Supabase (Postgres rules, edge functions, a
   scheduler) and an LLM voice (Garry, on Grok, metered per feature and league), served from Cloudflare. The season is
@@ -29,7 +29,7 @@ Paid subscribed: section 1 and section 8 are that review.
 - **Use so far is the founder's.** Four prediction pools besides SaK, one or two members each, one pick between them
   and no chat (section 9.2, 13 October). The Love Is Blind gate (three pools, thirty players by 4 November) is the first
   real test of the product with strangers; the premiere is 14 October, and the week's build for it is section 9.5.
-- 269 migrations; the flow test drives a whole fantasy season and every pool kind in SQL, with a second league beside
+- 271 migrations; the flow test drives a whole fantasy season and every pool kind in SQL, with a second league beside
   each that must never see or change it; CI runs it, the build and the Worker's types on every pull request.
 
 ## 2. What is working, and stays
@@ -678,6 +678,11 @@ Built for SaK and, as every SaK change is, for every league:
   pools, people, first calls, calls, messages and the busiest pool. **Migration 268** leaves test accounts' calls and
   chat out of the week, as it already left out their membership; **migration 269** counts a pool or league as started only
   when one real member is in it (the TEST pool had counted).
+- **What people open** (SUPERPOOLS item 14, migrations 270 and 271): a daily count per league and page of opens and of
+  members who opened it, a member counted by a hash of their account, the day and the league (a new one every day, no
+  name kept), from the site's layout once a page per session per day (`src/lib/usage.ts`, `usage_hit`); the commissioner
+  switches it off under League features, a pool's host under Pool settings; platform admins read the last week on the
+  Platform page (`platform_usage()`, "What people open"); members read only their league's counts. The privacy note says so.
 - **What the first real week says** (7 to 14 October, test accounts left out): one pool started, one person joined,
   one first call inside fifteen minutes, ten calls (both in Trystan's pools), ten chat messages (all in SaK), no call from
   a real member in Pod Squad. All time: 3 real pools, 1 league, 8 people, 20 calls, 3 first calls. The gate (three pools,

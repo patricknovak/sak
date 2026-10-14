@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { NavLink, useLocation, useNavigate } from 'react-router-dom';
+import { useUsage } from '../lib/usage';
 import { LeagueMark, Wordmark, WordmarkStack } from './Brand';
 import { useLeague, useNow } from '../lib/store';
 import { hasFeature } from '../lib/features';
@@ -88,6 +89,7 @@ export function Layout({ children }: { children: ReactNode }) {
   const now = useNow(1000);
   const loc = useLocation();
   const nav = useNavigate();
+  useUsage(!!me, league?.league_id);
   const [more, setMore] = useState(false);
   const [bell, setBell] = useState(false);
   const { any: chatUnread, count: chatCount } = useUnread();
