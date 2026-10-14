@@ -657,7 +657,7 @@ async function poolFacts(asker: number, byId: Map<number, Team>) {
   const ahead = await poolAhead(72);
   return { open_questions: open, closed_waiting_on_the_host: waiting, settled_lately: settled,
     // the pool's games on its own events in the next three days, and the picks that lock, with who's still to pick
-    ...(ahead.games.length ? { games_on_the_pools_events_next_3_days: ahead.games.slice(0, 16).map((g) => ({ match: `${g.home} v ${g.away}`, event: g.series ? `${g.series}${g.game_no ? ` game ${g.game_no}` : ''}` : g.event, at_utc: g.at })) } : {}),
+    ...(ahead.games.length ? { games_on_the_pools_events_next_3_days: ahead.games.slice(0, 16).map((g) => ({ match: `${g.away} at ${g.home}`, event: g.series ? `${g.series}${g.game_no ? ` game ${g.game_no}` : ''}` : g.event, at_utc: g.at })) } : {}),
     ...(ahead.locks.length ? { picks_that_lock_next_3_days: ahead.locks.map((l) => ({ game: l.title, round: l.round, locks_at_utc: l.at, still_to_pick: l.still_to_pick, of: l.of })) } : {}),
     // the site's own words for the things a new member asks, so the voice never improvises a tap that isn't there
     how_to: {
@@ -789,7 +789,8 @@ async function poolDaily() {
   const paid = (drops ?? []).filter((d) => d.at <= now).map((d) => `${Number(d.amount)} ${c.name} dropped into every member's purse (${d.note})`);
   const coming = (drops ?? []).filter((d) => d.at > now).map((d) => `${Number(d.amount)} ${c.name} drop into every member's purse ${when(d.at)} (${d.note})`);
   // the games on the pool's events in the next day, each as a sentence with its time in the members' words
-  const tonight = ahead.games.slice(0, 8).map((g) => `${g.home} v ${g.away}${g.series ? ` (${g.series}${g.game_no ? ` game ${g.game_no}` : ''})` : ` (${g.event})`} ${when(g.at)}`);
+  // away at home, as a North American game is said ("home v away" was read back the wrong way round on 14 October)
+  const tonight = ahead.games.slice(0, 8).map((g) => `${g.away} at ${g.home}${g.series ? ` (${g.series}${g.game_no ? ` game ${g.game_no}` : ''})` : ` (${g.event})`} ${when(g.at)}`);
   const locking = ahead.locks.map((l) => ({ game: l.title, round: l.round, locks: when(l.at), ...(l.matches ? { matches: l.matches } : {}),
     ...(l.under_way ? { the_round_is_already_under_way: true } : {}), still_to_pick: l.still_to_pick, of: l.of }));
   if (!settled.length && !voided.length && !closing.length && !opened.length && !paid.length && !machinery.length && !tonight.length && !locking.length) return { skipped: 'nothing happened' };
