@@ -3698,6 +3698,73 @@ reset role;
 select set_config('request.jwt.claim.sub', '', false);
 select 'settle nudge', true;
 
+-- the feed has the answer (migration 272): a pack question that names its series tells the host the answer once the
+-- series is decided, once; one still being played, an answer that isn't an outcome and another league say nothing
+reset role;
+insert into competitions (id, sport, name, short, season, provider, ext_id, ext_season, active, format)
+values ('ff-test', 'mlb', 'Feed test', 'FF', '2026', 'mlb-statsapi', 'fft', '2026', true, 'series') on conflict (id) do nothing;
+insert into clubs (sport, provider, ext_id, name) values ('mlb', 'ff', 'ff1', 'Feed Falcons'), ('mlb', 'ff', 'ff2', 'Feed Owls'), ('mlb', 'ff', 'ff3', 'Feed Crows');
+insert into series (sport, competition, provider, ext_id, round, label, best_of, high_club, low_club, high_wins, low_wins, winner, state, tbd)
+select 'mlb', 'ff-test', 'ff', 'ffs1', 3, 'Test LCS A', 7, (select id from clubs where ext_id = 'ff1'), (select id from clubs where ext_id = 'ff2'), 4, 2, (select id from clubs where ext_id = 'ff1'), 'final', false
+union all
+select 'mlb', 'ff-test', 'ff', 'ffs2', 3, 'Test LCS B', 7, (select id from clubs where ext_id = 'ff3'), (select id from clubs where ext_id = 'ff2'), 3, 3, null, 'live', false;
+insert into pool_packs (slug, name, brand, markets, drops) values ('test-feed', 'Feed test', '{}', jsonb_build_array(
+  jsonb_build_object('title', 'Who wins A?', 'feed', jsonb_build_object('kind', 'winner', 'competition', 'ff-test', 'series', 'Test LCS A')),
+  jsonb_build_object('title', 'A in six?', 'feed', jsonb_build_object('kind', 'games', 'competition', 'ff-test', 'series', 'Test LCS A')),
+  jsonb_build_object('title', 'Who wins B?', 'feed', jsonb_build_object('kind', 'winner', 'competition', 'ff-test', 'series', 'Test LCS B')),
+  jsonb_build_object('title', 'A seventh game?', 'feed', jsonb_build_object('kind', 'game7', 'competition', 'ff-test', 'round', 3)),
+  jsonb_build_object('title', 'Not listed?', 'feed', jsonb_build_object('kind', 'winner', 'competition', 'ff-test', 'series', 'Test LCS A'))), '[]')
+on conflict (slug) do update set markets = excluded.markets;
+select set_config('app.league_id', :'epl'::text, false);
+insert into pool_markets (league_id, title, outcomes, q, b, closes_at, created_by, pack)
+  values (:epl, 'Who wins A?', '[{"key":"a1","label":"Feed Owls"},{"key":"a2","label":"Feed Falcons"}]', '{"a1":0,"a2":0}', 50, now() - interval '1 day', null, 'test-feed'),
+         (:epl, 'A in six?', '[{"key":"a1","label":"Five"},{"key":"a2","label":"Six"}]', '{"a1":0,"a2":0}', 50, now() + interval '1 day', null, 'test-feed'),
+         (:epl, 'Who wins B?', '[{"key":"a1","label":"Feed Crows"},{"key":"a2","label":"Feed Owls"}]', '{"a1":0,"a2":0}', 50, now() - interval '1 day', null, 'test-feed'),
+         (:epl, 'A seventh game?', '[{"key":"a1","label":"Yes"},{"key":"a2","label":"No"}]', '{"a1":0,"a2":0}', 50, now() - interval '1 day', null, 'test-feed'),
+         (:epl, 'Not listed?', '[{"key":"a1","label":"Feed Crows"}]', '{"a1":0,"a2":0}', 50, now() - interval '1 day', null, 'test-feed');
+select set_config('t.fn', _pool_feed_nudge(:epl)::text, false);
+select pg_temp.expect('the host hears the decided answers: the winner, the games, the seventh game reached; not the series still on, nor an answer the question lacks',
+  current_setting('t.fn') = '3'
+  and exists (select 1 from notifications n join teams t on t.id = n.team_id where t.league_id = :epl and t.is_commish and n.kind = 'pool_settle'
+              and n.body = '📡 The feed has it: "Who wins A?" went Feed Falcons. Call it on the question to pay the pool.' and n.link like '/q/%')
+  and exists (select 1 from notifications where kind = 'pool_settle' and body like '📡 The feed has it: "A in six?" went Six. Calls are still open%')
+  and exists (select 1 from notifications where kind = 'pool_settle' and body like '📡 The feed has it: "A seventh game?" went Yes.%')
+  and not exists (select 1 from notifications where kind = 'pool_settle' and (body like '%Who wins B?%' or body like '%Not listed?%')));
+select pg_temp.expect('and only once', _pool_feed_nudge(:epl) = 0);
+update series set high_wins = 4, winner = high_club, state = 'final' where ext_id = 'ffs2';
+select set_config('t.fn', _pool_feed_nudge(:epl)::text, false);
+select pg_temp.expect('the other series decided, its question follows', current_setting('t.fn') = '1'
+  and exists (select 1 from notifications where kind = 'pool_settle' and body like '📡 The feed has it: "Who wins B?" went Feed Crows.%'));
+select set_config('app.league_id', '', false);
+select pg_temp.expect('another league''s run touches nothing here', _pool_feed_nudge(:epl) = 0);
+select pg_temp.raises('a member can''t run it', 'set role authenticated; select _pool_feed_nudge(1)', 'permission denied');
+reset role;
+-- the host's settle panel reads the same answer (migration 273); another league's member can't read it
+select set_config('t.fq', (select id::text from pool_markets where pack = 'test-feed' and title = 'Who wins A?'), false);
+select set_config('t.fq2', (select id::text from pool_markets where pack = 'test-feed' and title = 'Not listed?'), false);
+select set_config('request.jwt.claim.sub', (select user_id::text from teams where league_id = :epl and is_commish), false);
+select set_config('app.league_id', :'epl'::text, false);
+set role authenticated;
+select pg_temp.expect('the host reads the feed''s answer on the question', pool_feed_answer(current_setting('t.fq')::bigint) = '{"key":"a2","label":"Feed Falcons","series":"Test LCS A"}'::jsonb
+  and pool_feed_answer(current_setting('t.fq2')::bigint) is null);
+reset role;
+select pg_temp.as_team(2);
+select set_config('app.league_id', '1', false);
+set role authenticated;
+select pg_temp.raises('another league''s member can''t read it', format('select pool_feed_answer(%s)', current_setting('t.fq')));
+reset role;
+select set_config('request.jwt.claim.sub', '', false);
+delete from notifications where kind = 'pool_settle' and body like '📡%';
+delete from private.soccer_nudged where game like 'feed:%';
+delete from pool_markets where pack = 'test-feed';
+delete from pool_packs where slug = 'test-feed';
+delete from series where competition = 'ff-test';
+delete from clubs where provider = 'ff';
+delete from competitions where id = 'ff-test';
+reset role;
+select set_config('request.jwt.claim.sub', '', false);
+select 'feed answers', true;
+
 -- ───────────── last one standing (migration 157) ─────────────
 -- Pod Squad runs a survivor on two MLS matchweeks: Fern, Hana and Lou are in; Lou never picks
 reset role;

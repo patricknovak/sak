@@ -9,7 +9,7 @@ Paid subscribed: section 1 and section 8 are that review.
 
 ## 1. Where we are
 
-*As of 14 October 2026, migration 271.*
+*As of 14 October 2026, migration 273.*
 
 - **SaK**, the live league: eight GMs, used every night, on React 19 + Supabase (Postgres rules, edge functions, a
   scheduler) and an LLM voice (Garry, on Grok, metered per feature and league), served from Cloudflare. The season is
@@ -29,7 +29,7 @@ Paid subscribed: section 1 and section 8 are that review.
 - **Use so far is the founder's.** Four prediction pools besides SaK, one or two members each, one pick between them
   and no chat (section 9.2, 13 October). The Love Is Blind gate (three pools, thirty players by 4 November) is the first
   real test of the product with strangers; the premiere is 14 October, and the week's build for it is section 9.5.
-- 271 migrations; the flow test drives a whole fantasy season and every pool kind in SQL, with a second league beside
+- 273 migrations; the flow test drives a whole fantasy season and every pool kind in SQL, with a second league beside
   each that must never see or change it; CI runs it, the build and the Worker's types on every pull request.
 
 ## 2. What is working, and stays
@@ -687,6 +687,33 @@ Built for SaK and, as every SaK change is, for every league:
   name kept), from the site's layout once a page per session per day (`src/lib/usage.ts`, `usage_hit`); the commissioner
   switches it off under League features, a pool's host under Pool settings; platform admins read the last week on the
   Platform page (`platform_usage()`, "What people open"); members read only their league's counts. The privacy note says so.
+- **The feed has the answer** (migration 272): a pack's question can name the series its answer comes from (`feed` on
+  the pack's entry: a series' winner, whether a club wins it, how many games it went, which league the winner came from,
+  whether a round reached a seventh game). Once the series is decided, each host of a pool where the question is still
+  open gets one bell with the answer and a link to it; the host still calls it, so coins move only on a person's say.
+  The World Series pack's seven series questions carry it, so the pennants and the seven-game question the SaK World
+  Series pool waits on announce themselves when the Championship Series end. The host's settle panel shows the same
+  answer with a button to settle it (`pool_feed_answer`, migration 273), and the host's "closed and waiting" card on the
+  pool's home says when the feed has the answers and opens the first.
+- **A gap told the right way round**: a dry run of the morning column on the merged build had Darin, last and 18.0
+  behind seventh, "18 clear of the next guy". The league posts' check now holds every "N behind" in the table against
+  the sentences that name the trailing GM or their team with that number: behind, back or trailing pass; clear, ahead or
+  leads are rewritten. Deployed; dry runs read the table right. Loose comparisons ("roughly the same margin") still get
+  through: the check reads numbers and directions, not how two numbers compare.
+- **A dry run writes nothing**: the Monday column paid its Team of the Week bonus and rang the bell on every preview
+  (`?dry=1`), so previews on 13 and 14 October put four extra 5-coin rows (204, 225, 226, 227) and four bells on SaK's
+  team 1. The bonus, the bell, draft prep's bells and the in-game moments' state are now skipped on a dry run. Each power
+  ranking row carries its own season line ("6th in the season, 0.3 behind Trystan (5th), 37.4 behind the leader Jason"),
+  so a row never borrows another's gap.
+- **The pool post hears the feed, and its check reads the pool's own words**: a waiting question whose series is decided
+  is told as "the result is in (Los Angeles Dodgers) and the host settles it" (`pool_feed_answer`). The check counts a
+  number the facts spell out ("go seven games") as known, lets "calls are locked" through (only a lock still to come needs
+  one in the facts), and rejects "settled" when nothing has. Dry runs on Pod Squad and the World Series pool read true;
+  one turned "Dodgers v Brewers" into "Dodgers at Brewers", the matchup's order the one slip left.
+- **A new build reaches an app left open**: a GM's installed app ran the morning's build all afternoon on 14 October, so
+  the day's changes (the page counts among them) never reached it. When the app comes back to the screen, at most every
+  ten minutes, it compares its main script with the live page's and offers "A new version is ready · Reload" at the top
+  (`src/lib/appUpdate.ts`); nothing reloads by itself, so a half-typed message is never lost.
 - **What the first real week says** (7 to 14 October, test accounts left out): one pool started, one person joined,
   one first call inside fifteen minutes, ten calls (both in Trystan's pools), ten chat messages (all in SaK), no call from
   a real member in Pod Squad. All time: 3 real pools, 1 league, 8 people, 20 calls, 3 first calls. The gate (three pools,
