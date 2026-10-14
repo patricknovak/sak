@@ -429,9 +429,11 @@ The steps above finish the tenancy. `docs/MARKET.md` sets what comes after in th
     request as the change), with a dot on the tab until a phone has seen the newest. The board's first idea shipped the same day: the watch list (a GM's
     request, migrations 140 to 142): stars on the Players page and player cards, a Home card with free agents first, alerts
     when a watched player is dropped in season or hurt, and Garry knows the list on the GM's private line. *Analytics
-    foundation (migration 241, 10 October 2026; measurement ID wired 12 October 2026):* consented GA4 on the landing and the
+    foundation (migration 241, 10 October 2026; measurement ID wired 12 October 2026; app gtag shim and first
+    page_view fixed 14 October 2026):* consented GA4 on the landing and the
     app (Consent Mode v2, measurement ID from `VITE_GA4_ID` in `.env.production` / `GA4_ID` in `landing/site.js`, empty
-    means nothing loads), funnel events (`pool_start`, `invite_share`, `join`,
+    means nothing loads; the app's shim pushes Arguments objects so gtag.js reaches g/collect, and a page_view fires
+    for the current route on Accept and on a consented return visit), funnel events (`pool_start`, `invite_share`, `join`,
     `first_call`, `sign_up`) with no PII, a landing `sitemap.xml`, first-touch UTM/referrer on `waitlist` and
     `private.pool_signups`, `accounts.is_test` (admin-only to change, backfilled from the test email filter), and
     `mission_control_counts` (anon + passcode hash in `mission_control.counts_passcode`, never committed) returning

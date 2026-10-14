@@ -2,10 +2,21 @@
 // Measurement ID from VITE_GA4_ID (.env.production); empty means nothing loads and no network calls.
 // Funnel events carry no PII (no email, name, or user id).
 
-const GA_ID = (import.meta.env.VITE_GA4_ID as string | undefined)?.trim() ?? '';
 const CONSENT_KEY = 'sp_analytics_consent';
 const TOUCH_KEY = 'sp_first_touch';
 const FIRST_CALL_KEY = 'sp_first_call';
+
+// Tests inject a measurement ID without Vite. Production always reads VITE_GA4_ID.
+let testGaId: string | undefined;
+
+export function __testSetGaId(id: string | undefined) {
+  testGaId = id;
+}
+
+function measurementId(): string {
+  if (testGaId !== undefined) return testGaId;
+  return (import.meta.env.VITE_GA4_ID as string | undefined)?.trim() ?? '';
+}
 
 export type AnalyticsConsent = 'granted' | 'denied' | null;
 
@@ -38,7 +49,7 @@ export function getAnalyticsConsent(): AnalyticsConsent {
 }
 
 export function hasGaId(): boolean {
-  return GA_ID.length > 0;
+  return measurementId().length > 0;
 }
 
 // Capture UTM + document.referrer on the first visit only (first-touch).
@@ -83,11 +94,29 @@ export function attributionFields(): Record<string, string> {
   return out;
 }
 
+// HashRouter path as AnalyticsRoute records it: "/team" or "/p/foo?x=1".
+export function currentAppPath(): string {
+  if (typeof location === 'undefined') return '/';
+  const h = location.hash || '';
+  if (h.startsWith('#')) {
+    const body = h.slice(1) || '/';
+    return body.startsWith('/') ? body : `/${body}`;
+  }
+  return `${location.pathname || '/'}${location.search || ''}`;
+}
+
+// Last path we recorded: skips Accept + first AnalyticsRoute mount, and StrictMode's second effect.
+let lastTrackedPath: string | null = null;
+
 function ensureGtag() {
+  const GA_ID = measurementId();
   if (!GA_ID || typeof window === 'undefined') return;
   if (window.gtag) return;
   window.dataLayer = window.dataLayer || [];
-  window.gtag = function gtag(...args: unknown[]) { window.dataLayer!.push(args); };
+  // gtag.js reads Arguments objects from dataLayer; a rest-param array is ignored and never reaches g/collect.
+  window.gtag = function gtag() {
+    window.dataLayer!.push(arguments);
+  };
   // Consent Mode v2 defaults: analytics denied until the visitor accepts
   window.gtag('consent', 'default', {
     ad_storage: 'denied',
@@ -101,6 +130,7 @@ function ensureGtag() {
 }
 
 function loadTag() {
+  const GA_ID = measurementId();
   if (!GA_ID || typeof document === 'undefined') return;
   if (document.getElementById('sp-ga4')) return;
   ensureGtag();
@@ -114,28 +144,34 @@ function loadTag() {
 // Call once at app start: capture first-touch, and load gtag only when consent was already granted.
 export function initAnalytics() {
   captureFirstTouch();
-  if (!GA_ID) return;
+  if (!measurementId()) return;
   ensureGtag();
   if (getAnalyticsConsent() === 'granted') {
     window.gtag?.('consent', 'update', { analytics_storage: 'granted' });
     loadTag();
+    // First load of a consented return visit: record this route (AnalyticsRoute will not double-count).
+    trackPageView(currentAppPath());
   }
 }
 
 export function setAnalyticsConsent(granted: boolean) {
   storeSet(CONSENT_KEY, granted ? 'granted' : 'denied');
-  if (!GA_ID) return;
+  if (!measurementId()) return;
   ensureGtag();
   if (granted) {
     window.gtag?.('consent', 'update', { analytics_storage: 'granted' });
     loadTag();
+    // Current page at Accept: route has not changed, so AnalyticsRoute would never fire.
+    trackPageView(currentAppPath());
   } else {
     window.gtag?.('consent', 'update', { analytics_storage: 'denied' });
   }
 }
 
 export function trackPageView(path: string) {
-  if (!GA_ID || getAnalyticsConsent() !== 'granted') return;
+  if (!measurementId() || getAnalyticsConsent() !== 'granted') return;
+  if (path === lastTrackedPath) return;
+  lastTrackedPath = path;
   ensureGtag();
   window.gtag?.('event', 'page_view', {
     page_path: path.slice(0, 200),
@@ -146,7 +182,7 @@ export function trackPageView(path: string) {
 export type FunnelEvent = 'pool_start' | 'invite_share' | 'join' | 'first_call' | 'sign_up';
 
 export function track(event: FunnelEvent, params?: Record<string, string | number | boolean | undefined>) {
-  if (!GA_ID || getAnalyticsConsent() !== 'granted') return;
+  if (!measurementId() || getAnalyticsConsent() !== 'granted') return;
   ensureGtag();
   const clean: Record<string, string | number | boolean> = {};
   if (params) {
@@ -165,4 +201,22 @@ export function trackFirstCall(kind?: string) {
   if (storeGet(FIRST_CALL_KEY) === '1') return;
   storeSet(FIRST_CALL_KEY, '1');
   track('first_call', kind ? { kind: kind.slice(0, 40) } : undefined);
+}
+
+// Reset module state between unit tests.
+export function __testResetAnalytics() {
+  lastTrackedPath = null;
+  testGaId = undefined;
+  if (typeof window !== 'undefined') {
+    delete (window as { gtag?: unknown }).gtag;
+    delete (window as { dataLayer?: unknown }).dataLayer;
+  }
+  try {
+    localStorage.removeItem(CONSENT_KEY);
+    localStorage.removeItem(TOUCH_KEY);
+    localStorage.removeItem(FIRST_CALL_KEY);
+  } catch { /* no store */ }
+  if (typeof document !== 'undefined') {
+    document.getElementById('sp-ga4')?.remove();
+  }
 }
