@@ -540,10 +540,17 @@ async function storylines(yday: { team_id: number; points: number }[], standings
   const now = [...standings].map((s) => ({ id: s.team_id as number, pts: Number(s.points), rank: Number(s.rank) })).sort((a, b) => a.rank - b.rank);
   const before = now.map((s) => ({ ...s, pts: s.pts - Number(yday.find((d) => d.team_id === s.id)?.points ?? 0) })).sort((a, b) => b.pts - a.pts);
   const rankBefore = new Map(before.map((s, i) => [s.id, i + 1]));
+  // one line per GM who passed anyone, the teams named and counted, so "past three teams" is read, never worked out
   const passed: string[] = [];
-  for (const a of now) for (const b of now) {
-    if (a.rank < b.rank && (rankBefore.get(a.id) ?? 0) > (rankBefore.get(b.id) ?? 0)) passed.push(`${gm(a.id)} passed ${gm(b.id)} (now ${ORD(a.rank)})`);
+  for (const a of now) {
+    const by = now.filter((b) => a.rank < b.rank && (rankBefore.get(a.id) ?? 0) > (rankBefore.get(b.id) ?? 0)).map((b) => gm(b.id));
+    if (by.length) passed.push(`${gm(a.id)} passed ${by.length === 1 ? by[0] : `${by.slice(0, -1).join(', ')} and ${by.at(-1)} (${by.length} teams)`}, now ${ORD(a.rank)}`);
   }
+  // each GM who moved, with where they were and where they are, so "jumped two spots" is read, never worked out
+  const moved = now.filter((s) => (rankBefore.get(s.id) ?? s.rank) !== s.rank).map((s) => {
+    const was = rankBefore.get(s.id) ?? s.rank, d = was - s.rank;
+    return `${gm(s.id)} ${d > 0 ? 'up' : 'down'} ${Math.abs(d)} spot${Math.abs(d) === 1 ? '' : 's'}, ${ORD(was)} to ${ORD(s.rank)}`;
+  });
   const gaps = now.slice(1).map((s, i) => ({ gm: gm(s.id), rank: s.rank, behind: gm(now[i].id), by: Math.round((now[i].pts - s.pts) * 10) / 10 }));
   const weekAgo = addDaysIso(yesterday, -6);
   const { data: wk } = await from('team_daily').select('team_id,points').gte('date', weekAgo).lte('date', yesterday);
@@ -573,7 +580,7 @@ async function storylines(yday: { team_id: number; points: number }[], standings
   const about = items.map((a) => ({ headline: a.headline, players: a.ids.map((id) => ({ player: nname.get(id) ?? 'unknown', on_team_of: gm(owner.get(id)!),
     last_night: nfp.has(id) ? `${Math.round(nfp.get(id)! * 10) / 10} fantasy points (${nline.get(id)})` : 'did not play' })) }));
   return {
-    standings_moves: passed.slice(0, 6), races: gaps.filter((g) => g.by <= 6), gap_first_to_last: Math.round(((now[0]?.pts ?? 0) - (now.at(-1)?.pts ?? 0)) * 10) / 10,
+    standings_moves: passed.slice(0, 6), rank_changes: moved, races: gaps.filter((g) => g.by <= 6).map((g) => `${g.behind} (${ORD(g.rank - 1)}) leads ${g.gm} (${ORD(g.rank)}) by ${g.by}`), gap_first_to_last: Math.round(((now[0]?.pts ?? 0) - (now.at(-1)?.pts ?? 0)) * 10) / 10,
     last_7_days: form, tonight, nhl_news_about_their_players: about,
   };
 }
@@ -806,7 +813,7 @@ async function daily() {
   // (a head-to-head or rotisserie league isn't won on the points table, so its races come from its own facts above)
   const pointsTable = !playoffs && league.format !== 'h2h' && !league.categories?.length;
   const stories = await storylines(daily as any[], standings, byId, yesterday).catch((e) => { console.error('storylines', e); return null; });
-  if (stories && !pointsTable) { delete (stories as Partial<typeof stories>).standings_moves; delete (stories as Partial<typeof stories>).races; delete (stories as Partial<typeof stories>).gap_first_to_last; }
+  if (stories && !pointsTable) { delete (stories as Partial<typeof stories>).standings_moves; delete (stories as Partial<typeof stories>).rank_changes; delete (stories as Partial<typeof stories>).races; delete (stories as Partial<typeof stories>).gap_first_to_last; }
 
   // a head-to-head or rotisserie league isn't won on the points table: its own table, and the week's matchups so far
   let formatFacts: Record<string, unknown> = {};
@@ -843,7 +850,7 @@ async function daily() {
     benchRegret[0] ? `Meanwhile @${benchRegret[0].gm} left ${benchRegret[0].player} (${f1(benchRegret[0].fpts)}) on the bench over ${benchRegret[0].over} (${f1(benchRegret[0].over_fpts)}).` : '',
     playoffs ? `Playoff table: ${season.slice(0, 3).map((x) => `${x.rank}. @${x.gm} ${f1(x.points)}`).join(', ')}.` : formatLine || `${L.brand.booby} watch: @${season.at(-1)?.gm} sitting in the basement at ${f1(season.at(-1)?.points ?? 0)}.`,
   ].filter(Boolean).join(' ');
-  const body = await write(`Write this morning's column on yesterday's ${L.info.short_name} ${playoffs ? 'playoff ' : ''}results for the league chat. Lead with the best story in the facts (a pass in the standings, a tight race, a big night, a costly bench call, a hot or cold week), not a list of scores; work in the NHL news about the GMs' own players if any is there (a headline says only what it says: add no stat, result or role it doesn't give; what the player did last night is given beside it), and tonight's slate if it sets up something. It's a column the league reads for the laughs: at least two sharp, specific chirps (the GM who got passed, the one who blew a bench call, the one whose star is out, the leader who barely moved), each built on a fact given, and a running gag or something a GM said if one fits. No closing call to bet, trade or talk unless a fact sets it up.`, facts, fallback, 220, [], { numbers: true });
+  const body = await write(`Write this morning's column on yesterday's ${L.info.short_name} ${playoffs ? 'playoff ' : ''}results for the league chat. Lead with the best story in the facts (a pass in the standings, told with the spots and places rank_changes gives, a tight race, a big night, a costly bench call, a hot or cold week), not a list of scores; work in the NHL news about the GMs' own players if any is there (a headline says only what it says: add no stat, result or role it doesn't give; what the player did last night is given beside it), and tonight's slate if it sets up something. It's a column the league reads for the laughs: at least two sharp, specific chirps (the GM who got passed, the one who blew a bench call, the one whose star is out, the leader who barely moved), each built on a fact given, and a running gag or something a GM said if one fits. No closing call to bet, trade or talk unless a fact sets it up.`, facts, fallback, 220, [], { numbers: true });
   await post(body, { type: 'recap', date: yesterday });
   return { posted: 'recap', bonus: facts.daily_bonus };
 }

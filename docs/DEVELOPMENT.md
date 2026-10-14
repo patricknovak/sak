@@ -667,6 +667,11 @@ Built for SaK and, as every SaK change is, for every league:
   eve-of-premiere post). Pool posts now stand on their facts alone (`write(..., { fresh, check })`), closed questions are
   told as closed and locked, what's new counts from the last morning post, and a check (every number in the facts, no
   closing or calls or locks the facts don't have) rewrites a bad draft once and then falls back to the plain line.
+- **The league's posts get the same number check** (the morning column, the 5 pm nudge, the Monday column, the in-game
+  moments), with the voice's memory and the league's right-now counted as known. It catches invented numbers, not wrong
+  arithmetic, so the morning column's facts now carry the arithmetic: each GM's rank change ("Trystan up 2 spots, 7th to
+  5th"), one line per GM who passed others with the count, and each race as who leads whom by how much. Dry runs on SaK
+  read the spots, passes and gaps right where they had read "three spots" for two and turned a lead into a deficit.
 - **The chat filter checked against SaK's 470 real messages**: the draft's picks no longer count as transactions; a
   test holds every kind (`chat-filter.test.mjs`).
 - **The Monday read comes to Patrick** (§8.4 item 2, migrations 266 and 267): a bell each Monday with the week's
