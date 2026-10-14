@@ -359,18 +359,48 @@ async function recentLines(n = 6): Promise<string[]> {
 }
 
 // every post Garry writes: the persona, his current voice notes, and what he remembers
-async function write(task: string, facts: unknown, fallback: string, maxWords = 180, focus: number[] = []): Promise<string> {
+// `fresh`: the post stands on its facts alone, without what he remembers or his last posts (a pool's morning: on
+// 14 October he read his own eve-of-premiere post and told Pod Squad the closed questions "close tomorrow").
+// `check`: a written post that fails it (a number or a time the facts don't hold) is written once more with the
+// reason, then falls back to the plain line
+async function write(task: string, facts: unknown, fallback: string, maxWords = 180, focus: number[] = [],
+  opts: { fresh?: boolean; check?: (body: string) => string | null } = {}): Promise<string> {
   if (dry()) runs.getStore()!.drafts = [...(runs.getStore()!.drafts ?? []), { body: '', meta: { task, facts } }];
   if (!apiKey) return fallback;
   const { byId } = await base();
-  const [mem, st, now, mine] = await Promise.all([recall(byId, focus), state(), situation(), recentLines(6)]);
-  const text = await grok(system(st), [
+  const [mem, st, now, mine] = await Promise.all([opts.fresh ? [] : recall(byId, focus), state(), situation(), opts.fresh ? [] : recentLines(6)]);
+  const ask = (extra = '') => grok(system(st), [
     `Right now: ${now}`,
     mem.length ? `Things you remember about the league and its GMs (use them naturally when relevant, never list them, never contradict the facts):\n${mem.map((m) => '- ' + m).join('\n')}` : '',
     mine.length ? `Your last few posts (don't reuse their openers, jokes or nudges):\n${mine.map((m) => '- ' + m).join('\n')}` : '',
-    `${task}\nKeep it under ${maxWords} words. Every number, stat and result you write is in the facts or what you remember; if it isn't, leave it out.\n\nFacts (JSON):\n${JSON.stringify(facts)}`,
+    `${task}\nKeep it under ${maxWords} words. Every number, stat and result you write is in the facts${opts.fresh ? '' : ' or what you remember'}; if it isn't, leave it out.${extra}\n\nFacts (JSON):\n${JSON.stringify(facts)}`,
   ].filter(Boolean).join('\n\n'), 1200, 0.75);
+  let text = await ask();
+  if (text && opts.check) {
+    const bad = opts.check(text);
+    if (bad) {
+      console.warn('write: rewriting', bad);
+      text = await ask(`\nYour first draft was wrong: ${bad}. Write it again from the facts only.`);
+      if (text && opts.check(text)) { console.warn('write: falling back', opts.check(text)); text = null; }
+    }
+  }
   return text || fallback;
+}
+
+// a pool post's own check: every number it writes (in digits or words) is one the facts hold, and it never says
+// something closes or locks when nothing does
+const NUMBER_WORDS: Record<string, string> = { one: '1', two: '2', three: '3', four: '4', five: '5', six: '6', seven: '7', eight: '8', nine: '9', ten: '10', eleven: '11', twelve: '12' };
+function factCheck(facts: unknown, fallback: string, { closing, locking }: { closing: boolean; locking: boolean }) {
+  const known = new Set((JSON.stringify(facts) + ' ' + fallback).match(/\d+/g) ?? []);
+  return (body: string) => {
+    const words = body.toLowerCase().replace(/\b(one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve)\b/g, (w) => NUMBER_WORDS[w]);
+    const nums = (words.replace(/@\S+/g, '').match(/\d+/g) ?? []).filter((n) => !known.has(n));
+    if (nums.length) return `it says ${nums.join(', ')}, which isn't in the facts`;
+    if (!closing && /\bclos(e|es|ing)\b[^.!?]*\b(tonight|tomorrow|today)\b/i.test(body)) return 'it says questions close soon, but none do: the ones in closed_waiting_on_the_host have already closed';
+    if (!closing && /\b(needs?|has|have|got) to call\b|\bstill (to )?call\b|\b(yet|left) to call\b|\bcalls? (left|to make)\b/i.test(body)) return 'it asks members to call questions, but none can be called now: the closed ones are locked';
+    if (!locking && /\block(s|ed)?\b|\bpicks?\b/i.test(body)) return 'it talks about picks or locks, and the facts have none';
+    return null;
+  };
 }
 
 // pull new facts and running gags out of the chat since the last time (cheap: only when there's enough new talk)
@@ -607,11 +637,14 @@ async function poolDaily() {
     from('pool_positions').select('market_id,team_id,outcome,shares'),
     // what the pool's own machinery said since yesterday: a round settled, a series won, someone out of the survivor,
     // squares paid, new questions from a pack (every kind of pool game posts its results here)
-    from('messages').select('body,meta').eq('kind', 'system').gte('created_at', since).order('id').limit(30),
+    from('messages').select('body,meta,created_at').eq('kind', 'system').gte('created_at', since).order('id').limit(30),
     // and the pool's games: what's about to be played on its events, and the picks that lock before tomorrow
     poolAhead(30),
   ]);
-  const machinery = (said ?? []).filter((x) => !(x.meta as Record<string, unknown> | null)?.pool_start).map((x) => String(x.body).replace(/\s+/g, ' ').slice(0, 220));
+  // what's new is what arrived since the last morning post, so yesterday's news isn't told twice
+  const { data: lastPost } = await from('messages').select('created_at').eq('kind', 'bot').contains('meta', { type: 'pool-day' }).order('id', { ascending: false }).limit(1);
+  const newSince = lastPost?.[0]?.created_at && lastPost[0].created_at > since ? lastPost[0].created_at : since;
+  const machinery = (said ?? []).filter((x) => !(x.meta as Record<string, unknown> | null)?.pool_start && String(x.created_at) > newSince).map((x) => String(x.body).replace(/\s+/g, ' ').slice(0, 220));
   const all = (ms ?? []) as PoolMarket[];
   const name = (id: number) => byId.get(id)?.gm_name ?? 'someone';
   const label = (m: PoolMarket, key: string | null) => m.outcomes.find((o) => o.key === key)?.label ?? '?';
@@ -631,10 +664,11 @@ async function poolDaily() {
     question: m.title, closes: when(m.closes_at),
     not_called_yet: teams.filter((t) => !(pos ?? []).some((p) => p.market_id === m.id && p.team_id === t.id && Number(p.shares) > 0)).map((t) => t.gm_name),
   }));
-  const waiting = all.filter((m) => m.status === 'open' && m.closes_at <= now).map((m) => m.title);
+  // closed and not settled yet: said with when it closed, so it's never read as still to come
+  const waiting = all.filter((m) => m.status === 'open' && m.closes_at <= now).map((m) => `"${m.title}" closed ${when(m.closes_at)}: calls are locked, it waits on the host's answer`);
   // a pool that opened yesterday has every question "new": that's the pool opening, not news
   const brandNew = all.length > 0 && all.every((m) => m.created_at > since);
-  const opened = brandNew ? [] : all.filter((m) => m.status === 'open' && m.created_at > since).map((m) => m.title);
+  const opened = brandNew ? [] : all.filter((m) => m.status === 'open' && m.created_at > newSince && m.closes_at > now).map((m) => m.title);
   // the drops as sentences, so the amount is never re-read as something else
   const c = coin();
   const paid = (drops ?? []).filter((d) => d.at <= now).map((d) => `${Number(d.amount)} ${c.name} dropped into every member's purse (${d.note})`);
@@ -673,10 +707,12 @@ async function poolDaily() {
     paid.length ? `${c.emoji} ${paid.join('; ')}.` : '',
     closing.length ? `Closing soon: ${closing.map((x) => `"${x.question}"`).join(', ')}.${closing.some((x) => x.not_called_yet.length) ? ` Still to call: ${[...new Set(closing.flatMap((x) => x.not_called_yet))].map((n) => '@' + n).join(', ')}.` : ''}` : '',
     opened.length ? `${opened.length} new question${opened.length === 1 ? '' : 's'} to call.` : '',
+    waiting.length ? `${waiting.length === 1 ? 'One question has' : `${waiting.length} questions have`} closed and ${waiting.length === 1 ? 'waits' : 'wait'} on the host's answer.` : '',
     locking.length ? `${locking.map((l) => `${l.round} of ${l.game} locks ${l.locks}`).join('; ')}.${locking.some((l) => l.still_to_pick.length) ? ` Still to pick: ${[...new Set(locking.flatMap((l) => l.still_to_pick))].map((n) => '@' + n).join(', ')}.` : ''}` : '',
     tonight.length ? `On: ${tonight.join('; ')}.` : '',
   ].filter(Boolean).join(' ');
-  const body = await write(`Write this morning's post for the pool's chat, as the friend who's most into this and runs the group chat. Lead with the one thing that matters today, in this order: a question that settled (the answer, who called it, who didn't), a result the pool's games posted since yesterday (since_yesterday_the_pool_said: a round won, someone out, a series called), coins that dropped, questions that close in the next day (say when, in the words given, and tag each member who hasn't called yet as @Name so their phone buzzes), a pick that locks in the next day (the round and the game it belongs to, when, and tag each member still to pick as @Name), tonight's games on the pool's events (the matchup and the time, as given), questions waiting on the host, new questions. The table only when the facts give one. One sharp chirp built on those facts, worked into the post (never labelled as a chirp), never about a lineup or a sport the facts don't mention. Call the coins by their name. Every number comes straight from the facts and is quoted as given: how many questions close, each amount of coins, each member's calls left. Say nothing about what didn't happen (an empty list, a zero, a host who hasn't asked anything): only what did. A result is reported as the facts give it, never with how it came about. As short as the facts are: one line is fine on a one-fact day, never more than 110 words, no headers.`, facts, fb, 110, teams.filter((t) => closing.some((x) => x.not_called_yet.includes(t.gm_name)) || locking.some((l) => l.still_to_pick.includes(t.gm_name))).map((t) => t.id));
+  const body = await write(`Write this morning's post for the pool's chat, as the friend who's most into this and runs the group chat. Lead with the one thing that matters today, in this order: a question that settled (the answer, who called it, who didn't), a result the pool's games posted since yesterday (since_yesterday_the_pool_said: a round won, someone out, a series called), coins that dropped, questions that close in the next day (say when, in the words given, and tag each member who hasn't called yet as @Name so their phone buzzes), a pick that locks in the next day (the round and the game it belongs to, when, and tag each member still to pick as @Name), tonight's games on the pool's events (the matchup and the time, as given), questions waiting on the host (they have already closed: say so, never that they close), new questions. The table only when the facts give one. One sharp chirp built on those facts, worked into the post (never labelled as a chirp), never about a lineup or a sport the facts don't mention. Call the coins by their name. Every number comes straight from the facts and is quoted as given: how many questions close, each amount of coins, each member's calls left. Say nothing about what didn't happen (an empty list, a zero, a host who hasn't asked anything): only what did. A result is reported as the facts give it, never with how it came about. As short as the facts are: one line is fine on a one-fact day, never more than 110 words, no headers.`, facts, fb, 110, teams.filter((t) => closing.some((x) => x.not_called_yet.includes(t.gm_name)) || locking.some((l) => l.still_to_pick.includes(t.gm_name))).map((t) => t.id),
+    { fresh: true, check: factCheck(facts, fb, { closing: closing.length > 0, locking: locking.length > 0 }) });
   await post(body, { type: 'pool-day', date: today });
   // the day's reason to open the pool, on the phone too: one bell per seated member, the post's first line, to the chat
   if (!dry()) {
