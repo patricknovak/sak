@@ -9,7 +9,7 @@ Paid subscribed: section 1 and section 8 are that review.
 
 ## 1. Where we are
 
-*As of 13 October 2026, migration 264.*
+*As of 14 October 2026, migration 265.*
 
 - **SaK**, the live league: eight GMs, used every night, on React 19 + Supabase (Postgres rules, edge functions, a
   scheduler) and an LLM voice (Garry, on Grok, metered per feature and league), served from Cloudflare. The season is
@@ -29,7 +29,7 @@ Paid subscribed: section 1 and section 8 are that review.
 - **Use so far is the founder's.** Four prediction pools besides SaK, one or two members each, one pick between them
   and no chat (section 9.2, 13 October). The Love Is Blind gate (three pools, thirty players by 4 November) is the first
   real test of the product with strangers; the premiere is 14 October, and the week's build for it is section 9.5.
-- 264 migrations; the flow test drives a whole fantasy season and every pool kind in SQL, with a second league beside
+- 265 migrations; the flow test drives a whole fantasy season and every pool kind in SQL, with a second league beside
   each that must never see or change it; CI runs it, the build and the Worker's types on every pull request.
 
 ## 2. What is working, and stays
@@ -646,3 +646,16 @@ Built 13 October, live:
 - **The pool's morning rings the bell:** each seated member gets the post's first line as a notification (and the push,
   where they allow it), since chat posts don't push and the post is the day's reason to open the pool.
 
+
+### 9.6 Patrick's asks, 14 October 2026
+
+Built for SaK and, as every SaK change is, for every league:
+
+- **The live room is a league option** (migration 265): `features.live_room`, on unless the commissioner switches it off
+  under League features; SaK has it off. Only the card goes (home page and scoreboard); the room keeps feeding tonight's
+  points.
+- **One chat with a filter**: the channel bar became a filter over one feed (a GM, a kind); the composer's To picks where
+  a post goes; old channel links open the matching filter (`src/lib/chatFilter.ts`, `GmPicker`).
+- **League transactions on the home page**: every add, drop and trade, the draft and the keepers on a tap, by GM and kind.
+- **The roster against the free agents**: Players, Browse, "GM vs available" (one GM's players among every available one,
+  in their colour); My Team, Stats, Compare, "Best available" (the best free agent at each of the roster's positions).

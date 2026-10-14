@@ -155,7 +155,8 @@ export function PlayerFilterBar({ pf, compact, hideSearch, children }: { pf: Pla
 }
 
 // every stat for the timeframe in one scrollable table; tap a header to sort by it
-export function StatTable({ list, pf, onPlayer, badge }: { list: Player[]; pf: PlayerFilter; onPlayer: (id: number) => void; badge?: (p: Player) => ReactNode }) {
+// `mark` tints a row in a colour (a GM's players among the available ones, the Players page's "vs available")
+export function StatTable({ list, pf, onPlayer, badge, mark }: { list: Player[]; pf: PlayerFilter; onPlayer: (id: number) => void; badge?: (p: Player) => ReactNode; mark?: (p: Player) => string | undefined }) {
   const cols = pf.goalie ? GOALIE_COLS : SKATER_COLS;
   const lines = useMemo(() => new Map(list.map((p) => [p.id, pf.line(p)])), [list, pf.line]);
   const info = usePlayerInfo();
@@ -176,10 +177,12 @@ export function StatTable({ list, pf, onPlayer, badge }: { list: Player[]; pf: P
           {list.map((p, i) => {
             const l = lines.get(p.id) ?? null;
             const b = injuryBadge(p.injury_status);
+            const tint = mark?.(p);
+            const wash = tint ? `color-mix(in oklab, ${tint} 16%, transparent)` : undefined;
             return (
-              <tr key={p.id} className="cursor-pointer hover:bg-white/[.04]" onClick={() => onPlayer(p.id)}>
-                <td className="num px-2 py-1.5 text-right text-mute">{i + 1}</td>
-                <td className="sticky left-0 z-[1] bg-ice px-2 py-1.5">
+              <tr key={p.id} className="cursor-pointer hover:bg-white/[.04]" style={wash ? { background: wash } : undefined} onClick={() => onPlayer(p.id)}>
+                <td className="num px-2 py-1.5 text-right text-mute" style={tint ? { boxShadow: `inset 3px 0 0 ${tint}` } : undefined}>{i + 1}</td>
+                <td className="sticky left-0 z-[1] bg-ice px-2 py-1.5" style={wash ? { background: `linear-gradient(${wash}, ${wash}), var(--color-ice)` } : undefined}>
                   <div className="flex items-center gap-2">
                     <Headshot p={p} size={26} />
                     <div className="min-w-0">

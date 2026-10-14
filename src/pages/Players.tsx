@@ -10,6 +10,7 @@ import { TeamBadge, PageHeader } from '../components/ui';
 import { PickupAdvisor, RosterVsAvailable } from '../components/PickupTools';
 import { Search } from 'lucide-react';
 import { useWatchlist } from '../lib/watchlist';
+import { GmPicker } from '../components/GmPicker';
 
 export default function Players() {
   const nav = useNavigate();
@@ -17,7 +18,11 @@ export default function Players() {
   const pf = usePlayerFilter({ tf: league?.phase === 'season' ? 'season' : 'proj' }, 'players');
   const [q] = useSearchParams();
   // the screen's choices survive a visit to a player's page and back
-  const [who, setWho] = useSticky<'avail' | 'all' | 'taken' | 'coming' | 'watch'>('players:who', q.get('who') === 'coming' ? 'coming' : q.get('who') === 'watch' ? 'watch' : 'avail');
+  const [who, setWho] = useSticky<'avail' | 'all' | 'taken' | 'coming' | 'watch' | 'vs'>('players:who', q.get('who') === 'coming' ? 'coming' : q.get('who') === 'watch' ? 'watch' : q.get('who') === 'vs' ? 'vs' : 'avail');
+  // "vs available" (14 October 2026, Patrick): one GM's players and every available player in one list, the GM's
+  // rows in their colour, so each of his players sits among the free agents who could replace him
+  const [vsGm, setVsGm] = useSticky<number | null>('players:vsgm', null);
+  const vsTeam = team(vsGm ?? me?.id ?? 0) ?? null;
   const watch = useWatchlist();
   // the watch list is a GM's own: a spectator (or a page still loading who's signed in) sees the available players
   const shown = who === 'watch' && !watch.on ? 'avail' : who;
@@ -29,7 +34,18 @@ export default function Players() {
   const [tab, setTab] = useSticky<'browse' | 'advisor' | 'compare'>('players:tab', q.get('tab') === 'advisor' ? 'advisor' : q.get('tab') === 'compare' ? 'compare' : 'browse');
 
   const list = useMemo(() => pf.apply([...players.values()]
-    .filter((p) => (shown === 'all' ? true : shown === 'watch' ? watch.ids.has(p.id) : shown === 'coming' ? comingSet.has(p.id) : shown === 'avail' ? (!owner.has(p.id) && p.status !== 'unrostered') || comingSet.has(p.id) : owner.has(p.id)))), [players, owner, shown, pf.apply, comingSet, watch.ids]);
+    .filter((p) => (shown === 'all' ? true : shown === 'watch' ? watch.ids.has(p.id) : shown === 'coming' ? comingSet.has(p.id)
+      : shown === 'vs' ? (!owner.has(p.id) && p.status !== 'unrostered') || owner.get(p.id)?.team_id === vsTeam?.id
+      : shown === 'avail' ? (!owner.has(p.id) && p.status !== 'unrostered') || comingSet.has(p.id) : owner.has(p.id)))), [players, owner, shown, pf.apply, comingSet, watch.ids, vsTeam?.id]);
+  const isVs = (p: { id: number }) => shown === 'vs' && !!vsTeam && owner.get(p.id)?.team_id === vsTeam.id;
+  // the GM's lowest-ranked player under the filters, and how many free agents rank above him
+  const vsRead = useMemo(() => {
+    if (shown !== 'vs' || !vsTeam) return null;
+    const idx = list.map((p, i) => (isVs(p) ? i : -1)).filter((i) => i >= 0);
+    if (!idx.length) return null;
+    const worst = idx[idx.length - 1];
+    return { n: idx.length, worst: list[worst], above: worst + 1 - idx.length };
+  }, [shown, vsTeam, list]); // eslint-disable-line react-hooks/exhaustive-deps
   const fromTeam = (p: { id: number }) => (comingSet.has(p.id) ? team(owner.get(p.id)?.team_id ?? 0) : undefined);
 
   const used = rosters.filter((r) => r.team_id === me?.id).length;
@@ -48,7 +64,7 @@ export default function Players() {
       <div className="sticky top-[calc(3rem+var(--banner,0px))] z-20 -mx-3 space-y-1.5 border-b border-line bg-ice/95 px-3 py-2 backdrop-blur lg:top-[var(--banner,0px)]">
         <PlayerFilterBar pf={pf}>
           <span className="mx-1 h-5 w-px shrink-0 bg-line" />
-          {([['avail', 'Available'], ...(coming.length ? [['coming', '🔓 Coming available']] as const : []), ...(watch.on ? [['watch', `★ Watch list${watch.ids.size ? ` ${watch.ids.size}` : ''}`]] as const : []), ['taken', 'Rostered'], ['all', 'All']] as const).map(([k, l]) => (
+          {([['avail', 'Available'], ...(coming.length ? [['coming', '🔓 Coming available']] as const : []), ...(watch.on ? [['watch', `★ Watch list${watch.ids.size ? ` ${watch.ids.size}` : ''}`]] as const : []), ['vs', '⚖️ GM vs available'], ['taken', 'Rostered'], ['all', 'All']] as const).map(([k, l]) => (
             <button key={k} className={`tab px-2.5 py-1 ${shown === k ? 'tab-on' : 'bg-white/[.05]'}`} onClick={() => setWho(k)}>{l}</button>
           ))}
           <span className="mx-1 h-5 w-px shrink-0 bg-line" />
@@ -57,11 +73,21 @@ export default function Players() {
         </PlayerFilterBar>
       </div>
 
+      {shown === 'vs' && (
+        <div className="card flex flex-wrap items-center gap-x-3 gap-y-2 p-2.5">
+          <GmPicker value={vsTeam?.id ?? null} onChange={(id) => setVsGm(id)} allowAll={false} spectators={false} />
+          <p className="min-w-0 flex-1 text-xs leading-snug text-mute">
+            {vsTeam && <span className="mr-1 inline-block h-2.5 w-2.5 rounded-full align-middle" style={{ background: vsTeam.color }} />}
+            {vsTeam ? <>{vsTeam.id === me?.id ? 'Your' : `${vsTeam.gm_name}’s`} players are in {vsTeam.id === me?.id ? 'your' : 'their'} colour; everyone else is available.{vsRead && vsRead.above > 0 ? <> <b className="text-slate-200">{vsRead.above} available {vsRead.above === 1 ? 'player ranks' : 'players rank'}</b> above {vsRead.worst.name}, the lowest of them on this list.</> : vsRead ? ' None of the available players ranks above any of them here.' : ''}</> : 'Pick a GM to set their players among the available ones.'}
+          </p>
+        </div>
+      )}
       {shown === 'coming' && (
         <p className="px-1 text-xs text-mute">Each team’s top scorer from 2025-26 can’t be kept, so these players are back in the draft pool no matter what. Everyone else who isn’t kept joins them when keepers lock{league?.keeper_deadline ? ` (${new Date(league.keeper_deadline).toLocaleString(undefined, { weekday: 'short', hour: 'numeric', minute: '2-digit' })})` : ''}.</p>
       )}
       {table ? (
         <StatTable list={list.slice(0, limit)} pf={pf} onPlayer={(id) => nav(`/player/${id}`)}
+          mark={(p) => (isVs(p) ? vsTeam!.color : undefined)}
           badge={(p) => { const r = owner.get(p.id); const f = fromTeam(p); return f ? <span className="ml-1 font-semibold text-emerald-300" title={`${f.name}’s top scorer last season: can’t be kept`}>🔓 {f.abbrev}</span> : r ? <span className="ml-1 font-semibold" style={{ color: team(r.team_id)?.color }}>{team(r.team_id)?.abbrev}</span> : null; }} />
       ) : (
         <div className="card divide-y divide-white/[.06] xl:columns-2 xl:gap-0 2xl:columns-3">
@@ -69,7 +95,8 @@ export default function Players() {
             const r = owner.get(p.id);
             const l = pf.line(p);
             return (
-              <div key={p.id} className="flex break-inside-avoid items-center gap-2 px-2.5 py-2 xl:border-r xl:border-white/[.04]" onClick={() => nav(`/player/${p.id}`)}>
+              <div key={p.id} className="flex break-inside-avoid items-center gap-2 px-2.5 py-2 xl:border-r xl:border-white/[.04]" onClick={() => nav(`/player/${p.id}`)}
+                style={isVs(p) ? { background: `color-mix(in oklab, ${vsTeam!.color} 14%, transparent)`, boxShadow: `inset 3px 0 0 ${vsTeam!.color}` } : undefined}>
                 {watch.on ? (
                   // the rank, or a gold star for a player on the watch list; tap to star or unstar him
                   <button type="button" aria-label={watch.ids.has(p.id) ? `Stop watching ${p.name}` : `Watch ${p.name}`} aria-pressed={watch.ids.has(p.id)}

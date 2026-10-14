@@ -35,11 +35,30 @@ export function TeamStats({ teamId }: { teamId: number }) {
   const liveOk = windows.size > 0;
   const tfOk = !liveOk && TIMEFRAMES.find((t) => t.k === tf)?.live ? 'last' : tf;
   const line = useCallback((p: Player) => lineFor(p, tfOk, windows.get(p.id), season.get(p.id)), [tfOk, windows, season]);
-  // who else is in the table: nobody (this team alone), one other GM, or every GM
-  const [vs, setVs] = useSticky<'none' | 'all' | number>('teamstats:vs', 'none');
+  // who else is in the table: nobody (this team alone), one other GM, every GM, or the best available players
+  const [vs, setVs] = useSticky<'none' | 'all' | 'fa' | number>('teamstats:vs', 'none');
   const others = teams.filter((t) => t.id !== teamId);
-  const vsOk = vs === 'all' || (typeof vs === 'number' && others.some((t) => t.id === vs)) ? vs : 'none';
+  const vsOk = vs === 'all' || vs === 'fa' || (typeof vs === 'number' && others.some((t) => t.id === vs)) ? vs : 'none';
   const vsIds = vsOk === 'all' ? others.map((t) => t.id) : typeof vsOk === 'number' ? [vsOk] : [];
+  const { owner } = useLeague();
+  // "Best available" (14 October 2026, Patrick: compare your roster with the available players): for each of the
+  // team's players, the best free agent at his position in this timeframe that isn't already taken for another slot,
+  // so the group has the same size and the same positions as the roster it stands against
+  const fa = useMemo(() => {
+    if (vsOk !== 'fa') return undefined;
+    const base = rosters.filter((r) => r.team_id === teamId && (scope === 'roster' || STARTING.has(r.slot))).map((r) => players.get(r.player_id)).filter((p): p is Player => !!p);
+    const pool = [...players.values()].filter((p) => !owner.has(p.id) && p.status !== 'unrostered')
+      .map((p) => ({ p, fp: line(p)?.fp ?? null })).filter((x): x is { p: Player; fp: number } => x.fp != null && x.fp > 0)
+      .sort((a, b) => b.fp - a.fp);
+    const used = new Set<number>(), picked: Player[] = [];
+    for (const b of base) {
+      const hit = pool.find((x) => !used.has(x.p.id) && (b.pos === 'G' ? x.p.pos === 'G' : x.p.pos !== 'G' && x.p.pos === b.pos));
+      if (hit) { used.add(hit.p.id); picked.push(hit.p); }
+    }
+    const me = teams.find((t) => t.id === teamId)!;
+    const team = { ...me, id: -1, name: 'Best available', abbrev: 'FA', gm_name: 'Free agents', emoji: '✨', color: '#64748b', is_commish: false } as typeof me;
+    return { team, players: picked };
+  }, [vsOk, rosters, players, owner, teamId, scope, line, teams]);
 
   // totals for every GM team, so this one can be ranked
   const league8 = useMemo(() => teams.map((t) => {
@@ -102,11 +121,13 @@ export function TeamStats({ teamId }: { teamId: number }) {
               </button>
             ))}
             <button className={chip(vsOk === 'all')} onClick={() => setVs('all')}>Every GM</button>
+            <button className={`${chip(vsOk === 'fa')} inline-flex items-center gap-1`} onClick={() => setVs('fa')} title="The best free agent at each of this roster's positions">✨ Best available</button>
           </div>
         )}
       </div>
 
-      {vsIds.length > 0 ? <TeamCompare baseId={teamId} vsIds={vsIds} tf={tfOk} scope={scope} line={line} /> : <>
+      {vsOk === 'fa' && fa && <p className="-mt-2 px-1 text-xs text-mute">Each player here is set against the best free agent at his position for {TIMEFRAMES.find((t) => t.k === tfOk)?.label.toLowerCase()}, one for one, so both sides have the same positions.</p>}
+      {vsIds.length > 0 || fa ? <TeamCompare baseId={teamId} vsIds={vsIds} tf={tfOk} scope={scope} line={line} extra={fa} /> : <>
       <Section title={`Team totals · ${TIMEFRAMES.find((t) => t.k === tfOk)?.label}`} right={totalRank && <span className="text-xs text-mute">rank among {teams.length} teams in each stat</span>}>
         <div className="card p-3">
           <div className="mb-3 flex items-baseline gap-3">

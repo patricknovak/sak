@@ -1775,8 +1775,12 @@ select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-000000000099
 set role authenticated;
 select pg_temp.expect('a new league starts without money or a fund', not league_has('money') and not league_has('fund'));
 select pg_temp.raises('no money, no billing', 'select commish_bill_entries()', 'doesn''t keep its money');
-select pg_temp.raises('features are money and fund only', 'select commish_update_league(''{"features": {"casino": true}}'')', 'Features are money and fund');
+select pg_temp.raises('features are money, the fund and the live room only', 'select commish_update_league(''{"features": {"casino": true}}'')', 'Features are money, fund and live_room');
 select commish_update_league('{"features": {"money": true}}');
+-- the live room is on until the commissioner turns it off (migration 265), and turning it off keeps the rest
+select commish_update_league('{"features": {"live_room": false}}');
+select pg_temp.expect('the live room switches off and money stays on', (select features->>'live_room' = 'false' and features->>'money' = 'true' from league_rules where league_id = current_league_id()));
+select commish_update_league('{"features": {"live_room": true}}');
 select pg_temp.expect('the north turned money on, still no fund', league_has('money') and not league_has('fund') and not exists (select 1 from fund_status));
 reset role;
 select pg_temp.expect('SaK keeps both', league_has('money', 1) and league_has('fund', 1));

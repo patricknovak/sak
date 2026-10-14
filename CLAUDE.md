@@ -38,6 +38,12 @@ Two things in one repo:
   the box score with fantasy points and its lines and bets. NHL centre's Scores tab holds what Watch live was (the
   verdicts, the one to watch, where the league has skin in it, how to see every game; `NhlGameCard`); `#/watch`
   forwards there.
+- Chat (`#/chat`, 14 October 2026): one feed, `ChatPanel channel="feed"`, every message a member can see (the draft room
+  and private lines too, game threads stay with their game), with a filter in place of the old channel bar: a GM
+  (`GmPicker`) and a kind (talk, transactions, bets, the voice, draft, private, league news; `src/lib/chatFilter.ts` sorts
+  each message by its kind, meta and leading mark, and finds a GM in a league line by their team's name). The composer
+  says where a post goes (everyone, the voice's private line, the draft room, a DM); old `?c=` links open the matching filter.
+  The home page's League transactions (`LeagueTransactions`) lists every move and trade with the same GM picker.
 - Navigation (`src/components/Layout.tsx`): the dock keeps four places and More; More and the desktop sidebar list the
   rest under groups (`Tonight`, `Your team`, `The league`, `You`; a pool's `Play`, `Sport centres`, `You`), and nothing
   in the dock repeats in More. A new page joins a group rather than the end of a list.
@@ -132,7 +138,9 @@ Two things in one repo:
   (`inviteLink` in `src/lib/host.ts`); `/api/live/<league>/<day>` is the league's live room for a game night, a Durable
   Object (`worker/live.ts`) the app joins while a game is on (`LiveRoomProvider`, `useLiveRoom()` in `src/lib/liveRoom.tsx`):
   it reads the night with a member's own sign-in and pushes the scoreboard's data, the night's swings, who's watching and
-  reactions, so new game-night UI reads `useLiveRoom()` rather than polling; `/api/live/<league>/draft` is the league's
+  reactions, so new game-night UI reads `useLiveRoom()` rather than polling (its card, `LiveRoomCard` on the home page and
+  the scoreboard, is a league option: `features.live_room`, on unless switched off on the Commish page, `liveRoomOn()`
+  in `src/lib/features.ts`, migration 265; SaK has it off and the room still feeds tonight's points underneath); `/api/live/<league>/draft` is the league's
   draft room (`worker/draft.ts`, `useDraftRoom` in `src/lib/draftRoom.ts`, joined by the store while the draft is on): its
   alarm is the pick clock (it calls `draft_tick` the moment a deadline passes), it pushes every pick, and the store's
   4-second draft poll stands down while it is live; both rooms share `worker/room.ts`. A thread per game is chat channel

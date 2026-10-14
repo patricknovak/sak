@@ -16,6 +16,8 @@ import { BankCard, BetResultsCard, LastNightCard, NhlTopCard, TicketsCard } from
 import { bare, useBrand } from '../lib/brand';
 import { WatchCard } from '../components/WatchCard';
 import { LiveRoomCard } from '../components/LiveRoomCard';
+import { LeagueTransactions } from '../components/LeagueTransactions';
+import { liveRoomOn } from '../lib/features';
 import { useGameSheet } from '../components/GameSheet';
 
 export default function Home() {
@@ -156,7 +158,7 @@ export default function Home() {
       <PushCard hideWhenOn compact />
 
       {/* game night: the league's live room, its latest swings and who's watching, the full scoreboard a tap away */}
-      {phase === 'season' && <LiveRoomCard slate={games.filter((g) => g.date === leagueDay)} onGame={(id) => gameSheet.open(id)} max={4} scoreboard />}
+      {phase === 'season' && liveRoomOn(league) && <LiveRoomCard slate={games.filter((g) => g.date === leagueDay)} onGame={(id) => gameSheet.open(id)} max={4} scoreboard />}
 
       {league?.commish_note && (
         <div className="card relative overflow-hidden border-amber-400/30 p-4" style={{ background: 'linear-gradient(135deg, rgb(var(--gold-rgb)/.16), rgba(15,23,41,.8) 60%)' }}>
@@ -275,6 +277,8 @@ export default function Home() {
               ))}
             </div>
           </Section>
+
+          <LeagueTransactions />
 
           <LastNightCard />
           {phase === 'season' && <NhlTopCard />}

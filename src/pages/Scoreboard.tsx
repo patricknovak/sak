@@ -18,6 +18,7 @@ import { categoryOf, fmtCat } from '../lib/categories';
 import { useRoto } from '../components/RotoStandings';
 import { useLiveRoom } from '../lib/liveRoom';
 import { LiveRoomCard } from '../components/LiveRoomCard';
+import { liveRoomOn } from '../lib/features';
 import { threadOf, useThreadCounts } from '../components/GameThread';
 import { useUnread } from '../components/Layout';
 
@@ -313,7 +314,7 @@ export default function Scoreboard() {
         </div>
       )}
 
-      {!past && <LiveRoomCard slate={slate} onGame={(id) => { const g = slate.find((x) => x.id === id); if (g) openGame(g); }} />}
+      {!past && liveRoomOn(league) && <LiveRoomCard slate={slate} onGame={(id) => { const g = slate.find((x) => x.id === id); if (g) openGame(g); }} />}
 
       <Section title={catMode ? (past ? `Categories on ${fmtDate(today)}` : 'Tonight’s categories') : past ? `Points on ${fmtDate(today)}` : 'Tonight’s points'} right={updated}>
         {updatedLine}

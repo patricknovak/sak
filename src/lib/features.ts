@@ -5,6 +5,10 @@ import type { League } from './types';
 // (a database from before migration 95) reads as having both, the way SaK always did.
 export type Feature = 'money' | 'fund';
 
+// the game night's live room (who's watching, the swings, the reactions) shows unless the league switched it off
+// (migration 265; SaK has it off): on by default, unlike money and the fund
+export const liveRoomOn = (league: League | null | undefined) => league?.features?.live_room !== false;
+
 export function hasFeature(league: League | null | undefined, f: Feature): boolean {
   if (!league) return false;
   if (league.features == null) return true;

@@ -8,6 +8,7 @@ import { BarChart3, SendHorizontal } from 'lucide-react';
 import { PollCard, PollComposer } from './PollCard';
 import { Link } from 'react-router-dom';
 import { useBrand } from '../lib/brand';
+import { chatMatch, type ChatWhat } from '../lib/chatFilter';
 
 const REACTIONS = ['🔥', '😂', '🤡', '👏', '💀', '🍺', '🚨', '🪣'];
 const ASK_GARRY = ['Roast me', 'Trash talk the leader', 'Tell me a joke', 'Who’s winning?', 'How’s my lineup?', 'Who should I pick up?', 'How do trades work?', 'What’s the prize money?', 'When’s the draft?', 'How do keepers work?', 'What’s the scoring?'];
@@ -22,7 +23,9 @@ const CHIRPS = ['🚨 REACH!', 'Steal of the draft 🥷', 'Enjoy {booby} 🪣', 
 
 // channel 'all' is the merged feed: every channel this GM can see except the draft room and the game threads, newest
 // last; posting from it goes to Trash Talk. A game's thread is channel 'game:<game id>' (GameThread, in the box score).
-export function ChatPanel({ channel, compact, className = '' }: { channel: string; compact?: boolean; className?: string }) {
+// Channel 'feed' is the league chat as one feed (14 October 2026): the draft room and private lines too, shown through a
+// filter (a kind, a GM, or both, src/lib/chatFilter.ts), and the composer says where a message goes.
+export function ChatPanel({ channel, compact, className = '', filter }: { channel: string; compact?: boolean; className?: string; filter?: { what: ChatWhat; gm: number | null } }) {
   const { me, team, teams, can, league, kind } = useLeague();
   const brand = useBrand();
   const bot = brand.bot.name;
@@ -31,9 +34,19 @@ export function ChatPanel({ channel, compact, className = '' }: { channel: strin
   const lid = league?.league_id ?? null;
   const theirs = (row: { league_id?: number | null } | null | undefined) => lid != null && row?.league_id != null && row.league_id !== lid;
   const chirps = CHIRPS.map((c) => c.replace('{booby}', brand.booby.replace(/^The /, 'the ')));
-  const all = channel === 'all';
-  const postTo = all ? 'general' : channel;
-  const muted = !can('chat') || (channel.startsWith('dm:') && !can('dm'));
+  const feed = channel === 'feed';
+  const all = channel === 'all' || feed;
+  const what = feed ? filter?.what ?? 'all' : 'all';
+  const gm = feed && filter?.gm != null ? team(filter.gm) ?? null : null;
+  const dmWith = (id: number) => `dm:${Math.min(id, me?.id ?? 0)}-${Math.max(id, me?.id ?? 0)}`;
+  // where a new message goes from the one feed: the filter suggests it (the voice's private line, the draft room, a
+  // GM's DM), the composer's "To" changes it; everything else is the league's main room
+  const suggested = !feed ? null : what === 'garry' && me ? `garry:${me.id}` : what === 'draft' ? 'draft'
+    : what === 'private' && gm && me && gm.id !== me.id && can('dm') ? dmWith(gm.id) : 'general';
+  const [to, setTo] = useState<string | null>(suggested);
+  useEffect(() => { setTo(suggested); }, [suggested]);
+  const postTo = feed ? to ?? 'general' : all ? 'general' : channel;
+  const muted = !can('chat') || (postTo.startsWith('dm:') && !can('dm'));
   const now = useNow(30_000);
   const toast = useToast();
   const [msgs, setMsgs] = useState<Message[]>([]);
@@ -47,20 +60,25 @@ export function ChatPanel({ channel, compact, className = '' }: { channel: strin
   const scroller = useRef<HTMLDivElement>(null);
   const stick = useRef(true);
 
+  const page = feed ? 150 : 80;
+  const loading = useRef(false);
   const load = useCallback(async (before?: number) => {
-    let q = supabase.from('messages').select('*').order('id', { ascending: false }).limit(80);
-    // the merged feed leaves out the draft room and the game threads (each game's chat lives beside its score)
-    q = all ? q.neq('channel', 'draft').not('channel', 'like', 'game:%') : q.eq('channel', channel);
+    loading.current = true;
+    let q = supabase.from('messages').select('*').order('id', { ascending: false }).limit(page);
+    // the merged feed leaves out the draft room and the game threads (each game's chat lives beside its score); the
+    // one feed keeps the draft room
+    q = feed ? q.not('channel', 'like', 'game:%') : all ? q.neq('channel', 'draft').not('channel', 'like', 'game:%') : q.eq('channel', channel);
     if (before) q = q.lt('id', before);
     const { data } = await q;
     const rows = ((data ?? []) as Message[]).reverse();
-    if (rows.length < 80) setOlder(false);
+    loading.current = false;
+    if (rows.length < page) setOlder(false);
     setMsgs((m) => (before ? [...rows, ...m] : rows));
     if (rows.length) {
       const { data: rx } = await supabase.from('reactions').select('message_id,team_id,emoji').in('message_id', rows.map((r) => r.id));
       setReactions((r) => [...(before ? r : []), ...((rx ?? []) as Reaction[])]);
     }
-  }, [channel, all]);
+  }, [channel, all, feed, page]);
 
   useEffect(() => {
     setMsgs([]); setReactions([]); setOlder(true); stick.current = true;
@@ -68,7 +86,7 @@ export function ChatPanel({ channel, compact, className = '' }: { channel: strin
     const ch = realtimeChannel(`chat-${channel}`)
       .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'messages', ...(all ? {} : { filter: `channel=eq.${channel}` }) }, (p) => {
         const n = p.new as Message;
-        if (theirs(n) || (all && (n.channel === 'draft' || n.channel.startsWith('game:')))) return;
+        if (theirs(n) || (all && ((!feed && n.channel === 'draft') || n.channel.startsWith('game:')))) return;
         setMsgs((m) => (m.some((x) => x.id === n.id) ? m : [...m, n]));
       })
       .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'messages', ...(all ? {} : { filter: `channel=eq.${channel}` }) }, (p) => {
@@ -133,6 +151,13 @@ export function ChatPanel({ channel, compact, className = '' }: { channel: strin
   };
 
   const byId = useMemo(() => new Map(msgs.map((m) => [m.id, m])), [msgs]);
+  // what the filter lets through; a sparse filter reaches back on its own until it has a screenful or the start
+  const shown = useMemo(() => (feed && (what !== 'all' || gm) ? msgs.filter((m) => chatMatch(m, what, gm)) : msgs), [msgs, feed, what, gm]);
+  useEffect(() => {
+    if (!feed || shown.length >= 30 || !older || !msgs.length || loading.current) return;
+    stick.current = shown.length === 0;
+    load(msgs[0].id);
+  }, [feed, shown.length, older, msgs.length]); // eslint-disable-line react-hooks/exhaustive-deps
   const mention = /@(\w*)$/.exec(text)?.[1];
   const suggestions = mention !== undefined ? [...teams.map((t) => t.gm_name), bot, 'everyone'].filter((n) => n.toLowerCase().startsWith(mention.toLowerCase())) : [];
 
@@ -146,13 +171,15 @@ export function ChatPanel({ channel, compact, className = '' }: { channel: strin
   // where a message came from, shown on the merged feed
   const tagOf = (c: string) => {
     if (c === 'general') return { label: 'Trash Talk', cls: 'bg-goal/20 text-rose-200' };
+    if (c === 'draft') return { label: 'Draft room', cls: 'bg-amber-400/20 text-amber-200' };
     if (c.startsWith('garry:')) return { label: `Ask ${bot}`, cls: 'bg-emerald-500/20 text-emerald-200' };
     if (c.startsWith('dm:')) { const other = c.slice(3).split('-').map(Number).find((id) => id !== me?.id); return { label: `DM · ${team(other)?.gm_name ?? '?'}`, cls: 'bg-sky-500/20 text-sky-200' }; }
     return { label: c, cls: 'bg-white/10 text-slate-300' };
   };
-  const Tag = ({ c }: { c: string }) => { if (!all) return null; const t = tagOf(c); return <span className={`rounded px-1 py-px text-[10px] font-semibold ${t.cls}`}>{t.label}</span>; };
+  // in the one feed the main room needs no label: only the draft room and the private lines say where they are
+  const Tag = ({ c }: { c: string }) => { if (!all || (feed && c === 'general')) return null; const t = tagOf(c); return <span className={`rounded px-1 py-px text-[10px] font-semibold ${t.cls}`}>{t.label}</span>; };
   // Garry is "typing" for a bit after someone asks him something
-  const isGarry = channel.startsWith('garry:');
+  const isGarry = postTo.startsWith('garry:');
   const roastTarget = useMemo(() => { const others = teams.filter((t) => t.id !== me?.id && t.role !== 'spectator'); return others.length ? others[Math.floor(Math.random() * others.length)].gm_name : null; }, [teams, me?.id]);
   const last = msgs[msgs.length - 1];
   const asked = !!last && last.kind === 'user' && last.team_id === me?.id && (isGarry || new RegExp(`\\b${bot.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`, 'i').test(last.body));
@@ -163,28 +190,31 @@ export function ChatPanel({ channel, compact, className = '' }: { channel: strin
   useEffect(() => {
     if (!garryTyping || !last) return;
     const i = setInterval(async () => {
-      const { data } = await supabase.from('messages').select('*').eq('channel', channel).gt('id', last.id).order('id');
+      const { data } = await supabase.from('messages').select('*').eq('channel', postTo).gt('id', last.id).order('id');
       if (data?.length) setMsgs((m) => [...m, ...(data as Message[]).filter((x) => !m.some((y) => y.id === x.id))]);
     }, 3000);
     return () => clearInterval(i);
-  }, [garryTyping, last?.id, channel]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [garryTyping, last?.id, postTo]); // eslint-disable-line react-hooks/exhaustive-deps
 
   return (
     <div className={`flex min-h-0 flex-col ${className}`}>
       <div ref={scroller} className="min-h-0 flex-1 space-y-1 overflow-y-auto px-2 py-3"
         onScroll={(e) => { const el = e.currentTarget; stick.current = el.scrollHeight - el.scrollTop - el.clientHeight < 80; }}>
-        {older && msgs.length >= 80 && (
+        {older && msgs.length >= page && (
           <button className="btn-ghost btn-sm mx-auto mb-2 flex" onClick={() => { stick.current = false; load(msgs[0]?.id); }}>Load older</button>
         )}
-        {msgs.length === 0 && !isGarry && <div className="py-10 text-center text-sm text-mute">No messages yet. Fire the first shot. 🏒</div>}
-        {isGarry && msgs.length === 0 && (
+        {shown.length === 0 && !isGarry && (!feed || (what === 'all' && !gm)) && <div className="py-10 text-center text-sm text-mute">No messages yet. Fire the first shot. 🏒</div>}
+        {feed && shown.length === 0 && !isGarry && (what !== 'all' || gm) && (
+          <div className="py-10 text-center text-sm text-mute">{older ? 'Looking further back…' : `Nothing here yet${gm ? ` from ${gm.gm_name}` : ''}. Try another filter.`}</div>
+        )}
+        {isGarry && shown.length === 0 && (
           <div className="px-3 py-8 text-center">
             <div className="mx-auto grid h-16 w-16 place-items-center rounded-full bg-emerald-500/15 text-4xl ring-1 ring-emerald-400/30">🎙️</div>
             <div className="mt-2 font-semibold">Your private line to {bot}</div>
             <div className="mx-auto mt-1 max-w-sm text-sm text-mute">Ask about standings, your lineup, any player, tonight’s games, trades, pickups, the draft, bets, rules or the prize money. Only you can see this. He’s cheeky, but he knows his stuff.</div>
           </div>
         )}
-        {msgs.map((m, i) => {
+        {shown.map((m, i) => {
           if (m.kind === 'system') {
             const pollId = typeof m.meta?.poll === 'number' ? m.meta.poll : null;
             return (
@@ -211,7 +241,7 @@ export function ChatPanel({ channel, compact, className = '' }: { channel: strin
           }
           const t = team(m.team_id);
           const mine = m.team_id === me?.id;
-          const prev = msgs[i - 1];
+          const prev = shown[i - 1];
           const grouped = prev && prev.kind === 'user' && prev.team_id === m.team_id && prev.channel === m.channel && new Date(m.created_at).getTime() - new Date(prev.created_at).getTime() < 5 * 60_000;
           const rx = reactions.filter((r) => r.message_id === m.id);
           const counts = REACTIONS.map((e) => ({ e, n: rx.filter((r) => r.emoji === e).length, me: rx.some((r) => r.emoji === e && r.team_id === me?.id) })).filter((x) => x.n);
@@ -270,19 +300,30 @@ export function ChatPanel({ channel, compact, className = '' }: { channel: strin
             {suggestions.map((s) => <button key={s} className="chip" onClick={() => setText(text.replace(/@\w*$/, '@' + s + ' '))}>@{s}</button>)}
           </div>
         )}
+        {feed && me && !replyTo && (
+          <div className="scroll-x mb-1.5 flex items-center gap-1.5 text-xs">
+            <span className="shrink-0 font-semibold text-mute">To</span>
+            {[{ c: 'general', label: '🔥 Everyone', tip: 'The whole league' }, { c: `garry:${me.id}`, label: `🔒 ${bot}`, tip: `Your private line to ${bot}` },
+              ...(what === 'draft' || postTo === 'draft' ? [{ c: 'draft', label: '📋 Draft room', tip: 'The draft room' }] : []),
+              ...(gm && gm.id !== me.id && can('dm') ? [{ c: dmWith(gm.id), label: `🔒 ${gm.gm_name}`, tip: `Just you and ${gm.gm_name}` }] : [])].map((d) => (
+              <button key={d.c} type="button" title={d.tip} onClick={() => setTo(d.c)}
+                className={`shrink-0 rounded-full px-2.5 py-1 font-semibold transition ${postTo === d.c ? 'bg-white text-ice' : 'border border-white/[.08] bg-white/[.05] text-slate-300'}`}>{d.label}</button>
+            ))}
+          </div>
+        )}
         {showPoll && !muted && <PollComposer channel={postTo} onDone={() => setShowPoll(false)} />}
         {showChirps && (
           <div className="scroll-x mb-1 flex gap-1">
             {chirps.map((c) => <button key={c} className="chip shrink-0 py-1 text-xs" onClick={() => send(c)}>{c}</button>)}
           </div>
         )}
-        {muted ? <div className="rounded-xl border border-white/10 bg-white/[.04] px-3 py-2.5 text-center text-sm text-mute">🔇 The commissioner has switched off {channel.startsWith('dm:') ? 'DMs' : 'chat'} for your spectator pass.</div> : (
+        {muted ? <div className="rounded-xl border border-white/10 bg-white/[.04] px-3 py-2.5 text-center text-sm text-mute">🔇 The commissioner has switched off {postTo.startsWith('dm:') ? 'DMs' : 'chat'} for your spectator pass.</div> : (
         <form className="flex items-end gap-1.5" onSubmit={(e) => { e.preventDefault(); send(text); }}>
           <button type="button" className="btn-ghost h-10 w-10 shrink-0 p-0 text-lg" onClick={() => setShowChirps(!showChirps)} title="Quick chirps">🗯️</button>
-          {!isGarry && !channel.startsWith('dm:') && <button type="button" className={`btn-ghost h-10 w-10 shrink-0 p-0 ${showPoll ? 'text-sky-300' : ''}`} onClick={() => setShowPoll(!showPoll)} title="Start a poll"><BarChart3 size={18} /></button>}
+          {!isGarry && !postTo.startsWith('dm:') && <button type="button" className={`btn-ghost h-10 w-10 shrink-0 p-0 ${showPoll ? 'text-sky-300' : ''}`} onClick={() => setShowPoll(!showPoll)} title="Start a poll"><BarChart3 size={18} /></button>}
           <textarea
             className="input max-h-32 min-h-10 min-w-0 flex-1 resize-none py-2 placeholder:truncate" rows={1} value={text} maxLength={2000}
-            placeholder={isGarry ? `Ask ${bot} anything…` : channel === 'draft' ? 'Chirp the picks…' : all ? (replyTo ? `Reply in ${tagOf(replyTo.channel).label}…` : `Post, or ask ${bot}…`) : channel.startsWith('game:') ? 'Talk about the game…' : `Talk trash, or ask ${bot}…`}
+            placeholder={replyTo && all ? `Reply in ${tagOf(replyTo.channel).label}…` : isGarry ? `Ask ${bot} anything…` : postTo === 'draft' ? 'Chirp the picks…' : postTo.startsWith('dm:') ? `Message ${gm?.gm_name ?? 'them'} privately…` : all ? `Post, or ask ${bot}…` : channel.startsWith('game:') ? 'Talk about the game…' : `Talk trash, or ask ${bot}…`}
             onChange={(e) => setText(e.target.value)}
             onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send(text); } }}
           />
