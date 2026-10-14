@@ -6,6 +6,8 @@
 export interface Change { date: string; icon: string; title: string; body: string; to?: string; tag?: 'formats' | 'commish' | 'draft' | 'everyone' }
 
 export const CHANGELOG: Change[] = [
+  { date: '2026-10-14', icon: '🧮', tag: 'everyone', title: 'Your roster count leaves IR out', to: '/players',
+    body: 'The Players page counted a player on IR against your roster limit, which leaves IR out, so a full roster with one on IR read 25 of 24. It now counts the active roster and says how many are on IR beside it.' },
   { date: '2026-10-14', icon: '💬', tag: 'everyone', title: 'One chat, with a filter', to: '/chat',
     body: 'Trash talk, the draft room, the league\'s voice and your DMs are now one feed. The bar across the top filters it: pick a GM to see only what they said and every move that names them, or a kind (talk, transactions, bets, the voice, the draft, private, league news). Under the box, To says where your post goes: everyone, the voice privately, or the GM you picked.' },
   { date: '2026-10-14', icon: '🔄', tag: 'everyone', title: 'Every move in the league on your home page', to: '/',

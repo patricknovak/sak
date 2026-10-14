@@ -9,7 +9,7 @@ Paid subscribed: section 1 and section 8 are that review.
 
 ## 1. Where we are
 
-*As of 14 October 2026, migration 265.*
+*As of 14 October 2026, migration 268.*
 
 - **SaK**, the live league: eight GMs, used every night, on React 19 + Supabase (Postgres rules, edge functions, a
   scheduler) and an LLM voice (Garry, on Grok, metered per feature and league), served from Cloudflare. The season is
@@ -29,7 +29,7 @@ Paid subscribed: section 1 and section 8 are that review.
 - **Use so far is the founder's.** Four prediction pools besides SaK, one or two members each, one pick between them
   and no chat (section 9.2, 13 October). The Love Is Blind gate (three pools, thirty players by 4 November) is the first
   real test of the product with strangers; the premiere is 14 October, and the week's build for it is section 9.5.
-- 265 migrations; the flow test drives a whole fantasy season and every pool kind in SQL, with a second league beside
+- 268 migrations; the flow test drives a whole fantasy season and every pool kind in SQL, with a second league beside
   each that must never see or change it; CI runs it, the build and the Worker's types on every pull request.
 
 ## 2. What is working, and stays
@@ -659,3 +659,19 @@ Built for SaK and, as every SaK change is, for every league:
 - **League transactions on the home page**: every add, drop and trade, the draft and the keepers on a tap, by GM and kind.
 - **The roster against the free agents**: Players, Browse, "GM vs available" (one GM's players among every available one,
   in their colour); My Team, Stats, Compare, "Best available" (the best free agent at each of the roster's positions).
+
+### 9.7 The premiere morning, 14 October 2026
+
+- **The pool's morning post told Pod Squad something false**: that the premiere's questions "close tomorrow 3 am ET",
+  four hours after they had closed, and it re-announced the day before's new questions (the voice had read its own
+  eve-of-premiere post). Pool posts now stand on their facts alone (`write(..., { fresh, check })`), closed questions are
+  told as closed and locked, what's new counts from the last morning post, and a check (every number in the facts, no
+  closing or calls or locks the facts don't have) rewrites a bad draft once and then falls back to the plain line.
+- **The chat filter checked against SaK's 470 real messages**: the draft's picks no longer count as transactions; a
+  test holds every kind (`chat-filter.test.mjs`).
+- **The Monday read comes to Patrick** (§8.4 item 2, migrations 266 and 267): a bell each Monday with the week's
+  pools, people, first calls, calls, messages and the busiest pool. **Migration 268** leaves test accounts' calls and
+  chat out of the week, as it already left out their membership.
+- **What the first real week says** (7 to 14 October, test accounts left out): two pools started, one person joined,
+  one first call inside fifteen minutes, ten calls (both in Trystan's pools), ten chat messages (all in SaK), no call from
+  a real member in Pod Squad. The gate (three pools, thirty players by 4 November) is people: the next drop is 21 October.
