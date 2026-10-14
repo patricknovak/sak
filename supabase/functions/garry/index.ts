@@ -364,7 +364,7 @@ async function recentLines(n = 6): Promise<string[]> {
 // `check`: a written post that fails it (a number or a time the facts don't hold) is written once more with the
 // reason, then falls back to the plain line
 async function write(task: string, facts: unknown, fallback: string, maxWords = 180, focus: number[] = [],
-  opts: { fresh?: boolean; check?: (body: string) => string | null } = {}): Promise<string> {
+  opts: { fresh?: boolean; check?: (body: string) => string | null; numbers?: boolean } = {}): Promise<string> {
   if (dry()) runs.getStore()!.drafts = [...(runs.getStore()!.drafts ?? []), { body: '', meta: { task, facts } }];
   if (!apiKey) return fallback;
   const { byId } = await base();
@@ -376,6 +376,8 @@ async function write(task: string, facts: unknown, fallback: string, maxWords = 
     `${task}\nKeep it under ${maxWords} words. Every number, stat and result you write is in the facts${opts.fresh ? '' : ' or what you remember'}; if it isn't, leave it out.${extra}\n\nFacts (JSON):\n${JSON.stringify(facts)}`,
   ].filter(Boolean).join('\n\n'), 1200, 0.75);
   let text = await ask();
+  // a league post's numbers come from its facts, the league right now or what he remembers, nowhere else
+  if (opts.numbers && !opts.check) opts.check = numbersCheck(JSON.stringify(facts) + ' ' + fallback + ' ' + now + ' ' + mem.join(' '), facts);
   if (text && opts.check) {
     const bad = opts.check(text);
     if (bad) {
@@ -390,15 +392,22 @@ async function write(task: string, facts: unknown, fallback: string, maxWords = 
 // a pool post's own check: every number it writes (in digits or words) is one the facts hold, and it never says
 // something closes or locks when nothing does
 const NUMBER_WORDS: Record<string, string> = { one: '1', two: '2', three: '3', four: '4', five: '5', six: '6', seven: '7', eight: '8', nine: '9', ten: '10', eleven: '11', twelve: '12' };
-function factCheck(facts: unknown, fallback: string, { closing, locking }: { closing: boolean; locking: boolean }) {
-  const known = new Set((JSON.stringify(facts) + ' ' + fallback).match(/\d+/g) ?? []);
-  // how many of each thing the facts list is a number the post may say ("four questions closed")
+// every number a post writes (in digits or words) is one its sources hold, or how many of something they list
+function numbersCheck(sources: string, facts: unknown) {
+  const known = new Set(sources.match(/\d+/g) ?? []);
   const count = (v: unknown): void => { if (Array.isArray(v)) { known.add(String(v.length)); v.forEach(count); } else if (v && typeof v === 'object') Object.values(v).forEach(count); };
   count(facts);
   return (body: string) => {
     const words = body.toLowerCase().replace(/\b(one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve)\b/g, (w) => NUMBER_WORDS[w]);
     const nums = (words.replace(/@\S+/g, '').match(/\d+/g) ?? []).filter((n) => !known.has(n));
-    if (nums.length) return `it says ${nums.join(', ')}, which isn't in the facts`;
+    return nums.length ? `it says ${[...new Set(nums)].join(', ')}, which isn't in the facts` : null;
+  };
+}
+function factCheck(facts: unknown, fallback: string, { closing, locking }: { closing: boolean; locking: boolean }) {
+  const numbers = numbersCheck(JSON.stringify(facts) + ' ' + fallback, facts);
+  return (body: string) => {
+    const bad = numbers(body);
+    if (bad) return bad;
     if (!closing && /\bclos(e|es|ing)\b[^.!?]*\b(tonight|tomorrow|today)\b/i.test(body)) return 'it says questions close soon, but none do: the ones in closed_waiting_on_the_host have already closed';
     if (!closing && /\b(needs?|has|have|got) to call\b|\bstill (to )?call\b|\b(yet|left) to call\b|\bcalls? (left|to make)\b/i.test(body)) return 'it asks members to call questions, but none can be called now: the closed ones are locked';
     if (!locking && /\block(s|ed)?\b|\bpicks?\b/i.test(body)) return 'it talks about picks or locks, and the facts have none';
@@ -834,7 +843,7 @@ async function daily() {
     benchRegret[0] ? `Meanwhile @${benchRegret[0].gm} left ${benchRegret[0].player} (${f1(benchRegret[0].fpts)}) on the bench over ${benchRegret[0].over} (${f1(benchRegret[0].over_fpts)}).` : '',
     playoffs ? `Playoff table: ${season.slice(0, 3).map((x) => `${x.rank}. @${x.gm} ${f1(x.points)}`).join(', ')}.` : formatLine || `${L.brand.booby} watch: @${season.at(-1)?.gm} sitting in the basement at ${f1(season.at(-1)?.points ?? 0)}.`,
   ].filter(Boolean).join(' ');
-  const body = await write(`Write this morning's column on yesterday's ${L.info.short_name} ${playoffs ? 'playoff ' : ''}results for the league chat. Lead with the best story in the facts (a pass in the standings, a tight race, a big night, a costly bench call, a hot or cold week), not a list of scores; work in the NHL news about the GMs' own players if any is there (a headline says only what it says: add no stat, result or role it doesn't give; what the player did last night is given beside it), and tonight's slate if it sets up something. It's a column the league reads for the laughs: at least two sharp, specific chirps (the GM who got passed, the one who blew a bench call, the one whose star is out, the leader who barely moved), each built on a fact given, and a running gag or something a GM said if one fits. No closing call to bet, trade or talk unless a fact sets it up.`, facts, fallback, 220);
+  const body = await write(`Write this morning's column on yesterday's ${L.info.short_name} ${playoffs ? 'playoff ' : ''}results for the league chat. Lead with the best story in the facts (a pass in the standings, a tight race, a big night, a costly bench call, a hot or cold week), not a list of scores; work in the NHL news about the GMs' own players if any is there (a headline says only what it says: add no stat, result or role it doesn't give; what the player did last night is given beside it), and tonight's slate if it sets up something. It's a column the league reads for the laughs: at least two sharp, specific chirps (the GM who got passed, the one who blew a bench call, the one whose star is out, the leader who barely moved), each built on a fact given, and a running gag or something a GM said if one fits. No closing call to bet, trade or talk unless a fact sets it up.`, facts, fallback, 220, [], { numbers: true });
   await post(body, { type: 'recap', date: yesterday });
   return { posted: 'recap', bonus: facts.daily_bonus };
 }
@@ -872,7 +881,7 @@ async function nudge() {
   if (!issues.length) return { skipped: 'no lineup worth fixing', autopilot: covered };
   const fb = `🚨 Before ${W().start}: ${issues.map((i) => `@${i.gm}: ${i.swaps.join('; ')}`).join(' · ')}.`;
   await post(await write(`Lineup check before tonight's ${n.games} games. For each GM listed, name the exact swap (or swaps) given, with the reason given (only that reason: "projects lower" means the numbers like the other guy tonight, nothing about form or streaks), in one punchy line each; every swap is one they can make right now and it gains them points tonight. Say nothing about any other GM's lineup, and invent no other moves.`,
-    { games_tonight: n.games, gms: issues }, fb, 110, teams.filter((t) => issues.some((i) => i.gm === t.gm_name)).map((t) => t.id)), { type: 'nudge', date: today });
+    { games_tonight: n.games, gms: issues }, fb, 110, teams.filter((t) => issues.some((i) => i.gm === t.gm_name)).map((t) => t.id), { numbers: true }), { type: 'nudge', date: today });
   return { posted: 'lineup nudge', teams: issues.length, autopilot: covered };
 }
 
@@ -1471,7 +1480,7 @@ async function weekly() {
     `Power rankings: ${rankings.map((r) => `${r.rank}. ${r.gm} (${arrow(r)})`).join(' · ')}.`,
     pick(['Trade deadline energy, please. Somebody make an offer.', 'Put some coins on next week\'s Team of the Week.', `Set your lineups. ${bot()} is watching.`]),
   ].filter(Boolean).join('\n');
-  const body = await write(`Write your Monday column for the league chat: ${h2h?.results.length ? `lead with the week's head-to-head ${h2h.playoff ? 'playoff ' : ''}results (every matchup: who beat whom and by how much, a tie as a tie), then ` : ''}Team of the Week (and their coin bonus), Bust of the Week, Player of the Week, ${lineups ? 'one line on lineup management (the sharpest manager and who left the most points out, from lineup_management), ' : ''}then the power rankings as a numbered list with the movement arrows given. One dry line per team.`, facts, fallback, (h2h?.results.length ? 340 : 260) + (lineups ? 40 : 0));
+  const body = await write(`Write your Monday column for the league chat: ${h2h?.results.length ? `lead with the week's head-to-head ${h2h.playoff ? 'playoff ' : ''}results (every matchup: who beat whom and by how much, a tie as a tie), then ` : ''}Team of the Week (and their coin bonus), Bust of the Week, Player of the Week, ${lineups ? 'one line on lineup management (the sharpest manager and who left the most points out, from lineup_management), ' : ''}then the power rankings as a numbered list with the movement arrows given. One dry line per team.`, facts, fallback, (h2h?.results.length ? 340 : 260) + (lineups ? 40 : 0), [], { numbers: true });
   await post(body, { type: 'weekly', date: end, rankings: rankings.map((r) => ({ team_id: r.team_id, rank: r.rank, prev: r.prev })), team_of_week: best.team_id });
   return { posted: 'weekly', team_of_week: best.gm, star };
 }
@@ -1682,7 +1691,7 @@ async function moments() {
   }
   await from('garry_state').update({ moments: cur });
   if (!pick) return { skipped: 'nothing worth it' };
-  const body = await write(pick.task, pick.facts, pick.fallback, 70, pick.focus);
+  const body = await write(pick.task, pick.facts, pick.fallback, 70, pick.focus, { numbers: true });
   await post(body, { type: 'moment', key: pick.key, date: day });
   return { posted: pick.key };
 }
