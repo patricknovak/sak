@@ -32,10 +32,12 @@ export function chatKinds(m: Message): Set<ChatKind> {
   if (m.channel.startsWith('garry:') || m.kind === 'bot') k.add('garry');
   if (m.kind === 'user') { k.add('talk'); return k; }
   if (m.kind === 'system') {
-    if ('poll' in meta) k.add('talk');
+    // the draft room's own lines (each pick, the order, the start and the end) are the draft, not transactions
+    if (m.channel === 'draft' || 'pick' in meta || 'order' in meta) { if (m.channel !== 'draft') k.add('news'); }
+    else if ('poll' in meta) k.add('talk');
     else if ('bet' in meta || 'book' in meta || BETS.test(m.body) || BETS_TEXT.test(m.body)) k.add('bets');
-    else if ('trade_block' in meta || 'pick' in meta || MOVES.test(m.body) || MOVES_TEXT.test(m.body)) k.add('moves');
-    else if (m.channel !== 'draft') k.add('news');
+    else if ('trade_block' in meta || MOVES.test(m.body) || MOVES_TEXT.test(m.body)) k.add('moves');
+    else k.add('news');
   }
   return k;
 }
