@@ -106,6 +106,17 @@ export function PoolHome() {
     return open.filter((m) => n.has(m.id)).sort((a, b) => (n.get(b.id) ?? 0) - (n.get(a.id) ?? 0)).slice(0, 2);
   }, [trades, open.length]); // eslint-disable-line react-hooks/exhaustive-deps
   const settle = (markets ?? []).filter((m) => m.status === 'open' && !isOpen(m, now));
+  // the closed questions the feed already has an answer for (migration 273): the host's card says so and opens the
+  // first, where it settles with one tap
+  const settleKey = settle.map((m) => m.id).join(',');
+  const [fed, setFed] = useState<number[]>([]);
+  useEffect(() => {
+    if (!me?.is_commish || !settleKey) { setFed([]); return; }
+    let live = true;
+    Promise.all(settleKey.split(',').map((id) => rpc<{ key: string } | null>('pool_feed_answer', { p_market: Number(id) }).then((a) => (a ? Number(id) : null), () => null)))
+      .then((ids) => { if (live) setFed(ids.filter((x): x is number => x != null)); });
+    return () => { live = false; };
+  }, [me?.is_commish, settleKey]);
   // a sports pool with games and no questions shows its games, not an empty question board
   const { games } = usePoolGames();
   // the soonest pick that locks before tomorrow on the pool's games, and whether the member is in it (the games'
@@ -173,9 +184,12 @@ export function PoolHome() {
       {me?.role === 'gm' && !gamesOnly && <PoolHowTo league={league?.league_id ?? 0} />}
 
       {me?.is_commish && settle.length > 0 && (
-        <Link to="/host" className="card flex items-center gap-3 border-amber-400/30 bg-amber-400/[.06] p-4">
+        <Link to={fed.length ? `/q/${fed[0]}` : '/host'} className="card flex items-center gap-3 border-amber-400/30 bg-amber-400/[.06] p-4">
           <Wand2 className="h-6 w-6 text-amber-300" />
-          <div className="flex-1 text-sm"><b>{settle.length} question{settle.length === 1 ? '' : 's'} closed and waiting for you</b><div className="text-xs text-mute">Settle them so the pool gets paid.</div></div>
+          <div className="flex-1 text-sm"><b>{settle.length} question{settle.length === 1 ? '' : 's'} closed and waiting for you</b><div className="text-xs text-mute">{!fed.length ? 'Settle them so the pool gets paid.'
+            : settle.length === 1 ? '📡 The feed has the answer: one tap to settle it.'
+            : fed.length === settle.length ? '📡 The feed has every answer: one tap each to settle.'
+            : `📡 The feed has the answer to ${fed.length} of them: one tap each to settle.`}</div></div>
           <span className="text-amber-300">→</span>
         </Link>
       )}
