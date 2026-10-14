@@ -709,6 +709,10 @@ Built for SaK and, as every SaK change is, for every league:
   number the facts spell out ("go seven games") as known, lets "calls are locked" through (only a lock still to come needs
   one in the facts), and rejects "settled" when nothing has. Dry runs on Pod Squad and the World Series pool read true;
   one turned "Dodgers v Brewers" into "Dodgers at Brewers", the matchup's order the one slip left.
+- **A new build reaches an app left open**: a GM's installed app ran the morning's build all afternoon on 14 October, so
+  the day's changes (the page counts among them) never reached it. When the app comes back to the screen, at most every
+  ten minutes, it compares its main script with the live page's and offers "A new version is ready · Reload" at the top
+  (`src/lib/appUpdate.ts`); nothing reloads by itself, so a half-typed message is never lost.
 - **What the first real week says** (7 to 14 October, test accounts left out): one pool started, one person joined,
   one first call inside fifteen minutes, ten calls (both in Trystan's pools), ten chat messages (all in SaK), no call from
   a real member in Pod Squad. All time: 3 real pools, 1 league, 8 people, 20 calls, 3 first calls. The gate (three pools,

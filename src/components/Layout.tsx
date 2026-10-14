@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { NavLink, useLocation, useNavigate } from 'react-router-dom';
 import { useUsage } from '../lib/usage';
+import { useAppUpdate } from '../lib/appUpdate';
 import { LeagueMark, Wordmark, WordmarkStack } from './Brand';
 import { useLeague, useNow } from '../lib/store';
 import { hasFeature } from '../lib/features';
@@ -90,6 +91,7 @@ export function Layout({ children }: { children: ReactNode }) {
   const loc = useLocation();
   const nav = useNavigate();
   useUsage(!!me, league?.league_id);
+  const updateReady = useAppUpdate();
   const [more, setMore] = useState(false);
   const [bell, setBell] = useState(false);
   const { any: chatUnread, count: chatCount } = useUnread();
@@ -320,6 +322,14 @@ export function Layout({ children }: { children: ReactNode }) {
           </button>
         )}
 
+        {updateReady && (
+          <div className="pointer-events-none fixed inset-x-0 top-0 z-50 flex justify-center px-3" style={{ paddingTop: 'max(env(safe-area-inset-top), 10px)' }}>
+            <div className="pointer-events-auto flex items-center gap-3 rounded-full border border-gold/40 bg-[#0e1626]/95 py-1.5 pl-4 pr-1.5 shadow-[0_10px_30px_rgba(0,0,0,.45)] backdrop-blur">
+              <span className="text-sm text-white">A new version is ready</span>
+              <button type="button" className="btn-gold !rounded-full !px-3.5 !py-1.5 text-sm" onClick={() => window.location.reload()}>Reload</button>
+            </div>
+          </div>
+        )}
         <main key={loc.pathname} className="page-in mb-nav mx-auto w-full max-w-5xl px-3 py-3 sm:px-5 lg:mb-0 lg:px-8 lg:py-6 xl:max-w-[92rem] 2xl:max-w-[110rem] 2xl:px-10"><HostNotice />{children}</main>
       </div>
 
