@@ -379,7 +379,10 @@ async function write(task: string, facts: unknown, fallback: string, maxWords = 
   ].filter(Boolean).join('\n\n'), 1200, 0.75);
   let text = await ask();
   // a league post's numbers come from its facts, the league right now or what he remembers, nowhere else
-  if (opts.numbers && !opts.check) opts.check = numbersCheck(JSON.stringify(facts) + ' ' + fallback + ' ' + now + ' ' + mem.join(' '), facts);
+  if (opts.numbers && !opts.check) {
+    const numbers = numbersCheck(JSON.stringify(facts) + ' ' + fallback + ' ' + now + ' ' + mem.join(' '), facts), gaps = gapCheck(now, [...byId.values()]);
+    opts.check = (body) => numbers(body) ?? gaps(body);
+  }
   if (text && opts.check) {
     const bad = opts.check(text);
     if (bad) {
@@ -403,6 +406,26 @@ function numbersCheck(sources: string, facts: unknown) {
     const words = body.toLowerCase().replace(/\b(one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve)\b/g, (w) => NUMBER_WORDS[w]);
     const nums = (words.replace(/@\S+/g, '').match(/\d+/g) ?? []).filter((n) => !known.has(n));
     return nums.length ? `it says ${[...new Set(nums)].join(', ')}, which isn't in the facts` : null;
+  };
+}
+// a gap in the table told the wrong way round: on 14 October a dry run had Darin, last and 18.0 behind seventh, "18
+// clear of the next guy". Each "N behind" in the table is held against the sentences that name the trailing GM (or
+// their team) with N: they may say behind, back or trailing, never clear, ahead or leads
+function gapCheck(now: string, teams: Team[]) {
+  const names = (gm: string) => [gm, ...teams.filter((t) => t.gm_name === gm).map((t) => t.name)].filter(Boolean).map((n) => n.toLowerCase());
+  const gaps = [...now.matchAll(/\d+(?:st|nd|rd|th) ([^,(]+?) -?[\d.]+ \(([\d.]+) behind ([^)]+)\)/g)].map((m) => ({ trailer: m[1].trim(), gap: m[2], leader: m[3].trim() }));
+  return (body: string) => {
+    for (const sentence of body.split(/(?<=[.!?])\s+|\n+/)) {
+      const low = sentence.toLowerCase();
+      if (!/\b(clear|ahead|leads?|leading|cushion|in front|up on)\b/.test(low) || /\b(behind|back|trail(s|ing)?|chasing|off the)\b/.test(low)) continue;
+      for (const g of gaps) {
+        const n = g.gap.replace(/\.0$/, '');
+        if (!new RegExp(`(^|[^\\d.])${n.replace('.', '\\.')}(\\.0)?(?![\\d.]*\\d)`).test(low)) continue;
+        if (names(g.trailer).some((x) => low.includes(x)) && !names(g.leader).some((x) => low.includes(x)))
+          return `it has ${g.trailer} ${g.gap} ahead, but ${g.trailer} is ${g.gap} behind ${g.leader}`;
+      }
+    }
+    return null;
   };
 }
 function factCheck(facts: unknown, fallback: string, { closing, locking }: { closing: boolean; locking: boolean }) {

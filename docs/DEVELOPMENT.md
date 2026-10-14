@@ -694,6 +694,11 @@ Built for SaK and, as every SaK change is, for every league:
   The World Series pack's seven series questions carry it, so the pennants and the seven-game question the SaK World
   Series pool waits on announce themselves when the Championship Series end. The host's settle panel shows the same
   answer with a button to settle it (`pool_feed_answer`, migration 273).
+- **A gap told the right way round**: a dry run of the morning column on the merged build had Darin, last and 18.0
+  behind seventh, "18 clear of the next guy". The league posts' check now holds every "N behind" in the table against
+  the sentences that name the trailing GM or their team with that number: behind, back or trailing pass; clear, ahead or
+  leads are rewritten. Deployed; dry runs read the table right. Loose comparisons ("roughly the same margin") still get
+  through: the check reads numbers and directions, not how two numbers compare.
 - **What the first real week says** (7 to 14 October, test accounts left out): one pool started, one person joined,
   one first call inside fifteen minutes, ten calls (both in Trystan's pools), ten chat messages (all in SaK), no call from
   a real member in Pod Squad. All time: 3 real pools, 1 league, 8 people, 20 calls, 3 first calls. The gate (three pools,
