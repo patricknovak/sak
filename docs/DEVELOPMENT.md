@@ -704,6 +704,11 @@ Built for SaK and, as every SaK change is, for every league:
   team 1. The bonus, the bell, draft prep's bells and the in-game moments' state are now skipped on a dry run. Each power
   ranking row carries its own season line ("6th in the season, 0.3 behind Trystan (5th), 37.4 behind the leader Jason"),
   so a row never borrows another's gap.
+- **The pool post hears the feed, and its check reads the pool's own words**: a waiting question whose series is decided
+  is told as "the result is in (Los Angeles Dodgers) and the host settles it" (`pool_feed_answer`). The check counts a
+  number the facts spell out ("go seven games") as known, lets "calls are locked" through (only a lock still to come needs
+  one in the facts), and rejects "settled" when nothing has. Dry runs on Pod Squad and the World Series pool read true;
+  one turned "Dodgers v Brewers" into "Dodgers at Brewers", the matchup's order the one slip left.
 - **What the first real week says** (7 to 14 October, test accounts left out): one pool started, one person joined,
   one first call inside fifteen minutes, ten calls (both in Trystan's pools), ten chat messages (all in SaK), no call from
   a real member in Pod Squad. All time: 3 real pools, 1 league, 8 people, 20 calls, 3 first calls. The gate (three pools,

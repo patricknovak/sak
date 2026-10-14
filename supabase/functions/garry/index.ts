@@ -399,7 +399,8 @@ async function write(task: string, facts: unknown, fallback: string, maxWords = 
 const NUMBER_WORDS: Record<string, string> = { one: '1', two: '2', three: '3', four: '4', five: '5', six: '6', seven: '7', eight: '8', nine: '9', ten: '10', eleven: '11', twelve: '12' };
 // every number a post writes (in digits or words) is one its sources hold, or how many of something they list
 function numbersCheck(sources: string, facts: unknown) {
-  const known = new Set(sources.match(/\d+/g) ?? []);
+  // the sources' numbers in words count too: "go seven games" in a question lets the post say seven
+  const known = new Set(sources.toLowerCase().replace(/\b(one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve)\b/g, (w) => NUMBER_WORDS[w]).match(/\d+/g) ?? []);
   const count = (v: unknown): void => { if (Array.isArray(v)) { known.add(String(v.length)); v.forEach(count); } else if (v && typeof v === 'object') Object.values(v).forEach(count); };
   count(facts);
   return (body: string) => {
@@ -428,14 +429,17 @@ function gapCheck(now: string, teams: Team[]) {
     return null;
   };
 }
-function factCheck(facts: unknown, fallback: string, { closing, locking }: { closing: boolean; locking: boolean }) {
+function factCheck(facts: unknown, fallback: string, { closing, locking, settled = true }: { closing: boolean; locking: boolean; settled?: boolean }) {
   const numbers = numbersCheck(JSON.stringify(facts) + ' ' + fallback, facts);
   return (body: string) => {
     const bad = numbers(body);
     if (bad) return bad;
     if (!closing && /\bclos(e|es|ing)\b[^.!?]*\b(tonight|tomorrow|today)\b/i.test(body)) return 'it says questions close soon, but none do: the ones in closed_waiting_on_the_host have already closed';
     if (!closing && /\b(needs?|has|have|got) to call\b|\bstill (to )?call\b|\b(yet|left) to call\b|\bcalls? (left|to make)\b/i.test(body)) return 'it asks members to call questions, but none can be called now: the closed ones are locked';
-    if (!locking && /\block(s|ed)?\b/i.test(body)) return 'it says something locks, and the facts have nothing that does';
+    // a closed question waiting on the host is not settled (a dry run on 14 October called one "settled")
+    if (!settled && /\b(settled|settles itself)\b/i.test(body.replace(/\b(host|they|he|she) (settles?|will settle)\b|\b(not|yet to be|still to be) (been )?settled\b/gi, ''))) return 'it says a question settled, and none has: the closed ones wait on the host';
+    // "locked" is how a closed question is told ("calls are locked"); only a lock still to come needs one in the facts
+    if (!locking && /\blocks?\b/i.test(body)) return 'it says something locks, and the facts have nothing that does';
     return null;
   };
 }
@@ -720,7 +724,7 @@ async function poolWeekly() {
   ].filter(Boolean).join(' ');
   const body = await write(`Write this Monday's post for the pool's chat, as the friend who's most into this and runs the group chat: the week that was and the week ahead. Lead with what settled and who called it (or that nobody did), then the table if the facts give one, then the week ahead in order (each day and what happens then, as given). Tag the members in no_call_all_week as @Name with one line to get them back in, warm not preachy. One sharp chirp built on those facts, worked into a sentence, never labelled. Say nothing about what didn't happen (no settled questions: leave the week that was out). No headings or labels ("Week ahead:", "Table:"): it reads as a message from a friend. Call the coins by their name. Every number and day comes from the facts as given. Never more than 120 words.`,
     facts, fb, 120, teams.filter((t) => quiet.includes(t.gm_name)).map((t) => t.id),
-    { fresh: true, check: factCheck(facts, fb, { closing: byDay.length > 0, locking: locks.length > 0 }) });
+    { fresh: true, check: factCheck(facts, fb, { closing: byDay.length > 0, locking: locks.length > 0, settled: settled.length > 0 }) });
   await post(body, { type: 'pool-week', date: today });
   return { posted: 'pool-week', settled: settled.length, ahead: byDay.length + coming.length + locks.length, quiet: quiet.length };
 }
@@ -769,7 +773,14 @@ async function poolDaily() {
     not_called_yet: teams.filter((t) => !(pos ?? []).some((p) => p.market_id === m.id && p.team_id === t.id && Number(p.shares) > 0)).map((t) => t.gm_name),
   }));
   // closed and not settled yet: said with when it closed, so it's never read as still to come
-  const waiting = all.filter((m) => m.status === 'open' && m.closes_at <= now).map((m) => `"${m.title}" closed ${when(m.closes_at)}: calls are locked, it waits on the host's answer`);
+  // when the feed already has the answer (a pack question on a decided series, migration 273), the pool hears it, and
+  // that the host settles it
+  const closedMs = all.filter((m) => m.status === 'open' && m.closes_at <= now);
+  const feedAns = await Promise.all(closedMs.map((m) => L.db.rpc('pool_feed_answer', { p_market: m.id }).then(({ data, error }) => {
+    if (error) console.warn('pool_feed_answer', m.id, error.message);
+    return (data as { label?: string } | null)?.label ?? null;
+  }, () => null)));
+  const waiting = closedMs.map((m, i) => `"${m.title}" closed ${when(m.closes_at)}: calls are locked, ${feedAns[i] ? `the result is in (${feedAns[i]}) and the host settles it` : "it waits on the host's answer"}`);
   // a pool that opened yesterday has every question "new": that's the pool opening, not news
   const brandNew = all.length > 0 && all.every((m) => m.created_at > since);
   const opened = brandNew ? [] : all.filter((m) => m.status === 'open' && m.created_at > newSince && m.closes_at > now).map((m) => m.title);
@@ -816,7 +827,7 @@ async function poolDaily() {
     tonight.length ? `On: ${tonight.join('; ')}.` : '',
   ].filter(Boolean).join(' ');
   const body = await write(`Write this morning's post for the pool's chat, as the friend who's most into this and runs the group chat. Lead with the one thing that matters today, in this order: a question that settled (the answer, who called it, who didn't), a result the pool's games posted since yesterday (since_yesterday_the_pool_said: a round won, someone out, a series called), coins that dropped, questions that close in the next day (say when, in the words given, and tag each member who hasn't called yet as @Name so their phone buzzes), a pick that locks in the next day (the round and the game it belongs to, when, and tag each member still to pick as @Name), tonight's games on the pool's events (the matchup and the time, as given), questions waiting on the host (they have already closed: say so, never that they close), new questions. The table only when the facts give one. One sharp chirp built on those facts, worked into the post (never labelled as a chirp), never about a lineup or a sport the facts don't mention. Call the coins by their name. Every number comes straight from the facts and is quoted as given: how many questions close, each amount of coins, each member's calls left. Say nothing about what didn't happen (an empty list, a zero, a host who hasn't asked anything): only what did. A result is reported as the facts give it, never with how it came about. As short as the facts are: one line is fine on a one-fact day, never more than 110 words, no headers.`, facts, fb, 110, teams.filter((t) => closing.some((x) => x.not_called_yet.includes(t.gm_name)) || locking.some((l) => l.still_to_pick.includes(t.gm_name))).map((t) => t.id),
-    { fresh: true, check: factCheck(facts, fb, { closing: closing.length > 0, locking: locking.length > 0 }) });
+    { fresh: true, check: factCheck(facts, fb, { closing: closing.length > 0, locking: locking.length > 0, settled: settled.length > 0 }) });
   await post(body, { type: 'pool-day', date: today });
   // the day's reason to open the pool, on the phone too: one bell per seated member, the post's first line, to the chat
   if (!dry()) {
