@@ -13,7 +13,9 @@ import { setTabLeague } from '../lib/host';
 // someone new makes their account right here (the `join` edge function makes it and seats them in one go);
 // someone with an account signs in, or is already signed in, and takes the seat with accept_invite.
 // Either way they land in the league they just joined.
-interface Preview { ok: boolean; reason?: string | null; league_id?: number; league?: string; short?: string; brand?: { colors?: { gold?: string }; tagline?: string; coin?: { name?: string; emoji?: string } } | null; role?: 'gm' | 'spectator'; team?: string | null; expires_at?: string; kind?: 'fantasy' | 'predict'; host?: string | null; members?: number; open_questions?: number; next_market?: number | null; next_question?: string | null; next_closes?: string | null; next_outcomes?: { key: string; label: string; pct: number }[] | null }
+interface Preview { ok: boolean; reason?: string | null; league_id?: number; league?: string; short?: string; brand?: { colors?: { gold?: string }; tagline?: string; coin?: { name?: string; emoji?: string } } | null; role?: 'gm' | 'spectator'; team?: string | null; expires_at?: string; kind?: 'fantasy' | 'predict'; host?: string | null; members?: number; open_questions?: number; next_market?: number | null; next_question?: string | null; next_closes?: string | null; next_outcomes?: { key: string; label: string; pct: number }[] | null;
+  // a sports pool's next game (migration 293)
+  next_game?: string | null; next_game_line?: string | null; next_game_at?: string | null }
 
 const WHY: Record<string, string> = {
   unknown: 'That invite link isn’t right. Ask the commissioner for a new one.',
@@ -165,6 +167,16 @@ export default function Join({ code }: { code: string }) {
                 </div>
               </div>
             )}
+          </div>
+        )}
+
+        {/* a sports pool asks no question: its next game is the pitch instead (migration 293) */}
+        {pv?.ok && pool && !pv.next_question && pv.next_game && (
+          <div className="card-hero mb-4 p-4">
+            <div className="label relative text-white/70">First up</div>
+            <div className="relative mt-1 text-balance text-lg font-bold leading-snug text-white">{pv.next_game}</div>
+            <div className="relative mt-1 text-sm text-white/80">{pv.next_game_line}</div>
+            {pv.next_game_at && <div className="relative mt-1.5 text-xs text-white/70">The first pick locks {closesWords(pv.next_game_at)}</div>}
           </div>
         )}
 

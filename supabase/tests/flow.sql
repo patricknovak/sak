@@ -4599,6 +4599,29 @@ select set_config('app.league_id', '', false);
 select set_config('request.jwt.claim.sub', '', false);
 select 'the pick''em tiebreaker', true;
 
+-- ───────────── a sports pool's invite shows its next game (migration 293) ─────────────
+reset role;
+select set_config('request.jwt.claim.sub', '', false);
+select set_config('app.league_id', '', false);
+insert into competitions (id, sport, name, short, season, provider, ext_id, ext_season, active)
+values ('iv-test', 'mlb', 'Invite Bowl', 'IB', '2026', 'mlb-statsapi', 'ivt', '2026', true) on conflict (id) do nothing;
+insert into fixtures (sport, competition, provider, ext_id, season, gameweek, kickoff, date, home_club, away_club, state) values
+  ('mlb', 'iv-test', 'mlb-statsapi', 'iv-1', '2026', 1, now() + interval '2 days', (now() + interval '2 days')::date, :alb, :bri, 'scheduled'),
+  ('mlb', 'iv-test', 'mlb-statsapi', 'iv-2', '2026', 1, now() + interval '3 days', (now() + interval '3 days')::date, :bri, :alb, 'scheduled');
+select set_config('app.league_id', :'lib', false);
+select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-000000000081', false);
+set role authenticated;
+select pool_game_start('pickem', 'iv-test') as ivg \gset
+reset role;
+select code as ivcode from league_invites where league_id = :lib and not revoked and expires_at > now() and uses < max_uses order by expires_at desc limit 1 \gset
+select pg_temp.expect('the invite names the pool''s next game', (select (p->>'next_game') like '%pick''em' and p->>'next_game_line' ~ '^Round [0-9]+: [0-9]+ match' from (select invite_preview(:'ivcode') p) x));
+delete from pool_games where id = :ivg;
+delete from fixtures where competition = 'iv-test';
+delete from competitions where id = 'iv-test';
+select set_config('app.league_id', '', false);
+select set_config('request.jwt.claim.sub', '', false);
+select 'the invite''s next game', true;
+
 -- ───────────── a missed pick takes the favourite (migration 285) ─────────────
 -- a Confidence pick'em with missed picks on the favourite: when a game starts, whoever made no pick gets the market's
 -- side with the lowest number still free; a pick made stays; the crowd's split leaves the filled ones out

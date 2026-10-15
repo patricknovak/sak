@@ -6,6 +6,8 @@
 export interface Change { date: string; icon: string; title: string; body: string; to?: string; tag?: 'formats' | 'commish' | 'draft' | 'everyone' }
 
 export const CHANGELOG: Change[] = [
+  { date: '2026-10-15', icon: '🔗', tag: 'everyone', title: 'A sports pool\'s invite shows what\'s first', to: '/pools',
+    body: 'An invite to a pick\'em or last one standing pool now leads with its next game, "NFL pick\'em, Week 7: 15 games", and when the first pick locks, on the join page and in the link\'s preview in the group chat.' },
   { date: '2026-10-15', icon: '📅', tag: 'everyone', title: 'Pick\'em week by week', to: '/picks',
     body: 'Under a pick\'em\'s table, a grid of everyone\'s points in each week played, the latest first, with each week\'s winner in gold and a crown for every week won.' },
   { date: '2026-10-15', icon: '♥', tag: 'everyone', title: 'Lives in last one standing', to: '/new',
