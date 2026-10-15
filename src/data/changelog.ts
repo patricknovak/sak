@@ -6,6 +6,8 @@
 export interface Change { date: string; icon: string; title: string; body: string; to?: string; tag?: 'formats' | 'commish' | 'draft' | 'everyone' }
 
 export const CHANGELOG: Change[] = [
+  { date: '2026-10-15', icon: '⚽', tag: 'everyone', title: 'The WSL and the NWSL', to: '/new',
+    body: 'Start a pool on women\'s soccer: every match of the Women\'s Super League to May, and the NWSL\'s last matchweeks, with pick\'em, last one standing, Call the score and the daily streak. Results land on their own.' },
   { date: '2026-10-15', icon: '🏈', tag: 'everyone', title: 'NFL season questions', to: '/new',
     body: 'An NFL pool now comes with the season\'s questions: who wins the Super Bowl, the AFC and the NFC, the best record, MVP and Defensive Player of the Year. The NHL, the Premier League and MLS pools bring theirs the same way.' },
   { date: '2026-10-15', icon: '🏀', tag: 'everyone', title: 'NBA season questions', to: '/new',
