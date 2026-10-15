@@ -688,7 +688,7 @@ function HostDesk({ board, reload, onActAs }: { board: GameBoard; reload: () => 
                 </div>
               )}
               {pk && pk.rounds.length > 1 && (
-                <label className="flex items-center gap-2 text-sm text-slate-200">Runs to
+                <label className="flex items-center gap-2 text-sm text-slate-200"><span className="shrink-0 whitespace-nowrap">Runs to</span>
                   <select className="input py-1.5 text-sm" value={toRound} onChange={(e) => setToRound(Number(e.target.value))}>
                     {pk.rounds.map((r) => <option key={r.round} value={r.round}>{pk.word} {r.round}</option>)}
                   </select>
