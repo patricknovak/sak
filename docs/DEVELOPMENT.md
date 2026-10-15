@@ -754,3 +754,6 @@ Built for SaK and, as every SaK change is, for every league:
   ranks by points as before (SaK's standings proved identical on live before and after). Switched on midweek, it judges the first full
   week after (migration 281, `info.guillotine_from`), and the home card says the week is a free one. Garry's morning and Monday columns lead with
   it in a guillotine league (`guillotineFacts`: teams left, the cut just made, every cut, who's on the block this week).
+- **Pick the favourites** (pick'em, every sport): one tap fills every open, unpicked match with the side ESPN's line
+  favours, the surest numbered highest in Confidence, nothing saved until Save; a round of more than twelve games reads
+  day by day. An NHL or NBA week is about fifty games.

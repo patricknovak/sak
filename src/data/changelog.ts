@@ -6,6 +6,8 @@
 export interface Change { date: string; icon: string; title: string; body: string; to?: string; tag?: 'formats' | 'commish' | 'draft' | 'everyone' }
 
 export const CHANGELOG: Change[] = [
+  { date: '2026-10-15', icon: '⚡', tag: 'everyone', title: 'Pick the favourites', to: '/picks',
+    body: 'A long pick\'em week (an NHL or NBA week is about fifty games) now has one tap to fill every open game with the side the market likes, the surest numbered highest in Confidence. Change any before you save. A week of nightly games reads day by day.' },
   { date: '2026-10-15', icon: '🪓', tag: 'formats', title: 'The guillotine', to: '/commish',
     body: 'A commissioner can make the league a guillotine under League features: every Monday, once Sunday\'s games are final, the team with the fewest points that week is cut and its players hit free agency. The home page shows who\'s on the block this week and everyone already cut; the last team standing wins. Points leagues played for the season total.' },
   { date: '2026-10-15', icon: '🎯', tag: 'formats', title: 'Best ball', to: '/commish',

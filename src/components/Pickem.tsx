@@ -90,6 +90,17 @@ export function PickemGame({ gameId, first, status: gameStatus, name, reload, ac
     setDraft(next);
   };
   const lockedNums = new Set(actAs ? [] : data.fixtures.filter((f) => f.locked && f.mine?.conf).map((f) => f.mine!.conf!));
+  // a long week (an NHL or NBA week is fifty games): every open match not yet picked goes to the market's favourite;
+  // in Confidence the surest favourite takes the highest number still free. Nothing is saved until Save.
+  const favOpen = data.fixtures.filter((f) => !f.locked && !pickOf(f) && market.get(f.id));
+  const pickFavourites = () => {
+    const free = Array.from({ length: data.size }, (_, i) => data.size - i).filter((n) => ![...used.values()].includes(n) && !lockedNums.has(n));
+    const next = { ...draft };
+    [...favOpen].map((f) => { const mk = market.get(f.id)!; return { f, side: (mk.home >= mk.away ? 'H' : 'A') as Side, edge: Math.max(mk.home, mk.away) }; })
+      .sort((a, b) => b.edge - a.edge)
+      .forEach(({ f, side }) => { next[f.id] = { pick: side, ...(data.confidence ? { conf: free.shift() ?? 1 } : {}) }; });
+    setDraft(next);
+  };
   const save = () => run(async () => {
     const picks = data.fixtures.filter((f) => !f.locked && f.id in draft).map((f) => ({ fixture: f.id, pick: draft[f.id]?.pick ?? null, conf: draft[f.id]?.conf ?? null }));
     if (actAs) await rpc('pool_host_pick', { p_game: gameId, p_team: actAs.team, p_pick: { round: data.round, picks } });
@@ -137,8 +148,18 @@ export function PickemGame({ gameId, first, status: gameStatus, name, reload, ac
         <button type="button" aria-label="Next round" disabled={idx < 0 || idx >= data.rounds.length - 1} onClick={() => go(data.rounds[idx + 1].round)} className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-white/[.06] ring-1 ring-white/10 disabled:opacity-25"><ChevronRight className="h-5 w-5" /></button>
       </div>
 
-      {data.fixtures.map((f) => {
+      {canPick && favOpen.length >= 2 && (
+        <button type="button" onClick={pickFavourites} className="flex w-full items-center gap-3 rounded-2xl border border-gold/30 bg-gold/[.07] p-3 text-left transition active:scale-[.99]">
+          <span className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-gold/15 text-lg">⚡</span>
+          <span className="min-w-0 flex-1"><b className="block text-sm text-white">Pick the favourites</b><span className="block text-xs text-white/70">{favOpen.length} open {favOpen.length === 1 ? 'match' : 'matches'} go to the side the market likes{data.confidence ? ', the surest numbered highest' : ''}. Change any before you save.</span></span>
+        </button>
+      )}
+
+      {data.fixtures.map((f, i) => {
         const p = pickOf(f);
+        // a week of nightly games reads by day
+        const day = new Date(f.kickoff).toLocaleDateString(undefined, { weekday: 'long', month: 'short', day: 'numeric' });
+        const newDay = data.fixtures.length > 12 && (i === 0 || new Date(data.fixtures[i - 1].kickoff).toLocaleDateString(undefined, { weekday: 'long', month: 'short', day: 'numeric' }) !== day);
         const mk = market.get(f.id);
         const st = status(f);
         const done = f.result != null;
@@ -146,7 +167,9 @@ export function PickemGame({ gameId, first, status: gameStatus, name, reload, ac
         const sides: { k: Side; label: string; club?: Club }[] = [{ k: 'H', label: short(f.home), club: f.home }, ...(data.draws ? [{ k: 'D' as Side, label: 'Draw' }] : []), { k: 'A', label: short(f.away), club: f.away }];
         const total = f.split ? f.split.H + f.split.D + f.split.A : 0;
         return (
-          <div key={f.id} className={`card overflow-hidden ${done && p ? (right ? 'ring-1 ring-emerald-400/40' : 'opacity-90') : ''}`}>
+          <div key={f.id}>
+          {newDay && <div className="mb-2 mt-1 flex items-center gap-3 px-1 text-[11px] font-black uppercase tracking-[.2em] text-mute">{day}<span className="h-px flex-1 bg-white/[.07]" /></div>}
+          <div className={`card overflow-hidden ${done && p ? (right ? 'ring-1 ring-emerald-400/40' : 'opacity-90') : ''}`}>
             <div className="flex items-center gap-2 px-3 pt-3 text-[11px]">
               <span className={`font-bold uppercase tracking-wider ${st.live ? 'text-red-300' : 'text-mute'}`}>{st.live && <span className="mr-1 inline-block h-1.5 w-1.5 animate-pulse rounded-full bg-red-400 align-middle" />}{st.text}</span>
               {f.locked && !done && !f.void && <Lock className="h-3 w-3 text-mute" aria-label="Locked" />}
@@ -227,6 +250,7 @@ export function PickemGame({ gameId, first, status: gameStatus, name, reload, ac
                 )}
               </button>
             )}
+          </div>
           </div>
         );
       })}
