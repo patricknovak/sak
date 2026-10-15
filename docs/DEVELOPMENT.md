@@ -9,7 +9,7 @@ Paid subscribed: section 1 and section 8 are that review.
 
 ## 1. Where we are
 
-*As of 15 October 2026, migration 295.*
+*As of 15 October 2026, migration 296.*
 
 - **SaK**, the live league: eight GMs, used every night, on React 19 + Supabase (Postgres rules, edge functions, a
   scheduler) and an LLM voice (Garry, on Grok, metered per feature and league), served from Cloudflare. The season is
@@ -29,7 +29,7 @@ Paid subscribed: section 1 and section 8 are that review.
 - **Use so far is the founder's.** Four prediction pools besides SaK, one or two members each, one pick between them
   and no chat (section 9.2, 13 October). The Love Is Blind gate (three pools, thirty players by 4 November) is the first
   real test of the product with strangers; the premiere is 14 October, and the week's build for it is section 9.5.
-- 295 migrations; the flow test drives a whole fantasy season and every pool kind in SQL, with a second league beside
+- 296 migrations; the flow test drives a whole fantasy season and every pool kind in SQL, with a second league beside
   each that must never see or change it; CI runs it, the build and the Worker's types on every pull request.
 
 ## 2. What is working, and stays
@@ -815,6 +815,9 @@ Built for SaK and, as every SaK change is, for every league:
   round by round and drop before naming its winner (`_pickem_chances_drop`); a round of only games called off is neither
   finished nor droppable; the last round's last game settled by hand without a score waits for a total before the pool
   is closed when tiebreaker calls are in; a last one standing or Call the score invite keeps to the game's own rounds.
+  A fifth review (migration 296): a round of only games called off doesn't count against the ceiling or the drop in the
+  table or the chances, and the last round waits for a total only when the leaders are level on points and one of them
+  made a tiebreaker call; the ceilings are summed once per round rather than per game.
 - **Pick the favourites** (pick'em, every sport): one tap fills every open, unpicked match with the side ESPN's line
   favours, the surest numbered highest in Confidence, nothing saved until Save; a round of more than twelve games reads
   day by day. An NHL or NBA week is about fifty games.
