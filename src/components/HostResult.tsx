@@ -68,19 +68,21 @@ export function HostResult({ fixture, home, away, override, draws, score, onDone
       {host && !override && open && (
         <div className="mt-2 space-y-2 rounded-xl border border-amber-400/30 bg-amber-500/[.06] p-3">
           <div className="text-[11px] font-bold uppercase tracking-[.14em] text-amber-200">Settle for this pool</div>
-          {score && (
+          {/* a score is optional for a side, but a pick'em against the spread on this match needs it (migration 291) */}
+          {!score && <div className="text-[11px] text-mute">The final score, if you have it:</div>}
+          {(
             <div className="flex items-center gap-2 text-sm text-slate-200">
               <span className="min-w-0 flex-1 truncate text-right">{home.short ?? home.name}</span>
-              <input inputMode="numeric" aria-label={`${home.name} score`} className="input w-14 py-1.5 text-center" value={h} onChange={(e) => { setH(e.target.value.replace(/\D/g, '').slice(0, 2)); setPick(null); }} />
+              <input inputMode="numeric" aria-label={`${home.name} score`} className="input w-14 py-1.5 text-center" value={h} onChange={(e) => { setH(e.target.value.replace(/\D/g, '').slice(0, 3)); setPick(null); }} />
               <span className="text-white/40">-</span>
-              <input inputMode="numeric" aria-label={`${away.name} score`} className="input w-14 py-1.5 text-center" value={a} onChange={(e) => { setA(e.target.value.replace(/\D/g, '').slice(0, 2)); setPick(null); }} />
+              <input inputMode="numeric" aria-label={`${away.name} score`} className="input w-14 py-1.5 text-center" value={a} onChange={(e) => { setA(e.target.value.replace(/\D/g, '').slice(0, 3)); setPick(null); }} />
               <span className="min-w-0 flex-1 truncate">{away.short ?? away.name}</span>
             </div>
           )}
           <div className="flex flex-wrap gap-1.5">
-            {!score && <button type="button" className={chip(pick === 'H')} onClick={() => setPick('H')}>{home.short ?? home.name}</button>}
-            {!score && draws && <button type="button" className={chip(pick === 'D')} onClick={() => setPick('D')}>Draw</button>}
-            {!score && <button type="button" className={chip(pick === 'A')} onClick={() => setPick('A')}>{away.short ?? away.name}</button>}
+            {!score && !hasScore && <button type="button" className={chip(pick === 'H')} onClick={() => setPick('H')}>{home.short ?? home.name}</button>}
+            {!score && !hasScore && draws && <button type="button" className={chip(pick === 'D')} onClick={() => setPick('D')}>Draw</button>}
+            {!score && !hasScore && <button type="button" className={chip(pick === 'A')} onClick={() => setPick('A')}>{away.short ?? away.name}</button>}
             <button type="button" className={chip(pick === 'void')} onClick={() => { setPick(pick === 'void' ? null : 'void'); }}>Void</button>
           </div>
           <input className="input w-full py-1.5 text-sm" maxLength={200} placeholder="Why, for the pool to see" value={reason} onChange={(e) => setReason(e.target.value)} />

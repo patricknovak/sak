@@ -8,12 +8,77 @@
   "display": "standalone",
   "orientation": "portrait",
   "lang": "en",
-  "categories": ["sports", "entertainment", "games"],
+  "categories": [
+    "sports",
+    "entertainment",
+    "games"
+  ],
   "background_color": "#05080f",
   "theme_color": "#05080f",
   "icons": [
-    { "src": "icon.svg", "sizes": "any", "type": "image/svg+xml" },
-    { "src": "icon-192.png", "sizes": "192x192", "type": "image/png" },
-    { "src": "icon-512.png", "sizes": "512x512", "type": "image/png" }
+    {
+      "src": "icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml"
+    },
+    {
+      "src": "icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ],
+  "screenshots": [
+    {
+      "src": "screens/pool-home.webp",
+      "sizes": "600x1200",
+      "type": "image/webp",
+      "form_factor": "narrow",
+      "label": "A pool's home: the table, what closes tonight and the chat"
+    },
+    {
+      "src": "screens/pool-question.webp",
+      "sizes": "600x1200",
+      "type": "image/webp",
+      "form_factor": "narrow",
+      "label": "A question with odds that move as friends call it"
+    },
+    {
+      "src": "screens/sak-live.webp",
+      "sizes": "600x1200",
+      "type": "image/webp",
+      "form_factor": "narrow",
+      "label": "A fantasy league's live scoreboard on a game night"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "My pools",
+      "short_name": "My pools",
+      "url": "./#/pools",
+      "icons": [
+        {
+          "src": "icon-192.png",
+          "sizes": "192x192",
+          "type": "image/png"
+        }
+      ]
+    },
+    {
+      "name": "Start a pool",
+      "short_name": "Start a pool",
+      "url": "./#/new",
+      "icons": [
+        {
+          "src": "icon-192.png",
+          "sizes": "192x192",
+          "type": "image/png"
+        }
+      ]
+    }
   ]
 }

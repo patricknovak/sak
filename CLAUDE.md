@@ -94,7 +94,7 @@ Two things in one repo:
   pre-match lines ride along as `fixtures.detail.odds`, chances only, frozen at kick-off, migration 178; a competition
   with `format` 'series' is a postseason: the NFL's playoffs come in as best-of-1 series through `sport_ingest`, migration
   187; March Madness as 63 single-game series in bracket order, day by day in March only, migration 201; the NBA playoffs as
-  fifteen best-of-7 series, seeds from ESPN's standings, mid-April to late June only, migration 220), `mlb-sync` (baseball's postseason from MLB's
+  fifteen best-of-7 series, seeds from ESPN's standings, mid-April to late June only, migration 220; the NHL and NBA regular seasons night by night, each game in its week from `detail.week1`, `espnDaily`, migration 274, the NBA Cup final, which the standings leave out, kept out of the season, migration 297), `mlb-sync` (baseball's postseason from MLB's
   public Stats API into `series`, `fixtures` and `fixture_periods` through `sport_ingest`, and the Stanley Cup playoffs from
   the NHL's bracket for competitions with provider 'nhl-api', migration 191, with each recent game's score by period from its
   gamecenter landing, `nhlPeriods`, migration 215; platform key only; for testing, a
@@ -108,7 +108,7 @@ Two things in one repo:
   request works for per request (`AsyncLocalStorage`, `runs`), never in a module variable. Job names: nhl-scores
   (gated by `_scores_due()`), nhl-clock (every 20 seconds, gated by `_clock_due()`), nhl-gameday, nhl-injuries, nhl-schedule, season-schedule, nhl-news,
   nhl-players, nhl-players-pregame, nhl-standings, nhl-corrections, nhl-corrections-deep, projections,
-  auto-lineups, auto-lineups-late, garry-daily, garry-weekly, garry-nudge, garry-moments, open-book, settle-book,
+  auto-lineups, auto-lineups-late, bestball, guillotine, garry-daily, garry-weekly, garry-nudge, garry-moments, open-book, settle-book,
   settle-bets, expire-bets, h2h-notes, pool-drops, pool-settle, soccer-fixtures, soccer-live (gated by `_soccer_due()`), mlb-live (gated by `_mlb_due()`), mlb-schedule, process-pending (every 10 s), stats-cache, health-check, fund-price, cron-history, cost-snapshot,
   cost-watch. A job that does a league's work runs once per active league: in SQL through
   `run_league_jobs(job)` (sets `app.league_id`, one league's failure doesn't stop the others), in an edge function
@@ -157,18 +157,19 @@ Two things in one repo:
   `poolLink` in `src/lib/host.ts`); a `<web name>` subdomain forwards to it unless someone is signed in on that address.
   My pools (`#/pools`) reads `my_pools()`; every start goes through `#/new` (a sports pool, a questions pool, or a fantasy
   league of your own with `fantasy_start`, opened in setup and taken live with `commish_go_live`), and a host deletes a
-  pool with `pool_delete` (migration 242). A pack's new questions reach every open pool on it through the hourly pool job
+  pool with `pool_delete` (migration 242). A season carries its questions pack (`competitions.pack`: the NBA, the NFL, the NHL's games, the Premier League, MLS and the World Series), so a start on it ticks them beside its games (migrations 299, 300 and 304). A pack's new questions reach every open pool on it through the hourly pool job
   (`_pool_pack_refresh`, migration 251; a pack question's later closing time reaches every open copy too, migration 258), and an invite's preview carries the pool's next question (migration 252). A pool's pages keep to its own events, `pool_competitions()`
   (`src/lib/poolOwn.ts`): read it rather than every competition when a pool page lists events. Every pool's games share one scoreboard
   (`pool_scoreboard()`, migration 169): a new kind of game adds a branch to `_pool_rows()` and gets the table, movement,
   climb alerts and the main-game crown (`league_rules.crown`) with it. Weekly pick'em (migration 170) is the first kind on
-  `fixtures`: any competition whose matches come in rounds; last one standing runs on the same competitions in the
+  `fixtures`: any competition whose matches come in rounds (against the spread with each pick keeping its line, a
+  tiebreaker on each round's last game and a forgotten pick taking the favourite are options, migrations 283 to 289); last one standing (one to three lives, migration 288) runs on the same competitions in the
   sport's words (migration 173, `pool_game_start('survivor', ...)`); it and Call the score are `pool_games` kinds ('survivor',
   'score', migrations 203 and 204), read through the `pool_survivors` / `pool_predictors` views and their pick views, and `#/centre/<competition>` is their centre
   (`src/pages/RoundCentre.tsx`: NFL centre, Match centre); a pool's own result on a match (the host's, in
   `pool_result_overrides`, read through `_pool_fixture`) settles every game on it (migration 177); the bracket
   (migration 185) is a kind on `series`, its tree read from each round's order (`_bracket_tree`); the prop sheet (migration 208)
-  is a kind on one postseason game, eight calls settled from the score and the score by period (`_props_tick`, run by `sport_ingest`); the daily streak (migration 231) is a kind on any event's games, one winner a day, the longest run of right picks winning (`_streak_table`, read from `_pool_fixture`); the sweepstake (migration 236) deals an event's clubs from the hat (`rules.deal`, `_sweep_tick`); the start page and the host's desk list events through
+  is a kind on one postseason game, eight calls settled from the score and the score by period (`_props_tick`, run by `sport_ingest`); the daily streak (migration 231) is a kind on any event's games, one winner a day, the longest run of right picks winning (`_streak_table`, read from `_pool_fixture`); the sweepstake (migration 236) deals an event's clubs from the hat (`rules.deal`, `_sweep_tick`); win totals (migration 297) is over or under on each club's season wins, lines from the competition's `detail.win_lines` (BPI) or the host, decided once they can't change (`_wins_clubs`, `_wins_tick`); the start page and the host's desk list events through
   `pool_event_list()` (`pool_events()` stays for older copies of the site). The box pool (migration 188) is the first kind on nhl-sync's own `games` and
   `player_games` (competition `nhl-2026`, format 'players'): one player a box, its boxes kept in the game's rules; on an NHL series competition
   it runs all through the playoffs (migration 202, `_box_team_games`). Decided (3 October 2026): both move to **Cloudflare** (free for commercial
@@ -296,7 +297,7 @@ wasn't applied); #75 was the hotfix.
   Auth email (the 6-digit password reset code) goes through Resend's SMTP from no-reply@superpoolsai.com; the key lives
   only in Supabase's SMTP settings. superpoolsai.com's DNS is on Cloudflare.
 - Money and a league fund are per-league options (`league_rules.features`: `money`, `fund`), never requirements: SQL checks
-  `league_has()` / `_feature()`, the site `hasFeature()` (`src/lib/features.ts`). SaK has both; a new league neither.
+  `league_has()` / `_feature()`, the site `hasFeature()` (`src/lib/features.ts`). SaK has both; a new league neither. Best ball (`features.bestball`, migration 276, points leagues only) re-slots each finished night's snapshots to the best lineup through the hourly `bestball` job, from `info.bestball_from`; every score reads the snapshots as before. The guillotine (`features.guillotine`, migration 278, points leagues played for the season total) cuts each week's fewest points on Monday through the hourly `guillotine` job (`guillotine_cuts`, `_guillotine_tick`); a cut team's roster and trade moves are refused by `_not_cut()`; a new roster or trade function calls it after `_gm_only()`.
 - Expand, then contract: add the new path beside the old, move the readers, prove the numbers match, retire the
   old path in a later change (the debt list is in `docs/DEVELOPMENT.md`).
 - The product learns: a new prediction or grade (projection, trade or draft grade, odds, a Garry pick, a pool's pick

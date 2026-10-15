@@ -105,8 +105,20 @@ or takes the favourite, or the home side; late joiners start at zero, the lowest
 possible.
 
 *Built 8 October 2026 (migration 170): the `pickem` kind on `fixtures`, Classic and Confidence, draws where the sport
-has them (`sports.config.draws`), the round's name from the sport (`words.round`). Against the spread and a tiebreaker
-wait for the NFL.*
+has them (`sports.config.draws`), the round's name from the sport (`words.round`).* *Against the spread built 15 October
+2026 (migration 283):* `rules.ats` on a sport without draws; each pick stores the home side's line from ESPN
+(`fixtures.detail.odds.line`) at the moment it is saved and keeps it while it stays on that side; a side that covers its
+own line is right, landing on it is a push (`_ats_side`, `_pick_res`, read by the table, the board, the round's end and
+the chances); the host's result says who covered; the crowd's split log leaves these pools out. *The tiebreaker, the
+same day (migration 284):* each round, the total in its last game (`_pickem_last`), a pick 't:<round>' until that game
+starts; the round's top and the game's winner go to the closest (`_pickem_miss`), and the table's tiebreak is the miss on
+the latest round played (`_pickem_tb_round`), which the scoreboard already ranks lowest first. *A missed pick takes the favourite (migration 285):* `rules.missed`
+'favourite' fills every member's missing pick when a game leaves 'scheduled' (`_pickem_autopick`, trigger
+`fixtures_pickem_auto`, which fires before the round's end and the split): the market's side at kick-off (against the
+spread the side giving points; no line, the home side), never a draw, the lowest Confidence number still free, marked
+`auto`; the crowd's split leaves those out. *Review fixes (migration 286):* a tiebreaker call keeps its game (`{runs, fixture}`); a spread game
+settled by hand needs the final score; a pick with no line out yet takes the line at kick-off. *Drop the worst rounds (migration
+294):* `rules.drop` 0 to 3, each member's lowest finished rounds off their total.
 
 ### 2.5 Survivor (last one standing, eliminator)
 
@@ -121,6 +133,9 @@ last ones go out together (share it, or roll back).
 (a team a day, two on the Elite 8 day).
 **Good:** the alive count each week as a chart, the used-teams grid, a planner for the weeks ahead, the pick split.
 **Popularity:** Circa Survivor 2026 drew 25,017 entries; ESPN, Yahoo and Splash all run one.
+*Lives built 15 October 2026 (migration 288):* `rules.lives` 1 to 3 (one by default); a loss, a tie (a draw) or a round
+with no pick costs one, and a member is out when the last is gone (`_survivor_lives`, `_survivor_alive`,
+`_survivor_out_gw`, the settle's alerts, the board's `lives_left`, the scoreboard's "Still in, one life left").
 
 ### 2.6 Squares
 
@@ -189,6 +204,24 @@ Season win totals (over or under on frozen preseason lines); best ball (draft on
 Underdog's Best Ball Mania VII took 672,336 entries); a daily streak game in the style of Beat the Streak (the
 longest run in the group).
 
+*Season win totals built 15 October 2026 (migration 297):* a `pool_games` kind ('wins') on a regular season before its
+first game. Every club has a line, its wins for the season: by default ESPN's BPI preseason projection rounded to the
+half-win (kept on the competition, `detail.win_lines`, ESPN's team id to projected wins; the NBA's 2026-27 lines are
+written by the migration, ESPN's futures carry no win totals), and the host can set any line before the opener. Each
+member calls over or under on as many clubs as they like (one pick, 'wins'), until the season's first game; a call is
+decided the moment it can't change, an over once the club passes its line and an under once it can't reach it with the
+games it has left (the schedule's or the season's length, whichever is more, as the NBA Cup's last games are filed
+late); a whole-number line hit exactly is a push, for nobody. The most right calls wins; a tie is shared. The pool's
+split on each line goes to the prediction log at the lock and is scored at the end (`_wins_tick`, the hourly pool job).
+The NHL's season had started, so this season it is the NBA's. A line someone has called stays as it was called; the
+lock is kept once it passes (`rules.locked_at`), so an opening slate called off later never re-opens the calls; the host
+adds calls for a member who asked to their own; the host settles any of the season's games by hand (a score up to 999
+now, as a basketball score passes 99); the NBA Cup final, filed by ESPN as a regular-season game that the standings
+leave out, is kept out of the season by soccer-sync. *Its chances (migration 298):* once the calls lock, the table's
+chance to win plays every open line out a thousand times, each club's games left won at its rate so far pulled toward
+its line's by ten games' worth. The lock's split and each line as it is decided are told in the pool's chat (migrations 302
+and 303).
+
 ### 2.12 Which types fit which sport
 
 ✔ common, ✔✔ the sport's signature, ○ possible or niche.
@@ -206,6 +239,9 @@ longest run in the group).
 | Score predictor | ○ | ○ | ○ | ○ | ✔✔ | | ✔ |
 | Sweepstake | ✔ | ✔ | ○ | ○ | ✔✔ | ○ | |
 | Questions and props | ✔ | ✔ | ✔✔ | ✔ | ✔ | ✔ | ✔ (futures) |
+
+The NHL and NBA regular seasons (15 October 2026, migration 274) run in weeks on the same engine: weekly pick'em, last
+one standing and the daily streak, the streak their signature (a game every night).
 
 ## 3. The engine: one shape for every type
 
@@ -455,6 +491,10 @@ and soccer share it.
    is filed (S series, S + 1 clubs, one series last: `_sweep_shape`); dealt round the pool in turn so nothing is left in
    the hat; crowned only once every series is decided and one club never lost (`_sweep_champion`). The streak closes
    only after a quiet week, and keeps one pick a day however the feed moves games.
+   *Win totals built 15 October 2026 (migrations 297, 298, 302 and 303, §2.11):* the NBA's 2026-27 season on BPI's
+   preseason lines, its chances, the lock's split and each decided line in the pool's chat. What is left of item 7: best
+   ball as a pool (draft once, the best lineup scores itself; best ball as a fantasy league option is built, migration
+   276) and the Women's World Cup sweepstake, once its draw is made.
 
 ## 10. Sources
 

@@ -1,7 +1,7 @@
 import { useLeague } from '../lib/store';
 import { rpc } from '../lib/supabase';
 import { useBrand } from '../lib/brand';
-import { hasFeature, liveRoomOn, type Feature } from '../lib/features';
+import { bestBall, hasFeature, liveRoomOn, type Feature } from '../lib/features';
 import { useAction } from './ui';
 
 // commissioner: what the league keeps on the site beyond the game. Each is optional; turning one off hides it and
@@ -11,16 +11,20 @@ export function LeagueFeatures({ only }: { only?: string[] } = {}) {
   const { league, refresh } = useLeague();
   const brand = useBrand();
   const { busy, run } = useAction();
-  const rows: { k: Feature | 'live_room' | 'usage'; title: string; blurb: string }[] = [
+  const rows: { k: Feature | 'live_room' | 'usage' | 'bestball' | 'guillotine'; title: string; blurb: string }[] = [
     { k: 'money', title: 'League money', blurb: 'Entry fees, the prize pots, payouts and who owes what, for everyone to see.' },
     { k: 'fund', title: `The ${brand.fund}`, blurb: 'Money held for the league (cash, or shares priced each weekday), shared equally by the GMs.' },
     { k: 'live_room', title: 'The live room', blurb: 'On game nights, the home page and the scoreboard show who\'s watching, the night\'s swings and the league\'s reactions.' },
     { k: 'usage', title: 'Count which pages get opened', blurb: 'A daily count of opens per page, with no names, so the busiest pages get the work. Off, nothing is counted.' },
+    // a points league only: categories have no single best lineup
+    // a points league played for the season total only: the week's fewest points is what it cuts
+    ...(league?.categories?.length || league?.format === 'h2h' ? [] : [{ k: 'guillotine' as const, title: 'The guillotine', blurb: 'Every Monday the team with the fewest points that week is cut, and its players hit free agency. The last team standing wins.' }]),
+    ...(league?.categories?.length ? [] : [{ k: 'bestball' as const, title: 'Best ball', blurb: 'Each night counts the best lineup your players allowed, set once the games are over: nobody loses a night to a lineup left unset. It starts with the night being played; nights already scored stay as they were.' }]),
   ];
   return (
     <div className="card divide-y divide-white/[.06]">
       {rows.filter((r) => !only || only.includes(r.k)).map((r) => {
-        const on = r.k === 'live_room' ? liveRoomOn(league) : r.k === 'usage' ? league?.features?.usage !== false : hasFeature(league, r.k);
+        const on = r.k === 'live_room' ? liveRoomOn(league) : r.k === 'usage' ? league?.features?.usage !== false : r.k === 'bestball' ? bestBall(league) : r.k === 'guillotine' ? league?.features?.guillotine === true : hasFeature(league, r.k);
         return (
           <label key={r.k} className="flex items-start gap-3 px-3 py-3 text-sm">
             <input type="checkbox" className="mt-0.5 h-5 w-5 shrink-0 accent-sky-400" checked={on} disabled={busy}

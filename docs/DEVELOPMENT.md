@@ -9,7 +9,7 @@ Paid subscribed: section 1 and section 8 are that review.
 
 ## 1. Where we are
 
-*As of 14 October 2026, migration 273.*
+*As of 15 October 2026, migration 307.*
 
 - **SaK**, the live league: eight GMs, used every night, on React 19 + Supabase (Postgres rules, edge functions, a
   scheduler) and an LLM voice (Garry, on Grok, metered per feature and league), served from Cloudflare. The season is
@@ -29,7 +29,7 @@ Paid subscribed: section 1 and section 8 are that review.
 - **Use so far is the founder's.** Four prediction pools besides SaK, one or two members each, one pick between them
   and no chat (section 9.2, 13 October). The Love Is Blind gate (three pools, thirty players by 4 November) is the first
   real test of the product with strangers; the premiere is 14 October, and the week's build for it is section 9.5.
-- 273 migrations; the flow test drives a whole fantasy season and every pool kind in SQL, with a second league beside
+- 307 migrations; the flow test drives a whole fantasy season and every pool kind in SQL, with a second league beside
   each that must never see or change it; CI runs it, the build and the Worker's types on every pull request.
 
 ## 2. What is working, and stays
@@ -718,3 +718,154 @@ Built for SaK and, as every SaK change is, for every league:
   one first call inside fifteen minutes, ten calls (both in Trystan's pools), ten chat messages (all in SaK), no call from
   a real member in Pod Squad. All time: 3 real pools, 1 league, 8 people, 20 calls, 3 first calls. The gate (three pools,
   thirty players by 4 November) is people: the next drop is 21 October.
+
+### 9.8 Overnight, 15 October 2026
+
+- **The NHL and NBA regular seasons as pool events** (migrations 274 and 275): until now a pool played the NHL only as a
+  box pool and the NBA only in its playoffs, so the sports a group follows every night had no pick'em, no last one
+  standing and no daily streak. Each season is a competition in weeks (`nhl-2026-27`, "NHL 2026-27 games", and
+  `nba-2026-27`) on ESPN's daily scoreboard: soccer-sync's nightly pull (`espnDaily`) files every regular-season game
+  between the league's own clubs in its week, Monday to Sunday from the Monday of opening week (`detail.week1`). The
+  first pull files the season whole (`?task=fixtures&competition=<id>&full=1`: 1,344 NHL games, an 84-game season, and
+  1,200 NBA games, the Cup's knockout games to come once their teams are known); after that the next two weeks every
+  day and the later days a seventh at a time. The live task already updates any ESPN game in its window. A competition
+  carries its own round word (`detail.round_word`, read by `_round_word`), so the NBA's playoffs keep "Round"; the NHL
+  sport row gains `draws: false` (overtime and the shootout always give a winner, and ESPN counts the shootout in the
+  score) and ESPN's game states beside the NHL's own, which had filed a game not yet started as under way. The start
+  page offers both with pick'em, last one standing and the daily streak; the centre is "NHL weeks" and "NBA centre"
+  (`RoundCentre`, `centreName`).
+- **Best ball** (SUPERPOOLS item 10, migrations 276 and 277): a league option (`features.bestball`, points leagues only,
+  under League features). Nothing about scoring changes: once a night is over, the hourly `bestball` job re-slots every
+  team's puck-drop snapshots for it to the best lineup in hindsight (`_best_lineup_slots`, the same solver as
+  `lineup_efficiency`, returning the slots), so the standings, matchups, the Book and the voice read it as they always
+  do. It redoes the last three nights each hour, so a stat correction re-picks the night, and never touches a night
+  before it was switched on (`info.bestball_from`). Proved on live: the slots' total equals `lineup_efficiency`'s best
+  for all 24 SaK team-nights of the last three nights. My Team says so on the Tonight card; Garry skips the lineup nudge
+  and never calls a benched hat trick wasted in a best-ball league. SaK doesn't have it on.
+- **The guillotine** (SUPERPOOLS item 10, migrations 278 and 279): a league option (`features.guillotine`, a points
+  league played for the season total). Every Monday, once Sunday's games are final, the hourly `guillotine` job cuts the
+  team still in with the fewest points that Monday-to-Sunday week (a tie goes against the lower season total; the first
+  full week of the season is the first judged): `guillotine_cuts` keeps it, its players go to free agency as drops, its
+  open trades are called off, the chat and every GM's bell hear it. A cut team can still watch, chat and bet; the eight
+  roster and trade functions refuse it (`_not_cut()`, patched into the live definitions after their GM check, as the
+  spectator guard was in migration 16; the live bodies matched the repo's before the patch). The home page's card shows
+  the week so far, lowest first, and everyone cut; the last team standing wins. The standings (migration 280) rank the
+  teams still in first, then the cut, the latest cut highest, so the payouts and the voice follow; a league with no cuts
+  ranks by points as before (SaK's standings proved identical on live before and after). Switched on midweek, it judges the first full
+  week after (migration 281, `info.guillotine_from`), and the home card says the week is a free one. Garry's morning and Monday columns lead with
+  it in a guillotine league (`guillotineFacts`: teams left, the cut just made, every cut, who's on the block this week).
+- **Review fixes** (migration 282, from a review of the night's diff): a player added or traded for after his game began
+  gets a snapshot for that night written late, on the bench; best ball had counted him, so a free agent picked up the
+  morning after a big night scored for it. A snapshot written more than ten minutes after its game began, for a player
+  the team added or traded for after that (`_snapshot_late`), stays on the bench in best ball, and `lineup_efficiency`
+  stops counting it as a missed start in every league (SaK's points and standings unchanged; the bench's "best" fell on
+  the 8 nights a GM picked someone up after puck drop). In a best-ball league the guillotine, the Book and the side bets
+  re-slot the nights before they read them. The guillotine switched on on a Monday judges that week; the start days are
+  the server's to keep (an editor's stale copy of the league's info never moves them) and switching an option off
+  forgets its day. Garry reads only his league's cuts, and nobody is "on the block" until the week has points.
+- **Pick'em against the spread** (migration 283, docs/POOL-TYPES.md §2.4): the knob every NFL office pool asks for, on
+  any sport without draws (the NFL, the NBA, the NHL's puck line). Switched on at the start or before anyone picks
+  (`rules.ats`); each pick keeps the market's line from the moment it was saved while it stays on that side, so a moving
+  line never changes a pick made; a side covering its own line is right and a push counts for nobody; the board shows
+  each side's line in place of the market's chances, "Covered" or "Didn't cover" once it's over, and everyone's line in
+  the pool's picks. Pick the favourites stays off in these pools, and the crowd's straight-up forecast leaves them out.
+- **The pick'em tiebreaker** (migration 284): every round, the total in its last game (Monday night's in the NFL), until
+  that game starts; level on points for the round, the closest takes it, and at the end the closest on the last round
+  played wins the pool. No call, and a tie is shared as before. A card under the round on the board.
+- **A missed pick takes the favourite** (migration 285): a pick'em option (`rules.missed`), off by default: when a game
+  starts, every member with no pick on it gets the market's favourite, the lowest Confidence number still free, marked
+  as picked for them; the crowd's split leaves those out. A switch on the start page, Add a game and the host's rules.
+- **Review fixes to the spread and the tiebreaker** (migration 286, from a review of the night's pick'em diff): a
+  tiebreaker call keeps the game it was called on (a Monday night game put off had scored every call against Sunday
+  night's, and a game moved later re-opened it), and a game put off or voided leaves the tie shared; the host settling a
+  spread game by hand gives the final score (`pool_result_set`'s `p_home`/`p_away`, kept in
+  `pool_result_overrides.home/away`, the pair the survivor's settle by hand already writes, migration 287; the old
+  four-argument signature dropped), so each pick is scored on its own line, and a game
+  settled without one counts for nobody; a pick saved before any line is out takes the line at kick-off
+  (`_pickem_close_lines`) instead of being kept at even. A push no longer counts as a miss on the share card. The host can
+  enter a member's tiebreaker when asked (`pool_host_pick`, migration 289).
+- **Lives in last one standing** (migration 288, docs/POOL-TYPES.md §2.5): Yahoo's and ESPN's strikes; a survivor starts
+  with one, two or three lives (the start page and Add a game), a loss, tie or missed round costs one, and the page and
+  the scoreboard show the hearts left. League 6's survivor scoreboard proved identical before and after.
+- **Pick'em week by week** (migration 290, `pool_pickem_weeks`): every member's points in each round played, worked out
+  on read from the same results as the table, and each finished round's winner (the closest tiebreaker breaking a tie);
+  a grid under the pick'em table, latest round first, the winner's cell in gold and a crown for each round won.
+- **Review fixes to missed picks, the spread and lives** (migration 291, from a second review): the pick'em desk's
+  settle no longer wipes the score the host gave the same match in the match centre (Call the score kept its exact
+  calls); the tiebreaker, its round and the board read the pool's own result and score, so a last game settled by hand
+  decides a tie; the match centre's settle asks for the score when a spread pick'em is on the match (and offers a score
+  box on the survivor page); a tie with its level score can be settled in a spread pool; a host settling a game the feed
+  never started fills that pool's forgotten picks and lines first (`_pickem_override_fill`); the platform's week no
+  longer counts picks the pool made for people as their calls; the survivor's last call tells a member with a life to
+  spare that a missed round costs one.
+  A third review (migration 292): the tiebreaker's total is the host's score when they gave one, else the feed's final
+  (`_pool_total`), so a last game settled by hand without a score no longer shares every tie; the board's settle offers
+  the score in every pick'em; the week-by-week grid shows a round once a game in it has a result and reloads on any
+  point that moves.
+- **A sports pool's invite shows its next game** (migration 293): a questions pool's link already asked its first
+  question; a pick'em, last one standing or Call the score pool's showed only who invited you. `invite_preview` now
+  carries the soonest game still to start (`next_game`, `next_game_line` like "Week 7: 15 games", `next_game_at`),
+  drawn on the join page ("First up", when the first pick locks) and the link's text and picture (`worker/preview.ts`).
+- **Drop the worst rounds in pick'em** (migration 294, Yahoo's knob): `rules.drop` 0 to 3 takes each member's lowest
+  finished rounds off their points and what's still possible, once more rounds are finished than are dropped; the
+  round's own winner is unchanged; the grid strikes them through. A choice on the start page, Add a game and the host's
+  rules.
+  A fourth review (migration 295): "still possible" takes off the lowest of each round's ceiling (it had taken the lowest
+  finished rounds, marking a member who could still win as out of it), and the chances in such a pool play every run
+  round by round and drop before naming its winner (`_pickem_chances_drop`); a round of only games called off is neither
+  finished nor droppable; the last round's last game settled by hand without a score waits for a total before the pool
+  is closed when tiebreaker calls are in; a last one standing or Call the score invite keeps to the game's own rounds.
+  A fifth review (migration 296): a round of only games called off doesn't count against the ceiling or the drop in the
+  table or the chances, and the last round waits for a total only when the leaders are level on points and one of them
+  made a tiebreaker call; the ceilings are summed once per round rather than per game.
+- **Season win totals** (migration 297, docs/POOL-TYPES.md §2.11): over or under on every NBA team's wins this season,
+  called once before opening night (20 October). The lines start from ESPN's BPI preseason projection, to the half-win,
+  and the host can set any before the opener; a call is decided the moment it can't change, so points land all season;
+  everyone's calls and the pool's split on each line show once the season tips off, and the split goes to the
+  prediction log. A choice on the start page and Add a game while a season with lines hasn't started. From a review
+  before it went live: a called line stays put, the lock is kept once passed, the Cup final stays out of the season
+  (soccer-sync), the host can settle a season game by hand (scores to 999, which an NBA spread pick'em needed too), and
+  the records are worked out in one pass (the board in about 25 ms on a full season). Each member's chance to win
+  (migration 298, `_wins_chances`): once the calls lock, every open line is played out a thousand times, the club's
+  games left won at its rate so far pulled toward its line's by ten games' worth (`_wins_odds`, over and push). At the
+  lock the pool hears how it split, once (migration 302): how many called, the surest call, the line that split it most.
+  All season, each line decided is told in the pool's chat by the hourly job with how many called it (migration 303).
+- **The NBA's questions** (migration 299): a pack for the 2026-27 season (the title, each conference, the NBA Cup, the
+  best record and how many games it wins, MVP, Rookie and Defensive Player of the Year), the answers in the order
+  DraftKings' futures on ESPN had them before opening night, coins on the first of each month; it rides the season
+  (`competitions.pack`), so an NBA pool on the start page opens with its questions ticked, as a World Series pool does.
+  The NHL's games, the Premier League and MLS carry their packs the same way (migration 300); the start page no longer
+  lists those packs on their own, and a host who wants only the questions leaves the games unticked. The NFL's season
+  carries one too (migration 304: the Super Bowl, each conference, the best record, MVP and Defensive Player of the Year).
+- **Women's soccer on** (migration 305): the WSL (182 matches in 26 rounds, September to May) and the NWSL (its last
+  matchweeks to 1 November; the playoffs come in as ESPN files them) were set up on ESPN's free feed with the rest of
+  soccer and left off; on now, with pick'em, last one standing, Call the score and the daily streak, and the women's
+  landing page says so. The Champions League and Liga MX are set up the same way and still off. The 2027 Women's World
+  Cup gets a questions pack of its own (migration 306: the champion, Europe, how far Brazil go, the United States, the
+  final), the contenders in alphabetical order as no market prices it yet, linked from the women's page.
+- **The chances to win drew one number per run** (migration 307, found by a review): a random draw in a lateral
+  subquery that names only the run is worked out once per run, so every match, series or line in a simulated run went
+  the same way (every favourite won together, every open line went over together) and the members who leaned all one
+  way took the credit. Since pick'em's chances (migration 175) every chance on a pick'em, Pick the series and Rank the
+  teams table carried it, and the prediction log holds those numbers. Each draw now names its own match, series or line
+  (30,000 draws, 30,000 values). Win totals' hourly run takes its game's row first, so two runs at once tell nothing
+  twice; the surest call is the widest margin.
+- **Review fixes to the night's site** (and migration 301): against the spread, a match the host settled shows the
+  server's verdict on the pick's own line (it had shown the straight-up winner), a push no longer reads as a loss, and a
+  game with no line out says the line is set at the start (the board sent a missing line as 0, "even"); the host's score
+  by hand takes three digits; win totals' card after the opener reads "Calls locked", its line editor closes at the lock
+  and says a called line stays, and the save bar no longer nags a member who called only some teams.
+- **Pick the favourites** (pick'em, every sport): one tap fills every open, unpicked match with the side ESPN's line
+  favours, the surest numbered highest in Confidence, nothing saved until Save; a round of more than twelve games reads
+  day by day. An NHL or NBA week is about fifty games.
+- **A landing page for NHL pools** (`landing/hockey-pools.html`, `/hockey-pools`, in the sitemap, linked from the home
+  page's footer and quick starts): the daily streak, weekly pick'em, last one standing, the box pool and the fantasy
+  league with best ball and the guillotine, each a link that opens the start page on the right event, and an FAQ that
+  goes to search as structured data. The plan's gate is people; hockey is the ground the product knows best.
+
+- **Landing pages for NFL and NBA pools** (`landing/football-pools.html`, `landing/basketball-pools.html`, in the
+  sitemap, linked from the home page's quick starts and footer and from the hockey page): every kind each season runs,
+  against the spread and the tiebreaker, an FAQ as structured data, and screens of a real pick'em board in a sample
+  pool's colours (`landing/img/pool-nfl.webp`, `pool-nba.webp`). `#/new?comp=nfl&ats=1` opens the start page with
+  against the spread on. On a phone under 400 px a pick'em card puts each crest above its name, so a long name
+  ("Jacksonville Jaguars") wraps whole instead of splitting mid-word.

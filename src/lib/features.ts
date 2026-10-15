@@ -9,6 +9,9 @@ export type Feature = 'money' | 'fund';
 // (migration 265; SaK has it off): on by default, unlike money and the fund
 export const liveRoomOn = (league: League | null | undefined) => league?.features?.live_room !== false;
 
+// best ball (migration 276): each finished night counts the best lineup the team's players allowed; points leagues only
+export const bestBall = (league: League | null | undefined) => league?.features?.bestball === true && !league?.categories?.length;
+
 export function hasFeature(league: League | null | undefined, f: Feature): boolean {
   if (!league) return false;
   if (league.features == null) return true;
