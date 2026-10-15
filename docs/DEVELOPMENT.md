@@ -9,7 +9,7 @@ Paid subscribed: section 1 and section 8 are that review.
 
 ## 1. Where we are
 
-*As of 15 October 2026, migration 294.*
+*As of 15 October 2026, migration 295.*
 
 - **SaK**, the live league: eight GMs, used every night, on React 19 + Supabase (Postgres rules, edge functions, a
   scheduler) and an LLM voice (Garry, on Grok, metered per feature and league), served from Cloudflare. The season is
@@ -29,7 +29,7 @@ Paid subscribed: section 1 and section 8 are that review.
 - **Use so far is the founder's.** Four prediction pools besides SaK, one or two members each, one pick between them
   and no chat (section 9.2, 13 October). The Love Is Blind gate (three pools, thirty players by 4 November) is the first
   real test of the product with strangers; the premiere is 14 October, and the week's build for it is section 9.5.
-- 294 migrations; the flow test drives a whole fantasy season and every pool kind in SQL, with a second league beside
+- 295 migrations; the flow test drives a whole fantasy season and every pool kind in SQL, with a second league beside
   each that must never see or change it; CI runs it, the build and the Worker's types on every pull request.
 
 ## 2. What is working, and stays
@@ -810,6 +810,11 @@ Built for SaK and, as every SaK change is, for every league:
   finished rounds off their points and what's still possible, once more rounds are finished than are dropped; the
   round's own winner is unchanged; the grid strikes them through. A choice on the start page, Add a game and the host's
   rules.
+  A fourth review (migration 295): "still possible" takes off the lowest of each round's ceiling (it had taken the lowest
+  finished rounds, marking a member who could still win as out of it), and the chances in such a pool play every run
+  round by round and drop before naming its winner (`_pickem_chances_drop`); a round of only games called off is neither
+  finished nor droppable; the last round's last game settled by hand without a score waits for a total before the pool
+  is closed when tiebreaker calls are in; a last one standing or Call the score invite keeps to the game's own rounds.
 - **Pick the favourites** (pick'em, every sport): one tap fills every open, unpicked match with the side ESPN's line
   favours, the surest numbered highest in Confidence, nothing saved until Save; a round of more than twelve games reads
   day by day. An NHL or NBA week is about fifty games.

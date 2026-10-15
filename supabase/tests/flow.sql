@@ -4648,8 +4648,9 @@ reset role;
 update fixtures set kickoff = now() - interval '3 hours', state = 'final', home_score = 4, away_score = 1 where id = :dr1;
 select pg_temp.expect('one round finished: nothing dropped yet', (select points = 1 from _pickem_table(:drg) where team_id = :hana));
 update fixtures set kickoff = now() - interval '3 hours', state = 'final', home_score = 2, away_score = 1 where id = :dr2;
-select pg_temp.expect('two finished: the worst (round 2, no pick) comes off, nothing to lose from it',
-  (select points = 1 and possible = 2 from _pickem_table(:drg) where team_id = :hana));
+select pg_temp.expect('two finished: the worst (round 2, no pick) comes off; at best round 3 is right too, and round 2 still the one dropped',
+  (select points = 1 and possible = 2 from _pickem_table(:drg) where team_id = :hana)
+  and (select count(*) = (select count(*) from teams where league_id = :lib and role = 'gm') and sum(chance) between 0.99 and 1.01 from _pickem_chances(:drg, 200)));
 update fixtures set kickoff = now() - interval '3 hours', state = 'final', home_score = 5, away_score = 3 where id = :dr3;
 select pg_temp.expect('three finished: 2 of the best two rounds, round 2 marked dropped in the grid',
   (select points = 2 and right_calls = 2 from _pickem_table(:drg) where team_id = :hana)
