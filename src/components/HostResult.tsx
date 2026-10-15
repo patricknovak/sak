@@ -69,7 +69,7 @@ export function HostResult({ fixture, home, away, override, draws, score, onDone
         <div className="mt-2 space-y-2 rounded-xl border border-amber-400/30 bg-amber-500/[.06] p-3">
           <div className="text-[11px] font-bold uppercase tracking-[.14em] text-amber-200">Settle for this pool</div>
           {/* a score is optional for a side, but a pick'em against the spread on this match needs it (migration 291) */}
-          {!score && <div className="text-[11px] text-mute">The final score, if you have it (a pick&rsquo;em against the spread needs it):</div>}
+          {!score && <div className="text-[11px] text-mute">The final score, if you have it:</div>}
           {(
             <div className="flex items-center gap-2 text-sm text-slate-200">
               <span className="min-w-0 flex-1 truncate text-right">{home.short ?? home.name}</span>

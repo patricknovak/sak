@@ -275,7 +275,7 @@ export function PickemGame({ gameId, first, status: gameStatus, name, reload, ac
                     ))}
                   </div>
                 )}
-                {data.ats && !data.draws && settle.side === 'D' && <p className="text-[11px] text-amber-100">Level: a tie, scored against each pick&rsquo;s line.</p>}
+                {!data.draws && settle.side === 'D' && <p className="text-[11px] text-amber-100">{data.ats ? 'Level: a tie, scored against each pick\u2019s line.' : 'Level: a tie, which counts for nobody.'}</p>}
                 <input className="input w-full text-sm" maxLength={200} placeholder="Why: the feed stuck at half-time, it ended 2-0" value={settle.reason} onChange={(e) => setSettle({ ...settle, reason: e.target.value })} />
                 <div className="flex gap-2">
                   <button type="button" className="btn-gold flex-1" disabled={busy || !settle.side || settle.reason.trim().length < 3 || (data.ats && settle.side !== 'void' && (!settle.h || !settle.a))}
