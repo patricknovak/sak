@@ -9,7 +9,7 @@ Paid subscribed: section 1 and section 8 are that review.
 
 ## 1. Where we are
 
-*As of 15 October 2026, migration 306.*
+*As of 15 October 2026, migration 307.*
 
 - **SaK**, the live league: eight GMs, used every night, on React 19 + Supabase (Postgres rules, edge functions, a
   scheduler) and an LLM voice (Garry, on Grok, metered per feature and league), served from Cloudflare. The season is
@@ -29,7 +29,7 @@ Paid subscribed: section 1 and section 8 are that review.
 - **Use so far is the founder's.** Four prediction pools besides SaK, one or two members each, one pick between them
   and no chat (section 9.2, 13 October). The Love Is Blind gate (three pools, thirty players by 4 November) is the first
   real test of the product with strangers; the premiere is 14 October, and the week's build for it is section 9.5.
-- 306 migrations; the flow test drives a whole fantasy season and every pool kind in SQL, with a second league beside
+- 307 migrations; the flow test drives a whole fantasy season and every pool kind in SQL, with a second league beside
   each that must never see or change it; CI runs it, the build and the Worker's types on every pull request.
 
 ## 2. What is working, and stays
@@ -843,6 +843,13 @@ Built for SaK and, as every SaK change is, for every league:
   landing page says so. The Champions League and Liga MX are set up the same way and still off. The 2027 Women's World
   Cup gets a questions pack of its own (migration 306: the champion, Europe, how far Brazil go, the United States, the
   final), the contenders in alphabetical order as no market prices it yet, linked from the women's page.
+- **The chances to win drew one number per run** (migration 307, found by a review): a random draw in a lateral
+  subquery that names only the run is worked out once per run, so every match, series or line in a simulated run went
+  the same way (every favourite won together, every open line went over together) and the members who leaned all one
+  way took the credit. Since pick'em's chances (migration 175) every chance on a pick'em, Pick the series and Rank the
+  teams table carried it, and the prediction log holds those numbers. Each draw now names its own match, series or line
+  (30,000 draws, 30,000 values). Win totals' hourly run takes its game's row first, so two runs at once tell nothing
+  twice; the surest call is the widest margin.
 - **Review fixes to the night's site** (and migration 301): against the spread, a match the host settled shows the
   server's verdict on the pick's own line (it had shown the straight-up winner), a push no longer reads as a loss, and a
   game with no line out says the line is set at the start (the board sent a missing line as 0, "even"); the host's score
