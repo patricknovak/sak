@@ -494,7 +494,7 @@ and soccer share it.
    *Win totals built 15 October 2026 (migrations 297, 298, 302 and 303, §2.11):* the NBA's 2026-27 season on BPI's
    preseason lines, its chances, the lock's split and each decided line in the pool's chat. What is left of item 7: best
    ball as a pool (draft once, the best lineup scores itself; best ball as a fantasy league option is built, migration
-   276) and the Women's World Cup sweepstake, once its draw is made (December 2026).
+   276) and the Women's World Cup sweepstake, once its draw is made.
 
 ## 10. Sources
 
