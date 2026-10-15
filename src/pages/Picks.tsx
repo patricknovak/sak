@@ -457,6 +457,53 @@ function GameTable({ board }: { board: GameBoard }) {
   );
 }
 
+// week by week (migration 290): everyone's points in each round played, latest first, each finished round's winner in
+// gold; the grid scrolls sideways inside its card once a season has more weeks than a phone shows
+interface Weeks { word: string; rounds: { round: number; done: boolean; winners: number[] }[]; rows: { team_id: number; weeks: Record<string, number> }[] }
+function PickemWeeks({ gameId, me, stamp }: { gameId: number; me: number | null; stamp: number }) {
+  const { teams } = useLeague();
+  const [w, setW] = useState<Weeks | null>(null);
+  useEffect(() => { rpc<Weeks>('pool_pickem_weeks', { p_game: gameId }).then(setW, () => setW(null)); }, [gameId, stamp]);
+  if (!w || w.rounds.length === 0) return null;
+  const rounds = [...w.rounds].reverse();
+  const total = (r: Weeks['rows'][number]) => Object.values(r.weeks).reduce((a, b) => a + b, 0);
+  const rows = [...w.rows].sort((a, b) => total(b) - total(a) || a.team_id - b.team_id);
+  const won = (team: number) => w.rounds.filter((r) => r.winners.includes(team)).length;
+  return (
+    <Section title={`${w.word} by ${w.word.toLowerCase()}`}>
+      <div className="card overflow-x-auto p-1">
+        <table className="w-full border-separate border-spacing-0 text-sm">
+          <thead>
+            <tr className="text-[10px] font-black uppercase tracking-[.14em] text-mute">
+              <th className="sticky left-0 z-10 bg-rink px-2 py-2 text-left">{w.word}</th>
+              {rounds.map((r) => <th key={r.round} className="num px-2 py-2 text-center text-[11px]">{r.round}{r.done ? '' : '*'}</th>)}
+            </tr>
+          </thead>
+          <tbody>
+            {rows.map((r) => {
+              const t = teams.find((x) => x.id === r.team_id);
+              return (
+                <tr key={r.team_id} className={r.team_id === me ? 'bg-gold/[.06]' : ''}>
+                  <td className="sticky left-0 z-10 bg-rink px-2 py-1.5">
+                    <span className="flex items-center gap-2"><TeamBadge team={t} size={22} /><span className="max-w-[7.5rem] break-words text-[13px] font-semibold leading-tight text-white">{t?.gm_name ?? t?.name}</span>
+                      {won(r.team_id) > 0 && <span className="num shrink-0 text-[10px] font-black text-gold" title={`${w.word}s won`}>👑{won(r.team_id) > 1 ? won(r.team_id) : ''}</span>}</span>
+                  </td>
+                  {rounds.map((rd) => {
+                    const v = r.weeks[String(rd.round)] ?? 0;
+                    const top = rd.winners.includes(r.team_id);
+                    return <td key={rd.round} className="px-1 py-1.5 text-center"><span className={`num inline-grid h-7 min-w-8 place-items-center rounded-lg px-1.5 text-[13px] font-bold ${top ? 'bg-gold text-[#0b1220]' : v ? 'bg-white/[.05] text-white' : 'text-mute'}`}>{v}</span></td>;
+                  })}
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+      <p className="mt-2 px-1 text-xs text-mute">Each {w.word.toLowerCase()}&rsquo;s points, the latest first. Gold is the {w.word.toLowerCase()}&rsquo;s winner (level on points, the closest tiebreaker){rounds.some((r) => !r.done) ? '; * is still being played' : ''}.</p>
+    </Section>
+  );
+}
+
 // the cards on the pool's home: one per game, with what is waiting on you
 export function PoolGameCards() {
   const { me } = useLeague();
@@ -578,6 +625,7 @@ export default function Picks() {
         : <div className="card p-4 text-sm text-mute">This kind of game is newer than this page. Pull down to refresh, or reopen the app.</div>}
       {me?.is_commish && board.status === 'open' && !actAs && <HostDesk board={board} reload={load} onActAs={setActAs} />}
       <GameTable board={board} />
+      {board.kind === 'pickem' && <PickemWeeks gameId={board.id} me={board.me} stamp={board.table.reduce((n, r) => n + r.points + r.picked, 0)} />}
       <GameRules board={board} />
     </div>
   );

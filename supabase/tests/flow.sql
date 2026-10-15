@@ -4543,6 +4543,13 @@ select pg_temp.expect('level on points, the closest on the total wins the round 
   and (select points = 2 and tiebreak = 2 from _pickem_table(:tbg) where team_id = :hana)
   and (select status = 'done' and winners = array[:fern]::int[] from pool_games where id = :tbg)
   and exists (select 1 from messages where league_id = :lib and body like '🏆 Tie Bowl pick''em is done: Fern, with 2 points.'));
+select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-000000000082', false);
+select set_config('app.league_id', :'lib', false);
+set role authenticated;
+select pg_temp.expect('week by week: both on 2, the round Fern''s on the tiebreaker',
+  (select (r->'winners') = jsonb_build_array(:fern) and (r->>'done')::boolean from jsonb_array_elements(pool_pickem_weeks(:tbg)->'rounds') r where (r->>'round')::int = 1)
+  and (select (x->'weeks'->>'1')::int = 2 from jsonb_array_elements(pool_pickem_weeks(:tbg)->'rows') x where (x->>'team_id')::int = :hana));
+reset role;
 -- the call keeps its game: put off after the round is otherwise done, no call scores and the tie is shared
 reset role;
 update pool_games set status = 'open', winners = null, posted = '{}' where id = :tbg;

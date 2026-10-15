@@ -6,6 +6,8 @@
 export interface Change { date: string; icon: string; title: string; body: string; to?: string; tag?: 'formats' | 'commish' | 'draft' | 'everyone' }
 
 export const CHANGELOG: Change[] = [
+  { date: '2026-10-15', icon: '📅', tag: 'everyone', title: 'Pick\'em week by week', to: '/picks',
+    body: 'Under a pick\'em\'s table, a grid of everyone\'s points in each week played, the latest first, with each week\'s winner in gold and a crown for every week won.' },
   { date: '2026-10-15', icon: '♥', tag: 'everyone', title: 'Lives in last one standing', to: '/new',
     body: 'Last one standing can now give everyone two or three lives: a loss, a tie or a round with no pick costs one, and you\'re out when the last is gone. Pick the lives when you start it; the page shows the hearts each player has left.' },
   { date: '2026-10-15', icon: '🛟', tag: 'everyone', title: 'Forgot a pick? The favourite', to: '/new',
