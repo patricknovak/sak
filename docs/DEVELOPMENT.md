@@ -9,7 +9,7 @@ Paid subscribed: section 1 and section 8 are that review.
 
 ## 1. Where we are
 
-*As of 15 October 2026, migration 286.*
+*As of 15 October 2026, migration 287.*
 
 - **SaK**, the live league: eight GMs, used every night, on React 19 + Supabase (Postgres rules, edge functions, a
   scheduler) and an LLM voice (Garry, on Grok, metered per feature and league), served from Cloudflare. The season is
@@ -29,7 +29,7 @@ Paid subscribed: section 1 and section 8 are that review.
 - **Use so far is the founder's.** Four prediction pools besides SaK, one or two members each, one pick between them
   and no chat (section 9.2, 13 October). The Love Is Blind gate (three pools, thirty players by 4 November) is the first
   real test of the product with strangers; the premiere is 14 October, and the week's build for it is section 9.5.
-- 286 migrations; the flow test drives a whole fantasy season and every pool kind in SQL, with a second league beside
+- 287 migrations; the flow test drives a whole fantasy season and every pool kind in SQL, with a second league beside
   each that must never see or change it; CI runs it, the build and the Worker's types on every pull request.
 
 ## 2. What is working, and stays
@@ -778,8 +778,9 @@ Built for SaK and, as every SaK change is, for every league:
 - **Review fixes to the spread and the tiebreaker** (migration 286, from a review of the night's pick'em diff): a
   tiebreaker call keeps the game it was called on (a Monday night game put off had scored every call against Sunday
   night's, and a game moved later re-opened it), and a game put off or voided leaves the tie shared; the host settling a
-  spread game by hand gives the final score (`pool_result_overrides.home_score/away_score`, `pool_result_set`'s
-  `p_home`/`p_away`, the old four-argument signature dropped), so each pick is scored on its own line, and a game
+  spread game by hand gives the final score (`pool_result_set`'s `p_home`/`p_away`, kept in
+  `pool_result_overrides.home/away`, the pair the survivor's settle by hand already writes, migration 287; the old
+  four-argument signature dropped), so each pick is scored on its own line, and a game
   settled without one counts for nobody; a pick saved before any line is out takes the line at kick-off
   (`_pickem_close_lines`) instead of being kept at even. A push no longer counts as a miss on the share card.
 - **Pick the favourites** (pick'em, every sport): one tap fills every open, unpicked match with the side ESPN's line
