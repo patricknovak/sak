@@ -779,3 +779,10 @@ Built for SaK and, as every SaK change is, for every league:
   page's footer and quick starts): the daily streak, weekly pick'em, last one standing, the box pool and the fantasy
   league with best ball and the guillotine, each a link that opens the start page on the right event, and an FAQ that
   goes to search as structured data. The plan's gate is people; hockey is the ground the product knows best.
+
+- **Landing pages for NFL and NBA pools** (`landing/football-pools.html`, `landing/basketball-pools.html`, in the
+  sitemap, linked from the home page's quick starts and footer and from the hockey page): every kind each season runs,
+  against the spread and the tiebreaker, an FAQ as structured data, and screens of a real pick'em board in a sample
+  pool's colours (`landing/img/pool-nfl.webp`, `pool-nba.webp`). `#/new?comp=nfl&ats=1` opens the start page with
+  against the spread on. On a phone under 400 px a pick'em card puts each crest above its name, so a long name
+  ("Jacksonville Jaguars") wraps whole instead of splitting mid-word.

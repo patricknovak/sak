@@ -63,7 +63,8 @@ export default function NewPool() {
   const [kinds, setKinds] = useState<(GameKind | 'questions')[]>(['series', 'questions']);
   const [preset, setPreset] = useState<SeriesPreset>('classic');
   const [pkPreset, setPkPreset] = useState<PickemPreset>('classic');
-  const [ats, setAts] = useState(false);
+  // against the spread on from the link too (#/new?comp=nfl&ats=1, the football landing page's)
+  const [ats, setAts] = useState(params.get('ats') === '1');
   // the box pool's size and window (migration 188)
   const [box, setBox] = useState<{ preset: 'classic' | 'quick'; length: 'week' | 'month' | 'season' }>({ preset: 'classic', length: 'month' });
   const [grid, setGrid] = useState<Omit<SquaresRules, 'series'>>(SQUARES_DEFAULT);

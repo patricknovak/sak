@@ -199,9 +199,10 @@ export function PickemGame({ gameId, first, status: gameStatus, name, reload, ac
             </div>
             {/* the match: crests, names and the score once it's on */}
             <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-2 px-3 py-2">
-              <div className="flex min-w-0 items-center gap-2"><Crest c={f.home} size={30} /><span className="min-w-0 text-balance break-words text-[13px] font-semibold leading-tight text-white min-[400px]:text-sm">{f.home.name}</span></div>
+              {/* on a narrow phone the crest sits above the name, so a long one ("Jacksonville") keeps the whole column */}
+              <div className="flex min-w-0 flex-col items-start gap-1 min-[400px]:flex-row min-[400px]:items-center min-[400px]:gap-2"><Crest c={f.home} size={30} /><span className="min-w-0 text-balance break-words text-[13px] font-semibold leading-tight text-white hyphens-auto min-[400px]:text-sm">{f.home.name}</span></div>
               <span className="num text-center font-display text-xl font-extrabold text-white">{f.home_score != null && f.state !== 'scheduled' ? `${f.home_score}–${f.away_score}` : <span className="text-sm text-mute">v</span>}</span>
-              <div className="flex min-w-0 flex-row-reverse items-center gap-2 text-right"><Crest c={f.away} size={30} /><span className="min-w-0 text-balance break-words text-[13px] font-semibold leading-tight text-white min-[400px]:text-sm">{f.away.name}</span></div>
+              <div className="flex min-w-0 flex-col items-end gap-1 text-right min-[400px]:flex-row-reverse min-[400px]:items-center min-[400px]:gap-2"><Crest c={f.away} size={30} /><span className="min-w-0 text-balance break-words text-[13px] font-semibold leading-tight text-white hyphens-auto min-[400px]:text-sm">{f.away.name}</span></div>
             </div>
             {/* the pick: three (or two) buttons, then the confidence number */}
             <div className="flex items-center gap-1.5 px-3 pb-3">
