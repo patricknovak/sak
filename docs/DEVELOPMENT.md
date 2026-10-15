@@ -9,7 +9,7 @@ Paid subscribed: section 1 and section 8 are that review.
 
 ## 1. Where we are
 
-*As of 15 October 2026, migration 281.*
+*As of 15 October 2026, migration 282.*
 
 - **SaK**, the live league: eight GMs, used every night, on React 19 + Supabase (Postgres rules, edge functions, a
   scheduler) and an LLM voice (Garry, on Grok, metered per feature and league), served from Cloudflare. The season is
@@ -29,7 +29,7 @@ Paid subscribed: section 1 and section 8 are that review.
 - **Use so far is the founder's.** Four prediction pools besides SaK, one or two members each, one pick between them
   and no chat (section 9.2, 13 October). The Love Is Blind gate (three pools, thirty players by 4 November) is the first
   real test of the product with strangers; the premiere is 14 October, and the week's build for it is section 9.5.
-- 281 migrations; the flow test drives a whole fantasy season and every pool kind in SQL, with a second league beside
+- 282 migrations; the flow test drives a whole fantasy season and every pool kind in SQL, with a second league beside
   each that must never see or change it; CI runs it, the build and the Worker's types on every pull request.
 
 ## 2. What is working, and stays
@@ -754,6 +754,15 @@ Built for SaK and, as every SaK change is, for every league:
   ranks by points as before (SaK's standings proved identical on live before and after). Switched on midweek, it judges the first full
   week after (migration 281, `info.guillotine_from`), and the home card says the week is a free one. Garry's morning and Monday columns lead with
   it in a guillotine league (`guillotineFacts`: teams left, the cut just made, every cut, who's on the block this week).
+- **Review fixes** (migration 282, from a review of the night's diff): a player added or traded for after his game began
+  gets a snapshot for that night written late, on the bench; best ball had counted him, so a free agent picked up the
+  morning after a big night scored for it. A snapshot written more than ten minutes after its game began, for a player
+  the team added or traded for after that (`_snapshot_late`), stays on the bench in best ball, and `lineup_efficiency`
+  stops counting it as a missed start in every league (SaK's points and standings unchanged; the bench's "best" fell on
+  the 8 nights a GM picked someone up after puck drop). In a best-ball league the guillotine, the Book and the side bets
+  re-slot the nights before they read them. The guillotine switched on on a Monday judges that week; the start days are
+  the server's to keep (an editor's stale copy of the league's info never moves them) and switching an option off
+  forgets its day. Garry reads only his league's cuts, and nobody is "on the block" until the week has points.
 - **Pick the favourites** (pick'em, every sport): one tap fills every open, unpicked match with the side ESPN's line
   favours, the surest numbered highest in Confidence, nothing saved until Save; a round of more than twelve games reads
   day by day. An NHL or NBA week is about fifty games.

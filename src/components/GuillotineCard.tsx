@@ -39,9 +39,11 @@ export function GuillotineCard() {
     .map((t) => ({ t, pts: week.get(t.id) ?? 0 })).sort((a, b) => a.pts - b.pts || b.t.id - a.t.id);
   if (!cuts) return <div className="h-40 animate-pulse rounded-3xl bg-white/[.04]" />;
   const winner = alive.length === 1 ? alive[0].t : null;
-  // switched on midweek, this week isn't judged (migration 281): the first is the next full week
+  // switched on midweek, this week isn't judged (migrations 281 and 282): the first is the next full week
   const from = league?.info?.guillotine_from as string | undefined;
-  const judged = !from || start > from;
+  const judged = !from || start >= from;
+  // nobody is on the block until the week has points on the board: a Monday morning is everyone at zero
+  const block = judged && alive.some((a) => a.pts > 0);
   const next = (() => { const d = new Date(`${start}T12:00:00Z`); d.setUTCDate(d.getUTCDate() + 7); return d.toISOString().slice(0, 10); })();
   return (
     <div className="card relative overflow-hidden p-4" style={{ background: 'linear-gradient(140deg, rgba(244,63,94,.14), rgba(15,23,41,.85) 55%)' }}>
@@ -61,11 +63,11 @@ export function GuillotineCard() {
             : <>The first week judged starts Monday, {short(next)}: from then, each week's fewest points is cut, and their players hit free agency. This week is a free one.</>}</p>
           <div className="mt-3 space-y-1.5">
             {alive.slice(0, 4).map(({ t, pts }, i) => (
-              <div key={t.id} className={`flex items-center gap-2.5 rounded-xl px-2.5 py-2 ${i === 0 && judged ? 'bg-rose-500/15 ring-1 ring-rose-400/40' : 'bg-white/[.03]'}`}>
+              <div key={t.id} className={`flex items-center gap-2.5 rounded-xl px-2.5 py-2 ${i === 0 && block ? 'bg-rose-500/15 ring-1 ring-rose-400/40' : 'bg-white/[.03]'}`}>
                 <TeamBadge team={t} size={26} />
                 <span className="min-w-0 flex-1">
                   <span className="block text-sm font-semibold leading-tight text-white"><TeamName team={t} /></span>
-                  {i === 0 && judged && <span className="block text-[10px] font-black uppercase tracking-wider text-rose-300">On the block</span>}
+                  {i === 0 && block && <span className="block text-[10px] font-black uppercase tracking-wider text-rose-300">On the block</span>}
                 </span>
                 <span className="num w-12 shrink-0 text-right text-sm font-bold text-white">{fmtPts(pts, 1)}</span>
               </div>

@@ -128,7 +128,7 @@ async function recordBook(lid: number): Promise<string> {
 
 const LEAGUE_TABLES = new Set(['messages', 'garry_memory', 'garry_state', 'rosters', 'teams', 'notifications', 'draft_picks', 'draft_state', 'draft_queue',
   'bets', 'bet_entries', 'coin_ledger', 'lineup_snapshots', 'push_subscriptions', 'markets', 'market_bets', 'trades', 'league_rules', 'watchlist',
-  'pool_markets', 'pool_drops', 'pool_positions', 'pool_trades', 'pool_picks', 'pool_games']);
+  'pool_markets', 'pool_drops', 'pool_positions', 'pool_trades', 'pool_picks', 'pool_games', 'guillotine_cuts']);
 // shared NHL data in this league's points: box scores, projections and corrections under its scoring profile
 const LEAGUE_VIEWS: Record<string, string> = { player_games: 'league_games', players: 'league_players', stat_corrections: 'league_corrections' };
 const TEAM_VIEWS = new Set(['standings', 'playoff_standings', 'sak_cup_standings', 'coin_balances', 'team_daily', 'playoff_daily', 'team_bench_daily', 'book_standings', 'coin_races']);
@@ -546,7 +546,8 @@ async function guillotineFacts(league: { features?: Record<string, unknown> | nu
   const name = (id: number) => `${byId.get(id)?.gm_name ?? '?'} (${byId.get(id)?.name ?? '?'})`;
   const last = cut.at(-1);
   const from_ = league?.info?.guillotine_from as string | undefined;
-  const block = alive.length > 1 && (!from_ || start > from_) ? [...alive].sort((a, b) => (pts.get(a.id) ?? 0) - (pts.get(b.id) ?? 0))[0] : null;
+  // nobody is on the block until the week has points on the board (a Monday morning is everyone at zero)
+  const block = alive.length > 1 && (!from_ || start >= from_) && [...pts.values()].some((v) => v > 0) ? [...alive].sort((a, b) => (pts.get(a.id) ?? 0) - (pts.get(b.id) ?? 0))[0] : null;
   return {
     rule: 'every Monday the team with the fewest points that week is cut and its players go to free agency; the last team standing wins',
     teams_left: alive.length,

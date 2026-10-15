@@ -6570,11 +6570,24 @@ select pg_temp.raises('a feature it doesn''t know is refused', $$select commish_
 select commish_update_league('{"features":{"bestball":true}}');
 reset role;
 select pg_temp.expect('switched on, it counts from the night being played', (select (features->>'bestball')::boolean and (info->>'bestball_from')::date = today_et() from league_rules where league_id = 1));
+-- an editor sending a stale copy of the league's info (no start day in it) leaves the start day where it was
+select (info - 'bestball_from')::text as bb_info from league_rules where league_id = 1 \gset
+select pg_temp.as_team(1);
+set role authenticated;
+select commish_update_league(jsonb_build_object('info', :'bb_info'::jsonb));
+reset role;
+select pg_temp.expect('a stale copy of the info never moves the start day', (select (info->>'bestball_from')::date = today_et() from league_rules where league_id = 1));
 select set_config('app.league_id', '1', false);
 select pg_temp.expect('nothing before the switch is touched', _bestball_settle() = 0);
 -- as if switched on ten nights ago, in a season under way
 select season_start as bb_season from league_rules where league_id = 1 \gset
 update league_rules set info = info || jsonb_build_object('bestball_from', today_et() - 10), season_start = today_et() - 10 where league_id = 1;
+-- a free agent added the morning after his big night gets a snapshot for it, written late, on the bench: he wasn't on
+-- the team at puck drop, so best ball leaves him there
+select id as bb_e from players p where p.pos <> 'G' and not exists (select 1 from rosters r where r.player_id = p.id) order by id limit 1 \gset
+insert into player_games (game_id, player_id, date, stats) values (7901, :bb_e, today_et() - 2, '{"g":4,"a":2,"sog":9}');
+insert into lineup_snapshots (game_id, date, team_id, player_id, slot, taken_at) values (7901, today_et() - 2, 3, :bb_e, 'BN', now());
+insert into transactions (season, type, team_id, player_id, league_id) values ((select season from league_rules where league_id = 1), 'add', 3, :bb_e, 1);
 select sum(fpts) filter (where player_id in (:bb_a, :bb_c) and fpts > 0) as bb_best from league_games where game_id = 7901 \gset
 select pg_temp.expect('before, the night scored less than its best', (select points < best from lineup_efficiency(today_et() - 2, today_et() - 2) where team_id = 3));
 select set_config('app.league_id', '', false);
@@ -6586,6 +6599,7 @@ select pg_temp.expect('the finished night is re-slotted to its best: the star in
   and (select slot = 'BN' from lineup_snapshots where game_id = 7901 and player_id = :bb_b and team_id = 3)
   and (select slot = 'IR' from lineup_snapshots where game_id = 7901 and player_id = :bb_d and team_id = 3)
   and (select points = best and points = :bb_best from lineup_efficiency(today_et() - 2, today_et() - 2) where team_id = 3));
+select pg_temp.expect('a late add is never counted for the night before he joined', (select slot = 'BN' from lineup_snapshots where game_id = 7901 and player_id = :bb_e and team_id = 3));
 select pg_temp.expect('a night older than three is left as it was', (select slot = 'BN' from lineup_snapshots where game_id = 7902 and player_id = :bb_c and team_id = 3));
 select pg_temp.expect('and a second run changes nothing', _bestball_settle() = 0);
 select set_config('app.league_id', (select id::text from leagues where slug = 'rink'), false);
@@ -6593,7 +6607,13 @@ select pg_temp.expect('a league without it is untouched', _bestball_settle() = 0
 select set_config('app.league_id', '', false);
 select pg_temp.raises('a member can''t run it', 'set role authenticated; select _bestball_settle()', 'permission denied');
 reset role;
+select pg_temp.as_team(1);
+set role authenticated;
+select commish_update_league('{"features":{"bestball":false}}');
+reset role;
+select pg_temp.expect('switched off, it forgets its start day, so switching it on again starts afresh', (select not (info ? 'bestball_from') from league_rules where league_id = 1));
 update league_rules set features = features - 'bestball', info = info - 'bestball_from', season_start = :'bb_season' where league_id = 1;
+delete from transactions where team_id = 3 and player_id = :bb_e and type = 'add';
 delete from lineup_snapshots where game_id in (7901, 7902);
 delete from player_games where game_id in (7901, 7902);
 delete from games where id in (7901, 7902);
@@ -6630,8 +6650,8 @@ reset role;
 select set_config('app.league_id', '1', false);
 select pg_temp.expect('switched on, it waits for the first full week after: last week, played before anyone knew, is safe',
   (select (info->>'guillotine_from')::date = today_et() from league_rules where league_id = 1) and _guillotine_tick() = 0);
--- as if switched on the week before last
-update league_rules set info = info || jsonb_build_object('guillotine_from', (:'gt_ws')::date - 3) where league_id = 1;
+-- as if switched on the Monday last week began: all of it came after the switch, so it is judged
+update league_rules set info = info || jsonb_build_object('guillotine_from', (:'gt_ws')::date) where league_id = 1;
 select set_config('t.gt', _guillotine_tick()::text, false);
 select pg_temp.expect('last week''s fewest is cut: the roster to free agency as drops, its trade called off, the league told',
   current_setting('t.gt') = '1'
