@@ -19,7 +19,7 @@ import { chance, useMarket } from '../lib/market';
 import { trackFirstCall } from '../lib/analytics';
 
 type Side = 'H' | 'D' | 'A';
-interface PkPick { pick: Side; conf?: number; line?: number }
+interface PkPick { pick: Side; conf?: number; line?: number; auto?: boolean }
 export interface PkFixture {
   id: number; kickoff: string; state: 'scheduled' | 'live' | 'final' | 'postponed' | 'cancelled'; minute: number | null;
   home: Club; away: Club; home_score: number | null; away_score: number | null; result: Side | null; locked: boolean;
@@ -31,6 +31,8 @@ export interface PkFixture {
 export interface PkRound { round: number; first: string; last: string; matches: number; done: boolean; open: number; picked: number; points: number }
 export interface PickemData {
   round: number; from_round: number; to_round: number; word: string; confidence: boolean; draws: boolean; size: number; ats?: boolean;
+  // a missed pick: zero, or the favourite filled in when the game starts (migration 285)
+  missed?: 'zero' | 'favourite';
   rounds: PkRound[]; fixtures: PkFixture[];
   // the round's tiebreaker (migration 284): the total in its last game, locked when it starts
   tiebreak?: { fixture: number; kickoff: string; home: Club; away: Club; locked: boolean; total: number | null; mine: number | null; word: string; cap: number } | null;
@@ -229,6 +231,7 @@ export function PickemGame({ gameId, first, status: gameStatus, name, reload, ac
                     </select>
               )}
             </div>
+            {f.locked && !actAs && f.mine?.auto && <div className="border-t border-white/[.05] px-3 py-1.5 text-[11px] font-semibold text-sky-300">Picked for you at the start: the favourite</div>}
             {done && p && <div className={`border-t border-white/[.05] px-3 py-1.5 text-[11px] font-semibold ${right ? 'text-emerald-300' : 'text-mute'}`}>{right ? `${data.ats ? 'Covered' : 'Right'}: +${data.confidence ? p.conf : 1}` : res === 'P' ? 'A push: it landed right on the line' : data.ats ? 'Didn\u2019t cover' : 'Not this time'}</div>}
             {/* the host's word, for everyone to see */}
             {f.host && (
@@ -311,6 +314,7 @@ export function PickemGame({ gameId, first, status: gameStatus, name, reload, ac
       )}
       {!actAs && lockedMine.length > 0 && <ShareButton className="btn-ghost w-full" label={`Share my ${data.word.toLowerCase()} ${data.round} picks`} make={shareRound} />}
       <p className="px-1 text-xs text-mute">
+        {data.missed === 'favourite' && 'Forget one and it takes the favourite when the game starts. '}
         {data.ats && 'Against the spread: your pick takes the line shown when you save it, and keeps it while you stay on that side. Your side has to cover; landing right on the line is a push. '}
         {data.confidence ? `Number your picks from 1 to ${data.size}: your surest is ${data.size}, and a right pick earns its number. Taking a number another match has swaps the two.` : 'A right pick is a point.'} Each pick locks at its own kick-off{data.draws ? '; a draw is the result after ninety minutes' : '; a tie counts for nobody'}. A postponed match counts for nobody.
       </p>

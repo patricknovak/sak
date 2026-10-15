@@ -4530,6 +4530,48 @@ select set_config('app.league_id', '', false);
 select set_config('request.jwt.claim.sub', '', false);
 select 'the pick''em tiebreaker', true;
 
+-- ───────────── a missed pick takes the favourite (migration 285) ─────────────
+-- a Confidence pick'em with missed picks on the favourite: when a game starts, whoever made no pick gets the market's
+-- side with the lowest number still free; a pick made stays; the crowd's split leaves the filled ones out
+reset role;
+select set_config('request.jwt.claim.sub', '', false);
+select set_config('app.league_id', '', false);
+insert into competitions (id, sport, name, short, season, provider, ext_id, ext_season, active)
+values ('au-test', 'mlb', 'Auto Bowl', 'AB', '2026', 'mlb-statsapi', 'aut', '2026', true) on conflict (id) do nothing;
+insert into fixtures (sport, competition, provider, ext_id, season, gameweek, kickoff, date, home_club, away_club, state, detail) values
+  ('mlb', 'au-test', 'mlb-statsapi', 'au-1', '2026', 1, now() + interval '2 days', (now() + interval '2 days')::date, :alb, :bri, 'scheduled', '{"odds":{"home":0.35,"away":0.65,"line":2.5}}'),
+  ('mlb', 'au-test', 'mlb-statsapi', 'au-2', '2026', 1, now() + interval '3 days', (now() + interval '3 days')::date, :bri, :alb, 'scheduled', '{}');
+select id as au1 from fixtures where ext_id = 'au-1' \gset
+select id as au2 from fixtures where ext_id = 'au-2' \gset
+select pg_temp.raises('zero or the favourite', $$select _pickem_rules('au-test', '{"missed": "random"}')$$, 'zero or takes the favourite');
+select set_config('app.league_id', :'lib', false);
+select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-000000000081', false);
+set role authenticated;
+select pool_game_start('pickem', 'au-test', '{"preset": "confidence", "missed": "favourite"}') as aug \gset
+select pool_pickem_save(:aug, 1, jsonb_build_array(jsonb_build_object('fixture', :au1, 'pick', 'H', 'conf', 1)));
+reset role;
+update fixtures set kickoff = now() - interval '1 hour', state = 'live' where id = :au1;
+select pg_temp.expect('the game starts: whoever forgot takes the favourite with the lowest number free, a pick made stays',
+  (select pick = '{"pick": "A", "conf": 1, "auto": true}'::jsonb from pool_picks where game_id = :aug and team_id = :fern and thing = 'f:' || :au1)
+  and (select pick = '{"pick": "H", "conf": 1}'::jsonb from pool_picks where game_id = :aug and team_id = :hana and thing = 'f:' || :au1)
+  and (select rules->>'missed' = 'favourite' from pool_games where id = :aug)
+  and (pool_game_board(:aug)->'pickem'->>'missed') = 'favourite');
+-- straight to final with no line: the home side, with the number left
+update fixtures set kickoff = now() - interval '1 hour', state = 'final', home_score = 2, away_score = 1 where id = :au2;
+select pg_temp.expect('no line at all takes the home side, and Confidence the number still free',
+  (select pick = '{"pick": "H", "conf": 2, "auto": true}'::jsonb from pool_picks where game_id = :aug and team_id = :hana and thing = 'f:' || :au2)
+  and (select pick = '{"pick": "H", "conf": 2, "auto": true}'::jsonb from pool_picks where game_id = :aug and team_id = :fern and thing = 'f:' || :au2));
+select pg_temp.expect('the crowd''s split leaves the filled picks out',
+  not exists (select 1 from predictions where kind = 'pool_split' and (subject->>'game')::bigint = :aug and (detail->>'picks')::int > 1));
+delete from predictions where kind = 'pool_split' and (subject->>'game')::bigint = :aug;
+delete from pool_picks where game_id = :aug;
+delete from pool_games where id = :aug;
+delete from fixtures where competition = 'au-test';
+delete from competitions where id = 'au-test';
+select set_config('app.league_id', '', false);
+select set_config('request.jwt.claim.sub', '', false);
+select 'a missed pick takes the favourite', true;
+
 -- ───────────── the host's desk (migration 172) ─────────────
 -- Hana runs a pick'em on the Desk Cup: she changes its rules before the first lock, enters Lou's picks when he asks,
 -- and settles a match the feed left hanging.

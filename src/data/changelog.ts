@@ -6,6 +6,8 @@
 export interface Change { date: string; icon: string; title: string; body: string; to?: string; tag?: 'formats' | 'commish' | 'draft' | 'everyone' }
 
 export const CHANGELOG: Change[] = [
+  { date: '2026-10-15', icon: '🛟', tag: 'everyone', title: 'Forgot a pick? The favourite', to: '/new',
+    body: 'A pick\'em can now fill a forgotten pick with the market\'s favourite the moment the game starts, instead of scoring nothing (with the lowest Confidence number still free). Switch it on when you start the pool, or before the first lock. The board says which picks were made for you.' },
   { date: '2026-10-15', icon: '🎯', tag: 'everyone', title: 'A tiebreaker in pick\'em', to: '/picks',
     body: 'Every pick\'em week now has a tiebreaker: call the total in the week\'s last game, up to its start. Level on points for the week, the closest call takes it; level at the end, the closest on the last week played wins the pool.' },
   { date: '2026-10-15', icon: '📏', tag: 'everyone', title: 'Pick\'em against the spread', to: '/new',

@@ -155,6 +155,7 @@ export const PICKEM_PRESETS: { key: PickemPreset; label: string; line: string; e
 
 // against the spread (migration 283): sports without draws, each pick on the market's line of the moment it is made
 export const atsFits = (sport: string | null | undefined) => !!sport && sport !== 'soccer';
+export const MISSED_LINE = 'Someone always forgets: a game nobody picked takes the market\u2019s favourite when it starts, with the lowest number still free in Confidence, instead of scoring nothing.';
 export const ATS_LINE = 'Each pick takes the market\u2019s line when you make it: the favourite has to win by more than the line, the underdog can lose by less. Landing right on the number is a push, worth nothing.';
 
 // the centre for a competition played in rounds (#/centre/<competition>), by its sport

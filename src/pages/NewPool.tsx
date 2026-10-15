@@ -9,7 +9,7 @@ import { Spinner, Toggle } from '../components/ui';
 import { themed } from '../components/LeagueIdentity';
 import { ProductMark } from '../components/Brand';
 import { type Pack, packName, packPlaceholder, packWhen } from '../lib/packs';
-import { KIND_ORDER, KIND_WHEN, KINDS, ATS_LINE, PICKEM_PRESETS, PRESETS, SQUARES_DEFAULT, atsFits, eventGrids, gridFor, gridLabel, gridRules, presetExample, sheetLabel, type GameKind, type PickemPreset, type PoolEvent, type SeriesPreset, type SquaresRules } from '../lib/poolGames';
+import { KIND_ORDER, KIND_WHEN, KINDS, ATS_LINE, MISSED_LINE, PICKEM_PRESETS, PRESETS, SQUARES_DEFAULT, atsFits, eventGrids, gridFor, gridLabel, gridRules, presetExample, sheetLabel, type GameKind, type PickemPreset, type PoolEvent, type SeriesPreset, type SquaresRules } from '../lib/poolGames';
 import { SERIES_SPORTS, SheetPicker, SquaresKnobs, lockText } from './Picks';
 import { attributionFields, track } from '../lib/analytics';
 import { FantasyStart } from '../components/FantasyStart';
@@ -65,6 +65,7 @@ export default function NewPool() {
   const [pkPreset, setPkPreset] = useState<PickemPreset>('classic');
   // against the spread on from the link too (#/new?comp=nfl&ats=1, the football landing page's)
   const [ats, setAts] = useState(params.get('ats') === '1');
+  const [missFav, setMissFav] = useState(false);
   // the box pool's size and window (migration 188)
   const [box, setBox] = useState<{ preset: 'classic' | 'quick'; length: 'week' | 'month' | 'season' }>({ preset: 'classic', length: 'month' });
   const [grid, setGrid] = useState<Omit<SquaresRules, 'series'>>(SQUARES_DEFAULT);
@@ -132,7 +133,7 @@ export default function NewPool() {
   const sheetGame = event ? (event.sheets ?? []).find((g) => g.id === sheetOn) ?? event.sheets?.[0] ?? null : null;
   const offered: GameKind[] = event ? [...event.kinds.filter((k) => k in KINDS), ...(gridSeries ? ['squares' as const] : [])] : [];
   const gamesPayload = games.filter((k) => (k !== 'squares' || gridSeries) && (k !== 'props' || sheetGame)).map((k) => ({ kind: k, competition: event!.competition,
-    rules: k === 'series' ? { preset } : k === 'pickem' ? { preset: pkPreset, ...(ats && atsFits(event?.sport) ? { ats: true } : {}) } : k === 'players' ? box : k === 'squares' ? { ...grid, ...gridRules(gridSeries!) }
+    rules: k === 'series' ? { preset } : k === 'pickem' ? { preset: pkPreset, ...(ats && atsFits(event?.sport) ? { ats: true } : {}), ...(missFav ? { missed: 'favourite' } : {}) } : k === 'players' ? box : k === 'squares' ? { ...grid, ...gridRules(gridSeries!) }
       : k === 'props' ? { fixture: sheetGame!.id, ...(everySheet ? { auto: true } : {}) }
       // a bracket on best-of-7s takes a point for calling the games too (migration 228)
       : k === 'bracket' && SERIES_SPORTS.includes(event!.sport) ? { games_bonus: 1 } : {} }));
@@ -339,6 +340,13 @@ export default function NewPool() {
                 </div>
                 <p className="mt-2 text-sm leading-snug text-white/80">{PICKEM_PRESETS.find((p) => p.key === pkPreset)!.line}</p>
                 <p className="mt-1.5 rounded-xl bg-white/[.05] px-3 py-2 text-xs leading-snug text-white/70">{PICKEM_PRESETS.find((p) => p.key === pkPreset)!.example} From {event.open_label} to {event.final_label}; each pick locks at its own kick-off.</p>
+                <div className="mt-2 rounded-xl bg-white/[.05] px-3 py-1">
+                  <div className="flex items-center justify-between gap-3">
+                    <span className="text-[13px] font-semibold text-white">Forgot a pick? The favourite<span className="block text-[11px] font-normal text-white/60">Instead of nothing, when the game starts</span></span>
+                    <Toggle on={missFav} onChange={setMissFav} />
+                  </div>
+                  {missFav && <p className="pb-2 text-[11px] leading-snug text-white/70">{MISSED_LINE}</p>}
+                </div>
                 {atsFits(event.sport) && (
                   <div className="mt-2 rounded-xl bg-white/[.05] px-3 py-1">
                     <div className="flex items-center justify-between gap-3">

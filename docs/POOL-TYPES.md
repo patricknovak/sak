@@ -112,7 +112,11 @@ own line is right, landing on it is a push (`_ats_side`, `_pick_res`, read by th
 the chances); the host's result says who covered; the crowd's split log leaves these pools out. *The tiebreaker, the
 same day (migration 284):* each round, the total in its last game (`_pickem_last`), a pick 't:<round>' until that game
 starts; the round's top and the game's winner go to the closest (`_pickem_miss`), and the table's tiebreak is the miss on
-the latest round played (`_pickem_tb_round`), which the scoreboard already ranks lowest first.
+the latest round played (`_pickem_tb_round`), which the scoreboard already ranks lowest first. *A missed pick takes the favourite (migration 285):* `rules.missed`
+'favourite' fills every member's missing pick when a game leaves 'scheduled' (`_pickem_autopick`, trigger
+`fixtures_pickem_auto`, which fires before the round's end and the split): the market's side at kick-off (against the
+spread the side giving points; no line, the home side), never a draw, the lowest Confidence number still free, marked
+`auto`; the crowd's split leaves those out.
 
 ### 2.5 Survivor (last one standing, eliminator)
 
