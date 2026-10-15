@@ -186,10 +186,13 @@ export function PickemGame({ gameId, first, status: gameStatus, name, reload, ac
         const st = status(f);
         const done = f.result != null;
         // against the spread: the line a pick on this match carries (a saved pick keeps its own while it stays on that
-        // side), and who covered it once it's over; the host's word, when given, says who covered
-        const homeLine = !actAs && p && f.mine && p.pick === f.mine.pick && f.mine.line != null ? f.mine.line : (f.line ?? 0);
-        const res: Side | 'P' | null = !data.ats || !done || f.host || f.home_score == null || f.away_score == null ? f.result
-          : p && f.mine && p.pick === f.mine.pick && f.mine_res ? f.mine_res : cover(f.home_score, f.away_score ?? 0, homeLine);
+        // side, and one saved before any line takes the line at kick-off), and who covered it once it's over: the
+        // server's verdict on the saved pick first (a match the host settled is scored on each pick's own line and the
+        // host's score), else the feed's score against the line shown
+        const homeLine: number | null = !actAs && p && f.mine && p.pick === f.mine.pick && f.mine.line != null ? f.mine.line : f.line ?? null;
+        const res: Side | 'P' | null = !data.ats || !done ? f.result
+          : p && f.mine && p.pick === f.mine.pick && f.mine_res ? f.mine_res
+          : f.host || f.home_score == null || f.away_score == null || homeLine == null ? null : cover(f.home_score, f.away_score, homeLine);
         const right = done && p && p.pick === res;
         const sides: { k: Side; label: string; club?: Club }[] = [{ k: 'H', label: short(f.home), club: f.home }, ...(data.draws ? [{ k: 'D' as Side, label: 'Draw' }] : []), { k: 'A', label: short(f.away), club: f.away }];
         const total = f.split ? f.split.H + f.split.D + f.split.A : 0;
@@ -218,11 +221,11 @@ export function PickemGame({ gameId, first, status: gameStatus, name, reload, ac
                   const won = done && res === s.k;
                   return (
                     <button key={s.k} type="button" disabled={f.locked || !canPick} onClick={() => choose(f, s.k)}
-                      className={`flex min-h-10 items-center justify-center gap-1 rounded-xl px-2 py-2 text-xs font-bold ring-1 transition ${on ? (done ? (won ? 'bg-emerald-400 text-[#0b1220] ring-emerald-300' : 'bg-red-400/25 text-red-100 ring-red-400/40') : 'bg-gold text-[#0b1220] ring-gold') : won ? 'bg-emerald-400/10 text-emerald-200 ring-emerald-400/30' : 'bg-white/[.04] text-slate-200 ring-white/10 enabled:hover:bg-white/[.08]'} disabled:cursor-default`}>
+                      className={`flex min-h-10 items-center justify-center gap-1 rounded-xl px-2 py-2 text-xs font-bold ring-1 transition ${on ? (done && res != null && res !== 'P' ? (won ? 'bg-emerald-400 text-[#0b1220] ring-emerald-300' : 'bg-red-400/25 text-red-100 ring-red-400/40') : done ? 'bg-white/[.12] text-white ring-white/25' : 'bg-gold text-[#0b1220] ring-gold') : won ? 'bg-emerald-400/10 text-emerald-200 ring-emerald-400/30' : 'bg-white/[.04] text-slate-200 ring-white/10 enabled:hover:bg-white/[.08]'} disabled:cursor-default`}>
                       {on && <Check className="h-3.5 w-3.5" strokeWidth={3} />}{s.label}
                       {/* what the market gave this side before kick-off */}
                       {mk && <span className={`num font-semibold ${on ? 'opacity-70' : 'text-mute'}`}>{chance(s.k === 'H' ? mk.home : s.k === 'A' ? mk.away : mk.draw)}</span>}
-                      {data.ats && s.k !== 'D' && <span className={`num font-semibold ${on ? 'opacity-70' : 'text-mute'}`}>{spread(homeLine, s.k)}</span>}
+                      {data.ats && s.k !== 'D' && (homeLine != null || !done) && <span className={`num font-semibold ${on ? 'opacity-70' : 'text-mute'}`}>{homeLine != null ? spread(homeLine, s.k) : 'line at start'}</span>}
                     </button>
                   );
                 })}
@@ -236,7 +239,7 @@ export function PickemGame({ gameId, first, status: gameStatus, name, reload, ac
               )}
             </div>
             {f.locked && !actAs && f.mine?.auto && <div className="border-t border-white/[.05] px-3 py-1.5 text-[11px] font-semibold text-sky-300">Picked for you at the start: the favourite</div>}
-            {done && p && <div className={`border-t border-white/[.05] px-3 py-1.5 text-[11px] font-semibold ${right ? 'text-emerald-300' : 'text-mute'}`}>{right ? `${data.ats ? 'Covered' : 'Right'}: +${data.confidence ? p.conf : 1}` : res === 'P' ? 'A push: it landed right on the line' : data.ats ? 'Didn\u2019t cover' : 'Not this time'}</div>}
+            {done && p && res != null && <div className={`border-t border-white/[.05] px-3 py-1.5 text-[11px] font-semibold ${right ? 'text-emerald-300' : 'text-mute'}`}>{right ? `${data.ats ? 'Covered' : 'Right'}: +${data.confidence ? p.conf : 1}` : res === 'P' ? 'A push: it landed right on the line' : data.ats ? 'Didn\u2019t cover' : 'Not this time'}</div>}
             {/* the host's word, for everyone to see */}
             {f.host && (
               <div className="flex flex-wrap items-center gap-x-2 gap-y-1 border-t border-amber-400/20 bg-amber-400/[.06] px-3 py-2 text-[11px] text-amber-100">

@@ -38,6 +38,8 @@ export function WinsGame({ gameId, data, status, reload, actAs }: { gameId: numb
   const calls = draft ?? saved;
   const [lines, setLines] = useState<Record<string, number> | null>(null);
   const canCall = status === 'open' && !data.locked && (me?.role === 'gm' || !!actAs);
+  // the host's line editor, open only while the lines can still change
+  const editing = !!lines && !data.locked && status === 'open';
   const n = data.clubs.length;
   const made = Object.keys(calls).length;
   const dirty = draft != null && JSON.stringify(Object.entries(draft).sort()) !== JSON.stringify(Object.entries(saved).sort());
@@ -84,7 +86,7 @@ export function WinsGame({ gameId, data, status, reload, actAs }: { gameId: numb
 
       {me?.is_commish && status === 'open' && !data.locked && !actAs && (
         <div className="flex items-center justify-between gap-3 rounded-2xl bg-black/20 px-3 py-2 ring-1 ring-white/[.06]">
-          <span className="text-[13px] font-semibold text-white">{lines ? 'Set the lines' : 'The lines'}<span className="block text-[11px] font-normal text-mute">{lines ? 'A half-win at a time; the pool hears when they change' : 'Yours to change until the opener'}</span></span>
+          <span className="text-[13px] font-semibold text-white">{lines ? 'Set the lines' : 'The lines'}<span className="block text-[11px] font-normal text-mute">{lines ? 'A half-win at a time. A line someone has called stays as it is.' : 'Yours to change until the opener, until someone calls them'}</span></span>
           {lines
             ? <div className="flex shrink-0 gap-1.5"><button type="button" className="btn-ghost px-3 py-1.5 text-xs" onClick={() => setLines(null)}>Cancel</button>
                 <button type="button" className="btn-gold px-3 py-1.5 text-xs" disabled={busy || !linesChanged.length} onClick={saveLines}>Save {linesChanged.length || ''}</button></div>
@@ -92,7 +94,7 @@ export function WinsGame({ gameId, data, status, reload, actAs }: { gameId: numb
         </div>
       )}
 
-      <Section title={lines ? 'Every line' : data.locked ? 'Every team' : 'Make your calls'}>
+      <Section title={editing ? 'Every line' : data.locked ? 'Every team' : 'Make your calls'}>
         <div className="card divide-y divide-white/[.05] p-1">
           {data.clubs.map((c) => {
             const mine = calls[c.id] as Call | undefined;
@@ -107,11 +109,11 @@ export function WinsGame({ gameId, data, status, reload, actAs }: { gameId: numb
                   <div className="min-w-0 flex-1">
                     <div className="break-words text-sm font-bold leading-tight text-white">{c.name}</div>
                     <div className="text-[11px] text-mute">
-                      {lines ? 'Line' : <><span className="num font-bold text-gold">{fmt(c.line)}</span> wins</>}
+                      {editing ? 'Line' : <><span className="num font-bold text-gold">{fmt(c.line)}</span> wins</>}
                       {gp > 0 && <> · <span className="num text-slate-200">{c.w}-{c.l}{c.d ? `-${c.d}` : ''}</span>{pc != null && !c.decided ? `, on pace for ${pc}` : ''}</>}
                     </div>
                   </div>
-                  {lines ? (
+                  {editing ? (
                     <div className="flex shrink-0 items-center gap-1">
                       <button type="button" aria-label="Half a win fewer" className="grid h-8 w-8 place-items-center rounded-full bg-white/[.06] text-white" onClick={() => step(c, -0.5)}><Minus className="h-4 w-4" /></button>
                       <span className={`num w-11 text-center text-base font-black ${lineOf(c) !== c.line ? 'text-gold' : 'text-white'}`}>{fmt(lineOf(c))}</span>
@@ -157,7 +159,7 @@ export function WinsGame({ gameId, data, status, reload, actAs }: { gameId: numb
         </div>
       </Section>
 
-      {canCall && !lines && (dirty || made < n) && (
+      {canCall && !editing && (dirty || (!actAs && made === 0)) && (
         <div className="sticky bottom-24 z-10">
           <button type="button" className="btn-gold w-full py-3 shadow-[0_12px_30px_-10px_rgba(0,0,0,.8)]" disabled={busy || !dirty || (!!actAs && made === 0)} onClick={save}>
             {dirty ? (actAs ? `Add ${made} ${made === 1 ? 'call' : 'calls'} for ${actAs.name}` : made === 0 ? 'Take back my calls' : `Save my ${made} ${made === 1 ? 'call' : 'calls'}`) : `${n - made} ${n - made === 1 ? 'team' : 'teams'} still to call`}

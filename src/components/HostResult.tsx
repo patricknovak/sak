@@ -73,9 +73,9 @@ export function HostResult({ fixture, home, away, override, draws, score, onDone
           {(
             <div className="flex items-center gap-2 text-sm text-slate-200">
               <span className="min-w-0 flex-1 truncate text-right">{home.short ?? home.name}</span>
-              <input inputMode="numeric" aria-label={`${home.name} score`} className="input w-14 py-1.5 text-center" value={h} onChange={(e) => { setH(e.target.value.replace(/\D/g, '').slice(0, 2)); setPick(null); }} />
+              <input inputMode="numeric" aria-label={`${home.name} score`} className="input w-14 py-1.5 text-center" value={h} onChange={(e) => { setH(e.target.value.replace(/\D/g, '').slice(0, 3)); setPick(null); }} />
               <span className="text-white/40">-</span>
-              <input inputMode="numeric" aria-label={`${away.name} score`} className="input w-14 py-1.5 text-center" value={a} onChange={(e) => { setA(e.target.value.replace(/\D/g, '').slice(0, 2)); setPick(null); }} />
+              <input inputMode="numeric" aria-label={`${away.name} score`} className="input w-14 py-1.5 text-center" value={a} onChange={(e) => { setA(e.target.value.replace(/\D/g, '').slice(0, 3)); setPick(null); }} />
               <span className="min-w-0 flex-1 truncate">{away.short ?? away.name}</span>
             </div>
           )}

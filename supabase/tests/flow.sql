@@ -4429,7 +4429,8 @@ set role authenticated;
 select pool_game_start('pickem', 'ats-test', '{"ats": true}') as atg \gset
 select pg_temp.expect('started against the spread', (pool_pickem_board(:atg, 1)->>'ats')::boolean
   and (select (f->>'line')::numeric = -1.5 from jsonb_array_elements(pool_pickem_board(:atg, 1)->'fixtures') f where (f->>'id')::bigint = :at1)
-  and (select (f->>'line')::numeric = 0 from jsonb_array_elements(pool_pickem_board(:atg, 1)->'fixtures') f where (f->>'id')::bigint = :at2));
+  -- a game with no line out shows none (migration 301), not a pick'em line of 0
+  and (select f ? 'line' and f->>'line' is null from jsonb_array_elements(pool_pickem_board(:atg, 1)->'fixtures') f where (f->>'id')::bigint = :at2));
 select pool_pickem_save(:atg, 1, jsonb_build_array(jsonb_build_object('fixture', :at1, 'pick', 'H'), jsonb_build_object('fixture', :at2, 'pick', 'H')));
 reset role;
 select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-000000000082', false);

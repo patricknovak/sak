@@ -267,7 +267,7 @@ export default function NewPool() {
               <Step title="What kind of pool?">
                 <div className="grid gap-2">
                   {[...offered.map((k) => ({ key: k as GameKind | 'questions', ...KINDS[k], sub: `${KINDS[k].line} ${KINDS[k].time}.` })),
-                    ...(eventPack ? [{ key: 'questions' as const, title: 'The questions', badge: 'In Supercoins', emoji: '🔮', sub: `${eventPack.questions} questions on the ${event.final_label.replace(/^(AL|NL) /, '')} and the pennants, priced like a market: buy what you believe, sell if you change your mind.`, time: '', line: '' }] : [])].map((k) => {
+                    ...(eventPack ? [{ key: 'questions' as const, title: 'The questions', badge: 'In Supercoins', emoji: '🔮', sub: `${eventPack.questions} questions on ${event.word ? 'the season: the title, the races and the awards' : `the ${event.final_label.replace(/^(AL|NL) /, '')} and the pennants`}, priced like a market: buy what you believe, sell if you change your mind.`, time: '', line: '' }] : [])].map((k) => {
                     const on = kinds.includes(k.key);
                     const main = on && kinds.filter((x) => (offered as string[]).includes(x) || x === 'questions')[0] === k.key;
                     return (
