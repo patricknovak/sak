@@ -757,3 +757,7 @@ Built for SaK and, as every SaK change is, for every league:
 - **Pick the favourites** (pick'em, every sport): one tap fills every open, unpicked match with the side ESPN's line
   favours, the surest numbered highest in Confidence, nothing saved until Save; a round of more than twelve games reads
   day by day. An NHL or NBA week is about fifty games.
+- **A landing page for NHL pools** (`landing/hockey-pools.html`, `/hockey-pools`, in the sitemap, linked from the home
+  page's footer and quick starts): the daily streak, weekly pick'em, last one standing, the box pool and the fantasy
+  league with best ball and the guillotine, each a link that opens the start page on the right event, and an FAQ that
+  goes to search as structured data. The plan's gate is people; hockey is the ground the product knows best.
