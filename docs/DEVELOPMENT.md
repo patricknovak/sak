@@ -9,7 +9,7 @@ Paid subscribed: section 1 and section 8 are that review.
 
 ## 1. Where we are
 
-*As of 15 October 2026, migration 299.*
+*As of 15 October 2026, migration 300.*
 
 - **SaK**, the live league: eight GMs, used every night, on React 19 + Supabase (Postgres rules, edge functions, a
   scheduler) and an LLM voice (Garry, on Grok, metered per feature and league), served from Cloudflare. The season is
@@ -29,7 +29,7 @@ Paid subscribed: section 1 and section 8 are that review.
 - **Use so far is the founder's.** Four prediction pools besides SaK, one or two members each, one pick between them
   and no chat (section 9.2, 13 October). The Love Is Blind gate (three pools, thirty players by 4 November) is the first
   real test of the product with strangers; the premiere is 14 October, and the week's build for it is section 9.5.
-- 299 migrations; the flow test drives a whole fantasy season and every pool kind in SQL, with a second league beside
+- 300 migrations; the flow test drives a whole fantasy season and every pool kind in SQL, with a second league beside
   each that must never see or change it; CI runs it, the build and the Worker's types on every pull request.
 
 ## 2. What is working, and stays
@@ -832,6 +832,8 @@ Built for SaK and, as every SaK change is, for every league:
   best record and how many games it wins, MVP, Rookie and Defensive Player of the Year), the answers in the order
   DraftKings' futures on ESPN had them before opening night, coins on the first of each month; it rides the season
   (`competitions.pack`), so an NBA pool on the start page opens with its questions ticked, as a World Series pool does.
+  The NHL's games, the Premier League and MLS carry their packs the same way (migration 300); the start page no longer
+  lists those packs on their own, and a host who wants only the questions leaves the games unticked.
 - **Pick the favourites** (pick'em, every sport): one tap fills every open, unpicked match with the side ESPN's line
   favours, the surest numbered highest in Confidence, nothing saved until Save; a round of more than twelve games reads
   day by day. An NHL or NBA week is about fifty games.
