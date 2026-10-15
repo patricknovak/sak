@@ -168,7 +168,8 @@ on the site, and the switcher.
   on a competition; every player calls every match, each call open until kick-off; the exact score 3 points, the right
   result 1, one banker a matchweek doubled; points land at the final whistle through a trigger on `fixtures`, the pool
   hears each matchweek's winner, and a reminder goes out a few hours before a matchweek's first kick-off to anyone with
-  matches to call or no survivor pick.*
+  matches to call or no survivor pick.* *Women's soccer on (15 October 2026, migration 305): the WSL (2026-27) and the
+  NWSL's last matchweeks, on the same free feed; the Champions League and Liga MX are set up and still off.*
 - **P4. Soccer fantasy.** The weekly engine with FPL-style scoring, for the second half of 2026-27 or for 2027-28.
 - **P5. The calendar of pools.** Question packs for The Bachelor, The Traitors, award nights, March Madness and the NHL
   playoffs; creator-hosted public pools. *Started (migration 159, live): the World Series 2026 pack (the pennants, the series, the
@@ -176,6 +177,9 @@ on the site, and the switcher.
   scoring races); the start pages (`#/new`, My pools) read like a calendar, `pool_pack_list()` listing only packs with a
   question still to call, soonest deadline first, with when the first call closes; a pool started late takes only the
   questions still open. Next: packs for what airs in the winter (The Traitors, The Bachelor, the award nights).*
+  *15 October 2026: the NBA 2026-27 (migration 299), the NFL 2026 (304) and the 2027 Women's World Cup (306) packs, the
+  answers in the market's order where one prices them; a season carries its pack (`competitions.pack`, migration 300), so
+  a start on the NBA, the NFL, the NHL's games, the Premier League or MLS ticks its questions beside the games.*
 
 **Then, from 5 October 2026 (`docs/POOL-TYPES.md`, Patrick: a sports pool should ask what kind of pool you want and
 give the pool a home for following the sport):**
