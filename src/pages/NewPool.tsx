@@ -66,6 +66,8 @@ export default function NewPool() {
   // against the spread on from the link too (#/new?comp=nfl&ats=1, the football landing page's)
   const [ats, setAts] = useState(params.get('ats') === '1');
   const [missFav, setMissFav] = useState(false);
+  // a season-long pick'em can drop each player's worst weeks (migration 294)
+  const [dropN, setDropN] = useState(0);
   // last one standing's lives (migration 288): out on the first loss, or the second or third
   const [lives, setLives] = useState(1);
   // the box pool's size and window (migration 188)
@@ -135,7 +137,7 @@ export default function NewPool() {
   const sheetGame = event ? (event.sheets ?? []).find((g) => g.id === sheetOn) ?? event.sheets?.[0] ?? null : null;
   const offered: GameKind[] = event ? [...event.kinds.filter((k) => k in KINDS), ...(gridSeries ? ['squares' as const] : [])] : [];
   const gamesPayload = games.filter((k) => (k !== 'squares' || gridSeries) && (k !== 'props' || sheetGame)).map((k) => ({ kind: k, competition: event!.competition,
-    rules: k === 'series' ? { preset } : k === 'pickem' ? { preset: pkPreset, ...(ats && atsFits(event?.sport) ? { ats: true } : {}), ...(missFav ? { missed: 'favourite' } : {}) } : k === 'players' ? box : k === 'squares' ? { ...grid, ...gridRules(gridSeries!) }
+    rules: k === 'series' ? { preset } : k === 'pickem' ? { preset: pkPreset, ...(ats && atsFits(event?.sport) ? { ats: true } : {}), ...(missFav ? { missed: 'favourite' } : {}), ...(dropN ? { drop: dropN } : {}) } : k === 'players' ? box : k === 'squares' ? { ...grid, ...gridRules(gridSeries!) }
       : k === 'survivor' ? (lives > 1 ? { lives } : {})
       : k === 'props' ? { fixture: sheetGame!.id, ...(everySheet ? { auto: true } : {}) }
       // a bracket on best-of-7s takes a point for calling the games too (migration 228)
@@ -357,6 +359,12 @@ export default function NewPool() {
                     <Toggle on={missFav} onChange={setMissFav} />
                   </div>
                   {missFav && <p className="pb-2 text-[11px] leading-snug text-white/70">{MISSED_LINE}</p>}
+                </div>
+                <div className="mt-2 flex items-center justify-between gap-3 rounded-xl bg-white/[.05] px-3 py-2">
+                  <span className="text-[13px] font-semibold text-white">Drop the worst {(event.word ?? 'round').toLowerCase()}s<span className="block text-[11px] font-normal text-white/60">A bad week or a late start, forgiven</span></span>
+                  <div className="flex shrink-0 gap-1 rounded-xl bg-black/25 p-1">
+                    {[0, 1, 2].map((n) => <button key={n} type="button" onClick={() => setDropN(n)} className={`rounded-lg px-2.5 py-1 text-xs font-bold transition ${dropN === n ? 'bg-white text-[#0b1220]' : 'text-white/70'}`}>{n === 0 ? 'None' : n}</button>)}
+                  </div>
                 </div>
                 {atsFits(event.sport) && (
                   <div className="mt-2 rounded-xl bg-white/[.05] px-3 py-1">

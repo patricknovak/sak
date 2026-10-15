@@ -4622,6 +4622,48 @@ select set_config('app.league_id', '', false);
 select set_config('request.jwt.claim.sub', '', false);
 select 'the invite''s next game', true;
 
+-- ───────────── drop the worst rounds in pick'em (migration 294) ─────────────
+-- one round dropped: Hana right in rounds 1 and 3, no pick in round 2; her round 2 comes off only once more rounds are
+-- finished than are dropped
+reset role;
+select set_config('request.jwt.claim.sub', '', false);
+select set_config('app.league_id', '', false);
+insert into competitions (id, sport, name, short, season, provider, ext_id, ext_season, active)
+values ('dr-test', 'mlb', 'Drop Bowl', 'DB', '2026', 'mlb-statsapi', 'drt', '2026', true) on conflict (id) do nothing;
+insert into fixtures (sport, competition, provider, ext_id, season, gameweek, kickoff, date, home_club, away_club, state) values
+  ('mlb', 'dr-test', 'mlb-statsapi', 'dr-1', '2026', 1, now() + interval '2 days', (now() + interval '2 days')::date, :alb, :bri, 'scheduled'),
+  ('mlb', 'dr-test', 'mlb-statsapi', 'dr-2', '2026', 2, now() + interval '9 days', (now() + interval '9 days')::date, :bri, :alb, 'scheduled'),
+  ('mlb', 'dr-test', 'mlb-statsapi', 'dr-3', '2026', 3, now() + interval '16 days', (now() + interval '16 days')::date, :alb, :bri, 'scheduled');
+select id as dr1 from fixtures where ext_id = 'dr-1' \gset
+select id as dr2 from fixtures where ext_id = 'dr-2' \gset
+select id as dr3 from fixtures where ext_id = 'dr-3' \gset
+select pg_temp.raises('up to three dropped', $$select _pickem_rules('dr-test', '{"drop": 5}')$$, 'up to three');
+select set_config('app.league_id', :'lib', false);
+select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-000000000081', false);
+set role authenticated;
+select pool_game_start('pickem', 'dr-test', '{"drop": 1}') as drg \gset
+select pool_pickem_save(:drg, 1, jsonb_build_array(jsonb_build_object('fixture', :dr1, 'pick', 'H')));
+select pool_pickem_save(:drg, 3, jsonb_build_array(jsonb_build_object('fixture', :dr3, 'pick', 'H')));
+reset role;
+update fixtures set kickoff = now() - interval '3 hours', state = 'final', home_score = 4, away_score = 1 where id = :dr1;
+select pg_temp.expect('one round finished: nothing dropped yet', (select points = 1 from _pickem_table(:drg) where team_id = :hana));
+update fixtures set kickoff = now() - interval '3 hours', state = 'final', home_score = 2, away_score = 1 where id = :dr2;
+select pg_temp.expect('two finished: the worst (round 2, no pick) comes off, nothing to lose from it',
+  (select points = 1 and possible = 2 from _pickem_table(:drg) where team_id = :hana));
+update fixtures set kickoff = now() - interval '3 hours', state = 'final', home_score = 5, away_score = 3 where id = :dr3;
+select pg_temp.expect('three finished: 2 of the best two rounds, round 2 marked dropped in the grid',
+  (select points = 2 and right_calls = 2 from _pickem_table(:drg) where team_id = :hana)
+  and (select x->'dropped' = '[2]'::jsonb from jsonb_array_elements(pool_pickem_weeks(:drg)->'rows') x where (x->>'team_id')::int = :hana)
+  and (select winners = array[:hana]::int[] from pool_games where id = :drg));
+reset role;
+delete from pool_picks where game_id = :drg;
+delete from pool_games where id = :drg;
+delete from fixtures where competition = 'dr-test';
+delete from competitions where id = 'dr-test';
+select set_config('app.league_id', '', false);
+select set_config('request.jwt.claim.sub', '', false);
+select 'drop the worst rounds', true;
+
 -- ───────────── a missed pick takes the favourite (migration 285) ─────────────
 -- a Confidence pick'em with missed picks on the favourite: when a game starts, whoever made no pick gets the market's
 -- side with the lowest number still free; a pick made stays; the crowd's split leaves the filled ones out

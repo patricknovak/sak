@@ -358,6 +358,7 @@ function GameRules({ board }: { board: GameBoard }) {
     lines.push(pk.draws ? 'The result after ninety minutes and stoppage time counts: extra time and penalties don’t.' : pk.ats ? 'A tie is scored against the line like any other result: at 3 points, the side getting them covered.' : 'A tie counts for nobody: no one picked it.');
     lines.push(pk.missed === 'favourite' ? 'Join any time: you play every match still to kick off. A match you don\u2019t pick takes the market\u2019s favourite when it starts. A match called off counts for nobody.' : 'Join any time: you play every match still to kick off. A match called off counts for nobody.');
     lines.push(`Each ${pk.word.toLowerCase()} has a tiebreaker: the total in its last game. A tie on points for the ${pk.word.toLowerCase()} goes to whoever is closest, and a tie at the end to whoever was closest on the last one played; no call, and the tie is shared.`);
+    if ((board.rules as { drop?: number }).drop) lines.push(`Each player's worst ${(board.rules as { drop?: number }).drop === 1 ? pk.word.toLowerCase() : `${(board.rules as { drop?: number }).drop} ${pk.word.toLowerCase()}s`} come${(board.rules as { drop?: number }).drop === 1 ? 's' : ''} off their total, once more ${pk.word.toLowerCase()}s are played than are dropped.`);
     lines.push('The most points wins.');
   } else if (board.sweep) {
     lines.push(`At the first game of the ${board.sweep.round_label ?? 'round'}, every player in the pool is dealt clubs from the hat at random, round the pool in turn, so some may hold one more. The host can draw it sooner.`);
@@ -459,14 +460,14 @@ function GameTable({ board }: { board: GameBoard }) {
 
 // week by week (migration 290): everyone's points in each round played, latest first, each finished round's winner in
 // gold; the grid scrolls sideways inside its card once a season has more weeks than a phone shows
-interface Weeks { word: string; rounds: { round: number; done: boolean; winners: number[] }[]; rows: { team_id: number; weeks: Record<string, number> }[] }
+interface Weeks { word: string; drop?: number; rounds: { round: number; done: boolean; winners: number[] }[]; rows: { team_id: number; weeks: Record<string, number>; dropped?: number[] }[] }
 function PickemWeeks({ gameId, me, stamp }: { gameId: number; me: number | null; stamp: string }) {
   const { teams } = useLeague();
   const [w, setW] = useState<Weeks | null>(null);
   useEffect(() => { rpc<Weeks>('pool_pickem_weeks', { p_game: gameId }).then(setW, () => setW(null)); }, [gameId, stamp]);
   if (!w || w.rounds.length === 0) return null;
   const rounds = [...w.rounds].reverse();
-  const total = (r: Weeks['rows'][number]) => Object.values(r.weeks).reduce((a, b) => a + b, 0);
+  const total = (r: Weeks['rows'][number]) => Object.entries(r.weeks).reduce((a, [k, b]) => a + (r.dropped?.includes(Number(k)) ? 0 : b), 0);
   const rows = [...w.rows].sort((a, b) => total(b) - total(a) || a.team_id - b.team_id);
   const won = (team: number) => w.rounds.filter((r) => r.winners.includes(team)).length;
   return (
@@ -491,7 +492,9 @@ function PickemWeeks({ gameId, me, stamp }: { gameId: number; me: number | null;
                   {rounds.map((rd) => {
                     const v = r.weeks[String(rd.round)] ?? 0;
                     const top = rd.winners.includes(r.team_id);
-                    return <td key={rd.round} className="px-1 py-1.5 text-center"><span className={`num inline-grid h-7 min-w-8 place-items-center rounded-lg px-1.5 text-[13px] font-bold ${top ? 'bg-gold text-[#0b1220]' : v ? 'bg-white/[.05] text-white' : 'text-mute'}`}>{v}</span></td>;
+                    // a round dropped from this player's total (migration 294)
+                    const off = r.dropped?.includes(rd.round);
+                    return <td key={rd.round} className="px-1 py-1.5 text-center"><span title={off ? 'Dropped' : undefined} className={`num inline-grid h-7 min-w-8 place-items-center rounded-lg px-1.5 text-[13px] font-bold ${top ? 'bg-gold text-[#0b1220]' : v ? 'bg-white/[.05] text-white' : 'text-mute'} ${off ? 'line-through opacity-40' : ''}`}>{v}</span></td>;
                   })}
                 </tr>
               );
@@ -499,7 +502,7 @@ function PickemWeeks({ gameId, me, stamp }: { gameId: number; me: number | null;
           </tbody>
         </table>
       </div>
-      <p className="mt-2 px-1 text-xs text-mute">Each {w.word.toLowerCase()}&rsquo;s points, the latest first. Gold is the {w.word.toLowerCase()}&rsquo;s winner (level on points, the closest tiebreaker){rounds.some((r) => !r.done) ? '; * is still being played' : ''}.</p>
+      <p className="mt-2 px-1 text-xs text-mute">Each {w.word.toLowerCase()}&rsquo;s points, the latest first. Gold is the {w.word.toLowerCase()}&rsquo;s winner (level on points, the closest tiebreaker){rounds.some((r) => !r.done) ? '; * is still being played' : ''}{w.drop ? `; struck through, each player's worst ${w.drop === 1 ? w.word.toLowerCase() : `${w.drop} ${w.word.toLowerCase()}s`}, dropped from the total` : ''}.</p>
     </Section>
   );
 }
@@ -641,6 +644,7 @@ function HostDesk({ board, reload, onActAs }: { board: GameBoard; reload: () => 
   const [toRound, setToRound] = useState<number>(pk?.to_round ?? 0);
   const [ats, setAts] = useState<boolean>(!!pk?.ats);
   const [missFav, setMissFav] = useState<boolean>(pk?.missed === 'favourite');
+  const [dropN, setDropN] = useState<number>(Number((board.rules as { drop?: number }).drop ?? 0));
   // a box pool's window ('week', 'month', 'season'): the same key a series game uses for its length points
   const boxLen = board.kind === 'players' ? String((board.rules as { length?: unknown }).length ?? 'month') : 'month';
   const [len, setLen] = useState<string>(boxLen);
@@ -652,7 +656,7 @@ function HostDesk({ board, reload, onActAs }: { board: GameBoard; reload: () => 
   const picked = pk ? pk.fixtures.some((f) => f.picked > 0) : board.players ? board.players.picked > 0 : false;
   const presetLock = !!pk || board.kind === 'players';
   const members = teams.filter((t) => t.role === 'gm' && t.id !== me?.id);
-  const changed = preset !== (board.rules.preset ?? 'classic') || (pk && (toRound !== pk.to_round || ats !== !!pk.ats || missFav !== (pk.missed === 'favourite'))) || (board.kind === 'players' && len !== boxLen);
+  const changed = preset !== (board.rules.preset ?? 'classic') || (pk && (toRound !== pk.to_round || ats !== !!pk.ats || missFav !== (pk.missed === 'favourite') || dropN !== Number((board.rules as { drop?: number }).drop ?? 0))) || (board.kind === 'players' && len !== boxLen);
   const chip = (on: boolean) => `rounded-full px-3 py-1.5 text-xs font-semibold ring-1 transition ${on ? 'bg-gold text-[#0b1220] ring-gold' : 'bg-white/[.04] text-slate-200 ring-white/10'} disabled:opacity-40`;
   return (
     <Section title="Host">
@@ -672,6 +676,12 @@ function HostDesk({ board, reload, onActAs }: { board: GameBoard; reload: () => 
                 <div className="flex items-center justify-between gap-3 rounded-2xl bg-black/20 px-3 py-1 ring-1 ring-white/[.06]">
                   <span className="text-[13px] font-semibold text-white">Forgot a pick? The favourite<span className="block text-[11px] font-normal text-mute">Instead of nothing, when the game starts</span></span>
                   <Toggle on={missFav} onChange={setMissFav} />
+                </div>
+              )}
+              {pk && (
+                <div className="flex items-center justify-between gap-3 rounded-2xl bg-black/20 px-3 py-1.5 ring-1 ring-white/[.06]">
+                  <span className="text-[13px] font-semibold text-white">Drop the worst {pk.word.toLowerCase()}s<span className="block text-[11px] font-normal text-mute">A bad week or a late start, forgiven</span></span>
+                  <div className="flex shrink-0 gap-1">{[0, 1, 2].map((n) => <button key={n} type="button" onClick={() => setDropN(n)} className={chip(dropN === n)}>{n === 0 ? 'None' : n}</button>)}</div>
                 </div>
               )}
               {pk && !pk.draws && (
@@ -695,7 +705,7 @@ function HostDesk({ board, reload, onActAs }: { board: GameBoard; reload: () => 
                 </label>
               )}
               <button type="button" className="btn-gold w-full" disabled={busy || !changed}
-                onClick={() => run(async () => { await rpc('pool_game_set_rules', { p_game: board.id, p_rules: { preset, ...(pk ? { to_round: toRound, ats, missed: missFav ? 'favourite' : 'zero' } : {}), ...(board.kind === 'players' && !board.players?.playoffs ? { length: len } : {}) } }); reload(); }, 'The rules are changed')}>
+                onClick={() => run(async () => { await rpc('pool_game_set_rules', { p_game: board.id, p_rules: { preset, ...(pk ? { to_round: toRound, ats, missed: missFav ? 'favourite' : 'zero', drop: dropN } : {}), ...(board.kind === 'players' && !board.players?.playoffs ? { length: len } : {}) } }); reload(); }, 'The rules are changed')}>
                 Change the rules
               </button>
               <p className="text-[11px] leading-snug text-mute">Rules can change until the first lock; the pool hears about it.</p>
@@ -727,6 +737,7 @@ export function HostGames() {
   const [pkPreset, setPkPreset] = useState<PickemPreset>('classic');
   const [pkAts, setPkAts] = useState(false);
   const [pkMiss, setPkMiss] = useState(false);
+  const [pkDrop, setPkDrop] = useState(0);
   const [svLives, setSvLives] = useState(1);
   // a bracket on best-of-7s can carry a point for calling the games (migration 228)
   const [gamesBonus, setGamesBonus] = useState(true);
@@ -791,6 +802,10 @@ export function HostGames() {
                   </div>
                   {pkMiss && <p className="pb-2 text-[11px] leading-snug text-mute">{MISSED_LINE}</p>}
                 </div>
+                <div className="mt-2 flex items-center justify-between gap-3 rounded-2xl bg-black/20 px-3 py-1.5 ring-1 ring-white/[.06]">
+                  <span className="text-[13px] font-semibold text-white">Drop the worst {(e.word ?? 'round').toLowerCase()}s<span className="block text-[11px] font-normal text-mute">A bad week or a late start, forgiven</span></span>
+                  <div className="flex shrink-0 gap-1">{[0, 1, 2].map((n) => <button key={n} type="button" onClick={() => setPkDrop(n)} className={`rounded-full px-2.5 py-1 text-xs font-bold ring-1 ${pkDrop === n ? 'bg-gold text-[#0b1220] ring-gold' : 'bg-white/[.04] text-slate-200 ring-white/10'}`}>{n === 0 ? 'None' : n}</button>)}</div>
+                </div>
                 {atsFits(e.sport) && (
                   <div className="mt-2 rounded-2xl bg-black/20 px-3 py-1 ring-1 ring-white/[.06]">
                     <div className="flex items-center justify-between gap-3">
@@ -820,7 +835,7 @@ export function HostGames() {
               <div className="flex flex-wrap gap-1.5">{PRESETS.map((p) => <button key={p.key} type="button" onClick={() => setPreset(p.key)} className={`rounded-full px-3 py-1 text-xs font-semibold ring-1 ${preset === p.key ? 'bg-gold text-[#0b1220] ring-gold' : 'bg-white/[.04] text-slate-200 ring-white/10'}`}>{p.label}</button>)}</div>
             )}
             <button type="button" className="btn-gold w-full" disabled={busy}
-              onClick={() => run(async () => { await rpc('pool_game_start', { p_kind: k, p_competition: e.competition, p_rules: k === 'series' ? { preset } : k === 'pickem' ? { preset: pkPreset, ...(pkAts && atsFits(e.sport) ? { ats: true } : {}), ...(pkMiss ? { missed: 'favourite' } : {}) } : k === 'bracket' && SERIES_SPORTS.includes(e.sport) ? { games_bonus: gamesBonus ? 1 : 0 } : k === 'survivor' && svLives > 1 ? { lives: svLives } : {} }); if (k === 'survivor') nav('/survivor'); else if (k === 'score') nav('/predictor'); else reload(); }, `${KINDS[k].title} is on`)}>
+              onClick={() => run(async () => { await rpc('pool_game_start', { p_kind: k, p_competition: e.competition, p_rules: k === 'series' ? { preset } : k === 'pickem' ? { preset: pkPreset, ...(pkAts && atsFits(e.sport) ? { ats: true } : {}), ...(pkMiss ? { missed: 'favourite' } : {}), ...(pkDrop ? { drop: pkDrop } : {}) } : k === 'bracket' && SERIES_SPORTS.includes(e.sport) ? { games_bonus: gamesBonus ? 1 : 0 } : k === 'survivor' && svLives > 1 ? { lives: svLives } : {} }); if (k === 'survivor') nav('/survivor'); else if (k === 'score') nav('/predictor'); else reload(); }, `${KINDS[k].title} is on`)}>
               Start {second(e, k) ? 'the second-chance bracket' : KINDS[k].title.toLowerCase()}
             </button>
           </div>

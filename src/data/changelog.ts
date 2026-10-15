@@ -6,6 +6,8 @@
 export interface Change { date: string; icon: string; title: string; body: string; to?: string; tag?: 'formats' | 'commish' | 'draft' | 'everyone' }
 
 export const CHANGELOG: Change[] = [
+  { date: '2026-10-15', icon: '🧹', tag: 'everyone', title: 'Drop the worst weeks in pick\'em', to: '/new',
+    body: 'A season-long pick\'em can drop each player\'s worst one or two weeks from their total, so a bad week or a late start is forgiven. Pick it when you start the pool, or before the first lock; the week-by-week grid strikes the dropped weeks through.' },
   { date: '2026-10-15', icon: '🔗', tag: 'everyone', title: 'A sports pool\'s invite shows what\'s first', to: '/pools',
     body: 'An invite to a pick\'em or last one standing pool now leads with its next game, "NFL pick\'em, Week 7: 15 games", and when the first pick locks, on the join page and in the link\'s preview in the group chat.' },
   { date: '2026-10-15', icon: '📅', tag: 'everyone', title: 'Pick\'em week by week', to: '/picks',

@@ -117,7 +117,8 @@ the latest round played (`_pickem_tb_round`), which the scoreboard already ranks
 `fixtures_pickem_auto`, which fires before the round's end and the split): the market's side at kick-off (against the
 spread the side giving points; no line, the home side), never a draw, the lowest Confidence number still free, marked
 `auto`; the crowd's split leaves those out. *Review fixes (migration 286):* a tiebreaker call keeps its game (`{runs, fixture}`); a spread game
-settled by hand needs the final score; a pick with no line out yet takes the line at kick-off.
+settled by hand needs the final score; a pick with no line out yet takes the line at kick-off. *Drop the worst rounds (migration
+294):* `rules.drop` 0 to 3, each member's lowest finished rounds off their total.
 
 ### 2.5 Survivor (last one standing, eliminator)
 
