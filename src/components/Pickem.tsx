@@ -265,12 +265,13 @@ export function PickemGame({ gameId, first, status: gameStatus, name, reload, ac
                           const next = { ...settle, [k]: e.target.value };
                           const hh = Number(next.h), aa = Number(next.a);
                           // the result follows the score as it is typed
-                          if (next.h && next.a) next.side = hh > aa ? 'H' : hh < aa ? 'A' : data.draws ? 'D' : next.side;
+                          if (next.h && next.a) next.side = hh > aa ? 'H' : hh < aa ? 'A' : 'D';
                           setSettle(next);
                         }} /></label>
                     ))}
                   </div>
                 )}
+                {data.ats && !data.draws && settle.side === 'D' && <p className="text-[11px] text-amber-100">Level: a tie, scored against each pick&rsquo;s line.</p>}
                 <input className="input w-full text-sm" maxLength={200} placeholder="Why: the feed stuck at half-time, it ended 2-0" value={settle.reason} onChange={(e) => setSettle({ ...settle, reason: e.target.value })} />
                 <div className="flex gap-2">
                   <button type="button" className="btn-gold flex-1" disabled={busy || !settle.side || settle.reason.trim().length < 3 || (data.ats && settle.side !== 'void' && (!settle.h || !settle.a))}

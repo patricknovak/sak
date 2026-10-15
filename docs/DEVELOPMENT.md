@@ -9,7 +9,7 @@ Paid subscribed: section 1 and section 8 are that review.
 
 ## 1. Where we are
 
-*As of 15 October 2026, migration 290.*
+*As of 15 October 2026, migration 291.*
 
 - **SaK**, the live league: eight GMs, used every night, on React 19 + Supabase (Postgres rules, edge functions, a
   scheduler) and an LLM voice (Garry, on Grok, metered per feature and league), served from Cloudflare. The season is
@@ -29,7 +29,7 @@ Paid subscribed: section 1 and section 8 are that review.
 - **Use so far is the founder's.** Four prediction pools besides SaK, one or two members each, one pick between them
   and no chat (section 9.2, 13 October). The Love Is Blind gate (three pools, thirty players by 4 November) is the first
   real test of the product with strangers; the premiere is 14 October, and the week's build for it is section 9.5.
-- 290 migrations; the flow test drives a whole fantasy season and every pool kind in SQL, with a second league beside
+- 291 migrations; the flow test drives a whole fantasy season and every pool kind in SQL, with a second league beside
   each that must never see or change it; CI runs it, the build and the Worker's types on every pull request.
 
 ## 2. What is working, and stays
@@ -790,6 +790,14 @@ Built for SaK and, as every SaK change is, for every league:
 - **Pick'em week by week** (migration 290, `pool_pickem_weeks`): every member's points in each round played, worked out
   on read from the same results as the table, and each finished round's winner (the closest tiebreaker breaking a tie);
   a grid under the pick'em table, latest round first, the winner's cell in gold and a crown for each round won.
+- **Review fixes to missed picks, the spread and lives** (migration 291, from a second review): the pick'em desk's
+  settle no longer wipes the score the host gave the same match in the match centre (Call the score kept its exact
+  calls); the tiebreaker, its round and the board read the pool's own result and score, so a last game settled by hand
+  decides a tie; the match centre's settle asks for the score when a spread pick'em is on the match (and offers a score
+  box on the survivor page); a tie with its level score can be settled in a spread pool; a host settling a game the feed
+  never started fills that pool's forgotten picks and lines first (`_pickem_override_fill`); the platform's week no
+  longer counts picks the pool made for people as their calls; the survivor's last call tells a member with a life to
+  spare that a missed round costs one.
 - **Pick the favourites** (pick'em, every sport): one tap fills every open, unpicked match with the side ESPN's line
   favours, the surest numbered highest in Confidence, nothing saved until Save; a round of more than twelve games reads
   day by day. An NHL or NBA week is about fifty games.

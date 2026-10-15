@@ -4480,6 +4480,15 @@ select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-000000000081
 set role authenticated;
 select pg_temp.raises('against the spread the host gives the score', format('select pool_result_set(%s, %s, %L, %L)', :atg, :at1, 'H', 'The feed stalled'), 'give the final score');
 select pg_temp.raises('a score that matches the result', format('select pool_result_set(%s, %s, %L, %L, 3, 5)', :atg, :at1, 'H', 'The feed stalled'), 'doesn''t match');
+select pg_temp.raises('the match centre asks for the score too', format('select pool_fixture_result_set(%s, %L, null, null, %L)', :at1, 'H', 'The feed stalled'), 'give the final score');
+-- a tie with its level score settles too, scored against each line: at -1.5 and -2.5 the visitors covered
+select pool_result_set(:atg, :at1, 'D', 'It ended level', 3, 3);
+reset role;
+select pg_temp.expect('a tie against the line: the home pickers didn''t cover',
+  (select right_calls = 0 from _pickem_table(:atg) where team_id = :fern) and (select right_calls = 0 from _pickem_table(:atg) where team_id = :hana));
+update pool_games set status = 'open', winners = null, posted = '{}' where id = :atg;
+select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-000000000081', false);
+set role authenticated;
 select pool_result_set(:atg, :at1, 'H', 'The feed stalled at the end', 6, 3);
 reset role;
 select pg_temp.expect('home by 3: Hana at -1.5 and Fern at -2.5 both covered',
@@ -4537,7 +4546,19 @@ select pg_temp.raises('the tiebreaker locks when the last game starts', format('
 reset role;
 update fixtures set state = 'final', home_score = 3, away_score = 1 where id = :tb1;
 select pg_temp.expect('nothing to break a tie with until the last game is over', (select tiebreak is null from _pickem_table(:tbg) where team_id = :fern));
-update fixtures set state = 'final', home_score = 7, away_score = 4 where id = :tb2;
+-- the host settles the first game with its score, then again with no score: the score stays (migration 291)
+select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-000000000081', false);
+set role authenticated;
+select pool_result_set(:tbg, :tb1, 'H', 'Checking the score', 3, 1);
+select pool_result_set(:tbg, :tb1, 'H', 'Same result, no score this time');
+reset role;
+select pg_temp.expect('a result by hand with no score keeps the score given', (select home = 3 and away = 1 from pool_result_overrides where fixture_id = :tb1));
+-- the feed sticks at 3-2 in the last game and the host settles it 7-4: the tiebreaker reads the host's score
+update fixtures set state = 'live', home_score = 3, away_score = 2 where id = :tb2;
+select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-000000000081', false);
+set role authenticated;
+select pool_result_set(:tbg, :tb2, 'H', 'The feed stuck at 3-2; it ended 7-4', 7, 4);
+reset role;
 select pg_temp.expect('level on points, the closest on the total wins the round and the game',
   (select points = 2 and tiebreak = 1 from _pickem_table(:tbg) where team_id = :fern)
   and (select points = 2 and tiebreak = 2 from _pickem_table(:tbg) where team_id = :hana)
@@ -4553,10 +4574,12 @@ reset role;
 -- the call keeps its game: put off after the round is otherwise done, no call scores and the tie is shared
 reset role;
 update pool_games set status = 'open', winners = null, posted = '{}' where id = :tbg;
+delete from pool_result_overrides where fixture_id in (:tb1, :tb2);
 update fixtures set state = 'postponed' where id = :tb2;
 select pg_temp.expect('a call on a game put off scores no one, so the tie is shared',
   (select tiebreak is null from _pickem_table(:tbg) where team_id = :fern)
   and (select status = 'done' and winners @> array[:fern, :hana]::int[] from pool_games where id = :tbg));
+delete from pool_result_overrides where fixture_id in (:tb1, :tb2);
 delete from pool_picks where game_id = :tbg;
 delete from pool_games where id = :tbg;
 delete from fixtures where competition = 'tb-test';
@@ -4575,9 +4598,11 @@ insert into competitions (id, sport, name, short, season, provider, ext_id, ext_
 values ('au-test', 'mlb', 'Auto Bowl', 'AB', '2026', 'mlb-statsapi', 'aut', '2026', true) on conflict (id) do nothing;
 insert into fixtures (sport, competition, provider, ext_id, season, gameweek, kickoff, date, home_club, away_club, state, detail) values
   ('mlb', 'au-test', 'mlb-statsapi', 'au-1', '2026', 1, now() + interval '2 days', (now() + interval '2 days')::date, :alb, :bri, 'scheduled', '{"odds":{"home":0.35,"away":0.65,"line":2.5}}'),
-  ('mlb', 'au-test', 'mlb-statsapi', 'au-2', '2026', 1, now() + interval '3 days', (now() + interval '3 days')::date, :bri, :alb, 'scheduled', '{}');
+  ('mlb', 'au-test', 'mlb-statsapi', 'au-2', '2026', 1, now() + interval '3 days', (now() + interval '3 days')::date, :bri, :alb, 'scheduled', '{}'),
+  ('mlb', 'au-test', 'mlb-statsapi', 'au-3', '2026', 1, now() + interval '4 days', (now() + interval '4 days')::date, :alb, :bri, 'scheduled', '{}');
 select id as au1 from fixtures where ext_id = 'au-1' \gset
 select id as au2 from fixtures where ext_id = 'au-2' \gset
+select id as au3 from fixtures where ext_id = 'au-3' \gset
 select pg_temp.raises('zero or the favourite', $$select _pickem_rules('au-test', '{"missed": "random"}')$$, 'zero or takes the favourite');
 select set_config('app.league_id', :'lib', false);
 select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-000000000081', false);
@@ -4598,6 +4623,16 @@ select pg_temp.expect('no line at all takes the home side, and Confidence the nu
   and (select pick = '{"pick": "H", "conf": 2, "auto": true}'::jsonb from pool_picks where game_id = :aug and team_id = :fern and thing = 'f:' || :au2));
 select pg_temp.expect('the crowd''s split leaves the filled picks out',
   not exists (select 1 from predictions where kind = 'pool_split' and (subject->>'game')::bigint = :aug and (detail->>'picks')::int > 1));
+-- the feed never starts the third game and the host settles it by hand: the forgotten picks are filled first
+update fixtures set kickoff = now() - interval '1 hour' where id = :au3;
+select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-000000000081', false);
+set role authenticated;
+select pool_result_set(:aug, :au3, 'H', 'The feed never started it; it ended 4-1');
+reset role;
+select pg_temp.expect('settled by hand before the feed started it, the forgotten picks are filled first',
+  (select pick = '{"pick": "H", "conf": 3, "auto": true}'::jsonb from pool_picks where game_id = :aug and team_id = :fern and thing = 'f:' || :au3)
+  and (select right_calls = 2 from _pickem_table(:aug) where team_id = :fern));
+delete from pool_result_overrides where fixture_id = :au3;
 delete from predictions where kind = 'pool_split' and (subject->>'game')::bigint = :aug;
 delete from pool_picks where game_id = :aug;
 delete from pool_games where id = :aug;
