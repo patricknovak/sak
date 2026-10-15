@@ -7150,6 +7150,8 @@ select pg_temp.expect('a point each, Hana with every call still alive, Fern one 
   and (select points = 1 and possible = 2 and picked = 2 from _pool_game_table(:wng) where team_id = :lou));
 select pg_temp.expect('the hourly job leaves it open', _wins_tick(:lib) = 0);
 select pg_temp.expect('and keeps the lock, so an opener called off later can''t reopen the calls', (select rules ? 'locked_at' from pool_games where id = :wng));
+select pg_temp.expect('and the pool hears how it split, once (migration 302)', (select count(*) = 1 from messages where league_id = :lib
+  and body = '🔒 Win totals are locked: 3 players made 7 calls. The surest: WOW under 2.5 (3 of 3). Split down the middle: WHK at 2.5 (1 over, 2 under). Everyone''s calls are on the board.'));
 update fixtures set state = 'cancelled' where ext_id = 'wn-g1';
 select pg_temp.expect('still locked', _pool_game_locked(:wng));
 update fixtures set state = 'final' where ext_id = 'wn-g1';
