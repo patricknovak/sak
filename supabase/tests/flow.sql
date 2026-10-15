@@ -4523,6 +4523,12 @@ select pool_pickem_save(:tbg, 1, jsonb_build_array(jsonb_build_object('fixture',
 select pool_game_pick(:tbg, 't:1', '{"runs": 12}');
 select pg_temp.expect('the board shows my tiebreaker', (pool_pickem_board(:tbg, 1)->'tiebreak'->>'mine')::int = 12);
 reset role;
+-- the host can enter a member's tiebreaker when asked, under the same lock
+select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-000000000081', false);
+set role authenticated;
+select pool_host_pick(:tbg, :fern, '{"thing": "t:1", "pick": {"runs": 12}}');
+reset role;
+select pg_temp.expect('the host entered Fern''s tiebreaker', (select (pick->>'runs')::int = 12 and (pick->>'fixture')::bigint = :tb2 from pool_picks where game_id = :tbg and team_id = :fern and thing = 't:1'));
 update fixtures set kickoff = now() - interval '5 hours' where id = :tb1;
 update fixtures set kickoff = now() - interval '4 hours' where id = :tb2;
 select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-000000000082', false);

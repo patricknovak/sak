@@ -79,9 +79,12 @@ export function PickemGame({ gameId, first, status: gameStatus, name, reload, ac
   const go = (round: number) => rpc<PickemData>('pool_pickem_board', { p_game: gameId, p_round: round }).then((d) => { if (d) { setData(d); setDraft({}); setTbv(null); } });
   const tb = data.tiebreak;
   const saveTb = () => run(async () => {
-    await rpc('pool_game_pick', { p_game: gameId, p_thing: `t:${data.round}`, p_pick: { runs: Math.round(Number(tbv)) } });
+    const pick = { runs: Math.round(Number(tbv)) };
+    // the host entering a member's (migration 289), else your own
+    if (actAs) await rpc('pool_host_pick', { p_game: gameId, p_team: actAs.team, p_pick: { thing: `t:${data.round}`, pick } });
+    else await rpc('pool_game_pick', { p_game: gameId, p_thing: `t:${data.round}`, p_pick: pick });
     await go(data.round);
-  }, 'Tiebreaker saved');
+  }, actAs ? `${actAs.name}'s tiebreaker is in` : 'Tiebreaker saved');
 
   const pickOf = (f: PkFixture): PkPick | null => (f.id in draft ? draft[f.id] : actAs ? null : f.mine);
   const dirty = Object.keys(draft).length > 0;
@@ -301,7 +304,7 @@ export function PickemGame({ gameId, first, status: gameStatus, name, reload, ac
       })}
 
       {/* the round's tiebreaker: the total in its last game */}
-      {tb && !actAs && (
+      {tb && (!actAs || !tb.locked) && (
         <div className="card flex flex-wrap items-center gap-3 p-3">
           <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-white/[.06] text-lg ring-1 ring-white/10">🎯</span>
           <div className="min-w-0 flex-1">
@@ -316,9 +319,9 @@ export function PickemGame({ gameId, first, status: gameStatus, name, reload, ac
           ) : (
             <div className="flex shrink-0 items-center gap-1.5">
               <input type="number" inputMode="numeric" min={0} max={tb.cap} step={1} aria-label="Tiebreaker total" placeholder="0"
-                value={tbv ?? (tb.mine != null ? String(tb.mine) : '')} onChange={(e) => setTbv(e.target.value)}
+                value={tbv ?? (tb.mine != null && !actAs ? String(tb.mine) : '')} onChange={(e) => setTbv(e.target.value)}
                 className="input num h-10 w-16 text-center text-base font-bold" />
-              <button type="button" className="btn-gold h-10 px-3 text-xs" disabled={busy || tbv == null || tbv === '' || Number(tbv) < 0 || Number(tbv) > tb.cap || Number(tbv) === tb.mine} onClick={saveTb}>Save</button>
+              <button type="button" className="btn-gold h-10 px-3 text-xs" disabled={busy || tbv == null || tbv === '' || Number(tbv) < 0 || Number(tbv) > tb.cap || (!actAs && Number(tbv) === tb.mine)} onClick={saveTb}>Save</button>
             </div>
           )}
         </div>
