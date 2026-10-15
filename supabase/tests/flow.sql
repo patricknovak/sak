@@ -7189,3 +7189,13 @@ delete from competitions where id = 'wn-test';
 select set_config('app.league_id', '', false);
 select set_config('request.jwt.claim.sub', '', false);
 select 'season win totals', true;
+
+-- ───────────── the NBA's questions ride its season (migration 299) ─────────────
+begin;
+select set_config('app.league_id', :'lib', true);
+select pg_temp.expect('the NBA season carries its pack, and every question loads in a pool', (select pack = 'nba-2026-27' from competitions where id = 'nba-2026-27')
+  and _pool_load_pack(:lib, 'nba-2026-27', null) = 9);
+select pg_temp.expect('each one open, level, with its answers', (select count(*) = 9 and bool_and(jsonb_array_length(outcomes) between 2 and 12) and bool_and(closes_at > now())
+  from pool_markets where league_id = :lib and pack = 'nba-2026-27'));
+rollback;
+select 'the NBA''s questions', true;
