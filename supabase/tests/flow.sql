@@ -7205,5 +7205,6 @@ select pg_temp.expect('each one open, level, with its answers', (select count(*)
   from pool_markets where league_id = :lib and pack = 'nba-2026-27'));
 select pg_temp.expect('and every season with a pack carries it (migration 300)', (select count(*) = 3 from competitions where (id, pack) in (('nhl-2026-27', 'nhl-2026-27'), ('epl', 'premier-league-2026-27'), ('mls', 'mls-cup-2026'))));
 select pg_temp.expect('and the NFL''s (migration 304)', (select pack = 'nfl-2026' from competitions where id = 'nfl') and _pool_load_pack(:lib, 'nfl-2026', null) = 7);
+select pg_temp.expect('and the Women''s World Cup''s, on its own (migration 306)', _pool_load_pack(:lib, 'womens-world-cup-2027', null) = 6);
 rollback;
 select 'the NBA''s questions', true;

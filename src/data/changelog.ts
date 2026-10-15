@@ -6,6 +6,8 @@
 export interface Change { date: string; icon: string; title: string; body: string; to?: string; tag?: 'formats' | 'commish' | 'draft' | 'everyone' }
 
 export const CHANGELOG: Change[] = [
+  { date: '2026-10-15', icon: '🏆', tag: 'everyone', title: 'Women\'s World Cup 2027 questions', to: '/new',
+    body: 'Open a pool on next summer\'s Women\'s World Cup in Brazil now: who lifts it, whether Europe does, how far the hosts go, whether the United States reach the semi-finals and how the final ends, called in coins all the way to the tournament.' },
   { date: '2026-10-15', icon: '⚽', tag: 'everyone', title: 'The WSL and the NWSL', to: '/new',
     body: 'Start a pool on women\'s soccer: every match of the Women\'s Super League to May, and the NWSL\'s last matchweeks, with pick\'em, last one standing, Call the score and the daily streak. Results land on their own.' },
   { date: '2026-10-15', icon: '🏈', tag: 'everyone', title: 'NFL season questions', to: '/new',
