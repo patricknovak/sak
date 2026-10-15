@@ -4406,6 +4406,78 @@ select pg_temp.expect('the NFL has its row and its season on ESPN', (select not 
   and _round_word('nfl') = 'Week');
 select 'nfl', true;
 
+-- ───────────── pick'em against the spread (migration 283) ─────────────
+-- Hana runs a pick'em against the spread on a no-draw event: each pick keeps the line it was made at while it stays on
+-- its side; a side that covers its own line is right, landing on the number is a push; the rules hold once picks are
+-- in; the crowd's straight-up forecast leaves it out; soccer stays straight up
+reset role;
+select set_config('request.jwt.claim.sub', '', false);
+select set_config('app.league_id', '', false);
+insert into competitions (id, sport, name, short, season, provider, ext_id, ext_season, active)
+values ('ats-test', 'mlb', 'Spread Bowl', 'SB', '2026', 'mlb-statsapi', 'ats', '2026', true) on conflict (id) do nothing;
+insert into fixtures (sport, competition, provider, ext_id, season, gameweek, kickoff, date, home_club, away_club, state, detail) values
+  ('mlb', 'ats-test', 'mlb-statsapi', 'ats-1', '2026', 1, now() + interval '2 days', (now() + interval '2 days')::date, :alb, :bri, 'scheduled', '{"odds":{"home":0.6,"away":0.4,"line":-1.5}}'),
+  ('mlb', 'ats-test', 'mlb-statsapi', 'ats-2', '2026', 1, now() + interval '2 days', (now() + interval '2 days')::date, :bri, :alb, 'scheduled', '{}'),
+  ('mlb', 'ats-test', 'mlb-statsapi', 'ats-3', '2026', 1, now() + interval '2 days', (now() + interval '2 days')::date, :alb, :bri, 'scheduled', '{"odds":{"home":0.62,"away":0.38,"line":-2}}');
+select id as at1 from fixtures where ext_id = 'ats-1' \gset
+select id as at2 from fixtures where ext_id = 'ats-2' \gset
+select id as at3 from fixtures where ext_id = 'ats-3' \gset
+select pg_temp.raises('soccer stays straight up', $$select _pickem_rules('pk-test', '{"ats": true}')$$, 'without draws');
+select set_config('app.league_id', :'lib', false);
+select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-000000000081', false);
+set role authenticated;
+select pool_game_start('pickem', 'ats-test', '{"ats": true}') as atg \gset
+select pg_temp.expect('started against the spread', (pool_pickem_board(:atg, 1)->>'ats')::boolean
+  and (select (f->>'line')::numeric = -1.5 from jsonb_array_elements(pool_pickem_board(:atg, 1)->'fixtures') f where (f->>'id')::bigint = :at1)
+  and (select (f->>'line')::numeric = 0 from jsonb_array_elements(pool_pickem_board(:atg, 1)->'fixtures') f where (f->>'id')::bigint = :at2));
+select pool_pickem_save(:atg, 1, jsonb_build_array(jsonb_build_object('fixture', :at1, 'pick', 'H'), jsonb_build_object('fixture', :at2, 'pick', 'H')));
+reset role;
+select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-000000000082', false);
+set role authenticated;
+select pool_pickem_save(:atg, 1, jsonb_build_array(jsonb_build_object('fixture', :at1, 'pick', 'A'), jsonb_build_object('fixture', :at3, 'pick', 'A')));
+reset role;
+-- the line moves: Hana's pick stays on her side and keeps her line; Fern switches sides and takes the new one
+update fixtures set detail = jsonb_set(detail, '{odds,line}', '-2.5') where id = :at1;
+select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-000000000081', false);
+set role authenticated;
+select pool_pickem_save(:atg, 1, jsonb_build_array(jsonb_build_object('fixture', :at1, 'pick', 'H')));
+select pg_temp.raises('against the spread holds once picks are in', format('select pool_game_set_rules(%s, %L)', :atg, '{"ats": false}'), 'Picks are in');
+reset role;
+select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-000000000082', false);
+set role authenticated;
+select pool_pickem_save(:atg, 1, jsonb_build_array(jsonb_build_object('fixture', :at1, 'pick', 'H')));
+reset role;
+select pg_temp.expect('each pick keeps the line it was made at',
+  (select (pick->>'line')::numeric = -1.5 from pool_picks where game_id = :atg and team_id = :hana and thing = 'f:' || :at1)
+  and (select (pick->>'line')::numeric = -2.5 from pool_picks where game_id = :atg and team_id = :fern and thing = 'f:' || :at1)
+  and (select (pick->>'line')::numeric = 0 from pool_picks where game_id = :atg and team_id = :hana and thing = 'f:' || :at2)
+  and (select (pick->>'line')::numeric = -2 from pool_picks where game_id = :atg and team_id = :fern and thing = 'f:' || :at3));
+-- the games: home by 2 (Hana at -1.5 covers, Fern at -2.5 doesn't), the visitors win the even one, and home by exactly 2
+-- on a line of 2 is a push
+update fixtures set kickoff = now() - interval '3 hours', state = 'final', home_score = 5, away_score = 3 where id = :at1;
+update fixtures set kickoff = now() - interval '3 hours', state = 'final', home_score = 2, away_score = 4 where id = :at2;
+update fixtures set kickoff = now() - interval '3 hours', state = 'final', home_score = 4, away_score = 2 where id = :at3;
+select pg_temp.expect('a side that covers its own line is right; the push counts for nobody',
+  (select points = 1 and right_calls = 1 and picked = 2 from _pickem_table(:atg) where team_id = :hana)
+  and (select points = 0 and right_calls = 0 and possible = 0 from _pickem_table(:atg) where team_id = :fern));
+select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-000000000081', false);
+set role authenticated;
+select pg_temp.expect('the board says what each pick''s own line made of it',
+  (select f->>'mine_res' = 'H' and f->>'result' = 'H' from jsonb_array_elements(pool_pickem_board(:atg, 1)->'fixtures') f where (f->>'id')::bigint = :at1)
+  and (select f->>'mine_res' = 'A' from jsonb_array_elements(pool_pickem_board(:atg, 1)->'fixtures') f where (f->>'id')::bigint = :at2)
+  and (select (r->>'points')::int = 1 from jsonb_array_elements(pool_pickem_board(:atg, 1)->'rounds') r));
+reset role;
+select pg_temp.expect('the game ends with its winner, and leaves the crowd''s forecast alone',
+  (select status = 'done' and winners = array[:hana]::int[] from pool_games where id = :atg)
+  and not exists (select 1 from predictions where kind = 'pool_split' and (subject->>'game')::bigint = :atg));
+delete from pool_picks where game_id = :atg;
+delete from pool_games where id = :atg;
+delete from fixtures where competition = 'ats-test';
+delete from competitions where id = 'ats-test';
+select set_config('app.league_id', '', false);
+select set_config('request.jwt.claim.sub', '', false);
+select 'pick''em against the spread', true;
+
 -- ───────────── the host's desk (migration 172) ─────────────
 -- Hana runs a pick'em on the Desk Cup: she changes its rules before the first lock, enters Lou's picks when he asks,
 -- and settles a match the feed left hanging.

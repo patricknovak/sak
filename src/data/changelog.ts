@@ -6,6 +6,8 @@
 export interface Change { date: string; icon: string; title: string; body: string; to?: string; tag?: 'formats' | 'commish' | 'draft' | 'everyone' }
 
 export const CHANGELOG: Change[] = [
+  { date: '2026-10-15', icon: '📏', tag: 'everyone', title: 'Pick\'em against the spread', to: '/new',
+    body: 'A pick\'em on the NFL, the NBA or the NHL can run against the spread: switch it on when you start the pool (or before anyone picks). Each pick takes the market\'s line the moment you save it and keeps it, so a line that moves later never changes your pick. Your side has to cover; landing right on the line is a push.' },
   { date: '2026-10-15', icon: '⚡', tag: 'everyone', title: 'Pick the favourites', to: '/picks',
     body: 'A long pick\'em week (an NHL or NBA week is about fifty games) now has one tap to fill every open game with the side the market likes, the surest numbered highest in Confidence. Change any before you save. A week of nightly games reads day by day.' },
   { date: '2026-10-15', icon: '🪓', tag: 'formats', title: 'The guillotine', to: '/commish',

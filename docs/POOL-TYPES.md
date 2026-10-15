@@ -105,8 +105,12 @@ or takes the favourite, or the home side; late joiners start at zero, the lowest
 possible.
 
 *Built 8 October 2026 (migration 170): the `pickem` kind on `fixtures`, Classic and Confidence, draws where the sport
-has them (`sports.config.draws`), the round's name from the sport (`words.round`). Against the spread and a tiebreaker
-wait for the NFL.*
+has them (`sports.config.draws`), the round's name from the sport (`words.round`).* *Against the spread built 15 October
+2026 (migration 283):* `rules.ats` on a sport without draws; each pick stores the home side's line from ESPN
+(`fixtures.detail.odds.line`) at the moment it is saved and keeps it while it stays on that side; a side that covers its
+own line is right, landing on it is a push (`_ats_side`, `_pick_res`, read by the table, the board, the round's end and
+the chances); the host's result says who covered; the crowd's split log leaves these pools out. The tiebreaker is still
+to come.
 
 ### 2.5 Survivor (last one standing, eliminator)
 

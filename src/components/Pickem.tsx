@@ -3,6 +3,8 @@
 // surest highest. Once a match kicks off it shows the pool's split and everyone's pick; once it's over, what yours
 // earned. The round's points and the table come from the database on every read. The host (migration 172) can enter a
 // round for a member who asked, and settle a match the feed left hanging, for this pool only, with the reason shown.
+// Against the spread (migration 283) each pick carries the home side's line from the moment it was saved, and is right
+// when its side covers it; the buttons show the line instead of the market's chances.
 import { useEffect, useMemo, useState } from 'react';
 import { Check, ChevronLeft, ChevronRight, Lock, MessageCircle } from 'lucide-react';
 import { fixtureThread, ThreadSheet, useChannelCounts } from './GameThread';
@@ -17,21 +19,27 @@ import { chance, useMarket } from '../lib/market';
 import { trackFirstCall } from '../lib/analytics';
 
 type Side = 'H' | 'D' | 'A';
-interface PkPick { pick: Side; conf?: number }
+interface PkPick { pick: Side; conf?: number; line?: number }
 export interface PkFixture {
   id: number; kickoff: string; state: 'scheduled' | 'live' | 'final' | 'postponed' | 'cancelled'; minute: number | null;
   home: Club; away: Club; home_score: number | null; away_score: number | null; result: Side | null; locked: boolean;
   void?: boolean; host?: { reason: string } | null;
-  mine: PkPick | null; picked: number; split: Record<Side, number> | null; calls: { team_id: number; pick: Side; conf: number | null }[] | null;
+  // against the spread: the home side's line now, and what my pick's own line made of the result (P is a push)
+  line?: number | null; mine_res?: Side | 'P' | null;
+  mine: PkPick | null; picked: number; split: Record<Side, number> | null; calls: { team_id: number; pick: Side; conf: number | null; line?: number }[] | null;
 }
 export interface PkRound { round: number; first: string; last: string; matches: number; done: boolean; open: number; picked: number; points: number }
 export interface PickemData {
-  round: number; from_round: number; to_round: number; word: string; confidence: boolean; draws: boolean; size: number;
+  round: number; from_round: number; to_round: number; word: string; confidence: boolean; draws: boolean; size: number; ats?: boolean;
   rounds: PkRound[]; fixtures: PkFixture[];
 }
 
 const TIME = new Intl.DateTimeFormat(undefined, { weekday: 'short', hour: 'numeric', minute: '2-digit' });
 const short = (c: Club) => c.short ?? c.name.slice(0, 3).toUpperCase();
+// a side's spread, from the home side's line: the favourite gives points (−3.5), the underdog gets them (+3.5)
+const spread = (homeLine: number, side: Side) => { const v = side === 'H' ? homeLine : -homeLine; return v === 0 ? 'even' : `${v > 0 ? '+' : '\u2212'}${Math.abs(v)}`; };
+// who covered a home line: H, A, or P when the margin lands right on it
+const cover = (h: number, a: number, homeLine: number): Side | 'P' => (h + homeLine > a ? 'H' : h + homeLine < a ? 'A' : 'P');
 
 // where a match stands, in a few words
 function status(f: PkFixture): { text: string; live: boolean } {
@@ -92,7 +100,7 @@ export function PickemGame({ gameId, first, status: gameStatus, name, reload, ac
   const lockedNums = new Set(actAs ? [] : data.fixtures.filter((f) => f.locked && f.mine?.conf).map((f) => f.mine!.conf!));
   // a long week (an NHL or NBA week is fifty games): every open match not yet picked goes to the market's favourite;
   // in Confidence the surest favourite takes the highest number still free. Nothing is saved until Save.
-  const favOpen = data.fixtures.filter((f) => !f.locked && !pickOf(f) && market.get(f.id));
+  const favOpen = data.ats ? [] : data.fixtures.filter((f) => !f.locked && !pickOf(f) && market.get(f.id));
   const pickFavourites = () => {
     const free = Array.from({ length: data.size }, (_, i) => data.size - i).filter((n) => ![...used.values()].includes(n) && !lockedNums.has(n));
     const next = { ...draft };
@@ -128,8 +136,8 @@ export function PickemGame({ gameId, first, status: gameStatus, name, reload, ac
     const side = (f: PkFixture, s: Side) => (s === 'H' ? short(f.home) : s === 'A' ? short(f.away) : 'Draw');
     // soccer names the home side first, football the visitors
     const rows = lockedMine.map((f) => ({ q: data.draws ? `${short(f.home)} v ${short(f.away)}` : `${short(f.away)} at ${short(f.home)}`,
-      answer: `${side(f, f.mine!.pick)}${data.confidence && f.mine!.conf ? ` · ${f.mine!.conf}` : ''}`,
-      right: f.void || f.result == null ? null : f.result === f.mine!.pick }))
+      answer: `${side(f, f.mine!.pick)}${data.ats && f.mine!.line != null ? ` ${spread(f.mine!.line, f.mine!.pick)}` : ''}${data.confidence && f.mine!.conf ? ` · ${f.mine!.conf}` : ''}`,
+      right: f.void || f.result == null ? null : (data.ats ? f.mine_res ?? f.result : f.result) === f.mine!.pick }))
       .sort((a, b) => Number(b.right != null) - Number(a.right != null));
     const hits = rows.filter((x) => x.right).length, decided = rows.filter((x) => x.right != null).length;
     return shareCard({ kind: 'sheet', eyebrow: 'My picks', brand: cardBrand, who: '', title: `${data.word} ${data.round}`,
@@ -160,10 +168,15 @@ export function PickemGame({ gameId, first, status: gameStatus, name, reload, ac
         // a week of nightly games reads by day
         const day = new Date(f.kickoff).toLocaleDateString(undefined, { weekday: 'long', month: 'short', day: 'numeric' });
         const newDay = data.fixtures.length > 12 && (i === 0 || new Date(data.fixtures[i - 1].kickoff).toLocaleDateString(undefined, { weekday: 'long', month: 'short', day: 'numeric' }) !== day);
-        const mk = market.get(f.id);
+        const mk = data.ats ? undefined : market.get(f.id);
         const st = status(f);
         const done = f.result != null;
-        const right = done && p && p.pick === f.result;
+        // against the spread: the line a pick on this match carries (a saved pick keeps its own while it stays on that
+        // side), and who covered it once it's over; the host's word, when given, says who covered
+        const homeLine = !actAs && p && f.mine && p.pick === f.mine.pick && f.mine.line != null ? f.mine.line : (f.line ?? 0);
+        const res: Side | 'P' | null = !data.ats || !done || f.host || f.home_score == null || f.away_score == null ? f.result
+          : p && f.mine && p.pick === f.mine.pick && f.mine_res ? f.mine_res : cover(f.home_score, f.away_score ?? 0, homeLine);
+        const right = done && p && p.pick === res;
         const sides: { k: Side; label: string; club?: Club }[] = [{ k: 'H', label: short(f.home), club: f.home }, ...(data.draws ? [{ k: 'D' as Side, label: 'Draw' }] : []), { k: 'A', label: short(f.away), club: f.away }];
         const total = f.split ? f.split.H + f.split.D + f.split.A : 0;
         return (
@@ -187,13 +200,14 @@ export function PickemGame({ gameId, first, status: gameStatus, name, reload, ac
               <div className={`grid flex-1 gap-1.5 ${data.draws ? 'grid-cols-3' : 'grid-cols-2'}`}>
                 {sides.map((s) => {
                   const on = p?.pick === s.k;
-                  const won = done && f.result === s.k;
+                  const won = done && res === s.k;
                   return (
                     <button key={s.k} type="button" disabled={f.locked || !canPick} onClick={() => choose(f, s.k)}
                       className={`flex min-h-10 items-center justify-center gap-1 rounded-xl px-2 py-2 text-xs font-bold ring-1 transition ${on ? (done ? (won ? 'bg-emerald-400 text-[#0b1220] ring-emerald-300' : 'bg-red-400/25 text-red-100 ring-red-400/40') : 'bg-gold text-[#0b1220] ring-gold') : won ? 'bg-emerald-400/10 text-emerald-200 ring-emerald-400/30' : 'bg-white/[.04] text-slate-200 ring-white/10 enabled:hover:bg-white/[.08]'} disabled:cursor-default`}>
                       {on && <Check className="h-3.5 w-3.5" strokeWidth={3} />}{s.label}
                       {/* what the market gave this side before kick-off */}
                       {mk && <span className={`num font-semibold ${on ? 'opacity-70' : 'text-mute'}`}>{chance(s.k === 'H' ? mk.home : s.k === 'A' ? mk.away : mk.draw)}</span>}
+                      {data.ats && s.k !== 'D' && <span className={`num font-semibold ${on ? 'opacity-70' : 'text-mute'}`}>{spread(homeLine, s.k)}</span>}
                     </button>
                   );
                 })}
@@ -206,7 +220,7 @@ export function PickemGame({ gameId, first, status: gameStatus, name, reload, ac
                     </select>
               )}
             </div>
-            {done && p && <div className={`border-t border-white/[.05] px-3 py-1.5 text-[11px] font-semibold ${right ? 'text-emerald-300' : 'text-mute'}`}>{right ? `Right: +${data.confidence ? p.conf : 1}` : 'Not this time'}</div>}
+            {done && p && <div className={`border-t border-white/[.05] px-3 py-1.5 text-[11px] font-semibold ${right ? 'text-emerald-300' : 'text-mute'}`}>{right ? `${data.ats ? 'Covered' : 'Right'}: +${data.confidence ? p.conf : 1}` : res === 'P' ? 'A push: it landed right on the line' : data.ats ? 'Didn\u2019t cover' : 'Not this time'}</div>}
             {/* the host's word, for everyone to see */}
             {f.host && (
               <div className="flex flex-wrap items-center gap-x-2 gap-y-1 border-t border-amber-400/20 bg-amber-400/[.06] px-3 py-2 text-[11px] text-amber-100">
@@ -245,7 +259,7 @@ export function PickemGame({ gameId, first, status: gameStatus, name, reload, ac
                 </div>
                 {open === f.id && f.calls && (
                   <div className="mt-2 flex flex-wrap gap-1.5">{f.calls.map((c) => (
-                    <span key={c.team_id} className="rounded-full bg-white/[.05] px-2 py-0.5 text-[11px] text-slate-200 ring-1 ring-white/10">{name(c.team_id)}: <b>{c.pick === 'D' ? 'Draw' : short(c.pick === 'H' ? f.home : f.away)}</b>{c.conf ? ` ×${c.conf}` : ''}</span>
+                    <span key={c.team_id} className="rounded-full bg-white/[.05] px-2 py-0.5 text-[11px] text-slate-200 ring-1 ring-white/10">{name(c.team_id)}: <b>{c.pick === 'D' ? 'Draw' : short(c.pick === 'H' ? f.home : f.away)}{data.ats && c.line != null && c.pick !== 'D' ? ` ${spread(c.line, c.pick)}` : ''}</b>{c.conf ? ` ×${c.conf}` : ''}</span>
                   ))}</div>
                 )}
               </button>
@@ -264,6 +278,7 @@ export function PickemGame({ gameId, first, status: gameStatus, name, reload, ac
       )}
       {!actAs && lockedMine.length > 0 && <ShareButton className="btn-ghost w-full" label={`Share my ${data.word.toLowerCase()} ${data.round} picks`} make={shareRound} />}
       <p className="px-1 text-xs text-mute">
+        {data.ats && 'Against the spread: your pick takes the line shown when you save it, and keeps it while you stay on that side. Your side has to cover; landing right on the line is a push. '}
         {data.confidence ? `Number your picks from 1 to ${data.size}: your surest is ${data.size}, and a right pick earns its number. Taking a number another match has swaps the two.` : 'A right pick is a point.'} Each pick locks at its own kick-off{data.draws ? '; a draw is the result after ninety minutes' : '; a tie counts for nobody'}. A postponed match counts for nobody.
       </p>
       <ThreadSheet channel={tf ? fixtureThread(tf.id) : null} onClose={() => setThread(null)} title={tf ? `${short(tf.home)} v ${short(tf.away)}` : ''}

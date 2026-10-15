@@ -153,6 +153,10 @@ export const PICKEM_PRESETS: { key: PickemPreset; label: string; line: string; e
   { key: 'confidence', label: 'Confidence', line: 'Number each round\'s picks from 1 up to its number of matches, your surest highest. A right pick earns its number.', example: 'Ten matches: your surest pick is ×10. Right, 10 points; wrong, nothing, so a long shot goes low.' },
 ];
 
+// against the spread (migration 283): sports without draws, each pick on the market's line of the moment it is made
+export const atsFits = (sport: string | null | undefined) => !!sport && sport !== 'soccer';
+export const ATS_LINE = 'Each pick takes the market\u2019s line when you make it: the favourite has to win by more than the line, the underdog can lose by less. Landing right on the number is a push, worth nothing.';
+
 // the centre for a competition played in rounds (#/centre/<competition>), by its sport
 export const centreName = (sport: string | null | undefined) =>
   ({ nfl: 'NFL centre', nba: 'NBA centre', nhl: 'NHL weeks' } as Record<string, string>)[sport ?? ''] ?? 'Match centre';

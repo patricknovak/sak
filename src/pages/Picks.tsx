@@ -7,7 +7,7 @@ import { Empty, PageHeader, Section, TeamBadge, Toggle, useAction } from '../com
 import { Crest } from '../components/Crest';
 import { ShareButton, useCardBrand } from '../components/ShareButton';
 import { shareCard } from '../lib/shareCard';
-import { KINDS, PICKEM_PRESETS, PRESETS, SIZES, SQUARES_DEFAULT, START_WORD, eventGrids, gridGame, gridLabel, gridRules, paysFor, type Grid, type PickemPreset, type PoolEvent, type SeriesPreset, type SheetGame, type SquaresRules } from '../lib/poolGames';
+import { ATS_LINE, KINDS, PICKEM_PRESETS, PRESETS, atsFits, SIZES, SQUARES_DEFAULT, START_WORD, eventGrids, gridGame, gridLabel, gridRules, paysFor, type Grid, type PickemPreset, type PoolEvent, type SeriesPreset, type SheetGame, type SquaresRules } from '../lib/poolGames';
 import { SquaresGame, type SquaresData } from '../components/Squares';
 import { PickemGame, type PickemData } from '../components/Pickem';
 import { BracketGame, type BracketData } from '../components/Bracket';
@@ -353,6 +353,7 @@ function GameRules({ board }: { board: GameBoard }) {
     lines.push(pk.confidence
       ? `Pick every match${pk.draws ? ' (either side or a draw)' : ''} and give each a number from 1 to the size of the round, each number once a round. A right pick earns its number.`
       : `Pick the winner of every match${pk.draws ? ', or a draw' : ''}. A right pick is worth a point.`);
+    if (pk.ats) lines.push('Against the spread: each pick takes the market\u2019s line at the moment you make it, and keeps it while you stay on that side. Your side has to cover its line; landing right on it is a push, worth nothing. A game with no line yet is an even one.');
     lines.push(`It runs from ${pk.word} ${pk.from_round} to ${pk.word} ${pk.to_round}. Each pick locks at its own kick-off, and you can change it until then.`);
     lines.push(pk.draws ? 'The result after ninety minutes and stoppage time counts: extra time and penalties don’t.' : 'A tie counts for nobody: no one picked it.');
     lines.push('Join any time: you play every match still to kick off. A match called off counts for nobody.');
@@ -522,7 +523,7 @@ export default function Picks() {
   const winners = (board.winners ?? []).map(name);
   const sq = board.squares;
   const pk = board.pickem;
-  const sub = pk ? (pk.confidence ? 'Confidence: number your picks, a right one earns its number' : 'A point for every right pick')
+  const sub = pk ? `${pk.ats ? 'Against the spread · ' : ''}${pk.confidence ? 'Confidence: number your picks, a right one earns its number' : 'A point for every right pick'}`
     : sq ? `${sq.cost} coins a square · ${sq.pay_when === 'innings' ? 'pays after the 3rd, 6th and final' : sq.pay_when === 'quarters' ? 'pays every quarter' : sq.pay_when === 'periods' ? 'pays every period' : 'pays on the final score'}`
     : board.kind === 'series'
     ? (board.rules.exact_only ? 'Winner and length both right, or nothing' : `Points by round: ${board.rounds.map((r) => (board.rules.points?.[String(r.round)] ?? 1) + (singles(board) ? board.rules.length?.[String(r.round)] ?? 0 : 0)).join('-')}${singles(board) ? '' : `, plus ${board.rounds.map((r) => board.rules.length?.[String(r.round)]).join('-')} for the length`}`)
@@ -589,6 +590,7 @@ function HostDesk({ board, reload, onActAs }: { board: GameBoard; reload: () => 
   const pk = board.pickem;
   const [preset, setPreset] = useState<string>(board.rules.preset ?? 'classic');
   const [toRound, setToRound] = useState<number>(pk?.to_round ?? 0);
+  const [ats, setAts] = useState<boolean>(!!pk?.ats);
   // a box pool's window ('week', 'month', 'season'): the same key a series game uses for its length points
   const boxLen = board.kind === 'players' ? String((board.rules as { length?: unknown }).length ?? 'month') : 'month';
   const [len, setLen] = useState<string>(boxLen);
@@ -600,7 +602,7 @@ function HostDesk({ board, reload, onActAs }: { board: GameBoard; reload: () => 
   const picked = pk ? pk.fixtures.some((f) => f.picked > 0) : board.players ? board.players.picked > 0 : false;
   const presetLock = !!pk || board.kind === 'players';
   const members = teams.filter((t) => t.role === 'gm' && t.id !== me?.id);
-  const changed = preset !== (board.rules.preset ?? 'classic') || (pk && toRound !== pk.to_round) || (board.kind === 'players' && len !== boxLen);
+  const changed = preset !== (board.rules.preset ?? 'classic') || (pk && (toRound !== pk.to_round || ats !== !!pk.ats)) || (board.kind === 'players' && len !== boxLen);
   const chip = (on: boolean) => `rounded-full px-3 py-1.5 text-xs font-semibold ring-1 transition ${on ? 'bg-gold text-[#0b1220] ring-gold' : 'bg-white/[.04] text-slate-200 ring-white/10'} disabled:opacity-40`;
   return (
     <Section title="Host">
@@ -616,6 +618,12 @@ function HostDesk({ board, reload, onActAs }: { board: GameBoard; reload: () => 
                 ))}
               </div>
               {presetLock && picked && <p className="text-[11px] text-mute">{pk ? 'Picks are in, so the scoring stays.' : 'Teams are in, so the boxes stay.'}</p>}
+              {pk && !pk.draws && (
+                <div className="flex items-center justify-between gap-3 rounded-2xl bg-black/20 px-3 py-1 ring-1 ring-white/[.06]">
+                  <span className="text-[13px] font-semibold text-white">Against the spread<span className="block text-[11px] font-normal text-mute">{picked ? 'Picks are in, so it stays as it is' : 'Pick who covers the line, not just who wins'}</span></span>
+                  <Toggle on={ats} onChange={(v) => { if (!picked) setAts(v); }} />
+                </div>
+              )}
               {board.kind === 'players' && !board.players?.playoffs && (
                 <div className="flex flex-wrap gap-1.5">
                   {[['week', 'A week'], ['month', 'Four weeks'], ['season', 'The season']].map(([k, l]) => (
@@ -631,7 +639,7 @@ function HostDesk({ board, reload, onActAs }: { board: GameBoard; reload: () => 
                 </label>
               )}
               <button type="button" className="btn-gold w-full" disabled={busy || !changed}
-                onClick={() => run(async () => { await rpc('pool_game_set_rules', { p_game: board.id, p_rules: { preset, ...(pk ? { to_round: toRound } : {}), ...(board.kind === 'players' && !board.players?.playoffs ? { length: len } : {}) } }); reload(); }, 'The rules are changed')}>
+                onClick={() => run(async () => { await rpc('pool_game_set_rules', { p_game: board.id, p_rules: { preset, ...(pk ? { to_round: toRound, ats } : {}), ...(board.kind === 'players' && !board.players?.playoffs ? { length: len } : {}) } }); reload(); }, 'The rules are changed')}>
                 Change the rules
               </button>
               <p className="text-[11px] leading-snug text-mute">Rules can change until the first lock; the pool hears about it.</p>
@@ -661,6 +669,7 @@ export function HostGames() {
   const { games, reload } = usePoolGames();
   const [preset, setPreset] = useState<SeriesPreset>('classic');
   const [pkPreset, setPkPreset] = useState<PickemPreset>('classic');
+  const [pkAts, setPkAts] = useState(false);
   // a bracket on best-of-7s can carry a point for calling the games (migration 228)
   const [gamesBonus, setGamesBonus] = useState(true);
   const [grid, setGrid] = useState<Omit<SquaresRules, 'series'>>(SQUARES_DEFAULT);
@@ -717,6 +726,15 @@ export function HostGames() {
               <div>
                 <div className="flex flex-wrap gap-1.5">{PICKEM_PRESETS.map((p) => <button key={p.key} type="button" onClick={() => setPkPreset(p.key)} className={`rounded-full px-3 py-1 text-xs font-semibold ring-1 ${pkPreset === p.key ? 'bg-gold text-[#0b1220] ring-gold' : 'bg-white/[.04] text-slate-200 ring-white/10'}`}>{p.label}</button>)}</div>
                 <p className="mt-1.5 text-[11px] leading-snug text-mute">{PICKEM_PRESETS.find((p) => p.key === pkPreset)!.line}</p>
+                {atsFits(e.sport) && (
+                  <div className="mt-2 rounded-2xl bg-black/20 px-3 py-1 ring-1 ring-white/[.06]">
+                    <div className="flex items-center justify-between gap-3">
+                      <span className="text-[13px] font-semibold text-white">Against the spread<span className="block text-[11px] font-normal text-mute">Pick who covers the line, not just who wins</span></span>
+                      <Toggle on={pkAts} onChange={setPkAts} />
+                    </div>
+                    {pkAts && <p className="pb-2 text-[11px] leading-snug text-mute">{ATS_LINE}</p>}
+                  </div>
+                )}
               </div>
             )}
             {k === 'bracket' && SERIES_SPORTS.includes(e.sport) && (
@@ -729,7 +747,7 @@ export function HostGames() {
               <div className="flex flex-wrap gap-1.5">{PRESETS.map((p) => <button key={p.key} type="button" onClick={() => setPreset(p.key)} className={`rounded-full px-3 py-1 text-xs font-semibold ring-1 ${preset === p.key ? 'bg-gold text-[#0b1220] ring-gold' : 'bg-white/[.04] text-slate-200 ring-white/10'}`}>{p.label}</button>)}</div>
             )}
             <button type="button" className="btn-gold w-full" disabled={busy}
-              onClick={() => run(async () => { await rpc('pool_game_start', { p_kind: k, p_competition: e.competition, p_rules: k === 'series' ? { preset } : k === 'pickem' ? { preset: pkPreset } : k === 'bracket' && SERIES_SPORTS.includes(e.sport) ? { games_bonus: gamesBonus ? 1 : 0 } : {} }); if (k === 'survivor') nav('/survivor'); else if (k === 'score') nav('/predictor'); else reload(); }, `${KINDS[k].title} is on`)}>
+              onClick={() => run(async () => { await rpc('pool_game_start', { p_kind: k, p_competition: e.competition, p_rules: k === 'series' ? { preset } : k === 'pickem' ? { preset: pkPreset, ...(pkAts && atsFits(e.sport) ? { ats: true } : {}) } : k === 'bracket' && SERIES_SPORTS.includes(e.sport) ? { games_bonus: gamesBonus ? 1 : 0 } : {} }); if (k === 'survivor') nav('/survivor'); else if (k === 'score') nav('/predictor'); else reload(); }, `${KINDS[k].title} is on`)}>
               Start {second(e, k) ? 'the second-chance bracket' : KINDS[k].title.toLowerCase()}
             </button>
           </div>
