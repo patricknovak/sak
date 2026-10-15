@@ -384,6 +384,9 @@ The steps above finish the tenancy. `docs/MARKET.md` sets what comes after in th
    (`src/components/YahooRosters.tsx`, one roster call a team through the Yahoo function, no link to paste since the GM is
    signed in there; the commissioner here sees it). CBS needs a sign-in, so it stays on paste.
 10. **Contracts, caps, prospect slots and rookie drafts**; guillotine and best ball formats.
+    *Best ball done (15 October 2026, migrations 276 and 277):* a league option (`features.bestball`, points leagues only):
+    each finished night is re-slotted to the best lineup the team's players allowed, by the hourly `bestball` job, from the
+    night the commissioner switches it on.
 11. **The Supercoin.** An account-level wallet, the SaK coin ledger migrated onto it, per-pool allowances, the
     Book and side bets as the add-on, the ledger visible in every pool. Never for sale, never cashed out.
     Already in place on the league coin (migration 66): the Book's season edition (futures on the champion,

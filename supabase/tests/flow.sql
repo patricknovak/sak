@@ -1775,7 +1775,7 @@ select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-000000000099
 set role authenticated;
 select pg_temp.expect('a new league starts without money or a fund', not league_has('money') and not league_has('fund'));
 select pg_temp.raises('no money, no billing', 'select commish_bill_entries()', 'doesn''t keep its money');
-select pg_temp.raises('features are money, the fund, the live room and the page counts only', 'select commish_update_league(''{"features": {"casino": true}}'')', 'Features are money, fund, live_room and usage');
+select pg_temp.raises('features are money, the fund, the live room, the page counts and best ball only', 'select commish_update_league(''{"features": {"casino": true}}'')', 'Features are money, fund, live_room, usage and bestball');
 select commish_update_league('{"features": {"money": true}}');
 -- the live room is on until the commissioner turns it off (migration 265), and turning it off keeps the rest
 select commish_update_league('{"features": {"live_room": false}}');
@@ -6543,3 +6543,59 @@ delete from clubs where ext_id in ('nh1', 'nh2', 'nh3') and sport = 'nhl';
 select set_config('app.league_id', '', false);
 select set_config('request.jwt.claim.sub', '', false);
 select 'nightly seasons', true;
+
+-- ───────────── best ball (migration 276) ─────────────
+-- the commissioner switches it on (from the night being played); once a night is over its snapshots are re-slotted to
+-- the best lineup in hindsight, so the night scores its best; a night before the switch, or older than three, is left
+-- as it was; the IR stays on IR; a second run changes nothing; a league without it is untouched
+reset role;
+select set_config('request.jwt.claim.sub', '', false);
+select (array_agg(r.player_id order by r.player_id))[1] as bb_a, (array_agg(r.player_id order by r.player_id))[2] as bb_b,
+       (array_agg(r.player_id order by r.player_id))[3] as bb_c, (array_agg(r.player_id order by r.player_id))[4] as bb_d
+from rosters r join players p on p.id = r.player_id where r.team_id = 3 and p.pos <> 'G' \gset
+insert into games (id, date, start_utc, home, away, state, final_synced) values
+  (7901, today_et() - 2, now() - interval '2 days', 'TOR', 'MTL', 'OFF', true),
+  (7902, today_et() - 6, now() - interval '6 days', 'TOR', 'MTL', 'OFF', true);
+insert into player_games (game_id, player_id, date, stats) values
+  (7901, :bb_a, today_et() - 2, '{"g":1,"a":0,"sog":2}'), (7901, :bb_b, today_et() - 2, '{"g":0,"a":0,"sog":0,"pim":4}'),
+  (7901, :bb_c, today_et() - 2, '{"g":2,"a":1,"sog":6}'), (7901, :bb_d, today_et() - 2, '{"g":3,"a":0,"sog":5}'),
+  (7902, :bb_a, today_et() - 6, '{"g":0,"a":0,"sog":1}'), (7902, :bb_c, today_et() - 6, '{"g":2,"a":0,"sog":4}');
+-- a started, b (in the penalty box, below zero) started too, c, the night's best, sat; d on IR
+insert into lineup_snapshots (game_id, date, team_id, player_id, slot) values
+  (7901, today_et() - 2, 3, :bb_a, 'Util'), (7901, today_et() - 2, 3, :bb_b, 'D'), (7901, today_et() - 2, 3, :bb_c, 'BN'), (7901, today_et() - 2, 3, :bb_d, 'IR'),
+  (7902, today_et() - 6, 3, :bb_a, 'Util'), (7902, today_et() - 6, 3, :bb_c, 'BN');
+select pg_temp.as_team(1);
+set role authenticated;
+select pg_temp.raises('a feature it doesn''t know is refused', $$select commish_update_league('{"features":{"bestball":"yes"}}')$$, 'each on or off');
+select commish_update_league('{"features":{"bestball":true}}');
+reset role;
+select pg_temp.expect('switched on, it counts from the night being played', (select (features->>'bestball')::boolean and (info->>'bestball_from')::date = today_et() from league_rules where league_id = 1));
+select set_config('app.league_id', '1', false);
+select pg_temp.expect('nothing before the switch is touched', _bestball_settle() = 0);
+-- as if switched on ten nights ago, in a season under way
+select season_start as bb_season from league_rules where league_id = 1 \gset
+update league_rules set info = info || jsonb_build_object('bestball_from', today_et() - 10), season_start = today_et() - 10 where league_id = 1;
+select sum(fpts) filter (where player_id in (:bb_a, :bb_c) and fpts > 0) as bb_best from league_games where game_id = 7901 \gset
+select pg_temp.expect('before, the night scored less than its best', (select points < best from lineup_efficiency(today_et() - 2, today_et() - 2) where team_id = 3));
+select set_config('app.league_id', '', false);
+select set_config('t.bb', (run_league_jobs('bestball')->>'1'), false);
+select set_config('app.league_id', '1', false);
+select pg_temp.expect('the finished night is re-slotted to its best: the star in, the man below zero out, IR untouched',
+  current_setting('t.bb')::int > 0
+  and (select slot <> 'BN' from lineup_snapshots where game_id = 7901 and player_id = :bb_c and team_id = 3)
+  and (select slot = 'BN' from lineup_snapshots where game_id = 7901 and player_id = :bb_b and team_id = 3)
+  and (select slot = 'IR' from lineup_snapshots where game_id = 7901 and player_id = :bb_d and team_id = 3)
+  and (select points = best and points = :bb_best from lineup_efficiency(today_et() - 2, today_et() - 2) where team_id = 3));
+select pg_temp.expect('a night older than three is left as it was', (select slot = 'BN' from lineup_snapshots where game_id = 7902 and player_id = :bb_c and team_id = 3));
+select pg_temp.expect('and a second run changes nothing', _bestball_settle() = 0);
+select set_config('app.league_id', (select id::text from leagues where slug = 'rink'), false);
+select pg_temp.expect('a league without it is untouched', _bestball_settle() = 0);
+select set_config('app.league_id', '', false);
+select pg_temp.raises('a member can''t run it', 'set role authenticated; select _bestball_settle()', 'permission denied');
+reset role;
+update league_rules set features = features - 'bestball', info = info - 'bestball_from', season_start = :'bb_season' where league_id = 1;
+delete from lineup_snapshots where game_id in (7901, 7902);
+delete from player_games where game_id in (7901, 7902);
+delete from games where id in (7901, 7902);
+select set_config('request.jwt.claim.sub', '', false);
+select 'best ball', true;

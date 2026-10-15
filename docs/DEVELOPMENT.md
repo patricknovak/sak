@@ -9,7 +9,7 @@ Paid subscribed: section 1 and section 8 are that review.
 
 ## 1. Where we are
 
-*As of 15 October 2026, migration 275.*
+*As of 15 October 2026, migration 277.*
 
 - **SaK**, the live league: eight GMs, used every night, on React 19 + Supabase (Postgres rules, edge functions, a
   scheduler) and an LLM voice (Garry, on Grok, metered per feature and league), served from Cloudflare. The season is
@@ -29,7 +29,7 @@ Paid subscribed: section 1 and section 8 are that review.
 - **Use so far is the founder's.** Four prediction pools besides SaK, one or two members each, one pick between them
   and no chat (section 9.2, 13 October). The Love Is Blind gate (three pools, thirty players by 4 November) is the first
   real test of the product with strangers; the premiere is 14 October, and the week's build for it is section 9.5.
-- 275 migrations; the flow test drives a whole fantasy season and every pool kind in SQL, with a second league beside
+- 277 migrations; the flow test drives a whole fantasy season and every pool kind in SQL, with a second league beside
   each that must never see or change it; CI runs it, the build and the Worker's types on every pull request.
 
 ## 2. What is working, and stays
@@ -734,3 +734,11 @@ Built for SaK and, as every SaK change is, for every league:
   score) and ESPN's game states beside the NHL's own, which had filed a game not yet started as under way. The start
   page offers both with pick'em, last one standing and the daily streak; the centre is "NHL weeks" and "NBA centre"
   (`RoundCentre`, `centreName`).
+- **Best ball** (SUPERPOOLS item 10, migrations 276 and 277): a league option (`features.bestball`, points leagues only,
+  under League features). Nothing about scoring changes: once a night is over, the hourly `bestball` job re-slots every
+  team's puck-drop snapshots for it to the best lineup in hindsight (`_best_lineup_slots`, the same solver as
+  `lineup_efficiency`, returning the slots), so the standings, matchups, the Book and the voice read it as they always
+  do. It redoes the last three nights each hour, so a stat correction re-picks the night, and never touches a night
+  before it was switched on (`info.bestball_from`). Proved on live: the slots' total equals `lineup_efficiency`'s best
+  for all 24 SaK team-nights of the last three nights. My Team says so on the Tonight card; Garry skips the lineup nudge
+  and never calls a benched hat trick wasted in a best-ball league. SaK doesn't have it on.

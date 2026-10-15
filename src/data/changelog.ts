@@ -6,6 +6,10 @@
 export interface Change { date: string; icon: string; title: string; body: string; to?: string; tag?: 'formats' | 'commish' | 'draft' | 'everyone' }
 
 export const CHANGELOG: Change[] = [
+  { date: '2026-10-15', icon: '🎯', tag: 'formats', title: 'Best ball', to: '/commish',
+    body: 'A commissioner can make the league best ball under League features: your lineup still scores live on a game night, and once the night is over it counts the best lineup your players allowed, so nobody loses a night to a lineup left unset. It starts with the night being played. Points leagues only.' },
+  { date: '2026-10-15', icon: '🏒', tag: 'everyone', title: 'Pools on every NHL and NBA game', to: '/new',
+    body: 'Start a pool on the NHL or NBA regular season: weekly pick\'em, last one standing (one team to win each week, never the same one twice) or the daily streak, one pick a night. Every game comes in with its week, and results land on their own.' },
   { date: '2026-10-14', icon: '🗓️', tag: 'everyone', title: 'Your pool\'s Monday', to: '/chat',
     body: 'Every Monday your pool\'s voice sums up the week: what settled and who called it, the table, a nudge for anyone who sat the week out, and what\'s coming, day by day, before the next drop.' },
   { date: '2026-10-14', icon: '📊', tag: 'commish', title: 'Which pages your league opens, with no names', to: '/privacy',

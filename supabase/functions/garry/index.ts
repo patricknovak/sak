@@ -522,6 +522,10 @@ async function alreadyPosted(type: string, date: string) {
   return (data ?? []).length > 0;
 }
 
+// best ball (migration 276): each finished night counts the best lineup, so no lineup call costs a point
+const bestBall = (league: { features?: Record<string, unknown> | null; categories?: unknown[] | null } | null) =>
+  league?.features?.bestball === true && !league?.categories?.length;
+
 async function base() {
   const [{ data: league }, { data: teams }] = await Promise.all([
     from('league').select('*').single(),
@@ -966,6 +970,8 @@ async function nudge() {
     await post(await write('Remind the listed GMs to submit keepers before the deadline.', { hours_left: Math.round(hrs), gms: slackers.map((t) => t.gm_name) }, fb, 70), { type: 'nudge', date: today });
     return { posted: 'keeper nudge' };
   }
+  // best ball sets the best lineup itself once the night is over: there is nothing to nudge
+  if (bestBall(league)) return { skipped: 'best ball' };
   if (league.phase !== 'season') return { skipped: league.phase };
 
   // tonight as the optimizer sees it: a GM is named only for a swap they can make that gains real points tonight, and
@@ -1775,7 +1781,8 @@ async function moments() {
       const key = `hat:${h.player_id}:${h.game_id}`;
       if (!sn || await posted(key)) continue;
       const { data: p } = await from('players').select('name,nhl_team').eq('id', h.player_id).single();
-      const benched = ['BN', 'IR'].includes(sn.slot);
+      // in best ball a benched hat trick still counts once the night is over: never "counts for nothing"
+      const benched = ['BN', 'IR'].includes(sn.slot) && !(sn.slot === 'BN' && bestBall(league));
       pick = benched
         ? { key, focus: [sn.team_id], task: `${p?.name} just scored a hat trick on ${gm(sn.team_id)}'s bench, where it counts for nothing. Rub it in, 1 or 2 sentences.`,
             facts: { gm: gm(sn.team_id), player: p?.name, club: p?.nhl_team, goals: h.stats.g, points_wasted: Number(h.fpts) },

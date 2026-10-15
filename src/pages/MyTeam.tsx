@@ -8,6 +8,7 @@ import { AlertTriangle, FlaskConical } from 'lucide-react';
 import { useSticky } from '../lib/sticky';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { useLeague, useNow, useSport } from '../lib/store';
+import { bestBall } from '../lib/features';
 import { calledOff, hasStarted, isFinal, isLive } from '../lib/sport';
 import { rpc, supabase } from '../lib/supabase';
 import type { Player, Roster, Slot, Transaction } from '../lib/types';
@@ -423,6 +424,13 @@ function TeamPage({ kit }: { kit: Kit }) {
                   </button>
                 );
               })}
+            </div>
+          )}
+          {/* best ball (migration 276): the lineup here scores live; once the night is over it counts the best one */}
+          {bestBall(league) && (
+            <div className="relative mt-3 flex items-start gap-2.5 rounded-2xl border border-sky-400/25 bg-sky-400/[.07] p-3 text-[13px] leading-snug text-sky-100">
+              <span className="text-base leading-none">🎯</span>
+              <span><b className="text-white">Best ball.</b> Your lineup scores live tonight; once the games are over, the night counts the best lineup your players allowed.</span>
             </div>
           )}
           {warnings.length > 0 && (
