@@ -7208,3 +7208,13 @@ select pg_temp.expect('and the NFL''s (migration 304)', (select pack = 'nfl-2026
 select pg_temp.expect('and the Women''s World Cup''s, on its own (migration 306)', _pool_load_pack(:lib, 'womens-world-cup-2027', null) = 6);
 rollback;
 select 'the NBA''s questions', true;
+
+-- ───────────── every simulated draw is its own (migration 307) ─────────────
+-- a random draw in a lateral subquery that names only the run is worked out once per run, so every match in the run
+-- would share it; each chances function's draw names its match, series or line too
+select pg_temp.expect('no function draws one number for a whole run', not exists (select 1 from pg_proc
+  where pronamespace = 'public'::regnamespace and prosrc ~ 'lateral \(select random\(\) \+ 0 \* r\.s (u|<)'));
+with runs as (select generate_series(1, 200) s), items as (select g id from generate_series(1, 10) g)
+select pg_temp.expect('and the pattern they use draws each row on its own', (select count(distinct u) = 2000 from (
+  select x.u from runs r cross join items i cross join lateral (select random() + 0 * r.s + 0 * i.id u) x) z));
+select 'every draw its own', true;
