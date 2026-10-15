@@ -254,9 +254,10 @@ export function PickemGame({ gameId, first, status: gameStatus, name, reload, ac
                       className={`rounded-xl px-2 py-2 text-xs font-bold ring-1 ${settle.side === x.k ? 'bg-amber-300 text-[#0b1220] ring-amber-200' : 'bg-white/[.04] text-slate-200 ring-white/10'}`}>{x.label}</button>
                   ))}
                 </div>
-                {data.ats && settle.side !== 'void' && (
+                {settle.side !== 'void' && (
                   <div className="flex flex-wrap items-center gap-2 text-xs text-slate-200">
-                    <span className="min-w-0 flex-1 basis-full min-[380px]:basis-auto">Final score, for the spread</span>
+                    {/* needed against the spread; otherwise optional, and it settles the tiebreaker when it's the last game */}
+                    <span className="min-w-0 flex-1 basis-full min-[380px]:basis-auto">{data.ats ? 'Final score, for the spread' : 'Final score, if you have it'}</span>
                     {(['h', 'a'] as const).map((k) => (
                       <label key={k} className="flex items-center gap-1.5"><span className="text-[11px] font-bold text-mute">{short(k === 'h' ? f.home : f.away)}</span>
                       <input type="number" inputMode="numeric" min={0} step={1} aria-label={k === 'h' ? `${f.home.name} score` : `${f.away.name} score`} placeholder="0"
@@ -275,7 +276,7 @@ export function PickemGame({ gameId, first, status: gameStatus, name, reload, ac
                 <input className="input w-full text-sm" maxLength={200} placeholder="Why: the feed stuck at half-time, it ended 2-0" value={settle.reason} onChange={(e) => setSettle({ ...settle, reason: e.target.value })} />
                 <div className="flex gap-2">
                   <button type="button" className="btn-gold flex-1" disabled={busy || !settle.side || settle.reason.trim().length < 3 || (data.ats && settle.side !== 'void' && (!settle.h || !settle.a))}
-                    onClick={() => settleSave(f.id, settle.side, settle.reason, data.ats && settle.h && settle.a ? [Math.round(Number(settle.h)), Math.round(Number(settle.a))] : undefined)}>Settle it</button>
+                    onClick={() => settleSave(f.id, settle.side, settle.reason, settle.h && settle.a ? [Math.round(Number(settle.h)), Math.round(Number(settle.a))] : undefined)}>Settle it</button>
                   <button type="button" className="btn-ghost" onClick={() => setSettle(null)}>Cancel</button>
                 </div>
                 <p className="text-[11px] leading-snug text-mute">Only this pool reads it, and everyone sees why. The match itself stays as the feed has it.</p>

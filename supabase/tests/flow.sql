@@ -4553,6 +4553,17 @@ select pool_result_set(:tbg, :tb1, 'H', 'Checking the score', 3, 1);
 select pool_result_set(:tbg, :tb1, 'H', 'Same result, no score this time');
 reset role;
 select pg_temp.expect('a result by hand with no score keeps the score given', (select home = 3 and away = 1 from pool_result_overrides where fixture_id = :tb1));
+-- the last game settled by hand with no score: the feed's final total decides the tiebreak once it comes (migration 292)
+select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-000000000081', false);
+set role authenticated;
+select pool_result_set(:tbg, :tb2, 'H', 'The feed stuck; home won');
+reset role;
+select pg_temp.expect('no score and no final yet: no tiebreak round', _pickem_tb_round(:tbg) is null and (select tiebreak is null from _pickem_table(:tbg) where team_id = :fern));
+update pool_games set status = 'open', winners = null, posted = '{}' where id = :tbg;
+update fixtures set state = 'final', home_score = 7, away_score = 4 where id = :tb2;
+select pg_temp.expect('the feed''s final total decides it', (select tiebreak = 1 from _pickem_table(:tbg) where team_id = :fern) and (select tiebreak = 2 from _pickem_table(:tbg) where team_id = :hana));
+delete from pool_result_overrides where fixture_id = :tb2;
+update pool_games set status = 'open', winners = null, posted = '{}' where id = :tbg;
 -- the feed sticks at 3-2 in the last game and the host settles it 7-4: the tiebreaker reads the host's score
 update fixtures set state = 'live', home_score = 3, away_score = 2 where id = :tb2;
 select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-000000000081', false);

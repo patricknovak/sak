@@ -460,7 +460,7 @@ function GameTable({ board }: { board: GameBoard }) {
 // week by week (migration 290): everyone's points in each round played, latest first, each finished round's winner in
 // gold; the grid scrolls sideways inside its card once a season has more weeks than a phone shows
 interface Weeks { word: string; rounds: { round: number; done: boolean; winners: number[] }[]; rows: { team_id: number; weeks: Record<string, number> }[] }
-function PickemWeeks({ gameId, me, stamp }: { gameId: number; me: number | null; stamp: number }) {
+function PickemWeeks({ gameId, me, stamp }: { gameId: number; me: number | null; stamp: string }) {
   const { teams } = useLeague();
   const [w, setW] = useState<Weeks | null>(null);
   useEffect(() => { rpc<Weeks>('pool_pickem_weeks', { p_game: gameId }).then(setW, () => setW(null)); }, [gameId, stamp]);
@@ -625,7 +625,7 @@ export default function Picks() {
         : <div className="card p-4 text-sm text-mute">This kind of game is newer than this page. Pull down to refresh, or reopen the app.</div>}
       {me?.is_commish && board.status === 'open' && !actAs && <HostDesk board={board} reload={load} onActAs={setActAs} />}
       <GameTable board={board} />
-      {board.kind === 'pickem' && <PickemWeeks gameId={board.id} me={board.me} stamp={board.table.reduce((n, r) => n + r.points + r.picked, 0)} />}
+      {board.kind === 'pickem' && <PickemWeeks gameId={board.id} me={board.me} stamp={board.table.map((r) => `${r.team_id}:${r.points}:${r.picked}:${r.tiebreak ?? ''}`).join()} />}
       <GameRules board={board} />
     </div>
   );
