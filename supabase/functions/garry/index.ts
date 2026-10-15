@@ -526,6 +526,37 @@ async function alreadyPosted(type: string, date: string) {
 const bestBall = (league: { features?: Record<string, unknown> | null; categories?: unknown[] | null } | null) =>
   league?.features?.bestball === true && !league?.categories?.length;
 
+// the guillotine (migration 278), in words, for a league that plays it: teams left, the latest cut (within the last
+// three days, the story), every cut so far, and this week's fewest so far (on the block), when the week is judged
+async function guillotineFacts(league: { features?: Record<string, unknown> | null; info?: Record<string, unknown> | null } | null, byId: Map<number, Team>) {
+  if (league?.features?.guillotine !== true) return null;
+  const today = ((await db.rpc('today_et')).data as string | null) ?? etDate(new Date());
+  const d = new Date(`${today}T12:00:00Z`);
+  d.setUTCDate(d.getUTCDate() - ((d.getUTCDay() + 6) % 7));
+  const start = d.toISOString().slice(0, 10);
+  const [{ data: cuts }, { data: week }] = await Promise.all([
+    from('guillotine_cuts').select('team_id,week_start,points,alive,cut_at').order('week_start'),
+    from('team_daily').select('team_id,points').gte('date', start).lte('date', today),
+  ]);
+  const cut = (cuts ?? []) as { team_id: number; week_start: string; points: number; alive: number; cut_at: string }[];
+  const out = new Set(cut.map((c) => c.team_id));
+  const alive = [...byId.values()].filter((t) => !out.has(t.id));
+  const pts = new Map<number, number>();
+  for (const r of (week ?? []) as { team_id: number; points: number }[]) pts.set(r.team_id, (pts.get(r.team_id) ?? 0) + Number(r.points));
+  const name = (id: number) => `${byId.get(id)?.gm_name ?? '?'} (${byId.get(id)?.name ?? '?'})`;
+  const last = cut.at(-1);
+  const from_ = league?.info?.guillotine_from as string | undefined;
+  const block = alive.length > 1 && (!from_ || start > from_) ? [...alive].sort((a, b) => (pts.get(a.id) ?? 0) - (pts.get(b.id) ?? 0))[0] : null;
+  return {
+    rule: 'every Monday the team with the fewest points that week is cut and its players go to free agency; the last team standing wins',
+    teams_left: alive.length,
+    ...(alive.length === 1 ? { winner: name(alive[0].id) } : {}),
+    ...(last && Date.now() - Date.parse(last.cut_at) < 3 * 864e5 ? { just_cut: `${name(last.team_id)}, ${f1(Number(last.points))} points in the week, the fewest of the ${last.alive} still in` } : {}),
+    ...(cut.length ? { cut_so_far: cut.map((c) => name(c.team_id)) } : {}),
+    ...(block ? { on_the_block_this_week: `${name(block.id)} with ${f1(pts.get(block.id) ?? 0)} so far, the fewest of the ${alive.length} still in` } : {}),
+  };
+}
+
 async function base() {
   const [{ data: league }, { data: teams }] = await Promise.all([
     from('league').select('*').single(),
@@ -935,12 +966,14 @@ async function daily() {
     formatFacts = { format: 'rotisserie', rotisserie_table: table };
     formatLine = table.length ? `Rotisserie: ${table.slice(0, 3).map((t) => `${t.rank}. @${t.gm} ${f1(t.roto_points)}`).join(', ')}.` : '';
   }
+  const gFacts = await guillotineFacts(league, byId);
   const facts = {
     date: yesterday, day_scores: dayTable, season_standings: formatLine ? undefined : season, ...formatFacts,
     top_performers: active.slice(0, 3), worst_starters: active.slice(-2).reverse(), left_on_bench: benchRegret,
     daily_bonus: { gm: byId.get(winner.team_id)?.gm_name, coins: DAILY_BONUS },
     stage: playoffs ? `${L.info.short_name} playoffs (NHL playoff games only; separate table and ${league.playoff_share ?? 40}% of the prize pool)` : 'regular season',
     last_place_watch: playoffs || formatLine ? null : season.at(-1), ...(stories ?? {}),
+    ...(gFacts ? { guillotine: gFacts } : {}),
   };
   const top = active[0];
   const fallback = [
@@ -951,7 +984,7 @@ async function daily() {
     benchRegret[0] ? `Meanwhile @${benchRegret[0].gm} left ${benchRegret[0].player} (${f1(benchRegret[0].fpts)}) on the bench over ${benchRegret[0].over} (${f1(benchRegret[0].over_fpts)}).` : '',
     playoffs ? `Playoff table: ${season.slice(0, 3).map((x) => `${x.rank}. @${x.gm} ${f1(x.points)}`).join(', ')}.` : formatLine || `${L.brand.booby} watch: @${season.at(-1)?.gm} sitting in the basement at ${f1(season.at(-1)?.points ?? 0)}.`,
   ].filter(Boolean).join(' ');
-  const body = await write(`Write this morning's column on yesterday's ${L.info.short_name} ${playoffs ? 'playoff ' : ''}results for the league chat. Lead with the best story in the facts (a pass in the standings, told with the spots and places rank_changes gives, a tight race, a big night, a costly bench call, a hot or cold week), not a list of scores; work in the NHL news about the GMs' own players if any is there (a headline says only what it says: add no stat, result or role it doesn't give; what the player did last night is given beside it), and tonight's slate if it sets up something. It's a column the league reads for the laughs: at least two sharp, specific chirps (the GM who got passed, the one who blew a bench call, the one whose star is out, the leader who barely moved), each built on a fact given, and a running gag or something a GM said if one fits. No closing call to bet, trade or talk unless a fact sets it up.`, facts, fallback, 220, [], { numbers: true });
+  const body = await write(`Write this morning's column on yesterday's ${L.info.short_name} ${playoffs ? 'playoff ' : ''}results for the league chat. Lead with the best story in the facts (${gFacts?.just_cut ? 'the guillotine\'s cut first, then ' : ''}a pass in the standings, told with the spots and places rank_changes gives, a tight race, a big night, a costly bench call, a hot or cold week), not a list of scores; work in the NHL news about the GMs' own players if any is there (a headline says only what it says: add no stat, result or role it doesn't give; what the player did last night is given beside it), and tonight's slate if it sets up something. It's a column the league reads for the laughs: at least two sharp, specific chirps (the GM who got passed, the one who blew a bench call, the one whose star is out, the leader who barely moved), each built on a fact given, and a running gag or something a GM said if one fits. No closing call to bet, trade or talk unless a fact sets it up.`, facts, fallback, 220, [], { numbers: true });
   await post(body, { type: 'recap', date: yesterday });
   return { posted: 'recap', bonus: facts.daily_bonus };
 }
@@ -1593,7 +1626,8 @@ async function weekly() {
   if (!dry()) await from('coin_ledger').insert({ team_id: best.team_id, amount: WEEKLY_BONUS, reason: `${bot()}'s Team of the Week (${start} to ${end})` });
   if (!dry()) await from('notifications').insert({ team_id: best.team_id, kind: 'weekly', body: `🏆 Team of the Week! ${f1(best.points)} points and ${WEEKLY_BONUS} ${coin().emoji} coins from ${bot()}`, link: '/chat' });
 
-  const facts = { week: { start, end }, week_table: table, team_of_the_week: { ...best, coins: WEEKLY_BONUS }, bust_of_the_week: worst, player_of_the_week: star,
+  const gFacts = await guillotineFacts(league, byId);
+  const facts = { ...(gFacts ? { guillotine: gFacts } : {}), week: { start, end }, week_table: table, team_of_the_week: { ...best, coins: WEEKLY_BONUS }, bust_of_the_week: worst, player_of_the_week: star,
     power_rankings: rankings.map((r) => ({ rank: r.rank, gm: r.gm, team: r.team, move: arrow(r), last_14_days: r.last14, season: seasonLine(r.team_id, r.season_rank) })),
     // the season table's gaps in words, so "a point behind the leader" is read, never worked out (a points table only)
     ...(!h2h && !roto.length && standings.length > 1 ? { season_table: [...standings].sort((a, b) => Number(a.rank) - Number(b.rank)).map((x, i, all) =>
@@ -1615,7 +1649,7 @@ async function weekly() {
     `Power rankings: ${rankings.map((r) => `${r.rank}. ${r.gm} (${arrow(r)})`).join(' · ')}.`,
     pick(['Trade deadline energy, please. Somebody make an offer.', 'Put some coins on next week\'s Team of the Week.', `Set your lineups. ${bot()} is watching.`]),
   ].filter(Boolean).join('\n');
-  const body = await write(`Write your Monday column for the league chat: ${h2h?.results.length ? `lead with the week's head-to-head ${h2h.playoff ? 'playoff ' : ''}results (every matchup: who beat whom and by how much, a tie as a tie), then ` : ''}Team of the Week (and their coin bonus), Bust of the Week, Player of the Week, ${lineups ? 'one line on lineup management (the sharpest manager and who left the most points out, from lineup_management), ' : ''}then the power rankings as a numbered list with the movement arrows given. One dry line per team, built on that row's own last_14_days and season as given, never another row's gap.`, facts, fallback, (h2h?.results.length ? 340 : 260) + (lineups ? 40 : 0), [], { numbers: true });
+  const body = await write(`Write your Monday column for the league chat: ${gFacts ? 'open with the guillotine (who was just cut and with how many, how many teams are left, who\'s on the block now if the facts say), then ' : ''}${h2h?.results.length ? `lead with the week's head-to-head ${h2h.playoff ? 'playoff ' : ''}results (every matchup: who beat whom and by how much, a tie as a tie), then ` : ''}Team of the Week (and their coin bonus), Bust of the Week, Player of the Week, ${lineups ? 'one line on lineup management (the sharpest manager and who left the most points out, from lineup_management), ' : ''}then the power rankings as a numbered list with the movement arrows given. One dry line per team, built on that row's own last_14_days and season as given, never another row's gap.`, facts, fallback, (h2h?.results.length ? 340 : 260) + (lineups ? 40 : 0), [], { numbers: true });
   await post(body, { type: 'weekly', date: end, rankings: rankings.map((r) => ({ team_id: r.team_id, rank: r.rank, prev: r.prev })), team_of_week: best.team_id });
   return { posted: 'weekly', team_of_week: best.gm, star };
 }
