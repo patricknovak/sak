@@ -9,7 +9,7 @@ Paid subscribed: section 1 and section 8 are that review.
 
 ## 1. Where we are
 
-*As of 15 October 2026, migration 303.*
+*As of 15 October 2026, migration 304.*
 
 - **SaK**, the live league: eight GMs, used every night, on React 19 + Supabase (Postgres rules, edge functions, a
   scheduler) and an LLM voice (Garry, on Grok, metered per feature and league), served from Cloudflare. The season is
@@ -29,7 +29,7 @@ Paid subscribed: section 1 and section 8 are that review.
 - **Use so far is the founder's.** Four prediction pools besides SaK, one or two members each, one pick between them
   and no chat (section 9.2, 13 October). The Love Is Blind gate (three pools, thirty players by 4 November) is the first
   real test of the product with strangers; the premiere is 14 October, and the week's build for it is section 9.5.
-- 303 migrations; the flow test drives a whole fantasy season and every pool kind in SQL, with a second league beside
+- 304 migrations; the flow test drives a whole fantasy season and every pool kind in SQL, with a second league beside
   each that must never see or change it; CI runs it, the build and the Worker's types on every pull request.
 
 ## 2. What is working, and stays
@@ -835,7 +835,8 @@ Built for SaK and, as every SaK change is, for every league:
   DraftKings' futures on ESPN had them before opening night, coins on the first of each month; it rides the season
   (`competitions.pack`), so an NBA pool on the start page opens with its questions ticked, as a World Series pool does.
   The NHL's games, the Premier League and MLS carry their packs the same way (migration 300); the start page no longer
-  lists those packs on their own, and a host who wants only the questions leaves the games unticked.
+  lists those packs on their own, and a host who wants only the questions leaves the games unticked. The NFL's season
+  carries one too (migration 304: the Super Bowl, each conference, the best record, MVP and Defensive Player of the Year).
 - **Review fixes to the night's site** (and migration 301): against the spread, a match the host settled shows the
   server's verdict on the pick's own line (it had shown the straight-up winner), a push no longer reads as a loss, and a
   game with no line out says the line is set at the start (the board sent a missing line as 0, "even"); the host's score

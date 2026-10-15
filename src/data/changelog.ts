@@ -6,6 +6,8 @@
 export interface Change { date: string; icon: string; title: string; body: string; to?: string; tag?: 'formats' | 'commish' | 'draft' | 'everyone' }
 
 export const CHANGELOG: Change[] = [
+  { date: '2026-10-15', icon: '🏈', tag: 'everyone', title: 'NFL season questions', to: '/new',
+    body: 'An NFL pool now comes with the season\'s questions: who wins the Super Bowl, the AFC and the NFC, the best record, MVP and Defensive Player of the Year. The NHL, the Premier League and MLS pools bring theirs the same way.' },
   { date: '2026-10-15', icon: '🏀', tag: 'everyone', title: 'NBA season questions', to: '/new',
     body: 'An NBA pool now comes with the season\'s questions: who wins the title, the East, the West and the NBA Cup, the best record, MVP, Rookie and Defensive Player of the Year. Call them with coins, a fresh drop on the first of every month, and the odds move as your friends call them.' },
   { date: '2026-10-15', icon: '📈', tag: 'everyone', title: 'NBA win totals', to: '/new',
