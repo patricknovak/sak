@@ -94,7 +94,7 @@ Two things in one repo:
   pre-match lines ride along as `fixtures.detail.odds`, chances only, frozen at kick-off, migration 178; a competition
   with `format` 'series' is a postseason: the NFL's playoffs come in as best-of-1 series through `sport_ingest`, migration
   187; March Madness as 63 single-game series in bracket order, day by day in March only, migration 201; the NBA playoffs as
-  fifteen best-of-7 series, seeds from ESPN's standings, mid-April to late June only, migration 220; the NHL and NBA regular seasons night by night, each game in its week from `detail.week1`, `espnDaily`, migration 274), `mlb-sync` (baseball's postseason from MLB's
+  fifteen best-of-7 series, seeds from ESPN's standings, mid-April to late June only, migration 220; the NHL and NBA regular seasons night by night, each game in its week from `detail.week1`, `espnDaily`, migration 274, the NBA Cup final, which the standings leave out, kept out of the season, migration 297), `mlb-sync` (baseball's postseason from MLB's
   public Stats API into `series`, `fixtures` and `fixture_periods` through `sport_ingest`, and the Stanley Cup playoffs from
   the NHL's bracket for competitions with provider 'nhl-api', migration 191, with each recent game's score by period from its
   gamecenter landing, `nhlPeriods`, migration 215; platform key only; for testing, a
@@ -157,7 +157,7 @@ Two things in one repo:
   `poolLink` in `src/lib/host.ts`); a `<web name>` subdomain forwards to it unless someone is signed in on that address.
   My pools (`#/pools`) reads `my_pools()`; every start goes through `#/new` (a sports pool, a questions pool, or a fantasy
   league of your own with `fantasy_start`, opened in setup and taken live with `commish_go_live`), and a host deletes a
-  pool with `pool_delete` (migration 242). A pack's new questions reach every open pool on it through the hourly pool job
+  pool with `pool_delete` (migration 242). A season carries its questions pack (`competitions.pack`: the NBA, the NFL, the NHL's games, the Premier League, MLS and the World Series), so a start on it ticks them beside its games (migrations 299, 300 and 304). A pack's new questions reach every open pool on it through the hourly pool job
   (`_pool_pack_refresh`, migration 251; a pack question's later closing time reaches every open copy too, migration 258), and an invite's preview carries the pool's next question (migration 252). A pool's pages keep to its own events, `pool_competitions()`
   (`src/lib/poolOwn.ts`): read it rather than every competition when a pool page lists events. Every pool's games share one scoreboard
   (`pool_scoreboard()`, migration 169): a new kind of game adds a branch to `_pool_rows()` and gets the table, movement,
