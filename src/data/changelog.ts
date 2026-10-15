@@ -6,6 +6,8 @@
 export interface Change { date: string; icon: string; title: string; body: string; to?: string; tag?: 'formats' | 'commish' | 'draft' | 'everyone' }
 
 export const CHANGELOG: Change[] = [
+  { date: '2026-10-15', icon: '♥', tag: 'everyone', title: 'Lives in last one standing', to: '/new',
+    body: 'Last one standing can now give everyone two or three lives: a loss, a tie or a round with no pick costs one, and you\'re out when the last is gone. Pick the lives when you start it; the page shows the hearts each player has left.' },
   { date: '2026-10-15', icon: '🛟', tag: 'everyone', title: 'Forgot a pick? The favourite', to: '/new',
     body: 'A pick\'em can now fill a forgotten pick with the market\'s favourite the moment the game starts, instead of scoring nothing (with the lowest Confidence number still free). Switch it on when you start the pool, or before the first lock. The board says which picks were made for you.' },
   { date: '2026-10-15', icon: '🎯', tag: 'everyone', title: 'A tiebreaker in pick\'em', to: '/picks',

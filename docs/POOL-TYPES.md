@@ -132,6 +132,9 @@ last ones go out together (share it, or roll back).
 (a team a day, two on the Elite 8 day).
 **Good:** the alive count each week as a chart, the used-teams grid, a planner for the weeks ahead, the pick split.
 **Popularity:** Circa Survivor 2026 drew 25,017 entries; ESPN, Yahoo and Splash all run one.
+*Lives built 15 October 2026 (migration 288):* `rules.lives` 1 to 3 (one by default); a loss, a tie (a draw) or a round
+with no pick costs one, and a member is out when the last is gone (`_survivor_lives`, `_survivor_alive`,
+`_survivor_out_gw`, the settle's alerts, the board's `lives_left`, the scoreboard's "Still in, one life left").
 
 ### 2.6 Squares
 

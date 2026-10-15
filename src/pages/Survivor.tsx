@@ -17,10 +17,11 @@ import { chance, useMarket } from '../lib/market';
 interface Club { id: number; name: string; short: string | null; logo: string | null }
 interface Fixture { id: number; kickoff: string; state: string; home: Club; away: Club; home_score: number | null; away_score: number | null }
 interface Pick { gameweek: number; club_id: number | null; short: string | null; name: string | null; logo: string | null; result: 'through' | 'out' | 'missed' | 'void' | null; locked: boolean }
-interface Player { team_id: number; alive: boolean; out_gw: number | null; picks: Pick[] }
+// lives (migration 288): how many a member has left, of the survivor's `lives`
+interface Player { team_id: number; alive: boolean; out_gw: number | null; lives_left?: number; picks: Pick[] }
 export interface Board {
   id: number; competition: string; competition_name: string; start_gw: number; end_gw?: number; status: 'open' | 'done'; winners: number[] | null;
-  gameweek: number | null; fixtures: Fixture[]; players: Player[];
+  gameweek: number | null; fixtures: Fixture[]; players: Player[]; lives?: number;
   // older copies of the database send none of these: soccer's words
   word?: string; club_word?: string; match_word?: string; draws?: boolean;
 }
@@ -149,7 +150,7 @@ export default function Survivor() {
         <div className={`rounded-2xl border p-4 ${mine.alive ? 'border-emerald-400/30 bg-emerald-500/[.07]' : 'border-red-400/30 bg-red-500/[.07]'}`}>
           <div className="font-display text-2xl font-extrabold text-white">{mine.alive ? 'You’re in' : 'You’re out'}</div>
           <div className="text-sm text-slate-300">{mine.alive
-            ? (current ? `Your pick for ${w} ${board.gameweek}: ${current.name}. You can change it until its ${match} starts.` : `Pick a ${club} to win in ${w} ${board.gameweek}. No pick and you're out.`)
+            ? <>{(board.lives ?? 1) > 1 && <><span className="mr-1 tracking-wider text-rose-300" aria-hidden="true">{'♥'.repeat(mine.lives_left ?? 0)}<span className="text-white/25">{'♥'.repeat(Math.max(0, (board.lives ?? 1) - (mine.lives_left ?? 0)))}</span></span>{mine.lives_left === 1 ? 'One life left. ' : `${mine.lives_left} lives left. `}</>}{`${current ? `Your pick for ${w} ${board.gameweek}: ${current.name}. You can change it until its ${match} starts.` : `Pick a ${club} to win in ${w} ${board.gameweek}. ${(board.lives ?? 1) > 1 && (mine.lives_left ?? 0) > 1 ? 'No pick costs a life.' : 'No pick and you\u2019re out.'}`}`}</>
             : `Out in ${w} ${mine.out_gw ?? '–'}. Watch the rest fight it out.`}</div>
         </div>
       )}
@@ -224,7 +225,7 @@ export default function Survivor() {
                 </div>
                 {board.status === 'done' && board.winners?.includes(p.team_id)
                   ? <span className="chip shrink-0 border-gold/50 text-gold">Won</span>
-                  : <span className={`chip shrink-0 ${p.alive && open ? 'border-emerald-400/40 text-emerald-200' : 'text-mute'}`}>{p.alive ? (open ? 'In' : 'Out') : `Out · ${short}${p.out_gw ?? ''}`}</span>}
+                  : <span className={`chip shrink-0 ${p.alive && open ? 'border-emerald-400/40 text-emerald-200' : 'text-mute'}`}>{p.alive ? (open ? ((board.lives ?? 1) > 1 ? <span aria-label={`${p.lives_left} of ${board.lives} lives`}>In <span className="text-rose-300">{'♥'.repeat(p.lives_left ?? 0)}</span></span> : 'In') : 'Out') : `Out · ${short}${p.out_gw ?? ''}`}</span>}
               </div>
             );
           })}

@@ -4594,6 +4594,55 @@ select set_config('app.league_id', '', false);
 select set_config('request.jwt.claim.sub', '', false);
 select 'a missed pick takes the favourite', true;
 
+-- ───────────── lives in last one standing (migration 288) ─────────────
+-- two lives: Hana's club loses in week 1 and she's still in with one left; no pick in week 2 costs her the last one;
+-- Fern wins both and is the last one standing
+reset role;
+select set_config('request.jwt.claim.sub', '', false);
+select set_config('app.league_id', '', false);
+insert into competitions (id, sport, name, short, season, provider, ext_id, ext_season, active)
+values ('lv-test', 'mlb', 'Lives Bowl', 'LB', '2026', 'mlb-statsapi', 'lvt', '2026', true) on conflict (id) do nothing;
+insert into fixtures (sport, competition, provider, ext_id, season, gameweek, kickoff, date, home_club, away_club, state) values
+  ('mlb', 'lv-test', 'mlb-statsapi', 'lv-1', '2026', 1, now() + interval '2 days', (now() + interval '2 days')::date, :alb, :bri, 'scheduled'),
+  ('mlb', 'lv-test', 'mlb-statsapi', 'lv-2', '2026', 2, now() + interval '9 days', (now() + interval '9 days')::date, :bri, :alb, 'scheduled'),
+  ('mlb', 'lv-test', 'mlb-statsapi', 'lv-3', '2026', 3, now() + interval '16 days', (now() + interval '16 days')::date, :alb, :bri, 'scheduled');
+select id as lv1 from fixtures where ext_id = 'lv-1' \gset
+select id as lv2 from fixtures where ext_id = 'lv-2' \gset
+select set_config('app.league_id', :'lib', false);
+select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-000000000081', false);
+set role authenticated;
+select pg_temp.raises('one, two or three lives', $$select pool_game_start('survivor', 'lv-test', '{"lives": 5}')$$, 'One, two or three lives');
+select pool_game_start('survivor', 'lv-test', '{"lives": 2}') as lvg \gset
+select pg_temp.expect('two lives, and the pool told', (survivor_board(:lvg)->>'lives')::int = 2
+  and exists (select 1 from messages where league_id = :lib and body like '%costs one of your 2 lives; lose them all and you''re out.%'));
+select survivor_pick(:lvg, :bri);
+reset role;
+-- the rest of the pool sits it out: only Hana and Fern play
+select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-000000000082', false);
+set role authenticated;
+select survivor_pick(:lvg, :alb);
+reset role;
+update fixtures set kickoff = now() - interval '3 hours', state = 'final', home_score = 5, away_score = 2, home_ft = 5, away_ft = 2 where id = :lv1;
+select pg_temp.expect('a loss costs Hana a life, not the game',
+  _survivor_alive(:lvg, :hana) and _survivor_alive(:lvg, :fern)
+  and (select (p->>'lives_left')::int = 1 from jsonb_array_elements(survivor_board(:lvg)->'players') p where (p->>'team_id')::int = :hana)
+  and exists (select 1 from notifications where team_id = :hana and body like '💔 A life gone:%One life left.'));
+select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-000000000082', false);
+set role authenticated;
+select survivor_pick(:lvg, :bri);
+reset role;
+update fixtures set kickoff = now() - interval '3 hours', state = 'final', home_score = 4, away_score = 1, home_ft = 4, away_ft = 1 where id = :lv2;
+select pg_temp.expect('no pick takes Hana''s last life: Fern is the last one standing',
+  not _survivor_alive(:lvg, :hana) and _survivor_out_gw(:lvg, :hana) = 2
+  and (select status = 'done' and winners = array[:fern]::int[] from pool_games where id = :lvg));
+delete from pool_picks where game_id = :lvg;
+delete from pool_games where id = :lvg;
+delete from fixtures where competition = 'lv-test';
+delete from competitions where id = 'lv-test';
+select set_config('app.league_id', '', false);
+select set_config('request.jwt.claim.sub', '', false);
+select 'lives in last one standing', true;
+
 -- ───────────── the host's desk (migration 172) ─────────────
 -- Hana runs a pick'em on the Desk Cup: she changes its rules before the first lock, enters Lou's picks when he asks,
 -- and settles a match the feed left hanging.

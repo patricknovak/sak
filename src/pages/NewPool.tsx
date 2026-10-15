@@ -66,6 +66,8 @@ export default function NewPool() {
   // against the spread on from the link too (#/new?comp=nfl&ats=1, the football landing page's)
   const [ats, setAts] = useState(params.get('ats') === '1');
   const [missFav, setMissFav] = useState(false);
+  // last one standing's lives (migration 288): out on the first loss, or the second or third
+  const [lives, setLives] = useState(1);
   // the box pool's size and window (migration 188)
   const [box, setBox] = useState<{ preset: 'classic' | 'quick'; length: 'week' | 'month' | 'season' }>({ preset: 'classic', length: 'month' });
   const [grid, setGrid] = useState<Omit<SquaresRules, 'series'>>(SQUARES_DEFAULT);
@@ -134,6 +136,7 @@ export default function NewPool() {
   const offered: GameKind[] = event ? [...event.kinds.filter((k) => k in KINDS), ...(gridSeries ? ['squares' as const] : [])] : [];
   const gamesPayload = games.filter((k) => (k !== 'squares' || gridSeries) && (k !== 'props' || sheetGame)).map((k) => ({ kind: k, competition: event!.competition,
     rules: k === 'series' ? { preset } : k === 'pickem' ? { preset: pkPreset, ...(ats && atsFits(event?.sport) ? { ats: true } : {}), ...(missFav ? { missed: 'favourite' } : {}) } : k === 'players' ? box : k === 'squares' ? { ...grid, ...gridRules(gridSeries!) }
+      : k === 'survivor' ? (lives > 1 ? { lives } : {})
       : k === 'props' ? { fixture: sheetGame!.id, ...(everySheet ? { auto: true } : {}) }
       // a bracket on best-of-7s takes a point for calling the games too (migration 228)
       : k === 'bracket' && SERIES_SPORTS.includes(event!.sport) ? { games_bonus: 1 } : {} }));
@@ -304,8 +307,16 @@ export default function NewPool() {
                 )}
                 {kinds.includes('survivor') && (
                   <p className="mt-2 rounded-xl bg-white/[.05] px-3 py-2 text-xs leading-snug text-white/70">
-                    Last one standing runs from {event.open_label} to {event.final_label}: one {event.club_word ?? 'club'} to win each {(event.word ?? 'round').toLowerCase()}, never the same one twice. {event.sport === 'soccer' ? 'A draw or a loss' : 'A loss'} and you’re out; whoever is still in at the end shares it.
+                    Last one standing runs from {event.open_label} to {event.final_label}: one {event.club_word ?? 'club'} to win each {(event.word ?? 'round').toLowerCase()}, never the same one twice. {lives > 1 ? `${event.sport === 'soccer' ? 'A draw or a loss' : 'A loss'}, or no pick, costs one of your ${lives} lives; lose them all and you’re out` : `${event.sport === 'soccer' ? 'A draw or a loss' : 'A loss'} and you’re out`}; whoever is still in at the end shares it.
                   </p>
+                )}
+                {kinds.includes('survivor') && (
+                  <div className="mt-2 flex items-center justify-between gap-3 rounded-xl bg-white/[.05] px-3 py-2">
+                    <span className="text-[13px] font-semibold text-white">Lives<span className="block text-[11px] font-normal text-white/60">Out on the first loss, or a second chance</span></span>
+                    <div className="flex shrink-0 gap-1 rounded-xl bg-black/25 p-1">
+                      {[1, 2, 3].map((n) => <button key={n} type="button" aria-label={`${n} ${n === 1 ? 'life' : 'lives'}`} onClick={() => setLives(n)} className={`rounded-lg px-2.5 py-1 text-xs font-bold transition ${lives === n ? 'bg-white text-[#0b1220]' : 'text-white/70'}`}>{'♥'.repeat(n)}</button>)}
+                    </div>
+                  </div>
                 )}
               </Step>
             )}

@@ -679,6 +679,7 @@ export function HostGames() {
   const [pkPreset, setPkPreset] = useState<PickemPreset>('classic');
   const [pkAts, setPkAts] = useState(false);
   const [pkMiss, setPkMiss] = useState(false);
+  const [svLives, setSvLives] = useState(1);
   // a bracket on best-of-7s can carry a point for calling the games (migration 228)
   const [gamesBonus, setGamesBonus] = useState(true);
   const [grid, setGrid] = useState<Omit<SquaresRules, 'series'>>(SQUARES_DEFAULT);
@@ -753,6 +754,14 @@ export function HostGames() {
                 )}
               </div>
             )}
+            {k === 'survivor' && (
+              <div className="flex items-center justify-between gap-3 rounded-2xl bg-black/20 px-3 py-1.5 ring-1 ring-white/[.06]">
+                <span className="text-[13px] font-semibold text-white">Lives<span className="block text-[11px] font-normal text-mute">Out on the first loss, or a second chance</span></span>
+                <div className="flex shrink-0 gap-1">
+                  {[1, 2, 3].map((n) => <button key={n} type="button" aria-label={`${n} ${n === 1 ? 'life' : 'lives'}`} onClick={() => setSvLives(n)} className={`rounded-full px-2.5 py-1 text-xs font-bold ring-1 ${svLives === n ? 'bg-gold text-[#0b1220] ring-gold' : 'bg-white/[.04] text-slate-200 ring-white/10'}`}>{'♥'.repeat(n)}</button>)}
+                </div>
+              </div>
+            )}
             {k === 'bracket' && SERIES_SPORTS.includes(e.sport) && (
               <div className="flex items-center justify-between gap-3 rounded-2xl bg-black/20 px-3 py-1 ring-1 ring-white/[.06]">
                 <span className="text-[13px] font-semibold text-white">Call the games too<span className="block text-[11px] font-normal text-mute">A point more when a series goes exactly as long as you said</span></span>
@@ -763,7 +772,7 @@ export function HostGames() {
               <div className="flex flex-wrap gap-1.5">{PRESETS.map((p) => <button key={p.key} type="button" onClick={() => setPreset(p.key)} className={`rounded-full px-3 py-1 text-xs font-semibold ring-1 ${preset === p.key ? 'bg-gold text-[#0b1220] ring-gold' : 'bg-white/[.04] text-slate-200 ring-white/10'}`}>{p.label}</button>)}</div>
             )}
             <button type="button" className="btn-gold w-full" disabled={busy}
-              onClick={() => run(async () => { await rpc('pool_game_start', { p_kind: k, p_competition: e.competition, p_rules: k === 'series' ? { preset } : k === 'pickem' ? { preset: pkPreset, ...(pkAts && atsFits(e.sport) ? { ats: true } : {}), ...(pkMiss ? { missed: 'favourite' } : {}) } : k === 'bracket' && SERIES_SPORTS.includes(e.sport) ? { games_bonus: gamesBonus ? 1 : 0 } : {} }); if (k === 'survivor') nav('/survivor'); else if (k === 'score') nav('/predictor'); else reload(); }, `${KINDS[k].title} is on`)}>
+              onClick={() => run(async () => { await rpc('pool_game_start', { p_kind: k, p_competition: e.competition, p_rules: k === 'series' ? { preset } : k === 'pickem' ? { preset: pkPreset, ...(pkAts && atsFits(e.sport) ? { ats: true } : {}), ...(pkMiss ? { missed: 'favourite' } : {}) } : k === 'bracket' && SERIES_SPORTS.includes(e.sport) ? { games_bonus: gamesBonus ? 1 : 0 } : k === 'survivor' && svLives > 1 ? { lives: svLives } : {} }); if (k === 'survivor') nav('/survivor'); else if (k === 'score') nav('/predictor'); else reload(); }, `${KINDS[k].title} is on`)}>
               Start {second(e, k) ? 'the second-chance bracket' : KINDS[k].title.toLowerCase()}
             </button>
           </div>
