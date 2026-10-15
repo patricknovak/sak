@@ -491,6 +491,10 @@ and soccer share it.
    is filed (S series, S + 1 clubs, one series last: `_sweep_shape`); dealt round the pool in turn so nothing is left in
    the hat; crowned only once every series is decided and one club never lost (`_sweep_champion`). The streak closes
    only after a quiet week, and keeps one pick a day however the feed moves games.
+   *Win totals built 15 October 2026 (migrations 297, 298, 302 and 303, §2.11):* the NBA's 2026-27 season on BPI's
+   preseason lines, its chances, the lock's split and each decided line in the pool's chat. What is left of item 7: best
+   ball as a pool (draft once, the best lineup scores itself; best ball as a fantasy league option is built, migration
+   276) and the Women's World Cup sweepstake, once its draw is made (December 2026).
 
 ## 10. Sources
 
