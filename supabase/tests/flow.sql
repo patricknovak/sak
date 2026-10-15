@@ -6509,3 +6509,37 @@ select pg_temp.raises('the public key can''t rebuild it', 'set role anon; select
 reset role;
 select set_config('request.jwt.claim.sub', '', false);
 select 'stats cache', true;
+
+-- ───────────── the NHL and NBA regular seasons (migration 274) ─────────────
+-- a nightly season comes in game by game, each in its week; the start page offers it pick'em, last one standing and
+-- the daily streak, in weeks, with no draw (a hockey game always has a winner); the NBA's playoffs keep "Round"
+reset role;
+select set_config('request.jwt.claim.sub', '', false);
+select set_config('app.league_id', '', false);
+select soccer_ingest('nhl-2026-27', jsonb_build_object(
+  'clubs', jsonb_build_array(jsonb_build_object('ext_id', 'nh1', 'name', 'Toronto Maple Leafs', 'short', 'TOR'), jsonb_build_object('ext_id', 'nh2', 'name', 'Montreal Canadiens', 'short', 'MTL'),
+    jsonb_build_object('ext_id', 'nh3', 'name', 'Ottawa Senators', 'short', 'OTT')),
+  'fixtures', jsonb_build_array(
+    jsonb_build_object('ext_id', 'nhr-31', 'gameweek', 3, 'round', 'Week 3', 'kickoff', now() + interval '1 day', 'status', 'NS', 'home', 'nh1', 'away', 'nh2'),
+    jsonb_build_object('ext_id', 'nhr-32', 'gameweek', 3, 'round', 'Week 3', 'kickoff', now() + interval '2 days', 'status', 'NS', 'home', 'nh3', 'away', 'nh1'),
+    jsonb_build_object('ext_id', 'nhr-41', 'gameweek', 4, 'round', 'Week 4', 'kickoff', now() + interval '8 days', 'status', 'NS', 'home', 'nh2', 'away', 'nh3'))));
+select pg_temp.expect('the season is a competition in weeks, on ESPN''s daily scoreboard', (select provider = 'espn' and format = 'rounds' and detail->>'week1' = '2026-09-28' from competitions where id = 'nhl-2026-27')
+  and (select count(*) = 3 and bool_and(sport = 'nhl') from fixtures where competition = 'nhl-2026-27')
+  and _round_word('nhl-2026-27') = 'Week' and _round_word('nba-2026-27') = 'Week' and _round_word('nfl') = 'Week');
+select set_config('app.league_id', :'lib', false);
+select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-000000000081', false);
+set role authenticated;
+select pg_temp.expect('the start page offers the NHL season pick''em, last one standing and the streak, in weeks, without Call the score',
+  exists (select 1 from jsonb_array_elements(pool_event_list()) e
+          where e->>'competition' = 'nhl-2026-27' and e->'kinds' ? 'pickem' and e->'kinds' ? 'survivor' and e->'kinds' ? 'streak'
+            and not e->'kinds' ? 'score' and e->>'word' = 'Week' and (e->>'open_round')::int = 3 and e->>'open_label' = 'Week 3'));
+select pool_game_start('streak', 'nhl-2026-27') as nhs \gset
+select pg_temp.expect('a hockey streak offers no draw', (select (rules->>'draws')::boolean = false from pool_games where id = :nhs));
+reset role;
+delete from pool_games where competition = 'nhl-2026-27';
+delete from messages where league_id = :lib and meta->>'pool_game' = :'nhs';
+delete from fixtures where competition = 'nhl-2026-27';
+delete from clubs where ext_id in ('nh1', 'nh2', 'nh3') and sport = 'nhl';
+select set_config('app.league_id', '', false);
+select set_config('request.jwt.claim.sub', '', false);
+select 'nightly seasons', true;

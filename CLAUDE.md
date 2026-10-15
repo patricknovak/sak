@@ -94,7 +94,7 @@ Two things in one repo:
   pre-match lines ride along as `fixtures.detail.odds`, chances only, frozen at kick-off, migration 178; a competition
   with `format` 'series' is a postseason: the NFL's playoffs come in as best-of-1 series through `sport_ingest`, migration
   187; March Madness as 63 single-game series in bracket order, day by day in March only, migration 201; the NBA playoffs as
-  fifteen best-of-7 series, seeds from ESPN's standings, mid-April to late June only, migration 220), `mlb-sync` (baseball's postseason from MLB's
+  fifteen best-of-7 series, seeds from ESPN's standings, mid-April to late June only, migration 220; the NHL and NBA regular seasons night by night, each game in its week from `detail.week1`, `espnDaily`, migration 274), `mlb-sync` (baseball's postseason from MLB's
   public Stats API into `series`, `fixtures` and `fixture_periods` through `sport_ingest`, and the Stanley Cup playoffs from
   the NHL's bracket for competitions with provider 'nhl-api', migration 191, with each recent game's score by period from its
   gamecenter landing, `nhlPeriods`, migration 215; platform key only; for testing, a

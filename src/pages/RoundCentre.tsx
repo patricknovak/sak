@@ -37,8 +37,12 @@ type Side = 'H' | 'D' | 'A';
 const SPORTS: Record<string, { centre: string; round: string; game: string; draws: boolean; awayFirst: boolean }> = {
   soccer: { centre: 'Match centre', round: 'Matchweek', game: 'match', draws: true, awayFirst: false },
   nfl: { centre: 'NFL centre', round: 'Week', game: 'game', draws: false, awayFirst: true },
+  // the NHL and NBA regular seasons in weeks (migration 274); "NHL centre" is the league's own page, so hockey's weeks
+  // have a name of their own
+  nhl: { centre: 'NHL weeks', round: 'Week', game: 'game', draws: false, awayFirst: true },
+  nba: { centre: 'NBA centre', round: 'Week', game: 'game', draws: false, awayFirst: true },
 };
-const QUARTER: Record<string, string> = { '1Q': 'Q1', '2Q': 'Q2', '3Q': 'Q3', '4Q': 'Q4', HT: 'Half', OT: 'OT', '1H': 'Q1', '2H': 'Q3' };
+const QUARTER: Record<string, string> = { '1Q': 'Q1', '2Q': 'Q2', '3Q': 'Q3', '4Q': 'Q4', HT: 'Half', OT: 'OT', '1H': 'Q1', '2H': 'Q3', BT: 'Break', LIVE: 'Live' };
 const dayLabel = (iso: string, tz: string) => new Date(iso).toLocaleDateString(undefined, { weekday: 'long', month: 'short', day: 'numeric', timeZone: tz });
 const time = (iso: string) => new Date(iso).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
 const done = (f: Fixture) => f.state === 'final' || f.state === 'postponed' || f.state === 'cancelled';

@@ -9,7 +9,7 @@ Paid subscribed: section 1 and section 8 are that review.
 
 ## 1. Where we are
 
-*As of 14 October 2026, migration 273.*
+*As of 15 October 2026, migration 275.*
 
 - **SaK**, the live league: eight GMs, used every night, on React 19 + Supabase (Postgres rules, edge functions, a
   scheduler) and an LLM voice (Garry, on Grok, metered per feature and league), served from Cloudflare. The season is
@@ -29,7 +29,7 @@ Paid subscribed: section 1 and section 8 are that review.
 - **Use so far is the founder's.** Four prediction pools besides SaK, one or two members each, one pick between them
   and no chat (section 9.2, 13 October). The Love Is Blind gate (three pools, thirty players by 4 November) is the first
   real test of the product with strangers; the premiere is 14 October, and the week's build for it is section 9.5.
-- 273 migrations; the flow test drives a whole fantasy season and every pool kind in SQL, with a second league beside
+- 275 migrations; the flow test drives a whole fantasy season and every pool kind in SQL, with a second league beside
   each that must never see or change it; CI runs it, the build and the Worker's types on every pull request.
 
 ## 2. What is working, and stays
@@ -718,3 +718,19 @@ Built for SaK and, as every SaK change is, for every league:
   one first call inside fifteen minutes, ten calls (both in Trystan's pools), ten chat messages (all in SaK), no call from
   a real member in Pod Squad. All time: 3 real pools, 1 league, 8 people, 20 calls, 3 first calls. The gate (three pools,
   thirty players by 4 November) is people: the next drop is 21 October.
+
+### 9.8 Overnight, 15 October 2026
+
+- **The NHL and NBA regular seasons as pool events** (migrations 274 and 275): until now a pool played the NHL only as a
+  box pool and the NBA only in its playoffs, so the sports a group follows every night had no pick'em, no last one
+  standing and no daily streak. Each season is a competition in weeks (`nhl-2026-27`, "NHL 2026-27 games", and
+  `nba-2026-27`) on ESPN's daily scoreboard: soccer-sync's nightly pull (`espnDaily`) files every regular-season game
+  between the league's own clubs in its week, Monday to Sunday from the Monday of opening week (`detail.week1`). The
+  first pull files the season whole (`?task=fixtures&competition=<id>&full=1`: 1,344 NHL games, an 84-game season, and
+  1,200 NBA games, the Cup's knockout games to come once their teams are known); after that the next two weeks every
+  day and the later days a seventh at a time. The live task already updates any ESPN game in its window. A competition
+  carries its own round word (`detail.round_word`, read by `_round_word`), so the NBA's playoffs keep "Round"; the NHL
+  sport row gains `draws: false` (overtime and the shootout always give a winner, and ESPN counts the shootout in the
+  score) and ESPN's game states beside the NHL's own, which had filed a game not yet started as under way. The start
+  page offers both with pick'em, last one standing and the daily streak; the centre is "NHL weeks" and "NBA centre"
+  (`RoundCentre`, `centreName`).

@@ -154,4 +154,5 @@ export const PICKEM_PRESETS: { key: PickemPreset; label: string; line: string; e
 ];
 
 // the centre for a competition played in rounds (#/centre/<competition>), by its sport
-export const centreName = (sport: string | null | undefined) => (sport === 'nfl' ? 'NFL centre' : 'Match centre');
+export const centreName = (sport: string | null | undefined) =>
+  ({ nfl: 'NFL centre', nba: 'NBA centre', nhl: 'NHL weeks' } as Record<string, string>)[sport ?? ''] ?? 'Match centre';

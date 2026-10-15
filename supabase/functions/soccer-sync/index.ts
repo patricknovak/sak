@@ -8,7 +8,8 @@
 // shows how much each is used. ESPN serves other sports the same way: the NFL (migration 171) comes in by week, regular
 // season and playoffs, through the same ingest and the same live task, so pick'em has its weeks. A postseason competition
 // (`format` 'series', migration 187: the NFL's playoffs) files each playoff game as a best-of-1 series through
-// sport_ingest, so the bracket runs on it.
+// sport_ingest, so the bracket runs on it. The NHL and NBA regular seasons (migration 274) come in night by night, each
+// game in its week (?task=fixtures&competition=<id>&full=1 files one whole season).
 import { createClient } from 'jsr:@supabase/supabase-js@2';
 import { nbaPlayoffPayload } from '../_shared/nbaPlayoffs.ts';
 import { afClub, afFixture, API_FOOTBALL, assignRounds, espnClub, espnFixture, espnNinety, espnPath, espnPlayoffPayload, espnTournamentPayload, ESPN, type NeutralFixture } from '../_shared/soccer.ts';
@@ -36,7 +37,7 @@ async function af(path: string): Promise<any[]> {
   return j.response ?? [];
 }
 
-interface Competition { id: string; sport: string; ext_id: string; ext_season: string; season: string; provider: string; format?: string; detail?: { regions?: string[] } | null }
+interface Competition { id: string; sport: string; ext_id: string; ext_season: string; season: string; provider: string; format?: string; detail?: { regions?: string[]; week1?: string } | null }
 
 // deno-lint-ignore no-explicit-any
 async function espn(path: string): Promise<any> {
@@ -91,6 +92,42 @@ async function espnWeeks(c: Competition) {
   return check(await db.rpc('soccer_ingest', { p_competition: c.id, p: { clubs, fixtures: fx } }));
 }
 
+// a sport that plays every night (the NHL and NBA regular seasons, migration 274): the days ESPN's calendar lists, each
+// game filed in its week, Monday to Sunday from the Monday of opening week (`detail.week1`), regular season only and
+// between the league's own clubs (no all-star game). The first pull, or one asked for in full, files the whole season;
+// after that the next two weeks every day and the later days a seventh at a time, so a game ESPN moves is caught within
+// a week. ESPN turns away a range of dates for these leagues, so it is a day a call, eight at a time
+async function espnDaily(c: Competition, full: boolean) {
+  const base = `/${espnPath(c.sport, c.ext_id)}`;
+  const teams = (await espn(`${base}/teams`))?.sports?.[0]?.leagues?.[0]?.teams ?? [];
+  const clubs = teams.map((t: { team: unknown }) => espnClub(t.team));
+  const ours = new Set(teams.map((t: { team?: { id?: unknown } }) => String(t.team?.id)));
+  const week1 = Date.parse(`${c.detail?.week1}T00:00:00Z`);
+  const day = 864e5, today = Date.parse(`${etDay(new Date())}T00:00:00Z`);
+  const first = await espn(`${base}/scoreboard?dates=${etDay(new Date()).replaceAll('-', '')}`);
+  const { count } = await db.from('fixtures').select('id', { count: 'exact', head: true }).eq('competition', c.id);
+  const all = full || !count;
+  const days = ((first?.leagues?.[0]?.calendar ?? []) as string[]).map((d) => String(d).slice(0, 10))
+    .filter((d) => Date.parse(`${d}T00:00:00Z`) >= week1)
+    .filter((d) => {
+      const t = Date.parse(`${d}T00:00:00Z`);
+      return all || (t >= today - 2 * day && t <= today + 13 * day) || (t > today && Math.round((t - today) / day) % 7 === Math.round(today / day) % 7);
+    });
+  const fx: NeutralFixture[] = [];
+  for (let i = 0; i < days.length; i += 8) {
+    const pages = await Promise.all(days.slice(i, i + 8).map((d) => espn(`${base}/scoreboard?dates=${d.replaceAll('-', '')}&limit=100`).then((pg) => ({ d, pg }))));
+    for (const { d, pg } of pages) {
+      const week = Math.floor((Date.parse(`${d}T00:00:00Z`) - week1) / (7 * day)) + 1;
+      for (const e of pg?.events ?? []) {
+        const teamIds = (e.competitions?.[0]?.competitors ?? []).map((x: { team?: { id?: unknown } }) => String(x.team?.id));
+        if (Number(e.season?.type) !== 2 || teamIds.length !== 2 || !teamIds.every((id: string) => ours.has(id))) continue;
+        fx.push({ ...espnFixture(e, null, { week, label: `Week ${week}`, clock: false }), season: c.season } as NeutralFixture);
+      }
+    }
+  }
+  return { days: days.length, ...check(await db.rpc('soccer_ingest', { p_competition: c.id, p: { clubs, fixtures: fx } })) };
+}
+
 // a postseason played in single games, filed as best-of-1 series (the bracket's shape): each playoff round's page, then
 // espnPlayoffPayload turns them into series and their games
 async function espnPlayoffSeries(c: Competition) {
@@ -141,11 +178,15 @@ async function espnNba(c: Competition, full: boolean) {
 const espnPostseason = (c: Competition, full = true) =>
   (c.sport === 'ncaab' ? espnTournament(c) : c.sport === 'nba' ? espnNba(c, full) : espnPlayoffSeries(c));
 
+// a date in New York, as 'YYYY-MM-DD' (ESPN files a night's games under it)
+const etDay = (d: Date) => new Intl.DateTimeFormat('en-CA', { timeZone: 'America/New_York', year: 'numeric', month: '2-digit', day: '2-digit' }).format(d);
+
 const month = (d: Date) => `${d.getUTCFullYear()}${String(d.getUTCMonth() + 1).padStart(2, '0')}`;
 
 // an ESPN competition's clubs and its whole season, a month at a time; new matches take their round
-async function espnSeason(c: Competition) {
+async function espnSeason(c: Competition, full = false) {
   if (c.format === 'series') return espnPostseason(c);
+  if (c.detail?.week1) return espnDaily(c, full);
   if (c.sport !== 'soccer') return espnWeeks(c);
   const teams = (await espn(`/soccer/${c.ext_id}/teams`))?.sports?.[0]?.leagues?.[0]?.teams ?? [];
   const clubs = teams.map((t: { team: unknown }) => espnClub(t.team));
@@ -166,12 +207,15 @@ async function espnSeason(c: Competition) {
   return check(await db.rpc('soccer_ingest', { p_competition: c.id, p: { clubs, fixtures: fx } }));
 }
 
-async function fixtures() {
-  const comps = check(await db.from('competitions').select('id,sport,ext_id,ext_season,season,provider,format,detail').eq('active', true).in('provider', ['api-football', 'espn'])) as Competition[];
+// every active competition, or the one asked for (`competition`); `full` files a nightly season whole
+async function fixtures(only: string | null, full: boolean) {
+  let q = db.from('competitions').select('id,sport,ext_id,ext_season,season,provider,format,detail').eq('active', true).in('provider', ['api-football', 'espn']);
+  if (only) q = q.eq('id', only);
+  const comps = check(await q) as Competition[];
   const out: Record<string, unknown> = {};
   for (const c of comps) {
     try {
-      if (c.provider === 'espn') { out[c.id] = await espnSeason(c); continue; }
+      if (c.provider === 'espn') { out[c.id] = await espnSeason(c, full); continue; }
       if (!KEY) { out[c.id] = { skipped: 'No API_FOOTBALL_KEY secret yet' }; continue; }
       const clubs = (await af(`/teams?league=${c.ext_id}&season=${c.ext_season}`)).map(afClub);
       const fx = (await af(`/fixtures?league=${c.ext_id}&season=${c.ext_season}`)).map((x) => ({ ...afFixture(x), season: c.season }));
@@ -242,10 +286,10 @@ async function adminCall(req: Request) {
 }
 
 Deno.serve(async (req) => {
-  const task = new URL(req.url).searchParams.get('task') ?? 'live';
+  const url = new URL(req.url), task = url.searchParams.get('task') ?? 'live';
   if (!(await adminCall(req))) return Response.json({ task, ok: false, error: 'This task needs the platform key' }, { status: 403 });
   try {
-    const result = task === 'fixtures' ? await fixtures() : await live();
+    const result = task === 'fixtures' ? await fixtures(url.searchParams.get('competition'), url.searchParams.get('full') === '1') : await live();
     return Response.json({ task, ok: true, calls, espn: espnCalls, ...result });
   } catch (e) {
     console.error(task, e);

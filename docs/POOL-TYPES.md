@@ -207,6 +207,9 @@ longest run in the group).
 | Sweepstake | ✔ | ✔ | ○ | ○ | ✔✔ | ○ | |
 | Questions and props | ✔ | ✔ | ✔✔ | ✔ | ✔ | ✔ | ✔ (futures) |
 
+The NHL and NBA regular seasons (15 October 2026, migration 274) run in weeks on the same engine: weekly pick'em, last
+one standing and the daily streak, the streak their signature (a game every night).
+
 ## 3. The engine: one shape for every type
 
 Every type is a pick, a lock, a grader and a scoring profile. So:
