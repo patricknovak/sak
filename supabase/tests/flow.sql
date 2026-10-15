@@ -6638,6 +6638,13 @@ select pg_temp.expect('last week''s fewest is cut: the roster to free agency as 
   and exists (select 1 from messages where league_id = 1 and body like '🪓 The guillotine: % is cut after the week of %, the fewest of the 8 teams still in.%')
   and exists (select 1 from notifications where team_id = 8 and kind = 'guillotine'));
 select pg_temp.expect('one cut a week', _guillotine_tick() = 0);
+select pg_temp.expect('the standings rank the teams still in first, the cut team last', (select rank = 8 from standings where team_id = 8)
+  and (select max(rank) < 8 from standings where team_id <> 8));
+-- the season's top scorer, cut a week earlier, ranks below the later cut, whatever his points
+insert into guillotine_cuts (league_id, team_id, week_start, week_end, points, alive) values (1, 5, (:'gt_ws')::date - 7, (:'gt_ws')::date - 1, 1, 9);
+select pg_temp.expect('a cut ranks by when, never by points: the later cut above the earlier', (select rank = 8 from standings where team_id = 5)
+  and (select rank = 7 from standings where team_id = 8) and (select max(rank) < 7 from standings where team_id not in (5, 8)));
+delete from guillotine_cuts where league_id = 1 and team_id = 5;
 select set_config('app.league_id', (select id::text from leagues where slug = 'rink'), false);
 select pg_temp.expect('a league without it is untouched', _guillotine_tick() = 0);
 select set_config('app.league_id', '', false);

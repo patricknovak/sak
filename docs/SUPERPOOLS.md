@@ -389,7 +389,7 @@ The steps above finish the tenancy. `docs/MARKET.md` sets what comes after in th
     night the commissioner switches it on.
     *The guillotine done (15 October 2026, migrations 278 and 279):* a league option (`features.guillotine`, points, season
     total): each week's fewest points is cut on Monday, its players to free agency, and the last team standing wins; the
-    standings and payouts still rank by season points.
+    standings rank the teams still in first (migration 280), so the payouts follow.
 11. **The Supercoin.** An account-level wallet, the SaK coin ledger migrated onto it, per-pool allowances, the
     Book and side bets as the add-on, the ledger visible in every pool. Never for sale, never cashed out.
     Already in place on the league coin (migration 66): the Book's season edition (futures on the champion,

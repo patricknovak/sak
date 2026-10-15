@@ -9,7 +9,7 @@ Paid subscribed: section 1 and section 8 are that review.
 
 ## 1. Where we are
 
-*As of 15 October 2026, migration 279.*
+*As of 15 October 2026, migration 280.*
 
 - **SaK**, the live league: eight GMs, used every night, on React 19 + Supabase (Postgres rules, edge functions, a
   scheduler) and an LLM voice (Garry, on Grok, metered per feature and league), served from Cloudflare. The season is
@@ -29,7 +29,7 @@ Paid subscribed: section 1 and section 8 are that review.
 - **Use so far is the founder's.** Four prediction pools besides SaK, one or two members each, one pick between them
   and no chat (section 9.2, 13 October). The Love Is Blind gate (three pools, thirty players by 4 November) is the first
   real test of the product with strangers; the premiere is 14 October, and the week's build for it is section 9.5.
-- 279 migrations; the flow test drives a whole fantasy season and every pool kind in SQL, with a second league beside
+- 280 migrations; the flow test drives a whole fantasy season and every pool kind in SQL, with a second league beside
   each that must never see or change it; CI runs it, the build and the Worker's types on every pull request.
 
 ## 2. What is working, and stays
@@ -749,5 +749,6 @@ Built for SaK and, as every SaK change is, for every league:
   open trades are called off, the chat and every GM's bell hear it. A cut team can still watch, chat and bet; the eight
   roster and trade functions refuse it (`_not_cut()`, patched into the live definitions after their GM check, as the
   spectator guard was in migration 16; the live bodies matched the repo's before the patch). The home page's card shows
-  the week so far, lowest first, and everyone cut; the last team standing wins. Still to come for it: the standings and
-  payouts ranking the last team standing first (they rank by season points today).
+  the week so far, lowest first, and everyone cut; the last team standing wins. The standings (migration 280) rank the
+  teams still in first, then the cut, the latest cut highest, so the payouts and the voice follow; a league with no cuts
+  ranks by points as before (SaK's standings proved identical on live before and after).
