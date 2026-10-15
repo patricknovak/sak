@@ -162,7 +162,8 @@ Two things in one repo:
   (`src/lib/poolOwn.ts`): read it rather than every competition when a pool page lists events. Every pool's games share one scoreboard
   (`pool_scoreboard()`, migration 169): a new kind of game adds a branch to `_pool_rows()` and gets the table, movement,
   climb alerts and the main-game crown (`league_rules.crown`) with it. Weekly pick'em (migration 170) is the first kind on
-  `fixtures`: any competition whose matches come in rounds; last one standing runs on the same competitions in the
+  `fixtures`: any competition whose matches come in rounds (against the spread with each pick keeping its line, a
+  tiebreaker on each round's last game and a forgotten pick taking the favourite are options, migrations 283 to 289); last one standing (one to three lives, migration 288) runs on the same competitions in the
   sport's words (migration 173, `pool_game_start('survivor', ...)`); it and Call the score are `pool_games` kinds ('survivor',
   'score', migrations 203 and 204), read through the `pool_survivors` / `pool_predictors` views and their pick views, and `#/centre/<competition>` is their centre
   (`src/pages/RoundCentre.tsx`: NFL centre, Match centre); a pool's own result on a match (the host's, in
