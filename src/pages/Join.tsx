@@ -136,7 +136,10 @@ export default function Join({ code }: { code: string }) {
         {/* what a pool is, for someone who tapped a link in the group chat */}
         {pv?.ok && pool && (
           <div className="mb-4 grid grid-cols-3 gap-2 text-center">
-            {[[pv.brand?.coin?.emoji || PRODUCT.coin.emoji, `1,000 ${(pv.brand?.coin?.name || PRODUCT.coin.name).toLowerCase()} to start`], ['🔮', 'Call what happens next'], ['🆓', 'Free, never money']].map(([e, t]) => (
+            {/* a sports pool with no questions is about the games: picks, not coins (migration 293) */}
+            {(pv.next_game && !pv.next_question
+              ? [['🏆', 'A table and a crown'], ['🎯', 'Pick every game'], ['🆓', 'Free, never money']]
+              : [[pv.brand?.coin?.emoji || PRODUCT.coin.emoji, `1,000 ${(pv.brand?.coin?.name || PRODUCT.coin.name).toLowerCase()} to start`], ['🔮', 'Call what happens next'], ['🆓', 'Free, never money']]).map(([e, t]) => (
               <div key={t} className="rounded-2xl border border-white/10 bg-white/[.04] px-2 py-3">
                 <div className="text-xl leading-none">{e}</div>
                 <div className="mt-1.5 text-balance text-[12px] font-semibold leading-tight text-slate-200">{t}</div>
