@@ -9,7 +9,7 @@ Paid subscribed: section 1 and section 8 are that review.
 
 ## 1. Where we are
 
-*As of 15 October 2026, migration 302.*
+*As of 15 October 2026, migration 303.*
 
 - **SaK**, the live league: eight GMs, used every night, on React 19 + Supabase (Postgres rules, edge functions, a
   scheduler) and an LLM voice (Garry, on Grok, metered per feature and league), served from Cloudflare. The season is
@@ -29,7 +29,7 @@ Paid subscribed: section 1 and section 8 are that review.
 - **Use so far is the founder's.** Four prediction pools besides SaK, one or two members each, one pick between them
   and no chat (section 9.2, 13 October). The Love Is Blind gate (three pools, thirty players by 4 November) is the first
   real test of the product with strangers; the premiere is 14 October, and the week's build for it is section 9.5.
-- 302 migrations; the flow test drives a whole fantasy season and every pool kind in SQL, with a second league beside
+- 303 migrations; the flow test drives a whole fantasy season and every pool kind in SQL, with a second league beside
   each that must never see or change it; CI runs it, the build and the Worker's types on every pull request.
 
 ## 2. What is working, and stays
@@ -829,6 +829,7 @@ Built for SaK and, as every SaK change is, for every league:
   (migration 298, `_wins_chances`): once the calls lock, every open line is played out a thousand times, the club's
   games left won at its rate so far pulled toward its line's by ten games' worth (`_wins_odds`, over and push). At the
   lock the pool hears how it split, once (migration 302): how many called, the surest call, the line that split it most.
+  All season, each line decided is told in the pool's chat by the hourly job with how many called it (migration 303).
 - **The NBA's questions** (migration 299): a pack for the 2026-27 season (the title, each conference, the NBA Cup, the
   best record and how many games it wins, MVP, Rookie and Defensive Player of the Year), the answers in the order
   DraftKings' futures on ESPN had them before opening night, coins on the first of each month; it rides the season

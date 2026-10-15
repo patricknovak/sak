@@ -219,7 +219,8 @@ adds calls for a member who asked to their own; the host settles any of the seas
 now, as a basketball score passes 99); the NBA Cup final, filed by ESPN as a regular-season game that the standings
 leave out, is kept out of the season by soccer-sync. *Its chances (migration 298):* once the calls lock, the table's
 chance to win plays every open line out a thousand times, each club's games left won at its rate so far pulled toward
-its line's by ten games' worth.
+its line's by ten games' worth. The lock's split and each line as it is decided are told in the pool's chat (migrations 302
+and 303).
 
 ### 2.12 Which types fit which sport
 

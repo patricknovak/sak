@@ -7174,6 +7174,9 @@ select pool_fixture_result_set((select id from fixtures where ext_id = 'wn-g6'),
 reset role;
 select pg_temp.expect('the Crows finish on exactly 2: a push, for nobody', (select decided = 'P' and w = 2 and l = 2 and left_n = 0 from _wins_clubs(:wng) where club = :wn3));
 select pg_temp.expect('settled once every call is decided', _wins_tick(:lib) = 1);
+select pg_temp.expect('each line decided is told once, with how many called it (migration 303)',
+  (select count(*) = 1 from messages where league_id = :lib and body = '📈 Decided in win totals: Win Owls under 2.5, 3 of 3 called it.')
+  and (select count(*) = 1 from messages where league_id = :lib and body = '📈 Decided in win totals: Win Hawks over 2.5, 1 of 3 called it; Win Crows right on 2, a push.'));
 select pg_temp.expect('and only once', _wins_tick(:lib) = 0);
 select pg_temp.expect('Hana two right, the splits scored and the push voided', (select status = 'done' and winners = array[:hana]::int[] from pool_games where id = :wng)
   and (select points = 2 from _pool_game_table(:wng) where team_id = :hana) and (select points = 1 from _pool_game_table(:wng) where team_id = :fern)
