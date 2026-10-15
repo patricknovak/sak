@@ -121,6 +121,8 @@ async function espnDaily(c: Competition, full: boolean) {
       for (const e of pg?.events ?? []) {
         const teamIds = (e.competitions?.[0]?.competitors ?? []).map((x: { team?: { id?: unknown } }) => String(x.team?.id));
         if (Number(e.season?.type) !== 2 || teamIds.length !== 2 || !teamIds.every((id: string) => ours.has(id))) continue;
+        // the NBA Cup final is filed as a regular-season game but doesn't count in the standings, so it stays out
+        if (e.competitions?.[0]?.type?.abbreviation === 'CC') continue;
         fx.push({ ...espnFixture(e, null, { week, label: `Week ${week}`, clock: false }), season: c.season } as NeutralFixture);
       }
     }

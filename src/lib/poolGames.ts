@@ -2,7 +2,7 @@
 // how long it takes, and the scoring presets. The start page and the Host page read the same list.
 
 // 'survivor' is last one standing (its own tables, migration 157): the start page and the host offer it like the rest
-export type GameKind = 'series' | 'rank' | 'squares' | 'pickem' | 'survivor' | 'score' | 'bracket' | 'players' | 'props' | 'streak' | 'sweep';
+export type GameKind = 'series' | 'rank' | 'squares' | 'pickem' | 'survivor' | 'score' | 'bracket' | 'players' | 'props' | 'streak' | 'sweep' | 'wins';
 export type PickemPreset = 'classic' | 'confidence';
 export type SeriesPreset = 'classic' | 'flat' | 'exact';
 
@@ -10,6 +10,8 @@ export interface PoolEvent {
   competition: string; sport: string; name: string; pack: string | null; stage: string | null;
   open_round: number; open_label: string; next_lock: string | null; final_round: number; final_label: string; final_starts: string | null;
   kinds: GameKind[];
+  // win totals' lock, the season's first game (migration 297)
+  wins_lock?: string | null;
   // what the sport calls a round ('Matchweek') and a side ('club', 'team'), on an event that comes in rounds of matches
   word?: string;
   club_word?: string;
@@ -92,6 +94,11 @@ export const KINDS: Record<GameKind, { title: string; badge: string; line: strin
     line: 'Everyone in the pool is dealt clubs from the hat at the first game. Nothing to pick: hold the champion and you win it.',
     time: 'No time at all',
   },
+  wins: {
+    title: 'Win totals', badge: 'The whole season', emoji: '📈',
+    line: 'Over or under on every team’s wins this season, called once before the opener. A point for each right call, and they land all season as teams pass their lines or fall short.',
+    time: 'Two minutes, once',
+  },
   streak: {
     title: 'The daily streak', badge: 'Every day', emoji: '🔥',
     line: 'Pick one winner a day from that day’s games. A right pick adds one to your run, a wrong one starts it again, and a day off breaks nothing. The longest run wins.',
@@ -116,7 +123,7 @@ export const KINDS: Record<GameKind, { title: string; badge: string; line: strin
 
 // every kind in the order the start page lists them, and when one isn't open on an event, why: so a host sees the whole
 // menu, not just what today's events happen to offer
-export const KIND_ORDER: GameKind[] = ['pickem', 'series', 'bracket', 'survivor', 'score', 'players', 'props', 'squares', 'rank', 'streak', 'sweep'];
+export const KIND_ORDER: GameKind[] = ['pickem', 'series', 'bracket', 'survivor', 'score', 'players', 'props', 'squares', 'rank', 'streak', 'wins', 'sweep'];
 export const KIND_WHEN: Record<GameKind, string> = {
   pickem: 'On a league played in weeks or matchweeks: the NFL, the Premier League, MLS.',
   series: 'On a postseason played in series: the World Series, the Stanley Cup, the NBA playoffs.',
@@ -129,6 +136,7 @@ export const KIND_WHEN: Record<GameKind, string> = {
   rank: 'On a postseason before it starts.',
   streak: 'On any event with games still to come.',
   sweep: 'On a postseason, until its round starts.',
+  wins: 'On a regular season before its first game: the NBA, until opening night.',
 };
 
 export const PRESETS: { key: SeriesPreset; label: string; line: string; points: number[]; length: number[] }[] = [

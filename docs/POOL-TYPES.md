@@ -204,6 +204,21 @@ Season win totals (over or under on frozen preseason lines); best ball (draft on
 Underdog's Best Ball Mania VII took 672,336 entries); a daily streak game in the style of Beat the Streak (the
 longest run in the group).
 
+*Season win totals built 15 October 2026 (migration 297):* a `pool_games` kind ('wins') on a regular season before its
+first game. Every club has a line, its wins for the season: by default ESPN's BPI preseason projection rounded to the
+half-win (kept on the competition, `detail.win_lines`, ESPN's team id to projected wins; the NBA's 2026-27 lines are
+written by the migration, ESPN's futures carry no win totals), and the host can set any line before the opener. Each
+member calls over or under on as many clubs as they like (one pick, 'wins'), until the season's first game; a call is
+decided the moment it can't change, an over once the club passes its line and an under once it can't reach it with the
+games it has left (the schedule's or the season's length, whichever is more, as the NBA Cup's last games are filed
+late); a whole-number line hit exactly is a push, for nobody. The most right calls wins; a tie is shared. The pool's
+split on each line goes to the prediction log at the lock and is scored at the end (`_wins_tick`, the hourly pool job).
+The NHL's season had started, so this season it is the NBA's. A line someone has called stays as it was called; the
+lock is kept once it passes (`rules.locked_at`), so an opening slate called off later never re-opens the calls; the host
+adds calls for a member who asked to their own; the host settles any of the season's games by hand (a score up to 999
+now, as a basketball score passes 99); the NBA Cup final, filed by ESPN as a regular-season game that the standings
+leave out, is kept out of the season by soccer-sync.
+
 ### 2.12 Which types fit which sport
 
 ✔ common, ✔✔ the sport's signature, ○ possible or niche.

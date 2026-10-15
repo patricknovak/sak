@@ -96,7 +96,9 @@ export default function NewPool() {
       // a link that names an event's pack opens on the event
       // (or names the event itself, #/new?comp=nfl, as the landing page's open-right-now board does)
       const ev = (e ?? []).find((x) => (x.pack && x.pack === params.get('pack')) || x.competition === params.get('comp'));
-      if (ev) { setMode('sports'); setFollowing({ type: 'event', comp: ev.competition }); setKinds([ev.kinds[0], ...(ev.pack ? ['questions' as const] : [])]); }
+      // and a kind it offers, #/new?comp=nba-2026-27&kind=wins, is ticked in place of its first
+      const want = ev?.kinds.find((k) => k === params.get('kind'));
+      if (ev) { setMode('sports'); setFollowing({ type: 'event', comp: ev.competition }); setKinds([want ?? ev.kinds[0], ...(ev.pack ? ['questions' as const] : [])]); }
       else if (params.get('pack')) { setMode('questions'); setFollowing({ type: 'pack', slug: params.get('pack')! }); }
     }, () => setEvents([]));
     rpc<Pack[]>('pool_pack_list').then((d) => {

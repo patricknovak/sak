@@ -6,6 +6,8 @@
 export interface Change { date: string; icon: string; title: string; body: string; to?: string; tag?: 'formats' | 'commish' | 'draft' | 'everyone' }
 
 export const CHANGELOG: Change[] = [
+  { date: '2026-10-15', icon: '📈', tag: 'everyone', title: 'NBA win totals', to: '/new',
+    body: 'A new game for a basketball pool: over or under on every NBA team\'s wins this season, called once before opening night on 20 October. The lines start from ESPN\'s preseason projection and the host can change any of them until then. A point for each right call, landing all season as teams pass their lines or fall short; everyone\'s calls show once the season tips off.' },
   { date: '2026-10-15', icon: '🧹', tag: 'everyone', title: 'Drop the worst weeks in pick\'em', to: '/new',
     body: 'A season-long pick\'em can drop each player\'s worst one or two weeks from their total, so a bad week or a late start is forgiven. Pick it when you start the pool, or before the first lock; the week-by-week grid strikes the dropped weeks through.' },
   { date: '2026-10-15', icon: '🔗', tag: 'everyone', title: 'A sports pool\'s invite shows what\'s first', to: '/pools',

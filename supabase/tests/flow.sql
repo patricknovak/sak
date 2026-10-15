@@ -7058,3 +7058,128 @@ delete from games where id = 7951;
 update league_rules set features = features - 'guillotine', info = info - 'guillotine_from', season_start = :'gt_season', phase = :'gt_phase' where league_id = 1;
 select set_config('request.jwt.claim.sub', '', false);
 select 'the guillotine', true;
+
+-- ───────────── season win totals (migration 297) ─────────────
+-- A season of three clubs, four games each. Two lines come from the projection (2.4 and 1.7, to 2.5 and 1.5), the third
+-- the host gives (a whole 2, so it can push). Hana calls all three, Fern two; an over is decided once it's passed, an
+-- under once it can't be reached, the push counts for nobody, and the pool's own result on a game counts.
+reset role;
+select set_config('request.jwt.claim.sub', '', false);
+select set_config('app.league_id', '', false);
+insert into clubs (sport, provider, ext_id, name, short) values ('nba', 'espn', 'wn1', 'Win Hawks', 'WHK'), ('nba', 'espn', 'wn2', 'Win Owls', 'WOW'), ('nba', 'espn', 'wn3', 'Win Crows', 'WCR')
+on conflict do nothing;
+select id as wn1 from clubs where provider = 'espn' and ext_id = 'wn1' \gset
+select id as wn2 from clubs where provider = 'espn' and ext_id = 'wn2' \gset
+select id as wn3 from clubs where provider = 'espn' and ext_id = 'wn3' \gset
+insert into competitions (id, sport, name, short, season, provider, ext_id, ext_season, active, detail)
+values ('wn-test', 'nba', 'Win League 2026-27', 'WL', '2026', 'espn', 'wnt', '2026', true,
+        '{"win_lines": {"wn1": 2.4, "wn2": 1.7}, "games": 4, "win_lines_source": "a test projection"}') on conflict (id) do nothing;
+insert into fixtures (sport, competition, provider, ext_id, season, gameweek, kickoff, date, home_club, away_club, state) values
+  ('nba', 'wn-test', 'espn', 'wn-g1', '2026', 1, now() + interval '1 day', (now() + interval '1 day')::date, :wn1, :wn2, 'scheduled'),
+  ('nba', 'wn-test', 'espn', 'wn-g2', '2026', 1, now() + interval '3 days', (now() + interval '3 days')::date, :wn1, :wn3, 'scheduled'),
+  ('nba', 'wn-test', 'espn', 'wn-g3', '2026', 1, now() + interval '4 days', (now() + interval '4 days')::date, :wn2, :wn3, 'scheduled'),
+  ('nba', 'wn-test', 'espn', 'wn-g4', '2026', 2, now() + interval '9 days', (now() + interval '9 days')::date, :wn2, :wn1, 'scheduled'),
+  ('nba', 'wn-test', 'espn', 'wn-g5', '2026', 2, now() + interval '10 days', (now() + interval '10 days')::date, :wn3, :wn1, 'scheduled'),
+  ('nba', 'wn-test', 'espn', 'wn-g6', '2026', 2, now() + interval '11 days', (now() + interval '11 days')::date, :wn2, :wn3, 'scheduled');
+select set_config('app.league_id', :'lib', false);
+select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-000000000081', false);
+set role authenticated;
+select pg_temp.expect('the start page offers win totals on a season with lines, before its opener',
+  exists (select 1 from jsonb_array_elements(pool_event_list()) e where e->>'competition' = 'wn-test' and e->'kinds' ? 'wins' and e->>'wins_lock' is not null));
+select pg_temp.raises('a club with no projection needs the host''s line', $$select pool_game_start('wins', 'wn-test')$$, 'Give every team a line');
+select pg_temp.raises('a line inside the season', format('select pool_game_start(''wins'', ''wn-test'', %L)', jsonb_build_object('lines', jsonb_build_object(:wn3, 4))), 'from 0.5 to 3.5, in halves');
+select pg_temp.raises('in halves', format('select pool_game_start(''wins'', ''wn-test'', %L)', jsonb_build_object('lines', jsonb_build_object(:wn3, 2.3))), 'in halves');
+select pool_game_start('wins', 'wn-test', jsonb_build_object('lines', jsonb_build_object(:wn3, 2))) as wng \gset
+select pg_temp.expect('the lines: the projection to the half-win, the host''s own, and the pool told',
+  (select (rules->'lines'->>:'wn1')::numeric = 2.5 and (rules->'lines'->>:'wn2')::numeric = 1.5 and (rules->'lines'->>:'wn3')::numeric = 2
+     and (rules->>'edited')::boolean and (rules->>'games')::int = 4 from pool_games where id = :wng)
+  and exists (select 1 from messages where league_id = :lib and body like '📈 Win totals are on for Win League 2026-27: over or under on every team''s wins%'));
+select pg_temp.expect('changing one line keeps the others', (pool_game_set_rules(:wng, jsonb_build_object('lines', jsonb_build_object(:wn2, 2.5)))->'lines'->>:'wn3')::numeric = 2);
+select pg_temp.expect('and the new one is kept', (select (rules->'lines'->>:'wn2')::numeric = 2.5 from pool_games where id = :wng));
+select pool_game_pick(:wng, 'wins', jsonb_build_object('calls', jsonb_build_object(:wn1, 'O', :wn2, 'U', :wn3, 'O')));
+select pg_temp.raises('a line someone has called stays', format('select pool_game_set_rules(%s, %L)', :wng, jsonb_build_object('lines', jsonb_build_object(:wn2, 0.5))), 'Calls are in on WOW, so those lines stay');
+-- Lou asks the host for two calls, one at a time: each adds to his own
+select pool_host_pick(:wng, :lou, jsonb_build_object('thing', 'wins', 'pick', jsonb_build_object('calls', jsonb_build_object(:wn1, 'U'), 'merge', true)));
+select pool_host_pick(:wng, :lou, jsonb_build_object('thing', 'wins', 'pick', jsonb_build_object('calls', jsonb_build_object(:wn2, 'U'), 'merge', true)));
+reset role;
+select pg_temp.expect('the host''s calls for Lou add up', (select pick->'calls' = jsonb_build_object(:wn1, 'U', :wn2, 'U') from pool_picks where game_id = :wng and team_id = :lou and thing = 'wins'));
+set role authenticated;
+reset role;
+select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-000000000082', false);
+set role authenticated;
+select pg_temp.raises('over or under', format('select pool_game_pick(%s, ''wins'', %L)', :wng, jsonb_build_object('calls', jsonb_build_object(:wn1, 'X'))), 'over or under');
+select pg_temp.raises('a club in the game', format('select pool_game_pick(%s, ''wins'', %L)', :wng, jsonb_build_object('calls', jsonb_build_object(:alb, 'O'))), 'isn''t in this game');
+select pg_temp.expect('nothing called yet: one to do', (select (x->>'to_pick')::int = 1 from jsonb_array_elements(pool_games_list()) x where (x->>'id')::bigint = :wng));
+select pool_game_pick(:wng, 'wins', jsonb_build_object('calls', jsonb_build_object(:wn3, 'U')));
+select pool_game_pick(:wng, 'wins', '{"calls": {}}');
+reset role;
+select pg_temp.expect('taking every call back takes the pick away', not exists (select 1 from pool_picks where game_id = :wng and team_id = :fern));
+set role authenticated;
+select pool_game_pick(:wng, 'wins', jsonb_build_object('calls', jsonb_build_object(:wn1, 'U', :wn2, 'U')));
+select pg_temp.expect('Fern is in, and the calls stay hidden until the opener',
+  (select (x->>'to_pick')::int = 0 from jsonb_array_elements(pool_games_list()) x where (x->>'id')::bigint = :wng)
+  and (select (c->>'over') is null from jsonb_array_elements(pool_game_board(:wng)->'wins'->'clubs') c limit 1)
+  and (pool_game_board(:wng)->'wins'->'mine'->>:'wn2') = 'U');
+reset role;
+insert into league_invites (code, league_id, role, created_by, expires_at, max_uses) values ('wn-invite', :lib, 'gm', '00000000-0000-0000-0000-000000000081', now() + interval '7 days', 5) on conflict do nothing;
+select 'wn-invite' as wncode \gset
+select pg_temp.expect('the invite leads with win totals before the opener', (select p->>'next_game' = 'Win totals' and p->>'next_game_line' = '3 teams, over or under'
+  and (p->>'next_game_at')::timestamptz = (select min(kickoff) from fixtures where competition = 'wn-test') from (select invite_preview(:'wncode') p) x));
+select set_config('app.league_id', :'lib', false);
+select pg_temp.expect('the voice''s look-ahead has the calls locking, and who has none in', (select x->>'round' = 'the calls' and (x->>'of')::int > 0
+  and not (x->'still_to_pick') ? (select gm_name from teams where id = :fern) from jsonb_array_elements(pool_ahead(72)->'locks') x where (x->>'game')::bigint = :wng));
+-- the opener tips off: calls lock
+update fixtures set kickoff = now() - interval '3 hours', state = 'live' where ext_id = 'wn-g1';
+select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-000000000082', false);
+set role authenticated;
+select pg_temp.raises('the calls lock at the opener', format('select pool_game_pick(%s, ''wins'', %L)', :wng, jsonb_build_object('calls', jsonb_build_object(:wn3, 'U'))), 'locked at the season''s first tip-off');
+select pg_temp.expect('everyone''s calls show once they lock', (select (c->>'under')::int = 3 and jsonb_array_length(c->'calls') = 3
+  from jsonb_array_elements(pool_game_board(:wng)->'wins'->'clubs') c where (c->>'id')::bigint = :wn2));
+reset role;
+update fixtures set kickoff = now() - interval '3 hours', state = 'final', home_score = 110, away_score = 100 where ext_id in ('wn-g1', 'wn-g2');
+update fixtures set kickoff = now() - interval '2 hours', state = 'final', home_score = 90, away_score = 99 where ext_id = 'wn-g3';
+select set_config('app.league_id', :'lib', false);
+select pg_temp.expect('the Owls can''t reach 2.5 with two left: the under is decided, the rest open',
+  (select decided = 'U' and w = 0 and left_n = 2 from _wins_clubs(:wng) where club = :wn2)
+  and (select decided is null and w = 2 from _wins_clubs(:wng) where club = :wn1)
+  and (select decided is null from _wins_clubs(:wng) where club = :wn3));
+select pg_temp.expect('a point each, Hana with every call still alive, Fern one fewer',
+  (select points = 1 and possible = 3 and picked = 3 from _pool_game_table(:wng) where team_id = :hana)
+  and (select points = 1 and possible = 2 and picked = 2 from _pool_game_table(:wng) where team_id = :fern)
+  and (select points = 1 and possible = 2 and picked = 2 from _pool_game_table(:wng) where team_id = :lou));
+select pg_temp.expect('the hourly job leaves it open', _wins_tick(:lib) = 0);
+select pg_temp.expect('and keeps the lock, so an opener called off later can''t reopen the calls', (select rules ? 'locked_at' from pool_games where id = :wng));
+update fixtures set state = 'cancelled' where ext_id = 'wn-g1';
+select pg_temp.expect('still locked', _pool_game_locked(:wng));
+update fixtures set state = 'final' where ext_id = 'wn-g1';
+select pg_temp.expect('and logs the pool''s split on each line at the lock', (select predicted = 0.333 from predictions where kind = 'pool_wins_split' and subject = jsonb_build_object('game', :wng, 'club', :wn1))
+  and (select predicted = 0 from predictions where kind = 'pool_wins_split' and subject = jsonb_build_object('game', :wng, 'club', :wn2))
+  and (select status = 'open' from pool_games where id = :wng));
+update fixtures set kickoff = now() - interval '1 hour', state = 'final', home_score = 95, away_score = 101 where ext_id = 'wn-g4';
+select pg_temp.expect('the Hawks pass 2.5: the over is in with a game to spare', (select decided = 'O' and w = 3 from _wins_clubs(:wng) where club = :wn1));
+update fixtures set kickoff = now() - interval '1 hour', state = 'final', home_score = 104, away_score = 100 where ext_id = 'wn-g5';
+-- the last game: the feed has it as a Crows win, the host's result an Owls one, and the pool's result counts
+update fixtures set kickoff = now() - interval '1 hour', state = 'final', home_score = 88, away_score = 97 where ext_id = 'wn-g6';
+select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-000000000081', false);
+set role authenticated;
+select pool_fixture_result_set((select id from fixtures where ext_id = 'wn-g6'), null, 101, 99, 'the feed has it backwards');
+reset role;
+select pg_temp.expect('the Crows finish on exactly 2: a push, for nobody', (select decided = 'P' and w = 2 and l = 2 and left_n = 0 from _wins_clubs(:wng) where club = :wn3));
+select pg_temp.expect('settled once every call is decided', _wins_tick(:lib) = 1);
+select pg_temp.expect('and only once', _wins_tick(:lib) = 0);
+select pg_temp.expect('Hana two right, the splits scored and the push voided', (select status = 'done' and winners = array[:hana]::int[] from pool_games where id = :wng)
+  and (select points = 2 from _pool_game_table(:wng) where team_id = :hana) and (select points = 1 from _pool_game_table(:wng) where team_id = :fern)
+  and (select outcome = 1 and status = 'scored' from predictions where kind = 'pool_wins_split' and subject = jsonb_build_object('game', :wng, 'club', :wn1))
+  and (select status = 'void' from predictions where kind = 'pool_wins_split' and subject = jsonb_build_object('game', :wng, 'club', :wn3))
+  and exists (select 1 from messages where league_id = :lib and body like '🏆 Win totals are settled:%called 2 of 3 right.')
+  and exists (select 1 from _pool_rows() r where r.game = 'game:' || :wng and r.team_id = :hana and r.line = '2 right from 3 called'));
+delete from predictions where kind = 'pool_wins_split';
+delete from league_invites where code = 'wn-invite';
+delete from pool_result_overrides where fixture_id in (select id from fixtures where competition = 'wn-test');
+delete from pool_picks where game_id = :wng;
+delete from pool_games where id = :wng;
+delete from fixtures where competition = 'wn-test';
+delete from competitions where id = 'wn-test';
+select set_config('app.league_id', '', false);
+select set_config('request.jwt.claim.sub', '', false);
+select 'season win totals', true;
