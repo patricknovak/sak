@@ -17,6 +17,7 @@ import { bare, useBrand } from '../lib/brand';
 import { WatchCard } from '../components/WatchCard';
 import { LiveRoomCard } from '../components/LiveRoomCard';
 import { LeagueTransactions } from '../components/LeagueTransactions';
+import { GuillotineCard } from '../components/GuillotineCard';
 import { liveRoomOn } from '../lib/features';
 import { chatKinds } from '../lib/chatFilter';
 import { useGameSheet } from '../components/GameSheet';
@@ -191,6 +192,9 @@ export default function Home() {
           ))}
         </div>
       )}
+
+      {/* the guillotine (migration 278): who's on the block this week, and who's been cut */}
+      {phase === 'season' && league?.features?.guillotine === true && <GuillotineCard />}
 
       <div className="grid grid-cols-1 gap-5 lg:grid-cols-2">
         <Section icon={<Trophy size={17} className="text-gold" />} title={phase === 'season' ? (inPlayoffs ? '🏆 Playoff standings' : 'Standings') : lastSeason ? `${lastSeason.season} final standings` : 'The field'} right={<More to="/standings" label="All" />}>

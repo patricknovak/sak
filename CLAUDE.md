@@ -108,7 +108,7 @@ Two things in one repo:
   request works for per request (`AsyncLocalStorage`, `runs`), never in a module variable. Job names: nhl-scores
   (gated by `_scores_due()`), nhl-clock (every 20 seconds, gated by `_clock_due()`), nhl-gameday, nhl-injuries, nhl-schedule, season-schedule, nhl-news,
   nhl-players, nhl-players-pregame, nhl-standings, nhl-corrections, nhl-corrections-deep, projections,
-  auto-lineups, auto-lineups-late, bestball, garry-daily, garry-weekly, garry-nudge, garry-moments, open-book, settle-book,
+  auto-lineups, auto-lineups-late, bestball, guillotine, garry-daily, garry-weekly, garry-nudge, garry-moments, open-book, settle-book,
   settle-bets, expire-bets, h2h-notes, pool-drops, pool-settle, soccer-fixtures, soccer-live (gated by `_soccer_due()`), mlb-live (gated by `_mlb_due()`), mlb-schedule, process-pending (every 10 s), stats-cache, health-check, fund-price, cron-history, cost-snapshot,
   cost-watch. A job that does a league's work runs once per active league: in SQL through
   `run_league_jobs(job)` (sets `app.league_id`, one league's failure doesn't stop the others), in an edge function
@@ -296,7 +296,7 @@ wasn't applied); #75 was the hotfix.
   Auth email (the 6-digit password reset code) goes through Resend's SMTP from no-reply@superpoolsai.com; the key lives
   only in Supabase's SMTP settings. superpoolsai.com's DNS is on Cloudflare.
 - Money and a league fund are per-league options (`league_rules.features`: `money`, `fund`), never requirements: SQL checks
-  `league_has()` / `_feature()`, the site `hasFeature()` (`src/lib/features.ts`). SaK has both; a new league neither. Best ball (`features.bestball`, migration 276, points leagues only) re-slots each finished night's snapshots to the best lineup through the hourly `bestball` job, from `info.bestball_from`; every score reads the snapshots as before.
+  `league_has()` / `_feature()`, the site `hasFeature()` (`src/lib/features.ts`). SaK has both; a new league neither. Best ball (`features.bestball`, migration 276, points leagues only) re-slots each finished night's snapshots to the best lineup through the hourly `bestball` job, from `info.bestball_from`; every score reads the snapshots as before. The guillotine (`features.guillotine`, migration 278, points leagues played for the season total) cuts each week's fewest points on Monday through the hourly `guillotine` job (`guillotine_cuts`, `_guillotine_tick`); a cut team's roster and trade moves are refused by `_not_cut()`; a new roster or trade function calls it after `_gm_only()`.
 - Expand, then contract: add the new path beside the old, move the readers, prove the numbers match, retire the
   old path in a later change (the debt list is in `docs/DEVELOPMENT.md`).
 - The product learns: a new prediction or grade (projection, trade or draft grade, odds, a Garry pick, a pool's pick

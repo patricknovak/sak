@@ -9,7 +9,7 @@ Paid subscribed: section 1 and section 8 are that review.
 
 ## 1. Where we are
 
-*As of 15 October 2026, migration 277.*
+*As of 15 October 2026, migration 279.*
 
 - **SaK**, the live league: eight GMs, used every night, on React 19 + Supabase (Postgres rules, edge functions, a
   scheduler) and an LLM voice (Garry, on Grok, metered per feature and league), served from Cloudflare. The season is
@@ -29,7 +29,7 @@ Paid subscribed: section 1 and section 8 are that review.
 - **Use so far is the founder's.** Four prediction pools besides SaK, one or two members each, one pick between them
   and no chat (section 9.2, 13 October). The Love Is Blind gate (three pools, thirty players by 4 November) is the first
   real test of the product with strangers; the premiere is 14 October, and the week's build for it is section 9.5.
-- 277 migrations; the flow test drives a whole fantasy season and every pool kind in SQL, with a second league beside
+- 279 migrations; the flow test drives a whole fantasy season and every pool kind in SQL, with a second league beside
   each that must never see or change it; CI runs it, the build and the Worker's types on every pull request.
 
 ## 2. What is working, and stays
@@ -742,3 +742,12 @@ Built for SaK and, as every SaK change is, for every league:
   before it was switched on (`info.bestball_from`). Proved on live: the slots' total equals `lineup_efficiency`'s best
   for all 24 SaK team-nights of the last three nights. My Team says so on the Tonight card; Garry skips the lineup nudge
   and never calls a benched hat trick wasted in a best-ball league. SaK doesn't have it on.
+- **The guillotine** (SUPERPOOLS item 10, migrations 278 and 279): a league option (`features.guillotine`, a points
+  league played for the season total). Every Monday, once Sunday's games are final, the hourly `guillotine` job cuts the
+  team still in with the fewest points that Monday-to-Sunday week (a tie goes against the lower season total; the first
+  full week of the season is the first judged): `guillotine_cuts` keeps it, its players go to free agency as drops, its
+  open trades are called off, the chat and every GM's bell hear it. A cut team can still watch, chat and bet; the eight
+  roster and trade functions refuse it (`_not_cut()`, patched into the live definitions after their GM check, as the
+  spectator guard was in migration 16; the live bodies matched the repo's before the patch). The home page's card shows
+  the week so far, lowest first, and everyone cut; the last team standing wins. Still to come for it: the standings and
+  payouts ranking the last team standing first (they rank by season points today).

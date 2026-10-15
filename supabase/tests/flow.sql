@@ -1775,7 +1775,7 @@ select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-000000000099
 set role authenticated;
 select pg_temp.expect('a new league starts without money or a fund', not league_has('money') and not league_has('fund'));
 select pg_temp.raises('no money, no billing', 'select commish_bill_entries()', 'doesn''t keep its money');
-select pg_temp.raises('features are money, the fund, the live room, the page counts and best ball only', 'select commish_update_league(''{"features": {"casino": true}}'')', 'Features are money, fund, live_room, usage and bestball');
+select pg_temp.raises('features are money, the fund, the live room, the page counts, best ball and the guillotine only', 'select commish_update_league(''{"features": {"casino": true}}'')', 'Features are money, fund, live_room, usage, bestball and guillotine');
 select commish_update_league('{"features": {"money": true}}');
 -- the live room is on until the commissioner turns it off (migration 265), and turning it off keeps the rest
 select commish_update_league('{"features": {"live_room": false}}');
@@ -6599,3 +6599,69 @@ delete from player_games where game_id in (7901, 7902);
 delete from games where id in (7901, 7902);
 select set_config('request.jwt.claim.sub', '', false);
 select 'best ball', true;
+
+-- ───────────── the guillotine (migration 278) ─────────────
+-- last week's fewest points is cut once the week is over: its players are free agents (each a drop), its trades are
+-- called off, it can't move again; one cut a week; a league without it is untouched
+reset role;
+select set_config('request.jwt.claim.sub', '', false);
+select today_et() - extract(isodow from today_et())::int - 6 as gt_ws \gset
+select season_start as gt_season, phase as gt_phase from league_rules where league_id = 1 \gset
+update league_rules set season_start = :'gt_ws', phase = 'season' where league_id = 1;
+create temp table gt_roster as select * from rosters where team_id = 8;
+insert into games (id, date, start_utc, home, away, state, final_synced) values (7951, (:'gt_ws')::date + 1, now() - interval '6 days', 'TOR', 'MTL', 'OFF', true);
+-- teams 1 to 7 each start one skater who scores; team 8 starts nobody who plays
+insert into player_games (game_id, player_id, date, stats)
+select 7951, x.player_id, (:'gt_ws')::date + 1, '{"g":1,"a":1,"sog":3}'::jsonb
+from (select distinct on (r.team_id) r.team_id, r.player_id from rosters r join players p on p.id = r.player_id
+      where r.team_id between 1 and 7 and p.pos <> 'G' order by r.team_id, r.player_id) x
+on conflict do nothing;
+insert into lineup_snapshots (game_id, date, team_id, player_id, slot)
+select 7951, (:'gt_ws')::date + 1, x.team_id, x.player_id, 'Util'
+from (select distinct on (r.team_id) r.team_id, r.player_id from rosters r join players p on p.id = r.player_id
+      where r.team_id between 1 and 7 and p.pos <> 'G' order by r.team_id, r.player_id) x;
+insert into trades (season, from_team, to_team, status) values ((select season from league_rules where league_id = 1), 8, 2, 'proposed');
+select currval('trades_id_seq') as gt_trade \gset
+select count(*) as gt_n from rosters where team_id = 8 \gset
+select pg_temp.as_team(1);
+set role authenticated;
+select commish_update_league('{"features":{"guillotine":true}}');
+reset role;
+select set_config('app.league_id', '1', false);
+select set_config('t.gt', _guillotine_tick()::text, false);
+select pg_temp.expect('last week''s fewest is cut: the roster to free agency as drops, its trade called off, the league told',
+  current_setting('t.gt') = '1'
+  and (select team_id = 8 and week_start = (:'gt_ws')::date and alive = 8 and points = 0 from guillotine_cuts where league_id = 1)
+  and not exists (select 1 from rosters where team_id = 8)
+  and (select count(*) from transactions where team_id = 8 and type = 'drop' and created_at > now() - interval '1 minute') = :gt_n
+  and (select status = 'cancelled' from trades where id = :gt_trade)
+  and exists (select 1 from messages where league_id = 1 and body like '🪓 The guillotine: % is cut after the week of %, the fewest of the 8 teams still in.%')
+  and exists (select 1 from notifications where team_id = 8 and kind = 'guillotine'));
+select pg_temp.expect('one cut a week', _guillotine_tick() = 0);
+select set_config('app.league_id', (select id::text from leagues where slug = 'rink'), false);
+select pg_temp.expect('a league without it is untouched', _guillotine_tick() = 0);
+select set_config('app.league_id', '', false);
+select pg_temp.as_team(8);
+set role authenticated;
+select pg_temp.raises('the cut team can''t pick up', format('select add_player(%s, null, false)', (select id from players where id not in (select player_id from rosters) limit 1)), 'guillotine cut your team');
+select pg_temp.raises('or trade', 'select propose_trade(2, ''{}''::int[], ''{}''::int[])', 'guillotine cut your team');
+reset role;
+update league_rules set format = 'h2h' where league_id = 1;
+select pg_temp.as_team(1);
+set role authenticated;
+select pg_temp.raises('a head-to-head league can''t switch it on', $$select commish_update_league('{"features":{"guillotine":true}}')$$, 'season total');
+reset role;
+update league_rules set format = 'season' where league_id = 1;
+-- put SaK back as it was
+delete from guillotine_cuts where league_id = 1;
+insert into rosters select * from gt_roster;
+delete from transactions where team_id = 8 and type = 'drop' and created_at > now() - interval '5 minutes';
+delete from trades where id = :gt_trade;
+delete from notifications where kind = 'guillotine';
+delete from messages where league_id = 1 and body like '🪓 The guillotine:%';
+delete from lineup_snapshots where game_id = 7951;
+delete from player_games where game_id = 7951;
+delete from games where id = 7951;
+update league_rules set features = features - 'guillotine', season_start = :'gt_season', phase = :'gt_phase' where league_id = 1;
+select set_config('request.jwt.claim.sub', '', false);
+select 'the guillotine', true;

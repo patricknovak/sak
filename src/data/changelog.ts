@@ -6,6 +6,8 @@
 export interface Change { date: string; icon: string; title: string; body: string; to?: string; tag?: 'formats' | 'commish' | 'draft' | 'everyone' }
 
 export const CHANGELOG: Change[] = [
+  { date: '2026-10-15', icon: '🪓', tag: 'formats', title: 'The guillotine', to: '/commish',
+    body: 'A commissioner can make the league a guillotine under League features: every Monday, once Sunday\'s games are final, the team with the fewest points that week is cut and its players hit free agency. The home page shows who\'s on the block this week and everyone already cut; the last team standing wins. Points leagues played for the season total.' },
   { date: '2026-10-15', icon: '🎯', tag: 'formats', title: 'Best ball', to: '/commish',
     body: 'A commissioner can make the league best ball under League features: your lineup still scores live on a game night, and once the night is over it counts the best lineup your players allowed, so nobody loses a night to a lineup left unset. It starts with the night being played. Points leagues only.' },
   { date: '2026-10-15', icon: '🏒', tag: 'everyone', title: 'Pools on every NHL and NBA game', to: '/new',
