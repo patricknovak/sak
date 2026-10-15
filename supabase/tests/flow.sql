@@ -4478,6 +4478,58 @@ select set_config('app.league_id', '', false);
 select set_config('request.jwt.claim.sub', '', false);
 select 'pick''em against the spread', true;
 
+-- ───────────── the pick'em tiebreaker (migration 284) ─────────────
+-- Hana and Fern pick the same round alike; the total in its last game decides it: Fern is closer, so the round and the
+-- game are hers; the tiebreaker locks when that game starts and takes a sensible number
+reset role;
+select set_config('request.jwt.claim.sub', '', false);
+select set_config('app.league_id', '', false);
+insert into competitions (id, sport, name, short, season, provider, ext_id, ext_season, active)
+values ('tb-test', 'mlb', 'Tie Bowl', 'TB', '2026', 'mlb-statsapi', 'tbt', '2026', true) on conflict (id) do nothing;
+insert into fixtures (sport, competition, provider, ext_id, season, gameweek, kickoff, date, home_club, away_club, state) values
+  ('mlb', 'tb-test', 'mlb-statsapi', 'tb-1', '2026', 1, now() + interval '2 days', (now() + interval '2 days')::date, :alb, :bri, 'scheduled'),
+  ('mlb', 'tb-test', 'mlb-statsapi', 'tb-2', '2026', 1, now() + interval '3 days', (now() + interval '3 days')::date, :bri, :alb, 'scheduled');
+select id as tb1 from fixtures where ext_id = 'tb-1' \gset
+select id as tb2 from fixtures where ext_id = 'tb-2' \gset
+select set_config('app.league_id', :'lib', false);
+select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-000000000081', false);
+set role authenticated;
+select pool_game_start('pickem', 'tb-test') as tbg \gset
+select pg_temp.expect('the round''s tiebreaker is its last game', (pool_pickem_board(:tbg, 1)->'tiebreak'->>'fixture')::bigint = :tb2
+  and not (pool_pickem_board(:tbg, 1)->'tiebreak'->>'locked')::boolean);
+select pool_pickem_save(:tbg, 1, jsonb_build_array(jsonb_build_object('fixture', :tb1, 'pick', 'H'), jsonb_build_object('fixture', :tb2, 'pick', 'H')));
+select pool_game_pick(:tbg, 't:1', '{"runs": 9}');
+select pg_temp.raises('a sensible number', format('select pool_game_pick(%s, %L, %L)', :tbg, 't:1', '{"runs": 999}'), 'a number from 0');
+select pg_temp.raises('a round in the game', format('select pool_game_pick(%s, %L, %L)', :tbg, 't:7', '{"runs": 9}'), 'isn''t in this game');
+reset role;
+select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-000000000082', false);
+set role authenticated;
+select pool_pickem_save(:tbg, 1, jsonb_build_array(jsonb_build_object('fixture', :tb1, 'pick', 'H'), jsonb_build_object('fixture', :tb2, 'pick', 'H')));
+select pool_game_pick(:tbg, 't:1', '{"runs": 12}');
+select pg_temp.expect('the board shows my tiebreaker', (pool_pickem_board(:tbg, 1)->'tiebreak'->>'mine')::int = 12);
+reset role;
+update fixtures set kickoff = now() - interval '5 hours' where id = :tb1;
+update fixtures set kickoff = now() - interval '4 hours' where id = :tb2;
+select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-000000000082', false);
+set role authenticated;
+select pg_temp.raises('the tiebreaker locks when the last game starts', format('select pool_game_pick(%s, %L, %L)', :tbg, 't:1', '{"runs": 11}'), 'locked');
+reset role;
+update fixtures set state = 'final', home_score = 3, away_score = 1 where id = :tb1;
+select pg_temp.expect('nothing to break a tie with until the last game is over', (select tiebreak is null from _pickem_table(:tbg) where team_id = :fern));
+update fixtures set state = 'final', home_score = 7, away_score = 4 where id = :tb2;
+select pg_temp.expect('level on points, the closest on the total wins the round and the game',
+  (select points = 2 and tiebreak = 1 from _pickem_table(:tbg) where team_id = :fern)
+  and (select points = 2 and tiebreak = 2 from _pickem_table(:tbg) where team_id = :hana)
+  and (select status = 'done' and winners = array[:fern]::int[] from pool_games where id = :tbg)
+  and exists (select 1 from messages where league_id = :lib and body like '🏆 Tie Bowl pick''em is done: Fern, with 2 points.'));
+delete from pool_picks where game_id = :tbg;
+delete from pool_games where id = :tbg;
+delete from fixtures where competition = 'tb-test';
+delete from competitions where id = 'tb-test';
+select set_config('app.league_id', '', false);
+select set_config('request.jwt.claim.sub', '', false);
+select 'the pick''em tiebreaker', true;
+
 -- ───────────── the host's desk (migration 172) ─────────────
 -- Hana runs a pick'em on the Desk Cup: she changes its rules before the first lock, enters Lou's picks when he asks,
 -- and settles a match the feed left hanging.

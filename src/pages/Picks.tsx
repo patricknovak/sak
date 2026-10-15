@@ -357,7 +357,8 @@ function GameRules({ board }: { board: GameBoard }) {
     lines.push(`It runs from ${pk.word} ${pk.from_round} to ${pk.word} ${pk.to_round}. Each pick locks at its own kick-off, and you can change it until then.`);
     lines.push(pk.draws ? 'The result after ninety minutes and stoppage time counts: extra time and penalties don’t.' : 'A tie counts for nobody: no one picked it.');
     lines.push('Join any time: you play every match still to kick off. A match called off counts for nobody.');
-    lines.push('The most points wins. A tie on points shares it.');
+    lines.push(`Each ${pk.word.toLowerCase()} has a tiebreaker: the total in its last game. A tie on points for the ${pk.word.toLowerCase()} goes to whoever is closest, and a tie at the end to whoever was closest on the last one played; no call, and the tie is shared.`);
+    lines.push('The most points wins.');
   } else if (board.sweep) {
     lines.push(`At the first game of the ${board.sweep.round_label ?? 'round'}, every player in the pool is dealt clubs from the hat at random, round the pool in turn, so some may hold one more. The host can draw it sooner.`);
     lines.push('Every club still to play from that round on is in the hat, byes included. Where the pool is bigger than the field, players share a club.');

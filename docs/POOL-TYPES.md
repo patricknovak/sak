@@ -109,8 +109,10 @@ has them (`sports.config.draws`), the round's name from the sport (`words.round`
 2026 (migration 283):* `rules.ats` on a sport without draws; each pick stores the home side's line from ESPN
 (`fixtures.detail.odds.line`) at the moment it is saved and keeps it while it stays on that side; a side that covers its
 own line is right, landing on it is a push (`_ats_side`, `_pick_res`, read by the table, the board, the round's end and
-the chances); the host's result says who covered; the crowd's split log leaves these pools out. The tiebreaker is still
-to come.
+the chances); the host's result says who covered; the crowd's split log leaves these pools out. *The tiebreaker, the
+same day (migration 284):* each round, the total in its last game (`_pickem_last`), a pick 't:<round>' until that game
+starts; the round's top and the game's winner go to the closest (`_pickem_miss`), and the table's tiebreak is the miss on
+the latest round played (`_pickem_tb_round`), which the scoreboard already ranks lowest first.
 
 ### 2.5 Survivor (last one standing, eliminator)
 

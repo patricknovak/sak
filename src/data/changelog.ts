@@ -6,6 +6,8 @@
 export interface Change { date: string; icon: string; title: string; body: string; to?: string; tag?: 'formats' | 'commish' | 'draft' | 'everyone' }
 
 export const CHANGELOG: Change[] = [
+  { date: '2026-10-15', icon: '🎯', tag: 'everyone', title: 'A tiebreaker in pick\'em', to: '/picks',
+    body: 'Every pick\'em week now has a tiebreaker: call the total in the week\'s last game, up to its start. Level on points for the week, the closest call takes it; level at the end, the closest on the last week played wins the pool.' },
   { date: '2026-10-15', icon: '📏', tag: 'everyone', title: 'Pick\'em against the spread', to: '/new',
     body: 'A pick\'em on the NFL, the NBA or the NHL can run against the spread: switch it on when you start the pool (or before anyone picks). Each pick takes the market\'s line the moment you save it and keeps it, so a line that moves later never changes your pick. Your side has to cover; landing right on the line is a push.' },
   { date: '2026-10-15', icon: '⚡', tag: 'everyone', title: 'Pick the favourites', to: '/picks',

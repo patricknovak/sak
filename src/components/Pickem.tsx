@@ -32,6 +32,8 @@ export interface PkRound { round: number; first: string; last: string; matches: 
 export interface PickemData {
   round: number; from_round: number; to_round: number; word: string; confidence: boolean; draws: boolean; size: number; ats?: boolean;
   rounds: PkRound[]; fixtures: PkFixture[];
+  // the round's tiebreaker (migration 284): the total in its last game, locked when it starts
+  tiebreak?: { fixture: number; kickoff: string; home: Club; away: Club; locked: boolean; total: number | null; mine: number | null; word: string; cap: number } | null;
 }
 
 const TIME = new Intl.DateTimeFormat(undefined, { weekday: 'short', hour: 'numeric', minute: '2-digit' });
@@ -62,6 +64,7 @@ export function PickemGame({ gameId, first, status: gameStatus, name, reload, ac
   const [data, setData] = useState<PickemData>(first);
   const [draft, setDraft] = useState<Record<number, PkPick | null>>({});
   const [open, setOpen] = useState<number | null>(null);
+  const [tbv, setTbv] = useState<string | null>(null);
   const { busy, run } = useAction();
   const market = useMarket(data.fixtures.map((f) => f.id));
   // each match's thread in the pool, with how busy it is
@@ -70,7 +73,12 @@ export function PickemGame({ gameId, first, status: gameStatus, name, reload, ac
   const tf = data.fixtures.find((f) => f.id === thread);
   // a new board from the page (the minute refresh) replaces the round shown only when it is the same round
   useEffect(() => { if (first.round === data.round) setData(first); }, [first]); // eslint-disable-line react-hooks/exhaustive-deps
-  const go = (round: number) => rpc<PickemData>('pool_pickem_board', { p_game: gameId, p_round: round }).then((d) => { if (d) { setData(d); setDraft({}); } });
+  const go = (round: number) => rpc<PickemData>('pool_pickem_board', { p_game: gameId, p_round: round }).then((d) => { if (d) { setData(d); setDraft({}); setTbv(null); } });
+  const tb = data.tiebreak;
+  const saveTb = () => run(async () => {
+    await rpc('pool_game_pick', { p_game: gameId, p_thing: `t:${data.round}`, p_pick: { runs: Number(tbv) } });
+    await go(data.round);
+  }, 'Tiebreaker saved');
 
   const pickOf = (f: PkFixture): PkPick | null => (f.id in draft ? draft[f.id] : actAs ? null : f.mine);
   const dirty = Object.keys(draft).length > 0;
@@ -268,6 +276,30 @@ export function PickemGame({ gameId, first, status: gameStatus, name, reload, ac
           </div>
         );
       })}
+
+      {/* the round's tiebreaker: the total in its last game */}
+      {tb && !actAs && (
+        <div className="card flex flex-wrap items-center gap-3 p-3">
+          <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-white/[.06] text-lg ring-1 ring-white/10">🎯</span>
+          <div className="min-w-0 flex-1">
+            <div className="text-sm font-bold text-white">Tiebreaker</div>
+            <div className="text-[11px] leading-snug text-mute">Total {tb.word} in {data.draws ? `${short(tb.home)} v ${short(tb.away)}` : `${short(tb.away)} at ${short(tb.home)}`}, the {data.word.toLowerCase()}&rsquo;s last game{tb.locked ? '' : `, ${TIME.format(new Date(tb.kickoff))}`}. Closest breaks a tie.</div>
+          </div>
+          {tb.locked || !canPick ? (
+            <div className="shrink-0 text-right">
+              <div className="num font-display text-lg font-extrabold text-white">{tb.mine ?? '–'}</div>
+              <div className="text-[10px] font-semibold text-mute">{tb.total != null ? (tb.mine != null ? `Final ${tb.total} · ${Math.abs(tb.mine - tb.total)} off` : `Final ${tb.total}`) : tb.mine != null ? 'Your call' : 'No call'}</div>
+            </div>
+          ) : (
+            <div className="flex shrink-0 items-center gap-1.5">
+              <input type="number" inputMode="numeric" min={0} max={tb.cap} aria-label="Tiebreaker total" placeholder="0"
+                value={tbv ?? (tb.mine != null ? String(tb.mine) : '')} onChange={(e) => setTbv(e.target.value)}
+                className="input num h-10 w-16 text-center text-base font-bold" />
+              <button type="button" className="btn-gold h-10 px-3 text-xs" disabled={busy || tbv == null || tbv === '' || Number(tbv) < 0 || Number(tbv) > tb.cap || Number(tbv) === tb.mine} onClick={saveTb}>Save</button>
+            </div>
+          )}
+        </div>
+      )}
 
       {canPick && (dirty || openLeft > 0) && data.fixtures.some((f) => !f.locked) && (
         <div className="sticky bottom-24 z-10">
