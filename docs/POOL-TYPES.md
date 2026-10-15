@@ -217,7 +217,9 @@ The NHL's season had started, so this season it is the NBA's. A line someone has
 lock is kept once it passes (`rules.locked_at`), so an opening slate called off later never re-opens the calls; the host
 adds calls for a member who asked to their own; the host settles any of the season's games by hand (a score up to 999
 now, as a basketball score passes 99); the NBA Cup final, filed by ESPN as a regular-season game that the standings
-leave out, is kept out of the season by soccer-sync.
+leave out, is kept out of the season by soccer-sync. *Its chances (migration 298):* once the calls lock, the table's
+chance to win plays every open line out a thousand times, each club's games left won at its rate so far pulled toward
+its line's by ten games' worth.
 
 ### 2.12 Which types fit which sport
 

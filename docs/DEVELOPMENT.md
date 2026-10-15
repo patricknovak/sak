@@ -9,7 +9,7 @@ Paid subscribed: section 1 and section 8 are that review.
 
 ## 1. Where we are
 
-*As of 15 October 2026, migration 297.*
+*As of 15 October 2026, migration 298.*
 
 - **SaK**, the live league: eight GMs, used every night, on React 19 + Supabase (Postgres rules, edge functions, a
   scheduler) and an LLM voice (Garry, on Grok, metered per feature and league), served from Cloudflare. The season is
@@ -29,7 +29,7 @@ Paid subscribed: section 1 and section 8 are that review.
 - **Use so far is the founder's.** Four prediction pools besides SaK, one or two members each, one pick between them
   and no chat (section 9.2, 13 October). The Love Is Blind gate (three pools, thirty players by 4 November) is the first
   real test of the product with strangers; the premiere is 14 October, and the week's build for it is section 9.5.
-- 297 migrations; the flow test drives a whole fantasy season and every pool kind in SQL, with a second league beside
+- 298 migrations; the flow test drives a whole fantasy season and every pool kind in SQL, with a second league beside
   each that must never see or change it; CI runs it, the build and the Worker's types on every pull request.
 
 ## 2. What is working, and stays
@@ -825,7 +825,9 @@ Built for SaK and, as every SaK change is, for every league:
   prediction log. A choice on the start page and Add a game while a season with lines hasn't started. From a review
   before it went live: a called line stays put, the lock is kept once passed, the Cup final stays out of the season
   (soccer-sync), the host can settle a season game by hand (scores to 999, which an NBA spread pick'em needed too), and
-  the records are worked out in one pass (the board in about 25 ms on a full season).
+  the records are worked out in one pass (the board in about 25 ms on a full season). Each member's chance to win
+  (migration 298, `_wins_chances`): once the calls lock, every open line is played out a thousand times, the club's
+  games left won at its rate so far pulled toward its line's by ten games' worth (`_wins_odds`, over and push).
 - **Pick the favourites** (pick'em, every sport): one tap fills every open, unpicked match with the side ESPN's line
   favours, the surest numbered highest in Confidence, nothing saved until Save; a round of more than twelve games reads
   day by day. An NHL or NBA week is about fifty games.

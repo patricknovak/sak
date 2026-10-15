@@ -7157,6 +7157,11 @@ select pg_temp.expect('and logs the pool''s split on each line at the lock', (se
   and (select status = 'open' from pool_games where id = :wng));
 update fixtures set kickoff = now() - interval '1 hour', state = 'final', home_score = 95, away_score = 101 where ext_id = 'wn-g4';
 select pg_temp.expect('the Hawks pass 2.5: the over is in with a game to spare', (select decided = 'O' and w = 3 from _wins_clubs(:wng) where club = :wn1));
+select pg_temp.expect('the odds: a club already over is certain, one out of reach has none, a whole line can push',
+  _wins_odds(3, 1, 0, 0, 2.5, 4) = array[1, 0]::numeric[] and (_wins_odds(0, 3, 0, 1, 2.5, 4))[1] = 0 and (_wins_odds(1, 1, 0, 2, 2, 4))[2] > 0
+  and (_wins_odds(1, 1, 0, 2, 2, 4))[1] + (_wins_odds(1, 1, 0, 2, 2, 4))[2] < 1);
+select pg_temp.expect('Hana has two right and nobody can catch her: she wins every run',
+  (select (x->>'chance')::numeric = 1 from jsonb_array_elements(pool_game_chances(:wng)) x where (x->>'team_id')::int = :hana));
 update fixtures set kickoff = now() - interval '1 hour', state = 'final', home_score = 104, away_score = 100 where ext_id = 'wn-g5';
 -- the last game: the feed has it as a Crows win, the host's result an Owls one, and the pool's result counts
 update fixtures set kickoff = now() - interval '1 hour', state = 'final', home_score = 88, away_score = 97 where ext_id = 'wn-g6';
@@ -7174,6 +7179,7 @@ select pg_temp.expect('Hana two right, the splits scored and the push voided', (
   and exists (select 1 from messages where league_id = :lib and body like '🏆 Win totals are settled:%called 2 of 3 right.')
   and exists (select 1 from _pool_rows() r where r.game = 'game:' || :wng and r.team_id = :hana and r.line = '2 right from 3 called'));
 delete from predictions where kind = 'pool_wins_split';
+delete from predictions where kind = 'pool_win' and subject->>'game' = :'wng';
 delete from league_invites where code = 'wn-invite';
 delete from pool_result_overrides where fixture_id in (select id from fixtures where competition = 'wn-test');
 delete from pool_picks where game_id = :wng;
