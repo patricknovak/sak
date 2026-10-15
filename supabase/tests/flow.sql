@@ -4450,13 +4450,15 @@ reset role;
 select pg_temp.expect('each pick keeps the line it was made at',
   (select (pick->>'line')::numeric = -1.5 from pool_picks where game_id = :atg and team_id = :hana and thing = 'f:' || :at1)
   and (select (pick->>'line')::numeric = -2.5 from pool_picks where game_id = :atg and team_id = :fern and thing = 'f:' || :at1)
-  and (select (pick->>'line')::numeric = 0 from pool_picks where game_id = :atg and team_id = :hana and thing = 'f:' || :at2)
+  and (select not (pick ? 'line') from pool_picks where game_id = :atg and team_id = :hana and thing = 'f:' || :at2)
   and (select (pick->>'line')::numeric = -2 from pool_picks where game_id = :atg and team_id = :fern and thing = 'f:' || :at3));
 -- the games: home by 2 (Hana at -1.5 covers, Fern at -2.5 doesn't), the visitors win the even one, and home by exactly 2
 -- on a line of 2 is a push
 update fixtures set kickoff = now() - interval '3 hours', state = 'final', home_score = 5, away_score = 3 where id = :at1;
 update fixtures set kickoff = now() - interval '3 hours', state = 'final', home_score = 2, away_score = 4 where id = :at2;
 update fixtures set kickoff = now() - interval '3 hours', state = 'final', home_score = 4, away_score = 2 where id = :at3;
+select pg_temp.expect('a pick made before any line takes the line at kick-off (none at all, even)',
+  (select (pick->>'line')::numeric = 0 from pool_picks where game_id = :atg and team_id = :hana and thing = 'f:' || :at2));
 select pg_temp.expect('a side that covers its own line is right; the push counts for nobody',
   (select points = 1 and right_calls = 1 and picked = 2 from _pickem_table(:atg) where team_id = :hana)
   and (select points = 0 and right_calls = 0 and possible = 0 from _pickem_table(:atg) where team_id = :fern));
@@ -4470,6 +4472,19 @@ reset role;
 select pg_temp.expect('the game ends with its winner, and leaves the crowd''s forecast alone',
   (select status = 'done' and winners = array[:hana]::int[] from pool_games where id = :atg)
   and not exists (select 1 from predictions where kind = 'pool_split' and (subject->>'game')::bigint = :atg));
+-- the host settles by hand against the spread with the score, and every pick is scored on its own line from it
+reset role;
+update pool_games set status = 'open', winners = null, posted = '{}' where id = :atg;
+update fixtures set state = 'live' where id = :at1;
+select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-000000000081', false);
+set role authenticated;
+select pg_temp.raises('against the spread the host gives the score', format('select pool_result_set(%s, %s, %L, %L)', :atg, :at1, 'H', 'The feed stalled'), 'give the final score');
+select pg_temp.raises('a score that matches the result', format('select pool_result_set(%s, %s, %L, %L, 3, 5)', :atg, :at1, 'H', 'The feed stalled'), 'doesn''t match');
+select pool_result_set(:atg, :at1, 'H', 'The feed stalled at the end', 6, 3);
+reset role;
+select pg_temp.expect('home by 3: Hana at -1.5 and Fern at -2.5 both covered',
+  (select right_calls = 1 from _pickem_table(:atg) where team_id = :fern) and (select right_calls = 1 from _pickem_table(:atg) where team_id = :hana));
+delete from pool_result_overrides where fixture_id = :at1;
 delete from pool_picks where game_id = :atg;
 delete from pool_games where id = :atg;
 delete from fixtures where competition = 'ats-test';
@@ -4522,6 +4537,13 @@ select pg_temp.expect('level on points, the closest on the total wins the round 
   and (select points = 2 and tiebreak = 2 from _pickem_table(:tbg) where team_id = :hana)
   and (select status = 'done' and winners = array[:fern]::int[] from pool_games where id = :tbg)
   and exists (select 1 from messages where league_id = :lib and body like '🏆 Tie Bowl pick''em is done: Fern, with 2 points.'));
+-- the call keeps its game: put off after the round is otherwise done, no call scores and the tie is shared
+reset role;
+update pool_games set status = 'open', winners = null, posted = '{}' where id = :tbg;
+update fixtures set state = 'postponed' where id = :tb2;
+select pg_temp.expect('a call on a game put off scores no one, so the tie is shared',
+  (select tiebreak is null from _pickem_table(:tbg) where team_id = :fern)
+  and (select status = 'done' and winners @> array[:fern, :hana]::int[] from pool_games where id = :tbg));
 delete from pool_picks where game_id = :tbg;
 delete from pool_games where id = :tbg;
 delete from fixtures where competition = 'tb-test';

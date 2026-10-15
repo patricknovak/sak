@@ -116,7 +116,8 @@ the latest round played (`_pickem_tb_round`), which the scoreboard already ranks
 'favourite' fills every member's missing pick when a game leaves 'scheduled' (`_pickem_autopick`, trigger
 `fixtures_pickem_auto`, which fires before the round's end and the split): the market's side at kick-off (against the
 spread the side giving points; no line, the home side), never a draw, the lowest Confidence number still free, marked
-`auto`; the crowd's split leaves those out.
+`auto`; the crowd's split leaves those out. *Review fixes (migration 286):* a tiebreaker call keeps its game (`{runs, fixture}`); a spread game
+settled by hand needs the final score; a pick with no line out yet takes the line at kick-off.
 
 ### 2.5 Survivor (last one standing, eliminator)
 

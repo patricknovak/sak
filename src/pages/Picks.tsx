@@ -353,9 +353,9 @@ function GameRules({ board }: { board: GameBoard }) {
     lines.push(pk.confidence
       ? `Pick every match${pk.draws ? ' (either side or a draw)' : ''} and give each a number from 1 to the size of the round, each number once a round. A right pick earns its number.`
       : `Pick the winner of every match${pk.draws ? ', or a draw' : ''}. A right pick is worth a point.`);
-    if (pk.ats) lines.push('Against the spread: each pick takes the market\u2019s line at the moment you make it, and keeps it while you stay on that side. Your side has to cover its line; landing right on it is a push, worth nothing. A game with no line yet is an even one.');
+    if (pk.ats) lines.push('Against the spread: each pick takes the market\u2019s line at the moment you make it, and keeps it while you stay on that side. Your side has to cover its line; landing right on it is a push, worth nothing. A pick saved before a line is out takes the line at kick-off. A game settled by the host is scored on the final score they give.');
     lines.push(`It runs from ${pk.word} ${pk.from_round} to ${pk.word} ${pk.to_round}. Each pick locks at its own kick-off, and you can change it until then.`);
-    lines.push(pk.draws ? 'The result after ninety minutes and stoppage time counts: extra time and penalties don’t.' : 'A tie counts for nobody: no one picked it.');
+    lines.push(pk.draws ? 'The result after ninety minutes and stoppage time counts: extra time and penalties don’t.' : pk.ats ? 'A tie is scored against the line like any other result: at 3 points, the side getting them covered.' : 'A tie counts for nobody: no one picked it.');
     lines.push(pk.missed === 'favourite' ? 'Join any time: you play every match still to kick off. A match you don\u2019t pick takes the market\u2019s favourite when it starts. A match called off counts for nobody.' : 'Join any time: you play every match still to kick off. A match called off counts for nobody.');
     lines.push(`Each ${pk.word.toLowerCase()} has a tiebreaker: the total in its last game. A tie on points for the ${pk.word.toLowerCase()} goes to whoever is closest, and a tie at the end to whoever was closest on the last one played; no call, and the tie is shared.`);
     lines.push('The most points wins.');

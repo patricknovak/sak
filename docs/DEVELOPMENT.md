@@ -9,7 +9,7 @@ Paid subscribed: section 1 and section 8 are that review.
 
 ## 1. Where we are
 
-*As of 15 October 2026, migration 285.*
+*As of 15 October 2026, migration 286.*
 
 - **SaK**, the live league: eight GMs, used every night, on React 19 + Supabase (Postgres rules, edge functions, a
   scheduler) and an LLM voice (Garry, on Grok, metered per feature and league), served from Cloudflare. The season is
@@ -29,7 +29,7 @@ Paid subscribed: section 1 and section 8 are that review.
 - **Use so far is the founder's.** Four prediction pools besides SaK, one or two members each, one pick between them
   and no chat (section 9.2, 13 October). The Love Is Blind gate (three pools, thirty players by 4 November) is the first
   real test of the product with strangers; the premiere is 14 October, and the week's build for it is section 9.5.
-- 285 migrations; the flow test drives a whole fantasy season and every pool kind in SQL, with a second league beside
+- 286 migrations; the flow test drives a whole fantasy season and every pool kind in SQL, with a second league beside
   each that must never see or change it; CI runs it, the build and the Worker's types on every pull request.
 
 ## 2. What is working, and stays
@@ -775,6 +775,13 @@ Built for SaK and, as every SaK change is, for every league:
 - **A missed pick takes the favourite** (migration 285): a pick'em option (`rules.missed`), off by default: when a game
   starts, every member with no pick on it gets the market's favourite, the lowest Confidence number still free, marked
   as picked for them; the crowd's split leaves those out. A switch on the start page, Add a game and the host's rules.
+- **Review fixes to the spread and the tiebreaker** (migration 286, from a review of the night's pick'em diff): a
+  tiebreaker call keeps the game it was called on (a Monday night game put off had scored every call against Sunday
+  night's, and a game moved later re-opened it), and a game put off or voided leaves the tie shared; the host settling a
+  spread game by hand gives the final score (`pool_result_overrides.home_score/away_score`, `pool_result_set`'s
+  `p_home`/`p_away`, the old four-argument signature dropped), so each pick is scored on its own line, and a game
+  settled without one counts for nobody; a pick saved before any line is out takes the line at kick-off
+  (`_pickem_close_lines`) instead of being kept at even. A push no longer counts as a miss on the share card.
 - **Pick the favourites** (pick'em, every sport): one tap fills every open, unpicked match with the side ESPN's line
   favours, the surest numbered highest in Confidence, nothing saved until Save; a round of more than twelve games reads
   day by day. An NHL or NBA week is about fifty games.

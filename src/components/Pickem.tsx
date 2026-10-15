@@ -62,7 +62,8 @@ export function PickemGame({ gameId, first, status: gameStatus, name, reload, ac
 }) {
   const { me } = useLeague();
   const host = !!me?.is_commish && gameStatus === 'open' && !actAs;
-  const [settle, setSettle] = useState<{ id: number; side: Side | 'void' | null; reason: string } | null>(null);
+  // against the spread the host gives the final score too (migration 286): every pick is scored on its own line from it
+  const [settle, setSettle] = useState<{ id: number; side: Side | 'void' | null; reason: string; h?: string; a?: string } | null>(null);
   const [data, setData] = useState<PickemData>(first);
   const [draft, setDraft] = useState<Record<number, PkPick | null>>({});
   const [open, setOpen] = useState<number | null>(null);
@@ -78,7 +79,7 @@ export function PickemGame({ gameId, first, status: gameStatus, name, reload, ac
   const go = (round: number) => rpc<PickemData>('pool_pickem_board', { p_game: gameId, p_round: round }).then((d) => { if (d) { setData(d); setDraft({}); setTbv(null); } });
   const tb = data.tiebreak;
   const saveTb = () => run(async () => {
-    await rpc('pool_game_pick', { p_game: gameId, p_thing: `t:${data.round}`, p_pick: { runs: Number(tbv) } });
+    await rpc('pool_game_pick', { p_game: gameId, p_thing: `t:${data.round}`, p_pick: { runs: Math.round(Number(tbv)) } });
     await go(data.round);
   }, 'Tiebreaker saved');
 
@@ -128,8 +129,8 @@ export function PickemGame({ gameId, first, status: gameStatus, name, reload, ac
     reload();
   }, actAs ? `${actAs.name}'s picks are in` : 'Your picks are in');
   // the host's word on a match: a side, a draw or void, with the reason; null hands it back to the feed
-  const settleSave = (fid: number, outcome: Side | 'void' | null, reason: string) => run(async () => {
-    await rpc('pool_result_set', { p_game: gameId, p_fixture: fid, p_outcome: outcome, p_reason: reason || null });
+  const settleSave = (fid: number, outcome: Side | 'void' | null, reason: string, score?: [number, number]) => run(async () => {
+    await rpc('pool_result_set', { p_game: gameId, p_fixture: fid, p_outcome: outcome, p_reason: reason || null, ...(score && outcome !== 'void' ? { p_home: score[0], p_away: score[1] } : {}) });
     setSettle(null);
     await go(data.round);
     reload();
@@ -147,7 +148,7 @@ export function PickemGame({ gameId, first, status: gameStatus, name, reload, ac
     // soccer names the home side first, football the visitors
     const rows = lockedMine.map((f) => ({ q: data.draws ? `${short(f.home)} v ${short(f.away)}` : `${short(f.away)} at ${short(f.home)}`,
       answer: `${side(f, f.mine!.pick)}${data.ats && f.mine!.line != null ? ` ${spread(f.mine!.line, f.mine!.pick)}` : ''}${data.confidence && f.mine!.conf ? ` · ${f.mine!.conf}` : ''}`,
-      right: f.void || f.result == null ? null : (data.ats ? f.mine_res ?? f.result : f.result) === f.mine!.pick }))
+      right: f.void || f.result == null || (data.ats && f.mine_res === 'P') ? null : (data.ats ? f.mine_res ?? f.result : f.result) === f.mine!.pick }))
       .sort((a, b) => Number(b.right != null) - Number(a.right != null));
     const hits = rows.filter((x) => x.right).length, decided = rows.filter((x) => x.right != null).length;
     return shareCard({ kind: 'sheet', eyebrow: 'My picks', brand: cardBrand, who: '', title: `${data.word} ${data.round}`,
@@ -250,9 +251,27 @@ export function PickemGame({ gameId, first, status: gameStatus, name, reload, ac
                       className={`rounded-xl px-2 py-2 text-xs font-bold ring-1 ${settle.side === x.k ? 'bg-amber-300 text-[#0b1220] ring-amber-200' : 'bg-white/[.04] text-slate-200 ring-white/10'}`}>{x.label}</button>
                   ))}
                 </div>
+                {data.ats && settle.side !== 'void' && (
+                  <div className="flex flex-wrap items-center gap-2 text-xs text-slate-200">
+                    <span className="min-w-0 flex-1 basis-full min-[380px]:basis-auto">Final score, for the spread</span>
+                    {(['h', 'a'] as const).map((k) => (
+                      <label key={k} className="flex items-center gap-1.5"><span className="text-[11px] font-bold text-mute">{short(k === 'h' ? f.home : f.away)}</span>
+                      <input type="number" inputMode="numeric" min={0} step={1} aria-label={k === 'h' ? `${f.home.name} score` : `${f.away.name} score`} placeholder="0"
+                        value={settle[k] ?? ''} className="input num h-9 w-16 px-1 text-center text-sm font-bold [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none"
+                        onChange={(e) => {
+                          const next = { ...settle, [k]: e.target.value };
+                          const hh = Number(next.h), aa = Number(next.a);
+                          // the result follows the score as it is typed
+                          if (next.h && next.a) next.side = hh > aa ? 'H' : hh < aa ? 'A' : data.draws ? 'D' : next.side;
+                          setSettle(next);
+                        }} /></label>
+                    ))}
+                  </div>
+                )}
                 <input className="input w-full text-sm" maxLength={200} placeholder="Why: the feed stuck at half-time, it ended 2-0" value={settle.reason} onChange={(e) => setSettle({ ...settle, reason: e.target.value })} />
                 <div className="flex gap-2">
-                  <button type="button" className="btn-gold flex-1" disabled={busy || !settle.side || settle.reason.trim().length < 3} onClick={() => settleSave(f.id, settle.side, settle.reason)}>Settle it</button>
+                  <button type="button" className="btn-gold flex-1" disabled={busy || !settle.side || settle.reason.trim().length < 3 || (data.ats && settle.side !== 'void' && (!settle.h || !settle.a))}
+                    onClick={() => settleSave(f.id, settle.side, settle.reason, data.ats && settle.h && settle.a ? [Math.round(Number(settle.h)), Math.round(Number(settle.a))] : undefined)}>Settle it</button>
                   <button type="button" className="btn-ghost" onClick={() => setSettle(null)}>Cancel</button>
                 </div>
                 <p className="text-[11px] leading-snug text-mute">Only this pool reads it, and everyone sees why. The match itself stays as the feed has it.</p>
@@ -296,7 +315,7 @@ export function PickemGame({ gameId, first, status: gameStatus, name, reload, ac
             </div>
           ) : (
             <div className="flex shrink-0 items-center gap-1.5">
-              <input type="number" inputMode="numeric" min={0} max={tb.cap} aria-label="Tiebreaker total" placeholder="0"
+              <input type="number" inputMode="numeric" min={0} max={tb.cap} step={1} aria-label="Tiebreaker total" placeholder="0"
                 value={tbv ?? (tb.mine != null ? String(tb.mine) : '')} onChange={(e) => setTbv(e.target.value)}
                 className="input num h-10 w-16 text-center text-base font-bold" />
               <button type="button" className="btn-gold h-10 px-3 text-xs" disabled={busy || tbv == null || tbv === '' || Number(tbv) < 0 || Number(tbv) > tb.cap || Number(tbv) === tb.mine} onClick={saveTb}>Save</button>
@@ -315,8 +334,8 @@ export function PickemGame({ gameId, first, status: gameStatus, name, reload, ac
       {!actAs && lockedMine.length > 0 && <ShareButton className="btn-ghost w-full" label={`Share my ${data.word.toLowerCase()} ${data.round} picks`} make={shareRound} />}
       <p className="px-1 text-xs text-mute">
         {data.missed === 'favourite' && 'Forget one and it takes the favourite when the game starts. '}
-        {data.ats && 'Against the spread: your pick takes the line shown when you save it, and keeps it while you stay on that side. Your side has to cover; landing right on the line is a push. '}
-        {data.confidence ? `Number your picks from 1 to ${data.size}: your surest is ${data.size}, and a right pick earns its number. Taking a number another match has swaps the two.` : 'A right pick is a point.'} Each pick locks at its own kick-off{data.draws ? '; a draw is the result after ninety minutes' : '; a tie counts for nobody'}. A postponed match counts for nobody.
+        {data.ats && 'Against the spread: your pick takes the line shown when you save it (or the line at kick-off, if none is out yet), and keeps it while you stay on that side. Your side has to cover; landing right on the line is a push. '}
+        {data.confidence ? `Number your picks from 1 to ${data.size}: your surest is ${data.size}, and a right pick earns its number. Taking a number another match has swaps the two.` : 'A right pick is a point.'} Each pick locks at its own kick-off{data.draws ? '; a draw is the result after ninety minutes' : data.ats ? '; a tie is scored against the line like any other result' : '; a tie counts for nobody'}. A postponed match counts for nobody.
       </p>
       <ThreadSheet channel={tf ? fixtureThread(tf.id) : null} onClose={() => setThread(null)} title={tf ? `${short(tf.home)} v ${short(tf.away)}` : ''}
         head={tf && (
