@@ -6628,6 +6628,10 @@ set role authenticated;
 select commish_update_league('{"features":{"guillotine":true}}');
 reset role;
 select set_config('app.league_id', '1', false);
+select pg_temp.expect('switched on, it waits for the first full week after: last week, played before anyone knew, is safe',
+  (select (info->>'guillotine_from')::date = today_et() from league_rules where league_id = 1) and _guillotine_tick() = 0);
+-- as if switched on the week before last
+update league_rules set info = info || jsonb_build_object('guillotine_from', (:'gt_ws')::date - 3) where league_id = 1;
 select set_config('t.gt', _guillotine_tick()::text, false);
 select pg_temp.expect('last week''s fewest is cut: the roster to free agency as drops, its trade called off, the league told',
   current_setting('t.gt') = '1'
@@ -6669,6 +6673,6 @@ delete from messages where league_id = 1 and body like '🪓 The guillotine:%';
 delete from lineup_snapshots where game_id = 7951;
 delete from player_games where game_id = 7951;
 delete from games where id = 7951;
-update league_rules set features = features - 'guillotine', season_start = :'gt_season', phase = :'gt_phase' where league_id = 1;
+update league_rules set features = features - 'guillotine', info = info - 'guillotine_from', season_start = :'gt_season', phase = :'gt_phase' where league_id = 1;
 select set_config('request.jwt.claim.sub', '', false);
 select 'the guillotine', true;
