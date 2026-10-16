@@ -12,6 +12,8 @@ import {
   initAnalytics,
   newPoolPath,
   setAnalyticsConsent,
+  setEnhancedConversionEmail,
+  sha256Hex,
   trackFirstCall,
   trackJoinGroup,
   trackPageView,
@@ -33,6 +35,10 @@ function pageViewEntries() {
 
 function eventEntries(name) {
   return dataLayerEntries().filter((e) => isArguments(e) && e[0] === 'event' && e[1] === name);
+}
+
+function userDataSets() {
+  return dataLayerEntries().filter((e) => isArguments(e) && e[0] === 'set' && e[1] === 'user_data');
 }
 
 function installDom({ hash = '#/', consent = null } = {}) {
@@ -231,10 +237,10 @@ function installDom({ hash = '#/', consent = null } = {}) {
   initAnalytics();
   setAnalyticsConsent(true);
 
-  trackSignUp('email');
+  await trackSignUp('email');
   assert.equal(eventEntries('sign_up').length, 1);
   assert.equal(eventEntries('sign_up')[0][2].method, 'email');
-  trackSignUp('email');
+  await trackSignUp('email');
   assert.equal(eventEntries('sign_up').length, 1, 'sign_up fires once per browser');
 
   trackPoolCreated({ id: 42, pack: 'love-is-blind-s11', sport: 'nhl', kind: 'questions' });
@@ -265,7 +271,7 @@ function installDom({ hash = '#/', consent = null } = {}) {
   __testSetGaId('G-TESTID');
   initAnalytics();
 
-  trackSignUp('email');
+  await trackSignUp('email');
   trackPoolCreated({ id: 1, pack: 'nhl-2026-27', sport: 'nhl' });
   trackJoinGroup({ id: 1 });
   assert.equal(eventEntries('sign_up').length, 0, 'no sign_up before Accept');
@@ -278,12 +284,55 @@ function installDom({ hash = '#/', consent = null } = {}) {
   assert.equal(eventEntries('join_group').length, 0, 'Accept does not backfill join_group');
 
   // marks were consumed: a later success for the same ids still does not fire
-  trackSignUp('email');
+  await trackSignUp('email');
   trackPoolCreated({ id: 1, pack: 'nhl-2026-27' });
   trackJoinGroup({ id: 1 });
   assert.equal(eventEntries('sign_up').length, 0);
   assert.equal(eventEntries('pool_created').length, 0);
   assert.equal(eventEntries('join_group').length, 0);
+}
+
+// --- enhanced conversions: hashed email via user_data, only with consent, before sign_up ---
+{
+  __testResetAnalytics();
+  installDom({ hash: '#/' });
+  __testSetGaId('G-TESTID');
+  initAnalytics();
+
+  const plain = '  Pat.Example+tag@Gmail.COM ';
+  assert.equal(await setEnhancedConversionEmail(plain), false, 'no user_data without Accept');
+  assert.equal(userDataSets().length, 0);
+
+  setAnalyticsConsent(true);
+  const expected = await sha256Hex(plain.trim().toLowerCase());
+  assert.equal(await setEnhancedConversionEmail(plain), true);
+  assert.equal(userDataSets().length, 1);
+  const payload = userDataSets()[0][2];
+  assert.equal(payload.sha256_email_address, expected);
+  assert.equal(Object.keys(payload).join(','), 'sha256_email_address');
+  assert.equal(JSON.stringify(payload).includes('@'), false, 'no plaintext email in user_data');
+  assert.equal(JSON.stringify(payload).toLowerCase().includes('pat.example'), false);
+}
+
+{
+  __testResetAnalytics();
+  installDom({ hash: '#/' });
+  __testSetGaId('G-TESTID');
+  initAnalytics();
+  setAnalyticsConsent(true);
+
+  const email = 'new.gm@example.com';
+  const expected = await sha256Hex(email);
+  await trackSignUp('email', email);
+
+  const sets = userDataSets();
+  const signs = eventEntries('sign_up');
+  assert.equal(sets.length, 1, 'user_data set once');
+  assert.equal(signs.length, 1, 'sign_up once');
+  assert.equal(sets[0][2].sha256_email_address, expected);
+  const setIdx = dataLayerEntries().indexOf(sets[0]);
+  const signIdx = dataLayerEntries().indexOf(signs[0]);
+  assert.ok(setIdx >= 0 && signIdx >= 0 && setIdx < signIdx, 'user_data is set before sign_up');
 }
 
 console.log('analytics tests passed');

@@ -174,7 +174,7 @@ export default function NewPool() {
       const { error: se } = await supabase.auth.signInWithPassword({ email: login, password: pw });
       if (se) { setBusy(false); setErr(`Your pool is open, but signing in failed: ${se.message}. Sign in from the main page.`); return; }
       try { localStorage.setItem('sak-last-email', login); } catch { /* nothing to remember with */ }
-      trackSignUp('email');
+      await trackSignUp('email', login);
       const opened = (data as { pool?: { id: number; slug: string } })?.pool;
       trackPoolCreated({ id: opened?.id, pack: openPack, sport: event?.sport ?? null, kind: mode });
       if (opened) {
