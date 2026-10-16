@@ -72,7 +72,7 @@ function spAttribution() {
     bar.id = 'sp-consent';
     bar.setAttribute('role', 'dialog');
     bar.setAttribute('aria-label', 'Analytics cookies');
-    bar.innerHTML = '<div class="sp-consent-inner"><p>We use optional analytics cookies to see which pools people start. No ads, never money, never your email.</p>'
+    bar.innerHTML = '<div class="sp-consent-inner"><p>Allow analytics? We count how Super Pools gets used and whether a sign-up came from one of our ads. No ads are shown in Super Pools.</p>'
       + '<div class="sp-consent-actions"><button type="button" class="btn btn-ghost btn-sm" data-c="0">No thanks</button>'
       + '<button type="button" class="btn btn-gold btn-sm" data-c="1">Accept</button></div></div>';
     bar.addEventListener('click', function (e) {

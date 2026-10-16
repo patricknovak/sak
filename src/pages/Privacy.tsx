@@ -10,12 +10,12 @@ const SECTIONS: { title: string; body: string[] }[] = [
     'Your phone\'s push subscription if you turn alerts on, so the pool can tell you when a question is closing or your player scored. Turn them off in your profile and the subscription is deleted.',
   ] },
   { title: 'Who sees it', body: [
-    'The people in your pool see your name, your team, your calls and your messages, the way a group chat does. Nobody outside the pool does. We never sell, rent or share what we keep with anyone, and there are no ads.',
+    'The people in your pool see your name, your team, your calls and your messages, the way a group chat does. Nobody outside the pool does. We never sell or rent what we keep. There are no ads in Super Pools. We do advertise Super Pools elsewhere, and if you accept the banner, we measure which of those ads led to a sign-up.',
     'The host of a pool can see who has joined and what they have called, and can settle questions and delete the pool. Deleting a pool deletes everything in it.',
   ] },
   { title: 'Analytics', body: [
     'Inside the app we keep a daily count of how often each page of a pool is opened and by how many of its members, with no names: a member is counted by a code that changes every day, so no one\'s visits can be followed. It tells us which pages people use. A pool\'s host can switch it off for the pool.',
-    'If you accept the analytics banner, we load Google Analytics to count which pools get started, which invite links get shared and which pages get used. We send no names, emails or messages to it, only that something happened. If you say no thanks, nothing loads, and you can change your mind from the banner any time it shows again.',
+    'If you accept the analytics banner, we load Google Analytics to count which pools get started, which invite links get shared and which pages get used. We send no names or messages to it. If you accept, we also send Google a scrambled one-way code made from your email (never the email itself) so Google Ads can tell whether your sign-up came from one of our ads. We don\'t use it to show you ads or to personalize anything, and choosing No thanks turns it off. If you say no thanks, nothing loads, and you can change your mind from the banner any time it shows again.',
   ] },
   { title: 'Email and the voice', body: [
     'We send email only to sign you in or reset your password, from no-reply@superpoolsai.com through Resend. We do not send newsletters. The pool\'s voice (the commentary in the chat) is written by a language model from the pool\'s own numbers; a message you send it goes to that model to be answered, with the pool\'s board, and nothing else about you.',
