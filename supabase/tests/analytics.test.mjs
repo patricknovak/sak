@@ -7,8 +7,11 @@ import {
   __testSetGaId,
   currentAppPath,
   getAnalyticsConsent,
+  hasTrackedFirstCall,
   initAnalytics,
+  newPoolPath,
   setAnalyticsConsent,
+  trackFirstCall,
   trackPageView,
 } from '../../src/lib/analytics.ts';
 
@@ -71,10 +74,29 @@ function installDom({ hash = '#/', consent = null } = {}) {
     href: `https://app.superpoolsai.com/${hash}`,
   };
 
+  const listeners = new Map();
   globalThis.window = globalThis;
   globalThis.document = document;
   globalThis.localStorage = localStorage;
   globalThis.location = location;
+  globalThis.addEventListener = (type, fn, opts) => {
+    const list = listeners.get(type) || [];
+    list.push({ fn, once: !!(opts && opts.once) });
+    listeners.set(type, list);
+  };
+  globalThis.removeEventListener = (type, fn) => {
+    const list = listeners.get(type) || [];
+    listeners.set(type, list.filter((x) => x.fn !== fn));
+  };
+  globalThis.dispatchEvent = (ev) => {
+    const type = ev && ev.type;
+    const list = listeners.get(type) || [];
+    listeners.set(type, list.filter((x) => {
+      x.fn(ev);
+      return !x.once;
+    }));
+    return true;
+  };
   delete globalThis.gtag;
   delete globalThis.dataLayer;
 
@@ -169,6 +191,24 @@ function installDom({ hash = '#/', consent = null } = {}) {
     assert.equal(Array.isArray(entry), false, 'dataLayer must not hold Arrays (gtag.js ignores them)');
     assert.ok(isArguments(entry));
   }
+}
+
+// --- first-call flag + viral CTA paths (join card / scoreboard; src stays a URL param) ---
+{
+  __testResetAnalytics();
+  installDom({ hash: '#/' });
+  __testSetGaId('');
+  assert.equal(hasTrackedFirstCall(), false);
+  assert.equal(newPoolPath('join_cta'), '/new?src=join_cta');
+  assert.equal(newPoolPath('scoreboard_cta'), '/new?src=scoreboard_cta');
+
+  let heard = false;
+  window.addEventListener('sp-first-call', () => { heard = true; }, { once: true });
+  trackFirstCall('pickem');
+  assert.equal(hasTrackedFirstCall(), true);
+  assert.equal(heard, true, 'sp-first-call fires so the home card can appear');
+  trackFirstCall('pickem');
+  assert.equal(hasTrackedFirstCall(), true, 'second call is a no-op');
 }
 
 console.log('analytics tests passed');

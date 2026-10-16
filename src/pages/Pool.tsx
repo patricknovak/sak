@@ -16,7 +16,7 @@ import { Empty, PageHeader, Section, TeamBadge, useAction } from '../components/
 import { useEffect } from 'react';
 import { inviteLink } from '../lib/host';
 import { shareCard } from '../lib/shareCard';
-import { track } from '../lib/analytics';
+import { hasTrackedFirstCall, newPoolPath, track } from '../lib/analytics';
 import { SurvivorCard } from './Survivor';
 import { AskSheet } from '../components/AskSheet';
 import { PoolHowTo } from '../components/PoolHowTo';
@@ -179,6 +179,9 @@ export function PoolHome() {
           grown (the gate is people, docs/DEVELOPMENT.md §8.4 item 1) */}
       {me?.is_commish && teams.filter((t) => t.role === 'gm' && t.user_id).length < 4 && <InviteCard />}
 
+      {/* after a joiner's first call: invite them to open a pool of their own (viral loop) */}
+      <StartOwnPoolCard />
+
       <PoolGameCards />
 
       {me?.role === 'gm' && !gamesOnly && <PoolHowTo league={league?.league_id ?? 0} />}
@@ -210,6 +213,27 @@ export function PoolHome() {
       <SurvivorCard />
       {!gamesOnly && <Section title="Latest calls" icon={<Sparkles className="h-5 w-5 text-gold" />}><CallsFeed trades={trades} markets={markets ?? []} /></Section>}
       {!(me?.is_commish && teams.filter((t) => t.role === 'gm' && t.user_id).length < 4) && <InviteCard />}
+    </div>
+  );
+}
+
+// after the first call: a member who joined someone else's pool can start one for their own crew
+function StartOwnPoolCard() {
+  const { me } = useLeague();
+  const [ready, setReady] = useState(hasTrackedFirstCall);
+  useEffect(() => {
+    const on = () => setReady(true);
+    window.addEventListener('sp-first-call', on);
+    return () => window.removeEventListener('sp-first-call', on);
+  }, []);
+  if (!ready || me?.is_commish || me?.role !== 'gm') return null;
+  return (
+    <div className="card relative overflow-hidden p-5">
+      <div className="pointer-events-none absolute -right-10 -top-10 h-40 w-40 rounded-full bg-gold/20 blur-3xl" />
+      <div className="relative">
+        <h3 className="font-display text-2xl font-extrabold text-white">Your crew watches it too? Start your own pool in a minute.</h3>
+        <Link to={newPoolPath('join_cta')} className="btn-gold mt-3 inline-flex items-center gap-2"><Plus className="h-4 w-4" /> Start a pool</Link>
+      </div>
     </div>
   );
 }
@@ -618,6 +642,7 @@ export function PoolLeaders() {
           <BoardRows g={g} extra={g.kind === 'questions' ? (r) => { const l = leaders?.find((x) => x.team_id === r.team_id); return l ? <> · <Coins n={l.coins} /> in hand</> : null; }
             : chances ? (r) => { const c = chances.get(r.team_id); return c ? <> · <span className={c >= 0.25 ? 'text-emerald-300' : ''}>{c > 0 && c < 0.01 ? '<1%' : `${Math.round(c * 100)}%`} to win</span></> : null; } : undefined} />
           <ShareButton className="btn-gold w-full py-3" label="Share the table" make={async () => shareBoard()} />
+          <p className="px-1 text-center text-sm text-mute"><Link to={newPoolPath('scoreboard_cta')} className="font-semibold text-sky-300">Start your own pool</Link></p>
         </>
       )}
     </div>
