@@ -5,6 +5,7 @@ import assert from 'node:assert/strict';
 import {
   __testResetAnalytics,
   __testSetGaId,
+  captureFirstTouch,
   currentAppPath,
   getAnalyticsConsent,
   hasTrackedFirstCall,
@@ -12,7 +13,10 @@ import {
   newPoolPath,
   setAnalyticsConsent,
   trackFirstCall,
+  trackJoinGroup,
   trackPageView,
+  trackPoolCreated,
+  trackSignUp,
 } from '../../src/lib/analytics.ts';
 
 function isArguments(v) {
@@ -27,6 +31,10 @@ function pageViewEntries() {
   return dataLayerEntries().filter((e) => isArguments(e) && e[0] === 'event' && e[1] === 'page_view');
 }
 
+function eventEntries(name) {
+  return dataLayerEntries().filter((e) => isArguments(e) && e[0] === 'event' && e[1] === name);
+}
+
 function installDom({ hash = '#/', consent = null } = {}) {
   const store = new Map();
   if (consent) store.set('sp_analytics_consent', consent);
@@ -35,6 +43,9 @@ function installDom({ hash = '#/', consent = null } = {}) {
     getItem: (k) => (store.has(k) ? store.get(k) : null),
     setItem: (k, v) => { store.set(k, String(v)); },
     removeItem: (k) => { store.delete(k); },
+    clear: () => { store.clear(); },
+    get length() { return store.size; },
+    key: (i) => [...store.keys()][i] ?? null,
   };
 
   const headKids = [];
@@ -209,6 +220,70 @@ function installDom({ hash = '#/', consent = null } = {}) {
   assert.equal(heard, true, 'sp-first-call fires so the home card can appear');
   trackFirstCall('pickem');
   assert.equal(hasTrackedFirstCall(), true, 'second call is a no-op');
+}
+
+// --- key events: sign_up, pool_created, join_group (consented only; once; no backfill) ---
+{
+  __testResetAnalytics();
+  installDom({ hash: '#/new?src=join_cta&utm_source=invite' });
+  __testSetGaId('G-TESTID');
+  captureFirstTouch();
+  initAnalytics();
+  setAnalyticsConsent(true);
+
+  trackSignUp('email');
+  assert.equal(eventEntries('sign_up').length, 1);
+  assert.equal(eventEntries('sign_up')[0][2].method, 'email');
+  trackSignUp('email');
+  assert.equal(eventEntries('sign_up').length, 1, 'sign_up fires once per browser');
+
+  trackPoolCreated({ id: 42, pack: 'love-is-blind-s11', sport: 'nhl', kind: 'questions' });
+  const created = eventEntries('pool_created');
+  assert.equal(created.length, 1);
+  assert.equal(created[0][2].pack, 'love-is-blind-s11');
+  assert.equal(created[0][2].sport, 'nhl');
+  assert.equal(created[0][2].kind, 'questions');
+  assert.equal(created[0][2].src, 'join_cta');
+  assert.equal(created[0][2].utm_source, 'invite');
+  trackPoolCreated({ id: 42, pack: 'love-is-blind-s11' });
+  assert.equal(eventEntries('pool_created').length, 1, 'same pool id does not re-fire');
+  trackPoolCreated({ id: 99, sport: 'nfl' });
+  assert.equal(eventEntries('pool_created').length, 2, 'a new pool id still fires');
+
+  trackJoinGroup({ id: 7 });
+  assert.equal(eventEntries('join_group').length, 1);
+  trackJoinGroup({ id: 7 });
+  assert.equal(eventEntries('join_group').length, 1, 'same join does not re-fire');
+  trackJoinGroup({ id: 8 });
+  assert.equal(eventEntries('join_group').length, 2);
+}
+
+// --- before Accept: key events are silent, and Accept later does not backfill ---
+{
+  __testResetAnalytics();
+  installDom({ hash: '#/new?src=scoreboard_cta' });
+  __testSetGaId('G-TESTID');
+  initAnalytics();
+
+  trackSignUp('email');
+  trackPoolCreated({ id: 1, pack: 'nhl-2026-27', sport: 'nhl' });
+  trackJoinGroup({ id: 1 });
+  assert.equal(eventEntries('sign_up').length, 0, 'no sign_up before Accept');
+  assert.equal(eventEntries('pool_created').length, 0, 'no pool_created before Accept');
+  assert.equal(eventEntries('join_group').length, 0, 'no join_group before Accept');
+
+  setAnalyticsConsent(true);
+  assert.equal(eventEntries('sign_up').length, 0, 'Accept does not backfill sign_up');
+  assert.equal(eventEntries('pool_created').length, 0, 'Accept does not backfill pool_created');
+  assert.equal(eventEntries('join_group').length, 0, 'Accept does not backfill join_group');
+
+  // marks were consumed: a later success for the same ids still does not fire
+  trackSignUp('email');
+  trackPoolCreated({ id: 1, pack: 'nhl-2026-27' });
+  trackJoinGroup({ id: 1 });
+  assert.equal(eventEntries('sign_up').length, 0);
+  assert.equal(eventEntries('pool_created').length, 0);
+  assert.equal(eventEntries('join_group').length, 0);
 }
 
 console.log('analytics tests passed');
