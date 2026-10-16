@@ -201,6 +201,18 @@ export function trackFirstCall(kind?: string) {
   if (storeGet(FIRST_CALL_KEY) === '1') return;
   storeSet(FIRST_CALL_KEY, '1');
   track('first_call', kind ? { kind: kind.slice(0, 40) } : undefined);
+  // the home's "start your own pool" card listens so it can appear without a reload
+  try { window.dispatchEvent(new Event('sp-first-call')); } catch { /* no window */ }
+}
+
+export function hasTrackedFirstCall(): boolean {
+  return storeGet(FIRST_CALL_KEY) === '1';
+}
+
+// #/new with a src mark for the viral CTAs (join card, scoreboard). Pool creation has no src column —
+// only UTM/referrer on signup — so this stays a URL param for analytics routes and funnels.
+export function newPoolPath(src: string): string {
+  return `/new?src=${encodeURIComponent(src)}`;
 }
 
 // Reset module state between unit tests.
