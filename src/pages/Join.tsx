@@ -92,7 +92,7 @@ export default function Join({ code }: { code: string }) {
     const { error: se } = await supabase.auth.signInWithPassword({ email: login, password: pw });
     if (se) { setBusy(false); setErr(`You're in, but signing in failed: ${se.message}. Sign in from the main page.`); return; }
     try { localStorage.setItem('sak-last-email', login); } catch { /* nothing to remember with */ }
-    trackSignUp('email');
+    await trackSignUp('email', login);
     const leagueId = typeof (data as { league?: number } | null)?.league === 'number' ? (data as { league: number }).league : pv?.league_id;
     trackJoinGroup({ id: leagueId });
     await placeFirstCall(leagueId);

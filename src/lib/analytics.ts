@@ -1,6 +1,6 @@
 // Consented GA4 (Consent Mode v2) and first-touch UTM/referrer for Super Pools.
 // Measurement ID from VITE_GA4_ID (.env.production); empty means nothing loads and no network calls.
-// Funnel events carry no PII (no email, name, or user id).
+// Funnel events carry no PII (no email, name, or user id). Enhanced conversions send only a SHA-256 of the email.
 
 const CONSENT_KEY = 'sp_analytics_consent';
 const TOUCH_KEY = 'sp_first_touch';
@@ -8,6 +8,9 @@ const FIRST_CALL_KEY = 'sp_first_call';
 const SIGN_UP_KEY = 'sp_sign_up';
 const poolCreatedKey = (id: string | number) => `sp_pool_created:${id}`;
 const joinGroupKey = (id: string | number) => `sp_join_group:${id}`;
+
+// Google Ads (741-146-2618): enhanced conversions on the same Google tag as GA4.
+const ADS_ID = 'AW-7411462618';
 
 // Tests inject a measurement ID without Vite. Production always reads VITE_GA4_ID.
 let testGaId: string | undefined;
@@ -144,14 +147,43 @@ function loadTag() {
   document.head.appendChild(s);
 }
 
+// The banner is a single Accept (analytics-only copy). Accept maps to analytics_storage plus the Ads
+// measurement flags enhanced conversions need (ad_user_data, ad_storage). ad_personalization stays denied.
+function grantConsentFlags() {
+  window.gtag?.('consent', 'update', {
+    analytics_storage: 'granted',
+    ad_user_data: 'granted',
+    ad_storage: 'granted',
+  });
+}
+function denyConsentFlags() {
+  window.gtag?.('consent', 'update', {
+    analytics_storage: 'denied',
+    ad_user_data: 'denied',
+    ad_storage: 'denied',
+    ad_personalization: 'denied',
+  });
+}
+
+// Ads user-data use (enhanced conversions). Same Accept as analytics — there is no separate ads toggle.
+export function hasAdsUserDataConsent(): boolean {
+  return getAnalyticsConsent() === 'granted';
+}
+
+function configAdsTag() {
+  if (!measurementId() || typeof window === 'undefined') return;
+  window.gtag?.('config', ADS_ID, { allow_enhanced_conversions: true });
+}
+
 // Call once at app start: capture first-touch, and load gtag only when consent was already granted.
 export function initAnalytics() {
   captureFirstTouch();
   if (!measurementId()) return;
   ensureGtag();
   if (getAnalyticsConsent() === 'granted') {
-    window.gtag?.('consent', 'update', { analytics_storage: 'granted' });
+    grantConsentFlags();
     loadTag();
+    configAdsTag();
     // First load of a consented return visit: record this route (AnalyticsRoute will not double-count).
     trackPageView(currentAppPath());
   }
@@ -162,13 +194,33 @@ export function setAnalyticsConsent(granted: boolean) {
   if (!measurementId()) return;
   ensureGtag();
   if (granted) {
-    window.gtag?.('consent', 'update', { analytics_storage: 'granted' });
+    grantConsentFlags();
     loadTag();
+    configAdsTag();
     // Current page at Accept: route has not changed, so AnalyticsRoute would never fire.
     trackPageView(currentAppPath());
   } else {
-    window.gtag?.('consent', 'update', { analytics_storage: 'denied' });
+    denyConsentFlags();
   }
+}
+
+// SHA-256 hex of normalized email (trim + lowercase). Never returns the plaintext.
+export async function sha256Hex(value: string): Promise<string> {
+  const data = new TextEncoder().encode(value);
+  const digest = await crypto.subtle.digest('SHA-256', data);
+  return [...new Uint8Array(digest)].map((b) => b.toString(16).padStart(2, '0')).join('');
+}
+
+// Enhanced conversions: gtag('set','user_data',{ sha256_email_address }) when the user typed an email and
+// Accept has granted ads user-data. No-op without consent or measurement ID. Never sends plaintext.
+export async function setEnhancedConversionEmail(email: string): Promise<boolean> {
+  if (!measurementId() || getAnalyticsConsent() !== 'granted' || !hasAdsUserDataConsent()) return false;
+  const normalized = email.trim().toLowerCase();
+  if (!normalized.includes('@')) return false;
+  ensureGtag();
+  const hash = await sha256Hex(normalized);
+  window.gtag?.('set', 'user_data', { sha256_email_address: hash });
+  return true;
 }
 
 export function trackPageView(path: string) {
@@ -224,9 +276,11 @@ function attributionParams(extra?: { src?: string | null }): Record<string, stri
 }
 
 // New account created (email/password). Once per browser; mark even without consent so Accept later never backfills.
-export function trackSignUp(method: 'email' = 'email') {
+// When the typed email is passed, set enhanced-conversion user_data (hashed) immediately before sign_up.
+export async function trackSignUp(method: 'email' = 'email', email?: string | null) {
   if (storeGet(SIGN_UP_KEY) === '1') return;
   storeSet(SIGN_UP_KEY, '1');
+  if (email) await setEnhancedConversionEmail(email);
   track('sign_up', { method });
 }
 
