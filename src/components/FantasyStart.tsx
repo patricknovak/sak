@@ -7,7 +7,7 @@ import { useState } from 'react';
 import { Check } from 'lucide-react';
 import { rpc } from '../lib/supabase';
 import { openPool } from '../lib/host';
-import { track } from '../lib/analytics';
+import { trackPoolCreated } from '../lib/analytics';
 import { CATEGORIES, STANDARD_CATEGORIES } from '../lib/categories';
 import { Spinner } from './ui';
 
@@ -49,7 +49,7 @@ export function FantasyStart({ color, setColor, swatches, member, signedIn }: { 
     try {
       const r = await rpc<{ id: number; slug: string }>('fantasy_start', { p_name: name.trim(), p_color: color, p_seats: teams, p_format: format,
         p_categories: scoring === 'cats' ? cats : null, p_keepers: keepers, p_playoffs: po, p_snake: snake });
-      track('pool_start', { kind: 'fantasy' });
+      trackPoolCreated({ id: r.id, kind: 'fantasy', sport: 'nhl' });
       await openPool({ league_id: r.id, slug: r.slug }, '/commish');
     } catch (x) { setErr((x as Error).message); setBusy(false); }
   };

@@ -11,7 +11,7 @@ import { ProductMark } from '../components/Brand';
 import { type Pack, packName, packPlaceholder, packWhen } from '../lib/packs';
 import { KIND_ORDER, KIND_WHEN, KINDS, ATS_LINE, MISSED_LINE, PICKEM_PRESETS, PRESETS, SQUARES_DEFAULT, atsFits, eventGrids, gridFor, gridLabel, gridRules, presetExample, sheetLabel, type GameKind, type PickemPreset, type PoolEvent, type SeriesPreset, type SquaresRules } from '../lib/poolGames';
 import { SERIES_SPORTS, SheetPicker, SquaresKnobs, lockText } from './Picks';
-import { attributionFields, track } from '../lib/analytics';
+import { attributionFields, trackPoolCreated, trackSignUp } from '../lib/analytics';
 import { FantasyStart } from '../components/FantasyStart';
 import { PRODUCT } from '../lib/brand';
 
@@ -156,7 +156,7 @@ export default function NewPool() {
       if (member) {
         const r = await rpc<{ id: number; slug: string }>('pool_start', { p_name: pool.trim(), p_color: color, p_pack: openPack });
         await startGames(r.id);
-        track('pool_start', openPack ? { pack: openPack } : undefined);
+        trackPoolCreated({ id: r.id, pack: openPack, sport: event?.sport ?? null, kind: mode });
         await openPool({ league_id: r.id, slug: r.slug }, '/host');
         return;
       }
@@ -174,9 +174,9 @@ export default function NewPool() {
       const { error: se } = await supabase.auth.signInWithPassword({ email: login, password: pw });
       if (se) { setBusy(false); setErr(`Your pool is open, but signing in failed: ${se.message}. Sign in from the main page.`); return; }
       try { localStorage.setItem('sak-last-email', login); } catch { /* nothing to remember with */ }
-      track('sign_up');
-      track('pool_start', openPack ? { pack: openPack } : undefined);
+      trackSignUp('email');
       const opened = (data as { pool?: { id: number; slug: string } })?.pool;
+      trackPoolCreated({ id: opened?.id, pack: openPack, sport: event?.sport ?? null, kind: mode });
       if (opened) {
         await startGames(opened.id).catch((x) => setErr(`Your pool is open, but its games didn’t start: ${(x as Error).message}. Add them from the Host page.`));
         await openPool({ league_id: opened.id, slug: opened.slug }, '/host');

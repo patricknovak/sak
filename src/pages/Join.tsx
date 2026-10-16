@@ -5,7 +5,7 @@ import { useLeague } from '../lib/store';
 import { Spinner } from '../components/ui';
 import { LeagueCrest } from '../components/Brand';
 import { themed } from '../components/LeagueIdentity';
-import { attributionFields, track, trackFirstCall } from '../lib/analytics';
+import { attributionFields, trackFirstCall, trackJoinGroup, trackSignUp } from '../lib/analytics';
 import { PRODUCT } from '../lib/brand';
 import { setTabLeague } from '../lib/host';
 
@@ -68,7 +68,7 @@ export default function Join({ code }: { code: string }) {
   const accept = async () => {
     try {
       const leagueId = await rpc<number>('accept_invite', { p_code: code });
-      track('join');
+      trackJoinGroup({ id: leagueId ?? pv?.league_id });
       await placeFirstCall(leagueId ?? pv?.league_id);
       goHome(leagueId ?? pv?.league_id);
     } catch (e) { setBusy(false); setErr((e as Error).message); }
@@ -92,9 +92,9 @@ export default function Join({ code }: { code: string }) {
     const { error: se } = await supabase.auth.signInWithPassword({ email: login, password: pw });
     if (se) { setBusy(false); setErr(`You're in, but signing in failed: ${se.message}. Sign in from the main page.`); return; }
     try { localStorage.setItem('sak-last-email', login); } catch { /* nothing to remember with */ }
-    track('sign_up');
-    track('join');
+    trackSignUp('email');
     const leagueId = typeof (data as { league?: number } | null)?.league === 'number' ? (data as { league: number }).league : pv?.league_id;
+    trackJoinGroup({ id: leagueId });
     await placeFirstCall(leagueId);
     goHome(leagueId);
   };

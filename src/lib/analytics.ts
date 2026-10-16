@@ -5,6 +5,9 @@
 const CONSENT_KEY = 'sp_analytics_consent';
 const TOUCH_KEY = 'sp_first_touch';
 const FIRST_CALL_KEY = 'sp_first_call';
+const SIGN_UP_KEY = 'sp_sign_up';
+const poolCreatedKey = (id: string | number) => `sp_pool_created:${id}`;
+const joinGroupKey = (id: string | number) => `sp_join_group:${id}`;
 
 // Tests inject a measurement ID without Vite. Production always reads VITE_GA4_ID.
 let testGaId: string | undefined;
@@ -179,7 +182,7 @@ export function trackPageView(path: string) {
   });
 }
 
-export type FunnelEvent = 'pool_start' | 'invite_share' | 'join' | 'first_call' | 'sign_up';
+export type FunnelEvent = 'pool_start' | 'pool_created' | 'invite_share' | 'join' | 'join_group' | 'first_call' | 'sign_up';
 
 export function track(event: FunnelEvent, params?: Record<string, string | number | boolean | undefined>) {
   if (!measurementId() || getAnalyticsConsent() !== 'granted') return;
@@ -194,6 +197,71 @@ export function track(event: FunnelEvent, params?: Record<string, string | numbe
     }
   }
   window.gtag?.('event', event, clean);
+}
+
+// HashRouter: ?src= on the search or inside the hash (#/new?src=join_cta).
+export function readSrcParam(): string | null {
+  if (typeof location === 'undefined') return null;
+  const q = new URLSearchParams(location.search || '');
+  const hashQ = location.hash.includes('?')
+    ? new URLSearchParams(location.hash.slice(location.hash.indexOf('?') + 1))
+    : null;
+  const v = (q.get('src') || hashQ?.get('src') || '').trim().slice(0, 80);
+  return v || null;
+}
+
+// Attribution params safe for GA4 (first-touch UTM + optional src). No PII.
+function attributionParams(extra?: { src?: string | null }): Record<string, string> {
+  const t = readFirstTouch() ?? captureFirstTouch();
+  const out: Record<string, string> = {};
+  (['utm_source', 'utm_medium', 'utm_campaign', 'utm_content', 'utm_term'] as const).forEach((k) => {
+    const v = t[k];
+    if (v) out[k] = v.slice(0, 100);
+  });
+  const src = (extra?.src ?? readSrcParam())?.trim().slice(0, 80);
+  if (src) out.src = src;
+  return out;
+}
+
+// New account created (email/password). Once per browser; mark even without consent so Accept later never backfills.
+export function trackSignUp(method: 'email' = 'email') {
+  if (storeGet(SIGN_UP_KEY) === '1') return;
+  storeSet(SIGN_UP_KEY, '1');
+  track('sign_up', { method });
+}
+
+export type PoolCreatedParams = {
+  id?: number | string | null;
+  pack?: string | null;
+  sport?: string | null;
+  kind?: string | null;
+  src?: string | null;
+};
+
+// North-star: a pool (or fantasy league) opened successfully. Once per pool id; no backfill after Accept.
+export function trackPoolCreated(params: PoolCreatedParams = {}) {
+  if (params.id != null && params.id !== '') {
+    const key = poolCreatedKey(params.id);
+    if (storeGet(key) === '1') return;
+    storeSet(key, '1');
+  }
+  const attrs = attributionParams({ src: params.src });
+  track('pool_created', {
+    ...attrs,
+    pack: params.pack ? String(params.pack).slice(0, 80) : undefined,
+    sport: params.sport ? String(params.sport).slice(0, 40) : undefined,
+    kind: params.kind ? String(params.kind).slice(0, 40) : undefined,
+  });
+}
+
+// Member joined a pool via invite. Once per pool id; no backfill after Accept.
+export function trackJoinGroup(params: { id?: number | string | null } = {}) {
+  if (params.id != null && params.id !== '') {
+    const key = joinGroupKey(params.id);
+    if (storeGet(key) === '1') return;
+    storeSet(key, '1');
+  }
+  track('join_group');
 }
 
 // First pick/call/trade in a pool (once per browser). Safe to call after any successful game action.
@@ -224,9 +292,13 @@ export function __testResetAnalytics() {
     delete (window as { dataLayer?: unknown }).dataLayer;
   }
   try {
-    localStorage.removeItem(CONSENT_KEY);
-    localStorage.removeItem(TOUCH_KEY);
-    localStorage.removeItem(FIRST_CALL_KEY);
+    const keys: string[] = [];
+    for (let i = 0; i < localStorage.length; i++) {
+      const k = localStorage.key(i);
+      if (k && (k === CONSENT_KEY || k === TOUCH_KEY || k === FIRST_CALL_KEY || k === SIGN_UP_KEY
+        || k.startsWith('sp_pool_created:') || k.startsWith('sp_join_group:'))) keys.push(k);
+    }
+    keys.forEach((k) => localStorage.removeItem(k));
   } catch { /* no store */ }
   if (typeof document !== 'undefined') {
     document.getElementById('sp-ga4')?.remove();

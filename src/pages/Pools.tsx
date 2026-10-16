@@ -12,7 +12,7 @@ import { useNow } from '../lib/store';
 import { countdown, fmtPts, ordinal } from '../lib/format';
 import { Empty, PageHeader, Section, Skeleton, useAction } from '../components/ui';
 import { DeletePool } from '../components/DeletePool';
-import { track } from '../lib/analytics';
+import { trackJoinGroup } from '../lib/analytics';
 
 interface PoolSummary {
   rank?: number; of?: number; points?: number; today?: number; back?: number; record?: string;
@@ -139,7 +139,7 @@ function Invitations({ list, reload }: { list: Invite[]; reload: () => void }) {
               </div>
               <div className="mt-3 grid grid-cols-[1fr_auto] gap-2">
                 <button type="button" className="btn-gold py-2.5" disabled={busy}
-                  onClick={() => run(async () => { await rpc('accept_invite', { p_code: i.code }); track('join'); await openPool({ league_id: i.league_id, slug: i.slug }); })}>Join {i.short || 'the pool'}</button>
+                  onClick={() => run(async () => { await rpc('accept_invite', { p_code: i.code }); trackJoinGroup({ id: i.league_id }); await openPool({ league_id: i.league_id, slug: i.slug }); })}>Join {i.short || 'the pool'}</button>
                 <button type="button" className="btn-ghost px-4" disabled={busy} onClick={() => run(async () => { await rpc('decline_invite', { p_code: i.code }); reload(); }, 'Invitation turned down')}>Not now</button>
               </div>
             </div>
