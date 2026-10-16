@@ -31,6 +31,34 @@ jobs:
       - run: npx tsc -p worker/tsconfig.json
       - run: npm run test:nhl
 
+  e2e:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run build
+      - name: Install Playwright Chromium
+        run: npx playwright install chromium --with-deps
+      - name: End-to-end journeys
+        run: npm run test:e2e
+        env:
+          # optional: a dedicated test account (never a real GM). Without these, app-auth.spec skips.
+          E2E_EMAIL: ${{ secrets.E2E_EMAIL }}
+          E2E_PASSWORD: ${{ secrets.E2E_PASSWORD }}
+      - if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: |
+            playwright-report
+            test-results
+          retention-days: 7
+
   database:
     runs-on: ubuntu-latest
     services:
