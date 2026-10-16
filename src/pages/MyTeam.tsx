@@ -180,11 +180,15 @@ function TeamPage({ kit }: { kit: Kit }) {
   const ir = bySlot('IR');
   const selected = roster.find((x) => x.p.id === sel);
 
+  // coming off IR is free at any time, his game started or not (migration 309): tonight still counts him as he was at
+  // puck drop. Every other move waits, and nobody goes onto IR once his game has started.
+  const offIr = (x: Row, slot: Slot) => x.r.slot === 'IR' && slot !== 'IR';
   const canTarget = (slot: Slot, occupant?: Row) => {
     if (!selected || !mine) return false;
     if (occupant?.p.id === selected.p.id) return false;
     if (!slotOk(selected.p, slot)) return false;
-    if (occupant && locked(occupant.p)) return false;
+    if (locked(selected.p) && !offIr(selected, slot)) return false;
+    if (occupant && locked(occupant.p) && !offIr(occupant, selected.r.slot as Slot)) return false;
     if (!occupant && slot === selected.r.slot) return false;
     if (!occupant && slot !== 'BN' && slot !== 'IR' && bySlot(slot).length >= (cap[slot] ?? 0)) return false;
     // IR is set for real or not at all: What if leaves it as it is
@@ -226,12 +230,12 @@ function TeamPage({ kit }: { kit: Kit }) {
         else save(kit.today, m.next, saved, m.label);
         return;
       }
-      if (x && !locked(x.p) && !(trial && x.r.slot === 'IR')) { setSel(x.p.id); return; }
+      if (x && (!locked(x.p) || x.r.slot === 'IR') && !(trial && x.r.slot === 'IR')) { setSel(x.p.id); return; }
       setSel(null);
       return;
     }
     if (x) {
-      if (locked(x.p)) { nav(`/player/${x.p.id}`); return; }
+      if (locked(x.p) && x.r.slot !== 'IR') { nav(`/player/${x.p.id}`); return; }
       if (trial && x.r.slot === 'IR') return;
       setSel(x.p.id);
     }
@@ -561,7 +565,7 @@ function TeamPage({ kit }: { kit: Kit }) {
               return (
                 <div className="mt-1 space-y-1 px-1 text-xs text-mute">
                   {healed.length > 0 && <div className="rounded-lg bg-emerald-500/10 px-2 py-1.5 text-emerald-200">💪 {healed.map((x) => x.p.name).join(' and ')} {healed.length > 1 ? 'are' : 'is'} off the injury report. {healed.length > 1 ? 'They can' : 'He can'} stay on IR as long as you like; {active >= max ? `to bring ${healed.length > 1 ? 'them' : 'him'} back, drop or trade someone first` : `tap to bring ${healed.length > 1 ? 'them' : 'him'} back`}.</div>}
-                  <div>Each player on IR frees a roster spot ({active}/{max} active). IR moves are yours to make: lineup tools and auto-pilot leave IR alone. Coming off IR needs a free spot, so if you filled it, drop or trade someone first.</div>
+                  <div>Each player on IR frees a roster spot ({active}/{max} active). IR moves are yours to make: lineup tools and auto-pilot leave IR alone. Bring a player off IR any time, even once his game has started (tonight counts him as he was at puck drop), as long as there's a free spot or someone to swap him with.</div>
                 </div>
               );
             })()}

@@ -92,7 +92,7 @@ export function LineupPlanner({ roster, teamId, initialDay }: { roster: Row[]; t
     for (const k of plans.keys()) if (k <= d && (!from || k > from)) from = k;
     const base = from ? plans.get(from)! : liveSlots;
     const slots = new Map<number, string>();
-    // IR is set by hand on the team page: IR players stay there, and a plan never puts anyone on it
+    // IR is set by hand (activate below, or My Team): IR players stay there, and a plan never puts anyone on it
     for (const x of roster) { const b = base.get(x.p.id); slots.set(x.p.id, x.r.slot === 'IR' ? 'IR' : !b || b === 'IR' ? 'BN' : b); }
     return { slots, source: from === d ? 'own' : from };
   };
@@ -131,6 +131,30 @@ export function LineupPlanner({ roster, teamId, initialDay }: { roster: Row[]; t
   const counts = useMemo(() => { const c: Record<string, number> = {}; for (const s of slots.values()) c[s] = (c[s] ?? 0) + 1; return c; }, [slots]);
   const over = Object.entries(counts).filter(([s, n]) => s !== 'BN' && n > (caps[s] ?? 0)).map(([s, n]) => `${n - (caps[s] ?? 0)} too many at ${s}`);
   const setSlot = (id: number, s: string) => setDraft(new Map([...slots, [id, s]]));
+
+  // coming off IR is a real roster move (migration 309), made the moment it's picked, on any day and at any time, even
+  // once his game has started (that night counts him as he was at puck drop). Today he goes straight to the spot
+  // picked, or to the bench when it's full; picked for a day ahead, he waits on today's bench (or an open spot) and
+  // the pick goes into that day's lineup to save. Off IR needs a free roster spot, as on My Team.
+  const activate = (p: Player, want: string) => {
+    const active = roster.filter((y) => y.r.slot !== 'IR').length;
+    const max = Object.entries(caps).filter(([k]) => k !== 'IR').reduce((a, [, v]) => a + Number(v), 0);
+    const room = (s: string) => roster.filter((y) => y.r.slot === s).length < (caps[s] ?? 0);
+    const open = START.find((s) => canPlay(p, s) && room(s));
+    const target = day === today && want !== 'BN' && room(want) ? want : room('BN') ? 'BN' : open;
+    const before = slots;
+    const name = p.last_name ?? p.name;
+    const where = (s: string) => s === 'BN' ? 'the bench' : s;
+    void run(async () => {
+      if (active >= max) throw new Error(`${p.name} can’t come off IR: your roster is full (${active}/${max} active). Drop or trade someone first, or swap him with an injured player on the Lineup tab.`);
+      if (!target) throw new Error(`No open spot for ${p.name} today: swap him in on the Lineup tab.`);
+      await rpc('move_player', { p_player: p.id, p_slot: target });
+      await refresh(['rosters']);
+      if (day !== today || target !== want) setDraft(new Map([...before, [p.id, want]]));
+    }, day !== today ? `${name} is off IR, on ${where(target ?? 'BN')} today. Save to set him at ${want} on ${monthDay(day)}`
+      : target !== want ? `${name} is off IR, on ${where(target ?? 'BN')}: ${want} is full, so make room there and save`
+      : `${name} is off IR, ${want === 'BN' ? 'on the bench' : `in at ${want}`}${locked(p) ? '. Tonight counts him as he was at puck drop' : ''}`);
+  };
 
   const ctxFor = (d: string): LContext => ({ today: d, weekEnd: d, now: d === today ? nowMs : 0, games: gamesOn.get(d) ?? [], season: new Map([...season].map(([k, v]) => [k, { gp: v.gp, fpts: v.fpts, gp14: v.gp14, fpts14: v.fpts14 }])), caps, avail });
   const basis: Basis = me?.auto_basis ?? 'proj';
@@ -475,12 +499,12 @@ export function LineupPlanner({ roster, teamId, initialDay }: { roster: Row[]; t
                 const g = gameFor(p, day);
                 const lk = locked(p);
                 const onIr = r.slot === 'IR';
-                const options = onIr ? ['IR'] : [...START.filter((x) => canPlay(p, x)), 'BN'];
+                const options = [...(onIr ? ['IR'] : []), ...START.filter((x) => canPlay(p, x)), 'BN'];
                 const changed = draft && eff.slots.get(p.id) !== s;
                 return (
                   <tr key={p.id} className={`${START.includes(s as Slot) ? '' : 'text-slate-400'} ${changed ? 'bg-sky-500/[.08]' : ''}`}>
                     <td className="sticky left-0 z-10 bg-rink px-2 py-1">
-                      {readOnly ? <span className={`inline-block w-[52px] rounded-md border px-1 py-0.5 text-center text-[11px] font-bold ${START.includes(s as Slot) ? 'border-sky-400/40 bg-sky-500/15 text-sky-100' : 'border-white/10 bg-black/40 text-slate-300'}`}>{s}</span> : <select aria-label={`Slot for ${p.name}`} disabled={lk || onIr || me?.role === 'spectator'} title={onIr ? 'On IR: move him off IR on the My Team page' : undefined} value={s} onChange={(e) => setSlot(p.id, e.target.value)}
+                      {readOnly ? <span className={`inline-block w-[52px] rounded-md border px-1 py-0.5 text-center text-[11px] font-bold ${START.includes(s as Slot) ? 'border-sky-400/40 bg-sky-500/15 text-sky-100' : 'border-white/10 bg-black/40 text-slate-300'}`}>{s}</span> : <select aria-label={`Slot for ${p.name}`} disabled={(lk && !onIr) || busy || me?.role === 'spectator'} title={onIr ? 'On IR: pick a spot to bring him back' : undefined} value={s} onChange={(e) => onIr ? activate(p, e.target.value) : setSlot(p.id, e.target.value)}
                         className={`w-[52px] rounded-md border px-1 py-0.5 text-[11px] font-bold ${START.includes(s as Slot) ? 'border-sky-400/40 bg-sky-500/15 text-sky-100' : 'border-white/10 bg-black/40 text-slate-300'} disabled:opacity-60`}>
                         {options.map((o) => <option key={o} value={o}>{o}</option>)}
                       </select>}
