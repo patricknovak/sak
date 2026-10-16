@@ -55,7 +55,7 @@ Two things in one repo:
 - Lineups: one place, My Team (`src/pages/MyTeam.tsx`, `#/team` and `#/team/:id`): the Tonight card (Best lineup as a
   list of changes, `src/components/lineup/OptimizeSheet.tsx`; What if; warnings with Fix; Sit or start,
   `src/components/SitStart.tsx`) over the tabs Lineup (two-tap moves saved through `set_lineup` with an undo,
-  `SaveProvider`/`useSave`; IR moves stay on `move_player`; line badges from nhl-hub's shift charts, `useLines`), Week,
+  `SaveProvider`/`useSave`; IR moves stay on `move_player`, and a player comes off IR any time the roster has room, even once his game has started (that night still counts him as he was at puck drop), from My Team or Daily lineups, migration 309; line badges from nhl-hub's shift charts, `useLines`), Week,
   Daily lineups (`LineupPlanner`), League (every team ranked for a night or a week), Compare, Insights and Stats (any or
   every GM, `TeamCompare`); another team's page opens on Scout & trade with the same views read only. The views are in
   `src/components/lineup/`, the data in `src/lib/lineupKit.ts` (tonight's points from the store's `dayPoints`, `useDayPoints`). Lineup New,

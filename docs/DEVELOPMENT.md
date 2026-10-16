@@ -869,3 +869,12 @@ Built for SaK and, as every SaK change is, for every league:
   pool's colours (`landing/img/pool-nfl.webp`, `pool-nba.webp`). `#/new?comp=nfl&ats=1` opens the start page with
   against the spread on. On a phone under 400 px a pick'em card puts each crest above its name, so a long name
   ("Jacksonville Jaguars") wraps whole instead of splitting mid-word.
+### 9.9 Off IR any time, 16 October 2026
+
+Craig wanted to keep Gauthier (day-to-day) on IR until warm-ups and found the Daily lineups dropdown greyed for him.
+Patrick's rule: a GM moves a player from IR to the bench or the lineup at any time, as long as the roster has room.
+**Migration 309** frees the move off IR from the puck-drop lock (the other end of a swap too); the lineup that counts for
+a game is still the one at puck drop, so a late activation scores from his next game. Nobody goes onto IR, or is swapped
+out of a lineup, once his game has started. Daily lineups' IR dropdown now offers his spots and makes the move at once
+(today, to the spot picked or the bench; a day ahead, to today's bench with the pick held for that day's save); My Team
+lets a GM pick an IR player whose game is under way. The flow test covers both ends of the swap and the snapshot.

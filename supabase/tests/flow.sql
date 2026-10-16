@@ -913,6 +913,42 @@ insert into lineup_plans (team_id, date, player_id, slot) values (:lk_t, today_e
 delete from lineup_plan_applied where team_id = :lk_t;
 select apply_lineup_plans() >= 1 as plans_ran;
 select 'saved plan kept him in (expect Util)', slot from rosters where player_id = :lk_p;
+-- coming off IR is free at any time (migration 309): his game under way, he goes into the lineup, and tonight still
+-- counts him on IR, as he was at puck drop
+update players set injury_status = 'Out' where id = :lk_q;
+delete from lineup_snapshots where player_id = :lk_q;
+update rosters set slot = 'IR' where player_id = :lk_q;
+select r.player_id as ir_y from rosters r join players p on p.id = r.player_id
+  where r.team_id = :lk_t and r.slot = 'BN' and p.nhl_team is distinct from 'SEA' and p.pos <> 'G' order by r.player_id limit 1 \gset
+select set_config('t.ir_y', :'ir_y', false);
+select pg_temp.as_team(:lk_t);
+set role authenticated;
+select move_player(:lk_q, 'C');
+reset role;
+select pg_temp.expect('off IR after puck drop, into the lineup', (select slot = 'C' from rosters where player_id = :lk_q));
+select pg_temp.expect('tonight still counts him on IR', (select slot = 'IR' from lineup_snapshots where player_id = :lk_q and game_id = 9041));
+select pg_temp.as_team(:lk_t);
+set role authenticated;
+do $$ begin perform move_player(current_setting('t.lk_q')::int, 'IR'); raise exception 'put a locked player on IR';
+exception when others then if sqlerrm not like '%locked%' then raise; end if; end $$;
+reset role;
+-- a swap brings him off IR from the other end too, but never sends a locked player onto IR
+update rosters set slot = 'IR' where player_id = :lk_q;
+update players set injury_status = 'Out' where id = :ir_y;
+select pg_temp.as_team(:lk_t);
+set role authenticated;
+select move_player(:ir_y, 'IR', :lk_q);
+reset role;
+select pg_temp.expect('swapped off IR after puck drop', (select slot = 'IR' from rosters where player_id = :ir_y) and (select slot = 'BN' from rosters where player_id = :lk_q));
+update players set injury_status = 'Out' where id = :lk_p;
+select pg_temp.as_team(:lk_t);
+set role authenticated;
+do $$ begin perform move_player(current_setting('t.ir_y')::int, 'Util', current_setting('t.lk_p')::int); raise exception 'swapped a locked starter onto IR';
+exception when others then if sqlerrm not like '%locked%' then raise; end if; end $$;
+reset role;
+select pg_temp.expect('a locked starter stays put', (select slot = 'Util' from rosters where player_id = :lk_p) and (select slot = 'IR' from rosters where player_id = :ir_y));
+update players set injury_status = null where id in (:lk_p, :ir_y);
+update rosters set slot = 'BN' where player_id = :ir_y;
 -- a game already under way locks even if the scheduled time hasn't come (clock or feed out of step)
 update games set start_utc = now() + interval '1 hour', state = 'LIVE' where id = 9041;
 delete from lineup_snapshots where player_id = :lk_p;
