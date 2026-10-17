@@ -43,7 +43,7 @@ export function OtherCrews() {
     if (hidden || !me) return;
     rpc<PoolEvent[]>('pool_event_list').then((e) => setEvents(e ?? []), () => setEvents([]));
     rpc<Mine[]>('my_pools').then((d) => { setMine((d ?? []).filter((p) => !p.here && p.league_id !== lid)); setInPools(new Set((d ?? []).map((p) => p.league_id))); }, () => { setMine([]); setInPools(new Set()); });
-    supabase.from('messages').select('id,team_id,meta').not('meta->pool_card', 'is', null).gte('created_at', new Date(Date.now() - 30 * 86_400_000).toISOString())
+    supabase.from('messages').select('id,team_id,meta').eq('deleted', false).not('meta->pool_card', 'is', null).gte('created_at', new Date(Date.now() - 30 * 86_400_000).toISOString())
       .order('id', { ascending: false }).limit(30)
       .then(({ data }) => {
         const seen = new Set<number>();

@@ -9,9 +9,16 @@ import { openPool } from '../lib/host';
 
 export type PoolCardMeta = { league_id: number; code: string; name: string; what: string | null; members: number; color: string | null; slug: string };
 
-// the pools this account is in, asked once per visit and shared by every card in the chat
-let mine: Promise<Set<number>> | null = null;
-const myPools = () => (mine ??= rpc<{ league_id: number }[]>('my_pools').then((d) => new Set((d ?? []).map((p) => p.league_id)), () => new Set<number>()));
+// the pools this account is in, shared by every card in the chat and asked again after a minute (a join, another
+// sign-in); a failed ask isn't kept
+let mine: { at: number; p: Promise<Set<number>> } | null = null;
+const myPools = () => {
+  if (!mine || Date.now() - mine.at > 60_000) {
+    const p = rpc<{ league_id: number }[]>('my_pools').then((d) => new Set((d ?? []).map((x) => x.league_id)), () => { mine = null; return new Set<number>(); });
+    mine = { at: Date.now(), p };
+  }
+  return mine.p;
+};
 export const poolCardOf = (meta: Record<string, unknown> | null | undefined): PoolCardMeta | null => {
   const c = meta?.pool_card as Partial<PoolCardMeta> | undefined;
   return c && typeof c.code === 'string' && typeof c.name === 'string' && typeof c.league_id === 'number' ? (c as PoolCardMeta) : null;
@@ -24,7 +31,7 @@ export function PoolInviteCard({ card, mine: posted }: { card: PoolCardMeta; min
   const c = card.color && /^#[0-9a-f]{6}$/i.test(card.color) ? card.color : '#f7c548';
   const crest = card.name.replace(/[^A-Za-z0-9 ]/g, '').split(/\s+/).filter(Boolean).map((w) => w[0]).join('').slice(0, 3).toUpperCase() || '🏆';
   return (
-    <div onClick={(e) => e.stopPropagation()} className="w-[17rem] max-w-full overflow-hidden rounded-2xl border text-left"
+    <div className="w-[17rem] max-w-full overflow-hidden rounded-2xl border text-left"
       style={{ borderColor: `${c}55`, background: `linear-gradient(150deg, ${c}2e, rgba(13,21,40,.92) 60%)` }}>
       <div className="flex items-center gap-3 p-3">
         <span className="grid h-12 w-12 shrink-0 place-items-center rounded-2xl text-sm font-black" style={{ background: `${c}26`, color: c, boxShadow: `inset 0 0 0 2px ${c}` }}>{crest}</span>
@@ -37,9 +44,9 @@ export function PoolInviteCard({ card, mine: posted }: { card: PoolCardMeta; min
       <div className="flex items-center gap-2 border-t border-white/10 px-3 py-2">
         <span className="min-w-0 flex-1 text-xs text-mute">{card.members} {card.members === 1 ? 'player' : 'playing'} · free, no money</span>
         {inIt ? (
-          <button type="button" onClick={() => openPool({ league_id: card.league_id, slug: card.slug })} className="flex shrink-0 items-center gap-1 rounded-full bg-white/10 px-3 py-1.5 text-xs font-bold text-white">Open <ArrowRight size={13} /></button>
+          <button type="button" onClick={(e) => { e.stopPropagation(); openPool({ league_id: card.league_id, slug: card.slug }); }} className="flex shrink-0 items-center gap-1 rounded-full bg-white/10 px-3 py-1.5 text-xs font-bold text-white">Open <ArrowRight size={13} /></button>
         ) : (
-          <button type="button" disabled={inIt === null} onClick={() => nav(`/join/${card.code}`)} className="flex shrink-0 items-center gap-1 rounded-full px-3 py-1.5 text-xs font-extrabold text-ice disabled:opacity-60" style={{ background: c }}>Join <ArrowRight size={13} /></button>
+          <button type="button" disabled={inIt === null} onClick={(e) => { e.stopPropagation(); nav(`/join/${card.code}`); }} className="flex shrink-0 items-center gap-1 rounded-full px-3 py-1.5 text-xs font-extrabold text-ice disabled:opacity-60" style={{ background: c }}>Join <ArrowRight size={13} /></button>
         )}
       </div>
     </div>

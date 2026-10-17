@@ -3493,13 +3493,22 @@ select pg_temp.expect('a card from her seat there, with the pool''s open link', 
   from messages m where m.meta ? 'pool_card' order by m.id desc limit 1));
 select pg_temp.expect('and a bell for the others there, opening the chat at the card (migration 312)', exists (select 1 from notifications n
   join teams o on o.id = n.team_id where o.league_id = :lib and o.user_id = '00000000-0000-0000-0000-000000000081' and n.kind = 'pool_invite'
-  and n.body like '🏆 Fern started a pool: Fifth Pool.%' and n.link = '/chat?m=' || (select max(id) from messages where meta ? 'pool_card'))
+  and n.body like '🏆 Fern shared a pool: Fifth Pool.%' and n.link = '/chat?m=' || (select max(id) from messages where meta ? 'pool_card'))
   and not exists (select 1 from notifications where team_id = :fern and kind = 'pool_invite' and body like '🏆%'));
 select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-000000000082', false);
 set role authenticated;
 select pg_temp.raises('once a day per chat', format('select pool_announce(%s)', :lib), 'already up');
 select pg_temp.raises('only a chat she is in', 'select pool_announce(1)', 'not in that league');
 reset role;
+-- a card taken down frees the day's post (migration 314)
+update messages set deleted = true, body = '(deleted)' where meta ? 'pool_card' and league_id = :lib;
+select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-000000000082', false);
+set role authenticated;
+select pg_temp.expect('a deleted card doesn''t count toward the day', (pool_announce(:lib)->>'ok')::boolean);
+reset role;
+select pg_temp.expect('the card''s link has two weeks in it at least', (select i.expires_at > now() + interval '14 days' from messages m
+  join league_invites i on i.code = m.meta->'pool_card'->>'code' where m.meta ? 'pool_card' and not m.deleted order by m.id desc limit 1));
+select pg_temp.expect('a card rings no mention', not exists (select 1 from notifications where kind = 'mention' and body like '%Come play in my pool%'));
 -- nobody writes a card by hand: a member's own meta keeps everything but the card
 insert into messages (channel, team_id, kind, body, meta) values ('general', :fern, 'user', 'fake', '{"pool_card": {"code": "x"}, "x": 1}');
 select pg_temp.expect('a card written by hand is dropped', (select not (meta ? 'pool_card') and meta->>'x' = '1' from messages where body = 'fake' and team_id = :fern));
