@@ -9,7 +9,9 @@
 import type { DraftPick, Player, PlayerSeason, Standing } from './types';
 import { flexMult, rosPoints } from './playerstats';
 import { lineupStrength } from './grades';
-import { gamesOf, irOk, rosPerGame } from './lineup';
+import { gamesOf, rosPerGame } from './lineup';
+import { activeAfter } from './tradeCount';
+export { activeAfter };
 import { forecastPlayoffs, forecastTeam, type FGame, type FPlayer } from './forecast';
 import { injuryBack } from './format';
 
@@ -117,17 +119,6 @@ export function schedStarters(ps: Player[], sc: Sched, team = 0) {
   const v = forecastTeam(team, f, sc.games, sc.caps, sc.from, 0, sc.to).ros + (sc.days ? forecastPlayoffs(team, f, sc.days, sc.caps).ros : 0);
   sc.cache?.set(key, v);
   return v;
-}
-
-// active players after a deal, counted the way the database counts them (_trade_active_after): a player kept on IR
-// doesn't count, and one who arrives from another team's IR with an injury slides into an IR slot left open
-export function activeAfter(s: Pick<Side, 'before' | 'after' | 'ir' | 'irCap' | 'irAny'>): number {
-  const ir = s.ir ?? new Set<number>();
-  const had = new Set(s.before.map((p) => p.id));
-  const kept = s.after.filter((p) => had.has(p.id)), inn = s.after.filter((p) => !had.has(p.id));
-  const irKept = kept.filter((p) => ir.has(p.id)).length;
-  const hurt = inn.filter((p) => s.irAny?.has(p.id) && irOk(p.injury_status)).length;
-  return kept.length - irKept + inn.length - Math.min(Math.max(0, (s.irCap ?? 0) - irKept), hurt);
 }
 
 export function evaluateSide(s: Side, v: Valuer, rosterMax: number, sc?: Sched): SideEval {
