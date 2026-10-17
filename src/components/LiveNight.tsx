@@ -315,10 +315,14 @@ export function useNightGoals(day: string, live: boolean, owner: (id: number) =>
     const w = weights ?? {};
     const out: NightGoal[] = [];
     for (const g of games) for (const [i, goal] of (g.goals ?? []).entries()) {
-      // what the goal was worth to each rostered player in it: the goal or the assist, and the power-play or shorthanded point
-      const extra = goal.strength === 'pp' ? (w.ppp ?? 0) : goal.strength === 'sh' ? (w.shp ?? 0) : 0;
+      // what the goal was worth to each rostered player in it: the goal or the assist, the point, and the power-play or
+      // shorthanded point, goal or assist, whichever of them the league scores (SaK scores PPP; a Fantrax import may score PPG)
+      const pp = goal.strength === 'pp', sh = goal.strength === 'sh';
+      const worth = (role: 'g' | 'a') => (w[role] ?? 0) + (w.pts ?? 0)
+        + (pp ? (w.ppp ?? 0) + (w[role === 'g' ? 'ppg' : 'ppa'] ?? 0) : 0)
+        + (sh ? (w.shp ?? 0) + (w[role === 'g' ? 'shg' : 'sha'] ?? 0) : 0);
       const people = [{ id: goal.playerId, name: goal.name, role: 'g' as const }, ...goal.assists.map((a) => ({ id: a.playerId, name: a.name, role: 'a' as const }))]
-        .map((x) => { const o = owner(x.id); return o ? { ...x, team_id: o.team_id, bench: o.bench, pts: (x.role === 'g' ? (w.g ?? 0) : (w.a ?? 0)) + extra } : null; })
+        .map((x) => { const o = owner(x.id); return o ? { ...x, team_id: o.team_id, bench: o.bench, pts: worth(x.role) } : null; })
         .filter((x): x is NonNullable<typeof x> => !!x);
       if (!people.length) continue;
       const [mm, ss] = goal.time.split(':').map(Number);
