@@ -914,3 +914,10 @@ funnel can tell these starts apart), and "anything else" for a questions pool. "
   Review fixes (migration 314): a card never rings a mention or wakes the voice, a deleted card frees the day, two posts at
   once make one, the card's link has two weeks in it, and the bell says "shared" and skips those already in the pool.
 - **A mention's bell opens the chat at the message** (migration 313): `/chat?m=<id>` instead of the top of the main room.
+- **Review of the 16 October chat and scoreboard** (#280), fixed: a chat photo was readable by any member of its league,
+  DM and private-line photos included; it now follows its message (migration 315, proven on live accounts). "And
+  mentions" survives a change of kind; Load older stays after a jump; a shared link or bell opened before the league
+  loads still lands on its message; a search result opens with the filters cleared; the goal horn reuses one sound
+  engine woken by a tap (phones start a new one muted); a photo no phone can show (an iPhone's HEIC the browser can't
+  read) is turned away with a plain message instead of going up broken; "is typing" survives a change of league with
+  two chats open; the "new" count leaves out what the filter hides.

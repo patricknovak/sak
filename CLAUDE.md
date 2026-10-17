@@ -45,7 +45,8 @@ Two things in one repo:
   says where a post goes (everyone, the voice's private line, the draft room, a DM); old `?c=` links open the matching filter.
   Picking a GM shows their own side (their posts, private lines with them, the voice's answers to them, `byGm`); "and
   mentions" (`?about=1`) adds the league lines and the voice's posts that name them (`aboutGm`). Photos (migration 310): a
-  private storage bucket `chat`, one folder per league (`<league>/<team>/<file>`, rules through `_chat_member`), shrunk on
+  private storage bucket `chat`, one folder per league (`<league>/<team>/<file>`; added through `_chat_member`, read by the sender
+  or a member who can see a message carrying it, `_chat_photo_visible`, migration 315), shrunk on
   the phone and shown through batched signed links (`src/lib/chatMedia.ts`), carried as `meta.image`; search (the header's
   🔎, `ilike` over what RLS lets you see), `?m=<id>` opens the chat at a message, share sends a message or photo to the
   phone's share sheet, "is typing" rides a realtime broadcast per league (`src/lib/typing.ts`), and the week's most-reacted

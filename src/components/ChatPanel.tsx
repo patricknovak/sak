@@ -143,15 +143,22 @@ export function ChatPanel({ channel, compact, className = '', filter, jump, onJu
 
   const gapRef = useRef(false);
   gapRef.current = gap;
+  // the message a jump opened at, kept until the GM heads back to the latest, so a reload (the league arriving late)
+  // opens at it again rather than at the newest
+  const target = useRef<number | null>(null);
+  // whether a new message would show under the filter, for the "new" count (kept current below)
+  const showRef = useRef<(m: Message) => boolean>(() => true);
   useEffect(() => {
     setMsgs([]); setReactions([]); setOlder(true); stick.current = true;
-    if (!jump) load();
+    if (target.current) loadAround(target.current);
+    else if (!jump) load();
     const ch = realtimeChannel(`chat-${channel}`)
       .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'messages', ...(all ? {} : { filter: `channel=eq.${channel}` }) }, (p) => {
         const n = p.new as Message;
         if (theirs(n) || (all && ((!feed && n.channel === 'draft') || n.channel.startsWith('game:')))) return;
-        if (gapRef.current) { setBelow((x) => x + 1); return; }
-        if (!stick.current) setBelow((x) => x + 1);
+        const seen = showRef.current(n);
+        if (gapRef.current) { if (seen) setBelow((x) => x + 1); return; }
+        if (!stick.current && seen) setBelow((x) => x + 1);
         setMsgs((m) => (m.some((x) => x.id === n.id) ? m : [...m, n]));
       })
       .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'messages', ...(all ? {} : { filter: `channel=eq.${channel}` }) }, (p) => {
@@ -172,6 +179,7 @@ export function ChatPanel({ channel, compact, className = '', filter, jump, onJu
   // a jump asked for (a search result, a shared link): load around it, then let the caller clear it
   useEffect(() => {
     if (!jump) return;
+    target.current = jump;
     const el = document.getElementById(`msg-${jump}`);
     if (el && msgs.some((m) => m.id === jump)) { stick.current = false; setLit(jump); }
     else loadAround(jump);
@@ -191,6 +199,7 @@ export function ChatPanel({ channel, compact, className = '', filter, jump, onJu
   }, [msgs]); // eslint-disable-line react-hooks/exhaustive-deps
   const toBottom = () => {
     setBelow(0);
+    target.current = null;
     if (gap) { stick.current = true; load(); return; }
     stick.current = true;
     const el = scroller.current;
@@ -286,6 +295,7 @@ export function ChatPanel({ channel, compact, className = '', filter, jump, onJu
   }, [viewer]);
   // what the filter lets through; a sparse filter reaches back on its own until it has a screenful or the start
   const shown = useMemo(() => (feed && (what !== 'all' || gm) ? msgs.filter((m) => chatMatch(m, what, gm, mentions, (id) => byId.get(id))) : msgs), [msgs, feed, what, gm, mentions, byId]);
+  showRef.current = (m) => !(feed && (what !== 'all' || gm)) || chatMatch(m, what, gm, mentions, (id) => byId.get(id));
   useEffect(() => {
     if (!feed || shown.length >= 30 || !older || !msgs.length || loading.current) return;
     stick.current = shown.length === 0;
@@ -367,7 +377,7 @@ export function ChatPanel({ channel, compact, className = '', filter, jump, onJu
       <div className="relative flex min-h-0 flex-1 flex-col">
       <div ref={scroller} className="min-h-0 flex-1 space-y-1 overflow-y-auto px-2 py-3"
         onScroll={(e) => { const el = e.currentTarget; stick.current = el.scrollHeight - el.scrollTop - el.clientHeight < 80; if (stick.current && !gap) setBelow(0); }}>
-        {older && msgs.length >= (lit ? 60 : page) && (
+        {older && msgs.length > 0 && (
           <button className="btn-ghost btn-sm mx-auto mb-2 flex" onClick={() => { stick.current = false; load(msgs[0]?.id); }}>Load older</button>
         )}
         {chirp && (

@@ -70,10 +70,16 @@ export function useNightFeed(key: string, on: boolean, boxes: Box[], owner: (id:
   return { events, flash };
 }
 
+// one sound engine for the page, woken by a tap (phones start it muted until someone touches the screen)
+let actx: AudioContext | null = null;
+const audio = () => {
+  try { actx ??= new AudioContext(); if (actx.state === 'suspended') actx.resume().catch(() => {}); return actx; } catch { return null; }
+};
 // a goal horn, made on the spot (no sound file to load): a low, wide chord that swells and fades
 export function goalHorn() {
   try {
-    const ctx = new AudioContext();
+    const ctx = audio();
+    if (!ctx) return;
     const out = ctx.createGain();
     out.gain.setValueAtTime(0.0001, ctx.currentTime);
     out.gain.exponentialRampToValueAtTime(0.18, ctx.currentTime + 0.12);
@@ -91,6 +97,13 @@ export function goalHorn() {
 }
 export function useHorn(): [boolean, (v: boolean) => void] {
   const [on, set] = useState(() => { try { return localStorage.getItem('sak-horn') === '1'; } catch { return false; } });
+  // the horn was left on: the first touch on the page wakes the sound so the next goal is heard
+  useEffect(() => {
+    if (!on) return;
+    const wake = () => { audio(); };
+    document.addEventListener('pointerdown', wake, { once: true });
+    return () => document.removeEventListener('pointerdown', wake);
+  }, [on]);
   return [on, (v) => { set(v); try { localStorage.setItem('sak-horn', v ? '1' : '0'); } catch { /* private mode */ } if (v) goalHorn(); }];
 }
 export function HornToggle({ on, set }: { on: boolean; set: (v: boolean) => void }) {

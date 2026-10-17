@@ -1580,6 +1580,20 @@ select pg_temp.expect('SaK @all does not reach the north', (select count(*) from
 select pg_temp.expect('SaK @all still reaches SaK', (select count(*) from notifications where kind = 'mention' and body like '%big night boys%' and team_id <> 2) >= 1);
 select pg_temp.expect('a mention''s bell opens the chat at the message (migration 313)', (select bool_and(n.link = '/chat?m=' || m.id) from notifications n
   join messages m on m.body like '%big night boys%' where n.kind = 'mention' and n.body like '%big night boys%'));
+-- a chat photo follows its message (migration 315): one in the main room any member opens, one in a DM only its two
+reset role;
+insert into messages (channel, team_id, kind, body, meta) values ('general', 2, 'user', '📷 Photo', '{"image": {"path": "1/2/room.webp", "w": 4, "h": 3}}'),
+  ('dm:2-3', 2, 'user', '📷 Photo', '{"image": {"path": "1/2/dm.webp", "w": 4, "h": 3}}');
+select pg_temp.as_team(4);
+set role authenticated;
+select pg_temp.expect('another GM opens a photo from the main room', _chat_photo_visible('1/2/room.webp'));
+select pg_temp.expect('but not one sent in a DM between two others', not _chat_photo_visible('1/2/dm.webp'));
+reset role;
+select pg_temp.as_team(3);
+set role authenticated;
+select pg_temp.expect('the DM''s other end opens it', _chat_photo_visible('1/2/dm.webp'));
+reset role;
+select set_config('request.jwt.claim.sub', '', false);
 -- a signed-in stranger with no membership belongs to no league and reads nothing
 insert into auth.users (id, email) values ('00000000-0000-0000-0000-000000000098', 'stranger@example.com');
 select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-000000000098', false);
