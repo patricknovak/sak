@@ -3489,6 +3489,10 @@ select pg_temp.expect('a card from her seat there, with the pool''s open link', 
   and m.meta->'pool_card'->>'name' = 'Fifth Pool' and (m.meta->'pool_card'->>'members')::int = 1
   and exists (select 1 from league_invites i where i.code = m.meta->'pool_card'->>'code' and i.league_id = :fifth and i.invitee is null)
   from messages m where m.meta ? 'pool_card' order by m.id desc limit 1));
+select pg_temp.expect('and a bell for the others there, opening the chat at the card (migration 312)', exists (select 1 from notifications n
+  join teams o on o.id = n.team_id where o.league_id = :lib and o.user_id = '00000000-0000-0000-0000-000000000081' and n.kind = 'pool_invite'
+  and n.body like '🏆 Fern started a pool: Fifth Pool.%' and n.link = '/chat?m=' || (select max(id) from messages where meta ? 'pool_card'))
+  and not exists (select 1 from notifications where team_id = :fern and kind = 'pool_invite' and body like '🏆%'));
 select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-000000000082', false);
 set role authenticated;
 select pg_temp.raises('once a day per chat', format('select pool_announce(%s)', :lib), 'already up');

@@ -906,6 +906,7 @@ NHL), each a tap into the start page with the event and its pool chosen (`#/new?
 funnel can tell these starts apart), and "anything else" for a questions pool. "Not now" puts it away for two weeks.
 - **A pool, posted where the crew talks** (migration 311): from a pool's invite card, a member posts it into the chat of
   another league or pool they're in, as a card from their own seat there with a Join button (the join page's preview and
-  first call) or Open for those already in; once a day per chat; only `pool_announce` can write a card. Building it found
+  first call) or Open for those already in, and a bell with its push to each of the others there (migration 312); once a
+  day per chat; only `pool_announce` can write a card. Building it found
   that the pool's open link (`pool_share_link`, migration 162) could hand out a one-use invitation addressed to one
   person (migration 163), which no one else could use; it now skips them (no live pool had one yet).
