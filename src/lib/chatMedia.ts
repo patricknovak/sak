@@ -18,9 +18,12 @@ export function imageOf(meta: Record<string, unknown> | null | undefined, league
 // longest side 1600 px, WebP where the browser makes it (JPEG otherwise); a GIF goes up as it is so it still moves
 async function shrink(file: File): Promise<{ blob: Blob; w: number; h: number; ext: string }> {
   const bmp = await createImageBitmap(file).catch(() => null);
+  // a picture this browser can't draw (an iPhone's HEIC, mostly) goes up only if every phone can show it
+  const raw: Record<string, string> = { 'image/gif': 'gif', 'image/png': 'png', 'image/jpeg': 'jpg', 'image/webp': 'webp' };
   if (file.type === 'image/gif' || !bmp) {
+    if (!raw[file.type]) throw new Error('That photo’s format won’t show on every phone. Send a screenshot of it instead.');
     if (file.size > 8 * 1024 * 1024) throw new Error('That picture is too big (8 MB at most)');
-    return { blob: file, w: bmp?.width ?? 4, h: bmp?.height ?? 3, ext: file.type === 'image/gif' ? 'gif' : file.type === 'image/png' ? 'png' : 'jpg' };
+    return { blob: file, w: bmp?.width ?? 4, h: bmp?.height ?? 3, ext: raw[file.type] };
   }
   const k = Math.min(1, 1600 / Math.max(bmp.width, bmp.height));
   const w = Math.round(bmp.width * k), h = Math.round(bmp.height * k);

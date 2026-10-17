@@ -1578,6 +1578,22 @@ select count(*) as north_pings0 from notifications where team_id = 99 \gset
 insert into messages (channel, team_id, body) values ('general', 2, '@Nora @all big night boys');
 select pg_temp.expect('SaK @all does not reach the north', (select count(*) from notifications where team_id = 99) = :north_pings0);
 select pg_temp.expect('SaK @all still reaches SaK', (select count(*) from notifications where kind = 'mention' and body like '%big night boys%' and team_id <> 2) >= 1);
+select pg_temp.expect('a mention''s bell opens the chat at the message (migration 313)', (select bool_and(n.link = '/chat?m=' || m.id) from notifications n
+  join messages m on m.body like '%big night boys%' where n.kind = 'mention' and n.body like '%big night boys%'));
+-- a chat photo follows its message (migration 315): one in the main room any member opens, one in a DM only its two
+reset role;
+insert into messages (channel, team_id, kind, body, meta) values ('general', 2, 'user', '📷 Photo', '{"image": {"path": "1/2/room.webp", "w": 4, "h": 3}}'),
+  ('dm:2-3', 2, 'user', '📷 Photo', '{"image": {"path": "1/2/dm.webp", "w": 4, "h": 3}}');
+select pg_temp.as_team(4);
+set role authenticated;
+select pg_temp.expect('another GM opens a photo from the main room', _chat_photo_visible('1/2/room.webp'));
+select pg_temp.expect('but not one sent in a DM between two others', not _chat_photo_visible('1/2/dm.webp'));
+reset role;
+select pg_temp.as_team(3);
+set role authenticated;
+select pg_temp.expect('the DM''s other end opens it', _chat_photo_visible('1/2/dm.webp'));
+reset role;
+select set_config('request.jwt.claim.sub', '', false);
 -- a signed-in stranger with no membership belongs to no league and reads nothing
 insert into auth.users (id, email) values ('00000000-0000-0000-0000-000000000098', 'stranger@example.com');
 select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-000000000098', false);
@@ -3482,6 +3498,36 @@ select pg_temp.expect('Fern can invite the people she plays with', exists (selec
   where c->>'account' = '00000000-0000-0000-0000-000000000081' and not (c->>'invited')::boolean and c->>'pools' like '%Pod Squad%'));
 select pg_temp.expect('an email with no account looks the same as one with', pool_invite_people(array['00000000-0000-0000-0000-000000000081']::uuid[], array['nobody-here@example.com']) = '{"ok": true}'::jsonb);
 select pool_invite_people(array['00000000-0000-0000-0000-000000000081']::uuid[]);
+-- a pool posted in another chat she's in (migration 311): a card from her own seat in the Pod Squad, once a day
+select pg_temp.expect('Fern posts her pool in the Pod Squad''s chat', (pool_announce(:lib)->>'ok')::boolean);
+reset role;
+select pg_temp.expect('a card from her seat there, with the pool''s open link', (select m.team_id = :fern and m.channel = 'general' and m.league_id = :lib
+  and m.meta->'pool_card'->>'name' = 'Fifth Pool' and (m.meta->'pool_card'->>'members')::int = 1
+  and exists (select 1 from league_invites i where i.code = m.meta->'pool_card'->>'code' and i.league_id = :fifth and i.invitee is null)
+  from messages m where m.meta ? 'pool_card' order by m.id desc limit 1));
+select pg_temp.expect('and a bell for the others there, opening the chat at the card (migration 312)', exists (select 1 from notifications n
+  join teams o on o.id = n.team_id where o.league_id = :lib and o.user_id = '00000000-0000-0000-0000-000000000081' and n.kind = 'pool_invite'
+  and n.body like '🏆 Fern shared a pool: Fifth Pool.%' and n.link = '/chat?m=' || (select max(id) from messages where meta ? 'pool_card'))
+  and not exists (select 1 from notifications where team_id = :fern and kind = 'pool_invite' and body like '🏆%'));
+select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-000000000082', false);
+set role authenticated;
+select pg_temp.raises('once a day per chat', format('select pool_announce(%s)', :lib), 'already up');
+select pg_temp.raises('only a chat she is in', 'select pool_announce(1)', 'not in that league');
+reset role;
+-- a card taken down frees the day's post (migration 314)
+update messages set deleted = true, body = '(deleted)' where meta ? 'pool_card' and league_id = :lib;
+select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-000000000082', false);
+set role authenticated;
+select pg_temp.expect('a deleted card doesn''t count toward the day', (pool_announce(:lib)->>'ok')::boolean);
+reset role;
+select pg_temp.expect('the card''s link has two weeks in it at least', (select i.expires_at > now() + interval '14 days' from messages m
+  join league_invites i on i.code = m.meta->'pool_card'->>'code' where m.meta ? 'pool_card' and not m.deleted order by m.id desc limit 1));
+select pg_temp.expect('a card rings no mention', not exists (select 1 from notifications where kind = 'mention' and body like '%Come play in my pool%'));
+-- nobody writes a card by hand: a member's own meta keeps everything but the card
+insert into messages (channel, team_id, kind, body, meta) values ('general', :fern, 'user', 'fake', '{"pool_card": {"code": "x"}, "x": 1}');
+select pg_temp.expect('a card written by hand is dropped', (select not (meta ? 'pool_card') and meta->>'x' = '1' from messages where body = 'fake' and team_id = :fern));
+select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-000000000082', false);
+set role authenticated;
 reset role;
 select pg_temp.expect('one invitation, however often she asks', (select count(*) from league_invites where invitee = '00000000-0000-0000-0000-000000000081' and league_id = :fifth) = 1
   and exists (select 1 from notifications n join teams t on t.id = n.team_id where t.user_id = '00000000-0000-0000-0000-000000000081' and n.kind = 'pool_invite'

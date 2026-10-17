@@ -904,3 +904,35 @@ for their other groups. **Your other crews** (`OtherCrews` on a fantasy league's
 tap into each, and the best few events locking in the next ten days (one per sport, the hockey box pool first for the
 NHL), each a tap into the start page with the event and its pool chosen (`#/new?comp=…&kind=…&src=league_home`, so the
 funnel can tell these starts apart), and "anything else" for a questions pool. "Not now" puts it away for two weeks.
+- **A pool, posted where the crew talks** (migration 311): from a pool's invite card, a member posts it into the chat of
+  another league or pool they're in, as a card from their own seat there with a Join button (the join page's preview and
+  first call) or Open for those already in, and a bell with its push to each of the others there (migration 312); once a
+  day per chat; only `pool_announce` can write a card. Building it found
+  that the pool's open link (`pool_share_link`, migration 162) could hand out a one-use invitation addressed to one
+  person (migration 163), which no one else could use; it now skips them (no live pool had one yet). Your other crews
+  lists the pools the league's GMs posted in its chat in the last month that you're not in, each a tap from joining.
+  Review fixes (migration 314): a card never rings a mention or wakes the voice, a deleted card frees the day, two posts at
+  once make one, the card's link has two weeks in it, and the bell says "shared" and skips those already in the pool.
+- **A mention's bell opens the chat at the message** (migration 313): `/chat?m=<id>` instead of the top of the main room.
+- **Review of the 16 October chat and scoreboard** (#280), fixed: a chat photo was readable by any member of its league,
+  DM and private-line photos included; it now follows its message (migration 315, proven on live accounts). "And
+  mentions" survives a change of kind; Load older stays after a jump; a shared link or bell opened before the league
+  loads still lands on its message; a search result opens with the filters cleared; the goal horn reuses one sound
+  engine woken by a tap (phones start a new one muted); a photo no phone can show (an iPhone's HEIC the browser can't
+  read) is turned away with a plain message instead of going up broken; "is typing" survives a change of league with
+  two chats open; the "new" count leaves out what the filter hides.
+- **The night's goals on the scoreboard**: every goal a rostered player scored or set up, from the NHL's scores feed (one
+  cached read for the slate, again each minute while a game is on), with each player's GM and what the goal was worth to
+  them (the goal or the assist, plus the power-play or shorthanded point), newest first; full the moment the page opens
+  and kept for a night in the books. The session ticker stays as the fallback when the feed is out. Each goal adds
+  whichever power-play, shorthanded or points stats the league scores (a Fantrax import may score PPG rather than PPP).
+  A goalie's point reads from the goalie sheet (Logan Thompson's assist on 17 October would have shown +1; SaK gives a
+  goalie nothing for it), and a goal the league doesn't score says "goal" or "assist". Each goal's highlight plays in place
+  under its row (the NHL's clip, the game sheet's player). Checked against live on 17 October: every rostered scorer and
+  assister in the feed matched the box scores.
+- **Trade drops counted the database's way** (from the logs: six offers turned away in eight minutes on 17 October
+  before one went through): the builder counted a hurt player arriving from another team's IR as active, while
+  `_trade_active_after` slides him into an IR slot the deal leaves open, so the builder could ask for a drop the
+  database then refused ("no drop needed"). One count now, `activeAfter` in `src/lib/tradeCount.ts` (tested in `test:nhl`), for the builder,
+  the accept step and the grades. The builder says so when it happens: "X comes in hurt and goes straight to your open IR
+  slot, so he doesn't count against your roster."
