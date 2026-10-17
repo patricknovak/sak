@@ -18,6 +18,7 @@ import { WatchCard } from '../components/WatchCard';
 import { LiveRoomCard } from '../components/LiveRoomCard';
 import { LeagueTransactions } from '../components/LeagueTransactions';
 import { GuillotineCard } from '../components/GuillotineCard';
+import { OtherCrews } from '../components/OtherCrews';
 import { liveRoomOn } from '../lib/features';
 import { chatKinds } from '../lib/chatFilter';
 import { useGameSheet } from '../components/GameSheet';
@@ -286,6 +287,9 @@ export default function Home() {
           </Section>
 
           <LeagueTransactions />
+
+          {/* the same app runs a pool for the GMs' other groups: the door to it from the league they open every day */}
+          <OtherCrews />
 
           <LastNightCard />
           {phase === 'season' && <NhlTopCard />}
