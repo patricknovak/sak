@@ -3482,6 +3482,23 @@ select pg_temp.expect('Fern can invite the people she plays with', exists (selec
   where c->>'account' = '00000000-0000-0000-0000-000000000081' and not (c->>'invited')::boolean and c->>'pools' like '%Pod Squad%'));
 select pg_temp.expect('an email with no account looks the same as one with', pool_invite_people(array['00000000-0000-0000-0000-000000000081']::uuid[], array['nobody-here@example.com']) = '{"ok": true}'::jsonb);
 select pool_invite_people(array['00000000-0000-0000-0000-000000000081']::uuid[]);
+-- a pool posted in another chat she's in (migration 311): a card from her own seat in the Pod Squad, once a day
+select pg_temp.expect('Fern posts her pool in the Pod Squad''s chat', (pool_announce(:lib)->>'ok')::boolean);
+reset role;
+select pg_temp.expect('a card from her seat there, with the pool''s open link', (select m.team_id = :fern and m.channel = 'general' and m.league_id = :lib
+  and m.meta->'pool_card'->>'name' = 'Fifth Pool' and (m.meta->'pool_card'->>'members')::int = 1
+  and exists (select 1 from league_invites i where i.code = m.meta->'pool_card'->>'code' and i.league_id = :fifth and i.invitee is null)
+  from messages m where m.meta ? 'pool_card' order by m.id desc limit 1));
+select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-000000000082', false);
+set role authenticated;
+select pg_temp.raises('once a day per chat', format('select pool_announce(%s)', :lib), 'already up');
+select pg_temp.raises('only a chat she is in', 'select pool_announce(1)', 'not in that league');
+reset role;
+-- nobody writes a card by hand: a member's own meta keeps everything but the card
+insert into messages (channel, team_id, kind, body, meta) values ('general', :fern, 'user', 'fake', '{"pool_card": {"code": "x"}, "x": 1}');
+select pg_temp.expect('a card written by hand is dropped', (select not (meta ? 'pool_card') and meta->>'x' = '1' from messages where body = 'fake' and team_id = :fern));
+select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-000000000082', false);
+set role authenticated;
 reset role;
 select pg_temp.expect('one invitation, however often she asks', (select count(*) from league_invites where invitee = '00000000-0000-0000-0000-000000000081' and league_id = :fifth) = 1
   and exists (select 1 from notifications n join teams t on t.id = n.team_id where t.user_id = '00000000-0000-0000-0000-000000000081' and n.kind = 'pool_invite'

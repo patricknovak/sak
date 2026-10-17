@@ -49,7 +49,9 @@ Two things in one repo:
   the phone and shown through batched signed links (`src/lib/chatMedia.ts`), carried as `meta.image`; search (the header's
   🔎, `ilike` over what RLS lets you see), `?m=<id>` opens the chat at a message, share sends a message or photo to the
   phone's share sheet, "is typing" rides a realtime broadcast per league (`src/lib/typing.ts`), and the week's most-reacted
-  post is pinned as the chirp of the week.
+  post is pinned as the chirp of the week. A pool member posts the pool into another league's chat from the pool's invite card
+  (`PostToChats`, `pool_announce`, migration 311): a message from their own seat there carrying `meta.pool_card`, drawn
+  as a card to join (`PoolInviteCard`); only that function can write a card (`messages_guard_card`).
   The home page's League transactions (`LeagueTransactions`) lists every move and trade with the same GM picker.
 - Navigation (`src/components/Layout.tsx`): the dock keeps four places, Live (the scoreboard, a fantasy league's middle tab with a red dot while a game is on) and More; More and the desktop sidebar list the
   rest under groups (`Tonight`, `Your team`, `The league`, `You`; a pool's `Play`, `Sport centres`, `You`), and nothing

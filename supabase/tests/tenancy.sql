@@ -85,6 +85,8 @@ where n.nspname = 'public' and p.prosecdef and p.prorettype <> 'trigger'::regtyp
     'accept_invite', 'set_active_league',
     -- answers only whether the caller is a member of a league (the chat photos' storage rules, migration 310)
     '_chat_member',
+    -- posts the caller's pool into a league they are a member of (checked), from their own seat there (migration 311)
+    'pool_announce',
     -- read-only: what an invite offers, for whoever holds its code (the code is the secret)
     'invite_preview',
     -- platform admins only, over the platform's own bills (ops schema), not league data

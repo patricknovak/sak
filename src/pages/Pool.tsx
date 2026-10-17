@@ -24,6 +24,7 @@ import { PredictorCard } from './Predictor';
 import { UserPlus } from 'lucide-react';
 import { ShareButton, useCardBrand } from '../components/ShareButton';
 import { InvitePeople } from '../components/InvitePeople';
+import { PostToChats } from '../components/PostToChats';
 import { DeletePool } from '../components/DeletePool';
 import { LeagueFeatures } from '../components/LeagueFeatures';
 import { usePoolCompetitions } from '../lib/poolOwn';
@@ -263,7 +264,7 @@ function InviteCard() {
       <div className="pointer-events-none absolute -right-10 -top-10 h-40 w-40 rounded-full bg-gold/20 blur-3xl" />
       <div className="relative">
         <h3 className="font-display text-2xl font-extrabold text-white">Better with the group chat</h3>
-        <p className="mt-1 text-sm text-mute">Everyone gets the same {brand.coin.name.toLowerCase()} to start, and every drop. They join with a name, email and password — nothing to download.</p>
+        <p className="mt-1 text-sm text-mute">Everyone gets the same {brand.coin.name.toLowerCase()} to start, and every drop. They join with a name, email and password. Nothing to download.</p>
         {me?.role === 'gm' ? (
           <>
             <div className="mt-3 flex flex-wrap gap-2">
@@ -272,6 +273,7 @@ function InviteCard() {
             </div>
             {link && <div className="mt-2 break-all rounded-xl bg-black/30 px-3 py-2 text-xs text-sky-200">{link}</div>}
             <InvitePeople open={inviting} onClose={() => setInviting(false)} pool={league?.name ?? 'the pool'} />
+            <PostToChats />
           </>
         ) : <p className="mt-3 text-sm text-slate-300">Ask the host for the link and send it to your friends.</p>}
       </div>

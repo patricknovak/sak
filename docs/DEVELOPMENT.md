@@ -904,3 +904,8 @@ for their other groups. **Your other crews** (`OtherCrews` on a fantasy league's
 tap into each, and the best few events locking in the next ten days (one per sport, the hockey box pool first for the
 NHL), each a tap into the start page with the event and its pool chosen (`#/new?comp=…&kind=…&src=league_home`, so the
 funnel can tell these starts apart), and "anything else" for a questions pool. "Not now" puts it away for two weeks.
+- **A pool, posted where the crew talks** (migration 311): from a pool's invite card, a member posts it into the chat of
+  another league or pool they're in, as a card from their own seat there with a Join button (the join page's preview and
+  first call) or Open for those already in; once a day per chat; only `pool_announce` can write a card. Building it found
+  that the pool's open link (`pool_share_link`, migration 162) could hand out a one-use invitation addressed to one
+  person (migration 163), which no one else could use; it now skips them (no live pool had one yet).

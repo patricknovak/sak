@@ -11,6 +11,7 @@ import { useBrand } from '../lib/brand';
 import { chatMatch, type ChatWhat } from '../lib/chatFilter';
 import { IMAGE_BODY, imageOf, shareOut, signedUrl, uploadChatImage, useSignedUrl, type ChatImage } from '../lib/chatMedia';
 import { pingTyping, useTyping } from '../lib/typing';
+import { PoolInviteCard, poolCardOf } from './PoolInviteCard';
 
 const REACTIONS = ['🔥', '😂', '🤡', '👏', '💀', '🍺', '🚨', '🪣'];
 const ASK_GARRY = ['Roast me', 'Trash talk the leader', 'Tell me a joke', 'Who’s winning?', 'How’s my lineup?', 'Who should I pick up?', 'How do trades work?', 'What’s the prize money?', 'When’s the draft?', 'How do keepers work?', 'What’s the scoring?'];
@@ -394,7 +395,7 @@ export function ChatPanel({ channel, compact, className = '', filter, jump, onJu
         {shown.map((m, i) => {
           const day = dayKey(m.created_at);
           const sep = day !== prevDay ? (
-            <div key={`d-${day}`} className="sticky top-0 z-[1] flex justify-center py-1.5">
+            <div key={`d-${day}`} className="flex justify-center py-1.5">
               <span className="rounded-full border border-white/10 bg-[#0d1528]/90 px-3 py-0.5 text-[11px] font-bold text-slate-300 shadow backdrop-blur">{dayWords(day, now)}</span>
             </div>
           ) : null;
@@ -440,6 +441,8 @@ export function ChatPanel({ channel, compact, className = '', filter, jump, onJu
           const parent = m.reply_to ? byId.get(m.reply_to) : undefined;
           const img = m.deleted ? null : imageOf(m.meta, lid);
           const words = img && m.body === IMAGE_BODY ? '' : m.body;
+          // a pool posted from its own page (migration 311) shows as a card to join, in place of the bubble
+          const pc = m.deleted ? null : poolCardOf(m.meta);
           return (
             <Fragment key={m.id}>{sep}
               <div id={`msg-${m.id}`} className={`flex gap-2 ${mine ? 'flex-row-reverse' : ''} ${grouped ? '' : 'pt-2'} ${glow}`}>
@@ -449,13 +452,13 @@ export function ChatPanel({ channel, compact, className = '', filter, jump, onJu
                     <div className="mb-0.5 px-1 text-[11px]"><Link to={`/team/${t?.id}`} className="font-semibold hover:underline" style={{ color: readable(t?.color ?? '#888') }}>{t?.gm_name}</Link> <span className="text-mute">· {ago(m.created_at, now)}</span> <Tag c={m.channel} /></div>
                   )}
                   {!grouped && mine && all && <div className="mb-0.5 px-1 text-[11px]"><Tag c={m.channel} /> <span className="text-mute">{ago(m.created_at, now)}</span></div>}
-                  <div role="button" tabIndex={0} onClick={() => setPicker(picker === m.id ? null : m.id)} onKeyDown={(e) => { if (e.key === 'Enter') setPicker(picker === m.id ? null : m.id); }}
+                  {pc ? <div role="button" tabIndex={0} onClick={() => setPicker(picker === m.id ? null : m.id)}><PoolInviteCard card={pc} mine={mine} /></div> : <div role="button" tabIndex={0} onClick={() => setPicker(picker === m.id ? null : m.id)} onKeyDown={(e) => { if (e.key === 'Enter') setPicker(picker === m.id ? null : m.id); }}
                     className={`cursor-pointer rounded-2xl text-left text-[15px] leading-snug transition active:scale-[.98] ${img && !words ? 'p-1' : 'px-3 py-1.5'} ${m.deleted ? 'italic text-mute' : ''} ${mine ? 'rounded-br-md text-white shadow-[inset_0_1px_0_rgba(255,255,255,.2)]' : 'rounded-bl-md border border-white/[.07] bg-white/[.06]'}`}
                     style={mine ? { background: `linear-gradient(160deg, color-mix(in oklab, ${me?.color} 85%, white 15%), color-mix(in oklab, ${me?.color} 80%, black))`, boxShadow: `0 8px 20px -12px ${me?.color}` } : undefined}>
                     {parent && <div className="mb-1 border-l-2 border-white/40 pl-2 text-xs opacity-75">{team(parent.team_id)?.gm_name}: {parent.body === IMAGE_BODY ? '📷 Photo' : parent.body.slice(0, 80)}</div>}
                     {img && <Photo img={img} onOpen={(url) => setViewer({ url, m })} />}
                     {words && <span className={`whitespace-pre-wrap break-words ${img ? 'block px-2 pb-1' : ''}`}>{highlight(words)}</span>}
-                  </div>
+                  </div>}
                   {counts.length > 0 && (
                     <div className="-mt-1 flex flex-wrap gap-1 px-1">
                       {counts.map((c) => (
