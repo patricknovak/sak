@@ -43,8 +43,15 @@ Two things in one repo:
   (`GmPicker`) and a kind (talk, transactions, bets, the voice, draft, private, league news; `src/lib/chatFilter.ts` sorts
   each message by its kind, meta and leading mark, and finds a GM in a league line by their team's name). The composer
   says where a post goes (everyone, the voice's private line, the draft room, a DM); old `?c=` links open the matching filter.
+  Picking a GM shows their own side (their posts, private lines with them, the voice's answers to them, `byGm`); "and
+  mentions" (`?about=1`) adds the league lines and the voice's posts that name them (`aboutGm`). Photos (migration 310): a
+  private storage bucket `chat`, one folder per league (`<league>/<team>/<file>`, rules through `_chat_member`), shrunk on
+  the phone and shown through batched signed links (`src/lib/chatMedia.ts`), carried as `meta.image`; search (the header's
+  🔎, `ilike` over what RLS lets you see), `?m=<id>` opens the chat at a message, share sends a message or photo to the
+  phone's share sheet, "is typing" rides a realtime broadcast per league (`src/lib/typing.ts`), and the week's most-reacted
+  post is pinned as the chirp of the week.
   The home page's League transactions (`LeagueTransactions`) lists every move and trade with the same GM picker.
-- Navigation (`src/components/Layout.tsx`): the dock keeps four places and More; More and the desktop sidebar list the
+- Navigation (`src/components/Layout.tsx`): the dock keeps four places, Live (the scoreboard, a fantasy league's middle tab with a red dot while a game is on) and More; More and the desktop sidebar list the
   rest under groups (`Tonight`, `Your team`, `The league`, `You`; a pool's `Play`, `Sport centres`, `You`), and nothing
   in the dock repeats in More. A new page joins a group rather than the end of a list.
 - A player's card opens in place, app-wide (`src/lib/playerInfo.tsx`, `PlayerInfoProvider` in `main.tsx`): `PlayerRow`'s injury,
@@ -60,7 +67,9 @@ Two things in one repo:
   every GM, `TeamCompare`); another team's page opens on Scout & trade with the same views read only. The views are in
   `src/components/lineup/`, the data in `src/lib/lineupKit.ts` (tonight's points from the store's `dayPoints`, `useDayPoints`). Lineup New,
   tried beside it from 5 October, was folded in and retired on 11 October 2026; `#/lineup-new` forwards to `#/team`.
-  The live scoreboard's Tonight's points lists every starter team by team; Performance has a Weekly review
+  The live scoreboard's Tonight's points lists every starter team by team, under your night (points, rank, a projected
+  finish), the stars of the night, a ticker of what just happened with a goal horn for your starters, and the race as it
+  stands if the night ended now (`src/components/LiveNight.tsx`, all from the store's numbers); Performance has a Weekly review
   (`WeeklyReview`, deterministic suggestions from the trade finder and free agents). Later days save through
   `set_lineup_plans`; plans are readable league-wide (migration 164).
 - Imports (SUPERPOOLS item 9): history from Yahoo, ESPN and Fantrax (`*History.tsx` on the League page), scoring from Fantrax

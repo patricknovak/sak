@@ -878,3 +878,19 @@ a game is still the one at puck drop, so a late activation scores from his next 
 out of a lineup, once his game has started. Daily lineups' IR dropdown now offers his spots and makes the move at once
 (today, to the spot picked or the bench; a day ahead, to today's bench with the pick held for that day's save); My Team
 lets a GM pick an IR player whose game is under way. The flow test covers both ends of the swap and the snapshot.
+
+### 9.10 Live in the dock, a livelier scoreboard, a better chat, 16 October 2026
+
+- **Live in the dock**: a fantasy league's dock has six places (Home, Lineup, Live, Chat, the sport's centre, More); Live is
+  the scoreboard, with a red dot while a game is on.
+- **The scoreboard tells the night**: your night (points, rank tonight, the gap to the team ahead, a projected finish from
+  the starters still to play), the stars of the night, a ticker of each goal, assist, win and shutout by a rostered player
+  the moment the box score moves (kept for the tab's session), a toast and an optional goal horn for your own starters, a
+  line that just moved glowing with what it gained, each game's progress and how many league starters (and yours) it
+  carries, and the season race as it would stand if the night ended now. All of it from the store's numbers: no new reads.
+- **The chat's GM filter was broken twice over**: on a wide screen the GM list opened under the chat (the card's blur made
+  its own layer), and on a phone a GM's view was mostly the voice's columns and league lines that named them (Craig: 8 of
+  54). A GM's view is now their own side, with "and mentions" to add the rest.
+- **Photos, search, sharing** (migration 310): photos up to 8 MB, shrunk on the phone, in a private bucket per league;
+  search over every message you can see, opening the chat at the result; share any message or photo to Messages,
+  WhatsApp and the rest; "is typing"; day separators; links that open; a "new messages" button; the chirp of the week.

@@ -54,7 +54,19 @@ export function aboutGm(m: Message, t: Team): boolean {
   return new RegExp(`(^|[^\\p{L}])@?${esc(t.gm_name)}(?![\\p{L}])`, 'u').test(m.body);
 }
 
-export function chatMatch(m: Message, what: ChatWhat, gm: Team | null): boolean {
+// a GM's own side of the chat (16 October 2026, Patrick: "chat filters for specific GMs is not working"): what they
+// wrote, their private lines, and the voice's answers to them. Picking a GM used to bring in every league line and
+// every morning column that named them too, so their own posts were lost among the voice's; those come back with
+// "and mentions" (aboutGm). parentOf finds the message an answer replies to.
+export function byGm(m: Message, t: Team, parentOf?: (id: number) => Message | undefined): boolean {
+  if (m.team_id === t.id) return true;
+  if (m.channel.startsWith('dm:')) return m.channel.slice(3).split('-').map(Number).includes(t.id);
+  if (m.channel === `garry:${t.id}`) return true;
+  if (m.kind === 'bot' && m.reply_to != null) return parentOf?.(m.reply_to)?.team_id === t.id;
+  return false;
+}
+
+export function chatMatch(m: Message, what: ChatWhat, gm: Team | null, mentions = true, parentOf?: (id: number) => Message | undefined): boolean {
   if (what !== 'all' && !chatKinds(m).has(what)) return false;
-  return !gm || aboutGm(m, gm);
+  return !gm || (mentions ? aboutGm(m, gm) || byGm(m, gm, parentOf) : byGm(m, gm, parentOf));
 }

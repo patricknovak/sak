@@ -21,6 +21,8 @@ import { LiveRoomCard } from '../components/LiveRoomCard';
 import { liveRoomOn } from '../lib/features';
 import { threadOf, useThreadCounts } from '../components/GameThread';
 import { useUnread } from '../components/Layout';
+import { HornToggle, LiveRace, NightStars, NightTicker, YourNight, goalHorn, useHorn, useNightFeed, type NightEvent } from '../components/LiveNight';
+import { useToast } from '../components/ui';
 
 type Snap = { team_id: number; player_id: number; slot: string; game_id: number };
 type PG = { player_id: number; game_id: number; fpts: number; stats: Record<string, number>; nhl_team: string | null; updated_at?: string | null };
@@ -80,7 +82,9 @@ const sinceWords = (ms: number) => {
 const addDays = (d: string, n: number) => new Date(Date.UTC(+d.slice(0, 4), +d.slice(5, 7) - 1, +d.slice(8, 10) + n)).toISOString().slice(0, 10);
 
 export default function Scoreboard() {
-  const { me, teams, players, rosters, games, league, standings, leagueDay, dayPoints, pointsDay } = useLeague();
+  const { me, teams, players, rosters, games, league, standings, leagueDay, dayPoints, pointsDay, team } = useLeague();
+  const toast = useToast();
+  const [horn, setHorn] = useHorn();
   const sport = useSport();
   const now = useNow(30_000);
   // ?day=YYYY-MM-DD opens a past night; without it the page follows the league day
@@ -172,9 +176,10 @@ export default function Scoreboard() {
     const pts = lines.reduce((n, l) => n + l.pts, 0);
     const bench = benchLines.reduce((n, l) => n + l.pts, 0);
     const before = benchDays.filter((b) => b.team_id === t.id && b.date < today && b.game_type === (playoffNight ? 3 : 2)).reduce((n, b) => n + b.points, 0);
-    const done = lines.filter((l) => l.game && isFinal(sport, l.game.state)).length;
-    const playing = lines.filter((l) => l.game && isLive(sport, l.game.state)).length;
-    return { t, lines, pts, done, playing, left: lines.length - done - playing, benchLines, bench, benchScored: benchLines.some((l) => l.pg), benchSeason: before + bench };
+    const doneIds = new Set(lines.filter((l) => l.game && isFinal(sport, l.game.state)).map((l) => l.player_id));
+    const playingIds = new Set(lines.filter((l) => l.game && isLive(sport, l.game.state)).map((l) => l.player_id));
+    const done = doneIds.size, playing = playingIds.size;
+    return { t, lines, pts, done, playing, doneIds, playingIds, left: lines.length - done - playing, benchLines, bench, benchScored: benchLines.some((l) => l.pg), benchSeason: before + bench };
   }).sort((a, b) => b.pts - a.pts || a.t.id - b.t.id), [teams, snaps, rosters, players, slate, pgBy, benchDays, today, playoffNight, sport]); // eslint-disable-line react-hooks/exhaustive-deps
   // a category league plays the night for its categories: each team's starters' totals, and the night ranked team
   // against team in each (first earns as many points as there are teams, ties share), the way its table ranks the season
@@ -202,6 +207,34 @@ export default function Scoreboard() {
   }, [catMode, rows, cats]);
   const ordered = useMemo(() => (night ? [...rows].sort((a, b) => night.roto.get(b.t.id)! - night.roto.get(a.t.id)! || a.t.id - b.t.id) : rows), [rows, night]);
   const rotoTable = useRoto();
+  // who each player belongs to tonight (his puck-drop lineup, or the roster before his game), for the ticker
+  const ownerOf = useMemo(() => {
+    const m = new Map<number, { team_id: number; bench: boolean }>();
+    for (const r of past ? [] : rosters) m.set(r.player_id, { team_id: r.team_id, bench: BENCH.includes(r.slot) });
+    for (const s of snaps) m.set(s.player_id, { team_id: s.team_id, bench: BENCH.includes(s.slot) });
+    return m;
+  }, [snaps, rosters, past]);
+  // your own starters' big moments ring out: a toast, and the horn if you've turned it on
+  const onMoment = (e: NightEvent) => {
+    if (!me || e.team_id !== me.id || e.bench || e.delta <= 0) return;
+    const p = players.get(e.player_id);
+    toast(`${e.icon} ${e.what}: ${p?.last_name ?? p?.name ?? 'your player'}, +${fmtPts(e.delta)} for you`);
+    if (horn && e.big) goalHorn();
+  };
+  const feed = useNightFeed(`${league?.league_id ?? 0}:${today}`, !past, pgs, (id) => ownerOf.get(id) ?? null, onMoment);
+  const jumpTo = (id: number) => { setShut(flip(shut, id, false)); document.getElementById(`sb-${id}`)?.scrollIntoView({ behavior: 'smooth', block: 'start' }); };
+  // how many of the league's starters (and yours) each game carries tonight
+  const stake = useMemo(() => {
+    const m = new Map<number, { all: number; mine: number }>();
+    for (const r of rows) for (const l of r.lines) {
+      const id = l.game?.id; if (id == null) continue;
+      const x = m.get(id) ?? { all: 0, mine: 0 };
+      x.all++; if (r.t.id === me?.id) x.mine++;
+      m.set(id, x);
+    }
+    return m;
+  }, [rows, me?.id]);
+  const raceOn = !catMode && !past && league?.format !== 'h2h' && (league?.features as Record<string, unknown> | null | undefined)?.guillotine !== true && standings.length > 0;
   // one player's line on a team card: his club's crest, his name (a tap opens his card where you are), the slot he
   // fills, who his club plays (vs at home, @ away) and where that game stands, his scoring and his points.
   // Bench lines are dimmed and their points shown in amber.
@@ -242,6 +275,8 @@ export default function Scoreboard() {
           )}
           {(line || mu?.live || mu?.final) && <div className="mt-0.5 text-[11px] leading-tight text-mute md:mt-0 md:text-xs">{line || (mu?.final ? 'no scoring' : 'no scoring yet')}</div>}
         </div>
+        {/* a line that just moved glows for a couple of minutes with what it gained */}
+        {(() => { const f = feed.flash.get(l.player_id); return f && now - f.at < 120_000 && f.d !== 0 ? <span className={`num shrink-0 animate-pop rounded-md px-1.5 py-px text-[11px] font-extrabold ${f.d > 0 ? 'bg-emerald-400/20 text-emerald-200 ring-1 ring-emerald-400/40' : 'bg-red-400/15 text-red-200'}`}>{f.d > 0 ? '+' : ''}{fmtPts(f.d)}</span> : null; })()}
         {!catMode && <span className={`num w-11 shrink-0 text-right text-[15px] font-bold ${l.pts < 0 ? 'text-red-300' : bench ? 'text-amber-200/90' : l.pg ? 'text-slate-100' : 'text-mute'}`}>{l.pg ? fmtPts(l.pts) : '–'}</span>}
       </div>
     );
@@ -280,11 +315,11 @@ export default function Scoreboard() {
       <PageHeader icon={<Radio size={22} className={anyLive ? 'animate-pulse text-goal' : past ? 'text-mute' : 'text-goal'} />} title={past ? 'Scoreboard' : 'Live scoreboard'}
         sub={past ? `${fmtDate(today)} · ${slate.length ? `${slate.length} NHL game${slate.length > 1 ? 's' : ''}, final` : 'no NHL games'}` : slate.length ? `${slate.length} NHL game${slate.length > 1 ? 's' : ''} tonight · live, as it happens` : 'No NHL games today.'}
         right={<div className="flex items-center gap-1">
+          {!past && <HornToggle on={horn} set={setHorn} />}
           <button className="btn-ghost btn-sm px-2" aria-label="Previous day" disabled={!!seasonStart && addDays(today, -1) < seasonStart} onClick={() => goTo(addDays(today, -1))}><ChevronLeft size={16} /></button>
           <button className="btn-ghost btn-sm px-2" aria-label="Next day" disabled={!past} onClick={() => goTo(addDays(today, 1))}><ChevronRight size={16} /></button>
           {past && <button className="btn-ghost btn-sm" onClick={() => goTo(leagueDay)}>Tonight</button>}
         </div>} />
-      <Link to="/nhl" className="card flex items-center gap-3 p-3 text-sm transition active:scale-[.99]"><span className="text-2xl">🏒</span><span className="flex-1"><span className="font-semibold">Every NHL game, live</span><span className="block text-xs text-mute">Scores, goals with highlight clips, box scores, standings, schedule and team radio.</span></span><span className="text-mute">›</span></Link>
       {past && <div className="rounded-xl border border-white/[.08] bg-white/[.03] p-3 text-sm text-slate-300">A night that is in the books: the lineups as they were locked at each puck drop and every point that counted. Step back further with the arrows, or review any stretch on the <Link to="/performance" className="text-sky-300">Performance page</Link>.</div>}
       {!past && league?.phase !== 'season' && <div className="rounded-xl border border-amber-400/20 bg-amber-500/10 p-3 text-sm text-amber-100">The season hasn’t started. Once it does, this page follows every game night live: NHL scores up top, your starters’ points below.</div>}
 
@@ -299,6 +334,18 @@ export default function Scoreboard() {
                 {[[g.away, g.away_score], [g.home, g.home_score]].map(([abbr, score]) => (
                   <div key={String(abbr)} className="flex items-center gap-1.5 py-0.5 text-sm"><NhlLogo abbr={String(abbr)} size={18} /><span className="flex-1 font-semibold">{abbr}</span><span className="num font-bold">{score ?? ''}</span></div>
                 ))}
+                {live && (() => {
+                  // how far through regulation the game is: three 20-minute periods, the clock counting down
+                  const per = Number(g.period) || 3, [mm, ss] = (g.clock ?? '20:00').split(':').map(Number);
+                  const gone = Math.min(60, (per - 1) * 20 + (20 - (mm || 0) - (ss || 0) / 60));
+                  return <div className="mt-1 h-1 overflow-hidden rounded-full bg-white/10"><div className="h-full rounded-full bg-goal" style={{ width: `${(gone / 60) * 100}%` }} /></div>;
+                })()}
+                {(stake.get(g.id)?.all ?? 0) > 0 && (
+                  <div className="mt-1.5 flex items-center gap-1 text-[10px] font-semibold">
+                    <span className="rounded-full bg-white/[.06] px-1.5 text-slate-300" title="League starters in this game">👥 {stake.get(g.id)!.all}</span>
+                    {(stake.get(g.id)?.mine ?? 0) > 0 && <span className="rounded-full bg-sky-400/20 px-1.5 text-sky-100" title="Your starters in this game">you {stake.get(g.id)!.mine}</span>}
+                  </div>
+                )}
                 <div className="mt-1 flex items-center justify-between gap-1 text-[10px]">
                   <span className="text-sky-300">{live || isFinal(sport, g.state) ? 'Box score ›' : 'Preview ›'}</span>
                   {(threads.get(g.id) ?? 0) > 0 && (
@@ -314,6 +361,16 @@ export default function Scoreboard() {
         </div>
       )}
 
+      {/* the night at a glance: yours, the ticker and the stars side by side on a wide screen */}
+      {rows.some((r) => r.lines.length) && (
+        <div className="grid gap-3 md:grid-cols-2">
+          <div className="space-y-3">
+            <YourNight rows={rows} me={me && me.role !== 'spectator' ? me : null} players={players} past={past} />
+            <NightStars rows={rows} players={players} past={past} />
+          </div>
+          {!past && <NightTicker events={feed.events} players={players} team={team} me={me} live={anyLive} />}
+        </div>
+      )}
       {!past && liveRoomOn(league) && <LiveRoomCard slate={slate} onGame={(id) => { const g = slate.find((x) => x.id === id); if (g) openGame(g); }} />}
 
       <Section title={catMode ? (past ? `Categories on ${fmtDate(today)}` : 'Tonight’s categories') : past ? `Points on ${fmtDate(today)}` : 'Tonight’s points'} right={updated}>
@@ -388,6 +445,8 @@ export default function Scoreboard() {
         </div>
       </Section>
 
+      {raceOn && <Section title="🏁 The race, live"><LiveRace rows={rows} standings={standings} me={me} onTeam={jumpTo} /></Section>}
+
       {benchAny && (
         <Section title="🪑 Left on the bench" right={<span className="text-xs text-mute">shown, never counted</span>}>
           <div className="card overflow-hidden">
@@ -418,6 +477,7 @@ export default function Scoreboard() {
           </div>
         </Section>
       )}
+      <Link to="/nhl" className="card flex items-center gap-3 p-3 text-sm transition active:scale-[.99]"><span className="text-2xl">🏒</span><span className="flex-1"><span className="font-semibold">Every NHL game, live</span><span className="block text-xs text-mute">Scores, goals with highlight clips, box scores, standings, schedule and team radio.</span></span><span className="text-mute">›</span></Link>
       {past ? <p className="px-1 text-center text-[11px] text-mute">Final box scores. Stat corrections from the NHL can still move a line for up to a month.</p>
         : <p className="px-1 text-center text-[11px] text-mute">Scores and clocks follow the NHL within seconds; points follow its box scores, about once a minute, and every page here shows each change the moment it lands.</p>}
     </div>
