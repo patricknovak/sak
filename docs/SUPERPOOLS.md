@@ -458,6 +458,15 @@ The steps above finish the tenancy. `docs/MARKET.md` sets what comes after in th
     (who's watching, every swing, reactions, climbs up the standings) on the scoreboard and the home page, a pool's room on
     its home; a thread for every game in a league and in a pool; one game sheet from any page (where to watch, radio, the
     box score, lines and bets). Lineup New folded into My Team and Watch live into NHL centre; More grouped.
+    *16 and 17 October 2026:* Live in the dock; the scoreboard grew your night, the race if the night ended now, the stars,
+    the night's goals by rostered players (from the NHL's scores feed, priced on each league's own scoring sheets) and a goal
+    horn; the chat grew photos (private to who can see the message, migrations 310 and 315), search, sharing out and "is
+    typing".
+17. **The door from a league to the pools** (17 October 2026; `docs/DEVELOPMENT.md` §9.11). The first measured week
+    showed the league's eight GMs open the app every day and none had seen a pool. *Your other crews* on a fantasy
+    league's home (your pools, the events locking in the next ten days, a questions pool); a pool posted into the league's
+    chat as a card from the member's own seat, with Join and a bell to the others (`pool_announce`, migrations 311 to 314);
+    *Pools from your league* on the home, the pools posted there in the last month that you're not in.
 
 Then horizon 2 (soccer on licensed data, basketball, the multi-sport pool, the Supercoin prediction market,
 the Super Pool bundle, the public API) and horizon 3 (cricket free-to-play, baseball, football and college,
