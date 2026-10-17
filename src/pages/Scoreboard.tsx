@@ -224,7 +224,8 @@ export default function Scoreboard() {
   const feed = useNightFeed(`${league?.league_id ?? 0}:${today}`, !past, pgs, (id) => ownerOf.get(id) ?? null, onMoment);
   // the night's goals by rostered players, from the NHL's scores feed: full the moment the page opens
   const ownerFn = useCallback((id: number) => ownerOf.get(id) ?? null, [ownerOf]);
-  const nightGoals = useNightGoals(today, !past && slate.some((g) => isLive(sport, g.state)), ownerFn, league?.scoring.skater);
+  const isGoalie = useCallback((id: number) => players.get(id)?.pos === 'G', [players]);
+  const nightGoals = useNightGoals(today, !past && slate.some((g) => isLive(sport, g.state)), ownerFn, league?.scoring, isGoalie);
   const jumpTo = (id: number) => { setShut(flip(shut, id, false)); document.getElementById(`sb-${id}`)?.scrollIntoView({ behavior: 'smooth', block: 'start' }); };
   // how many of the league's starters (and yours) each game carries tonight
   const stake = useMemo(() => {

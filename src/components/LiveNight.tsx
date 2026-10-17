@@ -300,7 +300,8 @@ type FeedGoal = { period: number; time: string; playerId: number; name: string; 
 type FeedGame = { id: number; start: string; state: string; home: { abbrev: string }; away: { abbrev: string }; goals?: FeedGoal[] };
 export type NightGoal = { key: string; at: number; game: FeedGame; goal: FeedGoal; people: { id: number; name: string; role: 'g' | 'a'; team_id: number; bench: boolean; pts: number }[] };
 
-export function useNightGoals(day: string, live: boolean, owner: (id: number) => { team_id: number; bench: boolean } | null, weights: Record<string, number> | undefined) {
+export function useNightGoals(day: string, live: boolean, owner: (id: number) => { team_id: number; bench: boolean } | null,
+  scoring: { skater: Record<string, number>; goalie: Record<string, number> } | undefined, isGoalie: (id: number) => boolean) {
   const [games, setGames] = useState<FeedGame[] | null>(null);
   useEffect(() => {
     let dead = false;
@@ -312,17 +313,17 @@ export function useNightGoals(day: string, live: boolean, owner: (id: number) =>
   }, [day, live]);
   return useMemo(() => {
     if (!games) return null;
-    const w = weights ?? {};
     const out: NightGoal[] = [];
     for (const g of games) for (const [i, goal] of (g.goals ?? []).entries()) {
       // what the goal was worth to each rostered player in it: the goal or the assist, the point, and the power-play or
       // shorthanded point, goal or assist, whichever of them the league scores (SaK scores PPP; a Fantrax import may score PPG)
       const pp = goal.strength === 'pp', sh = goal.strength === 'sh';
-      const worth = (role: 'g' | 'a') => (w[role] ?? 0) + (w.pts ?? 0)
+      // a goalie's assist is scored on the goalie sheet (SaK gives it nothing), a skater's on the skater sheet
+      const worth = (role: 'g' | 'a', id: number) => { const w = (isGoalie(id) ? scoring?.goalie : scoring?.skater) ?? {}; return (w[role] ?? 0) + (w.pts ?? 0)
         + (pp ? (w.ppp ?? 0) + (w[role === 'g' ? 'ppg' : 'ppa'] ?? 0) : 0)
-        + (sh ? (w.shp ?? 0) + (w[role === 'g' ? 'shg' : 'sha'] ?? 0) : 0);
+        + (sh ? (w.shp ?? 0) + (w[role === 'g' ? 'shg' : 'sha'] ?? 0) : 0); };
       const people = [{ id: goal.playerId, name: goal.name, role: 'g' as const }, ...goal.assists.map((a) => ({ id: a.playerId, name: a.name, role: 'a' as const }))]
-        .map((x) => { const o = owner(x.id); return o ? { ...x, team_id: o.team_id, bench: o.bench, pts: worth(x.role) } : null; })
+        .map((x) => { const o = owner(x.id); return o ? { ...x, team_id: o.team_id, bench: o.bench, pts: worth(x.role, x.id) } : null; })
         .filter((x): x is NonNullable<typeof x> => !!x);
       if (!people.length) continue;
       const [mm, ss] = goal.time.split(':').map(Number);
@@ -331,7 +332,7 @@ export function useNightGoals(day: string, live: boolean, owner: (id: number) =>
       out.push({ key: `${g.id}:${i}`, at, game: g, goal, people });
     }
     return out.sort((a, b) => b.at - a.at);
-  }, [games, weights, owner]);
+  }, [games, scoring, owner, isGoalie]);
 }
 
 export function NightGoals({ goals, players, team, me, live, past }: { goals: NightGoal[]; players: Map<number, Player>; team: (id: number | null) => Team | undefined; me: Team | null; live: boolean; past: boolean }) {
