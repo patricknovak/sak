@@ -13,6 +13,7 @@ import { PlayerPeek, ScoutBar, StatStrip, sortPlayers, useScout, useScoutCtx } f
 import { TradeBlock } from '../components/TradeBlock';
 import { activeAfter, dropOrder, evaluateSide, gradeSide, type Side } from '../lib/trade';
 import { gradeColor } from '../lib/grades';
+import { irOk } from '../lib/lineup';
 import { Repeat2 } from 'lucide-react';
 import { useBrand } from '../lib/brand';
 
@@ -345,6 +346,20 @@ export default function Trades() {
       {FILTERS.map((f) => <button key={f} onClick={() => setPosFilter(f)} className={`shrink-0 rounded-full px-2 py-0.5 text-[11px] font-semibold ${posFilter === f ? 'bg-gold text-ice' : 'bg-white/[.05] text-mute'}`}>{f === 'all' ? 'Everyone' : f === 'picks' ? '📋 Picks' : f}</button>)}
     </div>
   );
+  // a hurt player coming in takes an IR slot the deal leaves open (the database's count), so say so rather than let the
+  // roster number look wrong
+  const toIr = (() => {
+    if (!me) return [];
+    const had = new Set(mine.players.map((p) => p.id)), ir = irOf(me.id);
+    const free = Math.max(0, irCap - myAfterNow.filter((p) => had.has(p.id) && ir.has(p.id)).length);
+    return myAfterNow.filter((p) => !had.has(p.id) && irAny.has(p.id) && irOk(p.injury_status)).slice(0, free);
+  })();
+  const irNote = toIr.length > 0 && (
+    <div className="flex items-start gap-2 rounded-xl border border-white/10 bg-white/[.04] p-2.5 text-xs text-slate-300">
+      <span aria-hidden>🩹</span>
+      <span>{toIr.map((p, i) => <Fragment key={p.id}>{i > 0 && ' and '}<PlayerTag p={p} /></Fragment>)} {toIr.length === 1 ? 'comes in hurt and goes' : 'come in hurt and go'} straight to your open IR {toIr.length === 1 ? 'slot' : 'slots'}, so {toIr.length === 1 ? 'he doesn’t' : 'they don’t'} count against your roster.</span>
+    </div>
+  );
   // over the limit: name who goes with the deal
   const dropBox = need > 0 && (
     <div className="space-y-1.5 rounded-xl border border-amber-400/30 bg-amber-500/10 p-2.5">
@@ -457,6 +472,7 @@ export default function Trades() {
                         </div>
                       ))}
                     </div>
+                    {irNote}
                     {dropBox}
                     <TradeAnalysis sides={twoSides} />
                     <input className="input" placeholder="Sweeten it with a message (optional)" value={note} onChange={(e) => setNote(e.target.value)} />
@@ -517,6 +533,7 @@ export default function Trades() {
                         ))}
                       </div>
                     )}
+                    {irNote}
                     {dropBox}
                     <TradeAnalysis sides={multiSides} />
                     <input className="input" placeholder="Sweeten it with a message (optional)" value={note} onChange={(e) => setNote(e.target.value)} />

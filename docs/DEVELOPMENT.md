@@ -930,4 +930,5 @@ funnel can tell these starts apart), and "anything else" for a questions pool. "
   before one went through): the builder counted a hurt player arriving from another team's IR as active, while
   `_trade_active_after` slides him into an IR slot the deal leaves open, so the builder could ask for a drop the
   database then refused ("no drop needed"). One count now, `activeAfter` in `src/lib/trade.ts`, for the builder, the
-  accept step and the grades.
+  accept step and the grades. The builder says so when it happens: "X comes in hurt and goes straight to your open IR
+  slot, so he doesn't count against your roster."
