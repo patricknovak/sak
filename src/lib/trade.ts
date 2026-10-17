@@ -149,7 +149,7 @@ export function evaluateSide(s: Side, v: Valuer, rosterMax: number, sc?: Sched):
   const kept = s.after.filter((p) => !dropIds.has(p.id));
   // fewer players: a new open spot goes to the best free agent, if there's a pickup to spend on it
   const pkAfter = (s.pickupsLeft ?? 3) + (s.pickupsIn ?? 0) - (s.pickupsOut ?? 0);
-  const opened = Math.max(0, rosterMax - active(kept)) - Math.max(0, rosterMax - active(s.before));
+  const opened = Math.max(0, rosterMax - activeAfter({ ...s, after: kept })) - Math.max(0, rosterMax - active(s.before));
   const fills: SideEval['fills'] = [];
   if (opened > 0 && pkAfter > 0) {
     for (const p of v.fa.filter((p) => !afterIds.has(p.id)).slice(0, Math.min(opened, pkAfter))) fills.push({ p, value: v.player(p) });
@@ -171,7 +171,7 @@ export function evaluateSide(s: Side, v: Valuer, rosterMax: number, sc?: Sched):
   for (const p of inn) if (p.injury_status && OUT.test(p.injury_status)) warnings.push(`${p.name} is listed ${p.injury_status}${injuryBack(p.injury_return) ? ` (${injuryBack(p.injury_return)})` : ''}`);
   return {
     team: s.team, startersBefore: b.starters, startersAfter: a.starters, startersDelta: a.starters - b.starters,
-    depthBefore: b.depth, depthAfter: a.depth, valueOut, valueIn, net: valueIn - valueOut, pos, rosterAfter: active(final), warnings,
+    depthBefore: b.depth, depthAfter: a.depth, valueOut, valueIn, net: valueIn - valueOut, pos, rosterAfter: activeAfter({ ...s, after: final }), warnings,
     drops, fills, pickupValue: pkTrade, coinsNet: (s.coinsIn ?? 0) - (s.coinsOut ?? 0),
   };
 }
