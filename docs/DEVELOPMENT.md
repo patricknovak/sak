@@ -909,4 +909,5 @@ funnel can tell these starts apart), and "anything else" for a questions pool. "
   first call) or Open for those already in, and a bell with its push to each of the others there (migration 312); once a
   day per chat; only `pool_announce` can write a card. Building it found
   that the pool's open link (`pool_share_link`, migration 162) could hand out a one-use invitation addressed to one
-  person (migration 163), which no one else could use; it now skips them (no live pool had one yet).
+  person (migration 163), which no one else could use; it now skips them (no live pool had one yet). Your other crews
+  lists the pools the league's GMs posted in its chat in the last month that you're not in, each a tap from joining.
