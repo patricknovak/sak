@@ -924,4 +924,10 @@ funnel can tell these starts apart), and "anything else" for a questions pool. "
 - **The night's goals on the scoreboard**: every goal a rostered player scored or set up, from the NHL's scores feed (one
   cached read for the slate, again each minute while a game is on), with each player's GM and what the goal was worth to
   them (the goal or the assist, plus the power-play or shorthanded point), newest first; full the moment the page opens
-  and kept for a night in the books. The session ticker stays as the fallback when the feed is out.
+  and kept for a night in the books. The session ticker stays as the fallback when the feed is out. Each goal adds
+  whichever power-play, shorthanded or points stats the league scores (a Fantrax import may score PPG rather than PPP).
+- **Trade drops counted the database's way** (from the logs: six offers turned away in eight minutes on 17 October
+  before one went through): the builder counted a hurt player arriving from another team's IR as active, while
+  `_trade_active_after` slides him into an IR slot the deal leaves open, so the builder could ask for a drop the
+  database then refused ("no drop needed"). One count now, `activeAfter` in `src/lib/trade.ts`, for the builder, the
+  accept step and the grades.

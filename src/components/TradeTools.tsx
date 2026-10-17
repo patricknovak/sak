@@ -59,14 +59,16 @@ export function useTradeValuer() {
   const sched = useMemo<Sched | undefined>(() => (games && nhl && league
     ? { games, caps, from: etToday(), to: league.season_end ?? undefined, days: playoffDays(nhl), season, cache: new Map(), perGame }
     : undefined), [games, nhl, league, season, perGame]); // eslint-disable-line react-hooks/exhaustive-deps
+  const irCap = caps.IR ?? 0;
+  const irAny = new Set(rosters.filter((r) => r.slot === 'IR').map((r) => r.player_id));
   // a team as the trade search sees it: roster, who's on IR, pickups left, unused picks
   const ctxOf = (t: number): TeamCtx => ({
-    team: t, roster: rosterOf(t), ir: new Set(rosters.filter((r) => r.team_id === t && r.slot === 'IR').map((r) => r.player_id)),
+    team: t, roster: rosterOf(t), ir: new Set(rosters.filter((r) => r.team_id === t && r.slot === 'IR').map((r) => r.player_id)), irCap, irAny,
     pickupsLeft: pk.find((x) => x.team_id === t)?.remaining ?? 0, picks: picks.filter((k) => k.team_id === t && !k.player_id),
   });
   const pickupsLeft = (t: number) => pk.find((x) => x.team_id === t)?.remaining ?? 0;
   const irOf = (t: number) => new Set(rosters.filter((r) => r.team_id === t && r.slot === 'IR').map((r) => r.player_id));
-  return { v, rosterMax, rosterOf, ctxOf, pickupsLeft, irOf, inSeason: league?.phase === 'season', standings, progress, sched };
+  return { v, rosterMax, rosterOf, ctxOf, pickupsLeft, irOf, irCap, irAny, inSeason: league?.phase === 'season', standings, progress, sched };
 }
 
 const d = (n: number) => { const r = Math.round(n); return `${r > 0 ? '+' : ''}${r}`; };

@@ -11,7 +11,7 @@ import { Empty, Section, TeamBadge, TeamName, useAction, PageHeader } from '../c
 import { TradeAnalysis, TradeCompare, TradeFinder, TradeFit, useTradeValuer, usePickupStatus, type BuildSpec } from '../components/TradeTools';
 import { PlayerPeek, ScoutBar, StatStrip, sortPlayers, useScout, useScoutCtx } from '../components/TradeScout';
 import { TradeBlock } from '../components/TradeBlock';
-import { dropOrder, evaluateSide, gradeSide, type Side } from '../lib/trade';
+import { activeAfter, dropOrder, evaluateSide, gradeSide, type Side } from '../lib/trade';
 import { gradeColor } from '../lib/grades';
 import { Repeat2 } from 'lucide-react';
 import { useBrand } from '../lib/brand';
@@ -60,7 +60,7 @@ export default function Trades() {
     supabase.from('coin_balances').select('team_id,balance,escrow').then(({ data }) => setCoinFree(new Map((data ?? []).map((c: { team_id: number; balance: number; escrow: number }) => [c.team_id, Number(c.balance) - Number(c.escrow)]))));
   }, []);
   const pkLeft = (t: number) => pkStatus.find((x) => x.team_id === t)?.remaining ?? 0;
-  const { v: valuer, rosterMax, sched, irOf } = useTradeValuer();
+  const { v: valuer, rosterMax, sched, irOf, irCap, irAny } = useTradeValuer();
   const extrasN = extras.givePk + extras.getPk + extras.giveCoins + extras.getCoins;
   const [mode, setMode] = useState<'two' | 'multi'>(params.get('multi') ? 'multi' : 'two');
   // scouting while you pick: what shows beside each player, a peek under any of them, and a side-by-side tray
@@ -123,9 +123,9 @@ export default function Trades() {
     const myAfter = [...mine.players.filter((p) => !give.has(p.id)), ...theirs.players.filter((p) => get.has(p.id))];
     const theirAfter = [...theirs.players.filter((p) => !get.has(p.id)), ...mine.players.filter((p) => give.has(p.id))];
     return [
-      { team: me.id, before: mine.players, after: myAfter, picksOut: pk(givePicks), picksIn: pk(getPicks), ir: irOf(me.id), drops: [...myDrops],
+      { team: me.id, before: mine.players, after: myAfter, picksOut: pk(givePicks), picksIn: pk(getPicks), ir: irOf(me.id), irCap, irAny, drops: [...myDrops],
         pickupsOut: extras.givePk, pickupsIn: extras.getPk, pickupsLeft: pkLeft(me.id), coinsOut: extras.giveCoins, coinsIn: extras.getCoins },
-      { team: partner, before: theirs.players, after: theirAfter, picksOut: pk(getPicks), picksIn: pk(givePicks), ir: irOf(partner),
+      { team: partner, before: theirs.players, after: theirAfter, picksOut: pk(getPicks), picksIn: pk(givePicks), ir: irOf(partner), irCap, irAny,
         pickupsOut: extras.getPk, pickupsIn: extras.givePk, pickupsLeft: pkLeft(partner), coinsOut: extras.getCoins, coinsIn: extras.giveCoins },
     ];
   }, [me, partner, mine.players, theirs.players, give, get, givePicks, getPicks, picks, extras, myDrops, pkStatus, rosters]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -136,11 +136,12 @@ export default function Trades() {
     const before = assets(t).players;
     const out = new Set(mitems.filter((i) => i.from === t && i.player_id).map((i) => i.player_id!));
     const inn = mitems.filter((i) => i.to === t && i.player_id).map((i) => players.get(i.player_id!)).filter((p): p is Player => !!p);
-    return { team: t, before, after: [...before.filter((p) => !out.has(p.id)), ...inn], ir: irOf(t), pickupsLeft: pkLeft(t), drops: t === me?.id ? [...myDrops] : [],
+    return { team: t, before, after: [...before.filter((p) => !out.has(p.id)), ...inn], ir: irOf(t), irCap, irAny, pickupsLeft: pkLeft(t), drops: t === me?.id ? [...myDrops] : [],
       picksOut: picks.filter((k) => mitems.some((i) => i.from === t && i.pick_id === k.id)), picksIn: picks.filter((k) => mitems.some((i) => i.to === t && i.pick_id === k.id)) };
   }), [allParties.join(','), mitems, rosters, players, picks, myDrops, pkStatus]); // eslint-disable-line react-hooks/exhaustive-deps
   // how many players you'd be over the roster limit after the deal you're building (you name who goes)
-  const activeOf = (ps: Player[], t: number) => { const ir = irOf(t); return ps.filter((p) => !ir.has(p.id)).length; };
+  // the database's count (a hurt player coming in can take an open IR slot), so the drops asked for here are the ones it takes
+  const activeOf = (ps: Player[], t: number) => activeAfter({ before: rosters.filter((r) => r.team_id === t).map((r) => players.get(r.player_id)).filter((p): p is Player => !!p), after: ps, ir: irOf(t), irCap, irAny });
   const needDrops = me && partner && twoSides[0] ? Math.max(0, activeOf(twoSides[0].after, me.id) - rosterMax) : 0;
   const myMulti = me ? multiSides.find((x) => x.team === me.id) : undefined;
   const needDropsM = me && myMulti ? Math.max(0, activeOf(myMulti.after, me.id) - rosterMax) : 0;
@@ -187,7 +188,7 @@ export default function Trades() {
       const before = assets(tid).players;
       const out = new Set(moves.filter((i) => i.from_team === tid && i.player_id).map((i) => i.player_id!));
       const inn = moves.filter((i) => dest(i) === tid && i.from_team !== tid && i.player_id).map((i) => players.get(i.player_id!)).filter((p): p is Player => !!p);
-      return { team: tid, before, after: [...before.filter((p) => !out.has(p.id)), ...inn], ir: irOf(tid), pickupsLeft: pkLeft(tid),
+      return { team: tid, before, after: [...before.filter((p) => !out.has(p.id)), ...inn], ir: irOf(tid), irCap, irAny, pickupsLeft: pkLeft(tid),
         drops: items.filter((i) => i.release && i.from_team === tid).map((i) => i.player_id!),
         pickupsOut: sum((i) => i.from_team === tid, 'pickups'), pickupsIn: sum((i) => dest(i) === tid && i.from_team !== tid, 'pickups'),
         coinsOut: sum((i) => i.from_team === tid, 'coins'), coinsIn: sum((i) => dest(i) === tid && i.from_team !== tid, 'coins'),

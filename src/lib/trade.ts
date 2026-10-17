@@ -9,7 +9,7 @@
 import type { DraftPick, Player, PlayerSeason, Standing } from './types';
 import { flexMult, rosPoints } from './playerstats';
 import { lineupStrength } from './grades';
-import { gamesOf, rosPerGame } from './lineup';
+import { gamesOf, irOk, rosPerGame } from './lineup';
 import { forecastPlayoffs, forecastTeam, type FGame, type FPlayer } from './forecast';
 import { injuryBack } from './format';
 
@@ -67,6 +67,8 @@ export function dropOrder(roster: Player[], candidates: Player[], v: Valuer, n =
 export interface Side {
   team: number; before: Player[]; after: Player[]; picksOut: DraftPick[]; picksIn: DraftPick[];
   ir?: Set<number>;                          // players in IR slots: they don't take an active roster spot
+  irCap?: number;                            // this league's IR slots
+  irAny?: Set<number>;                       // every player on any team's IR: one who comes in hurt can take an open IR slot
   drops?: number[];                          // the players this GM has named to drop with the deal
   pickupsIn?: number; pickupsOut?: number;   // free-agent pickups changing hands
   pickupsLeft?: number;                      // this team's pickups before the deal
@@ -117,6 +119,17 @@ export function schedStarters(ps: Player[], sc: Sched, team = 0) {
   return v;
 }
 
+// active players after a deal, counted the way the database counts them (_trade_active_after): a player kept on IR
+// doesn't count, and one who arrives from another team's IR with an injury slides into an IR slot left open
+export function activeAfter(s: Pick<Side, 'before' | 'after' | 'ir' | 'irCap' | 'irAny'>): number {
+  const ir = s.ir ?? new Set<number>();
+  const had = new Set(s.before.map((p) => p.id));
+  const kept = s.after.filter((p) => had.has(p.id)), inn = s.after.filter((p) => !had.has(p.id));
+  const irKept = kept.filter((p) => ir.has(p.id)).length;
+  const hurt = inn.filter((p) => s.irAny?.has(p.id) && irOk(p.injury_status)).length;
+  return kept.length - irKept + inn.length - Math.min(Math.max(0, (s.irCap ?? 0) - irKept), hurt);
+}
+
 export function evaluateSide(s: Side, v: Valuer, rosterMax: number, sc?: Sched): SideEval {
   const ir = s.ir ?? new Set<number>();
   const active = (ps: Player[]) => ps.filter((p) => !ir.has(p.id)).length;
@@ -124,7 +137,7 @@ export function evaluateSide(s: Side, v: Valuer, rosterMax: number, sc?: Sched):
   const out = s.before.filter((p) => !afterIds.has(p.id)), inn = s.after.filter((p) => !beforeIds.has(p.id));
   // too many players: the named drops go first, then the weakest of what's left (never someone just acquired)
   const named = (s.drops ?? []).map((id) => s.after.find((p) => p.id === id)).filter((p): p is Player => !!p);
-  const over = active(s.after) - rosterMax;
+  const over = activeAfter(s) - rosterMax;
   const drops: SideEval['drops'] = named.map((p) => ({ p, named: true, value: v.player(p) }));
   const namedActive = named.filter((p) => !ir.has(p.id)).length;
   if (over - namedActive > 0) {
@@ -197,7 +210,7 @@ export function posture(me: number, standings: Standing[], progress: number) {
 }
 
 // one team as the finder sees it: its roster, who's on IR, its pickups and its unused picks
-export interface TeamCtx { team: number; roster: Player[]; ir?: Set<number>; pickupsLeft?: number; picks?: DraftPick[] }
+export interface TeamCtx { team: number; roster: Player[]; ir?: Set<number>; irCap?: number; irAny?: Set<number>; pickupsLeft?: number; picks?: DraftPick[] }
 
 export interface Suggestion {
   partner: number; give: Player[]; get: Player[]; me: SideEval; them: SideEval; score: number;
@@ -209,9 +222,9 @@ type Deal = { give: Player[]; get: Player[]; givePicks?: DraftPick[]; getPicks?:
 // both sides of a deal, evaluated with everything that moves: players, picks, pickups and the roster spots
 export function evalDeal(me: TeamCtx, them: TeamCtx, d: Deal, v: Valuer, rosterMax: number, sc?: Sched) {
   const giveIds = new Set(d.give.map((p) => p.id)), getIds = new Set(d.get.map((p) => p.id));
-  const a = evaluateSide({ team: me.team, before: me.roster, after: [...me.roster.filter((p) => !giveIds.has(p.id)), ...d.get], ir: me.ir,
+  const a = evaluateSide({ team: me.team, before: me.roster, after: [...me.roster.filter((p) => !giveIds.has(p.id)), ...d.get], ir: me.ir, irCap: me.irCap, irAny: me.irAny,
     picksOut: d.givePicks ?? [], picksIn: d.getPicks ?? [], pickupsOut: d.givePk ?? 0, pickupsIn: d.getPk ?? 0, pickupsLeft: me.pickupsLeft }, v, rosterMax, sc);
-  const b = evaluateSide({ team: them.team, before: them.roster, after: [...them.roster.filter((p) => !getIds.has(p.id)), ...d.give], ir: them.ir,
+  const b = evaluateSide({ team: them.team, before: them.roster, after: [...them.roster.filter((p) => !getIds.has(p.id)), ...d.give], ir: them.ir, irCap: them.irCap, irAny: them.irAny,
     picksOut: d.getPicks ?? [], picksIn: d.givePicks ?? [], pickupsOut: d.getPk ?? 0, pickupsIn: d.givePk ?? 0, pickupsLeft: them.pickupsLeft }, v, rosterMax, sc);
   return { a, b };
 }
