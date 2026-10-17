@@ -894,3 +894,13 @@ lets a GM pick an IR player whose game is under way. The flow test covers both e
 - **Photos, search, sharing** (migration 310): photos up to 8 MB, shrunk on the phone, in a private bucket per league;
   search over every message you can see, opening the chat at the result; share any message or photo to Messages,
   WhatsApp and the rest; "is typing"; day separators; links that open; a "new messages" button; the chirp of the week.
+
+### 9.11 The week's numbers, and the door from the league to the pools, 17 October 2026
+
+The first measured week (10 to 17 October, `platform_week()` and `usage_daily`): SaK is the only league alive (8 GMs,
+340 opens over four days, Home 102 and My Team 71), every other pool has one member, and no pool was started and no one
+joined. My pools was opened once. The eight people who open the app every day had never been shown that it runs a pool
+for their other groups. **Your other crews** (`OtherCrews` on a fantasy league's home): the pools you're already in, one
+tap into each, and the best few events locking in the next ten days (one per sport, the hockey box pool first for the
+NHL), each a tap into the start page with the event and its pool chosen (`#/new?comp=…&kind=…&src=league_home`, so the
+funnel can tell these starts apart), and "anything else" for a questions pool. "Not now" puts it away for two weeks.
