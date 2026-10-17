@@ -5,12 +5,13 @@
 // Everything here is read from what the scoreboard already holds (the store's tonight's points, the puck-drop
 // lineups): no extra calls to the database.
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { Volume2, VolumeX } from 'lucide-react';
+import { Play, Volume2, VolumeX } from 'lucide-react';
 import type { Player, Standing, Team } from '../lib/types';
 import { fmtPts, ordinal, readable } from '../lib/format';
 import { gamesOf } from '../lib/lineup';
 import { Headshot, TeamBadge } from './ui';
 import { PlayerTag } from './PlayerCard';
+import { Video } from './LiveWatch';
 
 export type NightLine = { player_id: number; slot: string; pts: number; pg?: { fpts: number; stats: Record<string, number> } };
 export type NightRow = { t: Team; lines: NightLine[]; pts: number; done: number; playing: number; left: number; doneIds: Set<number>; playingIds: Set<number> };
@@ -296,7 +297,7 @@ export function NightTicker({ events, players, team, me, live }: { events: Night
 // Every goal of the night that a rostered player scored or set up, from the NHL's own scores feed (nhl-hub, cached at
 // the edge: one read for the whole slate), so the list is full the moment the page opens, not only what changed while
 // it was open. Read again each minute while a game is on; a night in the books reads once.
-type FeedGoal = { period: number; time: string; playerId: number; name: string; team: string; strength: string; away: number; home: number; assists: { playerId: number; name: string }[] };
+type FeedGoal = { period: number; time: string; playerId: number; name: string; team: string; strength: string; away: number; home: number; assists: { playerId: number; name: string }[]; clip?: string | number | null };
 type FeedGame = { id: number; start: string; state: string; home: { abbrev: string }; away: { abbrev: string }; goals?: FeedGoal[] };
 export type NightGoal = { key: string; at: number; game: FeedGame; goal: FeedGoal; people: { id: number; name: string; role: 'g' | 'a'; team_id: number; bench: boolean; pts: number }[] };
 
@@ -338,6 +339,8 @@ export function useNightGoals(day: string, live: boolean, owner: (id: number) =>
 export function NightGoals({ goals, players, team, me, live, past }: { goals: NightGoal[]; players: Map<number, Player>; team: (id: number | null) => Team | undefined; me: Team | null; live: boolean; past: boolean }) {
   const [all, setAll] = useState(false);
   const shown = all ? goals : goals.slice(0, 6);
+  // the goal's highlight, played in place under its row (the NHL posts it a few minutes after the goal)
+  const [watching, setWatching] = useState<string | null>(null);
   const per = (n: number) => (n <= 3 ? `P${n}` : n === 4 ? 'OT' : 'SO');
   return (
     <div className="card overflow-hidden">
@@ -377,7 +380,14 @@ export function NightGoals({ goals, players, team, me, live, past }: { goals: Ni
                   <div className="mt-0.5 text-[11px] text-mute">
                     {g.away.abbrev} {x.goal.away}–{x.goal.home} {g.home.abbrev} · {per(x.goal.period)} {x.goal.time}{x.goal.strength === 'pp' ? ' · power play' : x.goal.strength === 'sh' ? ' · shorthanded' : ''}
                   </div>
+                  {watching === x.key && x.goal.clip && <div className="mt-2"><Video id={String(x.goal.clip)} title={`${x.goal.name} goal`} onClose={() => setWatching(null)} /></div>}
                 </div>
+                {x.goal.clip && (
+                  <button type="button" aria-label={`Watch ${x.goal.name}'s goal`} onClick={() => setWatching(watching === x.key ? null : x.key)}
+                    className={`mt-0.5 grid h-8 w-8 shrink-0 place-items-center rounded-full ring-1 transition active:scale-95 ${watching === x.key ? 'bg-white/15 text-white ring-white/30' : 'bg-white/[.06] text-slate-200 ring-white/10'}`}>
+                    <Play size={14} className="ml-0.5" />
+                  </button>
+                )}
               </div>
             );
           })}

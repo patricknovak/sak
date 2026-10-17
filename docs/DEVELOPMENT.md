@@ -926,6 +926,10 @@ funnel can tell these starts apart), and "anything else" for a questions pool. "
   them (the goal or the assist, plus the power-play or shorthanded point), newest first; full the moment the page opens
   and kept for a night in the books. The session ticker stays as the fallback when the feed is out. Each goal adds
   whichever power-play, shorthanded or points stats the league scores (a Fantrax import may score PPG rather than PPP).
+  A goalie's point reads from the goalie sheet (Logan Thompson's assist on 17 October would have shown +1; SaK gives a
+  goalie nothing for it), and a goal the league doesn't score says "goal" or "assist". Each goal's highlight plays in place
+  under its row (the NHL's clip, the game sheet's player). Checked against live on 17 October: every rostered scorer and
+  assister in the feed matched the box scores.
 - **Trade drops counted the database's way** (from the logs: six offers turned away in eight minutes on 17 October
   before one went through): the builder counted a hurt player arriving from another team's IR as active, while
   `_trade_active_after` slides him into an IR slot the deal leaves open, so the builder could ask for a drop the
