@@ -361,7 +361,7 @@ export function NightGoals({ goals, players, team, me, live, past }: { goals: Ni
                 <span key={`${p.role}${p.id}`} className={`inline-flex items-center gap-1 ${p.bench ? 'opacity-70' : ''}`}>
                   {pl ? <PlayerTag p={pl} className="font-semibold" /> : <span className="font-semibold">{p.name}</span>}
                   {t && <TeamBadge team={t} size={14} />}
-                  <span className={`num rounded px-1 text-[10px] font-extrabold ${p.bench ? 'bg-amber-500/10 text-amber-200' : 'bg-emerald-400/15 text-emerald-200'}`}>+{fmtPts(p.pts)}{p.bench ? ' 🪑' : ''}</span>
+                  <span className={`num rounded px-1 text-[10px] font-extrabold ${p.bench ? 'bg-amber-500/10 text-amber-200' : 'bg-emerald-400/15 text-emerald-200'}`}>{p.pts ? `+${fmtPts(p.pts)}` : p.role === 'g' ? 'goal' : 'assist'}{p.bench ? ' 🪑' : ''}</span>
                 </span>
               );
             };
