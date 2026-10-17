@@ -2,7 +2,7 @@
 // and the mark it starts with, the way the league's own lines are written (SaK's real lines, checked 14 October);
 // one GM's view finds them by their posts, their DMs, and the league lines that name their team or them.
 import assert from 'node:assert/strict';
-import { aboutGm, chatKinds, chatMatch } from '../../src/lib/chatFilter.ts';
+import { aboutGm, byGm, chatKinds, chatMatch } from '../../src/lib/chatFilter.ts';
 
 let id = 0;
 const m = (body, o = {}) => ({ id: ++id, channel: 'general', team_id: null, kind: 'system', body, meta: null, reply_to: null, created_at: '2026-10-14T00:00:00Z', edited_at: null, deleted: false, ...o });
@@ -48,3 +48,16 @@ assert.ok(chatMatch(m('➕ Jays add Elias Pettersson (C · VAN)'), 'moves', jaso
 assert.ok(!chatMatch(m('➕ Ravens add Vince Dunn (D · SEA)'), 'moves', jason));
 assert.ok(!chatMatch(m('LFG', { kind: 'user', team_id: 3 }), 'moves', jason));
 console.log('chat filter tests passed');
+
+// a GM's own side: their posts, their private lines, the voice's answers to them; league lines naming them only with mentions
+const q = m('Who should I start?', { kind: 'user', team_id: 3, id: 900 });
+const ans = m('Start Robertson.', { kind: 'bot', reply_to: 900 });
+const parentOf = (id) => (id === 900 ? q : undefined);
+assert.ok(byGm(q, jason));
+assert.ok(byGm(ans, jason, parentOf));
+assert.ok(!byGm(m('➕ Jays add Elias Pettersson (C · VAN)'), jason));
+assert.ok(!chatMatch(m('➕ Jays add Elias Pettersson (C · VAN)'), 'all', jason, false));
+assert.ok(chatMatch(m('➕ Jays add Elias Pettersson (C · VAN)'), 'all', jason, true));
+assert.ok(chatMatch(ans, 'all', jason, false, parentOf));
+assert.ok(!chatMatch(m('Morning skate: Jason leads', { kind: 'bot' }), 'all', jason, false, parentOf));
+console.log('chat filter: a GM\'s own side ok');

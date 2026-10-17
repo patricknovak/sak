@@ -176,9 +176,11 @@ export function Layout({ children }: { children: ReactNode }) {
   ] : [
     { to: '/', label: 'Home', icon: Home },
     draftish ? { to: '/draft', label: 'Draft Centre', short: 'Draft', icon: ClipboardList } : spectator ? { to: '/standings', label: 'Standings', icon: Trophy } : { to: '/team', label: 'Lineup', icon: Shield },
+    // game night in the middle of the dock (16 October 2026, Patrick): the live scoreboard, a red dot while a game is on
+    ...(draftish ? [] : [{ to: '/scoreboard', label: 'Live scoreboard', short: 'Live', icon: Radio }]),
     { to: '/chat', label: 'Chat', icon: MessageCircle },
-    // the sport's own centre ("NHL centre" for hockey), from the sports row
-    { to: '/nhl', label: sport.words.centre ?? 'NHL centre', icon: Tv },
+    // the sport's own centre ("NHL centre" for hockey), from the sports row; the dock says the sport alone
+    { to: '/nhl', label: sport.words.centre ?? 'NHL centre', short: (sport.words.centre ?? 'NHL centre').replace(/\s*cent(re|er)$/i, '') || 'Centre', icon: Tv },
   ];
   const moreItems: Item[] = (pool ? [
     ...(runs.games && poolQuestions ? [{ to: '/questions', label: 'Questions', icon: Sparkles, group: 'Play' }] : []),
@@ -335,12 +337,12 @@ export function Layout({ children }: { children: ReactNode }) {
 
       {/* mobile dock */}
       <nav className="pb-safe fixed inset-x-0 bottom-0 z-40 px-3 lg:hidden">
-        <div className="mb-2 grid h-16 grid-cols-5 rounded-[22px] border border-white/10 bg-[#0d1528]/80 shadow-[0_18px_40px_-12px_rgba(0,0,0,.9),inset_0_1px_0_rgba(255,255,255,.07)] backdrop-blur-2xl">
+        <div style={{ gridTemplateColumns: `repeat(${items.length + 1}, minmax(0, 1fr))` }} className="mb-2 grid h-16 rounded-[22px] border border-white/10 bg-[#0d1528]/80 shadow-[0_18px_40px_-12px_rgba(0,0,0,.9),inset_0_1px_0_rgba(255,255,255,.07)] backdrop-blur-2xl">
           {items.map((i) => {
             const a = isActive(i.to);
             return (
               <NavLink key={i.to} to={i.to} end={i.to === '/'} className="relative flex flex-col items-center justify-center gap-1">
-                <span className={`grid h-8 w-12 place-items-center rounded-full transition-all duration-200 ${a ? 'bg-gradient-to-b from-gold/30 to-white/[.06] text-gold shadow-[0_0_18px_-4px_rgb(var(--gold-rgb)/.7)]' : 'text-slate-400'}`}>
+                <span className={`grid h-8 w-11 place-items-center rounded-full transition-all duration-200 ${a ? 'bg-gradient-to-b from-gold/30 to-white/[.06] text-gold shadow-[0_0_18px_-4px_rgb(var(--gold-rgb)/.7)]' : i.to === '/scoreboard' && gamesLive ? 'text-goal' : 'text-slate-400'}`}>
                   <i.icon size={20} strokeWidth={a ? 2.4 : 2} />
                 </span>
                 <span className={`whitespace-nowrap text-[10px] font-bold tracking-wide ${a ? 'text-white' : 'text-mute'}`}>{i.short ?? i.label}</span>
@@ -348,11 +350,12 @@ export function Layout({ children }: { children: ReactNode }) {
                   ? <span className="absolute right-[18%] top-1 grid h-4 min-w-4 place-items-center rounded-full border-2 border-[#0d1528] bg-goal px-1 text-[9px] font-bold leading-none text-white">{chatCount > 99 ? '99+' : chatCount}</span>
                   : <span className="absolute right-[24%] top-2 h-2.5 w-2.5 rounded-full border-2 border-[#0d1528] bg-goal" />)}
                 {i.to === '/draft' && draft?.status === 'live' && <span className="absolute right-[24%] top-2 h-2.5 w-2.5 animate-pulse rounded-full border-2 border-[#0d1528] bg-emerald-400" />}
+                {i.to === '/scoreboard' && gamesLive && <span className="absolute right-[22%] top-2 h-2.5 w-2.5 animate-pulse rounded-full border-2 border-[#0d1528] bg-goal shadow-[0_0_8px_rgba(239,42,79,.9)]" />}
               </NavLink>
             );
           })}
           <button onClick={() => setMore(true)} className="flex flex-col items-center justify-center gap-1">
-            <span className="grid h-8 w-12 place-items-center rounded-full text-slate-400"><Menu size={20} /></span>
+            <span className="grid h-8 w-11 place-items-center rounded-full text-slate-400"><Menu size={20} /></span>
             <span className="text-[10px] font-bold tracking-wide text-mute">More</span>
           </button>
         </div>
