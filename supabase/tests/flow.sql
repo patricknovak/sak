@@ -1578,6 +1578,8 @@ select count(*) as north_pings0 from notifications where team_id = 99 \gset
 insert into messages (channel, team_id, body) values ('general', 2, '@Nora @all big night boys');
 select pg_temp.expect('SaK @all does not reach the north', (select count(*) from notifications where team_id = 99) = :north_pings0);
 select pg_temp.expect('SaK @all still reaches SaK', (select count(*) from notifications where kind = 'mention' and body like '%big night boys%' and team_id <> 2) >= 1);
+select pg_temp.expect('a mention''s bell opens the chat at the message (migration 313)', (select bool_and(n.link = '/chat?m=' || m.id) from notifications n
+  join messages m on m.body like '%big night boys%' where n.kind = 'mention' and n.body like '%big night boys%'));
 -- a signed-in stranger with no membership belongs to no league and reads nothing
 insert into auth.users (id, email) values ('00000000-0000-0000-0000-000000000098', 'stranger@example.com');
 select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-000000000098', false);

@@ -911,3 +911,4 @@ funnel can tell these starts apart), and "anything else" for a questions pool. "
   that the pool's open link (`pool_share_link`, migration 162) could hand out a one-use invitation addressed to one
   person (migration 163), which no one else could use; it now skips them (no live pool had one yet). Your other crews
   lists the pools the league's GMs posted in its chat in the last month that you're not in, each a tap from joining.
+- **A mention's bell opens the chat at the message** (migration 313): `/chat?m=<id>` instead of the top of the main room.
