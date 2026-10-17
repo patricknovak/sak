@@ -5,12 +5,13 @@
 // Everything here is read from what the scoreboard already holds (the store's tonight's points, the puck-drop
 // lineups): no extra calls to the database.
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { Volume2, VolumeX } from 'lucide-react';
+import { Play, Volume2, VolumeX } from 'lucide-react';
 import type { Player, Standing, Team } from '../lib/types';
 import { fmtPts, ordinal, readable } from '../lib/format';
 import { gamesOf } from '../lib/lineup';
 import { Headshot, TeamBadge } from './ui';
 import { PlayerTag } from './PlayerCard';
+import { Video } from './LiveWatch';
 
 export type NightLine = { player_id: number; slot: string; pts: number; pg?: { fpts: number; stats: Record<string, number> } };
 export type NightRow = { t: Team; lines: NightLine[]; pts: number; done: number; playing: number; left: number; doneIds: Set<number>; playingIds: Set<number> };
@@ -70,10 +71,16 @@ export function useNightFeed(key: string, on: boolean, boxes: Box[], owner: (id:
   return { events, flash };
 }
 
+// one sound engine for the page, woken by a tap (phones start it muted until someone touches the screen)
+let actx: AudioContext | null = null;
+const audio = () => {
+  try { actx ??= new AudioContext(); if (actx.state === 'suspended') actx.resume().catch(() => {}); return actx; } catch { return null; }
+};
 // a goal horn, made on the spot (no sound file to load): a low, wide chord that swells and fades
 export function goalHorn() {
   try {
-    const ctx = new AudioContext();
+    const ctx = audio();
+    if (!ctx) return;
     const out = ctx.createGain();
     out.gain.setValueAtTime(0.0001, ctx.currentTime);
     out.gain.exponentialRampToValueAtTime(0.18, ctx.currentTime + 0.12);
@@ -91,6 +98,13 @@ export function goalHorn() {
 }
 export function useHorn(): [boolean, (v: boolean) => void] {
   const [on, set] = useState(() => { try { return localStorage.getItem('sak-horn') === '1'; } catch { return false; } });
+  // the horn was left on: the first touch on the page wakes the sound so the next goal is heard
+  useEffect(() => {
+    if (!on) return;
+    const wake = () => { audio(); };
+    document.addEventListener('pointerdown', wake, { once: true });
+    return () => document.removeEventListener('pointerdown', wake);
+  }, [on]);
   return [on, (v) => { set(v); try { localStorage.setItem('sak-horn', v ? '1' : '0'); } catch { /* private mode */ } if (v) goalHorn(); }];
 }
 export function HornToggle({ on, set }: { on: boolean; set: (v: boolean) => void }) {
@@ -273,6 +287,111 @@ export function NightTicker({ events, players, team, me, live }: { events: Night
             );
           })}
           {events.length > 6 && <button type="button" onClick={() => setAll(!all)} className="w-full py-2 text-center text-xs font-semibold text-sky-300">{all ? 'Show less' : `Show all ${events.length}`}</button>}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ---------- the night's goals ----------
+// Every goal of the night that a rostered player scored or set up, from the NHL's own scores feed (nhl-hub, cached at
+// the edge: one read for the whole slate), so the list is full the moment the page opens, not only what changed while
+// it was open. Read again each minute while a game is on; a night in the books reads once.
+type FeedGoal = { period: number; time: string; playerId: number; name: string; team: string; strength: string; away: number; home: number; assists: { playerId: number; name: string }[]; clip?: string | number | null };
+type FeedGame = { id: number; start: string; state: string; home: { abbrev: string }; away: { abbrev: string }; goals?: FeedGoal[] };
+export type NightGoal = { key: string; at: number; game: FeedGame; goal: FeedGoal; people: { id: number; name: string; role: 'g' | 'a'; team_id: number; bench: boolean; pts: number }[] };
+
+export function useNightGoals(day: string, live: boolean, owner: (id: number) => { team_id: number; bench: boolean } | null,
+  scoring: { skater: Record<string, number>; goalie: Record<string, number> } | undefined, isGoalie: (id: number) => boolean) {
+  const [games, setGames] = useState<FeedGame[] | null>(null);
+  useEffect(() => {
+    let dead = false;
+    const read = () => import('../lib/nhlhub').then(({ hub }) => hub<{ games?: FeedGame[] }>('scores', { date: day })).then((s) => { if (!dead) setGames(s?.games ?? []); }, () => { if (!dead) setGames((g) => g ?? []); });
+    read();
+    if (!live) return () => { dead = true; };
+    const i = setInterval(() => { if (document.visibilityState === 'visible') read(); }, 60_000);
+    return () => { dead = true; clearInterval(i); };
+  }, [day, live]);
+  return useMemo(() => {
+    if (!games) return null;
+    const out: NightGoal[] = [];
+    for (const g of games) for (const [i, goal] of (g.goals ?? []).entries()) {
+      // what the goal was worth to each rostered player in it: the goal or the assist, the point, and the power-play or
+      // shorthanded point, goal or assist, whichever of them the league scores (SaK scores PPP; a Fantrax import may score PPG)
+      const pp = goal.strength === 'pp', sh = goal.strength === 'sh';
+      // a goalie's assist is scored on the goalie sheet (SaK gives it nothing), a skater's on the skater sheet
+      const worth = (role: 'g' | 'a', id: number) => { const w = (isGoalie(id) ? scoring?.goalie : scoring?.skater) ?? {}; return (w[role] ?? 0) + (w.pts ?? 0)
+        + (pp ? (w.ppp ?? 0) + (w[role === 'g' ? 'ppg' : 'ppa'] ?? 0) : 0)
+        + (sh ? (w.shp ?? 0) + (w[role === 'g' ? 'shg' : 'sha'] ?? 0) : 0); };
+      const people = [{ id: goal.playerId, name: goal.name, role: 'g' as const }, ...goal.assists.map((a) => ({ id: a.playerId, name: a.name, role: 'a' as const }))]
+        .map((x) => { const o = owner(x.id); return o ? { ...x, team_id: o.team_id, bench: o.bench, pts: worth(x.role, x.id) } : null; })
+        .filter((x): x is NonNullable<typeof x> => !!x);
+      if (!people.length) continue;
+      const [mm, ss] = goal.time.split(':').map(Number);
+      // roughly when it went in: the puck drop, the periods before it with their intermissions, the clock into this one
+      const at = Date.parse(g.start) + ((goal.period - 1) * 38 + (mm || 0) + (ss || 0) / 60) * 60_000;
+      out.push({ key: `${g.id}:${i}`, at, game: g, goal, people });
+    }
+    return out.sort((a, b) => b.at - a.at);
+  }, [games, scoring, owner, isGoalie]);
+}
+
+export function NightGoals({ goals, players, team, me, live, past }: { goals: NightGoal[]; players: Map<number, Player>; team: (id: number | null) => Team | undefined; me: Team | null; live: boolean; past: boolean }) {
+  const [all, setAll] = useState(false);
+  const shown = all ? goals : goals.slice(0, 6);
+  // the goal's highlight, played in place under its row (the NHL posts it a few minutes after the goal)
+  const [watching, setWatching] = useState<string | null>(null);
+  const per = (n: number) => (n <= 3 ? `P${n}` : n === 4 ? 'OT' : 'SO');
+  return (
+    <div className="card overflow-hidden">
+      <div className="flex items-center gap-2 border-b border-white/[.06] px-3 py-2">
+        {live && <span className="h-2 w-2 animate-pulse rounded-full bg-goal shadow-[0_0_8px_rgba(239,42,79,.9)]" />}
+        <span className="text-[11px] font-black uppercase tracking-[.16em] text-mute">{past ? 'The night’s goals' : 'Goals tonight'}</span>
+        <span className="ml-auto text-[10px] text-mute">{goals.length} with a rostered player</span>
+      </div>
+      {goals.length === 0 ? (
+        <div className="px-3 py-4 text-center text-xs text-mute">{live ? 'No goal by a rostered player yet. Each one lands here as it goes in.' : 'No goals by rostered players yet tonight.'}</div>
+      ) : (
+        <div className="divide-y divide-white/[.05]">
+          {shown.map((x) => {
+            const mine = !!me && x.people.some((p) => p.team_id === me.id && !p.bench);
+            const scorer = x.people.find((p) => p.role === 'g');
+            const helpers = x.people.filter((p) => p.role === 'a');
+            const g = x.game;
+            const tag = (p: (typeof x.people)[number]) => {
+              const t = team(p.team_id);
+              const pl = players.get(p.id);
+              return (
+                <span key={`${p.role}${p.id}`} className={`inline-flex items-center gap-1 ${p.bench ? 'opacity-70' : ''}`}>
+                  {pl ? <PlayerTag p={pl} className="font-semibold" /> : <span className="font-semibold">{p.name}</span>}
+                  {t && <TeamBadge team={t} size={14} />}
+                  <span className={`num rounded px-1 text-[10px] font-extrabold ${p.bench ? 'bg-amber-500/10 text-amber-200' : 'bg-emerald-400/15 text-emerald-200'}`}>{p.pts ? `+${fmtPts(p.pts)}` : p.role === 'g' ? 'goal' : 'assist'}{p.bench ? ' 🪑' : ''}</span>
+                </span>
+              );
+            };
+            return (
+              <div key={x.key} className={`flex items-start gap-2.5 px-3 py-2 ${mine ? 'bg-gradient-to-r from-goal/[.14] to-transparent' : ''}`}>
+                <span className={`mt-0.5 grid h-9 w-9 shrink-0 place-items-center rounded-xl text-lg ${scorer ? 'bg-goal/20 ring-1 ring-goal/40' : 'bg-white/[.05] ring-1 ring-white/10'}`}>{scorer ? '🚨' : '🍎'}</span>
+                <div className="min-w-0 flex-1 text-sm leading-snug">
+                  <div className="flex flex-wrap items-center gap-x-1.5 gap-y-0.5">
+                    {scorer ? tag(scorer) : <span className="text-slate-300">Goal by {x.goal.name}</span>}
+                  </div>
+                  {helpers.length > 0 && <div className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[13px] text-slate-300"><span className="text-mute">{scorer ? 'from' : 'set up by'}</span>{helpers.map(tag)}</div>}
+                  <div className="mt-0.5 text-[11px] text-mute">
+                    {g.away.abbrev} {x.goal.away}–{x.goal.home} {g.home.abbrev} · {per(x.goal.period)} {x.goal.time}{x.goal.strength === 'pp' ? ' · power play' : x.goal.strength === 'sh' ? ' · shorthanded' : ''}
+                  </div>
+                  {watching === x.key && x.goal.clip && <div className="mt-2"><Video id={String(x.goal.clip)} title={`${x.goal.name} goal`} onClose={() => setWatching(null)} /></div>}
+                </div>
+                {x.goal.clip && (
+                  <button type="button" aria-label={`Watch ${x.goal.name}'s goal`} onClick={() => setWatching(watching === x.key ? null : x.key)}
+                    className={`mt-0.5 grid h-8 w-8 shrink-0 place-items-center rounded-full ring-1 transition active:scale-95 ${watching === x.key ? 'bg-white/15 text-white ring-white/30' : 'bg-white/[.06] text-slate-200 ring-white/10'}`}>
+                    <Play size={14} className="ml-0.5" />
+                  </button>
+                )}
+              </div>
+            );
+          })}
+          {goals.length > 6 && <button type="button" onClick={() => setAll(!all)} className="w-full py-2 text-center text-xs font-semibold text-sky-300">{all ? 'Show less' : `Show all ${goals.length}`}</button>}
         </div>
       )}
     </div>

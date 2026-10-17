@@ -73,7 +73,8 @@ export default function Chat() {
     }, 250);
     return () => { live = false; clearTimeout(t); };
   }, [q, searching, gm?.id, mentions]); // eslint-disable-line react-hooks/exhaustive-deps
-  const open = (id: number) => { const next = new URLSearchParams(params); next.set('m', String(id)); setParams(next, { replace: true }); setSearching(false); };
+  // a result opens with the filters cleared, so the message is in view whatever it is
+  const open = (id: number) => { setParams(new URLSearchParams({ m: String(id) }), { replace: true }); setSearching(false); };
   const mark = (body: string) => {
     const term = q.trim();
     const i = body.toLowerCase().indexOf(term.toLowerCase());
@@ -99,7 +100,7 @@ export default function Chat() {
           {/* what: one kind of message */}
           <div ref={chips} className={`scroll-x min-w-0 flex-1 gap-1.5 ${searching ? 'hidden' : 'flex'}`}>
             {kinds.map((k) => (
-              <button key={k.k} data-on={what === k.k ? '1' : undefined} onClick={() => set(k.k, gm?.id ?? null)}
+              <button key={k.k} data-on={what === k.k ? '1' : undefined} onClick={() => set(k.k, gm?.id ?? null, mentions)}
                 className={`flex shrink-0 items-center gap-1 rounded-full px-3 py-1.5 text-sm font-semibold transition ${what === k.k ? 'bg-white text-ice shadow-[0_6px_18px_-8px_rgba(255,255,255,.6)]' : 'border border-white/[.07] bg-white/[.05] text-slate-300'}`}>
                 <span>{k.k === 'garry' ? brand.bot.emoji : k.icon}</span>{k.label.replace('{bot}', brand.bot.name)}
               </button>

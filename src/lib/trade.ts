@@ -10,6 +10,8 @@ import type { DraftPick, Player, PlayerSeason, Standing } from './types';
 import { flexMult, rosPoints } from './playerstats';
 import { lineupStrength } from './grades';
 import { gamesOf, rosPerGame } from './lineup';
+import { activeAfter } from './tradeCount';
+export { activeAfter };
 import { forecastPlayoffs, forecastTeam, type FGame, type FPlayer } from './forecast';
 import { injuryBack } from './format';
 
@@ -67,6 +69,8 @@ export function dropOrder(roster: Player[], candidates: Player[], v: Valuer, n =
 export interface Side {
   team: number; before: Player[]; after: Player[]; picksOut: DraftPick[]; picksIn: DraftPick[];
   ir?: Set<number>;                          // players in IR slots: they don't take an active roster spot
+  irCap?: number;                            // this league's IR slots
+  irAny?: Set<number>;                       // every player on any team's IR: one who comes in hurt can take an open IR slot
   drops?: number[];                          // the players this GM has named to drop with the deal
   pickupsIn?: number; pickupsOut?: number;   // free-agent pickups changing hands
   pickupsLeft?: number;                      // this team's pickups before the deal
@@ -124,7 +128,7 @@ export function evaluateSide(s: Side, v: Valuer, rosterMax: number, sc?: Sched):
   const out = s.before.filter((p) => !afterIds.has(p.id)), inn = s.after.filter((p) => !beforeIds.has(p.id));
   // too many players: the named drops go first, then the weakest of what's left (never someone just acquired)
   const named = (s.drops ?? []).map((id) => s.after.find((p) => p.id === id)).filter((p): p is Player => !!p);
-  const over = active(s.after) - rosterMax;
+  const over = activeAfter(s) - rosterMax;
   const drops: SideEval['drops'] = named.map((p) => ({ p, named: true, value: v.player(p) }));
   const namedActive = named.filter((p) => !ir.has(p.id)).length;
   if (over - namedActive > 0) {
@@ -136,7 +140,7 @@ export function evaluateSide(s: Side, v: Valuer, rosterMax: number, sc?: Sched):
   const kept = s.after.filter((p) => !dropIds.has(p.id));
   // fewer players: a new open spot goes to the best free agent, if there's a pickup to spend on it
   const pkAfter = (s.pickupsLeft ?? 3) + (s.pickupsIn ?? 0) - (s.pickupsOut ?? 0);
-  const opened = Math.max(0, rosterMax - active(kept)) - Math.max(0, rosterMax - active(s.before));
+  const opened = Math.max(0, rosterMax - activeAfter({ ...s, after: kept })) - Math.max(0, rosterMax - active(s.before));
   const fills: SideEval['fills'] = [];
   if (opened > 0 && pkAfter > 0) {
     for (const p of v.fa.filter((p) => !afterIds.has(p.id)).slice(0, Math.min(opened, pkAfter))) fills.push({ p, value: v.player(p) });
@@ -158,7 +162,7 @@ export function evaluateSide(s: Side, v: Valuer, rosterMax: number, sc?: Sched):
   for (const p of inn) if (p.injury_status && OUT.test(p.injury_status)) warnings.push(`${p.name} is listed ${p.injury_status}${injuryBack(p.injury_return) ? ` (${injuryBack(p.injury_return)})` : ''}`);
   return {
     team: s.team, startersBefore: b.starters, startersAfter: a.starters, startersDelta: a.starters - b.starters,
-    depthBefore: b.depth, depthAfter: a.depth, valueOut, valueIn, net: valueIn - valueOut, pos, rosterAfter: active(final), warnings,
+    depthBefore: b.depth, depthAfter: a.depth, valueOut, valueIn, net: valueIn - valueOut, pos, rosterAfter: activeAfter({ ...s, after: final }), warnings,
     drops, fills, pickupValue: pkTrade, coinsNet: (s.coinsIn ?? 0) - (s.coinsOut ?? 0),
   };
 }
@@ -197,7 +201,7 @@ export function posture(me: number, standings: Standing[], progress: number) {
 }
 
 // one team as the finder sees it: its roster, who's on IR, its pickups and its unused picks
-export interface TeamCtx { team: number; roster: Player[]; ir?: Set<number>; pickupsLeft?: number; picks?: DraftPick[] }
+export interface TeamCtx { team: number; roster: Player[]; ir?: Set<number>; irCap?: number; irAny?: Set<number>; pickupsLeft?: number; picks?: DraftPick[] }
 
 export interface Suggestion {
   partner: number; give: Player[]; get: Player[]; me: SideEval; them: SideEval; score: number;
@@ -209,9 +213,9 @@ type Deal = { give: Player[]; get: Player[]; givePicks?: DraftPick[]; getPicks?:
 // both sides of a deal, evaluated with everything that moves: players, picks, pickups and the roster spots
 export function evalDeal(me: TeamCtx, them: TeamCtx, d: Deal, v: Valuer, rosterMax: number, sc?: Sched) {
   const giveIds = new Set(d.give.map((p) => p.id)), getIds = new Set(d.get.map((p) => p.id));
-  const a = evaluateSide({ team: me.team, before: me.roster, after: [...me.roster.filter((p) => !giveIds.has(p.id)), ...d.get], ir: me.ir,
+  const a = evaluateSide({ team: me.team, before: me.roster, after: [...me.roster.filter((p) => !giveIds.has(p.id)), ...d.get], ir: me.ir, irCap: me.irCap, irAny: me.irAny,
     picksOut: d.givePicks ?? [], picksIn: d.getPicks ?? [], pickupsOut: d.givePk ?? 0, pickupsIn: d.getPk ?? 0, pickupsLeft: me.pickupsLeft }, v, rosterMax, sc);
-  const b = evaluateSide({ team: them.team, before: them.roster, after: [...them.roster.filter((p) => !getIds.has(p.id)), ...d.give], ir: them.ir,
+  const b = evaluateSide({ team: them.team, before: them.roster, after: [...them.roster.filter((p) => !getIds.has(p.id)), ...d.give], ir: them.ir, irCap: them.irCap, irAny: them.irAny,
     picksOut: d.getPicks ?? [], picksIn: d.givePicks ?? [], pickupsOut: d.getPk ?? 0, pickupsIn: d.givePk ?? 0, pickupsLeft: them.pickupsLeft }, v, rosterMax, sc);
   return { a, b };
 }

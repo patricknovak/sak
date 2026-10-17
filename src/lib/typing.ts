@@ -12,9 +12,11 @@ let refs = 0;
 const listeners = new Set<(p: Ping) => void>();
 
 function join(league: number) {
-  if (ch && topicLeague === league) { refs++; return; }
+  refs++;
+  if (ch && topicLeague === league) return;
+  // a different league: the one topic moves to it; the count still covers every chat holding it
   if (ch) { supabase.removeChannel(ch); ch = null; }
-  topicLeague = league; refs = 1;
+  topicLeague = league;
   ch = supabase.channel(`typing:${league}`, { config: { broadcast: { self: false } } })
     .on('broadcast', { event: 'typing' }, ({ payload }) => { const p = payload as Ping; listeners.forEach((f) => f({ ...p, at: Date.now() })); });
   ch.subscribe();
