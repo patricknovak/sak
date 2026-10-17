@@ -921,3 +921,7 @@ funnel can tell these starts apart), and "anything else" for a questions pool. "
   engine woken by a tap (phones start a new one muted); a photo no phone can show (an iPhone's HEIC the browser can't
   read) is turned away with a plain message instead of going up broken; "is typing" survives a change of league with
   two chats open; the "new" count leaves out what the filter hides.
+- **The night's goals on the scoreboard**: every goal a rostered player scored or set up, from the NHL's scores feed (one
+  cached read for the slate, again each minute while a game is on), with each player's GM and what the goal was worth to
+  them (the goal or the assist, plus the power-play or shorthanded point), newest first; full the moment the page opens
+  and kept for a night in the books. The session ticker stays as the fallback when the feed is out.

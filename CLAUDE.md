@@ -71,7 +71,9 @@ Two things in one repo:
   `src/components/lineup/`, the data in `src/lib/lineupKit.ts` (tonight's points from the store's `dayPoints`, `useDayPoints`). Lineup New,
   tried beside it from 5 October, was folded in and retired on 11 October 2026; `#/lineup-new` forwards to `#/team`.
   The live scoreboard's Tonight's points lists every starter team by team, under your night (points, rank, a projected
-  finish), the stars of the night, a ticker of what just happened with a goal horn for your starters, and the race as it
+  finish), the stars of the night, the night's goals by rostered players (scorer, assists, what each was worth, from the
+  NHL's scores feed through nhl-hub, `useNightGoals`) or, without it, a ticker of what just happened, a goal horn for your
+  starters, and the race as it
   stands if the night ended now (`src/components/LiveNight.tsx`, all from the store's numbers); Performance has a Weekly review
   (`WeeklyReview`, deterministic suggestions from the trade finder and free agents). Later days save through
   `set_lineup_plans`; plans are readable league-wide (migration 164).

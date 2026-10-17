@@ -2,7 +2,7 @@
 // Step back a day (or any number of days) to review a night that is already in the books.
 // The bench is tracked too: what each GM left on the bench and IR that night and over the season so far.
 // Bench points are shown and never counted; they come from the same puck-drop freeze-frames as the starters.
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { useLeague, useNow, useSport } from '../lib/store';
 import { extraTime, hasStarted, isFinal, isLive, periodShort, type SportConfig } from '../lib/sport';
@@ -21,7 +21,7 @@ import { LiveRoomCard } from '../components/LiveRoomCard';
 import { liveRoomOn } from '../lib/features';
 import { threadOf, useThreadCounts } from '../components/GameThread';
 import { useUnread } from '../components/Layout';
-import { HornToggle, LiveRace, NightStars, NightTicker, YourNight, goalHorn, useHorn, useNightFeed, type NightEvent } from '../components/LiveNight';
+import { HornToggle, LiveRace, NightGoals, NightStars, NightTicker, YourNight, goalHorn, useHorn, useNightFeed, useNightGoals, type NightEvent } from '../components/LiveNight';
 import { useToast } from '../components/ui';
 
 type Snap = { team_id: number; player_id: number; slot: string; game_id: number };
@@ -222,6 +222,9 @@ export default function Scoreboard() {
     if (horn && e.big) goalHorn();
   };
   const feed = useNightFeed(`${league?.league_id ?? 0}:${today}`, !past, pgs, (id) => ownerOf.get(id) ?? null, onMoment);
+  // the night's goals by rostered players, from the NHL's scores feed: full the moment the page opens
+  const ownerFn = useCallback((id: number) => ownerOf.get(id) ?? null, [ownerOf]);
+  const nightGoals = useNightGoals(today, !past && slate.some((g) => isLive(sport, g.state)), ownerFn, league?.scoring.skater);
   const jumpTo = (id: number) => { setShut(flip(shut, id, false)); document.getElementById(`sb-${id}`)?.scrollIntoView({ behavior: 'smooth', block: 'start' }); };
   // how many of the league's starters (and yours) each game carries tonight
   const stake = useMemo(() => {
@@ -368,7 +371,9 @@ export default function Scoreboard() {
             <YourNight rows={rows} me={me && me.role !== 'spectator' ? me : null} players={players} past={past} />
             <NightStars rows={rows} players={players} past={past} />
           </div>
-          {!past && <NightTicker events={feed.events} players={players} team={team} me={me} live={anyLive} />}
+          {/* the night's goals when the feed has them; the moments seen on this page otherwise (the feed out, or a quiet night) */}
+          {nightGoals && (nightGoals.length > 0 || past) ? <NightGoals goals={nightGoals} players={players} team={team} me={me} live={!past && anyLive} past={past} />
+            : !past && <NightTicker events={feed.events} players={players} team={team} me={me} live={anyLive} />}
         </div>
       )}
       {!past && liveRoomOn(league) && <LiveRoomCard slate={slate} onGame={(id) => { const g = slate.find((x) => x.id === id); if (g) openGame(g); }} />}
