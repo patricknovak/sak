@@ -9,8 +9,9 @@ const SIGN_UP_KEY = 'sp_sign_up';
 const poolCreatedKey = (id: string | number) => `sp_pool_created:${id}`;
 const joinGroupKey = (id: string | number) => `sp_join_group:${id}`;
 
-// Google Ads (741-146-2618): enhanced conversions on the same Google tag as GA4.
-const ADS_ID = 'AW-7411462618';
+// Google Ads tag (AW-949617778): enhanced conversions on the same Google tag as GA4.
+// Not the Ads customer ID (741-146-2618) — that is not a valid AW- tag id.
+const ADS_ID = 'AW-949617778';
 
 // Tests inject a measurement ID without Vite. Production always reads VITE_GA4_ID.
 let testGaId: string | undefined;

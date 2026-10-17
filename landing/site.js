@@ -36,7 +36,9 @@ function spAttribution() {
   } catch (e) { return {}; }
 }
 
-// Consented GA4 (Consent Mode v2). Defaults denied; gtag loads only after Accept, and only when GA4_ID is set.
+// Consented GA4 + Google Ads (Consent Mode v2). Defaults denied; gtag loads only after Accept.
+// Accept maps to analytics_storage + ad_user_data + ad_storage (same as the app); AW tag only then.
+var ADS_ID = 'AW-949617778';
 (function analytics() {
   if (!GA4_ID) return;
   window.dataLayer = window.dataLayer || [];
@@ -56,14 +58,30 @@ function spAttribution() {
     s.src = 'https://www.googletagmanager.com/gtag/js?id=' + encodeURIComponent(GA4_ID);
     document.head.appendChild(s);
   }
+  function grantAds() {
+    gtag('consent', 'update', {
+      analytics_storage: 'granted', ad_user_data: 'granted', ad_storage: 'granted'
+    });
+  }
+  function configAds() {
+    gtag('config', ADS_ID, { allow_enhanced_conversions: true });
+  }
   function setConsent(granted) {
     spStoreSet(CONSENT_KEY, granted ? 'granted' : 'denied');
-    gtag('consent', 'update', { analytics_storage: granted ? 'granted' : 'denied' });
-    if (granted) loadTag();
+    if (granted) {
+      grantAds();
+      loadTag();
+      configAds();
+    } else {
+      gtag('consent', 'update', {
+        analytics_storage: 'denied', ad_user_data: 'denied', ad_storage: 'denied',
+        ad_personalization: 'denied'
+      });
+    }
     var bar = document.getElementById('sp-consent');
     if (bar) bar.remove();
   }
-  if (spStoreGet(CONSENT_KEY) === 'granted') { gtag('consent', 'update', { analytics_storage: 'granted' }); loadTag(); return; }
+  if (spStoreGet(CONSENT_KEY) === 'granted') { grantAds(); loadTag(); configAds(); return; }
   if (spStoreGet(CONSENT_KEY) === 'denied') return;
 
   function showBanner() {

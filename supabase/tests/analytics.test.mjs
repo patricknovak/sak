@@ -157,6 +157,9 @@ function installDom({ hash = '#/', consent = null } = {}) {
   initAnalytics();
   assert.equal(pageViewEntries().length, 0);
 
+  const awBefore = dataLayerEntries().filter((e) => isArguments(e) && e[0] === 'config' && String(e[1] || '').startsWith('AW-'));
+  assert.equal(awBefore.length, 0, 'no AW config before Accept');
+
   setAnalyticsConsent(true);
 
   assert.equal(getAnalyticsConsent(), 'granted');
@@ -164,6 +167,12 @@ function installDom({ hash = '#/', consent = null } = {}) {
   assert.ok(tag, 'gtag.js loads on Accept');
   assert.match(tag.src, /googletagmanager\.com\/gtag\/js\?id=G-TESTID/);
   assert.equal(headKids.length, 1);
+
+  const awAfter = dataLayerEntries().filter((e) => isArguments(e) && e[0] === 'config' && String(e[1] || '').startsWith('AW-'));
+  assert.equal(awAfter.length, 1, 'one AW config after Accept');
+  assert.equal(awAfter[0][1], 'AW-949617778');
+  assert.equal(awAfter[0][2]?.allow_enhanced_conversions, true);
+  assert.equal(awAfter.some((e) => e[1] === 'AW-7411462618'), false, 'old customer-id AW is gone');
 
   const views = pageViewEntries();
   assert.equal(views.length, 1, 'one page_view right after Accept');
