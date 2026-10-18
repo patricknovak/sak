@@ -472,7 +472,9 @@ The steps above finish the tenancy. `docs/MARKET.md` sets what comes after in th
     drawn before its matchup is set fills its other side when the series has it (318); a World Series landing page with
     its own share card (`landing/world-series-pools.html`), every button starting the pool with the kind ticked and
     tagged for the funnel; the start page and SaK's "Your other crews" lead with an event whose final is within two
-    weeks; landing copy that follows the calendar (`data-until`, `data-from` in `landing/site.js`).
+    weeks; landing copy that follows the calendar (`data-until`, `data-from` in `landing/site.js`); calls on a series' games
+    the feed answers (Game 1's winner, whether it takes the series, extra innings: migration 321); and, from the NBA
+    opening-week audit, win totals' lock held the moment the season starts (322) and an even-money price keeping its spread.
 
 Then horizon 2 (soccer on licensed data, basketball, the multi-sport pool, the Supercoin prediction market,
 the Super Pool bundle, the public API) and horizon 3 (cricket free-to-play, baseball, football and college,

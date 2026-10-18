@@ -3899,6 +3899,68 @@ select set_config('app.league_id', '', false);
 select set_config('request.jwt.claim.sub', '', false);
 select 'pack questions as they stand', true;
 
+-- calls on a series' games (migration 321): one game's winner once it's final, whether Game 1's winner takes the series,
+-- and extra innings (yes the moment a game passes the ninth, no only once the series is over with every game's innings in)
+reset role;
+insert into competitions (id, sport, name, short, season, provider, ext_id, ext_season, active, format)
+values ('fg-test', 'mlb', 'Game test', 'FG', '2026', 'mlb-statsapi', 'fgt', '2026', true, 'series') on conflict (id) do nothing;
+insert into clubs (sport, provider, ext_id, name) values ('mlb', 'fg', 'fg1', 'Game Gulls'), ('mlb', 'fg', 'fg2', 'Game Grebes'), ('mlb', 'fg', 'fg3', 'Game Geese');
+insert into series (sport, competition, provider, ext_id, round, label, best_of, high_club, low_club, high_wins, low_wins, winner, state, tbd)
+select 'mlb', 'fg-test', 'fg', 'fgs1', 4, 'Game final', 7, (select id from clubs where ext_id = 'fg1'), (select id from clubs where ext_id = 'fg2'), 0, 0, null::bigint, 'scheduled', false;
+insert into fixtures (sport, competition, provider, ext_id, season, kickoff, date, home_club, away_club, state, home_score, away_score, series_id, game_no)
+select 'mlb', 'fg-test', 'fg', 'fgg' || n, '2026', now() + n * interval '1 day', current_date + n,
+  (select id from clubs where ext_id = 'fg1'), (select id from clubs where ext_id = 'fg2'), 'scheduled', null::int, null::int,
+  (select id from series where ext_id = 'fgs1'), n
+from generate_series(1, 2) n;
+select pg_temp.expect('nothing to call before a pitch', _feed_answer('{"kind":"game","competition":"fg-test","series":"Game final","game":1}') is null
+  and _feed_answer('{"kind":"extras","competition":"fg-test","series":"Game final","after":9}') is null
+  and _feed_answer('{"kind":"opener_wins","competition":"fg-test","series":"Game final"}') is null);
+-- Game 1: the Grebes win 3-2 on the road in nine
+update fixtures set state = 'final', home_score = 2, away_score = 3 where ext_id = 'fgg1';
+insert into fixture_periods (fixture_id, n, home, away) select id, i, 0, 0 from fixtures, generate_series(1, 9) i where ext_id = 'fgg1';
+select pg_temp.expect('Game 1 goes to the club ahead once it''s final, and the question drops off the start page',
+  _feed_answer('{"kind":"game","competition":"fg-test","series":"Game final","game":1}') = 'Game Grebes'
+  and _pack_market_now('{"title":"g1","outcomes":["Game Gulls","Game Grebes"],"feed":{"kind":"game","competition":"fg-test","series":"Game final","game":1}}') is null
+  and _feed_answer('{"kind":"game","competition":"fg-test","series":"Game final","game":2}') is null);
+select pg_temp.expect('nine innings isn''t extras yet, and isn''t "no" while the series is on',
+  _feed_answer('{"kind":"extras","competition":"fg-test","series":"Game final","after":9}') is null);
+-- Game 2 is still on in the tenth: extras the moment it starts
+update fixtures set state = 'live', home_score = 4, away_score = 4 where ext_id = 'fgg2';
+insert into fixture_periods (fixture_id, n, home, away) select id, i, 0, 0 from fixtures, generate_series(1, 10) i where ext_id = 'fgg2';
+select pg_temp.expect('the tenth inning is extras, game still on', _feed_answer('{"kind":"extras","competition":"fg-test","series":"Game final","after":9}') = 'Yes'
+  and _feed_answer('{"kind":"game","competition":"fg-test","series":"Game final","game":2}') is null);
+-- the Gulls take the series: Game 1's winner didn't
+update series set high_wins = 4, low_wins = 1, winner = high_club, state = 'final' where ext_id = 'fgs1';
+select pg_temp.expect('Game 1''s winner lost the series', _feed_answer('{"kind":"opener_wins","competition":"fg-test","series":"Game final"}') = 'No');
+update series set winner = low_club where ext_id = 'fgs1';
+select pg_temp.expect('or won it', _feed_answer('{"kind":"opener_wins","competition":"fg-test","series":"Game final"}') = 'Yes');
+-- a series over without a tenth inning: "no", but only with every final game's innings on file
+delete from fixture_periods where fixture_id = (select id from fixtures where ext_id = 'fgg2');
+update fixtures set state = 'final', home_score = 5, away_score = 4 where ext_id = 'fgg2';
+select pg_temp.expect('a final game with no innings on file leaves it open', _feed_answer('{"kind":"extras","competition":"fg-test","series":"Game final","after":9}') is null);
+insert into fixture_periods (fixture_id, n, home, away) select id, i, 0, 0 from fixtures, generate_series(1, 9) i where ext_id = 'fgg2';
+select pg_temp.expect('every game in nine: no extras', _feed_answer('{"kind":"extras","competition":"fg-test","series":"Game final","after":9}') = 'No');
+-- a call on one game drops a knocked-out club like the series' winner question does
+update series set winner = null, high_wins = 3, low_wins = 1, state = 'live' where ext_id = 'fgs1';
+insert into series (sport, competition, provider, ext_id, round, label, best_of, high_club, low_club, high_wins, low_wins, winner, state, tbd)
+select 'mlb', 'fg-test', 'fg', 'fgs0', 3, 'Game semi', 7, (select id from clubs where ext_id = 'fg2'), (select id from clubs where ext_id = 'fg3'), 4, 0,
+  (select id from clubs where ext_id = 'fg2'), 'final', false;
+insert into series (sport, competition, provider, ext_id, round, label, best_of, high_club, low_club, high_wins, low_wins, winner, state, tbd)
+select 'mlb', 'fg-test', 'fg', 'fgs2', 5, 'Game next', 7, (select id from clubs where ext_id = 'fg1'), null, 0, 0, null::bigint, 'scheduled', true;
+select pg_temp.expect('Game 1 of a series still to be set lists only the clubs still in it',
+  _pack_market_now('{"title":"n1","outcomes":["Game Gulls","Game Grebes","Game Geese"],"feed":{"kind":"game","competition":"fg-test","series":"Game next","game":1}}')->'outcomes'
+  = '["Game Gulls","Game Grebes"]'::jsonb);
+select pg_temp.expect('the World Series pack carries the three calls on its games', (select count(*) from pool_packs p, jsonb_array_elements(p.markets) e
+  where p.slug = 'world-series-2026' and e->'feed'->>'kind' in ('game', 'opener_wins', 'extras')) = 3);
+delete from fixture_periods where fixture_id in (select id from fixtures where competition = 'fg-test');
+delete from fixtures where competition = 'fg-test';
+delete from series where competition = 'fg-test';
+delete from clubs where provider = 'fg';
+delete from competitions where id = 'fg-test';
+select set_config('app.league_id', '', false);
+select set_config('request.jwt.claim.sub', '', false);
+select 'calls on a series'' games', true;
+
 -- ───────────── last one standing (migration 157) ─────────────
 -- Pod Squad runs a survivor on two MLS matchweeks: Fern, Hana and Lou are in; Lou never picks
 reset role;
@@ -7310,6 +7372,10 @@ select pg_temp.raises('the calls lock at the opener', format('select pool_game_p
 select pg_temp.expect('everyone''s calls show once they lock', (select (c->>'under')::int = 3 and jsonb_array_length(c->'calls') = 3
   from jsonb_array_elements(pool_game_board(:wng)->'wins'->'clubs') c where (c->>'id')::bigint = :wn2));
 reset role;
+-- before the hourly job keeps the lock, the feed moves the opener a day later: the calls stay locked (migration 322)
+update fixtures set kickoff = now() + interval '1 day', state = 'postponed' where ext_id = 'wn-g1';
+select pg_temp.expect('an opener moved later after its tip holds the lock', _pool_game_locked(:wng)
+  and (select (rules->>'lock_held')::timestamptz < now() and not rules ? 'locked_at' from pool_games where id = :wng));
 update fixtures set kickoff = now() - interval '3 hours', state = 'final', home_score = 110, away_score = 100 where ext_id in ('wn-g1', 'wn-g2');
 update fixtures set kickoff = now() - interval '2 hours', state = 'final', home_score = 90, away_score = 99 where ext_id = 'wn-g3';
 select set_config('app.league_id', :'lib', false);

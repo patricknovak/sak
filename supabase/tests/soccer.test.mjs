@@ -2,7 +2,7 @@
 // soccer_ingest() writes. The sample items follow API-Football v3's documented shape.
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
-import { afClub, afFixture, espnFixture, espnPlayoffPayload, espnTournamentPayload, gameweekOf } from '../functions/_shared/soccer.ts';
+import { afClub, afFixture, espnFixture, espnOdds, espnPlayoffPayload, espnTournamentPayload, gameweekOf } from '../functions/_shared/soccer.ts';
 
 const sql = fs.readFileSync(new URL('../migrations/20261005000148_soccer.sql', import.meta.url), 'utf8');
 const row = JSON.parse(sql.match(/\$sport\$([\s\S]*?)\$sport\$/)[1]);
@@ -92,3 +92,9 @@ assert.deepEqual(espnFixture(wk('post', [[7, 3], [6, 7], [0, 7], [7, 0]]), null,
   [{ n: 1, home: 7, away: 3 }, { n: 2, home: 6, away: 7 }, { n: 3, home: 0, away: 7 }, { n: 4, home: 7, away: 0 }]);
 assert.deepEqual(espnFixture(wk('pre', []), null, { week: 6, label: 'Week 6', clock: false }).periods, []);
 console.log('ok: a weekly game carries its quarters');
+
+// an even-money price ('EVEN') is +100, and the spread rides along with it
+const even = espnOdds({ odds: [{ moneyline: { home: { close: { odds: 'EVEN' } }, away: { close: { odds: '-120' } } },
+  pointSpread: { home: { close: { line: '+1.5' } } }, overUnder: 221.5 }] });
+assert.ok(even && even.line === 1.5 && even.total === 221.5, 'an EVEN moneyline keeps the line');
+assert.ok(even.home < even.away && Math.abs(even.home + even.away - 1) < 0.002, 'EVEN reads as +100');

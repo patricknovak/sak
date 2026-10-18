@@ -6,6 +6,8 @@
 export interface Change { date: string; icon: string; title: string; body: string; to?: string; tag?: 'formats' | 'commish' | 'draft' | 'everyone' }
 
 export const CHANGELOG: Change[] = [
+  { date: '2026-10-18', icon: '🎯', tag: 'everyone', title: 'More to call in a World Series pool', to: '/new',
+    body: 'A World Series pool now asks who wins Game 1, whether the Game 1 winner goes on to win it all, and whether any game goes to extra innings, beside who wins, in how many games and the MVP. Results come in on their own, and the host gets a bell to call each one.' },
   { date: '2026-10-18', icon: '⚾', tag: 'everyone', title: 'World Series pools, ready for Game 1', to: '/new',
     body: 'Start a World Series pool and its questions offer only the clubs still alive, never one already knocked out, and nothing the series has already decided. Pick the series and its length, a squares grid, a prop sheet on any game or a pick a day. A grid that fills before the matchup is set fills in the other club the moment it is. The start page and your home page lead with the World Series this week.' },
   { date: '2026-10-17', icon: '🚨', tag: 'everyone', title: 'The night\'s goals on the scoreboard', to: '/scoreboard',

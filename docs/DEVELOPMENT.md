@@ -985,3 +985,20 @@ first) but its questions stale:
   one a sport, the final that can't wait first, each a tap into the start page with it chosen ("The World Series · first
   pick locks Fri 8:00 PM"). A league's own address keeps its sign-in as it was. The landing home page's open-right-now
   board follows the same order and names a postseason in its final round after that round.
+- **Calls on the games, not only the end** (migration 321): once the World Series matchup is set, "Which league wins?" is
+  the same call as "Who wins?", so a pool started this week had three questions to play, all on how the series ends. The
+  feed now answers three kinds of call on a series' games: one game's winner (`game`, the club ahead once that game is
+  final), whether the club that wins Game 1 takes the series (`opener_wins`) and whether any game goes past regulation
+  (`extras`, with the regulation periods in the question: yes the moment a game passes it, no only once the series is
+  over and every final game's periods are on file). The World Series pack carries one of each (seven questions in a pool
+  started today); a question on one game drops knocked-out clubs like the winner question does, and the host's bell and
+  one-tap answer read them like the rest. Checked on live: the NL Wild Card Series reads Game 2 to the Phillies in ten
+  innings, extras yes, and Game 1's winner took the series.
+- **The NBA's opening week, audited** (win totals, pick'em, last one standing and the streak, traced against the
+  functions live): nothing pays twice, locks early or late, or settles on a game a club didn't play. Fixed from it: win
+  totals' lock was worked out again from the opener's kickoff until the hourly job kept it, so an opener moved later
+  just after its tip would have reopened calls everyone had seen; a season game that reaches its time and changes now
+  holds the lock (`rules.lock_held`, `fixtures_wins_hold`, migration 322), the hourly job still announcing the split.
+  And ESPN's even-money price ('EVEN') read as no price, which dropped the game's whole line, spread included, so an
+  against-the-spread pick took line 0; it reads as +100 now (`espnOdds`, tested in `test:nhl`; soccer-sync deployed).
+  Left as is: a tip moved earlier on game day is fetched only from five minutes before the stored tip (rare in the NBA).
