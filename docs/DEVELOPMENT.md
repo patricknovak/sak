@@ -975,4 +975,5 @@ first) but its questions stale:
 - **Open right now under the sign-in** (`src/components/OpenNow.tsx`, on the product's own address only): a stranger who
   landed on app.superpoolsai.com found a sign-in form and one small link. Three events open this minute now sit under it,
   one a sport, the final that can't wait first, each a tap into the start page with it chosen ("The World Series · first
-  pick locks Fri 8:00 PM"). A league's own address keeps its sign-in as it was.
+  pick locks Fri 8:00 PM"). A league's own address keeps its sign-in as it was. The landing home page's open-right-now
+  board follows the same order and names a postseason in its final round after that round.

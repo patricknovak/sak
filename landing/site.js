@@ -280,7 +280,7 @@ document.querySelectorAll('[data-pick]').forEach(function (a) {
     var kinds = (e.kinds || []).map(function (k) { return KIND[k] || k; });
     var m = matches(e);
     return '<a class="ev rv in" href="' + link + '" style="--c:' + lk[1] + '">'
-      + '<div class="top"><span class="badge">' + lk[0] + '</span><div><h3>' + esc(e.name) + '</h3><div class="stage">' + esc(e.stage || e.open_label || '') + '</div></div></div>'
+      + '<div class="top"><span class="badge">' + lk[0] + '</span><div><h3>' + esc(e.open_round && e.open_round === e.final_round && (e.grids || []).length ? 'The ' + String(e.final_label).replace(/^The /, '') : e.name) + '</h3><div class="stage">' + esc(e.stage || e.open_label || '') + '</div></div></div>'
       + (e.next_lock ? '<div class="lock" data-at="' + Date.parse(e.next_lock) + '"><span>Next lock in</span><b>…</b></div>' : '<div class="lock"><b>Open</b></div>')
       + (m.length ? '<div class="match">' + m.map(function (x) { return '<span>' + esc(x) + '</span>'; }).join('') + '</div>' : '')
       + (kinds.length ? '<div class="kinds">' + kinds.map(function (k) { return '<span>' + esc(k) + '</span>'; }).join('') + (e.pack ? '<span>Questions</span>' : '') + '</div>' : '')
@@ -299,7 +299,9 @@ document.querySelectorAll('[data-pick]').forEach(function (a) {
     { name: 'Premier League', competition: 'epl', stage: 'Every matchweek', kinds: ['pickem', 'survivor', 'score', 'streak'] }
   ];
   function draw(list, real) {
-    list.sort(function (a, b) { return (Date.parse(a.next_lock) || 9e15) - (Date.parse(b.next_lock) || 9e15); });
+    // an event reaching its final within two weeks first (the World Series in its week), then the soonest lock
+    var soon = function (e) { return e.final_starts && Date.parse(e.final_starts) - Date.now() < 14 * 864e5 ? 0 : 1; };
+    list.sort(function (a, b) { return soon(a) - soon(b) || (Date.parse(a.next_lock) || 9e15) - (Date.parse(b.next_lock) || 9e15); });
     box.innerHTML = list.map(card).join('') + '<a class="ev rv in" href="' + APP + '?type=questions" style="--c:#f7c548"><div class="top"><span class="badge">ASK</span><div><h3>Anything else</h3><div class="evstage">The game you\'re watching, the office, the family</div></div></div>'
       + '<div class="lock"><b>Your call</b></div><div class="kinds"><span>Questions with odds</span><span>Your own rules</span></div><span class="go">Ask your own questions</span></a>';
     if (tag) tag.textContent = real ? list.length + ' events open now' : 'Open all season';
