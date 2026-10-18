@@ -1,4 +1,5 @@
-// Pre-merge evidence: AW-949617778 is gated behind Accept (no AW / googleads before).
+// Pre-merge evidence: AW-949617778 is gated behind Ads Accept (no AW / googleads before).
+// Analytics and Ads are separate choices; both Accepts are clicked here so AW can load.
 // Usage: node scripts/ads-tag-evidence.mjs <appUrl> <landingUrl>
 import { chromium } from '@playwright/test';
 import { writeFileSync, mkdirSync } from 'node:fs';
@@ -27,7 +28,10 @@ async function probe(page, label, url) {
 
   await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 60_000 });
   await page.evaluate(() => {
-    try { localStorage.removeItem('sp_analytics_consent'); } catch { /* */ }
+    try {
+      localStorage.removeItem('sp_analytics_consent');
+      localStorage.removeItem('sp_ads_consent');
+    } catch { /* */ }
   });
   await page.reload({ waitUntil: 'networkidle', timeout: 60_000 });
   await page.waitForTimeout(800);
@@ -38,18 +42,20 @@ async function probe(page, label, url) {
     });
     return {
       consent: localStorage.getItem('sp_analytics_consent'),
+      adsConsent: localStorage.getItem('sp_ads_consent'),
       hasGtagScript: !!document.getElementById('sp-ga4'),
       dataLayer: dl,
-      banner: !!document.querySelector('[aria-label="Analytics cookies"], #sp-consent'),
+      banner: !!document.querySelector('[aria-label="Analytics and ads cookies"], [aria-label="Analytics cookies"], #sp-consent'),
     };
   });
 
   const beforeAw = awConfigs(before.dataLayer);
   const beforeAdsNet = [...adsHits];
 
-  const accept = page.getByRole('button', { name: /^Accept$/i }).first();
-  await accept.waitFor({ state: 'visible', timeout: 15_000 });
-  await accept.click();
+  const accepts = page.getByRole('button', { name: /^Accept$/i });
+  await accepts.first().waitFor({ state: 'visible', timeout: 15_000 });
+  const n = await accepts.count();
+  for (let i = 0; i < n; i++) await accepts.nth(i).click();
   await page.waitForTimeout(2500);
 
   const after = await page.evaluate(() => {
@@ -58,6 +64,7 @@ async function probe(page, label, url) {
     });
     return {
       consent: localStorage.getItem('sp_analytics_consent'),
+      adsConsent: localStorage.getItem('sp_ads_consent'),
       hasGtagScript: !!document.getElementById('sp-ga4'),
       dataLayer: dl,
     };
@@ -65,7 +72,6 @@ async function probe(page, label, url) {
   const afterAw = awConfigs(after.dataLayer);
   const afterAdsNet = adsHits.filter((u) => !beforeAdsNet.includes(u));
 
-  const shotBefore = `${outDir}/${label}-before.png`;
   // reload without consent for before screenshot is already past; capture after Accept as proof of config
   const shotAfter = `${outDir}/${label}-after-accept.png`;
   await page.screenshot({ path: shotAfter, fullPage: false });
@@ -75,6 +81,7 @@ async function probe(page, label, url) {
     url,
     before: {
       consent: before.consent,
+      adsConsent: before.adsConsent,
       hasGtagScript: before.hasGtagScript,
       awConfigs: beforeAw,
       adsNetwork: beforeAdsNet,
@@ -82,6 +89,7 @@ async function probe(page, label, url) {
     },
     after: {
       consent: after.consent,
+      adsConsent: after.adsConsent,
       hasGtagScript: after.hasGtagScript,
       awConfigs: afterAw,
       adsNetworkSample: afterAdsNet.slice(0, 8),
@@ -115,6 +123,7 @@ const summary = {
 const ok = results.every((r) => {
   const beforeClean = r.before.awConfigs.length === 0 && r.before.adsNetwork.length === 0 && !r.before.hasGtagScript;
   const afterOk = r.after.consent === 'granted'
+    && r.after.adsConsent === 'granted'
     && r.after.awConfigs.some((e) => e[1] === 'AW-949617778')
     && !r.after.awConfigs.some((e) => e[1] === 'AW-7411462618')
     && r.cspConsole.length === 0;

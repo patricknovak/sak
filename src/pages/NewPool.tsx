@@ -166,8 +166,9 @@ export default function NewPool() {
     try {
       if (member) {
         const r = await rpc<{ id: number; slug: string }>('pool_start', { p_name: pool.trim(), p_color: color, p_pack: openPack });
-        await startGames(r.id);
+        // Fire before games and navigation so the hit isn't dropped if either fails or reloads.
         trackPoolCreated({ id: r.id, pack: openPack, sport: event?.sport ?? null, kind: mode });
+        await startGames(r.id);
         await openPool({ league_id: r.id, slug: r.slug }, '/host');
         return;
       }
@@ -187,6 +188,7 @@ export default function NewPool() {
       try { localStorage.setItem('sak-last-email', login); } catch { /* nothing to remember with */ }
       await trackSignUp('email', login);
       const opened = (data as { pool?: { id: number; slug: string } })?.pool;
+      // Before games and before any reload: beacon transport keeps pool_created from being dropped.
       trackPoolCreated({ id: opened?.id, pack: openPack, sport: event?.sport ?? null, kind: mode });
       if (opened) {
         await startGames(opened.id).catch((x) => setErr(`Your pool is open, but its games didn’t start: ${(x as Error).message}. Add them from the Host page.`));
