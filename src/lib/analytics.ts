@@ -3,6 +3,7 @@
 // Funnel events carry no PII (no email, name, or user id). Enhanced conversions send only a SHA-256 of the email.
 
 const CONSENT_KEY = 'sp_analytics_consent';
+const ADS_CONSENT_KEY = 'sp_ads_consent';
 const TOUCH_KEY = 'sp_first_touch';
 const FIRST_CALL_KEY = 'sp_first_call';
 const SIGN_UP_KEY = 'sp_sign_up';
@@ -53,6 +54,24 @@ function storeSet(key: string, value: string) {
 export function getAnalyticsConsent(): AnalyticsConsent {
   const v = storeGet(CONSENT_KEY);
   return v === 'granted' || v === 'denied' ? v : null;
+}
+
+// Ads measurement (ad_storage + ad_user_data + AW tag + hashed email). Separate from analytics.
+export function getAdsConsent(): AnalyticsConsent {
+  const v = storeGet(ADS_CONSENT_KEY);
+  return v === 'granted' || v === 'denied' ? v : null;
+}
+
+// Old single Accept wrote only the analytics key. Mirror it once so return visitors are not re-prompted.
+function migrateLegacyConsent() {
+  if (storeGet(ADS_CONSENT_KEY) != null) return;
+  const a = storeGet(CONSENT_KEY);
+  if (a === 'granted' || a === 'denied') storeSet(ADS_CONSENT_KEY, a);
+}
+
+export function needsConsentChoice(): boolean {
+  migrateLegacyConsent();
+  return getAnalyticsConsent() == null || getAdsConsent() == null;
 }
 
 export function hasGaId(): boolean {
@@ -148,43 +167,41 @@ function loadTag() {
   document.head.appendChild(s);
 }
 
-// The banner is a single Accept (analytics-only copy). Accept maps to analytics_storage plus the Ads
-// measurement flags enhanced conversions need (ad_user_data, ad_storage). ad_personalization stays denied.
-function grantConsentFlags() {
+// Split consent: analytics_storage alone for Analytics; ad_storage + ad_user_data for Ads.
+// ad_personalization stays denied. gtag.js loads when either choice is granted.
+function applyConsentFlags() {
   window.gtag?.('consent', 'update', {
-    analytics_storage: 'granted',
-    ad_user_data: 'granted',
-    ad_storage: 'granted',
-  });
-}
-function denyConsentFlags() {
-  window.gtag?.('consent', 'update', {
-    analytics_storage: 'denied',
-    ad_user_data: 'denied',
-    ad_storage: 'denied',
+    analytics_storage: getAnalyticsConsent() === 'granted' ? 'granted' : 'denied',
+    ad_user_data: getAdsConsent() === 'granted' ? 'granted' : 'denied',
+    ad_storage: getAdsConsent() === 'granted' ? 'granted' : 'denied',
     ad_personalization: 'denied',
   });
 }
 
-// Ads user-data use (enhanced conversions). Same Accept as analytics — there is no separate ads toggle.
 export function hasAdsUserDataConsent(): boolean {
-  return getAnalyticsConsent() === 'granted';
+  return getAdsConsent() === 'granted';
 }
 
 function configAdsTag() {
   if (!measurementId() || typeof window === 'undefined') return;
+  if (getAdsConsent() !== 'granted') return;
   window.gtag?.('config', ADS_ID, { allow_enhanced_conversions: true });
+}
+
+function loadTagsIfNeeded() {
+  if (getAnalyticsConsent() === 'granted' || getAdsConsent() === 'granted') loadTag();
+  if (getAdsConsent() === 'granted') configAdsTag();
 }
 
 // Call once at app start: capture first-touch, and load gtag only when consent was already granted.
 export function initAnalytics() {
   captureFirstTouch();
+  migrateLegacyConsent();
   if (!measurementId()) return;
   ensureGtag();
+  applyConsentFlags();
+  loadTagsIfNeeded();
   if (getAnalyticsConsent() === 'granted') {
-    grantConsentFlags();
-    loadTag();
-    configAdsTag();
     // First load of a consented return visit: record this route (AnalyticsRoute will not double-count).
     trackPageView(currentAppPath());
   }
@@ -194,15 +211,20 @@ export function setAnalyticsConsent(granted: boolean) {
   storeSet(CONSENT_KEY, granted ? 'granted' : 'denied');
   if (!measurementId()) return;
   ensureGtag();
+  applyConsentFlags();
+  loadTagsIfNeeded();
   if (granted) {
-    grantConsentFlags();
-    loadTag();
-    configAdsTag();
     // Current page at Accept: route has not changed, so AnalyticsRoute would never fire.
     trackPageView(currentAppPath());
-  } else {
-    denyConsentFlags();
   }
+}
+
+export function setAdsConsent(granted: boolean) {
+  storeSet(ADS_CONSENT_KEY, granted ? 'granted' : 'denied');
+  if (!measurementId()) return;
+  ensureGtag();
+  applyConsentFlags();
+  loadTagsIfNeeded();
 }
 
 // SHA-256 hex of normalized email (trim + lowercase). Never returns the plaintext.
@@ -213,9 +235,9 @@ export async function sha256Hex(value: string): Promise<string> {
 }
 
 // Enhanced conversions: gtag('set','user_data',{ sha256_email_address }) when the user typed an email and
-// Accept has granted ads user-data. No-op without consent or measurement ID. Never sends plaintext.
+// Ads consent has granted ad_user_data. No-op without ads consent or measurement ID. Never sends plaintext.
 export async function setEnhancedConversionEmail(email: string): Promise<boolean> {
-  if (!measurementId() || getAnalyticsConsent() !== 'granted' || !hasAdsUserDataConsent()) return false;
+  if (!measurementId() || !hasAdsUserDataConsent()) return false;
   const normalized = email.trim().toLowerCase();
   if (!normalized.includes('@')) return false;
   ensureGtag();
@@ -350,7 +372,7 @@ export function __testResetAnalytics() {
     const keys: string[] = [];
     for (let i = 0; i < localStorage.length; i++) {
       const k = localStorage.key(i);
-      if (k && (k === CONSENT_KEY || k === TOUCH_KEY || k === FIRST_CALL_KEY || k === SIGN_UP_KEY
+      if (k && (k === CONSENT_KEY || k === ADS_CONSENT_KEY || k === TOUCH_KEY || k === FIRST_CALL_KEY || k === SIGN_UP_KEY
         || k.startsWith('sp_pool_created:') || k.startsWith('sp_join_group:'))) keys.push(k);
     }
     keys.forEach((k) => localStorage.removeItem(k));
