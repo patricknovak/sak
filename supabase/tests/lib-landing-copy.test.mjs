@@ -11,11 +11,13 @@ const together = readFileSync(join(root, 'landing/together.html'), 'utf8');
 
 {
   const appLinks = [...html.matchAll(/href="(https:\/\/app\.superpoolsai\.com[^"]*)"/g)].map((m) => m[1]);
-  assert.ok(appLinks.length >= 3, 'LIB page has app start links');
-  for (const href of appLinks) {
+  const startLinks = appLinks.filter((h) => h.includes('#/new'));
+  assert.ok(startLinks.length >= 3, 'LIB page has app start links');
+  for (const href of startLinks) {
     assert.match(href, /#\/new\?pack=love-is-blind-s11/, `pack slug on ${href}`);
     assert.doesNotMatch(href, /pack=love-is-blind(?!-s11)/, 'no bare love-is-blind pack');
   }
+  assert.ok(appLinks.some((h) => h.includes('#/privacy')), 'Privacy footer points at the app');
   const togetherLib = [...together.matchAll(/href="(https:\/\/app\.superpoolsai\.com[^"]*love-is-blind[^"]*)"/g)].map((m) => m[1]);
   for (const href of togetherLib) {
     assert.match(href, /pack=love-is-blind-s11/, `together LIB link ${href}`);
