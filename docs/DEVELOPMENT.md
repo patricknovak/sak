@@ -972,3 +972,7 @@ first) but its questions stale:
   one with `data-from` appears then (hidden by `site.css` until the script shows it, so a page without the script reads as
   before its date). The NBA page drops "opening night October 20" and the win totals (they lock at the first tip) once the
   season is on; the World Series page says "under way" and drops the series pick (it locks at Game 1) once it starts.
+- **Open right now under the sign-in** (`src/components/OpenNow.tsx`, on the product's own address only): a stranger who
+  landed on app.superpoolsai.com found a sign-in form and one small link. Three events open this minute now sit under it,
+  one a sport, the final that can't wait first, each a tap into the start page with it chosen ("The World Series · first
+  pick locks Fri 8:00 PM"). A league's own address keeps its sign-in as it was.
