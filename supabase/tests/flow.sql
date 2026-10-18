@@ -3915,6 +3915,12 @@ from generate_series(1, 2) n;
 select pg_temp.expect('nothing to call before a pitch', _feed_answer('{"kind":"game","competition":"fg-test","series":"Game final","game":1}') is null
   and _feed_answer('{"kind":"extras","competition":"fg-test","series":"Game final","after":9}') is null
   and _feed_answer('{"kind":"opener_wins","competition":"fg-test","series":"Game final"}') is null);
+-- a pool loads a call on Game 1 before it's played
+insert into pool_packs (slug, name, brand, markets, drops) values ('test-games', 'Game test', '{}', jsonb_build_array(
+  jsonb_build_object('title', 'Who wins Game 1 of the final?', 'outcomes', jsonb_build_array('Game Gulls', 'Game Grebes'), 'closes_at', now() + interval '3 days',
+    'feed', jsonb_build_object('kind', 'game', 'competition', 'fg-test', 'series', 'Game final', 'game', 1))), '[]')
+on conflict (slug) do update set markets = excluded.markets;
+select pg_temp.expect('a pool loads the Game 1 call before it''s played', _pool_load_pack(:lib, 'test-games', null) = 1);
 -- Game 1: the Grebes win 3-2 on the road in nine
 update fixtures set state = 'final', home_score = 2, away_score = 3 where ext_id = 'fgg1';
 insert into fixture_periods (fixture_id, n, home, away) select id, i, 0, 0 from fixtures, generate_series(1, 9) i where ext_id = 'fgg1';
@@ -3922,6 +3928,14 @@ select pg_temp.expect('Game 1 goes to the club ahead once it''s final, and the q
   _feed_answer('{"kind":"game","competition":"fg-test","series":"Game final","game":1}') = 'Game Grebes'
   and _pack_market_now('{"title":"g1","outcomes":["Game Gulls","Game Grebes"],"feed":{"kind":"game","competition":"fg-test","series":"Game final","game":1}}') is null
   and _feed_answer('{"kind":"game","competition":"fg-test","series":"Game final","game":2}') is null);
+select set_config('t.gq', (select id::text from pool_markets where pack = 'test-games' and league_id = :lib), false);
+select set_config('app.league_id', :'lib', false);
+select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-000000000081', false);
+set role authenticated;
+select pg_temp.expect('the host''s one tap names the game', pool_feed_answer(current_setting('t.gq')::bigint)->>'label' = 'Game Grebes'
+  and pool_feed_answer(current_setting('t.gq')::bigint)->>'series' = 'Game final, Game 1');
+reset role;
+select set_config('request.jwt.claim.sub', '', false);
 select pg_temp.expect('nine innings isn''t extras yet, and isn''t "no" while the series is on',
   _feed_answer('{"kind":"extras","competition":"fg-test","series":"Game final","after":9}') is null);
 -- Game 2 is still on in the tenth: extras the moment it starts
@@ -3952,6 +3966,8 @@ select pg_temp.expect('Game 1 of a series still to be set lists only the clubs s
   = '["Game Gulls","Game Grebes"]'::jsonb);
 select pg_temp.expect('the World Series pack carries the three calls on its games', (select count(*) from pool_packs p, jsonb_array_elements(p.markets) e
   where p.slug = 'world-series-2026' and e->'feed'->>'kind' in ('game', 'opener_wins', 'extras')) = 3);
+delete from pool_markets where pack = 'test-games';
+delete from pool_packs where slug = 'test-games';
 delete from fixture_periods where fixture_id in (select id from fixtures where competition = 'fg-test');
 delete from fixtures where competition = 'fg-test';
 delete from series where competition = 'fg-test';
