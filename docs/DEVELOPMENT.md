@@ -1001,4 +1001,6 @@ first) but its questions stale:
   holds the lock (`rules.lock_held`, `fixtures_wins_hold`, migration 322), the hourly job still announcing the split.
   And ESPN's even-money price ('EVEN') read as no price, which dropped the game's whole line, spread included, so an
   against-the-spread pick took line 0; it reads as +100 now (`espnOdds`, tested in `test:nhl`; soccer-sync deployed).
-  Left as is: a tip moved earlier on game day is fetched only from five minutes before the stored tip (rare in the NBA).
+  And a tip moved earlier on game day was fetched only from five minutes before the stored tip, the fixtures coming in
+  once a day at 05:17 UTC; they come in again at 16:17 UTC now (12:17 pm Eastern, before the NFL's afternoon and every
+  evening tip; `soccer-fixtures`, migration 323, ESPN's free feed so no requests spent).
