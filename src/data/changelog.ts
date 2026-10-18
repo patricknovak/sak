@@ -6,6 +6,20 @@
 export interface Change { date: string; icon: string; title: string; body: string; to?: string; tag?: 'formats' | 'commish' | 'draft' | 'everyone' }
 
 export const CHANGELOG: Change[] = [
+  { date: '2026-10-18', icon: '⚾', tag: 'everyone', title: 'World Series pools, ready for Game 1', to: '/new',
+    body: 'Start a World Series pool and its questions offer only the clubs still alive, never one already knocked out, and nothing the series has already decided. Pick the series and its length, a squares grid, a prop sheet on any game or a pick a day. A grid that fills before the matchup is set fills in the other club the moment it is. The start page and your home page lead with the World Series this week.' },
+  { date: '2026-10-17', icon: '🚨', tag: 'everyone', title: 'The night\'s goals on the scoreboard', to: '/scoreboard',
+    body: 'Every goal a rostered player scored or set up tonight, from the moment the page opens: the scorer, the assists, each player\'s GM and what the goal was worth to them under this league\'s scoring. Tap play to watch the goal right there.' },
+  { date: '2026-10-17', icon: '🏆', tag: 'everyone', title: 'Pools where your crew already talks', to: '/',
+    body: 'A pool you\'re in can be posted into this league\'s chat as a card with a Join button, and everyone not in it yet gets a bell. Your home page lists the pools posted here in the last month, and starts a pool for your other groups (family, work, the group chat) in a tap.' },
+  { date: '2026-10-17', icon: '🔄', tag: 'everyone', title: 'Trades with a hurt player', to: '/trades',
+    body: 'A hurt player coming to you from another team\'s IR now slides straight into your open IR slot, so the trade builder no longer asks for a drop you don\'t need. It says so when it happens.' },
+  { date: '2026-10-16', icon: '🔴', tag: 'everyone', title: 'Live in the dock', to: '/scoreboard',
+    body: 'Live sits in the middle of the bottom bar, with a red dot while a game is on. The scoreboard now leads with your night (points, where you stand, a projected finish), the race as it stands if the night ended now, the stars of the night and a goal horn for your starters.' },
+  { date: '2026-10-16', icon: '📷', tag: 'everyone', title: 'Photos, search and sharing in chat', to: '/chat',
+    body: 'Send a photo in the chat, search everything you can see, share a message or a photo to your phone\'s messaging apps, and see who\'s typing. The week\'s most-reacted post is pinned as the chirp of the week. Picking a GM shows their own side of the chat, with "and mentions" for the league lines that name them.' },
+  { date: '2026-10-16', icon: '🩹', tag: 'everyone', title: 'Off IR any time', to: '/team',
+    body: 'Move a player off IR to your bench or lineup whenever your roster has room, even once his game has started. That night still counts him the way he was at puck drop.' },
   { date: '2026-10-15', icon: '🏆', tag: 'everyone', title: 'Women\'s World Cup 2027 questions', to: '/new',
     body: 'Open a pool on next summer\'s Women\'s World Cup in Brazil now: who lifts it, whether Europe does, how far the hosts go, whether the United States reach the semi-finals and how the final ends, called in coins all the way to the tournament.' },
   { date: '2026-10-15', icon: '⚽', tag: 'everyone', title: 'The WSL and the NWSL', to: '/new',
