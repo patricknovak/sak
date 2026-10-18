@@ -936,3 +936,16 @@ funnel can tell these starts apart), and "anything else" for a questions pool. "
   database then refused ("no drop needed"). One count now, `activeAfter` in `src/lib/tradeCount.ts` (tested in `test:nhl`), for the builder,
   the accept step and the grades. The builder says so when it happens: "X comes in hurt and goes straight to your open IR
   slot, so he doesn't count against your roster."
+
+### 9.12 The World Series week, 18 October 2026
+
+The World Series starts on 24 October, the first event this year where a pool for a group's whole week is the obvious
+thing to start. Walking the start page as a stranger would found the pool well set up (the event chosen, the series pick
+first) but its questions stale:
+- **A pack's question as it stands** (migration 316): the World Series pack was written before the division series, so a
+  pool started this week traded the Dodgers, Padres, Braves, Yankees and White Sox, all out, and asked "Do the Dodgers win
+  a third straight World Series?", already decided. A pack question that names its series in `feed` now loads with only
+  the clubs still alive in its competition (`_feed_out`, every club that lost a decided series), and a question about one
+  club loads only while that club is (`_pack_market_now`, read by `_pool_load_pack` and the start page's count in
+  `pool_pack_list`). A pool that already has the question keeps it whole: a market can't lose an outcome someone may hold.
+  Live: "Who wins the World Series?" now offers Milwaukee, Tampa Bay and Cleveland; the pack counts four questions.

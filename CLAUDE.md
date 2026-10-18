@@ -171,7 +171,7 @@ Two things in one repo:
   `poolLink` in `src/lib/host.ts`); a `<web name>` subdomain forwards to it unless someone is signed in on that address.
   My pools (`#/pools`) reads `my_pools()`; every start goes through `#/new` (a sports pool, a questions pool, or a fantasy
   league of your own with `fantasy_start`, opened in setup and taken live with `commish_go_live`), and a host deletes a
-  pool with `pool_delete` (migration 242). A season carries its questions pack (`competitions.pack`: the NBA, the NFL, the NHL's games, the Premier League, MLS and the World Series), so a start on it ticks them beside its games (migrations 299, 300 and 304). A pack's new questions reach every open pool on it through the hourly pool job
+  pool with `pool_delete` (migration 242). A season carries its questions pack (`competitions.pack`: the NBA, the NFL, the NHL's games, the Premier League, MLS and the World Series), so a start on it ticks them beside its games (migrations 299, 300 and 304). A pack question that names its series in `feed` loads with only the clubs still alive (`_pack_market_now`, migration 316). A pack's new questions reach every open pool on it through the hourly pool job
   (`_pool_pack_refresh`, migration 251; a pack question's later closing time reaches every open copy too, migration 258), and an invite's preview carries the pool's next question (migration 252). A pool's pages keep to its own events, `pool_competitions()`
   (`src/lib/poolOwn.ts`): read it rather than every competition when a pool page lists events. Every pool's games share one scoreboard
   (`pool_scoreboard()`, migration 169): a new kind of game adds a branch to `_pool_rows()` and gets the table, movement,
