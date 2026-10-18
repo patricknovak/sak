@@ -1012,3 +1012,9 @@ first) but its questions stale:
   And a tip moved earlier on game day was fetched only from five minutes before the stored tip, the fixtures coming in
   once a day at 05:17 UTC; they come in again at 16:17 UTC now (12:17 pm Eastern, before the NFL's afternoon and every
   evening tip; `soccer-fixtures`, migration 323, ESPN's free feed so no requests spent).
+- **A stray number costs a sentence, not the column** (`garry/salvage.ts`, tested in `test:nhl`): two of the week's
+  eight morning columns (16 and 18 October) fell back to the bare scores line because the draft and its rewrite each
+  carried one number the facts didn't hold (18 October: "24", then "35"; no figure in the facts rounds to either, so the
+  check was right). A rewrite that still fails now keeps every sentence that passes on its own, when what's left passes
+  whole and keeps at least 60% of the post; otherwise the fallback as before. A chat reply whose rewrite still fails gets
+  the same treatment instead of going out with the number. A dry run of the 18 October column wrote a clean one.

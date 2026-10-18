@@ -25,6 +25,7 @@ import { etDate } from '../_shared/nhl.ts';
 import { gradeTeams, lineupStrength, type GP } from '../_shared/grades.ts';
 import { answer } from './answer.ts';
 import { night, type Night, type TeamNight } from './tonight.ts';
+import { salvage } from './salvage.ts';
 import { gradeAllKeepers, type KP } from '../_shared/keepers.ts';
 
 const db = createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!, {
@@ -388,7 +389,12 @@ async function write(task: string, facts: unknown, fallback: string, maxWords = 
     if (bad) {
       console.warn('write: rewriting', bad);
       text = await ask(`\nYour first draft was wrong: ${bad}. Write it again from the facts only.`);
-      if (text && opts.check(text)) { console.warn('write: falling back', opts.check(text)); text = null; }
+      // still wrong: keep the sentences that pass if most of the post survives, else the plain fallback
+      if (text && opts.check(text)) {
+        const kept = salvage(text, opts.check);
+        console.warn(kept ? 'write: dropping sentences' : 'write: falling back', opts.check(text));
+        text = kept;
+      }
     }
   }
   return text || fallback;
@@ -1272,6 +1278,9 @@ Return JSON only: {"mode": "answer"|"roast"|"joke"|"banter", "target": "<first n
     console.warn('converse: rewriting', bad);
     text = await grok(system(st), `${prompt}\n\nYour first reply was wrong: ${bad}. Answer again from the facts only.`, everyone ? 1100 : 600, 0.7, true, 'none');
     try { const k = JSON.parse(text ?? ''); if (String(k?.reply ?? '').trim()) { j = k; body = String(k.reply).trim(); } } catch { /* keep the first */ }
+    // still a number nobody gave him: the sentences that carry it go, when most of the reply survives
+    const check = numbersCheck(prompt + ' ' + m.body, {});
+    if (check(body)) body = salvage(body, check) ?? body;
   }
   // the brand writes no em dash (docs/BRAND.md); the JSON answer kept the model's, so the reply drops them here
   body = body.replace(/\s*—\s*/g, ', ');
