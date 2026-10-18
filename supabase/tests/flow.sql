@@ -3541,6 +3541,9 @@ select accept_invite(:'icode');
 select pg_temp.expect('she joins from there, and it is gone from the list', exists (select 1 from league_members where user_id = '00000000-0000-0000-0000-000000000081' and league_id = :fifth)
   and my_invites() = '[]'::jsonb);
 select decline_invite('not-a-code');
+-- a member who is not the host cannot post the pool as a join card in another chat (migration 327)
+select set_active_league(:fifth);
+select pg_temp.raises('only the host posts the pool in another chat', format('select pool_announce(%s)', :lib), 'Only the pool');
 select set_active_league(:lib);   -- back to the Pod Squad for the sections below
 reset role;
 select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-000000000083', false);

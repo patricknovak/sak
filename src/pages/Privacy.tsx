@@ -1,5 +1,7 @@
+import { useState } from 'react';
 import { ProductMark } from '../components/Brand';
 import { PRODUCT } from '../lib/brand';
+import { getAnalyticsConsent, hasGaId, setAnalyticsConsent } from '../lib/analytics';
 
 // The privacy note (docs/SUPERPOOLS.md item 14): what the product keeps about a person and why, in plain words, open to
 // anyone from the consent banner, the landing page and the sign-in page. It describes what the code does today; when
@@ -15,7 +17,7 @@ const SECTIONS: { title: string; body: string[] }[] = [
   ] },
   { title: 'Analytics', body: [
     'Inside the app we keep a daily count of how often each page of a pool is opened and by how many of its members, with no names: a member is counted by a code that changes every day, so no one\'s visits can be followed. It tells us which pages people use. A pool\'s host can switch it off for the pool.',
-    'If you accept the analytics banner, we load Google Analytics to count which pools get started, which invite links get shared and which pages get used. We send no names or messages to it. If you accept, we also send Google a scrambled one-way code made from your email (never the email itself) so Google Ads can tell whether your sign-up came from one of our ads. We don\'t use it to show you ads or to personalize anything, and choosing No thanks turns it off. If you say no thanks, nothing loads, and you can change your mind from the banner any time it shows again.',
+    'If you accept the analytics banner, we load Google Analytics to count which pools get started, which invite links get shared and which pages get used. We send no names or messages to it. If you accept, we also send Google a scrambled one-way code made from your email (never the email itself) so Google Ads can tell whether your sign-up came from one of our ads. We don\'t use it to show you ads or to personalize anything, and choosing No thanks turns it off. If you say no thanks, nothing loads, and you can change your mind from the banner any time it shows again, or with the Analytics control on this page.',
   ] },
   { title: 'Email and the voice', body: [
     'We send email only to sign you in or reset your password, from no-reply@superpoolsai.com through Resend. We do not send newsletters. The pool\'s voice (the commentary in the chat) is written by a language model from the pool\'s own numbers; a message you send it goes to that model to be answered, with the pool\'s board, and nothing else about you.',
@@ -29,6 +31,13 @@ const SECTIONS: { title: string; body: string[] }[] = [
 ];
 
 export default function Privacy() {
+  const [consent, setConsent] = useState<'granted' | 'denied' | null>(() => getAnalyticsConsent());
+  const on = consent === 'granted';
+  const toggle = () => {
+    const next = !on;
+    setAnalyticsConsent(next);
+    setConsent(next ? 'granted' : 'denied');
+  };
   return (
     <div className="min-h-dvh px-4 pb-16 pt-10" style={{ background: 'radial-gradient(120% 70% at 50% 0%, rgb(var(--gold-rgb)/.16), transparent 60%), #0b1222' }}>
       <div className="mx-auto max-w-xl">
@@ -38,6 +47,19 @@ export default function Privacy() {
           <h1 className="mt-1 font-display text-[36px] font-extrabold italic leading-[.95] text-white">Your privacy, plainly.</h1>
           <p className="mt-3 text-sm text-mute">A pool is a group of friends and a scoreboard. Here is everything we keep to run one, and nothing else.</p>
         </div>
+        {hasGaId() && (
+          <div className="card mt-6 flex items-center justify-between gap-3 p-4">
+            <div>
+              <div className="font-display text-lg font-extrabold text-white">Analytics</div>
+              <p className="mt-1 text-sm text-slate-300">{on ? 'On. Counts how Super Pools is used and whether a sign-up came from an ad.' : 'Off. Nothing loads to Google, and you can turn it back on any time.'}</p>
+            </div>
+            <button type="button" role="switch" aria-checked={on} aria-label={`Analytics ${on ? 'on' : 'off'}`}
+              onClick={toggle}
+              className={`relative h-8 w-14 shrink-0 rounded-full transition ${on ? 'bg-gold' : 'bg-white/15'}`}>
+              <span className={`absolute top-1 h-6 w-6 rounded-full bg-white shadow transition ${on ? 'left-7' : 'left-1'}`} />
+            </button>
+          </div>
+        )}
         <div className="mt-8 space-y-4">
           {SECTIONS.map((s) => (
             <section key={s.title} className="card p-4">
@@ -46,7 +68,7 @@ export default function Privacy() {
             </section>
           ))}
         </div>
-        <p className="mt-8 text-center text-xs text-mute">Last changed 13 October 2026. © 2026 {PRODUCT.name} · <a className="text-sky-300" href="#/">Back to the app</a></p>
+        <p className="mt-8 text-center text-xs text-mute">Last changed 18 October 2026. © 2026 {PRODUCT.name} · <a className="text-sky-300" href="#/">Back to the app</a></p>
       </div>
     </div>
   );
