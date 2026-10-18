@@ -840,9 +840,8 @@ async function poolDaily() {
   const paid = (drops ?? []).filter((d) => d.at <= now).map((d) => `${Number(d.amount)} ${c.name} dropped into every member's purse (${d.note})`);
   const coming = (drops ?? []).filter((d) => d.at > now).map((d) => `${Number(d.amount)} ${c.name} drop into every member's purse ${when(d.at)} (${d.note})`);
   // the games on the pool's events in the next day, each as a sentence with its time in the members' words
-  // away at home, as a North American game is said ("home v away" was read back the wrong way round on 14 October)
-  // the home side named first as the host: "Arsenal at Nottingham Forest" came back as "Arsenal host Nottingham Forest"
-  // (18 October 2026), so the line reads the way the post should
+  // the home side named first as the host: "home v away" was read back the wrong way round on 14 October, and "away at
+  // home" came back as "Arsenal host Nottingham Forest" on 18 October, so the line reads the way the post should
   const tonight = ahead.games.slice(0, 8).map((g) => `${g.home} host ${g.away}${g.series ? ` (${g.series}${g.game_no ? ` game ${g.game_no}` : ''})` : ` (${g.event})`} ${when(g.at)}`);
   const locking = ahead.locks.map((l) => ({ game: l.title, round: l.round, locks: when(l.at), ...(l.matches ? { matches: l.matches } : {}),
     ...(l.under_way ? { the_round_is_already_under_way: true } : {}), still_to_pick: l.still_to_pick, of: l.of }));
