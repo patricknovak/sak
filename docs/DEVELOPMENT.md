@@ -995,7 +995,12 @@ first) but its questions stale:
   one-tap answer read them like the rest, the answer naming the game ("World Series, Game 1", migration 324).
   A question about one club is answered No the moment that club is knocked out (migration 325): "Do the Dodgers win a
   third straight World Series?" waited on the World Series itself, so the pool that had it kept a question already
-  decided for a week, its coins tied up; its host gets the bell to settle it now. Checked on live: the NL Wild Card Series reads Game 2 to the Phillies in ten
+  decided for a week, its coins tied up; its host gets the bell to settle it now.
+  Review fixes (migration 326): 325's shortcut also answered No on a series the club had won, once it lost a later round
+  ("Do the Rays win the pennant?" would have turned No when the Rays lost the World Series); it holds now only while the
+  asked series is undecided. And 322's held lock ignores a cancelled game, as the lock itself does. Left as noted by the
+  review: feed questions name their series by label, which is unique only for a final round (the World Series, the
+  Stanley Cup Final), so a question on an earlier round's series needs its own key first. Checked on live: the NL Wild Card Series reads Game 2 to the Phillies in ten
   innings, extras yes, and Game 1's winner took the series.
 - **The NBA's opening week, audited** (win totals, pick'em, last one standing and the streak, traced against the
   functions live): nothing pays twice, locks early or late, or settles on a game a club didn't play. Fixed from it: win

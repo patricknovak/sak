@@ -3892,6 +3892,11 @@ select pg_temp.expect('the first pool keeps what it has: nothing added, nothing 
   and (select jsonb_array_length(outcomes) from pool_markets where league_id = :lib and title = 'Who wins the final?') = 3);
 select pg_temp.expect('a question without a feed loads as written', _pack_market_now('{"title":"x","outcomes":["A","B"]}'::jsonb) = '{"title":"x","outcomes":["A","B"]}'::jsonb);
 select pg_temp.raises('a member can''t call it', 'set role authenticated; select _pack_market_now(''{}''::jsonb)', 'permission denied');
+-- the Larks won the semi and lose the final: a question on the semi is still Yes (migration 326)
+update series set low_club = (select id from clubs where ext_id = 'fl1'), high_wins = 4, winner = high_club, state = 'final' where ext_id = 'fls2';
+select pg_temp.expect('a club that won the series asked about is a yes, whatever it lost later',
+  _feed_answer('{"kind":"winner_is","competition":"fl-test","series":"Live semi","club":"Live Larks"}') = 'Yes'
+  and _feed_answer('{"kind":"winner_is","competition":"fl-test","series":"Live final","club":"Live Larks"}') = 'No');
 reset role;
 delete from pool_markets where pack = 'test-live';
 delete from pool_packs where slug = 'test-live';

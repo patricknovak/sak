@@ -474,7 +474,7 @@ The steps above finish the tenancy. `docs/MARKET.md` sets what comes after in th
     tagged for the funnel; the start page and SaK's "Your other crews" lead with an event whose final is within two
     weeks; landing copy that follows the calendar (`data-until`, `data-from` in `landing/site.js`); calls on a series' games
     the feed answers (Game 1's winner, whether it takes the series, extra innings: migration 321, the host's answer
-    naming the game, 324), a question about a knocked-out club answered No at once (325); and, from the NBA
+    naming the game, 324), a question about a knocked-out club answered No at once (325, its review fixes 326); and, from the NBA
     opening-week audit, win totals' lock held the moment the season starts (322), an even-money price keeping its spread
     and the fixtures pulled twice a day (323).
 
