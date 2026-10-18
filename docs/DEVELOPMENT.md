@@ -960,3 +960,7 @@ first) but its questions stale:
 - **The pool that can't wait goes first**: the start page groups events by sport in the server's order (soccer first),
   which put the World Series last in its own week. A sport whose event reaches its final within two weeks now leads the
   list (the World Series this week; a Super Bowl or a Cup final later), in `NewPool.tsx`'s `byGroup`.
+- **Your other crews leads with it too** (SaK's home): the card shows one event per sport locking within ten days, four
+  at most, soonest first, and this week five sports lock, so the World Series (last to lock) was the one cut. An event
+  reaching its final within two weeks now comes first, and a postseason whose next pick is its final round goes by that
+  round's name ("The World Series", not "MLB postseason").
