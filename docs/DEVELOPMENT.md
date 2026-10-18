@@ -992,7 +992,10 @@ first) but its questions stale:
   (`extras`, with the regulation periods in the question: yes the moment a game passes it, no only once the series is
   over and every final game's periods are on file). The World Series pack carries one of each (seven questions in a pool
   started today); a question on one game drops knocked-out clubs like the winner question does, and the host's bell and
-  one-tap answer read them like the rest, the answer naming the game ("World Series, Game 1", migration 324). Checked on live: the NL Wild Card Series reads Game 2 to the Phillies in ten
+  one-tap answer read them like the rest, the answer naming the game ("World Series, Game 1", migration 324).
+  A question about one club is answered No the moment that club is knocked out (migration 325): "Do the Dodgers win a
+  third straight World Series?" waited on the World Series itself, so the pool that had it kept a question already
+  decided for a week, its coins tied up; its host gets the bell to settle it now. Checked on live: the NL Wild Card Series reads Game 2 to the Phillies in ten
   innings, extras yes, and Game 1's winner took the series.
 - **The NBA's opening week, audited** (win totals, pick'em, last one standing and the streak, traced against the
   functions live): nothing pays twice, locks early or late, or settles on a game a club didn't play. Fixed from it: win

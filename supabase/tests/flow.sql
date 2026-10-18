@@ -3883,6 +3883,9 @@ select pg_temp.expect('a pool started once it''s decided gets the final without 
   and exists (select 1 from pool_markets where league_id = :epl and title = 'Do the Larks win it?')
   and exists (select 1 from pool_markets where league_id = :epl and title = 'How long is the final?')
   and not exists (select 1 from pool_markets where league_id = :epl and title in ('Do the Loons win it?', 'Who wins the semi?', 'How long is the semi?')));
+select pg_temp.expect('a question on a knocked-out club is answered no at once (migration 325)',
+  _feed_answer('{"kind":"winner_is","competition":"fl-test","series":"Live final","club":"Live Loons"}') = 'No'
+  and _feed_answer('{"kind":"winner_is","competition":"fl-test","series":"Live final","club":"Live Larks"}') is null);
 select pg_temp.expect('the start page counts the three a pool would get', (select questions from pool_pack_list() where slug = 'test-live') = 3);
 select pg_temp.expect('the first pool keeps what it has: nothing added, nothing taken', _pool_load_pack(:lib, 'test-live', null) = 0
   and (select count(*) from pool_markets where league_id = :lib and pack = 'test-live') = 6
