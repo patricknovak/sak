@@ -114,8 +114,17 @@ export default function NewPool() {
   const chosen = useMemo(() => packs?.find((p) => p.slug === pack) ?? null, [packs, pack]);
   const event = following?.type === 'event' ? events?.find((e) => e.competition === following.comp) ?? null : null;
   // the events under their sports, the sport with the soonest lock first, each sport's events soonest first
-  const byGroup = useMemo(() => { const first = new Map<string, number>(); (events ?? []).forEach((e, i) => { if (!first.has(e.sport)) first.set(e.sport, i); });
-    return (events ?? []).map((e, i) => ({ e, i })).sort((a, b) => first.get(a.e.sport)! - first.get(b.e.sport)! || a.i - b.i).map((x) => x.e); }, [events]);
+  // the events grouped by sport in the list's order, except that a sport whose event reaches its final within two weeks
+  // (the World Series in its week, a Super Bowl, a Cup final) goes first: it's the pool that can't wait
+  const byGroup = useMemo(() => {
+    const first = new Map<string, number>(), soon = new Set<string>();
+    (events ?? []).forEach((e, i) => {
+      if (!first.has(e.sport)) first.set(e.sport, i);
+      if (e.final_starts && Date.parse(e.final_starts) - Date.now() < 14 * 864e5) soon.add(e.sport);
+    });
+    const rank = (sport: string) => (soon.has(sport) ? -1 : first.get(sport)!);
+    return (events ?? []).map((e, i) => ({ e, i })).sort((a, b) => rank(a.e.sport) - rank(b.e.sport) || a.i - b.i).map((x) => x.e);
+  }, [events]);
   // packs that ride with a sports event are offered inside it, as its questions
   const eventPacks = new Set((events ?? []).map((e) => e.pack).filter(Boolean));
   const loosePacks = (packs ?? []).filter((p) => !eventPacks.has(p.slug));
