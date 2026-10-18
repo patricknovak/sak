@@ -1018,3 +1018,13 @@ first) but its questions stale:
   check was right). A rewrite that still fails now keeps every sentence that passes on its own, when what's left passes
   whole and keeps at least 60% of the post; otherwise the fallback as before. A chat reply whose rewrite still fails gets
   the same treatment instead of going out with the number. A dry run of the 18 October column wrote a clean one.
+- **Who's at home, said plainly**: a pool's morning post on 18 October read "Arsenal host Nottingham Forest" from the
+  facts' "Arsenal at Nottingham Forest" (the matchup-order slip noted on 15 October). The facts now name the home side
+  first as the host ("Nottingham Forest host Arsenal").
+- **Every @tag is someone in the league**: a dry run of a pool's morning opened "@Name," (the prompt said to tag members
+  "as @Name", and the pool had nobody to tag). Every checked post now holds each @tag to the league's GMs (first name or
+  whole name), a stray one rewritten or its sentence dropped like a stray number, and the prompts say "as @ and their
+  name from the facts". Dry runs after the deploy: the pool's post clean, SaK's column with its real tags intact.
+  Still open for the next voice pass: a column can retell yesterday's storyline as today's ("jumped Jason and Patrick to
+  take the top spot" a day after it happened) or misstate a gap built from true numbers ("the middle four separated by
+  12.3"); the checks read numbers and tags, not what the numbers say.
