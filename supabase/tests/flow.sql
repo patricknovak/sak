@@ -3847,17 +3847,17 @@ reset role;
 select set_config('request.jwt.claim.sub', '', false);
 select 'feed answers', true;
 
--- a pack question as it stands (migration 316): a pool started after a series is decided gets the winner question
--- without the knocked-out club, no question about that club, and the start page counts what it would get; a pool that
--- already has the question keeps every outcome
+-- a pack question as it stands (migrations 316 and 317): a pool started while a series is on gets every question; once
+-- it's decided, a pool started then gets the final without the knocked-out club, no question about that club and none the
+-- feed has already answered, the start page counts what it would get, and the first pool keeps what it has
 reset role;
 insert into competitions (id, sport, name, short, season, provider, ext_id, ext_season, active, format)
 values ('fl-test', 'mlb', 'Live test', 'FL', '2026', 'mlb-statsapi', 'flt', '2026', true, 'series') on conflict (id) do nothing;
 insert into clubs (sport, provider, ext_id, name) values ('mlb', 'fl', 'fl1', 'Live Larks'), ('mlb', 'fl', 'fl2', 'Live Loons'), ('mlb', 'fl', 'fl3', 'Live Lynx');
 insert into series (sport, competition, provider, ext_id, round, label, best_of, high_club, low_club, high_wins, low_wins, winner, state, tbd)
-select 'mlb', 'fl-test', 'fl', 'fls1', 3, 'Live semi', 7, (select id from clubs where ext_id = 'fl1'), (select id from clubs where ext_id = 'fl2'), 4, 1, (select id from clubs where ext_id = 'fl1'), 'final', false
+select 'mlb', 'fl-test', 'fl', 'fls1', 3, 'Live semi', 7, (select id from clubs where ext_id = 'fl1'), (select id from clubs where ext_id = 'fl2'), 3, 1, null::bigint, 'live', false
 union all
-select 'mlb', 'fl-test', 'fl', 'fls2', 4, 'Live final', 7, (select id from clubs where ext_id = 'fl1'), null, 0, 0, null, 'scheduled', true;
+select 'mlb', 'fl-test', 'fl', 'fls2', 4, 'Live final', 7, (select id from clubs where ext_id = 'fl3'), null, 0, 0, null, 'scheduled', true;
 insert into pool_packs (slug, name, brand, markets, drops) values ('test-live', 'Live test', '{}', jsonb_build_array(
   jsonb_build_object('title', 'Who wins the final?', 'outcomes', jsonb_build_array('Live Larks', 'Live Loons', 'Live Lynx'), 'closes_at', now() + interval '3 days',
     'feed', jsonb_build_object('kind', 'winner', 'competition', 'fl-test', 'series', 'Live final')),
@@ -3865,24 +3865,28 @@ insert into pool_packs (slug, name, brand, markets, drops) values ('test-live', 
     'feed', jsonb_build_object('kind', 'winner_is', 'competition', 'fl-test', 'series', 'Live final', 'club', 'Live Loons')),
   jsonb_build_object('title', 'Do the Larks win it?', 'outcomes', jsonb_build_array('Yes', 'No'), 'closes_at', now() + interval '3 days',
     'feed', jsonb_build_object('kind', 'winner_is', 'competition', 'fl-test', 'series', 'Live final', 'club', 'Live Larks')),
-  jsonb_build_object('title', 'Who wins the semi?', 'outcomes', jsonb_build_array('Live Larks', 'Live Loons'), 'closes_at', now() + interval '3 days',
+  jsonb_build_object('title', 'Who wins the semi?', 'outcomes', jsonb_build_array('Live Larks', 'Live Loons', 'Live Lynx'), 'closes_at', now() + interval '3 days',
     'feed', jsonb_build_object('kind', 'winner', 'competition', 'fl-test', 'series', 'Live semi')),
+  jsonb_build_object('title', 'How long is the semi?', 'outcomes', jsonb_build_array('Four', 'Five', 'Six', 'Seven'), 'closes_at', now() + interval '3 days',
+    'feed', jsonb_build_object('kind', 'games', 'competition', 'fl-test', 'series', 'Live semi')),
   jsonb_build_object('title', 'How long is the final?', 'outcomes', jsonb_build_array('Four', 'Five', 'Six', 'Seven'), 'closes_at', now() + interval '3 days',
     'feed', jsonb_build_object('kind', 'games', 'competition', 'fl-test', 'series', 'Live final'))), '[]')
 on conflict (slug) do update set markets = excluded.markets;
-select set_config('app.league_id', :'epl'::text, false);
-insert into pool_markets (league_id, title, outcomes, q, b, closes_at, created_by, pack)
-  values (:lib, 'Who wins the final?', '[{"key":"a1","label":"Live Larks"},{"key":"a2","label":"Live Loons"},{"key":"a3","label":"Live Lynx"}]', '{"a1":0,"a2":0,"a3":0}', 50, now() + interval '3 days', null, 'test-live');
+select set_config('t.ll', _pool_load_pack(:lib, 'test-live', null)::text, false);
+select pg_temp.expect('a pool started while the semi is on gets every question', current_setting('t.ll') = '6'
+  and (select questions from pool_pack_list() where slug = 'test-live') = 6);
+update series set high_wins = 4, winner = high_club, state = 'final' where ext_id = 'fls1';
 select set_config('t.ll', _pool_load_pack(:epl, 'test-live', null)::text, false);
-select pg_temp.expect('a pool started now gets the final without the knocked-out club and no question about it, and nothing left to call',
+select pg_temp.expect('a pool started once it''s decided gets the final without the knocked-out club, nothing about it, nothing already answered',
   current_setting('t.ll') = '3'
   and (select jsonb_agg(o->>'label' order by o->>'key') from pool_markets, jsonb_array_elements(outcomes) o where league_id = :epl and title = 'Who wins the final?') = '["Live Larks", "Live Lynx"]'
   and exists (select 1 from pool_markets where league_id = :epl and title = 'Do the Larks win it?')
   and exists (select 1 from pool_markets where league_id = :epl and title = 'How long is the final?')
-  and not exists (select 1 from pool_markets where league_id = :epl and title in ('Do the Loons win it?', 'Who wins the semi?')));
+  and not exists (select 1 from pool_markets where league_id = :epl and title in ('Do the Loons win it?', 'Who wins the semi?', 'How long is the semi?')));
 select pg_temp.expect('the start page counts the three a pool would get', (select questions from pool_pack_list() where slug = 'test-live') = 3);
-select pg_temp.expect('a pool that already had the question keeps every outcome',
-  (select jsonb_array_length(outcomes) from pool_markets where league_id = :lib and title = 'Who wins the final?') = 3);
+select pg_temp.expect('the first pool keeps what it has: nothing added, nothing taken', _pool_load_pack(:lib, 'test-live', null) = 0
+  and (select count(*) from pool_markets where league_id = :lib and pack = 'test-live') = 6
+  and (select jsonb_array_length(outcomes) from pool_markets where league_id = :lib and title = 'Who wins the final?') = 3);
 select pg_temp.expect('a question without a feed loads as written', _pack_market_now('{"title":"x","outcomes":["A","B"]}'::jsonb) = '{"title":"x","outcomes":["A","B"]}'::jsonb);
 select pg_temp.raises('a member can''t call it', 'set role authenticated; select _pack_market_now(''{}''::jsonb)', 'permission denied');
 reset role;
