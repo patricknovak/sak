@@ -377,3 +377,12 @@ function libStage() { for (var i = 0; i < LIB_STAGES.length; i++) if (LIB_STAGES
       .finally(function () { btn.disabled = false; });
   });
 })();
+
+// copy that follows the calendar: an element with data-until is gone from that moment, one with data-from appears then
+// (an event's page says "opening night October 20" until then and "every night" after, without a redeploy)
+(function () {
+  var now = Date.now();
+  document.querySelectorAll('[data-until]').forEach(function (el) { if (now >= Date.parse(el.getAttribute('data-until'))) el.remove(); });
+  // site.css keeps data-from hidden, so without the script a page reads as it did before its date
+  document.querySelectorAll('[data-from]').forEach(function (el) { if (now < Date.parse(el.getAttribute('data-from'))) el.remove(); else el.removeAttribute('data-from'); });
+})();

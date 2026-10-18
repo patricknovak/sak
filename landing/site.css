@@ -450,3 +450,5 @@ footer a { color: var(--soft); }
 .howto li { counter-increment: st; display: flex; gap: 12px; align-items: flex-start; font-size: 14px; color: var(--soft); }
 .howto li::before { content: counter(st); flex: none; width: 26px; height: 26px; border-radius: 50%; display: grid; place-items: center; font: 900 15px/1 'Barlow Condensed', sans-serif; color: #1a1405; background: var(--gold); }
 .howto b { color: var(--ink); }
+/* copy for after a date: shown by site.js once its time comes */
+[data-from] { display: none !important; }

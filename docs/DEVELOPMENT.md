@@ -968,3 +968,7 @@ first) but its questions stale:
   be drawn, before the American League champion is known. The draw kept Milwaukee and nobody, and the hourly tick filled
   a side in only when both were missing, so the grid would have read "matchup to be set" and "Visitors" all series (its
   pays were right, read from each game's clubs). A missing side now fills in the moment the series has both.
+- **Landing copy that follows the calendar** (`landing/site.js`): an element with `data-until` is gone from that moment,
+  one with `data-from` appears then (hidden by `site.css` until the script shows it, so a page without the script reads as
+  before its date). The NBA page drops "opening night October 20" and the win totals (they lock at the first tip) once the
+  season is on; the World Series page says "under way" and drops the series pick (it locks at Game 1) once it starts.
