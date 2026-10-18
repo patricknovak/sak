@@ -11,7 +11,7 @@ import { rpc, supabase } from '../lib/supabase';
 import { poolCardOf, type PoolCardMeta } from './PoolInviteCard';
 import { TeamBadge } from './ui';
 import { openPool } from '../lib/host';
-import { KINDS, type GameKind, type PoolEvent } from '../lib/poolGames';
+import { KINDS, finalName, finalSoon, inFinal, type GameKind, type PoolEvent } from '../lib/poolGames';
 import { useLeague } from '../lib/store';
 
 type Mine = { league_id: number; slug: string; name: string; short: string | null; kind: 'fantasy' | 'predict'; here: boolean; role: string; brand: { colors?: { gold?: string } }; summary?: { rank?: number; of?: number; open?: number; closing?: number } };
@@ -19,7 +19,7 @@ type Mine = { league_id: number; slug: string; name: string; short: string | nul
 const SPORT_EMOJI: Record<string, string> = { nfl: '🏈', nba: '🏀', mlb: '⚾', nhl: '🏒', soccer: '⚽', ncaab: '🏀' };
 // for each sport, the pool to lead with: a hockey crowd's box pool, a postseason's series, a season's win totals, else the first
 const LEAD: GameKind[] = ['players', 'series', 'pickem', 'wins', 'survivor'];
-const short = (e: PoolEvent) => e.name.replace(/\s+\d{4}(-\d{2})?(\s+games)?$/i, '').replace(/^MLB Postseason.*/, 'MLB postseason');
+const short = (e: PoolEvent) => (inFinal(e) ? finalName(e) : e.name.replace(/\s+\d{4}(-\d{2})?(\s+games)?$/i, '').replace(/^MLB Postseason.*/, 'MLB postseason'));
 const when = (iso: string | null) => {
   if (!iso) return '';
   const ms = Date.parse(iso) - Date.now();
@@ -53,7 +53,7 @@ export function OtherCrews() {
   }, [hidden, me?.id, lid]);
   const toJoin = inPools ? shared.filter((x) => !inPools.has(x.card.league_id)).slice(0, 3) : [];
 
-  // the best few: one per sport, those locking within ten days first, soonest first
+  // the best few: one per sport, of those locking within ten days
   const tiles = useMemo(() => {
     const soon = (events ?? []).filter((e) => e.next_lock && Date.parse(e.next_lock) > Date.now() && Date.parse(e.next_lock) - Date.now() < 10 * 86_400_000);
     const best = new Map<string, { e: PoolEvent; k: GameKind }>();
@@ -64,7 +64,9 @@ export function OtherCrews() {
       // in one sport, the event whose lead pool ranks higher wins (the NHL box pool over its weekly pick'em)
       if (!have || LEAD.indexOf(k) < LEAD.indexOf(have.k)) best.set(e.sport, { e, k });
     }
-    return [...best.values()].sort((a, b) => Date.parse(a.e.next_lock!) - Date.parse(b.e.next_lock!)).slice(0, 4);
+    // an event reaching its final within two weeks (the World Series in its week) first, then soonest first: five sports
+    // lock in a week like this one and only four fit, and the final is the one that can't wait
+    return [...best.values()].sort((a, b) => Number(finalSoon(b.e)) - Number(finalSoon(a.e)) || Date.parse(a.e.next_lock!) - Date.parse(b.e.next_lock!)).slice(0, 4);
   }, [events]);
 
   if (hidden || !me || (events !== null && !tiles.length && !mine.length && !toJoin.length)) return null;

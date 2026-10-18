@@ -114,7 +114,7 @@ Two things in one repo:
   gamecenter landing, `nhlPeriods`, migration 215; platform key only; for testing, a
   licensed feed replaces it, docs/POOL-TYPES.md §8; `sport_ingest` ends by drawing and paying any grid of squares on the
   event, `_squares_tick`, migration 167; a platform admin fixes a game the feed got wrong from the Platform page,
-  `platform_game_fix`, and the feed leaves it alone until handed back, migration 206; a pack question that names its series in `feed` bells the pool's host with the answer once the series is decided, and the host still calls it, from the settle panel's one-tap answer, `_pool_feed_nudge` and `pool_feed_answer`, migrations 272 and 273; the hourly pool job, pool-drops, opens
+  `platform_game_fix`, and the feed leaves it alone until handed back, migration 206; a pack question that names its series in `feed` bells the pool's host with the answer once the series is decided, and the host still calls it, from the settle panel's one-tap answer, `_pool_feed_nudge` and `pool_feed_answer`, migrations 272 and 273 (`_feed_answer` reads the series' winner, length, a club's fate, the first answered No once the club is out, migration 325, and calls on its games: one game's winner, Game 1's winner taking it, extra innings, migration 321); the hourly pool job, pool-drops, opens
   a pool's automatic prop sheets, `_props_auto`, migration 223). Shared code in `supabase/functions/_shared`.
 - Scheduler: pg_cron jobs call the edge functions through pg_net with `_edge_headers(true)` (the anon key plus the
   platform's admin key, read when the job runs); nhl-sync refuses every task without the admin key and Garry its
@@ -171,7 +171,7 @@ Two things in one repo:
   `poolLink` in `src/lib/host.ts`); a `<web name>` subdomain forwards to it unless someone is signed in on that address.
   My pools (`#/pools`) reads `my_pools()`; every start goes through `#/new` (a sports pool, a questions pool, or a fantasy
   league of your own with `fantasy_start`, opened in setup and taken live with `commish_go_live`), and a host deletes a
-  pool with `pool_delete` (migration 242). A season carries its questions pack (`competitions.pack`: the NBA, the NFL, the NHL's games, the Premier League, MLS and the World Series), so a start on it ticks them beside its games (migrations 299, 300 and 304). A pack's new questions reach every open pool on it through the hourly pool job
+  pool with `pool_delete` (migration 242). A season carries its questions pack (`competitions.pack`: the NBA, the NFL, the NHL's games, the Premier League, MLS and the World Series), so a start on it ticks them beside its games (migrations 299, 300 and 304). A pack question that names its series in `feed` loads with only the clubs still alive (`_pack_market_now`, migration 316). A pack's new questions reach every open pool on it through the hourly pool job
   (`_pool_pack_refresh`, migration 251; a pack question's later closing time reaches every open copy too, migration 258), and an invite's preview carries the pool's next question (migration 252). A pool's pages keep to its own events, `pool_competitions()`
   (`src/lib/poolOwn.ts`): read it rather than every competition when a pool page lists events. Every pool's games share one scoreboard
   (`pool_scoreboard()`, migration 169): a new kind of game adds a branch to `_pool_rows()` and gets the table, movement,

@@ -55,6 +55,12 @@ export const gridRules = (g: Grid) => (g.fixture ? { fixture: g.fixture } : { se
 // a week's game as the game picker draws it
 export const gridGame = (g: Grid): SheetGame => ({ id: g.id, kickoff: g.starts_at ?? '', game_no: null, label: g.label, home: g.high ?? '', away: g.low ?? '' });
 // the grid on an event's last series when it has one, else the first still to come
+// an event reaching its final within two weeks (the World Series in its week, a Super Bowl, a Cup final): the pool that
+// can't wait, which the start page, the sign-in and a league's home lead with
+export const finalSoon = (e: PoolEvent) => !!e.final_starts && Date.parse(e.final_starts) - Date.now() < 14 * 864e5;
+// a postseason whose next pick is its final round goes by that round's name ("The World Series" in its week)
+export const inFinal = (e: PoolEvent) => !!e.open_round && e.open_round === e.final_round && !!e.grids?.length;
+export const finalName = (e: PoolEvent) => `The ${e.final_label.replace(/^The /, '')}`;
 export const gridFor = (e: PoolEvent) => { const gs = eventGrids(e); return gs.find((g) => !g.fixture && g.round === e.final_round) ?? gs[0] ?? null; };
 export const gridLabel = (g: Grid) => (g.fixture ? `${g.label}: ${g.low} at ${g.high}` : g.high && g.low ? `${g.label}: ${g.high} v ${g.low}` : `${g.label}, matchup to be set`);
 

@@ -936,3 +936,79 @@ funnel can tell these starts apart), and "anything else" for a questions pool. "
   database then refused ("no drop needed"). One count now, `activeAfter` in `src/lib/tradeCount.ts` (tested in `test:nhl`), for the builder,
   the accept step and the grades. The builder says so when it happens: "X comes in hurt and goes straight to your open IR
   slot, so he doesn't count against your roster."
+
+### 9.12 The World Series week, 18 October 2026
+
+The World Series starts on 24 October, the first event this year where a pool for a group's whole week is the obvious
+thing to start. Walking the start page as a stranger would found the pool well set up (the event chosen, the series pick
+first) but its questions stale:
+- **A pack's question as it stands** (migration 316): the World Series pack was written before the division series, so a
+  pool started this week traded the Dodgers, Padres, Braves, Yankees and White Sox, all out, and asked "Do the Dodgers win
+  a third straight World Series?", already decided. A pack question that names its series in `feed` now loads with only
+  the clubs still alive in its competition (`_feed_out`, every club that lost a decided series), and a question about one
+  club loads only while that club is (`_pack_market_now`, read by `_pool_load_pack` and the start page's count in
+  `pool_pack_list`). A pool that already has the question keeps it whole: a market can't lose an outcome someone may hold.
+  Live: "Who wins the World Series?" now offers Milwaukee, Tampa Bay and Cleveland; the pack counts four questions.
+  Review fix (migration 317): a question the feed has already answered (`_feed_answer`) doesn't load either, such as a
+  question about a club that has won its series, or a decided series' winner or length.
+- **A World Series page** (`landing/world-series-pools.html`, in the sitemap, the home page's quick link and footer):
+  the front door for this week's searches and the link to share, in the voice of the NFL, NHL and NBA pages, every button
+  starting a pool with the World Series chosen and the kind ticked (`#/new?comp=mlb-post-2026&kind=…`, with
+  `utm_source=landing&utm_campaign=world_series` so the funnel can tell these starts apart). Its phone shows the app's
+  own start page on the World Series. The start page now takes `kind=squares` on an event with a grid to draw (squares
+  isn't in an event's `kinds`, it rides its grids), and its kind cards say which are chosen (`aria-pressed`).
+- **The pool that can't wait goes first**: the start page groups events by sport in the server's order (soccer first),
+  which put the World Series last in its own week. A sport whose event reaches its final within two weeks now leads the
+  list (the World Series this week; a Super Bowl or a Cup final later), in `NewPool.tsx`'s `byGroup`.
+- **Your other crews leads with it too** (SaK's home): the card shows one event per sport locking within ten days, four
+  at most, soonest first, and this week five sports lock, so the World Series (last to lock) was the one cut. An event
+  reaching its final within two weeks now comes first, and a postseason whose next pick is its final round goes by that
+  round's name ("The World Series", not "MLB postseason").
+- **A grid drawn before its matchup is set** (migration 318): a World Series squares grid started this week can fill, and
+  be drawn, before the American League champion is known. The draw kept Milwaukee and nobody, and the hourly tick filled
+  a side in only when both were missing, so the grid would have read "matchup to be set" and "Visitors" all series (its
+  pays were right, read from each game's clubs). A missing side now fills in the moment the series has both. Audit fix
+  (migration 319): 318 wrote both sides from the series, so a grid drawn with Milwaukee would have swapped its clubs after
+  the draw if the series filed the AL champion first (Game 1 at its park), paying every inning to other squares than the
+  ones members saw; a drawn side now never moves and only the missing one fills in. No grid existed yet.
+- **A series' clubs never go half-way backwards** (migration 320, `sport_ingest`): the feed kept each stored club where a
+  new listing had none, so a schedule that moved Milwaukee to the road before the AL champion was known would have filed
+  Milwaukee on both sides. A listing with both clubs now replaces the pair; one with a club missing keeps the stored pair.
+  Left as is from the same audit: a suspended Game 1 whose resume date moves the series' start later would reopen series
+  picks with a partial score known (rare; a rainout before the first pitch reopening them is right).
+- **Landing copy that follows the calendar** (`landing/site.js`): an element with `data-until` is gone from that moment,
+  one with `data-from` appears then (hidden by `site.css` until the script shows it, so a page without the script reads as
+  before its date). The NBA page drops "opening night October 20" and the win totals (they lock at the first tip) once the
+  season is on; the World Series page says "under way" and drops the series pick (it locks at Game 1) once it starts.
+- **Open right now under the sign-in** (`src/components/OpenNow.tsx`, on the product's own address only): a stranger who
+  landed on app.superpoolsai.com found a sign-in form and one small link. Three events open this minute now sit under it,
+  one a sport, the final that can't wait first, each a tap into the start page with it chosen ("The World Series · first
+  pick locks Fri 8:00 PM"). A league's own address keeps its sign-in as it was. The landing home page's open-right-now
+  board follows the same order and names a postseason in its final round after that round.
+- **Calls on the games, not only the end** (migration 321): once the World Series matchup is set, "Which league wins?" is
+  the same call as "Who wins?", so a pool started this week had three questions to play, all on how the series ends. The
+  feed now answers three kinds of call on a series' games: one game's winner (`game`, the club ahead once that game is
+  final), whether the club that wins Game 1 takes the series (`opener_wins`) and whether any game goes past regulation
+  (`extras`, with the regulation periods in the question: yes the moment a game passes it, no only once the series is
+  over and every final game's periods are on file). The World Series pack carries one of each (seven questions in a pool
+  started today); a question on one game drops knocked-out clubs like the winner question does, and the host's bell and
+  one-tap answer read them like the rest, the answer naming the game ("World Series, Game 1", migration 324).
+  A question about one club is answered No the moment that club is knocked out (migration 325): "Do the Dodgers win a
+  third straight World Series?" waited on the World Series itself, so the pool that had it kept a question already
+  decided for a week, its coins tied up; its host gets the bell to settle it now.
+  Review fixes (migration 326): 325's shortcut also answered No on a series the club had won, once it lost a later round
+  ("Do the Rays win the pennant?" would have turned No when the Rays lost the World Series); it holds now only while the
+  asked series is undecided. And 322's held lock ignores a cancelled game, as the lock itself does. Left as noted by the
+  review: feed questions name their series by label, which is unique only for a final round (the World Series, the
+  Stanley Cup Final), so a question on an earlier round's series needs its own key first. Checked on live: the NL Wild Card Series reads Game 2 to the Phillies in ten
+  innings, extras yes, and Game 1's winner took the series.
+- **The NBA's opening week, audited** (win totals, pick'em, last one standing and the streak, traced against the
+  functions live): nothing pays twice, locks early or late, or settles on a game a club didn't play. Fixed from it: win
+  totals' lock was worked out again from the opener's kickoff until the hourly job kept it, so an opener moved later
+  just after its tip would have reopened calls everyone had seen; a season game that reaches its time and changes now
+  holds the lock (`rules.lock_held`, `fixtures_wins_hold`, migration 322), the hourly job still announcing the split.
+  And ESPN's even-money price ('EVEN') read as no price, which dropped the game's whole line, spread included, so an
+  against-the-spread pick took line 0; it reads as +100 now (`espnOdds`, tested in `test:nhl`; soccer-sync deployed).
+  And a tip moved earlier on game day was fetched only from five minutes before the stored tip, the fixtures coming in
+  once a day at 05:17 UTC; they come in again at 16:17 UTC now (12:17 pm Eastern, before the NFL's afternoon and every
+  evening tip; `soccer-fixtures`, migration 323, ESPN's free feed so no requests spent).

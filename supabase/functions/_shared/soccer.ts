@@ -122,9 +122,11 @@ function espnLines(home: Any, away: Any) {
     home: h[j] != null ? num(h[j]?.value ?? h[j]?.displayValue) : null, away: a[j] != null ? num(a[j]?.value ?? a[j]?.displayValue) : null }));
 }
 
-// an American price ('-125', '+105') as the chance it implies
+// an American price ('-125', '+105') as the chance it implies; ESPN writes an even-money price as 'EVEN' (+100), which
+// read as no price dropped the whole line, the spread with it (18 October 2026 audit)
 function implied(price: unknown): number | null {
-  const n = Number(String(price ?? '').replace(/^\+/, ''));
+  const t = String(price ?? '').trim();
+  const n = /^even$/i.test(t) ? 100 : Number(t.replace(/^\+/, ''));
   if (!Number.isFinite(n) || n === 0) return null;
   return n < 0 ? -n / (-n + 100) : 100 / (n + 100);
 }

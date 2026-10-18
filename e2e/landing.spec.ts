@@ -45,6 +45,16 @@ test.describe('Landing (superpoolsai.com)', () => {
     }
   });
 
+  test('the World Series page starts a pool on the World Series with the kind ticked', async ({ page }) => {
+    await page.goto('./world-series-pools.html');
+    await expect(page).toHaveTitle(/World Series/i);
+    await expect(page.getByText(/never money/i).first()).toBeVisible();
+    const start = page.getByRole('link', { name: /Start a World Series pool/i }).first();
+    await expect(start).toHaveAttribute('href', /app\.superpoolsai\.com\/#\/new\?comp=mlb-post-2026&kind=series&utm_source=landing/);
+    await expect(page.getByRole('link', { name: /A squares grid/i })).toHaveAttribute('href', /kind=squares/);
+    await expect(page.locator('meta[property="og:image"]')).toHaveAttribute('content', /og-world-series\.png/);
+  });
+
   test('no payment or Stripe checkout surface', async ({ page }) => {
     await page.goto('./');
     // Supercoins are never money: no Stripe, no checkout, and the page itself says so

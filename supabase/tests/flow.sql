@@ -3847,6 +3847,144 @@ reset role;
 select set_config('request.jwt.claim.sub', '', false);
 select 'feed answers', true;
 
+-- a pack question as it stands (migrations 316 and 317): a pool started while a series is on gets every question; once
+-- it's decided, a pool started then gets the final without the knocked-out club, no question about that club and none the
+-- feed has already answered, the start page counts what it would get, and the first pool keeps what it has
+reset role;
+insert into competitions (id, sport, name, short, season, provider, ext_id, ext_season, active, format)
+values ('fl-test', 'mlb', 'Live test', 'FL', '2026', 'mlb-statsapi', 'flt', '2026', true, 'series') on conflict (id) do nothing;
+insert into clubs (sport, provider, ext_id, name) values ('mlb', 'fl', 'fl1', 'Live Larks'), ('mlb', 'fl', 'fl2', 'Live Loons'), ('mlb', 'fl', 'fl3', 'Live Lynx');
+insert into series (sport, competition, provider, ext_id, round, label, best_of, high_club, low_club, high_wins, low_wins, winner, state, tbd)
+select 'mlb', 'fl-test', 'fl', 'fls1', 3, 'Live semi', 7, (select id from clubs where ext_id = 'fl1'), (select id from clubs where ext_id = 'fl2'), 3, 1, null::bigint, 'live', false
+union all
+select 'mlb', 'fl-test', 'fl', 'fls2', 4, 'Live final', 7, (select id from clubs where ext_id = 'fl3'), null, 0, 0, null, 'scheduled', true;
+insert into pool_packs (slug, name, brand, markets, drops) values ('test-live', 'Live test', '{}', jsonb_build_array(
+  jsonb_build_object('title', 'Who wins the final?', 'outcomes', jsonb_build_array('Live Larks', 'Live Loons', 'Live Lynx'), 'closes_at', now() + interval '3 days',
+    'feed', jsonb_build_object('kind', 'winner', 'competition', 'fl-test', 'series', 'Live final')),
+  jsonb_build_object('title', 'Do the Loons win it?', 'outcomes', jsonb_build_array('Yes', 'No'), 'closes_at', now() + interval '3 days',
+    'feed', jsonb_build_object('kind', 'winner_is', 'competition', 'fl-test', 'series', 'Live final', 'club', 'Live Loons')),
+  jsonb_build_object('title', 'Do the Larks win it?', 'outcomes', jsonb_build_array('Yes', 'No'), 'closes_at', now() + interval '3 days',
+    'feed', jsonb_build_object('kind', 'winner_is', 'competition', 'fl-test', 'series', 'Live final', 'club', 'Live Larks')),
+  jsonb_build_object('title', 'Who wins the semi?', 'outcomes', jsonb_build_array('Live Larks', 'Live Loons', 'Live Lynx'), 'closes_at', now() + interval '3 days',
+    'feed', jsonb_build_object('kind', 'winner', 'competition', 'fl-test', 'series', 'Live semi')),
+  jsonb_build_object('title', 'How long is the semi?', 'outcomes', jsonb_build_array('Four', 'Five', 'Six', 'Seven'), 'closes_at', now() + interval '3 days',
+    'feed', jsonb_build_object('kind', 'games', 'competition', 'fl-test', 'series', 'Live semi')),
+  jsonb_build_object('title', 'How long is the final?', 'outcomes', jsonb_build_array('Four', 'Five', 'Six', 'Seven'), 'closes_at', now() + interval '3 days',
+    'feed', jsonb_build_object('kind', 'games', 'competition', 'fl-test', 'series', 'Live final'))), '[]')
+on conflict (slug) do update set markets = excluded.markets;
+select set_config('t.ll', _pool_load_pack(:lib, 'test-live', null)::text, false);
+select pg_temp.expect('a pool started while the semi is on gets every question', current_setting('t.ll') = '6'
+  and (select questions from pool_pack_list() where slug = 'test-live') = 6);
+update series set high_wins = 4, winner = high_club, state = 'final' where ext_id = 'fls1';
+select set_config('t.ll', _pool_load_pack(:epl, 'test-live', null)::text, false);
+select pg_temp.expect('a pool started once it''s decided gets the final without the knocked-out club, nothing about it, nothing already answered',
+  current_setting('t.ll') = '3'
+  and (select jsonb_agg(o->>'label' order by o->>'key') from pool_markets, jsonb_array_elements(outcomes) o where league_id = :epl and title = 'Who wins the final?') = '["Live Larks", "Live Lynx"]'
+  and exists (select 1 from pool_markets where league_id = :epl and title = 'Do the Larks win it?')
+  and exists (select 1 from pool_markets where league_id = :epl and title = 'How long is the final?')
+  and not exists (select 1 from pool_markets where league_id = :epl and title in ('Do the Loons win it?', 'Who wins the semi?', 'How long is the semi?')));
+select pg_temp.expect('a question on a knocked-out club is answered no at once (migration 325)',
+  _feed_answer('{"kind":"winner_is","competition":"fl-test","series":"Live final","club":"Live Loons"}') = 'No'
+  and _feed_answer('{"kind":"winner_is","competition":"fl-test","series":"Live final","club":"Live Larks"}') is null);
+select pg_temp.expect('the start page counts the three a pool would get', (select questions from pool_pack_list() where slug = 'test-live') = 3);
+select pg_temp.expect('the first pool keeps what it has: nothing added, nothing taken', _pool_load_pack(:lib, 'test-live', null) = 0
+  and (select count(*) from pool_markets where league_id = :lib and pack = 'test-live') = 6
+  and (select jsonb_array_length(outcomes) from pool_markets where league_id = :lib and title = 'Who wins the final?') = 3);
+select pg_temp.expect('a question without a feed loads as written', _pack_market_now('{"title":"x","outcomes":["A","B"]}'::jsonb) = '{"title":"x","outcomes":["A","B"]}'::jsonb);
+select pg_temp.raises('a member can''t call it', 'set role authenticated; select _pack_market_now(''{}''::jsonb)', 'permission denied');
+-- the Larks won the semi and lose the final: a question on the semi is still Yes (migration 326)
+update series set low_club = (select id from clubs where ext_id = 'fl1'), high_wins = 4, winner = high_club, state = 'final' where ext_id = 'fls2';
+select pg_temp.expect('a club that won the series asked about is a yes, whatever it lost later',
+  _feed_answer('{"kind":"winner_is","competition":"fl-test","series":"Live semi","club":"Live Larks"}') = 'Yes'
+  and _feed_answer('{"kind":"winner_is","competition":"fl-test","series":"Live final","club":"Live Larks"}') = 'No');
+reset role;
+delete from pool_markets where pack = 'test-live';
+delete from pool_packs where slug = 'test-live';
+delete from series where competition = 'fl-test';
+delete from clubs where provider = 'fl';
+delete from competitions where id = 'fl-test';
+select set_config('app.league_id', '', false);
+select set_config('request.jwt.claim.sub', '', false);
+select 'pack questions as they stand', true;
+
+-- calls on a series' games (migration 321): one game's winner once it's final, whether Game 1's winner takes the series,
+-- and extra innings (yes the moment a game passes the ninth, no only once the series is over with every game's innings in)
+reset role;
+insert into competitions (id, sport, name, short, season, provider, ext_id, ext_season, active, format)
+values ('fg-test', 'mlb', 'Game test', 'FG', '2026', 'mlb-statsapi', 'fgt', '2026', true, 'series') on conflict (id) do nothing;
+insert into clubs (sport, provider, ext_id, name) values ('mlb', 'fg', 'fg1', 'Game Gulls'), ('mlb', 'fg', 'fg2', 'Game Grebes'), ('mlb', 'fg', 'fg3', 'Game Geese');
+insert into series (sport, competition, provider, ext_id, round, label, best_of, high_club, low_club, high_wins, low_wins, winner, state, tbd)
+select 'mlb', 'fg-test', 'fg', 'fgs1', 4, 'Game final', 7, (select id from clubs where ext_id = 'fg1'), (select id from clubs where ext_id = 'fg2'), 0, 0, null::bigint, 'scheduled', false;
+insert into fixtures (sport, competition, provider, ext_id, season, kickoff, date, home_club, away_club, state, home_score, away_score, series_id, game_no)
+select 'mlb', 'fg-test', 'fg', 'fgg' || n, '2026', now() + n * interval '1 day', current_date + n,
+  (select id from clubs where ext_id = 'fg1'), (select id from clubs where ext_id = 'fg2'), 'scheduled', null::int, null::int,
+  (select id from series where ext_id = 'fgs1'), n
+from generate_series(1, 2) n;
+select pg_temp.expect('nothing to call before a pitch', _feed_answer('{"kind":"game","competition":"fg-test","series":"Game final","game":1}') is null
+  and _feed_answer('{"kind":"extras","competition":"fg-test","series":"Game final","after":9}') is null
+  and _feed_answer('{"kind":"opener_wins","competition":"fg-test","series":"Game final"}') is null);
+-- a pool loads a call on Game 1 before it's played
+insert into pool_packs (slug, name, brand, markets, drops) values ('test-games', 'Game test', '{}', jsonb_build_array(
+  jsonb_build_object('title', 'Who wins Game 1 of the final?', 'outcomes', jsonb_build_array('Game Gulls', 'Game Grebes'), 'closes_at', now() + interval '3 days',
+    'feed', jsonb_build_object('kind', 'game', 'competition', 'fg-test', 'series', 'Game final', 'game', 1))), '[]')
+on conflict (slug) do update set markets = excluded.markets;
+select pg_temp.expect('a pool loads the Game 1 call before it''s played', _pool_load_pack(:lib, 'test-games', null) = 1);
+-- Game 1: the Grebes win 3-2 on the road in nine
+update fixtures set state = 'final', home_score = 2, away_score = 3 where ext_id = 'fgg1';
+insert into fixture_periods (fixture_id, n, home, away) select id, i, 0, 0 from fixtures, generate_series(1, 9) i where ext_id = 'fgg1';
+select pg_temp.expect('Game 1 goes to the club ahead once it''s final, and the question drops off the start page',
+  _feed_answer('{"kind":"game","competition":"fg-test","series":"Game final","game":1}') = 'Game Grebes'
+  and _pack_market_now('{"title":"g1","outcomes":["Game Gulls","Game Grebes"],"feed":{"kind":"game","competition":"fg-test","series":"Game final","game":1}}') is null
+  and _feed_answer('{"kind":"game","competition":"fg-test","series":"Game final","game":2}') is null);
+select set_config('t.gq', (select id::text from pool_markets where pack = 'test-games' and league_id = :lib), false);
+select set_config('app.league_id', :'lib', false);
+select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-000000000081', false);
+set role authenticated;
+select pg_temp.expect('the host''s one tap names the game', pool_feed_answer(current_setting('t.gq')::bigint)->>'label' = 'Game Grebes'
+  and pool_feed_answer(current_setting('t.gq')::bigint)->>'series' = 'Game final, Game 1');
+reset role;
+select set_config('request.jwt.claim.sub', '', false);
+select pg_temp.expect('nine innings isn''t extras yet, and isn''t "no" while the series is on',
+  _feed_answer('{"kind":"extras","competition":"fg-test","series":"Game final","after":9}') is null);
+-- Game 2 is still on in the tenth: extras the moment it starts
+update fixtures set state = 'live', home_score = 4, away_score = 4 where ext_id = 'fgg2';
+insert into fixture_periods (fixture_id, n, home, away) select id, i, 0, 0 from fixtures, generate_series(1, 10) i where ext_id = 'fgg2';
+select pg_temp.expect('the tenth inning is extras, game still on', _feed_answer('{"kind":"extras","competition":"fg-test","series":"Game final","after":9}') = 'Yes'
+  and _feed_answer('{"kind":"game","competition":"fg-test","series":"Game final","game":2}') is null);
+-- the Gulls take the series: Game 1's winner didn't
+update series set high_wins = 4, low_wins = 1, winner = high_club, state = 'final' where ext_id = 'fgs1';
+select pg_temp.expect('Game 1''s winner lost the series', _feed_answer('{"kind":"opener_wins","competition":"fg-test","series":"Game final"}') = 'No');
+update series set winner = low_club where ext_id = 'fgs1';
+select pg_temp.expect('or won it', _feed_answer('{"kind":"opener_wins","competition":"fg-test","series":"Game final"}') = 'Yes');
+-- a series over without a tenth inning: "no", but only with every final game's innings on file
+delete from fixture_periods where fixture_id = (select id from fixtures where ext_id = 'fgg2');
+update fixtures set state = 'final', home_score = 5, away_score = 4 where ext_id = 'fgg2';
+select pg_temp.expect('a final game with no innings on file leaves it open', _feed_answer('{"kind":"extras","competition":"fg-test","series":"Game final","after":9}') is null);
+insert into fixture_periods (fixture_id, n, home, away) select id, i, 0, 0 from fixtures, generate_series(1, 9) i where ext_id = 'fgg2';
+select pg_temp.expect('every game in nine: no extras', _feed_answer('{"kind":"extras","competition":"fg-test","series":"Game final","after":9}') = 'No');
+-- a call on one game drops a knocked-out club like the series' winner question does
+update series set winner = null, high_wins = 3, low_wins = 1, state = 'live' where ext_id = 'fgs1';
+insert into series (sport, competition, provider, ext_id, round, label, best_of, high_club, low_club, high_wins, low_wins, winner, state, tbd)
+select 'mlb', 'fg-test', 'fg', 'fgs0', 3, 'Game semi', 7, (select id from clubs where ext_id = 'fg2'), (select id from clubs where ext_id = 'fg3'), 4, 0,
+  (select id from clubs where ext_id = 'fg2'), 'final', false;
+insert into series (sport, competition, provider, ext_id, round, label, best_of, high_club, low_club, high_wins, low_wins, winner, state, tbd)
+select 'mlb', 'fg-test', 'fg', 'fgs2', 5, 'Game next', 7, (select id from clubs where ext_id = 'fg1'), null, 0, 0, null::bigint, 'scheduled', true;
+select pg_temp.expect('Game 1 of a series still to be set lists only the clubs still in it',
+  _pack_market_now('{"title":"n1","outcomes":["Game Gulls","Game Grebes","Game Geese"],"feed":{"kind":"game","competition":"fg-test","series":"Game next","game":1}}')->'outcomes'
+  = '["Game Gulls","Game Grebes"]'::jsonb);
+select pg_temp.expect('the World Series pack carries the three calls on its games', (select count(*) from pool_packs p, jsonb_array_elements(p.markets) e
+  where p.slug = 'world-series-2026' and e->'feed'->>'kind' in ('game', 'opener_wins', 'extras')) = 3);
+delete from pool_markets where pack = 'test-games';
+delete from pool_packs where slug = 'test-games';
+delete from fixture_periods where fixture_id in (select id from fixtures where competition = 'fg-test');
+delete from fixtures where competition = 'fg-test';
+delete from series where competition = 'fg-test';
+delete from clubs where provider = 'fg';
+delete from competitions where id = 'fg-test';
+select set_config('app.league_id', '', false);
+select set_config('request.jwt.claim.sub', '', false);
+select 'calls on a series'' games', true;
+
 -- ───────────── last one standing (migration 157) ─────────────
 -- Pod Squad runs a survivor on two MLS matchweeks: Fern, Hana and Lou are in; Lou never picks
 reset role;
@@ -4291,6 +4429,45 @@ select pg_temp.raises('another league can''t claim a square', format('select poo
 reset role;
 select set_config('request.jwt.claim.sub', '', false);
 select 'squares', true;
+
+-- a grid drawn before its matchup is set (migrations 318 and 319): it fills and draws with one side known, and the other
+-- side fills in the moment the series has it, even when the series files the other club first
+reset role;
+insert into series (sport, competition, provider, ext_id, round, label, best_of, high_club, low_club, high_wins, low_wins, winner, state, tbd)
+select 'mlb', 'mlb-post-2026', 'mlb-statsapi', 'T_X3', 4, 'Side Series', 7, (select id from clubs where sport = 'mlb' and ext_id = '903'), null::bigint, 0, 0, null::bigint, 'scheduled', true;
+select id as x3 from series where ext_id = 'T_X3' \gset
+insert into pool_games (league_id, kind, competition, title, rules, status, draw)
+values (:lib, 'squares', 'mlb-post-2026', 'Side Series squares', jsonb_build_object('series', :x3, 'size', 5, 'cost', 10, 'points', '[0]'::jsonb, 'weights', '[100]'::jsonb),
+        'open', jsonb_build_object('seed', 'abc', 'at', now(), 'why', 'full', 'sets', '[]'::jsonb, 'pot', 0, 'squares', 0,
+          'top', (select high_club from series where ext_id = 'T_X3'), 'side', null))
+returning id as qg3 \gset
+select _squares_tick('mlb-post-2026', :lib);
+select pg_temp.expect('one side known: the grid waits for the other', (select draw->'side' = 'null'::jsonb from pool_games where id = :qg3));
+-- the series is set with the other club as the higher seed (Game 1 at its park): the drawn side must not move (319)
+update series set high_club = (select id from clubs where sport = 'mlb' and ext_id = '904'), low_club = (select id from clubs where sport = 'mlb' and ext_id = '903'), tbd = false where ext_id = 'T_X3';
+select _squares_tick('mlb-post-2026', :lib);
+select pg_temp.expect('the series has both: the missing side fills in, the drawn side stays',
+  (select (draw->>'side')::bigint = (select id from clubs where sport = 'mlb' and ext_id = '904')
+      and (draw->>'top')::bigint = (select id from clubs where sport = 'mlb' and ext_id = '903') from pool_games where id = :qg3));
+delete from pool_games where id = :qg3;
+delete from series where ext_id = 'T_X3';
+select 'squares drawn before the matchup', true;
+
+-- a series' clubs never go half-way backwards (migration 320): filed with one club, then the schedule moves that club to
+-- the road while the other is still to be decided, the series keeps its one club on its side and never shows it twice
+select sport_ingest('mlb-post-2026', jsonb_build_object('series', jsonb_build_array(
+  jsonb_build_object('ext_id', 'T_X4', 'round', 4, 'label', 'Pair Series', 'best_of', 7, 'high', '903', 'starts_at', now() + interval '5 days', 'tbd', true))));
+select sport_ingest('mlb-post-2026', jsonb_build_object('series', jsonb_build_array(
+  jsonb_build_object('ext_id', 'T_X4', 'round', 4, 'label', 'Pair Series', 'best_of', 7, 'low', '903', 'starts_at', now() + interval '5 days', 'tbd', true))));
+select pg_temp.expect('a half-known listing keeps the stored pair: one club, never on both sides',
+  (select high_club = (select id from clubs where sport = 'mlb' and ext_id = '903') and low_club is null from series where ext_id = 'T_X4'));
+select sport_ingest('mlb-post-2026', jsonb_build_object('series', jsonb_build_array(
+  jsonb_build_object('ext_id', 'T_X4', 'round', 4, 'label', 'Pair Series', 'best_of', 7, 'high', '904', 'low', '903', 'starts_at', now() + interval '5 days'))));
+select pg_temp.expect('a listing with both clubs replaces the pair',
+  (select high_club = (select id from clubs where sport = 'mlb' and ext_id = '904') and low_club = (select id from clubs where sport = 'mlb' and ext_id = '903')
+   from series where ext_id = 'T_X4'));
+delete from series where ext_id = 'T_X4';
+select 'series pair whole', true;
 
 -- ───────────── the pool scoreboard (migration 169) ─────────────
 -- Pod Squad now runs the questions, two sports games, two grids, last one standing and call the score: one table
@@ -7219,6 +7396,10 @@ select pg_temp.raises('the calls lock at the opener', format('select pool_game_p
 select pg_temp.expect('everyone''s calls show once they lock', (select (c->>'under')::int = 3 and jsonb_array_length(c->'calls') = 3
   from jsonb_array_elements(pool_game_board(:wng)->'wins'->'clubs') c where (c->>'id')::bigint = :wn2));
 reset role;
+-- before the hourly job keeps the lock, the feed moves the opener a day later: the calls stay locked (migration 322)
+update fixtures set kickoff = now() + interval '1 day', state = 'postponed' where ext_id = 'wn-g1';
+select pg_temp.expect('an opener moved later after its tip holds the lock', _pool_game_locked(:wng)
+  and (select (rules->>'lock_held')::timestamptz < now() and not rules ? 'locked_at' from pool_games where id = :wng));
 update fixtures set kickoff = now() - interval '3 hours', state = 'final', home_score = 110, away_score = 100 where ext_id in ('wn-g1', 'wn-g2');
 update fixtures set kickoff = now() - interval '2 hours', state = 'final', home_score = 90, away_score = 99 where ext_id = 'wn-g3';
 select set_config('app.league_id', :'lib', false);

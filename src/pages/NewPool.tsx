@@ -9,7 +9,7 @@ import { Spinner, Toggle } from '../components/ui';
 import { themed } from '../components/LeagueIdentity';
 import { ProductMark } from '../components/Brand';
 import { type Pack, packName, packPlaceholder, packWhen } from '../lib/packs';
-import { KIND_ORDER, KIND_WHEN, KINDS, ATS_LINE, MISSED_LINE, PICKEM_PRESETS, PRESETS, SQUARES_DEFAULT, atsFits, eventGrids, gridFor, gridLabel, gridRules, presetExample, sheetLabel, type GameKind, type PickemPreset, type PoolEvent, type SeriesPreset, type SquaresRules } from '../lib/poolGames';
+import { KIND_ORDER, KIND_WHEN, KINDS, ATS_LINE, MISSED_LINE, PICKEM_PRESETS, PRESETS, SQUARES_DEFAULT, atsFits, eventGrids, finalSoon, gridFor, gridLabel, gridRules, presetExample, sheetLabel, type GameKind, type PickemPreset, type PoolEvent, type SeriesPreset, type SquaresRules } from '../lib/poolGames';
 import { SERIES_SPORTS, SheetPicker, SquaresKnobs, lockText } from './Picks';
 import { attributionFields, trackPoolCreated, trackSignUp } from '../lib/analytics';
 import { FantasyStart } from '../components/FantasyStart';
@@ -96,8 +96,10 @@ export default function NewPool() {
       // a link that names an event's pack opens on the event
       // (or names the event itself, #/new?comp=nfl, as the landing page's open-right-now board does)
       const ev = (e ?? []).find((x) => (x.pack && x.pack === params.get('pack')) || x.competition === params.get('comp'));
-      // and a kind it offers, #/new?comp=nba-2026-27&kind=wins, is ticked in place of its first
-      const want = ev?.kinds.find((k) => k === params.get('kind'));
+      // and a kind it offers, #/new?comp=nba-2026-27&kind=wins, is ticked in place of its first (squares too, on an
+      // event with a grid to draw, #/new?comp=mlb-post-2026&kind=squares from the World Series page)
+      const want = ev?.kinds.find((k) => k === params.get('kind'))
+        ?? (ev && params.get('kind') === 'squares' && eventGrids(ev).length ? 'squares' as const : undefined);
       if (ev) { setMode('sports'); setFollowing({ type: 'event', comp: ev.competition }); setKinds([want ?? ev.kinds[0], ...(ev.pack ? ['questions' as const] : [])]); }
       else if (params.get('pack')) { setMode('questions'); setFollowing({ type: 'pack', slug: params.get('pack')! }); }
     }, () => setEvents([]));
@@ -112,8 +114,17 @@ export default function NewPool() {
   const chosen = useMemo(() => packs?.find((p) => p.slug === pack) ?? null, [packs, pack]);
   const event = following?.type === 'event' ? events?.find((e) => e.competition === following.comp) ?? null : null;
   // the events under their sports, the sport with the soonest lock first, each sport's events soonest first
-  const byGroup = useMemo(() => { const first = new Map<string, number>(); (events ?? []).forEach((e, i) => { if (!first.has(e.sport)) first.set(e.sport, i); });
-    return (events ?? []).map((e, i) => ({ e, i })).sort((a, b) => first.get(a.e.sport)! - first.get(b.e.sport)! || a.i - b.i).map((x) => x.e); }, [events]);
+  // the events grouped by sport in the list's order, except that a sport whose event reaches its final within two weeks
+  // (the World Series in its week, a Super Bowl, a Cup final) goes first: it's the pool that can't wait
+  const byGroup = useMemo(() => {
+    const first = new Map<string, number>(), soon = new Set<string>();
+    (events ?? []).forEach((e, i) => {
+      if (!first.has(e.sport)) first.set(e.sport, i);
+      if (finalSoon(e)) soon.add(e.sport);
+    });
+    const rank = (sport: string) => (soon.has(sport) ? -1 : first.get(sport)!);
+    return (events ?? []).map((e, i) => ({ e, i })).sort((a, b) => rank(a.e.sport) - rank(b.e.sport) || a.i - b.i).map((x) => x.e);
+  }, [events]);
   // packs that ride with a sports event are offered inside it, as its questions
   const eventPacks = new Set((events ?? []).map((e) => e.pack).filter(Boolean));
   const loosePacks = (packs ?? []).filter((p) => !eventPacks.has(p.slug));
@@ -271,7 +282,7 @@ export default function NewPool() {
                     const on = kinds.includes(k.key);
                     const main = on && kinds.filter((x) => (offered as string[]).includes(x) || x === 'questions')[0] === k.key;
                     return (
-                      <button key={k.key} type="button" onClick={() => toggle(k.key)}
+                      <button key={k.key} type="button" aria-pressed={on} onClick={() => toggle(k.key)}
                         className={`flex items-start gap-3 rounded-2xl border p-3 text-left transition ${on ? 'border-white/40 bg-white/[.08]' : 'border-white/10 bg-white/[.03] hover:bg-white/[.06]'}`}>
                         <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl text-xl" style={{ background: `rgb(${rgb(color)} / .18)` }}>{k.emoji}</span>
                         <span className="min-w-0 flex-1">
