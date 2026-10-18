@@ -467,6 +467,12 @@ The steps above finish the tenancy. `docs/MARKET.md` sets what comes after in th
     league's home (your pools, the events locking in the next ten days, a questions pool); a pool posted into the league's
     chat as a card from the member's own seat, with Join and a bell to the others (`pool_announce`, migrations 311 to 314);
     *Pools from your league* on the home, the pools posted there in the last month that you're not in.
+18. **The World Series week** (18 October 2026; `docs/DEVELOPMENT.md` §9.12): a pack question that names its series
+    loads with only the clubs still alive and never once the feed has answered it (migrations 316 and 317); a squares grid
+    drawn before its matchup is set fills its other side when the series has it (318); a World Series landing page with
+    its own share card (`landing/world-series-pools.html`), every button starting the pool with the kind ticked and
+    tagged for the funnel; the start page and SaK's "Your other crews" lead with an event whose final is within two
+    weeks; landing copy that follows the calendar (`data-until`, `data-from` in `landing/site.js`).
 
 Then horizon 2 (soccer on licensed data, basketball, the multi-sport pool, the Supercoin prediction market,
 the Super Pool bundle, the public API) and horizon 3 (cricket free-to-play, baseball, football and college,
