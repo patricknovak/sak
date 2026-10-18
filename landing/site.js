@@ -95,10 +95,6 @@ var ADS_ID = 'AW-949617778';
     spStoreSet(ADS_CONSENT_KEY, granted ? 'granted' : 'denied');
     applyFlags(); loadIfNeeded(); maybeClose();
   }
-  applyFlags();
-  if (analyticsOn() || adsOn()) loadIfNeeded();
-  if (spStoreGet(CONSENT_KEY) != null && spStoreGet(ADS_CONSENT_KEY) != null) return;
-
   function showBanner() {
     if (document.getElementById('sp-consent')) return;
     var bar = document.createElement('div');
@@ -120,8 +116,64 @@ var ADS_ID = 'AW-949617778';
     });
     document.body.appendChild(bar);
   }
+  // Footer "Cookie settings" reopens the banner so a visitor can change their mind.
+  window.spOpenCookieSettings = function () { showBanner(); };
+  document.addEventListener('click', function (e) {
+    var a = e.target.closest && e.target.closest('[data-cookie-settings]');
+    if (!a) return;
+    e.preventDefault();
+    showBanner();
+  });
+  applyFlags();
+  if (analyticsOn() || adsOn()) loadIfNeeded();
+  if (spStoreGet(CONSENT_KEY) != null && spStoreGet(ADS_CONSENT_KEY) != null) return;
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', showBanner);
   else showBanner();
+})();
+
+// Pass the visitor's own UTM params through to every app.superpoolsai.com link (incoming URL first,
+// else the first-touch store), without inventing campaign tags on the landing page itself.
+(function decorateAppLinks() {
+  var KEYS = ['utm_source', 'utm_medium', 'utm_campaign', 'utm_content', 'utm_term'];
+  function visitorUtms() {
+    var q = new URLSearchParams(location.search);
+    var out = new URLSearchParams();
+    var any = false;
+    KEYS.forEach(function (k) {
+      var v = (q.get(k) || '').trim();
+      if (v) { out.set(k, v.slice(0, 200)); any = true; }
+    });
+    if (!any) {
+      try {
+        var t = JSON.parse(spStoreGet(TOUCH_KEY) || '{}') || {};
+        KEYS.forEach(function (k) { if (t[k]) out.set(k, String(t[k]).slice(0, 200)); });
+      } catch (e) { /* ignore */ }
+    }
+    return out;
+  }
+  function decorate(href) {
+    if (!href || href.indexOf('app.superpoolsai.com') < 0) return href;
+    try {
+      var u = new URL(href, location.href);
+      var path = (u.hash || '#').slice(1) || '/';
+      if (path.charAt(0) !== '/') path = '/' + path;
+      var qi = path.indexOf('?');
+      var base = qi >= 0 ? path.slice(0, qi) : path;
+      var existing = new URLSearchParams(qi >= 0 ? path.slice(qi + 1) : '');
+      visitorUtms().forEach(function (v, k) { if (!existing.has(k)) existing.set(k, v); });
+      var qs = existing.toString();
+      u.hash = '#' + base + (qs ? '?' + qs : '');
+      return u.pathname === '/' && !u.search ? u.origin + '/' + u.hash : u.toString();
+    } catch (e) { return href; }
+  }
+  window.spDecorateAppHref = decorate;
+  function apply() {
+    document.querySelectorAll('a[href*="app.superpoolsai.com"]').forEach(function (a) {
+      a.setAttribute('href', decorate(a.getAttribute('href')));
+    });
+  }
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', apply);
+  else apply();
 })();
 
 // reveal on scroll
@@ -297,7 +349,8 @@ document.querySelectorAll('[data-pick]').forEach(function (a) {
     return out.slice(0, 3);
   }
   function card(e) {
-    var lk = look(e), link = e.pack ? APP + '?pack=' + encodeURIComponent(e.pack) : APP + '?comp=' + encodeURIComponent(e.competition);
+    var lk = look(e), raw = e.pack ? APP + '?pack=' + encodeURIComponent(e.pack) : APP + '?comp=' + encodeURIComponent(e.competition);
+    var link = (window.spDecorateAppHref ? window.spDecorateAppHref(raw) : raw);
     var kinds = (e.kinds || []).map(function (k) { return KIND[k] || k; });
     var m = matches(e);
     return '<a class="ev rv in" href="' + link + '" style="--c:' + lk[1] + '">'
@@ -323,7 +376,8 @@ document.querySelectorAll('[data-pick]').forEach(function (a) {
     // an event reaching its final within two weeks first (the World Series in its week), then the soonest lock
     var soon = function (e) { return e.final_starts && Date.parse(e.final_starts) - Date.now() < 14 * 864e5 ? 0 : 1; };
     list.sort(function (a, b) { return soon(a) - soon(b) || (Date.parse(a.next_lock) || 9e15) - (Date.parse(b.next_lock) || 9e15); });
-    box.innerHTML = list.map(card).join('') + '<a class="ev rv in" href="' + APP + '?type=questions" style="--c:#f7c548"><div class="top"><span class="badge">ASK</span><div><h3>Anything else</h3><div class="evstage">The game you\'re watching, the office, the family</div></div></div>'
+    var ask = window.spDecorateAppHref ? window.spDecorateAppHref(APP + '?type=questions') : (APP + '?type=questions');
+    box.innerHTML = list.map(card).join('') + '<a class="ev rv in" href="' + ask + '" style="--c:#f7c548"><div class="top"><span class="badge">ASK</span><div><h3>Anything else</h3><div class="evstage">The game you\'re watching, the office, the family</div></div></div>'
       + '<div class="lock"><b>Your call</b></div><div class="kinds"><span>Questions with odds</span><span>Your own rules</span></div><span class="go">Ask your own questions</span></a>';
     if (tag) tag.textContent = real ? list.length + ' events open now' : 'Open all season';
     tick();

@@ -273,7 +273,7 @@ function InviteCard() {
             </div>
             {link && <div className="mt-2 break-all rounded-xl bg-black/30 px-3 py-2 text-xs text-sky-200">{link}</div>}
             <InvitePeople open={inviting} onClose={() => setInviting(false)} pool={league?.name ?? 'the pool'} />
-            <PostToChats />
+            {me?.is_commish && <PostToChats />}
           </>
         ) : <p className="mt-3 text-sm text-slate-300">Ask the host for the link and send it to your friends.</p>}
       </div>

@@ -1,6 +1,6 @@
 // Post the pool in another chat you're in (migration 311, pool_announce): one button per league or pool, each posting
-// a card the others there join with one tap. The first measured week said the league's own GMs are the people most
-// likely to play: this puts the pool in front of them where they already talk.
+// a card the others there join with one tap. Host and admins only (migration 327); the Invite card hides this for
+// everyone else. The first measured week said the league's own GMs are the people most likely to play.
 import { useEffect, useState } from 'react';
 import { Megaphone } from 'lucide-react';
 import { rpc } from '../lib/supabase';

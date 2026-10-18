@@ -316,6 +316,7 @@ export type PoolCreatedParams = {
 };
 
 // North-star: a pool (or fantasy league) opened successfully. Once per pool id; no backfill after Accept.
+// transport_type beacon so a reload or navigation right after open does not drop the hit.
 export function trackPoolCreated(params: PoolCreatedParams = {}) {
   if (params.id != null && params.id !== '') {
     const key = poolCreatedKey(params.id);
@@ -328,6 +329,7 @@ export function trackPoolCreated(params: PoolCreatedParams = {}) {
     pack: params.pack ? String(params.pack).slice(0, 80) : undefined,
     sport: params.sport ? String(params.sport).slice(0, 40) : undefined,
     kind: params.kind ? String(params.kind).slice(0, 40) : undefined,
+    transport_type: 'beacon',
   });
 }
 

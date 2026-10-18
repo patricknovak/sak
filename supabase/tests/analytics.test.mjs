@@ -268,6 +268,7 @@ function installDom({ hash = '#/', consent = null } = {}) {
   assert.equal(created[0][2].kind, 'questions');
   assert.equal(created[0][2].src, 'join_cta');
   assert.equal(created[0][2].utm_source, 'invite');
+  assert.equal(created[0][2].transport_type, 'beacon', 'pool_created uses beacon so a reload does not drop it');
   trackPoolCreated({ id: 42, pack: 'love-is-blind-s11' });
   assert.equal(eventEntries('pool_created').length, 1, 'same pool id does not re-fire');
   trackPoolCreated({ id: 99, sport: 'nfl' });
@@ -377,6 +378,32 @@ function installDom({ hash = '#/', consent = null } = {}) {
   assert.equal(last.analytics_storage, 'denied');
   assert.equal(last.ad_storage, 'granted');
   assert.equal(last.ad_user_data, 'granted');
+}
+
+// --- Privacy page withdraw: Analytics off denies analytics_storage and persists ---
+{
+  __testResetAnalytics();
+  installDom({ hash: '#/privacy' });
+  __testSetGaId('G-TESTID');
+  initAnalytics();
+  setAnalyticsConsent(true);
+  setAdsConsent(true);
+  assert.equal(getAnalyticsConsent(), 'granted');
+  const before = dataLayerEntries().length;
+  setAnalyticsConsent(false);
+  assert.equal(getAnalyticsConsent(), 'denied');
+  const updates = dataLayerEntries().slice(before).filter((e) => isArguments(e) && e[0] === 'consent' && e[1] === 'update');
+  assert.ok(updates.length >= 1, 'consent update on withdraw');
+  const flags = updates[updates.length - 1][2];
+  assert.equal(flags.analytics_storage, 'denied');
+  // Ads stays whatever it was until its own control is flipped
+  assert.equal(flags.ad_user_data, 'granted');
+  assert.equal(flags.ad_storage, 'granted');
+  setAdsConsent(false);
+  const afterAds = dataLayerEntries().filter((e) => isArguments(e) && e[0] === 'consent' && e[1] === 'update');
+  const adsFlags = afterAds[afterAds.length - 1][2];
+  assert.equal(adsFlags.ad_user_data, 'denied');
+  assert.equal(adsFlags.ad_storage, 'denied');
 }
 
 console.log('analytics tests passed');

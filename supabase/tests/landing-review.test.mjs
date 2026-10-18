@@ -1,0 +1,61 @@
+// Landing review fixes: LIB share copy, Privacy + Cookie settings on every footer, world-series src=ws_page
+// (no hard-coded landing UTMs), and site.js helpers for cookie reopen + UTM pass-through.
+import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
+import { join, dirname } from 'node:path';
+import { fileURLToPath } from 'node:url';
+
+const root = join(dirname(fileURLToPath(import.meta.url)), '../..');
+const landing = join(root, 'landing');
+const read = (name) => readFileSync(join(landing, name), 'utf8');
+
+const pages = [
+  'index.html',
+  'love-is-blind.html',
+  'together.html',
+  'world-series-pools.html',
+  'football-pools.html',
+  'basketball-pools.html',
+  'hockey-pools.html',
+];
+
+{
+  const lib = read('love-is-blind.html');
+  assert.match(lib, /Goblets/, 'LIB page mentions Goblets');
+  assert.doesNotMatch(lib, /play coins/i, 'no play coins');
+  assert.doesNotMatch(lib, /weekly calls on every couple/i, 'no weekly-calls-on-every-couple');
+  const desc = lib.match(/meta name="description" content="([^"]+)"/)?.[1] ?? '';
+  assert.match(desc, /Sixteen questions/);
+  assert.match(desc, /pods/);
+  assert.match(desc, /Goblets/);
+  assert.match(lib, /twitter:description/);
+  assert.match(lib, /application\/ld\+json[^>]*>[^<]*Goblets/, 'JSON-LD uses Goblets');
+}
+
+for (const name of pages) {
+  const html = read(name);
+  const foot = html.split('<footer>')[1] ?? '';
+  assert.match(foot, /Privacy/, `${name} footer has Privacy`);
+  assert.match(foot, /data-cookie-settings/, `${name} footer has Cookie settings`);
+  assert.match(foot, /#\/privacy/, `${name} Privacy points at the app page`);
+}
+
+{
+  const ws = read('world-series-pools.html');
+  assert.doesNotMatch(ws, /utm_source=landing/, 'no hard-coded utm_source=landing');
+  assert.doesNotMatch(ws, /utm_campaign=world_series/, 'no hard-coded utm_campaign=world_series');
+  assert.ok((ws.match(/src=ws_page/g) || []).length >= 8, 'app links carry src=ws_page');
+}
+
+{
+  const js = read('site.js');
+  assert.match(js, /spOpenCookieSettings|data-cookie-settings/, 'cookie settings reopen');
+  assert.match(js, /spDecorateAppHref/, 'UTM pass-through helper');
+  assert.match(js, /utm_source/, 'passes visitor UTMs');
+  assert.match(js, /app\.superpoolsai\.com\/#\/privacy/, 'banner Privacy link');
+  // Consent still gated: gtag script only after Accept / granted path
+  assert.match(js, /spStoreGet\(CONSENT_KEY\) === 'granted'/);
+  assert.match(js, /loadTag\(\)/);
+}
+
+console.log('landing review tests passed');
