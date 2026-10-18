@@ -967,7 +967,15 @@ first) but its questions stale:
 - **A grid drawn before its matchup is set** (migration 318): a World Series squares grid started this week can fill, and
   be drawn, before the American League champion is known. The draw kept Milwaukee and nobody, and the hourly tick filled
   a side in only when both were missing, so the grid would have read "matchup to be set" and "Visitors" all series (its
-  pays were right, read from each game's clubs). A missing side now fills in the moment the series has both.
+  pays were right, read from each game's clubs). A missing side now fills in the moment the series has both. Audit fix
+  (migration 319): 318 wrote both sides from the series, so a grid drawn with Milwaukee would have swapped its clubs after
+  the draw if the series filed the AL champion first (Game 1 at its park), paying every inning to other squares than the
+  ones members saw; a drawn side now never moves and only the missing one fills in. No grid existed yet.
+- **A series' clubs never go half-way backwards** (migration 320, `sport_ingest`): the feed kept each stored club where a
+  new listing had none, so a schedule that moved Milwaukee to the road before the AL champion was known would have filed
+  Milwaukee on both sides. A listing with both clubs now replaces the pair; one with a club missing keeps the stored pair.
+  Left as is from the same audit: a suspended Game 1 whose resume date moves the series' start later would reopen series
+  picks with a partial score known (rare; a rainout before the first pitch reopening them is right).
 - **Landing copy that follows the calendar** (`landing/site.js`): an element with `data-until` is gone from that moment,
   one with `data-from` appears then (hidden by `site.css` until the script shows it, so a page without the script reads as
   before its date). The NBA page drops "opening night October 20" and the win totals (they lock at the first tip) once the

@@ -4344,8 +4344,8 @@ reset role;
 select set_config('request.jwt.claim.sub', '', false);
 select 'squares', true;
 
--- a grid drawn before its matchup is set (migration 318): it fills and draws with one side known, and the other side
--- fills in the moment the series has it
+-- a grid drawn before its matchup is set (migrations 318 and 319): it fills and draws with one side known, and the other
+-- side fills in the moment the series has it, even when the series files the other club first
 reset role;
 insert into series (sport, competition, provider, ext_id, round, label, best_of, high_club, low_club, high_wins, low_wins, winner, state, tbd)
 select 'mlb', 'mlb-post-2026', 'mlb-statsapi', 'T_X3', 4, 'Side Series', 7, (select id from clubs where sport = 'mlb' and ext_id = '903'), null::bigint, 0, 0, null::bigint, 'scheduled', true;
@@ -4357,7 +4357,8 @@ values (:lib, 'squares', 'mlb-post-2026', 'Side Series squares', jsonb_build_obj
 returning id as qg3 \gset
 select _squares_tick('mlb-post-2026', :lib);
 select pg_temp.expect('one side known: the grid waits for the other', (select draw->'side' = 'null'::jsonb from pool_games where id = :qg3));
-update series set low_club = (select id from clubs where sport = 'mlb' and ext_id = '904'), tbd = false where ext_id = 'T_X3';
+-- the series is set with the other club as the higher seed (Game 1 at its park): the drawn side must not move (319)
+update series set high_club = (select id from clubs where sport = 'mlb' and ext_id = '904'), low_club = (select id from clubs where sport = 'mlb' and ext_id = '903'), tbd = false where ext_id = 'T_X3';
 select _squares_tick('mlb-post-2026', :lib);
 select pg_temp.expect('the series has both: the missing side fills in, the drawn side stays',
   (select (draw->>'side')::bigint = (select id from clubs where sport = 'mlb' and ext_id = '904')
@@ -4365,6 +4366,22 @@ select pg_temp.expect('the series has both: the missing side fills in, the drawn
 delete from pool_games where id = :qg3;
 delete from series where ext_id = 'T_X3';
 select 'squares drawn before the matchup', true;
+
+-- a series' clubs never go half-way backwards (migration 320): filed with one club, then the schedule moves that club to
+-- the road while the other is still to be decided, the series keeps its one club on its side and never shows it twice
+select sport_ingest('mlb-post-2026', jsonb_build_object('series', jsonb_build_array(
+  jsonb_build_object('ext_id', 'T_X4', 'round', 4, 'label', 'Pair Series', 'best_of', 7, 'high', '903', 'starts_at', now() + interval '5 days', 'tbd', true))));
+select sport_ingest('mlb-post-2026', jsonb_build_object('series', jsonb_build_array(
+  jsonb_build_object('ext_id', 'T_X4', 'round', 4, 'label', 'Pair Series', 'best_of', 7, 'low', '903', 'starts_at', now() + interval '5 days', 'tbd', true))));
+select pg_temp.expect('a half-known listing keeps the stored pair: one club, never on both sides',
+  (select high_club = (select id from clubs where sport = 'mlb' and ext_id = '903') and low_club is null from series where ext_id = 'T_X4'));
+select sport_ingest('mlb-post-2026', jsonb_build_object('series', jsonb_build_array(
+  jsonb_build_object('ext_id', 'T_X4', 'round', 4, 'label', 'Pair Series', 'best_of', 7, 'high', '904', 'low', '903', 'starts_at', now() + interval '5 days'))));
+select pg_temp.expect('a listing with both clubs replaces the pair',
+  (select high_club = (select id from clubs where sport = 'mlb' and ext_id = '904') and low_club = (select id from clubs where sport = 'mlb' and ext_id = '903')
+   from series where ext_id = 'T_X4'));
+delete from series where ext_id = 'T_X4';
+select 'series pair whole', true;
 
 -- ───────────── the pool scoreboard (migration 169) ─────────────
 -- Pod Squad now runs the questions, two sports games, two grids, last one standing and call the score: one table
