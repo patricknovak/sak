@@ -96,8 +96,10 @@ export default function NewPool() {
       // a link that names an event's pack opens on the event
       // (or names the event itself, #/new?comp=nfl, as the landing page's open-right-now board does)
       const ev = (e ?? []).find((x) => (x.pack && x.pack === params.get('pack')) || x.competition === params.get('comp'));
-      // and a kind it offers, #/new?comp=nba-2026-27&kind=wins, is ticked in place of its first
-      const want = ev?.kinds.find((k) => k === params.get('kind'));
+      // and a kind it offers, #/new?comp=nba-2026-27&kind=wins, is ticked in place of its first (squares too, on an
+      // event with a grid to draw, #/new?comp=mlb-post-2026&kind=squares from the World Series page)
+      const want = ev?.kinds.find((k) => k === params.get('kind'))
+        ?? (ev && params.get('kind') === 'squares' && eventGrids(ev).length ? 'squares' as const : undefined);
       if (ev) { setMode('sports'); setFollowing({ type: 'event', comp: ev.competition }); setKinds([want ?? ev.kinds[0], ...(ev.pack ? ['questions' as const] : [])]); }
       else if (params.get('pack')) { setMode('questions'); setFollowing({ type: 'pack', slug: params.get('pack')! }); }
     }, () => setEvents([]));
@@ -271,7 +273,7 @@ export default function NewPool() {
                     const on = kinds.includes(k.key);
                     const main = on && kinds.filter((x) => (offered as string[]).includes(x) || x === 'questions')[0] === k.key;
                     return (
-                      <button key={k.key} type="button" onClick={() => toggle(k.key)}
+                      <button key={k.key} type="button" aria-pressed={on} onClick={() => toggle(k.key)}
                         className={`flex items-start gap-3 rounded-2xl border p-3 text-left transition ${on ? 'border-white/40 bg-white/[.08]' : 'border-white/10 bg-white/[.03] hover:bg-white/[.06]'}`}>
                         <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl text-xl" style={{ background: `rgb(${rgb(color)} / .18)` }}>{k.emoji}</span>
                         <span className="min-w-0 flex-1">

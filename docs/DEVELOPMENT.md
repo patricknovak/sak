@@ -949,3 +949,9 @@ first) but its questions stale:
   club loads only while that club is (`_pack_market_now`, read by `_pool_load_pack` and the start page's count in
   `pool_pack_list`). A pool that already has the question keeps it whole: a market can't lose an outcome someone may hold.
   Live: "Who wins the World Series?" now offers Milwaukee, Tampa Bay and Cleveland; the pack counts four questions.
+- **A World Series page** (`landing/world-series-pools.html`, in the sitemap, the home page's quick link and footer):
+  the front door for this week's searches and the link to share, in the voice of the NFL, NHL and NBA pages, every button
+  starting a pool with the World Series chosen and the kind ticked (`#/new?comp=mlb-post-2026&kind=…`, with
+  `utm_source=landing&utm_campaign=world_series` so the funnel can tell these starts apart). Its phone shows the app's
+  own start page on the World Series. The start page now takes `kind=squares` on an event with a grid to draw (squares
+  isn't in an event's `kinds`, it rides its grids), and its kind cards say which are chosen (`aria-pressed`).

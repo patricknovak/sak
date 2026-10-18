@@ -1,0 +1,123 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>World Series pools for your group chat · Super Pools</title>
+  <meta name="description" content="Free World Series pools for your group: pick the winner and how many games it goes, a prop sheet and a squares grid on every game, a pick a day and the series' big questions. Results land on their own. Never money, nothing to install." />
+  <link rel="canonical" href="https://superpoolsai.com/world-series-pools" />
+  <link rel="icon" href="./icon.svg" type="image/svg+xml" />
+  <meta name="theme-color" content="#0b1220" />
+  <meta property="og:type" content="website" />
+  <meta property="og:url" content="https://superpoolsai.com/world-series-pools" />
+  <meta property="og:title" content="World Series pools for your group chat · Super Pools" />
+  <meta property="og:description" content="Pick the series and its length, a prop sheet and squares on every game, a pick a day. Free, never money, ready before the first pitch." />
+  <meta property="og:image" content="https://superpoolsai.com/og.png" />
+  <meta name="twitter:card" content="summary_large_image" />
+  <link rel="stylesheet" href="./site.css" />
+  <style>
+    .steps { display: grid; gap: 14px; grid-template-columns: 1fr; }
+    @media (min-width: 860px) { .steps { grid-template-columns: repeat(3, 1fr); } }
+    .faq details { padding: 4px 0; }
+  </style>
+  <!-- the questions people ask, for search (the same text as the page's own FAQ below) -->
+  <script type="application/ld+json">{"@context": "https://schema.org", "@type": "FAQPage", "mainEntity": [{"@type": "Question", "name": "Is it money?", "acceptedAnswer": {"@type": "Answer", "text": "No. Coins are the pool's score and nothing else: never bought, never cashed out. It is bragging rights and a crown."}}, {"@type": "Question", "name": "Do my friends need an app?", "acceptedAnswer": {"@type": "Answer", "text": "No. The link opens the pool in the browser on any phone, and it can be added to the home screen like an app. Joining is a name, an email and a password."}}, {"@type": "Question", "name": "When do picks lock?", "acceptedAnswer": {"@type": "Answer", "text": "The series pick locks at the first pitch of Game 1. A prop sheet, a squares grid and the day's pick each lock at the first pitch of their own game, so a friend who joins on Sunday still plays every game left."}}, {"@type": "Question", "name": "How does scoring work for the series pick?", "acceptedAnswer": {"@type": "Answer", "text": "Points for the right winner and more for the right length. Classic scoring gives 8 for the champion and 3 more for the right number of games; flat and all-or-nothing scoring are a tap away when you start the pool."}}, {"@type": "Question", "name": "How do baseball squares work?", "acceptedAnswer": {"@type": "Answer", "text": "Friends claim squares on a grid with coins. The digits are drawn at the first pitch, and the last digit of each side's runs names the winning square after the innings you choose and at the final."}}, {"@type": "Question", "name": "What if the matchup isn't set yet?", "acceptedAnswer": {"@type": "Answer", "text": "Start the pool now. The series pick opens the moment both pennant winners are known, and anyone who hasn't called it gets a nudge in the hours before Game 1."}}]}</script>
+</head>
+<body>
+  <svg width="0" height="0" style="position:absolute" aria-hidden="true">
+    <symbol id="i-series" viewBox="0 0 24 24"><circle cx="5" cy="12" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="19" cy="12" r="2"/><path d="M3 6h18M3 18h18"/></symbol>
+    <symbol id="i-sheet" viewBox="0 0 24 24"><rect x="5" y="3" width="14" height="18" rx="2"/><path d="M9 8h6M9 12h6M9 16h4"/></symbol>
+    <symbol id="i-grid" viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M9 3v18M15 3v18M3 9h18M3 15h18"/></symbol>
+    <symbol id="i-flame" viewBox="0 0 24 24"><path d="M12 21c4 0 7-3 7-7 0-5-4-6-5-11-2 2-3 4-3 6-1-1-2-2-2-4-2 2-4 5-4 9 0 4 3 7 7 7z"/></symbol>
+    <symbol id="i-q" viewBox="0 0 24 24"><path d="M3 17l5-5 4 3 8-9"/><path d="M15 6h5v5"/></symbol>
+    <symbol id="i-mic" viewBox="0 0 24 24"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3M8 21h8"/></symbol>
+    <symbol id="i-trophy" viewBox="0 0 24 24"><path d="M8 4h8v5a4 4 0 0 1-8 0zM8 6H4a3 3 0 0 0 4 4M16 6h4a3 3 0 0 1-4 4M12 13v4M8 21h8M9 17h6"/></symbol>
+    <symbol id="i-chart" viewBox="0 0 24 24"><path d="M3 20h18M5 16l4-5 4 3 6-8M16 6h3v3"/></symbol>
+  </svg>
+  <main>
+    <header>
+      <a class="wordmark" href="./" aria-label="Super Pools home">
+        <svg viewBox="0 0 64 64" aria-hidden="true"><rect width="64" height="64" rx="14" fill="#111b30"/><circle cx="32" cy="32" r="17" fill="none" stroke="#f7c548" stroke-width="4"/><circle cx="32" cy="32" r="4.5" fill="#f7c548"/><g stroke="#f7c548" stroke-width="2.6" stroke-linecap="round"><line x1="25" y1="8" x2="25" y2="12.5"/><line x1="39" y1="8" x2="39" y2="12.5"/><line x1="25" y1="51.5" x2="25" y2="56"/><line x1="39" y1="51.5" x2="39" y2="56"/></g></svg>
+        <span><b>SUPER</b> POOLS</span>
+      </a>
+      <nav class="navlinks"><a href="#pools">The pools</a><a href="#how">How it works</a><a href="#faq">Questions</a><a href="./">All pools</a></nav>
+      <a class="btn btn-gold btn-sm" href="https://app.superpoolsai.com/#/new?comp=mlb-post-2026&amp;utm_source=landing&amp;utm_campaign=world_series">Start a pool</a>
+    </header>
+
+    <div class="hero">
+      <div>
+        <div class="eyebrow">The 2026 World Series · Game 1, Friday 23 October</div>
+        <h1 class="display">The World Series pool <span class="l2"><em class="grad-gold">that runs itself.</em></span></h1>
+        <p class="lead">Start a World Series pool for your group chat in a minute: call the winner and how many games it goes, a prop sheet and a squares grid on every game, one pick a day, and the series' big questions. Every result lands on its own, the table moves, and the chat sits right beside the picks. Free, never money, nothing to install.</p>
+        <div class="cta">
+          <a class="btn btn-gold" href="https://app.superpoolsai.com/#/new?comp=mlb-post-2026&amp;kind=series&amp;utm_source=landing&amp;utm_campaign=world_series">Start a World Series pool</a>
+          <a class="btn btn-ghost" href="https://app.superpoolsai.com/#/new?comp=mlb-post-2026&amp;kind=squares&amp;utm_source=landing&amp;utm_campaign=world_series">A squares grid</a>
+        </div>
+      </div>
+      <div class="phones" aria-hidden="true">
+        <div class="phone glow-gold"><img src="./img/pool-ws.webp" alt="" width="600" height="1200" loading="eager" /></div>
+        <div class="phone glow-gold"><img src="./img/pool-leaders.webp" alt="" width="600" height="1200" loading="lazy" /></div>
+      </div>
+    </div>
+
+    <section id="pools">
+      <div class="rv">
+        <div class="eyebrow">The pools</div>
+        <h2 class="display">Seven games, <em class="gold">one group chat.</em></h2>
+        <p class="lead">Mix as many as you like in one pool. The games settle themselves from the score the moment it's final; the questions come to the host with the answer ready.</p>
+      </div>
+      <div class="kindgrid rv">
+        <a class="kind" href="https://app.superpoolsai.com/#/new?comp=mlb-post-2026&amp;kind=series&amp;utm_source=landing&amp;utm_campaign=world_series"><svg class="ico"><use href="#i-series"/></svg><b>Pick the series</b><span>Who wins it and in how many games. Points for the winner, more for the right length. Locks at the first pitch of Game 1.</span></a>
+        <a class="kind" href="https://app.superpoolsai.com/#/new?comp=mlb-post-2026&amp;kind=props&amp;utm_source=landing&amp;utm_campaign=world_series"><svg class="ico"><use href="#i-sheet"/></svg><b>The prop sheet</b><span>Eight calls on one game: who wins, the total, the margin, who leads early and at the halfway mark. A point each, settled from the score.</span></a>
+        <a class="kind" href="https://app.superpoolsai.com/#/new?comp=mlb-post-2026&amp;kind=squares&amp;utm_source=landing&amp;utm_campaign=world_series"><svg class="ico"><use href="#i-grid"/></svg><b>Squares</b><span>Claim squares on a grid with coins. The digits are drawn at the first pitch; the last digit of each side's runs names the winner after the innings you pick.</span></a>
+        <a class="kind" href="https://app.superpoolsai.com/#/new?comp=mlb-post-2026&amp;kind=streak&amp;utm_source=landing&amp;utm_campaign=world_series"><svg class="ico"><use href="#i-flame"/></svg><b>The daily streak</b><span>One winner a game day. A right pick adds to your run, a wrong one starts it again; the longest run wins. Ten seconds a night.</span></a>
+        <a class="kind" href="https://app.superpoolsai.com/#/new?comp=mlb-post-2026&amp;utm_source=landing&amp;utm_campaign=world_series"><svg class="ico"><use href="#i-q"/></svg><b>The series' questions</b><span>Who wins it, how long it goes, which league takes it, whether the MVP is a pitcher. The odds move as friends call them, in coins, never money.</span></a>
+        <a class="kind" href="https://app.superpoolsai.com/#/new?comp=mlb-post-2026&amp;utm_source=landing&amp;utm_campaign=world_series"><svg class="ico"><use href="#i-mic"/></svg><b>A voice for the pool</b><span>A morning post on game days: what settled overnight, who's climbing, and who still has a pick to make before the first pitch.</span></a>
+        <a class="kind" href="./football-pools"><svg class="ico"><use href="#i-trophy"/></svg><b>Then football and hockey</b><span>When the last out is made, the same group can roll into an NFL pick'em, an NHL pool or the NBA season, with one account.</span></a>
+        <a class="kind" href="https://app.superpoolsai.com/#/new?comp=mlb-post-2026&amp;utm_source=landing&amp;utm_campaign=world_series"><svg class="ico"><use href="#i-chart"/></svg><b>What you need to win</b><span>Every table shows each player's chance to take the pool and what they need from the games left. It moves after every game.</span></a>
+      </div>
+    </section>
+
+    <section id="how">
+      <div class="rv">
+        <div class="eyebrow">How it works</div>
+        <h2 class="display">From the group chat <em class="gold">to a scoreboard.</em></h2>
+      </div>
+      <div class="steps">
+        <div class="card rv"><div class="num">01</div><h3>Start it, send one link</h3><p>Pick the pools, name it, pick its colour, and drop the link in the chat. Friends join with a name, an email and a password, on any phone, with nothing to install.</p></div>
+        <div class="card rv"><div class="num">02</div><h3>Call it before the first pitch</h3><p>The series pick locks at Game 1. Each game's sheet, grid and daily pick lock at that game's first pitch, so latecomers still play every game left.</p></div>
+        <div class="card rv"><div class="num">03</div><h3>It settles itself</h3><p>Results come in the moment a game is final, extra innings included. The table moves, and someone wears the crown.</p></div>
+      </div>
+    </section>
+
+    <section id="faq" class="faq">
+      <div class="rv">
+        <div class="eyebrow">Questions people ask</div>
+        <h2 class="display">Before you <em class="gold">start one.</em></h2>
+      </div>
+      <details><summary>Is it money?</summary><p>No. Coins are the pool's score and nothing else: never bought, never cashed out. It is bragging rights and a crown.</p></details>
+      <details><summary>Do my friends need an app?</summary><p>No. The link opens the pool in the browser on any phone, and it can be added to the home screen like an app. Joining is a name, an email and a password.</p></details>
+      <details><summary>When do picks lock?</summary><p>The series pick locks at the first pitch of Game 1. A prop sheet, a squares grid and the day's pick each lock at the first pitch of their own game, so a friend who joins on Sunday still plays every game left.</p></details>
+      <details><summary>How does scoring work for the series pick?</summary><p>Points for the right winner and more for the right length. Classic scoring gives 8 for the champion and 3 more for the right number of games; flat and all-or-nothing scoring are a tap away when you start the pool.</p></details>
+      <details><summary>How do baseball squares work?</summary><p>Friends claim squares on a grid with coins. The digits are drawn at the first pitch, and the last digit of each side's runs names the winning square after the innings you choose and at the final.</p></details>
+      <details><summary>What if the matchup isn't set yet?</summary><p>Start the pool now. The series pick opens the moment both pennant winners are known, and anyone who hasn't called it gets a nudge in the hours before Game 1.</p></details>
+    </section>
+
+    <section id="join">
+      <div class="join rv">
+        <div class="eyebrow">Open now</div>
+        <h2 class="display">The first pitch <em class="gold">is Friday night.</em></h2>
+        <p class="lead" style="margin:0">Name the pool, send the link, and everyone's called it before Game 1. It takes a minute and it's free.</p>
+        <div class="cta" style="margin:18px 0 6px"><a class="btn btn-gold" href="https://app.superpoolsai.com/#/new?comp=mlb-post-2026&amp;kind=series&amp;utm_source=landing&amp;utm_campaign=world_series">Start a World Series pool</a></div>
+      </div>
+      <p class="mute" style="font-size:12px;margin:12px 4px 0">Super Pools is not affiliated with Major League Baseball or any club. Screens show a sample pool.</p>
+    </section>
+
+    <footer>
+      <span>© 2026 Super Pools · superpoolsai.com · not affiliated with Major League Baseball or any league</span>
+      <nav><a href="./">Fantasy leagues and sports pools</a><a href="./football-pools">NFL pools</a><a href="mailto:hello@superpoolsai.com">hello@superpoolsai.com</a></nav>
+    </footer>
+  </main>
+  <script src="./site.js"></script>
+</body>
+</html>
