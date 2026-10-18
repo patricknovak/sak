@@ -964,3 +964,7 @@ first) but its questions stale:
   at most, soonest first, and this week five sports lock, so the World Series (last to lock) was the one cut. An event
   reaching its final within two weeks now comes first, and a postseason whose next pick is its final round goes by that
   round's name ("The World Series", not "MLB postseason").
+- **A grid drawn before its matchup is set** (migration 318): a World Series squares grid started this week can fill, and
+  be drawn, before the American League champion is known. The draw kept Milwaukee and nobody, and the hourly tick filled
+  a side in only when both were missing, so the grid would have read "matchup to be set" and "Visitors" all series (its
+  pays were right, read from each game's clubs). A missing side now fills in the moment the series has both.

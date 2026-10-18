@@ -4344,6 +4344,28 @@ reset role;
 select set_config('request.jwt.claim.sub', '', false);
 select 'squares', true;
 
+-- a grid drawn before its matchup is set (migration 318): it fills and draws with one side known, and the other side
+-- fills in the moment the series has it
+reset role;
+insert into series (sport, competition, provider, ext_id, round, label, best_of, high_club, low_club, high_wins, low_wins, winner, state, tbd)
+select 'mlb', 'mlb-post-2026', 'mlb-statsapi', 'T_X3', 4, 'Side Series', 7, (select id from clubs where sport = 'mlb' and ext_id = '903'), null::bigint, 0, 0, null::bigint, 'scheduled', true;
+select id as x3 from series where ext_id = 'T_X3' \gset
+insert into pool_games (league_id, kind, competition, title, rules, status, draw)
+values (:lib, 'squares', 'mlb-post-2026', 'Side Series squares', jsonb_build_object('series', :x3, 'size', 5, 'cost', 10, 'points', '[0]'::jsonb, 'weights', '[100]'::jsonb),
+        'open', jsonb_build_object('seed', 'abc', 'at', now(), 'why', 'full', 'sets', '[]'::jsonb, 'pot', 0, 'squares', 0,
+          'top', (select high_club from series where ext_id = 'T_X3'), 'side', null))
+returning id as qg3 \gset
+select _squares_tick('mlb-post-2026', :lib);
+select pg_temp.expect('one side known: the grid waits for the other', (select draw->'side' = 'null'::jsonb from pool_games where id = :qg3));
+update series set low_club = (select id from clubs where sport = 'mlb' and ext_id = '904'), tbd = false where ext_id = 'T_X3';
+select _squares_tick('mlb-post-2026', :lib);
+select pg_temp.expect('the series has both: the missing side fills in, the drawn side stays',
+  (select (draw->>'side')::bigint = (select id from clubs where sport = 'mlb' and ext_id = '904')
+      and (draw->>'top')::bigint = (select id from clubs where sport = 'mlb' and ext_id = '903') from pool_games where id = :qg3));
+delete from pool_games where id = :qg3;
+delete from series where ext_id = 'T_X3';
+select 'squares drawn before the matchup', true;
+
 -- ───────────── the pool scoreboard (migration 169) ─────────────
 -- Pod Squad now runs the questions, two sports games, two grids, last one standing and call the score: one table
 -- reads them all.
