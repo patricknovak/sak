@@ -1012,3 +1012,22 @@ first) but its questions stale:
   And a tip moved earlier on game day was fetched only from five minutes before the stored tip, the fixtures coming in
   once a day at 05:17 UTC; they come in again at 16:17 UTC now (12:17 pm Eastern, before the NFL's afternoon and every
   evening tip; `soccer-fixtures`, migration 323, ESPN's free feed so no requests spent).
+- **A stray number costs a sentence, not the column** (`garry/salvage.ts`, tested in `test:nhl`): two of the week's
+  eight morning columns (16 and 18 October) fell back to the bare scores line because the draft and its rewrite each
+  carried one number the facts didn't hold (18 October: "24", then "35"; no figure in the facts rounds to either, so the
+  check was right). A rewrite that still fails now keeps every sentence that passes on its own, when what's left passes
+  whole and keeps at least 60% of the post; otherwise the fallback as before. A chat reply whose rewrite still fails gets
+  the same treatment instead of going out with the number. A dry run of the 18 October column wrote a clean one.
+- **Who's at home, said plainly**: a pool's morning post on 18 October read "Arsenal host Nottingham Forest" from the
+  facts' "Arsenal at Nottingham Forest" (the matchup-order slip noted on 15 October). The facts now name the home side
+  first as the host ("Nottingham Forest host Arsenal").
+- **Every @tag is someone in the league**: a dry run of a pool's morning opened "@Name," (the prompt said to tag members
+  "as @Name", and the pool had nobody to tag). Every checked post now holds each @tag to the league's GMs (first name or
+  whole name), a stray one rewritten or its sentence dropped like a stray number, and the prompts say "as @ and their
+  name from the facts". Dry runs after the deploy: the pool's post clean, SaK's column with its real tags intact.
+- **A climb the table didn't see** (`garry/moves.ts`, tested in `test:nhl`): the same dry run's column had Terry "jumped
+  Jason and Patrick in one night to take the top spot", a day after it happened, when the facts' `rank_changes` moved
+  only Patrick and Craig up. The morning column now holds every GM (or team) named as the one who climbed, passed,
+  vaulted or took first to the GMs `rank_changes` moves up (a league that isn't a points table has no `rank_changes` and
+  no check). The next dry run told the night's two passes right. Still open: a gap misstated from true numbers ("the
+  middle four separated by 12.3"); the checks read numbers, tags and climbs, not every comparison.

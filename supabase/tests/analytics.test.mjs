@@ -7,10 +7,12 @@ import {
   __testSetGaId,
   captureFirstTouch,
   currentAppPath,
+  getAdsConsent,
   getAnalyticsConsent,
   hasTrackedFirstCall,
   initAnalytics,
   newPoolPath,
+  setAdsConsent,
   setAnalyticsConsent,
   setEnhancedConversionEmail,
   sha256Hex,
@@ -149,7 +151,7 @@ function installDom({ hash = '#/', consent = null } = {}) {
   assert.equal(document.getElementById('sp-ga4'), null);
 }
 
-// --- Accept: load the tag and record the current route once ---
+// --- Analytics Accept: load the tag and record the current route; Ads stays off until its own Accept ---
 {
   __testResetAnalytics();
   const { headKids } = installDom({ hash: '#/new' });
@@ -163,19 +165,17 @@ function installDom({ hash = '#/', consent = null } = {}) {
   setAnalyticsConsent(true);
 
   assert.equal(getAnalyticsConsent(), 'granted');
+  assert.equal(getAdsConsent(), null, 'Ads is a separate choice');
   const tag = document.getElementById('sp-ga4');
-  assert.ok(tag, 'gtag.js loads on Accept');
+  assert.ok(tag, 'gtag.js loads on Analytics Accept');
   assert.match(tag.src, /googletagmanager\.com\/gtag\/js\?id=G-TESTID/);
   assert.equal(headKids.length, 1);
 
-  const awAfter = dataLayerEntries().filter((e) => isArguments(e) && e[0] === 'config' && String(e[1] || '').startsWith('AW-'));
-  assert.equal(awAfter.length, 1, 'one AW config after Accept');
-  assert.equal(awAfter[0][1], 'AW-949617778');
-  assert.equal(awAfter[0][2]?.allow_enhanced_conversions, true);
-  assert.equal(awAfter.some((e) => e[1] === 'AW-7411462618'), false, 'old customer-id AW is gone');
+  const awAnalyticsOnly = dataLayerEntries().filter((e) => isArguments(e) && e[0] === 'config' && String(e[1] || '').startsWith('AW-'));
+  assert.equal(awAnalyticsOnly.length, 0, 'no AW config from Analytics alone');
 
   const views = pageViewEntries();
-  assert.equal(views.length, 1, 'one page_view right after Accept');
+  assert.equal(views.length, 1, 'one page_view right after Analytics Accept');
   assert.equal(views[0][2].page_path, '/new');
   assert.ok(isArguments(views[0]), 'page_view is an Arguments entry');
 
@@ -187,6 +187,14 @@ function installDom({ hash = '#/', consent = null } = {}) {
   trackPageView('/privacy');
   assert.equal(pageViewEntries().length, 2, 'a new path is counted');
   assert.equal(pageViewEntries()[1][2].page_path, '/privacy');
+
+  setAdsConsent(true);
+  assert.equal(getAdsConsent(), 'granted');
+  const awAfter = dataLayerEntries().filter((e) => isArguments(e) && e[0] === 'config' && String(e[1] || '').startsWith('AW-'));
+  assert.equal(awAfter.length, 1, 'one AW config after Ads Accept');
+  assert.equal(awAfter[0][1], 'AW-949617778');
+  assert.equal(awAfter[0][2]?.allow_enhanced_conversions, true);
+  assert.equal(awAfter.some((e) => e[1] === 'AW-7411462618'), false, 'old customer-id AW is gone');
 }
 
 // --- consented return visit: tag + page_view on init, no double-count ---
@@ -302,7 +310,7 @@ function installDom({ hash = '#/', consent = null } = {}) {
   assert.equal(eventEntries('join_group').length, 0);
 }
 
-// --- enhanced conversions: hashed email via user_data, only with consent, before sign_up ---
+// --- enhanced conversions: hashed email via user_data, only with Ads consent, before sign_up ---
 {
   __testResetAnalytics();
   installDom({ hash: '#/' });
@@ -310,10 +318,14 @@ function installDom({ hash = '#/', consent = null } = {}) {
   initAnalytics();
 
   const plain = '  Pat.Example+tag@Gmail.COM ';
-  assert.equal(await setEnhancedConversionEmail(plain), false, 'no user_data without Accept');
+  assert.equal(await setEnhancedConversionEmail(plain), false, 'no user_data without Ads Accept');
   assert.equal(userDataSets().length, 0);
 
   setAnalyticsConsent(true);
+  assert.equal(await setEnhancedConversionEmail(plain), false, 'Analytics alone does not unlock hashed email');
+  assert.equal(userDataSets().length, 0);
+
+  setAdsConsent(true);
   const expected = await sha256Hex(plain.trim().toLowerCase());
   assert.equal(await setEnhancedConversionEmail(plain), true);
   assert.equal(userDataSets().length, 1);
@@ -330,6 +342,7 @@ function installDom({ hash = '#/', consent = null } = {}) {
   __testSetGaId('G-TESTID');
   initAnalytics();
   setAnalyticsConsent(true);
+  setAdsConsent(true);
 
   const email = 'new.gm@example.com';
   const expected = await sha256Hex(email);
@@ -345,13 +358,36 @@ function installDom({ hash = '#/', consent = null } = {}) {
   assert.ok(setIdx >= 0 && signIdx >= 0 && setIdx < signIdx, 'user_data is set before sign_up');
 }
 
-// --- Privacy page withdraw: No thanks / Analytics off denies analytics + ads flags and persists ---
+// --- Ads-only: AW loads, no analytics page_view; Analytics-only: page_view, no AW ---
+{
+  __testResetAnalytics();
+  installDom({ hash: '#/' });
+  __testSetGaId('G-TESTID');
+  initAnalytics();
+  setAdsConsent(true);
+  assert.equal(getAdsConsent(), 'granted');
+  assert.ok(document.getElementById('sp-ga4'), 'gtag loads for Ads alone');
+  const aw = dataLayerEntries().filter((e) => isArguments(e) && e[0] === 'config' && e[1] === 'AW-949617778');
+  assert.equal(aw.length, 1, 'AW config on Ads Accept');
+  assert.equal(pageViewEntries().length, 0, 'no page_view without Analytics');
+  trackPageView('/team');
+  assert.equal(pageViewEntries().length, 0, 'trackPageView stays silent without Analytics');
+
+  const updates = dataLayerEntries().filter((e) => isArguments(e) && e[0] === 'consent' && e[1] === 'update');
+  const last = updates[updates.length - 1][2];
+  assert.equal(last.analytics_storage, 'denied');
+  assert.equal(last.ad_storage, 'granted');
+  assert.equal(last.ad_user_data, 'granted');
+}
+
+// --- Privacy page withdraw: Analytics off denies analytics_storage and persists ---
 {
   __testResetAnalytics();
   installDom({ hash: '#/privacy' });
   __testSetGaId('G-TESTID');
   initAnalytics();
   setAnalyticsConsent(true);
+  setAdsConsent(true);
   assert.equal(getAnalyticsConsent(), 'granted');
   const before = dataLayerEntries().length;
   setAnalyticsConsent(false);
@@ -360,8 +396,14 @@ function installDom({ hash = '#/', consent = null } = {}) {
   assert.ok(updates.length >= 1, 'consent update on withdraw');
   const flags = updates[updates.length - 1][2];
   assert.equal(flags.analytics_storage, 'denied');
-  assert.equal(flags.ad_user_data, 'denied');
-  assert.equal(flags.ad_storage, 'denied');
+  // Ads stays whatever it was until its own control is flipped
+  assert.equal(flags.ad_user_data, 'granted');
+  assert.equal(flags.ad_storage, 'granted');
+  setAdsConsent(false);
+  const afterAds = dataLayerEntries().filter((e) => isArguments(e) && e[0] === 'consent' && e[1] === 'update');
+  const adsFlags = afterAds[afterAds.length - 1][2];
+  assert.equal(adsFlags.ad_user_data, 'denied');
+  assert.equal(adsFlags.ad_storage, 'denied');
 }
 
 console.log('analytics tests passed');
