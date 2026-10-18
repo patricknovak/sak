@@ -1025,6 +1025,9 @@ first) but its questions stale:
   "as @Name", and the pool had nobody to tag). Every checked post now holds each @tag to the league's GMs (first name or
   whole name), a stray one rewritten or its sentence dropped like a stray number, and the prompts say "as @ and their
   name from the facts". Dry runs after the deploy: the pool's post clean, SaK's column with its real tags intact.
-  Still open for the next voice pass: a column can retell yesterday's storyline as today's ("jumped Jason and Patrick to
-  take the top spot" a day after it happened) or misstate a gap built from true numbers ("the middle four separated by
-  12.3"); the checks read numbers and tags, not what the numbers say.
+- **A climb the table didn't see** (`garry/moves.ts`, tested in `test:nhl`): the same dry run's column had Terry "jumped
+  Jason and Patrick in one night to take the top spot", a day after it happened, when the facts' `rank_changes` moved
+  only Patrick and Craig up. The morning column now holds every GM (or team) named as the one who climbed, passed,
+  vaulted or took first to the GMs `rank_changes` moves up (a league that isn't a points table has no `rank_changes` and
+  no check). The next dry run told the night's two passes right. Still open: a gap misstated from true numbers ("the
+  middle four separated by 12.3"); the checks read numbers, tags and climbs, not every comparison.

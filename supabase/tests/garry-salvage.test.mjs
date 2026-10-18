@@ -23,3 +23,24 @@ assert.equal(salvage('Patrick scored 33.3 points last night, a good one.\nTerry 
   'Patrick scored 33.3 points last night, a good one.\nJason had 19.55 and Bennett 7.2 on the bench.');
 assert.equal(salvage('', check), null);
 console.log("garry salvage: a stray number costs a sentence, not the column ok");
+
+// a climb the table didn't see: only the GMs rank_changes moves up may be said to climb, pass or take first
+import { movesCheck } from '../functions/garry/moves.ts';
+const sak = [['Patrick', 'The Hip Czechs'], ['Terry', '#What No Way'], ['Jason', 'Jays'], ['Craig', 'Ravens'], ['Trystan', 'Eagle Palace'],
+  ['Panagiotis', 'Connor McPanos'], ['Todd', 'Hughes Your Daddy'], ['Darin', 'Hatrick Swayze']].map(([gm, team]) => ({ gm, team }));
+const moves = movesCheck(['Patrick up 1 spot, 3rd to 2nd', 'Jason down 1 spot, 2nd to 3rd', 'Craig up 1 spot, 5th to 4th', 'Panagiotis down 1 spot, 4th to 5th'], sak);
+// 18 October's dry run: Terry didn't move
+assert.match(moves('Terry torched the room for 39.5 and jumped Jason and Patrick in one night to take the top spot.') ?? '', /Terry moved up/);
+// the same morning's true lines pass
+assert.equal(moves('Patrick vaulted Jason for second with a 33.3-point night while Jason’s Oilers stack managed only 19.55. Craig slipped past Panagiotis into fourth on a 29.75-point night.'), null);
+assert.equal(moves('Patrick passed Jason for 2nd while Craig slid past Panagiotis into 4th, so the middle four are now separated by just 12.3.'), null);
+assert.equal(moves('Terry’s 39.45 paces the room and leaves him 16.4 clear of Patrick.'), null);
+assert.equal(moves('Patrick left Sam Bennett’s 7.2 on the bench for Aho’s minus-0.8, and Panagiotis sat Verhaeghe’s hat-trick 7.6.'), null);
+assert.equal(moves('Darin stays last with 220.9, 39.5 back of Todd. Two games tonight and everyone starts at least one.'), null);
+// a team's name counts as its GM, and "took" needs where to
+assert.match(moves('#What No Way took the top spot overnight.') ?? '', /Terry moved up/);
+assert.equal(moves('Terry took a beating from the goalie gods.'), null);
+assert.equal(moves('The Hip Czechs climbed into second.'), null);
+// with no moves at all, any climb is wrong
+assert.match(movesCheck([], sak)('Craig jumped into fourth.') ?? '', /Craig/);
+console.log('garry moves: a climb the table did not see is caught ok');

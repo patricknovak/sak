@@ -26,6 +26,7 @@ import { gradeTeams, lineupStrength, type GP } from '../_shared/grades.ts';
 import { answer } from './answer.ts';
 import { night, type Night, type TeamNight } from './tonight.ts';
 import { salvage } from './salvage.ts';
+import { movesCheck } from './moves.ts';
 import { gradeAllKeepers, type KP } from '../_shared/keepers.ts';
 
 const db = createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!, {
@@ -367,7 +368,7 @@ async function recentLines(n = 6): Promise<string[]> {
 // `check`: a written post that fails it (a number or a time the facts don't hold) is written once more with the
 // reason, then falls back to the plain line
 async function write(task: string, facts: unknown, fallback: string, maxWords = 180, focus: number[] = [],
-  opts: { fresh?: boolean; check?: (body: string) => string | null; numbers?: boolean } = {}): Promise<string> {
+  opts: { fresh?: boolean; check?: (body: string) => string | null; numbers?: boolean; extra?: (body: string) => string | null } = {}): Promise<string> {
   if (dry()) runs.getStore()!.drafts = [...(runs.getStore()!.drafts ?? []), { body: '', meta: { task, facts } }];
   if (!apiKey) return fallback;
   const { byId } = await base();
@@ -391,7 +392,7 @@ async function write(task: string, facts: unknown, fallback: string, maxWords = 
     return bad.length ? `it tags @${bad.join(', @')}, who isn't in the league` : null;
   };
   const own = opts.check;
-  opts.check = (body) => tags(body) ?? own?.(body) ?? null;
+  opts.check = (body) => tags(body) ?? own?.(body) ?? opts.extra?.(body) ?? null;
   if (text && opts.check) {
     const bad = opts.check(text);
     if (bad) {
@@ -1001,7 +1002,10 @@ async function daily() {
     benchRegret[0] ? `Meanwhile @${benchRegret[0].gm} left ${benchRegret[0].player} (${f1(benchRegret[0].fpts)}) on the bench over ${benchRegret[0].over} (${f1(benchRegret[0].over_fpts)}).` : '',
     playoffs ? `Playoff table: ${season.slice(0, 3).map((x) => `${x.rank}. @${x.gm} ${f1(x.points)}`).join(', ')}.` : formatLine || `${L.brand.booby} watch: @${season.at(-1)?.gm} sitting in the basement at ${f1(season.at(-1)?.points ?? 0)}.`,
   ].filter(Boolean).join(' ');
-  const body = await write(`Write this morning's column on yesterday's ${L.info.short_name} ${playoffs ? 'playoff ' : ''}results for the league chat. Lead with the best story in the facts (${gFacts?.just_cut ? 'the guillotine\'s cut first, then ' : ''}a pass in the standings, told with the spots and places rank_changes gives, a tight race, a big night, a costly bench call, a hot or cold week), not a list of scores; work in the NHL news about the GMs' own players if any is there (a headline says only what it says: add no stat, result or role it doesn't give; what the player did last night is given beside it), and tonight's slate if it sets up something. It's a column the league reads for the laughs: at least two sharp, specific chirps (the GM who got passed, the one who blew a bench call, the one whose star is out, the leader who barely moved), each built on a fact given, and a running gag or something a GM said if one fits. No closing call to bet, trade or talk unless a fact sets it up.`, facts, fallback, 220, [], { numbers: true });
+  const body = await write(`Write this morning's column on yesterday's ${L.info.short_name} ${playoffs ? 'playoff ' : ''}results for the league chat. Lead with the best story in the facts (${gFacts?.just_cut ? 'the guillotine\'s cut first, then ' : ''}a pass in the standings, told with the spots and places rank_changes gives, a tight race, a big night, a costly bench call, a hot or cold week), not a list of scores; work in the NHL news about the GMs' own players if any is there (a headline says only what it says: add no stat, result or role it doesn't give; what the player did last night is given beside it), and tonight's slate if it sets up something. It's a column the league reads for the laughs: at least two sharp, specific chirps (the GM who got passed, the one who blew a bench call, the one whose star is out, the leader who barely moved), each built on a fact given, and a running gag or something a GM said if one fits. No closing call to bet, trade or talk unless a fact sets it up.`, facts, fallback, 220, [], { numbers: true,
+    // a climb is told only for the GMs the table moved up (rank_changes is left out of a league that isn't a points table)
+    ...(Array.isArray((facts as { rank_changes?: unknown }).rank_changes)
+      ? { extra: movesCheck((facts as { rank_changes: string[] }).rank_changes, teams.map((t) => ({ gm: t.gm_name, team: t.name }))) } : {}) });
   await post(body, { type: 'recap', date: yesterday });
   return { posted: 'recap', bonus: facts.daily_bonus };
 }
