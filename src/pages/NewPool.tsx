@@ -9,7 +9,7 @@ import { Spinner, Toggle } from '../components/ui';
 import { themed } from '../components/LeagueIdentity';
 import { ProductMark } from '../components/Brand';
 import { type Pack, packName, packPlaceholder, packWhen } from '../lib/packs';
-import { KIND_ORDER, KIND_WHEN, KINDS, ATS_LINE, MISSED_LINE, PICKEM_PRESETS, PRESETS, SQUARES_DEFAULT, atsFits, eventGrids, gridFor, gridLabel, gridRules, presetExample, sheetLabel, type GameKind, type PickemPreset, type PoolEvent, type SeriesPreset, type SquaresRules } from '../lib/poolGames';
+import { KIND_ORDER, KIND_WHEN, KINDS, ATS_LINE, MISSED_LINE, PICKEM_PRESETS, PRESETS, SQUARES_DEFAULT, atsFits, eventGrids, finalSoon, gridFor, gridLabel, gridRules, presetExample, sheetLabel, type GameKind, type PickemPreset, type PoolEvent, type SeriesPreset, type SquaresRules } from '../lib/poolGames';
 import { SERIES_SPORTS, SheetPicker, SquaresKnobs, lockText } from './Picks';
 import { attributionFields, trackPoolCreated, trackSignUp } from '../lib/analytics';
 import { FantasyStart } from '../components/FantasyStart';
@@ -120,7 +120,7 @@ export default function NewPool() {
     const first = new Map<string, number>(), soon = new Set<string>();
     (events ?? []).forEach((e, i) => {
       if (!first.has(e.sport)) first.set(e.sport, i);
-      if (e.final_starts && Date.parse(e.final_starts) - Date.now() < 14 * 864e5) soon.add(e.sport);
+      if (finalSoon(e)) soon.add(e.sport);
     });
     const rank = (sport: string) => (soon.has(sport) ? -1 : first.get(sport)!);
     return (events ?? []).map((e, i) => ({ e, i })).sort((a, b) => rank(a.e.sport) - rank(b.e.sport) || a.i - b.i).map((x) => x.e);

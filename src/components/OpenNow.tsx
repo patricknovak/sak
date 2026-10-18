@@ -5,15 +5,12 @@
 import { useEffect, useState } from 'react';
 import { ChevronRight } from 'lucide-react';
 import { rpc } from '../lib/supabase';
-import type { PoolEvent } from '../lib/poolGames';
+import { finalName, finalSoon, inFinal, type PoolEvent } from '../lib/poolGames';
 
 const EMOJI: Record<string, string> = { mlb: '⚾', nhl: '🏒', soccer: '⚽', nfl: '🏈', nba: '🏀', ncaab: '🏀' };
 const DAY = new Intl.DateTimeFormat(undefined, { weekday: 'short', hour: 'numeric', minute: '2-digit' });
 
-const finalSoon = (e: PoolEvent) => !!e.final_starts && Date.parse(e.final_starts) - Date.now() < 14 * 864e5;
-// a postseason whose next pick is its final round goes by that round's name ("The World Series" in its week)
-const title = (e: PoolEvent) => (e.open_round && e.open_round === e.final_round && e.grids?.length
-  ? `The ${e.final_label.replace(/^The /, '')}` : e.name.replace(/\s+\d{4}(-\d{2})?(\s+games)?$/i, ''));
+const title = (e: PoolEvent) => (inFinal(e) ? finalName(e) : e.name.replace(/\s+\d{4}(-\d{2})?(\s+games)?$/i, ''));
 
 export function OpenNow() {
   const [events, setEvents] = useState<PoolEvent[] | null>(null);
