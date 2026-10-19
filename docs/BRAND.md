@@ -50,7 +50,7 @@ and it treats the chat, the bets and the league's history as the point, not a si
   sports pools (the Women's World Cup 2027, NWSL and WSL, women's hockey, the bracket) and the invitation to join, and
   win, the fantasy league everyone else is in. No sports words in a pool that is not about sport.
 - **Not for:** daily fantasy, pick'em against the house, betting for money. Fun bets, props and a prediction
-  market are part of the product, in Supercoins, which cannot be bought or cashed out.
+  market are part of the product, in Supercoins: never bought, never sold.
 
 ## 3. The three things we say
 

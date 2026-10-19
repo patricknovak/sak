@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { ProductMark } from '../components/Brand';
 import { PRODUCT } from '../lib/brand';
 import {
@@ -52,6 +52,19 @@ function Switch({ on, label, onToggle }: { on: boolean; label: string; onToggle:
 export default function Privacy() {
   const [analytics, setAnalytics] = useState<'granted' | 'denied' | null>(() => getAnalyticsConsent());
   const [ads, setAds] = useState<'granted' | 'denied' | null>(() => getAdsConsent());
+  // Banner Accept writes localStorage in the same tab; re-read so the switches match.
+  useEffect(() => {
+    const sync = () => {
+      setAnalytics(getAnalyticsConsent());
+      setAds(getAdsConsent());
+    };
+    window.addEventListener('sp-consent-change', sync);
+    window.addEventListener('storage', sync);
+    return () => {
+      window.removeEventListener('sp-consent-change', sync);
+      window.removeEventListener('storage', sync);
+    };
+  }, []);
   const analyticsOn = analytics === 'granted';
   const adsOn = ads === 'granted';
   return (
