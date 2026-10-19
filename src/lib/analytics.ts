@@ -207,8 +207,15 @@ export function initAnalytics() {
   }
 }
 
+// Same-tab signal so the Privacy page switches refresh when Accept is pressed from the banner.
+const CONSENT_CHANGE = 'sp-consent-change';
+function notifyConsentChange() {
+  try { window.dispatchEvent(new Event(CONSENT_CHANGE)); } catch { /* no window */ }
+}
+
 export function setAnalyticsConsent(granted: boolean) {
   storeSet(CONSENT_KEY, granted ? 'granted' : 'denied');
+  notifyConsentChange();
   if (!measurementId()) return;
   ensureGtag();
   applyConsentFlags();
@@ -221,6 +228,7 @@ export function setAnalyticsConsent(granted: boolean) {
 
 export function setAdsConsent(granted: boolean) {
   storeSet(ADS_CONSENT_KEY, granted ? 'granted' : 'denied');
+  notifyConsentChange();
   if (!measurementId()) return;
   ensureGtag();
   applyConsentFlags();

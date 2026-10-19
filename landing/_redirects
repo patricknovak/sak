@@ -1,0 +1,3 @@
+# Landing has no privacy/terms HTML; send visitors to the app's privacy note.
+/privacy  https://app.superpoolsai.com/#/privacy  302
+/terms    https://app.superpoolsai.com/#/privacy  302

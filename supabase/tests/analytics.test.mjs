@@ -406,4 +406,19 @@ function installDom({ hash = '#/', consent = null } = {}) {
   assert.equal(adsFlags.ad_storage, 'denied');
 }
 
+// --- Consent change notifies same-tab listeners (Privacy switches while banner Accept is pressed) ---
+{
+  __testResetAnalytics();
+  installDom({ hash: '#/privacy' });
+  __testSetGaId('G-TESTID');
+  initAnalytics();
+  let n = 0;
+  const on = () => { n += 1; };
+  window.addEventListener('sp-consent-change', on);
+  setAnalyticsConsent(true);
+  setAdsConsent(true);
+  window.removeEventListener('sp-consent-change', on);
+  assert.equal(n, 2, 'each consent write fires sp-consent-change');
+}
+
 console.log('analytics tests passed');

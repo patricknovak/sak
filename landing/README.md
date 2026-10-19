@@ -7,8 +7,10 @@ deployed by `.github/workflows/cloudflare.yml` on every push to `main`. It answe
 Brand, copy and positioning rules live in `docs/BRAND.md`; the product it describes in `docs/POOLS.md` and
 `docs/SUPERPOOLS.md`.
 
+- `_redirects`: `/privacy` and `/terms` send visitors to `https://app.superpoolsai.com/#/privacy` (the landing Worker
+  has no privacy HTML of its own).
 - `index.html`: the home, sports first (the live room in the hero, the events open right now, game night as a room,
-  every kind of pool, questions with odds, the founding league, shipping every week, where it's going) with a door to
+  every kind of pool, questions with live prices, the founding league, shipping every week, where it's going) with a door to
   `together.html`, pools for any group (Love Is Blind, women's sports), in rose. Both use `site.css` and `site.js` (the
   reveal on scroll, the live board with its goal horn, the game-night demos and the try-it question drawn in the page,
   the open-right-now board read live from the app's `pool_event_list()` with the publishable key and a fallback when it
