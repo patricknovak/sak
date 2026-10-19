@@ -15,7 +15,7 @@ test.describe('Landing (superpoolsai.com)', () => {
     await page.goto('./#faq');
     const money = page.locator('details').filter({ hasText: /real money/i });
     await money.locator('summary').click();
-    await expect(money).toContainText(/cannot be bought, sold or cashed out/i);
+    await expect(money).toContainText(/never bought, never sold/i);
     const app = page.locator('details').filter({ hasText: /download an app/i });
     await app.locator('summary').click();
     await expect(app).toContainText(/No/i);
@@ -59,6 +59,6 @@ test.describe('Landing (superpoolsai.com)', () => {
     await page.goto('./');
     // Supercoins are never money: no Stripe, no checkout, and the page itself says so
     await expect(page.locator('a[href*="stripe"], a[href*="checkout"], form[action*="stripe"]')).toHaveCount(0);
-    await expect(page.getByText(/Never money|No buying coins|No cashing out/i).first()).toBeVisible();
+    await expect(page.getByText(/Never money|Play coins only|Never bought, never sold/i).first()).toBeVisible();
   });
 });
