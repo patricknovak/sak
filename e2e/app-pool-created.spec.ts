@@ -287,12 +287,16 @@ test.describe('pool_created after Accept (mocked create paths)', () => {
     await mockSupabase(page, 'new-user');
     await startQuestionsPoolAsGuest(page);
 
-    await expect.poll(async () => (await poolCreatedEvents(page)).length, { timeout: 15_000 }).toBe(1);
-    const [ev] = await poolCreatedEvents(page);
-    expect(ev.params.pack).toBe('e2e-show-pack');
-    expect(ev.params.kind).toBe('questions');
-    expect(ev.params.src).toBe('e2e_guest');
-    expect(ev.params.transport_type).toBe('beacon');
+    let ev: { name: string; params: Record<string, unknown> } | undefined;
+    await expect.poll(async () => {
+      const events = await poolCreatedEvents(page);
+      ev = events[0];
+      return events.length;
+    }, { timeout: 15_000 }).toBe(1);
+    expect(ev?.params.pack).toBe('e2e-show-pack');
+    expect(ev?.params.kind).toBe('questions');
+    expect(ev?.params.src).toBe('e2e_guest');
+    expect(ev?.params.transport_type).toBe('beacon');
   });
 
   test('signed-in pool_start pushes pool_created with params', async ({ page }) => {
@@ -301,12 +305,16 @@ test.describe('pool_created after Accept (mocked create paths)', () => {
     await mockSupabase(page, 'member');
     await startQuestionsPoolAsMember(page);
 
-    await expect.poll(async () => (await poolCreatedEvents(page)).length, { timeout: 15_000 }).toBe(1);
-    const [ev] = await poolCreatedEvents(page);
-    expect(ev.params.pack).toBe('e2e-show-pack');
-    expect(ev.params.kind).toBe('questions');
-    expect(ev.params.src).toBe('e2e_member');
-    expect(ev.params.transport_type).toBe('beacon');
+    let ev: { name: string; params: Record<string, unknown> } | undefined;
+    await expect.poll(async () => {
+      const events = await poolCreatedEvents(page);
+      ev = events[0];
+      return events.length;
+    }, { timeout: 15_000 }).toBe(1);
+    expect(ev?.params.pack).toBe('e2e-show-pack');
+    expect(ev?.params.kind).toBe('questions');
+    expect(ev?.params.src).toBe('e2e_member');
+    expect(ev?.params.transport_type).toBe('beacon');
   });
 
   test('fantasy_start pushes pool_created with params', async ({ page }) => {
@@ -315,12 +323,16 @@ test.describe('pool_created after Accept (mocked create paths)', () => {
     await mockSupabase(page, 'fantasy');
     await startFantasyLeague(page);
 
-    await expect.poll(async () => (await poolCreatedEvents(page)).length, { timeout: 15_000 }).toBe(1);
-    const [ev] = await poolCreatedEvents(page);
-    expect(ev.params.kind).toBe('fantasy');
-    expect(ev.params.sport).toBe('nhl');
-    expect(ev.params.src).toBe('e2e_fantasy');
-    expect(ev.params.transport_type).toBe('beacon');
+    let ev: { name: string; params: Record<string, unknown> } | undefined;
+    await expect.poll(async () => {
+      const events = await poolCreatedEvents(page);
+      ev = events[0];
+      return events.length;
+    }, { timeout: 15_000 }).toBe(1);
+    expect(ev?.params.kind).toBe('fantasy');
+    expect(ev?.params.sport).toBe('nhl');
+    expect(ev?.params.src).toBe('e2e_fantasy');
+    expect(ev?.params.transport_type).toBe('beacon');
   });
 
   test('create before Accept: pending flushes on Analytics Accept', async ({ page }) => {
@@ -345,10 +357,14 @@ test.describe('pool_created after Accept (mocked create paths)', () => {
     expect(await poolCreatedEvents(page)).toHaveLength(0);
 
     await acceptAnalytics(page);
-    await expect.poll(async () => (await poolCreatedEvents(page)).length, { timeout: 10_000 }).toBe(1);
-    const [ev] = await poolCreatedEvents(page);
-    expect(ev.params.pack).toBe('e2e-show-pack');
-    expect(ev.params.src).toBe('e2e_pending');
-    expect(await page.evaluate(() => localStorage.getItem('sp_pool_created_pending'))).toBeNull();
+    let ev: { name: string; params: Record<string, unknown> } | undefined;
+    await expect.poll(async () => {
+      const events = await poolCreatedEvents(page);
+      ev = events[0];
+      return events.length;
+    }, { timeout: 10_000 }).toBe(1);
+    expect(ev?.params.pack).toBe('e2e-show-pack');
+    expect(ev?.params.src).toBe('e2e_pending');
+    expect(await page.evaluate(() => localStorage.getItem('sp_pool_created_pending')).catch(() => null)).toBeNull();
   });
 });
