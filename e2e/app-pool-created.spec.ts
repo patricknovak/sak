@@ -99,30 +99,23 @@ async function settleAfterNav(page: Page) {
   } catch { /* already loaded */ }
 }
 
+// Never swallow a failed read as null — that would make "pending cleared" pass without reading.
 async function storageGet(page: Page, key: string): Promise<string | null> {
-  try {
-    return await page.evaluate((k) => localStorage.getItem(k), key);
-  } catch {
-    await settleAfterNav(page);
+  let last: unknown;
+  for (let attempt = 0; attempt < 5; attempt++) {
     try {
       return await page.evaluate((k) => localStorage.getItem(k), key);
-    } catch {
-      return null;
+    } catch (err) {
+      last = err;
+      await settleAfterNav(page);
     }
   }
+  throw last instanceof Error ? last : new Error(`localStorage read failed for ${key}`);
 }
 
 async function storageOnceKey(page: Page): Promise<string | null> {
-  try {
-    return await page.evaluate(() => {
-      for (let i = 0; i < localStorage.length; i++) {
-        const k = localStorage.key(i);
-        if (k && k.startsWith('sp_pool_created:')) return k;
-      }
-      return null;
-    });
-  } catch {
-    await settleAfterNav(page);
+  let last: unknown;
+  for (let attempt = 0; attempt < 5; attempt++) {
     try {
       return await page.evaluate(() => {
         for (let i = 0; i < localStorage.length; i++) {
@@ -131,10 +124,12 @@ async function storageOnceKey(page: Page): Promise<string | null> {
         }
         return null;
       });
-    } catch {
-      return null;
+    } catch (err) {
+      last = err;
+      await settleAfterNav(page);
     }
   }
+  throw last instanceof Error ? last : new Error('localStorage once-key scan failed');
 }
 
 async function plantMemberSession(page: Page) {
