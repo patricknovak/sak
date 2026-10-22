@@ -416,10 +416,11 @@ test.describe('pool_created after Accept (mocked create paths)', () => {
     }, { timeout: 10_000 }).toBe(1);
     expect(ev?.params.pack).toBe('e2e-show-pack');
     expect(ev?.params.src).toBe('e2e_pending');
-    expect(await page.evaluate(() => localStorage.getItem('sp_pool_created_pending')).catch(() => null)).toBeNull();
+    // Event is in dataLayer immediately; once-key / pending clear only after the flush window.
     await expect.poll(async () => page.evaluate(() => localStorage.getItem('sp_pool_created:501')), {
       timeout: 5_000,
     }).toBe('1');
+    expect(await page.evaluate(() => localStorage.getItem('sp_pool_created_pending')).catch(() => null)).toBeNull();
   });
 
   test('Analytics Accept alone does not grant Ads consent', async ({ page }) => {
