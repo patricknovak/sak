@@ -63,9 +63,14 @@ async function stubReloadAndCapture(page: Page) {
         const wrapped = function wrappedGtag(this: unknown) {
           const a0 = arguments[0];
           const a1 = arguments[1];
-          const a2 = arguments[2];
+          const a2 = arguments[2] as Record<string, unknown> | undefined;
           if (a0 === 'event' && a1 === 'pool_created') record(a2);
-          return (fn as (...a: unknown[]) => unknown).apply(this, arguments as unknown as unknown[]);
+          const ret = (fn as (...a: unknown[]) => unknown).apply(this, arguments as unknown as unknown[]);
+          // Mimic gtag.js: fire event_callback so awaitPoolCreatedFlush can unblock openPool.
+          if (a0 === 'event' && a2 && typeof a2.event_callback === 'function') {
+            try { (a2.event_callback as () => void)(); } catch { /* ignore */ }
+          }
+          return ret;
         };
         (wrapped as { __e2e?: boolean }).__e2e = true;
         currentGtag = wrapped as typeof window.gtag;
@@ -210,13 +215,25 @@ async function mockSupabase(page: Page, path: CreatePath) {
   });
 }
 
-async function acceptAnalytics(page: Page) {
+async function acceptAnalyticsOnly(page: Page) {
   const dialog = page.getByRole('dialog', { name: /Analytics and ads/i });
   await expect(dialog).toBeVisible({ timeout: 30_000 });
-  // First Accept = Analytics; Ads No thanks closes the banner without enabling ads.
   await dialog.getByRole('button', { name: 'Accept' }).first().click();
+  // Ads must stay unset after Analytics Accept alone (#286 split).
+  const ads = await page.evaluate(() => localStorage.getItem('sp_ads_consent'));
+  expect(ads).toBeNull();
   await dialog.getByRole('button', { name: 'No thanks' }).nth(1).click();
   await expect(dialog).toBeHidden();
+  const after = await page.evaluate(() => ({
+    a: localStorage.getItem('sp_analytics_consent'),
+    d: localStorage.getItem('sp_ads_consent'),
+  }));
+  expect(after.a).toBe('granted');
+  expect(after.d).toBe('denied');
+}
+
+async function acceptAnalytics(page: Page) {
+  await acceptAnalyticsOnly(page);
 }
 
 async function poolCreatedEvents(page: Page) {
@@ -350,10 +367,17 @@ test.describe('pool_created after Accept (mocked create paths)', () => {
     await page.getByPlaceholder(/A password/i).fill('secret12');
     await page.getByRole('button', { name: /Start my pool/i }).click();
 
-    // join mocked → trackPoolCreated queues; sign-in mocked → may navigate/reload stub.
+    // join mocked → trackPoolCreated queues; once-key must stay unset until a confirmed send.
     await expect.poll(async () => page.evaluate(() => localStorage.getItem('sp_pool_created_pending')), {
       timeout: 15_000,
     }).toBeTruthy();
+    expect(await page.evaluate(() => {
+      for (let i = 0; i < localStorage.length; i++) {
+        const k = localStorage.key(i);
+        if (k && k.startsWith('sp_pool_created:')) return k;
+      }
+      return null;
+    })).toBeNull();
     expect(await poolCreatedEvents(page)).toHaveLength(0);
 
     await acceptAnalytics(page);
@@ -366,5 +390,26 @@ test.describe('pool_created after Accept (mocked create paths)', () => {
     expect(ev?.params.pack).toBe('e2e-show-pack');
     expect(ev?.params.src).toBe('e2e_pending');
     expect(await page.evaluate(() => localStorage.getItem('sp_pool_created_pending')).catch(() => null)).toBeNull();
+    await expect.poll(async () => page.evaluate(() => localStorage.getItem('sp_pool_created:501')), {
+      timeout: 5_000,
+    }).toBe('1');
+  });
+
+  test('Analytics Accept alone does not grant Ads consent', async ({ page }) => {
+    await stubReloadAndCapture(page);
+    await mockSupabase(page, 'new-user');
+    await page.goto('./#/new');
+    await expect(page.getByText(/What are you starting/i)).toBeVisible({ timeout: 30_000 });
+    const dialog = page.getByRole('dialog', { name: /Analytics and ads/i });
+    await expect(dialog).toBeVisible();
+    await dialog.getByRole('button', { name: 'Accept' }).first().click();
+    const keys = await page.evaluate(() => ({
+      a: localStorage.getItem('sp_analytics_consent'),
+      d: localStorage.getItem('sp_ads_consent'),
+    }));
+    expect(keys.a).toBe('granted');
+    expect(keys.d).toBeNull();
+    // Banner stays open until Ads is chosen.
+    await expect(dialog).toBeVisible();
   });
 });

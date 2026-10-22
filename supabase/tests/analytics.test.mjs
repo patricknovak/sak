@@ -5,6 +5,8 @@ import assert from 'node:assert/strict';
 import {
   __testResetAnalytics,
   __testSetGaId,
+  __testSetPoolCreatedFlushMs,
+  awaitPoolCreatedFlush,
   captureFirstTouch,
   currentAppPath,
   getAdsConsent,
@@ -165,7 +167,8 @@ function installDom({ hash = '#/', consent = null } = {}) {
   setAnalyticsConsent(true);
 
   assert.equal(getAnalyticsConsent(), 'granted');
-  assert.equal(getAdsConsent(), null, 'Ads is a separate choice');
+  assert.equal(getAdsConsent(), null, 'Ads is a separate choice — one Accept must not grant both');
+  assert.equal(localStorage.getItem('sp_ads_consent'), null, 'sp_ads_consent stays unset after Analytics Accept');
   const tag = document.getElementById('sp-ga4');
   assert.ok(tag, 'gtag.js loads on Analytics Accept');
   assert.match(tag.src, /googletagmanager\.com\/gtag\/js\?id=G-TESTID/);
@@ -260,7 +263,9 @@ function installDom({ hash = '#/', consent = null } = {}) {
   await trackSignUp('email');
   assert.equal(eventEntries('sign_up').length, 1, 'sign_up fires once per browser');
 
-  trackPoolCreated({ id: 42, pack: 'love-is-blind-s11', sport: 'nhl', kind: 'questions' });
+  __testSetPoolCreatedFlushMs(0);
+  await trackPoolCreated({ id: 42, pack: 'love-is-blind-s11', sport: 'nhl', kind: 'questions' });
+  await awaitPoolCreatedFlush();
   const created = eventEntries('pool_created');
   assert.equal(created.length, 1);
   assert.equal(created[0][2].pack, 'love-is-blind-s11');
@@ -269,9 +274,13 @@ function installDom({ hash = '#/', consent = null } = {}) {
   assert.equal(created[0][2].src, 'join_cta');
   assert.equal(created[0][2].utm_source, 'invite');
   assert.equal(created[0][2].transport_type, 'beacon', 'pool_created uses beacon so a reload does not drop it');
-  trackPoolCreated({ id: 42, pack: 'love-is-blind-s11' });
+  assert.equal(typeof created[0][2].event_callback, 'function', 'event_callback confirms the send');
+  assert.equal(localStorage.getItem('sp_pool_created:42'), '1', 'once-key set only after confirmed send');
+  assert.equal(localStorage.getItem('sp_pool_created_pending'), null, 'pending cleared after confirm');
+  await trackPoolCreated({ id: 42, pack: 'love-is-blind-s11' });
   assert.equal(eventEntries('pool_created').length, 1, 'same pool id does not re-fire');
-  trackPoolCreated({ id: 99, sport: 'nfl' });
+  await trackPoolCreated({ id: 99, sport: 'nfl' });
+  await awaitPoolCreatedFlush();
   assert.equal(eventEntries('pool_created').length, 2, 'a new pool id still fires');
 
   trackJoinGroup({ id: 7 });
@@ -290,13 +299,17 @@ function installDom({ hash = '#/', consent = null } = {}) {
   initAnalytics();
 
   await trackSignUp('email');
-  trackPoolCreated({ id: 1, pack: 'nhl-2026-27', sport: 'nhl', kind: 'questions' });
+  await trackPoolCreated({ id: 1, pack: 'nhl-2026-27', sport: 'nhl', kind: 'questions' });
   trackJoinGroup({ id: 1 });
   assert.equal(eventEntries('sign_up').length, 0, 'no sign_up before Accept');
   assert.equal(eventEntries('pool_created').length, 0, 'no pool_created before Accept');
   assert.equal(eventEntries('join_group').length, 0, 'no join_group before Accept');
+  assert.ok(localStorage.getItem('sp_pool_created_pending'), 'queued in pending before Accept');
+  assert.equal(localStorage.getItem('sp_pool_created:1'), null, 'once-key not set until confirmed send');
 
+  __testSetPoolCreatedFlushMs(0);
   setAnalyticsConsent(true);
+  await awaitPoolCreatedFlush();
   assert.equal(eventEntries('sign_up').length, 0, 'Accept does not backfill sign_up');
   assert.equal(eventEntries('join_group').length, 0, 'Accept does not backfill join_group');
   const flushed = eventEntries('pool_created');
@@ -306,10 +319,11 @@ function installDom({ hash = '#/', consent = null } = {}) {
   assert.equal(flushed[0][2].kind, 'questions');
   assert.equal(flushed[0][2].src, 'scoreboard_cta');
   assert.equal(flushed[0][2].transport_type, 'beacon');
+  assert.equal(localStorage.getItem('sp_pool_created:1'), '1');
 
   // once-keys were consumed: a later call for the same ids still does not fire again
   await trackSignUp('email');
-  trackPoolCreated({ id: 1, pack: 'nhl-2026-27' });
+  await trackPoolCreated({ id: 1, pack: 'nhl-2026-27' });
   trackJoinGroup({ id: 1 });
   assert.equal(eventEntries('sign_up').length, 0);
   assert.equal(eventEntries('pool_created').length, 1, 'flushed pool_created is not duplicated');
@@ -322,9 +336,10 @@ function installDom({ hash = '#/', consent = null } = {}) {
   const { store } = installDom({ hash: '#/new?src=join_cta' });
   __testSetGaId('G-TESTID');
   initAnalytics();
-  trackPoolCreated({ id: 77, pack: 'love-is-blind-s11', sport: null, kind: 'questions' });
+  await trackPoolCreated({ id: 77, pack: 'love-is-blind-s11', sport: null, kind: 'questions' });
   assert.equal(eventEntries('pool_created').length, 0);
   assert.ok(store.get('sp_pool_created_pending'), 'pending queue is in localStorage');
+  assert.equal(store.get('sp_pool_created:77'), undefined, 'once-key not set before confirm');
 
   // Snapshot what a real reload would keep (localStorage), then reset module/gtag state.
   const kept = new Map(store);
@@ -332,12 +347,49 @@ function installDom({ hash = '#/', consent = null } = {}) {
   installDom({ hash: '#/new?src=join_cta' });
   for (const [k, v] of kept) localStorage.setItem(k, v);
   __testSetGaId('G-TESTID');
+  __testSetPoolCreatedFlushMs(0);
   initAnalytics();
   assert.equal(eventEntries('pool_created').length, 0, 'still pending until Accept');
   setAnalyticsConsent(true);
+  await awaitPoolCreatedFlush();
   assert.equal(eventEntries('pool_created').length, 1, 'reload + Accept still delivers pool_created');
   assert.equal(eventEntries('pool_created')[0][2].pack, 'love-is-blind-s11');
   assert.equal(localStorage.getItem('sp_pool_created_pending'), null, 'pending queue cleared after flush');
+}
+
+// --- reload race: pending stays if once-key was never confirmed; retry after reload ---
+{
+  __testResetAnalytics();
+  installDom({ hash: '#/new' });
+  __testSetGaId('G-TESTID');
+  // Long flush window: simulate gtag never calling back before a reload.
+  __testSetPoolCreatedFlushMs(30_000);
+  initAnalytics();
+  setAnalyticsConsent(true);
+  setAdsConsent(false);
+
+  const pendingPromise = trackPoolCreated({ id: 55, pack: 'mlb-post-2026', sport: 'mlb', kind: 'sports' });
+  assert.equal(eventEntries('pool_created').length, 1, 'event is queued to dataLayer');
+  assert.ok(localStorage.getItem('sp_pool_created_pending'), 'still pending until callback');
+  assert.equal(localStorage.getItem('sp_pool_created:55'), null, 'once-key not set mid-flight');
+
+  // Simulate reload before callback: abandon the in-flight promise, keep localStorage.
+  const kept = new Map();
+  for (let i = 0; i < localStorage.length; i++) {
+    const k = localStorage.key(i);
+    if (k) kept.set(k, localStorage.getItem(k));
+  }
+  __testResetAnalytics();
+  installDom({ hash: '#/new' });
+  for (const [k, v] of kept) localStorage.setItem(k, v);
+  __testSetGaId('G-TESTID');
+  __testSetPoolCreatedFlushMs(0);
+  initAnalytics(); // consent already granted → flushPending
+  await awaitPoolCreatedFlush();
+  assert.equal(eventEntries('pool_created').length, 1, 'pending retry fires after reload');
+  assert.equal(eventEntries('pool_created')[0][2].sport, 'mlb');
+  assert.equal(localStorage.getItem('sp_pool_created:55'), '1');
+  void pendingPromise; // unused on purpose (abandoned mid-flight)
 }
 
 // --- enhanced conversions: hashed email via user_data, only with Ads consent, before sign_up ---
