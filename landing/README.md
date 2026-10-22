@@ -17,8 +17,8 @@ Brand, copy and positioning rules live in `docs/BRAND.md`; the product it descri
   can't be read, the premiere countdown, the waitlist, consented GA4 when `GA4_ID` is set, and first-touch UTM/referrer
   capture for the waitlist). The "Just shipped" and "Being built now" lists are written by hand: keep them true. The waitlist posts
   to `public.waitlist` through PostgREST with the publishable key; the "what do you want to play" choice goes in `league`
-  and the optional free text in `note`. `sitemap.xml` lists the public pages (Cloudflare currently serves a managed
-  `robots.txt`, so the sitemap is not referenced from the repo).
+  and the optional free text in `note`. `robots.txt` allows crawlers and points `Sitemap:` at
+  `https://superpoolsai.com/sitemap.xml`; `sitemap.xml` lists the public pages.
 - `img/`: the phone screens. Pool screens come from a sample pool; SaK screens from the league's own site with
   every name changed (the anonymized fixtures). 600 px wide WebP; never a screen with a real GM's name or a cash prize.
 - `icon.svg`: the mark (the faceoff dot) on its tile; also the favicon. `img/sak-icon.svg` is SaK's crest.
