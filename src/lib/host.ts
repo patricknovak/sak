@@ -11,6 +11,8 @@
 // pool in the link, else the one this tab switched to, else the account's own.
 import { rpc, setLeagueHeader } from './supabase';
 import type { Brand } from './brand';
+import { inviteLinkWithSrc } from './inviteShare';
+export { markShareAfterCreate, consumeShareAfterCreate } from './inviteShare';
 
 export interface HostLeague { id: number; slug: string; name: string; short_name: string; brand: Partial<Brand> | null; status: string; kind?: 'fantasy' | 'predict' }
 
@@ -31,8 +33,9 @@ const APP = 'https://app.superpoolsai.com/';
 export const appBase = () => (PRODUCT_DOMAIN.test(location.hostname) ? APP : `${location.origin}${location.pathname}`);
 export const appLink = (path: string) => `${appBase()}#${path.startsWith('/') ? path : `/${path}`}`;
 // an invite to share: on the product's addresses the short link the app's Worker answers (app.superpoolsai.com/j/<code>),
-// which unfurls in a group chat with the pool's own name, host and picture (worker/preview.ts); elsewhere the app's own
-export const inviteLink = (code: string) => (PRODUCT_DOMAIN.test(location.hostname) ? `${APP}j/${code}` : appLink(`/join/${code}`));
+// which unfurls in a group chat with the pool's own name, host and picture (worker/preview.ts); elsewhere the app's own.
+// Optional src (e.g. share) rides on the query so join_group can attribute the share channel.
+export const inviteLink = (code: string, opts?: { src?: string }) => inviteLinkWithSrc(code, opts);
 // a pool's link: the app with the pool's web name in the path, and a page inside it if given
 export const poolLink = (slug: string, path = '') => appLink(`/p/${slug}${path && path !== '/' ? path : ''}`);
 // kept for the Platform page's "this league's address"

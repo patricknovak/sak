@@ -3,7 +3,7 @@ import { useSearchParams } from 'react-router-dom';
 import { FunctionsHttpError } from '@supabase/supabase-js';
 import { ArrowLeft, Check, Lock, Plus, Sparkles } from 'lucide-react';
 import { rpc, setRemember, supabase } from '../lib/supabase';
-import { openPool } from '../lib/host';
+import { markShareAfterCreate, openPool } from '../lib/host';
 import { useLeague } from '../lib/store';
 import { Spinner, Toggle } from '../components/ui';
 import { themed } from '../components/LeagueIdentity';
@@ -20,7 +20,8 @@ import { PRODUCT } from '../lib/brand';
 // sport, what are you following (a sports event open now) and what kind of pool, every kind listed with the ones not
 // open on that event greyed and why; for questions, a show's pack or your own. For a sport: what kind of pool (for a sport: pick the series, rank the teams, the
 // questions; the first one picked is the pool's main game), how it scores (a preset in plain words with a worked
-// example), then its name, colour and the host's account. It lands on the Host page with the invite link ready to send. Someone new goes through the `join` function (it makes the account
+// example), then its name, colour and the host's account. It lands on the pool home and opens the share sheet once
+// (InviteCard, with ?src=share on the invite). Someone new goes through the `join` function (it makes the account
 // and the pool together, migration 153, with limits per address and per day); someone signed in who is already in a
 // pool starts it with pool_start, as on My pools. A link can choose the pack (#/new?pack=love-is-blind-s11) or the event
 // (#/new?comp=nfl), which the landing page uses. Drawn in the pool's own colour as it is chosen.
@@ -169,7 +170,9 @@ export default function NewPool() {
         // Fire before games and navigation so the hit isn't dropped if either fails or reloads.
         trackPoolCreated({ id: r.id, pack: openPack, sport: event?.sport ?? null, kind: mode });
         await startGames(r.id);
-        await openPool({ league_id: r.id, slug: r.slug }, '/host');
+        // Home first: InviteCard opens the share sheet once so the group chat gets the link.
+        markShareAfterCreate();
+        await openPool({ league_id: r.id, slug: r.slug }, '/');
         return;
       }
       const login = email.trim().toLowerCase();
@@ -192,7 +195,8 @@ export default function NewPool() {
       trackPoolCreated({ id: opened?.id, pack: openPack, sport: event?.sport ?? null, kind: mode });
       if (opened) {
         await startGames(opened.id).catch((x) => setErr(`Your pool is open, but its games didn’t start: ${(x as Error).message}. Add them from the Host page.`));
-        await openPool({ league_id: opened.id, slug: opened.slug }, '/host');
+        markShareAfterCreate();
+        await openPool({ league_id: opened.id, slug: opened.slug }, '/');
       }
       else { window.location.hash = '#/'; window.location.reload(); }
     } catch (x) { setErr((x as Error).message); setBusy(false); }

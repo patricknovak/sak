@@ -342,13 +342,15 @@ export function trackPoolCreated(params: PoolCreatedParams = {}) {
 }
 
 // Member joined a pool via invite. Once per pool id; no backfill after Accept.
-export function trackJoinGroup(params: { id?: number | string | null } = {}) {
+// Carries ?src= from the invite URL (e.g. share) when present.
+export function trackJoinGroup(params: { id?: number | string | null; src?: string | null } = {}) {
   if (params.id != null && params.id !== '') {
     const key = joinGroupKey(params.id);
     if (storeGet(key) === '1') return;
     storeSet(key, '1');
   }
-  track('join_group');
+  const attrs = attributionParams({ src: params.src });
+  track('join_group', attrs);
 }
 
 // First pick/call/trade in a pool (once per browser). Safe to call after any successful game action.

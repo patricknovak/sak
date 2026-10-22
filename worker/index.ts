@@ -47,7 +47,10 @@ export default {
     } catch (e) {
       console.error(p, e);
       // a link always opens something: the app itself, if the preview couldn't be made
-      if (/^\/(j|p)\//.test(p)) return withSecurity(Response.redirect(`${url.origin}/#${p.replace(/^\/j\//, '/join/')}`, 302));
+      if (/^\/(j|p)\//.test(p)) {
+        const go = `${url.origin}/#${p.replace(/^\/j\//, '/join/')}${url.search || ''}`;
+        return withSecurity(Response.redirect(go, 302));
+      }
       return withSecurity(new Response('Something went wrong', { status: 502 }));
     }
     // static assets: public/_headers also applies; this covers any path that still hits the Worker
