@@ -20,8 +20,9 @@
 //   POST {task: 'propose_trade', league_key, trader_team_key, tradee_team_key, note?, players: [{player_key, from, to}]}
 //
 // Secrets: YAHOO_CLIENT_ID and YAHOO_CLIENT_SECRET from a Yahoo developer app (Fantasy Sports), as edge function
-// secrets or as Vault secrets yahoo_client_id / yahoo_client_secret; optional YAHOO_REDIRECT_URI (default: the
-// site root, which must match the app's registered redirect URI); optional YAHOO_SCOPE (default fspt-r).
+// secrets or as Vault secrets yahoo_client_id / yahoo_client_secret; optional YAHOO_REDIRECT_URI (default:
+// https://app.superpoolsai.com/, which must match the app's registered redirect URI); optional YAHOO_SCOPE
+// (default fspt-r).
 import { createClient } from 'jsr:@supabase/supabase-js@2';
 import { XMLParser } from 'npm:fast-xml-parser@4.5.0';
 
@@ -40,7 +41,7 @@ async function loadCreds() {
   // keep looking until both exist, so a key added to Vault later is picked up without a redeploy
   credsChecked = !!(CLIENT_ID && CLIENT_SECRET);
 }
-const REDIRECT = Deno.env.get('YAHOO_REDIRECT_URI') ?? 'https://patricknovak.github.io/sak/';
+const REDIRECT = Deno.env.get('YAHOO_REDIRECT_URI') ?? 'https://app.superpoolsai.com/';
 // the OAuth scope to ask for: fspt-r (Fantasy Sports read) or fspt-w (read/write, only if the Yahoo app has it).
 // Without an explicit scope Yahoo issues a token that can't call the Fantasy API at all ("not authorized").
 const SCOPE = Deno.env.get('YAHOO_SCOPE') ?? 'fspt-r';

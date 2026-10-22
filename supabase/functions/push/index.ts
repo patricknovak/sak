@@ -10,13 +10,12 @@ import webpush from 'npm:web-push@3.6.7';
 const URL_ = Deno.env.get('SUPABASE_URL')!;
 const db = createClient(URL_, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!, { auth: { persistSession: false } });
 const VAPID_PUBLIC = 'BEz86QWfjI0MlV7iV33KCnUSAahyR9UGXZ3O4MbbVil9vzmYXkoG6i_DhhWP8SYhjdwMcjVxCvGeU50IWMW2P20';
-const SITE = 'https://patricknovak.github.io/sak/';
+const SITE = 'https://app.superpoolsai.com/';
 const cors = { 'Access-Control-Allow-Origin': '*', 'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-league' };
 
 // the league a team plays in, as a push names it: "SAK Superleague" from SaK's wordmark, the league's name
-// otherwise; and where a tap lands: the league's own domain when it has one, SaK's site for SaK (its GMs installed it
-// there), and for every other pool the one app with the pool in the link (migration 151), so the tap opens that pool
-// and not whichever one the phone had open last
+// otherwise; and where a tap lands: the league's own domain when it has one, otherwise the one app (SaK and
+// every other pool; migration 151), so the tap opens that pool and not whichever one the phone had open last
 const APP = 'https://app.superpoolsai.com/';
 async function leagueOf(teamId: number) {
   const { data: t } = await db.from('teams').select('league_id').eq('id', teamId).single();
