@@ -27,13 +27,50 @@ function json(data: unknown, status = 200) {
   };
 }
 
-async function stubReload(page: Page) {
+async function stubReloadAndCapture(page: Page) {
   await page.addInitScript(() => {
-    // openPool always reloads; keep the document so dataLayer assertions stay valid.
-    Object.defineProperty(window, '__e2eReloads', { value: 0, writable: true });
-    window.location.reload = () => {
+    // openPool / Reopen call location.reload(); block it so the SPA stays put.
+    (window as unknown as { __e2eReloads: number }).__e2eReloads = 0;
+    const blockReload = () => {
       (window as unknown as { __e2eReloads: number }).__e2eReloads += 1;
     };
+    try {
+      Object.defineProperty(Location.prototype, 'reload', { configurable: true, writable: true, value: blockReload });
+    } catch { /* ignore */ }
+    try {
+      Object.defineProperty(window.location, 'reload', { configurable: true, writable: true, value: blockReload });
+    } catch { /* some browsers lock Location.reload */ }
+
+    // Survive a real reload: record pool_created in sessionStorage whenever gtag is assigned.
+    const logKey = '__e2e_pool_created';
+    const record = (params: unknown) => {
+      try {
+        const prev = JSON.parse(sessionStorage.getItem(logKey) || '[]') as unknown[];
+        prev.push(params ?? {});
+        sessionStorage.setItem(logKey, JSON.stringify(prev));
+      } catch { /* private mode */ }
+    };
+    let currentGtag: typeof window.gtag;
+    Object.defineProperty(window, 'gtag', {
+      configurable: true,
+      enumerable: true,
+      get() { return currentGtag; },
+      set(fn: typeof window.gtag) {
+        if (typeof fn !== 'function' || (fn as { __e2e?: boolean }).__e2e) {
+          currentGtag = fn;
+          return;
+        }
+        const wrapped = function wrappedGtag(this: unknown) {
+          const a0 = arguments[0];
+          const a1 = arguments[1];
+          const a2 = arguments[2];
+          if (a0 === 'event' && a1 === 'pool_created') record(a2);
+          return (fn as (...a: unknown[]) => unknown).apply(this, arguments as unknown as unknown[]);
+        };
+        (wrapped as { __e2e?: boolean }).__e2e = true;
+        currentGtag = wrapped as typeof window.gtag;
+      },
+    });
   });
 }
 
@@ -183,18 +220,28 @@ async function acceptAnalytics(page: Page) {
 }
 
 async function poolCreatedEvents(page: Page) {
-  return page.evaluate(() => {
-    const layer = (window as unknown as { dataLayer?: unknown[] }).dataLayer || [];
-    const out: { name: string; params: Record<string, unknown> }[] = [];
-    for (const entry of layer) {
-      if (!entry || typeof entry !== 'object') continue;
-      const args = entry as { [i: number]: unknown; length: number };
-      if (args[0] === 'event' && args[1] === 'pool_created') {
-        out.push({ name: 'pool_created', params: (args[2] as Record<string, unknown>) || {} });
+  try {
+    return await page.evaluate(() => {
+      // Prefer the sessionStorage log (survives reload); fall back to live dataLayer.
+      try {
+        const logged = JSON.parse(sessionStorage.getItem('__e2e_pool_created') || '[]') as Record<string, unknown>[];
+        if (logged.length) return logged.map((params) => ({ name: 'pool_created', params }));
+      } catch { /* ignore */ }
+      const layer = (window as unknown as { dataLayer?: unknown[] }).dataLayer || [];
+      const out: { name: string; params: Record<string, unknown> }[] = [];
+      for (const entry of layer) {
+        if (!entry || typeof entry !== 'object') continue;
+        const args = entry as { [i: number]: unknown; length: number };
+        if (args[0] === 'event' && args[1] === 'pool_created') {
+          out.push({ name: 'pool_created', params: (args[2] as Record<string, unknown>) || {} });
+        }
       }
-    }
-    return out;
-  });
+      return out;
+    });
+  } catch {
+    // Navigation mid-evaluate: caller polls again.
+    return [];
+  }
 }
 
 async function startQuestionsPoolAsGuest(page: Page) {
@@ -236,7 +283,7 @@ async function startFantasyLeague(page: Page) {
 
 test.describe('pool_created after Accept (mocked create paths)', () => {
   test('new-user sign-up + create pushes pool_created with params', async ({ page }) => {
-    await stubReload(page);
+    await stubReloadAndCapture(page);
     await mockSupabase(page, 'new-user');
     await startQuestionsPoolAsGuest(page);
 
@@ -249,7 +296,7 @@ test.describe('pool_created after Accept (mocked create paths)', () => {
   });
 
   test('signed-in pool_start pushes pool_created with params', async ({ page }) => {
-    await stubReload(page);
+    await stubReloadAndCapture(page);
     await plantMemberSession(page);
     await mockSupabase(page, 'member');
     await startQuestionsPoolAsMember(page);
@@ -263,7 +310,7 @@ test.describe('pool_created after Accept (mocked create paths)', () => {
   });
 
   test('fantasy_start pushes pool_created with params', async ({ page }) => {
-    await stubReload(page);
+    await stubReloadAndCapture(page);
     await plantMemberSession(page);
     await mockSupabase(page, 'fantasy');
     await startFantasyLeague(page);
@@ -277,7 +324,7 @@ test.describe('pool_created after Accept (mocked create paths)', () => {
   });
 
   test('create before Accept: pending flushes on Analytics Accept', async ({ page }) => {
-    await stubReload(page);
+    await stubReloadAndCapture(page);
     await mockSupabase(page, 'new-user');
     await page.goto('./#/new?src=e2e_pending');
     await expect(page.getByText(/What are you starting/i)).toBeVisible({ timeout: 30_000 });
