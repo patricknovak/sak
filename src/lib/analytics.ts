@@ -63,15 +63,9 @@ export function getAdsConsent(): AnalyticsConsent {
   return v === 'granted' || v === 'denied' ? v : null;
 }
 
-// Old single Accept wrote only the analytics key. Mirror it once so return visitors are not re-prompted.
-function migrateLegacyConsent() {
-  if (storeGet(ADS_CONSENT_KEY) != null) return;
-  const a = storeGet(CONSENT_KEY);
-  if (a === 'granted' || a === 'denied') storeSet(ADS_CONSENT_KEY, a);
-}
-
+// #286 split: Analytics and Ads are separate choices. Do not mirror one onto the other —
+// a single Analytics Accept must not set sp_ads_consent (and vice versa).
 export function needsConsentChoice(): boolean {
-  migrateLegacyConsent();
   return getAnalyticsConsent() == null || getAdsConsent() == null;
 }
 
@@ -197,7 +191,6 @@ function loadTagsIfNeeded() {
 // Call once at app start: capture first-touch, and load gtag only when consent was already granted.
 export function initAnalytics() {
   captureFirstTouch();
-  migrateLegacyConsent();
   if (!measurementId()) return;
   ensureGtag();
   applyConsentFlags();
@@ -205,7 +198,8 @@ export function initAnalytics() {
   if (getAnalyticsConsent() === 'granted') {
     // First load of a consented return visit: record this route (AnalyticsRoute will not double-count).
     trackPageView(currentAppPath());
-    flushPendingPoolCreated();
+    // Retry any pool_created that was queued (consent off, or reload before gtag flushed).
+    void flushPendingPoolCreated();
   }
 }
 
@@ -226,7 +220,7 @@ export function setAnalyticsConsent(granted: boolean) {
     // Current page at Accept: route has not changed, so AnalyticsRoute would never fire.
     trackPageView(currentAppPath());
     // North-star: pools opened before Accept still count once Accept lands (pending queue).
-    flushPendingPoolCreated();
+    void flushPendingPoolCreated();
   }
 }
 
@@ -352,34 +346,93 @@ function writePendingPoolCreated(list: PoolCreatedPayload[]) {
   storeSet(POOL_CREATED_PENDING_KEY, JSON.stringify(list));
 }
 
-function emitPoolCreated(payload: PoolCreatedPayload) {
-  const attrs = attributionParams({ src: payload.src });
-  track('pool_created', {
-    ...attrs,
-    pack: payload.pack,
-    sport: payload.sport,
-    kind: payload.kind,
-    transport_type: 'beacon',
+// How long we wait for gtag's event_callback before treating the hit as sent (or giving up and
+// still clearing pending so a stuck callback cannot block openPool forever).
+let poolCreatedFlushMs = 1000;
+export function __testSetPoolCreatedFlushMs(ms: number) {
+  poolCreatedFlushMs = ms;
+}
+
+// In-flight pool_created sends; openPool awaits these so a reload cannot race the beacon.
+const poolCreatedFlushes = new Set<Promise<void>>();
+const poolCreatedTimers = new Set<number>();
+
+export function awaitPoolCreatedFlush(): Promise<void> {
+  if (!poolCreatedFlushes.size) return Promise.resolve();
+  return Promise.all([...poolCreatedFlushes]).then(() => undefined);
+}
+
+function markPoolCreatedSent(payload: PoolCreatedPayload) {
+  if (payload.id) storeSet(poolCreatedKey(payload.id), '1');
+  const pending = readPendingPoolCreated().filter((p) => {
+    if (payload.id) return p.id !== payload.id;
+    return !(p.pack === payload.pack && p.sport === payload.sport && p.kind === payload.kind && !p.id);
   });
+  writePendingPoolCreated(pending);
 }
 
-// Flush pool_created hits that were queued while Analytics consent was still off (Accept, or a return visit).
-function flushPendingPoolCreated() {
-  if (getAnalyticsConsent() !== 'granted') return;
+function enqueuePending(payload: PoolCreatedPayload) {
   const pending = readPendingPoolCreated();
-  if (!pending.length) return;
-  writePendingPoolCreated([]);
-  for (const p of pending) emitPoolCreated(p);
+  if (payload.id && pending.some((p) => p.id === payload.id)) return;
+  if (payload.id && storeGet(poolCreatedKey(payload.id)) === '1') return;
+  pending.push(payload);
+  writePendingPoolCreated(pending);
 }
 
-// North-star: a pool (or fantasy league) opened successfully. Once per pool id.
-// Without Analytics consent yet, queue the hit and flush on Accept (survives reload via localStorage).
-// transport_type beacon so a reload or navigation right after open does not drop the hit.
-export function trackPoolCreated(params: PoolCreatedParams = {}) {
-  if (params.id != null && params.id !== '') {
-    const key = poolCreatedKey(params.id);
-    if (storeGet(key) === '1') return;
-    storeSet(key, '1');
+// Fire gtag; resolve on event_callback or timeout. Pending stays until then so a reload can retry.
+function emitPoolCreated(payload: PoolCreatedPayload): Promise<void> {
+  if (!measurementId() || getAnalyticsConsent() !== 'granted') return Promise.resolve();
+  if (payload.id && storeGet(poolCreatedKey(payload.id)) === '1') return Promise.resolve();
+  ensureGtag();
+  const attrs = attributionParams({ src: payload.src });
+  const clean: Record<string, string | number | boolean | (() => void)> = {
+    ...attrs,
+    transport_type: 'beacon',
+  };
+  if (payload.pack) clean.pack = payload.pack;
+  if (payload.sport) clean.sport = payload.sport;
+  if (payload.kind) clean.kind = payload.kind;
+
+  const p = new Promise<void>((resolve) => {
+    let settled = false;
+    const done = () => {
+      if (settled) return;
+      settled = true;
+      markPoolCreatedSent(payload);
+      resolve();
+    };
+    const timer = window.setTimeout(done, poolCreatedFlushMs);
+    poolCreatedTimers.add(timer);
+    clean.event_callback = () => {
+      window.clearTimeout(timer);
+      poolCreatedTimers.delete(timer);
+      done();
+    };
+    window.gtag?.('event', 'pool_created', clean);
+  });
+  poolCreatedFlushes.add(p);
+  p.finally(() => {
+    poolCreatedFlushes.delete(p);
+  });
+  return p;
+}
+
+// Flush pool_created hits that were queued while Analytics consent was still off, or left pending
+// because a reload raced the previous send.
+function flushPendingPoolCreated(): Promise<void> {
+  if (getAnalyticsConsent() !== 'granted') return Promise.resolve();
+  const pending = readPendingPoolCreated();
+  if (!pending.length) return Promise.resolve();
+  // Keep pending rows until each emit confirms; do not clear the queue up front.
+  return Promise.all(pending.map((row) => emitPoolCreated(row))).then(() => undefined);
+}
+
+// North-star: a pool (or fantasy league) opened successfully. Once per pool id after a confirmed send.
+// Always write pending first; set the once-key and clear pending only after gtag event_callback (or
+// ~1s timeout). openPool awaits awaitPoolCreatedFlush() so a reload cannot drop the hit.
+export function trackPoolCreated(params: PoolCreatedParams = {}): Promise<void> {
+  if (params.id != null && params.id !== '' && storeGet(poolCreatedKey(params.id)) === '1') {
+    return Promise.resolve();
   }
   const payload: PoolCreatedPayload = {
     id: params.id != null && params.id !== '' ? String(params.id) : undefined,
@@ -388,15 +441,9 @@ export function trackPoolCreated(params: PoolCreatedParams = {}) {
     kind: params.kind ? String(params.kind).slice(0, 40) : undefined,
     src: params.src ?? readSrcParam(),
   };
-  if (getAnalyticsConsent() !== 'granted') {
-    // Queue until Accept: once-key already set so a retry does not double-queue.
-    const pending = readPendingPoolCreated();
-    if (payload.id && pending.some((p) => p.id === payload.id)) return;
-    pending.push(payload);
-    writePendingPoolCreated(pending);
-    return;
-  }
-  emitPoolCreated(payload);
+  enqueuePending(payload);
+  if (getAnalyticsConsent() !== 'granted') return Promise.resolve();
+  return emitPoolCreated(payload);
 }
 
 // Member joined a pool via invite. Once per pool id; no backfill after Accept.
@@ -434,6 +481,12 @@ export function newPoolPath(src: string): string {
 export function __testResetAnalytics() {
   lastTrackedPath = null;
   testGaId = undefined;
+  poolCreatedFlushMs = 1000;
+  for (const t of poolCreatedTimers) {
+    try { window.clearTimeout(t); } catch { /* no window */ }
+  }
+  poolCreatedTimers.clear();
+  poolCreatedFlushes.clear();
   if (typeof window !== 'undefined') {
     delete (window as { gtag?: unknown }).gtag;
     delete (window as { dataLayer?: unknown }).dataLayer;

@@ -167,8 +167,8 @@ export default function NewPool() {
     try {
       if (member) {
         const r = await rpc<{ id: number; slug: string }>('pool_start', { p_name: pool.trim(), p_color: color, p_pack: openPack });
-        // Fire before games and navigation so the hit isn't dropped if either fails or reloads.
-        trackPoolCreated({ id: r.id, pack: openPack, sport: event?.sport ?? null, kind: mode });
+        // Queue + send before games/nav; openPool awaits the gtag callback so a reload cannot drop it.
+        await trackPoolCreated({ id: r.id, pack: openPack, sport: event?.sport ?? null, kind: mode });
         await startGames(r.id);
         // Home first: InviteCard opens the share sheet once so the group chat gets the link.
         markShareAfterCreate();
@@ -188,7 +188,7 @@ export default function NewPool() {
       setRemember(true);
       const opened = (data as { pool?: { id: number; slug: string } })?.pool;
       // Pool already exists from join: fire before sign-in so a failed login cannot skip the north-star hit.
-      trackPoolCreated({ id: opened?.id, pack: openPack, sport: event?.sport ?? null, kind: mode });
+      await trackPoolCreated({ id: opened?.id, pack: openPack, sport: event?.sport ?? null, kind: mode });
       const { error: se } = await supabase.auth.signInWithPassword({ email: login, password: pw });
       if (se) { setBusy(false); setErr(`Your pool is open, but signing in failed: ${se.message}. Sign in from the main page.`); return; }
       try { localStorage.setItem('sak-last-email', login); } catch { /* nothing to remember with */ }

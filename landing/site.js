@@ -77,11 +77,7 @@ var ADS_ID = 'AW-949617778';
     if (analyticsOn() || adsOn()) loadTag();
     configAds();
   }
-  // Old single Accept wrote only the analytics key; mirror it once so return visitors are not re-prompted.
-  if (spStoreGet(ADS_CONSENT_KEY) == null) {
-    var legacy = spStoreGet(CONSENT_KEY);
-    if (legacy === 'granted' || legacy === 'denied') spStoreSet(ADS_CONSENT_KEY, legacy);
-  }
+  // #286 split: Analytics and Ads stay separate. Do not mirror one onto the other after Accept.
   function maybeClose() {
     if (spStoreGet(CONSENT_KEY) == null || spStoreGet(ADS_CONSENT_KEY) == null) return;
     var bar = document.getElementById('sp-consent');

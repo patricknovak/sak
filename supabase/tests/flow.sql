@@ -6457,6 +6457,7 @@ select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-000000000081
 set role authenticated;
 select pool_start_games(:lib, jsonb_build_array(jsonb_build_object('kind', 'props', 'competition', 'nfl', 'rules', jsonb_build_object('fixture', :af3, 'auto', true))));
 reset role;
+select pg_temp.expect('starting games stamps the pool sport from the competition', (select sport from leagues where id = :lib) = 'nfl');
 select pg_temp.expect('the chosen game has its sheet and every game will', exists (select 1 from pool_games where league_id = :lib and kind = 'props'
     and (rules->>'fixture')::bigint = :af3 and not rules ? 'auto')
   and exists (select 1 from pool_auto_sheets where league_id = :lib and competition = 'nfl'));
