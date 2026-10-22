@@ -1,0 +1,307 @@
+import { expect, type Page, test } from '@playwright/test';
+
+// Proves pool_created hits dataLayer/gtag after Analytics Accept on every create path,
+// with pack/sport/kind/src params. Supabase REST + auth + join are mocked; reload is stubbed
+// so openPool does not wipe the page before we can read dataLayer.
+
+const USER_ID = 'e2e-pool-created-user';
+const PACK = {
+  slug: 'e2e-show-pack',
+  name: 'E2E Show',
+  questions: 12,
+  color: '#fb7185',
+  icon: '📺',
+  blurb: 'Test pack',
+  next_close: new Date(Date.now() + 3 * 864e5).toISOString(),
+  last_close: new Date(Date.now() + 30 * 864e5).toISOString(),
+};
+
+type CreatePath = 'member' | 'new-user' | 'fantasy';
+
+function json(data: unknown, status = 200) {
+  return {
+    status,
+    contentType: 'application/json',
+    headers: { 'content-range': Array.isArray(data) ? `0-${Math.max(data.length - 1, 0)}/${data.length}` : '0-0/1' },
+    body: JSON.stringify(data),
+  };
+}
+
+async function stubReload(page: Page) {
+  await page.addInitScript(() => {
+    // openPool always reloads; keep the document so dataLayer assertions stay valid.
+    Object.defineProperty(window, '__e2eReloads', { value: 0, writable: true });
+    window.location.reload = () => {
+      (window as unknown as { __e2eReloads: number }).__e2eReloads += 1;
+    };
+  });
+}
+
+async function plantMemberSession(page: Page) {
+  const session = {
+    access_token: 'e2e-access',
+    refresh_token: 'e2e-refresh',
+    expires_in: 3600,
+    expires_at: Math.floor(Date.now() / 1000) + 3600,
+    token_type: 'bearer',
+    user: {
+      id: USER_ID,
+      aud: 'authenticated',
+      role: 'authenticated',
+      email: 'e2e-host@example.com',
+      app_metadata: { provider: 'email' },
+      user_metadata: {},
+      created_at: '2026-01-01T00:00:00.000Z',
+    },
+  };
+  await page.addInitScript((s) => {
+    localStorage.setItem('sak-remember', '1');
+    localStorage.setItem('sak-auth', JSON.stringify(s));
+  }, session);
+}
+
+async function mockSupabase(page: Page, path: CreatePath) {
+  await page.route('**/googletagmanager.com/**', (route) => route.fulfill({ status: 204, body: '' }));
+
+  await page.route('**/quakdkzdafzlhgjvmypg.supabase.co/**', async (route) => {
+    const req = route.request();
+    const url = req.url();
+    const method = req.method();
+
+    // Auth: session plant + password sign-in for the new-user path.
+    if (url.includes('/auth/v1/')) {
+      if (url.includes('/token') && method === 'POST') {
+        return route.fulfill(json({
+          access_token: 'e2e-access',
+          refresh_token: 'e2e-refresh',
+          expires_in: 3600,
+          token_type: 'bearer',
+          user: { id: USER_ID, email: 'e2e-new@example.com', role: 'authenticated', aud: 'authenticated' },
+        }));
+      }
+      if (url.includes('/user')) {
+        return route.fulfill(json({
+          id: USER_ID,
+          email: path === 'new-user' ? 'e2e-new@example.com' : 'e2e-host@example.com',
+          role: 'authenticated',
+          aud: 'authenticated',
+        }));
+      }
+      return route.fulfill(json({}));
+    }
+
+    // Edge function: join creates account + pool for someone new.
+    if (url.includes('/functions/v1/join')) {
+      return route.fulfill(json({
+        pool: { id: 501, slug: 'e2e-new-pool' },
+        ok: true,
+      }));
+    }
+
+    // RPCs
+    if (url.includes('/rest/v1/rpc/')) {
+      const name = url.split('/rest/v1/rpc/')[1]?.split('?')[0] ?? '';
+      if (name === 'pool_pack_list') return route.fulfill(json([PACK]));
+      if (name === 'pool_event_list') return route.fulfill(json([]));
+      if (name === 'pool_start') return route.fulfill(json({ id: 401, slug: 'e2e-member-pool' }));
+      if (name === 'fantasy_start') return route.fulfill(json({ id: 601, slug: 'e2e-fantasy-league' }));
+      if (name === 'pool_start_games' || name === 'set_active_league' || name === 'league_by_host') {
+        return route.fulfill(json(null));
+      }
+      return route.fulfill(json(null));
+    }
+
+    // Tables the store loads once a member session exists.
+    if (url.includes('/rest/v1/teams')) {
+      return route.fulfill(json([{
+        id: 1,
+        name: 'E2E Team',
+        abbrev: 'E2E',
+        gm_name: 'E2E Host',
+        login_email: 'e2e-host@example.com',
+        user_id: USER_ID,
+        color: '#fb7185',
+        emoji: '🏒',
+        motto: null,
+        fav_nhl: null,
+        is_commish: true,
+        joined_season: null,
+        auto_lineup: false,
+        autodraft: false,
+        keepers_submitted: false,
+        last_seen: null,
+        auto_mode: 'off',
+        auto_basis: 'proj',
+        lineup_touched: null,
+        role: 'gm',
+        perms: {},
+        tv: {},
+      }]));
+    }
+    if (url.includes('/rest/v1/league') && !url.includes('leagues')) {
+      return route.fulfill(json({
+        league_id: 1,
+        name: 'E2E League',
+        season: '2026',
+        phase: 'season',
+        format: 'season',
+      }));
+    }
+    if (url.includes('/rest/v1/leagues')) {
+      return route.fulfill(json({
+        brand: null,
+        short_name: 'E2E',
+        sport: 'nhl',
+        kind: 'predict',
+      }));
+    }
+    if (url.includes('/rest/v1/draft_state')) {
+      return route.fulfill(json({
+        status: 'idle',
+        pick: 0,
+        round: 0,
+        on_clock: null,
+        deadline: null,
+      }));
+    }
+    // Everything else the store selects: empty list is fine.
+    if (url.includes('/rest/v1/')) {
+      return route.fulfill(json([]));
+    }
+
+    return route.fulfill({ status: 204, body: '' });
+  });
+}
+
+async function acceptAnalytics(page: Page) {
+  const dialog = page.getByRole('dialog', { name: /Analytics and ads/i });
+  await expect(dialog).toBeVisible({ timeout: 30_000 });
+  // First Accept = Analytics; Ads No thanks closes the banner without enabling ads.
+  await dialog.getByRole('button', { name: 'Accept' }).first().click();
+  await dialog.getByRole('button', { name: 'No thanks' }).nth(1).click();
+  await expect(dialog).toBeHidden();
+}
+
+async function poolCreatedEvents(page: Page) {
+  return page.evaluate(() => {
+    const layer = (window as unknown as { dataLayer?: unknown[] }).dataLayer || [];
+    const out: { name: string; params: Record<string, unknown> }[] = [];
+    for (const entry of layer) {
+      if (!entry || typeof entry !== 'object') continue;
+      const args = entry as { [i: number]: unknown; length: number };
+      if (args[0] === 'event' && args[1] === 'pool_created') {
+        out.push({ name: 'pool_created', params: (args[2] as Record<string, unknown>) || {} });
+      }
+    }
+    return out;
+  });
+}
+
+async function startQuestionsPoolAsGuest(page: Page) {
+  await page.goto('./#/new?src=e2e_guest');
+  await expect(page.getByText(/What are you starting/i)).toBeVisible({ timeout: 30_000 });
+  await acceptAnalytics(page);
+  await page.getByRole('button', { name: /A questions pool/i }).click();
+  await expect(page.getByText(/Which questions/i)).toBeVisible();
+  await page.getByRole('button', { name: /E2E Show/i }).click();
+  await page.getByLabel(/Name your pool/i).fill('E2E Guest Pool');
+  await page.getByPlaceholder(/Your name/i).fill('Guest Host');
+  await page.getByPlaceholder(/you@example.com/i).fill('e2e-new@example.com');
+  await page.getByPlaceholder(/A password/i).fill('secret12');
+  await page.getByRole('button', { name: /Start my pool/i }).click();
+}
+
+async function startQuestionsPoolAsMember(page: Page) {
+  await page.goto('./#/new?src=e2e_member');
+  await expect(page.getByText(/What are you starting/i)).toBeVisible({ timeout: 45_000 });
+  await acceptAnalytics(page);
+  await page.getByRole('button', { name: /A questions pool/i }).click();
+  await expect(page.getByText(/Which questions/i)).toBeVisible();
+  await page.getByRole('button', { name: /E2E Show/i }).click();
+  await page.getByLabel(/Name your pool/i).fill('E2E Member Pool');
+  await expect(page.getByText(/signed in as E2E Host/i)).toBeVisible();
+  await page.getByRole('button', { name: /Start my pool/i }).click();
+}
+
+async function startFantasyLeague(page: Page) {
+  await page.goto('./#/new?type=fantasy&src=e2e_fantasy');
+  await expect(page.getByText(/Start a league|What are you starting/i).first()).toBeVisible({ timeout: 45_000 });
+  await acceptAnalytics(page);
+  // type=fantasy already selects the mode; if the mode picker still shows, click it.
+  const fantasyMode = page.getByRole('button', { name: /A fantasy league/i });
+  if (await fantasyMode.isVisible().catch(() => false)) await fantasyMode.click();
+  await page.getByPlaceholder(/The Beer League/i).fill('E2E Fantasy');
+  await page.getByRole('button', { name: /Start my league/i }).click();
+}
+
+test.describe('pool_created after Accept (mocked create paths)', () => {
+  test('new-user sign-up + create pushes pool_created with params', async ({ page }) => {
+    await stubReload(page);
+    await mockSupabase(page, 'new-user');
+    await startQuestionsPoolAsGuest(page);
+
+    await expect.poll(async () => (await poolCreatedEvents(page)).length, { timeout: 15_000 }).toBe(1);
+    const [ev] = await poolCreatedEvents(page);
+    expect(ev.params.pack).toBe('e2e-show-pack');
+    expect(ev.params.kind).toBe('questions');
+    expect(ev.params.src).toBe('e2e_guest');
+    expect(ev.params.transport_type).toBe('beacon');
+  });
+
+  test('signed-in pool_start pushes pool_created with params', async ({ page }) => {
+    await stubReload(page);
+    await plantMemberSession(page);
+    await mockSupabase(page, 'member');
+    await startQuestionsPoolAsMember(page);
+
+    await expect.poll(async () => (await poolCreatedEvents(page)).length, { timeout: 15_000 }).toBe(1);
+    const [ev] = await poolCreatedEvents(page);
+    expect(ev.params.pack).toBe('e2e-show-pack');
+    expect(ev.params.kind).toBe('questions');
+    expect(ev.params.src).toBe('e2e_member');
+    expect(ev.params.transport_type).toBe('beacon');
+  });
+
+  test('fantasy_start pushes pool_created with params', async ({ page }) => {
+    await stubReload(page);
+    await plantMemberSession(page);
+    await mockSupabase(page, 'fantasy');
+    await startFantasyLeague(page);
+
+    await expect.poll(async () => (await poolCreatedEvents(page)).length, { timeout: 15_000 }).toBe(1);
+    const [ev] = await poolCreatedEvents(page);
+    expect(ev.params.kind).toBe('fantasy');
+    expect(ev.params.sport).toBe('nhl');
+    expect(ev.params.src).toBe('e2e_fantasy');
+    expect(ev.params.transport_type).toBe('beacon');
+  });
+
+  test('create before Accept: pending flushes on Analytics Accept', async ({ page }) => {
+    await stubReload(page);
+    await mockSupabase(page, 'new-user');
+    await page.goto('./#/new?src=e2e_pending');
+    await expect(page.getByText(/What are you starting/i)).toBeVisible({ timeout: 30_000 });
+
+    // Create while the banner is still up (consent not granted).
+    await page.getByRole('button', { name: /A questions pool/i }).click();
+    await page.getByRole('button', { name: /E2E Show/i }).click();
+    await page.getByLabel(/Name your pool/i).fill('E2E Pending Pool');
+    await page.getByPlaceholder(/Your name/i).fill('Pending Host');
+    await page.getByPlaceholder(/you@example.com/i).fill('e2e-pending@example.com');
+    await page.getByPlaceholder(/A password/i).fill('secret12');
+    await page.getByRole('button', { name: /Start my pool/i }).click();
+
+    // join mocked → trackPoolCreated queues; sign-in mocked → may navigate/reload stub.
+    await expect.poll(async () => page.evaluate(() => localStorage.getItem('sp_pool_created_pending')), {
+      timeout: 15_000,
+    }).toBeTruthy();
+    expect(await poolCreatedEvents(page)).toHaveLength(0);
+
+    await acceptAnalytics(page);
+    await expect.poll(async () => (await poolCreatedEvents(page)).length, { timeout: 10_000 }).toBe(1);
+    const [ev] = await poolCreatedEvents(page);
+    expect(ev.params.pack).toBe('e2e-show-pack');
+    expect(ev.params.src).toBe('e2e_pending');
+    expect(await page.evaluate(() => localStorage.getItem('sp_pool_created_pending'))).toBeNull();
+  });
+});

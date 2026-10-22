@@ -186,13 +186,13 @@ export default function NewPool() {
         return;
       }
       setRemember(true);
+      const opened = (data as { pool?: { id: number; slug: string } })?.pool;
+      // Pool already exists from join: fire before sign-in so a failed login cannot skip the north-star hit.
+      trackPoolCreated({ id: opened?.id, pack: openPack, sport: event?.sport ?? null, kind: mode });
       const { error: se } = await supabase.auth.signInWithPassword({ email: login, password: pw });
       if (se) { setBusy(false); setErr(`Your pool is open, but signing in failed: ${se.message}. Sign in from the main page.`); return; }
       try { localStorage.setItem('sak-last-email', login); } catch { /* nothing to remember with */ }
       await trackSignUp('email', login);
-      const opened = (data as { pool?: { id: number; slug: string } })?.pool;
-      // Before games and before any reload: beacon transport keeps pool_created from being dropped.
-      trackPoolCreated({ id: opened?.id, pack: openPack, sport: event?.sport ?? null, kind: mode });
       if (opened) {
         await startGames(opened.id).catch((x) => setErr(`Your pool is open, but its games didn’t start: ${(x as Error).message}. Add them from the Host page.`));
         markShareAfterCreate();
