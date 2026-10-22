@@ -346,8 +346,8 @@ function writePendingPoolCreated(list: PoolCreatedPayload[]) {
   storeSet(POOL_CREATED_PENDING_KEY, JSON.stringify(list));
 }
 
-// How long we wait for gtag's event_callback before treating the hit as sent (or giving up and
-// still clearing pending so a stuck callback cannot block openPool forever).
+// How long we keep pending after gtag('event') before treating the beacon as sent.
+// gtag's event_callback often fires before /g/collect leaves the browser — never mark on it.
 let poolCreatedFlushMs = 1000;
 export function __testSetPoolCreatedFlushMs(ms: number) {
   poolCreatedFlushMs = ms;
@@ -379,7 +379,9 @@ function enqueuePending(payload: PoolCreatedPayload) {
   writePendingPoolCreated(pending);
 }
 
-// Fire gtag; resolve on event_callback or timeout. Pending stays until then so a reload can retry.
+// Fire gtag; write pending first (caller). Set the once-key only after the flush window —
+// gtag's event_callback often fires before /g/collect and must not mark. openPool awaits
+// this full window so a reload cannot clear pending before the beacon has had time to leave.
 function emitPoolCreated(payload: PoolCreatedPayload): Promise<void> {
   if (!measurementId() || getAnalyticsConsent() !== 'granted') return Promise.resolve();
   if (payload.id && storeGet(poolCreatedKey(payload.id)) === '1') return Promise.resolve();
@@ -401,13 +403,13 @@ function emitPoolCreated(payload: PoolCreatedPayload): Promise<void> {
       markPoolCreatedSent(payload);
       resolve();
     };
-    const timer = window.setTimeout(done, poolCreatedFlushMs);
-    poolCreatedTimers.add(timer);
-    clean.event_callback = () => {
-      window.clearTimeout(timer);
+    const timer = window.setTimeout(() => {
       poolCreatedTimers.delete(timer);
       done();
-    };
+    }, poolCreatedFlushMs);
+    poolCreatedTimers.add(timer);
+    // Still pass a no-op callback so gtag is happy; never mark or settle on it.
+    clean.event_callback = () => { /* not a real send — see flush window above */ };
     window.gtag?.('event', 'pool_created', clean);
   });
   poolCreatedFlushes.add(p);
@@ -423,13 +425,14 @@ function flushPendingPoolCreated(): Promise<void> {
   if (getAnalyticsConsent() !== 'granted') return Promise.resolve();
   const pending = readPendingPoolCreated();
   if (!pending.length) return Promise.resolve();
-  // Keep pending rows until each emit confirms; do not clear the queue up front.
+  // Keep pending rows until each emit's flush window marks them; do not clear the queue up front.
   return Promise.all(pending.map((row) => emitPoolCreated(row))).then(() => undefined);
 }
 
-// North-star: a pool (or fantasy league) opened successfully. Once per pool id after a confirmed send.
-// Always write pending first; set the once-key and clear pending only after gtag event_callback (or
-// ~1s timeout). openPool awaits awaitPoolCreatedFlush() so a reload cannot drop the hit.
+// North-star: a pool (or fantasy league) opened successfully. Once per pool id after a real send.
+// Always write pending first; set the once-key and clear pending only after the flush window
+// (~1s), never on event_callback. openPool awaits awaitPoolCreatedFlush() so a reload before
+// the window leaves pending for retry on init.
 export function trackPoolCreated(params: PoolCreatedParams = {}): Promise<void> {
   if (params.id != null && params.id !== '' && storeGet(poolCreatedKey(params.id)) === '1') {
     return Promise.resolve();

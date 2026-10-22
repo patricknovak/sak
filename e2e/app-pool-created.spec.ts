@@ -66,9 +66,17 @@ async function stubReloadAndCapture(page: Page) {
           const a2 = arguments[2] as Record<string, unknown> | undefined;
           if (a0 === 'event' && a1 === 'pool_created') record(a2);
           const ret = (fn as (...a: unknown[]) => unknown).apply(this, arguments as unknown as unknown[]);
-          // Mimic gtag.js: fire event_callback so awaitPoolCreatedFlush can unblock openPool.
+          // Mimic gtag.js's early event_callback (must not set the once-key in app code).
           if (a0 === 'event' && a2 && typeof a2.event_callback === 'function') {
             try { (a2.event_callback as () => void)(); } catch { /* ignore */ }
+          }
+          if (a0 === 'event' && a1 === 'pool_created') {
+            try {
+              sessionStorage.setItem('__e2e_after_callback', JSON.stringify({
+                pending: localStorage.getItem('sp_pool_created_pending'),
+                keys: Object.keys(localStorage).filter((k) => k.startsWith('sp_pool_created:')),
+              }));
+            } catch { /* private mode */ }
           }
           return ret;
         };
@@ -77,6 +85,56 @@ async function stubReloadAndCapture(page: Page) {
       },
     });
   });
+}
+
+// localStorage reads that survive openPool's reload (real or stubbed) mid-evaluate.
+async function settleAfterNav(page: Page) {
+  try {
+    await page.waitForFunction(() => (window as unknown as { __e2eReloads?: number }).__e2eReloads !== undefined, null, {
+      timeout: 5_000,
+    });
+  } catch { /* init script not ready yet */ }
+  try {
+    await page.waitForLoadState('domcontentloaded', { timeout: 5_000 });
+  } catch { /* already loaded */ }
+}
+
+async function storageGet(page: Page, key: string): Promise<string | null> {
+  try {
+    return await page.evaluate((k) => localStorage.getItem(k), key);
+  } catch {
+    await settleAfterNav(page);
+    try {
+      return await page.evaluate((k) => localStorage.getItem(k), key);
+    } catch {
+      return null;
+    }
+  }
+}
+
+async function storageOnceKey(page: Page): Promise<string | null> {
+  try {
+    return await page.evaluate(() => {
+      for (let i = 0; i < localStorage.length; i++) {
+        const k = localStorage.key(i);
+        if (k && k.startsWith('sp_pool_created:')) return k;
+      }
+      return null;
+    });
+  } catch {
+    await settleAfterNav(page);
+    try {
+      return await page.evaluate(() => {
+        for (let i = 0; i < localStorage.length; i++) {
+          const k = localStorage.key(i);
+          if (k && k.startsWith('sp_pool_created:')) return k;
+        }
+        return null;
+      });
+    } catch {
+      return null;
+    }
+  }
 }
 
 async function plantMemberSession(page: Page) {
@@ -367,20 +425,17 @@ test.describe('pool_created after Accept (mocked create paths)', () => {
     await page.getByPlaceholder(/A password/i).fill('secret12');
     await page.getByRole('button', { name: /Start my pool/i }).click();
 
-    // join mocked → trackPoolCreated queues; once-key must stay unset until a confirmed send.
-    await expect.poll(async () => page.evaluate(() => localStorage.getItem('sp_pool_created_pending')), {
+    // openPool may reload (stubbed or real): wait for the page, then read storage safely.
+    await settleAfterNav(page);
+    await expect.poll(async () => storageGet(page, 'sp_pool_created_pending'), {
       timeout: 15_000,
     }).toBeTruthy();
-    expect(await page.evaluate(() => {
-      for (let i = 0; i < localStorage.length; i++) {
-        const k = localStorage.key(i);
-        if (k && k.startsWith('sp_pool_created:')) return k;
-      }
-      return null;
-    })).toBeNull();
+    expect(await storageOnceKey(page)).toBeNull();
     expect(await poolCreatedEvents(page)).toHaveLength(0);
 
     await acceptAnalytics(page);
+    await settleAfterNav(page);
+
     let ev: { name: string; params: Record<string, unknown> } | undefined;
     await expect.poll(async () => {
       const events = await poolCreatedEvents(page);
@@ -389,10 +444,11 @@ test.describe('pool_created after Accept (mocked create paths)', () => {
     }, { timeout: 10_000 }).toBe(1);
     expect(ev?.params.pack).toBe('e2e-show-pack');
     expect(ev?.params.src).toBe('e2e_pending');
-    expect(await page.evaluate(() => localStorage.getItem('sp_pool_created_pending')).catch(() => null)).toBeNull();
-    await expect.poll(async () => page.evaluate(() => localStorage.getItem('sp_pool_created:501')), {
+    // Event is in dataLayer immediately; once-key / pending clear only after the flush window.
+    await expect.poll(async () => storageGet(page, 'sp_pool_created:501'), {
       timeout: 5_000,
     }).toBe('1');
+    expect(await storageGet(page, 'sp_pool_created_pending')).toBeNull();
   });
 
   test('Analytics Accept alone does not grant Ads consent', async ({ page }) => {
@@ -411,5 +467,46 @@ test.describe('pool_created after Accept (mocked create paths)', () => {
     expect(keys.d).toBeNull();
     // Banner stays open until Ads is chosen.
     await expect(dialog).toBeVisible();
+  });
+
+  // Pack path: pending first, once-key only after the flush window (not on early event_callback).
+  // Does not claim a /g/collect network hit — GTM is stubbed here, and a stub-fired collect would be circular.
+  test('pack-pool path: pending first; once-key only after send window', async ({ page }) => {
+    await stubReloadAndCapture(page);
+    await plantMemberSession(page);
+    await mockSupabase(page, 'member');
+    await startQuestionsPoolAsMember(page);
+    await settleAfterNav(page);
+
+    let ev: { name: string; params: Record<string, unknown> } | undefined;
+    await expect.poll(async () => {
+      const events = await poolCreatedEvents(page);
+      ev = events[0];
+      return events.length;
+    }, { timeout: 15_000 }).toBe(1);
+    expect(ev?.params.pack).toBe('e2e-show-pack');
+    expect(ev?.params.kind).toBe('questions');
+    expect(ev?.params.transport_type).toBe('beacon');
+
+    // Snapshot taken immediately after the early event_callback: pending yes, once-key no.
+    let afterCb: { pending: string | null; keys: string[] } | null = null;
+    await expect.poll(async () => {
+      try {
+        afterCb = await page.evaluate(() => {
+          try { return JSON.parse(sessionStorage.getItem('__e2e_after_callback') || 'null'); }
+          catch { return null; }
+        });
+      } catch {
+        afterCb = null;
+      }
+      return afterCb;
+    }, { timeout: 5_000 }).toBeTruthy();
+    expect(afterCb?.pending).toBeTruthy();
+    expect(afterCb?.keys ?? ['x']).toEqual([]);
+
+    await expect.poll(async () => storageGet(page, 'sp_pool_created:401'), {
+      timeout: 5_000,
+    }).toBe('1');
+    expect(await storageGet(page, 'sp_pool_created_pending')).toBeNull();
   });
 });
