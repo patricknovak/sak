@@ -27,8 +27,9 @@ function json(data: unknown, status = 200) {
   };
 }
 
-async function stubReloadAndCapture(page: Page) {
-  await page.addInitScript(() => {
+async function stubReloadAndCapture(page: Page, opts: { fireCollect?: boolean } = {}) {
+  const fireCollect = opts.fireCollect === true;
+  await page.addInitScript((doCollect) => {
     // openPool / Reopen call location.reload(); block it so the SPA stays put.
     (window as unknown as { __e2eReloads: number }).__e2eReloads = 0;
     const blockReload = () => {
@@ -64,11 +65,37 @@ async function stubReloadAndCapture(page: Page) {
           const a0 = arguments[0];
           const a1 = arguments[1];
           const a2 = arguments[2] as Record<string, unknown> | undefined;
-          if (a0 === 'event' && a1 === 'pool_created') record(a2);
+          if (a0 === 'event' && a1 === 'pool_created') {
+            record(a2);
+            // Stand-in for gtag.js's beacon: a real network hit Playwright can assert.
+            if (doCollect) {
+              const q = new URLSearchParams({
+                v: '2',
+                tid: 'G-E2E',
+                en: 'pool_created',
+                'ep.pack': String(a2?.pack ?? ''),
+                _e2e: '1',
+              });
+              try {
+                void fetch(`https://www.google-analytics.com/g/collect?${q}`, {
+                  mode: 'no-cors',
+                  keepalive: true,
+                });
+              } catch { /* ignore */ }
+            }
+          }
           const ret = (fn as (...a: unknown[]) => unknown).apply(this, arguments as unknown as unknown[]);
-          // Mimic gtag.js: fire event_callback so awaitPoolCreatedFlush can unblock openPool.
+          // Mimic gtag.js's early event_callback (must not set the once-key in app code).
           if (a0 === 'event' && a2 && typeof a2.event_callback === 'function') {
             try { (a2.event_callback as () => void)(); } catch { /* ignore */ }
+          }
+          if (a0 === 'event' && a1 === 'pool_created') {
+            try {
+              sessionStorage.setItem('__e2e_after_callback', JSON.stringify({
+                pending: localStorage.getItem('sp_pool_created_pending'),
+                keys: Object.keys(localStorage).filter((k) => k.startsWith('sp_pool_created:')),
+              }));
+            } catch { /* private mode */ }
           }
           return ret;
         };
@@ -76,7 +103,7 @@ async function stubReloadAndCapture(page: Page) {
         currentGtag = wrapped as typeof window.gtag;
       },
     });
-  });
+  }, fireCollect);
 }
 
 async function plantMemberSession(page: Page) {
@@ -411,5 +438,42 @@ test.describe('pool_created after Accept (mocked create paths)', () => {
     expect(keys.d).toBeNull();
     // Banner stays open until Ads is chosen.
     await expect(dialog).toBeVisible();
+  });
+
+  test('pack-pool path: pool_created hits /g/collect; once-key only after send window', async ({ page }) => {
+    const collects: string[] = [];
+    page.on('request', (req) => {
+      const u = req.url();
+      if (u.includes('/g/collect') && /[?&]en=pool_created\b/.test(u)) collects.push(u);
+    });
+    // Allow the stand-in collect beacon through (other GA URLs stay stubbed in mockSupabase).
+    await page.route('**/google-analytics.com/g/collect**', (route) => route.fulfill({ status: 204, body: '' }));
+
+    await stubReloadAndCapture(page, { fireCollect: true });
+    await plantMemberSession(page);
+    await mockSupabase(page, 'member');
+    await startQuestionsPoolAsMember(page);
+
+    // Network hit must land (the prod smoke gap was no en=pool_created collect).
+    await expect.poll(() => collects.length, { timeout: 15_000 }).toBeGreaterThanOrEqual(1);
+    expect(collects[0]).toContain('en=pool_created');
+    expect(collects[0]).toContain('e2e-show-pack');
+
+    // Snapshot taken immediately after the early event_callback: pending yes, once-key no.
+    let afterCb: { pending: string | null; keys: string[] } | null = null;
+    await expect.poll(async () => {
+      afterCb = await page.evaluate(() => {
+        try { return JSON.parse(sessionStorage.getItem('__e2e_after_callback') || 'null'); }
+        catch { return null; }
+      });
+      return afterCb;
+    }, { timeout: 5_000 }).toBeTruthy();
+    expect(afterCb?.pending).toBeTruthy();
+    expect(afterCb?.keys ?? ['x']).toEqual([]);
+
+    await expect.poll(async () => page.evaluate(() => localStorage.getItem('sp_pool_created:401')), {
+      timeout: 5_000,
+    }).toBe('1');
+    expect(await page.evaluate(() => localStorage.getItem('sp_pool_created_pending'))).toBeNull();
   });
 });

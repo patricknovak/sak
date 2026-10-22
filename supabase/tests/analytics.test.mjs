@@ -274,9 +274,9 @@ function installDom({ hash = '#/', consent = null } = {}) {
   assert.equal(created[0][2].src, 'join_cta');
   assert.equal(created[0][2].utm_source, 'invite');
   assert.equal(created[0][2].transport_type, 'beacon', 'pool_created uses beacon so a reload does not drop it');
-  assert.equal(typeof created[0][2].event_callback, 'function', 'event_callback confirms the send');
-  assert.equal(localStorage.getItem('sp_pool_created:42'), '1', 'once-key set only after confirmed send');
-  assert.equal(localStorage.getItem('sp_pool_created_pending'), null, 'pending cleared after confirm');
+  assert.equal(typeof created[0][2].event_callback, 'function', 'event_callback is passed but must not mark');
+  assert.equal(localStorage.getItem('sp_pool_created:42'), '1', 'once-key set only after flush window');
+  assert.equal(localStorage.getItem('sp_pool_created_pending'), null, 'pending cleared after flush window');
   await trackPoolCreated({ id: 42, pack: 'love-is-blind-s11' });
   assert.equal(eventEntries('pool_created').length, 1, 'same pool id does not re-fire');
   await trackPoolCreated({ id: 99, sport: 'nfl' });
@@ -362,7 +362,7 @@ function installDom({ hash = '#/', consent = null } = {}) {
   __testResetAnalytics();
   installDom({ hash: '#/new' });
   __testSetGaId('G-TESTID');
-  // Long flush window: simulate gtag never calling back before a reload.
+  // Long flush window: simulate a reload before the send window closes.
   __testSetPoolCreatedFlushMs(30_000);
   initAnalytics();
   setAnalyticsConsent(true);
@@ -370,10 +370,10 @@ function installDom({ hash = '#/', consent = null } = {}) {
 
   const pendingPromise = trackPoolCreated({ id: 55, pack: 'mlb-post-2026', sport: 'mlb', kind: 'sports' });
   assert.equal(eventEntries('pool_created').length, 1, 'event is queued to dataLayer');
-  assert.ok(localStorage.getItem('sp_pool_created_pending'), 'still pending until callback');
+  assert.ok(localStorage.getItem('sp_pool_created_pending'), 'still pending until flush window');
   assert.equal(localStorage.getItem('sp_pool_created:55'), null, 'once-key not set mid-flight');
 
-  // Simulate reload before callback: abandon the in-flight promise, keep localStorage.
+  // Simulate reload before flush: abandon the in-flight promise, keep localStorage.
   const kept = new Map();
   for (let i = 0; i < localStorage.length; i++) {
     const k = localStorage.key(i);
@@ -390,6 +390,28 @@ function installDom({ hash = '#/', consent = null } = {}) {
   assert.equal(eventEntries('pool_created')[0][2].sport, 'mlb');
   assert.equal(localStorage.getItem('sp_pool_created:55'), '1');
   void pendingPromise; // unused on purpose (abandoned mid-flight)
+}
+
+// --- event_callback must not set the once-key (fires before /g/collect in prod) ---
+{
+  __testResetAnalytics();
+  installDom({ hash: '#/new' });
+  __testSetGaId('G-TESTID');
+  __testSetPoolCreatedFlushMs(40);
+  initAnalytics();
+  setAnalyticsConsent(true);
+
+  const send = trackPoolCreated({ id: 88, pack: 'world-series-2026', sport: 'mlb', kind: 'questions' });
+  assert.equal(eventEntries('pool_created').length, 1);
+  const cb = eventEntries('pool_created')[0][2].event_callback;
+  assert.equal(typeof cb, 'function');
+  cb(); // simulate gtag's early callback
+  assert.equal(localStorage.getItem('sp_pool_created:88'), null, 'once-key stays unset on event_callback');
+  assert.ok(localStorage.getItem('sp_pool_created_pending'), 'pending survives early callback');
+  await send;
+  await awaitPoolCreatedFlush();
+  assert.equal(localStorage.getItem('sp_pool_created:88'), '1', 'once-key set only after flush window');
+  assert.equal(localStorage.getItem('sp_pool_created_pending'), null);
 }
 
 // --- enhanced conversions: hashed email via user_data, only with Ads consent, before sign_up ---

@@ -3489,7 +3489,10 @@ select pg_temp.expect('the app''s own names are never a pool''s', pool_start('Ap
 select set_config('t.bw', pool_start('Bachelorette Watch', '#fb7185', 'love-is-blind-s11')->>'slug', false);
 select pg_temp.expect('a pack brings its questions and its coins', (select count(*) = 16 and min(l.brand->'coin'->>'name') = 'Goblets'
   and min(l.brand->'wordmark'->>'a') = 'BACHELORETTE' from pool_markets m join leagues l on l.id = m.league_id where l.slug = current_setting('t.bw')));
-select pool_start('Fifth Pool');
+-- pack path stamps leagues.sport from competitions.pack (migration 330); show packs with no competition stay nhl
+select pg_temp.expect('a show pack with no competition stays nhl', (select sport from leagues where slug = current_setting('t.bw')) = 'nhl');
+select pool_start('Fifth Pool', '#c8102e', 'world-series-2026');
+select pg_temp.expect('a sport pack stamps leagues.sport from its competition', (select sport from leagues where id = current_league_id()) = 'mlb');
 select pg_temp.raises('five a day', 'select pool_start(''Sixth Pool'')', 'five pools today');
 -- invitations to a person (migration 163): Fern, now in the pool she just started, invites Hana, whom she knows from the
 -- Pod Squad; the invitation waits on Hana's My pools with an alert in her other pool, and she joins from there
