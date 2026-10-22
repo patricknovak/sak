@@ -25,9 +25,10 @@ begin
     end if;
   end loop;
   -- first competition on the payload names the pool's sport (predict pools only)
-  select nullif(x->>'competition', '') into comp
-  from jsonb_array_elements(coalesce(p_games, '[]')) x
-  where nullif(x->>'competition', '') is not null
+  -- alias must not clash with the loop variable `x` (PL/pgSQL ambiguity)
+  select nullif(g->>'competition', '') into comp
+  from jsonb_array_elements(coalesce(p_games, '[]')) g
+  where nullif(g->>'competition', '') is not null
   limit 1;
   if comp is not null then
     select c.sport into sport_id from competitions c where c.id = comp;
