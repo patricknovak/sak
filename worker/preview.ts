@@ -55,7 +55,9 @@ function page(o: { title: string; description: string; image: string; url: strin
 }
 
 export async function invitePage(code: string, url: URL, env: Env) {
-  const go = `${url.origin}/#/join/${encodeURIComponent(code)}`;
+  // Keep ?src= (and any other safe query) so a shared /j/<code>?src=share lands on #/join/<code>?src=share.
+  const q = url.search || '';
+  const go = `${url.origin}/#/join/${encodeURIComponent(code)}${q}`;
   const i = await invite(env, code);
   if (!i?.league) return Response.redirect(go, 302);
   const color = hex(i.brand?.colors?.gold);

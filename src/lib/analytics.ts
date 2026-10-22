@@ -7,6 +7,7 @@ const ADS_CONSENT_KEY = 'sp_ads_consent';
 const TOUCH_KEY = 'sp_first_touch';
 const FIRST_CALL_KEY = 'sp_first_call';
 const SIGN_UP_KEY = 'sp_sign_up';
+const POOL_CREATED_PENDING_KEY = 'sp_pool_created_pending';
 const poolCreatedKey = (id: string | number) => `sp_pool_created:${id}`;
 const joinGroupKey = (id: string | number) => `sp_join_group:${id}`;
 
@@ -204,6 +205,7 @@ export function initAnalytics() {
   if (getAnalyticsConsent() === 'granted') {
     // First load of a consented return visit: record this route (AnalyticsRoute will not double-count).
     trackPageView(currentAppPath());
+    flushPendingPoolCreated();
   }
 }
 
@@ -223,6 +225,8 @@ export function setAnalyticsConsent(granted: boolean) {
   if (granted) {
     // Current page at Accept: route has not changed, so AnalyticsRoute would never fire.
     trackPageView(currentAppPath());
+    // North-star: pools opened before Accept still count once Accept lands (pending queue).
+    flushPendingPoolCreated();
   }
 }
 
@@ -323,7 +327,53 @@ export type PoolCreatedParams = {
   src?: string | null;
 };
 
-// North-star: a pool (or fantasy league) opened successfully. Once per pool id; no backfill after Accept.
+type PoolCreatedPayload = {
+  id?: string;
+  pack?: string;
+  sport?: string;
+  kind?: string;
+  src?: string | null;
+};
+
+function readPendingPoolCreated(): PoolCreatedPayload[] {
+  const raw = storeGet(POOL_CREATED_PENDING_KEY);
+  if (!raw) return [];
+  try {
+    const v = JSON.parse(raw);
+    return Array.isArray(v) ? (v as PoolCreatedPayload[]) : [];
+  } catch { return []; }
+}
+
+function writePendingPoolCreated(list: PoolCreatedPayload[]) {
+  if (!list.length) {
+    try { localStorage.removeItem(POOL_CREATED_PENDING_KEY); } catch { /* private mode */ }
+    return;
+  }
+  storeSet(POOL_CREATED_PENDING_KEY, JSON.stringify(list));
+}
+
+function emitPoolCreated(payload: PoolCreatedPayload) {
+  const attrs = attributionParams({ src: payload.src });
+  track('pool_created', {
+    ...attrs,
+    pack: payload.pack,
+    sport: payload.sport,
+    kind: payload.kind,
+    transport_type: 'beacon',
+  });
+}
+
+// Flush pool_created hits that were queued while Analytics consent was still off (Accept, or a return visit).
+function flushPendingPoolCreated() {
+  if (getAnalyticsConsent() !== 'granted') return;
+  const pending = readPendingPoolCreated();
+  if (!pending.length) return;
+  writePendingPoolCreated([]);
+  for (const p of pending) emitPoolCreated(p);
+}
+
+// North-star: a pool (or fantasy league) opened successfully. Once per pool id.
+// Without Analytics consent yet, queue the hit and flush on Accept (survives reload via localStorage).
 // transport_type beacon so a reload or navigation right after open does not drop the hit.
 export function trackPoolCreated(params: PoolCreatedParams = {}) {
   if (params.id != null && params.id !== '') {
@@ -331,24 +381,34 @@ export function trackPoolCreated(params: PoolCreatedParams = {}) {
     if (storeGet(key) === '1') return;
     storeSet(key, '1');
   }
-  const attrs = attributionParams({ src: params.src });
-  track('pool_created', {
-    ...attrs,
+  const payload: PoolCreatedPayload = {
+    id: params.id != null && params.id !== '' ? String(params.id) : undefined,
     pack: params.pack ? String(params.pack).slice(0, 80) : undefined,
     sport: params.sport ? String(params.sport).slice(0, 40) : undefined,
     kind: params.kind ? String(params.kind).slice(0, 40) : undefined,
-    transport_type: 'beacon',
-  });
+    src: params.src ?? readSrcParam(),
+  };
+  if (getAnalyticsConsent() !== 'granted') {
+    // Queue until Accept: once-key already set so a retry does not double-queue.
+    const pending = readPendingPoolCreated();
+    if (payload.id && pending.some((p) => p.id === payload.id)) return;
+    pending.push(payload);
+    writePendingPoolCreated(pending);
+    return;
+  }
+  emitPoolCreated(payload);
 }
 
 // Member joined a pool via invite. Once per pool id; no backfill after Accept.
-export function trackJoinGroup(params: { id?: number | string | null } = {}) {
+// Carries ?src= from the invite URL (e.g. share) when present.
+export function trackJoinGroup(params: { id?: number | string | null; src?: string | null } = {}) {
   if (params.id != null && params.id !== '') {
     const key = joinGroupKey(params.id);
     if (storeGet(key) === '1') return;
     storeSet(key, '1');
   }
-  track('join_group');
+  const attrs = attributionParams({ src: params.src });
+  track('join_group', attrs);
 }
 
 // First pick/call/trade in a pool (once per browser). Safe to call after any successful game action.
@@ -383,6 +443,7 @@ export function __testResetAnalytics() {
     for (let i = 0; i < localStorage.length; i++) {
       const k = localStorage.key(i);
       if (k && (k === CONSENT_KEY || k === ADS_CONSENT_KEY || k === TOUCH_KEY || k === FIRST_CALL_KEY || k === SIGN_UP_KEY
+        || k === POOL_CREATED_PENDING_KEY
         || k.startsWith('sp_pool_created:') || k.startsWith('sp_join_group:'))) keys.push(k);
     }
     keys.forEach((k) => localStorage.removeItem(k));
