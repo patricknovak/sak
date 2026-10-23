@@ -486,6 +486,9 @@ The steps above finish the tenancy. `docs/MARKET.md` sets what comes after in th
     page folds its steps under a Start my pool bar; a host alone sees the invite first; pools skip the NHL player tables
     at startup; smaller bundles, bigger taps, Players in the dock, cards without a blur and a one-line consent question.
 
+21. **Lounges** (23 October 2026; `docs/DEVELOPMENT.md` §9.14, migration 333): a chat per sports league or show shared by
+    every pool that follows it, narrowed in a tap to your own pool's posts; the X feed is off for now.
+
 Then horizon 2 (soccer on licensed data, basketball, the multi-sport pool, the Supercoin prediction market,
 the Super Pool bundle, the public API) and horizon 3 (cricket free-to-play, baseball, football and college,
 pools for golf and F1, Supercoin competitions and non-cash prizes), as `docs/MARKET.md` lays out.

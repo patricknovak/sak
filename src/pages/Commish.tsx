@@ -1,6 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
 import { HealthPanel } from '../components/HealthPanel';
-import { XFeedSettings } from '../components/XFeedSettings';
 import { useLeague } from '../lib/store';
 import { rpc, supabase } from '../lib/supabase';
 import { fmtDateTime } from '../lib/format';
@@ -124,10 +123,6 @@ export default function Commish() {
             <button className="btn-primary shrink-0" disabled={busy} onClick={() => run(async () => { const v = callUrl.trim(); await rpc('commish_update_league', { p: { info: { ...(league?.info ?? {}), call_url: v || null } } }); await refresh(['league']); }, callUrl.trim() ? 'Call link saved' : 'Using the built-in room')}>Save</button>
           </div>
         </div>
-      </Section>
-
-      <Section title="𝕏 Insiders feed">
-        <XFeedSettings />
       </Section>
 
       <Section title="📣 Announcement">

@@ -347,6 +347,9 @@ Return exactly this JSON and nothing else:
 }
 
 async function xfeed() {
+  // off across Super Pools for now (23 October 2026, Patrick): no X search and nothing paid until X_FEED=on is set again;
+  // an older copy of the site that still asks gets an empty, switched-off feed
+  if (Deno.env.get('X_FEED') !== 'on') return { configured: false, off: true, source: null, accounts: [], topics: [], posts: [] };
   const token = Deno.env.get('X_BEARER_TOKEN');
   const xai = Deno.env.get('XAI_API_KEY');
   const cfg = await xConfig();

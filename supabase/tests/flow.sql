@@ -7533,3 +7533,52 @@ select pg_temp.raises('a member can''t call it', 'set role authenticated; select
 reset role;
 delete from private.guest_joins where ip in ('test-ip', 'other-ip');
 select 'guest joins', true;
+
+-- lounges (migration 333): one room per sports league or show, shared across pools. Hana posts in the Love Is Blind
+-- lounge from the Pod Squad; Fern reads it from Bachelorette Watch, another Love Is Blind pool, and can tell it isn't from
+-- her pool there; Todd, in SaK only, has the NHL lounge and can't read Love Is Blind's
+reset role;
+select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-000000000081', false);
+set role authenticated;
+select set_active_league(:lib);
+select pg_temp.expect('Hana''s pool is in the Love Is Blind lounge', exists (select 1 from jsonb_array_elements(my_lounges()) e where e->>'key' = 'love-is-blind' and (e->>'here')::boolean));
+select pg_temp.expect('the lounges of this pool come first', not exists (select 1 from jsonb_array_elements(my_lounges()) with ordinality e(v, i)
+  where not (v->>'here')::boolean and i < (select max(i2) from jsonb_array_elements(my_lounges()) with ordinality f(w, i2) where (w->>'here')::boolean)));
+select pg_temp.expect('and the MLB lounge lists both her pools in it', exists (select 1 from jsonb_array_elements(my_lounges()) e where e->>'key' = 'mlb'
+  and e->'pools' @> '[{"name": "Fifth Pool"}]' and e->'pools' @> '[{"name": "Pod Squad"}]'));
+select set_config('t.lm', lounge_post('love-is-blind', '  Who else thinks the pods are rigged?  ')::text, false);
+select pg_temp.raises('one at a time', 'select lounge_post(''love-is-blind'', ''again'')', 'one at a time');
+select pg_temp.raises('only a lounge her pool is in', 'select lounge_post(''traitors'', ''who is it'')', 'isn''t in that lounge');
+select pg_temp.raises('nothing empty', 'select lounge_post(''love-is-blind'', ''   '')', 'Write something');
+reset role;
+select pg_temp.expect('the post keeps its pool and a first name, trimmed', (select from_league = :lib and author = 'Hana' and body = 'Who else thinks the pods are rigged?'
+  from lounge_messages where id = current_setting('t.lm')::bigint));
+select pg_temp.expect('the writer is kept apart from the shared row', (select user_id = '00000000-0000-0000-0000-000000000081' from private.lounge_posts where id = current_setting('t.lm')::bigint));
+select pg_temp.expect('a full name shows as a first name and an initial', _lounge_name('Patrick  Novak') = 'Patrick N.' and _lounge_name('Fern') = 'Fern' and _lounge_name('') = 'A member');
+select id as bw from leagues where slug = current_setting('t.bw') \gset
+select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-000000000082', false);
+set role authenticated;
+select set_active_league(:bw);
+select pg_temp.expect('Fern reads it from her other Love Is Blind pool, from another pool than this one', (select from_league <> current_league_id() from lounge_messages where id = current_setting('t.lm')::bigint));
+select pg_temp.raises('a lounge her pools aren''t in stays closed to her post', 'select lounge_post(''nfl'', ''hi'')', 'isn''t in that lounge');
+select pg_temp.expect('a report: the first one bells the platform', lounge_report(current_setting('t.lm')::bigint) = 'reported');
+reset role;
+select pg_temp.expect('the platform admin hears of it', exists (select 1 from notifications n join teams t on t.id = n.team_id
+  where t.user_id = '00000000-0000-0000-0000-000000000001' and n.kind = 'lounge_report' and n.body like '🚩 A post in the Love Is Blind lounge%'));
+select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-000000000007', false);
+set role authenticated;
+select set_active_league(1);
+select pg_temp.expect('Todd, in SaK only, has the NHL lounge and nothing else', (select string_agg(e->>'key', ',') from jsonb_array_elements(my_lounges()) e) = 'nhl');
+select pg_temp.expect('and can''t read Love Is Blind''s', not exists (select 1 from lounge_messages where id = current_setting('t.lm')::bigint));
+select pg_temp.raises('or report it', format('select lounge_report(%s)', current_setting('t.lm')), 'can''t see that lounge');
+select pg_temp.raises('or take it down', format('select lounge_remove(%s)', current_setting('t.lm')), 'Only the one who wrote it');
+select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-000000000081', false);
+select pg_temp.raises('a writer can''t report her own', format('select lounge_report(%s)', current_setting('t.lm')), 'your own post');
+select lounge_remove(current_setting('t.lm')::bigint);
+reset role;
+select pg_temp.expect('her own post comes down, a copy kept', not exists (select 1 from lounge_messages where id = current_setting('t.lm')::bigint)
+  and exists (select 1 from private.lounge_removed where id = current_setting('t.lm')::bigint and why = 'writer'));
+select pg_temp.raises('the API can''t call the take-down itself', 'set role authenticated; select _lounge_take_down(1, ''x'')', 'permission denied');
+reset role;
+select set_config('request.jwt.claim.sub', '', false);
+select 'lounges', true;

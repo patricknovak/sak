@@ -1084,3 +1084,21 @@ closing calls and drops, the questions waiting on the host, the Monday platform 
   9. **Cards without a blur**: `.card` drops `backdrop-filter`; the header, dock and sheets keep theirs.
   10. **The consent banner** is one line (analytics, with Choices for the detail) off the start page; on `#/new` it asks
      what's unanswered at the top, and answering analytics anywhere settles the ads question as no.
+
+### 9.14 Lounges, and the X feed off, 23 October 2026
+
+Patrick: "Remove the X feeds from superpools for the time being. Ideally, it would be great to have chats for all
+individual sports leagues or pool types such as Love is Blind that extend across pools ... but can be filtered to just
+include the information that members of your pool or league are sharing."
+
+- **The X feed is off.** NHL centre's Insiders tab and the Top tab's insiders card are gone (an old `?t=x` link opens the
+  news), the commissioner's X settings with them; nhl-hub's `x` task answers an empty, switched-off feed and makes no paid
+  call unless the `X_FEED` secret is `on`. The server code stays for when it comes back.
+- **Lounges** (migration 333): one room per sports league or show, shared by every pool that follows it. The Chat page
+  leads with a row of rooms: the pool's own chat, then its lounges. A lounge filters to Everyone or Just this pool, marks
+  posts from the reader's own pools, and shows strangers a first name and an initial only. Posting is from the pool open
+  now, into its own lounges (a post every five seconds, twenty in ten minutes); a lounge reached through another pool reads
+  only. Report and delete on each post; three reports take one down, the first bells the platform admins.
+- Next: an unread count on the lounge chips, the lounge from a sport centre and the pool's home, reactions, and a
+  platform page for reported posts.
+
