@@ -3,7 +3,7 @@
 // a list of changes, warnings that fix in a tap and each player's line; the week grid; Daily lineups; the whole league
 // on one board; any two lineups side by side; the insights; and the stats. Another team's page opens on scouting, with
 // the same views read only.
-import { Fragment, useEffect, useMemo, useRef, useState } from 'react';
+import { Fragment, lazy, Suspense, useEffect, useMemo, useRef, useState } from 'react';
 import { AlertTriangle, FlaskConical } from 'lucide-react';
 import { useSticky } from '../lib/sticky';
 import { Link, useNavigate, useParams } from 'react-router-dom';
@@ -15,21 +15,28 @@ import type { Player, Roster, Slot, Transaction } from '../lib/types';
 import { ago, etToday, fmtPts, fmtTime, ordinal } from '../lib/format';
 import { PlayerRow, PlayerSheet } from '../components/PlayerCard';
 import { TeamScout } from '../components/TeamScout';
-import { TeamStats } from '../components/TeamStats';
 import { TIMEFRAMES, lineFor, type Timeframe } from '../lib/playerstats';
 import { LineupTools } from '../components/LineupTools';
-import { LineupPlanner } from '../components/LineupPlanner';
-import { TeamForecastCard } from '../components/TeamForecast';
 import { Section, TeamBadge, TeamName, useAction } from '../components/ui';
 import { irOk } from '../lib/lineup';
 import { useLineupKit, useDayPoints, useLines, hurt, longDay, monthDay, weekday, type Kit } from '../lib/lineupKit';
 import { GameLine, SaveProvider, SlotPill, diffMoves, fmt1, useSave } from '../components/lineup/bits';
 import { OptimizeSheet } from '../components/lineup/OptimizeSheet';
-import { WeekView } from '../components/lineup/WeekView';
-import { LeagueView } from '../components/lineup/LeagueView';
-import { CompareView } from '../components/lineup/CompareView';
-import { InsightsView } from '../components/lineup/InsightsView';
 import { SitStart, useSitStart, type Swap } from '../components/SitStart';
+
+// the lineup (the page's first view) comes with the page; every other view, and the full-year forecast at the foot of
+// it, loads the first time it's opened, so a GM checking tonight's lineup doesn't wait for the stats and the planner
+const TeamStats = lazy(() => import('../components/TeamStats').then((m) => ({ default: m.TeamStats })));
+const LineupPlanner = lazy(() => import('../components/LineupPlanner').then((m) => ({ default: m.LineupPlanner })));
+const TeamForecastCard = lazy(() => import('../components/TeamForecast').then((m) => ({ default: m.TeamForecastCard })));
+const WeekView = lazy(() => import('../components/lineup/WeekView').then((m) => ({ default: m.WeekView })));
+const LeagueView = lazy(() => import('../components/lineup/LeagueView').then((m) => ({ default: m.LeagueView })));
+const CompareView = lazy(() => import('../components/lineup/CompareView').then((m) => ({ default: m.CompareView })));
+const InsightsView = lazy(() => import('../components/lineup/InsightsView').then((m) => ({ default: m.InsightsView })));
+// what shows while one of them loads: a card the shape of a view, in the page's own colours
+function ViewLoading({ tall = true }: { tall?: boolean }) {
+  return <div className={`card animate-pulse ${tall ? 'h-72' : 'h-32'}`} />;
+}
 
 const STARTERS: Slot[] = ['C', 'LW', 'RW', 'D', 'Util', 'G'];
 
@@ -506,14 +513,16 @@ function TeamPage({ kit }: { kit: Kit }) {
           ))}
         </div>
       )}
-      {cur === 'stats' ? <TeamStats teamId={t.id} />
+      {cur !== 'lineup' && cur !== 'scout' ? <Suspense fallback={<ViewLoading />}>{
+        cur === 'stats' ? <TeamStats teamId={t.id} />
         : cur === 'plan' ? <LineupPlanner roster={saved0} teamId={t.id} initialDay={planDay} />
-        : cur === 'scout' ? <TeamScout teamId={t.id} />
         : cur === 'week' ? <WeekView kit={kit} teamId={t.id} from={kit.today} readOnly={!mine} onDay={openDay} onInfo={setInfo} />
         : cur === 'league' ? <LeagueView kit={kit} day={kit.today} onView={(tid) => goTeam(tid, 'lineup')}
             onCompare={(tid) => { setOther(tid); goTeam(me && me.role !== 'spectator' ? me.id : t.id, 'compare'); }} />
         : cur === 'compare' ? <CompareView kit={kit} teamId={t.id} other={other} setOther={setOther} day={kit.today} onInfo={setInfo} />
-        : cur === 'insights' ? <InsightsView kit={kit} teamId={t.id} onDay={openDay} onInfo={setInfo} />
+        : <InsightsView kit={kit} teamId={t.id} onDay={openDay} onInfo={setInfo} />
+      }</Suspense>
+        : cur === 'scout' ? <TeamScout teamId={t.id} />
         : <>
       <div className="grid gap-4 lg:grid-cols-2">
         {(!offseason || anyStarter) && (
@@ -587,7 +596,7 @@ function TeamPage({ kit }: { kit: Kit }) {
       </div>
       {(league?.phase === 'season' || league?.phase === 'offseason') && (
         <Section title="The long view" right={<span className="text-xs text-mute">full-year forecast</span>}>
-          <TeamForecastCard teamId={t.id} />
+          <Suspense fallback={<ViewLoading tall={false} />}><TeamForecastCard teamId={t.id} /></Suspense>
         </Section>
       )}
       {mine && <TeamScout teamId={t.id} hideRoster />}

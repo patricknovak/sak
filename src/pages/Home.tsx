@@ -1,7 +1,6 @@
 import { StandingsTable } from '../components/StandingsTable';
 import { RotoMini } from '../components/RotoStandings';
-import { H2HHome } from '../components/HeadToHead';
-import { useEffect, useMemo, useState } from 'react';
+import { lazy, Suspense, useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useLeague, useNow } from '../lib/store';
 import { realtimeChannel, supabase } from '../lib/supabase';
@@ -22,6 +21,9 @@ import { OtherCrews } from '../components/OtherCrews';
 import { liveRoomOn } from '../lib/features';
 import { chatKinds } from '../lib/chatFilter';
 import { useGameSheet } from '../components/GameSheet';
+
+// head-to-head leagues only: the matchup and the table load with the page that needs them, not with every league's home
+const H2HHome = lazy(() => import('../components/HeadToHead').then((m) => ({ default: m.H2HHome })));
 
 export default function Home() {
   const { me, league, teams, spectators, team, standings: regular, playoffs, rosters, players, draft, picks, gamesByTeam, online, dayPoints, games, leagueDay } = useLeague();
@@ -220,7 +222,7 @@ export default function Home() {
 
       <div className="grid grid-cols-1 gap-5 lg:grid-cols-2">
         <Section icon={<Trophy size={17} className="text-gold" />} title={phase === 'season' ? (inPlayoffs ? '🏆 Playoff standings' : 'Standings') : lastSeason ? `${lastSeason.season} final standings` : 'The field'} right={<More to="/standings" label="All" />}>
-          {phase === 'season' ? (league?.format === 'h2h' ? <H2HHome /> : league?.categories?.length ? <RotoMini /> : <StandingsTable rows={table} view={inPlayoffs ? 'playoffs' : 'regular'} peter={!inPlayoffs} compact />) : !lastRows.length ? (
+          {phase === 'season' ? (league?.format === 'h2h' ? <Suspense fallback={<div className="card h-32 animate-pulse" />}><H2HHome /></Suspense> : league?.categories?.length ? <RotoMini /> : <StandingsTable rows={table} view={inPlayoffs ? 'playoffs' : 'regular'} peter={!inPlayoffs} compact />) : !lastRows.length ? (
           // a league in its first season: the field, seat by seat, until the draft makes it a table
           <div className="space-y-2">
           {me?.is_commish && teams.some((t) => !t.user_id) && (

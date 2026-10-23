@@ -51,18 +51,42 @@ export async function rpc<T = unknown>(fn: string, args?: Record<string, unknown
 const afterRpc = new Set<(fn: string) => void>();
 export const onRpc = (f: (fn: string) => void) => { afterRpc.add(f); return () => { afterRpc.delete(f); }; };
 
-// fetch every row of a table/view (PostgREST caps responses at 1000 rows)
+// fetch every row of a table/view (PostgREST caps responses at 1000 rows). The first page also asks how many rows there
+// are; the rest are then read a few at a time side by side instead of one after another, and put back in order. The
+// result is what reading them one by one gave: every page in turn up to the first short one, and if the count came up
+// short (rows added while reading), on a page at a time until one is.
 type Select = ReturnType<ReturnType<typeof supabase.from>['select']>;
+const PAGES_AT_ONCE = 4;
 export async function selectAll<T>(table: string, columns = '*', page = 1000, order: string[] = [], where?: (q: Select) => Select): Promise<T[]> {
-  const out: T[] = [];
-  for (let from = 0; ; from += page) {
-    let q = supabase.from(table).select(columns);
+  const read = async (from: number, count = false) => {
+    let q = supabase.from(table).select(columns, count ? { count: 'exact' } : undefined);
     if (where) q = where(q as unknown as Select) as unknown as typeof q;
     for (const c of order) q = q.order(c); // a stable order keeps pages from overlapping
-    const { data, error } = await q.range(from, from + page - 1);
+    const { data, error, count: total } = await q.range(from, from + page - 1);
     if (error) throw error;
-    out.push(...((data ?? []) as T[]));
-    if (!data || data.length < page) return out;
+    return { rows: (data ?? []) as T[], total };
+  };
+  const first = await read(0, true);
+  const out: T[] = [...first.rows];
+  if (first.rows.length < page) return out;
+  // the pages the count says are left, PAGES_AT_ONCE requests in flight at a time
+  const starts: number[] = [];
+  for (let from = page; from < (first.total ?? 0); from += page) starts.push(from);
+  const pages: T[][] = new Array(starts.length);
+  let next = 0;
+  const worker = async () => {
+    while (next < starts.length) { const i = next++; pages[i] = (await read(starts[i])).rows; }
+  };
+  await Promise.all(Array.from({ length: Math.min(PAGES_AT_ONCE, starts.length) }, worker));
+  for (const rows of pages) {
+    out.push(...rows);
+    if (rows.length < page) return out;
+  }
+  // every page was full: there may be more than the count said
+  for (let from = page * (starts.length + 1); ; from += page) {
+    const { rows } = await read(from);
+    out.push(...rows);
+    if (rows.length < page) return out;
   }
 }
 

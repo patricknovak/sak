@@ -25,7 +25,9 @@ Two things in one repo:
 - Front end: React 19 + Vite + TypeScript + Tailwind v4, `HashRouter`. Pages in `src/pages`, components in
   `src/components`, shared logic in `src/lib`. The app-wide store is `src/lib/store.tsx` (`useLeague()`):
   it loads league, teams, players, rosters, picks, draft, standings, season stats, windows, games,
-  notifications and game-day status, subscribes to realtime, and exposes `leagueDay` and `brand`. One live clock (11
+  notifications and game-day status, subscribes to realtime, and exposes `leagueDay` and `brand` (in a prediction pool
+  the hockey tables, `players`, `season`, `windows` and game-day status, load the first time a page reads them,
+  `ON_DEMAND`; big tables page through `selectAll`, four pages at a time). One live clock (11
   October 2026): every page's scores, clocks and tonight's points come from the store and nowhere else. `games` rows are
   applied as realtime sends them (nhl-sync's clock task writes them every 20 seconds while a game is on, the `nhl-clock`
   job, migrations 246 and 247), and `dayPoints` (tonight's points, player by player) is read once each time a box score
