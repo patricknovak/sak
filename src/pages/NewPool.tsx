@@ -1,7 +1,7 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { FunctionsHttpError } from '@supabase/supabase-js';
-import { ArrowLeft, Check, Lock, Plus, Sparkles } from 'lucide-react';
+import { ArrowLeft, ArrowRight, Check, ChevronRight, Lock, Plus, Sparkles } from 'lucide-react';
 import { rpc, setRemember, supabase } from '../lib/supabase';
 import { openPool } from '../lib/host';
 import { useLeague } from '../lib/store';
@@ -25,6 +25,10 @@ import { PRODUCT } from '../lib/brand';
 // and the pool together, migration 153, with limits per address and per day); someone signed in who is already in a
 // pool starts it with pool_start, as on My pools. A link can choose the pack (#/new?pack=love-is-blind-s11) or the event
 // (#/new?comp=nfl), which the landing page uses. Drawn in the pool's own colour as it is chosen.
+// One step is open at a time: an answered step folds to a line saying what was chosen, with Change to reopen it, so a
+// phone sees the question in front of it rather than four screens of cards. A link that already answers a step lands
+// past it (?comp folds the type and the event; ?comp with ?kind folds the kinds too). The start button rides in a bar
+// at the foot of the screen and says what's still missing until the pool can start.
 
 const SWATCHES = ['#fb7185', '#38bdf8', '#f7c548', '#34d399', '#c4b5fd', '#f97316'];
 const rgb = (c: string) => `${parseInt(c.slice(1, 3), 16)} ${parseInt(c.slice(3, 5), 16)} ${parseInt(c.slice(5, 7), 16)}`;
@@ -43,12 +47,40 @@ const MODES: { key: Mode; emoji: string; title: string; line: string }[] = [
   { key: 'questions', emoji: '🔮', title: 'A questions pool', line: 'Questions priced like a market in Supercoins: a TV show, an awards night, the office bake-off. Start from a pack or ask your own.' },
   { key: 'fantasy', emoji: '🏒', title: 'A fantasy league', line: 'Draft a team of NHL players and play the season: points or categories, season total or head-to-head, keepers or not.' },
 ];
+const isMode = (t: string | null): t is Mode => t === 'sports' || t === 'questions' || t === 'fantasy';
+type StepKey = 'type' | 'follow' | 'kinds' | 'details';
 
-// a step's heading, numbered in order by the form's counter, so a step that isn't shown takes no number
-function Step({ title, children }: { title: string; children: React.ReactNode }) {
+// a step's heading, numbered in order by the form's counter, so a step that isn't shown takes no number; an answered
+// step folds to one line (its title over what was chosen) and the whole line reopens it
+function Step({ id, title, summary, onChange, children }: { id: StepKey; title: string; summary?: React.ReactNode; onChange?: () => void; children?: React.ReactNode }) {
+  if (onChange) {
+    return (
+      <div id={`step-${id}`} className="scroll-mt-4 [counter-increment:step]">
+        <button type="button" onClick={onChange}
+          className="flex w-full items-center gap-3 rounded-2xl border border-white/10 bg-black/20 px-3 py-2.5 text-left transition hover:bg-white/[.06]">
+          <span className="grid h-6 w-6 shrink-0 place-items-center rounded-full bg-emerald-400 text-[#0b1220]"><Check size={14} strokeWidth={3} /></span>
+          <span className="min-w-0 flex-1">
+            <span className="block text-[10px] font-bold uppercase tracking-[.14em] text-white/50">{title}</span>
+            <span className="block text-sm font-semibold leading-snug text-white">{summary}</span>
+          </span>
+          <span className="shrink-0 rounded-full bg-white/10 px-2.5 py-1 text-[11px] font-bold text-white/85 ring-1 ring-white/15">Change</span>
+        </button>
+      </div>
+    );
+  }
   return (
-    <div className="[counter-increment:step]">
+    <div id={`step-${id}`} className="scroll-mt-4 [counter-increment:step]">
       <div className="mb-2 flex items-center gap-2"><span className="num grid h-6 w-6 place-items-center rounded-full bg-white/10 text-xs font-black text-white before:content-[counter(step)]" /><span className="label text-white/80">{title}</span></div>
+      {children}
+    </div>
+  );
+}
+
+// a setting inside the kinds step (how it scores, its size, the grid, the game): a plain heading, not a numbered step
+function Part({ title, children }: { title: string; children: React.ReactNode }) {
+  return (
+    <div className="mt-5 border-t border-white/10 pt-4">
+      <div className="mb-2 text-[11px] font-bold uppercase tracking-[.14em] text-white/60">{title}</div>
       {children}
     </div>
   );
@@ -89,9 +121,12 @@ export default function NewPool() {
   const [err, setErr] = useState('');
   const [signIn, setSignIn] = useState(false);
   const typed = params.get('type');
-  const linkSeeded = !!(params.get('pack') || params.get('comp') || (typed === 'sports' || typed === 'questions' || typed === 'fantasy'));
-  const [customize, setCustomize] = useState(!linkSeeded);
-  const [mode, setMode] = useState<Mode | null>(typed === 'sports' || typed === 'questions' || typed === 'fantasy' ? typed : null);
+  const [mode, setMode] = useState<Mode | null>(isMode(typed) ? typed : null);
+  // the step asked for; an earlier step still unanswered opens in its place (below). ?type= lands on what comes next.
+  const [open, setOpen] = useState<StepKey>(isMode(typed) ? (typed === 'fantasy' ? 'details' : 'follow') : 'type');
+  // only a tap moves the screen to the step it opens; a link landing mid-way stays at the top
+  const tapped = useRef(false);
+  const go = (s: StepKey) => { tapped.current = true; setOpen(s); };
 
   useEffect(() => { document.title = PRODUCT.name; }, []);
   useEffect(() => {
@@ -104,8 +139,10 @@ export default function NewPool() {
       // event with a grid to draw, #/new?comp=mlb-post-2026&kind=squares from the World Series page)
       const want = ev?.kinds.find((k) => k === params.get('kind'))
         ?? (ev && params.get('kind') === 'squares' && eventGrids(ev).length ? 'squares' as const : undefined);
-      if (ev) { setMode('sports'); setFollowing({ type: 'event', comp: ev.competition }); setKinds([want ?? ev.kinds[0], ...(ev.pack ? ['questions' as const] : [])]); }
-      else if (params.get('pack')) { setMode('questions'); setFollowing({ type: 'pack', slug: params.get('pack')! }); }
+      // a link that names the kind has answered the kinds step too, so it lands on the name; one that names only the
+      // event lands on the kinds, the first one ticked
+      if (ev) { setMode('sports'); setFollowing({ type: 'event', comp: ev.competition }); setKinds([want ?? ev.kinds[0], ...(ev.pack ? ['questions' as const] : [])]); setOpen(want ? 'details' : 'kinds'); }
+      else if (params.get('pack')) { setMode('questions'); setFollowing({ type: 'pack', slug: params.get('pack')! }); setOpen('details'); }
     }, () => setEvents([]));
     rpc<Pack[]>('pool_pack_list').then((d) => {
       setPacks(d ?? []);
@@ -149,8 +186,10 @@ export default function NewPool() {
   const games = event ? kinds.filter((k): k is GameKind => k !== 'questions') : [];
   const toggle = (k: GameKind | 'questions') => setKinds((ks) => (ks.includes(k) ? ks.filter((x) => x !== k) : [...ks, k]));
   const choose = (f: Following) => {
+    // the same event picked again (after Change) keeps what was ticked for it
+    if (f?.type === 'event' && following?.type === 'event' && following.comp === f.comp) return;
     setFollowing(f);
-    // an event starts with its first kind ticked, and its questions when it has them
+    // an event starts with its first kind ticked (the one most pools on it play), and its questions when it has them
     const ev = f?.type === 'event' ? events?.find((e) => e.competition === f.comp) : null;
     if (ev) setKinds([ev.kinds[0], ...(ev.pack ? ['questions' as const] : [])]);
     const slug = f?.type === 'pack' ? f.slug : f?.type === 'event' ? events?.find((e) => e.competition === f.comp)?.pack ?? null : null;
@@ -176,35 +215,65 @@ export default function NewPool() {
   const okEmail = /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email.trim());
   const member = !!session && !!me;
   const ready = !!following && (!event || kinds.length > 0) && pool.trim().length >= 3 && (member || (name.trim().length >= 2 && okEmail && pw.length >= 6));
-  const startWhy = !ready && mode && mode !== 'fantasy'
-    ? (!following || (event && !kinds.length)
-      ? 'Pick what your pool follows first.'
-      : pool.trim().length < 3
-        ? 'Give your pool a name (3+ letters).'
-        : !member && !(name.trim().length >= 2 && okEmail && pw.length >= 6)
-          ? 'Add your name, email and a password to start.'
-          : null)
-    : null;
-  // One line for a link-seeded template: pack/event · kind · scoring preset.
-  const summaryKind = (() => {
-    if (following?.type === 'pack' || following?.type === 'blank') return 'Questions';
-    const main = kinds.find((k): k is GameKind => k !== 'questions');
-    if (main) return KINDS[main].title;
-    if (kinds.includes('questions')) return 'Questions';
-    return null;
-  })();
+
+  // the steps this kind of start has, the one open (the one asked for, unless an earlier one is still unanswered: an
+  // event's kinds can't be skipped with nothing ticked), and what each folded step says was chosen
+  const order: StepKey[] = mode === 'sports' ? ['type', 'follow', 'kinds', 'details'] : mode === 'questions' ? ['type', 'follow', 'details'] : mode === 'fantasy' ? ['type', 'details'] : ['type'];
+  const answered: Record<StepKey, boolean> = { type: !!mode, follow: !!following, kinds: !!event && kinds.length > 0, details: false };
+  const want = order.includes(open) ? open : order[order.length - 1];
+  const cur = order.find((s) => !answered[s] && order.indexOf(s) < order.indexOf(want)) ?? want;
+  const curAt = order.indexOf(cur);
+  const shown = (s: StepKey) => order.includes(s) && order.indexOf(s) <= curAt;
+  const folded = (s: StepKey) => order.indexOf(s) < curAt;
+  const kindTitle = (k: GameKind | 'questions') => (k === 'questions' ? 'The questions' : KINDS[k].title);
   const summaryPreset = (() => {
     if (kinds.includes('series')) return PRESETS.find((p) => p.key === preset)?.label ?? null;
-    if (kinds.includes('pickem')) return PICKEM_PRESETS.find((p) => p.key === pkPreset)?.label ?? null;
+    if (kinds.includes('pickem')) return `${PICKEM_PRESETS.find((p) => p.key === pkPreset)?.label ?? ''}${ats && atsFits(event?.sport) ? ', against the spread' : ''}`;
     if (kinds.includes('players')) return box.preset === 'classic' ? 'Ten boxes' : 'Five boxes';
     return null;
   })();
-  const summaryTitle = event?.name ?? (following?.type === 'pack' ? packName(chosen?.name ?? following.slug) : following?.type === 'blank' ? 'Your own questions' : null);
-  const summaryLine = [summaryTitle, summaryKind, summaryPreset].filter(Boolean).join(' · ');
-  const showSetup = customize || !linkSeeded || !following;
+  const kindsLine = [kinds.filter((k) => (k === 'questions' ? !!event?.pack : offered.includes(k))).map(kindTitle).join(' + '), summaryPreset].filter(Boolean).join(' · ');
+  const followLine = event ? event.name
+    : following?.type === 'pack' ? packName(chosen?.name ?? following.slug) : following?.type === 'blank' ? 'Your own questions' : '';
+  // what still stands between the host and the start button, first thing first, and where to go to fix it
+  const need: { text: string; step: StepKey; focus?: string } | null = !mode ? { text: 'Pick what you’re starting', step: 'type' }
+    : !following ? { text: mode === 'questions' ? 'Pick your questions' : 'Pick an event', step: 'follow' }
+    : event && !kinds.length ? { text: 'Pick at least one game', step: 'kinds' }
+    : pool.trim().length < 3 ? { text: 'Name your pool', step: 'details', focus: 'np-pool' }
+    : session && !member ? { text: 'Sign out to start with a new account', step: 'details' }
+    : member ? null
+    : name.trim().length < 2 ? { text: 'Add your name', step: 'details', focus: 'np-name' }
+    : !okEmail ? { text: email.trim() ? 'Check your email' : 'Add your email', step: 'details', focus: 'np-email' }
+    : pw.length < 6 ? { text: pw ? 'Password: 6+ characters' : 'Add a password', step: 'details', focus: 'np-pw' }
+    : null;
+  const fix = () => {
+    if (!need) return;
+    go(need.step);
+    if (need.focus) setTimeout(() => document.getElementById(need.focus!)?.focus(), 60);
+  };
+  // a link with ?comp or ?pack waits for the events before drawing the steps, so it doesn't flash step 1 first
+  const resolving = !!(params.get('comp') || params.get('pack')) && events === null;
+  const bar = mode !== 'fantasy';
+  // before the kind of start is picked, count the sports pool's four steps
+  const stepCount = mode ? order.length : 4;
+  const progress = (order.filter((s) => answered[s]).length + (ready ? 1 : 0)) / stepCount;
+
+  // a tap that opens a step brings it into view when the fold left it off screen
+  useEffect(() => {
+    if (!tapped.current) return;
+    tapped.current = false;
+    requestAnimationFrame(() => {
+      const el = document.getElementById(`step-${cur}`);
+      if (!el) return;
+      const top = el.getBoundingClientRect().top;
+      if (top < 0 || top > window.innerHeight * 0.55) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    });
+  }, [open, following, mode, cur]);
+  useEffect(() => { if (err) document.getElementById('np-err')?.scrollIntoView({ behavior: 'smooth', block: 'nearest' }); }, [err]);
 
   const start = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!ready || busy || (!!session && !member)) return;
     setBusy(true); setErr(''); setSignIn(false);
     try {
       if (member) {
@@ -243,31 +312,34 @@ export default function NewPool() {
   };
 
   return (
-    <div className="pt-safe min-h-dvh px-4 py-10" style={themed(color)}>
+    <div className={`pt-safe min-h-dvh px-4 pt-10 ${bar ? 'pb-[calc(7.5rem+env(safe-area-inset-bottom))]' : 'pb-10'}`} style={themed(color)}>
       <div className="mx-auto w-full max-w-md pt-6">
         {member && <a href="#/pools" className="mb-2 inline-flex items-center gap-1 text-sm font-semibold text-white/70 hover:text-white"><ArrowLeft size={16} /> My pools</a>}
         <div className="mb-6 text-center">
-          <div className="mx-auto mb-3 inline-block drop-shadow-[0_10px_30px_rgb(var(--gold-rgb)/.35)]"><ProductMark size={56} /></div>
+          <div className="mx-auto mb-3 inline-block drop-shadow-[0_10px_30px_rgb(var(--gold-rgb)/.35)]"><ProductMark size={mode ? 44 : 56} /></div>
           <h1 className="h-display text-shine text-4xl leading-none">{mode === 'fantasy' ? 'Start a league' : 'Start a pool'}</h1>
-          <p className="mt-2 text-sm text-slate-300">Sports pools, question pools and fantasy leagues for anything your group follows. Free, and never money.</p>
+          {!mode && <p className="mt-2 text-sm text-slate-300">Sports pools, question pools and fantasy leagues for anything your group follows. Free, and never money.</p>}
         </div>
 
-        <form onSubmit={start} className="card-hero p-5">
-          <div className="relative space-y-6 [counter-reset:step]">
-            {linkSeeded && following && mode !== 'fantasy' && !customize && summaryLine && (
-              <div className="flex items-start justify-between gap-3 rounded-2xl border border-white/15 bg-white/[.06] px-3 py-2.5">
-                <p className="min-w-0 text-sm font-semibold leading-snug text-white">{summaryLine}</p>
-                <button type="button" className="shrink-0 text-xs font-bold uppercase tracking-wider text-white/70 underline decoration-white/30 underline-offset-2 hover:text-white" onClick={() => setCustomize(true)}>Change</button>
-              </div>
-            )}
+        <form id="np-form" onSubmit={start} className="card-hero p-5">
+          <div className="relative space-y-4 [counter-reset:step]">
+            {resolving ? <div className="flex justify-center py-6"><Spinner /></div> : (<>
 
-            {showSetup && (
-            <Step title="What are you starting?">
+            {folded('type') ? (
+              <Step id="type" title="Starting" onChange={() => go('type')}
+                summary={<>{MODES.find((m) => m.key === mode)!.emoji} {MODES.find((m) => m.key === mode)!.title}</>} />
+            ) : (
+            <Step id="type" title="What are you starting?">
               <div className="grid gap-2">
                 {MODES.map((m) => {
                   const on = mode === m.key;
                   return (
-                    <button key={m.key} type="button" onClick={() => { setMode(m.key); if (mode !== m.key) choose(null); }}
+                    <button key={m.key} type="button" onClick={() => {
+                      setMode(m.key);
+                      if (mode !== m.key) choose(null);
+                      // the same kind again picks up where it was; a new one starts at what it follows
+                      go(m.key === 'fantasy' ? 'details' : mode === m.key && following ? (event && !kinds.length ? 'kinds' : 'details') : 'follow');
+                    }}
                       className={`flex items-start gap-3 rounded-2xl border p-3 text-left transition ${on ? 'border-white/40 bg-white/[.08]' : 'border-white/10 bg-white/[.03] hover:bg-white/[.06]'}`}>
                       <span className="grid h-11 w-11 shrink-0 place-items-center rounded-xl text-2xl" style={{ background: `rgb(${rgb(color)} / .18)` }}>{m.emoji}</span>
                       <span className="min-w-0 flex-1"><span className="block font-semibold text-white">{m.title}</span><span className="mt-0.5 block text-xs leading-snug text-white/60">{m.line}</span></span>
@@ -279,10 +351,13 @@ export default function NewPool() {
             </Step>
             )}
 
-            {mode === 'fantasy' && <FantasyStart color={color} setColor={setColor} swatches={SWATCHES} member={member} signedIn={!!session} />}
+            {mode === 'fantasy' && shown('details') && <FantasyStart color={color} setColor={setColor} swatches={SWATCHES} member={member} signedIn={!!session} />}
 
-            {showSetup && mode === 'sports' && (
-            <Step title="What are you following?">
+            {mode === 'sports' && shown('follow') && (folded('follow') ? (
+              <Step id="follow" title="Following" onChange={() => go('follow')}
+                summary={<>{SPORT_EMOJI[event?.sport ?? ''] ?? '🏆'} {followLine}</>} />
+            ) : (
+            <Step id="follow" title="What are you following?">
               <div className="grid gap-2">
                 {byGroup.map((e, i, all) => {
                   const on = following?.type === 'event' && following.comp === e.competition;
@@ -291,7 +366,7 @@ export default function NewPool() {
                   return (
                     <div key={e.competition} className="contents">
                     {head && <div className="mt-1 px-1 text-[10px] font-black uppercase tracking-[.18em] text-white/50">{SPORT_EMOJI[e.sport] ?? '🏆'} {SPORT_NAME[e.sport] ?? e.sport}</div>}
-                    <button type="button" onClick={() => choose({ type: 'event', comp: e.competition })}
+                    <button type="button" onClick={() => { choose({ type: 'event', comp: e.competition }); go('kinds'); }}
                       className={`flex items-center gap-3 rounded-2xl border p-3 text-left transition ${on ? 'border-white/40 bg-white/[.08]' : 'border-white/10 bg-white/[.03] hover:bg-white/[.06]'}`}>
                       <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl text-xl" style={{ background: `rgb(${rgb(color)} / .18)` }}>{SPORT_EMOJI[e.sport] ?? '🏆'}</span>
                       <span className="min-w-0 flex-1">
@@ -307,16 +382,19 @@ export default function NewPool() {
                 {!events && <div className="flex justify-center py-2"><Spinner /></div>}
               </div>
             </Step>
-            )}
+            ))}
 
-            {showSetup && mode === 'questions' && (
-            <Step title="Which questions?">
+            {mode === 'questions' && shown('follow') && (folded('follow') ? (
+              <Step id="follow" title="Questions" onChange={() => go('follow')}
+                summary={<>{(following?.type === 'pack' && chosen?.icon) || (following?.type === 'blank' ? '✍️' : '🔮')} {followLine}</>} />
+            ) : (
+            <Step id="follow" title="Which questions?">
               <div className="grid gap-2">
                 {[...loosePacks.map((p) => { const w = packWhen(p); return { f: { type: 'pack', slug: p.slug } as Following, key: p.slug, name: packName(p.name), icon: p.icon, sub: `${p.questions} questions · ${w.text}`, soon: w.soon }; }),
                   { f: { type: 'blank' } as Following, key: 'blank', name: 'Something else', icon: null, sub: 'Ask your own questions from the Host page', soon: false }].map((o) => {
                   const on = following?.type === o.f?.type && (o.f?.type !== 'pack' || (following?.type === 'pack' && following.slug === o.key));
                   return (
-                    <button key={o.key} type="button" onClick={() => choose(o.f)}
+                    <button key={o.key} type="button" onClick={() => { choose(o.f); go('details'); }}
                       className={`flex items-center gap-3 rounded-2xl border p-3 text-left transition ${on ? 'border-white/40 bg-white/[.08]' : 'border-white/10 bg-white/[.03] hover:bg-white/[.06]'}`}>
                       <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl" style={{ background: `rgb(${rgb(color)} / .18)`, color }}>{o.icon ? <span className="text-lg leading-none">{o.icon}</span> : o.key !== 'blank' ? <Sparkles size={18} /> : <Plus size={18} />}</span>
                       <span className="min-w-0 flex-1"><span className="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-balance font-semibold text-white">{o.name}{o.soon && <span className="rounded-full bg-amber-400/15 px-1.5 py-px text-[10px] font-bold uppercase tracking-wider text-amber-200 ring-1 ring-amber-400/30">Closing soon</span>}</span><span className="block text-xs text-white/60">{o.sub}</span></span>
@@ -327,10 +405,12 @@ export default function NewPool() {
                 {!packs && <div className="flex justify-center py-2"><Spinner /></div>}
               </div>
             </Step>
-            )}
+            ))}
 
-            {showSetup && mode === 'sports' && event && (
-              <Step title="What kind of pool?">
+            {mode === 'sports' && event && shown('kinds') && (folded('kinds') ? (
+              <Step id="kinds" title="Your games" onChange={() => go('kinds')} summary={kindsLine} />
+            ) : (
+              <Step id="kinds" title="What kind of pool?">
                 <div className="grid gap-2">
                   {[...offered.map((k) => ({ key: k as GameKind | 'questions', ...KINDS[k], sub: `${KINDS[k].line} ${KINDS[k].time}.` })),
                     ...(eventPack ? [{ key: 'questions' as const, title: 'The questions', badge: 'In Supercoins', emoji: '🔮', sub: `${eventPack.questions} questions on ${event.word ? 'the season: the title, the races and the awards' : `the ${event.final_label.replace(/^(AL|NL) /, '')} and the pennants`}, priced like a market: buy what you believe, sell if you change your mind.`, time: '', line: '' }] : [])].map((k) => {
@@ -344,7 +424,7 @@ export default function NewPool() {
                           <span className="flex flex-wrap items-center gap-x-2 gap-y-0.5 font-semibold text-white">{k.title}
                             <span className="rounded-full px-1.5 py-px text-[10px] font-bold uppercase tracking-wider ring-1" style={{ color, background: `rgb(${rgb(color)} / .12)`, borderColor: color }}>{k.badge}</span>
                             {main && <span className="rounded-full bg-white/10 px-1.5 py-px text-[10px] font-bold uppercase tracking-wider text-white/80">Main game</span>}</span>
-                          <span className="mt-0.5 block text-xs leading-snug text-white/60">{k.sub}</span>
+                          <span className={`mt-0.5 text-xs leading-snug text-white/60 ${on ? 'block' : 'line-clamp-2'}`}>{k.sub}</span>
                         </span>
                         <span className={`mt-1 grid h-6 w-6 shrink-0 place-items-center rounded-md ring-1 ${on ? 'bg-emerald-400 text-[#0b1220] ring-emerald-300' : 'ring-white/25'}`}>{on && <Check size={16} strokeWidth={3} />}</span>
                       </button>
@@ -388,105 +468,102 @@ export default function NewPool() {
                     </div>
                   </div>
                 )}
-              </Step>
-            )}
 
-            {showSetup && event && kinds.includes('series') && (
-              <Step title="How it scores">
-                <div className="grid grid-cols-3 gap-1.5 rounded-2xl bg-black/25 p-1">
-                  {PRESETS.map((p) => <button key={p.key} type="button" onClick={() => setPreset(p.key)} className={`rounded-xl px-2 py-2 text-xs font-bold transition ${preset === p.key ? 'bg-white text-[#0b1220]' : 'text-white/70 hover:text-white'}`}>{p.label}</button>)}
-                </div>
-                <p className="mt-2 text-sm leading-snug text-white/80">{event.sport === 'nfl' ? 'Every game is a single game, so a right winner takes the round’s points: the later the round, the more it’s worth.' : PRESETS.find((p) => p.key === preset)!.line}</p>
-                <p className="mt-1.5 rounded-xl bg-white/[.05] px-3 py-2 text-xs leading-snug text-white/70">{presetExample(preset, event.final_label, event.final_round, event.sport === 'nfl')} The total {event.sport === 'mlb' ? 'runs' : event.sport === 'nhl' ? 'goals' : 'points'} in the last game breaks a tie.</p>
-                {kinds.includes('rank') && <p className="mt-2 text-xs leading-snug text-white/60">Rank the teams: your top club in the {event.open_label} earns the most for every game it wins, your last club the least.</p>}
-              </Step>
-            )}
-
-            {showSetup && event && kinds.includes('players') && (
-              <Step title={event.open_round ? 'Its size' : 'Its size and nights'}>
-                <div className="grid grid-cols-2 gap-1.5 rounded-2xl bg-black/25 p-1">
-                  {([['classic', 'Ten boxes of six'], ['quick', 'Five boxes of five']] as const).map(([k, l]) => <button key={k} type="button" onClick={() => setBox({ ...box, preset: k })} className={`rounded-xl px-2 py-2 text-xs font-bold transition ${box.preset === k ? 'bg-white text-[#0b1220]' : 'text-white/70 hover:text-white'}`}>{l}</button>)}
-                </div>
-                {!event.open_round && <div className="mt-1.5 grid grid-cols-3 gap-1.5 rounded-2xl bg-black/25 p-1">
-                  {([['week', 'A week'], ['month', 'Four weeks'], ['season', 'The season']] as const).map(([k, l]) => <button key={k} type="button" onClick={() => setBox({ ...box, length: k })} className={`rounded-xl px-2 py-2 text-xs font-bold transition ${box.length === k ? 'bg-white text-[#0b1220]' : 'text-white/70 hover:text-white'}`}>{l}</button>)}
-                </div>}
-                <p className="mt-2 text-sm leading-snug text-white/80">{box.preset === 'classic' ? 'Seven boxes of forwards, two of defence and one of goalies: sixty of the league’s best to choose from.' : 'Three boxes of forwards, one of defence and one of goalies: quick to fill in.'} {event.open_round ? 'Every playoff game from the first puck drop to the Cup; a player whose club is knocked out has nothing more to add.' : box.length === 'week' ? 'Seven nights from the first puck drop.' : box.length === 'month' ? 'Four weeks from the first puck drop.' : 'Every night to the end of the regular season.'}</p>
-              </Step>
-            )}
-
-            {showSetup && event && kinds.includes('pickem') && (
-              <Step title="How it scores">
-                <div className="grid grid-cols-2 gap-1.5 rounded-2xl bg-black/25 p-1">
-                  {PICKEM_PRESETS.map((p) => <button key={p.key} type="button" onClick={() => setPkPreset(p.key)} className={`rounded-xl px-2 py-2 text-xs font-bold transition ${pkPreset === p.key ? 'bg-white text-[#0b1220]' : 'text-white/70 hover:text-white'}`}>{p.label}</button>)}
-                </div>
-                <p className="mt-2 text-sm leading-snug text-white/80">{PICKEM_PRESETS.find((p) => p.key === pkPreset)!.line}</p>
-                <p className="mt-1.5 rounded-xl bg-white/[.05] px-3 py-2 text-xs leading-snug text-white/70">{PICKEM_PRESETS.find((p) => p.key === pkPreset)!.example} From {event.open_label} to {event.final_label}; each pick locks at its own kick-off.</p>
-                <div className="mt-2 rounded-xl bg-white/[.05] px-3 py-1">
-                  <div className="flex items-center justify-between gap-3">
-                    <span className="text-[13px] font-semibold text-white">Forgot a pick? The favourite<span className="block text-[11px] font-normal text-white/60">Instead of nothing, when the game starts</span></span>
-                    <Toggle on={missFav} onChange={setMissFav} />
-                  </div>
-                  {missFav && <p className="pb-2 text-[11px] leading-snug text-white/70">{MISSED_LINE}</p>}
-                </div>
-                <div className="mt-2 flex items-center justify-between gap-3 rounded-xl bg-white/[.05] px-3 py-2">
-                  <span className="text-[13px] font-semibold text-white">Drop the worst {(event.word ?? 'round').toLowerCase()}s<span className="block text-[11px] font-normal text-white/60">A bad week or a late start, forgiven</span></span>
-                  <div className="flex shrink-0 gap-1 rounded-xl bg-black/25 p-1">
-                    {[0, 1, 2].map((n) => <button key={n} type="button" onClick={() => setDropN(n)} className={`rounded-lg px-2.5 py-1 text-xs font-bold transition ${dropN === n ? 'bg-white text-[#0b1220]' : 'text-white/70'}`}>{n === 0 ? 'None' : n}</button>)}
-                  </div>
-                </div>
-                {atsFits(event.sport) && (
-                  <div className="mt-2 rounded-xl bg-white/[.05] px-3 py-1">
-                    <div className="flex items-center justify-between gap-3">
-                      <span className="text-[13px] font-semibold text-white">Against the spread<span className="block text-[11px] font-normal text-white/60">Pick who covers the line, not just who wins</span></span>
-                      <Toggle on={ats} onChange={setAts} />
+                {kinds.includes('series') && (
+                  <Part title="How it scores">
+                    <div className="grid grid-cols-3 gap-1.5 rounded-2xl bg-black/25 p-1">
+                      {PRESETS.map((p) => <button key={p.key} type="button" onClick={() => setPreset(p.key)} className={`rounded-xl px-2 py-2 text-xs font-bold transition ${preset === p.key ? 'bg-white text-[#0b1220]' : 'text-white/70 hover:text-white'}`}>{p.label}</button>)}
                     </div>
-                    {ats && <p className="pb-2 text-[11px] leading-snug text-white/70">{ATS_LINE}</p>}
-                  </div>
+                    <p className="mt-2 text-sm leading-snug text-white/80">{event.sport === 'nfl' ? 'Every game is a single game, so a right winner takes the round’s points: the later the round, the more it’s worth.' : PRESETS.find((p) => p.key === preset)!.line}</p>
+                    <p className="mt-1.5 rounded-xl bg-white/[.05] px-3 py-2 text-xs leading-snug text-white/70">{presetExample(preset, event.final_label, event.final_round, event.sport === 'nfl')} The total {event.sport === 'mlb' ? 'runs' : event.sport === 'nhl' ? 'goals' : 'points'} in the last game breaks a tie.</p>
+                    {kinds.includes('rank') && <p className="mt-2 text-xs leading-snug text-white/60">Rank the teams: your top club in the {event.open_label} earns the most for every game it wins, your last club the least.</p>}
+                  </Part>
                 )}
-              </Step>
-            )}
 
-            {showSetup && event && gridSeries && kinds.includes('squares') && (
-              <Step title="The grid">
-                <SquaresKnobs dark grids={eventGrids(event)} on={gridSeries.id} setOn={setGridOn} grid={grid} setGrid={setGrid} sport={event.sport} />
-                <p className="mt-2 rounded-xl bg-white/[.05] px-3 py-2 text-xs leading-snug text-white/70">{gridLabel(gridSeries)}. Members claim squares with their Supercoins until the grid fills or {gridSeries.best_of > 1 ? 'Game 1 starts' : 'the game starts'}; then the digits are drawn from a seed anyone can check.</p>
-              </Step>
-            )}
+                {kinds.includes('players') && (
+                  <Part title={event.open_round ? 'Its size' : 'Its size and nights'}>
+                    <div className="grid grid-cols-2 gap-1.5 rounded-2xl bg-black/25 p-1">
+                      {([['classic', 'Ten boxes of six'], ['quick', 'Five boxes of five']] as const).map(([k, l]) => <button key={k} type="button" onClick={() => setBox({ ...box, preset: k })} className={`rounded-xl px-2 py-2 text-xs font-bold transition ${box.preset === k ? 'bg-white text-[#0b1220]' : 'text-white/70 hover:text-white'}`}>{l}</button>)}
+                    </div>
+                    {!event.open_round && <div className="mt-1.5 grid grid-cols-3 gap-1.5 rounded-2xl bg-black/25 p-1">
+                      {([['week', 'A week'], ['month', 'Four weeks'], ['season', 'The season']] as const).map(([k, l]) => <button key={k} type="button" onClick={() => setBox({ ...box, length: k })} className={`rounded-xl px-2 py-2 text-xs font-bold transition ${box.length === k ? 'bg-white text-[#0b1220]' : 'text-white/70 hover:text-white'}`}>{l}</button>)}
+                    </div>}
+                    <p className="mt-2 text-sm leading-snug text-white/80">{box.preset === 'classic' ? 'Seven boxes of forwards, two of defence and one of goalies: sixty of the league’s best to choose from.' : 'Three boxes of forwards, one of defence and one of goalies: quick to fill in.'} {event.open_round ? 'Every playoff game from the first puck drop to the Cup; a player whose club is knocked out has nothing more to add.' : box.length === 'week' ? 'Seven nights from the first puck drop.' : box.length === 'month' ? 'Four weeks from the first puck drop.' : 'Every night to the end of the regular season.'}</p>
+                  </Part>
+                )}
 
-            {showSetup && event && sheetGame && kinds.includes('props') && (
-              <Step title="The game">
-                <SheetPicker dark games={event.sheets ?? []} on={sheetGame.id} setOn={setSheetOn} />
-                <p className="mt-2 rounded-xl bg-white/[.05] px-3 py-2 text-xs leading-snug text-white/70">{sheetLabel(sheetGame)}: eight calls on the game, a point each, settled from the score. Everyone's sheet locks at the start.</p>
-                <div className="mt-2 flex items-center justify-between gap-3 rounded-xl bg-white/[.05] px-3 py-1">
-                  <span className="text-[13px] font-semibold text-white">A sheet on every game after it<span className="block text-[11px] font-normal text-white/60">Each opens by itself a day and a half before the game</span></span>
-                  <Toggle on={everySheet} onChange={setEverySheet} />
-                </div>
-              </Step>
-            )}
+                {kinds.includes('pickem') && (
+                  <Part title={kinds.includes('series') ? 'How pick’em scores' : 'How it scores'}>
+                    <div className="grid grid-cols-2 gap-1.5 rounded-2xl bg-black/25 p-1">
+                      {PICKEM_PRESETS.map((p) => <button key={p.key} type="button" onClick={() => setPkPreset(p.key)} className={`rounded-xl px-2 py-2 text-xs font-bold transition ${pkPreset === p.key ? 'bg-white text-[#0b1220]' : 'text-white/70 hover:text-white'}`}>{p.label}</button>)}
+                    </div>
+                    <p className="mt-2 text-sm leading-snug text-white/80">{PICKEM_PRESETS.find((p) => p.key === pkPreset)!.line}</p>
+                    <p className="mt-1.5 rounded-xl bg-white/[.05] px-3 py-2 text-xs leading-snug text-white/70">{PICKEM_PRESETS.find((p) => p.key === pkPreset)!.example} From {event.open_label} to {event.final_label}; each pick locks at its own kick-off.</p>
+                    <div className="mt-2 rounded-xl bg-white/[.05] px-3 py-1">
+                      <div className="flex items-center justify-between gap-3">
+                        <span className="text-[13px] font-semibold text-white">Forgot a pick? The favourite<span className="block text-[11px] font-normal text-white/60">Instead of nothing, when the game starts</span></span>
+                        <Toggle on={missFav} onChange={setMissFav} />
+                      </div>
+                      {missFav && <p className="pb-2 text-[11px] leading-snug text-white/70">{MISSED_LINE}</p>}
+                    </div>
+                    <div className="mt-2 flex items-center justify-between gap-3 rounded-xl bg-white/[.05] px-3 py-2">
+                      <span className="text-[13px] font-semibold text-white">Drop the worst {(event.word ?? 'round').toLowerCase()}s<span className="block text-[11px] font-normal text-white/60">A bad week or a late start, forgiven</span></span>
+                      <div className="flex shrink-0 gap-1 rounded-xl bg-black/25 p-1">
+                        {[0, 1, 2].map((n) => <button key={n} type="button" onClick={() => setDropN(n)} className={`rounded-lg px-2.5 py-1 text-xs font-bold transition ${dropN === n ? 'bg-white text-[#0b1220]' : 'text-white/70'}`}>{n === 0 ? 'None' : n}</button>)}
+                      </div>
+                    </div>
+                    {atsFits(event.sport) && (
+                      <div className="mt-2 rounded-xl bg-white/[.05] px-3 py-1">
+                        <div className="flex items-center justify-between gap-3">
+                          <span className="text-[13px] font-semibold text-white">Against the spread<span className="block text-[11px] font-normal text-white/60">Pick who covers the line, not just who wins</span></span>
+                          <Toggle on={ats} onChange={setAts} />
+                        </div>
+                        {ats && <p className="pb-2 text-[11px] leading-snug text-white/70">{ATS_LINE}</p>}
+                      </div>
+                    )}
+                  </Part>
+                )}
 
-            {following && mode !== 'fantasy' && (
-            <Step title="Name it">
+                {gridSeries && kinds.includes('squares') && (
+                  <Part title="The grid">
+                    <SquaresKnobs dark grids={eventGrids(event)} on={gridSeries.id} setOn={setGridOn} grid={grid} setGrid={setGrid} sport={event.sport} />
+                    <p className="mt-2 rounded-xl bg-white/[.05] px-3 py-2 text-xs leading-snug text-white/70">{gridLabel(gridSeries)}. Members claim squares with their Supercoins until the grid fills or {gridSeries.best_of > 1 ? 'Game 1 starts' : 'the game starts'}; then the digits are drawn from a seed anyone can check.</p>
+                  </Part>
+                )}
+
+                {sheetGame && kinds.includes('props') && (
+                  <Part title="The prop sheet’s game">
+                    <SheetPicker dark games={event.sheets ?? []} on={sheetGame.id} setOn={setSheetOn} />
+                    <p className="mt-2 rounded-xl bg-white/[.05] px-3 py-2 text-xs leading-snug text-white/70">{sheetLabel(sheetGame)}: eight calls on the game, a point each, settled from the score. Everyone's sheet locks at the start.</p>
+                    <div className="mt-2 flex items-center justify-between gap-3 rounded-xl bg-white/[.05] px-3 py-1">
+                      <span className="text-[13px] font-semibold text-white">A sheet on every game after it<span className="block text-[11px] font-normal text-white/60">Each opens by itself a day and a half before the game</span></span>
+                      <Toggle on={everySheet} onChange={setEverySheet} />
+                    </div>
+                  </Part>
+                )}
+
+                <button type="button" disabled={!kinds.length} onClick={() => go('details')}
+                  className="btn mt-5 w-full bg-white py-3 text-base font-bold text-[#0b1220] hover:bg-white/90">Next: name your pool <ArrowRight size={18} /></button>
+              </Step>
+            ))}
+
+            {mode !== 'fantasy' && following && shown('details') && (
+            <Step id="details" title={member ? 'Name it' : 'Name it, and you'}>
             <div className="space-y-4">
-            <label className="block"><span className="sr-only">Name your pool</span>
-              <input className="input w-full" value={pool} onChange={(e) => { setPoolTouched(true); setPool(e.target.value); }} maxLength={40} placeholder={packPlaceholder(event ? event.pack : chosen?.slug)} /></label>
-            {showSetup && (
+            <label className="block"><span className="mb-1 block text-xs font-semibold text-white/70">Your pool’s name</span>
+              <input id="np-pool" className="input w-full" value={pool} onChange={(e) => { setPoolTouched(true); setPool(e.target.value); }} maxLength={40} placeholder={packPlaceholder(event ? event.pack : chosen?.slug)} /></label>
             <div>
-              <span className="label text-white/70">Its colour</span>
-              <div className="mt-2 flex flex-wrap gap-2.5">
+              <span className="text-xs font-semibold text-white/70">Its colour</span>
+              <div className="mt-2 flex flex-wrap gap-2">
                 {SWATCHES.map((s) => (
-                  <button key={s} type="button" aria-label={`Colour ${s}`} onClick={() => setColor(s)} className="grid h-10 w-10 place-items-center rounded-full ring-2 transition"
+                  <button key={s} type="button" aria-label={`Colour ${s}`} onClick={() => setColor(s)} className="grid h-9 w-9 place-items-center rounded-full ring-2 transition"
                     style={{ background: s, boxShadow: color === s ? `0 0 18px ${s}` : undefined, ['--tw-ring-color' as string]: color === s ? '#fff' : 'transparent' }}>
                     {color === s && <Check size={18} className="text-[#0b1220]" strokeWidth={3} />}
                   </button>
                 ))}
               </div>
             </div>
-            )}
-            </div>
-            </Step>
-            )}
 
-            {mode && mode !== 'fantasy' && (<>
             {member ? (
               <p className="text-sm text-white/70">You’re signed in as {me!.gm_name}. The pool goes on your account beside the others, on My pools.</p>
             ) : session ? (
@@ -494,20 +571,21 @@ export default function NewPool() {
             ) : (
               <div className="space-y-3 border-t border-white/10 pt-4">
                 <div className="label text-white/70">And you, the host</div>
-                <input className="input w-full" autoComplete="name" value={name} onChange={(e) => setName(e.target.value)} placeholder="Your name, as friends know you" maxLength={40} />
-                <input className="input w-full" type="email" inputMode="email" autoComplete="username" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="you@example.com" />
-                <input className="input w-full" type="password" autoComplete="new-password" value={pw} onChange={(e) => setPw(e.target.value)} placeholder="A password, 6+ characters" />
+                <input id="np-name" className="input w-full" autoComplete="name" value={name} onChange={(e) => setName(e.target.value)} placeholder="Your name, as friends know you" maxLength={40} />
+                <input id="np-email" className="input w-full" type="email" inputMode="email" autoComplete="username" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="you@example.com" />
+                <input id="np-pw" className="input w-full" type="password" autoComplete="new-password" value={pw} onChange={(e) => setPw(e.target.value)} placeholder="A password, 6+ characters" />
               </div>
             )}
-
-            <button className="btn-gold w-full py-3 text-base" disabled={busy || !ready || (!!session && !member)}>{busy ? <Spinner /> : '✨ Start my pool'}</button>
-            {startWhy && !(!!session && !member) && <p className="text-center text-xs text-white/60">{startWhy}</p>}
+            </div>
+            </Step>
+            )}
             </>)}
-            {!session && <a href="#/" className="block text-center text-sm text-white/60 underline">Already have an account? Sign in, then start it from My pools</a>}
+
+            {!session && <a href="#/" className="block pt-1 text-center text-sm text-white/60 underline">Already have an account? Sign in, then start it from My pools</a>}
           </div>
         </form>
         {err && (
-          <div className="mt-4 rounded-xl border border-red-400/30 bg-red-900/50 px-4 py-3 text-center text-sm text-red-200">
+          <div id="np-err" className="mt-4 scroll-mb-32 rounded-xl border border-red-400/30 bg-red-900/50 px-4 py-3 text-center text-sm text-red-200">
             {err}{signIn && <> <a href="#/" className="font-semibold underline">Sign in</a></>}
           </div>
         )}
@@ -522,6 +600,25 @@ export default function NewPool() {
         </div>}
         <p className="mt-4 text-center text-[11px] text-mute">Super Pools is free and runs on Supercoins with no cash value. Nothing to buy, nothing to cash out.</p>
       </div>
+
+      {/* the start button, always in reach: what's still missing (a tap goes there) until the pool can start. #/new is
+          drawn outside the app's layout, so there's no dock under it; it sits above the phone's home bar. */}
+      {bar && (
+        <div className="fixed inset-x-0 bottom-0 z-40 border-t border-white/10 bg-[#0b1220]/90 pb-[max(.75rem,env(safe-area-inset-bottom))] pt-3 shadow-[0_-12px_32px_-12px_rgba(0,0,0,.8)] backdrop-blur-xl">
+          <div className="absolute inset-x-0 top-0 h-0.5 bg-white/[.06]"><div className="h-full bg-gold transition-[width] duration-300" style={{ width: `${Math.round(progress * 100)}%` }} /></div>
+          <div className="mx-auto flex w-full max-w-md items-center gap-3 px-4">
+            <div className="min-w-0 flex-1">
+              <div className="text-[10px] font-black uppercase tracking-[.16em] text-white/50">{ready ? 'All set' : resolving ? 'One moment' : `Step ${curAt + 1} of ${stepCount}`}</div>
+              {need && !resolving ? (
+                <button type="button" onClick={fix} className="text-left text-sm font-semibold leading-snug text-white">{need.text}<ChevronRight size={15} className="-mt-0.5 ml-0.5 inline text-white/60" /></button>
+              ) : ready ? (
+                <p className="line-clamp-2 break-words text-sm font-semibold leading-snug text-white">{pool.trim()}</p>
+              ) : null}
+            </div>
+            <button type="submit" form="np-form" className="btn-gold shrink-0 px-3.5 py-3 text-[15px]" disabled={busy || !ready || (!!session && !member)}>{busy ? <Spinner /> : '✨ Start my pool'}</button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
