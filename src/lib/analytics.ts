@@ -1,6 +1,7 @@
 // Consented GA4 (Consent Mode v2) and first-touch UTM/referrer for Super Pools.
 // Measurement ID from VITE_GA4_ID (.env.production); empty means nothing loads and no network calls.
 // Funnel events carry no PII (no email, name, or user id). Enhanced conversions send only a SHA-256 of the email.
+// Remote gtag.js / Ads hits only leave production hostnames (never localhost, CI, or webdriver).
 
 const CONSENT_KEY = 'sp_analytics_consent';
 const ADS_CONSENT_KEY = 'sp_ads_consent';
@@ -15,6 +16,16 @@ const joinGroupKey = (id: string | number) => `sp_join_group:${id}`;
 // Not the Ads customer ID (741-146-2618) — that is not a valid AW- tag id.
 const ADS_ID = 'AW-949617778';
 
+// Only these hosts may inject googletagmanager and send GA4 / AW hits.
+const PROD_ANALYTICS_HOSTS = new Set([
+  'app.superpoolsai.com',
+  'superpoolsai.com',
+  'www.superpoolsai.com',
+]);
+
+// Tests (unit/e2e) set window.__spAnalyticsTest to exercise dispatch / flush on non-prod hosts.
+const ANALYTICS_TEST_FLAG = '__spAnalyticsTest';
+
 // Tests inject a measurement ID without Vite. Production always reads VITE_GA4_ID.
 let testGaId: string | undefined;
 
@@ -25,6 +36,23 @@ export function __testSetGaId(id: string | undefined) {
 function measurementId(): string {
   if (testGaId !== undefined) return testGaId;
   return (import.meta.env.VITE_GA4_ID as string | undefined)?.trim() ?? '';
+}
+
+function analyticsTestOverride(): boolean {
+  try {
+    return typeof window !== 'undefined'
+      && !!(window as unknown as Record<string, unknown>)[ANALYTICS_TEST_FLAG];
+  } catch {
+    return false;
+  }
+}
+
+// True when remote gtag.js / Ads config may run. In-page dataLayer plumbing still works without this.
+export function analyticsAllowed(): boolean {
+  if (analyticsTestOverride()) return true;
+  if (typeof navigator !== 'undefined' && navigator.webdriver) return false;
+  const host = typeof location !== 'undefined' ? (location.hostname || '').toLowerCase() : '';
+  return PROD_ANALYTICS_HOSTS.has(host);
 }
 
 export type AnalyticsConsent = 'granted' | 'denied' | null;
@@ -42,6 +70,8 @@ declare global {
   interface Window {
     dataLayer?: unknown[];
     gtag?: (...args: unknown[]) => void;
+    __spAnalyticsTest?: boolean;
+    __spFlushPoolCreated?: () => void;
   }
 }
 
@@ -153,6 +183,8 @@ function ensureGtag() {
 function loadTag() {
   const GA_ID = measurementId();
   if (!GA_ID || typeof document === 'undefined') return;
+  // Local / CI / webdriver builds keep the dataLayer stub but never pull gtag.js.
+  if (!analyticsAllowed()) return;
   if (document.getElementById('sp-ga4')) return;
   ensureGtag();
   const s = document.createElement('script');
@@ -179,6 +211,7 @@ export function hasAdsUserDataConsent(): boolean {
 
 function configAdsTag() {
   if (!measurementId() || typeof window === 'undefined') return;
+  if (!analyticsAllowed()) return;
   if (getAdsConsent() !== 'granted') return;
   window.gtag?.('config', ADS_ID, { allow_enhanced_conversions: true });
 }
@@ -191,9 +224,9 @@ function loadTagsIfNeeded() {
 // Call once at app start: capture first-touch, and load gtag only when consent was already granted.
 export function initAnalytics() {
   captureFirstTouch();
-  if (typeof window !== 'undefined') {
-    // e2e: a stubbed reload calls this to mimic initAnalytics flushing pending pool_created.
-    (window as unknown as { __spFlushPoolCreated?: () => void }).__spFlushPoolCreated = () => {
+  if (typeof window !== 'undefined' && analyticsTestOverride()) {
+    // e2e only (window.__spAnalyticsTest): stubbed reload flushes pending pool_created.
+    window.__spFlushPoolCreated = () => {
       void flushPendingPoolCreated();
     };
   }
@@ -496,6 +529,8 @@ export function __testResetAnalytics() {
   if (typeof window !== 'undefined') {
     delete (window as { gtag?: unknown }).gtag;
     delete (window as { dataLayer?: unknown }).dataLayer;
+    delete (window as { __spFlushPoolCreated?: unknown }).__spFlushPoolCreated;
+    delete (window as { __spAnalyticsTest?: unknown }).__spAnalyticsTest;
   }
   try {
     const keys: string[] = [];

@@ -6,6 +6,7 @@ import {
   __testResetAnalytics,
   __testSetGaId,
   __testSetPoolCreatedFlushMs,
+  analyticsAllowed,
   awaitPoolCreatedFlush,
   captureFirstTouch,
   currentAppPath,
@@ -57,7 +58,7 @@ function userDataSets() {
   return dataLayerEntries().filter((e) => isArguments(e) && e[0] === 'set' && e[1] === 'user_data');
 }
 
-function installDom({ hash = '#/', consent = null } = {}) {
+function installDom({ hash = '#/', consent = null, hostname = 'app.superpoolsai.com', webdriver = false } = {}) {
   const store = new Map();
   if (consent) store.set('sp_analytics_consent', consent);
 
@@ -104,7 +105,8 @@ function installDom({ hash = '#/', consent = null } = {}) {
     hash,
     search: '',
     pathname: '/',
-    href: `https://app.superpoolsai.com/${hash}`,
+    hostname,
+    href: `https://${hostname}/${hash}`,
   };
 
   const listeners = new Map();
@@ -112,6 +114,11 @@ function installDom({ hash = '#/', consent = null } = {}) {
   globalThis.document = document;
   globalThis.localStorage = localStorage;
   globalThis.location = location;
+  Object.defineProperty(globalThis, 'navigator', {
+    configurable: true,
+    writable: true,
+    value: { webdriver },
+  });
   globalThis.addEventListener = (type, fn, opts) => {
     const list = listeners.get(type) || [];
     list.push({ fn, once: !!(opts && opts.once) });
@@ -132,8 +139,75 @@ function installDom({ hash = '#/', consent = null } = {}) {
   };
   delete globalThis.gtag;
   delete globalThis.dataLayer;
+  delete globalThis.__spAnalyticsTest;
+  delete globalThis.__spFlushPoolCreated;
 
   return { headKids, store };
+}
+
+// --- production host allowlist: only prod hosts (or __spAnalyticsTest) inject gtag.js ---
+{
+  __testResetAnalytics();
+  installDom({ hostname: 'app.superpoolsai.com' });
+  __testSetGaId('G-TESTID');
+  initAnalytics();
+  setAnalyticsConsent(true);
+  assert.equal(analyticsAllowed(), true);
+  assert.ok(document.getElementById('sp-ga4'), 'allowed host loads gtag.js');
+}
+
+{
+  __testResetAnalytics();
+  installDom({ hostname: 'www.superpoolsai.com' });
+  __testSetGaId('G-TESTID');
+  initAnalytics();
+  setAnalyticsConsent(true);
+  assert.ok(document.getElementById('sp-ga4'), 'www host loads gtag.js');
+}
+
+{
+  __testResetAnalytics();
+  installDom({ hostname: '127.0.0.1' });
+  __testSetGaId('G-TESTID');
+  initAnalytics();
+  setAnalyticsConsent(true);
+  assert.equal(analyticsAllowed(), false);
+  assert.equal(document.getElementById('sp-ga4'), null, '127.0.0.1 never loads gtag.js');
+  assert.ok(window.gtag, 'dataLayer shim still exists for in-page plumbing');
+  const aw = dataLayerEntries().filter((e) => isArguments(e) && e[0] === 'config' && String(e[1] || '').startsWith('AW-'));
+  assert.equal(aw.length, 0, 'no AW config on non-prod host');
+}
+
+{
+  __testResetAnalytics();
+  installDom({ hostname: 'localhost' });
+  __testSetGaId('G-TESTID');
+  initAnalytics();
+  setAnalyticsConsent(true);
+  assert.equal(document.getElementById('sp-ga4'), null, 'localhost never loads gtag.js');
+}
+
+{
+  __testResetAnalytics();
+  installDom({ hostname: 'app.superpoolsai.com', webdriver: true });
+  __testSetGaId('G-TESTID');
+  initAnalytics();
+  setAnalyticsConsent(true);
+  assert.equal(analyticsAllowed(), false);
+  assert.equal(document.getElementById('sp-ga4'), null, 'webdriver never loads gtag.js');
+  assert.equal(window.__spFlushPoolCreated, undefined, 'flush helper stays off without test flag');
+}
+
+{
+  __testResetAnalytics();
+  installDom({ hostname: '127.0.0.1', webdriver: true });
+  window.__spAnalyticsTest = true;
+  __testSetGaId('G-TESTID');
+  initAnalytics();
+  setAnalyticsConsent(true);
+  assert.equal(analyticsAllowed(), true, 'test flag overrides host/webdriver');
+  assert.ok(document.getElementById('sp-ga4'), 'test flag allows gtag.js for explicit harnesses');
+  assert.equal(typeof window.__spFlushPoolCreated, 'function', 'flush helper only with test flag');
 }
 
 // --- no measurement ID: silence ---
