@@ -55,6 +55,13 @@ Two things in one repo:
   post is pinned as the chirp of the week. A pool member posts the pool into another league's chat from the pool's invite card
   (`PostToChats`, `pool_announce`, migration 311): a message from their own seat there carrying `meta.pool_card`, drawn
   as a card to join (`PoolInviteCard`); only that function can write a card (`messages_guard_card`).
+  Above it, the lounges (migration 333, 23 October 2026): one chat per sports league or show (`lounges`: the NHL, the NFL,
+  the Premier League, Love Is Blind...) shared by every pool that follows it, `?lounge=<key>` (`LoungePanel`,
+  `src/lib/lounge.ts`). An event (`competitions.lounge`) and a pack (`pool_packs.lounge`) name their room, a fantasy league's
+  is its sport (`_league_lounges`); `lounge_messages` is shared on purpose (no `league_id`), each post carrying the pool it
+  came from (`from_league`) so a member can narrow it to their own pool; strangers see a first name and initial
+  (`_lounge_name`), the writer is kept in `private.lounge_posts`; `lounge_post` posts from the pool open now, `lounge_report`
+  (three reports take a post down, the first bells the platform admins) and `lounge_remove` (the writer, or a platform admin).
   The home page's League transactions (`LeagueTransactions`) lists every move and trade with the same GM picker.
 - Navigation (`src/components/Layout.tsx`): the dock keeps four places (a fantasy league's are Home, Lineup, Chat and Players since 23 October 2026; NHL centre is in More under Tonight), Live (the scoreboard, a fantasy league's middle tab with a red dot while a game is on) and More; More and the desktop sidebar list the
   rest under groups (`Tonight`, `Your team`, `The league`, `You`; a pool's `Play`, `Sport centres`, `You`), and nothing
@@ -302,7 +309,8 @@ wasn't applied); #75 was the hotfix.
   `meta.bot='garry'`.
 - Never modify real GMs' rosters, lineups, plans, bets or coins unless asked. Browser checks against
   production are view-only.
-- Running costs: every paid outside call (today xAI, for Garry and the X feed) records its price with
+- Running costs: every paid outside call (today xAI, for Garry; the X feed is off since 23 October 2026, nhl-hub's `x` task
+  answers empty unless the `X_FEED` secret is `on`) records its price with
   `meter_cost(league, source, feature, ...)` from the edge function (service role only), tagged with the feature
   (`garry.<task>`, `hub.x_feed`) and the league it served (0 = shared by every league). A new paid call does the same,
   or the dashboard (`#/costs`, platform admins in `ops.platform_admins` only) won't see it. Fixed bills are edited on

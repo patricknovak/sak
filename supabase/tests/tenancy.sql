@@ -29,7 +29,10 @@ where n.nspname = 'public' and c.relkind in ('r', 'p')
     'rosters_2526_backup',
     -- each scoring profile's kept season and windows, and the counter that dates them (migration 244), shared like
     -- player_game_points, which they're made from
-    'stats_gen', 'player_windows_cache', 'player_season_cache', 'stats_cache_state');
+    'stats_gen', 'player_windows_cache', 'player_season_cache', 'stats_cache_state',
+    -- the lounges (migration 333): one room per sports league or show, shared by every pool that follows it on purpose;
+    -- each post names the pool it came from (from_league) and is read by the members of any pool in that room
+    'lounges', 'lounge_messages');
 
 -- 2. A league's table has row-level security on, and every policy on it is bound to the caller's league.
 select pg_temp.none('a league table without row-level security', string_agg(c.relname, ', '))
@@ -103,6 +106,9 @@ where n.nspname = 'public' and p.prosecdef and p.prorettype <> 'trigger'::regtyp
     'platform_close_request',
     -- platform admins only: a league's own web address
     'platform_set_league_domain',
+    -- the lounges, shared across pools (migration 333): a post is the caller's own (lounge_remove) or in a room the
+    -- caller's pools are in (lounge_report); neither belongs to one league
+    'lounge_remove', 'lounge_report',
     -- deletes a whole pool: checks the caller hosts it (or started the league, still in setup) or is the platform
     'pool_delete',
     -- debt: a pick names a player, and rosters hold one row per player across all leagues (rosters key, see EXPANSION.md)

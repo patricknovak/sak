@@ -3,9 +3,9 @@
 // injury news on league players, and the leaders once the season is under way.
 import { useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { ExternalLink, Play, Radio } from 'lucide-react';
+import { Play, Radio } from 'lucide-react';
 import { useLeague, useNow } from '../lib/store';
-import { hub, type Leaders, type NewsStory, type XFeed } from '../lib/nhlhub';
+import { hub, type Leaders, type NewsStory } from '../lib/nhlhub';
 import { ago, fmtTime, injuryBack, injuryBadge } from '../lib/format';
 import { usePlayerInfo } from '../lib/playerInfo';
 import { useOverlay } from '../lib/nhlGame';
@@ -31,7 +31,6 @@ export function TopTab({ onGame }: { onGame: (g: TopGame) => void }) {
   const today = useMemo(() => (feedToday ? { ...feedToday, games: (feedToday.games ?? []).map((g) => one({ ...g, home: { ...g.home, radio: null }, away: { ...g.away, radio: null } })) } : null), [feedToday, one]);
   const last = useMemo(() => (feedLast ? { ...feedLast, games: (feedLast.games ?? []).map((g) => one({ ...g, home: { ...g.home, radio: null }, away: { ...g.away, radio: null } })) } : null), [feedLast, one]);
   const [news, setNews] = useState<NewsStory[] | null>(null);
-  const [x, setX] = useState<XFeed | null>(null);
   const [leaders, setLeaders] = useState<Leaders | null>(null);
   const [video, setVideo] = useState<{ id: string; title: string } | null>(null);
   useEffect(() => {
@@ -40,7 +39,6 @@ export function TopTab({ onGame }: { onGame: (g: TopGame) => void }) {
     const whole = (s: Scores | null) => ({ ...s, games: s?.games ?? [] }) as Scores;
     hub<Scores>('scores', { date: leagueDay }).then((r) => { if (dead) return; const s = whole(r); setToday(s); if (s.prev && !s.games.some((g) => DONE.has(g.state))) hub<Scores>('scores', { date: s.prev }).then((p) => !dead && setLast(whole(p)), () => {}); }, () => {});
     hub<{ items?: NewsStory[] }>('news').then((r) => !dead && setNews(r?.items ?? []), () => !dead && setNews([]));
-    hub<XFeed>('x').then((f) => !dead && setX(f), () => {});
     hub<Leaders>('leaders').then((l) => !dead && setLeaders(l), () => {});
     return () => { dead = true; };
   }, [leagueDay]);
@@ -68,7 +66,6 @@ export function TopTab({ onGame }: { onGame: (g: TopGame) => void }) {
     for (const s of items) if (out.length < 6 && !out.includes(s)) out.push(s);
     return out;
   }, [news]);
-  const posts = (x?.posts ?? []).slice(0, 4);
   const info = usePlayerInfo();
   const nav = useNavigate();
   const hurt = useMemo(() => [...players.values()].filter((p) => p.injury_status && owner.has(p.id)).sort((a, b) => (b.injury_date ?? '').localeCompare(a.injury_date ?? '')).slice(0, 5), [players, owner]);
@@ -138,19 +135,6 @@ export function TopTab({ onGame }: { onGame: (g: TopGame) => void }) {
       </Section>
 
       <div className="grid gap-4 lg:grid-cols-2">
-        <Section title="𝕏 Insiders" right={<Link to="/nhl?t=x" className="text-xs text-sky-300">Full feed ›</Link>}>
-          {!x ? <div className="card p-4 text-sm text-mute">Loading…</div> : !x.configured || posts.length === 0 ? <div className="card p-4 text-sm text-mute">Nothing from the insiders in the last two days.</div> : (
-            <div className="card divide-y divide-white/[.05]">
-              {posts.map((p) => (
-                <a key={p.id} href={p.url} target="_blank" rel="noreferrer" className="block px-3 py-2 hover:bg-white/[.03]">
-                  <div className="flex items-center gap-2 text-[11px] text-mute"><span className="font-semibold text-slate-200">{p.author.name}</span><span>@{p.author.handle}</span><span>· {ago(p.at, now)}</span><ExternalLink size={10} className="ml-auto" /></div>
-                  <div className="mt-0.5 line-clamp-3 text-sm">{p.text.replace(/https:\/\/t\.co\/\S+/g, '').trim()}</div>
-                </a>
-              ))}
-            </div>
-          )}
-        </Section>
-
         <Section title="🩹 Injury watch" right={<Link to="/nhl?t=injuries" className="text-xs text-sky-300">Full report ›</Link>}>
           {hurt.length === 0 ? <div className="card p-4 text-sm text-mute">No league players on the injury list. Enjoy it.</div> : (
             <div className="card divide-y divide-white/[.05]">
@@ -180,7 +164,7 @@ export function TopTab({ onGame }: { onGame: (g: TopGame) => void }) {
       )}
 
       <div className="scroll-x flex gap-1.5">
-        {([['scores', '🏒 Scores'], ['news', '📰 News'], ['injuries', '🩹 Injuries'], ['x', '𝕏 Insiders'], ['standings', '🏆 Standings'], ['leaders', '📈 Leaders'], ['teams', '🛡️ Teams'], ['schedule', '📅 Schedule']] as const).map(([k, l]) => <Link key={k} to={`/nhl?t=${k}`} className="chip shrink-0 py-1.5 text-xs hover:bg-white/[.1]">{l} ›</Link>)}
+        {([['scores', '🏒 Scores'], ['news', '📰 News'], ['injuries', '🩹 Injuries'], ['standings', '🏆 Standings'], ['leaders', '📈 Leaders'], ['teams', '🛡️ Teams'], ['schedule', '📅 Schedule']] as const).map(([k, l]) => <Link key={k} to={`/nhl?t=${k}`} className="chip shrink-0 py-1.5 text-xs hover:bg-white/[.1]">{l} ›</Link>)}
       </div>
       <p className="px-1 text-[11px] text-mute"><Radio size={10} className="inline" /> Scores every 20 seconds while games are on, news every ten minutes, insiders every five, injuries hourly. Badges mark which GM owns a player.</p>
     </div>

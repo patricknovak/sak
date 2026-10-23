@@ -10,7 +10,7 @@ import { hub } from '../lib/nhlhub';
 import { fmtPts, fmtTime } from '../lib/format';
 import { PageHeader, Section, TeamBadge } from '../components/ui';
 import { ExternalLink, Radio, Settings2, Tv, Users } from 'lucide-react';
-import { InjuriesTab, LeadersTab, NewsTab, TeamsTab, XTab } from '../components/NhlMore';
+import { InjuriesTab, LeadersTab, NewsTab, TeamsTab } from '../components/NhlMore';
 import { TopTab } from '../components/NhlTop';
 import { countryOf, playerFor, verdict } from '../lib/watch';
 import { WATCH_GUIDE } from '../lib/watchGuide';
@@ -32,7 +32,8 @@ export default function NHL() {
   const sheet = useGameSheet();
   const { one } = useOverlay();
   const [params, setParams] = useSearchParams();
-  const tab = (params.get('t') as 'top' | 'scores' | 'standings' | 'schedule' | 'news' | 'injuries' | 'x' | 'leaders' | 'teams') || 'top';
+  // the insiders' X feed is off for now (23 October 2026); an old ?t=x link opens the news instead
+  const tab = ((params.get('t') === 'x' ? 'news' : params.get('t')) as 'top' | 'scores' | 'standings' | 'schedule' | 'news' | 'injuries' | 'leaders' | 'teams') || 'top';
   const setTab = (t: string) => setParams((p) => { const n = new URLSearchParams(p); n.set('t', t); return n; });
   const [date, setDate] = useState(leagueDay);
   const [feed, setFeed] = useState<Scores | null>(null);
@@ -131,7 +132,7 @@ export default function NHL() {
       <div className="scroll-x flex gap-1">
         {/* the league's own night first: the scoreboard, lit while a game is on */}
         <Link to="/scoreboard" className={`tab flex shrink-0 items-center gap-1.5 ${gamesLive ? 'bg-goal/15 text-white ring-1 ring-goal/40' : 'bg-white/[.05]'}`}>{gamesLive ? <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-goal" /> : '📡'} {brand.short} tonight</Link>
-        {([['top', '🔥 Top'], ['scores', '🏒 Scores'], ['news', '📰 News'], ['injuries', '🩹 Injuries'], ['x', '𝕏 Insiders'], ['standings', '🏆 Standings'], ['leaders', '📈 Leaders'], ['teams', '🛡️ Teams'], ['schedule', '📅 Schedule']] as const).map(([k, l]) => <button key={k} className={`tab shrink-0 ${tab === k ? 'tab-on' : 'bg-white/[.05]'}`} onClick={() => setTab(k)}>{l}</button>)}
+        {([['top', '🔥 Top'], ['scores', '🏒 Scores'], ['news', '📰 News'], ['injuries', '🩹 Injuries'], ['standings', '🏆 Standings'], ['leaders', '📈 Leaders'], ['teams', '🛡️ Teams'], ['schedule', '📅 Schedule']] as const).map(([k, l]) => <button key={k} className={`tab shrink-0 ${tab === k ? 'tab-on' : 'bg-white/[.05]'}`} onClick={() => setTab(k)}>{l}</button>)}
       </div>
       {err && <div className="rounded-xl border border-amber-400/20 bg-amber-500/10 p-3 text-sm text-amber-100">NHL data didn’t load: {err}</div>}
 
@@ -253,7 +254,6 @@ export default function NHL() {
       {tab === 'top' && <TopTab onGame={(g) => sheet.open(g.id, { hint: g as unknown as Game })} />}
       {tab === 'news' && <NewsTab />}
       {tab === 'injuries' && <InjuriesTab />}
-      {tab === 'x' && <XTab />}
       {tab === 'leaders' && <LeadersTab />}
       {tab === 'teams' && <TeamsTab onGame={(g) => sheet.open(g.id, { hint: g as Game })} />}
 

@@ -6,6 +6,8 @@
 export interface Change { date: string; icon: string; title: string; body: string; to?: string; tag?: 'formats' | 'commish' | 'draft' | 'everyone' }
 
 export const CHANGELOG: Change[] = [
+  { date: '2026-10-23', icon: '🏟️', tag: 'everyone', title: 'Lounges: talk with everyone following your league', to: '/chat',
+    body: 'Chat now has a lounge for each league or show your pools follow, like the NHL lounge or the Love Is Blind lounge, shared with every pool on Super Pools that follows it. Tap Just my pool to see only your own crew\'s posts. Everyone else sees your first name and initial, and you can report a post or delete your own.' },
   { date: '2026-10-23', icon: '👋', tag: 'everyone', title: 'Join a pool with just your name', to: '/pools',
     body: 'Friends you invite to a pool now type their name and they\'re in, no email or password first. Their place stays on their phone, and Keep your place adds an email whenever they like so they can sign in anywhere with every call and coin. Fantasy leagues still ask for an email.' },
   { date: '2026-10-23', icon: '🧭', tag: 'everyone', title: 'Players in the bottom bar, and a lighter app', to: '/players',
