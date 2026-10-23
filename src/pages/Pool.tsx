@@ -26,6 +26,7 @@ import { ShareButton, useCardBrand } from '../components/ShareButton';
 import { InvitePeople } from '../components/InvitePeople';
 import { PostToChats } from '../components/PostToChats';
 import { DeletePool } from '../components/DeletePool';
+import { KeepSeat } from '../components/KeepSeat';
 import { LeagueFeatures } from '../components/LeagueFeatures';
 import { usePoolCompetitions } from '../lib/poolOwn';
 import { HostGames, PoolGameCards, usePoolGames } from './Picks';
@@ -189,6 +190,9 @@ export function PoolHome() {
       {/* alone, the invite comes before anything else */}
       {alone && <div id="pool-invite"><InviteCard /></div>}
 
+      {/* joined with just a name: the email that keeps the seat (migration 332) */}
+      <KeepSeat />
+
       <PoolRoomCard room={room} />
 
       {/* a pool of two or three is a group chat that hasn't been told yet: the host's invite sits up top until it has
@@ -282,7 +286,7 @@ function InviteCard() {
       <div className="pointer-events-none absolute -right-10 -top-10 h-40 w-40 rounded-full bg-gold/20 blur-3xl" />
       <div className="relative">
         <h3 className="font-display text-2xl font-extrabold text-white">{link ? 'Send it to the group chat' : 'Invite your group chat'}</h3>
-        <p className="mt-1 text-sm text-mute">Everyone gets the same {brand.coin.name.toLowerCase()} to start, and every drop. They join with a name, email and password. Nothing to download.</p>
+        <p className="mt-1 text-sm text-mute">Everyone gets the same {brand.coin.name.toLowerCase()} to start, and every drop. They join with just a name. Nothing to download.</p>
         {me?.role === 'gm' ? (
           <>
             <div className="mt-3 flex flex-wrap gap-2">

@@ -3,6 +3,7 @@ import { NavLink, useLocation, useNavigate } from 'react-router-dom';
 import { useUsage } from '../lib/usage';
 import { useAppUpdate } from '../lib/appUpdate';
 import { LeagueMark, Wordmark, WordmarkStack } from './Brand';
+import { signOut } from '../lib/guest';
 import { useLeague, useNow } from '../lib/store';
 import { hasFeature } from '../lib/features';
 import { realtimeChannel, supabase } from '../lib/supabase';
@@ -298,7 +299,7 @@ export function Layout({ children }: { children: ReactNode }) {
           <TeamBadge team={me ?? undefined} size={36} />
           <div className="min-w-0 flex-1"><div className="truncate text-sm font-bold">{me?.name}</div><div className="text-xs text-mute">{kind === 'predict' ? me?.gm_name : `GM ${me?.gm_name}`}</div></div>
           <button className="btn-ghost btn-sm relative" onClick={openNotif} aria-label="Notifications"><Bell size={16} />{unreadN > 0 && <span className="absolute -right-1 -top-1 grid h-4 min-w-4 place-items-center rounded-full bg-goal px-1 text-[10px] font-bold">{unreadN}</span>}</button>
-          <button className="btn-ghost btn-sm" onClick={() => supabase.auth.signOut()} aria-label="Sign out" title="Sign out"><LogOut size={16} /></button>
+          <button className="btn-ghost btn-sm" onClick={() => signOut()} aria-label="Sign out" title="Sign out"><LogOut size={16} /></button>
         </div>
       </aside>
 
@@ -384,7 +385,7 @@ export function Layout({ children }: { children: ReactNode }) {
             </div>
           ))}
         </div>
-        <button className="btn-ghost mt-4 w-full" onClick={() => { setMore(false); supabase.auth.signOut(); }}><LogOut size={16} /> Sign out</button>
+        <button className="btn-ghost mt-4 w-full" onClick={() => { setMore(false); signOut(); }}><LogOut size={16} /> Sign out</button>
       </Sheet>
 
       <Sheet open={bell} onClose={() => setBell(false)} title="Notifications">

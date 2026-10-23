@@ -312,7 +312,7 @@ function attributionParams(extra?: { src?: string | null }): Record<string, stri
 
 // New account created (email/password). Once per browser; mark even without consent so Accept later never backfills.
 // When the typed email is passed, set enhanced-conversion user_data (hashed) immediately before sign_up.
-export async function trackSignUp(method: 'email' = 'email', email?: string | null) {
+export async function trackSignUp(method: 'email' | 'guest' = 'email', email?: string | null) {
   if (storeGet(SIGN_UP_KEY) === '1') return;
   storeSet(SIGN_UP_KEY, '1');
   if (email) await setEnhancedConversionEmail(email);

@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { PROVIDERS, SERVICES, playerFor } from '../lib/watch';
+import { signOut } from '../lib/guest';
 import { useLeague } from '../lib/store';
 import { Link } from 'react-router-dom';
 import { ArrowRight, Layers } from 'lucide-react';
@@ -9,6 +10,7 @@ import { useHistory } from '../lib/history';
 import { Section, TeamBadge, Toggle, useAction, useToast } from '../components/ui';
 import type { GarryMemory, Team } from '../lib/types';
 import { PushCard } from '../components/PushCard';
+import { KeepSeat } from '../components/KeepSeat';
 import { ConnectYahoo, useYahooStatus } from '../components/YahooConnect';
 import { useBrand } from '../lib/brand';
 
@@ -46,6 +48,7 @@ export default function Profile() {
 
   return (
     <div className="space-y-5">
+      <KeepSeat />
       <div className="card-hero flex items-center gap-4 p-4" style={{ '--tc': f.color } as React.CSSProperties}>
         <div className="pointer-events-none absolute -right-4 -top-6 select-none text-[120px] leading-none opacity-[.08]">{f.emoji}</div>
         <TeamBadge team={{ ...me, ...f } as Team} size={64} ring />
@@ -163,7 +166,7 @@ export default function Profile() {
       <div className="card p-3 text-sm text-mute">
         📱 <span className="text-slate-200">Install the app:</span> on iPhone tap Share → “Add to Home Screen”; on Android tap ⋮ → “Install app”. It opens full-screen like a native app.
       </div>
-      <button className="btn-ghost w-full" onClick={() => supabase.auth.signOut()}>Sign out</button>
+      <button className="btn-ghost w-full" onClick={() => signOut()}>Sign out</button>
       <p className="text-center text-[11px] text-mute"><a href="#/privacy" className="underline decoration-white/20 underline-offset-2">What we keep about you</a></p>
       </div>
     </div>

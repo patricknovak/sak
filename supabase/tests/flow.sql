@@ -7522,3 +7522,14 @@ with runs as (select generate_series(1, 200) s), items as (select g id from gene
 select pg_temp.expect('and the pattern they use draws each row on its own', (select count(distinct u) = 2000 from (
   select x.u from runs r cross join items i cross join lateral (select random() + 0 * r.s + 0 * i.id u) x) z));
 select 'every draw its own', true;
+
+-- joining with just a name (migration 332): ten a day from one connection, then an email is asked for
+reset role;
+select set_config('request.jwt.claim.sub', '', false);
+select pg_temp.expect('the first name-only joins from a connection go ahead', (select bool_and(_guest_join_check('test-ip') is null) from generate_series(1, 10)));
+select pg_temp.expect('the eleventh asks for an email', _guest_join_check('test-ip') like 'Too many joins%');
+select pg_temp.expect('another connection still joins', _guest_join_check('other-ip') is null);
+select pg_temp.raises('a member can''t call it', 'set role authenticated; select _guest_join_check(''x'')', 'permission denied');
+reset role;
+delete from private.guest_joins where ip in ('test-ip', 'other-ip');
+select 'guest joins', true;
