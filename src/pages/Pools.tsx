@@ -156,7 +156,9 @@ export default function Pools() {
   const [deleting, setDeleting] = useState<MyPool | null>(null);
   const [invites, setInvites] = useState<Invite[]>([]);
   const loadInvites = () => rpc<Invite[]>('my_invites').then((d) => setInvites(d ?? []), () => setInvites([]));
-  const load = () => { rpc<MyPool[]>('my_pools').then((d) => setRows(d ?? []), () => setRows([])); loadInvites(); };
+  // a load that didn't get through says so, rather than "no pools yet"; a refresh that fails keeps what's showing
+  const [failed, setFailed] = useState(false);
+  const load = () => { rpc<MyPool[]>('my_pools').then((d) => { setFailed(false); setRows(d ?? []); }, () => setFailed(true)); loadInvites(); };
   useEffect(() => {
     load();
     // back on the page after a while in another app: fresh numbers
@@ -172,7 +174,13 @@ export default function Pools() {
         sub={rows ? `${rows.length} ${rows.length === 1 ? 'pool' : 'pools'} on one account${waiting ? ` · ${waiting} ${waiting === 1 ? 'needs' : 'need'} you` : ''}` : 'Every pool you’re in, on one account'}
         right={<a href="#/new" className="btn-gold inline-flex items-center gap-1.5"><Plus className="h-4 w-4" /> Start a pool</a>} />
       <Invitations list={invites} reload={loadInvites} />
-      {!rows ? <div className="grid gap-3 lg:grid-cols-2">{[0, 1].map((i) => <Skeleton key={i} className="h-36 rounded-3xl" />)}</div>
+      {!rows && failed ? (
+          <div className="card p-5 text-center text-sm text-slate-200">
+            Couldn’t load your pools just now. Check your connection and try again.
+            <button type="button" className="btn-primary mt-3 w-full sm:w-auto" onClick={load}>Try again</button>
+          </div>
+        )
+        : !rows ? <div className="grid gap-3 lg:grid-cols-2">{[0, 1].map((i) => <Skeleton key={i} className="h-36 rounded-3xl" />)}</div>
         : !rows.length ? <Empty icon="🏆" title="No pools yet">Start one below, or open an invite link a friend sent you.</Empty>
         : <div className="grid gap-3 lg:grid-cols-2">{sorted.map((p) => <PoolCard key={p.league_id} p={p} now={now} onDelete={() => setDeleting(p)} />)}</div>}
 

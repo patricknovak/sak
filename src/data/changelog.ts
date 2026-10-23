@@ -6,6 +6,10 @@
 export interface Change { date: string; icon: string; title: string; body: string; to?: string; tag?: 'formats' | 'commish' | 'draft' | 'everyone' }
 
 export const CHANGELOG: Change[] = [
+  { date: '2026-10-23', icon: '🔕', tag: 'everyone', title: 'Fewer bells, all of them news', to: '/',
+    body: 'No more bells when a player flips between Out and Day-To-Day on a game day, or for the same news twice in three days. Stat corrections ring only when they move your total by a point or more. New injuries, a move to IR and a player coming off the report still ring.' },
+  { date: '2026-10-23', icon: '🏠', tag: 'everyone', title: 'Home leads with tonight', to: '/',
+    body: 'On your phone, Home now opens on tonight: your starters, their points and any benched player with a game. The standings follow with every team name in full, and cards with nothing to show yet stay out of the way.' },
   { date: '2026-10-18', icon: '🎯', tag: 'everyone', title: 'More to call in a World Series pool', to: '/new',
     body: 'A World Series pool now asks who wins Game 1, whether the Game 1 winner goes on to win it all, and whether any game goes to extra innings, beside who wins, in how many games and the MVP. Results come in on their own, and the host gets a bell to call each one.' },
   { date: '2026-10-18', icon: '⚾', tag: 'everyone', title: 'World Series pools, ready for Game 1', to: '/new',

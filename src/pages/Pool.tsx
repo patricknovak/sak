@@ -96,7 +96,6 @@ export function PoolHome() {
   const myChance = me ? chances?.get(me.id) : undefined;
   const mine = leaders?.find((l) => l.team_id === me?.id);
   const open = (markets ?? []).filter((m) => isOpen(m, now));
-  const closing = [...open].sort((a, b) => a.closes_at.localeCompare(b.closes_at)).slice(0, 4);
   // the day's last call: what closes within the day and which of it the member hasn't called (a drop night's questions
   // close at 3 am; the hero says so above the fold, pointing at the first one still open to them)
   const today = open.filter((m) => new Date(m.closes_at).getTime() - now < 864e5).sort((a, b) => a.closes_at.localeCompare(b.closes_at));
@@ -106,6 +105,8 @@ export function PoolHome() {
     trades.forEach((t) => { if (new Date(t.created_at).getTime() > day) n.set(t.market_id, (n.get(t.market_id) ?? 0) + 1); });
     return open.filter((m) => n.has(m.id)).sort((a, b) => (n.get(b.id) ?? 0) - (n.get(a.id) ?? 0)).slice(0, 2);
   }, [trades, open.length]); // eslint-disable-line react-hooks/exhaustive-deps
+  // what closes next, leaving out what's already showing under Moving now
+  const closing = [...open].filter((m) => !hot.some((h) => h.id === m.id)).sort((a, b) => a.closes_at.localeCompare(b.closes_at)).slice(0, 4);
   const settle = (markets ?? []).filter((m) => m.status === 'open' && !isOpen(m, now));
   // the closed questions the feed already has an answer for (migration 273): the host's card says so and opens the
   // first, where it settles with one tap
@@ -204,10 +205,12 @@ export function PoolHome() {
         <>
           <DropCard />
           {hot.length > 0 && <Section title="Moving now" icon={<Flame className="h-5 w-5 text-gold" />}><div className="grid gap-3 md:grid-cols-2">{hot.map((m) => <MarketCard key={m.id} m={m} positions={positions} trades={trades} compact />)}</div></Section>}
+          {(closing.length > 0 || open.length === 0) && (
           <Section title="Closing soon" icon={<CalendarClock className="h-5 w-5 text-gold" />} right={<Link to="/questions" className="text-sm font-semibold text-sky-300">All {markets.length} →</Link>}>
             {closing.length ? <div className="grid gap-3 md:grid-cols-2">{closing.map((m) => <MarketCard key={m.id} m={m} positions={positions} trades={trades} compact />)}</div>
               : <div className="card p-4 text-sm text-mute">Nothing open right now. New questions land with each drop.</div>}
           </Section>
+          )}
         </>
       )}
       <PredictorCard />
@@ -247,7 +250,7 @@ function InviteCard() {
   const [link, setLink] = useState<string | null>(null);
   const [inviting, setInviting] = useState(false);
   const { markets } = usePool();
-  // invite_share only on a real tap — never on mount (smoke: auto-share after create inflated the funnel).
+  // invite_share only on a real tap, never on mount (smoke: auto-share after create inflated the funnel).
   const make = () => run(async () => {
     // the pool's one open link, the same for the host and every member (migration 162)
     const code = await rpc<string>('pool_share_link');
@@ -255,7 +258,7 @@ function InviteCard() {
     setLink(url);
     // the text asks the question closing soonest, the way the link's preview does (migration 252): the pitch is the game
     const next = (markets ?? []).filter((m) => isOpen(m, Date.now())).sort((a, b) => a.closes_at.localeCompare(b.closes_at))[0];
-    const text = `Join my ${brand.tagline || league?.name} on Super Pools.${next ? ` First up: "${next.title}"` : ''} Free, never money — just bragging rights.`;
+    const text = `Join my ${brand.tagline || league?.name} on Super Pools.${next ? ` First up: "${next.title}"` : ''} Free, never money, just bragging rights.`;
     if (navigator.share) await navigator.share({ title: league?.name ?? 'Super Pools', text, url }).catch(() => {});
     else await navigator.clipboard?.writeText(`${text}\n${url}`).catch(() => {});
     track('invite_share', { via: 'button', src: 'share' });
