@@ -460,9 +460,13 @@ test.describe('pool_created after Accept (mocked create paths)', () => {
       }
     });
     await stubReloadAndCapture(page);
-    await mockSupabase(page, 'new-user');
+    await plantMemberSession(page);
+    await mockSupabase(page, 'member');
     await page.goto('./#/new?pack=e2e-show-pack&src=e2e_consent');
     await expect(page.getByLabel(/Name your pool/i)).toBeVisible({ timeout: 30_000 });
+    await expect(page.getByText(/signed in as E2E Host/i)).toBeVisible({ timeout: 30_000 });
+    // Default pack name must land before the CTA is enabled.
+    await expect.poll(async () => page.getByLabel(/Name your pool/i).inputValue(), { timeout: 10_000 }).toMatch(/.{3,}/);
     await acceptAnalyticsOnly(page);
     expect(adsHits).toEqual([]);
     const start = page.getByRole('button', { name: /Start my pool/i });
