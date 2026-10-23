@@ -138,8 +138,8 @@ export function PoolHome() {
         <div className="text-[11px] font-bold uppercase tracking-[.22em] text-gold">{brand.tagline || league?.name}</div>
         <h1 className="mt-1 font-display text-[40px] font-extrabold italic leading-[.95] text-white">Hi {me?.gm_name?.split(' ')[0] ?? 'there'}.<br /><span className="text-gold">Call it.</span></h1>
         <div className="mt-4 grid grid-cols-3 gap-2">
-          <div className="rounded-2xl bg-black/25 px-3 py-2.5 ring-1 ring-white/10"><div className="label">To spend</div><div className="font-display text-2xl font-extrabold text-white"><Coins n={coins} /></div></div>
-          <div className="rounded-2xl bg-black/25 px-3 py-2.5 ring-1 ring-white/10"><div className="label">Worth</div><div className="font-display text-2xl font-extrabold text-white"><Coins n={mine?.worth} /></div></div>
+          <div className="rounded-2xl bg-black/25 px-3 py-2.5 ring-1 ring-white/10"><div className="label">To spend</div><div className="font-display text-[clamp(17px,5.2vw,24px)] font-extrabold text-white"><Coins n={coins} /></div></div>
+          <div className="rounded-2xl bg-black/25 px-3 py-2.5 ring-1 ring-white/10"><div className="label">Worth</div><div className="font-display text-[clamp(17px,5.2vw,24px)] font-extrabold text-white"><Coins n={mine?.worth} /></div></div>
           {alone ? (
             <button type="button" onClick={toInvite} className="rounded-2xl bg-gold/20 px-3 py-2.5 text-left ring-1 ring-gold/50 hover:bg-gold/25">
               <div className="label truncate text-gold">Just you</div>
@@ -147,7 +147,7 @@ export function PoolHome() {
             </button>
           ) : (
           <Link to="/leaders" className="rounded-2xl bg-black/25 px-3 py-2.5 ring-1 ring-white/10 hover:bg-black/35"><div className="label truncate">{main && board!.games.length > 1 ? `${kindOf(main.kind).icon} Rank` : 'Rank'}</div>
-            <div className="flex items-baseline gap-1 font-display text-2xl font-extrabold text-white">{main?.mine ? main.mine.rank : '–'}<span className="text-sm font-bold text-mute">of {main?.members ?? '–'}</span><Move n={main?.mine?.move} /></div></Link>
+            <div className="flex items-baseline gap-1 font-display text-[clamp(17px,5.2vw,24px)] font-extrabold text-white">{main?.mine ? main.mine.rank : '–'}<span className="text-sm font-bold text-mute">of {main?.members ?? '–'}</span><Move n={main?.mine?.move} /></div></Link>
           )}
         </div>
         <p className="mt-2 text-[11px] text-mute">{brand.coin.name} are play coins, never real money.</p>
