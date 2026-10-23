@@ -29,6 +29,8 @@ function json(data: unknown, status = 200) {
 
 async function stubReloadAndCapture(page: Page) {
   await page.addInitScript(() => {
+    // Opt into analytics test harness (flush helper + allowlist override). No real GTM hits: route mocks below.
+    (window as unknown as { __spAnalyticsTest?: boolean }).__spAnalyticsTest = true;
     // openPool / Reopen call location.reload(); block it so the SPA stays put.
     (window as unknown as { __e2eReloads: number }).__e2eReloads = 0;
     const blockReload = () => {
