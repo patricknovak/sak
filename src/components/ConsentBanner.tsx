@@ -1,6 +1,7 @@
 // Consent floor with two choices: Analytics (analytics_storage) and Ads measurement
 // (ad_storage + ad_user_data + AW tag + hashed email). Defaults stay denied until each is accepted.
-// Nothing Google loads before at least one Accept. Shows until both have been chosen.
+// Nothing Google loads before at least one Accept. One choice closes the sheet; unanswered Ads is saved as denied
+// so the sheet cannot cover Start my pool after Analytics alone.
 import { useEffect, useState } from 'react';
 import {
   getAdsConsent,
@@ -24,20 +25,34 @@ export function ConsentBanner() {
     }
   }, []);
   if (!open) return null;
-  const closeIfDone = (nextA: typeof analytics, nextAds: typeof ads) => {
-    if (nextA != null && nextAds != null) setOpen(false);
+  // Any choice closes the sheet. Unanswered Ads → denied (no Ads tags). Unanswered Analytics → denied too,
+  // so a single Ads tap also clears the sheet and does not reopen on the next page.
+  const finish = (nextA: 'granted' | 'denied' | null, nextAds: 'granted' | 'denied' | null) => {
+    let a = nextA ?? getAnalyticsConsent();
+    let d = nextAds ?? getAdsConsent();
+    if (a == null) {
+      setAnalyticsConsent(false);
+      a = 'denied';
+      setAnalytics(a);
+    }
+    if (d == null) {
+      setAdsConsent(false);
+      d = 'denied';
+      setAds(d);
+    }
+    setOpen(false);
   };
   const chooseAnalytics = (granted: boolean) => {
     setAnalyticsConsent(granted);
     const next = granted ? 'granted' as const : 'denied' as const;
     setAnalytics(next);
-    closeIfDone(next, ads ?? getAdsConsent());
+    finish(next, ads ?? getAdsConsent());
   };
   const chooseAds = (granted: boolean) => {
     setAdsConsent(granted);
     const next = granted ? 'granted' as const : 'denied' as const;
     setAds(next);
-    closeIfDone(analytics ?? getAnalyticsConsent(), next);
+    finish(analytics ?? getAnalyticsConsent(), next);
   };
   return (
     <div className="pointer-events-none fixed inset-x-0 bottom-0 z-[80] flex justify-center p-3 pb-[max(0.75rem,env(safe-area-inset-bottom))]" role="dialog" aria-label="Analytics and ads cookies">

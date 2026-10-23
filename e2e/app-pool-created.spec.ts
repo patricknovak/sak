@@ -207,6 +207,7 @@ async function mockSupabase(page: Page, path: CreatePath) {
       if (name === 'pool_event_list') return route.fulfill(json([]));
       if (name === 'pool_start') return route.fulfill(json({ id: 401, slug: 'e2e-member-pool' }));
       if (name === 'fantasy_start') return route.fulfill(json({ id: 601, slug: 'e2e-fantasy-league' }));
+      if (name === 'pool_share_link') return route.fulfill(json('e2eshare'));
       if (name === 'pool_start_games' || name === 'set_active_league' || name === 'league_by_host') {
         return route.fulfill(json(null));
       }
@@ -279,10 +280,7 @@ async function acceptAnalyticsOnly(page: Page) {
   const dialog = page.getByRole('dialog', { name: /Analytics and ads/i });
   await expect(dialog).toBeVisible({ timeout: 30_000 });
   await dialog.getByRole('button', { name: 'Accept' }).first().click();
-  // Ads must stay unset after Analytics Accept alone (#286 split).
-  const ads = await page.evaluate(() => localStorage.getItem('sp_ads_consent'));
-  expect(ads).toBeNull();
-  await dialog.getByRole('button', { name: 'No thanks' }).nth(1).click();
+  // Any saved choice closes the sheet; unanswered Ads is denied (no Ads tags).
   await expect(dialog).toBeHidden();
   const after = await page.evaluate(() => ({
     a: localStorage.getItem('sp_analytics_consent'),
@@ -373,6 +371,7 @@ test.describe('pool_created after Accept (mocked create paths)', () => {
     expect(ev?.params.pack).toBe('e2e-show-pack');
     expect(ev?.params.kind).toBe('questions');
     expect(ev?.params.src).toBe('e2e_guest');
+    expect(ev?.params.sport).toBeUndefined();
   });
 
   test('signed-in pool_start pushes pool_created with params', async ({ page }) => {
@@ -390,6 +389,7 @@ test.describe('pool_created after Accept (mocked create paths)', () => {
     expect(ev?.params.pack).toBe('e2e-show-pack');
     expect(ev?.params.kind).toBe('questions');
     expect(ev?.params.src).toBe('e2e_member');
+    expect(ev?.params.sport).toBeUndefined();
   });
 
   test('fantasy_start pushes pool_created with params', async ({ page }) => {
@@ -450,22 +450,74 @@ test.describe('pool_created after Accept (mocked create paths)', () => {
     expect(await storageGet(page, 'sp_pool_created_pending')).toBeNull();
   });
 
-  test('Analytics Accept alone does not grant Ads consent', async ({ page }) => {
+  test('Analytics-only: Ads denied, sheet closes, Start my pool tappable at 390x844', async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+    const adsHits: string[] = [];
+    page.on('request', (req) => {
+      const u = req.url();
+      if (/googleads|doubleclick|googleadservices|\/pagead\/|adservice\.google|googlesyndication|AW-\d/i.test(u)) {
+        adsHits.push(u);
+      }
+    });
     await stubReloadAndCapture(page);
-    await mockSupabase(page, 'new-user');
-    await page.goto('./#/new');
-    await expect(page.getByText(/What are you starting/i)).toBeVisible({ timeout: 30_000 });
-    const dialog = page.getByRole('dialog', { name: /Analytics and ads/i });
-    await expect(dialog).toBeVisible();
-    await dialog.getByRole('button', { name: 'Accept' }).first().click();
-    const keys = await page.evaluate(() => ({
-      a: localStorage.getItem('sp_analytics_consent'),
-      d: localStorage.getItem('sp_ads_consent'),
-    }));
-    expect(keys.a).toBe('granted');
-    expect(keys.d).toBeNull();
-    // Banner stays open until Ads is chosen.
-    await expect(dialog).toBeVisible();
+    await plantMemberSession(page);
+    await mockSupabase(page, 'member');
+    await page.goto('./#/new?pack=e2e-show-pack&src=e2e_consent');
+    await expect(page.getByLabel(/Name your pool/i)).toBeVisible({ timeout: 30_000 });
+    await expect(page.getByText(/signed in as E2E Host/i)).toBeVisible({ timeout: 30_000 });
+    // Default pack name must land before the CTA is enabled.
+    await expect.poll(async () => page.getByLabel(/Name your pool/i).inputValue(), { timeout: 10_000 }).toMatch(/.{3,}/);
+    await acceptAnalyticsOnly(page);
+    expect(adsHits).toEqual([]);
+    const start = page.getByRole('button', { name: /Start my pool/i });
+    await expect(start).toBeVisible();
+    await expect(start).toBeEnabled();
+    // Sheet must not cover the CTA: the button's center hit-tests to itself (or a child).
+    const box = await start.boundingBox();
+    expect(box).toBeTruthy();
+    const top = await start.evaluate((el) => {
+      const r = el.getBoundingClientRect();
+      const x = r.left + r.width / 2;
+      const y = r.top + r.height / 2;
+      const hit = document.elementFromPoint(x, y);
+      return !!(hit && (hit === el || el.contains(hit)));
+    });
+    expect(top).toBe(true);
+    expect(adsHits).toEqual([]);
+  });
+
+  test('invite_share fires only on Share tap, never on pool home mount', async ({ page }) => {
+    await page.addInitScript(() => {
+      localStorage.setItem('sp_analytics_consent', 'granted');
+      localStorage.setItem('sp_ads_consent', 'denied');
+      try {
+        Object.defineProperty(navigator, 'share', { configurable: true, value: async () => {} });
+      } catch { /* ignore */ }
+    });
+    await stubReloadAndCapture(page);
+    await plantMemberSession(page);
+    await mockSupabase(page, 'member');
+
+    await page.goto('./#/');
+    await expect(page.getByRole('button', { name: /Share the invite link/i })).toBeVisible({ timeout: 45_000 });
+
+    const inviteShareCount = async () => page.evaluate(() => {
+      const layer = (window as unknown as { dataLayer?: unknown[] }).dataLayer || [];
+      let n = 0;
+      for (const entry of layer) {
+        if (!entry || typeof entry !== 'object') continue;
+        const args = entry as { [i: number]: unknown };
+        if (args[0] === 'event' && args[1] === 'invite_share') n += 1;
+      }
+      return n;
+    });
+
+    // Mount must not fire invite_share (regression: auto-share after create).
+    await page.waitForTimeout(800);
+    expect(await inviteShareCount()).toBe(0);
+
+    await page.getByRole('button', { name: /Share the invite link/i }).click();
+    await expect.poll(inviteShareCount, { timeout: 10_000 }).toBe(1);
   });
 
   // Pack path: pending before gtag callback; once-key only after event_callback confirms.
@@ -484,6 +536,7 @@ test.describe('pool_created after Accept (mocked create paths)', () => {
     }, { timeout: 15_000 }).toBe(1);
     expect(ev?.params.pack).toBe('e2e-show-pack');
     expect(ev?.params.kind).toBe('questions');
+    expect(ev?.params.sport).toBeUndefined();
 
     // Snapshot taken just before event_callback: pending yes, once-key no.
     let beforeCb: { pending: string | null; keys: string[] } | null = null;

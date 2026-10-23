@@ -3,7 +3,7 @@ import { useSearchParams } from 'react-router-dom';
 import { FunctionsHttpError } from '@supabase/supabase-js';
 import { ArrowLeft, Check, Lock, Plus, Sparkles } from 'lucide-react';
 import { rpc, setRemember, supabase } from '../lib/supabase';
-import { markShareAfterCreate, openPool } from '../lib/host';
+import { openPool } from '../lib/host';
 import { useLeague } from '../lib/store';
 import { Spinner, Toggle } from '../components/ui';
 import { themed } from '../components/LeagueIdentity';
@@ -210,10 +210,9 @@ export default function NewPool() {
       if (member) {
         const r = await rpc<{ id: number; slug: string }>('pool_start', { p_name: pool.trim(), p_color: color, p_pack: openPack });
         // Queue only; openPool reloads and initAnalytics sends pool_created on the stable page.
-        await trackPoolCreated({ id: r.id, pack: openPack, sport: event?.sport ?? null, kind: mode });
+        // Question pools omit sport (DB default nhl must not mislabel analytics).
+        await trackPoolCreated({ id: r.id, pack: openPack, sport: mode === 'questions' ? null : event?.sport ?? null, kind: mode });
         await startGames(r.id);
-        // Home first: InviteCard opens the share sheet once so the group chat gets the link.
-        markShareAfterCreate();
         await openPool({ league_id: r.id, slug: r.slug }, '/');
         return;
       }
@@ -230,14 +229,13 @@ export default function NewPool() {
       setRemember(true);
       const opened = (data as { pool?: { id: number; slug: string } })?.pool;
       // Queue before sign-in so a failed login cannot skip the north-star hit; send after reload.
-      await trackPoolCreated({ id: opened?.id, pack: openPack, sport: event?.sport ?? null, kind: mode });
+      await trackPoolCreated({ id: opened?.id, pack: openPack, sport: mode === 'questions' ? null : event?.sport ?? null, kind: mode });
       const { error: se } = await supabase.auth.signInWithPassword({ email: login, password: pw });
       if (se) { setBusy(false); setErr(`Your pool is open, but signing in failed: ${se.message}. Sign in from the main page.`); return; }
       try { localStorage.setItem('sak-last-email', login); } catch { /* nothing to remember with */ }
       await trackSignUp('email', login);
       if (opened) {
         await startGames(opened.id).catch((x) => setErr(`Your pool is open, but its games didn’t start: ${(x as Error).message}. Add them from the Host page.`));
-        markShareAfterCreate();
         await openPool({ league_id: opened.id, slug: opened.slug }, '/');
       }
       else { window.location.hash = '#/'; window.location.reload(); }

@@ -14,7 +14,7 @@ import { answerColor, isOpen, pct, prices, usePool, useCoins, type PoolLeader, t
 import { CallsFeed, closesIn, Coins, MarketCard, PriceChart, TradeSheet } from '../components/Pool';
 import { Empty, PageHeader, Section, TeamBadge, useAction } from '../components/ui';
 import { useEffect } from 'react';
-import { consumeShareAfterCreate, inviteLink } from '../lib/host';
+import { inviteLink } from '../lib/host';
 import { shareCard } from '../lib/shareCard';
 import { hasTrackedFirstCall, newPoolPath, track } from '../lib/analytics';
 import { SurvivorCard } from './Survivor';
@@ -240,7 +240,6 @@ function StartOwnPoolCard() {
 }
 
 // the host's open link, shared from the phone; members are pointed at the host.
-// After create, NewPool marks share-after-create and lands here so the sheet opens once with prefilled text + ?src=share.
 function InviteCard() {
   const { me, league } = useLeague();
   const brand = useBrand();
@@ -248,7 +247,8 @@ function InviteCard() {
   const [link, setLink] = useState<string | null>(null);
   const [inviting, setInviting] = useState(false);
   const { markets } = usePool();
-  const make = (via: 'button' | 'create' = 'button') => run(async () => {
+  // invite_share only on a real tap — never on mount (smoke: auto-share after create inflated the funnel).
+  const make = () => run(async () => {
     // the pool's one open link, the same for the host and every member (migration 162)
     const code = await rpc<string>('pool_share_link');
     const url = inviteLink(code, { src: 'share' });
@@ -258,15 +258,8 @@ function InviteCard() {
     const text = `Join my ${brand.tagline || league?.name} on Super Pools.${next ? ` First up: "${next.title}"` : ''} Free, never money — just bragging rights.`;
     if (navigator.share) await navigator.share({ title: league?.name ?? 'Super Pools', text, url }).catch(() => {});
     else await navigator.clipboard?.writeText(`${text}\n${url}`).catch(() => {});
-    track('invite_share', { via, src: 'share' });
+    track('invite_share', { via: 'button', src: 'share' });
   });
-  useEffect(() => {
-    if (!me?.role || me.role !== 'gm') return;
-    if (!consumeShareAfterCreate()) return;
-    make('create');
-    // fire once on landing after create
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
   return (
     <div className="card relative overflow-hidden p-5">
       <div className="pointer-events-none absolute -right-10 -top-10 h-40 w-40 rounded-full bg-gold/20 blur-3xl" />
@@ -276,7 +269,7 @@ function InviteCard() {
         {me?.role === 'gm' ? (
           <>
             <div className="mt-3 flex flex-wrap gap-2">
-              <button className="btn-gold inline-flex items-center gap-2" disabled={busy} onClick={() => make('button')}><Link2 className="h-4 w-4" /> Share the invite link</button>
+              <button className="btn-gold inline-flex items-center gap-2" disabled={busy} onClick={() => make()}><Link2 className="h-4 w-4" /> Share the invite link</button>
               <button className="btn-ghost inline-flex items-center gap-2" onClick={() => setInviting(true)}><UserPlus className="h-4 w-4" /> Invite people you know</button>
             </div>
             {link && <div className="mt-2 break-all rounded-xl bg-black/30 px-3 py-2 text-xs text-sky-200">{link}</div>}

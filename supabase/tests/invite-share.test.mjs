@@ -66,6 +66,7 @@ function installDom({ hash = '#/', hostname = 'app.superpoolsai.com' } = {}) {
 }
 
 {
+  // Flag helpers remain for tests; InviteCard no longer auto-shares on mount.
   installDom();
   markShareAfterCreate();
   assert.equal(consumeShareAfterCreate(), true);
