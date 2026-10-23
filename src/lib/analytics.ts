@@ -191,6 +191,12 @@ function loadTagsIfNeeded() {
 // Call once at app start: capture first-touch, and load gtag only when consent was already granted.
 export function initAnalytics() {
   captureFirstTouch();
+  if (typeof window !== 'undefined') {
+    // e2e: a stubbed reload calls this to mimic initAnalytics flushing pending pool_created.
+    (window as unknown as { __spFlushPoolCreated?: () => void }).__spFlushPoolCreated = () => {
+      void flushPendingPoolCreated();
+    };
+  }
   if (!measurementId()) return;
   ensureGtag();
   applyConsentFlags();
@@ -198,7 +204,7 @@ export function initAnalytics() {
   if (getAnalyticsConsent() === 'granted') {
     // First load of a consented return visit: record this route (AnalyticsRoute will not double-count).
     trackPageView(currentAppPath());
-    // Retry any pool_created that was queued (consent off, or reload before gtag flushed).
+    // Retry any pool_created that was queued (consent off, or before openPool's reload).
     void flushPendingPoolCreated();
   }
 }
@@ -346,14 +352,14 @@ function writePendingPoolCreated(list: PoolCreatedPayload[]) {
   storeSet(POOL_CREATED_PENDING_KEY, JSON.stringify(list));
 }
 
-// How long we keep pending after gtag('event') before treating the beacon as sent.
-// gtag's event_callback often fires before /g/collect leaves the browser — never mark on it.
-let poolCreatedFlushMs = 1000;
+// How long we wait for gtag's event_callback before giving up (pending stays for a later retry).
+// GA4 often batches ~5s; mark sent only inside event_callback, never on this timer.
+let poolCreatedFlushMs = 8000;
 export function __testSetPoolCreatedFlushMs(ms: number) {
   poolCreatedFlushMs = ms;
 }
 
-// In-flight pool_created sends; openPool awaits these so a reload cannot race the beacon.
+// In-flight emits after a flush (reload / Accept); tests can await these.
 const poolCreatedFlushes = new Set<Promise<void>>();
 const poolCreatedTimers = new Set<number>();
 
@@ -379,37 +385,39 @@ function enqueuePending(payload: PoolCreatedPayload) {
   writePendingPoolCreated(pending);
 }
 
-// Fire gtag; write pending first (caller). Set the once-key only after the flush window —
-// gtag's event_callback often fires before /g/collect and must not mark. openPool awaits
-// this full window so a reload cannot clear pending before the beacon has had time to leave.
+// Fire gtag on a stable page (after reload). Mark once-key / clear pending only in event_callback.
+// On timeout, leave pending so the next init can retry — never treat the timer as a send.
 function emitPoolCreated(payload: PoolCreatedPayload): Promise<void> {
   if (!measurementId() || getAnalyticsConsent() !== 'granted') return Promise.resolve();
   if (payload.id && storeGet(poolCreatedKey(payload.id)) === '1') return Promise.resolve();
   ensureGtag();
   const attrs = attributionParams({ src: payload.src });
-  const clean: Record<string, string | number | boolean | (() => void)> = {
-    ...attrs,
-    transport_type: 'beacon',
-  };
+  const clean: Record<string, string | number | boolean | (() => void)> = { ...attrs };
   if (payload.pack) clean.pack = payload.pack;
   if (payload.sport) clean.sport = payload.sport;
   if (payload.kind) clean.kind = payload.kind;
+  // Ask gtag to call back within our window; we still only mark inside our callback below.
+  clean.event_timeout = poolCreatedFlushMs;
 
   const p = new Promise<void>((resolve) => {
     let settled = false;
-    const done = () => {
+    const resolveOnce = () => {
       if (settled) return;
       settled = true;
-      markPoolCreatedSent(payload);
       resolve();
     };
     const timer = window.setTimeout(() => {
+      // Timed out: keep pending for retry; do not set the once-key.
       poolCreatedTimers.delete(timer);
-      done();
+      resolveOnce();
     }, poolCreatedFlushMs);
     poolCreatedTimers.add(timer);
-    // Still pass a no-op callback so gtag is happy; never mark or settle on it.
-    clean.event_callback = () => { /* not a real send — see flush window above */ };
+    clean.event_callback = () => {
+      window.clearTimeout(timer);
+      poolCreatedTimers.delete(timer);
+      markPoolCreatedSent(payload);
+      resolveOnce();
+    };
     window.gtag?.('event', 'pool_created', clean);
   });
   poolCreatedFlushes.add(p);
@@ -419,20 +427,16 @@ function emitPoolCreated(payload: PoolCreatedPayload): Promise<void> {
   return p;
 }
 
-// Flush pool_created hits that were queued while Analytics consent was still off, or left pending
-// because a reload raced the previous send.
-function flushPendingPoolCreated(): Promise<void> {
+// Flush pool_created hits queued before Accept or before openPool's reload.
+export function flushPendingPoolCreated(): Promise<void> {
   if (getAnalyticsConsent() !== 'granted') return Promise.resolve();
   const pending = readPendingPoolCreated();
   if (!pending.length) return Promise.resolve();
-  // Keep pending rows until each emit's flush window marks them; do not clear the queue up front.
   return Promise.all(pending.map((row) => emitPoolCreated(row))).then(() => undefined);
 }
 
-// North-star: a pool (or fantasy league) opened successfully. Once per pool id after a real send.
-// Always write pending first; set the once-key and clear pending only after the flush window
-// (~1s), never on event_callback. openPool awaits awaitPoolCreatedFlush() so a reload before
-// the window leaves pending for retry on init.
+// North-star: queue only here. openPool reloads; initAnalytics / Accept flush on the stable page.
+// Once-key is set only when gtag's event_callback fires.
 export function trackPoolCreated(params: PoolCreatedParams = {}): Promise<void> {
   if (params.id != null && params.id !== '' && storeGet(poolCreatedKey(params.id)) === '1') {
     return Promise.resolve();
@@ -445,8 +449,7 @@ export function trackPoolCreated(params: PoolCreatedParams = {}): Promise<void> 
     src: params.src ?? readSrcParam(),
   };
   enqueuePending(payload);
-  if (getAnalyticsConsent() !== 'granted') return Promise.resolve();
-  return emitPoolCreated(payload);
+  return Promise.resolve();
 }
 
 // Member joined a pool via invite. Once per pool id; no backfill after Accept.

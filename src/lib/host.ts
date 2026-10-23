@@ -11,7 +11,6 @@
 // pool in the link, else the one this tab switched to, else the account's own.
 import { rpc, setLeagueHeader } from './supabase';
 import type { Brand } from './brand';
-import { awaitPoolCreatedFlush } from './analytics';
 import { inviteLinkWithSrc } from './inviteShare';
 export { markShareAfterCreate, consumeShareAfterCreate } from './inviteShare';
 
@@ -84,8 +83,7 @@ export function hostLeague(): Promise<HostLeague | null> {
 
 // open one of this account's pools: the account remembers it (new tabs open there), then the page loads for it
 export async function openPool(p: { league_id: number; slug: string }, path = '') {
-  // Wait for pool_created's flush window (~1s) so the once-key is set only after a real send window.
-  try { await awaitPoolCreatedFlush(); } catch { /* never block opening the pool */ }
+  // pool_created stays pending across this reload; initAnalytics flushes it on the stable page.
   try { await rpc('set_active_league', { p_league: p.league_id }); } catch { /* a link still works without it */ }
   setTabLeague(p.league_id);
   // replaceState fires no hashchange, so the router doesn't act on the address before the reload reads it

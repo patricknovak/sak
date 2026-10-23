@@ -33,6 +33,12 @@ async function stubReloadAndCapture(page: Page) {
     (window as unknown as { __e2eReloads: number }).__e2eReloads = 0;
     const blockReload = () => {
       (window as unknown as { __e2eReloads: number }).__e2eReloads += 1;
+      // Real reload would re-run initAnalytics and flush pending pool_created.
+      queueMicrotask(() => {
+        try {
+          (window as unknown as { __spFlushPoolCreated?: () => void }).__spFlushPoolCreated?.();
+        } catch { /* ignore */ }
+      });
     };
     try {
       Object.defineProperty(Location.prototype, 'reload', { configurable: true, writable: true, value: blockReload });
@@ -64,19 +70,20 @@ async function stubReloadAndCapture(page: Page) {
           const a0 = arguments[0];
           const a1 = arguments[1];
           const a2 = arguments[2] as Record<string, unknown> | undefined;
-          if (a0 === 'event' && a1 === 'pool_created') record(a2);
-          const ret = (fn as (...a: unknown[]) => unknown).apply(this, arguments as unknown as unknown[]);
-          // Mimic gtag.js's early event_callback (must not set the once-key in app code).
-          if (a0 === 'event' && a2 && typeof a2.event_callback === 'function') {
-            try { (a2.event_callback as () => void)(); } catch { /* ignore */ }
-          }
           if (a0 === 'event' && a1 === 'pool_created') {
+            record(a2);
+            // Snapshot before event_callback marks sent (pending yes, once-key no).
             try {
-              sessionStorage.setItem('__e2e_after_callback', JSON.stringify({
+              sessionStorage.setItem('__e2e_before_callback', JSON.stringify({
                 pending: localStorage.getItem('sp_pool_created_pending'),
                 keys: Object.keys(localStorage).filter((k) => k.startsWith('sp_pool_created:')),
               }));
             } catch { /* private mode */ }
+          }
+          const ret = (fn as (...a: unknown[]) => unknown).apply(this, arguments as unknown as unknown[]);
+          // Mimic gtag.js confirming the send — app marks the once-key only here.
+          if (a0 === 'event' && a2 && typeof a2.event_callback === 'function') {
+            try { (a2.event_callback as () => void)(); } catch { /* ignore */ }
           }
           return ret;
         };
@@ -366,7 +373,6 @@ test.describe('pool_created after Accept (mocked create paths)', () => {
     expect(ev?.params.pack).toBe('e2e-show-pack');
     expect(ev?.params.kind).toBe('questions');
     expect(ev?.params.src).toBe('e2e_guest');
-    expect(ev?.params.transport_type).toBe('beacon');
   });
 
   test('signed-in pool_start pushes pool_created with params', async ({ page }) => {
@@ -384,7 +390,6 @@ test.describe('pool_created after Accept (mocked create paths)', () => {
     expect(ev?.params.pack).toBe('e2e-show-pack');
     expect(ev?.params.kind).toBe('questions');
     expect(ev?.params.src).toBe('e2e_member');
-    expect(ev?.params.transport_type).toBe('beacon');
   });
 
   test('fantasy_start pushes pool_created with params', async ({ page }) => {
@@ -402,7 +407,6 @@ test.describe('pool_created after Accept (mocked create paths)', () => {
     expect(ev?.params.kind).toBe('fantasy');
     expect(ev?.params.sport).toBe('nhl');
     expect(ev?.params.src).toBe('e2e_fantasy');
-    expect(ev?.params.transport_type).toBe('beacon');
   });
 
   test('create before Accept: pending flushes on Analytics Accept', async ({ page }) => {
@@ -464,9 +468,8 @@ test.describe('pool_created after Accept (mocked create paths)', () => {
     await expect(dialog).toBeVisible();
   });
 
-  // Pack path: pending first, once-key only after the flush window (not on early event_callback).
-  // Does not claim a /g/collect network hit — GTM is stubbed here, and a stub-fired collect would be circular.
-  test('pack-pool path: pending first; once-key only after send window', async ({ page }) => {
+  // Pack path: pending before gtag callback; once-key only after event_callback confirms.
+  test('pack-pool path: pending first; once-key only after gtag callback', async ({ page }) => {
     await stubReloadAndCapture(page);
     await plantMemberSession(page);
     await mockSupabase(page, 'member');
@@ -481,23 +484,22 @@ test.describe('pool_created after Accept (mocked create paths)', () => {
     }, { timeout: 15_000 }).toBe(1);
     expect(ev?.params.pack).toBe('e2e-show-pack');
     expect(ev?.params.kind).toBe('questions');
-    expect(ev?.params.transport_type).toBe('beacon');
 
-    // Snapshot taken immediately after the early event_callback: pending yes, once-key no.
-    let afterCb: { pending: string | null; keys: string[] } | null = null;
+    // Snapshot taken just before event_callback: pending yes, once-key no.
+    let beforeCb: { pending: string | null; keys: string[] } | null = null;
     await expect.poll(async () => {
       try {
-        afterCb = await page.evaluate(() => {
-          try { return JSON.parse(sessionStorage.getItem('__e2e_after_callback') || 'null'); }
+        beforeCb = await page.evaluate(() => {
+          try { return JSON.parse(sessionStorage.getItem('__e2e_before_callback') || 'null'); }
           catch { return null; }
         });
       } catch {
-        afterCb = null;
+        beforeCb = null;
       }
-      return afterCb;
+      return beforeCb;
     }, { timeout: 5_000 }).toBeTruthy();
-    expect(afterCb?.pending).toBeTruthy();
-    expect(afterCb?.keys ?? ['x']).toEqual([]);
+    expect(beforeCb?.pending).toBeTruthy();
+    expect(beforeCb?.keys ?? ['x']).toEqual([]);
 
     await expect.poll(async () => storageGet(page, 'sp_pool_created:401'), {
       timeout: 5_000,
