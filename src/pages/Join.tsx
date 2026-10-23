@@ -3,7 +3,7 @@ import { FunctionsHttpError } from '@supabase/supabase-js';
 import { rpc, setLeagueHeader, setRemember, supabase } from '../lib/supabase';
 import { useLeague } from '../lib/store';
 import { Spinner } from '../components/ui';
-import { LeagueCrest } from '../components/Brand';
+import { LeagueCrest, ProductMark } from '../components/Brand';
 import { themed } from '../components/LeagueIdentity';
 import { attributionFields, readSrcParam, trackFirstCall, trackJoinGroup, trackSignUp } from '../lib/analytics';
 import { PRODUCT } from '../lib/brand';
@@ -17,12 +17,14 @@ interface Preview { ok: boolean; reason?: string | null; league_id?: number; lea
   // a sports pool's next game (migration 293)
   next_game?: string | null; next_game_line?: string | null; next_game_at?: string | null }
 
+// what went wrong with a link, in words that fit a pool or a league: whoever sent it can send another
 const WHY: Record<string, string> = {
-  unknown: 'That invite link isn’t right. Ask the commissioner for a new one.',
-  revoked: 'That invite was cancelled. Ask the commissioner for a new one.',
-  expired: 'That invite has expired. Ask the commissioner for a new one.',
-  used: 'That invite has already been used. Ask the commissioner for a new one.',
+  unknown: 'That invite link isn’t right. Ask whoever sent it for a new one.',
+  revoked: 'That invite was cancelled. Ask whoever sent it for a new one.',
+  expired: 'That invite has expired. Ask whoever sent it for a new one.',
+  used: 'That invite has already been used. Ask whoever sent it for a new one.',
   taken: 'Someone has already taken that seat.',
+  offline: 'Couldn’t reach Super Pools to read this invite. Check your connection and try again.',
 };
 
 // when a question closes, in the reader's own clock: "tomorrow at 3:00 a.m.", "Wednesday at 8:00 p.m.", "in 40 minutes"
@@ -63,7 +65,9 @@ export default function Join({ code }: { code: string }) {
     catch { /* the question closed or the pool changed while they typed: they're in, and the board is a tap away */ }
   };
 
-  useEffect(() => { rpc<Preview>('invite_preview', { p_code: code }).then(setPv, () => setPv({ ok: false, reason: 'unknown' })); }, [code]);
+  // a request that didn't get through isn't a bad link: it says so and offers another try
+  const [tries, setTries] = useState(0);
+  useEffect(() => { setPv(null); rpc<Preview>('invite_preview', { p_code: code }).then(setPv, () => setPv({ ok: false, reason: 'offline' })); }, [code, tries]);
 
   const accept = async () => {
     try {
@@ -122,9 +126,10 @@ export default function Join({ code }: { code: string }) {
     <div className="pt-safe flex min-h-dvh flex-col items-center justify-center px-4 py-10" style={gold ? themed(gold) : undefined}>
       <div className="w-full max-w-md">
         <div className="mb-6 text-center">
-          {sak ? <img src="./icon.svg" alt="" className="mx-auto mb-3 h-16 w-16" /> : <span className="mb-3 inline-block"><LeagueCrest short={pv?.short ?? '…'} size={64} /></span>}
-          <div className="label text-mute">You&apos;re invited to</div>
-          <h1 className="h-display text-shine mt-1 text-3xl leading-tight">{pv?.league ?? '…'}</h1>
+          {pv && !pv.ok ? <span className="mb-3 inline-grid place-items-center"><ProductMark size={64} /></span>
+            : sak ? <img src="./icon.svg" alt="" className="mx-auto mb-3 h-16 w-16" /> : <span className="mb-3 inline-block"><LeagueCrest short={pv?.short ?? '…'} size={64} /></span>}
+          <div className="label text-mute">{pv && !pv.ok ? PRODUCT.name : <>You&apos;re invited to</>}</div>
+          <h1 className="h-display text-shine mt-1 text-3xl leading-tight">{pv && !pv.ok ? 'This invite didn’t open' : pv?.league ?? '…'}</h1>
           {pv?.ok && (pool
             ? <>
                 <p className="mt-2 text-sm text-slate-300">{pv.brand?.tagline ? `${pv.brand.tagline}. ` : ''}Your place is ready.</p>
@@ -184,7 +189,16 @@ export default function Join({ code }: { code: string }) {
         )}
 
         {!pv ? <div className="flex justify-center py-8"><Spinner /></div>
-          : !pv.ok ? <div className="card p-5 text-center text-sm text-slate-200">{WHY[pv.reason ?? 'unknown'] ?? WHY.unknown}</div>
+          : !pv.ok ? (
+            <div className="card p-5 text-center text-sm text-slate-200">
+              {WHY[pv.reason ?? 'unknown'] ?? WHY.unknown}
+              {/* never a dead end: try again when it was the connection, or start a pool of your own */}
+              <div className="mt-4 flex flex-col gap-2">
+                {pv.reason === 'offline' && <button type="button" className="btn-primary w-full" onClick={() => setTries((n) => n + 1)}>Try again</button>}
+                <a href="#/new" className={`${pv.reason === 'offline' ? 'btn-ghost' : 'btn-primary'} w-full`}>Start a pool of your own</a>
+              </div>
+            </div>
+          )
           : session ? (
             <div className="card-hero p-5">
               <p className="relative text-sm text-white/80">You&apos;re signed in{me ? ` as ${me.gm_name}` : ''}. Joining adds this {noun} to your account; you can switch between them on your Profile.</p>

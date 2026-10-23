@@ -11,8 +11,9 @@ import type { Standing } from '../lib/types';
 import { Move, Rank, TeamBadge, TeamName } from './ui';
 
 
-export function StandingsTable({ rows, view = 'regular', pot = [], peter = false }: {
+export function StandingsTable({ rows, view = 'regular', pot = [], peter = false, compact = false }: {
   rows: Standing[];
+  compact?: boolean;       // Home's table: on a phone the 7-day and bench columns give the team's name their room
   view?: 'regular' | 'playoffs' | 'cup';
   pot?: number[];          // prize money by finishing place, shown on the top rows
   peter?: boolean;         // flag last place for the Peter
@@ -26,6 +27,8 @@ export function StandingsTable({ rows, view = 'regular', pot = [], peter = false
   // the moves tonight, as the pools' tables show them: each team's place before today's points against its place now
   const before = new Map([...table].sort((a, b) => (Number(b.points) - Number(b.today ?? 0)) - (Number(a.points) - Number(a.today ?? 0)))
     .map((s, _i, all) => [s.team_id, 1 + all.findIndex((x) => Number(x.points) - Number(x.today ?? 0) === Number(s.points) - Number(s.today ?? 0))]));
+  // the columns Home leaves to the Standings page on a phone
+  const extra = compact ? 'hidden sm:table-cell' : '';
   const benchWhen = view === 'cup' ? 'this year' : view === 'playoffs' ? 'in the playoffs' : 'this season';
 
   return (
@@ -36,9 +39,9 @@ export function StandingsTable({ rows, view = 'regular', pot = [], peter = false
             <th className="w-9 py-2 pl-2 pr-1">#</th>
             <th className="px-1">Team</th>
             <th className="px-1 text-right" title="Points, and how far back of the leader">Pts</th>
-            <th className="px-1 text-right" title={tonight ? 'Points scored today' : 'Points scored yesterday (today’s games haven’t started)'}>{tonight ? 'Today' : 'Yest'}</th>
-            <th className="px-1 text-right" title="Points over the last 7 days">7d</th>
-            <th className="py-2 pl-1 pr-2 text-right" title={`Points left on the bench and IR ${benchWhen}: shown, never counted`}>Bench</th>
+            <th className={`px-1 text-right ${compact ? 'pr-2 sm:pr-1' : ''}`} title={tonight ? 'Points scored today' : 'Points scored yesterday (today’s games haven’t started)'}>{tonight ? 'Today' : 'Yest'}</th>
+            <th className={`px-1 text-right ${extra}`} title="Points over the last 7 days">7d</th>
+            <th className={`py-2 pl-1 pr-2 text-right ${extra}`} title={`Points left on the bench and IR ${benchWhen}: shown, never counted`}>Bench</th>
           </tr>
         </thead>
         <tbody className="divide-y divide-white/[.06]">
@@ -71,9 +74,9 @@ export function StandingsTable({ rows, view = 'regular', pot = [], peter = false
                   <div className="num font-display text-base font-extrabold leading-tight">{fmtPts(s.points)}</div>
                   <div className="num text-[10px] text-mute">{i === 0 || !scored ? '—' : `−${fmtPts(back)}`}</div>
                 </td>
-                <td className={`num whitespace-nowrap px-1 text-right text-xs ${day > 0 ? 'text-emerald-300' : day < 0 ? 'text-red-300' : 'text-mute'}`}>{day ? `${day > 0 ? '+' : ''}${fmtPts(day)}` : '–'}</td>
-                <td className="num whitespace-nowrap px-1 text-right text-xs text-slate-300">{Number(s.last7) ? fmtPts(s.last7) : '–'}</td>
-                <td className="num whitespace-nowrap py-2 pl-1 pr-2 text-right text-xs text-mute">
+                <td className={`num whitespace-nowrap px-1 text-right text-xs ${compact ? 'pr-2 sm:pr-1' : ''} ${day > 0 ? 'text-emerald-300' : day < 0 ? 'text-red-300' : 'text-mute'}`}>{day ? `${day > 0 ? '+' : ''}${fmtPts(day)}` : '–'}</td>
+                <td className={`num whitespace-nowrap px-1 text-right text-xs text-slate-300 ${extra}`}>{Number(s.last7) ? fmtPts(s.last7) : '–'}</td>
+                <td className={`num whitespace-nowrap py-2 pl-1 pr-2 text-right text-xs text-mute ${extra}`}>
                   {Number(s.bench) ? fmtPts(s.bench) : '–'}
                   {tonight && Number(s.bench_today) > 0 && <div className="text-[10px] text-amber-200">+{fmtPts(s.bench_today)}</div>}
                 </td>

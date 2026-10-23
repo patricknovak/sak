@@ -1051,3 +1051,30 @@ happened (migration 331, live):
   to the report, onto injured reserve and off it still ring.
 The rest of the week's bells were true and worth having: the trade offer, the challenge, the hat trick, the pool's
 closing calls and drops, the questions waiting on the host, the Monday platform week.
+
+**The app on a phone, reviewed the same day** (360 and 390 px, against mocked data; site only):
+- Built: Home opens on Tonight on a phone (it sat about 1,000 px down, under the full standings); the standings on
+  Home keep each team's name whole (`StandingsTable compact`: the 7-day and bench columns stay on the Standings page
+  below `sm`); the coin bank, the Book's tickets and the bet results stay off Home until they have something, and the
+  NHL card stays off when its feed fails instead of saying there are no games; the shell and Home tick by the second only
+  while a countdown runs (they re-drew every page every second); the alerts card speaks to the season or the pool, not the
+  draft; the More sheet's labels fit at 360 px ("Commish"); a pool's sidebar shows the member's name without "GM"; a
+  pool's home doesn't list a question under Moving now and Closing soon both; a failed invite says why (a bad link, or
+  no connection with Try again), in the product's own mark, with a way to start a pool; My pools says when it couldn't
+  load instead of "No pools yet"; the invite's share text lost its em dash.
+- Next, in order of value:
+  1. **Joining a pool with just a name** (a seat kept on the device, the email asked after the first call): the
+     largest lever on invite to first call, a product decision for Patrick.
+  2. **The start page folds each finished step** to a line with Change, and a sticky "Start my pool" bar says what's
+     missing (at 390 px a sports start is about 4,000 px tall).
+  3. **A new pool's home leads with the invite** while it has fewer than two members, not the rank.
+  4. **Startup**: the splash waits on all 13 store tables, every NHL player included, even in a prediction pool;
+     lift it after the league, teams and your own team, and load player data in the background for fantasy leagues only.
+  5. **Bundle**: Home pulls in the Book (via `useBook`), head-to-head ships to points leagues, the pool home pulls the
+     whole Picks page; move `useBook` to `src/lib` and lazy-load head-to-head, My Team's tabs and the pool kinds.
+  6. **Tap targets**: 64 of My Team's 101 controls are under 32 px (About and Pin, window chips, section links).
+  7. **One error-with-retry component** for the 41 places a failed load reads as empty.
+  8. **The dock**: in season NHL centre holds a slot GMs barely use (Players, Trades and Bets are used); Patrick's call.
+  9. **Cards without a blur**: every card carries `backdrop-filter: blur(14px)` over a near-flat background, costly on
+     mid-range Android; keep it on the header, dock and sheets.
+  10. **The consent banner** covers about 38% of a phone and the dock on first visit; one line with Choices.

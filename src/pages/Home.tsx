@@ -12,7 +12,7 @@ import { ArrowRight, ClipboardList, Lock, Megaphone, MessageCircle, Radio, Troph
 import { PlayerRow, usePlayerSheet } from '../components/PlayerCard';
 import { useHistory } from '../lib/history';
 import { PushCard } from '../components/PushCard';
-import { BankCard, BetResultsCard, LastNightCard, NhlTopCard, TicketsCard } from '../components/HomeCards';
+import { BankCard, BetResultsCard, LastNightCard, More, NhlTopCard, TicketsCard } from '../components/HomeCards';
 import { bare, useBrand } from '../lib/brand';
 import { WatchCard } from '../components/WatchCard';
 import { LiveRoomCard } from '../components/LiveRoomCard';
@@ -27,7 +27,8 @@ export default function Home() {
   const { me, league, teams, spectators, team, standings: regular, playoffs, rosters, players, draft, picks, gamesByTeam, online, dayPoints, games, leagueDay } = useLeague();
   const gameSheet = useGameSheet();
   const brand = useBrand();
-  const now = useNow(1000);
+  // by the second for the keeper and draft countdowns; in season only the wire's "5m ago" moves
+  const now = useNow(league?.phase === 'season' && draft?.status !== 'live' ? 30000 : 1000);
   const nav = useNavigate();
   const { open, sheet } = usePlayerSheet();
   const [feed, setFeed] = useState<Message[]>([]);
@@ -83,7 +84,25 @@ export default function Home() {
     const parts = [g && `${g} GM${g > 1 ? 's' : ''}`, f && `${f} spectator${f > 1 ? 's' : ''}`].filter(Boolean);
     return `${parts.join(' and ')} in the barn`;
   })();
-  const More = ({ to, label }: { to: string; label: string }) => <Link to={to} className="flex items-center gap-1 text-xs font-semibold text-sky-300">{label}<ArrowRight size={13} /></Link>;
+
+  // tonight's starters, the first thing a GM opens Home for: above the standings on a phone, beside them on a wide screen
+  const tonightCard = phase === 'season' && (
+    <Section title="Tonight" right={<More to="/team" label="Lineup" />}>
+      <div className="card divide-y divide-white/[.06]">
+        {playingTonight.length === 0 && <div className="p-4 text-sm text-mute">None of your starters play today.</div>}
+        {playingTonight.map(({ r, p }) => (
+          <div key={p.id} className="px-3 py-2">
+            <PlayerRow p={p} onClick={() => open(p.id)} right={<div className="text-right"><div className="text-[10px] text-mute">{r.slot}</div><div className="num font-bold">{fmtPts(dayPoints.get(p.id)?.fpts ?? 0, 1)}</div></div>} />
+          </div>
+        ))}
+        {benchedPlaying.length > 0 && (
+          <Link to="/team" className="block bg-amber-500/10 px-3 py-2 text-xs text-amber-200">
+            ⚠️ {benchedPlaying.length} benched player{benchedPlaying.length > 1 ? 's have' : ' has'} a game today: {benchedPlaying.slice(0, 3).map((p) => p.last_name).join(', ')}
+          </Link>
+        )}
+      </div>
+    </Section>
+  );
 
   return (
     <div className="stagger space-y-5">
@@ -197,9 +216,11 @@ export default function Home() {
       {/* the guillotine (migration 278): who's on the block this week, and who's been cut */}
       {phase === 'season' && league?.features?.guillotine === true && <GuillotineCard />}
 
+      {tonightCard && <div className="lg:hidden">{tonightCard}</div>}
+
       <div className="grid grid-cols-1 gap-5 lg:grid-cols-2">
         <Section icon={<Trophy size={17} className="text-gold" />} title={phase === 'season' ? (inPlayoffs ? '🏆 Playoff standings' : 'Standings') : lastSeason ? `${lastSeason.season} final standings` : 'The field'} right={<More to="/standings" label="All" />}>
-          {phase === 'season' ? (league?.format === 'h2h' ? <H2HHome /> : league?.categories?.length ? <RotoMini /> : <StandingsTable rows={table} view={inPlayoffs ? 'playoffs' : 'regular'} peter={!inPlayoffs} />) : !lastRows.length ? (
+          {phase === 'season' ? (league?.format === 'h2h' ? <H2HHome /> : league?.categories?.length ? <RotoMini /> : <StandingsTable rows={table} view={inPlayoffs ? 'playoffs' : 'regular'} peter={!inPlayoffs} compact />) : !lastRows.length ? (
           // a league in its first season: the field, seat by seat, until the draft makes it a table
           <div className="space-y-2">
           {me?.is_commish && teams.some((t) => !t.user_id) && (
@@ -247,23 +268,7 @@ export default function Home() {
         </Section>
 
         <div className="space-y-5">
-          {phase === 'season' && (
-            <Section title="Tonight" right={<More to="/team" label="Lineup" />}>
-              <div className="card divide-y divide-white/[.06]">
-                {playingTonight.length === 0 && <div className="p-4 text-sm text-mute">None of your starters play today.</div>}
-                {playingTonight.map(({ r, p }) => (
-                  <div key={p.id} className="px-3 py-2">
-                    <PlayerRow p={p} onClick={() => open(p.id)} right={<div className="text-right"><div className="text-[10px] text-mute">{r.slot}</div><div className="num font-bold">{fmtPts(dayPoints.get(p.id)?.fpts ?? 0, 1)}</div></div>} />
-                  </div>
-                ))}
-                {benchedPlaying.length > 0 && (
-                  <Link to="/team" className="block bg-amber-500/10 px-3 py-2 text-xs text-amber-200">
-                    ⚠️ {benchedPlaying.length} benched player{benchedPlaying.length > 1 ? 's have' : ' has'} a game today: {benchedPlaying.slice(0, 3).map((p) => p.last_name).join(', ')}
-                  </Link>
-                )}
-              </div>
-            </Section>
-          )}
+          {tonightCard && <div className="hidden lg:block">{tonightCard}</div>}
           <WatchCard />
 
           <Section icon={<MessageCircle size={17} className="text-blue" />} title="League wire" right={<More to="/chat" label="Chat" />}>

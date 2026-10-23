@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useBrand } from '../lib/brand';
+import { useLeague } from '../lib/store';
 import { BellRing, BellOff, Smartphone } from 'lucide-react';
 import { currentSubscription, disablePush, enablePush, isIOS, isStandalone, pushSupported, sendTestPush } from '../lib/push';
 import { useAction } from './ui';
@@ -7,6 +8,10 @@ import { useAction } from './ui';
 // "Turn on alerts" card: on-the-clock, trade offers, bets and @mentions straight to your phone
 export function PushCard({ compact, hideWhenOn }: { compact?: boolean; hideWhenOn?: boolean }) {
   const brand = useBrand();
+  const { league, draft, kind } = useLeague();
+  const pool = kind === 'predict';
+  // the draft is what to be woken for only while there's one to come; in season it's trades, bets, injuries and mentions
+  const drafting = draft?.status === 'live' || draft?.status === 'paused' || ['keepers', 'predraft'].includes(league?.phase ?? '');
   const [on, setOn] = useState<boolean | null>(null);
   const { busy, run } = useAction();
   const supported = pushSupported();
@@ -27,12 +32,14 @@ export function PushCard({ compact, hideWhenOn }: { compact?: boolean; hideWhenO
           {on ? <BellRing size={20} /> : iosNeedsInstall ? <Smartphone size={20} /> : <BellOff size={20} />}
         </span>
         <div className="min-w-0 flex-1">
-          <div className="font-bold">{on ? 'Alerts are on for this device' : 'Get draft & trade alerts'}</div>
+          <div className="font-bold">{on ? 'Alerts are on for this device' : drafting && !pool ? 'Get draft & trade alerts' : 'Get alerts on your phone'}</div>
           <p className="mt-0.5 text-sm text-slate-300">
-            {on ? 'You’ll get a buzz when you’re on the clock, get a trade offer, a bet challenge or an @mention.'
+            {on ? (pool ? 'You’ll get a buzz when your calls are about to close, a question settles or someone @mentions you.' : drafting ? 'You’ll get a buzz when you’re on the clock, get a trade offer, a bet challenge or an @mention.' : 'You’ll get a buzz for a trade offer, a bet challenge, an injury on your roster or an @mention.')
               : iosNeedsInstall ? `On iPhone: tap Share → “Add to Home Screen”, open ${brand.short} from your Home Screen, then turn alerts on here.`
               : !supported ? 'This browser can’t do push notifications. Try Chrome, Edge or Safari on your phone.'
-              : 'Never miss your pick: a buzz on your phone when you’re on the clock, even with the site closed.'}
+              : pool ? 'A buzz on your phone when your calls are about to close, a question settles or someone @mentions you, even with the site closed.'
+              : drafting ? 'Never miss your pick: a buzz on your phone when you’re on the clock, even with the site closed.'
+              : 'A buzz on your phone for a trade offer, a bet challenge, an injury on your roster or an @mention, even with the site closed.'}
           </p>
           {supported && (
             <div className="mt-2.5 flex flex-wrap gap-2">

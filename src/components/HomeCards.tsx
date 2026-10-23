@@ -1,5 +1,6 @@
 // The home screen's windows into the rest of the site: tonight around the NHL, the league's coin bank, the latest
-// Book tickets and the latest side-bet results. Each shows a handful of rows and leads to its own page.
+// Book tickets and the latest side-bet results. Each shows a handful of rows and leads to its own page; one with nothing
+// to show yet (no coins, no tickets, no settled bets) stays off the page instead of filling Home with empty cards.
 import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { ArrowRight } from 'lucide-react';
@@ -30,6 +31,7 @@ export function NhlTopCard() {
   // the scores and clocks are the league's own, the same as every page (lib/nhlGame)
   const games = useMemo(() => feed?.map((g) => one({ ...g, home: { ...g.home, radio: null }, away: { ...g.away, radio: null } })) ?? null, [feed, one]);
   const [label, setLabel] = useState('Tonight');
+  const [failed, setFailed] = useState(false);
   useEffect(() => {
     let dead = false;
     // a reply without its games (the feed hiccuped) reads as no games, not a card stuck loading
@@ -39,7 +41,7 @@ export function NhlTopCard() {
       if (list.length || !s?.prev) { setGames(list); return; }
       const p = await hub<{ games: TopGame[] }>('scores', { date: s.prev }).catch(() => null);
       if (!dead) { setLabel('Last night'); setGames(p?.games ?? []); }
-    }, () => !dead && setGames([]));
+    }, () => { if (!dead) { setFailed(true); setGames([]); } });
     // a slate that's on is read again every two minutes for what the scores don't carry; nothing while the page is hidden
     const i = setInterval(() => { if (document.visibilityState === 'visible') hub<{ games?: TopGame[] }>('scores', { date: leagueDay }).then((s) => !dead && s?.games?.length && setGames(s.games), () => {}); }, 120_000);
     return () => { dead = true; clearInterval(i); };
@@ -48,6 +50,8 @@ export function NhlTopCard() {
   const gmsIn = (g: TopGame) => [...new Set([...(byNhl.get(g.home.abbrev) ?? []), ...(byNhl.get(g.away.abbrev) ?? [])])].slice(0, 4);
   const live = games?.filter((g) => LIVE.has(g.state)) ?? [];
   const rows = live.length ? live : (games ?? []);
+  // the scores feed didn't answer: no card, rather than one that says there are no games
+  if (failed && !games?.length) return null;
   const title = live.length ? '🔴 Live right now' : games?.every((g) => DONE.has(g.state)) && games.length ? `🏒 ${label}: finals` : `🏒 ${label} around the NHL`;
   return (
     <Section title={title} right={<More to="/nhl" label={sport.words.centre ?? 'NHL centre'} />}>
@@ -119,10 +123,10 @@ export function BankCard() {
   useEffect(() => { supabase.from('coin_balances').select('*').then(({ data }) => setBank((data ?? []) as CoinBalance[])); }, []);
   const rows = [...bank].filter((c) => teams.some((t) => t.id === c.team_id && t.role !== 'spectator')).sort((a, b) => b.balance - a.balance);
   const tie = rows.length > 1 && rows.every((x) => x.balance === rows[0].balance);
+  if (!rows.length) return null;
   return (
     <Section title={`${brand.coin.emoji} ${brand.bank}`} right={<More to="/bets?t=leaders" label="Leaders" />}>
       <div className="card divide-y divide-white/[.06] overflow-hidden" style={{ background: 'linear-gradient(160deg, rgb(var(--gold-rgb)/.10), rgba(15,23,41,.75) 45%)' }}>
-        {rows.length === 0 && <div className="p-3 text-sm text-mute">No coins in circulation yet.</div>}
         {rows.map((c, i) => (
           <Link to="/bets?t=leaders" key={c.team_id} className={`flex items-center gap-2.5 px-3 py-1.5 ${c.team_id === me?.id ? 'bg-white/[.05]' : ''}`}>
             {tie ? <span className="grid h-7 w-7 place-items-center text-mute">–</span> : <Rank n={i + 1} />}
@@ -141,10 +145,10 @@ export function TicketsCard() {
   const { team, me } = useLeague();
   const { markets, tickets } = useBook();
   const byId = useMemo(() => new Map(markets.map((m) => [m.id, m])), [markets]);
+  if (!tickets.length) return null;
   return (
     <Section title="📜 Every ticket" right={<More to="/bets?t=book" label="The Book" />}>
       <div className="card divide-y divide-white/[.06]">
-        {tickets.length === 0 && <div className="p-3 text-sm text-mute">Nobody has placed a ticket yet. <Link to="/bets?t=book" className="text-sky-300">Open the Book ›</Link></div>}
         {tickets.slice(0, 5).map((t) => {
           const m = byId.get(t.market_id);
           const o = m?.options.find((x) => x.key === t.pick);
@@ -179,11 +183,10 @@ export function BetResultsCard() {
       setBets(list);
     });
   }, []);
+  if (!bets?.length) return null;
   return (
     <Section title="📜 Bet results" right={<More to="/bets" label="Side bets" />}>
       <div className="card divide-y divide-white/[.06]">
-        {bets && bets.length === 0 && <div className="p-3 text-sm text-mute">No side bet has settled yet.</div>}
-        {!bets && <div className="p-3 text-sm text-mute">Loading…</div>}
         {(bets ?? []).map((b) => {
           const m = betMoves(b, entries);
           const winners = [...m.entries()].filter(([, x]) => x.won === true).sort((a, c) => c[1].coins - a[1].coins);

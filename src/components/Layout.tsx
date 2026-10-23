@@ -87,7 +87,8 @@ function alertMe() {
 
 export function Layout({ children }: { children: ReactNode }) {
   const { me, league, brand, draft, picks, notifications, refresh, sport, kind, gamesLive } = useLeague();
-  const now = useNow(1000);
+  // the shell re-draws every page when it ticks: by the second only while the draft clock is running
+  const now = useNow(draft?.status === 'live' || draft?.status === 'paused' ? 1000 : 30000);
   const loc = useLocation();
   const nav = useNavigate();
   useUsage(!!me, league?.league_id);
@@ -210,7 +211,7 @@ export function Layout({ children }: { children: ReactNode }) {
     { to: '/bets', label: 'Side Bets', icon: Dices, group: 'The league' },
     ...(hasFeature(league, 'money') || hasFeature(league, 'fund') ? [{ to: '/money', label: 'Money', icon: Wallet, group: 'The league' }] : []),
     { to: '/league', label: 'League & History', icon: Landmark, group: 'The league' },
-    { to: '/commish', label: 'Commissioner', icon: Wrench, commish: true, group: 'You' },
+    { to: '/commish', label: 'Commish', icon: Wrench, commish: true, group: 'You' },
     { to: '/pools', label: 'My pools', icon: Layers, group: 'You' },
     { to: '/profile', label: 'My Profile', icon: UserRound, group: 'You' },
     { to: '/features', label: 'League Features', icon: Lightbulb, group: 'You' },
@@ -290,7 +291,7 @@ export function Layout({ children }: { children: ReactNode }) {
         </nav>
         <div className="mt-3 flex shrink-0 items-center gap-2.5 rounded-2xl border border-white/[.07] bg-white/[.03] p-2.5">
           <TeamBadge team={me ?? undefined} size={36} />
-          <div className="min-w-0 flex-1"><div className="truncate text-sm font-bold">{me?.name}</div><div className="text-xs text-mute">GM {me?.gm_name}</div></div>
+          <div className="min-w-0 flex-1"><div className="truncate text-sm font-bold">{me?.name}</div><div className="text-xs text-mute">{kind === 'predict' ? me?.gm_name : `GM ${me?.gm_name}`}</div></div>
           <button className="btn-ghost btn-sm relative" onClick={openNotif} aria-label="Notifications"><Bell size={16} />{unreadN > 0 && <span className="absolute -right-1 -top-1 grid h-4 min-w-4 place-items-center rounded-full bg-goal px-1 text-[10px] font-bold">{unreadN}</span>}</button>
           <button className="btn-ghost btn-sm" onClick={() => supabase.auth.signOut()} aria-label="Sign out" title="Sign out"><LogOut size={16} /></button>
         </div>
@@ -368,8 +369,9 @@ export function Layout({ children }: { children: ReactNode }) {
               <div className="mb-1.5 px-1 text-[10px] font-black uppercase tracking-[.18em] text-mute">{g}</div>
               <div className="stagger grid grid-cols-2 gap-2">
                 {list.map((i) => (
-                  <button key={i.to} onClick={() => { setMore(false); nav(i.to); }} className={`card relative flex items-center gap-2.5 px-3 py-3 text-left text-sm font-semibold transition active:scale-[.97] ${isActive(i.to) ? 'border-gold/40' : ''}`}>
-                    <span className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-gradient-to-br from-white/15 to-white/[.03] ring-1 ring-white/10"><i.icon size={18} /></span><span className="min-w-0 leading-tight">{i.label}</span>
+                  <button key={i.to} onClick={() => { setMore(false); nav(i.to); }} className={`card relative flex items-center gap-2 px-2.5 py-3 text-left text-[13px] font-semibold transition active:scale-[.97] min-[380px]:gap-2.5 min-[380px]:px-3 min-[380px]:text-sm ${isActive(i.to) ? 'border-gold/40' : ''}`}>
+                    {/* a little tighter on the smallest phones, so a long word like "Performance" fits whole */}
+                    <span className="grid h-8 w-8 shrink-0 place-items-center rounded-xl bg-gradient-to-br from-white/15 to-white/[.03] ring-1 ring-white/10 min-[380px]:h-9 min-[380px]:w-9"><i.icon size={18} /></span><span className="min-w-0 break-words leading-tight [hyphens:auto]">{i.label}</span>
                     {i.to === '/scoreboard' && gamesLive && <span className="absolute right-2 top-2 h-2 w-2 animate-pulse rounded-full bg-goal" />}
                   </button>
                 ))}
