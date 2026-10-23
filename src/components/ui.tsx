@@ -79,6 +79,17 @@ export function Empty({ icon = '🏒', title, children }: { icon?: ReactNode; ti
   );
 }
 
+// a load that didn't get through, said as that rather than as an empty list (23 October 2026: 41 places read a failed
+// request as "nothing here"), with a way to try again
+export function LoadError({ what, onRetry }: { what: string; onRetry?: () => void }) {
+  return (
+    <div className="card flex flex-col items-center gap-3 p-5 text-center" role="alert">
+      <div className="text-sm text-slate-200">Couldn’t load {what} just now. Check your connection and try again.</div>
+      {onRetry && <button type="button" className="btn-primary w-full sm:w-auto" onClick={onRetry}>Try again</button>}
+    </div>
+  );
+}
+
 export function Section({ title, right, children, className = '', icon, id }: { title: ReactNode; right?: ReactNode; children: ReactNode; className?: string; icon?: ReactNode; id?: string }) {
   return (
     <section id={id} className={`${id ? 'scroll-mt-20' : ''} ${className}`}>

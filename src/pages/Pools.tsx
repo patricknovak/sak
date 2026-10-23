@@ -10,7 +10,7 @@ import { rpc } from '../lib/supabase';
 import { openPool } from '../lib/host';
 import { useNow } from '../lib/store';
 import { countdown, fmtPts, ordinal } from '../lib/format';
-import { Empty, PageHeader, Section, Skeleton, useAction } from '../components/ui';
+import { Empty, LoadError, PageHeader, Section, Skeleton, useAction } from '../components/ui';
 import { DeletePool } from '../components/DeletePool';
 import { trackJoinGroup } from '../lib/analytics';
 
@@ -174,12 +174,7 @@ export default function Pools() {
         sub={rows ? `${rows.length} ${rows.length === 1 ? 'pool' : 'pools'} on one account${waiting ? ` · ${waiting} ${waiting === 1 ? 'needs' : 'need'} you` : ''}` : 'Every pool you’re in, on one account'}
         right={<a href="#/new" className="btn-gold inline-flex items-center gap-1.5"><Plus className="h-4 w-4" /> Start a pool</a>} />
       <Invitations list={invites} reload={loadInvites} />
-      {!rows && failed ? (
-          <div className="card p-5 text-center text-sm text-slate-200">
-            Couldn’t load your pools just now. Check your connection and try again.
-            <button type="button" className="btn-primary mt-3 w-full sm:w-auto" onClick={load}>Try again</button>
-          </div>
-        )
+      {!rows && failed ? <LoadError what="your pools" onRetry={load} />
         : !rows ? <div className="grid gap-3 lg:grid-cols-2">{[0, 1].map((i) => <Skeleton key={i} className="h-36 rounded-3xl" />)}</div>
         : !rows.length ? <Empty icon="🏆" title="No pools yet">Start one below, or open an invite link a friend sent you.</Empty>
         : <div className="grid gap-3 lg:grid-cols-2">{sorted.map((p) => <PoolCard key={p.league_id} p={p} now={now} onDelete={() => setDeleting(p)} />)}</div>}

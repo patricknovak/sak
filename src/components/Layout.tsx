@@ -180,8 +180,9 @@ export function Layout({ children }: { children: ReactNode }) {
     // game night in the middle of the dock (16 October 2026, Patrick): the live scoreboard, a red dot while a game is on
     ...(draftish ? [] : [{ to: '/scoreboard', label: 'Live scoreboard', short: 'Live', icon: Radio }]),
     { to: '/chat', label: 'Chat', icon: MessageCircle },
-    // the sport's own centre ("NHL centre" for hockey), from the sports row; the dock says the sport alone
-    { to: '/nhl', label: sport.words.centre ?? 'NHL centre', short: (sport.words.centre ?? 'NHL centre').replace(/\s*cent(re|er)$/i, '') || 'Centre', icon: Tv },
+    // the players, where GMs go far more often than the sport's centre (a week of opens, 23 October 2026); the centre
+    // moved to More, under Tonight
+    { to: '/players', label: 'Players', icon: Search },
   ];
   const moreItems: Item[] = (pool ? [
     ...(runs.games && poolQuestions ? [{ to: '/questions', label: 'Questions', icon: Sparkles, group: 'Play' }] : []),
@@ -202,11 +203,15 @@ export function Layout({ children }: { children: ReactNode }) {
   ] as Item[] : [
     // game night: the league's live scoreboard (every page's scores agree, so this is where the night is told)
     ...(draftish ? [] : [{ to: '/scoreboard', label: 'Live scoreboard', icon: Radio, group: 'Tonight' }]),
+    // the sport's own centre ("NHL centre" for hockey), from the sports row
+    { to: '/nhl', label: sport.words.centre ?? 'NHL centre', icon: Tv, group: 'Tonight' },
     ...(runs.questions ? [{ to: '/questions', label: 'Questions', icon: Sparkles, group: 'Tonight' }] : []),
-    draftish ? { to: '/team', label: 'My Team', icon: Shield, group: 'Your team' } : { to: '/draft', label: 'Draft Centre', icon: ClipboardList, group: 'Your team' },
+    ...(draftish ? [{ to: '/team', label: 'My Team', icon: Shield, group: 'Your team' }] : []),
     { to: '/players', label: 'Players', icon: Search, group: 'Your team' },
     { to: '/trades', label: 'Trades', icon: Repeat2, group: 'Your team' },
     ...(draftish ? [] : [{ to: '/performance', label: 'Performance', icon: BarChart3, group: 'Your team' }]),
+    // in season the draft room is history: last in the group
+    ...(draftish ? [] : [{ to: '/draft', label: 'Draft Centre', icon: ClipboardList, group: 'Your team' }]),
     { to: '/standings', label: 'Standings', icon: Trophy, group: 'The league' },
     { to: '/bets', label: 'Side Bets', icon: Dices, group: 'The league' },
     ...(hasFeature(league, 'money') || hasFeature(league, 'fund') ? [{ to: '/money', label: 'Money', icon: Wallet, group: 'The league' }] : []),
@@ -306,8 +311,8 @@ export function Layout({ children }: { children: ReactNode }) {
               <WordmarkStack />
             </button>
             {/* every pool on this account, one tap away */}
-            <button onClick={() => nav('/pools')} aria-label="My pools: switch league or pool" title="My pools" className="flex h-7 items-center gap-0.5 rounded-full bg-white/[.06] pl-1.5 pr-1 text-white/70 ring-1 ring-white/10 hover:text-white">
-              <Layers size={13} /><ChevronDown size={13} />
+            <button onClick={() => nav('/pools')} aria-label="My pools: switch league or pool" title="My pools" className="relative flex h-7 items-center gap-1 rounded-full bg-white/[.06] pl-2 pr-1.5 text-[11px] font-semibold text-white/80 ring-1 ring-white/10 after:absolute after:-inset-2 after:content-[''] hover:text-white">
+              <Layers size={13} />Switch<ChevronDown size={13} />
             </button>
             <div className="flex-1" />
             <button className="relative grid h-9 w-9 place-items-center rounded-full bg-white/[.05] ring-1 ring-white/10" onClick={openNotif} aria-label="Notifications">

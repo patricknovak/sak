@@ -327,15 +327,16 @@ function TeamPage({ kit }: { kit: Kit }) {
                 </div>
               )}
             </div>
-            {/* the info and pin buttons stacked in a narrow column, so the player's details keep the width */}
+            {/* the info and pin buttons stacked in a narrow column, so the player's details keep the width; each one's tap
+                area reaches past its edges (about 48 by 36) so a thumb doesn't hit its neighbour */}
             <div className="-my-0.5 flex shrink-0 flex-col items-center">
               <button aria-label={`About ${x.p.name}`} title="Injury, game-day status, news and stats"
                 onClick={(e) => { e.stopPropagation(); setInfo(x.p.id); }}
-                className="grid h-7 w-7 place-items-center rounded-lg text-sm text-sky-300 transition hover:bg-white/10">ⓘ</button>
+                className="relative grid h-8 w-8 place-items-center rounded-lg text-sm text-sky-300 transition after:absolute after:-inset-x-2 after:-inset-y-0.5 after:content-[''] hover:bg-white/10">ⓘ</button>
               {mine && !offseason && (
                 <button aria-label={`Pin ${x.p.name}`} title={x.r.pin === 'start' ? 'Pinned: always start' : x.r.pin === 'bench' ? 'Pinned: never start' : 'Pin: tap to always start / never start'}
                   onClick={(e) => { e.stopPropagation(); cyclePin(x); }}
-                  className={`grid h-7 w-7 place-items-center rounded-lg text-xs transition hover:bg-white/10 ${x.r.pin ? '' : 'opacity-30'}`}>
+                  className={`relative grid h-8 w-8 place-items-center rounded-lg text-xs transition after:absolute after:-inset-x-2 after:-inset-y-0.5 after:content-[''] hover:bg-white/10 ${x.r.pin ? '' : 'opacity-30'}`}>
                   {x.r.pin === 'start' ? '📌' : x.r.pin === 'bench' ? '🚫' : '📍'}
                 </button>
               )}
