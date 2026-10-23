@@ -1062,19 +1062,25 @@ closing calls and drops, the questions waiting on the host, the Monday platform 
   pool's home doesn't list a question under Moving now and Closing soon both; a failed invite says why (a bad link, or
   no connection with Try again), in the product's own mark, with a way to start a pool; My pools says when it couldn't
   load instead of "No pools yet"; the invite's share text lost its em dash.
-- Next, in order of value:
-  1. **Joining a pool with just a name** (a seat kept on the device, the email asked after the first call): the
-     largest lever on invite to first call, a product decision for Patrick.
-  2. **The start page folds each finished step** to a line with Change, and a sticky "Start my pool" bar says what's
-     missing (at 390 px a sports start is about 4,000 px tall).
-  3. **A new pool's home leads with the invite** while it has fewer than two members, not the rank.
-  4. **Startup**: the splash waits on all 13 store tables, every NHL player included, even in a prediction pool;
-     lift it after the league, teams and your own team, and load player data in the background for fantasy leagues only.
-  5. **Bundle**: Home pulls in the Book (via `useBook`), head-to-head ships to points leagues, the pool home pulls the
-     whole Picks page; move `useBook` to `src/lib` and lazy-load head-to-head, My Team's tabs and the pool kinds.
-  6. **Tap targets**: 64 of My Team's 101 controls are under 32 px (About and Pin, window chips, section links).
-  7. **One error-with-retry component** for the 41 places a failed load reads as empty.
-  8. **The dock**: in season NHL centre holds a slot GMs barely use (Players, Trades and Bets are used); Patrick's call.
-  9. **Cards without a blur**: every card carries `backdrop-filter: blur(14px)` over a near-flat background, costly on
-     mid-range Android; keep it on the header, dock and sheets.
-  10. **The consent banner** covers about 38% of a phone and the dock on first visit; one line with Choices.
+- The rest of the review, built the same day (Patrick: "build the rest of the review recommendations"):
+  1. **Joining a pool with just a name** (migration 332): a pool invite asks for a name; the join function makes a guest
+     seat (an account on `guest-<uuid>@guest.superpoolsai.com` with a long random password, signed in on the phone that
+     joined), limited by `_guest_join_check` to ten a day from one connection and three hundred a day in all, then asks
+     for an email. The guest adds an email and password from Keep your place (`KeepSeat`, on the pool's home and
+     Profile), the same account through the function's `claim`; signing a guest out asks first (`src/lib/guest.ts`).
+     A fantasy league still asks for an email.
+  2. **The start page folds each finished step** to a line with Change; a sticky bar says the step and the first thing
+     missing, with Start my pool. A sports start at 390 px went from 4,063 px to at most about 2,000.
+  3. **A new pool's home leads with the invite** while the host is alone (a "Just you, Invite" tile in place of the rank).
+  4. **Startup**: a prediction pool no longer loads the NHL player tables or the game-day data; they load the first
+     time something reads them (getters on the store value). `selectAll` reads pages four at a time after an exact count.
+  5. **Bundle**: `useBook` in `src/lib/book.ts`; head-to-head, the player card's add panel, team radio, the join page
+     and My Team's tabs load when opened; the fonts load from `index.html`. The main chunk went from 159 to 124 KB
+     gzipped. Still to do: the pool home imports the whole Picks page for `usePoolGames`, `PoolGameCards` and `HostGames`.
+  6. **Tap targets**: chips get an invisible 7 px of tap area; My Team's About and Pin are 32 px with a wider tap area.
+  7. **`LoadError`** in `ui.tsx` (says what didn't load, with Try again): My pools and Picks first; the other places
+     move onto it as they're touched.
+  8. **The dock**: Players in place of NHL centre, which moves to More under Tonight.
+  9. **Cards without a blur**: `.card` drops `backdrop-filter`; the header, dock and sheets keep theirs.
+  10. **The consent banner** is one line (analytics, with Choices for the detail) off the start page; on `#/new` it asks
+     what's unanswered at the top, and answering analytics anywhere settles the ads question as no.

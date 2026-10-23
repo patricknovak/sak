@@ -56,7 +56,8 @@ function Step({ id, title, summary, onChange, children }: { id: StepKey; title: 
   if (onChange) {
     return (
       <div id={`step-${id}`} className="scroll-mt-4 [counter-increment:step]">
-        <button type="button" onClick={onChange}
+        {/* named for what it does, so a reader (and a test) never takes it for the choice itself */}
+        <button type="button" onClick={onChange} aria-label={`Change ${({ type: 'what you’re starting', follow: 'what it follows', kinds: 'its games', details: 'the name' } as Record<StepKey, string>)[id]}`}
           className="flex w-full items-center gap-3 rounded-2xl border border-white/10 bg-black/20 px-3 py-2.5 text-left transition hover:bg-white/[.06]">
           <span className="grid h-6 w-6 shrink-0 place-items-center rounded-full bg-emerald-400 text-[#0b1220]"><Check size={14} strokeWidth={3} /></span>
           <span className="min-w-0 flex-1">
@@ -236,7 +237,7 @@ export default function NewPool() {
   const followLine = event ? event.name
     : following?.type === 'pack' ? packName(chosen?.name ?? following.slug) : following?.type === 'blank' ? 'Your own questions' : '';
   // what still stands between the host and the start button, first thing first, and where to go to fix it
-  const need: { text: string; step: StepKey; focus?: string } | null = !mode ? { text: 'Pick what you’re starting', step: 'type' }
+  const missing: { text: string; step: StepKey; focus?: string } | null = !mode ? { text: 'Pick what you’re starting', step: 'type' }
     : !following ? { text: mode === 'questions' ? 'Pick your questions' : 'Pick an event', step: 'follow' }
     : event && !kinds.length ? { text: 'Pick at least one game', step: 'kinds' }
     : pool.trim().length < 3 ? { text: 'Name your pool', step: 'details', focus: 'np-pool' }
@@ -246,6 +247,8 @@ export default function NewPool() {
     : !okEmail ? { text: email.trim() ? 'Check your email' : 'Add your email', step: 'details', focus: 'np-email' }
     : pw.length < 6 ? { text: pw ? 'Password: 6+ characters' : 'Add a password', step: 'details', focus: 'np-pw' }
     : null;
+  // still on an earlier step, the next thing is the step after it, not a field further down
+  const need = missing && cur !== 'details' && missing.step === 'details' ? { text: 'Next: name your pool', step: 'details' as StepKey, focus: 'np-pool' } : missing;
   const fix = () => {
     if (!need) return;
     go(need.step);
@@ -550,7 +553,7 @@ export default function NewPool() {
             {mode !== 'fantasy' && following && shown('details') && (
             <Step id="details" title={member ? 'Name it' : 'Name it, and you'}>
             <div className="space-y-4">
-            <label className="block"><span className="mb-1 block text-xs font-semibold text-white/70">Your pool’s name</span>
+            <label className="block"><span className="mb-1 block text-xs font-semibold text-white/70">Name your pool</span>
               <input id="np-pool" className="input w-full" value={pool} onChange={(e) => { setPoolTouched(true); setPool(e.target.value); }} maxLength={40} placeholder={packPlaceholder(event ? event.pack : chosen?.slug)} /></label>
             <div>
               <span className="text-xs font-semibold text-white/70">Its colour</span>

@@ -28,10 +28,9 @@ export function ConsentBanner() {
   // on the start page any choice closes the sheet, the other question saved as denied; elsewhere only analytics is asked
   const choose = (which: 'analytics' | 'ads', granted: boolean) => {
     (which === 'analytics' ? setAnalyticsConsent : setAdsConsent)(granted);
-    if (start) {
-      if (which === 'analytics' && getAdsConsent() == null) setAdsConsent(false);
-      if (which === 'ads' && getAnalyticsConsent() == null) setAnalyticsConsent(false);
-    }
+    // the ads question is only ever asked on the start page, so answering analytics anywhere settles it as no
+    if (which === 'analytics' && getAdsConsent() == null) setAdsConsent(false);
+    if (start && which === 'ads' && getAnalyticsConsent() == null) setAnalyticsConsent(false);
     setTick((n) => n + 1);
   };
   const pair = (which: 'analytics' | 'ads', wide = false) => (
