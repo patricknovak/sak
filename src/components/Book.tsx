@@ -11,8 +11,8 @@ import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useLeague, useNow, useSport } from '../lib/store';
 import { capFirst, isFinal, isLive } from '../lib/sport';
-import { rpc, realtimeChannel, supabase } from '../lib/supabase';
-import type { BookRequest, BookStanding, Game, Market, MarketBet, MarketKind, MarketOption } from '../lib/types';
+import { rpc, supabase } from '../lib/supabase';
+import type { BookRequest, Game, Market, MarketBet, MarketKind, MarketOption } from '../lib/types';
 import { ago, etToday, fmtDate, fmtTime, NHL_TEAMS } from '../lib/format';
 import { Coin, Empty, Section, Sheet, TeamBadge, useAction } from './ui';
 import { BookOpen, Plus, Sparkles } from 'lucide-react';
@@ -21,6 +21,7 @@ import { BookChat } from './BookChat';
 import { marketChances } from '../lib/betodds';
 import { ticketOutcome } from '../lib/betresults';
 import { useBrand } from '../lib/brand';
+import { useBook } from '../lib/book';
 
 const KIND: Record<MarketKind, { icon: string; label: string }> = { winner: { icon: '🏒', label: 'Moneyline' }, total: { icon: '🥅', label: 'Total goals' }, ot: { icon: '⏱️', label: 'Overtime' }, prop: { icon: '⭐', label: 'Player prop' }, custom: { icon: '🎯', label: 'Commish special' }, future: { icon: '🔮', label: 'Season future' }, season_prop: { icon: '📅', label: 'Season prop' }, race: { icon: '🏁', label: 'Race' } };
 const SEASON = new Set<MarketKind>(['future', 'season_prop']);
@@ -63,41 +64,6 @@ const STAKES = [10, 25, 50, 100, 250];
 const club = (a?: string) => (a ? NHL_TEAMS[a] ?? a : '');
 // decimal odds as the league reads them: "2.10" and "+110"
 const american = (o: number) => (o >= 2 ? `+${Math.round((o - 1) * 100)}` : `${Math.round(-100 / (o - 1))}`);
-
-export function useBook() {
-  const [markets, setMarkets] = useState<Market[]>([]);
-  const [tickets, setTickets] = useState<MarketBet[]>([]);
-  const [standings, setStandings] = useState<BookStanding[]>([]);
-  const load = () => {
-    const since = new Date(Date.now() - 4 * 86400000).toISOString().slice(0, 10);
-    Promise.all([
-      supabase.from('markets').select('*').or(`status.eq.open,date.gte.${since}`).order('closes_at'),
-      supabase.from('market_bets').select('*').order('id', { ascending: false }).limit(1000),
-    ]).then(async ([{ data: ms }, { data: ts }]) => {
-      const list = (ms ?? []) as Market[];
-      const tix = (ts ?? []) as MarketBet[];
-      // older markets that tickets were placed on, so every ticket's result can be shown
-      const have = new Set(list.map((m) => m.id));
-      const missing = [...new Set(tix.map((t) => t.market_id).filter((id) => !have.has(id)))];
-      for (let i = 0; i < missing.length; i += 200) {
-        const { data } = await supabase.from('markets').select('*').in('id', missing.slice(i, i + 200));
-        list.push(...((data ?? []) as Market[]));
-      }
-      setMarkets(list.sort((a, b) => a.closes_at.localeCompare(b.closes_at)));
-      setTickets(tix);
-    });
-    supabase.from('book_standings').select('*').then(({ data }) => setStandings((data ?? []) as BookStanding[]));
-  };
-  useEffect(() => {
-    load();
-    const ch = realtimeChannel('book')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'markets' }, load)
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'market_bets' }, load)
-      .subscribe();
-    return () => { supabase.removeChannel(ch); };
-  }, []);
-  return { markets, tickets, standings, reload: load };
-}
 
 export function BookTab() {
   const { me, team, players, can, games, sport } = useLeague();

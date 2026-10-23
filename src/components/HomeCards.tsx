@@ -9,7 +9,7 @@ import { rpc, supabase } from '../lib/supabase';
 import { hub } from '../lib/nhlhub';
 import { fmtDate, fmtMoney, fmtPts, fmtTime } from '../lib/format';
 import { betMoves, ticketOutcome } from '../lib/betresults';
-import { useBook } from './Book';
+import { useBook } from '../lib/book';
 import { Coin, Rank, Section, TeamBadge } from './ui';
 import type { TopGame } from './NhlTop';
 import { useGameSheet } from './GameSheet';

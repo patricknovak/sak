@@ -58,6 +58,20 @@ export interface DayPoint { fpts: number; stats: Record<string, number>; game_id
 
 type Table = 'league' | 'teams' | 'rosters' | 'picks' | 'draft' | 'standings' | 'season' | 'windows' | 'games' | 'notifications' | 'players' | 'gameday' | 'points';
 
+// The hockey tables: every NHL player, his season and his recent form, and the game-day news about them. A fantasy
+// league reads them on nearly every page, so they load before its first page shows. A prediction pool's own pages never
+// read them, so in a pool they wait until something does (a player's card from a box pool, NHL centre): reading
+// `players`, `season`, `windows`, `gameStatus` or `freshNews` from the store loads them then.
+const ON_DEMAND: Table[] = ['players', 'season', 'windows', 'gameday'];
+// and tonight's fantasy points, which a pool doesn't have: these wait until the league says what kind it is
+const HOCKEY: Table[] = [...ON_DEMAND, 'points'];
+// what kind of league this sign-in opened last time on this address, so a fantasy league's hockey tables can start
+// loading before the league row has said so (a guess for speed only: the league row decides)
+type Kind = 'fantasy' | 'predict';
+const kindKey = (uid: string, league: number | string) => `sak-kind:${uid}:${league}`;
+const readKind = (k: string): Kind | null => { try { const v = localStorage.getItem(k); return v === 'fantasy' || v === 'predict' ? v : null; } catch { return null; } };
+const writeKind = (k: string, v: Kind) => { try { localStorage.setItem(k, v); } catch { /* private window: no guess next time */ } };
+
 const Ctx = createContext<Store | null>(null);
 
 export function LeagueProvider({ children }: { children: ReactNode }) {
@@ -140,7 +154,9 @@ export function LeagueProvider({ children }: { children: ReactNode }) {
       if (data) setLeague(data as League);
       const { data: lg } = await supabase.from('leagues').select('brand,short_name,sport,kind').eq('id', (data as League | null)?.league_id ?? 1).maybeSingle();
       setBrand(brandOf(lg?.brand as Partial<Brand> | null, lg?.short_name as string | null));
-      setKind(lg?.kind === 'predict' ? 'predict' : 'fantasy');
+      // the ref at once too: the first load reads it the moment this returns, before the next render
+      kindRef.current = lg?.kind === 'predict' ? 'predict' : 'fantasy';
+      setKind(kindRef.current);
       // hockey is compiled in; another sport's description comes from its row
       const code = (lg?.sport as string | null) ?? 'nhl';
       if (code === 'nhl') setSport(NHL);
@@ -214,10 +230,21 @@ export function LeagueProvider({ children }: { children: ReactNode }) {
     },
   }), []);
 
+  // the tables loaded at least once since sign-in, and whether the hockey tables wait to be asked for (a pool)
+  const requested = useRef(new Set<Table>());
+  const onDemand = useRef(false);
   const refresh = useCallback(async (what?: Table[]) => {
-    const keys = what ?? (Object.keys(loaders) as Table[]);
+    // in a pool, a hockey table nothing has read yet stays unloaded: the first read loads it fresh (need, below)
+    const keys = (what ?? (Object.keys(loaders) as Table[])).filter((k) => !(onDemand.current && ON_DEMAND.includes(k) && !requested.current.has(k)));
+    for (const k of keys) requested.current.add(k);
     await Promise.all(keys.map((k) => loaders[k]().catch((e) => console.warn('load', k, e))));
   }, [loaders]);
+  // a page read one of the hockey tables in a pool: load it now (once; refreshes keep it current from then on)
+  const need = (t: Table) => {
+    if (!onDemand.current || requested.current.has(t)) return;
+    requested.current.add(t);
+    loaders[t]().catch((e) => console.warn('load', t, e));
+  };
 
   // initial load once signed in. Keyed on who is signed in, not the session object: Supabase hands out a new session
   // on every token refresh and when the app comes back to the foreground, and reloading everything then would
@@ -226,7 +253,27 @@ export function LeagueProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     if (!session || !hostReady) { setLoaded(false); return; }
     let alive = true;
-    refresh().then(() => alive && setLoaded(true));
+    onDemand.current = false;
+    requested.current.clear();
+    // The first load. Everything but the hockey tables starts at once; they follow the league row, which says whether
+    // this is a fantasy league (all of them, before the first page shows, as always) or a pool (none of them until a
+    // page reads one). When the address or the last visit says it's a fantasy league, they start at once too.
+    (async () => {
+      const lid = tabLeague() ?? host?.id ?? 0;
+      const key = kindKey(session.user.id, lid);
+      const guess = host && lid === host.id && host.kind ? host.kind : readKind(key);
+      const rest = (Object.keys(loaders) as Table[]).filter((k) => k !== 'league' && !HOCKEY.includes(k));
+      const base = refresh(rest);
+      const early = guess === 'fantasy' ? refresh(HOCKEY) : null;
+      await refresh(['league']);
+      const k = kindRef.current;
+      writeKind(key, k);
+      if (k === 'predict') {
+        // a pool: the page shows once its own tables are in (a wrong guess's hockey load finishes behind it)
+        onDemand.current = true;
+        await Promise.all([base, refresh(['points'])]);
+      } else await Promise.all([base, early ?? refresh(HOCKEY)]);
+    })().then(() => alive && setLoaded(true));
     // measure clock skew against the database so every phone shows the same pick clock
     const t0 = Date.now();
     fetch(`${import.meta.env.VITE_SUPABASE_URL}/rest/v1/team_directory?select=id&limit=1`, { headers: { apikey: import.meta.env.VITE_SUPABASE_ANON_KEY } })
@@ -247,7 +294,8 @@ export function LeagueProvider({ children }: { children: ReactNode }) {
     const timers = new Map<Table, number>();
     const bump = (t: Table, delay = 250) => {
       clearTimeout(timers.get(t));
-      timers.set(t, window.setTimeout(() => loaders[t](), delay));
+      // through refresh, so a pool's hockey tables nothing has read stay unloaded
+      timers.set(t, window.setTimeout(() => refresh([t]), delay));
     };
     const map: Record<string, Table[]> = {
       // the rules row lives in league_rules (the `league` the site reads is a view of the caller's row), so its changes arrive under that name
@@ -375,9 +423,15 @@ export function LeagueProvider({ children }: { children: ReactNode }) {
 
   const gameStatus = useCallback((id: number, date?: string) => statuses.get(`${id}|${date ?? etToday()}`), [statuses, leagueDay]); // eslint-disable-line react-hooks/exhaustive-deps
   const value: Store = {
-    ready: authReady && hostReady && (!session || loaded), host, hostElsewhere: !!host && !!league && league.league_id !== host.id && tabLeague() !== league.league_id, session, me, league, brand, sport, kind, teams, spectators, can, team, players, rosters, owner, picks, draft,
-    standings, playoffs, cup, season, windows, games, gamesLive, gamesByTeam, notifications, gameStatus, freshNews, online, draftRoom, refresh, serverOffset, leagueDay,
+    ready: authReady && hostReady && (!session || loaded), host, hostElsewhere: !!host && !!league && league.league_id !== host.id && tabLeague() !== league.league_id, session, me, league, brand, sport, kind, teams, spectators, can, team, rosters, owner, picks, draft,
+    standings, playoffs, cup, games, gamesLive, gamesByTeam, notifications, online, draftRoom, refresh, serverOffset, leagueDay,
     dayPoints: dayPoints.pts, pointsDay: dayPoints.day, roomPoints,
+    // the hockey tables, loaded on first read in a pool (ON_DEMAND, above); in a fantasy league they're simply there
+    get players() { need('players'); return players; },
+    get season() { need('season'); return season; },
+    get windows() { need('windows'); return windows; },
+    get gameStatus() { need('gameday'); return gameStatus; },
+    get freshNews() { need('gameday'); return freshNews; },
   };
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
 }
