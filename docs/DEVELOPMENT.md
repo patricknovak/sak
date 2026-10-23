@@ -1031,3 +1031,23 @@ first) but its questions stale:
   vaulted or took first to the GMs `rank_changes` moves up (a league that isn't a points table has no `rank_changes` and
   no check). The next dry run told the night's two passes right. Still open: a gap misstated from true numbers ("the
   middle four separated by 12.3"); the checks read numbers, tags and climbs, not every comparison.
+
+### 9.13 Quieter bells, 23 October 2026
+
+Patrick: "I am being notified of things when it is not true or not an issue." A week of his bells, read against what
+happened (migration 331, live):
+- **"NHL score sync has not succeeded in the last 15 minutes"**, 20 times, every six hours day and night: the score job
+  runs only while a game is on (`_scores_due()`), so between games its last success is always old. Not true; it now
+  rings only while scores are due.
+- **"Garry's morning post did not run today"**, 10 times, on days it ran (the morning column posted every day from 16
+  to 23 October): the check read the job's reply from pg_net's response log, which keeps about six hours, and the
+  morning job's own reply times out once it writes for several leagues. Not true; it now looks for the morning post in
+  the league's chat, after a night with NHL games.
+- **Stat corrections**: 46 of the month's 47 moved a total by less than a point (three by nothing). Not an issue; a GM
+  hears one when it moves their total by a point or more, and the rest still count.
+- **Injuries**, about one bell a GM a day: one feed (ESPN) marks a player Out on a game day and Day-To-Day the next
+  morning, and each flip rang every team that has him (Markstrom seven times in a week, Sanderson and Dahlin six). A move
+  between the two no longer rings, and the same status for the same player doesn't ring a team twice in three days; new
+  to the report, onto injured reserve and off it still ring.
+The rest of the week's bells were true and worth having: the trade offer, the challenge, the hat trick, the pool's
+closing calls and drops, the questions waiting on the host, the Monday platform week.

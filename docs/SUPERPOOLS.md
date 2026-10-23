@@ -478,6 +478,10 @@ The steps above finish the tenancy. `docs/MARKET.md` sets what comes after in th
     opening-week audit, win totals' lock held the moment the season starts (322), an even-money price keeping its spread
     and the fixtures pulled twice a day (323).
 
+19. **Quieter bells** (23 October 2026; `docs/DEVELOPMENT.md` §9.13, migration 331): health alerts only when something is
+    really wrong (the score sync while games are on, the morning post looked for in the chat), stat corrections only when
+    a total moves a point or more, and no bells for ESPN's game-day Out and Day-To-Day flips or a repeat within three days.
+
 Then horizon 2 (soccer on licensed data, basketball, the multi-sport pool, the Supercoin prediction market,
 the Super Pool bundle, the public API) and horizon 3 (cricket free-to-play, baseball, football and college,
 pools for golf and F1, Supercoin competitions and non-cash prizes), as `docs/MARKET.md` lays out.
