@@ -81,6 +81,7 @@ export default function NewPool() {
   const [everySheetSet, setEverySheet] = useState<boolean | null>(null);
   const [color, setColor] = useState<string>(SWATCHES[0]);
   const [pool, setPool] = useState('');
+  const [poolTouched, setPoolTouched] = useState(false);
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [pw, setPw] = useState('');
@@ -88,6 +89,8 @@ export default function NewPool() {
   const [err, setErr] = useState('');
   const [signIn, setSignIn] = useState(false);
   const typed = params.get('type');
+  const linkSeeded = !!(params.get('pack') || params.get('comp') || (typed === 'sports' || typed === 'questions' || typed === 'fantasy'));
+  const [customize, setCustomize] = useState(!linkSeeded);
   const [mode, setMode] = useState<Mode | null>(typed === 'sports' || typed === 'questions' || typed === 'fantasy' ? typed : null);
 
   useEffect(() => { document.title = PRODUCT.name; }, []);
@@ -114,6 +117,19 @@ export default function NewPool() {
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
   const chosen = useMemo(() => packs?.find((p) => p.slug === pack) ?? null, [packs, pack]);
   const event = following?.type === 'event' ? events?.find((e) => e.competition === following.comp) ?? null : null;
+  // Real editable default once the link's pack or event resolves (placeholder alone left the button dead).
+  useEffect(() => {
+    if (poolTouched) return;
+    if (event) {
+      setPool(event.pack ? packPlaceholder(event.pack) : `${event.name} pool`);
+      return;
+    }
+    if (following?.type === 'pack') {
+      setPool(packPlaceholder(following.slug));
+      return;
+    }
+    if (following?.type === 'blank') setPool(packPlaceholder(null));
+  }, [event, following, poolTouched]);
   // the events under their sports, the sport with the soonest lock first, each sport's events soonest first
   // the events grouped by sport in the list's order, except that a sport whose event reaches its final within two weeks
   // (the World Series in its week, a Super Bowl, a Cup final) goes first: it's the pool that can't wait
@@ -160,6 +176,32 @@ export default function NewPool() {
   const okEmail = /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email.trim());
   const member = !!session && !!me;
   const ready = !!following && (!event || kinds.length > 0) && pool.trim().length >= 3 && (member || (name.trim().length >= 2 && okEmail && pw.length >= 6));
+  const startWhy = !ready && mode && mode !== 'fantasy'
+    ? (!following || (event && !kinds.length)
+      ? 'Pick what your pool follows first.'
+      : pool.trim().length < 3
+        ? 'Give your pool a name (3+ letters).'
+        : !member && !(name.trim().length >= 2 && okEmail && pw.length >= 6)
+          ? 'Add your name, email and a password to start.'
+          : null)
+    : null;
+  // One line for a link-seeded template: pack/event · kind · scoring preset.
+  const summaryKind = (() => {
+    if (following?.type === 'pack' || following?.type === 'blank') return 'Questions';
+    const main = kinds.find((k): k is GameKind => k !== 'questions');
+    if (main) return KINDS[main].title;
+    if (kinds.includes('questions')) return 'Questions';
+    return null;
+  })();
+  const summaryPreset = (() => {
+    if (kinds.includes('series')) return PRESETS.find((p) => p.key === preset)?.label ?? null;
+    if (kinds.includes('pickem')) return PICKEM_PRESETS.find((p) => p.key === pkPreset)?.label ?? null;
+    if (kinds.includes('players')) return box.preset === 'classic' ? 'Ten boxes' : 'Five boxes';
+    return null;
+  })();
+  const summaryTitle = event?.name ?? (following?.type === 'pack' ? packName(chosen?.name ?? following.slug) : following?.type === 'blank' ? 'Your own questions' : null);
+  const summaryLine = [summaryTitle, summaryKind, summaryPreset].filter(Boolean).join(' · ');
+  const showSetup = customize || !linkSeeded || !following;
 
   const start = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -167,7 +209,7 @@ export default function NewPool() {
     try {
       if (member) {
         const r = await rpc<{ id: number; slug: string }>('pool_start', { p_name: pool.trim(), p_color: color, p_pack: openPack });
-        // Queue + send before games/nav; openPool awaits the gtag callback so a reload cannot drop it.
+        // Queue only; openPool reloads and initAnalytics sends pool_created on the stable page.
         await trackPoolCreated({ id: r.id, pack: openPack, sport: event?.sport ?? null, kind: mode });
         await startGames(r.id);
         // Home first: InviteCard opens the share sheet once so the group chat gets the link.
@@ -187,7 +229,7 @@ export default function NewPool() {
       }
       setRemember(true);
       const opened = (data as { pool?: { id: number; slug: string } })?.pool;
-      // Pool already exists from join: fire before sign-in so a failed login cannot skip the north-star hit.
+      // Queue before sign-in so a failed login cannot skip the north-star hit; send after reload.
       await trackPoolCreated({ id: opened?.id, pack: openPack, sport: event?.sport ?? null, kind: mode });
       const { error: se } = await supabase.auth.signInWithPassword({ email: login, password: pw });
       if (se) { setBusy(false); setErr(`Your pool is open, but signing in failed: ${se.message}. Sign in from the main page.`); return; }
@@ -214,6 +256,14 @@ export default function NewPool() {
 
         <form onSubmit={start} className="card-hero p-5">
           <div className="relative space-y-6 [counter-reset:step]">
+            {linkSeeded && following && mode !== 'fantasy' && !customize && summaryLine && (
+              <div className="flex items-start justify-between gap-3 rounded-2xl border border-white/15 bg-white/[.06] px-3 py-2.5">
+                <p className="min-w-0 text-sm font-semibold leading-snug text-white">{summaryLine}</p>
+                <button type="button" className="shrink-0 text-xs font-bold uppercase tracking-wider text-white/70 underline decoration-white/30 underline-offset-2 hover:text-white" onClick={() => setCustomize(true)}>Change</button>
+              </div>
+            )}
+
+            {showSetup && (
             <Step title="What are you starting?">
               <div className="grid gap-2">
                 {MODES.map((m) => {
@@ -229,10 +279,11 @@ export default function NewPool() {
                 })}
               </div>
             </Step>
+            )}
 
             {mode === 'fantasy' && <FantasyStart color={color} setColor={setColor} swatches={SWATCHES} member={member} signedIn={!!session} />}
 
-            {mode === 'sports' && (
+            {showSetup && mode === 'sports' && (
             <Step title="What are you following?">
               <div className="grid gap-2">
                 {byGroup.map((e, i, all) => {
@@ -260,7 +311,7 @@ export default function NewPool() {
             </Step>
             )}
 
-            {mode === 'questions' && (
+            {showSetup && mode === 'questions' && (
             <Step title="Which questions?">
               <div className="grid gap-2">
                 {[...loosePacks.map((p) => { const w = packWhen(p); return { f: { type: 'pack', slug: p.slug } as Following, key: p.slug, name: packName(p.name), icon: p.icon, sub: `${p.questions} questions · ${w.text}`, soon: w.soon }; }),
@@ -280,7 +331,7 @@ export default function NewPool() {
             </Step>
             )}
 
-            {mode === 'sports' && event && (
+            {showSetup && mode === 'sports' && event && (
               <Step title="What kind of pool?">
                 <div className="grid gap-2">
                   {[...offered.map((k) => ({ key: k as GameKind | 'questions', ...KINDS[k], sub: `${KINDS[k].line} ${KINDS[k].time}.` })),
@@ -342,7 +393,7 @@ export default function NewPool() {
               </Step>
             )}
 
-            {event && kinds.includes('series') && (
+            {showSetup && event && kinds.includes('series') && (
               <Step title="How it scores">
                 <div className="grid grid-cols-3 gap-1.5 rounded-2xl bg-black/25 p-1">
                   {PRESETS.map((p) => <button key={p.key} type="button" onClick={() => setPreset(p.key)} className={`rounded-xl px-2 py-2 text-xs font-bold transition ${preset === p.key ? 'bg-white text-[#0b1220]' : 'text-white/70 hover:text-white'}`}>{p.label}</button>)}
@@ -353,7 +404,7 @@ export default function NewPool() {
               </Step>
             )}
 
-            {event && kinds.includes('players') && (
+            {showSetup && event && kinds.includes('players') && (
               <Step title={event.open_round ? 'Its size' : 'Its size and nights'}>
                 <div className="grid grid-cols-2 gap-1.5 rounded-2xl bg-black/25 p-1">
                   {([['classic', 'Ten boxes of six'], ['quick', 'Five boxes of five']] as const).map(([k, l]) => <button key={k} type="button" onClick={() => setBox({ ...box, preset: k })} className={`rounded-xl px-2 py-2 text-xs font-bold transition ${box.preset === k ? 'bg-white text-[#0b1220]' : 'text-white/70 hover:text-white'}`}>{l}</button>)}
@@ -365,7 +416,7 @@ export default function NewPool() {
               </Step>
             )}
 
-            {event && kinds.includes('pickem') && (
+            {showSetup && event && kinds.includes('pickem') && (
               <Step title="How it scores">
                 <div className="grid grid-cols-2 gap-1.5 rounded-2xl bg-black/25 p-1">
                   {PICKEM_PRESETS.map((p) => <button key={p.key} type="button" onClick={() => setPkPreset(p.key)} className={`rounded-xl px-2 py-2 text-xs font-bold transition ${pkPreset === p.key ? 'bg-white text-[#0b1220]' : 'text-white/70 hover:text-white'}`}>{p.label}</button>)}
@@ -397,14 +448,14 @@ export default function NewPool() {
               </Step>
             )}
 
-            {event && gridSeries && kinds.includes('squares') && (
+            {showSetup && event && gridSeries && kinds.includes('squares') && (
               <Step title="The grid">
                 <SquaresKnobs dark grids={eventGrids(event)} on={gridSeries.id} setOn={setGridOn} grid={grid} setGrid={setGrid} sport={event.sport} />
                 <p className="mt-2 rounded-xl bg-white/[.05] px-3 py-2 text-xs leading-snug text-white/70">{gridLabel(gridSeries)}. Members claim squares with their Supercoins until the grid fills or {gridSeries.best_of > 1 ? 'Game 1 starts' : 'the game starts'}; then the digits are drawn from a seed anyone can check.</p>
               </Step>
             )}
 
-            {event && sheetGame && kinds.includes('props') && (
+            {showSetup && event && sheetGame && kinds.includes('props') && (
               <Step title="The game">
                 <SheetPicker dark games={event.sheets ?? []} on={sheetGame.id} setOn={setSheetOn} />
                 <p className="mt-2 rounded-xl bg-white/[.05] px-3 py-2 text-xs leading-snug text-white/70">{sheetLabel(sheetGame)}: eight calls on the game, a point each, settled from the score. Everyone's sheet locks at the start.</p>
@@ -419,7 +470,8 @@ export default function NewPool() {
             <Step title="Name it">
             <div className="space-y-4">
             <label className="block"><span className="sr-only">Name your pool</span>
-              <input className="input w-full" value={pool} onChange={(e) => setPool(e.target.value)} maxLength={40} placeholder={packPlaceholder(event ? event.pack : chosen?.slug)} /></label>
+              <input className="input w-full" value={pool} onChange={(e) => { setPoolTouched(true); setPool(e.target.value); }} maxLength={40} placeholder={packPlaceholder(event ? event.pack : chosen?.slug)} /></label>
+            {showSetup && (
             <div>
               <span className="label text-white/70">Its colour</span>
               <div className="mt-2 flex flex-wrap gap-2.5">
@@ -431,6 +483,7 @@ export default function NewPool() {
                 ))}
               </div>
             </div>
+            )}
             </div>
             </Step>
             )}
@@ -450,6 +503,7 @@ export default function NewPool() {
             )}
 
             <button className="btn-gold w-full py-3 text-base" disabled={busy || !ready || (!!session && !member)}>{busy ? <Spinner /> : '✨ Start my pool'}</button>
+            {startWhy && !(!!session && !member) && <p className="text-center text-xs text-white/60">{startWhy}</p>}
             </>)}
             {!session && <a href="#/" className="block text-center text-sm text-white/60 underline">Already have an account? Sign in, then start it from My pools</a>}
           </div>
