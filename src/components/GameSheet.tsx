@@ -6,11 +6,12 @@
 // from the NHL's feed through nhl-hub. Team radio plays from here and keeps playing when the sheet closes.
 import { createContext, lazy, Suspense, useCallback, useContext, useMemo, useState, type ReactNode } from 'react';
 import { STAT_LABELS } from '../lib/format';
-import { RadioPlayer } from './LiveWatch';
 import type { HubGame } from '../lib/nhlGame';
 
 // the sheet itself loads the first time a game is opened, so the app's first page stays light
 const GameSheet = lazy(() => import('./GameSheetBody'));
+// and team radio the first time a GM turns it on
+const RadioPlayer = lazy(() => import('./LiveWatch').then((m) => ({ default: m.RadioPlayer })));
 
 export type GameTab = 'game' | 'thread' | 'box' | 'more';
 type Radio = { url: string; label: string };
@@ -28,7 +29,7 @@ export function GameSheetProvider({ children }: { children: ReactNode }) {
       {children}
       {at && <Suspense fallback={null}><GameSheet id={at.id} hint={at.hint} tab={at.tab} onClose={() => setAt(null)} /></Suspense>}
       {/* team radio, playing on whatever page the GM moves to */}
-      {radio && <div className="fixed inset-x-0 bottom-[84px] z-[60] px-4 md:bottom-6"><div className="mx-auto max-w-md shadow-[0_12px_32px_rgba(0,0,0,.5)]"><RadioPlayer url={radio.url} label={radio.label} onClose={() => setRadio(null)} /></div></div>}
+      {radio && <div className="fixed inset-x-0 bottom-[84px] z-[60] px-4 md:bottom-6"><div className="mx-auto max-w-md shadow-[0_12px_32px_rgba(0,0,0,.5)]"><Suspense fallback={null}><RadioPlayer url={radio.url} label={radio.label} onClose={() => setRadio(null)} /></Suspense></div></div>}
     </GameCtx.Provider>
   );
 }

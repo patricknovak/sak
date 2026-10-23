@@ -3,7 +3,7 @@ import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { ArrowDown, ArrowUp, Check, ChevronDown, ClipboardList, Flame, Grid3x3, Shuffle, ListChecks, Lock, ListOrdered, Minus, Plus, Swords, TrendingUp, Trophy, Users } from 'lucide-react';
 import { useLeague, useNow } from '../lib/store';
 import { rpc, supabase } from '../lib/supabase';
-import { Empty, PageHeader, Section, TeamBadge, Toggle, useAction } from '../components/ui';
+import { Empty, LoadError, PageHeader, Section, TeamBadge, Toggle, useAction } from '../components/ui';
 import { Crest } from '../components/Crest';
 import { ShareButton, useCardBrand } from '../components/ShareButton';
 import { shareCard } from '../lib/shareCard';
@@ -60,9 +60,12 @@ export interface PoolGame { id: number; kind: 'series' | 'rank' | 'squares' | 'p
 export function usePoolGames() {
   const { me, league } = useLeague();
   const [games, setGames] = useState<PoolGame[] | null>(null);
-  const load = useCallback(() => rpc<PoolGame[]>('pool_games_list').then((g) => setGames(g ?? []), () => setGames([])), []);
+  // a list that didn't load is `failed`, not an empty pool (the Picks page offers Try again); a refresh that fails keeps
+  // what's showing
+  const [failed, setFailed] = useState(false);
+  const load = useCallback(() => rpc<PoolGame[]>('pool_games_list').then((g) => { setFailed(false); setGames(g ?? []); }, () => setFailed(true)), []);
   useEffect(() => { if (me) load(); }, [me?.id, league?.league_id, load]); // eslint-disable-line react-hooks/exhaustive-deps
-  return { games, reload: load };
+  return { games, reload: load, failed };
 }
 
 const DAY = new Intl.DateTimeFormat(undefined, { weekday: 'short', month: 'short', day: 'numeric' });
@@ -557,24 +560,32 @@ export function PoolGameCards() {
 export default function Picks() {
   const { me, teams } = useLeague();
   const [params, setParams] = useSearchParams();
-  const { games: listed } = usePoolGames();
+  const { games: listed, failed: listFailed, reload: reloadList } = usePoolGames();
   // games still going first (one waiting on you first of all), the finished ones after
   const games = listed ? [...listed].sort((a, b) => Number(a.status !== 'open') - Number(b.status !== 'open') || Number(b.to_pick > 0) - Number(a.to_pick > 0) || a.id - b.id) : listed;
   const gid = Number(params.get('g')) || games?.[0]?.id || null;
   const [board, setBoard] = useState<GameBoard | null | undefined>(undefined);
   const [actAs, setActAs] = useState<{ team: number; name: string } | null>(null);
   const now = useNow(60000);
-  const load = useCallback(() => { if (gid) rpc<GameBoard>('pool_game_board', { p_game: gid }).then(setBoard, () => setBoard(null)); }, [gid]);
+  // a minute's refresh that fails keeps the board showing; only a first load that fails says so
+  const load = useCallback(() => { if (gid) rpc<GameBoard>('pool_game_board', { p_game: gid }).then(setBoard, () => setBoard((b) => b ?? null)); }, [gid]);
   useEffect(() => { setBoard(undefined); load(); }, [load]);
   useEffect(() => { load(); }, [now]); // eslint-disable-line react-hooks/exhaustive-deps
   const name = (id: number) => { const t = teams.find((x) => x.id === id); return t?.gm_name ?? t?.name ?? '?'; };
 
+  if (!games && listFailed) return (
+    <div className="space-y-5">
+      <PageHeader icon={<Swords className="h-6 w-6 text-gold" />} title="Picks" sub="Series, rankings and more" />
+      <LoadError what="the pool's games" onRetry={reloadList} />
+    </div>
+  );
   if (games && !games.length) return (
     <div className="space-y-5">
       <PageHeader icon={<Swords className="h-6 w-6 text-gold" />} title="Picks" sub="Series, rankings and more" />
       <Empty icon="🏆" title="No games in this pool yet">{me?.is_commish ? <Link to="/host" className="btn-gold mt-3 inline-block">Add one from the Host page</Link> : 'The host adds them.'}</Empty>
     </div>
   );
+  if (board === null) return <LoadError what="this game" onRetry={() => { setBoard(undefined); load(); }} />;
   if (!board) return <div className="h-60 animate-pulse rounded-3xl bg-white/[.04]" />;
   const rank = board.table.findIndex((r) => r.team_id === board.me);
   const mine = board.table[rank];

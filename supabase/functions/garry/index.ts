@@ -264,7 +264,9 @@ async function grok(system: string, user: string, maxTokens = 1200, temperature 
     if (!GATEWAY) return send(extra, true);
     try {
       const r = await send(extra, false);
-      if (r.status < 500 && r.status !== 401 && r.status !== 403) return r;
+      // anything but an answer goes straight to xAI: on 23 October a gateway the URL didn't name answered 400 ("Please
+      // configure AI Gateway"), which went back as the model's own refusal and left every post on its plain fallback
+      if (r.ok) return r;
       console.warn('ai gateway', r.status, (await r.text()).slice(0, 200));
     } catch (e) { console.warn('ai gateway', e); }
     return send(extra, true);

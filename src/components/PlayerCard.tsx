@@ -1,4 +1,4 @@
-import { useEffect, useState, type ReactNode } from 'react';
+import { lazy, Suspense, useEffect, useState, type ReactNode } from 'react';
 import { usePlayerInfo } from '../lib/playerInfo';
 import { Sparkline } from './charts';
 import { useNavigate } from 'react-router-dom';
@@ -13,8 +13,10 @@ import { LatestNews, PlayerNewsList, usePlayerNews } from './PlayerNews';
 import { GameStatusBox, GameStatusChip, NewsDot } from './GameStatus';
 import { InjuryReport } from './InjuryReport';
 import { useBrand } from '../lib/brand';
-import { AddPlayerPanel } from './AddPlayer';
 import { useWatchlist } from '../lib/watchlist';
+
+// the add chooser (his numbers beside your roster's, with the scouting behind them) loads when a GM taps Add
+const AddPlayerPanel = lazy(() => import('./AddPlayer').then((m) => ({ default: m.AddPlayerPanel })));
 
 // a player named in a sentence (an offer, a list): the name, his injury and tonight's status, and the news dot, all
 // opening his card in place (lib/playerInfo)
@@ -274,7 +276,7 @@ export function PlayerActions({ p, onDone }: { p: Player; onDone?: () => void })
         )}
       </div>
 
-      {adding && <AddPlayerPanel p={p} onCancel={() => setAdding(false)} onDone={() => { setAdding(false); onDone?.(); }} />}
+      {adding && <Suspense fallback={<div className="card mt-3 h-24 animate-pulse" />}><AddPlayerPanel p={p} onCancel={() => setAdding(false)} onDone={() => { setAdding(false); onDone?.(); }} /></Suspense>}
     </>
   );
 }

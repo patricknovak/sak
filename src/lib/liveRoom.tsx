@@ -51,7 +51,9 @@ export function swingWords(what: Record<string, number> = {}): { head: string; r
 }
 
 export function LiveRoomProvider({ children }: { children: ReactNode }) {
-  const { session, me, league, kind, leagueDay, gamesLive, players, team, roomPoints } = useLeague();
+  // the store itself, not its players: reading those in a pool would load every NHL player (store.tsx, ON_DEMAND)
+  const store = useLeague();
+  const { session, me, league, kind, leagueDay, gamesLive, team, roomPoints } = store;
   const [room, setRoom] = useState<Omit<Room, 'react'>>(OFF);
   const [alert, setAlert] = useState<Swing | null>(null);
   const ws = useRef<WebSocket | null>(null);
@@ -157,7 +159,7 @@ export function LiveRoomProvider({ children }: { children: ReactNode }) {
   return (
     <Ctx.Provider value={value}>
       {children}
-      {alert && <GoalAlert swing={alert} name={players.get(alert.player!)?.name ?? 'Your player'} badge={team(alert.team)} onDone={clear} />}
+      {alert && <GoalAlert swing={alert} name={store.players.get(alert.player!)?.name ?? 'Your player'} badge={team(alert.team)} onDone={clear} />}
     </Ctx.Provider>
   );
 }

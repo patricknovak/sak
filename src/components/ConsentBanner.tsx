@@ -1,83 +1,75 @@
-// Consent floor with two choices: Analytics (analytics_storage) and Ads measurement
-// (ad_storage + ad_user_data + AW tag + hashed email). Defaults stay denied until each is accepted.
-// Nothing Google loads before at least one Accept. One choice closes the sheet; unanswered Ads is saved as denied
-// so the sheet cannot cover Start my pool after Analytics alone.
+// Consent, asked as little as it can be (23 October 2026). Anywhere but the start page: one line for analytics
+// (analytics_storage), with Choices for the detail; the ads question waits. On the start page, #/new, where someone
+// who came from an ad lands: whatever is still unanswered, analytics and ads measurement (ad_storage + ad_user_data +
+// AW tag + hashed email), in one sheet at the top, clear of the start bar, and any choice closes it with the other saved
+// as denied (#299: the sheet never stays over Start my pool). The old sheet asked both everywhere and covered about 38%
+// of a phone and the whole dock, a GM's first sight of the app on a new phone. Defaults stay denied until accepted;
+// nothing Google loads before an Accept.
 import { useEffect, useState } from 'react';
-import {
-  getAdsConsent,
-  getAnalyticsConsent,
-  hasGaId,
-  needsConsentChoice,
-  setAdsConsent,
-  setAnalyticsConsent,
-} from '../lib/analytics';
+import { getAdsConsent, getAnalyticsConsent, hasGaId, setAdsConsent, setAnalyticsConsent } from '../lib/analytics';
+
+const onStart = () => /^#\/new(\?|$)/.test(window.location.hash);
 
 export function ConsentBanner() {
-  const [open, setOpen] = useState(false);
-  const [analytics, setAnalytics] = useState<'granted' | 'denied' | null>(null);
-  const [ads, setAds] = useState<'granted' | 'denied' | null>(null);
+  const [, setTick] = useState(0);
+  const [details, setDetails] = useState(false);
+  // the question to ask follows the page: the hash changes without a reload
   useEffect(() => {
-    if (!hasGaId()) return;
-    if (needsConsentChoice()) {
-      setAnalytics(getAnalyticsConsent());
-      setAds(getAdsConsent());
-      setOpen(true);
-    }
+    const re = () => setTick((n) => n + 1);
+    window.addEventListener('hashchange', re);
+    return () => window.removeEventListener('hashchange', re);
   }, []);
-  if (!open) return null;
-  // Any choice closes the sheet. Unanswered Ads → denied (no Ads tags). Unanswered Analytics → denied too,
-  // so a single Ads tap also clears the sheet and does not reopen on the next page.
-  const finish = (nextA: 'granted' | 'denied' | null, nextAds: 'granted' | 'denied' | null) => {
-    let a = nextA ?? getAnalyticsConsent();
-    let d = nextAds ?? getAdsConsent();
-    if (a == null) {
-      setAnalyticsConsent(false);
-      a = 'denied';
-      setAnalytics(a);
-    }
-    if (d == null) {
-      setAdsConsent(false);
-      d = 'denied';
-      setAds(d);
-    }
-    setOpen(false);
+  if (!hasGaId()) return null;
+  const start = onStart();
+  const askAnalytics = getAnalyticsConsent() == null;
+  const askAds = start && getAdsConsent() == null;
+  if (!askAnalytics && !askAds) return null;
+
+  // on the start page any choice closes the sheet, the other question saved as denied; elsewhere only analytics is asked
+  const choose = (which: 'analytics' | 'ads', granted: boolean) => {
+    (which === 'analytics' ? setAnalyticsConsent : setAdsConsent)(granted);
+    // the ads question is only ever asked on the start page, so answering analytics anywhere settles it as no
+    if (which === 'analytics' && getAdsConsent() == null) setAdsConsent(false);
+    if (start && which === 'ads' && getAnalyticsConsent() == null) setAnalyticsConsent(false);
+    setTick((n) => n + 1);
   };
-  const chooseAnalytics = (granted: boolean) => {
-    setAnalyticsConsent(granted);
-    const next = granted ? 'granted' as const : 'denied' as const;
-    setAnalytics(next);
-    finish(next, ads ?? getAdsConsent());
-  };
-  const chooseAds = (granted: boolean) => {
-    setAdsConsent(granted);
-    const next = granted ? 'granted' as const : 'denied' as const;
-    setAds(next);
-    finish(analytics ?? getAnalyticsConsent(), next);
-  };
+  const pair = (which: 'analytics' | 'ads', wide = false) => (
+    <>
+      <button type="button" className={`btn-ghost ${wide ? 'flex-1' : 'shrink-0 px-3'} py-2 text-sm`} onClick={() => choose(which, false)}>No thanks</button>
+      <button type="button" className={`btn-gold ${wide ? 'flex-1' : 'shrink-0 px-3'} py-2 text-sm`} onClick={() => choose(which, true)}>Accept</button>
+    </>
+  );
+
   return (
-    <div className="pointer-events-none fixed inset-x-0 bottom-0 z-[80] flex justify-center p-3 pb-[max(0.75rem,env(safe-area-inset-bottom))]" role="dialog" aria-label="Analytics and ads cookies">
-      <div className="pointer-events-auto w-full max-w-md rounded-2xl border border-white/10 bg-[rgb(11_18_32/.94)] p-3.5 shadow-[0_18px_50px_-20px_rgba(0,0,0,.85)] backdrop-blur-md">
-        <p className="text-[13px] leading-snug text-slate-200">
-          Two choices. No ads are shown in Super Pools. <a className="text-sky-300 underline" href="#/privacy">Privacy</a>.
-        </p>
-        <div className="mt-3 space-y-3">
-          <div>
-            <div className="text-[12px] font-semibold text-white">Analytics</div>
-            <p className="mt-0.5 text-[12px] leading-snug text-slate-300">Count how Super Pools gets used: pools started, invites shared, pages opened.</p>
-            <div className="mt-2 flex gap-2">
-              <button type="button" className={`btn-ghost flex-1 py-2 text-sm ${analytics === 'denied' ? 'ring-1 ring-white/30' : ''}`} onClick={() => chooseAnalytics(false)}>No thanks</button>
-              <button type="button" className={`btn-gold flex-1 py-2 text-sm ${analytics === 'granted' ? 'ring-2 ring-white/40' : ''}`} onClick={() => chooseAnalytics(true)}>Accept</button>
+    <div className={`pointer-events-none fixed inset-x-0 z-[80] flex justify-center p-3 ${start ? 'top-0 pt-[max(0.75rem,env(safe-area-inset-top))]' : 'bottom-0 pb-[max(0.75rem,env(safe-area-inset-bottom))]'}`} role="dialog" aria-label="Analytics and ads cookies">
+      <div className="pointer-events-auto w-full max-w-md rounded-2xl border border-white/10 bg-[rgb(11_18_32/.96)] p-3 shadow-[0_18px_50px_-20px_rgba(0,0,0,.85)]">
+        {askAnalytics && (
+          <>
+            <div className="flex items-center gap-2">
+              <p className="min-w-0 flex-1 text-[13px] leading-snug text-slate-200">
+                Count your visits to help make Super Pools better? No ads in the app.{' '}
+                <button type="button" className="text-sky-300 underline" onClick={() => setDetails(!details)} aria-expanded={details}>Choices</button>
+              </p>
+              {pair('analytics')}
             </div>
+            {details && (
+              <p className="mt-2 text-[12px] leading-snug text-slate-300">
+                Analytics counts how Super Pools gets used (pools started, invites shared, pages opened), never who you are.
+                Nothing loads unless you accept. <a className="text-sky-300 underline" href="#/privacy">Privacy</a>
+              </p>
+            )}
+          </>
+        )}
+        {askAds && (
+          <div className={askAnalytics ? 'mt-3 border-t border-white/10 pt-3' : ''}>
+            <div className="text-[12px] font-semibold text-white">Did an ad bring you here?</div>
+            <p className="mt-0.5 text-[12px] leading-snug text-slate-300">
+              Let us tell Google whether a sign-up came from one of our ads, with a scrambled one-way code from your email,
+              never the email itself. <a className="text-sky-300 underline" href="#/privacy">Privacy</a>
+            </p>
+            <div className="mt-2 flex gap-2">{pair('ads', true)}</div>
           </div>
-          <div>
-            <div className="text-[12px] font-semibold text-white">Ads measurement</div>
-            <p className="mt-0.5 text-[12px] leading-snug text-slate-300">Tell Google whether a sign-up came from one of our ads, with a scrambled one-way code from your email. Never the email itself.</p>
-            <div className="mt-2 flex gap-2">
-              <button type="button" className={`btn-ghost flex-1 py-2 text-sm ${ads === 'denied' ? 'ring-1 ring-white/30' : ''}`} onClick={() => chooseAds(false)}>No thanks</button>
-              <button type="button" className={`btn-gold flex-1 py-2 text-sm ${ads === 'granted' ? 'ring-2 ring-white/40' : ''}`} onClick={() => chooseAds(true)}>Accept</button>
-            </div>
-          </div>
-        </div>
+        )}
       </div>
     </div>
   );

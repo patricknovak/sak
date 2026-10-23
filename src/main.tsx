@@ -19,7 +19,6 @@ initAnalytics();
 // Vite fires this when a lazily-loaded page can't be fetched (stale tab after a deploy)
 window.addEventListener('vite:preloadError', (e) => { if (reloadForNewVersion()) e.preventDefault(); });
 import Login from './pages/Login';
-import Join from './pages/Join';
 import Home from './pages/Home';
 
 const MyTeam = lazy(() => import('./pages/MyTeam'));
@@ -54,6 +53,8 @@ const NHL = lazy(() => import('./pages/NHL'));
 const Yahoo = lazy(() => import('./pages/Yahoo'));
 const YahooLeague = lazy(() => import('./pages/YahooLeague'));
 const Pools = lazy(() => import('./pages/Pools'));
+// an invite's page: only someone following an invite link needs it
+const Join = lazy(() => import('./pages/Join'));
 // a prediction pool's pages (migration 145)
 const PoolHome = lazy(() => import('./pages/Pool').then((m) => ({ default: m.PoolHome })));
 const Questions = lazy(() => import('./pages/Pool').then((m) => ({ default: m.Questions })));
@@ -108,7 +109,7 @@ function App() {
   }
   // an invite link opens its own page, signed in or not
   const join = pathname.match(/^\/join\/([a-z0-9-]+)/i);
-  if (join) return <Join code={join[1]} />;
+  if (join) return <Suspense fallback={<Loading />}><Join code={join[1]} /></Suspense>;
   // asking for a league is open to anyone
   if (pathname === '/start') return <Suspense fallback={null}><Start /></Suspense>;
   // so is starting a prediction pool (migration 153)

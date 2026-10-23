@@ -9,7 +9,7 @@ import { rpc, supabase } from '../lib/supabase';
 import { hub } from '../lib/nhlhub';
 import { fmtDate, fmtMoney, fmtPts, fmtTime } from '../lib/format';
 import { betMoves, ticketOutcome } from '../lib/betresults';
-import { useBook } from './Book';
+import { useBook } from '../lib/book';
 import { Coin, Rank, Section, TeamBadge } from './ui';
 import type { TopGame } from './NhlTop';
 import { useGameSheet } from './GameSheet';
@@ -19,7 +19,8 @@ import { useBrand } from '../lib/brand';
 
 const LIVE = new Set(['LIVE', 'CRIT']), DONE = new Set(['OFF', 'FINAL']);
 const ICON: Record<MarketKind, string> = { winner: '🏒', total: '🥅', ot: '⏱️', prop: '⭐', custom: '🎯', future: '🔮', season_prop: '📅', race: '🏁' };
-export const More = ({ to, label }: { to: string; label: string }) => <Link to={to} className="flex items-center gap-1 text-xs font-semibold text-sky-300">{label}<ArrowRight size={13} /></Link>;
+// a section's link: small to look at, a thumb's height to tap
+export const More = ({ to, label }: { to: string; label: string }) => <Link to={to} className="-my-2 flex items-center gap-1 py-2.5 pl-2 text-xs font-semibold text-sky-300">{label}<ArrowRight size={13} /></Link>;
 const status = (g: TopGame) => DONE.has(g.state) ? `Final${g.outcome && g.outcome !== 'REG' ? ' / ' + g.outcome : ''}` : LIVE.has(g.state) ? (g.clock?.intermission ? `Int ${g.period?.n}` : `${g.period?.type === 'REG' ? 'P' + g.period?.n : g.period?.type} ${g.clock?.time ?? ''}`) : fmtTime(g.start);
 
 // NHL centre, top: live games first, else tonight's slate, else last night's finals

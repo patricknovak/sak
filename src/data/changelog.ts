@@ -6,6 +6,10 @@
 export interface Change { date: string; icon: string; title: string; body: string; to?: string; tag?: 'formats' | 'commish' | 'draft' | 'everyone' }
 
 export const CHANGELOG: Change[] = [
+  { date: '2026-10-23', icon: '👋', tag: 'everyone', title: 'Join a pool with just your name', to: '/pools',
+    body: 'Friends you invite to a pool now type their name and they\'re in, no email or password first. Their place stays on their phone, and Keep your place adds an email whenever they like so they can sign in anywhere with every call and coin. Fantasy leagues still ask for an email.' },
+  { date: '2026-10-23', icon: '🧭', tag: 'everyone', title: 'Players in the bottom bar, and a lighter app', to: '/players',
+    body: 'Players takes NHL centre\'s place in the bottom bar; NHL centre is under More, in Tonight. Starting a pool is now a few short steps with a Start my pool bar that says what\'s left, small buttons are easier to hit, the cookie question is one line, and pages open faster.' },
   { date: '2026-10-23', icon: '🔕', tag: 'everyone', title: 'Fewer bells, all of them news', to: '/',
     body: 'No more bells when a player flips between Out and Day-To-Day on a game day, or for the same news twice in three days. Stat corrections ring only when they move your total by a point or more. New injuries, a move to IR and a player coming off the report still ring.' },
   { date: '2026-10-23', icon: '🏠', tag: 'everyone', title: 'Home leads with tonight', to: '/',

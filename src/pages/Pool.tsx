@@ -26,6 +26,7 @@ import { ShareButton, useCardBrand } from '../components/ShareButton';
 import { InvitePeople } from '../components/InvitePeople';
 import { PostToChats } from '../components/PostToChats';
 import { DeletePool } from '../components/DeletePool';
+import { KeepSeat } from '../components/KeepSeat';
 import { LeagueFeatures } from '../components/LeagueFeatures';
 import { usePoolCompetitions } from '../lib/poolOwn';
 import { HostGames, PoolGameCards, usePoolGames } from './Picks';
@@ -127,16 +128,27 @@ export function PoolHome() {
   const lock = (ahead?.locks ?? []).filter((l) => new Date(l.at).getTime() > now).sort((a, b) => a.at.localeCompare(b.at))[0];
   const lockMissing = !!lock && !!me && lock.still_to_pick.includes(me.gm_name);
   const gamesOnly = !!games?.length && markets !== null && !markets.length;
+  // a host still alone in the pool: the invite is the one thing to do, so it leads (a rank of one tells nobody anything)
+  const people = teams.filter((t) => t.role === 'gm' && t.user_id).length;
+  const alone = !!me?.is_commish && people < 2;
+  const toInvite = () => document.getElementById('pool-invite')?.scrollIntoView({ behavior: 'smooth', block: 'center' });
   return (
     <div className="space-y-6">
       <div className="relative overflow-hidden rounded-[28px] border border-gold/25 p-5" style={{ background: 'radial-gradient(120% 90% at 0% 0%, rgb(var(--gold-rgb)/.30), transparent 55%), radial-gradient(90% 80% at 100% 100%, rgba(167,139,250,.20), transparent 60%), linear-gradient(160deg,#1a1430,#0b1222 70%)' }}>
         <div className="text-[11px] font-bold uppercase tracking-[.22em] text-gold">{brand.tagline || league?.name}</div>
         <h1 className="mt-1 font-display text-[40px] font-extrabold italic leading-[.95] text-white">Hi {me?.gm_name?.split(' ')[0] ?? 'there'}.<br /><span className="text-gold">Call it.</span></h1>
         <div className="mt-4 grid grid-cols-3 gap-2">
-          <div className="rounded-2xl bg-black/25 px-3 py-2.5 ring-1 ring-white/10"><div className="label">To spend</div><div className="font-display text-2xl font-extrabold text-white"><Coins n={coins} /></div></div>
-          <div className="rounded-2xl bg-black/25 px-3 py-2.5 ring-1 ring-white/10"><div className="label">Worth</div><div className="font-display text-2xl font-extrabold text-white"><Coins n={mine?.worth} /></div></div>
+          <div className="rounded-2xl bg-black/25 px-3 py-2.5 ring-1 ring-white/10"><div className="label">To spend</div><div className="font-display text-[clamp(17px,5.2vw,24px)] font-extrabold text-white"><Coins n={coins} /></div></div>
+          <div className="rounded-2xl bg-black/25 px-3 py-2.5 ring-1 ring-white/10"><div className="label">Worth</div><div className="font-display text-[clamp(17px,5.2vw,24px)] font-extrabold text-white"><Coins n={mine?.worth} /></div></div>
+          {alone ? (
+            <button type="button" onClick={toInvite} className="rounded-2xl bg-gold/20 px-3 py-2.5 text-left ring-1 ring-gold/50 hover:bg-gold/25">
+              <div className="label truncate text-gold">Just you</div>
+              <div className="flex items-center gap-1 font-display text-lg font-extrabold leading-8 text-white"><UserPlus className="h-4 w-4 shrink-0 text-gold" />Invite</div>
+            </button>
+          ) : (
           <Link to="/leaders" className="rounded-2xl bg-black/25 px-3 py-2.5 ring-1 ring-white/10 hover:bg-black/35"><div className="label truncate">{main && board!.games.length > 1 ? `${kindOf(main.kind).icon} Rank` : 'Rank'}</div>
-            <div className="flex items-baseline gap-1 font-display text-2xl font-extrabold text-white">{main?.mine ? main.mine.rank : '–'}<span className="text-sm font-bold text-mute">of {main?.members ?? '–'}</span><Move n={main?.mine?.move} /></div></Link>
+            <div className="flex items-baseline gap-1 font-display text-[clamp(17px,5.2vw,24px)] font-extrabold text-white">{main?.mine ? main.mine.rank : '–'}<span className="text-sm font-bold text-mute">of {main?.members ?? '–'}</span><Move n={main?.mine?.move} /></div></Link>
+          )}
         </div>
         <p className="mt-2 text-[11px] text-mute">{brand.coin.name} are play coins, never real money.</p>
         {main && myChance != null && (
@@ -175,11 +187,17 @@ export function PoolHome() {
         )}
       </div>
 
+      {/* alone, the invite comes before anything else */}
+      {alone && <div id="pool-invite"><InviteCard /></div>}
+
+      {/* joined with just a name: the email that keeps the seat (migration 332) */}
+      <KeepSeat />
+
       <PoolRoomCard room={room} />
 
       {/* a pool of two or three is a group chat that hasn't been told yet: the host's invite sits up top until it has
           grown (the gate is people, docs/DEVELOPMENT.md §8.4 item 1) */}
-      {me?.is_commish && teams.filter((t) => t.role === 'gm' && t.user_id).length < 4 && <InviteCard />}
+      {me?.is_commish && !alone && people < 4 && <InviteCard />}
 
       {/* after a joiner's first call: invite them to open a pool of their own (viral loop) */}
       <StartOwnPoolCard />
@@ -267,8 +285,8 @@ function InviteCard() {
     <div className="card relative overflow-hidden p-5">
       <div className="pointer-events-none absolute -right-10 -top-10 h-40 w-40 rounded-full bg-gold/20 blur-3xl" />
       <div className="relative">
-        <h3 className="font-display text-2xl font-extrabold text-white">{link ? 'Send it to the group chat' : 'Better with the group chat'}</h3>
-        <p className="mt-1 text-sm text-mute">Everyone gets the same {brand.coin.name.toLowerCase()} to start, and every drop. They join with a name, email and password. Nothing to download.</p>
+        <h3 className="font-display text-2xl font-extrabold text-white">{link ? 'Send it to the group chat' : 'Invite your group chat'}</h3>
+        <p className="mt-1 text-sm text-mute">Everyone gets the same {brand.coin.name.toLowerCase()} to start, and every drop. They join with just a name. Nothing to download.</p>
         {me?.role === 'gm' ? (
           <>
             <div className="mt-3 flex flex-wrap gap-2">

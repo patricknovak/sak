@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { FunctionsHttpError } from '@supabase/supabase-js';
 import { rpc, setLeagueHeader, setRemember, supabase } from '../lib/supabase';
+import { signOut } from '../lib/guest';
 import { useLeague } from '../lib/store';
 import { Spinner } from '../components/ui';
 import { LeagueCrest, ProductMark } from '../components/Brand';
@@ -52,6 +53,8 @@ export default function Join({ code }: { code: string }) {
   const [email, setEmail] = useState('');
   const [pw, setPw] = useState('');
   const [show, setShow] = useState(false);
+  // a pool asks for a name only; the email and password are there for whoever wants them now (migration 332)
+  const [withEmail, setWithEmail] = useState(false);
   const [err, setErr] = useState('');
   const [busy, setBusy] = useState(false);
   // the first call, picked before the account exists and placed the moment they're in (migration 255)
@@ -78,10 +81,33 @@ export default function Join({ code }: { code: string }) {
     } catch (e) { setBusy(false); setErr((e as Error).message); }
   };
 
+  // someone new to a pool with just a name (migration 332): a seat kept on this phone, an email added later from the pool's
+  // home keeps it everywhere; a busy day or a fantasy league asks for the email after all
+  const joinAsGuest = async () => {
+    const { data, error } = await supabase.functions.invoke('join', { body: { code, name: name.trim(), guest: true } });
+    const made = data as { league?: number; email?: string; password?: string } | null;
+    if (error || !made?.email || !made.password) {
+      const body = error instanceof FunctionsHttpError ? await error.context.json().catch(() => null) : null;
+      setBusy(false);
+      setErr(body?.error ?? 'Couldn’t join right now. Try again in a minute.');
+      if (body?.needEmail) setWithEmail(true);
+      return;
+    }
+    setRemember(true);
+    const { error: se } = await supabase.auth.signInWithPassword({ email: made.email, password: made.password });
+    if (se) { setBusy(false); setErr('Couldn’t open your seat on this phone. Try again in a minute.'); return; }
+    await trackSignUp('guest');
+    const leagueId = typeof made.league === 'number' ? made.league : pv?.league_id;
+    trackJoinGroup({ id: leagueId, src: readSrcParam() });
+    await placeFirstCall(leagueId);
+    goHome(leagueId);
+  };
+
   // someone new: make the account and take the seat, then sign in
   const join = async (e: React.FormEvent) => {
     e.preventDefault();
     setBusy(true); setErr('');
+    if (pool && !withEmail) return joinAsGuest();
     const login = email.trim().toLowerCase();
     // attribution is first-touch UTM/referrer; the join function ignores unknown fields if the SQL is not live yet
     const { data, error } = await supabase.functions.invoke('join', { body: { code, email: login, password: pw, name: name.trim(), ...attributionFields() } });
@@ -121,6 +147,7 @@ export default function Join({ code }: { code: string }) {
   const okEmail = /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email.trim());
   // a prediction pool's invite speaks the pool's words (docs/BRAND.md: no sports words in a pool that is not about sport)
   const pool = pv?.kind === 'predict', mark = pool ? '✨' : '🏒', noun = pool ? 'pool' : 'league';
+  const needsEmail = !pool || withEmail;
 
   return (
     <div className="pt-safe flex min-h-dvh flex-col items-center justify-center px-4 py-10" style={gold ? themed(gold) : undefined}>
@@ -205,20 +232,30 @@ export default function Join({ code }: { code: string }) {
               <button className="btn-primary relative mt-4 w-full py-3 text-base" disabled={busy} onClick={() => { setBusy(true); setErr(''); accept(); }}>
                 {busy ? <Spinner /> : `${mark} Join ${pv.short ?? pv.league}`}
               </button>
-              <button type="button" className="relative mt-3 w-full text-center text-sm text-white/60 underline" onClick={() => supabase.auth.signOut()}>Not you? Sign out</button>
+              <button type="button" className="relative mt-3 w-full text-center text-sm text-white/60 underline" onClick={() => signOut()}>Not you? Sign out</button>
             </div>
           ) : mode === 'new' ? (
             <form onSubmit={join} className="card-hero p-5">
               <label className="label relative text-white/70" htmlFor="jname">Your name</label>
               <input id="jname" className="input relative mt-1" autoComplete="name" value={name} onChange={(e) => setName(e.target.value)} placeholder={`What the ${noun} calls you`} />
-              <label className="label relative mt-3 block text-white/70" htmlFor="jemail">Email</label>
-              <input id="jemail" className="input relative mt-1" type="email" inputMode="email" autoComplete="username" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="you@example.com" />
-              <label className="label relative mt-3 block text-white/70" htmlFor="jpw">Password</label>
-              <div className="relative mt-1">
-                <input id="jpw" className="input w-full pr-16" type={show ? 'text' : 'password'} autoComplete="new-password" value={pw} onChange={(e) => setPw(e.target.value)} placeholder="6+ characters" />
-                <button type="button" className="absolute inset-y-0 right-3 text-xs font-semibold text-white/70" onClick={() => setShow((v) => !v)} aria-label={show ? 'Hide the password' : 'Show the password'}>{show ? 'Hide' : 'Show'}</button>
-              </div>
-              <button className="btn-primary relative mt-4 w-full py-3 text-base" disabled={busy || name.trim().length < 2 || !okEmail || pw.length < 6}>{busy ? <Spinner /> : `${mark} Join the ${noun}`}</button>
+              {needsEmail ? (
+                <>
+                  <label className="label relative mt-3 block text-white/70" htmlFor="jemail">Email</label>
+                  <input id="jemail" className="input relative mt-1" type="email" inputMode="email" autoComplete="username" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="you@example.com" />
+                  <label className="label relative mt-3 block text-white/70" htmlFor="jpw">Password</label>
+                  <div className="relative mt-1">
+                    <input id="jpw" className="input w-full pr-16" type={show ? 'text' : 'password'} autoComplete="new-password" value={pw} onChange={(e) => setPw(e.target.value)} placeholder="6+ characters" />
+                    <button type="button" className="absolute inset-y-0 right-3 text-xs font-semibold text-white/70" onClick={() => setShow((v) => !v)} aria-label={show ? 'Hide the password' : 'Show the password'}>{show ? 'Hide' : 'Show'}</button>
+                  </div>
+                  {pool && <button type="button" className="relative mt-2 text-xs text-white/60 underline" onClick={() => { setWithEmail(false); setErr(''); }}>Skip the email for now</button>}
+                </>
+              ) : (
+                <p className="relative mt-2 text-xs leading-snug text-white/70">
+                  That&apos;s all it takes. Your place stays on this phone; add an email any time to play on another.{' '}
+                  <button type="button" className="font-semibold text-white underline" onClick={() => setWithEmail(true)}>Add it now</button>
+                </p>
+              )}
+              <button className="btn-primary relative mt-4 w-full py-3 text-base" disabled={busy || name.trim().length < 2 || (needsEmail && (!okEmail || pw.length < 6))}>{busy ? <Spinner /> : `${mark} Join the ${noun}`}</button>
               <button type="button" className="relative mt-3 w-full text-center text-sm text-white/60 underline" onClick={() => { setMode('have'); setErr(''); }}>Already have an account? Sign in to join</button>
             </form>
           ) : (

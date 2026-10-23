@@ -481,6 +481,10 @@ The steps above finish the tenancy. `docs/MARKET.md` sets what comes after in th
 19. **Quieter bells** (23 October 2026; `docs/DEVELOPMENT.md` §9.13, migration 331): health alerts only when something is
     really wrong (the score sync while games are on, the morning post looked for in the chat), stat corrections only when
     a total moves a point or more, and no bells for ESPN's game-day Out and Day-To-Day flips or a repeat within three days.
+20. **Join with just a name, and a lighter app** (23 October 2026; `docs/DEVELOPMENT.md` §9.13, migration 332): a pool
+    invite seats someone from their name alone, kept on their phone until they add an email (Keep your place); the start
+    page folds its steps under a Start my pool bar; a host alone sees the invite first; pools skip the NHL player tables
+    at startup; smaller bundles, bigger taps, Players in the dock, cards without a blur and a one-line consent question.
 
 Then horizon 2 (soccer on licensed data, basketball, the multi-sport pool, the Supercoin prediction market,
 the Super Pool bundle, the public API) and horizon 3 (cricket free-to-play, baseball, football and college,
