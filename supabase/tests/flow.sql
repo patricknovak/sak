@@ -3268,6 +3268,40 @@ select r.player_id as wi_own, r.team_id as wi_owner from rosters r join players 
 select p.id as wi_free from players p where not exists (select 1 from rosters r where r.player_id = p.id) and p.injury_status is null order by p.id limit 1 \gset
 insert into watchlist (league_id, team_id, player_id) values (1, 5, :wi_free), (1, 5, :wi_own), (1, :wi_owner, :wi_own);
 delete from notifications where kind = 'injury';
+
+-- fewer bells that aren't news (migration 331): ESPN's game-day flips between Day-To-Day and Out don't ring, the same
+-- status doesn't ring the same team twice in three days, injured reserve and off the report still do; a correction under a
+-- point counts quietly; the score sync alarm keeps quiet between games
+reset role;
+select set_config('request.jwt.claim.sub', '', false);
+delete from notifications where kind = 'injury';
+update players set injury_status = 'Day-To-Day', injury_note = 'lower body' where id = :wi_own;
+update players set injury_status = 'Out' where id = :wi_own;
+update players set injury_status = 'Day-To-Day' where id = :wi_own;
+select pg_temp.expect('a game-day flip between Day-To-Day and Out rings once, not three times',
+  (select count(*) from notifications where kind = 'injury' and team_id = :wi_owner and link = '/player/' || :wi_own) = 1);
+update players set injury_status = null, injury_note = null where id = :wi_own;
+update players set injury_status = 'Day-To-Day', injury_note = 'lower body' where id = :wi_own;
+select pg_temp.expect('off the report rings; back on with the same status inside three days doesn''t',
+  (select count(*) from notifications where kind = 'injury' and team_id = :wi_owner and link = '/player/' || :wi_own) = 2
+  and exists (select 1 from notifications where kind = 'injury' and team_id = :wi_owner and body like '✅%'));
+update players set injury_status = 'Injured Reserve' where id = :wi_own;
+select pg_temp.expect('onto injured reserve rings', exists (select 1 from notifications where kind = 'injury' and team_id = :wi_owner
+  and link = '/player/' || :wi_own and body like '%Injured Reserve%'));
+update players set injury_status = null, injury_note = null where id = :wi_own;
+delete from notifications where kind = 'injury';
+-- a correction worth 0.1 to the team that started him: counted, heard by nobody
+select r.player_id as qc_p from rosters r join players p on p.id = r.player_id where r.team_id = 2 and p.pos <> 'G' order by r.player_id desc limit 1 \gset
+insert into games (id, date, start_utc, home, away, state, final_synced) values (991, today_et() - 1, now() - interval '1 day', 'TOR', 'MTL', 'OFF', true) on conflict (id) do nothing;
+insert into lineup_snapshots (game_id, date, team_id, player_id, slot) values (991, today_et() - 1, 2, :qc_p, 'C') on conflict do nothing;
+insert into player_games (game_id, player_id, date, stats) values (991, :qc_p, today_et() - 1, '{"g":0,"a":0,"sog":2}') on conflict do nothing;
+update player_games set stats = '{"g":0,"a":0,"sog":3}' where game_id = 991 and player_id = :qc_p;
+select pg_temp.expect('a small correction is logged', exists (select 1 from stat_corrections where game_id = 991 and not notified));
+select pg_temp.expect('and heard by nobody', notify_corrections() = 0);
+select pg_temp.expect('but marked heard', not exists (select 1 from stat_corrections where game_id = 991 and not notified));
+select pg_temp.expect('the score sync alarm keeps quiet between games',
+  _scores_due() or not coalesce(health_check(false)->'issues' ? 'NHL score sync has not succeeded in the last 15 minutes', false));
+select 'quiet alerts', true;
 update players set injury_status = 'Day-to-day', injury_note = 'lower body' where id in (:wi_free, :wi_own);
 select pg_temp.expect('a watcher hears about a free agent''s injury', (select count(*) from notifications where kind = 'injury' and team_id = 5 and body like '%' || (select name from players where id = :wi_free) || '%(on your watch list)') = 1);
 select pg_temp.expect('and about another team''s player', (select count(*) from notifications where kind = 'injury' and team_id = 5 and link = '/player/' || :wi_own) = 1);
