@@ -1,6 +1,9 @@
 // The fan zone's history and lore, club by club (24 October 2026). Only settled history lives here, through the 2025
-// Final; anything since (last season, the playoffs, this season) comes from the NHL's feeds on the page itself. A club
-// without an entry still gets every live section of its fan zone.
+// Final; anything since (last season, the playoffs, this season) comes from the NHL's feeds on the page itself, and the
+// numbers that can be counted (every season, the leaders, the trophies, the draft, the head-to-head records) come from
+// the NHL's record books through nhl-hub's `fan-history` task. A club without an entry still gets every live section.
+// The playoff series lists below were checked against the record books' game totals (Calgary 23-12, Dallas 18-26, Los
+// Angeles 40-20 for Edmonton).
 
 export interface ClubLore {
   colors: { primary: string; secondary: string; rgb: string };   // rgb: the primary as "r g b" for rgb(var / alpha)
@@ -8,11 +11,19 @@ export interface ClubLore {
   founded: string;
   arena: string;
   cups: number[];
-  timeline: { year: string; title: string; text: string; big?: boolean }[];
+  timeline: { year: string; title: string; text: string; big?: boolean; era?: string }[];
   retired: { num: string; name: string; note: string }[];
-  records: { value: string; what: string; who: string }[];
+  records: { value: string; what: string; who: string; nhl?: boolean }[];
   facts: string[];
   rival: { name: string; text: string } | null;
+  // since 24 October 2026
+  rivals?: { name: string; abbrev: string; text: string; series: { year: number; won: boolean; score: string; round: string }[] }[];
+  hallOfFame?: { name: string; year: number; role: string; note: string }[];
+  nights?: { date: string; title: string; text: string }[];
+  arenas?: { name: string; years: string; note: string }[];
+  trade?: { title: string; date: string; gave: string[]; got: string[]; text: string } | null;
+  culture?: { title: string; text: string }[];
+  quiz?: { q: string; options: string[]; answer: number; why: string }[];
 }
 
 export const CLUB_LORE: Record<string, ClubLore> = {
@@ -23,25 +34,50 @@ export const CLUB_LORE: Record<string, ClubLore> = {
     arena: 'Rogers Place, Edmonton',
     cups: [1984, 1985, 1987, 1988, 1990],
     timeline: [
-      { year: '1972', title: 'Born in the WHA', text: 'One of the World Hockey Association’s original clubs, as the Alberta Oilers; Edmonton Oilers from the 1973-74 season.' },
-      { year: '1978', title: 'A 17-year-old arrives', text: 'Wayne Gretzky comes over from the Indianapolis Racers. Nothing in hockey is the same afterwards.', big: true },
-      { year: '1979', title: 'Into the NHL', text: 'The Oilers join the NHL as the WHA merges into it.' },
-      { year: '1982', title: '92 goals', text: 'Gretzky scores 92 goals in 1981-82, 50 of them in the first 39 games. Both still stand as NHL records.' },
-      { year: '1984', title: 'The first Cup', text: 'The Oilers score 446 goals, still the NHL record for a season, then end the Islanders’ run of four straight Cups. Mark Messier wins the Conn Smythe.', big: true },
-      { year: '1985', title: 'Back to back', text: 'A second Cup. Gretzky takes the Conn Smythe; Paul Coffey’s 37 points remain the record for a defenceman in one playoff run.' },
-      { year: '1986', title: '215 points', text: 'Gretzky’s 1985-86: 163 assists and 215 points, the two highest single-season totals in NHL history.' },
-      { year: '1987', title: 'Cup number three', text: 'Past the Philadelphia Flyers in seven games.' },
-      { year: '1988', title: 'Four in five', text: 'A fourth Cup in five seasons; Gretzky wins the Conn Smythe again.' },
-      { year: '1988', title: 'The Trade', text: 'On 9 August, Gretzky is traded to the Los Angeles Kings. A country goes into mourning.', big: true },
-      { year: '1990', title: 'One for the thumb', text: 'A fifth Cup, without Gretzky, with Messier as captain and Bill Ranford in goal winning the Conn Smythe.', big: true },
-      { year: '2006', title: 'The eighth seed’s run', text: 'From the last playoff spot in the West to Game 7 of the Final, lost in Carolina.' },
-      { year: '2015', title: 'McDavid', text: 'After first-overall picks Taylor Hall (2010), Ryan Nugent-Hopkins (2011) and Nail Yakupov (2012), the lottery delivers Connor McDavid.' },
-      { year: '2016', title: 'A new home, a young captain', text: 'Rogers Place opens, and McDavid is named captain at 19, the youngest in NHL history at the time.' },
-      { year: '2017', title: 'The first Hart', text: 'McDavid wins the Hart and the Art Ross with 100 points. Hart Trophies follow in 2021 and 2023.' },
-      { year: '2020', title: 'Draisaitl’s year', text: 'Leon Draisaitl wins the Hart and the Art Ross with 110 points.' },
-      { year: '2023', title: '153 points', text: 'McDavid’s 64 goals and 153 points: the most points in a season in over a quarter century, with the Hart, the Art Ross and the Rocket Richard.' },
-      { year: '2024', title: 'Three down, nearly all the way back', text: 'Back in the Final for the first time in 18 years. Down 3-0 to Florida, they force Game 7 and lose it 2-1. McDavid wins the Conn Smythe with 42 points, the first skater on a losing team to win it since 1976.', big: true },
-      { year: '2025', title: 'Florida again', text: 'A second straight Final, lost to the Panthers in six. Draisaitl’s 52 goals had won the Rocket Richard.' },
+      { era: 'The WHA years', year: '1972', title: 'Born in the WHA', text: 'One of the World Hockey Association’s original clubs, as the Alberta Oilers; Edmonton Oilers from the 1973-74 season.' },
+      { era: 'The WHA years', year: '1974', title: 'A real rink', text: 'Northlands Coliseum opens in November 1974. The Oilers would play there for 42 years.' },
+      { era: 'The WHA years', year: '1977', title: 'Slats takes the bench', text: 'Glen Sather, still a player, becomes the coach. He will build the dynasty as coach, then general manager, then president.' },
+      { era: 'The WHA years', year: '1978', title: 'A 17-year-old arrives', text: 'Wayne Gretzky comes over from the Indianapolis Racers. Nothing in hockey is the same afterwards.', big: true },
+      { era: 'The WHA years', year: '1979', title: 'The last Avco Cup', text: 'The Oilers reach the WHA’s final Final and lose it to the Winnipeg Jets.' },
+      { era: 'Arrival', year: '1979', title: 'Into the NHL', text: 'The Oilers join the NHL as the WHA merges into it. Their first draft brings Kevin Lowe (21st), Mark Messier (48th) and Glenn Anderson (69th): three future Hall of Famers in one summer.', big: true },
+      { era: 'Arrival', year: '1979', title: 'The first goal', text: 'Kevin Lowe scores the Oilers’ first NHL goal, set up by Gretzky, in a 4-2 loss in Chicago on 10 October.' },
+      { era: 'Arrival', year: '1980', title: 'Gretzky’s first Hart', text: 'At 19, in his first NHL season, Gretzky is the league’s most valuable player. He ties Marcel Dionne for the scoring lead, and loses the Art Ross on goals.' },
+      { era: 'Arrival', year: '1980', title: 'A draft for the ages', text: 'Paul Coffey goes 6th overall, Jari Kurri 69th and Andy Moog 132nd.' },
+      { era: 'Arrival', year: '1981', title: 'The kids beat Montreal', text: 'In their second NHL spring the Oilers sweep the Canadiens in the preliminary round. Grant Fuhr is drafted 8th that summer.' },
+      { era: 'Arrival', year: '1982', title: '92 goals', text: 'Gretzky scores 92 goals in 1981-82, 50 of them in the first 39 games. Both still stand as NHL records.', big: true },
+      { era: 'Arrival', year: '1982', title: 'The Miracle on Manchester', text: 'Up 5-0 in Game 3 in Los Angeles, the Oilers lose 6-5 in overtime, then lose the series. A lesson the dynasty never forgot.' },
+      { era: 'Arrival', year: '1983', title: 'Swept in the Final', text: 'A first Final, and a sweep by the Islanders, champions for the fourth straight year. Walking past the Islanders’ room, the young Oilers see how beaten-up the winners are.' },
+      { era: 'The dynasty', year: '1984', title: 'The first Cup', text: 'The Oilers score 446 goals, still the NHL record for a season, then end the Islanders’ run of four straight Cups in five games. Mark Messier wins the Conn Smythe.', big: true },
+      { era: 'The dynasty', year: '1985', title: 'Back to back', text: 'A second Cup, over Philadelphia. Gretzky takes the Conn Smythe with 47 points, Kurri scores 19 goals and Paul Coffey’s 37 points remain the record for a defenceman in one playoff run.' },
+      { era: 'The dynasty', year: '1986', title: '215 points', text: 'Gretzky’s 1985-86: 163 assists and 215 points, the two highest single-season totals in NHL history. Coffey scores 48 goals, the record for a defenceman.' },
+      { era: 'The dynasty', year: '1986', title: 'The own goal', text: 'Game 7 against Calgary, tied 2-2 in the third: Steve Smith’s pass from behind his own net goes in off Grant Fuhr. The Flames go on; the three-peat doesn’t happen.' },
+      { era: 'The dynasty', year: '1987', title: 'Cup number three', text: 'Past the Philadelphia Flyers in seven games.' },
+      { era: 'The dynasty', year: '1988', title: 'Four in five', text: 'A fourth Cup in five seasons, a sweep of Boston that included a Game 4 abandoned when the Boston Garden lost its power. Gretzky wins the Conn Smythe again; Fuhr wins the Vezina.' },
+      { era: 'The dynasty', year: '1988', title: 'The Trade', text: 'On 9 August, Gretzky is traded to the Los Angeles Kings. A country goes into mourning.', big: true },
+      { era: 'The dynasty', year: '1989', title: 'Gretzky’s revenge', text: 'In the first round the Kings, with Gretzky, come back from 3-1 down to knock out the champions.' },
+      { era: 'The dynasty', year: '1990', title: 'One for the thumb', text: 'A fifth Cup, without Gretzky, with Messier as captain and Hart Trophy winner and Bill Ranford in goal winning the Conn Smythe. Game 1 of the Final, won by Petr Klima in the third overtime, is still the longest game in Final history.', big: true },
+      { era: 'After the dynasty', year: '1991', title: 'Breaking up the band', text: 'A conference final loss to Minnesota, then within weeks Grant Fuhr and Glenn Anderson are traded to Toronto and Messier to the Rangers.' },
+      { era: 'After the dynasty', year: '1992', title: 'One more run', text: 'With what was left of the champions, a conference final; Chicago sweeps it.' },
+      { era: 'After the dynasty', year: '1993', title: 'The lean years', text: 'Four seasons without the playoffs, 1993 to 1996: the first spring at home since the club joined the NHL.' },
+      { era: 'The scrappy years', year: '1997', title: 'Marchant in overtime', text: 'Game 7 in Dallas: Todd Marchant breaks in alone in overtime and the young Oilers, with Curtis Joseph in goal, upset the Stars.', big: true },
+      { era: 'The scrappy years', year: '1998', title: 'Back from 3-1', text: 'Down 3-1 to Colorado in the first round, the Oilers win three straight, with Curtis Joseph shutouts in the last two.' },
+      { era: 'The scrappy years', year: '1998', title: 'Kept in Edmonton', text: 'A group of local owners buys the club from Peter Pocklington and keeps it in the city.' },
+      { era: 'The scrappy years', year: '2000', title: 'Dallas, again', text: 'Between 1998 and 2003 the Stars end the Oilers’ season five times. The rivalry waits two decades for its answer.' },
+      { era: 'The scrappy years', year: '2003', title: 'The Heritage Classic', text: 'On 22 November, the NHL’s first outdoor regular-season game: more than 57,000 at Commonwealth Stadium in bitter cold, against Montreal.' },
+      { era: 'The 2006 run', year: '2006', title: 'The eighth seed’s run', text: 'With Chris Pronger on the blue line and Dwayne Roloson in goal, from the last playoff spot in the West past Detroit, San Jose and Anaheim to the Final. Fernando Pisani scores 14 goals.', big: true },
+      { era: 'The 2006 run', year: '2006', title: 'Game 7 in Raleigh', text: 'Roloson is hurt in Game 1 of the Final; Pisani wins Game 5 with the first shorthanded overtime goal in Final history; Carolina wins Game 7, 3-1.' },
+      { era: 'The decade of darkness', year: '2007', title: 'Smyth goes', text: 'At the deadline Ryan Smyth, Captain Canada, is traded to the Islanders. Ten seasons without the playoffs follow.' },
+      { era: 'The decade of darkness', year: '2010', title: 'The lottery years', text: 'First-overall picks Taylor Hall (2010), Ryan Nugent-Hopkins (2011) and Nail Yakupov (2012). Leon Draisaitl goes 3rd in 2014.' },
+      { era: 'The McDavid era', year: '2015', title: 'McDavid', text: 'The lottery delivers Connor McDavid, the most celebrated prospect since Sidney Crosby.', big: true },
+      { era: 'The McDavid era', year: '2016', title: 'A new home, a young captain', text: 'Rogers Place opens, Taylor Hall is traded for Adam Larsson, and McDavid is named captain at 19, the youngest in NHL history at the time.' },
+      { era: 'The McDavid era', year: '2017', title: 'Back in the playoffs', text: 'The drought ends with 103 points. McDavid wins the Hart and the Art Ross with 100 points; the Oilers beat San Jose and take Anaheim to seven.' },
+      { era: 'The McDavid era', year: '2020', title: 'Draisaitl’s year', text: 'Leon Draisaitl wins the Hart and the Art Ross with 110 points. Edmonton is a hub city for the bubble playoffs and hosts the Final.' },
+      { era: 'The McDavid era', year: '2021', title: '105 in 56', text: 'In a shortened season McDavid scores 105 points in 56 games and wins a unanimous Hart.' },
+      { era: 'The McDavid era', year: '2022', title: 'The Battle of Alberta returns', text: 'The first playoff meeting with Calgary in 31 years ends in five games, on McDavid’s overtime winner. A conference final follows.', big: true },
+      { era: 'The McDavid era', year: '2023', title: '153 points', text: 'McDavid’s 64 goals and 153 points: the most points in a season since 1996, with the Hart, the Art Ross and the Rocket Richard.' },
+      { era: 'The McDavid era', year: '2024', title: 'Sixteen straight', text: 'After a 3-9-1 start costs the coach his job, Kris Knoblauch’s Oilers win 16 in a row, one short of the NHL record. McDavid finishes with 100 assists.' },
+      { era: 'The McDavid era', year: '2024', title: 'Three down, nearly all the way back', text: 'Back in the Final for the first time in 18 years. Down 3-0 to Florida, they force Game 7 and lose it 2-1. McDavid wins the Conn Smythe with 42 points and a record 34 assists, the first skater on a losing team to win it since 1976.', big: true },
+      { era: 'The McDavid era', year: '2025', title: 'Florida again', text: 'A second straight Final, past Los Angeles, Vegas and Dallas, then lost to the Panthers in six. Draisaitl’s 52 goals had won the Rocket Richard.' },
     ],
     retired: [
       { num: '3', name: 'Al Hamilton', note: 'A defenceman from the WHA days' },
@@ -51,24 +87,152 @@ export const CLUB_LORE: Record<string, ClubLore> = {
       { num: '11', name: 'Mark Messier', note: 'Captain of the 1990 Cup' },
       { num: '17', name: 'Jari Kurri', note: 'Gretzky’s finisher; 71 goals in 1984-85' },
       { num: '31', name: 'Grant Fuhr', note: 'The dynasty’s goaltender' },
-      { num: '99', name: 'Wayne Gretzky', note: 'The Great One' },
+      { num: '99', name: 'Wayne Gretzky', note: 'The Great One; retired by the whole league in 2000' },
     ],
     records: [
-      { value: '92', what: 'goals in a season (1981-82)', who: 'Wayne Gretzky' },
-      { value: '215', what: 'points in a season (1985-86)', who: 'Wayne Gretzky' },
-      { value: '163', what: 'assists in a season (1985-86)', who: 'Wayne Gretzky' },
-      { value: '446', what: 'team goals in a season (1983-84)', who: 'The Oilers' },
-      { value: '50 in 39', what: '50 goals in the first 39 games (1981-82)', who: 'Wayne Gretzky' },
+      { nhl: true, value: '92', what: 'goals in a season (1981-82)', who: 'Wayne Gretzky' },
+      { nhl: true, value: '215', what: 'points in a season (1985-86)', who: 'Wayne Gretzky' },
+      { nhl: true, value: '163', what: 'assists in a season (1985-86)', who: 'Wayne Gretzky' },
+      { nhl: true, value: '446', what: 'team goals in a season (1983-84)', who: 'The Oilers' },
+      { nhl: true, value: '50 in 39', what: '50 goals in the first 39 games (1981-82)', who: 'Wayne Gretzky' },
+      { nhl: true, value: '51', what: 'game point streak (1983-84)', who: 'Wayne Gretzky' },
+      { nhl: true, value: '47', what: 'points in one playoff run (1985)', who: 'Wayne Gretzky' },
+      { nhl: true, value: '34', what: 'assists in one playoff run (2024)', who: 'Connor McDavid' },
+      { nhl: true, value: '19', what: 'goals in one playoff run (1985), tied with Reggie Leach', who: 'Jari Kurri' },
+      { nhl: true, value: '48', what: 'goals by a defenceman in a season (1985-86)', who: 'Paul Coffey' },
+      { nhl: true, value: '37', what: 'points by a defenceman in one playoff run (1985)', who: 'Paul Coffey' },
+      { nhl: true, value: '14', what: 'points by a goalie in a season (1983-84)', who: 'Grant Fuhr' },
       { value: '42', what: 'points in a playoff run, Conn Smythe in a losing Final (2024)', who: 'Connor McDavid' },
+      { value: '153', what: 'points in a season (2022-23), the most since 1995-96', who: 'Connor McDavid' },
+      { value: '16', what: 'straight wins (2023-24), one short of the NHL record', who: 'The Oilers' },
+      { value: '119', what: 'points in a season, twice (1983-84, 1985-86)', who: 'The Oilers' },
+      { value: '71', what: 'goals by a winger in a season (1984-85)', who: 'Jari Kurri' },
+      { value: '3', what: '50-goal scorers on one team (1983-84: Gretzky, Anderson, Kurri)', who: 'The Oilers' },
     ],
     facts: [
       'Five Stanley Cups in seven seasons, 1984 to 1990.',
       'The 1980s Oilers put seven players in the Hall of Fame: Gretzky, Messier, Kurri, Coffey, Anderson, Fuhr and Lowe, with Glen Sather as builder.',
       'Four first-overall picks in six drafts: Hall, Nugent-Hopkins, Yakupov and McDavid.',
-      'Before Rogers Place (2016), the Oilers played at Northlands Coliseum from 1974.',
+      'Before Rogers Place (2016), the Oilers played at Northlands Coliseum from 1974, a building that went by four names: Northlands Coliseum, Edmonton Coliseum, Skyreach Centre and Rexall Place.',
       'McDavid’s 100 assists in 2023-24 put him alongside Gretzky, Lemieux and Orr as the only players to reach 100 in a season.',
       'Back-to-back Finals in 2024 and 2025, both against the Florida Panthers.',
+      'In 1985-86 Gretzky had more assists (163) than any other player in the league had points.',
+      'Gretzky’s 50 goals in 39 games broke the 50-in-50 that Maurice Richard and Mike Bossy shared. He got there with five goals in one night against Philadelphia, on 30 December 1981.',
+      'In 1983-84 the Oilers had three 50-goal scorers: Gretzky (87), Glenn Anderson (54) and Jari Kurri (52).',
+      'Kevin Lowe, the first player the Oilers ever drafted, also scored their first NHL goal.',
+      'Mark Messier is the only player to captain two different clubs to the Stanley Cup: Edmonton in 1990 and the Rangers in 1994, with a handful of old Oilers beside him.',
+      'Grant Fuhr was the first Black player to have his name engraved on the Stanley Cup, in 1984, and the first inducted into the Hockey Hall of Fame, in 2003.',
+      'Fuhr’s 14 assists in 1983-84 are still the most points by a goaltender in one season.',
+      'Craig MacTavish, the Oilers’ captain and later their coach, was the last NHL player to play without a helmet.',
+      'The Trade sent Gretzky, Marty McSorley and Mike Krushelnyski to Los Angeles for Jimmy Carson, Martin Gelinas, three first-round picks and US$15 million.',
+      'Gretzky won the Hart Trophy in each of his first eight NHL seasons, all with Edmonton.',
+      'Paul Coffey won the Norris Trophy as the league’s best defenceman in 1985 and 1986.',
+      'The Oilers’ 1990 Cup came with only one 100-point scorer: Messier, with 129.',
+      'Bill Ranford won the 1990 Conn Smythe in the spring after he was the backup in Edmonton’s 1988 Cup season.',
+      'Game 1 of the 1990 Final went to a third overtime before Petr Klima scored, the longest game in Final history.',
+      'In 1997 and 1998 the Oilers knocked out higher seeds, Dallas and Colorado, in seven games each.',
+      'The 2003 Heritage Classic, Oilers against Canadiens at Commonwealth Stadium, was the NHL’s first outdoor regular-season game.',
+      'In 2006 the Oilers became the first eighth seed to reach the Final under the conference playoff format.',
+      'Fernando Pisani’s 14 goals in the 2006 playoffs included the first shorthanded overtime goal in the history of the Final.',
+      'Between 2006-07 and 2015-16 the Oilers missed the playoffs ten straight seasons, the decade of darkness.',
+      'Connor McDavid was named captain at 19 years and 266 days old, then the youngest captain in NHL history.',
+      'The 2016 trade of Taylor Hall for Adam Larsson is still debated: Hall won the Hart Trophy two seasons later, in New Jersey.',
+      'Edmonton was one of the two hub cities for the 2020 bubble playoffs, and Rogers Place hosted that Stanley Cup Final.',
+      'McDavid’s 2021 Hart Trophy was unanimous: every first-place vote.',
+      'McDavid’s 153 points in 2022-23 were the most in a season since Mario Lemieux’s 161 in 1995-96.',
+      'The Oilers’ 16-game winning streak in 2023-24 began after a 3-9-1 start that cost Jay Woodcroft his job.',
+      'McDavid’s Conn Smythe in 2024 was the first won by a skater on the losing team since Reggie Leach in 1976.',
+      'McDavid and Draisaitl have both won the Hart, the Art Ross and the Rocket Richard as Oilers.',
+      'The Battle of Alberta has gone to the playoffs six times; the Oilers have won five.',
+      'The Oilers and Kings have met eleven times in the playoffs, the Oilers winning eight, including four straight first rounds from 2022 to 2025.',
+      'The 2023 Heritage Classic, against Calgary, brought outdoor hockey back to Commonwealth Stadium twenty years after the first.',
+      'Wayne Gretzky’s 99 was retired across the whole NHL in 2000; no one will wear it again.',
+      'Glen Sather won the Jack Adams Award as coach of the year in 1986, the season of 119 points.',
     ],
     rival: { name: 'The Battle of Alberta', text: 'Calgary, 300 km down Highway 2. They met in the playoffs five times between 1983 and 1991, and again in 2022, the first in 31 years, which Edmonton won in five.' },
+    rivals: [
+      { name: 'The Battle of Alberta', abbrev: 'CGY', text: 'Two cities that have argued about everything since the 1880s, 300 km apart on Highway 2. The dynasty’s fiercest rival, and the one team to beat it in a series between 1984 and 1988.', series: [
+        { year: 1983, won: true, score: '4-1', round: 'Division final' }, { year: 1984, won: true, score: '4-3', round: 'Division final' }, { year: 1986, won: false, score: '3-4', round: 'Division final' },
+        { year: 1988, won: true, score: '4-0', round: 'Division final' }, { year: 1991, won: true, score: '4-3', round: 'Division semifinal' }, { year: 2022, won: true, score: '4-1', round: 'Second round' },
+      ] },
+      { name: 'Dallas', abbrev: 'DAL', text: 'For six springs around the turn of the century the Stars were the wall: they ended Edmonton’s season five times. The Oilers answered in back-to-back conference finals.', series: [
+        { year: 1997, won: true, score: '4-3', round: 'First round' }, { year: 1998, won: false, score: '1-4', round: 'Second round' }, { year: 1999, won: false, score: '0-4', round: 'First round' },
+        { year: 2000, won: false, score: '1-4', round: 'First round' }, { year: 2001, won: false, score: '2-4', round: 'First round' }, { year: 2003, won: false, score: '2-4', round: 'First round' },
+        { year: 2024, won: true, score: '4-2', round: 'Conference final' }, { year: 2025, won: true, score: '4-1', round: 'Conference final' },
+      ] },
+      { name: 'Los Angeles', abbrev: 'LAK', text: 'The Miracle on Manchester, Gretzky’s return with the Kings, and four first rounds in a row from 2022 to 2025, all Edmonton’s.', series: [
+        { year: 1982, won: false, score: '2-3', round: 'Division semifinal' }, { year: 1985, won: true, score: '3-0', round: 'Division semifinal' }, { year: 1987, won: true, score: '4-1', round: 'Division semifinal' },
+        { year: 1989, won: false, score: '3-4', round: 'Division semifinal' }, { year: 1990, won: true, score: '4-0', round: 'Division final' }, { year: 1991, won: true, score: '4-2', round: 'Division final' },
+        { year: 1992, won: true, score: '4-2', round: 'Division semifinal' }, { year: 2022, won: true, score: '4-3', round: 'First round' }, { year: 2023, won: true, score: '4-2', round: 'First round' },
+        { year: 2024, won: true, score: '4-1', round: 'First round' }, { year: 2025, won: true, score: '4-2', round: 'First round' },
+      ] },
+      { name: 'Florida', abbrev: 'FLA', text: 'Two straight Finals, two straight Cups for the Panthers: the rivalry of the McDavid era’s biggest nights.', series: [
+        { year: 2024, won: false, score: '3-4', round: 'Stanley Cup Final' }, { year: 2025, won: false, score: '2-4', round: 'Stanley Cup Final' },
+      ] },
+    ],
+    hallOfFame: [
+      { name: 'Glen Sather', year: 1997, role: 'Builder', note: 'Coach, general manager and president of the dynasty' },
+      { name: 'Wayne Gretzky', year: 1999, role: 'Centre', note: 'Inducted the year he retired, the waiting period waived' },
+      { name: 'Jari Kurri', year: 2001, role: 'Right wing', note: 'The first Finnish player in the Hall' },
+      { name: 'Grant Fuhr', year: 2003, role: 'Goaltender', note: 'Five Cups, a Vezina, the big-game goalie' },
+      { name: 'Paul Coffey', year: 2004, role: 'Defenceman', note: 'The fastest skater of his era, 48 goals from the blue line' },
+      { name: 'Mark Messier', year: 2007, role: 'Centre', note: 'Six Cups, five as an Oiler; two Hart Trophies' },
+      { name: 'Glenn Anderson', year: 2008, role: 'Right wing', note: 'The big-game scorer: five Cups in Edmonton, a sixth in New York' },
+      { name: 'Chris Pronger', year: 2015, role: 'Defenceman', note: 'One season in Edmonton, and it was 2006' },
+      { name: 'Kevin Lowe', year: 2020, role: 'Defenceman', note: 'The first pick, the first goal, six Cups' },
+    ],
+    nights: [
+      { date: '10 October 1979', title: 'The first NHL night', text: 'A 4-2 loss in Chicago; Kevin Lowe scores the first goal, assisted by Gretzky.' },
+      { date: '30 December 1981', title: 'Five goals, 50 in 39', text: 'Gretzky scores five against Philadelphia, the last into an empty net, to reach 50 goals in 39 games.' },
+      { date: '10 April 1982', title: 'The Miracle on Manchester', text: 'Leading 5-0 in Los Angeles, the Oilers lose 6-5 in overtime. The Kings take the series.' },
+      { date: '19 May 1984', title: 'The first Cup', text: 'A 5-2 win over the Islanders at Northlands Coliseum ends the Islanders’ dynasty and starts Edmonton’s.' },
+      { date: '30 April 1986', title: 'The own goal', text: 'Game 7 against Calgary: Steve Smith’s pass hits Grant Fuhr and goes in. The Flames win 3-2.' },
+      { date: '24 May 1988', title: 'The lights go out', text: 'Game 4 of the Final at the Boston Garden is called off tied 3-3 when the power fails. The Oilers win the Cup at home two nights later.' },
+      { date: '15 May 1990', title: 'Klima in the third overtime', text: 'Game 1 of the Final in Boston, the longest game in Final history, ends on Petr Klima’s goal. The Oilers win the Cup in five.' },
+      { date: '29 April 1997', title: 'Marchant’s breakaway', text: 'Overtime of Game 7 in Dallas: Todd Marchant beats the defence wide and scores. The upset of the spring.' },
+      { date: '22 November 2003', title: 'The Heritage Classic', text: 'Outdoors at Commonwealth Stadium in deep cold, with the dynasty’s alumni playing first. Montreal wins 4-3.' },
+      { date: '14 June 2006', title: 'Pisani shorthanded', text: 'Game 5 of the Final, overtime, on the penalty kill: Fernando Pisani scores to keep the season alive.' },
+      { date: '19 June 2006', title: 'Game 7 in Raleigh', text: 'Carolina wins 3-1. The Oilers wouldn’t see the Final again for 18 years.' },
+      { date: '6 April 2016', title: 'Goodbye to the Coliseum', text: 'The last game at Rexall Place, a win over Vancouver, and a night for the old dynasty to say goodbye to the building.' },
+      { date: '12 October 2016', title: 'Rogers Place opens', text: 'The first game in the new rink, and the first under the new captain: a 7-4 win over Calgary.' },
+      { date: '26 May 2022', title: 'McDavid ends the Battle', text: 'Overtime of Game 5 against Calgary: McDavid scores and the Oilers are in the conference final.' },
+      { date: '21 June 2024', title: 'Forcing Game 7', text: 'Down 3-0 to Florida, the Oilers win a third straight, 5-1 at home, to force Game 7.' },
+      { date: '24 June 2024', title: 'Game 7', text: 'A 2-1 loss in Florida. McDavid wins the Conn Smythe on the losing side.' },
+    ],
+    arenas: [
+      { name: 'Edmonton Gardens', years: '1972-74', note: 'The WHA Oilers’ first home' },
+      { name: 'Northlands Coliseum', years: '1974-2016', note: 'Five Stanley Cups, under four names: Northlands Coliseum, Edmonton Coliseum, Skyreach Centre and Rexall Place' },
+      { name: 'Rogers Place', years: '2016-', note: 'Downtown, in the Ice District; host of the 2020 bubble Final' },
+    ],
+    trade: {
+      title: 'The Trade', date: '9 August 1988',
+      gave: ['Wayne Gretzky', 'Marty McSorley', 'Mike Krushelnyski'],
+      got: ['Jimmy Carson', 'Martin Gelinas', 'First-round picks in 1989, 1991 and 1993', 'US$15 million'],
+      text: 'Weeks after his fourth Cup and his wedding, the greatest player in the world was sold to Los Angeles. Gretzky cried at the press conference; Edmonton never quite forgave Peter Pocklington. Two years later the Oilers won the Cup without him.',
+    },
+    culture: [
+      { title: 'Oil Country', text: 'What the fan base calls itself, and what it calls the city in the spring, when the streets around Rogers Place fill on playoff nights.' },
+      { title: 'The anthem', text: 'Paul Lorieau sang O Canada at Oilers games for nearly three decades; in the 2006 run he would hold out the microphone and let 16,000 people finish it.' },
+      { title: 'Orange and blue', text: 'The colours the dynasty wore. Copper and navy came in the 1990s and 2000s; orange came back as the main colour in 2017.' },
+      { title: 'Hunter', text: 'The Oilers’ mascot, a lynx, arrived in 2016.' },
+      { title: 'The Boys on the Bus', text: 'A documentary that followed the 1986-87 Oilers through a season and a Cup: the dynasty with its guard down.' },
+      { title: 'Slats', text: 'Glen Sather’s nickname. He coached the club to four Cups and was general manager for all five.' },
+    ],
+    quiz: [
+      { q: 'How many goals did Gretzky score in 1981-82?', options: ['87', '92', '71', '76'], answer: 1, why: '92, still the NHL record. He had 50 by game 39.' },
+      { q: 'Who captained the 1990 Cup team?', options: ['Kevin Lowe', 'Glenn Anderson', 'Mark Messier', 'Craig MacTavish'], answer: 2, why: 'Messier, who won the Hart that season too.' },
+      { q: 'Who won the Conn Smythe in 1990?', options: ['Grant Fuhr', 'Bill Ranford', 'Mark Messier', 'Jari Kurri'], answer: 1, why: 'Bill Ranford, in goal for all sixteen wins.' },
+      { q: 'Which team beat the Oilers in the 1983 Final?', options: ['Boston', 'Philadelphia', 'NY Islanders', 'Montreal'], answer: 2, why: 'The Islanders swept them, then lost to them in the 1984 Final.' },
+      { q: 'How many players did the Oilers trade along with Gretzky in 1988?', options: ['None', 'One', 'Two', 'Three'], answer: 2, why: 'Two: Marty McSorley and Mike Krushelnyski.' },
+      { q: 'Who scored the overtime winner in Game 7 in Dallas in 1997?', options: ['Doug Weight', 'Todd Marchant', 'Ryan Smyth', 'Mike Grier'], answer: 1, why: 'Todd Marchant, on a breakaway.' },
+      { q: 'What seed were the Oilers when they reached the 2006 Final?', options: ['First', 'Fourth', 'Sixth', 'Eighth'], answer: 3, why: 'Eighth, the last spot in the West.' },
+      { q: 'Which pick in the 2014 draft was Leon Draisaitl?', options: ['1st', '3rd', '6th', '14th'], answer: 1, why: 'Third overall, behind Aaron Ekblad and Sam Reinhart.' },
+      { q: 'How many games did the 2023-24 winning streak last?', options: ['12', '14', '16', '17'], answer: 2, why: 'Sixteen, one short of the NHL record.' },
+      { q: 'Whose own goal ended the 1986 season?', options: ['Steve Smith', 'Charlie Huddy', 'Randy Gregg', 'Lee Fogolin'], answer: 0, why: 'Steve Smith’s pass went in off Grant Fuhr in Game 7 against Calgary.' },
+      { q: 'Where did the NHL play its first outdoor regular-season game?', options: ['Ralph Wilson Stadium', 'Commonwealth Stadium', 'McMahon Stadium', 'Wrigley Field'], answer: 1, why: 'Commonwealth Stadium in Edmonton, the 2003 Heritage Classic.' },
+      { q: 'How many goals did the 1983-84 Oilers score?', options: ['400', '417', '446', '424'], answer: 2, why: '446, still the most in an NHL season.' },
+      { q: 'Who was the first player the Oilers drafted in the NHL?', options: ['Mark Messier', 'Kevin Lowe', 'Glenn Anderson', 'Paul Coffey'], answer: 1, why: 'Kevin Lowe, 21st overall in 1979.' },
+      { q: 'How many assists did McDavid have in the 2024 playoffs?', options: ['31', '32', '34', '42'], answer: 2, why: '34, breaking Gretzky’s record of 31. His 42 points included them.' },
+    ],
   },
 };

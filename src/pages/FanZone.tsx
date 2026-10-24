@@ -1,17 +1,26 @@
 // A club's fan zone (24 October 2026, Patrick: "a dedicated super fan page of the Edmonton Oilers ... news, player
 // development, facts, history and even a deep assessment of the team"). #/fans/<club>: the league's own club by default
 // (league_rules.info.fan_club; SaK's is Edmonton), any of the 32 from the switcher. Everything live comes from nhl-hub's
-// `fan` task, the reading of it from src/lib/fanZone.ts, the history from src/data/clubHistory.ts.
+// `fan` task, the reading of it from src/lib/fanZone.ts and src/lib/fanDeep.ts, the history from nhl-hub's `fan-history`
+// (the NHL's record books) and src/data/clubHistory.ts (the lore). 24 October 2026, Patrick: "improve the fan zone
+// analytics and history and facts by at least 300%": the outlook (playoff odds), splits, tracking, player analytics,
+// and the record books, trophies, draft, facts and a quiz.
 import { useEffect, useMemo, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { ArrowDown, ArrowUp, ExternalLink, Flame, Snowflake, Sparkles, TrendingDown, TrendingUp, Trophy } from 'lucide-react';
+import { ArrowDown, ArrowUp, ExternalLink, Flame, Lightbulb, Snowflake, Sparkles, TrendingDown, TrendingUp, Trophy } from 'lucide-react';
 import { useLeague, useNow } from '../lib/store';
 import { hub } from '../lib/nhlhub';
 import { ago, fmtDate, fmtPts, NHL_TEAMS } from '../lib/format';
-import { assess, fmtToi, rankWord, type Development, type FanData, type Ranked } from '../lib/fanZone';
+import { assess, fmtToi, GROUPS, rankWord, type Development, type FanData, type MetricGroup, type Ranked } from '../lib/fanZone';
+import { ahead, champion, crease, deepRecs, division, form, historyFacts, outlook, players, splits, trackingRead, truth, type FanHistory } from '../lib/fanDeep';
 import { CLUB_LORE } from '../data/clubHistory';
 import { LoadError, NhlLogo, Spinner, TeamBadge } from '../components/ui';
 import { usePlayerInfo } from '../lib/playerInfo';
+import { Chips, Head } from '../components/fan/kit';
+import { FanForm, FanOutlook } from '../components/fan/FanOutlook';
+import { FanSplits, FanStyle } from '../components/fan/FanSplits';
+import { CreaseDeep, LuckWatch, Milestones, PlayerTable, Usage } from '../components/fan/FanPlayersDeep';
+import { FanDraft, FanFacts, FanHistorySection, FanRecords, FanTrophies } from '../components/fan/FanHistory';
 
 const CLUB_KEY = 'sp-fan-club';
 const FALLBACK = { primary: '#f7c548', secondary: '#0b1222', rgb: '247 197 72' };
@@ -26,21 +35,41 @@ export default function FanZone() {
   const remembered = (() => { try { return localStorage.getItem(CLUB_KEY); } catch { return null; } })();
   const club = (param ?? leagueClub ?? remembered ?? 'EDM').toUpperCase();
   const [data, setData] = useState<FanData | null>(null);
+  const [hist, setHist] = useState<FanHistory | null>(null);
   const [failed, setFailed] = useState(false);
   const [tries, setTries] = useState(0);
   useEffect(() => {
-    setData(null); setFailed(false);
+    setData(null); setFailed(false); setHist(null);
     try { localStorage.setItem(CLUB_KEY, club); } catch { /* nothing to remember with */ }
     hub<FanData>('fan', { abbrev: club }).then(setData, () => setFailed(true));
+    // the record books come on their own: the live page doesn't wait for them
+    hub<FanHistory>('fan-history', { abbrev: club }).then(setHist, () => {});
   }, [club, tries]);
   const lore = CLUB_LORE[club];
   const colors = lore?.colors ?? FALLBACK;
   const a = useMemo(() => (data ? assess(data) : null), [data]);
-  const sections = [['verdict', 'The verdict'], ['numbers', 'By the numbers'], ['players', 'Players'], ['news', 'News'], ['games', 'Games'], ...(lore ? [['history', 'History']] : [])] as const;
+  // the deeper reads, worked out once per answer (the simulation is the heavy one: a few thousand seasons)
+  const deep = useMemo(() => {
+    if (!data) return null;
+    const out = outlook(data, 3000), tr = truth(data), sp = splits(data), fm = form(data), ah = ahead(data), pl = players(data), cr = crease(data);
+    const recs = [...(a?.recs ?? []), ...deepRecs(data, { out, tr, pl, cr, ah, sp })];
+    const order = { high: 0, medium: 1, watch: 2 };
+    recs.sort((x, y) => order[x.priority] - order[y.priority]);
+    return { out, tr, sp, fm, ah, pl, cr, recs, track: trackingRead(data), champ: champion(data), div: division(data) };
+  }, [data, a]);
+  // a fact a day: the same one all day, a new one tomorrow
+  const fact = useMemo(() => {
+    const facts = [...(hist ? historyFacts(hist) : []), ...(lore?.facts ?? [])];
+    if (!facts.length) return null;
+    const day = Math.floor(Date.now() / 86_400_000);
+    return facts[day % facts.length];
+  }, [hist, lore]);
+  const sections = [['verdict', 'Verdict'], ['outlook', 'Outlook'], ['numbers', 'Numbers'], ['splits', 'Splits'], ['style', 'Style'], ['players', 'Players'], ['news', 'News'], ['games', 'Games'],
+    ['history', 'History'], ['records', 'Records'], ['trophies', 'Trophies'], ['draft', 'Draft'], ['facts', 'Facts']] as const;
 
   return (
     <div className="space-y-5" style={{ '--club': colors.primary, '--club-rgb': colors.rgb, '--club2': colors.secondary } as React.CSSProperties}>
-      {/* the hero: the club, its season so far and the next game */}
+      {/* the hero: the club, its season so far, its chances and the next game */}
       <div className="relative overflow-hidden rounded-[28px] border p-4 sm:p-6" style={{ borderColor: `rgb(${colors.rgb} / .35)`, background: `radial-gradient(120% 90% at 100% 0%, rgb(${colors.rgb} / .35), transparent 55%), linear-gradient(160deg, ${colors.secondary}, #070b16 75%)` }}>
         <div className="pointer-events-none absolute -right-8 -top-8 opacity-[.12]"><NhlLogo abbr={club} size={220} /></div>
         <div className="relative flex items-start gap-3">
@@ -59,13 +88,13 @@ export default function FanZone() {
           <div className="relative mt-4 grid grid-cols-2 gap-2 min-[400px]:grid-cols-4">
             {[
               ['Grade', a.grade, 'so far'],
-              ['League', rankWord(data.standing.leagueRank), 'of 32'],
+              ['Playoffs', deep?.out ? `${Math.round(deep.out.playoffs * 100)}%` : '–', deep?.out ? `~${deep.out.projected.mid} pts` : ''],
+              ['League', rankWord(data.standing.leagueRank), `of 32 · ${data.standing.gd > 0 ? '+' : ''}${data.standing.gd}`],
               ['Last 10', data.standing.l10, data.standing.streak ? `streak ${data.standing.streak}` : ''],
-              ['+/-', `${data.standing.gd > 0 ? '+' : ''}${data.standing.gd}`, 'goals'],
             ].map(([k, v, sub], i) => (
               <div key={k} className="min-w-0 rounded-2xl bg-black/30 px-2 py-2 ring-1 ring-white/10">
                 <div className="label truncate">{k}</div>
-                <div className={`font-display font-extrabold leading-tight text-white ${i === 0 ? 'text-[clamp(22px,7vw,30px)]' : 'text-[clamp(16px,5vw,22px)]'}`} style={i === 0 ? { color: colors.primary } : undefined}>{v}</div>
+                <div className={`font-display font-extrabold leading-tight text-white ${i < 2 ? 'text-[clamp(22px,7vw,30px)]' : 'text-[clamp(16px,5vw,22px)]'}`} style={i < 2 ? { color: colors.primary } : undefined}>{v}</div>
                 <div className="truncate text-[10px] text-mute">{sub}</div>
               </div>
             ))}
@@ -75,6 +104,11 @@ export default function FanZone() {
           <div className="relative mt-3 grid grid-cols-2 gap-2 text-xs">
             {data.recent[0] && <GameChip g={data.recent[0]} club={club} label="Last game" />}
             {data.upcoming[0] && <GameChip g={data.upcoming[0]} club={club} label="Next game" />}
+          </div>
+        )}
+        {fact && (
+          <div className="relative mt-3 flex items-start gap-2 rounded-2xl bg-black/25 px-3 py-2 text-[13px] leading-snug text-slate-200 ring-1 ring-white/10">
+            <Lightbulb className="mt-0.5 h-4 w-4 shrink-0" style={{ color: colors.primary }} /><span><b className="text-white">Fact of the day.</b> {fact}</span>
           </div>
         )}
       </div>
@@ -89,15 +123,22 @@ export default function FanZone() {
         </div>
       )}
 
-      {!data ? (failed ? <LoadError what={`the ${NHL_TEAMS[club] ?? club} fan zone`} onRetry={() => setTries((n) => n + 1)} /> : <div className="flex justify-center py-16"><Spinner /></div>) : a && (
+      {!data ? (failed ? <LoadError what={`the ${NHL_TEAMS[club] ?? club} fan zone`} onRetry={() => setTries((n) => n + 1)} /> : <div className="flex justify-center py-16"><Spinner /></div>) : a && deep && (
         <>
-          <Verdict a={a} />
+          <Verdict a={a} recs={deep.recs} />
+          <FanOutlook d={data} out={deep.out} tr={deep.tr} champ={deep.champ} div={deep.div} ah={deep.ah} />
           <Numbers ranks={a.ranks} prevSeason={data.prevSeason} />
-          <Players d={data} a={a} />
+          <FanSplits sp={deep.sp} />
+          <FanStyle lines={deep.track} tracking={data.tracking} />
+          <Players d={data} a={a} deep={deep} />
           <News d={data} />
-          <Games d={data} club={club} />
-          {lore && <History club={club} />}
-          <p className="px-1 text-[11px] text-mute">Numbers from the NHL&apos;s own statistics{data.stale ? ' (the last copy: the feed is slow to answer)' : ''}, read {ago(data.at, Date.now())} ago. Ranks are among all 32 clubs. Early in a season the samples are small and the numbers move.</p>
+          <Games d={data} club={club} form={<FanForm d={data} fm={deep.fm} out={deep.out} />} />
+          <FanHistorySection h={hist} lore={lore} />
+          <FanRecords h={hist} lore={lore} />
+          <FanTrophies h={hist} />
+          <FanDraft h={hist} />
+          <FanFacts h={hist} lore={lore} />
+          <p className="px-1 text-[11px] text-mute">Numbers from the NHL&apos;s own statistics, tracking and record books{data.stale ? ' (the last copy: the feed is slow to answer)' : ''}, read {ago(data.at, Date.now())} ago. Ranks are among all 32 clubs. Early in a season the samples are small and the numbers move; the odds pull every record toward the league average for that reason.</p>
         </>
       )}
     </div>
@@ -120,18 +161,10 @@ function GameChip({ g, club, label }: { g: FanData['recent'][number]; club: stri
   );
 }
 
-function Head({ id, title, sub }: { id: string; title: string; sub?: string }) {
-  return (
-    <div id={`fz-${id}`} className="scroll-mt-16 px-1">
-      <h2 className="h-display flex items-center gap-2 text-xl text-white"><span className="h-5 w-1 rounded-full" style={{ background: 'var(--club)' }} />{title}</h2>
-      {sub && <p className="mt-0.5 text-sm text-mute">{sub}</p>}
-    </div>
-  );
-}
-
 const PRIORITY = { high: ['Priority', 'bg-red-500/15 text-red-200 ring-red-400/30'], medium: ['Next', 'bg-amber-500/15 text-amber-200 ring-amber-400/30'], watch: ['Watch', 'bg-sky-500/15 text-sky-200 ring-sky-400/30'] } as const;
 
-function Verdict({ a }: { a: ReturnType<typeof assess> }) {
+function Verdict({ a, recs }: { a: ReturnType<typeof assess>; recs: ReturnType<typeof assess>['recs'] }) {
+  const [more, setMore] = useState(false);
   const line = (r: Ranked, good: boolean) => (
     <li key={r.key} className="flex items-center gap-2 py-1.5 text-sm">
       <span className={`grid h-6 w-6 shrink-0 place-items-center rounded-full text-[11px] font-black ${good ? 'bg-emerald-400/15 text-emerald-300' : 'bg-red-400/15 text-red-300'}`}>{good ? '+' : '−'}</span>
@@ -151,13 +184,14 @@ function Verdict({ a }: { a: ReturnType<typeof assess> }) {
         <div className="mt-3 grid gap-3 sm:grid-cols-2">
           <div>
             <div className="label text-emerald-300">Strengths</div>
-            {a.strengths.length ? <ul className="divide-y divide-white/[.05]">{a.strengths.map((r) => line(r, true))}</ul> : <p className="py-1.5 text-sm text-mute">Nothing in the league&apos;s top third yet.</p>}
+            {a.strengths.length ? <ul className="divide-y divide-white/[.05]">{(more ? a.strengths : a.strengths.slice(0, 6)).map((r) => line(r, true))}</ul> : <p className="py-1.5 text-sm text-mute">Nothing in the league&apos;s top third yet.</p>}
           </div>
           <div>
             <div className="label text-red-300">Weaknesses</div>
-            {a.weaknesses.length ? <ul className="divide-y divide-white/[.05]">{a.weaknesses.map((r) => line(r, false))}</ul> : <p className="py-1.5 text-sm text-mute">Nothing in the league&apos;s bottom third.</p>}
+            {a.weaknesses.length ? <ul className="divide-y divide-white/[.05]">{(more ? a.weaknesses : a.weaknesses.slice(0, 6)).map((r) => line(r, false))}</ul> : <p className="py-1.5 text-sm text-mute">Nothing in the league&apos;s bottom third.</p>}
           </div>
         </div>
+        {(a.strengths.length > 6 || a.weaknesses.length > 6) && <button type="button" onClick={() => setMore(!more)} className="mt-1 text-sm font-semibold text-sky-300">{more ? 'The top six of each' : `All ${a.strengths.length} strengths and ${a.weaknesses.length} weaknesses`}</button>}
         {a.luck && (
           <div className={`mt-3 flex items-start gap-2.5 rounded-2xl px-3 py-2.5 text-sm leading-snug ring-1 ${a.luck.tone === 'hot' ? 'bg-amber-500/10 text-amber-100 ring-amber-400/25' : a.luck.tone === 'cold' ? 'bg-sky-500/10 text-sky-100 ring-sky-400/25' : 'bg-white/[.04] text-slate-200 ring-white/10'}`}>
             {a.luck.tone === 'hot' ? <Flame className="mt-0.5 h-4 w-4 shrink-0" /> : a.luck.tone === 'cold' ? <Snowflake className="mt-0.5 h-4 w-4 shrink-0" /> : <Sparkles className="mt-0.5 h-4 w-4 shrink-0" />}
@@ -165,11 +199,12 @@ function Verdict({ a }: { a: ReturnType<typeof assess> }) {
           </div>
         )}
       </div>
-      {a.recs.length > 0 && (
+      {recs.length > 0 && (
         <div className="card p-4">
           <div className="font-display text-lg font-extrabold text-white">What management and the coaches should consider</div>
+          <p className="text-xs text-mute">{recs.length} calls from the numbers, the most pressing first.</p>
           <ol className="mt-2 space-y-3">
-            {a.recs.map((r, i) => (
+            {recs.map((r, i) => (
               <li key={r.title} className="flex gap-3">
                 <span className="grid h-7 w-7 shrink-0 place-items-center rounded-full text-sm font-black text-white" style={{ background: 'rgb(var(--club-rgb) / .3)' }}>{i + 1}</span>
                 <div className="min-w-0">
@@ -191,14 +226,18 @@ function Verdict({ a }: { a: ReturnType<typeof assess> }) {
 
 function Numbers({ ranks, prevSeason }: { ranks: Ranked[]; prevSeason: number }) {
   const [open, setOpen] = useState<string | null>(null);
+  const groups = GROUPS.filter((g) => ranks.some((r) => r.group === g));
+  const [group, setGroup] = useState<MetricGroup | 'all'>('Results');
+  const shown = group === 'all' ? ranks : ranks.filter((r) => r.group === group);
   return (
     <section className="space-y-3">
-      <Head id="numbers" title="By the numbers" sub={`Where they rank among the 32 clubs, and where they ranked in ${seasonLabel(prevSeason)}. Tap a row for what it measures.`} />
+      <Head id="numbers" title="By the numbers" sub={`${ranks.length} measures, each ranked among the 32 clubs, with where they ranked in ${seasonLabel(prevSeason)}. Tap a row for what it measures.`} />
+      <Chips label="Group" items={[...groups.map((g) => [g, g] as const), ['all', 'All'] as const]} value={group} onChange={setGroup} />
       <div className="card divide-y divide-white/[.05] p-1">
-        {ranks.map((r) => {
+        {shown.map((r) => {
           const filled = (r.of - r.rank + 1) / r.of;
           const moved = r.prevRank == null ? 0 : r.prevRank - r.rank;
-          const tone = r.rank <= Math.round(r.of / 3) ? 'text-emerald-300' : r.rank > r.of - Math.round(r.of / 3) ? 'text-red-300' : 'text-slate-200';
+          const tone = r.style ? 'text-slate-200' : r.rank <= Math.round(r.of / 3) ? 'text-emerald-300' : r.rank > r.of - Math.round(r.of / 3) ? 'text-red-300' : 'text-slate-200';
           return (
             <button key={r.key} type="button" onClick={() => setOpen(open === r.key ? null : r.key)} aria-expanded={open === r.key} className="block w-full px-3 py-2.5 text-left">
               <div className="flex items-baseline gap-2 text-sm">
@@ -217,7 +256,7 @@ function Numbers({ ranks, prevSeason }: { ranks: Ranked[]; prevSeason: number })
                   </span>
                 )}
               </div>
-              {open === r.key && <p className="mt-1.5 text-xs leading-snug text-slate-300">{r.label}: {r.what}.{r.low ? ' Lower is better.' : ''}</p>}
+              {open === r.key && <p className="mt-1.5 text-xs leading-snug text-slate-300">{r.label}: {r.what}.{r.low ? ' Lower is better.' : ''}{r.style ? ' A style, not a grade: ranked from most to least.' : ''} Best in the league {r.fmt(r.best)}, worst {r.fmt(r.worst)}.</p>}
             </button>
           );
         })}
@@ -244,7 +283,8 @@ function DevRow({ p, owner }: { p: Development; owner: React.ReactNode }) {
   );
 }
 
-function Players({ d, a }: { d: FanData; a: ReturnType<typeof assess> }) {
+type Deep = { pl: ReturnType<typeof players>; cr: ReturnType<typeof crease> };
+function Players({ d, a, deep }: { d: FanData; a: ReturnType<typeof assess>; deep: Deep }) {
   const { owner, team } = useLeague();
   const ownerOf = (id: number) => { const o = owner.get(id); const t = o ? team(o.team_id) : undefined; return t ? <TeamBadge team={t} size={16} /> : null; };
   const groups: [Development['verdict'], string, React.ReactNode][] = [
@@ -255,7 +295,7 @@ function Players({ d, a }: { d: FanData; a: ReturnType<typeof assess> }) {
   const ages = d.prospects.map((p) => ({ ...p, age: p.born ? new Date().getFullYear() - Number(p.born.slice(0, 4)) : null }));
   return (
     <section className="space-y-3">
-      <Head id="players" title="Players" sub="Who's growing and who's fading: points a game against last season, and the ice time the coaches give them." />
+      <Head id="players" title="Players" sub="Who's growing and who's fading, the numbers behind the points, who is due, the milestones in reach and the goalies by goals saved." />
       {a.stars && (
         <div className="card p-4">
           <div className="flex items-baseline justify-between gap-2"><b className="text-white">Where the points come from</b><span className="text-xs text-mute">{Math.round(a.stars.share * 100)}% from the top two</span></div>
@@ -280,26 +320,11 @@ function Players({ d, a }: { d: FanData; a: ReturnType<typeof assess> }) {
           </div>
         );
       })}
-      {a.goalies.length > 0 && (
-        <div className="card p-4">
-          <b className="text-white">In goal</b>
-          <div className="mt-2 space-y-2.5">
-            {a.goalies.map((g) => {
-              const diff = g.svp - g.leagueSvp;
-              return (
-                <div key={g.id} className="flex items-center gap-2.5">
-                  {g.headshot ? <img src={g.headshot} alt="" loading="lazy" className="h-10 w-10 shrink-0 rounded-full bg-white/[.06] object-cover" /> : <span className="h-10 w-10 shrink-0 rounded-full bg-white/[.06]" />}
-                  <div className="min-w-0 flex-1">
-                    <div className="flex items-center gap-1.5 text-sm"><b className="truncate text-white">{g.name}</b>{ownerOf(g.id)}</div>
-                    <div className="text-[11px] text-mute">{g.gs} starts ({Math.round(g.share * 100)}%) · league {g.leagueSvp.toFixed(3).replace(/^0/, '')}</div>
-                  </div>
-                  <div className="text-right"><div className="num text-sm font-bold text-white">{g.svp.toFixed(3).replace(/^0/, '')}</div><div className={`num text-[11px] ${diff >= 0 ? 'text-emerald-300' : 'text-red-300'}`}>{diff >= 0 ? '+' : ''}{(diff * 1000).toFixed(0)} pts</div></div>
-                </div>
-              );
-            })}
-          </div>
-        </div>
-      )}
+      <PlayerTable rows={deep.pl.rows} />
+      <LuckWatch rows={deep.pl.rows} />
+      <Milestones list={deep.pl.milestones} />
+      <Usage leaders={deep.pl.usageLeaders} />
+      {deep.cr.length > 0 ? <CreaseDeep list={deep.cr} owner={ownerOf} /> : null}
       {(a.youngCore.length > 0 || ages.length > 0) && (
         <div className="card p-4">
           <b className="text-white">The future</b>
@@ -368,10 +393,11 @@ function News({ d }: { d: FanData }) {
   );
 }
 
-function Games({ d, club }: { d: FanData; club: string }) {
+function Games({ d, club, form }: { d: FanData; club: string; form: React.ReactNode }) {
   return (
     <section className="space-y-3">
-      <Head id="games" title="Games" sub="The last ten, the next few, and the last three springs." />
+      <Head id="games" title="Games" sub="The season game by game, the last ten, the next few, and the last three springs." />
+      {form}
       <div className="card p-4">
         <div className="label">Last {d.recent.length}</div>
         <div className="mt-2 flex flex-wrap gap-1.5">
@@ -420,73 +446,6 @@ function Games({ d, club }: { d: FanData; club: string }) {
             </div>
           ))}
         </div>
-      </div>
-    </section>
-  );
-}
-
-function History({ club }: { club: string }) {
-  const lore = CLUB_LORE[club]!;
-  const [all, setAll] = useState(false);
-  const shown = all ? lore.timeline : lore.timeline.filter((t) => t.big);
-  return (
-    <section className="space-y-3">
-      <Head id="history" title="History" sub={`Founded ${lore.founded}. Home: ${lore.arena}.`} />
-      <div className="card overflow-hidden p-4" style={{ background: 'linear-gradient(135deg, rgb(var(--club-rgb) / .16), transparent 60%)' }}>
-        <div className="label" style={{ color: 'var(--club)' }}>Stanley Cups</div>
-        <div className="mt-2 flex flex-wrap gap-2">
-          {lore.cups.map((y) => (
-            <span key={y} className="flex items-center gap-1.5 rounded-2xl bg-black/30 px-3 py-2 ring-1 ring-white/10"><Trophy className="h-5 w-5 text-amber-300" /><b className="num font-display text-lg text-white">{y}</b></span>
-          ))}
-        </div>
-      </div>
-      <div className="card p-4">
-        <ol className="relative space-y-4 border-l border-white/10 pl-4">
-          {shown.map((t, i) => (
-            <li key={i} className="relative">
-              <span className="absolute -left-[21px] top-1 h-2.5 w-2.5 rounded-full ring-4 ring-[#0b1222]" style={{ background: t.big ? 'var(--club)' : 'rgb(148 163 184)' }} />
-              <div className="flex items-baseline gap-2"><b className="num text-sm" style={{ color: 'var(--club)' }}>{t.year}</b><b className="text-white">{t.title}</b></div>
-              <p className="mt-0.5 text-sm leading-snug text-slate-300">{t.text}</p>
-            </li>
-          ))}
-        </ol>
-        <button type="button" onClick={() => setAll(!all)} className="mt-3 text-sm font-semibold text-sky-300">{all ? 'Just the big moments' : `The whole story (${lore.timeline.length} moments)`}</button>
-      </div>
-      <div className="card p-4">
-        <b className="text-white">In the rafters</b>
-        <div className="mt-2 grid grid-cols-2 gap-2 sm:grid-cols-4">
-          {lore.retired.map((r) => (
-            <div key={r.num} className="rounded-2xl p-2.5 text-center ring-1 ring-white/10" style={{ background: 'linear-gradient(180deg, var(--club2), rgb(0 0 0 / .3))' }}>
-              <div className="num font-display text-3xl font-extrabold" style={{ color: 'var(--club)' }}>{r.num}</div>
-              <div className="text-sm font-bold text-white">{r.name}</div>
-              <div className="mt-0.5 text-[11px] leading-snug text-slate-300">{r.note}</div>
-            </div>
-          ))}
-        </div>
-      </div>
-      <div className="card p-4">
-        <b className="text-white">Records that still stand</b>
-        <div className="mt-2 grid grid-cols-2 gap-2">
-          {lore.records.map((r) => (
-            <div key={r.what} className="rounded-2xl bg-white/[.03] p-2.5 ring-1 ring-white/[.06]">
-              <div className="num font-display text-2xl font-extrabold text-white">{r.value}</div>
-              <div className="text-[12px] leading-snug text-slate-300">{r.what}</div>
-              <div className="mt-0.5 text-[11px] font-semibold" style={{ color: 'var(--club)' }}>{r.who}</div>
-            </div>
-          ))}
-        </div>
-      </div>
-      {lore.rival && (
-        <div className="card p-4">
-          <b className="text-white">{lore.rival.name}</b>
-          <p className="mt-1 text-sm leading-snug text-slate-300">{lore.rival.text}</p>
-        </div>
-      )}
-      <div className="card p-4">
-        <b className="text-white">Did you know</b>
-        <ul className="mt-2 space-y-2">
-          {lore.facts.map((f) => <li key={f} className="flex gap-2 text-sm leading-snug text-slate-300"><span style={{ color: 'var(--club)' }}>●</span>{f}</li>)}
-        </ul>
       </div>
     </section>
   );

@@ -69,8 +69,12 @@ Two things in one repo:
   own install prompt on Android) and stays on Profile until it's installed.
 - Fan zone (24 October 2026): `#/fans/<club>` (`src/pages/FanZone.tsx`), the league's club by default
   (`league_rules.info.fan_club`, SaK's EDM, migration 336): nhl-hub's `fan` task brings the club's and every club's numbers,
-  roster, prospects, schedule, playoff runs and news; `src/lib/fanZone.ts` ranks, grades and writes the recommendations;
-  settled history lives in `src/data/clubHistory.ts`.
+  roster, prospects, schedule, playoff runs and news, plus the full table, the NHL's tracking (speed, shot locations, zone
+  time) and the players' usage, 5-on-5 rates and careers; `fan-history` (six hours in `hub_cache`) brings the franchise from
+  the NHL's record books (every season, leaders, best seasons, trophies, the record against every club, captains, coaches,
+  managers, the draft). `src/lib/fanZone.ts` ranks 46 measures, grades and writes the recommendations; `src/lib/fanDeep.ts`
+  simulates the season (playoff odds), adjusts for luck, splits the record, reads form, the schedule, players, goalies,
+  tracking and the history; the sections are in `src/components/fan/`; settled lore lives in `src/data/clubHistory.ts`.
 - Navigation (`src/components/Layout.tsx`): the dock keeps four places (a fantasy league's are Home, Lineup, Chat and NHL centre since 24 October 2026; Players is in More under Your team), Live (the scoreboard, a fantasy league's middle tab with a red dot while a game is on) and More; More and the desktop sidebar list the
   rest under groups (`Tonight`, `Your team`, `The league`, `You`; a pool's `Play`, `Sport centres`, `You`), and nothing
   in the dock repeats in More. A new page joins a group rather than the end of a list.
