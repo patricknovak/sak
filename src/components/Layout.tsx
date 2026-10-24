@@ -7,7 +7,7 @@ import { signOut } from '../lib/guest';
 import { useLeague, useNow } from '../lib/store';
 import { hasFeature } from '../lib/features';
 import { realtimeChannel, supabase } from '../lib/supabase';
-import { ago, countdown } from '../lib/format';
+import { ago, countdown, NHL_TEAMS } from '../lib/format';
 import { currentSubscription } from '../lib/push';
 import { Sheet, TeamBadge } from './ui';
 import { centreName } from '../lib/poolGames';
@@ -15,7 +15,7 @@ import { InstallPrompt } from './InstallPrompt';
 import { PRODUCT } from '../lib/brand';
 import {
   Bell, ClipboardList, Dices, Home, Landmark, Lightbulb, LogOut, Menu, MessageCircle, Radio, Repeat2, Search, Shield, Target,
-  Trophy, Tv, UserRound, Wrench, Wallet, type LucideIcon, BarChart3, Sparkles, Crown, Wand2, Layers, ChevronDown, Swords } from 'lucide-react';
+  Trophy, Tv, UserRound, Wrench, Wallet, Flame, type LucideIcon, BarChart3, Sparkles, Crown, Wand2, Layers, ChevronDown, Swords } from 'lucide-react';
 
 // short: the phone dock's label, one line; group: the heading it sits under in More and the sidebar
 type Item = { to: string; label: string; icon: LucideIcon; commish?: boolean; short?: string; group?: Group };
@@ -185,6 +185,7 @@ export function Layout({ children }: { children: ReactNode }) {
     // the sport's centre (24 October 2026, Patrick: NHL centre back in the dock); Players is in More, under Your team
     { to: '/nhl', label: sport.words.centre ?? 'NHL centre', short: sport.words.centre ?? 'NHL centre', icon: Tv },
   ];
+  const fanClub = (league?.info as { fan_club?: string } | undefined)?.fan_club ?? null;
   const moreItems: Item[] = (pool ? [
     ...(runs.games && poolQuestions ? [{ to: '/questions', label: 'Questions', icon: Sparkles, group: 'Play' }] : []),
     ...(runs.predictor ? [{ to: '/predictor', label: 'Call the score', icon: Target, group: 'Play' }] : []),
@@ -207,6 +208,8 @@ export function Layout({ children }: { children: ReactNode }) {
     // the sport's own centre ("NHL centre" for hockey), from the sports row
     { to: '/nhl', label: sport.words.centre ?? 'NHL centre', icon: Tv, group: 'Tonight' },
     ...(runs.questions ? [{ to: '/questions', label: 'Questions', icon: Sparkles, group: 'Tonight' }] : []),
+    // the league's own club's fan zone (league_rules.info.fan_club; SaK's is Edmonton), or any club's
+    { to: '/fans', label: fanClub ? `${NHL_TEAMS[fanClub] ?? fanClub} fan zone` : 'Fan zone', icon: Flame, group: 'The league' },
     ...(draftish ? [{ to: '/team', label: 'My Team', icon: Shield, group: 'Your team' }] : []),
     { to: '/players', label: 'Players', icon: Search, group: 'Your team' },
     { to: '/trades', label: 'Trades', icon: Repeat2, group: 'Your team' },

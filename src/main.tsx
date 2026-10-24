@@ -50,6 +50,7 @@ const DraftCentre = lazy(() => import('./pages/DraftCentre'));
 const Scoreboard = lazy(() => import('./pages/Scoreboard'));
 const Performance = lazy(() => import('./pages/Performance'));
 const NHL = lazy(() => import('./pages/NHL'));
+const FanZone = lazy(() => import('./pages/FanZone'));
 const Yahoo = lazy(() => import('./pages/Yahoo'));
 const YahooLeague = lazy(() => import('./pages/YahooLeague'));
 const Pools = lazy(() => import('./pages/Pools'));
@@ -152,6 +153,8 @@ function App() {
           <Route path="/scoreboard" element={<Scoreboard />} />
           <Route path="/performance" element={<Performance />} />
           <Route path="/nhl" element={<NHL />} />
+          <Route path="/fans" element={<FanZone />} />
+          <Route path="/fans/:club" element={<FanZone />} />
           <Route path="/pools" element={<Pools />} />
           {/* a pool's link followed inside the app: load the page again so the pool in it opens (host.ts reads it at start) */}
           <Route path="/p/*" element={<Reopen />} />

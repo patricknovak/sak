@@ -67,6 +67,10 @@ Two things in one repo:
 - Installing on a phone (24 October 2026): the app runs full screen from the Home Screen (`manifest.webmanifest`, Apple's
   web-app tags); `InstallPrompt` (`src/lib/install.ts`) shows the steps once on Home to a member in a phone browser (Chrome's
   own install prompt on Android) and stays on Profile until it's installed.
+- Fan zone (24 October 2026): `#/fans/<club>` (`src/pages/FanZone.tsx`), the league's club by default
+  (`league_rules.info.fan_club`, SaK's EDM, migration 336): nhl-hub's `fan` task brings the club's and every club's numbers,
+  roster, prospects, schedule, playoff runs and news; `src/lib/fanZone.ts` ranks, grades and writes the recommendations;
+  settled history lives in `src/data/clubHistory.ts`.
 - Navigation (`src/components/Layout.tsx`): the dock keeps four places (a fantasy league's are Home, Lineup, Chat and NHL centre since 24 October 2026; Players is in More under Your team), Live (the scoreboard, a fantasy league's middle tab with a red dot while a game is on) and More; More and the desktop sidebar list the
   rest under groups (`Tonight`, `Your team`, `The league`, `You`; a pool's `Play`, `Sport centres`, `You`), and nothing
   in the dock repeats in More. A new page joins a group rather than the end of a list.
