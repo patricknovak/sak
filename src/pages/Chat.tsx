@@ -13,14 +13,16 @@ import { ago } from '../lib/format';
 import { IMAGE_BODY } from '../lib/chatMedia';
 import { useLounges } from '../lib/lounge';
 import { LoungePanel } from '../components/LoungePanel';
+import { RoomPicker } from '../components/RoomPicker';
 
 // The league chat is one feed (14 October 2026, Patrick): the old channel bar (All, Trash Talk, Draft, Ask the voice,
 // a DM per GM) became a filter over every message, by GM and by kind (talk, transactions, bets, the voice, the draft,
 // private lines, league news). A link to an old channel (a mention's bell, `?c=`) opens the filter that shows it.
-// Above it, the lounges (migration 333): the chats every pool following the same league or show shares, `?lounge=<key>`.
+// The lounges (migration 333), the chats every pool following the same league or show shares, are a room picker at the
+// head of the filter row, `?lounge=<key>`.
 export default function Chat() {
   const brand = useBrand();
-  const { me, teams, spectators, league } = useLeague();
+  const { me, teams, spectators } = useLeague();
   const [params, setParams] = useSearchParams();
   const { lounges } = useLounges();
   const room = lounges?.find((l) => l.key === params.get('lounge')) ?? null;
@@ -97,28 +99,14 @@ export default function Chat() {
 
   return (
     <div className="-mx-3 -my-3 flex h-[calc(100dvh-8.25rem-env(safe-area-inset-bottom)-env(safe-area-inset-top)-var(--banner,0px))] flex-col sm:-mx-5 lg:m-0 lg:h-[calc(100dvh-3rem-var(--banner,0px))]">
-      {/* which room: this pool's own chat, or a lounge it shares with every pool following the same league or show */}
-      {!!lounges?.length && (
-        <div className="scroll-x flex shrink-0 gap-1.5 border-b border-white/[.07] px-2 py-2 lg:mb-2 lg:border-b-0 lg:px-0">
-          <button type="button" onClick={() => goRoom(null)} aria-pressed={!room}
-            className={`flex shrink-0 items-center gap-1.5 rounded-2xl px-3 py-1.5 text-sm font-bold transition ${!room ? 'bg-gold text-[#0b1220] shadow-[0_8px_20px_-10px_rgb(var(--gold-rgb)/.9)]' : 'border border-white/[.08] bg-white/[.05] text-slate-200'}`}>
-            💬 <span className="max-w-[11rem] truncate">{league?.name ?? 'Our chat'}</span>
-          </button>
-          {lounges.map((l) => (
-            <button key={l.key} type="button" onClick={() => goRoom(l.key)} aria-pressed={room?.key === l.key}
-              className={`flex shrink-0 items-center gap-1.5 rounded-2xl px-3 py-1.5 text-sm font-bold transition ${room?.key === l.key ? 'bg-white text-ice' : 'border border-white/[.08] bg-white/[.05] text-slate-200'} ${l.here ? '' : 'opacity-70'}`}>
-              <span>{l.emoji}</span>{l.name}<span className={`text-[11px] font-semibold ${room?.key === l.key ? 'text-ice/60' : 'text-mute'}`}>lounge</span>
-              {l.today > 0 && room?.key !== l.key && <span className="h-1.5 w-1.5 rounded-full bg-gold" aria-label="New posts today" />}
-            </button>
-          ))}
-        </div>
-      )}
       {room ? (
-        <div className="relative flex min-h-0 flex-1 flex-col lg:card lg:overflow-hidden"><LoungePanel key={room.key} lounge={room} /></div>
+        <div className="relative flex min-h-0 flex-1 flex-col lg:card lg:overflow-hidden"><LoungePanel key={room.key} lounge={room} picker={<RoomPicker lounges={lounges ?? []} room={room} onChange={goRoom} />} /></div>
       ) : (<>
       {/* above the chat below it: the card's blur makes a layer of its own, which hid the GM list on a wide screen */}
       <div className="relative z-20 shrink-0 border-b border-white/[.07] lg:card lg:mb-3 lg:border-b-0">
         <div className="flex items-center gap-1.5 px-2 py-2">
+          {/* which room: this league's own chat or a lounge it shares with every pool following the same league or show */}
+          {!!lounges?.length && <RoomPicker lounges={lounges} room={null} onChange={goRoom} />}
           {/* who: everyone, or one GM (their posts, their DMs with you, and every league line that names them) */}
           <GmPicker value={gm?.id ?? null} onChange={(id) => set(what, id, mentions)} />
           <span className="h-5 w-px shrink-0 bg-white/10" />

@@ -4,6 +4,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Flag, MoreHorizontal, Send, Trash2, Users } from 'lucide-react';
 import { useLeague, useNow } from '../lib/store';
+import { useBrand } from '../lib/brand';
 import { rpc } from '../lib/supabase';
 import { ago } from '../lib/format';
 import { myPosts, useLoungeFeed, type Lounge } from '../lib/lounge';
@@ -15,8 +16,9 @@ const hueOf = (s: string) => HUES[[...s].reduce((a, c) => a + c.charCodeAt(0), 0
 // "following the NHL", "following Love Is Blind"
 const following = (name: string) => (/^(NHL|NFL|NBA|MLB|NWSL|WSL|MLS)$/.test(name) || /League$/.test(name) ? `the ${name}` : name);
 
-export function LoungePanel({ lounge }: { lounge: Lounge }) {
+export function LoungePanel({ lounge, picker }: { lounge: Lounge; picker?: React.ReactNode }) {
   const { league } = useLeague();
+  const brand = useBrand();
   const toast = useToast();
   const now = useNow(30_000);
   const here = league?.league_id ?? null;
@@ -59,20 +61,15 @@ export function LoungePanel({ lounge }: { lounge: Lounge }) {
 
   return (
     <div className="flex min-h-0 flex-1 flex-col">
-      {/* the room: whose it is and the filter to your own pool */}
-      <div className="shrink-0 border-b border-white/[.07] px-3 py-2.5">
-        <div className="flex items-center gap-2.5">
-          <span className="grid h-10 w-10 shrink-0 place-items-center rounded-2xl bg-gold/15 text-xl ring-1 ring-gold/30">{lounge.emoji}</span>
-          <div className="min-w-0 flex-1">
-            <div className="font-display text-lg font-extrabold leading-tight text-white">The {lounge.name} lounge</div>
-            <div className="text-xs leading-snug text-mute">Everyone on Super Pools following {following(lounge.name)}{lounge.today ? ` · ${lounge.today} post${lounge.today === 1 ? '' : 's'} today` : ''}</div>
-          </div>
-        </div>
-        <div className="mt-2 flex gap-1.5">
-          {([[false, 'Everyone'], [true, league?.name ? `Just ${league.name}` : 'Just my pool']] as const).map(([v, label]) => (
+      {/* one row: the room, then everyone or just your pool (the room's name and who's in it head the posts below) */}
+      <div className="relative z-20 flex shrink-0 items-center gap-1.5 border-b border-white/[.07] px-2 py-2">
+        {picker}
+        {picker && <span className="h-5 w-px shrink-0 bg-white/10" />}
+        <div className="scroll-x flex min-w-0 flex-1 gap-1.5">
+          {([[false, 'Everyone'], [true, `Just ${brand.short}`]] as const).map(([v, label]) => (
             <button key={String(v)} type="button" onClick={() => setOnlyMine(v)} aria-pressed={onlyMine === v}
-              className={`flex min-w-0 items-center gap-1 rounded-full px-3 py-1.5 text-sm font-semibold transition ${onlyMine === v ? 'bg-white text-ice' : 'border border-white/[.07] bg-white/[.05] text-slate-300'}`}>
-              {v && <Users className="h-3.5 w-3.5 shrink-0" />}<span className="truncate">{label}</span>
+              className={`flex shrink-0 items-center gap-1 rounded-full px-3 py-1.5 text-sm font-semibold transition ${onlyMine === v ? 'bg-white text-ice' : 'border border-white/[.07] bg-white/[.05] text-slate-300'}`}>
+              {v && <Users className="h-3.5 w-3.5 shrink-0" />}<span className="max-w-[10rem] truncate">{label}</span>
             </button>
           ))}
         </div>
@@ -90,6 +87,9 @@ export function LoungePanel({ lounge }: { lounge: Lounge }) {
             </div>
           ) : (
             <div className="space-y-3">
+              <div className="flex items-center justify-center gap-1.5 pb-1 text-center text-[11px] text-mute">
+                <span>{lounge.emoji}</span><span><b className="font-semibold text-slate-300">The {lounge.name} lounge</b> · everyone on Super Pools following {following(lounge.name)}</span>
+              </div>
               {more && !onlyMine && <button type="button" onClick={earlier} className="mx-auto block rounded-full border border-white/10 px-3 py-1 text-xs font-semibold text-slate-300 hover:bg-white/[.06]">Earlier posts</button>}
               {shown.map((m) => {
                 const own = mine.has(m.id);

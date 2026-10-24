@@ -11,6 +11,7 @@ import { Section, TeamBadge, Toggle, useAction, useToast } from '../components/u
 import type { GarryMemory, Team } from '../lib/types';
 import { PushCard } from '../components/PushCard';
 import { KeepSeat } from '../components/KeepSeat';
+import { InstallPrompt } from '../components/InstallPrompt';
 import { ConnectYahoo, useYahooStatus } from '../components/YahooConnect';
 import { useBrand } from '../lib/brand';
 
@@ -49,6 +50,7 @@ export default function Profile() {
   return (
     <div className="space-y-5">
       <KeepSeat />
+      <InstallPrompt variant="card" />
       <div className="card-hero flex items-center gap-4 p-4" style={{ '--tc': f.color } as React.CSSProperties}>
         <div className="pointer-events-none absolute -right-4 -top-6 select-none text-[120px] leading-none opacity-[.08]">{f.emoji}</div>
         <TeamBadge team={{ ...me, ...f } as Team} size={64} ring />

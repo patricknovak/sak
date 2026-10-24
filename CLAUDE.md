@@ -62,7 +62,11 @@ Two things in one repo:
   came from (`from_league`) so a member can narrow it to their own pool; strangers see a first name and initial
   (`_lounge_name`), the writer is kept in `private.lounge_posts`; `lounge_post` posts from the pool open now, `lounge_report`
   (three reports take a post down, the first bells the platform admins) and `lounge_remove` (the writer, or a platform admin).
+  The room is a pill at the head of the chat's filter row (`RoomPicker`, 24 October 2026).
   The home page's League transactions (`LeagueTransactions`) lists every move and trade with the same GM picker.
+- Installing on a phone (24 October 2026): the app runs full screen from the Home Screen (`manifest.webmanifest`, Apple's
+  web-app tags); `InstallPrompt` (`src/lib/install.ts`) shows the steps once on Home to a member in a phone browser (Chrome's
+  own install prompt on Android) and stays on Profile until it's installed.
 - Navigation (`src/components/Layout.tsx`): the dock keeps four places (a fantasy league's are Home, Lineup, Chat and NHL centre since 24 October 2026; Players is in More under Your team), Live (the scoreboard, a fantasy league's middle tab with a red dot while a game is on) and More; More and the desktop sidebar list the
   rest under groups (`Tonight`, `Your team`, `The league`, `You`; a pool's `Play`, `Sport centres`, `You`), and nothing
   in the dock repeats in More. A new page joins a group rather than the end of a list.
