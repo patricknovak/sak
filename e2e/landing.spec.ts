@@ -11,104 +11,111 @@ test.describe('Landing (superpoolsai.com)', () => {
     await expect(start).toHaveAttribute('href', /app\.superpoolsai\.com\/#\/new/);
   });
 
-  test('cta_click fires with src when Analytics is granted (not without consent)', async ({ page }) => {
+  async function plantLandingAnalytics(page: import('@playwright/test').Page, granted: boolean) {
     await page.route('**/googletagmanager.com/**', (route) => route.fulfill({ status: 204, body: '' }));
-    await page.addInitScript(() => {
+    // App CTA navigates cross-origin; fulfill so waitForURL can settle without a real app load.
+    await page.route('https://app.superpoolsai.com/**', (route) =>
+      route.fulfill({ status: 200, contentType: 'text/html', body: '<!doctype html><title>app</title>ok' }));
+    await page.addInitScript((on) => {
       (window as unknown as { __spAnalyticsTest?: boolean }).__spAnalyticsTest = true;
-      localStorage.setItem('sp_analytics_consent', 'granted');
+      localStorage.setItem('sp_analytics_consent', on ? 'granted' : 'denied');
       localStorage.setItem('sp_ads_consent', 'denied');
+    }, granted);
+  }
+
+  /** Mimic gtag.js event_callback and report the cta_click payload to Node before navigation. */
+  async function installCtaProbe(page: import('@playwright/test').Page) {
+    const seen: { src: string | null; hasCallback: boolean; sendTo: string | null }[] = [];
+    await page.exposeFunction('__e2eOnCta', (payload: { src: string | null; hasCallback: boolean; sendTo: string | null }) => {
+      seen.push(payload);
     });
+    await page.evaluate(() => {
+      const w = window as unknown as {
+        gtag?: (...a: unknown[]) => unknown;
+        __e2eOnCta?: (p: { src: string | null; hasCallback: boolean; sendTo: string | null }) => void;
+      };
+      const prev = w.gtag;
+      if (typeof prev !== 'function') return;
+      w.gtag = function wrappedGtag(this: unknown) {
+        const a0 = arguments[0];
+        const a1 = arguments[1];
+        const a2 = arguments[2] as {
+          src?: string; event_callback?: () => void; send_to?: string;
+        } | undefined;
+        if (a0 === 'event' && a1 === 'cta_click') {
+          try {
+            w.__e2eOnCta?.({
+              src: a2?.src ?? null,
+              hasCallback: typeof a2?.event_callback === 'function',
+              sendTo: a2?.send_to ?? null,
+            });
+          } catch { /* ignore */ }
+        }
+        const ret = prev.apply(this, arguments as unknown as []);
+        if (a0 === 'event' && a2 && typeof a2.event_callback === 'function') {
+          queueMicrotask(() => { try { a2.event_callback!(); } catch { /* ignore */ } });
+        }
+        return ret;
+      };
+    });
+    return seen;
+  }
+
+  test('cta_click with consent uses event_callback then navigates (src=home)', async ({ page }) => {
+    await plantLandingAnalytics(page, true);
     await page.goto('./');
     await expect.poll(async () => page.evaluate(() => !!document.getElementById('sp-ga4')), {
       timeout: 10_000,
     }).toBe(true);
+    const seen = await installCtaProbe(page);
 
-    const ctaClicks = async () => page.evaluate(() => {
-      const layer = (window as unknown as { dataLayer?: unknown[] }).dataLayer || [];
-      const out: string[] = [];
-      for (const entry of layer) {
-        if (!entry || typeof entry !== 'object') continue;
-        const args = entry as { [i: number]: unknown };
-        if (args[0] === 'event' && args[1] === 'cta_click') {
-          const p = (args[2] as { src?: string }) || {};
-          out.push(String(p.src || ''));
-        }
-      }
-      return out;
-    });
-
-    expect(await ctaClicks()).toEqual([]);
     const start = page.getByRole('link', { name: /Start a pool, free|Start a pool/i }).first();
     await expect(start).toHaveAttribute('href', /[?&]src=home\b/);
-    // Stay on the landing page so we can read dataLayer after the click.
-    await page.evaluate(() => {
-      document.querySelectorAll('a[href*="app.superpoolsai.com"]').forEach((a) => {
-        a.addEventListener('click', (e) => e.preventDefault(), true);
-      });
-    });
-    await start.click();
-    await expect.poll(ctaClicks, { timeout: 5_000 }).toEqual(['home']);
+    const t0 = Date.now();
+    await Promise.all([
+      page.waitForURL(/app\.superpoolsai\.com/, { timeout: 5_000 }),
+      start.click(),
+    ]);
+    expect(Date.now() - t0).toBeLessThan(800);
+    expect(seen.length).toBeGreaterThanOrEqual(1);
+    expect(seen[0].src).toBe('home');
+    expect(seen[0].hasCallback).toBe(true);
+    expect(seen[0].sendTo).toMatch(/^G-/);
+    expect(page.url()).toMatch(/app\.superpoolsai\.com/);
   });
 
-  test('cta_click does not fire when Analytics consent is denied', async ({ page }) => {
-    await page.route('**/googletagmanager.com/**', (route) => route.fulfill({ status: 204, body: '' }));
-    await page.addInitScript(() => {
-      (window as unknown as { __spAnalyticsTest?: boolean }).__spAnalyticsTest = true;
-      localStorage.setItem('sp_analytics_consent', 'denied');
-      localStorage.setItem('sp_ads_consent', 'denied');
-    });
+  test('cta_click denied: no event, link navigates immediately', async ({ page }) => {
+    await plantLandingAnalytics(page, false);
     await page.goto('./love-is-blind.html');
-    await expect(page.getByRole('link', { name: /Start your Love Is Blind pool/i }).first()).toBeVisible();
-    await page.evaluate(() => {
-      document.querySelectorAll('a[href*="app.superpoolsai.com"]').forEach((a) => {
-        a.addEventListener('click', (e) => e.preventDefault(), true);
-      });
-    });
-    await page.getByRole('link', { name: /Start your Love Is Blind pool/i }).first().click();
-    const n = await page.evaluate(() => {
-      const layer = (window as unknown as { dataLayer?: unknown[] }).dataLayer || [];
-      let count = 0;
-      for (const entry of layer) {
-        if (!entry || typeof entry !== 'object') continue;
-        const args = entry as { [i: number]: unknown };
-        if (args[0] === 'event' && args[1] === 'cta_click') count += 1;
-      }
-      return count;
-    });
-    expect(n).toBe(0);
+    const seen = await installCtaProbe(page);
+    const cta = page.getByRole('link', { name: /Start your Love Is Blind pool/i }).first();
+    await expect(cta).toBeVisible();
     expect(await page.evaluate(() => document.getElementById('sp-ga4'))).toBeNull();
+
+    const started = Date.now();
+    await Promise.all([
+      page.waitForURL(/app\.superpoolsai\.com/, { timeout: 5_000 }),
+      cta.click(),
+    ]);
+    expect(Date.now() - started).toBeLessThan(800);
+    expect(seen).toEqual([]);
   });
 
-  test('love-is-blind CTA sends cta_click with src=lib', async ({ page }) => {
-    await page.route('**/googletagmanager.com/**', (route) => route.fulfill({ status: 204, body: '' }));
-    await page.addInitScript(() => {
-      (window as unknown as { __spAnalyticsTest?: boolean }).__spAnalyticsTest = true;
-      localStorage.setItem('sp_analytics_consent', 'granted');
-      localStorage.setItem('sp_ads_consent', 'denied');
-    });
+  test('love-is-blind CTA: cta_click src=lib via callback path then navigates', async ({ page }) => {
+    await plantLandingAnalytics(page, true);
     await page.goto('./love-is-blind.html');
     await expect.poll(async () => page.evaluate(() => !!document.getElementById('sp-ga4')), {
       timeout: 10_000,
     }).toBe(true);
+    const seen = await installCtaProbe(page);
     const cta = page.getByRole('link', { name: /Start your Love Is Blind pool/i }).first();
     await expect(cta).toHaveAttribute('href', /[?&]src=lib\b/);
-    await page.evaluate(() => {
-      document.querySelectorAll('a[href*="app.superpoolsai.com"]').forEach((a) => {
-        a.addEventListener('click', (e) => e.preventDefault(), true);
-      });
-    });
-    await cta.click();
-    await expect.poll(async () => page.evaluate(() => {
-      const layer = (window as unknown as { dataLayer?: unknown[] }).dataLayer || [];
-      for (const entry of layer) {
-        if (!entry || typeof entry !== 'object') continue;
-        const args = entry as { [i: number]: unknown };
-        if (args[0] === 'event' && args[1] === 'cta_click') {
-          return String(((args[2] as { src?: string }) || {}).src || '');
-        }
-      }
-      return '';
-    }), { timeout: 5_000 }).toBe('lib');
+    await Promise.all([
+      page.waitForURL(/app\.superpoolsai\.com.*src=lib/, { timeout: 5_000 }),
+      cta.click(),
+    ]);
+    expect(seen[0]?.src).toBe('lib');
+    expect(seen[0]?.hasCallback).toBe(true);
   });
 
   test('FAQ answers the money and app questions', async ({ page }) => {
