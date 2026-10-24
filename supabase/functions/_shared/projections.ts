@@ -4,6 +4,10 @@
 // For every player with NHL games in the last three seasons it projects a full stat line for the coming season:
 //   • rates per game from the last three seasons, weighted 5 / 3 / 2 (newest first) by games played, and pulled
 //     toward a replacement-level prior for the position so a 20-game sample can't look like a star
+//   • this season's games so far count too, at 12 a game (24 October 2026, Patrick: the expected points looked
+//     static): ten games move a projection about an eighth of the way to this season's pace, half a season about a
+//     third, so a hot or cold start shows without one good week rewriting a career; a rookie is projected from his
+//     first games. The job runs every morning.
 //   • goals = projected shots × a shooting % regressed toward the position's norm (so last year's 20% shooter
 //     is expected to cool off, and the unlucky one to bounce back)
 //   • an age curve: young players improve, veterans decline
@@ -34,6 +38,12 @@ export interface ProjMeta {
 export interface Projection { id: number; stats: Record<string, number>; gp: number; meta: ProjMeta }
 
 const WEIGHTS = [5, 3, 2];
+// a game this season, against 5 for one last season: the newest games say the most about this year's role
+const CUR_W = 12;
+// this season's id from last season's: 20252026 -> 20262027
+const nextSeason = (latest: number) => latest + 10001;
+// how many games his club has played this season, for how often he has dressed (his own games when it isn't known)
+const clubGames = (s: { team: string; gp: number }, teamGp?: Map<string, number>) => Math.max(s.gp, teamGp?.get(s.team.split(',').pop() ?? '') ?? s.gp);
 const r1 = (n: number) => Math.round(n * 10) / 10;
 const r2 = (n: number) => Math.round(n * 100) / 100;
 const seasonLabel = (s: number) => `${String(s).slice(0, 4)}-${String(s).slice(6, 8)}`;
@@ -100,10 +110,29 @@ function trendOf(hist: { gp: number; fp: number }[]): ProjMeta['trend'] {
   return 'flat';
 }
 
-export function projectSkater(p: ProjPlayer, seasons: SkaterSeason[], pri: Priors, scoring: Scoring, latest: number, startYear: number): Projection | null {
-  const rows = [...seasons].filter((s) => s.season <= latest && s.season >= latest - 20002).sort((a, b) => b.season - a.season);
+// this season so far, in the factors: the pace he's on and which way it pulls the projection
+function paceFactor(fp: number, gp: number, projFpg: number, hasPast: boolean): Factor {
+  const pace = fp / gp;
+  const text = `This season: ${r1(fp)} points in ${gp} game${gp === 1 ? '' : 's'}, ${pace.toFixed(2)} a game`;
+  if (!hasPast) return { tone: 'info', text: `${text}. His projection comes from these games alone.` };
+  if (gp >= 5 && pace >= projFpg * 1.2) return { tone: 'good', text: `${text}: a hot start, and the projection leans his way more with every game.` };
+  if (gp >= 5 && pace <= projFpg * 0.8) return { tone: 'bad', text: `${text}: a slow start, and the projection leans that way more with every game.` };
+  return { tone: 'info', text: `${text}, about what he was projected for.` };
+}
+// the trend once this season has a real sample: its pace against his last full season's
+function paceTrend(pace: number, hist: { gp: number; fp: number }[]): ProjMeta['trend'] {
+  const prior = hist[0] && hist[0].gp >= 20 ? hist[0].fp / hist[0].gp : null;
+  if (prior == null) return null;
+  return pace > prior * 1.12 ? 'up' : pace < prior * 0.88 ? 'down' : 'flat';
+}
+
+export function projectSkater(p: ProjPlayer, seasons: SkaterSeason[], pri: Priors, scoring: Scoring, latest: number, startYear: number, teamGp?: Map<string, number>): Projection | null {
+  const current = nextSeason(latest);
+  const past = [...seasons].filter((s) => s.season <= latest && s.season >= latest - 20002).sort((a, b) => b.season - a.season);
+  const cur = seasons.find((s) => s.season === current && s.gp > 0) ?? null;
+  const rows = cur ? [cur, ...past] : past;
   if (!rows.length || rows.every((r) => !r.gp)) return null;
-  const w = (s: SkaterSeason) => WEIGHTS[Math.round((latest - s.season) / 10001)] ?? 0;
+  const w = (s: SkaterSeason) => (s.season === current ? CUR_W : WEIGHTS[Math.round((latest - s.season) / 10001)] ?? 0);
   const wgp = rows.reduce((t, s) => t + w(s) * s.gp, 0);
   const K = 25;
   const age = ageAt(p.birth, startYear);
@@ -126,8 +155,9 @@ export function projectSkater(p: ProjPlayer, seasons: SkaterSeason[], pri: Prior
 
   // games: how often he dressed over the seasons he was in the league, pulled toward 90%, less a current injury
   // a veteran who sat out all of last season (injury, contract) counts it at half weight against his games
-  const missedLast = rows[0].season !== latest;
-  const wAvail = rows.reduce((t, s) => t + w(s) * 82, 0) + (missedLast ? 2.5 * 82 : 0);
+  // (this season against the games his club has played so far, not 82)
+  const missedLast = past.length > 0 && past[0].season !== latest;
+  const wAvail = rows.reduce((t, s) => t + w(s) * (s === cur ? clubGames(s, teamGp) : 82), 0) + (missedLast ? 2.5 * 82 : 0);
   const avail = Math.min(1, wgp / wAvail);
   const inj = injuryGames(p.injury_status);
   const gp = Math.max(8, Math.min(82, Math.round(82 * (0.35 * 0.9 + 0.65 * avail)) - inj));
@@ -136,10 +166,11 @@ export function projectSkater(p: ProjPlayer, seasons: SkaterSeason[], pri: Prior
   for (const [k, v] of Object.entries(per)) stats[k] = r1(v * gp);
   stats.gp = gp;
 
-  const hist = rows.slice(0, 3).map((s) => ({ s: seasonLabel(s.season), gp: s.gp, fp: r1(fpOf(s as unknown as Record<string, number>, scoring.skater)) }));
+  const hist = past.slice(0, 3).map((s) => ({ s: seasonLabel(s.season), gp: s.gp, fp: r1(fpOf(s as unknown as Record<string, number>, scoring.skater)) }));
   const fp = fpOf(stats, scoring.skater);
   const factors: Factor[] = [];
-  const last = rows[0];
+  if (cur) factors.push(paceFactor(fpOf(cur as unknown as Record<string, number>, scoring.skater), cur.gp, fp / gp, past.length > 0));
+  const last = past[0] ?? cur!;
   if (last.season === latest && last.sog >= 80) {
     const lastSh = last.g / last.sog;
     const diff = Math.round((lastSh - sh) * last.sog * (gp / Math.max(1, last.gp)));
@@ -148,12 +179,12 @@ export function projectSkater(p: ProjPlayer, seasons: SkaterSeason[], pri: Prior
   }
   if (age != null && af >= 1.04) factors.push({ tone: 'good', text: `Age ${age}: still climbing, about +${Math.round((af - 1) * 100)}% built in.` });
   if (age != null && af <= 0.965) factors.push({ tone: 'bad', text: `Age ${age}: decline built in, about −${Math.round((1 - af) * 100)}%.` });
-  if (missedLast) factors.push({ tone: 'bad', text: `Didn't play last season: projected for ${gp} games on his return, and a wide range.` });
+  if (missedLast && !cur) factors.push({ tone: 'bad', text: `Didn't play last season: projected for ${gp} games on his return, and a wide range.` });
   if (inj >= 5) factors.push({ tone: 'bad', text: `${p.injury_status}: about ${inj} games docked.` });
   else if (!missedLast && avail < 0.8 && rows.length >= 2) factors.push({ tone: 'bad', text: `Dressed for ${Math.round(avail * 100)}% of games over the last ${rows.length} seasons: projected for ${gp}.` });
   if (last.season === latest && last.pptoi >= 150 && last.gp >= 30) factors.push({ tone: 'good', text: `Power-play regular: ${Math.floor(last.pptoi / 60)}:${String(Math.round(last.pptoi % 60)).padStart(2, '0')} a night on the man advantage.` });
   if (last.season === latest && p.nhl_team && last.team && !last.team.split(',').includes(p.nhl_team)) factors.push({ tone: 'info', text: `New team: ${last.team.split(',').pop()} to ${p.nhl_team}. Role may change.` });
-  const trend = missedLast ? null : trendOf(hist);
+  const trend = cur && cur.gp >= 10 ? paceTrend(fpOf(cur as unknown as Record<string, number>, scoring.skater) / cur.gp, hist) : missedLast ? null : trendOf(hist);
   if (trend === 'up') factors.push({ tone: 'good', text: 'Trending up: his best points-per-game pace of the last three seasons.' });
   if (trend === 'down') factors.push({ tone: 'bad', text: 'Trending down: his scoring pace dropped last season.' });
   const eff = wgp / 5;
@@ -161,7 +192,7 @@ export function projectSkater(p: ProjPlayer, seasons: SkaterSeason[], pri: Prior
 
   return {
     id: p.id, stats, gp,
-    meta: { ...range(missedLast ? eff / 2 : eff, age, false), age, fpg: r2(fp / gp), trend, factors: factors.slice(0, 5), hist, model: 'sak-1' },
+    meta: { ...range(missedLast ? eff / 2 : eff, age, false), age, fpg: r2(fp / gp), trend, factors: factors.slice(0, 5), hist, model: 'sak-2' },
   };
 }
 
@@ -173,17 +204,21 @@ export function goaliePriors(rows: GoalieSeason[], latest: number): GoaliePriors
   return { svp: s('sa') ? s('sv') / s('sa') : 0.9, saPerGs: s('sa') / gs || 27, wPerGs: s('w') / gs || 0.47, lPerGs: s('l') / gs || 0.4, otlPerGs: s('otl') / gs || 0.12, shoPerGs: s('sho') / gs || 0.05 };
 }
 
-export function projectGoalie(p: ProjPlayer, seasons: GoalieSeason[], pri: GoaliePriors, scoring: Scoring, latest: number, startYear: number): Projection | null {
-  const rows = [...seasons].filter((s) => s.season <= latest && s.season >= latest - 20002).sort((a, b) => b.season - a.season);
+export function projectGoalie(p: ProjPlayer, seasons: GoalieSeason[], pri: GoaliePriors, scoring: Scoring, latest: number, startYear: number, teamGp?: Map<string, number>): Projection | null {
+  const current = nextSeason(latest);
+  const past = [...seasons].filter((s) => s.season <= latest && s.season >= latest - 20002).sort((a, b) => b.season - a.season);
+  const cur = seasons.find((s) => s.season === current && s.gp > 0) ?? null;
+  const rows = cur ? [cur, ...past] : past;
   if (!rows.length || rows.every((r) => !r.gp)) return null;
-  const w = (s: GoalieSeason) => WEIGHTS[Math.round((latest - s.season) / 10001)] ?? 0;
+  const w = (s: GoalieSeason) => (s.season === current ? CUR_W : WEIGHTS[Math.round((latest - s.season) / 10001)] ?? 0);
   const sum = (k: keyof GoalieSeason) => rows.reduce((t, s) => t + w(s) * Number(s[k] ?? 0), 0);
   const wgs = sum('gs'), wsa = sum('sa');
   const age = ageAt(p.birth, startYear);
   const af = ageFactor(age, true);
-  // the crease changes hands fast: starts lean hardest on last season
-  const sw = (s: GoalieSeason) => [7, 2, 1][Math.round((latest - s.season) / 10001)] ?? 0;
-  const startShare = Math.min(0.8, rows.reduce((t, s) => t + sw(s) * s.gs, 0) / rows.reduce((t, s) => t + sw(s) * 82, 0));
+  // the crease changes hands fast: starts lean hardest on last season, and harder still on this one's (out of the
+  // games his club has played so far)
+  const sw = (s: GoalieSeason) => (s.season === current ? 20 : [7, 2, 1][Math.round((latest - s.season) / 10001)] ?? 0);
+  const startShare = Math.min(0.8, rows.reduce((t, s) => t + sw(s) * s.gs, 0) / rows.reduce((t, s) => t + sw(s) * (s === cur ? clubGames(s, teamGp) : 82), 0));
   const inj = injuryGames(p.injury_status);
   const gs = Math.max(4, Math.min(64, Math.round(82 * (0.15 * 0.42 + 0.85 * startShare)) - Math.round(inj * 0.7)));
 
@@ -198,11 +233,12 @@ export function projectGoalie(p: ProjPlayer, seasons: GoalieSeason[], pri: Goali
   const shoPg = reg('sho', pri.shoPerGs, 40);
   const sa = saPg * gs, sv = sa * svp;
   const stats: Record<string, number> = { gs, gp: gs, w: r1(wPg * gs), l: r1(lPg * gs), otl: r1(otlPg * gs), sa: r1(sa), sv: r1(sv), ga: r1(sa - sv), sho: r1(shoPg * gs), svp: Math.round(svp * 1000) / 1000 };
-  const hist = rows.slice(0, 3).map((s) => ({ s: seasonLabel(s.season), gp: s.gp, fp: r1(fpOf(s as unknown as Record<string, number>, scoring.goalie)) }));
+  const hist = past.slice(0, 3).map((s) => ({ s: seasonLabel(s.season), gp: s.gp, fp: r1(fpOf(s as unknown as Record<string, number>, scoring.goalie)) }));
   const fp = fpOf(stats, scoring.goalie);
   const factors: Factor[] = [];
+  if (cur) factors.push(paceFactor(fpOf(cur as unknown as Record<string, number>, scoring.goalie), cur.gp, fp / Math.max(1, gs), past.length > 0));
   factors.push({ tone: startShare >= 0.6 ? 'good' : startShare < 0.4 ? 'bad' : 'info', text: `Projected ${gs} starts: ${startShare >= 0.6 ? 'a true number one' : startShare < 0.4 ? 'a backup’s workload' : 'a split crease'}.` });
-  const last = rows[0];
+  const last = past[0] ?? cur!;
   if (last.season === latest && last.sa >= 600) {
     const lsv = last.sv / last.sa;
     if (lsv - svp >= 0.008) factors.push({ tone: 'bad', text: `Stopped ${lsv.toFixed(3).replace(/^0/, '')} last season: some cooling expected (${svp.toFixed(3).replace(/^0/, '')}).` });
@@ -211,15 +247,21 @@ export function projectGoalie(p: ProjPlayer, seasons: GoalieSeason[], pri: Goali
   if (age != null && age >= 34) factors.push({ tone: 'bad', text: `Age ${age}: goalies this age lose starts fast.` });
   if (inj >= 5) factors.push({ tone: 'bad', text: `${p.injury_status}: a few starts docked.` });
   if (last.season === latest && p.nhl_team && last.team && !last.team.split(',').includes(p.nhl_team)) factors.push({ tone: 'info', text: `New team: ${last.team.split(',').pop()} to ${p.nhl_team}. Workload may change.` });
-  const trend = trendOf(hist);
+  const trend = cur && cur.gp >= 8 ? paceTrend(fpOf(cur as unknown as Record<string, number>, scoring.goalie) / cur.gp, hist) : trendOf(hist);
   return {
     id: p.id, stats, gp: gs,
-    meta: { ...range(wgs / 5, age, true), age, fpg: r2(fp / Math.max(1, gs)), trend, factors: factors.slice(0, 5), hist, model: 'sak-1' },
+    meta: { ...range(wgs / 5, age, true), age, fpg: r2(fp / Math.max(1, gs)), trend, factors: factors.slice(0, 5), hist, model: 'sak-2' },
   };
 }
 
 // run the whole pool
 export function projectAll(players: ProjPlayer[], skaters: Map<number, SkaterSeason[]>, goalies: Map<number, GoalieSeason[]>, scoring: Scoring, latest: number): Projection[] {
+  // the games each club has played this season: the most any one of its skaters has dressed for
+  const teamGp = new Map<string, number>();
+  for (const rows of skaters.values()) for (const r of rows) {
+    if (r.season !== nextSeason(latest) || r.team.includes(',')) continue;
+    teamGp.set(r.team, Math.max(teamGp.get(r.team) ?? 0, r.gp));
+  }
   const startYear = Math.floor(latest / 10000);   // 20252026 -> the 2026-27 season starts in 2026
   const byId = new Map(players.map((p) => [p.id, p]));
   const idOf = new Map<SkaterSeason, number>();
@@ -230,8 +272,8 @@ export function projectAll(players: ProjPlayer[], skaters: Map<number, SkaterSea
   const out: Projection[] = [];
   for (const p of players) {
     const pr = p.pos === 'G'
-      ? projectGoalie(p, goalies.get(p.id) ?? [], gpri, scoring, latest, startYear + 1)
-      : projectSkater(p, skaters.get(p.id) ?? [], groupOf(p.pos) === 'D' ? pri.D : pri.F, scoring, latest, startYear + 1);
+      ? projectGoalie(p, goalies.get(p.id) ?? [], gpri, scoring, latest, startYear + 1, teamGp)
+      : projectSkater(p, skaters.get(p.id) ?? [], groupOf(p.pos) === 'D' ? pri.D : pri.F, scoring, latest, startYear + 1, teamGp);
     if (pr) out.push(pr);
   }
   return out;

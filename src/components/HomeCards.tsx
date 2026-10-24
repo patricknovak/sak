@@ -6,8 +6,8 @@ import { Link } from 'react-router-dom';
 import { ArrowRight } from 'lucide-react';
 import { useLeague } from '../lib/store';
 import { rpc, supabase } from '../lib/supabase';
-import { hub } from '../lib/nhlhub';
-import { fmtDate, fmtMoney, fmtPts, fmtTime } from '../lib/format';
+import { hub, type NewsStory } from '../lib/nhlhub';
+import { ago, fmtDate, fmtMoney, fmtPts, fmtTime } from '../lib/format';
 import { betMoves, ticketOutcome } from '../lib/betresults';
 import { useBook } from '../lib/book';
 import { Coin, Rank, Section, TeamBadge } from './ui';
@@ -206,3 +206,40 @@ export function BetResultsCard() {
     </Section>
   );
 }
+
+// the NHL's latest headlines, for a quick scan from Home (24 October 2026, Patrick): the newest five from NHL.com,
+// Sportsnet and ESPN, a star on any that names one of your players, and the full feed in NHL centre. Nothing to show
+// (the feed down, or no stories) keeps it off the page.
+export function NhlNewsCard() {
+  const { players, owner, me } = useLeague();
+  const [items, setItems] = useState<NewsStory[] | null>(null);
+  useEffect(() => { hub<{ items?: NewsStory[] }>('news').then((r) => setItems(r?.items ?? []), () => setItems([])); }, []);
+  // full names only, so "Miller" alone doesn't tag six players
+  const mine = useMemo(() => [...players.values()].filter((p) => p.name.length > 6 && owner.get(p.id)?.team_id === me?.id).map((p) => p.name.toLowerCase()), [players, owner, me?.id]);
+  const top = useMemo(() => [...(items ?? [])].sort((a, b) => b.date.localeCompare(a.date)).slice(0, 5), [items]);
+  if (!top.length) return null;
+  const now = Date.now();
+  return (
+    <Section icon={<span className="text-base leading-none">📰</span>} title="NHL news" right={<More to="/nhl?t=news" label="All news" />}>
+      <div className="card divide-y divide-white/[.05] overflow-hidden">
+        {top.map((s) => {
+          const yours = mine.some((n) => `${s.headline} ${s.summary}`.toLowerCase().includes(n));
+          return (
+            <a key={s.id} href={s.url} target="_blank" rel="noreferrer" className="flex items-start gap-3 px-3 py-2.5 transition hover:bg-white/[.03] active:bg-white/[.05]">
+              {s.image ? <img src={s.image} alt="" loading="lazy" className="h-14 w-20 shrink-0 rounded-lg object-cover ring-1 ring-white/10" />
+                : <span className="grid h-14 w-20 shrink-0 place-items-center rounded-lg bg-white/[.05] text-xl ring-1 ring-white/10">🏒</span>}
+              <span className="min-w-0 flex-1">
+                <span className="flex flex-wrap items-center gap-x-1.5 text-[11px] text-mute">
+                  <b className="font-semibold text-slate-300">{s.source}</b><span>{ago(s.date, now)}</span>
+                  {yours && <span className="rounded-full bg-gold/20 px-1.5 py-px text-[10px] font-bold text-gold ring-1 ring-gold/40">⭐ Your player</span>}
+                </span>
+                <span className="mt-0.5 line-clamp-2 text-sm font-semibold leading-snug text-white">{s.headline}</span>
+              </span>
+            </a>
+          );
+        })}
+      </div>
+    </Section>
+  );
+}
+

@@ -6,6 +6,10 @@
 export interface Change { date: string; icon: string; title: string; body: string; to?: string; tag?: 'formats' | 'commish' | 'draft' | 'everyone' }
 
 export const CHANGELOG: Change[] = [
+  { date: '2026-10-24', icon: '📈', tag: 'everyone', title: 'Expected points follow this season', to: '/team',
+    body: 'Projections now count this season\'s games, and update every morning. A hot or cold start moves a player\'s expected points more with every game he plays, rookies get a projection from their first games, and a goalie\'s starts follow who has the net this year. Each player card says how he\'s doing so far.' },
+  { date: '2026-10-24', icon: '📰', tag: 'everyone', title: 'NHL news on Home, and the Live page in game order', to: '/scoreboard',
+    body: 'Home has the NHL\'s latest five headlines under the League wire, with a star on any about your players. On the Live page the games on now come first, then the ones still to come, then the finals, and the race sits right under the scores. NHL centre is back in the bottom bar; Players is under More.' },
   { date: '2026-10-23', icon: '🏟️', tag: 'everyone', title: 'Lounges: talk with everyone following your league', to: '/chat',
     body: 'Chat now has a lounge for each league or show your pools follow, like the NHL lounge or the Love Is Blind lounge, shared with every pool on Super Pools that follows it. Tap Just my pool to see only your own crew\'s posts. Everyone else sees your first name and initial, and you can report a post or delete your own.' },
   { date: '2026-10-23', icon: '👋', tag: 'everyone', title: 'Join a pool with just your name', to: '/pools',
