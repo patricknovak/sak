@@ -16,6 +16,7 @@ import {
   getAnalyticsConsent,
   hasTrackedFirstCall,
   initAnalytics,
+  needsConsentChoice,
   newPoolPath,
   noteCtaArrival,
   setAdsConsent,
@@ -64,6 +65,8 @@ function installDom({ hash = '#/', consent = null, hostname = 'app.superpoolsai.
   const store = new Map();
   if (consent) store.set('sp_analytics_consent', consent);
   const session = new Map();
+  const cookieJar = new Map();
+  const cookieWrites = [];
 
   function storageApi(map) {
     return {
@@ -108,6 +111,29 @@ function installDom({ hash = '#/', consent = null, hostname = 'app.superpoolsai.
       return node;
     },
   };
+  Object.defineProperty(document, 'cookie', {
+    configurable: true,
+    get() {
+      return [...cookieJar.entries()].map(([k, v]) => `${k}=${v}`).join('; ');
+    },
+    set(line) {
+      const s = String(line);
+      cookieWrites.push(s);
+      const segs = s.split(';');
+      const first = segs[0] || '';
+      const eq = first.indexOf('=');
+      if (eq < 0) return;
+      const name = first.slice(0, eq).trim();
+      const value = first.slice(eq + 1).trim();
+      let maxAge = null;
+      for (const seg of segs.slice(1)) {
+        const [ak, av] = seg.split('=').map((x) => x.trim());
+        if (String(ak).toLowerCase() === 'max-age') maxAge = Number(av);
+      }
+      if (maxAge === 0) cookieJar.delete(name);
+      else cookieJar.set(name, value);
+    },
+  });
 
   const location = {
     hash,
@@ -151,7 +177,7 @@ function installDom({ hash = '#/', consent = null, hostname = 'app.superpoolsai.
   delete globalThis.__spAnalyticsTest;
   delete globalThis.__spFlushPoolCreated;
 
-  return { headKids, store, session };
+  return { headKids, store, session, cookieJar, cookieWrites };
 }
 
 // --- production host allowlist: only prod hosts (or __spAnalyticsTest) inject gtag.js ---
@@ -691,6 +717,98 @@ function installDom({ hash = '#/', consent = null, hostname = 'app.superpoolsai.
   assert.ok(sessionStorage.getItem('sp_cta_arrival_pending'), 'stays pending when gate fails');
   flushPendingCtaArrival();
   assert.equal(eventEntries('cta_arrival').length, 0);
+}
+
+function readSpConsentCookie() {
+  const raw = document.cookie || '';
+  for (const part of raw.split(';')) {
+    const i = part.indexOf('=');
+    if (i < 0) continue;
+    if (part.slice(0, i).trim() !== 'sp_consent') continue;
+    let val = part.slice(i + 1).trim();
+    try { val = decodeURIComponent(val); } catch { /* keep */ }
+    return val;
+  }
+  return null;
+}
+
+// --- shared sp_consent cookie: write on accept/decline; hydrate; never on localhost ---
+{
+  __testResetAnalytics();
+  const { cookieWrites } = installDom({ hash: '#/' });
+  __testSetGaId('G-TESTID');
+  initAnalytics();
+  setAnalyticsConsent(true);
+  assert.equal(readSpConsentCookie(), null, 'cookie waits until both choices exist');
+  setAdsConsent(false);
+  assert.equal(readSpConsentCookie(), 'a=granted;d=denied');
+  const last = cookieWrites[cookieWrites.length - 1] || '';
+  assert.match(last, /Domain=\.superpoolsai\.com/);
+  assert.match(last, /Max-Age=31536000/);
+  assert.match(last, /SameSite=Lax/);
+  assert.match(last, /Secure/);
+  assert.match(last, /Path=\//);
+}
+
+{
+  __testResetAnalytics();
+  const { cookieWrites } = installDom({ hash: '#/' });
+  __testSetGaId('G-TESTID');
+  initAnalytics();
+  setAnalyticsConsent(false);
+  setAdsConsent(false);
+  assert.equal(readSpConsentCookie(), 'a=denied;d=denied', 'decline writes cookie');
+  assert.ok(cookieWrites.some((w) => w.includes('sp_consent=')));
+}
+
+{
+  __testResetAnalytics();
+  const { cookieJar, store } = installDom({ hash: '#/new', hostname: '127.0.0.1' });
+  __testSetGaId('G-TESTID');
+  initAnalytics();
+  setAnalyticsConsent(true);
+  setAdsConsent(true);
+  assert.equal(cookieJar.has('sp_consent'), false, 'no cookie on localhost');
+  assert.equal(store.get('sp_analytics_consent'), 'granted', 'localStorage still set');
+}
+
+{
+  __testResetAnalytics();
+  // Landing already chose: cookie present, empty localStorage → hydrate, sheet not needed.
+  const { store } = installDom({ hash: '#/new' });
+  document.cookie = `sp_consent=${encodeURIComponent('a=granted;d=denied')}; Path=/`;
+  __testSetGaId('G-TESTID');
+  assert.equal(store.has('sp_analytics_consent'), false);
+  // needsConsentChoice → storeGet → hydrate fills keys
+  assert.equal(needsConsentChoice(), false, 'hydrated keys skip the sheet');
+  assert.equal(getAnalyticsConsent(), 'granted');
+  assert.equal(getAdsConsent(), 'denied');
+  assert.equal(store.get('sp_analytics_consent'), 'granted');
+  assert.equal(store.get('sp_ads_consent'), 'denied');
+}
+
+{
+  __testResetAnalytics();
+  const again = installDom({ hash: '#/new' });
+  document.cookie = `sp_consent=${encodeURIComponent('a=denied;d=granted')}; Path=/`;
+  __testSetGaId('G-TESTID');
+  initAnalytics();
+  assert.equal(getAnalyticsConsent(), 'denied');
+  assert.equal(getAdsConsent(), 'granted');
+  assert.equal(needsConsentChoice(), false);
+  assert.equal(again.store.get('sp_analytics_consent'), 'denied');
+}
+
+{
+  __testResetAnalytics();
+  // Existing localStorage wins over cookie (do not overwrite).
+  installDom({ hash: '#/', consent: 'denied' });
+  localStorage.setItem('sp_ads_consent', 'denied');
+  document.cookie = `sp_consent=${encodeURIComponent('a=granted;d=granted')}; Path=/`;
+  __testSetGaId('G-TESTID');
+  initAnalytics();
+  assert.equal(getAnalyticsConsent(), 'denied', 'localStorage keeps its own answer');
+  assert.equal(getAdsConsent(), 'denied');
 }
 
 console.log('analytics tests passed');

@@ -5,6 +5,9 @@
 
 const CONSENT_KEY = 'sp_analytics_consent';
 const ADS_CONSENT_KEY = 'sp_ads_consent';
+// Shared across marketing + app (Domain=.superpoolsai.com). Value: a=granted|denied;d=granted|denied.
+const CONSENT_COOKIE = 'sp_consent';
+const CONSENT_COOKIE_MAX_AGE = 31536000;
 const TOUCH_KEY = 'sp_first_touch';
 const FIRST_CALL_KEY = 'sp_first_call';
 const SIGN_UP_KEY = 'sp_sign_up';
@@ -77,11 +80,83 @@ declare global {
   }
 }
 
-function storeGet(key: string): string | null {
+function rawGet(key: string): string | null {
   try { return localStorage.getItem(key); } catch { return null; }
 }
-function storeSet(key: string, value: string) {
+function rawSet(key: string, value: string) {
   try { localStorage.setItem(key, value); } catch { /* private mode */ }
+}
+
+// Cookie only on *.superpoolsai.com (never localhost / Pages / preview hosts).
+function consentCookieHostOk(): boolean {
+  if (typeof location === 'undefined') return false;
+  const h = (location.hostname || '').toLowerCase();
+  return h === 'superpoolsai.com' || h.endsWith('.superpoolsai.com');
+}
+
+function parseConsentCookie(): { a?: 'granted' | 'denied'; d?: 'granted' | 'denied' } {
+  if (typeof document === 'undefined') return {};
+  try {
+    const raw = document.cookie || '';
+    for (const part of raw.split(';')) {
+      const i = part.indexOf('=');
+      if (i < 0) continue;
+      if (part.slice(0, i).trim() !== CONSENT_COOKIE) continue;
+      let val = part.slice(i + 1).trim();
+      try { val = decodeURIComponent(val); } catch { /* keep raw */ }
+      const out: { a?: 'granted' | 'denied'; d?: 'granted' | 'denied' } = {};
+      for (const bit of val.split(';')) {
+        const eq = bit.indexOf('=');
+        if (eq < 0) continue;
+        const k = bit.slice(0, eq).trim();
+        const v = bit.slice(eq + 1).trim();
+        if ((k === 'a' || k === 'd') && (v === 'granted' || v === 'denied')) out[k] = v;
+      }
+      return out;
+    }
+  } catch { /* private / no cookie */ }
+  return {};
+}
+
+function writeConsentCookie(a: string, d: string) {
+  if (!consentCookieHostOk()) return;
+  if ((a !== 'granted' && a !== 'denied') || (d !== 'granted' && d !== 'denied')) return;
+  if (typeof document === 'undefined') return;
+  try {
+    const value = encodeURIComponent(`a=${a};d=${d}`);
+    document.cookie = `${CONSENT_COOKIE}=${value}; Path=/; Domain=.superpoolsai.com; Max-Age=${CONSENT_COOKIE_MAX_AGE}; SameSite=Lax; Secure`;
+  } catch { /* ignore */ }
+}
+
+function syncConsentCookie() {
+  const a = rawGet(CONSENT_KEY);
+  const d = rawGet(ADS_CONSENT_KEY);
+  if (a !== 'granted' && a !== 'denied') return;
+  if (d !== 'granted' && d !== 'denied') return;
+  writeConsentCookie(a, d);
+}
+
+// Empty localStorage keys pick up the shared cookie so the sheet is not asked again.
+function hydrateConsentFromCookie() {
+  const parsed = parseConsentCookie();
+  if (parsed.a && rawGet(CONSENT_KEY) == null) rawSet(CONSENT_KEY, parsed.a);
+  if (parsed.d && rawGet(ADS_CONSENT_KEY) == null) rawSet(ADS_CONSENT_KEY, parsed.d);
+}
+
+function storeGet(key: string): string | null {
+  if (key === CONSENT_KEY || key === ADS_CONSENT_KEY) {
+    const v = rawGet(key);
+    if (v == null) {
+      hydrateConsentFromCookie();
+      return rawGet(key);
+    }
+    return v;
+  }
+  return rawGet(key);
+}
+function storeSet(key: string, value: string) {
+  rawSet(key, value);
+  if (key === CONSENT_KEY || key === ADS_CONSENT_KEY) syncConsentCookie();
 }
 function sessionGet(key: string): string | null {
   try { return sessionStorage.getItem(key); } catch { return null; }
@@ -234,6 +309,8 @@ function loadTagsIfNeeded() {
 
 // Call once at app start: capture first-touch, and load gtag only when consent was already granted.
 export function initAnalytics() {
+  // Before needsConsentChoice / ConsentBanner: fill empty keys from the shared cookie.
+  hydrateConsentFromCookie();
   captureFirstTouch();
   if (typeof window !== 'undefined' && analyticsTestOverride()) {
     // e2e only (window.__spAnalyticsTest): stubbed reload flushes pending pool_created.
@@ -609,5 +686,9 @@ export function __testResetAnalytics() {
   } catch { /* no session */ }
   if (typeof document !== 'undefined') {
     document.getElementById('sp-ga4')?.remove();
+    try {
+      document.cookie = `${CONSENT_COOKIE}=; Path=/; Domain=.superpoolsai.com; Max-Age=0; SameSite=Lax; Secure`;
+      document.cookie = `${CONSENT_COOKIE}=; Path=/; Max-Age=0; SameSite=Lax`;
+    } catch { /* no cookie */ }
   }
 }
