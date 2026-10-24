@@ -128,48 +128,7 @@ var ADS_ID = 'AW-949617778';
     e.preventDefault();
     showBanner();
   });
-  // App CTA taps: cta_click with the link's src (home|lib|traitors|hockey|…) once Analytics is on.
-  // Hold navigation until gtag's event_callback (or a short fallback) so the hit is not lost on unload.
-  // Modifier / middle / new-tab clicks stay untouched. When gating fails, the link navigates as usual.
-  document.addEventListener('click', function (e) {
-    if (!analyticsAllowed() || !analyticsOn()) return;
-    if (!document.getElementById('sp-ga4') || typeof window.gtag !== 'function') return;
-    if (e.defaultPrevented) return;
-    if (e.button != null && e.button !== 0) return;
-    if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
-    var a = e.target.closest && e.target.closest('a[href*="app.superpoolsai.com"]');
-    if (!a) return;
-    var tgt = (a.getAttribute('target') || '').toLowerCase();
-    if (tgt && tgt !== '_self') return;
-    var href = a.getAttribute('href') || '';
-    var url = '';
-    var hash = '';
-    try {
-      var u = new URL(href, location.href);
-      url = u.href;
-      hash = u.hash || '';
-    } catch (err) { return; }
-    if (hash.indexOf('#/new') !== 0) return;
-    var qi = hash.indexOf('?');
-    if (qi < 0) return;
-    var src = (new URLSearchParams(hash.slice(qi + 1)).get('src') || '').trim().slice(0, 80);
-    if (!src) return;
-    e.preventDefault();
-    var gone = false;
-    function go() {
-      if (gone) return;
-      gone = true;
-      try { window.clearTimeout(fallback); } catch (err) { /* ignore */ }
-      window.location.href = url;
-    }
-    var fallback = window.setTimeout(go, 300);
-    window.gtag('event', 'cta_click', {
-      src: src,
-      send_to: GA4_ID,
-      event_callback: go,
-      event_timeout: 300
-    });
-  }, true);
+  // Landing→app CTA measurement is app-side (cta_arrival on #/new?src=…); links navigate normally.
   applyFlags();
   if (analyticsOn() || adsOn()) loadIfNeeded();
   if (spStoreGet(CONSENT_KEY) != null && spStoreGet(ADS_CONSENT_KEY) != null) return;
