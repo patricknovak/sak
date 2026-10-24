@@ -1,0 +1,493 @@
+// A club's fan zone (24 October 2026, Patrick: "a dedicated super fan page of the Edmonton Oilers ... news, player
+// development, facts, history and even a deep assessment of the team"). #/fans/<club>: the league's own club by default
+// (league_rules.info.fan_club; SaK's is Edmonton), any of the 32 from the switcher. Everything live comes from nhl-hub's
+// `fan` task, the reading of it from src/lib/fanZone.ts, the history from src/data/clubHistory.ts.
+import { useEffect, useMemo, useState } from 'react';
+import { useNavigate, useParams } from 'react-router-dom';
+import { ArrowDown, ArrowUp, ExternalLink, Flame, Snowflake, Sparkles, TrendingDown, TrendingUp, Trophy } from 'lucide-react';
+import { useLeague, useNow } from '../lib/store';
+import { hub } from '../lib/nhlhub';
+import { ago, fmtDate, fmtPts, NHL_TEAMS } from '../lib/format';
+import { assess, fmtToi, rankWord, type Development, type FanData, type Ranked } from '../lib/fanZone';
+import { CLUB_LORE } from '../data/clubHistory';
+import { LoadError, NhlLogo, Spinner, TeamBadge } from '../components/ui';
+import { usePlayerInfo } from '../lib/playerInfo';
+
+const CLUB_KEY = 'sp-fan-club';
+const FALLBACK = { primary: '#f7c548', secondary: '#0b1222', rgb: '247 197 72' };
+const ROUND = ['', 'First round', 'Second round', 'Conference final', 'Stanley Cup Final'];
+const seasonLabel = (s: number) => `${String(s).slice(0, 4)}-${String(s).slice(6, 8)}`;
+
+export default function FanZone() {
+  const { club: param } = useParams();
+  const nav = useNavigate();
+  const { league } = useLeague();
+  const leagueClub = (league?.info as { fan_club?: string } | undefined)?.fan_club;
+  const remembered = (() => { try { return localStorage.getItem(CLUB_KEY); } catch { return null; } })();
+  const club = (param ?? leagueClub ?? remembered ?? 'EDM').toUpperCase();
+  const [data, setData] = useState<FanData | null>(null);
+  const [failed, setFailed] = useState(false);
+  const [tries, setTries] = useState(0);
+  useEffect(() => {
+    setData(null); setFailed(false);
+    try { localStorage.setItem(CLUB_KEY, club); } catch { /* nothing to remember with */ }
+    hub<FanData>('fan', { abbrev: club }).then(setData, () => setFailed(true));
+  }, [club, tries]);
+  const lore = CLUB_LORE[club];
+  const colors = lore?.colors ?? FALLBACK;
+  const a = useMemo(() => (data ? assess(data) : null), [data]);
+  const sections = [['verdict', 'The verdict'], ['numbers', 'By the numbers'], ['players', 'Players'], ['news', 'News'], ['games', 'Games'], ...(lore ? [['history', 'History']] : [])] as const;
+
+  return (
+    <div className="space-y-5" style={{ '--club': colors.primary, '--club-rgb': colors.rgb, '--club2': colors.secondary } as React.CSSProperties}>
+      {/* the hero: the club, its season so far and the next game */}
+      <div className="relative overflow-hidden rounded-[28px] border p-4 sm:p-6" style={{ borderColor: `rgb(${colors.rgb} / .35)`, background: `radial-gradient(120% 90% at 100% 0%, rgb(${colors.rgb} / .35), transparent 55%), linear-gradient(160deg, ${colors.secondary}, #070b16 75%)` }}>
+        <div className="pointer-events-none absolute -right-8 -top-8 opacity-[.12]"><NhlLogo abbr={club} size={220} /></div>
+        <div className="relative flex items-start gap-3">
+          <span className="grid h-16 w-16 shrink-0 place-items-center rounded-2xl bg-white/95 shadow-lg sm:h-20 sm:w-20"><NhlLogo abbr={club} size={52} /></span>
+          <div className="min-w-0 flex-1">
+            <div className="text-[11px] font-bold uppercase tracking-[.2em]" style={{ color: colors.primary }}>{lore ? `${lore.nickname} · fan zone` : 'Fan zone'}</div>
+            <h1 className="font-display text-[clamp(26px,8vw,40px)] font-extrabold italic leading-[.95] text-white">{data?.name ?? NHL_TEAMS[club] ?? club}</h1>
+            {data?.standing && <div className="mt-1 text-sm text-slate-300">{data.standing.w}-{data.standing.l}-{data.standing.otl} · {data.standing.pts} pts · {rankWord(data.standing.divRank)} in the {data.standing.div}</div>}
+          </div>
+          <select aria-label="Pick a club" value={club} onChange={(e) => nav(`/fans/${e.target.value}`)}
+            className="relative h-9 max-w-[7.5rem] shrink-0 rounded-full border border-white/15 bg-black/30 px-2 text-xs font-semibold text-white">
+            {Object.entries(NHL_TEAMS).sort((x, y) => x[1].localeCompare(y[1])).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
+          </select>
+        </div>
+        {data?.standing && a && (
+          <div className="relative mt-4 grid grid-cols-2 gap-2 min-[400px]:grid-cols-4">
+            {[
+              ['Grade', a.grade, 'so far'],
+              ['League', rankWord(data.standing.leagueRank), 'of 32'],
+              ['Last 10', data.standing.l10, data.standing.streak ? `streak ${data.standing.streak}` : ''],
+              ['+/-', `${data.standing.gd > 0 ? '+' : ''}${data.standing.gd}`, 'goals'],
+            ].map(([k, v, sub], i) => (
+              <div key={k} className="min-w-0 rounded-2xl bg-black/30 px-2 py-2 ring-1 ring-white/10">
+                <div className="label truncate">{k}</div>
+                <div className={`font-display font-extrabold leading-tight text-white ${i === 0 ? 'text-[clamp(22px,7vw,30px)]' : 'text-[clamp(16px,5vw,22px)]'}`} style={i === 0 ? { color: colors.primary } : undefined}>{v}</div>
+                <div className="truncate text-[10px] text-mute">{sub}</div>
+              </div>
+            ))}
+          </div>
+        )}
+        {data && (data.recent[0] || data.upcoming[0]) && (
+          <div className="relative mt-3 grid grid-cols-2 gap-2 text-xs">
+            {data.recent[0] && <GameChip g={data.recent[0]} club={club} label="Last game" />}
+            {data.upcoming[0] && <GameChip g={data.upcoming[0]} club={club} label="Next game" />}
+          </div>
+        )}
+      </div>
+
+      {/* jump to a section */}
+      {data && (
+        <div className="scroll-x flex gap-1.5">
+          {sections.map(([id, label]) => (
+            <button key={id} type="button" onClick={() => document.getElementById(`fz-${id}`)?.scrollIntoView({ behavior: 'smooth', block: 'start' })}
+              className="shrink-0 rounded-full border border-white/10 bg-white/[.05] px-3 py-1.5 text-sm font-semibold text-slate-200 hover:bg-white/[.1]">{label}</button>
+          ))}
+        </div>
+      )}
+
+      {!data ? (failed ? <LoadError what={`the ${NHL_TEAMS[club] ?? club} fan zone`} onRetry={() => setTries((n) => n + 1)} /> : <div className="flex justify-center py-16"><Spinner /></div>) : a && (
+        <>
+          <Verdict a={a} />
+          <Numbers ranks={a.ranks} prevSeason={data.prevSeason} />
+          <Players d={data} a={a} />
+          <News d={data} />
+          <Games d={data} club={club} />
+          {lore && <History club={club} />}
+          <p className="px-1 text-[11px] text-mute">Numbers from the NHL&apos;s own statistics{data.stale ? ' (the last copy: the feed is slow to answer)' : ''}, read {ago(data.at, Date.now())} ago. Ranks are among all 32 clubs. Early in a season the samples are small and the numbers move.</p>
+        </>
+      )}
+    </div>
+  );
+}
+
+function GameChip({ g, club, label }: { g: FanData['recent'][number]; club: string; label: string }) {
+  const home = g.home === club, opp = home ? g.away : g.home;
+  const done = g.state === 'OFF' || g.state === 'FINAL';
+  const us = home ? g.hs : g.as, them = home ? g.as : g.hs;
+  const won = done && us != null && them != null && us > them;
+  return (
+    <div className="flex min-w-0 items-center gap-2 rounded-2xl bg-black/30 px-2.5 py-2 ring-1 ring-white/10">
+      <NhlLogo abbr={opp} size={22} />
+      <div className="min-w-0 flex-1">
+        <div className="text-[10px] uppercase tracking-wider text-mute">{label}</div>
+        <div className="truncate font-semibold text-white">{home ? 'vs' : '@'} {opp}{done ? <span className={won ? ' text-emerald-300' : ' text-red-300'}> {won ? 'W' : 'L'} {us}-{them}{g.outcome && g.outcome !== 'REG' ? ` ${g.outcome}` : ''}</span> : <span className="text-slate-300"> · {fmtDate(g.date)}</span>}</div>
+      </div>
+    </div>
+  );
+}
+
+function Head({ id, title, sub }: { id: string; title: string; sub?: string }) {
+  return (
+    <div id={`fz-${id}`} className="scroll-mt-16 px-1">
+      <h2 className="h-display flex items-center gap-2 text-xl text-white"><span className="h-5 w-1 rounded-full" style={{ background: 'var(--club)' }} />{title}</h2>
+      {sub && <p className="mt-0.5 text-sm text-mute">{sub}</p>}
+    </div>
+  );
+}
+
+const PRIORITY = { high: ['Priority', 'bg-red-500/15 text-red-200 ring-red-400/30'], medium: ['Next', 'bg-amber-500/15 text-amber-200 ring-amber-400/30'], watch: ['Watch', 'bg-sky-500/15 text-sky-200 ring-sky-400/30'] } as const;
+
+function Verdict({ a }: { a: ReturnType<typeof assess> }) {
+  const line = (r: Ranked, good: boolean) => (
+    <li key={r.key} className="flex items-center gap-2 py-1.5 text-sm">
+      <span className={`grid h-6 w-6 shrink-0 place-items-center rounded-full text-[11px] font-black ${good ? 'bg-emerald-400/15 text-emerald-300' : 'bg-red-400/15 text-red-300'}`}>{good ? '+' : '−'}</span>
+      <span className="min-w-0 flex-1 text-slate-200">{r.label}</span>
+      <span className="num font-semibold text-white">{r.fmt(r.value)}</span>
+      <span className={`num w-12 shrink-0 text-right text-xs font-bold ${good ? 'text-emerald-300' : 'text-red-300'}`}>{rankWord(r.rank)}</span>
+    </li>
+  );
+  return (
+    <section className="space-y-3">
+      <Head id="verdict" title="The verdict" sub="A read of the season from every club's numbers: what's real, what's luck, and what to do about it." />
+      <div className="card p-4">
+        <div className="flex items-start gap-3">
+          <span className="grid h-14 w-14 shrink-0 place-items-center rounded-2xl font-display text-2xl font-extrabold text-white" style={{ background: 'rgb(var(--club-rgb) / .22)', boxShadow: 'inset 0 0 0 1px rgb(var(--club-rgb) / .5)' }}>{a.grade}</span>
+          <p className="text-[15px] leading-snug text-slate-100">{a.summary}</p>
+        </div>
+        <div className="mt-3 grid gap-3 sm:grid-cols-2">
+          <div>
+            <div className="label text-emerald-300">Strengths</div>
+            {a.strengths.length ? <ul className="divide-y divide-white/[.05]">{a.strengths.map((r) => line(r, true))}</ul> : <p className="py-1.5 text-sm text-mute">Nothing in the league&apos;s top third yet.</p>}
+          </div>
+          <div>
+            <div className="label text-red-300">Weaknesses</div>
+            {a.weaknesses.length ? <ul className="divide-y divide-white/[.05]">{a.weaknesses.map((r) => line(r, false))}</ul> : <p className="py-1.5 text-sm text-mute">Nothing in the league&apos;s bottom third.</p>}
+          </div>
+        </div>
+        {a.luck && (
+          <div className={`mt-3 flex items-start gap-2.5 rounded-2xl px-3 py-2.5 text-sm leading-snug ring-1 ${a.luck.tone === 'hot' ? 'bg-amber-500/10 text-amber-100 ring-amber-400/25' : a.luck.tone === 'cold' ? 'bg-sky-500/10 text-sky-100 ring-sky-400/25' : 'bg-white/[.04] text-slate-200 ring-white/10'}`}>
+            {a.luck.tone === 'hot' ? <Flame className="mt-0.5 h-4 w-4 shrink-0" /> : a.luck.tone === 'cold' ? <Snowflake className="mt-0.5 h-4 w-4 shrink-0" /> : <Sparkles className="mt-0.5 h-4 w-4 shrink-0" />}
+            <span><b>The luck check.</b> {a.luck.read}</span>
+          </div>
+        )}
+      </div>
+      {a.recs.length > 0 && (
+        <div className="card p-4">
+          <div className="font-display text-lg font-extrabold text-white">What management and the coaches should consider</div>
+          <ol className="mt-2 space-y-3">
+            {a.recs.map((r, i) => (
+              <li key={r.title} className="flex gap-3">
+                <span className="grid h-7 w-7 shrink-0 place-items-center rounded-full text-sm font-black text-white" style={{ background: 'rgb(var(--club-rgb) / .3)' }}>{i + 1}</span>
+                <div className="min-w-0">
+                  <div className="flex flex-wrap items-center gap-1.5">
+                    <b className="text-white">{r.title}</b>
+                    <span className={`rounded-full px-1.5 py-px text-[10px] font-bold ring-1 ${PRIORITY[r.priority][1]}`}>{PRIORITY[r.priority][0]}</span>
+                    <span className="text-[11px] text-mute">{r.area}</span>
+                  </div>
+                  <p className="mt-0.5 text-sm leading-snug text-slate-300">{r.why}</p>
+                </div>
+              </li>
+            ))}
+          </ol>
+        </div>
+      )}
+    </section>
+  );
+}
+
+function Numbers({ ranks, prevSeason }: { ranks: Ranked[]; prevSeason: number }) {
+  const [open, setOpen] = useState<string | null>(null);
+  return (
+    <section className="space-y-3">
+      <Head id="numbers" title="By the numbers" sub={`Where they rank among the 32 clubs, and where they ranked in ${seasonLabel(prevSeason)}. Tap a row for what it measures.`} />
+      <div className="card divide-y divide-white/[.05] p-1">
+        {ranks.map((r) => {
+          const filled = (r.of - r.rank + 1) / r.of;
+          const moved = r.prevRank == null ? 0 : r.prevRank - r.rank;
+          const tone = r.rank <= Math.round(r.of / 3) ? 'text-emerald-300' : r.rank > r.of - Math.round(r.of / 3) ? 'text-red-300' : 'text-slate-200';
+          return (
+            <button key={r.key} type="button" onClick={() => setOpen(open === r.key ? null : r.key)} aria-expanded={open === r.key} className="block w-full px-3 py-2.5 text-left">
+              <div className="flex items-baseline gap-2 text-sm">
+                <span className="min-w-0 flex-1 text-slate-200">{r.label}</span>
+                <span className="num font-bold text-white">{r.fmt(r.value)}</span>
+                <span className={`num w-11 text-right text-xs font-bold ${tone}`}>{rankWord(r.rank)}</span>
+              </div>
+              <div className="relative mt-1.5 h-2 rounded-full bg-white/[.06]">
+                <div className="h-2 rounded-full" style={{ width: `${Math.max(4, filled * 100)}%`, background: 'linear-gradient(90deg, rgb(var(--club-rgb) / .55), rgb(var(--club-rgb)))' }} />
+              </div>
+              <div className="mt-1 flex items-center gap-2 text-[11px] text-mute">
+                <span>League average {r.fmt(r.avg)}</span>
+                {r.prevRank != null && (
+                  <span className={`ml-auto flex items-center gap-0.5 ${moved > 0 ? 'text-emerald-300' : moved < 0 ? 'text-red-300' : ''}`}>
+                    {moved > 0 ? <ArrowUp className="h-3 w-3" /> : moved < 0 ? <ArrowDown className="h-3 w-3" /> : null}{rankWord(r.prevRank)} last season
+                  </span>
+                )}
+              </div>
+              {open === r.key && <p className="mt-1.5 text-xs leading-snug text-slate-300">{r.label}: {r.what}.{r.low ? ' Lower is better.' : ''}</p>}
+            </button>
+          );
+        })}
+      </div>
+    </section>
+  );
+}
+
+function DevRow({ p, owner }: { p: Development; owner: React.ReactNode }) {
+  const info = usePlayerInfo();
+  const up = p.delta != null && p.delta > 0;
+  return (
+    <button type="button" onClick={() => info?.(p.id)} className="flex w-full items-center gap-2.5 px-3 py-2 text-left hover:bg-white/[.03]">
+      {p.headshot ? <img src={p.headshot} alt="" loading="lazy" className="h-10 w-10 shrink-0 rounded-full bg-white/[.06] object-cover" /> : <span className="h-10 w-10 shrink-0 rounded-full bg-white/[.06]" />}
+      <span className="min-w-0 flex-1">
+        <span className="flex items-center gap-1.5"><b className="truncate text-sm text-white">{p.name}</b>{owner}</span>
+        <span className="block text-[11px] text-mute">{p.pos}{p.age != null ? ` · ${p.age}` : ''} · {p.gp} GP · {p.pts} pts · TOI {fmtToi(p.toi)}{p.toiDelta != null && Math.abs(p.toiDelta) >= 30 ? ` (${p.toiDelta > 0 ? '+' : '−'}${fmtToi(Math.abs(p.toiDelta))})` : ''}</span>
+      </span>
+      <span className="shrink-0 text-right">
+        <span className="num block text-sm font-bold text-white">{p.ppg.toFixed(2)}</span>
+        <span className={`num block text-[11px] ${p.delta == null ? 'text-mute' : up ? 'text-emerald-300' : 'text-red-300'}`}>{p.prevPpg == null ? 'new' : `${up ? '+' : ''}${p.delta!.toFixed(2)} vs last`}</span>
+      </span>
+    </button>
+  );
+}
+
+function Players({ d, a }: { d: FanData; a: ReturnType<typeof assess> }) {
+  const { owner, team } = useLeague();
+  const ownerOf = (id: number) => { const o = owner.get(id); const t = o ? team(o.team_id) : undefined; return t ? <TeamBadge team={t} size={16} /> : null; };
+  const groups: [Development['verdict'], string, React.ReactNode][] = [
+    ['rising', 'Rising', <TrendingUp key="u" className="h-4 w-4 text-emerald-300" />],
+    ['fading', 'Fading', <TrendingDown key="d" className="h-4 w-4 text-red-300" />],
+    ['steady', 'Steady', null], ['new', 'New this season', <Sparkles key="n" className="h-4 w-4" style={{ color: 'var(--club)' }} />],
+  ];
+  const ages = d.prospects.map((p) => ({ ...p, age: p.born ? new Date().getFullYear() - Number(p.born.slice(0, 4)) : null }));
+  return (
+    <section className="space-y-3">
+      <Head id="players" title="Players" sub="Who's growing and who's fading: points a game against last season, and the ice time the coaches give them." />
+      {a.stars && (
+        <div className="card p-4">
+          <div className="flex items-baseline justify-between gap-2"><b className="text-white">Where the points come from</b><span className="text-xs text-mute">{Math.round(a.stars.share * 100)}% from the top two</span></div>
+          <div className="mt-2 flex h-3 overflow-hidden rounded-full bg-white/[.06]">
+            <div style={{ width: `${a.stars.share * 100}%`, background: 'rgb(var(--club-rgb))' }} />
+            <div style={{ width: `${(a.dShare ?? 0) * 100}%` }} className="bg-sky-400/70" />
+          </div>
+          <div className="mt-1.5 flex flex-wrap gap-x-3 gap-y-1 text-[11px] text-mute">
+            <span><span className="mr-1 inline-block h-2 w-2 rounded-full" style={{ background: 'rgb(var(--club-rgb))' }} />{a.stars.names.join(' and ')}</span>
+            {a.dShare != null && <span><span className="mr-1 inline-block h-2 w-2 rounded-full bg-sky-400/70" />Defencemen {Math.round(a.dShare * 100)}%</span>}
+            <span><span className="mr-1 inline-block h-2 w-2 rounded-full bg-white/[.15]" />Everyone else</span>
+          </div>
+        </div>
+      )}
+      {groups.map(([v, label, icon]) => {
+        const rows = a.development.filter((p) => p.verdict === v);
+        if (!rows.length) return null;
+        return (
+          <div key={v} className="card overflow-hidden">
+            <div className="flex items-center gap-1.5 border-b border-white/[.06] px-3 py-2 text-sm font-bold text-white">{icon}{label}<span className="ml-auto text-[11px] font-normal text-mute">points a game</span></div>
+            <div className="divide-y divide-white/[.05]">{rows.map((p) => <DevRow key={p.id} p={p} owner={ownerOf(p.id)} />)}</div>
+          </div>
+        );
+      })}
+      {a.goalies.length > 0 && (
+        <div className="card p-4">
+          <b className="text-white">In goal</b>
+          <div className="mt-2 space-y-2.5">
+            {a.goalies.map((g) => {
+              const diff = g.svp - g.leagueSvp;
+              return (
+                <div key={g.id} className="flex items-center gap-2.5">
+                  {g.headshot ? <img src={g.headshot} alt="" loading="lazy" className="h-10 w-10 shrink-0 rounded-full bg-white/[.06] object-cover" /> : <span className="h-10 w-10 shrink-0 rounded-full bg-white/[.06]" />}
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center gap-1.5 text-sm"><b className="truncate text-white">{g.name}</b>{ownerOf(g.id)}</div>
+                    <div className="text-[11px] text-mute">{g.gs} starts ({Math.round(g.share * 100)}%) · league {g.leagueSvp.toFixed(3).replace(/^0/, '')}</div>
+                  </div>
+                  <div className="text-right"><div className="num text-sm font-bold text-white">{g.svp.toFixed(3).replace(/^0/, '')}</div><div className={`num text-[11px] ${diff >= 0 ? 'text-emerald-300' : 'text-red-300'}`}>{diff >= 0 ? '+' : ''}{(diff * 1000).toFixed(0)} pts</div></div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+      {(a.youngCore.length > 0 || ages.length > 0) && (
+        <div className="card p-4">
+          <b className="text-white">The future</b>
+          {a.youngCore.length > 0 && <p className="mt-1 text-sm text-slate-300">On the roster at 24 and under: {a.youngCore.map((p) => `${p.name} (${p.age})`).join(', ')}.</p>}
+          {ages.length > 0 && (
+            <>
+              <div className="label mt-3">In the system</div>
+              <div className="mt-1.5 grid grid-cols-1 gap-1.5 sm:grid-cols-2">
+                {ages.map((p) => (
+                  <div key={p.id} className="flex items-center gap-2 rounded-xl bg-white/[.03] px-2.5 py-1.5 text-sm">
+                    <span className="rounded-md bg-white/[.06] px-1.5 text-[10px] font-bold text-slate-300">{p.pos}</span>
+                    <span className="min-w-0 flex-1 truncate text-slate-100">{p.name}</span>
+                    <span className="shrink-0 text-[11px] text-mute">{p.age ?? '–'} · {p.country}</span>
+                  </div>
+                ))}
+              </div>
+            </>
+          )}
+        </div>
+      )}
+      <SakOwners d={d} />
+    </section>
+  );
+}
+
+// the league's own stake in the club: which GMs own its players, and what they're worth to them this season
+function SakOwners({ d }: { d: FanData }) {
+  const { owner, team, season, league } = useLeague();
+  const rows = [...d.skaters, ...d.goalies].map((p) => ({ p, o: owner.get(p.id), fp: season.get(p.id)?.fpts ?? null })).filter((x) => x.o).sort((a, b) => (b.fp ?? 0) - (a.fp ?? 0));
+  if (!rows.length) return null;
+  return (
+    <div className="card p-4">
+      <b className="text-white">In {league?.name ?? 'the league'}</b>
+      <div className="mt-2 divide-y divide-white/[.05]">
+        {rows.map(({ p, o, fp }) => { const t = team(o!.team_id); return (
+          <div key={p.id} className="flex items-center gap-2 py-1.5 text-sm">
+            {t && <TeamBadge team={t} size={22} />}
+            <span className="min-w-0 flex-1 truncate"><b className="text-white">{p.name}</b> <span className="text-mute">· {t?.gm_name}</span></span>
+            {fp != null && <span className="num font-semibold text-white">{fmtPts(fp)}</span>}
+          </div>
+        ); })}
+      </div>
+    </div>
+  );
+}
+
+function News({ d }: { d: FanData }) {
+  const now = useNow(60_000);
+  return (
+    <section className="space-y-3">
+      <Head id="news" title="News" sub="The latest on the club from ESPN, NHL.com and Sportsnet." />
+      {d.news.length === 0 ? <div className="card p-4 text-sm text-mute">No stories about the club in the feeds right now.</div> : (
+        <div className="card divide-y divide-white/[.05] overflow-hidden">
+          {d.news.slice(0, 12).map((s) => (
+            <a key={s.id} href={s.url} target="_blank" rel="noreferrer" className="flex items-start gap-3 px-3 py-2.5 hover:bg-white/[.03]">
+              {s.image ? <img src={s.image} alt="" loading="lazy" className="h-14 w-20 shrink-0 rounded-lg object-cover ring-1 ring-white/10" /> : <span className="grid h-14 w-20 shrink-0 place-items-center rounded-lg bg-white/[.05] ring-1 ring-white/10"><NhlLogo abbr={d.abbrev} size={26} /></span>}
+              <span className="min-w-0 flex-1">
+                <span className="flex items-center gap-1.5 text-[11px] text-mute"><b className="text-slate-300">{s.source}</b>{s.date && <span>{ago(s.date, now)}</span>}{s.video && <span className="rounded bg-white/10 px-1">Video</span>}<ExternalLink className="ml-auto h-3 w-3" /></span>
+                <span className="mt-0.5 line-clamp-2 text-sm font-semibold leading-snug text-white">{s.headline}</span>
+              </span>
+            </a>
+          ))}
+        </div>
+      )}
+    </section>
+  );
+}
+
+function Games({ d, club }: { d: FanData; club: string }) {
+  return (
+    <section className="space-y-3">
+      <Head id="games" title="Games" sub="The last ten, the next few, and the last three springs." />
+      <div className="card p-4">
+        <div className="label">Last {d.recent.length}</div>
+        <div className="mt-2 flex flex-wrap gap-1.5">
+          {[...d.recent].reverse().map((g) => {
+            const home = g.home === club, us = home ? g.hs : g.as, them = home ? g.as : g.hs;
+            const won = us != null && them != null && us > them;
+            return (
+              <span key={g.id} title={`${fmtDate(g.date)} ${home ? 'vs' : '@'} ${home ? g.away : g.home} ${us}-${them}`}
+                className={`flex h-12 w-11 flex-col items-center justify-center rounded-xl text-[10px] font-bold ring-1 ${won ? 'bg-emerald-500/15 text-emerald-200 ring-emerald-400/30' : g.outcome && g.outcome !== 'REG' ? 'bg-amber-500/10 text-amber-200 ring-amber-400/25' : 'bg-red-500/10 text-red-200 ring-red-400/25'}`}>
+                <NhlLogo abbr={home ? g.away : g.home} size={16} />
+                <span className="num mt-0.5">{won ? 'W' : g.outcome && g.outcome !== 'REG' ? g.outcome : 'L'} {us}-{them}</span>
+              </span>
+            );
+          })}
+        </div>
+        {d.upcoming.length > 0 && (
+          <>
+            <div className="label mt-4">Coming up</div>
+            <div className="mt-1.5 divide-y divide-white/[.05]">
+              {d.upcoming.map((g) => { const home = g.home === club, opp = home ? g.away : g.home; return (
+                <div key={g.id} className="flex items-center gap-2 py-1.5 text-sm">
+                  <NhlLogo abbr={opp} size={20} />
+                  <span className="min-w-0 flex-1 text-slate-200">{home ? 'vs' : '@'} <b className="text-white">{NHL_TEAMS[opp] ?? opp}</b></span>
+                  <span className="text-xs text-mute">{fmtDate(g.date)} · {new Date(g.start).toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' })}</span>
+                </div>
+              ); })}
+            </div>
+          </>
+        )}
+      </div>
+      <div className="card p-4">
+        <div className="flex items-center gap-1.5 font-bold text-white"><Trophy className="h-4 w-4" style={{ color: 'var(--club)' }} />The last three springs</div>
+        <div className="mt-2 space-y-2.5">
+          {d.playoffs.map((run) => (
+            <div key={run.season}>
+              <div className="text-xs font-semibold text-slate-300">{seasonLabel(run.season)}</div>
+              {run.rounds.length === 0 ? <div className="text-sm text-mute">Missed the playoffs</div> : (
+                <div className="mt-1 flex flex-wrap gap-1.5">
+                  {run.rounds.map((r) => (
+                    <span key={r.round} className={`flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-semibold ring-1 ${r.w > r.l ? 'bg-emerald-500/10 text-emerald-200 ring-emerald-400/25' : 'bg-red-500/10 text-red-200 ring-red-400/25'}`}>
+                      {ROUND[r.round] ?? `Round ${r.round}`}: <NhlLogo abbr={r.opp} size={13} /> {r.opp} {r.w}-{r.l}
+                    </span>
+                  ))}
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function History({ club }: { club: string }) {
+  const lore = CLUB_LORE[club]!;
+  const [all, setAll] = useState(false);
+  const shown = all ? lore.timeline : lore.timeline.filter((t) => t.big);
+  return (
+    <section className="space-y-3">
+      <Head id="history" title="History" sub={`Founded ${lore.founded}. Home: ${lore.arena}.`} />
+      <div className="card overflow-hidden p-4" style={{ background: 'linear-gradient(135deg, rgb(var(--club-rgb) / .16), transparent 60%)' }}>
+        <div className="label" style={{ color: 'var(--club)' }}>Stanley Cups</div>
+        <div className="mt-2 flex flex-wrap gap-2">
+          {lore.cups.map((y) => (
+            <span key={y} className="flex items-center gap-1.5 rounded-2xl bg-black/30 px-3 py-2 ring-1 ring-white/10"><Trophy className="h-5 w-5 text-amber-300" /><b className="num font-display text-lg text-white">{y}</b></span>
+          ))}
+        </div>
+      </div>
+      <div className="card p-4">
+        <ol className="relative space-y-4 border-l border-white/10 pl-4">
+          {shown.map((t, i) => (
+            <li key={i} className="relative">
+              <span className="absolute -left-[21px] top-1 h-2.5 w-2.5 rounded-full ring-4 ring-[#0b1222]" style={{ background: t.big ? 'var(--club)' : 'rgb(148 163 184)' }} />
+              <div className="flex items-baseline gap-2"><b className="num text-sm" style={{ color: 'var(--club)' }}>{t.year}</b><b className="text-white">{t.title}</b></div>
+              <p className="mt-0.5 text-sm leading-snug text-slate-300">{t.text}</p>
+            </li>
+          ))}
+        </ol>
+        <button type="button" onClick={() => setAll(!all)} className="mt-3 text-sm font-semibold text-sky-300">{all ? 'Just the big moments' : `The whole story (${lore.timeline.length} moments)`}</button>
+      </div>
+      <div className="card p-4">
+        <b className="text-white">In the rafters</b>
+        <div className="mt-2 grid grid-cols-2 gap-2 sm:grid-cols-4">
+          {lore.retired.map((r) => (
+            <div key={r.num} className="rounded-2xl p-2.5 text-center ring-1 ring-white/10" style={{ background: 'linear-gradient(180deg, var(--club2), rgb(0 0 0 / .3))' }}>
+              <div className="num font-display text-3xl font-extrabold" style={{ color: 'var(--club)' }}>{r.num}</div>
+              <div className="text-sm font-bold text-white">{r.name}</div>
+              <div className="mt-0.5 text-[11px] leading-snug text-slate-300">{r.note}</div>
+            </div>
+          ))}
+        </div>
+      </div>
+      <div className="card p-4">
+        <b className="text-white">Records that still stand</b>
+        <div className="mt-2 grid grid-cols-2 gap-2">
+          {lore.records.map((r) => (
+            <div key={r.what} className="rounded-2xl bg-white/[.03] p-2.5 ring-1 ring-white/[.06]">
+              <div className="num font-display text-2xl font-extrabold text-white">{r.value}</div>
+              <div className="text-[12px] leading-snug text-slate-300">{r.what}</div>
+              <div className="mt-0.5 text-[11px] font-semibold" style={{ color: 'var(--club)' }}>{r.who}</div>
+            </div>
+          ))}
+        </div>
+      </div>
+      {lore.rival && (
+        <div className="card p-4">
+          <b className="text-white">{lore.rival.name}</b>
+          <p className="mt-1 text-sm leading-snug text-slate-300">{lore.rival.text}</p>
+        </div>
+      )}
+      <div className="card p-4">
+        <b className="text-white">Did you know</b>
+        <ul className="mt-2 space-y-2">
+          {lore.facts.map((f) => <li key={f} className="flex gap-2 text-sm leading-snug text-slate-300"><span style={{ color: 'var(--club)' }}>●</span>{f}</li>)}
+        </ul>
+      </div>
+    </section>
+  );
+}

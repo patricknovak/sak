@@ -1129,3 +1129,24 @@ and the chat gives back a bar of its own.
 - **Chat**: the lounges' own row folded into the filter row as a room picker (`RoomPicker`), and a lounge's header is one row
   (the room, Everyone or Just this pool), its name heading the posts instead.
 
+### 9.17 The fan zone, 24 October 2026
+
+Patrick: a dedicated super fan page of the Edmonton Oilers on SaK: news, player development, facts, history and a deep
+assessment of the team, its strengths and weaknesses and what management and coaching should consider.
+- **#/fans/<club>** (`src/pages/FanZone.tsx`), on the league's own club by default (`league_rules.info.fan_club`, SaK's
+  Edmonton, migration 336) and any of the 32 from its switcher; More lists it under The league as "<club> fan zone".
+- **The data**: nhl-hub's `fan` task (`fanBuild`), one call kept 15 minutes in `hub_cache` (the last copy if the NHL is
+  slow): the club's season and last season (club stats), every club's team numbers for both seasons (the NHL stats API's
+  summary, percentages and realtime reports: goals, special teams, shots, 5-on-5 shot share, save and shooting percentages,
+  score-state play, giveaways), standings, roster and prospects, the season schedule, the last three playoff runs, and its
+  news (ESPN's team feed plus the league's headlines that name it).
+- **The reading** (`src/lib/fanZone.ts`, tested in `supabase/tests/fan-zone.test.mjs`): ranks among the 32 on fourteen
+  measures against last season's; strengths and weaknesses in the top and bottom thirds; a grade from the measures that
+  win games; the luck check (5-on-5 shooting plus save percentage, PDO); how much scoring runs through the top two, the depth
+  forwards and the blue line; each goalie against the league's save percentage; each skater rising, fading, steady or new
+  from points a game and ice time against last season; and recommendations for management and the coaches, each quoting
+  its numbers, most pressing first, with a small-sample warning early in the season.
+- **The lore** (`src/data/clubHistory.ts`): settled history only, through the 2025 Final (Cups, timeline, retired
+  numbers, records, the rivalry, facts); anything since comes from the feeds. Edmonton first; another club's page shows
+  every live section without it.
+

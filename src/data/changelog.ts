@@ -6,6 +6,8 @@
 export interface Change { date: string; icon: string; title: string; body: string; to?: string; tag?: 'formats' | 'commish' | 'draft' | 'everyone' }
 
 export const CHANGELOG: Change[] = [
+  { date: '2026-10-24', icon: '🔥', tag: 'everyone', title: 'The Oilers fan zone', to: '/fans',
+    body: 'A page for the Oilers: the verdict on their season with a grade, strengths and weaknesses ranked against all 32 clubs, a luck check and what management and the coaches should do about it; who\'s rising and who\'s fading, the goalies and the prospects; the latest news, the last ten games and the next few; and the history, from the 1984 Cup to the rafters. It\'s under More, and any club can be picked from the page.' },
   { date: '2026-10-24', icon: '📱', tag: 'everyone', title: 'The full-screen app, and a roomier chat', to: '/profile',
     body: 'Add the app to your Home Screen and it opens full screen, with no browser bars and with alerts on your phone. Home shows you the steps once, and Profile keeps them. In Chat, the lounges moved into a small room button at the start of the filter row, so there\'s one less bar above the messages.' },
   { date: '2026-10-24', icon: '📈', tag: 'everyone', title: 'Expected points follow this season', to: '/team',
