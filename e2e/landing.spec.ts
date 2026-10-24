@@ -11,6 +11,106 @@ test.describe('Landing (superpoolsai.com)', () => {
     await expect(start).toHaveAttribute('href', /app\.superpoolsai\.com\/#\/new/);
   });
 
+  test('cta_click fires with src when Analytics is granted (not without consent)', async ({ page }) => {
+    await page.route('**/googletagmanager.com/**', (route) => route.fulfill({ status: 204, body: '' }));
+    await page.addInitScript(() => {
+      (window as unknown as { __spAnalyticsTest?: boolean }).__spAnalyticsTest = true;
+      localStorage.setItem('sp_analytics_consent', 'granted');
+      localStorage.setItem('sp_ads_consent', 'denied');
+    });
+    await page.goto('./');
+    await expect.poll(async () => page.evaluate(() => !!document.getElementById('sp-ga4')), {
+      timeout: 10_000,
+    }).toBe(true);
+
+    const ctaClicks = async () => page.evaluate(() => {
+      const layer = (window as unknown as { dataLayer?: unknown[] }).dataLayer || [];
+      const out: string[] = [];
+      for (const entry of layer) {
+        if (!entry || typeof entry !== 'object') continue;
+        const args = entry as { [i: number]: unknown };
+        if (args[0] === 'event' && args[1] === 'cta_click') {
+          const p = (args[2] as { src?: string }) || {};
+          out.push(String(p.src || ''));
+        }
+      }
+      return out;
+    });
+
+    expect(await ctaClicks()).toEqual([]);
+    const start = page.getByRole('link', { name: /Start a pool, free|Start a pool/i }).first();
+    await expect(start).toHaveAttribute('href', /[?&]src=home\b/);
+    // Stay on the landing page so we can read dataLayer after the click.
+    await page.evaluate(() => {
+      document.querySelectorAll('a[href*="app.superpoolsai.com"]').forEach((a) => {
+        a.addEventListener('click', (e) => e.preventDefault(), true);
+      });
+    });
+    await start.click();
+    await expect.poll(ctaClicks, { timeout: 5_000 }).toEqual(['home']);
+  });
+
+  test('cta_click does not fire when Analytics consent is denied', async ({ page }) => {
+    await page.route('**/googletagmanager.com/**', (route) => route.fulfill({ status: 204, body: '' }));
+    await page.addInitScript(() => {
+      (window as unknown as { __spAnalyticsTest?: boolean }).__spAnalyticsTest = true;
+      localStorage.setItem('sp_analytics_consent', 'denied');
+      localStorage.setItem('sp_ads_consent', 'denied');
+    });
+    await page.goto('./love-is-blind.html');
+    await expect(page.getByRole('link', { name: /Start your Love Is Blind pool/i }).first()).toBeVisible();
+    await page.evaluate(() => {
+      document.querySelectorAll('a[href*="app.superpoolsai.com"]').forEach((a) => {
+        a.addEventListener('click', (e) => e.preventDefault(), true);
+      });
+    });
+    await page.getByRole('link', { name: /Start your Love Is Blind pool/i }).first().click();
+    const n = await page.evaluate(() => {
+      const layer = (window as unknown as { dataLayer?: unknown[] }).dataLayer || [];
+      let count = 0;
+      for (const entry of layer) {
+        if (!entry || typeof entry !== 'object') continue;
+        const args = entry as { [i: number]: unknown };
+        if (args[0] === 'event' && args[1] === 'cta_click') count += 1;
+      }
+      return count;
+    });
+    expect(n).toBe(0);
+    expect(await page.evaluate(() => document.getElementById('sp-ga4'))).toBeNull();
+  });
+
+  test('love-is-blind CTA sends cta_click with src=lib', async ({ page }) => {
+    await page.route('**/googletagmanager.com/**', (route) => route.fulfill({ status: 204, body: '' }));
+    await page.addInitScript(() => {
+      (window as unknown as { __spAnalyticsTest?: boolean }).__spAnalyticsTest = true;
+      localStorage.setItem('sp_analytics_consent', 'granted');
+      localStorage.setItem('sp_ads_consent', 'denied');
+    });
+    await page.goto('./love-is-blind.html');
+    await expect.poll(async () => page.evaluate(() => !!document.getElementById('sp-ga4')), {
+      timeout: 10_000,
+    }).toBe(true);
+    const cta = page.getByRole('link', { name: /Start your Love Is Blind pool/i }).first();
+    await expect(cta).toHaveAttribute('href', /[?&]src=lib\b/);
+    await page.evaluate(() => {
+      document.querySelectorAll('a[href*="app.superpoolsai.com"]').forEach((a) => {
+        a.addEventListener('click', (e) => e.preventDefault(), true);
+      });
+    });
+    await cta.click();
+    await expect.poll(async () => page.evaluate(() => {
+      const layer = (window as unknown as { dataLayer?: unknown[] }).dataLayer || [];
+      for (const entry of layer) {
+        if (!entry || typeof entry !== 'object') continue;
+        const args = entry as { [i: number]: unknown };
+        if (args[0] === 'event' && args[1] === 'cta_click') {
+          return String(((args[2] as { src?: string }) || {}).src || '');
+        }
+      }
+      return '';
+    }), { timeout: 5_000 }).toBe('lib');
+  });
+
   test('FAQ answers the money and app questions', async ({ page }) => {
     await page.goto('./#faq');
     const money = page.locator('details').filter({ hasText: /real money/i });

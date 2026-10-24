@@ -39,6 +39,7 @@ function spAttribution() {
 
 // Consented GA4 + Google Ads (Consent Mode v2). Defaults denied; gtag loads only after a choice is granted.
 // Analytics = analytics_storage; Ads = ad_storage + ad_user_data + AW tag. Separate choices (same as the app).
+// Remote hits only from production landing hosts (same idea as the app's PR #304 allowlist).
 var ADS_ID = 'AW-949617778';
 (function analytics() {
   if (!GA4_ID) return;
@@ -52,7 +53,14 @@ var ADS_ID = 'AW-949617778';
   gtag('js', new Date());
   gtag('config', GA4_ID, { send_page_view: true, anonymize_ip: true });
 
+  function analyticsAllowed() {
+    try { if (window.__spAnalyticsTest) return true; } catch (e) { /* ignore */ }
+    if (typeof navigator !== 'undefined' && navigator.webdriver) return false;
+    var h = (location.hostname || '').toLowerCase();
+    return h === 'superpoolsai.com' || h === 'www.superpoolsai.com';
+  }
   function loadTag() {
+    if (!analyticsAllowed()) return;
     if (document.getElementById('sp-ga4')) return;
     var s = document.createElement('script');
     s.id = 'sp-ga4'; s.async = true;
@@ -70,7 +78,7 @@ var ADS_ID = 'AW-949617778';
     });
   }
   function configAds() {
-    if (!adsOn()) return;
+    if (!analyticsAllowed() || !adsOn()) return;
     gtag('config', ADS_ID, { allow_enhanced_conversions: true });
   }
   function loadIfNeeded() {
@@ -120,6 +128,23 @@ var ADS_ID = 'AW-949617778';
     e.preventDefault();
     showBanner();
   });
+  // App CTA taps: cta_click with the link's src (home|lib|traitors|hockey|…) once Analytics is on.
+  // Beacon so the hit leaves before the browser follows the href; no preventDefault / no delay.
+  document.addEventListener('click', function (e) {
+    if (!analyticsAllowed() || !analyticsOn()) return;
+    if (!document.getElementById('sp-ga4') || typeof window.gtag !== 'function') return;
+    var a = e.target.closest && e.target.closest('a[href*="app.superpoolsai.com"]');
+    if (!a) return;
+    var href = a.getAttribute('href') || '';
+    var hash = '';
+    try { hash = new URL(href, location.href).hash || ''; } catch (err) { return; }
+    if (hash.indexOf('#/new') !== 0) return;
+    var qi = hash.indexOf('?');
+    if (qi < 0) return;
+    var src = (new URLSearchParams(hash.slice(qi + 1)).get('src') || '').trim().slice(0, 80);
+    if (!src) return;
+    window.gtag('event', 'cta_click', { src: src, transport_type: 'beacon' });
+  }, true);
   applyFlags();
   if (analyticsOn() || adsOn()) loadIfNeeded();
   if (spStoreGet(CONSENT_KEY) != null && spStoreGet(ADS_CONSENT_KEY) != null) return;
