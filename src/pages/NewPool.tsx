@@ -11,7 +11,7 @@ import { ProductMark } from '../components/Brand';
 import { type Pack, packName, packPlaceholder, packWhen } from '../lib/packs';
 import { KIND_ORDER, KIND_WHEN, KINDS, ATS_LINE, MISSED_LINE, PICKEM_PRESETS, PRESETS, SQUARES_DEFAULT, atsFits, eventGrids, finalSoon, gridFor, gridLabel, gridRules, presetExample, sheetLabel, type GameKind, type PickemPreset, type PoolEvent, type SeriesPreset, type SquaresRules } from '../lib/poolGames';
 import { SERIES_SPORTS, SheetPicker, SquaresKnobs, lockText } from './Picks';
-import { attributionFields, trackPoolCreated, trackSignUp } from '../lib/analytics';
+import { attributionFields, noteCtaArrival, trackPoolCreated, trackSignUp } from '../lib/analytics';
 import { FantasyStart } from '../components/FantasyStart';
 import { PRODUCT } from '../lib/brand';
 
@@ -137,6 +137,9 @@ export default function NewPool() {
   const go = (s: StepKey) => { tapped.current = true; setOpen(s); };
 
   useEffect(() => { document.title = PRODUCT.name; }, []);
+  // Landing CTA → app: measure arrival once per session per src (consent + host gate in noteCtaArrival).
+  const srcParam = params.get('src');
+  useEffect(() => { if (srcParam) noteCtaArrival(srcParam); }, [srcParam]);
   // Lists load once; the link effect below re-applies whenever the hash query's template changes
   // (same /new route stays mounted, so a second #/new?... must not keep the first template).
   useEffect(() => {

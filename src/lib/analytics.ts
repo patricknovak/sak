@@ -9,8 +9,10 @@ const TOUCH_KEY = 'sp_first_touch';
 const FIRST_CALL_KEY = 'sp_first_call';
 const SIGN_UP_KEY = 'sp_sign_up';
 const POOL_CREATED_PENDING_KEY = 'sp_pool_created_pending';
+const CTA_ARRIVAL_PENDING_KEY = 'sp_cta_arrival_pending';
 const poolCreatedKey = (id: string | number) => `sp_pool_created:${id}`;
 const joinGroupKey = (id: string | number) => `sp_join_group:${id}`;
+const ctaArrivalKey = (src: string) => `sp_cta_arrival:${src}`;
 
 // Google Ads tag (AW-949617778): enhanced conversions on the same Google tag as GA4.
 // Not the Ads customer ID (741-146-2618) — that is not a valid AW- tag id.
@@ -80,6 +82,15 @@ function storeGet(key: string): string | null {
 }
 function storeSet(key: string, value: string) {
   try { localStorage.setItem(key, value); } catch { /* private mode */ }
+}
+function sessionGet(key: string): string | null {
+  try { return sessionStorage.getItem(key); } catch { return null; }
+}
+function sessionSet(key: string, value: string) {
+  try { sessionStorage.setItem(key, value); } catch { /* private mode */ }
+}
+function sessionRemove(key: string) {
+  try { sessionStorage.removeItem(key); } catch { /* private mode */ }
 }
 
 export function getAnalyticsConsent(): AnalyticsConsent {
@@ -239,6 +250,7 @@ export function initAnalytics() {
     trackPageView(currentAppPath());
     // Retry any pool_created that was queued (consent off, or before openPool's reload).
     void flushPendingPoolCreated();
+    flushPendingCtaArrival();
   }
 }
 
@@ -260,6 +272,7 @@ export function setAnalyticsConsent(granted: boolean) {
     trackPageView(currentAppPath());
     // North-star: pools opened before Accept still count once Accept lands (pending queue).
     void flushPendingPoolCreated();
+    flushPendingCtaArrival();
   }
 }
 
@@ -302,7 +315,7 @@ export function trackPageView(path: string) {
   });
 }
 
-export type FunnelEvent = 'pool_start' | 'pool_created' | 'invite_share' | 'join' | 'join_group' | 'first_call' | 'sign_up';
+export type FunnelEvent = 'pool_start' | 'pool_created' | 'invite_share' | 'join' | 'join_group' | 'first_call' | 'sign_up' | 'cta_arrival';
 
 export function track(event: FunnelEvent, params?: Record<string, string | number | boolean | undefined>) {
   if (!measurementId() || getAnalyticsConsent() !== 'granted') return;
@@ -317,6 +330,50 @@ export function track(event: FunnelEvent, params?: Record<string, string | numbe
     }
   }
   window.gtag?.('event', event, clean);
+}
+
+function readPendingCtaArrival(): string[] {
+  const raw = sessionGet(CTA_ARRIVAL_PENDING_KEY);
+  if (!raw) return [];
+  try {
+    const list = JSON.parse(raw) as unknown;
+    if (!Array.isArray(list)) return [];
+    return list.map((s) => String(s).slice(0, 80)).filter(Boolean);
+  } catch {
+    return [];
+  }
+}
+
+function writePendingCtaArrival(list: string[]) {
+  const uniq = [...new Set(list.map((s) => s.slice(0, 80)).filter(Boolean))];
+  if (!uniq.length) sessionRemove(CTA_ARRIVAL_PENDING_KEY);
+  else sessionSet(CTA_ARRIVAL_PENDING_KEY, JSON.stringify(uniq));
+}
+
+// Landing CTA measurement on the app: once per session per src, after Analytics Accept.
+// Call on #/new when ?src= is present; queues until consent + host allowlist.
+export function noteCtaArrival(src?: string | null) {
+  const s = (src ?? readSrcParam())?.trim().slice(0, 80);
+  if (!s) return;
+  if (sessionGet(ctaArrivalKey(s)) === '1') return;
+  const pending = readPendingCtaArrival();
+  if (!pending.includes(s)) writePendingCtaArrival([...pending, s]);
+  flushPendingCtaArrival();
+}
+
+export function flushPendingCtaArrival() {
+  if (!measurementId() || getAnalyticsConsent() !== 'granted') return;
+  // Same gate as remote tag load (#304): no localhost / webdriver hits.
+  if (!analyticsAllowed()) return;
+  const pending = readPendingCtaArrival();
+  if (!pending.length) return;
+  const left: string[] = [];
+  for (const src of pending) {
+    if (sessionGet(ctaArrivalKey(src)) === '1') continue;
+    track('cta_arrival', { src });
+    sessionSet(ctaArrivalKey(src), '1');
+  }
+  writePendingCtaArrival(left);
 }
 
 // HashRouter: ?src= on the search or inside the hash (#/new?src=join_cta).
@@ -542,6 +599,14 @@ export function __testResetAnalytics() {
     }
     keys.forEach((k) => localStorage.removeItem(k));
   } catch { /* no store */ }
+  try {
+    const keys: string[] = [];
+    for (let i = 0; i < sessionStorage.length; i++) {
+      const k = sessionStorage.key(i);
+      if (k && (k === CTA_ARRIVAL_PENDING_KEY || k.startsWith('sp_cta_arrival:'))) keys.push(k);
+    }
+    keys.forEach((k) => sessionStorage.removeItem(k));
+  } catch { /* no session */ }
   if (typeof document !== 'undefined') {
     document.getElementById('sp-ga4')?.remove();
   }

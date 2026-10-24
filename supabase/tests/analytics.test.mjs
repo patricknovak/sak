@@ -10,12 +10,14 @@ import {
   awaitPoolCreatedFlush,
   captureFirstTouch,
   currentAppPath,
+  flushPendingCtaArrival,
   flushPendingPoolCreated,
   getAdsConsent,
   getAnalyticsConsent,
   hasTrackedFirstCall,
   initAnalytics,
   newPoolPath,
+  noteCtaArrival,
   setAdsConsent,
   setAnalyticsConsent,
   setEnhancedConversionEmail,
@@ -61,15 +63,21 @@ function userDataSets() {
 function installDom({ hash = '#/', consent = null, hostname = 'app.superpoolsai.com', webdriver = false } = {}) {
   const store = new Map();
   if (consent) store.set('sp_analytics_consent', consent);
+  const session = new Map();
 
-  const localStorage = {
-    getItem: (k) => (store.has(k) ? store.get(k) : null),
-    setItem: (k, v) => { store.set(k, String(v)); },
-    removeItem: (k) => { store.delete(k); },
-    clear: () => { store.clear(); },
-    get length() { return store.size; },
-    key: (i) => [...store.keys()][i] ?? null,
-  };
+  function storageApi(map) {
+    return {
+      getItem: (k) => (map.has(k) ? map.get(k) : null),
+      setItem: (k, v) => { map.set(k, String(v)); },
+      removeItem: (k) => { map.delete(k); },
+      clear: () => { map.clear(); },
+      get length() { return map.size; },
+      key: (i) => [...map.keys()][i] ?? null,
+    };
+  }
+
+  const localStorage = storageApi(store);
+  const sessionStorage = storageApi(session);
 
   const headKids = [];
   const head = {
@@ -113,6 +121,7 @@ function installDom({ hash = '#/', consent = null, hostname = 'app.superpoolsai.
   globalThis.window = globalThis;
   globalThis.document = document;
   globalThis.localStorage = localStorage;
+  globalThis.sessionStorage = sessionStorage;
   globalThis.location = location;
   Object.defineProperty(globalThis, 'navigator', {
     configurable: true,
@@ -142,7 +151,7 @@ function installDom({ hash = '#/', consent = null, hostname = 'app.superpoolsai.
   delete globalThis.__spAnalyticsTest;
   delete globalThis.__spFlushPoolCreated;
 
-  return { headKids, store };
+  return { headKids, store, session };
 }
 
 // --- production host allowlist: only prod hosts (or __spAnalyticsTest) inject gtag.js ---
@@ -627,6 +636,61 @@ function installDom({ hash = '#/', consent = null, hostname = 'app.superpoolsai.
   setAdsConsent(true);
   window.removeEventListener('sp-consent-change', on);
   assert.equal(n, 2, 'each consent write fires sp-consent-change');
+}
+
+// --- cta_arrival: once per session per src; queues until Accept; host gate ---
+{
+  __testResetAnalytics();
+  installDom({ hash: '#/new?src=home' });
+  __testSetGaId('G-TESTID');
+  initAnalytics();
+  setAnalyticsConsent(true);
+
+  noteCtaArrival('home');
+  assert.equal(eventEntries('cta_arrival').length, 1);
+  assert.equal(eventEntries('cta_arrival')[0][2].src, 'home');
+  assert.equal(sessionStorage.getItem('sp_cta_arrival:home'), '1');
+
+  noteCtaArrival('home');
+  assert.equal(eventEntries('cta_arrival').length, 1, 'same src once per session');
+
+  noteCtaArrival('lib');
+  assert.equal(eventEntries('cta_arrival').length, 2);
+  assert.equal(eventEntries('cta_arrival')[1][2].src, 'lib');
+}
+
+{
+  __testResetAnalytics();
+  const { session } = installDom({ hash: '#/new?src=traitors' });
+  __testSetGaId('G-TESTID');
+  initAnalytics();
+
+  noteCtaArrival('traitors');
+  assert.equal(eventEntries('cta_arrival').length, 0, 'silent before Accept');
+  assert.ok(session.get('sp_cta_arrival_pending'), 'queued pending');
+  assert.equal(sessionStorage.getItem('sp_cta_arrival:traitors'), null);
+
+  setAnalyticsConsent(true);
+  assert.equal(eventEntries('cta_arrival').length, 1, 'Accept flushes pending cta_arrival');
+  assert.equal(eventEntries('cta_arrival')[0][2].src, 'traitors');
+  assert.equal(sessionStorage.getItem('sp_cta_arrival:traitors'), '1');
+  assert.equal(sessionStorage.getItem('sp_cta_arrival_pending'), null);
+
+  noteCtaArrival('traitors');
+  assert.equal(eventEntries('cta_arrival').length, 1, 'still once after flush');
+}
+
+{
+  __testResetAnalytics();
+  installDom({ hash: '#/new?src=hockey', hostname: '127.0.0.1' });
+  __testSetGaId('G-TESTID');
+  initAnalytics();
+  setAnalyticsConsent(true);
+  noteCtaArrival('hockey');
+  assert.equal(eventEntries('cta_arrival').length, 0, 'non-prod host never sends cta_arrival');
+  assert.ok(sessionStorage.getItem('sp_cta_arrival_pending'), 'stays pending when gate fails');
+  flushPendingCtaArrival();
+  assert.equal(eventEntries('cta_arrival').length, 0);
 }
 
 console.log('analytics tests passed');
