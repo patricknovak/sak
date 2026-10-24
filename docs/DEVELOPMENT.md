@@ -1117,3 +1117,15 @@ include the information that members of your pool or league are sharing."
 - **Live**: the scores strip leads with the games under way, then the ones to come, then the finals (all still shown);
   The race, live sits right under the scores.
 
+### 9.16 More of the screen for the app, 24 October 2026
+
+Patrick: Safari's address bar and toolbar squeeze the app. A site can't hide a browser's own bars; opened from the Home
+Screen the app runs full screen (the manifest and Apple's web-app tags were already in place), so the app now asks for that,
+and the chat gives back a bar of its own.
+- **Get the full-screen app** (`InstallPrompt`, `src/lib/install.ts`): on Home, a member on a phone browser who hasn't
+  installed it sees the steps once (Safari's Share, Add to Home Screen; Chrome on Android installs in a tap through its own
+  prompt), never over the cookie question; Not now keeps it away a week, closing it a month. Profile keeps it as a card until
+  the app is installed.
+- **Chat**: the lounges' own row folded into the filter row as a room picker (`RoomPicker`), and a lounge's header is one row
+  (the room, Everyone or Just this pool), its name heading the posts instead.
+

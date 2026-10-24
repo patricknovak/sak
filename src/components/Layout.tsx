@@ -11,6 +11,7 @@ import { ago, countdown } from '../lib/format';
 import { currentSubscription } from '../lib/push';
 import { Sheet, TeamBadge } from './ui';
 import { centreName } from '../lib/poolGames';
+import { InstallPrompt } from './InstallPrompt';
 import { PRODUCT } from '../lib/brand';
 import {
   Bell, ClipboardList, Dices, Home, Landmark, Lightbulb, LogOut, Menu, MessageCircle, Radio, Repeat2, Search, Shield, Target,
@@ -339,6 +340,8 @@ export function Layout({ children }: { children: ReactNode }) {
           </div>
         )}
         <main key={loc.pathname} className="page-in mb-nav mx-auto w-full max-w-5xl px-3 py-3 sm:px-5 lg:mb-0 lg:px-8 lg:py-6 xl:max-w-[92rem] 2xl:max-w-[110rem] 2xl:px-10"><HostNotice />{children}</main>
+        {/* on Home, a phone browser's member is asked once to add the app to the Home Screen (full screen, alerts) */}
+        {loc.pathname === '/' && <InstallPrompt />}
       </div>
 
       {/* mobile dock */}
