@@ -213,14 +213,16 @@ export default function NewPool() {
       setPack(null);
       setOpen(typeQ === 'fantasy' ? 'details' : 'follow');
       if (switched) setColor(SWATCHES[0]);
-    } else {
+    } else if (switched) {
+      // Left a templated link for bare #/new — clear the previous template.
       setMode(null);
       setFollowing(null);
       setKinds(['series', 'questions']);
       setPack(null);
       setOpen('type');
-      if (switched) setColor(SWATCHES[0]);
+      setColor(SWATCHES[0]);
     }
+    // Bare #/new on first resolve: leave mode alone so a tap before the lists load is not wiped.
   }, [linkKey, events, packs, params]);
   const chosen = useMemo(() => packs?.find((p) => p.slug === pack) ?? null, [packs, pack]);
   const event = following?.type === 'event' ? events?.find((e) => e.competition === following.comp) ?? null : null;

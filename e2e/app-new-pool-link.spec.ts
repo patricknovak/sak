@@ -65,6 +65,31 @@ test.describe('NewPool hash query re-selects template', () => {
     await expect.poll(async () => page.getByLabel(/Name your pool/i).inputValue()).toMatch(/Pod Squad|Group Chat|Love/i);
   });
 
+  test('bare #/new then sports is not wiped when lists finish loading', async ({ page }) => {
+    let releaseEvents: (() => void) | undefined;
+    const eventsReady = new Promise<void>((r) => { releaseEvents = r; });
+    await page.route('**/googletagmanager.com/**', (route) => route.fulfill({ status: 204, body: '' }));
+    await page.route('**/quakdkzdafzlhgjvmypg.supabase.co/**', async (route) => {
+      const url = route.request().url();
+      if (url.includes('/auth/v1/')) return route.fulfill(json({}));
+      if (url.includes('/rest/v1/rpc/pool_pack_list')) return route.fulfill(json([PACK]));
+      if (url.includes('/rest/v1/rpc/pool_event_list')) {
+        await eventsReady;
+        return route.fulfill(json([NHL]));
+      }
+      if (url.includes('/rest/v1/rpc/')) return route.fulfill(json(null));
+      if (url.includes('/rest/v1/')) return route.fulfill(json([]));
+      return route.fulfill({ status: 204, body: '' });
+    });
+    await page.goto('./#/new');
+    await expect(page.getByText(/What are you starting/i)).toBeVisible({ timeout: 30_000 });
+    await page.getByRole('button', { name: /A sports pool/i }).click();
+    await expect(page.getByText(/What are you following/i)).toBeVisible();
+    releaseEvents?.();
+    await expect(page.getByText(/Live now|NHL 2026-27/i).first()).toBeVisible({ timeout: 15_000 });
+    await expect(page.getByText(/What are you starting/i)).toHaveCount(0);
+  });
+
   test('same template keeps a typed pool name; host email is kept across template switch', async ({ page }) => {
     await mockNewPoolApis(page);
     await page.goto('./#/new?pack=love-is-blind-s11&src=e2e_keep');
