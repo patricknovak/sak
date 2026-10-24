@@ -87,9 +87,15 @@ function Part({ title, children }: { title: string; children: React.ReactNode })
   );
 }
 
+// Link fields that choose the template (not src / UTM). Same key → keep typed name/email; new key → re-derive.
+function newPoolLinkKey(p: URLSearchParams) {
+  return [p.get('type') ?? '', p.get('pack') ?? '', p.get('comp') ?? '', p.get('kind') ?? '', p.get('ats') === '1' ? '1' : ''].join('|');
+}
+
 export default function NewPool() {
   const { session, me } = useLeague();
   const [params] = useSearchParams();
+  const linkKey = newPoolLinkKey(params);
   const [packs, setPacks] = useState<Pack[] | null>(null);
   const [pack, setPack] = useState<string | null>(params.get('pack'));
   const [events, setEvents] = useState<PoolEvent[] | null>(null);
@@ -127,32 +133,95 @@ export default function NewPool() {
   const [open, setOpen] = useState<StepKey>(isMode(typed) ? (typed === 'fantasy' ? 'details' : 'follow') : 'type');
   // only a tap moves the screen to the step it opens; a link landing mid-way stays at the top
   const tapped = useRef(false);
+  const appliedLink = useRef<string | null>(null);
   const go = (s: StepKey) => { tapped.current = true; setOpen(s); };
 
   useEffect(() => { document.title = PRODUCT.name; }, []);
+  // Lists load once; the link effect below re-applies whenever the hash query's template changes
+  // (same /new route stays mounted, so a second #/new?... must not keep the first template).
   useEffect(() => {
-    rpc<PoolEvent[]>('pool_event_list').then((e) => {
-      setEvents(e ?? []);
-      // a link that names an event's pack opens on the event
-      // (or names the event itself, #/new?comp=nfl, as the landing page's open-right-now board does)
-      const ev = (e ?? []).find((x) => (x.pack && x.pack === params.get('pack')) || x.competition === params.get('comp'));
-      // and a kind it offers, #/new?comp=nba-2026-27&kind=wins, is ticked in place of its first (squares too, on an
-      // event with a grid to draw, #/new?comp=mlb-post-2026&kind=squares from the World Series page)
-      const want = ev?.kinds.find((k) => k === params.get('kind'))
-        ?? (ev && params.get('kind') === 'squares' && eventGrids(ev).length ? 'squares' as const : undefined);
-      // a link that names the kind has answered the kinds step too, so it lands on the name; one that names only the
-      // event lands on the kinds, the first one ticked
-      if (ev) { setMode('sports'); setFollowing({ type: 'event', comp: ev.competition }); setKinds([want ?? ev.kinds[0], ...(ev.pack ? ['questions' as const] : [])]); setOpen(want ? 'details' : 'kinds'); }
-      else if (params.get('pack')) { setMode('questions'); setFollowing({ type: 'pack', slug: params.get('pack')! }); setOpen('details'); }
-    }, () => setEvents([]));
-    rpc<Pack[]>('pool_pack_list').then((d) => {
-      setPacks(d ?? []);
-      // a pack chosen by the link brings its colour
-      const chosen = (d ?? []).find((p) => p.slug === params.get('pack'));
-      if (chosen?.color && /^#[0-9a-f]{6}$/i.test(chosen.color)) setColor(chosen.color.toLowerCase());
-      else if (params.get('pack') && !chosen) setPack(null);
-    }, () => setPacks([]));
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+    rpc<PoolEvent[]>('pool_event_list').then((e) => setEvents(e ?? []), () => setEvents([]));
+    rpc<Pack[]>('pool_pack_list').then((d) => setPacks(d ?? []), () => setPacks([]));
+  }, []);
+  useEffect(() => {
+    if (events === null || packs === null) return;
+    const same = appliedLink.current === linkKey;
+    if (same) return;
+    const switched = appliedLink.current !== null;
+    appliedLink.current = linkKey;
+
+    const packQ = params.get('pack');
+    const compQ = params.get('comp');
+    const kindQ = params.get('kind');
+    const typeQ = params.get('type');
+    const atsOn = params.get('ats') === '1';
+
+    // New template: refresh default pool name and fold state; keep typed host name/email/password.
+    if (switched) {
+      setPoolTouched(false);
+      setPreset('classic');
+      setPkPreset('classic');
+      setMissFav(false);
+      setDropN(0);
+      setLives(1);
+      setBox({ preset: 'classic', length: 'month' });
+      setGrid(SQUARES_DEFAULT);
+      setGridOn(null);
+      setSheetOn(null);
+      setEverySheet(null);
+      setErr('');
+      setSignIn(false);
+    }
+
+    setAts(atsOn);
+    // a link that names an event's pack opens on the event
+    // (or names the event itself, #/new?comp=nfl, as the landing page's open-right-now board does)
+    const ev = events.find((x) => (x.pack && x.pack === packQ) || x.competition === compQ);
+    // and a kind it offers, #/new?comp=nba-2026-27&kind=wins, is ticked in place of its first (squares too, on an
+    // event with a grid to draw, #/new?comp=mlb-post-2026&kind=squares from the World Series page)
+    const want = ev?.kinds.find((k) => k === kindQ)
+      ?? (ev && kindQ === 'squares' && eventGrids(ev).length ? 'squares' as const : undefined);
+    // a link that names the kind has answered the kinds step too, so it lands on the name; one that names only the
+    // event lands on the kinds, the first one ticked
+    if (ev) {
+      setMode('sports');
+      setFollowing({ type: 'event', comp: ev.competition });
+      setKinds([want ?? ev.kinds[0], ...(ev.pack ? ['questions' as const] : [])]);
+      setOpen(want ? 'details' : 'kinds');
+      setPack(null);
+      const evPack = ev.pack ? packs.find((p) => p.slug === ev.pack) : null;
+      if (evPack?.color && /^#[0-9a-f]{6}$/i.test(evPack.color)) setColor(evPack.color.toLowerCase());
+      else if (switched) setColor(SWATCHES[0]);
+    } else if (packQ) {
+      setMode('questions');
+      setFollowing({ type: 'pack', slug: packQ });
+      setKinds(['series', 'questions']);
+      setOpen('details');
+      const chosenPack = packs.find((p) => p.slug === packQ);
+      if (chosenPack) {
+        setPack(packQ);
+        if (chosenPack.color && /^#[0-9a-f]{6}$/i.test(chosenPack.color)) setColor(chosenPack.color.toLowerCase());
+        else if (switched) setColor(SWATCHES[0]);
+      } else {
+        setPack(null);
+        if (switched) setColor(SWATCHES[0]);
+      }
+    } else if (isMode(typeQ)) {
+      setMode(typeQ);
+      setFollowing(null);
+      setKinds(['series', 'questions']);
+      setPack(null);
+      setOpen(typeQ === 'fantasy' ? 'details' : 'follow');
+      if (switched) setColor(SWATCHES[0]);
+    } else {
+      setMode(null);
+      setFollowing(null);
+      setKinds(['series', 'questions']);
+      setPack(null);
+      setOpen('type');
+      if (switched) setColor(SWATCHES[0]);
+    }
+  }, [linkKey, events, packs, params]);
   const chosen = useMemo(() => packs?.find((p) => p.slug === pack) ?? null, [packs, pack]);
   const event = following?.type === 'event' ? events?.find((e) => e.competition === following.comp) ?? null : null;
   // Real editable default once the link's pack or event resolves (placeholder alone left the button dead).
