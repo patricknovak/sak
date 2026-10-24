@@ -1102,3 +1102,18 @@ include the information that members of your pool or league are sharing."
 - Next: an unread count on the lounge chips, the lounge from a sport centre and the pool's home, reactions, and a
   platform page for reported posts.
 
+### 9.15 Expected points that move, and the Live page in game order, 24 October 2026
+
+- **Projections count this season** (Patrick: "the expected point logic ... seems to be static"). The model read only the
+  last three finished seasons, and the job ran on Mondays, so a GM's expected points never moved with how a player was
+  actually playing, and a rookie had no projection at all. Now this season's games count at 12 a game beside last
+  season's 5 (ten games move a projection about an eighth of the way to this season's pace, half a season about a third),
+  a goalie's share of the crease reads this season's starts out of his club's games so far, and each player's factors
+  lead with his pace this season. Model 'sak-2'; `supabase/tests/projections.test.mjs`; the job runs every morning at 6:40
+  Eastern (migration 334). Applied on 24 October: 1,302 players re-projected (McDavid 2.97 to 3.27 a game on a 5.65 start).
+- **The dock**: NHL centre back in place of Players, which returns to More under Your team.
+- **Home**: an NHL news card under the League wire: the five newest headlines from NHL.com, Sportsnet and ESPN, a star on
+  any that names one of your players, All news to NHL centre.
+- **Live**: the scores strip leads with the games under way, then the ones to come, then the finals (all still shown);
+  The race, live sits right under the scores.
+

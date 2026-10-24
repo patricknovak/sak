@@ -181,9 +181,8 @@ export function Layout({ children }: { children: ReactNode }) {
     // game night in the middle of the dock (16 October 2026, Patrick): the live scoreboard, a red dot while a game is on
     ...(draftish ? [] : [{ to: '/scoreboard', label: 'Live scoreboard', short: 'Live', icon: Radio }]),
     { to: '/chat', label: 'Chat', icon: MessageCircle },
-    // the players, where GMs go far more often than the sport's centre (a week of opens, 23 October 2026); the centre
-    // moved to More, under Tonight
-    { to: '/players', label: 'Players', icon: Search },
+    // the sport's centre (24 October 2026, Patrick: NHL centre back in the dock); Players is in More, under Your team
+    { to: '/nhl', label: sport.words.centre ?? 'NHL centre', short: sport.words.centre ?? 'NHL centre', icon: Tv },
   ];
   const moreItems: Item[] = (pool ? [
     ...(runs.games && poolQuestions ? [{ to: '/questions', label: 'Questions', icon: Sparkles, group: 'Play' }] : []),

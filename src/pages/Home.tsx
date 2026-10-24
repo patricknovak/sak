@@ -11,7 +11,7 @@ import { ArrowRight, ClipboardList, Lock, Megaphone, MessageCircle, Radio, Troph
 import { PlayerRow, usePlayerSheet } from '../components/PlayerCard';
 import { useHistory } from '../lib/history';
 import { PushCard } from '../components/PushCard';
-import { BankCard, BetResultsCard, LastNightCard, More, NhlTopCard, TicketsCard } from '../components/HomeCards';
+import { BankCard, BetResultsCard, LastNightCard, More, NhlNewsCard, NhlTopCard, TicketsCard } from '../components/HomeCards';
 import { bare, useBrand } from '../lib/brand';
 import { WatchCard } from '../components/WatchCard';
 import { LiveRoomCard } from '../components/LiveRoomCard';
@@ -292,6 +292,9 @@ export default function Home() {
               ))}
             </div>
           </Section>
+
+          {/* the NHL's latest headlines, under the league's own news */}
+          <NhlNewsCard />
 
           <LeagueTransactions />
 

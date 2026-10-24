@@ -5,7 +5,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { useLeague, useNow, useSport } from '../lib/store';
-import { extraTime, hasStarted, isFinal, isLive, periodShort, type SportConfig } from '../lib/sport';
+import { calledOff, extraTime, hasStarted, isFinal, isLive, periodShort, type SportConfig } from '../lib/sport';
 import { selectAll, supabase } from '../lib/supabase';
 import { fmtDate, fmtDateTime, fmtPts, fmtTime, NHL_COLORS, ordinal, readable, teamLogo } from '../lib/format';
 import { NhlLogo, PageHeader, Pos, Section, TeamBadge } from '../components/ui';
@@ -112,6 +112,14 @@ export default function Scoreboard() {
     return (stored ? games : oldGames).filter((g) => g.date === today).map((g) => (fresh.has(g.id) ? { ...g, ...fresh.get(g.id) } : g))
       .sort((a, b) => a.start_utc.localeCompare(b.start_utc));
   }, [games, oldGames, stored, today, roomNight]);
+  // the scores strip leads with what's on (24 October 2026, Patrick): games under way, then the ones still to come, then
+  // the finals, each in puck-drop order, so late in the evening the night's live games are first; an earlier night reads
+  // in order
+  const strip = useMemo(() => {
+    if (past) return slate;
+    const rank = (g: (typeof slate)[number]) => (isLive(sport, g.state) ? 0 : isFinal(sport, g.state) || calledOff(sport, g.state) ? 2 : 1);
+    return [...slate].sort((a, b) => rank(a) - rank(b) || a.start_utc.localeCompare(b.start_utc));
+  }, [slate, past, sport]);
   const [polledSnaps, setSnaps] = useState<Snap[]>([]);
   const [pastPgs, setPastPgs] = useState<PG[]>([]);
   const snaps: Snap[] = roomNight?.snaps ?? polledSnaps;
@@ -327,9 +335,9 @@ export default function Scoreboard() {
       {past && <div className="rounded-xl border border-white/[.08] bg-white/[.03] p-3 text-sm text-slate-300">A night that is in the books: the lineups as they were locked at each puck drop and every point that counted. Step back further with the arrows, or review any stretch on the <Link to="/performance" className="text-sky-300">Performance page</Link>.</div>}
       {!past && league?.phase !== 'season' && <div className="rounded-xl border border-amber-400/20 bg-amber-500/10 p-3 text-sm text-amber-100">The season hasn’t started. Once it does, this page follows every game night live: NHL scores up top, your starters’ points below.</div>}
 
-      {slate.length > 0 && (
+      {strip.length > 0 && (
         <div className="scroll-x flex gap-2">
-          {slate.map((g) => {
+          {strip.map((g) => {
             const live = isLive(sport, g.state);
             return (
               <button type="button" key={g.id} onClick={() => openGame(g)} title="Open the game: its thread, box score and where to watch"
@@ -364,6 +372,9 @@ export default function Scoreboard() {
           })}
         </div>
       )}
+
+      {/* the season race as the night stands, right under the scores (24 October 2026, Patrick) */}
+      {raceOn && <Section title="🏁 The race, live"><LiveRace rows={rows} standings={standings} me={me} onTeam={jumpTo} /></Section>}
 
       {/* the night at a glance: yours, the ticker and the stars side by side on a wide screen */}
       {rows.some((r) => r.lines.length) && (
@@ -451,7 +462,6 @@ export default function Scoreboard() {
         </div>
       </Section>
 
-      {raceOn && <Section title="🏁 The race, live"><LiveRace rows={rows} standings={standings} me={me} onTeam={jumpTo} /></Section>}
 
       {benchAny && (
         <Section title="🪑 Left on the bench" right={<span className="text-xs text-mute">shown, never counted</span>}>

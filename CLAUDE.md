@@ -63,7 +63,7 @@ Two things in one repo:
   (`_lounge_name`), the writer is kept in `private.lounge_posts`; `lounge_post` posts from the pool open now, `lounge_report`
   (three reports take a post down, the first bells the platform admins) and `lounge_remove` (the writer, or a platform admin).
   The home page's League transactions (`LeagueTransactions`) lists every move and trade with the same GM picker.
-- Navigation (`src/components/Layout.tsx`): the dock keeps four places (a fantasy league's are Home, Lineup, Chat and Players since 23 October 2026; NHL centre is in More under Tonight), Live (the scoreboard, a fantasy league's middle tab with a red dot while a game is on) and More; More and the desktop sidebar list the
+- Navigation (`src/components/Layout.tsx`): the dock keeps four places (a fantasy league's are Home, Lineup, Chat and NHL centre since 24 October 2026; Players is in More under Your team), Live (the scoreboard, a fantasy league's middle tab with a red dot while a game is on) and More; More and the desktop sidebar list the
   rest under groups (`Tonight`, `Your team`, `The league`, `You`; a pool's `Play`, `Sport centres`, `You`), and nothing
   in the dock repeats in More. A new page joins a group rather than the end of a list.
 - A player's card opens in place, app-wide (`src/lib/playerInfo.tsx`, `PlayerInfoProvider` in `main.tsx`): `PlayerRow`'s injury,
@@ -105,7 +105,7 @@ Two things in one repo:
   row-level security; the site calls them with `rpc(...)` from `src/lib/supabase.ts`. Views compute
   standings, daily points, coin balances and money.
 - Edge functions in `supabase/functions`: `nhl-sync` (scores, box scores, lineup snapshots, schedule,
-  injuries, game-day status, news, projections, auto-lineups; tasks via `?task=`; `?task=players` marks a player on no
+  injuries, game-day status, news, projections, auto-lineups; tasks via `?task=`; the projections (`_shared/projections.ts`, model 'sak-2') blend this season's games in at 12 a game against the last three seasons' 5/3/2 and run every morning, migration 334; `?task=players` marks a player on no
   NHL roster, with no injury on file and no game in five days, `status` 'unrostered', and the projections give him no
   games, so retired and unsigned players stop showing as pickups, 10 October 2026), `nhl-hub` (NHL centre
   data, cached in `hub_cache`; `?task=sport-news|sport-standings|sport-injuries|sport-leaders&sport=<espn path>` is every
