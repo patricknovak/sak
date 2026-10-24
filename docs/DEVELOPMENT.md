@@ -1150,3 +1150,37 @@ assessment of the team, its strengths and weaknesses and what management and coa
   numbers, records, the rivalry, facts); anything since comes from the feeds. Edmonton first; another club's page shows
   every live section without it.
 
+### 9.18 The fan zone, four times over, 24 October 2026
+
+Patrick: "improve the fan zone analytics and history and facts by at least 300%".
+- **The data**: nhl-hub's `fan` task now also reads eleven more of the stats API's team reports for every club (results by
+  period, leading and trailing, scoring first, outshooting, one-goal games, penalties drawn and taken, goals by strength,
+  power play and kill in full, faceoffs by zone), the NHL's tracking for the club (`/edge/team-detail`: skating bursts and top
+  speed, shot speed, distance, zone time, shots and finishing by area), the whole table, the season's schedule, and each
+  player's usage by situation, 5-on-5 rates and shot share, and career line (`isAggregate`), each goalie's quality starts and
+  save percentage by strength, and last spring's champion. A new task, `fan-history`, reads the NHL's record books
+  (records.nhl.com and the stats API by franchise): every season and how its spring ended, all-time totals, the record against
+  every opponent as it was named then (the Minnesota North Stars, the first Winnipeg Jets), captains, coaches, general
+  managers and retired numbers, career and playoff leaders, the best single seasons, every trophy won or finished as a
+  finalist for, and every pick with each career; six hours in `hub_cache`. Both work for any of the 32.
+- **The analytics** (`src/lib/fanDeep.ts`, tested in `fan-zone.test.mjs`): 46 measures in eight groups (was 14); the season
+  played to its end a few thousand times for all 32 clubs (each record pulled toward the league by 25 games of average hockey;
+  top three a division and two wild cards), giving playoff, division, conference and Presidents' Trophy chances, the
+  projected range of points, the playoff line and the pace it needs; Pythagorean wins and the 5-on-5 goal difference at
+  league-average luck; the record split by venue, opponent (division, conference, playoff clubs), rest, overtime, margin,
+  month, in-game situation and period; the season game by game (points against playoff pace, each margin, streaks, the best
+  stretch); the schedule left (opponents' strength, back-to-backs, the longest trip); every skater's pace, 5-on-5 points per
+  60, shot share and relative, zone starts and power-play share; a regression watch (shooting against the career line,
+  on-ice PDO); milestones in reach at the current pace; who the coaches use most in each situation; goals saved above
+  average and quality starts; the tracking in words; the club against last season's champion; the division at a glance; and
+  twenty more kinds of recommendation (starts and third periods, holding leads, discipline, drawing penalties, own-zone draws,
+  the record against the goals, bounces at 5-on-5, shot quality, breakouts, speed, the goalies, regression, rest, the race,
+  the schedule). Situation win shares stay off the strengths and weaknesses until 20 games.
+- **The history**: the trophy shelf with the franchise in totals, a bar for every season coloured by how its spring ended,
+  eras, a 44-moment story by era (was 19), the Trade in full, sixteen nights to remember, four rivals with every playoff
+  series (checked against the record books' game totals), the record against every club, the captains, coaches and
+  managers, the Hall of Fame (nine), the arenas, the record books (nine leader boards, five best-season boards, eighteen
+  records that stand, twelve of them NHL records), the trophy case from the league's own awards, the draft (every
+  first-rounder judged by his career, and the best picks after the first round), and Did you know: facts counted from the
+  record books plus 38 written ones (was 6), the culture, a fact of the day in the hero, and a fourteen-question quiz.
+

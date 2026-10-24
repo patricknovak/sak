@@ -8,6 +8,8 @@
 //   ?task=news                      NHL.com stories + Sportsnet and ESPN headlines, newest first
 //   ?task=leaders                   league leaders: skaters (points, goals, assists, +/-, PIM, PP/SH goals, faceoffs) and goalies
 //   ?task=team&abbrev=EDM           one club: roster, this week's games, season stats for every player
+//   ?task=fan&abbrev=EDM            a club's fan zone: its season against every club's, tracking, usage, schedule, news
+//   ?task=fan-history&abbrev=EDM    a franchise's history from the NHL's record books: seasons, leaders, trophies, draft
 //   ?task=lines&id=<gameId>         each club's lines for a game: four forward lines, three defence pairs and the goalies,
 //                                   worked out from the NHL's shift charts (a game that has started: its own 5-on-5; one
 //                                   that hasn't: each club's last game)
@@ -407,48 +409,108 @@ async function club(abbrev: string) {
 
 // ── a club's fan zone (24 October 2026, Patrick: "the most incredible fan page of the Oilers"): everything the page
 // draws for one club in one call, kept in hub_cache for a quarter of an hour. The club's season and last season, every
-// club's team numbers (so the page ranks this one against the league), its roster and prospects, its schedule, its last
-// three playoff runs and its news. The analysis is the site's, from these numbers (src/lib/fanZone.ts).
+// club's team numbers (so the page ranks this one against the league: results, situations, special teams, discipline,
+// possession), the NHL's tracking numbers for the club (skating, shot speed, where it shoots from, zone time), the full
+// table and the club's whole schedule (for the playoff odds and the splits), its players' usage, 5-on-5 rates and
+// careers, its goalies' quality starts, its prospects, its last three playoff runs and its news. The analysis is the
+// site's, from these numbers (src/lib/fanZone.ts). The franchise's history, which barely moves, is `fan-history` below.
 const STATS_API = 'https://api.nhle.com/stats/rest/en';
+const RECORDS_API = 'https://records.nhl.com/site/api';
 // ESPN's own id for a club's news feed; a club without one reads the league's news for its name
 const ESPN_TEAM: Record<string, number> = { EDM: 6 };
-async function statsReport(name: string, season: number) {
-  const r = await fetch(`${STATS_API}/team/${name}?limit=-1&cayenneExp=${encodeURIComponent(`seasonId=${season} and gameTypeId=2`)}`, { headers: { 'user-agent': 'sak-league' } });
-  if (!r.ok) throw new Error(`stats ${name}: ${r.status}`);
+const statsGet = async (path: string) => {
+  const r = await fetch(`${STATS_API}/${path}`, { headers: { 'user-agent': 'sak-league' } });
+  if (!r.ok) throw new Error(`stats ${path.split('?')[0]}: ${r.status}`);
   return ((await r.json()).data ?? []) as any[];
+};
+const exp = (s: string) => encodeURIComponent(s);
+const statsReport = (name: string, season: number, kind = 'team', extra = '') =>
+  statsGet(`${kind}/${name}?limit=-1&cayenneExp=${exp(`seasonId=${season} and gameTypeId=2${extra}`)}`);
+const recordsGet = async (path: string) => {
+  const r = await fetch(`${RECORDS_API}/${path}`, { headers: { 'user-agent': 'sak-league' } });
+  if (!r.ok) throw new Error(`records ${path.split('?')[0]}: ${r.status}`);
+  return ((await r.json()).data ?? []) as any[];
+};
+// the stats API's own ids for a club: its team id (the tracking numbers) and its franchise (players, history)
+let clubIds: Map<string, { id: number; franchise: number }> | null = null;
+async function clubId(abbrev: string) {
+  if (!clubIds) clubIds = new Map((await statsGet('team')).filter((t) => t.franchiseId).map((t) => [t.triCode, { id: t.id, franchise: t.franchiseId }]));
+  const c = clubIds.get(abbrev);
+  if (!c) throw new Error('bad request');
+  return c;
 }
+const num = (v: any) => (v == null || Number.isNaN(Number(v)) ? null : Number(v));
 async function fanBuild(abbrev: string) {
+  const ids = await clubId(abbrev);
   const [cs, roster, prospects, sched, stand] = await Promise.all([
     get(`/club-stats/${abbrev}/now`), get(`/roster/${abbrev}/current`), get(`/prospects/${abbrev}`).catch(() => null),
     get(`/club-schedule-season/${abbrev}/now`).catch(() => null), get('/standings/now'),
   ]);
   const cur = Number(cs.season), prev = cur - 10001;
   const nameToAbbrev = new Map<string, string>((stand.standings ?? []).map((t: any) => [txt(t.teamName), t.teamAbbrev.default]));
-  const [sumC, pctC, rtC, sumP, pctP, csPrev, ...runs] = await Promise.all([
-    statsReport('summary', cur), statsReport('percentages', cur), statsReport('realtime', cur),
-    statsReport('summary', prev).catch(() => []), statsReport('percentages', prev).catch(() => []),
-    get(`/club-stats/${abbrev}/${prev}/2`).catch(() => null),
-    ...[prev, prev - 10001, prev - 20002].map((s) => get(`/playoff-series/carousel/${s}/`).catch(() => null)),
+  const opt = (p: Promise<any[]>) => p.catch(() => [] as any[]);
+  const fr = ` and franchiseId=${ids.franchise}`;
+  const [
+    [sumC, pctC, rtC, ltC, perC, firstC, shotC, penC, gfsC, gasC, ppC, pkC, ggC, foC],
+    [sumP, pctP, rtP],
+    [skToi, skPct, skRate, skRt, gAdv, gStr],
+    [csPrev, edge],
+    runs,
+  ] = await Promise.all([
+    Promise.all([statsReport('summary', cur), statsReport('percentages', cur), ...['realtime', 'leadingtrailing', 'goalsbyperiod', 'scoretrailfirst', 'outshootoutshotby', 'penalties',
+      'goalsforbystrength', 'goalsagainstbystrength', 'powerplay', 'penaltykill', 'goalgames', 'faceoffpercentages'].map((n) => opt(statsReport(n, cur)))]),
+    Promise.all([opt(statsReport('summary', prev)), opt(statsReport('percentages', prev)), opt(statsReport('realtime', prev))]),
+    Promise.all([...['timeonice', 'percentages', 'scoringRates', 'realtime'].map((n) => opt(statsReport(n, cur, 'skater', fr))), opt(statsReport('advanced', cur, 'goalie', fr)), opt(statsReport('savesByStrength', cur, 'goalie', fr))]),
+    Promise.all([get(`/club-stats/${abbrev}/${prev}/2`).catch(() => null), get(`/edge/team-detail/${ids.id}/${cur}/2`).catch(() => null)]),
+    Promise.all([prev, prev - 10001, prev - 20002].map((s) => get(`/playoff-series/carousel/${s}/`).catch(() => null))),
   ]);
   // every club's team numbers for a season, one row each
-  const league = (sum: any[], pct: any[], rt: any[]) => sum.map((t) => {
-    const p = pct.find((x) => x.teamId === t.teamId) ?? {}, r = rt.find((x) => x.teamId === t.teamId) ?? {};
-    return {
-      abbrev: nameToAbbrev.get(t.teamFullName) ?? null, name: t.teamFullName, gp: t.gamesPlayed, w: t.wins, l: t.losses, otl: t.otLosses, pts: t.points, ptsPct: t.pointPct,
-      gf: t.goalsForPerGame, ga: t.goalsAgainstPerGame, pp: t.powerPlayPct, pk: t.penaltyKillPct, sf: t.shotsForPerGame, sa: t.shotsAgainstPerGame, fo: t.faceoffWinPct,
-      sat: p.satPct ?? null, satAhead: p.satPctAhead ?? null, satBehind: p.satPctBehind ?? null, sv5: p.savePct5v5 ?? null, sh5: p.shootingPct5v5 ?? null, pdo: p.shootingPlusSavePct5v5 ?? null, gfPct: p.goalsForPct ?? null,
-      give60: r.giveawaysPer60 ?? null, take60: r.takeawaysPer60 ?? null, hits60: r.hitsPer60 ?? null, blocks60: r.blockedShotsPer60 ?? null,
-    };
-  }).filter((t) => t.abbrev);
+  const byId = (rows: any[]) => new Map(rows.map((x) => [x.teamId, x]));
+  const league = (sum: any[], pct: any[], rt: any[], more: any[][] = []) => {
+    const p = byId(pct), r = byId(rt), [lt, per, first, shot, pen, gfs, gas, pp, pk, gg, fo] = more.map(byId);
+    return sum.map((t) => {
+      const P = p.get(t.teamId) ?? {}, R = r.get(t.teamId) ?? {}, L = lt?.get(t.teamId) ?? {}, Pe = per?.get(t.teamId) ?? {}, F = first?.get(t.teamId) ?? {}, S = shot?.get(t.teamId) ?? {};
+      const N = pen?.get(t.teamId) ?? {}, Gf = gfs?.get(t.teamId) ?? {}, Ga = gas?.get(t.teamId) ?? {}, Pp = pp?.get(t.teamId) ?? {}, Pk = pk?.get(t.teamId) ?? {}, G = gg?.get(t.teamId) ?? {}, Fo = fo?.get(t.teamId) ?? {};
+      return {
+        abbrev: nameToAbbrev.get(t.teamFullName) ?? null, name: t.teamFullName, gp: t.gamesPlayed, w: t.wins, l: t.losses, otl: t.otLosses, pts: t.points, ptsPct: t.pointPct,
+        gf: t.goalsForPerGame, ga: t.goalsAgainstPerGame, pp: t.powerPlayPct, pk: t.penaltyKillPct, sf: t.shotsForPerGame, sa: t.shotsAgainstPerGame, fo: t.faceoffWinPct,
+        rw: num(t.winsInRegulation), shw: num(t.winsInShootout),
+        sat: num(P.satPct), satAhead: num(P.satPctAhead), satBehind: num(P.satPctBehind), satClose: num(P.satPctClose), satTied: num(P.satPctTied), usat: num(P.usatPct), zoneStart: num(P.zoneStartPct5v5),
+        sv5: num(P.savePct5v5), sh5: num(P.shootingPct5v5), pdo: num(P.shootingPlusSavePct5v5), gfPct: num(P.goalsForPct),
+        give60: num(R.giveawaysPer60), take60: num(R.takeawaysPer60), hits60: num(R.hitsPer60), blocks60: num(R.blockedShotsPer60),
+        // situations: by period, with the lead or chasing it, scoring first, the shot count, the margin
+        p1gf: num(Pe.period1GoalsFor), p1ga: num(Pe.period1GoalsAgainst), p2gf: num(Pe.period2GoalsFor), p2ga: num(Pe.period2GoalsAgainst), p3gf: num(Pe.period3GoalsFor), p3ga: num(Pe.period3GoalsAgainst), otgf: num(Pe.periodOtGoalsFor), otga: num(Pe.periodOtGoalsAgainst),
+        lead1: L.gamesPlayed != null ? [L.winsLeadPeriod1, L.lossLeadPeriod1, L.otLossLeadPeriod1] : null, lead2: L.gamesPlayed != null ? [L.winsLeadPeriod2, L.lossLeadPeriod2, L.otLossLeadPeriod2] : null,
+        trail1: L.gamesPlayed != null ? [L.winsTrailPeriod1, L.lossTrailPeriod1, L.otLossTrailPeriod1] : null, trail2: L.gamesPlayed != null ? [L.winsTrailPeriod2, L.lossTrailPeriod2, L.otLossTrailPeriod2] : null,
+        first: F.gamesPlayed != null ? [F.winsScoringFirst, F.lossesScoringFirst, F.otLossesScoringFirst] : null, chase: F.gamesPlayed != null ? [F.winsTrailingFirst, F.lossesTrailingFirst, F.otLossesTrailingFirst] : null,
+        outshoot: S.gamesPlayed != null ? [S.winsOutshootOpponent, S.lossesOutshootOpponent, S.otLossesOutshootOpponent] : null, outshot: S.gamesPlayed != null ? [S.winsOutshotByOpponent, S.lossesOutshotByOpponent, S.otLossesOutshotByOpponent] : null,
+        one: G.gamesPlayed != null ? [G.winsOneGoalGames, G.lossesOneGoalGames, G.otLossesOneGoalGames] : null, blowout: G.gamesPlayed != null ? [G.winsThreeGoalGames, G.lossesThreeGoalGames] : null,
+        // special teams and discipline
+        drawn60: num(N.penaltiesDrawnPer60), taken60: num(N.penaltiesTakenPer60), pim: num(N.penaltySecondsPerGame), majors: num(N.majors),
+        ppOpp: num(Pp.ppOpportunitiesPerGame), ppNet: num(Pp.powerPlayNetPct), shga: num(Pp.shGoalsAgainst), shorthanded: num(Pk.timesShorthandedPerGame), pkNet: num(Pk.penaltyKillNetPct), shgf: num(Pk.shGoalsFor),
+        g5v5f: num(Gf.goalsFor5On5), g5v5a: num(Ga.goalsAgainst5On5), enf: num(Gf.goalsForEmptyNet), ena: num(Ga.goalsAgainstEmptyNet), xa: num(Ga.goalsAgainstExtraAttacker), g3v3f: num(Gf.goalsFor3On3), g3v3a: num(Ga.goalsAgainst3On3),
+        foD: num(Fo.defensiveZoneFaceoffPct), foO: num(Fo.offensiveZoneFaceoffPct), foPp: num(Fo.ppFaceoffPct), foSh: num(Fo.shFaceoffPct),
+      };
+    }).filter((t) => t.abbrev);
+  };
+  const career = async (rows: any[], kind: 'skater' | 'goalie') => {
+    const list = rows.map((p) => p.playerId ?? p.id).filter(Boolean);
+    if (!list.length) return [] as any[];
+    return opt(statsGet(`${kind}/summary?isAggregate=true&isGame=false&limit=-1&cayenneExp=${exp(`playerId in (${list.join(',')}) and gameTypeId=2`)}`));
+  };
+  const [careerSk, careerG] = await Promise.all([career(cs.skaters ?? [], 'skater'), career(cs.goalies ?? [], 'goalie')]);
   const sk = (p: any) => ({ id: p.playerId, name: `${txt(p.firstName)} ${txt(p.lastName)}`, pos: p.positionCode, gp: p.gamesPlayed, g: p.goals, a: p.assists, pts: p.points, pm: p.plusMinus, pim: p.penaltyMinutes, ppg: p.powerPlayGoals, sog: p.shots, pct: p.shootingPctg, toi: p.avgTimeOnIcePerGame, fo: p.faceoffWinPctg, headshot: p.headshot ?? null });
-  const go = (p: any) => ({ id: p.playerId, name: `${txt(p.firstName)} ${txt(p.lastName)}`, gp: p.gamesPlayed, gs: p.gamesStarted, w: p.wins, l: p.losses, otl: p.overtimeLosses, gaa: p.goalsAgainstAverage, svp: p.savePercentage, so: p.shutouts, headshot: p.headshot ?? null });
+  const go = (p: any) => ({ id: p.playerId, name: `${txt(p.firstName)} ${txt(p.lastName)}`, gp: p.gamesPlayed, gs: p.gamesStarted, w: p.wins, l: p.losses, otl: p.overtimeLosses, gaa: p.goalsAgainstAverage, svp: p.savePercentage, so: p.shutouts, sa: p.shotsAgainst ?? null, headshot: p.headshot ?? null });
   const person = (p: any) => ({ id: p.id, name: `${txt(p.firstName)} ${txt(p.lastName)}`, num: p.sweaterNumber ?? null, pos: p.positionCode, shoots: p.shootsCatches, ht: p.heightInCentimeters, wt: p.weightInKilograms, born: p.birthDate, city: txt(p.birthCity), country: p.birthCountry, headshot: p.headshot ?? null });
   const run = (c: any, season: number) => ({ season, rounds: (c?.rounds ?? []).flatMap((r: any) => (r.series ?? []).filter((x: any) => x.topSeed?.abbrev === abbrev || x.bottomSeed?.abbrev === abbrev).map((x: any) => {
     const us = x.topSeed.abbrev === abbrev ? x.topSeed : x.bottomSeed, them = x.topSeed.abbrev === abbrev ? x.bottomSeed : x.topSeed;
     return { round: r.roundNumber, opp: them.abbrev, w: Number(us.wins ?? 0), l: Number(them.wins ?? 0) };
   })) });
+  // last spring's champion: the winner of the last round of the last season's carousel
+  const final = (runs[0]?.rounds ?? []).find((r: any) => r.roundNumber === 4)?.series?.[0];
+  const champion = final ? (Number(final.topSeed?.wins) >= 4 ? final.topSeed?.abbrev : Number(final.bottomSeed?.wins) >= 4 ? final.bottomSeed?.abbrev : null) : null;
   const games = (sched?.games ?? []).filter((g: any) => g.gameType === 2 || g.gameType === 3).map((g: any) => ({
-    id: g.id, date: g.gameDate, start: g.startTimeUTC, state: g.gameState, home: g.homeTeam?.abbrev, away: g.awayTeam?.abbrev,
+    id: g.id, date: g.gameDate, start: g.startTimeUTC, state: g.gameState, type: g.gameType, home: g.homeTeam?.abbrev, away: g.awayTeam?.abbrev,
     hs: g.homeTeam?.score ?? null, as: g.awayTeam?.score ?? null, outcome: g.gameOutcome?.lastPeriodType ?? null,
   }));
   const played = games.filter((g: any) => ['OFF', 'FINAL'].includes(g.state));
@@ -466,28 +528,66 @@ async function fanBuild(abbrev: string) {
   const lgItems = (((lg as any).items ?? []) as any[]).filter((s) => about.test(`${s.headline} ${s.summary}`)).map((s) => ({ ...s, video: false }));
   const seen = new Set<string>();
   const items = [...espnItems, ...lgItems].filter((s) => s.url && !seen.has(s.headline) && seen.add(s.headline)).sort((a, b) => String(b.date).localeCompare(String(a.date))).slice(0, 24);
+  // each skater's usage, 5-on-5 rates and career line, by id
+  const toiOf = byId(skToi.map((x) => ({ ...x, teamId: x.playerId }))), pctOf = byId(skPct.map((x) => ({ ...x, teamId: x.playerId }))), rateOf = byId(skRate.map((x) => ({ ...x, teamId: x.playerId }))), rtOf = byId(skRt.map((x) => ({ ...x, teamId: x.playerId })));
+  const carOf = byId(careerSk.map((x) => ({ ...x, teamId: x.playerId }))), gCarOf = byId(careerG.map((x) => ({ ...x, teamId: x.playerId })));
+  const advOf = byId(gAdv.map((x) => ({ ...x, teamId: x.playerId }))), strOf = byId(gStr.map((x) => ({ ...x, teamId: x.playerId })));
+  const usage = (cs.skaters ?? []).map((p: any) => {
+    const T = toiOf.get(p.playerId) ?? {}, P = pctOf.get(p.playerId) ?? {}, R = rateOf.get(p.playerId) ?? {}, Rt = rtOf.get(p.playerId) ?? {}, C = carOf.get(p.playerId);
+    return {
+      id: p.playerId, ev: num(T.evTimeOnIcePerGame), pp: num(T.ppTimeOnIcePerGame), sh: num(T.shTimeOnIcePerGame), shifts: num(T.shiftsPerGame),
+      sat: num(P.satPercentage), satRel: num(P.satRelative), zs: num(P.zoneStartPct5v5), pdo: num(P.skaterShootingPlusSavePct5v5), onSh: num(R.onIceShootingPct5v5), toi5: num(P.timeOnIcePerGame5v5),
+      p60: num(R.pointsPer605v5), g60: num(R.goalsPer605v5), a1_60: num(R.primaryAssistsPer605v5), pts5: num(R.points5v5),
+      hits: num(Rt.hits), blocks: num(Rt.blockedShots), take: num(Rt.takeaways), give: num(Rt.giveaways), firstGoals: num(Rt.firstGoals), otGoals: num(Rt.otGoals),
+      career: C ? { gp: C.gamesPlayed, g: C.goals, a: C.assists, pts: C.points, sog: C.shots, pct: num(C.shootingPct), gwg: C.gameWinningGoals } : null,
+    };
+  });
+  const crease = (cs.goalies ?? []).map((p: any) => {
+    const A = advOf.get(p.playerId) ?? {}, S = strOf.get(p.playerId) ?? {}, C = gCarOf.get(p.playerId);
+    return {
+      id: p.playerId, qs: num(A.qualityStart), qsPct: num(A.qualityStartsPct), rw: num(A.regulationWins), gfa: num(A.goalsForAverage), sa60: num(A.shotsAgainstPer60),
+      evSvp: num(S.evSavePct), ppSvp: num(S.ppSavePct), evSa: num(S.evShotsAgainst), sa: num(S.shotsAgainst), ga: num(S.goalsAgainst),
+      career: C ? { gp: C.gamesPlayed, w: C.wins, so: C.shutouts, svp: num(C.savePct), gaa: num(C.goalsAgainstAverage) } : null,
+    };
+  });
+  // the NHL's tracking: skating, shot speed, where the shots come from, zone time (ranks among the 32)
+  const val = (x: any) => (x == null ? null : { value: num(x.value ?? x.imperial), rank: num(x.rank), avg: num(x.leagueAvg?.value ?? x.leagueAvg?.imperial) });
+  const tracking = edge ? {
+    speedMax: val(edge.skatingSpeed?.speedMax), bursts22: val(edge.skatingSpeed?.burstsOver22), bursts20: val(edge.skatingSpeed?.burstsOver20),
+    fastest: edge.skatingSpeed?.speedMax?.overlay?.player ? `${txt(edge.skatingSpeed.speedMax.overlay.player.firstName)} ${txt(edge.skatingSpeed.speedMax.overlay.player.lastName)}` : null,
+    shotMax: val(edge.shotSpeed?.topShotSpeed), shots90: val(edge.shotSpeed?.shotAttemptsOver90),
+    hardest: edge.shotSpeed?.topShotSpeed?.overlay?.player ? `${txt(edge.shotSpeed.topShotSpeed.overlay.player.firstName)} ${txt(edge.shotSpeed.topShotSpeed.overlay.player.lastName)}` : null,
+    distance: val(edge.distanceSkated?.total),
+    zones: edge.zoneTimeDetails ? { oz: num(edge.zoneTimeDetails.offensiveZonePctg), ozRank: num(edge.zoneTimeDetails.offensiveZoneRank), ozAvg: num(edge.zoneTimeDetails.offensiveZoneLeagueAvg),
+      nz: num(edge.zoneTimeDetails.neutralZonePctg), dz: num(edge.zoneTimeDetails.defensiveZonePctg), dzRank: num(edge.zoneTimeDetails.defensiveZoneRank), dzAvg: num(edge.zoneTimeDetails.defensiveZoneLeagueAvg),
+      ozEv: num(edge.zoneTimeDetails.offensiveZoneEvPctg), ozEvRank: num(edge.zoneTimeDetails.offensiveZoneEvRank) } : null,
+    ranges: (edge.sogSummary ?? []).map((s: any) => ({ where: s.locationCode, shots: num(s.shots), shotsRank: num(s.shotsRank), shotsAvg: num(s.shotsLeagueAvg), pct: num(s.shootingPctg), pctRank: num(s.shootingPctgRank), pctAvg: num(s.shootingPctgLeagueAvg), goals: num(s.goals), goalsRank: num(s.goalsRank) })),
+    areas: (edge.sogDetails ?? []).map((s: any) => ({ area: s.area, shots: num(s.shots), rank: num(s.shotsRank) })),
+  } : null;
   return {
-    abbrev, name: me ? `${place} ${name}`.trim() : abbrev, season: cur, prevSeason: prev,
+    abbrev, name: me ? `${place} ${name}`.trim() : abbrev, season: cur, prevSeason: prev, champion,
     standing: me ? { gp: me.gamesPlayed, w: me.wins, l: me.losses, otl: me.otLosses, pts: me.points, ptsPct: me.pointPctg, gd: me.goalDifferential,
       div: txt(me.divisionName), divRank: me.divisionSequence, confRank: me.conferenceSequence, leagueRank: me.leagueSequence, wildRank: me.wildcardSequence,
       streak: me.streakCode ? `${me.streakCode}${me.streakCount}` : null, l10: `${me.l10Wins}-${me.l10Losses}-${me.l10OtLosses}`, home: `${me.homeWins}-${me.homeLosses}-${me.homeOtLosses}`, road: `${me.roadWins}-${me.roadLosses}-${me.roadOtLosses}` } : null,
-    league: league(sumC, pctC, rtC), leaguePrev: league(sumP, pctP, []),
+    // the whole table, for the playoff odds and the division
+    table: (stand.standings ?? []).map((t: any) => ({ abbrev: t.teamAbbrev.default, name: txt(t.teamName), conf: t.conferenceAbbrev, div: t.divisionAbbrev, divName: txt(t.divisionName), gp: t.gamesPlayed, w: t.wins, l: t.losses, otl: t.otLosses, pts: t.points, ptsPct: t.pointPctg, gd: t.goalDifferential, rw: t.regulationWins ?? null, l10: `${t.l10Wins}-${t.l10Losses}-${t.l10OtLosses}`, streak: t.streakCode ? `${t.streakCode}${t.streakCount}` : null })),
+    league: league(sumC, pctC, rtC, [ltC, perC, firstC, shotC, penC, gfsC, gasC, ppC, pkC, ggC, foC]), leaguePrev: league(sumP, pctP, rtP),
     skaters: (cs.skaters ?? []).map(sk), goalies: (cs.goalies ?? []).map(go),
     skatersPrev: (csPrev?.skaters ?? []).map(sk), goaliesPrev: (csPrev?.goalies ?? []).map(go),
+    usage, crease, tracking,
     roster: [...(roster.forwards ?? []), ...(roster.defensemen ?? []), ...(roster.goalies ?? [])].map(person),
     prospects: prospects ? [...(prospects.forwards ?? []), ...(prospects.defensemen ?? []), ...(prospects.goalies ?? [])].map(person) : [],
+    schedule: games.filter((g: any) => g.type === 2),
     recent: played.slice(-10).reverse(), upcoming: games.filter((g: any) => !['OFF', 'FINAL'].includes(g.state)).slice(0, 6),
     playoffs: runs.map((c, i) => run(c, prev - i * 10001)),
     news: items, at: new Date().toISOString(),
   };
 }
-async function fanZone(abbrev: string) {
-  if (!/^[A-Z]{3}$/.test(abbrev)) throw new Error('bad request');
-  const key = `fan:${abbrev}`, ttl = 900_000;
+async function cached(key: string, ttl: number, build: () => Promise<object>) {
   const { data: hit } = await db.from('hub_cache').select('body,at').eq('key', key).maybeSingle();
   if (hit && Date.now() - new Date(hit.at).getTime() < ttl) return { ...(hit.body as object), ttl };
   try {
-    const body = await fanBuild(abbrev);
+    const body = await build();
     await db.from('hub_cache').upsert({ key, body, at: new Date().toISOString() });
     return { ...body, ttl };
   } catch (e) {
@@ -495,6 +595,93 @@ async function fanZone(abbrev: string) {
     if (hit) return { ...(hit.body as object), stale: true, ttl: 120_000 };
     throw e;
   }
+}
+async function fanZone(abbrev: string) {
+  if (!/^[A-Z]{3}$/.test(abbrev)) throw new Error('bad request');
+  return cached(`fan:${abbrev}`, 900_000, () => fanBuild(abbrev));
+}
+
+// ── a franchise's history from the NHL's own record books (24 October 2026, Patrick: "improve the fan zone's analytics,
+// history and facts"): every season it has played and how its spring ended, its all-time totals, its leaders (career,
+// playoffs, the best single seasons), its record against every club, its captains, coaches and general managers, the
+// numbers in its rafters, every trophy its players won or were up for, and every pick it made in the first round with
+// how each career turned out. Kept in hub_cache for six hours: history changes once a night at most.
+const unhtml = (html: string) => String(html ?? '').replace(/<[^>]+>/g, ' ').replace(/&ndash;|&mdash;/g, '–').replace(/&nbsp;/g, ' ').replace(/&amp;/g, '&').replace(/&#39;|&rsquo;/g, '’').replace(/&quot;/g, '"').replace(/\s+/g, ' ').trim();
+const items = (html: string) => [...String(html ?? '').matchAll(/<li>([\s\S]*?)<\/li>/g)].map((m) => unhtml(m[1])).filter((s) => s && !s.startsWith('*'));
+async function historyBuild(abbrev: string) {
+  const ids = await clubId(abbrev);
+  const F = ids.franchise;
+  const top = (kind: string, sort: string, game: 2 | 3, n: number, aggregate = true, extra = '') => statsGet(`${kind}/summary?isAggregate=${aggregate}&isGame=false&limit=${n}&sort=${exp(JSON.stringify([{ property: sort, direction: 'DESC' }]))}&cayenneExp=${exp(`franchiseId=${F} and gameTypeId=${game}${extra}`)}`).catch(() => [] as any[]);
+  const [seasons, totals, detail, vs, vsPlayoffs, draft, awards, trophies, teams,
+    pts, goals, assists, games, poPts, poGoals, gWins, gSo, gPoWins, bestPts, bestGoals, bestA, bestW, bestSvp] = await Promise.all([
+    recordsGet(`franchise-season-results?cayenneExp=${exp(`franchiseId=${F}`)}`),
+    recordsGet(`franchise-team-totals?cayenneExp=${exp(`franchiseId=${F}`)}`).catch(() => []),
+    recordsGet(`franchise-detail?cayenneExp=${exp(`mostRecentTeamId=${ids.id}`)}`).catch(() => []),
+    recordsGet(`all-time-record-vs-franchise?cayenneExp=${exp(`teamFranchiseId=${F} and gameTypeId=2`)}`).catch(() => []),
+    recordsGet(`all-time-record-vs-franchise?cayenneExp=${exp(`teamFranchiseId=${F} and gameTypeId=3`)}`).catch(() => []),
+    recordsGet(`draft?cayenneExp=${exp(`draftedByTeamId=${ids.id}`)}&limit=-1`).catch(() => []),
+    recordsGet(`award-details?cayenneExp=${exp(`teamId=${ids.id} and trophyId!=1`)}&limit=-1`).catch(() => []),
+    recordsGet('trophy').catch(() => []),
+    statsGet('team').catch(() => []),
+    top('skater', 'points', 2, 15), top('skater', 'goals', 2, 10), top('skater', 'assists', 2, 10), top('skater', 'gamesPlayed', 2, 10),
+    top('skater', 'points', 3, 10), top('skater', 'goals', 3, 10),
+    top('goalie', 'wins', 2, 10), top('goalie', 'shutouts', 2, 8), top('goalie', 'wins', 3, 6),
+    top('skater', 'points', 2, 15, false), top('skater', 'goals', 2, 10, false), top('skater', 'assists', 2, 10, false),
+    top('goalie', 'wins', 2, 8, false), top('goalie', 'savePct', 2, 8, false, ' and gamesPlayed>=30'),
+  ]);
+  // the opponent as it was when they met (the Minnesota North Stars, the first Winnipeg Jets), not its franchise's name today
+  const tri = new Map<number, string>(teams.map((t: any) => [t.id, t.triCode])), teamName = new Map<number, string>(teams.map((t: any) => [t.id, t.fullName]));
+  // a season's line and how its spring ended
+  const bySeason = new Map<number, any>();
+  for (const r of seasons) {
+    const s = bySeason.get(r.seasonId) ?? { season: r.seasonId };
+    if (r.gameTypeId === 2) Object.assign(s, { gp: r.gamesPlayed, w: r.wins, l: r.losses, t: r.ties ?? 0, otl: r.overtimeLosses ?? 0, pts: r.points, gf: r.goals, ga: r.goalsAgainst,
+      div: r.divisionName, divRank: r.divisionSequence, confRank: r.conferenceSequence, leagueRank: r.leagueSequence, team: r.triCode ?? abbrev });
+    if (r.gameTypeId === 3) Object.assign(s, { po: { round: r.playoffRound, of: r.finalPlayoffRound, title: r.seriesTitle, won: r.decision === 'W' } });
+    bySeason.set(r.seasonId, s);
+  }
+  const total = (g: number) => { const t = totals.find((x: any) => x.gameTypeId === g && x.activeTeam !== false) ?? totals.find((x: any) => x.gameTypeId === g); return t ? {
+    gp: t.gamesPlayed, w: t.wins, l: t.losses, t: t.ties ?? 0, otl: t.overtimeLosses ?? 0, pts: t.points, gf: t.goalsFor, ga: t.goalsAgainst, ptsPct: num(t.pointPctg),
+    cups: t.cups ?? null, playoffSeasons: t.playoffSeasons ?? null, seriesW: t.seriesWins ?? null, seriesL: t.seriesLosses ?? null, so: t.shutouts ?? null, first: t.firstSeasonId } : null; };
+  const d = detail[0] ?? {};
+  const h2h = (rows: any[]) => rows.filter((r) => r.activeOpponentFranchise).map((r) => ({ opp: tri.get(r.opponentTeamId) ?? null, name: teamName.get(r.opponentTeamId) ?? r.opponentFranchiseName, franchise: r.opponentFranchiseId, gp: r.totalGamesPlayed, w: r.totalWins, l: r.totalLosses, t: r.totalTies ?? 0, otl: r.totalOtLosses ?? 0, gf: r.totalGoalsFor, ga: r.totalGoalsAgainst, last: r.totalLastMeetingSeasonId }));
+  const skater = (p: any) => ({ id: p.playerId, name: p.skaterFullName, pos: p.positionCode, gp: p.gamesPlayed, g: p.goals, a: p.assists, pts: p.points, season: p.seasonId ?? null });
+  const goalie = (p: any) => ({ id: p.playerId, name: p.goalieFullName, gp: p.gamesPlayed, w: p.wins, so: p.shutouts, svp: num(p.savePct), gaa: num(p.goalsAgainstAverage), season: p.seasonId ?? null });
+  // every first-round pick, and each one's career wherever he played it
+  const firsts = draft.filter((p: any) => p.roundNumber === 1 && p.draftedByTeamId === ids.id);
+  const allIds = draft.map((p: any) => p.playerId).filter(Boolean);
+  const careers = new Map<number, any>();
+  for (let i = 0; i < allIds.length; i += 120) {
+    const chunk = allIds.slice(i, i + 120);
+    const [s, g] = await Promise.all([
+      statsGet(`skater/summary?isAggregate=true&isGame=false&limit=-1&cayenneExp=${exp(`playerId in (${chunk.join(',')}) and gameTypeId=2`)}`).catch(() => []),
+      statsGet(`goalie/summary?isAggregate=true&isGame=false&limit=-1&cayenneExp=${exp(`playerId in (${chunk.join(',')}) and gameTypeId=2`)}`).catch(() => []),
+    ]);
+    for (const x of s) careers.set(x.playerId, { gp: x.gamesPlayed, pts: x.points, g: x.goals });
+    for (const x of g) careers.set(x.playerId, { gp: x.gamesPlayed, w: x.wins, goalie: true });
+  }
+  const pick = (p: any) => ({ id: p.playerId ?? null, name: p.playerName, year: p.draftYear, round: p.roundNumber, overall: p.overallPickNumber, pos: p.position, from: p.amateurClubName, league: p.amateurLeague, career: (p.playerId && careers.get(p.playerId)) ?? null });
+  // the best picks after the first round: the longest careers by points (skaters) or wins (goalies)
+  const steals = draft.filter((p: any) => p.roundNumber > 1 && p.playerId && careers.get(p.playerId)).map(pick)
+    .sort((a: any, b: any) => (b.career.pts ?? b.career.w * 2) - (a.career.pts ?? a.career.w * 2)).slice(0, 12);
+  const trophyName = new Map<number, string>(trophies.map((t: any) => [t.id, t.name]));
+  return {
+    abbrev, franchise: F, first: d.firstSeasonId ?? null,
+    seasons: [...bySeason.values()].filter((s) => s.gp != null).sort((a, b) => a.season - b.season),
+    totals: { regular: total(2), playoffs: total(3) },
+    captains: items(d.captainHistory), coaches: items(d.coachingHistory), gms: items(d.generalManagerHistory), retired: items(d.retiredNumbersSummary),
+    vs: h2h(vs), vsPlayoffs: h2h(vsPlayoffs),
+    leaders: { points: pts.map(skater), goals: goals.map(skater), assists: assists.map(skater), games: games.map(skater), poPoints: poPts.map(skater), poGoals: poGoals.map(skater), wins: gWins.map(goalie), shutouts: gSo.map(goalie), poWins: gPoWins.map(goalie) },
+    best: { points: bestPts.map(skater), goals: bestGoals.map(skater), assists: bestA.map(skater), wins: bestW.map(goalie), svp: bestSvp.map(goalie) },
+    firsts: firsts.map(pick).sort((a: any, b: any) => b.year - a.year), steals,
+    awards: awards.filter((a: any) => a.trophyId !== 1).map((a: any) => ({ season: a.seasonId, trophy: trophyName.get(a.trophyId) ?? `Trophy ${a.trophyId}`, trophyId: a.trophyId, name: a.fullName, id: a.playerId ?? null, status: a.status }))
+      .sort((a: any, b: any) => b.season - a.season),
+    at: new Date().toISOString(),
+  };
+}
+async function fanHistory(abbrev: string) {
+  if (!/^[A-Z]{3}$/.test(abbrev)) throw new Error('bad request');
+  return cached(`fan-history:${abbrev}`, 6 * 3_600_000, () => historyBuild(abbrev));
 }
 
 // ── a game's lines
@@ -747,7 +934,7 @@ Deno.serve(async (req) => {
   if (hit && Date.now() - hit.at < hit.ttl) return Response.json(hit.body, { headers: { ...cors, 'x-cache': 'hit' } });
   try {
     const body = task === 'standings' ? await standings() : task === 'schedule' ? await schedule(date) : task === 'game' ? await gameDetail(id)
-      : task === 'news' ? await news() : task === 'x' ? await xfeed() : task === 'leaders' ? await leaders() : task === 'team' ? await club(abbrev) : task === 'fan' ? await fanZone(abbrev)
+      : task === 'news' ? await news() : task === 'x' ? await xfeed() : task === 'leaders' ? await leaders() : task === 'team' ? await club(abbrev) : task === 'fan' ? await fanZone(abbrev) : task === 'fan-history' ? await fanHistory(abbrev)
       : task === 'lines' ? await gameLines(id) : task === 'espn' ? await espnBox(sport, id)
       : task in SPORT_TASKS ? await sportTask(task as SportTask, sport) : await scores(date);
     const ttl = (body as { ttl?: number })?.ttl ?? TTL[task as keyof typeof TTL] ?? 20_000;

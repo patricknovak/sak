@@ -489,6 +489,11 @@ The steps above finish the tenancy. `docs/MARKET.md` sets what comes after in th
 21. **Lounges** (23 October 2026; `docs/DEVELOPMENT.md` §9.14, migration 333): a chat per sports league or show shared by
     every pool that follows it, narrowed in a tap to your own pool's posts; the X feed is off for now.
 
+22. **A fan zone for any club** (24 October 2026; `docs/DEVELOPMENT.md` §9.17 and §9.18, migration 336): `#/fans/<club>`,
+    the league's own club by default (SaK's Oilers): the verdict and what management should do, playoff odds from a season
+    simulated for all 32 clubs, 46 ranked measures, splits, the NHL's tracking, player analytics, and the franchise from the
+    NHL's record books (every season, leaders, trophies, the draft, every opponent), with the lore, facts and a quiz.
+
 Then horizon 2 (soccer on licensed data, basketball, the multi-sport pool, the Supercoin prediction market,
 the Super Pool bundle, the public API) and horizon 3 (cricket free-to-play, baseball, football and college,
 pools for golf and F1, Supercoin competitions and non-cash prizes), as `docs/MARKET.md` lays out.
