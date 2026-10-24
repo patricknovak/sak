@@ -25,6 +25,33 @@ test.describe('Landing (superpoolsai.com)', () => {
     expect(Date.now() - t0).toBeLessThan(800);
   });
 
+  test('sp_consent cookie fills keys and skips the consent bar', async ({ page }) => {
+    await page.addInitScript(() => {
+      document.cookie = `sp_consent=${encodeURIComponent('a=granted;d=denied')}; Path=/; SameSite=Lax`;
+    });
+    await page.goto('./');
+    await expect(page.locator('#sp-consent')).toHaveCount(0);
+    const keys = await page.evaluate(() => ({
+      a: localStorage.getItem('sp_analytics_consent'),
+      d: localStorage.getItem('sp_ads_consent'),
+    }));
+    expect(keys).toEqual({ a: 'granted', d: 'denied' });
+  });
+
+  test('localhost Accept does not write sp_consent cookie', async ({ page }) => {
+    await page.goto('./');
+    const bar = page.locator('#sp-consent');
+    await expect(bar).toBeVisible({ timeout: 10_000 });
+    await bar.locator('button[data-a="1"]').click();
+    await bar.locator('button[data-d="0"]').click();
+    await expect(bar).toHaveCount(0);
+    const hasCookie = await page.evaluate(() =>
+      (document.cookie || '').split(';').some((p) => p.trim().startsWith('sp_consent=')));
+    expect(hasCookie).toBe(false);
+    expect(await page.evaluate(() => localStorage.getItem('sp_analytics_consent'))).toBe('granted');
+    expect(await page.evaluate(() => localStorage.getItem('sp_ads_consent'))).toBe('denied');
+  });
+
   test('FAQ answers the money and app questions', async ({ page }) => {
     await page.goto('./#faq');
     const money = page.locator('details').filter({ hasText: /real money/i });

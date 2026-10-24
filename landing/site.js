@@ -9,10 +9,81 @@ var still = window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').
 var GA4_ID = 'G-1QP4G3BP5N';
 var CONSENT_KEY = 'sp_analytics_consent';
 var ADS_CONSENT_KEY = 'sp_ads_consent';
+// Shared with the app (Domain=.superpoolsai.com). Value: a=granted|denied;d=granted|denied.
+var CONSENT_COOKIE = 'sp_consent';
+var CONSENT_COOKIE_MAX_AGE = 31536000;
 var TOUCH_KEY = 'sp_first_touch';
 
-function spStoreGet(k) { try { return localStorage.getItem(k); } catch (e) { return null; } }
-function spStoreSet(k, v) { try { localStorage.setItem(k, v); } catch (e) { /* private mode */ } }
+function spRawGet(k) { try { return localStorage.getItem(k); } catch (e) { return null; } }
+function spRawSet(k, v) { try { localStorage.setItem(k, v); } catch (e) { /* private mode */ } }
+
+function spConsentCookieHostOk() {
+  var h = (location.hostname || '').toLowerCase();
+  return h === 'superpoolsai.com' || h.slice(-'.superpoolsai.com'.length) === '.superpoolsai.com';
+}
+
+function spParseConsentCookie() {
+  try {
+    var raw = document.cookie || '';
+    var parts = raw.split(';');
+    for (var i = 0; i < parts.length; i++) {
+      var p = parts[i];
+      var eq = p.indexOf('=');
+      if (eq < 0) continue;
+      if (p.slice(0, eq).replace(/^\s+|\s+$/g, '') !== CONSENT_COOKIE) continue;
+      var val = p.slice(eq + 1).replace(/^\s+|\s+$/g, '');
+      try { val = decodeURIComponent(val); } catch (e) { /* keep */ }
+      var out = {};
+      var bits = val.split(';');
+      for (var j = 0; j < bits.length; j++) {
+        var b = bits[j];
+        var be = b.indexOf('=');
+        if (be < 0) continue;
+        var bk = b.slice(0, be).replace(/^\s+|\s+$/g, '');
+        var bv = b.slice(be + 1).replace(/^\s+|\s+$/g, '');
+        if ((bk === 'a' || bk === 'd') && (bv === 'granted' || bv === 'denied')) out[bk] = bv;
+      }
+      return out;
+    }
+  } catch (e) { /* ignore */ }
+  return {};
+}
+
+function spSyncConsentCookie() {
+  if (!spConsentCookieHostOk()) return;
+  var a = spRawGet(CONSENT_KEY);
+  var d = spRawGet(ADS_CONSENT_KEY);
+  if (a !== 'granted' && a !== 'denied') return;
+  if (d !== 'granted' && d !== 'denied') return;
+  try {
+    var value = encodeURIComponent('a=' + a + ';d=' + d);
+    document.cookie = CONSENT_COOKIE + '=' + value
+      + '; Path=/; Domain=.superpoolsai.com; Max-Age=' + CONSENT_COOKIE_MAX_AGE
+      + '; SameSite=Lax; Secure';
+  } catch (e) { /* ignore */ }
+}
+
+function spHydrateConsentFromCookie() {
+  var parsed = spParseConsentCookie();
+  if (parsed.a && spRawGet(CONSENT_KEY) == null) spRawSet(CONSENT_KEY, parsed.a);
+  if (parsed.d && spRawGet(ADS_CONSENT_KEY) == null) spRawSet(ADS_CONSENT_KEY, parsed.d);
+}
+
+function spStoreGet(k) {
+  if (k === CONSENT_KEY || k === ADS_CONSENT_KEY) {
+    var v = spRawGet(k);
+    if (v == null) {
+      spHydrateConsentFromCookie();
+      return spRawGet(k);
+    }
+    return v;
+  }
+  return spRawGet(k);
+}
+function spStoreSet(k, v) {
+  spRawSet(k, v);
+  if (k === CONSENT_KEY || k === ADS_CONSENT_KEY) spSyncConsentCookie();
+}
 
 // First-touch UTM + referrer, captured once on the first landing visit.
 (function captureTouch() {
@@ -129,6 +200,8 @@ var ADS_ID = 'AW-949617778';
     showBanner();
   });
   // Landing→app CTA measurement is app-side (cta_arrival on #/new?src=…); links navigate normally.
+  // Empty localStorage keys pick up the shared cookie so the bar is not asked again.
+  spHydrateConsentFromCookie();
   applyFlags();
   if (analyticsOn() || adsOn()) loadIfNeeded();
   if (spStoreGet(CONSENT_KEY) != null && spStoreGet(ADS_CONSENT_KEY) != null) return;
