@@ -10,6 +10,7 @@
 //   ?task=team&abbrev=EDM           one club: roster, this week's games, season stats for every player
 //   ?task=fan&abbrev=EDM            a club's fan zone: its season against every club's, tracking, usage, schedule, news
 //   ?task=fan-history&abbrev=EDM    a franchise's history from the NHL's record books: seasons, leaders, trophies, draft
+//   ?task=fan-moves                 every club's trades, claims, call-ups and injuries against its roster today, priced by the site
 //   ?task=fan-office&abbrev=EDM     a club's front office: its goalies in depth, the league's goalies and skaters worth a call, lines
 //   ?task=lines&id=<gameId>         each club's lines for a game: four forward lines, three defence pairs and the goalies,
 //                                   worked out from the NHL's shift charts (a game that has started: its own 5-on-5; one
@@ -461,6 +462,7 @@ async function fanBuild(abbrev: string) {
     [skToi, skPct, skRate, skRt, gAdv, gStr],
     [csPrev, edge],
     runs,
+    moves,
   ] = await Promise.all([
     Promise.all([statsReport('summary', cur), statsReport('percentages', cur), ...['realtime', 'leadingtrailing', 'goalsbyperiod', 'scoretrailfirst', 'outshootoutshotby', 'penalties',
       'goalsforbystrength', 'goalsagainstbystrength', 'powerplay', 'penaltykill', 'goalgames', 'faceoffpercentages'].map((n) => opt(statsReport(n, cur)))]),
@@ -468,6 +470,7 @@ async function fanBuild(abbrev: string) {
     Promise.all([...['timeonice', 'percentages', 'scoringRates', 'realtime'].map((n) => opt(statsReport(n, cur, 'skater', fr))), opt(statsReport('advanced', cur, 'goalie', fr)), opt(statsReport('savesByStrength', cur, 'goalie', fr))]),
     Promise.all([get(`/club-stats/${abbrev}/${prev}/2`).catch(() => null), get(`/edge/team-detail/${ids.id}/${cur}/2`).catch(() => null)]),
     Promise.all([prev, prev - 10001, prev - 20002].map((s) => get(`/playoff-series/carousel/${s}/`).catch(() => null))),
+    fanMoves().catch(() => null),
   ]);
   // every club's team numbers for a season, one row each
   const byId = (rows: any[]) => new Map(rows.map((x) => [x.teamId, x]));
@@ -585,8 +588,80 @@ async function fanBuild(abbrev: string) {
     schedule: games.filter((g: any) => g.type === 2),
     recent: played.slice(-10).reverse(), upcoming: games.filter((g: any) => !['OFF', 'FINAL'].includes(g.state)).slice(0, 6),
     playoffs: runs.map((c, i) => run(c, prev - i * 10001)),
-    news: items, at: new Date().toISOString(),
+    news: items, moves, at: new Date().toISOString(),
   };
+}
+// ── the moves (25 October 2026, Patrick: "what happens when a trade or injury happens to update the outlook and
+// statistics, particularly the recent Hellebuyck trade to New Jersey? Please ensure that this updates"). Every club's
+// roster as the NHL lists it now against who has played for it this season (its club stats), every player's season
+// across his clubs, every goalie's last three seasons, and the injury list nhl-sync keeps on `players`: so the crease
+// and the outlook follow a trade the day it is made and an injury the day it is listed, rather than once the games
+// played with the new man start to show in the record. Thirty minutes in hub_cache, carried in every club's `fan`
+// answer as `moves`; the site prices it (src/lib/fanDeep.ts, priceMoves).
+const seasonNow = () => { const d = new Date(); const y = d.getUTCMonth() >= 6 ? d.getUTCFullYear() : d.getUTCFullYear() - 1; return y * 10000 + y + 1; };
+async function movesBuild() {
+  const cur = seasonNow(), prev = cur - 10001;
+  const stand = await get('/standings/now');
+  const clubs: string[] = (stand.standings ?? []).map((t: any) => t.teamAbbrev.default);
+  const gpOf = new Map<string, number>((stand.standings ?? []).map((t: any) => [t.teamAbbrev.default, Number(t.gamesPlayed ?? 0)]));
+  const optA = (p: Promise<any[]>) => p.catch(() => [] as any[]);
+  const [rosters, played, skSum, gSum, skPrev, gPrev, gPrior, hurtRows] = await Promise.all([
+    inBatches(clubs, 8, (a) => get(`/roster/${a}/current`).then((r) => ({ a, r })).catch(() => ({ a, r: null }))),
+    inBatches(clubs, 8, (a) => get(`/club-stats/${a}/now`).then((r) => ({ a, r })).catch(() => ({ a, r: null }))),
+    optA(statsReport('summary', cur, 'skater')), optA(statsReport('summary', cur, 'goalie')),
+    optA(statsReport('summary', prev, 'skater')), optA(statsReport('summary', prev, 'goalie')),
+    optA(statsGet(`goalie/summary?isAggregate=true&isGame=false&limit=-1&cayenneExp=${exp(`seasonId>=${cur - 30003} and seasonId<=${prev} and gameTypeId=2`)}`)),
+    db.from('players').select('id,name,pos,nhl_team,status,injury_status,injury_return,injury_list,injury_part,injury_note').not('injury_status', 'is', null).then((r) => (r.data ?? []) as any[], () => [] as any[]),
+  ]);
+  const teamsOf = (t: any) => String(t ?? '').split(',').filter(Boolean);
+  const byPlayer = (rows: any[]) => new Map<number, any>(rows.map((x) => [x.playerId, x]));
+  const sk = byPlayer(skSum), gs = byPlayer(gSum), skP = byPlayer(skPrev), gP = byPlayer(gPrev), prior = byPlayer(gPrior);
+  // every rostered player's club now
+  const where = new Map<number, string>();
+  for (const { a, r } of rosters) for (const p of [...(r?.forwards ?? []), ...(r?.defensemen ?? []), ...(r?.goalies ?? [])]) where.set(p.id, a);
+  const hurtById = new Map<number, any>(hurtRows.map((h: any) => [h.id, h]));
+  const injury = (h: any) => (h ? { status: h.injury_status, list: h.injury_list ?? null, part: h.injury_part ?? null, back: h.injury_return ?? null, note: h.injury_note ?? null } : null);
+  const skLine = (s: any) => (s ? { gp: gp0(s.gamesPlayed), g: gp0(s.goals), a: gp0(s.assists), pts: gp0(s.points) } : null);
+  const gLine = (g: any) => (g ? { gp: gp0(g.gamesPlayed), gs: gp0(g.gamesStarted), sa: gp0(g.shotsAgainst), ga: gp0(g.goalsAgainst), svp: num(g.savePct) } : null);
+  // the club's own stats name the games each man played for it
+  const usSk = (c: any) => (c ? { gp: gp0(c.gamesPlayed), g: gp0(c.goals), a: gp0(c.assists), pts: gp0(c.points) } : null);
+  const usG = (c: any) => (c ? { gp: gp0(c.gamesPlayed), gs: gp0(c.gamesStarted), sa: gp0(c.shotsAgainst), ga: gp0(c.goalsAgainst), svp: num(c.savePercentage) } : null);
+  const lgSa = gSum.reduce((t, g) => t + gp0(g.shotsAgainst), 0), lgGa = gSum.reduce((t, g) => t + gp0(g.goalsAgainst), 0);
+  const out: Record<string, any> = {};
+  for (const { a, r } of rosters) {
+    const cs = played.find((x) => x.a === a)?.r;
+    if (!r || !cs) continue;
+    const forUs = new Map<number, any>([...(cs.skaters ?? []), ...(cs.goalies ?? [])].map((x: any) => [x.playerId, x]));
+    const people = [...(r.forwards ?? []), ...(r.defensemen ?? []), ...(r.goalies ?? [])].map((p: any) => ({ id: p.id, name: `${txt(p.firstName)} ${txt(p.lastName)}`, pos: p.positionCode, headshot: p.headshot ?? null }));
+    const onRoster = new Set(people.map((p) => p.id));
+    const goalies = people.filter((p) => p.pos === 'G').map((p) => {
+      const g = gs.get(p.id), teams = teamsOf(g?.teamAbbrevs), elsewhere = teams.filter((t) => t !== a);
+      // where he came from: the last other club he played for this season, or last season's club if he hasn't played yet
+      const from = elsewhere.length ? elsewhere[elsewhere.length - 1] : !g ? teamsOf(gP.get(p.id)?.teamAbbrevs).pop() ?? null : null;
+      return { ...p, season: gLine(g), us: usG(forUs.get(p.id)), teams, from: from && from !== a ? from : null, prior: gLine(prior.get(p.id)), hurt: injury(hurtById.get(p.id)) };
+    });
+    // skaters on the roster whose season so far was partly or wholly somewhere else
+    const arrivals = people.filter((p) => p.pos !== 'G').flatMap((p) => {
+      const s = sk.get(p.id), teams = teamsOf(s?.teamAbbrevs), elsewhere = teams.filter((t) => t !== a);
+      if (!s || !elsewhere.length) return [];
+      return [{ ...p, from: elsewhere[elsewhere.length - 1], season: skLine(s), us: usSk(forUs.get(p.id)), prev: skLine(skP.get(p.id)), hurt: injury(hurtById.get(p.id)) }];
+    });
+    // who has played for the club this season and isn't on its roster now: traded, claimed, sent down
+    const gone = [...(cs.skaters ?? []), ...(cs.goalies ?? [])].filter((x: any) => !onRoster.has(x.playerId) && gp0(x.gamesPlayed) > 0).map((x: any) => {
+      const isG = x.positionCode === 'G' || x.savePercentage != null, to = where.get(x.playerId) ?? null;
+      return { id: x.playerId, name: `${txt(x.firstName)} ${txt(x.lastName)}`, pos: isG ? 'G' : x.positionCode, headshot: x.headshot ?? null, to, us: isG ? usG(x) : usSk(x), season: isG ? gLine(gs.get(x.playerId)) : skLine(sk.get(x.playerId)) };
+    }).filter((x: any) => x.to || (x.us?.gp ?? 0) >= 5);
+    // the injury list: the club's men out, on the roster or on injured reserve
+    const hurt = hurtRows.filter((h: any) => h.nhl_team === a && (onRoster.has(h.id) || /^IR/.test(String(h.injury_list ?? '')))).map((h: any) => {
+      const p = people.find((x) => x.id === h.id), isG = h.pos === 'G';
+      return { id: h.id, name: p?.name ?? h.name, pos: isG ? 'G' : h.pos, headshot: p?.headshot ?? null, ...injury(h)!, season: isG ? gLine(gs.get(h.id)) : skLine(sk.get(h.id)), prev: isG ? gLine(gP.get(h.id)) : skLine(skP.get(h.id)) };
+    });
+    out[a] = { gp: gpOf.get(a) ?? 0, goalies, arrivals, gone, hurt };
+  }
+  return { season: cur, lgSvp: lgSa ? 1 - lgGa / lgSa : 0.9, clubs: out, at: new Date().toISOString() };
+}
+function fanMoves() {
+  return cached('fan-moves', 1_800_000, movesBuild);
 }
 async function cached(key: string, ttl: number, build: () => Promise<object>) {
   const { data: hit } = await db.from('hub_cache').select('body,at').eq('key', key).maybeSingle();
@@ -725,9 +800,11 @@ async function fanHistory(abbrev: string) {
 const gp0 = (n: any) => Number(n ?? 0);
 async function officeBuild(abbrev: string) {
   const ids = await clubId(abbrev);
-  const [cs, sched] = await Promise.all([get(`/club-stats/${abbrev}/now`), get(`/club-schedule-season/${abbrev}/now`).catch(() => null)]);
+  const [cs, sched, roster] = await Promise.all([get(`/club-stats/${abbrev}/now`), get(`/club-schedule-season/${abbrev}/now`).catch(() => null), get(`/roster/${abbrev}/current`).catch(() => null)]);
   const cur = Number(cs.season), prev = cur - 10001, since = cur - 40004;
-  const goalieIds: number[] = (cs.goalies ?? []).filter((g: any) => g.gamesPlayed > 0).map((g: any) => g.playerId);
+  // the goalies who have played for the club, and the ones on its roster now (a goalie who just arrived has no games
+  // for it yet; his seasons still belong on the page)
+  const goalieIds: number[] = [...new Set<number>([...(cs.goalies ?? []).filter((g: any) => g.gamesPlayed > 0).map((g: any) => g.playerId), ...((roster?.goalies ?? []) as any[]).map((g) => g.id)])];
   const opt = (p: Promise<any>) => p.catch(() => null);
   const optA = (p: Promise<any[]>) => p.catch(() => [] as any[]);
   const lastGame = ((sched?.games ?? []) as any[]).filter((g) => g.gameType === 2 && ['OFF', 'FINAL'].includes(g.gameState)).pop();
@@ -1432,7 +1509,7 @@ Deno.serve(async (req) => {
   if (hit && Date.now() - hit.at < hit.ttl) return Response.json(hit.body, { headers: { ...cors, 'x-cache': 'hit' } });
   try {
     const body = task === 'standings' ? await standings() : task === 'schedule' ? await schedule(date) : task === 'game' ? await gameDetail(id)
-      : task === 'news' ? await news() : task === 'x' ? await xfeed() : task === 'leaders' ? await leaders() : task === 'team' ? await club(abbrev) : task === 'fan' ? await fanZone(abbrev) : task === 'fan-history' ? await fanHistory(abbrev) : task === 'fan-office' ? await fanOffice(abbrev) : task === 'fan-league' ? await fanLeague()
+      : task === 'news' ? await news() : task === 'x' ? await xfeed() : task === 'leaders' ? await leaders() : task === 'team' ? await club(abbrev) : task === 'fan' ? await fanZone(abbrev) : task === 'fan-history' ? await fanHistory(abbrev) : task === 'fan-office' ? await fanOffice(abbrev) : task === 'fan-league' ? await fanLeague() : task === 'fan-moves' ? await fanMoves()
       : task === 'lines' ? await gameLines(id) : task === 'espn' ? await espnBox(sport, id)
       : task === 'fan-sport' ? await fanSport(league, clubCode) : task === 'fan-sport-league' ? await fanSportLeague(league) : task === 'fan-sport-history' ? await fanSportHistory(league)
       : task in SPORT_TASKS ? await sportTask(task as SportTask, sport) : await scores(date);

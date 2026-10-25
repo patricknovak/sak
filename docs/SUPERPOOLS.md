@@ -529,4 +529,4 @@ pools for golf and F1, Supercoin competitions and non-cash prizes), as `docs/MAR
   data by `league_id` and never assumes SaK's names or numbers.
 - Every league-scoped change from now on writes `league_id` explicitly (or relies on the default = 1 only
   where the caller can only be in SaK).
-- Nothing in `docs/` or the app names SaK as the product; the product is Super Pools, SaK is a league on it.
+- Nothing in `docs/` or the app names SaK as the product; the product is Super Pools, SaK is a league on it. Later still (§9.23) a trade or an injury moves the zone the day it happens: nhl-hub's `fan-moves` reads every roster against who has played, and the outlook prices the crease to come against the one that played, the arrivals, the departures and the men out (the Hellebuyck trade was the test).

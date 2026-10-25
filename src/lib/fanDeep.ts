@@ -14,7 +14,7 @@
 //   champion  this season's numbers against last season's Cup winner's
 //   deepRecs  the recommendations these reads add to the assessment's
 // and the history reads: eras, the playoff record, rivals, the draft.
-import { METRICS, metricValue, rankWord, type FanData, type FanGame, type FanTableRow, type FanTeam, type Recommendation, type WLO } from './fanZone.ts';
+import { METRICS, metricValue, rankWord, type ClubMoves, type FanData, type FanGame, type FanTableRow, type FanTeam, type GLine, type Injury, type MoveGoalie, type Recommendation, type SkLine, type WLO } from './fanZone.ts';
 
 const SEASON_GAMES = 82;
 const OT_SHARE = 0.23;   // about a game in four goes past regulation: each club takes an overtime loss in roughly one in nine
@@ -42,19 +42,139 @@ export interface Outlook {
   firstRound: { abbrev: string; name: string; chance: number }[];   // the most likely first-round opponents, share of every season
   rounds: { r1: number; r2: number; conf: number; final: number; cup: number };   // the chance of winning each round
   cups: Record<string, number>;   // every club's chance of the Cup
+  moved: MovePrice | null;        // the roster's moves and injuries priced into this club's strength (null: no moves data)
 }
+// ── the moves priced (25 October 2026, Patrick: a trade or an injury has to move the outlook the day it happens, the
+// Hellebuyck trade to New Jersey first). The record only knows the games already played; the games ahead belong to the
+// roster as it stands. So each club's strength is adjusted, in goals a game, for the crease it will dress (every goalie's
+// save percentage over this season and the last three, pulled toward the league's by 2,000 shots, weighted by the share
+// of starts he will take: 65/35 between the two best, less whatever an injury costs him) against the crease that played
+// its games so far, and for the skaters who arrived, left or are out: about a sixth of a point a game of involvement in
+// a goal is a goal (a goal is worth about 2.7 points, and the next man up replaces half of what is missing). Six goals
+// are a win, a win two points. Every club gets the same treatment, so the odds stay fair between them.
+const GOALS_PER_WIN = 6;
+const GOALS_PER_POINT = 0.185;   // 0.5 / 2.7: half of a missing point's share of a goal
+const SHOTS_TO_TRUST = 2000;
+export interface MoveItem { kind: 'arrival' | 'gone' | 'hurt' | 'goalie'; id: number; name: string; pos: string; headshot: string | null; text: string; goals: number; back: string | null }
+export interface CreasePlan { before: { svp: number; who: { id: number; name: string; share: number }[] }; after: { svp: number; who: { id: number; name: string; share: number; talent: number; arrived: boolean }[] }; goals: number }
+export interface MovePrice { abbrev: string; goals: number; pts: number; left: number; crease: CreasePlan | null; items: MoveItem[] }
+const isG = (l: SkLine | GLine | null | undefined): l is GLine => !!l && 'sa' in l;
+// the share of the games left a man misses: his return date, or the usual length of the list he is on
+export function missShare(h: Injury | null, left: number, now: Date) {
+  if (!h || left <= 0) return 0;
+  let games: number;
+  if (h.back) games = Math.max(0, (new Date(`${h.back}T12:00:00Z`).getTime() - now.getTime()) / 86_400_000) / 2;
+  else games = /LT/.test(h.list ?? '') ? 15 : /NR/.test(h.list ?? '') ? 15 : /^IR/.test(h.list ?? '') ? 8 : /day/i.test(h.status) ? 2 : 4;
+  return Math.min(1, games / left);
+}
+export function priceMoves(d: FanData, abbrev = d.abbrev, now = new Date()): MovePrice | null {
+  const m: ClubMoves | undefined = d.moves?.clubs?.[abbrev];
+  if (!m) return null;
+  const lg = d.moves!.lgSvp;
+  const row = d.league.find((t) => t.abbrev === abbrev);
+  const saPerGame = row?.sa ?? 29;
+  const left = Math.max(0, SEASON_GAMES - m.gp);
+  const items: MoveItem[] = [];
+  // ── the crease
+  const talent = (g: MoveGoalie) => {
+    const rows = [g.season, g.prior].filter((x): x is GLine => !!x && x.sa > 0 && x.svp != null);
+    const sa = rows.reduce((t, x) => t + x.sa, 0), saves = rows.reduce((t, x) => t + x.sa * x.svp!, 0);
+    return (saves + SHOTS_TO_TRUST * lg) / (sa + SHOTS_TO_TRUST);
+  };
+  const played = [...m.goalies.filter((g) => (g.us?.gs ?? 0) > 0).map((g) => ({ g, us: g.us! })), ...m.gone.filter((x) => x.pos === 'G' && isG(x.us) && x.us.gs > 0).map((x) => ({ g: { ...x, season: isG(x.season) ? x.season : null, us: x.us as GLine, teams: [], from: null, prior: null, hurt: null } as MoveGoalie, us: x.us as GLine }))];
+  const starts = played.reduce((t, x) => t + x.us.gs, 0);
+  let crease: CreasePlan | null = null;
+  if (starts > 0 && m.goalies.length) {
+    const before = played.map(({ g, us }) => ({ id: g.id, name: g.name, share: us.gs / starts, talent: talent(g) }));
+    const beforeSvp = before.reduce((t, x) => t + x.share * x.talent, 0);
+    // the two best take 65 and 35: the better goalie first (a point of save percentage is worth ten starts a season)
+    const score = (g: MoveGoalie) => talent(g) * 1000 + ((g.season?.gs ?? 0) + (g.prior?.gs ?? 0) / 3) / 10;
+    const ranked = [...m.goalies].sort((a, b) => score(b) - score(a));
+    const base = ranked.map((g, i) => (ranked.length === 1 ? 1 : i === 0 ? 0.65 : i === 1 ? 0.35 : 0) * (1 - missShare(g.hurt, left, now)));
+    let total = base.reduce((t, x) => t + x, 0);
+    // the starts an injury leaves open go to the next man on the roster, else to a replacement a touch below the league
+    const spare = 1 - total;
+    const third = ranked[2] && base[2] === 0 ? 2 : -1;
+    if (spare > 0 && third >= 0) { base[third] += spare * (1 - missShare(ranked[third].hurt, left, now)); total = base.reduce((t, x) => t + x, 0); }
+    const after = ranked.map((g, i) => ({ id: g.id, name: g.name, share: base[i], talent: talent(g), arrived: !(g.us?.gs ?? 0) })).filter((x) => x.share > 0.001);
+    const afterSvp = after.reduce((t, x) => t + x.share * x.talent, 0) + Math.max(0, 1 - total) * (lg - 0.008);
+    const goals = (afterSvp - beforeSvp) * saPerGame;
+    crease = { before: { svp: beforeSvp, who: before.map(({ id, name, share }) => ({ id, name, share })) }, after: { svp: afterSvp, who: after }, goals };
+    for (const g of m.goalies) {
+      const arrived = !(g.us?.gs ?? 0) && (g.from || (g.season && g.season.gs > 0) || g.prior);
+      const a = after.find((x) => x.id === g.id);
+      if (arrived && g.from) {
+        const body = g.prior && g.prior.sa ? `${pctStr(g.prior.svp ?? 0)} over his last three seasons on ${g.prior.sa.toLocaleString()} shots (the league ${pctStr(lg)})` : g.season && g.season.sa ? `${pctStr(g.season.svp ?? 0)} on ${g.season.sa} shots this season` : 'no NHL record to go on';
+        items.push({ kind: 'goalie', id: g.id, name: g.name, pos: 'G', headshot: g.headshot, back: g.hurt?.back ?? null,
+          text: `Arrives from ${g.from}: ${body}. The model gives him ${Math.round((a?.share ?? 0) * 100)}% of the starts from here${g.hurt ? `; ${g.hurt.status.toLowerCase()}${g.hurt.back ? ` until about ${fmtDay(g.hurt.back)}` : ''}` : ''}.`, goals: 0 });
+      } else if (g.hurt && (g.us?.gs ?? 0) > 0) {
+        const miss = missShare(g.hurt, left, now);
+        items.push({ kind: 'hurt', id: g.id, name: g.name, pos: 'G', headshot: g.headshot, back: g.hurt.back, goals: 0,
+          text: `${g.hurt.status}${g.hurt.part ? ` (${g.hurt.part.toLowerCase()})` : ''}${g.hurt.back ? `, back around ${fmtDay(g.hurt.back)}` : ''}: ${Math.round(miss * 100)}% of the games left without him in the crease.` });
+      }
+    }
+    for (const x of m.gone.filter((x) => x.pos === 'G' && isG(x.us))) {
+      const us = x.us as GLine;
+      items.push({ kind: 'gone', id: x.id, name: x.name, pos: 'G', headshot: x.headshot, back: null, goals: 0, text: `${x.to ? `To ${x.to}` : 'Off the roster'}: ${us.gs} start${us.gs === 1 ? '' : 's'}${us.svp != null ? `, ${pctStr(us.svp)}` : ''} for the club this season.` });
+    }
+    // the crease's swing is one line, on the man who caused it
+    const first = items.find((x) => x.kind === 'goalie') ?? items.find((x) => x.pos === 'G');
+    if (first) first.goals = goals;
+    else if (Math.abs(goals) >= 0.02) items.push({ kind: 'goalie', id: 0, name: 'The crease', pos: 'G', headshot: null, back: null, goals, text: `From ${pctStr(beforeSvp)} expected so far to ${pctStr(afterSvp)} with the goalies on the roster now.` });
+  }
+  // ── the skaters
+  const ppg = (l: SkLine | GLine | null, prev: SkLine | GLine | null) => (l && !isG(l) && l.gp >= 3 ? l.pts / l.gp : prev && !isG(prev) && prev.gp >= 20 ? prev.pts / prev.gp : null);
+  let attack = 0;
+  for (const p of m.arrivals) {
+    const rate = ppg(p.season, p.prev);
+    if (rate == null) continue;
+    // the games he has already played for the club are in the record; only the rest is new
+    const fresh = m.gp ? Math.max(0, 1 - (p.us?.gp ?? 0) / m.gp) : 1;
+    const miss = missShare(p.hurt, left, now);
+    const goals = rate * GOALS_PER_POINT * fresh * (1 - miss);
+    attack += goals;
+    const line = p.season && !isG(p.season) ? `${p.season.pts} point${p.season.pts === 1 ? '' : 's'} in ${p.season.gp} game${p.season.gp === 1 ? '' : 's'} this season` : '';
+    items.push({ kind: 'arrival', id: p.id, name: p.name, pos: p.pos, headshot: p.headshot, back: p.hurt?.back ?? null, goals, text: `Arrives from ${p.from}: ${line}${p.us?.gp ? `, ${p.us.gp} of them for the club` : ''}.${p.hurt ? ` ${p.hurt.status}${p.hurt.back ? `, back around ${fmtDay(p.hurt.back)}` : ''}.` : ''}` });
+  }
+  for (const x of m.gone.filter((x) => x.pos !== 'G')) {
+    const us = x.us as SkLine | null;
+    const rate = ppg(us, null);
+    if (rate == null) continue;
+    const goals = -rate * GOALS_PER_POINT;
+    attack += goals;
+    items.push({ kind: 'gone', id: x.id, name: x.name, pos: x.pos, headshot: x.headshot, back: null, goals, text: `${x.to ? `To ${x.to}` : 'Off the roster'}: ${us!.pts} point${us!.pts === 1 ? '' : 's'} in ${us!.gp} games for the club.` });
+  }
+  for (const h of m.hurt.filter((h) => h.pos !== 'G')) {
+    const rate = ppg(h.season, h.prev);
+    const miss = missShare(h, left, now);
+    const goals = rate == null ? 0 : -rate * GOALS_PER_POINT * miss;
+    attack += goals;
+    const line = h.season && !isG(h.season) && h.season.gp >= 3 ? `${(h.season.pts / h.season.gp).toFixed(2)} points a game this season` : h.prev && !isG(h.prev) && h.prev.gp >= 20 ? `${(h.prev.pts / h.prev.gp).toFixed(2)} points a game last season` : 'no scoring line to price';
+    items.push({ kind: 'hurt', id: h.id, name: h.name, pos: h.pos, headshot: h.headshot, back: h.back, goals, text: `${h.status}${h.part ? ` (${h.part.toLowerCase()})` : ''}${h.back ? `, back around ${fmtDay(h.back)}` : h.list ? `, ${h.list}` : ''}: ${line}; ${Math.round(miss * 100)}% of the games left.` });
+  }
+  const goals = (crease?.goals ?? 0) + attack;
+  // the biggest swings first, the arrivals and the crease ahead of a day-to-day knock
+  items.sort((a, b) => Math.abs(b.goals) - Math.abs(a.goals) || (a.kind === 'hurt' ? 1 : 0) - (b.kind === 'hurt' ? 1 : 0));
+  return { abbrev, goals, pts: (goals * left * 2) / GOALS_PER_WIN, left, crease, items };
+}
+const fmtDay = (iso: string) => new Date(`${iso}T12:00:00Z`).toLocaleDateString('en-US', { month: 'short', day: 'numeric', timeZone: 'UTC' });
+const pctStr = (v: number) => v.toFixed(3).replace(/^0/, '');
+
 // A club's true strength is its points percentage pulled toward the league's by 25 games of average hockey: ten games
 // in, a hot start counts for less than half of the read. Each of the rest of the games is then a draw: a win, an overtime
 // loss (one point) or a regulation loss. Top three in each division and the next two in the conference make it.
-export function outlook(d: FanData, sims = 4000): Outlook | null {
+export function outlook(d: FanData, sims = 4000, o: { moves?: boolean; now?: Date } = {}): Outlook | null {
   const table = d.table ?? [];
   const me = table.find((t) => t.abbrev === d.abbrev);
   if (!me || table.length < 16) return null;
+  // the roster as it stands, priced in goals a game for every club (a goal is a sixth of a win, a win two points)
+  const priced = o.moves === false || !d.moves ? null : new Map(table.map((t) => [t.abbrev, priceMoves(d, t.abbrev, o.now ?? new Date())]));
+  const lift = (abbrev: string) => (priced?.get(abbrev)?.goals ?? 0) / GOALS_PER_WIN;
   const totalGp = table.reduce((s, t) => s + t.gp, 0), totalPts = table.reduce((s, t) => s + t.pts, 0);
   const m = totalGp ? totalPts / (2 * totalGp) : 0.555;
   const K = 25;
   const teams = table.map((t) => {
-    const p = (t.pts + 2 * K * m) / (2 * (t.gp + K));
+    const p = Math.min(0.9, Math.max(0.1, (t.pts + 2 * K * m) / (2 * (t.gp + K)) + lift(t.abbrev)));
     const left = Math.max(0, SEASON_GAMES - t.gp);
     return { t, p, left, sd: Math.sqrt((p * (1 - p)) / (2 * (t.gp + K))) };
   });
@@ -151,6 +271,7 @@ export function outlook(d: FanData, sims = 4000): Outlook | null {
     firstRound: [...opp.entries()].map(([abbrev, n]) => ({ abbrev, name: names.get(abbrev) ?? abbrev, chance: n / sims })).sort((a, b) => b.chance - a.chance).slice(0, 6),
     rounds: { r1: won.r1 / sims, r2: won.r2 / sims, conf: won.conf / sims, final: won.final / sims, cup: won.cup / sims },
     cups: Object.fromEntries(table.map((t) => [t.abbrev, count.get(t.abbrev)!.cup / sims])),
+    moved: priced?.get(d.abbrev) ?? null,
   };
 }
 

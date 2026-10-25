@@ -10,7 +10,7 @@ import { Head, ShareBar, pctStr, recordOf } from './kit';
 
 const pct0 = (v: number) => (v >= 0.995 ? '>99%' : v > 0 && v < 0.005 ? '<1%' : `${Math.round(v * 100)}%`);
 
-export function FanOutlook({ d, out, tr, champ, div, ah, share }: { d: FanData; out: Outlook | null; tr: Truth | null; champ: ReturnType<typeof championFn>; div: ReturnType<typeof divisionFn>; ah: Ahead | null; share?: { url: string; title: string; text: string } }) {
+export function FanOutlook({ d, out, base, tr, champ, div, ah, share }: { d: FanData; out: Outlook | null; base?: Outlook | null; tr: Truth | null; champ: ReturnType<typeof championFn>; div: ReturnType<typeof divisionFn>; ah: Ahead | null; share?: { url: string; title: string; text: string } }) {
   const [allConf, setAllConf] = useState(false);
   if (!out) return null;
   const odds = allConf ? out.odds : out.odds.slice(0, 10);
@@ -26,6 +26,12 @@ export function FanOutlook({ d, out, tr, champ, div, ah, share }: { d: FanData; 
             <div className="mt-1 text-sm text-slate-300">Projected <b className="text-white">{out.projected.mid}</b> points <span className="text-mute">({out.projected.low} to {out.projected.high})</span></div>
           </div>
         </div>
+        {/* the roster as it stands: what the trades, claims and the injury list did to the number */}
+        {out.moved && Math.abs(out.moved.goals) >= 0.005 && (
+          <p className="mt-3 rounded-2xl bg-black/25 px-3 py-2 text-[13px] leading-snug text-slate-200 ring-1 ring-white/10">
+            <b className="text-white">The moves are priced in.</b> The roster as it stands is worth <b className={out.moved.goals > 0 ? 'text-emerald-300' : 'text-red-300'}>{out.moved.goals > 0 ? '+' : '−'}{Math.abs(out.moved.goals).toFixed(2)}</b> goals a game against the one that played the games so far, about {out.moved.pts > 0 ? '+' : '−'}{Math.abs(out.moved.pts).toFixed(0)} points over the {out.moved.left} left{base ? <>; without them the playoff chance would read <b className="text-white">{pct0(base.playoffs)}</b></> : ''}. {out.moved.items[0] ? `${out.moved.items[0].name}: ${out.moved.items[0].text}` : ''}
+          </p>
+        )}
         <div className="mt-4 grid grid-cols-2 gap-2 min-[400px]:grid-cols-4">
           {[['Top 3 in division', out.top3], ['Win the division', out.division], ['First in the conference', out.conference], ['Presidents’ Trophy', out.presidents]].map(([k, v]) => (
             <div key={k as string} className="rounded-2xl bg-black/25 px-2.5 py-2 ring-1 ring-white/10">

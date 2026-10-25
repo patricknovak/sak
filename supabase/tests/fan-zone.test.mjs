@@ -4,7 +4,7 @@
 import assert from 'node:assert/strict';
 import { assess, rankIn, METRICS } from '../../src/lib/fanZone.ts';
 import { crease as officeCrease, blame, goaliePlan, goalieMarket, targets, coaching, questions, goalieRecs } from '../../src/lib/fanOffice.ts';
-import { outlook, truth, splits, form, ahead, players, crease, champion, deepRecs, eras, historyFacts, pickVerdict, springOf, inProgress } from '../../src/lib/fanDeep.ts';
+import { outlook, truth, splits, form, ahead, players, crease, champion, deepRecs, eras, historyFacts, pickVerdict, springOf, inProgress, priceMoves, missShare } from '../../src/lib/fanDeep.ts';
 
 const t = (abbrev, o) => ({ abbrev, name: abbrev, gp: 10, w: 5, l: 4, otl: 1, pts: 11, ptsPct: 0.55, gf: 3, ga: 3, pp: 0.2, pk: 0.8, sf: 28, sa: 28, fo: 0.5,
   sat: 0.5, satAhead: 0.45, satBehind: 0.55, sv5: 0.91, sh5: 0.09, pdo: 1, gfPct: 0.5, give60: 10, take60: 5, hits60: 20, blocks60: 14, ...o });
@@ -182,4 +182,50 @@ console.log('fan zone: the assessment reads the numbers ok');
   assert.ok(Math.abs(Object.values(o.cups).reduce((s, x) => s + x, 0) - 1) < 1e-9, 'one Cup a season');
   assert.ok(o.firstRound.length > 0 && o.firstRound.reduce((s, x) => s + x.chance, 0) <= o.playoffs + 1e-9, 'a first-round opponent only in the seasons they make it');
   assert.ok(o.odds.every((t) => t.cup >= 0 && t.cup <= t.playoffs + 1e-9), 'no Cup without the playoffs');
+}
+
+// ── the moves priced (25 October 2026): a trade or an injury moves the outlook the day it happens
+{
+  const now = new Date('2026-10-25T12:00:00Z');
+  const G = (id, name, o) => ({ id, name, pos: 'G', headshot: null, season: null, us: null, teams: [], from: null, prior: null, hurt: null, ...o });
+  const line = (gs, svp, sa = gs * 28) => ({ gp: gs, gs, sa, ga: Math.round(sa * (1 - svp)), svp });
+  const quiet = { gp: 10, goalies: [G(30, 'Tristan Jarry', { us: line(10, 0.88), season: line(10, 0.88), prior: line(150, 0.905, 4200) })], arrivals: [], gone: [], hurt: [] };
+  const clubs = Object.fromEntries(table.map((t) => [t.abbrev, { ...quiet, gp: t.gp }]));
+  const withMoves = (edm) => ({ ...deep, moves: { season: 20262027, lgSvp: 0.905, at: '', clubs: { ...clubs, EDM: { ...quiet, ...edm } } } });
+  // nothing moved: the price is flat and the odds are the odds
+  const flat = priceMoves(withMoves({}), 'EDM', now);
+  assert.ok(Math.abs(flat.goals) < 1e-9 && flat.items.length === 0, 'a roster that played its games prices at zero');
+  const plain = outlook(deep, 1500), same = outlook(withMoves({}), 1500, { now });
+  assert.ok(Math.abs(plain.playoffs - same.playoffs) < 0.03, 'no moves, the same odds');
+  // an elite goalie arrives (no games for the club yet), the old starter stays as the backup
+  const star = G(31, 'Connor Hellebuyck', { from: 'WPG', prior: line(179, 0.914, 5009), hurt: { status: 'Out', list: 'OUT', part: 'Not Injury Related', back: '2026-10-30', note: null } });
+  const traded = withMoves({ goalies: [star, quiet.goalies[0]] });
+  const price = priceMoves(traded, 'EDM', now);
+  assert.ok(price.crease && price.crease.after.svp > price.crease.before.svp, 'the crease expects more saves with the new man');
+  assert.ok(price.goals > 0.05 && price.goals < 0.5, `a star goalie is worth a tenth or two of a goal a game (${price.goals.toFixed(3)})`);
+  const who = price.crease.after.who;
+  assert.equal(who[0].id, 31, 'the arrival carries the crease'); assert.ok(who[0].share > 0.55 && who[0].share < 0.65, 'less than 65%: he misses the first games');
+  assert.ok(price.items[0].kind === 'goalie' && /Arrives from WPG/.test(price.items[0].text) && /\.914/.test(price.items[0].text), 'the card says where he came from and what he has stopped');
+  const up = outlook(traded, 1500, { now });
+  assert.ok(up.playoffs >= same.playoffs - 0.01 && up.moved && up.moved.goals === price.goals, 'the outlook carries the price and does not fall');
+  assert.ok(up.projected.mid > same.projected.mid, 'more points projected with the better crease');
+  // the goalie goes the other way: the club that lost him prices below zero
+  const lost = withMoves({ goalies: [G(32, 'Nico Daws', { us: null, from: 'NJD', prior: line(27, 0.902, 769) })], gone: [{ id: 31, name: 'Connor Hellebuyck', pos: 'G', headshot: null, to: 'NJD', us: line(10, 0.92), season: line(10, 0.92) }] });
+  const sold = priceMoves(lost, 'EDM', now);
+  assert.ok(sold.goals < 0 && sold.items.some((x) => x.kind === 'gone' && /To NJD/.test(x.text)), 'losing the starter costs goals, and the card says where he went');
+  // a star skater out for the season costs; a day-to-day knock barely registers
+  const hurt = (back, list, status = 'Injured Reserve') => withMoves({ hurt: [{ id: 1, name: 'Connor McDavid', pos: 'C', headshot: null, status, list, part: 'Knee', back, note: null, season: { gp: 10, g: 8, a: 14, pts: 22 }, prev: null }] });
+  const season = priceMoves(hurt('2027-04-20', 'IR-LT'), 'EDM', now), knock = priceMoves(hurt('2026-10-27', 'Day-To-Day', 'Day-To-Day'), 'EDM', now);
+  assert.ok(season.goals < -0.3 && season.items[0].kind === 'hurt' && /2\.20 points a game/.test(season.items[0].text), `a 2.2-a-game star out for the year costs real goals (${season.goals.toFixed(2)})`);
+  assert.ok(knock.goals < 0 && knock.goals > -0.02, 'two games off is nearly nothing');
+  assert.ok(outlook(hurt('2027-04-20', 'IR-LT'), 1500, { now }).playoffs < same.playoffs, 'the odds fall without the star');
+  assert.equal(missShare({ status: 'Injured Reserve', list: 'IR-LT', part: null, back: null, note: null }, 72, now), 15 / 72, 'no return date: the list sets the length');
+  assert.equal(missShare(null, 72, now), 0);
+  // an arrival whose season was elsewhere adds his scoring, less the games already played for the club
+  const arrived = priceMoves(withMoves({ arrivals: [{ id: 50, name: 'New Winger', pos: 'L', headshot: null, from: 'CGY', season: { gp: 10, g: 5, a: 5, pts: 10 }, us: { gp: 2, g: 1, a: 1, pts: 2 }, prev: null, hurt: null }] }), 'EDM', now);
+  assert.ok(arrived.goals > 0 && Math.abs(arrived.goals - 1 * 0.185 * 0.8) < 1e-9, 'a point a game, four fifths of it still new to the record');
+  // every club is priced: a rival's trade moves our odds too
+  const rival = outlook({ ...withMoves({}), moves: { season: 20262027, lgSvp: 0.905, at: '', clubs: { ...clubs, X1: { ...quiet, goalies: [star, quiet.goalies[0]] } } } }, 1500, { now });
+  assert.ok(rival.all.X1 > same.all.X1, 'the rival that landed the goalie climbs');
+  console.log('fan moves: trades and injuries price into the crease and the outlook');
 }
