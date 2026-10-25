@@ -1351,3 +1351,44 @@ super pools."
   same. A pool's invite picture now carries its first question as a quote and the pool's numbers as tiles.
 - **Not yet**: a share card for a pool's table or a question from the Worker (a pool is private, so its pictures stay the
   ones the phone draws), contracts and the cap, and the NHL's league page in the same shape as the others.
+
+### 9.23 Trades and injuries move the outlook the day they happen, 25 October 2026
+
+Patrick: "What happens when a trade or injury happens to update the outlook and statistics, particularly the recent
+Hellebuyck trade to New Jersey? Please ensure that this updates with those changes accordingly."
+
+What happened before: the roster (`/roster/<club>/current`, fifteen minutes in `hub_cache`) showed Hellebuyck in New Jersey
+and Daws in Winnipeg within the hour, but the crease and the goalie analysis read the club's season stats (who has played
+for the club), so a goalie who hadn't played for his new club yet wasn't in its crease and the one who left still was;
+and the outlook was the record alone, so a trade or an injury changed nothing until the games with the new man were in
+the record.
+
+- **`fan-moves`** (nhl-hub, thirty minutes in `hub_cache`, carried in every club's `fan` answer as `moves`): all 32
+  rosters and all 32 clubs' season stats, every skater's and goalie's season across his clubs (the stats API's
+  `teamAbbrevs`), every goalie's last three seasons together, last season's clubs (where a man who hasn't played yet came
+  from) and the injury list nhl-sync keeps on `players` (status, list, part, expected return). Per club: the goalies on
+  the roster (his games for the club, his season, his three seasons, his injury), the skaters who arrived from another
+  club this season, the men who played for the club and are off its roster (and where they are now), and the injured.
+  The front office (`fan-office`) now keeps the seasons of a goalie on the roster who hasn't played for the club, so his
+  five seasons draw on his card.
+- **`priceMoves`** (`src/lib/fanDeep.ts`): the roster as it stands against the one that played the games, in goals a
+  game. The crease: each goalie is his save percentage over this season and the last three pulled toward the league's by
+  2,000 shots; the crease that played is weighted by starts for the club, the crease to come gives 65% to the better
+  goalie and 35% to the next (a point of save percentage outranks ten starts a season), less the share of the games left
+  an injury costs him (his return date, else the list's usual length: 15 games on long-term or non-roster injured
+  reserve, 8 on IR, 4 out, 2 day-to-day); the swing times the shots against a game is the goals. The skaters: a point a
+  game is about 0.185 goals (a goal is about 2.7 points, the next man up replaces half), so an arrival adds his rate for
+  the share of the season still new to the record, a departure takes his rate for the club away, and an injured man
+  takes his rate times the share of the games he misses. `outlook` prices every club the same way and lifts or lowers
+  its true strength by goals ÷ 6 (a win is six goals and two points), and returns the club's own price as `moved`.
+  Tested in `fan-zone.test.mjs` (a star goalie arriving, the same goalie leaving, a star out for the season against a
+  day-to-day knock, an arrival partly in the record, a rival's trade moving our odds).
+- **The site**: the Moves card (`FanMoves.tsx`) on the overview (the four biggest, with the way to all of them) and the
+  analysis page (every move: who, from or to where, what he has done, the goals a game it is worth, and the chances
+  before and after); the outlook's head says the moves are priced in and what the chance would be without them; the
+  crease shows a goalie who just arrived on his own card (where from, his three seasons and each of his last five against
+  the league, the model's read of him and his share of the starts), marks a goalie who left with where he went, and the
+  plan in goal follows the priced crease once the roster changed.
+- **Not yet**: a skater's defensive value (only his points are priced), per-club games for a man traded twice in a
+  season, and the other leagues (the NFL, NBA and Premier League zones read ESPN's roster and injuries but don't price
+  them).

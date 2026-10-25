@@ -22,6 +22,18 @@ export interface FanTeam {
 }
 export interface FanSkater { id: number; name: string; pos: string; gp: number; g: number; a: number; pts: number; pm: number; pim: number; ppg: number; sog: number; pct: number; toi: number; fo: number; headshot: string | null }
 export interface FanGoalie { id: number; name: string; gp: number; gs: number; w: number; l: number; otl: number; gaa: number; svp: number; so: number; sa?: number | null; headshot: string | null }
+// the moves (25 October 2026): every club's roster today against who has played for it, and the injury list, from
+// nhl-hub's fan-moves task; priced in fanDeep.ts (priceMoves)
+export interface SkLine { gp: number; g: number; a: number; pts: number }
+export interface GLine { gp: number; gs: number; sa: number; ga: number; svp: number | null }
+export interface Injury { status: string; list: string | null; part: string | null; back: string | null; note: string | null }
+export interface MovePerson { id: number; name: string; pos: string; headshot: string | null }
+export interface MoveGoalie extends MovePerson { season: GLine | null; us: GLine | null; teams: string[]; from: string | null; prior: GLine | null; hurt: Injury | null }
+export interface MoveArrival extends MovePerson { from: string; season: SkLine | null; us: SkLine | null; prev: SkLine | null; hurt: Injury | null }
+export interface MoveGone extends MovePerson { to: string | null; us: SkLine | GLine | null; season: SkLine | GLine | null }
+export interface MoveHurt extends MovePerson, Injury { season: SkLine | GLine | null; prev: SkLine | GLine | null }
+export interface ClubMoves { gp: number; goalies: MoveGoalie[]; arrivals: MoveArrival[]; gone: MoveGone[]; hurt: MoveHurt[] }
+export interface FanMoves { season: number; lgSvp: number; clubs: Record<string, ClubMoves>; at: string }
 export interface FanPerson { id: number; name: string; num: number | null; pos: string; shoots: string; ht: number; wt: number; born: string; city: string; country: string; headshot: string | null }
 export interface FanGame { id: number; date: string; start: string; state: string; type?: number; home: string; away: string; hs: number | null; as: number | null; outcome: string | null }
 export interface FanRun { season: number; rounds: { round: number; opp: string; w: number; l: number }[] }
@@ -44,7 +56,7 @@ export interface FanTracking {
 export interface FanData {
   abbrev: string; name: string; season: number; prevSeason: number; standing: FanStanding | null;
   league: FanTeam[]; leaguePrev: FanTeam[]; skaters: FanSkater[]; goalies: FanGoalie[]; skatersPrev: FanSkater[]; goaliesPrev: FanGoalie[];
-  roster: FanPerson[]; prospects: FanPerson[]; recent: FanGame[]; upcoming: FanGame[]; playoffs: FanRun[]; news: FanNews[]; at: string; stale?: boolean;
+  roster: FanPerson[]; prospects: FanPerson[]; recent: FanGame[]; upcoming: FanGame[]; playoffs: FanRun[]; news: FanNews[]; moves?: FanMoves | null; at: string; stale?: boolean;
   champion?: string | null; table?: FanTableRow[]; usage?: FanUsage[]; crease?: FanCrease[]; tracking?: FanTracking | null; schedule?: FanGame[];
 }
 

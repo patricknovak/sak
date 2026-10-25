@@ -19,7 +19,7 @@ import { useLeague, useNow } from '../lib/store';
 import { hub } from '../lib/nhlhub';
 import { ago, fmtDate, fmtPts, NHL_TEAMS } from '../lib/format';
 import { assess, fmtToi, GROUPS, rankWord, type Development, type FanData, type MetricGroup, type Ranked } from '../lib/fanZone';
-import { ahead, champion, crease, deepRecs, division, form, historyFacts, outlook, players, splits, trackingRead, truth, type FanHistory } from '../lib/fanDeep';
+import { ahead, champion, crease, deepRecs, division, form, historyFacts, outlook, players, priceMoves, splits, trackingRead, truth, type FanHistory } from '../lib/fanDeep';
 import { CLUB_LORE } from '../data/clubHistory';
 import { LoadError, NhlLogo, Spinner, TeamBadge } from '../components/ui';
 import { usePlayerInfo } from '../lib/playerInfo';
@@ -29,6 +29,7 @@ import { FanSplits, FanStyle } from '../components/fan/FanSplits';
 import { CreaseDeep, LuckWatch, Milestones, PlayerTable, Usage } from '../components/fan/FanPlayersDeep';
 import { FanDraft, FanFacts, FanHistorySection, FanRecords, FanTrophies } from '../components/fan/FanHistory';
 import { FanCrease } from '../components/fan/FanCrease';
+import { FanMoves } from '../components/fan/FanMoves';
 import { FanOffice } from '../components/fan/FanOffice';
 import { blame as blameOf, coaching, crease as creaseOf, goalieMarket, goaliePlan, goalieRecs, questions, targets, type FanOffice as OfficeData } from '../lib/fanOffice';
 import { clubTheme, clubVars } from '../data/clubColors';
@@ -102,10 +103,13 @@ function NhlFanZone({ club: param, tab }: { club?: string; tab: string }) {
   const deep = useMemo(() => {
     if (!data) return null;
     const out = outlook(data, 3000), tr = truth(data), sp = splits(data), fm = form(data), ah = ahead(data), pl = players(data), cr = crease(data);
+    // the roster's moves and injuries priced (trades, claims, the injury list), and the odds as they would be without them
+    const price = priceMoves(data);
+    const base = price && Math.abs(price.goals) >= 0.005 ? outlook(data, 1500, { moves: false }) : null;
     const recs = [...(a?.recs ?? []), ...deepRecs(data, { out, tr, pl, cr, ah, sp })];
     const order = { high: 0, medium: 1, watch: 2 };
     recs.sort((x, y) => order[x.priority] - order[y.priority]);
-    return { out, tr, sp, fm, ah, pl, cr, recs, track: trackingRead(data), champ: champion(data), div: division(data) };
+    return { out, base, price, tr, sp, fm, ah, pl, cr, recs, track: trackingRead(data), champ: champion(data), div: division(data) };
   }, [data, a]);
   // the crease and the front office, once their numbers are in
   const fo = useMemo(() => {
@@ -128,7 +132,7 @@ function NhlFanZone({ club: param, tab }: { club?: string; tab: string }) {
   }, [hist, lore]);
   const record = data?.standing ? `${data.standing.w}-${data.standing.l}-${data.standing.otl} · ${data.standing.pts} pts` : '';
   // the page's own sections, for the jump bar
-  const sections: readonly (readonly [string, string])[] = tab === 'analysis' ? [['verdict', 'Verdict'], ['numbers', 'Numbers'], ['splits', 'Splits'], ['style', 'Style'], ['players', 'Players'], ['crease', 'Crease'], ['office', 'Front office'], ['kb', 'Knowledge']]
+  const sections: readonly (readonly [string, string])[] = tab === 'analysis' ? [['verdict', 'Verdict'], ['moves', 'Moves'], ['numbers', 'Numbers'], ['splits', 'Splits'], ['style', 'Style'], ['players', 'Players'], ['crease', 'Crease'], ['office', 'Front office'], ['kb', 'Knowledge']]
     : tab === 'outlook' ? [['outlook', 'Chances'], ['games', 'Games']]
       : tab === 'history' ? [['history', 'History'], ['records', 'Records'], ['trophies', 'Trophies'], ['draft', 'Draft'], ['facts', 'Facts'], ['kb', 'Knowledge']]
         : [];
@@ -201,18 +205,20 @@ function NhlFanZone({ club: param, tab }: { club?: string; tab: string }) {
         tab === 'analysis' ? (
           <>
             <Verdict a={a} recs={recs} share={{ url: fanLink(club, 'analysis'), title: `${data.name}: the analysis`, text: `${data.name}: grade ${a.grade}. ${a.summary}` }} />
+            <FanMoves price={deep.price} out={deep.out} base={deep.base} club={club} />
             <Numbers ranks={a.ranks} prevSeason={data.prevSeason} />
             <FanSplits sp={deep.sp} />
             <FanStyle lines={deep.track} tracking={data.tracking} />
             <Players d={data} a={a} deep={deep} creaseLater={!!fo?.reads.length || !officeDone} />
-            {fo && <FanCrease reads={fo.reads} blame={fo.bl} plan={fo.plan} market={fo.market} owner={(id) => <OwnerBadge id={id} />} />}
+            {fo && <FanCrease reads={fo.reads} blame={fo.bl} plan={fo.plan} market={fo.market} owner={(id) => <OwnerBadge id={id} />}
+              moves={deep.price && office ? { price: deep.price, arrivals: (data.moves?.clubs[club]?.goalies ?? []).filter((g) => !(g.us?.gs ?? 0) && (g.from || g.prior)), seasons: office.seasons, lgSvp: office.lgSvp } : null} />}
             <FanOffice qs={fo?.qs ?? []} needs={fo?.needs ?? []} coach={fo?.coach ?? null} loading={!officeDone} />
             <Knowledge />
             <Footnote d={data} />
           </>
         ) : tab === 'outlook' ? (
           <>
-            <FanOutlook d={data} out={deep.out} tr={deep.tr} champ={deep.champ} div={deep.div} ah={deep.ah} share={deep.out ? { url: fanLink(club, 'outlook'), title: `${data.name}: the outlook`, text: `${data.name}: ${pctWord(deep.out.playoffs)} to make the playoffs, ${pctWord(deep.out.rounds.cup)} for the Cup, projected ${deep.out.projected.mid} points.` } : undefined} />
+            <FanOutlook d={data} out={deep.out} base={deep.base} tr={deep.tr} champ={deep.champ} div={deep.div} ah={deep.ah} share={deep.out ? { url: fanLink(club, 'outlook'), title: `${data.name}: the outlook`, text: `${data.name}: ${pctWord(deep.out.playoffs)} to make the playoffs, ${pctWord(deep.out.rounds.cup)} for the Cup, projected ${deep.out.projected.mid} points.` } : undefined} />
             <Games d={data} club={club} form={<FanForm d={data} fm={deep.fm} out={deep.out} />} />
             <Footnote d={data} />
           </>
@@ -229,6 +235,7 @@ function NhlFanZone({ club: param, tab }: { club?: string; tab: string }) {
           <>
             <Verdict a={a} recs={recs} compact club={club} />
             {deep.out && <Chances out={deep.out} club={club} />}
+            <FanMoves price={deep.price} out={deep.out} base={deep.base} club={club} compact />
             <FansSection d={data} club={club} post={post} />
             <News d={data} />
             <Deeper club={club} hist={hist} />

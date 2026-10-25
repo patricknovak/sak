@@ -8,20 +8,40 @@ import { NhlLogo } from '../ui';
 import { fmtDate } from '../../lib/format';
 import type { Blame, GoaliePlan, GoalieRead, MarketGoalie } from '../../lib/fanOffice';
 import { Head, ShareBar, pctStr } from './kit';
+import { CreaseArrival } from './FanMoves';
+import type { MoveGoalie } from '../../lib/fanZone';
+import type { MovePrice } from '../../lib/fanDeep';
 
 const sv = (v: number | null | undefined) => (v == null ? '–' : pctStr(v));
 const signed = (v: number, d = 1) => `${v >= 0 ? '+' : '−'}${Math.abs(v).toFixed(d)}`;
 const ord = (n: number) => `${n}${n % 10 === 1 && n % 100 !== 11 ? 'st' : n % 10 === 2 && n % 100 !== 12 ? 'nd' : n % 10 === 3 && n % 100 !== 13 ? 'rd' : 'th'}`;
 const TONE = { good: 'bg-emerald-500/15 text-emerald-200 ring-emerald-400/30', ok: 'bg-white/[.06] text-slate-200 ring-white/15', bad: 'bg-red-500/15 text-red-200 ring-red-400/30' } as const;
 
-export function FanCrease({ reads, blame, plan, market, owner }: { reads: GoalieRead[]; blame: Blame | null; plan: GoaliePlan | null; market: MarketGoalie[]; owner: (id: number) => React.ReactNode }) {
-  if (!reads.length) return null;
+export function FanCrease({ reads, blame, plan, market, owner, moves }: { reads: GoalieRead[]; blame: Blame | null; plan: GoaliePlan | null; market: MarketGoalie[]; owner: (id: number) => React.ReactNode;
+  moves?: { price: MovePrice; arrivals: MoveGoalie[]; seasons: { id: number; season: number; gp: number; svp: number | null; team: string | null }[]; lgSvp: Record<string, number> } | null }) {
+  if (!reads.length && !moves?.arrivals.length) return null;
+  // a goalie who left is still in the record; the card says where he went
+  const gone = new Map((moves?.price.items ?? []).filter((it) => it.kind === 'gone' && it.pos === 'G').map((it) => [it.id, it.text]));
+  // the plan in goal follows the roster: once a goalie arrives or leaves, the shares are the priced crease's
+  const priced = moves?.price.crease && (moves.arrivals.length || gone.size) ? moves.price.crease : null;
   return (
     <section className="space-y-3">
       <Head id="crease" title="The crease" sub="Every shot the goalies faced, placed by the NHL's tracking: how many, how dangerous, and how many an average goalie would have stopped." />
       {blame && <BlameCard b={blame} />}
-      {reads.map((r) => <GoalieCard key={r.id} r={r} owner={owner} />)}
-      {plan && (
+      {moves?.arrivals.map((g) => <CreaseArrival key={g.id} g={g} price={moves.price} seasons={moves.seasons.filter((s) => s.id === g.id)} lgSvp={moves.lgSvp} />)}
+      {reads.map((r) => <GoalieCard key={r.id} r={r} owner={owner} gone={gone.get(r.id) ?? null} />)}
+      {priced && (
+        <div className="card overflow-hidden p-4" style={{ background: 'linear-gradient(160deg, rgb(var(--club-rgb) / .14), transparent 60%)' }}>
+          <b className="text-white">The plan in goal</b>
+          <div className="mt-2 flex h-8 overflow-hidden rounded-xl ring-1 ring-white/10">
+            {priced.after.who.map((w, i) => (
+              <div key={w.id} className={`grid place-items-center px-2 text-xs font-bold ${i === 0 ? 'text-white' : 'bg-white/[.08] text-slate-200'}`} style={{ width: `${w.share * 100}%`, background: i === 0 ? 'rgb(var(--club-rgb))' : undefined }}>{w.name.split(' ').slice(-1)[0]} {Math.round(w.share * 100)}%</div>
+            ))}
+          </div>
+          <p className="mt-2 text-sm leading-snug text-slate-300">The roster as it stands: {priced.after.who.map((w) => `${w.name} ${Math.round(w.share * 100)}%${w.arrived ? ' (new)' : ''}`).join(', ')}. Expected save percentage {pctStr(priced.after.svp)} from here against {pctStr(priced.before.svp)} from the crease that played the games so far: {signed(priced.goals, 2)} goals a game, priced into the outlook.</p>
+        </div>
+      )}
+      {plan && !priced && (
         <div className="card overflow-hidden p-4" style={{ background: 'linear-gradient(160deg, rgb(var(--club-rgb) / .14), transparent 60%)' }}>
           <b className="text-white">The plan in goal</b>
           <div className="mt-2 flex h-8 overflow-hidden rounded-xl ring-1 ring-white/10">
@@ -62,7 +82,7 @@ function BlameCard({ b }: { b: Blame }) {
   );
 }
 
-function GoalieCard({ r, owner }: { r: GoalieRead; owner: (id: number) => React.ReactNode }) {
+function GoalieCard({ r, owner, gone }: { r: GoalieRead; owner: (id: number) => React.ReactNode; gone?: string | null }) {
   const info = usePlayerInfo();
   const [open, setOpen] = useState(false);
   const value = r.gsax ?? r.gsaa;
@@ -72,7 +92,7 @@ function GoalieCard({ r, owner }: { r: GoalieRead; owner: (id: number) => React.
       <button type="button" onClick={() => info?.(r.id)} className="flex w-full items-center gap-3 p-4 pb-2 text-left">
         {r.headshot ? <img src={r.headshot} alt="" loading="lazy" className="h-14 w-14 shrink-0 rounded-full bg-white/[.06] object-cover ring-2" style={{ '--tw-ring-color': 'rgb(var(--club-rgb) / .5)' } as React.CSSProperties} /> : <span className="h-14 w-14 shrink-0 rounded-full bg-white/[.06]" />}
         <span className="min-w-0 flex-1">
-          <span className="flex flex-wrap items-center gap-1.5"><b className="text-lg text-white">{r.name}</b>{owner(r.id)}</span>
+          <span className="flex flex-wrap items-center gap-1.5"><b className="text-lg text-white">{r.name}</b>{owner(r.id)}{gone && <span className="rounded-full bg-white/[.06] px-2 py-0.5 text-[11px] font-bold text-slate-300 ring-1 ring-inset ring-white/15">{gone.split(':')[0]}</span>}</span>
           <span className="block text-[12px] text-mute">{r.age != null ? `${r.age} · ` : ''}{r.gs} starts · {r.w}-{r.l}-{r.otl} · {sv(r.svp)} · {r.gaa.toFixed(2)} GAA</span>
           <span className={`mt-1 inline-block rounded-full px-2 py-0.5 text-[11px] font-bold ring-1 ${TONE[r.verdict.tone]}`}>{r.verdict.label}</span>
         </span>
