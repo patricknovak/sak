@@ -35,8 +35,13 @@ export function normal(r: () => number) { let u = 0; while (u === 0) u = r(); re
 export interface Outlook {
   sims: number; playoffs: number; division: number; top3: number; conference: number; presidents: number;
   projected: { low: number; mid: number; high: number }; pace: number; line: number; need: number | null; needPace: number | null; left: number;
-  odds: { abbrev: string; name: string; pts: number; gp: number; playoffs: number; projected: number }[];   // the club's conference, best chance first
+  odds: { abbrev: string; name: string; pts: number; gp: number; playoffs: number; projected: number; cup: number }[];   // the club's conference, best chance first
   all: Record<string, number>;   // every club's playoff chance: who is buying and who is selling
+  // since 25 October 2026: where they land and what the spring holds
+  seeds: { label: string; chance: number }[];                  // first in the division, second, third, the wild cards, out
+  firstRound: { abbrev: string; name: string; chance: number }[];   // the most likely first-round opponents, share of every season
+  rounds: { r1: number; r2: number; conf: number; final: number; cup: number };   // the chance of winning each round
+  cups: Record<string, number>;   // every club's chance of the Cup
 }
 // A club's true strength is its points percentage pulled toward the league's by 25 games of average hockey: ten games
 // in, a hot start counts for less than half of the read. Each of the rest of the games is then a draw: a win, an overtime
@@ -55,34 +60,77 @@ export function outlook(d: FanData, sims = 4000): Outlook | null {
   });
   const r = rng(seedOf(`${d.abbrev}:${totalGp}:${totalPts}`));
   const conf = me.conf;
-  const count = new Map<string, { po: number; pts: number }>(table.map((t) => [t.abbrev, { po: 0, pts: 0 }]));
+  const count = new Map<string, { po: number; pts: number; cup: number }>(table.map((t) => [t.abbrev, { po: 0, pts: 0, cup: 0 }]));
   let division = 0, top3 = 0, conference = 0, presidents = 0;
   const mine: number[] = [], lines: number[] = [];
+  const seedCount = [0, 0, 0, 0, 0, 0];   // 1st, 2nd, 3rd in the division, wild card 1, wild card 2, out
+  const opp = new Map<string, number>();
+  const won = { r1: 0, r2: 0, conf: 0, final: 0, cup: 0 };
+  // a best-of-seven between two clubs of true strengths qa and qb: each game by the log5 rule, four wins first
+  const series = (qa: number, qb: number) => {
+    const p = (qa * (1 - qb)) / (qa * (1 - qb) + qb * (1 - qa) || 1);
+    let win = 0;
+    for (let k = 0; k <= 3; k++) win += [1, 4, 10, 20][k] * p ** 4 * (1 - p) ** k;
+    return r() < win;
+  };
+  type Fin = { t: FanTableRow; pts: number; tie: number; q: number };
   for (let s = 0; s < sims; s++) {
-    const fin = teams.map(({ t, p, left, sd }) => {
+    const fin: Fin[] = teams.map(({ t, p, left, sd }) => {
       const q = Math.min(0.85, Math.max(0.15, p + normal(r) * sd));
       const o = OT_SHARE / 2, w = Math.max(0, q - o / 2);
       const mean = left * (2 * w + o), varg = Math.max(0.01, 4 * w + o - (2 * w + o) ** 2);
       const add = Math.round(Math.min(2 * left, Math.max(0, mean + normal(r) * Math.sqrt(left * varg))));
-      return { t, pts: t.pts + add, tie: (t.rw ?? t.w) + r() };
+      return { t, pts: t.pts + add, tie: (t.rw ?? t.w) + r(), q };
     });
     const order = [...fin].sort((a, b) => b.pts - a.pts || b.tie - a.tie);
     if (order[0].t.abbrev === d.abbrev) presidents++;
+    const champs: Fin[] = [];
+    let mySeed = 5;
     for (const c of new Set(table.map((t) => t.conf))) {
       const inConf = order.filter((x) => x.t.conf === c);
       const inPo = new Set<string>();
-      for (const dv of new Set(inConf.map((x) => x.t.div))) inConf.filter((x) => x.t.div === dv).slice(0, 3).forEach((x) => inPo.add(x.t.abbrev));
+      const byDiv = new Map<string, Fin[]>();
+      for (const dv of new Set(inConf.map((x) => x.t.div))) {
+        const top = inConf.filter((x) => x.t.div === dv).slice(0, 3);
+        byDiv.set(dv, top);
+        top.forEach((x) => inPo.add(x.t.abbrev));
+      }
       const wild = inConf.filter((x) => !inPo.has(x.t.abbrev)).slice(0, 2);
       wild.forEach((x) => inPo.add(x.t.abbrev));
       for (const a of inPo) count.get(a)!.po++;
       if (c === conf) {
         lines.push(wild[1]?.pts ?? wild[0]?.pts ?? 0);
         if (inConf[0].t.abbrev === d.abbrev) conference++;
-        const myDiv = inConf.filter((x) => x.t.div === me.div);
+        const myDiv = byDiv.get(me.div) ?? [];
         const at = myDiv.findIndex((x) => x.t.abbrev === d.abbrev);
         if (at === 0) division++;
         if (at >= 0 && at < 3) top3++;
+        mySeed = at >= 0 ? at : wild[0]?.t.abbrev === d.abbrev ? 3 : wild[1]?.t.abbrev === d.abbrev ? 4 : 5;
       }
+      // the bracket: the better division winner meets the second wild card, the other the first; second plays third in
+      // each division; the two sides meet in the conference final
+      const divs = [...byDiv.values()].filter((x) => x.length === 3);
+      if (divs.length === 2 && wild.length === 2) {
+        const [w1, w2] = divs[0][0].pts > divs[1][0].pts || (divs[0][0].pts === divs[1][0].pts && divs[0][0].tie > divs[1][0].tie) ? [divs[0], divs[1]] : [divs[1], divs[0]];
+        const pairs: [Fin, Fin][] = [[w1[0], wild[1]], [w1[1], w1[2]], [w2[0], wild[0]], [w2[1], w2[2]]];
+        const mineIn = pairs.find(([a, b]) => a.t.abbrev === d.abbrev || b.t.abbrev === d.abbrev);
+        if (mineIn) { const o = mineIn[0].t.abbrev === d.abbrev ? mineIn[1] : mineIn[0]; opp.set(o.t.abbrev, (opp.get(o.t.abbrev) ?? 0) + 1); }
+        const play = (a: Fin, b: Fin) => (series(a.q, b.q) ? a : b);
+        const r1 = pairs.map(([a, b]) => play(a, b));
+        if (r1.some((x) => x.t.abbrev === d.abbrev)) won.r1++;
+        const r2 = [play(r1[0], r1[1]), play(r1[2], r1[3])];
+        if (r2.some((x) => x.t.abbrev === d.abbrev)) won.r2++;
+        const cf = play(r2[0], r2[1]);
+        if (cf.t.abbrev === d.abbrev) won.conf++;
+        champs.push(cf);
+      }
+    }
+    seedCount[mySeed]++;
+    if (champs.length === 2) {
+      const cup = series(champs[0].q, champs[1].q) ? champs[0] : champs[1];
+      count.get(cup.t.abbrev)!.cup++;
+      if (cup.t.abbrev === d.abbrev) won.cup++;
+      if (champs.some((x) => x.t.abbrev === d.abbrev)) won.final++;
     }
     for (const x of fin) count.get(x.t.abbrev)!.pts += x.pts;
     mine.push(fin.find((x) => x.t.abbrev === d.abbrev)!.pts);
@@ -91,13 +139,18 @@ export function outlook(d: FanData, sims = 4000): Outlook | null {
   const q = (arr: number[], f: number) => arr[Math.min(arr.length - 1, Math.max(0, Math.round(f * (arr.length - 1))))];
   const line = q(lines, 0.5), left = Math.max(0, SEASON_GAMES - me.gp);
   const need = Math.max(0, line - me.pts);
+  const names = new Map(table.map((t) => [t.abbrev, t.name]));
   return {
     sims, playoffs: count.get(d.abbrev)!.po / sims, division: division / sims, top3: top3 / sims, conference: conference / sims, presidents: presidents / sims,
     projected: { low: q(mine, 0.1), mid: q(mine, 0.5), high: q(mine, 0.9) }, pace: me.gp ? (me.pts / me.gp) * SEASON_GAMES : 0, line, left,
     need: left ? need : null, needPace: left ? need / (2 * left) : null,
-    odds: table.filter((t) => t.conf === conf).map((t) => ({ abbrev: t.abbrev, name: t.name, pts: t.pts, gp: t.gp, playoffs: count.get(t.abbrev)!.po / sims, projected: Math.round(count.get(t.abbrev)!.pts / sims) }))
+    odds: table.filter((t) => t.conf === conf).map((t) => ({ abbrev: t.abbrev, name: t.name, pts: t.pts, gp: t.gp, playoffs: count.get(t.abbrev)!.po / sims, projected: Math.round(count.get(t.abbrev)!.pts / sims), cup: count.get(t.abbrev)!.cup / sims }))
       .sort((a, b) => b.playoffs - a.playoffs || b.pts - a.pts),
     all: Object.fromEntries(table.map((t) => [t.abbrev, count.get(t.abbrev)!.po / sims])),
+    seeds: ['1st in the division', '2nd in the division', '3rd in the division', 'First wild card', 'Second wild card', 'Out'].map((label, i) => ({ label, chance: seedCount[i] / sims })),
+    firstRound: [...opp.entries()].map(([abbrev, n]) => ({ abbrev, name: names.get(abbrev) ?? abbrev, chance: n / sims })).sort((a, b) => b.chance - a.chance).slice(0, 6),
+    rounds: { r1: won.r1 / sims, r2: won.r2 / sims, conf: won.conf / sims, final: won.final / sims, cup: won.cup / sims },
+    cups: Object.fromEntries(table.map((t) => [t.abbrev, count.get(t.abbrev)!.cup / sims])),
   };
 }
 

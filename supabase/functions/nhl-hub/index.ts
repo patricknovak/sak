@@ -21,6 +21,7 @@
 //   ?task=fan-sport-league&league=nfl   another league's fan zones (fan_leagues: the NFL, the NBA, the Premier League):
 //                                   every club, the table, every club's season numbers, the season's games, the leaders
 //   ?task=fan-sport&league=nfl&club=KC  one of its clubs: roster, leaders, injuries, coach, next game, news
+//   ?task=fan-sport-history&league=nfl  every club's seasons since 2002/2003 from ESPN's tables and postseasons, and the champions
 //   ?task=x                         NHL insiders on X: through the X API when X_BEARER_TOKEN is set, otherwise through
 //                                   Grok's X search with the XAI_API_KEY the league already uses for Garry (shared cache
 //                                   in hub_cache so the whole league costs one search every few minutes)
@@ -1284,6 +1285,118 @@ async function fanSportLeague(league: string) {
   return cached(`fan-sport-league:${row.key}`, 3_600_000, () => fanSportLeagueBuild(row));
 }
 
+// ── the other leagues' history (25 October 2026, Patrick: "amazing deep analysis, outlook and history pages"): ESPN keeps
+// each season's final table from 2002 (the NFL) and 2003 (the NBA, the Premier League), and each postseason's records, so
+// every club's seasons since then are read from them: the record, the points, the division or the place in the table,
+// the seed, and how the spring went (the round reached, from the postseason wins and losses: the NFL's champion is the one
+// club without a loss, the NBA's the one with sixteen wins, soccer's the top of the table). A season that is over never
+// changes, so each is kept in hub_cache for good once read; the whole history is put together every twelve hours. The
+// titles before the data are settled history in the site (src/data/leagueTitles.ts).
+//   fan-sport-history&league=nfl: { league, sport, from, to, clubs: { KC: [season...] }, champions: [{ year, champ, runner }], at }
+interface HistRow { year: number; team: string; name: string; w: number; l: number; d: number; pf: number; pa: number; pts: number | null; rank: number | null; seed: number | null; div: string | null; divRank: number | null; conf: string | null; po: { w: number; l: number; round: number; won: boolean } | null; note: string | null }
+const FIRST_SEASON: Record<string, number> = { football: 2002, basketball: 2003, soccer: 2003 };
+const stdGroups = (d: any): { conf: string | null; div: string | null; entries: any[] }[] => {
+  const out: { conf: string | null; div: string | null; entries: any[] }[] = [];
+  for (const c of (d.children?.length ? d.children : [d]) as any[]) {
+    if (c.children?.length) for (const v of c.children) out.push({ conf: c.abbreviation ?? c.name ?? null, div: v.name ?? null, entries: v.standings?.entries ?? [] });
+    else out.push({ conf: c.isConference ? c.abbreviation ?? c.name ?? null : null, div: null, entries: c.standings?.entries ?? [] });
+  }
+  return out;
+};
+async function fanSportSeasonBuild(row: FanSportRow, year: number): Promise<{ year: number; rows: HistRow[]; champ: string | null; runner: string | null } | null> {
+  const soccer = row.sport === 'soccer', football = row.sport === 'football';
+  const std = await espn(`https://site.api.espn.com/apis/v2/sports/${row.espn}/standings?season=${year}&level=3`);
+  if (Number(std.season?.year) !== year) return null;   // nothing kept for that season
+  const val = (e: any, name: string) => { const x = (e.stats ?? []).find((s: any) => s.name === name); return x ? Number(x.value ?? 0) : null; };
+  const rows: HistRow[] = [];
+  for (const g of stdGroups(std)) {
+    g.entries.forEach((e: any, i: number) => {
+      const w = val(e, 'wins') ?? 0, l = val(e, 'losses') ?? 0, d = val(e, 'ties') ?? 0;
+      rows.push({ year, team: String(e.team?.id ?? ''), name: e.team?.displayName ?? '', w, l, d, pf: val(e, 'pointsFor') ?? 0, pa: val(e, 'pointsAgainst') ?? 0,
+        pts: soccer ? val(e, 'points') : null, rank: soccer ? val(e, 'rank') : null, seed: soccer ? null : val(e, 'playoffSeed') || null,
+        div: g.div, divRank: g.div ? i + 1 : null, conf: g.conf, po: null, note: e.note?.description ?? null });
+    });
+  }
+  if (!rows.length) return null;
+  let champ: string | null = null, runner: string | null = null;
+  if (soccer) {
+    const order = [...rows].sort((a, b) => (a.rank ?? 99) - (b.rank ?? 99));
+    champ = order[0]?.team ?? null; runner = order[1]?.team ?? null;
+  } else {
+    // the postseason: each club's wins and losses in it
+    const po = await espn(`https://site.api.espn.com/apis/v2/sports/${row.espn}/standings?season=${year}&seasontype=3`).catch(() => null);
+    const games = new Map<string, { w: number; l: number }>();
+    if (po) for (const g of stdGroups(po)) for (const e of g.entries) { const w = val(e, 'wins') ?? 0, l = val(e, 'losses') ?? 0; if (w + l > 0) games.set(String(e.team?.id ?? ''), { w, l }); }
+    if (football) {
+      // the Super Bowl, from the last week of the postseason that holds it, names both finalists; the byes (one a
+      // conference since 2020, two before) went to the division winners with the best records
+      const weeks = await espn(`${CORE(row.espn)}/seasons/${year}/types/3/weeks`).catch(() => null);
+      const n = Number(weeks?.count ?? 0);
+      let final: { winner: string | null; loser: string | null } | null = null;
+      for (const wk of [n, n - 1].filter((x) => x >= 3)) {
+        const ev = await espn(`${CORE(row.espn)}/seasons/${year}/types/3/weeks/${wk}/events`).catch(() => null);
+        for (const it of (ev?.items ?? []) as any[]) {
+          const e = await espn(String(it.$ref).replace(/^http:/, 'https:')).catch(() => null);
+          const comp = e?.competitions?.[0];
+          if (!comp || !/super bowl/i.test(comp.notes?.[0]?.headline ?? e?.name ?? '')) continue;
+          const team = (c: any) => /teams\/(\d+)/.exec(String(c.team?.$ref ?? ''))?.[1] ?? null;
+          final = { winner: team(comp.competitors.find((c: any) => c.winner)) , loser: team(comp.competitors.find((c: any) => !c.winner)) };
+          break;
+        }
+        if (final) break;
+      }
+      const byes = new Set<string>();
+      for (const conf of new Set(rows.map((r) => r.conf))) {
+        const winners = rows.filter((r) => r.conf === conf && r.divRank === 1).sort((a, b) => (b.w + b.d / 2) / Math.max(1, b.w + b.l + b.d) - (a.w + a.d / 2) / Math.max(1, a.w + a.l + a.d) || (b.pf - b.pa) - (a.pf - a.pa));
+        winners.slice(0, year >= 2020 ? 1 : 2).forEach((r) => byes.add(r.team));
+      }
+      for (const r of rows) {
+        const g = games.get(r.team);
+        if (!g) continue;
+        const won = final?.winner === r.team;
+        const round = won ? 5 : final?.loser === r.team ? 4 : (byes.has(r.team) ? 2 : 1) + g.w;
+        r.po = { w: g.w, l: g.l, round, won };
+      }
+      champ = final?.winner ?? rows.find((r) => r.po && r.po.l === 0 && r.po.w > 0)?.team ?? null;
+      runner = final?.loser ?? null;
+    } else {
+      // a round is four wins; sixteen is the title
+      for (const r of rows) {
+        const g = games.get(r.team);
+        if (!g) continue;
+        const won = g.w >= 16;
+        r.po = { w: g.w, l: g.l, round: won ? 5 : 1 + Math.floor(g.w / 4), won };
+      }
+      champ = rows.find((r) => r.po?.won)?.team ?? null;
+      runner = rows.filter((r) => r.po && !r.po.won && r.po.w >= 12).sort((a, b) => b.po!.w - a.po!.w)[0]?.team ?? null;
+    }
+  }
+  return { year, rows, champ, runner };
+}
+async function fanSportHistoryBuild(row: FanSportRow) {
+  const season = await coreSeason(row);
+  const from = FIRST_SEASON[row.sport] ?? 2003, to = season.year - 1;
+  const { data: fc } = await db.from('fan_clubs').select('code,espn_id,name').eq('league', row.key).eq('active', true);
+  const codeOf = new Map(((fc ?? []) as any[]).map((c) => [String(c.espn_id), String(c.code)]));
+  const clubs: Record<string, HistRow[]> = Object.fromEntries(((fc ?? []) as any[]).map((c) => [String(c.code), []]));
+  const champions: { year: number; champ: string | null; runner: string | null; champName: string | null }[] = [];
+  const years: number[] = []; for (let y = from; y <= to; y++) years.push(y);
+  // a season that is over is read once and kept; the latest two are re-read now and then in case a record was amended
+  const seasons = await inBatches(years, 4, (y) => cached(`fan-sport-season:${row.key}:${y}`, y >= to - 1 ? 7 * 86_400_000 : 400 * 86_400_000, async () => (await fanSportSeasonBuild(row, y)) ?? { year: y, rows: [], champ: null, runner: null, none: true }) as unknown as Promise<{ year: number; rows: HistRow[]; champ: string | null; runner: string | null; none?: boolean }>);
+  for (const s of seasons) {
+    if (!s || s.none || !s.rows?.length) continue;
+    for (const r of s.rows) { const code = codeOf.get(r.team); if (code) clubs[code].push(r); }
+    const name = s.rows.find((r) => r.team === s.champ)?.name ?? null;
+    champions.push({ year: s.year, champ: s.champ ? codeOf.get(s.champ) ?? null : null, runner: s.runner ? codeOf.get(s.runner) ?? null : null, champName: name });
+  }
+  for (const code of Object.keys(clubs)) clubs[code].sort((a, b) => a.year - b.year);
+  return { league: row.key, sport: row.sport, from, to, clubs, champions, at: new Date().toISOString() };
+}
+async function fanSportHistory(league: string) {
+  const row = await fanSportRow(league);
+  return cached(`fan-sport-history:${row.key}`, 12 * 3_600_000, () => fanSportHistoryBuild(row));
+}
+
 async function gameLines(id: string) {
   const land = await get(`/gamecenter/${id}/landing`);
   const started = ['LIVE', 'CRIT', 'OFF', 'FINAL'].includes(land.gameState);
@@ -1321,7 +1434,7 @@ Deno.serve(async (req) => {
     const body = task === 'standings' ? await standings() : task === 'schedule' ? await schedule(date) : task === 'game' ? await gameDetail(id)
       : task === 'news' ? await news() : task === 'x' ? await xfeed() : task === 'leaders' ? await leaders() : task === 'team' ? await club(abbrev) : task === 'fan' ? await fanZone(abbrev) : task === 'fan-history' ? await fanHistory(abbrev) : task === 'fan-office' ? await fanOffice(abbrev) : task === 'fan-league' ? await fanLeague()
       : task === 'lines' ? await gameLines(id) : task === 'espn' ? await espnBox(sport, id)
-      : task === 'fan-sport' ? await fanSport(league, clubCode) : task === 'fan-sport-league' ? await fanSportLeague(league)
+      : task === 'fan-sport' ? await fanSport(league, clubCode) : task === 'fan-sport-league' ? await fanSportLeague(league) : task === 'fan-sport-history' ? await fanSportHistory(league)
       : task in SPORT_TASKS ? await sportTask(task as SportTask, sport) : await scores(date);
     const ttl = (body as { ttl?: number })?.ttl ?? TTL[task as keyof typeof TTL] ?? 20_000;
     cache.set(key, { at: Date.now(), ttl, body });

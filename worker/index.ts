@@ -2,6 +2,7 @@
 // as static assets, as before, and runs first only for the paths it owns:
 //   /api/hub?task=…   the sports data the centres read (nhl-hub), cached at Cloudflare's edge: a room full of people on
 //                     game night costs one call to the function per refresh window per location, not one each
+//   /api/img?u=…      a league's logo with the header a canvas needs, for the share cards the phone draws (worker/hub.ts)
 //   /j/<code>         an invite link that unfurls in iMessage, WhatsApp and Slack with the pool's own name, colour and
 //                     host, then opens the join page (#/join/<code>)
 //   /p/<web name>/…   a pool's link, the same way, then the pool (#/p/<web name>/…)
@@ -9,12 +10,13 @@
 //   /api/live/<league>/<day>   the league's live room for that game night (a WebSocket; worker/live.ts)
 //   /api/live/<league>/draft   the league's draft room: the pick clock and every pick, live (a WebSocket; worker/draft.ts)
 //   /api/live/<league>/pool/<day>   a prediction pool's room for the day: its games and its table, live (worker/pool.ts)
-//   /fans, /fans/<club>, /fans/<club>/pulse   the NHL fan zones' links, unfurling with the club's own picture
-//                     (/og/fans/<club>.png), then the app (#/fans/…); /api/fans/<club> the fans' open data (worker/fans.ts);
-//                     every other league's at /fans/<league>(/<CLUB>)(/pulse), /og/fans/<league>(/<CLUB>).png, /api/fans/<league>(/<CLUB>)
+//   /fans, /fans/<club>, /fans/<club>/<page>   the NHL fan zones' links (a page is the analysis, the outlook, the history
+//                     or the pulse), each unfurling with a picture drawn from its own numbers (/og/fans/<club>(-<page>).png),
+//                     then the app (#/fans/…); /api/fans/<club> the fans' open data (worker/fans.ts); every other
+//                     league's at /fans/<league>(/<CLUB>)(/<page>), /og/fans/<league>(/<CLUB>)(-<page>).png, /api/fans/<league>(/<CLUB>)
 // Everything else is the app, unchanged. Postgres stays the source of truth: the Worker reads only what the public key
 // may (invite_preview, league_by_host) and the public sports feeds.
-import { hub } from './hub';
+import { hub, img } from './hub';
 import { live, LiveRoom } from './live';
 import { draftRoom, DraftRoom } from './draft';
 import { poolRoom, PoolRoom } from './pool';
@@ -37,6 +39,7 @@ export default {
     const p = url.pathname;
     try {
       if (p === '/api/hub') return withSecurity(await hub(req, env, ctx));
+      if (p === '/api/img') return withSecurity(await img(req, ctx));
       if (p === '/api/fans' || p.startsWith('/api/fans/')) return withSecurity(await fansApi(p.slice('/api/fans'.length), url, env, ctx));
       if (/^\/api\/live\/\d+\/draft$/.test(p)) return withSecurity(await draftRoom(req, env));
       if (/^\/api\/live\/\d+\/pool\//.test(p)) return withSecurity(await poolRoom(req, env));
@@ -49,9 +52,9 @@ export default {
       if (m) return withSecurity(await invitePage(m[1], url, env));
       m = /^\/p\/([a-z0-9-]{1,40})(\/.*)?$/i.exec(p);
       if (m) return withSecurity(await poolPage(m[1], m[2] ?? '', url, env));
-      m = /^\/og\/fans\/([a-z]{3}(?:-pulse)?|[a-z][a-z0-9-]{1,11}(?:\/[A-Z0-9]{2,5})?(?:-pulse)?)\.png$/i.exec(p);
+      m = /^\/og\/fans\/([a-z]{3}(?:-(?:pulse|analysis|outlook|history))?|[a-z][a-z0-9-]{1,11}(?:\/[A-Z0-9]{2,5})?(?:-(?:pulse|analysis|outlook|history))?)\.png$/i.exec(p);
       if (m) return withSecurity(await fansImage(m[1], url, req, env, ctx));
-      if (p === '/fans' || p.startsWith('/fans/')) return withSecurity(await fansPage(p.slice('/fans'.length), url, env));
+      if (p === '/fans' || p.startsWith('/fans/')) return withSecurity(await fansPage(p.slice('/fans'.length), url, env, ctx));
     } catch (e) {
       console.error(p, e);
       // a link always opens something: the app itself, if the preview couldn't be made

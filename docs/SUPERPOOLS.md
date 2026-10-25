@@ -500,7 +500,11 @@ The steps above finish the tenancy. `docs/MARKET.md` sets what comes after in th
     on superpoolsai.com. Since 25 October 2026 (§9.21, migration 338) the code is MIT and the zones cover every club in
     the NFL, the NBA and the Premier League too, each league with its own page (`#/fans/nfl`): the grade, every measure,
     the chances from the season and its spring simulated, the luck, the players and the front office, with the fans'
-    calls in each sport's words; a new league of a sport already here is one database row.
+    calls in each sport's words; a new league of a sport already here is one database row. Later that day (§9.22) each zone became pages (the overview, the analysis, the outlook with the
+    seeds, the first-round opponents and the spring round by round, the history, the pulse), the other leagues got their
+    history from ESPN's tables since 2002/2003 and the settled titles before, every page's link unfurls with a picture
+    drawn from its own numbers, and one share sheet across the product draws the verdict, the outlook, the history, the
+    fan's own calls and the pulse as pictures for stories and group chats, with every network and a QR code.
 
 Then horizon 2 (soccer on licensed data, basketball, the multi-sport pool, the Supercoin prediction market,
 the Super Pool bundle, the public API) and horizon 3 (cricket free-to-play, baseball, football and college,

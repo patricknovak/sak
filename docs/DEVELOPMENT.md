@@ -1293,6 +1293,61 @@ leagues. Can I expand this structure and infrastructure into other leagues."
   own colours and ESPN mark (`/og/fans/<league>/<CLUB>.png`), and serves `/api/fans/<league>` and
   `/api/fans/<league>/<CLUB>` (`/api/fans/nhl/EDM` too). superpoolsai.com's fan zones section and `landing/fans.html` show
   the four leagues.
-- **Not yet**: history for the other leagues (ESPN has no record books like the NHL's; the fans' knowledge base stands in),
-  contracts and the cap (not in the free feeds), and the NHL's league page in the same shape as the others (the NHL's
-  board stays on `#/fans`).
+- **Not yet**: contracts and the cap (not in the free feeds), and the NHL's league page in the same shape as the others (the NHL's
+  board stays on `#/fans`). The other leagues' history came later that day (§9.22).
+
+### 9.22 Fan zones as pages, deeper outlooks, history for every league, and sharing that looks the part, 25 October 2026
+
+Patrick: "Review the fan zones structure and improve it where possible to make amazing deep analysis, outlook and history
+pages. Also improve the look dramatically of sharing individual fan pages in messages and social media as well as try to
+enhance social media and sharing in messaging apps features for fan zones as well as all of super pools and individual
+pools. I want people to be able to share in the most epic and amazing fashions the content and information they love in
+super pools."
+- **A zone is pages** (`FanZone.tsx`, `SportFanZone.tsx`, `ZoneTabs.tsx`): the overview (`#/fans/EDM`: the hero, the verdict
+  in brief with the first three calls, the chances in four tiles with the likeliest first-round opponent and the playoff
+  line, the fans, the news, the way deeper), the analysis (`/analysis`: the verdict in full, every measure, the splits,
+  the style, the players, the crease, the front office, the knowledge base), the outlook (`/outlook`), the history
+  (`/history`) and the pulse. The same for every other league's clubs (`#/fans/nfl/KC/outlook`). Each page has its own
+  link, title and picture; a share icon on the big section heads shares that page; `zonePath` takes the page.
+- **Deeper outlooks** (`fanDeep.outlook`, `fanSport.outlook`): the NHL's simulation now plays the spring too (each series
+  by the log5 rule from the two clubs' true strengths, four wins first, the NHL's bracket: the better division winner
+  against the second wild card, second against third in each division) and reports where the club lands (first, second or
+  third in the division, either wild card, out), its most likely first-round opponents as a share of every season, the
+  chance of winning each round through the Cup, and every club's Cup chance (the conference race shows it). The other
+  sports' simulation reports each conference seed's chance (the NFL's seven, the NBA's ten with the play-in's four), the
+  first-round opponents (a bye for the NFL's top seed) and the lines (the wins of the last club in, in the middle season;
+  for soccer the points fourth and seventeenth take). Tested in `fan-zone.test.mjs` and `fan-sport.test.mjs`.
+- **History for the NFL, the NBA and the Premier League** (nhl-hub `fan-sport-history`, `src/lib/fanSportHistory.ts`,
+  `SportHistory.tsx`, `src/data/leagueTitles.ts`): ESPN keeps each season's final table from 2002 (the NFL) and 2003 (the
+  NBA, the Premier League) and each postseason's records, so every club's seasons since then are read from them (the
+  record, the points, the division or place, the seed, the round reached: the NFL's champion is the one club without a
+  loss and the Super Bowl itself names both finalists, the NBA's the one with sixteen wins, soccer's the top of the
+  table); a season that is over is kept in `hub_cache` for good once read, the whole history put together every twelve
+  hours. The titles before the data (the Super Bowls and the NFL and AFL championships, the NBA's champions from 1947, the
+  English champions from 1889) and each club's founding year are settled history in `leagueTitles.ts`; the AFL's titles
+  from 1966 are the road to the Super Bowl, not a title of their own. The page: the trophy shelf, the totals since the
+  tables began, every season as a bar coloured by how the spring went, the eras by decade, the last springs, the facts a
+  fan quotes and the league's champions in order with who has the most. Tested on made-up seasons in `fan-sport.test.mjs`.
+- **One share sheet** (`src/lib/share.ts`, `src/components/ShareSheet.tsx`): a share is a job (title, text, link and, where
+  there is one, a picture) and the sheet offers every way to send it: the phone's own sheet with the picture in it where
+  the phone takes files, the picture saved, the link copied, X, Threads, WhatsApp, Telegram, Messages, Facebook, Reddit,
+  Bluesky, email, and a QR code (`qrcode-generator`) for the person across the table. The fan zones' `ShareButton`
+  (`FanShare.tsx`) and the pools' (`ShareButton.tsx`, every "share my picks": `shareCard` now returns the job and the sheet
+  shows the picture before it goes) and the pool's invite card all use it; a plain link on a phone still goes straight to
+  the phone's own sheet.
+- **Share cards for the fan zones** (`src/lib/fanCards.ts`, `zoneShare.ts`): story-shaped pictures (1080 x 1350) drawn on
+  the phone in the club's colours with its logo (the NHL's through the Worker's `/api/img`, which adds the header a canvas
+  needs; ESPN's allow it): the verdict (the grade, the read, the strengths and weaknesses with their ranks, the luck),
+  the outlook (the headline chance as a ring, the projected finish, the chances and what it takes), the history (the
+  titles with their years, the all-time numbers, the facts), the fan's own calls with how many fans agree, the pulse
+  (the busiest calls as bars) and a post. The hero's Share offers them as a strip with a preview; each points at the page
+  it came from.
+- **Link previews that carry the numbers** (`worker/fans.ts`, `worker/preview.ts`): every fan page unfurls with a picture
+  drawn from the page's own numbers through the site's own libraries at the edge (the hub's data via `hubData`): the zone
+  (the grade, the record, the playoff and title chances, the fans), the outlook (the headline chance, the projected
+  finish, the division, the title, the first-round opponent), the analysis (the grade, the top two strengths and
+  weaknesses with their ranks), the history (the titles, the all-time record, the springs, the finals), the pulse (the
+  fans' loudest calls as bars), a league's page (the title favourites), a post (its score and author); the words say the
+  same. A pool's invite picture now carries its first question as a quote and the pool's numbers as tiles.
+- **Not yet**: a share card for a pool's table or a question from the Worker (a pool is private, so its pictures stay the
+  ones the phone draws), contracts and the cap, and the NHL's league page in the same shape as the others.

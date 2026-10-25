@@ -170,7 +170,8 @@ function App() {
           <Route path="/fans/:club/pulse" element={<FanPulse />} />
           <Route path="/fans/:club" element={<FanZone />} />
           <Route path="/fans/:league/:club/pulse" element={<FanPulse />} />
-          <Route path="/fans/:league/:club" element={<SportFanZone />} />
+          <Route path="/fans/:league/:club/:tab" element={<SportFanZone />} />
+          <Route path="/fans/:league/:club" element={<FanZone />} />
           <Route path="/pools" element={<Pools />} />
           {/* a pool's link followed inside the app: load the page again so the pool in it opens (host.ts reads it at start) */}
           <Route path="/p/*" element={<Reopen />} />

@@ -10,13 +10,13 @@ import { Head, ShareBar, pctStr, recordOf } from './kit';
 
 const pct0 = (v: number) => (v >= 0.995 ? '>99%' : v > 0 && v < 0.005 ? '<1%' : `${Math.round(v * 100)}%`);
 
-export function FanOutlook({ d, out, tr, champ, div, ah }: { d: FanData; out: Outlook | null; tr: Truth | null; champ: ReturnType<typeof championFn>; div: ReturnType<typeof divisionFn>; ah: Ahead | null }) {
+export function FanOutlook({ d, out, tr, champ, div, ah, share }: { d: FanData; out: Outlook | null; tr: Truth | null; champ: ReturnType<typeof championFn>; div: ReturnType<typeof divisionFn>; ah: Ahead | null; share?: { url: string; title: string; text: string } }) {
   const [allConf, setAllConf] = useState(false);
   if (!out) return null;
   const odds = allConf ? out.odds : out.odds.slice(0, 10);
   return (
     <section className="space-y-3">
-      <Head id="outlook" title="The outlook" sub={`The rest of the season played ${out.sims.toLocaleString()} times for all 32 clubs, from each one's record pulled toward the league average while the sample is small.`} />
+      <Head id="outlook" title="The outlook" sub={`The rest of the season played ${out.sims.toLocaleString()} times for all 32 clubs, from each one's record pulled toward the league average while the sample is small.`} share={share} />
       <div className="card overflow-hidden p-4" style={{ background: 'linear-gradient(160deg, rgb(var(--club-rgb) / .14), transparent 55%)' }}>
         <div className="flex items-center gap-4">
           <Ring value={out.playoffs} />
@@ -48,7 +48,7 @@ export function FanOutlook({ d, out, tr, champ, div, ah }: { d: FanData; out: Ou
       </div>
 
       <div className="card overflow-hidden">
-        <div className="flex items-center justify-between border-b border-white/[.06] px-3 py-2"><b className="text-sm text-white">The conference race</b><span className="text-[11px] text-mute">chances · projected points</span></div>
+        <div className="flex items-center justify-between border-b border-white/[.06] px-3 py-2"><b className="text-sm text-white">The conference race</b><span className="text-[11px] text-mute">playoffs · points · Cup</span></div>
         <div className="divide-y divide-white/[.05]">
           {odds.map((t) => (
             <div key={t.abbrev} className={`flex items-center gap-2 px-3 py-1.5 text-sm ${t.abbrev === d.abbrev ? 'bg-white/[.04]' : ''}`}>
@@ -58,10 +58,61 @@ export function FanOutlook({ d, out, tr, champ, div, ah }: { d: FanData; out: Ou
               <span className="min-w-0 flex-1"><ShareBar value={t.playoffs} tone={t.abbrev === d.abbrev ? 'club' : 'plain'} /></span>
               <span className="num w-11 shrink-0 text-right font-bold text-white">{pct0(t.playoffs)}</span>
               <span className="num w-8 shrink-0 text-right text-[11px] text-mute">{t.projected}</span>
+              <span className="num w-10 shrink-0 text-right text-[11px] text-amber-200">{pct0(t.cup)}</span>
             </div>
           ))}
         </div>
         {out.odds.length > 10 && <button type="button" onClick={() => setAllConf(!allConf)} className="w-full border-t border-white/[.06] py-2 text-sm font-semibold text-sky-300">{allConf ? 'The top ten' : `All ${out.odds.length} clubs`}</button>}
+      </div>
+
+      {/* 25 October 2026: where they land, who they would meet, and the spring round by round */}
+      <div className="grid gap-2 sm:grid-cols-2">
+        <div className="card p-4">
+          <b className="text-white">Where they land</b>
+          <p className="text-[11px] text-mute">The share of seasons ending in each place.</p>
+          <div className="mt-2 space-y-1.5">
+            {out.seeds.map((s) => (
+              <div key={s.label} className="flex items-center gap-2 text-sm">
+                <span className={`w-36 shrink-0 truncate ${s.label === 'Out' ? 'text-mute' : 'text-slate-200'}`}>{s.label}</span>
+                <span className="min-w-0 flex-1"><ShareBar value={s.chance} tone={s.label === 'Out' ? 'bad' : 'club'} h="h-1.5" /></span>
+                <span className="num w-11 shrink-0 text-right font-semibold text-white">{pct0(s.chance)}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+        <div className="card p-4">
+          <b className="text-white">The first round</b>
+          <p className="text-[11px] text-mute">The most likely opponents, as a share of every season.</p>
+          {out.firstRound.length ? (
+            <div className="mt-2 space-y-1.5">
+              {out.firstRound.map((o) => (
+                <div key={o.abbrev} className="flex items-center gap-2 text-sm">
+                  <NhlLogo abbr={o.abbrev} size={20} />
+                  <span className="min-w-0 flex-1 truncate text-slate-200">{o.name}</span>
+                  <span className="w-16 shrink-0"><ShareBar value={o.chance / Math.max(0.01, out.playoffs)} h="h-1.5" tone="plain" /></span>
+                  <span className="num w-11 shrink-0 text-right font-semibold text-white">{pct0(o.chance)}</span>
+                </div>
+              ))}
+              <p className="pt-1 text-[11px] text-mute">Of the seasons they make it, {pct0(out.firstRound[0].chance / Math.max(0.01, out.playoffs))} start against the {out.firstRound[0].name}.</p>
+            </div>
+          ) : <p className="mt-2 text-sm text-mute">No playoff series in the seasons simulated.</p>}
+        </div>
+      </div>
+      <div className="card p-4">
+        <div className="flex items-baseline justify-between gap-2"><b className="text-white">The spring, round by round</b><span className="text-[11px] text-mute">each series by the log5 rule, four wins first</span></div>
+        <div className="mt-3 grid grid-cols-5 gap-1.5">
+          {([['Make it', out.playoffs], ['Win round 1', out.rounds.r1], ['Win round 2', out.rounds.r2], ['Reach the Final', out.rounds.conf], ['Win the Cup', out.rounds.cup]] as const).map(([k, v], i) => (
+            <div key={k} className="min-w-0 rounded-2xl bg-black/25 px-1.5 py-2 text-center ring-1 ring-white/10">
+              <div className="num font-display text-[clamp(14px,4.2vw,22px)] font-extrabold leading-tight" style={{ color: i === 4 ? 'var(--club)' : 'white' }}>{pct0(v)}</div>
+              <div className="mt-0.5 text-[10px] leading-tight text-mute">{k}</div>
+              <div className="mt-1.5 h-1 rounded-full bg-white/[.06]"><div className="h-1 rounded-full" style={{ width: `${Math.max(2, v * 100)}%`, background: i === 4 ? 'rgb(252 211 77)' : 'rgb(var(--club-rgb))' }} /></div>
+            </div>
+          ))}
+        </div>
+        <p className="mt-2 text-[12px] leading-snug text-slate-300">
+          {out.rounds.cup >= 0.1 ? `A real contender: the Cup comes home in about one season in ${Math.max(2, Math.round(1 / out.rounds.cup))}.` : out.rounds.cup >= 0.03 ? `A live outsider: one season in ${Math.round(1 / out.rounds.cup)} ends with the Cup.` : out.playoffs >= 0.5 ? 'A playoff team more than a champion as things stand: the spring would need a run.' : 'The Cup is a long way off this season.'}
+          {' '}The favourite in the conference: {(() => { const f = [...out.odds].sort((a, b) => b.cup - a.cup)[0]; return f ? `the ${f.name} (${pct0(f.cup)})` : '–'; })()}.
+        </p>
       </div>
 
       {tr && (

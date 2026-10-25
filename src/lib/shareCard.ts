@@ -2,6 +2,8 @@
 // to the group chat (my call, the call that came in, the standings), drawn on the phone in the pool's own colours, so
 // it costs nothing to make and nothing leaves the device until the member shares it. 1080 x 1350, the shape every chat
 // and story shows whole.
+import type { ShareJob } from './share';
+
 export interface CardBrand { wordmark: { a: string; b: string }; color: string; coin: { name: string; emoji: string }; pool: string }
 export type ShareCard =
   | { kind: 'call'; brand: CardBrand; who: string; question: string; answer: string; answerColor: string; chance: number; pays: number; staked: number }
@@ -13,7 +15,7 @@ export type ShareCard =
 const W = 1080, H = 1350;
 const DISPLAY = "'Barlow Condensed', 'Inter', system-ui, sans-serif", SANS = "'Inter', system-ui, sans-serif";
 
-function wrap(ctx: CanvasRenderingContext2D, text: string, max: number) {
+export function wrap(ctx: CanvasRenderingContext2D, text: string, max: number) {
   const out: string[] = []; let line = '';
   for (const w of text.split(/\s+/)) {
     const t = line ? `${line} ${w}` : w;
@@ -23,7 +25,7 @@ function wrap(ctx: CanvasRenderingContext2D, text: string, max: number) {
   return out;
 }
 // the biggest size at which the text fits in the lines it is allowed
-function fit(ctx: CanvasRenderingContext2D, text: string, max: number, lines: number, from: number, to: number, font: (px: number) => string) {
+export function fit(ctx: CanvasRenderingContext2D, text: string, max: number, lines: number, from: number, to: number, font: (px: number) => string) {
   for (let px = from; px >= to; px -= 4) { ctx.font = font(px); const l = wrap(ctx, text, max); if (l.length <= lines) return { px, lines: l }; }
   ctx.font = font(to); const l = wrap(ctx, text, max);
   return { px: to, lines: l.length > lines ? [...l.slice(0, lines - 1), `${l.slice(lines - 1).join(' ').slice(0, 40)}…`] : l };
@@ -121,16 +123,9 @@ export async function drawCard(c: ShareCard): Promise<Blob> {
   return new Promise((res, rej) => cv.toBlob((b) => (b ? res(b) : rej(new Error('Couldn’t draw the card'))), 'image/png'));
 }
 
-// share the picture (and a line of text) to the group chat; where the phone can't share pictures, save it instead
-export async function shareCard(card: ShareCard, text: string, url?: string) {
+// the card as a share: the picture, the words and the link, for the share sheet (src/components/ShareSheet.tsx) to send
+// wherever the member likes
+export async function shareCard(card: ShareCard, text: string, url?: string): Promise<ShareJob> {
   const blob = await drawCard(card);
-  const file = new File([blob], 'super-pools.png', { type: 'image/png' });
-  const nav = navigator as Navigator & { canShare?: (d: ShareData) => boolean };
-  if (nav.share && nav.canShare?.({ files: [file] })) {
-    await nav.share({ files: [file], text: url ? `${text} ${url}` : text }).catch(() => {});
-    return 'shared';
-  }
-  const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = 'super-pools.png';
-  document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 4000);
-  return 'saved';
+  return { blob, text, url, title: card.brand.pool, file: 'super-pools.png' };
 }

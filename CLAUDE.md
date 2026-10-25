@@ -96,7 +96,18 @@ Two things in one repo:
   topics and calls checked by sport; `#/fans/<league>` (`SportFanLeague.tsx`) and `#/fans/<league>/<club>`
   (`SportFanZone.tsx`, its pulse at `/pulse`), read by `src/lib/fanSport.ts` (measures, grade, the season and its spring
   simulated, luck, form, players, the bigger questions), the fans' pieces taking the league from `FanVoiceProvider`; the
-  Worker unfurls `/fans/<league>(/<CLUB>)` and serves `/api/fans/<league>(/<CLUB>)`.
+  Worker unfurls `/fans/<league>(/<CLUB>)` and serves `/api/fans/<league>(/<CLUB>)`. A zone is pages (later on 25 October
+  2026, docs/DEVELOPMENT.md §9.22): the overview, `/analysis`, `/outlook` (the seeds, the first-round opponents, the spring
+  round by round, the lines) and `/history` beside `/pulse`, for the NHL (`#/fans/EDM/outlook`) and every other league
+  (`#/fans/nfl/KC/history`; `zonePath(league, club, page)`); the other leagues' history comes from nhl-hub's
+  `fan-sport-history` (ESPN's tables and postseasons since 2002/2003, each season kept for good) read by
+  `src/lib/fanSportHistory.ts`, with the settled titles before the data in `src/data/leagueTitles.ts`. Sharing is one sheet
+  for the whole product (`src/lib/share.ts`, `src/components/ShareSheet.tsx`: the phone's own sheet with the picture, save,
+  copy, every network, a QR code); the zones draw share cards on the phone (`src/lib/fanCards.ts`, `zoneShare.ts`: the
+  verdict, the outlook, the history, my calls, the pulse) and the Worker unfurls every page with a picture drawn from its
+  own numbers through the site's libraries (`worker/fans.ts`, `hubData` in `worker/hub.ts`; `/api/img` hands the NHL's logos
+  to the canvas). New UI that shares anything uses `ShareSheet` (or the two `ShareButton`s on it), never `navigator.share`
+  on its own.
 - Navigation (`src/components/Layout.tsx`): the dock keeps four places (a fantasy league's are Home, Lineup, Chat and NHL centre since 24 October 2026; Players is in More under Your team), Live (the scoreboard, a fantasy league's middle tab with a red dot while a game is on) and More; More and the desktop sidebar list the
   rest under groups (`Tonight`, `Your team`, `The league`, `You`; a pool's `Play`, `Sport centres`, `You`), and nothing
   in the dock repeats in More. A new page joins a group rather than the end of a list.

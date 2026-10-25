@@ -70,6 +70,17 @@ for (const [sport, n, opts] of [['football', 32, { confs: 2, divs: 4 }], ['baske
   assert.ok(Math.abs(sum((x) => x.title) - 1) < 1e-9, `${sport}: one champion a season`);
   assert.ok(all.every((x) => x.title >= 0 && x.title <= 1), `${sport}: chances are chances`);
   assert.ok(out.chances[best].title > out.chances[worst].title, `${sport}: the best club wins more often`);
+  // 25 October 2026: the seeds, the first-round opponents and the lines
+  if (sport !== 'soccer') {
+    // the NFL's seven seeds are the playoff places; the NBA's ten are the six straight in and the four in the play-in
+    for (const x of all) assert.ok(Math.abs(x.seeds.reduce((t, v) => t + v, 0) - (sport === 'football' ? x.playoffs : x.top6 + x.playIn)) < 1e-9, `${sport}: the seeds add up to the places`);
+    const opp = Object.values(out.chances[best].opponents).reduce((t, v) => t + v, 0);
+    assert.ok(opp <= out.chances[best].playoffs + 1e-9 && opp > 0, `${sport}: a first-round opponent (or a bye) in the seasons they make it`);
+    for (const ln of Object.values(out.lines)) assert.ok(ln.playoffs > 0, `${sport}: a line for the last place in`);
+    if (sport === 'basketball') for (const ln of Object.values(out.lines)) assert.ok(ln.top6 >= ln.playoffs, 'basketball: the sixth seed needs more wins than the tenth');
+  } else {
+    assert.ok(out.lines[''].top4 > out.lines[''].safe, 'soccer: fourth place takes more points than seventeenth');
+  }
   if (sport === 'football') {
     assert.ok(Math.abs(sum((x) => x.playoffs) - 14) < 1e-9, 'football: seven seeds a conference');
     assert.ok(Math.abs(sum((x) => x.division) - 8) < 1e-9, 'football: a winner in each of the eight divisions');
@@ -117,3 +128,31 @@ assert.ok(st.get(nfl.clubs[0].code).market > st.get(nfl.clubs[31].code).market, 
 assert.ok([...st.values()].every((x) => x.sd > 0), 'every strength comes with its doubt');
 
 console.log('fan sport: every league reads, simulates and asks its questions');
+
+// 25 October 2026: the other leagues' history, read from made-up seasons
+{
+  const { titlesOf, totals, eras, facts, runs, champions, mostTitles, springOf, seasonLabel } = await import('../../src/lib/fanSportHistory.ts');
+  const row = (year, w, l, po, extra = {}) => ({ year, team: '12', name: 'Kansas City Chiefs', w, l, d: 0, pf: 400 + w * 5, pa: 350, pts: null, rank: null, seed: null, div: 'AFC West', divRank: w >= 11 ? 1 : 2, conf: 'AFC', po, note: null, ...extra });
+  const seasons = [row(2019, 12, 4, { w: 3, l: 0, round: 5, won: true }, { seed: 2 }), row(2020, 14, 2, { w: 2, l: 1, round: 4, won: false }, { seed: 1 }), row(2021, 12, 5, { w: 2, l: 1, round: 3, won: false }),
+    row(2022, 14, 3, { w: 3, l: 0, round: 5, won: true }, { seed: 1 }), row(2023, 11, 6, { w: 4, l: 0, round: 5, won: true }), row(2024, 15, 2, { w: 2, l: 1, round: 4, won: false }, { seed: 1 }), row(2025, 6, 11, null)];
+  const h = { league: 'nfl', sport: 'football', from: 2019, to: 2025, clubs: { KC: seasons, BUF: [] }, champions: [{ year: 2019, champ: 'KC', runner: 'SF', champName: 'Kansas City Chiefs' }, { year: 2020, champ: 'TB', runner: 'KC', champName: 'Tampa Bay Buccaneers' }, { year: 2022, champ: 'KC', runner: 'PHI', champName: 'Kansas City Chiefs' }, { year: 2023, champ: 'KC', runner: 'SF', champName: 'Kansas City Chiefs' }], at: '' };
+  const t = titlesOf(h, 'nfl', 'KC');
+  assert.equal(t.count, 5, 'the Chiefs: two before the data (1962 AFL, 1969 Super Bowl) and three in it; the 1966 AFL title is the road to Super Bowl I, not a title of its own');
+  assert.equal(t.finals, 5, 'five Super Bowls in the data');
+  const tot = totals('football', seasons);
+  assert.equal(tot.w, 84); assert.equal(tot.playoffs, 6); assert.equal(tot.titles, 3); assert.equal(tot.best.year, 2024);
+  assert.equal(eras('football', seasons).length, 2, 'the 2010s and the 2020s');
+  const r = runs('football', seasons);
+  assert.equal(r.best, 6); assert.equal(r.current, -1, 'out of the playoffs this past season');
+  const f = facts(h, 'nfl', 'KC', 'The Chiefs');
+  assert.ok(f.some((x) => /Founded in 1960/.test(x)) && f.some((x) => /longest run.*6 straight/.test(x)), 'the facts count the founding and the run');
+  assert.equal(springOf('football', seasons[1]), 'Lost the Super Bowl');
+  assert.equal(seasonLabel('nba', 'basketball', 2024), '2023-24'); assert.equal(seasonLabel('epl', 'soccer', 2024), '2024-25'); assert.equal(seasonLabel('nfl', 'football', 2024), '2024');
+  const ch = champions(h, 'nfl', (code, name) => name ?? code ?? '?');
+  assert.equal(ch[0].year, 2023); assert.ok(ch.some((x) => x.year === 2001 && x.club === 'NE'), 'the settled Super Bowls come before the data');
+  assert.ok(!ch.some((x) => x.year >= 2019 && x.label), 'the data decides from where it begins');
+  const most = mostTitles(h, 'nfl');
+  assert.equal(most.find(([c]) => c === 'KC')[1], 5);
+  assert.equal(most.find(([c]) => c === 'GB')[1], 12, 'the Packers’ nine NFL championships and three Super Bowls before 2002');
+}
+console.log('fan sport history: the seasons read into titles, totals, eras and facts');

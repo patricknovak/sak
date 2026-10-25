@@ -90,23 +90,30 @@ export const el = (type: string, style: Record<string, unknown>, ...children: (N
 // the faceoff dot, the product's mark (src/pages/Start.tsx ProductMark), in the pool's colour
 export const mark = (color: string) => `data:image/svg+xml;base64,${btoa(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><rect width="64" height="64" rx="14" fill="#111b30"/><circle cx="32" cy="32" r="17" fill="none" stroke="${color}" stroke-width="4"/><circle cx="32" cy="32" r="4.5" fill="${color}"/><g stroke="${color}" stroke-width="2.6" stroke-linecap="round"><line x1="25" y1="8" x2="25" y2="12.5"/><line x1="39" y1="8" x2="39" y2="12.5"/><line x1="25" y1="51.5" x2="25" y2="56"/><line x1="39" y1="51.5" x2="39" y2="56"/></g></svg>`)}`;
 
-function card(o: { color: string; eyebrow: string; name: string; line: string; chips: string[]; cta: string }): Node {
-  const big = o.name.length > 34 ? 84 : o.name.length > 22 ? 104 : 124;
+// a pool's or an invite's picture: the pool's colour on the night, the faceoff circle, the name big, and (since 25 October
+// 2026) the first question as a quote and the pool's numbers as tiles, so the picture in a chat already asks the question
+export function card(o: { color: string; eyebrow: string; name: string; line: string; chips: string[]; cta: string; quote?: string | null; tiles?: { k: string; v: string }[] }): Node {
+  const big = o.name.length > 34 ? 72 : o.name.length > 22 ? 92 : 112;
   return el('div', { width: 1200, height: 630, background: '#05080f', position: 'relative', fontFamily: 'Inter', color: '#fff' },
     el('div', { position: 'absolute', left: 0, top: 0, width: 1200, height: 630, backgroundImage: `linear-gradient(135deg, ${rgba(o.color, 0.34)} 0%, ${rgba(o.color, 0.08)} 38%, rgba(5, 8, 15, 0) 62%)` }),
     // the faceoff circle, large and faint, off the right edge
     el('div', { position: 'absolute', right: -170, top: 70, width: 560, height: 560, borderRadius: 999, border: `22px solid ${rgba(o.color, 0.16)}` }),
     el('div', { position: 'absolute', right: 85, top: 325, width: 50, height: 50, borderRadius: 999, background: rgba(o.color, 0.22) }),
     el('div', { position: 'absolute', left: 0, top: 0, bottom: 0, width: 14, backgroundImage: `linear-gradient(180deg, ${o.color}, ${rgba(o.color, 0)})` }),
-    el('div', { flexDirection: 'column', justifyContent: 'space-between', padding: '56px 72px 56px 82px', width: '100%', height: '100%' },
+    el('div', { flexDirection: 'column', justifyContent: 'space-between', padding: '50px 72px 50px 82px', width: '100%', height: '100%' },
       el('div', { alignItems: 'center', gap: 18 },
-        { type: 'img', props: { src: mark(o.color), width: 64, height: 64 } },
-        el('div', { fontFamily: 'Barlow Condensed', fontWeight: 900, fontStyle: 'italic', fontSize: 40, letterSpacing: 1 },
+        { type: 'img', props: { src: mark(o.color), width: 60, height: 60 } },
+        el('div', { fontFamily: 'Barlow Condensed', fontWeight: 900, fontStyle: 'italic', fontSize: 38, letterSpacing: 1 },
           el('span', { color: o.color }, 'SUPER'), el('span', { marginLeft: 10, color: '#fff' }, 'POOLS'))),
       el('div', { flexDirection: 'column' },
         el('div', { fontFamily: 'Barlow Condensed', fontWeight: 700, fontSize: 30, letterSpacing: 6, color: o.color, textTransform: 'uppercase' }, o.eyebrow),
-        el('div', { fontFamily: 'Barlow Condensed', fontWeight: 900, fontStyle: 'italic', fontSize: big, lineHeight: 0.95, marginTop: 10, textTransform: 'uppercase', maxWidth: 1040 }, o.name),
-        el('div', { fontSize: 32, fontWeight: 500, color: '#cbd5e1', marginTop: 22, maxWidth: 1000 }, o.line)),
+        el('div', { fontFamily: 'Barlow Condensed', fontWeight: 900, fontStyle: 'italic', fontSize: o.quote ? Math.min(big, 84) : big, lineHeight: 0.95, marginTop: 8, textTransform: 'uppercase', maxWidth: 1040 }, o.name),
+        o.quote
+          ? el('div', { marginTop: 18, maxWidth: 1000, padding: '16px 24px', borderRadius: 22, background: 'rgba(255,255,255,0.07)', borderLeft: `8px solid ${o.color}`, fontSize: o.quote.length > 90 ? 28 : 34, fontWeight: 700, color: '#f8fafc', lineHeight: 1.2 }, `“${o.quote}”`)
+          : el('div', { fontSize: 32, fontWeight: 500, color: '#cbd5e1', marginTop: 20, maxWidth: 1000 }, o.line),
+        o.tiles?.length ? el('div', { gap: 12, marginTop: 18 }, ...o.tiles.slice(0, 4).map((t) => el('div', { flexDirection: 'column', padding: '10px 18px', borderRadius: 18, background: 'rgba(0,0,0,0.3)', border: '1px solid rgba(255,255,255,0.1)', minWidth: 150 },
+          el('div', { fontSize: 18, fontWeight: 700, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: 2 }, t.k),
+          el('div', { fontFamily: 'Barlow Condensed', fontWeight: 900, fontSize: 40, color: '#fff', marginTop: 2 }, t.v)))) : null),
       el('div', { alignItems: 'center', justifyContent: 'space-between' },
         el('div', { gap: 12 }, ...o.chips.map((c) => el('div', { fontSize: 24, fontWeight: 700, color: '#e2e8f0', background: 'rgba(255,255,255,0.07)', border: '1px solid rgba(255,255,255,0.14)', borderRadius: 999, padding: '10px 22px' }, c))),
         el('div', { fontSize: 30, fontWeight: 700, color: '#0b1220', background: o.color, borderRadius: 999, padding: '16px 34px' }, o.cta))));
@@ -147,12 +154,12 @@ export const inviteImage = (code: string, req: Request, env: Env, ctx: Execution
   return card({
     color: hex(i.brand?.colors?.gold), eyebrow: i.ok ? (fantasy ? 'You’re drafted in' : 'You’re invited') : 'This invite is closed',
     name: i.league,
-    // a pool's picture asks its first question; who invited you and how many are in move to the chips
-    line: fantasy ? (i.brand?.tagline ?? 'Draft, lineups, trash talk and the table.')
-      : i.next_question ? `First up: ${i.next_question}` : i.next_game ? `First up: ${i.next_game}, ${i.next_game_line}`
-      : `${i.host ? `${i.host} invited you` : 'Sign up and join'}${i.members ? ` · ${i.members} in` : ''}`,
+    // a pool's picture asks its first question; who invited you and how many are in move to the tiles and chips
+    quote: !fantasy && i.ok ? i.next_question ?? (i.next_game ? `First up: ${i.next_game}, ${i.next_game_line}` : null) : null,
+    line: fantasy ? (i.brand?.tagline ?? 'Draft, lineups, trash talk and the table.') : `${i.host ? `${i.host} invited you` : 'Sign up and join'}${i.members ? ` · ${i.members} in` : ''}`,
+    tiles: !fantasy && i.ok ? [...(i.members ? [{ k: 'Playing', v: String(i.members) }] : []), ...(i.open_questions ? [{ k: 'Open questions', v: String(i.open_questions) }] : []), { k: 'To join', v: 'A name' }] : undefined,
     chips: fantasy ? ['Fantasy league', 'Phone-first']
-      : i.next_question || i.next_game ? [i.host ? `${i.host} invited you` : 'Sign up and join', ...(i.members ? [`${i.members} in`] : []), 'Free, never money'] : ['Free', 'Never money', 'Bragging rights'],
+      : [i.host ? `${i.host} invited you` : 'Sign up and join', 'Free, never money', 'Bragging rights'],
     cta: i.ok ? 'Join →' : 'Ask for a new link',
   });
 });
