@@ -2,22 +2,25 @@
 // or an email), the calls (who starts in goal, the MVP, the one to move, the need, the window, the spring, grades for
 // the GM and the coach; for the league the Cup and the awards) with every fan's split, and a verdict of the fan's own on
 // each of the analysis's bigger questions. src/lib/fanVoice.ts reads and writes it; the board and the knowledge base
-// are in FanBoard.tsx.
+// are in FanBoard.tsx. Every league's zones use the same pieces (migration 338): the provider carries the league, its
+// sport (which decides the calls) and its clubs.
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
 import { FunctionsHttpError } from '@supabase/supabase-js';
 import { Check, LogIn, Megaphone, PencilLine, ShieldCheck, Users } from 'lucide-react';
 import { setRemember, supabase } from '../../lib/supabase';
 import {
-  CLUB_CALLS, NHL_CALLS, VERDICTS, clubName, fanCall, fanJoin, fanPulse, fanSetMe, gradeAvg, shares, shownName, useFanMe,
-  type CallDef, type CallSplit, type FanLeague, type FanMe, type FanPulse,
+  NHL_DIR, VERDICTS, callsFor, dirName, fanCall, fanJoin, fanPulse, fanSetMe, gradeAvg, shares, shownName, useFanMe,
+  type CallDef, type CallSplit, type FanDir, type FanLeague, type FanMe, type FanPulse, type FanSport,
 } from '../../lib/fanVoice';
-import { NHL_TEAMS } from '../../lib/format';
 import { isGuestEmail } from '../../lib/guest';
 import { useLeague } from '../../lib/store';
 import type { FanData } from '../../lib/fanZone';
-import { NhlLogo, Sheet, Spinner, useToast } from '../ui';
+import type { SportClub, SportLeague } from '../../lib/fanSport';
+import { Sheet, Spinner, useToast } from '../ui';
+import { ClubMark } from './kit';
 
 interface Voice {
+  league: string; sport: FanSport; board: string; dir: FanDir;
   club: string; me: FanMe | null; signedIn: boolean; refreshMe: () => void;
   pulse: FanPulse | null; reloadPulse: () => void;
   call: (topic: string, choice: string | null) => void;
@@ -26,7 +29,8 @@ interface Voice {
 const Ctx = createContext<Voice | null>(null);
 export const useVoice = () => useContext(Ctx);
 
-export function FanVoiceProvider({ club, children }: { club: string; children: ReactNode }) {
+export function FanVoiceProvider({ club, league = 'nhl', dir, children }: { club: string; league?: string; dir?: FanDir | null; children: ReactNode }) {
+  const d = dir ?? NHL_DIR;
   const { me, signedIn, refresh } = useFanMe();
   const toast = useToast();
   const [pulse, setPulse] = useState<FanPulse | null>(null);
@@ -34,34 +38,33 @@ export function FanVoiceProvider({ club, children }: { club: string; children: R
   const [why, setWhy] = useState<string | null>(null);
   useEffect(() => {
     let live = true;
-    fanPulse(club).then((p) => { if (live) setPulse(p); }, () => { if (live) setPulse(null); });
+    fanPulse(club, undefined, league).then((p) => { if (live) setPulse(p); }, () => { if (live) setPulse(null); });
     return () => { live = false; };
-  }, [club, tick, signedIn]);
+  }, [club, league, tick, signedIn]);
   const call = useCallback((topic: string, choice: string | null) => {
     if (!signedIn) { setWhy('Sign in to make your call. Just a name will do.'); return; }
     // the fan's own pick shows at once; every fan's split follows from the database
     setPulse((p) => p && { ...p, mine: { ...(p.mine ?? {}), [topic]: choice ?? '' } });
-    fanCall(club, topic, choice).then((r) => setPulse((p) => p && {
+    fanCall(club, topic, choice, league).then((r) => setPulse((p) => p && {
       ...p, calls: { ...p.calls, [topic]: { total: r.total, choices: r.choices } },
       mine: Object.fromEntries(Object.entries({ ...(p.mine ?? {}), [topic]: r.mine ?? '' }).filter(([, x]) => x)),
     }), (e) => { toast((e as Error).message, 'err'); setTick((n) => n + 1); });
-  }, [club, signedIn, toast]);
+  }, [club, league, signedIn, toast]);
   const value = useMemo<Voice>(() => ({
+    league, sport: d.sport, board: d.board, dir: d,
     club, me, signedIn, refreshMe: refresh, pulse, reloadPulse: () => setTick((n) => n + 1), call,
     ask: (w) => setWhy(w ?? 'Sign in to add your voice. Just a name will do.'),
-  }), [club, me, signedIn, refresh, pulse, call]);
+  }), [league, d, club, me, signedIn, refresh, pulse, call]);
   return (
     <Ctx.Provider value={value}>
       {children}
-      <FanSignIn open={why != null} why={why ?? ''} club={club} onClose={() => setWhy(null)} onDone={() => { setWhy(null); refresh(); }} />
+      <FanSignIn open={why != null} why={why ?? ''} club={club} dir={d} onClose={() => setWhy(null)} onDone={() => { setWhy(null); refresh(); }} />
     </Ctx.Provider>
   );
 }
 
 // ───────────── signing in: a name is enough ─────────────
-const CLUB_LIST = Object.entries(NHL_TEAMS).sort((a, b) => a[1].localeCompare(b[1]));
-
-function FanSignIn({ open, why, club, onClose, onDone }: { open: boolean; why: string; club: string; onClose: () => void; onDone: () => void }) {
+function FanSignIn({ open, why, club, dir, onClose, onDone }: { open: boolean; why: string; club: string; dir: FanDir; onClose: () => void; onDone: () => void }) {
   const [mode, setMode] = useState<'name' | 'email'>('name');
   const [name, setName] = useState('');
   const [fav, setFav] = useState('');
@@ -69,13 +72,13 @@ function FanSignIn({ open, why, club, onClose, onDone }: { open: boolean; why: s
   const [pw, setPw] = useState('');
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState('');
-  useEffect(() => { if (open) { setErr(''); setFav(club === 'NHL' ? '' : club); } }, [open, club]);
+  useEffect(() => { if (open) { setErr(''); setFav(club === dir.board ? '' : club); } }, [open, club, dir.board]);
   const shown = shownName(name);
 
   const join = async (e: React.FormEvent) => {
     e.preventDefault();
     setBusy(true); setErr('');
-    try { await fanJoin(name.trim(), fav || null); onDone(); } catch (x) { setErr((x as Error).message); } finally { setBusy(false); }
+    try { await fanJoin(name.trim(), fav || null, dir.league); onDone(); } catch (x) { setErr((x as Error).message); } finally { setBusy(false); }
   };
   const signIn = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -93,9 +96,9 @@ function FanSignIn({ open, why, club, onClose, onDone }: { open: boolean; why: s
     <Sheet open={open} onClose={onClose} title="Add your voice">
       <div className="space-y-4">
         <div className="flex items-start gap-3">
-          <span className="grid h-12 w-12 shrink-0 place-items-center rounded-2xl bg-white/95 shadow"><NhlLogo abbr={club} size={34} light /></span>
+          <span className="grid h-12 w-12 shrink-0 place-items-center rounded-2xl bg-white/95 shadow"><ClubMark league={dir.league} code={club} logo={dir.byCode[club]?.logo} size={34} light /></span>
           <div className="min-w-0">
-            <div className="font-display text-lg font-extrabold leading-tight text-white">{club === 'NHL' ? 'Join the fans' : `Join the ${clubName(club)} fans`}</div>
+            <div className="font-display text-lg font-extrabold leading-tight text-white">{club === dir.board ? 'Join the fans' : `Join the ${dirName(dir, club)} fans`}</div>
             <p className="mt-0.5 text-sm leading-snug text-slate-300">{why}</p>
           </div>
         </div>
@@ -110,7 +113,7 @@ function FanSignIn({ open, why, club, onClose, onDone }: { open: boolean; why: s
               <span className="label">Your club</span>
               <select className="input mt-1" value={fav} onChange={(e) => setFav(e.target.value)}>
                 <option value="">No club, just the league</option>
-                {CLUB_LIST.map(([k, v]) => <option key={k} value={k}>{v}</option>)}
+                {dir.clubs.map((c) => <option key={c.code} value={c.code}>{c.name}</option>)}
               </select>
             </label>
             <button className="btn-club w-full py-2.5" disabled={busy || name.trim().length < 2}>{busy ? <Spinner /> : 'Join as a fan'}</button>
@@ -153,7 +156,9 @@ export function FanMeBar() {
   }
   const save = async (e: React.FormEvent) => {
     e.preventDefault();
-    try { await fanSetMe(name, v.me?.club ?? (v.club === 'NHL' ? null : v.club)); v.refreshMe(); setEdit(false); toast('Saved'); } catch (x) { toast((x as Error).message, 'err'); }
+    // the club the fan already follows stays theirs, whatever league this page is in
+    const own = v.me?.club ? { club: v.me.club, league: v.me.league ?? 'nhl' } : { club: v.club === v.board ? null : v.club, league: v.league };
+    try { await fanSetMe(name, own.club, own.league); v.refreshMe(); setEdit(false); toast('Saved'); } catch (x) { toast((x as Error).message, 'err'); }
   };
   const guest = isGuestEmail(session?.user?.email);
   return (
@@ -212,6 +217,10 @@ function KeepFan({ onDone }: { onDone: () => void }) {
 
 // ───────────── the calls ─────────────
 type Option = [value: string, label: string, sub?: string];
+// a player's leading number in each sport, in order of what says the most
+const LEAD_WORDS: [string, string][] = [['passingYards', 'pass yds'], ['rushingYards', 'rush yds'], ['receivingYards', 'rec yds'], ['sacks', 'sacks'],
+  ['totalTackles', 'tackles'], ['interceptions', 'INT'], ['pointsPerGame', 'ppg'], ['reboundsPerGame', 'rpg'], ['assistsPerGame', 'apg'],
+  ['blocksPerGame', 'bpg'], ['goals', 'goals'], ['assists', 'assists'], ['saves', 'saves']];
 
 function SplitBars({ split, mine, label, rows = 3 }: { split: CallSplit | undefined; mine?: string; label: (choice: string) => string; rows?: number }) {
   const list = shares(split);
@@ -238,7 +247,7 @@ function CallCard({ def, options }: { def: CallDef; options: Option[] }) {
   const v = useVoice()!;
   const split = v.pulse?.calls[def.key];
   const mine = v.pulse?.mine?.[def.key] || undefined;
-  const label = (c: string) => options.find((o) => o[0] === c)?.[1] ?? split?.choices.find((x) => x.choice === c)?.name ?? NHL_TEAMS[c] ?? c;
+  const label = (c: string) => options.find((o) => o[0] === c)?.[1] ?? split?.choices.find((x) => x.choice === c)?.name ?? dirName(v.dir, c);
   const chips = options.length <= 8;
   const avg = def.key === 'gm' || def.key === 'coach' ? gradeAvg(split) : null;
   return (
@@ -271,12 +280,13 @@ function CallCard({ def, options }: { def: CallDef; options: Option[] }) {
 }
 
 // the club's calls (or the league's), with the names each question offers: the club's roster for its own (the
-// database takes only a player on the club), the season's leaders for the league's awards
-export function FanCalls({ d, league }: { d?: FanData | null; league?: FanLeague | null }) {
+// database takes only a player on the club), the season's leaders for the league's awards; in the other leagues the
+// club's players from ESPN's roster (by position for the quarterback and the keeper) and the league's leaders
+export function FanCalls({ d, league, sport }: { d?: FanData | null; league?: FanLeague | null; sport?: { club?: SportClub | null; league?: SportLeague | null } }) {
   const v = useVoice();
   const options = useMemo(() => {
     const out: Record<string, Option[]> = {};
-    const clubs: Option[] = CLUB_LIST.map(([k, n]) => [k, n]);
+    out.club = (v?.dir.clubs ?? []).map((c) => [c.code, c.name]);
     if (d) {
       const pts = new Map(d.skaters.map((s) => [s.id, s.pts]));
       const gs = new Map(d.goalies.map((g) => [g.id, g]));
@@ -290,11 +300,41 @@ export function FanCalls({ d, league }: { d?: FanData | null; league?: FanLeague
       out.norris = league.defence.map((s) => [String(s.id), s.name, `${s.team} · ${s.pts} pts`]);
       out.vezina = league.goalies.map((g) => [String(g.id), g.name, `${g.team} · ${g.w} W${g.svp != null ? ` · ${g.svp.toFixed(3).replace(/^0/, '')}` : ''}`]);
     }
-    out.club = clubs;
+    const sc = sport?.club;
+    if (sc) {
+      // the players doing the most first: on the leader boards (the NBA's minutes), in the most matches (soccer)
+      const weight = new Map<string, number>();
+      for (const c of sc.leaders) c.rows.forEach((r, i) => weight.set(r.id, (weight.get(r.id) ?? 0) + (c.cat === 'minutesPerGame' ? r.value * 3 : Math.max(0, 12 - i))));
+      for (const p of sc.players) if (p.season) weight.set(p.id, (weight.get(p.id) ?? 0) + p.season.apps * 4 + p.season.g * 3 + p.season.a * 2);
+      // the player's number that says the most, in a few words (the feed's leader lines run long)
+      const lead = (id: string) => {
+        for (const [cat, word] of LEAD_WORDS) {
+          const r = sc.leaders.find((c) => c.cat === cat)?.rows.find((x) => x.id === id);
+          if (r && r.value > 0) return `${r.display} ${word}`;
+        }
+        return undefined;
+      };
+      const ranked = [...sc.players].sort((a, b) => (weight.get(b.id) ?? 0) - (weight.get(a.id) ?? 0) || a.name.localeCompare(b.name));
+      const sub = (p: SportClub['players'][number]) => [p.pos, p.season ? `${p.season.apps} apps${p.season.g ? `, ${p.season.g} g` : ''}` : lead(p.id)].filter(Boolean).join(' · ') || undefined;
+      out.player = ranked.map((p) => [p.id, p.name, sub(p)]);
+      out.qb = ranked.filter((p) => p.pos === 'QB').map((p) => [p.id, p.name, lead(p.id) ?? 'QB']);
+      out.keeper = ranked.filter((p) => p.pos === 'G' || p.pos === 'GK').map((p) => [p.id, p.name, p.season ? `${p.season.apps} apps` : 'G']);
+    }
+    const sl = sport?.league;
+    if (sl) {
+      // the league's leaders, each once, in the order the leader boards rank them
+      const seen = new Map<string, Option>();
+      const most = Math.max(0, ...sl.leaders.map((c) => c.rows.length));
+      for (let i = 0; i < most; i++) for (const c of sl.leaders) {
+        const r = c.rows[i];
+        if (r?.id && !seen.has(r.id)) seen.set(r.id, [r.id, r.name, [r.team, `${c.name.replace(/ Leaders?$/, '')} ${r.display}`].filter(Boolean).join(' · ')]);
+      }
+      out.athlete = [...seen.values()];
+    }
     return out;
-  }, [d, league]);
+  }, [d, league, sport?.club, sport?.league, v?.dir]);
   if (!v) return null;
-  const defs = v.club === 'NHL' ? NHL_CALLS : CLUB_CALLS;
+  const defs = callsFor(v.sport, v.club === v.board);
   const optionsFor = (def: CallDef): Option[] => (def.kind === 'choice' ? def.choices ?? [] : options[def.kind] ?? []);
   const shown = defs.filter((def) => optionsFor(def).length);
   const made = shown.filter((def) => v.pulse?.mine?.[def.key]).length;

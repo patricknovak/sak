@@ -83,7 +83,9 @@ const fromHsl = ([h, s, l]: number[]) => {
 // (a navy club's blue stays blue rather than going grey), the deep colour, the accent as "r g b" for
 // rgb(var(--club-rgb) / alpha), and the ink that reads on a button filled with it
 export function clubTheme(abbr: string): { primary: string; secondary: string; rgb: string; ink: string } {
-  const c = CLUB_COLORS[abbr] ?? { accent: '#f7c548', deep: '#0b1222' };
+  return themeFrom(CLUB_COLORS[abbr] ?? { accent: '#f7c548', deep: '#0b1222' });
+}
+function themeFrom(c: { accent: string; deep?: string }): { primary: string; secondary: string; rgb: string; ink: string } {
   let rgb = rgbOf(c.accent);
   if (lumOf(rgb) < 0.45) {
     const [h, sat, l] = toHsl(rgb);
@@ -103,3 +105,25 @@ export function clubVars(abbr: string, lore?: { primary: string; secondary: stri
   const c = lore ?? t;
   return { '--club': c.primary, '--club-rgb': c.rgb, '--club2': c.secondary, '--club-ink': inkOn(c.rgb.split(' ').map(Number)) } as CSSProperties;
 }
+
+// ── the other leagues (migration 338): a club's two colours come from ESPN (fan_clubs), its league's from here
+export const LEAGUE_COLORS: Record<string, { accent: string; deep: string }> = {
+  nfl: { accent: '#D50A0A', deep: '#013369' },
+  nba: { accent: '#C9082A', deep: '#17408B' },
+  epl: { accent: '#00FF85', deep: '#38003C' },
+};
+const okHex = (h: string | null | undefined): h is string => !!h && /^#[0-9a-f]{6}$/i.test(h);
+// the colour to lead with: the club's first that is a colour (a black, a white or a grey makes a poor accent), the
+// other as the deep one when it is dark enough to carry the hero
+export function sportTheme(color: string | null | undefined, alt: string | null | undefined) {
+  const cands = [color, alt].filter(okHex);
+  const vivid = (h: string) => { const c = rgbOf(h), l = lumOf(c), [, sat] = toHsl(c); return sat >= 0.18 && l > 0.06 && l < 0.94; };
+  const accent = cands.find(vivid) ?? cands[0] ?? '#4CC3FF';
+  const other = cands.find((h) => h !== accent);
+  return themeFrom({ accent, deep: other && lumOf(rgbOf(other)) < 0.32 ? other : undefined });
+}
+export const leagueTheme = (league: string) => (league === 'nhl' ? clubTheme('NHL') : themeFrom(LEAGUE_COLORS[league] ?? { accent: '#4CC3FF', deep: '#0F1830' }));
+const varsOf = (t: { primary: string; secondary: string; rgb: string }): CSSProperties =>
+  ({ '--club': t.primary, '--club-rgb': t.rgb, '--club2': t.secondary, '--club-ink': inkOn(t.rgb.split(' ').map(Number)) } as CSSProperties);
+export const sportVars = (color: string | null | undefined, alt: string | null | undefined) => varsOf(sportTheme(color, alt));
+export const leagueVars = (league: string) => varsOf(leagueTheme(league));

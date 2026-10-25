@@ -5,7 +5,7 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { ChevronDown, ChevronUp, Flag, Link2, Plus, Share2, ShieldCheck, Trash2 } from 'lucide-react';
 import {
-  KINDS, TOPICS, clubName, fanBoard, fanLink, fanModerate, fanPost, fanRemove, fanReport, fanVote, shareLink,
+  KINDS, dirName, fanBoard, fanModerate, fanPost, fanRemove, fanReport, fanVote, shareLink, topicsFor, zoneLink,
   type FanKind, type FanPost, type Sort,
 } from '../../lib/fanVoice';
 import { supabase } from '../../lib/supabase';
@@ -16,7 +16,8 @@ import { Chips } from './kit';
 import { useVoice } from './FanVoice';
 
 const KIND = Object.fromEntries(KINDS.map((k) => [k.key, k])) as Record<FanKind, (typeof KINDS)[number]>;
-const TOPIC = Object.fromEntries(TOPICS);
+// where a fan stands to watch, in each sport's words
+const GROUND: Record<string, string> = { hockey: 'at the rink', football: 'at the stadium', basketball: 'at the arena', soccer: 'at the ground' };
 const DONE: Record<FanKind, string> = { idea: 'Noted', ask: 'Answered', insight: 'Checked', fact: 'Checked', fix: 'Fixed' };
 const host = (u: string) => { try { return new URL(u).hostname.replace(/^www\./, ''); } catch { return u; } };
 
@@ -58,7 +59,7 @@ export function PostCard({ p, onChange, onGone, lit }: { p: FanPost; onChange: (
     try { await fanModerate(p.id, reopen ? 'open' : 'checked', note); onChange({ ...p, status: reopen ? 'open' : 'checked', note: reopen ? null : note || null }); } catch (e) { toast((e as Error).message, 'err'); }
   };
   const share = async () => {
-    const r = await shareLink(fanLink(p.club, undefined, p.id), p.title, `${KIND[p.kind].emoji} From the ${p.club === 'NHL' ? 'NHL' : clubName(p.club)} fan board: ${p.title}`);
+    const r = await shareLink(zoneLink(v.league, p.club, undefined, p.id), p.title, `${KIND[p.kind].emoji} From the ${p.club === v.board ? v.dir.name : dirName(v.dir, p.club)} fan board: ${p.title}`);
     if (r === 'copied') toast('Link copied');
   };
 
@@ -75,7 +76,7 @@ export function PostCard({ p, onChange, onGone, lit }: { p: FanPost; onChange: (
       <div className="min-w-0 flex-1">
         <div className="flex flex-wrap items-center gap-1.5">
           <span className="chip">{KIND[p.kind]?.emoji} {KIND[p.kind]?.one}</span>
-          <span className="chip">{TOPIC[p.topic] ?? p.topic}</span>
+          <span className="chip">{topicsFor(v.sport).find((t) => t[0] === p.topic)?.[1] ?? p.topic}</span>
           {p.status === 'checked' && <span className="chip border-emerald-400/30 bg-emerald-500/10 text-emerald-200"><ShieldCheck className="h-3 w-3" />{DONE[p.kind]}</span>}
         </div>
         <h3 className="mt-1.5 text-[15px] font-bold leading-snug text-white [overflow-wrap:anywhere]">{p.title}</h3>
@@ -102,22 +103,22 @@ export function PostCard({ p, onChange, onGone, lit }: { p: FanPost; onChange: (
 }
 
 // a list of posts from the board, read again when the club, the kind, the sort or a new post changes it
-function usePosts(club: string, kind: FanKind | null, sort: Sort, size: number, tick: number) {
+function usePosts(club: string, kind: FanKind | null, sort: Sort, size: number, tick: number, league: string) {
   const [posts, setPosts] = useState<FanPost[] | null>(null);
   const [more, setMore] = useState(false);
   const [failed, setFailed] = useState(false);
   useEffect(() => {
     let live = true;
     setPosts(null); setFailed(false);
-    fanBoard(club, kind, sort, size + 1, 0).then((r) => { if (!live) return; setMore(r.length > size); setPosts(r.slice(0, size)); }, () => { if (live) { setPosts([]); setFailed(true); } });
+    fanBoard(club, kind, sort, size + 1, 0, league).then((r) => { if (!live) return; setMore(r.length > size); setPosts(r.slice(0, size)); }, () => { if (live) { setPosts([]); setFailed(true); } });
     return () => { live = false; };
-  }, [club, kind, sort, size, tick]);
+  }, [club, kind, sort, size, tick, league]);
   const loadMore = useCallback(async () => {
     const have = posts?.length ?? 0;
-    const r = await fanBoard(club, kind, sort, size + 1, have);
+    const r = await fanBoard(club, kind, sort, size + 1, have, league);
     setMore(r.length > size);
     setPosts((p) => [...(p ?? []), ...r.slice(0, size).filter((x) => !(p ?? []).some((y) => y.id === x.id))]);
-  }, [club, kind, sort, size, posts]);
+  }, [club, kind, sort, size, posts, league]);
   const change = useCallback((x: FanPost) => setPosts((p) => p?.map((y) => (y.id === x.id ? x : y)) ?? p), []);
   const gone = useCallback((id: number) => setPosts((p) => p?.filter((y) => y.id !== id) ?? p), []);
   return { posts, more, failed, loadMore, change, gone };
@@ -132,7 +133,7 @@ export function FanBoard({ post }: { post?: number | null }) {
   const [sort, setSort] = useState<Sort>('hot');
   const [tick, setTick] = useState(0);
   const [compose, setCompose] = useState<FanKind | null>(null);
-  const { posts, more, failed, loadMore, change, gone } = usePosts(v.club, kind === 'all' ? null : kind, sort, 12, tick);
+  const { posts, more, failed, loadMore, change, gone } = usePosts(v.club, kind === 'all' ? null : kind, sort, 12, tick, v.league);
   const [shared, setShared] = useState<FanPost | null>(null);
   // a shared link (?post=12) opens on its post, wherever it sits on the board
   useEffect(() => {
@@ -194,12 +195,12 @@ export function FanCompose({ open, kind, onClose, onPosted }: { open: boolean; k
   const send = async (e: React.FormEvent) => {
     e.preventDefault();
     setBusy(true);
-    try { await fanPost({ club: v.club, kind: k, topic, title: title.trim(), body: body.trim(), source: source.trim() || null }); toast('Posted'); v.refreshMe(); v.reloadPulse(); onPosted(k); }
+    try { await fanPost({ club: v.club, kind: k, topic, title: title.trim(), body: body.trim(), source: source.trim() || null, league: v.league }); toast('Posted'); v.refreshMe(); v.reloadPulse(); onPosted(k); }
     catch (x) { toast((x as Error).message, 'err'); }
     finally { setBusy(false); }
   };
   return (
-    <Sheet open={open} onClose={onClose} title={v.club === 'NHL' ? 'Add to the league board' : `Add to the ${clubName(v.club)} board`}>
+    <Sheet open={open} onClose={onClose} title={v.club === v.board ? 'Add to the league board' : `Add to the ${dirName(v.dir, v.club)} board`}>
       <form onSubmit={send} className="space-y-3">
         <div>
           <span className="label">What is it?</span>
@@ -216,7 +217,7 @@ export function FanCompose({ open, kind, onClose, onPosted }: { open: boolean; k
           <span className="label">Topic</span>
           <select className="input mt-1" value={topic} onChange={(e) => setTopic(e.target.value)}>
             <option value="" disabled>Pick a topic</option>
-            {TOPICS.map(([t, l]) => <option key={t} value={t}>{l}</option>)}
+            {topicsFor(v.sport).map(([t, l]) => <option key={t} value={t}>{l}</option>)}
           </select>
         </label>
         <label className="block">
@@ -231,7 +232,7 @@ export function FanCompose({ open, kind, onClose, onPosted }: { open: boolean; k
           <span className="label">{k === 'fact' || k === 'fix' ? 'Source (helps it get checked)' : 'A link that backs it up (optional)'}</span>
           <input className="input mt-1" type="url" inputMode="url" value={source} onChange={(e) => setSource(e.target.value)} placeholder="https://" />
         </label>
-        <p className="text-[11px] leading-snug text-mute">Be specific and fair: no personal attacks, nothing you wouldn&apos;t say at the rink. It shows as {v.me?.name ?? 'your first name and initial'}; three reports take a post down.</p>
+        <p className="text-[11px] leading-snug text-mute">Be specific and fair: no personal attacks, nothing you wouldn&apos;t say {GROUND[v.sport] ?? 'at the game'}. It shows as {v.me?.name ?? 'your first name and initial'}; three reports take a post down.</p>
         <button className="btn-club w-full py-2.5" disabled={busy || !ok}>{busy ? <Spinner /> : 'Post it'}</button>
       </form>
     </Sheet>
@@ -243,8 +244,8 @@ export function FanKnowledge() {
   const v = useVoice()!;
   const [tick, setTick] = useState(0);
   const [compose, setCompose] = useState(false);
-  const club = usePosts(v.club, 'fact', 'top', 8, tick);
-  const nhl = usePosts('NHL', 'fact', 'top', 4, v.club === 'NHL' ? -1 : tick);
+  const club = usePosts(v.club, 'fact', 'top', 8, tick, v.league);
+  const nhl = usePosts(v.board, 'fact', 'top', 4, v.club === v.board ? -1 : tick, v.league);
   const add = () => (v.signedIn ? setCompose(true) : v.ask('Sign in to add a fact. Just a name will do.'));
   return (
     <div className="space-y-2.5">
@@ -252,12 +253,12 @@ export function FanKnowledge() {
         : club.posts.length === 0 ? (
           <button type="button" onClick={add} className="card block w-full p-5 text-center hover:bg-white/[.03]">
             <div className="text-3xl">📚</div>
-            <p className="mt-1 text-sm text-slate-300">{v.club === 'NHL' ? 'The league’s knowledge base is empty so far.' : `Nothing in the ${clubName(v.club)} knowledge base yet.`} Add a record, a story or a piece of trivia, with a source if you have one.</p>
+            <p className="mt-1 text-sm text-slate-300">{v.club === v.board ? 'The league’s knowledge base is empty so far.' : `Nothing in the ${dirName(v.dir, v.club)} knowledge base yet.`} Add a record, a story or a piece of trivia, with a source if you have one.</p>
           </button>
         ) : club.posts.map((p) => <PostCard key={p.id} p={p} onChange={club.change} onGone={club.gone} />)}
       {club.more && <button type="button" onClick={() => void club.loadMore()} className="btn-ghost w-full">More facts</button>}
       <button type="button" onClick={add} className="btn-club w-full py-2.5"><Plus className="h-4 w-4" />Add a fact</button>
-      {v.club !== 'NHL' && (nhl.posts?.length ?? 0) > 0 && (
+      {v.club !== v.board && (nhl.posts?.length ?? 0) > 0 && (
         <div className="space-y-2 pt-2">
           <div className="label px-1">From around the league</div>
           {nhl.posts!.map((p) => <PostCard key={p.id} p={p} onChange={nhl.change} onGone={nhl.gone} />)}

@@ -8,7 +8,7 @@
 // an open source type project ... for all the different NHL teams ... easy to share ... crowdsourcing from the fans":
 // every club in its own colours, open to everyone (PublicFans.tsx), a share button, and the fans' voice (the calls, the
 // board, the knowledge base and the pulse, src/components/fan/FanVoice.tsx and FanBoard.tsx).
-import { useContext, useEffect, useMemo, useState } from 'react';
+import { lazy, Suspense, useContext, useEffect, useMemo, useState } from 'react';
 import { Link, Navigate, useLocation, useNavigate, useParams } from 'react-router-dom';
 import { Activity, ArrowDown, ArrowUp, BookOpen, ExternalLink, Flame, Lightbulb, Megaphone, Snowflake, Sparkles, TrendingDown, TrendingUp, Trophy, Users } from 'lucide-react';
 import { useLeague, useNow } from '../lib/store';
@@ -36,8 +36,20 @@ import { ShareButton } from '../components/fan/FanShare';
 const CLUB_KEY = 'sp-fan-club';
 const ROUND = ['', 'First round', 'Second round', 'Conference final', 'Stanley Cup Final'];
 const seasonLabel = (s: number) => `${String(s).slice(0, 4)}-${String(s).slice(6, 8)}`;
+const SportFanLeague = lazy(() => import('./SportFanLeague'));
 
+// #/fans/<x>: an NHL club's three capitals (EDM), or another league's key (nfl), whose own page has every club and its
+// board; the NHL's board is the fan zones' front page
 export default function FanZone() {
+  const { club: param } = useParams();
+  if (param && /^[a-z]/.test(param)) {
+    return param === 'nhl' ? <Navigate to="/fans" replace />
+      : <Suspense fallback={<div className="flex justify-center py-20"><Spinner /></div>}><SportFanLeague league={param} /></Suspense>;
+  }
+  return <NhlFanZone />;
+}
+
+function NhlFanZone() {
   const { club: param } = useParams();
   const nav = useNavigate();
   const { league } = useLeague();

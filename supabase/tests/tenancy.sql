@@ -33,9 +33,11 @@ where n.nspname = 'public' and c.relkind in ('r', 'p')
     -- the lounges (migration 333): one room per sports league or show, shared by every pool that follows it on purpose;
     -- each post names the pool it came from (from_league) and is read by the members of any pool in that room
     'lounges', 'lounge_messages',
-    -- the fan zones' board and knowledge base (migration 337): open to everyone and keyed by NHL club, never by league;
-    -- who wrote a post, voted or made a call is kept in the private schema
-    'fan_posts');
+    -- the fan zones' board and knowledge base (migration 337): open to everyone and keyed by a sports league's club, never
+    -- by a Super Pools league; who wrote a post, voted or made a call is kept in the private schema
+    'fan_posts',
+    -- the sports leagues with a fan zone, their clubs and players (migration 338), synced from ESPN and read by everyone
+    'fan_leagues', 'fan_clubs', 'fan_athletes');
 
 -- 2. A league's table has row-level security on, and every policy on it is bound to the caller's league.
 select pg_temp.none('a league table without row-level security', string_agg(c.relname, ', '))
@@ -114,6 +116,9 @@ where n.nspname = 'public' and p.prosecdef and p.prorettype <> 'trigger'::regtyp
     'lounge_remove', 'lounge_report',
     -- deletes a whole pool: checks the caller hosts it (or started the league, still in setup) or is the platform
     'pool_delete',
+    -- the fan zones (migration 338): p_league is a sports league's key (nhl, nfl, nba, epl), not a Super Pools league;
+    -- the boards are open to everyone and a fan writes only their own posts and calls
+    'fan_board', 'fan_pulse', 'fan_index', 'fan_export', 'fan_set_me', 'fan_post', 'fan_call',
     -- debt: a pick names a player, and rosters hold one row per player across all leagues (rosters key, see EXPANSION.md)
     'draft_pick',
     -- debt: a multi-team trade names its teams inside a json list; each team needs the league check

@@ -497,7 +497,10 @@ The steps above finish the tenancy. `docs/MARKET.md` sets what comes after in th
     a verdict, trade targets by need from sellers, the coaches' calls on lines, minutes, the power play and the kill). Since
     25 October 2026 (§9.20, migration 337) open to every fan for all 32 clubs, with the fans' own calls, board and knowledge
     base, a fan pulse anyone can share or download, link previews per club, open data at `/api/fans/<club>`, and the clubs
-    on superpoolsai.com.
+    on superpoolsai.com. Since 25 October 2026 (§9.21, migration 338) the code is MIT and the zones cover every club in
+    the NFL, the NBA and the Premier League too, each league with its own page (`#/fans/nfl`): the grade, every measure,
+    the chances from the season and its spring simulated, the luck, the players and the front office, with the fans'
+    calls in each sport's words; a new league of a sport already here is one database row.
 
 Then horizon 2 (soccer on licensed data, basketball, the multi-sport pool, the Supercoin prediction market,
 the Super Pool bundle, the public API) and horizon 3 (cricket free-to-play, baseball, football and college,

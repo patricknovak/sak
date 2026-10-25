@@ -460,6 +460,13 @@ footer a { color: var(--soft); }
 .clubs a { display: flex; flex-direction: column; align-items: center; gap: 3px; padding: 8px 2px 6px; border-radius: 12px; background: var(--boards); border: 1px solid var(--line); color: var(--mute); font: 700 11px/1 'Barlow Condensed', sans-serif; letter-spacing: .06em; transition: transform .2s, border-color .2s, color .2s; }
 .clubs a:hover { transform: translateY(-2px); border-color: rgba(76,195,255,.5); color: var(--ink); }
 .clubs img { width: 34px; height: 34px; max-width: 100%; }
+.leagues { display: grid; gap: 8px; grid-template-columns: repeat(2, minmax(0, 1fr)); margin-top: 18px; }
+@media (min-width: 560px) { .leagues { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
+.leagues a { display: flex; align-items: center; gap: 10px; padding: 10px 12px; border-radius: 14px; background: var(--boards); border: 1px solid var(--line); color: var(--ink); font: 800 16px/1.05 'Barlow Condensed', sans-serif; letter-spacing: .02em; transition: transform .2s, border-color .2s; }
+.leagues a:hover { transform: translateY(-2px); border-color: rgba(76,195,255,.5); }
+.leagues img { width: 30px; height: 30px; flex: none; object-fit: contain; }
+.leagues span { display: flex; flex-direction: column; min-width: 0; }
+.leagues small { font: 600 11px/1.3 Inter, sans-serif; color: var(--mute); letter-spacing: 0; }
 .sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
 .fzgrid { display: grid; gap: 12px; grid-template-columns: 1fr; }
 @media (min-width: 760px) { .fzgrid { grid-template-columns: repeat(3, 1fr); } }

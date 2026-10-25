@@ -10,7 +10,8 @@
 //   /api/live/<league>/draft   the league's draft room: the pick clock and every pick, live (a WebSocket; worker/draft.ts)
 //   /api/live/<league>/pool/<day>   a prediction pool's room for the day: its games and its table, live (worker/pool.ts)
 //   /fans, /fans/<club>, /fans/<club>/pulse   the NHL fan zones' links, unfurling with the club's own picture
-//                     (/og/fans/<club>.png), then the app (#/fans/…); /api/fans/<club> the fans' open data (worker/fans.ts)
+//                     (/og/fans/<club>.png), then the app (#/fans/…); /api/fans/<club> the fans' open data (worker/fans.ts);
+//                     every other league's at /fans/<league>(/<CLUB>)(/pulse), /og/fans/<league>(/<CLUB>).png, /api/fans/<league>(/<CLUB>)
 // Everything else is the app, unchanged. Postgres stays the source of truth: the Worker reads only what the public key
 // may (invite_preview, league_by_host) and the public sports feeds.
 import { hub } from './hub';
@@ -48,7 +49,7 @@ export default {
       if (m) return withSecurity(await invitePage(m[1], url, env));
       m = /^\/p\/([a-z0-9-]{1,40})(\/.*)?$/i.exec(p);
       if (m) return withSecurity(await poolPage(m[1], m[2] ?? '', url, env));
-      m = /^\/og\/fans\/([a-z]{3}(?:-pulse)?)\.png$/i.exec(p);
+      m = /^\/og\/fans\/([a-z]{3}(?:-pulse)?|[a-z][a-z0-9-]{1,11}(?:\/[A-Z0-9]{2,5})?(?:-pulse)?)\.png$/i.exec(p);
       if (m) return withSecurity(await fansImage(m[1], url, req, env, ctx));
       if (p === '/fans' || p.startsWith('/fans/')) return withSecurity(await fansPage(p.slice('/fans'.length), url, env));
     } catch (e) {

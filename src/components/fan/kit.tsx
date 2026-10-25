@@ -1,6 +1,25 @@
-// The fan zone's small pieces (24 October 2026): a section head, filter chips, a share bar, a record line. Drawn in the
-// club's colour through the page's --club variables.
-import type { ReactNode } from 'react';
+// The fan zone's small pieces (24 October 2026): a section head, filter chips, a share bar, a record line, a club's mark.
+// Drawn in the club's colour through the page's --club variables.
+import { useState, type ReactNode } from 'react';
+import { NhlLogo } from '../ui';
+import { darkLogo } from '../../lib/fanVoice';
+
+// each league's own mark, for its board (ESPN's, drawn for a dark ground and a light one)
+const LEAGUE_MARK: Record<string, [string, string]> = {
+  nfl: ['https://a.espncdn.com/i/teamlogos/leagues/500/nfl.png', 'https://a.espncdn.com/i/teamlogos/leagues/500-dark/nfl.png'],
+  nba: ['https://a.espncdn.com/i/teamlogos/leagues/500/nba.png', 'https://a.espncdn.com/i/teamlogos/leagues/500-dark/nba.png'],
+  epl: ['https://a.espncdn.com/i/leaguelogos/soccer/500/23.png', 'https://a.espncdn.com/i/leaguelogos/soccer/500-dark/23.png'],
+};
+// a club's mark in any league: the NHL's from its own feed, the rest from ESPN's (`light` for a white tile), and the
+// club's code in a ring when there is none
+export function ClubMark({ league, code, logo, size = 26, light }: { league: string; code: string; logo?: string | null; size?: number; light?: boolean }) {
+  const [err, setErr] = useState(false);
+  if (league === 'nhl') return <NhlLogo abbr={code} size={size} light={light} />;
+  const board = code === league.toUpperCase() ? LEAGUE_MARK[league] : null;
+  const src = board ? board[light ? 0 : 1] : light ? logo : darkLogo(logo);
+  if (!src || err) return <span className={`grid shrink-0 place-items-center rounded-full font-display font-extrabold ${light ? 'bg-slate-900 text-white' : 'bg-white/10 text-white'}`} style={{ width: size, height: size, fontSize: Math.max(8, size * 0.32) }}>{code}</span>;
+  return <img src={src} alt="" width={size} height={size} loading="lazy" decoding="async" onError={() => setErr(true)} className="inline-block shrink-0 object-contain" style={{ width: size, height: size }} />;
+}
 
 export function Head({ id, title, sub, right }: { id: string; title: string; sub?: string; right?: ReactNode }) {
   return (

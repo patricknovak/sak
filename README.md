@@ -85,3 +85,12 @@ PGHOST=/tmp PGPORT=5433 PGUSER=postgres npm run test:db   # full rules test on a
 3. GMs pick keepers → commissioner finalizes → set the order → draft.
 
 Play fair, play hard and play to win.
+
+## License
+
+The code is open source under the [MIT License](LICENSE) (25 October 2026, Patrick's call), the fan zones' analysis
+included. Two things in the repository keep their own terms: the fonts in `landing/fonts` and `worker/fonts` (Barlow
+Condensed and Inter, SIL Open Font License 1.1, see `worker/fonts/README.md`), and the names and logos of the leagues and
+clubs the site shows, which belong to them and are not in the repository (they load from the leagues' and ESPN's own
+servers).
+

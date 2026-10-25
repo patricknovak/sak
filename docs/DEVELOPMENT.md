@@ -1241,5 +1241,58 @@ a knowledge base of information that can help their team one team or league in g
   (`/og/fans/<club>.png`), and a shared post with its own title; `/api/fans` and `/api/fans/<club>` serve the open data.
 - **The homepage**: superpoolsai.com has the 32 clubs in a `#fans` section and a nav link, `superpoolsai.com/fans` is its
   own page (`landing/fans.html`), and `superpoolsai.com/fans/<club>` forwards to the app.
-- **Not yet**: verified accounts for a club's own staff to answer on the board; a formal licence for the code and for the
-  fans' contributions (the repository has none yet: Patrick's call).
+- **Not yet**: verified accounts for a club's own staff to answer on the board. (The licence came the same day: the
+  repository is MIT, §9.21.)
+
+### 9.21 The fan zones for every league, 25 October 2026
+
+Patrick: "MIT license please. I would like to include Premier League, NFL and NBA with the possibility of adding other
+leagues. Can I expand this structure and infrastructure into other leagues."
+- **MIT**: `LICENSE` at the root (Patrick Novak), `"license": "MIT"` in `package.json`, the README's licence section (the
+  fonts keep the SIL OFL, league and club names and logos belong to them), and the fan zones' about page, the landing
+  page and the API say so.
+- **A league is a row** (migration 338): `fan_leagues` (key, name, sport, ESPN path, the month a season starts),
+  `fan_clubs` (every league's clubs: the NHL's 32 by its own codes, the rest by ESPN's, seeded from the pools engine's
+  `clubs` and kept fresh with colours, logos, conference and division by nhl-hub) and `fan_athletes` (the ESPN leagues'
+  players, written by nhl-hub as it reads rosters and leaders, so a call can only name a real player of the club). Every
+  fan function takes `p_league` last, the NHL's by default, so an older copy of the site keeps working; posts, calls and
+  fans carry their league; topics and calls are checked by sport (`_fan_topic_ok`, `_fan_call_ok`), and
+  `src/lib/fanLists.ts` (`TOPICS_BY_SPORT`, `CLUB_CALLS_BY_SPORT`, `LEAGUE_CALLS_BY_SPORT`) is kept equal by
+  `fan-voice.test.mjs`, which now reads 338. A new league of a sport already here (MLS, the WNBA, La Liga) is one
+  `fan_leagues` row with its ESPN path; a new sport is a branch in `fanSport.ts` and in the two checks.
+- **The data** (nhl-hub, deployed 25 October): `fan-sport-league` (an hour in `hub_cache`) brings every club, the table,
+  every club's season numbers from ESPN's by-team statistics (its own and what it allowed; a soccer club's from ESPN's
+  season feed, expected goals included) packed as one list of names with each club's values, the season's games from
+  the pools engine's own `fixtures` with the market's chances before each one, and the leaders; `fan-sport` (half an
+  hour) one club's roster (ages, injuries, a soccer player's season), its leaders in every category from ESPN's core
+  feed (the NBA's lists every player), its coach (not for soccer, where ESPN's is out of date), its next game and its own
+  news (tagged with the club, about it, nothing about betting lines). The Worker caches both at the edge (`/api/hub`
+  takes `league` and `club`).
+- **The analysis** (`src/lib/fanSport.ts`, tested by `fan-sport.test.mjs` on made-up leagues of every sport): around 20
+  measures per sport ranked in the league (the NFL's yards a play, passing and rushing efficiency, third downs, sacks,
+  turnovers, special teams and penalties; the NBA's ratings per 100 possessions and the four factors; the Premier
+  League's expected goals for and against, shots, big chances, possession, duels, clean sheets and saves) with a grade
+  pulled to the middle early in a season and blended with the club's strength; the strength itself (the points margin
+  pulled toward average and blended with a rating solved from every market line, the market counting most early; for
+  soccer attack and defence from expected goals and goals); the season simulated for every club at once (the NFL's
+  seven seeds and its bracket to the Super Bowl, the NBA's play-in and best-of-seven rounds with home court, the Premier
+  League's table place by place with the title, the top four, the top seven and the drop); the luck (points-based wins and
+  close games; the points the chances were worth, the finishing and the keeping); the form, the games ahead with their
+  chances, the players (leaders, the NBA's and soccer's player tables, the stars' share, the ages, who is hurt); and the
+  front office's bigger questions per sport (the window, the attack, the defence, the quarterback or the stars or the
+  goalkeeper, the depth, the record, the road ahead, discipline, special teams, the style), each with the fans' verdict,
+  the needs named in the calls' own words and the moves. A handful of games never earns a Rethink.
+- **The pages**: `#/fans/<league>` (`SportFanLeague.tsx`: every club in its colours with record, grade and chances, the
+  races, the leaders, the league's calls, board and knowledge base), `#/fans/<league>/<club>` (`SportFanZone.tsx`: the
+  hero, the verdict, the outlook with the place-by-place chart for soccer, every measure, the games, the players, the
+  front office, the fans and the news) and its pulse (`FanPulse.tsx`, now every league's, `#/fans/nfl/pulse` a league's
+  own). The fans' pieces (`FanVoice.tsx`, `FanBoard.tsx`) take the league, its sport and its clubs from
+  `FanVoiceProvider` (`useFanDir`, `fan_clubs`); `ClubMark` draws any league's mark. `#/fans` leads with the four
+  leagues; the public frame's picker lists every club by league. The NHL's links are unchanged (`/fans/EDM`).
+- **Sharing and open data**: the Worker unfurls `/fans/<league>`, `/fans/<league>/<CLUB>` and their pulses with the club's
+  own colours and ESPN mark (`/og/fans/<league>/<CLUB>.png`), and serves `/api/fans/<league>` and
+  `/api/fans/<league>/<CLUB>` (`/api/fans/nhl/EDM` too). superpoolsai.com's fan zones section and `landing/fans.html` show
+  the four leagues.
+- **Not yet**: history for the other leagues (ESPN has no record books like the NHL's; the fans' knowledge base stands in),
+  contracts and the cap (not in the free feeds), and the NHL's league page in the same shape as the others (the NHL's
+  board stays on `#/fans`).
