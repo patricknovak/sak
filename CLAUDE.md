@@ -74,7 +74,11 @@ Two things in one repo:
   the NHL's record books (every season, leaders, best seasons, trophies, the record against every club, captains, coaches,
   managers, the draft). `src/lib/fanZone.ts` ranks 46 measures, grades and writes the recommendations; `src/lib/fanDeep.ts`
   simulates the season (playoff odds), adjusts for luck, splits the record, reads form, the schedule, players, goalies,
-  tracking and the history; the sections are in `src/components/fan/`; settled lore lives in `src/data/clubHistory.ts`.
+  tracking and the history; `fan-office` (three hours in `hub_cache`) brings the goalies in depth (the NHL's tracking of every
+  shot by danger and area, every start, five seasons) and the league's goalies and skaters worth a call, read by
+  `src/lib/fanOffice.ts` (goals saved against the danger of the shots, who's to blame for the goals against, the plan in
+  goal, the market, targets by need, the coaches' calls, the bigger questions); the sections are in `src/components/fan/`;
+  settled lore lives in `src/data/clubHistory.ts`.
 - Navigation (`src/components/Layout.tsx`): the dock keeps four places (a fantasy league's are Home, Lineup, Chat and NHL centre since 24 October 2026; Players is in More under Your team), Live (the scoreboard, a fantasy league's middle tab with a red dot while a game is on) and More; More and the desktop sidebar list the
   rest under groups (`Tonight`, `Your team`, `The league`, `You`; a pool's `Play`, `Sport centres`, `You`), and nothing
   in the dock repeats in More. A new page joins a group rather than the end of a list.

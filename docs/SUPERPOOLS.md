@@ -492,7 +492,9 @@ The steps above finish the tenancy. `docs/MARKET.md` sets what comes after in th
 22. **A fan zone for any club** (24 October 2026; `docs/DEVELOPMENT.md` §9.17 and §9.18, migration 336): `#/fans/<club>`,
     the league's own club by default (SaK's Oilers): the verdict and what management should do, playoff odds from a season
     simulated for all 32 clubs, 46 ranked measures, splits, the NHL's tracking, player analytics, and the franchise from the
-    NHL's record books (every season, leaders, trophies, the draft, every opponent), with the lore, facts and a quiz.
+    NHL's record books (every season, leaders, trophies, the draft, every opponent), with the lore, facts and a quiz. Since 25 October 2026 (§9.19) the crease in depth (goals saved against the
+    danger of every shot, who's to blame, the plan in goal, the goalie market) and the front office (the bigger questions with
+    a verdict, trade targets by need from sellers, the coaches' calls on lines, minutes, the power play and the kill).
 
 Then horizon 2 (soccer on licensed data, basketball, the multi-sport pool, the Supercoin prediction market,
 the Super Pool bundle, the public API) and horizon 3 (cricket free-to-play, baseball, football and college,

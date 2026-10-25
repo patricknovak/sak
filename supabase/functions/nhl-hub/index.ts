@@ -10,6 +10,7 @@
 //   ?task=team&abbrev=EDM           one club: roster, this week's games, season stats for every player
 //   ?task=fan&abbrev=EDM            a club's fan zone: its season against every club's, tracking, usage, schedule, news
 //   ?task=fan-history&abbrev=EDM    a franchise's history from the NHL's record books: seasons, leaders, trophies, draft
+//   ?task=fan-office&abbrev=EDM     a club's front office: its goalies in depth, the league's goalies and skaters worth a call, lines
 //   ?task=lines&id=<gameId>         each club's lines for a game: four forward lines, three defence pairs and the goalies,
 //                                   worked out from the NHL's shift charts (a game that has started: its own 5-on-5; one
 //                                   that hasn't: each club's last game)
@@ -684,6 +685,131 @@ async function fanHistory(abbrev: string) {
   return cached(`fan-history:${abbrev}`, 6 * 3_600_000, () => historyBuild(abbrev));
 }
 
+// ── a club's front office (25 October 2026, Patrick: "improve the goalie analysis significantly, and the moves and
+// decisions the GM and coaching should make, and what fundamental changes should be considered"). Three hours in
+// hub_cache: the club's goalies in depth (the NHL's tracking of every shot they faced by danger and area, their 5-on-5
+// numbers, every start, five seasons against the league's save percentage), every goalie in the league for ranks and the
+// market, the club's own skaters on the power play and the kill, the league's skaters worth a call for each kind of need
+// (this season and last blended, each with his club so the site can tell a seller), and the lines from the last game.
+// The reading is the site's (src/lib/fanOffice.ts).
+const gp0 = (n: any) => Number(n ?? 0);
+async function officeBuild(abbrev: string) {
+  const ids = await clubId(abbrev);
+  const [cs, sched] = await Promise.all([get(`/club-stats/${abbrev}/now`), get(`/club-schedule-season/${abbrev}/now`).catch(() => null)]);
+  const cur = Number(cs.season), prev = cur - 10001, since = cur - 40004;
+  const goalieIds: number[] = (cs.goalies ?? []).filter((g: any) => g.gamesPlayed > 0).map((g: any) => g.playerId);
+  const opt = (p: Promise<any>) => p.catch(() => null);
+  const optA = (p: Promise<any[]>) => p.catch(() => [] as any[]);
+  const lastGame = ((sched?.games ?? []) as any[]).filter((g) => g.gameType === 2 && ['OFF', 'FINAL'].includes(g.gameState)).pop();
+  const [perGoalie, [gSumC, gAdvC, gStrC, gBio, gAdvP, gSeasons], [skSum, skRate, skToi, skPk, skPp, skFo, skBio, skSumP, skRateP, skPkP, skPpP], lines] = await Promise.all([
+    Promise.all(goalieIds.map(async (id) => {
+      const [detail, five, loc, log] = await Promise.all([
+        opt(get(`/edge/goalie-detail/${id}/${cur}/2`)), opt(get(`/edge/goalie-5v5-detail/${id}/${cur}/2`)), opt(get(`/edge/goalie-shot-location-detail/${id}/${cur}/2`)), opt(get(`/player/${id}/game-log/${cur}/2`)),
+      ]);
+      return { id, detail, five, loc, log };
+    })),
+    Promise.all([
+      optA(statsReport('summary', cur, 'goalie')), optA(statsReport('advanced', cur, 'goalie')), optA(statsReport('savesByStrength', cur, 'goalie')), optA(statsReport('bios', cur, 'goalie')),
+      optA(statsReport('advanced', prev, 'goalie')),
+      optA(statsGet(`goalie/summary?isAggregate=false&isGame=false&limit=-1&cayenneExp=${exp(`seasonId>=${since} and gameTypeId=2`)}`)),
+    ]),
+    Promise.all([
+      ...['summary', 'scoringRates', 'timeonice', 'penaltykill', 'powerplay', 'faceoffwins', 'bios'].map((n) => optA(statsReport(n, cur, 'skater'))),
+      optA(statsReport('summary', prev, 'skater')), optA(statsReport('scoringRates', prev, 'skater')), optA(statsReport('penaltykill', prev, 'skater')), optA(statsReport('powerplay', prev, 'skater')),
+    ]),
+    lastGame ? clubLines(lastGame.id, abbrev).then((l) => ({ game: { id: lastGame.id, date: lastGame.gameDate, opp: lastGame.homeTeam?.abbrev === abbrev ? lastGame.awayTeam?.abbrev : lastGame.homeTeam?.abbrev }, ...l })).catch(() => null) : null,
+  ]);
+  const by = (rows: any[]) => new Map<number, any>(rows.map((x) => [x.playerId, x]));
+  // the last team a player was traded to is listed last
+  const team = (t: string | null | undefined) => String(t ?? '').split(',').pop() || null;
+
+  // ── the club's goalies
+  const loc = (rows: any[] | undefined) => (rows ?? []).map((s: any) => ({
+    where: s.locationCode, sa: num(s.shotsAgainst), ga: num(s.goalsAgainst), svp: num(s.savePctg), pct: num(s.savePctgPercentile), saPct: num(s.shotsAgainstPercentile),
+    lgSvp: num(s.savePctgLeagueAvg), lgSa: num(s.shotsAgainstLeagueAvg), lgGa: num(s.goalsAgainstLeagueAvg),
+  }));
+  const goalies = perGoalie.map(({ id, detail, five, loc: L, log }) => ({
+    id,
+    edge: detail?.stats ? Object.fromEntries(Object.entries(detail.stats).map(([k, v]: [string, any]) => [k, { value: num(v?.value), pct: num(v?.percentile), avg: num(v?.leagueAvg) }])) : null,
+    five: five?.savePctg5v5Details ? Object.fromEntries(Object.entries(five.savePctg5v5Details).map(([k, v]: [string, any]) => [k, { value: num(v?.value), pct: num(v?.percentile), avg: num(v?.leagueAvg) }])) : null,
+    ranges: loc(L?.shotLocationTotals ?? detail?.shotLocationSummary),
+    areas: (L?.shotLocationDetails ?? []).map((s: any) => ({ area: s.area, sa: num(s.shotsAgainst), ga: num(s.goalsAgainst), svp: num(s.savePctg), pct: num(s.savePctgPercentile) })),
+    games: ((log?.gameLog ?? []) as any[]).map((g) => ({ id: g.gameId, date: g.gameDate, opp: g.opponentAbbrev, home: g.homeRoadFlag === 'H', start: gp0(g.gamesStarted) > 0, dec: g.decision ?? null, sa: gp0(g.shotsAgainst), ga: gp0(g.goalsAgainst), svp: num(g.savePctg), toi: g.toi })).reverse(),
+  }));
+
+  // ── every goalie in the league: this season, last season's quality starts, five seasons of save percentage
+  const advC = by(gAdvC), strC = by(gStrC), bio = by(gBio), advP = by(gAdvP);
+  const leagueGoalies = gSumC.map((g) => ({
+    id: g.playerId, name: g.goalieFullName, team: team(g.teamAbbrevs), gp: g.gamesPlayed, gs: g.gamesStarted, w: g.wins, sa: g.shotsAgainst, ga: g.goalsAgainst, svp: num(g.savePct), toi: g.timeOnIce,
+    qs: num(advC.get(g.playerId)?.qualityStart), qsPct: num(advC.get(g.playerId)?.qualityStartsPct), evSvp: num(strC.get(g.playerId)?.evSavePct), ppSvp: num(strC.get(g.playerId)?.ppSavePct),
+    born: bio.get(g.playerId)?.birthDate ?? null, catches: bio.get(g.playerId)?.shootsCatches ?? null,
+  }));
+  const seasons = gSeasons.map((g) => ({ id: g.playerId, name: g.goalieFullName, season: g.seasonId, team: team(g.teamAbbrevs), gp: g.gamesPlayed, gs: g.gamesStarted, sa: g.shotsAgainst, ga: g.goalsAgainst, svp: num(g.savePct), qsPct: g.seasonId === prev ? num(advP.get(g.playerId)?.qualityStartsPct) : null }));
+  const lgSvp: Record<string, number> = {};
+  for (const s of [...new Set(seasons.map((x) => x.season))]) {
+    const rows = seasons.filter((x) => x.season === s), sa = rows.reduce((t, x) => t + x.sa, 0), ga = rows.reduce((t, x) => t + x.ga, 0);
+    if (sa) lgSvp[s] = 1 - ga / sa;
+  }
+
+  // ── skaters: the club's own (power play, kill, faceoffs) and the league's worth a call
+  const rate = by(skRate), toi = by(skToi), pk = by(skPk), pp = by(skPp), fo = by(skFo), sbio = by(skBio), sumP = by(skSumP), rateP = by(skRateP), pkP = by(skPkP), ppP = by(skPpP);
+  // the kill and the power play over both seasons, each player's rate pulled toward the league's by an hour of average
+  // play, so a few clean shifts don't make a penalty killer
+  const hours = (rows: any[], t: string) => rows.reduce((h, x) => h + gp0(x[t]) / 3600, 0);
+  const lgPk = (skPk.reduce((g, x) => g + gp0(x.ppGoalsAgainstPer60) * gp0(x.shTimeOnIce) / 3600, 0) + skPkP.reduce((g, x) => g + gp0(x.ppGoalsAgainstPer60) * gp0(x.shTimeOnIce) / 3600, 0)) / Math.max(1, hours(skPk, 'shTimeOnIce') + hours(skPkP, 'shTimeOnIce'));
+  const lgPp = (skPp.reduce((g, x) => g + gp0(x.ppPoints), 0) + skPpP.reduce((g, x) => g + gp0(x.ppPoints), 0)) / Math.max(1, hours(skPp, 'ppTimeOnIce') + hours(skPpP, 'ppTimeOnIce'));
+  const steady = (id: number) => {
+    const K = pk.get(id), KP = pkP.get(id), P = pp.get(id), PP = ppP.get(id);
+    const kh = (gp0(K?.shTimeOnIce) + gp0(KP?.shTimeOnIce)) / 3600, kg = gp0(K?.ppGoalsAgainstPer60) * gp0(K?.shTimeOnIce) / 3600 + gp0(KP?.ppGoalsAgainstPer60) * gp0(KP?.shTimeOnIce) / 3600;
+    const ph = (gp0(P?.ppTimeOnIce) + gp0(PP?.ppTimeOnIce)) / 3600, pts = gp0(P?.ppPoints) + gp0(PP?.ppPoints);
+    return { pkHours: kh, pkAdj: (kg + lgPk) / (kh + 1), ppHours: ph, ppAdj: (pts + lgPp) / (ph + 1) };
+  };
+  const skater = (s: any) => {
+    const id = s.playerId, R = rate.get(id) ?? {}, T = toi.get(id) ?? {}, K = pk.get(id) ?? {}, P = pp.get(id) ?? {}, F = fo.get(id) ?? {}, B = sbio.get(id) ?? {}, SP = sumP.get(id), RP = rateP.get(id);
+    return {
+      id, name: s.skaterFullName, team: team(s.teamAbbrevs), pos: s.positionCode, shoots: s.shootsCatches, born: B.birthDate ?? null, gp: s.gamesPlayed, g: s.goals, a: s.assists, pts: s.points, toi: num(s.timeOnIcePerGame),
+      p60: num(R.pointsPer605v5), toi5: num(R.timeOnIcePerGame5v5), sat: num(R.satPct), satRel: num(R.satRelative5v5), zs: num(R.offensiveZoneStartPct5v5),
+      ppToi: num(T.ppTimeOnIcePerGame), shToi: num(T.shTimeOnIcePerGame), ppP60: num(P.ppPointsPer60), ppPts: num(P.ppPoints), pkGa60: num(K.ppGoalsAgainstPer60), shPts: num(K.shPoints),
+      ...steady(id), fo: num(F.faceoffWinPct ?? s.faceoffWinPct), foN: num(F.totalFaceoffs), foD: F.defensiveZoneFaceoffs ? num(F.defensiveZoneFaceoffWins / F.defensiveZoneFaceoffs) : null,
+      prev: SP ? { gp: SP.gamesPlayed, pts: SP.points, g: SP.goals, toi: num(SP.timeOnIcePerGame), p60: num(RP?.pointsPer605v5), toi5: num(RP?.timeOnIcePerGame5v5), satRel: num(RP?.satRelative5v5) } : null,
+    };
+  };
+  const all = skSum.map(skater);
+  const club = all.filter((s) => s.team === abbrev);
+  // a rate blended over this season and last, weighted by ice time, so ten games don't decide a call
+  const blend = (now: number | null, then: number | null | undefined, w: number, wp: number) => (now == null ? then ?? null : then == null || !wp ? now : (now * w + then * wp) / (w + wp));
+  const pool = all.filter((s) => s.team !== abbrev && (s.gp >= 5 || (s.prev?.gp ?? 0) >= 30)).map((s) => {
+    const w = (s.toi5 ?? 0) * s.gp, wp = (s.prev?.toi5 ?? 0) * (s.prev?.gp ?? 0);
+    return { ...s, p60b: blend(s.p60, s.prev?.p60, w, wp), satRelB: blend(s.satRel, s.prev?.satRel, w, wp) };
+  });
+  const top = (rows: any[], score: (s: any) => number | null, n = 40) => rows.map((s) => ({ s, v: score(s) })).filter((x) => x.v != null && Number.isFinite(x.v)).sort((a, b) => b.v! - a.v!).slice(0, n).map((x) => x.s);
+  const targets = {
+    // 5-on-5 scoring from the forwards, on enough ice time to mean it
+    scorers: top(pool.filter((s) => s.pos !== 'D' && ((s.toi5 ?? 0) * s.gp + (s.prev?.toi5 ?? 0) * (s.prev?.gp ?? 0)) >= 20 * 60 * 10), (s) => s.p60b),
+    // defencemen who move the puck: scoring rate and the shot share with them on the ice
+    puckD: top(pool.filter((s) => s.pos === 'D' && s.gp + (s.prev?.gp ?? 0) >= 20), (s) => (s.p60b ?? 0) + 4 * (s.satRelB ?? 0)),
+    // the kill: real shorthanded minutes, few power-play goals against with them on the ice
+    killers: top(pool.filter((s) => s.pkHours >= 0.75 && (s.shToi ?? 0) >= 60), (s) => -s.pkAdj),
+    // the power play: points per hour on it, with enough of it to count
+    pp: top(pool.filter((s) => s.ppHours >= 0.75 && (s.ppToi ?? 0) >= 60), (s) => s.ppAdj),
+    // centres who win draws, on volume
+    faceoffs: top(pool.filter((s) => (s.foN ?? 0) >= 80 && s.fo != null), (s) => s.fo),
+    // shot share drivers: the club is better with them on the ice
+    drivers: top(pool.filter((s) => s.gp + (s.prev?.gp ?? 0) >= 25 && (s.toi5 ?? 0) >= 600), (s) => s.satRelB),
+  };
+  // only what the page reads: the club's goalies' seasons, and every goalie's last season with enough starts to judge
+  const keep = new Set(goalieIds);
+  const seasonsKept = seasons.filter((x) => keep.has(x.id) || (x.season === prev && x.gs >= 10));
+  const slim = (x: any) => { const { toi5: _t, zs: _z, shPts: _s, ...rest } = x; return rest; };
+  for (const k of Object.keys(targets) as (keyof typeof targets)[]) targets[k] = targets[k].map(slim);
+  return { abbrev, season: cur, prevSeason: prev, goalies, leagueGoalies, seasons: seasonsKept, lgSvp, club, targets, lines, at: new Date().toISOString() };
+}
+async function fanOffice(abbrev: string) {
+  if (!/^[A-Z]{3}$/.test(abbrev)) throw new Error('bad request');
+  return cached(`fan-office:${abbrev}`, 3 * 3_600_000, () => officeBuild(abbrev));
+}
+
+
 // ── a game's lines
 // The NHL publishes no line combinations, but its shift charts say who was on the ice every second. Two players who
 // spent the most 5-on-5 time together are on the same line: forwards group into trios by shared time (seeded by the
@@ -934,7 +1060,7 @@ Deno.serve(async (req) => {
   if (hit && Date.now() - hit.at < hit.ttl) return Response.json(hit.body, { headers: { ...cors, 'x-cache': 'hit' } });
   try {
     const body = task === 'standings' ? await standings() : task === 'schedule' ? await schedule(date) : task === 'game' ? await gameDetail(id)
-      : task === 'news' ? await news() : task === 'x' ? await xfeed() : task === 'leaders' ? await leaders() : task === 'team' ? await club(abbrev) : task === 'fan' ? await fanZone(abbrev) : task === 'fan-history' ? await fanHistory(abbrev)
+      : task === 'news' ? await news() : task === 'x' ? await xfeed() : task === 'leaders' ? await leaders() : task === 'team' ? await club(abbrev) : task === 'fan' ? await fanZone(abbrev) : task === 'fan-history' ? await fanHistory(abbrev) : task === 'fan-office' ? await fanOffice(abbrev)
       : task === 'lines' ? await gameLines(id) : task === 'espn' ? await espnBox(sport, id)
       : task in SPORT_TASKS ? await sportTask(task as SportTask, sport) : await scores(date);
     const ttl = (body as { ttl?: number })?.ttl ?? TTL[task as keyof typeof TTL] ?? 20_000;

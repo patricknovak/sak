@@ -1184,3 +1184,33 @@ Patrick: "improve the fan zone analytics and history and facts by at least 300%"
   first-rounder judged by his career, and the best picks after the first round), and Did you know: facts counted from the
   record books plus 38 written ones (was 6), the culture, a fact of the day in the hero, and a fourteen-question quiz.
 
+### 9.19 The crease and the front office, 25 October 2026
+
+Patrick: "improve the goalie analysis significantly as well and moves and decisions that GM and coaching should make and
+possibly what fundamental changes should be considered or done."
+- **The data**: nhl-hub's `fan-office` task (three hours in `hub_cache`): for each of the club's goalies the NHL's tracking
+  (`/edge/goalie-detail`, `goalie-5v5-detail`, `goalie-shot-location-detail`: shots, goals and save percentage by danger
+  and by area, each with the league's average and his percentile; 5-on-5 and close-game save percentage; games over .900;
+  goal support) and his game log; every goalie in the league this season (summary, quality starts, save percentage by
+  strength, birth dates) and five seasons of every goalie's save percentage (the league's each season, and each goalie's
+  line); the club's own skaters on the power play, the kill and the draws; the league's skaters for each kind of need
+  (5-on-5 scorers, puck-moving defencemen, penalty killers, power-play scorers, centres who win draws, players who drive
+  the shot share), this season and last blended by ice time, the kill and power play over two seasons pulled toward the
+  league by an hour of average play so a few clean shifts don't make a specialist; and the lines from the last game
+  (`clubLines`, the shift charts).
+- **The crease** (`src/lib/fanOffice.ts`): goals saved against an average goalie, and against the danger of the shots
+  (each range's shots at the league's save percentage there: an expected-goals read from the NHL's own shot locations);
+  the slot, mid-range and long save percentages against the league with a percentile; 5-on-5, close games, even strength
+  and the kill; every start drawn, quality starts, starts over .900 and under .850, steals, the night-to-night swing and the
+  last five; rest and workload splits; five seasons against the league; ranks among the league's goalies; where shooters beat
+  him; a verdict in plain words; who's to blame for the goals against (the number of shots, their danger, the goaltending);
+  the plan in goal (a starter and a split from this season and recent seasons, the backup on the second nights); and the
+  market: goalies better than the starter over two seasons, sellers first, each with the wins he would add.
+- **The front office**: the bigger questions (the window, the stars, the crease, the system, the kill, special teams, the blue
+  line, the pipeline, the identity), each with a verdict (Keep, Adjust, Rethink), its evidence and what to do; moves for the
+  GM: each need the numbers name with the league's players who fill it, sellers (under a 35% playoff chance in the
+  simulation, now kept for all 32 clubs) first, their young core and every club's stars left off; and the coaches' calls: the
+  last game's lines with each player's 5-on-5 rate and shot share, who moves up, who gets more or fewer minutes, the power
+  play's first unit, the kill, who takes the defensive-zone draws, the pairs' handedness and the crease. Contracts and the cap
+  aren't in the NHL's free feeds and the page says so.
+
