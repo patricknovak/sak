@@ -9,12 +9,13 @@ import type { Env } from './index';
 const FRESH: Record<string, number> = {
   scores: 15, game: 15, espn: 30, lines: 60, x: 120, team: 300, standings: 300, schedule: 600, news: 600, leaders: 600,
   'sport-news': 600, 'sport-standings': 1800, 'sport-injuries': 3600, 'sport-leaders': 3600,
+  'fan-sport-league': 3600, 'fan-sport': 1800,
 };
 // and how long past that a stale copy may still be served while a fresh one is fetched, or when the source is down
 const KEEP = 6 * 3600;
 
 const ok = (q: URLSearchParams) => /^[a-z-]{1,20}$/.test(q.get('task') ?? 'scores')
-  && [...q.keys()].every((k) => ['task', 'date', 'id', 'abbrev', 'sport'].includes(k));
+  && [...q.keys()].every((k) => ['task', 'date', 'id', 'abbrev', 'sport', 'league', 'club'].includes(k));
 
 export async function hub(req: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
   const url = new URL(req.url);

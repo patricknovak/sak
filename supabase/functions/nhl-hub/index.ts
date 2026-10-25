@@ -18,6 +18,9 @@
 //                                   stats, its leaders, and the scoring plays (cached for the game's state)
 //   ?task=sport-news|sport-standings|sport-injuries|sport-leaders&sport=soccer/eng.1  every other sport's centre: ESPN's
 //                                   headlines, table, injury report and leaders (top scorers for soccer), cached in hub_cache
+//   ?task=fan-sport-league&league=nfl   another league's fan zones (fan_leagues: the NFL, the NBA, the Premier League):
+//                                   every club, the table, every club's season numbers, the season's games, the leaders
+//   ?task=fan-sport&league=nfl&club=KC  one of its clubs: roster, leaders, injuries, coach, next game, news
 //   ?task=x                         NHL insiders on X: through the X API when X_BEARER_TOKEN is set, otherwise through
 //                                   Grok's X search with the XAI_API_KEY the league already uses for Garry (shared cache
 //                                   in hub_cache so the whole league costs one search every few minutes)
@@ -1055,6 +1058,232 @@ async function sportTask(task: SportTask, sport: string) {
   }
 }
 
+// ── The fan zones of the other leagues (25 October 2026, Patrick: "I would like to include Premier League, NFL and NBA
+// with the possibility of adding other leagues"): a league is a fan_leagues row (a new league of a sport already here is
+// one more row) and everything else comes from ESPN's public feeds and the pools engine's own fixtures, for the analysis
+// in src/lib/fanSport.ts to read.
+//   fan-sport-league: every club with its colours, conference and division, the table, every club's season numbers (its
+//     own and what it allowed, from ESPN's numbers by team; a soccer club's from ESPN's season feed, expected goals
+//     included), the season's games with their pre-game chances, and the league's leaders. An hour in hub_cache.
+//   fan-sport: one club's roster (ages, positions, injuries; a soccer player's own season), its leaders in every
+//     category, its coach, its next game and its news. Half an hour in hub_cache.
+// The players either one names are written to fan_athletes as they come (and the clubs to fan_clubs), so the fans' calls
+// can only name a real player of the club.
+interface FanSportRow { key: string; name: string; sport: 'football' | 'basketball' | 'soccer'; espn: string }
+async function fanSportRow(key: string): Promise<FanSportRow> {
+  const { data } = await db.from('fan_leagues').select('key,name,sport,espn').eq('key', key).eq('active', true).maybeSingle();
+  if (!data?.espn || !['football', 'basketball', 'soccer'].includes(data.sport)) throw new Error('bad request');
+  return data as FanSportRow;
+}
+const SITE = (p: string) => `https://site.api.espn.com/apis/site/v2/sports/${p}`;
+const CORE = (p: string) => { const [s, l] = p.split('/'); return `https://sports.core.api.espn.com/v2/sports/${s}/leagues/${l}`; };
+const hex = (c: unknown) => (typeof c === 'string' && /^[0-9a-f]{6}$/i.test(c) ? `#${c.toLowerCase()}` : null);
+const r3 = (v: unknown) => (v == null || !Number.isFinite(Number(v)) ? null : Math.round(Number(v) * 1000) / 1000);
+const refId = (ref: unknown) => /\/athletes\/(\d+)/.exec(String(ref ?? ''))?.[1] ?? null;
+// the season the core feed keys its numbers by: soccer's league season is type 1 there, the others' regular season 2
+async function coreSeason(row: FanSportRow) {
+  const s = await espn(`${CORE(row.espn)}/season`).catch(() => null);
+  const now = new Date();
+  return { year: Number(s?.year) || now.getUTCFullYear() - (now.getUTCMonth() < 6 ? 1 : 0), type: row.sport === 'soccer' ? 1 : 2,
+    label: String(s?.displayName ?? s?.year ?? '').replace(/ English Premier League$/, '') };
+}
+// a feed's logo for a dark page: the dark version where the league has one
+const darkLogo = (logos: any[] | undefined) => (logos ?? []).find((l) => (l.rel ?? []).includes('dark') && !(l.rel ?? []).includes('scoreboard'))?.href ?? null;
+// ten at a time, so twenty clubs' numbers don't land on ESPN in one burst
+async function inBatches<T, R>(items: T[], n: number, fn: (x: T) => Promise<R>) {
+  const out: R[] = [];
+  for (let i = 0; i < items.length; i += n) out.push(...await Promise.all(items.slice(i, i + n).map(fn)));
+  return out;
+}
+
+async function fanSportLeagueBuild(row: FanSportRow) {
+  const soccer = row.sport === 'soccer';
+  const [teamsD, stD, season] = await Promise.all([
+    espn(`${SITE(row.espn)}/teams?limit=60`), espn(`https://site.api.espn.com/apis/v2/sports/${row.espn}/standings?level=3`), coreSeason(row),
+  ]);
+  const teams = new Map<string, any>(((teamsD.sports?.[0]?.leagues?.[0]?.teams ?? []) as any[]).map((x) => [String(x.team?.id), x.team]));
+  // the table, each club with its conference and division (soccer's is one table)
+  const groups: { conf: string | null; div: string | null; entries: any[] }[] = [];
+  for (const c of (stD.children?.length ? stD.children : [stD]) as any[]) {
+    if (c.children?.length) for (const v of c.children) groups.push({ conf: c.abbreviation ?? c.name ?? null, div: v.name ?? null, entries: v.standings?.entries ?? [] });
+    else groups.push({ conf: c.isConference ? c.abbreviation ?? c.name ?? null : null, div: null, entries: c.standings?.entries ?? [] });
+  }
+  const val = (e: any, name: string) => { const x = (e.stats ?? []).find((s: any) => s.name === name); return x ? Number(x.value ?? 0) : null; };
+  const sum = (e: any, type: string) => (e.stats ?? []).find((s: any) => s.type === type)?.summary ?? null;
+  const clubs = groups.flatMap((g) => g.entries.map((e: any) => {
+    const t = teams.get(String(e.team?.id)) ?? e.team ?? {};
+    const w = val(e, 'wins') ?? 0, l = val(e, 'losses') ?? 0, d = val(e, 'ties') ?? 0;
+    return {
+      code: String(e.team?.abbreviation ?? t.abbreviation ?? ''), id: String(e.team?.id ?? ''), name: t.displayName ?? e.team?.displayName ?? '',
+      short: t.shortDisplayName ?? e.team?.shortDisplayName ?? null, nick: t.name ?? null,
+      logo: t.logos?.[0]?.href ?? e.team?.logos?.[0]?.href ?? null, logoDark: darkLogo(t.logos), color: hex(t.color), alt: hex(t.alternateColor),
+      conf: g.conf, div: g.div, gp: soccer ? val(e, 'gamesPlayed') ?? w + l + d : w + l + d, w, l, d,
+      pf: val(e, 'pointsFor') ?? 0, pa: val(e, 'pointsAgainst') ?? 0, pts: soccer ? val(e, 'points') : null, deducted: soccer ? val(e, 'deductions') || null : null,
+      seed: (soccer ? val(e, 'rank') : val(e, 'playoffSeed')) || null, streak: (e.stats ?? []).find((s: any) => s.name === 'streak')?.displayValue ?? null,
+      home: sum(e, 'home'), road: sum(e, 'road'), vsDiv: sum(e, 'vsdiv'), vsConf: sum(e, 'vsconf'), last10: sum(e, 'lasttengames'),
+      note: e.note?.description ?? null,
+    };
+  })).filter((c) => /^[A-Z0-9]{2,5}$/.test(c.code));
+
+  // every club's season numbers, its own and what it allowed, named within each category ('passing.interceptions' are
+  // thrown, 'defensiveinterceptions.interceptions' caught) and sent as one list of names with each club's values in that
+  // order, a fifth of the size of a name on every number
+  const own: Record<string, Record<string, number | null>> = {}, opp: Record<string, Record<string, number | null>> = {};
+  if (!soccer) {
+    const bt = await espn(`https://site.web.api.espn.com/apis/common/v3/sports/${row.espn}/statistics/byteam?region=us&lang=en&contentorigin=espn&limit=60`);
+    const names = new Map<string, string[]>();
+    for (const c of (bt.categories ?? []) as any[]) if (c.names?.length && !names.has(c.name)) names.set(c.name, c.names);
+    for (const t of (bt.teams ?? []) as any[]) {
+      const code = String(t.team?.abbreviation ?? '');
+      own[code] ??= {}; opp[code] ??= {};
+      for (const c of (t.categories ?? []) as any[]) {
+        const n = names.get(c.name) ?? [];
+        const side = c.splitId === '900' ? opp[code] : own[code];
+        (c.values ?? []).forEach((v: unknown, i: number) => { if (n[i]) side[`${c.name}.${n[i]}`] = r3(v); });
+      }
+    }
+  } else {
+    // soccer's come club by club from the season feed, expected goals included; it keeps no opponents' side
+    await inBatches(clubs, 10, async (c) => {
+      const d = await espn(`${CORE(row.espn)}/seasons/${season.year}/types/${season.type}/teams/${c.id}/statistics`).catch(() => null);
+      own[c.code] = {};
+      for (const cat of (d?.splits?.categories ?? []) as any[]) for (const x of cat.stats ?? []) own[c.code][`${cat.name}.${x.name}`] = r3(x.value);
+    });
+  }
+  const keys = [...new Set(Object.values(own).concat(Object.values(opp)).flatMap((x) => Object.keys(x)))].sort();
+  const pack = (m: Record<string, Record<string, number | null>>) => Object.fromEntries(Object.entries(m).map(([c, x]) => [c, keys.map((k) => x[k] ?? null)]));
+  const stats = { keys, own: pack(own), opp: soccer ? {} : pack(opp) };
+
+  // the season's games from the pools engine's own fixtures (the same feed the pools settle on), with ESPN's chances
+  // before each one: [kick-off, home, away, home score, away score, round, home chance, away chance, draw chance, line]
+  const { data: cid } = await db.rpc('_fan_competition', { p_league: row.key });
+  const games: unknown[][] = [];
+  if (cid) {
+    const rowsF: any[] = [];
+    for (let from = 0; ; from += 1000) {
+      const { data, error } = await db.from('fixtures').select('kickoff,home_club,away_club,home_score,away_score,status,gameweek,round,detail')
+        .eq('competition', cid).order('kickoff').order('id').range(from, from + 999);
+      if (error) throw error;
+      rowsF.push(...(data ?? []));
+      if (!data || data.length < 1000) break;
+    }
+    const ids = [...new Set(rowsF.flatMap((f) => [f.home_club, f.away_club]).filter(Boolean))];
+    const { data: cl } = ids.length ? await db.from('clubs').select('id,short').in('id', ids) : { data: [] as any[] };
+    const code = new Map((cl ?? []).map((c: any) => [c.id, c.short]));
+    for (const f of rowsF) {
+      const done = ['FT', 'AET', 'PEN'].includes(f.status);
+      const o = f.detail?.odds ?? null;
+      games.push([f.kickoff, code.get(f.home_club) ?? null, code.get(f.away_club) ?? null, done ? f.home_score : null, done ? f.away_score : null,
+        f.gameweek ?? null, r3(o?.home), r3(o?.away), r3(o?.draw), r3(o?.line)]);
+    }
+  }
+
+  // the league's leaders: the names its award calls offer
+  const leaders = await fanSportLeaders(row).catch(() => [] as FanLeaderCat[]);
+
+  // what the zones need to know of each club and player, kept for the calls and the pages (service key; no fan writes these)
+  const now = new Date().toISOString();
+  const clubRows = clubs.map((c) => ({ league: row.key, code: c.code, name: c.name, short: c.short, logo: c.logo && /^https:\/\//i.test(c.logo) ? c.logo : null,
+    color: c.color, alt_color: c.alt, espn_id: c.id, conference: c.conf, division: c.div, active: true, updated_at: now }));
+  if (clubRows.length) { const { error } = await db.from('fan_clubs').upsert(clubRows, { onConflict: 'league,code' }); if (error) console.error('fan_clubs', error.message); }
+  const people = new Map<string, { league: string; id: string; name: string; club: string | null; pos: string | null; updated_at: string }>();
+  for (const c of leaders) for (const r of c.rows) if (r.id && /^\d{1,12}$/.test(r.id)) people.set(r.id, { league: row.key, id: r.id, name: r.name, club: r.team, pos: r.pos, updated_at: now });
+  if (people.size) { const { error } = await db.from('fan_athletes').upsert([...people.values()], { onConflict: 'league,id' }); if (error) console.error('fan_athletes', error.message); }
+
+  return { league: row.key, name: row.name, sport: row.sport, season: season.label || null, year: season.year, clubs, stats, games, leaders, at: now };
+}
+
+interface FanLeaderCat { cat: string; name: string; rows: { id: string | null; name: string; team: string | null; pos: string | null; headshot: string | null; value: number; display: string }[] }
+async function fanSportLeaders(row: FanSportRow): Promise<FanLeaderCat[]> {
+  if (row.sport === 'soccer') {
+    // soccer's leaders are the scoring charts: goals and assists
+    const d = await espn(`${SITE(row.espn)}/statistics`);
+    return ((d.stats ?? []) as any[]).map((c) => ({ cat: c.name === 'assistsLeaders' ? 'assists' : 'goals', name: c.name === 'assistsLeaders' ? 'Assists' : 'Goals',
+      rows: ((c.leaders ?? []) as any[]).slice(0, 25).map((l) => ({ id: l.athlete?.id ? String(l.athlete.id) : null, name: l.athlete?.displayName ?? '',
+        team: l.athlete?.team?.abbreviation ?? null, pos: l.athlete?.position?.abbreviation ?? null, headshot: null, value: Number(l.value ?? 0),
+        display: String(l.displayValue ?? '') })) }));
+  }
+  // ten a category (the feed refuses a bigger page)
+  const d = await espn(`https://site.web.api.espn.com/apis/site/v3/sports/${row.espn}/leaders`);
+  return ((d.leaders?.categories ?? []) as any[]).map((c) => ({ cat: String(c.name ?? ''), name: String(c.displayName ?? c.name ?? ''),
+    rows: ((c.leaders ?? []) as any[]).slice(0, 25).map((l) => ({ id: l.athlete?.id ? String(l.athlete.id) : null, name: l.athlete?.displayName ?? '',
+      team: l.team?.abbreviation ?? l.athlete?.team?.abbreviation ?? null, pos: l.athlete?.position?.abbreviation ?? null,
+      headshot: l.athlete?.headshot?.href ?? null, value: Number(l.value ?? 0), display: String(l.displayValue ?? '') })) }));
+}
+
+async function fanSportClubBuild(row: FanSportRow, code: string) {
+  const { data: fc } = await db.from('fan_clubs').select('code,name,espn_id').eq('league', row.key).eq('code', code).eq('active', true).maybeSingle();
+  if (!fc?.espn_id) throw new Error('bad request');
+  const id = String(fc.espn_id), soccer = row.sport === 'soccer';
+  const season = await coreSeason(row);
+  const [team, roster, leadersD, newsD] = await Promise.all([
+    espn(`${SITE(row.espn)}/teams/${id}`).then((d) => d.team ?? {}),
+    espn(`${SITE(row.espn)}/teams/${id}/roster`),
+    espn(`${CORE(row.espn)}/seasons/${season.year}/types/${season.type}/teams/${id}/leaders`).catch(() => null),
+    espn(`${SITE(row.espn)}/news?team=${id}&limit=30`).catch(() => null),
+  ]);
+  const st = (x: any) => Object.fromEntries(((x.statistics?.splits?.categories ?? []) as any[]).flatMap((c) => (c.stats ?? []).map((s: any) => [s.name, Number(s.value ?? 0)])));
+  // the roster comes in position groups (the NFL's offence, defence and special teams) or as one list
+  const list = ((roster.athletes ?? []) as any[]).flatMap((a) => (Array.isArray(a.items) ? a.items.map((x: any) => ({ ...x, group: a.position ?? null })) : [a]));
+  const players = list.map((a: any) => {
+    const inj = (a.injuries ?? [])[0] ?? null;
+    const s = soccer ? st(a) : null;
+    return {
+      id: String(a.id), name: a.displayName ?? a.fullName ?? '', short: a.shortName ?? null, pos: a.position?.abbreviation ?? null,
+      posName: a.position?.displayName ?? a.position?.name ?? null, group: a.group ?? a.position?.parent?.abbreviation ?? null,
+      jersey: a.jersey ?? null, age: a.age ?? null, exp: a.experience?.years ?? null, ht: a.displayHeight ?? null, wt: a.displayWeight ?? null,
+      headshot: a.headshot?.href ?? null, from: a.college?.name ?? a.citizenship ?? a.birthPlace?.country ?? null,
+      injury: inj ? { status: inj.status ?? inj.type?.description ?? 'Injured', date: inj.date ?? null, type: inj.details?.type ?? null,
+        detail: inj.details?.detail ?? inj.shortComment ?? null, back: inj.details?.returnDate ?? null } : null,
+      // a soccer player's season comes with the roster
+      season: s ? { apps: s.appearances ?? 0, subs: s.subIns ?? 0, g: s.totalGoals ?? 0, a: s.goalAssists ?? 0, sh: s.totalShots ?? 0,
+        sot: s.shotsOnTarget ?? 0, sv: s.saves ?? 0, ga: s.goalsConceded ?? 0, faced: s.shotsFaced ?? 0, yc: s.yellowCards ?? 0, rc: s.redCards ?? 0,
+        fc: s.foulsCommitted ?? 0, fs: s.foulsSuffered ?? 0, off: s.offsides ?? 0 } : null,
+    };
+  }).filter((p: any) => /^\d{1,12}$/.test(p.id));
+  // the club's leaders in every category the feed keeps (the NBA's lists every player who has played)
+  const leaders = ((leadersD?.categories ?? []) as any[]).map((c) => ({ cat: String(c.name ?? ''), name: String(c.displayName ?? c.name ?? ''),
+    rows: ((c.leaders ?? []) as any[]).map((l) => ({ id: refId(l.athlete?.$ref), value: r3(l.value) ?? 0, display: String(l.displayValue ?? '') })).filter((r) => r.id) }));
+  const ev = team.nextEvent?.[0];
+  const comp = ev?.competitions?.[0];
+  const them = (comp?.competitors ?? []).find((c: any) => String(c.team?.id ?? c.id) !== id);
+  const next = ev ? { at: ev.date ?? null, name: ev.shortName ?? ev.name ?? null, home: (comp?.competitors ?? []).find((c: any) => String(c.team?.id ?? c.id) === id)?.homeAway === 'home',
+    opp: them?.team?.abbreviation ?? null, oppName: them?.team?.displayName ?? null, venue: comp?.venue?.fullName ?? null, week: ev.week?.text ?? null,
+    tv: comp?.broadcasts?.[0]?.media?.shortName ?? null } : null;
+  const coach = !soccer && roster.coach?.[0] ? { name: `${roster.coach[0].firstName ?? ''} ${roster.coach[0].lastName ?? ''}`.trim(), years: roster.coach[0].experience ?? null } : null;
+  // the club's own stories: tagged with the club and about it (a league-wide roundup tags half the league), and none
+  // about betting lines
+  const nameRe = new RegExp(`\\b(${[team.shortDisplayName, team.name, fc.name].filter(Boolean).map((x: string) => x.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|')})\\b`, 'i');
+  const tags = (a: any) => ((a.categories ?? []) as any[]).filter((c) => c.type === 'team').map((c) => String(c.teamId ?? c.team?.id ?? ''));
+  const news = ((newsD?.articles ?? []) as any[])
+    .filter((a) => a.headline && !/\b(bets?|betting|odds|wagers?|parlays?|props?|sportsbooks?)\b/i.test(a.headline) && tags(a).includes(id)
+      && (tags(a).length <= 3 || nameRe.test(`${a.headline} ${a.description ?? ''}`)))
+    .slice(0, 10).map((a) => ({ headline: a.headline, blurb: a.description ?? null,
+      link: a.links?.web?.href ?? null, image: a.images?.[0]?.url ?? null, at: a.published ?? a.lastModified ?? null }));
+
+  // the club's players, kept for the fans' calls
+  const now = new Date().toISOString();
+  if (players.length) {
+    const { error } = await db.from('fan_athletes').upsert(players.map((p: any) => ({ league: row.key, id: p.id, name: p.name, club: code, pos: p.pos, updated_at: now })), { onConflict: 'league,id' });
+    if (error) console.error('fan_athletes', error.message);
+  }
+  return {
+    league: row.key, club: code, id, name: team.displayName ?? fc.name, short: team.shortDisplayName ?? null, logo: team.logos?.[0]?.href ?? null,
+    logoDark: darkLogo(team.logos), color: hex(team.color), alt: hex(team.alternateColor), venue: team.franchise?.venue?.fullName ?? null,
+    city: team.franchise?.venue?.address?.city ?? null, standing: team.standingSummary ?? null, record: team.record?.items?.[0]?.summary ?? null,
+    coach, next, players, leaders, news, season: season.label || null, at: now,
+  };
+}
+async function fanSport(league: string, club: string) {
+  const row = await fanSportRow(league);
+  if (!/^[A-Z0-9]{2,5}$/.test(club)) throw new Error('bad request');
+  return cached(`fan-sport:${row.key}:${club}`, 1_800_000, () => fanSportClubBuild(row, club));
+}
+async function fanSportLeague(league: string) {
+  const row = await fanSportRow(league);
+  return cached(`fan-sport-league:${row.key}`, 3_600_000, () => fanSportLeagueBuild(row));
+}
+
 async function gameLines(id: string) {
   const land = await get(`/gamecenter/${id}/landing`);
   const started = ['LIVE', 'CRIT', 'OFF', 'FINAL'].includes(land.gameState);
@@ -1080,14 +1309,19 @@ Deno.serve(async (req) => {
   const id = url.searchParams.get('id') ?? '';
   const abbrev = (url.searchParams.get('abbrev') ?? '').toUpperCase();
   const sport = url.searchParams.get('sport') ?? '';
-  if (!/^(now|\d{4}-\d{2}-\d{2})$/.test(date) || !/^\d{0,12}$/.test(id) || !/^[A-Z]{0,3}$/.test(abbrev) || !/^[a-z0-9./-]{0,40}$/.test(sport)) return Response.json({ error: 'bad request' }, { status: 400, headers: cors });
-  const key = `${task}:${date}:${id}:${abbrev}:${sport}`;
+  // the fan zones of the other leagues: a fan_leagues key and one of its clubs (ESPN's codes run two to four letters)
+  const league = url.searchParams.get('league') ?? '';
+  const clubCode = (url.searchParams.get('club') ?? '').toUpperCase();
+  if (!/^(now|\d{4}-\d{2}-\d{2})$/.test(date) || !/^\d{0,12}$/.test(id) || !/^[A-Z]{0,3}$/.test(abbrev) || !/^[a-z0-9./-]{0,40}$/.test(sport)
+    || !/^[a-z0-9-]{0,12}$/.test(league) || !/^[A-Z0-9]{0,5}$/.test(clubCode)) return Response.json({ error: 'bad request' }, { status: 400, headers: cors });
+  const key = `${task}:${date}:${id}:${abbrev}:${sport}:${league}:${clubCode}`;
   const hit = cache.get(key);
   if (hit && Date.now() - hit.at < hit.ttl) return Response.json(hit.body, { headers: { ...cors, 'x-cache': 'hit' } });
   try {
     const body = task === 'standings' ? await standings() : task === 'schedule' ? await schedule(date) : task === 'game' ? await gameDetail(id)
       : task === 'news' ? await news() : task === 'x' ? await xfeed() : task === 'leaders' ? await leaders() : task === 'team' ? await club(abbrev) : task === 'fan' ? await fanZone(abbrev) : task === 'fan-history' ? await fanHistory(abbrev) : task === 'fan-office' ? await fanOffice(abbrev) : task === 'fan-league' ? await fanLeague()
       : task === 'lines' ? await gameLines(id) : task === 'espn' ? await espnBox(sport, id)
+      : task === 'fan-sport' ? await fanSport(league, clubCode) : task === 'fan-sport-league' ? await fanSportLeague(league)
       : task in SPORT_TASKS ? await sportTask(task as SportTask, sport) : await scores(date);
     const ttl = (body as { ttl?: number })?.ttl ?? TTL[task as keyof typeof TTL] ?? 20_000;
     cache.set(key, { at: Date.now(), ttl, body });

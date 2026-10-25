@@ -2,32 +2,42 @@
 // #/fans/<club>/pulse, one page anyone can read, share, print or download. What the fans called this season (who
 // starts in goal, the MVP, the one to move, the need, the window, the spring, the grades), their verdicts on the
 // analysis's bigger questions, the ideas and questions they voted to the top, the fixes, the knowledge base and who
-// added the most. Everything from fan_pulse (migration 337); no account behind any of it.
+// added the most. Everything from fan_pulse (migration 337); no account behind any of it. Every league's clubs have one
+// (migration 338): #/fans/nfl/KC/pulse, and a league's own at #/fans/nfl/pulse (the NHL's at #/fans/NHL/pulse).
 import { useEffect } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { ArrowLeft, Download, Printer, ShieldCheck, Users } from 'lucide-react';
 import {
-  CLUB_CALLS, KINDS, NHL_CALLS, QUESTION_CALLS, VERDICTS, callLabel, clubName, download, fanExport, fanLink, gradeAvg, pulseCsv, shares,
+  KINDS, QUESTION_CALLS, VERDICTS, callLabel, callsFor, dirName, download, fanExport, gradeAvg, pulseCsv, shares, useFanDir, zoneLink, zonePath,
   type CallSplit, type FanKind,
 } from '../lib/fanVoice';
-import { clubVars } from '../data/clubColors';
+import { clubVars, leagueVars, sportVars } from '../data/clubColors';
 import { CLUB_LORE } from '../data/clubHistory';
 import { NHL_TEAMS, fmtDate } from '../lib/format';
-import { NhlLogo, Spinner, useToast } from '../components/ui';
+import { Spinner, useToast } from '../components/ui';
 import { FanVoiceProvider, useVoice } from '../components/fan/FanVoice';
 import { ShareButton } from '../components/fan/FanShare';
+import { ClubMark } from '../components/fan/kit';
 
 const seasonLabel = (s: number) => `${String(s).slice(0, 4)}-${String(s).slice(6, 8)}`;
 const TONE: Record<string, string> = { keep: 'rgb(52 211 153)', adjust: 'rgb(251 191 36)', rethink: 'rgb(248 113 113)' };
 
+// the address says which: /fans/EDM/pulse (an NHL club), /fans/nfl/pulse (a league's board), /fans/nfl/KC/pulse
 export default function FanPulse() {
-  const { club: param } = useParams();
-  const club = (param ?? 'EDM').toUpperCase();
-  const ok = club === 'NHL' || !!NHL_TEAMS[club];
-  if (!ok) return <div className="card p-6 text-center text-sm text-mute">There&apos;s no club {club} in the NHL. <Link to="/fans" className="text-sky-300 underline">Every club&apos;s fan zone</Link></div>;
+  const { league: lp, club: param } = useParams();
+  const board = !lp && !!param && /^[a-z]/.test(param);
+  const league = lp ?? (board ? param! : 'nhl');
+  const club = board ? league.toUpperCase() : (param ?? 'EDM').toUpperCase();
+  const { dir, failed } = useFanDir(league);
+  if (failed) return <div className="card p-6 text-center text-sm text-mute">There&apos;s no fan zone for {league.toUpperCase()}. <Link to="/fans" className="text-sky-300 underline">Every fan zone</Link></div>;
+  if (!dir) return <div className="flex justify-center py-20"><Spinner /></div>;
+  const ok = club === dir.board || (league === 'nhl' ? !!NHL_TEAMS[club] : !!dir.byCode[club]);
+  if (!ok) return <div className="card p-6 text-center text-sm text-mute">There&apos;s no club {club} in the {dir.name}. <Link to={zonePath(league)} className="text-sky-300 underline">Every club&apos;s fan zone</Link></div>;
+  const c = dir.byCode[club];
+  const vars = league === 'nhl' ? clubVars(club, CLUB_LORE[club]?.colors) : club === dir.board ? leagueVars(league) : sportVars(c?.color, c?.alt);
   return (
-    <div className="print-sheet" style={clubVars(club, CLUB_LORE[club]?.colors)}>
-      <FanVoiceProvider club={club}><Pulse club={club} /></FanVoiceProvider>
+    <div className="print-sheet" style={vars}>
+      <FanVoiceProvider club={club} league={league} dir={dir}><Pulse club={club} /></FanVoiceProvider>
     </div>
   );
 }
@@ -36,23 +46,27 @@ function Pulse({ club }: { club: string }) {
   const v = useVoice()!;
   const toast = useToast();
   const p = v.pulse;
-  const name = clubName(club);
+  const board = club === v.board;
+  const name = dirName(v.dir, club);
   useEffect(() => { document.title = `${name} fan pulse · Super Pools`; }, [name]);
   if (!p) return <div className="flex justify-center py-20"><Spinner /></div>;
-  const defs = club === 'NHL' ? NHL_CALLS : CLUB_CALLS;
+  const defs = callsFor(v.sport, board);
+  const label = (t: string, c: string, n?: string | null) => callLabel(t, c, n, v.sport, board, v.dir);
   const calls = Object.values(p.calls).reduce((t, s) => t + s.total, 0);
   const questions = Object.entries(QUESTION_CALLS).filter(([, k]) => p.calls[k]?.total);
-  const csv = () => download(`${club.toLowerCase()}-fan-pulse-${p.season}.csv`, pulseCsv(p, (t, c) => callLabel(t, c, p.calls[t]?.choices.find((x) => x.choice === c)?.name)), 'text/csv');
+  const file = `${v.league === 'nhl' ? '' : `${v.league}-`}${club.toLowerCase()}`;
+  const csv = () => download(`${file}-fan-pulse-${p.season}.csv`, pulseCsv(p, (t, c) => label(t, c, p.calls[t]?.choices.find((x) => x.choice === c)?.name)), 'text/csv');
   const json = async () => {
-    try { const x = await fanExport(club); download(`${club.toLowerCase()}-fan-zone-${p.season}.json`, JSON.stringify(x, null, 2), 'application/json'); } catch (e) { toast((e as Error).message, 'err'); }
+    try { const x = await fanExport(club, v.league); download(`${file}-fan-zone-${p.season}.json`, JSON.stringify(x, null, 2), 'application/json'); } catch (e) { toast((e as Error).message, 'err'); }
   };
+  const logo = v.dir.byCode[club]?.logo;
   return (
     <div className="space-y-5">
-      <Link to={club === 'NHL' ? '/fans' : `/fans/${club}`} className="no-print inline-flex items-center gap-1 text-sm font-semibold text-sky-300"><ArrowLeft className="h-4 w-4" />{club === 'NHL' ? 'Every club' : `The ${name} fan zone`}</Link>
+      <Link to={zonePath(v.league, club)} className="no-print inline-flex items-center gap-1 text-sm font-semibold text-sky-300"><ArrowLeft className="h-4 w-4" />{board ? (v.league === 'nhl' ? 'Every club' : `The ${v.dir.name} fan zone`) : `The ${name} fan zone`}</Link>
       <div className="print-plain relative overflow-hidden rounded-[28px] border p-4 sm:p-6" style={{ borderColor: 'rgb(var(--club-rgb) / .35)', background: 'radial-gradient(120% 90% at 100% 0%, rgb(var(--club-rgb) / .32), transparent 55%), linear-gradient(160deg, var(--club2), #070b16 75%)' }}>
-        <div className="pointer-events-none absolute -right-6 -top-6 opacity-[.12]"><NhlLogo abbr={club} size={190} /></div>
+        <div className="pointer-events-none absolute -right-6 -top-6 opacity-[.12]"><ClubMark league={v.league} code={club} logo={logo} size={190} /></div>
         <div className="relative flex items-start gap-3">
-          <span className="grid h-14 w-14 shrink-0 place-items-center rounded-2xl bg-white/95 shadow-lg"><NhlLogo abbr={club} size={42} light /></span>
+          <span className="grid h-14 w-14 shrink-0 place-items-center rounded-2xl bg-white/95 shadow-lg"><ClubMark league={v.league} code={club} logo={logo} size={42} light /></span>
           <div className="min-w-0 flex-1">
             <div className="text-[11px] font-bold uppercase tracking-[.2em]" style={{ color: 'var(--club)' }}>Fan pulse · {seasonLabel(p.season)}</div>
             <h1 className="font-display text-[clamp(26px,8vw,38px)] font-extrabold italic leading-[.95] text-white">{name}</h1>
@@ -68,7 +82,7 @@ function Pulse({ club }: { club: string }) {
           ))}
         </div>
         <div className="no-print relative mt-3 flex flex-wrap gap-2">
-          <ShareButton url={fanLink(club === 'NHL' ? undefined : club, 'pulse')} title={`${name} fan pulse`} text={`What ${name} fans think: the calls, the ideas and the questions, open to everyone.`} className="btn-club btn-sm px-3!" />
+          <ShareButton url={zoneLink(v.league, club, 'pulse')} title={`${name} fan pulse`} text={`What ${name} fans think: the calls, the ideas and the questions, open to everyone.`} className="btn-club btn-sm px-3!" />
           <button type="button" onClick={() => window.print()} className="btn-ghost btn-sm px-3!"><Printer className="h-3.5 w-3.5" />Print</button>
           <button type="button" onClick={csv} className="btn-ghost btn-sm px-3!"><Download className="h-3.5 w-3.5" />Spreadsheet</button>
           <button type="button" onClick={() => void json()} className="btn-ghost btn-sm px-3!"><Download className="h-3.5 w-3.5" />Open data</button>
@@ -79,14 +93,14 @@ function Pulse({ club }: { club: string }) {
         <div className="card p-5 text-center">
           <div className="text-3xl">📣</div>
           <p className="mt-1 text-sm text-slate-300">No fan has made a call or posted for {name} this season yet. The pulse fills in as they do.</p>
-          <Link to={club === 'NHL' ? '/fans' : `/fans/${club}`} className="btn-club mt-3 inline-flex px-4">Be the first</Link>
+          <Link to={zonePath(v.league, club)} className="btn-club mt-3 inline-flex px-4">Be the first</Link>
         </div>
       )}
 
       <section className="space-y-2">
         <H title="The fans' calls" sub="Each fan's call for the season, one each, open to everyone." />
         <div className="grid gap-2 sm:grid-cols-2">
-          {defs.map((d) => <CallResult key={d.key} title={d.title} topic={d.key} split={p.calls[d.key]} />)}
+          {defs.map((d) => <CallResult key={d.key} title={d.title} topic={d.key} split={p.calls[d.key]} label={label} club={d.kind === 'club'} />)}
         </div>
       </section>
 
@@ -103,7 +117,7 @@ function Pulse({ club }: { club: string }) {
                   <div className="print-bar mt-1.5 flex h-2.5 overflow-hidden rounded-full bg-white/[.06]">
                     {VERDICTS.map(([c]) => { const x = s.find((y) => y.choice === c); return x ? <div key={c} style={{ width: `${x.pct * 100}%`, background: TONE[c] }} className="h-2.5 border-r-2 border-[#0e1527] last:border-r-0" /> : null; })}
                   </div>
-                  <div className="mt-1 text-[12px] text-slate-300">{top ? <><b className="text-white">{Math.round(top.pct * 100)}% {callLabel(k, top.choice).toLowerCase()}</b>{s.slice(1).map((x) => ` · ${Math.round(x.pct * 100)}% ${callLabel(k, x.choice).toLowerCase()}`).join('')}</> : null}</div>
+                  <div className="mt-1 text-[12px] text-slate-300">{top ? <><b className="text-white">{Math.round(top.pct * 100)}% {label(k, top.choice).toLowerCase()}</b>{s.slice(1).map((x) => ` · ${Math.round(x.pct * 100)}% ${label(k, x.choice).toLowerCase()}`).join('')}</> : null}</div>
                 </div>
               );
             })}
@@ -130,7 +144,7 @@ function Pulse({ club }: { club: string }) {
         </section>
       )}
 
-      <p className="px-1 text-[11px] leading-snug text-mute">From the {name} fan zone on Super Pools: each fan makes a call once and can change it; posts are voted up or down by the fans and checked by the fan zones&apos; editors when marked. Free to read, share and download. <Link to="/fans/about" className="underline">How the fan zones work</Link>. Not affiliated with the NHL or its clubs.</p>
+      <p className="px-1 text-[11px] leading-snug text-mute">From the {name} fan zone on Super Pools: each fan makes a call once and can change it; posts are voted up or down by the fans and checked by the fan zones&apos; editors when marked. Free to read, share and download. <Link to="/fans/about" className="underline">How the fan zones work</Link>. Not affiliated with the {v.dir.name} or its clubs.</p>
     </div>
   );
 }
@@ -144,7 +158,7 @@ function H({ title, sub }: { title: string; sub?: string }) {
   );
 }
 
-function CallResult({ title, topic, split }: { title: string; topic: string; split: CallSplit | undefined }) {
+function CallResult({ title, topic, split, label, club }: { title: string; topic: string; split: CallSplit | undefined; label: (t: string, c: string, n?: string | null) => string; club: boolean }) {
   const s = shares(split);
   const avg = topic === 'gm' || topic === 'coach' ? gradeAvg(split) : null;
   return (
@@ -155,7 +169,7 @@ function CallResult({ title, topic, split }: { title: string; topic: string; spl
         <div className="mt-2 space-y-1.5">
           {s.slice(0, 5).map((c, i) => (
             <div key={c.choice}>
-              <div className="flex items-baseline gap-2 text-[12px]"><span className={`min-w-0 flex-1 truncate ${i === 0 ? 'font-bold text-white' : 'text-slate-300'}`}>{callLabel(topic, c.choice, c.name)}{c.team && topic !== 'cup' ? <span className="text-mute"> · {c.team}</span> : null}</span><span className="num font-bold text-white">{Math.round(c.pct * 100)}%</span><span className="num w-8 text-right text-mute">{c.n}</span></div>
+              <div className="flex items-baseline gap-2 text-[12px]"><span className={`min-w-0 flex-1 truncate ${i === 0 ? 'font-bold text-white' : 'text-slate-300'}`}>{label(topic, c.choice, c.name)}{c.team && !club ? <span className="text-mute"> · {c.team}</span> : null}</span><span className="num font-bold text-white">{Math.round(c.pct * 100)}%</span><span className="num w-8 text-right text-mute">{c.n}</span></div>
               <div className="print-bar mt-0.5 h-1.5 rounded-full bg-white/[.06]"><div className="h-1.5 rounded-full" style={{ width: `${Math.max(3, c.pct * 100)}%`, background: i === 0 ? 'rgb(var(--club-rgb))' : 'rgb(148 163 184 / .55)' }} /></div>
             </div>
           ))}
@@ -178,7 +192,7 @@ function TopList({ kind, title, sub }: { kind: FanKind; title?: string; sub?: st
           <li key={x.id} className="flex gap-3 px-3 py-2.5">
             <span className="num grid h-7 w-7 shrink-0 place-items-center rounded-full text-sm font-black" style={{ background: 'rgb(var(--club-rgb) / .25)', color: 'var(--club)' }}>{i + 1}</span>
             <div className="min-w-0 flex-1">
-              <Link to={v.club === 'NHL' ? `/fans?post=${x.id}` : `/fans/${v.club}?post=${x.id}`} className="font-semibold leading-snug text-white hover:underline [overflow-wrap:anywhere]">{x.title}</Link>
+              <Link to={`${zonePath(v.league, v.club)}?post=${x.id}`} className="font-semibold leading-snug text-white hover:underline [overflow-wrap:anywhere]">{x.title}</Link>
               {x.body && <p className="mt-0.5 line-clamp-2 text-[13px] leading-snug text-slate-300">{x.body}</p>}
               <div className="mt-1 flex flex-wrap items-center gap-x-2 text-[11px] text-mute">
                 <span>{x.author}</span>

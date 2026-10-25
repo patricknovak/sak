@@ -7611,7 +7611,7 @@ select pg_temp.raises('no vote on your own post', format('select fan_vote(%s, 1)
 select pg_temp.raises('or a report', format('select fan_report(%s)', current_setting('t.fp')), 'your own post');
 reset role;
 select pg_temp.expect('the title is tidied and the writer shows as a first name and an initial',
-  (select title = 'Trade for a starter in goal' and author = _lounge_name((select gm_name from teams where id = 2)) and season = _fan_season()
+  (select title = 'Trade for a starter in goal' and author = _lounge_name((select gm_name from teams where id = 2)) and season = _fan_season('nhl')
           and kind = 'idea' and source = 'https://www.nhl.com/oilers' from fan_posts where id = current_setting('t.fp')::bigint));
 select pg_temp.expect('who wrote it is kept apart', (select user_id = '00000000-0000-0000-0000-000000000002' from private.fan_authors where id = current_setting('t.fp')::bigint));
 select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-000000000003', false);
@@ -7708,11 +7708,84 @@ select pg_temp.expect('and takes any post down', not exists (select 1 from fan_p
 reset role;
 select pg_temp.expect('a club''s open data carries no account', (select (x->'posts'->0) ? 'author' and not ((x->'posts'->0) ? 'user_id') and not ((x->'pulse') ? 'mine')
   from (select fan_export('NHL') x) y));
-select pg_temp.expect('anon can''t post, vote or call', not has_function_privilege('anon', 'public.fan_post(text,text,text,text,text,text)', 'execute')
-  and not has_function_privilege('anon', 'public.fan_vote(bigint,integer)', 'execute') and not has_function_privilege('anon', 'public.fan_call(text,text,text)', 'execute'));
+select pg_temp.expect('anon can''t post, vote or call', not has_function_privilege('anon', 'public.fan_post(text,text,text,text,text,text,text)', 'execute')
+  and not has_function_privilege('anon', 'public.fan_vote(bigint,integer)', 'execute') and not has_function_privilege('anon', 'public.fan_call(text,text,text,text)', 'execute'));
 select pg_temp.expect('nobody calls the internal writers', not has_function_privilege('authenticated', 'public._fan_take_down(bigint,text)', 'execute')
-  and not has_function_privilege('authenticated', 'public._fan_person(uuid,text,text)', 'execute') and not has_function_privilege('anon', 'public._fan_join_check(text)', 'execute')
+  and not has_function_privilege('authenticated', 'public._fan_person(uuid,text,text,text)', 'execute') and not has_function_privilege('anon', 'public._fan_join_check(text)', 'execute')
   and not has_function_privilege('authenticated', 'public._fan_who()', 'execute'));
 select pg_temp.expect('who made a call stays private', not has_table_privilege('authenticated', 'private.fan_calls', 'select') and not has_table_privilege('anon', 'private.fan_votes', 'select'));
 select set_config('request.jwt.claim.sub', '', false);
 select 'fan voice', true;
+
+-- the fan zones for more leagues (migration 338): the NFL, the NBA and the Premier League beside the NHL, each with its
+-- clubs and players (synced from ESPN by nhl-hub), its own boards, its sport's calls and topics and its own pulse. Jason
+-- posts for Kansas City and it stays on the NFL's boards; the calls take only the club's players at the position asked,
+-- the sport's own answers and the league's own clubs; a report links to the league's zone; the NHL's calls from before
+-- take no league and are the NHL's
+reset role;
+insert into fan_clubs (league, code, name, short) values ('nfl', 'KC', 'Kansas City Chiefs', 'KC'), ('nfl', 'BUF', 'Buffalo Bills', 'BUF'),
+  ('nba', 'BOS', 'Boston Celtics', 'BOS'), ('nba', 'OKC', 'Oklahoma City Thunder', 'OKC'), ('epl', 'ARS', 'Arsenal', 'ARS'),
+  ('epl', 'LIV', 'Liverpool', 'LIV') on conflict do nothing;
+insert into fan_athletes (league, id, name, club, pos) values ('nfl', '901', 'Test Quarterback', 'KC', 'QB'),
+  ('nfl', '902', 'Test Tight End', 'KC', 'TE'), ('nfl', '903', 'Other Quarterback', 'BUF', 'QB'), ('nba', '904', 'Test Forward', 'BOS', 'SF'),
+  ('epl', '905', 'Test Keeper', 'ARS', 'G'), ('epl', '906', 'Test Winger', 'ARS', 'F') on conflict do nothing;
+select pg_temp.expect('four leagues with a fan zone, each with its sport', (select string_agg(key || ':' || sport, ',' order by sort) from fan_leagues)
+  = 'nhl:hockey,nfl:football,nba:basketball,epl:soccer');
+select pg_temp.expect('the NHL''s 32 clubs by its own codes', (select count(*) from fan_clubs where league = 'nhl') = 32
+  and exists (select 1 from fan_clubs where league = 'nhl' and code = 'UTA'));
+select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-000000000003', false);
+set role authenticated;
+select set_config('t.nfl', fan_post('KC', 'idea', 'quarterback', 'Extend the line before anything else', '', null, 'nfl')::text, false);
+select pg_temp.raises('a club of that league', 'select fan_post(''EDM'', ''idea'', ''roster'', ''Hello there'', '''', null, ''nfl'')', 'Pick a club');
+select pg_temp.raises('a topic of its sport', 'select fan_post(''KC'', ''idea'', ''goaltending'', ''Hello there'', '''', null, ''nfl'')', 'Pick a topic');
+select pg_temp.raises('a league with a fan zone', 'select fan_post(''KC'', ''idea'', ''roster'', ''Hello there'', '''', null, ''xfl'')', 'Pick a club');
+select pg_temp.expect('the post is on the Chiefs'' board, in its league', (select (b->0->>'id')::bigint = current_setting('t.nfl')::bigint and (b->0->>'league') = 'nfl'
+  from (select fan_board('KC', null, 'hot', 30, 0, 'nfl') b) x));
+select pg_temp.expect('and on no NHL board', jsonb_array_length(fan_board('KC')) = 0 and not (fan_index() ? 'KC'));
+select pg_temp.expect('the quarterback call takes the club''s quarterback, named', (fan_call('KC', 'qb', '901', 'nfl')->'choices'->0->>'name') = 'Test Quarterback');
+select pg_temp.raises('not a player at another position', 'select fan_call(''KC'', ''qb'', ''902'', ''nfl'')', 'one of the answers');
+select pg_temp.raises('or another club''s', 'select fan_call(''KC'', ''qb'', ''903'', ''nfl'')', 'one of the answers');
+select pg_temp.expect('an MVP of the club', (fan_call('KC', 'mvp', '902', 'nfl')->>'mine') = '902');
+select pg_temp.expect('a need of the sport', (fan_call('KC', 'need', 'pass-rush', 'nfl')->>'mine') = 'pass-rush');
+select pg_temp.raises('not another sport''s', 'select fan_call(''KC'', ''need'', ''power-play'', ''nfl'')', 'one of the answers');
+select pg_temp.raises('football has no play-in', 'select fan_call(''KC'', ''spring'', ''play-in'', ''nfl'')', 'one of the answers');
+select pg_temp.expect('basketball has one', (fan_call('BOS', 'spring', 'play-in', 'nba')->>'mine') = 'play-in');
+select pg_temp.raises('a league''s club in another league isn''t its', 'select fan_call(''BOS'', ''mvp'', ''901'', ''nba'')', 'one of the answers');
+select pg_temp.raises('soccer has a finish, not a spring', 'select fan_call(''ARS'', ''spring'', ''first'', ''epl'')', 'one of the answers');
+select pg_temp.expect('a finish in the table', (fan_call('ARS', 'finish', 'title', 'epl')->>'mine') = 'title');
+select pg_temp.expect('a keeper of the club', (fan_call('ARS', 'goalie', '905', 'epl')->>'mine') = '905');
+select pg_temp.raises('and only a keeper', 'select fan_call(''ARS'', ''goalie'', ''906'', ''epl'')', 'one of the answers');
+select pg_temp.expect('the league''s board takes one of its clubs, named', (fan_call('NFL', 'cup', 'BUF', 'nfl')->'choices'->0->>'name') = 'Buffalo Bills');
+select pg_temp.raises('not another league''s', 'select fan_call(''NFL'', ''cup'', ''EDM'', ''nfl'')', 'one of the answers');
+select pg_temp.raises('or the league itself', 'select fan_call(''NFL'', ''cup'', ''NFL'', ''nfl'')', 'one of the answers');
+select pg_temp.expect('and any player of the league for its awards', (fan_call('NFL', 'mvp', '903', 'nfl')->>'mine') = '903');
+select pg_temp.expect('the relegation call in the Premier League', (fan_call('EPL', 'down', 'LIV', 'epl')->>'mine') = 'LIV');
+select pg_temp.expect('the bigger questions in any sport', (fan_call('KC', 'q-attack', 'keep', 'nfl')->>'mine') = 'keep');
+select pg_temp.expect('the Chiefs'' pulse names the players and keeps to its league', (select (p->>'league') = 'nfl' and (p->>'people')::int = 1
+  and (p->'calls'->'qb'->'choices'->0->>'name') = 'Test Quarterback' and (p->'calls'->'qb'->'choices'->0->>'team') = 'KC'
+  and (p->'top'->'idea'->0->>'id')::bigint = current_setting('t.nfl')::bigint and (p->'mine'->>'need') = 'pass-rush'
+  from (select fan_pulse('KC', null, 'nfl') p) x));
+select pg_temp.expect('the NHL''s Edmonton pulse doesn''t count it', not (fan_pulse('EDM')->'calls' ? 'qb'));
+select pg_temp.expect('each league''s index keeps to its clubs', (fan_index('nfl')->'KC'->>'posts')::int = 1 and (fan_index('nfl')->'KC'->>'people')::int = 1);
+select pg_temp.expect('every league on the front page', (select (x->'nfl'->>'posts')::int = 1 and (x->'nfl'->>'clubs')::int = 2 and (x->'nhl'->>'clubs')::int = 32
+  and x ? 'epl' and x ? 'nba' from (select fan_leagues_index() x) y));
+select pg_temp.expect('a club''s open data in its league', (select x->>'league' = 'nfl' and jsonb_array_length(x->'posts') = 1 from (select fan_export('KC', 'nfl') x) y));
+select pg_temp.raises('a fan follows a club of the league named', 'select fan_set_me(''Jason Fan'', ''KC'')', 'Pick a club');
+select pg_temp.expect('a fan follows a club of another league', (select (m->>'club') = 'KC' and (m->>'league') = 'nfl' from (select fan_set_me('Jason Fan', 'KC', 'nfl') m) x));
+select pg_temp.expect('a call taken back in its league', (fan_call('KC', 'mvp', null, 'nfl')->>'total')::int = 0);
+select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-000000000004', false);
+select pg_temp.expect('a report', fan_report(current_setting('t.nfl')::bigint) = 'reported');
+reset role;
+select pg_temp.expect('links the platform to the post in its league''s zone', exists (select 1 from notifications n join teams t on t.id = n.team_id
+  where t.user_id = '00000000-0000-0000-0000-000000000001' and n.kind = 'fan_report' and n.link = '/fans/nfl/KC?post=' || current_setting('t.nfl')
+  and n.body like '%NFL KC fan board%'));
+select pg_temp.expect('the NHL''s posts and calls are the NHL''s', not exists (select 1 from fan_posts where club = 'EDM' and league <> 'nhl')
+  and not exists (select 1 from private.fan_calls where club = 'EDM' and league <> 'nhl'));
+select _fan_person('00000000-0000-0000-0000-000000000077', 'Connor McFan', 'ARS', 'epl');
+select pg_temp.expect('a fan account made for a club of another league', (select club = 'ARS' and league = 'epl' from private.fan_people where user_id = '00000000-0000-0000-0000-000000000077'));
+select pg_temp.expect('the leagues, clubs and players are read only', has_table_privilege('anon', 'fan_clubs', 'select') and not has_table_privilege('authenticated', 'fan_clubs', 'insert')
+  and not has_table_privilege('authenticated', 'fan_athletes', 'update') and not has_table_privilege('anon', 'fan_leagues', 'delete'));
+select pg_temp.expect('nobody calls the checks', not has_function_privilege('authenticated', 'public._fan_call_ok(text,text,text,text)', 'execute')
+  and not has_function_privilege('anon', 'public._fan_club_ok(text,text)', 'execute'));
+select set_config('request.jwt.claim.sub', '', false);
+select 'fan leagues', true;
