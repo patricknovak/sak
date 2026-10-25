@@ -602,6 +602,32 @@ async function fanZone(abbrev: string) {
   return cached(`fan:${abbrev}`, 900_000, () => fanBuild(abbrev));
 }
 
+// ── the league's own fan zone (25 October 2026, the fan zones opened to every club and everyone): the names the fans'
+// award calls offer (the season's top scorers for the Hart, its defencemen on their own for the Norris, its goalies for
+// the Vezina, each with the numbers that make the case) and every club's line in the table for the index. An hour in
+// hub_cache.
+async function fanLeagueBuild() {
+  const st = await get('/standings/now');
+  const rows = (st.standings ?? []) as any[];
+  const now = new Date();
+  const cur = Number(rows[0]?.seasonId) || (now.getUTCMonth() >= 7 ? now.getUTCFullYear() : now.getUTCFullYear() - 1) * 10001 + 1;
+  const top = (kind: string, sort: string, n: number, extra = '') => statsGet(`${kind}/summary?isAggregate=false&isGame=false&limit=${n}&sort=${exp(JSON.stringify([{ property: sort, direction: 'DESC' }]))}&cayenneExp=${exp(`seasonId=${cur} and gameTypeId=2${extra}`)}`).catch(() => [] as any[]);
+  const [sk, d, g] = await Promise.all([top('skater', 'points', 20), top('skater', 'points', 15, ' and positionCode="D"'), top('goalie', 'wins', 20)]);
+  // the last club a player was traded to is listed last
+  const club = (t: any) => String(t ?? '').split(',').pop() || null;
+  const skater = (x: any) => ({ id: x.playerId, name: x.skaterFullName, team: club(x.teamAbbrevs), pos: x.positionCode, gp: x.gamesPlayed, g: x.goals, a: x.assists, pts: x.points, pm: x.plusMinus });
+  return {
+    season: cur, skaters: sk.map(skater), defence: d.map(skater),
+    goalies: g.map((x: any) => ({ id: x.playerId, name: x.goalieFullName, team: club(x.teamAbbrevs), gp: x.gamesPlayed, w: x.wins, svp: num(x.savePct), gaa: num(x.goalsAgainstAverage), so: x.shutouts })),
+    table: rows.map((r: any) => ({ abbrev: r.teamAbbrev?.default ?? r.teamAbbrev, name: txt(r.teamName), gp: r.gamesPlayed, w: r.wins, l: r.losses, otl: r.otLosses, pts: r.points,
+      div: r.divisionName, divRank: r.divisionSequence, leagueRank: r.leagueSequence, l10: `${r.l10Wins}-${r.l10Losses}-${r.l10OtLosses}`, streak: `${r.streakCode ?? ''}${r.streakCount ?? ''}` })),
+    at: new Date().toISOString(),
+  };
+}
+async function fanLeague() {
+  return cached('fan-league', 3_600_000, fanLeagueBuild);
+}
+
 // ── a franchise's history from the NHL's own record books (24 October 2026, Patrick: "improve the fan zone's analytics,
 // history and facts"): every season it has played and how its spring ended, its all-time totals, its leaders (career,
 // playoffs, the best single seasons), its record against every club, its captains, coaches and general managers, the
@@ -1060,7 +1086,7 @@ Deno.serve(async (req) => {
   if (hit && Date.now() - hit.at < hit.ttl) return Response.json(hit.body, { headers: { ...cors, 'x-cache': 'hit' } });
   try {
     const body = task === 'standings' ? await standings() : task === 'schedule' ? await schedule(date) : task === 'game' ? await gameDetail(id)
-      : task === 'news' ? await news() : task === 'x' ? await xfeed() : task === 'leaders' ? await leaders() : task === 'team' ? await club(abbrev) : task === 'fan' ? await fanZone(abbrev) : task === 'fan-history' ? await fanHistory(abbrev) : task === 'fan-office' ? await fanOffice(abbrev)
+      : task === 'news' ? await news() : task === 'x' ? await xfeed() : task === 'leaders' ? await leaders() : task === 'team' ? await club(abbrev) : task === 'fan' ? await fanZone(abbrev) : task === 'fan-history' ? await fanHistory(abbrev) : task === 'fan-office' ? await fanOffice(abbrev) : task === 'fan-league' ? await fanLeague()
       : task === 'lines' ? await gameLines(id) : task === 'espn' ? await espnBox(sport, id)
       : task in SPORT_TASKS ? await sportTask(task as SportTask, sport) : await scores(date);
     const ttl = (body as { ttl?: number })?.ttl ?? TTL[task as keyof typeof TTL] ?? 20_000;

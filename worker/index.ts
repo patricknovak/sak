@@ -9,6 +9,8 @@
 //   /api/live/<league>/<day>   the league's live room for that game night (a WebSocket; worker/live.ts)
 //   /api/live/<league>/draft   the league's draft room: the pick clock and every pick, live (a WebSocket; worker/draft.ts)
 //   /api/live/<league>/pool/<day>   a prediction pool's room for the day: its games and its table, live (worker/pool.ts)
+//   /fans, /fans/<club>, /fans/<club>/pulse   the NHL fan zones' links, unfurling with the club's own picture
+//                     (/og/fans/<club>.png), then the app (#/fans/…); /api/fans/<club> the fans' open data (worker/fans.ts)
 // Everything else is the app, unchanged. Postgres stays the source of truth: the Worker reads only what the public key
 // may (invite_preview, league_by_host) and the public sports feeds.
 import { hub } from './hub';
@@ -16,6 +18,7 @@ import { live, LiveRoom } from './live';
 import { draftRoom, DraftRoom } from './draft';
 import { poolRoom, PoolRoom } from './pool';
 import { inviteImage, invitePage, poolImage, poolPage } from './preview';
+import { fansApi, fansImage, fansPage } from './fans';
 import { withSecurity } from './headers';
 
 export interface Env {
@@ -33,6 +36,7 @@ export default {
     const p = url.pathname;
     try {
       if (p === '/api/hub') return withSecurity(await hub(req, env, ctx));
+      if (p === '/api/fans' || p.startsWith('/api/fans/')) return withSecurity(await fansApi(p.slice('/api/fans'.length), url, env, ctx));
       if (/^\/api\/live\/\d+\/draft$/.test(p)) return withSecurity(await draftRoom(req, env));
       if (/^\/api\/live\/\d+\/pool\//.test(p)) return withSecurity(await poolRoom(req, env));
       if (p.startsWith('/api/live/')) return withSecurity(await live(req, env));
@@ -44,10 +48,13 @@ export default {
       if (m) return withSecurity(await invitePage(m[1], url, env));
       m = /^\/p\/([a-z0-9-]{1,40})(\/.*)?$/i.exec(p);
       if (m) return withSecurity(await poolPage(m[1], m[2] ?? '', url, env));
+      m = /^\/og\/fans\/([a-z]{3}(?:-pulse)?)\.png$/i.exec(p);
+      if (m) return withSecurity(await fansImage(m[1], url, req, env, ctx));
+      if (p === '/fans' || p.startsWith('/fans/')) return withSecurity(await fansPage(p.slice('/fans'.length), url, env));
     } catch (e) {
       console.error(p, e);
       // a link always opens something: the app itself, if the preview couldn't be made
-      if (/^\/(j|p)\//.test(p)) {
+      if (/^\/(j|p)\//.test(p) || /^\/fans(\/|$)/.test(p)) {
         const go = `${url.origin}/#${p.replace(/^\/j\//, '/join/')}${url.search || ''}`;
         return withSecurity(Response.redirect(go, 302));
       }

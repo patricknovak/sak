@@ -1214,3 +1214,32 @@ possibly what fundamental changes should be considered or done."
   play's first unit, the kill, who takes the defensive-zone draws, the pairs' handedness and the crease. Contracts and the cap
   aren't in the NHL's free feeds and the page says so.
 
+### 9.20 The fan zones open to every fan, 25 October 2026
+
+Patrick: "Make the new fan page and analysis an open source type project on the homepage for all the different NHL teams.
+Make it so that it is easy to share with others. Ideally it would be great to start some form of crowdsourcing from the fans
+that helps their team and that team management could see directly from the fans what they think and ideally contribute to
+a knowledge base of information that can help their team one team or league in general."
+- **Every club, open to everyone**: `#/fans` lists the 32 clubs by division with their line in the table and how busy their
+  fans are; a club's zone needs no sign-in (`PublicFans.tsx`, its own frame with the product's mark and a club picker; a
+  league's members read it in their league's layout), every club in its own colours (`clubColors.ts`, a dark accent lifted
+  in its own hue), players open on NHL.com there. `#/fans/about` says what is in a zone, where every number comes from,
+  how the reads are made, what is open and the rules.
+- **The fans' voice** (migration 337): the season's calls (who starts in goal, the MVP, the one to move, the need, the
+  window, the spring, grades for the GM and the coach; a verdict of their own on each of the analysis's bigger questions,
+  shown beside the numbers'; for the league the Cup, the Hart, the Vezina, the Norris, the surprise and the letdown, from
+  nhl-hub's `fan-league` leaders), one call each and changeable, shown only in totals; the board (ideas, questions,
+  insights, fixes) voted up or down, rising, top or new; the knowledge base (facts, with a source, checked by the editors);
+  reports (the first bells the platform admins, three take a post down, more for a post the fans voted well up), the
+  writer's own take-down, and a platform admin's note when a fact is checked or a fix made. A fan joins with just a name
+  (the join function's fan mode) and keeps it everywhere by adding an email (the same claim as a guest seat).
+- **The fan pulse** (`#/fans/<club>/pulse`): every call's split, the fans' verdicts on the bigger questions, the top ideas,
+  questions, insights and fixes, the knowledge base and who added the most, for anyone (management included) to read,
+  share, print, or download as a spreadsheet or as the open data.
+- **Sharing**: a share button on every zone, pulse and post (the phone's own sheet, or X, Reddit, Facebook, WhatsApp, email
+  and a copied link); the app's Worker unfurls each link with the club's name, colours, logo and the fans' loudest calls
+  (`/og/fans/<club>.png`), and a shared post with its own title; `/api/fans` and `/api/fans/<club>` serve the open data.
+- **The homepage**: superpoolsai.com has the 32 clubs in a `#fans` section and a nav link, `superpoolsai.com/fans` is its
+  own page (`landing/fans.html`), and `superpoolsai.com/fans/<club>` forwards to the app.
+- **Not yet**: verified accounts for a club's own staff to answer on the board; a formal licence for the code and for the
+  fans' contributions (the repository has none yet: Patrick's call).

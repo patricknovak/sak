@@ -21,6 +21,10 @@ const SECTIONS: { title: string; body: string[] }[] = [
     'The people in your pool see your name, your team, your calls and your messages, the way a group chat does. Nobody outside the pool does. We never sell or rent what we keep. There are no ads in Super Pools. We do advertise Super Pools elsewhere, and if you accept Ads measurement, we measure which of those ads led to a sign-up.',
     'The host of a pool can see who has joined and what they have called, and can settle questions and delete the pool. Deleting a pool deletes everything in it.',
   ] },
+  { title: 'The NHL fan zones', body: [
+    'The fan zones are open to everyone. Joining in takes only a name: your account then lives on the phone you joined on until you add an email. What you post on a club\'s board or knowledge base is public, under your first name and initial, never more, and is part of the fans\' open data. Your calls and votes are never shown one by one, only in the totals. Who wrote, voted or called what is kept apart from the public posts.',
+    'You can take your own posts down at any time. A post reported by other fans goes to the fan zones\' editors, and three reports take it down; a copy is kept for the editors.',
+  ] },
   { title: 'Analytics', body: [
     'Inside the app we keep a daily count of how often each page of a pool is opened and by how many of its members, with no names: a member is counted by a code that changes every day, so no one\'s visits can be followed. It tells us which pages people use. A pool\'s host can switch it off for the pool.',
     'If you accept Analytics on the banner, we load Google Analytics to count which pools get started, which invite links get shared and which pages get used. We send no names or messages to it. Choosing No thanks turns it off. Your Analytics and Ads choices are stored in your browser and in a cookie on superpoolsai.com so the marketing site and the app remember the same answer. You can change your mind from the banner or the Analytics control on this page.',

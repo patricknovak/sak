@@ -19,14 +19,14 @@ interface Brand { colors?: { gold?: string }; tagline?: string; wordmark?: { a?:
 interface Invite { ok: boolean; reason: string | null; league?: string; short?: string; brand?: Brand | null; kind?: string; host?: string | null; members?: number; team?: string | null; next_question?: string | null; open_questions?: number; next_game?: string | null; next_game_line?: string | null }
 interface Pool { id: number; slug: string; name: string; kind?: string; brand?: Brand | null; status?: string }
 
-const PRODUCT = { name: 'Super Pools', site: 'superpoolsai.com', gold: '#f7c548' };
+export const PRODUCT = { name: 'Super Pools', site: 'superpoolsai.com', gold: '#f7c548' };
 const hex = (c?: string) => (c && /^#[0-9a-f]{6}$/i.test(c) ? c.toLowerCase() : PRODUCT.gold);
-const rgba = (c: string, a: number) => `rgba(${parseInt(c.slice(1, 3), 16)}, ${parseInt(c.slice(3, 5), 16)}, ${parseInt(c.slice(5, 7), 16)}, ${a})`;
-const esc = (s: string) => s.replace(/[&<>"']/g, (ch) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[ch]!);
+export const rgba = (c: string, a: number) => `rgba(${parseInt(c.slice(1, 3), 16)}, ${parseInt(c.slice(3, 5), 16)}, ${parseInt(c.slice(5, 7), 16)}, ${a})`;
+export const esc = (s: string) => s.replace(/[&<>"']/g, (ch) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[ch]!);
 // a short tag for the picture's address, so a renamed or recoloured pool gets a new picture rather than a cached one
-const tag = (s: string) => { let h = 0; for (const ch of s) h = (h * 31 + ch.charCodeAt(0)) | 0; return (h >>> 0).toString(36); };
+export const tag = (s: string) => { let h = 0; for (const ch of s) h = (h * 31 + ch.charCodeAt(0)) | 0; return (h >>> 0).toString(36); };
 
-async function rpc<T>(env: Env, fn: string, args: Record<string, unknown>): Promise<T | null> {
+export async function rpc<T>(env: Env, fn: string, args: Record<string, unknown>): Promise<T | null> {
   const r = await fetch(`${env.SUPABASE_URL}/rest/v1/rpc/${fn}`, {
     method: 'POST', headers: { apikey: env.SUPABASE_ANON, authorization: `Bearer ${env.SUPABASE_ANON}`, 'content-type': 'application/json' },
     body: JSON.stringify(args),
@@ -37,7 +37,7 @@ const invite = (env: Env, code: string) => rpc<Invite>(env, 'invite_preview', { 
 const poolBySlug = (env: Env, slug: string) => rpc<Pool>(env, 'league_by_host', { p_host: `${slug.toLowerCase()}.superpoolsai.com` });
 
 // ── the page ──────────────────────────────────────────────────────────────────────────────────────────────────────
-function page(o: { title: string; description: string; image: string; url: string; go: string; color: string }) {
+export function page(o: { title: string; description: string; image: string; url: string; go: string; color: string }) {
   return new Response(`<!doctype html><html lang="en"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>${esc(o.title)}</title>
@@ -83,12 +83,12 @@ export async function poolPage(slug: string, rest: string, url: URL, env: Env) {
 }
 
 // ── the picture ───────────────────────────────────────────────────────────────────────────────────────────────────
-type Node = { type: string; props: Record<string, unknown> };
-const el = (type: string, style: Record<string, unknown>, ...children: (Node | string | null | false)[]): Node =>
+export type Node = { type: string; props: Record<string, unknown> };
+export const el = (type: string, style: Record<string, unknown>, ...children: (Node | string | null | false)[]): Node =>
   ({ type, props: { style: { display: 'flex', ...style }, children: children.filter((c) => c !== null && c !== false) } });
 
 // the faceoff dot, the product's mark (src/pages/Start.tsx ProductMark), in the pool's colour
-const mark = (color: string) => `data:image/svg+xml;base64,${btoa(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><rect width="64" height="64" rx="14" fill="#111b30"/><circle cx="32" cy="32" r="17" fill="none" stroke="${color}" stroke-width="4"/><circle cx="32" cy="32" r="4.5" fill="${color}"/><g stroke="${color}" stroke-width="2.6" stroke-linecap="round"><line x1="25" y1="8" x2="25" y2="12.5"/><line x1="39" y1="8" x2="39" y2="12.5"/><line x1="25" y1="51.5" x2="25" y2="56"/><line x1="39" y1="51.5" x2="39" y2="56"/></g></svg>`)}`;
+export const mark = (color: string) => `data:image/svg+xml;base64,${btoa(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><rect width="64" height="64" rx="14" fill="#111b30"/><circle cx="32" cy="32" r="17" fill="none" stroke="${color}" stroke-width="4"/><circle cx="32" cy="32" r="4.5" fill="${color}"/><g stroke="${color}" stroke-width="2.6" stroke-linecap="round"><line x1="25" y1="8" x2="25" y2="12.5"/><line x1="39" y1="8" x2="39" y2="12.5"/><line x1="25" y1="51.5" x2="25" y2="56"/><line x1="39" y1="51.5" x2="39" y2="56"/></g></svg>`)}`;
 
 function card(o: { color: string; eyebrow: string; name: string; line: string; chips: string[]; cta: string }): Node {
   const big = o.name.length > 34 ? 84 : o.name.length > 22 ? 104 : 124;
@@ -130,7 +130,7 @@ async function png(tree: Node): Promise<Uint8Array> {
 }
 
 // a picture is made once per name, colour and count (the ?v tag) and kept at the edge for a day
-async function cached(req: Request, ctx: ExecutionContext, make: () => Promise<Node | null>): Promise<Response> {
+export async function cached(req: Request, ctx: ExecutionContext, make: () => Promise<Node | null>): Promise<Response> {
   const hit = await caches.default.match(req);
   if (hit) return hit;
   const tree = await make();

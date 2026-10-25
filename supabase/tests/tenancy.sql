@@ -32,7 +32,10 @@ where n.nspname = 'public' and c.relkind in ('r', 'p')
     'stats_gen', 'player_windows_cache', 'player_season_cache', 'stats_cache_state',
     -- the lounges (migration 333): one room per sports league or show, shared by every pool that follows it on purpose;
     -- each post names the pool it came from (from_league) and is read by the members of any pool in that room
-    'lounges', 'lounge_messages');
+    'lounges', 'lounge_messages',
+    -- the fan zones' board and knowledge base (migration 337): open to everyone and keyed by NHL club, never by league;
+    -- who wrote a post, voted or made a call is kept in the private schema
+    'fan_posts');
 
 -- 2. A league's table has row-level security on, and every policy on it is bound to the caller's league.
 select pg_temp.none('a league table without row-level security', string_agg(c.relname, ', '))

@@ -2,13 +2,15 @@
 // what fundamental changes should be considered"): the bigger questions with a verdict each, the moves for the GM (for
 // each need the numbers name, the league's players who fill it, sellers first), and the decisions for the coaches (the
 // lines from the last game read against each player's 5-on-5 numbers, the power play, the kill, the draws, the pairs and
-// the crease). src/lib/fanOffice.ts.
+// the crease). src/lib/fanOffice.ts. Each bigger question carries the fans' own verdict beside the numbers' (FanVoice.tsx).
 import { useState } from 'react';
 import { usePlayerInfo } from '../../lib/playerInfo';
 import { NhlLogo } from '../ui';
 import { fmtDate } from '../../lib/format';
 import type { Decision, Need, Question, coaching as coachingFn } from '../../lib/fanOffice';
 import { Chips, Head } from './kit';
+import { QUESTION_CALLS } from '../../lib/fanLists';
+import { VerdictCall } from './FanVoice';
 
 const VERDICT = { Rethink: 'bg-red-500/15 text-red-200 ring-red-400/30', Adjust: 'bg-amber-500/15 text-amber-200 ring-amber-400/30', Keep: 'bg-emerald-500/15 text-emerald-200 ring-emerald-400/30' } as const;
 
@@ -41,6 +43,7 @@ function Questions({ qs }: { qs: Question[] }) {
             </div>
             <ul className="mt-2 space-y-1">{q.evidence.map((e) => <li key={e} className="flex gap-2 text-[13px] leading-snug text-slate-300"><span className="shrink-0 text-mute">·</span>{e}</li>)}</ul>
             <p className="mt-2 rounded-xl bg-white/[.04] px-3 py-2 text-sm leading-snug text-slate-100 ring-1 ring-white/[.06]"><b style={{ color: 'var(--club)' }}>What to do. </b>{q.action}</p>
+            <VerdictCall topic={QUESTION_CALLS[q.area]} verdict={q.verdict} />
           </div>
         ))}
       </div>

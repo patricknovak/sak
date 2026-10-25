@@ -6,7 +6,8 @@
   "name": "superpools-app",
   "compatibility_date": "2026-10-01",
   // the edge code (worker/index.ts, 11 October 2026, Workers Paid): the sports data cache (/api/hub) and the link
-  // previews (/j/<code>, /p/<web name>, /og/…); every other path is the built site, served as before
+  // previews (/j/<code>, /p/<web name>, /fans/<club>, /og/…) and the fans' open data (/api/fans); every other path is
+  // the built site, served as before
   "main": "./worker/index.ts",
   "assets": {
     "directory": "./dist",
@@ -14,7 +15,7 @@
     // the app routes in the hash (#/team), so every path is the one page
     "not_found_handling": "single-page-application",
     // the paths the Worker answers itself; the rest go straight to the files
-    "run_worker_first": ["/api/*", "/j/*", "/p/*", "/og/*"]
+    "run_worker_first": ["/api/*", "/j/*", "/p/*", "/og/*", "/fans", "/fans/*"]
   },
   // the fonts the preview pictures are drawn in, as raw bytes
   "rules": [{ "type": "Data", "globs": ["**/*.ttf"], "fallthrough": true }],

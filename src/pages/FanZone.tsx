@@ -4,10 +4,13 @@
 // `fan` task, the reading of it from src/lib/fanZone.ts and src/lib/fanDeep.ts, the history from nhl-hub's `fan-history`
 // (the NHL's record books) and src/data/clubHistory.ts (the lore). 24 October 2026, Patrick: "improve the fan zone
 // analytics and history and facts by at least 300%": the outlook (playoff odds), splits, tracking, player analytics,
-// and the record books, trophies, draft, facts and a quiz.
-import { useEffect, useMemo, useState } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
-import { ArrowDown, ArrowUp, ExternalLink, Flame, Lightbulb, Snowflake, Sparkles, TrendingDown, TrendingUp, Trophy } from 'lucide-react';
+// and the record books, trophies, draft, facts and a quiz. 25 October 2026, Patrick: "make the new fan page and analysis
+// an open source type project ... for all the different NHL teams ... easy to share ... crowdsourcing from the fans":
+// every club in its own colours, open to everyone (PublicFans.tsx), a share button, and the fans' voice (the calls, the
+// board, the knowledge base and the pulse, src/components/fan/FanVoice.tsx and FanBoard.tsx).
+import { useContext, useEffect, useMemo, useState } from 'react';
+import { Link, Navigate, useLocation, useNavigate, useParams } from 'react-router-dom';
+import { Activity, ArrowDown, ArrowUp, BookOpen, ExternalLink, Flame, Lightbulb, Megaphone, Snowflake, Sparkles, TrendingDown, TrendingUp, Trophy, Users } from 'lucide-react';
 import { useLeague, useNow } from '../lib/store';
 import { hub } from '../lib/nhlhub';
 import { ago, fmtDate, fmtPts, NHL_TEAMS } from '../lib/format';
@@ -24,9 +27,13 @@ import { FanDraft, FanFacts, FanHistorySection, FanRecords, FanTrophies } from '
 import { FanCrease } from '../components/fan/FanCrease';
 import { FanOffice } from '../components/fan/FanOffice';
 import { blame as blameOf, coaching, crease as creaseOf, goalieMarket, goaliePlan, goalieRecs, questions, targets, type FanOffice as OfficeData } from '../lib/fanOffice';
+import { clubTheme, clubVars } from '../data/clubColors';
+import { PublicFrame, fanLink } from '../lib/fanVoice';
+import { FanCalls, FanMeBar, FanVoiceProvider, useVoice } from '../components/fan/FanVoice';
+import { FanBoard, FanKnowledge } from '../components/fan/FanBoard';
+import { ShareButton } from '../components/fan/FanShare';
 
 const CLUB_KEY = 'sp-fan-club';
-const FALLBACK = { primary: '#f7c548', secondary: '#0b1222', rgb: '247 197 72' };
 const ROUND = ['', 'First round', 'Second round', 'Conference final', 'Stanley Cup Final'];
 const seasonLabel = (s: number) => `${String(s).slice(0, 4)}-${String(s).slice(6, 8)}`;
 
@@ -37,6 +44,11 @@ export default function FanZone() {
   const leagueClub = (league?.info as { fan_club?: string } | undefined)?.fan_club;
   const remembered = (() => { try { return localStorage.getItem(CLUB_KEY); } catch { return null; } })();
   const club = (param ?? leagueClub ?? remembered ?? 'EDM').toUpperCase();
+  const known = !!NHL_TEAMS[club];
+  const framed = useContext(PublicFrame);
+  // a shared post (?post=12) opens the fans' board on it
+  const { search } = useLocation();
+  const post = Number(new URLSearchParams(search).get('post')) || null;
   const [data, setData] = useState<FanData | null>(null);
   const [hist, setHist] = useState<FanHistory | null>(null);
   const [office, setOffice] = useState<OfficeData | null>(null);
@@ -45,15 +57,18 @@ export default function FanZone() {
   const [tries, setTries] = useState(0);
   useEffect(() => {
     setData(null); setFailed(false); setHist(null); setOffice(null); setOfficeDone(false);
+    if (!known) return;
+    document.title = `${NHL_TEAMS[club]} fan zone · Super Pools`;
     try { localStorage.setItem(CLUB_KEY, club); } catch { /* nothing to remember with */ }
     hub<FanData>('fan', { abbrev: club }).then(setData, () => setFailed(true));
     // the record books come on their own: the live page doesn't wait for them
     hub<FanHistory>('fan-history', { abbrev: club }).then(setHist, () => {});
     // and the front office: the goalies in depth and the league's players worth a call
     hub<OfficeData>('fan-office', { abbrev: club }).then(setOffice, () => {}).finally(() => setOfficeDone(true));
-  }, [club, tries]);
+  }, [club, tries, known]);
+  useEffect(() => { if (post && data) setTimeout(() => document.getElementById('fz-fans')?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 600); }, [post, !!data]);
   const lore = CLUB_LORE[club];
-  const colors = lore?.colors ?? FALLBACK;
+  const colors = lore?.colors ?? clubTheme(club);
   const a = useMemo(() => (data ? assess(data) : null), [data]);
   // the deeper reads, worked out once per answer (the simulation is the heavy one: a few thousand seasons)
   const deep = useMemo(() => {
@@ -83,25 +98,30 @@ export default function FanZone() {
     const day = Math.floor(Date.now() / 86_400_000);
     return facts[day % facts.length];
   }, [hist, lore]);
-  const sections = [['verdict', 'Verdict'], ['outlook', 'Outlook'], ['numbers', 'Numbers'], ['splits', 'Splits'], ['style', 'Style'], ['players', 'Players'], ['crease', 'Crease'], ['office', 'Front office'], ['news', 'News'], ['games', 'Games'],
-    ['history', 'History'], ['records', 'Records'], ['trophies', 'Trophies'], ['draft', 'Draft'], ['facts', 'Facts']] as const;
+  const sections = [['verdict', 'Verdict'], ['outlook', 'Outlook'], ['numbers', 'Numbers'], ['splits', 'Splits'], ['style', 'Style'], ['players', 'Players'], ['crease', 'Crease'], ['office', 'Front office'], ['fans', 'Fans'], ['news', 'News'], ['games', 'Games'],
+    ['history', 'History'], ['records', 'Records'], ['trophies', 'Trophies'], ['draft', 'Draft'], ['facts', 'Facts'], ['kb', 'Knowledge']] as const;
+  // the league as a whole and a club that isn't one have the fan zones' front page
+  if (!known) return <Navigate to="/fans" replace />;
 
   return (
-    <div className="space-y-5" style={{ '--club': colors.primary, '--club-rgb': colors.rgb, '--club2': colors.secondary } as React.CSSProperties}>
+    <div className="space-y-5" style={clubVars(club, lore?.colors)}>
+      <FanVoiceProvider club={club}>
       {/* the hero: the club, its season so far, its chances and the next game */}
       <div className="relative overflow-hidden rounded-[28px] border p-4 sm:p-6" style={{ borderColor: `rgb(${colors.rgb} / .35)`, background: `radial-gradient(120% 90% at 100% 0%, rgb(${colors.rgb} / .35), transparent 55%), linear-gradient(160deg, ${colors.secondary}, #070b16 75%)` }}>
         <div className="pointer-events-none absolute -right-8 -top-8 opacity-[.12]"><NhlLogo abbr={club} size={220} /></div>
         <div className="relative flex items-start gap-3">
-          <span className="grid h-16 w-16 shrink-0 place-items-center rounded-2xl bg-white/95 shadow-lg sm:h-20 sm:w-20"><NhlLogo abbr={club} size={52} /></span>
+          <span className="grid h-16 w-16 shrink-0 place-items-center rounded-2xl bg-white/95 shadow-lg sm:h-20 sm:w-20"><NhlLogo abbr={club} size={52} light /></span>
           <div className="min-w-0 flex-1">
             <div className="text-[11px] font-bold uppercase tracking-[.2em]" style={{ color: colors.primary }}>{lore ? `${lore.nickname} · fan zone` : 'Fan zone'}</div>
             <h1 className="font-display text-[clamp(26px,8vw,40px)] font-extrabold italic leading-[.95] text-white">{data?.name ?? NHL_TEAMS[club] ?? club}</h1>
             {data?.standing && <div className="mt-1 text-sm text-slate-300">{data.standing.w}-{data.standing.l}-{data.standing.otl} · {data.standing.pts} pts · {rankWord(data.standing.divRank)} in the {data.standing.div}</div>}
           </div>
-          <select aria-label="Pick a club" value={club} onChange={(e) => nav(`/fans/${e.target.value}`)}
-            className="relative h-9 max-w-[7.5rem] shrink-0 rounded-full border border-white/15 bg-black/30 px-2 text-xs font-semibold text-white">
-            {Object.entries(NHL_TEAMS).sort((x, y) => x[1].localeCompare(y[1])).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
-          </select>
+          {!framed && (
+            <select aria-label="Pick a club" value={club} onChange={(e) => nav(`/fans/${e.target.value}`)}
+              className="relative h-9 max-w-[7.5rem] shrink-0 rounded-full border border-white/15 bg-black/30 px-2 text-xs font-semibold text-white">
+              {Object.entries(NHL_TEAMS).sort((x, y) => x[1].localeCompare(y[1])).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
+            </select>
+          )}
         </div>
         {data?.standing && a && (
           <div className="relative mt-4 grid grid-cols-2 gap-2 min-[400px]:grid-cols-4">
@@ -130,6 +150,7 @@ export default function FanZone() {
             <Lightbulb className="mt-0.5 h-4 w-4 shrink-0" style={{ color: colors.primary }} /><span><b className="text-white">Fact of the day.</b> {fact}</span>
           </div>
         )}
+        <HeroActions club={club} name={data?.name ?? NHL_TEAMS[club]} />
       </div>
 
       {/* jump to a section */}
@@ -152,6 +173,7 @@ export default function FanZone() {
           <Players d={data} a={a} deep={deep} creaseLater={!!fo?.reads.length || !officeDone} />
           {fo && <FanCrease reads={fo.reads} blame={fo.bl} plan={fo.plan} market={fo.market} owner={(id) => <OwnerBadge id={id} />} />}
           <FanOffice qs={fo?.qs ?? []} needs={fo?.needs ?? []} coach={fo?.coach ?? null} loading={!officeDone} />
+          <FansSection d={data} club={club} post={post} />
           <News d={data} />
           <Games d={data} club={club} form={<FanForm d={data} fm={deep.fm} out={deep.out} />} />
           <FanHistorySection h={hist} lore={lore} />
@@ -159,10 +181,55 @@ export default function FanZone() {
           <FanTrophies h={hist} />
           <FanDraft h={hist} />
           <FanFacts h={hist} lore={lore} />
-          <p className="px-1 text-[11px] text-mute">Numbers from the NHL&apos;s own statistics, tracking and record books{data.stale ? ' (the last copy: the feed is slow to answer)' : ''}, read {ago(data.at, Date.now())} ago. Ranks are among all 32 clubs. Early in a season the samples are small and the numbers move; the odds pull every record toward the league average for that reason.</p>
+          <section className="space-y-3">
+            <Head id="kb" title="The fans' knowledge base" sub="Facts, records and stories fans add about the club, marked when the editors have checked them. Open data, free to use." />
+            <FanKnowledge />
+          </section>
+          <p className="px-1 text-[11px] text-mute">Numbers from the NHL&apos;s own statistics, tracking and record books{data.stale ? ' (the last copy: the feed is slow to answer)' : ''}, read {ago(data.at, Date.now())} ago. Ranks are among all 32 clubs. Early in a season the samples are small and the numbers move; the odds pull every record toward the league average for that reason. <Link to="/fans/about" className="underline">How the fan zones work</Link>, in the open.</p>
         </>
       )}
+      </FanVoiceProvider>
     </div>
+  );
+}
+
+// the hero's way in to the fans: have your say, the club's pulse, and a share
+function HeroActions({ club, name }: { club: string; name: string }) {
+  const v = useVoice();
+  const people = v?.pulse?.people ?? 0;
+  return (
+    <div className="relative mt-3 flex flex-wrap gap-2">
+      <button type="button" onClick={() => document.getElementById('fz-fans')?.scrollIntoView({ behavior: 'smooth', block: 'start' })} className="btn-club btn-sm px-3!"><Megaphone className="h-3.5 w-3.5" />Have your say</button>
+      <Link to={`/fans/${club}/pulse`} className="btn-ghost btn-sm px-3!"><Activity className="h-3.5 w-3.5" />Fan pulse{people ? <span className="flex items-center gap-0.5 text-mute"><Users className="h-3 w-3" />{people}</span> : null}</Link>
+      <ShareButton url={fanLink(club)} title={`${name} fan zone`} text={`The ${name}, read like a front office: the playoff chances, the numbers, the crease, the moves and what the fans think.`} className="btn-ghost btn-sm px-3!" />
+    </div>
+  );
+}
+
+// the fans' own section: who they are, their calls for the season, the board and the way to the pulse
+function FansSection({ d, club, post }: { d: FanData; club: string; post: number | null }) {
+  const v = useVoice();
+  const name = NHL_TEAMS[club] ?? club;
+  const p = v?.pulse;
+  return (
+    <section className="space-y-3">
+      <Head id="fans" title="The fans" sub={`What ${name} fans call, ask and would change: open to everyone, the club's own front office included.`} />
+      <FanMeBar />
+      <FanCalls d={d} />
+      <div className="px-1 pt-1">
+        <div className="flex items-center gap-1.5 font-display text-lg font-extrabold text-white"><Megaphone className="h-4 w-4" style={{ color: 'var(--club)' }} />The board</div>
+        <p className="text-[13px] text-mute">Ideas, questions for the club, insights and fixes. Vote the best to the top.</p>
+      </div>
+      <FanBoard post={post} />
+      <Link to={`/fans/${club}/pulse`} className="card flex items-center gap-3 p-4 hover:bg-white/[.03]">
+        <span className="grid h-11 w-11 shrink-0 place-items-center rounded-2xl" style={{ background: 'rgb(var(--club-rgb) / .2)', boxShadow: 'inset 0 0 0 1px rgb(var(--club-rgb) / .45)' }}><Activity className="h-5 w-5" style={{ color: 'var(--club)' }} /></span>
+        <span className="min-w-0 flex-1">
+          <b className="block text-white">The {name} fan pulse</b>
+          <span className="block text-[12px] leading-snug text-mute">{p ? `${p.people} fan${p.people === 1 ? '' : 's'}, ${Object.values(p.calls).reduce((t, x) => t + x.total, 0)} calls, ${p.counts.idea ?? 0} ideas and ${p.counts.ask ?? 0} questions` : 'Every call and the top ideas'} on one page to share with anyone, the club included.</span>
+        </span>
+        <BookOpen className="h-4 w-4 shrink-0 text-mute" />
+      </Link>
+    </section>
   );
 }
 

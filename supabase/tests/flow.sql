@@ -7582,3 +7582,137 @@ select pg_temp.raises('the API can''t call the take-down itself', 'set role auth
 reset role;
 select set_config('request.jwt.claim.sub', '', false);
 select 'lounges', true;
+
+-- the fans' voice (migration 337): the fan zones' board, calls and pulse, shared across the platform and keyed by club.
+-- Anyone reads; Terry posts an idea for Edmonton, Jason and Craig vote it up and Terry can't vote on his own; a call
+-- takes only the club's own players or the question's fixed answers; the pulse counts it all; a fan with an account of
+-- just a name posts a fact for the whole league as a first name and an initial; three reports take a post down and a
+-- copy is kept; only a platform admin marks a fact checked
+reset role;
+select set_config('request.jwt.claim.sub', '', false);
+set role anon;
+select pg_temp.expect('anyone reads a club''s board', jsonb_typeof(fan_board('EDM')) = 'array');
+select pg_temp.expect('and its pulse, with no calls of their own', (fan_pulse('EDM')->>'club') = 'EDM' and fan_pulse('EDM')->'mine' = 'null'::jsonb);
+select pg_temp.raises('a pulse is for one of the 32 clubs or the league', 'select fan_pulse(''XYZ'')', 'Pick a club');
+select pg_temp.raises('a signed-out visitor can''t post', 'select fan_post(''EDM'', ''idea'', ''roster'', ''Sign me up'')', 'permission denied');
+reset role;
+select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-000000000002', false);
+set role authenticated;
+select set_config('t.fp', fan_post('EDM', 'idea', 'goaltending', '  Trade for a  starter in goal ', 'The crease has cost us five goals.', 'https://www.nhl.com/oilers')::text, false);
+select pg_temp.raises('one at a time', 'select fan_post(''EDM'', ''idea'', ''roster'', ''Another idea'')', 'one at a time');
+select pg_temp.raises('one of the 32 clubs', 'select fan_post(''XYZ'', ''idea'', ''roster'', ''Hello there'')', 'Pick a club');
+select pg_temp.raises('a kind of post', 'select fan_post(''EDM'', ''rant'', ''roster'', ''Hello there'')', 'what kind');
+select pg_temp.raises('a topic', 'select fan_post(''EDM'', ''idea'', ''politics'', ''Hello there'')', 'Pick a topic');
+select pg_temp.raises('a title', 'select fan_post(''EDM'', ''idea'', ''roster'', ''hi'')', 'Give it a title');
+select pg_temp.raises('a source is a web link', 'select fan_post(''EDM'', ''fact'', ''history'', ''Five Cups'', '''', ''javascript:alert(1)'')', 'web link');
+select pg_temp.raises('three links at most', 'select fan_post(''EDM'', ''insight'', ''analytics'', ''Links'', ''http://a.co http://b.co http://c.co http://d.co'')', 'Three links');
+select pg_temp.expect('the writer sees it as his own', (select (e->>'own')::boolean from jsonb_array_elements(fan_board('EDM')) e where (e->>'id')::bigint = current_setting('t.fp')::bigint));
+select pg_temp.raises('no vote on your own post', format('select fan_vote(%s, 1)', current_setting('t.fp')), 'your own post');
+select pg_temp.raises('or a report', format('select fan_report(%s)', current_setting('t.fp')), 'your own post');
+reset role;
+select pg_temp.expect('the title is tidied and the writer shows as a first name and an initial',
+  (select title = 'Trade for a starter in goal' and author = _lounge_name((select gm_name from teams where id = 2)) and season = _fan_season()
+          and kind = 'idea' and source = 'https://www.nhl.com/oilers' from fan_posts where id = current_setting('t.fp')::bigint));
+select pg_temp.expect('who wrote it is kept apart', (select user_id = '00000000-0000-0000-0000-000000000002' from private.fan_authors where id = current_setting('t.fp')::bigint));
+select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-000000000003', false);
+set role authenticated;
+select pg_temp.expect('Jason votes it up', (fan_vote(current_setting('t.fp')::bigint, 1)->>'ups')::int = 1);
+select pg_temp.expect('and changes his mind', (select (v->>'ups')::int = 0 and (v->>'downs')::int = 1 and (v->>'mine')::int = -1
+  from (select fan_vote(current_setting('t.fp')::bigint, -1) v) x));
+select pg_temp.expect('and back again', (fan_vote(current_setting('t.fp')::bigint, 5)->>'ups')::int = 1);
+select set_config('t.fp2', fan_post('EDM', 'ask', 'coaching', 'Why is the kill so passive?')::text, false);
+select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-000000000004', false);
+select pg_temp.expect('Craig votes it up too', (fan_vote(current_setting('t.fp')::bigint, 1)->>'ups')::int = 2);
+select pg_temp.expect('the board shows his vote', (select (e->>'mine')::int = 1 and not (e->>'own')::boolean
+  from jsonb_array_elements(fan_board('EDM')) e where (e->>'id')::bigint = current_setting('t.fp')::bigint));
+select pg_temp.expect('a vote taken back', (fan_vote(current_setting('t.fp')::bigint, 0)->>'ups')::int = 1);
+select fan_vote(current_setting('t.fp')::bigint, 1);
+select pg_temp.expect('the best first', (fan_board('EDM', null, 'top')->0->>'id')::bigint = current_setting('t.fp')::bigint);
+select pg_temp.expect('the newest first', (fan_board('EDM', null, 'new')->0->>'id')::bigint = current_setting('t.fp2')::bigint);
+select pg_temp.expect('one kind', jsonb_array_length(fan_board('EDM', 'ask')) = 1 and (fan_board('EDM', 'ask')->0->>'kind') = 'ask');
+select pg_temp.expect('a page at a time', jsonb_array_length(fan_board('EDM', null, 'new', 1, 1)) = 1
+  and (fan_board('EDM', null, 'new', 1, 1)->0->>'id')::bigint = current_setting('t.fp')::bigint);
+reset role;
+select set_config('t.g', coalesce((select id::text from players where nhl_team = 'EDM' and pos = 'G' order by id limit 1), ''), false);
+select set_config('t.notg', coalesce((select id::text from players where nhl_team = 'EDM' and pos <> 'G' order by id limit 1), ''), false);
+select set_config('t.other', coalesce((select id::text from players where nhl_team = 'CGY' order by id limit 1), ''), false);
+select pg_temp.expect('the seed has Edmonton''s goalies and skaters and Calgary''s', current_setting('t.g') <> '' and current_setting('t.notg') <> '' and current_setting('t.other') <> '');
+select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-000000000003', false);
+set role authenticated;
+select pg_temp.expect('Jason calls the goalie', (select (c->>'total')::int = 1 and (c->>'mine') = current_setting('t.g') and (c->'choices'->0->>'name') is not null
+  from (select fan_call('EDM', 'goalie', current_setting('t.g')) c) x));
+select pg_temp.raises('only a goalie of the club', format('select fan_call(''EDM'', ''goalie'', %L)', current_setting('t.notg')), 'one of the answers');
+select pg_temp.raises('only a player of the club', format('select fan_call(''EDM'', ''mvp'', %L)', current_setting('t.other')), 'one of the answers');
+select pg_temp.raises('only a grade', 'select fan_call(''EDM'', ''gm'', ''z'')', 'one of the answers');
+select pg_temp.raises('only a question there is', 'select fan_call(''EDM'', ''owner'', ''a'')', 'one of the answers');
+select pg_temp.expect('a grade for the GM', (fan_call('EDM', 'gm', 'b')->>'mine') = 'b');
+select pg_temp.expect('a verdict on one of the bigger questions', (fan_call('EDM', 'q-crease', 'rethink')->>'total')::int = 1);
+select pg_temp.expect('the league''s questions take a club', (fan_call('NHL', 'cup', 'EDM')->>'total')::int = 1);
+select pg_temp.raises('and only a club', 'select fan_call(''NHL'', ''cup'', ''NHL'')', 'one of the answers');
+select pg_temp.expect('a call taken back', (fan_call('EDM', 'gm', null)->>'total')::int = 0);
+select fan_call('EDM', 'gm', 'c');
+select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-000000000004', false);
+select fan_call('EDM', 'gm', 'c');
+select fan_call('EDM', 'spring', 'second');
+select pg_temp.expect('the split counts each fan once', (select (c->>'total')::int = 2 and (c->'choices'->0->>'choice') = 'c' and (c->'choices'->0->>'n')::int = 2
+  from (select fan_pulse('EDM')->'calls'->'gm' c) x));
+select pg_temp.expect('the caller sees their own calls', (fan_pulse('EDM')->'mine'->>'spring') = 'second');
+select pg_temp.expect('the pulse counts the fans who took part', (fan_pulse('EDM')->>'people')::int = 3);
+select pg_temp.expect('and lists the top idea', (fan_pulse('EDM')->'top'->'idea'->0->>'id')::bigint = current_setting('t.fp')::bigint);
+select pg_temp.expect('and who added the most', (fan_pulse('EDM')->'contributors'->0->>'score')::int = 2);
+select pg_temp.expect('the index has the club', (select (e->>'people')::int = 3 and (e->>'posts')::int = 2 and (e->'top'->>'id')::bigint = current_setting('t.fp')::bigint
+  from (select fan_index()->'EDM' e) x));
+reset role;
+-- a fan's account from just a name, as the join function makes it: five a day from one connection
+select pg_temp.expect('five new fans a day from one connection', (select count(*) from generate_series(1, 5) where _fan_join_check('flow-test') is null) = 5
+  and _fan_join_check('flow-test') like 'Too many new fans%');
+insert into auth.users (id, email, raw_user_meta_data) values ('00000000-0000-0000-0000-000000000077', 'fan-flow@guest.superpoolsai.com', '{"name": "Connor Fanboy", "guest": true, "fan": true}')
+  on conflict (id) do nothing;
+select _fan_person('00000000-0000-0000-0000-000000000077', ' Connor   Fanboy ', 'EDM');
+select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-000000000077', false);
+set role authenticated;
+select pg_temp.expect('the fan has no league', current_league_id() is null);
+select pg_temp.expect('the fan zone knows the fan by the name given', (fan_me()->>'name') = 'Connor F.' and (fan_me()->>'club') = 'EDM' and not (fan_me()->>'admin')::boolean);
+select set_config('t.ff', fan_post('NHL', 'fact', 'history', 'The Oilers won five Cups in seven springs', '1984, 1985, 1987, 1988 and 1990.')::text, false);
+select pg_temp.expect('the fact is on the league''s board, by a first name and an initial', (select author = 'Connor F.' and club = 'NHL' from fan_posts where id = current_setting('t.ff')::bigint));
+select pg_temp.raises('a name of two letters at least', 'select fan_set_me(''x'')', 'Your name');
+select pg_temp.expect('a fan renames', (fan_set_me('Connor McFan')->>'name') = 'Connor M.' and (fan_me()->>'club') = 'EDM');
+select pg_temp.raises('only a platform admin marks a fact checked', format('select fan_moderate(%s, ''checked'')', current_setting('t.ff')), 'look after the boards');
+select pg_temp.raises('or takes someone else''s post down', format('select fan_remove(%s)', current_setting('t.fp')), 'Only the one who wrote it');
+reset role;
+update private.fan_authors set at = now() - interval '1 minute' where user_id = '00000000-0000-0000-0000-000000000077';
+select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-000000000077', false);
+set role authenticated;
+select pg_temp.raises('the same post twice', 'select fan_post(''NHL'', ''fact'', ''history'', ''The Oilers won FIVE Cups in seven springs'')', 'posted that one already');
+select pg_temp.expect('a report: the first bells the platform', fan_report(current_setting('t.fp')::bigint) = 'reported');
+reset role;
+select pg_temp.expect('the platform admin hears of it', exists (select 1 from notifications n join teams t on t.id = n.team_id
+  where t.user_id = '00000000-0000-0000-0000-000000000001' and n.kind = 'fan_report' and n.link = '/fans/EDM?post=' || current_setting('t.fp')));
+select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-000000000003', false);
+set role authenticated;
+select pg_temp.expect('a second report', fan_report(current_setting('t.fp')::bigint) = 'reported');
+select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-000000000004', false);
+select pg_temp.expect('the third takes it down', fan_report(current_setting('t.fp')::bigint) = 'removed');
+select pg_temp.expect('it is off the board', not exists (select 1 from jsonb_array_elements(fan_board('EDM')) e where (e->>'id')::bigint = current_setting('t.fp')::bigint));
+reset role;
+select pg_temp.expect('a copy is kept, with its writer', exists (select 1 from private.fan_removed where id = current_setting('t.fp')::bigint and why = 'reports'
+  and user_id = '00000000-0000-0000-0000-000000000002'));
+select pg_temp.expect('and its votes went with it', not exists (select 1 from private.fan_votes where post_id = current_setting('t.fp')::bigint));
+select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-000000000001', false);
+set role authenticated;
+select fan_moderate(current_setting('t.ff')::bigint, 'checked', 'Checked against the NHL''s record book.');
+select pg_temp.expect('a platform admin marks the fact checked, with a note', (select status = 'checked' and note like 'Checked against%' from fan_posts where id = current_setting('t.ff')::bigint));
+select pg_temp.expect('and sees the reports on a post', (fan_board('EDM')->0) ? 'reports' and (fan_board('EDM')->0->>'reports') is not null);
+select fan_remove(current_setting('t.fp2')::bigint);
+select pg_temp.expect('and takes any post down', not exists (select 1 from fan_posts where id = current_setting('t.fp2')::bigint));
+reset role;
+select pg_temp.expect('a club''s open data carries no account', (select (x->'posts'->0) ? 'author' and not ((x->'posts'->0) ? 'user_id') and not ((x->'pulse') ? 'mine')
+  from (select fan_export('NHL') x) y));
+select pg_temp.expect('anon can''t post, vote or call', not has_function_privilege('anon', 'public.fan_post(text,text,text,text,text,text)', 'execute')
+  and not has_function_privilege('anon', 'public.fan_vote(bigint,integer)', 'execute') and not has_function_privilege('anon', 'public.fan_call(text,text,text)', 'execute'));
+select pg_temp.expect('nobody calls the internal writers', not has_function_privilege('authenticated', 'public._fan_take_down(bigint,text)', 'execute')
+  and not has_function_privilege('authenticated', 'public._fan_person(uuid,text,text)', 'execute') and not has_function_privilege('anon', 'public._fan_join_check(text)', 'execute')
+  and not has_function_privilege('authenticated', 'public._fan_who()', 'execute'));
+select pg_temp.expect('who made a call stays private', not has_table_privilege('authenticated', 'private.fan_calls', 'select') and not has_table_privilege('anon', 'private.fan_votes', 'select'));
+select set_config('request.jwt.claim.sub', '', false);
+select 'fan voice', true;

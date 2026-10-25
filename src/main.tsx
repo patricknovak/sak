@@ -51,6 +51,11 @@ const Scoreboard = lazy(() => import('./pages/Scoreboard'));
 const Performance = lazy(() => import('./pages/Performance'));
 const NHL = lazy(() => import('./pages/NHL'));
 const FanZone = lazy(() => import('./pages/FanZone'));
+const FansIndex = lazy(() => import('./pages/FansIndex'));
+const FanPulse = lazy(() => import('./pages/FanPulse'));
+const FansAbout = lazy(() => import('./pages/FansAbout'));
+// the fan zones' own frame, for anyone without a league (25 October 2026)
+const PublicFans = lazy(() => import('./pages/PublicFans'));
 const Yahoo = lazy(() => import('./pages/Yahoo'));
 const YahooLeague = lazy(() => import('./pages/YahooLeague'));
 const Pools = lazy(() => import('./pages/Pools'));
@@ -117,11 +122,17 @@ function App() {
   if (pathname === '/new') return <Suspense fallback={null}><NewPool /></Suspense>;
   // and the privacy note (what we keep, who sees it), linked from the consent banner and the landing page
   if (pathname === '/privacy') return <Suspense fallback={null}><Privacy /></Suspense>;
+  // the fan zones are open to everyone (25 October 2026): signed out, or signed in with no league (a fan's own account),
+  // they open in their own frame; a member of a league reads them in the league's layout below
+  if (/^\/fans(\/|$)/.test(pathname) && (!session || !me)) return <Suspense fallback={<Loading />}><PublicFans /></Suspense>;
   if (!session) return <Login />;
   if (!me) {
     return (
       <div className="grid min-h-dvh place-items-center p-6 text-center">
-        <div className="card max-w-md p-6"><p className="text-sm text-mute">This login isn’t linked to a team yet. Ask your commissioner for an invite link, or <a className="text-sky-300 underline" href="#/start">start a league of your own</a>.</p></div>
+        <div className="card max-w-md p-6">
+          <p className="text-sm text-mute">This login isn’t linked to a team yet. Ask your commissioner for an invite link, or <a className="text-sky-300 underline" href="#/start">start a league of your own</a>.</p>
+          <a className="btn-ghost mt-4 inline-flex" href="#/fans">Open the NHL fan zones</a>
+        </div>
       </div>
     );
   }
@@ -153,7 +164,9 @@ function App() {
           <Route path="/scoreboard" element={<Scoreboard />} />
           <Route path="/performance" element={<Performance />} />
           <Route path="/nhl" element={<NHL />} />
-          <Route path="/fans" element={<FanZone />} />
+          <Route path="/fans" element={<FansIndex />} />
+          <Route path="/fans/about" element={<FansAbout />} />
+          <Route path="/fans/:club/pulse" element={<FanPulse />} />
           <Route path="/fans/:club" element={<FanZone />} />
           <Route path="/pools" element={<Pools />} />
           {/* a pool's link followed inside the app: load the page again so the pool in it opens (host.ts reads it at start) */}

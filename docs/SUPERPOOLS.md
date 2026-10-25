@@ -494,7 +494,10 @@ The steps above finish the tenancy. `docs/MARKET.md` sets what comes after in th
     simulated for all 32 clubs, 46 ranked measures, splits, the NHL's tracking, player analytics, and the franchise from the
     NHL's record books (every season, leaders, trophies, the draft, every opponent), with the lore, facts and a quiz. Since 25 October 2026 (§9.19) the crease in depth (goals saved against the
     danger of every shot, who's to blame, the plan in goal, the goalie market) and the front office (the bigger questions with
-    a verdict, trade targets by need from sellers, the coaches' calls on lines, minutes, the power play and the kill).
+    a verdict, trade targets by need from sellers, the coaches' calls on lines, minutes, the power play and the kill). Since
+    25 October 2026 (§9.20, migration 337) open to every fan for all 32 clubs, with the fans' own calls, board and knowledge
+    base, a fan pulse anyone can share or download, link previews per club, open data at `/api/fans/<club>`, and the clubs
+    on superpoolsai.com.
 
 Then horizon 2 (soccer on licensed data, basketball, the multi-sport pool, the Supercoin prediction market,
 the Super Pool bundle, the public API) and horizon 3 (cricket free-to-play, baseball, football and college,

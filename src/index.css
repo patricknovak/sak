@@ -95,6 +95,8 @@ body::after {
   box-shadow: inset 0 1px 0 rgba(255,255,255,.45), 0 8px 22px -10px rgb(var(--gold-rgb) / .9);
 }
 @utility btn-ghost { @apply btn border border-white/10 bg-white/[.04] text-slate-200 hover:bg-white/[.08]; }
+/* a fan zone's own button, in the club's colour (the page sets --club-rgb and --club-ink, src/data/clubColors.ts) */
+@utility btn-club { @apply btn; background: rgb(var(--club-rgb)); color: var(--club-ink, #fff); box-shadow: 0 8px 22px -12px rgb(var(--club-rgb) / .9), inset 0 1px 0 rgba(255,255,255,.28); }
 @utility btn-sm { @apply px-2.5! py-1! text-xs! rounded-lg! min-h-8 min-w-8; }
 @utility input { @apply w-full rounded-xl border border-white/10 bg-black/30 px-3 py-2 text-[16px] text-white outline-none transition placeholder:text-mute focus:border-sky-400/70 focus:bg-black/40 focus:ring-4 focus:ring-sky-400/10; }
 @utility chip { @apply inline-flex items-center gap-1 rounded-full border border-white/10 bg-white/[.05] px-2 py-0.5 text-[11px] font-semibold text-slate-300; }
@@ -153,4 +155,15 @@ body::after {
 
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; }
+}
+
+/* printing a fan pulse (#/fans/<club>/pulse, 25 October 2026): only the report, dark ink on white, the bars kept in colour */
+@media print {
+  body { background: #fff !important; }
+  body * { visibility: hidden; }
+  .print-sheet, .print-sheet * { visibility: visible; color: #0b1222 !important; text-shadow: none !important; box-shadow: none !important; }
+  .print-sheet { position: absolute; inset: 0 auto auto 0; width: 100%; }
+  .print-sheet .no-print, .print-sheet .no-print * { display: none !important; }
+  .print-sheet .card, .print-sheet .print-box, .print-sheet .print-plain { background: #fff !important; border: 1px solid #d5d9e0 !important; break-inside: avoid; }
+  .print-sheet .print-bar, .print-sheet .print-bar * { print-color-adjust: exact; -webkit-print-color-adjust: exact; }
 }
