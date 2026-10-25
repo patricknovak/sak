@@ -1,3 +1,5 @@
 # Landing has no privacy/terms HTML; send visitors to the app's privacy note.
 /privacy  https://app.superpoolsai.com/#/privacy  302
 /terms    https://app.superpoolsai.com/#/privacy  302
+# The NHL fan zones live in the app; /fans itself is fans.html here
+/fans/*   https://app.superpoolsai.com/fans/:splat  302

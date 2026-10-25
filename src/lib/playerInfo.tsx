@@ -24,3 +24,9 @@ export function PlayerInfoProvider({ children }: { children: ReactNode }) {
     </Ctx.Provider>
   );
 }
+
+// the fan zones' open pages (no sign-in, no league's players loaded, 25 October 2026): a player opens on NHL.com
+export function PlayerLinkProvider({ children }: { children: ReactNode }) {
+  const open = useCallback<OpenInfo>((id) => { window.open(`https://www.nhl.com/player/${id}`, '_blank', 'noopener'); }, []);
+  return <Ctx.Provider value={open}>{children}</Ctx.Provider>;
+}

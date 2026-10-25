@@ -8,7 +8,9 @@ Brand, copy and positioning rules live in `docs/BRAND.md`; the product it descri
 `docs/SUPERPOOLS.md`.
 
 - `_redirects`: `/privacy` and `/terms` send visitors to `https://app.superpoolsai.com/#/privacy` (the landing Worker
-  has no privacy HTML of its own).
+  has no privacy HTML of its own), and `/fans/<club>` to the club's fan zone in the app.
+- `fans.html` (25 October 2026): the NHL fan zones, every club read like a front office and open to every fan, with the
+  32 clubs a division to a row (the same grid as the home's `#fans` section, each logo into its zone in the app).
 - `index.html`: the home, sports first (the live room in the hero, the events open right now, game night as a room,
   every kind of pool, questions with live prices, the founding league, shipping every week, where it's going) with a door to
   `together.html`, pools for any group (Love Is Blind, women's sports), in rose. Both use `site.css` and `site.js` (the

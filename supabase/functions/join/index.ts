@@ -3,6 +3,7 @@
 //   POST {pool: {name, color, pack}, email, password, name}   (migration 153: start a pool with no account yet)
 //   POST {code, name, guest: true}                             (migration 332: a pool's seat with just a name)
 //   POST {claim: {email, password}}, signed in as a guest       (the guest adds an email and keeps the seat)
+//   POST {fan: {name, club}}                                    (migration 337: a voice in the fan zones, no seat)
 // Open sign-up is off, so the invite is the way in: the code has to be good, then this makes the account (email and
 // password, confirmed on the invite's word) and seats it through _accept_invite in one go. If the seat can't be taken
 // the new account is removed again, so a failed join leaves nothing behind. Someone who already has an account signs
@@ -116,6 +117,31 @@ async function guestJoin(req: Request, code: string, name: string) {
   return reply(200, { ok: true, league, email, password });
 }
 
+// a fan's account with just a name (migration 337): no seat anywhere, only a voice in the fan zones (posts, votes and
+// calls). Made like a guest's, on a placeholder address with a long random password handed back once for the phone to
+// sign in with, five a day from one connection and a thousand a day in all (_fan_join_check, apart from the pools'
+// guest seats), and kept everywhere once an email is added (claim).
+async function fanJoin(req: Request, b: { fan?: { name?: string; club?: string } }) {
+  const name = String(b.fan?.name ?? '').trim().replace(/\s+/g, ' ').slice(0, 40);
+  const club = /^[A-Z]{3}$/.test(String(b.fan?.club ?? '')) ? String(b.fan!.club) : null;
+  if (name.length < 2) return reply(400, { error: 'Tell us your name.' });
+  const { data: why, error: we } = await db.rpc('_fan_join_check', { p_ip: await addressHash(req) });
+  if (we) { console.error('fan check', we); return reply(500, { error: 'Couldn’t sign you up just now. Try again in a minute.' }); }
+  if (why) return reply(429, { error: why, needEmail: true });
+
+  const email = `fan-${crypto.randomUUID()}@${GUEST_DOMAIN}`;
+  const password = secret();
+  const { data: made, error: ue } = await db.auth.admin.createUser({ email, password, email_confirm: true, user_metadata: { name, guest: true, fan: true } });
+  if (ue || !made?.user) { console.error('create fan', ue); return reply(500, { error: 'Couldn’t sign you up just now. Try again in a minute.' }); }
+  const { error: fe } = await db.rpc('_fan_person', { p_user: made.user.id, p_name: name, p_club: club });
+  if (fe) {
+    await db.auth.admin.deleteUser(made.user.id);
+    console.error('fan person', fe);
+    return reply(500, { error: 'Couldn’t sign you up just now. Try again in a minute.' });
+  }
+  return reply(200, { ok: true, email, password });
+}
+
 // a guest adds an email and a password: the same account, so every seat and pick stays; only a guest's own session
 // can do it, and only once (a real address is no longer a guest's)
 async function claim(req: Request, b: { claim?: { email?: string; password?: string } }) {
@@ -143,6 +169,7 @@ Deno.serve(async (req) => {
   const b = await req.json().catch(() => ({})) as { code?: string; email?: string; password?: string; name?: string; pool?: { name?: string; color?: string; pack?: string } } & Record<string, unknown>;
   if (b.pool) return startPool(req, b);
   if (b.claim) return claim(req, b as { claim?: { email?: string; password?: string } });
+  if (b.fan) return fanJoin(req, b as { fan?: { name?: string; club?: string } });
   const code = String(b.code ?? '').trim().toLowerCase();
   const email = String(b.email ?? '').trim().toLowerCase();
   const password = String(b.password ?? '');

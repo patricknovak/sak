@@ -5,9 +5,9 @@ import { supabase } from './supabase';
 export const GUEST_DOMAIN = 'guest.superpoolsai.com';
 export const isGuestEmail = (email?: string | null) => (email ?? '').toLowerCase().endsWith(`@${GUEST_DOMAIN}`);
 
-// signing a guest out loses the seat on this phone for good, so it asks first
-export async function signOut() {
+// signing a guest out loses the seat on this phone for good, so it asks first (a fan zone's own words for a fan)
+export async function signOut(ask = 'You joined without an email, so signing out loses your place for good. Add an email on the pool’s home first to keep it. Sign out anyway?') {
   const { data } = await supabase.auth.getSession();
-  if (isGuestEmail(data.session?.user?.email) && !window.confirm('You joined without an email, so signing out loses your place for good. Add an email on the pool’s home first to keep it. Sign out anyway?')) return;
+  if (isGuestEmail(data.session?.user?.email) && !window.confirm(ask)) return;
   await supabase.auth.signOut();
 }

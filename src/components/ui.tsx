@@ -50,10 +50,13 @@ export function Headshot({ p, size = 40 }: { p?: Player; size?: number }) {
   );
 }
 
-export function NhlLogo({ abbr, size = 18 }: { abbr?: string | null; size?: number }) {
+// a club's logo: the NHL's version for a dark ground, or with `light` the one for a white tile (a navy or white club's
+// dark-ground logo would vanish on white)
+export function NhlLogo({ abbr, size = 18, light }: { abbr?: string | null; size?: number; light?: boolean }) {
   const [err, setErr] = useState(false);
   if (!abbr || err) return null;
-  return <img src={teamLogo(abbr)} alt={abbr} width={size} height={size} onError={() => setErr(true)} className="inline-block shrink-0" />;
+  const src = light ? `https://assets.nhle.com/logos/nhl/svg/${abbr}_light.svg` : teamLogo(abbr);
+  return <img src={src} alt={abbr} width={size} height={size} onError={() => setErr(true)} className="inline-block shrink-0" />;
 }
 
 const POS_COLORS: Record<string, string> = {

@@ -452,3 +452,15 @@ footer a { color: var(--soft); }
 .howto b { color: var(--ink); }
 /* copy for after a date: shown by site.js once its time comes */
 [data-from] { display: none !important; }
+
+/* the NHL fan zones (25 October 2026): every club's logo, a division to a row, each into its zone in the app */
+.btn-ice { background: linear-gradient(180deg, #d9f4ff, var(--ice)); color: #04121c; box-shadow: 0 12px 28px -12px rgba(76,195,255,.8); }
+.clubs { display: grid; gap: 6px; grid-template-columns: repeat(8, minmax(0, 1fr)); }
+.clubs .div { grid-column: 1 / -1; margin: 8px 2px 0; font: 700 12px/1 'Barlow Condensed', sans-serif; letter-spacing: .22em; text-transform: uppercase; color: var(--mute); }
+.clubs a { display: flex; flex-direction: column; align-items: center; gap: 3px; padding: 8px 2px 6px; border-radius: 12px; background: var(--boards); border: 1px solid var(--line); color: var(--mute); font: 700 11px/1 'Barlow Condensed', sans-serif; letter-spacing: .06em; transition: transform .2s, border-color .2s, color .2s; }
+.clubs a:hover { transform: translateY(-2px); border-color: rgba(76,195,255,.5); color: var(--ink); }
+.clubs img { width: 34px; height: 34px; max-width: 100%; }
+.sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+.fzgrid { display: grid; gap: 12px; grid-template-columns: 1fr; }
+@media (min-width: 760px) { .fzgrid { grid-template-columns: repeat(3, 1fr); } }
+.fzgrid .ico { width: 26px; height: 26px; color: var(--ice); }

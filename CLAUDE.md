@@ -78,7 +78,19 @@ Two things in one repo:
   shot by danger and area, every start, five seasons) and the league's goalies and skaters worth a call, read by
   `src/lib/fanOffice.ts` (goals saved against the danger of the shots, who's to blame for the goals against, the plan in
   goal, the market, targets by need, the coaches' calls, the bigger questions); the sections are in `src/components/fan/`;
-  settled lore lives in `src/data/clubHistory.ts`.
+  settled lore lives in `src/data/clubHistory.ts`. Open to everyone since 25 October 2026: signed out (or signed in with no
+  league) `#/fans/*` opens in its own frame (`src/pages/PublicFans.tsx`, players open on NHL.com) with `#/fans` the 32 clubs
+  and the league's own calls and board (`FansIndex`), `#/fans/<club>/pulse` the fan pulse anyone can share, print or download
+  (`FanPulse`) and `#/fans/about` how it works (`FansAbout`); every club in its own colours (`src/data/clubColors.ts`). The
+  fans' voice (migration 337, shared across the platform and keyed by club, 'NHL' for the league): `fan_posts` (ideas,
+  questions, insights, facts for the knowledge base, fixes; voted, reported, checked by a platform admin with
+  `fan_moderate`), the season's calls in `private.fan_calls` (`fan_call`, answers checked by `_fan_call_ok`, the lists in
+  `src/lib/fanLists.ts` kept equal by `fan-voice.test.mjs`), read through `fan_board`, `fan_pulse`, `fan_index` and
+  `fan_export` (`src/lib/fanVoice.ts`, `src/components/fan/FanVoice.tsx` and `FanBoard.tsx`); a fan joins with just a name
+  (the join function's fan mode, `_fan_join_check`). The app's Worker unfurls `/fans`, `/fans/<club>`, `/fans/<club>/pulse`
+  and a shared post with the club's own picture and serves the open data at `/api/fans/<club>` (`worker/fans.ts`); nhl-hub's
+  `fan-league` task names the award calls' candidates; superpoolsai.com has the clubs on its home (`#fans`) and
+  `landing/fans.html`.
 - Navigation (`src/components/Layout.tsx`): the dock keeps four places (a fantasy league's are Home, Lineup, Chat and NHL centre since 24 October 2026; Players is in More under Your team), Live (the scoreboard, a fantasy league's middle tab with a red dot while a game is on) and More; More and the desktop sidebar list the
   rest under groups (`Tonight`, `Your team`, `The league`, `You`; a pool's `Play`, `Sport centres`, `You`), and nothing
   in the dock repeats in More. A new page joins a group rather than the end of a list.
@@ -126,7 +138,8 @@ Two things in one repo:
   games, so retired and unsigned players stop showing as pickups, 10 October 2026), `nhl-hub` (NHL centre
   data, cached in `hub_cache`; `?task=sport-news|sport-standings|sport-injuries|sport-leaders&sport=<espn path>` is every
   other sport's centre desk from ESPN, `src/components/SportDesk.tsx`, 10 October 2026; `?task=lines` works out each club's lines from the NHL's shift charts; `?task=espn` trims one game's ESPN summary into a box score for NFL centre), `garry` (the league voice; the LLM is Grok via xAI, `XAI_API_KEY`; every lineup call he makes, in the 5 pm nudge, the morning column and chat, comes from the shared optimizer through `garry/tonight.ts`, a move the GM can make that gains points, never a count of idle starters; in a prediction pool he speaks as the pool's voice (the morning on days something happens, `poolDaily`, and every Monday, `poolWeekly`) from `pool_scoreboard()` and `pool_ahead()` (the picks that lock before tomorrow and who's still to pick, tonight's games on the pool's events, migration 264); `?dry=1` with the admin key previews a scheduled post and its facts without posting, paying or ringing anyone, 13 and 14 October 2026; a new write in a scheduled task checks `dry()`),
-  `player-info`, `push`, `yahoo`, `join` (makes a newcomer's account from an invite link and seats them, or with `pool` in the body opens a prediction pool for someone new: `#/new`, migration 153, three a day per address and sixty a day in all; with `guest` a pool's seat from just a name, an account on `@guest.superpoolsai.com` signed in on that phone, ten a day per connection and three hundred in all, `_guest_join_check`, migration 332, and `claim` lets that guest add an email and password to the same account, `KeepSeat`, `src/lib/guest.ts`), `soccer-sync` (soccer fixtures and results per competition's
+  `player-info`, `push`, `yahoo`, `join` (makes a newcomer's account from an invite link and seats them, or with `pool` in the body opens a prediction pool for someone new: `#/new`, migration 153, three a day per address and sixty a day in all; with `guest` a pool's seat from just a name, an account on `@guest.superpoolsai.com` signed in on that phone, ten a day per connection and three hundred in all, `_guest_join_check`, migration 332, and `claim` lets that guest add an email and password to the same account, `KeepSeat`, `src/lib/guest.ts`; with `fan` a fan
+  zone voice from just a name, no seat, five a day per connection and a thousand in all, `_fan_join_check`, migration 337), `soccer-sync` (soccer fixtures and results per competition's
   provider: ESPN's public scoreboard for testing, `espn`, migration 168, or API-Football with `API_FOOTBALL_KEY`;
   `?task=fixtures|live`, platform key only; ESPN's other sports ride it too: the NFL by week, migration 171, each game's quarters with it, and `soccer_ingest` ends by
   settling the prop sheets and squares on its games, migrations 216 and 217; ESPN's
@@ -173,7 +186,7 @@ Two things in one repo:
 - Hosting: the app on Cloudflare (every address; the GitHub Pages copy from `.github/workflows/deploy.yml` stays until
   EXPANSION B5 step 3) as a Worker with its own edge code (`worker/`, Workers Paid since 11 October 2026): `/api/hub`
   caches the sports data at the edge (the site's `hub()` reads it on the product's addresses), `/j/<code>` and
-  `/p/<web name>` are link previews with a picture drawn per pool (`/og/...`; a pool invite's asks its first question, from `invite_preview`), and invites are shared as `/j/` links
+  `/p/<web name>` are link previews with a picture drawn per pool (`/og/...`; a pool invite's asks its first question, from `invite_preview`), `/fans/<club>` the fan zones' (`worker/fans.ts`, with the fans' open data at `/api/fans/<club>`), and invites are shared as `/j/` links
   (`inviteLink` in `src/lib/host.ts`); `/api/live/<league>/<day>` is the league's live room for a game night, a Durable
   Object (`worker/live.ts`) the app joins while a game is on (`LiveRoomProvider`, `useLiveRoom()` in `src/lib/liveRoom.tsx`):
   it reads the night with a member's own sign-in and pushes the scoreboard's data, the night's swings, who's watching and

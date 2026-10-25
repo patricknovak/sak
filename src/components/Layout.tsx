@@ -209,7 +209,7 @@ export function Layout({ children }: { children: ReactNode }) {
     { to: '/nhl', label: sport.words.centre ?? 'NHL centre', icon: Tv, group: 'Tonight' },
     ...(runs.questions ? [{ to: '/questions', label: 'Questions', icon: Sparkles, group: 'Tonight' }] : []),
     // the league's own club's fan zone (league_rules.info.fan_club; SaK's is Edmonton), or any club's
-    { to: '/fans', label: fanClub ? `${NHL_TEAMS[fanClub] ?? fanClub} fan zone` : 'Fan zone', icon: Flame, group: 'The league' },
+    { to: fanClub ? `/fans/${fanClub}` : '/fans', label: fanClub ? `${NHL_TEAMS[fanClub] ?? fanClub} fan zone` : 'NHL fan zones', icon: Flame, group: 'The league' },
     ...(draftish ? [{ to: '/team', label: 'My Team', icon: Shield, group: 'Your team' }] : []),
     { to: '/players', label: 'Players', icon: Search, group: 'Your team' },
     { to: '/trades', label: 'Trades', icon: Repeat2, group: 'Your team' },
