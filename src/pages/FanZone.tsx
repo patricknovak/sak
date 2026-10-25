@@ -21,6 +21,9 @@ import { FanForm, FanOutlook } from '../components/fan/FanOutlook';
 import { FanSplits, FanStyle } from '../components/fan/FanSplits';
 import { CreaseDeep, LuckWatch, Milestones, PlayerTable, Usage } from '../components/fan/FanPlayersDeep';
 import { FanDraft, FanFacts, FanHistorySection, FanRecords, FanTrophies } from '../components/fan/FanHistory';
+import { FanCrease } from '../components/fan/FanCrease';
+import { FanOffice } from '../components/fan/FanOffice';
+import { blame as blameOf, coaching, crease as creaseOf, goalieMarket, goaliePlan, goalieRecs, questions, targets, type FanOffice as OfficeData } from '../lib/fanOffice';
 
 const CLUB_KEY = 'sp-fan-club';
 const FALLBACK = { primary: '#f7c548', secondary: '#0b1222', rgb: '247 197 72' };
@@ -36,14 +39,18 @@ export default function FanZone() {
   const club = (param ?? leagueClub ?? remembered ?? 'EDM').toUpperCase();
   const [data, setData] = useState<FanData | null>(null);
   const [hist, setHist] = useState<FanHistory | null>(null);
+  const [office, setOffice] = useState<OfficeData | null>(null);
+  const [officeDone, setOfficeDone] = useState(false);
   const [failed, setFailed] = useState(false);
   const [tries, setTries] = useState(0);
   useEffect(() => {
-    setData(null); setFailed(false); setHist(null);
+    setData(null); setFailed(false); setHist(null); setOffice(null); setOfficeDone(false);
     try { localStorage.setItem(CLUB_KEY, club); } catch { /* nothing to remember with */ }
     hub<FanData>('fan', { abbrev: club }).then(setData, () => setFailed(true));
     // the record books come on their own: the live page doesn't wait for them
     hub<FanHistory>('fan-history', { abbrev: club }).then(setHist, () => {});
+    // and the front office: the goalies in depth and the league's players worth a call
+    hub<OfficeData>('fan-office', { abbrev: club }).then(setOffice, () => {}).finally(() => setOfficeDone(true));
   }, [club, tries]);
   const lore = CLUB_LORE[club];
   const colors = lore?.colors ?? FALLBACK;
@@ -57,6 +64,18 @@ export default function FanZone() {
     recs.sort((x, y) => order[x.priority] - order[y.priority]);
     return { out, tr, sp, fm, ah, pl, cr, recs, track: trackingRead(data), champ: champion(data), div: division(data) };
   }, [data, a]);
+  // the crease and the front office, once their numbers are in
+  const fo = useMemo(() => {
+    if (!data || !a || !deep || !office) return null;
+    const reads = creaseOf(data, office), bl = blameOf(office, reads), plan = goaliePlan(reads, deep.ah), market = goalieMarket(data, office, reads, deep.out?.all ?? null);
+    return { reads, bl, plan, market, needs: targets(data, a, office, deep.out?.all ?? null), coach: coaching(data, office, plan), qs: questions(data, a, office, reads, bl, deep.out, hist), recs: goalieRecs(plan, market) };
+  }, [data, a, deep, office, hist]);
+  // the verdict's calls: the goalie calls come from the crease's deeper read once it is in
+  const recs = useMemo(() => {
+    if (!deep) return [];
+    const order = { high: 0, medium: 1, watch: 2 };
+    return fo?.reads.length ? [...deep.recs.filter((r) => r.area !== 'Goaltending'), ...fo.recs].sort((x, y) => order[x.priority] - order[y.priority]) : deep.recs;
+  }, [deep, fo]);
   // a fact a day: the same one all day, a new one tomorrow
   const fact = useMemo(() => {
     const facts = [...(hist ? historyFacts(hist) : []), ...(lore?.facts ?? [])];
@@ -64,7 +83,7 @@ export default function FanZone() {
     const day = Math.floor(Date.now() / 86_400_000);
     return facts[day % facts.length];
   }, [hist, lore]);
-  const sections = [['verdict', 'Verdict'], ['outlook', 'Outlook'], ['numbers', 'Numbers'], ['splits', 'Splits'], ['style', 'Style'], ['players', 'Players'], ['news', 'News'], ['games', 'Games'],
+  const sections = [['verdict', 'Verdict'], ['outlook', 'Outlook'], ['numbers', 'Numbers'], ['splits', 'Splits'], ['style', 'Style'], ['players', 'Players'], ['crease', 'Crease'], ['office', 'Front office'], ['news', 'News'], ['games', 'Games'],
     ['history', 'History'], ['records', 'Records'], ['trophies', 'Trophies'], ['draft', 'Draft'], ['facts', 'Facts']] as const;
 
   return (
@@ -125,12 +144,14 @@ export default function FanZone() {
 
       {!data ? (failed ? <LoadError what={`the ${NHL_TEAMS[club] ?? club} fan zone`} onRetry={() => setTries((n) => n + 1)} /> : <div className="flex justify-center py-16"><Spinner /></div>) : a && deep && (
         <>
-          <Verdict a={a} recs={deep.recs} />
+          <Verdict a={a} recs={recs} />
           <FanOutlook d={data} out={deep.out} tr={deep.tr} champ={deep.champ} div={deep.div} ah={deep.ah} />
           <Numbers ranks={a.ranks} prevSeason={data.prevSeason} />
           <FanSplits sp={deep.sp} />
           <FanStyle lines={deep.track} tracking={data.tracking} />
-          <Players d={data} a={a} deep={deep} />
+          <Players d={data} a={a} deep={deep} creaseLater={!!fo?.reads.length || !officeDone} />
+          {fo && <FanCrease reads={fo.reads} blame={fo.bl} plan={fo.plan} market={fo.market} owner={(id) => <OwnerBadge id={id} />} />}
+          <FanOffice qs={fo?.qs ?? []} needs={fo?.needs ?? []} coach={fo?.coach ?? null} loading={!officeDone} />
           <News d={data} />
           <Games d={data} club={club} form={<FanForm d={data} fm={deep.fm} out={deep.out} />} />
           <FanHistorySection h={hist} lore={lore} />
@@ -284,7 +305,7 @@ function DevRow({ p, owner }: { p: Development; owner: React.ReactNode }) {
 }
 
 type Deep = { pl: ReturnType<typeof players>; cr: ReturnType<typeof crease> };
-function Players({ d, a, deep }: { d: FanData; a: ReturnType<typeof assess>; deep: Deep }) {
+function Players({ d, a, deep, creaseLater }: { d: FanData; a: ReturnType<typeof assess>; deep: Deep; creaseLater: boolean }) {
   const { owner, team } = useLeague();
   const ownerOf = (id: number) => { const o = owner.get(id); const t = o ? team(o.team_id) : undefined; return t ? <TeamBadge team={t} size={16} /> : null; };
   const groups: [Development['verdict'], string, React.ReactNode][] = [
@@ -295,7 +316,7 @@ function Players({ d, a, deep }: { d: FanData; a: ReturnType<typeof assess>; dee
   const ages = d.prospects.map((p) => ({ ...p, age: p.born ? new Date().getFullYear() - Number(p.born.slice(0, 4)) : null }));
   return (
     <section className="space-y-3">
-      <Head id="players" title="Players" sub="Who's growing and who's fading, the numbers behind the points, who is due, the milestones in reach and the goalies by goals saved." />
+      <Head id="players" title="Players" sub="Who's growing and who's fading, the numbers behind the points, who is due and the milestones in reach." />
       {a.stars && (
         <div className="card p-4">
           <div className="flex items-baseline justify-between gap-2"><b className="text-white">Where the points come from</b><span className="text-xs text-mute">{Math.round(a.stars.share * 100)}% from the top two</span></div>
@@ -324,7 +345,7 @@ function Players({ d, a, deep }: { d: FanData; a: ReturnType<typeof assess>; dee
       <LuckWatch rows={deep.pl.rows} />
       <Milestones list={deep.pl.milestones} />
       <Usage leaders={deep.pl.usageLeaders} />
-      {deep.cr.length > 0 ? <CreaseDeep list={deep.cr} owner={ownerOf} /> : null}
+      {deep.cr.length > 0 && !creaseLater ? <CreaseDeep list={deep.cr} owner={ownerOf} /> : null}
       {(a.youngCore.length > 0 || ages.length > 0) && (
         <div className="card p-4">
           <b className="text-white">The future</b>
@@ -348,6 +369,13 @@ function Players({ d, a, deep }: { d: FanData; a: ReturnType<typeof assess>; dee
       <SakOwners d={d} />
     </section>
   );
+}
+
+// a SaK owner's badge beside a player of the club
+function OwnerBadge({ id }: { id: number }) {
+  const { owner, team } = useLeague();
+  const o = owner.get(id); const t = o ? team(o.team_id) : undefined;
+  return t ? <TeamBadge team={t} size={16} /> : null;
 }
 
 // the league's own stake in the club: which GMs own its players, and what they're worth to them this season

@@ -3,6 +3,7 @@
 // that quote their evidence.
 import assert from 'node:assert/strict';
 import { assess, rankIn, METRICS } from '../../src/lib/fanZone.ts';
+import { crease as officeCrease, blame, goaliePlan, goalieMarket, targets, coaching, questions, goalieRecs } from '../../src/lib/fanOffice.ts';
 import { outlook, truth, splits, form, ahead, players, crease, champion, deepRecs, eras, historyFacts, pickVerdict, springOf, inProgress } from '../../src/lib/fanDeep.ts';
 
 const t = (abbrev, o) => ({ abbrev, name: abbrev, gp: 10, w: 5, l: 4, otl: 1, pts: 11, ptsPct: 0.55, gf: 3, ga: 3, pp: 0.2, pk: 0.8, sf: 28, sa: 28, fo: 0.5,
@@ -110,4 +111,63 @@ assert.ok(hf.some((f) => /first and second in the scoring race 1 time: 2022-23/.
 assert.equal(pickVerdict(hist.firsts[0], 2026), 'star');
 assert.equal(pickVerdict({ ...hist.firsts[0], year: 2021, career: { gp: 2, pts: 0 } }, 2026), 'pending', 'five years on, still developing');
 assert.equal(pickVerdict({ ...hist.firsts[0], year: 2012, career: { gp: 350, pts: 136 } }, 2026), 'regular');
+
+// ── the crease and the front office (25 October 2026)
+const range = (where, sa, ga, lgSvp, lgSa, pct = 0.5) => ({ where, sa, ga, svp: sa ? 1 - ga / sa : null, pct, saPct: 0.5, lgSvp, lgSa, lgGa: null });
+const G = (id, name, starts) => ({ id, edge: { gamesAbove900: { value: 0.5, pct: 0.5, avg: 0.48 } }, five: { savePctg: { value: 0.9, pct: 0.4, avg: 0.904 } },
+  ranges: [range('all', 280, 34, 0.892, 25.8), range('high', 80, 22, 0.81, 7.4, 0.1), range('mid', 80, 8, 0.88, 7.5), range('long', 60, 2, 0.96, 4.9)], areas: [{ area: 'Low Slot', sa: 30, ga: 9, svp: 0.7, pct: 0.1 }],
+  games: starts.map(([date, sa, ga], i) => ({ id: i, date, opp: 'X1', home: true, start: true, dec: 'W', sa, ga, svp: 1 - ga / sa, toi: '60:00' })) });
+const office = {
+  abbrev: 'EDM', season: 20262027, prevSeason: 20252026, lgSvp: { 20242025: 0.9, 20252026: 0.895, 20262027: 0.892 },
+  goalies: [G(30, 'Tristan Jarry', [[day(0), 30, 2], [day(1), 28, 6], [day(4), 32, 3], [day(5), 25, 5], [day(7), 30, 1], [day(8), 27, 4], [day(10), 30, 2], [day(11), 26, 5], [day(13), 28, 3], [day(14), 24, 3]])],
+  leagueGoalies: [{ id: 30, name: 'Tristan Jarry', team: 'EDM', gp: 10, gs: 10, w: 8, sa: 280, ga: 34, svp: 0.879, toi: 36000, qs: 4, qsPct: 0.4, evSvp: 0.89, ppSvp: 0.85, born: '1995-04-29', catches: 'L' },
+    ...Array.from({ length: 12 }, (_, i) => ({ id: 100 + i, name: `G${i}`, team: `X${i}`, gp: 10, gs: 10, w: 5, sa: 280, ga: 26 + i, svp: 1 - (26 + i) / 280, toi: 36000, qs: 5, qsPct: 0.5, evSvp: 0.9, ppSvp: 0.87, born: '1996-01-01', catches: 'L' }))],
+  seasons: [{ id: 30, name: 'Tristan Jarry', season: 20252026, team: 'EDM', gp: 33, gs: 31, sa: 900, ga: 106, svp: 0.882, qsPct: null }, { id: 100, name: 'G0', season: 20252026, team: 'X0', gp: 50, gs: 48, sa: 1400, ga: 120, svp: 0.914, qsPct: 0.6 }],
+  club: [
+    { id: 1, name: 'Connor McDavid', team: 'EDM', pos: 'C', shoots: 'L', born: '1997-01-13', gp: 10, g: 8, a: 14, pts: 22, toi: 1380, p60: 4.5, toi5: 900, sat: 0.59, satRel: 0.18, ppToi: 230, shToi: 70, ppP60: 12, ppPts: 8, pkGa60: 2, pkHours: 1, pkAdj: 3, ppHours: 2, ppAdj: 10, fo: 0.48, foN: 100, foD: 0.45, prev: null },
+    { id: 17, name: 'Depth 7', team: 'EDM', pos: 'L', shoots: 'L', born: '2000-01-01', gp: 10, g: 3, a: 3, pts: 6, toi: 700, p60: 3.2, toi5: 600, sat: 0.55, satRel: 0.05, ppToi: 0, shToi: 80, ppP60: 0, ppPts: 0, pkGa60: 4, pkHours: 0.8, pkAdj: 4, ppHours: 0, ppAdj: null, fo: 0.6, foN: 60, foD: 0.62, prev: null },
+    { id: 4, name: 'Old Hand', team: 'EDM', pos: 'R', shoots: 'R', born: '1990-01-01', gp: 10, g: 0, a: 1, pts: 1, toi: 1000, p60: 0.4, toi5: 800, sat: 0.4, satRel: -0.1, ppToi: 0, shToi: 90, ppP60: 0, ppPts: 0, pkGa60: 12, pkHours: 0.9, pkAdj: 9, ppHours: 0, ppAdj: null, fo: 0.5, foN: 50, foD: 0.4, prev: null },
+    { id: 5, name: 'D One', team: 'EDM', pos: 'D', shoots: 'L', born: '1996-01-01', gp: 10, g: 1, a: 3, pts: 4, toi: 1400, p60: 1, toi5: 1000, sat: 0.5, satRel: 0, ppToi: 0, shToi: 100, ppP60: 0, ppPts: 0, pkGa60: 5, pkHours: 1, pkAdj: 5, ppHours: 0, ppAdj: null, fo: null, foN: 0, foD: null, prev: null },
+    { id: 10, name: 'Depth 0', team: 'EDM', pos: 'L', shoots: 'L', born: '1999-01-01', gp: 10, g: 0, a: 1, pts: 1, toi: 800, p60: 0.6, toi5: 700, sat: 0.48, satRel: -0.02, ppToi: 0, shToi: 70, ppP60: 0, ppPts: 0, pkGa60: 6, pkHours: 0.7, pkAdj: 6, ppHours: 0, ppAdj: null, fo: null, foN: 0, foD: null, prev: null },
+  ],
+  targets: {
+    killers: [{ id: 900, name: 'Vet Killer', team: 'X3', pos: 'C', shoots: 'L', born: '1994-01-01', gp: 10, g: 1, a: 1, pts: 2, toi: 900, p60: 1, sat: 0.5, satRel: 0, ppToi: 0, shToi: 150, ppP60: 0, ppPts: 0, pkGa60: 3, pkHours: 2, pkAdj: 3.5, fo: 0.55, foN: 100, foD: 0.55, prev: { gp: 80, pts: 20, g: 8, toi: 900, p60: 1, toi5: 700, satRel: 0 } },
+      { id: 901, name: 'Kid Killer', team: 'X3', pos: 'L', shoots: 'L', born: '2005-01-01', gp: 10, g: 1, a: 1, pts: 2, toi: 900, p60: 1, sat: 0.5, satRel: 0, ppToi: 0, shToi: 150, ppP60: 0, ppPts: 0, pkGa60: 3, pkHours: 1, pkAdj: 3.6, fo: null, foN: 0, foD: null, prev: null }],
+    scorers: [{ id: 902, name: 'Star Scorer', team: 'X3', pos: 'C', shoots: 'L', born: '1995-01-01', gp: 10, g: 8, a: 8, pts: 16, toi: 1200, p60: 3.5, sat: 0.55, satRel: 0.05, ppToi: 200, shToi: 0, ppP60: 8, ppPts: 5, pkGa60: null, fo: 0.5, foN: 100, foD: 0.5, p60b: 3.4, prev: { gp: 82, pts: 95, g: 40, toi: 1200, p60: 3.3, toi5: 900, satRel: 0.05 } }],
+    puckD: [], pp: [], faceoffs: [], drivers: [],
+  },
+  lines: { game: { id: 1, date: day(14), opp: 'X1' }, forwards: [[{ id: 1, name: 'McDavid', num: 97, pos: 'C', toi: 900 }, { id: 2, name: 'Draisaitl', num: 29, pos: 'C', toi: 900 }, { id: 4, name: 'Old Hand', num: 1, pos: 'R', toi: 800 }],
+    [{ id: 3, name: 'Young Gun', num: 9, pos: 'L', toi: 700 }, { id: 5, name: 'X', num: 2, pos: 'C', toi: 700 }, { id: 11, name: 'Depth 1', num: 3, pos: 'R', toi: 700 }],
+    [{ id: 17, name: 'Depth 7', num: 7, pos: 'L', toi: 500 }, { id: 12, name: 'Depth 2', num: 4, pos: 'C', toi: 500 }, { id: 13, name: 'Depth 3', num: 5, pos: 'R', toi: 500 }]], defense: [], goalies: [] },
+  at: '',
+};
+deep.goalies[0].sa = 280;
+const reads = officeCrease(deep, office, new Date('2026-10-25T12:00:00Z'));
+const jarry = reads[0];
+assert.ok(Math.abs(jarry.xga - (80 * 0.19 + 80 * 0.12 + 60 * 0.04)) < 0.01, 'expected goals against from each range at the league\'s save percentage there');
+assert.ok(Math.abs(jarry.gsax - (jarry.xga - 32)) < 0.01, 'goals saved against the danger: expected less allowed');
+assert.ok(jarry.gsaa < 0 && jarry.verdict.tone === 'bad', 'a .879 goalie costs games');
+assert.equal(jarry.rest.b2b.gs, 5, 'five starts the day after a game');
+assert.ok(jarry.careerDelta < 0, 'last season below the league counts against him');
+assert.equal(jarry.ranks.of, 13); assert.equal(jarry.ranks.svp, 9, 'eight goalies stop more than his .879, three fewer');
+const bl = blame(office, reads);
+assert.ok(bl.goalie > 0, 'the goaltending adds goals against');
+const plan = goaliePlan(reads, ahead(deep));
+assert.equal(plan.starter.name, 'Tristan Jarry'); assert.equal(plan.split, 1, 'one goalie, every start');
+const odds = Object.fromEntries(table.map((t) => [t.abbrev, t.abbrev === 'X0' || t.abbrev === 'X3' ? 0.1 : 0.8]));
+const mk = goalieMarket(deep, office, reads, odds);
+assert.equal(mk[0].name, 'G0', 'the best goalie with a real body of work, on a seller'); assert.ok(mk[0].seller && mk[0].addWins > 0.5);
+assert.ok(!mk.some((g) => g.name === 'G5'), 'a goalie with only this season\'s ten games is too little to judge');
+const needs = targets(deep, a, office, odds);
+const kill = needs.find((n) => n.key === 'killers');
+assert.ok(kill && kill.players.map((p) => p.name).join() === 'Vet Killer', 'a seller\'s veteran penalty killer, not its 21-year-old');
+assert.ok(!needs.some((n) => n.players.some((p) => p.name === 'Star Scorer')), 'a 95-point star isn\'t on the market');
+const co = coaching(deep, office, plan);
+assert.ok(co.decisions.some((x) => /Depth 7 on line 1/.test(x.title)), 'the bottom six\'s best 5-on-5 scorer moves up for the top six\'s weakest');
+assert.ok(co.decisions.some((x) => /More of Depth 7 on the kill, less of Old Hand/.test(x.title)), 'the kill leans on who keeps it out, and leaves the star alone');
+assert.ok(co.decisions.some((x) => /Depth 7 takes the big draws/.test(x.title)), 'the best in his own end takes the big draws');
+const qs = questions(deep, a, office, reads, bl, out, hist, new Date('2026-10-25T12:00:00Z'));
+assert.ok(qs.find((q) => q.area === 'The stars')?.evidence.some((e) => /together on line 1/.test(e)), 'the stars on one line is noted');
+assert.ok(qs.every((q) => q.evidence.length && q.action.length > 30), 'every question has its evidence and an action');
+assert.ok(goalieRecs(plan, mk).some((r) => r.priority === 'high' && /Shop for a goalie/.test(r.title)), 'a goalie costing games puts the market first');
 console.log('fan zone: the assessment reads the numbers ok');

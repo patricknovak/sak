@@ -36,6 +36,7 @@ export interface Outlook {
   sims: number; playoffs: number; division: number; top3: number; conference: number; presidents: number;
   projected: { low: number; mid: number; high: number }; pace: number; line: number; need: number | null; needPace: number | null; left: number;
   odds: { abbrev: string; name: string; pts: number; gp: number; playoffs: number; projected: number }[];   // the club's conference, best chance first
+  all: Record<string, number>;   // every club's playoff chance: who is buying and who is selling
 }
 // A club's true strength is its points percentage pulled toward the league's by 25 games of average hockey: ten games
 // in, a hot start counts for less than half of the read. Each of the rest of the games is then a draw: a win, an overtime
@@ -96,6 +97,7 @@ export function outlook(d: FanData, sims = 4000): Outlook | null {
     need: left ? need : null, needPace: left ? need / (2 * left) : null,
     odds: table.filter((t) => t.conf === conf).map((t) => ({ abbrev: t.abbrev, name: t.name, pts: t.pts, gp: t.gp, playoffs: count.get(t.abbrev)!.po / sims, projected: Math.round(count.get(t.abbrev)!.pts / sims) }))
       .sort((a, b) => b.playoffs - a.playoffs || b.pts - a.pts),
+    all: Object.fromEntries(table.map((t) => [t.abbrev, count.get(t.abbrev)!.po / sims])),
   };
 }
 
