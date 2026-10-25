@@ -7,6 +7,7 @@ import { Link } from 'react-router-dom';
 import { hub } from '../../lib/nhlhub';
 import { chance, outlook, table, type Chances, type Outlook, type Sport, type SportClub, type SportClubRow, type SportLeague, type Table } from '../../lib/fanSport';
 import { zonePath } from '../../lib/fanVoice';
+import type { SportHistory } from '../../lib/fanSportHistory';
 import { ClubMark } from './kit';
 
 // ── the data
@@ -26,6 +27,7 @@ function useHub<T>(task: string, q: Record<string, string>, key: string) {
 }
 export const useSportLeague = (league: string) => useHub<SportLeague>('fan-sport-league', { league }, league);
 export const useSportClub = (league: string, club: string) => useHub<SportClub>('fan-sport', { league, club }, `${league}:${club}`);
+export const useSportHistory = (league: string) => useHub<SportHistory>('fan-sport-history', { league }, league);
 
 // the league's read, once per answer: the ranks at once, the simulated season a moment later so the page draws first
 const tables = new WeakMap<SportLeague, Table>();

@@ -347,9 +347,15 @@ export interface Chances {
   playIn: number; top6: number; round2: number;                                                    // basketball
   top4: number; top7: number; relegated: number; positions: number[];                              // soccer: by place
   projected: { low: number; mid: number; high: number };   // wins (points for soccer) at the end of the season
+  // since 25 October 2026
+  seeds: number[];                      // the chance of each seed in the conference (the NFL's seven, the NBA's ten: six straight in and the play-in's four)
+  opponents: Record<string, number>;    // the most likely first-round opponents, share of every season ('bye' for the NFL's top seed)
 }
-export interface Outlook { sims: number; chances: Record<string, Chances>; left: number }
-const emptyChances = (n: number): Chances => ({ playoffs: 0, division: 0, top: 0, conf: 0, finals: 0, title: 0, playIn: 0, top6: 0, round2: 0, top4: 0, top7: 0, relegated: 0, positions: new Array(n).fill(0), projected: { low: 0, mid: 0, high: 0 } });
+// what it takes: the wins (points for soccer) of the last club in, in the middle season
+export interface Lines { playoffs: number | null; top6: number | null; top4: number | null; safe: number | null }
+export interface Outlook { sims: number; chances: Record<string, Chances>; left: number; lines: Record<string, Lines> }
+const emptyChances = (n: number): Chances => ({ playoffs: 0, division: 0, top: 0, conf: 0, finals: 0, title: 0, playIn: 0, top6: 0, round2: 0, top4: 0, top7: 0, relegated: 0, positions: new Array(n).fill(0), projected: { low: 0, mid: 0, high: 0 }, seeds: [], opponents: {} });
+const median = (arr: number[]) => { if (!arr.length) return null; const a = [...arr].sort((x, y) => x - y); return a[Math.floor(a.length / 2)]; };
 
 export function outlook(l: SportLeague, sims = 4000): Outlook | null {
   if (l.clubs.length < 8) return null;
@@ -379,6 +385,11 @@ function usOutlook(l: SportLeague, sims: number): Outlook {
   const ch = codes.map(() => emptyChances(codes.length));
   const wins: number[][] = codes.map(() => []);
   const football = l.sport === 'football';
+  const nSeeds = football ? 7 : 10;
+  const seedCount = codes.map(() => new Array(nSeeds).fill(0));
+  const oppCount = codes.map(() => new Map<number | 'bye', number>());
+  const lineWins: Record<string, { playoffs: number[]; top6: number[] }> = Object.fromEntries(confs.map((c) => [c, { playoffs: [], top6: [] }]));
+  const met = (i: number, j: number | 'bye') => oppCount[i].set(j, (oppCount[i].get(j) ?? 0) + 1);
   for (let s = 0; s < sims; s++) {
     // this season's true strengths: the estimate, give or take what a season this short can't yet say
     const rt = base.map((b) => b.rating + normal(r) * b.sd);
@@ -409,8 +420,10 @@ function usOutlook(l: SportLeague, sims: number): Outlook {
         const winners = [...new Set(inConf.map((i) => l.clubs[i].div))].map((dv) => inConf.find((i) => l.clubs[i].div === dv)!).sort((a, b) => key[b] - key[a]);
         winners.forEach((i) => ch[i].division++);
         const seeds = [...winners, ...inConf.filter((i) => !winners.includes(i)).slice(0, 3)];
-        seeds.forEach((i) => ch[i].playoffs++);
+        seeds.forEach((i, k) => { ch[i].playoffs++; seedCount[i][k]++; });
         ch[seeds[0]].top++;
+        lineWins[conf].playoffs.push(w[seeds[6]] + t[seeds[6]] / 2);
+        met(seeds[0], 'bye'); for (const [a, b] of [[1, 6], [2, 5], [3, 4]]) { met(seeds[a], seeds[b]); met(seeds[b], seeds[a]); }
         // wild-card weekend: 2 v 7, 3 v 6 and 4 v 5 at the higher seed; the top seed rests
         const alive = [seeds[0], ...[[1, 6], [2, 5], [3, 4]].map(([a, b]) => (game(seeds[a], seeds[b], 1) ? seeds[a] : seeds[b]))]
           .sort((a, b) => seeds.indexOf(a) - seeds.indexOf(b));
@@ -427,6 +440,9 @@ function usOutlook(l: SportLeague, sims: number): Outlook {
         // six straight in; seven to ten play in: 7 v 8 for the seventh seed, its loser against the winner of 9 v 10
         inConf.slice(0, 6).forEach((i) => ch[i].top6++);
         inConf.slice(6, 10).forEach((i) => ch[i].playIn++);
+        inConf.slice(0, 10).forEach((i, k) => seedCount[i][k]++);
+        lineWins[conf].top6.push(w[inConf[5]] + t[inConf[5]] / 2);
+        lineWins[conf].playoffs.push(w[inConf[9]] + t[inConf[9]] / 2);
         const [s7, s8, s9, s10] = inConf.slice(6, 10);
         const first = game(s7, s8, 1);
         const seven = first ? s7 : s8, loser = first ? s8 : s7;
@@ -435,6 +451,7 @@ function usOutlook(l: SportLeague, sims: number): Outlook {
         const seeds = [...inConf.slice(0, 6), seven, eight];
         seeds.forEach((i) => ch[i].playoffs++);
         ch[seeds[0]].top++;
+        for (const [a, b] of [[0, 7], [3, 4], [1, 6], [2, 5]]) { met(seeds[a], seeds[b]); met(seeds[b], seeds[a]); }
         const r1 = [series(seeds[0], seeds[7]), series(seeds[3], seeds[4]), series(seeds[1], seeds[6]), series(seeds[2], seeds[5])];
         r1.forEach((i) => ch[i].round2++);
         const r2 = [series(r1[0], r1[1]), series(r1[2], r1[3])];
@@ -454,9 +471,12 @@ function usOutlook(l: SportLeague, sims: number): Outlook {
     const x = ch[i];
     const ws = wins[i].sort((a, b) => a - b);
     out[c] = { ...x, playoffs: x.playoffs / sims, division: x.division / sims, top: x.top / sims, conf: x.conf / sims, finals: x.finals / sims, title: x.title / sims,
-      playIn: x.playIn / sims, top6: x.top6 / sims, round2: x.round2 / sims, positions: [], projected: { low: q(ws, 0.1), mid: q(ws, 0.5), high: q(ws, 0.9) } };
+      playIn: x.playIn / sims, top6: x.top6 / sims, round2: x.round2 / sims, positions: [], projected: { low: q(ws, 0.1), mid: q(ws, 0.5), high: q(ws, 0.9) },
+      seeds: seedCount[i].map((v) => v / sims),
+      opponents: Object.fromEntries([...oppCount[i].entries()].map(([j, n]) => [j === 'bye' ? 'bye' : codes[j], n / sims]).sort((a, b) => (b[1] as number) - (a[1] as number)).slice(0, 6)) };
   });
-  return { sims, chances: out, left: rest.length };
+  const lines: Record<string, Lines> = Object.fromEntries(confs.map((c) => [c, { playoffs: median(lineWins[c].playoffs), top6: football ? null : median(lineWins[c].top6), top4: null, safe: null }]));
+  return { sims, chances: out, left: rest.length, lines };
 }
 
 function soccerOutlook(l: SportLeague, sims: number): Outlook {
@@ -479,6 +499,7 @@ function soccerOutlook(l: SportLeague, sims: number): Outlook {
   const r = rng(seedOf(`${l.league}:${played.length}:${codes.join('')}`));
   const ch = codes.map(() => emptyChances(n));
   const final: number[][] = codes.map(() => []);
+  const fourth: number[] = [], seventeenth: number[] = [];
   for (let s = 0; s < sims; s++) {
     const att = st.map((x) => x.att * Math.exp(normal(r) * 0.08)), dfn = st.map((x) => x.def * Math.exp(normal(r) * 0.08));
     const pts = pts0.slice(), gd = gd0.slice(), gf = gf0.slice();
@@ -503,6 +524,8 @@ function soccerOutlook(l: SportLeague, sims: number): Outlook {
       if (place < 7) ch[i].top7++;
       if (place >= n - 3) ch[i].relegated++;
     });
+    if (order.length >= 4) fourth.push(pts[order[3]]);
+    if (order.length >= 4) seventeenth.push(pts[order[n - 4]]);
     codes.forEach((_, i) => final[i].push(pts[i]));
   }
   const q = (arr: number[], f: number) => arr[Math.min(arr.length - 1, Math.max(0, Math.round(f * (arr.length - 1))))];
@@ -510,9 +533,9 @@ function soccerOutlook(l: SportLeague, sims: number): Outlook {
   codes.forEach((c, i) => {
     const x = ch[i], ps = final[i].sort((a, b) => a - b);
     out[c] = { ...x, title: x.title / sims, top4: x.top4 / sims, top7: x.top7 / sims, relegated: x.relegated / sims, positions: x.positions.map((v) => v / sims),
-      projected: { low: q(ps, 0.1), mid: q(ps, 0.5), high: q(ps, 0.9) } };
+      projected: { low: q(ps, 0.1), mid: q(ps, 0.5), high: q(ps, 0.9) }, seeds: [], opponents: {} };
   });
-  return { sims, chances: out, left: rest.length };
+  return { sims, chances: out, left: rest.length, lines: { '': { playoffs: null, top6: null, top4: median(fourth), safe: median(seventeenth) } } };
 }
 
 // ── luck: the record against what the scoring has earned

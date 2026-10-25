@@ -171,3 +171,15 @@ assert.ok(qs.find((q) => q.area === 'The stars')?.evidence.some((e) => /together
 assert.ok(qs.every((q) => q.evidence.length && q.action.length > 30), 'every question has its evidence and an action');
 assert.ok(goalieRecs(plan, mk).some((r) => r.priority === 'high' && /Shop for a goalie/.test(r.title)), 'a goalie costing games puts the market first');
 console.log('fan zone: the assessment reads the numbers ok');
+
+// 25 October 2026: where they land and what the spring holds
+{
+  const o = outlook(deep, 1500);
+  assert.ok(Math.abs(o.seeds.reduce((s, x) => s + x.chance, 0) - 1) < 1e-9, 'every season lands somewhere: the seeds add to one');
+  assert.ok(Math.abs(o.seeds[5].chance - (1 - o.playoffs)) < 1e-9, 'out of the playoffs is the rest');
+  assert.ok(o.rounds.r1 >= o.rounds.r2 && o.rounds.r2 >= o.rounds.conf && o.rounds.conf >= o.rounds.cup, 'each round is harder to reach than the last');
+  assert.ok(o.rounds.final >= o.rounds.cup, 'a Cup needs a Final');
+  assert.ok(Math.abs(Object.values(o.cups).reduce((s, x) => s + x, 0) - 1) < 1e-9, 'one Cup a season');
+  assert.ok(o.firstRound.length > 0 && o.firstRound.reduce((s, x) => s + x.chance, 0) <= o.playoffs + 1e-9, 'a first-round opponent only in the seasons they make it');
+  assert.ok(o.odds.every((t) => t.cup >= 0 && t.cup <= t.playoffs + 1e-9), 'no Cup without the playoffs');
+}

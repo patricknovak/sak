@@ -23,6 +23,8 @@ import { PoolHowTo } from '../components/PoolHowTo';
 import { PredictorCard } from './Predictor';
 import { UserPlus } from 'lucide-react';
 import { ShareButton, useCardBrand } from '../components/ShareButton';
+import { ShareSheet } from '../components/ShareSheet';
+import type { ShareJob } from '../lib/share';
 import { InvitePeople } from '../components/InvitePeople';
 import { PostToChats } from '../components/PostToChats';
 import { DeletePool } from '../components/DeletePool';
@@ -266,6 +268,7 @@ function InviteCard() {
   const brand = useBrand();
   const { busy, run } = useAction();
   const [link, setLink] = useState<string | null>(null);
+  const [job, setJob] = useState<ShareJob | null>(null);
   const [inviting, setInviting] = useState(false);
   const { markets } = usePool();
   // invite_share only on a real tap, never on mount (smoke: auto-share after create inflated the funnel).
@@ -277,8 +280,8 @@ function InviteCard() {
     // the text asks the question closing soonest, the way the link's preview does (migration 252): the pitch is the game
     const next = (markets ?? []).filter((m) => isOpen(m, Date.now())).sort((a, b) => a.closes_at.localeCompare(b.closes_at))[0];
     const text = `Join my ${brand.tagline || league?.name} on Super Pools.${next ? ` First up: "${next.title}"` : ''} Free, never money, just bragging rights.`;
-    if (navigator.share) await navigator.share({ title: league?.name ?? 'Super Pools', text, url }).catch(() => {});
-    else await navigator.clipboard?.writeText(`${text}\n${url}`).catch(() => {});
+    // the share sheet: the phone's own, the link copied, a QR code for the table, or any of the usual places
+    setJob({ title: league?.name ?? 'Super Pools', text, url });
     track('invite_share', { via: 'button', src: 'share' });
   });
   return (
@@ -294,6 +297,7 @@ function InviteCard() {
               <button className="btn-ghost inline-flex items-center gap-2" onClick={() => setInviting(true)}><UserPlus className="h-4 w-4" /> Invite people you know</button>
             </div>
             {link && <div className="mt-2 break-all rounded-xl bg-black/30 px-3 py-2 text-xs text-sky-200">{link}</div>}
+            <ShareSheet open={!!job} onClose={() => setJob(null)} job={job} heading="Invite your group chat" />
             <InvitePeople open={inviting} onClose={() => setInviting(false)} pool={league?.name ?? 'the pool'} />
             {me?.is_commish && <PostToChats />}
           </>
@@ -335,7 +339,7 @@ function DropCard() {
         <div className="relative font-display text-2xl font-extrabold text-white">{drop.right} of {drop.rows.length} called</div>
         <div className="relative text-xs text-white/70">{drop.right === drop.rows.length ? 'Every one. Tell them.' : drop.right === 0 ? 'Next drop is a fresh start.' : 'Your calls on what settled, right and wrong, on one card.'}</div>
       </div>
-      <ShareButton className="btn-gold relative w-full shrink-0 sm:w-auto" label="Share my drop" make={async () => share()} />
+      <ShareButton className="btn-gold relative w-full shrink-0 sm:w-auto" label="Share my drop" make={() => share() || null} />
     </div>
   );
 }

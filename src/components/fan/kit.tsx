@@ -3,6 +3,7 @@
 import { useState, type ReactNode } from 'react';
 import { NhlLogo } from '../ui';
 import { darkLogo } from '../../lib/fanVoice';
+import { ShareIcon } from './FanShare';
 
 // each league's own mark, for its board (ESPN's, drawn for a dark ground and a light one)
 const LEAGUE_MARK: Record<string, [string, string]> = {
@@ -21,12 +22,13 @@ export function ClubMark({ league, code, logo, size = 26, light }: { league: str
   return <img src={src} alt="" width={size} height={size} loading="lazy" decoding="async" onError={() => setErr(true)} className="inline-block shrink-0 object-contain" style={{ width: size, height: size }} />;
 }
 
-export function Head({ id, title, sub, right }: { id: string; title: string; sub?: string; right?: ReactNode }) {
+export function Head({ id, title, sub, right, share }: { id: string; title: string; sub?: string; right?: ReactNode; share?: { url: string; title: string; text: string } }) {
   return (
     <div id={`fz-${id}`} className="scroll-mt-16 px-1">
       <div className="flex items-end gap-2">
         <h2 className="h-display flex min-w-0 flex-1 items-center gap-2 text-xl text-white"><span className="h-5 w-1 shrink-0 rounded-full" style={{ background: 'var(--club)' }} />{title}</h2>
         {right}
+        {share && <ShareIcon url={share.url} title={share.title} text={share.text} />}
       </div>
       {sub && <p className="mt-0.5 text-sm text-mute">{sub}</p>}
     </div>

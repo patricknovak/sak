@@ -13,7 +13,7 @@ import { Chips, Head, ShareBar, pctStr, recordOf } from './kit';
 
 const PO_COLOR = (s: HistSeason) => (!s.po ? 'rgb(100 116 139 / .45)' : s.po.won && s.po.round >= 4 ? 'rgb(252 211 77)' : s.po.round >= 4 ? 'rgb(var(--club-rgb))' : s.po.round === 3 ? 'rgb(var(--club-rgb) / .75)' : s.po.round === 2 ? 'rgb(var(--club-rgb) / .5)' : 'rgb(var(--club-rgb) / .3)');
 
-export function FanHistorySection({ h, lore }: { h: FanHistory | null; lore: ClubLore | undefined }) {
+export function FanHistorySection({ h, lore, share }: { h: FanHistory | null; lore: ClubLore | undefined; share?: { url: string; title: string; text: string } }) {
   const [allTimeline, setAllTimeline] = useState(false);
   const [pickSeason, setPickSeason] = useState<number | null>(null);
   const [vsSort, setVsSort] = useState<'gp' | 'pct' | 'name'>('gp');
@@ -30,7 +30,7 @@ export function FanHistorySection({ h, lore }: { h: FanHistory | null; lore: Clu
   const vs = (h?.vs ?? []).slice().sort((a, b) => vsSort === 'name' ? a.name.localeCompare(b.name) : vsSort === 'pct' ? (b.w + b.t / 2 + b.otl / 2) / b.gp - (a.w + a.t / 2 + a.otl / 2) / a.gp : b.gp - a.gp);
   return (
     <section className="space-y-3">
-      <Head id="history" title="History" sub={lore ? `Founded ${lore.founded}. Home: ${lore.arena}.` : `In the NHL since ${h?.first ? seasonName(h.first) : 'the start'}.`} />
+      <Head id="history" title="History" sub={lore ? `Founded ${lore.founded}. Home: ${lore.arena}.` : `In the NHL since ${h?.first ? seasonName(h.first) : 'the start'}.`} share={share} />
 
       {/* the trophy shelf and the franchise in totals */}
       <div className="card overflow-hidden p-4" style={{ background: 'linear-gradient(135deg, rgb(var(--club-rgb) / .16), transparent 60%)' }}>

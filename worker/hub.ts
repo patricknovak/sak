@@ -9,7 +9,7 @@ import type { Env } from './index';
 const FRESH: Record<string, number> = {
   scores: 15, game: 15, espn: 30, lines: 60, x: 120, team: 300, standings: 300, schedule: 600, news: 600, leaders: 600,
   'sport-news': 600, 'sport-standings': 1800, 'sport-injuries': 3600, 'sport-leaders': 3600,
-  'fan-sport-league': 3600, 'fan-sport': 1800,
+  'fan-sport-league': 3600, 'fan-sport': 1800, 'fan-sport-history': 21600,
 };
 // and how long past that a stale copy may still be served while a fresh one is fetched, or when the source is down
 const KEEP = 6 * 3600;
@@ -53,3 +53,32 @@ async function refill(q: URLSearchParams, key: Request, task: string, env: Env):
 const out = (r: Response, how: string) => new Response(r.body, { headers: {
   'content-type': 'application/json', 'cache-control': 'public, max-age=10', 'x-cache': how,
 } });
+
+// /api/img?u=<picture>: a club's logo for the share cards the phone draws (src/lib/fanCards.ts). The NHL's logos come
+// without the header a canvas needs to use them, so the Worker fetches the picture and sends it on with one; only the
+// leagues' own picture hosts are allowed, and a copy is kept at the edge for a day.
+const IMG_HOSTS = ['assets.nhle.com', 'a.espncdn.com'];
+export async function img(req: Request, ctx: ExecutionContext): Promise<Response> {
+  const u = new URL(req.url).searchParams.get('u') ?? '';
+  let target: URL;
+  try { target = new URL(u); } catch { return new Response('bad request', { status: 400 }); }
+  if (target.protocol !== 'https:' || !IMG_HOSTS.includes(target.hostname)) return new Response('bad request', { status: 400 });
+  const key = new Request(`${new URL(req.url).origin}/api/img?u=${encodeURIComponent(target.href)}`, { method: 'GET' });
+  const hit = await caches.default.match(key);
+  if (hit) return hit;
+  const r = await fetch(target.href, { cf: { cacheTtl: 86400, cacheEverything: true } } as RequestInit);
+  if (!r.ok) return new Response('not found', { status: 404 });
+  const type = r.headers.get('content-type') ?? (target.pathname.endsWith('.svg') ? 'image/svg+xml' : 'image/png');
+  if (!/^image\//.test(type)) return new Response('not an image', { status: 415 });
+  const res = new Response(await r.arrayBuffer(), { headers: { 'content-type': type, 'cache-control': 'public, max-age=86400', 'access-control-allow-origin': '*' } });
+  ctx.waitUntil(caches.default.put(key, res.clone()));
+  return res;
+}
+
+// the hub's data for the Worker's own use (the fan pages' pictures, worker/fans.ts): the same edge cache, parsed
+export async function hubData<T>(origin: string, env: Env, ctx: ExecutionContext, q: Record<string, string>): Promise<T | null> {
+  const r = await hub(new Request(`${origin}/api/hub?${new URLSearchParams(q)}`), env, ctx).catch(() => null);
+  if (!r?.ok) return null;
+  const body = (await r.json().catch(() => null)) as (T & { error?: string }) | null;
+  return body && !body.error ? body : null;
+}

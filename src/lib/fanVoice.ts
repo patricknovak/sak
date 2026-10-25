@@ -97,13 +97,16 @@ export function useFanMe() {
 const APP = 'https://app.superpoolsai.com/';
 // a zone's path in the app: the NHL's clubs at /fans/EDM (its board on the front page), every other league's at
 // /fans/nfl/KC and its board at /fans/nfl; a pulse adds /pulse
-export function zonePath(league: string, club?: string | null, page?: 'pulse') {
+// a zone's pages (25 October 2026): the overview, the analysis, the outlook, the history and the pulse
+export type ZonePage = 'pulse' | 'analysis' | 'outlook' | 'history';
+export const ZONE_PAGES: ZonePage[] = ['analysis', 'outlook', 'history', 'pulse'];
+export function zonePath(league: string, club?: string | null, page?: ZonePage) {
   const board = !club || club === league.toUpperCase();
   if (league === 'nhl') return board ? (page ? '/fans/NHL/pulse' : '/fans') : `/fans/${club}${page ? `/${page}` : ''}`;
   return `/fans/${league}${board ? '' : `/${club}`}${page ? `/${page}` : ''}`;
 }
-export const zoneLink = (league: string, club?: string | null, page?: 'pulse', post?: number) => `${APP}${zonePath(league, club, page).slice(1)}${post ? `?post=${post}` : ''}`;
-export const fanLink = (club?: string, page?: 'pulse', post?: number) => zoneLink('nhl', club, page, post);
+export const zoneLink = (league: string, club?: string | null, page?: ZonePage, post?: number) => `${APP}${zonePath(league, club, page).slice(1)}${post ? `?post=${post}` : ''}`;
+export const fanLink = (club?: string, page?: ZonePage, post?: number) => zoneLink('nhl', club, page, post);
 export const ABOUT_LINK = `${APP}fans/about`;
 export const clubName = (club: string) => (club === 'NHL' ? 'The NHL' : CLUB_NAMES[club] ?? NHL_TEAMS[club] ?? club);
 

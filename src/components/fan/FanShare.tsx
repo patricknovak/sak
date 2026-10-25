@@ -1,52 +1,38 @@
-// Sharing a fan zone (25 October 2026, Patrick: "make it so that it is easy to share with others"): the phone's own share
-// sheet where there is one, else a sheet of the usual places (X, Reddit, Facebook, WhatsApp, email) and a copied link.
-// The links go through the app's Worker (worker/fans.ts), so a pasted link shows the club's own picture.
+// Sharing a fan zone (25 October 2026, Patrick: "make it so that it is easy to share with others"; later that day:
+// "share in the most epic and amazing fashions"): a link alone goes straight to the phone's own sheet; a share with
+// pictures to choose from (the club's verdict, its outlook, its history, the fan's own calls, the pulse) opens the
+// share sheet with each one drawn on the phone (src/lib/fanCards.ts) and every way to send it. The links go through the
+// app's Worker (worker/fans.ts), so a pasted link shows the page's own picture.
 import { useState } from 'react';
-import { Check, Copy, Mail, Share2 } from 'lucide-react';
-import { shareLink } from '../../lib/fanVoice';
-import { Sheet, useToast } from '../ui';
+import { Share2 } from 'lucide-react';
+import { onPhone, shareNative, type ShareJob } from '../../lib/share';
+import { ShareSheet, type ShareOption } from '../ShareSheet';
+import { useToast } from '../ui';
 
-const enc = encodeURIComponent;
-
-export function ShareButton({ url, title, text, label = 'Share', className = 'btn-ghost btn-sm' }: { url: string; title: string; text: string; label?: string; className?: string }) {
+export function ShareButton({ url, title, text, label = 'Share', className = 'btn-ghost btn-sm', options, heading, children }: {
+  url: string; title: string; text: string; label?: string; className?: string; options?: ShareOption[]; heading?: string; children?: React.ReactNode;
+}) {
   const [open, setOpen] = useState(false);
-  const [copied, setCopied] = useState(false);
   const toast = useToast();
+  const job: ShareJob = { url, title, text };
   const go = async () => {
-    // a phone's own sheet first; a desktop gets ours
-    if (typeof navigator.share === 'function' && /Mobi|Android|iPhone|iPad/i.test(navigator.userAgent)) {
-      const r = await shareLink(url, title, text);
-      if (r !== 'none') { if (r === 'copied') toast('Link copied'); return; }
+    // a plain link on a phone: its own sheet, at once
+    if (!options && onPhone()) {
+      const r = await shareNative(job);
+      if (r === 'shared' || r === 'cancelled') return;
+      try { await navigator.clipboard.writeText(url); toast('Link copied'); return; } catch { /* the sheet below has the link */ }
     }
     setOpen(true);
   };
-  const copy = async () => {
-    try { await navigator.clipboard.writeText(url); setCopied(true); setTimeout(() => setCopied(false), 2000); } catch { toast('Couldn’t copy: hold the link to copy it', 'err'); }
-  };
-  const places: [string, string, string][] = [
-    ['X', `https://twitter.com/intent/tweet?text=${enc(text)}&url=${enc(url)}`, '#000000'],
-    ['Reddit', `https://www.reddit.com/submit?url=${enc(url)}&title=${enc(title)}`, '#ff4500'],
-    ['Facebook', `https://www.facebook.com/sharer/sharer.php?u=${enc(url)}`, '#1877f2'],
-    ['WhatsApp', `https://wa.me/?text=${enc(`${text} ${url}`)}`, '#25d366'],
-  ];
   return (
     <>
-      <button type="button" onClick={() => void go()} className={className}><Share2 className="h-3.5 w-3.5" />{label}</button>
-      <Sheet open={open} onClose={() => setOpen(false)} title="Share">
-        <div className="space-y-3">
-          <p className="text-sm text-slate-300">{text}</p>
-          <div className="flex items-center gap-2 rounded-xl bg-black/30 p-1.5 pl-3 ring-1 ring-white/10">
-            <span className="min-w-0 flex-1 truncate text-[13px] text-slate-200">{url}</span>
-            <button type="button" onClick={() => void copy()} className="btn-club btn-sm shrink-0 px-3!">{copied ? <Check className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />}{copied ? 'Copied' : 'Copy'}</button>
-          </div>
-          <div className="grid grid-cols-2 gap-2 min-[400px]:grid-cols-5">
-            {places.map(([name, href, bg]) => (
-              <a key={name} href={href} target="_blank" rel="noopener noreferrer" className="flex items-center justify-center gap-1.5 rounded-xl px-2 py-2.5 text-sm font-bold text-white ring-1 ring-white/10 hover:brightness-110" style={{ background: bg }}>{name}</a>
-            ))}
-            <a href={`mailto:?subject=${enc(title)}&body=${enc(`${text}\n\n${url}`)}`} className="flex items-center justify-center gap-1.5 rounded-xl bg-white/[.08] px-2 py-2.5 text-sm font-bold text-white ring-1 ring-white/10 hover:bg-white/[.12]"><Mail className="h-4 w-4" />Email</a>
-          </div>
-        </div>
-      </Sheet>
+      <button type="button" onClick={() => void go()} className={className}><Share2 className="h-3.5 w-3.5" />{children ?? label}</button>
+      <ShareSheet open={open} onClose={() => setOpen(false)} job={job} options={options} heading={heading ?? (options ? `Share ${title}` : 'Share')} />
     </>
   );
+}
+
+// a small share for a section head: the link to that page, its own words
+export function ShareIcon({ url, title, text }: { url: string; title: string; text: string }) {
+  return <ShareButton url={url} title={title} text={text} className="btn-ghost btn-sm shrink-0 px-2!" label=""><span className="sr-only">Share {title}</span></ShareButton>;
 }
