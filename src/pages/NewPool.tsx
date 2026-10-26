@@ -195,6 +195,15 @@ export default function NewPool() {
       const evPack = ev.pack ? packs.find((p) => p.slug === ev.pack) : null;
       if (evPack?.color && /^#[0-9a-f]{6}$/i.test(evPack.color)) setColor(evPack.color.toLowerCase());
       else if (switched) setColor(SWATCHES[0]);
+    } else if (compQ === 'mlb-post-2026') {
+      // Home / landing WS links: if the live event list has dropped the series, still open a sports pool prefilled.
+      const wsKind = (['series', 'squares', 'props', 'streak'] as const).find((k) => k === kindQ) ?? 'series';
+      setMode('sports');
+      setFollowing({ type: 'event', comp: 'mlb-post-2026' });
+      setKinds([wsKind]);
+      setOpen(kindQ ? 'details' : 'kinds');
+      setPack(null);
+      if (switched) setColor(SWATCHES[0]);
     } else if (packQ) {
       setMode('questions');
       setFollowing({ type: 'pack', slug: packQ });
@@ -234,6 +243,10 @@ export default function NewPool() {
     if (poolTouched) return;
     if (event) {
       setPool(event.pack ? packPlaceholder(event.pack) : `${event.name} pool`);
+      return;
+    }
+    if (following?.type === 'event' && following.comp === 'mlb-post-2026') {
+      setPool('World Series pool');
       return;
     }
     if (following?.type === 'pack') {
