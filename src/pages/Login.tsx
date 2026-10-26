@@ -5,6 +5,7 @@ import { LeagueCrest, ProductMark, Wordmark } from '../components/Brand';
 import { useLeague } from '../lib/store';
 import { PRODUCT } from '../lib/brand';
 import { OpenNow } from '../components/OpenNow';
+import { WorldSeriesHomeCta } from '../components/WorldSeriesHomeCta';
 
 // Sign in with your email and password (Patrick's call, October 2026; every SaK account has its own email since step 2).
 // Forgot your password: the league emails you a code, you type it with a new password, and you're in. The code works
@@ -143,6 +144,7 @@ export default function Login() {
           </form>
         )}
         {err && <div className="mt-4 rounded-xl border border-red-400/30 bg-red-900/50 px-4 py-3 text-center text-sm text-red-200">{err}</div>}
+        {product && mode === 'in' && <WorldSeriesHomeCta />}
         {product && mode === 'in' && <OpenNow />}
         {/* a prediction pool starts right away (#/new); a fantasy league is asked for (#/start) */}
         <a href="#/new" className="mt-6 block text-center text-xs text-sky-300/80 underline decoration-sky-300/30 underline-offset-2">Run a pool of your own? Start one free, right now</a>
