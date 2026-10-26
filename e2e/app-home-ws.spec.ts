@@ -88,4 +88,19 @@ test.describe('World Series home CTA', () => {
     await expect(page.getByText(/Sign in|Run a pool/i).first()).toBeVisible({ timeout: 30_000 });
     await expect(page.getByRole('link', { name: /Start a World Series pool/i })).toHaveCount(0);
   });
+
+  test('hidden when mlb-post-2026 is absent from pool_event_list', async ({ page }) => {
+    await mockPublicHome(page, []);
+    await page.goto('./#/');
+    await expect(page.getByText(/Sign in|Run a pool/i).first()).toBeVisible({ timeout: 30_000 });
+    await expect(page.getByRole('link', { name: /Start a World Series pool/i })).toHaveCount(0);
+  });
+
+  test('#/new?comp=mlb-post-2026 does not prefill when the event is absent', async ({ page }) => {
+    await mockPublicHome(page, []);
+    await page.goto('./#/new?comp=mlb-post-2026&kind=series&src=home-ws');
+    await expect(page.getByText(/What are you starting/i)).toBeVisible({ timeout: 30_000 });
+    await expect(page.getByLabel(/Name your pool/i)).toHaveCount(0);
+    await expect(page.getByText(/MLB Postseason|World Series pool/i)).toHaveCount(0);
+  });
 });
