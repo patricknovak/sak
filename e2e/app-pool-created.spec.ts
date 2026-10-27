@@ -1,4 +1,4 @@
-import { expect, type Page, test } from '@playwright/test';
+import { expect, type Page, test } from './fixtures';
 
 // Proves pool_created hits dataLayer/gtag after Analytics Accept on every create path,
 // with pack/sport/kind/src params. Supabase REST + auth + join are mocked; reload is stubbed
@@ -165,7 +165,7 @@ async function plantMemberSession(page: Page) {
 }
 
 async function mockSupabase(page: Page, path: CreatePath) {
-  await page.route('**/googletagmanager.com/**', (route) => route.fulfill({ status: 204, body: '' }));
+  await page.route('**/*googletagmanager.com/**', (route) => route.fulfill({ status: 204, body: '' }));
 
   await page.route('**/quakdkzdafzlhgjvmypg.supabase.co/**', async (route) => {
     const req = route.request();

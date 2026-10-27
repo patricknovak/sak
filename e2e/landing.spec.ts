@@ -1,4 +1,4 @@
-import { expect, test } from '@playwright/test';
+import { expect, test } from './fixtures';
 
 test.describe('Landing (superpoolsai.com)', () => {
   test('home hero, never-money claim, and start CTA', async ({ page }) => {

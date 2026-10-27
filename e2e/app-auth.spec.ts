@@ -1,4 +1,4 @@
-import { expect, test } from '@playwright/test';
+import { expect, test } from './fixtures';
 
 // Optional signed-in smoke. Set E2E_EMAIL + E2E_PASSWORD (a dedicated test account, never a real GM)
 // in the GitHub Actions secrets / local env. Without them this file skips cleanly so CI stays green.

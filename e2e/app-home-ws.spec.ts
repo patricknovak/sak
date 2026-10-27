@@ -1,4 +1,4 @@
-import { expect, type Page, test } from '@playwright/test';
+import { expect, type Page, test } from './fixtures';
 
 // Product home (signed-out app.superpoolsai.com): World Series CTA → #/new prefilled + cta_arrival.
 
@@ -30,7 +30,7 @@ function json(data: unknown, status = 200) {
 }
 
 async function mockPublicHome(page: Page, events: unknown[] = [WS]) {
-  await page.route('**/googletagmanager.com/**', (route) => route.fulfill({ status: 204, body: '' }));
+  await page.route('**/*googletagmanager.com/**', (route) => route.fulfill({ status: 204, body: '' }));
   await page.route('**/quakdkzdafzlhgjvmypg.supabase.co/**', async (route) => {
     const url = route.request().url();
     if (url.includes('/auth/v1/')) return route.fulfill(json({}));

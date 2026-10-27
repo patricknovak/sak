@@ -1,4 +1,4 @@
-import { expect, type Page, test } from '@playwright/test';
+import { expect, type Page, test } from './fixtures';
 
 // App-side landing CTA measurement: cta_arrival once per session per src on #/new?src=…
 
@@ -12,7 +12,7 @@ function json(data: unknown, status = 200) {
 }
 
 async function mockPublicNew(page: Page) {
-  await page.route('**/googletagmanager.com/**', (route) => route.fulfill({ status: 204, body: '' }));
+  await page.route('**/*googletagmanager.com/**', (route) => route.fulfill({ status: 204, body: '' }));
   await page.route('**/quakdkzdafzlhgjvmypg.supabase.co/**', async (route) => {
     const url = route.request().url();
     if (url.includes('/auth/v1/')) return route.fulfill(json({}));
