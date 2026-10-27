@@ -2,6 +2,9 @@ import { defineConfig, devices } from '@playwright/test';
 
 // Two surfaces under test: the marketing site (landing/) and the built app (dist/ via vite preview).
 // Auth against a real test account is optional (E2E_EMAIL + E2E_PASSWORD); without them that spec skips.
+// Analytics egress: every spec imports e2e/fixtures.ts, which blocks googletagmanager / google-analytics /
+// doubleclick on the browser context (fulfill GTM with 204, abort collect). Do not import @playwright/test
+// directly in specs or that block is skipped.
 const CI = !!process.env.CI;
 
 export default defineConfig({

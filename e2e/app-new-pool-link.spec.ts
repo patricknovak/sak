@@ -1,4 +1,4 @@
-import { expect, type Page, test } from '@playwright/test';
+import { expect, type Page, test } from './fixtures';
 
 // Hash-query change on the same /new route must re-select the template without a full reload
 // (NHL #/new?comp=… then a Love Is Blind pack link must not keep the NHL setup).
@@ -37,7 +37,7 @@ function json(data: unknown, status = 200) {
 }
 
 async function mockNewPoolApis(page: Page) {
-  await page.route('**/googletagmanager.com/**', (route) => route.fulfill({ status: 204, body: '' }));
+  await page.route('**/*googletagmanager.com/**', (route) => route.fulfill({ status: 204, body: '' }));
   await page.route('**/quakdkzdafzlhgjvmypg.supabase.co/**', async (route) => {
     const url = route.request().url();
     if (url.includes('/auth/v1/')) return route.fulfill(json({}));
@@ -68,7 +68,7 @@ test.describe('NewPool hash query re-selects template', () => {
   test('bare #/new then sports is not wiped when lists finish loading', async ({ page }) => {
     let releaseEvents: (() => void) | undefined;
     const eventsReady = new Promise<void>((r) => { releaseEvents = r; });
-    await page.route('**/googletagmanager.com/**', (route) => route.fulfill({ status: 204, body: '' }));
+    await page.route('**/*googletagmanager.com/**', (route) => route.fulfill({ status: 204, body: '' }));
     await page.route('**/quakdkzdafzlhgjvmypg.supabase.co/**', async (route) => {
       const url = route.request().url();
       if (url.includes('/auth/v1/')) return route.fulfill(json({}));

@@ -1,4 +1,4 @@
-import { expect, test } from '@playwright/test';
+import { expect, test } from './fixtures';
 
 test.describe('App public journeys', () => {
   test('sign-in page shows email/password and product mark', async ({ page }) => {
