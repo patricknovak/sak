@@ -3589,6 +3589,13 @@ select my_invites()->0->>'code' as icode \gset
 select accept_invite(:'icode');
 select pg_temp.expect('she joins from there, and it is gone from the list', exists (select 1 from league_members where user_id = '00000000-0000-0000-0000-000000000081' and league_id = :fifth)
   and my_invites() = '[]'::jsonb);
+-- person invite seats a GM with opening coins (migration 145 reads inv.role; regression if a spectator seat slipped in)
+select id as hana5 from teams where league_id = :fifth and user_id = '00000000-0000-0000-0000-000000000081' \gset
+select pg_temp.expect('the invitation seats her as a GM, not a spectator', (select role from teams where id = :hana5) = 'gm');
+select pg_temp.expect('with the opening coins on the ledger and in her balance', exists (select 1 from coin_ledger where team_id = :hana5 and amount = 1000 and reason like 'Opening balance: 1,000%')
+  and (select balance from coin_balances where team_id = :hana5)
+     = 1000 + coalesce((select sum(amount) from pool_drops where league_id = :fifth and at <= now()), 0));
+-- :fifth has no open pool_games here (pack questions only; next games start later on :lib), so a real pick is not asserted
 select decline_invite('not-a-code');
 -- a member who is not the host cannot post the pool as a join card in another chat (migration 327)
 select set_active_league(:fifth);
