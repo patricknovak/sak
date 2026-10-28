@@ -25,8 +25,9 @@ const pages = [
   assert.doesNotMatch(lib, /play coins/i, 'no play coins');
   assert.doesNotMatch(lib, /weekly calls on every couple/i, 'no weekly-calls-on-every-couple');
   const desc = lib.match(/meta name="description" content="([^"]+)"/)?.[1] ?? '';
-  assert.match(desc, /Sixteen questions/);
-  assert.match(desc, /pods/);
+  assert.match(desc, /questions still open/);
+  assert.match(desc, /altar and the reunion/);
+  assert.doesNotMatch(desc, /Sixteen questions/, 'the sixteen-question claim is false once the pack drains');
   assert.match(desc, /Goblets/);
   assert.match(lib, /twitter:description/);
   assert.match(lib, /application\/ld\+json[^>]*>[^<]*Goblets/, 'JSON-LD uses Goblets');

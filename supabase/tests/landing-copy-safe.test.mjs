@@ -22,6 +22,7 @@ for (const name of pages) {
   if (name === 'love-is-blind.html' || name === 'example-pool.html') {
     assert.match(html, /Goblets/, `${name} uses Goblets`);
     assert.doesNotMatch(html, /Supercoins/, `${name} does not say Supercoins`);
+    if (name === 'love-is-blind.html') assert.doesNotMatch(html, /Sixteen (questions|calls)/, 'no hardcoded sixteen on the LIB page');
   } else if (!name.includes('together')) {
     assert.doesNotMatch(html, /Goblets/, `${name}: Goblets only on LIB (and together's LIB cards)`);
   }
@@ -35,6 +36,8 @@ for (const name of pages) {
     const tableNote = html.indexOf('Four made-up players');
     assert.notEqual(tableNote, -1, 'Table section labels the made-up players');
     assert.ok(tableNote < html.indexOf('<table class="standings"'), 'Table label appears before the standings table');
+    assert.match(html, /A pool you start today opens with the questions still to settle\. This page shows the whole season so you can see the shape of it\./);
+    assert.match(html, /<!--[\s\S]*\bdrained\b[\s\S]*-->/, 'snapshot comment notes the pack is drained');
   }
 }
 
