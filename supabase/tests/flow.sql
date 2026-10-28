@@ -2033,6 +2033,13 @@ select pg_temp.expect('the sync mirrors a lineup change', :sh_synced >= 1
   and (select (perms->>'shadow_of')::int from teams where id = (select team_id from rosters where league_id = :shadow and player_id = :sh_p)) = :sh_t);
 update rosters set slot = 'BN' where player_id = :sh_p and league_id = 1;
 select shadow_sync();
+-- archived, the shadow is left as it was (migration 340); active again, it catches up
+update leagues set status = 'archived' where id = :shadow;
+update rosters set slot = 'IR' where player_id = :sh_p and league_id = 1;
+select pg_temp.expect('an archived shadow isn''t mirrored', shadow_sync() = 0 and (select slot from rosters where league_id = :shadow and player_id = :sh_p) = 'BN');
+update rosters set slot = 'BN' where player_id = :sh_p and league_id = 1;
+update leagues set status = 'active' where id = :shadow;
+select shadow_sync();
 -- a game is played: every team and its shadow gain exactly the same points (snapshots first, so the shadow's
 -- backfill of games that started before it existed isn't counted as the new game's)
 select take_snapshots();
