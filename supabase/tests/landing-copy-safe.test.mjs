@@ -22,7 +22,10 @@ for (const name of pages) {
   if (name === 'love-is-blind.html' || name === 'example-pool.html') {
     assert.match(html, /Goblets/, `${name} uses Goblets`);
     assert.doesNotMatch(html, /Supercoins/, `${name} does not say Supercoins`);
-    if (name === 'love-is-blind.html') assert.doesNotMatch(html, /Sixteen (questions|calls)/, 'no hardcoded sixteen on the LIB page');
+    if (name === 'love-is-blind.html') {
+      assert.doesNotMatch(html, /Sixteen (questions|calls)/, 'no hardcoded sixteen on the LIB page');
+      assert.doesNotMatch(html, /\bclose[sd]?\s+(?:October|November)\s+\d/, 'question card labels carry a bare date, no tense that goes stale');
+    }
   } else if (!name.includes('together')) {
     assert.doesNotMatch(html, /Goblets/, `${name}: Goblets only on LIB (and together's LIB cards)`);
   }
