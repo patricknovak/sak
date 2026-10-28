@@ -957,6 +957,10 @@ first) but its questions stale:
   `utm_source=landing&utm_campaign=world_series` so the funnel can tell these starts apart). Its phone shows the app's
   own start page on the World Series. The start page now takes `kind=squares` on an event with a grid to draw (squares
   isn't in an event's `kinds`, it rides its grids), and its kind cards say which are chosen (`aria-pressed`).
+  Pulled 28 October 2026 (#338, `a5b4c515`): the file stays in the repo, but `.assetsignore` keeps it and its
+  share card off the site, `/world-series-pools` answers a 302 to the home, and it is gone from the sitemap and the
+  home page, because every World Series question had closed by 23 October 22:00Z and a pool started from the page
+  loaded no questions. It returns when a feed is licensed.
 - **The pool that can't wait goes first**: the start page groups events by sport in the server's order (soccer first),
   which put the World Series last in its own week. A sport whose event reaches its final within two weeks now leads the
   list (the World Series this week; a Super Bowl or a Cup final later), in `NewPool.tsx`'s `byGroup`.

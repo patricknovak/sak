@@ -477,6 +477,13 @@ The steps above finish the tenancy. `docs/MARKET.md` sets what comes after in th
     naming the game, 324), a question about a knocked-out club answered No at once (325, its review fixes 326); and, from the NBA
     opening-week audit, win totals' lock held the moment the season starts (322), an even-money price keeping its spread
     and the fixtures pulled twice a day (323).
+    Pulled 28 October 2026 (#338): the page and its share card are off the site. `landing/world-series-pools.html`
+    stays in the repo unchanged, `.assetsignore` keeps it, `og-world-series.html` and `og-world-series.png` off the
+    Worker, `/world-series-pools` and `/world-series-pools.html` answer a 302 to the home, and it is gone from the
+    sitemap and from the home page's October tile, quick chip and footer link. All eleven World Series questions had
+    closed by 23 October 22:00Z, the three that rode the pennant races on 11 and 12 October and the other eight on
+    the 23rd, so a pool started from the page loaded no questions. It returns when a feed for the
+    series is licensed.
 
 19. **Quieter bells** (23 October 2026; `docs/DEVELOPMENT.md` §9.13, migration 331): health alerts only when something is
     really wrong (the score sync while games are on, the morning post looked for in the chat), stat corrections only when
