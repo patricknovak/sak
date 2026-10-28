@@ -392,7 +392,7 @@ export function trackPageView(path: string) {
   });
 }
 
-export type FunnelEvent = 'pool_start' | 'pool_created' | 'invite_share' | 'join' | 'join_group' | 'first_call' | 'sign_up' | 'cta_arrival';
+export type FunnelEvent = 'pool_start' | 'pool_created' | 'invite_share' | 'invite_shared' | 'join' | 'join_group' | 'first_call' | 'sign_up' | 'cta_arrival';
 
 export function track(event: FunnelEvent, params?: Record<string, string | number | boolean | undefined>) {
   if (!measurementId() || getAnalyticsConsent() !== 'granted') return;

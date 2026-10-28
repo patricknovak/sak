@@ -3,7 +3,7 @@ import { useSearchParams } from 'react-router-dom';
 import { FunctionsHttpError } from '@supabase/supabase-js';
 import { ArrowLeft, ArrowRight, Check, ChevronRight, Lock, Plus, Sparkles } from 'lucide-react';
 import { rpc, setRemember, supabase } from '../lib/supabase';
-import { openPool } from '../lib/host';
+import { markShareAfterCreate, openPool } from '../lib/host';
 import { useLeague } from '../lib/store';
 import { Spinner, Toggle } from '../components/ui';
 import { themed } from '../components/LeagueIdentity';
@@ -359,6 +359,7 @@ export default function NewPool() {
         // Question pools omit sport (DB default nhl must not mislabel analytics).
         await trackPoolCreated({ id: r.id, pack: openPack, sport: mode === 'questions' ? null : event?.sport ?? null, kind: mode });
         await startGames(r.id);
+        markShareAfterCreate();
         await openPool({ league_id: r.id, slug: r.slug }, '/');
         return;
       }
@@ -382,6 +383,7 @@ export default function NewPool() {
       await trackSignUp('email', login);
       if (opened) {
         await startGames(opened.id).catch((x) => setErr(`Your pool is open, but its games didn’t start: ${(x as Error).message}. Add them from the Host page.`));
+        markShareAfterCreate();
         await openPool({ league_id: opened.id, slug: opened.slug }, '/');
       }
       else { window.location.hash = '#/'; window.location.reload(); }
