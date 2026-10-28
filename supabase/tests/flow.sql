@@ -7861,3 +7861,21 @@ select pg_temp.expect('a fixture with no feed round names the gameweek, not the 
 select pg_temp.expect('another sport''s own word reaches the category, not a hard-coded Matchweek',
   (select category = 'NFL · Week 12' and rule like '%(NFL, week 12)%' from pool_markets where id = :mnfl));
 select 'sport words', true;
+
+-- ───────────── a postseason fixture names its series (migration 343) ─────────────
+-- Last, on purpose: making a market rings the pool_new alert that an earlier section counts.
+-- Baseball is the one competition where the round word and the feed's own round disagree: _round_word answers
+-- 'Round' for a postseason because its `series` branch short-circuits before any override, while fixtures.round
+-- holds 'World Series'. The rule beside the category already said so; the category said 'Round 4'.
+select set_config('request.jwt.claim.sub', '', false);
+reset role;
+select sport_ingest('mlb-post-2026', jsonb_build_object(
+  'clubs', jsonb_build_array(jsonb_build_object('ext_id', 'ws1', 'name', 'Series Home', 'short', 'WSH'),
+    jsonb_build_object('ext_id', 'ws2', 'name', 'Series Away', 'short', 'WSA')),
+  'fixtures', jsonb_build_array(jsonb_build_object('ext_id', 'ws-game-1', 'round', 'World Series', 'gameweek', 4,
+    'kickoff', now() + interval '9 days', 'state', 'scheduled', 'status', 'NS', 'home', 'ws1', 'away', 'ws2'))));
+select _pool_fixture_market(:lib, (select id from fixtures where ext_id = 'ws-game-1'), null);
+select pg_temp.expect('a postseason fixture names its series, in the category and in the rule',
+  (select m.category = 'MLB · World Series' and m.rule like '%(MLB Postseason 2026, World Series)%'
+   from pool_markets m join fixtures f on f.id = (m.source->>'fixture')::bigint where f.ext_id = 'ws-game-1'));
+select 'series words', true;
