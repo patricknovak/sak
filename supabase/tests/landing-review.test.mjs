@@ -1,7 +1,7 @@
 // Landing review fixes: LIB share copy, Privacy + Cookie settings on every footer, world-series src=ws_page
 // (no hard-coded landing UTMs), and site.js helpers for cookie reopen + UTM pass-through.
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -57,6 +57,19 @@ for (const name of pages) {
   // Consent still gated: gtag script only after Accept / granted path
   assert.match(js, /spStoreGet\(CONSENT_KEY\) === 'granted'/);
   assert.match(js, /loadTag\(\)/);
+}
+
+{
+  // World Series marketing page is kept on disk for a licensed feed, but unserved until then
+  assert.ok(existsSync(join(landing, 'world-series-pools.html')), 'world-series-pools.html stays in the repo');
+  const ignore = read('.assetsignore');
+  assert.match(ignore, /^world-series-pools\.html$/m, '.assetsignore lists the page');
+  assert.match(ignore, /^og-world-series\.html$/m, '.assetsignore lists the OG HTML');
+  assert.match(ignore, /^og-world-series\.png$/m, '.assetsignore lists the OG PNG');
+  const redirects = read('_redirects');
+  assert.match(redirects, /\/world-series-pools\s+https:\/\/superpoolsai\.com\/\s+302/, '_redirects sends old links home');
+  assert.doesNotMatch(read('index.html'), /world-series-pools/, 'home page has no World Series route');
+  assert.doesNotMatch(read('sitemap.xml'), /world-series/, 'sitemap has no World Series URL');
 }
 
 console.log('landing review tests passed');
