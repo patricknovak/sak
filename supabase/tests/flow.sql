@@ -1202,6 +1202,7 @@ select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-000000000097
 set role authenticated;
 select pg_temp.expect('a fan accepts a spectator invite', accept_invite(:'spec_code') = current_setting('t.league2')::int);
 select pg_temp.expect('the fan is a spectator in the north league', (select current_league_id()) = current_setting('t.league2')::int and (select role from teams where id = my_team()) = 'spectator' and can_do('chat') is not null);
+select pg_temp.expect('the spectator''s membership remembers the invite (migration 345)', (select invited_via_hash from league_members where user_id = '00000000-0000-0000-0000-000000000097' and league_id = current_setting('t.league2')::int) = md5(:'spec_code'));
 reset role;
 select pg_temp.expect('the seat invite is spent, the spectator invite has uses left', (select uses from league_invites where code = current_setting('t.north_code')) = 1 and (select uses from league_invites where code = :'spec_code') = 1 and (select max_uses from league_invites where code = :'spec_code') = 3);
 select 'accounts', true;
@@ -2261,6 +2262,9 @@ select 'sign-in step 2', true;
 -- ───────────── joining by invite ─────────────
 -- the north commissioner offers an open seat; the link shows what it's for to someone signed out
 reset role;
+select pg_temp.expect('league_members has invited_via (migration 345)', exists (
+  select 1 from information_schema.columns
+  where table_schema = 'public' and table_name = 'league_members' and column_name = 'invited_via_hash'));
 insert into teams (name, abbrev, gm_name, league_id, role) values ('Polar Express', 'POL', 'Open seat', :league2, 'gm') returning id as join_seat \gset
 select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-000000000099', false);
 set role authenticated;
@@ -2279,6 +2283,9 @@ select pg_temp.expect('a newcomer takes the seat', _accept_invite('00000000-0000
 select pg_temp.expect('the seat carries their name and account', (select gm_name = 'Nora Newcomer' and user_id = '00000000-0000-0000-0000-000000000096' and login_email = 'newcomer@example.com' from teams where id = :join_seat));
 select pg_temp.expect('they are a member, with the north as their league', exists (select 1 from league_members where user_id = '00000000-0000-0000-0000-000000000096' and league_id = :league2 and team_id = :join_seat)
   and (select active_league_id from accounts where user_id = '00000000-0000-0000-0000-000000000096') = :league2);
+select pg_temp.expect('the named seat remembers the invite (migration 345)', (select invited_via_hash from league_members where user_id = '00000000-0000-0000-0000-000000000096' and league_id = :league2) = md5(:'join_code'));
+select pg_temp.expect('the code itself is not stored (migration 345)', (select invited_via_hash <> :'join_code' from league_members where user_id = '00000000-0000-0000-0000-000000000096' and league_id = :league2));
+select pg_temp.expect('the host who never used a link stays null (migration 345)', (select invited_via_hash is null from league_members where user_id = '00000000-0000-0000-0000-000000000099' and league_id = :league2));
 select pg_temp.expect('the link now says it is spent', (select not (v->>'ok')::boolean from invite_preview(:'join_code') v));
 select pg_temp.raises('a spent link seats nobody else', format('select _accept_invite(%L, %L)', '00000000-0000-0000-0000-000000000097', :'join_code'), 'no longer good');
 select set_config('request.jwt.claim.sub', '', false);
@@ -3428,6 +3435,7 @@ select pg_temp.expect('an open link seats a friend on a team of her own', (selec
   and exists (select 1 from league_members where team_id = :fern and league_id = :lib));
 select pg_temp.expect('with the opening coins and every drop so far', (select balance from coin_balances where team_id = :fern)
   = 1000 + coalesce((select sum(amount) from pool_drops where league_id = :lib and at <= now()), 0));
+select pg_temp.expect('the pool open link remembers the invite (migration 345)', (select invited_via_hash from league_members where user_id = '00000000-0000-0000-0000-000000000082' and league_id = :lib) = md5(:'libcode'));
 select pg_temp.as_team(1);
 set role authenticated;
 select pg_temp.raises('the open link is for prediction pools', 'select pool_invite_link()', 'prediction pools');
