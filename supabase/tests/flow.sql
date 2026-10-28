@@ -7879,3 +7879,39 @@ select pg_temp.expect('a postseason fixture names its series, in the category an
   (select m.category = 'MLB · World Series' and m.rule like '%(MLB Postseason 2026, World Series)%'
    from pool_markets m join fixtures f on f.id = (m.source->>'fixture')::bigint where f.ext_id = 'ws-game-1'));
 select 'series words', true;
+
+-- ───────────── settle nudge escalates (migration 344) ─────────────
+-- A closed show question never auto-settles; the host must call it. The nudge must keep ringing every three days
+-- while it stays open, not fire once and go silent.
+reset role;
+select set_config('request.jwt.claim.sub', '', false);
+select set_config('app.league_id', :'lib', false);
+insert into pool_markets (league_id, title, outcomes, q, b, closes_at, created_by)
+  values (:lib, 'Escalate settle nudge?', '[{"key":"a1","label":"Yes"},{"key":"a2","label":"No"}]', '{"a1":0,"a2":0}', 50, now() - interval '9 hours', null);
+select set_config('t.esc_before', (select count(*)::text from notifications n join teams t on t.id = n.team_id
+  where t.league_id = :lib and t.is_commish and n.kind = 'pool_settle' and n.body like '%Escalate settle nudge?%'), false);
+select set_config('t.esc1', _pool_settle_nudge(:lib)::text, false);
+select pg_temp.expect('a closed unsettled question nudges its host', (current_setting('t.esc1')::int) >= 1
+  and (select count(*) from notifications n join teams t on t.id = n.team_id
+       where t.league_id = :lib and t.is_commish and n.kind = 'pool_settle' and n.body like '%Escalate settle nudge?%')
+      = current_setting('t.esc_before')::int + 1);
+select set_config('t.esc_mid', (select count(*)::text from notifications n join teams t on t.id = n.team_id
+  where t.league_id = :lib and t.is_commish and n.kind = 'pool_settle' and n.body like '%Escalate settle nudge?%'), false);
+select pg_temp.expect('a second run inside the interval nudges nobody',
+  _pool_settle_nudge(:lib) = 0
+  and (select count(*) from notifications n join teams t on t.id = n.team_id
+       where t.league_id = :lib and t.is_commish and n.kind = 'pool_settle' and n.body like '%Escalate settle nudge?%')
+      = current_setting('t.esc_mid')::int);
+update private.soccer_nudged set at = now() - interval '3 days' - interval '1 minute'
+  where game = 'settle:' || (select id from pool_markets where league_id = :lib and title = 'Escalate settle nudge?');
+select set_config('t.esc2', _pool_settle_nudge(:lib)::text, false);
+select pg_temp.expect('a run past the interval nudges the host again',
+  (current_setting('t.esc2')::int) >= 1
+  and (select count(*) from notifications n join teams t on t.id = n.team_id
+       where t.league_id = :lib and t.is_commish and n.kind = 'pool_settle' and n.body like '%Escalate settle nudge?%')
+      = current_setting('t.esc_mid')::int + 1);
+delete from notifications where kind = 'pool_settle' and body like '%Escalate settle nudge?%';
+delete from private.soccer_nudged where game = 'settle:' || (select id from pool_markets where league_id = :lib and title = 'Escalate settle nudge?');
+delete from pool_markets where league_id = :lib and title = 'Escalate settle nudge?';
+select set_config('app.league_id', '', false);
+select 'settle escalate', true;
