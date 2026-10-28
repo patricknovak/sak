@@ -9,6 +9,7 @@ import type { Env } from './index';
 export type Who = { ok: boolean; team?: number; uid?: string; token?: string; exp?: number; joined: number; said: number[] };
 export type Msg = { t?: string; token?: string; key?: number; e?: string };
 const MAX_SOCKETS = 200;
+const MAX_WAITING = 25;   // sockets still to say hello (each has 15 seconds to)
 
 // a sign-in token's own claims (who and until when); the database checks its signature on the first read with it
 export function claims(token: string): { sub?: string; exp?: number } {
@@ -44,7 +45,11 @@ export abstract class Room<Meta extends { league: number }> extends DurableObjec
     const m = this.parse(new URL(req.url).pathname);
     if (!m) return new Response('Not found', { status: 404 });
     if (!this.meta) { this.meta = m; await this.ctx.storage.put('meta', m); }
-    if (this.ctx.getWebSockets().length >= MAX_SOCKETS) return new Response('The room is full', { status: 503 });
+    const sockets = this.ctx.getWebSockets();
+    if (sockets.length >= MAX_SOCKETS) return new Response('The room is full', { status: 503 });
+    // phones that haven't said who they are yet get a small corner of the room, so nobody can fill it from outside
+    // (28 October 2026, the pre-launch security review)
+    if (sockets.filter((s) => !(s.deserializeAttachment() as Who | null)?.ok).length >= MAX_WAITING) return new Response('Busy, try again', { status: 503 });
     const pair = new WebSocketPair();
     this.ctx.acceptWebSocket(pair[1]);
     pair[1].serializeAttachment({ ok: false, joined: Date.now(), said: [] } satisfies Who);
@@ -78,8 +83,9 @@ export abstract class Room<Meta extends { league: number }> extends DurableObjec
     if (!who.ok) return;
     if (msg.t === 'auth' && typeof msg.token === 'string') {
       // a fresh token for the same person, as the site renews its sign-in
+      // a sign-in lasts an hour; a token that claims much longer than that isn't one Supabase made, so it is kept out
       const c = claims(msg.token);
-      if (c.sub && c.sub === who.uid) { who.token = msg.token; who.exp = c.exp ?? 0; ws.serializeAttachment(who); }
+      if (c.sub && c.sub === who.uid && (c.exp ?? 0) * 1000 < Date.now() + 2 * 3_600_000) { who.token = msg.token; who.exp = c.exp ?? 0; ws.serializeAttachment(who); }
       return;
     }
     if (msg.t === 'ping') { this.send(ws, { t: 'pong' }); return; }

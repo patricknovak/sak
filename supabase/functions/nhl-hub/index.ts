@@ -33,6 +33,12 @@ const db = createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE_SE
 
 const cors = { 'Access-Control-Allow-Origin': '*', 'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type', 'Access-Control-Allow-Methods': 'GET, POST, OPTIONS' };
 const cache = new Map<string, { at: number; ttl: number; body: unknown }>();
+// the parameters each task reads (any task not named here is the scoreboard, which reads the date)
+const USES: Record<string, string[]> = {
+  scores: ['date'], schedule: ['date'], standings: [], game: ['id'], lines: ['id'], espn: ['sport', 'id'], news: [], x: [], leaders: [],
+  team: ['abbrev'], fan: ['abbrev'], 'fan-history': ['abbrev'], 'fan-office': ['abbrev'], 'fan-league': [], 'fan-moves': [],
+  'fan-sport': ['league', 'club'], 'fan-sport-league': ['league'], 'fan-sport-history': ['league'],
+};
 const TTL = { lines: 3_600_000, scores: 20_000, standings: 300_000, schedule: 600_000, game: 20_000, news: 600_000, leaders: 600_000, team: 300_000, x: 120_000 };
 // How old the league-wide X feed may get before the next request refreshes it. Each refresh is a paid X search
 // (xAI bills per post it reads), so it's ten minutes from late morning to 1 am Eastern, when the news breaks and
@@ -663,12 +669,20 @@ async function movesBuild() {
 function fanMoves() {
   return cached('fan-moves', 1_800_000, movesBuild);
 }
+// one rebuild at a time per key in this instance: callers that arrive while a big build (fan-moves reads 64 NHL
+// endpoints) is under way wait for that one instead of starting their own (28 October 2026, the pre-launch review)
+const building = new Map<string, Promise<object>>();
 async function cached(key: string, ttl: number, build: () => Promise<object>) {
   const { data: hit } = await db.from('hub_cache').select('body,at').eq('key', key).maybeSingle();
   if (hit && Date.now() - new Date(hit.at).getTime() < ttl) return { ...(hit.body as object), ttl };
   try {
-    const body = await build();
-    await db.from('hub_cache').upsert({ key, body, at: new Date().toISOString() });
+    let run = building.get(key);
+    if (!run) {
+      run = build().then(async (body) => { await db.from('hub_cache').upsert({ key, body, at: new Date().toISOString() }); return body; })
+        .finally(() => building.delete(key));
+      building.set(key, run);
+    }
+    const body = await run;
     return { ...body, ttl };
   } catch (e) {
     // the NHL's feeds down: the last copy beats an error
@@ -1504,7 +1518,10 @@ Deno.serve(async (req) => {
   const clubCode = (url.searchParams.get('club') ?? '').toUpperCase();
   if (!/^(now|\d{4}-\d{2}-\d{2})$/.test(date) || !/^\d{0,12}$/.test(id) || !/^[A-Z]{0,3}$/.test(abbrev) || !/^[a-z0-9./-]{0,40}$/.test(sport)
     || !/^[a-z0-9-]{0,12}$/.test(league) || !/^[A-Z0-9]{0,5}$/.test(clubCode)) return Response.json({ error: 'bad request' }, { status: 400, headers: cors });
-  const key = `${task}:${date}:${id}:${abbrev}:${sport}:${league}:${clubCode}`;
+  // the memory cache is keyed on what the task reads and nothing else, so a parameter a task ignores can't make a miss
+  const uses = USES[task] ?? (task in SPORT_TASKS ? ['sport'] : ['date']);
+  const val: Record<string, string> = { date, id, abbrev, sport, league, club: clubCode };
+  const key = `${task in USES || task in SPORT_TASKS ? task : 'scores'}:${uses.map((u) => val[u]).join(':')}`;
   const hit = cache.get(key);
   if (hit && Date.now() - hit.at < hit.ttl) return Response.json(hit.body, { headers: { ...cors, 'x-cache': 'hit' } });
   try {

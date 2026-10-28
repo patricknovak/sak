@@ -411,7 +411,10 @@ async function news() {
 // way, which rostered players were scratched. Today and tomorrow, every 15 minutes through the afternoon and evening
 const ymd = (d: string) => d.replaceAll('-', '');
 async function gameday() {
-  const inj = await injuries();
+  // ESPN's injury report refreshes the list on players; when ESPN drops the connection the list we already hold is good
+  // enough for tonight's statuses, so the probable goalies and the scratches still go out (28 October 2026: one reset
+  // connection failed the whole run)
+  const inj = await injuries().catch((e) => { console.error('gameday injuries', e); return { injured: null, changed: 0, cleared: 0, injuries_failed: true }; });
   const today = await leagueToday();
   const dates = [today, nextDay(today)];
   const { byName } = await nameIndex();

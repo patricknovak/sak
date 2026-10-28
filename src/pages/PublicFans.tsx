@@ -97,6 +97,7 @@ export default function PublicFans() {
             <Link to="/fans/about" className="hover:text-white">How it works</Link>
             <a href="https://github.com/patricknovak/sak" target="_blank" rel="noopener noreferrer" className="hover:text-white">The code</a>
             <Link to="/privacy" className="hover:text-white">Privacy</Link>
+            <Link to="/terms" className="hover:text-white">Terms</Link>
             <a href={PRODUCT.url} className="hover:text-white">{PRODUCT.name}</a>
           </div>
           <p className="mx-auto mt-3 max-w-md text-[11px] leading-snug">Made by fans from public numbers: the NHL&apos;s own, and ESPN&apos;s for the NFL, the NBA and the Premier League. Not affiliated with any league or club; team names and logos belong to them. Run a pool with your friends at <a href={PRODUCT.url} className="underline">{PRODUCT.domain}</a>.</p>

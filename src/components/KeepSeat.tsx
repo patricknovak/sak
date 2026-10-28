@@ -50,6 +50,7 @@ export function KeepSeat() {
           <input aria-label="Email" className="input w-full" type="email" inputMode="email" autoComplete="username" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="you@example.com" />
           <input aria-label="Password" className="input w-full" type="password" autoComplete="new-password" value={pw} onChange={(e) => setPw(e.target.value)} placeholder="Pick a password, 6+ characters" />
           <button className="btn-gold w-full py-2.5" disabled={busy || !ok}>{busy ? <Spinner /> : 'Keep my place'}</button>
+          <p className="text-center text-[11px] leading-snug text-mute">Keeping your place means you agree to the <a href="#/terms" className="underline">Terms</a>.</p>
           {err && <div className="rounded-xl border border-red-400/30 bg-red-900/50 px-3 py-2 text-sm text-red-200">{err}</div>}
         </form>
       )}

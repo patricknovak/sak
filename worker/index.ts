@@ -21,7 +21,7 @@ import { live, LiveRoom } from './live';
 import { draftRoom, DraftRoom } from './draft';
 import { poolRoom, PoolRoom } from './pool';
 import { inviteImage, invitePage, poolImage, poolPage } from './preview';
-import { fansApi, fansImage, fansPage } from './fans';
+import { fansApi, fansImage, fansPage, robots, sitemap } from './fans';
 import { withSecurity } from './headers';
 
 export interface Env {
@@ -39,6 +39,11 @@ export default {
     const p = url.pathname;
     try {
       if (p === '/api/hub') return withSecurity(await hub(req, env, ctx));
+      // every superpoolsai.com address points the search engines at the one app address, so a page is listed once
+      if (p === '/robots.txt' || p === '/sitemap.xml') {
+        const canon = /(^|\.)superpoolsai\.com$/.test(url.hostname) ? 'https://app.superpoolsai.com' : url.origin;
+        return withSecurity(p === '/robots.txt' ? robots(canon) : await sitemap(canon, env, ctx));
+      }
       if (p === '/api/img') return withSecurity(await img(req, ctx));
       if (p === '/api/fans' || p.startsWith('/api/fans/')) return withSecurity(await fansApi(p.slice('/api/fans'.length), url, env, ctx));
       if (/^\/api\/live\/\d+\/draft$/.test(p)) return withSecurity(await draftRoom(req, env));

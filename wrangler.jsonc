@@ -15,7 +15,7 @@
     // the app routes in the hash (#/team), so every path is the one page
     "not_found_handling": "single-page-application",
     // the paths the Worker answers itself; the rest go straight to the files
-    "run_worker_first": ["/api/*", "/j/*", "/p/*", "/og/*", "/fans", "/fans/*"]
+    "run_worker_first": ["/api/*", "/j/*", "/p/*", "/og/*", "/fans", "/fans/*", "/robots.txt", "/sitemap.xml"]
   },
   // the fonts the preview pictures are drawn in, as raw bytes
   "rules": [{ "type": "Data", "globs": ["**/*.ttf"], "fallthrough": true }],

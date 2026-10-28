@@ -160,7 +160,10 @@ export default function Profile() {
           <input className="input" type="password" autoComplete="new-password" placeholder="Confirm" value={pw.b} onChange={(e) => setPw({ ...pw, b: e.target.value })} />
           <button className="btn-ghost" disabled={pw.a.length < 6 || pw.a !== pw.b} onClick={async () => {
             const { error } = await supabase.auth.updateUser({ password: pw.a });
-            if (error) toast(error.message, 'err'); else { toast('Password changed'); setPw({ a: '', b: '' }); }
+            if (error) { toast(error.message, 'err'); return; }
+            // a new password signs the account out everywhere else
+            await supabase.auth.signOut({ scope: 'others' }).catch(() => {});
+            toast('Password changed. Signed out everywhere else.'); setPw({ a: '', b: '' });
           }}>Change password</button>
         </div>
       </Section>
@@ -169,7 +172,7 @@ export default function Profile() {
         📱 <span className="text-slate-200">Install the app:</span> on iPhone tap Share → “Add to Home Screen”; on Android tap ⋮ → “Install app”. It opens full-screen like a native app.
       </div>
       <button className="btn-ghost w-full" onClick={() => signOut()}>Sign out</button>
-      <p className="text-center text-[11px] text-mute"><a href="#/privacy" className="underline decoration-white/20 underline-offset-2">What we keep about you</a></p>
+      <p className="text-center text-[11px] text-mute"><a href="#/privacy" className="underline decoration-white/20 underline-offset-2">What we keep about you</a> · <a href="#/terms" className="underline decoration-white/20 underline-offset-2">Terms of use</a></p>
       </div>
     </div>
   );

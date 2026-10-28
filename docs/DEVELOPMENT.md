@@ -1392,3 +1392,23 @@ the record.
 - **Not yet**: a skater's defensive value (only his points are priced), per-club games for a man traded twice in a
   season, and the other leagues (the NFL, NBA and Premier League zones read ESPN's roster and injuries but don't price
   them).
+
+### 9.24 The pre-launch review, 28 October 2026
+
+Patrick: "Do a thorough review of what should still be done before going live and do as much as possible of it without
+stopping until done and then tell me all the items that I need to do." The record is `docs/LAUNCH-READINESS-2026-10-28.md`.
+
+- **Checked**: the live project (advisors, logs, jobs, the migration ledger, Auth settings, backups, email DNS, costs,
+  connections), an independent security read of every door a stranger reaches, a signed-out browser sweep of the public
+  pages at 360 and 390 px, and the plan's open items.
+- **Fixed**: the terms of use (`#/terms`) and a privacy note brought up to the code; a new password signs the account out
+  everywhere else; name-only joins count IPv6 by its /64 and refuse a join with no address; migration 339 (only
+  established accounts' reports take a fan post down, a chat photo opens only from its own league); the Worker's
+  pictures cached by path, the fan pages' simulations kept five minutes, the image proxy without redirects and with a
+  size cap and a sandbox, the live rooms' waiting sockets capped and over-long tokens refused; nhl-hub's memory cache keyed
+  on what each task reads and one rebuild per key; the game-day run survives an ESPN reset; robots.txt and a fan-zone
+  sitemap on the app's address; the iPhone push hint names the product.
+- **Patrick's** (the readiness doc, section 3): the Auth site address, redirect list and reset email; the terms' age,
+  legal name and law; the hello@ inbox; whether a new email is confirmed by a code; archiving the shadow league and the
+  test pools; compute, point-in-time recovery, a bot check, uptime alerts and DMARC before a marketing push.
+

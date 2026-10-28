@@ -136,14 +136,19 @@ async function png(tree: Node): Promise<Uint8Array> {
   return new Resvg(svg, { fitTo: { mode: 'width', value: 1200 } }).render().asPng();
 }
 
-// a picture is made once per name, colour and count (the ?v tag) and kept at the edge for a day
+// a picture is made once an hour per address and kept at the edge. The key is the picture's path (and a fan post's
+// number) only: the ?v tag the pages add tells a chat app the picture changed, but a made-up tag or any other parameter
+// can't force a fresh render (28 October 2026, the pre-launch security review)
 export async function cached(req: Request, ctx: ExecutionContext, make: () => Promise<Node | null>): Promise<Response> {
-  const hit = await caches.default.match(req);
+  const u = new URL(req.url);
+  const post = Number(u.searchParams.get('post')) || 0;
+  const key = new Request(`${u.origin}${u.pathname}${post > 0 && Number.isInteger(post) ? `?post=${post}` : ''}`, { method: 'GET' });
+  const hit = await caches.default.match(key);
   if (hit) return hit;
   const tree = await make();
   if (!tree) return new Response('Not found', { status: 404 });
-  const res = new Response(await png(tree), { headers: { 'content-type': 'image/png', 'cache-control': 'public, max-age=86400' } });
-  ctx.waitUntil(caches.default.put(req, res.clone()));
+  const res = new Response(await png(tree), { headers: { 'content-type': 'image/png', 'cache-control': 'public, max-age=3600' } });
+  ctx.waitUntil(caches.default.put(key, res.clone()));
   return res;
 }
 

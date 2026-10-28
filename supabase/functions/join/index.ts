@@ -23,10 +23,19 @@ const WHY: Record<string, string> = {
   taken: 'Someone has already taken that seat.',
 };
 
-// the caller's address, kept only as a hash: the database limits how many pools one address opens in a day
+// the caller's address, kept only as a hash: the database limits how many pools one address opens in a day.
+// Cloudflare sets cf-connecting-ip on every request (a caller can't); an IPv6 address counts by its /64, the block one
+// home or phone is given, so walking through the block's addresses doesn't get around the limits (28 October 2026)
 async function addressHash(req: Request) {
-  const ip = (req.headers.get('cf-connecting-ip') ?? req.headers.get('x-forwarded-for')?.split(',')[0] ?? '').trim();
+  let ip = (req.headers.get('cf-connecting-ip') ?? req.headers.get('x-forwarded-for')?.split(',')[0] ?? '').trim();
   if (!ip) return '';
+  if (ip.includes('.')) ip = ip.slice(ip.lastIndexOf(':') + 1);   // an IPv4 address, plain or written as IPv6 (::ffff:1.2.3.4)
+  else if (ip.includes(':')) {
+    const [head, tail = ''] = ip.split('::');
+    const left = head ? head.split(':') : [], right = tail ? tail.split(':') : [];
+    const full = ip.includes('::') ? [...left, ...Array(Math.max(0, 8 - left.length - right.length)).fill('0'), ...right] : left;
+    ip = `${full.slice(0, 4).map((h) => h.toLowerCase().replace(/^0+(?=.)/, '')).join(':')}::/64`;
+  }
   const d = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(`super-pools:${ip}`));
   return Array.from(new Uint8Array(d), (x) => x.toString(16).padStart(2, '0')).join('');
 }
@@ -101,7 +110,10 @@ async function guestJoin(req: Request, code: string, name: string) {
   if (pe) { console.error('preview', pe); return reply(500, { error: 'Couldn’t check the invite. Try again in a minute.' }); }
   if (!pv?.ok) return reply(400, { error: WHY[pv?.reason ?? 'unknown'] ?? WHY.unknown });
   if (pv.kind !== 'predict') return reply(400, { error: 'A fantasy league needs an email to join.', needEmail: true });
-  const { data: why, error: we } = await db.rpc('_guest_join_check', { p_ip: await addressHash(req) });
+  // no address, no limit to count it against: a seat without an email needs one (fails closed)
+  const gip = await addressHash(req);
+  if (!gip) return reply(429, { error: 'Add an email to join.' });
+  const { data: why, error: we } = await db.rpc('_guest_join_check', { p_ip: gip });
   if (we) { console.error('guest check', we); return reply(500, { error: 'Couldn’t join just now. Try again in a minute.' }); }
   if (why) return reply(429, { error: why, needEmail: true });
 
@@ -127,7 +139,9 @@ async function fanJoin(req: Request, b: { fan?: { name?: string; club?: string; 
   const club = /^[A-Z0-9]{2,5}$/.test(String(b.fan?.club ?? '')) ? String(b.fan!.club) : null;
   const league = /^[a-z][a-z0-9-]{1,11}$/.test(String(b.fan?.league ?? '')) ? String(b.fan!.league) : 'nhl';
   if (name.length < 2) return reply(400, { error: 'Tell us your name.' });
-  const { data: why, error: we } = await db.rpc('_fan_join_check', { p_ip: await addressHash(req) });
+  const fip = await addressHash(req);
+  if (!fip) return reply(429, { error: 'Sign in with an email instead.' });
+  const { data: why, error: we } = await db.rpc('_fan_join_check', { p_ip: fip });
   if (we) { console.error('fan check', we); return reply(500, { error: 'Couldn’t sign you up just now. Try again in a minute.' }); }
   if (why) return reply(429, { error: why, needEmail: true });
 

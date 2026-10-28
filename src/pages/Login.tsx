@@ -65,6 +65,8 @@ export default function Login() {
     const { error } = await supabase.auth.verifyOtp({ email: login, token: code.trim(), type: 'recovery' });
     if (error) { setBusy(false); setErr(/expired|invalid/i.test(error.message) ? 'That code didn’t work. Check it, or ask for a new one.' : error.message); return; }
     const up = await supabase.auth.updateUser({ password: pw });
+    // a new password ends every other session on the account: whoever had it before is signed out everywhere else
+    if (!up.error) await supabase.auth.signOut({ scope: 'others' }).catch(() => {});
     setBusy(false);
     if (up.error) setErr(`You're signed in, but the new password didn't save: ${up.error.message}. Set it on your Profile page.`);
     else keepEmail();
@@ -148,7 +150,7 @@ export default function Login() {
         <a href="#/new" className="mt-6 block text-center text-xs text-sky-300/80 underline decoration-sky-300/30 underline-offset-2">Run a pool of your own? Start one free, right now</a>
         <a href="#/start" className="mt-2 block text-center text-[11px] text-white/40 underline decoration-white/20 underline-offset-2">Or ask for a fantasy league</a>
         <p className="mt-3 text-center text-xs italic text-mute">{product || pool ? `Pools for everything you watch, on ${PRODUCT.name}` : other ? `Fantasy hockey on ${PRODUCT.name}` : 'Play fair, play hard and play to win.'}</p>
-        <p className="mt-2 text-center text-[11px] text-white/40"><a href="#/privacy" className="underline decoration-white/20 underline-offset-2">What we keep about you</a></p>
+        <p className="mt-2 text-center text-[11px] text-white/40"><a href="#/privacy" className="underline decoration-white/20 underline-offset-2">What we keep about you</a> · <a href="#/terms" className="underline decoration-white/20 underline-offset-2">Terms of use</a></p>
       </div>
     </div>
   );

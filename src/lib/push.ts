@@ -1,4 +1,5 @@
 import { supabase } from './supabase';
+import { PRODUCT } from './brand';
 
 export const VAPID_PUBLIC = 'BEz86QWfjI0MlV7iV33KCnUSAahyR9UGXZ3O4MbbVil9vzmYXkoG6i_DhhWP8SYhjdwMcjVxCvGeU50IWMW2P20';
 
@@ -24,7 +25,7 @@ export async function currentSubscription() {
 }
 
 export async function enablePush() {
-  if (!pushSupported()) throw new Error(isIOS() && !isStandalone() ? 'On iPhone, add SAK to your Home Screen first, then turn this on from there.' : 'This browser can’t do push notifications.');
+  if (!pushSupported()) throw new Error(isIOS() && !isStandalone() ? `On iPhone, add ${PRODUCT.name} to your Home Screen first, then turn this on from there.` : 'This browser can’t do push notifications.');
   const perm = await Notification.requestPermission();
   if (perm !== 'granted') throw new Error('Notifications are blocked. Allow them for this site in your browser settings.');
   const reg = await swReg();
