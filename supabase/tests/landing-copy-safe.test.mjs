@@ -32,6 +32,9 @@ for (const name of pages) {
     assert.match(html, /Illustration only\. No live pool, no real players\./);
     assert.match(html, /It is an illustration built to show the shape of a Love Is Blind pool/);
     assert.match(html, /Every name, call and number on this page is an illustration, not a live pool\./);
+    const tableNote = html.indexOf('Four made-up players');
+    assert.notEqual(tableNote, -1, 'Table section labels the made-up players');
+    assert.ok(tableNote < html.indexOf('<table class="standings"'), 'Table label appears before the standings table');
   }
 }
 
