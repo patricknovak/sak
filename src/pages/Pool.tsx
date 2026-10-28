@@ -3,7 +3,7 @@
 // 'predict' sees only these; a fantasy league reaches the board from More.
 import { usePoolRoom } from '../lib/poolRoom';
 import { PoolRoomCard } from '../components/PoolRoomCard';
-import { useMemo, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { CalendarClock, Crown, Flame, Link2, Plus, Sparkles, Trash2, Trophy, Wand2 } from 'lucide-react';
 import { useLeague, useNow } from '../lib/store';
@@ -14,7 +14,7 @@ import { answerColor, isOpen, pct, prices, usePool, useCoins, type PoolLeader, t
 import { CallsFeed, closesIn, Coins, MarketCard, PriceChart, TradeSheet } from '../components/Pool';
 import { Empty, PageHeader, Section, TeamBadge, useAction } from '../components/ui';
 import { useEffect } from 'react';
-import { inviteLink } from '../lib/host';
+import { consumeShareAfterCreate, inviteLink } from '../lib/host';
 import { shareCard } from '../lib/shareCard';
 import { hasTrackedFirstCall, newPoolPath, track } from '../lib/analytics';
 import { SurvivorCard } from './Survivor';
@@ -193,8 +193,8 @@ export function PoolHome() {
         )}
       </div>
 
-      {/* alone, the invite comes before anything else */}
-      {alone && <div id="pool-invite"><InviteCard /></div>}
+      {/* alone, the invite comes before anything else; the visit right after create shows the join link first */}
+      {alone && <div id="pool-invite"><PostCreateInvite /></div>}
 
       {/* joined with just a name: the email that keeps the seat (migration 332) */}
       <KeepSeat />
@@ -261,6 +261,90 @@ function StartOwnPoolCard() {
       <div className="relative">
         <h3 className="font-display text-2xl font-extrabold text-white">Your crew watches it too? Start your own pool in a minute.</h3>
         <Link to={newPoolPath('join_cta')} className="btn-gold mt-3 inline-flex items-center gap-2"><Plus className="h-4 w-4" /> Start a pool</Link>
+      </div>
+    </div>
+  );
+}
+
+// right after create: the join link on the confirmation screen (the step that never happened before).
+// Flag is consumed in an effect once the host is known; StrictMode must not clear it during render.
+function PostCreateInvite() {
+  const { me } = useLeague();
+  const [fresh, setFresh] = useState(false);
+  const [ready, setReady] = useState(false);
+  useEffect(() => {
+    if (!me?.id) return;
+    if (me.is_commish && consumeShareAfterCreate()) setFresh(true);
+    setReady(true);
+  }, [me?.id, me?.is_commish]);
+  if (!ready) return null;
+  if (fresh && me?.is_commish) return <CreateConfirmCard />;
+  return <InviteCard />;
+}
+
+function CreateConfirmCard() {
+  const { league } = useLeague();
+  const brand = useBrand();
+  const [link, setLink] = useState<string | null>(null);
+  const [failed, setFailed] = useState(false);
+  const [job, setJob] = useState<ShareJob | null>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
+  const poolName = league?.name ?? 'Super Pools';
+  const coin = brand.coin.name.toLowerCase();
+  const ask = link
+    ? `Join my ${poolName} pool on Super Pools. Pick a name and you're in. ${link}`
+    : `Join my ${poolName} pool on Super Pools. Pick a name and you're in.`;
+
+  useEffect(() => {
+    let cancelled = false;
+    rpc<string>('pool_share_link').then(
+      (code) => { if (!cancelled) setLink(inviteLink(code, { src: 'create' })); },
+      () => { if (!cancelled) setFailed(true); },
+    );
+    return () => { cancelled = true; };
+  }, []);
+
+  useEffect(() => {
+    if (link) inputRef.current?.select();
+  }, [link]);
+
+  if (failed) return <InviteCard />;
+
+  return (
+    <div className="card relative overflow-hidden p-5">
+      <div className="pointer-events-none absolute -right-10 -top-10 h-40 w-40 rounded-full bg-gold/20 blur-3xl" />
+      <div className="relative space-y-3">
+        <div>
+          <h3 className="font-display text-2xl font-extrabold text-white">{poolName}</h3>
+          <p className="mt-1 text-sm text-slate-200">Your pool is open.</p>
+        </div>
+        {link && (
+          <input
+            ref={inputRef}
+            readOnly
+            value={link}
+            onFocus={(e) => e.target.select()}
+            className="w-full break-all rounded-xl bg-black/30 px-3 py-2 text-xs text-sky-200 outline-none ring-1 ring-white/10"
+            aria-label="Join link"
+          />
+        )}
+        <p className="rounded-xl bg-black/25 px-3 py-2.5 text-sm leading-snug text-slate-200 ring-1 ring-white/10">{ask}</p>
+        <p className="text-xs text-mute">Free, played in {coin}, never real money. No app to download.</p>
+        <button
+          type="button"
+          className="btn-gold inline-flex items-center gap-2"
+          disabled={!link}
+          onClick={() => { if (link) setJob({ title: poolName, text: ask, url: link }); }}
+        >
+          <Link2 className="h-4 w-4" /> Send it
+        </button>
+        <ShareSheet
+          open={!!job}
+          onClose={() => setJob(null)}
+          job={job}
+          heading="Invite your group chat"
+          onShared={() => track('invite_shared', { src: 'create' })}
+        />
       </div>
     </div>
   );

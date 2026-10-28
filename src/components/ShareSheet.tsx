@@ -10,7 +10,7 @@ import { Sheet, Spinner, useToast } from './ui';
 
 export interface ShareOption { key: string; label: string; hint?: string; make: () => Promise<ShareJob> | ShareJob }
 
-export function ShareSheet({ open, onClose, job, options, heading = 'Share' }: { open: boolean; onClose: () => void; job?: ShareJob | null; options?: ShareOption[]; heading?: ReactNode }) {
+export function ShareSheet({ open, onClose, job, options, heading = 'Share', onShared }: { open: boolean; onClose: () => void; job?: ShareJob | null; options?: ShareOption[]; heading?: ReactNode; onShared?: () => void }) {
   const toast = useToast();
   const [picked, setPicked] = useState(0);
   const [made, setMade] = useState<Record<string, ShareJob>>({});
@@ -39,12 +39,12 @@ export function ShareSheet({ open, onClose, job, options, heading = 'Share' }: {
   const send = async () => {
     if (!cur) return;
     const r = await shareNative(cur);
-    if (r === 'shared') onClose();
-    else if (r === 'unsupported') { if (cur.url && (await copyText(cur.url))) toast('Link copied'); }
+    if (r === 'shared') { onShared?.(); onClose(); }
+    else if (r === 'unsupported') { if (cur.url && (await copyText(cur.url))) { onShared?.(); toast('Link copied'); } }
   };
   const copy = async () => {
     if (!cur?.url) return;
-    if (await copyText(cur.url)) { setCopied(true); setTimeout(() => setCopied(false), 2000); } else toast('Couldn’t copy: hold the link to copy it', 'err');
+    if (await copyText(cur.url)) { onShared?.(); setCopied(true); setTimeout(() => setCopied(false), 2000); } else toast('Couldn’t copy: hold the link to copy it', 'err');
   };
   const save = () => { if (cur?.blob) { savePicture(cur.blob, cur.file ?? 'super-pools.png'); toast('Saved to your pictures'); } };
   const places = cur?.url ? targets(cur.url, cur.title, cur.text) : [];
