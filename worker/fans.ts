@@ -34,6 +34,9 @@ const PAGES = ['analysis', 'outlook', 'history', 'pulse'];
 const PAGE_WORD: Record<Page, string> = { '': 'fan zone', analysis: 'the analysis', outlook: 'the outlook', history: 'the history', pulse: 'fan pulse' };
 
 const known = (c: string) => c === 'NHL' || !!CLUB_NAMES[c];
+// a link's text names how many fans have had their say once there are enough to say it proudly (the pre-launch review:
+// "1 fan has their say" is no reason to tap); the pictures and the pulse page still count every one
+const crowd = (p: { people?: number } | null | undefined) => (p?.people ?? 0) >= 10;
 const nameOf = (c: string) => (c === 'NHL' ? 'The NHL' : CLUB_NAMES[c] ?? c);
 const pct = (v: number) => (v >= 0.995 ? '>99%' : v > 0 && v < 0.005 ? '<1%' : `${Math.round(v * 100)}%`);
 const pulseOf = (env: Env, club: string, league = 'nhl') => rpc<Pulse>(env, 'fan_pulse', { p_club: club, p_league: league }).catch(() => null);
@@ -101,7 +104,7 @@ interface NhlRead { d: FanData; a: ReturnType<typeof assess>; out: Outlook | nul
 async function nhlRead(origin: string, env: Env, ctx: ExecutionContext, club: string): Promise<NhlRead | null> {
   const d = await hubData<FanData>(origin, env, ctx, { task: 'fan', abbrev: club });
   if (!d?.standing) return null;
-  return remember(`nhl:${club}:${d.at}`, () => ({ d, a: assess(d), out: outlook(d, 1500) }));
+  return remember(`nhl:${club}:${d.at}`, () => ({ d, a: assess(d), out: outlook(d, 3000) }));
 }
 const nhlRecord = (r: NhlRead | null) => (r?.d.standing ? `${r.d.standing.w}-${r.d.standing.l}-${r.d.standing.otl} · ${r.d.standing.pts} pts` : '');
 const nhlHist = (origin: string, env: Env, ctx: ExecutionContext, club: string) => hubData<FanHistory>(origin, env, ctx, { task: 'fan-history', abbrev: club });
@@ -146,12 +149,12 @@ export async function fansPage(rest: string, url: URL, env: Env, ctx: ExecutionC
   if (pg === 'pulse') {
     return page({
       title: `${name} fan pulse`,
-      description: p?.people ? `What ${p.people} fan${p.people === 1 ? '' : 's'} think${said ? `: ${said}` : ''}. Every call, the top ideas and questions, open to everyone.` : `What ${name} fans think: every call, the top ideas and questions, open to everyone. Be the first to have your say.`,
+      description: crowd(p) ? `What ${p!.people} fan${p!.people === 1 ? '' : 's'} think${said ? `: ${said}` : ''}. Every call, the top ideas and questions, open to everyone.` : `What ${name} fans think: every call, the top ideas and questions, open to everyone. Be the first to have your say.`,
       image: img(`${p?.people ?? 0}|${said ?? ''}`), url: url.href, go, color: theme.primary,
     });
   }
   if (club === 'NHL') {
-    return page({ title: 'NHL fan zones', description: `Every NHL club read like a front office: the playoff chances, the numbers, the crease and the moves. ${p?.people ? `${p.people} fan${p.people === 1 ? ' has' : 's have'} their say.` : 'Make your calls, post your ideas and vote.'}`,
+    return page({ title: 'NHL fan zones', description: `Every NHL club read like a front office: the playoff chances, the numbers, the crease and the moves. ${crowd(p) ? `${p!.people} fan${p!.people === 1 ? ' has' : 's have'} their say.` : 'Make your calls, post your ideas and vote.'}`,
       image: img(`${p?.people ?? 0}`), url: url.href, go, color: theme.primary });
   }
   // the page's own numbers, for the words and the picture
@@ -179,7 +182,7 @@ export async function fansPage(rest: string, url: URL, env: Env, ctx: ExecutionC
   }
   return page({
     title: `${name} fan zone`,
-    description: `${r?.a ? `Grade ${r.a.grade}, ${rec}${r.out ? `, ${pct(r.out.playoffs)} to make the playoffs` : ''}. ` : ''}The ${name}, read like a front office: the playoff chances, the numbers, the crease and the moves. ${p?.people ? `${p.people} fan${p.people === 1 ? ' has' : 's have'} their say${said ? `: ${said}` : ''}.` : 'Make your calls, post your ideas and vote.'}`,
+    description: `${r?.a ? `Grade ${r.a.grade}, ${rec}${r.out ? `, ${pct(r.out.playoffs)} to make the playoffs` : ''}. ` : ''}The ${name}, read like a front office: the playoff chances, the numbers, the crease and the moves. ${crowd(p) ? `${p!.people} fan${p!.people === 1 ? ' has' : 's have'} their say${said ? `: ${said}` : ''}.` : 'Make your calls, post your ideas and vote.'}`,
     image: img(`${rec}|${r?.a?.grade ?? ''}|${r?.out ? r.out.playoffs.toFixed(3) : ''}|${p?.people ?? 0}|${said ?? ''}`), url: url.href, go, color: theme.primary,
   });
 }
@@ -385,7 +388,7 @@ interface SportLeagueRead { l: SportLeague; tb: ReturnType<typeof table>; out: R
 async function sportLeagueRead(origin: string, env: Env, ctx: ExecutionContext, league: string): Promise<SportLeagueRead | null> {
   const l = await hubData<SportLeague>(origin, env, ctx, { task: 'fan-sport-league', league });
   if (!l?.clubs?.length) return null;
-  return remember(`sport:${league}:${l.at}`, () => ({ l, tb: table(l), out: sportOutlook(l, 1200) }));
+  return remember(`sport:${league}:${l.at}`, () => ({ l, tb: table(l), out: sportOutlook(l, l.sport === 'basketball' ? 2000 : 3000) }));
 }
 const sportHist = (origin: string, env: Env, ctx: ExecutionContext, league: string) => hubData<SportHistory>(origin, env, ctx, { task: 'fan-sport-history', league });
 const recordOf = (sport: string, r: SportLeague['clubs'][number]) => (sport === 'soccer' ? `${r.pts ?? 0} pts · ${rankWord(r.seed ?? 0)}` : `${r.w}-${r.l}${r.d ? `-${r.d}` : ''}`);
@@ -425,7 +428,7 @@ async function sportPage(sp: SportPlace, url: URL, env: Env, ctx: ExecutionConte
   if (sp.page === 'pulse') {
     return page({
       title: `${sp.club ? name : sp.league.name} fan pulse`,
-      description: p?.people ? `What ${p.people} fan${p.people === 1 ? '' : 's'} think${said ? `: ${said}` : ''}. Every call, the top ideas and questions, open to everyone.` : `What the fans think: every call, the top ideas and questions, open to everyone. Be the first to have your say.`,
+      description: crowd(p) ? `What ${p!.people} fan${p!.people === 1 ? '' : 's'} think${said ? `: ${said}` : ''}. Every call, the top ideas and questions, open to everyone.` : `What the fans think: every call, the top ideas and questions, open to everyone. Be the first to have your say.`,
       image: img(`${p?.people ?? 0}|${said ?? ''}`), url: url.href, go, color: theme.primary,
     });
   }
@@ -460,7 +463,7 @@ async function sportPage(sp: SportPlace, url: URL, env: Env, ctx: ExecutionConte
   }
   return page({
     title: `${name} fan zone`,
-    description: `${a ? `Grade ${a.grade}, ${rec}${ch ? (soccer ? `, ${pct(ch.top4)} top four` : `, ${pct(ch.playoffs)} to make the playoffs`) : ''}. ` : ''}The ${name}, read like a front office: the chances, the numbers, the players and the moves. ${p?.people ? `${p.people} fan${p.people === 1 ? ' has' : 's have'} their say${said ? `: ${said}` : ''}.` : 'Make your calls, post your ideas and vote.'}`,
+    description: `${a ? `Grade ${a.grade}, ${rec}${ch ? (soccer ? `, ${pct(ch.top4)} top four` : `, ${pct(ch.playoffs)} to make the playoffs`) : ''}. ` : ''}The ${name}, read like a front office: the chances, the numbers, the players and the moves. ${crowd(p) ? `${p!.people} fan${p!.people === 1 ? ' has' : 's have'} their say${said ? `: ${said}` : ''}.` : 'Make your calls, post your ideas and vote.'}`,
     image: img(`${rec}|${a?.grade ?? ''}|${ch ? (soccer ? ch.top4 : ch.playoffs).toFixed(3) : ''}|${p?.people ?? 0}|${said ?? ''}`), url: url.href, go, color: theme.primary,
   });
 }

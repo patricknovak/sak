@@ -83,6 +83,7 @@ export default function Start() {
                 <label className="block"><span className="label text-white/70">Anything we should know</span>
                   <textarea className="input mt-1 min-h-20 text-sm" maxLength={1000} value={f.note} onChange={(e) => setF({ ...f, note: e.target.value })} placeholder="Keepers, how many seasons you’ve run, when you draft…" /></label>
                 <button className="btn-gold w-full py-3 text-base" disabled={busy || !ok}>{busy ? <Spinner /> : '✨ Ask for my league'}</button>
+                <p className="text-center text-[11px] leading-snug text-white/50">We use your name and email only to set up your league and write back. <a href="#/privacy" className="underline">Privacy</a> · <a href="#/terms" className="underline">Terms</a></p>
               </div>
             </form>
             {err && <div className="mt-4 rounded-xl border border-red-400/30 bg-red-900/50 px-4 py-3 text-center text-sm text-red-200">{err}</div>}

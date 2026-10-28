@@ -211,6 +211,18 @@ function App() {
   );
 }
 
+// a page's code that fails to download (a new deploy replaced it, or the connection dropped) reloads the app once
+// rather than leaving a blank screen; a second failure inside a minute shows the error as before (28 October 2026)
+window.addEventListener('vite:preloadError', (e) => {
+  try {
+    const last = Number(sessionStorage.getItem('sp-chunk-reload') ?? 0);
+    if (Date.now() - last < 60_000) return;
+    sessionStorage.setItem('sp-chunk-reload', String(Date.now()));
+  } catch { /* no storage: reload anyway, once per page load */ }
+  e.preventDefault();
+  window.location.reload();
+});
+
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
     <HashRouter>

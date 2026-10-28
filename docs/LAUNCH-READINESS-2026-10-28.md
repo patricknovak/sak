@@ -34,6 +34,12 @@ its ranked list where they overlap.
 | Live rooms | At most 25 sockets waiting to say hello; a renewed token claiming more than two hours is refused |
 | Game-day run failing on ESPN | The injury refresh failing no longer fails the probable goalies and scratches |
 | "Add SAK to your Home Screen" | The iPhone push hint names the product |
+| Share pictures out of date | The landing's `og.png` said "private beta" and "side bets"; it now names what Super Pools is, and every landing card draws the mark's ticks (a gradient on a straight line drew nothing) |
+| Page and preview disagreeing | A fan zone's link preview runs the same 3,000 seasons as the page, so both say the same chances |
+| "1 fan has their say" | A link's text counts the fans only from ten up; the pictures and the pulse still count every one |
+| Start your league without a privacy line | The form says what the name and email are for, with Privacy and Terms |
+| A blank page when code fails to load | The app reloads once (a new deploy or a dropped connection) instead of showing nothing |
+| Footer "NHL fan zones" | "Fan zones": they cover four leagues |
 | No robots.txt or sitemap on the app | The Worker serves both: the fan zones (every club, every page, every league) for search engines, pools, invites and the API kept out; every superpoolsai.com address points at the app's |
 
 ## 3. For Patrick
@@ -49,11 +55,10 @@ its ranked list where they overlap.
    legal name behind Super Pools and the governing law, and whether a lawyer reads it before strangers arrive.
 3. **Check hello@superpoolsai.com reaches you.** The privacy note and the terms promise deletion and answers there; mail
    for superpoolsai.com goes through Cloudflare Email Routing. Send it a test from an outside address.
-4. **Decide on unconfirmed emails** (security review H1). Starting a pool or joining from an invite makes an account for
-   any email typed, confirmed on the spot. Someone could take another person's address first; the owner can still reset
-   the password (and now signs the squatter out), but person invites sent to that address land with the squatter until
-   then. Options: keep it (fastest door, small risk), or send a 6-digit code to the address before the account is made
-   (one more step for every stranger). Recommendation: the code, before any paid marketing.
+4. **Decide whether a new email is confirmed by a code** before its account is made (starting a pool, joining from an
+   invite). Today an address is taken at its word, which keeps the door one step shorter; a 6-digit code makes the address
+   provably the person's. The trade-off and the recommendation are in the session's report; recommended before any paid
+   marketing.
 5. **Archive the test pools and the shadow league** (status to archived, no data deleted): `sak-shadow` (league 2; the
    gate passed 11 October, it syncs every minute and its voice still posts), and the QA and TEST pools (leagues 9 to 13).
    Together they are a fifth of the voice's bill and show in the platform's counts. Say yes and it is one statement.
@@ -64,14 +69,13 @@ its ranked list where they overlap.
    Small (Settings → Compute) before sending traffic; switch Auth's connection strategy to a percentage at the same time.
 7. **Point-in-time recovery** (Settings → Add-ons): today a bad night loses up to a day. Worth it once strangers' pools
    hold weeks of calls.
-8. **Bot check on the open doors.** Name-only joins (300 a day in all), fan joins (1,000), the Start your league form
-   and the waitlist can be filled by a script. A Cloudflare Turnstile site key (free) lets them ask for a check; create
-   one for `app.superpoolsai.com` and `superpoolsai.com` and the wiring is a small change.
+8. **Bot check on the open doors** (name-only joins, fan joins, the Start your league form, the waitlist): a Cloudflare
+   Turnstile site key (free) for `app.superpoolsai.com` and `superpoolsai.com`, and the wiring is a small change.
 9. **Uptime alerts** from outside: a Cloudflare health check or UptimeRobot on `app.superpoolsai.com`,
    `superpoolsai.com` and nhl-hub, alerting your phone. The health check inside only bells you in the app.
 10. **Email reputation.** DMARC is `p=none`; once its reports show only Resend and Cloudflare, move it to
     `p=quarantine`. A CAA record (letsencrypt.org, pki.goog) is a nice extra.
-11. **Mission Control's passcode**: make it long and random (it is checked by an open function with no throttle).
+11. **Mission Control's passcode**: make it long and random.
 
 ### Housekeeping
 
@@ -82,6 +86,8 @@ its ranked list where they overlap.
 14. **Database SSL enforcement** (Settings → Database) and a minimum password length of 8 (Auth → Providers → Email):
     both optional, both safe.
 15. **`rosters_2526_backup`**: drop it once you're sure (destroys the copy; your yes).
+16. **The repository is public** (MIT since 25 October): the plan documents in `docs/` are public with it. No secrets are
+    in it (checked); if the plans should be private, move `docs/` to a private repository.
 
 ## 4. Left for later (not blocking)
 
