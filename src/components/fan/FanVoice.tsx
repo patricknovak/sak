@@ -130,7 +130,7 @@ function FanSignIn({ open, why, club, dir, onClose, onDone }: { open: boolean; w
         <button type="button" onClick={() => { setMode(mode === 'name' ? 'email' : 'name'); setErr(''); }} className="w-full text-center text-sm font-semibold text-sky-300">
           {mode === 'name' ? 'Have a Super Pools account? Sign in with your email' : 'No account? Just use a name'}
         </button>
-        <p className="text-[11px] leading-snug text-mute">No email needed: you stay signed in on this phone, and you can add an email any time to keep your name everywhere. Posts are public under your first name and initial; votes and calls only ever count in the totals. <a href="#/privacy" className="underline">Privacy</a></p>
+        <p className="text-[11px] leading-snug text-mute">No email needed: you stay signed in on this phone, and you can add an email any time to keep your name everywhere. Posts are public under your first name and initial; votes and calls only ever count in the totals. <a href="#/privacy" className="underline">Privacy</a> · <a href="#/terms" className="underline">Terms</a></p>
       </div>
     </Sheet>
   );

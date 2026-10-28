@@ -58,6 +58,7 @@ const out = (r: Response, how: string) => new Response(r.body, { headers: {
 // without the header a canvas needs to use them, so the Worker fetches the picture and sends it on with one; only the
 // leagues' own picture hosts are allowed, and a copy is kept at the edge for a day.
 const IMG_HOSTS = ['assets.nhle.com', 'a.espncdn.com'];
+const IMG_MAX = 2_000_000;
 export async function img(req: Request, ctx: ExecutionContext): Promise<Response> {
   const u = new URL(req.url).searchParams.get('u') ?? '';
   let target: URL;
@@ -66,11 +67,17 @@ export async function img(req: Request, ctx: ExecutionContext): Promise<Response
   const key = new Request(`${new URL(req.url).origin}/api/img?u=${encodeURIComponent(target.href)}`, { method: 'GET' });
   const hit = await caches.default.match(key);
   if (hit) return hit;
-  const r = await fetch(target.href, { cf: { cacheTtl: 86400, cacheEverything: true } } as RequestInit);
+  // never follow a redirect off the allowed hosts, and nothing bigger than a logo needs to be
+  const r = await fetch(target.href, { redirect: 'manual', cf: { cacheTtl: 86400, cacheEverything: true } } as RequestInit);
   if (!r.ok) return new Response('not found', { status: 404 });
   const type = r.headers.get('content-type') ?? (target.pathname.endsWith('.svg') ? 'image/svg+xml' : 'image/png');
   if (!/^image\//.test(type)) return new Response('not an image', { status: 415 });
-  const res = new Response(await r.arrayBuffer(), { headers: { 'content-type': type, 'cache-control': 'public, max-age=86400', 'access-control-allow-origin': '*' } });
+  if (Number(r.headers.get('content-length') ?? 0) > IMG_MAX) return new Response('too large', { status: 413 });
+  const body = await r.arrayBuffer();
+  if (body.byteLength > IMG_MAX) return new Response('too large', { status: 413 });
+  // an SVG opened on its own runs in a sandbox with nothing allowed: it is a picture, never a page
+  const res = new Response(body, { headers: { 'content-type': type, 'cache-control': 'public, max-age=86400', 'access-control-allow-origin': '*',
+    'content-security-policy': "default-src 'none'; style-src 'unsafe-inline'; sandbox", 'x-content-type-options': 'nosniff' } });
   ctx.waitUntil(caches.default.put(key, res.clone()));
   return res;
 }

@@ -14,15 +14,17 @@ import {
 // the code changes, this page changes in the same pull request.
 const SECTIONS: { title: string; body: string[] }[] = [
   { title: 'What we keep', body: [
-    'Your name as you gave it, your email address and a password we never see (it is stored hashed by Supabase, which runs our database). The pools and leagues you are in, your team in each, and what you do there: the calls and picks you make, your lineups, your trades, your messages in the pool\'s chat, and the coins you hold. Coins are the pool\'s score, never money.',
+    'Your name as you gave it, your email address and a password we never see (it is stored hashed by Supabase, which runs our database). The pools and leagues you are in, your team in each, and what you do there: the calls and picks you make, your lineups, your trades, your messages and photos in the pool\'s chat, and the coins you hold. Coins are the pool\'s score, never money: they can\'t be bought, sold or cashed out.',
+    'If you join a pool with just your name, we make you an account on a placeholder address that lives on the phone you joined on. Add an email and a password from the pool (Keep your place) and it becomes an ordinary account with the same seat and picks; until then, clearing that phone\'s browser loses the seat.',
     'Your phone\'s push subscription if you turn alerts on, so the pool can tell you when a question is closing or your player scored. Turn them off in your profile and the subscription is deleted.',
   ] },
   { title: 'Who sees it', body: [
-    'The people in your pool see your name, your team, your calls and your messages, the way a group chat does. Nobody outside the pool does. We never sell or rent what we keep. There are no ads in Super Pools. We do advertise Super Pools elsewhere, and if you accept Ads measurement, we measure which of those ads led to a sign-up.',
+    'The people in your pool see your name, your team, your calls, your messages and the photos you post, the way a group chat does. Nobody outside the pool does, with one exception you choose: a post you make in a lounge (the chat for a whole league or show, shared by every pool that follows it) is seen by the members of those pools, under your first name and initial. We never sell or rent what we keep. There are no ads in Super Pools. We do advertise Super Pools elsewhere, and if you accept Ads measurement, we measure which of those ads led to a sign-up.',
+    'Photos you post in a chat are stored privately and shown only to people who can see the message they are in.',
     'The host of a pool can see who has joined and what they have called, and can settle questions and delete the pool. Deleting a pool deletes everything in it.',
   ] },
-  { title: 'The NHL fan zones', body: [
-    'The fan zones are open to everyone. Joining in takes only a name: your account then lives on the phone you joined on until you add an email. What you post on a club\'s board or knowledge base is public, under your first name and initial, never more, and is part of the fans\' open data. Your calls and votes are never shown one by one, only in the totals. Who wrote, voted or called what is kept apart from the public posts.',
+  { title: 'The fan zones', body: [
+    'The fan zones (every club in the NHL, the NFL, the NBA and the Premier League) are open to everyone. Joining in takes only a name: your account then lives on the phone you joined on until you add an email. What you post on a club\'s board or knowledge base is public, under your first name and initial, never more, and is part of the fans\' open data. Your calls and votes are never shown one by one, only in the totals. Who wrote, voted or called what is kept apart from the public posts.',
     'You can take your own posts down at any time. A post reported by other fans goes to the fan zones\' editors, and three reports take it down; a copy is kept for the editors.',
   ] },
   { title: 'Analytics', body: [
@@ -33,10 +35,10 @@ const SECTIONS: { title: string; body: string[] }[] = [
     'If you accept Ads measurement, we load Google\'s Ads tag and send a scrambled one-way code made from your email (never the email itself) so Google Ads can tell whether your sign-up came from one of our ads. We don\'t use it to show you ads or to personalize anything. Choosing No thanks turns it off. Your Analytics and Ads choices are stored in your browser and in a cookie on superpoolsai.com so the marketing site and the app remember the same answer. You can change your mind from the banner or the Ads control on this page. Analytics and Ads are separate choices: you can accept one and refuse the other.',
   ] },
   { title: 'Email and the voice', body: [
-    'We send email only to sign you in or reset your password, from no-reply@superpoolsai.com through Resend. We do not send newsletters. The pool\'s voice (the commentary in the chat) is written by a language model from the pool\'s own numbers; a message you send it goes to that model to be answered, with the pool\'s board, and nothing else about you.',
+    'We send email only to sign you in or reset your password, from no-reply@superpoolsai.com through Resend. We do not send newsletters. The pool\'s voice (the commentary in the chat) is written by a language model (Grok, from xAI) from the pool\'s own numbers; a message you send it goes to that model to be answered, with the pool\'s board, and nothing else about you.',
   ] },
   { title: 'Where it lives', body: [
-    'The database runs on Supabase and the site on Cloudflare. Scores and schedules come from the leagues\' own public feeds. Nothing about you goes to a league or a sports site.',
+    'The database runs on Supabase, in the United States, and the site on Cloudflare. Scores and schedules come from the leagues\' own public feeds. Nothing about you goes to a league or a sports site.',
   ] },
   { title: 'Your choices', body: [
     'To leave a pool, or to delete your account and everything we keep about you, write to hello@superpoolsai.com from the address you signed up with and it is done within a week. Questions go to the same address.',
@@ -114,7 +116,7 @@ export default function Privacy() {
             </section>
           ))}
         </div>
-        <p className="mt-8 text-center text-xs text-mute">Last changed 18 October 2026. © 2026 {PRODUCT.name} · <a className="text-sky-300" href="#/">Back to the app</a></p>
+        <p className="mt-8 text-center text-xs text-mute">Last changed 28 October 2026. <a className="text-sky-300" href="#/terms">Terms of use</a> · © 2026 {PRODUCT.name} · <a className="text-sky-300" href="#/">Back to the app</a></p>
       </div>
     </div>
   );

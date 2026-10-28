@@ -1589,6 +1589,11 @@ set role authenticated;
 select pg_temp.expect('another GM opens a photo from the main room', _chat_photo_visible('1/2/room.webp'));
 select pg_temp.expect('but not one sent in a DM between two others', not _chat_photo_visible('1/2/dm.webp'));
 reset role;
+insert into messages (channel, team_id, kind, body, meta) values ('general', 2, 'user', '📷 Photo', '{"image": {"path": "2/9/elsewhere.webp", "w": 4, "h": 3}}');
+select pg_temp.as_team(4);
+set role authenticated;
+select pg_temp.expect('a message here naming another league''s photo opens nothing (migration 339)', not _chat_photo_visible('2/9/elsewhere.webp'));
+reset role;
 select pg_temp.as_team(3);
 set role authenticated;
 select pg_temp.expect('the DM''s other end opens it', _chat_photo_visible('1/2/dm.webp'));
@@ -7692,7 +7697,11 @@ select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-000000000003
 set role authenticated;
 select pg_temp.expect('a second report', fan_report(current_setting('t.fp')::bigint) = 'reported');
 select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-000000000004', false);
-select pg_temp.expect('the third takes it down', fan_report(current_setting('t.fp')::bigint) = 'removed');
+-- the first report came from a name-only fan made today: kept for the editors, but it doesn't count toward a take-down
+-- (migration 339), so the third report is the second that counts
+select pg_temp.expect('a new name-only fan''s report doesn''t count toward a take-down', fan_report(current_setting('t.fp')::bigint) = 'reported');
+select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-000000000005', false);
+select pg_temp.expect('the third established report takes it down', fan_report(current_setting('t.fp')::bigint) = 'removed');
 select pg_temp.expect('it is off the board', not exists (select 1 from jsonb_array_elements(fan_board('EDM')) e where (e->>'id')::bigint = current_setting('t.fp')::bigint));
 reset role;
 select pg_temp.expect('a copy is kept, with its writer', exists (select 1 from private.fan_removed where id = current_setting('t.fp')::bigint and why = 'reports'

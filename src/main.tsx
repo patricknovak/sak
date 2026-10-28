@@ -39,6 +39,7 @@ const Platform = lazy(() => import('./pages/Platform'));
 const Start = lazy(() => import('./pages/Start'));
 const NewPool = lazy(() => import('./pages/NewPool'));
 const Privacy = lazy(() => import('./pages/Privacy'));
+const Terms = lazy(() => import('./pages/Terms'));
 const Survivor = lazy(() => import('./pages/Survivor'));
 const Predictor = lazy(() => import('./pages/Predictor'));
 const Picks = lazy(() => import('./pages/Picks'));
@@ -123,6 +124,8 @@ function App() {
   if (pathname === '/new') return <Suspense fallback={null}><NewPool /></Suspense>;
   // and the privacy note (what we keep, who sees it), linked from the consent banner and the landing page
   if (pathname === '/privacy') return <Suspense fallback={null}><Privacy /></Suspense>;
+  // and the terms of use beside it (28 October 2026)
+  if (pathname === '/terms') return <Suspense fallback={null}><Terms /></Suspense>;
   // the fan zones are open to everyone (25 October 2026): signed out, or signed in with no league (a fan's own account),
   // they open in their own frame; a member of a league reads them in the league's layout below
   if (/^\/fans(\/|$)/.test(pathname) && (!session || !me)) return <Suspense fallback={<Loading />}><PublicFans /></Suspense>;
@@ -207,6 +210,18 @@ function App() {
     </Layout>
   );
 }
+
+// a page's code that fails to download (a new deploy replaced it, or the connection dropped) reloads the app once
+// rather than leaving a blank screen; a second failure inside a minute shows the error as before (28 October 2026)
+window.addEventListener('vite:preloadError', (e) => {
+  try {
+    const last = Number(sessionStorage.getItem('sp-chunk-reload') ?? 0);
+    if (Date.now() - last < 60_000) return;
+    sessionStorage.setItem('sp-chunk-reload', String(Date.now()));
+  } catch { /* no storage: reload anyway, once per page load */ }
+  e.preventDefault();
+  window.location.reload();
+});
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>

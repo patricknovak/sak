@@ -651,6 +651,7 @@ export default function NewPool() {
                 <input id="np-name" className="input w-full" autoComplete="name" value={name} onChange={(e) => setName(e.target.value)} placeholder="Your name, as friends know you" maxLength={40} />
                 <input id="np-email" className="input w-full" type="email" inputMode="email" autoComplete="username" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="you@example.com" />
                 <input id="np-pw" className="input w-full" type="password" autoComplete="new-password" value={pw} onChange={(e) => setPw(e.target.value)} placeholder="A password, 6+ characters" />
+                <p className="text-[11px] leading-snug text-white/50">Starting a pool means you agree to the <a href="#/terms" className="underline">Terms</a> and have read the <a href="#/privacy" className="underline">Privacy</a>.</p>
               </div>
             )}
             </div>
