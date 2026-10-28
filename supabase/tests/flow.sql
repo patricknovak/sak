@@ -7990,13 +7990,13 @@ select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-000000000081
 set role authenticated;
 select pool_game_start('series', 'er-live', '{"from_round":1,"preset":"classic"}') as erg \gset
 select pool_game_pick(:erg, 's:' || :er_open, jsonb_build_object('winner', :er_open_high, 'games', 5));
-select pg_temp.expect('a pick on the unstarted series of a part-way round goes in (migration 346)',
-  exists (select 1 from pool_picks where game_id = :erg and thing = 's:' || :er_open));
 select pg_temp.raises('a pick on the series already under way is locked (migration 346)',
   format('select pool_game_pick(%s, %L, %L)', :erg, 's:' || :er_started, jsonb_build_object('winner', (select high_club from series where id = :er_started), 'games', 5)),
   'That series has started; picks are locked');
 reset role;
 select set_config('request.jwt.claim.sub', '', false);
+select pg_temp.expect('a pick on the unstarted series of a part-way round goes in (migration 346)',
+  exists (select 1 from pool_picks where game_id = :erg and thing = 's:' || :er_open));
 select pg_temp.raises('a ranking refuses a round under way (migration 346)',
   $$select _pool_game_rules('rank', 'er-live', '{"from_round":1}')$$,
   'That round is under way; a ranking has to start before its first game');
