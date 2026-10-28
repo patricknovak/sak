@@ -1,10 +1,15 @@
--- Record which invite a membership arrived through (28 October 2026). league_invites.uses is only a counter, so
--- "did people join through an invite" could not be recovered after the fact, and it did not depend on GA4 consent.
--- invited_via stays null for every existing row and for anyone who did not come through _accept_invite (the host who
--- opened the pool never does). The stamp sits after all three seat branches so the teams_sync_member trigger has
--- already written league_members.
+-- Record which invite a membership arrived through, as an md5 of the code (28 October 2026).
+-- league_invites.uses is only a counter, so "did people join through an invite" could not be recovered after the
+-- fact, and it did not depend on GA4 consent. Existing rows and anyone who did not come through _accept_invite
+-- (the host who opened the pool never does) stay null. The stamp sits after all three seat branches so the
+-- teams_sync_member trigger has already written league_members.
 
-alter table public.league_members add column if not exists invited_via text;
+-- Hashed, not the raw code: league_members is readable by every member of the league (read_mine_or_league),
+-- while league_invites is commish-only, so the raw code would hand a member a credential they cannot see today.
+-- An md5 keeps an invite's memberships countable (service_role joins on md5(i.code) = m.invited_via_hash)
+-- without storing the code itself. md5 is deliberate and not a password hash: the value is a correlation key
+-- for a 48-bit code, and it must stay cheap to compute in a join.
+alter table public.league_members add column if not exists invited_via_hash text;
 
 create or replace function public._accept_invite(p_user uuid, p_code text, p_name text default null) returns int
 language plpgsql security definer set search_path = public as $$
@@ -47,7 +52,7 @@ begin
             '#64748b', '🍿', 'spectator', (select season from league_rules where league_id = inv.league_id), false, '{}')
     returning id into tid;
   end if;
-  update public.league_members set invited_via = inv.code
+  update public.league_members set invited_via_hash = md5(inv.code)
    where user_id = p_user and league_id = inv.league_id;
   update league_invites set uses = uses + 1 where code = inv.code;
   insert into accounts (user_id, active_league_id) values (p_user, inv.league_id)
