@@ -19,9 +19,9 @@ for (const name of pages) {
   assert.doesNotMatch(html, banned, `${name}: no odds/bet/cash-out/pay-out`);
   assert.doesNotMatch(html, betWord, `${name}: no bet/bets`);
   assert.doesNotMatch(html, sideBet, `${name}: no side-bet`);
-  if (name === 'love-is-blind.html') {
-    assert.match(html, /Goblets/, 'LIB uses Goblets');
-    assert.doesNotMatch(html, /Supercoins/, 'LIB page does not say Supercoins');
+  if (name === 'love-is-blind.html' || name === 'example-pool.html') {
+    assert.match(html, /Goblets/, `${name} uses Goblets`);
+    assert.doesNotMatch(html, /Supercoins/, `${name} does not say Supercoins`);
   } else if (!name.includes('together')) {
     assert.doesNotMatch(html, /Goblets/, `${name}: Goblets only on LIB (and together's LIB cards)`);
   }
