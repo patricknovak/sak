@@ -291,9 +291,8 @@ function CreateConfirmCard() {
   const inputRef = useRef<HTMLInputElement>(null);
   const poolName = league?.name ?? 'Super Pools';
   const coin = brand.coin.name.toLowerCase();
-  const ask = link
-    ? `Join my ${poolName} pool on Super Pools. Pick a name and you're in. ${link}`
-    : `Join my ${poolName} pool on Super Pools. Pick a name and you're in.`;
+  const pitch = `Join my ${poolName} pool on Super Pools. Pick a name and you're in.`;
+  const ask = link ? `${pitch} ${link}` : pitch;
 
   useEffect(() => {
     let cancelled = false;
@@ -334,7 +333,7 @@ function CreateConfirmCard() {
           type="button"
           className="btn-gold inline-flex items-center gap-2"
           disabled={!link}
-          onClick={() => { if (link) setJob({ title: poolName, text: ask, url: link }); }}
+          onClick={() => { if (link) setJob({ title: poolName, text: pitch, url: link }); }}
         >
           <Link2 className="h-4 w-4" /> Send it
         </button>
