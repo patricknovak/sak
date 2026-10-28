@@ -24,7 +24,13 @@ for (const name of pages) {
     assert.doesNotMatch(html, /Supercoins/, `${name} does not say Supercoins`);
     if (name === 'love-is-blind.html') {
       assert.doesNotMatch(html, /Sixteen (questions|calls)/, 'no hardcoded sixteen on the LIB page');
-      assert.doesNotMatch(html, /\bclose[sd]?\b[^\n<]{0,40}\b(?:January|February|March|April|May|June|July|August|September|October|November|December)\s+\d/, 'question card labels carry a bare date, no tense that goes stale');
+      const monthNames = 'January|February|March|April|May|June|July|August|September|October|November|December';
+      const tenseWithDate = new RegExp(`\\bclose[sd]?\\b[^\\n<]{0,40}\\b(?:${monthNames})\\s+\\d`, 'i');
+      const cardLabels = [...html.matchAll(/<div class="eyebrow r" style="margin-bottom:10px">([^<]*)<\/div>/g)].map((m) => m[1]);
+      assert.equal(cardLabels.length, 4, 'four question cards on the LIB page');
+      for (const label of cardLabels) {
+        assert.doesNotMatch(label, tenseWithDate, `question card label carries a bare date, no tense that goes stale: ${label}`);
+      }
     }
   } else if (!name.includes('together')) {
     assert.doesNotMatch(html, /Goblets/, `${name}: Goblets only on LIB (and together's LIB cards)`);
