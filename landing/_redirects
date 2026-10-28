@@ -3,3 +3,6 @@
 /terms    https://app.superpoolsai.com/#/privacy  302
 # The NHL fan zones live in the app; /fans itself is fans.html here
 /fans/*   https://app.superpoolsai.com/fans/:splat  302
+# World Series marketing page is unserved until a feed is licensed; keep old links off a dead end
+/world-series-pools        https://superpoolsai.com/  302
+/world-series-pools.html   https://superpoolsai.com/  302
