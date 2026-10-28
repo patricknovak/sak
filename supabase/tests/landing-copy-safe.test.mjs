@@ -35,6 +35,8 @@ for (const name of pages) {
     const tableNote = html.indexOf('Four made-up players');
     assert.notEqual(tableNote, -1, 'Table section labels the made-up players');
     assert.ok(tableNote < html.indexOf('<table class="standings"'), 'Table label appears before the standings table');
+    assert.match(html, /A pool you start today opens with the questions still to settle\. This page shows the whole season so you can see the shape of it\./);
+    assert.match(html, /<!--[\s\S]*\bdrained\b[\s\S]*-->/, 'snapshot comment notes the pack is drained');
   }
 }
 
