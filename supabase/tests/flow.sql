@@ -3595,7 +3595,35 @@ select pg_temp.expect('the invitation seats her as a GM, not a spectator', (sele
 select pg_temp.expect('with the opening coins on the ledger and in her balance', exists (select 1 from coin_ledger where team_id = :hana5 and amount = 1000 and reason like 'Opening balance: 1,000%')
   and (select balance from coin_balances where team_id = :hana5)
      = 1000 + coalesce((select sum(amount) from pool_drops where league_id = :fifth and at <= now()), 0));
--- :fifth has no open pool_games here (pack questions only; next games start later on :lib), so a real pick is not asserted
+-- and she can play it: a test-only event gives the pool one open series, so the invitee places a real pick with no
+-- dependence on the season. Nothing here is production data, and the rows go again before the next section.
+reset role;
+insert into competitions (id, sport, name, short, season, provider, ext_id, ext_season, active, format)
+values ('iv-test', 'mlb', 'Invite test', 'IV', '2026', 'iv', 'ivt', '2026', false, 'series') on conflict (id) do nothing;
+insert into clubs (sport, provider, ext_id, name) values ('mlb', 'iv', 'iv1', 'Invite Gulls'), ('mlb', 'iv', 'iv2', 'Invite Grebes');
+insert into series (sport, competition, provider, ext_id, round, label, best_of, high_club, low_club, high_wins, low_wins, winner, state, starts_at, tbd)
+select 'mlb', 'iv-test', 'iv', 'ivs1', 1, 'Invite series', 7, (select id from clubs where provider = 'iv' and ext_id = 'iv1'),
+  (select id from clubs where provider = 'iv' and ext_id = 'iv2'), 0, 0, null::bigint, 'scheduled', now() + interval '2 days', false;
+insert into pool_games (league_id, kind, competition, title, rules) values (:fifth, 'series', 'iv-test', 'Invite series', '{"from_round": 1}'::jsonb);
+select id as ivg from pool_games where league_id = :fifth and competition = 'iv-test' \gset
+select id as ivs from series where competition = 'iv-test' \gset
+select id as iv1 from clubs where provider = 'iv' and ext_id = 'iv1' \gset
+select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-000000000081', false);
+set role authenticated;
+select set_active_league(:fifth);
+select pool_game_pick(:ivg, 's:' || :ivs, jsonb_build_object('winner', :iv1, 'games', 6)) as ivpick \gset
+select pool_game_board(:ivg) as ivb \gset
+select pg_temp.expect('she is a player in her new pool: the pick goes in and shows on her board', (:'ivpick'::jsonb->>'games')::int = 6
+  and (:'ivb'::jsonb->>'me')::int = :hana5
+  and (:'ivb'::jsonb->'series'->0->'mine'->>'winner')::bigint = :iv1
+  and (:'ivb'::jsonb->'series'->0->>'picked')::int = 1);
+reset role;
+delete from pool_games where id = :ivg;
+delete from series where competition = 'iv-test';
+delete from clubs where provider = 'iv';
+delete from competitions where id = 'iv-test';
+select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-000000000081', false);
+set role authenticated;
 select decline_invite('not-a-code');
 -- a member who is not the host cannot post the pool as a join card in another chat (migration 327)
 select set_active_league(:fifth);
