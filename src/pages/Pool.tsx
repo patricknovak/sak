@@ -31,6 +31,7 @@ import { DeletePool } from '../components/DeletePool';
 import { KeepSeat } from '../components/KeepSeat';
 import { LeagueFeatures } from '../components/LeagueFeatures';
 import { usePoolCompetitions } from '../lib/poolOwn';
+import type { PoolEvent } from '../lib/poolGames';
 import { HostGames, PoolGameCards, usePoolGames } from './Picks';
 import { kindOf, lockLink, usePoolAhead, usePoolScoreboard } from '../lib/poolScoreboard';
 import { Lock } from 'lucide-react';
@@ -52,10 +53,12 @@ function SoccerRounds({ onAdded }: { onAdded: () => void }) {
   const { busy, run } = useAction();
   const load = () => rpc<SoccerRound[]>('soccer_rounds').then(setRows, () => setRows([]));
   useEffect(() => { load(); }, []);
-  // a pool that follows nothing yet sees every soccer competition, the way Add a game offers every event to choose; one
-  // that follows others sees only its own leagues
+  // the feed's list carries every league, the NFL's weeks too, so the desk keeps to soccer's competitions
+  const [soccer, setSoccer] = useState<Set<string>>(new Set());
+  useEffect(() => { rpc<PoolEvent[]>('pool_event_list').then((es) => setSoccer(new Set(es.filter((e) => e.sport === 'soccer').map((e) => e.competition))), () => {}); }, []);
+  // a pool's own soccer leagues; a pool that follows nothing yet sees them all, the way Add a game offers every event
   const own = usePoolCompetitions();
-  const list = !Array.isArray(own) ? [] : rows.filter((r) => !own.length || own.some((c) => c.id === r.competition && c.sport === 'soccer'));
+  const list = !Array.isArray(own) ? [] : rows.filter((r) => soccer.has(r.competition) && (!own.length || own.some((c) => c.id === r.competition)));
   if (!list.length) return null;
   return (
     <Section title="Matchweek questions">
