@@ -1,6 +1,6 @@
 // Marketing landing HTML must stay clear of gambling-review trigger words
-// (odds / bet / cash out). Currency: Goblets only on Love Is Blind pages;
-// Supercoins (or plain "coins" for counts) elsewhere.
+// (odds / bet / cash out). Currency: Goblets on the Love Is Blind pages and
+// the example pool; Supercoins (or plain "coins" for counts) elsewhere.
 import assert from 'node:assert/strict';
 import { readdirSync, readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
