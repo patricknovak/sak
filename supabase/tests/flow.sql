@@ -7860,6 +7860,10 @@ select pg_temp.expect('a fixture with no feed round names the gameweek, not the 
   (select rule like '%(Premier League, matchweek 10)%' and position('the season' in rule) = 0 from pool_markets where id = :m9004));
 select pg_temp.expect('another sport''s own word reaches the category, not a hard-coded Matchweek',
   (select category = 'NFL · Week 12' and rule like '%(NFL, week 12)%' from pool_markets where id = :mnfl));
+select pg_temp.expect('a matchweek market keeps its matchweek after the host adds it mid-flow',
+  (select count(*) from fixtures where ext_id = '9001') = 1
+  and (select m.category = 'EPL · Matchweek 8' from pool_markets m join fixtures f on f.id = (m.source->>'fixture')::bigint
+       where f.ext_id = '9001' limit 1));
 select 'sport words', true;
 
 -- ───────────── a postseason fixture names its series (migration 343) ─────────────
