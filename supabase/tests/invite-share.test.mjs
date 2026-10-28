@@ -110,6 +110,7 @@ function installDom({ hash = '#/', hostname = 'app.superpoolsai.com' } = {}) {
   assert.match(pool, /consumeShareAfterCreate\(\)/, 'Pool consumes the create flag');
   assert.match(pool, /src:\s*'create'/, 'create confirmation invite uses src=create');
   assert.match(pool, /invite_shared/, 'create confirmation tracks invite_shared on a real share tap');
+  assert.match(pool, /setJob\(\{ title: poolName, text: pitch, url: link \}\)/, 'share job text is pitch without a duplicated link');
   const analytics = readFileSync(join(root, 'src/lib/analytics.ts'), 'utf8');
   assert.match(analytics, /FunnelEvent[\s\S]*'invite_shared'/, 'invite_shared is in the FunnelEvent union');
   const sheet = readFileSync(join(root, 'src/components/ShareSheet.tsx'), 'utf8');
