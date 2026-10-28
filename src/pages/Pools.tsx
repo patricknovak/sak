@@ -74,7 +74,8 @@ function PoolCard({ p, now, onDelete }: { p: MyPool; now: number; onDelete: () =
   if (s.trade_offers) chips.push(<Chip key="tr" tone="gold" onClick={() => go('/trades')}>{s.trade_offers} trade {s.trade_offers === 1 ? 'offer' : 'offers'}</Chip>);
   if (s.closing) chips.push(<Chip key="cl" tone="rose" onClick={() => go('/questions')}>{s.closing} closing soon</Chip>);
   if (s.unread_chat) chips.push(<Chip key="ch" tone="ice" onClick={() => go('/chat')}>{s.unread_chat > 98 ? '99+' : s.unread_chat} new in chat</Chip>);
-  if (s.alerts) chips.push(<Chip key="al" tone="mute">{s.alerts} {s.alerts === 1 ? 'alert' : 'alerts'}</Chip>);
+  // Open the pool so its unread alerts land in that pool's bell (notifications RLS is the active league only).
+  if (s.alerts) chips.push(<Chip key="al" tone="mute" onClick={() => go()}>{s.alerts} {s.alerts === 1 ? 'alert' : 'alerts'}</Chip>);
   if (pool && drop != null && drop > 0) chips.push(<Chip key="dr" tone="mute">{coin} Coin drop in {countdown(drop)}</Chip>);
   return (
     <div role="button" tabIndex={0} onClick={() => go()} onKeyDown={(e) => { if (e.key === 'Enter') go(); }} className="group relative w-full cursor-pointer overflow-hidden rounded-3xl border border-white/[.08] p-4 text-left transition hover:border-white/20 active:scale-[.99]"
