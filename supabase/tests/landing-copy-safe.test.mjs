@@ -1,6 +1,6 @@
 // Marketing landing HTML must stay clear of gambling-review trigger words
-// (odds / bet / cash out). Currency: Goblets only on Love Is Blind pages;
-// Supercoins (or plain "coins" for counts) elsewhere.
+// (odds / bet / cash out). Currency: Goblets on the Love Is Blind pages and
+// the example pool; Supercoins (or plain "coins" for counts) elsewhere.
 import assert from 'node:assert/strict';
 import { readdirSync, readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
@@ -19,11 +19,19 @@ for (const name of pages) {
   assert.doesNotMatch(html, banned, `${name}: no odds/bet/cash-out/pay-out`);
   assert.doesNotMatch(html, betWord, `${name}: no bet/bets`);
   assert.doesNotMatch(html, sideBet, `${name}: no side-bet`);
-  if (name === 'love-is-blind.html') {
-    assert.match(html, /Goblets/, 'LIB uses Goblets');
-    assert.doesNotMatch(html, /Supercoins/, 'LIB page does not say Supercoins');
+  if (name === 'love-is-blind.html' || name === 'example-pool.html') {
+    assert.match(html, /Goblets/, `${name} uses Goblets`);
+    assert.doesNotMatch(html, /Supercoins/, `${name} does not say Supercoins`);
   } else if (!name.includes('together')) {
     assert.doesNotMatch(html, /Goblets/, `${name}: Goblets only on LIB (and together's LIB cards)`);
+  }
+  if (name === 'example-pool.html') {
+    assert.equal((html.match(/class="q-card"/g) || []).length, 16, 'all sixteen question cards are static HTML');
+    assert.doesNotMatch(html, /<script(?![^>]*src="\.\/site\.js")/i, 'no inline or extra scripts');
+    assert.match(html, /Every name and every number on this page is an illustration, not a live pool/);
+    assert.match(html, /Illustration only\. No live pool, no real players\./);
+    assert.match(html, /It is an illustration built to show the shape of a Love Is Blind pool/);
+    assert.match(html, /Every name, call and number on this page is an illustration, not a live pool\./);
   }
 }
 
