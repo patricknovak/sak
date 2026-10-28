@@ -116,7 +116,7 @@ continue alongside: the shadow-league gate runs to 10 October, Cloudflare hostin
    *Six days held (checked 9 October):* every day from 3 to 8 October matched team by team, no team off by a hundredth
    (3 October now reads 226.10 on both sides after a stat correction); 9 October closes the week. *The gate is met
    (checked 11 October):* every full day from 3 to 10 October matched for all eight teams, a difference of 0.00 each
-   day. The shadow league can be archived whenever Patrick says (its sync runs every minute until then).
+   day. The shadow league was archived on 28 October 2026 (migration 340) and its sync stopped (341).
 4. **The prediction log**, small and early (migration 87, built): `predictions`, written each morning for every
    rostered player playing that night (`predict_tonight`) and scored the next morning on the league's own points
    (`score_predictions`), with `prediction_accuracy` by week and `book_calibration` (the Book's odds against what
@@ -1411,4 +1411,9 @@ stopping until done and then tell me all the items that I need to do." The recor
 - **Patrick's** (the readiness doc, section 3): the Auth site address, redirect list and reset email; the terms' age,
   legal name and law; the hello@ inbox; whether a new email is confirmed by a code; archiving the shadow league and the
   test pools; compute, point-in-time recovery, a bot check, uptime alerts and DMARC before a marketing push.
+- **Then, on Patrick's "Apply migrations and continue"**: migration 340 archives the shadow league (the gate it served was
+  met 11 October) and the QA and TEST pools, keeping their data, teaches `shadow_sync` to leave an archived shadow alone,
+  and brings the Costs page's fixed bills up to date (Vercel ended 4 October, Cloudflare Workers Paid from 11 October);
+  migration 341 unschedules the shadow's every-minute job. A pool's daily cap per account was already there (`_pool_open`:
+  five a day, 25 in all).
 

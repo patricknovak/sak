@@ -59,9 +59,9 @@ its ranked list where they overlap.
    invite). Today an address is taken at its word, which keeps the door one step shorter; a 6-digit code makes the address
    provably the person's. The trade-off and the recommendation are in the session's report; recommended before any paid
    marketing.
-5. **Archive the test pools and the shadow league** (status to archived, no data deleted): `sak-shadow` (league 2; the
-   gate passed 11 October, it syncs every minute and its voice still posts), and the QA and TEST pools (leagues 9 to 13).
-   Together they are a fifth of the voice's bill and show in the platform's counts. Say yes and it is one statement.
+5. ~~Archive the test pools and the shadow league~~ *Done (migrations 340 and 341, on Patrick's "Apply migrations and
+   continue"):* `sak-shadow` and the QA and TEST pools (leagues 9 to 13) are archived with their data kept, and the
+   shadow's every-minute sync is unscheduled.
 
 ### Before a marketing push
 
@@ -79,8 +79,8 @@ its ranked list where they overlap.
 
 ### Housekeeping
 
-12. **Costs page fixed bills**: Vercel's $5 a month still counts (the landing left Vercel on 4 October); Cloudflare
-    Workers Paid ($5 a month since 11 October) is missing.
+12. ~~Costs page fixed bills~~ *Done (migration 340):* Vercel ends 4 October; Cloudflare Workers Paid ($5 a month from
+    11 October) is on the list.
 13. **Retire the GitHub Pages copy** once a SaK GM confirms push alerts and the installed app on `sak.superpoolsai.com`
     (EXPANSION B5 step 3).
 14. **Database SSL enforcement** (Settings → Database) and a minimum password length of 8 (Auth → Providers → Email):
