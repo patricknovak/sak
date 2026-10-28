@@ -52,9 +52,10 @@ function SoccerRounds({ onAdded }: { onAdded: () => void }) {
   const { busy, run } = useAction();
   const load = () => rpc<SoccerRound[]>('soccer_rounds').then(setRows, () => setRows([]));
   useEffect(() => { load(); }, []);
-  // only the pool's own soccer leagues (the feed's list carries every league, and the NFL's weeks too)
+  // a pool that follows nothing yet sees every soccer competition, the way Add a game offers every event to choose; one
+  // that follows others sees only its own leagues
   const own = usePoolCompetitions();
-  const list = rows.filter((r) => own?.some((c) => c.id === r.competition && c.sport === 'soccer'));
+  const list = !Array.isArray(own) ? [] : rows.filter((r) => !own.length || own.some((c) => c.id === r.competition && c.sport === 'soccer'));
   if (!list.length) return null;
   return (
     <Section title="Matchweek questions">
