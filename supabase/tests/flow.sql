@@ -7927,3 +7927,87 @@ delete from private.soccer_nudged where game = 'settle:' || (select id from pool
 delete from pool_markets where league_id = :lib and title = 'Escalate settle nudge?';
 select set_config('app.league_id', '', false);
 select 'settle escalate', true;
+
+-- ───────────── a round stays open while any of its series can still be picked (migration 346) ─────────────
+-- Round 1 has one series already live (hard-coded 1 October 2026 tip-off) and another still scheduled for
+-- 15 November. The old _event_rounds treated the whole round as closed the moment one series started and would
+-- have returned open_round = 2; the new one keeps open_round = 1 so a pool started between nights still runs on
+-- round 1's later series.
+reset role;
+select set_config('request.jwt.claim.sub', '', false);
+select set_config('app.league_id', '', false);
+insert into competitions (id, sport, name, short, season, provider, ext_id, ext_season, active, format)
+values ('er-live', 'nhl', 'Event rounds live', 'ER', '2026', 'test', 'er', '2026', true, 'series')
+on conflict (id) do update set active = true;
+select sport_ingest('er-live', jsonb_build_object(
+  'clubs', jsonb_build_array(
+    jsonb_build_object('ext_id', 'er1', 'name', 'Night One High', 'short', 'N1H'),
+    jsonb_build_object('ext_id', 'er2', 'name', 'Night One Low', 'short', 'N1L'),
+    jsonb_build_object('ext_id', 'er3', 'name', 'Night Two High', 'short', 'N2H'),
+    jsonb_build_object('ext_id', 'er4', 'name', 'Night Two Low', 'short', 'N2L'),
+    jsonb_build_object('ext_id', 'er5', 'name', 'Round Two High', 'short', 'R2H'),
+    jsonb_build_object('ext_id', 'er6', 'name', 'Round Two Low', 'short', 'R2L')),
+  'series', jsonb_build_array(
+    jsonb_build_object('ext_id', 'er:r1:a', 'round', 1, 'label', '1st Round', 'short', 'R1', 'best_of', 7,
+      'high', 'er1', 'low', 'er2', 'starts_at', '2026-10-01T18:00:00Z', 'tbd', false, 'sort', 1),
+    jsonb_build_object('ext_id', 'er:r1:b', 'round', 1, 'label', '1st Round', 'short', 'R1', 'best_of', 7,
+      'high', 'er3', 'low', 'er4', 'starts_at', '2026-11-15T18:00:00Z', 'tbd', false, 'sort', 2),
+    jsonb_build_object('ext_id', 'er:r2:a', 'round', 2, 'label', '2nd Round', 'short', 'R2', 'best_of', 7,
+      'high', 'er5', 'low', 'er6', 'starts_at', '2026-12-01T18:00:00Z', 'tbd', false, 'sort', 3)),
+  'fixtures', '[]'::jsonb));
+-- sport_ingest leaves a past tip-off as scheduled until a fixture says otherwise; mark night one live
+update series set state = 'live' where competition = 'er-live' and ext_id = 'er:r1:a';
+select id as er_started from series where competition = 'er-live' and ext_id = 'er:r1:a' \gset
+select id as er_open from series where competition = 'er-live' and ext_id = 'er:r1:b' \gset
+select high_club as er_open_high from series where id = :er_open \gset
+select pg_temp.expect('a part-way round stays open (migration 346; old open_round was 2)',
+  (select open_round = 1 and first_round = 1 and last_round = 2 from _event_rounds('er-live')));
+select pg_temp.expect('next_lock is the unstarted series, not the one already tipped (migration 346)',
+  (select (e->>'next_lock')::timestamptz = '2026-11-15T18:00:00Z'
+        and (e->>'next_lock')::timestamptz <> '2026-10-01T18:00:00Z'
+     from jsonb_array_elements(pool_events()) e where e->>'competition' = 'er-live'));
+select pg_temp.expect('kinds on a round under way are series only, not rank (migration 346)',
+  (select e->'kinds' ? 'series' and not (e->'kinds' ? 'rank')
+     from jsonb_array_elements(pool_events()) e where e->>'competition' = 'er-live'));
+-- a fresh event whose first tip is still ahead keeps both series and rank
+insert into competitions (id, sport, name, short, season, provider, ext_id, ext_season, active, format)
+values ('er-fresh', 'nhl', 'Event rounds fresh', 'EF', '2026', 'test', 'erf', '2026', true, 'series')
+on conflict (id) do update set active = true;
+select sport_ingest('er-fresh', jsonb_build_object(
+  'clubs', jsonb_build_array(
+    jsonb_build_object('ext_id', 'ef1', 'name', 'Fresh High', 'short', 'EFH'),
+    jsonb_build_object('ext_id', 'ef2', 'name', 'Fresh Low', 'short', 'EFL')),
+  'series', jsonb_build_array(
+    jsonb_build_object('ext_id', 'ef:r1:a', 'round', 1, 'label', '1st Round', 'short', 'R1', 'best_of', 7,
+      'high', 'ef1', 'low', 'ef2', 'starts_at', '2026-11-20T18:00:00Z', 'tbd', false, 'sort', 1)),
+  'fixtures', '[]'::jsonb));
+select pg_temp.expect('kinds on a round not yet started keep series and rank (migration 346)',
+  (select e->'kinds' ? 'series' and e->'kinds' ? 'rank'
+     from jsonb_array_elements(pool_events()) e where e->>'competition' = 'er-fresh'));
+-- a series pool on the part-way round: the open series takes a pick, the live one is locked
+select set_config('app.league_id', :'lib', false);
+select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-000000000081', false);
+set role authenticated;
+select pool_game_start('series', 'er-live', '{"from_round":1,"preset":"classic"}') as erg \gset
+select pool_game_pick(:erg, 's:' || :er_open, jsonb_build_object('winner', :er_open_high, 'games', 5));
+select pg_temp.expect('a pick on the unstarted series of a part-way round goes in (migration 346)',
+  exists (select 1 from pool_picks where game_id = :erg and thing = 's:' || :er_open));
+select pg_temp.raises('a pick on the series already under way is locked (migration 346)',
+  format('select pool_game_pick(%s, %L, %L)', :erg, 's:' || :er_started, jsonb_build_object('winner', (select high_club from series where id = :er_started), 'games', 5)),
+  'That series has started; picks are locked');
+reset role;
+select set_config('request.jwt.claim.sub', '', false);
+select pg_temp.raises('a ranking refuses a round under way (migration 346)',
+  $$select _pool_game_rules('rank', 'er-live', '{"from_round":1}')$$,
+  'That round is under way; a ranking has to start before its first game');
+select pg_temp.raises('a bracket refuses a round under way (migration 346)',
+  $$select _pool_game_rules('bracket', 'er-live', '{"from_round":1}')$$,
+  'That round is under way; a bracket has to start before its first game');
+select pg_temp.expect('a ranking still starts on a round that has not tipped (migration 346)',
+  (_pool_game_rules('rank', 'er-fresh', '{"from_round":1}')->>'from_round')::int = 1);
+select pg_temp.expect('a series still starts on a round that has not tipped (migration 346)',
+  (_pool_game_rules('series', 'er-fresh', '{"from_round":1,"preset":"classic"}')->>'from_round')::int = 1);
+update competitions set active = false where id in ('er-live', 'er-fresh');
+select set_config('app.league_id', '', false);
+select set_config('request.jwt.claim.sub', '', false);
+select 'event rounds live', true;
