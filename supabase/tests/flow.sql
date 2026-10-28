@@ -3461,6 +3461,9 @@ select set_config('t.fx', jsonb_build_object(
 select soccer_ingest('epl', current_setting('t.fx')::jsonb);
 select pg_temp.expect('an ingest twice changes nothing', (soccer_ingest('epl', current_setting('t.fx')::jsonb)->>'fixtures')::int = 3
   and (select count(*) from fixtures) = 3 and (select count(*) from clubs) = 3);
+-- a fixture with no feed round (after the count above): gameweek alone must name the rule, not "the season"
+select soccer_ingest('epl', jsonb_build_object('fixtures', jsonb_build_array(
+  jsonb_build_object('ext_id', '9004', 'gameweek', 10, 'kickoff', now() + interval '16 days', 'status', 'NS', 'home', '42', 'away', '40'))));
 select pg_temp.expect('a fixture''s date is its date in the competition''s time zone', (select date = (kickoff at time zone 'Europe/London')::date from fixtures where ext_id = '9001'));
 select pg_temp.expect('nothing to pull until a match is near', not _soccer_due());
 select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-000000000082', false);
@@ -3474,6 +3477,12 @@ select pg_temp.expect('the host adds the next matchweek', pool_add_fixtures('epl
 select pg_temp.expect('and adding it again adds nothing', pool_add_fixtures('epl') = 0);
 select pg_temp.expect('each question closes at kick-off with home, draw, away',
   (select m.closes_at = f.kickoff and m.outcomes->1->>'label' = 'Draw' and m.outcomes->0->>'label' = 'Arsenal'
+   from pool_markets m join fixtures f on f.id = (m.source->>'fixture')::bigint where f.ext_id = '9001'));
+select pg_temp.expect('a fixture with a feed round names those words in the rule',
+  (select m.rule like '%(Premier League, Regular Season - 8)%'
+   from pool_markets m join fixtures f on f.id = (m.source->>'fixture')::bigint where f.ext_id = '9001'));
+select pg_temp.expect('the category uses the competition''s round word',
+  (select m.category = 'EPL · Matchweek 8'
    from pool_markets m join fixtures f on f.id = (m.source->>'fixture')::bigint where f.ext_id = '9001'));
 select pg_temp.expect('and the chat hears about it', exists (select 1 from messages where meta ? 'pool_fixtures'));
 select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-000000000082', false);
@@ -3651,6 +3660,15 @@ reset role;
 select set_config('request.jwt.claim.sub', '', false);
 select pg_temp.expect('a burst of new questions is one alert that counts them', (select count(*) from notifications where team_id = :fern and kind = 'pool_new') = 1
   and (select body like '🔮 2 new questions to call%' and link = '/questions' from notifications where team_id = :fern and kind = 'pool_new'));
+-- null-round fixture 9004 was ingested in the soccer block; add it only after the burst count above so that alert stays at 2
+select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-000000000081', false);
+set role authenticated;
+select pool_add_fixtures('epl', 10);
+select pg_temp.expect('a null-round fixture falls back to the gameweek, not the season',
+  (select m.rule like '%(Premier League, matchweek 10)%' and position('the season' in m.rule) = 0
+   from pool_markets m join fixtures f on f.id = (m.source->>'fixture')::bigint where f.ext_id = '9004'));
+reset role;
+select set_config('request.jwt.claim.sub', '', false);
 select pg_temp.expect('the host is not told about her own questions', not exists (select 1 from notifications n join teams t on t.id = n.team_id
   where t.league_id = :lib and t.is_commish and n.kind = 'pool_new'));
 select pg_temp.expect('a call that came in says what it won', (select body like '✅ Called it: Arsenal v Chelsea → Arsenal. You won %' from notifications
