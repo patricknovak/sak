@@ -25,6 +25,14 @@ for (const name of pages) {
   } else if (!name.includes('together')) {
     assert.doesNotMatch(html, /Goblets/, `${name}: Goblets only on LIB (and together's LIB cards)`);
   }
+  if (name === 'example-pool.html') {
+    assert.equal((html.match(/class="q-card"/g) || []).length, 16, 'all sixteen question cards are static HTML');
+    assert.doesNotMatch(html, /<script(?![^>]*src="\.\/site\.js")/i, 'no inline or extra scripts');
+    assert.match(html, /Every name and every number on this page is an illustration, not a live pool/);
+    assert.match(html, /Illustration only\. No live pool, no real players\./);
+    assert.match(html, /It is an illustration built to show the shape of a Love Is Blind pool/);
+    assert.match(html, /Every name, call and number on this page is an illustration, not a live pool\./);
+  }
 }
 
 {
