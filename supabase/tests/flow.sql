@@ -3484,10 +3484,6 @@ select pg_temp.expect('a fixture with a feed round names those words in the rule
 select pg_temp.expect('the category uses the competition''s round word',
   (select m.category = 'EPL · Matchweek 8'
    from pool_markets m join fixtures f on f.id = (m.source->>'fixture')::bigint where f.ext_id = '9001'));
-select pg_temp.expect('a null-round fixture falls back to the gameweek, not the season',
-  pool_add_fixtures('epl', 10) = 1
-  and (select m.rule like '%(Premier League, matchweek 10)%' and position('the season' in m.rule) = 0
-       from pool_markets m join fixtures f on f.id = (m.source->>'fixture')::bigint where f.ext_id = '9004'));
 select pg_temp.expect('and the chat hears about it', exists (select 1 from messages where meta ? 'pool_fixtures'));
 select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-000000000082', false);
 select pool_buy((select id from pool_markets where title = 'Arsenal v Chelsea'), 'a1', 100);
@@ -3664,6 +3660,15 @@ reset role;
 select set_config('request.jwt.claim.sub', '', false);
 select pg_temp.expect('a burst of new questions is one alert that counts them', (select count(*) from notifications where team_id = :fern and kind = 'pool_new') = 1
   and (select body like '🔮 2 new questions to call%' and link = '/questions' from notifications where team_id = :fern and kind = 'pool_new'));
+-- null-round fixture 9004 was ingested in the soccer block; add it only after the burst count above so that alert stays at 2
+select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-000000000081', false);
+set role authenticated;
+select pool_add_fixtures('epl', 10);
+select pg_temp.expect('a null-round fixture falls back to the gameweek, not the season',
+  (select m.rule like '%(Premier League, matchweek 10)%' and position('the season' in m.rule) = 0
+   from pool_markets m join fixtures f on f.id = (m.source->>'fixture')::bigint where f.ext_id = '9004'));
+reset role;
+select set_config('request.jwt.claim.sub', '', false);
 select pg_temp.expect('the host is not told about her own questions', not exists (select 1 from notifications n join teams t on t.id = n.team_id
   where t.league_id = :lib and t.is_commish and n.kind = 'pool_new'));
 select pg_temp.expect('a call that came in says what it won', (select body like '✅ Called it: Arsenal v Chelsea → Arsenal. You won %' from notifications
