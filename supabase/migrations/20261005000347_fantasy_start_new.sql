@@ -34,7 +34,7 @@ begin
     raise exception 'That''s two leagues today. Try again tomorrow';
   end if;
   if (select count(*) from leagues where owner_user = me and kind is distinct from 'predict' and status = 'setup') >= 5 and not is_platform_admin() then
-    raise exception 'You have five leagues being set up: take one live or delete one first';
+    raise exception 'You have five leagues being set up: take one live or remove one first';
   end if;
 
   ws := _pool_slug(nm);
