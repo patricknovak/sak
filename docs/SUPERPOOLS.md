@@ -207,7 +207,8 @@ give the pool a home for following the sport):**
   first what you are starting, a sports pool, a questions pool or a fantasy league, and My pools sends every start there
   (its old one-step sheet offered questions only). A sport lists its events by sport, the kinds open on the chosen event,
   and every other kind greyed with when it opens (`KIND_ORDER`, `KIND_WHEN`); Call the score joins the kinds on soccer's
-  rounds. A fantasy league is self-serve (`fantasy_start`): teams, season total or head-to-head with its playoffs, points
+  rounds. A fantasy league is self-serve (`fantasy_start` for a member, the join function's `fantasy` body for a stranger from the
+  landing's door, both through `_fantasy_open`, migration 347): teams, season total or head-to-head with its playoffs, points
   or categories, keepers and the draft, on SaK's NHL rules otherwise; it opens in setup and its starter takes it live
   from the Commish page's checklist (`commish_go_live`). A host deletes a pool from its card on My pools or the Host
   page, typing its name (`pool_delete`; a league only while in setup, the platform any but SaK).*

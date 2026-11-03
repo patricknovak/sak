@@ -1454,3 +1454,11 @@ offering that is ready to go live." Two slices so far.
   the pool home; a games-only pool's invite cards speak picks, not coins; the fans' index and board stand without the
   database's answer; the product's primary buttons carry no glyph. The streak test's four finished games sit on four
   Eastern afternoons rather than now() minus whole days, which put two on one date in the hour after a clock change.
+  Slice 3: the landing's fantasy door opens for a stranger. `fantasy_start` needed a member, so the door could only say
+  sign in first. Migration 347 moves the league's opening into `_fantasy_open` (the same league either way: SaK's rules,
+  the choices made at the start, seat 1 the starter's), keeps `fantasy_start` for a member, and adds `_fantasy_start_new`
+  for the join function's `fantasy` body (the account and the league in one go, past the same door limits as a pool's,
+  counted together in `private.pool_signups`). The start form takes the commissioner's name, email and password under
+  the league's choices; an email that already has an account signs in right there and the league starts on it; a
+  signed-in account with no seat is offered a fresh start. Before the migration is live the join function answers
+  `notYet` and the form points at Ask us.
