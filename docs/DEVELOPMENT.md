@@ -1446,3 +1446,11 @@ offering that is ready to go live." Two slices so far.
   are open ("Make a link for every open seat"), then the health panel once the league is live; Fines & fees only in a
   money league. Still open: a stranger can't start a fantasy league from the landing's door without an account (the
   `fantasy_start` function needs a member), which needs the join function to take a `fantasy` body.
+  The rest of the review, after PR #347: the boot splash and the invite page wear the product's mark until the address
+  or the preview says SaK; a start form's failed list offers Try again; the Home Screen sheet and the cookie line keep
+  off a newcomer's first screen (the sheet waits out the visit right after a create or a join, `freshArrival` in
+  `src/lib/inviteShare.ts`; the line sits above the dock); Keep your place says when it worked, and a name-only host
+  is told the pool would live on their phone and gets the card first; the alerts card follows a member's first call on
+  the pool home; a games-only pool's invite cards speak picks, not coins; the fans' index and board stand without the
+  database's answer; the product's primary buttons carry no glyph. The streak test's four finished games sit on four
+  Eastern afternoons rather than now() minus whole days, which put two on one date in the hour after a clock change.

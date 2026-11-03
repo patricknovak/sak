@@ -348,7 +348,7 @@ export function Layout({ children }: { children: ReactNode }) {
       </div>
 
       {/* mobile dock */}
-      <nav className="pb-safe fixed inset-x-0 bottom-0 z-40 px-3 lg:hidden">
+      <nav data-dock className="pb-safe fixed inset-x-0 bottom-0 z-40 px-3 lg:hidden">
         <div style={{ gridTemplateColumns: `repeat(${items.length + 1}, minmax(0, 1fr))` }} className="mb-2 grid h-16 rounded-[22px] border border-white/10 bg-[#0d1528]/80 shadow-[0_18px_40px_-12px_rgba(0,0,0,.9),inset_0_1px_0_rgba(255,255,255,.07)] backdrop-blur-2xl">
           {items.map((i) => {
             const a = isActive(i.to);
