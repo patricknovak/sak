@@ -471,3 +471,12 @@ footer a { color: var(--soft); }
 .fzgrid { display: grid; gap: 12px; grid-template-columns: 1fr; }
 @media (min-width: 760px) { .fzgrid { grid-template-columns: repeat(3, 1fr); } }
 .fzgrid .ico { width: 26px; height: 26px; color: var(--ice); }
+
+/* phones: the screenshots and the game-night demos swipe sideways instead of stacking three screens tall */
+@media (max-width: 759px) {
+  .shots, .trio, .tiers { display: flex; gap: 14px; overflow-x: auto; scroll-snap-type: x mandatory; margin-left: -16px; margin-right: -16px; padding: 4px 16px 14px;
+    scrollbar-width: none; -webkit-overflow-scrolling: touch; }
+  .shots::-webkit-scrollbar, .trio::-webkit-scrollbar, .tiers::-webkit-scrollbar { display: none; }
+  .shots > *, .trio > *, .tiers > * { flex: 0 0 82%; scroll-snap-align: center; }
+  .shot .phone { width: 200px; }
+}

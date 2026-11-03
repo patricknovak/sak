@@ -1,6 +1,6 @@
-# Landing has no privacy/terms HTML; send visitors to the app's privacy note.
+# Landing has no privacy/terms HTML; send visitors to the app's privacy note and terms.
 /privacy  https://app.superpoolsai.com/#/privacy  302
-/terms    https://app.superpoolsai.com/#/privacy  302
+/terms    https://app.superpoolsai.com/#/terms  302
 # The NHL fan zones live in the app; /fans itself is fans.html here
 /fans/*   https://app.superpoolsai.com/fans/:splat  302
 # World Series marketing page is unserved until a feed is licensed; keep old links off a dead end
