@@ -7,18 +7,21 @@ deployed by `.github/workflows/cloudflare.yml` on every push to `main`. It answe
 Brand, copy and positioning rules live in `docs/BRAND.md`; the product it describes in `docs/POOLS.md` and
 `docs/SUPERPOOLS.md`.
 
-- `_redirects`: `/privacy` and `/terms` send visitors to `https://app.superpoolsai.com/#/privacy` (the landing Worker
+- `_redirects`: `/privacy` and `/terms` send visitors to the app's `#/privacy` and `#/terms` (the landing Worker
   has no privacy HTML of its own), and `/fans/<club>` to the club's fan zone in the app.
 - `fans.html` (25 October 2026): the fan zones, every club read like a front office and open to every fan: the four leagues
   (NHL, NFL, NBA, Premier League, each into its page in the app) and the NHL's 32 clubs a division to a row (the same grid
   as the home's `#fans` section, each logo into its zone in the app).
-- `index.html`: the home, sports first (the live room in the hero, the events open right now, game night as a room,
-  every kind of pool, questions with live prices, the founding league, shipping every week, where it's going) with a door to
+- `index.html`: the home, sports first and short (3 November 2026): the live room in the hero, three doors under it (run a
+  fantasy league, start a sports pool, ask your own questions), the events open right now, game night as a room, what runs
+  itself, the voice, every kind of pool, questions with live prices, the founding league, one fan-zones band, pricing and the
+  start; on a phone the screens, the game-night demos and the tiers swipe sideways. A door to
   `together.html`, pools for any group (Love Is Blind, women's sports), in rose. Both use `site.css` and `site.js` (the
   reveal on scroll, the live board with its goal horn, the game-night demos and the try-it question drawn in the page,
   the open-right-now board read live from the app's `pool_event_list()` with the publishable key and a fallback when it
   can't be read, the premiere countdown, the waitlist, consented GA4 when `GA4_ID` is set, and first-touch UTM/referrer
-  capture for the waitlist). The "Just shipped" and "Being built now" lists are written by hand: keep them true. The waitlist posts
+  capture for the waitlist). The "Just shipped" and "Being built now" lists, the seasons calendar and the road are on `whats-new.html` (moved off the
+  home 3 November 2026), written by hand: keep them true. The waitlist posts
   to `public.waitlist` through PostgREST with the publishable key; the "what do you want to play" choice goes in `league`
   and the optional free text in `note`. `robots.txt` allows crawlers and points `Sitemap:` at
   `https://superpoolsai.com/sitemap.xml`; `sitemap.xml` lists the public pages.
