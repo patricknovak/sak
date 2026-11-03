@@ -1421,3 +1421,28 @@ stopping until done and then tell me all the items that I need to do." The recor
   migration 341 unschedules the shadow's every-minute job. A pool's daily cap per account was already there (`_pool_open`:
   five a day, 25 in all).
 
+
+### 9.25 The market review and the first minute, 3 November 2026
+
+Patrick: "Do a thorough review of Super Pools versus the market and design and build the most compelling and beautiful
+offering that is ready to go live." Two slices so far.
+
+- **The landing page** (PR #346): three doors on the home (a pool with friends, a fantasy league, the fan zones) in place
+  of the pillars, a shorter lead, the fan band, and what shipped and what's next moved to `landing/whats-new.html`; the
+  rows of cards snap sideways on a phone.
+- **The first minute** (this slice): a stranger's path from the landing's door to their first pick or question, read
+  end to end in the code and in the browser at 390 px, every finding checked by a second reader before it was fixed.
+  A pool's name on its home, in its invite text and in the share card comes from `poolTitle` in `src/lib/brand.ts`
+  (the brand's tagline unless it is the seeded 'A Super Pools pool', then the pool's name). A pool with no questions and
+  no games yet opens on "Ask your first question" for the host (`AskFirstCard`, `AskSheet` with `show={false}`: the
+  examples and labels are neutral unless the pool follows a show, and the closing time is preselected); a games-only
+  pool's hero shows the next lock and the picks made, with "Make your first pick" for a member who hasn't. `#/new`
+  keeps the form while a `?type=` link changes under it, lets an address that already has an account sign in and start
+  the pool in the same tap (the join function's 409 opens the password field), and lets a signed-in account with no
+  seat start fresh. The join page opens the pool when the account is already in it, says why when a name-only seat is
+  full for the day, and the Worker's preview says whether a link expired, was cancelled or was used. The sign-in page
+  says what to do with a league's address when you're new, and a signed-in account with no seat gets Start a pool, the
+  fan zones and Sign out instead of a dead end. The Commish page opens on the setup guide, then the invites while seats
+  are open ("Make a link for every open seat"), then the health panel once the league is live; Fines & fees only in a
+  money league. Still open: a stranger can't start a fantasy league from the landing's door without an account (the
+  `fantasy_start` function needs a member), which needs the join function to take a `fantasy` body.

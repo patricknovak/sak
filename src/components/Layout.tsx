@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
-import { NavLink, useLocation, useNavigate } from 'react-router-dom';
+import { Link, NavLink, useLocation, useNavigate } from 'react-router-dom';
 import { useUsage } from '../lib/usage';
 import { useAppUpdate } from '../lib/appUpdate';
 import { LeagueMark, Wordmark, WordmarkStack } from './Brand';
@@ -417,7 +417,7 @@ function HostNotice() {
   return (
     <div className="mb-3 flex items-start gap-2.5 rounded-2xl border border-sky-300/20 bg-sky-400/10 px-3 py-2.5 text-sm text-sky-100">
       <span className="text-lg leading-none">🧭</span>
-      <span className="min-w-0 flex-1">This is <b>{host.name}</b>’s address, and you’re not in that league, so you’re seeing your own{league?.name ? <>: <b>{league.name}</b></> : ''}.</span>
+      <span className="min-w-0 flex-1">This is <b>{host.name}</b>’s address, and you’re not in that {host.kind === 'predict' ? 'pool' : 'league'}, so you’re seeing your own{league?.name ? <>: <b>{league.name}</b></> : ''}. To join it, open the invite link {host.kind === 'predict' ? 'the host' : 'its commissioner'} sent you. <Link to="/pools" className="font-semibold underline">My pools</Link></span>
     </div>
   );
 }

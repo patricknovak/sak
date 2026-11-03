@@ -7,7 +7,7 @@ test.describe('App public journeys', () => {
     await expect(page.getByLabel(/email/i)).toBeVisible();
     await expect(page.getByLabel(/password/i)).toBeVisible();
     await expect(page.getByRole('button', { name: /sign in|drop the puck/i })).toBeVisible();
-    await expect(page.getByRole('link', { name: /start one free/i })).toBeVisible();
+    await expect(page.getByRole('link', { name: /start a pool of your own/i })).toBeVisible();
   });
 
   test('bad credentials show a friendly error (no crash)', async ({ page }) => {

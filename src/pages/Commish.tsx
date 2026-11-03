@@ -50,6 +50,14 @@ export default function Commish() {
   // the platform owner also gets the running-costs dashboard
   const [platformAdmin, setPlatformAdmin] = useState(false);
   useEffect(() => { rpc<boolean>('is_platform_admin').then(setPlatformAdmin, () => {}); }, []);
+  // a league still in setup (migration 242: started by its commissioner, not yet taken live) has no nightly jobs to
+  // report on; the seats still open are the first thing to fill
+  const [leagueLive, setLeagueLive] = useState(true);
+  useEffect(() => {
+    if (!league?.league_id) return;
+    supabase.from('leagues').select('status').eq('id', league.league_id).maybeSingle().then(({ data }) => setLeagueLive(!data?.status || data.status === 'active'));
+  }, [league?.league_id]);
+  const openSeats = teams.filter((t) => t.role === 'gm' && !t.user_id).length;
 
   useEffect(() => {
     if (!league) return;
@@ -92,7 +100,15 @@ export default function Commish() {
     <div className="space-y-5">
       <PageHeader icon={<Wrench size={22} className="text-gold" />} title="Commissioner" sub={`With great power comes great responsibility, ${me.gm_name}.`} />
 
-      <HealthPanel />
+      {/* a league in setup sees its checklist first, and the GMs' invites right under it while seats are open; the
+          system status (the nightly jobs) means nothing until the league is live */}
+      <SetupGuide />
+      {openSeats > 0 && (
+        <Section id="invites" title="📨 Invite your GMs">
+          <Invites />
+        </Section>
+      )}
+      {leagueLive && <HealthPanel />}
 
       {platformAdmin && (
         <div className="grid gap-2 sm:grid-cols-2">
@@ -108,8 +124,6 @@ export default function Commish() {
           </Link>
         </div>
       )}
-
-      <SetupGuide />
 
       <Section id="identity" title="🎨 League identity">
         <LeagueIdentity />
@@ -152,7 +166,7 @@ export default function Commish() {
             onClick={() => confirm('Finalize keepers? Non-kept players are released to the draft pool and teams that haven’t submitted get their best eligible players. This can’t be undone.') && run(async () => { await rpc('finalize_keepers'); await refresh(); }, 'Keepers finalized 📋')}>
             Finalize keepers & release everyone else
           </button>
-          {league?.phase !== 'keepers' && <div className="text-xs text-mute">Keepers are final.</div>}
+          {league?.phase !== 'keepers' && <div className="text-xs text-mute">{league?.phase === 'predraft' ? ((league.keepers ?? 0) > 0 ? 'Keepers open once the rosters are in: bring them from Yahoo, ESPN or Fantrax, then set the phase to Keepers under League settings.' : 'No keepers in this league.') : 'Keepers are final.'}</div>}
         </div>
         {league?.phase === 'keepers' && <KeepersForTeam />}
       </Section>
@@ -207,7 +221,7 @@ export default function Commish() {
           {/* Yahoo needs the GM's own sign-in, so its rosters come in from the Yahoo league's page under My pools */}
           <Link to="/yahoo" className="flex w-full items-center gap-3 rounded-xl border border-dashed border-sky-400/30 bg-sky-500/[.06] p-3 text-left transition hover:bg-sky-500/10">
             <span className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-sky-500/20 text-[10px] font-black tracking-tight text-sky-100">Y!</span>
-            <span className="min-w-0 text-sm"><span className="block font-semibold text-slate-100">Bring the rosters from Yahoo</span><span className="block text-xs text-mute">Open your Yahoo league under My pools; its More tab brings every team in.</span></span>
+            <span className="min-w-0 text-sm"><span className="block font-semibold text-slate-100">Bring the rosters from Yahoo</span><span className="block text-xs text-mute">Sign in to Yahoo once and pick the league; every team comes in here.</span></span>
           </Link>
         </div>
       </Section>
@@ -257,6 +271,7 @@ export default function Commish() {
         </div>
       </Section>
 
+      {hasFeature(league, 'money') && (
       <Section title="💸 Fines & fees">
         <div className="card grid gap-2 p-3 sm:grid-cols-[1fr_120px_110px]">
           <select className="input" value={fine.team} onChange={(e) => setFine({ ...fine, team: e.target.value })}>
@@ -272,6 +287,7 @@ export default function Commish() {
           <p className="text-xs text-mute sm:col-span-3">Fines are announced in Trash Talk. Mark items paid on the League → Money page.</p>
         </div>
       </Section>
+      )}
 
       <Section title={`${brand.coin.emoji} ${brand.coin.name}`}>
         <div className="card grid gap-2 p-3 sm:grid-cols-[1fr_120px]">
@@ -293,9 +309,11 @@ export default function Commish() {
         <SeatManager />
       </Section>
 
-      <Section id="invites" title="📨 Invite links">
-        <Invites />
-      </Section>
+      {openSeats === 0 && (
+        <Section id="invites" title="📨 Invite links">
+          <Invites />
+        </Section>
+      )}
 
       <Section title="✉️ Sign-in emails">
         <SignInEmails />
@@ -447,6 +465,7 @@ function Invites() {
   useEffect(() => { load(); }, []); // eslint-disable-line react-hooks/exhaustive-deps
   const open = teams.filter((t) => t.role === 'gm' && !t.user_id);
   const link = (code: string) => inviteLink(code);
+  const live = (i: Invite) => !i.revoked && i.uses < i.max_uses && new Date(i.expires_at).getTime() > Date.now();
   const share = async (code: string) => {
     const url = link(code);
     try { if (navigator.share) { await navigator.share({ title: 'Join the league', url }); return; } } catch { /* fall back to copying */ }
@@ -455,8 +474,15 @@ function Invites() {
   const make = (team: number | null) => run(async () => {
     const code = await rpc<string>('create_invite', { p_team: team, p_role: team ? 'gm' : 'spectator', p_days: 14, p_uses: team ? 1 : 5 });
     setMade(code); await load(); await share(code);
-  }, 'Invite link made and copied');
-  const live = (i: Invite) => !i.revoked && i.uses < i.max_uses && new Date(i.expires_at).getTime() > Date.now();
+  }, 'Invite link made');
+  // one link per open seat, in one go: the commissioner sends each to its GM from the list below
+  const makeAll = () => run(async () => {
+    for (const t of open) {
+      if (rows.some((i) => i.team_id === t.id && live(i))) continue;
+      await rpc<string>('create_invite', { p_team: t.id, p_role: 'gm', p_days: 14, p_uses: 1 });
+    }
+    setMade(null); await load();
+  }, `A link for every open seat`);
   return (
     <div className="space-y-2">
       <p className="px-1 text-xs text-mute">Send someone a link and they join from their phone: new people make their account on the spot, people with one sign in. A seat link works once; a spectator link up to five times. Links last 14 days.</p>
@@ -467,6 +493,7 @@ function Invites() {
             <button className="btn-primary btn-sm" disabled={busy} onClick={() => make(t.id)}>Invite a GM</button>
           </div>
         )) : <div className="text-sm text-mute">Every seat has a GM.</div>}
+        {open.length > 1 && <button className="btn-gold w-full" disabled={busy} onClick={makeAll}>Make a link for every open seat</button>}
         <button className="btn-ghost w-full" disabled={busy} onClick={() => make(null)}>🍿 Make a spectator link</button>
         {made && <div className="break-all rounded-lg bg-black/30 px-2 py-1.5 text-xs text-sky-200">{link(made)}</div>}
       </div>

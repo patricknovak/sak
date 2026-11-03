@@ -49,6 +49,9 @@ export function packPlaceholder(slug: string | null | undefined): string {
   if (slug.startsWith('mls')) return 'The Cup Crew';
   if (slug.startsWith('world-series')) return 'The Bullpen';
   if (slug.startsWith('nhl')) return 'The Barn';
+  if (slug.startsWith('nfl')) return 'The Red Zone';
+  if (slug.startsWith('nba')) return 'The Paint';
+  if (slug.startsWith('march')) return 'The Bracket Club';
   return 'The Group Chat Pool';
 }
 

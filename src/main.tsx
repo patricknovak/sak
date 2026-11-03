@@ -13,6 +13,7 @@ import { ErrorBoundary, reloadForNewVersion } from './components/ErrorBoundary';
 import { ConsentBanner } from './components/ConsentBanner';
 import { initAnalytics, trackPageView } from './lib/analytics';
 import { PRODUCT } from './lib/brand';
+import { signOut } from './lib/guest';
 
 initAnalytics();
 
@@ -134,8 +135,12 @@ function App() {
     return (
       <div className="grid min-h-dvh place-items-center p-6 text-center">
         <div className="card max-w-md p-6">
-          <p className="text-sm text-mute">This login isn’t linked to a team yet. Ask your commissioner for an invite link, or <a className="text-sky-300 underline" href="#/start">start a league of your own</a>.</p>
-          <a className="btn-ghost mt-4 inline-flex" href="#/fans">Open the NHL fan zones</a>
+          <p className="text-sm text-slate-200">You’re signed in, but you’re not in a pool yet. Open the invite link your host sent you, or start a pool of your own.</p>
+          <div className="mt-4 flex flex-wrap justify-center gap-2">
+            <a className="btn-gold inline-flex" href="#/new">Start a pool</a>
+            <a className="btn-ghost inline-flex" href="#/fans">The fan zones</a>
+          </div>
+          <p className="mt-4 text-xs text-mute">Running a fantasy league somewhere else? <a className="text-sky-300 underline" href="#/start">Ask us to set it up</a>. · <button type="button" className="underline" onClick={() => signOut()}>Sign out</button></p>
         </div>
       </div>
     );

@@ -4,6 +4,7 @@ import { FunctionsHttpError } from '@supabase/supabase-js';
 import { ArrowLeft, ArrowRight, Check, ChevronRight, Lock, Plus, Sparkles } from 'lucide-react';
 import { rpc, setRemember, supabase } from '../lib/supabase';
 import { markShareAfterCreate, openPool } from '../lib/host';
+import { signOut } from '../lib/guest';
 import { useLeague } from '../lib/store';
 import { Spinner, Toggle } from '../components/ui';
 import { themed } from '../components/LeagueIdentity';
@@ -37,6 +38,12 @@ const STEPS = [
   ['🔗', 'Send one link', 'Friends tap it in the group chat, pick a name and they’re in. No app to download.'],
   ['🎯', 'Pick it, rank it, call it', 'Series picks, rankings, or questions priced like a market in Supercoins. Every result lands on its own.'],
   ['👑', 'Wear the crown', 'The table runs all season. Never money, just bragging rights.'],
+] as const;
+// a questions pool's host isn't here for the sports: the same three cards in the pool's own words
+const QUESTION_STEPS = [
+  ['🔗', 'Send one link', 'Friends tap it in the group chat, pick a name and they’re in. No app to download.'],
+  ['✍️', 'Ask anything', 'A yes or no, a who, a how many: you write it, the pool prices it, friends call it before it closes.'],
+  ['👑', 'Wear the crown', 'The table runs as long as you like. Never money, just bragging rights.'],
 ] as const;
 const SPORT_EMOJI: Record<string, string> = { mlb: '⚾', nhl: '🏒', soccer: '⚽', nfl: '🏈', nba: '🏀', ncaab: '🏀' };
 type Following = { type: 'event'; comp: string } | { type: 'pack'; slug: string } | { type: 'blank' } | null;
@@ -127,6 +134,12 @@ export default function NewPool() {
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState('');
   const [signIn, setSignIn] = useState(false);
+  // "already have an account": sign in right here and start the pool as that account, with the steps kept
+  const [haveAccount, setHaveAccount] = useState(false);
+  const [afterSignIn, setAfterSignIn] = useState(false);
+  const [showPw, setShowPw] = useState(false);
+  // an event tapped before both lists have answered must not be un-picked by the link effect's first run
+  const touched = useRef(false);
   const typed = params.get('type');
   const [mode, setMode] = useState<Mode | null>(isMode(typed) ? typed : null);
   // the step asked for; an earlier step still unanswered opens in its place (below). ?type= lands on what comes next.
@@ -211,10 +224,12 @@ export default function NewPool() {
       }
     } else if (isMode(typeQ)) {
       setMode(typeQ);
-      setFollowing(null);
-      setKinds(['series', 'questions']);
-      setPack(null);
-      setOpen(typeQ === 'fantasy' ? 'details' : 'follow');
+      if (switched || !touched.current) {
+        setFollowing(null);
+        setKinds(['series', 'questions']);
+        setPack(null);
+        setOpen(typeQ === 'fantasy' ? 'details' : 'follow');
+      }
       if (switched) setColor(SWATCHES[0]);
     } else if (switched) {
       // Left a templated link for bare #/new — clear the previous template.
@@ -261,6 +276,7 @@ export default function NewPool() {
   const games = event ? kinds.filter((k): k is GameKind => k !== 'questions') : [];
   const toggle = (k: GameKind | 'questions') => setKinds((ks) => (ks.includes(k) ? ks.filter((x) => x !== k) : [...ks, k]));
   const choose = (f: Following) => {
+    touched.current = true;
     // the same event picked again (after Change) keeps what was ticked for it
     if (f?.type === 'event' && following?.type === 'event' && following.comp === f.comp) return;
     setFollowing(f);
@@ -289,7 +305,7 @@ export default function NewPool() {
   const startGames = async (id: number) => { if (gamesPayload.length) await rpc('pool_start_games', { p_league: id, p_games: gamesPayload }); };
   const okEmail = /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email.trim());
   const member = !!session && !!me;
-  const ready = !!following && (!event || kinds.length > 0) && pool.trim().length >= 3 && (member || (name.trim().length >= 2 && okEmail && pw.length >= 6));
+  const ready = !!following && (!event || kinds.length > 0) && pool.trim().length >= 3 && (member || (haveAccount ? okEmail && pw.length > 0 : name.trim().length >= 2 && okEmail && pw.length >= 6));
 
   // the steps this kind of start has, the one open (the one asked for, unless an earlier one is still unanswered: an
   // event's kinds can't be skipped with nothing ticked), and what each folded step says was chosen
@@ -315,8 +331,10 @@ export default function NewPool() {
     : !following ? { text: mode === 'questions' ? 'Pick your questions' : 'Pick an event', step: 'follow' }
     : event && !kinds.length ? { text: 'Pick at least one game', step: 'kinds' }
     : pool.trim().length < 3 ? { text: 'Name your pool', step: 'details', focus: 'np-pool' }
-    : session && !member ? { text: 'Sign out to start with a new account', step: 'details' }
+    : busy || afterSignIn ? { text: 'Opening your pool', step: 'details' }
+    : session && !member ? { text: 'This account isn’t in a pool yet', step: 'details' }
     : member ? null
+    : haveAccount ? (!okEmail ? { text: email.trim() ? 'Check your email' : 'Add your email', step: 'details', focus: 'np-email' } : !pw ? { text: 'Add your password', step: 'details', focus: 'np-pw' } : null)
     : name.trim().length < 2 ? { text: 'Add your name', step: 'details', focus: 'np-name' }
     : !okEmail ? { text: email.trim() ? 'Check your email' : 'Add your email', step: 'details', focus: 'np-email' }
     : pw.length < 6 ? { text: pw ? 'Password: 6+ characters' : 'Add a password', step: 'details', focus: 'np-pw' }
@@ -348,28 +366,57 @@ export default function NewPool() {
   }, [open, following, mode, cur]);
   useEffect(() => { if (err) document.getElementById('np-err')?.scrollIntoView({ behavior: 'smooth', block: 'nearest' }); }, [err]);
 
+  // the start as a signed-in member: the pool goes on the account beside the others
+  const startAsMember = async () => {
+    const r = await rpc<{ id: number; slug: string }>('pool_start', { p_name: pool.trim(), p_color: color, p_pack: openPack });
+    // Queue only; openPool reloads and initAnalytics sends pool_created on the stable page.
+    // Question pools omit sport (DB default nhl must not mislabel analytics).
+    await trackPoolCreated({ id: r.id, pack: openPack, sport: mode === 'questions' ? null : event?.sport ?? null, kind: mode });
+    await startGames(r.id);
+    markShareAfterCreate();
+    await openPool({ league_id: r.id, slug: r.slug }, '/');
+  };
+  // signed in from this page with the pool still in hand: start it the moment the account's seat is known
+  useEffect(() => {
+    if (!afterSignIn || !member) return;
+    setAfterSignIn(false);
+    startAsMember().catch((x) => { setErr((x as Error).message); setBusy(false); });
+  }, [afterSignIn, member]); // eslint-disable-line react-hooks/exhaustive-deps
+  // signed in, but the account has no seat anywhere: pool_start would refuse it, so say so instead of waiting
+  useEffect(() => {
+    if (!afterSignIn || !session || me) return;
+    const t = setTimeout(() => { setAfterSignIn(false); setBusy(false); setErr('That account isn’t in a pool yet, so it can’t start one. Start with a new account below.'); }, 6000);
+    return () => clearTimeout(t);
+  }, [afterSignIn, session, me]);
+  const startFresh = async () => {
+    // keep the pool typed so far; only the account goes
+    setErr(''); setSignIn(false); setHaveAccount(false);
+    await signOut();
+  };
+
   const start = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!ready || busy || (!!session && !member)) return;
+    if (!ready || busy || afterSignIn || (!!session && !member)) return;
     setBusy(true); setErr(''); setSignIn(false);
     try {
-      if (member) {
-        const r = await rpc<{ id: number; slug: string }>('pool_start', { p_name: pool.trim(), p_color: color, p_pack: openPack });
-        // Queue only; openPool reloads and initAnalytics sends pool_created on the stable page.
-        // Question pools omit sport (DB default nhl must not mislabel analytics).
-        await trackPoolCreated({ id: r.id, pack: openPack, sport: mode === 'questions' ? null : event?.sport ?? null, kind: mode });
-        await startGames(r.id);
-        markShareAfterCreate();
-        await openPool({ league_id: r.id, slug: r.slug }, '/');
+      if (member) { await startAsMember(); return; }
+      const login = email.trim().toLowerCase();
+      if (haveAccount) {
+        // sign in here and start it as that account once its seat loads (the effect above), nothing retyped
+        setRemember(true);
+        const { error: se } = await supabase.auth.signInWithPassword({ email: login, password: pw });
+        if (se) { setBusy(false); setErr(se.message === 'Invalid login credentials' ? 'That email and password don’t match.' : se.message); return; }
+        try { localStorage.setItem('sak-last-email', login); } catch { /* nothing to remember with */ }
+        setAfterSignIn(true);
         return;
       }
-      const login = email.trim().toLowerCase();
       // attribution rides along; the join function drops it when the columns are not live yet
       const { data, error } = await supabase.functions.invoke('join', { body: { pool: { name: pool.trim(), color, pack: openPack }, email: login, password: pw, name: name.trim(), ...attributionFields() } });
       if (error) {
         const body = error instanceof FunctionsHttpError ? await error.context.json().catch(() => null) : null;
+        // an email that already has an account: the password field stays, the sign-in happens right here
+        if (body?.signIn) { setHaveAccount(true); setPw(''); setErr('That email already has an account. Type its password and the pool starts on it.'); setSignIn(false); setBusy(false); return; }
         setErr(body?.error ?? 'Couldn’t start the pool right now. Try again in a minute.');
-        setSignIn(!!body?.signIn);
         setBusy(false);
         return;
       }
@@ -469,8 +516,8 @@ export default function NewPool() {
             ) : (
             <Step id="follow" title="Which questions?">
               <div className="grid gap-2">
-                {[...loosePacks.map((p) => { const w = packWhen(p); return { f: { type: 'pack', slug: p.slug } as Following, key: p.slug, name: packName(p.name), icon: p.icon, sub: `${p.questions} questions · ${w.text}`, soon: w.soon }; }),
-                  { f: { type: 'blank' } as Following, key: 'blank', name: 'Something else', icon: null, sub: 'Ask your own questions from the Host page', soon: false }].map((o) => {
+                {[{ f: { type: 'blank' } as Following, key: 'blank', name: 'Your own questions', icon: '✍️', sub: 'An awards night, the office, the family, anything: you write the questions, friends call them', soon: false },
+                  ...loosePacks.map((p) => { const w = packWhen(p); return { f: { type: 'pack', slug: p.slug } as Following, key: p.slug, name: packName(p.name), icon: p.icon, sub: `${p.questions} questions · ${w.text}`, soon: w.soon }; })].map((o) => {
                   const on = following?.type === o.f?.type && (o.f?.type !== 'pack' || (following?.type === 'pack' && following.slug === o.key));
                   return (
                     <button key={o.key} type="button" onClick={() => { choose(o.f); go('details'); }}
@@ -627,7 +674,7 @@ export default function NewPool() {
             ))}
 
             {mode !== 'fantasy' && following && shown('details') && (
-            <Step id="details" title={member ? 'Name it' : 'Name it, and you'}>
+            <Step id="details" title={member ? 'Name it' : 'Name it, and who’s hosting'}>
             <div className="space-y-4">
             <label className="block"><span className="mb-1 block text-xs font-semibold text-white/70">Name your pool</span>
               <input id="np-pool" className="input w-full" value={pool} onChange={(e) => { setPoolTouched(true); setPool(e.target.value); }} maxLength={40} placeholder={packPlaceholder(event ? event.pack : chosen?.slug)} /></label>
@@ -645,15 +692,28 @@ export default function NewPool() {
 
             {member ? (
               <p className="text-sm text-white/70">You’re signed in as {me!.gm_name}. The pool goes on your account beside the others, on My pools.</p>
+            ) : session && afterSignIn ? (
+              <p className="text-sm text-white/70">Signed in. Opening your pool…</p>
             ) : session ? (
-              <p className="text-sm text-white/70">This account isn’t in a pool yet. Sign out to start one with a new account, or write to hello@superpoolsai.com.</p>
+              <div className="rounded-2xl border border-white/10 bg-white/[.04] p-3 text-sm text-white/70">
+                <p>This account isn’t in a pool yet, so it can’t host one. Start it with a new account instead; everything you picked stays.</p>
+                <button type="button" className="btn-ghost mt-3 w-full" onClick={startFresh}>Sign out and start with a new account</button>
+              </div>
             ) : (
               <div className="space-y-3 border-t border-white/10 pt-4">
-                <div className="label text-white/70">And you, the host</div>
-                <input id="np-name" className="input w-full" autoComplete="name" value={name} onChange={(e) => setName(e.target.value)} placeholder="Your name, as friends know you" maxLength={40} />
+                <div className="flex items-center justify-between gap-3">
+                  <div className="label text-white/70">{haveAccount ? 'Sign in to host it' : 'You, the host'}</div>
+                  <button type="button" className="text-xs text-white/60 underline" onClick={() => { setHaveAccount((v) => !v); setErr(''); setSignIn(false); }}>{haveAccount ? 'New here? Make an account' : 'Already have an account?'}</button>
+                </div>
+                {!haveAccount && <input id="np-name" className="input w-full" autoComplete="name" value={name} onChange={(e) => setName(e.target.value)} placeholder="Your name, as friends know you" maxLength={40} />}
                 <input id="np-email" className="input w-full" type="email" inputMode="email" autoComplete="username" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="you@example.com" />
-                <input id="np-pw" className="input w-full" type="password" autoComplete="new-password" value={pw} onChange={(e) => setPw(e.target.value)} placeholder="A password, 6+ characters" />
-                <p className="text-[11px] leading-snug text-white/50">Starting a pool means you agree to the <a href="#/terms" className="underline">Terms</a> and have read the <a href="#/privacy" className="underline">Privacy</a>.</p>
+                <div className="relative">
+                  <input id="np-pw" className="input w-full pr-16" type={showPw ? 'text' : 'password'} autoComplete={haveAccount ? 'current-password' : 'new-password'} value={pw} onChange={(e) => setPw(e.target.value)} placeholder={haveAccount ? 'Your password' : 'A password, 6+ characters'} />
+                  <button type="button" className="absolute inset-y-0 right-3 text-xs font-semibold text-white/70" onClick={() => setShowPw((v) => !v)} aria-label={showPw ? 'Hide the password' : 'Show the password'}>{showPw ? 'Hide' : 'Show'}</button>
+                </div>
+                {haveAccount
+                  ? <p className="text-[11px] leading-snug text-white/50">The pool goes on your account beside the others, on My pools.</p>
+                  : <p className="text-[11px] leading-snug text-white/50">Starting a pool means you agree to the <a href="#/terms" className="underline">Terms</a> and have read the <a href="#/privacy" className="underline">Privacy</a>.</p>}
               </div>
             )}
             </div>
@@ -661,17 +721,18 @@ export default function NewPool() {
             )}
             </>)}
 
-            {!session && <a href="#/" className="block pt-1 text-center text-sm text-white/60 underline">Already have an account? Sign in, then start it from My pools</a>}
+            {!session && !haveAccount && !shown('details') && <button type="button" onClick={() => { setHaveAccount(true); go('details'); }} className="block w-full pt-1 text-center text-sm text-white/60 underline">Already have an account? Sign in and start it</button>}
           </div>
         </form>
         {err && (
           <div id="np-err" className="mt-4 scroll-mb-32 rounded-xl border border-red-400/30 bg-red-900/50 px-4 py-3 text-center text-sm text-red-200">
             {err}{signIn && <> <a href="#/" className="font-semibold underline">Sign in</a></>}
+            {session && !member && !afterSignIn && !busy && <> <button type="button" className="font-semibold underline" onClick={startFresh}>Start with a new account</button></>}
           </div>
         )}
 
         {mode !== 'fantasy' && <div className="mt-6 grid gap-2">
-          {STEPS.map(([icon, t, d]) => (
+          {(mode === 'questions' ? QUESTION_STEPS : STEPS).map(([icon, t, d]) => (
             <div key={t} className="flex items-start gap-3 rounded-2xl border border-white/[.06] bg-white/[.03] p-3">
               <span className="text-xl leading-none">{icon}</span>
               <span className="min-w-0"><span className="block text-sm font-semibold text-white">{t}</span><span className="block text-xs text-mute">{d}</span></span>
@@ -695,7 +756,7 @@ export default function NewPool() {
                 <p className="line-clamp-2 break-words text-sm font-semibold leading-snug text-white">{pool.trim()}</p>
               ) : null}
             </div>
-            <button type="submit" form="np-form" className="btn-gold shrink-0 px-3.5 py-3 text-[15px]" disabled={busy || !ready || (!!session && !member)}>{busy ? <Spinner /> : '✨ Start my pool'}</button>
+            <button type="submit" form="np-form" className="btn-gold shrink-0 px-3.5 py-3 text-[15px]" disabled={busy || afterSignIn || !ready || (!!session && !member)}>{busy || afterSignIn ? <Spinner /> : haveAccount && !member ? '✨ Sign in and start' : '✨ Start my pool'}</button>
           </div>
         </div>
       )}

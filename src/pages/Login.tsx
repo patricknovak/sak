@@ -41,7 +41,7 @@ export default function Login() {
     setRemember(remember);
     const { error } = await supabase.auth.signInWithPassword({ email: login, password: pw });
     setBusy(false);
-    if (error) setErr(error.message === 'Invalid login credentials' ? 'That email and password don’t match. Forgot it? Reset it below.' : error.message);
+    if (error) setErr(error.message === 'Invalid login credentials' ? (product ? 'That email and password don’t match. New here? Accounts are made when you start a pool or open an invite link. Forgot it? Reset it below.' : 'That email and password don’t match. Forgot it? Reset it below.') : error.message);
     else keepEmail();
   };
 
@@ -110,6 +110,17 @@ export default function Login() {
             : 'She’s A Keeper · est. 2013 · 2026-27'}</p>
         </div>
 
+        {/* a pool's link opened by someone not in it: say what this is and how people get in, before the form */}
+        {other && mode === 'in' && (
+          <div className="card mb-4 p-4 text-sm text-slate-200">
+            <b className="text-white">{host.name}</b> is a {pool ? 'pool' : 'league'} on {PRODUCT.name}. Already in it? Sign in below. Not yet? Ask {pool ? 'the host' : 'the commissioner'} for their invite link: it starts with app.superpoolsai.com/j/.
+          </div>
+        )}
+        {product && mode === 'in' && (
+          <div className="card mb-4 p-4 text-sm text-slate-200">
+            New to {PRODUCT.name}? Accounts are made when you <a href="#/new" className="font-semibold text-white underline">start a pool</a> or open the invite link a friend sent you. Already in one? Sign in below.
+          </div>
+        )}
         {mode === 'in' ? (
           <form onSubmit={signIn} className="card-hero animate-pop p-5">
             {emailField}
@@ -147,8 +158,8 @@ export default function Login() {
         {err && <div className="mt-4 rounded-xl border border-red-400/30 bg-red-900/50 px-4 py-3 text-center text-sm text-red-200">{err}</div>}
         {product && mode === 'in' && <OpenNow />}
         {/* a prediction pool starts right away (#/new); a fantasy league is asked for (#/start) */}
-        <a href="#/new" className="mt-6 block text-center text-xs text-sky-300/80 underline decoration-sky-300/30 underline-offset-2">Run a pool of your own? Start one free, right now</a>
-        <a href="#/start" className="mt-2 block text-center text-[11px] text-white/40 underline decoration-white/20 underline-offset-2">Or ask for a fantasy league</a>
+        <a href="#/new" className="btn-ghost mt-6 block w-full text-center">Start a pool of your own, free</a>
+        <a href="#/start" className="mt-2 block text-center text-[11px] text-white/40 underline decoration-white/20 underline-offset-2">Or ask us to set up a fantasy league</a>
         <p className="mt-3 text-center text-xs italic text-mute">{product || pool ? `Pools for everything you watch, on ${PRODUCT.name}` : other ? `Fantasy hockey on ${PRODUCT.name}` : 'Play fair, play hard and play to win.'}</p>
         <p className="mt-2 text-center text-[11px] text-white/40"><a href="#/privacy" className="underline decoration-white/20 underline-offset-2">What we keep about you</a> · <a href="#/terms" className="underline decoration-white/20 underline-offset-2">Terms of use</a></p>
       </div>

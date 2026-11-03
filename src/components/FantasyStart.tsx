@@ -61,21 +61,28 @@ export function FantasyStart({ color, setColor, swatches, member, signedIn }: { 
     return (
       <div className="rounded-2xl border border-white/10 bg-white/[.04] p-4 text-sm text-white/80">
         <div className="font-semibold text-white">{signedIn ? 'Join a pool first' : 'Sign in to start a league'}</div>
-        <p className="mt-1 text-white/70">{signedIn ? 'A fantasy league is started by someone already playing in a pool on Super Pools.' : 'Fantasy leagues are started from your account: sign in, then come back here from My pools.'} Or tell us about your league and we set it up with you.</p>
-        <div className="mt-3 flex flex-wrap gap-2">{!signedIn && <a href="#/" className="btn-gold px-4 py-2 text-sm">Sign in</a>}<a href="#/start" className="btn-ghost px-4 py-2 text-sm">Ask us to set it up</a></div>
+        <p className="mt-1 text-white/70">{signedIn ? 'A fantasy league is started by someone already playing in a pool on Super Pools.' : 'Fantasy leagues are started from an account that is already in a pool on Super Pools: sign in, or start a free sports pool first and come back here from My pools.'} Or tell us about your league, with the rosters and keepers you have now, and we open it with you.</p>
+        <div className="mt-3 flex flex-wrap gap-2"><a href="#/start" className="btn-gold px-4 py-2 text-sm">Ask us to set it up</a>{!signedIn && <a href="#/" className="btn-ghost px-4 py-2 text-sm">Sign in</a>}{!signedIn && <a href="#/new?type=sports" className="btn-ghost px-4 py-2 text-sm">Start a sports pool</a>}</div>
       </div>
     );
   }
   return (
     <>
-      <Field title="How many teams?" note="Seat 1 is yours as commissioner; the rest wait for the GMs you invite from the Commish page.">
-        <Seg value={teams} set={setTeams} options={[[6, '6'], [8, '8'], [10, '10'], [12, '12'], [14, '14']]} />
+      <Field title="How many teams?" note="Seat 1 is yours as commissioner; the rest wait for the GMs you invite from the Commish page. Four to twenty.">
+        <div className="flex items-center justify-between gap-3 rounded-2xl bg-black/25 p-1 pl-3">
+          <span className="text-sm text-white/70">Including yours</span>
+          <div className="flex shrink-0 items-center gap-1">
+            <button type="button" className="grid h-9 w-9 place-items-center rounded-full bg-white/10 text-lg font-bold text-white disabled:opacity-30" disabled={teams <= 4} onClick={() => setTeams(teams - 1)} aria-label="One team fewer">−</button>
+            <span className="num w-8 text-center font-display text-2xl font-extrabold text-white">{teams}</span>
+            <button type="button" className="grid h-9 w-9 place-items-center rounded-full bg-white/10 text-lg font-bold text-white disabled:opacity-30" disabled={teams >= 20} onClick={() => setTeams(teams + 1)} aria-label="One team more">+</button>
+          </div>
+        </div>
       </Field>
       <Field title="How it’s won" note={format === 'season' ? 'Every team plays the whole season against everyone: the best total at the end wins.' : 'Each week you play one other team; the best record makes the playoffs, and the bracket decides the champion.'}>
         <Seg value={format} set={setFormat} options={[['season', '📈 Season total'], ['h2h', '⚔️ Head-to-head']]} />
         {format === 'h2h' && <div className="mt-1.5"><Seg value={playoffs} set={setPlayoffs} options={[[0, 'No playoffs'], [4, '4 teams'], [6, '6 teams'], [8, '8 teams']]} /></div>}
       </Field>
-      <Field title="How it scores" note={scoring === 'points' ? 'Every stat a player starts for you is worth points: goals, assists, shots, hits, a goalie’s wins and saves. The values start from the SaK Superleague’s; change them on the Commish page.'
+      <Field title="How it scores" note={scoring === 'points' ? 'Every stat a player starts for you is worth points: goals, assists, shots, hits, a goalie’s wins and saves. The values start from our standard scoring; change any of them on the Commish page.'
         : `${format === 'h2h' ? 'Each week, win more categories than your opponent to win the week.' : 'Rotisserie: teams are ranked in each category on the season; first earns as many points as there are teams.'} Pick 3 to 12.`}>
         <Seg value={scoring} set={setScoring} options={[['points', '🏒 Fantasy points'], ['cats', format === 'h2h' ? '📊 Categories' : '📊 Rotisserie']]} />
         {scoring === 'cats' && (
@@ -108,7 +115,7 @@ export function FantasyStart({ color, setColor, swatches, member, signedIn }: { 
       <div className="rounded-2xl p-3 text-sm" style={{ background: `rgb(${rgb(color)} / .1)`, boxShadow: `inset 0 0 0 1px rgb(${rgb(color)} / .35)` }}>
         <div className="text-[10px] font-black uppercase tracking-[.16em]" style={{ color }}>Your league</div>
         <div className="mt-1 font-semibold text-white">{name.trim() || 'Your league'}: {summary.join(' · ')}</div>
-        <div className="mt-1 text-xs text-white/60">NHL players, SaK’s roster and calendar. It opens in setup: invite the GMs, set the draft, and take it live from the Commish page when the checklist is ticked.</div>
+        <div className="mt-1 text-xs text-white/60">NHL players, a standard roster (2C, 2LW, 2RW, 4D, 2G, a bench and IR) and the NHL calendar. It opens in setup: invite your GMs, set draft night, and take it live from the Commish page when the checklist is ticked.</div>
       </div>
       <button type="button" className="btn-gold w-full py-3 text-base" disabled={busy || !ready} onClick={start}>{busy ? <Spinner /> : '🏒 Start my league'}</button>
       {err && <div className="rounded-xl border border-red-400/30 bg-red-900/50 px-4 py-3 text-center text-sm text-red-200">{err}</div>}
