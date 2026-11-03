@@ -4,7 +4,7 @@ import { FunctionsHttpError } from '@supabase/supabase-js';
 import { ArrowLeft, ArrowRight, Check, ChevronRight, Lock, Plus, Sparkles } from 'lucide-react';
 import { rpc, setRemember, supabase } from '../lib/supabase';
 import { markShareAfterCreate, openPool } from '../lib/host';
-import { signOut } from '../lib/guest';
+import { isGuestEmail, signOut } from '../lib/guest';
 import { useLeague } from '../lib/store';
 import { Spinner, Toggle } from '../components/ui';
 import { themed } from '../components/LeagueIdentity';
@@ -155,10 +155,15 @@ export default function NewPool() {
   useEffect(() => { if (srcParam) noteCtaArrival(srcParam); }, [srcParam]);
   // Lists load once; the link effect below re-applies whenever the hash query's template changes
   // (same /new route stays mounted, so a second #/new?... must not keep the first template).
+  // a list that failed to load says so and offers another go, rather than reading as "nothing is on"
+  const [listsFailed, setListsFailed] = useState(false);
+  const [listsTry, setListsTry] = useState(0);
   useEffect(() => {
-    rpc<PoolEvent[]>('pool_event_list').then((e) => setEvents(e ?? []), () => setEvents([]));
-    rpc<Pack[]>('pool_pack_list').then((d) => setPacks(d ?? []), () => setPacks([]));
-  }, []);
+    setListsFailed(false);
+    rpc<PoolEvent[]>('pool_event_list').then((e) => setEvents(e ?? []), () => { setEvents([]); setListsFailed(true); });
+    rpc<Pack[]>('pool_pack_list').then((d) => setPacks(d ?? []), () => { setPacks([]); setListsFailed(true); });
+  }, [listsTry]);
+  const retryLists = () => { setEvents(null); setPacks(null); appliedLink.current = null; setListsTry((n) => n + 1); };
   useEffect(() => {
     if (events === null || packs === null) return;
     const same = appliedLink.current === linkKey;
@@ -504,7 +509,9 @@ export default function NewPool() {
                     </div>
                   );
                 })}
-                {events && !events.length && <p className="rounded-xl bg-white/[.05] px-3 py-2 text-xs text-white/70">No league is open for a new pool right now. A questions pool works for anything.</p>}
+                {events && !events.length && (listsFailed
+                  ? <div className="flex items-center gap-3 rounded-xl bg-white/[.05] px-3 py-2 text-xs text-white/70"><span className="min-w-0 flex-1">Couldn&apos;t load what&apos;s on right now.</span><button type="button" className="btn-ghost shrink-0 px-3 py-1.5 text-xs" onClick={retryLists}>Try again</button></div>
+                  : <p className="rounded-xl bg-white/[.05] px-3 py-2 text-xs text-white/70">No league is open for a new pool right now. A questions pool works for anything.</p>)}
                 {!events && <div className="flex justify-center py-2"><Spinner /></div>}
               </div>
             </Step>
@@ -690,7 +697,11 @@ export default function NewPool() {
               </div>
             </div>
 
-            {member ? (
+            {member && isGuestEmail(session?.user?.email) ? (
+              <div className="rounded-2xl border border-amber-400/30 bg-amber-400/[.06] p-3 text-sm text-white/80">
+                <p>You&apos;re in as {me!.gm_name} on this phone only. The pool starts on this account; add an email on its home right after (Keep your place), so the host&apos;s seat, the invite link and the settling survive a new phone.</p>
+              </div>
+            ) : member ? (
               <p className="text-sm text-white/70">You’re signed in as {me!.gm_name}. The pool goes on your account beside the others, on My pools.</p>
             ) : session && afterSignIn ? (
               <p className="text-sm text-white/70">Signed in. Opening your pool…</p>
@@ -713,7 +724,7 @@ export default function NewPool() {
                 </div>
                 {haveAccount
                   ? <p className="text-[11px] leading-snug text-white/50">The pool goes on your account beside the others, on My pools.</p>
-                  : <p className="text-[11px] leading-snug text-white/50">Starting a pool means you agree to the <a href="#/terms" className="underline">Terms</a> and have read the <a href="#/privacy" className="underline">Privacy</a>.</p>}
+                  : <p className="text-[11px] leading-snug text-white/50">Starting a pool means you agree to the <a href="#/terms" className="underline">Terms of use</a>. <a href="#/privacy" className="underline">What we keep about you</a>.</p>}
               </div>
             )}
             </div>
@@ -751,12 +762,12 @@ export default function NewPool() {
             <div className="min-w-0 flex-1">
               <div className="text-[10px] font-black uppercase tracking-[.16em] text-white/50">{ready ? 'All set' : resolving ? 'One moment' : `Step ${curAt + 1} of ${stepCount}`}</div>
               {need && !resolving ? (
-                <button type="button" onClick={fix} className="text-left text-sm font-semibold leading-snug text-white">{need.text}<ChevronRight size={15} className="-mt-0.5 ml-0.5 inline text-white/60" /></button>
+                <button type="button" onClick={fix} className="text-left text-sm font-semibold leading-snug text-white"><span className="line-clamp-1">{need.text}<ChevronRight size={15} className="-mt-0.5 ml-0.5 inline text-white/60" /></span></button>
               ) : ready ? (
                 <p className="line-clamp-2 break-words text-sm font-semibold leading-snug text-white">{pool.trim()}</p>
               ) : null}
             </div>
-            <button type="submit" form="np-form" className="btn-gold shrink-0 px-3.5 py-3 text-[15px]" disabled={busy || afterSignIn || !ready || (!!session && !member)}>{busy || afterSignIn ? <Spinner /> : haveAccount && !member ? '✨ Sign in and start' : '✨ Start my pool'}</button>
+            <button type="submit" form="np-form" className="btn-gold shrink-0 px-3.5 py-3 text-[15px]" disabled={busy || afterSignIn || !ready || (!!session && !member)}>{busy || afterSignIn ? <Spinner /> : haveAccount && !member ? 'Sign in and start' : 'Start my pool'}</button>
           </div>
         </div>
       )}

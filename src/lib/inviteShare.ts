@@ -7,6 +7,16 @@ const PRODUCT_DOMAIN = /(^|\.)superpools?ai\.com$/;
 
 export function markShareAfterCreate() {
   try { sessionStorage.setItem(SHARE_AFTER_CREATE, '1'); } catch { /* private mode */ }
+  markFreshArrival();
+}
+
+// the visit right after a create or a join: the first screen has one job, so the Home Screen sheet waits
+const FRESH = 'sp-fresh-arrival';
+export function markFreshArrival() {
+  try { sessionStorage.setItem(FRESH, String(Date.now())); } catch { /* private mode */ }
+}
+export function freshArrival(within = 15 * 60_000): boolean {
+  try { return Date.now() - Number(sessionStorage.getItem(FRESH) ?? 0) < within; } catch { return false; }
 }
 
 export function consumeShareAfterCreate(): boolean {

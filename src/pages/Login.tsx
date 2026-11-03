@@ -128,14 +128,14 @@ export default function Login() {
             <input id="pw" className="input relative mt-1" type="password" autoComplete="current-password" autoFocus={!!email} value={pw}
               onChange={(e) => setPw(e.target.value)} placeholder={sak ? 'Your Superleague password' : 'Your password'} />
             {rememberBox}
-            <button className="btn-primary relative mt-4 w-full py-3 text-base" disabled={busy || !pw || !okEmail}>{busy ? <Spinner /> : pool || product ? '✨ Sign in' : '🏒 Drop the puck'}</button>
+            <button className="btn-primary relative mt-4 w-full py-3 text-base" disabled={busy || !pw || !okEmail}>{busy ? <Spinner /> : pool || product ? 'Sign in' : '🏒 Drop the puck'}</button>
             <button type="button" className="relative mt-3 w-full text-center text-sm text-white/60 underline" onClick={() => go('forgot')}>Forgot your password?</button>
           </form>
         ) : mode === 'forgot' ? (
           <form onSubmit={sendCode} className="card-hero animate-pop p-5">
             <div className="relative mb-3 text-sm text-white/80">Type your email and we&apos;ll send you a code to set a new password.</div>
             {emailField}
-            <button className="btn-primary relative mt-4 w-full py-3 text-base" disabled={busy || !okEmail}>{busy ? <Spinner /> : '✉️ Email me a code'}</button>
+            <button className="btn-primary relative mt-4 w-full py-3 text-base" disabled={busy || !okEmail}>{busy ? <Spinner /> : 'Email me a code'}</button>
             <button type="button" className="relative mt-3 w-full text-center text-sm text-white/60 underline" onClick={() => go('in')}>Back to sign in</button>
           </form>
         ) : (
@@ -148,7 +148,7 @@ export default function Login() {
             <input id="npw" className="input relative mt-1" type="password" autoComplete="new-password" value={pw} onChange={(e) => setPw(e.target.value)} placeholder="6+ characters" />
             <input className="input relative mt-2" type="password" autoComplete="new-password" value={pw2} onChange={(e) => setPw2(e.target.value)} placeholder="Same again" />
             {rememberBox}
-            <button className="btn-primary relative mt-4 w-full py-3 text-base" disabled={busy || code.length < 6 || pw.length < 6 || !pw2}>{busy ? <Spinner /> : '🔑 Set password and sign in'}</button>
+            <button className="btn-primary relative mt-4 w-full py-3 text-base" disabled={busy || code.length < 6 || pw.length < 6 || !pw2}>{busy ? <Spinner /> : 'Set password and sign in'}</button>
             <div className="relative mt-3 flex justify-between text-sm text-white/60">
               <button type="button" className="underline" onClick={() => go('forgot')}>Send a new code</button>
               <button type="button" className="underline" onClick={() => go('in')}>Back to sign in</button>

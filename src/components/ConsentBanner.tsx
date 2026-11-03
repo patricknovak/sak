@@ -13,9 +13,12 @@ const onStart = () => /^#\/new(\?|$)/.test(window.location.hash);
 export function ConsentBanner() {
   const [, setTick] = useState(0);
   const [details, setDetails] = useState(false);
+  // on a phone the line sits above the dock, never over it (a newcomer's tabs were under it on their first screen)
+  const [dock, setDock] = useState(false);
   // the question to ask follows the page: the hash changes without a reload
   useEffect(() => {
-    const re = () => setTick((n) => n + 1);
+    const re = () => { setTick((n) => n + 1); setTimeout(() => setDock(!!document.querySelector('[data-dock]')), 50); };
+    re();
     window.addEventListener('hashchange', re);
     return () => window.removeEventListener('hashchange', re);
   }, []);
@@ -41,7 +44,7 @@ export function ConsentBanner() {
   );
 
   return (
-    <div className={`pointer-events-none fixed inset-x-0 z-[80] flex justify-center p-3 ${start ? 'top-0 pt-[max(0.75rem,env(safe-area-inset-top))]' : 'bottom-0 pb-[max(0.75rem,env(safe-area-inset-bottom))]'}`} role="dialog" aria-label="Analytics and ads cookies">
+    <div className={`pointer-events-none fixed inset-x-0 z-[80] flex justify-center p-3 ${start ? 'top-0 pt-[max(0.75rem,env(safe-area-inset-top))]' : dock ? 'bottom-[calc(88px+env(safe-area-inset-bottom))] lg:bottom-0 lg:pb-[max(0.75rem,env(safe-area-inset-bottom))]' : 'bottom-0 pb-[max(0.75rem,env(safe-area-inset-bottom))]'}`} role="dialog" aria-label="Analytics and ads cookies">
       <div className="pointer-events-auto w-full max-w-md rounded-2xl border border-white/10 bg-[rgb(11_18_32/.96)] p-3 shadow-[0_18px_50px_-20px_rgba(0,0,0,.85)]">
         {askAnalytics && (
           <>
@@ -62,11 +65,15 @@ export function ConsentBanner() {
         )}
         {askAds && (
           <div className={askAnalytics ? 'mt-3 border-t border-white/10 pt-3' : ''}>
-            <div className="text-[12px] font-semibold text-white">Did an ad bring you here?</div>
-            <p className="mt-0.5 text-[12px] leading-snug text-slate-300">
-              Let us tell Google whether a sign-up came from one of our ads, with a scrambled one-way code from your email,
-              never the email itself. <a className="text-sky-300 underline" href="#/privacy">Privacy</a>
-            </p>
+            <div className="text-[12px] font-semibold text-white">Did an ad bring you here?{' '}
+              {!details && <button type="button" className="font-normal text-sky-300 underline" onClick={() => setDetails(true)} aria-expanded={details}>What we&apos;d tell Google</button>}
+            </div>
+            {details && (
+              <p className="mt-0.5 text-[12px] leading-snug text-slate-300">
+                Whether a sign-up came from one of our ads, with a scrambled one-way code from your email,
+                never the email itself. <a className="text-sky-300 underline" href="#/privacy">Privacy</a>
+              </p>
+            )}
             <div className="mt-2 flex gap-2">{pair('ads', true)}</div>
           </div>
         )}

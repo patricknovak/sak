@@ -29,6 +29,8 @@ import { InvitePeople } from '../components/InvitePeople';
 import { PostToChats } from '../components/PostToChats';
 import { DeletePool } from '../components/DeletePool';
 import { KeepSeat } from '../components/KeepSeat';
+import { PushCard } from '../components/PushCard';
+import { isGuestEmail } from '../lib/guest';
 import { LeagueFeatures } from '../components/LeagueFeatures';
 import { usePoolCompetitions } from '../lib/poolOwn';
 import type { PoolEvent } from '../lib/poolGames';
@@ -86,7 +88,7 @@ function SoccerRounds({ onAdded }: { onAdded: () => void }) {
 
 // ───────────── home ─────────────
 export function PoolHome() {
-  const { me, league, teams } = useLeague();
+  const { me, league, teams, session } = useLeague();
   const brand = useBrand();
   const now = useNow(1000);
   const { markets, positions, trades, drops, reload: reloadPool } = usePool();
@@ -226,13 +228,19 @@ export function PoolHome() {
           grown (the gate is people, docs/DEVELOPMENT.md §8.4 item 1) */}
       {me?.is_commish && !alone && people < 4 && <InviteCard />}
 
+      {/* a host in on this phone only: the email that keeps the seat comes before the games (a lost host is a pool
+          nobody can settle or invite into) */}
+      {me?.is_commish && isGuestEmail(session?.user?.email) && <KeepSeat />}
+
       <PoolGameCards />
 
       {/* joined with just a name: the email that keeps the seat (migration 332), after what they came for */}
-      <KeepSeat />
+      {!(me?.is_commish && isGuestEmail(session?.user?.email)) && <KeepSeat />}
 
-      {/* after a joiner's first call: invite them to open a pool of their own (viral loop) */}
+      {/* after a joiner's first call: invite them to open a pool of their own (viral loop), and the alerts that buzz
+          before their next call closes */}
       <StartOwnPoolCard />
+      <FirstCallPush />
 
       {me?.role === 'gm' && !gamesOnly && !blank && <PoolHowTo league={league?.league_id ?? 0} />}
 
@@ -270,6 +278,19 @@ export function PoolHome() {
 }
 
 // after the first call: a member who joined someone else's pool can start one for their own crew
+// the alerts card, after the first call (never on the first screen): a question closing without them is the loss
+function FirstCallPush() {
+  const { me } = useLeague();
+  const [ready, setReady] = useState(hasTrackedFirstCall);
+  useEffect(() => {
+    const on = () => setReady(true);
+    window.addEventListener('sp-first-call', on);
+    return () => window.removeEventListener('sp-first-call', on);
+  }, []);
+  if (!ready || me?.role !== 'gm') return null;
+  return <PushCard hideWhenOn compact />;
+}
+
 function StartOwnPoolCard() {
   const { me } = useLeague();
   const [ready, setReady] = useState(hasTrackedFirstCall);
@@ -332,6 +353,10 @@ function CreateConfirmCard({ blank = false }: { blank?: boolean }) {
   const inputRef = useRef<HTMLInputElement>(null);
   const poolName = league?.name ?? 'Super Pools';
   const coin = brand.coin.name.toLowerCase();
+  // a pool of games and no questions is played in picks, not coins
+  const { markets: ms } = usePool();
+  const { games: gs } = usePoolGames();
+  const picksOnly = !!gs?.length && ms !== null && !ms.length;
   // the group chat's first look at the pool: its name as the host wrote it (never "my The Barn pool")
   const pitch = `Join ${poolTitle(brand, poolName)} on Super Pools. Pick a name and you're in.`;
   const ask = link ? `${pitch} ${link}` : pitch;
@@ -370,7 +395,7 @@ function CreateConfirmCard({ blank = false }: { blank?: boolean }) {
           />
         )}
         <p className="rounded-xl bg-black/25 px-3 py-2.5 text-sm leading-snug text-slate-200 ring-1 ring-white/10">{ask}</p>
-        <p className="text-xs text-mute">Free, played in {coin}, never real money. No app to download.</p>
+        <p className="text-xs text-mute">{picksOnly ? 'Free, picks against the table, never real money. No app to download.' : `Free, played in ${coin}, never real money. No app to download.`}</p>
         <button
           type="button"
           className="btn-gold inline-flex items-center gap-2"
@@ -400,6 +425,8 @@ function InviteCard() {
   const [job, setJob] = useState<ShareJob | null>(null);
   const [inviting, setInviting] = useState(false);
   const { markets } = usePool();
+  const { games } = usePoolGames();
+  const picksOnly = !!games?.length && markets !== null && !markets.length;
   // invite_share only on a real tap, never on mount (smoke: auto-share after create inflated the funnel).
   const make = () => run(async () => {
     // the pool's one open link, the same for the host and every member (migration 162)
@@ -418,7 +445,7 @@ function InviteCard() {
       <div className="pointer-events-none absolute -right-10 -top-10 h-40 w-40 rounded-full bg-gold/20 blur-3xl" />
       <div className="relative">
         <h3 className="font-display text-2xl font-extrabold text-white">{link ? 'Send it to the group chat' : 'Invite your group chat'}</h3>
-        <p className="mt-1 text-sm text-mute">Everyone gets the same {brand.coin.name.toLowerCase()} to start, and every drop. They join with just a name. Nothing to download.</p>
+        <p className="mt-1 text-sm text-mute">{picksOnly ? 'They join with just a name and make their picks. Nothing to download.' : `Everyone gets the same ${brand.coin.name.toLowerCase()} to start, and every drop. They join with just a name. Nothing to download.`}</p>
         {me?.role === 'gm' ? (
           <>
             <div className="mt-3 flex flex-wrap gap-2">

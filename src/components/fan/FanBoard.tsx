@@ -160,11 +160,16 @@ export function FanBoard({ post }: { post?: number | null }) {
       </div>
       {shared && !posts?.some((x) => x.id === shared.id) && <PostCard p={shared} lit onChange={setShared} onGone={() => setShared(null)} />}
       {posts == null ? <div className="flex justify-center py-6"><Spinner /></div>
-        : posts.length === 0 ? (
+        : failed && posts.length === 0 ? (
+          <div className="card p-5 text-center">
+            <p className="text-sm text-slate-300">The board didn’t load.</p>
+            <button type="button" className="btn-ghost mt-3" onClick={() => setTick((n) => n + 1)}>Try again</button>
+          </div>
+        ) : posts.length === 0 ? (
           <button type="button" onClick={() => add(here)} className="card block w-full p-5 text-center hover:bg-white/[.03]">
             <div className="text-3xl">{kind === 'all' ? '📣' : KIND[kind].emoji}</div>
-            <p className="mt-1 text-sm text-slate-300">{failed ? 'The board didn’t load. Pull to refresh in a minute.' : empty}</p>
-            {!failed && <span className="btn-club btn-sm mt-3 inline-flex px-3!"><Plus className="h-3.5 w-3.5" />Add {KIND[here].one.toLowerCase()}</span>}
+            <p className="mt-1 text-sm text-slate-300">{empty}</p>
+            <span className="btn-club btn-sm mt-3 inline-flex px-3!"><Plus className="h-3.5 w-3.5" />Add {KIND[here].one.toLowerCase()}</span>
           </button>
         ) : posts.map((p) => <PostCard key={p.id} p={p} lit={p.id === post} onChange={change} onGone={gone} />)}
       {more && <button type="button" onClick={() => void loadMore()} className="btn-ghost w-full">Show more</button>}

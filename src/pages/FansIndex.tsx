@@ -7,7 +7,7 @@ import { useEffect, useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { ArrowRight, BookOpen, Code2, Flame, Lightbulb, Megaphone, Users } from 'lucide-react';
 import { hub } from '../lib/nhlhub';
-import { fanDir, fanIndex, fanLeaguesIndex, fanLink, useFanLeagues, zonePath, type FanDir, type FanIndex, type FanLeague } from '../lib/fanVoice';
+import { fanDir, fanIndex, fanLeaguesIndex, fanLink, useFanLeagues, zonePath, type FanDir, type FanIndex, type FanLeague, type FanLeagueRow } from '../lib/fanVoice';
 import { DIVISIONS, clubTheme, clubVars, leagueTheme, sportVars } from '../data/clubColors';
 import { NHL_TEAMS } from '../lib/format';
 import { NhlLogo } from '../components/ui';
@@ -18,6 +18,13 @@ import { ShareButton } from '../components/fan/FanShare';
 
 const CLUB_KEY = 'sp-fan-club';
 const rankWord = (n: number) => `${n}${n % 10 === 1 && n % 100 !== 11 ? 'st' : n % 10 === 2 && n % 100 !== 12 ? 'nd' : n % 10 === 3 && n % 100 !== 13 ? 'rd' : 'th'}`;
+
+const FALLBACK_LEAGUES: FanLeagueRow[] = [
+  { key: 'nhl', name: 'NHL', sport: 'hockey', sort: 1 },
+  { key: 'nfl', name: 'NFL', sport: 'football', sort: 2 },
+  { key: 'nba', name: 'NBA', sport: 'basketball', sort: 3 },
+  { key: 'epl', name: 'Premier League', sport: 'soccer', sort: 4 },
+];
 
 const SPORT_WORD: Record<string, string> = { hockey: 'Hockey', football: 'Football', basketball: 'Basketball', soccer: 'Football (soccer)' };
 
@@ -48,6 +55,10 @@ export default function FansIndex() {
   useEffect(() => { if (post) setTimeout(() => document.getElementById('fz-league')?.scrollIntoView({ behavior: 'smooth' }), 300); }, [post]);
   const row = new Map((league?.table ?? []).map((r) => [r.abbrev, r]));
   const fans = Object.entries(idx).filter(([k]) => k !== 'NHL').reduce((t, [, x]) => t + x.people, 0);
+  // the count waits for a number (a zero before the reads answer, or when they fail, reads as an empty product)
+  const people = Object.values(lidx).reduce((t, x) => t + x.people, 0) || fans;
+  // the four leagues stand even before (or without) the database's list, so the page is never a head over nothing
+  const leagueRows: FanLeagueRow[] = leagues?.length ? leagues : FALLBACK_LEAGUES;
 
   return (
     <div className="space-y-6" style={clubVars('NHL')}>
@@ -65,7 +76,7 @@ export default function FansIndex() {
             <ShareButton url={fanLink()} title="Fan zones" text="Every NHL, NFL, NBA and Premier League club read like a front office, free and open, with the fans' own calls and ideas." className="btn-ghost px-4 py-2.5" />
           </div>
           <div className="mt-4 flex flex-wrap gap-x-4 gap-y-1 text-[12px] text-slate-400">
-            <span className="flex items-center gap-1"><Users className="h-3.5 w-3.5" />{Object.values(lidx).reduce((t, x) => t + x.people, 0) || fans} fan{(Object.values(lidx).reduce((t, x) => t + x.people, 0) || fans) === 1 ? '' : 's'} taking part this season</span>
+            {people > 0 && <span className="flex items-center gap-1"><Users className="h-3.5 w-3.5" />{people} fan{people === 1 ? '' : 's'} taking part this season</span>}
             <span className="flex items-center gap-1"><Lightbulb className="h-3.5 w-3.5" />{Object.values(lidx).reduce((t, x) => t + x.clubs, 0) || 114} clubs, the chances, the players and the front office for every one</span>
             <a href="https://github.com/patricknovak/sak" target="_blank" rel="noopener noreferrer" className="flex items-center gap-1 hover:text-white"><Code2 className="h-3.5 w-3.5" />Open source, MIT</a>
           </div>
@@ -76,7 +87,7 @@ export default function FansIndex() {
       <section className="space-y-3">
         <Head id="leagues" title="Pick a league" sub="Each league's page has every club, the races with every club's chances, the leaders and the league's own board." />
         <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
-          {(leagues ?? []).map((x) => {
+          {leagueRows.map((x) => {
             const t = leagueTheme(x.key), d = dirs[x.key], n = lidx[x.key];
             const logos = (d?.clubs ?? []).slice(0, 6);
             return (

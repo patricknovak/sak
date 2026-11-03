@@ -6658,9 +6658,11 @@ set role authenticated;
 select pg_temp.raises('a day''s pick stays once its game starts', format('select pool_game_pick(%s, ''streak'', ''{"fixture": %s, "pick": "H"}'')', :stg, :st5), 'Your pick for that day has started');
 reset role;
 select set_config('request.jwt.claim.sub', '', false);
--- the four games end, home sides all: right, right, wrong, right
+-- the four games end, home sides all: right, right, wrong, right. Each is moved to its own Eastern afternoon, four days
+-- back to one: a kickoff of now() minus whole days lands two games on one Eastern date in the hour after a clock change
+-- (3 November 2026, 04:00 to 05:00 UTC: now() - 2 days was still daylight time), and the day's two picks became one.
 select soccer_ingest('nfl', jsonb_build_object('fixtures', (select jsonb_agg(jsonb_build_object('ext_id', 'nfl-30' || d, 'gameweek', 14,
-  'kickoff', now() - make_interval(days => 5 - d), 'status', 'FT', 'home', 'nf1', 'away', 'nf2', 'home_score', 24, 'away_score', 17, 'home_ft', 24, 'away_ft', 17))
+  'kickoff', ((current_date - (5 - d))::timestamp + time '13:00') at time zone 'America/New_York', 'status', 'FT', 'home', 'nf1', 'away', 'nf2', 'home_score', 24, 'away_score', 17, 'home_ft', 24, 'away_ft', 17))
   from generate_series(1, 4) d)));
 select pg_temp.expect('best run 2, on 1 now, three right from four',
   (select points = 2 and exact = 1 and right_calls = 3 and picked = 4 and tiebreak = -1 from _pool_game_table(:stg) where team_id = :hana)

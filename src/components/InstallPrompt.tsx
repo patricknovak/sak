@@ -7,6 +7,7 @@ import { MoreVertical, PlusSquare, Share, Smartphone, X } from 'lucide-react';
 import { useLeague } from '../lib/store';
 import { getAnalyticsConsent, hasGaId } from '../lib/analytics';
 import { hideInstall, installHidden, useInstall } from '../lib/install';
+import { freshArrival } from '../lib/inviteShare';
 
 function Steps({ platform }: { platform: 'ios' | 'android' | 'other' }) {
   const steps = platform === 'ios'
@@ -32,10 +33,11 @@ export function InstallPrompt({ variant = 'sheet' }: { variant?: 'sheet' | 'card
   const { league } = useLeague();
   const { platform, standalone, canPrompt, prompt } = useInstall();
   const [show, setShow] = useState(variant === 'card');
-  // the sheet waits a moment, and never sits over the cookie question
+  // the sheet waits a moment, never sits over the cookie question, and never rises on the visit right after a create
+  // or a join (that screen's one job is the invite or the first call)
   useEffect(() => {
     if (variant !== 'sheet') return;
-    const t = setTimeout(() => setShow(!installHidden() && !(hasGaId() && getAnalyticsConsent() == null)), 2500);
+    const t = setTimeout(() => setShow(!installHidden() && !freshArrival() && !(hasGaId() && getAnalyticsConsent() == null)), 2500);
     return () => clearTimeout(t);
   }, [variant]);
   if (standalone || platform === 'other' || !show) return null;

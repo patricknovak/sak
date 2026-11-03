@@ -12,7 +12,7 @@
 import { rpc, setLeagueHeader } from './supabase';
 import type { Brand } from './brand';
 import { inviteLinkWithSrc } from './inviteShare';
-export { markShareAfterCreate, consumeShareAfterCreate } from './inviteShare';
+export { markShareAfterCreate, consumeShareAfterCreate, markFreshArrival, freshArrival } from './inviteShare';
 
 export interface HostLeague { id: number; slug: string; name: string; short_name: string; brand: Partial<Brand> | null; status: string; kind?: 'fantasy' | 'predict' }
 

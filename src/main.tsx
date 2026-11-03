@@ -13,6 +13,8 @@ import { ErrorBoundary, reloadForNewVersion } from './components/ErrorBoundary';
 import { ConsentBanner } from './components/ConsentBanner';
 import { initAnalytics, trackPageView } from './lib/analytics';
 import { PRODUCT } from './lib/brand';
+import { isProductHost } from './lib/host';
+import { ProductMark } from './components/Brand';
 import { signOut } from './lib/guest';
 
 initAnalytics();
@@ -109,7 +111,8 @@ function App() {
         <div className="flex flex-col items-center gap-4">
           <div className="relative h-20 w-20">
             <div className="absolute inset-0 animate-glow rounded-[24px] bg-goal/40 blur-2xl" />
-            <img src="./icon.svg" alt="" className="relative h-20 w-20 animate-pulse" />
+            {/* the product's own mark on its own addresses; SaK's crest only on SaK's (a pool link never opens on a hockey badge) */}
+            {isProductHost() ? <span className="relative grid h-20 w-20 animate-pulse place-items-center"><ProductMark size={80} /></span> : <img src="./icon.svg" alt="" className="relative h-20 w-20 animate-pulse" />}
           </div>
           <div className="h-display text-shine text-xl tracking-[.2em]">{PRODUCT.name}</div>
         </div>
