@@ -19,11 +19,20 @@ const EACH_PRESETS: { chip: string; title: string; rule: string }[] = [
   { chip: 'Together at the reunion', title: 'Will {name} be together at the reunion?', rule: 'Yes if {name} say at the reunion that they are together, married or not.' },
   { chip: 'Meet the family goes badly', title: 'Does a family member of {name} say on camera they are against it?', rule: 'Yes if a parent, sibling or other family member of either of {name} says on camera that they do not support the engagement or the wedding.' },
 ];
-const SHAPES: { key: Shape; label: string; icon: typeof CircleHelp; title: string; answers: string; rule: string }[] = [
+type ShapeDef = { key: Shape; label: string; icon: typeof CircleHelp; title: string; answers: string; rule: string };
+// the examples a show pool sees (what airs is the answer) and the ones any other pool sees (the office, an awards
+// night, the family): the shape is the same, the words are not
+const SHOW_SHAPES: ShapeDef[] = [
   { key: 'yesno', label: 'Yes or no', icon: CircleHelp, title: 'Does it happen before the finale?', answers: 'Yes\nNo', rule: 'Yes if it happens on screen before the finale, as aired.' },
   { key: 'who', label: 'Who', icon: Users, title: 'Who is first to go home?', answers: '', rule: 'The first one to leave, as aired. Anyone not named counts as Anyone else.' },
   { key: 'many', label: 'How many', icon: Hash, title: 'How many say yes this week?', answers: 'None\nOne\nTwo\nThree or more', rule: 'The number shown in this week’s episodes, as aired.' },
   { key: 'each', label: 'One for each', icon: Repeat, title: 'Will {name} make it to the end?', answers: 'Yes\nNo', rule: 'Yes for {name} if it happens on screen, as aired.' },
+];
+const PLAIN_SHAPES: ShapeDef[] = [
+  { key: 'yesno', label: 'Yes or no', icon: CircleHelp, title: 'Does it happen by Friday?', answers: 'Yes\nNo', rule: 'Yes if it has happened by the time the question closes.' },
+  { key: 'who', label: 'Who', icon: Users, title: 'Who wins it?', answers: '', rule: 'Whoever wins, by the official result. Anyone not named counts as Anyone else.' },
+  { key: 'many', label: 'How many', icon: Hash, title: 'How many turn up?', answers: 'None\nOne\nTwo\nThree or more', rule: 'The number counted when the question closes.' },
+  { key: 'each', label: 'One for each', icon: Repeat, title: 'Does {name} make it to the end?', answers: 'Yes\nNo', rule: 'Yes for {name} if they are still in when it ends.' },
 ];
 
 const pad = (n: number) => String(n).padStart(2, '0');
@@ -31,12 +40,15 @@ const pad = (n: number) => String(n).padStart(2, '0');
 const toInput = (d: Date) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
 const shortWhen = (d: Date) => d.toLocaleString(undefined, { weekday: 'short', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' });
 
-export function AskSheet({ open, onClose, drops, onAsked }: { open: boolean; onClose: () => void; drops: PoolDrop[]; onAsked: () => void }) {
+export function AskSheet({ open, onClose, drops, onAsked, show = true }: { open: boolean; onClose: () => void; drops: PoolDrop[]; onAsked: () => void; show?: boolean }) {
   const { busy, run } = useAction();
+  const SHAPES = show ? SHOW_SHAPES : PLAIN_SHAPES;
   const [shape, setShape] = useState<Shape>('yesno');
-  const [f, setF] = useState({ title: '', answers: 'Yes\nNo', rule: '', category: '', closes: '', names: '' });
   const now = Date.now();
   const nextDrop = drops.find((d) => new Date(d.at).getTime() > now + 10 * 60e3);
+  // the close starts set (the next drop, or a week out) so the Ask button is live as soon as the question is written;
+  // the host changes it with one tap below
+  const [f, setF] = useState({ title: '', answers: 'Yes\nNo', rule: '', category: '', closes: toInput(nextDrop ? new Date(nextDrop.at) : new Date(now + 7 * 864e5)), names: '' });
   const pick = (k: Shape) => {
     const s = SHAPES.find((x) => x.key === k)!;
     setShape(k);
@@ -90,9 +102,26 @@ export function AskSheet({ open, onClose, drops, onAsked }: { open: boolean; onC
         <label className="block"><span className="label">{shape === 'each' ? 'The question, with {name} where each name goes' : 'The question, the way you’d ask the group chat'}</span>
           <input className="input mt-1 w-full" value={f.title} onChange={(e) => setF({ ...f, title: e.target.value })} placeholder={cur.title} maxLength={160} /></label>
 
+        <div>
+          <span className="label">Closes</span>
+          <div className="mt-2 grid gap-2">
+            {quick.map((q) => {
+              const on = f.closes === toInput(q.at);
+              return (
+                <button key={q.label} type="button" onClick={() => setF({ ...f, closes: toInput(q.at) })}
+                  className={`flex items-center justify-between gap-3 rounded-2xl border px-3 py-2 text-left text-sm transition ${on ? 'border-gold/60 bg-gold/15' : 'border-white/10 bg-white/[.03] hover:bg-white/[.06]'}`}>
+                  <span className="font-semibold text-white">{q.label}</span><span className="text-xs text-mute">{q.sub}</span>
+                </button>
+              );
+            })}
+            <input className="input w-full" type="datetime-local" value={f.closes} onChange={(e) => setF({ ...f, closes: e.target.value })} aria-label="Or pick a time" />
+          </div>
+        </div>
+
+
         {shape === 'each' && (
           <div>
-            <span className="label">Ready to ask, once the cast is known</span>
+            <span className="label">{show ? 'Ready to ask, once the cast is known' : 'Ready to ask'}</span>
             <div className="mt-1.5 flex flex-wrap gap-1.5">
               {EACH_PRESETS.map((q) => (
                 <button key={q.title} type="button" onClick={() => setF({ ...f, title: q.title, rule: q.rule, answers: 'Yes\nNo' })}
@@ -113,22 +142,6 @@ export function AskSheet({ open, onClose, drops, onAsked }: { open: boolean; onC
         <label className="block"><span className="label">How it settles (locked once anyone calls it)</span>
           <textarea className="input mt-1 w-full" rows={2} value={f.rule} onChange={(e) => setF({ ...f, rule: e.target.value })} placeholder={cur.rule} /></label>
 
-        <div>
-          <span className="label">Closes</span>
-          <div className="mt-2 grid gap-2">
-            {quick.map((q) => {
-              const on = f.closes === toInput(q.at);
-              return (
-                <button key={q.label} type="button" onClick={() => setF({ ...f, closes: toInput(q.at) })}
-                  className={`flex items-center justify-between gap-3 rounded-2xl border px-3 py-2 text-left text-sm transition ${on ? 'border-gold/60 bg-gold/15' : 'border-white/10 bg-white/[.03] hover:bg-white/[.06]'}`}>
-                  <span className="font-semibold text-white">{q.label}</span><span className="text-xs text-mute">{q.sub}</span>
-                </button>
-              );
-            })}
-            <input className="input w-full" type="datetime-local" value={f.closes} onChange={(e) => setF({ ...f, closes: e.target.value })} aria-label="Or pick a time" />
-          </div>
-        </div>
-
         <label className="block"><span className="label">Group (optional)</span>
           <input className="input mt-1 w-full" value={f.category} onChange={(e) => setF({ ...f, category: e.target.value })} placeholder="Drop 2 · Oct 21" maxLength={40} /></label>
 
@@ -145,7 +158,7 @@ export function AskSheet({ open, onClose, drops, onAsked }: { open: boolean; onC
         <button type="button" className="btn-gold w-full py-3" disabled={busy || !!problem} onClick={ask}>
           {busy ? 'Asking…' : problem ?? (asks.length > 1 ? `Ask all ${asks.length}` : 'Ask it')}
         </button>
-        <p className="text-xs text-mute">Close it before the episode that answers it drops. The pool hears about it in the chat.</p>
+        <p className="text-xs text-mute">{show ? 'Close it before the episode that answers it drops.' : 'Close it before the answer is known.'} The pool hears about it in the chat.</p>
       </div>
     </Sheet>
   );

@@ -46,7 +46,7 @@ const goHome = (leagueId?: number | null) => {
 };
 
 export default function Join({ code }: { code: string }) {
-  const { session, me } = useLeague();
+  const { session, me, league } = useLeague();
   const [pv, setPv] = useState<Preview | null>(null);
   const [mode, setMode] = useState<'new' | 'have'>('new');
   const [name, setName] = useState('');
@@ -55,6 +55,8 @@ export default function Join({ code }: { code: string }) {
   const [show, setShow] = useState(false);
   // a pool asks for a name only; the email and password are there for whoever wants them now (migration 332)
   const [withEmail, setWithEmail] = useState(false);
+  // the server asked for the email (a busy day for name-only seats): no skipping it again
+  const [forced, setForced] = useState(false);
   const [err, setErr] = useState('');
   const [busy, setBusy] = useState(false);
   // the first call, picked before the account exists and placed the moment they're in (migration 255)
@@ -78,7 +80,11 @@ export default function Join({ code }: { code: string }) {
       trackJoinGroup({ id: leagueId ?? pv?.league_id, src: readSrcParam() });
       await placeFirstCall(leagueId ?? pv?.league_id);
       goHome(leagueId ?? pv?.league_id);
-    } catch (e) { setBusy(false); setErr((e as Error).message); }
+    } catch (e) {
+      // the link tapped a second time by someone already in: that's the way back in, not an error
+      if (/already in/i.test((e as Error).message)) { goHome(pv?.league_id); return; }
+      setBusy(false); setErr((e as Error).message);
+    }
   };
 
   // someone new to a pool with just a name (migration 332): a seat kept on this phone, an email added later from the pool's
@@ -90,7 +96,7 @@ export default function Join({ code }: { code: string }) {
       const body = error instanceof FunctionsHttpError ? await error.context.json().catch(() => null) : null;
       setBusy(false);
       setErr(body?.error ?? 'Couldn’t join right now. Try again in a minute.');
-      if (body?.needEmail) setWithEmail(true);
+      if (body?.needEmail) { setWithEmail(true); setForced(true); }
       return;
     }
     setRemember(true);
@@ -226,9 +232,14 @@ export default function Join({ code }: { code: string }) {
               </div>
             </div>
           )
-          : session ? (
+          : session && me && pv.league_id != null && league?.league_id === pv.league_id ? (
             <div className="card-hero p-5">
-              <p className="relative text-sm text-white/80">You&apos;re signed in{me ? ` as ${me.gm_name}` : ''}. Joining adds this {noun} to your account; you can switch between them on your Profile.</p>
+              <p className="relative text-sm text-white/80">You&apos;re in {pv.league}{me.gm_name ? ` as ${me.gm_name}` : ''}.</p>
+              <button className="btn-primary relative mt-4 w-full py-3 text-base" onClick={() => goHome(pv.league_id)}>{mark} Open the {noun}</button>
+            </div>
+          ) : session ? (
+            <div className="card-hero p-5">
+              <p className="relative text-sm text-white/80">You&apos;re signed in{me ? ` as ${me.gm_name}` : ''}. Joining adds this {noun} to your account, beside the others on My pools.</p>
               <button className="btn-primary relative mt-4 w-full py-3 text-base" disabled={busy} onClick={() => { setBusy(true); setErr(''); accept(); }}>
                 {busy ? <Spinner /> : `${mark} Join ${pv.short ?? pv.league}`}
               </button>
@@ -247,7 +258,8 @@ export default function Join({ code }: { code: string }) {
                     <input id="jpw" className="input w-full pr-16" type={show ? 'text' : 'password'} autoComplete="new-password" value={pw} onChange={(e) => setPw(e.target.value)} placeholder="6+ characters" />
                     <button type="button" className="absolute inset-y-0 right-3 text-xs font-semibold text-white/70" onClick={() => setShow((v) => !v)} aria-label={show ? 'Hide the password' : 'Show the password'}>{show ? 'Hide' : 'Show'}</button>
                   </div>
-                  {pool && <button type="button" className="relative mt-2 text-xs text-white/60 underline" onClick={() => { setWithEmail(false); setErr(''); }}>Skip the email for now</button>}
+                  {pool && !forced && <button type="button" className="relative mt-2 text-xs text-white/60 underline" onClick={() => { setWithEmail(false); setErr(''); }}>Skip the email for now</button>}
+                  {pool && forced && <p className="relative mt-2 text-xs leading-snug text-white/60">Joining with just a name is full for today. An email keeps your seat on any phone.</p>}
                 </>
               ) : (
                 <p className="relative mt-2 text-xs leading-snug text-white/70">
