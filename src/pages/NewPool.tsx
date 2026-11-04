@@ -15,6 +15,7 @@ import { SERIES_SPORTS, SheetPicker, SquaresKnobs, lockText } from './Picks';
 import { attributionFields, noteCtaArrival, trackPoolCreated, trackSignUp } from '../lib/analytics';
 import { FantasyStart } from '../components/FantasyStart';
 import { PRODUCT } from '../lib/brand';
+import { humanField } from '../lib/turnstile';
 
 // "Start a pool" (#/new), open to anyone, in steps (docs/POOL-TYPES.md §4). First what you're starting: a sports pool,
 // a questions pool or a fantasy league (migration 242: a league of your own, its choices made up front). Then, for a
@@ -412,7 +413,7 @@ export default function NewPool() {
         return;
       }
       // attribution rides along; the join function drops it when the columns are not live yet
-      const { data, error } = await supabase.functions.invoke('join', { body: { pool: { name: pool.trim(), color, pack: openPack }, email: login, password: pw, name: name.trim(), ...attributionFields() } });
+      const { data, error } = await supabase.functions.invoke('join', { body: { pool: { name: pool.trim(), color, pack: openPack }, email: login, password: pw, name: name.trim(), ...attributionFields(), ...(await humanField()) } });
       if (error) {
         const body = error instanceof FunctionsHttpError ? await error.context.json().catch(() => null) : null;
         // an email that already has an account: the password field stays, the sign-in happens right here

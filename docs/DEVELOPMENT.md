@@ -1507,3 +1507,19 @@ Patrick, after PR #352: "Resolve the outstanding items for me as you would recom
 - **Law 25** on `#/privacy` (processors, the person in charge, keeping, rights, breach notice, complaints) and "held in the
   United States" wherever an account is made; the Terms say 14 in Quebec.
 - **Pricing** stands as planned; the Traitors page hands over to the show pools from 20 November in `site.js`.
+
+### 9.28 The bot check, wired and off, 4 November 2026
+
+Patrick: "work on any outstanding items with all the tools you have available to you." The items only Patrick can do
+(Stripe, the legal entity and province, a postal address, the dashboard settings) are written up with exact steps in a
+Claude Doc for him; launch readiness item 8 is built here.
+
+- **Turnstile** (`src/lib/turnstile.ts`): with `VITE_TURNSTILE_SITE_KEY` in the build, each press that makes an account
+  or a fan's voice (`#/new`'s pool start, the fantasy start, an invite's email join and name-only join, the fan zones'
+  join) loads Cloudflare's script once, renders an out-of-sight widget (`interaction-only`: a box at the foot of the
+  screen only when Cloudflare wants a click) and sends its one-use token as `turnstile`. Without the key nothing loads
+  and the body is as before.
+- **The join function** checks the token against Cloudflare's siteverify only when `TURNSTILE_SECRET` is set; a guest
+  keeping their seat (`claim`, already signed in) is not asked. Cloudflare unreachable leaves the door open (the daily
+  limits per address still hold). Order: site key first, secret second.
+- The privacy page names the check under Cloudflare's part. The landing's waitlist (a direct insert) is not covered.

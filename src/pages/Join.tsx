@@ -10,6 +10,7 @@ import { themed } from '../components/LeagueIdentity';
 import { attributionFields, readSrcParam, trackFirstCall, trackJoinGroup, trackSignUp } from '../lib/analytics';
 import { PRODUCT } from '../lib/brand';
 import { markFreshArrival, setTabLeague } from '../lib/host';
+import { humanField } from '../lib/turnstile';
 
 // The page an invite link opens (#/join/<code>), signed in or not. It shows what the invite is for, then:
 // someone new makes their account right here (the `join` edge function makes it and seats them in one go);
@@ -92,7 +93,7 @@ export default function Join({ code }: { code: string }) {
   // someone new to a pool with just a name (migration 332): a seat kept on this phone, an email added later from the pool's
   // home keeps it everywhere; a busy day or a fantasy league asks for the email after all
   const joinAsGuest = async () => {
-    const { data, error } = await supabase.functions.invoke('join', { body: { code, name: name.trim(), guest: true } });
+    const { data, error } = await supabase.functions.invoke('join', { body: { code, name: name.trim(), guest: true, ...(await humanField()) } });
     const made = data as { league?: number; email?: string; password?: string } | null;
     if (error || !made?.email || !made.password) {
       const body = error instanceof FunctionsHttpError ? await error.context.json().catch(() => null) : null;
@@ -118,7 +119,7 @@ export default function Join({ code }: { code: string }) {
     if (pool && !withEmail) return joinAsGuest();
     const login = email.trim().toLowerCase();
     // attribution is first-touch UTM/referrer; the join function ignores unknown fields if the SQL is not live yet
-    const { data, error } = await supabase.functions.invoke('join', { body: { code, email: login, password: pw, name: name.trim(), ...attributionFields() } });
+    const { data, error } = await supabase.functions.invoke('join', { body: { code, email: login, password: pw, name: name.trim(), ...attributionFields(), ...(await humanField()) } });
     if (error) {
       const body = error instanceof FunctionsHttpError ? await error.context.json().catch(() => null) : null;
       setBusy(false);

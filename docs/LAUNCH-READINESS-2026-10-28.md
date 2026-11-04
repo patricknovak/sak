@@ -70,7 +70,10 @@ its ranked list where they overlap.
 7. **Point-in-time recovery** (Settings → Add-ons): today a bad night loses up to a day. Worth it once strangers' pools
    hold weeks of calls.
 8. **Bot check on the open doors** (name-only joins, fan joins, the Start your league form, the waitlist): a Cloudflare
-   Turnstile site key (free) for `app.superpoolsai.com` and `superpoolsai.com`, and the wiring is a small change.
+   Turnstile site key (free) for `app.superpoolsai.com` and `superpoolsai.com`. *Wired 4 November 2026 (§9.28), off until
+   the keys exist:* put the site key in `.env.production` as `VITE_TURNSTILE_SITE_KEY` and let the site deploy, then set
+   `TURNSTILE_SECRET` in Supabase's function secrets. In that order: the secret first would refuse every new account
+   from the old site. The landing's waitlist writes straight to its table and is not covered yet.
 9. **Uptime alerts** from outside: a Cloudflare health check or UptimeRobot on `app.superpoolsai.com`,
    `superpoolsai.com` and nhl-hub, alerting your phone. The health check inside only bells you in the app.
 10. **Email reputation.** DMARC is `p=none`; once its reports show only Resend and Cloudflare, move it to

@@ -39,7 +39,7 @@ const SECTIONS: { title: string; body: string[] }[] = [
   ] },
   { title: 'Where it lives', body: [
     'The database runs on Supabase, in the United States, and the site on Cloudflare. Scores and schedules come from public score feeds. Nothing about you goes to a league or a sports site.',
-    'So what we keep is held outside Quebec and outside Canada, under the laws of the United States. The companies that hold or handle it for us are Supabase (the database and sign-in), Cloudflare (the site), Resend (sign-in email), xAI (the voice\'s answers, only what is described above) and, only if you accept them, Google Analytics and Google Ads. Each handles it to run its part of Super Pools and for nothing of its own.',
+    'So what we keep is held outside Quebec and outside Canada, under the laws of the United States. The companies that hold or handle it for us are Supabase (the database and sign-in), Cloudflare (the site and, where it is switched on, a check that a person rather than a program is making an account), Resend (sign-in email), xAI (the voice\'s answers, only what is described above) and, only if you accept them, Google Analytics and Google Ads. Each handles it to run its part of Super Pools and for nothing of its own.',
   ] },
   { title: 'How long we keep it', body: [
     'While your account is open. A pool its host deletes, or an account you ask us to delete, is gone from the database at once and from its daily backups within seven days. A waitlist address is kept until you ask us to remove it. The daily page counts carry no names and are kept to see how the product is used.',
