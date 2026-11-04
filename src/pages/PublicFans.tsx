@@ -108,7 +108,7 @@ export default function PublicFans() {
             <Link to="/terms" className="hover:text-white">Terms</Link>
             <a href={PRODUCT.url} className="hover:text-white">{PRODUCT.name}</a>
           </div>
-          <p className="mx-auto mt-3 max-w-md text-[11px] leading-snug">Made by fans from public numbers: the NHL&apos;s own, and ESPN&apos;s for the NFL, the NBA and the Premier League. Not affiliated with any league or club; team names and logos belong to them.</p>
+          <p className="mx-auto mt-3 max-w-md text-[11px] leading-snug">Made from public numbers: the NHL&apos;s own, and public score feeds for the NFL, the NBA and the Premier League. Not affiliated with any league or club; team names and logos belong to them.</p>
           {session
             ? <p className="mx-auto mt-2 max-w-md text-[11px] leading-snug">Run a pool with your friends: <a href={START} className="font-semibold text-slate-200 underline">start one free</a>. A pool starts on an account with an email, not your fan name.</p>
             : <a href={START} className="mx-auto mt-3 inline-flex items-center gap-1 rounded-full bg-white/[.06] px-3.5 py-1.5 text-[12px] font-bold text-slate-100 ring-1 ring-white/10 hover:bg-white/[.1]">Run a pool with your friends: start one free</a>}

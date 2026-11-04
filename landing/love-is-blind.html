@@ -27,58 +27,58 @@
   <link rel="stylesheet" href="./site.css" />
   <link rel="stylesheet" href="./site-shows.css" />
   <!-- the questions people ask, for search: the same words as the FAQ at the foot of the page -->
-  <script type="application/ld+json">{"@context":"https://schema.org","@type":"FAQPage","mainEntity":[{"@type":"Question","name":"Is it money?","acceptedAnswer":{"@type":"Answer","text":"No. Supercoins are never bought, sold or cashed out, and there are no prizes of value. A pool may call them Goblets; they are still the score and nothing else."}},{"@type":"Question","name":"Is there a Season 12 pool yet?","acceptedAnswer":{"@type":"Answer","text":"Not yet. Season 12 is expected in February on the show's pattern, and the pool opens the day it is announced. Leave an email above and we write once, that day."}},{"@type":"Question","name":"Will somebody spoil it?","acceptedAnswer":{"@type":"Answer","text":"Questions are about what airs, each closes as its drop lands, and your host settles it. Strangers are never in your pool, and the chat stays inside it."}},{"@type":"Question","name":"What if someone joins late?","acceptedAnswer":{"@type":"Answer","text":"They start with the same Supercoins as everyone else, drops already gone by included, so a friend who joins at episode 6 can still win it."}},{"@type":"Question","name":"Can the host write their own questions?","acceptedAnswer":{"@type":"Answer","text":"Yes. Once the couples are known, your host adds questions about them, each with the rule for settling it."}},{"@type":"Question","name":"Is this connected to Netflix?","acceptedAnswer":{"@type":"Answer","text":"No. Super Pools is not affiliated with Netflix or Love Is Blind. A show pool is friends making calls about what airs, the way the group chat already does."}}]}</script>
+  <script type="application/ld+json">{"@context":"https://schema.org","@type":"FAQPage","mainEntity":[{"@type":"Question","name":"Is it money?","acceptedAnswer":{"@type":"Answer","text":"No. Supercoins are never bought, sold or cashed out, and there are no prizes of value. They are the score and nothing else."}},{"@type":"Question","name":"Is there a Season 12 pool yet?","acceptedAnswer":{"@type":"Answer","text":"Not yet. Season 12 is expected in February on the show's pattern. The Season 12 pool opens when Netflix announces the season. Start a questions pool any time."}},{"@type":"Question","name":"Will somebody spoil it?","acceptedAnswer":{"@type":"Answer","text":"Questions are about what airs, each closes as its drop lands, and your host settles it. Strangers are never in your pool, and the chat stays inside it."}},{"@type":"Question","name":"What if someone joins late?","acceptedAnswer":{"@type":"Answer","text":"They start with the same Supercoins as everyone else, drops already gone by included, so a friend who joins at episode 6 can still win it."}},{"@type":"Question","name":"Can the host write their own questions?","acceptedAnswer":{"@type":"Answer","text":"Yes. Once the couples are known, your host adds questions about them, each with the rule for settling it."}},{"@type":"Question","name":"Is this connected to Netflix?","acceptedAnswer":{"@type":"Answer","text":"No. Super Pools is not affiliated with Netflix or Love Is Blind. A show pool is friends making calls about what airs, the way the group chat already does."}}]}</script>
 </head>
 <!-- The Season 11 pack is love-is-blind-s11 (migrations 145, 251): drops at 3 am ET, the last question (the reunion)
-     closes 11 November 08:00Z, three days after the reunion airs, so the start button leaves when the reunion goes on
-     air (9 November 02:00Z). Season 12 has no announcement as of 4 November 2026; "expected in February" is the show's
+     closes 11 November 08:00Z in the database, three days after the reunion airs. The page treats the reunion's air time
+     (9 November 02:00Z) as the end: from then it says Season 11 ended with the reunion, the start button and the open
+     question leave, and nothing invites a call on that question once its answer is on air. Season 12 has no announcement as of 4 November 2026; "expected in February" is the show's
      pattern (Season 8 opened 14 February 2025, Season 10 on 11 February 2026). When Netflix announces, the pack is
      written from the premiere's drop times, LIB_STAGES in site.js gets the dates, and a data-from line here switches
      the hero to "Start your Love Is Blind pool". -->
 <body class="rosy">
-  <a class="skip" href="#top">Skip to content</a>
-  <main>
-    <header class="site-head">
-      <a class="wordmark" href="./" aria-label="Super Pools home">
-        <svg viewBox="0 0 64 64" aria-hidden="true"><rect width="64" height="64" rx="14" fill="#111b30"/><circle cx="32" cy="32" r="17" fill="none" stroke="#f7c548" stroke-width="4"/><circle cx="32" cy="32" r="4.5" fill="#f7c548"/><g stroke="#f7c548" stroke-width="2.6" stroke-linecap="round"><line x1="25" y1="8" x2="25" y2="12.5"/><line x1="39" y1="8" x2="39" y2="12.5"/><line x1="25" y1="51.5" x2="25" y2="56"/><line x1="39" y1="51.5" x2="39" y2="56"/></g></svg>
-        <span><b>SUPER</b> POOLS</span>
-      </a>
-      <nav class="navlinks" aria-label="Doors"><a href="./fantasy-hockey.html">Fantasy league</a><a href="./#kinds">Sports pools</a><a href="./together.html" aria-current="page">Show pools</a><a href="./fans.html">Fan zones</a><a href="./pricing.html">Pricing</a></nav>
-      <div class="head-right">
-        <a class="signin" href="https://app.superpoolsai.com/#/?src=lib">Sign in</a>
-        <button type="button" class="menu-btn" id="menu-btn" aria-expanded="false" aria-controls="menu" aria-label="Open the menu">
-          <svg class="bars" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16"/></svg>
-          <svg class="x" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>
-        </button>
-      </div>
-      <nav class="menu" id="menu" aria-label="Menu">
-        <a href="./fantasy-hockey.html"><span class="mi"><svg class="ico"><use href="./icons.svg#i-trophy"/></svg></span><span><b>Fantasy league</b><small>Keepers, the draft room, a league voice</small></span></a>
-        <a href="./#kinds"><span class="mi"><svg class="ico"><use href="./icons.svg#i-target"/></svg></span><span><b>Sports pools</b><small>The NFL, NHL, NBA and soccer</small></span></a>
-        <a href="./together.html"><span class="mi r"><svg class="ico"><use href="./icons.svg#i-tv"/></svg></span><span><b>Show pools</b><small>Call what happens next, with your group</small></span></a>
-        <a href="./fans.html"><span class="mi"><svg class="ico"><use href="./icons.svg#i-chart"/></svg></span><span><b>Fan zones</b><small>Every club, read like a front office</small></span></a>
-        <a href="./pricing.html"><span class="mi n"><svg class="ico"><use href="./icons.svg#i-coin"/></svg></span><span><b>Pricing</b><small>Per pool, never per person</small></span></a>
-        <a href="https://app.superpoolsai.com/#/?src=lib"><span class="mi n"><svg class="ico"><use href="./icons.svg#i-users"/></svg></span><span><b>Sign in</b><small>Back to your pools</small></span></a>
-      </nav>
-    </header>
+  <a class="skip" href="#main">Skip to content</a>
+  <header class="site-head">
+    <a class="wordmark" href="./" aria-label="Super Pools home">
+      <svg viewBox="0 0 64 64" aria-hidden="true"><rect width="64" height="64" rx="14" fill="#111b30"/><circle cx="32" cy="32" r="17" fill="none" stroke="#f7c548" stroke-width="4"/><circle cx="32" cy="32" r="4.5" fill="#f7c548"/><g stroke="#f7c548" stroke-width="2.6" stroke-linecap="round"><line x1="25" y1="8" x2="25" y2="12.5"/><line x1="39" y1="8" x2="39" y2="12.5"/><line x1="25" y1="51.5" x2="25" y2="56"/><line x1="39" y1="51.5" x2="39" y2="56"/></g></svg>
+      <span><b>SUPER</b> POOLS</span>
+    </a>
+    <nav class="navlinks" aria-label="Doors"><a href="./fantasy-hockey.html">Fantasy league</a><a href="./#kinds">Sports pools</a><a href="./together.html" aria-current="page">Show pools</a><a href="./fans.html">Fan zones</a><a href="./pricing.html">Pricing</a></nav>
+    <div class="head-right">
+      <a class="signin" href="https://app.superpoolsai.com/#/?src=lib">Sign in</a>
+      <button type="button" class="menu-btn" id="menu-btn" aria-expanded="false" aria-controls="menu" aria-label="Open the menu">
+        <svg class="bars" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16"/></svg>
+        <svg class="x" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>
+      </button>
+    </div>
+    <nav class="menu" id="menu" aria-label="Menu">
+      <a href="./fantasy-hockey.html"><span class="mi"><svg class="ico" aria-hidden="true" focusable="false"><use href="./icons.svg#i-trophy"/></svg></span><span><b>Fantasy league</b><small>Keepers, the draft room, a league voice</small></span></a>
+      <a href="./#kinds"><span class="mi"><svg class="ico" aria-hidden="true" focusable="false"><use href="./icons.svg#i-target"/></svg></span><span><b>Sports pools</b><small>The NFL, NHL, NBA and soccer</small></span></a>
+      <a href="./together.html"><span class="mi r"><svg class="ico" aria-hidden="true" focusable="false"><use href="./icons.svg#i-tv"/></svg></span><span><b>Show pools</b><small>Call what happens next, with your group</small></span></a>
+      <a href="./fans.html"><span class="mi"><svg class="ico" aria-hidden="true" focusable="false"><use href="./icons.svg#i-chart"/></svg></span><span><b>Fan zones</b><small>Every club, read like a front office</small></span></a>
+      <a href="./pricing.html"><span class="mi n"><svg class="ico" aria-hidden="true" focusable="false"><use href="./icons.svg#i-coin"/></svg></span><span><b>Pricing</b><small>Per pool, never per person</small></span></a>
+      <a href="https://app.superpoolsai.com/#/?src=lib"><span class="mi n"><svg class="ico" aria-hidden="true" focusable="false"><use href="./icons.svg#i-users"/></svg></span><span><b>Sign in</b><small>Back to your pools</small></span></a>
+    </nav>
+  </header>
+  <main id="main">
 
     <!-- 1. Hero: Season 11's last call, then Season 12 by the show's pattern; no start button once the reunion airs -->
     <section class="hero2 hero2-split" id="top">
       <div class="hero2-copy">
         <div class="eyebrow r">Love Is Blind · Netflix<span data-next=" · {next} {date}" data-done=" · Season 12 next"></span></div>
         <h1 class="display">Call it before <span class="l2"><em>your friends do.</em></span></h1>
-        <p class="sub" data-until="2026-11-11T08:00:00Z">Season 11 settles at the reunion. Season 12 is expected in February, on the show's pattern. <b>Never money.</b></p>
-        <p class="sub" data-from="2026-11-11T08:00:00Z" data-until="2027-03-01T05:00:00Z">Season 12 is expected in February. The pool opens the day it is announced. <b>Never money.</b></p>
-        <p class="sub" data-from="2027-03-01T05:00:00Z">Season 12 is not announced yet. The pool opens the day it is. <b>Never money.</b></p>
+        <p class="sub" data-until="2026-11-09T02:00:00Z">Season 11 settles at the reunion. Season 12 is expected in February, on the show's pattern. <b>Never money.</b></p>
+        <p class="sub" data-from="2026-11-09T02:00:00Z" data-until="2027-03-01T05:00:00Z">Season 11 ended with the reunion. Season 12 is expected in February, and its pool opens when Netflix announces the season. <b>Never money.</b></p>
+        <p class="sub" data-from="2027-03-01T05:00:00Z">Season 12 is not announced yet. Its pool opens when Netflix announces the season. <b>Never money.</b></p>
         <div class="cta2">
           <a class="btn btn-rose btn-lg" data-gold data-until="2026-11-09T02:00:00Z" href="https://app.superpoolsai.com/#/new?pack=love-is-blind-s11&amp;src=lib">Start a reunion pool</a>
-          <a class="btn btn-rose btn-lg" data-gold data-from="2026-11-09T02:00:00Z" href="#reserve">Tell me when Season 12 opens</a>
+          <a class="btn btn-rose btn-lg" data-gold data-from="2026-11-09T02:00:00Z" href="https://app.superpoolsai.com/#/new?type=questions&amp;src=lib">Start a questions pool</a>
           <a class="textlink" href="./example-pool.html">See Season 11, filled in</a>
         </div>
         <p class="cta-note" data-from="2026-11-04T08:00:00Z" data-until="2026-11-09T02:00:00Z">One call left: is any couple still together at the reunion?</p>
-        <p class="deadline"><svg class="ico" aria-hidden="true"><use href="./icons.svg#i-clock"/></svg>
+        <p class="deadline"><svg class="ico" aria-hidden="true" focusable="false"><use href="./icons.svg#i-clock"/></svg>
           <span data-until="2026-11-09T02:00:00Z"><b>The reunion</b> is Sunday 8 November, 9&nbsp;pm&nbsp;ET</span>
-          <span data-from="2026-11-09T02:00:00Z" data-until="2026-11-11T08:00:00Z"><b>Season 11's last call</b> closes Wednesday 11 November, 3&nbsp;am&nbsp;ET</span>
-          <span data-from="2026-11-11T08:00:00Z" data-until="2027-03-01T05:00:00Z"><b>Season 12</b> is expected in February, with nothing announced yet</span>
+          <span data-from="2026-11-09T02:00:00Z" data-until="2027-03-01T05:00:00Z"><b>Season 11</b> ended with the reunion. Season 12 is expected in February</span>
           <span data-from="2027-03-01T05:00:00Z"><b>Season 12</b> is not announced yet</span>
         </p>
       </div>
@@ -90,8 +90,8 @@
           <li><time datetime="2026-10-28">Oct 28</time><b>Drop 3</b><small>Episodes 9 to 11 · four questions</small><span class="st2">Closed</span></li>
           <li class="now" data-until="2026-11-04T08:00:00Z"><time datetime="2026-11-04">Nov 4</time><b>The weddings</b><small>Episode 12 · the altar</small><span class="st2">Open</span></li>
           <li data-from="2026-11-04T08:00:00Z"><time datetime="2026-11-04">Nov 4</time><b>The weddings</b><small>Episode 12 · the altar</small><span class="st2">Closed</span></li>
-          <li class="now" data-until="2026-11-11T08:00:00Z"><time datetime="2026-11-08">Nov 8</time><b>The reunion</b><small>Still together? The last call</small><span class="st2">Open</span></li>
-          <li data-from="2026-11-11T08:00:00Z"><time datetime="2026-11-08">Nov 8</time><b>The reunion</b><small>Still together? The last call</small><span class="st2">Closed</span></li>
+          <li class="now" data-until="2026-11-09T02:00:00Z"><time datetime="2026-11-08">Nov 8</time><b>The reunion</b><small>Still together? The last call</small><span class="st2">Open</span></li>
+          <li data-from="2026-11-09T02:00:00Z"><time datetime="2026-11-08">Nov 8</time><b>The reunion</b><small>Season 11 ended with the reunion</small><span class="st2">Aired</span></li>
           <li class="next"><time>Next</time><b>Season 12</b><small data-until="2027-03-01T05:00:00Z">Expected in February, on the show's pattern</small><small data-from="2027-03-01T05:00:00Z">Not announced yet</small><span class="st2">Soon</span></li>
         </ol>
         <figcaption>Season 11 as it aired · times Eastern</figcaption>
@@ -103,7 +103,7 @@
       <div class="shead rv">
         <div class="eyebrow r">Season 11, the record</div>
         <h2 class="display">Sixteen questions, <span class="keep">four drops.</span></h2>
-        <p class="lead">Every question was about what aired, so the pack held before anyone knew the couples. Hosts added their own once the cast was known.</p>
+        <p class="lead">Every question was about what aired, so the pack held before anyone knew the couples. A host can add their own once the cast is known.</p>
       </div>
       <div class="qcols">
         <div class="drop">
@@ -135,8 +135,8 @@
             <li class="qrow done"><b>How many couples make it to the altar?</b><div class="ans"><span>2 or fewer</span><span>3</span><span>4</span><span>5 or more</span></div></li>
             <li class="qrow done"><b>How many couples say “I do”?</b><div class="ans"><span>None</span><span>1</span><span>2</span><span>3 or more</span></div></li>
             <li class="qrow done"><b>Will someone say “I do” while their partner says “I don’t”?</b><div class="ans"><span>Yes</span><span>No</span></div></li>
-            <li class="qrow" data-until="2026-11-11T08:00:00Z"><b>Will any couple still be together at the reunion?</b><div class="ans"><span>Yes</span><span>No</span></div><span class="cl">Closes Wednesday 11 November, 3 am ET</span></li>
-            <li class="qrow done" data-from="2026-11-11T08:00:00Z"><b>Will any couple still be together at the reunion?</b><div class="ans"><span>Yes</span><span>No</span></div></li>
+            <li class="qrow" data-until="2026-11-09T02:00:00Z"><b>Will any couple still be together at the reunion?</b><div class="ans"><span>Yes</span><span>No</span></div><span class="cl">Call it before the reunion airs, Sunday 8 November, 9 pm ET</span></li>
+            <li class="qrow done" data-from="2026-11-09T02:00:00Z"><b>Will any couple still be together at the reunion?</b><div class="ans"><span>Yes</span><span>No</span></div><span class="cl">Season 11 ended with the reunion</span></li>
           </ul>
         </div>
       </div>
@@ -162,7 +162,7 @@
         <div class="sc rv">
           <span class="num">02</span>
           <h3>Call it before the drop</h3>
-          <p>Every answer shows the group's chance. Put Supercoins on the one you believe; it moves as friends pile in, until the drop lands.</p>
+          <p>Every answer shows the group's chance. Call the one you believe; the chance moves as friends call it, until the drop lands.</p>
           <div class="frame"><div class="frame-in">
             <div class="qline">Will a woman propose in the pods? <small>Closes at the drop</small></div>
             <div class="bar" style="--w:38%;--c:#fda4af"><span>Yes</span><b>38%</b></div>
@@ -174,9 +174,9 @@
           <h3>Your host settles it</h3>
           <p>She settles each one by its rule, with a note everyone sees. Fresh Supercoins drop every drop night, and late friends catch up.</p>
           <div class="frame"><div class="frame-in">
-            <div class="settle"><span class="av" aria-hidden="true">S</span><div class="bub"><small>Sam · host · settled</small>“Does a couple sleep apart on the getaway?” Yes, night two. Jordan called it at 29% and collects 241 Goblets.<div class="rx"><span>😬 7</span><span>👑 2</span></div></div></div>
-            <div class="crownrow"><span>👑 Jordan takes the lead</span><b>1,486</b></div>
-          </div><p class="frame-cap">The settle, in the pool's chat · this pool calls its Supercoins Goblets</p></div>
+            <div class="settle"><span class="av" aria-hidden="true">S</span><div class="bub"><small>Sam · host · settled</small>“Does a couple sleep apart on the getaway?” Yes, night two. Jordan called it at 29% and scores 241.<div class="rx"><span>😬 7</span><span>👑 2</span></div></div></div>
+            <div class="crownrow"><span><svg class="ico crown" aria-hidden="true" focusable="false"><use href="./icons.svg#i-crown"/></svg>Jordan takes the lead</span><b>1,486</b></div>
+          </div><p class="frame-cap">The settle, in the pool's chat · sample pool</p></div>
         </div>
       </div>
     </section>
@@ -187,7 +187,7 @@
         <div class="rv">
           <div class="eyebrow r">Call it</div>
           <h2 class="display">Tap it. <span class="keep">Watch it move.</span></h2>
-          <p class="lead">The number is the group's chance: 64% means most of your friends think so. The bold early read collects the most.</p>
+          <p class="lead">The number is the group's chance: 53% means just over half the group thinks so. The bold early read scores the most.</p>
           <p class="proof2">The pool remembers who called it, and at what chance, all the way to the reunion.</p>
         </div>
         <div class="market rv" id="market">
@@ -207,25 +207,13 @@
       </div>
     </section>
 
-    <!-- 5. Season 12: one email, sent once, with a box nobody ticks for you (brief Addendum 2). The waitlist insert is
-         site.js's (#wl); "pick" goes to waitlist.league and the consent wording to waitlist.note until the table has
-         consent columns of its own. -->
+    <!-- 5. Season 12: no form. An email sign-up for a later pool is commercial email under CASL and needs a postal
+         address on the form, which only Patrick can supply; until then, one line and the questions pool. -->
     <section id="reserve">
-      <div class="reserve rv">
-        <div>
-          <div class="eyebrow r">Season 12</div>
-          <h2 class="display"><span data-until="2027-03-01T05:00:00Z">Expected in February.</span><span data-from="2027-03-01T05:00:00Z">The day it is announced.</span></h2>
-          <p class="lead">Nothing is announced yet. On the show's pattern Season 12 lands in February, and the pool opens the day Netflix says when. Leave an email and we write once, that day.</p>
-        </div>
-        <form id="wl">
-          <input type="email" name="email" placeholder="you@example.com" autocomplete="email" required aria-label="Email" />
-          <input type="hidden" name="pick" value="Love Is Blind pool" />
-          <input type="hidden" name="note" value="Consent on love-is-blind#reserve: one email when the Season 12 pool opens, from Super Pools (hello@superpoolsai.com); withdraw any time." />
-          <label class="consent"><input type="checkbox" name="consent" required /><span>Yes, email me once when the Love Is Blind Season 12 pool opens. Sent by Super Pools, <a href="mailto:hello@superpoolsai.com">hello@superpoolsai.com</a>. You can withdraw at any time by writing to that address. <a href="https://app.superpoolsai.com/#/privacy?src=lib">Privacy</a></span></label>
-          <input class="hp" type="text" name="website" tabindex="-1" autocomplete="off" aria-hidden="true" />
-          <button class="btn btn-rose btn-lg" type="submit" data-gold>Tell me when</button>
-          <p class="msgline" id="wl-msg" aria-live="polite"></p>
-        </form>
+      <div class="s12 rv">
+        <div class="eyebrow r">Season 12</div>
+        <p>The Season 12 pool opens when Netflix announces the season. Start a questions pool any time.</p>
+        <a class="textlink" href="https://app.superpoolsai.com/#/new?type=questions&amp;src=lib">Start a questions pool</a>
       </div>
     </section>
 
@@ -235,8 +223,8 @@
         <div class="eyebrow r">Questions</div>
         <h2 class="display">Before you ask.</h2>
       </div>
-      <details><summary>Is it money?</summary><p>No. Supercoins are never bought, sold or cashed out, and there are no prizes of value. A pool may call them Goblets; they are still the score and nothing else.</p></details>
-      <details><summary>Is there a Season 12 pool yet?</summary><p>Not yet. Season 12 is expected in February on the show's pattern, and the pool opens the day it is announced. Leave an email above and we write once, that day.</p></details>
+      <details><summary>Is it money?</summary><p>No. Supercoins are never bought, sold or cashed out, and there are no prizes of value. They are the score and nothing else.</p></details>
+      <details><summary>Is there a Season 12 pool yet?</summary><p>Not yet. Season 12 is expected in February on the show's pattern. The Season 12 pool opens when Netflix announces the season. Start a questions pool any time.</p></details>
       <details><summary>Will somebody spoil it?</summary><p>Questions are about what airs, each closes as its drop lands, and your host settles it. Strangers are never in your pool, and the chat stays inside it.</p></details>
       <details><summary>What if someone joins late?</summary><p>They start with the same Supercoins as everyone else, drops already gone by included, so a friend who joins at episode 6 can still win it.</p></details>
       <details><summary>Can the host write their own questions?</summary><p>Yes. Once the couples are known, your host adds questions about them, each with the rule for settling it.</p></details>
@@ -255,20 +243,21 @@
       </div>
     </section>
 
-    <footer class="site-foot">
-      <div class="cols">
-        <div><h2>Play</h2><ul><li><a href="./fantasy-hockey.html">Fantasy league</a></li><li><a href="./hockey-pools.html">Hockey pools</a></li><li><a href="./football-pools.html">NFL pools</a></li><li><a href="./basketball-pools.html">NBA pools</a></li><li><a href="./soccer-pools.html">Soccer pools</a></li><li><a href="./together.html">Show pools</a></li></ul></div>
-        <div><h2>Look around</h2><ul><li><a href="./fans.html">Fan zones</a></li><li><a href="./example-pool.html">An example pool</a></li><li><a href="./pricing.html">Pricing</a></li><li><a href="./changelog.html">Changelog</a></li></ul></div>
-        <div><h2>Your pools</h2><ul><li><a href="https://app.superpoolsai.com/#/?src=lib">Sign in</a></li><li><a href="mailto:hello@superpoolsai.com">hello@superpoolsai.com</a></li></ul></div>
-        <div><h2>The fine print</h2><ul><li><a href="https://app.superpoolsai.com/#/privacy?src=lib">Privacy</a></li><li><a href="https://app.superpoolsai.com/#/terms?src=lib">Terms</a></li><li><button type="button" class="linkbtn" data-cookie-settings>Cookie settings</button></li></ul></div>
-      </div>
-      <div class="base"><span>© 2026 Super Pools · superpoolsai.com · Supercoins, never money</span><span>Not affiliated with Netflix, Love Is Blind or any league.</span></div>
-    </footer>
   </main>
+
+  <footer class="site-foot">
+    <div class="cols">
+      <div><h2>Play</h2><ul><li><a href="./fantasy-hockey.html">Fantasy league</a></li><li><a href="./hockey-pools.html">Hockey pools</a></li><li><a href="./football-pools.html">NFL pools</a></li><li><a href="./basketball-pools.html">NBA pools</a></li><li><a href="./soccer-pools.html">Soccer pools</a></li><li><a href="./together.html">Show pools</a></li></ul></div>
+      <div><h2>Look around</h2><ul><li><a href="./fans.html">Fan zones</a></li><li><a href="./example-pool.html">An example pool</a></li><li><a href="./pricing.html">Pricing</a></li><li><a href="./changelog.html">Changelog</a></li></ul></div>
+      <div><h2>Your pools</h2><ul><li><a href="https://app.superpoolsai.com/#/?src=lib">Sign in</a></li><li><a href="mailto:hello@superpoolsai.com">hello@superpoolsai.com</a></li></ul></div>
+      <div><h2>The fine print</h2><ul><li><a href="https://app.superpoolsai.com/#/privacy?src=lib">Privacy</a></li><li><a href="https://app.superpoolsai.com/#/terms?src=lib">Terms</a></li><li><button type="button" class="linkbtn" data-cookie-settings>Cookie settings</button></li></ul></div>
+    </div>
+    <div class="base"><span>© 2026 Super Pools · superpoolsai.com · Supercoins, never money</span><span>Not affiliated with Netflix, Love Is Blind or any league.</span></div>
+  </footer>
 
   <div class="stickybar" id="sticky">
     <a class="btn btn-rose" data-until="2026-11-09T02:00:00Z" href="https://app.superpoolsai.com/#/new?pack=love-is-blind-s11&amp;src=lib">Start a reunion pool</a>
-    <a class="btn btn-rose" data-from="2026-11-09T02:00:00Z" href="#reserve">Tell me when Season 12 opens</a>
+    <a class="btn btn-rose" data-from="2026-11-09T02:00:00Z" href="https://app.superpoolsai.com/#/new?type=questions&amp;src=lib">Start a questions pool</a>
   </div>
   <script src="./site.js"></script>
 </body>

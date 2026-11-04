@@ -34,8 +34,8 @@ needs real build work, or Patrick's yes, stays listed here.
 | Plans per pool in Canadian dollars; the founding rate, 30% under list while a pool renews | Pricing | planned | The numbers and the promise wait on Patrick's yes (the page's comment says so) |
 | Call what happens next; the group's chance moves; your host settles it | Together, shows | true | Questions pools and packs (145, 251); the invite asks the first question (252, 255) |
 | A call on every round table and the finale | Traitors | true | The pack closes 19 November 8 pm ET (249); the page turns to the questions pool after |
-| Season 12 is expected in February; the pool opens the day it is announced | Love Is Blind | planned | No announcement as of 4 November; the show's pattern, written as expected |
-| One email when your league or the Season 12 pool opens | Fantasy waitlist, LIB reserve | true | `#/privacy` says so since this change; the reserve form's consent note names hello@superpoolsai.com |
+| Season 12 is expected in February; the pool opens when Netflix announces the season | Love Is Blind | planned | No announcement as of 4 November; the show's pattern, written as expected. From the reunion's air time (9 November 02:00Z) the pages say Season 11 ended with the reunion and never invite a call on its last question, which stays open in the database until 11 November 08:00Z |
+| One email when your league can open | Fantasy waitlist | true | `#/privacy` says so since this change. The Season 12 reserve form was taken off `love-is-blind.html` on 4 November: commercial email under CASL needs a postal address on the form |
 | A pool, filled in | Example pool | true | Every name and number made up, captioned as an illustration |
 | Every club in four leagues read like a front office, no account; the data open at /api/fans | Fans | true | `worker/fans.ts`; the fans' voice is empty on live, so the page describes what a fan can add, not a crowd |
 
@@ -47,7 +47,8 @@ needs real build work, or Patrick's yes, stays listed here.
 2. A fan account cannot start a pool. `#/new` disables its button and `pool_start` (migration 153) refuses an account in
    `private.fan_people`; until it accepts one (and the details step asks a fan host for an email through `claim`), the
    fan zones lead back to the marketing site.
-3. The reserve and waitlist forms lack CASL consent columns and a mailing address. Consent is written into
+3. The waitlist form lacks CASL consent columns and a mailing address (the Love Is Blind reserve form was removed for
+   that reason on 4 November). Consent is written into
    `waitlist.note` as text; a `consent_at`, the wording consented to and the sender's mailing address in the email are
    needed before any message beyond the one promised.
 4. The founding-rate prices and the founding promise need Patrick's yes before the pricing page is linked from anywhere
@@ -59,9 +60,20 @@ needs real build work, or Patrick's yes, stays listed here.
 7. No French yet (Law 25 and the Quebec market): the site, the privacy page and the app are English only.
 8. `/traitors` should redirect to `/together` after 20 November 2026 (a 301 for `/traitors` and `/traitors.html` in
    `landing/_redirects`, once the pack's finale questions have closed).
+9. A pick'em or last one standing fixes its last round when it starts (`_pickem_rules`, migration 294), so a pool on MLS or
+   the NWSL started today plays the one round in the feed (MLS Decision Day, 7 November; the NWSL quarter-finals, 6 to 8
+   November). Until `to_round` follows the feed as later rounds are filed, the pages sell each playoff round as it is set,
+   never a pool "to MLS Cup" or "to the final".
+10. The Love Is Blind pack's last question closes 11 November 08:00Z, about 54 hours after the reunion airs. The pages stop
+   inviting it at the reunion (9 November 02:00Z); moving the pack's close is a database change left for later.
 
 ## Patrick hand-offs
 
 - Yes or no on the founding-rate numbers and the founding promise on `pricing.html` (item 4).
 - The GMs' permission if the voice's posts are to carry real names (item 6).
 - The `/traitors` redirect on or after 20 November (item 8).
+- The privacy and terms work Law 25 and Addendum 2 ask for (the US processors named on `#/privacy`, the person in charge,
+  the complaints line, the outside-Quebec clause on Start and Join, the governing-law sentence in the Terms), and a postal
+  address before any email sign-up form beyond the fantasy waitlist (item 3).
+- Check the outside dates the pages state (the Love Is Blind reunion, the NWSL dates, Survivor, the award nights, the
+  PWHL opening, the Women's World Cup draw, The Traitors' next seasons) before the pages go live.

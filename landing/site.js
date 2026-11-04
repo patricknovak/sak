@@ -1,7 +1,7 @@
 // Super Pools landing pages, one script for every page: consented GA4 and Google Ads, first-touch UTM and the app-link
 // decoration, the phone menu, the sticky bottom button, retired anchors, the reveal on scroll, the events open right
 // now (real, from the app), the try-it question and the game-night demos (fictional, drawn in the page), the change
-// log's latest lines, the Love Is Blind calendar, copy that follows the calendar, and the waitlist. Every piece checks
+// log's latest lines, the Love Is Blind calendar, copy that follows the calendar, and the fantasy waitlist. Every piece checks
 // its element exists, so each page uses what it has.
 document.documentElement.classList.add('js');
 var still = window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -431,7 +431,7 @@ function spWhenSeen(el, start) {
       for (var t = 0; t < 60; t++) { var mid = (lo + hi) / 2, c = k === 'y' ? cost(q.y + mid, q.n) : cost(q.y, q.n + mid); if (c - c0 > stake) hi = mid; else lo = mid; }
       q[k] += lo; left -= stake; hist.push(price()); draw();
       var p = k === 'y' ? price() : 1 - price(), was = k === 'y' ? before : 1 - before;
-      rc.innerHTML = '100 coins on <b>' + names[k] + '</b> at ' + Math.round(was * 100) + '%. If it comes in, they score <b>' + Math.round(lo) + '</b>. The group\'s chance moved to ' + Math.round(p * 100) + '%. ' + left + ' coins left.';
+      rc.innerHTML = 'You called <b>' + names[k] + '</b> at ' + Math.round(was * 100) + '% with 100 coins. If it\'s right, it scores <b>' + Math.round(lo) + '</b>. The group\'s chance moved to ' + Math.round(p * 100) + '%. ' + left + ' coins left.';
     });
   });
 })();
@@ -548,7 +548,8 @@ function spWhenSeen(el, start) {
     { name: 'NFL', competition: 'nfl', sport: 'nfl', stage: 'Every week of the season', kinds: ['pickem', 'survivor', 'props', 'streak'] },
     { name: 'Premier League', competition: 'epl', sport: 'soccer', stage: 'Every matchweek', kinds: ['pickem', 'survivor', 'score', 'streak'] }
   ];
-  function mine(list) { return SPORT ? list.filter(function (e) { return sportOf(e) === SPORT; }) : list; }
+  // baseball stays off every board while its page is withdrawn (landing/_redirects: no licensed feed yet)
+  function mine(list) { return list.filter(function (e) { var s = sportOf(e); return SPORT ? s === SPORT : s !== 'mlb'; }); }
   function draw(list, real) {
     list = mine(list);
     if (!list.length) { list = mine(always); real = false; }
@@ -571,14 +572,15 @@ function spWhenSeen(el, start) {
   setInterval(tick, 1000);
 })();
 
-// The change log's latest lines (#loglines), from /changelog.json, which scripts/landing-changelog.mjs writes from the
-// app's own src/data/changelog.ts. The page carries the same lines as static HTML, so this only refreshes them.
+// The change log's latest lines (#loglines), from /changelog-latest.json (the four newest entries, a few hundred bytes;
+// the whole log is changelog.json), which scripts/landing-changelog.mjs writes from the app's own src/data/changelog.ts.
+// The page carries the same lines as static HTML, so this only refreshes them.
 (function () {
   var list = document.getElementById('loglines'); if (!list || !window.fetch) return;
   var n = Number(list.getAttribute('data-n') || 4);
   var MON = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
   var esc = function (x) { return String(x == null ? '' : x).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); };
-  fetch('./changelog.json', { cache: 'no-cache' })
+  fetch('./changelog-latest.json', { cache: 'no-cache' })
     .then(function (r) { if (!r.ok) throw new Error(r.status); return r.json(); })
     .then(function (d) {
       var rows = (d && d.entries || []).slice(0, n); if (!rows.length) return;
@@ -594,14 +596,14 @@ function spWhenSeen(el, start) {
 // counts to whatever is next, and once the pods are open the copy written for before the premiere says what's next
 // instead. An element with data-next holds a template ({next} is what happens, "drop 2 lands", {date} the Eastern date it
 // happens on, "October 21"); it keeps its own words until the premiere has aired, and data-done takes over once the last
-// stage has passed. The last stage is the pack's last close (the reunion question, 11 November 08:00Z), not the reunion.
+// stage has passed. The last stage is the reunion going on air: the pack's reunion question stays open in the database
+// until 11 November 08:00Z, but from the reunion on the pages say Season 11 is over and never invite that call.
 var LIB_STAGES = [
   { at: Date.UTC(2026, 9, 14, 7), next: 'the pods open', date: 'October 14' },
   { at: Date.UTC(2026, 9, 21, 7), next: 'drop 2 lands', date: 'October 21' },
   { at: Date.UTC(2026, 9, 28, 7), next: 'drop 3 lands', date: 'October 28' },
   { at: Date.UTC(2026, 10, 4, 8), next: 'the weddings land', date: 'November 4' },
   { at: Date.UTC(2026, 10, 9, 2), next: 'the reunion airs', date: 'November 8' },
-  { at: Date.UTC(2026, 10, 11, 8), next: 'the last call closes', date: 'November 11' },
 ];
 function libStage() { for (var i = 0; i < LIB_STAGES.length; i++) if (LIB_STAGES[i].at > Date.now()) return i; return -1; }
 (function () {
@@ -615,7 +617,7 @@ function libStage() { for (var i = 0; i < LIB_STAGES.length; i++) if (LIB_STAGES
   var box = document.getElementById('premiere'); if (!box) return;
   function tick() {
     var i = libStage();
-    if (i < 0) { box.innerHTML = '<div style="min-width:auto;padding:10px 14px"><b style="font-size:24px">Season 11 is in the books</b></div>'; return; }
+    if (i < 0) { box.innerHTML = '<div style="min-width:auto;padding:10px 14px"><b style="font-size:24px">Season 11 ended with the reunion</b></div>'; return; }
     var ms = Math.max(0, LIB_STAGES[i].at - Date.now()), d = Math.floor(ms / 864e5), h = Math.floor(ms % 864e5 / 36e5), m = Math.floor(ms % 36e5 / 6e4);
     box.querySelector('[data-u=d]').textContent = d; box.querySelector('[data-u=h]').textContent = String(h).padStart(2, '0'); box.querySelector('[data-u=m]').textContent = String(m).padStart(2, '0');
   }
@@ -642,7 +644,7 @@ function libStage() { for (var i = 0; i < LIB_STAGES.length; i++) if (LIB_STAGES
       headers: { apikey: KEY, Authorization: 'Bearer ' + KEY, 'Content-Type': 'application/json', Prefer: 'return=minimal' },
       body: JSON.stringify(body)
     }).then(function (r) {
-      if (r.status === 201) { msg.className = 'msgline ok wide'; msg.textContent = pick === 'Love Is Blind pool' ? 'You are on the list. Your invite comes before the pods open.' : 'You are on the list. We will write when your pool can open.'; form.reset(); }
+      if (r.status === 201) { msg.className = 'msgline ok wide'; msg.textContent = 'You are on the list. We will write when your pool can open.'; form.reset(); }
       else if (r.status === 409) { msg.className = 'msgline ok wide'; msg.textContent = 'You were already on the list. We have not forgotten.'; }
       else { msg.className = 'msgline err wide'; msg.innerHTML = fallback; }
     }).catch(function () { msg.className = 'msgline err wide'; msg.innerHTML = fallback; })

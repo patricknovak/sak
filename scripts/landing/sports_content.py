@@ -51,26 +51,26 @@ FOOTBALL = dict(
         dict(href=a('comp=nfl&kind=props&src=football'), icon='sheet', name='The prop sheet', line='Eight calls on one game, a point each, settled as it plays.', tag='NFL'),
         dict(href=a('comp=nfl&kind=squares&src=football'), icon='grid', name='Squares', line='A grid on any game this week, scored by the quarter in Supercoins.', tag='NFL'),
         dict(href=a('comp=nfl&kind=streak&src=football'), icon='flame', name='Daily streak', line='One pick a game day. The longest run of right picks wins.', tag='NFL'),
-        dict(href=a('pack=nfl-2026&src=football'), icon='q', name="The season's questions", line="The Super Bowl, each conference and MVP, with the group's chance on every answer.", tag='NFL'),
+        dict(href=a('pack=nfl-2026&src=football'), icon='q', name="The season's questions", line="The Super Bowl, each conference and MVP, with the group's chance on every answer. Opens beside pick'em; untick it for questions alone.", tag='NFL'),
         dict(icon='bracket', name='Playoff pools', line='The bracket, a pick on every playoff game, the Eliminator, prop sheets and squares.',
              when=[('Opens in January', {'data-until': '2027-01-09T05:00:00Z'}), ('Opens with the playoffs', {'data-from': '2027-01-09T05:00:00Z'})]),
     ],
     steps_h2='Three steps to Sunday.',
     steps=[
         ('Start it, send one link', 'Pick the pool, name it and drop the link in the group chat. Friends join with just a name, in the browser.'),
-        ('Pick before kickoff', 'Each pick locks at its own kickoff, so Thursday locks Thursday and Sunday stays open. A reminder goes out before each lock.'),
+        ('Pick before kickoff', "Each pick locks at its own kickoff, so Thursday locks Thursday and Sunday stays open. A reminder goes out before each week's games, and again before Sunday's."),
         ('It settles itself', 'Results land as each game goes final, overtime included. The table moves and someone takes the crown.'),
     ],
     demo_h2='Your week, one card.',
     demo_lead="Every pick keeps its line, finished games mark themselves, and the room's split appears only once a game locks.",
-    demo_fine='\n          <p class="fine">Lines are for picking, never for wagering.</p>',
+    demo_fine='\n          <p class="fine">Lines are for picking, and points are all they score.</p>',
     demo=FOOTBALL_DEMO,
     proof_h2='Built by a league.',
     proof=GENERIC_PROOF('kickoff', 'the game goes final'),
     faq=[
         (MONEY_Q, 'No. Pools are played for points and a crown. Supercoins are never bought, never sold, never cashed out.'),
         (APP_Q, APP_A),
-        ('How does against the spread work?', 'Switch it on when you start the pool. Each pick keeps the line it was made at, so a line that moves later never changes it, and landing right on the number is a push.'),
+        ('How does against the spread work?', 'Switch it on when you start the pool. Each pick keeps the line it was made at, so a line that moves later never changes it, and a pick that lands right on the number is a tie, and scores nothing.'),
         ('What breaks a tie?', "Each week has a tiebreaker: the total points in its last game. Level on the week, the closest call takes it."),
         ('What if someone forgets to pick?', 'Switch on the favourite for a missed pick, and a game nobody picked takes the favourite at kickoff. In last one standing, give everyone up to three lives.'),
         ('What about the playoffs?', 'They open in January: the bracket, a pick on every playoff game, the Eliminator, prop sheets and squares. Start one the day they open.'),
@@ -118,18 +118,17 @@ HOCKEY = dict(
     kinds_h2='The box pool, and four more.',
     kinds_lead='Every one runs on the 2026-27 season. Tap one and the start page opens on it.',
     kinds=[
-        dict(href=a('comp=nhl-2026&kind=players&src=hockey'), icon='box', name='The box pool', line='One player from each box, as many entries as you like. A week, four weeks or the rest of the season.', tag='NHL'),
+        dict(href=a('comp=nhl-2026&kind=players&src=hockey'), icon='box', name='The box pool', line='One player from each box, any number of poolies. A week, four weeks or the rest of the season.', tag='NHL'),
         dict(href=a('comp=nhl-2026-27&kind=pickem&src=hockey'), icon='check', name="Pick'em", line='Every game of the week, straight up or confidence-ranked.', tag='NHL'),
         dict(href=a('comp=nhl-2026-27&kind=survivor&src=hockey'), icon='shield', name='Last one standing', line='One team a week, never the same one twice. Up to three lives.', tag='NHL'),
         dict(href=a('comp=nhl-2026-27&kind=streak&src=hockey'), icon='flame', name='Daily streak', line='One pick a night. The longest run of right picks wins.', tag='NHL'),
-        dict(href=a('pack=nhl-2026-27&src=hockey'), icon='q', name="The season's questions", line="The Cup, the Presidents' Trophy and the scoring races, with the group's chance on every answer.", tag='NHL'),
+        dict(href=a('pack=nhl-2026-27&src=hockey'), icon='q', name="The season's questions", line="The Cup, the Presidents' Trophy and the scoring races, with the group's chance on every answer. Opens beside pick'em; untick it for questions alone.", tag='NHL'),
     ],
     cal_label='On the calendar',
     cal=[
-        dict(attrs={'data-until': '2027-01-04T05:00:00Z'}, icon='box', name='The second-half box pool', line='A fresh box pool for the rest of the season, its boxes dealt the day it starts.',
-             when=[('From early January', {})]),
-        dict(attrs={'data-from': '2027-01-04T05:00:00Z', 'data-until': '2027-02-08T05:00:00Z'}, href=a('comp=nhl-2026&kind=players&src=hockey'), icon='box', name='The second-half box pool',
-             line='A fresh box pool for the rest of the season, its boxes dealt the day it starts.', tag='Now'),
+        # a box pool for "the rest of the season" can start any night, its boxes dealt that day (migration 188)
+        dict(attrs={'data-until': '2027-02-08T05:00:00Z'}, href=a('comp=nhl-2026&kind=players&src=hockey'), icon='box', name='The second-half box pool',
+             line='A fresh box pool any night: start one in January for the second half, its boxes dealt the day it starts.', tag='NHL'),
         dict(attrs={'data-until': '2027-04-11T04:00:00Z'}, icon='bracket', name='Playoff pools', line='The playoff box pool before round 1, the bracket, pick the series, prop sheets and squares by period.',
              when=[('Opens in April', {})]),
         dict(attrs={'data-from': '2027-04-11T04:00:00Z', 'data-until': '2027-06-01T04:00:00Z'}, href=a('src=hockey'), icon='bracket', name='Playoff pools',
@@ -202,10 +201,10 @@ BASKETBALL = dict(
     kinds_lead='Tap one and the start page opens on it, from the next game still to come.',
     kinds=[
         dict(href=a('comp=nba-2026-27&kind=pickem&src=basketball'), icon='check', name="Pick'em", line='Every game of the week, straight up or confidence-ranked.', tag='NBA'),
-        dict(href=a('comp=nba-2026-27&kind=pickem&ats=1&src=basketball'), icon='target', name='Against the spread', line='Pick who covers. Each pick keeps the line it was made at.', tag='NBA'),
+        dict(href=a('comp=nba-2026-27&kind=pickem&ats=1&src=basketball'), icon='target', name='Against the spread', line='Pick who covers. Each pick keeps the line it was made at; pick on game day, once the line is out.', tag='NBA'),
         dict(href=a('comp=nba-2026-27&kind=survivor&src=basketball'), icon='shield', name='Last one standing', line='One team a week, never the same one twice. Up to three lives.', tag='NBA'),
         dict(href=a('comp=nba-2026-27&kind=streak&src=basketball'), icon='flame', name='Daily streak', line='One pick a night. The longest run of right picks wins.', tag='NBA'),
-        dict(href=a('pack=nba-2026-27&src=basketball'), icon='q', name="The season's questions", line="The title, the NBA Cup, MVP and Rookie of the Year, with the group's chance on every answer.", tag='NBA'),
+        dict(href=a('pack=nba-2026-27&src=basketball'), icon='q', name="The season's questions", line="The title, the NBA Cup, MVP and Rookie of the Year, with the group's chance on every answer. Opens beside pick'em; untick it for questions alone.", tag='NBA'),
     ],
     cal_label='On the calendar',
     cal=[
@@ -217,11 +216,11 @@ BASKETBALL = dict(
              when=[('Opens before next season', {})]),
     ],
     more='''
-      <p class="fine">Lines are for picking, never for wagering.</p>''',
+      <p class="fine">Lines are for picking, and points are all they score.</p>''',
     steps_h2='Three steps to tip-off.',
     steps=[
         ('Start it, send one link', 'Pick the pool, name it and drop the link in the group chat. Friends join with just a name, in the browser.'),
-        ('Pick before tip-off', 'Each pick locks at its own tip-off, so a late joiner still plays every game left. A reminder goes out before each lock.'),
+        ('Pick before tip-off', "Each pick locks at its own tip-off, so a late joiner still plays every game left. A reminder goes out before each week's games."),
         ('It settles itself', 'Results land as each game goes final, overtime included. The table moves, and a climb rings the phone.'),
     ],
     demo_h2='The table moves as games end.',
@@ -277,20 +276,20 @@ SOCCER = dict(
         dict(href=a('comp=epl&kind=pickem&src=soccer'), icon='check', name="Pick'em", line='Home, draw or away on every match of the matchweek.', tag='EPL'),
         dict(href=a('comp=epl&kind=survivor&src=soccer'), icon='shield', name='Last one standing', line="One club to win each matchweek, never the same one twice. A draw or a loss and you're out.", tag='EPL'),
         dict(href=a('comp=epl&kind=streak&src=soccer'), icon='flame', name='Daily streak', line='One pick a match day. The longest run of right picks wins.', tag='EPL'),
-        dict(href=a('pack=premier-league-2026-27&src=soccer'), icon='q', name="The season's questions", line="The title, the Golden Boot and the bottom club, with the group's chance on every answer.", tag='EPL'),
+        dict(href=a('pack=premier-league-2026-27&src=soccer'), icon='q', name="The season's questions", line="The title, the Golden Boot and the bottom club, with the group's chance on every answer. Opens beside pick'em; untick it for questions alone.", tag='EPL'),
     ],
     more='''
-      <div class="label klabel">Four competitions on now</div>
+      <div class="label klabel">Two all season, two finishing now</div>
       <div class="comps">
         <a class="comp" href="''' + a('comp=epl&src=soccer') + '''"><span class="badge" aria-hidden="true">EPL</span><b>Premier League</b><small>Every matchweek to May</small></a>
-        <a class="comp" href="''' + a('comp=mls&src=soccer') + '''"><span class="badge" aria-hidden="true">MLS</span><b>MLS</b><small>The playoffs, to MLS Cup</small></a>
+        <a class="comp" href="''' + a('comp=mls&src=soccer') + '''"><span class="badge" aria-hidden="true">MLS</span><b>MLS</b><small data-until="2026-11-08T05:00:00Z">Decision Day, 7 November; playoff rounds open as they're set</small><small data-from="2026-11-08T05:00:00Z">The playoffs, each round as it's set</small></a>
         <a class="comp" href="''' + a('comp=wsl&src=soccer') + '''"><span class="badge" aria-hidden="true">WSL</span><b>Women's Super League</b><small>Every matchweek to May</small></a>
-        <a class="comp" href="''' + a('comp=nwsl&src=soccer') + '''" data-until="2026-11-22T05:00:00Z"><span class="badge" aria-hidden="true">NWSL</span><b>NWSL</b><small>The playoffs, to the final on 21 November</small></a>
+        <a class="comp" href="''' + a('comp=nwsl&src=soccer') + '''" data-until="2026-11-22T05:00:00Z"><span class="badge" aria-hidden="true">NWSL</span><b>NWSL</b><small data-until="2026-11-09T05:00:00Z">The quarter-finals, 6 to 8 November; later rounds open as they're set</small><small data-from="2026-11-09T05:00:00Z">Later playoff rounds, each as it's set</small></a>
       </div>''',
     steps_h2='Three steps to kick-off.',
     steps=[
         ('Start it, send one link', 'Pick the competition and the pool, name it and drop the link in the group chat. Friends join with just a name.'),
-        ('Call it before kick-off', 'Each call locks at its own kick-off, and a reminder goes out before each lock. Bank one match to count it double.'),
+        ('Call it before kick-off', 'Each call locks at its own kick-off, and a reminder goes out before each matchweek. Bank one match to count it double.'),
         ('It settles itself', 'Results land at full time. The table moves, and every match has its own thread for the chirps.'),
     ],
     demo_h2='Your calls, one matchweek.',
@@ -301,7 +300,9 @@ SOCCER = dict(
     faq=[
         (MONEY_Q, 'No. Pools are played for points and a crown. Supercoins are never bought, never sold, never cashed out.'),
         ('How does Call the score work?', 'Three points for the exact score, one for the right result, and the match you bank counts double. Each call locks at its own kick-off.'),
-        ('Which competitions are on?', "The Premier League and the WSL to May, MLS through MLS Cup, and the NWSL to its final in November. The Champions League isn't on yet."),
+        # MLS and the NWSL have one round each in the feed (MLS Decision Day, the NWSL quarter-finals), and a pick'em fixes its
+        # last round when it starts (migration 294), so nothing here says a pool runs to MLS Cup or the final
+        ('Which competitions are on?', "The Premier League and the WSL every matchweek to May. MLS and the NWSL are at the end of their seasons: a pool started today plays one round, MLS Decision Day on 7 November or the NWSL quarter-finals on 6 to 8 November, and later playoff rounds open as they're set. The Champions League isn't on yet."),
         ('What happens with a draw?', 'In pick\'em a draw is a pick of its own. In last one standing a draw or a loss puts you out, and a called-off match lets you through.'),
         (APP_Q, APP_A),
         ('Can we start mid-season?', 'Yes. A pool plays from the next matchweek still to come, and each call locks at its own kick-off.'),
