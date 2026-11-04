@@ -223,9 +223,12 @@ Two things in one repo:
   the chat badge, counted on the scoreboard's game chips instead); a pool's match on the shared fixtures is `game:fx<fixture id>` (`fixtureThread`, `ThreadSheet` and `useChannelCounts` in `GameThread.tsx`), opened from the pool room's chips, pick'em's Talk and the match centre, and a box pool's NHL game keeps `game:<game id>`. `/api/live/<league>/pool/<day>` is a prediction pool's
   room for the day (`worker/pool.ts`, `usePoolRoom` in `src/lib/poolRoom.ts`, `PoolRoomCard` on the pool's home): today's
   games on its events, their scores and members climbing its table, pushed; the rest is the built site. The plan for the edge is `docs/DEVELOPMENT.md` §8.3; the
-  Super Pools landing page (`landing/index.html`, with `together.html` for the shows and `love-is-blind.html` for the
-  show pool itself, their Love Is Blind copy following the calendar through `LIB_STAGES` in `site.js`; the privacy note
-  is the app's `#/privacy`) on Cloudflare (zone routes on the apex and www; off Vercel); every
+  Super Pools marketing site (`landing/`, rebuilt 4 November 2026, its README the map: the home `index.html`,
+  `fantasy-hockey.html`, `pricing.html`, `changelog.html` (written by `scripts/landing-changelog.mjs` from
+  `src/data/changelog.ts`), the four sport pages written by `scripts/landing/gen_sports.py`, `together.html`,
+  `traitors.html`, `love-is-blind.html`, `example-pool.html` and `fans.html`, on `site.css` with `site-sports.css`,
+  `site-commish.css` and `site-shows.css`; dated copy follows the calendar through `data-from` / `data-until` and
+  `LIB_STAGES` in `site.js`; the privacy note is the app's `#/privacy`) on Cloudflare (zone routes on the apex and www; off Vercel); every
   other `<league>.superpoolsai.com` goes to the app through a wildcard zone route and a proxied `AAAA * 100::` record (live
   since 4 October 2026: `podsquad.superpoolsai.com`). One account, every pool (migration 151): the product's one address is
   `app.superpoolsai.com`; a pool's link is `#/p/<web name>/<page>` there and invites are `#/join/<code>` there (`appLink`,

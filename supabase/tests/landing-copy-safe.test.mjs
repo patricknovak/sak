@@ -26,8 +26,9 @@ for (const name of pages) {
       assert.doesNotMatch(html, /Sixteen (questions|calls)/, 'no hardcoded sixteen on the LIB page');
       const monthNames = 'January|February|March|April|May|June|July|August|September|October|November|December';
       const tenseWithDate = new RegExp(`\\bclose[sd]?\\b[^\\n<]{0,40}\\b(?:${monthNames})\\s+\\d`, 'i');
-      const cardLabels = [...html.matchAll(/<div class="eyebrow r" style="margin-bottom:10px">([^<]*)<\/div>/g)].map((m) => m[1]);
-      assert.equal(cardLabels.length, 4, 'four question cards on the LIB page');
+      // every rose eyebrow on the page (the rebuilt page of 4 November 2026 has no fixed count of question cards)
+      const cardLabels = [...html.matchAll(/<div class="eyebrow r"[^>]*>([^<]*)<\/div>/g)].map((m) => m[1]);
+      assert.ok(cardLabels.length >= 1, 'the LIB page has its labels');
       for (const label of cardLabels) {
         assert.doesNotMatch(label, tenseWithDate, `question card label carries a bare date, no tense that goes stale: ${label}`);
       }
@@ -37,7 +38,8 @@ for (const name of pages) {
   }
   if (name === 'example-pool.html') {
     assert.equal((html.match(/class="q-card"/g) || []).length, 16, 'all sixteen question cards are static HTML');
-    assert.doesNotMatch(html, /<script(?![^>]*src="\.\/site\.js")/i, 'no inline or extra scripts');
+    // the FAQ's JSON-LD is data, not code; any other script but site.js is refused
+    assert.doesNotMatch(html, /<script(?![^>]*src="\.\/site\.js")(?![^>]*type="application\/ld\+json")/i, 'no inline or extra scripts');
     assert.match(html, /Every name and every number on this page is an illustration, not a live pool/);
     assert.match(html, /Illustration only\. No live pool, no real players\./);
     assert.match(html, /It is an illustration built to show the shape of a Love Is Blind pool/);

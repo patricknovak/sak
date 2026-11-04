@@ -30,8 +30,9 @@ test.describe('App public journeys', () => {
     await expect(page.getByText(/What are you starting/i)).toBeVisible({ timeout: 30_000 });
     await page.getByRole('button', { name: /A sports pool/i }).click();
     await expect(page.getByText(/What are you following/i)).toBeVisible();
-    // events come from pool_event_list; wait for either a Live now chip or the empty copy
-    await expect(page.getByText(/Live now|No league is open/i).first()).toBeVisible({ timeout: 20_000 });
+    // events come from pool_event_list; wait for an event's line (Live now shows only on a round under way) or the
+    // empty copy
+    await expect(page.getByText(/Live now|picks from|from the next puck drop|No league is open/i).first()).toBeVisible({ timeout: 20_000 });
   });
 
   test('start page (ask for a fantasy league) loads', async ({ page }) => {

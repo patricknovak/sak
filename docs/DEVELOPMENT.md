@@ -1462,3 +1462,31 @@ offering that is ready to go live." Two slices so far.
   the league's choices; an email that already has an account signs in right there and the league starts on it; a
   signed-in account with no seat is offered a fresh start. Before the migration is live the join function answers
   `notYet` and the form points at Ask us.
+
+### 9.26 The market review, the new marketing site and the app's first run, 4 November 2026
+
+Patrick asked where Super Pools stands against the market and for a marketing site that says so. The record is
+`docs/MARKET-REVIEW-2026-11.md` (the positioning and offering brief from twelve research reports, with every refutation
+it took and six addenda); what the pages claim against what is true today is `docs/CLAIMS-AUDIT-2026-11-04.md`.
+
+- **The review**: one position (the home for every pool a group plays, fantasy leagues and prediction pools, with the chat,
+  a named voice and Supercoins, never money), the market map by kind of host, the needs, ten differentiators true today,
+  the gaps ranked by lost sign-ups, the planned offering per pool in Canadian dollars, the messaging and the site. Competitors
+  are named there and never on a public page, except Yahoo, ESPN and Fantrax as import sources.
+- **The site** (`landing/`, its README the map): a new home in ten sections, doors by need, one gold thing per screen and the
+  founding league's real proof, dated; `fantasy-hockey.html` for the commissioner and `pricing.html` (every price planned);
+  the four sport pages, soccer new, written by `scripts/landing/gen_sports.py`, each with its sport's open-now board
+  (`#now data-sport`, filtered in `site.js`, which retired the CSS-only filter); `together.html`, `traitors.html`,
+  `love-is-blind.html`, `example-pool.html` and `fans.html` on the show and fan styles; `changelog.html` written from
+  `src/data/changelog.ts`. Seasonal copy follows the calendar (`data-from`, `data-until`, `LIB_STAGES`, now with the
+  reunion on 8 November and the pack's last close on 11 November apart). The voice's posts shown are real, names changed.
+- **The app's first run**: the consent sheet one line a question; the start page lists each event's kinds and says
+  "Live now" only while a round is under way; a fan account is told plainly how to start a pool; the fan zones' links carry
+  `?src=fans` into the app (`worker/fans.ts`); `#/privacy` says what the waitlist and reserve emails are.
+- **Left** (the claims audit): a fan account cannot start a pool
+  (`pool_start`); the forms need CASL consent columns and a mailing address; the founding rate needs Patrick's yes; a public
+  `proof_counts()` would retire the dated proof copy; real names on the voice's posts need the GMs' yes; no French yet;
+  `/traitors` redirects to `/together` after 20 November.
+- **Merged with §9.25** (the parallel slices, PRs #346 to #349): where both changed the same app screen, #349's
+  version stands (a stranger starts a fantasy league from `#/new?type=fantasy`); the landing pages send the fantasy doors
+  there, with `#/start` kept as "ask us to set it up"; `whats-new.html` (drawn on the old stylesheet) is kept in the repo, unserved, and `/whats-new` goes to `/changelog`.

@@ -49,6 +49,12 @@ export default function Start() {
               <div className="text-5xl">🏒</div>
               <h1 className="h-display text-shine mt-3 text-3xl leading-none">We’ll be in touch</h1>
               <p className="mt-3 text-sm text-white/80">We’ll set up <b>{f.league.trim()}</b> and email <b>{f.email.trim().toLowerCase()}</b> a link to take your commissioner’s seat, usually within a day. From there you name it, invite your GMs and set your draft.</p>
+              {/* the wait for the email needn't be a dead end: a pool opens now, for the same group chat */}
+              <div className="mt-5 rounded-2xl bg-black/25 p-4 text-left ring-1 ring-white/10">
+                <div className="font-semibold text-white">Meanwhile, start a free pool for the same group</div>
+                <p className="mt-1 text-xs leading-snug text-white/65">Pick’em on the NHL’s games, or questions on a show you all watch. One link in the group chat and they’re in.</p>
+                <a href="#/new?src=start" className="btn-gold mt-3 inline-flex px-4 py-2 text-sm">Start a pool</a>
+              </div>
             </div>
           </div>
         ) : (

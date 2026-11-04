@@ -179,8 +179,9 @@ export function getAdsConsent(): AnalyticsConsent {
   return v === 'granted' || v === 'denied' ? v : null;
 }
 
-// #286 split: Analytics and Ads are separate choices. Do not mirror one onto the other —
-// a single Analytics Accept must not set sp_ads_consent (and vice versa).
+// Analytics and Ads are separate keys, and an Accept on one never grants the other (#286). Since #299 the banner
+// closes on any one answer and saves the question left unanswered as denied, so the sp_consent cookie is written on
+// that first tap (ConsentBanner's choose).
 export function needsConsentChoice(): boolean {
   return getAnalyticsConsent() == null || getAdsConsent() == null;
 }

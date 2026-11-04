@@ -2,229 +2,307 @@
 <html lang="en">
 <head>
   <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Super Pools · Pools for any group</title>
-  <meta name="description" content="Pools for the shows and the games your friends won't stop texting about. A Love Is Blind pool for Season 11, WSL and NWSL matchweeks, a Women's World Cup 2027 questions pack, prices that move as your friends call it, and the chat built in. Free, and never money." />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>Show pools for your group chat | Super Pools</title>
+  <meta name="description" content="Call what happens next in the shows your group watches. The group's chance moves as friends call it; your host settles it. Never money." />
   <link rel="canonical" href="https://superpoolsai.com/together" />
   <link rel="icon" href="./icon.svg" type="image/svg+xml" />
   <meta name="theme-color" content="#0b1220" />
   <meta property="og:type" content="website" />
+  <meta property="og:site_name" content="Super Pools" />
   <meta property="og:url" content="https://superpoolsai.com/together" />
-  <meta property="og:title" content="Super Pools · Your group chat has opinions" />
-  <meta property="og:description" content="A Love Is Blind pool for Season 11, WSL and NWSL matchweeks, Women's World Cup 2027 questions. Prices that move as your friends call it. Free, never money." />
+  <meta property="og:title" content="Your group chat has opinions." />
+  <meta property="og:description" content="Now it has a scoreboard. Call what happens next, watch the group's chance move, your host settles it. Never money." />
   <meta property="og:image" content="https://superpoolsai.com/og-together.png" />
+  <meta property="og:image:width" content="1200" />
+  <meta property="og:image:height" content="630" />
+  <meta property="og:image:alt" content="Super Pools: your group chat has opinions. Fun fantasy pools with friends, for all. AI-enhanced. Fun for all." />
   <meta name="twitter:card" content="summary_large_image" />
+  <meta name="twitter:title" content="Your group chat has opinions." />
+  <meta name="twitter:description" content="Now it has a scoreboard. Call what happens next, watch the group's chance move, your host settles it. Never money." />
+  <meta name="twitter:image" content="https://superpoolsai.com/og-together.png" />
+  <link rel="preload" href="./fonts/barlow-condensed-900.woff2" as="font" type="font/woff2" crossorigin />
+  <link rel="preload" href="./fonts/barlow-condensed-900-italic.woff2" as="font" type="font/woff2" crossorigin />
+  <link rel="preload" href="./fonts/inter.woff2" as="font" type="font/woff2" crossorigin />
   <link rel="stylesheet" href="./site.css" />
-  <!-- the questions people ask, for search (the same text as the page's own FAQ below) -->
-  <script type="application/ld+json">{"@context":"https://schema.org","@type":"FAQPage","mainEntity":[{"@type":"Question","name":"Is there any real money in it?","acceptedAnswer":{"@type":"Answer","text":"No. Pools run on Supercoins: never bought, never sold, and there are no prizes of value. It is bragging rights, a crown and a pool that remembers who called it."}},{"@type":"Question","name":"Do I need to know anything about prices?","acceptedAnswer":{"@type":"Answer","text":"No. A price is just the group's chance: 64% means most of your friends think so. Put Supercoins on the answer you believe. If you are right, you are paid more the fewer people agreed with you."}},{"@type":"Question","name":"Who decides the answer?","acceptedAnswer":{"@type":"Answer","text":"The pool's host. Every question carries its rule from the moment it is asked, and it locks once anyone calls it. The host settles it with a note everyone sees; match results settle themselves."}},{"@type":"Question","name":"Do my friends need an app?","acceptedAnswer":{"@type":"Answer","text":"No. They tap the link you send, make an account with an email and a password, and they are in."}},{"@type":"Question","name":"Is this connected to Netflix?","acceptedAnswer":{"@type":"Answer","text":"No. Super Pools is not affiliated with Netflix or Love Is Blind. A show pool is fans making calls about what airs, the way the group chat already does."}}]}</script>
-  <style>
-    .steps { display: grid; gap: 14px; grid-template-columns: 1fr; }
-    @media (min-width: 860px) { .steps { grid-template-columns: repeat(3, 1fr); } }
-    .steps .num { background: linear-gradient(180deg, #ffd1d8, var(--rose)); -webkit-background-clip: text; background-clip: text; color: transparent; }
-    .mini { margin-top: 16px; display: grid; gap: 6px; }
-    .bar { position: relative; overflow: hidden; border-radius: 12px; background: rgba(255,255,255,.04); border: 1px solid var(--line); padding: 8px 12px; display: flex; justify-content: space-between; font-size: 13px; font-weight: 600; }
-    .bar::before { content: ''; position: absolute; inset: 0 auto 0 0; width: var(--w); background: linear-gradient(90deg, var(--c), transparent); opacity: .3; }
-    .bar span { position: relative; } .bar b { position: relative; font-family: 'Barlow Condensed', sans-serif; font-size: 18px; color: var(--c); }
-    .show-grid { display: grid; gap: 30px; align-items: center; }
-    @media (min-width: 960px) { .show-grid { grid-template-columns: 1.1fr .9fr; } }
-    .show .phones { display: flex; justify-content: center; gap: 14px; }
-    .show-grid > * { min-width: 0; }
-    .show .phones .phone { width: min(200px, calc(50% - 7px)); }
-    .show .phones .phone:nth-child(2) { margin-top: 46px; }
-    @media (max-width: 480px) { .show .phones .phone { border-radius: 28px; padding: 7px; } .show .phones .phone img { border-radius: 24px; } }
-    .tag.t1 { right: 0; bottom: 18px; } .tag.t2 { left: 0; bottom: 84px; } .tag.t2 b { color: var(--lilac); }
-    @media (max-width: 520px) { .tag.t2 { bottom: 70px; } }
-    .sport { position: relative; overflow: hidden; }
-    .sport .big { font-family: 'Barlow Condensed', sans-serif; font-weight: 900; font-size: 30px; line-height: 1; margin: 12px 0 6px; }
-    .sport .when { font-size: 12px; letter-spacing: .14em; text-transform: uppercase; color: var(--blush); font-weight: 700; }
-    .sport::after { content: ''; position: absolute; right: -40px; top: -40px; width: 140px; height: 140px; border-radius: 50%; border: 2px solid rgba(251,113,133,.14); }
-    .sport.i::after { border-color: rgba(56,189,248,.16); } .sport.g::after { border-color: rgba(247,197,72,.16); } .sport.l::after { border-color: rgba(196,181,253,.18); }
-    .quote { border-left: 3px solid var(--rose); padding: 4px 0 4px 16px; margin: 20px 0 0; color: #f1d4dc; font-size: 17px; }
-  </style>
+  <link rel="stylesheet" href="./site-shows.css" />
+  <!-- the questions people ask, for search: the same words as the FAQ at the foot of the page -->
+  <script type="application/ld+json">{"@context":"https://schema.org","@type":"FAQPage","mainEntity":[{"@type":"Question","name":"Is it money?","acceptedAnswer":{"@type":"Answer","text":"No. Supercoins are never bought, sold or turned into money, and there are no prizes of value. The pool remembers who called it, and that is the prize."}},{"@type":"Question","name":"Will somebody spoil it?","acceptedAnswer":{"@type":"Answer","text":"Questions are about what airs this week, they close as the episode drops, and your host settles them once it has aired. Strangers are never in your pool, and nothing on it tells you who wins."}},{"@type":"Question","name":"Who decides the answer?","acceptedAnswer":{"@type":"Answer","text":"Your host, by the rule written on the question when it was asked. Everyone sees the note, and a question with a mistake in it is voided and every Supercoin goes back."}},{"@type":"Question","name":"Do my friends need an app?","acceptedAnswer":{"@type":"Answer","text":"No. They tap the link, type a name and they are in on that phone. An email later keeps the seat on another."}},{"@type":"Question","name":"Do I need to understand the numbers?","acceptedAnswer":{"@type":"Answer","text":"No. The number is the group's chance, and a right call scores more the fewer people agreed with you."}},{"@type":"Question","name":"What happens when the show ends?","acceptedAnswer":{"@type":"Answer","text":"Keep the pool and its people, and ask the next show's questions from the Host page. The table and the chat carry over."}}]}</script>
 </head>
 <body class="rosy">
-  <main>
-    <header>
-      <a class="wordmark" href="./" aria-label="Super Pools home">
-        <svg viewBox="0 0 64 64" aria-hidden="true"><rect width="64" height="64" rx="14" fill="#111b30"/><circle cx="32" cy="32" r="17" fill="none" stroke="#f7c548" stroke-width="4"/><circle cx="32" cy="32" r="4.5" fill="#f7c548"/><g stroke="#f7c548" stroke-width="2.6" stroke-linecap="round"><line x1="25" y1="8" x2="25" y2="12.5"/><line x1="39" y1="8" x2="39" y2="12.5"/><line x1="25" y1="51.5" x2="25" y2="56"/><line x1="39" y1="51.5" x2="39" y2="56"/></g></svg>
-        <span><b>SUPER</b> POOLS</span>
-      </a>
-      <nav class="navlinks"><a href="#lib">Love Is Blind</a><a href="#sports">Sports</a><a href="#how">How it works</a><a href="./">Fantasy leagues</a></nav>
-      <a class="btn btn-rose btn-sm" href="https://app.superpoolsai.com/#/new?pack=love-is-blind-s11">Start a pool</a>
-    </header>
+  <a class="skip" href="#main">Skip to content</a>
+  <header class="site-head">
+    <a class="wordmark" href="./" aria-label="Super Pools home">
+      <svg viewBox="0 0 64 64" aria-hidden="true"><rect width="64" height="64" rx="14" fill="#111b30"/><circle cx="32" cy="32" r="17" fill="none" stroke="#f7c548" stroke-width="4"/><circle cx="32" cy="32" r="4.5" fill="#f7c548"/><g stroke="#f7c548" stroke-width="2.6" stroke-linecap="round"><line x1="25" y1="8" x2="25" y2="12.5"/><line x1="39" y1="8" x2="39" y2="12.5"/><line x1="25" y1="51.5" x2="25" y2="56"/><line x1="39" y1="51.5" x2="39" y2="56"/></g></svg>
+      <span><b>SUPER</b> POOLS</span>
+    </a>
+    <nav class="navlinks" aria-label="Doors"><a href="./fantasy-hockey.html">Fantasy league</a><a href="./#kinds">Sports pools</a><a href="./together.html" aria-current="page">Show pools</a><a href="./fans.html">Fan zones</a><a href="./pricing.html">Pricing</a></nav>
+    <div class="head-right">
+      <a class="signin" href="https://app.superpoolsai.com/#/?src=together">Sign in</a>
+      <button type="button" class="menu-btn" id="menu-btn" aria-expanded="false" aria-controls="menu" aria-label="Open the menu">
+        <svg class="bars" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16"/></svg>
+        <svg class="x" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>
+      </button>
+    </div>
+    <nav class="menu" id="menu" aria-label="Menu">
+      <a href="./fantasy-hockey.html"><span class="mi"><svg class="ico" aria-hidden="true" focusable="false"><use href="./icons.svg#i-trophy"/></svg></span><span><b>Fantasy league</b><small>Keepers, the draft room, a league voice</small></span></a>
+      <a href="./#kinds"><span class="mi"><svg class="ico" aria-hidden="true" focusable="false"><use href="./icons.svg#i-target"/></svg></span><span><b>Sports pools</b><small>The NFL, NHL, NBA and soccer</small></span></a>
+      <a href="./together.html"><span class="mi r"><svg class="ico" aria-hidden="true" focusable="false"><use href="./icons.svg#i-tv"/></svg></span><span><b>Show pools</b><small>Call what happens next, with your group</small></span></a>
+      <a href="./fans.html"><span class="mi"><svg class="ico" aria-hidden="true" focusable="false"><use href="./icons.svg#i-chart"/></svg></span><span><b>Fan zones</b><small>Every club, read like a front office</small></span></a>
+      <a href="./pricing.html"><span class="mi n"><svg class="ico" aria-hidden="true" focusable="false"><use href="./icons.svg#i-coin"/></svg></span><span><b>Pricing</b><small>Per pool, never per person</small></span></a>
+      <a href="https://app.superpoolsai.com/#/?src=together"><span class="mi n"><svg class="ico" aria-hidden="true" focusable="false"><use href="./icons.svg#i-users"/></svg></span><span><b>Sign in</b><small>Back to your pools</small></span></a>
+    </nav>
+  </header>
+  <main id="main">
 
-    <div class="hero">
-      <div>
-        <div class="eyebrow r">Pools for any group</div>
-        <h1 class="display">Your group chat <span class="l2"><em class="grad-rose">has opinions.</em></span></h1>
-        <p class="lead">Now it has a scoreboard. Super Pools turns the show, the game and the award night into a pool with your friends: every answer has a price that moves as you call it, the chat sits right beside the calls, and the crown goes to whoever read it best. Free, and never money.</p>
-        <div class="cta">
-          <a class="btn btn-rose" href="https://app.superpoolsai.com/#/new?pack=love-is-blind-s11">Start your Love Is Blind pool</a>
-          <a class="btn btn-ghost" href="#sports">Sports pools, too</a>
+    <!-- 1. Hero: the best line on the site, one rose button that follows the calendar (C17, C19), a sample question -->
+    <section class="hero2 hero2-split" id="top">
+      <div class="hero2-copy">
+        <div class="eyebrow r">Pools for everything you watch</div>
+        <h1 class="display">Your group chat <span class="l2"><em>has opinions.</em></span></h1>
+        <p class="sub">Now it has a scoreboard. Call what happens next, watch the group's chance move, your host settles it. <b>Never money.</b></p>
+        <div class="cta2">
+          <!-- the Traitors pack's episode questions close 13 November 01:00Z (migration 249); then the questions pool -->
+          <a class="btn btn-rose btn-lg" data-gold data-until="2026-11-13T01:00:00Z" href="https://app.superpoolsai.com/#/new?pack=traitors-new-blood&amp;src=together">Start your Traitors pool</a>
+          <a class="btn btn-rose btn-lg" data-gold data-from="2026-11-13T01:00:00Z" href="https://app.superpoolsai.com/#/new?type=questions&amp;src=together">Start a questions pool</a>
+          <a class="textlink" href="./example-pool.html">See a pool, filled in</a>
         </div>
-        <div class="trust"><span>Open now, free</span><span>No app to download</span><span>One link in the group chat</span><span>Private to your friends</span></div>
+        <!-- join with a name (migration 332), 1,000 to start (migration 145) -->
+        <p class="cta-note">Friends join with a name. 1,000 Supercoins to start.</p>
+        <p class="deadline"><svg class="ico" aria-hidden="true" focusable="false"><use href="./icons.svg#i-clock"/></svg>
+          <span data-until="2026-11-06T01:00:00Z"><b>The Traitors, episode 9</b> closes Thursday 5 November, 8&nbsp;pm&nbsp;ET</span>
+          <span data-from="2026-11-06T01:00:00Z" data-until="2026-11-13T01:00:00Z"><b>The Traitors, episode 10</b> closes Thursday 12 November, 8&nbsp;pm&nbsp;ET</span>
+          <span data-from="2026-11-13T01:00:00Z" data-until="2026-11-20T01:00:00Z"><b>The Traitors finale</b> closes Thursday 19 November, 8&nbsp;pm&nbsp;ET</span>
+          <span data-from="2026-11-20T01:00:00Z" data-until="2026-12-17T05:00:00Z"><b>Next:</b> Survivor's finale, expected about 16 December</span>
+          <span data-from="2026-12-17T05:00:00Z" data-until="2027-01-11T05:00:00Z"><b>Next:</b> the Golden Globes, Sunday 10 January</span>
+          <span data-from="2027-01-11T05:00:00Z" data-until="2027-02-08T05:00:00Z"><b>Next:</b> the Grammys, Sunday 7 February</span>
+          <span data-from="2027-02-08T05:00:00Z" data-until="2027-03-15T04:00:00Z"><b>Next:</b> the Oscars, Sunday 14 March</span>
+          <span data-from="2027-03-15T04:00:00Z"><b>Next:</b> ask your own, about anything you watch</span>
+        </p>
       </div>
-      <div class="duo rv" aria-hidden="true">
-        <div class="phone a glow-rose"><img src="./img/pool-home.webp" alt="" width="600" height="1200" loading="eager" /></div>
-        <div class="phone b glow-rose"><img src="./img/pool-question.webp" alt="" width="600" height="1200" loading="eager" /></div>
-        <div class="tag t1"><b>56%</b>six couples get engaged</div>
-        <div class="tag t2"><b>+340</b>Goblets for calling it early</div>
-      </div>
-    </div>
+      <figure class="qcard rv" aria-label="A sample question, as a pool shows it">
+        <div class="qc-top"><span class="qc-pool"><i>GC</i>The Group Chat</span><span class="qc-close">Closes at the drop</span></div>
+        <p class="qc-q">Does someone swear they’re “100% Faithful” and get banished the same night?</p>
+        <p class="qc-rule">Yes if a player says it at the round table and leaves at that table. Settled by the host.</p>
+        <div class="qc-opt hi" style="--w:64%"><span>Yes</span><b>64%</b></div>
+        <div class="qc-opt" style="--w:36%"><span>No</span><b>36%</b></div>
+        <div class="qc-foot"><span class="faces" aria-hidden="true"><i>M</i><i>P</i><i>J</i><i>S</i></span><span><b>Priya</b> called No at 22%. Six friends are in.</span></div>
+        <figcaption>Sample question · the group's chance</figcaption>
+      </figure>
+    </section>
 
-    <div class="ticker" aria-label="Sample questions from pools">
-      <div class="run">
-        <span class="q"><i style="background:#34d399"></i>Will a woman propose in the pods? <b style="color:#34d399">64%</b></span>
-        <span class="q"><i style="background:#fb7185"></i>Anyone still together at the reunion? <b style="color:#fb7185">38%</b></span>
-        <span class="q"><i style="background:#38bdf8"></i>USA reach the World Cup final? <b style="color:#38bdf8">33%</b></span>
-        <span class="q"><i style="background:#c4b5fd"></i>Best Picture: the favourite holds? <b style="color:#c4b5fd">57%</b></span>
-        <span class="q"><i style="background:#fb7185"></i>How many say "I do"? Two <b style="color:#fb7185">27%</b></span>
-        <span class="q"><i style="background:#f7c548"></i>Who wins the women's bracket? South Carolina <b style="color:#f7c548">24%</b></span>
-        <span class="q"><i style="background:#34d399"></i>A rose ceremony walk-off this season? <b style="color:#34d399">45%</b></span>
-        <span class="q"><i style="background:#34d399"></i>Will a woman propose in the pods? <b style="color:#34d399">64%</b></span>
-        <span class="q"><i style="background:#fb7185"></i>Anyone still together at the reunion? <b style="color:#fb7185">38%</b></span>
-        <span class="q"><i style="background:#38bdf8"></i>USA reach the World Cup final? <b style="color:#38bdf8">33%</b></span>
-        <span class="q"><i style="background:#c4b5fd"></i>Best Picture: the favourite holds? <b style="color:#c4b5fd">57%</b></span>
-        <span class="q"><i style="background:#fb7185"></i>How many say "I do"? Two <b style="color:#fb7185">27%</b></span>
-        <span class="q"><i style="background:#f7c548"></i>Who wins the women's bracket? South Carolina <b style="color:#f7c548">24%</b></span>
-        <span class="q"><i style="background:#34d399"></i>A rose ceremony walk-off this season? <b style="color:#34d399">45%</b></span>
+    <!-- 2. What's on, and what's next: every line dated by data-from / data-until (C17); no sports words (C1) -->
+    <section id="shows">
+      <div class="shead rv">
+        <div class="eyebrow r">Pick your show</div>
+        <h2 class="display">What's on, <em class="grad-blush keep" data-gold>and what's next.</em></h2>
       </div>
-    </div>
+      <div class="showlist">
+        <article class="show-t rv" id="traitors">
+          <span class="net">The Traitors: New Blood · NBC, Thursdays</span>
+          <h3>The Traitors</h3>
+          <p data-until="2026-11-06T01:00:00Z">Episode 9 is Thursday 5 November. Call the round table before it airs.</p>
+          <p data-from="2026-11-06T01:00:00Z" data-until="2026-11-13T01:00:00Z">Episode 10 is Thursday 12 November. Call the round table before it airs.</p>
+          <p data-from="2026-11-13T01:00:00Z" data-until="2026-11-20T01:00:00Z">Five finale calls left. The finale is Thursday 19 November, 8 pm ET.</p>
+          <p data-from="2026-11-20T01:00:00Z" data-until="2027-01-01T05:00:00Z">Back in January, two seasons at once, expected from the new year.</p>
+          <p data-from="2027-01-01T05:00:00Z">The new UK and US seasons are expected this winter. Ask your own until a pack is out.</p>
+          <span class="who">For the group that texts through the banishment.</span>
+          <a class="textlink" data-until="2026-11-20T01:00:00Z" href="https://app.superpoolsai.com/#/new?pack=traitors-new-blood&amp;src=together">Start a Traitors pool</a>
+          <a class="textlink" data-from="2027-01-01T05:00:00Z" href="https://app.superpoolsai.com/#/new?type=questions&amp;src=together">Start a questions pool</a>
+        </article>
+        <article class="show-t rv" id="lib">
+          <span class="net">Love Is Blind · Netflix</span>
+          <h3>Love Is Blind</h3>
+          <p data-until="2026-11-09T02:00:00Z">Season 11's reunion is Sunday 8 November, 9 pm ET. Season 12 is expected in February.</p>
+          <p data-from="2026-11-09T02:00:00Z" data-until="2027-03-01T05:00:00Z">Season 11 ended with the reunion. Season 12 is expected in February, on the show's pattern; we plan to open its pool the day it is announced.</p>
+          <p data-from="2027-03-01T05:00:00Z">Season 12 is not announced yet. We plan to open its pool the day it is.</p>
+          <span class="who">For the friends who finish a drop in one night.</span>
+          <a class="textlink" href="./love-is-blind.html">Season 11, and what's next</a>
+        </article>
+        <article class="show-t rv">
+          <span class="net">Award nights</span>
+          <h3>The ballot, live</h3>
+          <p><span data-until="2027-01-11T05:00:00Z">The Golden Globes 10 January, the Grammys 7 February, the Oscars 14 March.</span><span data-from="2027-01-11T05:00:00Z" data-until="2027-02-08T05:00:00Z">The Grammys 7 February, the Oscars 14 March.</span><span data-from="2027-02-08T05:00:00Z" data-until="2027-03-15T04:00:00Z">The Oscars, Sunday 14 March.</span><span data-from="2027-03-15T04:00:00Z">Every award night, ballot by ballot.</span> <span data-until="2026-11-16T05:00:00Z">Grammy nominations land 16 November.</span><span data-from="2026-11-16T05:00:00Z" data-until="2027-02-08T05:00:00Z">Grammy nominations are out.</span> Ask your own.</p>
+          <span class="who">For the party with a printed ballot.</span>
+          <a class="textlink" href="https://app.superpoolsai.com/#/new?type=questions&amp;src=together">Start a questions pool</a>
+        </article>
+        <article class="show-t rv">
+          <span class="net">Survivor · CBS</span>
+          <h3>Survivor</h3>
+          <p data-until="2026-12-17T05:00:00Z">Season 51's finale is expected about 16 December. Ask your own: who cries first, who finds the idol.</p>
+          <p data-from="2026-12-17T05:00:00Z" data-until="2027-03-01T05:00:00Z">Season 52 is expected late in February. Ask your own: who cries first, who finds the idol.</p>
+          <p data-from="2027-03-01T05:00:00Z">Ask your own, episode by episode: who cries first, who finds the idol.</p>
+          <span class="who">For the group that already keeps a spreadsheet.</span>
+          <a class="textlink" href="https://app.superpoolsai.com/#/new?type=questions&amp;src=together">Start a questions pool</a>
+        </article>
+        <article class="show-t own span2 rv">
+          <span class="net">All season</span>
+          <h3>Your own questions</h3>
+          <p>The bake-off, the book club, the wedding, the office. Ask it the way you'd text it; your host settles it.</p>
+          <span class="who">For the chat that argues about everything.</span>
+          <a class="textlink" href="https://app.superpoolsai.com/#/new?type=questions&amp;src=together">Ask the first one</a>
+        </article>
+      </div>
+      <p class="aff">Super Pools is not affiliated with Netflix, NBC, CBS, FIFA, the award shows or any league. Questions are about what airs.</p>
+    </section>
 
+    <!-- 3. How it works: the first frame is the invite as worker/preview.ts writes it (migrations 252, 255), names sample -->
     <section id="how">
-      <div class="rv">
+      <div class="shead rv">
         <div class="eyebrow r">How it works</div>
-        <h2 class="display">Three taps from the group chat <em class="rose">to a scoreboard.</em></h2>
+        <h2 class="display">Three taps to a scoreboard.</h2>
       </div>
       <div class="steps">
-        <div class="card rv"><div class="num">01</div><h3>Start a pool, send one link</h3><p>Pick a pack of questions or write your own, and drop the link in the chat. Friends join with a name, email and password, then they're in — on any phone, with nothing to install.</p>
-          <div class="mini"><div class="bar" style="--w:100%;--c:#fb7185"><span>Pod Squad · 8 friends</span><b>joined</b></div></div></div>
-        <div class="card rv"><div class="num">02</div><h3>Call it, watch it move</h3><p>Every answer has a price. Put Supercoins on the call you believe and the price moves with every friend who agrees or doesn't. Take them off before it closes if you change your mind.</p>
-          <div class="mini"><div class="bar" style="--w:64%;--c:#34d399"><span>Yes</span><b>64%</b></div><div class="bar" style="--w:36%;--c:#fb7185"><span>No</span><b>36%</b></div></div></div>
-        <div class="card rv"><div class="num">03</div><h3>Settle it, crown someone</h3><p>The host settles each question by the rule written when it was asked, with a note everyone sees. Right calls score Supercoins, fresh Supercoins drop every episode night, and someone gets the crown.</p>
-          <div class="mini"><div class="bar" style="--w:88%;--c:#f7c548"><span>👑 Priya</span><b>1,312</b></div></div></div>
-      </div>
-    </section>
-
-    <section id="lib">
-      <div class="show rv">
-        <div class="show-grid">
-          <div>
-            <div class="eyebrow r">The first show pool · Love Is Blind, Season 11 · Boston</div>
-            <h2 class="display" style="color:#fff"><span data-next="Next, {next}" data-done="Season 11 is in the books.">The pods open</span> <em style="color:#fda4af" data-next="{date}." data-done="">October 14.</em></h2>
-            <p class="lead" style="color:#f1d4dc">Call the engagements, the getaway, the altar and the reunion with your friends, watch the prices swing with every episode, and settle the season with The Golden Goblet.</p>
-            <div class="count" id="premiere" aria-label="Time to the premiere"><div><b data-u="d">10</b><span>days</span></div><div><b data-u="h">00</b><span>hours</span></div><div><b data-u="m">00</b><span>min</span></div></div>
-            <ul class="ticks">
-              <li>Questions for the whole season and for every drop: who gets engaged, who makes it to the altar, who says "I do".</li>
-              <li>The price moves as your friends call it, so the bold early read pays the most.</li>
-              <li>Fresh Goblets every drop night for everyone, and late friends catch up to the same Goblets.</li>
-              <li>The chat sits right beside the calls. Spoiler talk stays inside your pool.</li>
-            </ul>
-            <div class="drops">
-              <div><b>Oct 14</b><span>Episodes 1-5</span></div>
-              <div><b>Oct 21</b><span>Episodes 6-8</span></div>
-              <div><b>Oct 28</b><span>Episodes 9-11</span></div>
-              <div><b>Nov 4</b><span>The weddings</span></div>
-            </div>
-            <a class="btn btn-rose" href="https://app.superpoolsai.com/#/new?pack=love-is-blind-s11"><span data-next="Start yours before {next}" data-done="Start the next one">Start yours before the pods open</span></a> <a class="btn btn-ghost" href="./love-is-blind">Run a Love Is Blind pool</a>
-          </div>
-          <div class="phones" aria-hidden="true">
-            <div class="phone glow-rose"><img src="./img/pool-call.webp" alt="" width="600" height="1200" loading="lazy" /></div>
-            <div class="phone glow-rose"><img src="./img/pool-leaders.webp" alt="" width="600" height="1200" loading="lazy" /></div>
-          </div>
+        <div class="sc rv">
+          <span class="num">01</span>
+          <h3>Start it, send one link</h3>
+          <p>Pick a pack or ask three questions, name the pool, drop the link in the chat. It unfurls asking the first question, and friends join with a name.</p>
+          <div class="frame"><div class="frame-in">
+            <div class="bubl">ok who's in for the finale</div>
+            <div class="bubr"><div class="unf"><div class="art"><small>Super Pools · invite</small><b>The Round Table</b><span>Questions · 3 in</span></div><div class="meta"><b>You're invited to The Round Table</b><i>Maya invited you. First up: “Is a Faithful banished at the final round table?” 3 players are in. Make your calls in a tap. Free, never money: just bragging rights.</i></div></div></div>
+          </div><p class="frame-cap">The invite, as it unfurls · sample names</p></div>
+        </div>
+        <div class="sc rv">
+          <span class="num">02</span>
+          <h3>Call it, watch it move</h3>
+          <p>Every answer shows the group's chance. Call the one you believe; the chance moves as friends call it. Change your mind until it closes at the drop.</p>
+          <div class="frame"><div class="frame-in">
+            <div class="qline">Does anyone cry at breakfast before the murder is announced? <small>Closes at the drop</small></div>
+            <div class="bar" style="--w:64%;--c:#fda4af"><span>Yes</span><b>64%</b></div>
+            <div class="bar" style="--w:36%;--c:#cbd5e1"><span>No</span><b>36%</b></div>
+          </div><p class="frame-cap">A question, mid-week · sample pool</p></div>
+        </div>
+        <div class="sc rv">
+          <span class="num">03</span>
+          <h3>Your host settles it</h3>
+          <p>She settles each question by the rule written when it was asked, with a note everyone sees. Right calls score more the fewer who agreed, and fresh Supercoins drop every episode.</p>
+          <div class="frame"><div class="frame-in">
+            <div class="settle"><span class="av" aria-hidden="true">M</span><div class="bub"><small>Maya · host · settled</small>“Does anyone cry at breakfast before the murder is announced?” Yes: Jordan, by the coffee. Priya called it at 31% and scores 212.<div class="rx"><span>😂 6</span><span>👑 3</span></div></div></div>
+            <div class="crownrow"><span><svg class="ico crown" aria-hidden="true" focusable="false"><use href="./icons.svg#i-crown"/></svg>Priya leads the table</span><b>1,312</b></div>
+          </div><p class="frame-cap">The settle, in the pool's chat · sample pool</p></div>
         </div>
       </div>
-      <p class="mute" style="font-size:12px;margin:12px 4px 0">Super Pools is not affiliated with Netflix or Love Is Blind. Questions are about what airs. Screens show a sample pool.</p>
     </section>
 
-    <section id="sports">
-      <div class="rv">
-        <div class="eyebrow r">Sports pools, your way</div>
-        <h2 class="display">The best games are better <em class="rose">with a pool on them.</em></h2>
-        <p class="lead">Women's sport has never been bigger, and the group chat has never had more to say about it. Make the calls together, or join the fantasy league everyone else is in and win it.</p>
-      </div>
-      <div class="grid">
-        <div class="card sport i rv"><span class="pill next">Summer 2027</span><div class="big">Women's World Cup</div><div class="when">Brazil · June 24 to July 25</div><p style="margin-top:10px">Group stage to the final: who goes through, who scores, who lifts it. A month of calls with your friends, and the questions open now: who lifts it, how far Brazil go, how the final ends. <a href="https://app.superpoolsai.com/#/new?pack=womens-world-cup-2027" style="color:inherit;text-decoration:underline">Start the pool</a></p></div>
-        <div class="card sport rv"><span class="pill now">On now</span><div class="big">WSL and NWSL</div><div class="when">Matchweek pools</div><p style="margin-top:10px">Pick'em on every match, last one standing, Call the score and a daily streak, each call closing at kick-off and settling itself at full time. The WSL runs to May; the NWSL's last matchweeks are on now. <a href="https://app.superpoolsai.com/#/new?comp=wsl" style="color:inherit;text-decoration:underline">Start a WSL pool</a></p></div>
-        <div class="card sport l rv"><span class="pill now">Any time</span><div class="big">Women's hockey, the bracket, the Final Four</div><div class="when">Write your own questions</div><p style="margin-top:10px">Any game, any question. The host writes it, the prices do the rest, and the pool settles it by the rule.</p></div>
-        <div class="card sport g rv"><span class="pill gold">Fantasy</span><div class="big">Join the hockey pool. Win it.</div><div class="when">No stats homework</div><p style="margin-top:10px">One tap sets the best lineup and the auto-pilot covers the nights you forget. The league voice tells you who to start.</p></div>
-      </div>
-      <p class="quote rv">Every pool works the same way, whatever it's about: one link, prices that move, the chat beside the calls, and bragging rights on the line.</p>
-    </section>
-
-    <section>
-      <div class="rv">
-        <div class="eyebrow r">A pool for every season</div>
-        <h2 class="display">Keep the pool. <em class="rose">Change the question.</em></h2>
-      </div>
-      <div class="cal rv">
-        <div class="hot3"><small>October</small><b>Love Is Blind</b><span>Season 11, the pods to the altar</span></div>
-        <div class="hot2"><small>All season</small><b>Soccer</b><span>Matchweek calls, the WSL and NWSL on now</span></div>
-        <div class="hot2"><small>Open</small><b>The Traitors</b><span>Questions pack ready; start a pool any time</span> <a href="./traitors">See the Traitors pool</a></div>
-        <div><small>Coming</small><b>The Bachelor · award nights</b><span>Show packs still being written</span></div>
-        <div><small>March</small><b>March Madness</b><span>The bracket is live; Oscars as DIY questions</span></div>
-        <div><small>Spring</small><b>Playoff pools</b><span>Hockey, basketball, whoever your team is</span></div>
-        <div class="hot3"><small>Summer</small><b>Women's World Cup</b><span>Brazil 2027, and Love Island</span></div>
-      </div>
-    </section>
-
-    <section>
-      <div class="split">
+    <!-- 4. Call it: the real price maker from site.js in pretend coins, on a market-shows.md section 12 question -->
+    <section id="call">
+      <div class="pillar3">
         <div class="rv">
-          <div class="eyebrow r">Made for friends</div>
-          <h2 class="display">Private, friendly, <em class="rose">never money.</em></h2>
-          <p class="lead">Each pool is private: only the friends its host invites get in. Supercoins only: never bought, never sold, there are no prizes of value, no sportsbook ads and no pressure. It is a scoreboard for the conversation you are already having.</p>
-          <div class="never"><div>Play coins only</div><div>Never bought, never sold</div><div>No sportsbook ads</div><div>No strangers</div><div>No ads in Super Pools</div><div>No app to install</div></div>
+          <div class="eyebrow r">Call it</div>
+          <h2 class="display">Tap it. <span class="keep">Watch it move.</span></h2>
+          <p class="lead">The number is the group's chance: 53% means just over half the group thinks so. Call it early, before the group agrees, and a right call scores more.</p>
+          <p class="proof2">The pool remembers who called it, and at what chance. The keeper league that built Super Pools has scored all 36 of its game nights on it this season, as of 4 November.</p>
+          <!-- the pool's voice: poolDaily, migration 264 -->
+          <p class="proof2">The pool's voice posts the morning after a drop: what settled, who called it, what closes next.</p>
         </div>
-        <div class="chat rv" aria-label="A sample pool chat">
-          <div class="msg"><span class="av" style="background:#fb7185">P</span><div class="bub"><small>PRIYA</small>calling it now, he proposes in the pods and she says no<div class="react"><span>👀 5</span></div></div></div>
-          <div class="msg me"><span class="av" style="background:#c4b5fd">M</span><div class="bub"><small>MAYA · HOST</small>it's 18% right now, put your Goblets where your mouth is</div></div>
-          <div class="msg"><span class="av" style="background:#34d399">J</span><div class="bub"><small>JORDAN</small>I just bought it up to 31%. Sorry Priya</div></div>
-          <div class="msg bot"><span class="av" style="background:#fda4af">✓</span><div class="bub" style="background:linear-gradient(180deg,rgba(251,113,133,.16),rgba(251,113,133,.06));border-color:rgba(251,113,133,.3)"><small style="color:#fda4af">POD SQUAD · SETTLED</small>"Does she say yes in the pods?" settled: No. Priya called it at 18% and collects 212 Goblets.<div class="react"><span>👑 7</span><span>😂 4</span></div></div></div>
+        <div class="market rv" id="market">
+          <div class="meta">TRY IT · 300 PRETEND COINS · 100 A CALL</div>
+          <h3>At the altar, is there a split decision: one “I do” and one “I don’t”?</h3>
+          <div class="meta">Yes if any couple reaches the altar and the answers differ · a sample question</div>
+          <svg class="chart" viewBox="0 0 300 118" preserveAspectRatio="none" aria-hidden="true">
+            <defs><linearGradient id="mgr" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#fda4af" stop-opacity=".32"/><stop offset="1" stop-color="#fda4af" stop-opacity="0"/></linearGradient></defs>
+            <line class="mid" x1="0" y1="58" x2="300" y2="58" stroke="rgba(255,255,255,.14)" stroke-dasharray="4 5"/>
+            <path class="ar" fill="url(#mgr)"/><path class="ln" fill="none" stroke="#fda4af" stroke-width="2.5" stroke-linejoin="round"/>
+            <circle class="dt" r="5" fill="#fda4af" stroke="#0b1220" stroke-width="2"/>
+          </svg>
+          <button type="button" class="opt" data-k="y" style="--c:#fda4af"><span>Yes</span><b>50%</b><span class="go">Call it</span></button>
+          <button type="button" class="opt" data-k="n" style="--c:#cbd5e1"><span>No</span><b>50%</b><span class="go">Call it</span></button>
+          <div class="receipt" aria-live="polite">Tap an answer. Watch what 100 Supercoins does to the chance.</div>
         </div>
       </div>
     </section>
 
-    <section id="join">
-      <div class="join rv">
-        <div class="eyebrow r">Open now</div>
-        <h2 class="display">Start yours <em class="rose" data-next="before {next}." data-done="for the next show.">before it starts.</em></h2>
-        <p class="lead" style="margin:0">Love Is Blind pools are open: name yours, send the link to the group chat, and <span data-next="everyone is in before {next} on {date}; whoever joins late starts with the same Goblets." data-done="the season is settled, and the next show starts from here.">everyone is in before the pods open on October 14.</span> It takes a minute and it's free.</p>
-        <div class="cta" style="margin:18px 0 6px"><a class="btn btn-rose" href="https://app.superpoolsai.com/#/new?pack=love-is-blind-s11">Start a Love Is Blind pool</a></div>
-        <p class="lead" style="margin:14px 0 0;font-size:15px">Want a different pool? Tell us what you want to play and we will write when it opens. No spam, no list sharing.</p>
-        <form id="wl" novalidate>
-          <input type="email" name="email" placeholder="you@example.com" autocomplete="email" required aria-label="Email" />
-          <select name="pick" aria-label="What do you want to play?">
-            <option>A women's sports pool</option>
-            <option>Love Is Blind pool</option>
-            <option>A soccer pool</option>
-            <option>A hockey pool</option>
-            <option>An office or family pool</option>
-            <option>Something else</option>
-          </select>
-          <input class="wide" type="text" name="note" placeholder="Anything we should know? (optional)" maxlength="500" />
-          <input class="hp" type="text" name="website" tabindex="-1" autocomplete="off" />
-          <button class="btn btn-rose wide" type="submit">Get in</button>
-          <p class="msgline wide" id="wl-msg" aria-live="polite"></p>
-        </form>
+    <!-- 5. Women's sport, with a pool on it: sports words allowed here, about sport (C1). Kinds from migration 305, the
+         Women's World Cup pack from migration 306; women's hockey and the women's bracket have no competition yet (C18) -->
+    <section id="sports">
+      <div class="shead rv">
+        <div class="eyebrow r">Women's sport</div>
+        <h2 class="display">Women's sport, <span class="keep">called together.</span></h2>
+      </div>
+      <ul class="drows two">
+        <li class="drow rv">
+          <span class="tag2" aria-hidden="true">WSL</span>
+          <h3>The WSL</h3>
+          <p>Pick'em, last one standing, Call the score and a daily streak on every matchweek. Each call closes at kick-off and settles itself at full time. Runs to 22 May.</p>
+          <a class="textlink" data-until="2027-05-24T05:00:00Z" href="https://app.superpoolsai.com/#/new?comp=wsl&amp;src=together">Start a WSL pool</a>
+        </li>
+        <li class="drow rv">
+          <span class="tag2" aria-hidden="true">NWSL</span>
+          <h3>The NWSL playoffs</h3>
+          <p data-until="2026-11-09T05:00:00Z">The quarter-finals are 6 to 8 November. A pool started now plays them; the semi-finals and the final open as they're set.</p>
+          <p data-from="2026-11-09T05:00:00Z" data-until="2026-11-22T05:00:00Z">The semi-finals and the final open as they're set, a round at a time.</p>
+          <p data-from="2026-11-22T05:00:00Z">The NWSL is back for the 2027 season.</p>
+          <a class="textlink" data-until="2026-11-22T05:00:00Z" href="https://app.superpoolsai.com/#/new?comp=nwsl&amp;src=together">Start an NWSL pool</a>
+        </li>
+        <li class="drow rv">
+          <span class="tag2" aria-hidden="true">WWC<br />2027</span>
+          <h3>The Women's World Cup</h3>
+          <p>Who lifts it, how far the hosts go, how the final ends: six questions open now, called up to the opening match in Brazil on 24 June. <span data-until="2026-12-12T05:00:00Z">The draw is 11 December.</span></p>
+          <a class="textlink" data-until="2027-06-24T12:00:00Z" href="https://app.superpoolsai.com/#/new?pack=womens-world-cup-2027&amp;src=together">Start a World Cup pool</a>
+        </li>
+        <li class="drow quiet rv">
+          <span class="tag2" aria-hidden="true">ASK</span>
+          <h3>Women's hockey, the bracket</h3>
+          <p><span data-until="2026-12-05T05:00:00Z">The PWHL season opens 5 December.</span><span data-from="2026-12-05T05:00:00Z">The PWHL season is on.</span> The women's bracket fills on Selection Sunday, 14 March. Ask your own, the way you'd text it.</p>
+          <a class="textlink" href="https://app.superpoolsai.com/#/new?type=questions&amp;src=together">Start a questions pool</a>
+        </li>
+        <li class="drow quiet wide rv">
+          <span class="tag2" aria-hidden="true">NHL</span>
+          <h3>The hockey pool you were invited to</h3>
+          <p>The link your commissioner sent works on any phone. One tap sets your best lineup, and the auto-pilot covers the nights you forget.</p>
+          <a class="textlink" href="./fantasy-hockey.html">How it works</a>
+        </li>
+      </ul>
+    </section>
+
+    <!-- 6. Before you start one: money first; the FAQPage JSON-LD in the head mirrors these words -->
+    <section class="faq" id="faq">
+      <div class="shead">
+        <div class="eyebrow r">Questions</div>
+        <h2 class="display">Before you start one.</h2>
+      </div>
+      <details><summary>Is it money?</summary><p>No. Supercoins are never bought, sold or turned into money, and there are no prizes of value. The pool remembers who called it, and that is the prize.</p></details>
+      <details><summary>Will somebody spoil it?</summary><p>Questions are about what airs this week, they close as the episode drops, and your host settles them once it has aired. Strangers are never in your pool, and nothing on it tells you who wins.</p></details>
+      <details><summary>Who decides the answer?</summary><p>Your host, by the rule written on the question when it was asked. Everyone sees the note, and a question with a mistake in it is voided and every Supercoin goes back.</p></details>
+      <details><summary>Do my friends need an app?</summary><p>No. They tap the link, type a name and they are in on that phone. An email later keeps the seat on another.</p></details>
+      <details><summary>Do I need to understand the numbers?</summary><p>No. The number is the group's chance, and a right call scores more the fewer people agreed with you.</p></details>
+      <details><summary>What happens when the show ends?</summary><p>Keep the pool and its people, and ask the next show's questions from the Host page. The table and the chat carry over.</p></details>
+    </section>
+
+    <!-- 7. Start yours tonight: the heading and the button follow the calendar -->
+    <section id="start">
+      <div class="closer rv">
+        <h2 class="display">
+          <span data-until="2026-11-06T01:00:00Z">Episode 9 is Thursday.</span>
+          <span data-from="2026-11-06T01:00:00Z" data-until="2026-11-13T01:00:00Z">Episode 10 is Thursday.</span>
+          <span data-from="2026-11-13T01:00:00Z" data-until="2026-11-20T01:00:00Z">Five finale calls left.</span>
+          <span data-from="2026-11-20T01:00:00Z">Start the next one.</span>
+        </h2>
+        <p>A minute to set up, one link for the chat, and friends join with a name.</p>
+        <div class="cta2">
+          <a class="btn btn-rose btn-lg" data-gold data-until="2026-11-13T01:00:00Z" href="https://app.superpoolsai.com/#/new?pack=traitors-new-blood&amp;src=together">Start your Traitors pool</a>
+          <a class="btn btn-rose btn-lg" data-gold data-from="2026-11-13T01:00:00Z" href="https://app.superpoolsai.com/#/new?type=questions&amp;src=together">Start a questions pool</a>
+        </div>
+        <div class="links"><a class="textlink" href="./example-pool.html">A pool, filled in</a><a class="textlink" href="./love-is-blind.html">Love Is Blind</a><a class="textlink" href="./#kinds">Sports pools</a></div>
       </div>
     </section>
 
-    <section class="faq">
-      <div class="eyebrow r">Questions</div>
-      <h2 class="display">Before you <em class="rose">ask</em></h2>
-      <details><summary>Is there any real money in it?</summary><p>No. Pools run on Supercoins: never bought, never sold, and there are no prizes of value. It is bragging rights, a crown and a pool that remembers who called it.</p></details>
-      <details><summary>Do I need to know anything about prices?</summary><p>No. A price is just the group's chance: 64% means most of your friends think so. Put Supercoins on the answer you believe. If you are right, you are paid more the fewer people agreed with you.</p></details>
-      <details><summary>Who decides the answer?</summary><p>The pool's host. Every question carries its rule from the moment it is asked, and it locks once anyone calls it. The host settles it with a note everyone sees; match results settle themselves.</p></details>
-      <details><summary>Do my friends need an app?</summary><p>No. They tap the link you send, make an account with an email and a password, and they are in.</p></details>
-      <details><summary>Is this connected to Netflix?</summary><p>No. Super Pools is not affiliated with Netflix or Love Is Blind. A show pool is fans making calls about what airs, the way the group chat already does.</p></details>
-    </section>
-
-    <footer>
-      <span>© 2026 Super Pools · superpoolsai.com · not affiliated with Netflix or any league</span>
-      <nav><a href="./">Fantasy leagues and sports pools</a><a href="https://app.superpoolsai.com/#/privacy">Privacy</a><a href="https://app.superpoolsai.com/#/terms">Terms</a><a href="#" data-cookie-settings>Cookie settings</a><a href="mailto:hello@superpoolsai.com">hello@superpoolsai.com</a></nav>
-    </footer>
   </main>
+
+  <footer class="site-foot">
+    <div class="cols">
+      <div><h2>Play</h2><ul><li><a href="./fantasy-hockey.html">Fantasy league</a></li><li><a href="./hockey-pools.html">Hockey pools</a></li><li><a href="./football-pools.html">NFL pools</a></li><li><a href="./basketball-pools.html">NBA pools</a></li><li><a href="./soccer-pools.html">Soccer pools</a></li><li><a href="./together.html">Show pools</a></li></ul></div>
+      <div><h2>Look around</h2><ul><li><a href="./fans.html">Fan zones</a></li><li><a href="./example-pool.html">An example pool</a></li><li><a href="./pricing.html">Pricing</a></li><li><a href="./changelog.html">Changelog</a></li></ul></div>
+      <div><h2>Your pools</h2><ul><li><a href="https://app.superpoolsai.com/#/?src=together">Sign in</a></li><li><a href="mailto:hello@superpoolsai.com">hello@superpoolsai.com</a></li></ul></div>
+      <div><h2>The fine print</h2><ul><li><a href="https://app.superpoolsai.com/#/privacy?src=together">Privacy</a></li><li><a href="https://app.superpoolsai.com/#/terms?src=together">Terms</a></li><li><button type="button" class="linkbtn" data-cookie-settings>Cookie settings</button></li></ul></div>
+    </div>
+    <div class="base"><span>© 2026 Super Pools · superpoolsai.com · Supercoins, never money</span><span>Not affiliated with Netflix, NBC, CBS, FIFA, the award shows or any league.</span></div>
+  </footer>
+
+  <div class="stickybar" id="sticky">
+    <a class="btn btn-rose" data-until="2026-11-13T01:00:00Z" href="https://app.superpoolsai.com/#/new?pack=traitors-new-blood&amp;src=together">Start your Traitors pool</a>
+    <a class="btn btn-rose" data-from="2026-11-13T01:00:00Z" href="https://app.superpoolsai.com/#/new?type=questions&amp;src=together">Start a questions pool</a>
+  </div>
   <script src="./site.js"></script>
 </body>
 </html>

@@ -1,5 +1,5 @@
 // The NHL centre's front page: the biggest things right now in one scroll, each block leading into its own
-// tab. Tonight's (or last night's) games with recap clips, the top headlines, what the insiders are saying,
+// tab. Tonight's (or last night's) games with recap clips, the top headlines,
 // injury news on league players, and the leaders once the season is under way.
 import { useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
@@ -166,7 +166,7 @@ export function TopTab({ onGame }: { onGame: (g: TopGame) => void }) {
       <div className="scroll-x flex gap-1.5">
         {([['scores', '🏒 Scores'], ['news', '📰 News'], ['injuries', '🩹 Injuries'], ['standings', '🏆 Standings'], ['leaders', '📈 Leaders'], ['teams', '🛡️ Teams'], ['schedule', '📅 Schedule']] as const).map(([k, l]) => <Link key={k} to={`/nhl?t=${k}`} className="chip shrink-0 py-1.5 text-xs hover:bg-white/[.1]">{l} ›</Link>)}
       </div>
-      <p className="px-1 text-[11px] text-mute"><Radio size={10} className="inline" /> Scores every 20 seconds while games are on, news every ten minutes, insiders every five, injuries hourly. Badges mark which GM owns a player.</p>
+      <p className="px-1 text-[11px] text-mute"><Radio size={10} className="inline" /> Scores every 20 seconds while games are on, news every ten minutes, injuries hourly. Badges mark which GM owns a player.</p>
     </div>
   );
 }

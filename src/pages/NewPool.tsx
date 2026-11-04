@@ -262,18 +262,11 @@ export default function NewPool() {
     }
     if (following?.type === 'blank') setPool(packPlaceholder(null));
   }, [event, following, poolTouched]);
-  // the events under their sports, the sport with the soonest lock first, each sport's events soonest first
-  // the events grouped by sport in the list's order, except that a sport whose event reaches its final within two weeks
-  // (the World Series in its week, a Super Bowl, a Cup final) goes first: it's the pool that can't wait
-  const byGroup = useMemo(() => {
-    const first = new Map<string, number>(), soon = new Set<string>();
-    (events ?? []).forEach((e, i) => {
-      if (!first.has(e.sport)) first.set(e.sport, i);
-      if (finalSoon(e)) soon.add(e.sport);
-    });
-    const rank = (sport: string) => (soon.has(sport) ? -1 : first.get(sport)!);
-    return (events ?? []).map((e, i) => ({ e, i })).sort((a, b) => rank(a.e.sport) - rank(b.e.sport) || a.i - b.i).map((x) => x.e);
-  }, [events]);
+  // the events in the list's order, except that an event reaching its final within two weeks (the World Series in its
+  // week, a Super Bowl, a Cup final) goes first: it's the pool that can't wait. Ranked event by event (4 November 2026):
+  // one MLS Cup used to lift every soccer league above the NFL.
+  const byGroup = useMemo(() => (events ?? []).map((e, i) => ({ e, i, soon: finalSoon(e) }))
+    .sort((a, b) => Number(b.soon) - Number(a.soon) || a.i - b.i).map((x) => x.e), [events]);
   // packs that ride with a sports event are offered inside it, as its questions
   const eventPacks = new Set((events ?? []).map((e) => e.pack).filter(Boolean));
   const loosePacks = (packs ?? []).filter((p) => !eventPacks.has(p.slug));
@@ -444,6 +437,8 @@ export default function NewPool() {
 
   return (
     <div className={`pt-safe min-h-dvh px-4 pt-10 ${bar ? 'pb-[calc(7.5rem+env(safe-area-inset-bottom))]' : 'pb-10'}`} style={themed(color)}>
+      {/* room for the consent sheet while it's up (ConsentBanner sets how far down it reaches), so the title shows */}
+      <div aria-hidden style={{ height: 'max(0px, calc(var(--consent-space, 0px) - 2.25rem))' }} />
       <div className="mx-auto w-full max-w-md pt-6">
         {member && <a href="#/pools" className="mb-2 inline-flex items-center gap-1 text-sm font-semibold text-white/70 hover:text-white"><ArrowLeft size={16} /> My pools</a>}
         <div className="mb-6 text-center">
@@ -492,17 +487,25 @@ export default function NewPool() {
               <div className="grid gap-2">
                 {byGroup.map((e, i, all) => {
                   const on = following?.type === 'event' && following.comp === e.competition;
-                  // the events grouped by sport, each sport's name above its first
-                  const head = i === 0 || all[i - 1].sport !== e.sport;
+                  // the events under their sport's name, a run whose final is close marked as such
+                  const soon = finalSoon(e);
+                  const head = i === 0 || all[i - 1].sport !== e.sport || finalSoon(all[i - 1]) !== soon;
+                  // "Live now" only where a round is being played (a week under way, a series on), so it says something;
+                  // an event whose next round hasn't started reads "next" in its stage
+                  const live = /under way/i.test(e.stage ?? '') || (!!e.open_round && !/\bnext\b/i.test(e.stage ?? ''));
+                  // what it plays, so two events on one league read apart (the NHL's weeks and its box pool)
+                  const plays = [...e.kinds.filter((k) => k in KINDS), ...(!e.kinds.includes('squares') && eventGrids(e).length ? ['squares' as const] : [])]
+                    .map((k) => KINDS[k].title.replace(/^The (.)/, (_, c: string) => c.toUpperCase())).concat(e.pack ? ['Questions'] : []);
                   return (
                     <div key={e.competition} className="contents">
-                    {head && <div className="mt-1 px-1 text-[10px] font-black uppercase tracking-[.18em] text-white/50">{SPORT_EMOJI[e.sport] ?? '🏆'} {SPORT_NAME[e.sport] ?? e.sport}</div>}
+                    {head && <div className="mt-1 px-1 text-[10px] font-black uppercase tracking-[.18em] text-white/50">{SPORT_EMOJI[e.sport] ?? '🏆'} {SPORT_NAME[e.sport] ?? e.sport}{soon && <span className="text-gold"> · Final soon</span>}</div>}
                     <button type="button" onClick={() => { choose({ type: 'event', comp: e.competition }); go('kinds'); }}
                       className={`flex items-center gap-3 rounded-2xl border p-3 text-left transition ${on ? 'border-white/40 bg-white/[.08]' : 'border-white/10 bg-white/[.03] hover:bg-white/[.06]'}`}>
                       <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl text-xl" style={{ background: `rgb(${rgb(color)} / .18)` }}>{SPORT_EMOJI[e.sport] ?? '🏆'}</span>
                       <span className="min-w-0 flex-1">
-                        <span className="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-balance font-semibold text-white">{e.name}<span className="rounded-full bg-red-500/15 px-1.5 py-px text-[10px] font-bold uppercase tracking-wider text-red-200 ring-1 ring-red-400/30">Live now</span></span>
-                        <span className="block text-xs text-white/60">{e.stage ?? 'Under way'} · {e.kinds.includes('players') && !e.open_round ? `from the next puck drop, ${lockText(e.next_lock)}` : `picks from ${e.word ? e.open_label : `the ${e.open_label}`}, ${lockText(e.next_lock)}`}</span>
+                        <span className="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-balance font-semibold text-white">{e.name}{live && <span className="rounded-full bg-red-500/15 px-1.5 py-px text-[10px] font-bold uppercase tracking-wider text-red-200 ring-1 ring-red-400/30">Live now</span>}</span>
+                        {plays.length > 0 && <span className="mt-0.5 block text-[12px] font-semibold leading-snug text-white/85">{plays.join(' · ')}</span>}
+                        <span className="mt-0.5 block text-xs text-white/60">{e.stage ?? 'Under way'} · {e.kinds.includes('players') && !e.open_round ? `from the next puck drop, ${lockText(e.next_lock)}` : `picks from ${e.word ? e.open_label : `the ${e.open_label}`}, ${lockText(e.next_lock)}`}</span>
                       </span>
                       {on && <Check size={18} className="shrink-0 text-emerald-300" />}
                     </button>

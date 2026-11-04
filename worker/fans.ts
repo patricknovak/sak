@@ -120,9 +120,11 @@ export async function fansPage(rest: string, url: URL, env: Env, ctx: ExecutionC
   const about = /^\/about\/?$/.test(rest);
   const post = Number(url.searchParams.get('post')) || null;
   const hash = about ? '/fans/about' : club && known(club) ? `/fans/${club}${pg ? `/${pg}` : ''}` : '/fans';
-  const go = `${url.origin}/#${hash}${post ? `?post=${post}` : ''}`;
-  if (club && !known(club)) return Response.redirect(`${url.origin}/#/fans`, 302);
-  if (club === 'NHL' && pg && pg !== 'pulse') return Response.redirect(`${url.origin}/#/fans`, 302);
+  // the address's own query (?src=fans from superpoolsai.com, ?post= for a shared post) rides into the app's hash, where
+  // the fan zone reads post and the analytics read src
+  const go = `${url.origin}/#${hash}${url.search}`;
+  if (club && !known(club)) return Response.redirect(`${url.origin}/#/fans${url.search}`, 302);
+  if (club === 'NHL' && pg && pg !== 'pulse') return Response.redirect(`${url.origin}/#/fans${url.search}`, 302);
   const theme = clubTheme(club ?? 'NHL');
   if (!club) {
     const image = `${url.origin}/og/fans/NHL.png?v=${tag('fan-zones-2')}`;
@@ -404,7 +406,7 @@ function chanceTiles(sport: string, ch: Chances, nameOf: (c: string) => string):
 
 async function sportPage(sp: SportPlace, url: URL, env: Env, ctx: ExecutionContext): Promise<Response> {
   const post = Number(url.searchParams.get('post')) || null;
-  const go = `${url.origin}/#${where(sp)}${post ? `?post=${post}` : ''}`;
+  const go = `${url.origin}/#${where(sp)}${url.search}`;
   const board = sp.league.key.toUpperCase();
   const code = sp.club?.code ?? board;
   const theme = sp.club ? sportTheme(sp.club.color, sp.club.alt_color) : leagueTheme(sp.league.key);

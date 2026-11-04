@@ -35,7 +35,7 @@ const pages = [
 
 for (const name of pages) {
   const html = read(name);
-  const foot = html.split('<footer>')[1] ?? '';
+  const foot = html.split(/<footer[^>]*>/)[1] ?? ''; // <footer class="site-foot"> since 4 November 2026
   assert.match(foot, /Privacy/, `${name} footer has Privacy`);
   assert.match(foot, /data-cookie-settings/, `${name} footer has Cookie settings`);
   assert.match(foot, /#\/privacy/, `${name} Privacy points at the app page`);

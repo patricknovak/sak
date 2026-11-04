@@ -2,186 +2,223 @@
 <html lang="en">
 <head>
   <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Fan zones: every club, read like a front office · Super Pools</title>
-  <meta name="description" content="Free, open analysis of every club in the NHL, the NFL, the NBA and the Premier League from the leagues' public numbers: the playoff and title chances, the luck, the players and the moves, with the fans' own calls, ideas and knowledge base, and a fan pulse anyone can share." />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>Fan zones: read your club like a GM | Super Pools</title>
+  <meta name="description" content="Every club in the NHL, NFL, NBA and Premier League, read like a front office: the grade, the season simulated, the moves. Free, no account." />
   <link rel="canonical" href="https://superpoolsai.com/fans" />
   <link rel="icon" href="./icon.svg" type="image/svg+xml" />
   <meta name="theme-color" content="#0b1220" />
   <meta property="og:type" content="website" />
+  <meta property="og:site_name" content="Super Pools" />
   <meta property="og:url" content="https://superpoolsai.com/fans" />
-  <meta property="og:title" content="Fan zones: every club, read like a front office" />
-  <meta property="og:description" content="Every club in the NHL, the NFL, the NBA and the Premier League, free and open, with the fans' calls, ideas and knowledge base beside the analysis." />
+  <meta property="og:title" content="Read your club like a GM." />
+  <meta property="og:description" content="Grades, the season simulated a few thousand times, the front office's bigger questions, every club in four leagues. No account. Never money." />
+  <!-- the app Worker's fan-zones card, redrawn from the league's own numbers through the day (worker/fans.ts) -->
   <meta property="og:image" content="https://app.superpoolsai.com/og/fans/NHL.png?v=2" />
+  <meta property="og:image:width" content="1200" />
+  <meta property="og:image:height" content="630" />
+  <meta property="og:image:alt" content="Super Pools fan zones: every club read like a front office." />
   <meta name="twitter:card" content="summary_large_image" />
-  <meta name="twitter:title" content="Fan zones: every club, read like a front office" />
-  <meta name="twitter:description" content="Every club in the NHL, the NFL, the NBA and the Premier League, free and open, with the fans' calls, ideas and knowledge base beside the analysis." />
+  <meta name="twitter:title" content="Read your club like a GM." />
+  <meta name="twitter:description" content="Grades, the season simulated a few thousand times, the front office's bigger questions, every club in four leagues. No account. Never money." />
   <meta name="twitter:image" content="https://app.superpoolsai.com/og/fans/NHL.png?v=2" />
+  <link rel="preload" href="./fonts/barlow-condensed-900.woff2" as="font" type="font/woff2" crossorigin />
+  <link rel="preload" href="./fonts/barlow-condensed-900-italic.woff2" as="font" type="font/woff2" crossorigin />
+  <link rel="preload" href="./fonts/inter.woff2" as="font" type="font/woff2" crossorigin />
   <link rel="stylesheet" href="./site.css" />
-  <!-- the questions people ask, for search (the same text as the page's own FAQ below) -->
-  <script type="application/ld+json">{"@context": "https://schema.org", "@type": "FAQPage", "mainEntity": [{"@type": "Question", "name": "Is it free?", "acceptedAnswer": {"@type": "Answer", "text": "Yes. Every club's zone is free to read, with nothing to sign up for. Joining in (a call, a post, a vote) takes only a name."}}, {"@type": "Question", "name": "Who sees what I add?", "acceptedAnswer": {"@type": "Answer", "text": "Your posts show your first name and initial, never more. Your calls and votes are only ever counted in the totals, never shown one by one."}}, {"@type": "Question", "name": "Where do the numbers come from?", "acceptedAnswer": {"@type": "Answer", "text": "Only public sources, read fresh: for the NHL its own statistics, its player and puck tracking and its record books; for the NFL, the NBA and the Premier League ESPN's public numbers and the games as they finish. Nothing behind a login and nothing bought."}}, {"@type": "Question", "name": "Can the club see what fans think?", "acceptedAnswer": {"@type": "Answer", "text": "Anyone can: each club's fan pulse puts every call, the top ideas and the questions on one page to read, share, print or download, the club's own front office included."}}, {"@type": "Question", "name": "Is it official?", "acceptedAnswer": {"@type": "Answer", "text": "No. The fan zones are made by fans, from the leagues' public numbers, and are not affiliated with any league or club."}}, {"@type": "Question", "name": "How do I help?", "acceptedAnswer": {"@type": "Answer", "text": "Make your calls, post an idea, a question, an insight or a fact, and vote. When the analysis gets something wrong, post a fix: the editors read every one. The code is open source under the MIT License, on GitHub, for anyone who wants to look under the hood or build on it."}}]}</script>
+  <link rel="stylesheet" href="./site-shows.css" />
+  <!-- the questions people ask, for search: the same words as the FAQ at the foot of the page -->
+  <script type="application/ld+json">{"@context":"https://schema.org","@type":"FAQPage","mainEntity":[{"@type":"Question","name":"Is it free?","acceptedAnswer":{"@type":"Answer","text":"Yes. Every club's zone is free to read, with nothing to sign up for. Joining in (a call, a post, a vote) takes only a name."}},{"@type":"Question","name":"Who sees what I add?","acceptedAnswer":{"@type":"Answer","text":"Your posts show your first name and initial, never more. Your calls and votes are only ever counted in the totals, never shown one by one."}},{"@type":"Question","name":"Where do the numbers come from?","acceptedAnswer":{"@type":"Answer","text":"Only public sources, read fresh: for the NHL its own statistics, its player and puck tracking and its record books; for the NFL, the NBA and the Premier League, public score feeds and the games as they finish. Nothing behind a login and nothing bought."}},{"@type":"Question","name":"Is it run by the leagues?","acceptedAnswer":{"@type":"Answer","text":"No. The fan zones are made by Super Pools from the leagues' public numbers and are not affiliated with any league or club."}},{"@type":"Question","name":"Can we play on it?","acceptedAnswer":{"@type":"Answer","text":"Yes. Start a pool for the fans in your chat: one pick a night, the Cup called all season, your own club questions. Supercoins, never money."}},{"@type":"Question","name":"How do I help?","acceptedAnswer":{"@type":"Answer","text":"Make your calls, post an idea, a question, an insight or a fact, and vote. When the analysis gets something wrong, post a fix: the editors read every one."}}]}</script>
 </head>
+<!-- The fan zones are the product's one open, crawlable surface (gap-5): every tile here is a door into its zone in the
+     app (app.superpoolsai.com/fans/<club>, which the Worker unfurls and sends on to #/fans/<club>). The club grid lives
+     only on this page. The fans' voice is a cold start on live, so the page describes what a fan can add, never how
+     many have. -->
 <body>
-  <svg width="0" height="0" style="position:absolute" aria-hidden="true">
-    <symbol id="i-bolt" viewBox="0 0 24 24"><path d="M13 2L4 14h7l-1 8 9-12h-7z"/></symbol>
-    <symbol id="i-cal" viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="16" rx="3"/><path d="M3 10h18M8 3v4M16 3v4"/></symbol>
-    <symbol id="i-clock" viewBox="0 0 24 24"><circle cx="12" cy="13" r="8"/><path d="M12 9v4l3 2M9 2h6"/></symbol>
-    <symbol id="i-swap" viewBox="0 0 24 24"><path d="M4 8h13l-3-3M20 16H7l3 3"/></symbol>
-    <symbol id="i-coin" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="4"/></symbol>
-    <symbol id="i-mic" viewBox="0 0 24 24"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3M8 21h8"/></symbol>
-    <symbol id="i-chart" viewBox="0 0 24 24"><path d="M3 20h18M5 16l4-5 4 3 6-8M16 6h3v3"/></symbol>
-    <symbol id="i-phone" viewBox="0 0 24 24"><rect x="6" y="2" width="12" height="20" rx="3"/><path d="M10 18h4"/></symbol>
-    <symbol id="i-check" viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="4"/><path d="M8 12l3 3 5-6"/></symbol>
-    <symbol id="i-shield" viewBox="0 0 24 24"><path d="M12 3l8 3v6c0 5-3.5 8-8 9-4.5-1-8-4-8-9V6z"/><path d="M12 8v5M12 16v.5"/></symbol>
-    <symbol id="i-target" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="1.5"/></symbol>
-    <symbol id="i-bracket" viewBox="0 0 24 24"><path d="M3 5h5v6h5M3 19h5v-6M13 11v2h8M13 13"/></symbol>
-    <symbol id="i-series" viewBox="0 0 24 24"><circle cx="5" cy="12" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="19" cy="12" r="2"/><path d="M3 6h18M3 18h18"/></symbol>
-    <symbol id="i-rank" viewBox="0 0 24 24"><path d="M9 6h12M9 12h12M9 18h12M4 6h1M4 12h1M4 18h1"/></symbol>
-    <symbol id="i-sheet" viewBox="0 0 24 24"><rect x="5" y="3" width="14" height="18" rx="2"/><path d="M9 8h6M9 12h6M9 16h4"/></symbol>
-    <symbol id="i-grid" viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M9 3v18M15 3v18M3 9h18M3 15h18"/></symbol>
-    <symbol id="i-box" viewBox="0 0 24 24"><rect x="3" y="3" width="8" height="8" rx="2"/><rect x="13" y="3" width="8" height="8" rx="2"/><rect x="3" y="13" width="8" height="8" rx="2"/><rect x="13" y="13" width="8" height="8" rx="2"/></symbol>
-    <symbol id="i-flame" viewBox="0 0 24 24"><path d="M12 21c4 0 7-3 7-7 0-5-4-6-5-11-2 2-3 4-3 6-1-1-2-2-2-4-2 2-4 5-4 9 0 4 3 7 7 7z"/></symbol>
-    <symbol id="i-hat" viewBox="0 0 24 24"><path d="M3 18h18M6 18l1-9h10l1 9M9 9V6h6v3"/></symbol>
-    <symbol id="i-q" viewBox="0 0 24 24"><path d="M3 17l5-5 4 3 8-9"/><path d="M15 6h5v5"/></symbol>
-    <symbol id="i-stick" viewBox="0 0 24 24"><path d="M15 3l-9 15a2 2 0 0 0 2 3h6"/><circle cx="18" cy="18" r="2.5"/></symbol>
-    <symbol id="i-trophy" viewBox="0 0 24 24"><path d="M8 4h8v5a4 4 0 0 1-8 0zM8 6H4a3 3 0 0 0 4 4M16 6h4a3 3 0 0 1-4 4M12 13v4M8 21h8M9 17h6"/></symbol>
-  </svg>
-  <main>
-    <header>
-      <a class="wordmark" href="./" aria-label="Super Pools home">
-        <svg viewBox="0 0 64 64" aria-hidden="true"><rect width="64" height="64" rx="14" fill="#111b30"/><circle cx="32" cy="32" r="17" fill="none" stroke="#f7c548" stroke-width="4"/><circle cx="32" cy="32" r="4.5" fill="#f7c548"/><g stroke="#f7c548" stroke-width="2.6" stroke-linecap="round"><line x1="25" y1="8" x2="25" y2="12.5"/><line x1="39" y1="8" x2="39" y2="12.5"/><line x1="25" y1="51.5" x2="25" y2="56"/><line x1="39" y1="51.5" x2="39" y2="56"/></g></svg>
-        <span><b>SUPER</b> POOLS</span>
-      </a>
-      <nav class="navlinks"><a href="#leagues">Every league</a><a href="#inside">What's inside</a><a href="#voice">The fans</a><a href="#open">Open</a><a href="./">All pools</a></nav>
-      <a class="btn btn-ice btn-sm" href="https://app.superpoolsai.com/fans">Find your club</a>
-    </header>
-
-    <div class="hero">
-      <div>
-        <div class="eyebrow i">Fan zones · free and open</div>
-        <h1 class="display">Every club, <span class="l2"><em class="ice">read like a front office.</em></span></h1>
-        <p class="lead">The NHL, the NFL, the NBA and the Premier League: deep analysis of every club from the leagues' public numbers, free for every fan. The playoff and title chances, the luck, the players, the moves the numbers point to and, for the NHL, the goalies against the danger of every shot and the franchise's whole history. Beside it, the fans: their calls for the season, their ideas and questions voted to the top, and a knowledge base they build together.</p>
-        <div class="cta">
-          <a class="btn btn-ice" href="https://app.superpoolsai.com/fans">Find your club</a>
-          <a class="btn btn-ghost" href="https://app.superpoolsai.com/fans/about">How it works</a>
-        </div>
-        <div class="leagues" id="leagues" aria-label="Every league's fan zones">
-          <a href="https://app.superpoolsai.com/fans"><img src="https://assets.nhle.com/logos/nhl/svg/NHL_dark.svg" alt="" width="30" height="30" loading="lazy" /><span>NHL<small>32 clubs</small></span></a>
-          <a href="https://app.superpoolsai.com/fans/nfl"><img src="https://a.espncdn.com/i/teamlogos/leagues/500-dark/nfl.png" alt="" width="30" height="30" loading="lazy" /><span>NFL<small>32 clubs</small></span></a>
-          <a href="https://app.superpoolsai.com/fans/nba"><img src="https://a.espncdn.com/i/teamlogos/leagues/500-dark/nba.png" alt="" width="30" height="30" loading="lazy" /><span>NBA<small>30 clubs</small></span></a>
-          <a href="https://app.superpoolsai.com/fans/epl"><img src="https://a.espncdn.com/i/leaguelogos/soccer/500-dark/23.png" alt="" width="30" height="30" loading="lazy" /><span>Premier League<small>20 clubs</small></span></a>
-        </div>
-        <div class="under"><span>114 clubs in four leagues</span><span>Nothing to sign up for to read</span><span>Join in with just a name</span></div>
-      </div>
-      <div class="clubs rv" id="clubs" aria-label="Every NHL club's fan zone">
-            <div class="div">Atlantic</div>
-            <a href="https://app.superpoolsai.com/fans/BOS" title="Boston Bruins fan zone"><img src="https://assets.nhle.com/logos/nhl/svg/BOS_dark.svg" alt="" width="34" height="34" loading="lazy" /><span>BOS</span><b class="sr">Boston Bruins fan zone</b></a>
-            <a href="https://app.superpoolsai.com/fans/BUF" title="Buffalo Sabres fan zone"><img src="https://assets.nhle.com/logos/nhl/svg/BUF_dark.svg" alt="" width="34" height="34" loading="lazy" /><span>BUF</span><b class="sr">Buffalo Sabres fan zone</b></a>
-            <a href="https://app.superpoolsai.com/fans/DET" title="Detroit Red Wings fan zone"><img src="https://assets.nhle.com/logos/nhl/svg/DET_dark.svg" alt="" width="34" height="34" loading="lazy" /><span>DET</span><b class="sr">Detroit Red Wings fan zone</b></a>
-            <a href="https://app.superpoolsai.com/fans/FLA" title="Florida Panthers fan zone"><img src="https://assets.nhle.com/logos/nhl/svg/FLA_dark.svg" alt="" width="34" height="34" loading="lazy" /><span>FLA</span><b class="sr">Florida Panthers fan zone</b></a>
-            <a href="https://app.superpoolsai.com/fans/MTL" title="Montréal Canadiens fan zone"><img src="https://assets.nhle.com/logos/nhl/svg/MTL_dark.svg" alt="" width="34" height="34" loading="lazy" /><span>MTL</span><b class="sr">Montréal Canadiens fan zone</b></a>
-            <a href="https://app.superpoolsai.com/fans/OTT" title="Ottawa Senators fan zone"><img src="https://assets.nhle.com/logos/nhl/svg/OTT_dark.svg" alt="" width="34" height="34" loading="lazy" /><span>OTT</span><b class="sr">Ottawa Senators fan zone</b></a>
-            <a href="https://app.superpoolsai.com/fans/TBL" title="Tampa Bay Lightning fan zone"><img src="https://assets.nhle.com/logos/nhl/svg/TBL_dark.svg" alt="" width="34" height="34" loading="lazy" /><span>TBL</span><b class="sr">Tampa Bay Lightning fan zone</b></a>
-            <a href="https://app.superpoolsai.com/fans/TOR" title="Toronto Maple Leafs fan zone"><img src="https://assets.nhle.com/logos/nhl/svg/TOR_dark.svg" alt="" width="34" height="34" loading="lazy" /><span>TOR</span><b class="sr">Toronto Maple Leafs fan zone</b></a>
-            <div class="div">Metropolitan</div>
-            <a href="https://app.superpoolsai.com/fans/CAR" title="Carolina Hurricanes fan zone"><img src="https://assets.nhle.com/logos/nhl/svg/CAR_dark.svg" alt="" width="34" height="34" loading="lazy" /><span>CAR</span><b class="sr">Carolina Hurricanes fan zone</b></a>
-            <a href="https://app.superpoolsai.com/fans/CBJ" title="Columbus Blue Jackets fan zone"><img src="https://assets.nhle.com/logos/nhl/svg/CBJ_dark.svg" alt="" width="34" height="34" loading="lazy" /><span>CBJ</span><b class="sr">Columbus Blue Jackets fan zone</b></a>
-            <a href="https://app.superpoolsai.com/fans/NJD" title="New Jersey Devils fan zone"><img src="https://assets.nhle.com/logos/nhl/svg/NJD_dark.svg" alt="" width="34" height="34" loading="lazy" /><span>NJD</span><b class="sr">New Jersey Devils fan zone</b></a>
-            <a href="https://app.superpoolsai.com/fans/NYI" title="New York Islanders fan zone"><img src="https://assets.nhle.com/logos/nhl/svg/NYI_dark.svg" alt="" width="34" height="34" loading="lazy" /><span>NYI</span><b class="sr">New York Islanders fan zone</b></a>
-            <a href="https://app.superpoolsai.com/fans/NYR" title="New York Rangers fan zone"><img src="https://assets.nhle.com/logos/nhl/svg/NYR_dark.svg" alt="" width="34" height="34" loading="lazy" /><span>NYR</span><b class="sr">New York Rangers fan zone</b></a>
-            <a href="https://app.superpoolsai.com/fans/PHI" title="Philadelphia Flyers fan zone"><img src="https://assets.nhle.com/logos/nhl/svg/PHI_dark.svg" alt="" width="34" height="34" loading="lazy" /><span>PHI</span><b class="sr">Philadelphia Flyers fan zone</b></a>
-            <a href="https://app.superpoolsai.com/fans/PIT" title="Pittsburgh Penguins fan zone"><img src="https://assets.nhle.com/logos/nhl/svg/PIT_dark.svg" alt="" width="34" height="34" loading="lazy" /><span>PIT</span><b class="sr">Pittsburgh Penguins fan zone</b></a>
-            <a href="https://app.superpoolsai.com/fans/WSH" title="Washington Capitals fan zone"><img src="https://assets.nhle.com/logos/nhl/svg/WSH_dark.svg" alt="" width="34" height="34" loading="lazy" /><span>WSH</span><b class="sr">Washington Capitals fan zone</b></a>
-            <div class="div">Central</div>
-            <a href="https://app.superpoolsai.com/fans/CHI" title="Chicago Blackhawks fan zone"><img src="https://assets.nhle.com/logos/nhl/svg/CHI_dark.svg" alt="" width="34" height="34" loading="lazy" /><span>CHI</span><b class="sr">Chicago Blackhawks fan zone</b></a>
-            <a href="https://app.superpoolsai.com/fans/COL" title="Colorado Avalanche fan zone"><img src="https://assets.nhle.com/logos/nhl/svg/COL_dark.svg" alt="" width="34" height="34" loading="lazy" /><span>COL</span><b class="sr">Colorado Avalanche fan zone</b></a>
-            <a href="https://app.superpoolsai.com/fans/DAL" title="Dallas Stars fan zone"><img src="https://assets.nhle.com/logos/nhl/svg/DAL_dark.svg" alt="" width="34" height="34" loading="lazy" /><span>DAL</span><b class="sr">Dallas Stars fan zone</b></a>
-            <a href="https://app.superpoolsai.com/fans/MIN" title="Minnesota Wild fan zone"><img src="https://assets.nhle.com/logos/nhl/svg/MIN_dark.svg" alt="" width="34" height="34" loading="lazy" /><span>MIN</span><b class="sr">Minnesota Wild fan zone</b></a>
-            <a href="https://app.superpoolsai.com/fans/NSH" title="Nashville Predators fan zone"><img src="https://assets.nhle.com/logos/nhl/svg/NSH_dark.svg" alt="" width="34" height="34" loading="lazy" /><span>NSH</span><b class="sr">Nashville Predators fan zone</b></a>
-            <a href="https://app.superpoolsai.com/fans/STL" title="St. Louis Blues fan zone"><img src="https://assets.nhle.com/logos/nhl/svg/STL_dark.svg" alt="" width="34" height="34" loading="lazy" /><span>STL</span><b class="sr">St. Louis Blues fan zone</b></a>
-            <a href="https://app.superpoolsai.com/fans/UTA" title="Utah Mammoth fan zone"><img src="https://assets.nhle.com/logos/nhl/svg/UTA_dark.svg" alt="" width="34" height="34" loading="lazy" /><span>UTA</span><b class="sr">Utah Mammoth fan zone</b></a>
-            <a href="https://app.superpoolsai.com/fans/WPG" title="Winnipeg Jets fan zone"><img src="https://assets.nhle.com/logos/nhl/svg/WPG_dark.svg" alt="" width="34" height="34" loading="lazy" /><span>WPG</span><b class="sr">Winnipeg Jets fan zone</b></a>
-            <div class="div">Pacific</div>
-            <a href="https://app.superpoolsai.com/fans/ANA" title="Anaheim Ducks fan zone"><img src="https://assets.nhle.com/logos/nhl/svg/ANA_dark.svg" alt="" width="34" height="34" loading="lazy" /><span>ANA</span><b class="sr">Anaheim Ducks fan zone</b></a>
-            <a href="https://app.superpoolsai.com/fans/CGY" title="Calgary Flames fan zone"><img src="https://assets.nhle.com/logos/nhl/svg/CGY_dark.svg" alt="" width="34" height="34" loading="lazy" /><span>CGY</span><b class="sr">Calgary Flames fan zone</b></a>
-            <a href="https://app.superpoolsai.com/fans/EDM" title="Edmonton Oilers fan zone"><img src="https://assets.nhle.com/logos/nhl/svg/EDM_dark.svg" alt="" width="34" height="34" loading="lazy" /><span>EDM</span><b class="sr">Edmonton Oilers fan zone</b></a>
-            <a href="https://app.superpoolsai.com/fans/LAK" title="Los Angeles Kings fan zone"><img src="https://assets.nhle.com/logos/nhl/svg/LAK_dark.svg" alt="" width="34" height="34" loading="lazy" /><span>LAK</span><b class="sr">Los Angeles Kings fan zone</b></a>
-            <a href="https://app.superpoolsai.com/fans/SEA" title="Seattle Kraken fan zone"><img src="https://assets.nhle.com/logos/nhl/svg/SEA_dark.svg" alt="" width="34" height="34" loading="lazy" /><span>SEA</span><b class="sr">Seattle Kraken fan zone</b></a>
-            <a href="https://app.superpoolsai.com/fans/SJS" title="San Jose Sharks fan zone"><img src="https://assets.nhle.com/logos/nhl/svg/SJS_dark.svg" alt="" width="34" height="34" loading="lazy" /><span>SJS</span><b class="sr">San Jose Sharks fan zone</b></a>
-            <a href="https://app.superpoolsai.com/fans/VAN" title="Vancouver Canucks fan zone"><img src="https://assets.nhle.com/logos/nhl/svg/VAN_dark.svg" alt="" width="34" height="34" loading="lazy" /><span>VAN</span><b class="sr">Vancouver Canucks fan zone</b></a>
-            <a href="https://app.superpoolsai.com/fans/VGK" title="Vegas Golden Knights fan zone"><img src="https://assets.nhle.com/logos/nhl/svg/VGK_dark.svg" alt="" width="34" height="34" loading="lazy" /><span>VGK</span><b class="sr">Vegas Golden Knights fan zone</b></a>
-          </div>
+  <a class="skip" href="#main">Skip to content</a>
+  <header class="site-head">
+    <a class="wordmark" href="./" aria-label="Super Pools home">
+      <svg viewBox="0 0 64 64" aria-hidden="true"><rect width="64" height="64" rx="14" fill="#111b30"/><circle cx="32" cy="32" r="17" fill="none" stroke="#f7c548" stroke-width="4"/><circle cx="32" cy="32" r="4.5" fill="#f7c548"/><g stroke="#f7c548" stroke-width="2.6" stroke-linecap="round"><line x1="25" y1="8" x2="25" y2="12.5"/><line x1="39" y1="8" x2="39" y2="12.5"/><line x1="25" y1="51.5" x2="25" y2="56"/><line x1="39" y1="51.5" x2="39" y2="56"/></g></svg>
+      <span><b>SUPER</b> POOLS</span>
+    </a>
+    <nav class="navlinks" aria-label="Doors"><a href="./fantasy-hockey.html">Fantasy league</a><a href="./#kinds">Sports pools</a><a href="./together.html">Show pools</a><a href="./fans.html" aria-current="page">Fan zones</a><a href="./pricing.html">Pricing</a></nav>
+    <div class="head-right">
+      <a class="signin" href="https://app.superpoolsai.com/#/?src=fans">Sign in</a>
+      <button type="button" class="menu-btn" id="menu-btn" aria-expanded="false" aria-controls="menu" aria-label="Open the menu">
+        <svg class="bars" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16"/></svg>
+        <svg class="x" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>
+      </button>
     </div>
+    <nav class="menu" id="menu" aria-label="Menu">
+      <a href="./fantasy-hockey.html"><span class="mi"><svg class="ico" aria-hidden="true" focusable="false"><use href="./icons.svg#i-trophy"/></svg></span><span><b>Fantasy league</b><small>Keepers, the draft room, a league voice</small></span></a>
+      <a href="./#kinds"><span class="mi"><svg class="ico" aria-hidden="true" focusable="false"><use href="./icons.svg#i-target"/></svg></span><span><b>Sports pools</b><small>The NFL, NHL, NBA and soccer</small></span></a>
+      <a href="./together.html"><span class="mi r"><svg class="ico" aria-hidden="true" focusable="false"><use href="./icons.svg#i-tv"/></svg></span><span><b>Show pools</b><small>Call what happens next, with your group</small></span></a>
+      <a href="./fans.html"><span class="mi"><svg class="ico" aria-hidden="true" focusable="false"><use href="./icons.svg#i-chart"/></svg></span><span><b>Fan zones</b><small>Every club, read like a front office</small></span></a>
+      <a href="./pricing.html"><span class="mi n"><svg class="ico" aria-hidden="true" focusable="false"><use href="./icons.svg#i-coin"/></svg></span><span><b>Pricing</b><small>Per pool, never per person</small></span></a>
+      <a href="https://app.superpoolsai.com/#/?src=fans"><span class="mi n"><svg class="ico" aria-hidden="true" focusable="false"><use href="./icons.svg#i-users"/></svg></span><span><b>Sign in</b><small>Back to your pools</small></span></a>
+    </nav>
+  </header>
+  <main id="main">
 
+    <!-- 1. Hero: the door table's Fans row, one gold button, and every club one tap away -->
+    <section class="hero2 hero2-split" id="top">
+      <div class="hero2-copy">
+        <div class="eyebrow">Fan zones · free and open</div>
+        <h1 class="display">Read your club <span class="l2"><em>like a GM.</em></span></h1>
+        <p class="sub">Grades, the season simulated a few thousand times, the front office's bigger questions, every club in four leagues. No account.</p>
+        <div class="cta2">
+          <a class="btn btn-gold btn-lg" data-gold href="https://app.superpoolsai.com/fans?src=fans">Find your club</a>
+          <a class="textlink" href="https://app.superpoolsai.com/fans/about?src=fans">How the reads are made</a>
+        </div>
+        <p class="proofline"><svg class="ico" aria-hidden="true" focusable="false"><use href="./icons.svg#i-chart"/></svg><span>The numbers come from public score feeds (the NHL's for hockey), the code is MIT, and the data is open at /api/fans. <b class="soft">Never money.</b></span></p>
+      </div>
+      <div class="fz-panel rv" id="clubs">
+        <div class="phead"><h2 class="display">Pick your club</h2><span>114 clubs, four leagues</span></div>
+        <div class="lgrid" id="leagues" aria-label="Every league's fan zones">
+          <a href="https://app.superpoolsai.com/fans?src=fans"><img src="./img/clubs/NHL.webp" alt="" width="34" height="34" loading="lazy" /><b>NHL</b><small>32 clubs</small></a>
+          <a href="https://app.superpoolsai.com/fans/nfl?src=fans"><img src="./img/clubs/nfl.webp" alt="" width="34" height="34" loading="lazy" /><b>NFL</b><small>32 clubs</small></a>
+          <a href="https://app.superpoolsai.com/fans/nba?src=fans"><img src="./img/clubs/nba.webp" alt="" width="34" height="34" loading="lazy" /><b>NBA</b><small>30 clubs</small></a>
+          <a href="https://app.superpoolsai.com/fans/epl?src=fans"><img src="./img/clubs/epl.webp" alt="" width="34" height="34" loading="lazy" /><b>Premier League</b><small>20 clubs</small></a>
+        </div>
+        <div class="cgrid" aria-label="Every NHL club's fan zone">
+          <div class="dv">Atlantic</div>
+          <a href="https://app.superpoolsai.com/fans/BOS?src=fans" aria-label="Boston Bruins fan zone"><img src="./img/clubs/BOS.webp" alt="" width="48" height="32" loading="lazy" /><span>BOS</span></a>
+          <a href="https://app.superpoolsai.com/fans/BUF?src=fans" aria-label="Buffalo Sabres fan zone"><img src="./img/clubs/BUF.webp" alt="" width="48" height="32" loading="lazy" /><span>BUF</span></a>
+          <a href="https://app.superpoolsai.com/fans/DET?src=fans" aria-label="Detroit Red Wings fan zone"><img src="./img/clubs/DET.webp" alt="" width="48" height="32" loading="lazy" /><span>DET</span></a>
+          <a href="https://app.superpoolsai.com/fans/FLA?src=fans" aria-label="Florida Panthers fan zone"><img src="./img/clubs/FLA.webp" alt="" width="48" height="32" loading="lazy" /><span>FLA</span></a>
+          <a href="https://app.superpoolsai.com/fans/MTL?src=fans" aria-label="Montréal Canadiens fan zone"><img src="./img/clubs/MTL.webp" alt="" width="48" height="32" loading="lazy" /><span>MTL</span></a>
+          <a href="https://app.superpoolsai.com/fans/OTT?src=fans" aria-label="Ottawa Senators fan zone"><img src="./img/clubs/OTT.webp" alt="" width="48" height="32" loading="lazy" /><span>OTT</span></a>
+          <a href="https://app.superpoolsai.com/fans/TBL?src=fans" aria-label="Tampa Bay Lightning fan zone"><img src="./img/clubs/TBL.webp" alt="" width="48" height="32" loading="lazy" /><span>TBL</span></a>
+          <a href="https://app.superpoolsai.com/fans/TOR?src=fans" aria-label="Toronto Maple Leafs fan zone"><img src="./img/clubs/TOR.webp" alt="" width="48" height="32" loading="lazy" /><span>TOR</span></a>
+          <div class="dv">Metropolitan</div>
+          <a href="https://app.superpoolsai.com/fans/CAR?src=fans" aria-label="Carolina Hurricanes fan zone"><img src="./img/clubs/CAR.webp" alt="" width="48" height="32" loading="lazy" /><span>CAR</span></a>
+          <a href="https://app.superpoolsai.com/fans/CBJ?src=fans" aria-label="Columbus Blue Jackets fan zone"><img src="./img/clubs/CBJ.webp" alt="" width="48" height="32" loading="lazy" /><span>CBJ</span></a>
+          <a href="https://app.superpoolsai.com/fans/NJD?src=fans" aria-label="New Jersey Devils fan zone"><img src="./img/clubs/NJD.webp" alt="" width="48" height="32" loading="lazy" /><span>NJD</span></a>
+          <a href="https://app.superpoolsai.com/fans/NYI?src=fans" aria-label="New York Islanders fan zone"><img src="./img/clubs/NYI.webp" alt="" width="48" height="32" loading="lazy" /><span>NYI</span></a>
+          <a href="https://app.superpoolsai.com/fans/NYR?src=fans" aria-label="New York Rangers fan zone"><img src="./img/clubs/NYR.webp" alt="" width="48" height="32" loading="lazy" /><span>NYR</span></a>
+          <a href="https://app.superpoolsai.com/fans/PHI?src=fans" aria-label="Philadelphia Flyers fan zone"><img src="./img/clubs/PHI.webp" alt="" width="48" height="32" loading="lazy" /><span>PHI</span></a>
+          <a href="https://app.superpoolsai.com/fans/PIT?src=fans" aria-label="Pittsburgh Penguins fan zone"><img src="./img/clubs/PIT.webp" alt="" width="48" height="32" loading="lazy" /><span>PIT</span></a>
+          <a href="https://app.superpoolsai.com/fans/WSH?src=fans" aria-label="Washington Capitals fan zone"><img src="./img/clubs/WSH.webp" alt="" width="48" height="32" loading="lazy" /><span>WSH</span></a>
+          <div class="dv">Central</div>
+          <a href="https://app.superpoolsai.com/fans/CHI?src=fans" aria-label="Chicago Blackhawks fan zone"><img src="./img/clubs/CHI.webp" alt="" width="48" height="32" loading="lazy" /><span>CHI</span></a>
+          <a href="https://app.superpoolsai.com/fans/COL?src=fans" aria-label="Colorado Avalanche fan zone"><img src="./img/clubs/COL.webp" alt="" width="48" height="32" loading="lazy" /><span>COL</span></a>
+          <a href="https://app.superpoolsai.com/fans/DAL?src=fans" aria-label="Dallas Stars fan zone"><img src="./img/clubs/DAL.webp" alt="" width="48" height="32" loading="lazy" /><span>DAL</span></a>
+          <a href="https://app.superpoolsai.com/fans/MIN?src=fans" aria-label="Minnesota Wild fan zone"><img src="./img/clubs/MIN.webp" alt="" width="48" height="32" loading="lazy" /><span>MIN</span></a>
+          <a href="https://app.superpoolsai.com/fans/NSH?src=fans" aria-label="Nashville Predators fan zone"><img src="./img/clubs/NSH.webp" alt="" width="48" height="32" loading="lazy" /><span>NSH</span></a>
+          <a href="https://app.superpoolsai.com/fans/STL?src=fans" aria-label="St. Louis Blues fan zone"><img src="./img/clubs/STL.webp" alt="" width="48" height="32" loading="lazy" /><span>STL</span></a>
+          <a href="https://app.superpoolsai.com/fans/UTA?src=fans" aria-label="Utah Mammoth fan zone"><img src="./img/clubs/UTA.webp" alt="" width="48" height="32" loading="lazy" /><span>UTA</span></a>
+          <a href="https://app.superpoolsai.com/fans/WPG?src=fans" aria-label="Winnipeg Jets fan zone"><img src="./img/clubs/WPG.webp" alt="" width="48" height="32" loading="lazy" /><span>WPG</span></a>
+          <div class="dv">Pacific</div>
+          <a href="https://app.superpoolsai.com/fans/ANA?src=fans" aria-label="Anaheim Ducks fan zone"><img src="./img/clubs/ANA.webp" alt="" width="48" height="32" loading="lazy" /><span>ANA</span></a>
+          <a href="https://app.superpoolsai.com/fans/CGY?src=fans" aria-label="Calgary Flames fan zone"><img src="./img/clubs/CGY.webp" alt="" width="48" height="32" loading="lazy" /><span>CGY</span></a>
+          <a href="https://app.superpoolsai.com/fans/EDM?src=fans" aria-label="Edmonton Oilers fan zone"><img src="./img/clubs/EDM.webp" alt="" width="48" height="32" loading="lazy" /><span>EDM</span></a>
+          <a href="https://app.superpoolsai.com/fans/LAK?src=fans" aria-label="Los Angeles Kings fan zone"><img src="./img/clubs/LAK.webp" alt="" width="48" height="32" loading="lazy" /><span>LAK</span></a>
+          <a href="https://app.superpoolsai.com/fans/SEA?src=fans" aria-label="Seattle Kraken fan zone"><img src="./img/clubs/SEA.webp" alt="" width="48" height="32" loading="lazy" /><span>SEA</span></a>
+          <a href="https://app.superpoolsai.com/fans/SJS?src=fans" aria-label="San Jose Sharks fan zone"><img src="./img/clubs/SJS.webp" alt="" width="48" height="32" loading="lazy" /><span>SJS</span></a>
+          <a href="https://app.superpoolsai.com/fans/VAN?src=fans" aria-label="Vancouver Canucks fan zone"><img src="./img/clubs/VAN.webp" alt="" width="48" height="32" loading="lazy" /><span>VAN</span></a>
+          <a href="https://app.superpoolsai.com/fans/VGK?src=fans" aria-label="Vegas Golden Knights fan zone"><img src="./img/clubs/VGK.webp" alt="" width="48" height="32" loading="lazy" /><span>VGK</span></a>
+        </div>
+      </div>
+    </section>
+
+    <!-- 2. Inside every zone (PI section 4) -->
     <section id="inside">
-      <div class="rv">
-        <div class="eyebrow i">What's inside every zone</div>
-        <h2 class="display">A front office's read, <em class="ice">for every fan.</em></h2>
+      <div class="shead rv">
+        <div class="eyebrow">Inside every zone</div>
+        <h2 class="display">A front office's read.</h2>
+        <p class="lead">Five pages a club: the overview, the analysis, the outlook, the history and the fans' pulse.</p>
       </div>
-      <div class="fzgrid">
-        <div class="card rv"><svg class="ico"><use href="#i-chart"/></svg><h3>The verdict</h3><p>A grade and a read of the season from every measure that matters in the sport (46 in hockey), each ranked in the league, with a luck check on what won't last.</p></div>
-        <div class="card rv"><svg class="ico"><use href="#i-target"/></svg><h3>The outlook</h3><p>Playoff and title chances from thousands of simulated seasons (the title, Europe and the drop in the Premier League), the pace, the race and the schedule still to come.</p></div>
-        <div class="card rv"><svg class="ico"><use href="#i-shield"/></svg><h3>The players</h3><p>The club's leaders, every player's numbers, the ages and who is hurt; in the NHL every goalie measured against the danger of the shots he faced.</p></div>
-        <div class="card rv"><svg class="ico"><use href="#i-swap"/></svg><h3>The front office</h3><p>The bigger questions with a verdict each, the moves for the general manager with the league's players who fit, and the calls for the coaches.</p></div>
-        <div class="card rv"><svg class="ico"><use href="#i-trophy"/></svg><h3>The history</h3><p>For the NHL, every season the franchise has played, its leaders, records, trophies and draft, straight from its record books. For every league, the fans' own knowledge base.</p></div>
-        <div class="card rv"><svg class="ico"><use href="#i-mic"/></svg><h3>The fans</h3><p>Calls, ideas, questions, insights and fixes, voted by the fans, and a fan pulse that puts it all on one page.</p></div>
-      </div>
+      <ul class="zlist">
+        <li class="rv"><span class="zi"><svg class="ico" aria-hidden="true" focusable="false"><use href="./icons.svg#i-check"/></svg></span><b>The verdict</b><span>A grade from every measure that matters in the sport, each ranked in the league, with a luck check on what won't last.</span></li>
+        <li class="rv"><span class="zi"><svg class="ico" aria-hidden="true" focusable="false"><use href="./icons.svg#i-target"/></svg></span><b>The outlook</b><span>The season and its spring played a few thousand times: the playoff and title chances, the seeds, the first-round opponents.</span></li>
+        <li class="rv"><span class="zi"><svg class="ico" aria-hidden="true" focusable="false"><use href="./icons.svg#i-shield"/></svg></span><b>The players</b><span>The leaders, every player's numbers and who is hurt. In the NHL, every goalie against the danger of the shots he faced.</span></li>
+        <li class="rv"><span class="zi"><svg class="ico" aria-hidden="true" focusable="false"><use href="./icons.svg#i-swap"/></svg></span><b>The moves</b><span>In the NHL, a trade or an injury moves the outlook the same hour, priced in goals a game.</span></li>
+        <li class="rv"><span class="zi"><svg class="ico" aria-hidden="true" focusable="false"><use href="./icons.svg#i-q"/></svg></span><b>The front office</b><span>The bigger questions with a verdict each, the targets that fit the need, and the calls for the coaches.</span></li>
+        <li class="rv"><span class="zi"><svg class="ico" aria-hidden="true" focusable="false"><use href="./icons.svg#i-trophy"/></svg></span><b>The history</b><span>For the NHL, every season from its record books: leaders, trophies, the draft. For the other leagues, every season since 2002.</span></li>
+      </ul>
     </section>
 
+    <!-- 3. The fans' voice: what a fan can add (migration 337), with no count of who has -->
     <section id="voice">
-      <div class="split">
-        <div class="rv">
-          <div class="eyebrow i">The fans' voice</div>
-          <h2 class="display">What the fans think, <em class="ice">on one page.</em></h2>
-          <p class="lead">Each fan makes their calls for the season, in their sport's own words: who should start in goal or at quarterback, the MVP so far, the one player to move, the biggest need, how far this spring or where in the table, and a grade for the general manager and the coach. Ideas and questions rise on the fans' votes, facts build the club's knowledge base, and the fan pulse shows it all to anyone, the club's own front office included.</p>
-          <div class="cta"><a class="btn btn-ice" href="https://app.superpoolsai.com/fans">Make your calls</a></div>
-        </div>
-        <div class="grid rv" style="grid-template-columns:repeat(2,1fr)">
-          <div class="card"><div class="num ice">8</div><p>calls for every club each season, and a verdict on each of the analysis's bigger questions</p></div>
-          <div class="card"><div class="num ice">5</div><p>kinds of post: ideas, questions, insights, facts and fixes</p></div>
-          <div class="card"><div class="num gold">1</div><p>fan pulse per club, to read, share, print or download</p></div>
-          <div class="card"><div class="num gold">0</div><p>accounts in the open data: a first name and an initial, never more</p></div>
-        </div>
+      <div class="shead rv">
+        <div class="eyebrow">The fans' voice</div>
+        <h2 class="display">Your say, <span class="keep">with just a name.</span></h2>
+      </div>
+      <div class="voice3">
+        <div class="rv"><h3>Your calls</h3><p>One call each on the season's questions, in the sport's words: who starts in goal, the MVP, the one to move, grades for the GM and the coach. Counted in the totals, never shown one by one.</p></div>
+        <div class="rv"><h3>The board</h3><p>Ideas, questions, insights, facts with their sources and fixes, voted up or down. When the analysis gets something wrong, a fix is made in the open.</p></div>
+        <div class="rv"><h3>The pulse</h3><p>Every call's split and the top posts on one page anyone can share, print or download, the club's own front office included.</p></div>
       </div>
     </section>
 
+    <!-- 4. Open by design: the MIT code and the open data (worker/fans.ts) -->
     <section id="open">
-      <div class="rv">
-        <div class="eyebrow i">Open by design</div>
-        <h2 class="display">Every number, <em class="ice">in the open.</em></h2>
-        <p class="lead">The code that builds every zone is open source under the MIT License, on <a href="https://github.com/patricknovak/sak">GitHub</a>, every formula with it. The fans' own data is open too: each club's pulse and every post, from the pulse page or straight from <code>app.superpoolsai.com/api/fans/EDM</code> (any NHL club's three letters, or NHL) and <code>/api/fans/nfl/KC</code> (any other league and club). When the analysis gets something wrong, a fan posts a fix and it is made in the open.</p>
-        <div class="cta"><a class="btn btn-ghost" href="https://app.superpoolsai.com/fans/about">How the fan zones work</a><a class="btn btn-ghost" href="https://github.com/patricknovak/sak">The code on GitHub</a></div>
+      <div class="pillar3">
+        <div class="rv">
+          <div class="eyebrow">Open by design</div>
+          <h2 class="display">Every number, in the open.</h2>
+          <p class="lead">The code that builds every zone is open source under the MIT License, every formula with it. The fans' own data is open too, from the pulse page or straight from the address below.</p>
+          <div class="cta2" style="flex-direction:row;flex-wrap:wrap;gap:0 22px"><a class="textlink" href="https://github.com/patricknovak/sak">The code on GitHub</a><a class="textlink" href="https://app.superpoolsai.com/fans/about?src=fans">How it works</a></div>
+        </div>
+        <div class="rv">
+          <code class="codeline">app.superpoolsai.com<b>/api/fans/EDM</b></code>
+          <code class="codeline">app.superpoolsai.com<b>/api/fans/nfl/KC</b></code>
+          <p class="proof2">Any NHL club's three letters, or a league and a club. A first name and an initial, never more.</p>
+        </div>
       </div>
     </section>
 
-    <section id="faq" class="faq">
-      <div class="rv">
-        <div class="eyebrow i">Questions people ask</div>
-        <h2 class="display">Before you <em class="ice">jump in.</em></h2>
+    <!-- 5. The one pool offer (gap-5 section H): the daily streak on the NHL's weeks, with the season pack beside it -->
+    <section id="pool">
+      <div class="offer rv">
+        <div>
+          <div class="eyebrow">Your group chat argues about the club</div>
+          <h2 class="display">Give the argument <span class="keep">a scoreboard.</span></h2>
+          <p>One pick a night on the NHL's games, the Cup and the scoring races called all season, and your own club questions beside them. Played for Supercoins.</p>
+        </div>
+        <a class="btn btn-ghost" href="https://app.superpoolsai.com/#/new?comp=nhl-2026-27&amp;kind=streak&amp;src=fans">Start a pool for your club's fans</a>
       </div>
-      <details><summary>Is it free?</summary><p>Yes. Every club&#x27;s zone is free to read, with nothing to sign up for. Joining in (a call, a post, a vote) takes only a name.</p></details>
+    </section>
+
+    <!-- 6. Before you ask; the FAQPage JSON-LD in the head mirrors these words -->
+    <section class="faq" id="faq">
+      <div class="shead">
+        <div class="eyebrow">Questions</div>
+        <h2 class="display">Before you jump in.</h2>
+      </div>
+      <details><summary>Is it free?</summary><p>Yes. Every club's zone is free to read, with nothing to sign up for. Joining in (a call, a post, a vote) takes only a name.</p></details>
       <details><summary>Who sees what I add?</summary><p>Your posts show your first name and initial, never more. Your calls and votes are only ever counted in the totals, never shown one by one.</p></details>
-      <details><summary>Where do the numbers come from?</summary><p>Only public sources, read fresh: for the NHL its own statistics, its player and puck tracking and its record books; for the NFL, the NBA and the Premier League ESPN&#x27;s public numbers and the games as they finish. Nothing behind a login and nothing bought.</p></details>
-      <details><summary>Can the club see what fans think?</summary><p>Anyone can: each club&#x27;s fan pulse puts every call, the top ideas and the questions on one page to read, share, print or download, the club&#x27;s own front office included.</p></details>
-      <details><summary>Is it official?</summary><p>No. The fan zones are made by fans, from the leagues&#x27; public numbers, and are not affiliated with any league or club.</p></details>
-      <details><summary>How do I help?</summary><p>Make your calls, post an idea, a question, an insight or a fact, and vote. When the analysis gets something wrong, post a fix: the editors read every one. The code is open source under the MIT License, on GitHub, for anyone who wants to look under the hood or build on it.</p></details>
+      <details><summary>Where do the numbers come from?</summary><p>Only public sources, read fresh: for the NHL its own statistics, its player and puck tracking and its record books; for the NFL, the NBA and the Premier League, public score feeds and the games as they finish. Nothing behind a login and nothing bought.</p></details>
+      <details><summary>Is it run by the leagues?</summary><p>No. The fan zones are made by Super Pools from the leagues' public numbers and are not affiliated with any league or club.</p></details>
+      <details><summary>Can we play on it?</summary><p>Yes. Start a pool for the fans in your chat: one pick a night, the Cup called all season, your own club questions. Supercoins, never money.</p></details>
+      <details><summary>How do I help?</summary><p>Make your calls, post an idea, a question, an insight or a fact, and vote. When the analysis gets something wrong, post a fix: the editors read every one.</p></details>
     </section>
 
-    <section id="join">
-      <div class="join rv">
-        <div class="eyebrow i">Your club is waiting</div>
-        <h2 class="display">Have your say <em class="ice">this season.</em></h2>
-        <p class="lead" style="margin:0">Pick your club, read the analysis and make your calls. It takes a name and a minute.</p>
-        <div class="cta" style="margin:18px 0 6px"><a class="btn btn-ice" href="https://app.superpoolsai.com/fans">Find your club</a><a class="btn btn-ghost" href="./hockey-pools">Run an NHL pool with friends</a></div>
+    <!-- 7. The closer: the gold button once more -->
+    <section id="start">
+      <div class="closer rv">
+        <h2 class="display">Your club is waiting.</h2>
+        <p>Pick your club, read the analysis, make your calls. It takes a name and a minute.</p>
+        <div class="cta2">
+          <a class="btn btn-gold btn-lg" data-gold href="https://app.superpoolsai.com/fans?src=fans">Find your club</a>
+          <a class="textlink" href="https://app.superpoolsai.com/fans/about?src=fans">How the reads are made</a>
+        </div>
       </div>
-      <p class="mute" style="font-size:12px;margin:12px 4px 0">Super Pools fan zones are made by fans, from the leagues' public numbers. Not affiliated with any league or club; team names and logos belong to them.</p>
     </section>
 
-    <footer>
-      <span>© 2026 Super Pools · superpoolsai.com · not affiliated with any league or club</span>
-      <nav><a href="./">Fantasy leagues and sports pools</a><a href="./hockey-pools">NHL pools</a><a href="./football-pools">NFL pools</a><a href="./basketball-pools">NBA pools</a><a href="./together">Pools for every show</a><a href="https://app.superpoolsai.com/#/privacy">Privacy</a><a href="https://app.superpoolsai.com/#/terms">Terms</a><a href="#" data-cookie-settings>Cookie settings</a><a href="mailto:hello@superpoolsai.com">hello@superpoolsai.com</a></nav>
-    </footer>
   </main>
+
+  <footer class="site-foot">
+    <div class="cols">
+      <div><h2>Play</h2><ul><li><a href="./fantasy-hockey.html">Fantasy league</a></li><li><a href="./hockey-pools.html">Hockey pools</a></li><li><a href="./football-pools.html">NFL pools</a></li><li><a href="./basketball-pools.html">NBA pools</a></li><li><a href="./soccer-pools.html">Soccer pools</a></li><li><a href="./together.html">Show pools</a></li></ul></div>
+      <div><h2>Look around</h2><ul><li><a href="./fans.html">Fan zones</a></li><li><a href="./example-pool.html">An example pool</a></li><li><a href="./pricing.html">Pricing</a></li><li><a href="./changelog.html">Changelog</a></li></ul></div>
+      <div><h2>Your pools</h2><ul><li><a href="https://app.superpoolsai.com/#/?src=fans">Sign in</a></li><li><a href="mailto:hello@superpoolsai.com">hello@superpoolsai.com</a></li></ul></div>
+      <div><h2>The fine print</h2><ul><li><a href="https://app.superpoolsai.com/#/privacy?src=fans">Privacy</a></li><li><a href="https://app.superpoolsai.com/#/terms?src=fans">Terms</a></li><li><button type="button" class="linkbtn" data-cookie-settings>Cookie settings</button></li></ul></div>
+    </div>
+    <div class="base"><span>© 2026 Super Pools · superpoolsai.com · Supercoins, never money</span><span>Scores from public score feeds. Not affiliated with any league or club; team names and logos belong to them.</span></div>
+  </footer>
+
+  <div class="stickybar" id="sticky"><a class="btn btn-gold" href="https://app.superpoolsai.com/fans?src=fans">Find your club</a></div>
   <script src="./site.js"></script>
 </body>
 </html>

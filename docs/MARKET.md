@@ -1,5 +1,9 @@
 # Super Pools: the market, the competition, and the road to every sport
 
+> Newer: `docs/MARKET-REVIEW-2026-11.md` (4 November 2026) is Super Pools against the market as it stands, every
+> kind of host and app, with the position, the gaps, the offering and the site it led to. Where the two differ,
+> the review is the later word; this document keeps the fantasy market's figures and the road to every sport.
+
 Written 1 October 2026 from four research passes over the platforms' own pages, app-store listings, press
 releases, FSGA and Leger surveys, data-vendor pricing and terms, and 2025-26 trade press. Reddit was not
 reachable from the research environment, so commissioner quotes come from app-store reviews, Trustpilot and

@@ -2,136 +2,205 @@
 <html lang="en">
 <head>
   <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>NBA pools for your group chat · Super Pools</title>
-  <meta name="description" content="Free NBA pools for your group: the daily streak, weekly pick'em straight up or against the spread, last one standing and season win totals on the 2026-27 season. Results land on their own. Never money, nothing to install." />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>NBA Pools: Pick&#x27;em and the Daily Streak | Super Pools</title>
+  <meta name="description" content="Free NBA pools for your group chat: pick&#x27;em on every game, last one standing each week, a daily streak and the season&#x27;s questions. Never money." />
   <link rel="canonical" href="https://superpoolsai.com/basketball-pools" />
   <link rel="icon" href="./icon.svg" type="image/svg+xml" />
   <meta name="theme-color" content="#0b1220" />
   <meta property="og:type" content="website" />
+  <meta property="og:site_name" content="Super Pools" />
   <meta property="og:url" content="https://superpoolsai.com/basketball-pools" />
-  <meta property="og:title" content="NBA pools for your group chat · Super Pools" />
-  <meta property="og:description" content="The daily streak, pick'em straight up or against the spread, and last one standing on every NBA game. Free, never money." />
+  <meta property="og:title" content="The NBA pool that scores itself" />
+  <meta property="og:description" content="Pick&#x27;em on every NBA game, last one standing each week and a daily streak, one pick a night. Supercoins. Never money." />
   <meta property="og:image" content="https://superpoolsai.com/og.png" />
+  <meta property="og:image:width" content="1200" />
+  <meta property="og:image:height" content="630" />
+  <meta property="og:image:alt" content="Super Pools: Fantasy Pools from the Future. Fun fantasy pools with friends, for all. AI-enhanced. Fun for all." />
   <meta name="twitter:card" content="summary_large_image" />
+  <meta name="twitter:title" content="The NBA pool that scores itself" />
+  <meta name="twitter:description" content="Pick&#x27;em on every NBA game, last one standing each week and a daily streak, one pick a night. Supercoins. Never money." />
+  <meta name="twitter:image" content="https://superpoolsai.com/og.png" />
+  <link rel="preload" href="./fonts/barlow-condensed-900.woff2" as="font" type="font/woff2" crossorigin />
+  <link rel="preload" href="./fonts/barlow-condensed-900-italic.woff2" as="font" type="font/woff2" crossorigin />
+  <link rel="preload" href="./fonts/inter.woff2" as="font" type="font/woff2" crossorigin />
   <link rel="stylesheet" href="./site.css" />
-  <style>
-    .steps { display: grid; gap: 14px; grid-template-columns: 1fr; }
-    @media (min-width: 860px) { .steps { grid-template-columns: repeat(3, 1fr); } }
-    .faq details { padding: 4px 0; }
-  </style>
-  <!-- the questions people ask, for search (the same text as the page's own FAQ below) -->
-  <script type="application/ld+json">{"@context": "https://schema.org", "@type": "FAQPage", "mainEntity": [{"@type": "Question", "name": "Is it money?", "acceptedAnswer": {"@type": "Answer", "text": "No. Supercoins are the pool's score and nothing else: never bought, never sold. It is bragging rights and a crown."}}, {"@type": "Question", "name": "Do my friends need an app?", "acceptedAnswer": {"@type": "Answer", "text": "No. The link opens the pool in the browser on any phone, and it can be added to the home screen like an app. Joining is a name, an email and a password."}}, {"@type": "Question", "name": "When does it start?", "acceptedAnswer": {"@type": "Answer", "text": "The NBA season opens October 20, and every game of the regular season is already filed in its week. Start a pool any time; it plays from the next game still to come."}}, {"@type": "Question", "name": "Which pool should we play?", "acceptedAnswer": {"@type": "Answer", "text": "For a group that watches every night, the daily streak: one pick a night, the longest run of right picks wins. For the office, weekly pick'em, straight up or against the spread, or last one standing."}}, {"@type": "Question", "name": "How do win totals work?", "acceptedAnswer": {"@type": "Answer", "text": "Every NBA team has a line, its wins for the season, starting from ESPN's preseason projection; the host can change any before anyone calls it. Call over or under on as many teams as you like before opening night. A call is a point the moment it is decided, an over once the team passes its line, an under once it cannot reach it, so the points land all season."}}, {"@type": "Question", "name": "And the playoffs?", "acceptedAnswer": {"@type": "Answer", "text": "When the playoffs come, the same pool adds the bracket, picking each series and how long it goes, and squares and a prop sheet on any game."}}]}</script>
+  <link rel="stylesheet" href="./site-sports.css" />
+  <!-- the questions people ask, for search: the same words as the FAQ on the page (written from it) -->
+  <script type="application/ld+json">{"@context":"https://schema.org","@type":"FAQPage","mainEntity":[{"@type":"Question","name":"Is there any real money in it?","acceptedAnswer":{"@type":"Answer","text":"No. Pools are played for points and a crown. Supercoins are never bought, never sold, never turned into money."}},{"@type":"Question","name":"Do my friends need an app?","acceptedAnswer":{"@type":"Answer","text":"No. They tap your link and join with just a name, in the browser on any phone. Add it to the Home Screen for alerts if you like."}},{"@type":"Question","name":"Which pool should we play?","acceptedAnswer":{"@type":"Answer","text":"For a group that watches every night, the daily streak. For the office, weekly pick'em or last one standing."}},{"@type":"Question","name":"Can we start one now?","acceptedAnswer":{"@type":"Answer","text":"Yes. A pool plays from the next game still to come, and each pick locks at its own tip-off, so nobody is late for the games left."}},{"@type":"Question","name":"What about win totals?","acceptedAnswer":{"@type":"Answer","text":"They lock at opening night, so they closed on 20 October for this season. They open again before the next one."}},{"@type":"Question","name":"When do playoff pools open?","acceptedAnswer":{"@type":"Answer","text":"In mid-April: the bracket, pick the series, prop sheets, squares by quarter and the sweepstake."}}]}</script>
 </head>
 <body>
-  <svg width="0" height="0" style="position:absolute" aria-hidden="true">
-    <symbol id="i-bolt" viewBox="0 0 24 24"><path d="M13 2L4 14h7l-1 8 9-12h-7z"/></symbol>
-    <symbol id="i-cal" viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="16" rx="3"/><path d="M3 10h18M8 3v4M16 3v4"/></symbol>
-    <symbol id="i-clock" viewBox="0 0 24 24"><circle cx="12" cy="13" r="8"/><path d="M12 9v4l3 2M9 2h6"/></symbol>
-    <symbol id="i-swap" viewBox="0 0 24 24"><path d="M4 8h13l-3-3M20 16H7l3 3"/></symbol>
-    <symbol id="i-coin" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="4"/></symbol>
-    <symbol id="i-mic" viewBox="0 0 24 24"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3M8 21h8"/></symbol>
-    <symbol id="i-chart" viewBox="0 0 24 24"><path d="M3 20h18M5 16l4-5 4 3 6-8M16 6h3v3"/></symbol>
-    <symbol id="i-phone" viewBox="0 0 24 24"><rect x="6" y="2" width="12" height="20" rx="3"/><path d="M10 18h4"/></symbol>
-    <symbol id="i-check" viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="4"/><path d="M8 12l3 3 5-6"/></symbol>
-    <symbol id="i-shield" viewBox="0 0 24 24"><path d="M12 3l8 3v6c0 5-3.5 8-8 9-4.5-1-8-4-8-9V6z"/><path d="M12 8v5M12 16v.5"/></symbol>
-    <symbol id="i-target" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="1.5"/></symbol>
-    <symbol id="i-bracket" viewBox="0 0 24 24"><path d="M3 5h5v6h5M3 19h5v-6M13 11v2h8M13 13"/></symbol>
-    <symbol id="i-series" viewBox="0 0 24 24"><circle cx="5" cy="12" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="19" cy="12" r="2"/><path d="M3 6h18M3 18h18"/></symbol>
-    <symbol id="i-rank" viewBox="0 0 24 24"><path d="M9 6h12M9 12h12M9 18h12M4 6h1M4 12h1M4 18h1"/></symbol>
-    <symbol id="i-sheet" viewBox="0 0 24 24"><rect x="5" y="3" width="14" height="18" rx="2"/><path d="M9 8h6M9 12h6M9 16h4"/></symbol>
-    <symbol id="i-grid" viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M9 3v18M15 3v18M3 9h18M3 15h18"/></symbol>
-    <symbol id="i-box" viewBox="0 0 24 24"><rect x="3" y="3" width="8" height="8" rx="2"/><rect x="13" y="3" width="8" height="8" rx="2"/><rect x="3" y="13" width="8" height="8" rx="2"/><rect x="13" y="13" width="8" height="8" rx="2"/></symbol>
-    <symbol id="i-flame" viewBox="0 0 24 24"><path d="M12 21c4 0 7-3 7-7 0-5-4-6-5-11-2 2-3 4-3 6-1-1-2-2-2-4-2 2-4 5-4 9 0 4 3 7 7 7z"/></symbol>
-    <symbol id="i-hat" viewBox="0 0 24 24"><path d="M3 18h18M6 18l1-9h10l1 9M9 9V6h6v3"/></symbol>
-    <symbol id="i-q" viewBox="0 0 24 24"><path d="M3 17l5-5 4 3 8-9"/><path d="M15 6h5v5"/></symbol>
-    <symbol id="i-stick" viewBox="0 0 24 24"><path d="M15 3l-9 15a2 2 0 0 0 2 3h6"/><circle cx="18" cy="18" r="2.5"/></symbol>
-    <symbol id="i-trophy" viewBox="0 0 24 24"><path d="M8 4h8v5a4 4 0 0 1-8 0zM8 6H4a3 3 0 0 0 4 4M16 6h4a3 3 0 0 1-4 4M12 13v4M8 21h8M9 17h6"/></symbol>
-  </svg>
-  <main>
-    <header>
-      <a class="wordmark" href="./" aria-label="Super Pools home">
-        <svg viewBox="0 0 64 64" aria-hidden="true"><rect width="64" height="64" rx="14" fill="#111b30"/><circle cx="32" cy="32" r="17" fill="none" stroke="#f7c548" stroke-width="4"/><circle cx="32" cy="32" r="4.5" fill="#f7c548"/><g stroke="#f7c548" stroke-width="2.6" stroke-linecap="round"><line x1="25" y1="8" x2="25" y2="12.5"/><line x1="39" y1="8" x2="39" y2="12.5"/><line x1="25" y1="51.5" x2="25" y2="56"/><line x1="39" y1="51.5" x2="39" y2="56"/></g></svg>
-        <span><b>SUPER</b> POOLS</span>
-      </a>
-      <nav class="navlinks"><a href="#pools">The pools</a><a href="#how">How it works</a><a href="#faq">Questions</a><a href="./">All pools</a></nav>
-      <a class="btn btn-gold btn-sm" href="https://app.superpoolsai.com/#/new?comp=nba-2026-27">Start a pool</a>
-    </header>
+  <a class="skip" href="#main">Skip to content</a>
+  <header class="site-head">
+    <a class="wordmark" href="./" aria-label="Super Pools home">
+      <svg viewBox="0 0 64 64" aria-hidden="true"><rect width="64" height="64" rx="14" fill="#111b30"/><circle cx="32" cy="32" r="17" fill="none" stroke="#f7c548" stroke-width="4"/><circle cx="32" cy="32" r="4.5" fill="#f7c548"/><g stroke="#f7c548" stroke-width="2.6" stroke-linecap="round"><line x1="25" y1="8" x2="25" y2="12.5"/><line x1="39" y1="8" x2="39" y2="12.5"/><line x1="25" y1="51.5" x2="25" y2="56"/><line x1="39" y1="51.5" x2="39" y2="56"/></g></svg>
+      <span><b>SUPER</b> POOLS</span>
+    </a>
+    <nav class="navlinks" aria-label="Doors"><a href="./fantasy-hockey.html">Fantasy league</a><a href="./#kinds">Sports pools</a><a href="./together.html">Show pools</a><a href="./fans.html">Fan zones</a><a href="./pricing.html">Pricing</a></nav>
+    <div class="head-right">
+      <a class="signin" href="https://app.superpoolsai.com/">Sign in</a>
+      <button type="button" class="menu-btn" id="menu-btn" aria-expanded="false" aria-controls="menu" aria-label="Open the menu">
+        <svg class="bars" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16"/></svg>
+        <svg class="x" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>
+      </button>
+    </div>
+    <nav class="menu" id="menu" aria-label="Menu">
+      <a href="./fantasy-hockey.html"><span class="mi"><svg class="ico" aria-hidden="true" focusable="false"><use href="./icons.svg#i-trophy"/></svg></span><span><b>Fantasy league</b><small>Keepers, the draft room, a league voice</small></span></a>
+      <a href="./#kinds"><span class="mi"><svg class="ico" aria-hidden="true" focusable="false"><use href="./icons.svg#i-target"/></svg></span><span><b>Sports pools</b><small>The NFL, NHL, NBA and soccer</small></span></a>
+      <a href="./together.html"><span class="mi r"><svg class="ico" aria-hidden="true" focusable="false"><use href="./icons.svg#i-tv"/></svg></span><span><b>Show pools</b><small>Call what happens next, with your group</small></span></a>
+      <a href="./fans.html"><span class="mi"><svg class="ico" aria-hidden="true" focusable="false"><use href="./icons.svg#i-chart"/></svg></span><span><b>Fan zones</b><small>Every club, read like a front office</small></span></a>
+      <a href="./pricing.html"><span class="mi n"><svg class="ico" aria-hidden="true" focusable="false"><use href="./icons.svg#i-coin"/></svg></span><span><b>Pricing</b><small>Per pool, never per person</small></span></a>
+      <a href="https://app.superpoolsai.com/"><span class="mi n"><svg class="ico" aria-hidden="true" focusable="false"><use href="./icons.svg#i-users"/></svg></span><span><b>Sign in</b><small>Back to your pools</small></span></a>
+    </nav>
+  </header>
+  <main id="main">
 
-    <div class="hero">
-      <div>
-        <div class="eyebrow" data-until="2026-10-20T23:00:00Z">NBA 2026-27 · opening night October 20</div><div class="eyebrow" data-from="2026-10-20T23:00:00Z">NBA 2026-27 · every game, every night</div>
-        <h1 class="display">The basketball pool <span class="l2"><em class="grad-gold">that runs itself.</em></span></h1>
-        <p class="lead">Start an NBA pool for your group chat in a minute: a pick a night in the daily streak, weekly pick'em straight up or against the spread, or last one standing. Every result lands on its own, the table moves, and the chat sits right beside the picks. Free, never money, nothing to install.</p>
-        <div class="cta">
-          <a class="btn btn-gold" href="https://app.superpoolsai.com/#/new?comp=nba-2026-27">Start an NBA pool</a>
-          <a class="btn btn-ghost" href="#pools">See the pools</a>
+    <!-- 1. Hero: the claim, the one gold button, and this sport's events open right now (real, from the app) -->
+    <section class="hero2 hero2-split" id="top">
+      <div class="hero2-copy">
+        <h1 class="display">The NBA pool <span class="l2"><em>that scores itself.</em></span></h1>
+        <p class="sub">Pick'em on every NBA game, last one standing each week and a daily streak, one pick a night. <b>Never money.</b></p>
+        <div class="cta2">
+          <a class="btn btn-gold btn-lg" data-gold href="https://app.superpoolsai.com/#/new?comp=nba-2026-27&amp;kind=pickem&amp;src=basketball">Start an NBA pool</a>
+          <a class="textlink" href="#demo">Watch a table move</a>
+        </div>
+        <p class="proofline" id="proof"><span class="pi" aria-hidden="true"><svg class="ico" aria-hidden="true" focusable="false"><use href="./icons.svg#i-check"/></svg></span>Settled from the scores: every pick locks at tip-off, the table moves as games end, and the pool's split shows after the lock, never before.</p>
+      </div>
+      <div class="nowpanel" id="open">
+        <div class="nowhead">
+          <h2 class="display">The next deadline</h2>
+          <span class="livetag" id="now-tag" aria-live="polite">From the app</span>
+          <p>The NBA as it stands, with tonight's first tip-off counting down.</p>
+        </div>
+        <div class="rail one" id="now" data-src="basketball" data-sport="nba">
+          <div class="ev ghost"></div>
         </div>
       </div>
-      <div class="phones" aria-hidden="true">
-        <div class="phone glow-gold"><img src="./img/pool-nba.webp" alt="" width="600" height="1200" loading="eager" /></div>
-        <div class="phone glow-gold"><img src="./img/pool-nfl.webp" alt="" width="600" height="1200" loading="lazy" /></div>
-      </div>
-    </div>
-
-    <section id="pools">
-      <div class="rv">
-        <div class="eyebrow">The pools</div>
-        <h2 class="display">Pick the one your group <em class="gold">will actually play.</em></h2>
-        <p class="lead">Every one runs on all 1,200 games of the NBA regular season, each filed in its week, with results that land the moment a game is final. <span data-until="2026-10-20T23:00:00Z">Start today and play from opening night.</span><span data-from="2026-10-20T23:00:00Z">Start today and play from the next game.</span></p>
-      </div>
-      <div class="kindgrid rv">
-        <a class="kind" href="https://app.superpoolsai.com/#/new?comp=nba-2026-27"><svg class="ico"><use href="#i-flame"/></svg><b>The daily streak</b><span>One pick a night. A right pick adds to your run, a wrong one starts it again; the longest run wins.</span></a>
-        <a class="kind" href="https://app.superpoolsai.com/#/new?comp=nba-2026-27"><svg class="ico"><use href="#i-check"/></svg><b>Weekly pick'em</b><span>Every game of the week, straight up or confidence-ranked. One tap picks the favourites; a tiebreaker on the week's last game.</span></a>
-        <a class="kind" href="https://app.superpoolsai.com/#/new?comp=nba-2026-27&amp;ats=1"><svg class="ico"><use href="#i-target"/></svg><b>Against the spread</b><span>Pick who covers the line. Each pick keeps the line it was made at; landing on the number is a push.</span></a>
-        <a class="kind" data-until="2026-10-20T19:00:00Z" href="https://app.superpoolsai.com/#/new?comp=nba-2026-27&amp;kind=wins"><svg class="ico"><use href="#i-chart"/></svg><b>Win totals</b><span>Over or under on every team's wins, called once before opening night. Lines from ESPN's projection; the points land all season.</span></a>
-        <a class="kind" href="https://app.superpoolsai.com/#/new?comp=nba-2026-27"><svg class="ico"><use href="#i-shield"/></svg><b>Last one standing</b><span>One team to win each week, never the same one twice. A loss and you're out, or give everyone two or three lives.</span></a>
-        <a class="kind" href="https://app.superpoolsai.com/#/new?type=questions"><svg class="ico"><use href="#i-q"/></svg><b>Questions with live prices</b><span>Who wins the title, who takes MVP: ask anything and the price moves as friends call it.</span></a>
-        <a class="kind" href="#faq"><svg class="ico"><use href="#i-bracket"/></svg><b>The playoffs, in spring</b><span>The same pool adds the bracket, each series and how long it goes, squares and a prop sheet on any game.</span></a>
-        <a class="kind" href="./football-pools"><svg class="ico"><use href="#i-trophy"/></svg><b>Football and hockey too</b><span>The same pools on every NFL and NHL game, in the same app and account.</span></a>
-      </div>
     </section>
 
+    <!-- 2. The pools open on this sport today, each link keeping its kind; the ones still to come say when -->
+    <section id="kinds">
+      <div class="shead rv">
+        <div class="eyebrow">The pools</div>
+        <h2 class="display">Five ways to play the NBA.</h2>
+        <p class="lead">Tap one and the start page opens on it, from the next game still to come.</p>
+      </div>
+      <ul class="kindlist">
+        <li><a class="kl" href="https://app.superpoolsai.com/#/new?comp=nba-2026-27&amp;kind=pickem&amp;src=basketball"><span class="ki"><svg class="ico" aria-hidden="true" focusable="false"><use href="./icons.svg#i-check"/></svg></span><b>Pick'em</b><span class="ln">Every game of the week, straight up or confidence-ranked.</span><span class="go"><small>NBA</small>Start</span></a></li>
+        <li><a class="kl" href="https://app.superpoolsai.com/#/new?comp=nba-2026-27&amp;kind=pickem&amp;ats=1&amp;src=basketball"><span class="ki"><svg class="ico" aria-hidden="true" focusable="false"><use href="./icons.svg#i-target"/></svg></span><b>Against the spread</b><span class="ln">Pick who covers. Each pick keeps the line it was made at; pick on game day, once the line is out.</span><span class="go"><small>NBA</small>Start</span></a></li>
+        <li><a class="kl" href="https://app.superpoolsai.com/#/new?comp=nba-2026-27&amp;kind=survivor&amp;src=basketball"><span class="ki"><svg class="ico" aria-hidden="true" focusable="false"><use href="./icons.svg#i-shield"/></svg></span><b>Last one standing</b><span class="ln">One team a week, never the same one twice. Up to three lives.</span><span class="go"><small>NBA</small>Start</span></a></li>
+        <li><a class="kl" href="https://app.superpoolsai.com/#/new?comp=nba-2026-27&amp;kind=streak&amp;src=basketball"><span class="ki"><svg class="ico" aria-hidden="true" focusable="false"><use href="./icons.svg#i-flame"/></svg></span><b>Daily streak</b><span class="ln">One pick a night. The longest run of right picks wins.</span><span class="go"><small>NBA</small>Start</span></a></li>
+        <li><a class="kl" href="https://app.superpoolsai.com/#/new?pack=nba-2026-27&amp;src=basketball"><span class="ki"><svg class="ico" aria-hidden="true" focusable="false"><use href="./icons.svg#i-q"/></svg></span><b>The season's questions</b><span class="ln">The title, the NBA Cup, MVP and Rookie of the Year, with the group's chance on every answer. Opens beside pick'em; untick it for questions alone.</span><span class="go"><small>NBA</small>Start</span></a></li>
+      </ul>
+      <div class="label klabel">On the calendar</div>
+      <ul class="kindlist">
+        <li data-until="2027-04-15T04:00:00Z"><div class="kl"><span class="ki"><svg class="ico" aria-hidden="true" focusable="false"><use href="./icons.svg#i-bracket"/></svg></span><b>Playoff pools</b><span class="ln">The bracket, pick the series, prop sheets, squares by quarter and the sweepstake.</span><span class="when2">Opens mid-April</span></div></li>
+        <li data-from="2027-04-15T04:00:00Z" data-until="2027-06-01T04:00:00Z"><a class="kl" href="https://app.superpoolsai.com/#/new?src=basketball"><span class="ki"><svg class="ico" aria-hidden="true" focusable="false"><use href="./icons.svg#i-bracket"/></svg></span><b>Playoff pools</b><span class="ln">The bracket, pick the series, prop sheets, squares by quarter and the sweepstake.</span><span class="go"><small>Playoffs</small>Start</span></a></li>
+        <li><div class="kl"><span class="ki"><svg class="ico" aria-hidden="true" focusable="false"><use href="./icons.svg#i-chart"/></svg></span><b>Win totals</b><span class="ln">Over or under on every club's season wins. They lock at opening night.</span><span class="when2">Opens before next season</span></div></li>
+      </ul>
+      <p class="fine">Lines are for picking, and points are all they score.</p>
+    </section>
+
+    <!-- 3. Three steps from the group chat to a table -->
     <section id="how">
-      <div class="rv">
+      <div class="shead rv">
         <div class="eyebrow">How it works</div>
-        <h2 class="display">From the group chat <em class="gold">to a scoreboard.</em></h2>
+        <h2 class="display">Three steps to tip-off.</h2>
       </div>
       <div class="steps">
-        <div class="card rv"><div class="num">01</div><h3>Start it, send one link</h3><p>Pick the pool, name it, pick its colour, and drop the link in the chat. Friends join with a name, an email and a password, on any phone, with nothing to install.</p></div>
-        <div class="card rv"><div class="num">02</div><h3>Pick before tip-off</h3><p>Each pick locks at its own game's tip-off. The pool's voice says what locks tonight and who still has to pick, and every game has a thread for the chirps.</p></div>
-        <div class="card rv"><div class="num">03</div><h3>It settles itself</h3><p>Results come in the moment a game is final, overtime included. The table moves, the climbs ring the phones, and someone wears the crown.</p></div>
+        <div class="card rv"><div class="num">01</div><h3>Start it, send one link</h3><p>Pick the pool, name it and drop the link in the group chat. Friends join with just a name, in the browser.</p></div>
+        <div class="card rv"><div class="num">02</div><h3>Pick before tip-off</h3><p>Each pick locks at its own tip-off, so a late joiner still plays every game left. A reminder goes out before each week's games.</p></div>
+        <div class="card rv"><div class="num">03</div><h3>It settles itself</h3><p>Results land as each game goes final, overtime included. The table moves, and a climb rings the phone.</p></div>
       </div>
     </section>
 
-    <section id="faq" class="faq">
-      <div class="rv">
-        <div class="eyebrow">Questions people ask</div>
-        <h2 class="display">Before you <em class="gold">start one.</em></h2>
+    <!-- 4. One sample pool, drawn in HTML (fictional, captioned so) -->
+    <section id="demo">
+      <div class="pillar3">
+        <div class="rv">
+          <div class="eyebrow">Sample pool</div>
+          <h2 class="display">The table moves as games end.</h2>
+          <p class="lead">Two games go final and the entries change places, each with the most it can still reach and who can no longer catch first.</p>
+        </div>
+        <figure class="scr lt rv" aria-label="A sample pick'em table as two games go final">
+          <span class="sample-cap">Sample pool</span>
+          <div class="scr-head"><b>Week 3 table</b><span class="live">Live</span></div>
+          <div class="sub2"><span>The Group Chat · pick'em</span><span>9 entries</span></div>
+          <div class="lt-cols"><span>#</span><span>Entry</span><span>Right</span><span>Max</span></div>
+          <div class="lt-body">
+            <ol class="lt-rk" aria-hidden="true"><li>1</li><li>2</li><li>3</li><li>4</li><li>5</li></ol>
+            <ol class="lt-rows">
+              <li class="lt-row"><span class="nm">Downtown</span><span class="v"><i>21</i></span><span class="mx"><i>27</i></span></li>
+              <li class="lt-row dn"><span class="nm">Fadeaway Club</span><span class="v"><i>19</i></span><span class="mx"><i class="a0">25</i><i class="a1">23</i></span></li>
+              <li class="lt-row up me"><span class="nm">Your entry</span><span class="v"><i class="a0">18</i><i class="a1">20</i></span><span class="mx"><i>26</i></span></li>
+              <li class="lt-row"><span class="nm">Hack-a-Pal</span><span class="v"><i>16</i></span><span class="mx"><i>22</i></span></li>
+              <li class="lt-row"><span class="nm">The Bench<small class="out">Can't catch first</small></span><span class="v"><i>12</i></span><span class="mx"><i>18</i></span></li>
+            </ol>
+          </div>
+          <div class="lt-ev" aria-live="off"><span class="a0">BOS @ NYK and DEN @ PHX, both in the 4th</span><span class="a1"><b>Both final.</b> You had both; Fadeaway Club had neither.</span></div>
+          <figcaption>Sample pool · names made up</figcaption>
+        </figure>
       </div>
-      <details><summary>Is it money?</summary><p>No. Supercoins are the pool's score and nothing else: never bought, never sold. It is bragging rights and a crown.</p></details>
-      <details><summary>Do my friends need an app?</summary><p>No. The link opens the pool in the browser on any phone, and it can be added to the home screen like an app. Joining is a name, an email and a password.</p></details>
-      <details><summary>When does it start?</summary><p>The NBA season opens October 20, and every game of the regular season is already filed in its week. Start a pool any time; it plays from the next game still to come.</p></details>
-      <details><summary>How do win totals work?</summary><p>Every NBA team has a line, its wins for the season, starting from ESPN's preseason projection; the host can change any before anyone calls it. Call over or under on as many teams as you like before opening night. A call is a point the moment it is decided, an over once the team passes its line, an under once it cannot reach it, so the points land all season.</p></details>
-      <details><summary>Which pool should we play?</summary><p>For a group that watches every night, the daily streak: one pick a night, the longest run of right picks wins. For the office, weekly pick'em, straight up or against the spread, or last one standing.</p></details>
-      <details><summary>And the playoffs?</summary><p>When the playoffs come, the same pool adds the bracket, picking each series and how long it goes, and squares and a prop sheet on any game.</p></details>
     </section>
 
-    <section id="join">
-      <div class="join rv">
-        <div class="eyebrow">Open now</div>
-        <h2 class="display" data-until="2026-10-20T23:00:00Z">Opening night <em class="gold">is waiting.</em></h2><h2 class="display" data-from="2026-10-20T23:00:00Z">Tonight's games <em class="gold">are waiting.</em></h2>
-        <p class="lead" style="margin:0">Name the pool, send the link, and everyone's picking before the first tip-off. It takes a minute and it's free.</p>
-        <div class="cta" style="margin:18px 0 6px"><a class="btn btn-gold" href="https://app.superpoolsai.com/#/new?comp=nba-2026-27">Start an NBA pool</a></div>
+    <!-- 5. Proof: the founding league, and what these pools do every game (docs/BRAND.md section 3; research gap-3 section 5) -->
+    <section id="league">
+      <div class="shead rv">
+        <div class="eyebrow">Why it holds up</div>
+        <h2 class="display">Built by a league.</h2>
       </div>
-      <p class="mute" style="font-size:12px;margin:12px 4px 0">Super Pools is not affiliated with the NBA or any team. Screens show a sample pool. Lines are for picking, never for wagering.</p>
+      <div class="proof2 rv">
+        <div>
+          <div class="crest-head"><img src="./img/sak-icon.svg" alt="The SaK Superleague crest" width="64" height="64" loading="lazy" data-gold /><div><b>SaK Superleague</b><small>Keeper league · est. 2013 · eight teams</small></div></div>
+          <p class="founded">The founding league has run on Super Pools every night of the 2026-27 season, from the keeper deadline on.</p>
+        </div>
+        <ul class="prooflist">
+          <li><span class="pi" aria-hidden="true"><svg class="ico" aria-hidden="true" focusable="false"><use href="./icons.svg#i-target"/></svg></span><span><b>Scored from public score feeds.</b> Every pick locks at its own tip-off and settles as the game goes final.</span></li>
+          <li><span class="pi" aria-hidden="true"><svg class="ico" aria-hidden="true" focusable="false"><use href="./icons.svg#i-users"/></svg></span><span><b>The pool's split shows after each lock, never before,</b> so nobody copies the room.</span></li>
+          <li><span class="pi" aria-hidden="true"><svg class="ico" aria-hidden="true" focusable="false"><use href="./icons.svg#i-shield"/></svg></span><span><b>A result the feed gets wrong,</b> your host can set for the pool alone, with the reason on the record.</span></li>
+        </ul>
+      </div>
     </section>
 
-    <footer>
-      <span>© 2026 Super Pools · superpoolsai.com · not affiliated with the NBA or any league</span>
-      <nav><a href="./">Fantasy leagues and sports pools</a><a href="./together">Pools for every show</a><a href="https://app.superpoolsai.com/#/privacy">Privacy</a><a href="https://app.superpoolsai.com/#/terms">Terms</a><a href="#" data-cookie-settings>Cookie settings</a><a href="mailto:hello@superpoolsai.com">hello@superpoolsai.com</a></nav>
-    </footer>
+    <!-- 6. Before you ask (the FAQPage JSON-LD above is written from these words) -->
+    <section class="faq" id="faq">
+      <div class="shead">
+        <div class="eyebrow">Questions</div>
+        <h2 class="display">Before you ask.</h2>
+      </div>
+      <details><summary>Is there any real money in it?</summary><p>No. Pools are played for points and a crown. Supercoins are never bought, never sold, never turned into money.</p></details>
+      <details><summary>Do my friends need an app?</summary><p>No. They tap your link and join with just a name, in the browser on any phone. Add it to the Home Screen for alerts if you like.</p></details>
+      <details><summary>Which pool should we play?</summary><p>For a group that watches every night, the daily streak. For the office, weekly pick'em or last one standing.</p></details>
+      <details><summary>Can we start one now?</summary><p>Yes. A pool plays from the next game still to come, and each pick locks at its own tip-off, so nobody is late for the games left.</p></details>
+      <details><summary>What about win totals?</summary><p>They lock at opening night, so they closed on 20 October for this season. They open again before the next one.</p></details>
+      <details><summary>When do playoff pools open?</summary><p>In mid-April: the bracket, pick the series, prop sheets, squares by quarter and the sweepstake.</p></details>
+    </section>
+
+    <!-- 7. The gold button once more, and one quiet way in for the other reader -->
+    <section id="start">
+      <div class="closer rv">
+        <h2 class="display">Start yours before tip-off.</h2>
+        <p>A minute to set up, one link for the group chat, and friends join with just a name.</p>
+        <div class="cta2">
+          <a class="btn btn-gold btn-lg" data-gold href="https://app.superpoolsai.com/#/new?comp=nba-2026-27&amp;kind=pickem&amp;src=basketball">Start an NBA pool</a>
+          <a class="textlink" href="./#kinds">Every kind of pool</a>
+        </div>
+      </div>
+    </section>
+
   </main>
+
+  <footer class="site-foot">
+    <div class="cols">
+      <div><h2>Play</h2><ul><li><a href="./fantasy-hockey.html">Fantasy league</a></li><li><a href="./hockey-pools.html">Hockey pools</a></li><li><a href="./football-pools.html">NFL pools</a></li><li><a href="./basketball-pools.html">NBA pools</a></li><li><a href="./soccer-pools.html">Soccer pools</a></li><li><a href="./together.html">Show pools</a></li></ul></div>
+      <div><h2>Look around</h2><ul><li><a href="./fans.html">Fan zones</a></li><li><a href="./example-pool.html">An example pool</a></li><li><a href="./pricing.html">Pricing</a></li><li><a href="./changelog.html">Changelog</a></li></ul></div>
+      <div><h2>Your pools</h2><ul><li><a href="https://app.superpoolsai.com/">Sign in</a></li><li><a href="mailto:hello@superpoolsai.com">hello@superpoolsai.com</a></li></ul></div>
+      <div><h2>The fine print</h2><ul><li><a href="https://app.superpoolsai.com/#/privacy">Privacy</a></li><li><a href="https://app.superpoolsai.com/#/terms">Terms</a></li><li><button type="button" class="linkbtn" data-cookie-settings>Cookie settings</button></li></ul></div>
+    </div>
+    <div class="base"><span>© 2026 Super Pools · superpoolsai.com · Supercoins, never money</span><span>Scores from public score feeds. Not affiliated with the NBA or any team.</span></div>
+  </footer>
+
+  <div class="stickybar" id="sticky"><a class="btn btn-gold" href="https://app.superpoolsai.com/#/new?comp=nba-2026-27&amp;kind=pickem&amp;src=basketball">Start an NBA pool</a></div>
   <script src="./site.js"></script>
 </body>
 </html>

@@ -13,8 +13,11 @@ const together = readFileSync(join(root, 'landing/together.html'), 'utf8');
   const appLinks = [...html.matchAll(/href="(https:\/\/app\.superpoolsai\.com[^"]*)"/g)].map((m) => m[1]);
   const startLinks = appLinks.filter((h) => h.includes('#/new'));
   assert.ok(startLinks.length >= 3, 'LIB page has app start links');
+  // the pack's links run until the reunion airs; from then the page's doors are a plain questions pool
+  // (love-is-blind.html, data-from 9 November 2026), so a start link is the pack or a questions pool, never a bare pack
+  assert.ok(startLinks.some((h) => /#\/new\?pack=love-is-blind-s11/.test(h)), 'the pack link while it runs');
   for (const href of startLinks) {
-    assert.match(href, /#\/new\?pack=love-is-blind-s11/, `pack slug on ${href}`);
+    assert.match(href, /#\/new\?(pack=love-is-blind-s11|type=questions)/, `pack slug or questions pool on ${href}`);
     assert.doesNotMatch(href, /pack=love-is-blind(?!-s11)/, 'no bare love-is-blind pack');
   }
   assert.ok(appLinks.some((h) => h.includes('#/privacy')), 'Privacy footer points at the app');

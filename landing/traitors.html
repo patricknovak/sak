@@ -2,135 +2,235 @@
 <html lang="en">
 <head>
   <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
   <title>The Traitors pool for your group chat | Super Pools</title>
-  <meta name="description" content="Call every round table with your friends: who gets banished, who reaches the final. Free, played in play coins, never real money. No app." />
+  <meta name="description" content="A Traitors pool for your group chat: a call on every round table and the finale, settled by your host. Supercoins, never money." />
   <link rel="canonical" href="https://superpoolsai.com/traitors" />
   <link rel="icon" href="./icon.svg" type="image/svg+xml" />
   <meta name="theme-color" content="#0b1220" />
   <meta property="og:type" content="website" />
+  <meta property="og:site_name" content="Super Pools" />
   <meta property="og:url" content="https://superpoolsai.com/traitors" />
-  <meta property="og:title" content="The Traitors pool for your group chat | Super Pools" />
-  <meta property="og:description" content="Call every round table with your friends: who gets banished, who reaches the final. Free, played in play coins, never real money. No app." />
+  <meta property="og:title" content="Who's a Traitor? Call it first." />
+  <meta property="og:description" content="A call on every round table and the finale, with your friends. Your host settles it. Never money." />
   <meta property="og:image" content="https://superpoolsai.com/og-together.png" />
+  <meta property="og:image:width" content="1200" />
+  <meta property="og:image:height" content="630" />
+  <meta property="og:image:alt" content="Super Pools: your group chat has opinions. Fun fantasy pools with friends, for all. AI-enhanced. Fun for all." />
   <meta name="twitter:card" content="summary_large_image" />
-  <meta name="twitter:title" content="The Traitors pool for your group chat | Super Pools" />
-  <meta name="twitter:description" content="Call every round table with your friends: who gets banished, who reaches the final. Free, played in play coins, never real money. No app." />
+  <meta name="twitter:title" content="Who's a Traitor? Call it first." />
+  <meta name="twitter:description" content="A call on every round table and the finale, with your friends. Your host settles it. Never money." />
   <meta name="twitter:image" content="https://superpoolsai.com/og-together.png" />
+  <link rel="preload" href="./fonts/barlow-condensed-900.woff2" as="font" type="font/woff2" crossorigin />
+  <link rel="preload" href="./fonts/barlow-condensed-900-italic.woff2" as="font" type="font/woff2" crossorigin />
+  <link rel="preload" href="./fonts/inter.woff2" as="font" type="font/woff2" crossorigin />
   <link rel="stylesheet" href="./site.css" />
-  <style>
-    .steps { display: grid; gap: 14px; grid-template-columns: 1fr; }
-    @media (min-width: 860px) { .steps { grid-template-columns: repeat(3, 1fr); } }
-    .steps .num { background: linear-gradient(180deg, #e9d5ff, #c084fc); -webkit-background-clip: text; background-clip: text; color: transparent; }
-    .qgrid { display: grid; gap: 14px; grid-template-columns: 1fr; }
-    @media (min-width: 860px) { .qgrid { grid-template-columns: repeat(2, 1fr); } }
-    .qs { list-style: none; margin: 0; padding: 0; display: grid; gap: 10px; }
-    .qs li { display: grid; gap: 3px; padding: 10px 12px; border-radius: 12px; background: rgba(255,255,255,.04); border: 1px solid var(--line); }
-    .qs b { color: #fff; font-size: 15px; line-height: 1.3; }
-    .qs span { color: #d8b4fe; font-size: 12px; letter-spacing: .04em; }
-    .when { font-size: 12px; letter-spacing: .14em; text-transform: uppercase; color: #d8b4fe; font-weight: 700; }
-    .faq details { padding: 4px 0; }
-  </style>
-  <!-- review after 2026-11-20 -->
-  <script type="application/ld+json">{"@context":"https://schema.org","@type":"FAQPage","mainEntity":[{"@type":"Question","name":"Is it money?","acceptedAnswer":{"@type":"Answer","text":"No. Gold is the pool's score and nothing else: never bought, never sold. It is bragging rights and a trophy."}},{"@type":"Question","name":"Do my friends need an app?","acceptedAnswer":{"@type":"Answer","text":"No. The link opens the pool in the browser on any phone, and it can be added to the home screen like an app."}},{"@type":"Question","name":"We're already a few episodes in. Is it too late?","acceptedAnswer":{"@type":"Answer","text":"No. A pool started now gets the episode nights still to come and the finale."}},{"@type":"Question","name":"Spoilers?","acceptedAnswer":{"@type":"Answer","text":"The chat is inside your pool and nobody outside it sees a word. Questions are about what the show airs."}}]}</script>
+  <link rel="stylesheet" href="./site-shows.css" />
+  <!-- the questions people ask, for search: the same words as the FAQ at the foot of the page -->
+  <script type="application/ld+json">{"@context":"https://schema.org","@type":"FAQPage","mainEntity":[{"@type":"Question","name":"Is it money?","acceptedAnswer":{"@type":"Answer","text":"No. Supercoins are never bought, sold or turned into money, and there are no prizes of value. The pool remembers who called it, and that is the prize."}},{"@type":"Question","name":"We're already a few episodes in. Is it too late?","acceptedAnswer":{"@type":"Answer","text":"No. A pool started now gets every question still to close, and everyone starts level, with the drops already gone by."}},{"@type":"Question","name":"Will somebody spoil it?","acceptedAnswer":{"@type":"Answer","text":"Each question closes as the episode goes on air, and your host settles it once it has aired. Strangers are never in your pool, and the chat stays inside it."}},{"@type":"Question","name":"Do my friends need an app?","acceptedAnswer":{"@type":"Answer","text":"No. They tap the link, type a name and they are in on that phone. An email later keeps the seat on another."}},{"@type":"Question","name":"Who decides the answer?","acceptedAnswer":{"@type":"Answer","text":"Your host, by the rule written on the question. Everyone sees the note, and a question with a mistake in it is voided and every Supercoin goes back."}},{"@type":"Question","name":"What happens after the finale?","acceptedAnswer":{"@type":"Answer","text":"Keep the pool and its people, and ask the next show's questions from the Host page. Two new seasons are expected in the new year."}}]}</script>
 </head>
-<body>
-  <main>
-    <header>
-      <a class="wordmark" href="./" aria-label="Super Pools home">
-        <svg viewBox="0 0 64 64" aria-hidden="true"><rect width="64" height="64" rx="14" fill="#111b30"/><circle cx="32" cy="32" r="17" fill="none" stroke="#f7c548" stroke-width="4"/><circle cx="32" cy="32" r="4.5" fill="#f7c548"/><g stroke="#f7c548" stroke-width="2.6" stroke-linecap="round"><line x1="25" y1="8" x2="25" y2="12.5"/><line x1="39" y1="8" x2="39" y2="12.5"/><line x1="25" y1="51.5" x2="25" y2="56"/><line x1="39" y1="51.5" x2="39" y2="56"/></g></svg>
-        <span><b>SUPER</b> POOLS</span>
-      </a>
-      <nav class="navlinks"><a href="#questions">The questions</a><a href="#how">How it works</a><a href="./together">Every show</a><a href="./">Fantasy leagues</a></nav>
-      <a class="btn btn-gold btn-sm" href="https://app.superpoolsai.com/#/new?pack=traitors-new-blood&src=traitors">Start your Traitors pool</a>
-    </header>
-
-    <div class="hero">
-      <div>
-        <div class="eyebrow g">The Traitors: New Blood · a pool for every episode night</div>
-        <h1 class="display">Who's a Traitor? <span class="l2"><em class="gold">Call it with your friends.</em></span></h1>
-        <p class="lead">A Traitors pool for your group chat: a call on every round table, then the finale. New questions and fresh coins every episode night, the chat right beside the calls, and a trophy for whoever reads the game best. Free, never money, nothing to install.</p>
-        <div class="cta">
-          <a class="btn btn-gold" href="https://app.superpoolsai.com/#/new?pack=traitors-new-blood&src=traitors">Start your Traitors pool</a>
-          <a class="btn btn-ghost" href="#questions">See every question</a>
-        </div>
-        <div class="drops" style="margin-top:18px">
-          <div><b>Oct 22</b><span>Episode 7</span></div>
-          <div><b>Oct 29</b><span>Episode 8</span></div>
-          <div><b>Nov 5</b><span>Episode 9</span></div>
-          <div><b>Nov 12</b><span>Episode 10</span></div>
-          <div><b>Nov 19</b><span>The finale</span></div>
-        </div>
-      </div>
-      <div class="phones" aria-hidden="true">
-        <div class="phone glow-gold"><img src="./img/pool-question.webp" alt="" width="600" height="1200" loading="eager" /></div>
-        <div class="phone glow-gold"><img src="./img/pool-leaders.webp" alt="" width="600" height="1200" loading="lazy" /></div>
-      </div>
+<!-- The pack is traitors-new-blood (migration 249): episode questions close as each episode goes on air (Fridays
+     01:00Z), the five finale questions on 20 November 01:00Z. From 13 November _redirects is to send /traitors to
+     /together (brief Addendum 4); until then every dated line here follows the calendar by itself. -->
+<body class="rosy">
+  <a class="skip" href="#main">Skip to content</a>
+  <header class="site-head">
+    <a class="wordmark" href="./" aria-label="Super Pools home">
+      <svg viewBox="0 0 64 64" aria-hidden="true"><rect width="64" height="64" rx="14" fill="#111b30"/><circle cx="32" cy="32" r="17" fill="none" stroke="#f7c548" stroke-width="4"/><circle cx="32" cy="32" r="4.5" fill="#f7c548"/><g stroke="#f7c548" stroke-width="2.6" stroke-linecap="round"><line x1="25" y1="8" x2="25" y2="12.5"/><line x1="39" y1="8" x2="39" y2="12.5"/><line x1="25" y1="51.5" x2="25" y2="56"/><line x1="39" y1="51.5" x2="39" y2="56"/></g></svg>
+      <span><b>SUPER</b> POOLS</span>
+    </a>
+    <nav class="navlinks" aria-label="Doors"><a href="./fantasy-hockey.html">Fantasy league</a><a href="./#kinds">Sports pools</a><a href="./together.html" aria-current="page">Show pools</a><a href="./fans.html">Fan zones</a><a href="./pricing.html">Pricing</a></nav>
+    <div class="head-right">
+      <a class="signin" href="https://app.superpoolsai.com/#/?src=traitors">Sign in</a>
+      <button type="button" class="menu-btn" id="menu-btn" aria-expanded="false" aria-controls="menu" aria-label="Open the menu">
+        <svg class="bars" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16"/></svg>
+        <svg class="x" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>
+      </button>
     </div>
+    <nav class="menu" id="menu" aria-label="Menu">
+      <a href="./fantasy-hockey.html"><span class="mi"><svg class="ico" aria-hidden="true" focusable="false"><use href="./icons.svg#i-trophy"/></svg></span><span><b>Fantasy league</b><small>Keepers, the draft room, a league voice</small></span></a>
+      <a href="./#kinds"><span class="mi"><svg class="ico" aria-hidden="true" focusable="false"><use href="./icons.svg#i-target"/></svg></span><span><b>Sports pools</b><small>The NFL, NHL, NBA and soccer</small></span></a>
+      <a href="./together.html"><span class="mi r"><svg class="ico" aria-hidden="true" focusable="false"><use href="./icons.svg#i-tv"/></svg></span><span><b>Show pools</b><small>Call what happens next, with your group</small></span></a>
+      <a href="./fans.html"><span class="mi"><svg class="ico" aria-hidden="true" focusable="false"><use href="./icons.svg#i-chart"/></svg></span><span><b>Fan zones</b><small>Every club, read like a front office</small></span></a>
+      <a href="./pricing.html"><span class="mi n"><svg class="ico" aria-hidden="true" focusable="false"><use href="./icons.svg#i-coin"/></svg></span><span><b>Pricing</b><small>Per pool, never per person</small></span></a>
+      <a href="https://app.superpoolsai.com/#/?src=traitors"><span class="mi n"><svg class="ico" aria-hidden="true" focusable="false"><use href="./icons.svg#i-users"/></svg></span><span><b>Sign in</b><small>Back to your pools</small></span></a>
+    </nav>
+  </header>
+  <main id="main">
 
-    <section id="questions">
-      <div class="rv">
-        <div class="eyebrow g">The questions</div>
-        <h2 class="display">Every round table, <em class="gold">then the finale.</em></h2>
-        <p class="lead">Every question is about what the show airs. The host settles each one from the episodes by the rule written under it.</p>
+    <!-- 1. Hero: one rose button while the pack has a question left, then the questions pool -->
+    <section class="hero2 hero2-split" id="top">
+      <div class="hero2-copy">
+        <div class="eyebrow r">The Traitors: New Blood · NBC Thursdays</div>
+        <h1 class="display">Who's a Traitor? <span class="l2"><em>Call it first.</em></span></h1>
+        <p class="sub">A call on every round table and the finale, with your friends. Your host settles it. <b>Never money.</b></p>
+        <div class="cta2">
+          <a class="btn btn-rose btn-lg" data-gold data-until="2026-11-20T01:00:00Z" href="https://app.superpoolsai.com/#/new?pack=traitors-new-blood&amp;src=traitors">Start your Traitors pool</a>
+          <a class="btn btn-rose btn-lg" data-gold data-from="2026-11-20T01:00:00Z" href="https://app.superpoolsai.com/#/new?type=questions&amp;src=traitors">Start a questions pool</a>
+          <a class="textlink" href="#questions">See every question</a>
+        </div>
+        <!-- late joiners get every drop already gone by (migrations 145, 249) -->
+        <p class="cta-note" data-until="2026-11-20T01:00:00Z">Friends join with a name, and late joiners get every drop already gone by.</p>
+        <p class="deadline"><svg class="ico" aria-hidden="true" focusable="false"><use href="./icons.svg#i-clock"/></svg>
+          <span data-until="2026-11-06T01:00:00Z"><b>Episode 9</b> closes Thursday 5 November, 8&nbsp;pm&nbsp;ET</span>
+          <span data-from="2026-11-06T01:00:00Z" data-until="2026-11-13T01:00:00Z"><b>Episode 10</b> closes Thursday 12 November, 8&nbsp;pm&nbsp;ET</span>
+          <span data-from="2026-11-13T01:00:00Z" data-until="2026-11-20T01:00:00Z"><b>Five finale calls left.</b> They close Thursday 19 November, 8&nbsp;pm&nbsp;ET</span>
+          <span data-from="2026-11-20T01:00:00Z"><b>Every call has closed.</b> Two new seasons are expected in the new year</span>
+        </p>
       </div>
-      <div class="qgrid">
-        <div class="card rv"><div class="eyebrow g" style="margin-bottom:10px">Episode nights</div>
-          <ul class="qs">
-            <li><b>Episode 7: does the round table banish a Traitor?</b><span>Yes · No</span></li>
-            <li><b>Episode 8: does the round table banish a Traitor?</b><span>Yes · No</span></li>
-            <li><b>Episode 9: does the round table banish a Traitor?</b><span>Yes · No</span></li>
-            <li><b>Episode 10: does the round table banish a Traitor?</b><span>Yes · No</span></li>
-          </ul></div>
-        <div class="card rv"><div class="eyebrow g" style="margin-bottom:10px">The finale</div>
-          <ul class="qs">
-            <li><b>Does a Traitor win the game?</b><span>Yes · No</span></li>
-            <li><b>How many players share the win?</b><span>One · Two · Three or more</span></li>
-            <li><b>How many players reach the final round table?</b><span>Three or fewer · Four · Five or more</span></li>
-            <li><b>How many Traitors are still in when the finale starts?</b><span>None · One · Two · Three or more</span></li>
-            <li><b>Is a Faithful banished at the final round table?</b><span>Yes · No</span></li>
-          </ul></div>
-      </div>
+      <figure class="tpool rv" aria-label="A sample Traitors pool, as its home shows it">
+        <div class="tp-head"><div class="tp-mark" aria-hidden="true"><b>ROUND</b><b>TABLE</b></div><div class="tp-meta"><span>The Round Table</span><small>A Traitors pool · 6 players</small></div></div>
+        <div class="tp-q">
+          <div class="qc-top"><span class="label">The finale</span><span class="qc-close">Closes as it airs</span></div>
+          <p class="qc-q">Is a Faithful banished at the final round table?</p>
+          <div class="qc-opt lil" style="--w:41%"><span>Yes</span><b>41%</b></div>
+          <div class="qc-opt" style="--w:59%"><span>No</span><b>59%</b></div>
+        </div>
+        <ol class="tp-table">
+          <li><span class="rk">1</span><span class="nm">Maya</span><b>1,640<small>Supercoins</small></b><span class="nt">Called episode 8 at 24%</span></li>
+          <li><span class="rk">2</span><span class="nm">Priya</span><b>1,415<small>Supercoins</small></b><span class="nt">Four right of five</span></li>
+          <li><span class="rk">3</span><span class="nm">Jordan</span><b>1,260<small>Supercoins</small></b><span class="nt">Called No on every round table</span></li>
+        </ol>
+        <figcaption>Sample pool · names made up</figcaption>
+      </figure>
     </section>
 
+    <!-- 2. The questions still to call, from the pack (migration 249); each one leaves the page as it closes -->
+    <section id="questions">
+      <div class="shead rv">
+        <div class="eyebrow r">The questions</div>
+        <h2 class="display">Every round table, <span class="keep">then the finale.</span></h2>
+        <p class="lead">Every question is about what airs, with no player named, so it holds wherever the season stands. Your host settles each one by the rule under it.</p>
+      </div>
+      <div class="qhead" data-until="2026-11-13T01:00:00Z">Episode nights</div>
+      <ul class="qrows two" data-until="2026-11-13T01:00:00Z">
+        <li class="qrow rv" data-until="2026-11-06T01:00:00Z"><b>Episode 9: does the round table banish a Traitor?</b><div class="ans"><span>Yes</span><span>No</span></div><span class="rl">Yes if a player banished at a round table on 5 November is revealed as a Traitor. No round table counts as No.</span><span class="cl">Closes Thursday 5 November, 8&nbsp;pm&nbsp;ET</span></li>
+        <li class="qrow rv"><b>Episode 10: does the round table banish a Traitor?</b><div class="ans"><span>Yes</span><span>No</span></div><span class="rl">Yes if a player banished at a round table on 12 November is revealed as a Traitor. No round table counts as No.</span><span class="cl">Closes Thursday 12 November, 8&nbsp;pm&nbsp;ET</span></li>
+      </ul>
+      <div class="qhead"><span data-until="2026-11-20T01:00:00Z">The finale · closes Thursday 19 November, 8&nbsp;pm&nbsp;ET</span><span data-from="2026-11-20T01:00:00Z">The finale · closed</span></div>
+      <ul class="qrows two">
+        <li class="qrow rv"><b>Does a Traitor win the money?</b><div class="ans"><span>Yes</span><span>No</span></div><span class="rl">Yes if a player who is a Traitor when the game ends takes the prize, alone or shared.</span></li>
+        <li class="qrow rv"><b>How many players share the prize?</b><div class="ans"><span>One</span><span>Two</span><span>Three or more</span></div><span class="rl">The number of players the show names as winners in the finale.</span></li>
+        <li class="qrow rv"><b>How many players reach the final round table?</b><div class="ans"><span>Three or fewer</span><span>Four</span><span>Five or more</span></div><span class="rl">The players still in when the finale's last round table begins.</span></li>
+        <li class="qrow rv"><b>How many Traitors are still in when the finale starts?</b><div class="ans"><span>None</span><span>One</span><span>Two</span><span>Three or more</span></div><span class="rl">As the show reveals them by the end of the finale.</span></li>
+        <li class="qrow rv"><b>Is a Faithful banished at the final round table?</b><div class="ans"><span>Yes</span><span>No</span></div><span class="rl">Yes if the last round table banishes at least one Faithful.</span></li>
+      </ul>
+      <p class="aff">Super Pools is not affiliated with The Traitors, its producers or its networks. Questions are about what airs.</p>
+    </section>
+
+    <!-- 3. How it works, drawn as a Traitors pool (visual-audit.md change 5): the invite as worker/preview.ts writes it -->
     <section id="how">
-      <div class="rv">
-        <div class="eyebrow g">How it works</div>
-        <h2 class="display">Three taps from the group chat <em class="gold">to a scoreboard.</em></h2>
+      <div class="shead rv">
+        <div class="eyebrow r">How it works</div>
+        <h2 class="display">Three taps to a scoreboard.</h2>
       </div>
       <div class="steps">
-        <div class="card rv"><div class="num">01</div><h3>Start a pool, send one link</h3><p>Name it and drop the link in the chat. Friends join with a name, email and password, on any phone, with nothing to install.</p></div>
-        <div class="card rv"><div class="num">02</div><h3>Make your calls</h3><p>Everyone plays with Gold, the pool's play coins, with more on every episode night. Back the answer you believe before the episode airs.</p></div>
-        <div class="card rv"><div class="num">03</div><h3>Settle it, crown someone</h3><p>The host settles each question from what airs. Right calls score, and the table moves until the finale.</p></div>
+        <div class="sc rv">
+          <span class="num">01</span>
+          <h3>Start it, send one link</h3>
+          <p>Name the pool and drop the link in the chat. It unfurls asking the next question, and friends join with a name.</p>
+          <div class="frame"><div class="frame-in">
+            <div class="bubl">castle rules. who's in</div>
+            <div class="bubr"><div class="unf lilac"><div class="art"><small>Super Pools · invite</small><b>The Round Table</b><span>The Traitors · 4 in</span></div><div class="meta"><b>You're invited to The Round Table</b><i>Maya invited you. First up: “Is a Faithful banished at the final round table?” 4 players are in. Make your calls in a tap. Free, never money: just bragging rights.</i></div></div></div>
+          </div><p class="frame-cap">The invite, as it unfurls · sample names</p></div>
+        </div>
+        <div class="sc rv">
+          <span class="num">02</span>
+          <h3>Call it before it airs</h3>
+          <p>Every answer shows the group's chance. Call the one you believe; the chance moves as friends call it, until the episode goes on air.</p>
+          <div class="frame"><div class="frame-in">
+            <div class="qline">How many Traitors are still in when the finale starts? <small>6 in</small></div>
+            <div class="bar lil" style="--w:22%"><span>None</span><b>22%</b></div>
+            <div class="bar lil" style="--w:47%"><span>One</span><b>47%</b></div>
+            <div class="bar lil" style="--w:31%"><span>Two or more</span><b>31%</b></div>
+          </div><p class="frame-cap">A finale question · sample pool</p></div>
+        </div>
+        <div class="sc rv">
+          <span class="num">03</span>
+          <h3>Your host settles it</h3>
+          <p>She settles each one by its rule, with a note everyone sees. The bold call scores the most, and fresh Supercoins drop every episode day.</p>
+          <div class="frame"><div class="frame-in">
+            <div class="settle"><span class="av lil" aria-hidden="true">M</span><div class="bub lil"><small>Maya · host · settled</small>“Episode 8: does the round table banish a Traitor?” Yes, revealed at the table. Priya called it at 24% and scores 316.<div class="rx"><span>🗡️ 5</span><span>😱 3</span></div></div></div>
+            <div class="crownrow"><span>Priya climbs to 2nd</span><b>1,415</b></div>
+          </div><p class="frame-cap">The settle, in the pool's chat · sample pool</p></div>
+        </div>
       </div>
     </section>
 
-    <section id="faq" class="faq">
-      <div class="rv">
-        <div class="eyebrow g">Questions people ask</div>
-        <h2 class="display">Before you <em class="gold">start one.</em></h2>
+    <!-- 4. Call it: the price maker from site.js in pretend coins, on a market-shows.md section 12 question -->
+    <section id="call">
+      <div class="pillar3">
+        <div class="rv">
+          <div class="eyebrow r">Call it</div>
+          <h2 class="display">Tap it. <span class="keep">Watch it move.</span></h2>
+          <p class="lead">The number is the group's chance: 53% means just over half the group thinks so. Call it before the table agrees, and a right call scores more.</p>
+          <p class="proof2">Your host can add questions of her own, the way the chat would say them, each with its rule.</p>
+        </div>
+        <div class="market rv" id="market">
+          <div class="meta">TRY IT · 300 PRETEND COINS · 100 A CALL</div>
+          <h3>Does someone swear they’re “100% Faithful” and get banished the same night?</h3>
+          <div class="meta">Yes if a player says it at the round table and leaves at that table · a sample question</div>
+          <svg class="chart" viewBox="0 0 300 118" preserveAspectRatio="none" aria-hidden="true">
+            <defs><linearGradient id="mgt" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#c084fc" stop-opacity=".32"/><stop offset="1" stop-color="#c084fc" stop-opacity="0"/></linearGradient></defs>
+            <line class="mid" x1="0" y1="58" x2="300" y2="58" stroke="rgba(255,255,255,.14)" stroke-dasharray="4 5"/>
+            <path class="ar" fill="url(#mgt)"/><path class="ln" fill="none" stroke="#c084fc" stroke-width="2.5" stroke-linejoin="round"/>
+            <circle class="dt" r="5" fill="#c084fc" stroke="#0b1220" stroke-width="2"/>
+          </svg>
+          <button type="button" class="opt" data-k="y" style="--c:#c084fc"><span>Yes</span><b>50%</b><span class="go">Call it</span></button>
+          <button type="button" class="opt" data-k="n" style="--c:#cbd5e1"><span>No</span><b>50%</b><span class="go">Call it</span></button>
+          <div class="receipt" aria-live="polite">Tap an answer. Watch what 100 Supercoins does to the chance.</div>
+        </div>
       </div>
-      <details><summary>Is it money?</summary><p>No. Gold is the pool's score and nothing else: never bought, never sold. It is bragging rights and a trophy.</p></details>
-      <details><summary>Do my friends need an app?</summary><p>No. The link opens the pool in the browser on any phone, and it can be added to the home screen like an app.</p></details>
-      <details><summary>We're already a few episodes in. Is it too late?</summary><p>No. A pool started now gets the episode nights still to come and the finale.</p></details>
-      <details><summary>Spoilers?</summary><p>The chat is inside your pool and nobody outside it sees a word. Questions are about what the show airs.</p></details>
     </section>
 
-    <section id="join">
-      <div class="join rv">
-        <div class="eyebrow g">Open now</div>
-        <h2 class="display">Start yours <em class="gold">before the next episode.</em></h2>
-        <p class="lead" style="margin:0">Name the pool, send the link to the group chat, and everyone is in before the next round table. It takes a minute and it's free.</p>
-        <div class="cta" style="margin:18px 0 6px"><a class="btn btn-gold" href="https://app.superpoolsai.com/#/new?pack=traitors-new-blood&src=traitors">Start your Traitors pool</a></div>
+    <!-- 5. Before you start one: money first; the FAQPage JSON-LD in the head mirrors these words -->
+    <section class="faq" id="faq">
+      <div class="shead">
+        <div class="eyebrow r">Questions</div>
+        <h2 class="display">Before you start one.</h2>
       </div>
-      <p class="mute" style="font-size:12px;margin:12px 4px 0">Super Pools is not affiliated with The Traitors, its producers or its networks. Questions are about what airs.</p>
+      <details><summary>Is it money?</summary><p>No. Supercoins are never bought, sold or turned into money, and there are no prizes of value. The pool remembers who called it, and that is the prize.</p></details>
+      <details><summary>We're already a few episodes in. Is it too late?</summary><p>No. A pool started now gets every question still to close, and everyone starts level, with the drops already gone by.</p></details>
+      <details><summary>Will somebody spoil it?</summary><p>Each question closes as the episode goes on air, and your host settles it once it has aired. Strangers are never in your pool, and the chat stays inside it.</p></details>
+      <details><summary>Do my friends need an app?</summary><p>No. They tap the link, type a name and they are in on that phone. An email later keeps the seat on another.</p></details>
+      <details><summary>Who decides the answer?</summary><p>Your host, by the rule written on the question. Everyone sees the note, and a question with a mistake in it is voided and every Supercoin goes back.</p></details>
+      <details><summary>What happens after the finale?</summary><p>Keep the pool and its people, and ask the next show's questions from the Host page. Two new seasons are expected in the new year.</p></details>
     </section>
 
-    <footer>
-      <span>© 2026 Super Pools · superpoolsai.com · not affiliated with The Traitors or any network</span>
-      <nav><a href="./">Fantasy leagues and sports pools</a><a href="./together">Every show</a><a href="https://app.superpoolsai.com/#/privacy">Privacy</a><a href="https://app.superpoolsai.com/#/terms">Terms</a><a href="#" data-cookie-settings>Cookie settings</a><a href="mailto:hello@superpoolsai.com">hello@superpoolsai.com</a></nav>
-    </footer>
+    <!-- 6. Start yours tonight -->
+    <section id="start">
+      <div class="closer rv">
+        <h2 class="display">
+          <span data-until="2026-11-06T01:00:00Z">Episode 9 is Thursday.</span>
+          <span data-from="2026-11-06T01:00:00Z" data-until="2026-11-13T01:00:00Z">Episode 10 is Thursday.</span>
+          <span data-from="2026-11-13T01:00:00Z" data-until="2026-11-20T01:00:00Z">Five finale calls left.</span>
+          <span data-from="2026-11-20T01:00:00Z">Start the next one.</span>
+        </h2>
+        <p>A minute to set up, one link for the chat, and friends join with a name.</p>
+        <div class="cta2">
+          <a class="btn btn-rose btn-lg" data-gold data-until="2026-11-20T01:00:00Z" href="https://app.superpoolsai.com/#/new?pack=traitors-new-blood&amp;src=traitors">Start your Traitors pool</a>
+          <a class="btn btn-rose btn-lg" data-gold data-from="2026-11-20T01:00:00Z" href="https://app.superpoolsai.com/#/new?type=questions&amp;src=traitors">Start a questions pool</a>
+        </div>
+        <div class="links"><a class="textlink" href="./together.html">Every show</a><a class="textlink" href="./example-pool.html">A pool, filled in</a></div>
+      </div>
+    </section>
+
   </main>
+
+  <footer class="site-foot">
+    <div class="cols">
+      <div><h2>Play</h2><ul><li><a href="./fantasy-hockey.html">Fantasy league</a></li><li><a href="./hockey-pools.html">Hockey pools</a></li><li><a href="./football-pools.html">NFL pools</a></li><li><a href="./basketball-pools.html">NBA pools</a></li><li><a href="./soccer-pools.html">Soccer pools</a></li><li><a href="./together.html">Show pools</a></li></ul></div>
+      <div><h2>Look around</h2><ul><li><a href="./fans.html">Fan zones</a></li><li><a href="./example-pool.html">An example pool</a></li><li><a href="./pricing.html">Pricing</a></li><li><a href="./changelog.html">Changelog</a></li></ul></div>
+      <div><h2>Your pools</h2><ul><li><a href="https://app.superpoolsai.com/#/?src=traitors">Sign in</a></li><li><a href="mailto:hello@superpoolsai.com">hello@superpoolsai.com</a></li></ul></div>
+      <div><h2>The fine print</h2><ul><li><a href="https://app.superpoolsai.com/#/privacy?src=traitors">Privacy</a></li><li><a href="https://app.superpoolsai.com/#/terms?src=traitors">Terms</a></li><li><button type="button" class="linkbtn" data-cookie-settings>Cookie settings</button></li></ul></div>
+    </div>
+    <div class="base"><span>© 2026 Super Pools · superpoolsai.com · Supercoins, never money</span><span>Not affiliated with The Traitors, NBC or any league.</span></div>
+  </footer>
+
+  <div class="stickybar" id="sticky">
+    <a class="btn btn-rose" data-until="2026-11-20T01:00:00Z" href="https://app.superpoolsai.com/#/new?pack=traitors-new-blood&amp;src=traitors">Start your Traitors pool</a>
+    <a class="btn btn-rose" data-from="2026-11-20T01:00:00Z" href="https://app.superpoolsai.com/#/new?type=questions&amp;src=traitors">Start a questions pool</a>
+  </div>
   <script src="./site.js"></script>
 </body>
 </html>
