@@ -57,7 +57,7 @@ and it treats the chat, the bets and the league's history as the point, not a si
 Every page, post and pitch leans on these three, in this order.
 
 1. **It runs itself.** Points from the box scores as the games happen, every player locked at his own puck
-   drop, corrections for a month after. Lineups set up to sixty days ahead or left to the auto-pilot. Side bets,
+   drop, every finished game re-checked for three days and every Monday for the last three weeks. Lineups set up to sixty days ahead or left to the auto-pilot. Side bets,
    props, pools and the coin book settled from the box scores with no one keeping score by hand.
 2. **It talks back.** A league voice, named by the league (Garry in SaK), that posts the daily recap, power
    rankings, trade grades and keeper reports, answers questions in the chat, and talks trash on request.
@@ -146,18 +146,18 @@ no generated art, no mascots.
 
 ## 7. Where it applies today
 
-- `landing/index.html`, the home, sports first (rebuilt 4 October 2026, brought up to the product 11 October 2026): the
-  tagline over a live board that is now a live room (who's watching, a goal horn, reactions rising off a row; fictional
-  pool, drawn in HTML); "Start a pool, free" into the app as the first button; open right now (the real events, read
-  from the app's own `pool_event_list()` with the publishable key, each with a countdown to its next lock and a link
-  straight into a pool on it, `#/new?comp=` or `?pack=`; the seasons that are always on if the list can't be read);
-  game night is a room (three working demos: the night's swings, the draft clock, an invite link unfurling in a group
-  chat); the commissioner's chores as features; a sample chat; every kind of pool (the fantasy league as the feature
-  tile, eleven sports kinds and questions, on seven competitions); a question you can call with pretend coins (the real
-  market maker, in the page); the SaK Superleague's own screens (names changed); a pool for every season; shipping
-  every week (what just landed, dated, and what is being built now, from `docs/DEVELOPMENT.md` §8.4); where it's going;
-  the door to pools for any group; the Supercoin; tiers; the two ways in (start a pool now, or bring your fantasy league
-  through the waitlist); and questions. Keep "Just shipped" and "Being built now" true when a step lands.
+- `landing/index.html`, the home (rebuilt 4 November 2026 from the positioning brief, ten sections, under 1,900 words): the
+  tagline in ink with its three lines, the sub, one gold "Start a pool, free" into the app, "Watch a game night" in ice and the
+  founding league in one line, beside the events open right now (read from the app's own `pool_event_list()` with the
+  publishable key, each with a countdown to its next lock and a link straight into a pool on it; the seasons that are always
+  on if the list can't be read); four doors by audience (the fantasy league with one gold word, sports pools and fan zones in
+  ice, show pools in rose); the three things we say, each with one drawn screen (the voice's post is a real morning column of
+  the founding league, names changed and captioned so); every kind of pool, each link keeping its kind and naming when the
+  ones no event offers open; a question you can call with pretend coins (the real price maker, in the page); game night is a
+  room (three working demos); the change log's latest four lines (written from `src/data/changelog.ts` by
+  `scripts/landing-changelog.mjs`); the planned prices per pool in Canadian dollars; seven questions, money first; the
+  closer. On a phone a menu opens the doors and a sticky bottom button follows once the hero has scrolled away, hidden
+  whenever another gold element is on screen, so every screen holds one gold thing besides the wordmark.
 - `landing/together.html`, pools for any group, in rose: the Love Is Blind pool for Season 11, women's sports pools, a
   pool for every season, private and never money, its own waitlist choice. Both pages share `landing/site.css` and
   `landing/site.js`; both waitlists write to `public.waitlist` through PostgREST with the publishable key (the choice in

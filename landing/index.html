@@ -2,277 +2,236 @@
 <html lang="en">
 <head>
   <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Super Pools · Fantasy pools from the future</title>
-  <meta name="description" content="Free private pools for your group chat: hockey fantasy and show pools like Love Is Blind and The Traitors. Play coins only, never real money." />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>Super Pools: Fantasy Pools from the Future</title>
+  <meta name="description" content="Fantasy leagues and prediction pools for your group chat, scored from box scores or settled by your host. Supercoins, never money. Free to start." />
   <link rel="canonical" href="https://superpoolsai.com/" />
   <link rel="icon" href="./icon.svg" type="image/svg+xml" />
   <meta name="theme-color" content="#0b1220" />
   <meta property="og:type" content="website" />
+  <meta property="og:site_name" content="Super Pools" />
   <meta property="og:url" content="https://superpoolsai.com/" />
-  <meta property="og:title" content="Super Pools · Fantasy pools from the future" />
-  <meta property="og:description" content="Fun fantasy pools with friends, for all. AI-enhanced, free to start, never money. Hockey fantasy and sports pools on the NHL, NFL, MLB, NBA, soccer and March Madness: live on game night, with a league voice." />
+  <meta property="og:title" content="Fantasy Pools from the Future" />
+  <meta property="og:description" content="Pools and fantasy leagues for your group chat: the NHL, NFL, NBA and soccer in season, any show, any question. Supercoins. Never money." />
   <meta property="og:image" content="https://superpoolsai.com/og.png" />
+  <meta property="og:image:width" content="1200" />
+  <meta property="og:image:height" content="630" />
+  <meta property="og:image:alt" content="Super Pools: Fantasy Pools from the Future. Fun fantasy pools with friends, for all. AI-enhanced. Fun for all." />
   <meta name="twitter:card" content="summary_large_image" />
+  <meta name="twitter:title" content="Fantasy Pools from the Future" />
+  <meta name="twitter:description" content="Pools and fantasy leagues for your group chat: the NHL, NFL, NBA and soccer in season, any show, any question. Supercoins. Never money." />
+  <meta name="twitter:image" content="https://superpoolsai.com/og.png" />
+  <link rel="preload" href="./fonts/barlow-condensed-900.woff2" as="font" type="font/woff2" crossorigin />
+  <link rel="preload" href="./fonts/barlow-condensed-900-italic.woff2" as="font" type="font/woff2" crossorigin />
+  <link rel="preload" href="./fonts/inter.woff2" as="font" type="font/woff2" crossorigin />
   <link rel="stylesheet" href="./site.css" />
-  <style>
-    .stage { position: relative; max-width: 520px; width: 100%; margin: 0 auto; }
-    .stage .phone { position: absolute; right: -10px; top: -26px; width: 230px; transform: rotate(6deg); opacity: .9; display: none; }
-    @media (min-width: 960px) { .stage { padding-right: 120px; } .stage .phone { display: block; } }
-    .stage .board { position: relative; z-index: 2; }
-    .voice { position: relative; z-index: 3; margin: -18px 10px 0 auto; max-width: 330px; }
-    .voice .msg { margin: 0; }
-    .board > .sample-cap { margin: -2px 2px 10px; }
-    /* the headline: "from the Future" in gold running into ice, with a slow shimmer */
-    .future { background: linear-gradient(92deg, #fff1b8 0%, #f7c548 30%, #7dd3fc 62%, #38bdf8 80%, #fff1b8 100%); background-size: 220% 100%;
-      -webkit-background-clip: text; background-clip: text; color: transparent; padding-right: .08em; animation: shimmer 9s ease-in-out infinite alternate; }
-    @keyframes shimmer { from { background-position: 0% 50%; } to { background-position: 100% 50%; } }
-    @media (prefers-reduced-motion: reduce) { .future { animation: none; } }
-    .tags { display: flex; flex-wrap: wrap; gap: 8px; }
-    .tags span { display: inline-flex; align-items: center; gap: 7px; padding: 6px 12px; border-radius: 999px; font-family: 'Barlow Condensed', sans-serif; font-weight: 700;
-      font-size: 13px; letter-spacing: .16em; text-transform: uppercase; border: 1px solid rgba(255,255,255,.12); background: rgba(255,255,255,.04); color: var(--soft); }
-    .tags span::before { content: ''; width: 7px; height: 7px; border-radius: 50%; background: var(--c); box-shadow: 0 0 10px var(--c); }
-    .pillars { display: grid; gap: 12px; grid-template-columns: 1fr; margin-top: 34px; }
-    @media (min-width: 760px) { .pillars { grid-template-columns: repeat(3, 1fr); } .pillar { padding: 18px 20px; } .pillar b { font-size: 24px; } .pillar span { font-size: 14px; } }
-    .hero h1 { font-size: clamp(54px, 8.2vw, 94px); }
-    .pillar { position: relative; overflow: hidden; border-radius: 18px; padding: 14px 14px 13px; border: 1px solid rgba(255,255,255,.09); background: linear-gradient(180deg, rgba(255,255,255,.05), rgba(255,255,255,.015)); }
-    .pillar::before { content: ''; position: absolute; inset: 0 0 auto 0; height: 2px; background: linear-gradient(90deg, var(--c), transparent); }
-    .pillar b { display: block; font-family: 'Barlow Condensed', sans-serif; font-weight: 900; font-size: 20px; line-height: 1.05; letter-spacing: .01em; color: var(--ink); }
-    .pillar b i { font-style: normal; color: var(--c); }
-    .pillar span { display: block; margin-top: 5px; font-size: 12.5px; line-height: 1.45; color: var(--mute); }
-  </style>
-  <script type="application/ld+json">{"@context": "https://schema.org", "@type": "WebSite", "name": "Super Pools", "url": "https://superpoolsai.com/", "description": "Hockey fantasy leagues and prediction pools for any group. Sports pools on the NHL, NFL, MLB, NBA, soccer and March Madness; ask anything else as questions. Free, never money."}</script>
-  <!-- the questions people ask, for search (the same text as the page's own FAQ below) -->
-  <script type="application/ld+json">{"@context":"https://schema.org","@type":"FAQPage","mainEntity":[{"@type":"Question","name":"Can we bring our league?","acceptedAnswer":{"@type":"Answer","text":"Yes, for hockey fantasy. Roster import from Fantrax, ESPN and Yahoo is live today (paste a link or open Yahoo). Past seasons can be imported or pasted as a final table. A full one-tap move of settings and every past season is still being finished; until then we also set leagues up with you. Keepers, the draft room, lineups, trades, side challenges and the league voice are ready on day one. Fantasy football and soccer fantasy are on the 2027 road."}},{"@type":"Question","name":"Is there any real money in it?","acceptedAnswer":{"@type":"Answer","text":"No. Side challenges and calls run on Supercoins: never bought, never sold. If your league plays for dues, that stays between friends, the way it always has; Super Pools can track who has paid, nothing more."}},{"@type":"Question","name":"How do the prices on a question work?","acceptedAnswer":{"@type":"Answer","text":"Each answer's price is the group's chance of it, and the prices add up to 100%. Calling an answer pushes its price up; a share of the right answer scores one Supercoin, so calling it early, before the group agrees, pays the most. You can take them off before a question closes."}},{"@type":"Question","name":"What does the league voice cost us?","acceptedAnswer":{"@type":"Answer","text":"Nothing yet. Every league and pool gets the full voice free while paid tiers are still being built. The plan is a weekly recap with Plus and the full voice (daily recaps, rankings, grades and answers in the chat) with Premium. It only ever posts what your league asks it to."}},{"@type":"Question","name":"Does everyone need to download an app?","acceptedAnswer":{"@type":"Answer","text":"No. They tap the link, make an account with an email and a password, and they are in. Add it to the home screen and turn on alerts if you like."}},{"@type":"Question","name":"Which sports can we play?","acceptedAnswer":{"@type":"Answer","text":"Sports pools run today on the NHL and NBA seasons game by game, the NFL, MLB, the Stanley Cup and NBA playoffs, the Premier League, MLS, the WSL and NWSL, and March Madness, each with a sport centre for scores, standings, news and injuries (NHL centre is the deepest). Fantasy drafts are hockey only for now; soccer and basketball fantasy follow on the same engine in 2027. Questions pools cover anything else you ask."}},{"@type":"Question","name":"What happens on game night?","acceptedAnswer":{"@type":"Answer","text":"Everyone in the league shares one live room: the scoreboard moves the moment the box score does, every swing shows up as it lands with the room's reactions, and when your player scores you hear about it wherever you are in the app. On draft night the clock keeps time to the second."}}]}</script>
+  <script type="application/ld+json">{"@context":"https://schema.org","@graph":[{"@type":"WebSite","name":"Super Pools","url":"https://superpoolsai.com/","description":"Fantasy leagues and prediction pools for your group chat, scored from box scores or settled by your host. Supercoins, never money."},{"@type":"Organization","name":"Super Pools","url":"https://superpoolsai.com/","logo":"https://superpoolsai.com/icon.svg","email":"hello@superpoolsai.com","sameAs":["https://github.com/patricknovak/sak"]}]}</script>
+  <!-- the questions people ask, for search: the same words as the FAQ at the foot of the page -->
+  <script type="application/ld+json">{"@context":"https://schema.org","@type":"FAQPage","mainEntity":[
+    {"@type":"Question","name":"Is there any real money in it?","acceptedAnswer":{"@type":"Answer","text":"No. Calls, side bets and the Book run on Supercoins: never bought, never sold, never cashed out. If your league plays for dues, that stays between friends; Super Pools can track who has paid, nothing more."}},
+    {"@type":"Question","name":"Does everyone need to download an app?","acceptedAnswer":{"@type":"Answer","text":"No. Friends tap your link and join a pool with just a name, right in the browser. A fantasy league asks for an email and a password. Add it to the Home Screen for alerts if you like."}},
+    {"@type":"Question","name":"Who pays?","acceptedAnswer":{"@type":"Answer","text":"Nobody, today. When billing ships, a pool pays once a season, never per person: the host pays or splits it, and members never see a bill."}},
+    {"@type":"Question","name":"Can we bring our fantasy league?","acceptedAnswer":{"@type":"Answer","text":"Yes, for hockey. Rosters come over from Fantrax, ESPN and Yahoo, past seasons from all three, and scoring from Fantrax. The one-tap move of every setting is still being built, so for now we set your league up with you. Ask for your league."}},
+    {"@type":"Question","name":"Which sports can we play?","acceptedAnswer":{"@type":"Answer","text":"Pools run today on the NFL, the NHL, the NBA and soccer (the Premier League, MLS, the WSL and the NWSL), scored from public score feeds. The NFL playoffs open in January, March Madness in March, and the Stanley Cup and NBA playoffs in April. Fantasy leagues are hockey only for now."}},
+    {"@type":"Question","name":"What about the shows we watch?","acceptedAnswer":{"@type":"Answer","text":"Start a questions pool. Each question closes as the episode airs or drops, everyone calls it in Supercoins, and a host you know settles it by the rule written on the question."}},
+    {"@type":"Question","name":"What does the league voice do?","acceptedAnswer":{"@type":"Answer","text":"Your league names it; the founding league's is Garry. It writes the morning column, the Monday rankings and a 5 pm lineup nudge, answers questions in the chat and talks trash on request. It has a daily budget, and the commissioner tells it what the league is about."}}
+  ]}</script>
 </head>
 <body>
-  <svg width="0" height="0" style="position:absolute" aria-hidden="true">
-    <symbol id="i-bolt" viewBox="0 0 24 24"><path d="M13 2L4 14h7l-1 8 9-12h-7z"/></symbol>
-    <symbol id="i-cal" viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="16" rx="3"/><path d="M3 10h18M8 3v4M16 3v4"/></symbol>
-    <symbol id="i-clock" viewBox="0 0 24 24"><circle cx="12" cy="13" r="8"/><path d="M12 9v4l3 2M9 2h6"/></symbol>
-    <symbol id="i-swap" viewBox="0 0 24 24"><path d="M4 8h13l-3-3M20 16H7l3 3"/></symbol>
-    <symbol id="i-coin" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="4"/></symbol>
-    <symbol id="i-mic" viewBox="0 0 24 24"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3M8 21h8"/></symbol>
-    <symbol id="i-chart" viewBox="0 0 24 24"><path d="M3 20h18M5 16l4-5 4 3 6-8M16 6h3v3"/></symbol>
-    <symbol id="i-phone" viewBox="0 0 24 24"><rect x="6" y="2" width="12" height="20" rx="3"/><path d="M10 18h4"/></symbol>
-    <symbol id="i-check" viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="4"/><path d="M8 12l3 3 5-6"/></symbol>
-    <symbol id="i-shield" viewBox="0 0 24 24"><path d="M12 3l8 3v6c0 5-3.5 8-8 9-4.5-1-8-4-8-9V6z"/><path d="M12 8v5M12 16v.5"/></symbol>
-    <symbol id="i-target" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="1.5"/></symbol>
-    <symbol id="i-bracket" viewBox="0 0 24 24"><path d="M3 5h5v6h5M3 19h5v-6M13 11v2h8M13 13"/></symbol>
-    <symbol id="i-series" viewBox="0 0 24 24"><circle cx="5" cy="12" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="19" cy="12" r="2"/><path d="M3 6h18M3 18h18"/></symbol>
-    <symbol id="i-rank" viewBox="0 0 24 24"><path d="M9 6h12M9 12h12M9 18h12M4 6h1M4 12h1M4 18h1"/></symbol>
-    <symbol id="i-sheet" viewBox="0 0 24 24"><rect x="5" y="3" width="14" height="18" rx="2"/><path d="M9 8h6M9 12h6M9 16h4"/></symbol>
-    <symbol id="i-grid" viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M9 3v18M15 3v18M3 9h18M3 15h18"/></symbol>
-    <symbol id="i-box" viewBox="0 0 24 24"><rect x="3" y="3" width="8" height="8" rx="2"/><rect x="13" y="3" width="8" height="8" rx="2"/><rect x="3" y="13" width="8" height="8" rx="2"/><rect x="13" y="13" width="8" height="8" rx="2"/></symbol>
-    <symbol id="i-flame" viewBox="0 0 24 24"><path d="M12 21c4 0 7-3 7-7 0-5-4-6-5-11-2 2-3 4-3 6-1-1-2-2-2-4-2 2-4 5-4 9 0 4 3 7 7 7z"/></symbol>
-    <symbol id="i-hat" viewBox="0 0 24 24"><path d="M3 18h18M6 18l1-9h10l1 9M9 9V6h6v3"/></symbol>
-    <symbol id="i-q" viewBox="0 0 24 24"><path d="M3 17l5-5 4 3 8-9"/><path d="M15 6h5v5"/></symbol>
-    <symbol id="i-stick" viewBox="0 0 24 24"><path d="M15 3l-9 15a2 2 0 0 0 2 3h6"/><circle cx="18" cy="18" r="2.5"/></symbol>
-    <symbol id="i-trophy" viewBox="0 0 24 24"><path d="M8 4h8v5a4 4 0 0 1-8 0zM8 6H4a3 3 0 0 0 4 4M16 6h4a3 3 0 0 1-4 4M12 13v4M8 21h8M9 17h6"/></symbol>
-  </svg>
+  <a class="skip" href="#top">Skip to content</a>
   <main>
-    <header>
-      <a class="wordmark" href="./" aria-label="Super Pools">
+    <header class="site-head">
+      <a class="wordmark" href="./" aria-label="Super Pools home">
         <svg viewBox="0 0 64 64" aria-hidden="true"><rect width="64" height="64" rx="14" fill="#111b30"/><circle cx="32" cy="32" r="17" fill="none" stroke="#f7c548" stroke-width="4"/><circle cx="32" cy="32" r="4.5" fill="#f7c548"/><g stroke="#f7c548" stroke-width="2.6" stroke-linecap="round"><line x1="25" y1="8" x2="25" y2="12.5"/><line x1="39" y1="8" x2="39" y2="12.5"/><line x1="25" y1="51.5" x2="25" y2="56"/><line x1="39" y1="51.5" x2="39" y2="56"/></g></svg>
         <span><b>SUPER</b> POOLS</span>
       </a>
-      <nav class="navlinks"><a href="#open">Open now</a><a href="#live">Game night</a><a href="#pools">Every pool</a><a href="#fans">Fan zones</a><a href="#runs">How it works</a><a href="#ship">What's next</a><a href="./together">Any group</a></nav>
-      <a class="btn btn-gold btn-sm" href="https://app.superpoolsai.com/#/new?src=home">Start a pool</a>
+      <nav class="navlinks" aria-label="Doors"><a href="./fantasy-hockey.html">Fantasy league</a><a href="#kinds">Sports pools</a><a href="./together.html">Show pools</a><a href="./fans.html">Fan zones</a><a href="./pricing.html">Pricing</a></nav>
+      <div class="head-right">
+        <a class="signin" href="https://app.superpoolsai.com/">Sign in</a>
+        <button type="button" class="menu-btn" id="menu-btn" aria-expanded="false" aria-controls="menu" aria-label="Open the menu">
+          <svg class="bars" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16"/></svg>
+          <svg class="x" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>
+        </button>
+      </div>
+      <nav class="menu" id="menu" aria-label="Menu">
+        <a href="./fantasy-hockey.html"><span class="mi"><svg class="ico"><use href="./icons.svg#i-trophy"/></svg></span><span><b>Fantasy league</b><small>Keepers, the draft room, a league voice</small></span></a>
+        <a href="#kinds"><span class="mi"><svg class="ico"><use href="./icons.svg#i-target"/></svg></span><span><b>Sports pools</b><small>The NFL, NHL, NBA and soccer</small></span></a>
+        <a href="./together.html"><span class="mi r"><svg class="ico"><use href="./icons.svg#i-tv"/></svg></span><span><b>Show pools</b><small>Call what happens next, with your group</small></span></a>
+        <a href="./fans.html"><span class="mi"><svg class="ico"><use href="./icons.svg#i-chart"/></svg></span><span><b>Fan zones</b><small>Every club, read like a front office</small></span></a>
+        <a href="./pricing.html"><span class="mi n"><svg class="ico"><use href="./icons.svg#i-coin"/></svg></span><span><b>Pricing</b><small>Per pool, never per person</small></span></a>
+        <a href="https://app.superpoolsai.com/"><span class="mi n"><svg class="ico"><use href="./icons.svg#i-users"/></svg></span><span><b>Sign in</b><small>Back to your pools</small></span></a>
+      </nav>
     </header>
 
-    <div class="hero">
-      <div>
-        <div class="tags"><span style="--c:#f7c548">With friends</span><span style="--c:#38bdf8">AI-enhanced</span><span style="--c:#34d399">Fun for all</span></div>
-        <h1 class="display">Fantasy Pools <span class="l2"><em class="future">from the Future.</em></span></h1>
-        <p class="lead">Fun fantasy pools with friends, for all: hockey fantasy plus sports pools on the NHL, NFL, MLB, NBA, soccer and March Madness, and questions about anything else. Points land as the box scores change, the whole league watches together in one live room, and an AI-enhanced league voice posts the recap and the trash talk. Built by a hockey pool that has drafted every fall since 2013.</p>
-        <div class="cta">
-          <a class="btn btn-gold" href="https://app.superpoolsai.com/#/new?src=home">Start a pool, free</a>
-          <a class="btn btn-ghost" href="#live">Watch a game night</a>
+    <!-- 1. Hero: the claim, the one gold button, and the real events open right now -->
+    <section class="hero2 hero2-split" id="top">
+      <div class="hero2-copy">
+        <h1 class="display">Fantasy Pools <span class="l2"><em>from the Future.</em></span></h1>
+        <p class="tagline"><span>fun fantasy pools with friends, for all</span><i aria-hidden="true">·</i><span>AI-enhanced</span><i aria-hidden="true">·</i><span>fun for all</span></p>
+        <p class="sub">Pools and fantasy leagues for your group chat, scored from box scores or settled by your host. Supercoins. <b>Never money.</b></p>
+        <div class="cta2">
+          <a class="btn btn-gold btn-lg" data-gold href="https://app.superpoolsai.com/#/new?src=home">Start a pool, free</a>
+          <a class="textlink" href="#live">Watch a game night</a>
         </div>
-        <div class="under"><span>Ready in a minute</span><span>No app to download</span><span>Never money</span></div>
+        <p class="proofline" id="proof"><img src="./img/sak-icon.svg" alt="" width="28" height="28" />Built by the SaK Superleague, a keeper league since 2013.</p>
       </div>
-      <div class="stage rv" aria-label="A game night in a sample pool">
-        <div class="phone glow-gold" aria-hidden="true"><img src="./img/sak-live.webp" alt="" width="600" height="1200" loading="eager" /></div>
-        <div class="board" id="board">
-          <div class="horn" id="horn" aria-hidden="true"><span class="ring" style="background:#f7c548">H</span><div><small>Goal · your starter</small><b id="horn-t">MacKinnon, 1:12 into the third</b></div><span class="plus" id="horn-p">+3.0</span></div>
-          <div class="board-h"><b>TONIGHT</b><span class="who"><span class="stack" aria-hidden="true"><i style="background:#f7c548">H</i><i style="background:#38bdf8">T</i><i style="background:#c4b5fd">Z</i><i style="background:#34d399">F</i><i style="background:#fb7185">S</i></span><span class="watching">5 watching</span><span class="live">Live</span></span></div>
-          <p class="sample-cap">Sample pool</p>
-          <div class="row" data-t="Hat Trick Club" data-p="31.5"><span class="rk">1</span><span class="tm"><b>Hat Trick Club</b><span>4 playing · 2 done</span></span><span class="pts"><span class="bump"></span><span class="v">31.5</span><small>tonight</small></span></div>
-          <div class="row" data-t="Top Shelf" data-p="29.0"><span class="rk">2</span><span class="tm"><b>Top Shelf</b><span>5 playing · 1 done</span></span><span class="pts"><span class="bump"></span><span class="v">29.0</span><small>tonight</small></span></div>
-          <div class="row" data-t="Zamboni Drivers" data-p="26.4"><span class="rk">3</span><span class="tm"><b>Zamboni Drivers</b><span>3 playing · 3 done</span></span><span class="pts"><span class="bump"></span><span class="v">26.4</span><small>tonight</small></span></div>
-          <div class="row" data-t="Five Hole Heroes" data-p="24.0"><span class="rk">4</span><span class="tm"><b>Five Hole Heroes</b><span>6 playing</span></span><span class="pts"><span class="bump"></span><span class="v">24.0</span><small>tonight</small></span></div>
-          <div class="event" id="board-ev"><b>Live room</b> · every swing, the moment the box score has it</div>
+      <div class="nowpanel" id="open">
+        <div class="nowhead">
+          <h2 class="display">Open right now</h2>
+          <span class="livetag" id="now-tag" aria-live="polite">Checking the schedule</span>
+          <p>Real events, straight from the app. Start a pool before the next lock.</p>
         </div>
-        <div class="voice">
-          <div class="msg bot"><span class="av" style="background:#f7c548">G</span><div class="bub"><small>GARRY · THE LEAGUE VOICE</small>Five Hole Heroes left 11.5 points on the bench again. Somebody check on him.</div></div>
+        <div class="rail" id="now" data-src="home">
+          <div class="ev ghost"></div><div class="ev ghost"></div><div class="ev ghost"></div>
         </div>
-      </div>
-    </div>
-
-    <div class="pillars">
-      <div class="pillar" style="--c:#f7c548"><b>Fun fantasy pools <i>with friends</i></b><span>Your league, your buddies, your group chat. One link and everyone is in.</span></div>
-      <div class="pillar" style="--c:#38bdf8"><b><i>AI-enhanced</i> fantasy</b><span>AI-optimized lineups, recaps and trade grades that know your hockey league; a pool voice for every other pool.</span></div>
-      <div class="pillar" style="--c:#34d399"><b>Fun <i>for all</i></b><span>Free to start, no app to download, never real money. Everyone is welcome.</span></div>
-    </div>
-
-    <section id="open">
-      <div class="nowhead rv">
-        <div>
-          <div class="eyebrow i">Open right now</div>
-          <h2 class="display">Real games. <em class="ice">Pick a fight.</em></h2>
-          <p class="lead">These are the events open on Super Pools as you read this, straight from the app. Start a pool on any of them and send the link before the next lock.</p>
-        </div>
-        <span class="livetag" id="now-tag">Checking the schedule</span>
-      </div>
-      <div class="opennow" id="now" aria-live="polite">
-        <div class="ev ghost"></div><div class="ev ghost"></div><div class="ev ghost"></div>
+        <p class="swipe">Swipe for every event</p>
       </div>
     </section>
 
-    <div class="ticker" aria-label="Sample questions from pools">
-      <div class="run">
-        <span class="q"><i style="background:#f7c548"></i>Does the Cup go east? <b style="color:#f7c548">47%</b></span>
-        <span class="q"><i style="background:#38bdf8"></i>McDavid to 130 points? <b style="color:#38bdf8">22%</b></span>
-        <span class="q"><i style="background:#34d399"></i>Arsenal top of the table at Christmas? <b style="color:#34d399">41%</b></span>
-        <span class="q"><i style="background:#fb7185"></i>Anyone in our pool go all season without a trade? <b style="color:#fb7185">12%</b></span>
-        <span class="q"><i style="background:#c4b5fd"></i>Super Bowl: first score a field goal? <b style="color:#c4b5fd">38%</b></span>
-        <span class="q"><i style="background:#f7c548"></i>A 1-seed loses in the first round? <b style="color:#f7c548">9%</b></span>
-        <span class="q"><i style="background:#38bdf8"></i>Will anyone in our pool draft a goalie first? <b style="color:#38bdf8">64%</b></span>
-        <span class="q"><i style="background:#f7c548"></i>Does the Cup go east? <b style="color:#f7c548">47%</b></span>
-        <span class="q"><i style="background:#38bdf8"></i>McDavid to 130 points? <b style="color:#38bdf8">22%</b></span>
-        <span class="q"><i style="background:#34d399"></i>Arsenal top of the table at Christmas? <b style="color:#34d399">41%</b></span>
-        <span class="q"><i style="background:#fb7185"></i>Anyone in our pool go all season without a trade? <b style="color:#fb7185">12%</b></span>
-        <span class="q"><i style="background:#c4b5fd"></i>Super Bowl: first score a field goal? <b style="color:#c4b5fd">38%</b></span>
-        <span class="q"><i style="background:#f7c548"></i>A 1-seed loses in the first round? <b style="color:#f7c548">9%</b></span>
-        <span class="q"><i style="background:#38bdf8"></i>Will anyone in our pool draft a goalie first? <b style="color:#38bdf8">64%</b></span>
+    <!-- 2. Doors by need -->
+    <section id="doors">
+      <div class="shead rv">
+        <div class="eyebrow">Pick your door</div>
+        <h2 class="display">Four ways in.</h2>
       </div>
-    </div>
-
-    <div class="strip rv">
-      <div><b>2013</b><span>the year the founding pool first drafted</span></div>
-      <div><b>6</b><span>sports scored live: NHL, NFL, MLB, NBA, soccer, March Madness</span></div>
-      <div><b>12</b><span>kinds of sports pool, plus fantasy and questions with live prices</span></div>
-      <div><b>0</b><span>spreadsheets, challenge ledgers, ads or chasing people for dues</span></div>
-    </div>
-
-    <section id="live">
-      <div class="rv">
-        <div class="eyebrow">Live, together</div>
-        <h2 class="display">Game night is <em class="gold">a room.</em></h2>
-        <p class="lead">The best part of a pool was always the group chat during the game. Now the pool is the room: everyone in the league in one place, every swing the moment it lands, and nobody refreshing a page.</p>
-      </div>
-      <div class="trio">
-        <div class="demo rv">
-          <div class="screen"><div class="feed" id="feed"><div class="rh"><span>THE NIGHT'S SWINGS</span><span class="live">Live</span></div></div></div>
-          <h3>The live room</h3>
-          <p>Who's watching, every point a starter scores as it happens, and the room's reactions. When your player scores, you hear about it on whatever screen you're on.</p>
-        </div>
-        <div class="demo rv">
-          <div class="screen"><div class="clock" id="clock">
-            <div class="who2"><span>Round 2 · Pick 11</span><span>Top Shelf</span></div>
-            <svg viewBox="0 0 168 168" aria-hidden="true"><circle class="track" cx="84" cy="84" r="72"/><circle class="arc" id="arc" cx="84" cy="84" r="72" style="stroke-dashoffset:0"/></svg>
-            <div class="face"><small>On the clock</small><b id="secs">0:06</b><small class="lc">Live clock</small></div>
-            <div class="pickin" id="pickin"><div><b id="pickp">Quinn Hughes, D</b><small>Top Shelf · pick 11 · made by the clock</small></div><span class="t">ON THE SECOND</span></div>
-          </div></div>
-          <h3>A draft clock that keeps time</h3>
-          <p>When a clock runs out, the pick is made on the second, and every phone in the draft room sees it at once. A team on autodraft never holds up the night.</p>
-        </div>
-        <div class="demo rv">
-          <div class="screen"><div class="thread">
-            <div class="bubl">who's in for the office pool this year</div>
-            <div class="bubr"><div class="unf"><div class="art"><small>Super Pools · invite</small><b>The Office Pool</b><span>NFL pick'em · last one standing</span></div><div class="meta"><b>You're invited to The Office Pool</b><i>Sam's pool · 9 in · app.superpoolsai.com</i></div></div><div class="txt">tap it, takes a minute</div></div>
-            <span class="tapped">Delivered</span>
-          </div></div>
-          <h3>A link that looks like your pool</h3>
-          <p>Drop an invite in the group chat and it shows your pool's own name, colour and host on a picture drawn for it. They join with a name, email and password, then they're in.</p>
-        </div>
+      <div class="doors">
+        <a class="door-tile rv" href="./fantasy-hockey.html">
+          <span class="di"><svg class="ico"><use href="./icons.svg#i-trophy"/></svg></span>
+          <span class="k">Fantasy <span class="gold" data-gold>league</span></span>
+          <p>Keepers, a draft room with a clock, live points at every puck drop and a voice your league names. Hockey first.</p>
+          <span class="go">For the commissioner</span>
+        </a>
+        <a class="door-tile rv" href="#kinds">
+          <span class="di"><svg class="ico"><use href="./icons.svg#i-target"/></svg></span>
+          <span class="k">Sports pools</span>
+          <p>Pick'em, last one standing, the box pool and nine more, on the NFL, NHL, NBA and soccer.</p>
+          <span class="go">Twelve ways to play</span>
+        </a>
+        <a class="door-tile rose rv" href="./together.html">
+          <span class="di"><svg class="ico"><use href="./icons.svg#i-tv"/></svg></span>
+          <span class="k">Show pools</span>
+          <p>Call what happens next in the shows your group watches. Your host settles every question.</p>
+          <span class="go">For any group</span>
+        </a>
+        <a class="door-tile rv" href="./fans.html">
+          <span class="di"><svg class="ico"><use href="./icons.svg#i-chart"/></svg></span>
+          <span class="k">Fan zones</span>
+          <p>Every club in the NHL, NFL, NBA and Premier League, read like a front office. No account.</p>
+          <span class="go">Find your club</span>
+        </a>
       </div>
     </section>
 
-    <section id="runs">
-      <div class="rv">
-        <div class="eyebrow">It runs itself</div>
-        <h2 class="display">Everything the commish <em class="gold">did by hand.</em></h2>
-        <p class="lead">Every job that made running a pool a second job now happens on its own, the same way every night, with the record kept where everyone can see it.</p>
+    <!-- 3. The three things we say (docs/BRAND.md section 3), one drawn screen each -->
+    <section id="three">
+      <div class="shead rv">
+        <div class="eyebrow">Three things we say</div>
+        <h2 class="display">The chores, done every night.</h2>
       </div>
-      <div class="feats">
-        <div class="card feat rv"><span class="icowrap"><svg class="ico"><use href="#i-bolt"/></svg></span><div><h3>Live scoring</h3><p>Points land from the box scores as the games happen. Each player locks at his own puck drop, and stat corrections flow in for a month after.</p><span class="was">standings that update overnight</span></div></div>
-        <div class="card feat rv"><span class="icowrap i"><svg class="ico"><use href="#i-cal"/></svg></span><div><h3>Lineups that set themselves</h3><p>Plan sixty days ahead, tap once to optimize tonight, or let the auto-pilot that optimizes your lineup cover the nights you forget.</p><span class="was">a forgotten bench on a Tuesday</span></div></div>
-        <div class="card feat rv"><span class="icowrap"><svg class="ico"><use href="#i-clock"/></svg></span><div><h3>A real draft room</h3><p>A clock that keeps time to the second, a TV board for the basement, keepers carried in, picks traded, and a grade for every pick before the night is over.</p><span class="was">a whiteboard and a phone timer</span></div></div>
-        <div class="card feat rv"><span class="icowrap i"><svg class="ico"><use href="#i-swap"/></svg></span><div><h3>Trades with a grade</h3><p>A review window, the league's own scoring on every player, and an AI-enhanced grade that says who won it, out loud, in the chat.</p><span class="was">forty texts arguing about a trade</span></div></div>
-        <div class="card feat rv"><span class="icowrap m"><svg class="ico"><use href="#i-coin"/></svg></span><div><h3>Side challenges that settle</h3><p>Head-to-heads, props and a coin book on real games, priced and settled from the box scores in Supercoins. Nobody keeps the ledger.</p><span class="was">"you still owe me from March"</span></div></div>
-        <div class="card feat rv"><span class="icowrap r"><svg class="ico"><use href="#i-mic"/></svg></span><div><h3>A league voice</h3><p>Named by your league. It posts the recap at the final horn, ranks the teams, grades the trades and answers "who do I start?"</p><span class="was">the commish writing the Sunday email</span></div></div>
-        <div class="card feat rv"><span class="icowrap"><svg class="ico"><use href="#i-trophy"/></svg></span><div><h3>Every season remembered</h3><p>Champions, records, the last-place prize and every past season, imported from where your league used to live.</p><span class="was">history in someone's old email</span></div></div>
-        <div class="card feat rv"><span class="icowrap i"><svg class="ico"><use href="#i-chart"/></svg></span><div><h3>Chances all season</h3><p>Projections, thousands of simulated seasons, playoff chances and a live win chance on every head-to-head matchup.</p><span class="was">guessing who is still alive</span></div></div>
-        <div class="card feat rv"><span class="icowrap m"><svg class="ico"><use href="#i-phone"/></svg></span><div><h3>A centre for each sport we run</h3><p>Scores, standings, news, injuries and leaders for the NHL, NFL, MLB, NBA, soccer and March Madness, right beside the pool, built for the phone. NHL centre adds box scores and radio.</p><span class="was">six tabs and a sports app on the side</span></div></div>
-      </div>
-    </section>
 
-    <section id="voice">
-      <div class="split">
+      <article class="pillar3" id="itself">
         <div class="rv">
-          <div class="eyebrow">It talks back</div>
-          <h2 class="display">A league voice <em class="gold">that knows your league.</em></h2>
-          <p class="lead">Every league names its own. It reads your scoring, your rosters and every season of history you bring, and it talks like the guy at the end of the bench.</p>
-          <ul class="ticks">
-            <li>The recap at the final horn, with who left points on the bench.</li>
-            <li>Power rankings, trade grades and keeper reports, on schedule.</li>
-            <li>Answers in the chat: who to start, who to drop, who won that trade.</li>
-            <li>Trash talk on request. Always about the sport, never about the reader.</li>
-          </ul>
+          <div class="step">01</div>
+          <h3>It runs itself.</h3>
+          <p>Points land from the box scores as the games happen, and every player locks at his own puck drop. The scoreboard asks the NHL for every clock and score every 20 seconds while a game is on.</p>
+          <p class="small">Every finished game is re-checked for three days, and every Monday for the last three weeks. Set lineups sixty days ahead, or let the AI-optimized auto-pilot cover the nights you forget.</p>
         </div>
-        <div class="chat rv" aria-label="A sample league chat">
-          <div class="msg bot"><span class="av" style="background:#f7c548">G</span><div class="bub"><small>GARRY · 11:42 PM</small>Final horn. Hat Trick Club take the night with 38.5 behind MacKinnon's two goals. Top Shelf had McDavid and still lost the night. That takes talent.<div class="react"><span>😂 4</span><span>🔥 2</span></div></div></div>
-          <div class="msg me"><span class="av" style="background:#38bdf8">T</span><div class="bub"><small>TOP SHELF</small>@Garry who do I start Thursday, Hughes or Dobson?</div></div>
-          <div class="msg bot"><span class="av" style="background:#f7c548">G</span><div class="bub"><small>GARRY</small>Hughes. Two games this week to Dobson's one, and he's on the first power play. Dobson sits.</div></div>
-          <div class="msg"><span class="av" style="background:#c4b5fd">Z</span><div class="bub"><small>ZAMBONI DRIVERS</small>Garry grade my trade, I think I won it</div></div>
-          <div class="msg bot"><span class="av" style="background:#f7c548">G</span><div class="bub"><small>GARRY</small>C+. You won the week. You lost March.<div class="react"><span>💀 6</span></div></div></div>
-          <p class="sample-cap">Sample pool</p>
-        </div>
-      </div>
-    </section>
+        <figure class="scr rv">
+          <div class="scr-head"><b>Tonight</b><span class="live">Live</span></div>
+          <div class="tn">
+            <div class="tn-row"><span class="pos">C</span><span class="who">McDavid<i>EDM @ TOR · 2nd, 8:14 left</i></span><span class="pts">4.5</span><span class="st lock">Locked at 7:00</span></div>
+            <div class="tn-row"><span class="pos">LW</span><span class="who">Kaprizov<i>MIN @ CHI · 8:00 pm</i></span><span class="pts dash">0.0</span><span class="st auto">Moved in by the auto-pilot</span></div>
+            <div class="tn-row"><span class="pos">D</span><span class="who">Makar<i>COL vs DAL · 9:00 pm</i></span><span class="pts dash">0.0</span><span class="st">Locks at his puck drop</span></div>
+            <div class="tn-row"><span class="pos">G</span><span class="who">Hellebuyck<i>WPG @ VAN · 10:00 pm</i></span><span class="pts dash">0.0</span><span class="st">Locks at his puck drop</span></div>
+          </div>
+          <div class="tn-note"><b>Correction</b><span>Pastrnak picked up an assist from Monday night on review. +1.0 to your total.</span></div>
+          <figcaption>Sample league · times Eastern</figcaption>
+        </figure>
+      </article>
 
-    <section id="pools">
-      <div class="rv">
-        <div class="eyebrow i">Every kind of pool</div>
-        <h2 class="display">Whatever your group <em class="ice">plays.</em></h2>
-        <p class="lead">One engine runs every pool a group plays, on the sports your group already watches. Pick the event, pick the kinds, send the link. The scoring, the table and the chances to win run themselves.</p>
-      </div>
-      <div class="sports rv"><span style="--c:#f7c548">NHL</span><span style="--c:#38bdf8">NFL</span><span style="--c:#34d399">MLB</span><span style="--c:#fb923c">NBA</span><span style="--c:#c4b5fd">Premier League</span><span style="--c:#2dd4bf">MLS</span><span style="--c:#fb7185">March Madness</span></div>
-      <div class="kindgrid rv">
-        <a class="kind wide" href="https://app.superpoolsai.com/#/new?type=fantasy&amp;src=home"><svg class="ico"><use href="#i-stick"/></svg><b>Hockey fantasy</b><span>Draft a team of NHL players and play the season: points or categories, season or head-to-head, keepers or not. The deepest pool we make, and where Super Pools started. Soccer and basketball fantasy are on the road for 2027.</span><ul><li>Live scoring</li><li>The draft room</li><li>Lineups that set themselves</li><li>Trades with a grade</li><li>Side challenges</li><li>The league voice</li><li>Best ball and the guillotine</li></ul><span class="more">Start a hockey fantasy ›</span></a>
-        <a class="kind" href="https://app.superpoolsai.com/#/new?type=sports&amp;src=home"><svg class="ico"><use href="#i-check"/></svg><b>Pick'em</b><span>Every game of the week, right or wrong</span></a>
-        <a class="kind" href="https://app.superpoolsai.com/#/new?type=sports&amp;src=home"><svg class="ico"><use href="#i-shield"/></svg><b>Last one standing</b><span>One team a week, never the same one twice</span></a>
-        <a class="kind" href="https://app.superpoolsai.com/#/new?type=sports&amp;src=home"><svg class="ico"><use href="#i-target"/></svg><b>Call the score</b><span>The exact score pays the most</span></a>
-        <a class="kind" href="https://app.superpoolsai.com/#/new?type=sports&amp;src=home"><svg class="ico"><use href="#i-bracket"/></svg><b>The bracket</b><span>March Madness and every playoff tree</span></a>
-        <a class="kind" href="https://app.superpoolsai.com/#/new?type=sports&amp;src=home"><svg class="ico"><use href="#i-series"/></svg><b>Series calls</b><span>Who wins and in how many games</span></a>
-        <a class="kind" href="https://app.superpoolsai.com/#/new?type=sports&amp;src=home"><svg class="ico"><use href="#i-rank"/></svg><b>Rank the teams</b><span>Rank clubs once; points for every win</span></a>
-        <a class="kind" href="https://app.superpoolsai.com/#/new?type=sports&amp;src=home"><svg class="ico"><use href="#i-sheet"/></svg><b>The prop sheet</b><span>Eight calls on one big game</span></a>
-        <a class="kind" href="https://app.superpoolsai.com/#/new?type=sports&amp;src=home"><svg class="ico"><use href="#i-grid"/></svg><b>Squares</b><span>The party grid, paid by the quarter</span></a>
-        <a class="kind" href="https://app.superpoolsai.com/#/new?comp=nhl-2026-27&amp;kind=players&amp;src=home"><svg class="ico"><use href="#i-box"/></svg><b>The box pool</b><span>One NHL player from each box, no draft</span></a>
-        <a class="kind" href="https://app.superpoolsai.com/#/new?type=sports&amp;src=home"><svg class="ico"><use href="#i-flame"/></svg><b>The daily streak</b><span>One pick a day, the longest run wins</span></a>
-        <a class="kind" href="https://app.superpoolsai.com/#/new?type=sports&amp;src=home"><svg class="ico"><use href="#i-hat"/></svg><b>The sweepstake</b><span>Teams drawn from the hat</span></a>
-        <a class="kind" href="https://app.superpoolsai.com/#/new?comp=nba-2026-27&amp;kind=wins&amp;src=home"><svg class="ico"><use href="#i-chart"/></svg><b>Win totals</b><span>Over or under on every team's wins</span></a>
-        <a class="kind" href="https://app.superpoolsai.com/#/new?type=questions&amp;src=home"><svg class="ico"><use href="#i-q"/></svg><b>Questions with live prices</b><span>Ask anything, the price moves as friends call it</span></a>
-      </div>
-    </section>
-
-    <section id="callit">
-      <div class="split flip">
+      <article class="pillar3 flip" id="talks">
         <div class="rv">
-          <div class="eyebrow i">Call it before your buddies do</div>
-          <h2 class="display">Every question <em class="ice">has a price.</em></h2>
-          <p class="lead">Playoff pools, the Super Bowl prop sheet, the bracket, a show your friends won't stop texting about. Ask anything, and every answer gets a price that moves as your group calls it, the way a prediction market works, in Supercoins that are only ever worth bragging rights.</p>
-          <ul class="ticks">
-            <li>The early, bold call pays the most. The bandwagon pays the least.</li>
-            <li>Take them off before it closes if you lose your nerve.</li>
-            <li>Questions about results settle themselves; the rest settle by the rule written when they were asked.</li>
-            <li>Inside your fantasy league, or as a pool of its own for the office or the family.</li>
-          </ul>
+          <div class="step">02</div>
+          <h3>It talks back.</h3>
+          <p>Every league names its own voice. The founding league's is Garry: an AI-enhanced morning column after every night, Monday rankings, a 5 pm lineup nudge and answers in the chat.</p>
+          <p class="small">Its columns, nudges and answers are checked against the league's table before they post, and it posts only when something happened.</p>
         </div>
-        <div class="market rv" id="market" aria-label="Try a question">
+        <figure class="scr rv">
+          <div class="post-by"><span class="av" aria-hidden="true">G</span><div><b>Garry</b><small>The league voice · morning column</small></div><time datetime="2026-10-25T14:00Z">Sun 10:00 am</time></div>
+          <div class="post-body">
+            <p>Mike's Batherson hat trick bumped him past Kevin into 4th, where he now sits one point clear of the Moose. Kevin's Kochetkov shutout wasn't enough to hold the spot.</p>
+            <p>Steve left Michkov on the bench for 4.1 points while Nugent-Hopkins posted -1.1 on the active roster. Meanwhile, Rob's Oilers stack is leading the room in seven-day points and still only 14.3 back of Dave.</p>
+            <p>Chris picked up the daily bonus for the top score of 25.4, and the gap from first to last sits at 82.1. Five games tonight, most GMs rolling eight or nine starters.</p>
+          </div>
+          <div class="receipts">
+            <span class="label">From the night's box scores</span>
+            <ul>
+              <li><div><b>Batherson</b> 3 goals, 1 assist</div><span>7.5</span></li>
+              <li><div><b>Kochetkov</b> 24 saves on 24, a shutout</div><span>7.2</span></li>
+              <li><div><b>Michkov</b> 2 goals, on the bench</div><span>4.1</span></li>
+              <li><div><b>Top score of the night</b> the daily bonus</div><span>25.4</span></li>
+            </ul>
+          </div>
+          <figcaption>From the founding league's morning column, 25 October 2026, names changed</figcaption>
+        </figure>
+      </article>
+
+      <article class="pillar3" id="league">
+        <div class="rv">
+          <div class="step">03</div>
+          <h3>Built by a league.</h3>
+          <p>The SaK Superleague has played for keepers since 2013. Its fourteenth season, the first on Super Pools, has run on it every night since the keeper deadline.</p>
+          <p class="small">Keepers, a draft room with a TV board, trade review windows and IR rules come baked in. The founding league feels every bug first.</p>
+        </div>
+        <figure class="scr rv">
+          <div class="crest-head"><img src="./img/sak-icon.svg" alt="The SaK Superleague crest" width="64" height="64" loading="lazy" /><div><b>SaK Superleague</b><small>Keeper league · est. 2013 · eight teams</small></div></div>
+          <div class="stats">
+            <div class="stat"><b>8 of 8</b><span>keeper sets in by the deadline</span></div>
+            <div class="stat"><b>144</b><span>players drafted in 67 minutes on a 90-second clock</span></div>
+            <div class="stat"><b>36 of 36</b><span>game nights scored, with a morning column after each</span></div>
+            <div class="stat"><b>1,173</b><span>lines in the Book settled in Supercoins</span></div>
+          </div>
+          <p class="calib">Every night since 3 October we have written down what we expected from each of our players before the games and scored it after. Across 2,252 scored calls, the average miss is 1.6 points; two in three were within 2.</p>
+          <figcaption>The founding league's 2026-27 season, as of 4 November 2026</figcaption>
+        </figure>
+      </article>
+    </section>
+
+    <!-- 4. Every kind of pool: each link keeps its kind and opens on an event that offers it today -->
+    <section id="kinds">
+      <div class="shead rv">
+        <div class="eyebrow">Every kind of pool</div>
+        <h2 class="display">Twelve ways to play.</h2>
+        <p class="lead">Scored from public score feeds, or settled by your host. Tap one and the start page opens on it.</p>
+      </div>
+      <ul class="kindlist">
+        <li><a class="kl" href="https://app.superpoolsai.com/#/new?comp=nfl&amp;kind=pickem&amp;src=home"><span class="ki"><svg class="ico"><use href="./icons.svg#i-check"/></svg></span><b>Pick'em</b><span class="ln">Every game of the week, straight up or against the spread.</span><span class="go"><small>NFL</small>Start</span></a></li>
+        <li><a class="kl" href="https://app.superpoolsai.com/#/new?comp=nfl&amp;kind=survivor&amp;src=home"><span class="ki"><svg class="ico"><use href="./icons.svg#i-shield"/></svg></span><b>Last one standing</b><span class="ln">One team a week, never the same one twice. Up to three lives.</span><span class="go"><small>NFL</small>Start</span></a></li>
+        <li><a class="kl" href="https://app.superpoolsai.com/#/new?comp=nhl-2026&amp;kind=players&amp;src=home"><span class="ki"><svg class="ico"><use href="./icons.svg#i-box"/></svg></span><b>The box pool</b><span class="ln">One NHL player from each box. Goals, assists and wins land live.</span><span class="go"><small>NHL</small>Start</span></a></li>
+        <li><a class="kl" href="https://app.superpoolsai.com/#/new?comp=nhl-2026-27&amp;kind=streak&amp;src=home"><span class="ki"><svg class="ico"><use href="./icons.svg#i-flame"/></svg></span><b>Daily streak</b><span class="ln">One pick a day. The longest run of right picks wins.</span><span class="go"><small>NHL</small>Start</span></a></li>
+        <li><a class="kl" href="https://app.superpoolsai.com/#/new?comp=epl&amp;kind=score&amp;src=home"><span class="ki"><svg class="ico"><use href="./icons.svg#i-target"/></svg></span><b>Call the score</b><span class="ln">The exact score of every match. One banker counts double.</span><span class="go"><small>EPL</small>Start</span></a></li>
+        <li><a class="kl" href="https://app.superpoolsai.com/#/new?comp=nfl&amp;kind=props&amp;src=home"><span class="ki"><svg class="ico"><use href="./icons.svg#i-sheet"/></svg></span><b>The prop sheet</b><span class="ln">Eight calls on one game, a point each, settled as it plays.</span><span class="go"><small>NFL</small>Start</span></a></li>
+        <li><a class="kl" href="https://app.superpoolsai.com/#/new?comp=nfl&amp;kind=squares&amp;src=home"><span class="ki"><svg class="ico"><use href="./icons.svg#i-grid"/></svg></span><b>Squares</b><span class="ln">A grid on one NFL game, scored by the quarter in Supercoins.</span><span class="go"><small>NFL</small>Start</span></a></li>
+        <li><div class="kl"><span class="ki"><svg class="ico"><use href="./icons.svg#i-series"/></svg></span><b>Pick the series</b><span class="ln">Who wins each series, and in how many games.</span><span class="when2">Opens with the playoffs</span></div></li>
+        <li><div class="kl"><span class="ki"><svg class="ico"><use href="./icons.svg#i-bracket"/></svg></span><b>The bracket</b><span class="ln">Every series to the final, filled in before the first game.</span><span class="when2">Opens with the playoffs</span></div></li>
+        <li><div class="kl"><span class="ki"><svg class="ico"><use href="./icons.svg#i-rank"/></svg></span><b>Rank the teams</b><span class="ln">Rank the round's clubs; each win scores its rank.</span><span class="when2">Opens with the playoffs</span></div></li>
+        <li><div class="kl"><span class="ki"><svg class="ico"><use href="./icons.svg#i-hat"/></svg></span><b>The sweepstake</b><span class="ln">Clubs dealt from the hat. Hold the champion, take the crown.</span><span class="when2">Opens with the playoffs</span></div></li>
+        <li><div class="kl"><span class="ki"><svg class="ico"><use href="./icons.svg#i-chart"/></svg></span><b>Win totals</b><span class="ln">Over or under on every club's season wins.</span><span class="when2">Opens before next season</span></div></li>
+      </ul>
+      <p class="kl-more"><span>Anything else: ask your own questions, with the group's chance on every answer.</span><a class="textlink" href="https://app.superpoolsai.com/#/new?type=questions&amp;src=home">Start a questions pool</a></p>
+    </section>
+
+    <!-- 5. Call it: the real price maker, in pretend coins -->
+    <section id="call">
+      <div class="pillar3">
+        <div class="rv">
+          <div class="eyebrow">Call it</div>
+          <h2 class="display">Every answer has a price.</h2>
+          <p class="lead">The price is the group's chance, and it moves the moment someone calls it. Call it early, before the group agrees, and a right call scores more. Try one with 300 pretend coins.</p>
+        </div>
+        <div class="market rv" id="market">
           <div class="meta">TRY IT · 300 PRETEND COINS · 100 A CALL</div>
-          <h4>Does the Stanley Cup go to the East?</h4>
+          <h3>Does the Stanley Cup go to the East?</h3>
           <div class="meta">Settles when the Cup is handed out · a sample pool</div>
           <svg class="chart" viewBox="0 0 300 118" preserveAspectRatio="none" aria-hidden="true">
             <defs><linearGradient id="mg" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#38bdf8" stop-opacity=".35"/><stop offset="1" stop-color="#38bdf8" stop-opacity="0"/></linearGradient></defs>
@@ -281,272 +240,141 @@
             <circle class="dt" r="5" fill="#38bdf8" stroke="#0b1220" stroke-width="2"/>
           </svg>
           <button type="button" class="opt" data-k="y" style="--c:#38bdf8"><span>East</span><b>50%</b><span class="go">Call it</span></button>
-          <button type="button" class="opt" data-k="n" style="--c:#f7c548"><span>West</span><b>50%</b><span class="go">Call it</span></button>
-          <div class="receipt">Tap an answer. Watch what 100 Supercoins does to the price.</div>
+          <button type="button" class="opt" data-k="n" style="--c:#cbd5e1"><span>West</span><b>50%</b><span class="go">Call it</span></button>
+          <div class="receipt" aria-live="polite">Tap an answer. Watch what 100 Supercoins does to the price.</div>
         </div>
       </div>
     </section>
 
-    <section id="sak">
-      <div class="split">
-        <div class="rv">
-          <div class="eyebrow">Built by a league, not a media company</div>
-          <h2 class="display">Thirteen seasons <em class="gold">in the making.</em></h2>
-          <p class="lead">Super Pools was built inside the SaK Superleague, an eight-team keeper league that has drafted every fall since 2013. Its 2026-27 season has run on Super Pools every night since the keeper deadline. The founding league feels every bug first.</p>
-          <div class="card" style="display:flex;gap:16px;align-items:center;border-color:rgba(247,197,72,.3);background:linear-gradient(135deg,rgba(247,197,72,.12),rgba(17,27,48,.5) 60%)">
-            <img src="./img/sak-icon.svg" alt="SAK Superleague" width="76" height="76" style="width:76px;height:76px;border-radius:20px;box-shadow:0 0 30px -6px rgba(247,197,72,.6)" />
-            <div><b class="display" style="font-size:26px;letter-spacing:.02em"><em class="gold">SAK</em> SUPERLEAGUE</b><div class="mute" style="font-size:13px">She’s A Keeper · est. 2013 · the founding pool</div></div>
-          </div>
+    <!-- 6. Game night is a room: the three working demos, once -->
+    <section id="live">
+      <div class="shead rv">
+        <div class="eyebrow">Game night</div>
+        <h2 class="display">Game night is a room.</h2>
+        <p class="lead">Everyone in the league in one place, and nobody refreshing a page.</p>
+      </div>
+      <div class="trio rail">
+        <div class="demo">
+          <div class="screen"><div class="feed" id="feed"><div class="rh"><span>THE NIGHT'S SWINGS</span><span class="live">Live</span></div></div></div>
+          <h3>The live room</h3>
+          <p>Every point a starter scores, the moment the box score has it, with the room's reactions.</p>
         </div>
-        <div class="grid rv" style="grid-template-columns:repeat(2,1fr)">
-          <div class="card"><div class="num gold">8</div><p>GMs who check it every night of the season</p></div>
-          <div class="card"><div class="num gold">13</div><p>seasons of keeper rules built in, from the top-scorer rule to IR</p></div>
-          <div class="card"><div class="num ice">60</div><p>days of lineups any GM can set ahead</p></div>
-          <div class="card"><div class="num ice">1</div><p>place for the scores, the challenges, the money and the chat</p></div>
+        <div class="demo">
+          <div class="screen"><div class="clock" id="clock">
+            <div class="who2"><span>Round 2 · Pick 11</span><span>Top Shelf</span></div>
+            <svg viewBox="0 0 168 168" aria-hidden="true"><circle class="track" cx="84" cy="84" r="72"/><circle class="arc" id="arc" cx="84" cy="84" r="72" style="stroke-dashoffset:0"/></svg>
+            <div class="face"><small>On the clock</small><b id="secs">0:06</b><small class="lc">Live clock</small></div>
+            <div class="pickin" id="pickin"><div><b id="pickp">Quinn Hughes, D</b><small>Top Shelf · pick 11 · made by the clock</small></div><span class="t">ON THE SECOND</span></div>
+          </div></div>
+          <h3>A draft clock that keeps time</h3>
+          <p>When the clock runs out, the pick is made on the second, and every phone in the room sees it.</p>
+        </div>
+        <div class="demo">
+          <div class="screen"><div class="thread">
+            <div class="bubl">who's in for the office pool this year</div>
+            <div class="bubr"><div class="unf"><div class="art"><small>Super Pools · invite</small><b>The Office Pool</b><span>NFL pick'em · last one standing</span></div><div class="meta"><b>You're invited to The Office Pool</b><i>Sam's pool · 9 in · app.superpoolsai.com</i></div></div><div class="txt">tap it, takes a minute</div></div>
+            <span class="tapped">Delivered</span>
+          </div></div>
+          <h3>A link that looks like your pool</h3>
+          <p>Drop the invite in the group chat. It unfurls with your pool's name, and friends join with a name.</p>
         </div>
       </div>
-      <div class="shots">
-        <div class="shot rv"><div class="phone glow-gold"><img src="./img/sak-live.webp" alt="The live scoreboard: every team's points tonight, game by game" width="600" height="1200" loading="lazy" /></div><h3>Every point, as it happens</h3><p>Tonight's points by team, game clocks, box scores and who left points on the bench.</p></div>
-        <div class="shot rv"><div class="phone glow-gold"><img src="./img/sak-lineup.webp" alt="The lineup page with one-tap optimize and lineups planned by day" width="600" height="1200" loading="lazy" /></div><h3>Lineups that set themselves</h3><p>One tap optimizes tonight; the auto-pilot handles the nights you forget.</p></div>
-        <div class="shot rv"><div class="phone glow-gold"><img src="./img/sak-home.webp" alt="The league home: your team, the standings, alerts" width="600" height="1200" loading="lazy" /></div><h3>The league in your pocket</h3><p>Your team, the race, the side challenges and the voice, one tap from the group chat.</p></div>
-      </div>
-      <p class="mute center" style="font-size:12px;margin:14px 0 0">Screens from the SaK Superleague's own site, with names changed.</p>
+      <p class="swipe trio-swipe">Swipe for all three</p>
     </section>
 
-    <section id="fans">
-      <div class="split">
-        <div class="rv">
-          <div class="eyebrow i">Fan zones · free and open</div>
-          <h2 class="display">Every club, <em class="ice">read like a front office.</em></h2>
-          <p class="lead">The NHL, the NFL, the NBA and the Premier League: deep analysis of every club from the leagues' public numbers, free for every fan. The playoff and title chances, the luck, the players, the moves the numbers point to and, for the NHL, the franchise's whole history. Fans make their calls, post ideas, vote the best to the top and build each club's knowledge base, and the fan pulse shows the club, and everyone, what its fans think.</p>
-          <div class="cta">
-            <a class="btn btn-ice" href="https://app.superpoolsai.com/fans">Find your club</a>
-            <a class="btn btn-ghost" href="./fans">How the fan zones work</a>
-          </div>
-          <div class="leagues" aria-label="Every league's fan zones">
-            <a href="https://app.superpoolsai.com/fans"><img src="https://assets.nhle.com/logos/nhl/svg/NHL_dark.svg" alt="" width="30" height="30" loading="lazy" /><span>NHL<small>32 clubs</small></span></a>
-            <a href="https://app.superpoolsai.com/fans/nfl"><img src="https://a.espncdn.com/i/teamlogos/leagues/500-dark/nfl.png" alt="" width="30" height="30" loading="lazy" /><span>NFL<small>32 clubs</small></span></a>
-            <a href="https://app.superpoolsai.com/fans/nba"><img src="https://a.espncdn.com/i/teamlogos/leagues/500-dark/nba.png" alt="" width="30" height="30" loading="lazy" /><span>NBA<small>30 clubs</small></span></a>
-            <a href="https://app.superpoolsai.com/fans/epl"><img src="https://a.espncdn.com/i/leaguelogos/soccer/500-dark/23.png" alt="" width="30" height="30" loading="lazy" /><span>Premier League<small>20 clubs</small></span></a>
-          </div>
-          <div class="under"><span>114 clubs in four leagues</span><span>Nothing to sign up for to read</span><span>Open source, MIT</span></div>
+    <!-- 7. Alive and improving: the latest four lines of the change log (scripts/landing-changelog.mjs) -->
+    <section id="log">
+      <div class="pillar3 top">
+        <div class="shead rv">
+          <div class="eyebrow">Alive and improving</div>
+          <h2 class="display">Better every week.</h2>
+          <p class="lead">Each line is written in the same change that ships it.</p>
+          <a class="textlink" href="./changelog.html">Every change, dated</a>
         </div>
-          <div class="clubs rv" aria-label="Every club's fan zone">
-            <div class="div">Atlantic</div>
-            <a href="https://app.superpoolsai.com/fans/BOS" title="Boston Bruins fan zone"><img src="https://assets.nhle.com/logos/nhl/svg/BOS_dark.svg" alt="" width="34" height="34" loading="lazy" /><span>BOS</span><b class="sr">Boston Bruins fan zone</b></a>
-            <a href="https://app.superpoolsai.com/fans/BUF" title="Buffalo Sabres fan zone"><img src="https://assets.nhle.com/logos/nhl/svg/BUF_dark.svg" alt="" width="34" height="34" loading="lazy" /><span>BUF</span><b class="sr">Buffalo Sabres fan zone</b></a>
-            <a href="https://app.superpoolsai.com/fans/DET" title="Detroit Red Wings fan zone"><img src="https://assets.nhle.com/logos/nhl/svg/DET_dark.svg" alt="" width="34" height="34" loading="lazy" /><span>DET</span><b class="sr">Detroit Red Wings fan zone</b></a>
-            <a href="https://app.superpoolsai.com/fans/FLA" title="Florida Panthers fan zone"><img src="https://assets.nhle.com/logos/nhl/svg/FLA_dark.svg" alt="" width="34" height="34" loading="lazy" /><span>FLA</span><b class="sr">Florida Panthers fan zone</b></a>
-            <a href="https://app.superpoolsai.com/fans/MTL" title="Montréal Canadiens fan zone"><img src="https://assets.nhle.com/logos/nhl/svg/MTL_dark.svg" alt="" width="34" height="34" loading="lazy" /><span>MTL</span><b class="sr">Montréal Canadiens fan zone</b></a>
-            <a href="https://app.superpoolsai.com/fans/OTT" title="Ottawa Senators fan zone"><img src="https://assets.nhle.com/logos/nhl/svg/OTT_dark.svg" alt="" width="34" height="34" loading="lazy" /><span>OTT</span><b class="sr">Ottawa Senators fan zone</b></a>
-            <a href="https://app.superpoolsai.com/fans/TBL" title="Tampa Bay Lightning fan zone"><img src="https://assets.nhle.com/logos/nhl/svg/TBL_dark.svg" alt="" width="34" height="34" loading="lazy" /><span>TBL</span><b class="sr">Tampa Bay Lightning fan zone</b></a>
-            <a href="https://app.superpoolsai.com/fans/TOR" title="Toronto Maple Leafs fan zone"><img src="https://assets.nhle.com/logos/nhl/svg/TOR_dark.svg" alt="" width="34" height="34" loading="lazy" /><span>TOR</span><b class="sr">Toronto Maple Leafs fan zone</b></a>
-            <div class="div">Metropolitan</div>
-            <a href="https://app.superpoolsai.com/fans/CAR" title="Carolina Hurricanes fan zone"><img src="https://assets.nhle.com/logos/nhl/svg/CAR_dark.svg" alt="" width="34" height="34" loading="lazy" /><span>CAR</span><b class="sr">Carolina Hurricanes fan zone</b></a>
-            <a href="https://app.superpoolsai.com/fans/CBJ" title="Columbus Blue Jackets fan zone"><img src="https://assets.nhle.com/logos/nhl/svg/CBJ_dark.svg" alt="" width="34" height="34" loading="lazy" /><span>CBJ</span><b class="sr">Columbus Blue Jackets fan zone</b></a>
-            <a href="https://app.superpoolsai.com/fans/NJD" title="New Jersey Devils fan zone"><img src="https://assets.nhle.com/logos/nhl/svg/NJD_dark.svg" alt="" width="34" height="34" loading="lazy" /><span>NJD</span><b class="sr">New Jersey Devils fan zone</b></a>
-            <a href="https://app.superpoolsai.com/fans/NYI" title="New York Islanders fan zone"><img src="https://assets.nhle.com/logos/nhl/svg/NYI_dark.svg" alt="" width="34" height="34" loading="lazy" /><span>NYI</span><b class="sr">New York Islanders fan zone</b></a>
-            <a href="https://app.superpoolsai.com/fans/NYR" title="New York Rangers fan zone"><img src="https://assets.nhle.com/logos/nhl/svg/NYR_dark.svg" alt="" width="34" height="34" loading="lazy" /><span>NYR</span><b class="sr">New York Rangers fan zone</b></a>
-            <a href="https://app.superpoolsai.com/fans/PHI" title="Philadelphia Flyers fan zone"><img src="https://assets.nhle.com/logos/nhl/svg/PHI_dark.svg" alt="" width="34" height="34" loading="lazy" /><span>PHI</span><b class="sr">Philadelphia Flyers fan zone</b></a>
-            <a href="https://app.superpoolsai.com/fans/PIT" title="Pittsburgh Penguins fan zone"><img src="https://assets.nhle.com/logos/nhl/svg/PIT_dark.svg" alt="" width="34" height="34" loading="lazy" /><span>PIT</span><b class="sr">Pittsburgh Penguins fan zone</b></a>
-            <a href="https://app.superpoolsai.com/fans/WSH" title="Washington Capitals fan zone"><img src="https://assets.nhle.com/logos/nhl/svg/WSH_dark.svg" alt="" width="34" height="34" loading="lazy" /><span>WSH</span><b class="sr">Washington Capitals fan zone</b></a>
-            <div class="div">Central</div>
-            <a href="https://app.superpoolsai.com/fans/CHI" title="Chicago Blackhawks fan zone"><img src="https://assets.nhle.com/logos/nhl/svg/CHI_dark.svg" alt="" width="34" height="34" loading="lazy" /><span>CHI</span><b class="sr">Chicago Blackhawks fan zone</b></a>
-            <a href="https://app.superpoolsai.com/fans/COL" title="Colorado Avalanche fan zone"><img src="https://assets.nhle.com/logos/nhl/svg/COL_dark.svg" alt="" width="34" height="34" loading="lazy" /><span>COL</span><b class="sr">Colorado Avalanche fan zone</b></a>
-            <a href="https://app.superpoolsai.com/fans/DAL" title="Dallas Stars fan zone"><img src="https://assets.nhle.com/logos/nhl/svg/DAL_dark.svg" alt="" width="34" height="34" loading="lazy" /><span>DAL</span><b class="sr">Dallas Stars fan zone</b></a>
-            <a href="https://app.superpoolsai.com/fans/MIN" title="Minnesota Wild fan zone"><img src="https://assets.nhle.com/logos/nhl/svg/MIN_dark.svg" alt="" width="34" height="34" loading="lazy" /><span>MIN</span><b class="sr">Minnesota Wild fan zone</b></a>
-            <a href="https://app.superpoolsai.com/fans/NSH" title="Nashville Predators fan zone"><img src="https://assets.nhle.com/logos/nhl/svg/NSH_dark.svg" alt="" width="34" height="34" loading="lazy" /><span>NSH</span><b class="sr">Nashville Predators fan zone</b></a>
-            <a href="https://app.superpoolsai.com/fans/STL" title="St. Louis Blues fan zone"><img src="https://assets.nhle.com/logos/nhl/svg/STL_dark.svg" alt="" width="34" height="34" loading="lazy" /><span>STL</span><b class="sr">St. Louis Blues fan zone</b></a>
-            <a href="https://app.superpoolsai.com/fans/UTA" title="Utah Mammoth fan zone"><img src="https://assets.nhle.com/logos/nhl/svg/UTA_dark.svg" alt="" width="34" height="34" loading="lazy" /><span>UTA</span><b class="sr">Utah Mammoth fan zone</b></a>
-            <a href="https://app.superpoolsai.com/fans/WPG" title="Winnipeg Jets fan zone"><img src="https://assets.nhle.com/logos/nhl/svg/WPG_dark.svg" alt="" width="34" height="34" loading="lazy" /><span>WPG</span><b class="sr">Winnipeg Jets fan zone</b></a>
-            <div class="div">Pacific</div>
-            <a href="https://app.superpoolsai.com/fans/ANA" title="Anaheim Ducks fan zone"><img src="https://assets.nhle.com/logos/nhl/svg/ANA_dark.svg" alt="" width="34" height="34" loading="lazy" /><span>ANA</span><b class="sr">Anaheim Ducks fan zone</b></a>
-            <a href="https://app.superpoolsai.com/fans/CGY" title="Calgary Flames fan zone"><img src="https://assets.nhle.com/logos/nhl/svg/CGY_dark.svg" alt="" width="34" height="34" loading="lazy" /><span>CGY</span><b class="sr">Calgary Flames fan zone</b></a>
-            <a href="https://app.superpoolsai.com/fans/EDM" title="Edmonton Oilers fan zone"><img src="https://assets.nhle.com/logos/nhl/svg/EDM_dark.svg" alt="" width="34" height="34" loading="lazy" /><span>EDM</span><b class="sr">Edmonton Oilers fan zone</b></a>
-            <a href="https://app.superpoolsai.com/fans/LAK" title="Los Angeles Kings fan zone"><img src="https://assets.nhle.com/logos/nhl/svg/LAK_dark.svg" alt="" width="34" height="34" loading="lazy" /><span>LAK</span><b class="sr">Los Angeles Kings fan zone</b></a>
-            <a href="https://app.superpoolsai.com/fans/SEA" title="Seattle Kraken fan zone"><img src="https://assets.nhle.com/logos/nhl/svg/SEA_dark.svg" alt="" width="34" height="34" loading="lazy" /><span>SEA</span><b class="sr">Seattle Kraken fan zone</b></a>
-            <a href="https://app.superpoolsai.com/fans/SJS" title="San Jose Sharks fan zone"><img src="https://assets.nhle.com/logos/nhl/svg/SJS_dark.svg" alt="" width="34" height="34" loading="lazy" /><span>SJS</span><b class="sr">San Jose Sharks fan zone</b></a>
-            <a href="https://app.superpoolsai.com/fans/VAN" title="Vancouver Canucks fan zone"><img src="https://assets.nhle.com/logos/nhl/svg/VAN_dark.svg" alt="" width="34" height="34" loading="lazy" /><span>VAN</span><b class="sr">Vancouver Canucks fan zone</b></a>
-            <a href="https://app.superpoolsai.com/fans/VGK" title="Vegas Golden Knights fan zone"><img src="https://assets.nhle.com/logos/nhl/svg/VGK_dark.svg" alt="" width="34" height="34" loading="lazy" /><span>VGK</span><b class="sr">Vegas Golden Knights fan zone</b></a>
-          </div>
+        <ol class="loglines rv" id="loglines" data-n="4">
+          <!-- changelog:start -->
+          <li><time datetime="2026-11-04">Nov 4</time><div><b>An easier way in for someone new</b></div></li>
+          <li><time datetime="2026-10-24">Oct 24</time><div><b>The Oilers fan zone</b></div></li>
+          <li><time datetime="2026-10-24">Oct 24</time><div><b>The full-screen app, and a roomier chat</b></div></li>
+          <li><time datetime="2026-10-24">Oct 24</time><div><b>Expected points follow this season</b></div></li>
+          <!-- changelog:end -->
+        </ol>
       </div>
     </section>
 
-    <section id="season">
-      <div class="rv">
-        <div class="eyebrow i">A pool for every season</div>
-        <h2 class="display">Keep the group. <em class="ice">Change the game.</em></h2>
-        <p class="lead">The same buddies, the same chat and the same bragging rights, all year. When one season ends, the next pool starts in the same place.</p>
+    <!-- 8. Pay per pool, never per person: the planned ladder, nothing charged today -->
+    <section id="pricing">
+      <div class="shead rv">
+        <div class="eyebrow">Pricing, planned</div>
+        <h2 class="display">Pay per pool, never per person.</h2>
+        <p class="lead">Members never pay, and nothing is charged today. Until billing ships, every pool has every feature, free.</p>
       </div>
-      <div class="cal rv">
-        <div class="hot"><small>Oct to Apr</small><b>Hockey fantasy</b><span>Season, rotisserie or head-to-head, keepers and the Book</span></div>
-        <div class="hot"><small>Oct to Apr</small><b>The box pool</b><span>One player from each box, goals and assists live. No draft night</span></div>
-        <div class="hot2"><small>Oct to Apr</small><b>Every NHL and NBA game</b><span>Weekly pick'em, last one standing and the daily streak, one pick a night</span></div>
-        <div><small>Sep to Feb</small><b>Football</b><span>Every NFL game each week, last one standing, then Super Bowl squares and a prop sheet</span></div>
-        <div class="hot2"><small>All season</small><b>Soccer</b><span>Matchweek calls on the Premier League and MLS</span></div>
-        <div><small>March</small><b>The bracket</b><span>March Madness, with a second chance and the Eliminator</span></div>
-        <div class="hot"><small>Apr to Jun</small><b>Playoff pools</b><span>Stanley Cup and NBA series calls, brackets, the box pool and the sweepstake</span></div>
-      </div>
-    </section>
-
-    <section id="ship">
-      <div class="rv">
-        <div class="eyebrow">Shipping every week</div>
-        <h2 class="display">Better <em class="gold">every week.</em></h2>
-        <p class="lead">The founding league plays on it every night, so it gets better every week. Here is what just landed, and what is being built now.</p>
-      </div>
-      <div class="ship">
-        <div class="log rv">
-          <h3>Just shipped</h3>
-          <div class="it"><time>Oct 25</time><div><b>Trades and injuries move the outlook the day they happen</b><span>Every roster read against who has played: a goalie who just arrived, a man out for a month, a departure, each priced into the chances the same hour.</span></div></div>
-          <div class="it"><time>Oct 25</time><div><b>Fan zones as pages, and sharing that looks the part</b><span>Every club's analysis, outlook and history on their own pages, each unfurling with its own numbers; share cards drawn in the club's colours for stories and group chats, with a QR code for the table.</span></div></div>
-          <div class="it"><time>Oct 25</time><div><b>Fan zones for the NFL, the NBA and the Premier League</b><span>Every club in four leagues read like a front office, with each league's own page, its races and every club's chances.</span></div></div>
-          <div class="it"><time>Oct 25</time><div><b>NHL fan zones for every club</b><span>All 32 clubs read like a front office, open to every fan: make your calls, post ideas, build the knowledge base, and share the fan pulse.</span></div></div>
-          <div class="it"><time>Oct 11</time><div><b>A thread for every pool game</b><span>Each match's own chat inside a pool, one tap from its pick, its score and the live room.</span></div></div>
-          <div class="it"><time>Oct 11</time><div><b>One score, every page</b><span>Scores and clocks within seconds of the league, the same on every screen, with points that land everywhere at once.</span></div></div>
-          <div class="it"><time>Oct 11</time><div><b>Every game, one tap away</b><span>One sheet for any game: where to watch, team radio, the thread, the box score and the challenges.</span></div></div>
-          <div class="it"><time>Oct 11</time><div><b>Game day in every pool</b><span>The live room for pick'em, brackets and every sports pool: live scores, who's watching, and every climb up the table.</span></div></div>
-          <div class="it"><time>Oct 11</time><div><b>A thread for every game</b><span>Each game's own chat, beside its score: whose players are in it, the swings, and the league talking it over.</span></div></div>
-          <div class="it"><time>Oct 11</time><div><b>The live room</b><span>Game night in one room: every swing as it lands, who's watching, reactions, and a horn when your player scores.</span></div></div>
+      <div class="plans">
+        <div class="plan rv">
+          <div class="plan-top"><h3>Free</h3><span class="planned">Planned</span></div>
+          <div class="amt">CA$0</div>
+          <div class="per">per pool, for good</div>
+          <p>Every kind of pool up to 30 entries, a fantasy league up to 12 teams, chat, Supercoins and imports. No ads on any plan.</p>
+          <div class="foot">Members never pay.</div>
         </div>
-        <div class="building rv">
-          <h3>Being built now</h3>
-          <div class="it"><i></i><div><b>Bring your league (self-serve)</b><span>Roster import from Fantrax, ESPN and Yahoo is live today; a full one-tap move with settings and every past season is still being finished.</span></div></div>
-          <div class="it"><i></i><div><b>In the app stores</b><span>The same app, installed from the store, with alerts that reach you at the rink.</span></div></div>
-          <div class="it"><i></i><div><b>Plus and Premium (planned)</b><span>Paid tiers per pool, never per person. Everything is free until then.</span></div></div>
+        <div class="plan rv">
+          <div class="plan-top"><h3>Plus</h3><span class="planned">Planned</span></div>
+          <div class="amt">CA$49<small>a season</small></div>
+          <div class="per">per pool · CA$19 for an event under 30 days</div>
+          <p>Custom scoring, keepers, co-hosts, pools over 30 entries, a dues tracker and a weekly column from the voice.</p>
+          <div class="foot">Free until billing ships.</div>
+        </div>
+        <div class="plan pick rv">
+          <div class="plan-top"><h3>Premium</h3><span class="planned">Planned</span></div>
+          <div class="amt">CA$99<small>a season</small></div>
+          <div class="per">per league · CA$8.25 a team in a 12-team league</div>
+          <p>Everything in Plus, with the full league voice, the Book in Supercoins and projections.</p>
+          <div class="foot">Free until billing ships.</div>
         </div>
       </div>
+      <p class="founding rv"><span><b>Founding season.</b> A pool that starts in 2026-27 plays free until its season ends, then keeps 30% off list (Plus CA$34, Premium CA$69) for as long as it renews.</span></p>
+      <p class="fine">Planned prices in Canadian dollars, before sales tax. <a class="textlink" href="./pricing.html">See every row</a></p>
     </section>
 
-    <section id="road">
-      <div class="rv">
-        <div class="eyebrow g">Where it's going</div>
-        <h2 class="display">Every pool you're in. <em class="gold">One home.</em></h2>
-        <p class="lead">Hockey is where it started. Six sports scored live today, twelve kinds of sports pool, hockey fantasy and questions about anything, on one engine, with your league's history in it.</p>
-      </div>
-      <div class="road rv">
-        <div class="stop" style="--c:#34d399"><span class="dot"></span><span class="pill now">Live now</span><h3>Hockey, and every pool</h3><ul><li>Hockey fantasy: season, roto, head-to-head, keepers</li><li>Twelve kinds of sports pool on six sports</li><li>Live rooms in every pool, game threads, the draft clock</li><li>Questions with live prices, for anything</li></ul></div>
-        <div class="stop" style="--c:#38bdf8"><span class="dot"></span><span class="pill next">This season</span><h3>Everyone in the room</h3><ul><li>Self-serve league move with full history</li><li>The app in the stores</li><li>More show packs (Bachelor, award nights)</li></ul></div>
-        <div class="stop" style="--c:#f7c548"><span class="dot"></span><span class="pill gold">2027</span><h3>More sports, more pools</h3><ul><li>Soccer fantasy, then basketball</li><li>The Women's World Cup and award nights</li><li>Pools hosted by podcasts and creators</li></ul></div>
-        <div class="stop" style="--c:#94a3b8"><span class="dot"></span><span class="pill later">After</span><h3>Every sport, everywhere</h3><ul><li>Cricket and the world's leagues</li><li>Every pool your group plays, in one app</li><li>A voice that knows your league's whole story</li></ul></div>
-      </div>
-      <div class="mission rv">
-        <p>Every group has a pool. The hockey pool that started in a basement, the office bracket, the Super Bowl sheet on the fridge. They live in spreadsheets, group texts and sites built for something else. <span class="gold">Super Pools is building the one home they all move into.</span></p>
-        <p>The sports you already watch, every season, your league's whole history, a voice that knows it, and a currency that is only ever for bragging rights. No ads in Super Pools, no house to play against, never real money.</p>
-      </div>
-    </section>
-
-    <section id="any">
-      <div class="door rv">
-        <div>
-          <div class="eyebrow r">Pools for any group</div>
-          <h2 class="display">Not everyone's a hockey guy. <em style="color:#fda4af">Everyone's welcome.</em></h2>
-          <p class="lead" style="color:#f1d4dc">The same pools work for the shows your friends won't stop texting about and the women's games worth watching together. First up, a Love Is Blind pool for Season 11, from October 14.</p>
-          <div class="chips"><span>Love Is Blind</span><span>NWSL and WSL</span><span>Women's World Cup 2027</span><a href="./traitors">The Traitors</a><span>The Bachelor · coming</span><span>Award nights · coming</span></div>
-          <div class="cta">
-            <a class="btn btn-rose" href="./together">See pools for any group</a>
-            <a class="btn btn-ghost" href="./love-is-blind">Run a Love Is Blind pool</a>
-            <a class="btn btn-ghost" href="./example-pool">See a filled example pool</a>
-          </div>
-        </div>
-        <div class="phones" aria-hidden="true">
-          <div class="phone glow-rose"><img src="./img/pool-home.webp" alt="" width="600" height="1200" loading="lazy" /></div>
-          <div class="phone glow-rose"><img src="./img/pool-question.webp" alt="" width="600" height="1200" loading="lazy" /></div>
-        </div>
-      </div>
-    </section>
-
-    <section>
-      <div class="coin rv">
-        <svg class="coinart" viewBox="0 0 120 120" aria-hidden="true"><defs><linearGradient id="cg" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#fff1b8"/><stop offset=".5" stop-color="#f7c548"/><stop offset="1" stop-color="#b8800a"/></linearGradient></defs><circle cx="60" cy="60" r="54" fill="url(#cg)"/><circle cx="60" cy="60" r="44" fill="none" stroke="#7a5308" stroke-opacity=".35" stroke-width="3"/><circle cx="60" cy="60" r="28" fill="none" stroke="#3b2a00" stroke-opacity=".55" stroke-width="5"/><circle cx="60" cy="60" r="7" fill="#3b2a00" fill-opacity=".55"/><g stroke="#3b2a00" stroke-opacity=".55" stroke-width="4" stroke-linecap="round"><line x1="49" y1="18" x2="49" y2="26"/><line x1="71" y1="18" x2="71" y2="26"/><line x1="49" y1="94" x2="49" y2="102"/><line x1="71" y1="94" x2="71" y2="102"/></g></svg>
-        <div>
-          <div class="eyebrow g">Supercoins</div>
-          <h2 class="display">Bragging rights. <em class="gold">Never money.</em></h2>
-          <p class="lead" style="margin-bottom:8px">Every pool runs on Supercoins (SaK calls them St. Patrick coins). They make the side challenges and the calls mean something, and they are worth nothing outside your pool. The dues your league already plays for stay what they always were: between friends, and tracked if you like.</p>
-          <div class="never"><div>Play coins only</div><div>Never bought, never sold</div><div>No house to beat</div><div>No sportsbook ads</div><div>No spam to place a call</div><div>No ads in Super Pools</div></div>
-        </div>
-      </div>
-    </section>
-
-    <section id="tiers">
-      <div class="rv">
-        <div class="eyebrow g">Free to start</div>
-        <h2 class="display">Pay per pool, <em class="gold">never per guy.</em></h2>
-        <p class="lead">A free pool is a real pool. Paid tiers add what makes a league serious, priced per pool per season so the commish can split it eight ways. Prices are proposals until the first paid season. Paid tiers aren't live yet, so every feature is free in every pool today.</p>
-      </div>
-      <div class="tiers">
-        <div class="card tier rv"><h3>Free</h3><div class="for">Any group, any pool</div><ul><li>Hockey fantasy from presets</li><li>Question pools with live prices</li><li>Chat, polls and a leaderboard</li><li>Every feature free until paid tiers go live</li></ul><div class="price">Free</div></div>
-        <div class="card tier rv"><h3>Plus <span class="pill gold">Planned</span></h3><div class="for">An established league</div><ul><li>Custom scoring: points, categories, roto</li><li>Keepers and imports with history</li><li>Co-commissioners and an audit trail</li><li>A weekly recap from the voice</li></ul><div class="price">About $49 a season</div><p class="price-note">Prices are proposals until the first paid season</p></div>
-        <div class="card tier hot rv"><h3>Premium <span class="pill gold">Planned</span></h3><div class="for">The fourteen-year league</div><ul><li>The full voice: recaps, rankings, grades, answers</li><li>Contracts, caps, prospects, rookie drafts</li><li>Projections and simulated seasons</li><li>The Book and the multi-sport pool</li></ul><div class="price">About $99 a season</div><p class="price-note">Prices are proposals until the first paid season</p></div>
-      </div>
-    </section>
-
-    <section id="join">
-      <div class="join rv">
-        <div class="eyebrow">Free to start</div>
-        <h2 class="display">Start yours <em class="gold">tonight.</em></h2>
-        <p class="lead" style="margin:0">A pool is free and ready in a minute, with no app to download. A hockey fantasy league can import rosters from Fantrax, ESPN or Yahoo today; we still help with a full move, and self-serve history is being finished.</p>
-        <div class="ways">
-          <div class="way">
-            <h3>Start a pool now</h3>
-            <p>Pick an event, pick the kinds of pool, send the link. Your friends are in before the next lock.</p>
-            <a class="btn btn-gold" href="https://app.superpoolsai.com/#/new?src=home">Start a pool, free</a>
-            <ol class="howto">
-              <li><span><b>Pick the event.</b> The NFL week, a matchweek, the NHL season or a show.</span></li>
-              <li><span><b>Pick the kinds.</b> Pick'em, a bracket, squares, a prop sheet, questions, or a few at once.</span></li>
-              <li><span><b>Send the link.</b> It shows up in the group chat looking like your pool.</span></li>
-            </ol>
-            <div class="quick">
-              <a href="./football-pools" style="--c:#38bdf8">NFL pools</a>
-              <a href="./hockey-pools" style="--c:#f7c548">NHL pools</a>
-              <a href="./basketball-pools" style="--c:#fb923c">NBA pools</a>
-              <a href="https://app.superpoolsai.com/#/new?comp=epl&amp;src=home" style="--c:#c4b5fd">Premier League</a>
-              <a href="https://app.superpoolsai.com/#/new?pack=nhl-2026-27&amp;src=home" style="--c:#7dd3fc">The NHL season</a>
-              <a href="./love-is-blind" style="--c:#fb7185">Love Is Blind</a>
-              <a href="https://app.superpoolsai.com/#/new?type=questions&amp;src=home" style="--c:#f7c548">Your own questions</a>
-            </div>
-          </div>
-          <div class="way">
-            <h3>Bring your fantasy league</h3>
-            <p>Tell us what you play and where it lives now. We set your league up with you, keepers and past seasons included, and write when it can move in.</p>
-            <form id="wl" novalidate>
-              <input type="email" name="email" placeholder="you@example.com" autocomplete="email" required aria-label="Email" />
-              <select name="pick" aria-label="What do you want to play?">
-                <option>A hockey fantasy league</option>
-                <option>NFL / sports pools</option>
-                <option>A soccer pool</option>
-                <option>A playoff or bracket pool</option>
-                <option>An office or family pool</option>
-                <option>Love Is Blind pool</option>
-                <option>Something else</option>
-              </select>
-              <input class="wide" type="text" name="note" placeholder="Anything we should know? (optional: 10 teams, keepers, on Yahoo)" maxlength="500" />
-              <input class="hp" type="text" name="website" tabindex="-1" autocomplete="off" />
-              <button class="btn btn-ghost wide" type="submit">Save my spot</button>
-              <p class="msgline wide" id="wl-msg" aria-live="polite"></p>
-            </form>
-          </div>
-        </div>
-      </div>
-    </section>
-
+    <!-- 9. Before you ask: money first (the FAQPage JSON-LD above mirrors these words) -->
     <section class="faq" id="faq">
-      <div class="eyebrow">Questions</div>
-      <h2 class="display">Before you <em class="gold">ask</em></h2>
-      <details><summary>Can we bring our league?</summary><p>Yes, for hockey fantasy. Roster import from Fantrax, ESPN and Yahoo is live today (paste a link or open Yahoo). Past seasons can be imported or pasted as a final table. A full one-tap move of settings and every past season is still being finished; until then we also set leagues up with you. Keepers, the draft room, lineups, trades, side challenges and the league voice are ready on day one. Fantasy football and soccer fantasy are on the 2027 road.</p></details>
-      <details><summary>Is there any real money in it?</summary><p>No. Side challenges and calls run on Supercoins: never bought, never sold. If your league plays for dues, that stays between friends, the way it always has; Super Pools can track who has paid, nothing more.</p></details>
-      <details><summary>How do the prices on a question work?</summary><p>Each answer's price is the group's chance of it, and the prices add up to 100%. Calling an answer pushes its price up; a share of the right answer scores one Supercoin, so calling it early, before the group agrees, pays the most. You can take them off before a question closes.</p></details>
-      <details><summary>What does the league voice cost us?</summary><p>Nothing yet. Every league and pool gets the full voice free while paid tiers are still being built. The plan is a weekly recap with Plus and the full voice (daily recaps, rankings, grades and answers in the chat) with Premium. It only ever posts what your league asks it to.</p></details>
-      <details><summary>Does everyone need to download an app?</summary><p>No. They tap the link, make an account with an email and a password, and they are in. Add it to the home screen and turn on alerts if you like.</p></details>
-      <details><summary>Which sports can we play?</summary><p>Sports pools run today on the NHL and NBA seasons game by game, the NFL, MLB, the Stanley Cup and NBA playoffs, the Premier League, MLS, the WSL and NWSL, and March Madness, each with a sport centre for scores, standings, news and injuries (NHL centre is the deepest). Fantasy drafts are hockey only for now; soccer and basketball fantasy follow on the same engine in 2027. Questions pools cover anything else you ask.</p></details>
-      <details><summary>What happens on game night?</summary><p>Everyone in the league shares one live room: the scoreboard moves the moment the box score does, every swing shows up as it lands with the room's reactions, and when your player scores you hear about it wherever you are in the app. On draft night the clock keeps time to the second.</p></details>
+      <div class="shead">
+        <div class="eyebrow">Questions</div>
+        <h2 class="display">Before you ask.</h2>
+      </div>
+      <details><summary>Is there any real money in it?</summary><p>No. Calls, side bets and the Book run on Supercoins: never bought, never sold, never cashed out. If your league plays for dues, that stays between friends; Super Pools can track who has paid, nothing more.</p></details>
+      <details><summary>Does everyone need to download an app?</summary><p>No. Friends tap your link and join a pool with just a name, right in the browser. A fantasy league asks for an email and a password. Add it to the Home Screen for alerts if you like.</p></details>
+      <details><summary>Who pays?</summary><p>Nobody, today. When billing ships, a pool pays once a season, never per person: the host pays or splits it, and members never see a bill.</p></details>
+      <details><summary>Can we bring our fantasy league?</summary><p>Yes, for hockey. Rosters come over from Fantrax, ESPN and Yahoo, past seasons from all three, and scoring from Fantrax. The one-tap move of every setting is still being built, so for now we set your league up with you. <a href="https://app.superpoolsai.com/#/start?src=home">Ask for your league.</a></p></details>
+      <details><summary>Which sports can we play?</summary><p>Pools run today on the NFL, the NHL, the NBA and soccer (the Premier League, MLS, the WSL and the NWSL), scored from public score feeds. The NFL playoffs open in January, March Madness in March, and the Stanley Cup and NBA playoffs in April. Fantasy leagues are hockey only for now.</p></details>
+      <details><summary>What about the shows we watch?</summary><p>Start a questions pool. Each question closes as the episode airs or drops, everyone calls it in Supercoins, and a host you know settles it by the rule written on the question.</p></details>
+      <details><summary>What does the league voice do?</summary><p>Your league names it; the founding league's is Garry. It writes the morning column, the Monday rankings and a 5 pm lineup nudge, answers questions in the chat and talks trash on request. It has a daily budget, and the commissioner tells it what the league is about.</p></details>
     </section>
 
-    <footer>
-      <span>© 2026 Super Pools · superpoolsai.com · not affiliated with the NHL, Netflix or any league</span>
-      <nav><a href="./football-pools">NFL pools</a><a href="./basketball-pools">NBA pools</a><a href="./hockey-pools">NHL pools</a><a href="./fans">Fan zones</a><a href="./together">Pools for any group</a><a href="https://app.superpoolsai.com/#/privacy">Privacy</a><a href="https://app.superpoolsai.com/#/terms">Terms</a><a href="#" data-cookie-settings>Cookie settings</a><a href="mailto:hello@superpoolsai.com">hello@superpoolsai.com</a></nav>
+    <!-- 10. Start yours tonight -->
+    <section id="start">
+      <div class="closer rv">
+        <h2 class="display">Start yours tonight.</h2>
+        <p>A minute to set up, one link for the group chat, and friends join with just a name.</p>
+        <div class="cta2">
+          <a class="btn btn-gold btn-lg" data-gold href="https://app.superpoolsai.com/#/new?src=home">Start a pool, free</a>
+          <a class="textlink" href="./fantasy-hockey.html">Bring your league</a>
+        </div>
+      </div>
+    </section>
+
+    <footer class="site-foot">
+      <div class="cols">
+        <div><h2>Play</h2><ul><li><a href="./fantasy-hockey.html">Fantasy league</a></li><li><a href="./hockey-pools.html">Hockey pools</a></li><li><a href="./football-pools.html">NFL pools</a></li><li><a href="./basketball-pools.html">NBA pools</a></li><li><a href="./together.html">Show pools</a></li></ul></div>
+        <div><h2>Look around</h2><ul><li><a href="./fans.html">Fan zones</a></li><li><a href="./example-pool.html">An example pool</a></li><li><a href="./pricing.html">Pricing</a></li><li><a href="./changelog.html">Changelog</a></li></ul></div>
+        <div><h2>Your pools</h2><ul><li><a href="https://app.superpoolsai.com/">Sign in</a></li><li><a href="mailto:hello@superpoolsai.com">hello@superpoolsai.com</a></li></ul></div>
+        <div><h2>The fine print</h2><ul><li><a href="https://app.superpoolsai.com/#/privacy">Privacy</a></li><li><a href="https://app.superpoolsai.com/#/terms">Terms</a></li><li><button type="button" class="linkbtn" data-cookie-settings>Cookie settings</button></li></ul></div>
+      </div>
+      <div class="base"><span>© 2026 Super Pools · superpoolsai.com · Supercoins, never money</span><span>Scores from public score feeds. Not affiliated with the NHL, Netflix or any league.</span></div>
     </footer>
   </main>
+
+  <div class="stickybar" id="sticky"><a class="btn btn-gold" href="https://app.superpoolsai.com/#/new?src=home">Start a pool, free</a></div>
   <script src="./site.js"></script>
 </body>
 </html>

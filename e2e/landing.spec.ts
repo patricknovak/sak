@@ -38,18 +38,41 @@ test.describe('Landing (superpoolsai.com)', () => {
     expect(keys).toEqual({ a: 'granted', d: 'denied' });
   });
 
+  // One answer closes the bar (the way the app's ConsentBanner asks): Accept on the analytics question records the
+  // folded ads question as denied, so both keys are set on one tap.
   test('localhost Accept does not write sp_consent cookie', async ({ page }) => {
     await page.goto('./');
     const bar = page.locator('#sp-consent');
     await expect(bar).toBeVisible({ timeout: 10_000 });
     await bar.locator('button[data-a="1"]').click();
-    await bar.locator('button[data-d="0"]').click();
     await expect(bar).toHaveCount(0);
     const hasCookie = await page.evaluate(() =>
       (document.cookie || '').split(';').some((p) => p.trim().startsWith('sp_consent=')));
     expect(hasCookie).toBe(false);
     expect(await page.evaluate(() => localStorage.getItem('sp_analytics_consent'))).toBe('granted');
     expect(await page.evaluate(() => localStorage.getItem('sp_ads_consent'))).toBe('denied');
+  });
+
+  test('consent Choices opens the ads question, and its answer is kept', async ({ page }) => {
+    await page.goto('./');
+    const bar = page.locator('#sp-consent');
+    await expect(bar).toBeVisible({ timeout: 10_000 });
+    await bar.locator('button[data-choices]').click();
+    await bar.locator('button[data-d="1"]').click();
+    await expect(bar).toBeVisible();
+    await bar.locator('button[data-a="0"]').click();
+    await expect(bar).toHaveCount(0);
+    expect(await page.evaluate(() => localStorage.getItem('sp_analytics_consent'))).toBe('denied');
+    expect(await page.evaluate(() => localStorage.getItem('sp_ads_consent'))).toBe('granted');
+  });
+
+  test('FAQPage JSON-LD mirrors the visible FAQ', async ({ page }) => {
+    await page.goto('./');
+    const blocks = await page.locator('script[type="application/ld+json"]').allTextContents();
+    const faq = blocks.map((b) => JSON.parse(b)).find((d) => d['@type'] === 'FAQPage');
+    expect(faq).toBeTruthy();
+    const summaries = (await page.locator('details summary').allTextContents()).map((t) => t.trim());
+    for (const q of faq.mainEntity) expect(summaries).toContain(q.name);
   });
 
   test('FAQ answers the money and app questions', async ({ page }) => {

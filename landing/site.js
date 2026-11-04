@@ -1,10 +1,10 @@
-// Super Pools landing pages: the reveal on scroll, the live board with its goal horn, the game-night demos (the swings,
-// the draft clock) and the try-it question (all fictional, drawn in the page), the events open right now (real, from the
-// app), the premiere countdown, the waitlist, consented GA4 and first-touch UTM. Every piece checks its element exists,
-// so each page uses what it has.
+// Super Pools landing pages, one script for every page: consented GA4 and Google Ads, first-touch UTM and the app-link
+// decoration, the phone menu, the sticky bottom button, retired anchors, the reveal on scroll, the events open right
+// now (real, from the app), the try-it question and the game-night demos (fictional, drawn in the page), the change
+// log's latest lines, the Love Is Blind calendar, copy that follows the calendar, and the waitlist. Every piece checks
+// its element exists, so each page uses what it has.
 document.documentElement.classList.add('js');
 var still = window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches;
-
 // GA4 measurement ID (public). Empty means nothing loads; consent still gates the tag.
 var GA4_ID = 'G-1QP4G3BP5N';
 var CONSENT_KEY = 'sp_analytics_consent';
@@ -108,8 +108,12 @@ function spAttribution() {
   } catch (e) { return {}; }
 }
 
+
 // Consented GA4 + Google Ads (Consent Mode v2). Defaults denied; gtag loads only after a choice is granted.
-// Analytics = analytics_storage; Ads = ad_storage + ad_user_data + AW tag. Separate choices (same as the app).
+// Analytics = analytics_storage; Ads = ad_storage + ad_user_data + AW tag. Two choices, asked the way the app's
+// ConsentBanner asks them: the analytics question is the bar, one answer closes it, and the ads question, folded behind
+// "Choices", counts as denied unless the visitor opens it and says yes. Both keys are then set, so the shared cookie is
+// written on that one tap and the app does not ask again.
 // Remote hits only from production landing hosts (same idea as the app's PR #304 allowlist).
 var ADS_ID = 'AW-949617778';
 (function analytics() {
@@ -156,43 +160,49 @@ var ADS_ID = 'AW-949617778';
     if (analyticsOn() || adsOn()) loadTag();
     configAds();
   }
-  // #286 split: Analytics and Ads stay separate. Do not mirror one onto the other after Accept.
-  function maybeClose() {
-    if (spStoreGet(CONSENT_KEY) == null || spStoreGet(ADS_CONSENT_KEY) == null) return;
+  function closeBar() {
     var bar = document.getElementById('sp-consent');
     if (bar) bar.remove();
+    document.dispatchEvent(new Event('sp:consent'));
   }
+  // The analytics answer closes the bar. An ads question nobody opened is recorded as denied (never granted on the
+  // visitor's behalf); an ads answer already given, here or in the app, is kept.
   function setAnalytics(granted) {
     spStoreSet(CONSENT_KEY, granted ? 'granted' : 'denied');
-    applyFlags(); loadIfNeeded(); maybeClose();
+    if (spStoreGet(ADS_CONSENT_KEY) == null) spStoreSet(ADS_CONSENT_KEY, 'denied');
+    applyFlags(); loadIfNeeded(); closeBar();
   }
-  function setAds(granted) {
+  // The ads answer is saved where it is; the bar closes once the analytics question has an answer too.
+  function setAds(granted, row) {
     spStoreSet(ADS_CONSENT_KEY, granted ? 'granted' : 'denied');
-    applyFlags(); loadIfNeeded(); maybeClose();
+    applyFlags(); loadIfNeeded();
+    if (row) row.classList.add('done');
+    if (spStoreGet(CONSENT_KEY) != null) closeBar();
   }
   function showBanner() {
     if (document.getElementById('sp-consent')) return;
     var bar = document.createElement('div');
     bar.id = 'sp-consent';
-    bar.setAttribute('role', 'dialog');
-    bar.setAttribute('aria-label', 'Analytics and ads cookies');
-    bar.innerHTML = '<div class="sp-consent-inner"><p>Two choices. No ads are shown in Super Pools. <a href="https://app.superpoolsai.com/#/privacy">Privacy</a>.</p>'
-      + '<div style="margin-top:10px"><div style="font-weight:700;font-size:12px;color:#fff">Analytics</div>'
-      + '<p style="margin:4px 0 8px;font-size:12px;opacity:.85">Count how Super Pools gets used.</p>'
-      + '<div class="sp-consent-actions"><button type="button" class="btn btn-ghost btn-sm" data-a="0">No thanks</button>'
-      + '<button type="button" class="btn btn-gold btn-sm" data-a="1">Accept</button></div></div>'
-      + '<div style="margin-top:12px"><div style="font-weight:700;font-size:12px;color:#fff">Ads measurement</div>'
-      + '<p style="margin:4px 0 8px;font-size:12px;opacity:.85">Tell Google whether a sign-up came from an ad (hashed email only).</p>'
-      + '<div class="sp-consent-actions"><button type="button" class="btn btn-ghost btn-sm" data-d="0">No thanks</button>'
-      + '<button type="button" class="btn btn-gold btn-sm" data-d="1">Accept</button></div></div></div>';
+    bar.setAttribute('role', 'region');
+    bar.setAttribute('aria-label', 'Cookie choices');
+    bar.innerHTML = '<div class="sp-consent-inner">'
+      + '<div class="sp-row"><p>Count your visits to help make Super Pools better? No ads in the app. <a href="https://app.superpoolsai.com/#/privacy">Privacy</a></p>'
+      + '<div class="sp-consent-actions"><button type="button" class="linkbtn sp-more" data-choices aria-expanded="false" aria-controls="sp-ads">Choices</button>'
+      + '<button type="button" class="btn btn-ghost" data-a="0">No thanks</button>'
+      + '<button type="button" class="btn btn-ice" data-a="1">Accept</button></div></div>'
+      + '<div class="sp-row sp-ads" id="sp-ads"><p>Help us count sign-ups from our Google ads? A scrambled one-way code from your email, never the email.</p>'
+      + '<div class="sp-consent-actions"><button type="button" class="btn btn-ghost" data-d="0">No</button>'
+      + '<button type="button" class="btn btn-ghost" data-d="1">Yes</button></div></div></div>';
     bar.addEventListener('click', function (e) {
+      var c = e.target.closest('[data-choices]');
+      if (c) { var open = bar.classList.toggle('more'); c.setAttribute('aria-expanded', open ? 'true' : 'false'); return; }
       var a = e.target.closest('[data-a]'); if (a) { setAnalytics(a.getAttribute('data-a') === '1'); return; }
-      var d = e.target.closest('[data-d]'); if (d) setAds(d.getAttribute('data-d') === '1');
+      var d = e.target.closest('[data-d]'); if (d) setAds(d.getAttribute('data-d') === '1', d.closest('.sp-ads'));
     });
     document.body.appendChild(bar);
+    document.dispatchEvent(new Event('sp:consent'));
   }
   // Footer "Cookie settings" reopens the banner so a visitor can change their mind.
-  window.spOpenCookieSettings = function () { showBanner(); };
   document.addEventListener('click', function (e) {
     var a = e.target.closest && e.target.closest('[data-cookie-settings]');
     if (!a) return;
@@ -254,6 +264,71 @@ var ADS_ID = 'AW-949617778';
   else apply();
 })();
 
+
+// Retired anchors: the home's old sections live on under new ids, so a shared link to #season or #ship still lands
+// somewhere true. A fragment never reaches the server, which is why this is here and not in _redirects.
+(function () {
+  var MOVED = { season: 'kinds', road: 'log', ship: 'log', join: 'start', tiers: 'pricing', runs: 'itself', voice: 'talks',
+    sak: 'league', any: 'doors', fans: 'doors', pools: 'kinds' };
+  function go() {
+    var h = decodeURIComponent(location.hash.slice(1));
+    if (!h || !MOVED[h] || document.getElementById(h)) return;
+    var to = document.getElementById(MOVED[h]); if (!to) return;
+    try { history.replaceState(null, '', '#' + MOVED[h]); } catch (e) { /* file:// */ }
+    to.scrollIntoView({ behavior: 'instant' });
+    // the open-now board fills in after load and moves what is under it, so land again once it has
+    var moved = false, mark = function () { moved = true; };
+    ['wheel', 'touchstart', 'keydown'].forEach(function (t) { window.addEventListener(t, mark, { once: true, passive: true }); });
+    setTimeout(function () { if (!moved) to.scrollIntoView({ behavior: 'instant' }); }, 900);
+  }
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', go); else go();
+  window.addEventListener('hashchange', go);
+})();
+
+// The phone menu: doors by audience under 900 px. Escape, a tap outside or a tap on a door closes it.
+(function () {
+  var btn = document.getElementById('menu-btn'), menu = document.getElementById('menu');
+  if (!btn || !menu) return;
+  function set(open) {
+    menu.classList.toggle('open', open);
+    btn.setAttribute('aria-expanded', open ? 'true' : 'false');
+    btn.setAttribute('aria-label', open ? 'Close the menu' : 'Open the menu');
+    document.documentElement.classList.toggle('menu-open', open);
+    document.dispatchEvent(new Event('sp:menu'));
+    if (open) { var f = menu.querySelector('a'); if (f) f.focus({ preventScroll: true }); }
+  }
+  btn.addEventListener('click', function () { set(!menu.classList.contains('open')); });
+  menu.addEventListener('click', function (e) { if (e.target.closest('a')) set(false); });
+  document.addEventListener('keydown', function (e) { if (e.key === 'Escape' && menu.classList.contains('open')) { set(false); btn.focus(); } });
+  document.addEventListener('click', function (e) { if (menu.classList.contains('open') && !menu.contains(e.target) && !btn.contains(e.target)) set(false); });
+})();
+
+// The sticky bottom button (phones): shown once the hero's button has scrolled away, hidden whenever another gold
+// element ([data-gold]: the hero's button, a gold word, the closing button) is on screen, so a screen never holds two;
+// hidden too while the cookie bar or the menu is open.
+(function () {
+  var bar = document.getElementById('sticky');
+  if (!bar || !('IntersectionObserver' in window)) return;
+  var golds = document.querySelectorAll('[data-gold]'), seen = [], ready = false;
+  function update() {
+    var menuOpen = document.documentElement.classList.contains('menu-open');
+    var on = ready && seen.length === 0 && !document.getElementById('sp-consent') && !menuOpen && window.scrollY > 240;
+    bar.classList.toggle('on', on);
+  }
+  var io = new IntersectionObserver(function (es) {
+    es.forEach(function (e) {
+      var i = seen.indexOf(e.target);
+      if (e.isIntersecting && i < 0) seen.push(e.target);
+      if (!e.isIntersecting && i >= 0) seen.splice(i, 1);
+    });
+    ready = true; update();
+  });
+  golds.forEach(function (g) { io.observe(g); });
+  window.addEventListener('scroll', update, { passive: true });
+  document.addEventListener('sp:consent', update);
+  document.addEventListener('sp:menu', update);
+})();
+
 // reveal on scroll
 (function () {
   var els = document.querySelectorAll('.rv');
@@ -262,12 +337,15 @@ var ADS_ID = 'AW-949617778';
   els.forEach(function (e) { io.observe(e); });
 })();
 
-// a button that says what it is for picks it in the form
-document.querySelectorAll('[data-pick]').forEach(function (a) {
-  a.addEventListener('click', function () { var s = document.querySelector('#wl select'); if (s) s.value = a.getAttribute('data-pick'); });
-});
+// Start a demo the first time it is on screen, and let its timers skip while the tab is hidden.
+function spWhenSeen(el, start) {
+  if (!('IntersectionObserver' in window)) { start(); return; }
+  var io = new IntersectionObserver(function (es) { if (es.some(function (e) { return e.isIntersecting; })) { io.disconnect(); start(); } }, { rootMargin: '120px' });
+  io.observe(el);
+}
 
-// the live board: a fictional pool on a game night, points landing as the box scores change
+// the live board: a fictional pool on a game night, points landing as the box scores change (#board, for any page
+// that draws one; the home's hero is the real open-now board instead)
 (function () {
   var board = document.getElementById('board'); if (!board) return;
   var rows = Array.prototype.slice.call(board.querySelectorAll('.row')), ev = document.getElementById('board-ev');
@@ -278,12 +356,11 @@ document.querySelectorAll('[data-pick]').forEach(function (a) {
     ['Hat Trick Club', 3.0, 'MacKinnon goal, 1:12 into the third', 'MacKinnon, 1:12 into the third'], ['Top Shelf', 1.0, 'Hughes power-play assist'],
     ['Five Hole Heroes', 3.5, 'Kaprizov from the slot', 'Kaprizov, from the slot'], ['Zamboni Drivers', 2.0, 'Kucherov to Point, again']
   ];
-  var colors = { 'Hat Trick Club': '#f7c548', 'Top Shelf': '#38bdf8', 'Zamboni Drivers': '#c4b5fd', 'Five Hole Heroes': '#34d399' };
   var horn = document.getElementById('horn'), hornTimer;
   function sound(p) {
     if (!horn) return;
     var ring = horn.querySelector('.ring');
-    ring.style.background = colors[p[0]]; ring.textContent = p[0].charAt(0);
+    ring.style.background = '#38bdf8'; ring.textContent = p[0].charAt(0);
     document.getElementById('horn-t').textContent = p[3]; document.getElementById('horn-p').textContent = '+' + p[1].toFixed(1);
     horn.querySelector('small').textContent = 'Goal · ' + p[0];
     horn.classList.add('on'); clearTimeout(hornTimer); hornTimer = setTimeout(function () { horn.classList.remove('on'); }, 2300);
@@ -293,7 +370,7 @@ document.querySelectorAll('[data-pick]').forEach(function (a) {
     var faces = big ? ['🔥', '😱', '🔥', '👏'] : ['👏', '🔥'];
     faces.forEach(function (f, k) {
       setTimeout(function () {
-        var e = document.createElement('span'); e.className = 'rise'; e.textContent = f;
+        var e = document.createElement('span'); e.className = 'rise'; e.textContent = f; e.setAttribute('aria-hidden', 'true');
         e.style.left = (r.offsetLeft + r.offsetWidth - 70 + k * 14) + 'px'; e.style.top = (r.offsetTop + r.offsetHeight / 2 - 12 + parseFloat((r.style.transform.match(/-?[\d.]+/) || [0])[0])) + 'px';
         board.appendChild(e); setTimeout(function () { e.remove(); }, 2000);
       }, k * 160);
@@ -306,16 +383,19 @@ document.querySelectorAll('[data-pick]').forEach(function (a) {
   }
   rows.forEach(function (r, k) { r.dataset.i = k; });
   if (still) return;
-  setInterval(function () {
-    var p = plays[i++ % plays.length], r = rows.filter(function (x) { return x.dataset.t === p[0]; })[0];
-    var v = Math.round((parseFloat(r.dataset.p) + p[1]) * 10) / 10; r.dataset.p = v;
-    r.querySelector('.v').textContent = v.toFixed(1); r.querySelector('.bump').textContent = '+' + p[1].toFixed(1);
-    r.classList.add('flash'); setTimeout(function () { r.classList.remove('flash'); }, 1600);
-    if (ev) ev.innerHTML = '<b>' + p[0] + '</b> +' + p[1].toFixed(1) + ' · ' + p[2];
-    place();
-    if (p[3]) sound(p);
-    setTimeout(function () { react(r, !!p[3]); }, 520);
-  }, 2600);
+  spWhenSeen(board, function () {
+    setInterval(function () {
+      if (document.hidden) return;
+      var p = plays[i++ % plays.length], r = rows.filter(function (x) { return x.dataset.t === p[0]; })[0];
+      var v = Math.round((parseFloat(r.dataset.p) + p[1]) * 10) / 10; r.dataset.p = v;
+      r.querySelector('.v').textContent = v.toFixed(1); r.querySelector('.bump').textContent = '+' + p[1].toFixed(1);
+      r.classList.add('flash'); setTimeout(function () { r.classList.remove('flash'); }, 1600);
+      if (ev) ev.innerHTML = '<b>' + p[0] + '</b> +' + p[1].toFixed(1) + ' · ' + p[2];
+      place();
+      if (p[3]) sound(p);
+      setTimeout(function () { react(r, !!p[3]); }, 520);
+    }, 2600);
+  });
 })();
 
 // try it: one question priced the way a pool prices it (the market maker in docs/POOLS.md), in pretend coins
@@ -324,12 +404,13 @@ document.querySelectorAll('[data-pick]').forEach(function (a) {
   var b = 160, q = { y: -70, n: 0 }, hist = [], left = 300;
   var price = function () { var ey = Math.exp(q.y / b), en = Math.exp(q.n / b); return ey / (ey + en); };
   var cost = function (y, n) { var mx = Math.max(y, n); return mx + b * Math.log(Math.exp((y - mx) / b) + Math.exp((n - mx) / b)); };
-  // a believable week of trading before you arrive
+  // a believable week of calls before you arrive
   var seed = [18, -10, 26, 14, -30, -22, 12, 34, -16, 20, 28, -12, 16, -8, 22];
   seed.forEach(function (d) { if (d > 0) q.y += d; else q.n -= d; hist.push(price()); });
   var line = m.querySelector('.ln'), area = m.querySelector('.ar'), dot = m.querySelector('.dt'), rc = m.querySelector('.receipt');
+  var names = { y: (m.querySelector('[data-k=y] span') || {}).textContent || 'Yes', n: (m.querySelector('[data-k=n] span') || {}).textContent || 'No' };
   function draw() {
-    // the chart fits its own range, so a week of small moves still reads as a market
+    // the chart fits its own range, so a week of small moves still reads as movement
     var lo = Math.min.apply(null, hist) - .04, hi = Math.max.apply(null, hist) + .04;
     var n = hist.length, pts = hist.map(function (p, k) { return [k / (n - 1) * 300, 110 - (p - lo) / (hi - lo) * 100]; });
     var mid = m.querySelector('.mid'); if (mid) { var y = 110 - (.5 - lo) / (hi - lo) * 100; mid.setAttribute('y1', y); mid.setAttribute('y2', y); mid.style.display = y > 4 && y < 114 ? '' : 'none'; }
@@ -344,13 +425,13 @@ document.querySelectorAll('[data-pick]').forEach(function (a) {
   m.querySelectorAll('.opt').forEach(function (o) {
     o.addEventListener('click', function () {
       var k = o.dataset.k, stake = 100;
-      if (left < stake) { rc.innerHTML = 'That was your <b>300</b>. In a real pool, more coins drop every week.'; return; }
+      if (left < stake) { rc.innerHTML = 'That was your <b>300</b>. In a real pool, more Supercoins drop every week.'; return; }
       var before = price(), c0 = cost(q.y, q.n), lo = 0, hi = 2000;
-      // the shares 100 coins buy: the cost of the market after the trade, less before, is the stake
+      // what 100 coins buy: the cost of the question after the call, less before, is the 100
       for (var t = 0; t < 60; t++) { var mid = (lo + hi) / 2, c = k === 'y' ? cost(q.y + mid, q.n) : cost(q.y, q.n + mid); if (c - c0 > stake) hi = mid; else lo = mid; }
       q[k] += lo; left -= stake; hist.push(price()); draw();
       var p = k === 'y' ? price() : 1 - price(), was = k === 'y' ? before : 1 - before;
-      rc.innerHTML = '100 coins bought <b>' + Math.round(lo) + ' shares</b> of ' + (k === 'y' ? 'East' : 'West') + '. If it hits, you collect <b>' + Math.round(lo) + '</b>. You moved the price from ' + Math.round(was * 100) + '% to ' + Math.round(p * 100) + '%. ' + left + ' coins left.';
+      rc.innerHTML = '100 coins on <b>' + names[k] + '</b> at ' + Math.round(was * 100) + '%. If it comes in, they score <b>' + Math.round(lo) + '</b>. The group\'s chance moved to ' + Math.round(p * 100) + '%. ' + left + ' coins left.';
     });
   });
 })();
@@ -359,25 +440,25 @@ document.querySelectorAll('[data-pick]').forEach(function (a) {
 (function () {
   var feed = document.getElementById('feed'); if (!feed) return;
   var swings = [
-    ['H', '#f7c548', 'Goal', 'MacKinnon', 'Hat Trick Club · vs DAL', 3.0, ['🔥 4', '😱 1']],
-    ['T', '#38bdf8', 'Assist', 'Quinn Hughes', 'Top Shelf · @ VAN', 2.0, ['👏 2']],
-    ['Z', '#c4b5fd', 'Win', 'Shesterkin', 'Zamboni Drivers · 38 saves', 4.6, ['🧊 3']],
-    ['F', '#34d399', '2 SOG · 1 HIT', 'Kaprizov', 'Five Hole Heroes · vs CHI', 1.0, []],
-    ['T', '#38bdf8', 'Goal', 'McDavid', 'Top Shelf · power play', 3.5, ['🔥 6', '😂 2']],
-    ['F', '#34d399', '−1 +/−', 'Brady Tkachuk', 'Five Hole Heroes · @ OTT', -0.5, ['😂 3']]
+    ['H', 'Goal', 'MacKinnon', 'Hat Trick Club · vs DAL', 3.0, ['🔥 4', '😱 1']],
+    ['T', 'Assist', 'Quinn Hughes', 'Top Shelf · @ VAN', 2.0, ['👏 2']],
+    ['Z', 'Win', 'Shesterkin', 'Zamboni Drivers · 38 saves', 4.6, ['🧊 3']],
+    ['F', '2 SOG · 1 HIT', 'Kaprizov', 'Five Hole Heroes · vs CHI', 1.0, []],
+    ['T', 'Goal', 'McDavid', 'Top Shelf · power play', 3.5, ['🔥 6', '😂 2']],
+    ['F', '-1 +/-', 'Brady Tkachuk', 'Five Hole Heroes · @ OTT', -0.5, ['😂 3']]
   ];
   var i = 0;
   function add() {
-    var w = swings[i++ % swings.length], hot = w[2] === 'Goal' || w[2] === 'Win';
+    var w = swings[i++ % swings.length], hot = w[1] === 'Goal' || w[1] === 'Win';
     var el = document.createElement('div'); el.className = 'sw' + (hot ? ' hot' : '');
-    el.innerHTML = '<span class="tb" style="background:' + w[1] + '">' + w[0] + '</span><span class="w"><small>' + w[2] + '</small><b>' + w[3] + '</b> <i>' + w[4] + '</i></span>'
-      + '<span class="d' + (w[5] < 0 ? ' neg' : '') + '">' + (w[5] < 0 ? '' : '+') + w[5].toFixed(1) + '</span>'
-      + (w[6].length ? '<span class="rx">' + w[6].map(function (x) { return '<span>' + x + '</span>'; }).join('') + '</span>' : '');
+    el.innerHTML = '<span class="tb" aria-hidden="true">' + w[0] + '</span><span class="w"><small>' + w[1] + '</small><b>' + w[2] + '</b> <i>' + w[3] + '</i></span>'
+      + '<span class="d' + (w[4] < 0 ? ' neg' : '') + '">' + (w[4] < 0 ? '' : '+') + w[4].toFixed(1) + '</span>'
+      + (w[5].length ? '<span class="rx">' + w[5].map(function (x) { return '<span>' + x + '</span>'; }).join('') + '</span>' : '');
     feed.insertBefore(el, feed.children[1] || null);
     while (feed.children.length > 5) feed.removeChild(feed.lastChild);
   }
   for (var k = 0; k < 4; k++) add();
-  if (!still) setInterval(add, 2600);
+  if (!still) spWhenSeen(feed, function () { setInterval(function () { if (!document.hidden) add(); }, 2600); });
 })();
 
 // the draft clock: six seconds, then the pick is made on the second (a fictional draft)
@@ -400,21 +481,25 @@ document.querySelectorAll('[data-pick]').forEach(function (a) {
     }, 1000);
   }
   if (still) { t = 0; show(); pin.classList.add('on'); return; }
-  round();
+  spWhenSeen(box, round);
 })();
 
 // open right now: the events open on Super Pools this minute, read from the app's own list with the publishable key,
 // each with a countdown to its next lock. If the list can't be read, the board shows the seasons that are always on.
+// The countdown ticks outside any live region; only the count in #now-tag is announced.
 (function () {
   var box = document.getElementById('now'); if (!box) return;
   var tag = document.getElementById('now-tag');
   var APP = 'https://app.superpoolsai.com/#/new';
   var KEY = 'sb_publishable_AMcluryqKenfAO6vFJ2f1A_50DhQz1b';
+  var SRC = box.getAttribute('data-src') || '';
   var KIND = { pickem: "Pick'em", survivor: 'Last one standing', score: 'Call the score', streak: 'Daily streak', props: 'Prop sheet', players: 'Box pool',
-    series: 'Series calls', rank: 'Rank the teams', bracket: 'Bracket', sweep: 'Sweepstake', squares: 'Squares' };
-  var LOOK = { nhl: ['NHL', '#f7c548'], nfl: ['NFL', '#38bdf8'], mlb: ['MLB', '#34d399'], nba: ['NBA', '#fb923c'], epl: ['EPL', '#c4b5fd'], mls: ['MLS', '#2dd4bf'], ncaa: ['NCAA', '#fb7185'], soccer: ['FC', '#c4b5fd'] };
+    series: 'Series calls', rank: 'Rank the teams', bracket: 'Bracket', sweep: 'Sweepstake', squares: 'Squares', wins: 'Win totals' };
+  // the badge's short name; every badge is drawn the same (Boards, ink text), so no colour lives here
+  var LOOK = { nhl: 'NHL', nfl: 'NFL', mlb: 'MLB', nba: 'NBA', epl: 'EPL', mls: 'MLS', wsl: 'WSL', nwsl: 'NWSL', ncaa: 'NCAA', ncaam: 'NCAA', soccer: 'FC' };
   var esc = function (x) { return String(x == null ? '' : x).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); };
-  function look(e) { return LOOK[e.competition] || LOOK[(e.competition || '').split('-')[0]] || LOOK[e.sport] || ['GO', '#94a3b8']; }
+  function look(e) { return LOOK[e.competition] || LOOK[(e.competition || '').split('-')[0]] || LOOK[e.sport] || 'GO'; }
+  function link(raw) { if (SRC) raw += '&src=' + encodeURIComponent(SRC); return window.spDecorateAppHref ? window.spDecorateAppHref(raw) : raw; }
   function left(ms) {
     if (ms <= 0) return null;
     var d = Math.floor(ms / 864e5), h = Math.floor(ms % 864e5 / 36e5), m = Math.floor(ms % 36e5 / 6e4), s = Math.floor(ms % 6e4 / 1e3);
@@ -427,18 +512,20 @@ document.querySelectorAll('[data-pick]').forEach(function (a) {
     return out.slice(0, 3);
   }
   function card(e) {
-    var lk = look(e), raw = e.pack ? APP + '?pack=' + encodeURIComponent(e.pack) : APP + '?comp=' + encodeURIComponent(e.competition);
-    var link = (window.spDecorateAppHref ? window.spDecorateAppHref(raw) : raw);
+    var href = link(e.pack ? APP + '?pack=' + encodeURIComponent(e.pack) : APP + '?comp=' + encodeURIComponent(e.competition));
     var kinds = (e.kinds || []).map(function (k) { return KIND[k] || k; });
+    if (e.pack) kinds.push('Questions');
     var m = matches(e);
-    return '<a class="ev rv in" href="' + link + '" style="--c:' + lk[1] + '">'
-      + '<div class="top"><span class="badge">' + lk[0] + '</span><div><h3>' + esc(e.open_round && e.open_round === e.final_round && (e.grids || []).length ? 'The ' + String(e.final_label).replace(/^The /, '') : e.name) + '</h3><div class="stage">' + esc(e.stage || e.open_label || '') + '</div></div></div>'
-      + (e.next_lock ? '<div class="lock" data-at="' + Date.parse(e.next_lock) + '"><span>Next lock in</span><b>…</b></div>' : '<div class="lock"><b>Open</b></div>')
+    var name = e.open_round && e.open_round === e.final_round && (e.grids || []).length ? 'The ' + String(e.final_label).replace(/^The /, '') : e.name;
+    return '<a class="ev" href="' + esc(href) + '">'
+      + '<div class="top"><span class="badge" aria-hidden="true">' + esc(look(e)) + '</span><div><h3>' + esc(name) + '</h3><div class="evstage">' + esc(e.stage || e.open_label || '') + '</div></div></div>'
+      + (e.next_lock ? '<div class="lock" data-at="' + Date.parse(e.next_lock) + '"><span>Next lock in</span><b>' + (left(Date.parse(e.next_lock) - Date.now()) || 'Live') + '</b></div>' : '<div class="lock"><b>Open</b></div>')
       + (m.length ? '<div class="match">' + m.map(function (x) { return '<span>' + esc(x) + '</span>'; }).join('') + '</div>' : '')
-      + (kinds.length ? '<div class="kinds">' + kinds.map(function (k) { return '<span>' + esc(k) + '</span>'; }).join('') + (e.pack ? '<span>Questions</span>' : '') + '</div>' : '')
+      + (kinds.length ? '<div class="kinds">' + kinds.map(function (k) { return '<span>' + esc(k) + '</span>'; }).join('') + '</div>' : '')
       + '<span class="go">Start a pool on it</span></a>';
   }
   function tick() {
+    if (document.hidden) return;
     box.querySelectorAll('.lock[data-at]').forEach(function (l) {
       var t = left(Number(l.getAttribute('data-at')) - Date.now());
       if (t) l.querySelector('b').textContent = t;
@@ -451,20 +538,38 @@ document.querySelectorAll('[data-pick]').forEach(function (a) {
     { name: 'Premier League', competition: 'epl', stage: 'Every matchweek', kinds: ['pickem', 'survivor', 'score', 'streak'] }
   ];
   function draw(list, real) {
-    // an event reaching its final within two weeks first (the World Series in its week), then the soonest lock
+    // an event reaching its final within two weeks first, then the soonest lock
     var soon = function (e) { return e.final_starts && Date.parse(e.final_starts) - Date.now() < 14 * 864e5 ? 0 : 1; };
     list.sort(function (a, b) { return soon(a) - soon(b) || (Date.parse(a.next_lock) || 9e15) - (Date.parse(b.next_lock) || 9e15); });
-    var ask = window.spDecorateAppHref ? window.spDecorateAppHref(APP + '?type=questions') : (APP + '?type=questions');
-    box.innerHTML = list.map(card).join('') + '<a class="ev rv in" href="' + ask + '" style="--c:#f7c548"><div class="top"><span class="badge">ASK</span><div><h3>Anything else</h3><div class="evstage">The game you\'re watching, the office, the family</div></div></div>'
-      + '<div class="lock"><b>Your call</b></div><div class="kinds"><span>Questions with odds</span><span>Your own rules</span></div><span class="go">Ask your own questions</span></a>';
+    var ask = link(APP + '?type=questions');
+    box.innerHTML = list.map(card).join('') + '<a class="ev" href="' + esc(ask) + '"><div class="top"><span class="badge" aria-hidden="true">ASK</span><div><h3>Anything else</h3><div class="evstage">The show you\'re watching, the office, the family</div></div></div>'
+      + '<div class="lock"><b>Your call</b></div><div class="kinds"><span>Your own questions</span><span>Your own rules</span></div><span class="go">Ask your own questions</span></a>';
     if (tag) tag.textContent = real ? list.length + ' events open now' : 'Open all season';
-    tick();
   }
   fetch('https://quakdkzdafzlhgjvmypg.supabase.co/rest/v1/rpc/pool_event_list', { method: 'POST', headers: { apikey: KEY, 'Content-Type': 'application/json' }, body: '{}' })
     .then(function (r) { if (!r.ok) throw new Error(r.status); return r.json(); })
     .then(function (d) { if (!Array.isArray(d) || !d.length) throw new Error('empty'); draw(d, true); })
     .catch(function () { draw(always, false); });
   setInterval(tick, 1000);
+})();
+
+// The change log's latest lines (#loglines), from /changelog.json, which scripts/landing-changelog.mjs writes from the
+// app's own src/data/changelog.ts. The page carries the same lines as static HTML, so this only refreshes them.
+(function () {
+  var list = document.getElementById('loglines'); if (!list || !window.fetch) return;
+  var n = Number(list.getAttribute('data-n') || 4);
+  var MON = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+  var esc = function (x) { return String(x == null ? '' : x).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); };
+  fetch('./changelog.json', { cache: 'no-cache' })
+    .then(function (r) { if (!r.ok) throw new Error(r.status); return r.json(); })
+    .then(function (d) {
+      var rows = (d && d.entries || []).slice(0, n); if (!rows.length) return;
+      list.innerHTML = rows.map(function (e) {
+        var p = String(e.date).split('-');
+        return '<li><time datetime="' + esc(e.date) + '">' + MON[Number(p[1]) - 1] + ' ' + Number(p[2]) + '</time><div><b>' + esc(e.title) + '</b>' + (e.line && list.hasAttribute('data-detail') ? '<span>' + esc(e.line) + '</span>' : '') + '</div></li>';
+      }).join('');
+    })
+    .catch(function () { /* the static lines stay */ });
 })();
 
 // Love Is Blind Season 11 by the calendar (Netflix drops at 3 am ET): the countdown counts to whatever is next, and once
@@ -497,7 +602,7 @@ function libStage() { for (var i = 0; i < LIB_STAGES.length; i++) if (LIB_STAGES
 })();
 
 // The waitlist writes straight to the database through its public API; the key below is the publishable one and can
-// only insert into the waitlist table (see supabase/migrations/20261005000061_waitlist.sql).
+// only insert into the waitlist table (see supabase/migrations/20261005000061_waitlist.sql; the UTM columns, 241).
 (function () {
   var form = document.getElementById('wl'); if (!form) return;
   var API = 'https://quakdkzdafzlhgjvmypg.supabase.co/rest/v1/waitlist';
@@ -510,20 +615,11 @@ function libStage() { for (var i = 0; i < LIB_STAGES.length; i++) if (LIB_STAGES
     if (form.website.value) return;  // a bot filled the hidden field
     if (!/^[^@\s]+@[^@\s]+\.[^@\s]{2,}$/.test(email)) { msg.className = 'msgline err wide'; msg.textContent = 'That address does not look right.'; return; }
     var btn = form.querySelector('button'); btn.disabled = true; msg.className = 'msgline wide'; msg.textContent = 'One moment.';
-    var base = { email: email, league: pick, note: note || null, source: (location.hostname + location.pathname).slice(0, 120) };
-    var withAttr = Object.assign({}, base, spAttribution());
-    function post(body) {
-      return fetch(API, {
-        method: 'POST',
-        headers: { apikey: KEY, Authorization: 'Bearer ' + KEY, 'Content-Type': 'application/json', Prefer: 'return=minimal' },
-        body: JSON.stringify(body)
-      });
-    }
-    // send UTM columns when live; if PostgREST rejects unknown columns, retry without (safe before the migration)
-    post(withAttr).then(function (r) {
-      if (r.status === 201 || r.status === 409) return r;
-      if (r.status === 400 || r.status === 403) return post(base);
-      return r;
+    var body = Object.assign({ email: email, league: pick, note: note || null, source: (location.hostname + location.pathname).slice(0, 120) }, spAttribution());
+    fetch(API, {
+      method: 'POST',
+      headers: { apikey: KEY, Authorization: 'Bearer ' + KEY, 'Content-Type': 'application/json', Prefer: 'return=minimal' },
+      body: JSON.stringify(body)
     }).then(function (r) {
       if (r.status === 201) { msg.className = 'msgline ok wide'; msg.textContent = pick === 'Love Is Blind pool' ? 'You are on the list. Your invite comes before the pods open.' : 'You are on the list. We will write when your pool can open.'; form.reset(); }
       else if (r.status === 409) { msg.className = 'msgline ok wide'; msg.textContent = 'You were already on the list. We have not forgotten.'; }

@@ -1,8 +1,8 @@
-# Landing has no privacy/terms HTML; send visitors to the app's privacy note.
-/privacy  https://app.superpoolsai.com/#/privacy  302
-/terms    https://app.superpoolsai.com/#/privacy  302
-# The NHL fan zones live in the app; /fans itself is fans.html here
-/fans/*   https://app.superpoolsai.com/fans/:splat  302
-# World Series marketing page is unserved until a feed is licensed; keep old links off a dead end
-/world-series-pools        https://superpoolsai.com/  302
-/world-series-pools.html   https://superpoolsai.com/  302
+# Legal pages live in the app (the terms since 28 October 2026)
+/privacy                   https://app.superpoolsai.com/#/privacy   301
+/terms                     https://app.superpoolsai.com/#/terms     301
+# The fan zones live in the app; /fans itself is fans.html here
+/fans/*                    https://app.superpoolsai.com/fans/:splat 301
+# Retired pages keep their inbound links (the World Series page is unserved until a feed is licensed)
+/world-series-pools        https://superpoolsai.com/                301
+/world-series-pools.html   https://superpoolsai.com/                301
