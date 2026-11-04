@@ -3642,7 +3642,9 @@ select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-000000000083
 insert into auth.users (id, email) values ('00000000-0000-0000-0000-000000000083', 'nobody83@example.com') on conflict do nothing;
 set role authenticated;
 select pg_temp.expect('someone in no pool has nothing to list', my_pools() = '[]'::jsonb);
-select pg_temp.raises('and joins one before starting one', 'select pool_start(''Lonely Pool'')', 'Join a pool first');
+-- since migration 349 an account with no seat starts a pool of its own (a fan from the fan zones, a host whose pools went)
+select pg_temp.expect('someone in no pool can start one (migration 349)', (pool_start('Lonely Pool')->>'slug') = 'lonely-pool');
+select pg_temp.expect('and hosts it', exists (select 1 from jsonb_array_elements(my_pools()) e where e->>'slug' = 'lonely-pool'));
 reset role;
 select pg_temp.as_team(1);
 set role authenticated;
@@ -8055,3 +8057,39 @@ update competitions set active = false where id in ('er-live', 'er-fresh', 'er-d
 select set_config('app.league_id', '', false);
 select set_config('request.jwt.claim.sub', '', false);
 select 'event rounds live', true;
+
+-- ───────────── a fan hosts under their fan name, the reunion question, the proof numbers (migrations 348 to 350) ─────────────
+reset role;
+insert into auth.users (id, email) values ('00000000-0000-0000-0000-000000000084', 'f84@guest.superpoolsai.com') on conflict do nothing;
+insert into private.fan_people (user_id, name, club, league) values ('00000000-0000-0000-0000-000000000084', 'Oiler Olga', 'EDM', 'nhl')
+  on conflict (user_id) do update set name = excluded.name;
+select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-000000000084', false);
+set role authenticated;
+select (pool_start('Olga Pool', '#38bdf8')->>'id')::int as olga \gset
+reset role;
+select pg_temp.expect('a fan with no seat hosts a pool under the fan zones name (migration 349)',
+  (select gm_name = 'Oiler Olga' and is_commish from teams where league_id = :olga and user_id = '00000000-0000-0000-0000-000000000084'));
+-- the flow moves the pack's dates relative to today, so put back the old close on the pack and on an open copy, then run
+-- the migration as live had it
+update pool_packs p set markets = (select jsonb_agg(case when q->>'title' = 'Will any couple still be together at the reunion?'
+    then jsonb_set(q, '{closes_at}', '"2026-11-11T08:00:00Z"') else q end order by o) from jsonb_array_elements(p.markets) with ordinality e(q, o))
+  where p.slug = 'love-is-blind-s11';
+update pool_markets set closes_at = '2026-11-11T08:00:00Z', status = 'open'
+  where id = (select min(id) from pool_markets where pack = 'love-is-blind-s11' and title = 'Will any couple still be together at the reunion?');
+select pg_temp.expect('an open copy of the reunion question to move', exists (select 1 from pool_markets where pack = 'love-is-blind-s11'
+  and title = 'Will any couple still be together at the reunion?' and status = 'open' and closes_at = '2026-11-11T08:00:00Z'));
+\i supabase/migrations/20261005000348_lib_reunion_close.sql
+\i supabase/migrations/20261005000348_lib_reunion_close.sql
+select pg_temp.expect('the reunion question closes when the reunion airs (migration 348)',
+  (select (q->>'closes_at')::timestamptz = '2026-11-09T02:00:00Z' from pool_packs p, jsonb_array_elements(p.markets) q
+    where p.slug = 'love-is-blind-s11' and q->>'title' = 'Will any couple still be together at the reunion?'));
+select pg_temp.expect('no open copy of it closes after the reunion (migration 348)',
+  not exists (select 1 from pool_markets where pack = 'love-is-blind-s11' and title = 'Will any couple still be together at the reunion?'
+    and status = 'open' and closes_at > '2026-11-09T02:00:00Z'));
+set role anon;
+select pg_temp.expect('the proof numbers answer anyone, as counts only (migration 350)',
+  (select proof_counts() ?& array['calls', 'avg_miss', 'within_two', 'nights', 'nights_with_column', 'as_of']));
+reset role;
+select set_config('request.jwt.claim.sub', '', false);
+select 'fan hosts, reunion close, proof counts', true;
+

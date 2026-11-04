@@ -184,7 +184,7 @@ export function FantasyStart({ color, setColor, swatches, member, signedIn }: { 
           </div>
           {haveAccount
             ? <p className="text-[11px] leading-snug text-white/50">The league goes on your account beside the others, on My pools.</p>
-            : <p className="text-[11px] leading-snug text-white/50">Starting a league means you agree to the <a href="#/terms" className="underline">Terms of use</a>. <a href="#/privacy" className="underline">What we keep about you</a>.</p>}
+            : <p className="text-[11px] leading-snug text-white/50">Starting a league means you agree to the <a href="#/terms" className="underline">Terms of use</a>. <a href="#/privacy" className="underline">What we keep, held in the United States</a>.</p>}
         </div>
       )}
       <button type="button" className="btn-gold w-full py-3 text-base" disabled={busy || !ready} onClick={start}>{busy ? <Spinner /> : haveAccount && !member ? '🏒 Sign in and start' : '🏒 Start my league'}</button>

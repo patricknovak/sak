@@ -275,7 +275,7 @@ export default function Join({ code }: { code: string }) {
               )}
               <button className="btn-primary relative mt-4 w-full py-3 text-base" disabled={busy || name.trim().length < 2 || (needsEmail && (!okEmail || pw.length < 6))}>{busy ? <Spinner /> : `${mark}Join the ${noun}`}</button>
               <button type="button" className="relative mt-3 w-full text-center text-sm text-white/60 underline" onClick={() => { setMode('have'); setErr(''); }}>Already have an account? Sign in to join</button>
-              <p className="relative mt-3 text-center text-[11px] leading-snug text-white/45">Joining means you agree to the <a href="#/terms" className="underline">Terms of use</a>. <a href="#/privacy" className="underline">What we keep about you</a>.</p>
+              <p className="relative mt-3 text-center text-[11px] leading-snug text-white/45">Joining means you agree to the <a href="#/terms" className="underline">Terms of use</a>. <a href="#/privacy" className="underline">What we keep, held in the United States</a>.</p>
             </form>
           ) : (
             <form onSubmit={signInAndAccept} className="card-hero p-5">

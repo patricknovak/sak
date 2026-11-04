@@ -6,6 +6,8 @@
 export interface Change { date: string; icon: string; title: string; body: string; to?: string; tag?: 'formats' | 'commish' | 'draft' | 'everyone' }
 
 export const CHANGELOG: Change[] = [
+  { date: '2026-11-04', icon: '🎟️', tag: 'everyone', title: 'Fans can start a pool', to: '/new',
+    body: 'Joined the fan zones with just a name? Start a pool on the same account now: Start a pool sits in the fan zones\' header, signed in or not. Add an email from the pool\'s home (Keep your place) so your host\'s seat follows you to a new phone. The Love Is Blind reunion question now closes when the reunion airs.' },
   { date: '2026-11-04', icon: '🚪', tag: 'everyone', title: 'An easier way in for someone new', to: '/new',
     body: 'Starting a pool asks its two cookie questions in one slim line each, so the page shows under them. The list of leagues tells you what each one plays (the NHL\'s weekly pick\'em sits apart from its box pool), marks Live now only where a round is under way, and puts a league whose final is close at the top. A new questions pool with nothing in it yet asks you for its first question before you send the link. The sign-in page leads with Start one free, the fan zones have a Start a pool button, joining a pool and joining the fans ask for your name the same way, and asking for a fantasy league says the two ways to get one, with a free pool to start while you wait.' },
   { date: '2026-10-24', icon: '🔥', tag: 'everyone', title: 'The Oilers fan zone', to: '/fans',

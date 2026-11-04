@@ -69,15 +69,13 @@ export default function PublicFans() {
               <optgroup key="nhl" label="NHL">{CLUBS.map(([k, v]) => <option key={k} value={`nhl/${k}`}>{v}</option>)}</optgroup>
             )))}
           </select>
+          {/* a fan reaches a pool of their own in one tap, signed in with a fan name or not (on the smallest phones the Fans
+              pill makes room for it: the club picker's Every league and the footer lead there too); since migration 349 a fan
+              zone account hosts a pool on the same account */}
+          <a href={START} className="btn-ghost btn-sm shrink-0 whitespace-nowrap">Start a pool</a>
           {session
             ? <button type="button" onClick={() => void signOut('You joined with just a name, so signing out loses it for good. Add an email under your name in any club’s fan section first to keep it. Sign out anyway?')} className="btn-ghost btn-sm shrink-0" aria-label="Sign out"><LogOut className="h-3.5 w-3.5" /></button>
-            : <>
-              {/* signed out, a fan reaches a pool of their own in one tap (on the smallest phones the Fans pill makes room for
-                  it: the club picker's Every league and the footer lead there too); a fan zone account can't host one yet (pool_start
-                  needs a seat), so it isn't offered the button, and the start page tells it how if it gets there */}
-              <a href={START} className="btn-ghost btn-sm shrink-0 whitespace-nowrap">Start a pool</a>
-              <Link to="/" className="btn-ghost btn-sm shrink-0" aria-label="Sign in to Super Pools"><LogIn className="h-3.5 w-3.5" /><span className="hidden sm:inline">Sign in</span></Link>
-            </>}
+            : <Link to="/" className="btn-ghost btn-sm shrink-0" aria-label="Sign in to Super Pools"><LogIn className="h-3.5 w-3.5" /><span className="hidden sm:inline">Sign in</span></Link>}
         </div>
       </header>
       <main className="mx-auto max-w-3xl px-3 pb-16 pt-3 sm:px-5">

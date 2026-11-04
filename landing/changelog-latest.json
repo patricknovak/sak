@@ -3,6 +3,12 @@
  "entries": [
   {
    "date": "2026-11-04",
+   "title": "Fans can start a pool",
+   "line": "Joined the fan zones with just a name?",
+   "to": "https://app.superpoolsai.com/#/new"
+  },
+  {
+   "date": "2026-11-04",
    "title": "An easier way in for someone new",
    "line": "Starting a pool asks its two cookie questions in one slim line each, so the page shows under them.",
    "to": "https://app.superpoolsai.com/#/new"
@@ -18,12 +24,6 @@
    "title": "The full-screen app, and a roomier chat",
    "line": "Add the app to your Home Screen and it opens full screen, with no browser bars and with alerts on your phone.",
    "to": "https://app.superpoolsai.com/#/profile"
-  },
-  {
-   "date": "2026-10-24",
-   "title": "Expected points follow this season",
-   "line": "Projections now count this season's games, and update every morning.",
-   "to": "https://app.superpoolsai.com/#/team"
   }
  ]
 }

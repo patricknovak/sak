@@ -268,3 +268,37 @@ The fan zones are the product's only surface a stranger can read without an acco
 ## Addendum 6: The women-first door is seven sections, twenty copy rules, four dated women's sports pools and a first run that asks its first question
 
 `/together` keeps its hero and its seven-section shape to design-benchmarks.md §6's budget (about 860 words drafted: the hero with the §6 sub and one rose button by the calendar; the show tiles dated by a `[data-from]`/`[data-until]` array beside `LIB_STAGES`; three steps whose first frame is the real unfurl text from `worker/preview.ts` line 70; the market demo on a market-shows.md §12 question with the one proof line; women's sport; six questions, money first; the close) and applies twenty copy rules as a checklist, the first of which no competitor follows: no sports words in a pool that is not about sport, and no finance words anywhere on the page (market-shows.md §10; market-prediction.md §7). The women's sports line is real and dated: the WSL runs to 22 May 2027 (migration 305), the NWSL is in its playoffs with the final at Audi Field on 21 November and goes dark after, the Women's World Cup 2027 pack (migration 306) is open now with six questions, coins on 1 January and 1 June and the draw on 11 December, while women's hockey (the PWHL opens 5 December) and the women's bracket (Selection Sunday 14 March, the final 4 April) have no competition in the code and are "ask your own" doors until a migration adds them. Today's page fails its own rules in fourteen places (the Season 11 card and static drop dates, "questions open now" beside a "Summer 2027" pill, "Join the hockey pool. Win it." with no link, Love Island with no pack, the em dash in step 01, "Goblets" and "bought" in copy, four badge colours), each with its fix. The show host's first run is the page's best demo and runs as drawn: a pack link lands on three fields and one tap (migration 153), the link unfurls asking the first question with the pool's chances (migrations 252, 255), and a friend joins with a name and her call already placed (migration 332); it breaks from 19 November 8 pm ET to the January packs, when no show pack has a question left and the door opens an empty pool, so a Grammys pack written from the 16 November nominations (one insert, like migration 306, in its own pull request) and the step 01 line "pick a pack or ask three questions" close the gap. Love Is Blind Season 12 has no announcement as of 4 November and reads "expected in February on the show's pattern" with a reserve link and no button until the pack exists; the January lines (the Traitors UK and US, Drag Race, the Golden Globes, Oscar nominations, Love Island All Stars, The Bachelor) carry "expected" wherever market-shows.md §9 marks a pattern. The sections, the checklist, the tables and the first run are in gap-6.md.
+
+## Decided, 4 November 2026
+
+Patrick: "Resolve the outstanding items for me as you would recommend for the best way to proceed forward to be successful
+in attracting and growing the brand and making money." What was settled on that word, and why:
+
+- **The prices and the founding season stand as section 5 and `pricing.html` state them**, worded as planned until billing
+  ships. Free for every pool through 2026-27 grows the base while the product is new and the reviews are its marketing;
+  the per-pool season fee (never per person) is the one unit a group's organizer already pays (dues, a draft night), and
+  the 30% founding rate turns this season's hosts into next season's first payers. The "Patrick to confirm" markers are
+  replaced by this record.
+- **The voice's posts stay with names changed.** The GMs are private people; the post proves the same thing either way.
+- **Law 25 on the privacy page**: the US processors, the person in charge (the founder, by title, at hello@), how long
+  things are kept, the rights with a 30-day answer, the breach notice and the complaints line, and "held in the United
+  States" wherever an account is made; the Terms say 14 in Quebec. The legal name and the governing law wait on the legal
+  entity.
+- **Fixed in the product**: the Love Is Blind reunion question closes when the reunion airs (migration 348); a fan from
+  the fan zones, or any account with no seat, starts a pool (349); the proof numbers are read live (350); the Traitors door
+  hands over to the show pools page from 20 November.
+
+### The road to money, in order
+
+1. **Now to the Super Bowl: grow, measure, charge nothing.** Every channel in section 9 points at a free start. The number
+   that matters is pools with five or more members a week after starting (`platform_week()`); the Platform page has it.
+2. **A Stripe account in Patrick's (or the company's) name, before March 2027.** It is the one thing no session can make.
+   With it, the build is small: Stripe Checkout for a pool's season fee from the host's desk, a `pool_billing` row per
+   pool and season written by a Stripe webhook in an edge function, and the paid rows of the feature table read through
+   `league_has()` as every option already is. No card ever touches our database; tax is Stripe Tax at the buyer's province.
+3. **Spring 2027: open Plus and the founding rate to this season's hosts first**, by in-app note on the host's desk (an
+   in-product message to a host about their own pool, not a marketing email), before the 1 July list-price notice.
+4. **September 2027: list prices for new pools**, founding pools on the founding rate for as long as they renew.
+5. **The email list waits on a postal address.** Any form that collects an email for later marketing needs the sender's
+   mailing address under CASL; until Patrick supplies one, the only email form is the fantasy waitlist, which promises
+   one message.
