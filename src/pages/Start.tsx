@@ -47,7 +47,7 @@ export default function Start() {
           <div className="card-hero p-6 text-center">
             <div className="relative">
               <div className="text-5xl">🏒</div>
-              <h1 className="h-display text-shine mt-3 text-3xl leading-none">You’re on the list</h1>
+              <h1 className="h-display text-shine mt-3 text-3xl leading-none">We’ll be in touch</h1>
               <p className="mt-3 text-sm text-white/80">We’ll set up <b>{f.league.trim()}</b> and email <b>{f.email.trim().toLowerCase()}</b> a link to take your commissioner’s seat, usually within a day. From there you name it, invite your GMs and set your draft.</p>
               {/* the wait for the email needn't be a dead end: a pool opens now, for the same group chat */}
               <div className="mt-5 rounded-2xl bg-black/25 p-4 text-left ring-1 ring-white/10">
@@ -60,7 +60,8 @@ export default function Start() {
         ) : (
           <>
             <h1 className="h-display text-shine text-center text-3xl leading-none">Start your league</h1>
-            <p className="mt-2 text-center text-sm text-slate-300">Free to start. Tell us about your league and we’ll open it for you.</p>
+            <p className="mt-2 text-center text-sm text-slate-300">Free to start. Tell us about your league and we open it with you, rosters and keepers included.</p>
+            <p className="mt-1 text-center text-xs text-mute">Already in a pool on Super Pools? <a href="#/new?type=fantasy" className="text-sky-300 underline">Start the league yourself</a>.</p>
             <form onSubmit={send} className="card-hero mt-5 p-5">
               <div className="relative space-y-3">
                 <label className="block"><span className="label text-white/70">Your name</span>

@@ -48,6 +48,14 @@ export function brandOf(raw: Partial<Brand> | null | undefined, short?: string |
   };
 }
 
+// what a pool is called in a sentence: its tagline when the host wrote one, otherwise its name. pool_start seeds every
+// pack-less pool with the tagline 'A Super Pools pool' (migration 153), which is a placeholder, not a title.
+export const SEEDED_TAGLINE = 'A Super Pools pool';
+export function poolTitle(brand: Pick<Brand, 'tagline'> | null | undefined, name: string | null | undefined): string {
+  const t = brand?.tagline?.trim();
+  return t && t !== SEEDED_TAGLINE ? t : (name?.trim() || PRODUCT.name);
+}
+
 // a prize's name without its article, for "Peter Punishment" and "SAK Cup race"
 export const bare = (name: string) => name.replace(/^The /, '');
 

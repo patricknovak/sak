@@ -26,7 +26,7 @@ needs real build work, or Patrick's yes, stays listed here.
 | The pool's split shows after the lock, never before | Sport pages | true | Pick split written at kick-off (174) |
 | Keepers, the draft room, live points at every puck drop, a league voice | Fantasy hockey | true | The founding league's every night |
 | Rosters and past seasons from Yahoo, ESPN and Fantrax | Fantasy hockey | true | `commish_import_rosters` (256) and the history imports; named as sources only |
-| Bring your league: we set it up with you | Fantasy hockey | partial | A stranger asks through `#/start` (`request_league`, 112); nobody opens a league alone yet |
+| Start your league, free, or we set it up with you | Fantasy hockey, home FAQ | true | A stranger starts it at `#/new?type=fantasy` (the join function's `fantasy` body, `_fantasy_start_new`, migration 347, PR #349, live); `#/start` (`request_league`, 112) is the set-it-up path |
 | The voice's lineup calls: one swap and the points it gains; posts checked against the table | Home, fantasy | true | `garry/tonight.ts` and the number check; the nudge runs before puck drop, 4 pm ET since 1 November |
 | The voice's posts shown are real | Home, fantasy | true | The 25 October morning column and the 3 November nudge, names changed and captioned so |
 | Within 1.6 points on average across 2,252 scored calls; the Book within 1.1 points | Home, fantasy | partial | True on live as of 4 November; dated static copy until a public `proof_counts()` exists |
@@ -41,9 +41,8 @@ needs real build work, or Patrick's yes, stays listed here.
 
 ## Left for product (not copy)
 
-1. A stranger cannot start a fantasy league alone. `fantasy-hockey.html` sends them to the request form (`#/start`,
-   `request_league`). `fantasy_start` exists but needs a signed-in account already seated in a pool ("Join a pool first"),
-   and sign-up is closed, so the build is a self-serve account and league start in one flow.
+1. ~~A stranger cannot start a fantasy league alone.~~ Done on `main` by PR #349 (migration 347): `#/new?type=fantasy`
+   makes the account and the league in one go; `fantasy-hockey.html` and the home FAQ send strangers there.
 2. A fan account cannot start a pool. `#/new` disables its button and `pool_start` (migration 153) refuses an account in
    `private.fan_people`; until it accepts one (and the details step asks a fan host for an email through `claim`), the
    fan zones lead back to the marketing site.

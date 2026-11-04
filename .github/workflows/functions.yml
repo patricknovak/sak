@@ -32,10 +32,12 @@ jobs:
         uses: supabase/setup-cli@v1
         with:
           version: latest
-      # every function keeps JWT verification on (the live setting for all of them)
+      # every function keeps JWT verification on (the live setting for all of them). The CLI asks "Deploy 1 Function?"
+      # before each deploy since late October 2026 and, with no terminal to ask on, deploys nothing and fails (the run on
+      # the merge of #349, 3 November 2026); --yes answers it.
       - if: env.SUPABASE_ACCESS_TOKEN != ''
         run: |
           for fn in $(ls supabase/functions | grep -v '^_'); do
             echo "deploying $fn"
-            supabase functions deploy "$fn" --project-ref "$PROJECT"
+            supabase functions deploy "$fn" --project-ref "$PROJECT" --yes
           done

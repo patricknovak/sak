@@ -777,7 +777,10 @@ export function HostGames() {
   // the Premier League's matchweeks unless they ask
   const own = usePoolCompetitions();
   const [more, setMore] = useState(false);
-  const mine = everyEvent.filter((e) => follows(own, e.competition));
+  // a pool that follows no event (a questions pool about a show or the office) keeps every sports offer a tap away,
+  // behind "A game on a sports event", rather than leading the host's desk with pick'em and squares
+  const blankPool = Array.isArray(own) && !own.length;
+  const mine = blankPool ? [] : everyEvent.filter((e) => follows(own, e.competition));
   const events = more ? everyEvent : mine;
   const elsewhere = everyEvent.length - mine.length;
   // the events the pool opens a sheet on every game of, by itself (migration 223)
@@ -796,7 +799,7 @@ export function HostGames() {
   const sheetEvents = events.filter((e) => e.kinds.includes('props') || auto.has(e.competition));
   const moreButton = elsewhere > 0 && (
     <button type="button" onClick={() => setMore(!more)} className="w-full rounded-2xl border border-dashed border-white/15 px-3 py-2.5 text-sm font-semibold text-slate-300 hover:border-white/30 hover:text-white">
-      {more ? 'Only this pool’s events' : `A game on another event (${elsewhere} more)`}
+      {more ? (blankPool ? 'Hide the sports events' : 'Only this pool’s events') : blankPool ? `A game on a sports event (${elsewhere})` : `A game on another event (${elsewhere} more)`}
     </button>
   );
   if (!games || (!offers.length && !grids.length && !sheets.length && !sheetEvents.length)) return elsewhere > 0 ? <Section title="Add a game">{moreButton}</Section> : null;

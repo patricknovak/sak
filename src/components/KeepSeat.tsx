@@ -15,6 +15,18 @@ export function KeepSeat() {
   const [pw, setPw] = useState('');
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState('');
+  const [done, setDone] = useState<string | null>(null);
+  if (done) {
+    return (
+      <div className="card flex items-start gap-3 border-emerald-400/30 bg-emerald-400/[.06] p-4">
+        <span className="grid h-10 w-10 shrink-0 place-items-center rounded-2xl bg-emerald-400/15 ring-1 ring-emerald-400/40"><ShieldCheck className="h-5 w-5 text-emerald-300" /></span>
+        <div className="min-w-0 flex-1">
+          <div className="font-display text-lg font-extrabold leading-tight text-white">Your place is kept</div>
+          <p className="mt-0.5 text-sm leading-snug text-slate-300">Sign in anywhere as {done}. Your calls and coins come with you.</p>
+        </div>
+      </div>
+    );
+  }
   if (!isGuestEmail(session?.user?.email)) return null;
   const ok = /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email.trim()) && pw.length >= 6;
 
@@ -29,9 +41,11 @@ export function KeepSeat() {
       return;
     }
     // the same account under its new address: sign in again so this phone's session carries it
-    await supabase.auth.signInWithPassword({ email: login, password: pw });
+    const signedIn = await supabase.auth.signInWithPassword({ email: login, password: pw });
     try { localStorage.setItem('sak-last-email', login); } catch { /* nothing to remember with */ }
     setBusy(false);
+    if (signedIn.error) { setErr(`Your email is saved, but this phone couldn’t sign in again (${signedIn.error.message}). Sign in from the main page as ${login}.`); return; }
+    setDone(login);
   };
 
   return (

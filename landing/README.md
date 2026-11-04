@@ -21,8 +21,8 @@ Every page is plain HTML on one design system. Each start button opens the app's
   question (`#market`); game night as a room (`#feed`, `#clock`, the invite); the change log's latest four lines; the
   planned prices; the FAQ (mirrored word for word by the FAQPage JSON-LD in the head); the closer. Retired anchors
   (`#season`, `#ship`, `#join`...) are mapped to their new sections by `site.js`.
-- `fantasy-hockey.html`, the commissioner's page: the honest first button (a stranger asks for a league through the
-  app's `#/start`; nobody opens one alone yet), what comes over from Yahoo, ESPN and Fantrax, the season deadline to final
+- `fantasy-hockey.html`, the commissioner's page: the first button (a stranger starts the league at the app's
+  `#/new?type=fantasy`, migration 347; "Ask us to set it up" is `#/start`), what comes over from Yahoo, ESPN and Fantrax, the season deadline to final
   night, the voice with a real lineup nudge (names changed), the founding league's record and the prediction log, and
   "Bring your league", the waitlist.
 - `pricing.html`: per pool, never per person. The planned plans in Canadian dollars, the founding season, every row
@@ -43,6 +43,9 @@ Every page is plain HTML on one design system. Each start button opens the app's
 - `love-is-blind.html`: Season 11's last calls until the reunion airs (9 November 02:00Z), then "Season 11 ended with the
   reunion" and Season 12 by the show's pattern, with one line in place of a sign-up form (an email form for a later pool
   is commercial email under CASL and needs a postal address on it; Patrick supplies one before any such form returns).
+- `whats-new.html` (3 November 2026, PR #346) is unserved since 4 November 2026 (`.assetsignore`; `/whats-new` goes to
+  `/changelog` in `_redirects`): it was drawn on the old stylesheet, and the change log page now carries what shipped.
+  Its hand-written road and seasons calendar are kept in the file for a later page.
 - `example-pool.html`: a sample Love Is Blind pool filled in, every question, call and the table, captioned as an
   illustration.
 - `fans.html`: the fan zones, every club read like a front office and open to every fan: the four leagues (NHL, NFL, NBA,

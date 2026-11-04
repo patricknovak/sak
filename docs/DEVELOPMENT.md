@@ -1422,7 +1422,48 @@ stopping until done and then tell me all the items that I need to do." The recor
   five a day, 25 in all).
 
 
-### 9.25 The market review, the new marketing site and the app's first run, 4 November 2026
+### 9.25 The market review and the first minute, 3 November 2026
+
+Patrick: "Do a thorough review of Super Pools versus the market and design and build the most compelling and beautiful
+offering that is ready to go live." Two slices so far.
+
+- **The landing page** (PR #346): three doors on the home (a pool with friends, a fantasy league, the fan zones) in place
+  of the pillars, a shorter lead, the fan band, and what shipped and what's next moved to `landing/whats-new.html`; the
+  rows of cards snap sideways on a phone.
+- **The first minute** (this slice): a stranger's path from the landing's door to their first pick or question, read
+  end to end in the code and in the browser at 390 px, every finding checked by a second reader before it was fixed.
+  A pool's name on its home, in its invite text and in the share card comes from `poolTitle` in `src/lib/brand.ts`
+  (the brand's tagline unless it is the seeded 'A Super Pools pool', then the pool's name). A pool with no questions and
+  no games yet opens on "Ask your first question" for the host (`AskFirstCard`, `AskSheet` with `show={false}`: the
+  examples and labels are neutral unless the pool follows a show, and the closing time is preselected); a games-only
+  pool's hero shows the next lock and the picks made, with "Make your first pick" for a member who hasn't. `#/new`
+  keeps the form while a `?type=` link changes under it, lets an address that already has an account sign in and start
+  the pool in the same tap (the join function's 409 opens the password field), and lets a signed-in account with no
+  seat start fresh. The join page opens the pool when the account is already in it, says why when a name-only seat is
+  full for the day, and the Worker's preview says whether a link expired, was cancelled or was used. The sign-in page
+  says what to do with a league's address when you're new, and a signed-in account with no seat gets Start a pool, the
+  fan zones and Sign out instead of a dead end. The Commish page opens on the setup guide, then the invites while seats
+  are open ("Make a link for every open seat"), then the health panel once the league is live; Fines & fees only in a
+  money league. Still open: a stranger can't start a fantasy league from the landing's door without an account (the
+  `fantasy_start` function needs a member), which needs the join function to take a `fantasy` body.
+  The rest of the review, after PR #347: the boot splash and the invite page wear the product's mark until the address
+  or the preview says SaK; a start form's failed list offers Try again; the Home Screen sheet and the cookie line keep
+  off a newcomer's first screen (the sheet waits out the visit right after a create or a join, `freshArrival` in
+  `src/lib/inviteShare.ts`; the line sits above the dock); Keep your place says when it worked, and a name-only host
+  is told the pool would live on their phone and gets the card first; the alerts card follows a member's first call on
+  the pool home; a games-only pool's invite cards speak picks, not coins; the fans' index and board stand without the
+  database's answer; the product's primary buttons carry no glyph. The streak test's four finished games sit on four
+  Eastern afternoons rather than now() minus whole days, which put two on one date in the hour after a clock change.
+  Slice 3: the landing's fantasy door opens for a stranger. `fantasy_start` needed a member, so the door could only say
+  sign in first. Migration 347 moves the league's opening into `_fantasy_open` (the same league either way: SaK's rules,
+  the choices made at the start, seat 1 the starter's), keeps `fantasy_start` for a member, and adds `_fantasy_start_new`
+  for the join function's `fantasy` body (the account and the league in one go, past the same door limits as a pool's,
+  counted together in `private.pool_signups`). The start form takes the commissioner's name, email and password under
+  the league's choices; an email that already has an account signs in right there and the league starts on it; a
+  signed-in account with no seat is offered a fresh start. Before the migration is live the join function answers
+  `notYet` and the form points at Ask us.
+
+### 9.26 The market review, the new marketing site and the app's first run, 4 November 2026
 
 Patrick asked where Super Pools stands against the market and for a marketing site that says so. The record is
 `docs/MARKET-REVIEW-2026-11.md` (the positioning and offering brief from twelve research reports, with every refutation
@@ -1440,10 +1481,12 @@ it took and six addenda); what the pages claim against what is true today is `do
   `src/data/changelog.ts`. Seasonal copy follows the calendar (`data-from`, `data-until`, `LIB_STAGES`, now with the
   reunion on 8 November and the pack's last close on 11 November apart). The voice's posts shown are real, names changed.
 - **The app's first run**: the consent sheet one line a question; the start page lists each event's kinds and says
-  "Live now" only while a round is under way; a signed-out fantasy start offers the request or a pool first; sign-in on the
-  product address leads with "Start one free"; a fan account is told plainly how to start a pool; the fan zones' links carry
+  "Live now" only while a round is under way; a fan account is told plainly how to start a pool; the fan zones' links carry
   `?src=fans` into the app (`worker/fans.ts`); `#/privacy` says what the waitlist and reserve emails are.
-- **Left** (the claims audit): a stranger cannot open a fantasy league alone; a fan account cannot start a pool
+- **Left** (the claims audit): a fan account cannot start a pool
   (`pool_start`); the forms need CASL consent columns and a mailing address; the founding rate needs Patrick's yes; a public
   `proof_counts()` would retire the dated proof copy; real names on the voice's posts need the GMs' yes; no French yet;
   `/traitors` redirects to `/together` after 20 November.
+- **Merged with §9.25** (the parallel slices, PRs #346 to #349): where both changed the same app screen, #349's
+  version stands (a stranger starts a fantasy league from `#/new?type=fantasy`); the landing pages send the fantasy doors
+  there, with `#/start` kept as "ask us to set it up"; `whats-new.html` (drawn on the old stylesheet) is kept in the repo, unserved, and `/whats-new` goes to `/changelog`.

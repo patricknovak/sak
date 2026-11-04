@@ -6,3 +6,6 @@
 # Retired pages keep their inbound links (the World Series page is unserved until a feed is licensed)
 /world-series-pools        https://superpoolsai.com/                301
 /world-series-pools.html   https://superpoolsai.com/                301
+# What's new (PR #346) folded into the change log page on 4 November 2026; the file stays in the repo, unserved
+/whats-new                 https://superpoolsai.com/changelog       301
+/whats-new.html            https://superpoolsai.com/changelog       301

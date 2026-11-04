@@ -63,7 +63,8 @@ export async function invitePage(code: string, url: URL, env: Env) {
   const color = hex(i.brand?.colors?.gold);
   const fantasy = i.kind !== 'predict';
   const title = i.ok ? `You're invited to ${i.league}` : i.league;
-  const description = !i.ok ? `This invite has ${i.reason === 'expired' ? 'expired' : 'been used'}. Ask for a fresh link.`
+  // the same words as the app's own page (Join.tsx): a cancelled link isn't a used one
+  const description = !i.ok ? `${i.reason === 'expired' ? 'This invite has expired' : i.reason === 'revoked' ? 'This invite was cancelled' : i.reason === 'taken' ? 'That seat has been taken' : 'This invite has already been used'}. Ask for a fresh link.`
     : fantasy ? `Take ${i.team ? `the ${i.team} seat` : 'a seat'} in ${i.league}${i.brand?.tagline ? `: ${i.brand.tagline}` : ''}. Draft, lineups, trash talk and the table, on ${PRODUCT.name}.`
     // the first question is the pitch (migration 252): the link in a text thread already asks it
     // a sports pool's next game (migration 293) when it asks no question

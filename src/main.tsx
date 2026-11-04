@@ -13,6 +13,9 @@ import { ErrorBoundary, reloadForNewVersion } from './components/ErrorBoundary';
 import { ConsentBanner } from './components/ConsentBanner';
 import { initAnalytics, trackPageView } from './lib/analytics';
 import { PRODUCT } from './lib/brand';
+import { isProductHost } from './lib/host';
+import { ProductMark } from './components/Brand';
+import { signOut } from './lib/guest';
 
 initAnalytics();
 
@@ -110,7 +113,8 @@ function App() {
         <div className="flex flex-col items-center gap-4">
           <div className="relative h-20 w-20">
             <div className="absolute inset-0 animate-glow rounded-[24px] bg-goal/40 blur-2xl" />
-            <img src="./icon.svg" alt="" className="relative h-20 w-20 animate-pulse" />
+            {/* the product's own mark on its own addresses; SaK's crest only on SaK's (a pool link never opens on a hockey badge) */}
+            {isProductHost() ? <span className="relative grid h-20 w-20 animate-pulse place-items-center"><ProductMark size={80} /></span> : <img src="./icon.svg" alt="" className="relative h-20 w-20 animate-pulse" />}
           </div>
           <div className="h-display text-shine text-xl tracking-[.2em]">{PRODUCT.name}</div>
         </div>
@@ -136,8 +140,12 @@ function App() {
     return (
       <div className="grid min-h-dvh place-items-center p-6 text-center">
         <div className="card max-w-md p-6">
-          <p className="text-sm text-mute">This login isn’t linked to a team yet. Ask your commissioner for an invite link, or <a className="text-sky-300 underline" href="#/start">start a league of your own</a>.</p>
-          <a className="btn-ghost mt-4 inline-flex" href="#/fans">Open the NHL fan zones</a>
+          <p className="text-sm text-slate-200">You’re signed in, but you’re not in a pool yet. Open the invite link your host sent you, or start a pool of your own.</p>
+          <div className="mt-4 flex flex-wrap justify-center gap-2">
+            <a className="btn-gold inline-flex" href="#/new">Start a pool</a>
+            <a className="btn-ghost inline-flex" href="#/fans">The fan zones</a>
+          </div>
+          <p className="mt-4 text-xs text-mute">Running a fantasy league somewhere else? <a className="text-sky-300 underline" href="#/start">Ask us to set it up</a>. · <button type="button" className="underline" onClick={() => signOut()}>Sign out</button></p>
         </div>
       </div>
     );

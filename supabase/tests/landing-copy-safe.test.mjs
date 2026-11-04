@@ -53,7 +53,7 @@ for (const name of pages) {
 {
   const redirects = readFileSync(join(landing, '_redirects'), 'utf8');
   assert.match(redirects, /^\/privacy\s+https:\/\/app\.superpoolsai\.com\/#\/privacy\s+302/m);
-  assert.match(redirects, /^\/terms\s+https:\/\/app\.superpoolsai\.com\/#\/privacy\s+302/m);
+  assert.match(redirects, /^\/terms\s+https:\/\/app\.superpoolsai\.com\/#\/terms\s+302/m);
 }
 
 console.log('landing copy safe tests passed');

@@ -6658,9 +6658,11 @@ set role authenticated;
 select pg_temp.raises('a day''s pick stays once its game starts', format('select pool_game_pick(%s, ''streak'', ''{"fixture": %s, "pick": "H"}'')', :stg, :st5), 'Your pick for that day has started');
 reset role;
 select set_config('request.jwt.claim.sub', '', false);
--- the four games end, home sides all: right, right, wrong, right
+-- the four games end, home sides all: right, right, wrong, right. Each is moved to its own Eastern afternoon, four days
+-- back to one: a kickoff of now() minus whole days lands two games on one Eastern date in the hour after a clock change
+-- (3 November 2026, 04:00 to 05:00 UTC: now() - 2 days was still daylight time), and the day's two picks became one.
 select soccer_ingest('nfl', jsonb_build_object('fixtures', (select jsonb_agg(jsonb_build_object('ext_id', 'nfl-30' || d, 'gameweek', 14,
-  'kickoff', now() - make_interval(days => 5 - d), 'status', 'FT', 'home', 'nf1', 'away', 'nf2', 'home_score', 24, 'away_score', 17, 'home_ft', 24, 'away_ft', 17))
+  'kickoff', ((current_date - (5 - d))::timestamp + time '13:00') at time zone 'America/New_York', 'status', 'FT', 'home', 'nf1', 'away', 'nf2', 'home_score', 24, 'away_score', 17, 'home_ft', 24, 'away_ft', 17))
   from generate_series(1, 4) d)));
 select pg_temp.expect('best run 2, on 1 now, three right from four',
   (select points = 2 and exact = 1 and right_calls = 3 and picked = 4 and tiebreak = -1 from _pool_game_table(:stg) where team_id = :hana)
@@ -7131,6 +7133,31 @@ select pg_temp.as_team(4);
 set role authenticated;
 select pg_temp.raises('only its starter deletes a league in setup', format('select pool_delete(%s, ''Second Garage'')', :sg), 'Only the person who started');
 reset role;
+-- a stranger's league from the landing's door (migration 347): the join function makes the account, then opens the
+-- league through _fantasy_start_new as the service role, past the same limits as a new pool's
+insert into auth.users (id, email) values ('00000000-0000-0000-0000-0000000000c5', 'newcommishc5@example.com') on conflict do nothing;
+set role service_role;
+select pg_temp.raises('the door wants a name', $$select _fantasy_start_new('00000000-0000-0000-0000-0000000000c5', '', 'iphash-fff-1', 'Shed League')$$, 'Tell us your name');
+select _fantasy_start_new('00000000-0000-0000-0000-0000000000c5', 'Priya', 'iphash-fff-1', 'Shed League', '#38bdf8', 10, 'season', null, 2, 0, true)->>'id' as sl \gset
+reset role;
+select pg_temp.expect('a brand-new account is its commissioner, under the name it gave, with the seats open', (select l.status = 'setup' and l.kind is distinct from 'predict' and l.owner_user = '00000000-0000-0000-0000-0000000000c5'
+    and (select count(*) from teams where league_id = :sl) = 10
+    and exists (select 1 from teams where league_id = :sl and is_commish and gm_name = 'Priya' and user_id = '00000000-0000-0000-0000-0000000000c5')
+    and exists (select 1 from league_members where user_id = '00000000-0000-0000-0000-0000000000c5' and league_id = :sl)
+    and (select keepers = 2 and format = 'season' from league_rules where league_id = :sl)
+  from leagues l where l.id = :sl));
+select pg_temp.expect('and the league opens for it', (select active_league_id from accounts where user_id = '00000000-0000-0000-0000-0000000000c5') = :sl);
+select pg_temp.expect('the start counts against the door''s limits with the pools', exists (select 1 from private.pool_signups where user_id = '00000000-0000-0000-0000-0000000000c5' and league_id = :sl and ip_hash = 'iphash-fff-1'));
+set role service_role;
+select pg_temp.raises('an account already in a league uses My pools instead', $$select _fantasy_start_new('00000000-0000-0000-0000-0000000000c5', 'Priya', 'iphash-fff-1', 'Second Shed')$$, 'already in a pool');
+reset role;
+select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-0000000000c5', false);
+set role authenticated;
+select fantasy_start('Shed Two', null, 4)->>'id' as s2 \gset
+select pg_temp.expect('and the member''s own door still opens the same league', :s2 > :sl
+  and exists (select 1 from teams t where t.league_id = :s2 and t.is_commish and t.gm_name = 'Priya' and t.user_id = '00000000-0000-0000-0000-0000000000c5'));
+reset role;
+select set_config('request.jwt.claim.sub', '', false);
 select pg_temp.as_team(3);
 set role authenticated;
 select pg_temp.expect('its starter deletes it while it is being set up', (pool_delete(:sg, 'Second Garage')->>'deleted')::int = :sg);

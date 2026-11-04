@@ -1,6 +1,8 @@
 // join: someone new takes a seat from an invite link (Phase 2, docs/EXPANSION.md B5), or opens a pool of their own.
 //   POST {code, email, password, name}
 //   POST {pool: {name, color, pack}, email, password, name}   (migration 153: start a pool with no account yet)
+//   POST {fantasy: {name, color, seats, format, categories, keepers, playoffs, snake}, email, password, name}
+//                                                              (migration 347: a fantasy league with no account yet)
 //   POST {code, name, guest: true}                             (migration 332: a pool's seat with just a name)
 //   POST {claim: {email, password}}, signed in as a guest       (the guest adds an email and keeps the seat)
 //   POST {fan: {name, club, league}}                            (migrations 337 and 338: a voice in the fan zones, no seat)
@@ -96,6 +98,52 @@ async function startPool(req: Request, b: { pool?: { name?: string; color?: stri
   return reply(200, { ok: true, pool: started.data });
 }
 
+// someone new opens a fantasy league from the landing's door (migration 347): the same door as a pool's, then the
+// league with them in the commissioner's seat, opened in setup. A failed start removes the account again.
+type FantasyBody = { name?: string; color?: string; seats?: number; format?: string; categories?: string[] | null; keepers?: number; playoffs?: number; snake?: boolean };
+async function startFantasy(req: Request, b: { fantasy?: FantasyBody; email?: string; password?: string; name?: string } & Record<string, unknown>) {
+  const f = b.fantasy ?? {};
+  const league = String(f.name ?? '').trim().replace(/\s+/g, ' ').slice(0, 40);
+  const color = /^#[0-9a-f]{6}$/i.test(String(f.color ?? '')) ? String(f.color).toLowerCase() : null;
+  const seats = Number.isInteger(f.seats) ? Number(f.seats) : 8;
+  const format = f.format === 'h2h' ? 'h2h' : 'season';
+  const categories = Array.isArray(f.categories) && f.categories.length ? f.categories.filter((c) => typeof c === 'string' && /^[a-z0-9_]{1,12}$/.test(c)).slice(0, 12) : null;
+  const keepers = Number.isInteger(f.keepers) ? Number(f.keepers) : 0;
+  const playoffs = Number.isInteger(f.playoffs) ? Number(f.playoffs) : 0;
+  const snake = f.snake !== false;
+  const email = String(b.email ?? '').trim().toLowerCase();
+  const password = String(b.password ?? '');
+  const name = String(b.name ?? '').trim().slice(0, 40);
+  if (league.length < 3) return reply(400, { error: 'Give the league a name (3 to 40 characters).' });
+  if (seats < 4 || seats > 20) return reply(400, { error: 'A league takes 4 to 20 teams.' });
+  if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) return reply(400, { error: 'That doesn’t look like an email address.' });
+  if (password.length < 6) return reply(400, { error: 'Pick a password of at least 6 characters.' });
+  if (name.length < 2) return reply(400, { error: 'Tell us your name.' });
+
+  const ip = await addressHash(req);
+  const { data: why, error: we } = await db.rpc('_pool_signup_check', { p_ip: ip });
+  if (we) { console.error('check', we); return reply(500, { error: 'Couldn’t start the league. Try again in a minute.' }); }
+  if (why) return reply(429, { error: why });
+
+  const { data: made, error: ue } = await db.auth.admin.createUser({ email, password, email_confirm: true, user_metadata: { name } });
+  if (ue || !made?.user) {
+    if (/already|registered|exists/i.test(ue?.message ?? '')) {
+      return reply(409, { error: 'That email already has an account. Sign in with it and start the league from My pools.', signIn: true });
+    }
+    console.error('create user', ue);
+    return reply(500, { error: 'Couldn’t make your account. Try again in a minute.' });
+  }
+  const started = await db.rpc('_fantasy_start_new', { p_user: made.user.id, p_host: name, p_ip: ip, p_name: league, p_color: color, p_seats: seats,
+    p_format: format, p_categories: categories, p_keepers: keepers, p_playoffs: playoffs, p_snake: snake });
+  if (started.error) {
+    await db.auth.admin.deleteUser(made.user.id);
+    // the door before its SQL is live (the site deploys from main ahead of a migration): say so rather than a stack trace
+    if (/could not find|PGRST202|42883/i.test(started.error.message)) return reply(503, { error: 'This door isn’t open yet. Ask us to set your league up and we open it with you.', notYet: true });
+    return reply(400, { error: started.error.message.replace(/^.*?ERROR:\s*/, '') });
+  }
+  return reply(200, { ok: true, league: started.data });
+}
+
 // a guest's account sits on a placeholder address nobody reads; the site spots one by this domain and asks for an email
 const GUEST_DOMAIN = 'guest.superpoolsai.com';
 const isGuest = (email?: string | null) => (email ?? '').toLowerCase().endsWith(`@${GUEST_DOMAIN}`);
@@ -184,6 +232,7 @@ Deno.serve(async (req) => {
   if (req.method !== 'POST') return reply(405, { error: 'POST only' });
   const b = await req.json().catch(() => ({})) as { code?: string; email?: string; password?: string; name?: string; pool?: { name?: string; color?: string; pack?: string } } & Record<string, unknown>;
   if (b.pool) return startPool(req, b);
+  if (b.fantasy) return startFantasy(req, b as { fantasy?: FantasyBody; email?: string; password?: string; name?: string } & Record<string, unknown>);
   if (b.claim) return claim(req, b as { claim?: { email?: string; password?: string } });
   if (b.fan) return fanJoin(req, b as { fan?: { name?: string; club?: string; league?: string } });
   const code = String(b.code ?? '').trim().toLowerCase();

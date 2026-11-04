@@ -7,10 +7,10 @@ import { useMemo, useRef, useState } from 'react';
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { CalendarClock, Crown, Flame, Link2, Plus, Sparkles, Trash2, Trophy, Wand2 } from 'lucide-react';
 import { useLeague, useNow } from '../lib/store';
-import { useBrand } from '../lib/brand';
+import { poolTitle, useBrand } from '../lib/brand';
 import { rpc } from '../lib/supabase';
 import { ago, countdown } from '../lib/format';
-import { answerColor, isOpen, pct, prices, usePool, useCoins, type PoolDrop, type PoolLeader, type PoolMarket, type PoolPosition } from '../lib/pool';
+import { answerColor, isOpen, pct, prices, usePool, useCoins, type PoolLeader, type PoolMarket, type PoolPosition } from '../lib/pool';
 import { CallsFeed, closesIn, Coins, MarketCard, PriceChart, TradeSheet } from '../components/Pool';
 import { Empty, PageHeader, Section, TeamBadge, useAction } from '../components/ui';
 import { useEffect } from 'react';
@@ -29,6 +29,8 @@ import { InvitePeople } from '../components/InvitePeople';
 import { PostToChats } from '../components/PostToChats';
 import { DeletePool } from '../components/DeletePool';
 import { KeepSeat } from '../components/KeepSeat';
+import { PushCard } from '../components/PushCard';
+import { isGuestEmail } from '../lib/guest';
 import { LeagueFeatures } from '../components/LeagueFeatures';
 import { usePoolCompetitions } from '../lib/poolOwn';
 import type { PoolEvent } from '../lib/poolGames';
@@ -86,7 +88,7 @@ function SoccerRounds({ onAdded }: { onAdded: () => void }) {
 
 // ───────────── home ─────────────
 export function PoolHome() {
-  const { me, league, teams } = useLeague();
+  const { me, league, teams, session } = useLeague();
   const brand = useBrand();
   const now = useNow(1000);
   const { markets, positions, trades, drops, reload: reloadPool } = usePool();
@@ -134,6 +136,8 @@ export function PoolHome() {
   const lock = (ahead?.locks ?? []).filter((l) => new Date(l.at).getTime() > now).sort((a, b) => a.at.localeCompare(b.at))[0];
   const lockMissing = !!lock && !!me && lock.still_to_pick.includes(me.gm_name);
   const gamesOnly = !!games?.length && markets !== null && !markets.length;
+  // the host's questions pool with nothing asked yet and no games to pick: the first question comes first
+  const blank = !!me?.is_commish && markets !== null && !markets.length && games !== null && !games.length;
   // a host still alone in the pool: the invite is the one thing to do, so it leads (a rank of one tells nobody anything)
   const people = teams.filter((t) => t.role === 'gm' && t.user_id).length;
   const alone = !!me?.is_commish && people < 2;
@@ -141,11 +145,21 @@ export function PoolHome() {
   return (
     <div className="space-y-6">
       <div className="relative overflow-hidden rounded-[28px] border border-gold/25 p-5" style={{ background: 'radial-gradient(120% 90% at 0% 0%, rgb(var(--gold-rgb)/.30), transparent 55%), radial-gradient(90% 80% at 100% 100%, rgba(167,139,250,.20), transparent 60%), linear-gradient(160deg,#1a1430,#0b1222 70%)' }}>
-        <div className="text-[11px] font-bold uppercase tracking-[.22em] text-gold">{brand.tagline || league?.name}</div>
-        <h1 className="mt-1 font-display text-[40px] font-extrabold italic leading-[.95] text-white">Hi {me?.gm_name?.split(' ')[0] ?? 'there'}.<br /><span className="text-gold">Call it.</span></h1>
+        <div className="text-[11px] font-bold uppercase tracking-[.22em] text-gold">{poolTitle(brand, league?.name)}</div>
+        <h1 className="mt-1 font-display text-[40px] font-extrabold italic leading-[.95] text-white">Hi {me?.gm_name?.split(' ')[0] ?? 'there'}.<br /><span className="text-gold">{gamesOnly ? 'Pick it.' : 'Call it.'}</span></h1>
         <div className="mt-4 grid grid-cols-3 gap-2">
-          <div className="rounded-2xl bg-black/25 px-3 py-2.5 ring-1 ring-white/10"><div className="label">To spend</div><div className="font-display text-[clamp(17px,5.2vw,24px)] font-extrabold text-white"><Coins n={coins} /></div></div>
-          <div className="rounded-2xl bg-black/25 px-3 py-2.5 ring-1 ring-white/10"><div className="label">Worth</div><div className="font-display text-[clamp(17px,5.2vw,24px)] font-extrabold text-white"><Coins n={mine?.worth} /></div></div>
+          {gamesOnly ? (
+            // a sports pool with no questions is about its picks, not its coins: the next lock and the picks made
+            <>
+              <Link to={lock ? lockLink(lock) : '/picks'} className="rounded-2xl bg-black/25 px-3 py-2.5 ring-1 ring-white/10 hover:bg-black/35"><div className="label truncate">Next lock</div><div className="font-display text-[clamp(17px,5.2vw,24px)] font-extrabold text-white">{lock ? countdown(new Date(lock.at).getTime() - now) : main?.title ? 'Soon' : '–'}</div></Link>
+              <Link to="/picks" className="rounded-2xl bg-black/25 px-3 py-2.5 ring-1 ring-white/10 hover:bg-black/35"><div className="label truncate">{main ? `${kindOf(main.kind).icon} Picks` : 'Picks'}</div><div className="font-display text-[clamp(17px,5.2vw,24px)] font-extrabold text-white">{main?.mine ? 'In' : 'None yet'}</div></Link>
+            </>
+          ) : (
+            <>
+              <div className="rounded-2xl bg-black/25 px-3 py-2.5 ring-1 ring-white/10"><div className="label">To spend</div><div className="font-display text-[clamp(17px,5.2vw,24px)] font-extrabold text-white"><Coins n={coins} /></div></div>
+              <div className="rounded-2xl bg-black/25 px-3 py-2.5 ring-1 ring-white/10"><div className="label">Worth</div><div className="font-display text-[clamp(17px,5.2vw,24px)] font-extrabold text-white"><Coins n={mine?.worth} /></div></div>
+            </>
+          )}
           {alone ? (
             <button type="button" onClick={toInvite} className="rounded-2xl bg-gold/20 px-3 py-2.5 text-left ring-1 ring-gold/50 hover:bg-gold/25">
               <div className="label truncate text-gold">Just you</div>
@@ -156,7 +170,15 @@ export function PoolHome() {
             <div className="flex items-baseline gap-1 font-display text-[clamp(17px,5.2vw,24px)] font-extrabold text-white">{main?.mine ? main.mine.rank : '–'}<span className="text-sm font-bold text-mute">of {main?.members ?? '–'}</span><Move n={main?.mine?.move} /></div></Link>
           )}
         </div>
-        <p className="mt-2 text-[11px] text-mute">{brand.coin.name} are play coins, never real money.</p>
+        {!gamesOnly && <p className="mt-2 text-[11px] text-mute">{brand.coin.name} are play coins, never real money.</p>}
+        {/* a newcomer with no pick yet: the first pick is the first thing to do, whether it locks tonight or next week */}
+        {gamesOnly && me?.role === 'gm' && main && !main.mine && !lock && (
+          <Link to="/picks" className="mt-3 flex items-center gap-3 rounded-2xl bg-gold/15 px-3 py-2.5 ring-1 ring-gold/40 hover:bg-gold/20">
+            <Lock className="h-5 w-5 shrink-0 text-gold" />
+            <div className="min-w-0 flex-1 text-sm leading-snug"><b className="text-white">Make your first pick</b><div className="text-xs text-mute">{main.title}</div></div>
+            <span className="shrink-0 text-sm font-bold text-gold">Pick →</span>
+          </Link>
+        )}
         {main && myChance != null && (
           <Link to={`/leaders?g=${encodeURIComponent(main.key)}`} className="mt-2 flex items-center gap-2 rounded-2xl bg-black/20 px-3 py-2 text-sm ring-1 ring-white/10 hover:bg-black/30">
             <Dices className="h-4 w-4 shrink-0 text-gold" />
@@ -193,12 +215,12 @@ export function PoolHome() {
         )}
       </div>
 
-      {/* alone, the invite comes before anything else; the visit right after create shows the join link first */}
-      {/* a pool with no questions and no games yet (a "Something else" pool) asks its first question before the link */}
-      {alone && <div id="pool-invite"><PostCreateInvite empty={markets !== null && !markets.length && games !== null && !games.length} drops={drops} onAsked={reloadPool} /></div>}
+      {/* a questions pool with nothing asked yet: the host's first job is the first question, before the invite
+          (an invite into an empty pool asks the friend to look at nothing) */}
+      {blank && <AskFirstCard onAsked={reloadPool} />}
 
-      {/* joined with just a name: the email that keeps the seat (migration 332) */}
-      <KeepSeat />
+      {/* alone, the invite comes before anything else; the visit right after create shows the join link first */}
+      {alone && <div id="pool-invite"><PostCreateInvite blank={blank} /></div>}
 
       <PoolRoomCard room={room} />
 
@@ -206,12 +228,21 @@ export function PoolHome() {
           grown (the gate is people, docs/DEVELOPMENT.md §8.4 item 1) */}
       {me?.is_commish && !alone && people < 4 && <InviteCard />}
 
-      {/* after a joiner's first call: invite them to open a pool of their own (viral loop) */}
-      <StartOwnPoolCard />
+      {/* a host in on this phone only: the email that keeps the seat comes before the games (a lost host is a pool
+          nobody can settle or invite into) */}
+      {me?.is_commish && isGuestEmail(session?.user?.email) && <KeepSeat />}
 
       <PoolGameCards />
 
-      {me?.role === 'gm' && !gamesOnly && <PoolHowTo league={league?.league_id ?? 0} />}
+      {/* joined with just a name: the email that keeps the seat (migration 332), after what they came for */}
+      {!(me?.is_commish && isGuestEmail(session?.user?.email)) && <KeepSeat />}
+
+      {/* after a joiner's first call: invite them to open a pool of their own (viral loop), and the alerts that buzz
+          before their next call closes */}
+      <StartOwnPoolCard />
+      <FirstCallPush />
+
+      {me?.role === 'gm' && !gamesOnly && !blank && <PoolHowTo league={league?.league_id ?? 0} />}
 
       {me?.is_commish && settle.length > 0 && (
         <Link to={fed.length ? `/q/${fed[0]}` : '/host'} className="card flex items-center gap-3 border-amber-400/30 bg-amber-400/[.06] p-4">
@@ -224,7 +255,7 @@ export function PoolHome() {
         </Link>
       )}
 
-      {gamesOnly ? null : markets === null ? <div className="h-40 animate-pulse rounded-3xl bg-white/[.04]" /> : !markets.length ? (
+      {gamesOnly || blank ? null : markets === null ? <div className="h-40 animate-pulse rounded-3xl bg-white/[.04]" /> : !markets.length ? (
         <Empty icon="🔮" title="No questions yet">{me?.is_commish ? <Link to="/host" className="btn-gold mt-3 inline-block">Ask the first one</Link> : 'The host is writing them. Check back soon.'}</Empty>
       ) : (
         <>
@@ -247,6 +278,19 @@ export function PoolHome() {
 }
 
 // after the first call: a member who joined someone else's pool can start one for their own crew
+// the alerts card, after the first call (never on the first screen): a question closing without them is the loss
+function FirstCallPush() {
+  const { me } = useLeague();
+  const [ready, setReady] = useState(hasTrackedFirstCall);
+  useEffect(() => {
+    const on = () => setReady(true);
+    window.addEventListener('sp-first-call', on);
+    return () => window.removeEventListener('sp-first-call', on);
+  }, []);
+  if (!ready || me?.role !== 'gm') return null;
+  return <PushCard hideWhenOn compact />;
+}
+
 function StartOwnPoolCard() {
   const { me } = useLeague();
   const [ready, setReady] = useState(hasTrackedFirstCall);
@@ -269,7 +313,7 @@ function StartOwnPoolCard() {
 
 // right after create: the join link on the confirmation screen (the step that never happened before).
 // Flag is consumed in an effect once the host is known; StrictMode must not clear it during render.
-function PostCreateInvite({ empty, drops, onAsked }: { empty: boolean; drops: PoolDrop[]; onAsked: () => void }) {
+function PostCreateInvite({ blank = false }: { blank?: boolean }) {
   const { me } = useLeague();
   const [fresh, setFresh] = useState(false);
   const [ready, setReady] = useState(false);
@@ -279,15 +323,29 @@ function PostCreateInvite({ empty, drops, onAsked }: { empty: boolean; drops: Po
     setReady(true);
   }, [me?.id, me?.is_commish]);
   if (!ready) return null;
-  if (fresh && me?.is_commish) return <CreateConfirmCard empty={empty} drops={drops} onAsked={onAsked} />;
+  if (fresh && me?.is_commish) return <CreateConfirmCard blank={blank} />;
   return <InviteCard />;
 }
 
-// an empty pool (no questions, no games) leads with its first question: a link to a pool with nothing to call in it is
-// the friend's first and last visit (4 November 2026); the share stays one tap away
-function CreateConfirmCard({ empty, drops, onAsked }: { empty: boolean; drops: PoolDrop[]; onAsked: () => void }) {
-  const { league } = useLeague();
+// a questions pool with nothing asked yet: the host asks the first one right here, before the invite goes out
+function AskFirstCard({ onAsked }: { onAsked: () => void }) {
+  const { drops } = usePool();
   const [asking, setAsking] = useState(false);
+  return (
+    <div className="card-hero relative overflow-hidden p-5">
+      <div className="relative">
+        <div className="label text-white/70">First things first</div>
+        <h3 className="mt-1 font-display text-2xl font-extrabold text-white">Ask your first question.</h3>
+        <p className="mt-1 text-sm text-white/80">A yes or no, a who, a how many: write it the way you’d ask the group chat. Every answer gets a price, and your friends call it before it closes.</p>
+        <button type="button" className="btn-gold mt-3 inline-flex items-center gap-2" onClick={() => setAsking(true)}><Plus className="h-4 w-4" /> Ask the first one</button>
+      </div>
+      <AskSheet open={asking} onClose={() => setAsking(false)} drops={drops} onAsked={onAsked} show={false} />
+    </div>
+  );
+}
+
+function CreateConfirmCard({ blank = false }: { blank?: boolean }) {
+  const { league } = useLeague();
   const brand = useBrand();
   const [link, setLink] = useState<string | null>(null);
   const [failed, setFailed] = useState(false);
@@ -295,7 +353,12 @@ function CreateConfirmCard({ empty, drops, onAsked }: { empty: boolean; drops: P
   const inputRef = useRef<HTMLInputElement>(null);
   const poolName = league?.name ?? 'Super Pools';
   const coin = brand.coin.name.toLowerCase();
-  const pitch = `Join my ${poolName} pool on Super Pools. Pick a name and you're in.`;
+  // a pool of games and no questions is played in picks, not coins
+  const { markets: ms } = usePool();
+  const { games: gs } = usePoolGames();
+  const picksOnly = !!gs?.length && ms !== null && !ms.length;
+  // the group chat's first look at the pool: its name as the host wrote it (never "my The Barn pool")
+  const pitch = `Join ${poolTitle(brand, poolName)} on Super Pools. Pick a name and you're in.`;
   const ask = link ? `${pitch} ${link}` : pitch;
 
   useEffect(() => {
@@ -319,7 +382,7 @@ function CreateConfirmCard({ empty, drops, onAsked }: { empty: boolean; drops: P
       <div className="relative space-y-3">
         <div>
           <h3 className="font-display text-2xl font-extrabold text-white">{poolName}</h3>
-          <p className="mt-1 text-sm text-slate-200">{empty ? 'Your pool is open. Ask the first question, then send the link.' : 'Your pool is open.'}</p>
+          <p className="mt-1 text-sm text-slate-200">{blank ? 'Your pool is open. Ask one question above, then send this to the group chat.' : 'Your pool is open. Send this to the group chat.'}</p>
         </div>
         {link && (
           <input
@@ -332,23 +395,15 @@ function CreateConfirmCard({ empty, drops, onAsked }: { empty: boolean; drops: P
           />
         )}
         <p className="rounded-xl bg-black/25 px-3 py-2.5 text-sm leading-snug text-slate-200 ring-1 ring-white/10">{ask}</p>
-        <p className="text-xs text-mute">Free, played in {coin}, never real money. No app to download.</p>
-        <div className="flex flex-wrap gap-2">
-          {empty && (
-            <button type="button" className="btn-gold inline-flex items-center gap-2" onClick={() => setAsking(true)}>
-              <Plus className="h-4 w-4" /> Ask the first one
-            </button>
-          )}
-          <button
-            type="button"
-            className={`${empty ? 'btn-ghost' : 'btn-gold'} inline-flex items-center gap-2`}
-            disabled={!link}
-            onClick={() => { if (link) setJob({ title: poolName, text: pitch, url: link }); }}
-          >
-            <Link2 className="h-4 w-4" /> Send it
-          </button>
-        </div>
-        <AskSheet open={asking} onClose={() => setAsking(false)} drops={drops} onAsked={onAsked} />
+        <p className="text-xs text-mute">{picksOnly ? 'Free, picks against the table, never real money. No app to download.' : `Free, played in ${coin}, never real money. No app to download.`}</p>
+        <button
+          type="button"
+          className="btn-gold inline-flex items-center gap-2"
+          disabled={!link}
+          onClick={() => { if (link) setJob({ title: poolName, text: pitch, url: link }); }}
+        >
+          <Link2 className="h-4 w-4" /> Send it
+        </button>
         <ShareSheet
           open={!!job}
           onClose={() => setJob(null)}
@@ -370,6 +425,8 @@ function InviteCard() {
   const [job, setJob] = useState<ShareJob | null>(null);
   const [inviting, setInviting] = useState(false);
   const { markets } = usePool();
+  const { games } = usePoolGames();
+  const picksOnly = !!games?.length && markets !== null && !markets.length;
   // invite_share only on a real tap, never on mount (smoke: auto-share after create inflated the funnel).
   const make = () => run(async () => {
     // the pool's one open link, the same for the host and every member (migration 162)
@@ -378,7 +435,7 @@ function InviteCard() {
     setLink(url);
     // the text asks the question closing soonest, the way the link's preview does (migration 252): the pitch is the game
     const next = (markets ?? []).filter((m) => isOpen(m, Date.now())).sort((a, b) => a.closes_at.localeCompare(b.closes_at))[0];
-    const text = `Join my ${brand.tagline || league?.name} on Super Pools.${next ? ` First up: "${next.title}"` : ''} Free, never money, just bragging rights.`;
+    const text = `Join ${poolTitle(brand, league?.name)} on Super Pools.${next ? ` First up: "${next.title}"` : ''} Free, never money, just bragging rights.`;
     // the share sheet: the phone's own, the link copied, a QR code for the table, or any of the usual places
     setJob({ title: league?.name ?? 'Super Pools', text, url });
     track('invite_share', { via: 'button', src: 'share' });
@@ -388,7 +445,7 @@ function InviteCard() {
       <div className="pointer-events-none absolute -right-10 -top-10 h-40 w-40 rounded-full bg-gold/20 blur-3xl" />
       <div className="relative">
         <h3 className="font-display text-2xl font-extrabold text-white">{link ? 'Send it to the group chat' : 'Invite your group chat'}</h3>
-        <p className="mt-1 text-sm text-mute">Everyone gets the same {brand.coin.name.toLowerCase()} to start, and every drop. They join with just a name. Nothing to download.</p>
+        <p className="mt-1 text-sm text-mute">{picksOnly ? 'They join with just a name and make their picks. Nothing to download.' : `Everyone gets the same ${brand.coin.name.toLowerCase()} to start, and every drop. They join with just a name. Nothing to download.`}</p>
         {me?.role === 'gm' ? (
           <>
             <div className="mt-3 flex flex-wrap gap-2">
@@ -477,7 +534,7 @@ export function Questions() {
       </div>
       {tab === 'settled' && drop && <DropCard />}
       {markets === null ? <div className="h-40 animate-pulse rounded-3xl bg-white/[.04]" />
-        : !list.length ? <Empty icon="🔮" title={tab === 'mine' ? 'No calls yet' : tab === 'settled' ? 'Nothing settled yet' : 'Nothing open'}>{tab === 'mine' ? 'Pick a question and call it.' : null}</Empty>
+        : !list.length ? <Empty icon="🔮" title={tab === 'mine' ? 'No calls yet' : tab === 'settled' ? 'Nothing settled yet' : markets.length ? 'Nothing open' : 'No questions yet'}>{tab === 'mine' ? 'Pick a question and call it.' : tab === 'open' && !markets.length ? (me?.is_commish ? <Link to="/host" className="btn-gold mt-3 inline-block">Ask the first one</Link> : 'The host is writing them. Check back soon.') : null}</Empty>
         : groups.map(([g, ms]) => (
           <Section key={g} title={g}>
             <div className="grid gap-3 md:grid-cols-2">{ms.map((m) => <MarketCard key={m.id} m={m} positions={positions} trades={trades} />)}</div>
@@ -814,6 +871,9 @@ export function PoolHost() {
   const [drop, setDrop] = useState({ amount: '250', note: '', at: '' });
   const [open, setOpen] = useState(false);
   if (!me?.is_commish) return <Empty icon="🔒" title="For the host">Only the pool’s host asks and settles the questions.</Empty>;
+  // a pool about a show settles from what airs (its questions came from a show's pack); any other pool settles from
+  // what happened
+  const show = (markets ?? []).some((m) => !!m.pack && !/^(nhl|nfl|nba|mlb|epl|premier|mls|march|ncaa|world-series|soccer)/.test(m.pack));
   const waiting = (markets ?? []).filter((m) => m.status === 'open' && !isOpen(m, now) && !m.source);
   // what's next for the host, in order (a drop night for a first-time host: the questions close by themselves, then
   // they wait to be settled, then the coins drop, then the couple questions get asked)
@@ -823,11 +883,15 @@ export function PoolHost() {
     ...(soon.length ? [{ icon: '⏳', text: `${soon.length === 1 ? 'One question closes' : `${soon.length} questions close`} ${closesIn(soon[0], now).replace(/^Closes /, '')}. Nothing to do until then: the pool nudges anyone who hasn’t called.`, to: '/questions' }] : []),
     ...(waiting.length ? [{ icon: '⚖️', text: `${waiting.length === 1 ? 'One question has' : `${waiting.length} questions have`} closed and wait on you: settle each from what aired, by its rule.`, to: `/q/${waiting[0].id}` }] : []),
     ...(nextDrop ? [{ icon: '🪙', text: `${nextDrop.amount} ${brand.coin.name.toLowerCase()} for everyone in ${countdown(new Date(nextDrop.at).getTime() - now)} (${nextDrop.note}).` }] : []),
-    { icon: '✍️', text: 'Something to ask? Once the cast is known, the couple questions are ready under Ask, One for each.', act: () => setOpen(true) },
+    !markets?.length
+      ? { icon: '✍️', text: 'Ask your first question. A yes or no, a who, or a how many; it closes when you say.', act: () => setOpen(true) }
+      : show
+        ? { icon: '✍️', text: 'Something to ask? Once the cast is known, the couple questions are ready under Ask, One for each.', act: () => setOpen(true) }
+        : { icon: '✍️', text: 'Something to ask? Tap Ask: a yes or no, a who, a how many, or one for each name.', act: () => setOpen(true) },
   ];
   return (
     <div className="space-y-5">
-      <PageHeader icon={<Wand2 className="h-6 w-6 text-gold" />} title="Host" sub="Ask the questions, settle them from what airs, and keep the coins flowing." right={<button type="button" className="btn-gold inline-flex items-center gap-1.5" onClick={() => setOpen(true)}><Plus className="h-4 w-4" /> Ask</button>} />
+      <PageHeader icon={<Wand2 className="h-6 w-6 text-gold" />} title="Host" sub={show ? 'Ask the questions, settle them from what airs, and keep the coins flowing.' : 'Ask the questions, settle them once the answer is known, and keep the coins flowing.'} right={<button type="button" className="btn-gold inline-flex items-center gap-1.5" onClick={() => setOpen(true)}><Plus className="h-4 w-4" /> Ask</button>} />
       <div className="card divide-y divide-white/[.05] p-1">
         <div className="label px-3 pb-1 pt-2">What’s next</div>
         {next.map((n, i) => {
@@ -859,8 +923,8 @@ export function PoolHost() {
           {(markets ?? []).map((m) => <Link key={m.id} to={`/q/${m.id}`} className="flex items-center justify-between gap-3 px-3 py-2.5 text-sm"><span className="min-w-0 break-words">{m.title}</span><span className="shrink-0 text-xs text-mute">{closesIn(m, now)}</span></Link>)}
         </div>
       </Section>
-      <AskSheet open={open} onClose={() => setOpen(false)} drops={drops} onAsked={reload} />
-      <div className="flex items-center gap-2 px-1 text-xs text-mute"><Trophy className="h-4 w-4" /> Questions about a show are about what airs.</div>
+      <AskSheet open={open} onClose={() => setOpen(false)} drops={drops} onAsked={reload} show={show} />
+      <div className="flex items-center gap-2 px-1 text-xs text-mute"><Trophy className="h-4 w-4" /> {show ? 'Questions about a show are about what airs.' : 'Close a question before the answer is known; settle it by the rule you wrote.'}</div>
       <Section title="Pool settings"><LeagueFeatures only={['usage']} /></Section>
       <Section title="Delete the pool">
         <div className="card flex flex-wrap items-center gap-3 border-red-400/20 p-4">

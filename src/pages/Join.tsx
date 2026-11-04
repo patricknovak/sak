@@ -5,10 +5,11 @@ import { signOut } from '../lib/guest';
 import { useLeague } from '../lib/store';
 import { Spinner } from '../components/ui';
 import { LeagueCrest, ProductMark } from '../components/Brand';
+import { SEEDED_TAGLINE } from '../lib/brand';
 import { themed } from '../components/LeagueIdentity';
 import { attributionFields, readSrcParam, trackFirstCall, trackJoinGroup, trackSignUp } from '../lib/analytics';
 import { PRODUCT } from '../lib/brand';
-import { setTabLeague } from '../lib/host';
+import { markFreshArrival, setTabLeague } from '../lib/host';
 
 // The page an invite link opens (#/join/<code>), signed in or not. It shows what the invite is for, then:
 // someone new makes their account right here (the `join` edge function makes it and seats them in one go);
@@ -41,12 +42,13 @@ function closesWords(iso: string) {
 // into the league just joined: pin this tab to it so the reload reads its coins and table, not a stale one
 const goHome = (leagueId?: number | null) => {
   if (leagueId) { setTabLeague(leagueId); setLeagueHeader(leagueId); }
+  markFreshArrival();
   window.location.hash = '#/';
   window.location.reload();
 };
 
 export default function Join({ code }: { code: string }) {
-  const { session, me } = useLeague();
+  const { session, me, league } = useLeague();
   const [pv, setPv] = useState<Preview | null>(null);
   const [mode, setMode] = useState<'new' | 'have'>('new');
   const [name, setName] = useState('');
@@ -55,6 +57,8 @@ export default function Join({ code }: { code: string }) {
   const [show, setShow] = useState(false);
   // a pool asks for a name only; the email and password are there for whoever wants them now (migration 332)
   const [withEmail, setWithEmail] = useState(false);
+  // the server asked for the email (a busy day for name-only seats): no skipping it again
+  const [forced, setForced] = useState(false);
   const [err, setErr] = useState('');
   const [busy, setBusy] = useState(false);
   // the first call, picked before the account exists and placed the moment they're in (migration 255)
@@ -78,7 +82,11 @@ export default function Join({ code }: { code: string }) {
       trackJoinGroup({ id: leagueId ?? pv?.league_id, src: readSrcParam() });
       await placeFirstCall(leagueId ?? pv?.league_id);
       goHome(leagueId ?? pv?.league_id);
-    } catch (e) { setBusy(false); setErr((e as Error).message); }
+    } catch (e) {
+      // the link tapped a second time by someone already in: that's the way back in, not an error
+      if (/already in/i.test((e as Error).message)) { goHome(pv?.league_id); return; }
+      setBusy(false); setErr((e as Error).message);
+    }
   };
 
   // someone new to a pool with just a name (migration 332): a seat kept on this phone, an email added later from the pool's
@@ -90,7 +98,7 @@ export default function Join({ code }: { code: string }) {
       const body = error instanceof FunctionsHttpError ? await error.context.json().catch(() => null) : null;
       setBusy(false);
       setErr(body?.error ?? 'Couldn’t join right now. Try again in a minute.');
-      if (body?.needEmail) setWithEmail(true);
+      if (body?.needEmail) { setWithEmail(true); setForced(true); }
       return;
     }
     setRemember(true);
@@ -140,26 +148,30 @@ export default function Join({ code }: { code: string }) {
   };
 
   // the invite wears the inviting league's colour and crest (SaK keeps its own badge)
-  const sak = !pv?.ok || pv.league_id === 1 || (pv.league_id == null && pv.short === 'SaK');
+  // only once the preview says so: while it loads, the product's mark (a friend of a show pool never sees a hockey badge)
+  const sak = !!pv?.ok && (pv.league_id === 1 || (pv.league_id == null && pv.short === 'SaK'));
   const gold = !sak && /^#[0-9a-f]{6}$/i.test(pv?.brand?.colors?.gold ?? '') ? pv!.brand!.colors!.gold! : null;
   // an open link into a prediction pool (migration 145) has no seat named: the newcomer gets one of their own
   const what = pv?.role === 'spectator' ? 'a spectator place' : pv?.team ? `the ${pv.team} seat` : 'a place of your own';
   const okEmail = /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email.trim());
   // a prediction pool's invite speaks the pool's words (docs/BRAND.md: no sports words in a pool that is not about sport)
-  const pool = pv?.kind === 'predict', mark = pool ? '✨' : '🏒', noun = pool ? 'pool' : 'league';
+  // a pool's buttons carry no glyph (docs/BRAND.md); the hockey league keeps its stick
+  const pool = pv?.kind === 'predict', mark = pool ? '' : '🏒 ', noun = pool ? 'pool' : 'league';
   const needsEmail = !pool || withEmail;
 
   return (
     <div className="pt-safe flex min-h-dvh flex-col items-center justify-center px-4 py-10" style={gold ? themed(gold) : undefined}>
       <div className="w-full max-w-md">
         <div className="mb-6 text-center">
-          {pv && !pv.ok ? <span className="mb-3 inline-grid place-items-center"><ProductMark size={64} /></span>
+          {!pv || !pv.ok ? <span className="mb-3 inline-grid place-items-center"><ProductMark size={64} /></span>
             : sak ? <img src="./icon.svg" alt="" className="mx-auto mb-3 h-16 w-16" /> : <span className="mb-3 inline-block"><LeagueCrest short={pv?.short ?? '…'} size={64} /></span>}
-          <div className="label text-mute">{pv && !pv.ok ? PRODUCT.name : <>You&apos;re invited to</>}</div>
-          <h1 className="h-display text-shine mt-1 text-3xl leading-tight">{pv && !pv.ok ? 'This invite didn’t open' : pv?.league ?? '…'}</h1>
+          <div className="label text-mute">{!pv ? 'Opening your invite' : !pv.ok ? PRODUCT.name : <>You&apos;re invited to</>}</div>
+          {!pv
+            ? <div className="mx-auto mt-3 h-8 w-48 animate-pulse rounded-lg bg-white/10" aria-hidden="true" />
+            : <h1 className="h-display text-shine mt-1 text-3xl leading-tight">{!pv.ok ? 'This invite didn’t open' : pv.league}</h1>}
           {pv?.ok && (pool
             ? <>
-                <p className="mt-2 text-sm text-slate-300">{pv.brand?.tagline ? `${pv.brand.tagline}. ` : ''}Your place is ready.</p>
+                <p className="mt-2 text-sm text-slate-300">{pv.brand?.tagline?.trim() && pv.brand.tagline.trim() !== SEEDED_TAGLINE ? `${pv.brand.tagline.trim()}. ` : ''}Your place is ready.</p>
                 {pv.host && <p className="mt-1 text-sm font-semibold text-white">{pv.host} invited you{pv.members && pv.members > 1 ? ` · ${pv.members} are in` : ''}</p>}
               </>
             : <p className="mt-2 text-sm text-slate-300">Taking {what}{pv.role === 'gm' && pv.team ? ' as its GM' : ''}.</p>)}
@@ -226,11 +238,16 @@ export default function Join({ code }: { code: string }) {
               </div>
             </div>
           )
-          : session ? (
+          : session && me && pv.league_id != null && league?.league_id === pv.league_id ? (
             <div className="card-hero p-5">
-              <p className="relative text-sm text-white/80">You&apos;re signed in{me ? ` as ${me.gm_name}` : ''}. Joining adds this {noun} to your account; you can switch between them on your Profile.</p>
+              <p className="relative text-sm text-white/80">You&apos;re in {pv.league}{me.gm_name ? ` as ${me.gm_name}` : ''}.</p>
+              <button className="btn-primary relative mt-4 w-full py-3 text-base" onClick={() => goHome(pv.league_id)}>{mark}Open the {noun}</button>
+            </div>
+          ) : session ? (
+            <div className="card-hero p-5">
+              <p className="relative text-sm text-white/80">You&apos;re signed in{me ? ` as ${me.gm_name}` : ''}. Joining adds this {noun} to your account, beside the others on My pools.</p>
               <button className="btn-primary relative mt-4 w-full py-3 text-base" disabled={busy} onClick={() => { setBusy(true); setErr(''); accept(); }}>
-                {busy ? <Spinner /> : `${mark} Join ${pv.short ?? pv.league}`}
+                {busy ? <Spinner /> : `${mark}Join ${pv.short ?? pv.league}`}
               </button>
               <button type="button" className="relative mt-3 w-full text-center text-sm text-white/60 underline" onClick={() => signOut()}>Not you? Sign out</button>
             </div>
@@ -247,7 +264,8 @@ export default function Join({ code }: { code: string }) {
                     <input id="jpw" className="input w-full pr-16" type={show ? 'text' : 'password'} autoComplete="new-password" value={pw} onChange={(e) => setPw(e.target.value)} placeholder="6+ characters" />
                     <button type="button" className="absolute inset-y-0 right-3 text-xs font-semibold text-white/70" onClick={() => setShow((v) => !v)} aria-label={show ? 'Hide the password' : 'Show the password'}>{show ? 'Hide' : 'Show'}</button>
                   </div>
-                  {pool && <button type="button" className="relative mt-2 text-xs text-white/60 underline" onClick={() => { setWithEmail(false); setErr(''); }}>Skip the email for now</button>}
+                  {pool && !forced && <button type="button" className="relative mt-2 text-xs text-white/60 underline" onClick={() => { setWithEmail(false); setErr(''); }}>Skip the email for now</button>}
+                  {pool && forced && <p className="relative mt-2 text-xs leading-snug text-white/60">Joining with just a name is full for today. An email keeps your seat on any phone.</p>}
                 </>
               ) : (
                 <p className="relative mt-2 text-xs leading-snug text-white/70">
@@ -255,9 +273,9 @@ export default function Join({ code }: { code: string }) {
                   <button type="button" className="font-semibold text-white underline" onClick={() => setWithEmail(true)}>Add it now</button>
                 </p>
               )}
-              <button className="btn-primary relative mt-4 w-full py-3 text-base" disabled={busy || name.trim().length < 2 || (needsEmail && (!okEmail || pw.length < 6))}>{busy ? <Spinner /> : `${mark} Join the ${noun}`}</button>
+              <button className="btn-primary relative mt-4 w-full py-3 text-base" disabled={busy || name.trim().length < 2 || (needsEmail && (!okEmail || pw.length < 6))}>{busy ? <Spinner /> : `${mark}Join the ${noun}`}</button>
               <button type="button" className="relative mt-3 w-full text-center text-sm text-white/60 underline" onClick={() => { setMode('have'); setErr(''); }}>Already have an account? Sign in to join</button>
-              <p className="relative mt-3 text-center text-[11px] leading-snug text-white/45">Joining means you agree to the <a href="#/terms" className="underline">Terms</a> and have read the <a href="#/privacy" className="underline">Privacy</a>.</p>
+              <p className="relative mt-3 text-center text-[11px] leading-snug text-white/45">Joining means you agree to the <a href="#/terms" className="underline">Terms of use</a>. <a href="#/privacy" className="underline">What we keep about you</a>.</p>
             </form>
           ) : (
             <form onSubmit={signInAndAccept} className="card-hero p-5">
@@ -265,7 +283,7 @@ export default function Join({ code }: { code: string }) {
               <input id="jemail2" className="input relative mt-1" type="email" inputMode="email" autoComplete="username" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="you@example.com" />
               <label className="label relative mt-3 block text-white/70" htmlFor="jpw2">Password</label>
               <input id="jpw2" className="input relative mt-1" type="password" autoComplete="current-password" value={pw} onChange={(e) => setPw(e.target.value)} />
-              <button className="btn-primary relative mt-4 w-full py-3 text-base" disabled={busy || !okEmail || !pw}>{busy ? <Spinner /> : `${mark} Sign in and join`}</button>
+              <button className="btn-primary relative mt-4 w-full py-3 text-base" disabled={busy || !okEmail || !pw}>{busy ? <Spinner /> : `${mark}Sign in and join`}</button>
               <button type="button" className="relative mt-3 w-full text-center text-sm text-white/60 underline" onClick={() => { setMode('new'); setErr(''); }}>New here? Make an account</button>
             </form>
           )}
