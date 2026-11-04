@@ -262,7 +262,7 @@ export default function Join({ code }: { code: string }) {
                   <input id="jemail" className="input relative mt-1" type="email" inputMode="email" autoComplete="username" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="you@example.com" />
                   <label className="label relative mt-3 block text-white/70" htmlFor="jpw">Password</label>
                   <div className="relative mt-1">
-                    <input id="jpw" className="input w-full pr-16" type={show ? 'text' : 'password'} autoComplete="new-password" value={pw} onChange={(e) => setPw(e.target.value)} placeholder="6+ characters" />
+                    <input id="jpw" className="input w-full pr-16" type={show ? 'text' : 'password'} autoComplete="new-password" value={pw} onChange={(e) => setPw(e.target.value)} placeholder="8+ characters" />
                     <button type="button" className="absolute inset-y-0 right-3 text-xs font-semibold text-white/70" onClick={() => setShow((v) => !v)} aria-label={show ? 'Hide the password' : 'Show the password'}>{show ? 'Hide' : 'Show'}</button>
                   </div>
                   {pool && !forced && <button type="button" className="relative mt-2 text-xs text-white/60 underline" onClick={() => { setWithEmail(false); setErr(''); }}>Skip the email for now</button>}
@@ -274,7 +274,7 @@ export default function Join({ code }: { code: string }) {
                   <button type="button" className="font-semibold text-white underline" onClick={() => setWithEmail(true)}>Add it now</button>
                 </p>
               )}
-              <button className="btn-primary relative mt-4 w-full py-3 text-base" disabled={busy || name.trim().length < 2 || (needsEmail && (!okEmail || pw.length < 6))}>{busy ? <Spinner /> : `${mark}Join the ${noun}`}</button>
+              <button className="btn-primary relative mt-4 w-full py-3 text-base" disabled={busy || name.trim().length < 2 || (needsEmail && (!okEmail || pw.length < 8))}>{busy ? <Spinner /> : `${mark}Join the ${noun}`}</button>
               <button type="button" className="relative mt-3 w-full text-center text-sm text-white/60 underline" onClick={() => { setMode('have'); setErr(''); }}>Already have an account? Sign in to join</button>
               <p className="relative mt-3 text-center text-[11px] leading-snug text-white/45">Joining means you agree to the <a href="#/terms" className="underline">Terms of use</a>. <a href="#/privacy" className="underline">What we keep, held in the United States</a>.</p>
             </form>

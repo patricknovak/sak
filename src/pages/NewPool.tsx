@@ -307,7 +307,7 @@ export default function NewPool() {
   // any signed-in account hosts a sports or questions pool, seat or not (migration 349: a fan from the fan zones, a host
   // whose pools went); a fantasy league still starts from an account that plays (fantasy_start)
   const canHost = member || (!!session && mode !== 'fantasy');
-  const ready = !!following && (!event || kinds.length > 0) && pool.trim().length >= 3 && (canHost || (haveAccount ? okEmail && pw.length > 0 : name.trim().length >= 2 && okEmail && pw.length >= 6));
+  const ready = !!following && (!event || kinds.length > 0) && pool.trim().length >= 3 && (canHost || (haveAccount ? okEmail && pw.length > 0 : name.trim().length >= 2 && okEmail && pw.length >= 8));
 
   // the steps this kind of start has, the one open (the one asked for, unless an earlier one is still unanswered: an
   // event's kinds can't be skipped with nothing ticked), and what each folded step says was chosen
@@ -339,7 +339,7 @@ export default function NewPool() {
     : haveAccount ? (!okEmail ? { text: email.trim() ? 'Check your email' : 'Add your email', step: 'details', focus: 'np-email' } : !pw ? { text: 'Add your password', step: 'details', focus: 'np-pw' } : null)
     : name.trim().length < 2 ? { text: 'Add your name', step: 'details', focus: 'np-name' }
     : !okEmail ? { text: email.trim() ? 'Check your email' : 'Add your email', step: 'details', focus: 'np-email' }
-    : pw.length < 6 ? { text: pw ? 'Password: 6+ characters' : 'Add a password', step: 'details', focus: 'np-pw' }
+    : pw.length < 8 ? { text: pw ? 'Password: 8+ characters' : 'Add a password', step: 'details', focus: 'np-pw' }
     : null;
   // still on an earlier step, the next thing is the step after it, not a field further down
   const need = missing && cur !== 'details' && missing.step === 'details' ? { text: 'Next: name your pool', step: 'details' as StepKey, focus: 'np-pool' } : missing;
@@ -729,7 +729,7 @@ export default function NewPool() {
                 {!haveAccount && <input id="np-name" className="input w-full" autoComplete="name" value={name} onChange={(e) => setName(e.target.value)} placeholder="Your name, as friends know you" maxLength={40} />}
                 <input id="np-email" className="input w-full" type="email" inputMode="email" autoComplete="username" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="you@example.com" />
                 <div className="relative">
-                  <input id="np-pw" className="input w-full pr-16" type={showPw ? 'text' : 'password'} autoComplete={haveAccount ? 'current-password' : 'new-password'} value={pw} onChange={(e) => setPw(e.target.value)} placeholder={haveAccount ? 'Your password' : 'A password, 6+ characters'} />
+                  <input id="np-pw" className="input w-full pr-16" type={showPw ? 'text' : 'password'} autoComplete={haveAccount ? 'current-password' : 'new-password'} value={pw} onChange={(e) => setPw(e.target.value)} placeholder={haveAccount ? 'Your password' : 'A password, 8+ characters'} />
                   <button type="button" className="absolute inset-y-0 right-3 text-xs font-semibold text-white/70" onClick={() => setShowPw((v) => !v)} aria-label={showPw ? 'Hide the password' : 'Show the password'}>{showPw ? 'Hide' : 'Show'}</button>
                 </div>
                 {haveAccount

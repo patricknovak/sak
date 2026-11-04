@@ -86,8 +86,10 @@ its ranked list where they overlap.
     11 October) is on the list.
 13. **Retire the GitHub Pages copy** once a SaK GM confirms push alerts and the installed app on `sak.superpoolsai.com`
     (EXPANSION B5 step 3).
-14. **Database SSL enforcement** (Settings → Database) and a minimum password length of 8 (Auth → Providers → Email):
-    both optional, both safe.
+14. **Database SSL enforcement** (Settings → Database) and a minimum password length of 8 (Auth → Providers → Email).
+    *4 November 2026:* every form that sets a new password and the join function ask for 8 (§9.29); Auth's own minimum
+    goes to 8 once that is deployed, never before, or a 6- or 7-character password would pass the form and fail at Auth.
+    Passwords already set keep working. The commissioner's reset and spectator functions still accept 6 in SQL.
 15. **`rosters_2526_backup`**: drop it once you're sure (destroys the copy; your yes).
 16. **The repository is public** (MIT since 25 October): the plan documents in `docs/` are public with it. No secrets are
     in it (checked); if the plans should be private, move `docs/` to a private repository.
