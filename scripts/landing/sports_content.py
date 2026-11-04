@@ -68,7 +68,7 @@ FOOTBALL = dict(
     proof_h2='Built by a league.',
     proof=GENERIC_PROOF('kickoff', 'the game goes final'),
     faq=[
-        (MONEY_Q, 'No. Pools are played for points and a crown. Supercoins are never bought, never sold, never cashed out.'),
+        (MONEY_Q, 'No. Pools are played for points and a crown. Supercoins are never bought, never sold, never turned into money.'),
         (APP_Q, APP_A),
         ('How does against the spread work?', 'Switch it on when you start the pool. Each pick keeps the line it was made at, so a line that moves later never changes it, and a pick that lands right on the number is a tie, and scores nothing.'),
         ('What breaks a tie?', "Each week has a tiebreaker: the total points in its last game. Level on the week, the closest call takes it."),
@@ -152,7 +152,7 @@ HOCKEY = dict(
         ('shield', "<b>Pick'em, last one standing and the streak</b> settle from public score feeds, and your host can set a result for the pool alone, with the reason on the record."),
     ],
     faq=[
-        ('Is there any money in it?', 'No. Entries play for points and a crown, and Supercoins are never bought, never sold, never cashed out. If your pool collects dues, that stays between friends.'),
+        ('Is there any money in it?', 'No. Entries play for points and a crown, and Supercoins are never bought, never sold, never turned into money. If your pool collects dues, that stays between friends.'),
         ('How does the box pool work?', 'The top players are dealt into evenly matched boxes: forwards, then defence, then goalies. Each poolie takes one from every box. A goal or an assist is a point, a goalie win two, a shutout one, and the host can change them before the deadline.'),
         ('When is the deadline?', "The first puck drop of the pool's first night. Every entry locks then, and the table counts live for a week, four weeks or the rest of the season."),
         ('Can two poolies take the same player?', 'Yes. Boxes are not a draft, so the same player can be on every entry, and any number of poolies can play.'),
@@ -229,7 +229,7 @@ BASKETBALL = dict(
     proof_h2='Built by a league.',
     proof=GENERIC_PROOF('tip-off', 'the game goes final'),
     faq=[
-        (MONEY_Q, 'No. Pools are played for points and a crown. Supercoins are never bought, never sold, never cashed out.'),
+        (MONEY_Q, 'No. Pools are played for points and a crown. Supercoins are never bought, never sold, never turned into money.'),
         (APP_Q, APP_A),
         ('Which pool should we play?', "For a group that watches every night, the daily streak. For the office, weekly pick'em or last one standing."),
         ('Can we start one now?', 'Yes. A pool plays from the next game still to come, and each pick locks at its own tip-off, so nobody is late for the games left.'),
@@ -298,7 +298,7 @@ SOCCER = dict(
     proof_h2='Built by a league.',
     proof=GENERIC_PROOF('kick-off', 'the match ends'),
     faq=[
-        (MONEY_Q, 'No. Pools are played for points and a crown. Supercoins are never bought, never sold, never cashed out.'),
+        (MONEY_Q, 'No. Pools are played for points and a crown. Supercoins are never bought, never sold, never turned into money.'),
         ('How does Call the score work?', 'Three points for the exact score, one for the right result, and the match you bank counts double. Each call locks at its own kick-off.'),
         # MLS and the NWSL have one round each in the feed (MLS Decision Day, the NWSL quarter-finals), and a pick'em fixes its
         # last round when it starts (migration 294), so nothing here says a pool runs to MLS Cup or the final

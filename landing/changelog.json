@@ -264,7 +264,7 @@
    "date": "2026-10-14",
    "title": "One chat, with a filter",
    "line": "Trash talk, the draft room, the league's voice and your DMs are now one feed.",
-   "body": "Trash talk, the draft room, the league's voice and your DMs are now one feed. The bar across the top filters it: pick a GM to see only what they said and every move that names them, or a kind (talk, transactions, bets, the voice, the draft, private, league news). Under the box, To says where your post goes: everyone, the voice privately, or the GM you picked.",
+   "body": "Trash talk, the draft room, the league's voice and your DMs are now one feed. The bar across the top filters it: pick a GM to see only what they said and every move that names them, or a kind (talk, transactions, the voice, the draft, private, league news). Under the box, To says where your post goes: everyone, the voice privately, or the GM you picked.",
    "to": "https://app.superpoolsai.com/#/chat"
   },
   {
@@ -382,8 +382,8 @@
   {
    "date": "2026-10-11",
    "title": "Every game, one tap from anywhere",
-   "line": "Tap any NHL game, on the scoreboard, NHL centre or the home page, and the same sheet opens: the score, where you can watch it on what you have and team radio, your league's players in it with their points, the goals with their clips, the thread, the box score with everyone's fantasy points, and its lines and side bets in Supercoins.",
-   "body": "Tap any NHL game, on the scoreboard, NHL centre or the home page, and the same sheet opens: the score, where you can watch it on what you have and team radio, your league's players in it with their points, the goals with their clips, the thread, the box score with everyone's fantasy points, and its lines and side bets in Supercoins. Radio keeps playing while you look around. Watch live is now NHL centre's Scores tab: whether you can watch each game, the one to watch, your players and points in it, and where the league has skin in it.",
+   "line": "Tap any NHL game, on the scoreboard, NHL centre or the home page, and the same sheet opens: the score, where you can watch it on what you have and team radio, your league's players in it with their points, the goals with their clips, the thread, the box score with everyone's fantasy points, and its lines and the calls on it in Supercoins.",
+   "body": "Tap any NHL game, on the scoreboard, NHL centre or the home page, and the same sheet opens: the score, where you can watch it on what you have and team radio, your league's players in it with their points, the goals with their clips, the thread, the box score with everyone's fantasy points, and its lines and the calls on it in Supercoins. Radio keeps playing while you look around. Watch live is now NHL centre's Scores tab: whether you can watch each game, the one to watch, your players and points in it, and where the league has skin in it.",
    "to": "https://app.superpoolsai.com/#/nhl?t=scores"
   },
   {

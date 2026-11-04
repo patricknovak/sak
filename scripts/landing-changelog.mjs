@@ -43,7 +43,7 @@ const entries = CHANGELOG
 // never publishes one by accident. A hit is printed, not fixed: the fix belongs in src/data/changelog.ts.
 const BANNED = [/—/, /!/, /\bAI-powered\b/i, /\bplatform\b/i, /\bseamless/i, /\bunlock/i, /\bofficial\b/i, /\blicensed\b/i,
   // and the sportsbook's words (docs/BRAND.md section 5): pools pick and call, they never bet, stake or pay out
-  /\bbet\b/i, /\bwager/i, /\bstake\b/i, /\bpayout/i, /\bmarket\b/i, /\bbookmaker/i, /\bpush\b/i, /\bodds\b/i, /\bevery sport\b/i];
+  /\bbets?\b/i, /\bside[- ]?bets?\b/i, /\bcash(ed|ing)? out\b/i, /\bwager/i, /\bstake\b/i, /\bpayout/i, /\bmarket\b/i, /\bbookmaker/i, /\bpush\b/i, /\bodds\b/i, /\bevery sport\b/i];
 for (const e of entries) for (const re of BANNED) if (re.test(e.title + ' ' + e.body)) console.warn(`changelog: ${e.date} "${e.title}" has ${re}`);
 
 writeFileSync(join(root, 'landing/changelog.json'), JSON.stringify({ updated: entries[0].date, entries }, null, 1) + '\n');
