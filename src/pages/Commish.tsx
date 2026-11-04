@@ -324,8 +324,8 @@ export default function Commish() {
           <select className="input w-auto" value={pw.team} onChange={(e) => setPw({ ...pw, team: e.target.value })}>
             <option value="">GM…</option>{[...teams, ...spectators].map((t) => <option key={t.id} value={t.id}>{t.gm_name} ({t.role === 'spectator' ? 'spectator' : t.name})</option>)}
           </select>
-          <input className="input w-auto flex-1" placeholder="New password (6+ chars)" value={pw.pw} onChange={(e) => setPw({ ...pw, pw: e.target.value })} />
-          <button className="btn-primary" disabled={!pw.team || pw.pw.length < 6 || busy} onClick={() => run(async () => { await rpc('commish_reset_password', { p_team: Number(pw.team), p_password: pw.pw }); setPw({ team: '', pw: '' }); }, 'Password reset. Send it to them privately.')}>Reset</button>
+          <input className="input w-auto flex-1" placeholder="New password (8+ chars)" value={pw.pw} onChange={(e) => setPw({ ...pw, pw: e.target.value })} />
+          <button className="btn-primary" disabled={!pw.team || pw.pw.length < 8 || busy} onClick={() => run(async () => { await rpc('commish_reset_password', { p_team: Number(pw.team), p_password: pw.pw }); setPw({ team: '', pw: '' }); }, 'Password reset. Send it to them privately.')}>Reset</button>
         </div>
       </Section>
 
@@ -352,9 +352,9 @@ export default function Commish() {
             <div className="text-sm font-semibold sm:col-span-2">Add a spectator</div>
             <input className="input" placeholder="Name (e.g. Dan Perra)" value={spec.name} onChange={(e) => setSpec({ ...spec, name: e.target.value })} />
             <input className="input" type="email" placeholder="Login email" value={spec.email} onChange={(e) => setSpec({ ...spec, email: e.target.value })} />
-            <input className="input" placeholder="Password (6+ characters)" value={spec.pw} onChange={(e) => setSpec({ ...spec, pw: e.target.value })} />
+            <input className="input" placeholder="Password (8+ characters)" value={spec.pw} onChange={(e) => setSpec({ ...spec, pw: e.target.value })} />
             <div className="flex gap-2"><input className="input w-20" placeholder="🍿" value={spec.emoji} onChange={(e) => setSpec({ ...spec, emoji: e.target.value })} /><input className="h-10 w-14 cursor-pointer rounded-lg border border-white/10 bg-transparent" type="color" value={spec.color} onChange={(e) => setSpec({ ...spec, color: e.target.value })} /></div>
-            <button className="btn-primary sm:col-span-2" disabled={busy || spec.name.trim().length < 2 || !spec.email.includes('@') || spec.pw.length < 6}
+            <button className="btn-primary sm:col-span-2" disabled={busy || spec.name.trim().length < 2 || !spec.email.includes('@') || spec.pw.length < 8}
               onClick={() => run(async () => { await rpc('commish_add_spectator', { p_name: spec.name.trim(), p_email: spec.email.trim(), p_password: spec.pw, p_color: spec.color, p_emoji: spec.emoji || '🍿' }); setSpec({ name: '', email: '', pw: '', color: '#64748b', emoji: '🍿' }); await refresh(['teams']); }, 'Spectator added. Send them the login privately.')}>Create spectator pass</button>
           </div>
         </div>

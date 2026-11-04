@@ -59,7 +59,7 @@ export function FantasyStart({ color, setColor, swatches, member, signedIn }: { 
   const okCats = scoring === 'points' || (cats.length >= 3 && cats.length <= 12);
   const okEmail = /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email.trim());
   const stranger = !member && !signedIn;
-  const ready = name.trim().length >= 3 && okCats && (member || (stranger && host.trim().length >= 2 && okEmail && pw.length >= (haveAccount ? 1 : 6)));
+  const ready = name.trim().length >= 3 && okCats && (member || (stranger && host.trim().length >= 2 && okEmail && pw.length >= (haveAccount ? 1 : 8)));
   const params = () => ({ p_name: name.trim(), p_color: color, p_seats: teams, p_format: format, p_categories: scoring === 'cats' ? cats : null, p_keepers: keepers, p_playoffs: po, p_snake: snake });
   const startAsMember = async () => {
     const r = await rpc<{ id: number; slug: string }>('fantasy_start', params());
@@ -180,7 +180,7 @@ export function FantasyStart({ color, setColor, swatches, member, signedIn }: { 
           {!haveAccount && <input className="input w-full" value={host} onChange={(e) => setHost(e.target.value)} maxLength={40} autoComplete="name" placeholder="Your name" aria-label="Your name" />}
           <input className="input w-full" type="email" inputMode="email" autoComplete={haveAccount ? 'username' : 'email'} value={email} onChange={(e) => setEmail(e.target.value)} placeholder="you@example.com" aria-label="Email" />
           <div className="relative">
-            <input className="input w-full pr-16" type={showPw ? 'text' : 'password'} autoComplete={haveAccount ? 'current-password' : 'new-password'} value={pw} onChange={(e) => setPw(e.target.value)} placeholder={haveAccount ? 'Your password' : 'A password, 6+ characters'} aria-label="Password" />
+            <input className="input w-full pr-16" type={showPw ? 'text' : 'password'} autoComplete={haveAccount ? 'current-password' : 'new-password'} value={pw} onChange={(e) => setPw(e.target.value)} placeholder={haveAccount ? 'Your password' : 'A password, 8+ characters'} aria-label="Password" />
             <button type="button" className="absolute inset-y-0 right-3 text-xs font-semibold text-white/70" onClick={() => setShowPw((v) => !v)} aria-label={showPw ? 'Hide the password' : 'Show the password'}>{showPw ? 'Hide' : 'Show'}</button>
           </div>
           {haveAccount

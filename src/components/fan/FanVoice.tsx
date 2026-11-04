@@ -190,7 +190,7 @@ function KeepFan({ onDone }: { onDone: () => void }) {
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState('');
   const toast = useToast();
-  const ok = /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email.trim()) && pw.length >= 6;
+  const ok = /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email.trim()) && pw.length >= 8;
   const save = async (e: React.FormEvent) => {
     e.preventDefault();
     setBusy(true); setErr('');
@@ -208,7 +208,7 @@ function KeepFan({ onDone }: { onDone: () => void }) {
   return (
     <form onSubmit={save} className="mt-2 space-y-2">
       <input aria-label="Email" className="input" type="email" inputMode="email" autoComplete="username" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="you@example.com" />
-      <input aria-label="Password" className="input" type="password" autoComplete="new-password" value={pw} onChange={(e) => setPw(e.target.value)} placeholder="Pick a password, 6+ characters" />
+      <input aria-label="Password" className="input" type="password" autoComplete="new-password" value={pw} onChange={(e) => setPw(e.target.value)} placeholder="Pick a password, 8+ characters" />
       <button className="btn-club w-full py-2" disabled={busy || !ok}>{busy ? <Spinner /> : 'Keep my name'}</button>
       {err && <div className="rounded-xl border border-red-400/30 bg-red-900/50 px-3 py-2 text-sm text-red-200">{err}</div>}
     </form>

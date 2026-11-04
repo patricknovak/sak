@@ -145,10 +145,10 @@ export default function Login() {
             <input id="code" className="input relative mt-1 tracking-[.3em]" inputMode="numeric" autoComplete="one-time-code" autoFocus value={code}
               onChange={(e) => setCode(e.target.value.replace(/\D/g, '').slice(0, 10))} placeholder="123456" />
             <label className="label relative mt-3 block text-white/70" htmlFor="npw">New password</label>
-            <input id="npw" className="input relative mt-1" type="password" autoComplete="new-password" value={pw} onChange={(e) => setPw(e.target.value)} placeholder="6+ characters" />
+            <input id="npw" className="input relative mt-1" type="password" autoComplete="new-password" value={pw} onChange={(e) => setPw(e.target.value)} placeholder="8+ characters" />
             <input className="input relative mt-2" type="password" autoComplete="new-password" value={pw2} onChange={(e) => setPw2(e.target.value)} placeholder="Same again" />
             {rememberBox}
-            <button className="btn-primary relative mt-4 w-full py-3 text-base" disabled={busy || code.length < 6 || pw.length < 6 || !pw2}>{busy ? <Spinner /> : 'Set password and sign in'}</button>
+            <button className="btn-primary relative mt-4 w-full py-3 text-base" disabled={busy || code.length < 6 || pw.length < 8 || !pw2}>{busy ? <Spinner /> : 'Set password and sign in'}</button>
             <div className="relative mt-3 flex justify-between text-sm text-white/60">
               <button type="button" className="underline" onClick={() => go('forgot')}>Send a new code</button>
               <button type="button" className="underline" onClick={() => go('in')}>Back to sign in</button>

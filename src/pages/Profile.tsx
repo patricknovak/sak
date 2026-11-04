@@ -156,9 +156,9 @@ export default function Profile() {
 
       <Section title="Password">
         <div className="card space-y-2 p-3">
-          <input className="input" type="password" autoComplete="new-password" placeholder="New password (6+ characters)" value={pw.a} onChange={(e) => setPw({ ...pw, a: e.target.value })} />
+          <input className="input" type="password" autoComplete="new-password" placeholder="New password (8+ characters)" value={pw.a} onChange={(e) => setPw({ ...pw, a: e.target.value })} />
           <input className="input" type="password" autoComplete="new-password" placeholder="Confirm" value={pw.b} onChange={(e) => setPw({ ...pw, b: e.target.value })} />
-          <button className="btn-ghost" disabled={pw.a.length < 6 || pw.a !== pw.b} onClick={async () => {
+          <button className="btn-ghost" disabled={pw.a.length < 8 || pw.a !== pw.b} onClick={async () => {
             const { error } = await supabase.auth.updateUser({ password: pw.a });
             if (error) { toast(error.message, 'err'); return; }
             // a new password signs the account out everywhere else

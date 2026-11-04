@@ -95,7 +95,7 @@ async function startPool(req: Request, b: { pool?: { name?: string; color?: stri
   const name = String(b.name ?? '').trim().slice(0, 40);
   if (pool.length < 3) return reply(400, { error: 'Give the pool a name (3 to 40 characters).' });
   if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) return reply(400, { error: 'That doesn’t look like an email address.' });
-  if (password.length < 6) return reply(400, { error: 'Pick a password of at least 6 characters.' });
+  if (password.length < 8) return reply(400, { error: 'Pick a password of at least 8 characters.' });
   if (name.length < 2) return reply(400, { error: 'Tell us your name.' });
 
   const ip = await addressHash(req);
@@ -143,7 +143,7 @@ async function startFantasy(req: Request, b: { fantasy?: FantasyBody; email?: st
   if (league.length < 3) return reply(400, { error: 'Give the league a name (3 to 40 characters).' });
   if (seats < 4 || seats > 20) return reply(400, { error: 'A league takes 4 to 20 teams.' });
   if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) return reply(400, { error: 'That doesn’t look like an email address.' });
-  if (password.length < 6) return reply(400, { error: 'Pick a password of at least 6 characters.' });
+  if (password.length < 8) return reply(400, { error: 'Pick a password of at least 8 characters.' });
   if (name.length < 2) return reply(400, { error: 'Tell us your name.' });
 
   const ip = await addressHash(req);
@@ -241,7 +241,7 @@ async function claim(req: Request, b: { claim?: { email?: string; password?: str
   const email = String(b.claim?.email ?? '').trim().toLowerCase();
   const password = String(b.claim?.password ?? '');
   if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email) || isGuest(email)) return reply(400, { error: 'That doesn’t look like an email address.' });
-  if (password.length < 6) return reply(400, { error: 'Pick a password of at least 6 characters.' });
+  if (password.length < 8) return reply(400, { error: 'Pick a password of at least 8 characters.' });
   const { error } = await db.auth.admin.updateUserById(who.user.id, {
     email, password, email_confirm: true, user_metadata: { ...(who.user.user_metadata ?? {}), guest: false },
   });
@@ -270,7 +270,7 @@ Deno.serve(async (req) => {
   if (!/^[a-z0-9-]{6,40}$/.test(code)) return reply(400, { error: WHY.unknown });
   if (b.guest === true) return guestJoin(req, code, name);
   if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) return reply(400, { error: 'That doesn’t look like an email address.' });
-  if (password.length < 6) return reply(400, { error: 'Pick a password of at least 6 characters.' });
+  if (password.length < 8) return reply(400, { error: 'Pick a password of at least 8 characters.' });
   if (name.length < 2) return reply(400, { error: 'Tell us your name.' });
 
   const { data: pv, error: pe } = await db.rpc('invite_preview', { p_code: code });

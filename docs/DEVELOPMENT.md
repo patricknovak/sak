@@ -1523,3 +1523,11 @@ Claude Doc for him; launch readiness item 8 is built here.
   keeping their seat (`claim`, already signed in) is not asked. Cloudflare unreachable leaves the door open (the daily
   limits per address still hold). Order: site key first, secret second.
 - The privacy page names the check under Cloudflare's part. The landing's waitlist (a direct insert) is not covered.
+
+### 9.29 Passwords of 8, 4 November 2026
+
+On Patrick's yes to the sign-in settings: the Site URL (`https://app.superpoolsai.com`), the redirect list and the reset
+email ("Your Super Pools password code") were already right on live. The minimum password goes from 6 to 8: every form that
+sets a new one (start a pool, start a league, join, keep your seat, the fan zones' keep, reset, Profile, the
+Commish page's reset and spectator pass) and the join function ask for 8, and Auth's own minimum follows once this is
+deployed. Signing in with an older, shorter password still works.
