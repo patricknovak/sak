@@ -38,8 +38,8 @@ Every page is plain HTML on one design system. Each start button opens the app's
   list has nothing for it.
 - `together.html`, show pools for any group, in rose: what's on and what's next (every line dated), the drawn invite,
   the try-it question, women's sport with a pool on it.
-- `traitors.html`: the Traitors pool while its pack has a question left, then the questions pool. Redirect it to
-  `together.html` after 20 November 2026 (`docs/CLAIMS-AUDIT-2026-11-04.md`).
+- `traitors.html`: the Traitors pool while its pack has a question left. From 20 November 2026 05:00Z `site.js` sends the
+  page to `together.html` (keeping the query); a `_redirects` line can take over once that date has passed.
 - `love-is-blind.html`: Season 11's last calls until the reunion airs (9 November 02:00Z), then "Season 11 ended with the
   reunion" and Season 12 by the show's pattern, with one line in place of a sign-up form (an email form for a later pool
   is commercial email under CASL and needs a postal address on it; Patrick supplies one before any such form returns).
@@ -127,3 +127,10 @@ refreshes on its own schedule.
 - `_redirects`: `/privacy` and `/terms` send visitors to the app's `#/privacy` and `#/terms` (the landing Worker has no
   legal pages of its own), `/fans/<club>` to the club's fan zone in the app, and the World Series page home.
 - `sitemap.xml` and `robots.txt`: every served page, with its `lastmod` moved to the day it changed.
+
+## Live numbers
+
+The founding league's record on the home and `fantasy-hockey.html` is read live: `site.js` calls the app's
+`proof_counts()` (migration 350) with the publishable key and fills every `[data-proof]` span (`calls`, `avg_miss`,
+`within_two`, `nights`). The page carries the numbers as of its last edit, so a failed read leaves them standing; keep
+them close to the live answer when editing. The Book's calibration line is dated copy.

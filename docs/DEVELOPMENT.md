@@ -1490,3 +1490,20 @@ it took and six addenda); what the pages claim against what is true today is `do
 - **Merged with §9.25** (the parallel slices, PRs #346 to #349): where both changed the same app screen, #349's
   version stands (a stranger starts a fantasy league from `#/new?type=fantasy`); the landing pages send the fantasy doors
   there, with `#/start` kept as "ask us to set it up"; `whats-new.html` (drawn on the old stylesheet) is kept in the repo, unserved, and `/whats-new` goes to `/changelog`.
+
+### 9.27 The open items settled, 4 November 2026
+
+Patrick, after PR #352: "Resolve the outstanding items for me as you would recommend." The record of each decision is
+`docs/MARKET-REVIEW-2026-11.md`, "Decided"; the claims audit's items 2, 4, 5, 6, 8 and 10 are closed there.
+
+- **Migration 348**: the Love Is Blind reunion question closes when the reunion airs (9 November 02:00Z), in the pack and
+  its three open copies, as its rule says; it had two days past the answer.
+- **Migration 349**: `pool_start` takes any signed-in account, not only a seated one (a fan from the fan zones, a host
+  whose pools went), a name-only account under a hundred pools a day across all of them, the host named by the fan
+  zones name; `#/new` starts a sports or questions pool on such an account and tells a name-only host to keep the seat,
+  and the fan zones' header offers Start a pool signed in or not. A fantasy league still starts from a seated account.
+- **Migration 350**: `proof_counts()`, the founding league's record for the marketing site (scored calls, average miss,
+  share within two points, game nights with a column), anon-executable, league 1's aggregates only.
+- **Law 25** on `#/privacy` (processors, the person in charge, keeping, rights, breach notice, complaints) and "held in the
+  United States" wherever an account is made; the Terms say 14 in Quebec.
+- **Pricing** stands as planned; the Traitors page hands over to the show pools from 20 November in `site.js`.

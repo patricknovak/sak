@@ -7,7 +7,7 @@ import { PRODUCT } from '../lib/brand';
 // when the product changes, this page changes in the same pull request.
 const SECTIONS: { title: string; body: string[] }[] = [
   { title: 'Who can play', body: [
-    'You must be at least 13 to use Super Pools, and old enough where you live to agree to these terms yourself. One person, one account: don\'t make extra accounts to get more coins, more seats or more votes.',
+    'You must be at least 13 to use Super Pools (14 in Quebec), and old enough where you live to agree to these terms yourself. One person, one account: don\'t make extra accounts to get more coins, more seats or more votes.',
     'Keep your password to yourself. If you joined with just a name, your account lives on that phone until you add an email; add one to keep your seat if the phone or its browser is cleared.',
   ] },
   { title: 'Coins are a score, never money', body: [
@@ -56,7 +56,7 @@ export default function Terms() {
             </section>
           ))}
         </div>
-        <p className="mt-8 text-center text-xs text-mute">Last changed 28 October 2026. Questions: <a className="text-sky-300" href="mailto:hello@superpoolsai.com">hello@superpoolsai.com</a> · <a className="text-sky-300" href="#/privacy">Privacy</a> · © 2026 {PRODUCT.name} · <a className="text-sky-300" href="#/">Back to the app</a></p>
+        <p className="mt-8 text-center text-xs text-mute">Last changed 4 November 2026. Questions: <a className="text-sky-300" href="mailto:hello@superpoolsai.com">hello@superpoolsai.com</a> · <a className="text-sky-300" href="#/privacy">Privacy</a> · © 2026 {PRODUCT.name} · <a className="text-sky-300" href="#/">Back to the app</a></p>
       </div>
     </div>
   );

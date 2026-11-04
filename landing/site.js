@@ -572,6 +572,35 @@ function spWhenSeen(el, start) {
   setInterval(tick, 1000);
 })();
 
+// The Traitors door closes with its pack (the last question closes 19 November 2026, 8 pm ET): from 20 November the
+// page sends its visitors to the show pools page, keeping any campaign tags (docs/CLAIMS-AUDIT-2026-11-04.md).
+(function () {
+  if (!/\/traitors(\.html)?$/.test(location.pathname)) return;
+  if (Date.now() < Date.UTC(2026, 10, 20, 5)) return;
+  location.replace('./together.html' + location.search);
+})();
+
+// The founding league's record ([data-proof]), read live from the app's proof_counts() (migration 350): the scored
+// calls, the average miss, the share within two points and the game nights with a morning column the next day. The
+// page carries the numbers as of its last edit, so a failed read leaves them as they were.
+(function () {
+  var els = document.querySelectorAll('[data-proof]'); if (!els.length || !window.fetch) return;
+  fetch('https://quakdkzdafzlhgjvmypg.supabase.co/rest/v1/rpc/proof_counts', { method: 'POST',
+    headers: { apikey: 'sb_publishable_AMcluryqKenfAO6vFJ2f1A_50DhQz1b', 'Content-Type': 'application/json' }, body: '{}' })
+    .then(function (r) { if (!r.ok) throw new Error(r.status); return r.json(); })
+    .then(function (d) {
+      if (!d || !(d.calls > 0) || !(d.nights > 0)) return;
+      var v = {
+        calls: Number(d.calls).toLocaleString('en-US'),
+        avg_miss: Number(d.avg_miss).toFixed(1),
+        within_two: Math.round(Number(d.within_two)) + '%',
+        nights: d.nights_with_column + ' of ' + d.nights
+      };
+      els.forEach(function (el) { var k = el.getAttribute('data-proof'); if (v[k]) el.textContent = v[k]; });
+    })
+    .catch(function () { /* the page's own numbers stand */ });
+})();
+
 // The change log's latest lines (#loglines), from /changelog-latest.json (the four newest entries, a few hundred bytes;
 // the whole log is changelog.json), which scripts/landing-changelog.mjs writes from the app's own src/data/changelog.ts.
 // The page carries the same lines as static HTML, so this only refreshes them.

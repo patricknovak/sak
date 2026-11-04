@@ -303,7 +303,10 @@ export default function NewPool() {
   const startGames = async (id: number) => { if (gamesPayload.length) await rpc('pool_start_games', { p_league: id, p_games: gamesPayload }); };
   const okEmail = /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email.trim());
   const member = !!session && !!me;
-  const ready = !!following && (!event || kinds.length > 0) && pool.trim().length >= 3 && (member || (haveAccount ? okEmail && pw.length > 0 : name.trim().length >= 2 && okEmail && pw.length >= 6));
+  // any signed-in account hosts a sports or questions pool, seat or not (migration 349: a fan from the fan zones, a host
+  // whose pools went); a fantasy league still starts from an account that plays (fantasy_start)
+  const canHost = member || (!!session && mode !== 'fantasy');
+  const ready = !!following && (!event || kinds.length > 0) && pool.trim().length >= 3 && (canHost || (haveAccount ? okEmail && pw.length > 0 : name.trim().length >= 2 && okEmail && pw.length >= 6));
 
   // the steps this kind of start has, the one open (the one asked for, unless an earlier one is still unanswered: an
   // event's kinds can't be skipped with nothing ticked), and what each folded step says was chosen
@@ -330,8 +333,8 @@ export default function NewPool() {
     : event && !kinds.length ? { text: 'Pick at least one game', step: 'kinds' }
     : pool.trim().length < 3 ? { text: 'Name your pool', step: 'details', focus: 'np-pool' }
     : busy || afterSignIn ? { text: 'Opening your pool', step: 'details' }
-    : session && !member ? { text: 'This account isn’t in a pool yet', step: 'details' }
-    : member ? null
+    : session && !canHost ? { text: 'This account isn’t in a pool yet', step: 'details' }
+    : canHost ? null
     : haveAccount ? (!okEmail ? { text: email.trim() ? 'Check your email' : 'Add your email', step: 'details', focus: 'np-email' } : !pw ? { text: 'Add your password', step: 'details', focus: 'np-pw' } : null)
     : name.trim().length < 2 ? { text: 'Add your name', step: 'details', focus: 'np-name' }
     : !okEmail ? { text: email.trim() ? 'Check your email' : 'Add your email', step: 'details', focus: 'np-email' }
@@ -376,16 +379,16 @@ export default function NewPool() {
   };
   // signed in from this page with the pool still in hand: start it the moment the account's seat is known
   useEffect(() => {
-    if (!afterSignIn || !member) return;
+    if (!afterSignIn || !canHost) return;
     setAfterSignIn(false);
     startAsMember().catch((x) => { setErr((x as Error).message); setBusy(false); });
-  }, [afterSignIn, member]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [afterSignIn, canHost]); // eslint-disable-line react-hooks/exhaustive-deps
   // signed in, but the account has no seat anywhere: pool_start would refuse it, so say so instead of waiting
   useEffect(() => {
-    if (!afterSignIn || !session || me) return;
+    if (!afterSignIn || !session || me || mode !== 'fantasy') return;
     const t = setTimeout(() => { setAfterSignIn(false); setBusy(false); setErr('That account isn’t in a pool yet, so it can’t start one. Start with a new account below.'); }, 6000);
     return () => clearTimeout(t);
-  }, [afterSignIn, session, me]);
+  }, [afterSignIn, session, me, mode]);
   const startFresh = async () => {
     // keep the pool typed so far; only the account goes
     setErr(''); setSignIn(false); setHaveAccount(false);
@@ -394,10 +397,10 @@ export default function NewPool() {
 
   const start = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!ready || busy || afterSignIn || (!!session && !member)) return;
+    if (!ready || busy || afterSignIn || (!!session && !canHost)) return;
     setBusy(true); setErr(''); setSignIn(false);
     try {
-      if (member) { await startAsMember(); return; }
+      if (canHost) { await startAsMember(); return; }
       const login = email.trim().toLowerCase();
       if (haveAccount) {
         // sign in here and start it as that account once its seat loads (the effect above), nothing retyped
@@ -706,13 +709,16 @@ export default function NewPool() {
               </div>
             ) : member ? (
               <p className="text-sm text-white/70">You’re signed in as {me!.gm_name}. The pool goes on your account beside the others, on My pools.</p>
-            ) : session && afterSignIn ? (
-              <p className="text-sm text-white/70">Signed in. Opening your pool…</p>
+            ) : session && !afterSignIn ? (
+              isGuestEmail(session.user?.email) ? (
+                <div className="rounded-2xl border border-amber-400/30 bg-amber-400/[.06] p-3 text-sm text-white/80">
+                  <p>You&apos;re in with your fan zone name, on this phone only. The pool starts on this account; add an email on its home right after (Keep your place), so the host&apos;s seat and the invite link survive a new phone.</p>
+                </div>
+              ) : (
+                <p className="text-sm text-white/70">You&apos;re signed in. The pool starts on this account and shows on My pools.</p>
+              )
             ) : session ? (
-              <div className="rounded-2xl border border-white/10 bg-white/[.04] p-3 text-sm text-white/70">
-                <p>This account isn’t in a pool yet, so it can’t host one. Start it with a new account instead; everything you picked stays.</p>
-                <button type="button" className="btn-ghost mt-3 w-full" onClick={startFresh}>Sign out and start with a new account</button>
-              </div>
+              <p className="text-sm text-white/70">Signed in. Opening your pool…</p>
             ) : (
               <div className="space-y-3 border-t border-white/10 pt-4">
                 <div className="flex items-center justify-between gap-3">
@@ -727,7 +733,7 @@ export default function NewPool() {
                 </div>
                 {haveAccount
                   ? <p className="text-[11px] leading-snug text-white/50">The pool goes on your account beside the others, on My pools.</p>
-                  : <p className="text-[11px] leading-snug text-white/50">Starting a pool means you agree to the <a href="#/terms" className="underline">Terms of use</a>. <a href="#/privacy" className="underline">What we keep about you</a>.</p>}
+                  : <p className="text-[11px] leading-snug text-white/50">Starting a pool means you agree to the <a href="#/terms" className="underline">Terms of use</a>. <a href="#/privacy" className="underline">What we keep, held in the United States</a>.</p>}
               </div>
             )}
             </div>
@@ -741,7 +747,7 @@ export default function NewPool() {
         {err && (
           <div id="np-err" className="mt-4 scroll-mb-32 rounded-xl border border-red-400/30 bg-red-900/50 px-4 py-3 text-center text-sm text-red-200">
             {err}{signIn && <> <a href="#/" className="font-semibold underline">Sign in</a></>}
-            {session && !member && !afterSignIn && !busy && <> <button type="button" className="font-semibold underline" onClick={startFresh}>Start with a new account</button></>}
+            {session && !canHost && !afterSignIn && !busy && <> <button type="button" className="font-semibold underline" onClick={startFresh}>Start with a new account</button></>}
           </div>
         )}
 
@@ -770,7 +776,7 @@ export default function NewPool() {
                 <p className="line-clamp-2 break-words text-sm font-semibold leading-snug text-white">{pool.trim()}</p>
               ) : null}
             </div>
-            <button type="submit" form="np-form" className="btn-gold shrink-0 px-3.5 py-3 text-[15px]" disabled={busy || afterSignIn || !ready || (!!session && !member)}>{busy || afterSignIn ? <Spinner /> : haveAccount && !member ? 'Sign in and start' : 'Start my pool'}</button>
+            <button type="submit" form="np-form" className="btn-gold shrink-0 px-3.5 py-3 text-[15px]" disabled={busy || afterSignIn || !ready || (!!session && !canHost)}>{busy || afterSignIn ? <Spinner /> : haveAccount && !member ? 'Sign in and start' : 'Start my pool'}</button>
           </div>
         </div>
       )}

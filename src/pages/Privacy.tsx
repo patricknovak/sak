@@ -14,7 +14,7 @@ import {
 // the code changes, this page changes in the same pull request.
 const SECTIONS: { title: string; body: string[] }[] = [
   { title: 'What we keep', body: [
-    'Your name as you gave it, your email address and a password we never see (it is stored hashed by Supabase, which runs our database). The pools and leagues you are in, your team in each, and what you do there: the calls and picks you make, your lineups, your trades, your messages and photos in the pool\'s chat, and the coins you hold. Coins are the pool\'s score, never money: they can\'t be bought, sold or cashed out.',
+    'Your name as you gave it, your email address and a password we never see (it is stored hashed by Supabase, which runs our database). The pools and leagues you are in, your team in each, and what you do there: the calls and picks you make, your lineups, your trades, your messages and photos in the pool\'s chat, and the coins you hold. Coins are the pool\'s score, never money: they can\'t be bought, sold or turned into money.',
     'If you join a pool with just your name, we make you an account on a placeholder address that lives on the phone you joined on. Add an email and a password from the pool (Keep your place) and it becomes an ordinary account with the same seat and picks; until then, clearing that phone\'s browser loses the seat.',
     'Your phone\'s push subscription if you turn alerts on, so the pool can tell you when a question is closing or your player scored. Turn them off in your profile and the subscription is deleted.',
   ] },
@@ -35,13 +35,21 @@ const SECTIONS: { title: string; body: string[] }[] = [
     'If you accept Ads measurement, we load Google\'s Ads tag and send a scrambled one-way code made from your email (never the email itself) so Google Ads can tell whether your sign-up came from one of our ads. We don\'t use it to show you ads or to personalize anything. Choosing No thanks turns it off. Your Analytics and Ads choices are stored in your browser and in a cookie on superpoolsai.com so the marketing site and the app remember the same answer. You can change your mind from the banner or the Ads control on this page. Analytics and Ads are separate choices: you can accept one and refuse the other.',
   ] },
   { title: 'Email and the voice', body: [
-    'We send email only to sign you in or reset your password, from no-reply@superpoolsai.com through Resend, and to people who asked for one. We do not send newsletters. If you leave your email on superpoolsai.com\'s waitlist or reserve form, we write to you about what you asked for (your league or your pool opening) and nothing else; ask hello@superpoolsai.com and we remove your address. The pool\'s voice (the commentary in the chat) is written by a language model (Grok, from xAI) from the pool\'s own numbers; a message you send it goes to that model to be answered, with the pool\'s board, and nothing else about you.',
+    'We send email only to sign you in or reset your password, from no-reply@superpoolsai.com through Resend, and to people who asked for one. We do not send newsletters. If you leave your email on superpoolsai.com\'s fantasy league waitlist, we write to you about what you asked for (your league opening) and nothing else; ask hello@superpoolsai.com and we remove your address. The pool\'s voice (the commentary in the chat) is written by a language model (Grok, from xAI) from the pool\'s own numbers; a message you send it goes to that model to be answered, with the pool\'s board, and nothing else about you.',
   ] },
   { title: 'Where it lives', body: [
     'The database runs on Supabase, in the United States, and the site on Cloudflare. Scores and schedules come from public score feeds. Nothing about you goes to a league or a sports site.',
+    'So what we keep is held outside Quebec and outside Canada, under the laws of the United States. The companies that hold or handle it for us are Supabase (the database and sign-in), Cloudflare (the site), Resend (sign-in email), xAI (the voice\'s answers, only what is described above) and, only if you accept them, Google Analytics and Google Ads. Each handles it to run its part of Super Pools and for nothing of its own.',
   ] },
-  { title: 'Your choices', body: [
-    'To leave a pool, or to delete your account and everything we keep about you, write to hello@superpoolsai.com from the address you signed up with and it is done within a week. Questions go to the same address.',
+  { title: 'How long we keep it', body: [
+    'While your account is open. A pool its host deletes, or an account you ask us to delete, is gone from the database at once and from its daily backups within seven days. A waitlist address is kept until you ask us to remove it. The daily page counts carry no names and are kept to see how the product is used.',
+  ] },
+  { title: 'Your rights', body: [
+    'You can ask to see what we keep about you, to correct it, to have it deleted, and to get a copy in a common format you can take elsewhere. You can take back a consent at any time (Analytics and Ads above, alerts in your profile, the waitlist by email). Write to hello@superpoolsai.com from the address you signed up with; we answer within 30 days, and a deletion is done within a week.',
+    'If something ever puts what we keep at risk of serious harm, we tell the people affected and, in Quebec, the Commission d\'accès à l\'information. If you think we have handled your information wrongly, you can complain to the Commission d\'accès à l\'information du Québec or the Office of the Privacy Commissioner of Canada.',
+  ] },
+  { title: 'Who is responsible', body: [
+    'The founder of Super Pools is the person in charge of protecting personal information. Reach them at hello@superpoolsai.com. Questions about this page go to the same address.',
   ] },
 ];
 
