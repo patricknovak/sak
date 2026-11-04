@@ -12,6 +12,7 @@ import { useLeague } from './store';
 import { NHL_TEAMS } from './format';
 import { CLUB_NAMES } from '../data/clubColors';
 import { CLUB_CALLS_BY_SPORT, LEAGUE_CALLS_BY_SPORT, QUESTION_CALLS, TOPICS_BY_SPORT, VERDICTS, type CallDef, type FanKind, type FanSport } from './fanLists';
+import { humanField } from './turnstile';
 
 export * from './fanLists';
 
@@ -66,7 +67,7 @@ export const fanModerate = (id: number, status: 'open' | 'checked', note: string
 
 // a fan's account from just a name (the join function's fan mode): made, then signed in on this phone for good
 export async function fanJoin(name: string, club: string | null, league = 'nhl') {
-  const { data, error } = await supabase.functions.invoke('join', { body: { fan: { name, club, league } } });
+  const { data, error } = await supabase.functions.invoke('join', { body: { fan: { name, club, league }, ...(await humanField()) } });
   if (error) {
     const body = error instanceof FunctionsHttpError ? await error.context.json().catch(() => null) : null;
     throw new Error(body?.error ?? 'Couldn’t sign you up just now. Try again in a minute.');

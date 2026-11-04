@@ -14,6 +14,7 @@ import { signOut } from '../lib/guest';
 import { attributionFields, trackPoolCreated, trackSignUp } from '../lib/analytics';
 import { CATEGORIES, STANDARD_CATEGORIES } from '../lib/categories';
 import { Spinner } from './ui';
+import { humanField } from '../lib/turnstile';
 
 const rgb = (c: string) => `${parseInt(c.slice(1, 3), 16)} ${parseInt(c.slice(3, 5), 16)} ${parseInt(c.slice(5, 7), 16)}`;
 
@@ -85,7 +86,7 @@ export function FantasyStart({ color, setColor, swatches, member, signedIn }: { 
         return;
       }
       const { data, error } = await supabase.functions.invoke('join', { body: { fantasy: { name: name.trim(), color, seats: teams, format, categories: scoring === 'cats' ? cats : null, keepers, playoffs: po, snake },
-        email: login, password: pw, name: host.trim(), ...attributionFields() } });
+        email: login, password: pw, name: host.trim(), ...attributionFields(), ...(await humanField()) } });
       if (error) {
         const body = error instanceof FunctionsHttpError ? await error.context.json().catch(() => null) : null;
         if (body?.signIn) { setHaveAccount(true); setPw(''); setErr('That email already has an account. Type its password and the league starts on it.'); setBusy(false); return; }

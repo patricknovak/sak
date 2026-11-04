@@ -42,6 +42,32 @@ async function addressHash(req: Request) {
   return Array.from(new Uint8Array(d), (x) => x.toString(16).padStart(2, '0')).join('');
 }
 
+// The bot check on these doors (Cloudflare Turnstile, docs/LAUNCH-READINESS-2026-10-28.md item 8): off until the
+// TURNSTILE_SECRET secret is set, then every door that makes an account or a fan's voice wants the token the site got
+// from the widget (src/lib/turnstile.ts). Set the site's key first and this secret second, or the doors refuse everyone
+// for as long as the old site is in people's browsers. If Cloudflare itself can't be reached the door stays open: the
+// daily limits per address still hold, and a failed launch-day signup costs more than one bot that slips through.
+const TURNSTILE_SECRET = Deno.env.get('TURNSTILE_SECRET') ?? '';
+async function isHuman(req: Request, b: Record<string, unknown>) {
+  if (!TURNSTILE_SECRET) return true;
+  const token = typeof b.turnstile === 'string' ? b.turnstile : '';
+  if (!token || token.length > 2048) return false;
+  const form = new FormData();
+  form.append('secret', TURNSTILE_SECRET);
+  form.append('response', token);
+  const ip = req.headers.get('cf-connecting-ip');
+  if (ip) form.append('remoteip', ip);
+  try {
+    const r = await fetch('https://challenges.cloudflare.com/turnstile/v0/siteverify', { method: 'POST', body: form, signal: AbortSignal.timeout(8000) });
+    const j = await r.json() as { success?: boolean; 'error-codes'?: string[] };
+    if (!j.success) console.warn('turnstile refused', j['error-codes']);
+    return j.success === true;
+  } catch (e) {
+    console.error('turnstile unreachable', e);
+    return true;
+  }
+}
+
 // first-touch UTM/referrer from the site (optional; ignored when the SQL columns are not live yet)
 function attribution(b: Record<string, unknown>) {
   const clip = (v: unknown, n: number) => {
@@ -231,6 +257,8 @@ Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: cors });
   if (req.method !== 'POST') return reply(405, { error: 'POST only' });
   const b = await req.json().catch(() => ({})) as { code?: string; email?: string; password?: string; name?: string; pool?: { name?: string; color?: string; pack?: string } } & Record<string, unknown>;
+  // a guest keeping their seat is already signed in; every other door makes something new and gets the bot check
+  if (!b.claim && !(await isHuman(req, b))) return reply(403, { error: 'We couldn’t check that you’re a person. Reload the page and try again.' });
   if (b.pool) return startPool(req, b);
   if (b.fantasy) return startFantasy(req, b as { fantasy?: FantasyBody; email?: string; password?: string; name?: string } & Record<string, unknown>);
   if (b.claim) return claim(req, b as { claim?: { email?: string; password?: string } });
