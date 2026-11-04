@@ -4,7 +4,7 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
   <title>Changelog: what shipped, week by week | Super Pools</title>
-  <meta name="description" content="Every change to Super Pools, dated and newest first, written in the pull request that shipped it. The home page shows the latest four lines." />
+  <meta name="description" content="Every change to Super Pools, dated and newest first, written in the pull request that shipped it. Supercoins, never money." />
   <link rel="canonical" href="https://superpoolsai.com/changelog" />
   <link rel="icon" href="./icon.svg" type="image/svg+xml" />
   <meta name="theme-color" content="#0b1220" />
@@ -12,189 +12,655 @@
   <meta property="og:site_name" content="Super Pools" />
   <meta property="og:url" content="https://superpoolsai.com/changelog" />
   <meta property="og:title" content="What shipped, week by week" />
-  <meta property="og:description" content="Every change to Super Pools, dated and newest first, written in the pull request that shipped it." />
+  <meta property="og:description" content="Every change to Super Pools, dated and newest first, written in the pull request that shipped it. Never money." />
   <meta property="og:image" content="https://superpoolsai.com/og.png" />
   <meta property="og:image:width" content="1200" />
   <meta property="og:image:height" content="630" />
-  <meta property="og:image:alt" content="Super Pools: Fantasy Pools from the Future" />
+  <meta property="og:image:alt" content="Super Pools: Fantasy Pools from the Future. Fun fantasy pools with friends, for all. AI-enhanced. Fun for all." />
   <meta name="twitter:card" content="summary_large_image" />
   <meta name="twitter:title" content="What shipped, week by week" />
-  <meta name="twitter:description" content="Every change to Super Pools, dated and newest first, written in the pull request that shipped it." />
+  <meta name="twitter:description" content="Every change to Super Pools, dated and newest first, written in the pull request that shipped it. Never money." />
   <meta name="twitter:image" content="https://superpoolsai.com/og.png" />
   <link rel="preload" href="./fonts/barlow-condensed-900.woff2" as="font" type="font/woff2" crossorigin />
+  <link rel="preload" href="./fonts/inter.woff2" as="font" type="font/woff2" crossorigin />
   <link rel="stylesheet" href="./site.css" />
   <style>
-    .clog { display: grid; gap: 34px; margin-top: 8px; }
-    .clog h2 { margin: 0 0 10px; font-size: 30px; }
-    .clog .loglines li { grid-template-columns: 74px minmax(0, 1fr); }
-    .clog .loglines a { display: inline-block; margin-top: 6px; font-size: 13.5px; font-weight: 600; }
-    .clog .loglines a::after { content: ' ›'; }
-    @media (max-width: 560px) { .clog .loglines li { grid-template-columns: 1fr; gap: 2px; } }
+    /* the months: one chip each, sticky at the top while the log scrolls */
+    .months { position: sticky; top: 0; z-index: 40; display: flex; gap: 6px; overflow-x: auto; margin: 0 calc(-1 * var(--gutter)); padding: 10px var(--gutter);
+      background: linear-gradient(180deg, rgba(11,18,32,.97) 70%, rgba(11,18,32,0)); scrollbar-width: none; -webkit-backdrop-filter: blur(8px); backdrop-filter: blur(8px); }
+    .months::-webkit-scrollbar { display: none; }
+    .months a { flex: none; display: inline-flex; align-items: center; gap: 6px; min-height: 40px; padding: 0 14px; border-radius: 999px; font-size: 14px; font-weight: 600; color: var(--soft);
+      background: var(--boards); border: 1px solid var(--line2); white-space: nowrap; }
+    .months a small { font-size: 12px; font-weight: 600; color: var(--mute); }
+    .months a:hover, .months a[aria-current="true"] { color: var(--ink); border-color: rgba(56,189,248,.5); }
+    .cmonth { margin-top: 30px; scroll-margin-top: 70px; }
+    .cmonth h2 { display: flex; align-items: baseline; gap: 12px; margin: 0 0 12px; font-size: clamp(30px, 6vw, 40px); }
+    .cmonth h2 small { font: 600 13px/1 Inter, sans-serif; color: var(--mute); letter-spacing: 0; }
+    .cweek { scroll-margin-top: 70px; }
+    .cweek + .cweek { margin-top: 18px; }
+    .cweek h3 { display: flex; align-items: baseline; gap: 10px; margin: 0 2px 8px; font: 700 13px/1.2 'Barlow Condensed', sans-serif; letter-spacing: .16em; text-transform: uppercase; color: var(--mute); }
+    .cweek h3 small { font: 600 12px/1 Inter, sans-serif; letter-spacing: 0; color: var(--dim); }
+    .clist { border-radius: 22px; background: var(--boards); border: 1px solid var(--line); padding: 2px 16px; }
+    .ce + .ce { border-top: 1px solid var(--line); }
+    .ce summary { list-style: none; cursor: pointer; display: grid; grid-template-columns: 60px minmax(0, 1fr) 18px; gap: 12px; align-items: baseline; padding: 14px 0; min-height: 48px; }
+    .ce summary::-webkit-details-marker { display: none; }
+    .ce summary::after { content: '+'; justify-self: end; font: 900 22px/1 'Barlow Condensed', sans-serif; color: var(--ice); }
+    .ce[open] summary::after { content: '–'; }
+    .ce time { font: 700 13px/1.4 'Barlow Condensed', sans-serif; letter-spacing: .12em; text-transform: uppercase; color: var(--ice); font-variant-numeric: tabular-nums; }
+    .ce b { font-size: 15.5px; line-height: 1.35; }
+    .cb { padding: 0 0 14px 72px; }
+    .cb p { margin: 0; font-size: 14.5px; line-height: 1.55; color: var(--soft); max-width: 700px; }
+    .cb .textlink { min-height: 40px; font-size: 14px; }
+    @media (max-width: 560px) { .cb { padding-left: 0; } .ce summary { grid-template-columns: 52px minmax(0, 1fr) 18px; gap: 10px; } }
   </style>
 </head>
 <body>
   <!-- Written by scripts/landing-changelog.mjs from src/data/changelog.ts; edit that file, not this one. -->
-  <a class="skip" href="#log">Skip to the log</a>
-  <main>
-    <header class="site-head">
-      <a class="wordmark" href="./" aria-label="Super Pools home">
-        <svg viewBox="0 0 64 64" aria-hidden="true"><rect width="64" height="64" rx="14" fill="#111b30"/><circle cx="32" cy="32" r="17" fill="none" stroke="#f7c548" stroke-width="4"/><circle cx="32" cy="32" r="4.5" fill="#f7c548"/><g stroke="#f7c548" stroke-width="2.6" stroke-linecap="round"><line x1="25" y1="8" x2="25" y2="12.5"/><line x1="39" y1="8" x2="39" y2="12.5"/><line x1="25" y1="51.5" x2="25" y2="56"/><line x1="39" y1="51.5" x2="39" y2="56"/></g></svg>
-        <span><b>SUPER</b> POOLS</span>
-      </a>
-      <div class="head-right"><a class="textlink" href="./">Home</a><a class="signin" href="https://app.superpoolsai.com/">Sign in</a></div>
-    </header>
-    <section id="log" style="margin-top:40px">
+  <a class="skip" href="#main">Skip to the log</a>
+  <header class="site-head">
+    <a class="wordmark" href="./" aria-label="Super Pools home">
+      <svg viewBox="0 0 64 64" aria-hidden="true"><rect width="64" height="64" rx="14" fill="#111b30"/><circle cx="32" cy="32" r="17" fill="none" stroke="#f7c548" stroke-width="4"/><circle cx="32" cy="32" r="4.5" fill="#f7c548"/><g stroke="#f7c548" stroke-width="2.6" stroke-linecap="round"><line x1="25" y1="8" x2="25" y2="12.5"/><line x1="39" y1="8" x2="39" y2="12.5"/><line x1="25" y1="51.5" x2="25" y2="56"/><line x1="39" y1="51.5" x2="39" y2="56"/></g></svg>
+      <span><b>SUPER</b> POOLS</span>
+    </a>
+    <nav class="navlinks" aria-label="Doors"><a href="./fantasy-hockey.html">Fantasy league</a><a href="./#kinds">Sports pools</a><a href="./together.html">Show pools</a><a href="./fans.html">Fan zones</a><a href="./pricing.html">Pricing</a></nav>
+    <div class="head-right">
+      <a class="signin" href="https://app.superpoolsai.com/">Sign in</a>
+      <button type="button" class="menu-btn" id="menu-btn" aria-expanded="false" aria-controls="menu" aria-label="Open the menu">
+        <svg class="bars" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16"/></svg>
+        <svg class="x" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>
+      </button>
+    </div>
+    <nav class="menu" id="menu" aria-label="Menu">
+      <a href="./fantasy-hockey.html"><span class="mi"><svg class="ico" aria-hidden="true" focusable="false"><use href="./icons.svg#i-trophy"/></svg></span><span><b>Fantasy league</b><small>Keepers, the draft room, a league voice</small></span></a>
+      <a href="./#kinds"><span class="mi"><svg class="ico" aria-hidden="true" focusable="false"><use href="./icons.svg#i-target"/></svg></span><span><b>Sports pools</b><small>The NFL, NHL, NBA and soccer</small></span></a>
+      <a href="./together.html"><span class="mi r"><svg class="ico" aria-hidden="true" focusable="false"><use href="./icons.svg#i-tv"/></svg></span><span><b>Show pools</b><small>Call what happens next, with your group</small></span></a>
+      <a href="./fans.html"><span class="mi"><svg class="ico" aria-hidden="true" focusable="false"><use href="./icons.svg#i-chart"/></svg></span><span><b>Fan zones</b><small>Every club, read like a front office</small></span></a>
+      <a href="./pricing.html"><span class="mi n"><svg class="ico" aria-hidden="true" focusable="false"><use href="./icons.svg#i-coin"/></svg></span><span><b>Pricing</b><small>Per pool, never per person</small></span></a>
+      <a href="https://app.superpoolsai.com/"><span class="mi n"><svg class="ico" aria-hidden="true" focusable="false"><use href="./icons.svg#i-users"/></svg></span><span><b>Sign in</b><small>Back to your pools</small></span></a>
+    </nav>
+  </header>
+  <main id="main">
+    <section id="log" style="margin-top:34px">
       <div class="shead">
         <div class="eyebrow">Changelog</div>
         <h1 class="display" style="font-size:clamp(46px,9vw,76px);margin:8px 0 12px">What shipped, week by week.</h1>
-        <p class="lead">Every change to Super Pools, newest first, written in the same pull request that shipped it. Last updated 4 November 2026.</p>
+        <p class="lead">Every change to Super Pools, newest first, written in the same pull request that shipped it. 128 entries, last updated 4 November 2026. Tap a line to read it.</p>
       </div>
-      <div class="clog">
-        <div>
-          <h2 class="display">November 2026</h2>
-          <ol class="loglines">
-            <li><time datetime="2026-11-04">Nov 4</time><div><b>An easier way in for someone new</b><span>Starting a pool asks its two cookie questions in one slim line each, so the page shows under them. The list of leagues tells you what each one plays (the NHL's weekly pick'em sits apart from its box pool), marks Live now only where a round is under way, and puts a league whose final is close at the top. A new questions pool with nothing in it yet asks you for its first question before you send the link. The sign-in page leads with Start one free, the fan zones have a Start a pool button, joining a pool and joining the fans ask for your name the same way, and asking for a fantasy league says the two ways to get one, with a free pool to start while you wait.</span><a href="https://app.superpoolsai.com/#/new">Open it in the app</a></div></li>
-          </ol>
+      <nav class="months" aria-label="Weeks">
+        <a href="#w-2026-11-02">Nov 4<small>1</small></a>
+        <a href="#w-2026-10-19">Oct 23<small>9</small></a>
+        <a href="#w-2026-10-12">Oct 12<small>39</small></a>
+        <a href="#w-2026-10-05">Oct 5<small>61</small></a>
+        <a href="#w-2026-10-01">Oct 3<small>18</small></a>
+      </nav>
+      <section class="cmonth" id="m-2026-11" aria-labelledby="h-2026-11">
+        <h2 class="display" id="h-2026-11">November 2026<small>1 change</small></h2>
+        <div class="cweek" id="w-2026-11-02">
+          <h3>4 November<small>1</small></h3>
+          <div class="clist">
+          <details class="ce" open>
+            <summary><time datetime="2026-11-04">Nov 4</time><b>An easier way in for someone new</b></summary>
+            <div class="cb"><p>Starting a pool asks its two cookie questions in one slim line each, so the page shows under them. The list of leagues tells you what each one plays (the NHL's weekly pick'em sits apart from its box pool), marks Live now only where a round is under way, and puts a league whose final is close at the top. A new questions pool with nothing in it yet asks you for its first question before you send the link. The sign-in page leads with Start one free, the fan zones have a Start a pool button, joining a pool and joining the fans ask for your name the same way, and asking for a fantasy league says the two ways to get one, with a free pool to start while you wait.</p><a class="textlink" href="https://app.superpoolsai.com/#/new" aria-label="Open in the app: An easier way in for someone new">Open it in the app</a></div>
+          </details>
+          </div>
         </div>
-        <div>
-          <h2 class="display">October 2026</h2>
-          <ol class="loglines">
-            <li><time datetime="2026-10-24">Oct 24</time><div><b>The Oilers fan zone</b><span>A page for the Oilers: the verdict on their season with a grade, strengths and weaknesses ranked against all 32 clubs, a luck check and what management and the coaches should do about it; who's rising and who's fading, the goalies and the prospects; the latest news, the last ten games and the next few; and the history, from the 1984 Cup to the rafters. It's under More, and any club can be picked from the page.</span><a href="https://app.superpoolsai.com/#/fans">Open it in the app</a></div></li>
-            <li><time datetime="2026-10-24">Oct 24</time><div><b>The full-screen app, and a roomier chat</b><span>Add the app to your Home Screen and it opens full screen, with no browser bars and with alerts on your phone. Home shows you the steps once, and Profile keeps them. In Chat, the lounges moved into a small room button at the start of the filter row, so there's one less bar above the messages.</span><a href="https://app.superpoolsai.com/#/profile">Open it in the app</a></div></li>
-            <li><time datetime="2026-10-24">Oct 24</time><div><b>Expected points follow this season</b><span>Projections now count this season's games, and update every morning. A hot or cold start moves a player's expected points more with every game he plays, rookies get a projection from their first games, and a goalie's starts follow who has the net this year. Each player card says how he's doing so far.</span><a href="https://app.superpoolsai.com/#/team">Open it in the app</a></div></li>
-            <li><time datetime="2026-10-24">Oct 24</time><div><b>NHL news on Home, and the Live page in game order</b><span>Home has the NHL's latest five headlines under the League wire, with a star on any about your players. On the Live page the games on now come first, then the ones still to come, then the finals, and the race sits right under the scores. NHL centre is back in the bottom bar; Players is under More.</span><a href="https://app.superpoolsai.com/#/scoreboard">Open it in the app</a></div></li>
-            <li><time datetime="2026-10-23">Oct 23</time><div><b>Lounges: talk with everyone following your league</b><span>Chat now has a lounge for each league or show your pools follow, like the NHL lounge or the Love Is Blind lounge, shared with every pool on Super Pools that follows it. Tap Just my pool to see only your own crew's posts. Everyone else sees your first name and initial, and you can report a post or delete your own.</span><a href="https://app.superpoolsai.com/#/chat">Open it in the app</a></div></li>
-            <li><time datetime="2026-10-23">Oct 23</time><div><b>Join a pool with just your name</b><span>Friends you invite to a pool now type their name and they're in, no email or password first. Their place stays on their phone, and Keep your place adds an email whenever they like so they can sign in anywhere with every call and coin. Fantasy leagues still ask for an email.</span><a href="https://app.superpoolsai.com/#/pools">Open it in the app</a></div></li>
-            <li><time datetime="2026-10-23">Oct 23</time><div><b>Players in the bottom bar, and a lighter app</b><span>Players takes NHL centre's place in the bottom bar; NHL centre is under More, in Tonight. Starting a pool is now a few short steps with a Start my pool bar that says what's left, small buttons are easier to hit, the cookie question is one line, and pages open faster.</span><a href="https://app.superpoolsai.com/#/players">Open it in the app</a></div></li>
-            <li><time datetime="2026-10-23">Oct 23</time><div><b>Fewer bells, all of them news</b><span>No more bells when a player flips between Out and Day-To-Day on a game day, or for the same news twice in three days. Stat corrections ring only when they move your total by a point or more. New injuries, a move to IR and a player coming off the report still ring.</span><a href="https://app.superpoolsai.com/#/">Open it in the app</a></div></li>
-            <li><time datetime="2026-10-23">Oct 23</time><div><b>Home leads with tonight</b><span>On your phone, Home now opens on tonight: your starters, their points and any benched player with a game. The standings follow with every team name in full, and cards with nothing to show yet stay out of the way.</span><a href="https://app.superpoolsai.com/#/">Open it in the app</a></div></li>
-            <li><time datetime="2026-10-18">Oct 18</time><div><b>More to call in a World Series pool</b><span>A World Series pool now asks who wins Game 1, whether the Game 1 winner goes on to win it all, and whether any game goes to extra innings, beside who wins, in how many games and the MVP. Results come in on their own, and the host gets a bell to call each one.</span><a href="https://app.superpoolsai.com/#/new">Open it in the app</a></div></li>
-            <li><time datetime="2026-10-18">Oct 18</time><div><b>World Series pools, ready for Game 1</b><span>Start a World Series pool and its questions offer only the clubs still alive, never one already knocked out, and nothing the series has already decided. Pick the series and its length, a squares grid, a prop sheet on any game or a pick a day. A grid that fills before the matchup is set fills in the other club the moment it is. The start page and your home page lead with the World Series this week.</span><a href="https://app.superpoolsai.com/#/new">Open it in the app</a></div></li>
-            <li><time datetime="2026-10-17">Oct 17</time><div><b>The night's goals on the scoreboard</b><span>Every goal a rostered player scored or set up tonight, from the moment the page opens: the scorer, the assists, each player's GM and what the goal was worth to them under this league's scoring. Tap play to watch the goal right there.</span><a href="https://app.superpoolsai.com/#/scoreboard">Open it in the app</a></div></li>
-            <li><time datetime="2026-10-17">Oct 17</time><div><b>Pools where your crew already talks</b><span>A pool you're in can be posted into this league's chat as a card with a Join button, and everyone not in it yet gets a bell. Your home page lists the pools posted here in the last month, and starts a pool for your other groups (family, work, the group chat) in a tap.</span><a href="https://app.superpoolsai.com/#/">Open it in the app</a></div></li>
-            <li><time datetime="2026-10-17">Oct 17</time><div><b>Trades with a hurt player</b><span>A hurt player coming to you from another team's IR now slides straight into your open IR slot, so the trade builder no longer asks for a drop you don't need. It says so when it happens.</span><a href="https://app.superpoolsai.com/#/trades">Open it in the app</a></div></li>
-            <li><time datetime="2026-10-16">Oct 16</time><div><b>Live in the dock</b><span>Live sits in the middle of the bottom bar, with a red dot while a game is on. The scoreboard now leads with your night (points, where you stand, a projected finish), the race as it stands if the night ended now, the stars of the night and a goal horn for your starters.</span><a href="https://app.superpoolsai.com/#/scoreboard">Open it in the app</a></div></li>
-            <li><time datetime="2026-10-16">Oct 16</time><div><b>Photos, search and sharing in chat</b><span>Send a photo in the chat, search everything you can see, share a message or a photo to your phone's messaging apps, and see who's typing. The week's most-reacted post is pinned as the chirp of the week. Picking a GM shows their own side of the chat, with &quot;and mentions&quot; for the league lines that name them.</span><a href="https://app.superpoolsai.com/#/chat">Open it in the app</a></div></li>
-            <li><time datetime="2026-10-16">Oct 16</time><div><b>Off IR any time</b><span>Move a player off IR to your bench or lineup whenever your roster has room, even once his game has started. That night still counts him the way he was at puck drop.</span><a href="https://app.superpoolsai.com/#/team">Open it in the app</a></div></li>
-            <li><time datetime="2026-10-15">Oct 15</time><div><b>Women's World Cup 2027 questions</b><span>Open a pool on next summer's Women's World Cup in Brazil now: who lifts it, whether Europe does, how far the hosts go, whether the United States reach the semi-finals and how the final ends, called in coins all the way to the tournament.</span><a href="https://app.superpoolsai.com/#/new">Open it in the app</a></div></li>
-            <li><time datetime="2026-10-15">Oct 15</time><div><b>The WSL and the NWSL</b><span>Start a pool on women's soccer: every match of the Women's Super League to May, and the NWSL's last matchweeks, with pick'em, last one standing, Call the score and the daily streak. Results land on their own.</span><a href="https://app.superpoolsai.com/#/new">Open it in the app</a></div></li>
-            <li><time datetime="2026-10-15">Oct 15</time><div><b>NFL season questions</b><span>An NFL pool now comes with the season's questions: who wins the Super Bowl, the AFC and the NFC, the best record, MVP and Defensive Player of the Year. The NHL, the Premier League and MLS pools bring theirs the same way.</span><a href="https://app.superpoolsai.com/#/new">Open it in the app</a></div></li>
-            <li><time datetime="2026-10-15">Oct 15</time><div><b>NBA season questions</b><span>An NBA pool now comes with the season's questions: who wins the title, the East, the West and the NBA Cup, the best record, MVP, Rookie and Defensive Player of the Year. Call them with coins, a fresh drop on the first of every month, and the odds move as your friends call them.</span><a href="https://app.superpoolsai.com/#/new">Open it in the app</a></div></li>
-            <li><time datetime="2026-10-15">Oct 15</time><div><b>NBA win totals</b><span>A new game for a basketball pool: over or under on every NBA team's wins this season, called once before opening night on 20 October. The lines start from ESPN's preseason projection and the host can change any of them until then. A point for each right call, landing all season as teams pass their lines or fall short; everyone's calls show once the season tips off.</span><a href="https://app.superpoolsai.com/#/new">Open it in the app</a></div></li>
-            <li><time datetime="2026-10-15">Oct 15</time><div><b>Drop the worst weeks in pick'em</b><span>A season-long pick'em can drop each player's worst one or two weeks from their total, so a bad week or a late start is forgiven. Pick it when you start the pool, or before the first lock; the week-by-week grid strikes the dropped weeks through.</span><a href="https://app.superpoolsai.com/#/new">Open it in the app</a></div></li>
-            <li><time datetime="2026-10-15">Oct 15</time><div><b>A sports pool's invite shows what's first</b><span>An invite to a pick'em or last one standing pool now leads with its next game, &quot;NFL pick'em, Week 7: 15 games&quot;, and when the first pick locks, on the join page and in the link's preview in the group chat.</span><a href="https://app.superpoolsai.com/#/pools">Open it in the app</a></div></li>
-            <li><time datetime="2026-10-15">Oct 15</time><div><b>Pick'em week by week</b><span>Under a pick'em's table, a grid of everyone's points in each week played, the latest first, with each week's winner in gold and a crown for every week won.</span><a href="https://app.superpoolsai.com/#/picks">Open it in the app</a></div></li>
-            <li><time datetime="2026-10-15">Oct 15</time><div><b>Lives in last one standing</b><span>Last one standing can now give everyone two or three lives: a loss, a tie or a round with no pick costs one, and you're out when the last is gone. Pick the lives when you start it; the page shows the hearts each player has left.</span><a href="https://app.superpoolsai.com/#/new">Open it in the app</a></div></li>
-            <li><time datetime="2026-10-15">Oct 15</time><div><b>Forgot a pick? The favourite</b><span>A pick'em can now fill a forgotten pick with the market's favourite the moment the game starts, instead of scoring nothing (with the lowest Confidence number still free). Switch it on when you start the pool, or before the first lock. The board says which picks were made for you.</span><a href="https://app.superpoolsai.com/#/new">Open it in the app</a></div></li>
-            <li><time datetime="2026-10-15">Oct 15</time><div><b>A tiebreaker in pick'em</b><span>Every pick'em week now has a tiebreaker: call the total in the week's last game, up to its start. Level on points for the week, the closest call takes it; level at the end, the closest on the last week played wins the pool.</span><a href="https://app.superpoolsai.com/#/picks">Open it in the app</a></div></li>
-            <li><time datetime="2026-10-15">Oct 15</time><div><b>Pick'em against the spread</b><span>A pick'em on the NFL, the NBA or the NHL can run against the spread: switch it on when you start the pool (or before anyone picks). Each pick takes the market's line the moment you save it and keeps it, so a line that moves later never changes your pick. Your side has to cover; landing right on the line is a push.</span><a href="https://app.superpoolsai.com/#/new">Open it in the app</a></div></li>
-            <li><time datetime="2026-10-15">Oct 15</time><div><b>Pick the favourites</b><span>A long pick'em week (an NHL or NBA week is about fifty games) now has one tap to fill every open game with the side the market likes, the surest numbered highest in Confidence. Change any before you save. A week of nightly games reads day by day.</span><a href="https://app.superpoolsai.com/#/picks">Open it in the app</a></div></li>
-            <li><time datetime="2026-10-15">Oct 15</time><div><b>The guillotine</b><span>A commissioner can make the league a guillotine under League features: every Monday, once Sunday's games are final, the team with the fewest points that week is cut and its players hit free agency. The home page shows who's on the block this week and everyone already cut; the last team standing wins. Points leagues played for the season total.</span><a href="https://app.superpoolsai.com/#/commish">Open it in the app</a></div></li>
-            <li><time datetime="2026-10-15">Oct 15</time><div><b>Best ball</b><span>A commissioner can make the league best ball under League features: your lineup still scores live on a game night, and once the night is over it counts the best lineup your players allowed, so nobody loses a night to a lineup left unset. It starts with the night being played. Points leagues only.</span><a href="https://app.superpoolsai.com/#/commish">Open it in the app</a></div></li>
-            <li><time datetime="2026-10-15">Oct 15</time><div><b>Pools on every NHL and NBA game</b><span>Start a pool on the NHL or NBA regular season: weekly pick'em, last one standing (one team to win each week, never the same one twice) or the daily streak, one pick a night. Every game comes in with its week, and results land on their own.</span><a href="https://app.superpoolsai.com/#/new">Open it in the app</a></div></li>
-            <li><time datetime="2026-10-14">Oct 14</time><div><b>Your pool's Monday</b><span>Every Monday your pool's voice sums up the week: what settled and who called it, the table, a nudge for anyone who sat the week out, and what's coming, day by day, before the next drop.</span><a href="https://app.superpoolsai.com/#/chat">Open it in the app</a></div></li>
-            <li><time datetime="2026-10-14">Oct 14</time><div><b>Which pages your league opens, with no names</b><span>The app now keeps a daily count of how often each page is opened and by how many members, with no names: a member is counted by a code that changes every day. It tells us which pages to make better. A commissioner can switch it off under League features on the Commish page, a pool's host under Pool settings.</span><a href="https://app.superpoolsai.com/#/privacy">Open it in the app</a></div></li>
-            <li><time datetime="2026-10-14">Oct 14</time><div><b>Your roster count leaves IR out</b><span>The Players page counted a player on IR against your roster limit, which leaves IR out, so a full roster with one on IR read 25 of 24. It now counts the active roster and says how many are on IR beside it.</span><a href="https://app.superpoolsai.com/#/players">Open it in the app</a></div></li>
-            <li><time datetime="2026-10-14">Oct 14</time><div><b>One chat, with a filter</b><span>Trash talk, the draft room, the league's voice and your DMs are now one feed. The bar across the top filters it: pick a GM to see only what they said and every move that names them, or a kind (talk, transactions, bets, the voice, the draft, private, league news). Under the box, To says where your post goes: everyone, the voice privately, or the GM you picked.</span><a href="https://app.superpoolsai.com/#/chat">Open it in the app</a></div></li>
-            <li><time datetime="2026-10-14">Oct 14</time><div><b>Every move in the league on your home page</b><span>League transactions on the home page lists every add, drop and trade (and, if you want them, the draft and the keepers), newest first. Filter by GM or by kind. An add and the drop made with it read as one move, and a trade shows what each side got.</span><a href="https://app.superpoolsai.com/#/">Open it in the app</a></div></li>
-            <li><time datetime="2026-10-14">Oct 14</time><div><b>Your roster against the free agents</b><span>On Players, Browse, the new GM vs available choice puts one GM's players among every available player, theirs in their colour, so you see who on the wire outranks them. On My Team's Stats tab, Compare has Best available: the best free agent at each of your positions, one for one, with both sides' totals.</span><a href="https://app.superpoolsai.com/#/players">Open it in the app</a></div></li>
-            <li><time datetime="2026-10-14">Oct 14</time><div><b>The live room is optional</b><span>A commissioner can switch the live room's card off the home page and the scoreboard under League features on the Commish page. SaK has it off.</span><a href="https://app.superpoolsai.com/#/commish">Open it in the app</a></div></li>
-            <li><time datetime="2026-10-13">Oct 13</time><div><b>Your pool's voice speaks on game days</b><span>A pool on games now hears from its voice the way a show pool does on a drop day: the morning post says which picks lock before tomorrow (the round, when, and who still has to pick, by name), and what's on tonight on the pool's events. Ask it in the chat who hasn't picked yet or what's on this week and it knows. Your pool's home says it too: the next lock, the countdown and whether your pick is in, one tap from the picks.</span><a href="https://app.superpoolsai.com/#/chat">Open it in the app</a></div></li>
-            <li><time datetime="2026-10-13">Oct 13</time><div><b>Your privacy, plainly</b><span>A page that says everything we keep to run a pool and nothing else: your name and email, your calls, picks and messages, who sees them (the people in your pool, nobody outside it), the analytics choice, and how to leave or be deleted. Linked from the cookie banner and the landing page.</span><a href="https://app.superpoolsai.com/#/privacy">Open it in the app</a></div></li>
-            <li><time datetime="2026-10-13">Oct 13</time><div><b>Bring your rosters from Fantrax, ESPN or Yahoo</b><span>Moving a league over? Under Roster on the Commish page, paste the league's Fantrax or ESPN link (or open your Yahoo league under My pools) and every team's players come back matched to ours by name and club. Say which team here each one is, and they're written in, everyone on the bench with IR kept, so the first lineup sorts the starters. Anyone Fantrax has that we don't (a prospect in the minors, a different spelling) is listed and left out.</span><a href="https://app.superpoolsai.com/#/commish">Open it in the app</a></div></li>
-            <li><time datetime="2026-10-13">Oct 13</time><div><b>Something to call every Wednesday</b><span>A Love Is Blind pool now has questions for every drop, not just the premiere and the finale: four for episodes 6 to 8 and four for 9 to 11, each closing as its drop lands. When a pack gains questions, every pool on it gets them by itself, with a line in the chat and a ping. The pool's voice now posts on the mornings that matter: what settled and who called it, coins that dropped, what closes tonight and who hasn't called. And an invite link shows the first question you'd call before you sign up: tap an answer and it's placed the moment you're in. Your pool's home says how many questions close today and how many still wait on your call, one tap from the first. And once a question closes, it shows where everyone stands, answer by answer, so you can watch knowing who said what. When the drop settles, the Settled tab has your card: every call you made on it, right or wrong, with the score, one tap to share. Hosts: once the cast is known, the Ask sheet's One for each shape has the couple questions ready (make it to the altar, both say I do, still engaged next drop, together at the reunion, the family against it): tap one, add the couples, and every question is asked with its rule. And the Host page opens with What's next: what closes and when, what waits to be settled, the next drop. Hosts: a question that has closed and waits on your call now rings your bell eight hours on.</span><a href="https://app.superpoolsai.com/#/questions">Open it in the app</a></div></li>
-            <li><time datetime="2026-10-13">Oct 13</time><div><b>The league's voice gets smarter</b><span>The league's voice now only tells you to change your lineup when there's a real move: someone on your bench who plays tonight, can fill the slot, and gains you points. No more calls to bench a player nobody can replace, or to sit a day-to-day guy who's playing. The morning column leads with the real story (who passed whom, the tight races, the week's hottest and coldest teams, bench calls that actually cost points, and NHL news about your own players), and ask it about your lineup in chat for the same straight answer.</span><a href="https://app.superpoolsai.com/#/chat">Open it in the app</a></div></li>
-            <li><time datetime="2026-10-12">Oct 12</time><div><b>Copy your scoring from Fantrax</b><span>Coming from a Fantrax points league? In the scoring settings on the Commish page, paste its link and every stat both sites keep takes Fantrax's value. Check them, then save.</span><a href="https://app.superpoolsai.com/#/commish">Open it in the app</a></div></li>
-            <li><time datetime="2026-10-12">Oct 12</time><div><b>Bring your past from Fantrax</b><span>A league that played on Fantrax brings its history too: on the League page, paste each season's Fantrax link (Fantrax gives every season its own), and each comes back with its final table, champions to last place. Say which team here each Fantrax team was, and their titles and last places follow them.</span><a href="https://app.superpoolsai.com/#/league">Open it in the app</a></div></li>
-            <li><time datetime="2026-10-12">Oct 12</time><div><b>Your pick just scored</b><span>With your pool's home open on a game day, a score for the side you picked (your pick'em pick, your last-one-standing club) now lights up across the top of the page with the club and the score. Tap it for that game's thread.</span><a href="https://app.superpoolsai.com/#/">Open it in the app</a></div></li>
-            <li><time datetime="2026-10-11">Oct 11</time><div><b>Bring your past from ESPN</b><span>A league that played on ESPN brings its history in one go: on the League page, paste the ESPN league's link and every season it kept comes back with its final table, champions to last place, ready to tick and bring in. The league must be viewable to the public on ESPN.</span><a href="https://app.superpoolsai.com/#/league">Open it in the app</a></div></li>
-            <li><time datetime="2026-10-11">Oct 11</time><div><b>A Traitors pool</b><span>Start a pool on The Traitors: New Blood from Start a pool: call every round table from episode 6, who reaches the end and whether a Traitor takes the money, with coins on every episode night through the finale on 19 November.</span><a href="https://app.superpoolsai.com/#/pools">Open it in the app</a></div></li>
-            <li><time datetime="2026-10-11">Oct 11</time><div><b>The live room on your home page</b><span>On a game night your home page now shows the league's live room, the way a pool's home does: who's watching, the latest swings with their reactions, and tonight's scoreboard a tap away. Tap a game for its sheet.</span><a href="https://app.superpoolsai.com/#/">Open it in the app</a></div></li>
-            <li><time datetime="2026-10-11">Oct 11</time><div><b>A thread for every game in your pool</b><span>Every match in a pool now has its own chat. Tap Talk on a pick'em match, a game chip in the pool's live room, or Thread in the match centre: the score sits on top and the pool talks it over below. Each game shows how busy its thread is.</span><a href="https://app.superpoolsai.com/#/picks">Open it in the app</a></div></li>
-            <li><time datetime="2026-10-11">Oct 11</time><div><b>One score, every page</b><span>Scores and clocks now move within seconds of the NHL, and every page shows the same one at the same moment: the scoreboard, NHL centre, My Team and the home page all read from one place. Tonight's points land on every page together the moment a box score has them, with nothing to refresh.</span><a href="https://app.superpoolsai.com/#/nhl?t=scores">Open it in the app</a></div></li>
-            <li><time datetime="2026-10-11">Oct 11</time><div><b>Every game, one tap from anywhere</b><span>Tap any NHL game, on the scoreboard, NHL centre or the home page, and the same sheet opens: the score, where you can watch it on what you have and team radio, your league's players in it with their points, the goals with their clips, the thread, the box score with everyone's fantasy points, and its lines and bets. Radio keeps playing while you look around. Watch live is now NHL centre's Scores tab: whether you can watch each game, the one to watch, your players and points in it, and where the league has skin in it.</span><a href="https://app.superpoolsai.com/#/nhl?t=scores">Open it in the app</a></div></li>
-            <li><time datetime="2026-10-11">Oct 11</time><div><b>Easier to find your way</b><span>More (and the sidebar on a computer) now groups its pages: Tonight, Your team, The league and You. The live scoreboard lights up while a game is on, NHL centre leads with the league's own night, and you can sign out from the sidebar.</span><a href="https://app.superpoolsai.com/#/">Open it in the app</a></div></li>
-            <li><time datetime="2026-10-11">Oct 11</time><div><b>Who moved tonight</b><span>The standings show each team's move tonight with an arrow, the live room tells every climb up the table as it happens, and Share the table turns the standings into a picture for the group chat.</span><a href="https://app.superpoolsai.com/#/standings">Open it in the app</a></div></li>
-            <li><time datetime="2026-10-11">Oct 11</time><div><b>Lineup New is now part of My Team</b><span>One lineup section again. My Team keeps its Tonight card and the lineup you know, and gains what Lineup New tried: an undo after every move, What if (try moves, see what they are worth tonight, then save or throw them away), Best lineup as a list of changes for today or the next 3, 7 or 14 days, warnings that fix in a tap, and each player's line from the shift charts. New tabs beside the lineup: Week (who plays when, tap a cell to start or bench), League (every team's night on one board), Compare (your lineup against any team's) and Insights. Any team's page has them too, read only. Old Lineup New links land here.</span><a href="https://app.superpoolsai.com/#/team">Open it in the app</a></div></li>
-            <li><time datetime="2026-10-11">Oct 11</time><div><b>Game day in your pool</b><span>A pool's home now has a live room on game days: today's games on your pool's events with their live scores, who else is watching, and every swing as it lands, from a score or a final to a member climbing the table. The table moves with it.</span><a href="https://app.superpoolsai.com/#/">Open it in the app</a></div></li>
-            <li><time datetime="2026-10-11">Oct 11</time><div><b>A thread for every game</b><span>Every NHL game on the live scoreboard now has its own chat. Tap a game: the thread opens first while it is on, with whose players are in it and what they have tonight, the swings from that game, and the league talking it over. Ask the league's voice in there and it answers in the thread. The game chips show how busy each thread is.</span><a href="https://app.superpoolsai.com/#/scoreboard">Open it in the app</a></div></li>
-            <li><time datetime="2026-10-11">Oct 11</time><div><b>A draft clock that keeps time</b><span>On draft night the clock is now kept live for the whole league: when a pick runs out of time it is made on the second (it used to take up to ten), a team on autodraft picks the moment its turn comes, and every pick reaches every phone at once. Look for Live clock under the countdown.</span><a href="https://app.superpoolsai.com/#/draft">Open it in the app</a></div></li>
-            <li><time datetime="2026-10-11">Oct 11</time><div><b>The live room on game nights</b><span>On a game night the live scoreboard is now a room the whole league shares: the points move the moment the box score has them, a feed shows every swing (a goal, an assist, a win, a minus) as it lands, you can see who else is watching and react to any swing. When one of your starters scores, a banner tells you wherever you are in the app.</span><a href="https://app.superpoolsai.com/#/scoreboard">Open it in the app</a></div></li>
-            <li><time datetime="2026-10-11">Oct 11</time><div><b>Invites that look like your pool</b><span>An invite link pasted into a group chat now shows your pool's own name, colour and who invited them, on a picture drawn for it, instead of a plain link. Tap it and you land on the join page.</span><a href="https://app.superpoolsai.com/#/pools">Open it in the app</a></div></li>
-            <li><time datetime="2026-10-11">Oct 11</time><div><b>Faster sport centres</b><span>Scores, standings, news and injuries in every sport's centre now come from the edge of the network, close to you: the second person to open them on a game night gets them in a blink.</span><a href="https://app.superpoolsai.com/#/pools">Open it in the app</a></div></li>
-            <li><time datetime="2026-10-10">Oct 10</time><div><b>Start any kind of pool, or a league</b><span>Starting something now asks first what it is: a sports pool, a questions pool or a fantasy league. A sports pool lists the leagues on now and every kind of pool, from pick'em and brackets to last one standing, Call the score, squares and the box pool, with the ones not open yet and when they will be. A fantasy league is yours to set up: teams, season total or head-to-head, points or categories, keepers and the draft.</span><a href="https://app.superpoolsai.com/#/pools">Open it in the app</a></div></li>
-            <li><time datetime="2026-10-10">Oct 10</time><div><b>A centre for every sport</b><span>The NFL, soccer, MLB and NBA centres now have the news, the standings, the injury report and the league leaders beside the scores, like NHL centre, with your pool's clubs highlighted.</span><a href="https://app.superpoolsai.com/#/pools">Open it in the app</a></div></li>
-            <li><time datetime="2026-10-10">Oct 10</time><div><b>Delete a pool</b><span>A host can delete a pool from its card on My pools or from the Host page, typing its name to be sure. Each pool now keeps to its own events: no Premier League in a baseball pool.</span><a href="https://app.superpoolsai.com/#/pools">Open it in the app</a></div></li>
-            <li><time datetime="2026-10-10">Oct 10</time><div><b>Best lineup starts the players who play</b><span>Best lineup (and the auto-pilot) now always starts a player with a game over one without, whichever way you rank them. A cold start no longer counts as zero: his recent form is weighed against his season and projection, so a slow first week can't bench him behind an idle star. A player you pin to start only keeps the spot on nights he plays.</span><a href="https://app.superpoolsai.com/#/team">Open it in the app</a></div></li>
-            <li><time datetime="2026-10-10">Oct 10</time><div><b>Retired players off the free-agent list</b><span>Players on no NHL roster (retired, unsigned or playing elsewhere) are marked Not in NHL, projected for no games and left out of the available players. Injured players are kept, and anyone who signs or is called up comes straight back.</span><a href="https://app.superpoolsai.com/#/players">Open it in the app</a></div></li>
-            <li><time datetime="2026-10-09">Oct 9</time><div><b>Lineup, brighter</b><span>Your Lineup page opens on a Tonight card: points tonight (or expected points before puck drop), the starting slots lit for everyone who plays, where you rank on the night and who of yours is on the ice with each opponent and score. Players with a game today glow green (red while live). In Daily lineups, Who plays when is now at the bottom.</span><a href="https://app.superpoolsai.com/#/team">Open it in the app</a></div></li>
-            <li><time datetime="2026-10-09">Oct 9</time><div><b>Sit or start</b><span>A new tool on the Lineup page: the swaps worth making tonight, a benched player with a game who should outscore a starter he can replace, each with the reasons and a one-tap swap. Or put any two of your players head to head: expected points tonight and this week, games left, how likely he plays and his recent form, with a verdict.</span><a href="https://app.superpoolsai.com/#/team">Open it in the app</a></div></li>
-            <li><time datetime="2026-10-09">Oct 9</time><div><b>Your players against everyone's</b><span>Lineup Stats can now put your players beside any other GM's, or every GM's, in one table: every stat for every player, sortable, filtered by position, with each team's totals underneath.</span><a href="https://app.superpoolsai.com/#/team">Open it in the app</a></div></li>
-            <li><time datetime="2026-10-09">Oct 9</time><div><b>Tonight's points, team by team</b><span>On the live scoreboard each team now sits above the next, with every starter listed: his club's logo, who he plays, the puck drop, the live score or the final, and his points. It also says when the numbers last updated.</span><a href="https://app.superpoolsai.com/#/scoreboard">Open it in the app</a></div></li>
-            <li><time datetime="2026-10-09">Oct 9</time><div><b>The weekly review</b><span>Performance has a Weekly review: every team's week graded, with points, how the lineups did against the best possible, the best performer, and suggestions to improve: free agents worth adding and who to drop, a trade idea with the right partner, IR housekeeping, goalie starts and the week ahead.</span><a href="https://app.superpoolsai.com/#/performance">Open it in the app</a></div></li>
-            <li><time datetime="2026-10-09">Oct 9</time><div><b>The sweepstake</b><span>The office classic on any playoff: at the first game, everyone in the pool is dealt clubs from the hat at random. Nothing to pick and no skill needed: hold the champion and you win it. The host can draw the hat early, everyone hears what they drew, and your draw shares to the group chat as a picture.</span><a href="https://app.superpoolsai.com/#/pools">Open it in the app</a></div></li>
-            <li><time datetime="2026-10-09">Oct 9</time><div><b>The daily streak</b><span>A new pool game on any event with games: pick one winner a day from that day's games. A right pick adds one to your run, a wrong one starts it again, and a day off breaks nothing. The longest run wins, you hear before each day's first game, and your run shares to the group chat as a picture.</span><a href="https://app.superpoolsai.com/#/pools">Open it in the app</a></div></li>
-            <li><time datetime="2026-10-09">Oct 9</time><div><b>Share your picks as a picture</b><span>Once a week's picks, a prop sheet, a bracket or a series call locks, or a grid's digits are drawn, share it to the group chat as a picture: every call you made (your champion first on a bracket), ticked or crossed as the games decide them, and your score. Drawn on your phone in the pool's colours.</span><a href="https://app.superpoolsai.com/#/pools">Open it in the app</a></div></li>
-            <li><time datetime="2026-10-09">Oct 9</time><div><b>Call the games in your bracket</b><span>Brackets on best-of-seven playoffs can now take a bonus for calling how long each series goes: pick the winner, then tap 4, 5, 6 or 7. A series that goes exactly that long is worth a point more. Ready for the Stanley Cup and the NBA playoffs.</span><a href="https://app.superpoolsai.com/#/pools">Open it in the app</a></div></li>
-            <li><time datetime="2026-10-09">Oct 9</time><div><b>Every prop sheet, added up</b><span>Play a sheet on every game and the Table keeps a running total: the calls you got right across all of them, with the sheets you won breaking a tie, so a whole World Series of sheets has a winner.</span><a href="https://app.superpoolsai.com/#/leaders">Open it in the app</a></div></li>
-            <li><time datetime="2026-10-09">Oct 9</time><div><b>A prop sheet on every game, by itself</b><span>Hosts can switch on automatic prop sheets for an event: a sheet opens on each game a day and a half before it starts, so a World Series or NFL pool gets one for every game without anyone opening them by hand.</span><a href="https://app.superpoolsai.com/#/host">Open it in the app</a></div></li>
-            <li><time datetime="2026-10-09">Oct 9</time><div><b>The NBA playoffs are coming</b><span>Pools can run on the NBA playoffs next spring: pick every series and how many games it goes, fill in a bracket from the first round to the Finals, or rank the teams. Squares on a series pay after every quarter of every game, and every game takes a prop sheet. All fifteen series are ready the day the field is set in April.</span><a href="https://app.superpoolsai.com/#/pools">Open it in the app</a></div></li>
-            <li><time datetime="2026-10-09">Oct 9</time><div><b>Prop sheets score live</b><span>Your prop sheet now ticks as the game goes: who led after the 1st, the over once it's passed, a shutout broken, each call marked right or wrong the moment the game decides it. Once the sheet locks, the Table shows everyone's chance to win it.</span><a href="https://app.superpoolsai.com/#/pools">Open it in the app</a></div></li>
-            <li><time datetime="2026-10-09">Oct 9</time><div><b>Squares on any NFL game</b><span>A grid of squares now goes on any NFL game this week, not just the playoffs: Sunday night, Monday night, the game your group cares about. The digits are drawn at kickoff and it pays after every quarter, the same as the Super Bowl grid. In NFL centre, each game links straight to the pool's grid and prop sheet on it.</span><a href="https://app.superpoolsai.com/#/pools">Open it in the app</a></div></li>
-            <li><time datetime="2026-10-09">Oct 9</time><div><b>The Eliminator</b><span>Last one standing now runs on single-game tournaments: March Madness and the NFL playoffs. Pick one team to win each round, never the same team twice; a loss and you're out, and whoever survives the final wins it.</span><a href="https://app.superpoolsai.com/#/pools">Open it in the app</a></div></li>
-            <li><time datetime="2026-10-09">Oct 9</time><div><b>Box scores in NFL centre</b><span>Every NFL game that has kicked off opens its box score in NFL centre: the team stats side by side, each side's passing, rushing and receiving leaders, and every scoring play with the score after it, live while the game is on.</span><a href="https://app.superpoolsai.com/#/pools">Open it in the app</a></div></li>
-            <li><time datetime="2026-10-09">Oct 9</time><div><b>A second-chance bracket</b><span>Busted bracket? Once a pool's bracket has locked, the host can open a second-chance bracket from a later round (the Sweet 16 in March, the next round of any playoffs), a fresh start for everyone that runs beside the first.</span><a href="https://app.superpoolsai.com/#/pools">Open it in the app</a></div></li>
-            <li><time datetime="2026-10-09">Oct 9</time><div><b>The prop sheet</b><span>A new game for any playoff game or any NFL game this week: eight calls on it (who wins, the total, the margin, who leads after the 1st and at the halfway mark, a run in the 1st, extra innings, a shutout), a point each, with your total as the tiebreak. It locks at the first pitch and settles itself from the score, so nobody has to mark it. Add one for any LCS or World Series game from the Host page.</span><a href="https://app.superpoolsai.com/#/pools">Open it in the app</a></div></li>
-            <li><time datetime="2026-10-09">Oct 9</time><div><b>Standings by division</b><span>The Table in NFL centre now splits into the eight divisions and the two conferences, each leader marked, and Match centre does the same for MLS's two conferences. Switch back to the whole league any time.</span><a href="https://app.superpoolsai.com/#/pools">Open it in the app</a></div></li>
-            <li><time datetime="2026-10-09">Oct 9</time><div><b>The playoff box pool</b><span>The box pool now runs on the Stanley Cup playoffs too: the boxes are dealt from the sixteen clubs in the first round, on how far each is expected to go, and every playoff game counts all the way to the Cup. When a club is knocked out its players are shaded with nothing more to add. Ready the day the bracket is drawn in April.</span><a href="https://app.superpoolsai.com/#/pools">Open it in the app</a></div></li>
-            <li><time datetime="2026-10-09">Oct 9</time><div><b>March Madness is coming</b><span>The bracket now runs on the men's college basketball tournament: all 63 games in bracket order, from the first round to the championship, ready the day the field is announced in March. Later rounds are worth more, and the tiebreaker is the total points in the final.</span><a href="https://app.superpoolsai.com/#/pools">Open it in the app</a></div></li>
-            <li><time datetime="2026-10-09">Oct 9</time><div><b>Super Bowl squares</b><span>Squares now work on football: a grid on any NFL playoff game, the Super Bowl included, pays after the 1st quarter, at the half, after the 3rd and on the final score, with the digits drawn at kickoff. Baseball's grids still pay by the inning.</span><a href="https://app.superpoolsai.com/#/pools">Open it in the app</a></div></li>
-            <li><time datetime="2026-10-08">Oct 8</time><div><b>What you need, in words</b><span>The top of each game's Table now says where you stand in a sentence: how many can still catch you, how much you have to make up on the leader and what's still possible for you, or that first is out of reach, or yours already.</span><a href="https://app.superpoolsai.com/#/leaders">Open it in the app</a></div></li>
-            <li><time datetime="2026-10-08">Oct 8</time><div><b>The box pool</b><span>The hockey pool, with no draft night: the NHL's best players are dealt into evenly matched boxes, and everyone takes one player from each. Goals and assists count, a goalie's win and shutout too, live every night for a week, four weeks or the rest of the season, with an alert when one of yours scores and a line in the chat each morning on who had the night. Once it locks, every player shows his points and how many took him, and everyone's team shows.</span><a href="https://app.superpoolsai.com/#/pools">Open it in the app</a></div></li>
-            <li><time datetime="2026-10-08">Oct 8</time><div><b>The bracket</b><span>A new pool game for any playoff played in series: pick the winner of every series through to the final before the first game, with later rounds worth more. Change an early pick and the page clears what it broke; once it locks, every pick shows right or wrong and everyone's champion shows.</span><a href="https://app.superpoolsai.com/#/pools">Open it in the app</a></div></li>
-            <li><time datetime="2026-10-08">Oct 8</time><div><b>What the market expects</b><span>NFL centre and Match centre now show what the bookmakers expect from each game before it starts, as a chance and a margin (no prices, nothing to bet on), right beside how your pool picked it. Pick'em and Last one standing show each side's chance on the buttons you pick from. Who's smarter, your group or the market?</span><a href="https://app.superpoolsai.com/#/pools">Open it in the app</a></div></li>
-            <li><time datetime="2026-10-08">Oct 8</time><div><b>Settle any match by hand</b><span>When the scores feed freezes, a pool's host can settle a match on the Last one standing and Call the score pages too: a side, a draw, void or the score, with the reason everyone sees. It settles every game the pool runs on that match, for that pool only, and Hand back lets the feed decide again.</span><a href="https://app.superpoolsai.com/#/survivor">Open it in the app</a></div></li>
-            <li><time datetime="2026-10-08">Oct 8</time><div><b>The rules, written down</b><span>Every pick'em, series and ranking game now has its rules at the foot of its page, written from its own settings: what scores, when picks lock, what happens to a game called off, how a tie is broken and what the host can do. They're fixed from the first lock.</span><a href="https://app.superpoolsai.com/#/picks">Open it in the app</a></div></li>
-            <li><time datetime="2026-10-08">Oct 8</time><div><b>Your chance to win</b><span>A pick'em's or Pick the series' Table now shows everyone's chance of finishing first: the rest of the game played out a thousand times, each match or series drawn from how the pool picked it. It moves as the results come in.</span><a href="https://app.superpoolsai.com/#/leaders">Open it in the app</a></div></li>
-            <li><time datetime="2026-10-08">Oct 8</time><div><b>NFL centre and Match centre</b><span>A pool with a game on the NFL or a soccer league gets its own centre in the More menu: every game of the week with the score and the quarter or the minute while it is on, your pick on each, and how the pool picked once it kicks off. The Table tab ranks the league from the results.</span><a href="https://app.superpoolsai.com/#/pools">Open it in the app</a></div></li>
-            <li><time datetime="2026-10-08">Oct 8</time><div><b>Last one standing on the NFL</b><span>Last one standing now runs on the NFL as well as soccer: one team to win each week, never the same one twice, and a loss or a tie puts you out. It runs to the end of the regular season, and whoever is still in then shares it. Start it beside pick'em when you open a pool or from the Host page, and the host can enter a pick for a player who asks.</span><a href="https://app.superpoolsai.com/#/survivor">Open it in the app</a></div></li>
-            <li><time datetime="2026-10-08">Oct 8</time><div><b>The host's desk</b><span>A pool's host can change a game's rules until the first lock (the pool hears it), enter a round of picks for a player who asked, and settle a pick'em match by hand when the feed gets it wrong or leaves it hanging: a side, a draw or void, with the reason shown to everyone on the match. It counts for that pool only, and every action is on the host's log.</span><a href="https://app.superpoolsai.com/#/picks">Open it in the app</a></div></li>
-            <li><time datetime="2026-10-08">Oct 8</time><div><b>NFL pick'em</b><span>The NFL is in: every game of the season week by week, scores as they happen, and the playoffs once their teams are set. A pool can run a pick'em on it from Week 5, Classic or Confidence, each pick locking at its own kickoff. A tie counts for nobody.</span><a href="https://app.superpoolsai.com/#/pools">Open it in the app</a></div></li>
-            <li><time datetime="2026-10-08">Oct 8</time><div><b>Pick'em for the Premier League and MLS</b><span>A pool can run a weekly pick'em: every match of a round, pick the winner or a draw, each pick locking at its own kick-off so anyone can join any week. Classic gives a point for every right pick; Confidence has you number the round's picks, your surest highest, and a right one earns its number. Once a match kicks off you see how the pool split; when a round ends the pool hears who won it and you hear how you did. Start one from My pools or the Host page.</span><a href="https://app.superpoolsai.com/#/picks">Open it in the app</a></div></li>
-            <li><time datetime="2026-10-08">Oct 8</time><div><b>One table for every game in a pool</b><span>A pool's Leaders page is now its Table: every game the pool runs (the questions, Pick the series, Rank the teams, squares, last one standing, Call the score) one tap apart, each ranked the same way, with arrows for who moved today, what each member can still reach, and a mark on anyone who can no longer finish first. The host names the pool's main game; the home ranks you by it. Climb into first, or three places or more, and you hear about it.</span><a href="https://app.superpoolsai.com/#/leaders">Open it in the app</a></div></li>
-            <li><time datetime="2026-10-07">Oct 7</time><div><b>Watch live</b><span>A new page under More for every game of the night: the one with the most of your starters first, then every game with where you can watch it on what you have and a one-tap way into the broadcaster's player or your TV provider's, team radio, your players' live points, who else in the league has skin in it, and the recap once it's over. Tap &quot;I have them all&quot; if you subscribe to everything and nothing is marked locked. At the bottom: how to see every game this season, in Canada or the US.</span><a href="https://app.superpoolsai.com/#/watch">Open it in the app</a></div></li>
-            <li><time datetime="2026-10-06">Oct 6</time><div><b>Squares for the World Series</b><span>A pool can run a grid of squares on a baseball series: claim squares with your coins (or let the grid pick for you), and once the grid fills or Game 1 starts, the digits are drawn for each club. The last digit of each club's runs names the winning square after the 3rd, the 6th and the final of every game, and the pot pays out as it happens. 10 by 10 for a big group, 5 by 5 for a small one; the draw comes with a seed anyone can check. The host starts one from the Host page or when starting a pool.</span><a href="https://app.superpoolsai.com/#/picks">Open it in the app</a></div></li>
-            <li><time datetime="2026-10-06">Oct 6</time><div><b>MLB centre for baseball pools</b><span>A pool that runs Pick the series has its own sports page: every postseason game day by day, live with the inning and the outs, the line score by inning with runs, hits and errors, the probable pitchers before first pitch, and the bracket round by round with each series as it stands. Your pick shows on every series, and the pool's split once a series starts. It moves every minute while games are on.</span><a href="https://app.superpoolsai.com/#/sport/mlb">Open it in the app</a></div></li>
-            <li><time datetime="2026-10-06">Oct 6</time><div><b>Lineup New: the whole league, live, and what if</b><span>A League tab puts every team's lineup for a night on one board, ranked by what it should score and, once the puck drops, by what it has scored, with who left players with a game on the bench; a week view adds up the next seven days. The day view says where your lineup ranks tonight, shows each player's line from the shift charts (L1, D2), moves live points every minute while games are on, and has What if: try moves without saving, see the difference, then save or throw them away. Compare counts the places each side has the edge and shows live points. Played days on the date strip show what you scored. Tap a player's photo for his card; tap anywhere else on the row to move him.</span><a href="https://app.superpoolsai.com/#/team">Open it in the app</a></div></li>
-            <li><time datetime="2026-10-05">Oct 5</time><div><b>Lineup New, to try beside the old one</b><span>A new lineup section under More, next to the one you know. Day: tap a player, then where he goes (the places he fits light up), with an undo, warnings that fix themselves in a tap, and Best lineup listing every change and what it is worth, for today or the next 14 days. Week: who plays when for every player, tap a cell to start or bench him, light nights marked. Compare: your lineup against any team's, tonight slot by slot or across the week. Insights: how close your last week came to the best possible, light nights ahead, days with more players than places, goalies' back-to-backs and who is hot. Any team's lineups can be looked at; only your own can be changed.</span><a href="https://app.superpoolsai.com/#/team">Open it in the app</a></div></li>
-            <li><time datetime="2026-10-05">Oct 5</time><div><b>Every team's daily lineups</b><span>Open any team's page and its Daily lineups: the days ahead as that GM has set them, and every played day as it locked. Who plays when shows each player against the days, so you can see who another GM has playing on which nights. Read only: only the GM changes their own.</span><a href="https://app.superpoolsai.com/#/team">Open it in the app</a></div></li>
-            <li><time datetime="2026-10-04">Oct 4</time><div><b>Small things, tidied</b><span>When your filters leave nobody on the Players page, one tap clears them. The build-a-trade bar on another team's page fits a phone. My pools shows each site's name in full, the injury report's switch no longer runs off the screen, and the Money page never says $-0.</span><a href="https://app.superpoolsai.com/#/players">Open it in the app</a></div></li>
-            <li><time datetime="2026-10-04">Oct 4</time><div><b>Names in full on small phones</b><span>Team names wrap onto a second line instead of being cut off: on Home, My team, your profile, the standings, the podium, the scoreboard and Performance. A long surname on a player's page shrinks to fit instead of splitting in the middle, and page titles fit the screen.</span><a href="https://app.superpoolsai.com/#/standings">Open it in the app</a></div></li>
-            <li><time datetime="2026-10-04">Oct 4</time><div><b>Your watch list</b><span>Star any player to keep an eye on him: tap his rank on the Players page, or ☆ Watch on his card. Watch list on the Players page shows them all, free agents and other teams' players alike, and if another team drops one, you hear about it on the bell and your phone while he's there for the taking. Injury news on them reaches you too, and the Home page keeps the list in view: free agents first, with tonight's games. Asked for on the ideas board.</span><a href="https://app.superpoolsai.com/#/players?who=watch">Open it in the app</a></div></li>
-            <li><time datetime="2026-10-04">Oct 4</time><div><b>Head-to-head leagues</b><span>A league can play weekly matchups instead of one season-long total: one opponent a week, a W-L-T table, the week's matchups live on Home and Standings, and a phone alert each Monday with your opponent and last week's result.</span><a href="https://app.superpoolsai.com/#/standings">Open it in the app</a></div></li>
-            <li><time datetime="2026-10-04">Oct 4</time><div><b>Playoff brackets</b><span>Head-to-head leagues can finish with a bracket for the top 2 to 8 teams over the season's last weeks, byes for the top seeds, and the champion crowned on the Standings page. Payouts follow the bracket.</span><a href="https://app.superpoolsai.com/#/standings">Open it in the app</a></div></li>
-            <li><time datetime="2026-10-04">Oct 4</time><div><b>Categories, season-long or week by week</b><span>Rotisserie ranks every team in each category over the season; head-to-head categories plays each week for them. Tap a matchup to see it category by category.</span><a href="https://app.superpoolsai.com/#/standings">Open it in the app</a></div></li>
-            <li><time datetime="2026-10-04">Oct 4</time><div><b>Matchups, player by player</b><span>Tap any head-to-head matchup for both lineups side by side: every started player, his games and his points this week.</span><a href="https://app.superpoolsai.com/#/standings">Open it in the app</a></div></li>
-            <li><time datetime="2026-10-04">Oct 4</time><div><b>Trades graded on your categories</b><span>In a category league the trade evaluator, the trade finder and the position ranks weigh players on the league's categories, so a deal for a big hitter in a hits league grades the way it should.</span><a href="https://app.superpoolsai.com/#/trades">Open it in the app</a></div></li>
-            <li><time datetime="2026-10-04">Oct 4</time><div><b>Performance and the scoreboard in your categories</b><span>In a category league the Performance page ranks every team on the league's categories over any stretch you pick, rotisserie style, with your best and weakest categories, and the scoreboard shows each team's categories tonight and ranks the night the same way.</span><a href="https://app.superpoolsai.com/#/performance">Open it in the app</a></div></li>
-            <li><time datetime="2026-10-04">Oct 4</time><div><b>Win chances in every matchup</b><span>A head-to-head points matchup shows each side's chance of winning the week and the projected final, from the points on the board and the rest of the week played out with both rosters.</span><a href="https://app.superpoolsai.com/#/standings">Open it in the app</a></div></li>
-            <li><time datetime="2026-10-04">Oct 4</time><div><b>Drafting for categories</b><span>In a category league the Players page, draft room, cheat sheet and mock draft rank by category value (what a player is worth in your league's categories), autodraft picks by it, and Roster vs available compares your players with the free agents on it.</span><a href="https://app.superpoolsai.com/#/players">Open it in the app</a></div></li>
-            <li><time datetime="2026-10-04">Oct 4</time><div><b>Lineup efficiency</b><span>Performance now shows how close your lineups came to the best you could have played each night from the same players: a Lineup column for every team, your share and the night that cost the most, and the most possible beside each day. Home shows your last lineup against the best one possible. A head-to-head table shows each team's max points for under its points for.</span><a href="https://app.superpoolsai.com/#/performance">Open it in the app</a></div></li>
-            <li><time datetime="2026-10-04">Oct 4</time><div><b>Pickups for your categories</b><span>In a category league the pickup advisor looks for the free agents who help where you trail in the table, plays the move out night by night, and shows what it does to each category: +9 shots, +4 PIM, save percentage up.</span><a href="https://app.superpoolsai.com/#/players?tab=advisor">Open it in the app</a></div></li>
-            <li><time datetime="2026-10-04">Oct 4</time><div><b>A commissioner's toolkit</b><span>Co-commissioners, a clean handover when a GM walks away, a log of every commissioner action on the League page, a constitution page, your own roster slots, and a setup guide that walks a new league to draft night.</span><a href="https://app.superpoolsai.com/#/commish">Open it in the app</a></div></li>
-            <li><time datetime="2026-10-04">Oct 4</time><div><b>Your Yahoo past in one go</b><span>A league that played on Yahoo brings every season Yahoo kept, champions to last place, from the League page: connect Yahoo, pick the league, tick the seasons.</span><a href="https://app.superpoolsai.com/#/league?t=history">Open it in the app</a></div></li>
-            <li><time datetime="2026-10-04">Oct 4</time><div><b>Your league's past</b><span>Played somewhere else before? The commissioner writes past seasons in, or pastes a final table straight from Yahoo, ESPN, Fantrax or CBS, and the banners, titles and last places fill in.</span><a href="https://app.superpoolsai.com/#/league?t=history">Open it in the app</a></div></li>
-            <li><time datetime="2026-10-03">Oct 3</time><div><b>Email sign-in and invites</b><span>Sign in with your email and a password you choose, reset it with a code, and join a league from an invite link. Someone in two leagues switches between them from the menu.</span><a href="https://app.superpoolsai.com/#/profile">Open it in the app</a></div></li>
-            <li><time datetime="2026-10-03">Oct 3</time><div><b>Game lines in the NHL centre</b><span>Every game shows its line, total and the chance it goes to overtime, and you can bet coins on any game straight from the NHL centre.</span><a href="https://app.superpoolsai.com/#/nhl">Open it in the app</a></div></li>
-          </ol>
+      </section>
+      <section class="cmonth" id="m-2026-10" aria-labelledby="h-2026-10">
+        <h2 class="display" id="h-2026-10">October 2026<small>127 changes</small></h2>
+        <div class="cweek" id="w-2026-10-19">
+          <h3>23 to 24 October<small>9</small></h3>
+          <div class="clist">
+          <details class="ce">
+            <summary><time datetime="2026-10-24">Oct 24</time><b>The Oilers fan zone</b></summary>
+            <div class="cb"><p>A page for the Oilers: the verdict on their season with a grade, strengths and weaknesses ranked against all 32 clubs, a luck check and what management and the coaches should do about it; who's rising and who's fading, the goalies and the prospects; the latest news, the last ten games and the next few; and the history, from the 1984 Cup to the rafters. It's under More, and any club can be picked from the page.</p><a class="textlink" href="https://app.superpoolsai.com/#/fans" aria-label="Open in the app: The Oilers fan zone">Open it in the app</a></div>
+          </details>
+          <details class="ce">
+            <summary><time datetime="2026-10-24">Oct 24</time><b>The full-screen app, and a roomier chat</b></summary>
+            <div class="cb"><p>Add the app to your Home Screen and it opens full screen, with no browser bars and with alerts on your phone. Home shows you the steps once, and Profile keeps them. In Chat, the lounges moved into a small room button at the start of the filter row, so there's one less bar above the messages.</p><a class="textlink" href="https://app.superpoolsai.com/#/profile" aria-label="Open in the app: The full-screen app, and a roomier chat">Open it in the app</a></div>
+          </details>
+          <details class="ce">
+            <summary><time datetime="2026-10-24">Oct 24</time><b>Expected points follow this season</b></summary>
+            <div class="cb"><p>Projections now count this season's games, and update every morning. A hot or cold start moves a player's expected points more with every game he plays, rookies get a projection from their first games, and a goalie's starts follow who has the net this year. Each player card says how he's doing so far.</p><a class="textlink" href="https://app.superpoolsai.com/#/team" aria-label="Open in the app: Expected points follow this season">Open it in the app</a></div>
+          </details>
+          <details class="ce">
+            <summary><time datetime="2026-10-24">Oct 24</time><b>NHL news on Home, and the Live page in game order</b></summary>
+            <div class="cb"><p>Home has the NHL's latest five headlines under the League wire, with a star on any about your players. On the Live page the games on now come first, then the ones still to come, then the finals, and the race sits right under the scores. NHL centre is back in the bottom bar; Players is under More.</p><a class="textlink" href="https://app.superpoolsai.com/#/scoreboard" aria-label="Open in the app: NHL news on Home, and the Live page in game order">Open it in the app</a></div>
+          </details>
+          <details class="ce">
+            <summary><time datetime="2026-10-23">Oct 23</time><b>Lounges: talk with everyone following your league</b></summary>
+            <div class="cb"><p>Chat now has a lounge for each league or show your pools follow, like the NHL lounge or the Love Is Blind lounge, shared with every pool on Super Pools that follows it. Tap Just my pool to see only your own crew's posts. Everyone else sees your first name and initial, and you can report a post or delete your own.</p><a class="textlink" href="https://app.superpoolsai.com/#/chat" aria-label="Open in the app: Lounges: talk with everyone following your league">Open it in the app</a></div>
+          </details>
+          <details class="ce">
+            <summary><time datetime="2026-10-23">Oct 23</time><b>Join a pool with just your name</b></summary>
+            <div class="cb"><p>Friends you invite to a pool now type their name and they're in, no email or password first. Their place stays on their phone, and Keep your place adds an email whenever they like so they can sign in anywhere with every call and coin. Fantasy leagues still ask for an email.</p><a class="textlink" href="https://app.superpoolsai.com/#/pools" aria-label="Open in the app: Join a pool with just your name">Open it in the app</a></div>
+          </details>
+          <details class="ce">
+            <summary><time datetime="2026-10-23">Oct 23</time><b>Players in the bottom bar, and a lighter app</b></summary>
+            <div class="cb"><p>Players takes NHL centre's place in the bottom bar; NHL centre is under More, in Tonight. Starting a pool is now a few short steps with a Start my pool bar that says what's left, small buttons are easier to hit, the cookie question is one line, and pages open faster.</p><a class="textlink" href="https://app.superpoolsai.com/#/players" aria-label="Open in the app: Players in the bottom bar, and a lighter app">Open it in the app</a></div>
+          </details>
+          <details class="ce">
+            <summary><time datetime="2026-10-23">Oct 23</time><b>Fewer bells, all of them news</b></summary>
+            <div class="cb"><p>No more bells when a player flips between Out and Day-To-Day on a game day, or for the same news twice in three days. Stat corrections ring only when they move your total by a point or more. New injuries, a move to IR and a player coming off the report still ring.</p><a class="textlink" href="https://app.superpoolsai.com/#/" aria-label="Open in the app: Fewer bells, all of them news">Open it in the app</a></div>
+          </details>
+          <details class="ce">
+            <summary><time datetime="2026-10-23">Oct 23</time><b>Home leads with tonight</b></summary>
+            <div class="cb"><p>On your phone, Home now opens on tonight: your starters, their points and any benched player with a game. The standings follow with every team name in full, and cards with nothing to show yet stay out of the way.</p><a class="textlink" href="https://app.superpoolsai.com/#/" aria-label="Open in the app: Home leads with tonight">Open it in the app</a></div>
+          </details>
+          </div>
         </div>
-      </div>
+        <div class="cweek" id="w-2026-10-12">
+          <h3>12 to 18 October<small>39</small></h3>
+          <div class="clist">
+          <details class="ce">
+            <summary><time datetime="2026-10-18">Oct 18</time><b>More to call in a World Series pool</b></summary>
+            <div class="cb"><p>A World Series pool now asks who wins Game 1, whether the Game 1 winner goes on to win it all, and whether any game goes to extra innings, beside who wins, in how many games and the MVP. Results come in on their own, and the host gets a bell to call each one.</p><a class="textlink" href="https://app.superpoolsai.com/#/new" aria-label="Open in the app: More to call in a World Series pool">Open it in the app</a></div>
+          </details>
+          <details class="ce">
+            <summary><time datetime="2026-10-18">Oct 18</time><b>World Series pools, ready for Game 1</b></summary>
+            <div class="cb"><p>Start a World Series pool and its questions offer only the clubs still alive, never one already knocked out, and nothing the series has already decided. Pick the series and its length, a squares grid, a prop sheet on any game or a pick a day. A grid that fills before the matchup is set fills in the other club the moment it is. The start page and your home page lead with the World Series this week.</p><a class="textlink" href="https://app.superpoolsai.com/#/new" aria-label="Open in the app: World Series pools, ready for Game 1">Open it in the app</a></div>
+          </details>
+          <details class="ce">
+            <summary><time datetime="2026-10-17">Oct 17</time><b>The night's goals on the scoreboard</b></summary>
+            <div class="cb"><p>Every goal a rostered player scored or set up tonight, from the moment the page opens: the scorer, the assists, each player's GM and what the goal was worth to them under this league's scoring. Tap play to watch the goal right there.</p><a class="textlink" href="https://app.superpoolsai.com/#/scoreboard" aria-label="Open in the app: The night's goals on the scoreboard">Open it in the app</a></div>
+          </details>
+          <details class="ce">
+            <summary><time datetime="2026-10-17">Oct 17</time><b>Pools where your crew already talks</b></summary>
+            <div class="cb"><p>A pool you're in can be posted into this league's chat as a card with a Join button, and everyone not in it yet gets a bell. Your home page lists the pools posted here in the last month, and starts a pool for your other groups (family, work, the group chat) in a tap.</p><a class="textlink" href="https://app.superpoolsai.com/#/" aria-label="Open in the app: Pools where your crew already talks">Open it in the app</a></div>
+          </details>
+          <details class="ce">
+            <summary><time datetime="2026-10-17">Oct 17</time><b>Trades with a hurt player</b></summary>
+            <div class="cb"><p>A hurt player coming to you from another team's IR now slides straight into your open IR slot, so the trade builder no longer asks for a drop you don't need. It says so when it happens.</p><a class="textlink" href="https://app.superpoolsai.com/#/trades" aria-label="Open in the app: Trades with a hurt player">Open it in the app</a></div>
+          </details>
+          <details class="ce">
+            <summary><time datetime="2026-10-16">Oct 16</time><b>Live in the dock</b></summary>
+            <div class="cb"><p>Live sits in the middle of the bottom bar, with a red dot while a game is on. The scoreboard now leads with your night (points, where you stand, a projected finish), the race as it stands if the night ended now, the stars of the night and a goal horn for your starters.</p><a class="textlink" href="https://app.superpoolsai.com/#/scoreboard" aria-label="Open in the app: Live in the dock">Open it in the app</a></div>
+          </details>
+          <details class="ce">
+            <summary><time datetime="2026-10-16">Oct 16</time><b>Photos, search and sharing in chat</b></summary>
+            <div class="cb"><p>Send a photo in the chat, search everything you can see, share a message or a photo to your phone's messaging apps, and see who's typing. The week's most-reacted post is pinned as the chirp of the week. Picking a GM shows their own side of the chat, with &quot;and mentions&quot; for the league lines that name them.</p><a class="textlink" href="https://app.superpoolsai.com/#/chat" aria-label="Open in the app: Photos, search and sharing in chat">Open it in the app</a></div>
+          </details>
+          <details class="ce">
+            <summary><time datetime="2026-10-16">Oct 16</time><b>Off IR any time</b></summary>
+            <div class="cb"><p>Move a player off IR to your bench or lineup whenever your roster has room, even once his game has started. That night still counts him the way he was at puck drop.</p><a class="textlink" href="https://app.superpoolsai.com/#/team" aria-label="Open in the app: Off IR any time">Open it in the app</a></div>
+          </details>
+          <details class="ce">
+            <summary><time datetime="2026-10-15">Oct 15</time><b>Women's World Cup 2027 questions</b></summary>
+            <div class="cb"><p>Open a pool on next summer's Women's World Cup in Brazil now: who lifts it, whether Europe does, how far the hosts go, whether the United States reach the semi-finals and how the final ends, called in coins all the way to the tournament.</p><a class="textlink" href="https://app.superpoolsai.com/#/new" aria-label="Open in the app: Women's World Cup 2027 questions">Open it in the app</a></div>
+          </details>
+          <details class="ce">
+            <summary><time datetime="2026-10-15">Oct 15</time><b>The WSL and the NWSL</b></summary>
+            <div class="cb"><p>Start a pool on women's soccer: every match of the Women's Super League to May, and the NWSL's last matchweeks, with pick'em, last one standing, Call the score and the daily streak. Results land on their own.</p><a class="textlink" href="https://app.superpoolsai.com/#/new" aria-label="Open in the app: The WSL and the NWSL">Open it in the app</a></div>
+          </details>
+          <details class="ce">
+            <summary><time datetime="2026-10-15">Oct 15</time><b>NFL season questions</b></summary>
+            <div class="cb"><p>An NFL pool now comes with the season's questions: who wins the Super Bowl, the AFC and the NFC, the best record, MVP and Defensive Player of the Year. The NHL, the Premier League and MLS pools bring theirs the same way.</p><a class="textlink" href="https://app.superpoolsai.com/#/new" aria-label="Open in the app: NFL season questions">Open it in the app</a></div>
+          </details>
+          <details class="ce">
+            <summary><time datetime="2026-10-15">Oct 15</time><b>NBA season questions</b></summary>
+            <div class="cb"><p>An NBA pool now comes with the season's questions: who wins the title, the East, the West and the NBA Cup, the best record, MVP, Rookie and Defensive Player of the Year. Call them with coins, a fresh drop on the first of every month, and the chances move as your friends call them.</p><a class="textlink" href="https://app.superpoolsai.com/#/new" aria-label="Open in the app: NBA season questions">Open it in the app</a></div>
+          </details>
+          <details class="ce">
+            <summary><time datetime="2026-10-15">Oct 15</time><b>NBA win totals</b></summary>
+            <div class="cb"><p>A new game for a basketball pool: over or under on every NBA team's wins this season, called once before opening night on 20 October. The lines start from a public preseason projection and the host can change any of them until then. A point for each right call, landing all season as teams pass their lines or fall short; everyone's calls show once the season tips off.</p><a class="textlink" href="https://app.superpoolsai.com/#/new" aria-label="Open in the app: NBA win totals">Open it in the app</a></div>
+          </details>
+          <details class="ce">
+            <summary><time datetime="2026-10-15">Oct 15</time><b>Drop the worst weeks in pick'em</b></summary>
+            <div class="cb"><p>A season-long pick'em can drop each player's worst one or two weeks from their total, so a bad week or a late start is forgiven. Pick it when you start the pool, or before the first lock; the week-by-week grid strikes the dropped weeks through.</p><a class="textlink" href="https://app.superpoolsai.com/#/new" aria-label="Open in the app: Drop the worst weeks in pick'em">Open it in the app</a></div>
+          </details>
+          <details class="ce">
+            <summary><time datetime="2026-10-15">Oct 15</time><b>A sports pool's invite shows what's first</b></summary>
+            <div class="cb"><p>An invite to a pick'em or last one standing pool now leads with its next game, &quot;NFL pick'em, Week 7: 15 games&quot;, and when the first pick locks, on the join page and in the link's preview in the group chat.</p><a class="textlink" href="https://app.superpoolsai.com/#/pools" aria-label="Open in the app: A sports pool's invite shows what's first">Open it in the app</a></div>
+          </details>
+          <details class="ce">
+            <summary><time datetime="2026-10-15">Oct 15</time><b>Pick'em week by week</b></summary>
+            <div class="cb"><p>Under a pick'em's table, a grid of everyone's points in each week played, the latest first, with each week's winner in gold and a crown for every week won.</p><a class="textlink" href="https://app.superpoolsai.com/#/picks" aria-label="Open in the app: Pick'em week by week">Open it in the app</a></div>
+          </details>
+          <details class="ce">
+            <summary><time datetime="2026-10-15">Oct 15</time><b>Lives in last one standing</b></summary>
+            <div class="cb"><p>Last one standing can now give everyone two or three lives: a loss, a tie or a round with no pick costs one, and you're out when the last is gone. Pick the lives when you start it; the page shows the hearts each player has left.</p><a class="textlink" href="https://app.superpoolsai.com/#/new" aria-label="Open in the app: Lives in last one standing">Open it in the app</a></div>
+          </details>
+          <details class="ce">
+            <summary><time datetime="2026-10-15">Oct 15</time><b>Forgot a pick? The favourite</b></summary>
+            <div class="cb"><p>A pick'em can now fill a forgotten pick with the favourite the moment the game starts, instead of scoring nothing (with the lowest Confidence number still free). Switch it on when you start the pool, or before the first lock. The board says which picks were made for you.</p><a class="textlink" href="https://app.superpoolsai.com/#/new" aria-label="Open in the app: Forgot a pick? The favourite">Open it in the app</a></div>
+          </details>
+          <details class="ce">
+            <summary><time datetime="2026-10-15">Oct 15</time><b>A tiebreaker in pick'em</b></summary>
+            <div class="cb"><p>Every pick'em week now has a tiebreaker: call the total in the week's last game, up to its start. Level on points for the week, the closest call takes it; level at the end, the closest on the last week played wins the pool.</p><a class="textlink" href="https://app.superpoolsai.com/#/picks" aria-label="Open in the app: A tiebreaker in pick'em">Open it in the app</a></div>
+          </details>
+          <details class="ce">
+            <summary><time datetime="2026-10-15">Oct 15</time><b>Pick'em against the spread</b></summary>
+            <div class="cb"><p>A pick'em on the NFL, the NBA or the NHL can run against the spread: switch it on when you start the pool (or before anyone picks). Each pick takes the line at the moment you save it and keeps it, so a line that moves later never changes your pick. Your side has to cover; landing right on the line is a tie and scores nothing.</p><a class="textlink" href="https://app.superpoolsai.com/#/new" aria-label="Open in the app: Pick'em against the spread">Open it in the app</a></div>
+          </details>
+          <details class="ce">
+            <summary><time datetime="2026-10-15">Oct 15</time><b>Pick the favourites</b></summary>
+            <div class="cb"><p>A long pick'em week (an NHL or NBA week is about fifty games) now has one tap to fill every open game with the favourite, the surest numbered highest in Confidence. Change any before you save. A week of nightly games reads day by day.</p><a class="textlink" href="https://app.superpoolsai.com/#/picks" aria-label="Open in the app: Pick the favourites">Open it in the app</a></div>
+          </details>
+          <details class="ce">
+            <summary><time datetime="2026-10-15">Oct 15</time><b>The guillotine</b></summary>
+            <div class="cb"><p>A commissioner can make the league a guillotine under League features: every Monday, once Sunday's games are final, the team with the fewest points that week is cut and its players hit free agency. The home page shows who's on the block this week and everyone already cut; the last team standing wins. Points leagues played for the season total.</p><a class="textlink" href="https://app.superpoolsai.com/#/commish" aria-label="Open in the app: The guillotine">Open it in the app</a></div>
+          </details>
+          <details class="ce">
+            <summary><time datetime="2026-10-15">Oct 15</time><b>Best ball</b></summary>
+            <div class="cb"><p>A commissioner can make the league best ball under League features: your lineup still scores live on a game night, and once the night is over it counts the best lineup your players allowed, so nobody loses a night to a lineup left unset. It starts with the night being played. Points leagues only.</p><a class="textlink" href="https://app.superpoolsai.com/#/commish" aria-label="Open in the app: Best ball">Open it in the app</a></div>
+          </details>
+          <details class="ce">
+            <summary><time datetime="2026-10-15">Oct 15</time><b>Pools on every NHL and NBA game</b></summary>
+            <div class="cb"><p>Start a pool on the NHL or NBA regular season: weekly pick'em, last one standing (one team to win each week, never the same one twice) or the daily streak, one pick a night. Every game comes in with its week, and results land on their own.</p><a class="textlink" href="https://app.superpoolsai.com/#/new" aria-label="Open in the app: Pools on every NHL and NBA game">Open it in the app</a></div>
+          </details>
+          <details class="ce">
+            <summary><time datetime="2026-10-14">Oct 14</time><b>Your pool's Monday</b></summary>
+            <div class="cb"><p>Every Monday your pool's voice sums up the week: what settled and who called it, the table, a nudge for anyone who sat the week out, and what's coming, day by day, before the next drop.</p><a class="textlink" href="https://app.superpoolsai.com/#/chat" aria-label="Open in the app: Your pool's Monday">Open it in the app</a></div>
+          </details>
+          <details class="ce">
+            <summary><time datetime="2026-10-14">Oct 14</time><b>Which pages your league opens, with no names</b></summary>
+            <div class="cb"><p>The app now keeps a daily count of how often each page is opened and by how many members, with no names: a member is counted by a code that changes every day. It tells us which pages to make better. A commissioner can switch it off under League features on the Commish page, a pool's host under Pool settings.</p><a class="textlink" href="https://app.superpoolsai.com/#/privacy" aria-label="Open in the app: Which pages your league opens, with no names">Open it in the app</a></div>
+          </details>
+          <details class="ce">
+            <summary><time datetime="2026-10-14">Oct 14</time><b>Your roster count leaves IR out</b></summary>
+            <div class="cb"><p>The Players page counted a player on IR against your roster limit, which leaves IR out, so a full roster with one on IR read 25 of 24. It now counts the active roster and says how many are on IR beside it.</p><a class="textlink" href="https://app.superpoolsai.com/#/players" aria-label="Open in the app: Your roster count leaves IR out">Open it in the app</a></div>
+          </details>
+          <details class="ce">
+            <summary><time datetime="2026-10-14">Oct 14</time><b>One chat, with a filter</b></summary>
+            <div class="cb"><p>Trash talk, the draft room, the league's voice and your DMs are now one feed. The bar across the top filters it: pick a GM to see only what they said and every move that names them, or a kind (talk, transactions, bets, the voice, the draft, private, league news). Under the box, To says where your post goes: everyone, the voice privately, or the GM you picked.</p><a class="textlink" href="https://app.superpoolsai.com/#/chat" aria-label="Open in the app: One chat, with a filter">Open it in the app</a></div>
+          </details>
+          <details class="ce">
+            <summary><time datetime="2026-10-14">Oct 14</time><b>Every move in the league on your home page</b></summary>
+            <div class="cb"><p>League transactions on the home page lists every add, drop and trade (and, if you want them, the draft and the keepers), newest first. Filter by GM or by kind. An add and the drop made with it read as one move, and a trade shows what each side got.</p><a class="textlink" href="https://app.superpoolsai.com/#/" aria-label="Open in the app: Every move in the league on your home page">Open it in the app</a></div>
+          </details>
+          <details class="ce">
+            <summary><time datetime="2026-10-14">Oct 14</time><b>Your roster against the free agents</b></summary>
+            <div class="cb"><p>On Players, Browse, the new GM vs available choice puts one GM's players among every available player, theirs in their colour, so you see who on the wire outranks them. On My Team's Stats tab, Compare has Best available: the best free agent at each of your positions, one for one, with both sides' totals.</p><a class="textlink" href="https://app.superpoolsai.com/#/players" aria-label="Open in the app: Your roster against the free agents">Open it in the app</a></div>
+          </details>
+          <details class="ce">
+            <summary><time datetime="2026-10-14">Oct 14</time><b>The live room is optional</b></summary>
+            <div class="cb"><p>A commissioner can switch the live room's card off the home page and the scoreboard under League features on the Commish page. SaK has it off.</p><a class="textlink" href="https://app.superpoolsai.com/#/commish" aria-label="Open in the app: The live room is optional">Open it in the app</a></div>
+          </details>
+          <details class="ce">
+            <summary><time datetime="2026-10-13">Oct 13</time><b>Your pool's voice speaks on game days</b></summary>
+            <div class="cb"><p>A pool on games now hears from its voice the way a show pool does on a drop day: the morning post says which picks lock before tomorrow (the round, when, and who still has to pick, by name), and what's on tonight on the pool's events. Ask it in the chat who hasn't picked yet or what's on this week and it knows. Your pool's home says it too: the next lock, the countdown and whether your pick is in, one tap from the picks.</p><a class="textlink" href="https://app.superpoolsai.com/#/chat" aria-label="Open in the app: Your pool's voice speaks on game days">Open it in the app</a></div>
+          </details>
+          <details class="ce">
+            <summary><time datetime="2026-10-13">Oct 13</time><b>Your privacy, plainly</b></summary>
+            <div class="cb"><p>A page that says everything we keep to run a pool and nothing else: your name and email, your calls, picks and messages, who sees them (the people in your pool, nobody outside it), the analytics choice, and how to leave or be deleted. Linked from the cookie banner and the landing page.</p><a class="textlink" href="https://app.superpoolsai.com/#/privacy" aria-label="Open in the app: Your privacy, plainly">Open it in the app</a></div>
+          </details>
+          <details class="ce">
+            <summary><time datetime="2026-10-13">Oct 13</time><b>Bring your rosters from Fantrax, ESPN or Yahoo</b></summary>
+            <div class="cb"><p>Moving a league over? Under Roster on the Commish page, paste the league's Fantrax or ESPN link (or open your Yahoo league under My pools) and every team's players come back matched to ours by name and club. Say which team here each one is, and they're written in, everyone on the bench with IR kept, so the first lineup sorts the starters. Anyone Fantrax has that we don't (a prospect in the minors, a different spelling) is listed and left out.</p><a class="textlink" href="https://app.superpoolsai.com/#/commish" aria-label="Open in the app: Bring your rosters from Fantrax, ESPN or Yahoo">Open it in the app</a></div>
+          </details>
+          <details class="ce">
+            <summary><time datetime="2026-10-13">Oct 13</time><b>Something to call every Wednesday</b></summary>
+            <div class="cb"><p>A Love Is Blind pool now has questions for every drop, not just the premiere and the finale: four for episodes 6 to 8 and four for 9 to 11, each closing as its drop lands. When a pack gains questions, every pool on it gets them by itself, with a line in the chat and a ping. The pool's voice now posts on the mornings that matter: what settled and who called it, coins that dropped, what closes tonight and who hasn't called. And an invite link shows the first question you'd call before you sign up: tap an answer and it's placed the moment you're in. Your pool's home says how many questions close today and how many still wait on your call, one tap from the first. And once a question closes, it shows where everyone stands, answer by answer, so you can watch knowing who said what. When the drop settles, the Settled tab has your card: every call you made on it, right or wrong, with the score, one tap to share. Hosts: once the cast is known, the Ask sheet's One for each shape has the couple questions ready (make it to the altar, both say I do, still engaged next drop, together at the reunion, the family against it): tap one, add the couples, and every question is asked with its rule. And the Host page opens with What's next: what closes and when, what waits to be settled, the next drop. Hosts: a question that has closed and waits on your call now rings your bell eight hours on.</p><a class="textlink" href="https://app.superpoolsai.com/#/questions" aria-label="Open in the app: Something to call every Wednesday">Open it in the app</a></div>
+          </details>
+          <details class="ce">
+            <summary><time datetime="2026-10-13">Oct 13</time><b>The league's voice gets smarter</b></summary>
+            <div class="cb"><p>The league's voice now only tells you to change your lineup when there's a real move: someone on your bench who plays tonight, can fill the slot, and gains you points. No more calls to bench a player nobody can replace, or to sit a day-to-day guy who's playing. The morning column leads with the real story (who passed whom, the tight races, the week's hottest and coldest teams, bench calls that actually cost points, and NHL news about your own players), and ask it about your lineup in chat for the same straight answer.</p><a class="textlink" href="https://app.superpoolsai.com/#/chat" aria-label="Open in the app: The league's voice gets smarter">Open it in the app</a></div>
+          </details>
+          <details class="ce">
+            <summary><time datetime="2026-10-12">Oct 12</time><b>Copy your scoring from Fantrax</b></summary>
+            <div class="cb"><p>Coming from a Fantrax points league? In the scoring settings on the Commish page, paste its link and every stat both sites keep takes Fantrax's value. Check them, then save.</p><a class="textlink" href="https://app.superpoolsai.com/#/commish" aria-label="Open in the app: Copy your scoring from Fantrax">Open it in the app</a></div>
+          </details>
+          <details class="ce">
+            <summary><time datetime="2026-10-12">Oct 12</time><b>Bring your past from Fantrax</b></summary>
+            <div class="cb"><p>A league that played on Fantrax brings its history too: on the League page, paste each season's Fantrax link (Fantrax gives every season its own), and each comes back with its final table, champions to last place. Say which team here each Fantrax team was, and their titles and last places follow them.</p><a class="textlink" href="https://app.superpoolsai.com/#/league" aria-label="Open in the app: Bring your past from Fantrax">Open it in the app</a></div>
+          </details>
+          <details class="ce">
+            <summary><time datetime="2026-10-12">Oct 12</time><b>Your pick just scored</b></summary>
+            <div class="cb"><p>With your pool's home open on a game day, a score for the side you picked (your pick'em pick, your last-one-standing club) now lights up across the top of the page with the club and the score. Tap it for that game's thread.</p><a class="textlink" href="https://app.superpoolsai.com/#/" aria-label="Open in the app: Your pick just scored">Open it in the app</a></div>
+          </details>
+          </div>
+        </div>
+        <div class="cweek" id="w-2026-10-05">
+          <h3>5 to 11 October<small>61</small></h3>
+          <div class="clist">
+          <details class="ce">
+            <summary><time datetime="2026-10-11">Oct 11</time><b>Bring your past from ESPN</b></summary>
+            <div class="cb"><p>A league that played on ESPN brings its history in one go: on the League page, paste the ESPN league's link and every season it kept comes back with its final table, champions to last place, ready to tick and bring in. The league must be viewable to the public on ESPN.</p><a class="textlink" href="https://app.superpoolsai.com/#/league" aria-label="Open in the app: Bring your past from ESPN">Open it in the app</a></div>
+          </details>
+          <details class="ce">
+            <summary><time datetime="2026-10-11">Oct 11</time><b>A Traitors pool</b></summary>
+            <div class="cb"><p>Start a pool on The Traitors: New Blood from Start a pool: call every round table from episode 6, who reaches the end and whether a Faithful falls at the final round table, with coins on every episode night through the finale on 19 November.</p><a class="textlink" href="https://app.superpoolsai.com/#/pools" aria-label="Open in the app: A Traitors pool">Open it in the app</a></div>
+          </details>
+          <details class="ce">
+            <summary><time datetime="2026-10-11">Oct 11</time><b>The live room on your home page</b></summary>
+            <div class="cb"><p>On a game night your home page now shows the league's live room, the way a pool's home does: who's watching, the latest swings with their reactions, and tonight's scoreboard a tap away. Tap a game for its sheet.</p><a class="textlink" href="https://app.superpoolsai.com/#/" aria-label="Open in the app: The live room on your home page">Open it in the app</a></div>
+          </details>
+          <details class="ce">
+            <summary><time datetime="2026-10-11">Oct 11</time><b>A thread for every game in your pool</b></summary>
+            <div class="cb"><p>Every match in a pool now has its own chat. Tap Talk on a pick'em match, a game chip in the pool's live room, or Thread in the match centre: the score sits on top and the pool talks it over below. Each game shows how busy its thread is.</p><a class="textlink" href="https://app.superpoolsai.com/#/picks" aria-label="Open in the app: A thread for every game in your pool">Open it in the app</a></div>
+          </details>
+          <details class="ce">
+            <summary><time datetime="2026-10-11">Oct 11</time><b>One score, every page</b></summary>
+            <div class="cb"><p>Scores and clocks now move within seconds of the NHL, and every page shows the same one at the same moment: the scoreboard, NHL centre, My Team and the home page all read from one place. Tonight's points land on every page together the moment a box score has them, with nothing to refresh.</p><a class="textlink" href="https://app.superpoolsai.com/#/nhl?t=scores" aria-label="Open in the app: One score, every page">Open it in the app</a></div>
+          </details>
+          <details class="ce">
+            <summary><time datetime="2026-10-11">Oct 11</time><b>Every game, one tap from anywhere</b></summary>
+            <div class="cb"><p>Tap any NHL game, on the scoreboard, NHL centre or the home page, and the same sheet opens: the score, where you can watch it on what you have and team radio, your league's players in it with their points, the goals with their clips, the thread, the box score with everyone's fantasy points, and its lines and side bets in Supercoins. Radio keeps playing while you look around. Watch live is now NHL centre's Scores tab: whether you can watch each game, the one to watch, your players and points in it, and where the league has skin in it.</p><a class="textlink" href="https://app.superpoolsai.com/#/nhl?t=scores" aria-label="Open in the app: Every game, one tap from anywhere">Open it in the app</a></div>
+          </details>
+          <details class="ce">
+            <summary><time datetime="2026-10-11">Oct 11</time><b>Easier to find your way</b></summary>
+            <div class="cb"><p>More (and the sidebar on a computer) now groups its pages: Tonight, Your team, The league and You. The live scoreboard lights up while a game is on, NHL centre leads with the league's own night, and you can sign out from the sidebar.</p><a class="textlink" href="https://app.superpoolsai.com/#/" aria-label="Open in the app: Easier to find your way">Open it in the app</a></div>
+          </details>
+          <details class="ce">
+            <summary><time datetime="2026-10-11">Oct 11</time><b>Who moved tonight</b></summary>
+            <div class="cb"><p>The standings show each team's move tonight with an arrow, the live room tells every climb up the table as it happens, and Share the table turns the standings into a picture for the group chat.</p><a class="textlink" href="https://app.superpoolsai.com/#/standings" aria-label="Open in the app: Who moved tonight">Open it in the app</a></div>
+          </details>
+          <details class="ce">
+            <summary><time datetime="2026-10-11">Oct 11</time><b>Lineup New is now part of My Team</b></summary>
+            <div class="cb"><p>One lineup section again. My Team keeps its Tonight card and the lineup you know, and gains what Lineup New tried: an undo after every move, What if (try moves, see what they are worth tonight, then save or throw them away), Best lineup as a list of changes for today or the next 3, 7 or 14 days, warnings that fix in a tap, and each player's line from the shift charts. New tabs beside the lineup: Week (who plays when, tap a cell to start or bench), League (every team's night on one board), Compare (your lineup against any team's) and Insights. Any team's page has them too, read only. Old Lineup New links land here.</p><a class="textlink" href="https://app.superpoolsai.com/#/team" aria-label="Open in the app: Lineup New is now part of My Team">Open it in the app</a></div>
+          </details>
+          <details class="ce">
+            <summary><time datetime="2026-10-11">Oct 11</time><b>Game day in your pool</b></summary>
+            <div class="cb"><p>A pool's home now has a live room on game days: today's games on your pool's events with their live scores, who else is watching, and every swing as it lands, from a score or a final to a member climbing the table. The table moves with it.</p><a class="textlink" href="https://app.superpoolsai.com/#/" aria-label="Open in the app: Game day in your pool">Open it in the app</a></div>
+          </details>
+          <details class="ce">
+            <summary><time datetime="2026-10-11">Oct 11</time><b>A thread for every game</b></summary>
+            <div class="cb"><p>Every NHL game on the live scoreboard now has its own chat. Tap a game: the thread opens first while it is on, with whose players are in it and what they have tonight, the swings from that game, and the league talking it over. Ask the league's voice in there and it answers in the thread. The game chips show how busy each thread is.</p><a class="textlink" href="https://app.superpoolsai.com/#/scoreboard" aria-label="Open in the app: A thread for every game">Open it in the app</a></div>
+          </details>
+          <details class="ce">
+            <summary><time datetime="2026-10-11">Oct 11</time><b>A draft clock that keeps time</b></summary>
+            <div class="cb"><p>On draft night the clock is now kept live for the whole league: when a pick runs out of time it is made on the second (it used to take up to ten), a team on autodraft picks the moment its turn comes, and every pick reaches every phone at once. Look for Live clock under the countdown.</p><a class="textlink" href="https://app.superpoolsai.com/#/draft" aria-label="Open in the app: A draft clock that keeps time">Open it in the app</a></div>
+          </details>
+          <details class="ce">
+            <summary><time datetime="2026-10-11">Oct 11</time><b>The live room on game nights</b></summary>
+            <div class="cb"><p>On a game night the live scoreboard is now a room the whole league shares: the points move the moment the box score has them, a feed shows every swing (a goal, an assist, a win, a minus) as it lands, you can see who else is watching and react to any swing. When one of your starters scores, a banner tells you wherever you are in the app.</p><a class="textlink" href="https://app.superpoolsai.com/#/scoreboard" aria-label="Open in the app: The live room on game nights">Open it in the app</a></div>
+          </details>
+          <details class="ce">
+            <summary><time datetime="2026-10-11">Oct 11</time><b>Invites that look like your pool</b></summary>
+            <div class="cb"><p>An invite link pasted into a group chat now shows your pool's own name, colour and who invited them, on a picture drawn for it, instead of a plain link. Tap it and you land on the join page.</p><a class="textlink" href="https://app.superpoolsai.com/#/pools" aria-label="Open in the app: Invites that look like your pool">Open it in the app</a></div>
+          </details>
+          <details class="ce">
+            <summary><time datetime="2026-10-11">Oct 11</time><b>Faster sport centres</b></summary>
+            <div class="cb"><p>Scores, standings, news and injuries in each sport centre now come from the edge of the network, close to you: the second person to open them on a game night gets them in a blink.</p><a class="textlink" href="https://app.superpoolsai.com/#/pools" aria-label="Open in the app: Faster sport centres">Open it in the app</a></div>
+          </details>
+          <details class="ce">
+            <summary><time datetime="2026-10-10">Oct 10</time><b>Start any kind of pool, or a league</b></summary>
+            <div class="cb"><p>Starting something now asks first what it is: a sports pool, a questions pool or a fantasy league. A sports pool lists the leagues on now and every kind of pool, from pick'em and brackets to last one standing, Call the score, squares and the box pool, with the ones not open yet and when they will be. A fantasy league is yours to set up: teams, season total or head-to-head, points or categories, keepers and the draft.</p><a class="textlink" href="https://app.superpoolsai.com/#/pools" aria-label="Open in the app: Start any kind of pool, or a league">Open it in the app</a></div>
+          </details>
+          <details class="ce">
+            <summary><time datetime="2026-10-10">Oct 10</time><b>A centre for each sport we run</b></summary>
+            <div class="cb"><p>The NFL, soccer, MLB and NBA centres now have the news, the standings, the injury report and the league leaders beside the scores, like NHL centre, with your pool's clubs highlighted.</p><a class="textlink" href="https://app.superpoolsai.com/#/pools" aria-label="Open in the app: A centre for each sport we run">Open it in the app</a></div>
+          </details>
+          <details class="ce">
+            <summary><time datetime="2026-10-10">Oct 10</time><b>Delete a pool</b></summary>
+            <div class="cb"><p>A host can delete a pool from its card on My pools or from the Host page, typing its name to be sure. Each pool now keeps to its own events: no Premier League in a baseball pool.</p><a class="textlink" href="https://app.superpoolsai.com/#/pools" aria-label="Open in the app: Delete a pool">Open it in the app</a></div>
+          </details>
+          <details class="ce">
+            <summary><time datetime="2026-10-10">Oct 10</time><b>Best lineup starts the players who play</b></summary>
+            <div class="cb"><p>Best lineup (and the auto-pilot) now always starts a player with a game over one without, whichever way you rank them. A cold start no longer counts as zero: his recent form is weighed against his season and projection, so a slow first week can't bench him behind an idle star. A player you pin to start only keeps the spot on nights he plays.</p><a class="textlink" href="https://app.superpoolsai.com/#/team" aria-label="Open in the app: Best lineup starts the players who play">Open it in the app</a></div>
+          </details>
+          <details class="ce">
+            <summary><time datetime="2026-10-10">Oct 10</time><b>Retired players off the free-agent list</b></summary>
+            <div class="cb"><p>Players on no NHL roster (retired, unsigned or playing elsewhere) are marked Not in NHL, projected for no games and left out of the available players. Injured players are kept, and anyone who signs or is called up comes straight back.</p><a class="textlink" href="https://app.superpoolsai.com/#/players" aria-label="Open in the app: Retired players off the free-agent list">Open it in the app</a></div>
+          </details>
+          <details class="ce">
+            <summary><time datetime="2026-10-09">Oct 9</time><b>Lineup, brighter</b></summary>
+            <div class="cb"><p>Your Lineup page opens on a Tonight card: points tonight (or expected points before puck drop), the starting slots lit for everyone who plays, where you rank on the night and who of yours is on the ice with each opponent and score. Players with a game today glow green (red while live). In Daily lineups, Who plays when is now at the bottom.</p><a class="textlink" href="https://app.superpoolsai.com/#/team" aria-label="Open in the app: Lineup, brighter">Open it in the app</a></div>
+          </details>
+          <details class="ce">
+            <summary><time datetime="2026-10-09">Oct 9</time><b>Sit or start</b></summary>
+            <div class="cb"><p>A new tool on the Lineup page: the swaps worth making tonight, a benched player with a game who should outscore a starter he can replace, each with the reasons and a one-tap swap. Or put any two of your players head to head: expected points tonight and this week, games left, how likely he plays and his recent form, with a verdict.</p><a class="textlink" href="https://app.superpoolsai.com/#/team" aria-label="Open in the app: Sit or start">Open it in the app</a></div>
+          </details>
+          <details class="ce">
+            <summary><time datetime="2026-10-09">Oct 9</time><b>Your players against everyone's</b></summary>
+            <div class="cb"><p>Lineup Stats can now put your players beside any other GM's, or every GM's, in one table: every stat for every player, sortable, filtered by position, with each team's totals underneath.</p><a class="textlink" href="https://app.superpoolsai.com/#/team" aria-label="Open in the app: Your players against everyone's">Open it in the app</a></div>
+          </details>
+          <details class="ce">
+            <summary><time datetime="2026-10-09">Oct 9</time><b>Tonight's points, team by team</b></summary>
+            <div class="cb"><p>On the live scoreboard each team now sits above the next, with every starter listed: his club's logo, who he plays, the puck drop, the live score or the final, and his points. It also says when the numbers last updated.</p><a class="textlink" href="https://app.superpoolsai.com/#/scoreboard" aria-label="Open in the app: Tonight's points, team by team">Open it in the app</a></div>
+          </details>
+          <details class="ce">
+            <summary><time datetime="2026-10-09">Oct 9</time><b>The weekly review</b></summary>
+            <div class="cb"><p>Performance has a Weekly review: every team's week graded, with points, how the lineups did against the best possible, the best performer, and suggestions to improve: free agents worth adding and who to drop, a trade idea with the right partner, IR housekeeping, goalie starts and the week ahead.</p><a class="textlink" href="https://app.superpoolsai.com/#/performance" aria-label="Open in the app: The weekly review">Open it in the app</a></div>
+          </details>
+          <details class="ce">
+            <summary><time datetime="2026-10-09">Oct 9</time><b>The sweepstake</b></summary>
+            <div class="cb"><p>The office classic on any playoff: at the first game, everyone in the pool is dealt clubs from the hat at random. Nothing to pick and no skill needed: hold the champion and you win it. The host can draw the hat early, everyone hears what they drew, and your draw shares to the group chat as a picture.</p><a class="textlink" href="https://app.superpoolsai.com/#/pools" aria-label="Open in the app: The sweepstake">Open it in the app</a></div>
+          </details>
+          <details class="ce">
+            <summary><time datetime="2026-10-09">Oct 9</time><b>The daily streak</b></summary>
+            <div class="cb"><p>A new pool game on any event with games: pick one winner a day from that day's games. A right pick adds one to your run, a wrong one starts it again, and a day off breaks nothing. The longest run wins, you hear before each day's first game, and your run shares to the group chat as a picture.</p><a class="textlink" href="https://app.superpoolsai.com/#/pools" aria-label="Open in the app: The daily streak">Open it in the app</a></div>
+          </details>
+          <details class="ce">
+            <summary><time datetime="2026-10-09">Oct 9</time><b>Share your picks as a picture</b></summary>
+            <div class="cb"><p>Once a week's picks, a prop sheet, a bracket or a series call locks, or a grid's digits are drawn, share it to the group chat as a picture: every call you made (your champion first on a bracket), ticked or crossed as the games decide them, and your score. Drawn on your phone in the pool's colours.</p><a class="textlink" href="https://app.superpoolsai.com/#/pools" aria-label="Open in the app: Share your picks as a picture">Open it in the app</a></div>
+          </details>
+          <details class="ce">
+            <summary><time datetime="2026-10-09">Oct 9</time><b>Call the games in your bracket</b></summary>
+            <div class="cb"><p>Brackets on best-of-seven playoffs can now take a bonus for calling how long each series goes: pick the winner, then tap 4, 5, 6 or 7. A series that goes exactly that long is worth a point more. Ready for the Stanley Cup and the NBA playoffs.</p><a class="textlink" href="https://app.superpoolsai.com/#/pools" aria-label="Open in the app: Call the games in your bracket">Open it in the app</a></div>
+          </details>
+          <details class="ce">
+            <summary><time datetime="2026-10-09">Oct 9</time><b>Every prop sheet, added up</b></summary>
+            <div class="cb"><p>Play a sheet on every game and the Table keeps a running total: the calls you got right across all of them, with the sheets you won breaking a tie, so a whole World Series of sheets has a winner.</p><a class="textlink" href="https://app.superpoolsai.com/#/leaders" aria-label="Open in the app: Every prop sheet, added up">Open it in the app</a></div>
+          </details>
+          <details class="ce">
+            <summary><time datetime="2026-10-09">Oct 9</time><b>A prop sheet on every game, by itself</b></summary>
+            <div class="cb"><p>Hosts can switch on automatic prop sheets for an event: a sheet opens on each game a day and a half before it starts, so a World Series or NFL pool gets one for every game without anyone opening them by hand.</p><a class="textlink" href="https://app.superpoolsai.com/#/host" aria-label="Open in the app: A prop sheet on every game, by itself">Open it in the app</a></div>
+          </details>
+          <details class="ce">
+            <summary><time datetime="2026-10-09">Oct 9</time><b>The NBA playoffs are coming</b></summary>
+            <div class="cb"><p>Pools can run on the NBA playoffs next spring: pick every series and how many games it goes, fill in a bracket from the first round to the Finals, or rank the teams. Squares on a series pay after every quarter of every game, and every game takes a prop sheet. All fifteen series are ready the day the field is set in April.</p><a class="textlink" href="https://app.superpoolsai.com/#/pools" aria-label="Open in the app: The NBA playoffs are coming">Open it in the app</a></div>
+          </details>
+          <details class="ce">
+            <summary><time datetime="2026-10-09">Oct 9</time><b>Prop sheets score live</b></summary>
+            <div class="cb"><p>Your prop sheet now ticks as the game goes: who led after the 1st, the over once it's passed, a shutout broken, each call marked right or wrong the moment the game decides it. Once the sheet locks, the Table shows everyone's chance to win it.</p><a class="textlink" href="https://app.superpoolsai.com/#/pools" aria-label="Open in the app: Prop sheets score live">Open it in the app</a></div>
+          </details>
+          <details class="ce">
+            <summary><time datetime="2026-10-09">Oct 9</time><b>Squares on any NFL game</b></summary>
+            <div class="cb"><p>A grid of squares now goes on any NFL game this week, not just the playoffs: Sunday night, Monday night, the game your group cares about. The digits are drawn at kickoff and it pays after every quarter, the same as the Super Bowl grid. In NFL centre, each game links straight to the pool's grid and prop sheet on it.</p><a class="textlink" href="https://app.superpoolsai.com/#/pools" aria-label="Open in the app: Squares on any NFL game">Open it in the app</a></div>
+          </details>
+          <details class="ce">
+            <summary><time datetime="2026-10-09">Oct 9</time><b>The Eliminator</b></summary>
+            <div class="cb"><p>Last one standing now runs on single-game tournaments: March Madness and the NFL playoffs. Pick one team to win each round, never the same team twice; a loss and you're out, and whoever survives the final wins it.</p><a class="textlink" href="https://app.superpoolsai.com/#/pools" aria-label="Open in the app: The Eliminator">Open it in the app</a></div>
+          </details>
+          <details class="ce">
+            <summary><time datetime="2026-10-09">Oct 9</time><b>Box scores in NFL centre</b></summary>
+            <div class="cb"><p>Every NFL game that has kicked off opens its box score in NFL centre: the team stats side by side, each side's passing, rushing and receiving leaders, and every scoring play with the score after it, live while the game is on.</p><a class="textlink" href="https://app.superpoolsai.com/#/pools" aria-label="Open in the app: Box scores in NFL centre">Open it in the app</a></div>
+          </details>
+          <details class="ce">
+            <summary><time datetime="2026-10-09">Oct 9</time><b>A second-chance bracket</b></summary>
+            <div class="cb"><p>Busted bracket? Once a pool's bracket has locked, the host can open a second-chance bracket from a later round (the Sweet 16 in March, the next round of any playoffs), a fresh start for everyone that runs beside the first.</p><a class="textlink" href="https://app.superpoolsai.com/#/pools" aria-label="Open in the app: A second-chance bracket">Open it in the app</a></div>
+          </details>
+          <details class="ce">
+            <summary><time datetime="2026-10-09">Oct 9</time><b>The prop sheet</b></summary>
+            <div class="cb"><p>A new game for any playoff game or any NFL game this week: eight calls on it (who wins, the total, the margin, who leads after the 1st and at the halfway mark, a run in the 1st, extra innings, a shutout), a point each, with your total as the tiebreak. It locks at the first pitch and settles itself from the score, so nobody has to mark it. Add one for any LCS or World Series game from the Host page.</p><a class="textlink" href="https://app.superpoolsai.com/#/pools" aria-label="Open in the app: The prop sheet">Open it in the app</a></div>
+          </details>
+          <details class="ce">
+            <summary><time datetime="2026-10-09">Oct 9</time><b>Standings by division</b></summary>
+            <div class="cb"><p>The Table in NFL centre now splits into the eight divisions and the two conferences, each leader marked, and Match centre does the same for MLS's two conferences. Switch back to the whole league any time.</p><a class="textlink" href="https://app.superpoolsai.com/#/pools" aria-label="Open in the app: Standings by division">Open it in the app</a></div>
+          </details>
+          <details class="ce">
+            <summary><time datetime="2026-10-09">Oct 9</time><b>The playoff box pool</b></summary>
+            <div class="cb"><p>The box pool now runs on the Stanley Cup playoffs too: the boxes are dealt from the sixteen clubs in the first round, on how far each is expected to go, and every playoff game counts all the way to the Cup. When a club is knocked out its players are shaded with nothing more to add. Ready the day the bracket is drawn in April.</p><a class="textlink" href="https://app.superpoolsai.com/#/pools" aria-label="Open in the app: The playoff box pool">Open it in the app</a></div>
+          </details>
+          <details class="ce">
+            <summary><time datetime="2026-10-09">Oct 9</time><b>March Madness is coming</b></summary>
+            <div class="cb"><p>The bracket now runs on the men's college basketball tournament: all 63 games in bracket order, from the first round to the championship, ready the day the field is announced in March. Later rounds are worth more, and the tiebreaker is the total points in the final.</p><a class="textlink" href="https://app.superpoolsai.com/#/pools" aria-label="Open in the app: March Madness is coming">Open it in the app</a></div>
+          </details>
+          <details class="ce">
+            <summary><time datetime="2026-10-09">Oct 9</time><b>Super Bowl squares</b></summary>
+            <div class="cb"><p>Squares now work on football: a grid on any NFL playoff game, the Super Bowl included, pays after the 1st quarter, at the half, after the 3rd and on the final score, with the digits drawn at kickoff. Baseball's grids still pay by the inning.</p><a class="textlink" href="https://app.superpoolsai.com/#/pools" aria-label="Open in the app: Super Bowl squares">Open it in the app</a></div>
+          </details>
+          <details class="ce">
+            <summary><time datetime="2026-10-08">Oct 8</time><b>What you need, in words</b></summary>
+            <div class="cb"><p>The top of each game's Table now says where you stand in a sentence: how many can still catch you, how much you have to make up on the leader and what's still possible for you, or that first is out of reach, or yours already.</p><a class="textlink" href="https://app.superpoolsai.com/#/leaders" aria-label="Open in the app: What you need, in words">Open it in the app</a></div>
+          </details>
+          <details class="ce">
+            <summary><time datetime="2026-10-08">Oct 8</time><b>The box pool</b></summary>
+            <div class="cb"><p>The hockey pool, with no draft night: the NHL's best players are dealt into evenly matched boxes, and everyone takes one player from each. Goals and assists count, a goalie's win and shutout too, live every night for a week, four weeks or the rest of the season, with an alert when one of yours scores and a line in the chat each morning on who had the night. Once it locks, every player shows his points and how many took him, and everyone's team shows.</p><a class="textlink" href="https://app.superpoolsai.com/#/pools" aria-label="Open in the app: The box pool">Open it in the app</a></div>
+          </details>
+          <details class="ce">
+            <summary><time datetime="2026-10-08">Oct 8</time><b>The bracket</b></summary>
+            <div class="cb"><p>A new pool game for any playoff played in series: pick the winner of every series through to the final before the first game, with later rounds worth more. Change an early pick and the page clears what it broke; once it locks, every pick shows right or wrong and everyone's champion shows.</p><a class="textlink" href="https://app.superpoolsai.com/#/pools" aria-label="Open in the app: The bracket">Open it in the app</a></div>
+          </details>
+          <details class="ce">
+            <summary><time datetime="2026-10-08">Oct 8</time><b>Each game's chance, before it starts</b></summary>
+            <div class="cb"><p>NFL centre and Match centre now show each game's chance before it starts, read from the public pre-game lines as a chance and a margin, right beside how your pool picked it. Pick'em and Last one standing show each side's chance on the buttons you pick from. Who's smarter, your group or the line?</p><a class="textlink" href="https://app.superpoolsai.com/#/pools" aria-label="Open in the app: Each game's chance, before it starts">Open it in the app</a></div>
+          </details>
+          <details class="ce">
+            <summary><time datetime="2026-10-08">Oct 8</time><b>Settle any match by hand</b></summary>
+            <div class="cb"><p>When the scores feed freezes, a pool's host can settle a match on the Last one standing and Call the score pages too: a side, a draw, void or the score, with the reason everyone sees. It settles every game the pool runs on that match, for that pool only, and Hand back lets the feed decide again.</p><a class="textlink" href="https://app.superpoolsai.com/#/survivor" aria-label="Open in the app: Settle any match by hand">Open it in the app</a></div>
+          </details>
+          <details class="ce">
+            <summary><time datetime="2026-10-08">Oct 8</time><b>The rules, written down</b></summary>
+            <div class="cb"><p>Every pick'em, series and ranking game now has its rules at the foot of its page, written from its own settings: what scores, when picks lock, what happens to a game called off, how a tie is broken and what the host can do. They're fixed from the first lock.</p><a class="textlink" href="https://app.superpoolsai.com/#/picks" aria-label="Open in the app: The rules, written down">Open it in the app</a></div>
+          </details>
+          <details class="ce">
+            <summary><time datetime="2026-10-08">Oct 8</time><b>Your chance to win</b></summary>
+            <div class="cb"><p>A pick'em's or Pick the series' Table now shows everyone's chance of finishing first: the rest of the game played out a thousand times, each match or series drawn from how the pool picked it. It moves as the results come in.</p><a class="textlink" href="https://app.superpoolsai.com/#/leaders" aria-label="Open in the app: Your chance to win">Open it in the app</a></div>
+          </details>
+          <details class="ce">
+            <summary><time datetime="2026-10-08">Oct 8</time><b>NFL centre and Match centre</b></summary>
+            <div class="cb"><p>A pool with a game on the NFL or a soccer league gets its own centre in the More menu: every game of the week with the score and the quarter or the minute while it is on, your pick on each, and how the pool picked once it kicks off. The Table tab ranks the league from the results.</p><a class="textlink" href="https://app.superpoolsai.com/#/pools" aria-label="Open in the app: NFL centre and Match centre">Open it in the app</a></div>
+          </details>
+          <details class="ce">
+            <summary><time datetime="2026-10-08">Oct 8</time><b>Last one standing on the NFL</b></summary>
+            <div class="cb"><p>Last one standing now runs on the NFL as well as soccer: one team to win each week, never the same one twice, and a loss or a tie puts you out. It runs to the end of the regular season, and whoever is still in then shares it. Start it beside pick'em when you open a pool or from the Host page, and the host can enter a pick for a player who asks.</p><a class="textlink" href="https://app.superpoolsai.com/#/survivor" aria-label="Open in the app: Last one standing on the NFL">Open it in the app</a></div>
+          </details>
+          <details class="ce">
+            <summary><time datetime="2026-10-08">Oct 8</time><b>The host's desk</b></summary>
+            <div class="cb"><p>A pool's host can change a game's rules until the first lock (the pool hears it), enter a round of picks for a player who asked, and settle a pick'em match by hand when the feed gets it wrong or leaves it hanging: a side, a draw or void, with the reason shown to everyone on the match. It counts for that pool only, and every action is on the host's log.</p><a class="textlink" href="https://app.superpoolsai.com/#/picks" aria-label="Open in the app: The host's desk">Open it in the app</a></div>
+          </details>
+          <details class="ce">
+            <summary><time datetime="2026-10-08">Oct 8</time><b>NFL pick'em</b></summary>
+            <div class="cb"><p>The NFL is in: every game of the season week by week, scores as they happen, and the playoffs once their teams are set. A pool can run a pick'em on it from Week 5, Classic or Confidence, each pick locking at its own kickoff. A tie counts for nobody.</p><a class="textlink" href="https://app.superpoolsai.com/#/pools" aria-label="Open in the app: NFL pick'em">Open it in the app</a></div>
+          </details>
+          <details class="ce">
+            <summary><time datetime="2026-10-08">Oct 8</time><b>Pick'em for the Premier League and MLS</b></summary>
+            <div class="cb"><p>A pool can run a weekly pick'em: every match of a round, pick the winner or a draw, each pick locking at its own kick-off so anyone can join any week. Classic gives a point for every right pick; Confidence has you number the round's picks, your surest highest, and a right one earns its number. Once a match kicks off you see how the pool split; when a round ends the pool hears who won it and you hear how you did. Start one from My pools or the Host page.</p><a class="textlink" href="https://app.superpoolsai.com/#/picks" aria-label="Open in the app: Pick'em for the Premier League and MLS">Open it in the app</a></div>
+          </details>
+          <details class="ce">
+            <summary><time datetime="2026-10-08">Oct 8</time><b>One table for every game in a pool</b></summary>
+            <div class="cb"><p>A pool's Leaders page is now its Table: every game the pool runs (the questions, Pick the series, Rank the teams, squares, last one standing, Call the score) one tap apart, each ranked the same way, with arrows for who moved today, what each member can still reach, and a mark on anyone who can no longer finish first. The host names the pool's main game; the home ranks you by it. Climb into first, or three places or more, and you hear about it.</p><a class="textlink" href="https://app.superpoolsai.com/#/leaders" aria-label="Open in the app: One table for every game in a pool">Open it in the app</a></div>
+          </details>
+          <details class="ce">
+            <summary><time datetime="2026-10-07">Oct 7</time><b>Watch live</b></summary>
+            <div class="cb"><p>A new page under More for every game of the night: the one with the most of your starters first, then every game with where you can watch it on what you have and a one-tap way into the broadcaster's player or your TV provider's, team radio, your players' live points, who else in the league has skin in it, and the recap once it's over. Tap &quot;I have them all&quot; if you subscribe to everything and nothing is marked locked. At the bottom: how to see every game this season, in Canada or the US.</p><a class="textlink" href="https://app.superpoolsai.com/#/watch" aria-label="Open in the app: Watch live">Open it in the app</a></div>
+          </details>
+          <details class="ce">
+            <summary><time datetime="2026-10-06">Oct 6</time><b>Squares for the World Series</b></summary>
+            <div class="cb"><p>A pool can run a grid of squares on a baseball series: claim squares with your coins (or let the grid pick for you), and once the grid fills or Game 1 starts, the digits are drawn for each club. The last digit of each club's runs names the winning square after the 3rd, the 6th and the final of every game, and the pot pays out as it happens. 10 by 10 for a big group, 5 by 5 for a small one; the draw comes with a seed anyone can check. The host starts one from the Host page or when starting a pool.</p><a class="textlink" href="https://app.superpoolsai.com/#/picks" aria-label="Open in the app: Squares for the World Series">Open it in the app</a></div>
+          </details>
+          <details class="ce">
+            <summary><time datetime="2026-10-06">Oct 6</time><b>MLB centre for baseball pools</b></summary>
+            <div class="cb"><p>A pool that runs Pick the series has its own sports page: every postseason game day by day, live with the inning and the outs, the line score by inning with runs, hits and errors, the probable pitchers before first pitch, and the bracket round by round with each series as it stands. Your pick shows on every series, and the pool's split once a series starts. It moves every minute while games are on.</p><a class="textlink" href="https://app.superpoolsai.com/#/sport/mlb" aria-label="Open in the app: MLB centre for baseball pools">Open it in the app</a></div>
+          </details>
+          <details class="ce">
+            <summary><time datetime="2026-10-06">Oct 6</time><b>Lineup New: the whole league, live, and what if</b></summary>
+            <div class="cb"><p>A League tab puts every team's lineup for a night on one board, ranked by what it should score and, once the puck drops, by what it has scored, with who left players with a game on the bench; a week view adds up the next seven days. The day view says where your lineup ranks tonight, shows each player's line from the shift charts (L1, D2), moves live points every minute while games are on, and has What if: try moves without saving, see the difference, then save or throw them away. Compare counts the places each side has the edge and shows live points. Played days on the date strip show what you scored. Tap a player's photo for his card; tap anywhere else on the row to move him.</p><a class="textlink" href="https://app.superpoolsai.com/#/team" aria-label="Open in the app: Lineup New: the whole league, live, and what if">Open it in the app</a></div>
+          </details>
+          <details class="ce">
+            <summary><time datetime="2026-10-05">Oct 5</time><b>Lineup New, to try beside the old one</b></summary>
+            <div class="cb"><p>A new lineup section under More, next to the one you know. Day: tap a player, then where he goes (the places he fits light up), with an undo, warnings that fix themselves in a tap, and Best lineup listing every change and what it is worth, for today or the next 14 days. Week: who plays when for every player, tap a cell to start or bench him, light nights marked. Compare: your lineup against any team's, tonight slot by slot or across the week. Insights: how close your last week came to the best possible, light nights ahead, days with more players than places, goalies' back-to-backs and who is hot. Any team's lineups can be looked at; only your own can be changed.</p><a class="textlink" href="https://app.superpoolsai.com/#/team" aria-label="Open in the app: Lineup New, to try beside the old one">Open it in the app</a></div>
+          </details>
+          <details class="ce">
+            <summary><time datetime="2026-10-05">Oct 5</time><b>Every team's daily lineups</b></summary>
+            <div class="cb"><p>Open any team's page and its Daily lineups: the days ahead as that GM has set them, and every played day as it locked. Who plays when shows each player against the days, so you can see who another GM has playing on which nights. Read only: only the GM changes their own.</p><a class="textlink" href="https://app.superpoolsai.com/#/team" aria-label="Open in the app: Every team's daily lineups">Open it in the app</a></div>
+          </details>
+          </div>
+        </div>
+        <div class="cweek" id="w-2026-10-01">
+          <h3>3 to 4 October<small>18</small></h3>
+          <div class="clist">
+          <details class="ce">
+            <summary><time datetime="2026-10-04">Oct 4</time><b>Small things, tidied</b></summary>
+            <div class="cb"><p>When your filters leave nobody on the Players page, one tap clears them. The build-a-trade bar on another team's page fits a phone. My pools shows each site's name in full, the injury report's switch no longer runs off the screen, and the Money page never says $-0.</p><a class="textlink" href="https://app.superpoolsai.com/#/players" aria-label="Open in the app: Small things, tidied">Open it in the app</a></div>
+          </details>
+          <details class="ce">
+            <summary><time datetime="2026-10-04">Oct 4</time><b>Names in full on small phones</b></summary>
+            <div class="cb"><p>Team names wrap onto a second line instead of being cut off: on Home, My team, your profile, the standings, the podium, the scoreboard and Performance. A long surname on a player's page shrinks to fit instead of splitting in the middle, and page titles fit the screen.</p><a class="textlink" href="https://app.superpoolsai.com/#/standings" aria-label="Open in the app: Names in full on small phones">Open it in the app</a></div>
+          </details>
+          <details class="ce">
+            <summary><time datetime="2026-10-04">Oct 4</time><b>Your watch list</b></summary>
+            <div class="cb"><p>Star any player to keep an eye on him: tap his rank on the Players page, or ☆ Watch on his card. Watch list on the Players page shows them all, free agents and other teams' players alike, and if another team drops one, you hear about it on the bell and your phone while he's there for the taking. Injury news on them reaches you too, and the Home page keeps the list in view: free agents first, with tonight's games. Asked for on the ideas board.</p><a class="textlink" href="https://app.superpoolsai.com/#/players?who=watch" aria-label="Open in the app: Your watch list">Open it in the app</a></div>
+          </details>
+          <details class="ce">
+            <summary><time datetime="2026-10-04">Oct 4</time><b>Head-to-head leagues</b></summary>
+            <div class="cb"><p>A league can play weekly matchups instead of one season-long total: one opponent a week, a W-L-T table, the week's matchups live on Home and Standings, and a phone alert each Monday with your opponent and last week's result.</p><a class="textlink" href="https://app.superpoolsai.com/#/standings" aria-label="Open in the app: Head-to-head leagues">Open it in the app</a></div>
+          </details>
+          <details class="ce">
+            <summary><time datetime="2026-10-04">Oct 4</time><b>Playoff brackets</b></summary>
+            <div class="cb"><p>Head-to-head leagues can finish with a bracket for the top 2 to 8 teams over the season's last weeks, byes for the top seeds, and the champion crowned on the Standings page. A league that tracks dues sees its Money page follow the bracket.</p><a class="textlink" href="https://app.superpoolsai.com/#/standings" aria-label="Open in the app: Playoff brackets">Open it in the app</a></div>
+          </details>
+          <details class="ce">
+            <summary><time datetime="2026-10-04">Oct 4</time><b>Categories, season-long or week by week</b></summary>
+            <div class="cb"><p>Rotisserie ranks every team in each category over the season; head-to-head categories plays each week for them. Tap a matchup to see it category by category.</p><a class="textlink" href="https://app.superpoolsai.com/#/standings" aria-label="Open in the app: Categories, season-long or week by week">Open it in the app</a></div>
+          </details>
+          <details class="ce">
+            <summary><time datetime="2026-10-04">Oct 4</time><b>Matchups, player by player</b></summary>
+            <div class="cb"><p>Tap any head-to-head matchup for both lineups side by side: every started player, his games and his points this week.</p><a class="textlink" href="https://app.superpoolsai.com/#/standings" aria-label="Open in the app: Matchups, player by player">Open it in the app</a></div>
+          </details>
+          <details class="ce">
+            <summary><time datetime="2026-10-04">Oct 4</time><b>Trades graded on your categories</b></summary>
+            <div class="cb"><p>In a category league the trade evaluator, the trade finder and the position ranks weigh players on the league's categories, so a deal for a big hitter in a hits league grades the way it should.</p><a class="textlink" href="https://app.superpoolsai.com/#/trades" aria-label="Open in the app: Trades graded on your categories">Open it in the app</a></div>
+          </details>
+          <details class="ce">
+            <summary><time datetime="2026-10-04">Oct 4</time><b>Performance and the scoreboard in your categories</b></summary>
+            <div class="cb"><p>In a category league the Performance page ranks every team on the league's categories over any stretch you pick, rotisserie style, with your best and weakest categories, and the scoreboard shows each team's categories tonight and ranks the night the same way.</p><a class="textlink" href="https://app.superpoolsai.com/#/performance" aria-label="Open in the app: Performance and the scoreboard in your categories">Open it in the app</a></div>
+          </details>
+          <details class="ce">
+            <summary><time datetime="2026-10-04">Oct 4</time><b>Win chances in every matchup</b></summary>
+            <div class="cb"><p>A head-to-head points matchup shows each side's chance of winning the week and the projected final, from the points on the board and the rest of the week played out with both rosters.</p><a class="textlink" href="https://app.superpoolsai.com/#/standings" aria-label="Open in the app: Win chances in every matchup">Open it in the app</a></div>
+          </details>
+          <details class="ce">
+            <summary><time datetime="2026-10-04">Oct 4</time><b>Drafting for categories</b></summary>
+            <div class="cb"><p>In a category league the Players page, draft room, cheat sheet and mock draft rank by category value (what a player is worth in your league's categories), autodraft picks by it, and Roster vs available compares your players with the free agents on it.</p><a class="textlink" href="https://app.superpoolsai.com/#/players" aria-label="Open in the app: Drafting for categories">Open it in the app</a></div>
+          </details>
+          <details class="ce">
+            <summary><time datetime="2026-10-04">Oct 4</time><b>Lineup efficiency</b></summary>
+            <div class="cb"><p>Performance now shows how close your lineups came to the best you could have played each night from the same players: a Lineup column for every team, your share and the night that cost the most, and the most possible beside each day. Home shows your last lineup against the best one possible. A head-to-head table shows each team's max points for under its points for.</p><a class="textlink" href="https://app.superpoolsai.com/#/performance" aria-label="Open in the app: Lineup efficiency">Open it in the app</a></div>
+          </details>
+          <details class="ce">
+            <summary><time datetime="2026-10-04">Oct 4</time><b>Pickups for your categories</b></summary>
+            <div class="cb"><p>In a category league the pickup advisor looks for the free agents who help where you trail in the table, plays the move out night by night, and shows what it does to each category: +9 shots, +4 PIM, save percentage up.</p><a class="textlink" href="https://app.superpoolsai.com/#/players?tab=advisor" aria-label="Open in the app: Pickups for your categories">Open it in the app</a></div>
+          </details>
+          <details class="ce">
+            <summary><time datetime="2026-10-04">Oct 4</time><b>A commissioner's toolkit</b></summary>
+            <div class="cb"><p>Co-commissioners, a clean handover when a GM walks away, a log of every commissioner action on the League page, a constitution page, your own roster slots, and a setup guide that walks a new league to draft night.</p><a class="textlink" href="https://app.superpoolsai.com/#/commish" aria-label="Open in the app: A commissioner's toolkit">Open it in the app</a></div>
+          </details>
+          <details class="ce">
+            <summary><time datetime="2026-10-04">Oct 4</time><b>Your Yahoo past in one go</b></summary>
+            <div class="cb"><p>A league that played on Yahoo brings every season Yahoo kept, champions to last place, from the League page: connect Yahoo, pick the league, tick the seasons.</p><a class="textlink" href="https://app.superpoolsai.com/#/league?t=history" aria-label="Open in the app: Your Yahoo past in one go">Open it in the app</a></div>
+          </details>
+          <details class="ce">
+            <summary><time datetime="2026-10-04">Oct 4</time><b>Your league's past</b></summary>
+            <div class="cb"><p>Played somewhere else before? The commissioner writes past seasons in, or pastes a final table straight from Yahoo, ESPN, Fantrax or CBS, and the banners, titles and last places fill in.</p><a class="textlink" href="https://app.superpoolsai.com/#/league?t=history" aria-label="Open in the app: Your league's past">Open it in the app</a></div>
+          </details>
+          <details class="ce">
+            <summary><time datetime="2026-10-03">Oct 3</time><b>Email sign-in and invites</b></summary>
+            <div class="cb"><p>Sign in with your email and a password you choose, reset it with a code, and join a league from an invite link. Someone in two leagues switches between them from the menu.</p><a class="textlink" href="https://app.superpoolsai.com/#/profile" aria-label="Open in the app: Email sign-in and invites">Open it in the app</a></div>
+          </details>
+          <details class="ce">
+            <summary><time datetime="2026-10-03">Oct 3</time><b>Game lines in the NHL centre</b></summary>
+            <div class="cb"><p>Every game shows its line, total and the chance it goes to overtime, and you can call any game in Supercoins from the NHL centre.</p><a class="textlink" href="https://app.superpoolsai.com/#/nhl" aria-label="Open in the app: Game lines in the NHL centre">Open it in the app</a></div>
+          </details>
+          </div>
+        </div>
+      </section>
     </section>
-    <footer>
-      <span>© 2026 Super Pools · superpoolsai.com · Supercoins, never money · not affiliated with the NHL or any league</span>
-      <nav><a href="./">Home</a><a href="https://app.superpoolsai.com/#/privacy">Privacy</a><a href="https://app.superpoolsai.com/#/terms">Terms</a><a href="#" data-cookie-settings role="button">Cookie settings</a><a href="mailto:hello@superpoolsai.com">hello@superpoolsai.com</a></nav>
-    </footer>
   </main>
+
+  <footer class="site-foot">
+    <div class="cols">
+      <div><h2>Play</h2><ul><li><a href="./fantasy-hockey.html">Fantasy league</a></li><li><a href="./hockey-pools.html">Hockey pools</a></li><li><a href="./football-pools.html">NFL pools</a></li><li><a href="./basketball-pools.html">NBA pools</a></li><li><a href="./soccer-pools.html">Soccer pools</a></li><li><a href="./together.html">Show pools</a></li></ul></div>
+      <div><h2>Look around</h2><ul><li><a href="./fans.html">Fan zones</a></li><li><a href="./example-pool.html">An example pool</a></li><li><a href="./pricing.html">Pricing</a></li><li><a href="./changelog.html" aria-current="page">Changelog</a></li></ul></div>
+      <div><h2>Your pools</h2><ul><li><a href="https://app.superpoolsai.com/">Sign in</a></li><li><a href="mailto:hello@superpoolsai.com">hello@superpoolsai.com</a></li></ul></div>
+      <div><h2>The fine print</h2><ul><li><a href="https://app.superpoolsai.com/#/privacy">Privacy</a></li><li><a href="https://app.superpoolsai.com/#/terms">Terms</a></li><li><button type="button" class="linkbtn" data-cookie-settings>Cookie settings</button></li></ul></div>
+    </div>
+    <div class="base"><span>© 2026 Super Pools · superpoolsai.com · Supercoins, never money</span><span>Scores from public score feeds. Not affiliated with the NHL, the NCAA, Netflix or any league.</span></div>
+  </footer>
   <script src="./site.js"></script>
+  <script>
+    // the chip for the week on screen is marked, so the row says where you are
+    (function () {
+      var chips = document.querySelectorAll('.months a'); if (!chips.length || !('IntersectionObserver' in window)) return;
+      var io = new IntersectionObserver(function (es) {
+        es.forEach(function (e) {
+          if (!e.isIntersecting) return;
+          chips.forEach(function (c) { c.setAttribute('aria-current', c.getAttribute('href') === '#' + e.target.id ? 'true' : 'false'); });
+        });
+      }, { rootMargin: '-80px 0px -70% 0px' });
+      document.querySelectorAll('.cweek').forEach(function (m) { io.observe(m); });
+    })();
+  </script>
 </body>
 </html>
