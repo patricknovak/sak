@@ -38,7 +38,7 @@ const SECTIONS: { title: string; body: string[] }[] = [
     'We send email only to sign you in or reset your password, from no-reply@superpoolsai.com through Resend. We do not send newsletters. The pool\'s voice (the commentary in the chat) is written by a language model (Grok, from xAI) from the pool\'s own numbers; a message you send it goes to that model to be answered, with the pool\'s board, and nothing else about you.',
   ] },
   { title: 'Where it lives', body: [
-    'The database runs on Supabase, in the United States, and the site on Cloudflare. Scores and schedules come from the leagues\' own public feeds. Nothing about you goes to a league or a sports site.',
+    'The database runs on Supabase, in the United States, and the site on Cloudflare. Scores and schedules come from public score feeds. Nothing about you goes to a league or a sports site.',
   ] },
   { title: 'Your choices', body: [
     'To leave a pool, or to delete your account and everything we keep about you, write to hello@superpoolsai.com from the address you signed up with and it is done within a week. Questions go to the same address.',

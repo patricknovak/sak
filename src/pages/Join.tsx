@@ -237,7 +237,7 @@ export default function Join({ code }: { code: string }) {
           ) : mode === 'new' ? (
             <form onSubmit={join} className="card-hero p-5">
               <label className="label relative text-white/70" htmlFor="jname">Your name</label>
-              <input id="jname" className="input relative mt-1" autoComplete="name" value={name} onChange={(e) => setName(e.target.value)} placeholder={`What the ${noun} calls you`} />
+              <input id="jname" className="input relative mt-1" autoComplete="name" value={name} onChange={(e) => setName(e.target.value)} placeholder="Your name, as friends know you" />
               {needsEmail ? (
                 <>
                   <label className="label relative mt-3 block text-white/70" htmlFor="jemail">Email</label>

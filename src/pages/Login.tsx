@@ -5,6 +5,7 @@ import { LeagueCrest, ProductMark, Wordmark } from '../components/Brand';
 import { useLeague } from '../lib/store';
 import { PRODUCT } from '../lib/brand';
 import { OpenNow } from '../components/OpenNow';
+import { Sparkles } from 'lucide-react';
 
 // Sign in with your email and password (Patrick's call, October 2026; every SaK account has its own email since step 2).
 // Forgot your password: the league emails you a code, you type it with a new password, and you're in. The code works
@@ -110,6 +111,16 @@ export default function Login() {
             : 'She’s A Keeper · est. 2013 · 2026-27'}</p>
         </div>
 
+        {/* on the product's own address most visitors have no account yet (open sign-up is off), so the way to start
+            comes before the form members sign in with */}
+        {product && mode === 'in' && (
+          <>
+            <a href="#/new?src=signin" className="btn-ghost mb-4 flex w-full items-center justify-center gap-2 py-3 text-[15px]">
+              <Sparkles className="h-4 w-4 text-gold" />Run a pool of your own? Start one free
+            </a>
+            <div className="mb-3 flex items-center gap-3 text-[11px] font-bold uppercase tracking-[.2em] text-white/45"><span className="h-px flex-1 bg-white/10" />Already playing? Sign in<span className="h-px flex-1 bg-white/10" /></div>
+          </>
+        )}
         {mode === 'in' ? (
           <form onSubmit={signIn} className="card-hero animate-pop p-5">
             {emailField}
@@ -147,7 +158,7 @@ export default function Login() {
         {err && <div className="mt-4 rounded-xl border border-red-400/30 bg-red-900/50 px-4 py-3 text-center text-sm text-red-200">{err}</div>}
         {product && mode === 'in' && <OpenNow />}
         {/* a prediction pool starts right away (#/new); a fantasy league is asked for (#/start) */}
-        <a href="#/new" className="mt-6 block text-center text-xs text-sky-300/80 underline decoration-sky-300/30 underline-offset-2">Run a pool of your own? Start one free, right now</a>
+        {!(product && mode === 'in') && <a href="#/new" className="mt-6 block text-center text-xs text-sky-300/80 underline decoration-sky-300/30 underline-offset-2">Run a pool of your own? Start one free, right now</a>}
         <a href="#/start" className="mt-2 block text-center text-[11px] text-white/40 underline decoration-white/20 underline-offset-2">Or ask for a fantasy league</a>
         <p className="mt-3 text-center text-xs italic text-mute">{product || pool ? `Pools for everything you watch, on ${PRODUCT.name}` : other ? `Fantasy hockey on ${PRODUCT.name}` : 'Play fair, play hard and play to win.'}</p>
         <p className="mt-2 text-center text-[11px] text-white/40"><a href="#/privacy" className="underline decoration-white/20 underline-offset-2">What we keep about you</a> · <a href="#/terms" className="underline decoration-white/20 underline-offset-2">Terms of use</a></p>

@@ -106,7 +106,7 @@ function FanSignIn({ open, why, club, dir, onClose, onDone }: { open: boolean; w
           <form onSubmit={join} className="space-y-3">
             <label className="block">
               <span className="label">Your name</span>
-              <input className="input mt-1" value={name} onChange={(e) => setName(e.target.value)} maxLength={40} autoComplete="name" placeholder="First and last name" />
+              <input className="input mt-1" value={name} onChange={(e) => setName(e.target.value)} maxLength={40} autoComplete="name" placeholder="Your name, as friends know you" />
               <span className="mt-1 block text-[11px] text-mute">{shown ? <>Others see <b className="text-slate-200">{shown}</b>, never more.</> : 'Others see only your first name and initial.'}</span>
             </label>
             <label className="block">
@@ -173,7 +173,7 @@ export function FanMeBar() {
       </div>
       {edit && (
         <form onSubmit={save} className="mt-2 flex gap-2">
-          <input className="input" value={name} onChange={(e) => setName(e.target.value)} maxLength={40} placeholder="First and last name" aria-label="Your name" />
+          <input className="input" value={name} onChange={(e) => setName(e.target.value)} maxLength={40} placeholder="Your name, as friends know you" aria-label="Your name" />
           <button className="btn-club shrink-0" disabled={name.trim().length < 2}>Save</button>
         </form>
       )}

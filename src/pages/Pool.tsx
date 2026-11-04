@@ -10,7 +10,7 @@ import { useLeague, useNow } from '../lib/store';
 import { useBrand } from '../lib/brand';
 import { rpc } from '../lib/supabase';
 import { ago, countdown } from '../lib/format';
-import { answerColor, isOpen, pct, prices, usePool, useCoins, type PoolLeader, type PoolMarket, type PoolPosition } from '../lib/pool';
+import { answerColor, isOpen, pct, prices, usePool, useCoins, type PoolDrop, type PoolLeader, type PoolMarket, type PoolPosition } from '../lib/pool';
 import { CallsFeed, closesIn, Coins, MarketCard, PriceChart, TradeSheet } from '../components/Pool';
 import { Empty, PageHeader, Section, TeamBadge, useAction } from '../components/ui';
 import { useEffect } from 'react';
@@ -89,7 +89,7 @@ export function PoolHome() {
   const { me, league, teams } = useLeague();
   const brand = useBrand();
   const now = useNow(1000);
-  const { markets, positions, trades, drops } = usePool();
+  const { markets, positions, trades, drops, reload: reloadPool } = usePool();
   const { coins } = useCoins(me?.id);
   const { leaders } = useLeaders();
   const nextDrop = drops.find((d) => new Date(d.at).getTime() > now);
@@ -194,7 +194,8 @@ export function PoolHome() {
       </div>
 
       {/* alone, the invite comes before anything else; the visit right after create shows the join link first */}
-      {alone && <div id="pool-invite"><PostCreateInvite /></div>}
+      {/* a pool with no questions and no games yet (a "Something else" pool) asks its first question before the link */}
+      {alone && <div id="pool-invite"><PostCreateInvite empty={markets !== null && !markets.length && games !== null && !games.length} drops={drops} onAsked={reloadPool} /></div>}
 
       {/* joined with just a name: the email that keeps the seat (migration 332) */}
       <KeepSeat />
@@ -268,7 +269,7 @@ function StartOwnPoolCard() {
 
 // right after create: the join link on the confirmation screen (the step that never happened before).
 // Flag is consumed in an effect once the host is known; StrictMode must not clear it during render.
-function PostCreateInvite() {
+function PostCreateInvite({ empty, drops, onAsked }: { empty: boolean; drops: PoolDrop[]; onAsked: () => void }) {
   const { me } = useLeague();
   const [fresh, setFresh] = useState(false);
   const [ready, setReady] = useState(false);
@@ -278,12 +279,15 @@ function PostCreateInvite() {
     setReady(true);
   }, [me?.id, me?.is_commish]);
   if (!ready) return null;
-  if (fresh && me?.is_commish) return <CreateConfirmCard />;
+  if (fresh && me?.is_commish) return <CreateConfirmCard empty={empty} drops={drops} onAsked={onAsked} />;
   return <InviteCard />;
 }
 
-function CreateConfirmCard() {
+// an empty pool (no questions, no games) leads with its first question: a link to a pool with nothing to call in it is
+// the friend's first and last visit (4 November 2026); the share stays one tap away
+function CreateConfirmCard({ empty, drops, onAsked }: { empty: boolean; drops: PoolDrop[]; onAsked: () => void }) {
   const { league } = useLeague();
+  const [asking, setAsking] = useState(false);
   const brand = useBrand();
   const [link, setLink] = useState<string | null>(null);
   const [failed, setFailed] = useState(false);
@@ -315,7 +319,7 @@ function CreateConfirmCard() {
       <div className="relative space-y-3">
         <div>
           <h3 className="font-display text-2xl font-extrabold text-white">{poolName}</h3>
-          <p className="mt-1 text-sm text-slate-200">Your pool is open.</p>
+          <p className="mt-1 text-sm text-slate-200">{empty ? 'Your pool is open. Ask the first question, then send the link.' : 'Your pool is open.'}</p>
         </div>
         {link && (
           <input
@@ -329,14 +333,22 @@ function CreateConfirmCard() {
         )}
         <p className="rounded-xl bg-black/25 px-3 py-2.5 text-sm leading-snug text-slate-200 ring-1 ring-white/10">{ask}</p>
         <p className="text-xs text-mute">Free, played in {coin}, never real money. No app to download.</p>
-        <button
-          type="button"
-          className="btn-gold inline-flex items-center gap-2"
-          disabled={!link}
-          onClick={() => { if (link) setJob({ title: poolName, text: pitch, url: link }); }}
-        >
-          <Link2 className="h-4 w-4" /> Send it
-        </button>
+        <div className="flex flex-wrap gap-2">
+          {empty && (
+            <button type="button" className="btn-gold inline-flex items-center gap-2" onClick={() => setAsking(true)}>
+              <Plus className="h-4 w-4" /> Ask the first one
+            </button>
+          )}
+          <button
+            type="button"
+            className={`${empty ? 'btn-ghost' : 'btn-gold'} inline-flex items-center gap-2`}
+            disabled={!link}
+            onClick={() => { if (link) setJob({ title: poolName, text: pitch, url: link }); }}
+          >
+            <Link2 className="h-4 w-4" /> Send it
+          </button>
+        </div>
+        <AskSheet open={asking} onClose={() => setAsking(false)} drops={drops} onAsked={onAsked} />
         <ShareSheet
           open={!!job}
           onClose={() => setJob(null)}

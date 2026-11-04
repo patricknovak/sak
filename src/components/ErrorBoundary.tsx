@@ -8,9 +8,11 @@ export function isChunkError(e: unknown) {
   return /dynamically imported module|Importing a module script failed|Failed to fetch|ChunkLoadError|error loading dynamically/i.test(m);
 }
 export function reloadForNewVersion() {
-  const last = Number(sessionStorage.getItem(RELOAD_KEY) || 0);
-  if (Date.now() - last < 30_000) return false; // don't loop
-  sessionStorage.setItem(RELOAD_KEY, String(Date.now()));
+  try {
+    const last = Number(sessionStorage.getItem(RELOAD_KEY) || 0);
+    if (Date.now() - last < 30_000) return false; // don't loop
+    sessionStorage.setItem(RELOAD_KEY, String(Date.now()));
+  } catch { /* no storage: reload anyway, once per page load */ }
   window.location.reload();
   return true;
 }

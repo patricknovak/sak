@@ -57,12 +57,19 @@ export function FantasyStart({ color, setColor, swatches, member, signedIn }: { 
   const summary = [`${teams} teams`, format === 'h2h' ? `head-to-head${po ? `, ${po}-team playoffs` : ', no playoffs'}` : 'season total',
     scoring === 'points' ? 'fantasy points' : `${cats.length} categories`, keepers ? `${keepers} keeper${keepers === 1 ? '' : 's'} a team` : 'no keepers', snake ? 'snake draft' : 'same order every round'];
 
+  // a stranger has no account to sign in with (open sign-up is off), so the box says the two ways that work today: a
+  // pool makes the account, then My pools starts the league; or we set the league up with them by email (#/start)
   if (!member) {
     return (
       <div className="rounded-2xl border border-white/10 bg-white/[.04] p-4 text-sm text-white/80">
-        <div className="font-semibold text-white">{signedIn ? 'Join a pool first' : 'Sign in to start a league'}</div>
-        <p className="mt-1 text-white/70">{signedIn ? 'A fantasy league is started by someone already playing in a pool on Super Pools.' : 'Fantasy leagues are started from your account: sign in, then come back here from My pools.'} Or tell us about your league and we set it up with you.</p>
-        <div className="mt-3 flex flex-wrap gap-2">{!signedIn && <a href="#/" className="btn-gold px-4 py-2 text-sm">Sign in</a>}<a href="#/start" className="btn-ghost px-4 py-2 text-sm">Ask us to set it up</a></div>
+        <div className="font-semibold text-white">{signedIn ? 'Join a pool first' : 'Two ways to start a league'}</div>
+        <p className="mt-1 leading-snug text-white/70">{signedIn
+          ? 'A fantasy league is started by someone already playing in a pool on Super Pools. Or ask us and we set it up with you by email.'
+          : 'Start or join any pool first (that makes your account) and start the league from My pools, or ask us and we set it up with you by email.'}</p>
+        <div className="mt-3 flex flex-wrap gap-2">
+          <a href="#/start" className="btn-gold px-4 py-2 text-sm">Ask us to set it up</a>
+          {!signedIn && <a href="#/new?type=sports&src=fantasy" className="btn-ghost px-4 py-2 text-sm">Start a pool first</a>}
+        </div>
       </div>
     );
   }
