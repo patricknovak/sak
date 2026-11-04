@@ -157,6 +157,8 @@ header { display: flex; align-items: center; justify-content: space-between; gap
 .rail { display: grid; grid-auto-flow: column; grid-auto-columns: min(76%, 300px); gap: 12px; overflow-x: auto; overscroll-behavior-x: contain; scroll-snap-type: x mandatory;
   margin: 0 calc(-1 * var(--gutter)); padding: 2px var(--gutter) 14px; scroll-padding-inline: var(--gutter); scrollbar-width: thin; scrollbar-color: rgba(255,255,255,.18) transparent; }
 .rail > * { scroll-snap-align: start; min-width: 0; }
+/* one card: it takes the rail's whole width instead of peeking at nothing (site.js sets it on the open-now board) */
+.rail.one { grid-auto-columns: 100%; }
 .rail::-webkit-scrollbar { height: 4px; } .rail::-webkit-scrollbar-thumb { background: rgba(255,255,255,.18); border-radius: 4px; }
 .swipe { display: flex; align-items: center; gap: 8px; margin: 0; font-size: 12.5px; color: var(--mute); }
 .swipe::after { content: ''; width: 28px; height: 1px; background: linear-gradient(90deg, var(--mute), transparent); }
@@ -273,7 +275,10 @@ header { display: flex; align-items: center; justify-content: space-between; gap
 .stat b { display: block; font: 900 clamp(30px, 4vw, 38px)/1 'Barlow Condensed', sans-serif; letter-spacing: .01em; color: var(--ink); }
 .stat span { display: block; margin-top: 5px; font-size: 12.5px; line-height: 1.4; color: var(--mute); }
 @media (min-width: 760px) { .stats.four { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
-.calib { margin: 12px 2px 0; padding: 12px 14px; border-left: 2px solid var(--ice); font-size: 14px; line-height: 1.5; color: var(--soft); background: rgba(56,189,248,.05); border-radius: 0 12px 12px 0; }
+/* .calib, p.calib: the second selector matches .pillar3 p's weight and comes later, so a calibration line keeps its own
+   spacing and size inside a pillar (the home's and the commissioner page's) */
+.calib, .pillar3 p.calib { margin: 12px 2px 0; padding: 12px 14px; border-left: 2px solid var(--ice); font-size: 14px; line-height: 1.5; color: var(--soft); background: rgba(56,189,248,.05); border-radius: 0 12px 12px 0; max-width: none; }
+.calib + .calib, .pillar3 p.calib + p.calib { margin-top: 8px; }
 .proofband { display: grid; gap: 14px; padding: 18px; border-radius: 24px; border: 1px solid var(--line); background: var(--boards); }
 .asof { font-size: 12px; color: var(--mute); }
 
@@ -294,6 +299,9 @@ a.kl:hover { border-color: rgba(56,189,248,.4); transform: translateY(-1px); }
 .kl .when2 { color: var(--mute); font-weight: 500; font-size: 12px; text-align: right; line-height: 1.3; white-space: normal; max-width: 92px; }
 div.kl { background: rgba(255,255,255,.02); }
 div.kl .ki { color: var(--mute); background: rgba(255,255,255,.04); border-color: var(--line); }
+/* the home's sport pages under the kinds' heading: two by two on a phone, one row once they fit */
+.sportlinks { display: grid; grid-template-columns: repeat(2, max-content); gap: 0 28px; margin-top: 4px; }
+@media (min-width: 560px) { .sportlinks { grid-template-columns: repeat(4, max-content); } }
 .kl-more { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 14px; margin-top: 14px; padding: 14px 16px; border-radius: 16px; border: 1px dashed rgba(56,189,248,.3); font-size: 14.5px; color: var(--soft); }
 
 /* 6.9 Demos (the market, the night's swings, the draft clock, the invite): .trio is a rail on a phone */

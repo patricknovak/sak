@@ -42,7 +42,6 @@ FOOTBALL = dict(
     proof_icon='check',
     proofline="Settled from the scores: every pick locks at kickoff, the table moves as games end, and the pool's split shows after the lock, never before.",
     now_tag='From the app', now_p='The NFL as it stands, with the next kickoff counting down.',
-    empty=dict(q='comp=nfl&src=football', badge='NFL', name='NFL', stage='Every week of the season', kinds=["Pick'em", 'Last one standing', 'Prop sheet', 'Squares', 'Daily streak']),
     kinds_h2='Seven ways to play the NFL.',
     kinds_lead='Tap one and the start page opens on it, from the next game still to come.',
     kinds=[
@@ -116,7 +115,6 @@ HOCKEY = dict(
     proof_icon='box',
     proofline="Points move with every goal from the NHL's box scores, the feed that scores the SaK Superleague each night.",
     now_tag='From the app', now_p="Tonight's NHL, straight from the app. Entries lock at the first puck drop.",
-    empty=dict(q='comp=nhl-2026&kind=players&src=hockey', badge='NHL', name='NHL 2026-27', stage='The regular season', kinds=['Box pool', "Pick'em", 'Last one standing', 'Daily streak']),
     kinds_h2='The box pool, and four more.',
     kinds_lead='Every one runs on the 2026-27 season. Tap one and the start page opens on it.',
     kinds=[
@@ -200,7 +198,6 @@ BASKETBALL = dict(
     proof_icon='check',
     proofline="Settled from the scores: every pick locks at tip-off, the table moves as games end, and the pool's split shows after the lock, never before.",
     now_tag='From the app', now_p="The NBA as it stands, with tonight's first tip-off counting down.",
-    empty=dict(q='comp=nba-2026-27&src=basketball', badge='NBA', name='NBA 2026-27', stage='Every week of the season', kinds=["Pick'em", 'Last one standing', 'Daily streak']),
     kinds_h2='Five ways to play the NBA.',
     kinds_lead='Tap one and the start page opens on it, from the next game still to come.',
     kinds=[
@@ -273,7 +270,6 @@ SOCCER = dict(
     proof_icon='check',
     proofline="Settled from the scores: every call locks at kick-off, the table moves as matches end, and the pool's split shows after the lock, never before.",
     now_tag='From the app', now_p='Every competition open now, with the next kick-off counting down.',
-    empty=dict(q='comp=epl&src=soccer', badge='EPL', name='Premier League', stage='Every matchweek', kinds=['Call the score', "Pick'em", 'Last one standing', 'Daily streak']),
     kinds_h2='Five ways to play a matchweek.',
     kinds_lead='Tap one and the start page opens on it in the Premier League, from the next matchweek still to come.',
     kinds=[

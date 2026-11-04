@@ -486,10 +486,13 @@ function spWhenSeen(el, start) {
 
 // open right now: the events open on Super Pools this minute, read from the app's own list with the publishable key,
 // each with a countdown to its next lock. If the list can't be read, the board shows the seasons that are always on.
+// A sport page's board (#now data-sport: nhl, nfl, nba or soccer) keeps to its own sport and leaves out the questions
+// card; when the list has nothing for that sport, its always-on season stands in.
 // The countdown ticks outside any live region; only the count in #now-tag is announced.
 (function () {
   var box = document.getElementById('now'); if (!box) return;
   var tag = document.getElementById('now-tag');
+  var SPORT = box.getAttribute('data-sport') || '';
   var APP = 'https://app.superpoolsai.com/#/new';
   var KEY = 'sb_publishable_AMcluryqKenfAO6vFJ2f1A_50DhQz1b';
   var SRC = box.getAttribute('data-src') || '';
@@ -498,6 +501,13 @@ function spWhenSeen(el, start) {
   // the badge's short name; every badge is drawn the same (Boards, ink text), so no colour lives here
   var LOOK = { nhl: 'NHL', nfl: 'NFL', mlb: 'MLB', nba: 'NBA', epl: 'EPL', mls: 'MLS', wsl: 'WSL', nwsl: 'NWSL', ncaa: 'NCAA', ncaam: 'NCAA', soccer: 'FC' };
   var esc = function (x) { return String(x == null ? '' : x).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); };
+  // the competition's sport: the list says so; the built-in seasons and older rows go by the competition's prefix
+  var SOCCER = { epl: 1, mls: 1, wsl: 1, nwsl: 1, ucl: 1, premier: 1 };
+  function sportOf(e) {
+    if (e.sport) return e.sport;
+    var c = String(e.competition || e.pack || '').split('-')[0];
+    return SOCCER[c] ? 'soccer' : c;
+  }
   function look(e) { return LOOK[e.competition] || LOOK[(e.competition || '').split('-')[0]] || LOOK[e.sport] || 'GO'; }
   function link(raw) { if (SRC) raw += '&src=' + encodeURIComponent(SRC); return window.spDecorateAppHref ? window.spDecorateAppHref(raw) : raw; }
   function left(ms) {
@@ -533,18 +543,26 @@ function spWhenSeen(el, start) {
     });
   }
   var always = [
-    { name: 'NHL 2026-27', competition: 'nhl-2026', stage: 'The regular season', kinds: ['players'] },
-    { name: 'NFL', competition: 'nfl', stage: 'Every week of the season', kinds: ['pickem', 'survivor', 'props', 'streak'] },
-    { name: 'Premier League', competition: 'epl', stage: 'Every matchweek', kinds: ['pickem', 'survivor', 'score', 'streak'] }
+    { name: 'NHL 2026-27', competition: 'nhl-2026', sport: 'nhl', stage: 'The regular season', kinds: ['players'] },
+    { name: 'NBA 2026-27', competition: 'nba-2026-27', sport: 'nba', stage: 'Every week of the season', kinds: ['pickem', 'survivor', 'streak'] },
+    { name: 'NFL', competition: 'nfl', sport: 'nfl', stage: 'Every week of the season', kinds: ['pickem', 'survivor', 'props', 'streak'] },
+    { name: 'Premier League', competition: 'epl', sport: 'soccer', stage: 'Every matchweek', kinds: ['pickem', 'survivor', 'score', 'streak'] }
   ];
+  function mine(list) { return SPORT ? list.filter(function (e) { return sportOf(e) === SPORT; }) : list; }
   function draw(list, real) {
+    list = mine(list);
+    if (!list.length) { list = mine(always); real = false; }
     // an event reaching its final within two weeks first, then the soonest lock
     var soon = function (e) { return e.final_starts && Date.parse(e.final_starts) - Date.now() < 14 * 864e5 ? 0 : 1; };
     list.sort(function (a, b) { return soon(a) - soon(b) || (Date.parse(a.next_lock) || 9e15) - (Date.parse(b.next_lock) || 9e15); });
     var ask = link(APP + '?type=questions');
-    box.innerHTML = list.map(card).join('') + '<a class="ev" href="' + esc(ask) + '"><div class="top"><span class="badge" aria-hidden="true">ASK</span><div><h3>Anything else</h3><div class="evstage">The show you\'re watching, the office, the family</div></div></div>'
-      + '<div class="lock"><b>Your call</b></div><div class="kinds"><span>Your own questions</span><span>Your own rules</span></div><span class="go">Ask your own questions</span></a>';
-    if (tag) tag.textContent = real ? list.length + ' events open now' : 'Open all season';
+    box.innerHTML = list.map(card).join('') + (SPORT ? '' : '<a class="ev" href="' + esc(ask) + '"><div class="top"><span class="badge" aria-hidden="true">ASK</span><div><h3>Anything else</h3><div class="evstage">The show you\'re watching, the office, the family</div></div></div>'
+      + '<div class="lock"><b>Your call</b></div><div class="kinds"><span>Your own questions</span><span>Your own rules</span></div><span class="go">Ask your own questions</span></a>');
+    // one card takes the rail's whole width, and there is nothing to swipe for
+    var one = box.children.length === 1, swipe = box.nextElementSibling;
+    box.classList.toggle('one', one);
+    if (swipe && swipe.classList.contains('swipe')) swipe.hidden = one;
+    if (tag) tag.textContent = real ? list.length + (list.length === 1 ? ' event open now' : ' events open now') : 'Open all season';
   }
   fetch('https://quakdkzdafzlhgjvmypg.supabase.co/rest/v1/rpc/pool_event_list', { method: 'POST', headers: { apikey: KEY, 'Content-Type': 'application/json' }, body: '{}' })
     .then(function (r) { if (!r.ok) throw new Error(r.status); return r.json(); })
@@ -572,15 +590,18 @@ function spWhenSeen(el, start) {
     .catch(function () { /* the static lines stay */ });
 })();
 
-// Love Is Blind Season 11 by the calendar (Netflix drops at 3 am ET): the countdown counts to whatever is next, and once
-// the pods are open the copy written for before the premiere says what's next instead. An element with data-next holds
-// a template ({next} is "drop 2 lands", {date} "October 21"); it keeps its own words until the premiere has aired.
+// Love Is Blind Season 11 by the calendar (Netflix drops at 3 am ET; the reunion airs live at 9 pm ET): the countdown
+// counts to whatever is next, and once the pods are open the copy written for before the premiere says what's next
+// instead. An element with data-next holds a template ({next} is what happens, "drop 2 lands", {date} the Eastern date it
+// happens on, "October 21"); it keeps its own words until the premiere has aired, and data-done takes over once the last
+// stage has passed. The last stage is the pack's last close (the reunion question, 11 November 08:00Z), not the reunion.
 var LIB_STAGES = [
   { at: Date.UTC(2026, 9, 14, 7), next: 'the pods open', date: 'October 14' },
   { at: Date.UTC(2026, 9, 21, 7), next: 'drop 2 lands', date: 'October 21' },
   { at: Date.UTC(2026, 9, 28, 7), next: 'drop 3 lands', date: 'October 28' },
   { at: Date.UTC(2026, 10, 4, 8), next: 'the weddings land', date: 'November 4' },
-  { at: Date.UTC(2026, 10, 11, 8), next: 'the reunion drops', date: 'November 11' },
+  { at: Date.UTC(2026, 10, 9, 2), next: 'the reunion airs', date: 'November 8' },
+  { at: Date.UTC(2026, 10, 11, 8), next: 'the last call closes', date: 'November 11' },
 ];
 function libStage() { for (var i = 0; i < LIB_STAGES.length; i++) if (LIB_STAGES[i].at > Date.now()) return i; return -1; }
 (function () {

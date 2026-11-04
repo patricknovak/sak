@@ -42,9 +42,6 @@ div.kl.on .ki { color: var(--ice); background: rgba(56,189,248,.08); border-colo
 .receipts.sched li div b { display: block; margin: 0 0 1px; }
 .receipts.sched li span { font: 700 11.5px/1.2 'Barlow Condensed', sans-serif; letter-spacing: .1em; text-transform: uppercase; color: var(--ice); text-align: right; padding: 4px 8px; border-radius: 999px; background: rgba(56,189,248,.1); white-space: nowrap; }
 .receipts.sched ul { gap: 10px; }
-/* .pillar3 p (site.css) outranks .calib inside a pillar; give the calibration lines back their own size and spacing */
-.pillar3 .scr p.calib { margin: 12px 2px 0; max-width: none; font-size: 14px; line-height: 1.5; color: var(--soft); }
-.pillar3 .scr p.calib + p.calib { margin-top: 8px; }
 
 /* The waitlist inside the closer: left-aligned, under a hairline */
 .bring { max-width: 640px; margin: 30px auto 0; padding-top: 24px; border-top: 1px solid var(--line2); text-align: left; position: relative; z-index: 1; }

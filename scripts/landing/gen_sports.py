@@ -125,13 +125,12 @@ def page(p):
       <div class="nowpanel" id="open">
         <div class="nowhead">
           <h2 class="display">The next deadline</h2>
-          <span class="livetag">{p['now_tag']}</span>
+          <span class="livetag" id="now-tag" aria-live="polite">{p['now_tag']}</span>
           <p>{p['now_p']}</p>
         </div>
         <div class="rail{one}" id="now" data-src="{p['src']}" data-sport="{p['sport']}">
           {ghosts}
-        </div>
-        <a class="ev now-empty" href="{app(p['empty']['q'])}"><div class="top"><span class="badge" aria-hidden="true">{p['empty']['badge']}</span><div><h3>{p['empty']['name']}</h3><div class="evstage">{p['empty']['stage']}</div></div></div><div class="lock"><b>Open</b></div><div class="kinds">{''.join(f'<span>{x}</span>' for x in p['empty']['kinds'])}</div><span class="go">Start a pool on it</span></a>{swipe}
+        </div>{swipe}
       </div>
     </section>
 ''')
