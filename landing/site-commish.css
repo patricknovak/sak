@@ -1,0 +1,95 @@
+/* The commissioner's page (fantasy-hockey.html) and the pricing page (pricing.html): the few parts site.css does not
+   have yet. Everything else on both pages is the shared design system; these follow its tokens and its one-gold rule
+   (nothing here is gold). */
+
+/* a headline whose second line is one long italic phrase: a touch smaller on a phone so it holds two lines */
+.hero2 h1.fit { font-size: clamp(46px, 13vw, 80px); }
+
+/* The draft room's TV board, drawn in HTML: one round, the pick on the clock in ice */
+.db-meta { display: flex; justify-content: space-between; gap: 10px; padding: 0 4px 10px; font: 700 11.5px/1.2 'Barlow Condensed', sans-serif; letter-spacing: .14em; text-transform: uppercase; color: var(--mute); }
+.db { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px; }
+.db li { min-width: 0; display: grid; grid-template-columns: 30px minmax(0, 1fr); column-gap: 6px; row-gap: 1px; align-items: baseline; padding: 9px 10px 10px 9px; border-radius: 12px; background: rgba(255,255,255,.035); border: 1px solid rgba(255,255,255,.06); }
+.db li > :not(small) { grid-column: 2; }
+.db small { grid-row: 1; font: 700 11px/1 'Barlow Condensed', sans-serif; letter-spacing: .08em; color: var(--dim); font-variant-numeric: tabular-nums; }
+.db b { grid-row: 1; font: 900 18px/1.05 'Barlow Condensed', sans-serif; letter-spacing: .01em; }
+.db i { font-style: normal; font: 700 12px/1.25 'Barlow Condensed', sans-serif; letter-spacing: .06em; color: var(--soft); }
+.db em { font-style: normal; font-size: 11.5px; line-height: 1.3; color: var(--mute); }
+.db li.otc { background: rgba(56,189,248,.1); border-color: rgba(56,189,248,.4); box-shadow: 0 0 24px -10px rgba(56,189,248,.6); }
+.db li.otc b { color: var(--ice); font-size: 16px; }
+.db li.otc i { font: 900 20px/1.05 'Barlow Condensed', sans-serif; color: var(--ink); font-variant-numeric: tabular-nums; }
+/* four across, as on the room's TV, once a board cell has room for the longest name */
+@media (min-width: 560px) {
+  .db { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+  .db li { display: flex; flex-direction: column; gap: 2px; padding: 10px 10px 11px; }
+  .db b { font-size: 19px; }
+}
+
+/* A note for the group chat, drawn as the commissioner's own bubble, with a copy button */
+.note-thread { display: flex; flex-direction: column; gap: 8px; padding: 8px 4px 4px; }
+.note-thread .bubr { max-width: 94%; }
+.note-thread .bubr .txt { font-size: 14.5px; line-height: 1.5; padding: 10px 13px 11px; }
+.note-thread .tapped { padding-right: 4px; }
+.note-act { display: flex; align-items: center; gap: 12px; margin-top: 10px; padding: 0 4px; }
+.note-act .btn { min-height: 44px; white-space: nowrap; }
+.note-act span { font-size: 13px; color: var(--mute); }
+
+/* Feature rows that are true today (the home's div.kl is the muted "opens later" state) */
+div.kl.on { background: var(--boards); }
+div.kl.on .ki { color: var(--ice); background: rgba(56,189,248,.08); border-color: rgba(56,189,248,.18); }
+
+/* The voice's schedule under its post: words, not numbers, on the right */
+.receipts.sched li { align-items: center; }
+.receipts.sched li div b { display: block; margin: 0 0 1px; }
+.receipts.sched li span { font: 700 11.5px/1.2 'Barlow Condensed', sans-serif; letter-spacing: .1em; text-transform: uppercase; color: var(--ice); text-align: right; padding: 4px 8px; border-radius: 999px; background: rgba(56,189,248,.1); white-space: nowrap; }
+.receipts.sched ul { gap: 10px; }
+/* .pillar3 p (site.css) outranks .calib inside a pillar; give the calibration lines back their own size and spacing */
+.pillar3 .scr p.calib { margin: 12px 2px 0; max-width: none; font-size: 14px; line-height: 1.5; color: var(--soft); }
+.pillar3 .scr p.calib + p.calib { margin-top: 8px; }
+
+/* The waitlist inside the closer: left-aligned, under a hairline */
+.bring { max-width: 640px; margin: 30px auto 0; padding-top: 24px; border-top: 1px solid var(--line2); text-align: left; position: relative; z-index: 1; }
+.bring h3 { margin: 0 0 6px; font: 900 26px/1 'Barlow Condensed', sans-serif; letter-spacing: .01em; }
+.bring > p { margin: 0; max-width: none; font-size: 15px; color: var(--soft); }
+.bring form { margin-top: 14px; }
+.bring .btn { min-height: 52px; }
+/* .closer p (site.css) would give the message line a 22 px foot and centre it */
+.bring .msgline { margin: 0; max-width: none; text-align: left; }
+.bring .fineprint { max-width: none; margin: 4px 0 0; font-size: 12.5px; line-height: 1.5; color: var(--mute); }
+.bring .fineprint a { color: var(--soft); text-decoration: underline; text-underline-offset: 3px; }
+
+/* the closer's faint faceoff circle sits under the fine print, not through the form */
+#bring .closer::after { bottom: -250px; }
+
+/* Two cards in a row (the Book and the bundle) */
+@media (min-width: 860px) { .plans.two { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+.plans.two { margin-top: 12px; }
+
+/* The feature table: Included / Not included, grouped by capability, prices in the foot */
+.ftable-wrap { border-radius: 22px; border: 1px solid var(--line); background: var(--boards); overflow: hidden; }
+/* clip, not hidden, where it is supported: it rounds the corners without making a scroll box, so the plan names stay
+   pinned at the top of the screen while a phone scrolls the rows */
+@supports (overflow: clip) { .ftable-wrap { overflow: clip; } }
+.ftable { width: 100%; border-collapse: collapse; font-size: 14px; line-height: 1.4; }
+.ftable caption { caption-side: top; text-align: left; padding: 14px 14px 12px; font-size: 13px; color: var(--mute); border-bottom: 1px solid var(--line); }
+.ftable thead th { position: sticky; top: 0; z-index: 1; padding: 12px 6px 10px; background: rgba(11,18,32,.97); font: 900 17px/1 'Barlow Condensed', sans-serif; letter-spacing: .02em; text-align: center; border-bottom: 1px solid var(--line2); }
+.ftable thead th:first-child { text-align: left; padding-left: 14px; font: 700 11.5px/1 'Barlow Condensed', sans-serif; letter-spacing: .16em; text-transform: uppercase; color: var(--mute); }
+.ftable thead th.pick { color: var(--ice); }
+.ftable tbody th[scope="rowgroup"] { padding: 16px 14px 6px; text-align: left; font: 700 12px/1.2 'Barlow Condensed', sans-serif; letter-spacing: .18em; text-transform: uppercase; color: var(--ice); }
+.ftable tbody tr + tr th[scope="row"], .ftable tbody tr + tr td { border-top: 1px solid var(--line); }
+.ftable th[scope="row"] { padding: 10px 6px 10px 14px; text-align: left; font-weight: 400; color: var(--soft); }
+.ftable td { width: 18%; padding: 10px 4px; text-align: center; vertical-align: middle; }
+.ftable .yes, .ftable .no { display: inline-grid; place-items: center; width: 24px; height: 24px; border-radius: 50%; }
+.ftable .yes { background: rgba(56,189,248,.14); color: var(--ice); }
+.ftable .no { color: var(--dim); }
+.ftable .yes svg, .ftable .no svg { width: 14px; height: 14px; fill: none; stroke: currentColor; stroke-width: 2.4; stroke-linecap: round; stroke-linejoin: round; }
+.ftable .soon { font: 700 11px/1.2 'Barlow Condensed', sans-serif; letter-spacing: .1em; text-transform: uppercase; color: var(--mute); }
+.ftable tfoot th, .ftable tfoot td { padding: 14px 4px 16px; border-top: 1px solid var(--line2); }
+.ftable tfoot th { padding-left: 14px; text-align: left; font: 700 11.5px/1.2 'Barlow Condensed', sans-serif; letter-spacing: .16em; text-transform: uppercase; color: var(--mute); }
+.ftable tfoot b { display: block; font: 900 22px/1 'Barlow Condensed', sans-serif; font-variant-numeric: tabular-nums; }
+.ftable tfoot small { display: block; margin-top: 3px; font-size: 11px; color: var(--mute); }
+.ftable-cta { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 4px 16px; padding: 8px 14px 10px; border-top: 1px solid var(--line); font-size: 13px; color: var(--mute); }
+@media (max-width: 380px) { .ftable { font-size: 13.5px; } .ftable thead th { font-size: 15px; padding: 11px 3px 9px; } .ftable th[scope="row"] { padding-left: 12px; } .ftable tfoot b { font-size: 19px; } }
+@media (min-width: 760px) { .ftable { font-size: 15px; } .ftable th[scope="row"] { padding-left: 20px; } .ftable thead th:first-child, .ftable tbody th[scope="rowgroup"], .ftable tfoot th, .ftable caption { padding-left: 20px; } .ftable td { width: 16%; } }
+
+/* The never-money rules: a short paragraph under the shared .never grid */
+.never-note { margin: 14px 2px 0; max-width: 680px; font-size: 14.5px; color: var(--mute); }
