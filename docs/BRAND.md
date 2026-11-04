@@ -146,24 +146,42 @@ no generated art, no mascots.
 
 ## 7. Where it applies today
 
-- `landing/index.html`, the home (rebuilt 4 November 2026 from the positioning brief, ten sections, under 1,900 words): the
-  tagline in ink with its three lines, the sub, one gold "Start a pool, free" into the app, "Watch a game night" in ice and the
-  founding league in one line, beside the events open right now (read from the app's own `pool_event_list()` with the
-  publishable key, each with a countdown to its next lock and a link straight into a pool on it; the seasons that are always
-  on if the list can't be read); four doors by audience (the fantasy league with one gold word, sports pools and fan zones in
-  ice, show pools in rose); the three things we say, each with one drawn screen (the voice's post is a real morning column of
-  the founding league, names changed and captioned so); every kind of pool, each link keeping its kind and naming when the
-  ones no event offers open; a question you can call with pretend coins (the real price maker, in the page); game night is a
-  room (three working demos); the change log's latest four lines (written from `src/data/changelog.ts` by
-  `scripts/landing-changelog.mjs`); the planned prices per pool in Canadian dollars; seven questions, money first; the
-  closer. On a phone a menu opens the doors and a sticky bottom button follows once the hero has scrolled away, hidden
-  whenever another gold element is on screen, so every screen holds one gold thing besides the wordmark.
-- `landing/together.html`, pools for any group, in rose: the Love Is Blind pool for Season 11, women's sports pools, a
-  pool for every season, private and never money, its own waitlist choice. Both pages share `landing/site.css` and
-  `landing/site.js`; both waitlists write to `public.waitlist` through PostgREST with the publishable key (the choice in
-  `league`, the free text in `note`).
-- `landing/icon.svg`, `landing/og.png` (home) and `landing/og-together.png`: the mark and the share cards. The share card is rendered from
-  `landing/og.html` with the pre-installed headless Chromium (`landing/README.md` has the command).
+The marketing site, superpoolsai.com (`landing/`, rebuilt 4 November 2026 from `docs/MARKET-REVIEW-2026-11.md`; its
+README has the files and how to change them, `docs/CLAIMS-AUDIT-2026-11-04.md` what each page claims):
+
+- `landing/index.html`, the home, ten sections under 1,900 words: the tagline in ink with its three lines, the sub, one
+  gold "Start a pool, free" into the app, "Watch a game night" in ice and the founding league in one line, beside the
+  events open right now (read from the app's own `pool_event_list()` with the publishable key, each with a countdown to its
+  next lock and a link straight into a pool on it; the seasons that are always on if the list can't be read); four doors
+  by audience (the fantasy league with one gold word, sports pools and fan zones in ice, show pools in rose); the three
+  things we say, each with one drawn screen (the voice's post is a real morning column of the founding league, names
+  changed and captioned so); every kind of pool, each link keeping its kind and naming when the ones no event offers
+  open, with a page for each sport; a question you can call with pretend coins (the real price maker, in the page); game
+  night is a room (three working demos); the change log's latest four lines; the planned prices per pool in Canadian
+  dollars; seven questions, money first; the closer. On a phone a menu opens the doors and a sticky bottom button follows
+  once the hero has scrolled away, hidden whenever another gold element is on screen, so every screen holds one gold thing
+  besides the wordmark.
+- The fantasy door, `fantasy-hockey.html` (for the commissioner: the request to open a league, what comes over, the
+  season, the voice's real lineup nudge with the name changed, the founding league's record, the waitlist) and
+  `pricing.html` (per pool, never per person; every price planned, nothing billed).
+- The sports door: `hockey-pools.html`, `football-pools.html`, `basketball-pools.html` and `soccer-pools.html`, one template
+  written by `scripts/landing/gen_sports.py` from `scripts/landing/sports_content.py`, each with its own sport's open-now
+  board, its kinds and dated rows, and a drawn sample pool captioned as fictional.
+- The shows door, in rose: `together.html` (pools for any group, every line dated, women's sport with a pool on it),
+  `traitors.html` (while its pack has a question left), `love-is-blind.html` (Season 11's last calls, then Season 12, with
+  the reserve form) and `example-pool.html` (a sample pool filled in, captioned as an illustration).
+- The fans door, `fans.html`: every club in four leagues, into its zone in the app, no account.
+- `changelog.html`, the whole change log, written with `changelog.json` and the home's four lines by
+  `node scripts/landing-changelog.mjs` from `src/data/changelog.ts`; re-run it whenever that file changes.
+- One design system, `landing/site.css`, with three page files linked after it by their pages only (`site-sports.css`,
+  `site-commish.css`, `site-shows.css`), and one script, `landing/site.js`. Seasonal copy follows the calendar without a
+  redeploy: `data-until` removes an element from its moment, `data-from` shows one from its moment (hidden until the
+  script has checked it), and `LIB_STAGES` in `site.js` fills the Love Is Blind templates (`data-next`, `data-done`) from
+  the season's dates. Both waitlists ("Bring your league" on `fantasy-hockey.html` and the Season 12 reserve form on `love-is-blind.html`)
+  write to `public.waitlist` through PostgREST with the publishable key (the choice in `league`, the free text in `note`).
+- `landing/icon.svg`, and the share cards `landing/og.png` (home, the commissioner's, pricing, the sport pages),
+  `landing/og-together.png` (the show pages) and `landing/og-love-is-blind.png`: each card is rendered from its `og*.html`
+  with the pre-installed headless Chromium (`landing/README.md` has the command); re-bake it after changing its HTML.
 - `src/lib/brand.ts`, `PRODUCT`: name, tagline, domain, URL. Shown in the app footer and anywhere the product
   (not the league) is named.
 - Emails from hello@superpoolsai.com: Patrick's own voice and sign-off; the product voice above applies to
