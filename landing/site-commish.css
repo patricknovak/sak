@@ -10,10 +10,10 @@
 .db { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px; }
 .db li { min-width: 0; display: grid; grid-template-columns: 30px minmax(0, 1fr); column-gap: 6px; row-gap: 1px; align-items: baseline; padding: 9px 10px 10px 9px; border-radius: 12px; background: rgba(255,255,255,.035); border: 1px solid rgba(255,255,255,.06); }
 .db li > :not(small) { grid-column: 2; }
-.db small { grid-row: 1; font: 700 11px/1 'Barlow Condensed', sans-serif; letter-spacing: .08em; color: var(--dim); font-variant-numeric: tabular-nums; }
+.db small { grid-row: 1; font: 700 11.5px/1 'Barlow Condensed', sans-serif; letter-spacing: .08em; color: var(--dim); font-variant-numeric: tabular-nums; }
 .db b { grid-row: 1; font: 900 18px/1.05 'Barlow Condensed', sans-serif; letter-spacing: .01em; }
 .db i { font-style: normal; font: 700 12px/1.25 'Barlow Condensed', sans-serif; letter-spacing: .06em; color: var(--soft); }
-.db em { font-style: normal; font-size: 11.5px; line-height: 1.3; color: var(--mute); }
+.db em { font-style: normal; font-size: 12px; line-height: 1.3; color: var(--mute); }
 .db li.otc { background: rgba(56,189,248,.1); border-color: rgba(56,189,248,.4); box-shadow: 0 0 24px -10px rgba(56,189,248,.6); }
 .db li.otc b { color: var(--ice); font-size: 16px; }
 .db li.otc i { font: 900 20px/1.05 'Barlow Condensed', sans-serif; color: var(--ink); font-variant-numeric: tabular-nums; }
@@ -79,13 +79,15 @@ div.kl.on .ki { color: var(--ice); background: rgba(56,189,248,.08); border-colo
 .ftable .yes { background: rgba(56,189,248,.14); color: var(--ice); }
 .ftable .no { color: var(--dim); }
 .ftable .yes svg, .ftable .no svg { width: 14px; height: 14px; fill: none; stroke: currentColor; stroke-width: 2.4; stroke-linecap: round; stroke-linejoin: round; }
-.ftable .soon { font: 700 11px/1.2 'Barlow Condensed', sans-serif; letter-spacing: .1em; text-transform: uppercase; color: var(--mute); }
-.ftable tfoot th, .ftable tfoot td { padding: 14px 4px 16px; border-top: 1px solid var(--line2); }
+.ftable .soon { font: 700 11.5px/1.2 'Barlow Condensed', sans-serif; letter-spacing: .1em; text-transform: uppercase; color: var(--mute); }
+.ftable tfoot th, .ftable tfoot td { padding: 14px 4px 16px; border-top: 1px solid var(--line2); vertical-align: top; }
 .ftable tfoot th { padding-left: 14px; text-align: left; font: 700 11.5px/1.2 'Barlow Condensed', sans-serif; letter-spacing: .16em; text-transform: uppercase; color: var(--mute); }
 .ftable tfoot b { display: block; font: 900 22px/1 'Barlow Condensed', sans-serif; font-variant-numeric: tabular-nums; }
-.ftable tfoot small { display: block; margin-top: 3px; font-size: 11px; color: var(--mute); }
+.ftable tfoot small { display: block; margin-top: 3px; font-size: 12px; color: var(--mute); }
 .ftable-cta { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 4px 16px; padding: 8px 14px 10px; border-top: 1px solid var(--line); font-size: 13px; color: var(--mute); }
-@media (max-width: 380px) { .ftable { font-size: 13.5px; } .ftable thead th { font-size: 15px; padding: 11px 3px 9px; } .ftable th[scope="row"] { padding-left: 12px; } .ftable tfoot b { font-size: 19px; } }
+/* a phone keeps the last column off the card's edge */
+@media (max-width: 400px) { .ftable thead th:last-child, .ftable tr > td:last-child { padding-right: 12px; } .ftable thead th { font-size: 14px; letter-spacing: 0; } }
+@media (max-width: 380px) { .ftable { font-size: 13.5px; } .ftable thead th { font-size: 14px; padding: 11px 3px 9px; } .ftable th[scope="row"] { padding-left: 12px; } .ftable tfoot b { font-size: 19px; } }
 @media (min-width: 760px) { .ftable { font-size: 15px; } .ftable th[scope="row"] { padding-left: 20px; } .ftable thead th:first-child, .ftable tbody th[scope="rowgroup"], .ftable tfoot th, .ftable caption { padding-left: 20px; } .ftable td { width: 16%; } }
 
 /* The never-money rules: a short paragraph under the shared .never grid */
