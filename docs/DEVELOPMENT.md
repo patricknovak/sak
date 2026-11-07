@@ -1532,7 +1532,30 @@ sets a new one (start a pool, start a league, join, keep your seat, the fan zone
 Commish page's reset and spectator pass) and the join function ask for 8, and Auth's own minimum follows once this is
 deployed. Signing in with an older, shorter password still works.
 
-### 9.30 Hot and cold, and the days ahead on the Lineup tab, 7 November 2026
+### 9.30 The fan zone at once, and the trend, 7 November 2026
+
+Patrick: the fan zone shows its information right away instead of waiting on an update, updates in the background only
+once a person picks a club, and shows how the club is trending over the last two weeks and the last month.
+
+- At once: every answer a zone reads (`fan`, `fan-history`, `fan-office` for the NHL; `fan-sport`, `fan-sport-league`,
+  `fan-sport-history` elsewhere) is kept on the phone, in memory for the visit and in IndexedDB between visits, the
+  dozen most recent (`src/lib/hubKeep.ts`, `useKeptHub`). Opening a club draws its kept copy first and asks for a fresh
+  one behind it; nothing is fetched for a club nobody opened. The hero says "Updating" while it is on its way.
+- Behind it: nhl-hub's `cached` answers a copy past its window at once (up to three days old) and rebuilds it after the
+  answer has gone (`EdgeRuntime.waitUntil`), marked `refreshing` with a five-second ttl so the edge doesn't hold it; the
+  page asks the function directly again 15 and 45 seconds later. Before, the first person after the window waited for
+  the whole rebuild (dozens of NHL calls).
+- The season simulation (3,000 runs) now runs a moment after the page draws, once per copy, and a fresh copy of the
+  same club keeps the last odds on screen until its own are worked out, in the NHL's zone and the others'.
+- The trend (`src/lib/fanTrend.ts`, `FanTrend.tsx`): the last two weeks and the last month, each a record, a share of
+  the points (wins outside hockey and soccer) against the season's and against the same stretch before, goals for and
+  against a game, the NHL's 82-game pace, and the month's games one chip each. In the NFL, NBA and Premier League every
+  club's games are on hand, so each window is ranked across the league. On the overview under the verdict and on the
+  outlook page. Between seasons the windows are the season's last two weeks and month.
+
+No migration. nhl-hub deploys on merge.
+
+### 9.31 Hot and cold, and the days ahead on the Lineup tab, 7 November 2026
 
 Patrick asked for two things on the lineup screen. Both are site only: no migration, no edge function.
 
