@@ -8104,3 +8104,28 @@ reset role;
 select set_config('request.jwt.claim.sub', '', false);
 select 'fan hosts, reunion close, proof counts', true;
 
+
+-- ───────────── Rink Duel's games are kept, league by league (migration 352) ─────────────
+reset role;
+select set_config('app.league_id', '', false);
+select pg_temp.as_team(2);
+set role authenticated;
+select pg_temp.expect('a duel is recorded', rink_record('flowduel1', 3, null, 7, 4, 1, 0, 141, 120, 9, 180) is not null);
+select pg_temp.expect('the same match told twice is kept once', rink_record('flowduel1', 3, null, 7, 4, 1, 0, 141, 120, 9, 180) is null);
+select pg_temp.expect('a game against the computer is recorded', rink_record('flowcpu01', null, 'pro', 3, 7, 0, 2, 99, 0, 4, 200) is not null);
+select pg_temp.raises('an unfinished game is refused', $q$ select rink_record('flowhalf1', 3, null, 4, 2) $q$, 'finished');
+select pg_temp.raises('more own goals than goals is refused', $q$ select rink_record('flowown01', 3, null, 7, 1, 2, 0) $q$, 'own goals');
+select pg_temp.raises('a member of another league is refused', format($q$ select rink_record('flowother', %s, null, 7, 1) $q$, :olga), 'another league');
+select pg_temp.expect('the league reads its games', (select count(*) = 2 from rink_games where match_id in ('flowduel1', 'flowcpu01')));
+select pg_temp.expect('the computer game names no member and keeps its level',
+  (select away is null and level = 'pro' and home = 2 from rink_games where match_id = 'flowcpu01'));
+reset role;
+select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-000000000084', false);
+select set_config('app.league_id', :olga::text, false);
+set role authenticated;
+select pg_temp.expect('another league sees none of them', not exists (select 1 from rink_games where match_id like 'flow%'));
+reset role;
+select set_config('app.league_id', '', false);
+select set_config('request.jwt.claim.sub', '', false);
+\i supabase/migrations/20261005000352_rink_games.sql
+select 'rink games', true;
