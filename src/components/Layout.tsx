@@ -12,10 +12,11 @@ import { currentSubscription } from '../lib/push';
 import { Sheet, TeamBadge } from './ui';
 import { centreName } from '../lib/poolGames';
 import { InstallPrompt } from './InstallPrompt';
+import { useRinkOn } from '../lib/rink/net';
 import { PRODUCT } from '../lib/brand';
 import {
   Bell, ClipboardList, Dices, Home, Landmark, Lightbulb, LogOut, Menu, MessageCircle, Radio, Repeat2, Search, Shield, Target,
-  Trophy, Tv, UserRound, Wrench, Wallet, Flame, type LucideIcon, BarChart3, Sparkles, Crown, Wand2, Layers, ChevronDown, Swords } from 'lucide-react';
+  Trophy, Tv, UserRound, Wrench, Wallet, Flame, type LucideIcon, BarChart3, Sparkles, Crown, Wand2, Layers, ChevronDown, Swords, Gamepad2 } from 'lucide-react';
 
 // short: the phone dock's label, one line; group: the heading it sits under in More and the sidebar
 type Item = { to: string; label: string; icon: LucideIcon; commish?: boolean; short?: string; group?: Group };
@@ -99,6 +100,8 @@ export function Layout({ children }: { children: ReactNode }) {
   const [bell, setBell] = useState(false);
   const { any: chatUnread, count: chatCount } = useUnread();
   const unreadN = notifications.filter((n) => !n.read).length;
+  // Rink Duel, thumb air hockey (7 November 2026): every hockey league and every pool with a game on the NHL
+  const rinkOn = useRinkOn();
 
   // if this device already has alerts on, make sure the server knows it belongs to this team
   useEffect(() => {
@@ -190,6 +193,7 @@ export function Layout({ children }: { children: ReactNode }) {
     ...(runs.games && poolQuestions ? [{ to: '/questions', label: 'Questions', icon: Sparkles, group: 'Play' }] : []),
     ...(runs.predictor ? [{ to: '/predictor', label: 'Call the score', icon: Target, group: 'Play' }] : []),
     ...(runs.survivor ? [{ to: '/survivor', label: 'Last one standing', icon: Shield, group: 'Play' }] : []),
+    ...(rinkOn ? [{ to: '/rink', label: 'Rink Duel', icon: Gamepad2, group: 'Play' }] : []),
     // the sport centre for the pool's games (baseball's postseason first)
     ...(runs.mlb ? [{ to: '/sport/mlb', label: 'MLB centre', icon: Tv, group: 'Sport centres' }] : []),
     ...(nflPost ? [{ to: '/sport/nfl', label: 'NFL playoffs', icon: Tv, group: 'Sport centres' }] : []),
@@ -208,6 +212,7 @@ export function Layout({ children }: { children: ReactNode }) {
     // the sport's own centre ("NHL centre" for hockey), from the sports row
     { to: '/nhl', label: sport.words.centre ?? 'NHL centre', icon: Tv, group: 'Tonight' },
     ...(runs.questions ? [{ to: '/questions', label: 'Questions', icon: Sparkles, group: 'Tonight' }] : []),
+    ...(rinkOn ? [{ to: '/rink', label: 'Rink Duel', icon: Gamepad2, group: 'Play' }] : []),
     // the league's own club's fan zone (league_rules.info.fan_club; SaK's is Edmonton), or any club's
     { to: fanClub ? `/fans/${fanClub}` : '/fans', label: fanClub ? `${NHL_TEAMS[fanClub] ?? fanClub} fan zone` : 'NHL fan zones', icon: Flame, group: 'The league' },
     ...(draftish ? [{ to: '/team', label: 'My Team', icon: Shield, group: 'Your team' }] : []),

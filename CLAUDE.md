@@ -115,6 +115,11 @@ Two things in one repo:
   `src/lib/fanDeep.ts` (the crease the roster will dress against the one that played, arrivals, departures and the men
   out, in goals a game, six goals a win) and `outlook` adjusts every club's strength by it; the Moves card (`FanMoves.tsx`)
   and the crease's arrival card show it. New fan-zone analysis that reads a roster reads `moves`, not only the club stats. A zone's data is drawn from the copy last kept on the phone and refreshed behind it (`useKeptHub`, `src/lib/hubKeep.ts`; nhl-hub's `cached` answers a stale copy at once as `refreshing` and rebuilds it after, 7 November 2026, §9.30); new zone data reads through it. The trend (last two weeks, last month) is `src/lib/fanTrend.ts`.
+- Rink Duel (`#/rink`, 7 November 2026): thumb air hockey under Play in every NHL fantasy league and every pool with an NHL
+  game (`useRinkOn`): the table in `src/lib/rink/physics.ts`, the computer's four levels in `ai.ts`, the screen in
+  `src/components/rink/RinkGame.tsx`. Live challenges are realtime broadcasts only (`net.ts`: the lobby `rink:<league>`,
+  a card on the challenged phone from `RinkInvites`; a match `rink:<league>:<id>` where the puck belongs to the phone
+  whose half it's in); nothing is stored. docs/DEVELOPMENT.md §9.33.
 - Navigation (`src/components/Layout.tsx`): the dock keeps four places (a fantasy league's are Home, Lineup, Chat and NHL centre since 24 October 2026; Players is in More under Your team), Live (the scoreboard, a fantasy league's middle tab with a red dot while a game is on) and More; More and the desktop sidebar list the
   rest under groups (`Tonight`, `Your team`, `The league`, `You`; a pool's `Play`, `Sport centres`, `You`), and nothing
   in the dock repeats in More. A new page joins a group rather than the end of a list.
