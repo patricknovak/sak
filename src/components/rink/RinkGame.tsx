@@ -13,13 +13,13 @@ import {
 } from '../../lib/rink/physics';
 import { newBrain, think, type LevelInfo } from '../../lib/rink/ai';
 import { muted, setMuted, sfx, wake } from '../../lib/rink/sound';
-import type { MatchMsg, StateMsg } from '../../lib/rink/net';
+import { newMatchId, type MatchMsg, type StateMsg } from '../../lib/rink/net';
 
 export type RinkMode =
   | { kind: 'cpu'; level: LevelInfo }
   | { kind: 'online'; match: string; side: Side; vs: number | null };
 
-export interface RinkResult { won: boolean; sc: [number, number]; best: number; rally: number }
+export interface RinkResult { won: boolean; sc: [number, number]; best: number; rally: number; own: number }
 
 type Phase = 'wait' | 'count' | 'play' | 'goal' | 'paused' | 'over' | 'gone' | 'taken';
 interface Banner { id: number; tone: 'for' | 'against' | 'fire'; big: string; small?: string }
@@ -30,8 +30,9 @@ const RIVAL = '#ff3b5c';
 const SEND_EVERY = 1 / 15;
 const kmh = (s: number) => Math.round((s / MAX_PUCK) * 165);
 
-export function RinkGame({ me, mode, league, teams, ice, onExit, onResult }: {
+export function RinkGame({ me, mode, league, teams, ice, onExit, onResult, onRecorded }: {
   me: Team; mode: RinkMode; league: number; teams: Team[]; ice: string; onExit: () => void; onResult?: (r: RinkResult) => void;
+  onRecorded?: () => void;   // the game is kept: the stats can read it again
 }) {
   const online = mode.kind === 'online';
   const mySide: Side = online ? mode.side : 0;
@@ -50,6 +51,8 @@ export function RinkGame({ me, mode, league, teams, ice, onExit, onResult }: {
   const ctl = useRef<{ pause: () => void; resume: () => void; rematch: () => void; quit: () => void } | null>(null);
   const resultCb = useRef(onResult);
   resultCb.current = onResult;
+  const recorded = useRef(onRecorded);
+  recorded.current = onRecorded;
 
   const cpuName = mode.kind === 'cpu' ? mode.level.who : null;
   const oppName = cpuName ?? opp?.name ?? 'Your opponent';
@@ -88,6 +91,8 @@ export function RinkGame({ me, mode, league, teams, ice, onExit, onResult }: {
       lastRecv: performance.now() / 1000, lastSend: 0, lastWall: 0,
       guest: null as number | null, againMe: false, againThem: false,
       best: 0, rally: 0, heatShown: 0,
+      // for the league's stats: own goals and the hardest goal by each side, when the game began, which game of the match
+      own: [0, 0] as [number, number], bestBy: [0, 0] as [number, number], began: performance.now() / 1000, gameNo: 1,
       trail: [] as { x: number; y: number }[], sparks: [] as Spark[], rings: [] as { x: number; y: number; t: number; c: string }[],
       shake: 0, target: null as { x: number; y: number } | null, over: false,
     };
@@ -142,6 +147,7 @@ export function RinkGame({ me, mode, league, teams, ice, onExit, onResult }: {
     const startCount = () => { S.countFrom = now(); S.lastBeep = -1; setP('count'); };
     const reset = () => {
       S.sc = [0, 0]; setSc([0, 0]); S.over = false; S.best = 0; S.rally = 0;
+      S.own = [0, 0]; S.bestBy = [0, 0]; S.began = now(); S.gameNo++;
       S.againMe = false; S.againThem = false; setAgain({ me: false, them: false }); setResult(null);
       faceoff(t, online ? 1 : 0); S.owner = !online || mySide === 1; setHeat(0); S.heatShown = 0;
       startCount();
@@ -170,8 +176,9 @@ export function RinkGame({ me, mode, league, teams, ice, onExit, onResult }: {
 
     const finish = (won: boolean) => {
       S.over = true;
-      const r: RinkResult = { won, sc: [S.sc[mySide], S.sc[theirSide]], best: S.best, rally: S.rally };
+      const r: RinkResult = { won, sc: [S.sc[mySide], S.sc[theirSide]], best: S.best, rally: S.rally, own: S.own[mySide] };
       setResult(r); setP('over');
+      record();
       resultCb.current?.(r);
       if (won) {
         sfx.win();
@@ -179,10 +186,26 @@ export function RinkGame({ me, mode, league, teams, ice, onExit, onResult }: {
       } else sfx.lose();
     };
 
-    // a goal, called here or told by the other phone
-    const goal = (by: Side, pts: number, k: number, told?: [number, number]) => {
+    // the league keeps the game (rink_games, migration 352): the player against the computer records it, and in a duel
+    // the challenger's phone does (side 0), so it's told once. A phone that can't reach the server just doesn't count it.
+    const record = () => {
+      if (online && mySide !== 0) return;
+      const away = online ? (S.guest ?? mode.vs) : null;
+      if (online && away == null) return;
+      supabase.rpc('rink_record', {
+        p_match: online ? `${mode.match}-${S.gameNo}` : `${newMatchId()}${newMatchId()}`.slice(0, 16),
+        p_away: away, p_level: mode.kind === 'cpu' ? mode.level.key : null,
+        p_home_goals: S.sc[0], p_away_goals: S.sc[1], p_home_own: S.own[0], p_away_own: S.own[1],
+        p_home_best: S.bestBy[0], p_away_best: S.bestBy[1], p_rally: S.rally, p_secs: Math.round(now() - S.began),
+      }).then(({ error }) => { if (!error) recorded.current?.(); }, () => {});
+    };
+
+    // a goal, called here or told by the other phone. An own goal is one the defender last touched into their own net.
+    const goal = (by: Side, pts: number, k: number, told?: [number, number], own = false) => {
       if (S.phase === 'goal' || S.over) return;
       const into = otherSide(by);
+      if (own) S.own[into]++;
+      else S.bestBy[by] = Math.max(S.bestBy[by], k);
       if (told) S.sc = [Math.max(S.sc[0], told[0]), Math.max(S.sc[1], told[1])];
       else S.sc[by] += pts;
       setSc([...S.sc] as [number, number]);
@@ -191,10 +214,14 @@ export function RinkGame({ me, mode, league, teams, ice, onExit, onResult }: {
       if (by === mySide) {
         S.best = Math.max(S.best, k);
         sfx.horn();
-        flash({ tone: 'for', big: pts > 1 ? 'Double goal!' : 'Goal!', small: `${k} km/h${pts > 1 ? ' · hot puck counts two' : ''}` });
+        flash(own
+          ? { tone: 'for', big: 'Own goal!', small: `${oppRef.current} put it in their own net${pts > 1 ? ' · counts two' : ''}` }
+          : { tone: 'for', big: pts > 1 ? 'Double goal!' : 'Goal!', small: `${k} km/h${pts > 1 ? ' · hot puck counts two' : ''}` });
       } else {
         sfx.against();
-        flash({ tone: 'against', big: pts > 1 ? 'Burned. Two.' : 'Scored on', small: `${oppRef.current} · ${k} km/h` });
+        flash(own
+          ? { tone: 'against', big: 'Own goal', small: `Into your own net${pts > 1 ? ', and it counts two' : ''}. Ouch.` }
+          : { tone: 'against', big: pts > 1 ? 'Burned. Two.' : 'Scored on', small: `${oppRef.current} · ${k} km/h` });
       }
       // a shower of light out of the net it went into
       const gy = into === 1 ? 0 : H;
@@ -205,7 +232,7 @@ export function RinkGame({ me, mode, league, teams, ice, onExit, onResult }: {
       }
       t.puck.vx = 0; t.puck.vy = 0;
       setP('goal');
-      if (online && !told) send('m', { type: 'goal', by, pts, sc: S.sc, kmh: k });
+      if (online && !told) send('m', { type: 'goal', by, pts, sc: S.sc, kmh: k, own });
     };
 
     const onMsg = (m: MatchMsg) => {
@@ -214,7 +241,7 @@ export function RinkGame({ me, mode, league, teams, ice, onExit, onResult }: {
           if (m.guest === me.id) { S.lastRecv = now(); if (S.phase === 'wait') startCount(); }
           else if (S.phase === 'wait') setP('taken');
         }
-      } else if (m.type === 'goal') goal(m.by, m.pts, m.kmh, m.sc);
+      } else if (m.type === 'goal') goal(m.by, m.pts, m.kmh, m.sc, !!m.own);
       else if (m.type === 'again') { S.againThem = true; setAgain((a) => ({ ...a, them: true })); if (S.againMe) reset(); }
       else if (m.type === 'bye') { if (!S.over) setP('gone'); }
     };
@@ -265,7 +292,7 @@ export function RinkGame({ me, mode, league, teams, ice, onExit, onResult }: {
           if (now() - S.lastWall > 0.05) { sfx.wall(e.power); S.lastWall = now(); }
         } else if (e.kind === 'goal') {
           const by = otherSide(e.into);
-          goal(by, hot(t) ? 2 : 1, kmh(speed(t.puck)));
+          goal(by, hot(t) ? 2 : 1, kmh(speed(t.puck)), undefined, e.own);
         }
       }
       if (t.heat !== S.heatShown) {

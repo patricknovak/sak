@@ -65,3 +65,26 @@ for (let i = 1; i < saves.length; i++) assert.ok(saves[i] >= saves[i - 1] - 0.03
 assert.ok(saves[0] < 0.85, 'the beer league keeper lets some in');
 assert.ok(saves[3] > 0.5, 'the legend stops most');
 console.log('rink tests passed');
+
+// 4. the standings: totals, own goals, the rating and the trend, from kept games
+{
+  const { rinkStats } = await import('../../src/lib/rink/stats.ts');
+  const now = Date.parse('2026-11-20T12:00:00Z');
+  const g = (id, home, away, level, hg, ag, ho, ao, daysAgo) => ({ id, match_id: 'm' + id, home, away, level, home_goals: hg, away_goals: ag,
+    home_own: ho, away_own: ao, home_best: 120, away_best: 100, rally: id, secs: 120, played_at: new Date(now - daysAgo * 86400000).toISOString() });
+  const rows = [g(1, 1, 2, null, 7, 3, 0, 1, 30), g(2, 2, 1, null, 7, 5, 2, 0, 20), g(3, 1, null, 'legend', 7, 6, 0, 0, 3), g(4, 1, 2, null, 8, 0, 0, 3, 1)];
+  const { players, records } = rinkStats(rows, now);
+  const p1 = players.find((p) => p.team === 1), p2 = players.find((p) => p.team === 2);
+  assert.equal(p1.all.gp, 4); assert.equal(p1.all.w, 3); assert.equal(p1.all.gf, 7 + 5 + 7 + 8); assert.equal(p1.all.ga, 3 + 7 + 6 + 0);
+  assert.equal(p2.all.own, 1 + 2 + 3, 'own goals add up from both ends of the table');
+  assert.equal(p1.duels.gp, 3); assert.equal(p1.cpu.gp, 1); assert.equal(p1.byLevel.legend.w, 1);
+  assert.equal(p1.vs.get(2).w, 2); assert.equal(p2.vs.get(1).w, 1);
+  assert.equal(p1.rank, 1, 'the better record ranks first');
+  assert.ok(p1.rating > 1000 && p2.rating < 1000);
+  assert.equal(p1.recent.gp, 2); assert.equal(p1.trend, 'up');
+  assert.deepEqual(p1.form, ['W', 'W', 'L', 'W']);
+  assert.equal(p1.shutouts, 1); assert.equal(p1.hot, 1);
+  assert.equal(records.games, 4); assert.equal(records.duels, 3); assert.equal(records.ownGoals.team, 2);
+  assert.equal(records.rout.gf - records.rout.ga, 8);
+  console.log('rink standings passed');
+}
