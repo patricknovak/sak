@@ -114,7 +114,7 @@ Two things in one repo:
   `players`; thirty minutes in `hub_cache`, carried in every `fan` answer as `moves`) is priced by `priceMoves` in
   `src/lib/fanDeep.ts` (the crease the roster will dress against the one that played, arrivals, departures and the men
   out, in goals a game, six goals a win) and `outlook` adjusts every club's strength by it; the Moves card (`FanMoves.tsx`)
-  and the crease's arrival card show it. New fan-zone analysis that reads a roster reads `moves`, not only the club stats.
+  and the crease's arrival card show it. New fan-zone analysis that reads a roster reads `moves`, not only the club stats. A zone's data is drawn from the copy last kept on the phone and refreshed behind it (`useKeptHub`, `src/lib/hubKeep.ts`; nhl-hub's `cached` answers a stale copy at once as `refreshing` and rebuilds it after, 7 November 2026, §9.30); new zone data reads through it. The trend (last two weeks, last month) is `src/lib/fanTrend.ts`.
 - Navigation (`src/components/Layout.tsx`): the dock keeps four places (a fantasy league's are Home, Lineup, Chat and NHL centre since 24 October 2026; Players is in More under Your team), Live (the scoreboard, a fantasy league's middle tab with a red dot while a game is on) and More; More and the desktop sidebar list the
   rest under groups (`Tonight`, `Your team`, `The league`, `You`; a pool's `Play`, `Sport centres`, `You`), and nothing
   in the dock repeats in More. A new page joins a group rather than the end of a list.
@@ -123,9 +123,9 @@ Two things in one repo:
   New UI that shows a player uses them rather than linking away. The injury report's timeline (expected return, body
   part, IR list, the write-up) is on `players` (migration 152, written by nhl-sync's injury task) and drawn by
   `InjuryReport`.
-- Lineups: one place, My Team (`src/pages/MyTeam.tsx`, `#/team` and `#/team/:id`): the Tonight card (Best lineup as a
+- Lineups: one place, My Team (`src/pages/MyTeam.tsx`, `#/team` and `#/team/:id`): the Tonight card (a strip of the next two weeks: tap a day to set its lineup right there, saved as that day's plan, 7 November 2026; Best lineup as a
   list of changes, `src/components/lineup/OptimizeSheet.tsx`; What if; warnings with Fix; Sit or start,
-  `src/components/SitStart.tsx`) over the tabs Lineup (two-tap moves saved through `set_lineup` with an undo,
+  `src/components/SitStart.tsx`) over the tabs Lineup (hot and cold over the last two weeks on each row and in a card, `formOf`/`useForm` in `src/lib/lineupKit.ts`; two-tap moves saved through `set_lineup` with an undo,
   `SaveProvider`/`useSave`; IR moves stay on `move_player`, and a player comes off IR any time the roster has room, even once his game has started (that night still counts him as he was at puck drop), from My Team or Daily lineups, migration 309; line badges from nhl-hub's shift charts, `useLines`), Week,
   Daily lineups (`LineupPlanner`), League (every team ranked for a night or a week), Compare, Insights and Stats (any or
   every GM, `TeamCompare`); another team's page opens on Scout & trade with the same views read only. The views are in

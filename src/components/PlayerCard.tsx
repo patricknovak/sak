@@ -5,7 +5,7 @@ import { useNavigate } from 'react-router-dom';
 import { useLeague, useSport } from '../lib/store';
 import { isFinal, isLive, periodShort } from '../lib/sport';
 import { rpc, supabase } from '../lib/supabase';
-import type { Player } from '../lib/types';
+import type { Game, Player } from '../lib/types';
 import { calcFpts, injuryBack, fmtDate, fmtPts, fmtTime, injuryBadge, NHL_COLORS, NHL_TEAMS, STAT_LABELS, teamLogo } from '../lib/format';
 import { Headshot, NhlLogo, Pos, Sheet, TeamBadge, TeamName, useAction } from './ui';
 import { ProjOutlook } from './ProjOutlook';
@@ -43,12 +43,13 @@ export function PlayerTag({ p, className = '' }: { p: Player; className?: string
 // `wrapName`: only the name and its chips wrap (the trade lists, where an injury and the news dot share a phone's width
 // with the name), and the stat line stays on one
 // badges: small marks drawn right after the name (the lineup's forward line or pair, a light night)
-export function PlayerRow({ p, right, onClick, sub, dim, onInfo: given, wrap, wrapName, badges }: { p: Player; right?: ReactNode; onClick?: () => void; sub?: ReactNode; dim?: boolean; onInfo?: (tab?: 'news') => void; wrap?: boolean; wrapName?: boolean; badges?: ReactNode }) {
+// game: the game to show beside him (null for none); left out, it's his club's game tonight
+export function PlayerRow({ p, right, onClick, sub, dim, onInfo: given, wrap, wrapName, badges, game }: { p: Player; right?: ReactNode; onClick?: () => void; sub?: ReactNode; dim?: boolean; onInfo?: (tab?: 'news') => void; wrap?: boolean; wrapName?: boolean; badges?: ReactNode; game?: Game | null }) {
   const { gamesByTeam } = useLeague();
   const open = usePlayerInfo();
   const onInfo = given ?? (open ? (tab?: 'news') => open(p.id, tab) : undefined);
   const sport = useSport();
-  const g = gamesByTeam(p.nhl_team);
+  const g = game === undefined ? gamesByTeam(p.nhl_team) : game ?? undefined;
   const opp = g ? (g.home === p.nhl_team ? `vs ${g.away}` : `@ ${g.home}`) : null;
   const live = g && isLive(sport, g.state);
   return (
