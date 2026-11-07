@@ -24,6 +24,8 @@ import { Chips, ClubMark, Head, ShowMore } from '../components/fan/kit';
 import { FanCalls, FanMeBar, FanVoiceProvider, VerdictCall, useVoice } from '../components/fan/FanVoice';
 import { FanBoard, FanKnowledge } from '../components/fan/FanBoard';
 import { ShareButton, ShareIcon } from '../components/fan/FanShare';
+import { FanTrend } from '../components/fan/FanTrend';
+import { trendOfSport } from '../lib/fanTrend';
 import { ChanceTiles, RaceTable, dayOf, kickoff, recordOfRow, useLeagueRead, useSportClub, useSportHistory, useSportLeague } from '../components/fan/SportBits';
 
 const CLUB_KEY = 'sp-fan-club';
@@ -66,6 +68,7 @@ export default function SportFanZone() {
   const name = c?.name ?? dc.name;
   const sport = dir.sport as SportLeague['sport'];
   const failed = L.failed || C.failed;
+  const trend = l ? trendOfSport(l, club, l.sport === 'soccer' ? 'match' : 'game') : null;
   const record = row ? (sport === 'soccer' ? `${row.pts ?? 0} pts · ${rankWord(row.seed ?? 0)} in the table` : recordOfRow(sport, row)) : '';
   const ch = out?.chances[club] ?? null;
   const sections: readonly (readonly [string, string])[] = tab === 'analysis' ? [['verdict', 'Verdict'], ['numbers', 'Numbers'], ['players', 'Players'], ['office', 'Front office'], ['kb', 'Knowledge']]
@@ -145,12 +148,14 @@ export default function SportFanZone() {
         ) : tab === 'outlook' ? (
           <>
             <Outlook l={l} club={club} a={a} out={out} tb={tb} dir={dir} share={{ url: zoneLink(league, club, 'outlook'), title: `${name}: the outlook`, text: ch ? (sport === 'soccer' ? `${name}: ${chance(ch.title)} for the title, ${chance(ch.top4)} top four.` : `${name}: ${chance(ch.playoffs)} to make the playoffs, ${chance(ch.title)} to win it all.`) : `${name}: the season played out a few thousand times.` }} />
+            {trend && <FanTrend t={trend} scores={sport === 'soccer' ? 'goals' : 'points'} />}
             <Games l={l} a={a} />
             <Footnote l={l} c={c} out={out} dir={dir} />
           </>
         ) : (
           <>
             <Verdict a={a} compact to={zonePath(league, club, 'analysis')} />
+            {trend && <FanTrend t={trend} scores={sport === 'soccer' ? 'goals' : 'points'} />}
             <section className="space-y-3">
               <Head id="chances" title="The chances" sub={`The rest of the season played out ${out ? out.sims.toLocaleString() : 'a few thousand'} times${sport === 'soccer' ? ', the table drawn from where they finish' : ', the spring too'}.`} right={<Link to={zonePath(league, club, 'outlook')} className="flex shrink-0 items-center gap-1 text-sm font-semibold" style={{ color: 'var(--club)' }}>The outlook<ArrowRight className="h-3.5 w-3.5" /></Link>} />
               <ChanceTiles sport={l.sport} c={ch} />

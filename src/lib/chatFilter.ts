@@ -66,7 +66,15 @@ export function byGm(m: Message, t: Team, parentOf?: (id: number) => Message | u
   return false;
 }
 
+// the trade a league line is about (the "agreed" and "TRADE!" lines carry meta.trade); the chat draws it as a card
+export function tradeOf(m: Message | null | undefined): number | null {
+  const t = m?.kind === 'system' ? m.meta?.trade : null;
+  return typeof t === 'number' ? t : null;
+}
+
 export function chatMatch(m: Message, what: ChatWhat, gm: Team | null, mentions = true, parentOf?: (id: number) => Message | undefined): boolean {
-  if (what !== 'all' && !chatKinds(m).has(what)) return false;
+  // a comment on a trade is talk, and it stays with the trade under Transactions too
+  const onTrade = what === 'moves' && m.reply_to != null && tradeOf(parentOf?.(m.reply_to)) != null;
+  if (what !== 'all' && !chatKinds(m).has(what) && !onTrade) return false;
   return !gm || (mentions ? aboutGm(m, gm) || byGm(m, gm, parentOf) : byGm(m, gm, parentOf));
 }

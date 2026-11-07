@@ -170,6 +170,17 @@ set role authenticated;
 select review_trade(:trade_id, true, 'lgtm');
 reset role;
 select 'trade', status from trades where id = :trade_id;
+-- trades in the chat (migration 351): the agreed line carries its trade, the done line a "Who won?" poll, and every
+-- other team in the league hears about it
+select pg_temp.expect('the agreed line names its trade', exists (select 1 from messages where body like '🤝 %agreed to a trade%' and (meta->>'trade')::bigint = :trade_id));
+select pg_temp.expect('a done trade comes with a who-won poll', exists (select 1 from messages m join polls p on p.id = (m.meta->>'poll')::bigint
+  where m.body like '🔄 TRADE! %' and (m.meta->>'trade')::bigint = :trade_id and p.team_id is null and p.question = 'Who won the trade?'
+    and p.options = jsonb_build_array(_tname(5), _tname(6), 'Too close to call') and p.league_id = 1));
+select pg_temp.expect('the league poll posts no line of its own', not exists (select 1 from messages where body like '📊 %Who won the trade?%'));
+select pg_temp.expect('every other team hears about the trade', (select count(distinct team_id) from notifications n
+  where n.link = '/chat?m=' || (select id from messages where (meta->>'trade')::bigint = :trade_id and body like '🔄 TRADE! %')
+    and n.body like '🔄 Trade! %') = (select count(*) from teams where league_id = 1 and id not in (5, 6)));
+select pg_temp.expect('the teams in the deal hear it their own way', not exists (select 1 from notifications where team_id in (5, 6) and body like '🔄 Trade! %'));
 
 -- next season's picks exist and can be traded: team 5 sends its 2027-28 R1 for team 6's 2027-28 R2
 select 'future picks', count(*) from draft_picks where season = _next_season((select season from league));

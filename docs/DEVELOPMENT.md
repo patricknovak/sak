@@ -1532,7 +1532,69 @@ sets a new one (start a pool, start a league, join, keep your seat, the fan zone
 Commish page's reset and spectator pass) and the join function ask for 8, and Auth's own minimum follows once this is
 deployed. Signing in with an older, shorter password still works.
 
-### 9.30 Rink Duel: thumb air hockey in every hockey league and pool, 7 November 2026
+### 9.30 The fan zone at once, and the trend, 7 November 2026
+
+Patrick: the fan zone shows its information right away instead of waiting on an update, updates in the background only
+once a person picks a club, and shows how the club is trending over the last two weeks and the last month.
+
+- At once: every answer a zone reads (`fan`, `fan-history`, `fan-office` for the NHL; `fan-sport`, `fan-sport-league`,
+  `fan-sport-history` elsewhere) is kept on the phone, in memory for the visit and in IndexedDB between visits, the
+  dozen most recent (`src/lib/hubKeep.ts`, `useKeptHub`). Opening a club draws its kept copy first and asks for a fresh
+  one behind it; nothing is fetched for a club nobody opened. The hero says "Updating" while it is on its way.
+- Behind it: nhl-hub's `cached` answers a copy past its window at once (up to three days old) and rebuilds it after the
+  answer has gone (`EdgeRuntime.waitUntil`), marked `refreshing` with a five-second ttl so the edge doesn't hold it; the
+  page asks the function directly again 15 and 45 seconds later. Before, the first person after the window waited for
+  the whole rebuild (dozens of NHL calls).
+- The season simulation (3,000 runs) now runs a moment after the page draws, once per copy, and a fresh copy of the
+  same club keeps the last odds on screen until its own are worked out, in the NHL's zone and the others'.
+- The trend (`src/lib/fanTrend.ts`, `FanTrend.tsx`): the last two weeks and the last month, each a record, a share of
+  the points (wins outside hockey and soccer) against the season's and against the same stretch before, goals for and
+  against a game, the NHL's 82-game pace, and the month's games one chip each. In the NFL, NBA and Premier League every
+  club's games are on hand, so each window is ranked across the league. On the overview under the verdict and on the
+  outlook page. Between seasons the windows are the season's last two weeks and month.
+
+No migration. nhl-hub deploys on merge.
+
+### 9.31 Hot and cold, and the days ahead on the Lineup tab, 7 November 2026
+
+Patrick asked for two things on the lineup screen. Both are site only: no migration, no edge function.
+
+- **Hot and cold over the last two weeks.** `formOf` in `src/lib/lineupKit.ts` (`useForm()` reads it from the store)
+  sets a player's points a game over the last 14 days (`player_windows`' '14', else `player_season.fpts14`) against what he
+  was expected to score: his own season before those two weeks once he has eight games of it, until then his projection
+  per game. Three games in the window at least; a fifth over is hot, a fifth under cold. The Lineup tab shows it twice,
+  for any team: a chip on each player's row (`FormChip`) and the Hot and cold card (`src/components/lineup/FormCard.tsx`:
+  over and under, with the rate, the yardstick, a bar and a line on a hot bench player or a cold starter). The Insights
+  tab's Form card reads the same `formOf`.
+- **Setting a day ahead from the Lineup tab.** The Tonight card has a strip of the next two weeks (each day's expected
+  points, a dot on a day with a lineup of its own). Tapping a day sets that day's lineup right there with the same two
+  taps, What if, Best lineup (`OptimizeSheet` for that day) and the undo; it saves through `set_lineup_plans` (the
+  SaveProvider already wrote a later day as a plan) and becomes the live lineup that morning, as Daily lineups' plans
+  always have. Nothing locks on a day ahead; IR moves stay on today (they are real roster moves); Sit or start stays
+  tonight's. `PlayerRow` takes the `game` to show, so a day ahead shows that day's opponent.
+
+### 9.32 Trades in the chat, for the trash talk, 7 November 2026
+
+Patrick: "show all trades made in the chat by notification and make it such that you can comment on trades and the
+trade and comments show up in the chat, basically to increase the trash talk." The league already posted a line when a
+trade was agreed and when it went through, but it was a grey pill nobody could answer, and only the teams in the deal
+got a bell.
+
+- The chat draws a trade's line (anything with `meta.trade`) as a card (`src/components/TradeChatCard.tsx`): what each
+  team gets, the proposer's note, the latest two comments, quick reactions (🐑 fleeced first) and a Comment button. A
+  comment is an ordinary chat reply to the line (`reply_to`), so it lands in the feed with the trade quoted above it, and
+  under the Transactions filter too (`tradeOf`, `chatMatch` in `src/lib/chatFilter.ts`). No new table: the existing
+  `messages.reply_to` and `reactions` policies already allow it.
+- Migration 351 (`trade_talk`), a `before insert` trigger on `messages` (`_trade_line`), leaves the trade functions alone:
+  the "agreed" line gets its `meta.trade` (the trade respond_trade just set to accepted in the same transaction), and
+  the "TRADE!" line gets a league poll, "Who won the trade?" (each team in the deal, or too close to call, open seven
+  days, `polls.team_id` empty, no "started a poll" line) and rings every other team in the league with a bell that opens
+  the chat at the trade (`/chat?m=<line>`). The flow test checks all four.
+- The Trades page links each agreed or done trade to its talk, with the comment count.
+- Until 351 is live the site works as before: the done line already carries `meta.trade`, so the card and comments work
+  on it; the poll, the league-wide bell and the card on the "agreed" line arrive with the migration.
+
+### 9.33 Rink Duel: thumb air hockey in every hockey league and pool, 7 November 2026
 
 Patrick: "build within the sak league pool and all hockey pools a game that is basically a version of air hockey such that
 you can play with your thumb against a computer or challenge members of the pool to a 1 on 1 competition." An original

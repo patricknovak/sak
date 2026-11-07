@@ -3,9 +3,8 @@
 // hot and who is cold). Each one ends in a tap to the day it is about.
 import { useEffect, useState } from 'react';
 import { CalendarClock, Flame, Gauge, Shield, Snowflake, Users } from 'lucide-react';
-import { useLeague } from '../../lib/store';
 import { rpc } from '../../lib/supabase';
-import { addDays, hurt, isStart, monthDay, weekday, type Kit } from '../../lib/lineupKit';
+import { addDays, hurt, isStart, monthDay, useForm, weekday, type Form, type Kit } from '../../lib/lineupKit';
 import { Headshot } from '../ui';
 import { GameStatusChip } from '../GameStatus';
 import { fmt1 } from './bits';
@@ -25,7 +24,7 @@ function Card({ icon, title, sub, children }: { icon: React.ReactNode; title: st
 }
 
 export function InsightsView({ kit, teamId, onDay, onInfo }: { kit: Kit; teamId: number; onDay: (d: string) => void; onInfo: (id: number) => void }) {
-  const { windows, season } = useLeague();
+  const formOf = useForm();
   const [eff, setEff] = useState<Eff[] | null>(null);
   useEffect(() => {
     rpc<Eff[]>('lineup_efficiency', { p_from: addDays(kit.today, -7), p_to: addDays(kit.today, -1) })
@@ -58,14 +57,12 @@ export function InsightsView({ kit, teamId, onDay, onInfo }: { kit: Kit; teamId:
   // goalies: their club's games and the back-to-backs, when one of the pair usually rests
   const goalies = roster.filter((x) => x.p.pos === 'G').map((x) => ({ x, ds: next7.filter((d) => kit.gameFor(x.p.nhl_team, d)) }));
 
-  // form: the last 14 days against the season, per game
-  const form = roster.map((x) => {
-    const w = windows.get(x.p.id)?.['14'], s = season.get(x.p.id);
-    if (!w || w.gp < 3 || !s || s.gp < 5) return null;
-    return { x, recent: w.fpts / w.gp, base: s.fpts / s.gp };
-  }).filter((f): f is NonNullable<typeof f> => !!f).map((f) => ({ ...f, delta: f.recent - f.base }));
-  const hot = [...form].sort((a, b) => b.delta - a.delta).filter((f) => f.delta > 0.15).slice(0, 3);
-  const cold = [...form].sort((a, b) => a.delta - b.delta).filter((f) => f.delta < -0.15).slice(0, 3);
+  // form: the last 14 days against what each player was expected to score, per game (the same read as the Lineup tab's
+  // hot and cold, lineupKit's formOf)
+  const form = roster.map((x) => ({ x, f: formOf(x.p) })).filter((r): r is { x: typeof r.x; f: Form } => !!r.f)
+    .map(({ x, f }) => ({ x, recent: f.recent, base: f.base, pct: f.pct, tone: f.tone }));
+  const hot = form.filter((f) => f.tone === 'hot').sort((a, b) => b.pct - a.pct).slice(0, 3);
+  const cold = form.filter((f) => f.tone === 'cold').sort((a, b) => a.pct - b.pct).slice(0, 3);
 
   return (
     <div className="space-y-3">
@@ -156,7 +153,7 @@ export function InsightsView({ kit, teamId, onDay, onInfo }: { kit: Kit; teamId:
       )}
 
       {(hot.length > 0 || cold.length > 0) && (
-        <Card icon={<Flame className="h-5 w-5" />} title="Form" sub="Points a game over the last 14 days against the season">
+        <Card icon={<Flame className="h-5 w-5" />} title="Form" sub="Points a game over the last 14 days against what each was expected to score">
           <div className="grid gap-3 sm:grid-cols-2">
             {[{ list: hot, icon: <Flame className="h-4 w-4 text-orange-300" />, label: 'Hot' }, { list: cold, icon: <Snowflake className="h-4 w-4 text-sky-300" />, label: 'Cold' }].map((c) => c.list.length > 0 && (
               <div key={c.label}>
