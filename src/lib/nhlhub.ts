@@ -6,9 +6,10 @@ import { supabase } from './supabase';
 // a dev server) it calls the function directly.
 const EDGE = /(^|\.)superpools?ai\.com$/.test(location.hostname);
 
-export async function hub<T>(task: string, q: Record<string, string> = {}): Promise<T> {
+// `direct` skips the edge: a page asking again for the copy the function was rebuilding while it answered (src/lib/hubKeep.ts)
+export async function hub<T>(task: string, q: Record<string, string> = {}, o: { direct?: boolean } = {}): Promise<T> {
   const qs = new URLSearchParams({ task, ...q }).toString();
-  if (EDGE) {
+  if (EDGE && !o.direct) {
     const r = await fetch(`/api/hub?${qs}`).catch(() => null);
     const body = r ? await r.json().catch(() => null) : null;
     if (r?.ok && body && !body.error) return body as T;

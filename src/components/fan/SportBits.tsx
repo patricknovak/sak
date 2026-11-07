@@ -4,27 +4,14 @@
 // the leader boards. The reading itself is src/lib/fanSport.ts.
 import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { hub } from '../../lib/nhlhub';
+import { useKeptHub } from '../../lib/hubKeep';
 import { chance, outlook, table, type Chances, type Outlook, type Sport, type SportClub, type SportClubRow, type SportLeague, type Table } from '../../lib/fanSport';
 import { zonePath } from '../../lib/fanVoice';
 import type { SportHistory } from '../../lib/fanSportHistory';
 import { ClubMark } from './kit';
 
-// ── the data
-function useHub<T>(task: string, q: Record<string, string>, key: string) {
-  const [data, setData] = useState<T | null>(null);
-  const [failed, setFailed] = useState(false);
-  const [tries, setTries] = useState(0);
-  useEffect(() => {
-    let live = true;
-    setData(null); setFailed(false);
-    hub<T>(task, q).then((d) => { if (live) setData(d); }, () => { if (live) setFailed(true); });
-    return () => { live = false; };
-    // the key stands for the question
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [task, key, tries]);
-  return { data, failed, retry: () => setTries((n) => n + 1) };
-}
+// ── the data: the copy last seen on this phone at once, a fresh one behind it (src/lib/hubKeep.ts)
+const useHub = <T,>(task: string, q: Record<string, string>, key: string) => useKeptHub<T>(task, q, key);
 export const useSportLeague = (league: string) => useHub<SportLeague>('fan-sport-league', { league }, league);
 export const useSportClub = (league: string, club: string) => useHub<SportClub>('fan-sport', { league, club }, `${league}:${club}`);
 export const useSportHistory = (league: string) => useHub<SportHistory>('fan-sport-history', { league }, league);
@@ -39,19 +26,20 @@ export function useLeagueRead(l: SportLeague | null) {
     if (!t) { t = table(l); tables.set(l, t); }
     return t;
   }, [l]);
-  const [out, setOut] = useState<Outlook | null>(() => (l && outlooks.has(l) ? outlooks.get(l)! : null));
+  const [sim, setSim] = useState<{ league: string; out: Outlook | null } | null>(() => (l && outlooks.has(l) ? { league: l.league, out: outlooks.get(l)! } : null));
   useEffect(() => {
-    if (!l) { setOut(null); return; }
-    if (outlooks.has(l)) { setOut(outlooks.get(l)!); return; }
-    setOut(null);
+    if (!l) { setSim(null); return; }
+    if (outlooks.has(l)) { setSim({ league: l.league, out: outlooks.get(l)! }); return; }
     const t = setTimeout(() => {
       // the NBA's season has the most games left to play: fewer runs keep a phone quick, the chances barely move
       const o = outlook(l, l.sport === 'basketball' ? 2000 : 3000);
       outlooks.set(l, o);
-      setOut(o);
+      setSim({ league: l.league, out: o });
     }, 40);
     return () => clearTimeout(t);
   }, [l]);
+  // a fresh copy of the same league keeps the last chances on screen until its own are worked out
+  const out = l && sim?.league === l.league ? sim.out : null;
   return { tb, out };
 }
 

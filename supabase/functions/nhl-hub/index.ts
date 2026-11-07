@@ -672,17 +672,32 @@ function fanMoves() {
 // one rebuild at a time per key in this instance: callers that arrive while a big build (fan-moves reads 64 NHL
 // endpoints) is under way wait for that one instead of starting their own (28 October 2026, the pre-launch review)
 const building = new Map<string, Promise<object>>();
+// a copy past its window is still answered at once (7 November 2026, Patrick: the fan zone shows its numbers right away
+// and brings them up to date behind them): the rebuild runs after the answer has gone, `refreshing` tells the page to
+// ask again in a moment, and its short ttl keeps the edge from holding the old copy. Only a copy older than this waits
+// for the rebuild.
+const STALE_MAX = 3 * 86_400_000;
+function rebuild(key: string, build: () => Promise<object>) {
+  let run = building.get(key);
+  if (!run) {
+    run = build().then(async (body) => { await db.from('hub_cache').upsert({ key, body, at: new Date().toISOString() }); return body; })
+      .finally(() => building.delete(key));
+    building.set(key, run);
+  }
+  return run;
+}
 async function cached(key: string, ttl: number, build: () => Promise<object>) {
   const { data: hit } = await db.from('hub_cache').select('body,at').eq('key', key).maybeSingle();
-  if (hit && Date.now() - new Date(hit.at).getTime() < ttl) return { ...(hit.body as object), ttl };
+  const age = hit ? Date.now() - new Date(hit.at).getTime() : Infinity;
+  if (hit && age < ttl) return { ...(hit.body as object), ttl };
+  if (hit && age < STALE_MAX) {
+    const run = rebuild(key, build).catch((e) => { console.error('rebuild', key, e); return null; });
+    const rt = (globalThis as any).EdgeRuntime;
+    if (rt?.waitUntil) rt.waitUntil(run);
+    return { ...(hit.body as object), refreshing: true, ttl: 5_000 };
+  }
   try {
-    let run = building.get(key);
-    if (!run) {
-      run = build().then(async (body) => { await db.from('hub_cache').upsert({ key, body, at: new Date().toISOString() }); return body; })
-        .finally(() => building.delete(key));
-      building.set(key, run);
-    }
-    const body = await run;
+    const body = await rebuild(key, build);
     return { ...body, ttl };
   } catch (e) {
     // the NHL's feeds down: the last copy beats an error
