@@ -121,9 +121,9 @@ Two things in one repo:
   New UI that shows a player uses them rather than linking away. The injury report's timeline (expected return, body
   part, IR list, the write-up) is on `players` (migration 152, written by nhl-sync's injury task) and drawn by
   `InjuryReport`.
-- Lineups: one place, My Team (`src/pages/MyTeam.tsx`, `#/team` and `#/team/:id`): the Tonight card (Best lineup as a
+- Lineups: one place, My Team (`src/pages/MyTeam.tsx`, `#/team` and `#/team/:id`): the Tonight card (a strip of the next two weeks: tap a day to set its lineup right there, saved as that day's plan, 7 November 2026; Best lineup as a
   list of changes, `src/components/lineup/OptimizeSheet.tsx`; What if; warnings with Fix; Sit or start,
-  `src/components/SitStart.tsx`) over the tabs Lineup (two-tap moves saved through `set_lineup` with an undo,
+  `src/components/SitStart.tsx`) over the tabs Lineup (hot and cold over the last two weeks on each row and in a card, `formOf`/`useForm` in `src/lib/lineupKit.ts`; two-tap moves saved through `set_lineup` with an undo,
   `SaveProvider`/`useSave`; IR moves stay on `move_player`, and a player comes off IR any time the roster has room, even once his game has started (that night still counts him as he was at puck drop), from My Team or Daily lineups, migration 309; line badges from nhl-hub's shift charts, `useLines`), Week,
   Daily lineups (`LineupPlanner`), League (every team ranked for a night or a week), Compare, Insights and Stats (any or
   every GM, `TeamCompare`); another team's page opens on Scout & trade with the same views read only. The views are in

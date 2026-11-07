@@ -19,7 +19,8 @@ import { TIMEFRAMES, lineFor, type Timeframe } from '../lib/playerstats';
 import { LineupTools } from '../components/LineupTools';
 import { Section, TeamBadge, TeamName, useAction } from '../components/ui';
 import { irOk } from '../lib/lineup';
-import { useLineupKit, useDayPoints, useLines, hurt, longDay, monthDay, weekday, type Kit } from '../lib/lineupKit';
+import { useLineupKit, useDayPoints, useLines, useForm, addDays, hurt, longDay, monthDay, weekday, type Kit } from '../lib/lineupKit';
+import { FormCard, FormChip } from '../components/lineup/FormCard';
 import { GameLine, SaveProvider, SlotPill, diffMoves, fmt1, useSave } from '../components/lineup/bits';
 import { OptimizeSheet } from '../components/lineup/OptimizeSheet';
 import { SitStart, useSitStart, type Swap } from '../components/SitStart';
@@ -70,6 +71,11 @@ function TeamPage({ kit }: { kit: Kit }) {
   // what if: trial moves kept on this phone, slot by player, until the GM saves or throws them away
   const [trial, setTrial] = useState<Map<number, string> | null>(null);
   const [opt, setOpt] = useState(false);
+  // the day the lineup is set for: tonight, or a day ahead picked on the strip in the Tonight card, saved as that day's
+  // lineup (a plan) that becomes the live one that morning, the way Daily lineups saves it
+  const [lday, setLday] = useState(kit.today);
+  const ahead = lday > kit.today && league?.phase === 'season';
+  useEffect(() => { setLday(kit.today); }, [teamId, kit.today]);
   // the day Daily lineups opens on when the week grid or the insights send a GM there
   const [planDay, setPlanDay] = useState<string | undefined>(undefined);
   // your own team remembers which tab you were on (another team's page always opens on the scouting view)
@@ -111,8 +117,12 @@ function TeamPage({ kit }: { kit: Kit }) {
 
   // the roster as saved, and as the page draws it: in What if, each player in his trial slot
   const saved0 = useMemo(() => rosters.filter((r) => r.team_id === teamId).map((r) => ({ r, p: players.get(r.player_id)! })).filter((x) => x.p), [rosters, players, teamId]);
-  const saved = useMemo(() => new Map(saved0.map((x) => [x.p.id, x.r.slot as string])), [saved0]);
-  const roster = useMemo(() => (trial ? saved0.map((x) => ({ r: { ...x.r, slot: (trial.get(x.p.id) ?? x.r.slot) as Slot }, p: x.p })) : saved0), [saved0, trial]);
+  // on a day ahead, the lineup saved for it: its own plan, else the last plan before it, else today's (IR stays as it is)
+  const savedNow = useMemo(() => new Map(saved0.map((x) => [x.p.id, x.r.slot as string])), [saved0]);
+  const savedAhead = useMemo(() => (ahead && teamId ? kit.lineupOf(teamId, lday) : null), [ahead, teamId, lday, kit.lineupOf]); // eslint-disable-line react-hooks/exhaustive-deps
+  const saved = savedAhead?.slots ?? savedNow;
+  const shown = trial ?? (savedAhead ? saved : null);
+  const roster = useMemo(() => (shown ? saved0.map((x) => ({ r: { ...x.r, slot: (shown.get(x.p.id) ?? x.r.slot) as Slot }, p: x.p })) : saved0), [saved0, shown]);
   const slots = trial ?? saved;
   const { save, busy: saving } = useSave();
 
@@ -124,8 +134,11 @@ function TeamPage({ kit }: { kit: Kit }) {
   };
 
   // tonight's points so far, read again every minute while a game is on, and each player's line from the shift charts
-  const { pts: today } = useDayPoints(kit, kit.today);
-  const lines = useLines(kit, teamId ? [teamId] : [], kit.today);
+  const { pts: todayPts } = useDayPoints(kit, kit.today);
+  const today = ahead ? new Map<number, number>() : todayPts;
+  // who is running hot or cold over the last two weeks
+  const formOf = useForm();
+  const lines = useLines(kit, teamId ? [teamId] : [], lday);
 
   // the views a GM can open here: Week, League, Compare and Insights are about the season's games
   const inSeason = league?.phase === 'season';
@@ -149,7 +162,9 @@ function TeamPage({ kit }: { kit: Kit }) {
   // the lineups ahead: the team on screen always, every team's once the league board or a comparison is open
   const gmIds = teams.filter((x) => x.role !== 'spectator').map((x) => x.id);
   useEffect(() => { if (teamId) kit.loadPlans([teamId]); }, [teamId]); // eslint-disable-line react-hooks/exhaustive-deps
-  useEffect(() => { if (cur === 'league' || cur === 'compare') kit.loadPlans(gmIds); }, [cur, gmIds.length]); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { if (cur === 'league' || cur === 'compare' || ahead) kit.loadPlans(gmIds); }, [cur, gmIds.length, ahead]); // eslint-disable-line react-hooks/exhaustive-deps
+  // trial moves belong to the day they were tried on
+  useEffect(() => { setTrial(null); setSel(null); }, [lday]);
   // the comparison opens against the team just above in the standings (the one to catch), else the next one down
   const [other, setOther] = useState<number | null>(null);
   useEffect(() => {
@@ -170,7 +185,11 @@ function TeamPage({ kit }: { kit: Kit }) {
   const weekEnd = (() => { const d = new Date(etToday() + 'T12:00:00'); d.setDate(d.getDate() + ((7 - d.getDay()) % 7)); return d.toISOString().slice(0, 10); })();
   const weekGames = (nhl: string | null) => games.filter((g) => g.date >= etToday() && g.date <= weekEnd && (g.home === nhl || g.away === nhl)).length;
 
+  // his game on the day being set: tonight's from the store, a day ahead's from the schedule
+  const gameOf = (p: Player) => (ahead ? kit.gameFor(p.nhl_team, lday) : gamesByTeam(p.nhl_team));
+  // nothing locks on a day ahead
   const locked = (p: Player) => {
+    if (ahead) return false;
     const g = gamesByTeam(p.nhl_team);
     return !!g && !calledOff(sport, g.state) && (new Date(g.start_utc).getTime() <= now || hasStarted(sport, g.state));
   };
@@ -198,8 +217,8 @@ function TeamPage({ kit }: { kit: Kit }) {
     if (occupant && locked(occupant.p) && !offIr(occupant, selected.r.slot as Slot)) return false;
     if (!occupant && slot === selected.r.slot) return false;
     if (!occupant && slot !== 'BN' && slot !== 'IR' && bySlot(slot).length >= (cap[slot] ?? 0)) return false;
-    // IR is set for real or not at all: What if leaves it as it is
-    if (trial && (slot === 'IR' || selected.r.slot === 'IR')) return false;
+    // IR is set for real or not at all: What if and a day ahead leave it as it is
+    if ((trial || ahead) && (slot === 'IR' || selected.r.slot === 'IR')) return false;
     // a swap sends the other player to the selected one's place, or to the bench when he can't play it
     if (occupant && !slotOk(occupant.p, selected.r.slot) && selected.r.slot !== 'BN' && bench.length >= (cap.BN ?? 12)) return false;
     return true;
@@ -234,21 +253,22 @@ function TeamPage({ kit }: { kit: Kit }) {
         }
         const m = moved(who, slot, x);
         if (trial) setTrial(m.next);
-        else save(kit.today, m.next, saved, m.label);
+        else save(lday, m.next, saved, ahead ? `${m.label} · ${weekday(lday)} ${monthDay(lday)}` : m.label);
         return;
       }
-      if (x && (!locked(x.p) || x.r.slot === 'IR') && !(trial && x.r.slot === 'IR')) { setSel(x.p.id); return; }
+      if (x && (!locked(x.p) || x.r.slot === 'IR') && !((trial || ahead) && x.r.slot === 'IR')) { setSel(x.p.id); return; }
       setSel(null);
       return;
     }
     if (x) {
       if (locked(x.p) && x.r.slot !== 'IR') { nav(`/player/${x.p.id}`); return; }
-      if (trial && x.r.slot === 'IR') return;
+      if ((trial || ahead) && x.r.slot === 'IR') return;
       setSel(x.p.id);
     }
   };
 
   const st = standings.find((s) => s.team_id === teamId);
+  const night = ahead ? `on ${weekday(lday)}` : 'tonight';
   // before the season there's no lineup to set: show the roster with last season's numbers
   const offseason = league?.phase !== 'season';
   const anyStarter = rows.some((r) => r.x);
@@ -256,17 +276,17 @@ function TeamPage({ kit }: { kit: Kit }) {
   const benchTotal = [...bench, ...ir].reduce((tot, x) => tot + (today.get(x.p.id) ?? 0), 0);   // shown, never counted
   const emptyStarters = rows.filter((r) => !r.x).length;
   // who's actually on the ice tonight: starters whose club plays, out of the slots the league gives
-  const playsToday = (p: Player) => { const g = gamesByTeam(p.nhl_team); return !!g && !calledOff(sport, g.state); };
+  const playsToday = (p: Player) => { const g = gameOf(p); return !!g && !calledOff(sport, g.state); };
   const starterSlots = rows.length;
   const playingStarters = rows.filter((r) => r.x && playsToday(r.x.p)).length;
   const gameDayStarters = roster.filter((x) => x.r.slot !== 'IR' && playsToday(x.p)).length;
   const benchPlaying = bench.filter((x) => playsToday(x.p));
   const benchIdle = bench.filter((x) => !playsToday(x.p));
   // starters who may not play tonight (a backup goalie, out, scratched, or a game-time call), while there's time
-  const doubtful = rows.filter((r) => r.x && !locked(r.x.p) && ['backup', 'out', 'scratched', 'gtd'].includes(gameStatus(r.x.p.id)?.status ?? ''))
+  const doubtful = ahead ? [] : rows.filter((r) => r.x && !locked(r.x.p) && ['backup', 'out', 'scratched', 'gtd'].includes(gameStatus(r.x.p.id)?.status ?? ''))
     .map((r) => ({ p: r.x!.p, s: gameStatus(r.x!.p.id)! }));
   // the next lineup lock: the earliest of my players' games today that hasn't started
-  const nextLock = roster.map((x) => gamesByTeam(x.p.nhl_team)).filter((g): g is NonNullable<typeof g> => !!g && new Date(g.start_utc).getTime() > now && !calledOff(sport, g.state))
+  const nextLock = ahead ? undefined : roster.map((x) => gamesByTeam(x.p.nhl_team)).filter((g): g is NonNullable<typeof g> => !!g && new Date(g.start_utc).getTime() > now && !calledOff(sport, g.state))
     .sort((a, b) => a.start_utc.localeCompare(b.start_utc))[0];
   // tonight at a glance: expected points, the league's rank on them, and who of mine is on the ice
   const expTonight = rows.reduce((tot, r) => tot + (r.x && playsToday(r.x.p) ? kit.expPts(r.x.p) : 0), 0);
@@ -274,8 +294,8 @@ function TeamPage({ kit }: { kit: Kit }) {
   const nightRank = (() => {
     const gms = teams.filter((x) => x.role === 'gm');
     if (!gms.length || !teamId) return null;
-    const mineExp = kit.dayStats(teamId, kit.today, slots).pts;
-    return { rank: gms.filter((x) => x.id !== teamId && kit.dayStats(x.id, kit.today).pts > mineExp + 1e-9).length + 1, of: gms.length };
+    const mineExp = kit.dayStats(teamId, lday, slots).pts;
+    return { rank: gms.filter((x) => x.id !== teamId && kit.dayStats(x.id, lday).pts > mineExp + 1e-9).length + 1, of: gms.length };
   })();
   const onIce = rows.filter((r) => r.x && playsToday(r.x.p)).map((r) => r.x!);
   const sitStart = useSitStart(kit, roster, (x) => locked(x.p), (x, slot) => slotOk(x.p, slot), rows.filter((r) => !r.x).map((r) => r.slot));
@@ -283,7 +303,7 @@ function TeamPage({ kit }: { kit: Kit }) {
   const doSwap = (sw: Swap) => {
     const m = moved(sw.start, sw.slot, sw.sit ?? undefined);
     if (trial) { setTrial(m.next); return; }
-    save(kit.today, m.next, saved, sw.sit ? `${short(sw.start.p)} starts, ${short(sw.sit.p)} sits` : `${short(sw.start.p)} starts at ${sw.slot}`);
+    save(lday, m.next, saved, sw.sit ? `${short(sw.start.p)} starts, ${short(sw.sit.p)} sits` : `${short(sw.start.p)} starts at ${sw.slot}`);
   };
 
   // what needs fixing tonight, each with a tap to the thing it is about, and Fix for the best lineup
@@ -301,12 +321,17 @@ function TeamPage({ kit }: { kit: Kit }) {
   ] : [];
   // What if's running sum: the trial lineup's expected points against the saved one's
   const trialMoves = trial ? diffMoves(saved, trial) : [];
-  const trialGain = trial && teamId ? kit.dayStats(teamId, kit.today, trial).pts - kit.dayStats(teamId, kit.today, saved).pts : 0;
+  const trialGain = trial && teamId ? kit.dayStats(teamId, lday, trial).pts - kit.dayStats(teamId, lday, saved).pts : 0;
+  // the strip of days in the Tonight card: tonight and the two weeks after it, each with what the lineup saved for it
+  // is expected to score and whether it has a lineup of its own
+  const stripDays = useMemo(() => Array.from({ length: 15 }, (_, i) => addDays(kit.today, i)).filter((d) => !league?.season_end || d <= league.season_end), [kit.today, league?.season_end]);
+  const dayStrip = useRef<HTMLDivElement>(null);
+  const clearDay = () => run(async () => { await rpc('clear_lineup_plans', { p_dates: [lday] }); if (teamId) await kit.loadPlans([teamId]); }, `${weekday(lday)} ${monthDay(lday)} carries forward again`);
 
   const Row = ({ slot, x }: { slot: Slot; x?: Row }) => {
     const isSel = x && x.p.id === sel;
     const target = canTarget(slot, x);
-    const g = x ? gamesByTeam(x.p.nhl_team) : undefined;
+    const g = x ? gameOf(x.p) : undefined;
     const tp = x ? today.get(x.p.id) : undefined;
     const lk = x && locked(x.p);
     const playing = !!g && !calledOff(sport, g.state);
@@ -323,10 +348,11 @@ function TeamPage({ kit }: { kit: Kit }) {
         {x ? (
           <>
             <div className="min-w-0 flex-1">
-              <PlayerRow p={x.p} wrap dim={!offseason && starter && !playing} badges={!offseason && <>
+              <PlayerRow p={x.p} wrap dim={!offseason && starter && !playing} game={ahead ? g ?? null : undefined} badges={!offseason && <>
+                <FormChip f={formOf(x.p)} />
                 {/* his forward line or defence pair tonight, from the shift charts; the top line in the league's colour */}
                 {ln && /^[LD]/.test(ln) && <span className={`rounded-md px-1.5 py-px text-[9px] font-black ${ln === 'L1' || ln === 'D1' ? 'bg-gold/20 text-gold' : 'bg-white/[.08] text-slate-300'}`} title={ln.startsWith('L') ? `Forward line ${ln.slice(1)}, from the shift charts` : `Defence pair ${ln.slice(1)}, from the shift charts`}>{ln}</span>}
-                {kit.light(kit.today) && playing && starter && <span className="rounded-full bg-sky-400/15 px-1.5 py-px text-[9px] font-black uppercase tracking-wider text-sky-200" title="A light night: five games or fewer">Light</span>}
+                {kit.light(lday) && playing && starter && <span className="rounded-full bg-sky-400/15 px-1.5 py-px text-[9px] font-black uppercase tracking-wider text-sky-200" title="A light night: five games or fewer">Light</span>}
               </>} />
               {parts && (
                 <div className="num mt-1 flex flex-wrap gap-x-2 gap-y-0.5 pl-11 text-[11px] leading-tight text-slate-400">
@@ -399,23 +425,42 @@ function TeamPage({ kit }: { kit: Kit }) {
           <div className="pointer-events-none absolute -right-10 -top-10 h-40 w-40 rounded-full bg-gold/10 blur-3xl" />
           <div className="relative flex flex-wrap items-start gap-3">
             <div className="min-w-0 flex-1">
-              <div className="text-[10px] font-black uppercase tracking-[.2em] text-gold">Tonight</div>
-              <div className="h-display text-[clamp(17px,5.2vw,26px)] uppercase leading-tight text-white"><span className="sm:hidden">{weekday(kit.today)}, {monthDay(kit.today)}</span><span className="hidden sm:inline">{longDay(kit.today)}</span></div>
-              <div className="text-xs text-white/70">{trial ? 'What if: trying moves, nothing saved yet' : 'The live lineup'} · {kit.nightSize(kit.today)} NHL {kit.nightSize(kit.today) === 1 ? 'game' : 'games'}{kit.light(kit.today) ? ' · a light night' : ''}</div>
+              <div className="text-[10px] font-black uppercase tracking-[.2em] text-gold">{ahead ? 'Setting a day ahead' : 'Tonight'}</div>
+              <div className="h-display text-[clamp(17px,5.2vw,26px)] uppercase leading-tight text-white"><span className="sm:hidden">{weekday(lday)}, {monthDay(lday)}</span><span className="hidden sm:inline">{longDay(lday)}</span></div>
+              <div className="text-xs text-white/70">{trial ? 'What if: trying moves, nothing saved yet' : !ahead ? 'The live lineup' : savedAhead?.source === 'own' ? 'Its own lineup, saved' : savedAhead?.source === 'carried' ? 'Carried from your last saved day' : 'Carried from today'} · {kit.nightSize(lday)} NHL {kit.nightSize(lday) === 1 ? 'game' : 'games'}{kit.light(lday) ? ' · a light night' : ''}</div>
             </div>
             <div className="shrink-0 text-right">
               <div className="num font-display text-4xl font-extrabold leading-none text-white">{anyStarted ? fmtPts(todayTotal) : fmt1(expTonight)}</div>
               <div className="text-[11px] text-white/60">{anyStarted ? 'points tonight' : 'expected pts'}</div>
             </div>
           </div>
+          {/* the days ahead: tap one to set its lineup right here, two taps a move as tonight; each saves as that day's
+              lineup and becomes the live one that morning. A dot marks a day with a lineup of its own. */}
+          <div ref={dayStrip} className="scroll-x relative -mx-1 mt-3 flex gap-1.5 px-1 pb-0.5">
+            {stripDays.map((d) => {
+              const on = d === lday;
+              const st0 = teamId ? kit.dayStats(teamId, d, d === lday ? slots : undefined) : null;
+              const own = d > kit.today && !!teamId && kit.plans.get(teamId)?.has(d);
+              const n = kit.nightSize(d);
+              return (
+                <button key={d} type="button" onClick={() => setLday(d)} aria-pressed={on}
+                  className={`relative flex w-[54px] shrink-0 flex-col items-center rounded-xl px-1 py-1.5 ring-1 transition ${on ? 'bg-gold text-[#0b1220] ring-gold shadow-[0_6px_18px_rgba(var(--gold-rgb)/.35)]' : n ? 'bg-black/25 text-white ring-white/10 hover:ring-gold/40' : 'bg-black/15 text-white/40 ring-white/[.06]'}`}>
+                  {own && <span className={`absolute right-1 top-1 h-1.5 w-1.5 rounded-full ${on ? 'bg-[#0b1220]' : 'bg-gold'}`} title="Has a lineup of its own" />}
+                  <span className={`text-[9px] font-black uppercase tracking-wider ${on ? 'text-[#0b1220]/70' : 'text-mute'}`}>{d === kit.today ? 'Today' : weekday(d)}</span>
+                  <span className="text-sm font-black leading-tight">{monthDay(d).split(' ')[1]}</span>
+                  <span className={`num text-[10px] font-bold leading-tight ${on ? 'text-[#0b1220]/80' : st0 && st0.playing ? 'text-emerald-200' : 'text-white/30'}`}>{n ? (st0 ? fmt1(st0.pts) : '–') : 'off'}</span>
+                </button>
+              );
+            })}
+          </div>
           {/* the starting slots, lit for each starter who plays tonight */}
           <div className="relative mt-3 flex flex-wrap items-center justify-between gap-2 text-xs">
             <span className="text-white/80"><b className={`num ${playingStarters < starterSlots && benchPlaying.length ? 'text-amber-300' : 'text-emerald-300'}`}>{playingStarters}</b> of {starterSlots} starters play{gameDayStarters === 0 ? ' · a quiet night for your roster' : ''}</span>
-            {nightRank && <button type="button" onClick={() => setView('league')} className="chip border-gold/40 bg-gold/10 text-gold">🏆 {ordinal(nightRank.rank)} of {nightRank.of} tonight</button>}
+            {nightRank && <button type="button" onClick={() => setView('league')} className="chip border-gold/40 bg-gold/10 text-gold">🏆 {ordinal(nightRank.rank)} of {nightRank.of} {ahead ? `on ${weekday(lday)}` : 'tonight'}</button>}
           </div>
           <div className="relative mt-1.5 flex gap-1">
             {rows.map((r, i) => {
-              const g = r.x ? gamesByTeam(r.x.p.nhl_team) : undefined;
+              const g = r.x ? gameOf(r.x.p) : undefined;
               const on = !!r.x && playsToday(r.x.p);
               return <span key={i} className={`h-1.5 flex-1 rounded-full ${on && g && isLive(sport, g.state) ? 'animate-pulse bg-red-400' : on ? 'bg-emerald-400' : 'bg-white/15'}`} />;
             })}
@@ -424,7 +469,7 @@ function TeamPage({ kit }: { kit: Kit }) {
           {onIce.length > 0 && (
             <div className="scroll-x relative mt-3 flex gap-1.5 pb-0.5">
               {onIce.map((x) => {
-                const g = gamesByTeam(x.p.nhl_team);
+                const g = gameOf(x.p);
                 const tp = today.get(x.p.id);
                 return (
                   <button key={x.p.id} type="button" onClick={() => setInfo(x.p.id)} className="flex shrink-0 items-center gap-1.5 rounded-xl bg-black/25 px-2 py-1.5 text-left ring-1 ring-white/10 hover:ring-gold/40">
@@ -439,7 +484,7 @@ function TeamPage({ kit }: { kit: Kit }) {
             </div>
           )}
           {/* best ball (migration 276): the lineup here scores live; once the night is over it counts the best one */}
-          {bestBall(league) && (
+          {bestBall(league) && !ahead && (
             <div className="relative mt-3 flex items-start gap-2.5 rounded-2xl border border-sky-400/25 bg-sky-400/[.07] p-3 text-[13px] leading-snug text-sky-100">
               <span className="text-base leading-none">🎯</span>
               <span><b className="text-white">Best ball.</b> Your lineup scores live tonight; once the games are over, the night counts the best lineup your players allowed.</span>
@@ -458,16 +503,23 @@ function TeamPage({ kit }: { kit: Kit }) {
           )}
           <div className="relative mt-3 grid grid-cols-3 gap-2">
             {!trial && <>
-              <button className="btn-gold col-span-2 whitespace-nowrap px-2" disabled={working} onClick={() => setOpt(true)}>✨ Best lineup tonight</button>
+              <button className="btn-gold col-span-2 whitespace-nowrap px-2" disabled={working} onClick={() => setOpt(true)}>✨ Best lineup {ahead ? weekday(lday) : 'tonight'}</button>
               <button className="btn-ghost inline-flex items-center justify-center gap-1.5 whitespace-nowrap px-2" disabled={working} title="Try moves without saving them" onClick={() => { setTrial(new Map(saved)); setSel(null); }}><FlaskConical className="h-4 w-4 shrink-0" /> What if</button>
             </>}
-            <button className="btn-ghost px-2 text-xs" onClick={() => document.getElementById('sit-start')?.scrollIntoView({ behavior: 'smooth', block: 'start' })}>⚖️ Sit or start{sitStart.swaps.length ? ` (${sitStart.swaps.length})` : ''}</button>
-            <button className="btn-ghost px-2 text-xs" onClick={() => { setPlanDay(undefined); setView('plan'); }}>📅 Daily lineups</button>
+            {ahead
+              ? <button className="btn-ghost px-2 text-xs" onClick={() => setLday(kit.today)}>↩︎ Back to today</button>
+              : <button className="btn-ghost px-2 text-xs" onClick={() => document.getElementById('sit-start')?.scrollIntoView({ behavior: 'smooth', block: 'start' })}>⚖️ Sit or start{sitStart.swaps.length ? ` (${sitStart.swaps.length})` : ''}</button>}
+            <button className="btn-ghost px-2 text-xs" onClick={() => { setPlanDay(ahead ? lday : undefined); setView('plan'); }}>📅 Daily lineups</button>
             <button className="btn-ghost px-2 text-xs" onClick={() => setTools(true)}>⚙️ Tools</button>
           </div>
-          <div className="relative mt-2 text-xs text-mute">
+          {ahead ? (
+            <div className="relative mt-2 text-xs text-mute">
+              📅 Moves save as {weekday(lday)}’s lineup and become the live one that morning; a day without its own carries the last one forward. Auto-pilot leaves a saved day alone.
+              {savedAhead?.source === 'own' && <> <button className="font-semibold text-sky-300 hover:underline" disabled={working} onClick={clearDay}>Clear this day</button></>}
+            </div>
+          ) : <div className="relative mt-2 text-xs text-mute">
             🔒 Players lock at their {sport.words.start}{nextLock ? <>; next lock <span className="text-slate-200">{fmtTime(nextLock.start_utc)}</span> ({nextLock.away} @ {nextLock.home})</> : ''}. Auto-pilot <button className="font-semibold text-sky-300 hover:underline" onClick={() => setTools(true)}>{me?.auto_mode && me.auto_mode !== 'off' ? `on · ${{ proj: 'projection', form: 'hot hand', season: 'season avg', ros: 'rest of season' }[me.auto_basis ?? 'proj']}` : 'off'}</button>{roster.some((x) => x.r.pin) && <> · {roster.filter((x) => x.r.pin).length} pinned</>}{st?.bench ? <> · {fmtPts(st.bench)} benched this season</> : null}
-          </div>
+          </div>}
           {benchTotal > 0 && <div className="relative mt-1 text-xs text-amber-300" title="Points your bench and IR scored today. They don’t count.">{fmtPts(benchTotal)} left on the bench today</div>}
         </div>
       )}
@@ -479,16 +531,16 @@ function TeamPage({ kit }: { kit: Kit }) {
         </button>
       )}
       {mine && <LineupTools open={tools} onClose={() => setTools(false)} roster={saved0} />}
-      {mine && inSeason && <OptimizeSheet kit={kit} teamId={t.id} day={kit.today} open={opt} onClose={() => setOpt(false)} />}
+      {mine && inSeason && <OptimizeSheet kit={kit} teamId={t.id} day={lday} open={opt} onClose={() => setOpt(false)} />}
       {/* What if: the trial's moves and what they're worth, then save them all (with an undo) or throw them away */}
       {mine && trial && cur === 'lineup' && (
         <div className="fixed inset-x-0 bottom-[84px] z-40 px-4 md:bottom-6"><div className="mx-auto max-w-md rounded-2xl bg-[#1c1433]/95 p-3 shadow-[0_12px_32px_rgba(0,0,0,.55)] ring-1 ring-violet-300/40 backdrop-blur">
           <div className="flex items-center gap-2 text-sm text-violet-100">
             <FlaskConical className="h-4 w-4 shrink-0" />
-            <span className="min-w-0 flex-1">{trialMoves.length ? <>Trying {trialMoves.length} {trialMoves.length === 1 ? 'move' : 'moves'}: <b className={trialGain >= 0 ? 'text-emerald-300' : 'text-red-300'}>{trialGain >= 0 ? '+' : ''}{fmt1(trialGain)}</b> expected tonight</> : 'What if: move anyone, nothing saves until you say.'}</span>
+            <span className="min-w-0 flex-1">{trialMoves.length ? <>Trying {trialMoves.length} {trialMoves.length === 1 ? 'move' : 'moves'}: <b className={trialGain >= 0 ? 'text-emerald-300' : 'text-red-300'}>{trialGain >= 0 ? '+' : ''}{fmt1(trialGain)}</b> expected {ahead ? `on ${weekday(lday)}` : 'tonight'}</> : 'What if: move anyone, nothing saves until you say.'}</span>
           </div>
           <div className="mt-2 flex gap-2">
-            <button type="button" className="btn-gold flex-1" disabled={working || !trialMoves.length} onClick={async () => { if (await save(kit.today, trial, saved, `${trialMoves.length} ${trialMoves.length === 1 ? 'move' : 'moves'} saved`)) { setTrial(null); setSel(null); } }}>Save{trialMoves.length ? ` ${trialMoves.length}` : ''}</button>
+            <button type="button" className="btn-gold flex-1" disabled={working || !trialMoves.length} onClick={async () => { if (await save(lday, trial, saved, `${trialMoves.length} ${trialMoves.length === 1 ? 'move' : 'moves'} saved`)) { setTrial(null); setSel(null); } }}>Save{trialMoves.length ? ` ${trialMoves.length}` : ''}</button>
             <button type="button" className="btn-ghost" onClick={() => { setTrial(null); setSel(null); }}>Discard</button>
           </div>
         </div></div>
@@ -526,13 +578,14 @@ function TeamPage({ kit }: { kit: Kit }) {
         : <>
       <div className="grid gap-4 lg:grid-cols-2">
         {(!offseason || anyStarter) && (
-          <Section title="Starters" className="min-w-0" right={!offseason ? <span className="text-xs text-mute"><span className="mr-1 inline-block h-2 w-2 rounded-full bg-emerald-400" />{playingStarters} of {starterSlots} play tonight</span> : undefined}>
-            {mine && !offseason && <p className="mb-1.5 px-1 text-[11px] text-mute">{trial ? 'What if: tap a player, then the slot he should go to. Nothing saves until you tap Save.' : 'Tap a player, then tap the slot he should go to. Green bar: his club plays tonight. Grey: no game, he sits idle.'}</p>}
+          <Section title="Starters" className="min-w-0" right={!offseason ? <span className="text-xs text-mute"><span className="mr-1 inline-block h-2 w-2 rounded-full bg-emerald-400" />{playingStarters} of {starterSlots} play {night}</span> : undefined}>
+            {mine && !offseason && <p className="mb-1.5 px-1 text-[11px] text-mute">{trial ? 'What if: tap a player, then the slot he should go to. Nothing saves until you tap Save.' : ahead ? `Setting ${weekday(lday)}, ${monthDay(lday)}: tap a player, then the slot he should go to. It saves for that day. IR moves are made on today.` : 'Tap a player, then tap the slot he should go to. Green bar: his club plays tonight. Grey: no game, he sits idle.'}</p>}
             <div className="card divide-y divide-white/[.06] overflow-hidden">{rows.map((r, i) => <Fragment key={i}>{Row({ slot: r.slot, x: r.x })}</Fragment>)}</div>
           </Section>
         )}
         <div className="min-w-0 space-y-4">
-          {!offseason && roster.length > 1 && (
+          {!offseason && roster.length > 1 && <FormCard roster={roster} formOf={formOf} onInfo={setInfo} mine={mine} />}
+          {!offseason && !ahead && roster.length > 1 && (
             <div id="sit-start" className="scroll-mt-20">
               <SitStart kit={kit} roster={roster} swaps={sitStart.swaps} exp={sitStart.exp} weekGames={weekGames} mine={mine} busy={working} onSwap={doSwap} onInfo={setInfo} />
             </div>
@@ -547,17 +600,17 @@ function TeamPage({ kit }: { kit: Kit }) {
           ) : (
             <>
               <div id="bench-playing" className="scroll-mt-20" />
-              <Section title={`Bench · playing tonight (${benchPlaying.length})`} right={benchPlaying.length > 0 && (emptyStarters > 0 || rows.some((r) => r.x && !playsToday(r.x.p))) ? <span className="text-xs text-amber-300">could start</span> : undefined}>
+              <Section title={`Bench · playing ${night} (${benchPlaying.length})`} right={benchPlaying.length > 0 && (emptyStarters > 0 || rows.some((r) => r.x && !playsToday(r.x.p))) ? <span className="text-xs text-amber-300">could start</span> : undefined}>
                 <div className="card divide-y divide-white/[.06] overflow-hidden">
                   {benchPlaying.map((x) => <Fragment key={x.p.id}>{Row({ slot: 'BN', x })}</Fragment>)}
                   {selected && selected.r.slot !== 'BN' && Row({ slot: 'BN' })}
-                  {benchPlaying.length === 0 && !selected && <div className="p-3 text-xs text-mute">Nobody on the bench has a game tonight{gameDayStarters > 0 ? ': everyone who plays is in' : ''}.</div>}
+                  {benchPlaying.length === 0 && !selected && <div className="p-3 text-xs text-mute">Nobody on the bench has a game {night}{gameDayStarters > 0 ? ': everyone who plays is in' : ''}.</div>}
                 </div>
               </Section>
-              <Section title={`Bench · no game tonight (${benchIdle.length})`} right={<span className="text-xs text-mute">{bench.length}/{cap.BN ?? 12} bench spots</span>}>
+              <Section title={`Bench · no game ${night} (${benchIdle.length})`} right={<span className="text-xs text-mute">{bench.length}/{cap.BN ?? 12} bench spots</span>}>
                 <div className="card divide-y divide-white/[.06] overflow-hidden">
                   {benchIdle.map((x) => <Fragment key={x.p.id}>{Row({ slot: 'BN', x })}</Fragment>)}
-                  {benchIdle.length === 0 && <div className="p-3 text-xs text-mute">Everyone on the bench plays tonight.</div>}
+                  {benchIdle.length === 0 && <div className="p-3 text-xs text-mute">Everyone on the bench plays {night}.</div>}
                 </div>
               </Section>
             </>
