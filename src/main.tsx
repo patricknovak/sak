@@ -4,6 +4,7 @@ import { HashRouter, Navigate, Route, Routes, useLocation } from 'react-router-d
 import './index.css';
 import { LeagueProvider, useLeague } from './lib/store';
 import { configured } from './lib/supabase';
+import { RinkInvites } from './components/rink/RinkInvites';
 import { Layout } from './components/Layout';
 import { PlayerInfoProvider } from './lib/playerInfo';
 import { LiveRoomProvider } from './lib/liveRoom';
@@ -66,6 +67,7 @@ const PublicFans = lazy(() => import('./pages/PublicFans'));
 const Yahoo = lazy(() => import('./pages/Yahoo'));
 const YahooLeague = lazy(() => import('./pages/YahooLeague'));
 const Pools = lazy(() => import('./pages/Pools'));
+const Rink = lazy(() => import('./pages/Rink'));
 // an invite's page: only someone following an invite link needs it
 const Join = lazy(() => import('./pages/Join'));
 // a prediction pool's pages (migration 145)
@@ -155,6 +157,7 @@ function App() {
       <PlayerInfoProvider>
       <GameSheetProvider>
       <YahooReturnHandler />
+      <RinkInvites />
       <ErrorBoundary key={pathname}>
       <Suspense fallback={<Loading />}>
         <Routes>
@@ -186,6 +189,7 @@ function App() {
           <Route path="/fans/:league/:club/:tab" element={<SportFanZone />} />
           <Route path="/fans/:league/:club" element={<FanZone />} />
           <Route path="/pools" element={<Pools />} />
+          <Route path="/rink" element={<Rink />} />
           {/* a pool's link followed inside the app: load the page again so the pool in it opens (host.ts reads it at start) */}
           <Route path="/p/*" element={<Reopen />} />
           <Route path="/yahoo" element={<Yahoo />} />

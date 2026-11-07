@@ -1531,3 +1531,34 @@ email ("Your Super Pools password code") were already right on live. The minimum
 sets a new one (start a pool, start a league, join, keep your seat, the fan zones' keep, reset, Profile, the
 Commish page's reset and spectator pass) and the join function ask for 8, and Auth's own minimum follows once this is
 deployed. Signing in with an older, shorter password still works.
+
+### 9.30 Rink Duel: thumb air hockey in every hockey league and pool, 7 November 2026
+
+Patrick: "build within the sak league pool and all hockey pools a game that is basically a version of air hockey such that
+you can play with your thumb against a computer or challenge members of the pool to a 1 on 1 competition." An original
+game, `#/rink`, under Play in More and the sidebar of every fantasy league on the NHL and every pool with a game on the
+NHL (`useRinkOn`). Nothing is stored on the server and no migration is needed.
+
+- **The table** (`src/lib/rink/physics.ts`, no React, no drawing): a rink-shaped table with rounded boards and two
+  nets, the puck under a light air drag, paddles that can't cross the red line, six substeps a frame so a full-power
+  shot never tunnels. First to 7. The house rule that makes it ours: six straight exchanges and the puck catches fire,
+  and that goal counts two.
+- **Your thumb**: the paddle rides just above it, so you can see what you hit; the phone buzzes on a hit and a goal, the
+  sound (clack, boards, horn, buzzer) is synthesised on the phone (`sound.ts`, mute remembered).
+- **The computer** (`ai.ts`): one brain at four levels (Beer league, Junior, Pro, Legend) with slower feet, slower
+  reads, a shakier aim and more whiffs the lower it goes; Pro and Legend bank shots. `supabase/tests/rink.test.mjs`
+  (in `test:nhl`) checks the puck never leaves the ice, goals only go in at the mouth, the shot reader matches the
+  table, and each level keeps out at least as many clean shots as the one below. This phone keeps its record per level
+  and its hardest goal.
+- **Challenges** (`net.ts`, realtime broadcast only, like "is typing"): the lobby `rink:<league>` carries a challenge to
+  a member who has the app open; a card drops in wherever they are (`RinkInvites`, mounted in `main.tsx`). Or throw down
+  in the chat: an open challenge (`👉 #/rink?join=`) the first member to tap plays. A match is its own topic with
+  presence.
+- **Online play**: each phone runs the whole table and sends its paddle fifteen times a second. The puck belongs to the
+  phone whose half it's in: that phone moves it, hits it and calls goals, and hands it over at the red line. Your paddle
+  only ever meets the puck in your own half, so every hit you make is felt at once, never a round trip late. A phone
+  that goes quiet for seven seconds ends the game.
+- Checked in the browser against a stand-in realtime (two tabs, 70 ms each way), full games against the computer with a
+  scripted thumb, at 360 and 390 px.
+- Next, if Patrick wants it: a league ladder (each member's record against the others) needs a small table and a
+  migration; the season's champion of the rink in the morning column.
