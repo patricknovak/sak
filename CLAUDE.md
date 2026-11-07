@@ -64,6 +64,8 @@ Two things in one repo:
   (three reports take a post down, the first bells the platform admins) and `lounge_remove` (the writer, or a platform admin).
   The room is a pill at the head of the chat's filter row (`RoomPicker`, 24 October 2026).
   The home page's League transactions (`LeagueTransactions`) lists every move and trade with the same GM picker.
+  A trade's line in the chat (`meta.trade`) is a card to talk about (`TradeChatCard`, 7 November 2026): comments are replies
+  to the line, and migration 351's `_trade_line` adds a "Who won the trade?" league poll and a bell to every other team.
 - Installing on a phone (24 October 2026): the app runs full screen from the Home Screen (`manifest.webmanifest`, Apple's
   web-app tags); `InstallPrompt` (`src/lib/install.ts`) shows the steps once on Home to a member in a phone browser (Chrome's
   own install prompt on Android) and stays on Profile until it's installed.
