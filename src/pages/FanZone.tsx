@@ -16,7 +16,7 @@ import { lazy, Suspense, useContext, useEffect, useMemo, useState } from 'react'
 import { Link, Navigate, useLocation, useNavigate, useParams } from 'react-router-dom';
 import { Activity, ArrowDown, ArrowRight, ArrowUp, BookOpen, ExternalLink, Flame, Lightbulb, Megaphone, Snowflake, Sparkles, TrendingDown, TrendingUp, Trophy, Users } from 'lucide-react';
 import { useLeague, useNow } from '../lib/store';
-import { hub } from '../lib/nhlhub';
+import { useKeptHub } from '../lib/hubKeep';
 import { ago, fmtDate, fmtPts, NHL_TEAMS } from '../lib/format';
 import { assess, fmtToi, GROUPS, rankWord, type Development, type FanData, type MetricGroup, type Ranked } from '../lib/fanZone';
 import { ahead, champion, crease, deepRecs, division, form, historyFacts, outlook, players, priceMoves, splits, trackingRead, truth, type FanHistory } from '../lib/fanDeep';
@@ -30,6 +30,8 @@ import { CreaseDeep, LuckWatch, Milestones, PlayerTable, Usage } from '../compon
 import { FanDraft, FanFacts, FanHistorySection, FanRecords, FanTrophies } from '../components/fan/FanHistory';
 import { FanCrease } from '../components/fan/FanCrease';
 import { FanMoves } from '../components/fan/FanMoves';
+import { FanTrend } from '../components/fan/FanTrend';
+import { trendOfNhl } from '../lib/fanTrend';
 import { FanOffice } from '../components/fan/FanOffice';
 import { blame as blameOf, coaching, crease as creaseOf, goalieMarket, goaliePlan, goalieRecs, questions, targets, type FanOffice as OfficeData } from '../lib/fanOffice';
 import { clubTheme, clubVars } from '../data/clubColors';
@@ -76,22 +78,15 @@ function NhlFanZone({ club: param, tab }: { club?: string; tab: string }) {
   // a shared post (?post=12) opens the fans' board on it
   const { search } = useLocation();
   const post = Number(new URLSearchParams(search).get('post')) || null;
-  const [data, setData] = useState<FanData | null>(null);
-  const [hist, setHist] = useState<FanHistory | null>(null);
-  const [office, setOffice] = useState<OfficeData | null>(null);
-  const [officeDone, setOfficeDone] = useState(false);
-  const [failed, setFailed] = useState(false);
-  const [tries, setTries] = useState(0);
+  // the club's numbers as last seen on this phone at once, brought up to date behind them (src/lib/hubKeep.ts); the record
+  // books and the front office come on their own: the live page doesn't wait for them
+  const D = useKeptHub<FanData>('fan', { abbrev: club }, club, known);
+  const H = useKeptHub<FanHistory>('fan-history', { abbrev: club }, club, known);
+  const O = useKeptHub<OfficeData>('fan-office', { abbrev: club }, club, known);
+  const data = D.data, hist = H.data, office = O.data, officeDone = !!office || !O.updating, failed = D.failed;
   useEffect(() => {
-    setData(null); setFailed(false); setHist(null); setOffice(null); setOfficeDone(false);
-    if (!known) return;
-    try { localStorage.setItem(CLUB_KEY, club); } catch { /* nothing to remember with */ }
-    hub<FanData>('fan', { abbrev: club }).then(setData, () => setFailed(true));
-    // the record books come on their own: the live page doesn't wait for them
-    hub<FanHistory>('fan-history', { abbrev: club }).then(setHist, () => {});
-    // and the front office: the goalies in depth and the league's players worth a call
-    hub<OfficeData>('fan-office', { abbrev: club }).then(setOffice, () => {}).finally(() => setOfficeDone(true));
-  }, [club, tries, known]);
+    if (known) try { localStorage.setItem(CLUB_KEY, club); } catch { /* nothing to remember with */ }
+  }, [club, known]);
   useEffect(() => { document.title = `${NHL_TEAMS[club] ?? club}: ${PAGE_TITLE[tab] ?? 'fan zone'} · Super Pools`; }, [club, tab]);
   useEffect(() => { if (post && data) setTimeout(() => document.getElementById('fz-fans')?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 600); }, [post, !!data]);
   // a new page opens at its top
@@ -100,17 +95,20 @@ function NhlFanZone({ club: param, tab }: { club?: string; tab: string }) {
   const colors = lore?.colors ?? clubTheme(club);
   const a = useMemo(() => (data ? assess(data) : null), [data]);
   // the deeper reads, worked out once per answer (the simulation is the heavy one: a few thousand seasons)
+  // the simulation runs a moment after the page has drawn, and a fresh copy of the same club keeps the last odds on screen
+  // until its own are in, so the numbers never blink out
+  const sim = useSim(data);
   const deep = useMemo(() => {
     if (!data) return null;
-    const out = outlook(data, 3000), tr = truth(data), sp = splits(data), fm = form(data), ah = ahead(data), pl = players(data), cr = crease(data);
+    const tr = truth(data), sp = splits(data), fm = form(data), ah = ahead(data), pl = players(data), cr = crease(data);
     // the roster's moves and injuries priced (trades, claims, the injury list), and the odds as they would be without them
     const price = priceMoves(data);
-    const base = price && Math.abs(price.goals) >= 0.005 ? outlook(data, 1500, { moves: false }) : null;
+    const { out, base } = sim;
     const recs = [...(a?.recs ?? []), ...deepRecs(data, { out, tr, pl, cr, ah, sp })];
     const order = { high: 0, medium: 1, watch: 2 };
     recs.sort((x, y) => order[x.priority] - order[y.priority]);
-    return { out, base, price, tr, sp, fm, ah, pl, cr, recs, track: trackingRead(data), champ: champion(data), div: division(data) };
-  }, [data, a]);
+    return { out, base, price, tr, sp, fm, ah, pl, cr, recs, trend: trendOfNhl(data), track: trackingRead(data), champ: champion(data), div: division(data) };
+  }, [data, a, sim]);
   // the crease and the front office, once their numbers are in
   const fo = useMemo(() => {
     if (!data || !a || !deep || !office) return null;
@@ -133,7 +131,7 @@ function NhlFanZone({ club: param, tab }: { club?: string; tab: string }) {
   const record = data?.standing ? `${data.standing.w}-${data.standing.l}-${data.standing.otl} · ${data.standing.pts} pts` : '';
   // the page's own sections, for the jump bar
   const sections: readonly (readonly [string, string])[] = tab === 'analysis' ? [['verdict', 'Verdict'], ['moves', 'Moves'], ['numbers', 'Numbers'], ['splits', 'Splits'], ['style', 'Style'], ['players', 'Players'], ['crease', 'Crease'], ['office', 'Front office'], ['kb', 'Knowledge']]
-    : tab === 'outlook' ? [['outlook', 'Chances'], ['games', 'Games']]
+    : tab === 'outlook' ? [['outlook', 'Chances'], ['trend', 'Trend'], ['games', 'Games']]
       : tab === 'history' ? [['history', 'History'], ['records', 'Records'], ['trophies', 'Trophies'], ['draft', 'Draft'], ['facts', 'Facts'], ['kb', 'Knowledge']]
         : [];
   // the league as a whole and a club that isn't one have the fan zones' front page; a page that isn't one has the overview
@@ -152,6 +150,7 @@ function NhlFanZone({ club: param, tab }: { club?: string; tab: string }) {
             <div className="text-[11px] font-bold uppercase tracking-[.2em]" style={{ color: colors.primary }}>{lore ? `${lore.nickname} · ` : ''}{PAGE_TITLE[tab] ?? 'fan zone'}</div>
             <h1 className="font-display text-[clamp(26px,8vw,40px)] font-extrabold italic leading-[.95] text-white">{data?.name ?? NHL_TEAMS[club] ?? club}</h1>
             {data?.standing && <div className="mt-1 text-sm text-slate-300">{data.standing.w}-{data.standing.l}-{data.standing.otl} · {data.standing.pts} pts · {rankWord(data.standing.divRank)} in the {data.standing.div}</div>}
+            {data && <Freshness at={data.at} updating={D.updating} />}
           </div>
           {!framed && (
             <select aria-label="Pick a club" value={club} onChange={(e) => nav(`/fans/${e.target.value}${tab ? `/${tab}` : ''}`)}
@@ -201,7 +200,7 @@ function NhlFanZone({ club: param, tab }: { club?: string; tab: string }) {
         </div>
       )}
 
-      {!data ? (failed ? <LoadError what={`the ${NHL_TEAMS[club] ?? club} fan zone`} onRetry={() => setTries((n) => n + 1)} /> : <div className="flex justify-center py-16"><Spinner /></div>) : a && deep && (
+      {!data ? (failed ? <LoadError what={`the ${NHL_TEAMS[club] ?? club} fan zone`} onRetry={() => { D.retry(); H.retry(); O.retry(); }} /> : <div className="flex justify-center py-16"><Spinner /></div>) : a && deep && (
         tab === 'analysis' ? (
           <>
             <Verdict a={a} recs={recs} share={{ url: fanLink(club, 'analysis'), title: `${data.name}: the analysis`, text: `${data.name}: grade ${a.grade}. ${a.summary}` }} />
@@ -219,6 +218,7 @@ function NhlFanZone({ club: param, tab }: { club?: string; tab: string }) {
         ) : tab === 'outlook' ? (
           <>
             <FanOutlook d={data} out={deep.out} base={deep.base} tr={deep.tr} champ={deep.champ} div={deep.div} ah={deep.ah} share={deep.out ? { url: fanLink(club, 'outlook'), title: `${data.name}: the outlook`, text: `${data.name}: ${pctWord(deep.out.playoffs)} to make the playoffs, ${pctWord(deep.out.rounds.cup)} for the Cup, projected ${deep.out.projected.mid} points.` } : undefined} />
+            {deep.trend && <FanTrend t={deep.trend} />}
             <Games d={data} club={club} form={<FanForm d={data} fm={deep.fm} out={deep.out} />} />
             <Footnote d={data} />
           </>
@@ -234,6 +234,7 @@ function NhlFanZone({ club: param, tab }: { club?: string; tab: string }) {
         ) : (
           <>
             <Verdict a={a} recs={recs} compact club={club} />
+            {deep.trend && <FanTrend t={deep.trend} />}
             {deep.out && <Chances out={deep.out} club={club} />}
             <FanMoves price={deep.price} out={deep.out} base={deep.base} club={club} compact />
             <FansSection d={data} club={club} post={post} />
@@ -256,6 +257,40 @@ function Knowledge() {
     </section>
   );
 }
+// how old the numbers on screen are, and a quiet pulse while the fresh ones are on their way
+function Freshness({ at, updating }: { at: string; updating: boolean }) {
+  const now = useNow(60_000);
+  const old = now - new Date(at).getTime() > 20 * 60_000;
+  if (!updating && !old) return null;
+  return (
+    <div className="mt-1.5 inline-flex items-center gap-1.5 rounded-full bg-black/30 px-2 py-0.5 text-[11px] text-slate-300 ring-1 ring-white/10" aria-live="polite">
+      {updating && <span className="h-1.5 w-1.5 animate-pulse rounded-full" style={{ background: 'var(--club)' }} />}
+      {updating ? (old ? `Updating · numbers from ${ago(at, now)} ago` : 'Updating') : `Numbers from ${ago(at, now)} ago`}
+    </div>
+  );
+}
+
+// the season played out a few thousand times, worked out once per copy of a club's numbers and a moment after the page
+// draws (it is the heavy read); a newer copy of the same club keeps the odds it had until its own are ready
+const NO_SIM = { out: null, base: null } as const;
+const sims = new WeakMap<FanData, { out: ReturnType<typeof outlook>; base: ReturnType<typeof outlook> }>();
+function useSim(data: FanData | null) {
+  const [s, setS] = useState<{ abbrev: string; out: ReturnType<typeof outlook>; base: ReturnType<typeof outlook> } | null>(null);
+  useEffect(() => {
+    if (!data) return;
+    const had = sims.get(data);
+    if (had) { setS({ abbrev: data.abbrev, ...had }); return; }
+    const t = setTimeout(() => {
+      const price = priceMoves(data);
+      const v = { out: outlook(data, 3000), base: price && Math.abs(price.goals) >= 0.005 ? outlook(data, 1500, { moves: false }) : null };
+      sims.set(data, v);
+      setS({ abbrev: data.abbrev, ...v });
+    }, 30);
+    return () => clearTimeout(t);
+  }, [data]);
+  return s && data && s.abbrev === data.abbrev ? s : NO_SIM;
+}
+
 function Footnote({ d }: { d: FanData }) {
   return <p className="px-1 text-[11px] text-mute">Numbers from the NHL&apos;s own statistics, tracking and record books{d.stale ? ' (the last copy: the feed is slow to answer)' : ''}, read {ago(d.at, Date.now())} ago. Ranks are among all 32 clubs. Early in a season the samples are small and the numbers move; the odds pull every record toward the league average for that reason. <Link to="/fans/about" className="underline">How the fan zones work</Link>, in the open.</p>;
 }
