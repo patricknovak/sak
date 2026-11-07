@@ -169,3 +169,31 @@ export function useLines(kit: Kit, teamIds: number[], day: string) {
   }, [gameIds.join(',')]); // eslint-disable-line react-hooks/exhaustive-deps
   return lines;
 }
+
+// ───────────── form: who is running hot or cold ─────────────
+// A player's last two weeks against what he was expected to score, per game. The yardstick is his own season before
+// those two weeks once he has eight games of it; until then (the first weeks of a season, a call-up) it's his projection
+// per game, the number the lineup tools start him on. Three games in the window at least, so one big night isn't a
+// streak. Over by a fifth or more is hot, under by a fifth or more cold; per game, so a club's schedule doesn't count.
+export const FORM_GAMES = 3;
+export const FORM_EDGE = 0.2;
+export type Form = { recent: number; base: number; gp: number; fp: number; pct: number; tone: 'hot' | 'cold' | 'steady'; vs: 'season' | 'proj' };
+export function formOf(p: Player, w14: { gp: number; fpts: number } | null | undefined, season: { gp: number; fpts: number } | null | undefined): Form | null {
+  const gp = w14?.gp ?? 0, fp = Number(w14?.fpts ?? 0);
+  if (gp < FORM_GAMES) return null;
+  const before = season ? season.gp - gp : 0;
+  const vs: Form['vs'] = season && before >= 8 ? 'season' : 'proj';
+  const base = vs === 'season' ? (Number(season!.fpts) - fp) / before : p.proj / gamesOf(p);
+  if (!(base > 0.05)) return null;
+  const recent = fp / gp, pct = (recent - base) / base;
+  return { recent, base, gp, fp, pct, vs, tone: pct >= FORM_EDGE ? 'hot' : pct <= -FORM_EDGE ? 'cold' : 'steady' };
+}
+// every player's form, from the store's 14-day window (the season table's own 14 days when the window hasn't loaded)
+export function useForm() {
+  const { windows, season } = useLeague();
+  return useCallback((p: Player) => {
+    const s = season.get(p.id);
+    const w = windows.get(p.id)?.['14'] ?? (s?.gp14 != null ? { gp: s.gp14, fpts: s.fpts14 ?? 0 } : null);
+    return formOf(p, w, s);
+  }, [windows, season]);
+}

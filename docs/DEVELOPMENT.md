@@ -1554,3 +1554,21 @@ once a person picks a club, and shows how the club is trending over the last two
   outlook page. Between seasons the windows are the season's last two weeks and month.
 
 No migration. nhl-hub deploys on merge.
+
+### 9.31 Hot and cold, and the days ahead on the Lineup tab, 7 November 2026
+
+Patrick asked for two things on the lineup screen. Both are site only: no migration, no edge function.
+
+- **Hot and cold over the last two weeks.** `formOf` in `src/lib/lineupKit.ts` (`useForm()` reads it from the store)
+  sets a player's points a game over the last 14 days (`player_windows`' '14', else `player_season.fpts14`) against what he
+  was expected to score: his own season before those two weeks once he has eight games of it, until then his projection
+  per game. Three games in the window at least; a fifth over is hot, a fifth under cold. The Lineup tab shows it twice,
+  for any team: a chip on each player's row (`FormChip`) and the Hot and cold card (`src/components/lineup/FormCard.tsx`:
+  over and under, with the rate, the yardstick, a bar and a line on a hot bench player or a cold starter). The Insights
+  tab's Form card reads the same `formOf`.
+- **Setting a day ahead from the Lineup tab.** The Tonight card has a strip of the next two weeks (each day's expected
+  points, a dot on a day with a lineup of its own). Tapping a day sets that day's lineup right there with the same two
+  taps, What if, Best lineup (`OptimizeSheet` for that day) and the undo; it saves through `set_lineup_plans` (the
+  SaveProvider already wrote a later day as a plan) and becomes the live lineup that morning, as Daily lineups' plans
+  always have. Nothing locks on a day ahead; IR moves stay on today (they are real roster moves); Sit or start stays
+  tonight's. `PlayerRow` takes the `game` to show, so a day ahead shows that day's opponent.
