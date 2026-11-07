@@ -8,7 +8,8 @@ import { ArrowDown, BarChart3, Copy, Download, ImagePlus, Plus, Reply, SendHoriz
 import { PollCard, PollComposer } from './PollCard';
 import { Link } from 'react-router-dom';
 import { useBrand } from '../lib/brand';
-import { chatMatch, type ChatWhat } from '../lib/chatFilter';
+import { chatMatch, tradeOf, type ChatWhat } from '../lib/chatFilter';
+import { TradeChatCard } from './TradeChatCard';
 import { IMAGE_BODY, imageOf, shareOut, signedUrl, uploadChatImage, useSignedUrl, type ChatImage } from '../lib/chatMedia';
 import { pingTyping, useTyping } from '../lib/typing';
 import { PoolInviteCard, poolCardOf } from './PoolInviteCard';
@@ -280,6 +281,14 @@ export function ChatPanel({ channel, compact, className = '', filter, jump, onJu
   };
 
   const byId = useMemo(() => new Map(msgs.map((m) => [m.id, m])), [msgs]);
+  // the comments on each trade line: the replies to it (a trade's card shows the latest and counts them)
+  const comments = useMemo(() => {
+    const c = new Map<number, Message[]>();
+    for (const m of msgs) if (m.reply_to != null && m.kind === 'user' && tradeOf(byId.get(m.reply_to))) c.set(m.reply_to, [...(c.get(m.reply_to) ?? []), m]);
+    return c;
+  }, [msgs, byId]);
+  // a reply's quote of what it answers: a league line (a trade) has no GM, so it shows as the line
+  const quoteOf = (p: Message) => p.kind === 'system' ? (tradeOf(p) ? `💬 On the trade: ${p.body.replace(/^(🔄 TRADE! |🤝 )/u, '')}` : p.body.slice(0, 90)) : `${team(p.team_id)?.gm_name}: ${p.body === IMAGE_BODY ? '📷 Photo' : p.body.slice(0, 80)}`;
   // a new filter starts at the newest of what it shows
   useEffect(() => {
     if (!feed) return;
@@ -414,6 +423,16 @@ export function ChatPanel({ channel, compact, className = '', filter, jump, onJu
           const glow = lit === m.id ? 'rounded-2xl ring-2 ring-gold/70 bg-gold/[.08] transition' : '';
           if (m.kind === 'system') {
             const pollId = typeof m.meta?.poll === 'number' ? m.meta.poll : null;
+            const tradeId = tradeOf(m);
+            if (tradeId != null) return (
+              <Fragment key={m.id}>{sep}
+                <div id={`msg-${m.id}`} className={`flex flex-col items-center px-1 py-1.5 ${glow}`}>
+                  <TradeChatCard id={tradeId} m={m} comments={comments.get(m.id) ?? []} reactions={reactions.filter((r) => r.message_id === m.id)} muted={muted || !me}
+                    onReact={(e) => react(m, e)} onComment={() => { setReplyTo(m); setPicker(null); }} onJump={(id) => { stick.current = false; setLit(id); }} />
+                  {pollId != null && <PollCard id={pollId} />}
+                </div>
+              </Fragment>
+            );
             return (
               <Fragment key={m.id}>{sep}
                 <div id={`msg-${m.id}`} className={`flex flex-col items-center py-1 ${glow}`}>
@@ -465,7 +484,7 @@ export function ChatPanel({ channel, compact, className = '', filter, jump, onJu
                   {pc ? <div role="button" tabIndex={0} onClick={() => setPicker(picker === m.id ? null : m.id)} onKeyDown={(e) => { if (e.key === 'Enter') setPicker(picker === m.id ? null : m.id); }}><PoolInviteCard card={pc} mine={mine} /></div> : <div role="button" tabIndex={0} onClick={() => setPicker(picker === m.id ? null : m.id)} onKeyDown={(e) => { if (e.key === 'Enter') setPicker(picker === m.id ? null : m.id); }}
                     className={`cursor-pointer rounded-2xl text-left text-[15px] leading-snug transition active:scale-[.98] ${img && !words ? 'p-1' : 'px-3 py-1.5'} ${m.deleted ? 'italic text-mute' : ''} ${mine ? 'rounded-br-md text-white shadow-[inset_0_1px_0_rgba(255,255,255,.2)]' : 'rounded-bl-md border border-white/[.07] bg-white/[.06]'}`}
                     style={mine ? { background: `linear-gradient(160deg, color-mix(in oklab, ${me?.color} 85%, white 15%), color-mix(in oklab, ${me?.color} 80%, black))`, boxShadow: `0 8px 20px -12px ${me?.color}` } : undefined}>
-                    {parent && <div className="mb-1 border-l-2 border-white/40 pl-2 text-xs opacity-75">{team(parent.team_id)?.gm_name}: {parent.body === IMAGE_BODY ? '📷 Photo' : parent.body.slice(0, 80)}</div>}
+                    {parent && <div className={`mb-1 border-l-2 pl-2 text-xs opacity-75 ${tradeOf(parent) ? 'line-clamp-2 border-gold' : 'border-white/40'}`}>{quoteOf(parent)}</div>}
                     {img && <Photo img={img} onOpen={(url) => setViewer({ url, m })} />}
                     {words && <span className={`whitespace-pre-wrap break-words ${img ? 'block px-2 pb-1' : ''}`}>{highlight(words)}</span>}
                   </div>}
@@ -512,7 +531,7 @@ export function ChatPanel({ channel, compact, className = '', filter, jump, onJu
         )}
         {replyTo && (
           <div className="mb-1 flex items-center gap-2 rounded-lg bg-boards px-2 py-1 text-xs">
-            <span className="flex-1 truncate">↩︎ {team(replyTo.team_id)?.gm_name}: {replyTo.body === IMAGE_BODY ? '📷 Photo' : replyTo.body}</span>
+            <span className="flex-1 truncate">{tradeOf(replyTo) ? quoteOf(replyTo) : `↩︎ ${quoteOf(replyTo)}`}</span>
             <button onClick={() => setReplyTo(null)}>✕</button>
           </div>
         )}

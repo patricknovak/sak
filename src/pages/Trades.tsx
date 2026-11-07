@@ -1,6 +1,6 @@
 import { Fragment, useEffect, useMemo, useState } from 'react';
 import { useSticky } from '../lib/sticky';
-import { useSearchParams } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
 import { useLeague, useNow, useSport } from '../lib/store';
 import { positionKeys } from '../lib/sport';
 import { rpc, realtimeChannel, supabase } from '../lib/supabase';
@@ -85,6 +85,26 @@ export default function Trades() {
 
   const load = () => supabase.from('trades').select('*, trade_items(*)').order('id', { ascending: false }).limit(60)
     .then(({ data }) => setTrades((data ?? []) as Trade[]));
+  // each agreed or done trade's line in the chat, and how many comments it has: the card links to the talk
+  const [talk, setTalk] = useState<Map<number, { line: number; n: number }>>(new Map());
+  const talked = trades.filter((t) => ['accepted', 'approved'].includes(t.status)).map((t) => t.id).join(',');
+  useEffect(() => {
+    if (!talked) { setTalk(new Map()); return; }
+    (async () => {
+      const { data: lines } = await supabase.from('messages').select('id, meta').eq('kind', 'system').eq('channel', 'general').in('meta->>trade', talked.split(','));
+      const ls = (lines ?? []) as { id: number; meta: { trade?: number } }[];
+      const { data: cs } = ls.length ? await supabase.from('messages').select('reply_to').eq('deleted', false).in('reply_to', ls.map((l) => l.id)) : { data: [] };
+      const n = new Map<number, number>();
+      for (const c of (cs ?? []) as { reply_to: number }[]) n.set(c.reply_to, (n.get(c.reply_to) ?? 0) + 1);
+      const m = new Map<number, { line: number; n: number }>();
+      // the newest line is where the talk is (the trade going through), the comments on both count
+      for (const l of ls.sort((a, b) => a.id - b.id)) {
+        const t = Number(l.meta?.trade);
+        m.set(t, { line: l.id, n: (m.get(t)?.n ?? 0) + (n.get(l.id) ?? 0) });
+      }
+      setTalk(m);
+    })();
+  }, [talked]);
   useEffect(() => {
     load();
     const ch = realtimeChannel('trades-page').on('postgres_changes', { event: '*', schema: 'public', table: 'trades' }, load).subscribe();
@@ -262,6 +282,11 @@ export default function Trades() {
         {isOpen(t) && <div className="mt-2"><TradeAnalysis sides={sidesOf(t)} compact /></div>}
         {t.note && <p className="mt-2 rounded-lg bg-boards px-2 py-1 text-xs italic">“{t.note}”</p>}
         {t.review_note && <p className="mt-1 text-xs text-mute">Commish: {t.review_note}</p>}
+        {talk.get(t.id) && (
+          <Link to={`/chat?m=${talk.get(t.id)!.line}`} className="mt-2 flex items-center gap-2 rounded-xl border border-gold/25 bg-gold/[.08] px-3 py-2 text-sm font-semibold text-gold transition hover:bg-gold/[.14]">
+            💬 {talk.get(t.id)!.n ? `${talk.get(t.id)!.n} comment${talk.get(t.id)!.n === 1 ? '' : 's'} in the chat` : 'Talk about it in the chat'}<span className="ml-auto text-xs">→</span>
+          </Link>
+        )}
         {children && <div className="mt-3 flex flex-wrap gap-2">{children}</div>}
       </div>
     );

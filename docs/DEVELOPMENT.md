@@ -1572,3 +1572,24 @@ Patrick asked for two things on the lineup screen. Both are site only: no migrat
   SaveProvider already wrote a later day as a plan) and becomes the live lineup that morning, as Daily lineups' plans
   always have. Nothing locks on a day ahead; IR moves stay on today (they are real roster moves); Sit or start stays
   tonight's. `PlayerRow` takes the `game` to show, so a day ahead shows that day's opponent.
+
+### 9.32 Trades in the chat, for the trash talk, 7 November 2026
+
+Patrick: "show all trades made in the chat by notification and make it such that you can comment on trades and the
+trade and comments show up in the chat, basically to increase the trash talk." The league already posted a line when a
+trade was agreed and when it went through, but it was a grey pill nobody could answer, and only the teams in the deal
+got a bell.
+
+- The chat draws a trade's line (anything with `meta.trade`) as a card (`src/components/TradeChatCard.tsx`): what each
+  team gets, the proposer's note, the latest two comments, quick reactions (🐑 fleeced first) and a Comment button. A
+  comment is an ordinary chat reply to the line (`reply_to`), so it lands in the feed with the trade quoted above it, and
+  under the Transactions filter too (`tradeOf`, `chatMatch` in `src/lib/chatFilter.ts`). No new table: the existing
+  `messages.reply_to` and `reactions` policies already allow it.
+- Migration 351 (`trade_talk`), a `before insert` trigger on `messages` (`_trade_line`), leaves the trade functions alone:
+  the "agreed" line gets its `meta.trade` (the trade respond_trade just set to accepted in the same transaction), and
+  the "TRADE!" line gets a league poll, "Who won the trade?" (each team in the deal, or too close to call, open seven
+  days, `polls.team_id` empty, no "started a poll" line) and rings every other team in the league with a bell that opens
+  the chat at the trade (`/chat?m=<line>`). The flow test checks all four.
+- The Trades page links each agreed or done trade to its talk, with the comment count.
+- Until 351 is live the site works as before: the done line already carries `meta.trade`, so the card and comments work
+  on it; the poll, the league-wide bell and the card on the "agreed" line arrive with the migration.

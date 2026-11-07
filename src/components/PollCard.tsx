@@ -6,7 +6,8 @@ import { supabase } from '../lib/supabase';
 import { useToast } from './ui';
 import { BarChart3 } from 'lucide-react';
 
-interface Poll { id: number; channel: string; team_id: number; question: string; options: string[]; closes_at: string | null; closed: boolean; created_at: string }
+interface Poll { id: number; channel: string; team_id: number | null;   // null: a poll the league starts (a trade's "Who won?", migration 351)
+  question: string; options: string[]; closes_at: string | null; closed: boolean; created_at: string }
 interface Vote { poll_id: number; team_id: number; choice: number }
 
 export function PollCard({ id }: { id: number }) {
@@ -52,7 +53,7 @@ export function PollCard({ id }: { id: number }) {
         <BarChart3 size={16} className="mt-0.5 shrink-0 text-sky-300" />
         <div className="min-w-0 flex-1">
           <div className="font-semibold leading-snug">{poll.question}</div>
-          <div className="text-[11px] text-mute">{team(poll.team_id)?.gm_name}’s poll · {total} vote{total === 1 ? '' : 's'}{!open ? ' · closed' : poll.closes_at ? ` · closes ${new Date(poll.closes_at).toLocaleString(undefined, { weekday: 'short', hour: 'numeric', minute: '2-digit' })}` : ''}</div>
+          <div className="text-[11px] text-mute">{poll.team_id == null ? 'League poll' : `${team(poll.team_id)?.gm_name}’s poll`} · {total} vote{total === 1 ? '' : 's'}{!open ? ' · closed' : poll.closes_at ? ` · closes ${new Date(poll.closes_at).toLocaleString(undefined, { weekday: 'short', hour: 'numeric', minute: '2-digit' })}` : ''}</div>
         </div>
         {canClose && <button className="text-[11px] text-mute hover:text-white" onClick={close}>Close</button>}
       </div>
