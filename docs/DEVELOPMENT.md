@@ -1624,3 +1624,20 @@ NHL (`useRinkOn`). Nothing is stored on the server and no migration is needed.
   scripted thumb, at 360 and 390 px.
 - Next, if Patrick wants it: a league ladder (each member's record against the others) needs a small table and a
   migration; the season's champion of the rink in the morning column.
+
+### 9.34 Trade offers in the chat too, 8 November 2026
+
+Patrick: "Please make it such that trade offers are also on chat and have the ability to comment on." Migration 353
+(`trade_offers`) posts a line for every offer and counter-offer the moment it's made ("📨 Trade offer: A offer X to B
+for Y", or "📨 Counter-offer: ..."; a multi-team deal names its teams), carrying `meta.trade` and `meta.offer`. It is a
+deferred constraint trigger on `trades` (`_trade_offer_line`), so it runs at commit, once the offer's items are in, and
+a line that can't be written never costs the GM their offer. Offers were already readable by every member of the league.
+
+The site draws the offer as the same card as 9.32's (`TradeChatCard`): a Trade offer or Counter-offer header, where
+the offer stands now (on the table, turned down, withdrawn, countered, agreed, done; the trade is read again after a
+minute), comments and reactions, and "This offer is to you, Answer it" to the Trades page for the team it waits on.
+Every trade line counts under the chat's Transactions filter, and the Trades page links every trade to its talk.
+
+Also fixed: the streak section of the flow test failed every evening from 7 pm Eastern (00:00 to 05:00 UTC), because
+it counted its finished games back from the UTC date, which is already tomorrow then; it counts from the Eastern date now.
+

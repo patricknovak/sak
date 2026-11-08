@@ -172,6 +172,9 @@ reset role;
 select 'trade', status from trades where id = :trade_id;
 -- trades in the chat (migration 351): the agreed line carries its trade, the done line a "Who won?" poll, and every
 -- other team in the league hears about it
+-- the offer itself was posted when it was made (migration 353), naming what's in it, with its trade for the card
+select pg_temp.expect('the offer is in the chat', exists (select 1 from messages where kind = 'system' and channel = 'general'
+  and (meta->>'trade')::bigint = :trade_id and (meta->>'offer')::boolean and body like '📨 Trade offer: ' || _tname(5) || ' offer % to ' || _tname(6) || ' for %' and league_id = 1));
 select pg_temp.expect('the agreed line names its trade', exists (select 1 from messages where body like '🤝 %agreed to a trade%' and (meta->>'trade')::bigint = :trade_id));
 select pg_temp.expect('a done trade comes with a who-won poll', exists (select 1 from messages m join polls p on p.id = (m.meta->>'poll')::bigint
   where m.body like '🔄 TRADE! %' and (m.meta->>'trade')::bigint = :trade_id and p.team_id is null and p.question = 'Who won the trade?'
@@ -6674,8 +6677,11 @@ select set_config('request.jwt.claim.sub', '', false);
 -- the four games end, home sides all: right, right, wrong, right. Each is moved to its own Eastern afternoon, four days
 -- back to one: a kickoff of now() minus whole days lands two games on one Eastern date in the hour after a clock change
 -- (3 November 2026, 04:00 to 05:00 UTC: now() - 2 days was still daylight time), and the day's two picks became one.
+-- The days are counted back from today in the East, not from the UTC date: in the evening (00:00 to 05:00 UTC) the UTC
+-- date is already tomorrow, the last of the four landed this afternoon, and it was the day's first game, so the next
+-- check's game tonight was not (8 November 2026).
 select soccer_ingest('nfl', jsonb_build_object('fixtures', (select jsonb_agg(jsonb_build_object('ext_id', 'nfl-30' || d, 'gameweek', 14,
-  'kickoff', ((current_date - (5 - d))::timestamp + time '13:00') at time zone 'America/New_York', 'status', 'FT', 'home', 'nf1', 'away', 'nf2', 'home_score', 24, 'away_score', 17, 'home_ft', 24, 'away_ft', 17))
+  'kickoff', (((now() at time zone 'America/New_York')::date - (5 - d))::timestamp + time '13:00') at time zone 'America/New_York', 'status', 'FT', 'home', 'nf1', 'away', 'nf2', 'home_score', 24, 'away_score', 17, 'home_ft', 24, 'away_ft', 17))
   from generate_series(1, 4) d)));
 select pg_temp.expect('best run 2, on 1 now, three right from four',
   (select points = 2 and exact = 1 and right_calls = 3 and picked = 4 and tiebreak = -1 from _pool_game_table(:stg) where team_id = :hana)
