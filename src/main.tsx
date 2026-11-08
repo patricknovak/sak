@@ -68,6 +68,7 @@ const Yahoo = lazy(() => import('./pages/Yahoo'));
 const YahooLeague = lazy(() => import('./pages/YahooLeague'));
 const Pools = lazy(() => import('./pages/Pools'));
 const Rink = lazy(() => import('./pages/Rink'));
+const RodHockey = lazy(() => import('./pages/RodHockey'));
 // an invite's page: only someone following an invite link needs it
 const Join = lazy(() => import('./pages/Join'));
 // a prediction pool's pages (migration 145)
@@ -190,6 +191,7 @@ function App() {
           <Route path="/fans/:league/:club" element={<FanZone />} />
           <Route path="/pools" element={<Pools />} />
           <Route path="/rink" element={<Rink />} />
+          <Route path="/rod" element={<RodHockey />} />
           {/* a pool's link followed inside the app: load the page again so the pool in it opens (host.ts reads it at start) */}
           <Route path="/p/*" element={<Reopen />} />
           <Route path="/yahoo" element={<Yahoo />} />

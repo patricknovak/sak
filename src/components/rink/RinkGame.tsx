@@ -376,7 +376,8 @@ export function RinkGame({ me, mode, league, teams, ice, onExit, onResult, onRec
       g.setTransform(1, 0, 0, 1, 0, 0);
       g.clearRect(0, 0, canvas.width, canvas.height);
       const sx = (Math.random() - 0.5) * S.shake, sy = (Math.random() - 0.5) * S.shake;
-      if (rinkImg) g.drawImage(rinkImg, (offX - BOARD * scale + sx) * dpr - rinkPad * dpr, (offY - BOARD * scale + sy) * dpr - rinkPad * dpr);
+      // the picture's margin (rinkPad) is in device pixels, not scaled by the screen's density
+      if (rinkImg) g.drawImage(rinkImg, (offX - BOARD * scale + sx) * dpr - rinkPad, (offY - BOARD * scale + sy) * dpr - rinkPad);
       g.setTransform(scale * dpr, 0, 0, scale * dpr, (offX + sx) * dpr, (offY + sy) * dpr);
       if (flip) { g.translate(W, H); g.rotate(Math.PI); }
       const n = now();

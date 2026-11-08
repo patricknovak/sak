@@ -124,6 +124,14 @@ Two things in one repo:
   challenger's phone or the player's against the computer) and the Standings tab works out each member's totals (goals,
   own goals, goals against), trend, head to head and a chess-style rating that ranks them (`src/lib/rink/stats.ts`,
   `RinkStats`). docs/DEVELOPMENT.md §9.33 and §9.34.
+- Rod Hockey (`#/rod`, 8 November 2026): table hockey beside Rink Duel under Play (same `useRinkOn`): six players a side,
+  each riding a slot cut in the ice and turning to swing his stick; the thumb runs the one nearest the puck (drag to slide
+  him, hold to cradle, flick to shoot, tap to snap), the others drift with the puck. The table in `src/lib/rod/physics.ts`,
+  the computer's four levels in `ai.ts`, the screen in `src/components/rod/RodGame.tsx`. A challenge goes over Rink Duel's
+  lobby with `game: 'rod'`; a match `rod:<league>:<id>` is run by the challenger's phone, which sends the whole table twenty
+  times a second while the other sends its thumb and shots (`src/lib/rod/net.ts`). Every finished game is kept (`rod_games`,
+  migration 354, `rod_record`, with shots on goal) and the Standings tab is `RinkStats game="rod"` (shooting and save
+  percentages too). docs/DEVELOPMENT.md §9.36.
 - Navigation (`src/components/Layout.tsx`): the dock keeps four places (a fantasy league's are Home, Lineup, Chat and NHL centre since 24 October 2026; Players is in More under Your team), Live (the scoreboard, a fantasy league's middle tab with a red dot while a game is on) and More; More and the desktop sidebar list the
   rest under groups (`Tonight`, `Your team`, `The league`, `You`; a pool's `Play`, `Sport centres`, `You`), and nothing
   in the dock repeats in More. A new page joins a group rather than the end of a list.

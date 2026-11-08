@@ -1,41 +1,47 @@
-// Rink Duel's standings: every member who has played, ranked by rating, with their goals, own goals, goals against,
-// form and trend, the league's records, and a card per member with everything (lib/rink/stats.ts works it all out
-// from the kept games, rink_games, migration 352).
+// The standings for the league's table games: every member who has played, ranked by rating, with their goals, own
+// goals, goals against, form and trend, the league's records, and a card per member with everything (lib/rink/stats.ts
+// works it all out from the kept games). Rink Duel's are rink_games (migration 352); Rod Hockey's are rod_games
+// (migration 354), with shots on goal, so its cards add shooting and save percentages.
 import { useEffect, useMemo, useState } from 'react';
 import { ArrowDownRight, ArrowRight, ArrowUpRight, Flame, Sparkles, Target, Timer, Trophy, Zap } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import type { Team } from '../../lib/types';
 import { Section, Sheet, Skeleton, TeamBadge } from '../ui';
-import { rinkStats, type LeagueRecords, type PlayerStats, type RinkGameRow, type RinkLevel } from '../../lib/rink/stats';
-import { LEVELS } from '../../lib/rink/ai';
+import { rinkStats, savePct, shootPct, type LeagueRecords, type PlayerStats, type RinkGameRow, type RinkLevel } from '../../lib/rink/stats';
+import { LEVELS as AIR_LEVELS } from '../../lib/rink/ai';
+import { LEVELS as ROD_LEVELS } from '../../lib/rod/ai';
 
-const levelName = (k: RinkLevel | null) => LEVELS.find((l) => l.key === k);
+export type TableGame = 'air' | 'rod';
+const levelsOf = (game: TableGame) => (game === 'rod' ? ROD_LEVELS : AIR_LEVELS);
+const levelName = (k: RinkLevel | null, game: TableGame = 'air') => levelsOf(game).find((l) => l.key === k);
+const winAtOf = (game: TableGame) => (game === 'rod' ? 5 : 7);
 const one = (n: number | null, d = 1) => (n == null ? '—' : n.toFixed(d));
 const pctS = (n: number | null) => (n == null ? '—' : `${Math.round(n * 100)}%`);
 const mins = (s: number) => (s < 3600 ? `${Math.round(s / 60)} min` : `${(s / 3600).toFixed(1)} h`);
 const dayS = (at: number) => new Date(at).toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
 
-export function useRinkGames(refresh: number) {
+export function useRinkGames(refresh: number, game: TableGame = 'air') {
   const [rows, setRows] = useState<RinkGameRow[] | null>(null);
   const [missing, setMissing] = useState(false);
   useEffect(() => {
     let live = true;
-    supabase.from('rink_games').select('id,match_id,home,away,level,home_goals,away_goals,home_own,away_own,home_best,away_best,rally,secs,played_at')
+    const base = 'id,match_id,home,away,level,home_goals,away_goals,home_own,away_own,home_best,away_best,secs,played_at';
+    supabase.from(game === 'rod' ? 'rod_games' : 'rink_games').select(game === 'rod' ? `${base},home_shots,away_shots` : `${base},rally`)
       .order('played_at', { ascending: false }).limit(3000)
       .then(({ data, error }) => {
         if (!live) return;
         // the table arrives with migration 352; before it, the standings simply wait
         if (error) { setMissing(true); setRows([]); return; }
-        setRows((data ?? []) as RinkGameRow[]);
+        setRows((data ?? []) as unknown as RinkGameRow[]);
       });
     return () => { live = false; };
-  }, [refresh]);
+  }, [refresh, game]);
   return { rows, missing };
 }
 
-export function RinkStats({ teams, me, refresh }: { teams: Team[]; me: Team; refresh: number }) {
-  const { rows, missing } = useRinkGames(refresh);
-  const { players, records } = useMemo(() => rinkStats(rows ?? []), [rows]);
+export function RinkStats({ teams, me, refresh, game = 'air' }: { teams: Team[]; me: Team; refresh: number; game?: TableGame }) {
+  const { rows, missing } = useRinkGames(refresh, game);
+  const { players, records } = useMemo(() => rinkStats(rows ?? [], Date.now(), winAtOf(game)), [rows, game]);
   const [open, setOpen] = useState<number | null>(null);
   const team = (id: number | null) => teams.find((t) => t.id === id);
   const pick = players.find((p) => p.team === open) ?? null;
@@ -55,7 +61,7 @@ export function RinkStats({ teams, me, refresh }: { teams: Team[]; me: Team; ref
   return (
     <div className="space-y-4">
       {mine && <MyLine p={mine} total={players.length} onOpen={() => setOpen(me.id)} />}
-      <Records r={records} team={team} />
+      <Records r={records} team={team} game={game} />
 
       <Section title="The rink standings" icon={<Trophy size={16} />} right={<span className="text-xs text-mute">tap a player</span>}>
         <div className="overflow-hidden rounded-2xl border border-white/[.07] bg-white/[.02]">
@@ -86,7 +92,7 @@ export function RinkStats({ teams, me, refresh }: { teams: Team[]; me: Team; ref
       </Section>
 
       <Sheet open={!!pick} onClose={() => setOpen(null)} title={pick ? (team(pick.team)?.name ?? 'Player') : ''} wide>
-        {pick && <PlayerCard p={pick} team={team} />}
+        {pick && <PlayerCard p={pick} team={team} game={game} />}
       </Sheet>
     </div>
   );
@@ -117,11 +123,13 @@ function MyLine({ p, total, onOpen }: { p: PlayerStats; total: number; onOpen: (
   );
 }
 
-function Records({ r, team }: { r: LeagueRecords; team: (id: number | null) => Team | undefined }) {
+function Records({ r, team, game }: { r: LeagueRecords; team: (id: number | null) => Team | undefined; game: TableGame }) {
   const items: { icon: React.ReactNode; label: string; value: string; who: string }[] = [];
   if (r.hardest) items.push({ icon: <Zap size={15} className="text-gold" />, label: 'Hardest goal', value: `${r.hardest.kmh} km/h`, who: team(r.hardest.team)?.name ?? '' });
-  if (r.rally) items.push({ icon: <Flame size={15} className="text-orange-400" />, label: 'Longest rally', value: `${r.rally.n} exchanges`, who: r.rally.teams.map((t) => team(t)?.name ?? '').join(' v ') });
-  if (r.rout) items.push({ icon: <Target size={15} className="text-sky-300" />, label: 'Biggest win', value: `${r.rout.gf}–${r.rout.ga}`, who: `${team(r.rout.team)?.name ?? ''} over ${r.rout.vs != null ? team(r.rout.vs)?.name ?? '' : levelName(r.rout.level)?.who ?? 'the computer'}` });
+  if (r.rally && game === 'air') items.push({ icon: <Flame size={15} className="text-orange-400" />, label: 'Longest rally', value: `${r.rally.n} exchanges`, who: r.rally.teams.map((t) => team(t)?.name ?? '').join(' v ') });
+  if (r.rout) items.push({ icon: <Target size={15} className="text-sky-300" />, label: 'Biggest win', value: `${r.rout.gf}–${r.rout.ga}`, who: `${team(r.rout.team)?.name ?? ''} over ${r.rout.vs != null ? team(r.rout.vs)?.name ?? '' : levelName(r.rout.level, game)?.who ?? 'the computer'}` });
+  if (r.sniper) items.push({ icon: <Target size={15} className="text-emerald-300" />, label: 'Sniper', value: pctS(r.sniper.pct), who: `${team(r.sniper.team)?.name ?? ''} · ${r.sniper.shots} shots` });
+  if (r.wall) items.push({ icon: <span className="text-sm">🧱</span>, label: 'Brick wall', value: `${pctS(r.wall.pct)} saves`, who: `${team(r.wall.team)?.name ?? ''} · ${r.wall.shots} faced` });
   if (r.ownGoals) items.push({ icon: <span className="text-sm">🙈</span>, label: 'Own goal king', value: `${r.ownGoals.n} own goals`, who: team(r.ownGoals.team)?.name ?? '' });
   return (
     <div>
@@ -185,7 +193,7 @@ function Delta({ now, then, good = 'up', fmt }: { now: number | null; then: numb
   );
 }
 
-function PlayerCard({ p, team }: { p: PlayerStats; team: (id: number | null) => Team | undefined }) {
+function PlayerCard({ p, team, game }: { p: PlayerStats; team: (id: number | null) => Team | undefined; game: TableGame }) {
   const t = team(p.team);
   const h2h = [...p.vs.entries()].sort((a, b) => b[1].gp - a[1].gp);
   return (
@@ -208,10 +216,15 @@ function PlayerCard({ p, team }: { p: PlayerStats; team: (id: number | null) => 
         <Tile label="Against" value={p.all.ga} sub={`${one(p.all.gp ? p.all.ga / p.all.gp : null)} a game`} />
         <Tile label="Own goals" value={p.all.own} sub={p.all.own ? `1 every ${one(p.all.gp / p.all.own)} games` : 'clean'} />
         <Tile label="Hardest" value={p.best ? `${p.best}` : '—'} sub="km/h" />
-        <Tile label="Best rally" value={p.rally} sub="exchanges" />
+        {game === 'rod'
+          ? <Tile label="Shooting" value={pctS(shootPct(p.all))} sub={`${p.all.sf} shots`} />
+          : <Tile label="Best rally" value={p.rally} sub="exchanges" />}
         <Tile label="Win streak" value={p.longestWin} sub="longest" />
         <Tile label="Shutouts" value={p.shutouts} />
-        <Tile label="Comebacks" value={p.comebacks} sub="won after 5 against" />
+        <Tile label="Comebacks" value={p.comebacks} sub={`won after ${winAtOf(game) - 2} against`} />
+        {game === 'rod' && <Tile label="Saves" value={pctS(savePct(p.all))} sub={`${p.all.sa} faced`} />}
+        {game === 'rod' && <Tile label="Shots / game" value={one(p.all.gp ? p.all.sf / p.all.gp : null)} sub={`${one(p.all.gp ? p.all.sa / p.all.gp : null)} against`} />}
+        {game === 'rod' && <Tile label="Sharpest" value={p.all.gp ? `${Math.max(...p.games.map((s) => s.sf ? s.gf / Math.max(s.sf, s.gf) : 0)) * 100 | 0}%` : '—'} sub="one game" />}
         <Tile label="On ice" value={<span className="inline-flex items-center gap-1"><Timer size={14} />{mins(p.secs)}</span>} />
       </div>
 
@@ -233,7 +246,7 @@ function PlayerCard({ p, team }: { p: PlayerStats; team: (id: number | null) => 
         <div>
           <div className="mb-1.5 text-[10px] font-black uppercase tracking-[.16em] text-mute">Against the computer</div>
           <div className="grid grid-cols-2 gap-2 min-[380px]:grid-cols-4">
-            {LEVELS.map((l) => {
+            {levelsOf(game).map((l) => {
               const x = p.byLevel[l.key];
               return <Tile key={l.key} label={`${l.emoji} ${l.name}`} value={x ? `${x.w}–${x.l}` : '—'} sub={x ? `${x.gf}–${x.ga} goals` : 'not played'} />;
             })}
@@ -261,13 +274,13 @@ function PlayerCard({ p, team }: { p: PlayerStats; team: (id: number | null) => 
         <div className="mb-1.5 text-[10px] font-black uppercase tracking-[.16em] text-mute">Recent games</div>
         <div className="divide-y divide-white/[.05] rounded-2xl bg-white/[.03] ring-1 ring-white/[.06]">
           {p.games.slice(0, 12).map((s) => {
-            const lv = levelName(s.level);
+            const lv = levelName(s.level, game);
             return (
               <div key={s.game.id} className="flex items-center gap-2.5 px-3 py-2">
                 <span className={`grid h-6 w-6 shrink-0 place-items-center rounded-md text-[11px] font-black ${s.won ? 'bg-emerald-500/25 text-emerald-200' : 'bg-rose-500/25 text-rose-200'}`}>{s.won ? 'W' : 'L'}</span>
                 <span className="min-w-0 flex-1 text-sm leading-tight">
                   <span className="block truncate">{s.vs != null ? `v ${team(s.vs)?.name ?? 'Former member'}` : `v ${lv?.emoji ?? ''} ${lv?.who ?? 'the computer'}`}</span>
-                  <span className="text-[11px] text-mute">{dayS(s.at)}{s.own ? ` · ${s.own} own goal${s.own > 1 ? 's' : ''}` : ''}{s.best ? ` · ${s.best} km/h` : ''}</span>
+                  <span className="text-[11px] text-mute">{dayS(s.at)}{s.own ? ` · ${s.own} own goal${s.own > 1 ? 's' : ''}` : ''}{s.best ? ` · ${s.best} km/h` : ''}{game === 'rod' ? ` · ${s.sf}–${s.sa} shots` : ''}</span>
                 </span>
                 <span className="num text-sm font-bold">{s.gf}–{s.ga}</span>
                 <span className={`num w-9 text-right text-[11px] font-bold ${s.after >= s.before ? 'text-emerald-400' : 'text-rose-400'}`}>{s.after >= s.before ? '+' : ''}{Math.round(s.after - s.before)}</span>
