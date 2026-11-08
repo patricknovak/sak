@@ -1,11 +1,12 @@
 // A trade in the chat, drawn as a card to talk about (7 November 2026, Patrick: "show all trades made in the chat ...
 // make it such that you can comment on trades and the trade and comments show up in the chat, basically to increase
-// the trash talk"). The league's own line about a trade (the "agreed" line and the "TRADE!" line, both carrying
-// meta.trade) becomes this card: what each team gets, the latest comments, quick reactions and a Comment button. A
+// the trash talk"). The league's own line about a trade (the offer, the "agreed" line and the "TRADE!" line,
+// all carrying meta.trade) becomes this card: what each team gets, the latest comments, quick reactions and a Comment button. A
 // comment is a chat reply to the line, so it shows in the feed too, with the trade quoted above it. The "Who won the
 // trade?" poll (migration 351) is drawn under it by the chat.
 import { useEffect, useState } from 'react';
 import { MessageCircle } from 'lucide-react';
+import { Link } from 'react-router-dom';
 import { useLeague } from '../lib/store';
 import { supabase } from '../lib/supabase';
 import { useBrand } from '../lib/brand';
@@ -17,20 +18,23 @@ import { IMAGE_BODY } from '../lib/chatMedia';
 // the reactions a trade gets: fleeced first
 export const TRADE_REACTIONS = ['🐑', '🔥', '🤡', '😂', '💀'];
 
-// a trade is read once per page load: the line that names it doesn't change, and a trade that goes through posts a
-// line of its own
-const cache = new Map<number, Promise<Trade | null>>();
+// a trade is read once and kept for a minute: an offer's card shows where the offer stands (taken, turned down,
+// countered), and scrolling the chat shouldn't read it again for every card
+const cache = new Map<number, { at: number; p: Promise<Trade | null> }>();
 function loadTrade(id: number): Promise<Trade | null> {
-  let p = cache.get(id);
-  if (!p) {
-    p = Promise.resolve(supabase.from('trades').select('*, trade_items(*)').eq('id', id).maybeSingle())
-      .then(({ data }) => (data as Trade | null) ?? null, () => null);
-    cache.set(id, p);
-  }
+  const hit = cache.get(id);
+  if (hit && Date.now() - hit.at < 60_000) return hit.p;
+  const p = Promise.resolve(supabase.from('trades').select('*, trade_items(*)').eq('id', id).maybeSingle())
+    .then(({ data }) => (data as Trade | null) ?? null, () => null);
+  cache.set(id, { at: Date.now(), p });
   return p;
 }
 
 const STATUS: Record<string, { label: string; cls: string }> = {
+  proposed: { label: 'On the table', cls: 'border-sky-400/40 bg-sky-500/15 text-sky-100' },
+  declined: { label: 'Turned down', cls: 'border-red-400/40 bg-red-500/15 text-red-200' },
+  cancelled: { label: 'Withdrawn', cls: 'border-white/20 bg-white/[.06] text-slate-300' },
+  countered: { label: 'Countered', cls: 'border-violet-400/40 bg-violet-500/15 text-violet-100' },
   approved: { label: 'Done deal', cls: 'border-emerald-400/40 bg-emerald-500/15 text-emerald-200' },
   accepted: { label: 'Awaiting the commish', cls: 'border-amber-300/40 bg-amber-400/15 text-amber-100' },
   vetoed: { label: 'Vetoed', cls: 'border-red-400/40 bg-red-500/15 text-red-200' },
@@ -59,9 +63,13 @@ export function TradeChatCard({ id, m, comments, reactions, onReact, onComment, 
     const k = picks.find((x) => x.id === i.pick_id);
     return <span>{k ? `${k.season} round ${k.round} pick${k.original_team !== i.from_team ? ` (via ${team(k.original_team)?.abbrev ?? '?'})` : ''}` : 'A draft pick'}</span>;
   };
-  // when the line was posted is what the card shows: a trade agreed and then done has two cards, each as it was
+  // three lines can name one trade: the offer (migration 353), the other side agreeing and the trade going through. The
+  // done line is always a done deal; the offer and the agreed line show where the trade stands now
   const done = /^🔄/u.test(m.body);
-  const st = STATUS[done ? 'approved' : trade?.status === 'accepted' ? 'accepted' : trade?.status ?? ''] ?? null;
+  const offer = m.meta?.offer === true;
+  const counter = offer && /^📨 Counter/u.test(m.body);
+  const st = STATUS[done ? 'approved' : trade?.status ?? ''] ?? null;
+  const waitingOnMe = !!me && trade?.status === 'proposed' && (trade.parties ? trade.parties.includes(me.id) && trade.from_team !== me.id && !(trade.accepted_by ?? []).includes(me.id) : trade.to_team === me.id);
   const counts = new Map<string, { n: number; me: boolean; who: string[] }>();
   for (const r of reactions) {
     const c = counts.get(r.emoji) ?? { n: 0, me: false, who: [] };
@@ -75,8 +83,8 @@ export function TradeChatCard({ id, m, comments, reactions, onReact, onComment, 
   return (
     <div className="w-full max-w-md overflow-hidden rounded-2xl border border-gold/30 bg-gradient-to-br from-gold/[.13] via-[#131d35] to-[#0e1629] text-left shadow-[0_10px_30px_-16px_rgb(var(--gold-rgb)/.9)]">
       <div className="flex items-center gap-2 border-b border-white/[.07] px-3 py-2">
-        <span className="text-lg leading-none">{done ? '🔄' : '🤝'}</span>
-        <span className="h-display text-sm font-black uppercase tracking-[.14em] text-gold">{done ? 'Trade!' : 'Trade agreed'}</span>
+        <span className="text-lg leading-none">{done ? '🔄' : offer ? '📨' : '🤝'}</span>
+        <span className="h-display text-sm font-black uppercase tracking-[.14em] text-gold">{done ? 'Trade!' : counter ? 'Counter-offer' : offer ? 'Trade offer' : 'Trade agreed'}</span>
         {parts.length > 2 && <span className="text-[11px] text-mute">{parts.length}-team deal</span>}
         {st && <span className={`ml-auto shrink-0 rounded-full border px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide ${st.cls}`}>{st.label}</span>}
       </div>
@@ -105,6 +113,11 @@ export function TradeChatCard({ id, m, comments, reactions, onReact, onComment, 
             );
           })}
         </div>
+      )}
+      {waitingOnMe && (
+        <Link to="/trades" className="flex items-center gap-2 border-t border-sky-400/20 bg-sky-500/10 px-3 py-2 text-sm font-bold text-sky-100">
+          📬 This offer is to you<span className="ml-auto text-xs font-semibold">Answer it →</span>
+        </Link>
       )}
       {trade?.note && <p className="border-t border-white/[.07] px-3 py-1.5 text-xs italic text-slate-300">“{trade.note}” <span className="not-italic text-mute">· {team(trade.from_team)?.gm_name}</span></p>}
 

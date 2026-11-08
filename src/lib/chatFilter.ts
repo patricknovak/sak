@@ -36,7 +36,7 @@ export function chatKinds(m: Message): Set<ChatKind> {
     if (m.channel === 'draft' || 'pick' in meta || 'order' in meta) { if (m.channel !== 'draft') k.add('news'); }
     else if ('poll' in meta) k.add('talk');
     else if ('bet' in meta || 'book' in meta || BETS.test(m.body) || BETS_TEXT.test(m.body)) k.add('bets');
-    else if ('trade_block' in meta || MOVES.test(m.body) || MOVES_TEXT.test(m.body)) k.add('moves');
+    else if ('trade_block' in meta || 'trade' in meta || MOVES.test(m.body) || MOVES_TEXT.test(m.body)) k.add('moves');
     else k.add('news');
   }
   return k;

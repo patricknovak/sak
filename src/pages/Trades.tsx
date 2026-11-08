@@ -85,9 +85,10 @@ export default function Trades() {
 
   const load = () => supabase.from('trades').select('*, trade_items(*)').order('id', { ascending: false }).limit(60)
     .then(({ data }) => setTrades((data ?? []) as Trade[]));
-  // each agreed or done trade's line in the chat, and how many comments it has: the card links to the talk
+  // each trade's lines in the chat (the offer, the agreement, the deal done) and how many comments they have: the card
+  // links to the talk
   const [talk, setTalk] = useState<Map<number, { line: number; n: number }>>(new Map());
-  const talked = trades.filter((t) => ['accepted', 'approved'].includes(t.status)).map((t) => t.id).join(',');
+  const talked = trades.map((t) => t.id).join(',');
   useEffect(() => {
     if (!talked) { setTalk(new Map()); return; }
     (async () => {
@@ -97,7 +98,7 @@ export default function Trades() {
       const n = new Map<number, number>();
       for (const c of (cs ?? []) as { reply_to: number }[]) n.set(c.reply_to, (n.get(c.reply_to) ?? 0) + 1);
       const m = new Map<number, { line: number; n: number }>();
-      // the newest line is where the talk is (the trade going through), the comments on both count
+      // the newest line is where the talk is (the trade going through), the comments on every line count
       for (const l of ls.sort((a, b) => a.id - b.id)) {
         const t = Number(l.meta?.trade);
         m.set(t, { line: l.id, n: (m.get(t)?.n ?? 0) + (n.get(l.id) ?? 0) });
