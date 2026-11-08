@@ -1624,3 +1624,26 @@ NHL (`useRinkOn`). Nothing is stored on the server and no migration is needed.
   scripted thumb, at 360 and 390 px.
 - Next, if Patrick wants it: a league ladder (each member's record against the others) needs a small table and a
   migration; the season's champion of the rink in the morning column.
+
+### 9.34 Rink Duel's standings, 7 November 2026
+
+Patrick, after trying it: "show comprehensive statistics for all players who play the game including cumulative goals and
+own goals and goals against and trends. Show ranking of players/GM based on statistics."
+
+- **Migration 352** (`rink_games`): one row a finished game per league, a duel (two members) or a game against the
+  computer (its level): goals each way, own goals each way, hardest goal each way, the longest rally, the length.
+  Live on 7 November 2026 on Patrick's go (applied and verified before this site change merged).
+  `rink_record` takes it from the phone that played: the challenger's in a duel (so it's told once), the player's
+  against the computer; a repeat of a match id is kept once, an unfinished game is refused. A rematch is its own match
+  (`<match>-<n>`).
+- **Own goals**: the table now says when the defender touched the puck last into their own net (`own` on the goal
+  event), shown as "Own goal!" and counted for the side it went against.
+- **The Standings tab** on `#/rink` (`?t=stats`; `src/lib/rink/stats.ts` and `RinkStats.tsx`, all worked out on the
+  phone from the kept games): your rank and rating, the league's records (hardest goal, longest rally, biggest win, the
+  own goal king), and every member ranked by a chess-style rating (start 1000, K 32, a bigger win moves it a little more,
+  a game against the computer at half weight against its level's fixed rating). Each row: record, goals for and against
+  with the difference, own goals, last five and the trend. Tap a member: the rating's path, every total and per-game
+  rate, shutouts, comebacks, the longest win streak, time on the ice, the last two weeks against everything before,
+  their record against each level and head to head against each member, and the recent games with what each did to
+  the rating.
+- `rink.test.mjs` checks the totals, own goals, ranking, form and trend; the flow test checks the table and its function.

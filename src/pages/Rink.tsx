@@ -4,11 +4,12 @@
 // server, and this phone remembers its own record against the computer.
 import { useEffect, useMemo, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { Bot, MessageCircle, Swords, Zap } from 'lucide-react';
+import { BarChart3, Bot, Gamepad2, MessageCircle, Swords, Zap } from 'lucide-react';
 import { useLeague } from '../lib/store';
 import { supabase } from '../lib/supabase';
 import { PageHeader, Section, TeamBadge, useToast } from '../components/ui';
 import { RinkGame, type RinkMode, type RinkResult } from '../components/rink/RinkGame';
+import { RinkStats } from '../components/rink/RinkStats';
 import { LEVELS, type Level } from '../lib/rink/ai';
 import { HEAT_AT, WIN_AT } from '../lib/rink/physics';
 import { joinLobby, newMatchId, onLobby, sendLobby } from '../lib/rink/net';
@@ -32,6 +33,9 @@ export default function Rink() {
   const [best, setBest] = useState(readBest);
   const [pending, setPending] = useState<{ id: string; to: number; at: number } | null>(null);
   const [posting, setPosting] = useState(false);
+  // Play, or the league's standings (?t=stats); a kept game reads them again
+  const [tab, setTab] = useState<'play' | 'stats'>(params.get('t') === 'stats' ? 'stats' : 'play');
+  const [statsKey, setStatsKey] = useState(0);
 
   const members = useMemo(() => [...teams, ...spectators].filter((t) => t.id !== me?.id)
     .sort((a, b) => Number(online.has(b.id)) - Number(online.has(a.id)) || a.name.localeCompare(b.name)), [teams, spectators, online, me?.id]);
@@ -110,6 +114,14 @@ export default function Rink() {
     <div className="space-y-4">
       <PageHeader icon={<span className="text-xl">🏒</span>} title="Rink Duel" sub="Thumb air hockey. Your end, your thumb, first to 7." />
 
+      <div className="grid grid-cols-2 gap-1 rounded-2xl bg-white/[.04] p-1 ring-1 ring-white/[.07]">
+        {([['play', 'Play', Gamepad2], ['stats', 'Standings', BarChart3]] as const).map(([k, label, I]) => (
+          <button key={k} onClick={() => setTab(k)} className={`flex items-center justify-center gap-1.5 rounded-xl py-2 text-sm font-bold transition ${tab === k ? 'tab-on' : 'text-white/70'}`}><I size={16} />{label}</button>
+        ))}
+      </div>
+
+      {tab === 'stats' ? <RinkStats teams={[...teams, ...spectators]} me={me} refresh={statsKey} /> : <>
+
       {/* the hero: a little table you can see the game in */}
       <div className="card relative overflow-hidden p-0">
         <div className="absolute inset-0 bg-[radial-gradient(90%_70%_at_80%_0%,rgb(var(--gold-rgb)/.22),transparent_60%),radial-gradient(70%_60%_at_0%_100%,rgba(255,59,92,.18),transparent_60%)]" />
@@ -184,6 +196,8 @@ export default function Rink() {
         <p className="mt-2 px-1 text-xs text-mute">A challenge goes straight to their phone if they have the app open. Away? Throw down in the chat instead.</p>
       </Section>
 
+      </>}
+
       {pending && (
         <div className="fixed inset-0 z-50 grid place-items-center bg-black/60 px-6 backdrop-blur-sm">
           <div className="animate-slideup w-full max-w-sm rounded-[28px] border border-white/10 bg-gradient-to-b from-[#16213b] to-[#0a1222] p-5 text-center shadow-2xl">
@@ -200,7 +214,7 @@ export default function Rink() {
 
       {game && (
         <RinkGame key={gameKey} me={me} mode={game} league={lid} teams={[...teams, ...spectators]} ice={brand.short ?? league?.name ?? 'Rink Duel'}
-          onExit={() => setGame(null)} onResult={done} />
+          onExit={() => setGame(null)} onResult={done} onRecorded={() => setStatsKey((k) => k + 1)} />
       )}
     </div>
   );
