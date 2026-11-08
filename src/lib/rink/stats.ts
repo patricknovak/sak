@@ -7,10 +7,12 @@
 // fixed rating, at half the weight, so a member who only plays the computer still gets a place but can't farm it.
 
 export type RinkLevel = 'beer' | 'junior' | 'pro' | 'legend';
+// a kept game: Rink Duel's (rink_games, with the rally) or Rod Hockey's (rod_games, migration 354, with shots on goal)
 export interface RinkGameRow {
   id: number; match_id: string; home: number; away: number | null; level: RinkLevel | null;
   home_goals: number; away_goals: number; home_own: number; away_own: number;
-  home_best: number; away_best: number; rally: number; secs: number; played_at: string;
+  home_best: number; away_best: number; rally?: number; secs: number; played_at: string;
+  home_shots?: number; away_shots?: number;
 }
 
 export const START = 1000;
@@ -22,12 +24,16 @@ const DAY = 86_400_000;
 export interface Side {
   game: RinkGameRow; at: number; vs: number | null; level: RinkLevel | null;
   gf: number; ga: number; own: number; theirOwn: number; best: number; won: boolean; rally: number; secs: number;
+  sf: number; sa: number;                     // shots on goal for and against (Rod Hockey; 0 in Rink Duel)
   before: number; after: number;              // the rating either side of it
 }
 
-export interface Line { gp: number; w: number; l: number; gf: number; ga: number; own: number }
-const emptyLine = (): Line => ({ gp: 0, w: 0, l: 0, gf: 0, ga: 0, own: 0 });
-const add = (l: Line, s: Side) => { l.gp++; if (s.won) l.w++; else l.l++; l.gf += s.gf; l.ga += s.ga; l.own += s.own; };
+export interface Line { gp: number; w: number; l: number; gf: number; ga: number; own: number; sf: number; sa: number }
+const emptyLine = (): Line => ({ gp: 0, w: 0, l: 0, gf: 0, ga: 0, own: 0, sf: 0, sa: 0 });
+const add = (l: Line, s: Side) => { l.gp++; if (s.won) l.w++; else l.l++; l.gf += s.gf; l.ga += s.ga; l.own += s.own; l.sf += s.sf; l.sa += s.sa; };
+// shooting: goals off your own stick over your shots; saving: shots against you that didn't go in off theirs
+export const shootPct = (l: Line) => (l.sf ? Math.min(1, l.gf / Math.max(l.sf, l.gf)) : null);
+export const savePct = (l: Line) => (l.sa ? Math.max(0, 1 - l.ga / Math.max(l.sa, l.ga)) : null);
 
 export interface PlayerStats {
   team: number;
@@ -51,6 +57,9 @@ export interface LeagueRecords {
   rally: { teams: number[]; n: number; at: number } | null;
   rout: { team: number; vs: number | null; level: RinkLevel | null; gf: number; ga: number; at: number } | null;
   ownGoals: { team: number; n: number } | null;
+  // Rod Hockey: the best shooter and the best in goal, over at least 20 shots
+  sniper: { team: number; pct: number; shots: number } | null;
+  wall: { team: number; pct: number; shots: number } | null;
   games: number; goals: number; duels: number;
 }
 
@@ -58,7 +67,8 @@ const expect = (a: number, b: number) => 1 / (1 + Math.pow(10, (b - a) / 400));
 const pct = (w: number, gp: number) => (gp ? w / gp : null);
 const per = (n: number, gp: number) => (gp ? n / gp : null);
 
-export function rinkStats(rows: RinkGameRow[], now = Date.now()): { players: PlayerStats[]; records: LeagueRecords } {
+// winAt: the score that wins a game (Rink Duel 7, Rod Hockey 5), for what counts as a comeback
+export function rinkStats(rows: RinkGameRow[], now = Date.now(), winAt = 7): { players: PlayerStats[]; records: LeagueRecords } {
   const games = [...rows].sort((a, b) => Date.parse(a.played_at) - Date.parse(b.played_at) || a.id - b.id);
   const rating = new Map<number, number>();
   const sides = new Map<number, Side[]>();
@@ -75,13 +85,13 @@ export function rinkStats(rows: RinkGameRow[], now = Date.now()): { players: Pla
       const margin = 1 + Math.min(0.5, Math.abs(g.home_goals - g.away_goals) / 14);
       const d = K * margin * ((homeWon ? 1 : 0) - ea);
       rating.set(g.home, a + d); rating.set(g.away, b - d);
-      push(g.home, { game: g, at, vs: g.away, level: null, gf: g.home_goals, ga: g.away_goals, own: g.home_own, theirOwn: g.away_own, best: g.home_best, won: homeWon, rally: g.rally, secs: g.secs, before: a, after: a + d });
-      push(g.away, { game: g, at, vs: g.home, level: null, gf: g.away_goals, ga: g.home_goals, own: g.away_own, theirOwn: g.home_own, best: g.away_best, won: !homeWon, rally: g.rally, secs: g.secs, before: b, after: b - d });
+      push(g.home, { game: g, at, vs: g.away, level: null, gf: g.home_goals, ga: g.away_goals, own: g.home_own, theirOwn: g.away_own, best: g.home_best, won: homeWon, rally: g.rally ?? 0, secs: g.secs, sf: g.home_shots ?? 0, sa: g.away_shots ?? 0, before: a, after: a + d });
+      push(g.away, { game: g, at, vs: g.home, level: null, gf: g.away_goals, ga: g.home_goals, own: g.away_own, theirOwn: g.home_own, best: g.away_best, won: !homeWon, rally: g.rally ?? 0, secs: g.secs, sf: g.away_shots ?? 0, sa: g.home_shots ?? 0, before: b, after: b - d });
     } else if (g.level) {
       const a = r(g.home);
       const d = (K / 2) * ((homeWon ? 1 : 0) - expect(a, CPU_RATING[g.level]));
       rating.set(g.home, a + d);
-      push(g.home, { game: g, at, vs: null, level: g.level, gf: g.home_goals, ga: g.away_goals, own: g.home_own, theirOwn: g.away_own, best: g.home_best, won: homeWon, rally: g.rally, secs: g.secs, before: a, after: a + d });
+      push(g.home, { game: g, at, vs: null, level: g.level, gf: g.home_goals, ga: g.away_goals, own: g.home_own, theirOwn: g.away_own, best: g.home_best, won: homeWon, rally: g.rally ?? 0, secs: g.secs, sf: g.home_shots ?? 0, sa: g.away_shots ?? 0, before: a, after: a + d });
     }
   }
 
@@ -97,8 +107,8 @@ export function rinkStats(rows: RinkGameRow[], now = Date.now()): { players: Pla
       best = Math.max(best, s.best); rally = Math.max(rally, s.rally); secs += s.secs;
       if (s.won && s.ga === 0) shutouts++;
       // a hot puck is worth two, so a score past seven means one went in on fire
-      if (s.gf > 7) hot++;
-      if (s.won && s.ga >= 5) comebacks++;
+      if (s.gf > winAt) hot++;
+      if (s.won && s.ga >= winAt - 2) comebacks++;
       run = s.won ? run + 1 : 0; longestWin = Math.max(longestWin, run);
       peak = Math.max(peak, s.after);
     }
@@ -134,7 +144,7 @@ export function rinkStats(rows: RinkGameRow[], now = Date.now()): { players: Pla
   players.forEach((p, i) => { p.rank = i + 1; });
 
   // the league's records
-  const records: LeagueRecords = { hardest: null, rally: null, rout: null, ownGoals: null, games: games.length, goals: 0, duels: 0 };
+  const records: LeagueRecords = { hardest: null, rally: null, rout: null, ownGoals: null, sniper: null, wall: null, games: games.length, goals: 0, duels: 0 };
   for (const g of games) {
     const at = Date.parse(g.played_at);
     records.goals += g.home_goals + g.away_goals;
@@ -142,7 +152,7 @@ export function rinkStats(rows: RinkGameRow[], now = Date.now()): { players: Pla
     for (const [team, kmh] of [[g.home, g.home_best], ...(g.away != null ? [[g.away, g.away_best]] : [])] as [number, number][]) {
       if (kmh > (records.hardest?.kmh ?? 0)) records.hardest = { team, kmh, at };
     }
-    if (g.rally > (records.rally?.n ?? 0)) records.rally = { teams: g.away != null ? [g.home, g.away] : [g.home], n: g.rally, at };
+    if ((g.rally ?? 0) > (records.rally?.n ?? 0)) records.rally = { teams: g.away != null ? [g.home, g.away] : [g.home], n: g.rally ?? 0, at };
     // the biggest win by a member (a member beaten by the computer isn't a member's rout)
     const homeWon = g.home_goals > g.away_goals;
     const margin = Math.abs(g.home_goals - g.away_goals);
@@ -155,5 +165,10 @@ export function rinkStats(rows: RinkGameRow[], now = Date.now()): { players: Pla
   }
   const og = [...players].sort((a, b) => b.all.own - a.all.own)[0];
   if (og && og.all.own > 0) records.ownGoals = { team: og.team, n: og.all.own };
+  for (const p of players) {
+    const sh = shootPct(p.all), sv = savePct(p.all);
+    if (sh != null && p.all.sf >= 20 && sh > (records.sniper?.pct ?? -1)) records.sniper = { team: p.team, pct: sh, shots: p.all.sf };
+    if (sv != null && p.all.sa >= 20 && sv > (records.wall?.pct ?? -1)) records.wall = { team: p.team, pct: sv, shots: p.all.sa };
+  }
   return { players, records };
 }

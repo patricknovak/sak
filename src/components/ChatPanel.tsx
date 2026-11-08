@@ -20,7 +20,7 @@ const ASK_GARRY = ['Roast me', 'Trash talk the leader', 'Tell me a joke', 'Who�
 const ASK_POOL = ['Roast me', 'Trash talk the leader', 'Tell me a joke', 'Who’s winning?', 'How does the pool score?'];
 // Garry points at pages with "👉 #/path"; those become buttons
 const LINK_LABEL: [string, string][] = [['/player/', 'Player page'], ['/team', 'My lineup'], ['/standings', 'Standings'], ['/trades', 'Trades'], ['/players', 'Players'],
-  ['/draft?t=keepers', 'Keepers'], ['/draft', 'Draft room'], ['/bets', 'Side bets'], ['/performance', 'Performance'], ['/profile', 'Profile'], ['/nhl?t=injuries', 'Injuries'], ['/nhl', 'NHL centre'], ['/features', 'Features'], ['/money', 'Money'], ['/league', 'Rulebook'], ['/rink', 'Take them on']];
+  ['/draft?t=keepers', 'Keepers'], ['/draft', 'Draft room'], ['/bets', 'Side bets'], ['/performance', 'Performance'], ['/profile', 'Profile'], ['/nhl?t=injuries', 'Injuries'], ['/nhl', 'NHL centre'], ['/features', 'Features'], ['/money', 'Money'], ['/league', 'Rulebook'], ['/rink', 'Take them on'], ['/rod', 'Take them on']];
 const linkLabel = (path: string) => LINK_LABEL.find(([p]) => path.startsWith(p))?.[1] ?? 'Open';
 
 const CHIRPS = ['🚨 REACH!', 'Steal of the draft 🥷', 'Enjoy {booby} 🪣', 'Sell me that guy 💰', 'Who? 🤔', 'Lock it in 🔒', 'GG 🍺', 'Scoreboard. 📈', 'Ice cold 🧊', 'Put him on IR, he’s embarrassing you 🚑', 'Cup or bust 🏆', 'Fleeced 🐑'];

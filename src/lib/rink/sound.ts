@@ -73,6 +73,11 @@ export const sfx = {
   },
   beep(last = false) { tone(last ? 1175 : 784, last ? 0.32 : 0.14, 0.14, 'square'); },
   fire() { tone(220, 0.5, 0.08, 'sawtooth', 0, 880); burst(0.4, 0.2, 3000); },
+  // Rod Hockey: the ring of the post, the whip of a stick spinning through, the crowd, a big save
+  post() { tone(1568, 0.5, 0.12, 'sine', 0, 1480); tone(2349, 0.35, 0.05, 'sine'); buzz(25); },
+  swing(power: number) { const p = Math.min(1, power / 3000); burst(0.12, 0.08 + p * 0.18, 1400 + p * 2400); },
+  crowd() { burst(0.5, 0.18, 600, 0.05); burst(1.1, 0.12, 900, 0.25); burst(0.9, 0.08, 1300, 0.6); },
+  save() { burst(0.07, 0.35, 900); tone(140, 0.12, 0.12, 'triangle'); },
   win() { [523, 659, 784, 1047].forEach((f, i) => tone(f, 0.28, 0.12, 'triangle', i * 0.12)); buzz([40, 40, 40, 40, 120]); },
   lose() { [392, 330, 262].forEach((f, i) => tone(f, 0.32, 0.1, 'triangle', i * 0.16)); },
 };

@@ -1663,3 +1663,34 @@ Every trade line counts under the chat's Transactions filter, and the Trades pag
 
 Also fixed: the streak section of the flow test failed every evening from 7 pm Eastern (00:00 to 05:00 UTC), because
 it counted its finished games back from the UTC date, which is already tomorrow then; it counts from the Eastern date now.
+
+### 9.36 Rod Hockey: table hockey in every hockey league and pool, 8 November 2026
+
+Patrick: "I would now like to build a rod hockey simulator game so that I can play rod hockey against the computer or
+against other GMs in the same way as air hockey with standings and statistics. I want it to be amazingly fun and a great
+design that people want to keep playing." `#/rod`, under Play beside Rink Duel, wherever Rink Duel shows.
+
+- **The table** (`src/lib/rod/physics.ts`): six players a side on slots cut in the ice (the goalie across his crease, two
+  defencemen across the ice, three forwards up and down), each turning on his rod. A stick is a blade that sweeps round
+  its player and carries its speed into the puck; a shot spins it through and sends the puck where it was aimed, waiting
+  a fifth of a second for a puck on its way (the one-timer). A player told to carry it cradles the puck on his blade for
+  up to 1.6 s. The boards are banked a touch along the sides and in the corners so a puck rolls back into play; one
+  nobody plays for a few seconds is dropped again at centre. An own goal is only one the defending side played last with
+  nobody on the other side touching it since; a shot that goes in off a defender is the shooter's.
+- **Your thumb** (`src/components/rod/RodGame.tsx`): you run the player nearest the puck (his slot glows): drag to slide
+  him, hold to cradle, flick toward the net to shoot (a near miss is helped inside the posts), tap for a snap shot at the
+  open side. The players you aren't running drift with the puck along their slots and your goalie follows it a beat
+  late, by the same rule on both sides.
+- **The computer** (`src/lib/rod/ai.ts`): Beer league, Junior, Pro and Legend, the same brain with slower hands, a later
+  read, a shakier aim, softer shots, a slower goalie and lazier support. Simulated against itself, each level beats the
+  one below it (`rod.test.mjs`); a test bot playing in the browser beat Beer league 5–1 and was trailing Pro and Legend 1–4 when it stopped.
+- **Live** (`src/lib/rod/net.ts`): a challenge goes over Rink Duel's lobby naming its game, so the same card pops up
+  (`RinkInvites`, "Rod Hockey"). Twelve players can't be split between two phones the way two paddles can, so the
+  challenger's phone runs the table and sends it twenty times a second; the other phone draws it a moment behind and
+  sends its thumb and its shots, which get a little longer and a little more reach to allow for the trip. Tested between
+  two browser tabs with 60 ms each way; never yet between two real phones.
+- **Kept and ranked**: migration 354 (`rod_games`, `rod_record`) keeps each finished game with shots on goal for each side
+  (a shot on goal is one the goalie stops or that goes in, not one blocked on the way). The Standings tab is Rink Duel's
+  (`RinkStats game="rod"`, the same rating), with shooting and save percentages, the Sniper and the Brick wall records.
+- Also fixed in Rink Duel: the table's picture was drawn up to 20 pixels up and left of where the puck really is on a phone
+  with a dense screen (its margin was scaled twice).

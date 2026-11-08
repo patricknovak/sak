@@ -14,8 +14,10 @@ import type { RealtimeChannel } from '@supabase/supabase-js';
 import { supabase } from '../supabase';
 import { useLeague } from '../store';
 
+// a challenge names its game: Rink Duel (air hockey, the default for older copies of the app) or Rod Hockey
+export type LobbyGame = 'air' | 'rod';
 export type LobbyMsg =
-  | { type: 'invite'; id: string; from: number; to: number }
+  | { type: 'invite'; id: string; from: number; to: number; game?: LobbyGame }
   | { type: 'reply'; id: string; from: number; to: number; ok: boolean }
   | { type: 'cancel'; id: string; from: number; to: number };
 
