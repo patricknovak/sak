@@ -8135,3 +8135,28 @@ select set_config('app.league_id', '', false);
 select set_config('request.jwt.claim.sub', '', false);
 \i supabase/migrations/20261005000352_rink_games.sql
 select 'rink games', true;
+
+-- ───────────── Rod Hockey's games are kept, league by league (migration 354) ─────────────
+reset role;
+select set_config('app.league_id', '', false);
+select pg_temp.as_team(2);
+set role authenticated;
+select pg_temp.expect('a rod hockey duel is recorded', rod_record('flowrod01', 3, null, 5, 3, 0, 1, 14, 9, 118, 96, 300) is not null);
+select pg_temp.expect('the same rod match told twice is kept once', rod_record('flowrod01', 3, null, 5, 3, 0, 1, 14, 9, 118, 96, 300) is null);
+select pg_temp.expect('a rod game against the computer is recorded', rod_record('flowrodcpu', null, 'legend', 2, 5, 0, 0, 1, 12, 80, 130, 240) is not null);
+select pg_temp.raises('an unfinished rod game is refused', $q$ select rod_record('flowrodhalf', 3, null, 2, 1) $q$, 'finished');
+select pg_temp.raises('more rod own goals than goals is refused', $q$ select rod_record('flowrodown', 3, null, 5, 1, 2, 0) $q$, 'own goals');
+select pg_temp.raises('a rod duel with another league''s member is refused', format($q$ select rod_record('flowrodoth', %s, null, 5, 1) $q$, :olga), 'another league');
+select pg_temp.expect('the league reads its rod games', (select count(*) = 2 from rod_games where match_id in ('flowrod01', 'flowrodcpu')));
+select pg_temp.expect('a side never has fewer shots than its own goals',
+  (select home_shots = 2 and away_shots = 12 and level = 'legend' and away is null from rod_games where match_id = 'flowrodcpu'));
+reset role;
+select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-000000000084', false);
+select set_config('app.league_id', :olga::text, false);
+set role authenticated;
+select pg_temp.expect('another league sees none of the rod games', not exists (select 1 from rod_games where match_id like 'flowrod%'));
+reset role;
+select set_config('app.league_id', '', false);
+select set_config('request.jwt.claim.sub', '', false);
+\i supabase/migrations/20261005000354_rod_games.sql
+select 'rod games', true;
