@@ -51,7 +51,7 @@ export interface StateMsg {
 }
 export type MatchMsg =
   | { type: 'take'; guest: number }
-  | { type: 'goal'; by: 0 | 1; pts: number; sc: [number, number]; kmh: number }
+  | { type: 'goal'; by: 0 | 1; pts: number; sc: [number, number]; kmh: number; own?: boolean }
   | { type: 'again'; from: number }
   | { type: 'bye'; from: number };
 

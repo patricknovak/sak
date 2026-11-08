@@ -29,7 +29,8 @@ export interface Table { puck: Body; pads: [Paddle, Paddle]; last: Side | null; 
 export type TableEvent =
   | { kind: 'hit'; side: Side; power: number }
   | { kind: 'wall'; power: number }
-  | { kind: 'goal'; into: Side };             // the goal side 0 or 1 defends: the other side scored
+  // the goal side 0 or 1 defends: the other side scored. Own: the defender touched it last (into their own net)
+  | { kind: 'goal'; into: Side; own: boolean };
 
 export const otherSide = (s: Side): Side => (s === 0 ? 1 : 0);
 export const hot = (t: Table) => t.heat >= HEAT_AT;
@@ -96,7 +97,7 @@ function boards(t: Table, out: TableEvent[], goals: boolean) {
       // through the mouth: in once the whole puck has crossed the line
       const inNet = end === 1 ? p.y < wallY - r * 0.6 : p.y > wallY + r * 0.6;
       if (inNet) {
-        if (goals) { out.push({ kind: 'goal', into: end }); return; }
+        if (goals) { out.push({ kind: 'goal', into: end, own: t.last === end }); return; }
         // the online match's other phone waits to be told about a goal rather than calling it
         p.y = end === 1 ? wallY - r * 0.6 : wallY + r * 0.6;
         p.vx = 0; p.vy = 0;

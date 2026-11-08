@@ -120,7 +120,10 @@ Two things in one repo:
   game (`useRinkOn`): the table in `src/lib/rink/physics.ts`, the computer's four levels in `ai.ts`, the screen in
   `src/components/rink/RinkGame.tsx`. Live challenges are realtime broadcasts only (`net.ts`: the lobby `rink:<league>`,
   a card on the challenged phone from `RinkInvites`; a match `rink:<league>:<id>` where the puck belongs to the phone
-  whose half it's in); nothing is stored. docs/DEVELOPMENT.md §9.33.
+  whose half it's in). Every finished game is kept (`rink_games`, migration 352, recorded by `rink_record` from the
+  challenger's phone or the player's against the computer) and the Standings tab works out each member's totals (goals,
+  own goals, goals against), trend, head to head and a chess-style rating that ranks them (`src/lib/rink/stats.ts`,
+  `RinkStats`). docs/DEVELOPMENT.md §9.33 and §9.34.
 - Navigation (`src/components/Layout.tsx`): the dock keeps four places (a fantasy league's are Home, Lineup, Chat and NHL centre since 24 October 2026; Players is in More under Your team), Live (the scoreboard, a fantasy league's middle tab with a red dot while a game is on) and More; More and the desktop sidebar list the
   rest under groups (`Tonight`, `Your team`, `The league`, `You`; a pool's `Play`, `Sport centres`, `You`), and nothing
   in the dock repeats in More. A new page joins a group rather than the end of a list.
