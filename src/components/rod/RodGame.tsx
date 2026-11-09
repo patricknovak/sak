@@ -678,7 +678,7 @@ export function RodGame({ me, mode, league, teams, ice, onExit, onResult, onReco
         <div className="flex h-14 items-center gap-2.5">
           {mode.kind === 'cpu'
             ? <span className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-gradient-to-br from-rose-500 to-rose-800 text-lg shadow-[0_0_18px_-4px_#ff3b5c]">{mode.level.emoji}</span>
-            : <TeamBadge team={opp ?? undefined} size={36} />}
+            : <span className="shrink-0 rounded-full p-[2px] ring-2 ring-rose-400 shadow-[0_0_14px_-3px_#ff3b5c]"><TeamBadge team={opp ?? undefined} size={32} /></span>}
           <div className="min-w-0 flex-1 leading-tight">
             <div className="truncate text-sm font-bold">{oppName}</div>
             <div className="truncate text-[11px] text-white/55">{sub} · <span className="num">{sog[theirSide]}</span> {sog[theirSide] === 1 ? 'shot' : 'shots'}</div>
@@ -693,7 +693,7 @@ export function RodGame({ me, mode, league, teams, ice, onExit, onResult, onReco
         {phase === 'count' && count > 0 && <div key={count} className="rod-pop pointer-events-none absolute inset-0 grid place-items-center font-display text-[110px] font-extrabold text-white/90 drop-shadow-[0_0_30px_rgb(var(--gold-rgb)/.8)]">{count}</div>}
         {phase === 'count' && count === 0 && <div className="rod-pop pointer-events-none absolute inset-0 grid place-items-center font-display text-6xl font-extrabold uppercase text-gold drop-shadow-[0_0_30px_rgb(var(--gold-rgb)/.8)]">Drop it!</div>}
         {tips && (phase === 'count' || phase === 'play') && (
-          <div className="pointer-events-none absolute inset-x-3 top-2 flex justify-center">
+          <div className="pointer-events-none absolute inset-x-3 top-[60%] flex justify-center">
             <div className="rod-pop max-w-sm rounded-2xl border border-gold/30 bg-[#05080f]/85 px-3 py-2 text-[12px] leading-snug text-white/90 shadow-xl backdrop-blur">
               <div className="mb-0.5 text-[10px] font-black uppercase tracking-[.16em] text-gold">How to play</div>
               <div>👆 <b>Drag</b> to slide your glowing player along his slot. Hold and he cradles the puck.</div>
@@ -763,7 +763,7 @@ export function RodGame({ me, mode, league, teams, ice, onExit, onResult, onReco
       {/* you */}
       <div className="pb-safe shrink-0 px-3">
         <div className="flex h-14 items-center gap-2.5">
-          <TeamBadge team={me} size={36} />
+          <span className="shrink-0 rounded-full p-[2px] ring-2 ring-gold shadow-[0_0_14px_-3px_rgb(var(--gold-rgb))]"><TeamBadge team={me} size={32} /></span>
           <div className="min-w-0 flex-1 leading-tight">
             <div className="truncate text-sm font-bold">{me.name}</div>
             <div className="truncate text-[11px] text-white/55">You · <span className="num">{sog[mySide]}</span> {sog[mySide] === 1 ? 'shot' : 'shots'} · first to {WIN_AT}</div>
