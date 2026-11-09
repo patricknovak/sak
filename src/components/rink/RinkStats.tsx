@@ -63,7 +63,7 @@ export function RinkStats({ teams, me, refresh, game = 'air' }: { teams: Team[];
       {mine && <MyLine p={mine} total={players.length} onOpen={() => setOpen(me.id)} />}
       <Records r={records} team={team} game={game} />
 
-      <Section title="The rink standings" icon={<Trophy size={16} />} right={<span className="text-xs text-mute">tap a player</span>}>
+      <Section title={game === 'rod' ? 'The table standings' : 'The rink standings'} icon={<Trophy size={16} />} right={<span className="text-xs text-mute">tap a player</span>}>
         <div className="overflow-hidden rounded-2xl border border-white/[.07] bg-white/[.02]">
           {players.map((p) => {
             const t = team(p.team);

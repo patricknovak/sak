@@ -486,7 +486,7 @@ export function RinkGame({ me, mode, league, teams, ice, onExit, onResult, onRec
         <div className="flex h-14 items-center gap-2.5">
           {mode.kind === 'cpu'
             ? <span className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-gradient-to-br from-rose-500 to-rose-800 text-lg shadow-[0_0_18px_-4px_#ff3b5c]">{mode.level.emoji}</span>
-            : <TeamBadge team={opp ?? undefined} size={36} />}
+            : <span className="shrink-0 rounded-full p-[2px] ring-2 ring-rose-400 shadow-[0_0_14px_-3px_#ff3b5c]"><TeamBadge team={opp ?? undefined} size={32} /></span>}
           <div className="min-w-0 flex-1 leading-tight">
             <div className="truncate text-sm font-bold">{oppName}</div>
             <div className="truncate text-[11px] text-white/55">{sub}</div>
@@ -566,7 +566,7 @@ export function RinkGame({ me, mode, league, teams, ice, onExit, onResult, onRec
       {/* you */}
       <div className="pb-safe shrink-0 px-3">
         <div className="flex h-14 items-center gap-2.5">
-          <TeamBadge team={me} size={36} />
+          <span className="shrink-0 rounded-full p-[2px] ring-2 ring-gold shadow-[0_0_14px_-3px_rgb(var(--gold-rgb))]"><TeamBadge team={me} size={32} /></span>
           <div className="min-w-0 flex-1 leading-tight">
             <div className="truncate text-sm font-bold">{me.name}</div>
             <div className="truncate text-[11px] text-white/55">You · first to {WIN_AT}</div>
