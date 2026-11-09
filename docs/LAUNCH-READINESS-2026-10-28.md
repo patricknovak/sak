@@ -51,14 +51,14 @@ its ranked list where they overlap.
    - Redirect URLs: `https://app.superpoolsai.com/**`, `https://*.superpoolsai.com/**`, `https://patricknovak.github.io/sak/**`
      (until the GitHub Pages copy retires).
    - Email Templates → Reset password: the body says "Your code for the SAK Superleague"; make it "Your Super Pools code".
-2. **Read the terms** (`#/terms` in the pull request) and settle what only you can: the minimum age (13 as written), the
-   legal name behind Super Pools and the governing law, and whether a lawyer reads it before strangers arrive.
-3. **Check hello@superpoolsai.com reaches you.** The privacy note and the terms promise deletion and answers there; mail
-   for superpoolsai.com goes through Cloudflare Email Routing. Send it a test from an outside address.
-4. **Decide whether a new email is confirmed by a code** before its account is made (starting a pool, joining from an
-   invite). Today an address is taken at its word, which keeps the door one step shorter; a 6-digit code makes the address
-   provably the person's. The trade-off and the recommendation are in the session's report; recommended before any paid
-   marketing.
+2. ~~Read the terms~~ *Done 9 November 2026:* read; 13 (14 in Quebec) stands, and the terms and the privacy note name the
+   operator, Planetterrian Ventures and Patrick Novak, British Columbia, under its law. A lawyer's read is still
+   Patrick's call.
+3. ~~Check hello@superpoolsai.com reaches you~~ *Done 9 November 2026 (Patrick: it does).*
+4. ~~Decide whether a new email is confirmed by a code~~ *Patrick's yes, 9 November 2026 (docs/DEVELOPMENT.md §9.37):*
+   built and off until two steps of his: the Auth email templates Confirm signup and Magic Link show `{{ .Token }}`
+   ("Your Super Pools code"), then the `EMAIL_CODES` function secret is set to `on`. Migration 355 (`_signup_pending`)
+   lets the same address try again before its code is used.
 5. ~~Archive the test pools and the shadow league~~ *Done (migrations 340 and 341, on Patrick's "Apply migrations and
    continue"):* `sak-shadow` and the QA and TEST pools (leagues 9 to 13) are archived with their data kept, and the
    shadow's every-minute sync is unscheduled.
@@ -74,11 +74,12 @@ its ranked list where they overlap.
    the keys exist:* put the site key in `.env.production` as `VITE_TURNSTILE_SITE_KEY` and let the site deploy, then set
    `TURNSTILE_SECRET` in Supabase's function secrets. In that order: the secret first would refuse every new account
    from the old site. The landing's waitlist writes straight to its table and is not covered yet.
-9. **Uptime alerts** from outside: a Cloudflare health check or UptimeRobot on `app.superpoolsai.com`,
-   `superpoolsai.com` and nhl-hub, alerting your phone. The health check inside only bells you in the app.
+9. ~~Uptime alerts~~ *Done 9 November 2026:* `.github/workflows/uptime.yml` checks the app, the marketing site and the
+   sports data every ten minutes from GitHub's runners and opens an issue assigned to Patrick when one fails twice in a
+   row (closed again when all answer). UptimeRobot stays an option for a second pair of eyes.
 10. **Email reputation.** DMARC is `p=none`; once its reports show only Resend and Cloudflare, move it to
     `p=quarantine`. A CAA record (letsencrypt.org, pki.goog) is a nice extra.
-11. **Mission Control's passcode**: make it long and random.
+11. **Mission Control's passcode**: make it long and random. *9 November 2026:* a 28-character one was generated and handed to Patrick with the SQL that sets its hash (the connector holds a `truncate`).
 
 ### Housekeeping
 

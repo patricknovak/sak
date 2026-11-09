@@ -1694,3 +1694,31 @@ design that people want to keep playing." `#/rod`, under Play beside Rink Duel, 
   (`RinkStats game="rod"`, the same rating), with shooting and save percentages, the Sniper and the Brick wall records.
 - Also fixed in Rink Duel: the table's picture was drawn up to 20 pixels up and left of where the puck really is on a phone
   with a dense screen (its margin was scaled twice).
+
+### 9.37 Launch answers: the email code, the operator, the uptime check, 9 November 2026
+
+Patrick answered the launch list (docs/LAUNCH-READINESS-2026-10-28.md §3): hello@ reaches him, the terms are read, yes
+to confirming a new email with a code, the operator is Planetterrian Ventures and himself in British Columbia, do the
+uptime alerts and the passcode. Built here:
+
+- **The email code** (the join function, `EMAIL_CODES` secret `on`): the three doors that take an email (a pool, a league,
+  an invite) go in two steps. The first makes the account unconfirmed with the password typed and has Auth send a
+  6-digit code (`signInWithOtp` for the existing, unconfirmed user, so the sign-up switch stays off; the Confirm signup
+  and Magic Link templates must show `{{ .Token }}`), answering `{verify: true}`. The site's `EmailCode` card
+  (`src/components/EmailCode.tsx`) takes the code (`verifyOtp`, type `email`), which signs the phone in, and calls the
+  same door again with that session; the function reads the account from the token (`caller`), checks the address
+  matches and is confirmed, and opens the pool, the league or the seat for it (`account()` is the shared step; the
+  bot check runs on the first step only). Off, every door works in one call as before. Migration 355
+  (`_signup_pending`, service role) lets the same address try again before its code is used: the password and name are
+  taken afresh and a new code goes out; without the migration that address reads as taken until the stale account is
+  removed. Not yet: a sweep of unconfirmed accounts that never came back (harmless rows; a later housekeeping delete).
+- **Who runs it**: the terms' new section and the privacy note's person in charge name Planetterrian Ventures and
+  Patrick Novak, British Columbia, under its law and Canada's. The postal address (CASL) waits on the street line.
+- **Uptime** (`.github/workflows/uptime.yml`): every ten minutes GitHub's runners read the app, the marketing site and
+  `/api/hub?task=standings`; two failures in a row open an issue labelled `outage` assigned to Patrick (GitHub bells his
+  phone), later failures comment on it, and the first all-clear closes it.
+- **Mission Control's passcode**: generated (28 random characters) and handed over with the SQL that stores its hash; the
+  connector holds the `truncate`, so Patrick pastes it.
+- Patrick's remaining steps are in the readiness doc: the street address, DMARC to `p=quarantine`, the two Auth templates
+  and the `EMAIL_CODES` switch, the Auth email rate limit raised before marketing, Turnstile's keys, Stripe, compute.
+

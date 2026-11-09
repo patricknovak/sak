@@ -15,6 +15,7 @@ import { attributionFields, trackPoolCreated, trackSignUp } from '../lib/analyti
 import { CATEGORIES, STANDARD_CATEGORIES } from '../lib/categories';
 import { Spinner } from './ui';
 import { humanField } from '../lib/turnstile';
+import { EmailCode } from './EmailCode';
 
 const rgb = (c: string) => `${parseInt(c.slice(1, 3), 16)} ${parseInt(c.slice(3, 5), 16)} ${parseInt(c.slice(5, 7), 16)}`;
 
@@ -53,6 +54,8 @@ export function FantasyStart({ color, setColor, swatches, member, signedIn }: { 
   const [showPw, setShowPw] = useState(false);
   const [haveAccount, setHaveAccount] = useState(false);
   const [notYet, setNotYet] = useState(false);
+  // the join function wants the email confirmed first: the code step, with the body to send again once it's in
+  const [codeFor, setCodeFor] = useState<{ email: string; body: Record<string, unknown> } | null>(null);
   // signed in here with an account that already exists: the league starts on it the moment its seat loads
   const pending = useRef(false);
   const po = format === 'h2h' ? Math.min(playoffs, teams) : 0;
@@ -85,32 +88,50 @@ export function FantasyStart({ color, setColor, swatches, member, signedIn }: { 
         pending.current = true;
         return;
       }
-      const { data, error } = await supabase.functions.invoke('join', { body: { fantasy: { name: name.trim(), color, seats: teams, format, categories: scoring === 'cats' ? cats : null, keepers, playoffs: po, snake },
-        email: login, password: pw, name: host.trim(), ...attributionFields(), ...(await humanField()) } });
-      if (error) {
-        const body = error instanceof FunctionsHttpError ? await error.context.json().catch(() => null) : null;
-        if (body?.signIn) { setHaveAccount(true); setPw(''); setErr('That email already has an account. Type its password and the league starts on it.'); setBusy(false); return; }
-        if (body?.notYet) setNotYet(true);
-        setErr(body?.error ?? 'Couldn’t start the league right now. Try again in a minute.');
-        setBusy(false);
-        return;
-      }
-      setRemember(true);
-      const opened = (data as { league?: { id: number; slug: string } })?.league;
-      await trackPoolCreated({ id: opened?.id, kind: 'fantasy', sport: 'nhl' });
-      const { error: se } = await supabase.auth.signInWithPassword({ email: login, password: pw });
-      if (se) { setBusy(false); setErr(`Your league is open, but signing in failed: ${se.message}. Sign in from the main page.`); return; }
-      try { localStorage.setItem('sak-last-email', login); } catch { /* nothing to remember with */ }
-      await trackSignUp('email', login);
-      if (opened) await openPool({ league_id: opened.id, slug: opened.slug }, '/commish');
-      else { window.location.hash = '#/'; window.location.reload(); }
+      await openDoor({ fantasy: { name: name.trim(), color, seats: teams, format, categories: scoring === 'cats' ? cats : null, keepers, playoffs: po, snake },
+        email: login, password: pw, name: host.trim(), ...attributionFields(), ...(await humanField()) });
     } catch (x) { setErr((x as Error).message); setBusy(false); }
+  };
+  // the door itself: once, or twice when the join function wants the email confirmed first (a code step in between,
+  // after which the same body goes again with the phone signed in as that address)
+  const openDoor = async (body: Record<string, unknown>) => {
+    const login = String(body.email);
+    const { data, error } = await supabase.functions.invoke('join', { body });
+    if (error) {
+      const b = error instanceof FunctionsHttpError ? await error.context.json().catch(() => null) : null;
+      if (b?.signIn) { setHaveAccount(true); setPw(''); setErr('That email already has an account. Type its password and the league starts on it.'); setBusy(false); return; }
+      if (b?.notYet) setNotYet(true);
+      setErr(b?.error ?? 'Couldn’t start the league right now. Try again in a minute.');
+      setBusy(false);
+      return;
+    }
+    if ((data as { verify?: boolean })?.verify) { setCodeFor({ email: login, body }); setBusy(false); return; }
+    setRemember(true);
+    const opened = (data as { league?: { id: number; slug: string } })?.league;
+    await trackPoolCreated({ id: opened?.id, kind: 'fantasy', sport: 'nhl' });
+    if (!(await supabase.auth.getSession()).data.session) {
+      const { error: se } = await supabase.auth.signInWithPassword({ email: login, password: String(body.password) });
+      if (se) { setBusy(false); setErr(`Your league is open, but signing in failed: ${se.message}. Sign in from the main page.`); return; }
+    }
+    try { localStorage.setItem('sak-last-email', login); } catch { /* nothing to remember with */ }
+    await trackSignUp('email', login);
+    if (opened) await openPool({ league_id: opened.id, slug: opened.slug }, '/commish');
+    else { window.location.hash = '#/'; window.location.reload(); }
   };
   const toggleCat = (k: string) => setCats((cs) => (cs.includes(k) ? cs.filter((x) => x !== k) : [...cs, k]));
   const summary = [`${teams} teams`, format === 'h2h' ? `head-to-head${po ? `, ${po}-team playoffs` : ', no playoffs'}` : 'season total',
     scoring === 'points' ? 'fantasy points' : `${cats.length} categories`, keepers ? `${keepers} keeper${keepers === 1 ? '' : 's'} a team` : 'no keepers', snake ? 'snake draft' : 'same order every round'];
 
   // signed in, but in no pool: this account can't host (the rule in fantasy_start); a new account can, with nothing lost
+  if (codeFor) {
+    return (
+      <div className="rounded-2xl border border-white/10 bg-white/[.04] p-4">
+        <EmailCode email={codeFor.email} noun="league" busy={busy} onBack={() => { setCodeFor(null); setErr(''); void signOut(); }}
+          onDone={async () => { setBusy(true); setErr(''); try { await openDoor(codeFor.body); } catch (x) { setErr((x as Error).message); setBusy(false); } }} />
+        {err && <div className="mt-3 rounded-xl border border-red-400/30 bg-red-900/50 px-4 py-3 text-center text-sm text-red-200">{err}</div>}
+      </div>
+    );
+  }
   if (signedIn && !member) {
     return (
       <div className="rounded-2xl border border-white/10 bg-white/[.04] p-4 text-sm text-white/80">

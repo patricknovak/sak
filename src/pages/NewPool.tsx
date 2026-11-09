@@ -16,6 +16,7 @@ import { attributionFields, noteCtaArrival, trackPoolCreated, trackSignUp } from
 import { FantasyStart } from '../components/FantasyStart';
 import { PRODUCT } from '../lib/brand';
 import { humanField } from '../lib/turnstile';
+import { EmailCode } from '../components/EmailCode';
 
 // "Start a pool" (#/new), open to anyone, in steps (docs/POOL-TYPES.md §4). First what you're starting: a sports pool,
 // a questions pool or a fantasy league (migration 242: a league of your own, its choices made up front). Then, for a
@@ -137,6 +138,8 @@ export default function NewPool() {
   const [signIn, setSignIn] = useState(false);
   // "already have an account": sign in right here and start the pool as that account, with the steps kept
   const [haveAccount, setHaveAccount] = useState(false);
+  // the join function wants the email confirmed first: the code step, with the body to send again once it's in
+  const [codeFor, setCodeFor] = useState<{ email: string; body: Record<string, unknown> } | null>(null);
   const [afterSignIn, setAfterSignIn] = useState(false);
   const [showPw, setShowPw] = useState(false);
   // an event tapped before both lists have answered must not be un-picked by the link effect's first run
@@ -413,30 +416,39 @@ export default function NewPool() {
         return;
       }
       // attribution rides along; the join function drops it when the columns are not live yet
-      const { data, error } = await supabase.functions.invoke('join', { body: { pool: { name: pool.trim(), color, pack: openPack }, email: login, password: pw, name: name.trim(), ...attributionFields(), ...(await humanField()) } });
-      if (error) {
-        const body = error instanceof FunctionsHttpError ? await error.context.json().catch(() => null) : null;
-        // an email that already has an account: the password field stays, the sign-in happens right here
-        if (body?.signIn) { setHaveAccount(true); setPw(''); setErr('That email already has an account. Type its password and the pool starts on it.'); setSignIn(false); setBusy(false); return; }
-        setErr(body?.error ?? 'Couldn’t start the pool right now. Try again in a minute.');
-        setBusy(false);
-        return;
-      }
-      setRemember(true);
-      const opened = (data as { pool?: { id: number; slug: string } })?.pool;
-      // Queue before sign-in so a failed login cannot skip the north-star hit; send after reload.
-      await trackPoolCreated({ id: opened?.id, pack: openPack, sport: mode === 'questions' ? null : event?.sport ?? null, kind: mode });
-      const { error: se } = await supabase.auth.signInWithPassword({ email: login, password: pw });
-      if (se) { setBusy(false); setErr(`Your pool is open, but signing in failed: ${se.message}. Sign in from the main page.`); return; }
-      try { localStorage.setItem('sak-last-email', login); } catch { /* nothing to remember with */ }
-      await trackSignUp('email', login);
-      if (opened) {
-        await startGames(opened.id).catch((x) => setErr(`Your pool is open, but its games didn’t start: ${(x as Error).message}. Add them from the Host page.`));
-        markShareAfterCreate();
-        await openPool({ league_id: opened.id, slug: opened.slug }, '/');
-      }
-      else { window.location.hash = '#/'; window.location.reload(); }
+      await openDoor({ pool: { name: pool.trim(), color, pack: openPack }, email: login, password: pw, name: name.trim(), ...attributionFields(), ...(await humanField()) });
     } catch (x) { setErr((x as Error).message); setBusy(false); }
+  };
+  // the door itself: once, or twice when the join function wants the email confirmed first (a code step in between,
+  // after which the same body goes again with the phone signed in as that address)
+  const openDoor = async (body: Record<string, unknown>) => {
+    const login = String(body.email);
+    const { data, error } = await supabase.functions.invoke('join', { body });
+    if (error) {
+      const b = error instanceof FunctionsHttpError ? await error.context.json().catch(() => null) : null;
+      // an email that already has an account: the password field stays, the sign-in happens right here
+      if (b?.signIn) { setCodeFor(null); setHaveAccount(true); setPw(''); setErr('That email already has an account. Type its password and the pool starts on it.'); setSignIn(false); setBusy(false); return; }
+      setErr(b?.error ?? 'Couldn’t start the pool right now. Try again in a minute.');
+      setBusy(false);
+      return;
+    }
+    if ((data as { verify?: boolean })?.verify) { setCodeFor({ email: login, body }); setBusy(false); return; }
+    setRemember(true);
+    const opened = (data as { pool?: { id: number; slug: string } })?.pool;
+    // Queue before sign-in so a failed login cannot skip the north-star hit; send after reload.
+    await trackPoolCreated({ id: opened?.id, pack: openPack, sport: mode === 'questions' ? null : event?.sport ?? null, kind: mode });
+    if (!(await supabase.auth.getSession()).data.session) {
+      const { error: se } = await supabase.auth.signInWithPassword({ email: login, password: String(body.password) });
+      if (se) { setBusy(false); setErr(`Your pool is open, but signing in failed: ${se.message}. Sign in from the main page.`); return; }
+    }
+    try { localStorage.setItem('sak-last-email', login); } catch { /* nothing to remember with */ }
+    await trackSignUp('email', login);
+    if (opened) {
+      await startGames(opened.id).catch((x) => setErr(`Your pool is open, but its games didn’t start: ${(x as Error).message}. Add them from the Host page.`));
+      markShareAfterCreate();
+      await openPool({ league_id: opened.id, slug: opened.slug }, '/');
+    }
+    else { window.location.hash = '#/'; window.location.reload(); }
   };
 
   return (
@@ -704,7 +716,13 @@ export default function NewPool() {
               </div>
             </div>
 
-            {member && isGuestEmail(session?.user?.email) ? (
+            {codeFor ? (
+              // the code step comes first: once the code is in, this phone is signed in and the same door is called again
+              <div className="border-t border-white/10 pt-4">
+                <EmailCode email={codeFor.email} noun="pool" busy={busy} onBack={() => { setCodeFor(null); setErr(''); void signOut(); }}
+                  onDone={async () => { setBusy(true); setErr(''); try { await openDoor(codeFor.body); } catch (x) { setErr((x as Error).message); setBusy(false); } }} />
+              </div>
+            ) : member && isGuestEmail(session?.user?.email) ? (
               <div className="rounded-2xl border border-amber-400/30 bg-amber-400/[.06] p-3 text-sm text-white/80">
                 <p>You&apos;re in as {me!.gm_name} on this phone only. The pool starts on this account; add an email on its home right after (Keep your place), so the host&apos;s seat, the invite link and the settling survive a new phone.</p>
               </div>
@@ -777,7 +795,7 @@ export default function NewPool() {
                 <p className="line-clamp-2 break-words text-sm font-semibold leading-snug text-white">{pool.trim()}</p>
               ) : null}
             </div>
-            <button type="submit" form="np-form" className="btn-gold shrink-0 px-3.5 py-3 text-[15px]" disabled={busy || afterSignIn || !ready || (!!session && !canHost)}>{busy || afterSignIn ? <Spinner /> : haveAccount && !member ? 'Sign in and start' : 'Start my pool'}</button>
+            <button type="submit" form="np-form" className="btn-gold shrink-0 px-3.5 py-3 text-[15px]" disabled={busy || afterSignIn || !ready || !!codeFor || (!!session && !canHost)}>{busy || afterSignIn ? <Spinner /> : haveAccount && !member ? 'Sign in and start' : 'Start my pool'}</button>
           </div>
         </div>
       )}
