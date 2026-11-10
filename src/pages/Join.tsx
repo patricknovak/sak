@@ -11,6 +11,7 @@ import { attributionFields, readSrcParam, trackFirstCall, trackJoinGroup, trackS
 import { PRODUCT } from '../lib/brand';
 import { markFreshArrival, setTabLeague } from '../lib/host';
 import { humanField } from '../lib/turnstile';
+import { EmailCode } from '../components/EmailCode';
 
 // The page an invite link opens (#/join/<code>), signed in or not. It shows what the invite is for, then:
 // someone new makes their account right here (the `join` edge function makes it and seats them in one go);
@@ -62,6 +63,8 @@ export default function Join({ code }: { code: string }) {
   const [forced, setForced] = useState(false);
   const [err, setErr] = useState('');
   const [busy, setBusy] = useState(false);
+  // the join function wants the email confirmed first: the code step, with the body to send again once it's in
+  const [codeFor, setCodeFor] = useState<{ email: string; body: Record<string, unknown> } | null>(null);
   // the first call, picked before the account exists and placed the moment they're in (migration 255)
   const [call, setCall] = useState<string | null>(null);
   const FIRST_STAKE = 100;
@@ -119,17 +122,26 @@ export default function Join({ code }: { code: string }) {
     if (pool && !withEmail) return joinAsGuest();
     const login = email.trim().toLowerCase();
     // attribution is first-touch UTM/referrer; the join function ignores unknown fields if the SQL is not live yet
-    const { data, error } = await supabase.functions.invoke('join', { body: { code, email: login, password: pw, name: name.trim(), ...attributionFields(), ...(await humanField()) } });
+    await openDoor({ code, email: login, password: pw, name: name.trim(), ...attributionFields(), ...(await humanField()) });
+  };
+  // the door itself: once, or twice when the join function wants the email confirmed first (a code step in between,
+  // after which the same body goes again with the phone signed in as that address)
+  const openDoor = async (body: Record<string, unknown>) => {
+    const login = String(body.email);
+    const { data, error } = await supabase.functions.invoke('join', { body });
     if (error) {
-      const body = error instanceof FunctionsHttpError ? await error.context.json().catch(() => null) : null;
+      const b = error instanceof FunctionsHttpError ? await error.context.json().catch(() => null) : null;
       setBusy(false);
-      setErr(body?.error ?? 'Couldn’t join right now. Try again in a minute.');
-      if (body?.signIn) setMode('have');
+      setErr(b?.error ?? 'Couldn’t join right now. Try again in a minute.');
+      if (b?.signIn) { setCodeFor(null); setMode('have'); }
       return;
     }
+    if ((data as { verify?: boolean } | null)?.verify) { setCodeFor({ email: login, body }); setBusy(false); return; }
     setRemember(true);
-    const { error: se } = await supabase.auth.signInWithPassword({ email: login, password: pw });
-    if (se) { setBusy(false); setErr(`You're in, but signing in failed: ${se.message}. Sign in from the main page.`); return; }
+    if (!(await supabase.auth.getSession()).data.session) {
+      const { error: se } = await supabase.auth.signInWithPassword({ email: login, password: String(body.password) });
+      if (se) { setBusy(false); setErr(`You're in, but signing in failed: ${se.message}. Sign in from the main page.`); return; }
+    }
     try { localStorage.setItem('sak-last-email', login); } catch { /* nothing to remember with */ }
     await trackSignUp('email', login);
     const leagueId = typeof (data as { league?: number } | null)?.league === 'number' ? (data as { league: number }).league : pv?.league_id;
@@ -237,6 +249,14 @@ export default function Join({ code }: { code: string }) {
                 {pv.reason === 'offline' && <button type="button" className="btn-primary w-full" onClick={() => setTries((n) => n + 1)}>Try again</button>}
                 <a href="#/new" className={`${pv.reason === 'offline' ? 'btn-ghost' : 'btn-primary'} w-full`}>Start a pool of your own</a>
               </div>
+            </div>
+          )
+          : codeFor ? (
+            // the code step comes before the signed-in branches: verifying the code signs this phone in, and the seat is
+            // taken by the same door called again, not by accept_invite
+            <div className="card-hero p-5">
+              <EmailCode email={codeFor.email} noun={noun} busy={busy} onBack={() => { setCodeFor(null); setErr(''); void signOut(); }}
+                onDone={async () => { setBusy(true); setErr(''); try { await openDoor(codeFor.body); } catch (x) { setErr((x as Error).message); setBusy(false); } }} />
             </div>
           )
           : session && me && pv.league_id != null && league?.league_id === pv.league_id ? (

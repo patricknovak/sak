@@ -1,0 +1,73 @@
+name: Uptime
+
+# A check from outside, every ten minutes (docs/LAUNCH-READINESS-2026-10-28.md item 9): the app, the marketing site and
+# the sports data at the edge. When one of them fails twice in a row the run opens an issue (or adds to the open one)
+# assigned to Patrick, which GitHub sends to his phone; when everything answers again the issue is closed with a note.
+# GitHub's schedule is best effort (a run can slip by minutes), which is fine for a check that only has to notice.
+on:
+  schedule:
+    - cron: '*/10 * * * *'
+  workflow_dispatch:
+
+permissions:
+  issues: write
+  contents: read
+
+concurrency:
+  group: uptime
+  cancel-in-progress: false
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    env:
+      GH_TOKEN: ${{ github.token }}
+      LABEL: outage
+      TITLE: 'Site check failing'
+    steps:
+      - name: Check each address
+        id: probe
+        run: |
+          set +e
+          down=""
+          # name|url|what a healthy answer contains
+          while IFS='|' read -r name url expect; do
+            ok=0
+            for try in 1 2; do
+              body=$(curl -sS -L --max-time 20 -A 'superpools-uptime' "$url" 2>/dev/null)
+              code=$?
+              if [ "$code" = "0" ] && printf '%s' "$body" | grep -q -- "$expect"; then ok=1; break; fi
+              sleep 20
+            done
+            if [ "$ok" = "1" ]; then echo "up   $name"; else echo "DOWN $name ($url)"; down="$down- $name: $url"$'\n'; fi
+          done <<'LIST'
+          the app|https://app.superpoolsai.com/|<div id="root"
+          the marketing site|https://superpoolsai.com/|Super Pools
+          the sports data|https://app.superpoolsai.com/api/hub?task=standings|{
+          LIST
+          {
+            echo "down<<EOF_DOWN"
+            printf '%s' "$down"
+            echo "EOF_DOWN"
+          } >> "$GITHUB_OUTPUT"
+      - name: Open or update the outage issue
+        if: steps.probe.outputs.down != ''
+        env:
+          DOWN: ${{ steps.probe.outputs.down }}
+        run: |
+          gh label create "$LABEL" --repo "$GITHUB_REPOSITORY" --color B60205 --description 'A site check from outside is failing' 2>/dev/null || true
+          n=$(gh issue list --repo "$GITHUB_REPOSITORY" --label "$LABEL" --state open --json number --jq '.[0].number')
+          when=$(date -u +'%Y-%m-%d %H:%M UTC')
+          body="Checked at $when, failing twice in a row:"$'\n\n'"$DOWN"$'\n'"Run: $GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID"
+          if [ -z "$n" ]; then
+            gh issue create --repo "$GITHUB_REPOSITORY" --title "$TITLE" --label "$LABEL" --assignee patricknovak --body "$body"
+          else
+            gh issue comment "$n" --repo "$GITHUB_REPOSITORY" --body "Still failing. $body"
+          fi
+          exit 1
+      - name: Close the outage issue once everything answers
+        if: steps.probe.outputs.down == ''
+        run: |
+          n=$(gh issue list --repo "$GITHUB_REPOSITORY" --label "$LABEL" --state open --json number --jq '.[0].number')
+          [ -z "$n" ] && exit 0
+          gh issue close "$n" --repo "$GITHUB_REPOSITORY" --comment "Everything answers again as of $(date -u +'%Y-%m-%d %H:%M UTC')."

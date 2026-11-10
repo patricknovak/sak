@@ -35,7 +35,7 @@ const SECTIONS: { title: string; body: string[] }[] = [
     'If you accept Ads measurement, we load Google\'s Ads tag and send a scrambled one-way code made from your email (never the email itself) so Google Ads can tell whether your sign-up came from one of our ads. We don\'t use it to show you ads or to personalize anything. Choosing No thanks turns it off. Your Analytics and Ads choices are stored in your browser and in a cookie on superpoolsai.com so the marketing site and the app remember the same answer. You can change your mind from the banner or the Ads control on this page. Analytics and Ads are separate choices: you can accept one and refuse the other.',
   ] },
   { title: 'Email and the voice', body: [
-    'We send email only to sign you in or reset your password, from no-reply@superpoolsai.com through Resend, and to people who asked for one. We do not send newsletters. If you leave your email on superpoolsai.com\'s fantasy league waitlist, we write to you about what you asked for (your league opening) and nothing else; ask hello@superpoolsai.com and we remove your address. The pool\'s voice (the commentary in the chat) is written by a language model (Grok, from xAI) from the pool\'s own numbers; a message you send it goes to that model to be answered, with the pool\'s board, and nothing else about you.',
+    'We send email only to confirm your address with a code when you make an account, to sign you in or reset your password, from no-reply@superpoolsai.com through Resend, and to people who asked for one. We do not send newsletters. If you leave your email on superpoolsai.com\'s fantasy league waitlist, we write to you about what you asked for (your league opening) and nothing else; ask hello@superpoolsai.com and we remove your address. The pool\'s voice (the commentary in the chat) is written by a language model (Grok, from xAI) from the pool\'s own numbers; a message you send it goes to that model to be answered, with the pool\'s board, and nothing else about you.',
   ] },
   { title: 'Where it lives', body: [
     'The database runs on Supabase, in the United States, and the site on Cloudflare. Scores and schedules come from public score feeds. Nothing about you goes to a league or a sports site.',
@@ -49,7 +49,7 @@ const SECTIONS: { title: string; body: string[] }[] = [
     'If something ever puts what we keep at risk of serious harm, we tell the people affected and, in Quebec, the Commission d\'accès à l\'information. If you think we have handled your information wrongly, you can complain to the Commission d\'accès à l\'information du Québec or the Office of the Privacy Commissioner of Canada.',
   ] },
   { title: 'Who is responsible', body: [
-    'The founder of Super Pools is the person in charge of protecting personal information. Reach them at hello@superpoolsai.com. Questions about this page go to the same address.',
+    'Super Pools is operated by Planetterrian Ventures and Patrick Novak, British Columbia, Canada. Patrick Novak, its founder, is the person in charge of protecting personal information. Reach him at hello@superpoolsai.com. Questions about this page go to the same address.',
   ] },
 ];
 
@@ -124,7 +124,7 @@ export default function Privacy() {
             </section>
           ))}
         </div>
-        <p className="mt-8 text-center text-xs text-mute">Last changed 4 November 2026. <a className="text-sky-300" href="#/terms">Terms of use</a> · © 2026 {PRODUCT.name} · <a className="text-sky-300" href="#/">Back to the app</a></p>
+        <p className="mt-8 text-center text-xs text-mute">Last changed 9 November 2026. <a className="text-sky-300" href="#/terms">Terms of use</a> · © 2026 {PRODUCT.name} · <a className="text-sky-300" href="#/">Back to the app</a></p>
       </div>
     </div>
   );

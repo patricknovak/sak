@@ -6,6 +6,8 @@
 //   POST {code, name, guest: true}                             (migration 332: a pool's seat with just a name)
 //   POST {claim: {email, password}}, signed in as a guest       (the guest adds an email and keeps the seat)
 //   POST {fan: {name, club, league}}                            (migrations 337 and 338: a voice in the fan zones, no seat)
+// With the EMAIL_CODES secret on, the three email doors answer {verify: true} first and open on the second call, made
+// with the session the 6-digit code signed in (below).
 // Open sign-up is off, so the invite is the way in: the code has to be good, then this makes the account (email and
 // password, confirmed on the invite's word) and seats it through _accept_invite in one go. If the seat can't be taken
 // the new account is removed again, so a failed join leaves nothing behind. Someone who already has an account signs
@@ -68,6 +70,67 @@ async function isHuman(req: Request, b: Record<string, unknown>) {
   }
 }
 
+// Confirming a new email with a code (9 November 2026, docs/LAUNCH-READINESS-2026-10-28.md item 4), on when the
+// EMAIL_CODES secret is `on`. The three doors that take an email (a pool, a league, an invite) then go in two steps:
+// the first makes the account unconfirmed, with the password it was given, and has Auth email it a 6-digit code (the
+// Confirm signup and Magic Link templates must show {{ .Token }}); the site verifies the code, which signs the phone
+// in, and calls the same door again with that session. The second step opens the pool, the league or the seat for the
+// account the token names, so an address nobody can read never gets a seat. Off, every door makes the account
+// confirmed and opens in one call, as before.
+const EMAIL_CODES = (Deno.env.get('EMAIL_CODES') ?? '').trim().toLowerCase() === 'on';
+type Caller = { id: string; email: string; confirmed: boolean };
+// the account behind the request's own token, if it carries one (the anon key names nobody)
+async function caller(req: Request): Promise<Caller | null> {
+  const token = (req.headers.get('authorization') ?? '').replace(/^Bearer\s+/i, '');
+  if (!token) return null;
+  const { data } = await db.auth.getUser(token);
+  const u = data?.user;
+  return u ? { id: u.id, email: (u.email ?? '').toLowerCase(), confirmed: !!u.email_confirmed_at } : null;
+}
+// the code goes out through Auth's own mail: a one-time code to an address that already has its (unconfirmed) account
+async function sendCode(email: string) {
+  const { error } = await db.auth.signInWithOtp({ email, options: { shouldCreateUser: false } });
+  if (!error) return null;
+  console.error('code', error);
+  return /rate|seconds|too many/i.test(error.message) ? 'Too many codes asked for. Wait a few minutes and try again.' : 'Couldn’t send the code. Try again in a minute.';
+}
+// The account a door opens for: made here (confirmed at once, or waiting on its code), or the one the request's token
+// names once the code is in. Answers the account to open for, or the response to send instead. `made` says the account
+// was created by this request, so a door that can't open removes it again and leaves nothing behind.
+async function account(req: Request, email: string, password: string, name: string, again: string): Promise<{ id: string; made: boolean } | Response> {
+  const who = await caller(req);
+  if (who) {
+    // the second step: the code is in, the phone is signed in as the address it typed
+    if (who.email !== email) return reply(403, { error: 'Sign in as the email you typed, or start again.' });
+    if (!who.confirmed) return reply(403, { error: 'Confirm your email with the code first.' });
+    return { id: who.id, made: false };
+  }
+  const { data: made, error: ue } = await db.auth.admin.createUser({ email, password, email_confirm: !EMAIL_CODES, user_metadata: { name } });
+  if (ue || !made?.user) {
+    if (/already|registered|exists/i.test(ue?.message ?? '')) {
+      if (EMAIL_CODES) {
+        // the same address a second time before its code was used (another try, another device): the account is
+        // theirs again with the password just typed, and a fresh code goes out. Needs migration 355; without it the
+        // address reads as taken.
+        const { data: pending } = await db.rpc('_signup_pending', { p_email: email });
+        if (typeof pending === 'string' && pending) {
+          const { error: pe } = await db.auth.admin.updateUserById(pending, { password, user_metadata: { name } });
+          if (pe) { console.error('pending', pe); return reply(500, { error: 'Couldn’t make your account. Try again in a minute.' }); }
+          const why = await sendCode(email);
+          return why ? reply(429, { error: why }) : reply(202, { verify: true });
+        }
+      }
+      return reply(409, { error: `That email already has an account. ${again}`, signIn: true });
+    }
+    console.error('create user', ue);
+    return reply(500, { error: 'Couldn’t make your account. Try again in a minute.' });
+  }
+  if (!EMAIL_CODES) return { id: made.user.id, made: true };
+  const why = await sendCode(email);
+  if (why) { await db.auth.admin.deleteUser(made.user.id); return reply(429, { error: why }); }
+  return reply(202, { verify: true });
+}
+
 // first-touch UTM/referrer from the site (optional; ignored when the SQL columns are not live yet)
 function attribution(b: Record<string, unknown>) {
   const clip = (v: unknown, n: number) => {
@@ -103,22 +166,16 @@ async function startPool(req: Request, b: { pool?: { name?: string; color?: stri
   if (we) { console.error('check', we); return reply(500, { error: 'Couldn’t start the pool. Try again in a minute.' }); }
   if (why) return reply(429, { error: why });
 
-  const { data: made, error: ue } = await db.auth.admin.createUser({ email, password, email_confirm: true, user_metadata: { name } });
-  if (ue || !made?.user) {
-    if (/already|registered|exists/i.test(ue?.message ?? '')) {
-      return reply(409, { error: 'That email already has an account. Sign in with it and start the pool from My pools.', signIn: true });
-    }
-    console.error('create user', ue);
-    return reply(500, { error: 'Couldn’t make your account. Try again in a minute.' });
-  }
-  const base = { p_user: made.user.id, p_name: pool, p_color: color, p_pack: pack, p_host: name, p_ip: ip };
+  const acct = await account(req, email, password, name, 'Sign in with it and start the pool from My pools.');
+  if (acct instanceof Response) return acct;
+  const base = { p_user: acct.id, p_name: pool, p_color: color, p_pack: pack, p_host: name, p_ip: ip };
   // try with attribution first; fall back if the migration is not live yet (safe to merge before SQL)
   let started = await db.rpc('_pool_start_new', { ...base, ...attribution(b) });
   if (started.error && /utm_|referrer|could not find|PGRST202|42883/i.test(started.error.message)) {
     started = await db.rpc('_pool_start_new', base);
   }
   if (started.error) {
-    await db.auth.admin.deleteUser(made.user.id);
+    if (acct.made) await db.auth.admin.deleteUser(acct.id);
     return reply(400, { error: started.error.message.replace(/^.*?ERROR:\s*/, '') });
   }
   return reply(200, { ok: true, pool: started.data });
@@ -151,18 +208,12 @@ async function startFantasy(req: Request, b: { fantasy?: FantasyBody; email?: st
   if (we) { console.error('check', we); return reply(500, { error: 'Couldn’t start the league. Try again in a minute.' }); }
   if (why) return reply(429, { error: why });
 
-  const { data: made, error: ue } = await db.auth.admin.createUser({ email, password, email_confirm: true, user_metadata: { name } });
-  if (ue || !made?.user) {
-    if (/already|registered|exists/i.test(ue?.message ?? '')) {
-      return reply(409, { error: 'That email already has an account. Sign in with it and start the league from My pools.', signIn: true });
-    }
-    console.error('create user', ue);
-    return reply(500, { error: 'Couldn’t make your account. Try again in a minute.' });
-  }
-  const started = await db.rpc('_fantasy_start_new', { p_user: made.user.id, p_host: name, p_ip: ip, p_name: league, p_color: color, p_seats: seats,
+  const acct = await account(req, email, password, name, 'Sign in with it and start the league from My pools.');
+  if (acct instanceof Response) return acct;
+  const started = await db.rpc('_fantasy_start_new', { p_user: acct.id, p_host: name, p_ip: ip, p_name: league, p_color: color, p_seats: seats,
     p_format: format, p_categories: categories, p_keepers: keepers, p_playoffs: playoffs, p_snake: snake });
   if (started.error) {
-    await db.auth.admin.deleteUser(made.user.id);
+    if (acct.made) await db.auth.admin.deleteUser(acct.id);
     // the door before its SQL is live (the site deploys from main ahead of a migration): say so rather than a stack trace
     if (/could not find|PGRST202|42883/i.test(started.error.message)) return reply(503, { error: 'This door isn’t open yet. Ask us to set your league up and we open it with you.', notYet: true });
     return reply(400, { error: started.error.message.replace(/^.*?ERROR:\s*/, '') });
@@ -257,8 +308,9 @@ Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: cors });
   if (req.method !== 'POST') return reply(405, { error: 'POST only' });
   const b = await req.json().catch(() => ({})) as { code?: string; email?: string; password?: string; name?: string; pool?: { name?: string; color?: string; pack?: string } } & Record<string, unknown>;
-  // a guest keeping their seat is already signed in; every other door makes something new and gets the bot check
-  if (!b.claim && !(await isHuman(req, b))) return reply(403, { error: 'We couldn’t check that you’re a person. Reload the page and try again.' });
+  // a guest keeping their seat is already signed in, as is the second step of a door whose code is in (its first step
+  // passed the check); every other door makes something new and gets the bot check
+  if (!b.claim && !(await caller(req)) && !(await isHuman(req, b))) return reply(403, { error: 'We couldn’t check that you’re a person. Reload the page and try again.' });
   if (b.pool) return startPool(req, b);
   if (b.fantasy) return startFantasy(req, b as { fantasy?: FantasyBody; email?: string; password?: string; name?: string } & Record<string, unknown>);
   if (b.claim) return claim(req, b as { claim?: { email?: string; password?: string } });
@@ -277,17 +329,11 @@ Deno.serve(async (req) => {
   if (pe) { console.error('preview', pe); return reply(500, { error: 'Couldn’t check the invite. Try again in a minute.' }); }
   if (!pv?.ok) return reply(400, { error: WHY[pv?.reason ?? 'unknown'] ?? WHY.unknown });
 
-  const { data: made, error: ue } = await db.auth.admin.createUser({ email, password, email_confirm: true, user_metadata: { name } });
-  if (ue || !made?.user) {
-    if (/already|registered|exists/i.test(ue?.message ?? '')) {
-      return reply(409, { error: 'That email already has an account. Sign in with it, then open the invite link again.', signIn: true });
-    }
-    console.error('create user', ue);
-    return reply(500, { error: 'Couldn’t make your account. Try again in a minute.' });
-  }
-  const { data: league, error: ae } = await db.rpc('_accept_invite', { p_user: made.user.id, p_code: code, p_name: name });
+  const acct = await account(req, email, password, name, 'Sign in with it, then open the invite link again.');
+  if (acct instanceof Response) return acct;
+  const { data: league, error: ae } = await db.rpc('_accept_invite', { p_user: acct.id, p_code: code, p_name: name });
   if (ae) {
-    await db.auth.admin.deleteUser(made.user.id);
+    if (acct.made) await db.auth.admin.deleteUser(acct.id);
     return reply(400, { error: ae.message.replace(/^.*?ERROR:\s*/, '') });
   }
   return reply(200, { ok: true, league });
