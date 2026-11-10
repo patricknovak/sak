@@ -52,7 +52,6 @@ export interface YTxPlayer extends YPlayer { move: string; fromType: string | nu
 export interface YTransaction { key: string; id: string; type: string; status: string; at: string | null; trader: { key: string; name: string } | null; tradee: { key: string; name: string } | null; note: string | null; faab: number | null; players: YTxPlayer[] }
 export interface YTransactions { recent: YTransaction[]; pending: YTransaction[]; waivers: YTransaction[] }
 
-export const leagueOf = (teamKey: string) => teamKey.replace(/\.t\.\d+$/, '');
 export const SCORING: Record<string, string> = { head: 'Head-to-head', headone: 'H2H one win', headpoint: 'H2H points', point: 'Points', roto: 'Rotisserie' };
 export const BENCH = ['BN', 'IR', 'IR+', 'NA'];
 
