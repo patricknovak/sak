@@ -3,6 +3,7 @@ import { useLeague } from '../lib/store';
 import { rpc } from '../lib/supabase';
 import { TeamBadge, useAction } from './ui';
 import { inviteLink } from '../lib/host';
+import { shareOrCopy } from '../lib/share';
 
 // Every GM seat in the league, for its commissioners: who runs the league with you (co-commissioners have every power
 // you have), and handing over a team whose GM has gone. A handover keeps the team as it is (roster, picks, coins,
@@ -16,8 +17,7 @@ export function SeatManager() {
   const commishes = teams.filter((t) => t.is_commish).length;
 
   const share = async (code: string) => {
-    try { if (navigator.share) { await navigator.share({ title: 'Take over a team', url: link(code) }); return; } } catch { /* fall back to copying */ }
-    try { await navigator.clipboard.writeText(link(code)); } catch { /* shown below to copy by hand */ }
+    await shareOrCopy({ title: 'Take over a team', text: '', url: link(code) }); // else it's shown below to copy by hand
   };
 
   return (

@@ -109,8 +109,8 @@ Two things in one repo:
   copy, every network, a QR code); the zones draw share cards on the phone (`src/lib/fanCards.ts`, `zoneShare.ts`: the
   verdict, the outlook, the history, my calls, the pulse) and the Worker unfurls every page with a picture drawn from its
   own numbers through the site's libraries (`worker/fans.ts`, `hubData` in `worker/hub.ts`; `/api/img` hands the NHL's logos
-  to the canvas). New UI that shares anything uses `ShareSheet` (or the two `ShareButton`s on it), never `navigator.share`
-  on its own. A trade or an injury moves the zone the day it happens (later on 25 October 2026, §9.23): nhl-hub's `fan-moves`
+  to the canvas). New UI that shares anything uses `ShareSheet` (or the two `ShareButton`s on it), or `shareOrCopy` for a
+  private link (an invite, a seat, a chat photo), never `navigator.share` on its own. A trade or an injury moves the zone the day it happens (later on 25 October 2026, §9.23): nhl-hub's `fan-moves`
   (every club's roster today against who has played for it, every goalie's last three seasons, the injury list from
   `players`; thirty minutes in `hub_cache`, carried in every `fan` answer as `moves`) is priced by `priceMoves` in
   `src/lib/fanDeep.ts` (the crease the roster will dress against the one that played, arrivals, departures and the men

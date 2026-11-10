@@ -28,6 +28,14 @@ export async function copyText(s: string) {
   try { await navigator.clipboard.writeText(s); return true; } catch { return false; }
 }
 
+// the quiet share, for a link that isn't for the open web (an invite, a seat, a chat photo): the phone's own sheet
+// where there is one, else the words copied (the link by default); a share the GM backs out of copies nothing
+export async function shareOrCopy(job: ShareJob, copy = job.url ?? job.text): Promise<'shared' | 'copied' | 'cancelled' | 'none'> {
+  const r = await shareNative(job);
+  if (r !== 'unsupported') return r;
+  return (await copyText(copy)) ? 'copied' : 'none';
+}
+
 // the picture saved to the phone (where it can't be shared as a file, or on purpose)
 export function savePicture(blob: Blob, name = 'super-pools.png') {
   const a = document.createElement('a');
