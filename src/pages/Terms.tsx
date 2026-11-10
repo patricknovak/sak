@@ -34,7 +34,7 @@ const SECTIONS: { title: string; body: string[] }[] = [
     'We work to keep Super Pools running and your pools safe, but it is provided as it is, without promises that it will always be available or free of mistakes. As far as the law allows, we aren\'t liable for losses that come from using it, from an outage, or from a wrong score or a wrong call.',
   ] },
   { title: 'Who runs Super Pools', body: [
-    'Super Pools is operated by Planetterrian Ventures and Patrick Novak, British Columbia, Canada. These terms are governed by the laws of British Columbia and the federal laws of Canada that apply there. If you live in Quebec, the consumer protection laws of Quebec also apply to you.',
+    'Super Pools is operated by Planetterrian Ventures and Patrick Novak, 963 8th Ave W, Vancouver, British Columbia V5Z 1E4, Canada. These terms are governed by the laws of British Columbia and the federal laws of Canada that apply there. If you live in Quebec, the consumer protection laws of Quebec also apply to you.',
   ] },
   { title: 'Changes and leaving', body: [
     'We may change these terms as the product changes; the date below says when, and anything that matters to you we will also tell you in the app. You can stop using Super Pools at any time, and write to hello@superpoolsai.com to delete your account and what we keep about you (the privacy note says how).',
@@ -59,7 +59,7 @@ export default function Terms() {
             </section>
           ))}
         </div>
-        <p className="mt-8 text-center text-xs text-mute">Last changed 9 November 2026. Questions: <a className="text-sky-300" href="mailto:hello@superpoolsai.com">hello@superpoolsai.com</a> · <a className="text-sky-300" href="#/privacy">Privacy</a> · © 2026 {PRODUCT.name} · <a className="text-sky-300" href="#/">Back to the app</a></p>
+        <p className="mt-8 text-center text-xs text-mute">Last changed 10 November 2026. Questions: <a className="text-sky-300" href="mailto:hello@superpoolsai.com">hello@superpoolsai.com</a> · <a className="text-sky-300" href="#/privacy">Privacy</a> · © 2026 {PRODUCT.name} · <a className="text-sky-300" href="#/">Back to the app</a></p>
       </div>
     </div>
   );
