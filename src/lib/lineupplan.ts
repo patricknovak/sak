@@ -32,4 +32,3 @@ export function planDays(opts: {
   }
   return out;
 }
-export const starters = (slots: Map<number, string>) => [...slots].filter(([, s]) => STARTING.includes(s)).map(([id]) => id);

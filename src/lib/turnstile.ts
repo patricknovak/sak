@@ -30,8 +30,6 @@ function load(): Promise<Turnstile> {
   return loading;
 }
 
-export const botCheckOn = () => SITE_KEY !== '';
-
 // One token for one press of the button. A token is good once, so each call renders a fresh widget and removes it after.
 // The box, when Cloudflare asks for a click, sits at the foot of the screen over the page, in the product's dark card.
 export async function humanToken(): Promise<string | undefined> {

@@ -26,23 +26,22 @@ your home screen like an app.
 
 ## How it's built
 
-- **Site**: React + Vite + Tailwind, a static single-page app deployed to GitHub Pages by
-  `.github/workflows/deploy.yml` on every push.
-- **Database / realtime / auth**: Supabase (Postgres). All league rules live in the database as
-  functions (`supabase/migrations/*_functions.sql`), so nobody can cheat by poking the API. Row-level
-  security keeps DMs and notifications private.
-- **NHL data**: the `nhl-sync` edge function (`supabase/functions/nhl-sync`) pulls schedules, box
-  scores and rosters from the public NHL API on a `pg_cron` schedule.
+The league is league 1 on Super Pools (`app.superpoolsai.com`); `CLAUDE.md` is the full map of the code.
+
+- **Site**: React + Vite + Tailwind, a single-page app served by a Cloudflare Worker (`worker/`, `wrangler.jsonc`)
+  on every superpoolsai.com address, deployed by `.github/workflows/cloudflare.yml` on every merge to `main`. The
+  league's own address is `sak.superpoolsai.com`. The older GitHub Pages copy (`.github/workflows/deploy.yml`,
+  `https://patricknovak.github.io/sak/`) still deploys until it is retired (`docs/EXPANSION.md` B5 step 3).
+- **Database / realtime / auth**: Supabase (Postgres). Every league rule is a database function behind row-level
+  security, so nobody can cheat by poking the API. Changes are migrations in `supabase/migrations/`, applied to the
+  live project by hand, in order (`CLAUDE.md`, Migrations and deploys).
+- **NHL data**: the `nhl-sync` edge function (`supabase/functions/nhl-sync`) pulls schedules, box scores, rosters,
+  injuries and news from the public NHL API on a `pg_cron` schedule. Every edge function deploys from
+  `.github/workflows/functions.yml` on each merge to `main`.
 - **Player rankings**: `scripts/build-players.mjs` computes every player's 2025-26 SaK points and a
   projection. `data/yahoo-rosters-2025-26.json` holds the end-of-season Yahoo rosters the keepers come from.
-- **History**: `src/data/history.ts`, transcribed from the league spreadsheet. Edit and push to update.
-
-## Going live (one-time)
-
-1. **Settings → General → Danger Zone → Change visibility → Public** (free GitHub Pages needs a public repo).
-2. **Settings → Pages → Build and deployment → Source: GitHub Actions**.
-3. **Actions → Deploy site → Run workflow** (on `main`). The site appears at
-   `https://patricknovak.github.io/sak/`.
+- **History**: every season since 2013-14 lives in the database (`league_seasons`, read by `src/lib/history.ts`),
+  edited on the League page or imported from Yahoo, ESPN and Fantrax.
 
 No passwords or secret keys live in this repo. The Supabase key in `.env` is the public "anon" key;
 row-level security and the database functions decide what each GM can see and do.
@@ -58,16 +57,16 @@ column costs a few cents. Without it he falls back to the templates, so nothing 
 
 GMs who also play in (or commission) other Yahoo Fantasy Hockey leagues can run them from **More → Yahoo
 leagues**. To switch that on, create a Yahoo developer app at https://developer.yahoo.com/apps/create/
-(Web Application; redirect URI `https://patricknovak.github.io/sak/`; API permission **Fantasy Sports →
+(Web Application; redirect URI `https://patricknovak.github.io/sak/`, the function's default, which must change
+with `YAHOO_REDIRECT_URI` before the GitHub Pages copy retires; API permission **Fantasy Sports →
 Read/Write**), then add its `YAHOO_CLIENT_ID` and `YAHOO_CLIENT_SECRET` under **Edge Functions → Secrets**
 (and `YAHOO_REDIRECT_URI` if the site lives somewhere else). Each GM signs in on Yahoo's own page; SaK keeps
 only the OAuth tokens, in a table that no browser session can read, and calls Yahoo as that GM.
 
 ## Signing in
 
-Each GM taps their team on the sign-in screen and enters their password. The commissioner hands out
-starting passwords privately; GMs change theirs under **More → My Profile**, and the commissioner can
-reset anyone's under **More → Commissioner**.
+Each GM signs in with their own email and password (open sign-up is off for the league). The commissioner sets a
+GM's sign-in email on the Commish page, and a forgotten password is reset with a 6-digit code sent by email.
 
 ## Running locally
 

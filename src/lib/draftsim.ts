@@ -70,13 +70,6 @@ export function fitOf(p: Player, n: Needs): Fit {
 export const fitLabel = (f: Fit, pos?: string) => f === 'depth' ? `depth ${pos ?? ''}`.trim() : f === 'flex' ? 'flex' : f === 'BN' ? 'surplus' : `fills ${f}`;
 export const fitClass = (f: Fit) => f === 'BN' ? 'bg-white/[.06] text-mute' : f === 'flex' ? 'bg-white/[.08] text-slate-200' : f === 'depth' ? 'bg-sky-500/15 text-sky-200' : 'bg-amber-500/15 text-amber-200';
 
-// where a player would go on this roster right now
-export function fitFor(p: Player, n: Needs): StartSlot | 'BN' {
-  if (p.pos === 'G') return n.open.G > 0 ? 'G' : 'BN';
-  for (const s of ['C', 'LW', 'RW', 'D'] as const) if (n.open[s] > 0 && p.elig.includes(s)) return s;
-  return n.open.Util > 0 ? 'Util' : 'BN';
-}
-
 // a seeded random so a simulation can be replayed
 export function rng(seed: number) {
   let s = seed >>> 0 || 1;

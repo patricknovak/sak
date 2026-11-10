@@ -53,8 +53,6 @@ export const ordinal = (n: number) => {
   return n + (s[(v - 20) % 10] || s[v] || s[0]);
 };
 
-export const posLabel = (elig: string[]) => elig.join(', ');
-
 export const NHL_TEAMS: Record<string, string> = {
   ANA: 'Anaheim', BOS: 'Boston', BUF: 'Buffalo', CAR: 'Carolina', CBJ: 'Columbus', CGY: 'Calgary', CHI: 'Chicago',
   COL: 'Colorado', DAL: 'Dallas', DET: 'Detroit', EDM: 'Edmonton', FLA: 'Florida', LAK: 'Los Angeles', MIN: 'Minnesota',
