@@ -352,6 +352,9 @@ select 'player windows', count(*) >= 0 as ok, (select count(distinct win) from p
 -- ── spectators: a login with no team that can chat and bet, unless the commish switches that off
 select pg_temp.as_team((select id from teams where is_commish limit 1));
 set role authenticated;
+-- a password the commissioner hands out is 8 characters at least, like everywhere else
+select pg_temp.raises('a 7-character spectator password', $$select commish_add_spectator('Short Pass', 'short@example.com', 'popcorn')$$, 'at least 8');
+select pg_temp.raises('a 7-character reset password', $$select commish_reset_password(2, 'abc1234')$$, 'at least 8');
 select commish_add_spectator('Test Spectator', 'spectator@sakleague.app', 'popcorn-1234') as spec_id \gset
 reset role;
 select case when :spec_id <> 9 then 1/0 end;   -- the checks below assume the ninth team is the spectator

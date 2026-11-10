@@ -202,7 +202,7 @@ Two things in one repo:
   request works for per request (`AsyncLocalStorage`, `runs`), never in a module variable. Job names: nhl-scores
   (gated by `_scores_due()`), nhl-clock (every 20 seconds, gated by `_clock_due()`), nhl-gameday, nhl-injuries, nhl-schedule, season-schedule, nhl-news,
   nhl-players, nhl-players-pregame, nhl-standings, nhl-corrections, nhl-corrections-deep, projections,
-  auto-lineups, auto-lineups-late, bestball, guillotine, garry-daily, garry-weekly, garry-nudge, garry-moments, garry-draftprep (once a year, 27 September), open-book,
+  auto-lineups, auto-lineups-late, bestball, guillotine, garry-daily, garry-weekly, garry-nudge, garry-moments (the yearly garry-draftprep is off since migration 357; its post is fired by hand), open-book,
   open-book-season, settle-book, settle-book-season, predict, score-predictions, settle-bets, expire-bets, h2h-notes, pool-drops, pool-settle, soccer-fixtures, soccer-live (gated by `_soccer_due()`), mlb-live (gated by `_mlb_due()`), mlb-schedule, process-pending (every 10 s), stats-cache, health-check, fund-price, cron-history, cost-snapshot,
   cost-watch, platform-monday. A job that does a league's work runs once per active league: in SQL through
   `run_league_jobs(job)` (sets `app.league_id`, one league's failure doesn't stop the others), in an edge function
