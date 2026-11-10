@@ -40,7 +40,7 @@ export const LIVE = new Set(['LIVE', 'CRIT']), DONE = new Set(['OFF', 'FINAL']);
 export const BRIGHTCOVE = (id: string) => `https://players.brightcove.net/6415718365001/default_default/index.html?videoId=${id}`;
 export const NET: Record<string, string> = { SN: 'Sportsnet', SNP: 'Sportsnet Pacific', SNW: 'Sportsnet West', SNO: 'Sportsnet Ontario', SNE: 'Sportsnet East', SN1: 'Sportsnet One', SN360: 'Sportsnet 360', TVAS: 'TVA Sports', CBC: 'CBC', ESPN: 'ESPN', 'ESPN+': 'ESPN+', ABC: 'ABC', TNT: 'TNT', TBS: 'TBS', MAX: 'Max', HULU: 'Hulu', NHLN: 'NHL Network', PRIME: 'Prime Video', AMZN: 'Prime Video', SCRIPPS: 'Scripps' };
 
-// NHL team radio (HLS): Safari plays it natively, everyone else through hls.js loaded on demand
+// NHL team radio (HLS): Safari plays it natively, everyone else through hls.js's light build (no subtitles or DRM, which radio doesn't need) loaded on demand
 // broadcaster and TV-provider sign-ins go in a plain new tab with no opener: a scripted popup can make Safari
 // drop the login cookie and bounce the GM back to the sign-in page in a loop
 export const openTab = (url: string) => { window.open(url, '_blank', 'noopener,noreferrer'); };
@@ -97,7 +97,7 @@ export function RadioPlayer({ url, label, onClose }: { url: string; label: strin
       const src = radioUrl(url);
       if (el.canPlayType('application/vnd.apple.mpegurl')) { el.src = src; el.play().catch(() => {}); return; }
       try {
-        const Hls = (await import('hls.js')).default;
+        const Hls = (await import('hls.js/light')).default;
         if (!Hls.isSupported()) { setErr('This browser can’t play the stream.'); return; }
         const h = new Hls(); hls = h; h.loadSource(src); h.attachMedia(el);
         h.on(Hls.Events.MANIFEST_PARSED, () => { el.play().catch(() => {}); });
