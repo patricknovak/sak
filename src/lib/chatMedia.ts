@@ -3,6 +3,7 @@
 // shown through short-lived signed links asked for in batches. A message carries it as meta.image = {path, w, h}.
 import { useEffect, useState } from 'react';
 import { supabase } from './supabase';
+import { canShare, shareOrCopy } from './share';
 
 export const IMAGE_BODY = '📷 Photo';
 export type ChatImage = { path: string; w: number; h: number };
@@ -87,19 +88,8 @@ export function useSignedUrl(path: string | null): string | null | undefined {
 // send something out to the phone's share sheet (Messages, WhatsApp, Signal...), the picture itself where the phone
 // takes files; without a share sheet (a desktop browser) the words and the link go to the clipboard
 export async function shareOut(o: { title?: string; text: string; url?: string; image?: string | null }): Promise<'shared' | 'copied' | 'cancelled'> {
-  const nav = navigator as Navigator & { canShare?: (d: ShareData) => boolean };
-  if (navigator.share) {
-    try {
-      if (o.image) {
-        const blob = await fetch(o.image).then((r) => r.blob());
-        const file = new File([blob], `photo.${(blob.type.split('/')[1] || 'jpg').replace('jpeg', 'jpg')}`, { type: blob.type || 'image/jpeg' });
-        if (nav.canShare?.({ files: [file] })) { await navigator.share({ files: [file], title: o.title, text: o.text }); return 'shared'; }
-      }
-      await navigator.share({ title: o.title, text: o.text, url: o.url });
-      return 'shared';
-    } catch (e) {
-      if ((e as Error).name === 'AbortError') return 'cancelled';
-    }
-  }
-  try { await navigator.clipboard.writeText([o.text, o.url].filter(Boolean).join('\n')); return 'copied'; } catch { return 'cancelled'; }
+  const blob = o.image && canShare() ? await fetch(o.image).then((r) => r.blob()).catch(() => null) : null;
+  const file = blob ? `photo.${(blob.type.split('/')[1] || 'jpg').replace('jpeg', 'jpg')}` : undefined;
+  const r = await shareOrCopy({ title: o.title ?? '', text: o.text, url: o.url, blob, file }, [o.text, o.url].filter(Boolean).join('\n'));
+  return r === 'none' ? 'cancelled' : r;
 }

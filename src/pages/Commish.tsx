@@ -23,6 +23,7 @@ import { EspnRosters } from '../components/EspnRosters';
 import { CategoryEditor } from '../components/CategoryEditor';
 import { FormatEditor } from '../components/FormatEditor';
 import { inviteLink } from '../lib/host';
+import { shareOrCopy } from '../lib/share';
 
 // datetime-local <-> ISO in the viewer's zone
 const toLocal = (iso: string | null) => {
@@ -468,8 +469,7 @@ function Invites() {
   const live = (i: Invite) => !i.revoked && i.uses < i.max_uses && new Date(i.expires_at).getTime() > Date.now();
   const share = async (code: string) => {
     const url = link(code);
-    try { if (navigator.share) { await navigator.share({ title: 'Join the league', url }); return; } } catch { /* fall back to copying */ }
-    try { await navigator.clipboard.writeText(url); } catch { /* shown below to copy by hand */ }
+    await shareOrCopy({ title: 'Join the league', text: '', url }); // else it's shown below to copy by hand
   };
   const make = (team: number | null) => run(async () => {
     const code = await rpc<string>('create_invite', { p_team: team, p_role: team ? 'gm' : 'spectator', p_days: 14, p_uses: team ? 1 : 5 });

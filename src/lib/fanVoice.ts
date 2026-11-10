@@ -8,6 +8,7 @@
 import { createContext, useCallback, useEffect, useState } from 'react';
 import { FunctionsHttpError } from '@supabase/supabase-js';
 import { setRemember, supabase } from './supabase';
+import { shareOrCopy } from './share';
 import { useLeague } from './store';
 import { NHL_TEAMS } from './format';
 import { CLUB_NAMES } from '../data/clubColors';
@@ -170,12 +171,8 @@ export const callsFor = (sport: FanSport, board: boolean): CallDef[] => (board ?
 
 // a share: the phone's own sheet where there is one, else the link copied
 export async function shareLink(url: string, title: string, text?: string): Promise<'shared' | 'copied' | 'none'> {
-  try {
-    if (navigator.share) { await navigator.share({ url, title, text }); return 'shared'; }
-  } catch (e) {
-    if ((e as Error)?.name === 'AbortError') return 'none';
-  }
-  try { await navigator.clipboard.writeText(url); return 'copied'; } catch { return 'none'; }
+  const r = await shareOrCopy({ title, text: text ?? '', url });
+  return r === 'cancelled' ? 'none' : r;
 }
 
 // what strangers see of a name: a first name and an initial, as the database writes it (_lounge_name)

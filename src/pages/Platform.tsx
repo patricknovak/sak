@@ -13,6 +13,7 @@ import { BrandPreview, ColourPicker, LEAGUE_COLOURS, starterBrand, themed, type 
 import { Wordmark } from '../components/Brand';
 import { Checklist, type Check } from '../components/Readiness';
 import { leagueUrl, inviteLink } from '../lib/host';
+import { shareOrCopy } from '../lib/share';
 import { PoolIdeas, PoolTest } from '../components/PoolTest';
 import { PoolGamesPlatform } from '../components/PoolGamesPlatform';
 import { GameFix } from '../components/GameFix';
@@ -153,8 +154,7 @@ function LeagueCard({ r, reload }: { r: Row; reload: () => Promise<unknown> }) {
   const makeInvite = () => run(async () => {
     const code = await rpc<string>('platform_invite', { p_league: r.league_id, p_team: r.commish_team, p_days: 14 });
     setInvite(code);
-    try { if (navigator.share) { await navigator.share({ title: `Run ${r.name} on ${PRODUCT.name}`, url: link(code) }); return; } } catch { /* fall back to copying */ }
-    try { await navigator.clipboard.writeText(link(code)); } catch { /* shown below to copy by hand */ }
+    await shareOrCopy({ title: `Run ${r.name} on ${PRODUCT.name}`, text: '', url: link(code) }); // else it's shown below to copy by hand
   }, 'Commissioner invite made and copied');
 
   return (

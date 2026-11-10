@@ -109,8 +109,8 @@ Two things in one repo:
   copy, every network, a QR code); the zones draw share cards on the phone (`src/lib/fanCards.ts`, `zoneShare.ts`: the
   verdict, the outlook, the history, my calls, the pulse) and the Worker unfurls every page with a picture drawn from its
   own numbers through the site's libraries (`worker/fans.ts`, `hubData` in `worker/hub.ts`; `/api/img` hands the NHL's logos
-  to the canvas). New UI that shares anything uses `ShareSheet` (or the two `ShareButton`s on it), never `navigator.share`
-  on its own. A trade or an injury moves the zone the day it happens (later on 25 October 2026, §9.23): nhl-hub's `fan-moves`
+  to the canvas). New UI that shares anything uses `ShareSheet` (or the two `ShareButton`s on it), or `shareOrCopy` for a
+  private link (an invite, a seat, a chat photo), never `navigator.share` on its own. A trade or an injury moves the zone the day it happens (later on 25 October 2026, §9.23): nhl-hub's `fan-moves`
   (every club's roster today against who has played for it, every goalie's last three seasons, the injury list from
   `players`; thirty minutes in `hub_cache`, carried in every `fan` answer as `moves`) is priced by `priceMoves` in
   `src/lib/fanDeep.ts` (the crease the roster will dress against the one that played, arrivals, departures and the men
@@ -202,7 +202,7 @@ Two things in one repo:
   request works for per request (`AsyncLocalStorage`, `runs`), never in a module variable. Job names: nhl-scores
   (gated by `_scores_due()`), nhl-clock (every 20 seconds, gated by `_clock_due()`), nhl-gameday, nhl-injuries, nhl-schedule, season-schedule, nhl-news,
   nhl-players, nhl-players-pregame, nhl-standings, nhl-corrections, nhl-corrections-deep, projections,
-  auto-lineups, auto-lineups-late, bestball, guillotine, garry-daily, garry-weekly, garry-nudge, garry-moments, garry-draftprep (once a year, 27 September), open-book,
+  auto-lineups, auto-lineups-late, bestball, guillotine, garry-daily, garry-weekly, garry-nudge, garry-moments (the yearly garry-draftprep is off since migration 357; its post is fired by hand), open-book,
   open-book-season, settle-book, settle-book-season, predict, score-predictions, settle-bets, expire-bets, h2h-notes, pool-drops, pool-settle, soccer-fixtures, soccer-live (gated by `_soccer_due()`), mlb-live (gated by `_mlb_due()`), mlb-schedule, process-pending (every 10 s), stats-cache, health-check, fund-price, cron-history, cost-snapshot,
   cost-watch, platform-monday. A job that does a league's work runs once per active league: in SQL through
   `run_league_jobs(job)` (sets `app.league_id`, one league's failure doesn't stop the others), in an edge function
@@ -303,7 +303,7 @@ Note: psql `:vars` do not interpolate inside `DO` blocks; use `set_config` / `cu
 Deno check for edge functions: copy the function folder plus `_shared` to a scratch dir and run
 `deno check <entry>` (`npx -y deno@2`; set `DENO_CERT` to the proxy CA bundle when behind a proxy).
 
-CI: `.github/workflows/test.yml` runs the build, `test:nhl` and the whole `test:db` (Postgres 16 service) on every
+CI: `.github/workflows/test.yml` runs the build, `test:nhl`, `test:live`, the end-to-end journeys and the whole `test:db` (Postgres 16 service) on every
 pull request and push to `main`. A red run is a red PR: fix it before anything else.
 
 ## Migrations and deploys
