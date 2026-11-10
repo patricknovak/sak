@@ -1713,7 +1713,11 @@ uptime alerts and the passcode. Built here:
   taken afresh and a new code goes out; without the migration that address reads as taken until the stale account is
   removed. Not yet: a sweep of unconfirmed accounts that never came back (harmless rows; a later housekeeping delete).
 - **Who runs it**: the terms' new section and the privacy note's person in charge name Planetterrian Ventures and
-  Patrick Novak, British Columbia, under its law and Canada's. The postal address (CASL) waits on the street line.
+  Patrick Novak, British Columbia, under its law and Canada's. *10 November 2026:* the postal address, 963 8th Ave W, Vancouver, BC V5Z 1E4, is on
+  both pages, on every landing footer (the sport pages' and the changelog's generators too) and under the waitlist form
+  with the sender named and a way out, CASL's lines. Next, when a form collects an email for marketing (the founding-rate
+  reserve): the consent box and the `waitlist` consent columns from docs/MARKET-REVIEW-2026-11.md addendum 2. Migration
+  355 went live the same morning on Patrick's "Apply 355".
 - **Uptime** (`.github/workflows/uptime.yml`): every ten minutes GitHub's runners read the app, the marketing site and
   `/api/hub?task=standings`; two failures in a row open an issue labelled `outage` assigned to Patrick (GitHub bells his
   phone), later failures comment on it, and the first all-clear closes it.

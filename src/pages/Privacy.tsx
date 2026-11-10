@@ -49,7 +49,7 @@ const SECTIONS: { title: string; body: string[] }[] = [
     'If something ever puts what we keep at risk of serious harm, we tell the people affected and, in Quebec, the Commission d\'accès à l\'information. If you think we have handled your information wrongly, you can complain to the Commission d\'accès à l\'information du Québec or the Office of the Privacy Commissioner of Canada.',
   ] },
   { title: 'Who is responsible', body: [
-    'Super Pools is operated by Planetterrian Ventures and Patrick Novak, British Columbia, Canada. Patrick Novak, its founder, is the person in charge of protecting personal information. Reach him at hello@superpoolsai.com. Questions about this page go to the same address.',
+    'Super Pools is operated by Planetterrian Ventures and Patrick Novak, 963 8th Ave W, Vancouver, British Columbia V5Z 1E4, Canada. Patrick Novak, its founder, is the person in charge of protecting personal information. Reach him at hello@superpoolsai.com, or by post at that address. Questions about this page go to the same address.',
   ] },
 ];
 
@@ -124,7 +124,7 @@ export default function Privacy() {
             </section>
           ))}
         </div>
-        <p className="mt-8 text-center text-xs text-mute">Last changed 9 November 2026. <a className="text-sky-300" href="#/terms">Terms of use</a> · © 2026 {PRODUCT.name} · <a className="text-sky-300" href="#/">Back to the app</a></p>
+        <p className="mt-8 text-center text-xs text-mute">Last changed 10 November 2026. <a className="text-sky-300" href="#/terms">Terms of use</a> · © 2026 {PRODUCT.name} · <a className="text-sky-300" href="#/">Back to the app</a></p>
       </div>
     </div>
   );

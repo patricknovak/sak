@@ -52,8 +52,8 @@ its ranked list where they overlap.
      (until the GitHub Pages copy retires).
    - Email Templates → Reset password: the body says "Your code for the SAK Superleague"; make it "Your Super Pools code".
 2. ~~Read the terms~~ *Done 9 November 2026:* read; 13 (14 in Quebec) stands, and the terms and the privacy note name the
-   operator, Planetterrian Ventures and Patrick Novak, British Columbia, under its law. A lawyer's read is still
-   Patrick's call.
+   operator, Planetterrian Ventures and Patrick Novak, British Columbia, under its law, at 963 8th Ave W, Vancouver, BC V5Z 1E4 (10 November 2026, on every landing footer and under the
+   waitlist form too). A lawyer's read is still Patrick's call.
 3. ~~Check hello@superpoolsai.com reaches you~~ *Done 9 November 2026 (Patrick: it does).*
 4. ~~Decide whether a new email is confirmed by a code~~ *Patrick's yes, 9 November 2026 (docs/DEVELOPMENT.md §9.37):*
    built and off until two steps of his: the Auth email templates Confirm signup and Magic Link show `{{ .Token }}`
