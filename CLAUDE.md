@@ -303,7 +303,7 @@ Note: psql `:vars` do not interpolate inside `DO` blocks; use `set_config` / `cu
 Deno check for edge functions: copy the function folder plus `_shared` to a scratch dir and run
 `deno check <entry>` (`npx -y deno@2`; set `DENO_CERT` to the proxy CA bundle when behind a proxy).
 
-CI: `.github/workflows/test.yml` runs the build, `test:nhl` and the whole `test:db` (Postgres 16 service) on every
+CI: `.github/workflows/test.yml` runs the build, `test:nhl`, `test:live`, the end-to-end journeys and the whole `test:db` (Postgres 16 service) on every
 pull request and push to `main`. A red run is a red PR: fix it before anything else.
 
 ## Migrations and deploys

@@ -1,7 +1,7 @@
 name: Test
 
-# Every pull request and every push to main: the site type-checks and builds, the stat parser passes, and the
-# whole database (every migration in order, then the league flow and the tenancy guardrails) passes on a
+# Every pull request and every push to main: the site type-checks and builds, the stat parser passes, the live
+# rooms answer as they should, and the whole database (every migration in order, then the league flow and the tenancy guardrails) passes on a
 # throwaway Postgres 16. A red run blocks the merge; nothing here touches the live project.
 on:
   pull_request:
@@ -30,6 +30,20 @@ jobs:
       # the app's edge code (worker/, Cloudflare): typed against the Workers runtime
       - run: npx tsc -p worker/tsconfig.json
       - run: npm run test:nhl
+
+  # the live rooms (worker/live.ts, draft.ts, pool.ts) under wrangler dev against a stand-in database (worker/test/)
+  live-rooms:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run build
+      - run: npm run test:live
 
   e2e:
     runs-on: ubuntu-latest
