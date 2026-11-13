@@ -1726,3 +1726,34 @@ uptime alerts and the passcode. Built here:
 - Patrick's remaining steps are in the readiness doc: the street address, DMARC to `p=quarantine`, the two Auth templates
   and the `EMAIL_CODES` switch, the Auth email rate limit raised before marketing, Turnstile's keys, Stripe, compute.
 
+### 9.38 Side bets show their math, 13 November 2026
+
+Patrick asked to see and review every calculation behind a live bet, to verify it, and to follow it through to settling.
+Every tracked side bet and pool (and a final-standings bet) has **Show the math** on its card, opening
+`src/components/BetMath.tsx`:
+
+- **Where it stands** is recounted on the phone from the rows the settlement sums (`league_games` for a player bet, the
+  regular-season `team_daily` for a team bet, each subject's window; a final-standings bet runs from the season's first
+  day) and checked against `bet_progress`, the function `settle_due_bets` decides with: a tick when they agree to the
+  hundredth, a warning with the server's number when they don't. A settled bet also compares the number it settled on
+  (`bets.result`) with today's count and says when a correction has moved it since (settled bets aren't reopened).
+- **Night by night**: every game a player bet counts (opponent, score or live clock, the stat, a running total; games still
+  to play from the schedule), and a fantasy points game opens to its scoring weight by weight from the league's
+  `scoring`, the way `_score` does it, checked against the stored line. A team bet lists each night's total; a night opens
+  to the starters frozen at puck drop (`lineup_snapshots` × `league_games`, regular-season games only) summed against the
+  night. A whole-season bet groups the nights by week.
+- **The rule** in words, the settle time (the `settle-bets` job, 12:45 UTC the morning after), **the coins** (each side's
+  risk, what every outcome moves, a pool's pot and how a tie splits; once settled, the `coin_ledger` rows for the bet and
+  a check that a side bet nets to zero or that a pool paid out its whole pot), **the road** (posted, taken or entries
+  closed, games counted, settled with the winner), and **the live odds worked out**: `betWinDetail` in
+  `src/lib/betodds.ts` returns every piece of the estimate (banked, games or nights left, the rate a game and the chance
+  he dresses, mean, spread, z, Φ(z)); `betWinChance` and the cards' odds now come from it, so the sheet and the card
+  can't disagree.
+
+Nothing new on the database; the sheet reads what members could already read. Found while checking the math, for a later
+change: a pool tie splits the pot in whole coins and the odd coins vanish (100 three ways pays 99; `settle_due_bets`
+and `commish_rule_bet`); `bet_progress` doesn't check the bet is in the caller's league (`_in_league`), so a signed-in
+account elsewhere could read a bet's numbers by its id; the cards' odds take "today" as the calendar date, not the league
+day, so after midnight while a game is still on they treat that night as over; a player bet counts every game in its
+window (playoffs too) while a team bet counts regular-season nights only. The footer's settle time said 8:45 a.m. ET; the
+job runs at 12:45 UTC (7:45 in winter).
