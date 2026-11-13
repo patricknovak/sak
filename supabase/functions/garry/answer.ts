@@ -78,8 +78,13 @@ async function base(db: Db) {
   return { league: league as any, teams: (teams ?? []) as any[], standings: (standings ?? []) as any[], playoffs: (playoffs ?? []) as any[] };
 }
 
-async function findPlayers(db: Db, q: string) {
-  const all: { id: number; name: string; last_name: string | null; proj: number }[] = [];
+// the name list, kept ten minutes in a warm isolate: every chat reply looks names up (here and in index.ts's player
+// cards), and the list is twenty pages of the same NHL players either way
+type Named = { id: number; name: string; last_name: string | null; proj: number };
+let names: { at: number; all: Named[] } | null = null;
+async function nameList(db: Db): Promise<Named[]> {
+  if (names && Date.now() - names.at < 600_000) return names.all;
+  const all: Named[] = [];
   // page by id until empty: the API may cap each page below what we ask for
   for (let from = 0; from < 20000;) {
     const { data } = await db.from('players').select('id,name,last_name,proj').order('id').range(from, from + 999);
@@ -87,9 +92,16 @@ async function findPlayers(db: Db, q: string) {
     all.push(...((data ?? []) as any[]));
     from += data.length;
   }
+  if (all.length) names = { at: Date.now(), all };
+  return all;
+}
+
+// the players a message names (full name, or a surname that isn't an everyday word), at most `max`
+export async function findPlayers(db: Pick<Db, 'from'>, q: string, max = 2) {
+  const all = await nameList(db as Db);
   const text = ' ' + norm(q).replace(/[^a-z' ]/g, ' ') + ' ';
   const full = all.filter((p) => p.name.length > 5 && text.includes(' ' + norm(p.name) + ' '));
-  if (full.length) return full.slice(0, 2).map((p) => p.id);
+  if (full.length) return full.slice(0, max).map((p) => p.id);
   // by last name alone: when two players share it (Cale and Taylor Makar), the better one is who they mean
   const best = new Map<string, (typeof all)[number]>();
   for (const p of all) {
@@ -97,7 +109,7 @@ async function findPlayers(db: Db, q: string) {
     const k = norm(p.last_name);
     if (!best.has(k) || Number(p.proj) > Number(best.get(k)!.proj)) best.set(k, p);
   }
-  return [...best.values()].slice(0, 2).map((p) => p.id);
+  return [...best.values()].slice(0, max).map((p) => p.id);
 }
 
 // plain: just the facts and the link, no greeting or sign-off (the chat engine writes its own words around them)
