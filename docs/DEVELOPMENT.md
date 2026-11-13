@@ -1726,6 +1726,28 @@ uptime alerts and the passcode. Built here:
 - Patrick's remaining steps are in the readiness doc: the street address, DMARC to `p=quarantine`, the two Auth templates
   and the `EMAIL_CODES` switch, the Auth email rate limit raised before marketing, Turnstile's keys, Stripe, compute.
 
+### 9.38 The scoreboard holds last night, and a live game is one page, 13 November 2026
+
+Patrick asked for two things on game nights:
+
+- **Last night stays up until two hours before tonight's first game.** The league day turns over once the night's last
+  game is final (6 am backstop), so on a game day morning the Live tab showed tonight's empty slate for twelve hours.
+  The scoreboard now works out its own home day (`hold` in `src/pages/Scoreboard.tsx`): last night (league day minus
+  one) while it had games and the clock is short of tonight's earliest puck drop (postponed and cancelled games left
+  out) less two hours, `HOLD_MS`; on a day with no games, last night's finals stay up all day; once the season's first
+  night is the league day there is nothing earlier to hold. A card says until when and takes the GM to tonight's slate
+  in one tap (`?day=<league day>`); the arrows and `?day=` still open any night. The flip happens on its own: the page's
+  clock ticks every 30 seconds. Only the scoreboard holds: lineups, tonight's points and everything else still follow
+  `leagueDay`. No database change.
+- **The game and its box score are one page.** The game sheet's tabs go from four to three: `Live` (while the game is
+  on; `Game & box` before and after), Thread, Lines & bets. The page reads top to bottom: the league's players in the
+  game with their points, the goals, the box score with fantasy points (the name column stays put while the stats slide
+  sideways on a phone; without the NHL's feed the league's own box score), the three stars, the penalties. Where to
+  watch leads before the puck drops and moves to the foot once the game is on; the radio, recap and condensed game
+  chips stay near the top. Every live game opens on it, from the scoreboard too (it used to open a live game on its
+  thread); a finished game with talk still opens on the thread. An old caller asking for the `box` tab lands on the
+  same page.
+
 
 ### 9.39 Garry: the night told once it's over, and a better memory in the chat, 13 November 2026
 
