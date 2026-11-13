@@ -79,6 +79,8 @@ const sinceWords = (ms: number) => {
   const h = Math.floor(m / 60);
   return h < 24 ? `${h} h ${m % 60 ? `${m % 60} min ` : ''}ago` : `${Math.floor(h / 24)} d ago`;
 };
+// how long before tonight's first puck drop the scoreboard leaves last night for tonight's slate
+const HOLD_MS = 2 * 3_600_000;
 const addDays = (d: string, n: number) => new Date(Date.UTC(+d.slice(0, 4), +d.slice(5, 7) - 1, +d.slice(8, 10) + n)).toISOString().slice(0, 10);
 
 export default function Scoreboard() {
@@ -87,13 +89,27 @@ export default function Scoreboard() {
   const [horn, setHorn] = useHorn();
   const sport = useSport();
   const now = useNow(30_000);
-  // ?day=YYYY-MM-DD opens a past night; without it the page follows the league day
+  const seasonStart = league?.season_start ?? null;
+  // last night stays up until two hours before tonight's first puck drop (13 November 2026, Patrick): the league day
+  // turns over once the last game is final, which left a morning of empty boxes for a slate hours away. On a day with
+  // no games, last night's finals stay up all day. Only this page holds: lineups and everything else follow the league day.
+  const lastNight = addDays(leagueDay, -1);
+  const hold = useMemo(() => {
+    if (seasonStart && lastNight < seasonStart) return null;
+    if (!games.some((g) => g.date === lastNight)) return null;
+    const drops = games.filter((g) => g.date === leagueDay && !calledOff(sport, g.state)).map((g) => Date.parse(g.start_utc)).filter(Number.isFinite);
+    if (!drops.length) return { until: null as number | null };
+    const until = Math.min(...drops) - HOLD_MS;
+    return now < until ? { until } : null;
+  }, [games, leagueDay, lastNight, seasonStart, sport, now]);
+  const home = hold ? lastNight : leagueDay;
+  // ?day=YYYY-MM-DD opens any night up to tonight; without it the page shows home (last night while it's held, tonight after)
   const [params, setParams] = useSearchParams();
   const asked = params.get('day');
-  const today = asked && /^\d{4}-\d{2}-\d{2}$/.test(asked) && asked < leagueDay ? asked : leagueDay;
+  const today = asked && /^\d{4}-\d{2}-\d{2}$/.test(asked) && asked <= leagueDay ? asked : home;
   const past = today !== leagueDay;
-  const goTo = (d: string) => { if (d >= leagueDay) params.delete('day'); else params.set('day', d); setParams(params, { replace: true }); };
-  const seasonStart = league?.season_start ?? null;
+  const held = !!hold && today === lastNight;
+  const goTo = (d: string) => { const day = d > leagueDay ? leagueDay : d; if (day === home) params.delete('day'); else params.set('day', day); setParams(params, { replace: true }); };
   // the store holds games from yesterday on; an older night reads its own slate once
   const [oldGames, setOldGames] = useState<Game[]>([]);
   const stored = games.some((g) => g.date === today);
@@ -136,8 +152,9 @@ export default function Scoreboard() {
   const [benchOn, setBenchOn] = useState<Set<number>>(new Set());
   const flip = (set: Set<number>, id: number, on?: boolean) => { const n = new Set(set); if (on ?? !n.has(id)) n.add(id); else n.delete(id); return n; };
   const sheet = useGameSheet();
-  // a game opens on its thread while it's on or once it has talk in it, on the game otherwise
-  const openGame = (g: Game) => sheet.open(g.id, { tab: isLive(sport, g.state) || (threads.get(g.id) ?? 0) > 0 ? 'thread' : 'game' });
+  // a live game opens on the game and its box score (13 November 2026, Patrick); a finished one with talk in its
+  // thread opens on the thread, the rest on the game
+  const openGame = (g: Game) => sheet.open(g.id, { tab: !isLive(sport, g.state) && (threads.get(g.id) ?? 0) > 0 ? 'thread' : 'game' });
   const [benchDays, setBenchDays] = useState<BenchDay[]>([]);
   const openInfo = usePlayerInfo();
   const navigate = useNavigate();
@@ -325,14 +342,15 @@ export default function Scoreboard() {
   return (
     <div className="space-y-4">
       <PageHeader icon={<Radio size={22} className={anyLive ? 'animate-pulse text-goal' : past ? 'text-mute' : 'text-goal'} />} title={past ? 'Scoreboard' : 'Live scoreboard'}
-        sub={past ? `${fmtDate(today)} · ${slate.length ? `${slate.length} NHL game${slate.length > 1 ? 's' : ''}, final` : 'no NHL games'}` : slate.length ? `${slate.length} NHL game${slate.length > 1 ? 's' : ''} tonight · live, as it happens` : 'No NHL games today.'}
+        sub={past ? `${held ? 'Last night, ' : ''}${fmtDate(today)} · ${slate.length ? `${slate.length} NHL game${slate.length > 1 ? 's' : ''}, final` : 'no NHL games'}` : slate.length ? `${slate.length} NHL game${slate.length > 1 ? 's' : ''} tonight · live, as it happens` : 'No NHL games today.'}
         right={<div className="flex items-center gap-1">
           {!past && <HornToggle on={horn} set={setHorn} />}
           <button className="btn-ghost btn-sm px-2" aria-label="Previous day" disabled={!!seasonStart && addDays(today, -1) < seasonStart} onClick={() => goTo(addDays(today, -1))}><ChevronLeft size={16} /></button>
-          <button className="btn-ghost btn-sm px-2" aria-label="Next day" disabled={!past} onClick={() => goTo(addDays(today, 1))}><ChevronRight size={16} /></button>
-          {past && <button className="btn-ghost btn-sm" onClick={() => goTo(leagueDay)}>Tonight</button>}
+          <button className="btn-ghost btn-sm px-2" aria-label="Next day" disabled={today >= leagueDay} onClick={() => goTo(addDays(today, 1))}><ChevronRight size={16} /></button>
+          {past && !held && <button className="btn-ghost btn-sm" onClick={() => goTo(leagueDay)}>Tonight</button>}
         </div>} />
-      {past && <div className="rounded-xl border border-white/[.08] bg-white/[.03] p-3 text-sm text-slate-300">A night that is in the books: the lineups as they were locked at each puck drop and every point that counted. Step back further with the arrows, or review any stretch on the <Link to="/performance" className="text-sky-300">Performance page</Link>.</div>}
+      {held && <HeldNote until={hold?.until ?? null} tonight={games.filter((g) => g.date === leagueDay && !calledOff(sport, g.state)).length} onTonight={() => goTo(leagueDay)} />}
+      {past && !held && <div className="rounded-xl border border-white/[.08] bg-white/[.03] p-3 text-sm text-slate-300">A night that is in the books: the lineups as they were locked at each puck drop and every point that counted. Step back further with the arrows, or review any stretch on the <Link to="/performance" className="text-sky-300">Performance page</Link>.</div>}
       {!past && league?.phase !== 'season' && <div className="rounded-xl border border-amber-400/20 bg-amber-500/10 p-3 text-sm text-amber-100">The season hasn’t started. Once it does, this page follows every game night live: NHL scores up top, your starters’ points below.</div>}
 
       {strip.length > 0 && (
@@ -496,6 +514,21 @@ export default function Scoreboard() {
       <Link to="/nhl" className="card flex items-center gap-3 p-3 text-sm transition active:scale-[.99]"><span className="text-2xl">🏒</span><span className="flex-1"><span className="font-semibold">Every NHL game, live</span><span className="block text-xs text-mute">Scores, goals with highlight clips, box scores, standings, schedule and team radio.</span></span><span className="text-mute">›</span></Link>
       {past ? <p className="px-1 text-center text-[11px] text-mute">Final box scores. Stat corrections from the NHL can still move a line for up to a month.</p>
         : <p className="px-1 text-center text-[11px] text-mute">Scores and clocks follow the NHL within seconds; points follow its box scores, about once a minute, and every page here shows each change the moment it lands.</p>}
+    </div>
+  );
+}
+
+// last night's finals on a game day morning: when the page turns to tonight, and a way there now
+function HeldNote({ until, tonight, onTonight }: { until: number | null; tonight: number; onTonight: () => void }) {
+  const drop = until != null ? until + HOLD_MS : null;
+  return (
+    <div className="flex flex-wrap items-center gap-x-3 gap-y-2 rounded-2xl border border-sky-400/20 bg-gradient-to-r from-sky-500/[.10] to-white/[.02] p-3 text-sm">
+      <div className="min-w-0 flex-1 basis-56 leading-snug text-slate-200">
+        {drop != null
+          ? <>Last night’s finals stay up until <b className="text-white">{fmtTime(new Date(until!).toISOString())}</b>, two hours before tonight’s first puck drop at {fmtTime(new Date(drop).toISOString())}.</>
+          : <>No NHL games tonight, so last night’s finals stay up all day.</>}
+      </div>
+      {tonight > 0 && <button type="button" className="btn-ghost btn-sm shrink-0 whitespace-nowrap ring-1 ring-sky-400/30" onClick={onTonight}>Tonight’s {tonight} game{tonight > 1 ? 's' : ''} ›</button>}
     </div>
   );
 }
