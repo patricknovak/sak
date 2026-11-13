@@ -1771,6 +1771,17 @@ interactive when someone talks to him.
   list is kept ten minutes in a warm isolate (`nameList` in `answer.ts`).
 - **Migration 359** (`_mention_notify`): a GM's reply to one of Garry's posts wakes him like saying his name. Not live
   until Patrick says "apply 359"; the function changes don't need it.
+- *13 November 2026, the first night's review.* The wrap of 12 November posted at 1:37 am, after the last final, but got
+  four things wrong: Patrick "from fourth to third" (third all night), "the 5.5-point gap to Jason held tight" (22.5 to
+  5.5), Darin past Trystan "by the same margin" (5.0, not 5.5), and Terry "lost MacKinnon to injury" (day-to-day, and he
+  played). A reply about Terry's trade offers put Logan Cooley in the Makar offer and called the offers stabs at
+  Patrick's keepers (none went to Patrick). Now: the wrap gets `table_after_the_night` (each GM's place before and after
+  and how the gap to the team ahead moved) and "nobody moved" when nobody did; `tableCheck` in `moves.ts` rewrites a post
+  whose "from fourth to third", "held" gap or "same margin" the table doesn't bear out, and the climb check knows more
+  verbs ("launched", "edged", "hopped"...); the news players carry their status, and a day-to-day player called out or
+  lost is rewritten; the next slate lists every team's count (a two-game night says so). In the chat, the league feed's
+  lines are marked as such and `leagueWire` carries the trade offers of the last three days as the site posted them,
+  with whether each is still open.
 
 ### 9.40 Side bets show their math, 13 November 2026
 
