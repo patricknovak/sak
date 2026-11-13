@@ -199,7 +199,7 @@ Two things in one repo:
 - Scheduler: pg_cron jobs call the edge functions through pg_net with `_edge_headers(true)` (the anon key plus the
   platform's admin key, read when the job runs); nhl-sync refuses every task without the admin key and Garry its
   scheduled ones (daily, nudge, weekly, moments, draftprep; migration 243, 11 October 2026). The night's recap posts from the half-hourly moments run once every game that night is final (9 am `daily` is its
-  backstop; docs/DEVELOPMENT.md §9.38). Garry keeps the league a
+  backstop; docs/DEVELOPMENT.md §9.39). Garry keeps the league a
   request works for per request (`AsyncLocalStorage`, `runs`), never in a module variable. Job names: nhl-scores
   (gated by `_scores_due()`), nhl-clock (every 20 seconds, gated by `_clock_due()`), nhl-gameday, nhl-injuries, nhl-schedule, season-schedule, nhl-news,
   nhl-players, nhl-players-pregame, nhl-standings, nhl-corrections, nhl-corrections-deep, projections,
