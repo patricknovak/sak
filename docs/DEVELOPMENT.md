@@ -1748,7 +1748,7 @@ Patrick asked for two things on game nights:
   thread); a finished game with talk still opens on the thread. An old caller asking for the `box` tab lands on the
   same page.
 
-### 9.39 Side bets show their math, 13 November 2026
+### 9.40 Side bets show their math, 13 November 2026
 
 Patrick asked to see and review every calculation behind a live bet, to verify it, and to follow it through to settling.
 Every tracked side bet and pool (and a final-standings bet) has **Show the math** on its card, opening
