@@ -40,8 +40,9 @@ export default function GameSheet({ id, hint, tab: asked, onClose }: { id: numbe
   const date = x?.date ?? db?.date;
   const threads = useThreadCounts([id]);
   const talk = threads.get(id) ?? 0;
-  // the thread first when it was asked for; the game otherwise
-  const [tab, setTab] = useState<GameTab>(asked ?? 'game');
+  // the thread first when it was asked for; the game (with its box score) otherwise. 'box' is the old box score tab's
+  // name, folded into the game on 13 November 2026, so an old caller asking for it lands in the same place
+  const [tab, setTab] = useState<GameTab>(asked && asked !== 'box' ? asked : 'game');
 
   // the feed's game: read when the sheet opens and every 30 seconds while the game is on (the edge caches it, so a
   // league watching the same game costs one call to the function)
@@ -75,7 +76,58 @@ export default function GameSheet({ id, hint, tab: asked, onClose }: { id: numbe
   const Name = ({ pid, name }: { pid: number; name: string }) => (players.has(pid) ? <Link to={`/player/${pid}`} className="hover:underline" onClick={onClose}>{name}</Link> : <>{name}</>);
   const box = d?.box?.[side];
 
-  const TABS: [GameTab, string, string][] = [['game', '🏒', 'Game'], ['thread', '💬', 'Thread'], ['box', '📋', 'Box score'], ['more', '📈', 'Lines & bets']];
+  // three tabs (13 November 2026, Patrick): the game and its box score are one page, so a live game reads top to bottom
+  // without flipping between them, and every live game opens on it
+  const TABS: [GameTab, string, string][] = [['game', live ? '🔴' : '🏒', live ? 'Live' : 'Game & box'], ['thread', '💬', 'Thread'], ['more', '📈', 'Lines & bets']];
+  const started = live || done;
+  const boxScore = d?.box && started ? (
+    <Section title="Box score" right={<div className="flex gap-1">{(['away', 'home'] as const).map((s) => <button key={s} type="button" className={`rounded-full px-2.5 py-0.5 text-xs font-semibold ${side === s ? 'bg-sky-500 text-ice' : 'bg-white/[.05] text-mute'}`} onClick={() => setSide(s)}>{x[s].abbrev}</button>)}</div>}>
+      <div className="card overflow-x-auto">
+        <table className="w-full min-w-[560px] text-xs">
+          <thead className="text-mute"><tr><th className={`${STICKY} px-2 py-1.5 text-left font-semibold`}>Skater</th><th className="px-2 text-right font-semibold text-gold" title="Fantasy points in this game">{brand}</th>{['G', 'A', 'P', '+/-', 'PIM', 'SOG', 'HIT', 'BLK', 'TOI'].map((h) => <th key={h} className="px-2 py-1.5 text-right font-semibold">{h}</th>)}</tr></thead>
+          <tbody className="divide-y divide-white/[.05]">
+            {box && [...box.forwards, ...box.defense].map((p) => (
+              <tr key={p.id} className={ownerOf(p.id) ? 'bg-sky-500/[.06] text-white' : p.pts > 0 ? 'text-white' : 'text-slate-300'}>
+                <td className={`${STICKY} whitespace-nowrap px-2 py-1`}><span className="text-mute">{p.pos} {p.num}</span> <Name pid={p.id} name={p.name} /><Owner pid={p.id} /></td>
+                <FpCell v={fp.get(p.id)} />
+                {[p.g, p.a, p.pts, p.pm > 0 ? `+${p.pm}` : p.pm, p.pim, p.sog, p.hit, p.blk, p.toi].map((v, k) => <td key={k} className="num px-2 py-1 text-right">{v}</td>)}
+              </tr>
+            ))}
+          </tbody>
+          <thead className="text-mute"><tr><th className={`${STICKY} px-2 py-1.5 text-left font-semibold`}>Goalie</th><th className="px-2 text-right font-semibold text-gold">{brand}</th>{['SA', 'SV%', 'GA', 'TOI', 'Dec', '', '', '', ''].map((h, i) => <th key={i} className="px-2 py-1.5 text-right font-semibold">{h}</th>)}</tr></thead>
+          <tbody className="divide-y divide-white/[.05]">
+            {box?.goalies.map((p) => (
+              <tr key={p.id} className={ownerOf(p.id) ? 'bg-sky-500/[.06]' : ''}>
+                <td className={`${STICKY} whitespace-nowrap px-2 py-1`}><span className="text-mute">G {p.num}</span> <Name pid={p.id} name={p.name} /><Owner pid={p.id} />{p.starter ? '' : <span className="ml-1 text-[10px] text-mute">relief</span>}</td>
+                <FpCell v={fp.get(p.id)} />
+                {[p.sa, p.svp != null ? p.svp.toFixed(3).replace(/^0/, '') : '–', p.ga, p.toi, p.decision ?? '', '', '', '', ''].map((v, k) => <td key={k} className="num px-2 py-1 text-right">{v}</td>)}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+      <p className="mt-1.5 px-1 text-[11px] text-mute">{brand} = fantasy points under this league’s scoring. Shaded players are on a {brand} roster; points move about a minute behind the NHL.{live ? ' Slide the table sideways for every stat.' : ''}</p>
+    </Section>
+  ) : rows.length > 0 ? <Section title="Box score"><LeagueBox rows={rows} away={x.away.abbrev} home={x.home.abbrev} onClose={onClose} /></Section> : null;
+
+  // where to watch it, and the radio, recap and condensed game: small chips that stay near the top either way
+  const watchBlock = (
+    <>
+            {!done && x.tv.length > 0 && <div className="flex flex-wrap items-center gap-1.5"><VerdictPill g={x} v={v} /></div>}
+            {!done && watch.length > 0 && <WatchBox watch={watch} channels={nets.length ? nets : x.tv.map((t) => NET[t.network] ?? t.network)} sn={x.sn ?? hint?.sn} />}
+    </>
+  );
+  const chips = (
+            <div className="flex flex-wrap gap-1.5 empty:hidden">
+              {[x.away, x.home].filter((t) => t.radio && !done).map((t) => (
+                <button key={t.abbrev} type="button" className={`inline-flex items-center gap-1 rounded-full px-3 py-1.5 text-xs font-semibold ring-1 ${radio?.url === t.radio ? 'bg-emerald-400/20 text-emerald-100 ring-emerald-400/50' : 'bg-white/[.04] text-slate-200 ring-white/10'}`}
+                  onClick={() => setRadio(radio?.url === t.radio ? null : { url: t.radio!, label: t.abbrev })}><Headphones size={14} /> {radio?.url === t.radio ? 'Listening:' : ''} {t.abbrev} radio</button>
+              ))}
+              {x.recap && <button type="button" className="inline-flex items-center gap-1 rounded-full bg-white/[.06] px-3 py-1.5 text-xs font-semibold text-white ring-1 ring-white/15" onClick={() => setVideo({ id: x.recap!, title: 'Game recap' })}><Play size={14} /> Recap</button>}
+              {x.condensed && <button type="button" className="inline-flex items-center gap-1 rounded-full bg-white/[.06] px-3 py-1.5 text-xs font-semibold text-white ring-1 ring-white/15" onClick={() => setVideo({ id: x.condensed!, title: 'Condensed game' })}><Play size={14} /> Condensed game</button>}
+              {x.link && <a href={x.link} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 rounded-full bg-white/[.04] px-3 py-1.5 text-xs font-semibold text-slate-200 ring-1 ring-white/10"><Tv size={14} /> NHL.com <ExternalLink size={11} /></a>}
+            </div>
+  );
 
   return (
     <Sheet open onClose={onClose} wide title={<span className="flex items-center gap-2">{x.away.abbrev} @ {x.home.abbrev} <span className={`text-xs font-normal ${live ? 'text-goal' : 'text-mute'}`}>{status(x)}</span></span>}>
@@ -93,7 +145,7 @@ export default function GameSheet({ id, hint, tab: asked, onClose }: { id: numbe
           <div className="mt-2 text-center text-[11px] text-mute">{x.venue ? `${x.venue} · ` : ''}{date ? fmtDay(date) : ''} · {fmtTime(x.start)}{x.tv.length > 0 && <> · 📺 {x.tv.map((t) => `${NET[t.network] ?? t.network}${t.country === 'CA' ? ' 🇨🇦' : t.country === 'US' ? ' 🇺🇸' : ''}`).join(', ')}</>}</div>
         </div>
 
-        <div className="grid grid-cols-4 gap-1 rounded-2xl border border-white/[.07] bg-white/[.03] p-1">
+        <div className="grid grid-cols-3 gap-1 rounded-2xl border border-white/[.07] bg-white/[.03] p-1">
           {TABS.map(([k, icon, label]) => (
             <button key={k} type="button" onClick={() => setTab(k)} aria-pressed={tab === k}
               className={`relative flex min-w-0 flex-col items-center justify-center gap-0.5 rounded-xl px-1 py-1.5 text-[11px] font-bold leading-tight transition ${tab === k ? 'bg-white text-ice shadow-[0_6px_18px_-8px_rgba(255,255,255,.6)]' : 'text-slate-300 hover:bg-white/[.05]'}`}>
@@ -105,18 +157,9 @@ export default function GameSheet({ id, hint, tab: asked, onClose }: { id: numbe
 
         {tab === 'game' && (
           <div className="space-y-3">
-            {/* watch, listen, replay */}
-            {!done && x.tv.length > 0 && <div className="flex flex-wrap items-center gap-1.5"><VerdictPill g={x} v={v} /></div>}
-            {!done && watch.length > 0 && <WatchBox watch={watch} channels={nets.length ? nets : x.tv.map((t) => NET[t.network] ?? t.network)} sn={x.sn ?? hint?.sn} />}
-            <div className="flex flex-wrap gap-1.5">
-              {[x.away, x.home].filter((t) => t.radio && !done).map((t) => (
-                <button key={t.abbrev} type="button" className={`inline-flex items-center gap-1 rounded-full px-3 py-1.5 text-xs font-semibold ring-1 ${radio?.url === t.radio ? 'bg-emerald-400/20 text-emerald-100 ring-emerald-400/50' : 'bg-white/[.04] text-slate-200 ring-white/10'}`}
-                  onClick={() => setRadio(radio?.url === t.radio ? null : { url: t.radio!, label: t.abbrev })}><Headphones size={14} /> {radio?.url === t.radio ? 'Listening:' : ''} {t.abbrev} radio</button>
-              ))}
-              {x.recap && <button type="button" className="inline-flex items-center gap-1 rounded-full bg-white/[.06] px-3 py-1.5 text-xs font-semibold text-white ring-1 ring-white/15" onClick={() => setVideo({ id: x.recap!, title: 'Game recap' })}><Play size={14} /> Recap</button>}
-              {x.condensed && <button type="button" className="inline-flex items-center gap-1 rounded-full bg-white/[.06] px-3 py-1.5 text-xs font-semibold text-white ring-1 ring-white/15" onClick={() => setVideo({ id: x.condensed!, title: 'Condensed game' })}><Play size={14} /> Condensed game</button>}
-              {x.link && <a href={x.link} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 rounded-full bg-white/[.04] px-3 py-1.5 text-xs font-semibold text-slate-200 ring-1 ring-white/10"><Tv size={14} /> NHL.com <ExternalLink size={11} /></a>}
-            </div>
+            {/* where to watch first before the puck drops; once it's on, the game itself leads and these wait at the foot */}
+            {!live && watchBlock}
+            {chips}
             {video && <Video id={video.id} title={video.title} onClose={() => setVideo(null)} />}
 
             <LeagueInGame lines={rows} />
@@ -142,6 +185,9 @@ export default function GameSheet({ id, hint, tab: asked, onClose }: { id: numbe
               </Section>
             )}
 
+            {/* the box score, under the goals: every skater and goalie with the points he's worth to the league */}
+            {boxScore}
+
             {d?.stars && d.stars.length > 0 && (
               <Section title="Three stars">
                 <div className="grid grid-cols-1 gap-2 min-[400px]:grid-cols-3">
@@ -162,41 +208,12 @@ export default function GameSheet({ id, hint, tab: asked, onClose }: { id: numbe
                 </div>
               </Section>
             )}
+            {live && !done && (watch.length > 0 || x.tv.length > 0) && <Section title="Where to watch"><div className="space-y-3">{watchBlock}</div></Section>}
             {!d && !done && !live && <div className="rounded-2xl bg-white/[.03] p-4 text-center text-xs text-mute">The goals, the stars and the box score fill in once the puck drops.</div>}
           </div>
         )}
 
         {tab === 'thread' && <GameThread game={{ id }} lines={rows} chatOnly />}
-
-        {tab === 'box' && (d?.box ? (
-          <Section title="Box score" right={<div className="flex gap-1">{(['away', 'home'] as const).map((s) => <button key={s} type="button" className={`rounded-full px-2.5 py-0.5 text-xs font-semibold ${side === s ? 'bg-sky-500 text-ice' : 'bg-white/[.05] text-mute'}`} onClick={() => setSide(s)}>{x[s].abbrev}</button>)}</div>}>
-            <div className="card overflow-x-auto">
-              <table className="w-full min-w-[560px] text-xs">
-                <thead className="text-mute"><tr><th className="px-2 py-1.5 text-left font-semibold">Skater</th><th className="px-2 text-right font-semibold text-gold" title="Fantasy points in this game">{brand}</th>{['G', 'A', 'P', '+/-', 'PIM', 'SOG', 'HIT', 'BLK', 'TOI'].map((h) => <th key={h} className="px-2 py-1.5 text-right font-semibold">{h}</th>)}</tr></thead>
-                <tbody className="divide-y divide-white/[.05]">
-                  {box && [...box.forwards, ...box.defense].map((p) => (
-                    <tr key={p.id} className={ownerOf(p.id) ? 'bg-sky-500/[.06] text-white' : p.pts > 0 ? 'text-white' : 'text-slate-300'}>
-                      <td className="whitespace-nowrap px-2 py-1"><span className="text-mute">{p.pos} {p.num}</span> <Name pid={p.id} name={p.name} /><Owner pid={p.id} /></td>
-                      <FpCell v={fp.get(p.id)} />
-                      {[p.g, p.a, p.pts, p.pm > 0 ? `+${p.pm}` : p.pm, p.pim, p.sog, p.hit, p.blk, p.toi].map((v, k) => <td key={k} className="num px-2 py-1 text-right">{v}</td>)}
-                    </tr>
-                  ))}
-                </tbody>
-                <thead className="text-mute"><tr><th className="px-2 py-1.5 text-left font-semibold">Goalie</th><th className="px-2 text-right font-semibold text-gold">{brand}</th>{['SA', 'SV%', 'GA', 'TOI', 'Dec', '', '', '', ''].map((h, i) => <th key={i} className="px-2 py-1.5 text-right font-semibold">{h}</th>)}</tr></thead>
-                <tbody className="divide-y divide-white/[.05]">
-                  {box?.goalies.map((p) => (
-                    <tr key={p.id} className={ownerOf(p.id) ? 'bg-sky-500/[.06]' : ''}>
-                      <td className="whitespace-nowrap px-2 py-1"><span className="text-mute">G {p.num}</span> <Name pid={p.id} name={p.name} /><Owner pid={p.id} />{p.starter ? '' : <span className="ml-1 text-[10px] text-mute">relief</span>}</td>
-                      <FpCell v={fp.get(p.id)} />
-                      {[p.sa, p.svp != null ? p.svp.toFixed(3).replace(/^0/, '') : '–', p.ga, p.toi, p.decision ?? '', '', '', '', ''].map((v, k) => <td key={k} className="num px-2 py-1 text-right">{v}</td>)}
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-            <p className="mt-1.5 px-1 text-[11px] text-mute">{brand} = fantasy points under this league’s scoring. Shaded players are on a {brand} roster; points move about a minute behind the NHL.</p>
-          </Section>
-        ) : <LeagueBox rows={rows} away={x.away.abbrev} home={x.home.abbrev} onClose={onClose} />)}
 
         {tab === 'more' && (
           <div className="space-y-4">
@@ -225,6 +242,9 @@ function TeamSide({ t, live, done, right }: { t: NTeam; live: boolean; done: boo
     </div>
   );
 }
+
+// the box score's name column stays put while the stats slide under it on a phone
+const STICKY = 'sticky left-0 z-[1] bg-[#18233d]';
 
 // a player's fantasy points in the box score: gold when he scored, red when he cost points
 const FpCell = ({ v }: { v: number | undefined }) => (

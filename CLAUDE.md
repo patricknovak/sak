@@ -35,9 +35,11 @@ Two things in one repo:
   it never polls `league_games` or the NHL's feed for a score. NHL centre lays the store's score and clock over the
   feed (`overlay`, `useOverlay` in `src/lib/nhlGame.ts`).
 - Any NHL game opens in one sheet, app-wide (`useGameSheet().open(id)`, `GameSheetProvider` in `main.tsx`, the body
-  `src/components/GameSheetBody.tsx` loaded on first use): the game (where to watch on what the GM has, team radio that
-  keeps playing across pages, the league's players with their points, goals with clips, stars, penalties), its thread,
-  the box score with fantasy points and its lines and bets. NHL centre's Scores tab holds what Watch live was (the
+  `src/components/GameSheetBody.tsx` loaded on first use): three tabs since 13 November 2026, the game and its box
+  score on one page (`Live` while it's on, `Game & box` otherwise: the league's players with their points, goals with
+  clips, the box score with fantasy points, stars, penalties, and where to watch on what the GM has with team radio that
+  keeps playing across pages, first before the puck drops and at the foot once it's on), its thread, and its lines and
+  bets; every live game opens on the first. NHL centre's Scores tab holds what Watch live was (the
   verdicts, the one to watch, where the league has skin in it, how to see every game; `NhlGameCard`); `#/watch`
   forwards there.
 - Chat (`#/chat`, 14 October 2026): one feed, `ChatPanel channel="feed"`, every message a member can see (the draft room
@@ -148,7 +150,9 @@ Two things in one repo:
   every GM, `TeamCompare`); another team's page opens on Scout & trade with the same views read only. The views are in
   `src/components/lineup/`, the data in `src/lib/lineupKit.ts` (tonight's points from the store's `dayPoints`, `useDayPoints`). Lineup New,
   tried beside it from 5 October, was folded in and retired on 11 October 2026; `#/lineup-new` forwards to `#/team`.
-  The live scoreboard's Tonight's points lists every starter team by team, under your night (points, rank, a projected
+  The live scoreboard (`#/scoreboard`) keeps last night's finals up until two hours before tonight's first puck drop, all
+  day when there are no games (`hold` in `src/pages/Scoreboard.tsx`, 13 November 2026); only that page holds, everything
+  else follows the league day. Its Tonight's points lists every starter team by team, under your night (points, rank, a projected
   finish), the stars of the night, the night's goals by rostered players (scorer, assists, what each was worth, each goal's clip played in place, from the
   NHL's scores feed through nhl-hub, `useNightGoals`) or, without it, a ticker of what just happened, a goal horn for your
   starters, and the race as it
@@ -238,7 +242,7 @@ Two things in one repo:
   draft room (`worker/draft.ts`, `useDraftRoom` in `src/lib/draftRoom.ts`, joined by the store while the draft is on): its
   alarm is the pick clock (it calls `draft_tick` the moment a deadline passes), it pushes every pick, and the store's
   4-second draft poll stands down while it is live; both rooms share `worker/room.ts`. A thread per game is chat channel
-  `game:<game id>` (`GameThread` in the game sheet, first when opened from the scoreboard while the game is on; left out of the merged chat feed and
+  `game:<game id>` (`GameThread` in the game sheet, first when a finished game with talk is opened from the scoreboard; left out of the merged chat feed and
   the chat badge, counted on the scoreboard's game chips instead); a pool's match on the shared fixtures is `game:fx<fixture id>` (`fixtureThread`, `ThreadSheet` and `useChannelCounts` in `GameThread.tsx`), opened from the pool room's chips, pick'em's Talk and the match centre, and a box pool's NHL game keeps `game:<game id>`. `/api/live/<league>/pool/<day>` is a prediction pool's
   room for the day (`worker/pool.ts`, `usePoolRoom` in `src/lib/poolRoom.ts`, `PoolRoomCard` on the pool's home): today's
   games on its events, their scores and members climbing its table, pushed; the rest is the built site. The plan for the edge is `docs/DEVELOPMENT.md` §8.3; the
