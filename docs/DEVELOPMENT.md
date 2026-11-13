@@ -1726,3 +1726,27 @@ uptime alerts and the passcode. Built here:
 - Patrick's remaining steps are in the readiness doc: the street address, DMARC to `p=quarantine`, the two Auth templates
   and the `EMAIL_CODES` switch, the Auth email rate limit raised before marketing, Turnstile's keys, Stripe, compute.
 
+
+### 9.38 Garry: the night told once it's over, and a better memory in the chat, 13 November 2026
+
+Patrick asked for Garry to sum up the night only after every game is played, and to be more clever and more
+interactive when someone talks to him.
+
+- **The night's wrap** (`recap` in `supabase/functions/garry/index.ts`): the half-hourly moments run first asks whether a
+  night has just ended (`nightToTell`, `nightOver`: every game on that date postponed, cancelled or final with its box
+  score in, `final_synced` or a FINAL untouched for 20 minutes) and, if it has, posts the night's recap with the day's
+  coin bonus within half an hour of the last final, written as tonight's wrap with tomorrow night's slate. The 9 am
+  `daily` run keeps its learning and voice notes and posts the recap only as a backstop (a stuck game, a job down),
+  told as the morning column; `meta.when` says which. Moments no longer calls a "monster night" or a "new leader"
+  while games are on (on 7 and 8 November he did at 11:37 pm); trades and hat tricks still post live, without summing
+  up the night. No cron change.
+- **The chat** (`converse`): each reply now also gets the message being replied to when it's off screen, his own earlier
+  back-and-forth with that GM over the last month (`exchanges`; the private line only on the private line), the league
+  lately (`leagueWire`: the last finished night's scores, his wrap of it, three days of adds, drops and trades) and a
+  card for every player named (`playerCards`: whose team, the season, the last five games, injury, news), with a
+  steer to connect what's said to those facts, take a side and answer what was actually said. Memories that share a
+  word with the message are pulled first (`recall`'s `about`), and the memory pass reads his own answers too, so a call
+  he or a GM made ("Terry's lead is gone by Christmas") is kept with its date and can be brought back. The player-name
+  list is kept ten minutes in a warm isolate (`nameList` in `answer.ts`).
+- **Migration 359** (`_mention_notify`): a GM's reply to one of Garry's posts wakes him like saying his name. Not live
+  until Patrick says "apply 359"; the function changes don't need it.
