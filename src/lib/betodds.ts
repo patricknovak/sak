@@ -34,67 +34,74 @@ function gamesLeft(team: string | null, from: string, to: string, ctx: OddsCtx) 
     && g.state !== 'PPD' && g.state !== 'CNCL').length;
 }
 
+// what's still to come for one side of a bet: the expected amount, its variance, and the pieces it was built from
+// (shown line by line on the bet's math sheet, so a GM can redo the sum)
+export interface Rest { mean: number; v: number; games?: number; perGame?: number; dress?: number; basis?: string }
+
 // a player's expected remaining output of one stat, and its variance
-function playerRest(id: number, stat: string, from: string, to: string, ctx: OddsCtx) {
+function playerRest(id: number, stat: string, from: string, to: string, ctx: OddsCtx): Rest {
   const p = ctx.players.get(id);
-  if (!p) return { mean: 0, v: 0 };
+  if (!p) return { mean: 0, v: 0, games: 0 };
   const n = gamesLeft(p.nhl_team, from, to, ctx);
   const dress = Math.min(1, gamesOf(p) / 82) * healthFactor(p.injury_status);
-  let perGame: number;
-  if (stat === 'fpts') perGame = p.proj / gamesOf(p);
-  else { const ls = p.last_stats ?? {}; perGame = ls.gp ? (ls[stat] ?? 0) / ls.gp : 0; }
+  let perGame: number, basis: string;
+  if (stat === 'fpts') { perGame = p.proj / gamesOf(p); basis = `projection ${Math.round(p.proj)} pts over ${Math.round(gamesOf(p))} games`; }
+  else { const ls = p.last_stats ?? {}; perGame = ls.gp ? (ls[stat] ?? 0) / ls.gp : 0; basis = ls.gp ? `${ls[stat] ?? 0} in ${ls.gp} games this season` : 'no games yet this season'; }
   const mean = n * dress * perGame;
   // fantasy points swing about as much as their mean (plus a floor); counting stats are roughly Poisson
   const perVar = stat === 'fpts' ? Math.max(0.6, perGame * 1.4) : stat === 'pm' ? 1.3 : Math.max(0.05, perGame);
-  return { mean, v: n * dress * perVar };
+  return { mean, v: n * dress * perVar, games: n, perGame, dress, basis };
 }
 
-// a SaK team's expected remaining points in [from, to] (best lineup each day), and its variance
-const teamCache = new Map<string, { mean: number; v: number }>();
-function teamRest(team: number, from: string, to: string, ctx: OddsCtx) {
+// a fantasy team's expected remaining points in [from, to] (best lineup each day), and its variance
+const teamCache = new Map<string, Rest>();
+function teamRest(team: number, from: string, to: string, ctx: OddsCtx): Rest {
   const lo = from > ctx.today ? from : ctx.today;
-  if (lo > to) return { mean: 0, v: 0 };
+  if (lo > to) return { mean: 0, v: 0, games: 0 };
   const key = `${team}|${lo}|${to}|${ctx.started.size}`;
   const hit = teamCache.get(key);
   if (hit) return hit;
   const roster = ctx.rosterOf(team) as unknown as FPlayer[];
   const games = ctx.games.filter((g) => !(g.date === ctx.today && (ctx.started.has(`${g.date}|${g.home}`) || ctx.started.has(`${g.date}|${g.away}`))));
   const f = forecastTeam(team, roster, games, ctx.caps, lo, 0, to);
-  const out = { mean: f.ros, v: f.ros * 1.44 + (0.08 * f.ros) ** 2 };
+  const nights = new Set(games.filter((g) => g.date >= lo && g.date <= to && g.state !== 'PPD' && g.state !== 'CNCL').map((g) => g.date)).size;
+  const out: Rest = { mean: f.ros, v: f.ros * 1.44 + (0.08 * f.ros) ** 2, games: nights, basis: 'best lineup each night from the projections' };
   teamCache.set(key, out);
   return out;
 }
 
-// chance the bet's creator wins (null when there's nothing to model: custom bets, or not enough info)
-export function betWinChance(b: Bet, pr: BetProgress | undefined, ctx: OddsCtx): { creator: number } | { pool: Map<number, number> } | null {
+// the whole sum behind a bet's live odds: what each side has banked, what's still to come, and the chance that follows
+export type WinDetail =
+  | { kind: 'vs'; a: { banked: number; rest: Rest }; b: { banked: number; rest: Rest }; mean: number; sd: number; z: number; creator: number }
+  | { kind: 'line'; banked: number; rest: Rest; line: number; creatorSide: 'over' | 'under'; mean: number; sd: number; z: number; over: number; creator: number }
+  | { kind: 'pool'; parts: { team: number; pick: number; banked: number; rest: Rest; sd: number; chance: number }[]; runs: number };
+
+export function betWinDetail(b: Bet, pr: BetProgress | undefined, ctx: OddsCtx): WinDetail | null {
   if (!pr) return null;
   const from = b.start_date ?? ctx.today;
   const to = b.kind === 'season' ? ctx.seasonEnd ?? b.end_date ?? ctx.today : b.end_date ?? ctx.today;
   const s = b.subject ?? {};
+  const vs = (A: Rest, B: Rest): WinDetail => {
+    const mean = (pr.a ?? 0) + A.mean - (pr.b ?? 0) - B.mean, sd = Math.sqrt(A.v + B.v);
+    return { kind: 'vs', a: { banked: pr.a ?? 0, rest: A }, b: { banked: pr.b ?? 0, rest: B }, mean, sd, z: sd > 1e-6 ? mean / sd : 0, creator: pAhead(mean, sd) };
+  };
+  const line = (R: Rest): WinDetail => {
+    const mean = (pr.value ?? 0) + R.mean - (pr.line ?? 0), sd = Math.sqrt(R.v);
+    const over = pAhead(mean, sd), side = s.side === 'under' ? 'under' : 'over';
+    return { kind: 'line', banked: pr.value ?? 0, rest: R, line: pr.line ?? 0, creatorSide: side, mean, sd, z: sd > 1e-6 ? mean / sd : 0, over, creator: side === 'under' ? 1 - over : over };
+  };
   if (b.kind === 'h2h' || b.kind === 'season') {
     const f = b.kind === 'season' ? ctx.seasonStart ?? from : from;
-    const A = teamRest(b.creator_team, f, to, ctx), B = teamRest(b.opponent_team ?? 0, f, to, ctx);
-    return { creator: pAhead((pr.a ?? 0) + A.mean - (pr.b ?? 0) - B.mean, Math.sqrt(A.v + B.v)) };
+    return vs(teamRest(b.creator_team, f, to, ctx), teamRest(b.opponent_team ?? 0, f, to, ctx));
   }
-  if (b.kind === 'team_ou') {
-    const A = teamRest(b.creator_team, from, to, ctx);
-    const over = pAhead((pr.value ?? 0) + A.mean - (pr.line ?? 0), Math.sqrt(A.v));
-    return { creator: s.side === 'under' ? 1 - over : over };
-  }
-  if (b.kind === 'player_ou' && s.player_id) {
-    const R = playerRest(s.player_id, s.stat ?? 'fpts', from, to, ctx);
-    const over = pAhead((pr.value ?? 0) + R.mean - (pr.line ?? 0), Math.sqrt(R.v));
-    return { creator: s.side === 'under' ? 1 - over : over };
-  }
-  if (b.kind === 'player_vs' && s.player_a && s.player_b) {
-    const A = playerRest(s.player_a, s.stat ?? 'fpts', from, to, ctx), B = playerRest(s.player_b, s.stat ?? 'fpts', from, to, ctx);
-    return { creator: pAhead((pr.a ?? 0) + A.mean - (pr.b ?? 0) - B.mean, Math.sqrt(A.v + B.v)) };
-  }
+  if (b.kind === 'team_ou') return line(teamRest(b.creator_team, from, to, ctx));
+  if (b.kind === 'player_ou' && s.player_id) return line(playerRest(s.player_id, s.stat ?? 'fpts', from, to, ctx));
+  if (b.kind === 'player_vs' && s.player_a && s.player_b) return vs(playerRest(s.player_a, s.stat ?? 'fpts', from, to, ctx), playerRest(s.player_b, s.stat ?? 'fpts', from, to, ctx));
   if ((b.kind === 'pool_team' || b.kind === 'pool_player') && pr.entries?.length) {
     // simulate: each entry's final total, most wins (ties split)
     const parts = pr.entries.map((e) => {
       const R = b.kind === 'pool_team' ? teamRest(e.pick, from, to, ctx) : playerRest(e.pick, s.stat ?? 'fpts', from, to, ctx);
-      return { team: e.team_id, mean: e.value + R.mean, sd: Math.sqrt(R.v) };
+      return { team: e.team_id, pick: e.pick, banked: e.value, rest: R, mean: e.value + R.mean, sd: Math.sqrt(R.v) };
     });
     const wins = new Map(parts.map((p) => [p.team, 0]));
     const N = 2000;
@@ -107,9 +114,16 @@ export function betWinChance(b: Bet, pr: BetProgress | undefined, ctx: OddsCtx):
       const top = parts.filter((_, j) => vals[j] >= best - 1e-9);
       for (const t of top) wins.set(t.team, wins.get(t.team)! + 1 / top.length);
     }
-    return { pool: new Map([...wins].map(([t, w]) => [t, w / N])) };
+    return { kind: 'pool', runs: N, parts: parts.map((p) => ({ team: p.team, pick: p.pick, banked: p.banked, rest: p.rest, sd: p.sd, chance: wins.get(p.team)! / N })) };
   }
   return null;
+}
+
+// chance the bet's creator wins (null when there's nothing to model: custom bets, or not enough info)
+export function betWinChance(b: Bet, pr: BetProgress | undefined, ctx: OddsCtx): { creator: number } | { pool: Map<number, number> } | null {
+  const d = betWinDetail(b, pr, ctx);
+  if (!d) return null;
+  return d.kind === 'pool' ? { pool: new Map(d.parts.map((p) => [p.team, p.chance])) } : { creator: d.creator };
 }
 
 // ───────────── Garry's Book: live chances for each option on a market ─────────────

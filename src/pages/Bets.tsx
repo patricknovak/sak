@@ -14,7 +14,8 @@ import { ago, etToday, fmtDate, fmtMoney, fmtPts } from '../lib/format';
 import { Empty, Section, Sheet, TeamBadge, TeamName, useAction, PageHeader, Coin, Rank } from '../components/ui';
 import { BookOpen, Dices, Lightbulb, Sparkles, Trophy } from 'lucide-react';
 import { useSeasonGames } from '../lib/projections';
-import { betWinChance, type OddsCtx } from '../lib/betodds';
+import { betWinDetail, type OddsCtx, type WinDetail } from '../lib/betodds';
+import { BetMath } from '../components/BetMath';
 import { betMoves } from '../lib/betresults';
 
 interface Daily { team_id: number; date: string; points: number }
@@ -130,12 +131,19 @@ export default function Bets() {
     for (const r of rosters) if (r.slot !== 'IR') { const p = players.get(r.player_id); if (p) byTeam.set(r.team_id, [...(byTeam.get(r.team_id) ?? []), p]); }
     return { today, games: seasonGames, started, players, rosterOf: (t) => byTeam.get(t) ?? [], caps: (league?.roster ?? {}) as Record<string, number>, seasonStart: league?.season_start, seasonEnd: league?.season_end };
   }, [seasonGames, games, rosters, players, league, sport]);
-  const chances = useMemo(() => {
-    const out: Record<number, ReturnType<typeof betWinChance>> = {};
+  // the whole sum behind each bet's odds (the math sheet shows it line by line); the chances on the cards come from it
+  const details = useMemo(() => {
+    const out: Record<number, WinDetail | null> = {};
     if (!oddsCtx) return out;
-    for (const b of liveTracked) { try { out[b.id] = betWinChance(b, progress[b.id], oddsCtx); } catch { out[b.id] = null; } }
+    for (const b of liveTracked) { try { out[b.id] = betWinDetail(b, progress[b.id], oddsCtx); } catch { out[b.id] = null; } }
     return out;
   }, [liveTracked, progress, oddsCtx]);
+  const chances = useMemo(() => {
+    const out: Record<number, { creator: number } | { pool: Map<number, number> } | null> = {};
+    for (const [id, d] of Object.entries(details)) out[Number(id)] = !d ? null : d.kind === 'pool' ? { pool: new Map(d.parts.map((p) => [p.team, p.chance])) } : { creator: d.creator };
+    return out;
+  }, [details]);
+  const [math, setMath] = useState<Bet | null>(null);
   const h2h = (b: Bet, t: number | null) => daily.filter((d) => d.team_id === t && (!b.start_date || d.date >= b.start_date) && (!b.end_date || d.date <= b.end_date)).reduce((s, d) => s + Number(d.points), 0);
   const rank = (t: number | null) => standings.find((s) => s.team_id === t)?.rank;
   const myBank = bank.find((b) => b.team_id === me?.id);
@@ -219,7 +227,9 @@ export default function Bets() {
   const Progress = ({ b }: { b: Bet }) => {
     const p = progress[b.id];
     if (!TRACKED.has(b.kind)) return null;
-    const bar = (v: number, line: number) => <div className="mt-1 h-1.5 w-full overflow-hidden rounded-full bg-white/[.08]"><div className="h-full rounded-full bg-gradient-to-r from-sky-400 to-emerald-400" style={{ width: `${Math.min(100, (v / Math.max(line * 1.5, 1)) * 100)}%` }} /></div>;
+    // the bar runs past the line (gold mark) so a GM sees at a glance whether it's over
+    const bar = (v: number, line: number) => { const top = Math.max(line * 1.6, v * 1.1, 1);
+      return <div className="relative mt-1.5 h-1.5 w-full rounded-full bg-white/[.08]"><div className={`h-full rounded-full ${v > line ? 'bg-emerald-400' : 'bg-gradient-to-r from-sky-400 to-sky-300'}`} style={{ width: `${Math.min(100, (v / top) * 100)}%` }} /><div className="absolute -top-1 h-3.5 w-0.5 rounded bg-gold" style={{ left: `${(line / top) * 100}%` }} /></div>; };
     if (b.kind === 'h2h' || b.kind === 'player_vs') {
       const a = p?.a ?? (b.kind === 'h2h' ? h2h(b, b.creator_team) : 0), bb = p?.b ?? (b.kind === 'h2h' ? h2h(b, b.opponent_team) : 0);
       const la = b.kind === 'h2h' ? team(b.creator_team)?.gm_name : pname(b.subject?.player_a), lb = b.kind === 'h2h' ? team(b.opponent_team)?.gm_name : pname(b.subject?.player_b);
@@ -312,6 +322,11 @@ export default function Bets() {
             {!b.push && !pool && (b.paid ? <span className="chip text-emerald-300">paid</span> : b.amount ? <span className="chip text-amber-300">unpaid {fmtMoney(b.amount)}</span> : null)}
             {!b.paid && !b.push && (b.winner_team === me?.id || me?.is_commish) && (!!b.amount || !!b.stake) && <button className="btn-ghost btn-sm ml-auto" onClick={() => run(async () => { await rpc('mark_bet_paid', { p_bet: b.id }); load(); }, 'Marked paid')}>Mark paid</button>}
           </div>
+        )}
+        {(TRACKED.has(b.kind) || (b.kind === 'season' && !!b.opponent_team)) && (b.status === 'accepted' || b.status === 'settled' || (pool && b.status === 'open')) && (
+          <button className="mt-2 flex w-full items-center justify-between rounded-xl border border-sky-400/20 bg-sky-500/[.07] px-3 py-2 text-left text-xs text-sky-100 transition hover:border-sky-400/40 active:scale-[.99]" onClick={() => setMath(b)}>
+            <span><span className="mr-1">🧮</span><b>Show the math</b><span className="text-sky-200/70"> · every game, the odds, the coins</span></span><span aria-hidden>›</span>
+          </button>
         )}
         <div className="mt-3 flex flex-wrap gap-2">
           {canJoin && <button className="btn-primary btn-sm" disabled={busy} onClick={() => setJoining(b)}>Buy in ({b.coins} ☘️)</button>}
@@ -504,8 +519,13 @@ export default function Bets() {
         </Section>
       )}
       {groups.settled.length > 0 && <BetResults bets={groups.settled} entries={entries} />}
-      <p className="text-center text-xs text-mute">How the numbers work: fantasy points come from the NHL box scores, the same ones as the standings. Tracked bets settle at 8:45 a.m. ET the morning after they end, once stat corrections are in. Ties push. <Link to="/league?t=rules" className="text-sky-300">Rulebook</Link></p>
+      <p className="text-center text-xs text-mute">How the numbers work: fantasy points come from the NHL box scores, the same ones as the standings. Tracked bets settle at 12:45 UTC (7:45 a.m. ET in winter, 8:45 in summer) the morning after they end, once stat corrections are in. Show the math on any tracked bet to check every game it counts. Ties push. <Link to="/league?t=rules" className="text-sky-300">Rulebook</Link></p>
       </>}
+
+      {/* ───── the math behind one bet */}
+      <Sheet open={!!math} onClose={() => setMath(null)} title={math ? <span className="line-clamp-2 pr-2">🧮 {math.title}</span> : undefined} wide>
+        {math && <BetMath bet={bets.find((x) => x.id === math.id) ?? math} entries={entries} detail={details[math.id] ?? null} statLabel={(k) => L(STAT_LABEL[k])} onClose={() => setMath(null)} />}
+      </Sheet>
 
       {/* ───── new bet */}
       <Sheet open={open} onClose={() => setOpen(false)} title="New side bet" wide>
