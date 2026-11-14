@@ -1782,6 +1782,12 @@ interactive when someone talks to him.
   lost is rewritten; the next slate lists every team's count (a two-game night says so). In the chat, the league feed's
   lines are marked as such and `leagueWire` carries the trade offers of the last three days as the site posted them,
   with whether each is still open.
+- *14 November 2026, the second night.* The standings were right this time (Panagiotis past Craig into fifth, the only move,
+  the 2.9-point lead turned 7.5 behind). Two things weren't: the wrap retold the Avalanche losing MacKinnon and Makar
+  (the night before's story; the news window was a flat 30 hours, now it starts at the last column), and it had
+  Scheifele, Lundell, Fiala and McMichael "all stayed out" on a two-game night their clubs didn't play in (a news player
+  now says whether his club played). Correction to the first review: MacKinnon did leave the 12 November game hurt, so
+  "lost MacKinnon to injury" was fair; the day-to-day check now flags only "out", "sidelined", "ruled out" and the like.
 
 ### 9.40 Side bets show their math, 13 November 2026
 

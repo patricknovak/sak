@@ -174,7 +174,7 @@ or a pick; if you don't know, say so in character.`
     : `How you think (you know ${W().game} and fantasy ${W().game} cold, and it shows):
 - Lineup advice is only advice when there's a move to make: someone who plays tonight, can fill that slot, and replaces a
   starter who won't play or is clearly worse. A starter with no game costs nothing when nobody on the bench plays. A
-  day-to-day player usually plays, and day-to-day is never "out", "lost" or "sidelined". An injured starter is only a problem when someone can take his spot. Never tell a GM to
+  day-to-day player usually plays, and day-to-day is never "out" or "sidelined" (a player who left a game hurt did leave it; say what the facts say). An injured starter is only a problem when someone can take his spot. Never tell a GM to
   bench, swap or start anyone unless the facts give you that exact move.
 - Goalies swing nights: a confirmed starter against a backup is the biggest single call of the day.
 - The season is long: one night rarely decides anything. The gaps, the week's form, who passed whom, the schedule and a
@@ -686,22 +686,31 @@ async function storylines(yday: { team_id: number; points: number }[], standings
   // the NHL's news from the last day about players on the league's rosters
   const { data: rs } = await from('rosters').select('team_id,player_id,slot');
   const owner = new Map((rs ?? []).map((r) => [r.player_id as number, r.team_id as number]));
-  const { data: news } = await db.from('news').select('headline,player_ids,published').gt('published', new Date(Date.now() - 30 * 3600000).toISOString()).order('published', { ascending: false }).limit(40);
+  // the news since the last column, so a story isn't told twice: the 13 November wrap retold the Avalanche losing
+  // MacKinnon and Makar, which the 12 November wrap had already told (the window was a flat 30 hours)
+  const { data: lastCol } = await from('messages').select('created_at').eq('kind', 'bot').contains('meta', { bot: 'garry', type: 'recap' }).lt('meta->>date', yesterday).order('id', { ascending: false }).limit(1);
+  const since = Math.max(Date.now() - 30 * 3600000, Date.parse(lastCol?.[0]?.created_at ?? '') || 0);
+  const { data: news } = await db.from('news').select('headline,player_ids,published').gt('published', new Date(since).toISOString()).order('published', { ascending: false }).limit(40);
   const items = (news ?? []).map((a) => ({ headline: a.headline as string, ids: ((a.player_ids ?? []) as number[]).filter((id) => owner.has(id)) }))
     .filter((a) => a.ids.length && !/fantasy|pickups|waiver|rankings/i.test(a.headline) && !/\?\s*$/.test(a.headline)).slice(0, 5);
   // each story with the league's players it's about, whose team they're on and what they really scored last night, so
   // the column never adds a stat the headline doesn't have
   const nids = [...new Set(items.flatMap((a) => a.ids))];
   const [{ data: np }, { data: ng }] = nids.length ? await Promise.all([
-    from('players').select('id,name,injury_status').in('id', nids),
+    from('players').select('id,name,injury_status,nhl_team').in('id', nids),
     from('player_games').select('player_id,fpts,stats').eq('date', yesterday).in('player_id', nids),
   ]) : [{ data: [] }, { data: [] }];
   const nname = new Map((np ?? []).map((p) => [p.id as number, p.name as string]));
   const nstatus = new Map((np ?? []).map((p) => [p.id as number, (p.injury_status as string | null) ?? null]));
+  // whose club played that night: a player whose club was off didn't "stay out" (the 13 November wrap had Scheifele,
+  // Lundell, Fiala and McMichael "all stayed out" on a two-game night none of their clubs played in)
+  const { data: played } = await from('games').select('home,away').eq('date', yesterday);
+  const onIce = new Set((played ?? []).flatMap((g) => [g.home, g.away]));
+  const nclub = new Map((np ?? []).map((p) => [p.id as number, p.nhl_team as string | null]));
   const nfp = new Map((ng ?? []).map((g) => [g.player_id as number, Number(g.fpts)]));
   const nline = new Map((ng ?? []).map((g) => [g.player_id as number, statWords(g.stats as Record<string, number>)]));
   const about = items.map((a) => ({ headline: a.headline, players: a.ids.map((id) => ({ player: nname.get(id) ?? 'unknown', on_team_of: gm(owner.get(id)!),
-    last_night: nfp.has(id) ? `${Math.round(nfp.get(id)! * 10) / 10} fantasy points (${nline.get(id)})` : 'did not play',
+    last_night: nfp.has(id) ? `${Math.round(nfp.get(id)! * 10) / 10} fantasy points (${nline.get(id)})` : onIce.has(nclub.get(id) ?? '') ? 'his club played; he did not' : 'his club had no game (the headline is about an earlier game)',
     // his listed status now: day-to-day is not out (the 12 November wrap had Terry "lose MacKinnon to injury", day-to-day
     // and in the lineup that night)
     status_now: nstatus.get(id) ? `${nstatus.get(id)}${/day/i.test(nstatus.get(id)!) ? ' (may well play; not out)' : ''}` : 'healthy' })) }));
@@ -1089,7 +1098,7 @@ async function recap(yesterday: string, when: 'night' | 'morning') {
             for (const sentence of b.split(/(?<=[.!?])\s+|\n+/)) {
               const low = sentence.toLowerCase();
               const who = dtd.find((x) => low.includes(x));
-              if (who && /\b(lost|loses|losing|out for|ruled out|sidelined|done for|injured reserve|is out)\b/.test(low)) return `it calls ${who} out or lost, and he's day-to-day`;
+              if (who && /\b(out for|ruled out|sidelined|done for|injured reserve|is out|are out|on ir)\b/.test(low)) return `it calls ${who} out or lost, and he's day-to-day`;
             }
             return null;
           };
