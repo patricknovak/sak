@@ -1788,6 +1788,36 @@ interactive when someone talks to him.
   Scheifele, Lundell, Fiala and McMichael "all stayed out" on a two-game night their clubs didn't play in (a news player
   now says whether his club played). Correction to the first review: MacKinnon did leave the 12 November game hurt, so
   "lost MacKinnon to injury" was fair; the day-to-day check now flags only "out", "sidelined", "ruled out" and the like.
+- *19 November 2026, the rebuild.* Patrick: "very incoherent and inaccurate making it not very entertaining". A week of
+  posts read against the league's own numbers: five of six wraps had a number on the wrong GM or a gap told backwards
+  (Todd's 5-point night "trimmed Jason's gap by 3.3", the 3.3 being Todd's gap to Patrick; Trystan "widened his cushion
+  on Darin by 4.7" when it shrank by 0.2; Trystan "couldn't close the four-point gap to Craig", 39 back), and the 17
+  November wrap left out Darin's 31.7, the best night in the league. The trade take on Hagel and Jarry for Keller and
+  Seth Jones gave Patrick "the better goalie upgrade" (he sent the goalie away), called the players keepers and put
+  made-up words in Terry's mouth. In the chat Craig was told IR players count against the roster and a day-to-day player
+  can't go on IR, both false, and told again after he corrected it. And the same gags (Terry's "daddy", Jason's Oilers)
+  ran in post after post. The fix is to stop asking the model to find the story in a blob of numbers:
+  - The wrap's stories are worked out in code (`beats.ts`): the best night (always told), every pass with where each
+    team was and is, each gap to the team ahead that moved, told as closed or grew with its own numbers, the best and
+    the worst starter, the costliest bench call, a lopsided week, the news about the GMs' players, a short lineup on the
+    next slate. Each is one sentence with its numbers and the GMs and players it's about, ranked by weight; the top six
+    go to the model as `stories_ranked`, with every team's night and total beside them, and nothing else. `beatsCheck`
+    holds the post to them: every number is one a story gives, a gap or pass number sits only in a clause with the GMs
+    of that story, a gap that grew is never "trimmed" (or the other way round), and no rostered player is named who
+    isn't in a story. The wrap is written with a little reasoning (`effort: 'low'`) and the fallback is the stories
+    themselves, best night first.
+  - The trade take gets what each side **gets** (this season's points, games, the full-season projection, injury, the
+    pick's round and year) and a verdict on projections worked out in code; it is told to quote nobody.
+  - Every post's quotes are checked (`quoteCheck` in `voice.ts`): words in quotation marks must be in what he was given,
+    said by the GM the sentence puts them on. A memory whose bit turned up in his last eight posts rests until they
+    scroll out (`rested`), and memories carrying a GM's swearing are left out of every post (`CRUDE`).
+  - In the chat the asker's card has their whole roster slot by slot with each player's injury listing and whether he
+    can go on IR (`roster_now`), and "How the site works" lists the roster and IR rules as the SQL enforces them
+    (`siteRules`): he states no other rule, answers rules questions plainly before any joke, and when told he's wrong
+    checks the facts and concedes if they say so.
+  - The persona says how to write: one idea per sentence, a number always says what it is and whose it is, a line that
+    needs a missing fact is dropped, and a gag never runs in two posts in a row.
+  `supabase/tests/garry-beats.test.mjs` replays the 17 November night and that wrap's mistakes.
 
 ### 9.40 Side bets show their math, 13 November 2026
 
