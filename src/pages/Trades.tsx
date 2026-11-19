@@ -247,6 +247,9 @@ export default function Trades() {
   // a trade as a card. A render function, not a component made inside this page: a component defined in here would be a
   // new type on every render (the clock ticks, live scores land), so React would rebuild the card and everything in it,
   // and the analysis tabs and filters a GM had open would snap back to their defaults
+  // a line of what a side sends: the bullet keeps its own column, so a player whose chips (IR, out tonight, news) don't
+  // fit beside his name wraps under the name rather than leaving the bullet alone on a line of its own
+  const bullet = 'flex items-start gap-1.5';
   const tradeCard = (t: Trade, children?: React.ReactNode) => {
     const ps = partiesOf(t);
     return (
@@ -262,9 +265,9 @@ export default function Trades() {
                 {t.parties && t.status === 'proposed' && <span className="ml-auto text-xs" title={(t.accepted_by ?? []).includes(side) ? 'Accepted' : 'Waiting'}>{(t.accepted_by ?? []).includes(side) ? '✅' : '⏳'}</span>}</div>
               <div className="text-xs text-mute">sends</div>
               {t.parties ? (
-                <ul className="space-y-0.5 text-sm">{ps.filter((o) => o !== side).flatMap((o) => describe(t, side, o).map((d) => <li key={`${o}-${d.k}`}>• {d.n} <span className="text-mute">→ {team(o)?.abbrev}</span></li>))}{describe(t, side).length === 0 && <li className="text-mute">nothing</li>}</ul>
+                <ul className="space-y-0.5 text-sm">{ps.filter((o) => o !== side).flatMap((o) => describe(t, side, o).map((d) => <li key={`${o}-${d.k}`} className={bullet}><span aria-hidden>•</span><span className="min-w-0">{d.n} <span className="text-mute">→ {team(o)?.abbrev}</span></span></li>))}{describe(t, side).length === 0 && <li className="text-mute">nothing</li>}</ul>
               ) : (
-                <ul className="space-y-0.5 text-sm">{describe(t, side).map((d) => <li key={d.k}>• {d.n}</li>)}{describe(t, side).length === 0 && <li className="text-mute">nothing</li>}</ul>
+                <ul className="space-y-0.5 text-sm">{describe(t, side).map((d) => <li key={d.k} className={bullet}><span aria-hidden>•</span><span className="min-w-0">{d.n}</span></li>)}{describe(t, side).length === 0 && <li className="text-mute">nothing</li>}</ul>
               )}
               {(t.trade_items ?? []).filter((i) => i.release && i.from_team === side).map((i) => <div key={i.id} className="mt-0.5 text-xs text-amber-200">✂️ drops {players.get(i.player_id!)?.name ?? 'a player'} to make room</div>)}
             </div>
