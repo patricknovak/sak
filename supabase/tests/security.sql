@@ -129,4 +129,23 @@ select pg_temp.expect('league_members.read_mine_or_league uses select auth.uid()
   (select qual from pg_policies where schemaname = 'public' and tablename = 'league_members' and policyname = 'read_mine_or_league')
   ~* '[(][[:space:]]*select auth[.]uid[(]');
 
+-- ───────────── safeupdate: every update and delete in a function names its rows ─────────────
+-- The site's API connections load Postgres's safeupdate guard, which refuses an UPDATE or DELETE with no WHERE, even
+-- inside a function; this database and pg_cron don't, so such a statement passes here and fails for a GM. Trade
+-- approval broke this way (migration 360). Write `where true` when every row is meant.
+select pg_temp.expect('no update or delete without a WHERE in a function (safeupdate): ' || coalesce((
+  select string_agg(distinct p.proname, ', ')
+  from pg_proc p join pg_namespace n on n.oid = p.pronamespace,
+    regexp_matches(regexp_replace(p.prosrc, '--[^\n]*', '', 'g'),
+      '(\m(?:update\s+[\w.]+(?:\s+\w+)?\s+set|delete\s+from)\M[^;]*;)', 'gi') m
+  where n.nspname in ('public', 'private', 'ops') and p.prolang in (select oid from pg_language where lanname in ('plpgsql', 'sql'))
+    and m[1] !~* '\mwhere\M'), 'none'),
+  not exists (
+  select 1
+  from pg_proc p join pg_namespace n on n.oid = p.pronamespace,
+    regexp_matches(regexp_replace(p.prosrc, '--[^\n]*', '', 'g'),
+      '(\m(?:update\s+[\w.]+(?:\s+\w+)?\s+set|delete\s+from)\M[^;]*;)', 'gi') m
+  where n.nspname in ('public', 'private', 'ops') and p.prolang in (select oid from pg_language where lanname in ('plpgsql', 'sql'))
+    and m[1] !~* '\mwhere\M'));
+
 select 'security surface', true;

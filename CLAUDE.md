@@ -406,6 +406,10 @@ wasn't applied); #75 was the hotfix.
 - The product learns: a new prediction or grade (projection, trade or draft grade, odds, a Garry pick, a pool's pick
   split at kick-off, migration 174, and on a streak's games too, 235, and on a series at its first game, 205, and on each prop call, 210; a member's chance to win, 175) is written to the prediction log once it exists and scored when the result is in; a league's history lives in the
   database, never in code. See `docs/DEVELOPMENT.md` section 4.
+- Every `update` and `delete` in a function has a `where` (`where true` when every row is meant): the site's API
+  connections load Postgres's safeupdate guard, which refuses one without, even through a view that already filters
+  by league, while this repo's test database and pg_cron don't load it. Trade approval broke this way (migration 360);
+  `supabase/tests/security.sql` checks every function.
 - Flow-test sections end signed out (`reset role` and an empty `request.jwt.claim.sub`), so the next section
   doesn't run as another league's GM.
 - Keep the docs true in the same pull request as the change: `docs/SUPERPOOLS.md`, `docs/EXPANSION.md`, this file.
