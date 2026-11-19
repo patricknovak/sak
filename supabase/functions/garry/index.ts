@@ -28,7 +28,9 @@ import { gradeTeams, lineupStrength, type GP } from '../_shared/grades.ts';
 import { answer, findPlayers } from './answer.ts';
 import { night, type Night, type TeamNight } from './tonight.ts';
 import { salvage } from './salvage.ts';
-import { movesCheck, tableCheck, type TableRow } from './moves.ts';
+import { movesCheck } from './moves.ts';
+import { buildBeats, pickBeats, scoreBeats, dateBeat, beatsCheck, plainWrap, type Beat } from './beats.ts';
+import { rested, quoteCheck, CRUDE } from './voice.ts';
 import { gradeAllKeepers, type KP } from '../_shared/keepers.ts';
 
 const db = createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!, {
@@ -187,6 +189,12 @@ the room. Roast everyone equally, leader and last place alike. The funniest line
 a 0.4-point race, the player who's carried someone all month, a GM's own words thrown back at them, a running gag. Specific
 beats generic every time. Keep it PG-13: no slurs, nothing about anyone's family, looks, jobs or real-life problems; the
 chirps are about ${pool ? 'their calls' : `${W().game} decisions`}, results, bets and chat only.
+
+How you write, because a joke built on a muddled fact isn't funny: one idea per sentence, and every sentence about the
+people it names. A number always says what it is (a night's score, a season total, a gap and between whom) and is never
+moved from one person's story to another's. If a line needs a fact you don't have, drop the line. One sharp chirp beats
+three soft ones. A running gag lands when it's been a while; never in two posts running, and never the same bit on the
+same GM every day. Never repeat a GM's swearing or crude lines; a gag can be pointed at without its language.
 
 ${sense}
 
@@ -380,17 +388,19 @@ async function recentLines(n = 6): Promise<string[]> {
 // `check`: a written post that fails it (a number or a time the facts don't hold) is written once more with the
 // reason, then falls back to the plain line
 async function write(task: string, facts: unknown, fallback: string, maxWords = 180, focus: number[] = [],
-  opts: { fresh?: boolean; check?: (body: string) => string | null; numbers?: boolean; extra?: (body: string) => string | null } = {}): Promise<string> {
+  opts: { fresh?: boolean; check?: (body: string) => string | null; numbers?: boolean; extra?: (body: string) => string | null; effort?: Effort; memories?: number } = {}): Promise<string> {
   if (dry()) runs.getStore()!.drafts = [...(runs.getStore()!.drafts ?? []), { body: '', meta: { task, facts } }];
   if (!apiKey) return fallback;
   const { byId } = await base();
-  const [mem, st, now, mine] = await Promise.all([opts.fresh ? [] : recall(byId, focus), state(), situation(), opts.fresh ? [] : recentLines(6)]);
+  const [remembered, st, now, mine] = await Promise.all([opts.fresh ? [] : recall(byId, focus, 40), state(), situation(), opts.fresh ? [] : recentLines(8)]);
+  // a gag he used in his last few posts rests until they scroll out (19 November: Terry's "daddy" in four wraps of six)
+  const mem = rested(remembered.filter((x) => !CRUDE.test(x)), mine, [bot(), ...[...byId.values()].map((t) => t.gm_name.split(/\s+/)[0])]).slice(0, opts.memories ?? 40);
   const ask = (extra = '') => grok(system(st), [
     `Right now: ${now}`,
     mem.length ? `Things you remember about the league and its GMs (use them naturally when relevant, never list them, never contradict the facts):\n${mem.map((m) => '- ' + m).join('\n')}` : '',
     mine.length ? `Your last few posts (don't reuse their openers, jokes or nudges):\n${mine.map((m) => '- ' + m).join('\n')}` : '',
     `${task}\nKeep it under ${maxWords} words. Every number, stat and result you write is in the facts${opts.fresh ? '' : ' or what you remember'}; if it isn't, leave it out.${extra}\n\nFacts (JSON):\n${JSON.stringify(facts)}`,
-  ].filter(Boolean).join('\n\n'), 1200, 0.75);
+  ].filter(Boolean).join('\n\n'), 1200, 0.75, false, opts.effort ?? 'none');
   let text = await ask();
   // a league post's numbers come from its facts, the league right now or what he remembers, nowhere else
   if (opts.numbers && !opts.check) {
@@ -403,8 +413,10 @@ async function write(task: string, facts: unknown, fallback: string, maxWords = 
     const bad = [...new Set([...body.matchAll(/@(\p{L}[\p{L}\p{N}_-]*)/gu)].map((m) => m[1]).filter((n) => !people.has(n.toLowerCase())))];
     return bad.length ? `it tags @${bad.join(', @')}, who isn't in the league` : null;
   };
+  // words in quotation marks were said, by whoever the sentence says said them
+  const quotes = quoteCheck([...mem, ...mine, JSON.stringify(facts)], [...byId.values()].map((t) => t.gm_name.split(/\s+/)[0]));
   const own = opts.check;
-  opts.check = (body) => tags(body) ?? own?.(body) ?? opts.extra?.(body) ?? null;
+  opts.check = (body) => tags(body) ?? quotes(body) ?? own?.(body) ?? opts.extra?.(body) ?? null;
   if (text && opts.check) {
     const bad = opts.check(text);
     if (bad) {
@@ -717,6 +729,8 @@ async function storylines(yday: { team_id: number; points: number }[], standings
   return {
     standings_moves: passed.slice(0, 6), rank_changes: moved.length ? moved : ['nobody moved in the table'], table_after_the_night: table, races: gaps.filter((g) => g.by <= 6).map((g) => `${g.behind} (${ORD(g.rank - 1)}) leads ${g.gm} (${ORD(g.rank)}) by ${g.by}`), gap_first_to_last: Math.round(((now[0]?.pts ?? 0) - (now.at(-1)?.pts ?? 0)) * 10) / 10,
     last_7_days: form, ...(when === 'night' ? { tomorrow_night: tonight } : { tonight }), nhl_news_about_their_players: about,
+    // the next slate as numbers, for the wrap's stories (taken out before the facts go anywhere)
+    slate_raw: n?.games ? { games: n.games, short: short.map((t) => ({ gm: gm(t.team_id), can: t.can_fill, of: t.slots })) } : null,
   };
 }
 
@@ -1033,8 +1047,6 @@ async function recap(yesterday: string, when: 'night' | 'morning') {
   // points left on the bench, only where they really cost something: a bench player who outscored a starter whose
   // slot he could have taken (a defenceman's points don't count against a centre's slot), each starter used once
   const benchRegret = benchCost(snaps ?? [], pg, pinfo, pname, byId);
-  const dayTable = [...daily].sort((a, b) => b.points - a.points).map((d) => ({ gm: byId.get(d.team_id)?.gm_name, team: byId.get(d.team_id)?.name, points: Number(d.points) }));
-  const season = [...standings].sort((a, b) => a.rank - b.rank).map((s) => ({ rank: s.rank, gm: byId.get(s.team_id)?.gm_name, team: byId.get(s.team_id)?.name, points: Number(s.points) }));
   const winner = [...daily].sort((a, b) => b.points - a.points)[0];
 
   // daily bonus: the top team of the day gets a few coins
@@ -1067,45 +1079,62 @@ async function recap(yesterday: string, when: 'night' | 'morning') {
     formatLine = table.length ? `Rotisserie: ${table.slice(0, 3).map((t) => `${t.rank}. @${t.gm} ${f1(t.roto_points)}`).join(', ')}.` : '';
   }
   const gFacts = await guillotineFacts(league, byId);
-  const facts = {
-    date: yesterday, day_scores: dayTable, season_standings: formatLine ? undefined : season, ...formatFacts,
-    top_performers: active.slice(0, 3), worst_starters: active.slice(-2).reverse(), left_on_bench: benchRegret,
-    daily_bonus: { gm: byId.get(winner.team_id)?.gm_name, coins: DAILY_BONUS },
-    stage: playoffs ? `${L.info.short_name} playoffs (NHL playoff games only; separate table and ${league.playoff_share ?? 40}% of the prize pool)` : 'regular season',
-    last_place_watch: playoffs || formatLine ? null : season.at(-1), ...(stories ?? {}),
-    ...(gFacts ? { guillotine: gFacts } : {}),
+  // the night's stories, worked out and ranked here; the model only tells them (beats.ts, 19 November 2026)
+  const nightRows = [...standings].map((x) => ({ gm: byId.get(x.team_id)?.gm_name ?? 'someone', now: Number(x.rank), points: Number(x.points),
+    tonight: Number((daily as any[]).find((d) => d.team_id === x.team_id)?.points ?? 0) }));
+  const slate = (stories as { slate_raw?: { games: number; short: { gm: string; can: number; of: number }[] } | null } | null)?.slate_raw ?? null;
+  if (stories) delete (stories as { slate_raw?: unknown }).slate_raw;
+  const all = buildBeats({
+    rows: nightRows, pointsTable: pointsTable || playoffs,
+    starters: active.map((l) => ({ gm: l.gm ?? 'someone', player: l.player ?? 'someone', fpts: l.fpts, line: l.line })),
+    bench: benchRegret.map((b) => ({ ...b, gm: b.gm ?? undefined })), week: (stories?.last_7_days ?? []) as { gm: string; points: number }[],
+    news: (stories?.nhl_news_about_their_players ?? []) as any[],
+    next: slate && !playoffs ? { label: when === 'night' ? 'Tomorrow night' : 'Tonight', ...slate } : null,
+    bonus: { gm: byId.get(winner.team_id)?.gm_name ?? '', coins: DAILY_BONUS },
+  });
+  const extraBeats: Beat[] = [];
+  if (formatLine) extraBeats.push({ kind: 'format', weight: 9, text: formatLine.replace(/@/g, ''), gms: teams.filter((t) => formatLine.includes(t.gm_name)).map((t) => t.gm_name), players: [], nums: (formatLine.match(/\d+(?:\.\d+)?/g) ?? []).map((x) => x.replace(/\.0+$/, '')) });
+  if (gFacts) { const g = JSON.stringify(gFacts); extraBeats.push({ kind: 'guillotine', weight: 20, text: `The guillotine: ${g}`, gms: teams.filter((t) => g.includes(t.gm_name)).map((t) => t.gm_name), players: [], nums: (g.match(/\d+(?:\.\d+)?/g) ?? []).map((x) => x.replace(/\.0+$/, '')) }); }
+  const told = [...extraBeats, ...pickBeats(all, 6)];
+  const scores = scoreBeats(nightRows);
+  const head = `${L.brand.bot.emoji} ${bot()}'s ${playoffs ? 'playoff ' : ''}${when === 'night' ? 'final horn' : 'morning skate'}, ${yesterday}.`;
+  const fallback = plainWrap(head, told.slice(0, 4));
+  // every rostered player's name, so the wrap names only the ones its stories are about (the 15 November wrap's "unless
+  // someone decides to start Vladar again" was about nobody's night)
+  const { data: rostered } = await from('rosters').select('player_id');
+  const rids = [...new Set((rostered ?? []).map((r) => r.player_id as number))];
+  const { data: rnames } = rids.length ? await from('players').select('name').in('id', rids) : { data: [] as any[] };
+  const roster = [...new Set([...(rnames ?? []).map((r) => String(r.name ?? '')), ...active.map((l) => l.player ?? '')])].filter(Boolean);
+  const people = teams.map((t) => ({ gm: t.gm_name, team: t.name }));
+  const storyCheck = beatsCheck([...told, ...scores, dateBeat(yesterday)], people, roster);
+  const climbs = Array.isArray(stories?.rank_changes) ? movesCheck(stories!.rank_changes, people) : () => null;
+  // a day-to-day player called lost, out or sidelined
+  const dtd = ((stories?.nhl_news_about_their_players ?? []) as { players: { player: string; status_now: string }[] }[])
+    .flatMap((a) => a.players).filter((p) => /day/i.test(p.status_now)).map((p) => p.player.split(/\s+/).at(-1)!.toLowerCase());
+  const hurt = (b: string) => {
+    for (const sentence of b.split(/(?<=[.!?])\s+|\n+/)) {
+      const low = sentence.toLowerCase();
+      const who = dtd.find((x) => low.includes(x));
+      if (who && /\b(out for|ruled out|sidelined|done for|injured reserve|is out|are out|on ir)\b/.test(low)) return `it calls ${who} out or lost, and he's day-to-day`;
+    }
+    return null;
   };
-  const top = active[0];
-  const fallback = [
-    `${L.brand.bot.emoji} ${bot()}'s ${playoffs ? 'playoff ' : ''}${when === 'night' ? 'final horn' : 'morning skate'}, ${yesterday}.`,
-    `${when === 'night' ? 'Tonight' : 'Last night'}: ${dayTable.map((d) => `${d.gm} ${f1(d.points)}`).join(' · ')}.`,
-    `${dayTable[0].gm} takes the day ${pick(['and the bragging rights', `like it was a ${W().rec} final`, 'with zero humility'])} and pockets ${DAILY_BONUS} ${coin().emoji} coins.`,
-    top ? `Star of the night: ${top.player} with ${f1(top.fpts)} for @${top.gm}.` : '',
-    benchRegret[0] ? `Meanwhile @${benchRegret[0].gm} left ${benchRegret[0].player} (${f1(benchRegret[0].fpts)}) on the bench over ${benchRegret[0].over} (${f1(benchRegret[0].over_fpts)}).` : '',
-    playoffs ? `Playoff table: ${season.slice(0, 3).map((x) => `${x.rank}. @${x.gm} ${f1(x.points)}`).join(', ')}.` : formatLine || `${L.brand.booby} watch: @${season.at(-1)?.gm} sitting in the basement at ${f1(season.at(-1)?.points ?? 0)}.`,
-  ].filter(Boolean).join(' ');
-  const body = await write(`${when === 'night' ? `Every game tonight is final. Write the night's wrap on tonight's ${L.info.short_name} ${playoffs ? 'playoff ' : ''}results for the league chat` : `Write this morning's column on last night's ${L.info.short_name} ${playoffs ? 'playoff ' : ''}results for the league chat`}; the night is over and every number is final. Lead with the best story in the facts (${gFacts?.just_cut ? 'the guillotine\'s cut first, then ' : ''}a pass in the standings, told with the spots and places rank_changes gives (nobody else moved), a gap that closed or grew as table_after_the_night says, a tight race, a big night, a costly bench call, a hot or cold week), not a list of scores; work in the NHL news about the GMs' own players if any is there (a headline says only what it says: add no stat, result or role it doesn't give; what the player did last night is given beside it), and ${when === 'night' ? "tomorrow night's slate" : "tonight's slate"} if it sets up something. It's a column the league reads for the laughs: at least two sharp, specific chirps (the GM who got passed, the one who blew a bench call, the one whose star is out, the leader who barely moved), each built on a fact given, and a running gag or something a GM said if one fits. No closing call to bet, trade or talk unless a fact sets it up.`, facts, fallback, 220, [], { numbers: true,
-    // a climb is told only for the GMs the table moved up (rank_changes is left out of a league that isn't a points table)
-    // and a "from fourth to third", a gap that "held" or "the same margin" only as the night's table has them
-    ...(Array.isArray((facts as { rank_changes?: unknown }).rank_changes)
-      ? { extra: ((people) => {
-          const climbs = movesCheck((facts as { rank_changes: string[] }).rank_changes, people);
-          const table = tableCheck(((facts as { table_after_the_night?: TableRow[] }).table_after_the_night ?? []), people);
-          // a day-to-day player called lost, out or sidelined
-          const dtd = ((facts as { nhl_news_about_their_players?: { players: { player: string; status_now: string }[] }[] }).nhl_news_about_their_players ?? [])
-            .flatMap((a) => a.players).filter((p) => /day/i.test(p.status_now)).map((p) => p.player.split(/\s+/).at(-1)!.toLowerCase());
-          const hurt = (b: string) => {
-            for (const sentence of b.split(/(?<=[.!?])\s+|\n+/)) {
-              const low = sentence.toLowerCase();
-              const who = dtd.find((x) => low.includes(x));
-              if (who && /\b(out for|ruled out|sidelined|done for|injured reserve|is out|are out|on ir)\b/.test(low)) return `it calls ${who} out or lost, and he's day-to-day`;
-            }
-            return null;
-          };
-          return (b: string) => climbs(b) ?? table(b) ?? hurt(b);
-        })(teams.map((t) => ({ gm: t.gm_name, team: t.name }))) } : {}) });
+  const wrapFacts = {
+    night: yesterday, stage: playoffs ? `${L.info.short_name} playoffs (NHL playoff games only; a separate table)` : 'regular season',
+    stories_ranked: told.map((b) => b.text),
+    every_teams_night: scores.map((b) => b.text),
+  };
+  const body = await write(`${when === 'night' ? 'Every game tonight is final. Write the night\'s wrap' : 'Write this morning\'s column on last night'} for the ${L.info.short_name} chat.
+stories_ranked is the night, already worked out and checked, most important first. It is everything you know about the night: tell the first two or three properly, touch the rest only if they add something, and drop any you like. every_teams_night is there only so you can give a GM's own score or total beside their name.
+Be clear first:
+- One story per sentence. A gap or a pass is between the GMs its story names, told the way the story tells it (closed or grew) with that story's numbers, never with another GM put in it.
+- At most two numbers in a sentence, each copied from the stories as written. Never work out a number of your own (no sums, differences or roundings).
+- Name no player, stat, game, injury or trade the stories don't give.
+Then be funny: the column is read for the laughs. Build each chirp on the story it's about (the GM who got passed, the quiet night, the points left on the bench, the leader who barely moved) and keep it about that GM. A running gag or something a GM said only when it fits that story and you haven't used it in your last posts. Open with the best story, not a list of scores, and end without a call to bet, trade or talk.`,
+    wrapFacts, fallback, 170, told.flatMap((b) => b.gms).map((g) => teams.find((t) => t.gm_name === g)?.id).filter((x): x is number => !!x),
+    { effort: 'low', memories: 12, check: (b: string) => storyCheck(b) ?? climbs(b) ?? hurt(b) });
   await post(body, { type: 'recap', date: yesterday, when });
-  return { posted: 'recap', date: yesterday, when, bonus: facts.daily_bonus };
+  return { posted: 'recap', date: yesterday, when, bonus: { gm: byId.get(winner.team_id)?.gm_name, coins: DAILY_BONUS }, stories: told.map((b) => b.text) };
 }
 
 // ─────────────── nudge ───────────────
@@ -1250,7 +1279,7 @@ const esc = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 const ORD = (n: number) => `${n}${['st', 'nd', 'rd'][((n + 90) % 100 - 10) % 10 - 1] ?? 'th'}`;
 
 // one card per GM: where they stand, who carries them, who's hurt, how they bet, what they've said lately
-async function gmCards(ids: number[], byId: Map<number, Team>, standings: any[], n: Night | null = null) {
+async function gmCards(ids: number[], byId: Map<number, Team>, standings: any[], n: Night | null = null, full: number[] = []) {
   if (!ids.length) return [];
   const [{ data: rows }, { data: bets }, { data: bals }, { data: said }, { data: modes }] = await Promise.all([
     from('rosters').select('team_id,player_id,slot').in('team_id', ids),
@@ -1278,6 +1307,12 @@ async function gmCards(ids: number[], byId: Map<number, Team>, standings: any[],
       standing: scored && st ? `${ORD(st.rank)}, ${f1(Number(st.points))} pts (today ${f1(Number(st.today))}, yesterday ${f1(Number(st.yesterday))}, bench ${f1(Number(st.bench ?? 0))})` : 'no points yet',
       carrying_them: mine.filter((r) => fp.get(r.player_id)).sort((a, b) => (fp.get(b.player_id) ?? 0) - (fp.get(a.player_id) ?? 0)).slice(0, 3).map((r) => `${pl.get(r.player_id)?.name} ${f1(fp.get(r.player_id) ?? 0)}`),
       hurt: mine.filter((r) => pl.get(r.player_id)?.injury_status).slice(0, 4).map((r) => `${pl.get(r.player_id)?.name} (${pl.get(r.player_id)?.injury_status})`),
+      // the whole roster, slot by slot, for the GM asking: on 18 November Craig asked about IR and was told Granlund and
+      // McCann were on it (Konecny was, healthy; Granlund was in Util) and that McCann couldn't go there (he could)
+      ...(full.includes(id) ? { roster_now: [...mine].sort((a, b) => SLOT_ORDER.indexOf(a.slot) - SLOT_ORDER.indexOf(b.slot)).map((r) => {
+        const p = pl.get(r.player_id), inj = p?.injury_status as string | null | undefined;
+        return `${r.slot}: ${p?.name}${inj ? ` (${inj}${r.slot === 'IR' ? '' : /suspen/i.test(inj) ? ', suspended: can\'t go on IR' : ', can go on IR'})` : r.slot === 'IR' ? ' (healthy now; may stay on IR)' : ''}`;
+      }) } : {}),
       autopilot: (modes ?? []).find((x) => x.id === id)?.auto_mode ?? 'off',
       bets_won_lost: `${mb.filter((b) => b.winner_team === id).length}-${mb.filter((b) => b.winner_team && b.winner_team !== id).length}`,
       coins_free: bal ? Number(bal.balance) - Number(bal.escrow) : null,
@@ -1290,6 +1325,28 @@ async function gmCards(ids: number[], byId: Map<number, Team>, standings: any[],
       }))(n.teams.get(id)!) } : {}),
     };
   });
+}
+
+const SLOT_ORDER = ['C', 'LW', 'RW', 'D', 'Util', 'G', 'BN', 'IR'];
+
+// how the site's roster rules really work, from the SQL that enforces them (move_player, add_player, _ir_ok), so a GM's
+// rules question is answered from the rules and never made up (18 November: Craig was told IR players count against the
+// roster and that a day-to-day player can't go on IR, both false, and told again after he corrected it)
+function siteRules(league: { roster?: Record<string, number> | null } | null) {
+  const caps = (league?.roster ?? {}) as Record<string, number>;
+  const active = Object.entries(caps).filter(([k]) => k !== 'IR').reduce((n, [, v]) => n + Number(v), 0);
+  const slots = Object.entries(caps).filter(([k]) => k !== 'IR' && k !== 'BN').map(([k, v]) => `${v} ${k}`).join(', ');
+  return [
+    `Lineup: ${slots} start; ${caps.BN ?? 0} bench spots. A player locks when his own game starts; everyone else can still move.`,
+    `Roster: at most ${active} players off IR. Players on IR don't count toward it.`,
+    ...(caps.IR ? [
+      `IR: ${caps.IR} spots. A player can be moved onto IR only while he's on the NHL injury report; any listing counts, day-to-day included; a suspension doesn't.`,
+      `A player on IR who gets healthy may stay there: it blocks nothing and costs nothing.`,
+      `A player comes off IR any time, even after his game has started, as long as the roster has a spot for him (under ${active} off IR); otherwise drop or trade someone first.`,
+    ] : []),
+    `Free-agent pickups are limited per season; extra pickups are traded between GMs, never bought.`,
+    `Nothing else about the rules is known here: if a GM asks about a rule not on this list, say you don't know it and point them to the commissioner.`,
+  ];
 }
 
 async function reply(messageId: number, dry = false) {
@@ -1425,10 +1482,10 @@ async function converse(m: ChatMsg) {
   const [st, now, mine, thread, cards, ans, mem, players, wire, parent] = await Promise.all([
     state(), situation(), recentLines(5),
     from('messages').select('id,team_id,kind,body').eq('channel', m.channel).eq('deleted', false).lte('id', m.id).order('id', { ascending: false }).limit(16),
-    L.kind === 'predict' ? Promise.resolve([]) : gmCards(cardIds, byId, standings, n),
+    L.kind === 'predict' ? Promise.resolve([]) : gmCards(cardIds, byId, standings, n, [m.team_id]),
     // a pool's facts come from its questions, never from the fantasy answer engine (no NHL slate in a Love Is Blind pool)
     L.kind === 'predict' ? Promise.resolve(null) : answer(facade(), m.body, m.team_id, { plain: true }).catch(() => null),
-    recall(byId, [m.team_id, ...mentioned.map((t) => t.id)], 30, m.body),
+    recall(byId, [m.team_id, ...mentioned.map((t) => t.id)], 30, m.body).then((xs) => xs.filter((x) => !CRUDE.test(x))),
     fantasy ? playerCards(m.body, byId).catch(() => []) : Promise.resolve([]),
     fantasy ? leagueWire(byId).catch(() => null) : Promise.resolve(null),
     // the message they're replying to, when it's off the screen (a reply to his post from this morning)
@@ -1449,7 +1506,8 @@ async function converse(m: ChatMsg) {
     table.length ? `Where everyone stands: ${table.join(' · ')}` : '',
     mem.length ? `What you remember (use it when it fits, never list it):\n${mem.map((x) => '- ' + x).join('\n')}` : '',
     mine.length ? `Your last few lines in the chat. Do not reuse their openers, closers, jokes, nudges or catchphrases:\n${mine.map((x) => '- ' + x).join('\n')}` : '',
-    cards.length ? `The GMs in this conversation (facts you can use):\n${JSON.stringify(cards)}` : '',
+    cards.length ? `The GMs in this conversation (facts you can use; roster_now is ${asker?.gm_name}'s roster as it is this minute):\n${JSON.stringify(cards)}` : '',
+    fantasy ? `How the site works (the only rules you know; never state a rule that isn't here):\n${siteRules(league).map((x) => '- ' + x).join('\n')}` : '',
     wire && Object.keys(wire).length ? `What's happened in the league lately (facts you can use):\n${JSON.stringify(wire)}` : '',
     players.length ? `The players named, as they stand (facts you can use):\n${JSON.stringify(players)}` : '',
     before.length ? `Your earlier back-and-forth with ${asker?.gm_name} (oldest first; hold them to what they said, follow up on what you told them, and don't repeat yourself):\n${before.map((x) => '- ' + x).join('\n')}` : '',
@@ -1465,6 +1523,7 @@ async function converse(m: ChatMsg) {
 - "banter": anything else: talking to you, about you, at you, or about someone. React like a guy in the room: agree, argue, chirp back, take a side, have an opinion. Never list what you can do.
 Lineup advice comes only from a GM's "tonight" facts: name a move only if it's in moves_worth_making; if there are none, they're set, and a player in sitting_with_no_fix is nothing to fix (say so, or chirp the bad luck). Never tell anyone to bench or swap otherwise.
 Be the sharpest guy in the room: connect what they said to something real (a number above, a move from the last three days, something they told you before, a running gag), take a position and back it with the facts, and when it's a real question about their team, end with the one thing worth doing (or say there's nothing to do). When they come back at you, answer what they actually said, build on the earlier exchange, and argue or concede on the facts; don't restart the bit.
+When they say you got something wrong, check it against the facts above before answering: if they're right, say so in a few words and fix it, and never repeat the mistake; if the facts say you were right, show them the fact. Questions about the rules or their roster are answered from "How the site works" and roster_now, plainly, before any joke.
 Rules: 1 to 4 sentences (a roast of everyone: one line per GM). Talk to ${asker?.gm_name} about what they said; bring in other GMs only when they asked about them or it's the point. Tag at most two GMs (every @ pings a phone), except in a roast of everyone. Don't run down the standings unless they asked. Read the room: praise for another GM is not a request to roast them, and sarcasm is sarcasm. Use only the facts given and what you remember; if you don't know something, say so in character. No stock openers, nothing from your last few lines, and a nudge only if it fits.
 Return JSON only: {"mode": "answer"|"roast"|"joke"|"banter", "target": "<first name of the GM you're roasting, or null>", "reply": "<your message>"}`,
   ].filter(Boolean).join('\n\n');
@@ -1473,14 +1532,17 @@ Return JSON only: {"mode": "answer"|"roast"|"joke"|"banter", "target": "<first n
   try { j = JSON.parse(text ?? ''); } catch { j = null; }
   let body = String(j?.reply ?? '').trim();
   if (!body) return null;
-  // every number in a reply comes from what he was given or what the GM said; one that doesn't is written again once
-  const bad = numbersCheck(prompt + ' ' + m.body, {})(body);
+  // every number in a reply comes from what he was given or what the GM said, and every quote from someone who said
+  // it; a reply that fails is written again once
+  const quotes = quoteCheck([...lines, ...mem, ...before, replyingTo, m.body], teams.map((t) => t.gm_name.split(/\s+/)[0]));
+  const numbers = numbersCheck(prompt + ' ' + m.body, {});
+  const check = (b: string) => numbers(b) ?? quotes(b);
+  const bad = check(body);
   if (bad) {
     console.warn('converse: rewriting', bad);
     text = await grok(system(st), `${prompt}\n\nYour first reply was wrong: ${bad}. Answer again from the facts only.`, everyone ? 1100 : 600, 0.7, true, 'none');
     try { const k = JSON.parse(text ?? ''); if (String(k?.reply ?? '').trim()) { j = k; body = String(k.reply).trim(); } } catch { /* keep the first */ }
-    // still a number nobody gave him: the sentences that carry it go, when most of the reply survives
-    const check = numbersCheck(prompt + ' ' + m.body, {});
+    // still a number nobody gave him, or a quote nobody said: the sentences that carry it go, when most of the reply survives
     if (check(body)) body = salvage(body, check) ?? body;
   }
   // the brand writes no em dash (docs/BRAND.md); the JSON answer kept the model's, so the reply drops them here
@@ -2012,14 +2074,40 @@ async function moments() {
     cur.trade_seen = fresh.id;
     const { data: items } = await db.from('trade_items').select('from_team,player_id,pick_id,pickups,coins').eq('trade_id', fresh.id);
     const pids = (items ?? []).map((i) => i.player_id).filter(Boolean);
-    const { data: ps } = pids.length ? await from('players').select('id,name,pos,nhl_team,proj').in('id', pids) : { data: [] as any[] };
-    const nm = new Map((ps ?? []).map((p) => [p.id, `${p.name} (${p.pos}, ${p.nhl_team}, projected ${Math.round(Number(p.proj))})`]));
-    const sends = (t: number) => (items ?? []).filter((i) => i.from_team === t).map((i) => i.player_id ? nm.get(i.player_id) : i.pick_id ? 'a draft pick' : i.pickups ? `${i.pickups} pickup(s)` : `${i.coins} coins`).join(', ') || 'nothing';
+    const pkids = (items ?? []).map((i) => i.pick_id).filter(Boolean);
+    const [{ data: ps }, { data: ss }, { data: pks }] = await Promise.all([
+      pids.length ? from('players').select('id,name,pos,nhl_team,proj,injury_status').in('id', pids) : Promise.resolve({ data: [] as any[] }),
+      pids.length ? from('player_season').select('player_id,gp,fpts').in('player_id', pids) : Promise.resolve({ data: [] as any[] }),
+      pkids.length ? from('draft_picks').select('id,round,season,original_team').in('id', pkids) : Promise.resolve({ data: [] as any[] }),
+    ]);
+    const pl = new Map((ps ?? []).map((p) => [p.id, p]));
+    const sea = new Map((ss ?? []).map((x) => [x.player_id, x]));
+    const pk = new Map((pks ?? []).map((x) => [x.id, x]));
+    // what each side GETS, in words that can't be read backwards: on 18 November the take had Patrick getting "the better
+    // goalie upgrade" in a trade where he sent the goalie away (the facts were "a_sends" and "b_sends", and the model
+    // swapped them), and called the players "keepers", which nothing said
+    const item = (i: any) => {
+      if (i.player_id) {
+        const p = pl.get(i.player_id), x = sea.get(i.player_id);
+        return `${p?.name} (${p?.pos}, ${p?.nhl_team}; ${x ? `${f1(Number(x.fpts))} fantasy points in ${x.gp} games this season` : 'no games yet'}; projected ${Math.round(Number(p?.proj ?? 0))} over a full season${p?.injury_status ? `; ${p.injury_status}` : ''})`;
+      }
+      if (i.pick_id) { const d = pk.get(i.pick_id); return d ? `a round ${d.round} draft pick (${d.season})` : 'a draft pick'; }
+      return i.pickups ? `${i.pickups} free-agent pickup${i.pickups === 1 ? '' : 's'}` : `${i.coins} coins`;
+    };
+    const gets = (t: number) => (items ?? []).filter((i) => i.from_team !== t).map(item);
+    const proj = (t: number) => Math.round((items ?? []).filter((i) => i.from_team !== t && i.player_id).reduce((n, i) => n + Number(pl.get(i.player_id)?.proj ?? 0), 0));
+    const goalie = (t: number) => (items ?? []).some((i) => i.from_team !== t && pl.get(i.player_id)?.pos === 'G');
+    const [a, b] = [fresh.from_team, fresh.to_team];
+    const d = proj(a) - proj(b);
+    // the verdict on paper is worked out here, so the take can argue with it but never get it backwards
+    const verdict = Math.abs(d) < 15 ? `even on projections (${gm(a)} gets ${proj(a)}, ${gm(b)} gets ${proj(b)} projected points)`
+      : `${gm(d > 0 ? a : b)} wins on projections, ${Math.max(proj(a), proj(b))} projected points coming in against ${Math.min(proj(a), proj(b))}`;
+    const goalies = goalie(a) || goalie(b) ? `${[a, b].filter(goalie).map(gm).join(' and ')} get${[a, b].filter(goalie).length === 1 ? 's' : ''} the goalie${(items ?? []).filter((i) => pl.get(i.player_id)?.pos === 'G').length > 1 ? 's' : ''}` : 'no goalie changes hands';
     pick = {
-      key: `trade:${fresh.id}`, focus: [fresh.from_team, fresh.to_team],
-      task: 'A trade just went through. Give the league your instant take in 2 or 3 sentences: who won it and why, and a jab at whoever got fleeced.',
-      facts: { gm_a: gm(fresh.from_team), a_sends: sends(fresh.from_team), gm_b: gm(fresh.to_team), b_sends: sends(fresh.to_team) },
-      fallback: `🤝 Trade's through: @${gm(fresh.from_team)} sends ${sends(fresh.from_team)} to @${gm(fresh.to_team)} for ${sends(fresh.to_team)}. Somebody got fleeced. 👉 #/trades`,
+      key: `trade:${fresh.id}`, focus: [a, b],
+      task: `A trade just went through. Give the league your instant take in 2 or 3 sentences: who won it and why, from what each side GETS (not what it gives), and one jab at the side that did worse. The verdict on projections is worked out for you: argue with it only from the facts (this season's points, a goalie, a pick), and never call anyone's players keepers, stars or busts unless the facts say so. Quote nobody.`,
+      facts: { [`${gm(a)}_gets`]: gets(a), [`${gm(b)}_gets`]: gets(b), on_paper: verdict, goalies },
+      fallback: `🤝 Trade's through: @${gm(a)} gets ${gets(a).map((x) => x.replace(/ \(.*$/, '')).join(', ') || 'nothing'}; @${gm(b)} gets ${gets(b).map((x) => x.replace(/ \(.*$/, '')).join(', ') || 'nothing'}. On paper: ${verdict}. 👉 #/trades`,
     };
   }
   // a hat trick: hype it for a starter, rub it in when it sat on a bench
