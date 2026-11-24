@@ -8139,6 +8139,60 @@ select set_config('request.jwt.claim.sub', '', false);
 \i supabase/migrations/20261005000352_rink_games.sql
 select 'rink games', true;
 
+-- ───────────── a game that ends with no winner never stops the feed (migration 364) ─────────────
+-- (MLS's feed stood still for sixteen days on this: a pick'em nobody picked in, ended by the season's last match)
+reset role;
+select set_config('request.jwt.claim.sub', '', false);
+select id as nwg, league_id as nwl, winners as nww from pool_games where status = 'done' and cardinality(winners) > 0 order by id limit 1 \gset
+select set_config('test.nww', :'nww', false);
+insert into predictions (league_id, kind, subject, predicted, basis, resolves_on)
+  values (:nwl, 'pool_win', jsonb_build_object('game', :nwg, 'team_id', -364, 'day', 'nobody'), 0.25, 'test', today_et());
+update pool_games set status = 'open' where id = :nwg;
+update pool_games set status = 'done', winners = '{}' where id = :nwg;
+select pg_temp.expect('nobody won: the game still ends', (select status = 'done' from pool_games where id = :nwg));
+select pg_temp.expect('and its forecasts are void, at nothing', (select status = 'void' and outcome = 0 from predictions
+  where kind = 'pool_win' and (subject->>'game')::bigint = :nwg and (subject->>'team_id')::int = -364));
+-- a shared win still splits one between the winners
+insert into predictions (league_id, kind, subject, predicted, basis, resolves_on)
+  select :nwl, 'pool_win', jsonb_build_object('game', :nwg, 'team_id', t.id, 'day', 'shared'), 0.25, 'test', today_et()
+  from (select id from teams where league_id = :nwl order by id limit 3) t;
+update pool_games set status = 'open' where id = :nwg;
+update pool_games set status = 'done', winners = (select array_agg(id) from (select id from teams where league_id = :nwl order by id limit 2) t) where id = :nwg;
+select pg_temp.expect('two winners score a half each, the third nothing',
+  (select array_agg(outcome order by (subject->>'team_id')::int) = array[0.5, 0.5, 0]::numeric[] and bool_and(status = 'scored')
+   from predictions where kind = 'pool_win' and (subject->>'game')::bigint = :nwg and subject->>'day' = 'shared'));
+delete from predictions where kind = 'pool_win' and (subject->>'game')::bigint = :nwg and subject->>'day' in ('nobody', 'shared');
+update pool_games set winners = current_setting('test.nww')::int[] where id = :nwg;
+-- the stats cache: a rebuild still builds, and one already current is left alone
+update stats_gen set gen = gen + 1 where one;
+select pg_temp.expect('a stale cache is rebuilt', refresh_stats_cache() >= 1);
+select pg_temp.expect('a current one is left alone', refresh_stats_cache() = 0);
+select pg_temp.expect('every kept answer is current', (select bool_and(s.gen = g.gen) from stats_cache_state s, stats_gen g));
+-- the season's stats, with the league day read once: the same numbers as counting them by hand
+select set_config('app.league_id', '1', false);
+select today_et() as nwd \gset
+select pg_temp.expect('the season view has players in it', (select count(*) > 0 from player_season_live));
+select pg_temp.expect('and the last fortnight is the last fortnight', not exists (
+  select 1 from player_season_live v
+  join (select player_id, count(*) gp, round(sum(fpts), 2) fpts, round(sum(fpts) filter (where date > :'nwd'::date - 14), 2) fpts14,
+               count(*) filter (where date > :'nwd'::date - 14) gp14 from league_games group by 1) h using (player_id)
+  where (v.gp, v.fpts, v.gp14) is distinct from (h.gp, h.fpts, h.gp14) or v.fpts14 is distinct from h.fpts14));
+select pg_temp.expect('the day is asked once, not once a game', (select pg_get_viewdef('player_season_live'::regclass) !~* 'WHERE \(?pg\.date > \(today_et\(\)'));
+select set_config('app.league_id', '', false);
+-- the health check sees a feed that fails on every run: a match still live half a day after kick-off
+select pg_temp.expect('no stuck match, nothing said', not exists (select 1 from jsonb_array_elements_text(health_check(false)->'issues') i where i like 'A match has been live%'));
+select id as nwf, state as nwfs, kickoff as nwfk, competition as nwfc from fixtures order by id limit 1 \gset
+set session_replication_role = replica;   -- the fixture's own triggers stay out of this: only the check is under test
+update fixtures set state = 'live', kickoff = now() - interval '13 hours' where id = :nwf;
+select pg_temp.expect('a match live for 13 hours is flagged, with its competition',
+  exists (select 1 from jsonb_array_elements_text(health_check(false)->'issues') i where i like 'A match has been live for over 12 hours%' || :'nwfc' || '%'));
+update fixtures set kickoff = now() - interval '3 hours' where id = :nwf;
+select pg_temp.expect('one that kicked off this afternoon is not', not exists (select 1 from jsonb_array_elements_text(health_check(false)->'issues') i where i like 'A match has been live%'));
+update fixtures set state = :'nwfs', kickoff = :'nwfk' where id = :nwf;
+set session_replication_role = origin;
+\i supabase/migrations/20261005000364_feed_never_stalls.sql
+select 'feed never stalls', true;
+
 -- ───────────── Rod Hockey's games are kept, league by league (migration 354) ─────────────
 reset role;
 select set_config('app.league_id', '', false);

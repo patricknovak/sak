@@ -75,6 +75,9 @@ Deno.serve(async (req) => {
       return Response.json({ seasons: cached.seasons, bio: cached.bio, cached: true }, { headers: cors });
     }
     const { data: p } = await db.from('players').select('pos').eq('id', id).maybeSingle();
+    // only players the site knows: anyone can call this, and a made-up id would otherwise cost four calls to the NHL
+    // and leave a row behind each time
+    if (!p) return Response.json({ error: 'unknown player' }, { status: 404, headers: cors });
     const [raw, bio] = await Promise.all([fetchSeasons(id, p?.pos === 'G'), fetchBio(id).catch(() => null)]);
     const seasons = raw.sort((a, b) => b.season - a.season);
     await db.from('player_history').upsert({ player_id: id, seasons, bio, fetched_at: new Date().toISOString() });

@@ -1854,3 +1854,36 @@ account elsewhere could read a bet's numbers by its id; the cards' odds take "to
 day, so after midnight while a game is still on they treat that night as over; a player bet counts every game in its
 window (playoffs too) while a team bet counts regular-season nights only. The footer's settle time said 8:45 a.m. ET; the
 job runs at 12:45 UTC (7:45 in winter).
+
+### 9.44 A bug hunt from the live logs, 24 November 2026
+
+Patrick asked for a hunt for real defects, starting from evidence. A week of Postgres, API and edge function logs, the
+advisors and `pg_stat_statements` on the live project gave four faults; the row-level security and the callable
+functions were read again and gave none. Migration 364 (`feed_never_stalls`):
+
+- **A pool game with no winner stopped its event's feed.** `_pool_win_score` divided by the number of winners inside a
+  `CASE`; PL/pgSQL plans the statement with `new.winners` as a constant and Postgres folds `1.0 / cardinality('{}')`
+  while planning, so the guard never ran. A pick'em nobody picked in ended on MLS's last match and every
+  `soccer_ingest` for MLS failed from 8 November (two errors a day, one match "live" for sixteen days). The division is
+  guarded and the trigger turns its own errors into warnings: the prediction log never holds up a settle.
+- **The season's stats took 3.4 seconds.** `player_season_live` called `today_et()` twice per game played (29,000 calls
+  at 0.11 ms); asked once, the same query takes 64 ms and returns the same 867 rows (compared on live, read only, and
+  against the kept cache). This was the stats cache's rebuild every minute of a game night (17,844 runs at a mean of
+  2.6 s since the counters were last reset), the Players page whenever the cache was a minute stale, and the 8-second
+  timeouts on four nights that week. **A view or a query asks for the league day once**, `(select today_et())`, never
+  per row.
+- **Two cache rebuilds at once.** nhl-sync's scores run and the `stats-cache` job call `refresh_stats_cache()` on the
+  same second; the loser failed on a duplicate key (67, 16, 39 and 6 times on four nights). `_stats_cache_build` takes
+  a transaction advisory lock per profile and leaves when someone else holds it.
+- **Nothing noticed.** `health_check` now flags a match still `live` twelve hours after kick-off.
+
+On the site: a GM was told "Too many players at BN" four times in a row on 23 November. My Team offered the empty bench
+as a target with the bench full, and Daily lineups let today's lineup be saved with a starter's spot left empty; both
+now say so before the save (`canTarget` in `src/pages/MyTeam.tsx`, `over` in `LineupPlanner`). `player-info` answers
+404 for an id that isn't in `players` rather than calling the NHL and keeping a row for it.
+
+Found and left: `book_live` (the odds board's prices) averages 1.5 s and has peaked at 5.4 s against the 8-second
+limit; `health_check` itself averages 2 s; ten `mlb-post-2026` games that were never needed still read `scheduled`;
+league 2 holds 124 `player_night` forecasts open since 27 October (no job runs for it); `top_scorer(team)` and
+`_acq_used(team)` answer for any team id, another league's included (a player id and a count); pg_net lives in the
+`public` schema (Supabase's advisor); the push function's test line still says "See you on draft night".
