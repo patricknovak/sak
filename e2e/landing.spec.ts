@@ -102,7 +102,7 @@ test.describe('Landing (superpoolsai.com)', () => {
   });
 
   test('sport pool landing pages load', async ({ page }) => {
-    for (const path of ['./football-pools.html', './hockey-pools.html', './basketball-pools.html']) {
+    for (const path of ['./football-pools.html', './hockey-pools.html', './basketball-pools.html', './nfl-playoff-pools.html', './super-bowl-squares.html', './stanley-cup-playoff-pools.html']) {
       await page.goto(path);
       await expect(page.locator('h1, .display').first()).toBeVisible();
       await expect(page.getByRole('link', { name: /Start|pool/i }).first()).toBeVisible();
