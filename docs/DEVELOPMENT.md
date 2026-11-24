@@ -2023,3 +2023,26 @@ stored data is reachable this way. The fix is Supabase's Realtime Authorization,
 pull request: policies on `realtime.messages` keyed on the topic's league (`realtime.topic()`), then the site opening
 every channel with `private: true` once those are live, then "Allow public access" switched off in the project's
 Realtime settings (Patrick). It needs a browser against live to prove, which this session didn't have.
+
+### 9.48 The realtime channels, step one of three, 24 November 2026
+
+Section 9.46 left the realtime channels open to anyone with the public key. Migration 368 (`realtime_topics`) is the
+first of the three steps, and on its own changes nothing a member sees: Realtime reads these rules only when a channel
+is joined as private.
+
+- `_rt_topic_ok(topic, send)` answers who may join a topic: a league's own (`typing:`, `online:`, `rink:`, `rod:`
+  followed by the league's id, and a match id for a game) for that league's members; every other topic (the site's
+  table listeners, whose rows row-level security already keeps to the reader) for any signed-in account, and for the
+  signed-out site to listen only.
+- Two policies on `realtime.messages` call it with `realtime.topic()`: `topic_listen` (select: anon and signed-in)
+  and `topic_send` (insert: signed-in). They are created only where Realtime is installed; the flow test covers the
+  function as a member, as another league's member and signed out.
+
+**Step two** (after 368 is live; the site change is kept as `bug-hunt/realtime-step-2-site.patch` in the project files,
+typechecked, not in any pull request because a private channel is refused until the rules exist): every
+`supabase.channel(...)` opens with `private: true` (the five league channels, the lounge's listener and
+`realtimeChannel`). Prove on live with two phones: typing shows, the online dots show, a Rink Duel challenge arrives and
+a match plays, the chat and the scoreboard still update, and an account from another pool is refused on `typing:1`.
+**Step three** (Patrick): Realtime settings, "Allow public access" off. Until then a public channel of the same name
+still works for an outsider, so step three is what closes it. A new channel is always private and, when it carries a
+league's talk, named `<kind>:<league id>[:<id>]` with its kind added to `_rt_topic_ok`.

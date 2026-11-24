@@ -414,6 +414,9 @@ wasn't applied); #75 was the hotfix.
   `today_et()` in a filter or an aggregate (it reads the night's games each time it is called; `player_season_live` spent
   3.4 seconds on it until migration 364). And a trigger on shared sports data (`fixtures`, `series`, `player_games`,
   `pool_games`) that only logs or alerts turns its own errors into warnings, so one pool can't stop a feed.
+- Realtime channels are going private (migration 368, docs/DEVELOPMENT.md §9.48, three steps): who may join a topic is
+  `_rt_topic_ok`; a new broadcast or presence channel for a league is named `<kind>:<league id>[:<id>]` and its kind is
+  added there in the same migration.
 - Flow-test sections end signed out (`reset role` and an empty `request.jwt.claim.sub`), so the next section
   doesn't run as another league's GM.
 - Keep the docs true in the same pull request as the change: `docs/SUPERPOOLS.md`, `docs/EXPANSION.md`, this file.

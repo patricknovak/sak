@@ -8349,6 +8349,27 @@ select set_config('request.jwt.claim.sub', '', false);
 \i supabase/migrations/20261005000366_no_winner_page_poll_votes.sql
 select 'no-winner page, poll votes', true;
 
+-- ───────────── a league's realtime topics are its members' (migration 368) ─────────────
+reset role;
+select pg_temp.as_team(1);
+set role authenticated;
+select pg_temp.expect('a member listens and sends on the league''s typing line, presence, lobby and a match',
+  _rt_topic_ok('typing:1') and _rt_topic_ok('online:1', true) and _rt_topic_ok('rink:1', true) and _rt_topic_ok('rink:1:abc123', true) and _rt_topic_ok('rod:1:m-9_z', true));
+select pg_temp.expect('but not on a league they aren''t in', not _rt_topic_ok('typing:' || :olga) and not _rt_topic_ok('rink:' || :olga || ':abc', true));
+select pg_temp.expect('a league topic that isn''t shaped like one is refused', not _rt_topic_ok('typing:1:a b') and not _rt_topic_ok('online:x') and not _rt_topic_ok('rink:'));
+select pg_temp.expect('the site''s table listeners stay open to a signed-in account', _rt_topic_ok('league-db:k3j2h1g0', true) and _rt_topic_ok('lounge:nhl'));
+reset role;
+select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-000000000084', false);
+set role authenticated;
+select pg_temp.expect('another league''s member is kept off this league''s topics', not _rt_topic_ok('typing:1') and not _rt_topic_ok('online:1', true) and not _rt_topic_ok('rod:1:abc', true));
+reset role;
+select set_config('request.jwt.claim.sub', '', false);
+set role anon;
+select pg_temp.expect('signed out: no league topic, and listening only elsewhere', not _rt_topic_ok('typing:1') and not _rt_topic_ok('online:1') and _rt_topic_ok('league-db:k3j2h1g0') and not _rt_topic_ok('league-db:k3j2h1g0', true));
+reset role;
+\i supabase/migrations/20261005000368_realtime_topics.sql
+select 'realtime topics', true;
+
 -- ───────────── Rod Hockey's games are kept, league by league (migration 354) ─────────────
 reset role;
 select set_config('app.league_id', '', false);
