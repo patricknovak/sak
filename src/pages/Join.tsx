@@ -173,9 +173,10 @@ export default function Join({ code }: { code: string }) {
   const needsEmail = !pool || withEmail;
 
   return (
-    <div className="pt-safe flex min-h-dvh flex-col items-center justify-center px-4 py-10" style={gold ? themed(gold) : undefined}>
+    <div className="pt-safe flex min-h-dvh flex-col items-center justify-center px-4 py-6" style={gold ? themed(gold) : undefined}>
       <div className="w-full max-w-md">
-        <div className="mb-6 text-center">
+        {/* kept tight: on a small phone the Join button has to be on the first screen, under the pitch */}
+        <div className="mb-5 text-center">
           {!pv || !pv.ok ? <span className="mb-3 inline-grid place-items-center"><ProductMark size={64} /></span>
             : sak ? <img src="./icon.svg" alt="" className="mx-auto mb-3 h-16 w-16" /> : <span className="mb-3 inline-block"><LeagueCrest short={pv?.short ?? '…'} size={64} /></span>}
           <div className="label text-mute">{!pv ? 'Opening your invite' : !pv.ok ? PRODUCT.name : <>You&apos;re invited to</>}</div>
@@ -197,7 +198,7 @@ export default function Join({ code }: { code: string }) {
             {(pv.next_game && !pv.next_question
               ? [['🏆', 'A table and a crown'], ['🎯', 'Make your calls'], ['🆓', 'Free, never money']]
               : [[pv.brand?.coin?.emoji || PRODUCT.coin.emoji, `1,000 ${(pv.brand?.coin?.name || PRODUCT.coin.name).toLowerCase()} to start`], ['🔮', 'Call what happens next'], ['🆓', 'Free, never money']]).map(([e, t]) => (
-              <div key={t} className="rounded-2xl border border-white/10 bg-white/[.04] px-2 py-3">
+              <div key={t} className="rounded-2xl border border-white/10 bg-white/[.04] px-2 py-2.5">
                 <div className="text-xl leading-none">{e}</div>
                 <div className="mt-1.5 text-balance text-[12px] font-semibold leading-tight text-slate-200">{t}</div>
               </div>
@@ -290,7 +291,7 @@ export default function Join({ code }: { code: string }) {
                 </>
               ) : (
                 <p className="relative mt-2 text-xs leading-snug text-white/70">
-                  That&apos;s all it takes. Your place stays on this phone; add an email any time to play on another.{' '}
+                  That&apos;s all it takes. Add an email any time to play on another phone.{' '}
                   <button type="button" className="font-semibold text-white underline" onClick={() => setWithEmail(true)}>Add it now</button>
                 </p>
               )}
