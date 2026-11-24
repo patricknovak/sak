@@ -3,10 +3,13 @@ name: Uptime
 # A check from outside, every ten minutes (docs/LAUNCH-READINESS-2026-10-28.md item 9): the app, the marketing site and
 # the sports data at the edge. When one of them fails twice in a row the run opens an issue (or adds to the open one)
 # assigned to Patrick, which GitHub sends to his phone; when everything answers again the issue is closed with a note.
-# GitHub's schedule is best effort (a run can slip by minutes), which is fine for a check that only has to notice.
+# GitHub's schedule is best effort, and in practice far worse than "every ten minutes": from 10 to 23 November 2026 it
+# ran three or four times a day, hours apart (GitHub drops scheduled runs when its runners are busy, most of all on the
+# hour and on round minutes). So this is a slow second opinion, not the alarm: the every-five-minutes check is
+# UptimeRobot (docs/LAUNCH-READINESS-2026-10-28.md item 9). The odd minutes below stay off the busiest marks.
 on:
   schedule:
-    - cron: '*/10 * * * *'
+    - cron: '7,17,27,37,47,57 * * * *'
   workflow_dispatch:
 
 permissions:

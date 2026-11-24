@@ -1720,7 +1720,11 @@ uptime alerts and the passcode. Built here:
   355 went live the same morning on Patrick's "Apply 355".
 - **Uptime** (`.github/workflows/uptime.yml`): every ten minutes GitHub's runners read the app, the marketing site and
   `/api/hub?task=standings`; two failures in a row open an issue labelled `outage` assigned to Patrick (GitHub bells his
-  phone), later failures comment on it, and the first all-clear closes it.
+  phone), later failures comment on it, and the first all-clear closes it. A look at its runs on 24 November 2026 found
+  GitHub ran it only three or four times a day, so it is a slow second opinion; the alarm is UptimeRobot every five
+  minutes (readiness doc item 9, Patrick's account). The same review found one scores run refused as "needs the platform
+  key" on 23 November when the key check's database call blipped: nhl-sync, soccer-sync, mlb-sync and push now check the
+  key through `_shared/adminKey.ts`, which tries once more and answers 503 (not 403) when the database can't answer.
 - **Mission Control's passcode**: generated (28 random characters) and handed over with the SQL that stores its hash; the
   connector holds the `truncate`, so Patrick pastes it.
 - Patrick's remaining steps are in the readiness doc: the street address, DMARC to `p=quarantine`, the two Auth templates

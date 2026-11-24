@@ -10,6 +10,7 @@
 // request every ten seconds; we make one every two minutes at most.
 import { createClient } from 'jsr:@supabase/supabase-js@2';
 import { nhlPeriods, nhlPlayoffPayload } from '../_shared/nhlPlayoffs.ts';
+import { adminRefusal, checkAdminKey } from '../_shared/adminKey.ts';
 
 const db = createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!, {
   auth: { persistSession: false },
@@ -127,15 +128,9 @@ async function nhlPlayoffs(c: { id: string; ext_season: string }) {
   return check(await db.rpc('sport_ingest', { p_competition: c.id, p: nhlPlayoffPayload(c.ext_season, bracket, games, periods) }));
 }
 
-async function adminCall(req: Request) {
-  const key = req.headers.get('x-admin-key');
-  if (!key) return false;
-  const { data } = await db.rpc('admin_key_ok', { p_key: key });
-  return data === true;
-}
-
 Deno.serve(async (req) => {
-  if (!(await adminCall(req))) return Response.json({ ok: false, error: 'This task needs the platform key' }, { status: 403 });
+  const admin = await checkAdminKey(db, req);
+  if (admin !== 'yes') return adminRefusal(admin, {});
   try {
     const comps = check(await db.from('competitions').select('id,ext_season').eq('active', true).eq('provider', 'mlb-statsapi')) as { id: string; ext_season: string }[];
     const out: Record<string, unknown> = {};
