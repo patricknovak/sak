@@ -669,14 +669,61 @@ function libStage() { for (var i = 0; i < LIB_STAGES.length; i++) if (LIB_STAGES
   tick(); setInterval(tick, 30000);
 })();
 
-// The waitlist writes straight to the database through its public API; the key below is the publishable one and can
-// only insert into the waitlist table (see supabase/migrations/20261005000061_waitlist.sql; the UTM columns, 241).
+// The waitlist goes through the join function's waitlist door, behind the same bot check as every door that makes an
+// account (Cloudflare Turnstile, on once its two keys are set; docs/LAUNCH-READINESS-2026-10-28.md item 8). The form
+// asks the function which switches are on the first time someone touches it; with the check on, the widget runs out
+// of sight when the button is pressed and shows a box only when Cloudflare wants a click. If the door can't be reached
+// the form writes straight to the table as it always did, with the publishable key that can only insert there, for as
+// long as the table still takes it (migration 369 closes that once the door is live).
 (function () {
   var form = document.getElementById('wl'); if (!form) return;
   var API = 'https://quakdkzdafzlhgjvmypg.supabase.co/rest/v1/waitlist';
   var KEY = 'sb_publishable_AMcluryqKenfAO6vFJ2f1A_50DhQz1b';
+  var DOOR = 'https://quakdkzdafzlhgjvmypg.supabase.co/functions/v1/join';
+  // the public key the app itself is built with (the functions' gateway wants this form of it)
+  var DOOR_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InF1YWtka3pkYWZ6bGhnanZteXBnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTAyMjEzOTQsImV4cCI6MjEwNTc5NzM5NH0.aAkN2kU_Sg4i1PGXpinOEKaNK2BNbcbLx1c4rc4ZroA';
   var msg = document.getElementById('wl-msg');
   var fallback = 'Something went wrong. Email <a href="mailto:hello@superpoolsai.com">hello@superpoolsai.com</a> and we will add you by hand.';
+  function door(body) {
+    return fetch(DOOR, { method: 'POST', headers: { apikey: DOOR_KEY, Authorization: 'Bearer ' + DOOR_KEY, 'Content-Type': 'application/json' }, body: JSON.stringify(body) })
+      .then(function (r) { return r.json().then(function (j) { return { status: r.status, body: j || {} }; }); });
+  }
+  var config = null;
+  function switches() {
+    config = config || door({ config: true }).then(function (r) { return r.status === 200 && r.body.ok ? r.body : {}; }).catch(function () { return {}; });
+    return config;
+  }
+  form.addEventListener('focusin', switches, { once: true });
+  // one token for one press, from a widget that stays out of sight unless Cloudflare asks for a click
+  function human(sitekey) {
+    if (!sitekey) return Promise.resolve('');
+    return new Promise(function (resolve) {
+      var done = false, box = document.createElement('div');
+      box.style.cssText = 'position:fixed;left:50%;bottom:16px;transform:translateX(-50%);z-index:80';
+      function end(t) { if (done) return; done = true; try { box.remove(); } catch (e) { /* gone */ } resolve(t || ''); }
+      function draw() {
+        document.body.appendChild(box);
+        try {
+          window.turnstile.render(box, { sitekey: sitekey, appearance: 'interaction-only', theme: 'dark',
+            callback: end, 'error-callback': function () { end(''); }, 'expired-callback': function () { end(''); } });
+        } catch (e) { end(''); }
+      }
+      setTimeout(function () { end(''); }, 60000);
+      if (window.turnstile) return draw();
+      var s = document.createElement('script');
+      s.src = 'https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit'; s.async = true;
+      s.onload = function () { if (window.turnstile) draw(); else end(''); };
+      s.onerror = function () { end(''); };
+      document.head.appendChild(s);
+    });
+  }
+  function straight(body) {
+    return fetch(API, {
+      method: 'POST',
+      headers: { apikey: KEY, Authorization: 'Bearer ' + KEY, 'Content-Type': 'application/json', Prefer: 'return=minimal' },
+      body: JSON.stringify(body)
+    }).then(function (r) { return r.status === 201 ? 'new' : r.status === 409 ? 'already' : 'failed'; });
+  }
   form.addEventListener('submit', function (e) {
     e.preventDefault();
     var email = form.email.value.trim(), note = form.note.value.trim(), pick = form.pick.value;
@@ -684,13 +731,15 @@ function libStage() { for (var i = 0; i < LIB_STAGES.length; i++) if (LIB_STAGES
     if (!/^[^@\s]+@[^@\s]+\.[^@\s]{2,}$/.test(email)) { msg.className = 'msgline err wide'; msg.textContent = 'That address does not look right.'; return; }
     var btn = form.querySelector('button'); btn.disabled = true; msg.className = 'msgline wide'; msg.textContent = 'One moment.';
     var body = Object.assign({ email: email, league: pick, note: note || null, source: (location.hostname + location.pathname).slice(0, 120) }, spAttribution());
-    fetch(API, {
-      method: 'POST',
-      headers: { apikey: KEY, Authorization: 'Bearer ' + KEY, 'Content-Type': 'application/json', Prefer: 'return=minimal' },
-      body: JSON.stringify(body)
+    switches().then(function (c) { return human(c.turnstile); }).then(function (token) {
+      return door(token ? { waitlist: body, turnstile: token } : { waitlist: body });
     }).then(function (r) {
-      if (r.status === 201) { msg.className = 'msgline ok wide'; msg.textContent = 'You are on the list. We will write when your pool can open.'; form.reset(); }
-      else if (r.status === 409) { msg.className = 'msgline ok wide'; msg.textContent = 'You were already on the list. We have not forgotten.'; }
+      if (r.status === 200 && r.body.ok) return r.body.already ? 'already' : 'new';
+      if (r.status === 403) return 'failed';   // the check said no: the straight road is not a way around it
+      return straight(body);                   // the door isn't there yet, or is down
+    }, function () { return straight(body); }).then(function (how) {
+      if (how === 'new') { msg.className = 'msgline ok wide'; msg.textContent = 'You are on the list. We will write when your pool can open.'; form.reset(); }
+      else if (how === 'already') { msg.className = 'msgline ok wide'; msg.textContent = 'You were already on the list. We have not forgotten.'; }
       else { msg.className = 'msgline err wide'; msg.innerHTML = fallback; }
     }).catch(function () { msg.className = 'msgline err wide'; msg.innerHTML = fallback; })
       .finally(function () { btn.disabled = false; });

@@ -22,6 +22,8 @@ async function mock(page: Page, seen: { join: string[]; verify: number }) {
     if (url.includes('/auth/v1/user')) return route.fulfill(json(user));
     if (url.includes('/auth/v1/')) return route.fulfill(json({}));
     if (url.includes('/functions/v1/join')) {
+      // the start and join pages first ask which switches are on (the bot check's key); that ask isn't a door
+      if ((route.request().postDataJSON() as { config?: boolean } | null)?.config === true) return route.fulfill(json({ ok: true, turnstile: '', human: false, codes: true }));
       seen.join.push(signedIn ? 'signed-in' : 'anon');
       return route.fulfill(signedIn ? json({ ok: true, pool: { id: 701, slug: 'e2e-code-pool' } }) : json({ verify: true }, 202));
     }

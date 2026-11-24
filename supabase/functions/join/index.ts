@@ -6,6 +6,8 @@
 //   POST {code, name, guest: true}                             (migration 332: a pool's seat with just a name)
 //   POST {claim: {email, password}}, signed in as a guest       (the guest adds an email and keeps the seat)
 //   POST {fan: {name, club, league}}                            (migrations 337 and 338: a voice in the fan zones, no seat)
+//   POST {config: true}                                         (which doors' switches are on: the bot check's public key, the email code)
+//   POST {waitlist: {email, league, note, source, utm_...}}     (the landing's "notify me" form, behind the bot check)
 // With the EMAIL_CODES secret on, the three email doors answer {verify: true} first and open on the second call, made
 // with the session the 6-digit code signed in (below).
 // Open sign-up is off, so the invite is the way in: the code has to be good, then this makes the account (email and
@@ -50,6 +52,10 @@ async function addressHash(req: Request) {
 // for as long as the old site is in people's browsers. If Cloudflare itself can't be reached the door stays open: the
 // daily limits per address still hold, and a failed launch-day signup costs more than one bot that slips through.
 const TURNSTILE_SECRET = Deno.env.get('TURNSTILE_SECRET') ?? '';
+// The widget's public key can live beside the secret (TURNSTILE_SITE_KEY, 24 November 2026): the site and the landing
+// ask for it here (`{config: true}`), so switching the bot check on is two secrets pasted on one screen and no build.
+// A site built with VITE_TURNSTILE_SITE_KEY keeps using its own.
+const TURNSTILE_SITE_KEY = (Deno.env.get('TURNSTILE_SITE_KEY') ?? '').trim();
 async function isHuman(req: Request, b: Record<string, unknown>) {
   if (!TURNSTILE_SECRET) return true;
   const token = typeof b.turnstile === 'string' ? b.turnstile : '';
@@ -283,6 +289,31 @@ async function fanJoin(req: Request, b: { fan?: { name?: string; club?: string; 
   return reply(200, { ok: true, email, password });
 }
 
+// The landing's "notify me" form (the waitlist, migration 61) came straight into its table with the public key, the one
+// open door the bot check didn't cover. It comes through here now, after the check like every other door; the table
+// stops taking the public key once migration 369 is live. One row per address: a second ask is answered as already on.
+async function waitlist(b: { waitlist?: Record<string, unknown> }) {
+  const w = b.waitlist ?? {};
+  const clip = (v: unknown, n: number) => {
+    const s = String(v ?? '').trim();
+    return s ? s.slice(0, n) : null;
+  };
+  const email = String(w.email ?? '').trim().toLowerCase();
+  if (!/^[^@\s]+@[^@\s]+\.[^@\s]{2,}$/.test(email) || email.length > 254) return reply(400, { error: 'That address does not look right.' });
+  const a = attribution(w);
+  const { error } = await db.from('waitlist').insert({
+    email, name: clip(w.name, 80), league: clip(w.league, 160), note: clip(w.note, 500), source: clip(w.source, 120),
+    utm_source: a.p_utm_source, utm_medium: a.p_utm_medium, utm_campaign: a.p_utm_campaign, utm_content: a.p_utm_content,
+    utm_term: a.p_utm_term, referrer: a.p_referrer,
+  });
+  if (error) {
+    if (error.code === '23505') return reply(200, { ok: true, already: true });
+    console.error('waitlist', error);
+    return reply(500, { error: 'Couldn’t add you just now. Try again in a minute.' });
+  }
+  return reply(200, { ok: true });
+}
+
 // a guest adds an email and a password: the same account, so every seat and pick stays; only a guest's own session
 // can do it, and only once (a real address is no longer a guest's)
 async function claim(req: Request, b: { claim?: { email?: string; password?: string } }) {
@@ -308,12 +339,16 @@ Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: cors });
   if (req.method !== 'POST') return reply(405, { error: 'POST only' });
   const b = await req.json().catch(() => ({})) as { code?: string; email?: string; password?: string; name?: string; pool?: { name?: string; color?: string; pack?: string } } & Record<string, unknown>;
+  // what the site needs to know before it shows a door: the bot check's public key (empty while the check is off or
+  // half set) and whether a new email is confirmed by a code. Nothing here is secret; `human` says the secret is in too.
+  if (b.config === true) return reply(200, { ok: true, turnstile: TURNSTILE_SITE_KEY, human: !!TURNSTILE_SECRET, codes: EMAIL_CODES });
   // a guest keeping their seat is already signed in, as is the second step of a door whose code is in (its first step
   // passed the check); every other door makes something new and gets the bot check
   if (!b.claim && !(await caller(req)) && !(await isHuman(req, b))) return reply(403, { error: 'We couldn’t check that you’re a person. Reload the page and try again.' });
   if (b.pool) return startPool(req, b);
   if (b.fantasy) return startFantasy(req, b as { fantasy?: FantasyBody; email?: string; password?: string; name?: string } & Record<string, unknown>);
   if (b.claim) return claim(req, b as { claim?: { email?: string; password?: string } });
+  if (b.waitlist) return waitlist(b as { waitlist?: Record<string, unknown> });
   if (b.fan) return fanJoin(req, b as { fan?: { name?: string; club?: string; league?: string } });
   const code = String(b.code ?? '').trim().toLowerCase();
   const email = String(b.email ?? '').trim().toLowerCase();

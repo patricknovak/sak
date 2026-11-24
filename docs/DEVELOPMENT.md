@@ -2085,6 +2085,28 @@ a match plays, the chat and the scoreboard still update, and an account from ano
 still works for an outsider, so step three is what closes it. A new channel is always private and, when it carries a
 league's talk, named `<kind>:<league id>[:<id>]` with its kind added to `_rt_topic_ok`.
 
+### 9.49 The launch list, cut to its smallest steps, 24 November 2026
+
+The growth review (§9.41) said to clear the launch list before pushing for outside users. Everything on it that code
+could finish is finished here, and `docs/LAUNCH-READINESS-2026-10-28.md` §3 opens with what is left for Patrick, each
+line with where to click and how long it takes.
+
+- **The bot check comes on from one screen.** The widget's public key had to be built into the site
+  (`VITE_TURNSTILE_SITE_KEY`, a pull request and a deploy) before the secret went in, in that order. It can now sit
+  beside the secret as `TURNSTILE_SITE_KEY`: the join function answers `{config: true}` with the key and which
+  switches are on (`doorSwitches()` in `src/lib/turnstile.ts`, asked once a visit, only when a door is pressed), so
+  two secrets pasted in Supabase switch the check on with no build. A built-in key still wins.
+- **The waitlist is behind it.** The landing's form wrote straight to its table with the public key, the one door the
+  check could not cover. It goes through the join function's `waitlist` door now (`landing/site.js`), with the widget
+  when the check is on, and falls back to the straight insert only while the door can't be reached. Migration 369
+  (`waitlist_behind_the_door`) takes the public key's insert away; it is applied after the function is deployed.
+- **Launch switches** on the Platform page: the bot check (On, Half set with what is missing, or Off) and the email
+  code, read from the same answer, so a pasted key is seen to have taken (`e2e/app-launch-switches.spec.ts`).
+- **A first Content-Security-Policy** on every page of the app and the landing: `base-uri 'self'; object-src 'none';
+  frame-ancestors 'none'`, the part that cannot break a page. Naming the script and picture sources is the later step.
+- The doc's stale lines are corrected: the commissioner's SQL asks for 8 characters since migration 356, and the
+  per-account cap on new pools has been there since `_pool_open` (five a day, 25 in all).
+
 ### 9.50 The daily loop, walked as a GM, 24 November 2026
 
 The only people who open the app every day are SaK's eight GMs, so their loop was walked the way they walk it. Two
