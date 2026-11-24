@@ -62,6 +62,7 @@ export default function Platform() {
       </div>
 
       <WeekNumbers />
+      <FrontDoor />
       <PageUse />
 
       <Requests leagues={rows} reload={load} />
@@ -436,6 +437,72 @@ function PageUse() {
               </div>
             );
           })}
+        </div>
+      )}
+    </Section>
+  );
+}
+
+// the front door, counted (migration 361): marketing pages opened, the start page opened, Start pressed, then what the
+// database knows (pools started by real accounts, seats taken), as one path over the last four weeks and by source.
+// Counts only: nothing here can follow one visitor from a step to the next, so read it as totals, not as a journey.
+type Funnel = { counts: { day: string; step: 'view' | 'start_open' | 'start_go'; page: string; src: string; n: number }[]; started: { day: string; n: number }[]; seats: { day: string; n: number }[] };
+function FrontDoor() {
+  const [f, setF] = useState<Funnel | null>(null);
+  const [days, setDays] = useState(28);
+  useEffect(() => { rpc<Funnel>('platform_funnel', { p_days: days }).then((r) => setF(r), () => setF(null)); }, [days]);
+  if (!f) return null;
+  const sum = (step: string) => f.counts.filter((c) => c.step === step).reduce((n, c) => n + c.n, 0);
+  const steps = [
+    { k: 'Site visits', v: sum('view'), sub: 'superpoolsai.com pages' },
+    { k: 'Start page', v: sum('start_open'), sub: 'opened' },
+    { k: 'Start pressed', v: sum('start_go'), sub: 'tried to start' },
+    { k: 'Started', v: f.started.reduce((n, x) => n + x.n, 0), sub: 'by real accounts' },
+    { k: 'Seats taken', v: f.seats.reduce((n, x) => n + x.n, 0), sub: 'in every pool' },
+  ];
+  const top = Math.max(1, ...steps.map((s) => s.v));
+  // where visitors came from: the sources with the most site visits, and how many of each reached the start page
+  const bySrc = new Map<string, { view: number; open: number }>();
+  for (const c of f.counts) {
+    if (c.step === 'start_go') continue;
+    const s = bySrc.get(c.src || '(direct)') ?? { view: 0, open: 0 };
+    if (c.step === 'view') s.view += c.n; else s.open += c.n;
+    bySrc.set(c.src || '(direct)', s);
+  }
+  const srcs = [...bySrc.entries()].sort((a, b) => b[1].view + b[1].open - (a[1].view + a[1].open)).slice(0, 8);
+  const pages = new Map<string, number>();
+  for (const c of f.counts) if (c.step === 'view') pages.set(c.page, (pages.get(c.page) ?? 0) + c.n);
+  const topPages = [...pages.entries()].sort((a, b) => b[1] - a[1]).slice(0, 6);
+  return (
+    <Section title="The front door" right={
+      <select className="rounded-lg border border-white/10 bg-white/[.04] px-2 py-1 text-xs text-slate-200" value={days} onChange={(e) => setDays(Number(e.target.value))} aria-label="How far back">
+        {[7, 28, 90].map((d) => <option key={d} value={d}>last {d} days</option>)}
+      </select>}>
+      <div className="card space-y-1.5 p-3">
+        {steps.map((s, i) => (
+          <div key={s.k} className="flex items-center gap-2 text-xs">
+            <span className="w-24 shrink-0"><b className="block text-slate-100">{s.k}</b><span className="text-[10px] text-mute">{s.sub}</span></span>
+            <span className="h-2 min-w-0 flex-1 overflow-hidden rounded-full bg-white/[.06]"><span className="block h-full rounded-full bg-gold/70" style={{ width: `${Math.max(2, (100 * s.v) / top)}%` }} /></span>
+            <span className="num w-20 shrink-0 text-right"><b className="text-slate-100">{s.v.toLocaleString()}</b>
+              {i > 0 && steps[i - 1].v > 0 && <span className="ml-1 text-[10px] text-mute">{Math.round((100 * s.v) / steps[i - 1].v)}%</span>}</span>
+          </div>
+        ))}
+        {f.counts.length === 0 && <p className="pt-1 text-xs text-mute">Nothing counted yet: the count starts the day migration 361 goes live.</p>}
+      </div>
+      {(srcs.length > 0 || topPages.length > 0) && (
+        <div className="mt-2 grid gap-2 sm:grid-cols-2">
+          <div className="card p-3">
+            <div className="label mb-1.5">Where they came from</div>
+            {srcs.map(([s, x]) => (
+              <div key={s} className="flex items-baseline gap-2 text-xs"><span className="min-w-0 flex-1 break-all font-semibold text-slate-200">{s}</span><span className="num text-mute"><b className="text-slate-200">{x.view}</b> visits · {x.open} to start</span></div>
+            ))}
+          </div>
+          <div className="card p-3">
+            <div className="label mb-1.5">Pages opened</div>
+            {topPages.map(([p, n]) => (
+              <div key={p} className="flex items-baseline gap-2 text-xs"><span className="min-w-0 flex-1 truncate font-semibold text-slate-200">{p}</span><span className="num text-slate-200">{n}</span></div>
+            ))}
+          </div>
         </div>
       )}
     </Section>

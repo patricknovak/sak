@@ -1855,6 +1855,23 @@ day, so after midnight while a game is still on they treat that night as over; a
 window (playoffs too) while a team bet counts regular-season nights only. The footer's settle time said 8:45 a.m. ET; the
 job runs at 12:45 UTC (7:45 in winter).
 
+### 9.41 The market review again: the front door, and shares that lead to it, 24 November 2026
+
+Patrick asked for a fresh, deep look at the market, the product, the site and the path from a visit to a paying
+customer, and for the fixes it points to. The finding: no new account and no new pool in the 32 days since 23 October;
+the SaK GMs are the only daily users. The product, the site and the price are ahead of the audience, so the work turns to
+distribution: the launch blockers, the SaK GMs bringing their other crews, and dated pushes for the NFL playoffs and the
+Super Bowl, The Traitors' fifth season (14 January) and the Stanley Cup playoff pools. The full write-up is a Claude Doc
+in the project ("Super Pools: market review and growth plan").
+
+- **Share the night** (`ShareNight` in `src/components/LiveNight.tsx`): the scoreboard's night card draws the night's top
+  six in the league's colours for any group chat. It and the standings card now carry the product's front door
+  (`PRODUCT_SHARE_URL` in `src/lib/brand.ts`, tagged `utm_source=share`), never the league's own private address.
+- **The front door, counted** (migration 361, applied live 24 November 2026 on Patrick's "Apply 361"): `funnel_hit` keeps
+  a day's total per step (`view` on every landing page, `start_open` and `start_go` on `#/new`), page and source in
+  `private.funnel_daily`, with no cookie, address, account or hash; `platform_funnel()` reads it beside pools started by
+  real accounts and seats taken, on the Platform page's Front door. The privacy note says so.
+
 ### 9.42 A page and a start for each coming event, 24 November 2026
 
 The growth review of 24 November set three dated windows (the NFL playoffs and Super Bowl LXI, The Traitors season 5,

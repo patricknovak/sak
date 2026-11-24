@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
+import { funnelHit } from '../lib/funnel';
 import { FunctionsHttpError } from '@supabase/supabase-js';
 import { ArrowLeft, ArrowRight, CalendarClock, Check, ChevronRight, Lock, Plus, Sparkles } from 'lucide-react';
 import { COMING, comingLine } from '../lib/comingEvents';
@@ -160,6 +161,8 @@ export default function NewPool() {
   // Landing CTA → app: measure arrival once per session per src (consent + host gate in noteCtaArrival).
   const srcParam = params.get('src');
   useEffect(() => { if (srcParam) noteCtaArrival(srcParam); }, [srcParam]);
+  // the cookieless count of the front door (migration 361): the start page opened, by where the visitor came from
+  useEffect(() => { funnelHit('start_open', 'new', srcParam ?? params.get('utm_source')); }, [srcParam]); // eslint-disable-line react-hooks/exhaustive-deps
   // Lists load once; the link effect below re-applies whenever the hash query's template changes
   // (same /new route stays mounted, so a second #/new?... must not keep the first template).
   // a list that failed to load says so and offers another go, rather than reading as "nothing is on"
@@ -412,6 +415,7 @@ export default function NewPool() {
     e.preventDefault();
     if (!ready || busy || afterSignIn || (!!session && !canHost)) return;
     setBusy(true); setErr(''); setSignIn(false);
+    funnelHit('start_go', mode ?? 'pool', srcParam);
     try {
       if (canHost) { await startAsMember(); return; }
       const login = email.trim().toLowerCase();
