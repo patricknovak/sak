@@ -44,6 +44,33 @@ its ranked list where they overlap.
 
 ## 3. For Patrick
 
+### What is left, 24 November 2026
+
+Read again on 24 November against the live project (148 MB, 12 accounts, the newest from 23 October, 19 of 60
+connections in use, no scheduled job failed in three days, the security advisor showing only the known notices) and
+against the code. Everything that could be finished without Patrick is; each line below is the smallest step left.
+The Platform page's **Launch switches** card (`#/platform`) shows whether the bot check and the email code are on, so
+neither needs a test account to check.
+
+| # | What | Where | The step | Time |
+|---|---|---|---|---|
+| A | Bot check on every open door, the waitlist included (item 8) | Cloudflare → Turnstile, then Supabase → Edge Functions → Secrets | Add a widget for `superpoolsai.com` (Managed). Paste its two keys as secrets: `TURNSTILE_SITE_KEY` first, then `TURNSTILE_SECRET`. No build, no pull request. The Platform page then reads On | 5 min |
+| B | The waitlist closed to the public key | this chat | Say "apply 369", any time after this pull request is merged | 1 min |
+| C | Email confirmed by a code (item 4) | Supabase → Authentication → Email Templates, then Secrets | Confirm signup and Magic Link show `{{ .Token }}` ("Your Super Pools code"); then `EMAIL_CODES` = `on`. The Platform page reads On | 5 min |
+| D | Auth settings (item 1) | Supabase → Authentication → URL Configuration | Site URL and the three redirect URLs below; the reset email's wording | 5 min |
+| E | Password of 8 at Auth (item 14) | Supabase → Authentication → Providers → Email | Minimum password length 8. Every form, the join function and the commissioner's SQL already ask for 8 (migration 356 is live), so this is safe today | 1 min |
+| F | Database SSL enforcement (item 14) | Supabase → Settings → Database | Switch "Enforce SSL" on. The site and the functions use the HTTPS API and are untouched | 1 min |
+| G | Compute to Small, Auth's connections to a percentage (item 6) | Supabase → Settings → Compute and Disk | Before the first push for outside users; a restart of about two minutes, best on a morning with no games on. About $15 a month in place of $10 when last checked; the page shows today's price | 5 min |
+| H | Point-in-time recovery (item 7) | Supabase → Settings → Add-ons | Seven days. About $100 a month when last checked, so it can wait until strangers' pools hold weeks of calls; the daily backup stands until then | 2 min |
+| I | Uptime alarm (item 9) | uptimerobot.com | A free account and the three five-minute keyword monitors listed in item 9 | 10 min |
+| J | Mission Control's passcode (item 11) | Supabase → SQL editor | Run `launch/mission-control-passcode.sql` from the project files (not run as of 10 November) | 2 min |
+| K | A sign-up on live with a fresh email | `app.superpoolsai.com/#/new` | Start one pool as a stranger would, after C, to see the code arrive | 5 min |
+| L | Stripe account and a test key | stripe.com | Only the account, in Planetterrian Ventures' name. Billing itself is not built and waits on the decision in the 24 November review (25 outside pools first) | 20 min |
+| M | DMARC to quarantine (item 10) | Cloudflare → DNS | Once the reports show only Resend and Cloudflare | 5 min |
+
+Also waiting on a word in the chat, each written, tested and not live: migrations 362 (the Traitors pack), 364 and 366
+(the bug hunt), 365 (bet math) and 368 (realtime rules, step one).
+
 ### Before launch (blocking)
 
 1. **Auth settings** (Supabase → Authentication; the session wasn't allowed to change them):
@@ -73,7 +100,10 @@ its ranked list where they overlap.
    Turnstile site key (free) for `app.superpoolsai.com` and `superpoolsai.com`. *Wired 4 November 2026 (§9.28), off until
    the keys exist:* put the site key in `.env.production` as `VITE_TURNSTILE_SITE_KEY` and let the site deploy, then set
    `TURNSTILE_SECRET` in Supabase's function secrets. In that order: the secret first would refuse every new account
-   from the old site. The landing's waitlist writes straight to its table and is not covered yet.
+   from the old site. *24 November 2026 (§9.49):* the public key can live beside the secret instead (`TURNSTILE_SITE_KEY`
+   in the function secrets, which the site and the landing ask the join function for), so no build is needed: line A
+   above. The landing's waitlist goes through the join function's door behind the same check, and migration 369 takes
+   the public key's insert on the table away (line B).
 9. ~~Uptime alerts~~ *Done 9 November 2026:* `.github/workflows/uptime.yml` checks the app, the marketing site and the
    sports data every ten minutes from GitHub's runners and opens an issue assigned to Patrick when one fails twice in a
    row (closed again when all answer). *Found 24 November 2026:* GitHub ran that schedule only three or four times a day
@@ -94,13 +124,16 @@ its ranked list where they overlap.
 14. **Database SSL enforcement** (Settings → Database) and a minimum password length of 8 (Auth → Providers → Email).
     *4 November 2026:* every form that sets a new password and the join function ask for 8 (§9.29); Auth's own minimum
     goes to 8 once that is deployed, never before, or a 6- or 7-character password would pass the form and fail at Auth.
-    Passwords already set keep working. The commissioner's reset and spectator functions still accept 6 in SQL.
+    Passwords already set keep working. The commissioner's reset and spectator functions ask for 8 too since migration
+    356 (live 10 November), so Auth's minimum can go to 8 now.
 15. **`rosters_2526_backup`**: drop it once you're sure (destroys the copy; your yes).
 16. **The repository is public** (MIT since 25 October): the plan documents in `docs/` are public with it. No secrets are
     in it (checked); if the plans should be private, move `docs/` to a private repository.
 
 ## 4. Left for later (not blocking)
 
-Billing and tiers (Stripe), the app-store listing, deleting an account from inside the app (needed for an app store),
-a Content-Security-Policy on the app, a per-account cap on new pools, room sign-in at the socket upgrade, and the
-unindexed foreign keys (index only where scans show it).
+Billing and tiers (Stripe), the app-store listing, deleting an account from inside the app (needed for an app store;
+today it is a request to hello@, as the privacy note says), naming every script and picture source in the
+Content-Security-Policy (its first part, no framing, no plugins, no foreign `<base>`, is on every page since 24 November
+2026), room sign-in at the socket upgrade, and the unindexed foreign keys (index only where scans show it). A
+per-account cap on new pools is already there: five a day and 25 in all (`_pool_open`).
