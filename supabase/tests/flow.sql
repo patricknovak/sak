@@ -8193,6 +8193,52 @@ set session_replication_role = origin;
 \i supabase/migrations/20261005000364_feed_never_stalls.sql
 select 'feed never stalls', true;
 
+-- ───────────── a finished game with no winner still shows its page; a vote stays the voter's (migration 366) ─────────────
+reset role;
+select set_config('request.jwt.claim.sub', '', false);
+select id as nwg, league_id as nwl, winners as nww from pool_games where status = 'done' and cardinality(winners) > 0 order by id limit 1 \gset
+select set_config('test.nww', :'nww', false);
+select set_config('app.league_id', :'nwl', false);
+update pool_games set winners = '{}' where id = :nwg;
+select pg_temp.expect('nobody won: the chances are an empty list, not an error', pool_game_chances(:nwg) = '[]'::jsonb);
+update pool_games set winners = (select array_agg(id) from (select id from teams where league_id = :nwl order by id limit 2) t) where id = :nwg;
+select pg_temp.expect('two winners: a half each', (select count(*) = 2 and bool_and((e->>'chance')::numeric = 0.5) from jsonb_array_elements(pool_game_chances(:nwg)) e));
+update pool_games set winners = current_setting('test.nww')::int[] where id = :nwg;
+select set_config('app.league_id', '', false);
+-- polls: team 2 can change its own vote, and can't hand it to team 3 to vote again
+select pg_temp.as_team(1);
+set role authenticated;
+insert into polls (channel, team_id, question, options) values ('general', 1, 'Best road trip?', '["West","East"]') returning id as pv \gset
+reset role;
+select pg_temp.as_team(2);
+set role authenticated;
+insert into poll_votes (poll_id, team_id, choice) values (:pv, 2, 0);
+insert into poll_votes (poll_id, team_id, choice) values (:pv, 2, 1) on conflict (poll_id, team_id) do update set choice = excluded.choice, team_id = excluded.team_id, poll_id = excluded.poll_id;
+select pg_temp.raises('a vote can''t be handed to another team', format('update poll_votes set team_id = 3 where poll_id = %s and team_id = 2', :pv), 'row-level security');
+select pg_temp.raises('nor a poll''s question changed', format('update polls set question = ''x'' where id = %s', :pv), 'permission denied');
+reset role;
+select pg_temp.expect('the vote changed and stayed team 2''s', (select count(*) = 1 and bool_and(team_id = 2 and choice = 1) from poll_votes where poll_id = :pv));
+select pg_temp.as_team(1);
+set role authenticated;
+select pg_temp.raises('the author can''t rewrite the answers', format('update polls set options = ''["Me"]'' where id = %s', :pv), 'permission denied');
+update polls set closed = true where id = :pv;
+select pg_temp.raises('or open it again', format('update polls set closed = false where id = %s', :pv), 'row-level security');
+reset role;
+select pg_temp.expect('the poll is closed, as asked', (select closed and question = 'Best road trip?' from polls where id = :pv));
+-- a chat post is dated by the database, never by its writer
+select pg_temp.as_team(2);
+set role authenticated;
+insert into messages (channel, team_id, body) values ('general', 2, 'dated by the database');
+select pg_temp.raises('a post can''t carry its own date', $$insert into messages (channel, team_id, body, created_at) values ('general', 2, 'from the future', now() + interval '1 year')$$, 'permission denied');
+select pg_temp.raises('nor its own id', $$insert into messages (id, channel, team_id, body) values (999999999, 'general', 2, 'numbered')$$, 'permission denied');
+update messages set body = 'edited', edited_at = now() where team_id = 2 and body = 'dated by the database';
+reset role;
+select pg_temp.expect('the post went in, dated now, and its writer can still edit it',
+  (select count(*) = 1 and bool_and(created_at between now() - interval '1 minute' and now() + interval '1 minute') from messages where team_id = 2 and body = 'edited'));
+select set_config('request.jwt.claim.sub', '', false);
+\i supabase/migrations/20261005000366_no_winner_page_poll_votes.sql
+select 'no-winner page, poll votes', true;
+
 -- ───────────── Rod Hockey's games are kept, league by league (migration 354) ─────────────
 reset role;
 select set_config('app.league_id', '', false);

@@ -1925,3 +1925,36 @@ limit; `health_check` itself averages 2 s; ten `mlb-post-2026` games that were n
 league 2 holds 124 `player_night` forecasts open since 27 October (no job runs for it); `top_scorer(team)` and
 `_acq_used(team)` answer for any team id, another league's included (a player id and a count); pg_net lives in the
 `public` schema (Supabase's advisor); the push function's test line still says "See you on draft night".
+
+### 9.46 The bug hunt's second pass, 24 November 2026
+
+With the logs read out, the same day's hunt went on by the classes of fault the first pass had shown, and through what
+a signed-in member can write straight to a table. Migration 366 (`no_winner_page_poll_votes`):
+
+- **The same division, one function over.** `pool_game_chances` returned a finished game's chances with
+  `1.0 / cardinality(g.winners)`; with `winners = '{}'` Postgres folds the division while planning and the pool's
+  table gets an error, not an empty list. Nothing on live is in that state yet: the MLS pick'em that migration 364
+  lets finish will be the first, so 366 goes on with it. No other function divides by a count that can be zero
+  (the eight `_..._chances` simulations divide by a window count of at least one).
+- **A vote stays the voter's.** `poll_votes`' update policy checked the row before the change and the poll after it,
+  never whose vote it is afterwards: a member could hand their vote to another team and vote again, once per member.
+- **A poll is closed, never rewritten.** Its author or the commissioner could change the question, the answers and the
+  closing time after the votes were in, or open it again. The site only ever sets `closed`; that is now the one
+  column it may update, and only to true.
+- **A chat post is dated by the database.** `messages` let a post carry its own `id`, `created_at`, `edited_at` and
+  `deleted`; a member could write a message into last week or into next year. Insert is granted on the composer's
+  columns only (no message on live was dated ahead).
+
+Looked at and sound: every view the API serves runs as the caller and every table has row-level security, so the extra
+DELETE/TRUNCATE grants Supabase's defaults leave on 44 objects reach nothing; no function calls one that no longer
+exists; the edge functions' and the Worker's doors. The odds board (`book_live`, 1.5 s) spends its time in
+`_player_rate` reading `player_season`, so migration 364 is its fix; measure it again after a game night.
+
+**Open, and the one that matters: the realtime channels are public.** `typing:<league>`, `online:<league>`,
+`rink:<league>`, `rod:<league>:<match>` and `lounge:<key>` are plain broadcast and presence channels, so anyone with
+the site's public key, signed in or not, can listen to who is online and typing in any league and send their own
+broadcasts (a typing line under any name, a Rink Duel challenge card on a GM's phone, moves into a live match). No
+stored data is reachable this way. The fix is Supabase's Realtime Authorization, in three steps that can't share a
+pull request: policies on `realtime.messages` keyed on the topic's league (`realtime.topic()`), then the site opening
+every channel with `private: true` once those are live, then "Allow public access" switched off in the project's
+Realtime settings (Patrick). It needs a browser against live to prove, which this session didn't have.
