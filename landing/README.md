@@ -33,9 +33,17 @@ Every page is plain HTML on one design system. Each start button opens the app's
 - `hockey-pools.html`, `football-pools.html`, `basketball-pools.html` and `soccer-pools.html`, the sport pages, written by
   `python3 scripts/landing/gen_sports.py` from `scripts/landing/sports_content.py` (one template, so the head, header,
   footer and FAQPage JSON-LD stay the same on all four). Edit the content file and re-run the generator; never edit the
-  four pages by hand. Each page's open-now board keeps to its sport (`#now data-sport`, nhl, nfl, nba or soccer; site.js
+  generated pages by hand. Each page's open-now board keeps to its sport (`#now data-sport`, nhl, nfl, nba or soccer; site.js
   does the filtering and counts the sport's events in `#now-tag`), and shows the sport's always-on season when the app's
   list has nothing for it.
+- `nfl-playoff-pools.html`, `super-bowl-squares.html` and `stanley-cup-playoff-pools.html`, the event pages (24 November
+  2026), one for each window a group goes looking for a pool: written by the same generator from
+  `scripts/landing/events_content.py`, so they share the sport pages' template. Each start button names the event itself
+  (`#/new?comp=nfl-post-2026&kind=bracket`); the app's start page opens on the event once its field is set and, until
+  then, on the league as it stands with a line saying when the playoff pool opens (`src/lib/comingEvents.ts`), so no
+  button depends on a guessed hour. The dated line under the hero (`deadline`) and the buttons (`ctas`) follow the
+  calendar through `data-from` / `data-until`. Their drawn samples (a bracket, a grid of squares) are section 4.5 of
+  `site-sports.css`. The sport pages' playoff rows and every generated page's footer ("Coming up") link to them.
 - `together.html`, show pools for any group, in rose: what's on and what's next (every line dated), the drawn invite,
   the try-it question, women's sport with a pool on it.
 - `traitors.html`: the Traitors pool while its pack has a question left. From 20 November 2026 05:00Z `site.js` sends the

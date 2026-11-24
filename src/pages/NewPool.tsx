@@ -2,7 +2,8 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { funnelHit } from '../lib/funnel';
 import { FunctionsHttpError } from '@supabase/supabase-js';
-import { ArrowLeft, ArrowRight, Check, ChevronRight, Lock, Plus, Sparkles } from 'lucide-react';
+import { ArrowLeft, ArrowRight, CalendarClock, Check, ChevronRight, Lock, Plus, Sparkles } from 'lucide-react';
+import { COMING, comingLine } from '../lib/comingEvents';
 import { rpc, setRemember, supabase } from '../lib/supabase';
 import { markShareAfterCreate, openPool } from '../lib/host';
 import { isGuestEmail, signOut } from '../lib/guest';
@@ -145,6 +146,8 @@ export default function NewPool() {
   const [showPw, setShowPw] = useState(false);
   // an event tapped before both lists have answered must not be un-picked by the link effect's first run
   const touched = useRef(false);
+  // the link named an event that opens later: what to say about it above the steps
+  const [coming, setComing] = useState<{ head: string; body: string } | null>(null);
   const typed = params.get('type');
   const [mode, setMode] = useState<Mode | null>(isMode(typed) ? typed : null);
   // the step asked for; an earlier step still unanswered opens in its place (below). ?type= lands on what comes next.
@@ -204,11 +207,17 @@ export default function NewPool() {
     setAts(atsOn);
     // a link that names an event's pack opens on the event
     // (or names the event itself, #/new?comp=nfl, as the landing page's open-right-now board does)
-    const ev = events.find((x) => (x.pack && x.pack === packQ) || x.competition === compQ);
+    const direct = events.find((x) => (x.pack && x.pack === packQ) || x.competition === compQ);
+    // an event that hasn't opened yet (the playoffs, weeks ahead, from their landing pages): the league as it stands
+    // today, with a line saying when the playoff pool opens (src/lib/comingEvents.ts)
+    const early = !direct && compQ ? COMING[compQ] ?? null : null;
+    const ev = direct ?? (early ? events.find((x) => x.competition === early.now) : undefined);
+    setComing(early && ev ? comingLine(early, kindQ) : null);
     // and a kind it offers, #/new?comp=nba-2026-27&kind=wins, is ticked in place of its first (squares too, on an
     // event with a grid to draw, #/new?comp=mlb-post-2026&kind=squares from the World Series page)
     const want = ev?.kinds.find((k) => k === kindQ)
-      ?? (ev && kindQ === 'squares' && eventGrids(ev).length ? 'squares' as const : undefined);
+      ?? (ev && kindQ === 'squares' && eventGrids(ev).length ? 'squares' as const : undefined)
+      ?? (early ? ev?.kinds.find((k) => k === early.lead) : undefined);
     // a link that names the kind has answered the kinds step too, so it lands on the name; one that names only the
     // event lands on the kinds, the first one ticked
     if (ev) {
@@ -404,7 +413,8 @@ export default function NewPool() {
 
   const start = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!ready || busy || afterSignIn || (!!session && !canHost)) return;
+    // while the code step is up the code is the only way on (Enter in any other field must not ask for the account again)
+    if (!ready || busy || afterSignIn || !!codeFor || (!!session && !canHost)) return;
     setBusy(true); setErr(''); setSignIn(false);
     funnelHit('start_go', mode ?? 'pool', srcParam);
     try {
@@ -466,6 +476,16 @@ export default function NewPool() {
           <h1 className="h-display text-shine text-4xl leading-none">{mode === 'fantasy' ? 'Start a league' : 'Start a pool'}</h1>
           {!mode && <p className="mt-2 text-sm text-slate-300">Sports pools, question pools and fantasy leagues for anything your group follows. Free, and never money.</p>}
         </div>
+
+        {coming && !resolving && (
+          <div className="mb-4 flex items-start gap-3 rounded-2xl border border-white/10 bg-white/[.05] p-4" role="note">
+            <span className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-[rgb(var(--gold-rgb)/.16)] text-gold"><CalendarClock size={18} /></span>
+            <div className="min-w-0 text-sm leading-snug">
+              <div className="text-balance font-semibold text-white">{coming.head}</div>
+              <p className="mt-1 text-white/70">{coming.body}</p>
+            </div>
+          </div>
+        )}
 
         <form id="np-form" onSubmit={start} className="card-hero p-5">
           <div className="relative space-y-4 [counter-reset:step]">
@@ -792,14 +812,17 @@ export default function NewPool() {
           <div className="absolute inset-x-0 top-0 h-0.5 bg-white/[.06]"><div className="h-full bg-gold transition-[width] duration-300" style={{ width: `${Math.round(progress * 100)}%` }} /></div>
           <div className="mx-auto flex w-full max-w-md items-center gap-3 px-4">
             <div className="min-w-0 flex-1">
-              <div className="text-[10px] font-black uppercase tracking-[.16em] text-white/50">{ready ? 'All set' : resolving ? 'One moment' : `Step ${curAt + 1} of ${stepCount}`}</div>
-              {need && !resolving ? (
+              <div className="text-[10px] font-black uppercase tracking-[.16em] text-white/50">{codeFor ? 'One last step' : ready ? 'All set' : resolving ? 'One moment' : `Step ${curAt + 1} of ${stepCount}`}</div>
+              {codeFor ? (
+                // the code is the only thing left: the bar points at it rather than at a start button that can't be pressed
+                <button type="button" onClick={() => document.getElementById('email-code')?.focus()} className="text-left text-sm font-semibold leading-snug text-white">Type the code we emailed you<ChevronRight size={15} className="-mt-0.5 ml-0.5 inline text-white/60" /></button>
+              ) : need && !resolving ? (
                 <button type="button" onClick={fix} className="text-left text-sm font-semibold leading-snug text-white"><span className="line-clamp-1">{need.text}<ChevronRight size={15} className="-mt-0.5 ml-0.5 inline text-white/60" /></span></button>
               ) : ready ? (
                 <p className="line-clamp-2 break-words text-sm font-semibold leading-snug text-white">{pool.trim()}</p>
               ) : null}
             </div>
-            <button type="submit" form="np-form" className="btn-gold shrink-0 px-3.5 py-3 text-[15px]" disabled={busy || afterSignIn || !ready || !!codeFor || (!!session && !canHost)}>{busy || afterSignIn ? <Spinner /> : haveAccount && !member ? 'Sign in and start' : 'Start my pool'}</button>
+            {!codeFor && <button type="submit" form="np-form" className="btn-gold shrink-0 px-3.5 py-3 text-[15px]" disabled={busy || afterSignIn || !ready || !!codeFor || (!!session && !canHost)}>{busy || afterSignIn ? <Spinner /> : haveAccount && !member ? 'Sign in and start' : 'Start my pool'}</button>}
           </div>
         </div>
       )}

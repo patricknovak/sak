@@ -1872,6 +1872,55 @@ in the project ("Super Pools: market review and growth plan").
   `private.funnel_daily`, with no cookie, address, account or hash; `platform_funnel()` reads it beside pools started by
   real accounts and seats taken, on the Platform page's Front door. The privacy note says so.
 
+### 9.42 A page and a start for each coming event, 24 November 2026
+
+The growth review of 24 November set three dated windows (the NFL playoffs and Super Bowl LXI, The Traitors season 5,
+the Stanley Cup playoffs) and found the door to each missing: a postseason joins `pool_event_list()` only once its
+field is set, so for the seven weeks people spend looking for "NFL playoff pool" there was no page to land on and no
+link that opened anything.
+
+- Three pages on the marketing site, written by the sport pages' generator from `scripts/landing/events_content.py`:
+  `nfl-playoff-pools`, `super-bowl-squares` and `stanley-cup-playoff-pools`. Each answers the questions a searcher asks
+  (how the bracket is scored, when the numbers are drawn, when it locks) in the page and in its FAQPage JSON-LD, draws
+  a sample (a bracket round by round, a grid as the game plays) and follows the calendar by itself.
+- The start page takes a link to an event that hasn't opened (`src/lib/comingEvents.ts`): `#/new?comp=nfl-post-2026`
+  before 10 January opens on the NFL as it stands, a Super Bowl squares link on a grid for a game this week, and a Cup
+  link on the season's box pool, each under a line saying when the playoff pool opens and that the host adds it to the
+  same pool from Picks, Add a game. The crew is in before the week that matters. Once the event is in the list the same
+  link opens on it. A new event with a page ahead of its field gets a row in `COMING`.
+- Held for Patrick's go (migration 362): The Traitors season 5 pack (`traitors-s5`: three calls before the premiere, one
+  each Thursday named by its date since the episode count isn't announced, five on the finale open all season) and the
+  Traitors page rewritten for it. The page's button opens the pack, so the two ship together once 362 is live.
+- Checked: `e2e/app-new-pool-link.spec.ts` (the early link, then the same link once the event is listed),
+  `e2e/landing.spec.ts`, the landing copy tests, and the pages at 360 and 390 px on either side of each date.
+
+### 9.43 The first visit, walked as a stranger, 24 November 2026
+
+The path a stranger takes (the start page, the account with its email code, the first pool, the invite, and the page a
+friend opens from the link) walked on a phone at 390 and 360 px against a stand-in for the database, since the growth
+review found nobody outside the league had been down it since 23 October. What it turned up, and what changed (no
+migration):
+
+- **The email code threw a new host back to an empty start page.** `EmailCode` was a form, and on `#/new` it is drawn
+  inside the start form. A form inside a form: confirming the code posted the page to itself, the address gained a
+  `?`, and the pool, the name and the account typed were gone, with the code never checked. It bit every new host and
+  every new commissioner once the `EMAIL_CODES` secret is on (the invite page drew it outside a form and was fine).
+  `EmailCode` is no longer a form: the sixth digit confirms by itself (typed, pasted, or filled from the message by the
+  phone), Enter and the button confirm too, a code pasted as "123 456" keeps its six digits, and the start form ignores
+  a submit while the code step is up. `e2e/app-email-code.spec.ts` walks it and fails on the old code.
+- **The consent line sat over the two buttons that matter.** On an invite's page it floated over Join the pool at the
+  foot of the first screen; there it is now part of the page, under the form. Over a sheet it covered the share
+  sheet's Copy and WhatsApp buttons on a host's first invite; it now steps aside while any sheet is open (`data-sheet`
+  on `Sheet`, `data-consent` on the line, one rule in `index.css`). On the start page the room left for it at the top
+  was never measured (`--consent-space` was read and never set), so the page's title sat under it: the line now says
+  how far down it reaches.
+- **A friend who joined scrolled past three cards to find the questions.** On the pool's home, Keep your place, Start
+  your own pool and the alerts card now come after the questions, not before them.
+- **The invite page is tighter**, so Join the pool is on the first screen of a 360 px phone.
+
+New UI drawn inside a form never brings a form of its own; a new floating line or bar checks the invite page and an
+open sheet on a phone before it ships.
+
 ### 9.45 Side bets and the Book settle to the coin, 24 November 2026
 
 The four errors §9.40 found while the math sheet was built, fixed, with what turned up beside them (migration 365,

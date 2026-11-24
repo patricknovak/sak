@@ -120,7 +120,7 @@ export function Sheet({ open, onClose, title, children, wide }: { open: boolean;
   }, [open, onClose]);
   if (!open) return null;
   return (
-    <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/65 backdrop-blur-md sm:items-center" onClick={onClose}>
+    <div data-sheet className="fixed inset-0 z-50 flex items-end justify-center bg-black/65 backdrop-blur-md sm:items-center" onClick={onClose}>
       <div
         className={`animate-slideup pb-safe max-h-[92dvh] w-full overflow-y-auto rounded-t-[28px] border border-white/10 bg-gradient-to-b from-[#16213b] to-rink shadow-[0_-20px_60px_-20px_rgba(0,0,0,.8)] sm:rounded-3xl ${wide ? 'sm:max-w-2xl' : 'sm:max-w-lg'}`}
         onClick={(e) => e.stopPropagation()}
