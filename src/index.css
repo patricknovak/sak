@@ -56,6 +56,9 @@ body::after {
 
 /* safe areas for iPhone home-screen installs */
 .pt-safe { padding-top: env(safe-area-inset-top); }
+/* the consent line steps aside while a sheet is open: it sat over the share sheet's Copy and WhatsApp buttons on a
+   host's first invite (24 November 2026). It's back the moment the sheet closes. */
+body:has([data-sheet]) [data-consent] { display: none; }
 .pb-safe { padding-bottom: env(safe-area-inset-bottom); }
 .mb-nav { margin-bottom: calc(84px + env(safe-area-inset-bottom)); }
 

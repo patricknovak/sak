@@ -238,14 +238,6 @@ export function PoolHome() {
 
       <PoolGameCards />
 
-      {/* joined with just a name: the email that keeps the seat (migration 332), after what they came for */}
-      {!(me?.is_commish && isGuestEmail(session?.user?.email)) && <KeepSeat />}
-
-      {/* after a joiner's first call: invite them to open a pool of their own (viral loop), and the alerts that buzz
-          before their next call closes */}
-      <StartOwnPoolCard />
-      <FirstCallPush />
-
       {me?.role === 'gm' && !gamesOnly && !blank && <PoolHowTo league={league?.league_id ?? 0} />}
 
       {me?.is_commish && settle.length > 0 && (
@@ -273,6 +265,15 @@ export function PoolHome() {
           )}
         </>
       )}
+      {/* joined with just a name: the email that keeps the seat (migration 332), after what they came for: the
+          questions come first (a friend who called one on the invite used to scroll past three cards to find the rest) */}
+      {!(me?.is_commish && isGuestEmail(session?.user?.email)) && <KeepSeat />}
+
+      {/* after a joiner's first call: invite them to open a pool of their own (viral loop), and the alerts that buzz
+          before their next call closes */}
+      <StartOwnPoolCard />
+      <FirstCallPush />
+
       <PredictorCard />
       <SurvivorCard />
       {!gamesOnly && <Section title="Latest calls" icon={<Sparkles className="h-5 w-5 text-gold" />}><CallsFeed trades={trades} markets={markets ?? []} /></Section>}

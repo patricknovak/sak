@@ -16,8 +16,14 @@ const clamp = (p: number) => Math.min(0.995, Math.max(0.005, p));
 // P(X > Y) for independent normals; exact ties can't happen with continuous scoring, so this is the win chance
 const pAhead = (mean: number, sd: number) => (sd < 1e-6 ? (mean > 0 ? 1 : mean < 0 ? 0 : 0.5) : clamp(phi(mean / sd)));
 
+// which kind of NHL game a bet counts, the way the database's _bet_game_type does: the regular season (2), or the
+// playoffs (3) when the bet's window starts after the regular season is over. The kind is in the game's id (2025020417).
+export const gameTypeOf = (id: number | null | undefined) => Number(String(id ?? '').slice(4, 6)) || 2;
+export const betGameType = (b: Pick<Bet, 'kind' | 'start_date'>, seasonEnd?: string | null) => (b.kind !== 'season' && !!b.start_date && !!seasonEnd && b.start_date > seasonEnd ? 3 : 2);
+const ofType = (g: FGame, type: number) => gameTypeOf((g as { id?: number }).id) === type;
+
 export interface OddsCtx {
-  today: string;
+  today: string;                                   // the league day (it stays on last night until its last game is final)
   games: FGame[];                                  // the season schedule
   started: Set<string>;                            // `${date}|${team}` for games today that are under way or over
   players: Map<number, Player>;
@@ -27,10 +33,10 @@ export interface OddsCtx {
 }
 
 // games a club still has to play in [from, to], not counting tonight's once they've started
-function gamesLeft(team: string | null, from: string, to: string, ctx: OddsCtx) {
+function gamesLeft(team: string | null, from: string, to: string, ctx: OddsCtx, type = 2) {
   if (!team) return 0;
   const lo = from > ctx.today ? from : ctx.today;
-  return ctx.games.filter((g) => g.date >= lo && g.date <= to && (g.home === team || g.away === team) && !ctx.started.has(`${g.date}|${team}`)
+  return ctx.games.filter((g) => ofType(g, type) && g.date >= lo && g.date <= to && (g.home === team || g.away === team) && !ctx.started.has(`${g.date}|${team}`)
     && g.state !== 'PPD' && g.state !== 'CNCL').length;
 }
 
@@ -39,10 +45,10 @@ function gamesLeft(team: string | null, from: string, to: string, ctx: OddsCtx) 
 export interface Rest { mean: number; v: number; games?: number; perGame?: number; dress?: number; basis?: string }
 
 // a player's expected remaining output of one stat, and its variance
-function playerRest(id: number, stat: string, from: string, to: string, ctx: OddsCtx): Rest {
+function playerRest(id: number, stat: string, from: string, to: string, ctx: OddsCtx, type = 2): Rest {
   const p = ctx.players.get(id);
   if (!p) return { mean: 0, v: 0, games: 0 };
-  const n = gamesLeft(p.nhl_team, from, to, ctx);
+  const n = gamesLeft(p.nhl_team, from, to, ctx, type);
   const dress = Math.min(1, gamesOf(p) / 82) * healthFactor(p.injury_status);
   let perGame: number, basis: string;
   if (stat === 'fpts') { perGame = p.proj / gamesOf(p); basis = `projection ${Math.round(p.proj)} pts over ${Math.round(gamesOf(p))} games`; }
@@ -55,14 +61,14 @@ function playerRest(id: number, stat: string, from: string, to: string, ctx: Odd
 
 // a fantasy team's expected remaining points in [from, to] (best lineup each day), and its variance
 const teamCache = new Map<string, Rest>();
-function teamRest(team: number, from: string, to: string, ctx: OddsCtx): Rest {
+function teamRest(team: number, from: string, to: string, ctx: OddsCtx, type = 2): Rest {
   const lo = from > ctx.today ? from : ctx.today;
   if (lo > to) return { mean: 0, v: 0, games: 0 };
-  const key = `${team}|${lo}|${to}|${ctx.started.size}`;
+  const key = `${team}|${lo}|${to}|${type}|${ctx.started.size}`;
   const hit = teamCache.get(key);
   if (hit) return hit;
   const roster = ctx.rosterOf(team) as unknown as FPlayer[];
-  const games = ctx.games.filter((g) => !(g.date === ctx.today && (ctx.started.has(`${g.date}|${g.home}`) || ctx.started.has(`${g.date}|${g.away}`))));
+  const games = ctx.games.filter((g) => ofType(g, type) && !(g.date === ctx.today && (ctx.started.has(`${g.date}|${g.home}`) || ctx.started.has(`${g.date}|${g.away}`))));
   const f = forecastTeam(team, roster, games, ctx.caps, lo, 0, to);
   const nights = new Set(games.filter((g) => g.date >= lo && g.date <= to && g.state !== 'PPD' && g.state !== 'CNCL').map((g) => g.date)).size;
   const out: Rest = { mean: f.ros, v: f.ros * 1.44 + (0.08 * f.ros) ** 2, games: nights, basis: 'best lineup each night from the projections' };
@@ -81,6 +87,7 @@ export function betWinDetail(b: Bet, pr: BetProgress | undefined, ctx: OddsCtx):
   const from = b.start_date ?? ctx.today;
   const to = b.kind === 'season' ? ctx.seasonEnd ?? b.end_date ?? ctx.today : b.end_date ?? ctx.today;
   const s = b.subject ?? {};
+  const type = betGameType(b, ctx.seasonEnd);
   const vs = (A: Rest, B: Rest): WinDetail => {
     const mean = (pr.a ?? 0) + A.mean - (pr.b ?? 0) - B.mean, sd = Math.sqrt(A.v + B.v);
     return { kind: 'vs', a: { banked: pr.a ?? 0, rest: A }, b: { banked: pr.b ?? 0, rest: B }, mean, sd, z: sd > 1e-6 ? mean / sd : 0, creator: pAhead(mean, sd) };
@@ -92,15 +99,15 @@ export function betWinDetail(b: Bet, pr: BetProgress | undefined, ctx: OddsCtx):
   };
   if (b.kind === 'h2h' || b.kind === 'season') {
     const f = b.kind === 'season' ? ctx.seasonStart ?? from : from;
-    return vs(teamRest(b.creator_team, f, to, ctx), teamRest(b.opponent_team ?? 0, f, to, ctx));
+    return vs(teamRest(b.creator_team, f, to, ctx, type), teamRest(b.opponent_team ?? 0, f, to, ctx, type));
   }
-  if (b.kind === 'team_ou') return line(teamRest(b.creator_team, from, to, ctx));
-  if (b.kind === 'player_ou' && s.player_id) return line(playerRest(s.player_id, s.stat ?? 'fpts', from, to, ctx));
-  if (b.kind === 'player_vs' && s.player_a && s.player_b) return vs(playerRest(s.player_a, s.stat ?? 'fpts', from, to, ctx), playerRest(s.player_b, s.stat ?? 'fpts', from, to, ctx));
+  if (b.kind === 'team_ou') return line(teamRest(b.creator_team, from, to, ctx, type));
+  if (b.kind === 'player_ou' && s.player_id) return line(playerRest(s.player_id, s.stat ?? 'fpts', from, to, ctx, type));
+  if (b.kind === 'player_vs' && s.player_a && s.player_b) return vs(playerRest(s.player_a, s.stat ?? 'fpts', from, to, ctx, type), playerRest(s.player_b, s.stat ?? 'fpts', from, to, ctx, type));
   if ((b.kind === 'pool_team' || b.kind === 'pool_player') && pr.entries?.length) {
     // simulate: each entry's final total, most wins (ties split)
     const parts = pr.entries.map((e) => {
-      const R = b.kind === 'pool_team' ? teamRest(e.pick, from, to, ctx) : playerRest(e.pick, s.stat ?? 'fpts', from, to, ctx);
+      const R = b.kind === 'pool_team' ? teamRest(e.pick, from, to, ctx, type) : playerRest(e.pick, s.stat ?? 'fpts', from, to, ctx, type);
       return { team: e.team_id, pick: e.pick, banked: e.value, rest: R, mean: e.value + R.mean, sd: Math.sqrt(R.v) };
     });
     const wins = new Map(parts.map((p) => [p.team, 0]));
