@@ -249,7 +249,7 @@ Two things in one repo:
   games on its events, their scores and members climbing its table, pushed; the rest is the built site. The plan for the edge is `docs/DEVELOPMENT.md` §8.3; the
   Super Pools marketing site (`landing/`, rebuilt 4 November 2026, its README the map: the home `index.html`,
   `fantasy-hockey.html`, `pricing.html`, `changelog.html` (written by `scripts/landing-changelog.mjs` from
-  `src/data/changelog.ts`), the four sport pages written by `scripts/landing/gen_sports.py`, `together.html`,
+  `src/data/changelog.ts`), the four sport pages and the three event pages (`nfl-playoff-pools`, `super-bowl-squares`, `stanley-cup-playoff-pools`; a link to an event before its field is set opens on the league as it stands, `src/lib/comingEvents.ts`, 24 November 2026) written by `scripts/landing/gen_sports.py`, `together.html`,
   `traitors.html`, `love-is-blind.html`, `example-pool.html` and `fans.html`, on `site.css` with `site-sports.css`,
   `site-commish.css` and `site-shows.css`; dated copy follows the calendar through `data-from` / `data-until` and
   `LIB_STAGES` in `site.js`; the founding league's record is read live from `proof_counts()`, migration 350, into `[data-proof]`; the privacy note is the app's `#/privacy`) on Cloudflare (zone routes on the apex and www; off Vercel); every

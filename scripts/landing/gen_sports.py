@@ -1,10 +1,11 @@
 #!/usr/bin/env python3
-"""Writes landing/{hockey,football,basketball,soccer}-pools.html from one template, so the head, header, footer and the
-FAQPage JSON-LD (built from the visible FAQ) stay the same on all four."""
+"""Writes landing/{hockey,football,basketball,soccer}-pools.html, and the event pages (nfl-playoff-pools,
+super-bowl-squares, stanley-cup-playoff-pools; events_content.py), from one template, so the head, header, footer and
+the FAQPage JSON-LD (built from the visible FAQ) stay the same on all of them."""
 import html, json, re, sys
 from pathlib import Path
 
-OUT = Path('/home/user/sak/landing')
+OUT = Path(__file__).resolve().parents[2] / 'landing'
 APP = 'https://app.superpoolsai.com/#/new?'
 
 def app(q):
@@ -44,6 +45,7 @@ def footer(league_note):
     return f'''  <footer class="site-foot">
     <div class="cols">
       <div><h2>Play</h2><ul><li><a href="./fantasy-hockey.html">Fantasy league</a></li><li><a href="./hockey-pools.html">Hockey pools</a></li><li><a href="./football-pools.html">NFL pools</a></li><li><a href="./basketball-pools.html">NBA pools</a></li><li><a href="./soccer-pools.html">Soccer pools</a></li><li><a href="./together.html">Show pools</a></li></ul></div>
+      <div><h2>Coming up</h2><ul><li><a href="./nfl-playoff-pools.html">NFL playoff pools</a></li><li><a href="./super-bowl-squares.html">Super Bowl squares</a></li><li><a href="./stanley-cup-playoff-pools.html">Stanley Cup playoff pools</a></li></ul></div>
       <div><h2>Look around</h2><ul><li><a href="./fans.html">Fan zones</a></li><li><a href="./example-pool.html">An example pool</a></li><li><a href="./pricing.html">Pricing</a></li><li><a href="./changelog.html">Changelog</a></li></ul></div>
       <div><h2>Your pools</h2><ul><li><a href="https://app.superpoolsai.com/">Sign in</a></li><li><a href="mailto:hello@superpoolsai.com">hello@superpoolsai.com</a></li></ul></div>
       <div><h2>The fine print</h2><ul><li><a href="https://app.superpoolsai.com/#/privacy">Privacy</a></li><li><a href="https://app.superpoolsai.com/#/terms">Terms</a></li><li><button type="button" class="linkbtn" data-cookie-settings>Cookie settings</button></li></ul></div>
@@ -91,13 +93,20 @@ def head(p):
 </head>
 '''
 
+def buttons(p, cls, gold=True):
+    """The page's start button: one, or one per stretch of the calendar (an event page's: before the field is set,
+    while the event is on, after its final), each kept on or off the page by data-from / data-until."""
+    cs = p.get('ctas') or [dict(q=p['cta'], label=p['cta_label'])]
+    g = ' data-gold' if gold else ''
+    return ''.join(f'<a class="{cls}"{g}{attrs_of(c.get("attrs", {}))} href="{app(c["q"])}">{c["label"]}</a>' for c in cs)
+
 def attrs_of(d):
     return ''.join(' %s="%s"' % (a, v) for a, v in d.items())
 
 def kind_row(k):
     if k.get('href'):
         attrs = attrs_of(k.get('attrs', {}))
-        return f'''        <li{attrs}><a class="kl" href="{k['href']}"><span class="ki">{ico(k['icon'])}</span><b>{k['name']}</b><span class="ln">{k['line']}</span><span class="go"><small>{k['tag']}</small>Start</span></a></li>'''
+        return f'''        <li{attrs}><a class="kl" href="{k['href']}"><span class="ki">{ico(k['icon'])}</span><b>{k['name']}</b><span class="ln">{k['line']}</span><span class="go"><small>{k['tag']}</small>{k.get('go', 'Start')}</span></a></li>'''
     attrs = attrs_of(k.get('attrs', {}))
     whens = ''.join('<span class="when2"%s>%s</span>' % (attrs_of(w[1]), w[0]) for w in k['when'])
     return f'''        <li{attrs}><div class="kl"><span class="ki">{ico(k['icon'])}</span><b>{k['name']}</b><span class="ln">{k['line']}</span>{whens}</div></li>'''
@@ -111,17 +120,19 @@ def page(p):
     s.append('  <main id="main">\n')
     ghosts = '<div class="ev ghost"></div>' * p['ghosts']
     one = ' one' if p['ghosts'] == 1 else ''
+    eyebrow = f'<div class="eyebrow">{p["eyebrow"]}</div>\n        ' if p.get('eyebrow') else ''
+    deadline = f'\n        <p class="deadline">{ico("clock")}{p["deadline"]}</p>' if p.get('deadline') else ''
     swipe = '\n        <p class="swipe">Swipe for every event</p>' if p['ghosts'] > 1 else ''
     s.append(f'''
     <!-- 1. Hero: the claim, the one gold button, and this sport's events open right now (real, from the app) -->
     <section class="hero2 hero2-split" id="top">
       <div class="hero2-copy">
-        <h1 class="display">{p['h1']}</h1>
+        {eyebrow}<h1 class="display">{p['h1']}</h1>
         <p class="sub">{p['sub']} <b>Never money.</b></p>
         <div class="cta2">
-          <a class="btn btn-gold btn-lg" data-gold href="{app(p['cta'])}">{p['cta_label']}</a>
+          {buttons(p, 'btn btn-gold btn-lg')}
           <a class="textlink" href="#demo">{p['demo_link']}</a>
-        </div>
+        </div>{deadline}
         <p class="proofline" id="proof"><span class="pi" aria-hidden="true">{ico(p['proof_icon'])}</span>{p['proofline']}</p>
       </div>
       <div class="nowpanel" id="open">
@@ -227,7 +238,7 @@ def page(p):
         <h2 class="display">{p['close_h2']}</h2>
         <p>{p['close_p']}</p>
         <div class="cta2">
-          <a class="btn btn-gold btn-lg" data-gold href="{app(p['cta'])}">{p['cta_label']}</a>
+          {buttons(p, 'btn btn-gold btn-lg')}
           <a class="textlink" href="{p['close_link'][1]}">{p['close_link'][0]}</a>
         </div>
       </div>
@@ -237,7 +248,7 @@ def page(p):
     s.append('  </main>\n\n')
     s.append(footer(p['league_note']))
     s.append(f'''
-  <div class="stickybar" id="sticky"><a class="btn btn-gold" href="{app(p['cta'])}">{p['cta_label']}</a></div>
+  <div class="stickybar" id="sticky">{buttons(p, 'btn btn-gold', gold=False)}</div>
   <script src="./site.js"></script>
 </body>
 </html>
@@ -247,7 +258,8 @@ def page(p):
 
 sys.path.insert(0, str(Path(__file__).parent))
 from sports_content import PAGES  # noqa: E402
+from events_content import EVENT_PAGES  # noqa: E402
 
-for p in PAGES:
+for p in PAGES + EVENT_PAGES:
     (OUT / f"{p['slug']}.html").write_text(page(p))
     print('wrote', p['slug'])

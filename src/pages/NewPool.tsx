@@ -2,7 +2,8 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { funnelHit } from '../lib/funnel';
 import { FunctionsHttpError } from '@supabase/supabase-js';
-import { ArrowLeft, ArrowRight, Check, ChevronRight, Lock, Plus, Sparkles } from 'lucide-react';
+import { ArrowLeft, ArrowRight, CalendarClock, Check, ChevronRight, Lock, Plus, Sparkles } from 'lucide-react';
+import { COMING, comingLine } from '../lib/comingEvents';
 import { rpc, setRemember, supabase } from '../lib/supabase';
 import { markShareAfterCreate, openPool } from '../lib/host';
 import { isGuestEmail, signOut } from '../lib/guest';
@@ -145,6 +146,8 @@ export default function NewPool() {
   const [showPw, setShowPw] = useState(false);
   // an event tapped before both lists have answered must not be un-picked by the link effect's first run
   const touched = useRef(false);
+  // the link named an event that opens later: what to say about it above the steps
+  const [coming, setComing] = useState<{ head: string; body: string } | null>(null);
   const typed = params.get('type');
   const [mode, setMode] = useState<Mode | null>(isMode(typed) ? typed : null);
   // the step asked for; an earlier step still unanswered opens in its place (below). ?type= lands on what comes next.
@@ -204,11 +207,17 @@ export default function NewPool() {
     setAts(atsOn);
     // a link that names an event's pack opens on the event
     // (or names the event itself, #/new?comp=nfl, as the landing page's open-right-now board does)
-    const ev = events.find((x) => (x.pack && x.pack === packQ) || x.competition === compQ);
+    const direct = events.find((x) => (x.pack && x.pack === packQ) || x.competition === compQ);
+    // an event that hasn't opened yet (the playoffs, weeks ahead, from their landing pages): the league as it stands
+    // today, with a line saying when the playoff pool opens (src/lib/comingEvents.ts)
+    const early = !direct && compQ ? COMING[compQ] ?? null : null;
+    const ev = direct ?? (early ? events.find((x) => x.competition === early.now) : undefined);
+    setComing(early && ev ? comingLine(early, kindQ) : null);
     // and a kind it offers, #/new?comp=nba-2026-27&kind=wins, is ticked in place of its first (squares too, on an
     // event with a grid to draw, #/new?comp=mlb-post-2026&kind=squares from the World Series page)
     const want = ev?.kinds.find((k) => k === kindQ)
-      ?? (ev && kindQ === 'squares' && eventGrids(ev).length ? 'squares' as const : undefined);
+      ?? (ev && kindQ === 'squares' && eventGrids(ev).length ? 'squares' as const : undefined)
+      ?? (early ? ev?.kinds.find((k) => k === early.lead) : undefined);
     // a link that names the kind has answered the kinds step too, so it lands on the name; one that names only the
     // event lands on the kinds, the first one ticked
     if (ev) {
@@ -467,6 +476,16 @@ export default function NewPool() {
           <h1 className="h-display text-shine text-4xl leading-none">{mode === 'fantasy' ? 'Start a league' : 'Start a pool'}</h1>
           {!mode && <p className="mt-2 text-sm text-slate-300">Sports pools, question pools and fantasy leagues for anything your group follows. Free, and never money.</p>}
         </div>
+
+        {coming && !resolving && (
+          <div className="mb-4 flex items-start gap-3 rounded-2xl border border-white/10 bg-white/[.05] p-4" role="note">
+            <span className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-[rgb(var(--gold-rgb)/.16)] text-gold"><CalendarClock size={18} /></span>
+            <div className="min-w-0 text-sm leading-snug">
+              <div className="text-balance font-semibold text-white">{coming.head}</div>
+              <p className="mt-1 text-white/70">{coming.body}</p>
+            </div>
+          </div>
+        )}
 
         <form id="np-form" onSubmit={start} className="card-hero p-5">
           <div className="relative space-y-4 [counter-reset:step]">
