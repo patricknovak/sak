@@ -1,6 +1,10 @@
 // Security headers on every Worker response (static assets also get them from public/_headers /
 // landing/_headers; Worker-built pages and /api/* need them here). WebSocket upgrades are left alone.
+// The Content-Security-Policy is the part that can't break a page (24 November 2026): no <base> pointing elsewhere, no
+// plugins, no framing. Naming every script and picture source is the later step (the app draws from the NHL, ESPN,
+// Supabase, Cloudflare and Google); it goes out report-only first.
 const SECURITY: Record<string, string> = {
+  'Content-Security-Policy': "base-uri 'self'; object-src 'none'; frame-ancestors 'none'",
   'X-Content-Type-Options': 'nosniff',
   'X-Frame-Options': 'DENY',
   'Referrer-Policy': 'strict-origin-when-cross-origin',

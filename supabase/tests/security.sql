@@ -74,13 +74,24 @@ select pg_temp.expect('pool_event_list still answers the public key', (select co
 select pg_temp.expect('league_by_host still answers the public key', league_by_host('no-such-host.example') is null);
 reset role;
 
--- waitlist insert stays open to the landing page (RETURNING needs SELECT, which anon does not have)
-set role anon;
+-- the waitlist takes the join function's door only (migration 369): the public key can't write it any more, the
+-- service key the function holds still can
+select pg_temp.expect('anon can no longer insert the waitlist', not has_table_privilege('anon', 'public.waitlist', 'insert')
+  and not has_column_privilege('anon', 'public.waitlist', 'email', 'insert'));
+do $$ begin
+  set local role anon;
+  begin
+    insert into waitlist (email, source) values ('security-anon@example.com', 'security.sql');
+    raise exception 'anon wrote the waitlist';
+  exception when insufficient_privilege then null; end;
+end $$;
+reset role;
+set role service_role;
 insert into waitlist (email, name, source)
 values ('security-test-' || floor(extract(epoch from clock_timestamp()) * 1000)::text || '@example.com', 'Security Test', 'security.sql');
 reset role;
-select pg_temp.expect('anon can still insert the waitlist',
-  (select count(*) from waitlist where source = 'security.sql') >= 1);
+select pg_temp.expect('the join function can still write the waitlist',
+  (select count(*) from waitlist where source = 'security.sql') = 1);
 
 -- ───────────── signed-in GMs keep the core SaK and pool doors ─────────────
 select pg_temp.expect('authenticated can set_lineup',

@@ -4,8 +4,33 @@
 // Most people never see it: the widget runs out of sight and shows a box only when Cloudflare wants a click. With no
 // site key every door works as before and `humanToken()` answers undefined; the join function checks the token only once
 // its secret, TURNSTILE_SECRET, is set, so the order is site key first, secret second.
+//
+// The key reaches the site one of two ways (24 November 2026): built in (VITE_TURNSTILE_SITE_KEY), or asked of the join
+// function, which answers the TURNSTILE_SITE_KEY secret kept beside TURNSTILE_SECRET. The second needs no build: both
+// secrets are pasted on one screen and the check is on. `doorSwitches()` is that answer, asked once per visit, and the
+// Platform page reads it to show which switches are on.
 
-const SITE_KEY = (import.meta.env.VITE_TURNSTILE_SITE_KEY as string | undefined)?.trim() ?? '';
+import { supabase } from './supabase';
+
+const BUILT_KEY = (import.meta.env.VITE_TURNSTILE_SITE_KEY as string | undefined)?.trim() ?? '';
+
+export type DoorSwitches = {
+  turnstile: string;   // the widget's public key the function holds, '' when it has none
+  human: boolean;      // the function checks tokens (its secret is set)
+  codes: boolean;      // a new email is confirmed by a 6-digit code
+  known: boolean;      // false when the function couldn't be asked, or is a copy from before it answered this
+};
+let asked: Promise<DoorSwitches> | null = null;
+export function doorSwitches(): Promise<DoorSwitches> {
+  asked ??= supabase.functions.invoke('join', { body: { config: true } }).then(({ data, error }) => {
+    const d = (!error && data?.ok === true ? data : null) as { turnstile?: unknown; human?: unknown; codes?: unknown } | null;
+    if (!d) { asked = null; return { turnstile: '', human: false, codes: false, known: false }; }
+    return { turnstile: typeof d.turnstile === 'string' ? d.turnstile.trim() : '', human: d.human === true, codes: d.codes === true, known: true };
+  }, () => { asked = null; return { turnstile: '', human: false, codes: false, known: false }; });
+  return asked;
+}
+export const builtSiteKey = () => BUILT_KEY;
+const siteKey = async () => BUILT_KEY || (await doorSwitches()).turnstile;
 const SCRIPT = 'https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit';
 
 type Turnstile = {
@@ -33,6 +58,7 @@ function load(): Promise<Turnstile> {
 // One token for one press of the button. A token is good once, so each call renders a fresh widget and removes it after.
 // The box, when Cloudflare asks for a click, sits at the foot of the screen over the page, in the product's dark card.
 export async function humanToken(): Promise<string | undefined> {
+  const SITE_KEY = await siteKey();
   if (!SITE_KEY) return undefined;
   const ts = await load().catch(() => null);
   if (!ts) return undefined;   // the script didn't load (blocked or offline): the function says so if it needed one

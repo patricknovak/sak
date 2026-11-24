@@ -18,6 +18,7 @@ import { PoolIdeas, PoolTest } from '../components/PoolTest';
 import { PoolGamesPlatform } from '../components/PoolGamesPlatform';
 import { GameFix } from '../components/GameFix';
 import { DeletePool } from '../components/DeletePool';
+import { builtSiteKey, doorSwitches, type DoorSwitches } from '../lib/turnstile';
 
 interface Row {
   league_id: number; slug: string; name: string; short_name: string; status: 'setup' | 'active' | 'archived'; created_at: string;
@@ -64,6 +65,7 @@ export default function Platform() {
       <WeekNumbers />
       <FrontDoor />
       <PageUse />
+      <Switches />
 
       <Requests leagues={rows} reload={load} />
 
@@ -447,6 +449,48 @@ function PageUse() {
 // database knows (pools started by real accounts, seats taken), as one path over the last four weeks and by source.
 // Counts only: nothing here can follow one visitor from a step to the next, so read it as totals, not as a journey.
 type Funnel = { counts: { day: string; step: 'view' | 'start_open' | 'start_go'; page: string; src: string; n: number }[]; started: { day: string; n: number }[]; seats: { day: string; n: number }[] };
+// The launch switches (docs/LAUNCH-READINESS-2026-10-28.md): the two the join function can answer for, so whoever sets a
+// key sees here that it took, without making a test account to find out. Each is off until its keys are in Supabase's
+// function secrets; the line under an unfinished one says what is missing.
+function Switches() {
+  const [s, setS] = useState<DoorSwitches | null>(null);
+  useEffect(() => { doorSwitches().then(setS); }, []);
+  if (!s) return null;
+  const key = !!(builtSiteKey() || s.turnstile);
+  const rows = [
+    {
+      k: 'Bot check on the open doors',
+      on: key && s.human, half: key !== s.human,
+      note: key && s.human ? 'Every door that makes an account, and the waitlist, asks Cloudflare first.'
+        : key ? 'The public key is in. Add the secret, TURNSTILE_SECRET, to finish.'
+        : s.human ? 'The secret is in without the public key: new accounts are being refused. Add TURNSTILE_SITE_KEY now.'
+        : 'Off. Add TURNSTILE_SITE_KEY and TURNSTILE_SECRET to the function secrets, the public key first.',
+    },
+    {
+      k: 'New email confirmed by a code',
+      on: s.codes, half: false,
+      note: s.codes ? 'A new address gets a 6-digit code before its pool, league or seat opens.'
+        : 'Off. Set the two Auth email templates to show the code, then the EMAIL_CODES secret to on.',
+    },
+  ];
+  return (
+    <Section title="Launch switches">
+      <div className="card divide-y divide-white/[.06]">
+        {!s.known && <p className="p-3 text-xs text-mute">Couldn’t ask the sign-up function just now. Reload to try again.</p>}
+        {s.known && rows.map((r) => (
+          <div key={r.k} className="flex items-start gap-3 p-3">
+            <span className={`mt-0.5 w-[4.25rem] shrink-0 rounded-full px-2 py-0.5 text-center text-[11px] font-bold ${r.on ? 'bg-emerald-400/15 text-emerald-300' : r.half ? 'bg-amber-400/15 text-amber-300' : 'bg-white/[.07] text-slate-300'}`}>{r.on ? 'On' : r.half ? 'Half set' : 'Off'}</span>
+            <span className="min-w-0 flex-1">
+              <b className="block text-sm text-slate-100">{r.k}</b>
+              <span className="block text-xs leading-snug text-mute">{r.note}</span>
+            </span>
+          </div>
+        ))}
+      </div>
+    </Section>
+  );
+}
+
 function FrontDoor() {
   const [f, setF] = useState<Funnel | null>(null);
   const [days, setDays] = useState(28);
