@@ -50,7 +50,8 @@ BRACKET_DEMO = '''        <figure class="scr bk rv" aria-label="A sample playoff
 
 NFL_Q = 'comp=nfl-post-2026&kind=%s&src=nfl-playoffs'
 NFL_PLAYOFFS = dict(
-    slug='nfl-playoff-pools', src='nfl-playoffs', sport='nfl', ghosts=1,
+    slug='nfl-playoff-pools', og_image='og-nfl-playoffs.png',
+    og_alt='Super Pools: the NFL playoff pool that scores itself. A sample bracket, wild card weekend to the Super Bowl.', src='nfl-playoffs', sport='nfl', ghosts=1,
     title="NFL Playoff Pool: Bracket, Pick'em and Squares, Free | Super Pools",
     desc="A free NFL playoff pool for your office or group chat: the bracket, a pick on every playoff game, the Eliminator, prop sheets and Super Bowl squares. It scores itself. Never money.",
     og_title='The NFL playoff pool that scores itself',
@@ -107,7 +108,7 @@ NFL_PLAYOFFS = dict(
         ('How is the bracket scored?', 'A point for each wild card winner, two in the divisional round, four for a conference champion and eight for the Super Bowl. Flat scoring, a point a game, is the other choice. Ties go to the closest call on the Super Bowl\'s total points.'),
         ('What if someone joins after wild card weekend?', "They can't fill in a bracket, but a pool can run more than one game: pick every game, the Eliminator and the prop sheets all take a late joiner from the next round."),
         (APP_Q, APP_A),
-        ('Can we run Super Bowl squares in the same pool?', 'Yes. Add the grid from the pool\'s Picks page once the field is set. It shares the pool\'s members and chat. <a href="./super-bowl-squares.html">How the squares work.</a>'),
+        ('Can we run Super Bowl squares in the same pool?', 'Yes. Add the grid from the pool\'s Host page, under Add a game, once the field is set. It shares the pool\'s members and chat. <a href="./super-bowl-squares.html">How the squares work.</a>'),
     ],
     close_h2='Get the crew in before wild card weekend.',
     close_p='A minute to set up, one link for the group chat, and friends join with just a name.',
@@ -148,7 +149,8 @@ SQUARES_DEMO = f'''        <figure class="scr sq rv" aria-label="A sample Super 
 
 SB_Q = 'comp=nfl-post-2026&kind=squares&src=super-bowl'
 SUPER_BOWL = dict(
-    slug='super-bowl-squares', src='super-bowl', sport='nfl', ghosts=1,
+    slug='super-bowl-squares', og_image='og-super-bowl-squares.png',
+    og_alt='Super Pools: Super Bowl squares, run for you. A sample 10 by 10 grid with the half-time square lit.', src='super-bowl', sport='nfl', ghosts=1,
     title='Super Bowl Squares Online, Free for Your Group | Super Pools',
     desc='Run Super Bowl squares online, free: a 10 by 10 or 5 by 5 grid your group fills from one link, digits drawn fairly, every quarter scored by itself. Supercoins, never money.',
     og_title='Super Bowl squares, run for you',
@@ -234,7 +236,8 @@ CUP_DEMO = '''        <figure class="scr bx rv" aria-label="A sample playoff box
 
 CUP_Q = 'comp=nhl-post-2027&kind=%s&src=cup-playoffs'
 CUP = dict(
-    slug='stanley-cup-playoff-pools', src='cup-playoffs', sport='nhl', ghosts=2,
+    slug='stanley-cup-playoff-pools', og_image='og-cup-playoffs.png',
+    og_alt='Super Pools: the Stanley Cup playoff pool, counted live. A sample playoff box pool entry.', src='cup-playoffs', sport='nhl', ghosts=2,
     title='Stanley Cup Playoff Pool: Box Pool and Bracket, Free | Super Pools',
     desc='A free Stanley Cup playoff pool for your office or group chat: the playoff box pool, the bracket, pick the series, prop sheets and squares by period. Points count themselves, live. Never money.',
     og_title='The playoff pool, counted live',

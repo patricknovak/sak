@@ -1886,10 +1886,28 @@ link that opened anything.
 - The start page takes a link to an event that hasn't opened (`src/lib/comingEvents.ts`): `#/new?comp=nfl-post-2026`
   before 10 January opens on the NFL as it stands, a Super Bowl squares link on a grid for a game this week, and a Cup
   link on the season's box pool, each under a line saying when the playoff pool opens and that the host adds it to the
-  same pool from Picks, Add a game. The crew is in before the week that matters. Once the event is in the list the same
+  same pool from the Host page, Add a game. The crew is in before the week that matters. Once the event is in the list the same
   link opens on it. A new event with a page ahead of its field gets a row in `COMING`.
 - Held for Patrick's go (migration 362): The Traitors season 5 pack (`traitors-s5`: three calls before the premiere, one
   each Thursday named by its date since the episode count isn't announced, five on the finale open all season) and the
   Traitors page rewritten for it. The page's button opens the pack, so the two ship together once 362 is live.
 - Checked: `e2e/app-new-pool-link.spec.ts` (the early link, then the same link once the event is listed),
   `e2e/landing.spec.ts`, the landing copy tests, and the pages at 360 and 390 px on either side of each date.
+
+### 9.47 The event pages, followed through: the share card, and the host told when the playoffs open, 24 November 2026
+
+Following 9.42 through the path a stranger takes from an event page to a full pool.
+
+- The promise was wrong by one page, and half hidden. The start page's line (and one landing answer) said the playoff
+  pool is added "from Picks"; Add a game is on the Host page. Both now say so. And on that page a postseason was kept
+  behind "A game on another event", because a pool started on the NFL's weeks follows `nfl` and the playoffs are
+  another event: `playoffOf` (`src/lib/poolOwn.ts`) makes a followed sport's postseason the pool's own, so Add a game
+  leads with it.
+- The host is told. `PlayoffsOpen` on the pool's home shows the host, the night the postseason joins
+  `pool_event_list()`, that it is open, what it offers and when the first pick locks, with one tap to the Host page's
+  Add a game (`#/host?add=1` scrolls to it). Not shown once the pool has a game on it, or after "Not now".
+- A share card for each event page (`scripts/landing/gen_og.py` writes `landing/og-nfl-playoffs.html`,
+  `og-super-bowl-squares.html` and `og-cup-playoffs.html`; baked to PNG as the README says): a link pasted into a
+  group chat shows the event and a sample, where it showed the home's card.
+- Checked: `e2e/app-playoffs-open.spec.ts` (the card for a pool on the sport, none once it is on the playoffs), the
+  start-page spec, the landing specs and copy tests, the card at 390 px.

@@ -18,7 +18,7 @@ import { SweepGame, type SweepData } from '../components/Sweep';
 import { WinsGame, type WinsData } from '../components/WinTotals';
 import { useSurvivor } from './Survivor';
 import { usePredictor } from './Predictor';
-import { follows, usePoolCompetitions } from '../lib/poolOwn';
+import { follows, playoffOf, usePoolCompetitions } from '../lib/poolOwn';
 import { trackFirstCall } from '../lib/analytics';
 
 // The pool's games (migration 165, docs/POOL-TYPES.md): Pick the series (each series' winner and how many games it
@@ -780,7 +780,8 @@ export function HostGames() {
   // a pool that follows no event (a questions pool about a show or the office) keeps every sports offer a tap away,
   // behind "A game on a sports event", rather than leading the host's desk with pick'em and squares
   const blankPool = Array.isArray(own) && !own.length;
-  const mine = blankPool ? [] : everyEvent.filter((e) => follows(own, e.competition));
+  // and the postseason of a sport it follows is its own too (an NFL pool's playoffs, the night the field is set)
+  const mine = blankPool ? [] : everyEvent.filter((e) => follows(own, e.competition) || playoffOf(own, e));
   const events = more ? everyEvent : mine;
   const elsewhere = everyEvent.length - mine.length;
   // the events the pool opens a sheet on every game of, by itself (migration 223)
