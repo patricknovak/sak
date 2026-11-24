@@ -12,6 +12,9 @@ import { gamesOf } from '../lib/lineup';
 import { Headshot, TeamBadge } from './ui';
 import { PlayerTag } from './PlayerCard';
 import { Video } from './LiveWatch';
+import { ShareButton, useCardBrand } from './ShareButton';
+import { shareCard } from '../lib/shareCard';
+import { PRODUCT_SHARE_URL } from '../lib/brand';
 
 export type NightLine = { player_id: number; slot: string; pts: number; pg?: { fpts: number; stats: Record<string, number> } };
 export type NightRow = { t: Team; lines: NightLine[]; pts: number; done: number; playing: number; left: number; doneIds: Set<number>; playingIds: Set<number> };
@@ -176,6 +179,26 @@ export function YourNight({ rows, me, players, past }: { rows: NightRow[]; me: T
         </>
       )}
       {r.lines.length === 0 && <div className="mt-2 text-sm text-white/75">Nobody in your starting lineup {past ? 'played that night' : 'plays tonight'}.</div>}
+      {r.lines.length > 0 && <ShareNight rows={rows} me={me} past={past} />}
+    </div>
+  );
+}
+
+// the night as a picture for any group chat (24 November 2026, from the market review: the league's GMs are the only
+// people who use the product every day, and a night worth bragging about is the one thing they'd post somewhere else).
+// The card is the night's top six in the league's colours; the link is the product's front door, so a friend who sees it
+// can start one of their own. Nothing leaves the phone until the GM picks where to send it.
+function ShareNight({ rows, me, past }: { rows: NightRow[]; me: Team | null; past: boolean }) {
+  const card = useCardBrand();
+  const i = rows.findIndex((r) => r.t.id === me?.id);
+  const title = past ? 'The night' : 'Tonight, so far';
+  const text = i === 0 ? `${past ? 'Won' : 'Leading'} the night in ${card.pool}.` : `${title} in ${card.pool}.`;
+  return (
+    <div className="mt-3 flex justify-end">
+      <ShareButton label="Share the night" className="btn-ghost !px-3 !py-1.5 text-xs"
+        make={() => shareCard({ kind: 'leaders', brand: card, title,
+          rows: rows.slice(0, 6).map((x, k) => ({ name: x.t.name, worth: x.pts, rank: k + 1, label: `${fmtPts(x.pts)} pts`, color: x.t.color ?? card.color, me: x.t.id === me?.id })) },
+          text, PRODUCT_SHARE_URL('night'))} />
     </div>
   );
 }
