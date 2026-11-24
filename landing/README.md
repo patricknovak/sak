@@ -119,7 +119,7 @@ wager, payout, market, push).
 - `icon.svg`: the mark (the faceoff dot) on its tile; also the favicon. `img/sak-icon.svg` is SaK's crest.
 - The share cards, 1200 by 630: `og.png` (the home, the commissioner's, pricing, the sport pages and the change log),
   `og-together.png` (together, traitors and the example pool) and `og-love-is-blind.png`, each drawn from its `og*.html`.
-  The fan page's card is drawn by the app's Worker (`/og/fans/NHL.png`). Re-bake a card after changing its HTML, with the
+  The event pages have a card each (`og-nfl-playoffs.png`, `og-super-bowl-squares.png`, `og-cup-playoffs.png`), their HTML written by `python3 scripts/landing/gen_og.py`. The fan page's card is drawn by the app's Worker (`/og/fans/NHL.png`). Re-bake a card after changing its HTML, with the
   pre-installed headless Chromium:
 
 ```
@@ -127,7 +127,7 @@ B=$(ls /opt/pw-browsers/chromium_headless_shell-*/chrome-headless-shell-linux64/
 $B --no-sandbox --disable-gpu --hide-scrollbars --window-size=1200,630 --screenshot=landing/og.png file://$PWD/landing/og.html
 ```
 
-The same for `og-together` and `og-love-is-blind`. The pages point at fixed file names, so a network's cached card
+The same for `og-together`, `og-love-is-blind` and the three event cards. The pages point at fixed file names, so a network's cached card
 refreshes on its own schedule.
 
 ## Routing

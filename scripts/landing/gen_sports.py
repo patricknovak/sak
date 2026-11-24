@@ -60,6 +60,9 @@ def head(p):
     faq_json = json.dumps(faq, ensure_ascii=False, separators=(',', ':'))
     url = f"https://superpoolsai.com/{p['slug']}"
     e = lambda s: html.escape(s, quote=True)
+    # an event page has a share card of its own (gen_og.py); the sport pages share the home's
+    og = f"https://superpoolsai.com/{p.get('og_image', 'og.png')}"
+    og_alt = p.get('og_alt', 'Super Pools: Fantasy Pools from the Future. Fun fantasy pools with friends, for all. AI-enhanced. Fun for all.')
     return f'''<!doctype html>
 <html lang="en">
 <head>
@@ -75,14 +78,14 @@ def head(p):
   <meta property="og:url" content="{url}" />
   <meta property="og:title" content="{e(p['og_title'])}" />
   <meta property="og:description" content="{e(p['og_desc'])}" />
-  <meta property="og:image" content="https://superpoolsai.com/og.png" />
+  <meta property="og:image" content="{og}" />
   <meta property="og:image:width" content="1200" />
   <meta property="og:image:height" content="630" />
-  <meta property="og:image:alt" content="Super Pools: Fantasy Pools from the Future. Fun fantasy pools with friends, for all. AI-enhanced. Fun for all." />
+  <meta property="og:image:alt" content="{e(og_alt)}" />
   <meta name="twitter:card" content="summary_large_image" />
   <meta name="twitter:title" content="{e(p['og_title'])}" />
   <meta name="twitter:description" content="{e(p['og_desc'])}" />
-  <meta name="twitter:image" content="https://superpoolsai.com/og.png" />
+  <meta name="twitter:image" content="{og}" />
   <link rel="preload" href="./fonts/barlow-condensed-900.woff2" as="font" type="font/woff2" crossorigin />
   <link rel="preload" href="./fonts/barlow-condensed-900-italic.woff2" as="font" type="font/woff2" crossorigin />
   <link rel="preload" href="./fonts/inter.woff2" as="font" type="font/woff2" crossorigin />
