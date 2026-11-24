@@ -4,7 +4,7 @@ import { HeadToHeadStandings } from '../components/HeadToHead';
 import { useSticky } from '../lib/sticky';
 import { Link } from 'react-router-dom';
 import { useLeague, useSport } from '../lib/store';
-import { bare, useBrand } from '../lib/brand';
+import { PRODUCT_SHARE_URL, bare, useBrand } from '../lib/brand';
 import { selectAll, supabase } from '../lib/supabase';
 import { fmtDate, fmtMoney, fmtPts } from '../lib/format';
 import { Section, TeamBadge, PageHeader } from '../components/ui';
@@ -182,6 +182,6 @@ function ShareTable({ rows, title }: { rows: { team_id: number; rank: number; po
   return (
     <ShareButton label="Share the table" className="btn-ghost w-full" make={() => shareCard({ kind: 'leaders', brand: card, title,
       rows: rows.slice(0, 6).map((s) => { const t = team(s.team_id); return { name: t?.name ?? '', worth: Number(s.points), rank: s.rank, label: `${fmtPts(Number(s.points))} pts`, color: t?.color ?? card.color, me: s.team_id === me?.id }; }) },
-      `${title} in ${card.pool}.`)} />
+      `${title} in ${card.pool}.`, PRODUCT_SHARE_URL('table'))} />
   );
 }
