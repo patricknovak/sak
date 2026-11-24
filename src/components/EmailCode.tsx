@@ -55,7 +55,7 @@ export function EmailCode({ email, onDone, onBack, busy, noun }: { email: string
       </div>
       {note && <p className="mt-2 text-xs text-emerald-300">{note}</p>}
       {err && <p className="mt-2 text-xs text-red-300">{err}</p>}
-      <p className="mt-3 text-[11px] leading-snug text-white/45">Nothing in your inbox? Check junk. The code is good for an hour.</p>
+      <p className="mt-3 text-[11px] leading-snug text-white/60">Nothing in your inbox? Check junk. The code is good for an hour.</p>
     </div>
   );
 }

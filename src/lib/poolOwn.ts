@@ -21,3 +21,11 @@ export function usePoolCompetitions(): OwnComp[] | null | undefined {
 // whether a pool's page shows this event: always outside a pool, and in a pool following nothing yet; not while the
 // pool's list is still loading, so another sport's event never flashes up first
 export const follows = (own: OwnComp[] | null | undefined, id: string) => own === null || (own !== undefined && (!own.length || own.some((c) => c.id === id)));
+
+// A sport's postseason belongs to a pool that follows the sport (24 November 2026): a pool started on the NFL's weeks
+// follows 'nfl', and the playoffs are another event ('nfl-post-2026') that joins the list the night the field is set.
+// The host's desk used to keep it behind "A game on another event"; it is the pool's own next thing, so Add a game
+// leads with it and the pool's home tells the host the night it opens (PlayoffsOpen). An event played in series has
+// no word for its rounds ("Week", "Matchweek"), which is how the start page tells a postseason too.
+export const playoffOf = (own: OwnComp[] | null | undefined, e: { competition: string; sport: string; word?: string | null }) =>
+  Array.isArray(own) && own.length > 0 && !e.word && !own.some((c) => c.id === e.competition) && own.some((c) => c.sport === e.sport);

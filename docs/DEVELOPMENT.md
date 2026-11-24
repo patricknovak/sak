@@ -1886,7 +1886,7 @@ link that opened anything.
 - The start page takes a link to an event that hasn't opened (`src/lib/comingEvents.ts`): `#/new?comp=nfl-post-2026`
   before 10 January opens on the NFL as it stands, a Super Bowl squares link on a grid for a game this week, and a Cup
   link on the season's box pool, each under a line saying when the playoff pool opens and that the host adds it to the
-  same pool from Picks, Add a game. The crew is in before the week that matters. Once the event is in the list the same
+  same pool from the Host page, Add a game. The crew is in before the week that matters. Once the event is in the list the same
   link opens on it. A new event with a page ahead of its field gets a row in `COMING`.
 - Held for Patrick's go (migration 362): The Traitors season 5 pack (`traitors-s5`: three calls before the premiere, one
   each Thursday named by its date since the episode count isn't announced, five on the finale open all season) and the
@@ -1920,6 +1920,26 @@ migration):
 
 New UI drawn inside a form never brings a form of its own; a new floating line or bar checks the invite page and an
 open sheet on a phone before it ships.
+
+**A second pass the same evening** (the returning visitor, a friend's first five minutes, a slow phone, accessibility):
+
+- **The consent line no longer floats in the app at all.** Above the dock it still sat on whatever a newcomer reached
+  for next: the Call buttons on a question, the chat's composer, Set password and sign in on a reset. A page now says
+  where the line goes with a `ConsentSlot` (`src/components/ConsentBanner.tsx`) and the line is drawn there, part of the
+  page: the layout has one at the top of every page, the invite and the sign-in page under their forms. The start page
+  keeps its sheet at the top; a page with no slot keeps the floating line.
+- **The start page was downloading the picks page.** `NewPool` read four small things from `pages/Picks.tsx` (when a
+  pick locks, the prop sheet's game picker, the squares settings), which brought the whole picks page and the game
+  threads' chat with it. They live in `src/components/PoolStartKnobs.tsx` now (Picks still exports them). And a
+  league's home loads like every other page, so an invite or the start page doesn't carry it. On a slow 4G phone with
+  a slow processor (Chromium's throttles, the built site): the start page 352 kB in 40 files to 249 kB in 21, ready in
+  2.6 s from 3.2 s; an invite 257 kB to 235 kB; sign-in 248 kB to 226 kB.
+- **A pool's chat spoke hockey.** An empty chat said "Fire the first shot" with a stick, and the filter said "Every
+  GM"; in a pool they say "Say something about your first call" and "Everyone".
+- **Accessibility**, checked with axe (WCAG 2 A and AA) on the invite, the pool's home, a question, the questions, the
+  table, the chat, the start page, sign-in and the reset: the one failure was the sign-in page's small print (contrast
+  3.75, now above 4.5); the same faint grey on the invite's and the code step's small print went with it, and the
+  reset's second password box has a name for a screen reader.
 
 ### 9.45 Side bets and the Book settle to the coin, 24 November 2026
 
@@ -1958,6 +1978,24 @@ Found beside them:
 
 Still open: a tracked bet settled before a late stat correction isn't reopened (the sheet says when the number has
 moved); `create_bet_v2` takes any stat name on a player-against-player bet (an unknown one counts nothing, a push).
+
+### 9.47 The event pages, followed through: the share card, and the host told when the playoffs open, 24 November 2026
+
+Following 9.42 through the path a stranger takes from an event page to a full pool.
+
+- The promise was wrong by one page, and half hidden. The start page's line (and one landing answer) said the playoff
+  pool is added "from Picks"; Add a game is on the Host page. Both now say so. And on that page a postseason was kept
+  behind "A game on another event", because a pool started on the NFL's weeks follows `nfl` and the playoffs are
+  another event: `playoffOf` (`src/lib/poolOwn.ts`) makes a followed sport's postseason the pool's own, so Add a game
+  leads with it.
+- The host is told. `PlayoffsOpen` on the pool's home shows the host, the night the postseason joins
+  `pool_event_list()`, that it is open, what it offers and when the first pick locks, with one tap to the Host page's
+  Add a game (`#/host?add=1` scrolls to it). Not shown once the pool has a game on it, or after "Not now".
+- A share card for each event page (`scripts/landing/gen_og.py` writes `landing/og-nfl-playoffs.html`,
+  `og-super-bowl-squares.html` and `og-cup-playoffs.html`; baked to PNG as the README says): a link pasted into a
+  group chat shows the event and a sample, where it showed the home's card.
+- Checked: `e2e/app-playoffs-open.spec.ts` (the card for a pool on the sport, none once it is on the playoffs), the
+  start-page spec, the landing specs and copy tests, the card at 390 px.
 ### 9.44 A bug hunt from the live logs, 24 November 2026
 
 Patrick asked for a hunt for real defects, starting from evidence. A week of Postgres, API and edge function logs, the

@@ -3,6 +3,7 @@
 // 'predict' sees only these; a fantasy league reaches the board from More.
 import { usePoolRoom } from '../lib/poolRoom';
 import { PoolRoomCard } from '../components/PoolRoomCard';
+import { PlayoffsOpen } from '../components/PlayoffsOpen';
 import { useMemo, useRef, useState } from 'react';
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { CalendarClock, Crown, Flame, Link2, Plus, Sparkles, Trash2, Trophy, Wand2 } from 'lucide-react';
@@ -221,6 +222,9 @@ export function PoolHome() {
 
       {/* alone, the invite comes before anything else; the visit right after create shows the join link first */}
       {alone && <div id="pool-invite"><PostCreateInvite blank={blank} /></div>}
+
+      {/* the host of a pool on a sport whose playoffs have just opened: one tap to add them (the event pages' promise) */}
+      <PlayoffsOpen />
 
       <PoolRoomCard room={room} />
 
@@ -864,6 +868,10 @@ function HostCrown() {
 
 export function PoolHost() {
   const { me, league } = useLeague();
+  const addRef = useRef<HTMLDivElement>(null);
+  const [hostParams] = useSearchParams();
+  const toAdd = hostParams.get('add') === '1';
+  useEffect(() => { if (toAdd) { const t = setTimeout(() => addRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 600); return () => clearTimeout(t); } }, [toAdd]);
   const [deleting, setDeleting] = useState(false);
   const brand = useBrand();
   const now = useNow(30000);
@@ -905,7 +913,8 @@ export function PoolHost() {
         {waiting.length ? <div className="space-y-2">{waiting.map((m) => <Link key={m.id} to={`/q/${m.id}`} className="card flex items-center justify-between gap-3 p-3"><span className="min-w-0 break-words font-semibold">{m.title}</span><span className="shrink-0 text-sm text-gold">Settle →</span></Link>)}</div>
           : <div className="card p-4 text-sm text-mute">Nothing to settle. Questions land here when they close.</div>}
       </Section>
-      <HostGames />
+      {/* the pool home's "the playoffs are open" card lands here (#/host?add=1) */}
+      <div ref={addRef} className="scroll-mt-20"><HostGames /></div>
       <HostCrown />
       <SoccerRounds onAdded={reload} />
       <Section title="Coin drops">

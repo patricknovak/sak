@@ -3,7 +3,7 @@
 // stanley-cup-playoff-pools.html), and a postseason joins the start page's list only once its field is set. A link that
 // names one early (#/new?comp=nfl-post-2026&kind=bracket) used to fall through to the bare first step. Now it opens on
 // the league as it stands today, with a line saying when the playoff pool opens and that the host adds it to the same
-// pool in a tap (Picks, Add a game). Once the event is in the list the link opens on it and nothing here is read.
+// pool in a tap (the Host page, Add a game). Once the event is in the list the link opens on it and nothing here is read.
 import type { GameKind } from './poolGames';
 
 export type ComingEvent = {
@@ -32,5 +32,5 @@ export const COMING: Record<string, ComingEvent> = {
 // the line the start page shows above its steps
 export function comingLine(c: ComingEvent, kind: string | null) {
   const what = (kind && c.what[kind as GameKind]) || `A pool on ${c.name}`;
-  return { head: `${what} opens ${c.opens}.`, body: 'Start your pool today on what’s on now and get your crew in. The night it opens, add it from Picks, under Add a game: same pool, same people, one tap.' };
+  return { head: `${what} opens ${c.opens}.`, body: 'Start your pool today on what’s on now and get your crew in. The night it opens, add it from the Host page, under Add a game: same pool, same people, one tap.' };
 }

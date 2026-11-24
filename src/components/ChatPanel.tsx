@@ -400,7 +400,7 @@ export function ChatPanel({ channel, compact, className = '', filter, jump, onJu
             <span className="num shrink-0 rounded-full bg-white/[.08] px-2 py-0.5 text-xs font-bold">{chirp.n} reactions</span>
           </button>
         )}
-        {shown.length === 0 && !isGarry && (!feed || (what === 'all' && !gm)) && <div className="py-10 text-center text-sm text-mute">No messages yet. Fire the first shot. 🏒</div>}
+        {shown.length === 0 && !isGarry && (!feed || (what === 'all' && !gm)) && <div className="py-10 text-center text-sm text-mute">{kind === 'predict' ? 'No messages yet. Say something about your first call.' : 'No messages yet. Fire the first shot. 🏒'}</div>}
         {feed && shown.length === 0 && !isGarry && (what !== 'all' || gm) && (
           <div className="py-10 text-center text-sm text-mute">{older ? 'Looking further back…' : `Nothing here yet${gm ? ` from ${gm.gm_name}` : ''}.${gm && !mentions ? ' Turn on “and mentions” to see the league’s lines about them.' : ' Try another filter.'}`}</div>
         )}

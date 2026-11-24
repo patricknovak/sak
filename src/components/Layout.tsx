@@ -1,3 +1,4 @@
+import { ConsentSlot } from './ConsentBanner';
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { Link, NavLink, useLocation, useNavigate } from 'react-router-dom';
 import { useUsage } from '../lib/usage';
@@ -348,7 +349,7 @@ export function Layout({ children }: { children: ReactNode }) {
             </div>
           </div>
         )}
-        <main key={loc.pathname} className="page-in mb-nav mx-auto w-full max-w-5xl px-3 py-3 sm:px-5 lg:mb-0 lg:px-8 lg:py-6 xl:max-w-[92rem] 2xl:max-w-[110rem] 2xl:px-10"><HostNotice />{children}</main>
+        <main key={loc.pathname} className="page-in mb-nav mx-auto w-full max-w-5xl px-3 py-3 sm:px-5 lg:mb-0 lg:px-8 lg:py-6 xl:max-w-[92rem] 2xl:max-w-[110rem] 2xl:px-10"><ConsentSlot /><HostNotice />{children}</main>
         {/* on Home, a phone browser's member is asked once to add the app to the Home Screen (full screen, alerts) */}
         {loc.pathname === '/' && <InstallPrompt />}
       </div>
