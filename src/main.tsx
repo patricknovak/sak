@@ -25,7 +25,10 @@ initAnalytics();
 // (one listener since 4 November 2026; reloadForNewVersion shares its guard with the ErrorBoundary)
 window.addEventListener('vite:preloadError', (e) => { if (reloadForNewVersion()) e.preventDefault(); });
 import Login from './pages/Login';
-import Home from './pages/Home';
+
+// a league's home loads like every other page (24 November 2026): a stranger opening an invite or the start page was
+// downloading the hockey league's home, its charts and its cards to see neither
+const Home = lazy(() => import('./pages/Home'));
 
 const MyTeam = lazy(() => import('./pages/MyTeam'));
 const Players = lazy(() => import('./pages/Players'));

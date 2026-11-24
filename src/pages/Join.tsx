@@ -12,6 +12,7 @@ import { PRODUCT } from '../lib/brand';
 import { markFreshArrival, setTabLeague } from '../lib/host';
 import { humanField } from '../lib/turnstile';
 import { EmailCode } from '../components/EmailCode';
+import { ConsentSlot } from '../components/ConsentBanner';
 
 // The page an invite link opens (#/join/<code>), signed in or not. It shows what the invite is for, then:
 // someone new makes their account right here (the `join` edge function makes it and seats them in one go);
@@ -297,7 +298,7 @@ export default function Join({ code }: { code: string }) {
               )}
               <button className="btn-primary relative mt-4 w-full py-3 text-base" disabled={busy || name.trim().length < 2 || (needsEmail && (!okEmail || pw.length < 8))}>{busy ? <Spinner /> : `${mark}Join the ${noun}`}</button>
               <button type="button" className="relative mt-3 w-full text-center text-sm text-white/60 underline" onClick={() => { setMode('have'); setErr(''); }}>Already have an account? Sign in to join</button>
-              <p className="relative mt-3 text-center text-[11px] leading-snug text-white/45">Joining means you agree to the <a href="#/terms" className="underline">Terms of use</a>. <a href="#/privacy" className="underline">What we keep, held in the United States</a>.</p>
+              <p className="relative mt-3 text-center text-[11px] leading-snug text-white/60">Joining means you agree to the <a href="#/terms" className="underline">Terms of use</a>. <a href="#/privacy" className="underline">What we keep, held in the United States</a>.</p>
             </form>
           ) : (
             <form onSubmit={signInAndAccept} className="card-hero p-5">
@@ -310,6 +311,8 @@ export default function Join({ code }: { code: string }) {
             </form>
           )}
         {err && <div className="mt-4 rounded-xl border border-red-400/30 bg-red-900/50 px-4 py-3 text-center text-sm text-red-200">{err}</div>}
+        {/* the consent line goes here, under the form: it used to float over Join the pool */}
+        <ConsentSlot className="mt-6" />
       </div>
     </div>
   );
