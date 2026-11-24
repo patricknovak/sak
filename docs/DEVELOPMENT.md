@@ -1920,3 +1920,41 @@ migration):
 
 New UI drawn inside a form never brings a form of its own; a new floating line or bar checks the invite page and an
 open sheet on a phone before it ships.
+
+### 9.45 Side bets and the Book settle to the coin, 24 November 2026
+
+The four errors §9.40 found while the math sheet was built, fixed, with what turned up beside them (migration 365,
+`bet_math_fixes`; nothing in it changes a number on a bet that is live today: no pool is open, and no playoff game has
+been played this season).
+
+- **A pool that ends level pays its whole pot.** The split was in whole coins and the odd ones vanished (100 three ways
+  paid 99). `_pool_pay` now pays every pool, from the settle job and from a commissioner's ruling: the pot divided
+  evenly, the coins left over one each to the winners who entered first. What each winner was paid is kept on the bet
+  (`result.shares`), and `betMoves` reads it, so the cards, the sheet and the ledger agree. A ruling that names a
+  winner twice pays them once.
+- **`bet_progress` keeps to its league** (`_in_league`), as `cancel_bet`, `leave_pool`, `claim_bet` and `confirm_bet`
+  now do too.
+- **The odds follow the league day.** The cards and the sheet took "today" from the calendar, so past midnight with a
+  game still on they treated that night as finished and its live games as over; the new-bet form's "tonight" skipped a
+  day the same way, and a pool's Buy in button compared its closing day with the calendar. All of it reads `leagueDay`.
+- **A bet counts one kind of game.** A player bet counted every game in its window, playoffs too, while a team bet
+  counted regular-season nights only. The rule now, on both sides (`_bet_game_type`, the site's `betGameType`): a bet
+  counts the regular season, unless its window starts after the regular season ends, and then it counts the playoffs. A
+  window that straddles the end stays a regular-season bet, and the sheet says so. The odds stop expecting points from
+  games the bet won't count.
+
+Found beside them:
+
+- A pool stayed `open` until the next morning's job, so its creator could cancel it, and a joiner could back out, after
+  watching the first night. Both are refused once the pool's games are under way (the buttons go with them).
+- Conceding, confirming and the commissioner's quick settle fell through a pool's missing opponent to a database error;
+  they say a pool settles itself.
+- A pool nobody else entered was "won" by its creator, with a line in the chat. It is called off and the creator told.
+- The settle job locks each bet before paying it, so a ruling made in the same moment can't pay it twice.
+- **The Book paid the under on a result dead on the line.** The lines end in .5 "so there's no push", but fantasy
+  points land on a half often enough: twenty markets on the live database had settled that way. A result on the line is
+  now a push and the stakes go back (game totals, player props, requested lines, season props). The twenty are left as
+  they settled.
+
+Still open: a tracked bet settled before a late stat correction isn't reopened (the sheet says when the number has
+moved); `create_bet_v2` takes any stat name on a player-against-player bet (an unknown one counts nothing, a push).
