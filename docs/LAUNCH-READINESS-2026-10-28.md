@@ -55,7 +55,7 @@ neither needs a test account to check.
 | # | What | Where | The step | Time |
 |---|---|---|---|---|
 | A | Bot check on every open door, the waitlist included (item 8) | Cloudflare → Turnstile, then Supabase → Edge Functions → Secrets | Add a widget for `superpoolsai.com` (Managed). Paste its two keys as secrets: `TURNSTILE_SITE_KEY` first, then `TURNSTILE_SECRET`. No build, no pull request. The Platform page then reads On | 5 min |
-| B | The waitlist closed to the public key | this chat | Say "apply 369", any time after this pull request is merged | 1 min |
+| B | ~~The waitlist closed to the public key~~ | Supabase → SQL editor | *Done 24 November 2026 on Patrick's go:* migration 369 is live (the public key can no longer write the table; the join function can). One leftover, harmless line the connector would not run: `drop policy if exists waitlist_signup on public.waitlist;` | 1 min |
 | C | Email confirmed by a code (item 4) | Supabase → Authentication → Email Templates, then Secrets | Confirm signup and Magic Link show `{{ .Token }}` ("Your Super Pools code"); then `EMAIL_CODES` = `on`. The Platform page reads On | 5 min |
 | D | Auth settings (item 1) | Supabase → Authentication → URL Configuration | Site URL and the three redirect URLs below; the reset email's wording | 5 min |
 | E | Password of 8 at Auth (item 14) | Supabase → Authentication → Providers → Email | Minimum password length 8. Every form, the join function and the commissioner's SQL already ask for 8 (migration 356 is live), so this is safe today | 1 min |
