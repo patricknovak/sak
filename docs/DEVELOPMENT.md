@@ -1867,5 +1867,7 @@ in the project ("Super Pools: market review and growth plan").
 - **Share the night** (`ShareNight` in `src/components/LiveNight.tsx`): the scoreboard's night card draws the night's top
   six in the league's colours for any group chat. It and the standings card now carry the product's front door
   (`PRODUCT_SHARE_URL` in `src/lib/brand.ts`, tagged `utm_source=share`), never the league's own private address.
-- **The front door, counted** (migration 361, `funnel_hit`, `platform_funnel`, the Platform page's Front door): waits on
-  Patrick's go and comes in its own pull request once live.
+- **The front door, counted** (migration 361, applied live 24 November 2026 on Patrick's "Apply 361"): `funnel_hit` keeps
+  a day's total per step (`view` on every landing page, `start_open` and `start_go` on `#/new`), page and source in
+  `private.funnel_daily`, with no cookie, address, account or hash; `platform_funnel()` reads it beside pools started by
+  real accounts and seats taken, on the Platform page's Front door. The privacy note says so.
