@@ -3,7 +3,8 @@
    for the live dot (its words take --red-text), and no gold here at all; a sport page spends its gold on the hero button, the closing button and the
    sticky bar (docs/BRAND.md section 6). Sections: 1 the hero's proof icon, 2 the proof band
    (the open-now board keeps to the page's sport in site.js, from #now's data-sport), 3 soccer's competitions, 4 the
-   sample pools (pick'em, the box pool, the live table, Call the score), 5 the phone fit. */
+   sample pools (pick'em, the box pool, the live table, Call the score, and the event pages' bracket and squares),
+   5 the phone fit. */
 
 /* 1. The hero's proof line, with an ice mark in place of a crest */
 .proofline .pi { flex: none; display: grid; place-items: center; width: 28px; height: 28px; border-radius: 8px; color: var(--ice); background: rgba(56,189,248,.1); border: 1px solid rgba(56,189,248,.24); }
@@ -152,6 +153,43 @@ html:not(.js) .lt .a0 { opacity: 0; } html:not(.js) .lt .a1 { opacity: 1; }
   .js .lt .a0 { opacity: 0; } .js .lt .a1 { opacity: 1; }
   .js .lt .lt-row.up { transform: translateY(-56px); } .js .lt .lt-row.dn { transform: translateY(56px); }
 }
+
+/* 4.5 The event pages (nfl-playoff-pools, super-bowl-squares, stanley-cup-playoff-pools; 24 November 2026): the dated
+   line under the hero's button, a bracket entry round by round, and a grid of squares as the game plays */
+.deadline { display: flex; align-items: flex-start; gap: 10px; margin: 18px 0 0; padding: 10px 14px; border-radius: 14px; font-size: 14px; line-height: 1.45; color: var(--soft);
+  background: rgba(255,255,255,.035); border: 1px solid var(--line2); max-width: 520px; }
+.deadline .ico { flex: none; width: 20px; height: 20px; margin-top: 1px; color: var(--ice); }
+.deadline b { color: var(--ink); font-weight: 600; }
+.hero2 .eyebrow { margin-bottom: 12px; line-height: 1.5; text-wrap: balance; }
+.bx-list li.out .bx-p, .bx-list li.out .bx-pts { opacity: .55; }
+.bk-rounds { display: grid; gap: 6px; }
+.bk-r { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; padding: 10px; border-radius: 14px; background: rgba(255,255,255,.035); border: 1px solid rgba(255,255,255,.05); }
+.bk-r.fin { background: rgba(56,189,248,.06); border-color: rgba(56,189,248,.2); }
+.bk-h { flex: 1 0 100%; display: flex; justify-content: space-between; font: 700 12px/1 'Barlow Condensed', sans-serif; letter-spacing: .14em; text-transform: uppercase; color: var(--mute); }
+.bk-h i { font-style: normal; letter-spacing: .06em; color: var(--dim); }
+.bk-t { display: inline-flex; align-items: center; gap: 5px; padding: 6px 9px; border-radius: 10px; font: 900 16px/1 'Barlow Condensed', sans-serif; letter-spacing: .04em; color: var(--ink); background: rgba(0,0,0,.25); border: 1px solid rgba(255,255,255,.09); }
+.bk-t::before { content: ''; width: 7px; height: 7px; border-radius: 50%; border: 1.5px dashed rgba(255,255,255,.3); }
+.bk-t.y { background: rgba(56,189,248,.12); border-color: rgba(56,189,248,.45); }
+.bk-t.y::before { border: 0; background: var(--ice); }
+.bk-t.n { color: var(--dim); text-decoration: line-through; }
+.bk-t.n::before { border: 0; background: rgba(255,255,255,.18); }
+.bk-t.o::before { border: 2px solid rgba(239,42,79,.7); }
+.bk-t.me { padding: 8px 14px; font-size: 20px; }
+.bk-tab { margin-top: 8px; display: grid; gap: 4px; }
+.sq-ax { display: flex; justify-content: space-between; gap: 10px; padding: 0 4px 8px; font: 700 11.5px/1.2 'Barlow Condensed', sans-serif; letter-spacing: .12em; text-transform: uppercase; color: var(--mute); }
+.sq-grid { display: grid; grid-template-columns: repeat(11, minmax(0, 1fr)); gap: 2px; }
+.sq-c { aspect-ratio: 1; display: grid; place-items: center; overflow: hidden; border-radius: 5px; font: 600 8.5px/1 Inter, sans-serif; color: var(--mute); background: rgba(255,255,255,.045); }
+.sq-c:empty { background: rgba(255,255,255,.02); border: 1px dashed rgba(255,255,255,.1); }
+.sq-c.sq-x { background: none; border: 0; }
+.sq-c.sq-d { font: 900 14px/1 'Barlow Condensed', sans-serif; color: var(--ink); background: rgba(0,0,0,.3); }
+.sq-c.me { color: #04121c; font-weight: 700; background: rgba(56,189,248,.75); }
+.sq-c.hit { color: var(--ink); font-weight: 700; background: rgba(56,189,248,.16); box-shadow: inset 0 0 0 2px var(--ice); }
+.sq-pays { list-style: none; margin: 10px 0 0; padding: 0; display: grid; gap: 4px; }
+.sq-pays li { display: flex; justify-content: space-between; gap: 10px; padding: 9px 12px; border-radius: 12px; font-size: 12.5px; color: var(--soft); background: rgba(255,255,255,.035); border: 1px solid rgba(255,255,255,.05); }
+.sq-pays li.now { background: rgba(56,189,248,.06); border-color: rgba(56,189,248,.2); }
+.sq-pays b { color: var(--ink); white-space: nowrap; }
+.sq-pays i { font-style: normal; color: var(--dim); white-space: nowrap; }
+@media (min-width: 480px) { .sq-c { font-size: 10px; border-radius: 7px; } .sq-c.sq-d { font-size: 17px; } }
 
 /* 5. Phone fit: headings break evenly (no word left alone on a line), and the three steps sit number-beside-words */
 .shead h2, .closer h2, .pillar3 h2, .hero2 h1 { text-wrap: balance; }
