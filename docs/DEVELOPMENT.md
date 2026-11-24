@@ -1893,6 +1893,71 @@ link that opened anything.
   Traitors page rewritten for it. The page's button opens the pack, so the two ship together once 362 is live.
 - Checked: `e2e/app-new-pool-link.spec.ts` (the early link, then the same link once the event is listed),
   `e2e/landing.spec.ts`, the landing copy tests, and the pages at 360 and 390 px on either side of each date.
+
+### 9.43 The first visit, walked as a stranger, 24 November 2026
+
+The path a stranger takes (the start page, the account with its email code, the first pool, the invite, and the page a
+friend opens from the link) walked on a phone at 390 and 360 px against a stand-in for the database, since the growth
+review found nobody outside the league had been down it since 23 October. What it turned up, and what changed (no
+migration):
+
+- **The email code threw a new host back to an empty start page.** `EmailCode` was a form, and on `#/new` it is drawn
+  inside the start form. A form inside a form: confirming the code posted the page to itself, the address gained a
+  `?`, and the pool, the name and the account typed were gone, with the code never checked. It bit every new host and
+  every new commissioner once the `EMAIL_CODES` secret is on (the invite page drew it outside a form and was fine).
+  `EmailCode` is no longer a form: the sixth digit confirms by itself (typed, pasted, or filled from the message by the
+  phone), Enter and the button confirm too, a code pasted as "123 456" keeps its six digits, and the start form ignores
+  a submit while the code step is up. `e2e/app-email-code.spec.ts` walks it and fails on the old code.
+- **The consent line sat over the two buttons that matter.** On an invite's page it floated over Join the pool at the
+  foot of the first screen; there it is now part of the page, under the form. Over a sheet it covered the share
+  sheet's Copy and WhatsApp buttons on a host's first invite; it now steps aside while any sheet is open (`data-sheet`
+  on `Sheet`, `data-consent` on the line, one rule in `index.css`). On the start page the room left for it at the top
+  was never measured (`--consent-space` was read and never set), so the page's title sat under it: the line now says
+  how far down it reaches.
+- **A friend who joined scrolled past three cards to find the questions.** On the pool's home, Keep your place, Start
+  your own pool and the alerts card now come after the questions, not before them.
+- **The invite page is tighter**, so Join the pool is on the first screen of a 360 px phone.
+
+New UI drawn inside a form never brings a form of its own; a new floating line or bar checks the invite page and an
+open sheet on a phone before it ships.
+
+### 9.45 Side bets and the Book settle to the coin, 24 November 2026
+
+The four errors §9.40 found while the math sheet was built, fixed, with what turned up beside them (migration 365,
+`bet_math_fixes`; nothing in it changes a number on a bet that is live today: no pool is open, and no playoff game has
+been played this season).
+
+- **A pool that ends level pays its whole pot.** The split was in whole coins and the odd ones vanished (100 three ways
+  paid 99). `_pool_pay` now pays every pool, from the settle job and from a commissioner's ruling: the pot divided
+  evenly, the coins left over one each to the winners who entered first. What each winner was paid is kept on the bet
+  (`result.shares`), and `betMoves` reads it, so the cards, the sheet and the ledger agree. A ruling that names a
+  winner twice pays them once.
+- **`bet_progress` keeps to its league** (`_in_league`), as `cancel_bet`, `leave_pool`, `claim_bet` and `confirm_bet`
+  now do too.
+- **The odds follow the league day.** The cards and the sheet took "today" from the calendar, so past midnight with a
+  game still on they treated that night as finished and its live games as over; the new-bet form's "tonight" skipped a
+  day the same way, and a pool's Buy in button compared its closing day with the calendar. All of it reads `leagueDay`.
+- **A bet counts one kind of game.** A player bet counted every game in its window, playoffs too, while a team bet
+  counted regular-season nights only. The rule now, on both sides (`_bet_game_type`, the site's `betGameType`): a bet
+  counts the regular season, unless its window starts after the regular season ends, and then it counts the playoffs. A
+  window that straddles the end stays a regular-season bet, and the sheet says so. The odds stop expecting points from
+  games the bet won't count.
+
+Found beside them:
+
+- A pool stayed `open` until the next morning's job, so its creator could cancel it, and a joiner could back out, after
+  watching the first night. Both are refused once the pool's games are under way (the buttons go with them).
+- Conceding, confirming and the commissioner's quick settle fell through a pool's missing opponent to a database error;
+  they say a pool settles itself.
+- A pool nobody else entered was "won" by its creator, with a line in the chat. It is called off and the creator told.
+- The settle job locks each bet before paying it, so a ruling made in the same moment can't pay it twice.
+- **The Book paid the under on a result dead on the line.** The lines end in .5 "so there's no push", but fantasy
+  points land on a half often enough: twenty markets on the live database had settled that way. A result on the line is
+  now a push and the stakes go back (game totals, player props, requested lines, season props). The twenty are left as
+  they settled.
+
+Still open: a tracked bet settled before a late stat correction isn't reopened (the sheet says when the number has
+moved); `create_bet_v2` takes any stat name on a player-against-player bet (an unknown one counts nothing, a push).
 ### 9.44 A bug hunt from the live logs, 24 November 2026
 
 Patrick asked for a hunt for real defects, starting from evidence. A week of Postgres, API and edge function logs, the

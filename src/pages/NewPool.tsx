@@ -413,7 +413,8 @@ export default function NewPool() {
 
   const start = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!ready || busy || afterSignIn || (!!session && !canHost)) return;
+    // while the code step is up the code is the only way on (Enter in any other field must not ask for the account again)
+    if (!ready || busy || afterSignIn || !!codeFor || (!!session && !canHost)) return;
     setBusy(true); setErr(''); setSignIn(false);
     funnelHit('start_go', mode ?? 'pool', srcParam);
     try {
@@ -811,14 +812,17 @@ export default function NewPool() {
           <div className="absolute inset-x-0 top-0 h-0.5 bg-white/[.06]"><div className="h-full bg-gold transition-[width] duration-300" style={{ width: `${Math.round(progress * 100)}%` }} /></div>
           <div className="mx-auto flex w-full max-w-md items-center gap-3 px-4">
             <div className="min-w-0 flex-1">
-              <div className="text-[10px] font-black uppercase tracking-[.16em] text-white/50">{ready ? 'All set' : resolving ? 'One moment' : `Step ${curAt + 1} of ${stepCount}`}</div>
-              {need && !resolving ? (
+              <div className="text-[10px] font-black uppercase tracking-[.16em] text-white/50">{codeFor ? 'One last step' : ready ? 'All set' : resolving ? 'One moment' : `Step ${curAt + 1} of ${stepCount}`}</div>
+              {codeFor ? (
+                // the code is the only thing left: the bar points at it rather than at a start button that can't be pressed
+                <button type="button" onClick={() => document.getElementById('email-code')?.focus()} className="text-left text-sm font-semibold leading-snug text-white">Type the code we emailed you<ChevronRight size={15} className="-mt-0.5 ml-0.5 inline text-white/60" /></button>
+              ) : need && !resolving ? (
                 <button type="button" onClick={fix} className="text-left text-sm font-semibold leading-snug text-white"><span className="line-clamp-1">{need.text}<ChevronRight size={15} className="-mt-0.5 ml-0.5 inline text-white/60" /></span></button>
               ) : ready ? (
                 <p className="line-clamp-2 break-words text-sm font-semibold leading-snug text-white">{pool.trim()}</p>
               ) : null}
             </div>
-            <button type="submit" form="np-form" className="btn-gold shrink-0 px-3.5 py-3 text-[15px]" disabled={busy || afterSignIn || !ready || !!codeFor || (!!session && !canHost)}>{busy || afterSignIn ? <Spinner /> : haveAccount && !member ? 'Sign in and start' : 'Start my pool'}</button>
+            {!codeFor && <button type="submit" form="np-form" className="btn-gold shrink-0 px-3.5 py-3 text-[15px]" disabled={busy || afterSignIn || !ready || !!codeFor || (!!session && !canHost)}>{busy || afterSignIn ? <Spinner /> : haveAccount && !member ? 'Sign in and start' : 'Start my pool'}</button>}
           </div>
         </div>
       )}
