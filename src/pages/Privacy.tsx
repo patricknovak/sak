@@ -29,6 +29,7 @@ const SECTIONS: { title: string; body: string[] }[] = [
   ] },
   { title: 'Analytics', body: [
     'Inside the app we keep a daily count of how often each page of a pool is opened and by how many of its members, with no names: a member is counted by a code that changes every day, so no one\'s visits can be followed. It tells us which pages people use. A pool\'s host can switch it off for the pool.',
+    'On superpoolsai.com and the start page we also keep a daily total of how many times each page was opened and Start was pressed, with the site or campaign the visit came from (for example a search engine, or a link we posted). It is a number per day and nothing else: no cookie, no address, no account and no code for you, so a visit can never be followed or tied to anyone.',
     'If you accept Analytics on the banner, we load Google Analytics to count which pools get started, which invite links get shared and which pages get used. We send no names or messages to it. Choosing No thanks turns it off. Your Analytics and Ads choices are stored in your browser and in a cookie on superpoolsai.com so the marketing site and the app remember the same answer. You can change your mind from the banner or the Analytics control on this page.',
   ] },
   { title: 'Ads measurement', body: [
