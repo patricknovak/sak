@@ -12,8 +12,11 @@ export function betMoves(b: Bet, entries: BetEntry[]): Map<number, Move> {
     const es = entries.filter((e) => e.bet_id === b.id);
     const winners = (b.result?.winners as number[] | undefined) ?? (b.winner_team ? [b.winner_team] : []);
     const pot = Number(b.result?.pot ?? es.reduce((s, e) => s + e.coins, 0));
+    // what each winner was paid is kept on the bet (the odd coins of a tie go to whoever got in first); bets settled
+    // before that was kept split in whole coins
+    const shares = b.result?.shares as Record<string, number> | undefined;
     const share = winners.length ? Math.floor(pot / winners.length) : 0;
-    for (const e of es) { const w = winners.includes(e.team_id); m.set(e.team_id, { coins: (w ? share : 0) - e.coins, cash: 0, won: b.push ? null : w }); }
+    for (const e of es) { const w = winners.includes(e.team_id); m.set(e.team_id, { coins: (w ? Number(shares?.[e.team_id] ?? share) : 0) - e.coins, cash: 0, won: b.push ? null : w }); }
     return m;
   }
   const sides = [b.creator_team, b.opponent_team].filter((x): x is number => !!x);

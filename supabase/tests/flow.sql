@@ -8139,6 +8139,117 @@ select set_config('request.jwt.claim.sub', '', false);
 \i supabase/migrations/20261005000352_rink_games.sql
 select 'rink games', true;
 
+-- ───────────── side bets and the Book settle to the coin (migration 365) ─────────────
+reset role;
+select set_config('app.league_id', '', false);
+select set_config('request.jwt.claim.sub', '', false);
+select id as bp1 from players order by id limit 1 \gset
+select id as bp2 from players order by id offset 1 limit 1 \gset
+select id as bp3 from players order by id offset 2 limit 1 \gset
+-- a pool that ends level three ways pays its whole pot: 100 pays 34, 33, 33 (the odd coin to whoever got in first), never 99
+insert into bets (creator_team, title, kind, coins, status, start_date, end_date, entry_close, subject)
+  values (2, 'Three level at the top', 'pool_player', 33, 'open', today_et() + 1, today_et() + 1, today_et() + 1, '{"stat": "g"}') returning id as tie_pool \gset
+insert into bet_entries (bet_id, team_id, choice, coins, created_at) values
+  (:tie_pool, 2, jsonb_build_object('player_id', :bp1), 34, now() - interval '3 minutes'),
+  (:tie_pool, 3, jsonb_build_object('player_id', :bp2), 33, now() - interval '2 minutes'),
+  (:tie_pool, 4, jsonb_build_object('player_id', :bp3), 33, now() - interval '1 minute');
+-- a pool only its creator entered is called off, not "won"
+insert into bets (creator_team, title, kind, coins, status, start_date, end_date, entry_close, subject)
+  values (2, 'Nobody came', 'pool_player', 10, 'open', today_et() + 1, today_et() + 1, today_et() + 1, '{"stat": "g"}') returning id as lone_pool \gset
+insert into bet_entries (bet_id, team_id, choice, coins) values (:lone_pool, 2, jsonb_build_object('player_id', :bp1), 10);
+update bets set start_date = date '2019-03-03', end_date = date '2019-03-03', entry_close = date '2019-03-02' where id in (:tie_pool, :lone_pool);
+select settle_due_bets() is not null as settled;
+select pg_temp.expect('a three-way tie pays the whole pot', (select sum(amount) = 100 and count(*) = 3 from coin_ledger where bet_id = :tie_pool and amount > 0));
+select pg_temp.expect('the odd coin goes to the first one in', (select amount = 34 from coin_ledger where bet_id = :tie_pool and amount > 0 and team_id = 2)
+  and (select bool_and(amount = 33) from coin_ledger where bet_id = :tie_pool and amount > 0 and team_id in (3, 4)));
+select pg_temp.expect('a settled pool moves no coins in or out of the league', (select sum(amount) = 0 from coin_ledger where bet_id = :tie_pool));
+select pg_temp.expect('the bet keeps what each winner was paid', (select status = 'settled' and (result->'shares'->>'2')::int = 34 and (result->'shares'->>'3')::int = 33 and (result->>'pot')::int = 100 from bets where id = :tie_pool));
+select pg_temp.expect('a pool nobody joined is called off', (select status = 'cancelled' from bets where id = :lone_pool) and not exists (select 1 from coin_ledger where bet_id = :lone_pool));
+-- the commissioner's ruling splits the same way, and a winner named twice is paid once
+select pg_temp.as_team(1);
+set role authenticated;
+select commish_rule_bet(:tie_pool, 'winner', null, array[4, 3, 4], null);
+reset role;
+select pg_temp.expect('a ruling pays the whole pot, each winner once', (select sum(amount) = 100 and count(*) = 2 and bool_and(amount = 50) from coin_ledger where bet_id = :tie_pool and amount > 0)
+  and (select sum(amount) = 0 from coin_ledger where bet_id = :tie_pool));
+-- conceding is for two-sided bets: a pool says so rather than failing on a missing opponent
+select pg_temp.as_team(2);
+set role authenticated;
+select pg_temp.raises('a pool can''t be conceded', format('select claim_bet(%s, 2)', :tie_pool), 'pool settles itself');
+select pg_temp.raises('a pool can''t be confirmed', format('select confirm_bet(%s)', :tie_pool), 'pool settles itself');
+reset role;
+
+-- a bet counts one kind of game: the regular season, or the playoffs when its window starts after the season ends
+insert into games (id, date, start_utc, home, away, state) values
+  (2018020991, date '2019-03-05', timestamptz '2019-03-06 00:00+00', 'AAA', 'BBB', 'OFF'),
+  (2018030111, date '2019-03-06', timestamptz '2019-03-07 00:00+00', 'AAA', 'BBB', 'OFF');
+insert into player_games (game_id, player_id, date, stats) values (2018020991, :bp1, date '2019-03-05', '{"g": 1}'), (2018030111, :bp1, date '2019-03-06', '{"g": 2}');
+select pg_temp.expect('a window that starts in the regular season leaves the playoff game out', _stat_sum(:bp1, 'g', date '2019-03-05', date '2019-03-06') = 1);
+update league set season_end = date '2019-03-05';
+select pg_temp.expect('a window that straddles the end stays a regular-season bet', _stat_sum(:bp1, 'g', date '2019-03-05', date '2019-03-06') = 1);
+select pg_temp.expect('a window that starts after the season counts the playoff game', _stat_sum(:bp1, 'g', date '2019-03-06', date '2019-03-06') = 2);
+update league set season_end = '2027-04-10';
+select pg_temp.expect('a team bet still sums the regular-season nights',
+  (select bool_and(_team_sum(t.id, null, null) = coalesce((select sum(points) from team_daily d where d.team_id = t.id), 0)) from teams t where t.role = 'gm'));
+delete from player_games where game_id in (2018020991, 2018030111);
+delete from games where id in (2018020991, 2018030111);
+
+-- a pool is left or cancelled before its games start, never after
+insert into bets (creator_team, title, kind, coins, status, start_date, end_date, entry_close, subject)
+  values (2, 'Under way', 'pool_player', 10, 'open', today_et() + 1, today_et() + 1, today_et() + 1, '{"stat": "g"}') returning id as late_pool \gset
+insert into bet_entries (bet_id, team_id, choice, coins) values (:late_pool, 2, jsonb_build_object('player_id', :bp1), 10), (:late_pool, 3, jsonb_build_object('player_id', :bp2), 10);
+update bets set start_date = today_et() - 1, end_date = today_et() + 3, entry_close = today_et() where id = :late_pool;
+select pg_temp.as_team(3);
+set role authenticated;
+select pg_temp.raises('a joiner can''t walk away once the games have started', format('select leave_pool(%s)', :late_pool), 'Too late');
+reset role;
+select pg_temp.as_team(2);
+set role authenticated;
+select pg_temp.raises('the creator can''t call a pool off once the games have started', format('select cancel_bet(%s)', :late_pool), 'Too late to cancel');
+reset role;
+update bets set start_date = today_et() + 1, entry_close = today_et() + 1 where id = :late_pool;
+select pg_temp.as_team(3);
+set role authenticated;
+select leave_pool(:late_pool);
+reset role;
+select pg_temp.as_team(2);
+set role authenticated;
+select cancel_bet(:late_pool);
+reset role;
+select pg_temp.expect('before the games start both still work', (select status = 'cancelled' from bets where id = :late_pool) and not exists (select 1 from bet_entries where bet_id = :late_pool));
+
+-- another league's account can't read a bet's numbers by its id
+select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-000000000084', false);
+select set_config('app.league_id', :olga::text, false);
+set role authenticated;
+select pg_temp.raises('a bet''s progress keeps to its league', format('select bet_progress(%s)', :tie_pool));
+reset role;
+select set_config('app.league_id', '', false);
+select set_config('request.jwt.claim.sub', '', false);
+
+-- the Book: a result dead on the line is a push, the stakes go back
+insert into games (id, date, start_utc, home, away, state, home_score, away_score, period, final_synced)
+  values (2018020992, today_et() - 1, now() - interval '20 hours', 'AAA', 'BBB', 'OFF', 4, 2, '3', true);
+insert into markets (kind, title, game_id, date, subject, options, closes_at) values ('total', 'BBB @ AAA: total goals', 2018020992, today_et() - 1, '{"line": 6}',
+  '[{"key": "over", "label": "Over 6", "odds": 1.9}, {"key": "under", "label": "Under 6", "odds": 1.9}]', now() - interval '20 hours') returning id as push_market \gset
+insert into market_bets (market_id, team_id, pick, coins, odds) values (:push_market, 2, 'over', 20, 1.9), (:push_market, 3, 'under', 30, 1.9);
+select settle_markets() is not null as settled;
+select pg_temp.expect('six goals on a line of six is a push', (select status = 'void' and winner_key is null from markets where id = :push_market)
+  and (select bool_and(payout = coins) from market_bets where market_id = :push_market));
+update games set home_score = 5 where id = 2018020992;
+update markets set status = 'open', settled_at = null where id = :push_market;
+select settle_markets() is not null as settled;
+select pg_temp.expect('seven goals still pays the over', (select status = 'settled' and winner_key = 'over' from markets where id = :push_market)
+  and (select payout = 38 from market_bets where market_id = :push_market and team_id = 2) and (select payout = 0 from market_bets where market_id = :push_market and team_id = 3));
+delete from coin_ledger where reason like '%BBB @ AAA: total goals%';
+delete from markets where id = :push_market;
+delete from games where id = 2018020992;
+reset role;
+select set_config('app.league_id', '', false);
+select set_config('request.jwt.claim.sub', '', false);
+\i supabase/migrations/20261005000365_bet_math_fixes.sql
+select 'bet math fixes', true;
+
 -- ───────────── Rod Hockey's games are kept, league by league (migration 354) ─────────────
 reset role;
 select set_config('app.league_id', '', false);

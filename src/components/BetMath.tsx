@@ -9,9 +9,9 @@ import { useLeague, useNow, useSport } from '../lib/store';
 import { rpc, selectAll, supabase } from '../lib/supabase';
 import { useBrand } from '../lib/brand';
 import { useSeasonGames } from '../lib/projections';
-import { etToday, fmtDate, fmtPts } from '../lib/format';
+import { fmtDate, fmtPts } from '../lib/format';
 import { calledOff, extraTime, hasStarted, isFinal, isLive, notStarted, periodShort } from '../lib/sport';
-import { phi, type WinDetail, type Rest } from '../lib/betodds';
+import { betGameType, gameTypeOf, phi, type WinDetail, type Rest } from '../lib/betodds';
 import type { Bet, BetEntry, BetProgress, BetStat, CoinEntry, Game, Player } from '../lib/types';
 import { Coin, TeamBadge } from './ui';
 
@@ -47,6 +47,8 @@ export function BetMath({ bet: b, entries, detail, statLabel, onClose }: {
   const now = useNow(60_000);
   const season = useSeasonGames();
   const stat: BetStat = b.subject?.stat ?? 'fpts';
+  // the kind of game this bet counts: the regular season, or the playoffs when its window starts after the season ends
+  const type = betGameType(b, league?.season_end);
   const live = b.status === 'accepted' || b.status === 'open';
   const start = b.kind === 'season' ? league?.season_start ?? null : b.start_date;
   const end = b.kind === 'season' ? league?.season_end ?? null : b.end_date;
@@ -84,7 +86,7 @@ export function BetMath({ bet: b, entries, detail, statLabel, onClose }: {
         const [srv, pl, tl, cl] = await Promise.all([
           rpc<BetProgress>('bet_progress', { p_bet: b.id }),
           pIds.length && start && end ? selectAll<PLine>('league_games', 'game_id,player_id,date,nhl_team,stats,fpts', 1000, ['date', 'game_id', 'player_id'], (q) => q.in('player_id', pIds).gte('date', start).lte('date', end)) : Promise.resolve([] as PLine[]),
-          tIds.length && start && end ? selectAll<TLine>('team_daily', 'team_id,date,points,games', 1000, ['date', 'team_id'], (q) => q.in('team_id', tIds).gte('date', start).lte('date', end)) : Promise.resolve([] as TLine[]),
+          tIds.length && start && end ? selectAll<TLine>('team_daily_all', 'team_id,date,points,games', 1000, ['date', 'team_id'], (q) => q.in('team_id', tIds).eq('game_type', type).gte('date', start).lte('date', end)) : Promise.resolve([] as TLine[]),
           supabase.from('coin_ledger').select('*').eq('bet_id', b.id).order('id').then(({ data }) => (data ?? []) as CoinEntry[]),
         ]);
         const gIds = [...new Set(pl.map((l) => l.game_id))];
@@ -94,12 +96,13 @@ export function BetMath({ bet: b, entries, detail, statLabel, onClose }: {
           for (const g of (data ?? []) as GameRow[]) gmap.set(g.id, g);
         }
         if (dead) return;
-        setServer(srv ?? {}); setPlines(pl.map((l) => ({ ...l, fpts: Number(l.fpts), stats: l.stats ?? {} }))); setTlines(tl.map((t) => ({ ...t, points: Number(t.points), games: Number(t.games) })));
+        // a bet counts one kind of game (the regular season, or the playoffs): the other kind's lines are left out, as the settlement leaves them
+        setServer(srv ?? {}); setPlines(pl.filter((l) => (gmap.get(l.game_id)?.game_type ?? gameTypeOf(l.game_id)) === type).map((l) => ({ ...l, fpts: Number(l.fpts), stats: l.stats ?? {} }))); setTlines(tl.map((t) => ({ ...t, points: Number(t.points), games: Number(t.games) })));
         setGameMap(gmap); setCoins(cl); setErr(null);
       } catch (e) { if (!dead) setErr(e instanceof Error ? e.message : String(e)); }
     })();
     return () => { dead = true; };
-  }, [b.id, subjects.map((s) => s.key + s.id).join(), start, end, tick]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [b.id, subjects.map((s) => s.key + s.id).join(), start, end, type, tick]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // tonight's games carry the live clock in the store; prefer them over the copy read above
   const gameOf = (id: number): GameRow | undefined => (tonight.find((g) => g.id === id) as GameRow | undefined) ?? gameMap.get(id);
@@ -128,7 +131,7 @@ export function BetMath({ bet: b, entries, detail, statLabel, onClose }: {
   const allMatch = loaded && checks.every((c) => c.srv == null || near(c.mine, c.srv));
 
   // ── where the bet is on its road
-  const today = etToday();
+  const today = leagueDay;   // the league day: past midnight with a game still on, that night isn't over
   const nightsAll = start && end ? datesIn(start, end) : [];
   const played = nightsAll.filter((d) => d < leagueDay).length;
   const settleDay = end ? shift(end, 1) : null;
@@ -149,7 +152,7 @@ export function BetMath({ bet: b, entries, detail, statLabel, onClose }: {
       const seen = new Set((plines ?? []).filter((l) => l.player_id === s.id).map((l) => l.game_id));
       if (s.kind === 'player') {
         const club = players.get(s.id)?.nhl_team;
-        out.set(s.key, season.filter((g) => g.date >= lo && g.date <= end && (g.home === club || g.away === club) && !seen.has(g.id) && !isFinal(sport, g.state) && !calledOff(sport, g.state)) as GameRow[]);
+        out.set(s.key, season.filter((g) => gameTypeOf(g.id) === type && g.date >= lo && g.date <= end && (g.home === club || g.away === club) && !seen.has(g.id) && !isFinal(sport, g.state) && !calledOff(sport, g.state)) as GameRow[]);
       }
     }
     return out;
@@ -160,7 +163,7 @@ export function BetMath({ bet: b, entries, detail, statLabel, onClose }: {
     if (!season || !start || !end) return [] as string[];
     const lo = start > today ? start : today;
     const live = new Map(tonight.map((g) => [g.id, g.state]));
-    return [...new Set(season.filter((g) => g.date >= lo && g.date <= end && notStarted(sport, live.get(g.id) ?? g.state)).map((g) => g.date))];
+    return [...new Set(season.filter((g) => gameTypeOf(g.id) === type && g.date >= lo && g.date <= end && notStarted(sport, live.get(g.id) ?? g.state)).map((g) => g.date))];
   }, [season, start, end, today, tonight, sport]);
 
   const matchup = (l: PLine | null, g: GameRow | undefined, club?: string | null) => {
@@ -187,6 +190,9 @@ export function BetMath({ bet: b, entries, detail, statLabel, onClose }: {
     if (b.kind === 'pool_team') return `Each entry picked a team; the pick with the most ${brand.short} points from ${win} takes the pot. Ties split it.`;
     if (b.kind === 'pool_player') return `Each entry picked a player (no repeats); the most ${what} from ${win} takes the pot. Ties split it.`;
     return '';
+  })() + (() => {
+    if (b.kind === 'season' || b.kind === 'custom') return '';
+    return type === 3 ? ' It starts after the regular season, so it counts playoff games only.' : end && league?.season_end && end > league.season_end ? ' It starts in the regular season, so it counts regular-season games only: playoff games in its window are left out.' : '';
   })();
 
   // ── the coins: who risks what, what each outcome moves, and (once settled) what actually moved
@@ -262,7 +268,7 @@ export function BetMath({ bet: b, entries, detail, statLabel, onClose }: {
             <span className="num text-right font-semibold text-white">{fmtPts(r.points)}</span>
             <span className="num text-right text-mute">{fmtPts(runAt)}</span>
           </button>
-          {open === k && <NightDetail teamId={s.id} day={r.date} total={r.points} />}
+          {open === k && <NightDetail teamId={s.id} day={r.date} total={r.points} type={type} />}
         </Fragment>
       );
     };
@@ -397,7 +403,7 @@ export function BetMath({ bet: b, entries, detail, statLabel, onClose }: {
           {pool ? (
             <>
               <div>{myEntries.length} entr{myEntries.length === 1 ? 'y' : 'ies'} × {b.coins} <Coin size={11} /> = <b className="text-white">{pot}</b> pot, held from each bank until it settles.</div>
-              <div>Most wins it all. A tie splits it evenly, in whole coins (so {pot} split three ways is {Math.floor(pot / 3)} each).</div>
+              <div>Most wins it all. A tie splits the whole pot{pot % 3 ? <>: coins don't split, so {pot} three ways is {Math.floor(pot / 3)} each and the {pot % 3 === 1 ? 'coin' : `${pot % 3} coins`} left over go{pot % 3 === 1 ? 'es' : ''} to whoever got in first</> : <> evenly ({pot} three ways is {pot / 3} each)</>}.</div>
             </>
           ) : b.coins > 0 ? (
             <>
@@ -459,7 +465,7 @@ export function BetMath({ bet: b, entries, detail, statLabel, onClose }: {
 }
 
 // one night of a fantasy team: the starters frozen at puck drop and each one's points, summed against the night's total
-function NightDetail({ teamId, day, total }: { teamId: number; day: string; total: number }) {
+function NightDetail({ teamId, day, total, type = 2 }: { teamId: number; day: string; total: number; type?: number }) {
   const { players, league } = useLeague();
   const [rows, setRows] = useState<{ p?: Player; slot: string; fpts: number; stats: Record<string, number>; gameType: number | null; played: boolean }[] | null>(null);
   useEffect(() => {
@@ -480,8 +486,9 @@ function NightDetail({ teamId, day, total }: { teamId: number; day: string; tota
     return () => { dead = true; };
   }, [teamId, day]); // eslint-disable-line react-hooks/exhaustive-deps
   if (!rows) return <div className="bg-black/20 px-3 py-2 text-[11px] text-mute">Reading the lineup…</div>;
-  // the standings count regular-season games only; a playoff game on the same night is shown but not counted
-  const counted = rows.filter((r) => r.gameType == null || r.gameType === 2);
+  // a bet counts one kind of game (the regular season, like the standings, or the playoffs); the other kind on the
+  // same night is shown but not counted
+  const counted = rows.filter((r) => (r.gameType ?? 2) === type);
   const sum = r2(counted.reduce((t, r) => t + r.fpts, 0));
   return (
     <div className="bg-black/20 px-3 py-2 text-[11px]">
