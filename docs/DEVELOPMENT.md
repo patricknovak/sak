@@ -1920,3 +1920,23 @@ migration):
 
 New UI drawn inside a form never brings a form of its own; a new floating line or bar checks the invite page and an
 open sheet on a phone before it ships.
+
+**A second pass the same evening** (the returning visitor, a friend's first five minutes, a slow phone, accessibility):
+
+- **The consent line no longer floats in the app at all.** Above the dock it still sat on whatever a newcomer reached
+  for next: the Call buttons on a question, the chat's composer, Set password and sign in on a reset. A page now says
+  where the line goes with a `ConsentSlot` (`src/components/ConsentBanner.tsx`) and the line is drawn there, part of the
+  page: the layout has one at the top of every page, the invite and the sign-in page under their forms. The start page
+  keeps its sheet at the top; a page with no slot keeps the floating line.
+- **The start page was downloading the picks page.** `NewPool` read four small things from `pages/Picks.tsx` (when a
+  pick locks, the prop sheet's game picker, the squares settings), which brought the whole picks page and the game
+  threads' chat with it. They live in `src/components/PoolStartKnobs.tsx` now (Picks still exports them). And a
+  league's home loads like every other page, so an invite or the start page doesn't carry it. On a slow 4G phone with
+  a slow processor (Chromium's throttles, the built site): the start page 352 kB in 40 files to 249 kB in 21, ready in
+  2.6 s from 3.2 s; an invite 257 kB to 235 kB; sign-in 248 kB to 226 kB.
+- **A pool's chat spoke hockey.** An empty chat said "Fire the first shot" with a stick, and the filter said "Every
+  GM"; in a pool they say "Say something about your first call" and "Everyone".
+- **Accessibility**, checked with axe (WCAG 2 A and AA) on the invite, the pool's home, a question, the questions, the
+  table, the chat, the start page, sign-in and the reset: the one failure was the sign-in page's small print (contrast
+  3.75, now above 4.5); the same faint grey on the invite's and the code step's small print went with it, and the
+  reset's second password box has a name for a screen reader.

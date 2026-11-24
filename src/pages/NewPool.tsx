@@ -13,7 +13,7 @@ import { themed } from '../components/LeagueIdentity';
 import { ProductMark } from '../components/Brand';
 import { type Pack, packName, packPlaceholder, packWhen } from '../lib/packs';
 import { KIND_ORDER, KIND_WHEN, KINDS, ATS_LINE, MISSED_LINE, PICKEM_PRESETS, PRESETS, SQUARES_DEFAULT, atsFits, eventGrids, finalSoon, gridFor, gridLabel, gridRules, presetExample, sheetLabel, type GameKind, type PickemPreset, type PoolEvent, type SeriesPreset, type SquaresRules } from '../lib/poolGames';
-import { SERIES_SPORTS, SheetPicker, SquaresKnobs, lockText } from './Picks';
+import { SERIES_SPORTS, SheetPicker, SquaresKnobs, lockText } from '../components/PoolStartKnobs';
 import { attributionFields, noteCtaArrival, trackPoolCreated, trackSignUp } from '../lib/analytics';
 import { FantasyStart } from '../components/FantasyStart';
 import { PRODUCT } from '../lib/brand';

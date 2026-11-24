@@ -5,6 +5,7 @@ import { LeagueCrest, ProductMark, Wordmark } from '../components/Brand';
 import { useLeague } from '../lib/store';
 import { PRODUCT } from '../lib/brand';
 import { OpenNow } from '../components/OpenNow';
+import { ConsentSlot } from '../components/ConsentBanner';
 
 // Sign in with your email and password (Patrick's call, October 2026; every SaK account has its own email since step 2).
 // Forgot your password: the league emails you a code, you type it with a new password, and you're in. The code works
@@ -146,7 +147,7 @@ export default function Login() {
               onChange={(e) => setCode(e.target.value.replace(/\D/g, '').slice(0, 10))} placeholder="123456" />
             <label className="label relative mt-3 block text-white/70" htmlFor="npw">New password</label>
             <input id="npw" className="input relative mt-1" type="password" autoComplete="new-password" value={pw} onChange={(e) => setPw(e.target.value)} placeholder="8+ characters" />
-            <input className="input relative mt-2" type="password" autoComplete="new-password" value={pw2} onChange={(e) => setPw2(e.target.value)} placeholder="Same again" />
+            <input className="input relative mt-2" type="password" autoComplete="new-password" aria-label="The new password again" value={pw2} onChange={(e) => setPw2(e.target.value)} placeholder="Same again" />
             {rememberBox}
             <button className="btn-primary relative mt-4 w-full py-3 text-base" disabled={busy || code.length < 6 || pw.length < 8 || !pw2}>{busy ? <Spinner /> : 'Set password and sign in'}</button>
             <div className="relative mt-3 flex justify-between text-sm text-white/60">
@@ -156,12 +157,14 @@ export default function Login() {
           </form>
         )}
         {err && <div className="mt-4 rounded-xl border border-red-400/30 bg-red-900/50 px-4 py-3 text-center text-sm text-red-200">{err}</div>}
+        {/* the consent line, under the form: floating, it sat over Set password and sign in */}
+        <ConsentSlot className="mt-4" />
         {product && mode === 'in' && <OpenNow />}
         {/* a prediction pool starts right away (#/new); a fantasy league is asked for (#/start) */}
         <a href="#/new" className="btn-ghost mt-6 block w-full text-center">Start a pool of your own, free</a>
-        <a href="#/start" className="mt-2 block text-center text-[11px] text-white/40 underline decoration-white/20 underline-offset-2">Or ask us to set up a fantasy league</a>
+        <a href="#/start" className="mt-2 block text-center text-[11px] text-white/60 underline decoration-white/20 underline-offset-2">Or ask us to set up a fantasy league</a>
         <p className="mt-3 text-center text-xs italic text-mute">{product || pool ? `Pools for everything you watch, on ${PRODUCT.name}` : other ? `Fantasy hockey on ${PRODUCT.name}` : 'Play fair, play hard and play to win.'}</p>
-        <p className="mt-2 text-center text-[11px] text-white/40"><a href="#/privacy" className="underline decoration-white/20 underline-offset-2">What we keep about you</a> · <a href="#/terms" className="underline decoration-white/20 underline-offset-2">Terms of use</a></p>
+        <p className="mt-2 text-center text-[11px] text-white/60"><a href="#/privacy" className="underline decoration-white/20 underline-offset-2">What we keep about you</a> · <a href="#/terms" className="underline decoration-white/20 underline-offset-2">Terms of use</a></p>
       </div>
     </div>
   );

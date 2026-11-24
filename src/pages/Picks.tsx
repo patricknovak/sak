@@ -7,7 +7,7 @@ import { Empty, LoadError, PageHeader, Section, TeamBadge, Toggle, useAction } f
 import { Crest } from '../components/Crest';
 import { ShareButton, useCardBrand } from '../components/ShareButton';
 import { shareCard } from '../lib/shareCard';
-import { ATS_LINE, KINDS, MISSED_LINE, PICKEM_PRESETS, PRESETS, atsFits, SIZES, SQUARES_DEFAULT, START_WORD, eventGrids, gridGame, gridLabel, gridRules, paysFor, type Grid, type PickemPreset, type PoolEvent, type SeriesPreset, type SheetGame, type SquaresRules } from '../lib/poolGames';
+import { ATS_LINE, KINDS, MISSED_LINE, PICKEM_PRESETS, PRESETS, atsFits, SQUARES_DEFAULT, eventGrids, gridRules, type PickemPreset, type PoolEvent, type SeriesPreset, type SquaresRules } from '../lib/poolGames';
 import { SquaresGame, type SquaresData } from '../components/Squares';
 import { PickemGame, type PickemData } from '../components/Pickem';
 import { BracketGame, type BracketData } from '../components/Bracket';
@@ -20,6 +20,10 @@ import { useSurvivor } from './Survivor';
 import { usePredictor } from './Predictor';
 import { follows, usePoolCompetitions } from '../lib/poolOwn';
 import { trackFirstCall } from '../lib/analytics';
+// the start page's pickers live in their own file, so a stranger opening #/new doesn't download this page (and the game
+// threads' chat with it) to draw four small things; kept exported from here for everything that already reads them
+import { SERIES_SPORTS, SheetPicker, SquaresKnobs, lockText } from '../components/PoolStartKnobs';
+export { SERIES_SPORTS, SheetPicker, SquaresKnobs, lockText };
 
 // The pool's games (migration 165, docs/POOL-TYPES.md): Pick the series (each series' winner and how many games it
 // goes, locked at its Game 1) and Rank the teams (the clubs in order; every win pays its club's rank). Points, the most
@@ -68,13 +72,6 @@ export function usePoolGames() {
   return { games, reload: load, failed };
 }
 
-const DAY = new Intl.DateTimeFormat(undefined, { weekday: 'short', month: 'short', day: 'numeric' });
-const TIME = new Intl.DateTimeFormat(undefined, { hour: 'numeric', minute: '2-digit' });
-export const lockText = (iso: string | null, tbd = false) => {
-  if (!iso) return 'date to be set';
-  const d = new Date(iso);
-  return tbd ? `${DAY.format(d)}, time to be set` : `${DAY.format(d)}, ${TIME.format(d)}`;
-};
 const ordinal = (n: number) => { const s = ['th', 'st', 'nd', 'rd'], v = n % 100; return n + (s[(v - 20) % 10] ?? s[v] ?? s[0]); };
 const pts = (n: number) => `${n} ${n === 1 ? 'pt' : 'pts'}`;
 const hue = (c: Club | null | undefined) => c?.color ?? 'rgb(var(--gold-rgb))';
@@ -749,8 +746,6 @@ function HostDesk({ board, reload, onActAs }: { board: GameBoard; reload: () => 
 
 // the host adds a game the pool doesn't run yet, on an event that still has a round to start from; squares go on any
 // series still to start that has no grid yet
-// sports whose postseason is played in best-of series: their brackets can carry a bonus for calling the games
-export const SERIES_SPORTS = ['mlb', 'nhl', 'nba'];
 
 export function HostGames() {
   const { games, reload } = usePoolGames();
@@ -918,68 +913,5 @@ export function HostGames() {
         {moreButton}
       </div>
     </Section>
-  );
-}
-
-// which game a prop sheet goes on: the games still to start this week, soonest first, under their week or series, two
-// to a row so a full NFL Sunday fits on a phone
-const SHORT_TIME = new Intl.DateTimeFormat(undefined, { weekday: 'short', hour: 'numeric', minute: '2-digit' });
-export function SheetPicker({ games, on, setOn, dark }: { games: SheetGame[]; on: number; setOn: (id: number) => void; dark?: boolean }) {
-  const groups = [...new Set(games.map((g) => g.label))];
-  return (
-    <div className="space-y-2.5">
-      {groups.map((label) => (
-        <div key={label}>
-          {groups.length > 1 || games.length > 2 ? <div className="mb-1 text-[10px] font-black uppercase tracking-[.14em] text-mute">{label}</div> : null}
-          <div className="grid grid-cols-2 gap-1.5">
-            {games.filter((g) => g.label === label).map((g) => {
-              const sel = g.id === on;
-              return (
-                <button key={g.id} type="button" onClick={() => setOn(g.id)}
-                  className={`rounded-xl px-2.5 py-2 text-left ring-1 transition ${sel ? (dark ? 'bg-white text-[#0b1220] ring-white' : 'bg-gold/[.14] text-white ring-gold/70') : 'bg-white/[.04] text-slate-200 ring-white/10'}`}>
-                  <span className="block text-[13px] font-bold leading-snug">{g.game_no ? `Game ${g.game_no} · ` : ''}{g.away} at {g.home}</span>
-                  <span className={`block text-[11px] ${sel && dark ? 'text-[#0b1220]/70' : 'text-mute'}`}>{SHORT_TIME.format(new Date(g.kickoff))}</span>
-                </button>
-              );
-            })}
-          </div>
-        </div>
-      ))}
-    </div>
-  );
-}
-
-// a grid's settings: which series, its size, the price of a square, when it pays and how often the digits are drawn
-export function SquaresKnobs({ grids, on, setOn, grid, setGrid, dark, sport }: {
-  grids: Grid[];
-  on: number; setOn: (id: number) => void; grid: Omit<SquaresRules, 'series'>; setGrid: (g: Omit<SquaresRules, 'series'>) => void; dark?: boolean; sport?: string;
-}) {
-  // the sport's own checkpoints: a choice it can't use (baseball's innings on a football grid) falls back to its first
-  const pays = paysFor(sport);
-  useEffect(() => { if (!pays.some((p) => p.key === grid.pays)) setGrid({ ...grid, pays: pays[0].key }); }, [sport]); // eslint-disable-line react-hooks/exhaustive-deps
-  const chip = (sel: boolean) => `rounded-full px-3 py-1.5 text-xs font-semibold ring-1 transition ${sel ? (dark ? 'bg-white text-[#0b1220] ring-white' : 'bg-gold text-[#0b1220] ring-gold') : 'bg-white/[.04] text-slate-200 ring-white/10'}`;
-  const row = (label: string, children: React.ReactNode, note?: string) => (
-    <div><div className="mb-1.5 text-[11px] font-bold uppercase tracking-[.14em] text-mute">{label}</div><div className="flex flex-wrap gap-1.5">{children}</div>{note && <p className="mt-1.5 text-[11px] leading-snug text-mute">{note}</p>}</div>
-  );
-  const cur = grids.find((g) => g.id === on);
-  const series = grids.filter((g) => !g.fixture), week = grids.filter((g) => g.fixture);
-  return (
-    <div className="space-y-3">
-      {/* a postseason's few series as chips; an NFL week's games in the game picker, under their week */}
-      {grids.length > 1 && (
-        <div>
-          <div className="mb-1.5 text-[11px] font-bold uppercase tracking-[.14em] text-mute">On</div>
-          {series.length > 0 && <div className="flex flex-wrap gap-1.5">{series.map((g) => <button key={g.id} type="button" onClick={() => setOn(g.id)} className={chip(g.id === on)}>{g.short ?? g.label}{g.high && g.low ? ` · ${g.high} v ${g.low}` : ''}</button>)}</div>}
-          {week.length > 0 && <div className={series.length ? 'mt-2.5' : ''}><SheetPicker dark={dark} games={week.map(gridGame)} on={on} setOn={setOn} /></div>}
-        </div>
-      )}
-      {cur && <p className="text-xs text-slate-300">{gridLabel(cur)} · {cur.best_of === 1 ? `${(START_WORD[sport ?? ''] ?? 'start').replace(/^./, (c) => c.toUpperCase())} ${lockText(cur.starts_at, cur.tbd)}` : `Game 1 ${lockText(cur.starts_at, cur.tbd)} · up to ${cur.best_of} games`}</p>}
-      {row('Grid', SIZES.map((x) => <button key={x.key} type="button" onClick={() => setGrid({ ...grid, size: x.key })} className={chip(grid.size === x.key)}>{x.label}</button>), SIZES.find((x) => x.key === grid.size)!.line)}
-      {row('A square costs', [5, 10, 25, 50].map((c) => <button key={c} type="button" onClick={() => setGrid({ ...grid, cost: c })} className={chip(grid.cost === c)}>{c} coins</button>),
-        `A full grid is a pot of ${(grid.cost * grid.size * grid.size).toLocaleString()} coins.`)}
-      {row('Pays', pays.map((x) => <button key={x.key} type="button" onClick={() => setGrid({ ...grid, pays: x.key })} className={chip(grid.pays === x.key)}>{x.label}</button>), (pays.find((x) => x.key === grid.pays) ?? pays[0]).line)}
-      {(cur?.best_of ?? 2) > 1 && row('Digits', ([['once', 'One draw'], ['each', 'Fresh each game']] as const).map(([k, l]) => <button key={k} type="button" onClick={() => setGrid({ ...grid, digits: k })} className={chip(grid.digits === k)}>{l}</button>),
-        grid.digits === 'once' ? 'The same numbers all series: a good square stays good.' : 'New numbers every game, so a bad square gets another chance.')}
-    </div>
   );
 }

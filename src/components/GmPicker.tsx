@@ -5,10 +5,12 @@ import { TeamBadge } from './ui';
 
 // one GM, or all of them: a pill that opens the league's people (the chat's filter, the league's transactions, the
 // players table's "vs available"), each with their badge, team and whether they're online
-export function GmPicker({ value, onChange, allLabel = 'Every GM', spectators = true, allowAll = true, className = '' }: {
+export function GmPicker({ value, onChange, allLabel: label, spectators = true, allowAll = true, className = '' }: {
   value: number | null; onChange: (id: number | null) => void; allLabel?: string; spectators?: boolean; allowAll?: boolean; className?: string;
 }) {
-  const { me, teams, spectators: specs, online } = useLeague();
+  const { me, teams, spectators: specs, online, kind } = useLeague();
+  // a pool has members, not GMs (docs/BRAND.md: no sports words in a pool that is not about sport)
+  const allLabel = label ?? (kind === 'predict' ? 'Everyone' : 'Every GM');
   const people = [...teams, ...(spectators ? specs : [])];
   const cur = people.find((t) => t.id === value) ?? null;
   const [open, setOpen] = useState(false);

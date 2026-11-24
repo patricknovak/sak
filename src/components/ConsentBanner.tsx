@@ -6,12 +6,19 @@
 // of a phone and the whole dock, a GM's first sight of the app on a new phone. Defaults stay denied until accepted;
 // nothing Google loads before an Accept.
 import { useEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { getAdsConsent, getAnalyticsConsent, hasGaId, setAdsConsent, setAnalyticsConsent } from '../lib/analytics';
 
 const onStart = () => /^#\/new(\?|$)/.test(window.location.hash);
-// an invite's page has one button that matters, at the foot of a phone's first screen, right where the line floats: it
-// sat over Join the pool (24 November 2026). There the line is part of the page, under the form, and covers nothing.
-const onJoin = () => /^#\/join\//.test(window.location.hash);
+// Where a page wants the line (24 November 2026). Floating over the foot of a phone, it sat on whatever a newcomer was
+// reaching for: Join the pool on an invite, the Call buttons on a question, the chat's composer, Set password on a
+// reset. A page that draws a ConsentSlot gets the line there, as part of the page, covering nothing: the layout has one
+// at the top of every page, the invite and the sign-in page under their forms. A page with no slot keeps the floating line.
+const SLOT = 'sp-consent-slot';
+export function ConsentSlot({ className = '' }: { className?: string }) {
+  useEffect(() => { window.dispatchEvent(new Event(SLOT)); return () => { setTimeout(() => window.dispatchEvent(new Event(SLOT)), 0); }; }, []);
+  return <div data-consent-slot className={className} />;
+}
 
 export function ConsentBanner() {
   const [, setTick] = useState(0);
@@ -19,11 +26,14 @@ export function ConsentBanner() {
   // on a phone the line sits above the dock, never over it (a newcomer's tabs were under it on their first screen)
   const [dock, setDock] = useState(false);
   // the question to ask follows the page: the hash changes without a reload
+  const [slot, setSlot] = useState<Element | null>(null);
   useEffect(() => {
-    const re = () => { setTick((n) => n + 1); setTimeout(() => setDock(!!document.querySelector('[data-dock]')), 50); };
+    const find = () => setSlot(document.querySelector('[data-consent-slot]'));
+    const re = () => { setTick((n) => n + 1); setTimeout(() => { setDock(!!document.querySelector('[data-dock]')); find(); }, 50); };
     re();
     window.addEventListener('hashchange', re);
-    return () => window.removeEventListener('hashchange', re);
+    window.addEventListener(SLOT, find);
+    return () => { window.removeEventListener('hashchange', re); window.removeEventListener(SLOT, find); };
   }, []);
   const start = hasGaId() && onStart();
   const askAnalytics = hasGaId() && getAnalyticsConsent() == null;
@@ -58,9 +68,10 @@ export function ConsentBanner() {
     </>
   );
 
-  const join = onJoin();
-  return (
-    <div className={`pointer-events-none z-[80] flex justify-center p-3 ${join ? '-mt-6 pb-[max(1.5rem,env(safe-area-inset-bottom))]' : 'fixed inset-x-0'} ${join ? '' : start ? 'top-0 pt-[max(0.75rem,env(safe-area-inset-top))]' : dock ? 'bottom-[calc(88px+env(safe-area-inset-bottom))] lg:bottom-0 lg:pb-[max(0.75rem,env(safe-area-inset-bottom))]' : 'bottom-0 pb-[max(0.75rem,env(safe-area-inset-bottom))]'}`} role="dialog" aria-label="Analytics and ads cookies" data-consent>
+  // on the start page it stays a sheet at the top (the page leaves room for it); anywhere with a slot it is in the page
+  const inPage = !start && !!slot && slot.isConnected;
+  const line = (
+    <div className={`pointer-events-none z-[80] flex justify-center ${inPage ? 'pb-3' : `fixed inset-x-0 p-3 ${start ? 'top-0 pt-[max(0.75rem,env(safe-area-inset-top))]' : dock ? 'bottom-[calc(88px+env(safe-area-inset-bottom))] lg:bottom-0 lg:pb-[max(0.75rem,env(safe-area-inset-bottom))]' : 'bottom-0 pb-[max(0.75rem,env(safe-area-inset-bottom))]'}`}`} role="dialog" aria-label="Analytics and ads cookies" data-consent>
       <div ref={box} className="pointer-events-auto w-full max-w-md rounded-2xl border border-white/10 bg-[rgb(11_18_32/.96)] p-3 shadow-[0_18px_50px_-20px_rgba(0,0,0,.85)]">
         {askAnalytics && (
           <>
@@ -96,4 +107,5 @@ export function ConsentBanner() {
       </div>
     </div>
   );
+  return inPage ? createPortal(line, slot!) : line;
 }
