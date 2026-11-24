@@ -8274,3 +8274,27 @@ select set_config('app.league_id', '', false);
 select set_config('request.jwt.claim.sub', '', false);
 \i supabase/migrations/20261005000354_rod_games.sql
 select 'rod games', true;
+
+-- ===== the front door, counted (migration 361): anyone adds one, nobody but a platform admin reads =====
+set role anon;
+select funnel_hit('view', 'home', 'reddit');
+select funnel_hit('view', 'home', 'reddit');
+select funnel_hit('start_open', 'new', '');
+select funnel_hit('nonsense', 'home', '');
+select funnel_hit('view', '<script>', 'a very long source name that goes on and on past the limit');
+reset role;
+select pg_temp.expect('two views of home from reddit are one row of two',
+  (select n = 2 from private.funnel_daily where step = 'view' and page = 'home' and src = 'reddit' and day = today_et()));
+select pg_temp.expect('an unknown step is not counted', not exists (select 1 from private.funnel_daily where step = 'nonsense'));
+select pg_temp.expect('a bad page or source is kept only as other',
+  (select n = 1 from private.funnel_daily where step = 'view' and page = 'other' and src = 'other' and day = today_et()));
+set role anon;
+select pg_temp.raises('the public key cannot read the counts', $q$ select count(*) from private.funnel_daily $q$, 'permission denied');
+reset role;
+select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-000000000084', false);
+set role authenticated;
+select pg_temp.raises('a member who is not a platform admin cannot read the funnel', $q$ select platform_funnel(7) $q$, 'Platform admins only');
+reset role;
+select set_config('request.jwt.claim.sub', '', false);
+\i supabase/migrations/20261005000361_funnel_counts.sql
+select 'front door counted', true;

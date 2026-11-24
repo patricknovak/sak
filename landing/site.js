@@ -580,6 +580,22 @@ function spWhenSeen(el, start) {
   location.replace('./together.html' + location.search);
 })();
 
+// The front door, counted (migration 361): one more view of this page today, by where the visitor came from. No
+// cookie, no address, nothing that names or follows anyone: a day's total per page and source, read only by the
+// platform's admins beside the app's own counts (the start page opened, Start pressed). Once per page per tab.
+(function () {
+  if (!window.fetch) return;
+  var page = (location.pathname.replace(/^\/+|\.html$|\/+$/g, '') || 'home').toLowerCase().replace(/[^a-z0-9_-]/g, '').slice(0, 32);
+  var q = new URLSearchParams(location.search);
+  var src = (q.get('utm_source') || q.get('src') || '').toLowerCase().replace(/[^a-z0-9_.-]/g, '').slice(0, 32);
+  if (!src && document.referrer) { try { var h = new URL(document.referrer).hostname.replace(/^www\./, ''); if (!/superpoolsai\.com$/.test(h)) src = h.slice(0, 32); } catch (e) { /* no referrer to read */ } }
+  var key = 'sp_seen_' + page;
+  try { if (sessionStorage.getItem(key)) return; sessionStorage.setItem(key, '1'); } catch (e) { /* count it anyway */ }
+  fetch('https://quakdkzdafzlhgjvmypg.supabase.co/rest/v1/rpc/funnel_hit', { method: 'POST', keepalive: true,
+    headers: { apikey: 'sb_publishable_AMcluryqKenfAO6vFJ2f1A_50DhQz1b', 'Content-Type': 'application/json' },
+    body: JSON.stringify({ p_step: 'view', p_page: page, p_src: src }) }).catch(function () { /* a count missed */ });
+})();
+
 // The founding league's record ([data-proof]), read live from the app's proof_counts() (migration 350): the scored
 // calls, the average miss, the share within two points and the game nights with a morning column the next day. The
 // page carries the numbers as of its last edit, so a failed read leaves them as they were.
