@@ -1888,9 +1888,10 @@ link that opened anything.
   link on the season's box pool, each under a line saying when the playoff pool opens and that the host adds it to the
   same pool from the Host page, Add a game. The crew is in before the week that matters. Once the event is in the list the same
   link opens on it. A new event with a page ahead of its field gets a row in `COMING`.
-- Held for Patrick's go (migration 362): The Traitors season 5 pack (`traitors-s5`: three calls before the premiere, one
-  each Thursday named by its date since the episode count isn't announced, five on the finale open all season) and the
-  Traitors page rewritten for it. The page's button opens the pack, so the two ship together once 362 is live.
+- The Traitors season 5 (migration 362, pack `traitors-s5`): three calls before the premiere, one each Thursday named
+  by its date since the episode count isn't announced (a Thursday with no new episode is voided), five on the finale
+  open all season, in the Traitors lounge. `landing/traitors.html` is rewritten for it (its button opens the pack, so
+  the page shipped only once 362 was live) and the show page's Traitors tile points at it.
 - Checked: `e2e/app-new-pool-link.spec.ts` (the early link, then the same link once the event is listed),
   `e2e/landing.spec.ts`, the landing copy tests, and the pages at 360 and 390 px on either side of each date.
 
