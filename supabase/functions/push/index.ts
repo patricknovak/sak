@@ -6,6 +6,7 @@
 // The VAPID private key comes from Supabase Vault through _vapid_private() (service role only).
 import { createClient } from 'jsr:@supabase/supabase-js@2';
 import webpush from 'npm:web-push@3.6.7';
+import { checkAdminKey } from '../_shared/adminKey.ts';
 
 const URL_ = Deno.env.get('SUPABASE_URL')!;
 const db = createClient(URL_, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!, { auth: { persistSession: false } });
@@ -33,12 +34,6 @@ async function leagueOf(teamId: number) {
 }
 
 // the notifications trigger sends the platform's admin key; the public key alone can't replay a notification
-async function adminCall(req: Request) {
-  const key = req.headers.get('x-admin-key');
-  if (!key) return false;
-  const { data } = await db.rpc('admin_key_ok', { p_key: key });
-  return data === true;
-}
 
 let ready = false;
 async function init() {
@@ -90,7 +85,8 @@ Deno.serve(async (req) => {
 
     const id = Number(body.notification);
     if (!id) return new Response('bad request', { status: 400, headers: cors });
-    if (!(await adminCall(req))) return new Response('forbidden', { status: 403, headers: cors });
+    const admin = await checkAdminKey(db, req);
+    if (admin !== 'yes') return new Response(admin === 'unsure' ? 'try again' : 'forbidden', { status: admin === 'unsure' ? 503 : 403, headers: cors });
     const { data: n } = await db.from('notifications').select('id,team_id,kind,body,link').eq('id', id).single();
     if (!n) return new Response('not found', { status: 404, headers: cors });
     const lg = await leagueOf(n.team_id);

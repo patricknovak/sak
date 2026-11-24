@@ -76,7 +76,11 @@ its ranked list where they overlap.
    from the old site. The landing's waitlist writes straight to its table and is not covered yet.
 9. ~~Uptime alerts~~ *Done 9 November 2026:* `.github/workflows/uptime.yml` checks the app, the marketing site and the
    sports data every ten minutes from GitHub's runners and opens an issue assigned to Patrick when one fails twice in a
-   row (closed again when all answer). UptimeRobot stays an option for a second pair of eyes.
+   row (closed again when all answer). *Found 24 November 2026:* GitHub ran that schedule only three or four times a day
+   (gaps of up to eight hours), so an outage could go unseen most of a day. **Patrick:** make a free UptimeRobot
+   account and add three HTTP(s) keyword monitors at five minutes, alerting by email and the app: `https://app.superpoolsai.com/`
+   (keyword `<div id="root"`), `https://superpoolsai.com/` (keyword `Super Pools`) and
+   `https://app.superpoolsai.com/api/hub?task=standings` (keyword `{`). The GitHub check stays as a slow second opinion.
 10. **Email reputation.** DMARC is `p=none`; once its reports show only Resend and Cloudflare, move it to
     `p=quarantine`. A CAA record (letsencrypt.org, pki.goog) is a nice extra.
 11. **Mission Control's passcode**: make it long and random. *9 November 2026:* a 28-character one was generated and handed to Patrick with the SQL that sets its hash (the connector holds a `truncate`).

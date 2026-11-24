@@ -12,6 +12,7 @@
 // game in its week (?task=fixtures&competition=<id>&full=1 files one whole season).
 import { createClient } from 'jsr:@supabase/supabase-js@2';
 import { nbaPlayoffPayload } from '../_shared/nbaPlayoffs.ts';
+import { adminRefusal, checkAdminKey } from '../_shared/adminKey.ts';
 import { afClub, afFixture, API_FOOTBALL, assignRounds, espnClub, espnFixture, espnNinety, espnPath, espnPlayoffPayload, espnTournamentPayload, ESPN, type NeutralFixture } from '../_shared/soccer.ts';
 
 const db = createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!, {
@@ -280,16 +281,10 @@ async function live() {
   return { matches: due.length, competitions: out };
 }
 
-async function adminCall(req: Request) {
-  const key = req.headers.get('x-admin-key');
-  if (!key) return false;
-  const { data } = await db.rpc('admin_key_ok', { p_key: key });
-  return data === true;
-}
-
 Deno.serve(async (req) => {
   const url = new URL(req.url), task = url.searchParams.get('task') ?? 'live';
-  if (!(await adminCall(req))) return Response.json({ task, ok: false, error: 'This task needs the platform key' }, { status: 403 });
+  const admin = await checkAdminKey(db, req);
+  if (admin !== 'yes') return adminRefusal(admin, { task });
   try {
     const result = task === 'fixtures' ? await fixtures(url.searchParams.get('competition'), url.searchParams.get('full') === '1') : await live();
     return Response.json({ task, ok: true, calls, espn: espnCalls, ...result });

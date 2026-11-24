@@ -22,6 +22,7 @@ import { forecastTeam, winChance, type FPlayer } from '../_shared/forecast.ts';
 import { projectAll, type GoalieSeason, type ProjPlayer, type SkaterSeason } from '../_shared/projections.ts';
 import { playoffOdds, type NhlTeamIn, type SeriesIn } from '../_shared/playoffs.ts';
 import { mergeStatus, type GameStatus } from '../_shared/gameday.ts';
+import { adminRefusal, checkAdminKey } from '../_shared/adminKey.ts';
 
 const db = createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!, {
   auth: { persistSession: false },
@@ -593,16 +594,10 @@ async function h2hCallsFor(lid: number) {
 // Every task runs for the scheduler alone, which sends the platform's admin key (migration 243): the site never calls
 // this function, and the public key, which ships in the site, can't start a run (each pulls the NHL's or ESPN's feeds
 // and writes the league's numbers).
-async function adminCall(req: Request) {
-  const key = req.headers.get('x-admin-key');
-  if (!key) return false;
-  const { data } = await db.rpc('admin_key_ok', { p_key: key });
-  return data === true;
-}
-
 Deno.serve(async (req) => {
   const task = new URL(req.url).searchParams.get('task') ?? 'scores';
-  if (!(await adminCall(req))) return Response.json({ task, ok: false, error: 'This task needs the platform key' }, { status: 403 });
+  const admin = await checkAdminKey(db, req);
+  if (admin !== 'yes') return adminRefusal(admin, { task });
   try {
     const result =
       task === 'schedule' ? await schedule()
