@@ -8,7 +8,7 @@ import { calledOff, hasStarted, isLive } from './sport';
 import { hub } from './nhlhub';
 import { supabase } from './supabase';
 import { etToday } from './format';
-import { availability, gamesOf, slotOk } from './lineup';
+import { availability, gamesOf, hurt, slotOk } from './lineup';
 import { useSeasonGames } from './projections';
 import type { Game, Player, Roster } from './types';
 
@@ -20,7 +20,7 @@ export const addDays = (d: string, n: number) => { const x = new Date(d + 'T12:0
 export const weekday = (d: string) => new Date(d + 'T12:00:00Z').toLocaleDateString('en-CA', { weekday: 'short', timeZone: 'UTC' });
 export const monthDay = (d: string) => new Date(d + 'T12:00:00Z').toLocaleDateString('en-CA', { month: 'short', day: 'numeric', timeZone: 'UTC' });
 export const longDay = (d: string) => new Date(d + 'T12:00:00Z').toLocaleDateString('en-CA', { weekday: 'long', month: 'long', day: 'numeric', timeZone: 'UTC' });
-export const hurt = (p: Player) => !!p.injury_status && /^(out|ir|injured|long|suspen)/i.test(p.injury_status);
+export { hurt };
 // a light night: five games or fewer on the NHL slate, when a starter is likelier to be the one playing (Dobber's rule)
 export const LIGHT = 5;
 

@@ -5,6 +5,10 @@ import { BellRing, BellOff, Smartphone } from 'lucide-react';
 import { currentSubscription, disablePush, enablePush, isIOS, isStandalone, pushSupported, sendTestPush } from '../lib/push';
 import { useAction } from './ui';
 
+// "Not now" on the offer: kept on this phone, with the day it was said
+const SNOOZE = 'sak-push-later', SNOOZE_DAYS = 30;
+const snoozed = () => { try { return Date.now() - Number(localStorage.getItem(SNOOZE) ?? 0) < SNOOZE_DAYS * 86400000; } catch { return false; } };
+
 // "Turn on alerts" card: on-the-clock, trade offers, bets and @mentions straight to your phone
 export function PushCard({ compact, hideWhenOn }: { compact?: boolean; hideWhenOn?: boolean }) {
   const brand = useBrand();
@@ -16,6 +20,9 @@ export function PushCard({ compact, hideWhenOn }: { compact?: boolean; hideWhenO
   const { busy, run } = useAction();
   const supported = pushSupported();
   const iosNeedsInstall = isIOS() && !isStandalone();
+  const [later, setLater] = useState(snoozed);
+
+  const notNow = () => { try { localStorage.setItem(SNOOZE, String(Date.now())); } catch { /* private window: gone until the page is opened again */ } setLater(true); };
 
   useEffect(() => {
     if (!supported) { setOn(false); return; }
@@ -24,6 +31,9 @@ export function PushCard({ compact, hideWhenOn }: { compact?: boolean; hideWhenO
 
   if (on === null || (hideWhenOn && on)) return null;
   if (hideWhenOn && !supported && !iosNeedsInstall) return null;
+  // where the card is an offer (Home, the pool, the draft room), "Not now" is an answer: it stays away for a month on
+  // this phone. Profile always has it.
+  if (hideWhenOn && later) return null;
 
   return (
     <div className={`card relative overflow-hidden ${compact ? 'p-3' : 'p-4'}`} style={{ background: on ? 'linear-gradient(135deg, rgba(52,211,153,.14), rgba(15,23,41,.8) 60%)' : 'linear-gradient(135deg, rgba(76,195,255,.16), rgba(15,23,41,.8) 60%)' }}>
@@ -41,9 +51,11 @@ export function PushCard({ compact, hideWhenOn }: { compact?: boolean; hideWhenO
               : drafting ? 'Never miss your pick: a buzz on your phone when you’re on the clock, even with the site closed.'
               : 'A buzz on your phone for a trade offer, a bet challenge, an injury on your roster or an @mention, even with the site closed.'}
           </p>
+          {!supported && hideWhenOn && <div className="mt-2.5"><button className="btn-ghost btn-sm" onClick={notNow}>Got it</button></div>}
           {supported && (
             <div className="mt-2.5 flex flex-wrap gap-2">
               {!on && <button className="btn-blue btn-sm" disabled={busy} onClick={() => run(async () => { await enablePush(); setOn(true); await sendTestPush(); }, 'Alerts on. We just sent you a test 🔔')}>🔔 Turn on alerts</button>}
+              {!on && hideWhenOn && <button className="btn-ghost btn-sm" disabled={busy} onClick={() => run(async () => notNow(), 'No problem. Alerts are on your Profile whenever you want them')}>Not now</button>}
               {on && <button className="btn-ghost btn-sm" disabled={busy} onClick={() => run(async () => { const r = await sendTestPush(); if (!r.sent) throw new Error('Couldn’t reach this device. Turn alerts off and on again.'); }, 'Test sent 🔔')}>Send a test</button>}
               {on && <button className="btn-ghost btn-sm" disabled={busy} onClick={() => run(async () => { await disablePush(); setOn(false); }, 'Alerts off for this device')}>Turn off</button>}
             </div>

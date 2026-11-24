@@ -18,9 +18,10 @@ const REACTIONS = ['🔥', '😂', '🤡', '👏', '💀', '🍺', '🚨', '🪣
 const ASK_GARRY = ['Roast me', 'Trash talk the leader', 'Tell me a joke', 'Who’s winning?', 'How’s my lineup?', 'Who should I pick up?', 'How do trades work?', 'What’s the prize money?', 'When’s the draft?', 'How do keepers work?', 'What’s the scoring?'];
 // a prediction pool has no lineups, draft or keepers to ask about
 const ASK_POOL = ['Roast me', 'Trash talk the leader', 'Tell me a joke', 'Who’s winning?', 'How does the pool score?'];
-// Garry points at pages with "👉 #/path"; those become buttons
+// Garry and the league's own lines (the Book opening, a market settling) point at pages with "👉 #/path"; those
+// become buttons, never an address to read
 const LINK_LABEL: [string, string][] = [['/player/', 'Player page'], ['/team', 'My lineup'], ['/standings', 'Standings'], ['/trades', 'Trades'], ['/players', 'Players'],
-  ['/draft?t=keepers', 'Keepers'], ['/draft', 'Draft room'], ['/bets', 'Side bets'], ['/performance', 'Performance'], ['/profile', 'Profile'], ['/nhl?t=injuries', 'Injuries'], ['/nhl', 'NHL centre'], ['/features', 'Features'], ['/money', 'Money'], ['/league', 'Rulebook'], ['/rink', 'Take them on'], ['/rod', 'Take them on']];
+  ['/draft?t=keepers', 'Keepers'], ['/draft', 'Draft room'], ['/bets?t=book', 'The Book'], ['/bets', 'Side bets'], ['/performance', 'Performance'], ['/profile', 'Profile'], ['/nhl?t=injuries', 'Injuries'], ['/nhl', 'NHL centre'], ['/features', 'Features'], ['/money', 'Money'], ['/league', 'Rulebook'], ['/rink', 'Take them on'], ['/rod', 'Take them on']];
 const linkLabel = (path: string) => LINK_LABEL.find(([p]) => path.startsWith(p))?.[1] ?? 'Open';
 
 const CHIRPS = ['🚨 REACH!', 'Steal of the draft 🥷', 'Enjoy {booby} 🪣', 'Sell me that guy 💰', 'Who? 🤔', 'Lock it in 🔒', 'GG 🍺', 'Scoreboard. 📈', 'Ice cold 🧊', 'Put him on IR, he’s embarrassing you 🚑', 'Cup or bust 🏆', 'Fleeced 🐑'];
@@ -436,7 +437,7 @@ export function ChatPanel({ channel, compact, className = '', filter, jump, onJu
             return (
               <Fragment key={m.id}>{sep}
                 <div id={`msg-${m.id}`} className={`flex flex-col items-center py-1 ${glow}`}>
-                  <div role="button" tabIndex={0} onClick={() => setPicker(picker === m.id ? null : m.id)} className={`max-w-[92%] cursor-pointer whitespace-pre-line rounded-full border border-white/10 bg-white/[.05] px-3.5 py-1.5 text-center text-xs font-medium text-slate-300 ${compact ? '' : 'sm:text-sm'}`}><Tag c={m.channel} /> {m.body}</div>
+                  <div role="button" tabIndex={0} onClick={() => setPicker(picker === m.id ? null : m.id)} className={`max-w-[92%] cursor-pointer whitespace-pre-line rounded-full border border-white/10 bg-white/[.05] px-3.5 py-1.5 text-center text-xs font-medium text-slate-300 ${compact ? '' : 'sm:text-sm'}`}><Tag c={m.channel} /> {highlight(m.body)}</div>
                   {pollId != null && <PollCard id={pollId} />}
                   {actions(m, false)}
                 </div>

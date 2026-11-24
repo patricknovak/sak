@@ -2,7 +2,9 @@ import { StandingsTable } from '../components/StandingsTable';
 import { RotoMini } from '../components/RotoStandings';
 import { lazy, Suspense, useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { useLeague, useNow } from '../lib/store';
+import { useLeague, useNow, useSport } from '../lib/store';
+import { calledOff, hasStarted, isFinal, isLive } from '../lib/sport';
+import { hurt } from '../lib/lineup';
 import { realtimeChannel, supabase } from '../lib/supabase';
 import type { Bet, Message, Trade } from '../lib/types';
 import { ago, fmtDateTime, fmtPts, ordinal, readable } from '../lib/format';
@@ -29,6 +31,7 @@ export default function Home() {
   const { me, league, teams, spectators, team, standings: regular, playoffs, rosters, players, draft, picks, gamesByTeam, online, dayPoints, games, leagueDay } = useLeague();
   const gameSheet = useGameSheet();
   const brand = useBrand();
+  const sport = useSport();
   // by the second for the keeper and draft countdowns; in season only the wire's "5m ago" moves
   const now = useNow(league?.phase === 'season' && draft?.status !== 'live' ? 30000 : 1000);
   const nav = useNavigate();
@@ -61,9 +64,17 @@ export default function Home() {
   const leader = table[0];
   const myStarters = rosters.filter((r) => r.team_id === me?.id && !['BN', 'IR'].includes(r.slot))
     .map((r) => ({ r, p: players.get(r.player_id)! })).filter((x) => x.p);
-  const playingTonight = myStarters.filter((x) => gamesByTeam(x.p.nhl_team));
+  // tonight's starters in the order a GM reads a night: on the ice now, then still to come by puck drop, then done
+  const stage = (st: string) => (isLive(sport, st) ? 0 : isFinal(sport, st) ? 2 : 1);
+  const playingTonight = myStarters.map((x) => ({ ...x, g: gamesByTeam(x.p.nhl_team)! })).filter((x) => x.g && !calledOff(sport, x.g.state))
+    .sort((a, b) => stage(a.g.state) - stage(b.g.state) || a.g.start_utc.localeCompare(b.g.start_utc));
+  // worth a warning only when there's a move to make, the same test My Team's Fix uses: a healthy player on the bench
+  // whose game hasn't started, while a starter has no game (a full lineup with a busy bench is a good night, not a problem)
+  const open_ = (p: { nhl_team: string | null }) => { const g = gamesByTeam(p.nhl_team); return !!g && !hasStarted(sport, g.state) && !calledOff(sport, g.state) && new Date(g.start_utc).getTime() > now; };
   const benchedPlaying = rosters.filter((r) => r.team_id === me?.id && r.slot === 'BN')
-    .map((r) => players.get(r.player_id)!).filter((p) => p && gamesByTeam(p.nhl_team));
+    .map((r) => players.get(r.player_id)!).filter((p) => p && open_(p) && !hurt(p));
+  const idleStarters = myStarters.filter((x) => { const g = gamesByTeam(x.p.nhl_team); return !g || calledOff(sport, g.state); });
+  const hurtStarters = myStarters.filter((x) => hurt(x.p) && open_(x.p));
   const current = picks.find((p) => p.overall === draft?.current_overall && p.season === draft?.season);
   const myPicks = picks.filter((p) => p.team_id === me?.id && p.season === draft?.season && p.overall && !p.player_id).sort((a, b) => a.overall! - b.overall!);
   const history = useHistory();
@@ -92,14 +103,22 @@ export default function Home() {
     <Section title="Tonight" right={<More to="/team" label="Lineup" />}>
       <div className="card divide-y divide-white/[.06]">
         {playingTonight.length === 0 && <div className="p-4 text-sm text-mute">None of your starters play today.</div>}
-        {playingTonight.map(({ r, p }) => (
+        {playingTonight.map(({ r, p, g }) => (
           <div key={p.id} className="px-3 py-2">
-            <PlayerRow p={p} onClick={() => open(p.id)} right={<div className="text-right"><div className="text-[10px] text-mute">{r.slot}</div><div className="num font-bold">{fmtPts(dayPoints.get(p.id)?.fpts ?? 0, 1)}</div></div>} />
+            {/* points once his game is on; a dash until then, so a zero always means a quiet night and never "not yet" */}
+            <PlayerRow p={p} onClick={() => open(p.id)} right={<div className="text-right"><div className="text-[10px] text-mute">{r.slot}</div><div className={`num font-bold ${hasStarted(sport, g.state) ? '' : 'text-mute'}`}>{hasStarted(sport, g.state) ? fmtPts(dayPoints.get(p.id)?.fpts ?? 0, 1) : '–'}</div></div>} />
           </div>
         ))}
-        {benchedPlaying.length > 0 && (
-          <Link to="/team" className="block bg-amber-500/10 px-3 py-2 text-xs text-amber-200">
-            ⚠️ {benchedPlaying.length} benched player{benchedPlaying.length > 1 ? 's have' : ' has'} a game today: {benchedPlaying.slice(0, 3).map((p) => p.last_name).join(', ')}
+        {hurtStarters.length > 0 && (
+          <Link to="/team" className="flex items-center gap-2 bg-red-500/10 px-3 py-2.5 text-xs text-red-200">
+            <span className="min-w-0 flex-1">🚑 {hurtStarters.slice(0, 3).map((x) => x.p.last_name).join(', ')}{hurtStarters.length > 3 ? ` and ${hurtStarters.length - 3} more` : ''} {hurtStarters.length > 1 ? 'are' : 'is'} in your lineup and hurt</span>
+            <span className="shrink-0 font-semibold">Fix ›</span>
+          </Link>
+        )}
+        {benchedPlaying.length > 0 && idleStarters.length > 0 && (
+          <Link to="/team" className="flex items-center gap-2 bg-amber-500/10 px-3 py-2.5 text-xs text-amber-200">
+            <span className="min-w-0 flex-1">⚠️ {benchedPlaying.length} on the bench with a game ({benchedPlaying.slice(0, 3).map((p) => p.last_name).join(', ')}{benchedPlaying.length > 3 ? '…' : ''}) while {idleStarters.length} {idleStarters.length === 1 ? 'starter sits' : 'starters sit'} idle</span>
+            <span className="shrink-0 font-semibold">Fix ›</span>
           </Link>
         )}
       </div>
@@ -221,7 +240,7 @@ export default function Home() {
       {tonightCard && <div className="lg:hidden">{tonightCard}</div>}
 
       <div className="grid grid-cols-1 gap-5 lg:grid-cols-2">
-        <Section icon={<Trophy size={17} className="text-gold" />} title={phase === 'season' ? (inPlayoffs ? '🏆 Playoff standings' : 'Standings') : lastSeason ? `${lastSeason.season} final standings` : 'The field'} right={<More to="/standings" label="All" />}>
+        <Section icon={<Trophy size={17} className="text-gold" />} title={phase === 'season' ? (inPlayoffs ? 'Playoff standings' : 'Standings') : lastSeason ? `${lastSeason.season} final standings` : 'The field'} right={<More to="/standings" label="All" />}>
           {phase === 'season' ? (league?.format === 'h2h' ? <Suspense fallback={<div className="card h-32 animate-pulse" />}><H2HHome /></Suspense> : league?.categories?.length ? <RotoMini /> : <StandingsTable rows={table} view={inPlayoffs ? 'playoffs' : 'regular'} peter={!inPlayoffs} compact />) : !lastRows.length ? (
           // a league in its first season: the field, seat by seat, until the draft makes it a table
           <div className="space-y-2">
@@ -277,7 +296,7 @@ export default function Home() {
             <div className="card space-y-1 p-2">
               {feed.length === 0 && <div className="p-3 text-sm text-mute">Quiet in here. Someone chirp somebody.</div>}
               {feed.map((m) => (
-                <Link to="/chat" key={m.id} className="flex items-start gap-2.5 rounded-xl px-2 py-1 transition hover:bg-white/[.04]">
+                <Link to={`/chat?m=${m.id}`} key={m.id} className="flex items-start gap-2.5 rounded-xl px-2 py-1 transition hover:bg-white/[.04]">
                   {m.kind === 'system' ? <span className="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-white/[.06] text-sm">📢</span>
                     : m.kind === 'bot' ? <span className="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-gradient-to-br from-emerald-400 to-emerald-800 text-sm shadow-[0_4px_14px_-4px_rgba(52,211,153,.8)]">🎙️</span>
                     : <TeamBadge team={team(m.team_id)} size={32} />}
@@ -286,7 +305,7 @@ export default function Home() {
                       <span className={`font-bold ${m.kind === 'bot' ? 'text-emerald-300' : 'text-slate-200'}`}>{m.kind === 'bot' ? brand.bot.name : m.kind === 'system' ? 'League' : team(m.team_id)?.gm_name}</span>
                       <span className="text-mute">{ago(m.created_at, now)}</span>
                     </div>
-                    <div className={`line-clamp-1 whitespace-pre-line text-sm ${m.kind === 'system' ? 'text-slate-300' : 'text-slate-100'}`}>{m.body}</div>
+                    <div className={`line-clamp-1 whitespace-pre-line text-sm ${m.kind === 'system' ? 'text-slate-300' : 'text-slate-100'}`}>{m.body.replace(/\s*👉\s*#\/\S+/gu, '')}</div>
                   </div>
                 </Link>
               ))}
