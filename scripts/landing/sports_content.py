@@ -42,7 +42,7 @@ FOOTBALL = dict(
     proof_icon='check',
     proofline="Settled from the scores: every pick locks at kickoff, the table moves as games end, and the pool's split shows after the lock, never before.",
     now_tag='From the app', now_p='The NFL as it stands, with the next kickoff counting down.',
-    kinds_h2='Seven ways to play the NFL.',
+    kinds_h2='Seven ways to play the NFL, and the playoffs.',
     kinds_lead='Tap one and the start page opens on it, from the next game still to come.',
     kinds=[
         dict(href=a('comp=nfl&kind=pickem&src=football'), icon='check', name="Pick'em", line="Every game of the week, straight up or confidence-ranked. A tiebreaker on the week's last game.", tag='NFL'),
@@ -52,8 +52,9 @@ FOOTBALL = dict(
         dict(href=a('comp=nfl&kind=squares&src=football'), icon='grid', name='Squares', line='A grid on any game this week, scored by the quarter in Supercoins.', tag='NFL'),
         dict(href=a('comp=nfl&kind=streak&src=football'), icon='flame', name='Daily streak', line='One pick a game day. The longest run of right picks wins.', tag='NFL'),
         dict(href=a('pack=nfl-2026&src=football'), icon='q', name="The season's questions", line="The Super Bowl, each conference and MVP, with the group's chance on every answer. Opens beside pick'em; untick it for questions alone.", tag='NFL'),
-        dict(icon='bracket', name='Playoff pools', line='The bracket, a pick on every playoff game, the Eliminator, prop sheets and squares.',
-             when=[('Opens in January', {'data-until': '2027-01-09T05:00:00Z'}), ('Opens with the playoffs', {'data-from': '2027-01-09T05:00:00Z'})]),
+        # the playoffs and the Super Bowl grid have pages of their own (events_content.py, 24 November 2026)
+        dict(href='./nfl-playoff-pools.html', icon='bracket', name='Playoff pools', line='The bracket, a pick on every playoff game, the Eliminator and prop sheets. Start now; the bracket opens 10 January.', tag='January', go='See'),
+        dict(href='./super-bowl-squares.html', icon='grid', name='Super Bowl squares', line='The grid on Super Bowl LXI, 14 February, paid every quarter in Supercoins.', tag='14 Feb', go='See'),
     ],
     steps_h2='Three steps to Sunday.',
     steps=[
@@ -129,10 +130,9 @@ HOCKEY = dict(
         # a box pool for "the rest of the season" can start any night, its boxes dealt that day (migration 188)
         dict(attrs={'data-until': '2027-02-08T05:00:00Z'}, href=a('comp=nhl-2026&kind=players&src=hockey'), icon='box', name='The second-half box pool',
              line='A fresh box pool any night: start one in January for the second half, its boxes dealt the day it starts.', tag='NHL'),
-        dict(attrs={'data-until': '2027-04-11T04:00:00Z'}, icon='bracket', name='Playoff pools', line='The playoff box pool before round 1, the bracket, pick the series, prop sheets and squares by period.',
-             when=[('Opens in April', {})]),
-        dict(attrs={'data-from': '2027-04-11T04:00:00Z', 'data-until': '2027-06-01T04:00:00Z'}, href=a('src=hockey'), icon='bracket', name='Playoff pools',
-             line='The playoff box pool before round 1, the bracket, pick the series, prop sheets and squares by period.', tag='Playoffs'),
+        # the Stanley Cup playoffs have a page of their own (events_content.py, 24 November 2026)
+        dict(attrs={'data-until': '2027-06-25T04:00:00Z'}, href='./stanley-cup-playoff-pools.html', icon='bracket', name='Playoff pools',
+             line='The playoff box pool before round 1, the bracket, pick the series, prop sheets and squares by period.', tag='April', go='See'),
     ],
     more='''
       <p class="kl-more"><span>Keeper league? Keepers, the draft room with a clock and a league voice live on the fantasy side.</span><a class="textlink" href="./fantasy-hockey.html">Bring your keeper league</a></p>''',

@@ -1,0 +1,213 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>Stanley Cup Playoff Pool: Box Pool and Bracket, Free | Super Pools</title>
+  <meta name="description" content="A free Stanley Cup playoff pool for your office or group chat: the playoff box pool, the bracket, pick the series, prop sheets and squares by period. Points count themselves, live. Never money." />
+  <link rel="canonical" href="https://superpoolsai.com/stanley-cup-playoff-pools" />
+  <link rel="icon" href="./icon.svg" type="image/svg+xml" />
+  <meta name="theme-color" content="#0b1220" />
+  <meta property="og:type" content="website" />
+  <meta property="og:site_name" content="Super Pools" />
+  <meta property="og:url" content="https://superpoolsai.com/stanley-cup-playoff-pools" />
+  <meta property="og:title" content="The playoff pool, counted live" />
+  <meta property="og:description" content="The playoff box pool, the bracket and pick the series, scored from the NHL box scores as every goal goes in. Never money." />
+  <meta property="og:image" content="https://superpoolsai.com/og.png" />
+  <meta property="og:image:width" content="1200" />
+  <meta property="og:image:height" content="630" />
+  <meta property="og:image:alt" content="Super Pools: Fantasy Pools from the Future. Fun fantasy pools with friends, for all. AI-enhanced. Fun for all." />
+  <meta name="twitter:card" content="summary_large_image" />
+  <meta name="twitter:title" content="The playoff pool, counted live" />
+  <meta name="twitter:description" content="The playoff box pool, the bracket and pick the series, scored from the NHL box scores as every goal goes in. Never money." />
+  <meta name="twitter:image" content="https://superpoolsai.com/og.png" />
+  <link rel="preload" href="./fonts/barlow-condensed-900.woff2" as="font" type="font/woff2" crossorigin />
+  <link rel="preload" href="./fonts/barlow-condensed-900-italic.woff2" as="font" type="font/woff2" crossorigin />
+  <link rel="preload" href="./fonts/inter.woff2" as="font" type="font/woff2" crossorigin />
+  <link rel="stylesheet" href="./site.css" />
+  <link rel="stylesheet" href="./site-sports.css" />
+  <!-- the questions people ask, for search: the same words as the FAQ on the page (written from it) -->
+  <script type="application/ld+json">{"@context":"https://schema.org","@type":"FAQPage","mainEntity":[{"@type":"Question","name":"Is it free, and is there any money in it?","acceptedAnswer":{"@type":"Answer","text":"It is free, and there is no money in it. Entries play for points and a crown, and Supercoins are never bought, never sold and never turned into money. If your pool collects dues, that stays between friends."}},{"@type":"Question","name":"How does a playoff box pool work?","acceptedAnswer":{"@type":"Answer","text":"The top playoff players are dealt into evenly matched boxes: forwards, then defence, then goalies. Each poolie takes one from every box before round 1. A goal or an assist is a point, a goalie win two and a shutout one, counted to the last game of the Cup final. The host can change the points before the deadline."}},{"@type":"Question","name":"When can I start one?","acceptedAnswer":{"@type":"Answer","text":"The playoff pools open the night the field is set, Saturday 10 April 2027, and lock at the first puck drop of round 1. A box pool on the regular season can start tonight, and its host adds the playoff pool in one tap in April, with the crew already in."}},{"@type":"Question","name":"Can two poolies take the same player?","acceptedAnswer":{"@type":"Answer","text":"Yes. Boxes are not a draft, so the same player can be on every entry and any number of poolies can play. No draft night needed."}},{"@type":"Question","name":"How is the bracket scored?","acceptedAnswer":{"@type":"Answer","text":"One point for each first-round series, two in the second round, four in the conference finals and eight for the Cup, plus a point for calling how many games a series goes. Flat scoring is the other choice."}},{"@type":"Question","name":"What if someone joins after round 1 starts?","acceptedAnswer":{"@type":"Answer","text":"The box pool and the bracket are locked by then, but pick the series opens fresh each round, and prop sheets and squares go on any game or series still to come."}},{"@type":"Question","name":"Do my friends need an app?","acceptedAnswer":{"@type":"Answer","text":"No. They tap your link and join with just a name, in the browser on any phone. Add it to the Home Screen for alerts if you like."}}]}</script>
+</head>
+<body>
+  <a class="skip" href="#main">Skip to content</a>
+  <header class="site-head">
+    <a class="wordmark" href="./" aria-label="Super Pools home">
+      <svg viewBox="0 0 64 64" aria-hidden="true"><rect width="64" height="64" rx="14" fill="#111b30"/><circle cx="32" cy="32" r="17" fill="none" stroke="#f7c548" stroke-width="4"/><circle cx="32" cy="32" r="4.5" fill="#f7c548"/><g stroke="#f7c548" stroke-width="2.6" stroke-linecap="round"><line x1="25" y1="8" x2="25" y2="12.5"/><line x1="39" y1="8" x2="39" y2="12.5"/><line x1="25" y1="51.5" x2="25" y2="56"/><line x1="39" y1="51.5" x2="39" y2="56"/></g></svg>
+      <span><b>SUPER</b> POOLS</span>
+    </a>
+    <nav class="navlinks" aria-label="Doors"><a href="./fantasy-hockey.html">Fantasy league</a><a href="./#kinds">Sports pools</a><a href="./together.html">Show pools</a><a href="./fans.html">Fan zones</a><a href="./pricing.html">Pricing</a></nav>
+    <div class="head-right">
+      <a class="signin" href="https://app.superpoolsai.com/">Sign in</a>
+      <button type="button" class="menu-btn" id="menu-btn" aria-expanded="false" aria-controls="menu" aria-label="Open the menu">
+        <svg class="bars" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16"/></svg>
+        <svg class="x" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>
+      </button>
+    </div>
+    <nav class="menu" id="menu" aria-label="Menu">
+      <a href="./fantasy-hockey.html"><span class="mi"><svg class="ico" aria-hidden="true" focusable="false"><use href="./icons.svg#i-trophy"/></svg></span><span><b>Fantasy league</b><small>Keepers, the draft room, a league voice</small></span></a>
+      <a href="./#kinds"><span class="mi"><svg class="ico" aria-hidden="true" focusable="false"><use href="./icons.svg#i-target"/></svg></span><span><b>Sports pools</b><small>The NFL, NHL, NBA and soccer</small></span></a>
+      <a href="./together.html"><span class="mi r"><svg class="ico" aria-hidden="true" focusable="false"><use href="./icons.svg#i-tv"/></svg></span><span><b>Show pools</b><small>Call what happens next, with your group</small></span></a>
+      <a href="./fans.html"><span class="mi"><svg class="ico" aria-hidden="true" focusable="false"><use href="./icons.svg#i-chart"/></svg></span><span><b>Fan zones</b><small>Every club, read like a front office</small></span></a>
+      <a href="./pricing.html"><span class="mi n"><svg class="ico" aria-hidden="true" focusable="false"><use href="./icons.svg#i-coin"/></svg></span><span><b>Pricing</b><small>Per pool, never per person</small></span></a>
+      <a href="https://app.superpoolsai.com/"><span class="mi n"><svg class="ico" aria-hidden="true" focusable="false"><use href="./icons.svg#i-users"/></svg></span><span><b>Sign in</b><small>Back to your pools</small></span></a>
+    </nav>
+  </header>
+  <main id="main">
+
+    <!-- 1. Hero: the claim, the one gold button, and this sport's events open right now (real, from the app) -->
+    <section class="hero2 hero2-split" id="top">
+      <div class="hero2-copy">
+        <div class="eyebrow">Stanley Cup playoffs 2027 · round 1 in mid-April</div>
+        <h1 class="display">The playoff pool, <span class="l2"><em>counted live.</em></span></h1>
+        <p class="sub">The playoff box pool, the bracket and pick the series, with every goal, assist and goalie win counted as it happens. <b>Never money.</b></p>
+        <div class="cta2">
+          <a class="btn btn-gold btn-lg" data-gold data-until="2027-06-25T04:00:00Z" href="https://app.superpoolsai.com/#/new?comp=nhl-post-2027&amp;kind=players&amp;src=cup-playoffs">Start a playoff pool</a><a class="btn btn-gold btn-lg" data-gold data-from="2027-06-25T04:00:00Z" href="https://app.superpoolsai.com/#/new?src=cup-playoffs">Start a pool</a>
+          <a class="textlink" href="#demo">See an entry</a>
+        </div>
+        <p class="deadline"><svg class="ico" aria-hidden="true" focusable="false"><use href="./icons.svg#i-clock"/></svg><span data-until="2027-04-11T04:00:00Z"><b>The field is set Saturday 10 April.</b> Start a box pool on the season now, and add the playoff pool in a tap that night</span><span data-from="2027-04-11T04:00:00Z" data-until="2027-04-20T04:00:00Z"><b>The playoff pools are open.</b> Entries and brackets lock at the first puck drop of round 1</span><span data-from="2027-04-20T04:00:00Z" data-until="2027-06-25T04:00:00Z"><b>The playoffs are on.</b> Pick the series opens each round as its matchups are set</span><span data-from="2027-06-25T04:00:00Z"><b>The Cup has been won.</b> Playoff pools open again next April</span></p>
+        <p class="proofline" id="proof"><span class="pi" aria-hidden="true"><svg class="ico" aria-hidden="true" focusable="false"><use href="./icons.svg#i-box"/></svg></span>Points move with every goal from the NHL's box scores, the feed that scores the SaK Superleague each night.</p>
+      </div>
+      <div class="nowpanel" id="open">
+        <div class="nowhead">
+          <h2 class="display">The next deadline</h2>
+          <span class="livetag" id="now-tag" aria-live="polite">From the app</span>
+          <p>Hockey as it stands, straight from the app, with the next puck drop counting down.</p>
+        </div>
+        <div class="rail" id="now" data-src="cup-playoffs" data-sport="nhl">
+          <div class="ev ghost"></div><div class="ev ghost"></div>
+        </div>
+        <p class="swipe">Swipe for every event</p>
+      </div>
+    </section>
+
+    <!-- 2. The pools open on this sport today, each link keeping its kind; the ones still to come say when -->
+    <section id="kinds">
+      <div class="shead rv">
+        <div class="eyebrow">The pools</div>
+        <h2 class="display">Five ways to play the playoffs.</h2>
+        <p class="lead"><span data-until="2027-04-11T04:00:00Z">Tap one and name your pool. Until the field is set on 10 April the start page opens on the regular season's box pool and says so; the playoff pool is one tap to add the night it opens, same pool, same crew.</span><span data-from="2027-04-11T04:00:00Z">Tap one and the start page opens on it. Run two or three in the same pool: they share one table and one chat.</span></p>
+      </div>
+      <ul class="kindlist">
+        <li><a class="kl" href="https://app.superpoolsai.com/#/new?comp=nhl-post-2027&amp;kind=players&amp;src=cup-playoffs"><span class="ki"><svg class="ico" aria-hidden="true" focusable="false"><use href="./icons.svg#i-box"/></svg></span><b>The playoff box pool</b><span class="ln">One player from each box, dealt on the games each is expected to play. Goals, assists and goalie wins count to the last night of the final.</span><span class="go"><small>Before round 1</small>Start</span></a></li>
+        <li><a class="kl" href="https://app.superpoolsai.com/#/new?comp=nhl-post-2027&amp;kind=bracket&amp;src=cup-playoffs"><span class="ki"><svg class="ico" aria-hidden="true" focusable="false"><use href="./icons.svg#i-bracket"/></svg></span><b>The bracket</b><span class="ln">All 15 series picked before the first puck drop, each round worth double the last, with a point for calling how many games.</span><span class="go"><small>Before round 1</small>Start</span></a></li>
+        <li><a class="kl" href="https://app.superpoolsai.com/#/new?comp=nhl-post-2027&amp;kind=series&amp;src=cup-playoffs"><span class="ki"><svg class="ico" aria-hidden="true" focusable="false"><use href="./icons.svg#i-series"/></svg></span><b>Pick the series</b><span class="ln">Call each series and how many games it goes, round by round. Later rounds open as their matchups are set, so a late joiner still plays.</span><span class="go"><small>Each round</small>Start</span></a></li>
+        <li><a class="kl" href="https://app.superpoolsai.com/#/new?comp=nhl-post-2027&amp;kind=props&amp;src=cup-playoffs"><span class="ki"><svg class="ico" aria-hidden="true" focusable="false"><use href="./icons.svg#i-sheet"/></svg></span><b>The prop sheet</b><span class="ln">Eight calls on one playoff game, a point each, settled from the score by period.</span><span class="go"><small>Any game</small>Start</span></a></li>
+        <li><a class="kl" href="https://app.superpoolsai.com/#/new?comp=nhl-post-2027&amp;kind=squares&amp;src=cup-playoffs"><span class="ki"><svg class="ico" aria-hidden="true" focusable="false"><use href="./icons.svg#i-grid"/></svg></span><b>Squares by period</b><span class="ln">A grid on a series, paid after the 1st and 2nd periods and the final of every game.</span><span class="go"><small>Any series</small>Start</span></a></li>
+        <li><a class="kl" href="https://app.superpoolsai.com/#/new?comp=nhl-post-2027&amp;kind=sweep&amp;src=cup-playoffs"><span class="ki"><svg class="ico" aria-hidden="true" focusable="false"><use href="./icons.svg#i-hat"/></svg></span><b>The sweepstake</b><span class="ln">Everyone is dealt playoff clubs from the hat. Nothing to pick: hold the Cup winner and you win it.</span><span class="go"><small>Pure luck</small>Start</span></a></li>
+      </ul>
+      <div class="label klabel">Open tonight</div>
+      <ul class="kindlist">
+        <li data-until="2027-04-11T04:00:00Z"><a class="kl" href="https://app.superpoolsai.com/#/new?comp=nhl-2026&amp;kind=players&amp;src=cup-playoffs"><span class="ki"><svg class="ico" aria-hidden="true" focusable="false"><use href="./icons.svg#i-box"/></svg></span><b>The box pool, on the season</b><span class="ln">The same game on the regular season: a week, four weeks or the rest of the way. Get the crew in now, and the playoff pool is one tap in April.</span><span class="go"><small>NHL</small>Start</span></a></li>
+        <li data-until="2027-04-10T16:00:00Z"><a class="kl" href="https://app.superpoolsai.com/#/new?pack=nhl-2026-27&amp;src=cup-playoffs"><span class="ki"><svg class="ico" aria-hidden="true" focusable="false"><use href="./icons.svg#i-q"/></svg></span><b>Who wins the Cup?</b><span class="ln">The Cup, the Presidents' Trophy and the scoring races, with the group's chance on every answer.</span><span class="go"><small>Open now</small>Start</span></a></li>
+      </ul>
+      <p class="kl-more"><span>Keeper league? Keepers, the draft room with a clock and a league voice live on the fantasy side.</span><a class="textlink" href="./fantasy-hockey.html">Bring your keeper league</a></p>
+    </section>
+
+    <!-- 3. Three steps from the group chat to a table -->
+    <section id="how">
+      <div class="shead rv">
+        <div class="eyebrow">How it works</div>
+        <h2 class="display">Three steps to round 1.</h2>
+      </div>
+      <div class="steps">
+        <div class="card rv"><div class="num">01</div><h3>Start it, send one link</h3><p>Pick the pool, name it and drop the link in the group chat. Poolies join with just a name, in the browser, and any number can play.</p></div>
+        <div class="card rv"><div class="num">02</div><h3>Pick before the first puck drop</h3><p>One player from every box, or the whole bracket, before round 1 starts. Pick the series stays open round by round.</p></div>
+        <div class="card rv"><div class="num">03</div><h3>It counts itself</h3><p>Goals, assists, goalie wins and shutouts land live from the box scores, every finished game is re-checked, and the table moves all spring.</p></div>
+      </div>
+    </section>
+
+    <!-- 4. One sample pool, drawn in HTML (fictional, captioned so) -->
+    <section id="demo">
+      <div class="pillar3">
+        <div class="rv">
+          <div class="eyebrow">Sample pool</div>
+          <h2 class="display">One entry, alive all spring.</h2>
+          <p class="lead">Your players, what each has scored and whose club is still playing. Take stars from a team that goes deep and the points keep coming.</p>
+        </div>
+        <figure class="scr bx rv" aria-label="A sample playoff box pool entry">
+          <span class="sample-cap">Sample pool</span>
+          <div class="scr-head"><b>Your entry</b><span class="live">Live</span></div>
+          <div class="sub2"><span>The Rink Pool · playoff box pool</span><span>Round 1 <b>+9</b></span></div>
+          <ol class="bx-list">
+            <li><span class="bx-n"><small>Box</small><b>1</b></span><div class="bx-p">MacKinnon <span>COL · leads 3-1 · 4G 5A</span></div><span class="bx-pts">9</span><span class="bx-o">Forwards · also McDavid, Kucherov, Matthews, Draisaitl</span></li>
+            <li class="now"><span class="bx-n"><small>Box</small><b>2</b></span><div class="bx-p">Kaprizov <span>MIN · 2nd, 8:14 · 2G 3A</span></div><span class="bx-pts">5</span><span class="bx-o">Forwards · also Pastrnak, Rantanen, Eichel, Point</span></li>
+            <li class="out"><span class="bx-n"><small>Box</small><b>3</b></span><div class="bx-p">Batherson <span>OTT · out in 5 · 1G 2A</span></div><span class="bx-pts z">3</span><span class="bx-o">Forwards · also Hischier, Tkachuk, Zibanejad, Larkin</span></li>
+            <li><span class="bx-n"><small>Box</small><b>4</b></span><div class="bx-p">Makar <span>COL · leads 3-1 · 1G 4A</span></div><span class="bx-pts">5</span><span class="bx-o">Defence · also Hughes, Werenski, Fox, Hedman</span></li>
+            <li><span class="bx-n"><small>Box</small><b>5</b></span><div class="bx-p">Hellebuyck <span>WPG · tied 2-2 · 2W</span></div><span class="bx-pts">4</span><span class="bx-o">Goalies · also Shesterkin, Vasilevskiy, Sorokin, Oettinger</span></li>
+          </ol>
+          <div class="bx-tab">
+            <div class="label"><span>The table</span><span>31 entries</span></div>
+            <div class="bx-row"><span class="rk">1</span><span>Five Hole Heroes</span><span class="tot">29</span><span class="mv">5 of 5 alive</span></div>
+            <div class="bx-row me"><span class="rk">2</span><b>Your entry</b><span class="tot">26</span><span class="mv">4 of 5 alive</span></div>
+            <div class="bx-row"><span class="rk">3</span><span>Zamboni Drivers</span><span class="tot">24</span><span class="mv">3 of 5 alive</span></div>
+          </div>
+          <p class="bx-rule">Goal 1 · Assist 1 · Goalie win 2 · Shutout 1 · counted to the last game of the Cup final</p>
+          <figcaption>Sample pool · names and results made up</figcaption>
+        </figure>
+      </div>
+    </section>
+
+    <!-- 5. Proof: the founding league, and what these pools do every game (docs/BRAND.md section 3; research gap-3 section 5) -->
+    <section id="league">
+      <div class="shead rv">
+        <div class="eyebrow">Why it holds up</div>
+        <h2 class="display">Built by a league.</h2>
+      </div>
+      <div class="proof2 rv">
+        <div>
+          <div class="crest-head"><img src="./img/sak-icon.svg" alt="The SaK Superleague crest" width="64" height="64" loading="lazy" data-gold /><div><b>SaK Superleague</b><small>Keeper league · est. 2013 · eight teams</small></div></div>
+          <p class="founded">The founding league has run on Super Pools every night of the 2026-27 season, from the keeper deadline on.</p>
+        </div>
+        <ul class="prooflist">
+          <li><span class="pi" aria-hidden="true"><svg class="ico" aria-hidden="true" focusable="false"><use href="./icons.svg#i-stick"/></svg></span><span><b>Scored from the NHL's own box scores,</b> the feed that has scored the founding league every night this season.</span></li>
+          <li><span class="pi" aria-hidden="true"><svg class="ico" aria-hidden="true" focusable="false"><use href="./icons.svg#i-clock"/></svg></span><span><b>Every finished game is re-checked</b> for three days, so a changed assist changes the table.</span></li>
+          <li><span class="pi" aria-hidden="true"><svg class="ico" aria-hidden="true" focusable="false"><use href="./icons.svg#i-shield"/></svg></span><span><b>The bracket and the series picks</b> settle from the NHL's bracket, and your host can set a result for the pool alone, with the reason on the record.</span></li>
+        </ul>
+      </div>
+    </section>
+
+    <!-- 6. Before you ask (the FAQPage JSON-LD above is written from these words) -->
+    <section class="faq" id="faq">
+      <div class="shead">
+        <div class="eyebrow">Questions</div>
+        <h2 class="display">Before you ask.</h2>
+      </div>
+      <details><summary>Is it free, and is there any money in it?</summary><p>It is free, and there is no money in it. Entries play for points and a crown, and Supercoins are never bought, never sold and never turned into money. If your pool collects dues, that stays between friends.</p></details>
+      <details><summary>How does a playoff box pool work?</summary><p>The top playoff players are dealt into evenly matched boxes: forwards, then defence, then goalies. Each poolie takes one from every box before round 1. A goal or an assist is a point, a goalie win two and a shutout one, counted to the last game of the Cup final. The host can change the points before the deadline.</p></details>
+      <details><summary>When can I start one?</summary><p>The playoff pools open the night the field is set, Saturday 10 April 2027, and lock at the first puck drop of round 1. A box pool on the regular season can start tonight, and its host adds the playoff pool in one tap in April, with the crew already in.</p></details>
+      <details><summary>Can two poolies take the same player?</summary><p>Yes. Boxes are not a draft, so the same player can be on every entry and any number of poolies can play. No draft night needed.</p></details>
+      <details><summary>How is the bracket scored?</summary><p>One point for each first-round series, two in the second round, four in the conference finals and eight for the Cup, plus a point for calling how many games a series goes. Flat scoring is the other choice.</p></details>
+      <details><summary>What if someone joins after round 1 starts?</summary><p>The box pool and the bracket are locked by then, but pick the series opens fresh each round, and prop sheets and squares go on any game or series still to come.</p></details>
+      <details><summary>Do my friends need an app?</summary><p>No. They tap your link and join with just a name, in the browser on any phone. Add it to the Home Screen for alerts if you like.</p></details>
+    </section>
+
+    <!-- 7. The gold button once more, and one quiet way in for the other reader -->
+    <section id="start">
+      <div class="closer rv">
+        <h2 class="display">Get the crew in before round 1.</h2>
+        <p>A minute to set up, one link for the group chat, and poolies join with just a name.</p>
+        <div class="cta2">
+          <a class="btn btn-gold btn-lg" data-gold data-until="2027-06-25T04:00:00Z" href="https://app.superpoolsai.com/#/new?comp=nhl-post-2027&amp;kind=players&amp;src=cup-playoffs">Start a playoff pool</a><a class="btn btn-gold btn-lg" data-gold data-from="2027-06-25T04:00:00Z" href="https://app.superpoolsai.com/#/new?src=cup-playoffs">Start a pool</a>
+          <a class="textlink" href="./hockey-pools.html">Every hockey pool</a>
+        </div>
+      </div>
+    </section>
+
+  </main>
+
+  <footer class="site-foot">
+    <div class="cols">
+      <div><h2>Play</h2><ul><li><a href="./fantasy-hockey.html">Fantasy league</a></li><li><a href="./hockey-pools.html">Hockey pools</a></li><li><a href="./football-pools.html">NFL pools</a></li><li><a href="./basketball-pools.html">NBA pools</a></li><li><a href="./soccer-pools.html">Soccer pools</a></li><li><a href="./together.html">Show pools</a></li></ul></div>
+      <div><h2>Coming up</h2><ul><li><a href="./nfl-playoff-pools.html">NFL playoff pools</a></li><li><a href="./super-bowl-squares.html">Super Bowl squares</a></li><li><a href="./stanley-cup-playoff-pools.html">Stanley Cup playoff pools</a></li></ul></div>
+      <div><h2>Look around</h2><ul><li><a href="./fans.html">Fan zones</a></li><li><a href="./example-pool.html">An example pool</a></li><li><a href="./pricing.html">Pricing</a></li><li><a href="./changelog.html">Changelog</a></li></ul></div>
+      <div><h2>Your pools</h2><ul><li><a href="https://app.superpoolsai.com/">Sign in</a></li><li><a href="mailto:hello@superpoolsai.com">hello@superpoolsai.com</a></li></ul></div>
+      <div><h2>The fine print</h2><ul><li><a href="https://app.superpoolsai.com/#/privacy">Privacy</a></li><li><a href="https://app.superpoolsai.com/#/terms">Terms</a></li><li><button type="button" class="linkbtn" data-cookie-settings>Cookie settings</button></li></ul></div>
+    </div>
+    <div class="base"><span>© 2026 Super Pools · superpoolsai.com · Supercoins, never money</span><span>Planetterrian Ventures · 963 8th Ave W, Vancouver, BC V5Z 1E4, Canada</span><span>Scores from public score feeds. Not affiliated with the NHL or any club. Stanley Cup is a trademark of the NHL.</span></div>
+  </footer>
+
+  <div class="stickybar" id="sticky"><a class="btn btn-gold" data-until="2027-06-25T04:00:00Z" href="https://app.superpoolsai.com/#/new?comp=nhl-post-2027&amp;kind=players&amp;src=cup-playoffs">Start a playoff pool</a><a class="btn btn-gold" data-from="2027-06-25T04:00:00Z" href="https://app.superpoolsai.com/#/new?src=cup-playoffs">Start a pool</a></div>
+  <script src="./site.js"></script>
+</body>
+</html>

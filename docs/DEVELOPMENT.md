@@ -1871,3 +1871,25 @@ in the project ("Super Pools: market review and growth plan").
   a day's total per step (`view` on every landing page, `start_open` and `start_go` on `#/new`), page and source in
   `private.funnel_daily`, with no cookie, address, account or hash; `platform_funnel()` reads it beside pools started by
   real accounts and seats taken, on the Platform page's Front door. The privacy note says so.
+
+### 9.42 A page and a start for each coming event, 24 November 2026
+
+The growth review of 24 November set three dated windows (the NFL playoffs and Super Bowl LXI, The Traitors season 5,
+the Stanley Cup playoffs) and found the door to each missing: a postseason joins `pool_event_list()` only once its
+field is set, so for the seven weeks people spend looking for "NFL playoff pool" there was no page to land on and no
+link that opened anything.
+
+- Three pages on the marketing site, written by the sport pages' generator from `scripts/landing/events_content.py`:
+  `nfl-playoff-pools`, `super-bowl-squares` and `stanley-cup-playoff-pools`. Each answers the questions a searcher asks
+  (how the bracket is scored, when the numbers are drawn, when it locks) in the page and in its FAQPage JSON-LD, draws
+  a sample (a bracket round by round, a grid as the game plays) and follows the calendar by itself.
+- The start page takes a link to an event that hasn't opened (`src/lib/comingEvents.ts`): `#/new?comp=nfl-post-2026`
+  before 10 January opens on the NFL as it stands, a Super Bowl squares link on a grid for a game this week, and a Cup
+  link on the season's box pool, each under a line saying when the playoff pool opens and that the host adds it to the
+  same pool from Picks, Add a game. The crew is in before the week that matters. Once the event is in the list the same
+  link opens on it. A new event with a page ahead of its field gets a row in `COMING`.
+- Held for Patrick's go (migration 362): The Traitors season 5 pack (`traitors-s5`: three calls before the premiere, one
+  each Thursday named by its date since the episode count isn't announced, five on the finale open all season) and the
+  Traitors page rewritten for it. The page's button opens the pack, so the two ship together once 362 is live.
+- Checked: `e2e/app-new-pool-link.spec.ts` (the early link, then the same link once the event is listed),
+  `e2e/landing.spec.ts`, the landing copy tests, and the pages at 360 and 390 px on either side of each date.

@@ -109,4 +109,26 @@ test.describe('NewPool hash query re-selects template', () => {
     await expect(page.getByPlaceholder(/you@example.com/i)).toHaveValue('alex@example.com');
     await expect(page.getByPlaceholder(/Your name/i)).toHaveValue('Alex');
   });
+
+  // A playoff landing page's link weeks before the field is set (src/lib/comingEvents.ts): the event isn't in the
+  // list, so the start page opens on the league as it stands and says when the playoff pool opens.
+  test('a link to a postseason that has not opened starts on the season, with a line saying when', async ({ page }) => {
+    const NFL = { ...NHL, competition: 'nfl', name: 'NFL', sport: 'nfl', kinds: ['pickem', 'survivor'], word: 'Week', open_label: 'Week 12', final_label: 'Week 18' };
+    await mockNewPoolApis(page);
+    await page.route('**/rest/v1/rpc/pool_event_list', (route) => route.fulfill(json([NHL, NFL])));
+    await page.goto('./#/new?comp=nfl-post-2026&kind=bracket&src=nfl-playoffs');
+    await expect(page.getByText(/The playoff bracket opens the night the field is set/i)).toBeVisible({ timeout: 30_000 });
+    await expect(page.getByText(/What are you starting/i)).toBeHidden();
+    await expect(page.getByLabel(/Name your pool/i)).toBeVisible();
+    await expect.poll(async () => page.getByLabel(/Name your pool/i).inputValue()).toMatch(/NFL/i);
+
+    // once the postseason is in the list the same link opens on it, and the line is gone
+    const POST = { ...NFL, competition: 'nfl-post-2026', name: 'NFL Playoffs', kinds: ['series', 'bracket'], word: null, open_round: 1, final_round: 4 };
+    await page.unroute('**/rest/v1/rpc/pool_event_list');
+    await page.route('**/rest/v1/rpc/pool_event_list', (route) => route.fulfill(json([NFL, POST])));
+    await page.goto('./#/new?comp=nfl-post-2026&kind=bracket&src=nfl-playoffs2');
+    await page.reload();
+    await expect(page.getByText(/NFL Playoffs/i).first()).toBeVisible({ timeout: 30_000 });
+    await expect(page.getByText(/opens the night the field is set/i)).toHaveCount(0);
+  });
 });
