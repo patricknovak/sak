@@ -7,6 +7,7 @@
 // that already has an account signs in right here and the league starts on it.
 import { useEffect, useRef, useState } from 'react';
 import { Check } from 'lucide-react';
+import { funnelHit } from '../lib/funnel';
 import { FunctionsHttpError } from '@supabase/supabase-js';
 import { rpc, setRemember, supabase } from '../lib/supabase';
 import { openPool } from '../lib/host';
@@ -77,6 +78,7 @@ export function FantasyStart({ color, setColor, swatches, member, signedIn }: { 
   }, [member]);
   const start = async () => {
     setBusy(true); setErr(''); setNotYet(false);
+    funnelHit('start_go', 'fantasy', new URLSearchParams(location.hash.split('?')[1] ?? '').get('src'));
     try {
       if (member) { await startAsMember(); return; }
       const login = email.trim().toLowerCase();

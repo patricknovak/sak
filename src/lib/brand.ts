@@ -30,6 +30,10 @@ export const PRODUCT = {
   coin: { name: 'Supercoins', emoji: '🪙' },
 } as const;
 
+// the product's front door for a share that leaves the league (a night, a table): tagged so the landing's first-touch
+// record (landing/site.js) says which card brought someone in. Never the league's own address: its pages are private.
+export const PRODUCT_SHARE_URL = (card: string) => `${PRODUCT.url}/?utm_source=share&utm_medium=card&utm_campaign=${encodeURIComponent(card)}`;
+
 export const SAK_BRAND: Brand = {
   wordmark: { a: 'SAK', b: 'SUPERLEAGUE' }, tagline: 'She’s A Keeper', short: 'SaK', trophy: 'The SAK Cup', regular: 'The Johnson',
   playoff: 'The Playoff Cup', booby: 'The Peter', fund: 'SaK Fund', bot: { name: 'Garry', emoji: '🎙️' }, coin: { name: 'St. Patrick coins', emoji: '☘️' },
