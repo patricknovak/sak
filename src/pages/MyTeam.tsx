@@ -217,6 +217,9 @@ function TeamPage({ kit }: { kit: Kit }) {
     if (occupant && locked(occupant.p) && !offIr(occupant, selected.r.slot as Slot)) return false;
     if (!occupant && slot === selected.r.slot) return false;
     if (!occupant && slot !== 'BN' && slot !== 'IR' && bySlot(slot).length >= (cap[slot] ?? 0)) return false;
+    // a full bench takes a starter only in a swap with someone on it (the server said "Too many players at BN" to a
+    // GM four times in a row on 23 November); coming off IR keeps its own answer from the server
+    if (!occupant && slot === 'BN' && selected.r.slot !== 'IR' && bench.length >= (cap.BN ?? 12)) return false;
     // IR is set for real or not at all: What if and a day ahead leave it as it is
     if ((trial || ahead) && (slot === 'IR' || selected.r.slot === 'IR')) return false;
     // a swap sends the other player to the selected one's place, or to the bench when he can't play it

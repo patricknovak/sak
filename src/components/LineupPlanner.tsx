@@ -129,7 +129,10 @@ export function LineupPlanner({ roster, teamId, initialDay }: { roster: Row[]; t
   };
 
   const counts = useMemo(() => { const c: Record<string, number> = {}; for (const s of slots.values()) c[s] = (c[s] ?? 0) + 1; return c; }, [slots]);
-  const over = Object.entries(counts).filter(([s, n]) => s !== 'BN' && n > (caps[s] ?? 0)).map(([s, n]) => `${n - (caps[s] ?? 0)} too many at ${s}`);
+  // a later day's plan may leave a spot empty and the bench long; tonight's lineup is the roster itself, and the
+  // server holds its bench to the cap, so say it here rather than let Save fail
+  const over = Object.entries(counts).filter(([s, n]) => (s !== 'BN' || day === today) && n > (caps[s] ?? 0))
+    .map(([s, n]) => s === 'BN' ? `Bench is full: start ${n - (caps[s] ?? 0)} more` : `${n - (caps[s] ?? 0)} too many at ${s}`);
   const setSlot = (id: number, s: string) => setDraft(new Map([...slots, [id, s]]));
 
   // coming off IR is a real roster move (migration 309), made the moment it's picked, on any day and at any time, even

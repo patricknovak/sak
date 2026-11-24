@@ -1996,3 +1996,91 @@ Following 9.42 through the path a stranger takes from an event page to a full po
   group chat shows the event and a sample, where it showed the home's card.
 - Checked: `e2e/app-playoffs-open.spec.ts` (the card for a pool on the sport, none once it is on the playoffs), the
   start-page spec, the landing specs and copy tests, the card at 390 px.
+### 9.44 A bug hunt from the live logs, 24 November 2026
+
+Patrick asked for a hunt for real defects, starting from evidence. A week of Postgres, API and edge function logs, the
+advisors and `pg_stat_statements` on the live project gave four faults; the row-level security and the callable
+functions were read again and gave none. Migration 364 (`feed_never_stalls`):
+
+- **A pool game with no winner stopped its event's feed.** `_pool_win_score` divided by the number of winners inside a
+  `CASE`; PL/pgSQL plans the statement with `new.winners` as a constant and Postgres folds `1.0 / cardinality('{}')`
+  while planning, so the guard never ran. A pick'em nobody picked in ended on MLS's last match and every
+  `soccer_ingest` for MLS failed from 8 November (two errors a day, one match "live" for sixteen days). The division is
+  guarded and the trigger turns its own errors into warnings: the prediction log never holds up a settle.
+- **The season's stats took 3.4 seconds.** `player_season_live` called `today_et()` twice per game played (29,000 calls
+  at 0.11 ms); asked once, the same query takes 64 ms and returns the same 867 rows (compared on live, read only, and
+  against the kept cache). This was the stats cache's rebuild every minute of a game night (17,844 runs at a mean of
+  2.6 s since the counters were last reset), the Players page whenever the cache was a minute stale, and the 8-second
+  timeouts on four nights that week. **A view or a query asks for the league day once**, `(select today_et())`, never
+  per row.
+- **Two cache rebuilds at once.** nhl-sync's scores run and the `stats-cache` job call `refresh_stats_cache()` on the
+  same second; the loser failed on a duplicate key (67, 16, 39 and 6 times on four nights). `_stats_cache_build` takes
+  a transaction advisory lock per profile and leaves when someone else holds it.
+- **Nothing noticed.** `health_check` now flags a match still `live` twelve hours after kick-off.
+
+On the site: a GM was told "Too many players at BN" four times in a row on 23 November. My Team offered the empty bench
+as a target with the bench full, and Daily lineups let today's lineup be saved with a starter's spot left empty; both
+now say so before the save (`canTarget` in `src/pages/MyTeam.tsx`, `over` in `LineupPlanner`). `player-info` answers
+404 for an id that isn't in `players` rather than calling the NHL and keeping a row for it.
+
+Found and left: `book_live` (the odds board's prices) averages 1.5 s and has peaked at 5.4 s against the 8-second
+limit; `health_check` itself averages 2 s; ten `mlb-post-2026` games that were never needed still read `scheduled`;
+league 2 holds 124 `player_night` forecasts open since 27 October (no job runs for it); `top_scorer(team)` and
+`_acq_used(team)` answer for any team id, another league's included (a player id and a count); pg_net lives in the
+`public` schema (Supabase's advisor); the push function's test line still says "See you on draft night".
+
+### 9.46 The bug hunt's second pass, 24 November 2026
+
+With the logs read out, the same day's hunt went on by the classes of fault the first pass had shown, and through what
+a signed-in member can write straight to a table. Migration 366 (`no_winner_page_poll_votes`):
+
+- **The same division, one function over.** `pool_game_chances` returned a finished game's chances with
+  `1.0 / cardinality(g.winners)`; with `winners = '{}'` Postgres folds the division while planning and the pool's
+  table gets an error, not an empty list. Nothing on live is in that state yet: the MLS pick'em that migration 364
+  lets finish will be the first, so 366 goes on with it. No other function divides by a count that can be zero
+  (the eight `_..._chances` simulations divide by a window count of at least one).
+- **A vote stays the voter's.** `poll_votes`' update policy checked the row before the change and the poll after it,
+  never whose vote it is afterwards: a member could hand their vote to another team and vote again, once per member.
+- **A poll is closed, never rewritten.** Its author or the commissioner could change the question, the answers and the
+  closing time after the votes were in, or open it again. The site only ever sets `closed`; that is now the one
+  column it may update, and only to true.
+- **A chat post is dated by the database.** `messages` let a post carry its own `id`, `created_at`, `edited_at` and
+  `deleted`; a member could write a message into last week or into next year. Insert is granted on the composer's
+  columns only (no message on live was dated ahead).
+
+Looked at and sound: every view the API serves runs as the caller and every table has row-level security, so the extra
+DELETE/TRUNCATE grants Supabase's defaults leave on 44 objects reach nothing; no function calls one that no longer
+exists; the edge functions' and the Worker's doors. The odds board (`book_live`, 1.5 s) spends its time in
+`_player_rate` reading `player_season`, so migration 364 is its fix; measure it again after a game night.
+
+**Open, and the one that matters: the realtime channels are public.** `typing:<league>`, `online:<league>`,
+`rink:<league>`, `rod:<league>:<match>` and `lounge:<key>` are plain broadcast and presence channels, so anyone with
+the site's public key, signed in or not, can listen to who is online and typing in any league and send their own
+broadcasts (a typing line under any name, a Rink Duel challenge card on a GM's phone, moves into a live match). No
+stored data is reachable this way. The fix is Supabase's Realtime Authorization, in three steps that can't share a
+pull request: policies on `realtime.messages` keyed on the topic's league (`realtime.topic()`), then the site opening
+every channel with `private: true` once those are live, then "Allow public access" switched off in the project's
+Realtime settings (Patrick). It needs a browser against live to prove, which this session didn't have.
+
+### 9.48 The realtime channels, step one of three, 24 November 2026
+
+Section 9.46 left the realtime channels open to anyone with the public key. Migration 368 (`realtime_topics`) is the
+first of the three steps, and on its own changes nothing a member sees: Realtime reads these rules only when a channel
+is joined as private.
+
+- `_rt_topic_ok(topic, send)` answers who may join a topic: a league's own (`typing:`, `online:`, `rink:`, `rod:`
+  followed by the league's id, and a match id for a game) for that league's members; every other topic (the site's
+  table listeners, whose rows row-level security already keeps to the reader) for any signed-in account, and for the
+  signed-out site to listen only.
+- Two policies on `realtime.messages` call it with `realtime.topic()`: `topic_listen` (select: anon and signed-in)
+  and `topic_send` (insert: signed-in). They are created only where Realtime is installed; the flow test covers the
+  function as a member, as another league's member and signed out.
+
+**Step two** (after 368 is live; the site change is kept as `bug-hunt/realtime-step-2-site.patch` in the project files,
+typechecked, not in any pull request because a private channel is refused until the rules exist): every
+`supabase.channel(...)` opens with `private: true` (the five league channels, the lounge's listener and
+`realtimeChannel`). Prove on live with two phones: typing shows, the online dots show, a Rink Duel challenge arrives and
+a match plays, the chat and the scoreboard still update, and an account from another pool is refused on `typing:1`.
+**Step three** (Patrick): Realtime settings, "Allow public access" off. Until then a public channel of the same name
+still works for an outsider, so step three is what closes it. A new channel is always private and, when it carries a
+league's talk, named `<kind>:<league id>[:<id>]` with its kind added to `_rt_topic_ok`.

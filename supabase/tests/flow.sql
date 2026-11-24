@@ -8249,6 +8249,126 @@ select set_config('app.league_id', '', false);
 select set_config('request.jwt.claim.sub', '', false);
 \i supabase/migrations/20261005000365_bet_math_fixes.sql
 select 'bet math fixes', true;
+-- ───────────── a game that ends with no winner never stops the feed (migration 364) ─────────────
+-- (MLS's feed stood still for sixteen days on this: a pick'em nobody picked in, ended by the season's last match)
+reset role;
+select set_config('request.jwt.claim.sub', '', false);
+select id as nwg, league_id as nwl, winners as nww from pool_games where status = 'done' and cardinality(winners) > 0 order by id limit 1 \gset
+select set_config('test.nww', :'nww', false);
+insert into predictions (league_id, kind, subject, predicted, basis, resolves_on)
+  values (:nwl, 'pool_win', jsonb_build_object('game', :nwg, 'team_id', -364, 'day', 'nobody'), 0.25, 'test', today_et());
+update pool_games set status = 'open' where id = :nwg;
+update pool_games set status = 'done', winners = '{}' where id = :nwg;
+select pg_temp.expect('nobody won: the game still ends', (select status = 'done' from pool_games where id = :nwg));
+select pg_temp.expect('and its forecasts are void, at nothing', (select status = 'void' and outcome = 0 from predictions
+  where kind = 'pool_win' and (subject->>'game')::bigint = :nwg and (subject->>'team_id')::int = -364));
+-- a shared win still splits one between the winners
+insert into predictions (league_id, kind, subject, predicted, basis, resolves_on)
+  select :nwl, 'pool_win', jsonb_build_object('game', :nwg, 'team_id', t.id, 'day', 'shared'), 0.25, 'test', today_et()
+  from (select id from teams where league_id = :nwl order by id limit 3) t;
+update pool_games set status = 'open' where id = :nwg;
+update pool_games set status = 'done', winners = (select array_agg(id) from (select id from teams where league_id = :nwl order by id limit 2) t) where id = :nwg;
+select pg_temp.expect('two winners score a half each, the third nothing',
+  (select array_agg(outcome order by (subject->>'team_id')::int) = array[0.5, 0.5, 0]::numeric[] and bool_and(status = 'scored')
+   from predictions where kind = 'pool_win' and (subject->>'game')::bigint = :nwg and subject->>'day' = 'shared'));
+delete from predictions where kind = 'pool_win' and (subject->>'game')::bigint = :nwg and subject->>'day' in ('nobody', 'shared');
+update pool_games set winners = current_setting('test.nww')::int[] where id = :nwg;
+-- the stats cache: a rebuild still builds, and one already current is left alone
+update stats_gen set gen = gen + 1 where one;
+select pg_temp.expect('a stale cache is rebuilt', refresh_stats_cache() >= 1);
+select pg_temp.expect('a current one is left alone', refresh_stats_cache() = 0);
+select pg_temp.expect('every kept answer is current', (select bool_and(s.gen = g.gen) from stats_cache_state s, stats_gen g));
+-- the season's stats, with the league day read once: the same numbers as counting them by hand
+select set_config('app.league_id', '1', false);
+select today_et() as nwd \gset
+select pg_temp.expect('the season view has players in it', (select count(*) > 0 from player_season_live));
+select pg_temp.expect('and the last fortnight is the last fortnight', not exists (
+  select 1 from player_season_live v
+  join (select player_id, count(*) gp, round(sum(fpts), 2) fpts, round(sum(fpts) filter (where date > :'nwd'::date - 14), 2) fpts14,
+               count(*) filter (where date > :'nwd'::date - 14) gp14 from league_games group by 1) h using (player_id)
+  where (v.gp, v.fpts, v.gp14) is distinct from (h.gp, h.fpts, h.gp14) or v.fpts14 is distinct from h.fpts14));
+select pg_temp.expect('the day is asked once, not once a game', (select pg_get_viewdef('player_season_live'::regclass) !~* 'WHERE \(?pg\.date > \(today_et\(\)'));
+select set_config('app.league_id', '', false);
+-- the health check sees a feed that fails on every run: a match still live half a day after kick-off
+select pg_temp.expect('no stuck match, nothing said', not exists (select 1 from jsonb_array_elements_text(health_check(false)->'issues') i where i like 'A match has been live%'));
+select id as nwf, state as nwfs, kickoff as nwfk, competition as nwfc from fixtures order by id limit 1 \gset
+set session_replication_role = replica;   -- the fixture's own triggers stay out of this: only the check is under test
+update fixtures set state = 'live', kickoff = now() - interval '13 hours' where id = :nwf;
+select pg_temp.expect('a match live for 13 hours is flagged, with its competition',
+  exists (select 1 from jsonb_array_elements_text(health_check(false)->'issues') i where i like 'A match has been live for over 12 hours%' || :'nwfc' || '%'));
+update fixtures set kickoff = now() - interval '3 hours' where id = :nwf;
+select pg_temp.expect('one that kicked off this afternoon is not', not exists (select 1 from jsonb_array_elements_text(health_check(false)->'issues') i where i like 'A match has been live%'));
+update fixtures set state = :'nwfs', kickoff = :'nwfk' where id = :nwf;
+set session_replication_role = origin;
+\i supabase/migrations/20261005000364_feed_never_stalls.sql
+select 'feed never stalls', true;
+
+-- ───────────── a finished game with no winner still shows its page; a vote stays the voter's (migration 366) ─────────────
+reset role;
+select set_config('request.jwt.claim.sub', '', false);
+select id as nwg, league_id as nwl, winners as nww from pool_games where status = 'done' and cardinality(winners) > 0 order by id limit 1 \gset
+select set_config('test.nww', :'nww', false);
+select set_config('app.league_id', :'nwl', false);
+update pool_games set winners = '{}' where id = :nwg;
+select pg_temp.expect('nobody won: the chances are an empty list, not an error', pool_game_chances(:nwg) = '[]'::jsonb);
+update pool_games set winners = (select array_agg(id) from (select id from teams where league_id = :nwl order by id limit 2) t) where id = :nwg;
+select pg_temp.expect('two winners: a half each', (select count(*) = 2 and bool_and((e->>'chance')::numeric = 0.5) from jsonb_array_elements(pool_game_chances(:nwg)) e));
+update pool_games set winners = current_setting('test.nww')::int[] where id = :nwg;
+select set_config('app.league_id', '', false);
+-- polls: team 2 can change its own vote, and can't hand it to team 3 to vote again
+select pg_temp.as_team(1);
+set role authenticated;
+insert into polls (channel, team_id, question, options) values ('general', 1, 'Best road trip?', '["West","East"]') returning id as pv \gset
+reset role;
+select pg_temp.as_team(2);
+set role authenticated;
+insert into poll_votes (poll_id, team_id, choice) values (:pv, 2, 0);
+insert into poll_votes (poll_id, team_id, choice) values (:pv, 2, 1) on conflict (poll_id, team_id) do update set choice = excluded.choice, team_id = excluded.team_id, poll_id = excluded.poll_id;
+select pg_temp.raises('a vote can''t be handed to another team', format('update poll_votes set team_id = 3 where poll_id = %s and team_id = 2', :pv), 'row-level security');
+select pg_temp.raises('nor a poll''s question changed', format('update polls set question = ''x'' where id = %s', :pv), 'permission denied');
+reset role;
+select pg_temp.expect('the vote changed and stayed team 2''s', (select count(*) = 1 and bool_and(team_id = 2 and choice = 1) from poll_votes where poll_id = :pv));
+select pg_temp.as_team(1);
+set role authenticated;
+select pg_temp.raises('the author can''t rewrite the answers', format('update polls set options = ''["Me"]'' where id = %s', :pv), 'permission denied');
+update polls set closed = true where id = :pv;
+select pg_temp.raises('or open it again', format('update polls set closed = false where id = %s', :pv), 'row-level security');
+reset role;
+select pg_temp.expect('the poll is closed, as asked', (select closed and question = 'Best road trip?' from polls where id = :pv));
+-- a chat post is dated by the database, never by its writer
+select pg_temp.as_team(2);
+set role authenticated;
+insert into messages (channel, team_id, body) values ('general', 2, 'dated by the database');
+select pg_temp.raises('a post can''t carry its own date', $$insert into messages (channel, team_id, body, created_at) values ('general', 2, 'from the future', now() + interval '1 year')$$, 'permission denied');
+select pg_temp.raises('nor its own id', $$insert into messages (id, channel, team_id, body) values (999999999, 'general', 2, 'numbered')$$, 'permission denied');
+update messages set body = 'edited', edited_at = now() where team_id = 2 and body = 'dated by the database';
+reset role;
+select pg_temp.expect('the post went in, dated now, and its writer can still edit it',
+  (select count(*) = 1 and bool_and(created_at between now() - interval '1 minute' and now() + interval '1 minute') from messages where team_id = 2 and body = 'edited'));
+select set_config('request.jwt.claim.sub', '', false);
+\i supabase/migrations/20261005000366_no_winner_page_poll_votes.sql
+select 'no-winner page, poll votes', true;
+
+-- ───────────── a league's realtime topics are its members' (migration 368) ─────────────
+reset role;
+select pg_temp.as_team(1);
+set role authenticated;
+select pg_temp.expect('a member listens and sends on the league''s typing line, presence, lobby and a match',
+  _rt_topic_ok('typing:1') and _rt_topic_ok('online:1', true) and _rt_topic_ok('rink:1', true) and _rt_topic_ok('rink:1:abc123', true) and _rt_topic_ok('rod:1:m-9_z', true));
+select pg_temp.expect('but not on a league they aren''t in', not _rt_topic_ok('typing:' || :olga) and not _rt_topic_ok('rink:' || :olga || ':abc', true));
+select pg_temp.expect('a league topic that isn''t shaped like one is refused', not _rt_topic_ok('typing:1:a b') and not _rt_topic_ok('online:x') and not _rt_topic_ok('rink:'));
+select pg_temp.expect('the site''s table listeners stay open to a signed-in account', _rt_topic_ok('league-db:k3j2h1g0', true) and _rt_topic_ok('lounge:nhl'));
+reset role;
+select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-000000000084', false);
+set role authenticated;
+select pg_temp.expect('another league''s member is kept off this league''s topics', not _rt_topic_ok('typing:1') and not _rt_topic_ok('online:1', true) and not _rt_topic_ok('rod:1:abc', true));
+reset role;
+select set_config('request.jwt.claim.sub', '', false);
+set role anon;
+select pg_temp.expect('signed out: no league topic, and listening only elsewhere', not _rt_topic_ok('typing:1') and not _rt_topic_ok('online:1') and _rt_topic_ok('league-db:k3j2h1g0') and not _rt_topic_ok('league-db:k3j2h1g0', true));
+reset role;
+\i supabase/migrations/20261005000368_realtime_topics.sql
+select 'realtime topics', true;
 
 -- ───────────── Rod Hockey's games are kept, league by league (migration 354) ─────────────
 reset role;
