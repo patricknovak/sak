@@ -3,7 +3,7 @@
 // sees only a first name and an initial. Read straight from lounge_messages (row-level security keeps each member to
 // the rooms of their pools) and kept live through realtime: a new post arrives as an insert, a removed one as a delete.
 import { useCallback, useEffect, useState } from 'react';
-import { rpc, supabase } from './supabase';
+import { RT_PRIVATE, rpc, supabase } from './supabase';
 
 export interface Lounge {
   key: string;
@@ -53,7 +53,7 @@ export function useLoungeFeed(key: string | null) {
     setMsgs(null);
     if (!key) return;
     load();
-    const ch = supabase.channel(`lounge:${key}`)
+    const ch = supabase.channel(`lounge:${key}`, { config: { private: RT_PRIVATE } })
       .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'lounge_messages', filter: `lounge=eq.${key}` }, (p) => {
         const m = p.new as LoungeMessage;
         setMsgs((cur) => (cur && !cur.some((x) => x.id === m.id) ? [...cur, m] : cur));

@@ -131,6 +131,8 @@ header { display: flex; align-items: center; justify-content: space-between; gap
 .hero2 h1 { font-size: clamp(50px, 14.2vw, 92px); margin: 0 0 14px; letter-spacing: 0; text-wrap: balance; }
 @media (max-width: 400px) { .hero2 h1 { font-size: clamp(42px, 12.4vw, 50px); } }
 .hero2 h1 .l2 { display: block; }
+/* the promise's second half (25 November 2026): smaller than the claim, in the brand's gold-free ice, so the button stays in the first screen */
+.hero2 h1 .l2.sm { margin-top: 8px; font-size: .5em; line-height: 1.02; color: var(--ice); }
 .hero2 h1 em { font-style: italic; }
 .tagline { display: flex; flex-wrap: wrap; gap: 4px 14px; margin: 0 0 14px; font: 700 16px/1.35 'Barlow Condensed', sans-serif; letter-spacing: .01em; color: var(--soft); }
 @media (max-width: 400px) { .tagline { font-size: 15.5px; gap: 2px 12px; letter-spacing: 0; } }

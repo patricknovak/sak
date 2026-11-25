@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from 'react';
 import confetti from 'canvas-confetti';
 import type { RealtimeChannel } from '@supabase/supabase-js';
 import { Pause, Play, Volume2, VolumeX, X } from 'lucide-react';
-import { supabase } from '../../lib/supabase';
+import { RT_PRIVATE, supabase } from '../../lib/supabase';
 import type { Team } from '../../lib/types';
 import { TeamBadge } from '../ui';
 import {
@@ -248,7 +248,7 @@ export function RinkGame({ me, mode, league, teams, ice, onExit, onResult, onRec
 
     if (mode.kind === 'online') {
       const key = String(me.id);
-      chan = supabase.channel(`rink:${league}:${mode.match}`, { config: { broadcast: { self: false }, presence: { key } } })
+      chan = supabase.channel(`rink:${league}:${mode.match}`, { config: { private: RT_PRIVATE, broadcast: { self: false }, presence: { key } } })
         .on('broadcast', { event: 's' }, ({ payload }) => onState(payload as StateMsg))
         .on('broadcast', { event: 'm' }, ({ payload }) => onMsg(payload as MatchMsg))
         .on('presence', { event: 'sync' }, () => {

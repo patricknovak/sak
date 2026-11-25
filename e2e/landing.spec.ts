@@ -4,7 +4,8 @@ test.describe('Landing (superpoolsai.com)', () => {
   test('home hero, never-money claim, and start CTA', async ({ page }) => {
     await page.goto('./');
     await expect(page).toHaveTitle(/Super Pools/i);
-    await expect(page.getByRole('heading', { level: 1 })).toContainText(/Fantasy Pools/i);
+    await expect(page.getByRole('heading', { level: 1 })).toContainText(/Pools for your group chat/i);
+    await expect(page.locator('.tagline')).toContainText(/Fantasy Pools from the Future/i);
     await expect(page.getByText('Never money').first()).toBeVisible();
     const start = page.getByRole('link', { name: /Start a pool/i }).first();
     await expect(start).toBeVisible();

@@ -2086,6 +2086,14 @@ a match plays, the chat and the scoreboard still update, and an account from ano
 still works for an outsider, so step three is what closes it. A new channel is always private and, when it carries a
 league's talk, named `<kind>:<league id>[:<id>]` with its kind added to `_rt_topic_ok`.
 
+**25 November 2026: 366 and 368 are live** (applied on Patrick's go, both verified: the two rules are on
+`realtime.messages`, and signed out `_rt_topic_ok('typing:1')` answers no). Step two is in the site behind a switch a
+phone sets for itself, because this work could not join a live channel to prove it (the build machine's network
+carries no websocket): `RT_PRIVATE` in `src/lib/supabase.ts`. Open the site once at `/?rt=private` and that phone
+opens every channel as private from then on; `/?rt=public` puts it back. Everyone else is as before. The proof is the
+list above on two phones with the switch set; when it holds, a one-line change makes private the default (`RT_PRIVATE`
+true unless `/?rt=public`), and step three follows it.
+
 ### 9.49 The launch list, cut to its smallest steps, 24 November 2026
 
 The growth review (§9.41) said to clear the launch list before pushing for outside users. Everything on it that code
@@ -2151,6 +2159,17 @@ but for one cron line.
 
 Left alone, on purpose: the coin's mark is written as ☘️ in 28 places in the site (right for SaK, wrong for a league
 with another coin), which is a brand pass of its own.
+
+
+### 9.51 The goal to April and the home's new headline, 25 November 2026
+
+Patrick took the market review's recommendations (24 November, §9.41): the goal is 25 pools outside SaK with five or
+more members by 30 April 2027, no new games or features until then, and billing waits for that goal rather than a date
+(`docs/MARKET-REVIEW-2026-11.md`, "Decided, 25 November 2026"). The home page now leads with the concrete promise,
+"Pools for your group chat." and "Live scores, real banter, never money." in ice under it, with the tagline and its three
+lines right below (`landing/index.html`, `.hero2 h1 .l2.sm` in `site.css`; BRAND §1 amended); the sub names what you can
+start (pick'em, box pools, brackets, fantasy leagues, any show). Checked at 360, 390 and 1280 px: the gold button stays in
+the first screen on a phone. The landing journey checks the new headline and the tagline under it.
 
 ### 9.52 Deleting your own account, from the app, 25 November 2026
 
