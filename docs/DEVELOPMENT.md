@@ -2170,3 +2170,38 @@ more members by 30 April 2027, no new games or features until then, and billing 
 lines right below (`landing/index.html`, `.hero2 h1 .l2.sm` in `site.css`; BRAND §1 amended); the sub names what you can
 start (pick'em, box pools, brackets, fantasy leagues, any show). Checked at 360, 390 and 1280 px: the gold button stays in
 the first screen on a phone. The landing journey checks the new headline and the tagline under it.
+
+### 9.52 Deleting your own account, from the app, 25 November 2026
+
+The privacy note has promised deletion by email since 28 October; an app store and Quebec's Law 25 want it in the app.
+Profile ends with **Delete your account** (`src/components/DeleteAccount.tsx`): a sheet that reads
+`account_delete_preview()` and says, league by league, what becomes of each seat before anything happens, then asks
+for DELETE typed out. The join function's `delete_account` door does the work: `account_delete('delete')` as the
+person, with their own session (so it can only ever touch the caller), then the chat photos through the Storage API
+(SQL can't remove storage objects), then the sign-in through Auth's admin API, last, so a failure part way is finished by
+trying again. Migration 371; not live until Patrick says "apply 371". Until then the preview call fails and the card
+keeps the old line (write to hello@), so the pull request is safe to merge first.
+
+The rule (Patrick's to approve with the pull request):
+
+- **The person goes.** Sign-in and email, account, every membership, alerts, the bell, Garry's memory of them, a Yahoo
+  link, their watch list and draft queue, the waitlist entry on their email, league requests on it (an unopened one is
+  deleted, an opened one keeps the league and loses the name), fan zone identity, calls, votes and reports, and the
+  lounge reports and moderation records naming them. The sign-up counts keep the day and lose the person.
+- **What they wrote goes.** Their chat posts (`messages` of kind 'user' from their seats) and photos, comments on ideas,
+  lounge and fan zone posts, and a trade-block note.
+- **A fantasy seat stays, empty.** The team keeps its roster, points, trades, bets, draft picks and history, so no one
+  else's standings move; `gm_name` is "Open seat" and the commissioners are belled to invite a new GM, as with
+  `commish_vacate_seat`. A team named after its GM becomes "Team <seat number>", in its past seasons too, and the past
+  seasons' GM name becomes "Former GM".
+- **A pool seat stays as "Former member".** Its calls, picks, positions and coins still count, so every market and the
+  pool's table add up; a new member never inherits it (an open link always makes a new seat).
+- **What they host passes on.** A co-host if there is one, otherwise the member who joined first, made host and owner and
+  belled; with nobody else in it, the pool or league is deleted with everything in it (`_league_wipe`, pool_delete's
+  clearing without its checks). The SaK Superleague is never deleted.
+- **League records stay with the team**: trades, roster moves, bets, polls, proposals, ideas, reactions.
+- **A platform admin is refused**: take the role off first.
+
+A new table that holds a person's own data (a user id, an email, words they wrote) joins `account_delete` in the same
+migration; the flow test's "deleting your own account" section is the place to prove it.
+

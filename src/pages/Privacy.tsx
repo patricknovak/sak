@@ -43,10 +43,11 @@ const SECTIONS: { title: string; body: string[] }[] = [
     'So what we keep is held outside Quebec and outside Canada, under the laws of the United States. The companies that hold or handle it for us are Supabase (the database and sign-in), Cloudflare (the site and, where it is switched on, a check that a person rather than a program is making an account), Resend (sign-in email), xAI (the voice\'s answers, only what is described above) and, only if you accept them, Google Analytics and Google Ads. Each handles it to run its part of Super Pools and for nothing of its own.',
   ] },
   { title: 'How long we keep it', body: [
-    'While your account is open. A pool its host deletes, or an account you ask us to delete, is gone from the database at once and from its daily backups within seven days. A waitlist address is kept until you ask us to remove it. The daily page counts carry no names and are kept to see how the product is used.',
+    'While your account is open. A pool its host deletes, or an account you delete, is gone from the database at once and from its daily backups within seven days. A waitlist address is kept until you ask us to remove it. The daily page counts carry no names and are kept to see how the product is used.',
+    'Deleting your account (Delete your account, at the foot of your profile) removes your sign-in and email, your chat posts and photos, your lounge and fan zone posts and calls, your alerts, what the voice remembers about you, a Yahoo link and the waitlist entry on your email. Your seats are left without your name, so nobody else\'s standings move: a fantasy team keeps its roster, points and trades and waits for a new GM, and a pool seat keeps its calls and coins as "Former member". A pool or league you host passes to another member, or is deleted with everything in it when nobody else is in it.',
   ] },
   { title: 'Your rights', body: [
-    'You can ask to see what we keep about you, to correct it, to have it deleted, and to get a copy in a common format you can take elsewhere. You can take back a consent at any time (Analytics and Ads above, alerts in your profile, the waitlist by email). Write to hello@superpoolsai.com from the address you signed up with; we answer within 30 days, and a deletion is done within a week.',
+    'You can ask to see what we keep about you, to correct it, to have it deleted, and to get a copy in a common format you can take elsewhere. You can take back a consent at any time (Analytics and Ads above, alerts in your profile, the waitlist by email). You can delete your account yourself from your profile, or write to hello@superpoolsai.com from the address you signed up with; we answer within 30 days, and a deletion asked for by email is done within a week.',
     'If something ever puts what we keep at risk of serious harm, we tell the people affected and, in Quebec, the Commission d\'accès à l\'information. If you think we have handled your information wrongly, you can complain to the Commission d\'accès à l\'information du Québec or the Office of the Privacy Commissioner of Canada.',
   ] },
   { title: 'Who is responsible', body: [
@@ -125,7 +126,7 @@ export default function Privacy() {
             </section>
           ))}
         </div>
-        <p className="mt-8 text-center text-xs text-mute">Last changed 10 November 2026. <a className="text-sky-300" href="#/terms">Terms of use</a> · © 2026 {PRODUCT.name} · <a className="text-sky-300" href="#/">Back to the app</a></p>
+        <p className="mt-8 text-center text-xs text-mute">Last changed 25 November 2026. <a className="text-sky-300" href="#/terms">Terms of use</a> · © 2026 {PRODUCT.name} · <a className="text-sky-300" href="#/">Back to the app</a></p>
       </div>
     </div>
   );

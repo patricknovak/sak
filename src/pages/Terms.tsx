@@ -37,7 +37,7 @@ const SECTIONS: { title: string; body: string[] }[] = [
     'Super Pools is operated by Planetterrian Ventures and Patrick Novak, 963 8th Ave W, Vancouver, British Columbia V5Z 1E4, Canada. These terms are governed by the laws of British Columbia and the federal laws of Canada that apply there. If you live in Quebec, the consumer protection laws of Quebec also apply to you.',
   ] },
   { title: 'Changes and leaving', body: [
-    'We may change these terms as the product changes; the date below says when, and anything that matters to you we will also tell you in the app. You can stop using Super Pools at any time, and write to hello@superpoolsai.com to delete your account and what we keep about you (the privacy note says how).',
+    'We may change these terms as the product changes; the date below says when, and anything that matters to you we will also tell you in the app. You can stop using Super Pools at any time, and delete your account and what we keep about you from your profile, or by writing to hello@superpoolsai.com (the privacy note says what goes and what stays).',
   ] },
 ];
 
@@ -59,7 +59,7 @@ export default function Terms() {
             </section>
           ))}
         </div>
-        <p className="mt-8 text-center text-xs text-mute">Last changed 10 November 2026. Questions: <a className="text-sky-300" href="mailto:hello@superpoolsai.com">hello@superpoolsai.com</a> · <a className="text-sky-300" href="#/privacy">Privacy</a> · © 2026 {PRODUCT.name} · <a className="text-sky-300" href="#/">Back to the app</a></p>
+        <p className="mt-8 text-center text-xs text-mute">Last changed 25 November 2026. Questions: <a className="text-sky-300" href="mailto:hello@superpoolsai.com">hello@superpoolsai.com</a> · <a className="text-sky-300" href="#/privacy">Privacy</a> · © 2026 {PRODUCT.name} · <a className="text-sky-300" href="#/">Back to the app</a></p>
       </div>
     </div>
   );

@@ -132,8 +132,9 @@ Also waiting on a word in the chat, each written, tested and not live: migration
 
 ## 4. Left for later (not blocking)
 
-Billing and tiers (Stripe), the app-store listing, deleting an account from inside the app (needed for an app store;
-today it is a request to hello@, as the privacy note says), naming every script and picture source in the
+Billing and tiers (Stripe), the app-store listing (deleting an account from inside the app, which a store wants, is
+built: migration 371 and Profile's "Delete your account", docs/DEVELOPMENT.md §9.52; until 371 is live the card still
+points to hello@), naming every script and picture source in the
 Content-Security-Policy (its first part, no framing, no plugins, no foreign `<base>`, is on every page since 24 November
 2026), room sign-in at the socket upgrade, and the unindexed foreign keys (index only where scans show it). A
 per-account cap on new pools is already there: five a day and 25 in all (`_pool_open`).

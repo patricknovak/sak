@@ -8423,3 +8423,90 @@ reset role;
 select set_config('request.jwt.claim.sub', '', false);
 \i supabase/migrations/20261005000361_funnel_counts.sql
 select 'front door counted', true;
+
+-- ===== deleting your own account (migration 371): seats stay, the person goes =====
+-- Dot starts a pool and a fantasy league, Dee joins both and posts; Solo has a pool of her own. Dot leaves: both
+-- pass to Dee, Dot's pool seat stays as "Former member" with its coins, her fantasy seat waits for a GM. Solo leaves:
+-- her pool goes with her.
+reset role;
+select set_config('app.league_id', '', false);
+select set_config('request.jwt.claim.sub', '', false);
+insert into auth.users (id, email) values ('00000000-0000-0000-0000-0000000000d1', 'dot@example.com'),
+  ('00000000-0000-0000-0000-0000000000d2', 'dee@example.com'), ('00000000-0000-0000-0000-0000000000d3', 'solo@example.com'),
+  ('00000000-0000-0000-0000-0000000000d4', 'boss@example.com');
+insert into waitlist (email, name) values ('Dot@example.com', 'Dot');
+select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-0000000000d1', false);
+set role authenticated;
+select (pool_start('Dot Pool', '#f7c548')->>'id')::int as dpool \gset
+select set_config('app.league_id', :'dpool', false);
+select pool_invite_link(7, 20) as dcode \gset
+reset role;
+select set_config('app.league_id', '', false);
+select _accept_invite('00000000-0000-0000-0000-0000000000d2', :'dcode', 'Dee');
+select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-0000000000d1', false);
+set role authenticated;
+select (fantasy_start('Dot League', '#f7c548', 4)->>'id')::int as dleague \gset
+select set_config('app.league_id', :'dleague', false);
+select create_invite((select min(id) from teams where league_id = :dleague and user_id is null)) as fcode \gset
+reset role;
+select set_config('app.league_id', '', false);
+select _accept_invite('00000000-0000-0000-0000-0000000000d2', :'fcode', 'Dee');
+select id as dot_pool_team from teams where league_id = :dpool and user_id = '00000000-0000-0000-0000-0000000000d1' \gset
+select id as dot_league_team from teams where league_id = :dleague and user_id = '00000000-0000-0000-0000-0000000000d1' \gset
+insert into messages (channel, team_id, kind, body, league_id) values ('general', :dot_pool_team, 'user', 'my phone number is 555-0100', :dpool),
+  ('general', :dot_league_team, 'user', 'hello league', :dleague);
+insert into push_subscriptions (endpoint, team_id, p256dh, auth, league_id) values ('https://push.example/dot', :dot_pool_team, 'k', 'a', :dpool);
+select pg_temp.expect('Dot is in a pool and a league before', (select count(*) from league_members where user_id = '00000000-0000-0000-0000-0000000000d1') = 2);
+
+select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-0000000000d2', false);
+set role authenticated;
+select pg_temp.expect('a member''s preview: the pool seat stays nameless, the league seat opens',
+  (select jsonb_agg(s->>'outcome' order by (s->>'league_id')::int) = '["former_member", "seat_open"]'::jsonb from jsonb_array_elements(account_delete_preview()->'seats') s));
+reset role;
+select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-0000000000d1', false);
+set role authenticated;
+select pg_temp.expect('the host''s preview: both pass to Dee',
+  (select bool_and(s->>'outcome' = 'host_passes' and s->>'successor' = 'Dee') from jsonb_array_elements(account_delete_preview()->'seats') s)
+  and (account_delete_preview()->>'posts')::int = 2);
+select pg_temp.raises('deleting wants the word typed', $q$ select account_delete('yes') $q$, 'Type DELETE');
+select pg_temp.raises('the wipe is not callable', $q$ select _league_wipe(1) $q$, 'permission denied');
+select account_delete('Delete') as dres \gset
+reset role;
+select set_config('request.jwt.claim.sub', '', false);
+select pg_temp.expect('the answer names the photo folders', (:'dres'::jsonb->'folders') ? (:'dpool' || '/' || :'dot_pool_team'));
+select pg_temp.expect('Dot belongs to nothing', not exists (select 1 from league_members where user_id = '00000000-0000-0000-0000-0000000000d1')
+  and not exists (select 1 from teams where user_id = '00000000-0000-0000-0000-0000000000d1')
+  and not exists (select 1 from accounts where user_id = '00000000-0000-0000-0000-0000000000d1'));
+select pg_temp.expect('her pool seat stays as Former member with its coins', (select name = 'Former member' and gm_name = 'Former member' and login_email is null
+  from teams where id = :dot_pool_team) and (select balance from coin_balances where team_id = :dot_pool_team) > 0);
+select pg_temp.expect('her fantasy seat is open and loses her name', (select gm_name = 'Open seat' and user_id is null and name not ilike '%dot%' from teams where id = :dot_league_team));
+select pg_temp.expect('what she wrote and her alerts are gone', not exists (select 1 from messages where team_id in (:dot_pool_team, :dot_league_team) and kind = 'user')
+  and not exists (select 1 from push_subscriptions where team_id = :dot_pool_team));
+select pg_temp.expect('Dee hosts both now', (select bool_and(owner_user = '00000000-0000-0000-0000-0000000000d2') from leagues where id in (:dpool, :dleague))
+  and (select bool_and(is_commish) from teams where user_id = '00000000-0000-0000-0000-0000000000d2' and league_id in (:dpool, :dleague)));
+select pg_temp.expect('and is told', (select count(*) from notifications where team_id in (select id from teams where user_id = '00000000-0000-0000-0000-0000000000d2') and kind = 'commish') >= 2);
+select pg_temp.expect('the waitlist entry on her email is gone', not exists (select 1 from waitlist where lower(email) = 'dot@example.com'));
+
+-- Solo's pool has nobody else in it: it goes with her
+select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-0000000000d3', false);
+set role authenticated;
+select (pool_start('Solo Pool', '#f7c548')->>'id')::int as spool \gset
+select pg_temp.expect('a pool with nobody else is deleted', (account_delete_preview()->'seats'->0->>'outcome') = 'league_deleted');
+select account_delete('delete');
+reset role;
+select pg_temp.expect('and it is', not exists (select 1 from leagues where id = :spool) and not exists (select 1 from teams where league_id = :spool));
+
+-- a platform admin is refused
+insert into ops.platform_admins (user_id) values ('00000000-0000-0000-0000-0000000000d4');
+select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-0000000000d4', false);
+set role authenticated;
+select pg_temp.raises('a platform admin can''t delete themselves here', $q$ select account_delete('delete') $q$, 'platform admin');
+reset role;
+delete from ops.platform_admins where user_id = '00000000-0000-0000-0000-0000000000d4';
+set role anon;
+select pg_temp.raises('the public key can''t delete anything', $q$ select account_delete('delete') $q$, 'permission denied');
+reset role;
+select set_config('app.league_id', '', false);
+select set_config('request.jwt.claim.sub', '', false);
+\i supabase/migrations/20261005000371_account_delete.sql
+select 'account deletion', true;

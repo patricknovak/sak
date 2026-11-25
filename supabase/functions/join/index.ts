@@ -8,6 +8,7 @@
 //   POST {fan: {name, club, league}}                            (migrations 337 and 338: a voice in the fan zones, no seat)
 //   POST {config: true}                                         (which doors' switches are on: the bot check's public key, the email code)
 //   POST {waitlist: {email, league, note, source, utm_...}}     (the landing's "notify me" form, behind the bot check)
+//   POST {delete_account: {confirm: 'delete'}}, signed in        (migration 371: the account closes itself, for good)
 // With the EMAIL_CODES secret on, the three email doors answer {verify: true} first and open on the second call, made
 // with the session the 6-digit code signed in (below).
 // Open sign-up is off, so the invite is the way in: the code has to be good, then this makes the account (email and
@@ -335,6 +336,42 @@ async function claim(req: Request, b: { claim?: { email?: string; password?: str
   return reply(200, { ok: true, email });
 }
 
+// the account closes itself (migration 371): account_delete runs as the person, with their own session, so it can
+// only ever touch the caller; it empties their seats, hands on what they host and answers the chat photo folders,
+// which only the Storage API can clear; the sign-in goes last, so a failure part way is finished by trying again
+const ANON_KEY = Deno.env.get('SUPABASE_ANON_KEY') ?? '';
+async function deleteAccount(req: Request, b: { delete_account?: { confirm?: string } }) {
+  const who = await caller(req);
+  if (!who) return reply(401, { error: 'Sign in first.' });
+  if (String(b.delete_account?.confirm ?? '').trim().toLowerCase() !== 'delete') return reply(400, { error: 'Type DELETE to confirm.' });
+  const token = (req.headers.get('authorization') ?? '').replace(/^Bearer\s+/i, '');
+  const as = createClient(Deno.env.get('SUPABASE_URL')!, ANON_KEY, {
+    auth: { persistSession: false }, global: { headers: { Authorization: `Bearer ${token}` } },
+  });
+  const { data, error } = await as.rpc('account_delete', { p_confirm: 'delete' });
+  if (error) return reply(400, { error: error.message.replace(/^.*?ERROR:\s*/, '') });
+  const folders = ((data as { folders?: string[] } | null)?.folders ?? []).filter((f) => /^\d+(\/\d+)?$/.test(f));
+  for (const folder of folders) {
+    try {
+      // a league's folder holds a folder per team; a team's folder holds the photos
+      const { data: items } = await db.storage.from('chat').list(folder, { limit: 1000 });
+      const files: string[] = [];
+      for (const it of items ?? []) {
+        if (it.id) { files.push(`${folder}/${it.name}`); continue; }
+        const { data: inner } = await db.storage.from('chat').list(`${folder}/${it.name}`, { limit: 1000 });
+        for (const f of inner ?? []) if (f.id) files.push(`${folder}/${it.name}/${f.name}`);
+      }
+      for (let i = 0; i < files.length; i += 100) await db.storage.from('chat').remove(files.slice(i, i + 100));
+    } catch (e) { console.error('delete photos', folder, e); }
+  }
+  const { error: de } = await db.auth.admin.deleteUser(who.id);
+  if (de) {
+    console.error('delete user', de);
+    return reply(500, { error: 'Your seats and posts are cleared, but the sign-in couldn’t be removed just now. Try again in a minute.' });
+  }
+  return reply(200, { ok: true });
+}
+
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: cors });
   if (req.method !== 'POST') return reply(405, { error: 'POST only' });
@@ -344,6 +381,7 @@ Deno.serve(async (req) => {
   if (b.config === true) return reply(200, { ok: true, turnstile: TURNSTILE_SITE_KEY, human: !!TURNSTILE_SECRET, codes: EMAIL_CODES });
   // a guest keeping their seat is already signed in, as is the second step of a door whose code is in (its first step
   // passed the check); every other door makes something new and gets the bot check
+  if (b.delete_account) return deleteAccount(req, b as { delete_account?: { confirm?: string } });
   if (!b.claim && !(await caller(req)) && !(await isHuman(req, b))) return reply(403, { error: 'We couldn’t check that you’re a person. Reload the page and try again.' });
   if (b.pool) return startPool(req, b);
   if (b.fantasy) return startFantasy(req, b as { fantasy?: FantasyBody; email?: string; password?: string; name?: string } & Record<string, unknown>);

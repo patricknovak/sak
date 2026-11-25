@@ -14,6 +14,7 @@ import { KeepSeat } from '../components/KeepSeat';
 import { InstallPrompt } from '../components/InstallPrompt';
 import { ConnectYahoo, useYahooStatus } from '../components/YahooConnect';
 import { useBrand } from '../lib/brand';
+import { DeleteAccount } from '../components/DeleteAccount';
 
 const EMOJIS = ['🏒', '🥅', '🇨🇿', '🐦', '🐦‍⬛', '🦅', '🧔', '👨‍👦', '🕺', '😱', '🔥', '🐺', '🦁', '🐻', '🦈', '🍺', '👑', '💀', '🤠', '🧊', '⚡', '🚨', '🐐', '🦫'];
 const COLORS = ['#c8102e', '#e11d48', '#ea580c', '#f59e0b', '#16a34a', '#0f766e', '#0891b2', '#1d4ed8', '#7c3aed', '#db2777', '#111827', '#64748b'];
@@ -172,6 +173,7 @@ export default function Profile() {
         📱 <span className="text-slate-200">Install the app:</span> on iPhone tap Share → “Add to Home Screen”; on Android tap ⋮ → “Install app”. It opens full-screen like a native app.
       </div>
       <button className="btn-ghost w-full" onClick={() => signOut()}>Sign out</button>
+      <DeleteAccount />
       <p className="text-center text-[11px] text-mute"><a href="#/privacy" className="underline decoration-white/20 underline-offset-2">What we keep about you</a> · <a href="#/terms" className="underline decoration-white/20 underline-offset-2">Terms of use</a></p>
       </div>
     </div>
