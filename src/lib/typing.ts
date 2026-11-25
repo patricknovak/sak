@@ -3,7 +3,7 @@
 // DM) never ping.
 import { useEffect, useRef, useState } from 'react';
 import type { RealtimeChannel } from '@supabase/supabase-js';
-import { supabase } from './supabase';
+import { RT_PRIVATE, supabase } from './supabase';
 
 type Ping = { team: number; channel: string; at: number };
 let ch: RealtimeChannel | null = null;
@@ -17,7 +17,7 @@ function join(league: number) {
   // a different league: the one topic moves to it; the count still covers every chat holding it
   if (ch) { supabase.removeChannel(ch); ch = null; }
   topicLeague = league;
-  ch = supabase.channel(`typing:${league}`, { config: { broadcast: { self: false } } })
+  ch = supabase.channel(`typing:${league}`, { config: { private: RT_PRIVATE, broadcast: { self: false } } })
     .on('broadcast', { event: 'typing' }, ({ payload }) => { const p = payload as Ping; listeners.forEach((f) => f({ ...p, at: Date.now() })); });
   ch.subscribe();
 }

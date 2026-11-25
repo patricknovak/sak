@@ -11,7 +11,7 @@
 // your phone, with no waiting on the other one. When the puck crosses the red line its owner hands it over.
 import { useEffect, useState } from 'react';
 import type { RealtimeChannel } from '@supabase/supabase-js';
-import { supabase } from '../supabase';
+import { RT_PRIVATE, supabase } from '../supabase';
 import { useLeague } from '../store';
 
 // a challenge names its game: Rink Duel (air hockey, the default for older copies of the app) or Rod Hockey
@@ -29,7 +29,7 @@ export function joinLobby(league: number) {
   if (lobby && lobbyLeague === league) return;
   if (lobby) { supabase.removeChannel(lobby); lobby = null; }
   lobbyLeague = league;
-  lobby = supabase.channel(`rink:${league}`, { config: { broadcast: { self: false } } })
+  lobby = supabase.channel(`rink:${league}`, { config: { private: RT_PRIVATE, broadcast: { self: false } } })
     .on('broadcast', { event: 'lobby' }, ({ payload }) => lobbyListeners.forEach((f) => f(payload as LobbyMsg)));
   lobby.subscribe();
 }
