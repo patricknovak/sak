@@ -572,11 +572,11 @@ function spWhenSeen(el, start) {
   setInterval(tick, 1000);
 })();
 
-// The Traitors door closes with its pack (the last question closes 19 November 2026, 8 pm ET): from 20 November the
-// page sends its visitors to the show pools page, keeping any campaign tags (docs/CLAIMS-AUDIT-2026-11-04.md).
+// The Traitors door closes with its pack (season 5's last questions close as the finale goes on air, 18 March 2027,
+// 9 pm ET): from 20 March the page sends its visitors to the show pools page, keeping any campaign tags.
 (function () {
   if (!/\/traitors(\.html)?$/.test(location.pathname)) return;
-  if (Date.now() < Date.UTC(2026, 10, 20, 5)) return;
+  if (Date.now() < Date.UTC(2027, 2, 20, 5)) return;
   location.replace('./together.html' + location.search);
 })();
 

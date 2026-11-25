@@ -45,6 +45,7 @@ export function packWhen(p: Pack, now = Date.now()): { text: string; soon: boole
 export function packPlaceholder(slug: string | null | undefined): string {
   if (!slug) return 'The Group Chat Pool';
   if (slug.startsWith('love-is-blind')) return 'The Pod Squad';
+  if (slug.startsWith('traitors')) return 'The Round Table';
   if (slug.startsWith('premier')) return 'The Sunday League';
   if (slug.startsWith('mls')) return 'The Cup Crew';
   if (slug.startsWith('world-series')) return 'The Bullpen';

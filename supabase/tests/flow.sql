@@ -3415,6 +3415,11 @@ select pg_temp.expect('the pool is a prediction league', (select kind from leagu
 select pg_temp.expect('with the pack''s questions, drops and brand', (select count(*) from pool_markets where league_id = :lib) = 16
   and (select count(*) from pool_drops where league_id = :lib) = 4 and (select brand->'coin'->>'name' from leagues where id = :lib) = 'Goblets');
 select pg_temp.expect('loading the pack twice adds nothing', _pool_load_pack(:lib, 'love-is-blind-s11', null) = 0);
+-- The Traitors season 5 pack (migration 362): seventeen questions, each with a rule, two or more answers and a closing
+-- time between the premiere and the finale, in the Traitors room
+select pg_temp.expect('the Traitors season 5 pack is whole', (select jsonb_array_length(markets) = 17 and lounge = 'traitors' and jsonb_array_length(drops) = 10
+  and not exists (select 1 from jsonb_array_elements(markets) m where jsonb_array_length(m->'outcomes') < 2 or coalesce(m->>'rule', '') = ''
+    or (m->>'closes_at')::timestamptz not between '2027-01-15T02:00:00Z' and '2027-03-19T01:00:00Z') from pool_packs where slug = 'traitors-s5'));
 insert into auth.users (id, email) values ('00000000-0000-0000-0000-000000000081', 'host81@example.com'), ('00000000-0000-0000-0000-000000000082', 'friend82@example.com');
 insert into league_invites (code, league_id, team_id, role, created_by, expires_at, max_uses)
   values ('hostseat81', :lib, (select id from teams where league_id = :lib), 'gm', '00000000-0000-0000-0000-000000000001', now() + interval '1 day', 1);

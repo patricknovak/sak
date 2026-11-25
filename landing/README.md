@@ -46,8 +46,9 @@ Every page is plain HTML on one design system. Each start button opens the app's
   `site-sports.css`. The sport pages' playoff rows and every generated page's footer ("Coming up") link to them.
 - `together.html`, show pools for any group, in rose: what's on and what's next (every line dated), the drawn invite,
   the try-it question, women's sport with a pool on it.
-- `traitors.html`: the Traitors pool while its pack has a question left. From 20 November 2026 05:00Z `site.js` sends the
-  page to `together.html` (keeping the query); a `_redirects` line can take over once that date has passed.
+- `traitors.html`: The Traitors season 5 pool (Peacock, from 14 January 2027; pack `traitors-s5`, migration 362): three
+  calls before the premiere, one each Thursday, five on the finale. Every dated line follows the calendar, and from 20
+  March 2027 05:00Z `site.js` sends the page to `together.html` (keeping the query).
 - `love-is-blind.html`: Season 11's last calls until the reunion airs (9 November 02:00Z), then "Season 11 ended with the
   reunion" and Season 12 by the show's pattern, with one line in place of a sign-up form (an email form for a later pool
   is commercial email under CASL and needs a postal address on it; Patrick supplies one before any such form returns).
