@@ -2107,3 +2107,47 @@ line with where to click and how long it takes.
 - The doc's stale lines are corrected: the commissioner's SQL asks for 8 characters since migration 356, and the
   per-account cap on new pools has been there since `_pool_open` (five a day, 25 in all).
 
+### 9.50 The daily loop, walked as a GM, 24 November 2026
+
+The only people who open the app every day are SaK's eight GMs, so their loop was walked the way they walk it. Two
+weeks of `usage_daily` say where they go: Home (349 opens), My Team (245), Chat (147), Trades (83), the scoreboard
+(67), Bets (38). A day of API and Postgres logs showed no error on any of them, so the work was the screens
+themselves, at 390 and 360 px, against a stand-in for the database: the test database with a season seeded into it
+(games, box scores and snapshots from 7 October, two games live), read through a small PostgREST look-alike. Site only,
+but for one cron line.
+
+- **A lineup move without the scroll.** On a phone the bench sits some 2,200 px under the starters (Hot and cold, Sit
+  or start and Compare are between them), and a move is two taps: the player, then the place. The second tap meant a
+  long scroll with nothing saying where to go. Once a player is picked, a bar at the foot of the screen (`moveTargets`
+  in `MyTeam.tsx`) lists every place `canTarget` allows, the worthwhile ones lit and first: for a bench player the
+  starting slots whose player has no game or is hurt, for a starter the bench players with a game who can take his
+  slot. A tap there is the same `tap()` the rows use, so the save, the undo, What if and a day ahead all behave as
+  before. It sits above What if's bar when both are up.
+- **Home's Tonight card said the wrong thing every night.** "N benched players have a game today" fired whenever
+  anyone on a twelve-man bench played, which is every night of a full lineup. It now uses My Team's own test (a
+  healthy bench player whose game hasn't started while a starter has no game), in the same words, with Fix; a hurt
+  starter gets its own line. The starters are listed on the ice first, then by puck drop, then the finals, and a
+  player whose game hasn't started shows a dash where a 0.0 used to sit beside a live teammate's real 0.0. `hurt()`
+  moved to `src/lib/lineup.ts` so Home doesn't load the lineup kit for it.
+- **League lines in the chat showed an address.** The Book's two daily lines end "👉 #/bets?t=book"; Garry's posts
+  turned that into a button, league lines printed it: 155 lines in thirty days, against 16 posts by GMs in fourteen.
+  League lines go through the same `highlight` now (the button reads "The Book"), and Home's wire leaves the pointer
+  out of its one-line preview and opens the chat at the message (`?m=`).
+- **The alerts card never went away.** Four of nine members have alerts on; the rest saw the offer above Tonight on
+  every open, with no way to answer no. "Not now" puts it away for thirty days on that phone (`sak-push-later`);
+  Profile always has it.
+- **The bell.** Opening it marks everything read, so nothing said which lines were new: the ones unread at the moment
+  it opened are lit until it closes. A line that opens with its own mark (🚑, 🔥, 🩺) wears it as the icon once rather
+  than beside a second one, a player's alert opens his card in place, and a line that leads somewhere says so.
+- **Two readings of "tonight".** My Team's chip "8th of 8 tonight" ranks expected points, beside a total that turns
+  into real points once a game starts, while the scoreboard's "3rd of 8 tonight" is the live rank. The chip says
+  "Projected". The home's playoff table wore two trophies.
+- **The commissioner's false alarm** (migration 370, a cron line; not live until Patrick says "apply 370"). "NHL score
+  sync has not succeeded in the last 15 minutes" rang 62 times in three weeks, all on the hour or half hour, most with
+  no game on. The health check asks `_scores_due()`, which also answers yes on every quarter hour (the sync's backstop
+  run), exactly the minutes `*/30` asked on; the last good sync was then fifteen minutes and a second old. The check
+  moves to minutes 5 and 35, where `_scores_due()` is true only while a game is on or a final is unsynced.
+
+Left alone, on purpose: the coin's mark is written as ☘️ in 28 places in the site (right for SaK, wrong for a league
+with another coin), which is a brand pass of its own.
+

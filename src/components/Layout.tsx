@@ -2,6 +2,7 @@ import { ConsentSlot } from './ConsentBanner';
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { Link, NavLink, useLocation, useNavigate } from 'react-router-dom';
 import { useUsage } from '../lib/usage';
+import { usePlayerInfo } from '../lib/playerInfo';
 import { useAppUpdate } from '../lib/appUpdate';
 import { LeagueMark, Wordmark, WordmarkStack } from './Brand';
 import { signOut } from '../lib/guest';
@@ -99,6 +100,9 @@ export function Layout({ children }: { children: ReactNode }) {
   const updateReady = useAppUpdate();
   const [more, setMore] = useState(false);
   const [bell, setBell] = useState(false);
+  // the ones that were new when the bell was opened: opening it marks them read, so the sheet keeps which they were
+  const [fresh, setFresh] = useState<Set<number>>(new Set());
+  const playerInfo = usePlayerInfo();
   const { any: chatUnread, count: chatCount } = useUnread();
   const unreadN = notifications.filter((n) => !n.read).length;
   // Rink Duel, thumb air hockey (7 November 2026), and Rod Hockey, table hockey (8 November 2026): every hockey league
@@ -267,6 +271,7 @@ export function Layout({ children }: { children: ReactNode }) {
   const openNotif = async () => {
     setBell(true);
     const ids = notifications.filter((n) => !n.read).map((n) => n.id);
+    setFresh(new Set(ids));
     if (ids.length) {
       await supabase.from('notifications').update({ read: true }).in('id', ids);
       refresh(['notifications']);
@@ -403,13 +408,23 @@ export function Layout({ children }: { children: ReactNode }) {
       <Sheet open={bell} onClose={() => setBell(false)} title="Notifications">
         {notifications.length === 0 ? <div className="py-8 text-center text-sm text-mute">Nothing yet. Go start something in the chat.</div> : (
           <div className="divide-y divide-white/[.06]">
-            {notifications.map((n) => (
-              <button key={n.id} className="flex w-full items-start gap-3 py-2.5 text-left" onClick={() => { setBell(false); if (n.link) nav(n.link); }}>
-                <span className="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-white/[.06] text-base">{nKind[n.kind] ?? '🔔'}</span>
-                <span className="flex-1 text-sm">{n.body}</span>
-                <span className="text-xs text-mute">{ago(n.created_at, now)}</span>
-              </button>
-            ))}
+            {notifications.map((n) => {
+              // a line that opens with its own mark (🚑, 🔥, 🩺) wears it as the icon once, rather than beside a second one
+              const mark = n.body.match(/^(\p{Extended_Pictographic}(?:\uFE0F|\u200D\p{Extended_Pictographic})*)\s*/u);
+              const isNew = fresh.has(n.id);
+              // a player's alert opens his card over the page, like everywhere else; the rest go to their page
+              const player = n.link?.match(/^\/player\/(\d+)$/);
+              const go = () => { setBell(false); if (player && playerInfo) playerInfo(Number(player[1])); else if (n.link) nav(n.link); };
+              return (
+                <button key={n.id} className={`-mx-2 flex w-[calc(100%+1rem)] items-start gap-3 rounded-xl px-2 py-2.5 text-left ${isNew ? 'bg-gold/[.07]' : ''}`} onClick={go}>
+                  <span className="relative grid h-8 w-8 shrink-0 place-items-center rounded-full bg-white/[.06] text-base">{mark?.[1] ?? nKind[n.kind] ?? '🔔'}
+                    {isNew && <span className="absolute -right-0.5 -top-0.5 h-2.5 w-2.5 rounded-full bg-gold ring-2 ring-[#0f1729]" aria-label="New" />}
+                  </span>
+                  <span className={`min-w-0 flex-1 break-words text-sm ${isNew ? 'font-semibold text-white' : 'text-slate-300'}`}>{mark ? n.body.slice(mark[0].length) : n.body}</span>
+                  <span className="shrink-0 whitespace-nowrap text-xs text-mute">{ago(n.created_at, now)}{n.link ? ' ›' : ''}</span>
+                </button>
+              );
+            })}
           </div>
         )}
       </Sheet>

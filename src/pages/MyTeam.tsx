@@ -325,6 +325,23 @@ function TeamPage({ kit }: { kit: Kit }) {
   // What if's running sum: the trial lineup's expected points against the saved one's
   const trialMoves = trial ? diffMoves(saved, trial) : [];
   const trialGain = trial && teamId ? kit.dayStats(teamId, lday, trial).pts - kit.dayStats(teamId, lday, saved).pts : 0;
+
+  // every place the picked player can go, for the bar at the foot of the screen: starting slots (an empty one, or a
+  // swap with who's in it) and, for a starter, the bench and whoever on it can take his place (a bench player who
+  // can't would only send him to the bench, which the bench's own chip already says). A place whose player
+  // has no game on the day, or is hurt, comes first: that is the move a GM is usually there to make.
+  const moveTargets = (() => {
+    if (!selected || !mine) return [] as { slot: Slot; x?: Row; idle: boolean; note: string | null }[];
+    const starting = selected.r.slot !== 'BN' && selected.r.slot !== 'IR';
+    const noteOf = (x?: Row) => (!x ? null : hurt(x.p) ? (x.p.injury_status ?? 'hurt') : !playsToday(x.p) ? 'no game' : (() => { const g = gameOf(x.p); return g ? (g.home === x.p.nhl_team ? `vs ${g.away}` : `@ ${g.home}`) : null; })());
+    const all = [...rows, ...(selected.r.slot !== 'BN' ? [{ slot: 'BN' as Slot, x: undefined as Row | undefined }, ...bench.filter((x) => slotOk(x.p, selected.r.slot as Slot)).map((x) => ({ slot: 'BN' as Slot, x }))] : [])]
+      .filter((t) => canTarget(t.slot, t.x))
+      // the move worth making, lit and listed first: into the lineup, a place whose player sits idle; out of it, a
+      // bench player with a game who can take the place
+      .map((t) => ({ ...t, idle: starting ? t.slot === 'BN' && !!t.x && playsToday(t.x.p) && !hurt(t.x.p) : t.slot !== 'BN' && (!t.x || hurt(t.x.p) || !playsToday(t.x.p)), note: noteOf(t.x) }));
+    const rank = (t: (typeof all)[number]) => (t.idle ? 0 : t.slot === 'BN' && !t.x ? 2 : 1);
+    return all.sort((a, b) => rank(a) - rank(b));
+  })();
   // the strip of days in the Tonight card: tonight and the two weeks after it, each with what the lineup saved for it
   // is expected to score and whether it has a lineup of its own
   const stripDays = useMemo(() => Array.from({ length: 15 }, (_, i) => addDays(kit.today, i)).filter((d) => !league?.season_end || d <= league.season_end), [kit.today, league?.season_end]);
@@ -456,10 +473,11 @@ function TeamPage({ kit }: { kit: Kit }) {
               );
             })}
           </div>
-          {/* the starting slots, lit for each starter who plays tonight */}
+          {/* the starting slots, lit for each starter who plays tonight; the chip ranks the night on expected points (the
+              League tab's board) and says so, since the number beside it turns into the night's real points */}
           <div className="relative mt-3 flex flex-wrap items-center justify-between gap-2 text-xs">
             <span className="text-white/80"><b className={`num ${playingStarters < starterSlots && benchPlaying.length ? 'text-amber-300' : 'text-emerald-300'}`}>{playingStarters}</b> of {starterSlots} starters play{gameDayStarters === 0 ? ' · a quiet night for your roster' : ''}</span>
-            {nightRank && <button type="button" onClick={() => setView('league')} className="chip border-gold/40 bg-gold/10 text-gold">🏆 {ordinal(nightRank.rank)} of {nightRank.of} {ahead ? `on ${weekday(lday)}` : 'tonight'}</button>}
+            {nightRank && <button type="button" onClick={() => setView('league')} className="chip border-gold/40 bg-gold/10 text-gold">🏆 Projected {ordinal(nightRank.rank)} of {nightRank.of} {ahead ? `on ${weekday(lday)}` : 'tonight'}</button>}
           </div>
           <div className="relative mt-1.5 flex gap-1">
             {rows.map((r, i) => {
@@ -536,6 +554,29 @@ function TeamPage({ kit }: { kit: Kit }) {
       {mine && <LineupTools open={tools} onClose={() => setTools(false)} roster={saved0} />}
       {mine && inSeason && <OptimizeSheet kit={kit} teamId={t.id} day={lday} open={opt} onClose={() => setOpt(false)} />}
       {/* What if: the trial's moves and what they're worth, then save them all (with an undo) or throw them away */}
+      {/* a move in two taps without the scroll between them: the bench is a long way under the starters on a phone, so
+          once a player is picked, every place he can go rides along at the foot of the screen (idle starters first) */}
+      {mine && selected && cur === 'lineup' && moveTargets.length > 0 && (
+        <div className={`fixed inset-x-0 z-40 px-4 md:bottom-6 ${trial ? 'bottom-[196px] md:bottom-[124px]' : 'bottom-[84px]'}`} data-move-bar><div className="mx-auto max-w-md rounded-2xl bg-[#0f1729]/95 p-2.5 shadow-[0_12px_32px_rgba(0,0,0,.55)] ring-1 ring-gold/40 backdrop-blur">
+          <div className="flex items-center gap-2 px-0.5 text-xs text-slate-200">
+            <SlotPill slot={selected.r.slot} size="sm" />
+            <span className="min-w-0 flex-1 break-words">Moving <b className="text-white">{short(selected.p)}</b>: tap where he goes</span>
+            <button type="button" className="-my-1 shrink-0 rounded-full px-2.5 py-1.5 text-xs font-semibold text-sky-300" onClick={() => setSel(null)}>Cancel</button>
+          </div>
+          <div className="scroll-x mt-2 flex gap-1.5 pb-0.5">
+            {moveTargets.map((t) => (
+              <button key={`${t.slot}:${t.x?.p.id ?? 'open'}`} type="button" disabled={working} onClick={() => tap(t.slot, t.x)}
+                className={`flex shrink-0 items-center gap-1.5 rounded-xl px-2 py-1.5 text-left ring-1 transition active:scale-[.97] ${t.idle ? 'bg-gold/15 ring-gold/50' : 'bg-white/[.05] ring-white/10'}`}>
+                <SlotPill slot={t.slot} size="sm" />
+                <span className="min-w-0">
+                  <span className="block max-w-[9rem] truncate text-xs font-semibold text-white">{t.x ? short(t.x.p) : t.slot === 'BN' ? 'To the bench' : 'Open slot'}</span>
+                  {t.note && <span className={`block text-[10px] leading-tight ${t.idle ? 'text-gold' : 'text-mute'}`}>{t.note}</span>}
+                </span>
+              </button>
+            ))}
+          </div>
+        </div></div>
+      )}
       {mine && trial && cur === 'lineup' && (
         <div className="fixed inset-x-0 bottom-[84px] z-40 px-4 md:bottom-6"><div className="mx-auto max-w-md rounded-2xl bg-[#1c1433]/95 p-3 shadow-[0_12px_32px_rgba(0,0,0,.55)] ring-1 ring-violet-300/40 backdrop-blur">
           <div className="flex items-center gap-2 text-sm text-violet-100">

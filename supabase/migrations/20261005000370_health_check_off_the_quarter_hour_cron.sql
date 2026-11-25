@@ -1,0 +1,12 @@
+-- The commissioner's bell rang "NHL score sync has not succeeded in the last 15 minutes" 62 times in three weeks
+-- (3 to 24 November 2026), every one of them on the hour or the half hour, most with no game on. The cause is the
+-- minute the health check ran on, not the score sync: the check asks _scores_due() whether the sync should be
+-- running, and _scores_due() also answers yes on every quarter hour (the sync's backstop run), which is exactly when
+-- the check (*/30) asked. On a quiet afternoon the last good sync was then the :45 or :15 backstop, fifteen minutes
+-- and a second ago, and the alarm went off.
+--
+-- The check moves five minutes off the quarter hour. There _scores_due() is true only while a game is on or a final
+-- is still to be synced, which is when the sync runs every minute and fifteen quiet minutes is a real fault. Nothing
+-- else in the check depends on the minute. cron.schedule with a job's own name changes its schedule in place, so
+-- this is safe to run twice.
+select cron.schedule('health-check', '5,35 * * * *', $$ select public.health_check() $$);

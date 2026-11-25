@@ -6,6 +6,8 @@
 export interface Change { date: string; icon: string; title: string; body: string; to?: string; tag?: 'formats' | 'commish' | 'draft' | 'everyone' }
 
 export const CHANGELOG: Change[] = [
+  { date: '2026-11-24', icon: '👆', tag: 'everyone', title: 'Lineup moves without the scroll', to: '/team',
+    body: 'Tap a player on My Team and every place he can go now rides along at the bottom of the screen: tap one and the move is made, with the same undo. Places where a starter sits idle come first. Home\'s Tonight card puts the players on the ice at the top, shows a dash until a game starts, and warns you only when there is a move worth making. League lines in the chat that point at a page (the Book opening or paying out) are a button now. The bell marks what is new, and a player\'s alert opens his card. The alerts offer on Home has a Not now.' },
   { date: '2026-11-04', icon: '🎟️', tag: 'everyone', title: 'Fans can start a pool', to: '/new',
     body: 'Joined the fan zones with just a name? Start a pool on the same account now: Start a pool sits in the fan zones\' header, signed in or not. Add an email from the pool\'s home (Keep your place) so your host\'s seat follows you to a new phone. The Love Is Blind reunion question now closes when the reunion airs.' },
   { date: '2026-11-04', icon: '🚪', tag: 'everyone', title: 'An easier way in for someone new', to: '/new',

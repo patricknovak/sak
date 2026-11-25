@@ -1,6 +1,12 @@
 {
- "updated": "2026-11-04",
+ "updated": "2026-11-24",
  "entries": [
+  {
+   "date": "2026-11-24",
+   "title": "Lineup moves without the scroll",
+   "line": "Tap a player on My Team and every place he can go now rides along at the bottom of the screen: tap one and the move is made, with the same undo.",
+   "to": "https://app.superpoolsai.com/#/team"
+  },
   {
    "date": "2026-11-04",
    "title": "Fans can start a pool",
@@ -18,12 +24,6 @@
    "title": "The Oilers fan zone",
    "line": "A page for the Oilers: the verdict on their season with a grade, strengths and weaknesses ranked against all 32 clubs, a luck check and what management and the coaches should do about it; who's rising and who's fading, the goalies and the prospects; the latest news, the last ten games and the next few; and the history, from the 1984 Cup to the rafters.",
    "to": "https://app.superpoolsai.com/#/fans"
-  },
-  {
-   "date": "2026-10-24",
-   "title": "The full-screen app, and a roomier chat",
-   "line": "Add the app to your Home Screen and it opens full screen, with no browser bars and with alerts on your phone.",
-   "to": "https://app.superpoolsai.com/#/profile"
   }
  ]
 }
