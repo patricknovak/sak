@@ -302,3 +302,18 @@ in attracting and growing the brand and making money." What was settled on that 
 5. **The email list waits on a postal address.** Any form that collects an email for later marketing needs the sender's
    mailing address under CASL; until Patrick supplies one, the only email form is the fantasy waitlist, which promises
    one message.
+
+## Decided, 25 November 2026
+
+Patrick, on the review of 24 November (a Claude Doc in the project, "Super Pools: market review and growth plan"): "do all
+as recommended please". It found no new account and no new pool in the 32 days since 23 October, the SaK GMs the only
+daily users, and distribution, not the product, the site or the price, as what holds growth back.
+
+- **The goal:** 25 pools outside SaK with five or more members each by 30 April 2027, measured on the Platform page
+  (`platform_week()` and the Front door, migration 361). Until then no new games or features; work goes to the funnel,
+  the launch blockers and three dated pushes (the NFL playoffs and the Super Bowl, The Traitors season 5 from 14 January,
+  the Stanley Cup playoff pools). The table hockey games' look-and-feel release waits for the goal.
+- **The headline:** the home leads with "Pools for your group chat. Live scores, real banter, never money.", the
+  tagline and its three lines right under it (BRAND §1, amended the same day).
+- **Billing waits for the goal**, not a date: Stripe is built once 25 outside pools are live, instead of before March
+  2027 as "The road to money" step 2 had it. The prices and the founding season above stand.
