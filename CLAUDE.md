@@ -419,6 +419,9 @@ wasn't applied); #75 was the hotfix.
   added there in the same migration.
 - Flow-test sections end signed out (`reset role` and an empty `request.jwt.claim.sub`), so the next section
   doesn't run as another league's GM.
+- Deleting an account (migration 371, docs/DEVELOPMENT.md §9.52): `account_delete` removes the person and what they wrote
+  and leaves their seats nameless (a fantasy team open for a new GM, a pool seat as "Former member"); what they host
+  passes to a co-host or the first to join. A new table that holds a person's own data joins it in the same migration.
 - Keep the docs true in the same pull request as the change: `docs/SUPERPOOLS.md`, `docs/EXPANSION.md`, this file.
 
 ## Team ids (SaK, league 1)
