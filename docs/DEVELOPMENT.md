@@ -2152,3 +2152,13 @@ but for one cron line.
 Left alone, on purpose: the coin's mark is written as ☘️ in 28 places in the site (right for SaK, wrong for a league
 with another coin), which is a brand pass of its own.
 
+
+### 9.51 The goal to April and the home's new headline, 25 November 2026
+
+Patrick took the market review's recommendations (24 November, §9.41): the goal is 25 pools outside SaK with five or
+more members by 30 April 2027, no new games or features until then, and billing waits for that goal rather than a date
+(`docs/MARKET-REVIEW-2026-11.md`, "Decided, 25 November 2026"). The home page now leads with the concrete promise,
+"Pools for your group chat." and "Live scores, real banter, never money." in ice under it, with the tagline and its three
+lines right below (`landing/index.html`, `.hero2 h1 .l2.sm` in `site.css`; BRAND §1 amended); the sub names what you can
+start (pick'em, box pools, brackets, fantasy leagues, any show). Checked at 360, 390 and 1280 px: the gold button stays in
+the first screen on a phone. The landing journey checks the new headline and the tagline under it.

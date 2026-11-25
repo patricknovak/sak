@@ -23,6 +23,11 @@ before your friends do" stays the lead line on the Love Is Blind page. The commi
 (`fantasy-hockey.html`) is "The hockey pool that runs itself.", with the tagline's three lines under it. The tagline and
 its three lines are unchanged.
 
+*Amended 25 November 2026 (Patrick, on the market review of 24 November):* the home page leads with the concrete
+promise, "Pools for your group chat." with "Live scores, real banter, never money." under it in ice; the tagline,
+Fantasy Pools from the Future, sits right below with its three lines, together and in order. The share card and
+`PRODUCT.tagline` keep the tagline.
+
 The fantasy door, as it was written for hockey: it starts with hockey. It scores the league from the box scores every night, settles the side bets, sets the lineups GMs planned weeks ago, runs the
 draft, and gives the league a voice that posts the recap, grades the trades and answers "who should I
 start?" in the chat. The commissioner runs the league. Super Pools does the bookkeeping.
