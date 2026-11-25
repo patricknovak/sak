@@ -1,6 +1,6 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import type { Session } from '@supabase/supabase-js';
-import { configured, selectAll, realtimeChannel, supabase } from './supabase';
+import { configured, selectAll, realtimeChannel, RT_PRIVATE, supabase } from './supabase';
 import type {
   DraftPick, DraftState, Game, League, Notification, Player, PlayerSeason, PlayerStatus, PlayerWindow, Roster, Standing, Team,
 } from './types';
@@ -362,7 +362,7 @@ export function LeagueProvider({ children }: { children: ReactNode }) {
       try {
         await Promise.all(supabase.getChannels().filter((c) => c.topic.startsWith('realtime:online')).map((c) => supabase.removeChannel(c)));
         if (cancelled) return;
-        const c = supabase.channel(`online:${presenceLeague}`, { config: { presence: { key: String(me.id) } } });
+        const c = supabase.channel(`online:${presenceLeague}`, { config: { private: RT_PRIVATE, presence: { key: String(me.id) } } });
         ch = c;
         c.on('presence', { event: 'sync' }, () => {
           setOnline(new Set([me.id, ...Object.keys(c.presenceState()).map(Number)]));

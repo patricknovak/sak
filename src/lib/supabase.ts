@@ -90,7 +90,19 @@ export async function selectAll<T>(table: string, columns = '*', page = 1000, or
   }
 }
 
+// Private channels (migration 368, docs/DEVELOPMENT.md 9.48): the database says who may join a topic (_rt_topic_ok),
+// a league's own to its members. Step two is tried per phone before it is everyone's: open the site once at
+// /?rt=private and this phone opens every channel as private from then on (/?rt=public puts it back). Once two
+// phones have proved typing, who's online, the games and the live scores that way, private becomes the default.
+export const RT_PRIVATE = (() => {
+  try {
+    const q = new URLSearchParams(location.search).get('rt');
+    if (q === 'private') localStorage.setItem('rt-private', '1');
+    if (q === 'public') localStorage.removeItem('rt-private');
+    return localStorage.getItem('rt-private') === '1';
+  } catch { return false; }
+})();
 // Realtime hands back an existing channel when the topic matches, and adding listeners to an
 // already-subscribed channel throws. Give every mount its own topic so two components (or a
 // remount racing the old unsubscribe) never share one.
-export const realtimeChannel = (name: string) => supabase.channel(`${name}:${Math.random().toString(36).slice(2, 10)}`);
+export const realtimeChannel = (name: string) => supabase.channel(`${name}:${Math.random().toString(36).slice(2, 10)}`, { config: { private: RT_PRIVATE } });
