@@ -1,5 +1,5 @@
-// The Super Hockey League concept page (shl.html), after site.js: the film's play button, the map, the members' vote and
-// the sealed game. Every demo is fictional and drawn in the page; each part checks its element exists, and without this
+// The Super Hockey League concept page (shl.html), after site.js: the film's play button, the lead player's living
+// portrait, the map, the members' vote and the sealed game. Every demo is fictional and drawn in the page; each part checks its element exists, and without this
 // script the page still reads whole (the film keeps its own controls, the vote shows its result).
 (function () {
   'use strict';
@@ -29,6 +29,19 @@
         start();
       });
     });
+  })();
+
+  // 1b. The lead player's portrait: a five-second clip, played once without sound the first time it is seen (he looks
+  // up and smiles), and again on a tap. With reduced motion, or on a data-saving connection, the still stays.
+  (function () {
+    var v = $('okafor-look');
+    if (!v || still || !('IntersectionObserver' in window)) return;
+    var saver = navigator.connection && navigator.connection.saveData;
+    var go = function () { try { v.currentTime = 0; } catch (e) { /* not loaded yet */ } var p = v.play(); if (p && p.catch) p.catch(function () { /* the still stays */ }); };
+    v.addEventListener('click', go);
+    if (saver) return;
+    var io = new IntersectionObserver(function (es) { if (es.some(function (e) { return e.isIntersecting; })) { io.disconnect(); go(); } }, { threshold: 0.6 });
+    io.observe(v);
   })();
 
   // 2. The map. A city is picked from the twelve buttons or by touching its dot; the row of chips dims the other kinds.

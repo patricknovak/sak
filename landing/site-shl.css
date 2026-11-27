@@ -1,8 +1,9 @@
 /* The Super Hockey League concept page (shl.html). Linked after site.css by that page only.
    The page keeps the site's tokens and its one-gold rule, and adds the league's own voice: display type in italic
    capitals, as on a sweater, and the rink's own lines as the page's dividers (red for what is closed, blue for what is
-   open). Club colours are content, used only on that club's sweater and name.
-   Sections: 1 type and the mark, 2 the hero and the film, 3 the ledger, 4 rink lines, 5 the map, 6 the players,
+   open). Club colours are content, used only on that club's name and chips. Every picture of a person is AI-generated and is
+   labelled on or beside the picture.
+   Sections: 1 type and the mark, 2 the hero and the film, 3 the ledger, 4 rink lines, 5 the map, 6 the players (faces),
    7 the front office (wire and vote), 8 the season calendar, 9 game night, 10 the sealed game, 11 how a game gets made
    and the road, 12 motion. */
 
@@ -131,19 +132,15 @@ body.shl { --gales: #1fb6a6; --gales-hi: #3fd9c9; --givre: #b9d6ff; --harvest: #
   .mapwrap { grid-template-columns: 300px minmax(0, 1fr); align-items: center; gap: 30px; padding: 28px; }
 }
 
-/* 6. The players: one sweater shape (the symbol in the page), coloured by its club */
-.jersey { display: block; width: 100%; height: auto; filter: drop-shadow(0 16px 22px rgba(0,0,0,.5)); }
-/* the symbol's own paths take the card's colours: custom properties are what crosses into a <use> */
-#shl-jersey .jb { fill: var(--j); } #shl-jersey .jt, #shl-jersey .jc { fill: var(--t); } #shl-jersey .js { fill: var(--s); }
-.jersey .jn { font: 700 24px 'Barlow Condensed', 'Arial Narrow', sans-serif; letter-spacing: .09em; fill: var(--n); }
-.jersey .jd { font: 900 96px 'Barlow Condensed', 'Arial Narrow', sans-serif; fill: var(--n); }
-.jersey.gales { --j: #17a79b; --t: #0a2c3a; --s: #e8fbf8; --n: #fff; }
-.jersey.givre { --j: #e9f2ff; --t: #2b63c9; --s: #9fc3ff; --n: #143a7a; }
-.jersey.harvest { --j: #d96f2a; --t: #3a1a08; --s: #ffe2b8; --n: #fff3dc; }
-.jersey.draft { --j: #18243c; --t: #38bdf8; --s: #eef2ff; --n: #eef2ff; }
+/* 6. The players: every face is an AI-generated picture, and carries its label on the picture itself */
+.pface { position: relative; margin: 0; aspect-ratio: 3 / 4; border-radius: 16px; overflow: hidden; background: #0a1626; box-shadow: 0 0 0 1px rgba(63,217,201,.4), 0 20px 40px -20px rgba(0,0,0,.85); }
+.pface video { display: block; width: 100%; height: 100%; object-fit: cover; cursor: pointer; }
+.pface figcaption { position: absolute; left: 6px; bottom: 6px; padding: 3px 8px; border-radius: 999px; border: 1px solid rgba(63,217,201,.45); background: rgba(7,12,23,.84); font-size: 11px; font-weight: 600; line-height: 1.2; color: var(--gales-hi); pointer-events: none; }
+.dg { display: inline-block; margin-left: 4px; padding: 1px 7px; border-radius: 999px; border: 1px solid var(--line2); font-style: normal; font-size: 11px; line-height: 1.4; color: var(--mute); white-space: nowrap; }
+.pthumb { width: 78px; height: 104px; border-radius: 12px; object-fit: cover; box-shadow: 0 0 0 1px var(--line2); }
 .pcard { display: grid; gap: 24px; padding: 18px; border-radius: 26px; border: 1px solid var(--line2);
   background: radial-gradient(620px 320px at 0% 0%, rgba(31,182,166,.2), transparent 70%), var(--panel); }
-.pcard-id { display: grid; grid-template-columns: 108px minmax(0, 1fr); gap: 4px 16px; align-items: center; }
+.pcard-id { display: grid; grid-template-columns: 136px minmax(0, 1fr); gap: 4px 16px; align-items: center; }
 .pcard-who h3 { margin: 0 0 6px; font-size: clamp(38px, 10.5vw, 60px); line-height: .88; }
 .pcard-meta { margin: 0; font-size: 14px; color: var(--soft); }
 .pcard-sub { margin: 4px 0 0; font-size: 13.5px; color: var(--mute); }
@@ -182,7 +179,10 @@ body.shl { --gales: #1fb6a6; --gales-hi: #3fd9c9; --givre: #b9d6ff; --harvest: #
 .roster .pcard-meta { margin: 0; font-size: 13.5px; color: var(--soft); }
 @media (min-width: 900px) {
   .pcard { grid-template-columns: minmax(0, 1.05fr) minmax(0, .95fr); gap: 30px 48px; padding: 30px; }
-  .pcard-id { grid-template-columns: 176px minmax(0, 1fr); gap: 4px 24px; }
+  .pcard-id { grid-template-columns: 200px minmax(0, 1fr); gap: 4px 26px; }
+  .pface figcaption { left: 10px; bottom: 10px; font-size: 12px; }
+  .pthumb { width: 96px; height: 128px; }
+  .roster li { grid-template-columns: 96px minmax(0, 1fr); }
   .rate div { grid-template-columns: 100px minmax(0, 1fr); }
   .ask { align-self: center; }
   .career { grid-column: 1 / -1; grid-template-columns: repeat(6, minmax(0, 1fr)); padding-top: 26px; }
@@ -207,7 +207,8 @@ body.shl { --gales: #1fb6a6; --gales-hi: #3fd9c9; --givre: #b9d6ff; --harvest: #
   background: radial-gradient(540px 280px at 100% 0%, rgba(226,121,58,.16), transparent 70%), var(--panel); }
 .vote-club { margin: 0 0 12px; font-size: 13.5px; color: var(--mute); }
 .vote h3 { margin: 0 0 16px; font-size: clamp(31px, 7.4vw, 48px); line-height: .93; text-wrap: balance; }
-.vote-gm { margin: 0 0 18px; padding: 13px 15px; border-radius: 14px; background: rgba(255,255,255,.045); }
+.vote-gm { display: grid; grid-template-columns: 52px minmax(0, 1fr); gap: 12px; align-items: center; margin: 0 0 18px; padding: 13px 15px; border-radius: 14px; background: rgba(255,255,255,.045); }
+.vote-gm .gm { width: 52px; height: 52px; border-radius: 50%; object-fit: cover; box-shadow: 0 0 0 1px var(--line2); }
 .vote-gm p { margin: 0; font-size: 16px; font-style: italic; }
 .vote-gm p::before { content: '\201C'; } .vote-gm p::after { content: '\201D'; }
 .vote-gm cite { display: block; font-style: normal; margin-top: 5px; font-size: 12.5px; color: var(--dim); }
@@ -258,10 +259,10 @@ body.shl { --gales: #1fb6a6; --gales-hi: #3fd9c9; --givre: #b9d6ff; --harvest: #
   .is-shl .sbar.dr em { font-size: 20px; }
 }
 
-/* 9. Game night: the drawn arena under a score bug, beside tonight's picks */
+/* 9. Game night: an AI-generated picture under a score bug, beside tonight's picks, with the booth below */
 .night { display: grid; gap: 14px; }
 .cast { position: relative; min-height: 290px; margin: 0; border-radius: 22px; overflow: hidden; border: 1px solid var(--line2); background: #050912; }
-.cast img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; object-position: 50% 18%; }
+.cast img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; object-position: 58% 30%; }
 .cast::after { content: ''; position: absolute; inset: 0; background: linear-gradient(180deg, rgba(5,9,18,.55), rgba(5,9,18,0) 30%, rgba(5,9,18,0) 44%, rgba(5,9,18,.93) 76%); }
 .bug { position: absolute; z-index: 1; left: 12px; top: 12px; display: flex; align-items: stretch; border-radius: 10px; overflow: hidden; background: rgba(7,12,23,.93); font: 700 17px/1 'Barlow Condensed', sans-serif; letter-spacing: .03em; }
 .bug > span { display: flex; align-items: center; gap: 8px; padding: 8px 10px; }
@@ -286,6 +287,11 @@ body.shl { --gales: #1fb6a6; --gales-hi: #3fd9c9; --givre: #b9d6ff; --harvest: #
 .picks li b.gales { background: var(--gales); color: #04121c; }
 .picks-lock { display: flex; align-items: center; gap: 8px; margin: 13px 0 4px; font-size: 13.5px; color: var(--soft); }
 .picks-lock .ico { width: 18px; height: 18px; color: var(--ice); }
+.booth { position: relative; margin: 0; aspect-ratio: 16 / 9; border-radius: 22px; overflow: hidden; border: 1px solid var(--line2); background: #050912; }
+.booth img { width: 100%; height: 100%; object-fit: cover; object-position: 50% 30%; }
+.booth::after { content: ''; position: absolute; inset: 0; background: linear-gradient(180deg, rgba(5,9,18,0) 50%, rgba(5,9,18,.9)); }
+.booth figcaption { position: absolute; z-index: 1; left: 14px; right: 14px; bottom: 12px; font-size: 14.5px; line-height: 1.4; color: var(--soft); }
+.booth figcaption b { color: var(--ink); font-weight: 600; }
 @media (max-width: 479px) { .onair span:first-child { display: none; } }
 @media (min-width: 900px) {
   .night { grid-template-columns: minmax(0, 1.62fr) minmax(0, .88fr); gap: 18px; }
@@ -294,6 +300,8 @@ body.shl { --gales: #1fb6a6; --gales-hi: #3fd9c9; --givre: #b9d6ff; --harvest: #
   .onair { right: 20px; top: 20px; }
   .cast figcaption { left: 24px; right: 24px; bottom: 22px; font-size: 20px; }
   .picks { padding: 24px; }
+  .booth { grid-column: 1 / -1; aspect-ratio: 3 / 1; }
+  .booth figcaption { left: 24px; right: 24px; bottom: 20px; font-size: 16px; }
 }
 
 /* 10. The sealed game: three steps, and a screen that plays one */
@@ -335,6 +343,12 @@ body.shl { --gales: #1fb6a6; --gales-hi: #3fd9c9; --givre: #b9d6ff; --harvest: #
 .made li:last-child::after { display: none; }
 .made b { display: block; padding-top: 6px; font: italic 900 24px/1 'Barlow Condensed', sans-serif; text-transform: uppercase; }
 .made span { display: block; margin-top: 5px; max-width: 44ch; font-size: 14.5px; line-height: 1.45; color: var(--mute); }
+.reel { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin: 28px 0 0; padding: 0; list-style: none; }
+.reel li { position: relative; aspect-ratio: 16 / 9; border-radius: 16px; overflow: hidden; border: 1px solid var(--line2); background: #050912; }
+.reel li:first-child { grid-column: 1 / -1; }
+.reel img { width: 100%; height: 100%; object-fit: cover; }
+.reel li::after { content: ''; position: absolute; inset: 0; background: linear-gradient(180deg, rgba(5,9,18,0) 55%, rgba(5,9,18,.82)); }
+.reel span { position: absolute; z-index: 1; left: 12px; bottom: 9px; font: italic 900 20px/1 'Barlow Condensed', sans-serif; text-transform: uppercase; }
 .road { display: grid; margin: 0; padding: 0; list-style: none; }
 .road li { display: grid; grid-template-columns: 96px minmax(0, 1fr); column-gap: 16px; padding: 16px 0; border-top: 1px solid var(--line2); }
 .road li:last-child { border-bottom: 1px solid var(--line2); }
@@ -346,6 +360,9 @@ body.shl { --gales: #1fb6a6; --gales-hi: #3fd9c9; --givre: #b9d6ff; --harvest: #
   .made { grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 20px; }
   .made li { padding: 54px 0 0; }
   .made li::after { left: 46px; right: -12px; top: 17.25px; bottom: auto; width: auto; height: 1.5px; }
+  .reel { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; margin-top: 34px; }
+  .reel li:first-child { grid-column: auto; }
+  .reel span { left: 16px; bottom: 12px; font-size: 26px; }
   .road li { grid-template-columns: 190px 340px minmax(0, 1fr); align-items: baseline; padding: 20px 0; }
   .road b { grid-row: auto; padding-top: 0; font-size: 17px; } .road strong { font-size: 32px; } .road span { margin-top: 0; font-size: 15.5px; }
 }

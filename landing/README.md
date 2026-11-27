@@ -68,10 +68,12 @@ Every page is plain HTML on one design system. Each start button opens the app's
 - `shl.html` (26 November 2026): the Super Hockey League, a concept page for supporters and partners. A league of digital
   athletes that is open where the NHL is closed (to cities, to fans, all summer): the hero and the concept film, the
   ledger (the NHL today beside the SHL, row by row), the map (20 major markets, 12 cities with no NHL team, 20 in the
-  running for a second division), the players (one card, a career, three more), the front office (the wire and a
-  members' vote), the season calendar, game night, the sealed game, how a game gets made, the road, the FAQ (mirrored
+  running for a second division), the players (one card, a career, three more; every face an AI-generated picture, the lead one a five-second
+  clip that plays once, without sound, when it is seen), the front office (the wire and a members' vote), the season calendar, game night, the sealed game, how a game gets made, the road, the FAQ (mirrored
   by the FAQPage JSON-LD) and the closer. Everything on it is a plan and says so: the hero's tag, the film's caption,
   each illustration's line, the FAQ and the footer call it a concept, every name is invented and every date a target.
+  Nobody pictured is a real person (27 November 2026): the portraits, the game pictures and the film's footage were made
+  with Grok Imagine, and the page says so on or beside each picture, in the film's caption, in the FAQ and in the footer.
   It is not in the header's doors or the footers; it is reached by its address (`/shl`). Nothing on it is for money:
   the film is the web cut, with no real-money lines, and the page keeps to Supercoins. Its two buttons are mail links
   (count my city; the brief), not forms. Hand-written; `site-shl.css` and `shl.js` are its own.
@@ -94,8 +96,8 @@ Every page is plain HTML on one design system. Each start button opens the app's
   love-is-blind, example-pool and fans: the drawn question card, show tiles, the dated rows, Season 12's line, the
   example pool, the fan zones). Each file's header lists its sections.
 - `site-shl.css` and `shl.js`, for `shl.html` only: the league's own voice on the site's tokens (display type in italic
-  capitals, the rink's red and blue lines as dividers, club colours on a club's sweater and name only), and its four
-  demos (the film's play button, the map, the members' vote, the sealed game: a random seed, its SHA-256 fingerprint,
+  capitals, the rink's red and blue lines as dividers, club colours on a club's name only), and its
+  demos (the film's play button, the lead player's living portrait, the map, the members' vote, the sealed game: a random seed, its SHA-256 fingerprint,
   a small game played from the seed alone, the seed checked against the fingerprint). All fictional, all drawn in the
   page; without the script the page still reads whole.
 - `site.js`: one script for every page; each part checks its element exists. Consented GA4 and Google Ads, first-touch
@@ -134,11 +136,16 @@ wager, payout, market, push).
 - `img/`: the phone screens. Pool screens come from a sample pool; SaK screens from the league's own site with every name
   changed (the anonymized fixtures). 600 px wide WebP; never a screen with a real GM's name or a cash prize.
 - `icon.svg`: the mark (the faceoff dot) on its tile; also the favicon. `img/sak-icon.svg` is SaK's crest.
-- `img/shl/` and `media/`, the Super Hockey League page's: `poster.webp` (the film's first picture, 1600 wide),
-  `arena.webp` (the drawn arena behind the score bug), `map.svg` (Canada and the United States as dots, 1340 by 900; the
-  cities are drawn over it in the page, in the same coordinates) and `media/shl-film.mp4` (the concept film's web cut,
-  1 min 48, 1080p, 12 MB, H.264 with the index at the front). The film and these pictures were drawn outside the repo;
-  a new cut replaces the file under a new name (the folder is cached for a week).
+- `img/shl/` and `media/`, the Super Hockey League page's: `poster-2.webp` (the film's first picture, 1600 wide),
+  `map.svg` (Canada and the United States as dots, 1340 by 900; the cities are drawn over it in the page, in the same
+  coordinates), the AI-generated pictures (`okafor.webp` and the three roster faces `*-s.webp`, `adler-s.webp` the general
+  manager, `goal.webp` behind the score bug, `booth.webp` the broadcasters, `faceoff.webp`, `rush.webp` and `shot.webp`
+  the three highlights), `media/shl-film-2.mp4` (the concept film's web cut, 1 min 48, 1080p, 17 MB, H.264 with the index
+  at the front) and `media/okafor-look.mp4` (the lead player's portrait as a five-second clip, no sound). The film and
+  these pictures were made outside the repo. Before a generated picture goes on the page, look at it enlarged for
+  anything that reads as a real league's, club's or brand's mark (the model adds them unasked, on gloves, helmets,
+  collars and fans' clothes) and retouch or reject it. A new cut or picture goes in under a new name (both folders are
+  cached for a week).
 - The share cards, 1200 by 630: `og.png` (the home, the commissioner's, pricing, the sport pages and the change log),
   `og-together.png` (together, traitors and the example pool) and `og-love-is-blind.png`, each drawn from its `og*.html`.
   The event pages have a card each (`og-nfl-playoffs.png`, `og-super-bowl-squares.png`, `og-cup-playoffs.png`), their HTML written by `python3 scripts/landing/gen_og.py`. The fan page's card is drawn by the app's Worker (`/og/fans/NHL.png`). Re-bake a card after changing its HTML, with the
@@ -149,8 +156,8 @@ B=$(ls /opt/pw-browsers/chromium_headless_shell-*/chrome-headless-shell-linux64/
 $B --no-sandbox --disable-gpu --hide-scrollbars --window-size=1200,630 --screenshot=landing/og.png file://$PWD/landing/og.html
 ```
 
-The same for `og-together`, `og-love-is-blind` and the three event cards. `og-shl.png` is the one card with no HTML: a
-frame of the concept film (its title card), cropped to 1200 by 630. The pages point at fixed file names, so a network's cached card
+The same for `og-together`, `og-love-is-blind` and the three event cards. `og-shl.jpg` is the one card with no HTML: a
+frame of the concept film (its title card over the AI-generated arena), cropped to 1200 by 630. The pages point at fixed file names, so a network's cached card
 refreshes on its own schedule.
 
 ## Routing
