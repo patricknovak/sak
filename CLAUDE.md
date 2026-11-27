@@ -251,7 +251,9 @@ Two things in one repo:
   `fantasy-hockey.html`, `pricing.html`, `changelog.html` (written by `scripts/landing-changelog.mjs` from
   `src/data/changelog.ts`), the four sport pages and the three event pages (`nfl-playoff-pools`, `super-bowl-squares`, `stanley-cup-playoff-pools`; a link to an event before its field is set opens on the league as it stands, `src/lib/comingEvents.ts`, 24 November 2026) written by `scripts/landing/gen_sports.py`, `together.html`,
   `traitors.html`, `love-is-blind.html`, `example-pool.html` and `fans.html`, on `site.css` with `site-sports.css`,
-  `site-commish.css` and `site-shows.css`; dated copy follows the calendar through `data-from` / `data-until` and
+  `site-commish.css` and `site-shows.css`; `shl.html` (26 November 2026) is the Super Hockey League concept page, on
+  `site-shl.css` and `shl.js`, its film under `landing/media/` served in byte ranges by the landing Worker's own code
+  (`worker/landing.ts`, which runs first for `/media/*` only); dated copy follows the calendar through `data-from` / `data-until` and
   `LIB_STAGES` in `site.js`; the founding league's record is read live from `proof_counts()`, migration 350, into `[data-proof]`; the privacy note is the app's `#/privacy`) on Cloudflare (zone routes on the apex and www; off Vercel); every
   other `<league>.superpoolsai.com` goes to the app through a wildcard zone route and a proxied `AAAA * 100::` record (live
   since 4 October 2026: `podsquad.superpoolsai.com`). One account, every pool (migration 151): the product's one address is

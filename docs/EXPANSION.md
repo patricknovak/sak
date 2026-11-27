@@ -173,7 +173,8 @@ on a league they're not in, a league switched to on Profile kept for that tab, a
 domain on the Platform page. It waits only on steps 1 and 2 (the Cloudflare project and its wildcard).
 *How, on Cloudflare (4 October 2026):* Pages can't take a wildcard custom domain, so the app goes on Cloudflare's
 successor to Pages, a Worker serving the built site as static assets (`wrangler.jsonc`), which takes the route
-`*.superpoolsai.com/*`; the landing page is a second one (`landing/wrangler.jsonc`). Same free plan, same account.
+`*.superpoolsai.com/*`; the landing page is a second one (`landing/wrangler.jsonc`; since 26 November 2026 with a
+Worker of its own, `worker/landing.ts`, in front of `/media/` only, to serve a film in byte ranges). Same free plan, same account.
 `.github/workflows/cloudflare.yml` builds and deploys both on every push to `main` once the secrets exist, and
 until then stops green with a notice; `public/_headers` keeps the service worker and the page uncached and the
 hashed build files cached for a year. What Patrick sets up once: a Cloudflare API token with Account → Workers
