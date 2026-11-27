@@ -1,7 +1,8 @@
 # Super Pools marketing site
 
 Static, served by Cloudflare: the Worker `superpools-landing` (`wrangler.jsonc` here) serves this folder as static assets,
-deployed by `.github/workflows/cloudflare.yml` on every push to `main`. It answers on `superpoolsai.com` and
+deployed by `.github/workflows/cloudflare.yml` on every push to `main`. Its one piece of code (`worker/landing.ts`) runs
+first for `/media/*` only, to serve a film in byte ranges (see Routing). It answers on `superpoolsai.com` and
 `www.superpoolsai.com` through zone routes, which take the traffic while those DNS records are proxied (orange cloud).
 `.assetsignore` keeps this file, the config, the share cards' sources and the retired World Series page off the site.
 Brand, copy and positioning rules live in `docs/BRAND.md`; the product it describes in `docs/POOLS.md` and
@@ -64,6 +65,16 @@ Every page is plain HTML on one design system. Each start button opens the app's
   nothing at load; re-draw them from the leagues' own files if a club changes its mark.
 - `world-series-pools.html` (18 October 2026) is off the site since 28 October 2026 (`.assetsignore`, `_redirects`) until a
   feed is licensed.
+- `shl.html` (26 November 2026): the Super Hockey League, a concept page for supporters and partners. A league of digital
+  athletes that is open where the NHL is closed (to cities, to fans, all summer): the hero and the concept film, the
+  ledger (the NHL today beside the SHL, row by row), the map (20 major markets, 12 cities with no NHL team, 20 in the
+  running for a second division), the players (one card, a career, three more), the front office (the wire and a
+  members' vote), the season calendar, game night, the sealed game, how a game gets made, the road, the FAQ (mirrored
+  by the FAQPage JSON-LD) and the closer. Everything on it is a plan and says so: the hero's tag, the film's caption,
+  each illustration's line, the FAQ and the footer call it a concept, every name is invented and every date a target.
+  It is not in the header's doors or the footers; it is reached by its address (`/shl`). Nothing on it is for money:
+  the film is the web cut, with no real-money lines, and the page keeps to Supercoins. Its two buttons are mail links
+  (count my city; the brief), not forms. Hand-written; `site-shl.css` and `shl.js` are its own.
 
 ## What they share
 
@@ -82,6 +93,11 @@ Every page is plain HTML on one design system. Each start button opens the app's
   the note for the group chat, the voice's schedule, the waitlist in the closer, the feature table) and `site-shows.css` (together, traitors,
   love-is-blind, example-pool and fans: the drawn question card, show tiles, the dated rows, Season 12's line, the
   example pool, the fan zones). Each file's header lists its sections.
+- `site-shl.css` and `shl.js`, for `shl.html` only: the league's own voice on the site's tokens (display type in italic
+  capitals, the rink's red and blue lines as dividers, club colours on a club's sweater and name only), and its four
+  demos (the film's play button, the map, the members' vote, the sealed game: a random seed, its SHA-256 fingerprint,
+  a small game played from the seed alone, the seed checked against the fingerprint). All fictional, all drawn in the
+  page; without the script the page still reads whole.
 - `site.js`: one script for every page; each part checks its element exists. Consented GA4 and Google Ads, first-touch
   UTM and the app-link decoration, the phone menu, the sticky bar, retired anchors, the reveal on scroll, the open-now
   board, the try-it question and the game-night demos (fictional, drawn in the page), the change log's latest lines, the
@@ -118,6 +134,11 @@ wager, payout, market, push).
 - `img/`: the phone screens. Pool screens come from a sample pool; SaK screens from the league's own site with every name
   changed (the anonymized fixtures). 600 px wide WebP; never a screen with a real GM's name or a cash prize.
 - `icon.svg`: the mark (the faceoff dot) on its tile; also the favicon. `img/sak-icon.svg` is SaK's crest.
+- `img/shl/` and `media/`, the Super Hockey League page's: `poster.webp` (the film's first picture, 1600 wide),
+  `arena.webp` (the drawn arena behind the score bug), `map.svg` (Canada and the United States as dots, 1340 by 900; the
+  cities are drawn over it in the page, in the same coordinates) and `media/shl-film.mp4` (the concept film's web cut,
+  1 min 48, 1080p, 12 MB, H.264 with the index at the front). The film and these pictures were drawn outside the repo;
+  a new cut replaces the file under a new name (the folder is cached for a week).
 - The share cards, 1200 by 630: `og.png` (the home, the commissioner's, pricing, the sport pages and the change log),
   `og-together.png` (together, traitors and the example pool) and `og-love-is-blind.png`, each drawn from its `og*.html`.
   The event pages have a card each (`og-nfl-playoffs.png`, `og-super-bowl-squares.png`, `og-cup-playoffs.png`), their HTML written by `python3 scripts/landing/gen_og.py`. The fan page's card is drawn by the app's Worker (`/og/fans/NHL.png`). Re-bake a card after changing its HTML, with the
@@ -128,7 +149,8 @@ B=$(ls /opt/pw-browsers/chromium_headless_shell-*/chrome-headless-shell-linux64/
 $B --no-sandbox --disable-gpu --hide-scrollbars --window-size=1200,630 --screenshot=landing/og.png file://$PWD/landing/og.html
 ```
 
-The same for `og-together`, `og-love-is-blind` and the three event cards. The pages point at fixed file names, so a network's cached card
+The same for `og-together`, `og-love-is-blind` and the three event cards. `og-shl.png` is the one card with no HTML: a
+frame of the concept film (its title card), cropped to 1200 by 630. The pages point at fixed file names, so a network's cached card
 refreshes on its own schedule.
 
 ## Routing
@@ -136,6 +158,11 @@ refreshes on its own schedule.
 - `_redirects`: `/privacy` and `/terms` send visitors to the app's `#/privacy` and `#/terms` (the landing Worker has no
   legal pages of its own), `/fans/<club>` to the club's fan zone in the app, and the World Series page home.
 - `sitemap.xml` and `robots.txt`: every served page, with its `lastmod` moved to the day it changed.
+- `/media/*` (the films): answered by the Worker's own code first (`worker/landing.ts`, `run_worker_first` in
+  `wrangler.jsonc`). Static assets answer a Range request with the whole file and a 200, and Safari on a phone will not
+  play a film served that way, so the Worker reads the file from the assets and sends the bytes asked for as a 206
+  (`worker/range.ts`; `supabase/tests/range.test.mjs`, and `worker/test/landing.test.mjs` under `npm run test:live`).
+  Every other path is the files, untouched. `_headers` caches the folder for a week.
 
 ## Live numbers
 

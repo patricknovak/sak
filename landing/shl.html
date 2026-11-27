@@ -1,0 +1,435 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>Super Hockey League: any city, fan-run, unscripted | Super Pools</title>
+  <meta name="description" content="A concept from the makers of Super Pools: pro hockey played by digital athletes in 32 cities, run by its fans, one season a year. Watch the film." />
+  <link rel="canonical" href="https://superpoolsai.com/shl" />
+  <link rel="icon" href="./icon.svg" type="image/svg+xml" />
+  <meta name="theme-color" content="#0b1220" />
+  <meta property="og:type" content="website" />
+  <meta property="og:site_name" content="Super Pools" />
+  <meta property="og:url" content="https://superpoolsai.com/shl" />
+  <meta property="og:title" content="Any city. Fan-run. Unscripted." />
+  <meta property="og:description" content="The Super Hockey League: pro hockey played by digital athletes in 32 cities, run by the fans who follow it. A concept from the makers of Super Pools." />
+  <meta property="og:image" content="https://superpoolsai.com/og-shl.png" />
+  <meta property="og:image:width" content="1200" />
+  <meta property="og:image:height" content="630" />
+  <meta property="og:image:alt" content="The Super Hockey League mark over an arena: any city, fan-run, unscripted." />
+  <meta name="twitter:card" content="summary_large_image" />
+  <meta name="twitter:title" content="Any city. Fan-run. Unscripted." />
+  <meta name="twitter:description" content="The Super Hockey League: pro hockey played by digital athletes in 32 cities, run by the fans who follow it. A concept from the makers of Super Pools." />
+  <meta name="twitter:image" content="https://superpoolsai.com/og-shl.png" />
+  <link rel="preload" href="./fonts/barlow-condensed-900-italic.woff2" as="font" type="font/woff2" crossorigin />
+  <link rel="preload" href="./fonts/barlow-condensed-900.woff2" as="font" type="font/woff2" crossorigin />
+  <link rel="preload" href="./fonts/inter.woff2" as="font" type="font/woff2" crossorigin />
+  <link rel="stylesheet" href="./site.css" />
+  <link rel="stylesheet" href="./site-shl.css" />
+  <!-- the questions people ask, for search: the same words as the FAQ at the foot of the page -->
+  <script type="application/ld+json">{"@context":"https://schema.org","@type":"FAQPage","mainEntity":[{"@type":"Question","name":"Is this real hockey?","acceptedAnswer":{"@type":"Answer","text":"It is a real league: a schedule, standings, a playoff and one champion a year. The players are digital athletes, and every game is simulated, drawn and called as it happens. Nobody laces up."}},{"@type":"Question","name":"Are the players real people?","acceptedAnswer":{"@type":"Answer","text":"No. Every player, coach, manager and commentator is fictional and made with AI. Each one is labelled digital on every card and every clip."}},{"@type":"Question","name":"Is there any real money in it?","acceptedAnswer":{"@type":"Answer","text":"No. Watching is free, and pools and fantasy run on Supercoins: never bought, never sold, never turned into money."}},{"@type":"Question","name":"How do you know a game is not fixed?","acceptedAnswer":{"@type":"Answer","text":"Each game runs once, from a random seed that is sealed before puck drop and opened after the horn. Anyone can run the game again from that seed and check the score."}},{"@type":"Question","name":"How does my city get a club?","acceptedAnswer":{"@type":"Answer","text":"The 32 top-division cities are set for Season One. Second-division places go to the cities with the most founding members, and the best of them win promotion. Tell us your city and we count it."}},{"@type":"Question","name":"When does it start?","acceptedAnswer":{"@type":"Answer","text":"The target is June 2027. Today the Super Hockey League is a concept: the film shows the idea, and the names and dates on this page can change."}},{"@type":"Question","name":"Is it affiliated with the NHL?","acceptedAnswer":{"@type":"Answer","text":"No. The Super Hockey League is an independent concept from Planetterrian Ventures, the company behind Super Pools. It is not affiliated with the NHL or any of its clubs."}}]}</script>
+</head>
+<!-- The Super Hockey League (SHL): a concept page, 26 November 2026. A league of digital athletes that is open where the
+     NHL is closed: to cities, to fans and all summer. Everything here is a plan, said as one: the page calls itself a
+     concept in the hero, the film's caption, the FAQ and the footer, every name is invented, and every date is a target.
+     Nothing on it is for money (docs/BRAND.md: Supercoins, never money), so the film is the web cut, which
+     carries no real-money lines. The demos (the map, the members' vote, the sealed game) are drawn by shl.js and are fictional. -->
+<body class="shl">
+  <a class="skip" href="#main">Skip to content</a>
+  <header class="site-head">
+    <a class="wordmark" href="./" aria-label="Super Pools home">
+      <svg viewBox="0 0 64 64" aria-hidden="true"><rect width="64" height="64" rx="14" fill="#111b30"/><circle cx="32" cy="32" r="17" fill="none" stroke="#f7c548" stroke-width="4"/><circle cx="32" cy="32" r="4.5" fill="#f7c548"/><g stroke="#f7c548" stroke-width="2.6" stroke-linecap="round"><line x1="25" y1="8" x2="25" y2="12.5"/><line x1="39" y1="8" x2="39" y2="12.5"/><line x1="25" y1="51.5" x2="25" y2="56"/><line x1="39" y1="51.5" x2="39" y2="56"/></g></svg>
+      <span><b>SUPER</b> POOLS</span>
+    </a>
+    <nav class="navlinks" aria-label="Doors"><a href="./fantasy-hockey.html">Fantasy league</a><a href="./#kinds">Sports pools</a><a href="./together.html">Show pools</a><a href="./fans.html">Fan zones</a><a href="./pricing.html">Pricing</a></nav>
+    <div class="head-right">
+      <a class="signin" href="https://app.superpoolsai.com/#/?src=shl">Sign in</a>
+      <button type="button" class="menu-btn" id="menu-btn" aria-expanded="false" aria-controls="menu" aria-label="Open the menu">
+        <svg class="bars" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16"/></svg>
+        <svg class="x" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>
+      </button>
+    </div>
+    <nav class="menu" id="menu" aria-label="Menu">
+      <a href="./fantasy-hockey.html"><span class="mi"><svg class="ico" aria-hidden="true" focusable="false"><use href="./icons.svg#i-trophy"/></svg></span><span><b>Fantasy league</b><small>Keepers, the draft room, a league voice</small></span></a>
+      <a href="./#kinds"><span class="mi"><svg class="ico" aria-hidden="true" focusable="false"><use href="./icons.svg#i-target"/></svg></span><span><b>Sports pools</b><small>The NFL, NHL, NBA and soccer</small></span></a>
+      <a href="./together.html"><span class="mi r"><svg class="ico" aria-hidden="true" focusable="false"><use href="./icons.svg#i-tv"/></svg></span><span><b>Show pools</b><small>Call what happens next, with your group</small></span></a>
+      <a href="./fans.html"><span class="mi"><svg class="ico" aria-hidden="true" focusable="false"><use href="./icons.svg#i-chart"/></svg></span><span><b>Fan zones</b><small>Every club, read like a front office</small></span></a>
+      <a href="./pricing.html"><span class="mi n"><svg class="ico" aria-hidden="true" focusable="false"><use href="./icons.svg#i-coin"/></svg></span><span><b>Pricing</b><small>Per pool, never per person</small></span></a>
+      <a href="https://app.superpoolsai.com/#/?src=shl"><span class="mi n"><svg class="ico" aria-hidden="true" focusable="false"><use href="./icons.svg#i-users"/></svg></span><span><b>Sign in</b><small>Back to your pools</small></span></a>
+    </nav>
+  </header>
+  <main id="main">
+    <!-- the sweater every player card draws: its colours come from the card (--j the body, --t the trim) -->
+    <svg class="sr" aria-hidden="true" focusable="false" width="0" height="0">
+      <defs><linearGradient id="shl-jsh" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#fff" stop-opacity=".2"/><stop offset=".45" stop-color="#fff" stop-opacity="0"/><stop offset="1" stop-color="#000" stop-opacity=".3"/></linearGradient></defs>
+      <symbol id="shl-jersey" viewBox="0 0 240 240">
+        <path class="jb" d="M78 26Q120 40 162 26L208 46L237 120L204 135L187 98L187 222Q120 233 53 222L53 98L36 135L3 120L32 46Z"/>
+        <path class="jt" d="M32 46L78 26Q120 40 162 26L208 46L216 67Q120 86 24 67Z"/>
+        <path class="jt" d="M232.3 108L226.7 93.7L193.5 110.4L199.2 123.6ZM7.7 108L13.3 93.7L46.5 110.4L40.8 123.6Z"/>
+        <path class="js" d="M225 89.3L222 81.6L190.5 97.4L193.6 104.6ZM15 89.3L18 81.6L49.5 97.4L46.4 104.6Z"/>
+        <path class="jt" d="M53 197Q120 208 187 197L187 209Q120 220 53 209Z"/>
+        <path class="js" d="M53 190Q120 201 187 190L187 193.5Q120 204.5 53 193.5Z"/>
+        <path class="jc" d="M78 26Q120 40 162 26L158 21Q120 33 82 21Z"/>
+        <path fill="url(#shl-jsh)" d="M78 26Q120 40 162 26L208 46L237 120L204 135L187 98L187 222Q120 233 53 222L53 98L36 135L3 120L32 46Z"/>
+      </symbol>
+    </svg>
+
+    <!-- 1. The hero: the league's three words, the one gold button, and the film -->
+    <section class="shl-hero" id="top">
+      <div class="shl-hero-copy">
+        <p class="shl-kicker"><span class="shl-mark" aria-hidden="true">SHL</span><span class="shl-name">Super Hockey League</span><span class="shl-tag">A concept</span></p>
+        <h1 class="display"><span>Any city.</span> <span>Fan-run.</span> <span>Unscripted.</span></h1>
+      </div>
+      <div class="shl-hero-side">
+        <p class="shl-sub">Pro hockey played by digital athletes, in 32 cities, run by the fans who follow it. One season a year. It opens in June, the week the NHL goes dark.</p>
+        <div class="cta2">
+          <a class="btn btn-gold btn-lg" data-gold data-film href="#film">Watch the film</a>
+          <a class="textlink" href="#league">See the league</a>
+        </div>
+      </div>
+      <figure class="film" id="film">
+        <div class="film-stage">
+          <video id="shl-film" controls playsinline preload="none" poster="./img/shl/poster.webp" width="1920" height="1080" aria-label="The Super Hockey League concept film">
+            <source src="./media/shl-film.mp4" type="video/mp4" />
+            <a href="./media/shl-film.mp4">Watch the concept film (MP4, 12 MB)</a>
+          </video>
+          <button type="button" class="film-play" id="film-play" hidden>
+            <span class="film-ring"><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M8.5 5.2v13.6L19.5 12z"/></svg></span>
+            <span class="film-label"><b>Play the film</b><small>1 min 48, with sound</small></span>
+          </button>
+        </div>
+        <figcaption>A concept film. The game action is an illustration, the club and player names are working titles, and the dates are targets.</figcaption>
+      </figure>
+    </section>
+
+    <!-- 2. The opening: where the NHL is closed, the SHL is open -->
+    <section id="open">
+      <div class="shead">
+        <h2 class="display">Open where hockey is closed.</h2>
+        <p class="lead">The NHL is the best hockey in the world, and a closed shop. Thirty-two owners decide where it plays, who runs it and when it stops. The Super Hockey League starts from the other end.</p>
+      </div>
+      <table class="ledger rv">
+        <caption class="sr">How the NHL and the Super Hockey League differ, row by row</caption>
+        <thead><tr><td></td><th scope="col">The NHL today</th><th scope="col">The Super Hockey League</th></tr></thead>
+        <tbody>
+          <tr><th scope="row">Your city</th><td data-h="The NHL today">32 clubs. A new one comes by invitation.</td><td data-h="The SHL">Any city can earn a club, then win its way up.</td></tr>
+          <tr><th scope="row">Your voice</th><td data-h="The NHL today">Owners decide. Fans watch.</td><td data-h="The SHL">Members vote on the calls that matter.</td></tr>
+          <tr><th scope="row">Your summer</th><td data-h="The NHL today">No games from the final in June to October.</td><td data-h="The SHL">The season opens in June.</td></tr>
+          <tr><th scope="row">Your seat</th><td data-h="The NHL today">Tickets, TV packages and subscriptions.</td><td data-h="The SHL">Every game is free to watch.</td></tr>
+          <tr><th scope="row">Your players</th><td data-h="The NHL today">A few minutes of interviews a week.</td><td data-h="The SHL">Ask any player anything. They answer.</td></tr>
+        </tbody>
+      </table>
+    </section>
+
+    <div class="rinkline blue" aria-hidden="true"></div>
+
+    <!-- 3. The league: 32 top-division cities, twelve of them with no NHL team, and a second division behind them -->
+    <section id="league">
+      <div class="shead">
+        <h2 class="display">Open to every city.</h2>
+        <p class="lead">Twenty major markets. Twelve cities that have waited long enough. Behind them a second division, with promotion and relegation every season: win, and your city goes up.</p>
+      </div>
+      <div class="mapwrap rv">
+        <div class="map-side">
+          <div class="map-filter" role="group" aria-label="Show on the map">
+            <button type="button" class="chipbtn" data-show="all" aria-pressed="true">Every city</button>
+            <button type="button" class="chipbtn" data-show="t1" aria-pressed="false"><i class="k k1"></i>20 major markets</button>
+            <button type="button" class="chipbtn" data-show="t0" aria-pressed="false"><i class="k k0"></i>12 with no NHL team</button>
+            <button type="button" class="chipbtn" data-show="t2" aria-pressed="false"><i class="k k2"></i>Second division</button>
+          </div>
+          <p class="map-read" id="map-read" aria-live="polite"><b>Twelve cities, no NHL team.</b> <span>All twelve are in the top division from Season One. Pick one.</span></p>
+          <ul class="citylist" aria-label="The twelve top-division cities with no NHL team"><li><button type="button" class="citybtn" data-city="Portland">Portland</button></li><li><button type="button" class="citybtn" data-city="San Diego">San Diego</button></li><li><button type="button" class="citybtn" data-city="Phoenix">Phoenix</button></li><li><button type="button" class="citybtn" data-city="Saskatoon">Saskatoon</button></li><li><button type="button" class="citybtn" data-city="Houston">Houston</button></li><li><button type="button" class="citybtn" data-city="Kansas City">Kansas City</button></li><li><button type="button" class="citybtn" data-city="Milwaukee">Milwaukee</button></li><li><button type="button" class="citybtn" data-city="Atlanta">Atlanta</button></li><li><button type="button" class="citybtn" data-city="Hamilton">Hamilton</button></li><li><button type="button" class="citybtn" data-city="Québec City">Québec City</button></li><li><button type="button" class="citybtn" data-city="Hartford">Hartford</button></li><li><button type="button" class="citybtn" data-city="Halifax">Halifax</button></li></ul>
+          <p class="fine">Second-division places go to the cities with the most founding members. The diamonds are cities in the running.</p>
+        </div>
+        <svg class="map" id="map" viewBox="0 0 1340 900" role="img" aria-labelledby="map-t map-d">
+          <title id="map-t">The Super Hockey League's cities</title>
+          <desc id="map-d">A map of Canada and the United States. Twenty major markets and twelve cities with no NHL team make up the top division: Québec City, Hamilton, Halifax, Saskatoon, Houston, Atlanta, Phoenix, Milwaukee, Kansas City, Portland, San Diego and Hartford. Twenty more cities are in the running for the second division.</desc>
+          <image href="./img/shl/map.svg" width="1340" height="900"/>
+          <g class="city t2" data-city="Sacramento" data-note="In the running for the second division." transform="translate(141.9 459.9)"><path class="mk" d="M0-8L8 0L0 8L-8 0Z"/><circle class="hit" r="24"/></g>
+          <g class="city t2" data-city="Victoria" data-note="In the running for the second division." transform="translate(189.2 194)"><path class="mk" d="M0-8L8 0L0 8L-8 0Z"/><circle class="hit" r="24"/></g>
+          <g class="city t2" data-city="Las Vegas" data-note="In the running for the second division." transform="translate(253.7 557.1)"><path class="mk" d="M0-8L8 0L0 8L-8 0Z"/><circle class="hit" r="24"/></g>
+          <g class="city t2" data-city="Kelowna" data-note="In the running for the second division." transform="translate(264.5 175.7)"><path class="mk" d="M0-8L8 0L0 8L-8 0Z"/><circle class="hit" r="24"/></g>
+          <g class="city t2" data-city="Boise" data-note="In the running for the second division." transform="translate(278.9 355.4)"><path class="mk" d="M0-8L8 0L0 8L-8 0Z"/><circle class="hit" r="24"/></g>
+          <g class="city t2" data-city="Spokane" data-note="In the running for the second division." transform="translate(283.5 243.4)"><path class="mk" d="M0-8L8 0L0 8L-8 0Z"/><circle class="hit" r="24"/></g>
+          <g class="city t2" data-city="Salt Lake City" data-note="In the running for the second division." transform="translate(344.5 449)"><path class="mk" d="M0-8L8 0L0 8L-8 0Z"/><circle class="hit" r="24"/></g>
+          <g class="city t2" data-city="Regina" data-note="In the running for the second division." transform="translate(514.1 207.8)"><path class="mk" d="M0-8L8 0L0 8L-8 0Z"/><circle class="hit" r="24"/></g>
+          <g class="city t2" data-city="Austin" data-note="In the running for the second division." transform="translate(618.4 760.2)"><path class="mk" d="M0-8L8 0L0 8L-8 0Z"/><circle class="hit" r="24"/></g>
+          <g class="city t2" data-city="Oklahoma City" data-note="In the running for the second division." transform="translate(626 621.1)"><path class="mk" d="M0-8L8 0L0 8L-8 0Z"/><circle class="hit" r="24"/></g>
+          <g class="city t2" data-city="Thunder Bay" data-note="In the running for the second division." transform="translate(776.5 266.4)"><path class="mk" d="M0-8L8 0L0 8L-8 0Z"/><circle class="hit" r="24"/></g>
+          <g class="city t2" data-city="St. Louis" data-note="In the running for the second division." transform="translate(777.9 532)"><path class="mk" d="M0-8L8 0L0 8L-8 0Z"/><circle class="hit" r="24"/></g>
+          <g class="city t2" data-city="New Orleans" data-note="In the running for the second division." transform="translate(796.7 764.3)"><path class="mk" d="M0-8L8 0L0 8L-8 0Z"/><circle class="hit" r="24"/></g>
+          <g class="city t2" data-city="Nashville" data-note="In the running for the second division." transform="translate(855.2 592.2)"><path class="mk" d="M0-8L8 0L0 8L-8 0Z"/><circle class="hit" r="24"/></g>
+          <g class="city t2" data-city="Sudbury" data-note="In the running for the second division." transform="translate(928.4 298.7)"><path class="mk" d="M0-8L8 0L0 8L-8 0Z"/><circle class="hit" r="24"/></g>
+          <g class="city t2" data-city="Cleveland" data-note="In the running for the second division." transform="translate(938.7 434.7)"><path class="mk" d="M0-8L8 0L0 8L-8 0Z"/><circle class="hit" r="24"/></g>
+          <g class="city t2" data-city="Charlotte" data-note="In the running for the second division." transform="translate(985 598.9)"><path class="mk" d="M0-8L8 0L0 8L-8 0Z"/><circle class="hit" r="24"/></g>
+          <g class="city t2" data-city="Buffalo" data-note="In the running for the second division." transform="translate(985.5 387.5)"><path class="mk" d="M0-8L8 0L0 8L-8 0Z"/><circle class="hit" r="24"/></g>
+          <g class="city t2" data-city="Miami" data-note="In the running for the second division." transform="translate(1045.1 843.7)"><path class="mk" d="M0-8L8 0L0 8L-8 0Z"/><circle class="hit" r="24"/></g>
+          <g class="city t2" data-city="Moncton" data-note="In the running for the second division." transform="translate(1214.3 230.8)"><path class="mk" d="M0-8L8 0L0 8L-8 0Z"/><circle class="hit" r="24"/></g>
+          <g class="city t1" data-city="San Francisco" data-note="Top division from Season One." transform="translate(117 475)"><circle class="mk" r="6.5"/><circle class="hit" r="24"/></g>
+          <g class="city t1" data-city="Los Angeles" data-note="Top division from Season One." transform="translate(174.8 596.4)"><circle class="mk" r="6.5"/><circle class="hit" r="24"/></g>
+          <g class="city t1" data-city="Seattle" data-note="Top division from Season One." transform="translate(199.7 220.8)"><circle class="mk" r="6.5"/><circle class="hit" r="24"/></g>
+          <g class="city t1" data-city="Vancouver" data-note="Top division from Season One." transform="translate(200.5 173.5)"><circle class="mk" r="6.5"/><circle class="hit" r="24"/></g>
+          <g class="city t1" data-city="Calgary" data-note="Top division from Season One." transform="translate(360.6 167.3)"><circle class="mk" r="6.5"/><circle class="hit" r="24"/></g>
+          <g class="city t1" data-city="Edmonton" data-note="Top division from Season One." transform="translate(383.6 103.5)"><circle class="mk" r="6.5"/><circle class="hit" r="24"/></g>
+          <g class="city t1" data-city="Denver" data-note="Top division from Season One." transform="translate(477.4 496.4)"><circle class="mk" r="6.5"/><circle class="hit" r="24"/></g>
+          <g class="city t1" data-city="Winnipeg" data-note="Top division from Season One." transform="translate(639.4 229.8)"><circle class="mk" r="6.5"/><circle class="hit" r="24"/></g>
+          <g class="city t1" data-city="Dallas" data-note="Top division from Season One." transform="translate(640.8 693.6)"><circle class="mk" r="6.5"/><circle class="hit" r="24"/></g>
+          <g class="city t1" data-city="Minneapolis" data-note="Top division from Season One." transform="translate(709.4 362.7)"><circle class="mk" r="6.5"/><circle class="hit" r="24"/></g>
+          <g class="city t1" data-city="Chicago" data-note="Top division from Season One." transform="translate(822 439.8)"><circle class="mk" r="6.5"/><circle class="hit" r="24"/></g>
+          <g class="city t1" data-city="Detroit" data-note="Top division from Season One." transform="translate(908.9 416.6)"><circle class="mk" r="6.5"/><circle class="hit" r="24"/></g>
+          <g class="city t1" data-city="Toronto" data-note="Top division from Season One." transform="translate(972 369.1)"><circle class="mk" r="6.5"/><circle class="hit" r="24"/></g>
+          <g class="city t1" data-city="Pittsburgh" data-note="Top division from Season One." transform="translate(976.7 457.1)"><circle class="mk" r="6.5"/><circle class="hit" r="24"/></g>
+          <g class="city t1" data-city="Ottawa" data-note="Top division from Season One." transform="translate(1028.9 307.4)"><circle class="mk" r="6.5"/><circle class="hit" r="24"/></g>
+          <g class="city t1" data-city="Washington" data-note="Top division from Season One." transform="translate(1043.8 485.6)"><circle class="mk" r="6.5"/><circle class="hit" r="24"/></g>
+          <g class="city t1" data-city="Montréal" data-note="Top division from Season One." transform="translate(1066.3 295.6)"><circle class="mk" r="6.5"/><circle class="hit" r="24"/></g>
+          <g class="city t1" data-city="Philadelphia" data-note="Top division from Season One." transform="translate(1074.2 449.4)"><circle class="mk" r="6.5"/><circle class="hit" r="24"/></g>
+          <g class="city t1" data-city="New York" data-note="Top division from Season One." transform="translate(1091.6 423.7)"><circle class="mk" r="6.5"/><circle class="hit" r="24"/></g>
+          <g class="city t1" data-city="Boston" data-note="Top division from Season One." transform="translate(1135.3 364.8)"><circle class="mk" r="6.5"/><circle class="hit" r="24"/></g>
+          <g class="city t0" data-city="Portland" data-note="Top division from Season One. It has never had an NHL team." transform="translate(176.4 273)"><circle class="halo" r="19"/><circle class="mk" r="9.5"/><circle class="pip" r="3.2"/><text x="17" y="9" text-anchor="start">Portland</text><circle class="hit" r="24"/></g>
+          <g class="city t0" data-city="San Diego" data-note="Top division from Season One. It has never had an NHL team." transform="translate(189.1 636.9)"><circle class="halo" r="19"/><circle class="mk" r="9.5"/><circle class="pip" r="3.2"/><text x="-17" y="14" text-anchor="end">San Diego</text><circle class="hit" r="24"/></g>
+          <g class="city t0" data-city="Phoenix" data-note="Top division from Season One. The Coyotes left in 2024." transform="translate(304.1 642.3)"><circle class="halo" r="19"/><circle class="mk" r="9.5"/><circle class="pip" r="3.2"/><text x="17" y="9" text-anchor="start">Phoenix</text><circle class="hit" r="24"/></g>
+          <g class="city t0" data-city="Saskatoon" data-note="Top division from Season One. It has never had an NHL team." transform="translate(485.4 158.9)"><circle class="halo" r="19"/><circle class="mk" r="9.5"/><circle class="pip" r="3.2"/><text x="17" y="8" text-anchor="start">Saskatoon</text><circle class="hit" r="24"/></g>
+          <g class="city t0" data-city="Houston" data-note="Top division from Season One. It has never had an NHL team." transform="translate(673.4 774.1)"><circle class="halo" r="19"/><circle class="mk" r="9.5"/><circle class="pip" r="3.2"/><text x="17" y="9" text-anchor="start">Houston</text><circle class="hit" r="24"/></g>
+          <g class="city t0" data-city="Kansas City" data-note="Top division from Season One. The Scouts left in 1976." transform="translate(687.7 523.1)"><circle class="halo" r="19"/><circle class="mk" r="9.5"/><circle class="pip" r="3.2"/><text x="-17" y="9" text-anchor="end">Kansas City</text><circle class="hit" r="24"/></g>
+          <g class="city t0" data-city="Milwaukee" data-note="Top division from Season One. It has never had an NHL team." transform="translate(813.5 408.9)"><circle class="halo" r="19"/><circle class="mk" r="9.5"/><circle class="pip" r="3.2"/><text x="-16" y="-8" text-anchor="end">Milwaukee</text><circle class="hit" r="24"/></g>
+          <g class="city t0" data-city="Atlanta" data-note="Top division from Season One. Two NHL teams have left, in 1980 and 2011." transform="translate(914.6 650.3)"><circle class="halo" r="19"/><circle class="mk" r="9.5"/><circle class="pip" r="3.2"/><text x="17" y="9" text-anchor="start">Atlanta</text><circle class="hit" r="24"/></g>
+          <g class="city t0" data-city="Hamilton" data-note="Top division from Season One. No NHL team since the Tigers in 1925." transform="translate(964.9 381.3)"><circle class="halo" r="19"/><circle class="mk" r="9.5"/><circle class="pip" r="3.2"/><text x="-17" y="6" text-anchor="end">Hamilton</text><circle class="hit" r="24"/></g>
+          <g class="city t0" data-city="Québec City" data-note="Top division from Season One. The Nordiques left in 1995." transform="translate(1097.9 249.7)"><circle class="halo" r="19"/><circle class="mk" r="9.5"/><circle class="pip" r="3.2"/><text x="-16" y="-12" text-anchor="end">Québec City</text><circle class="hit" r="24"/></g>
+          <g class="city t0" data-city="Hartford" data-note="Top division from Season One. The Whalers left in 1997." transform="translate(1109.6 389)"><circle class="halo" r="19"/><circle class="mk" r="9.5"/><circle class="pip" r="3.2"/><text x="16" y="24" text-anchor="start">Hartford</text><circle class="hit" r="24"/></g>
+          <g class="city t0" data-city="Halifax" data-note="Top division from Season One. It has never had an NHL team." transform="translate(1249.3 259.2)"><circle class="halo" r="19"/><circle class="mk" r="9.5"/><circle class="pip" r="3.2"/><text x="0" y="-22" text-anchor="middle">Halifax</text><circle class="hit" r="24"/></g>
+        </svg>
+      </div>
+    </section>
+
+    <!-- 4. The players: digital athletes with a career, a temperament and an answer. Halifax, season five, invented. -->
+    <section id="players">
+      <div class="shead">
+        <h2 class="display">Players you can know.</h2>
+        <p class="lead">Every SHL player is a digital athlete, with a temperament, a voice and a career that runs for years. They are made with AI, and they are always labelled digital.</p>
+      </div>
+      <div class="pcard rv">
+        <div class="pcard-id">
+          <svg class="jersey gales" viewBox="0 0 240 240" role="img" aria-label="The back of the number 19 sweater, Okafor"><use href="#shl-jersey"/><text class="jn" x="120" y="100" text-anchor="middle" >OKAFOR</text><text class="jd" x="120" y="186" text-anchor="middle">19</text></svg>
+          <div class="pcard-who">
+            <h3 class="display">Eli Okafor</h3>
+            <p class="pcard-meta"><span class="club gales">Halifax Gales</span> Centre, number 19</p>
+            <p class="pcard-sub">Age 22. Shoots left. Third overall in the Founding Draft.</p>
+          </div>
+          <dl class="rate">
+            <div><dt>Skating</dt><dd><i style="--v:91"></i><b>91</b></dd></div>
+            <div><dt>Shot</dt><dd><i style="--v:88"></i><b>88</b></dd></div>
+            <div><dt>Vision</dt><dd><i style="--v:84"></i><b>84</b></dd></div>
+            <div><dt>Defence</dt><dd><i style="--v:71"></i><b>71</b></dd></div>
+            <div><dt>Durability</dt><dd><i class="lo" style="--v:62"></i><b>62</b></dd></div>
+          </dl>
+          <p class="pcard-temper">Quiet. Obsessive. Hates morning skates. Remembers every game, quote and slight.</p>
+        </div>
+        <div class="ask">
+          <h3 class="display">Ask him anything.</h3>
+          <p class="ask-q"><span>How's the knee, honestly?</span><small>A Halifax member, after the game</small></p>
+          <p class="ask-a"><span>First month back I was scared of every corner. Tonight I forgot about it.</span><small>Eli Okafor <em>Digital athlete</em></small></p>
+          <p class="fine">Every player, coach and general manager answers, and remembers what they said last time.</p>
+        </div>
+        <ol class="career" aria-label="One career, start to finish">
+          <li><b>Season 1</b><strong>Drafted third overall</strong><span>Halifax members made the pick.</span></li>
+          <li><b>Season 2</b><strong>Rookie of the year</strong><span>31 goals in his first full season.</span></li>
+          <li class="down"><b>Season 4</b><strong>Torn ACL</strong><span>Out for the year. Halifax misses the playoffs.</span></li>
+          <li><b>Season 5</b><strong>The comeback</strong><span>Scores in his first game back.</span></li>
+          <li class="peak"><b>Season 9</b><strong>Captain. Champion.</strong><span>Game 7, overtime.</span></li>
+          <li><b>Season 15</b><strong>Retires</strong><span>Number 19 goes to the rafters.</span></li>
+        </ol>
+      </div>
+      <ul class="roster rv">
+        <li><svg class="jersey givre" viewBox="0 0 240 240" role="img" aria-label="The back of the number 30 sweater, Marchetti"><use href="#shl-jersey"/><text class="jn" x="120" y="100" text-anchor="middle" >MARCHETTI</text><text class="jd" x="120" y="186" text-anchor="middle">30</text></svg><div><h3>Étienne Marchetti</h3><p class="pcard-meta"><span class="club givre">Québec Givre</span> Goaltender</p><p>Lost the net in March. Took it back in April. Talks to his posts.</p></div></li>
+        <li><svg class="jersey harvest" viewBox="0 0 240 240" role="img" aria-label="The back of the number 71 sweater, Reinholt"><use href="#shl-jersey"/><text class="jn" x="120" y="100" text-anchor="middle" >REINHOLT</text><text class="jd" x="120" y="186" text-anchor="middle">71</text></svg><div><h3>Tavish Reinholt</h3><p class="pcard-meta"><span class="club harvest">Saskatoon Harvest</span> Left wing</p><p>31, and his contract ends this summer. The members decide what that is worth.</p></div></li>
+        <li><svg class="jersey draft" viewBox="0 0 240 240" role="img" aria-label="The back of the number 27 sweater, Baptiste"><use href="#shl-jersey"/><text class="jn" x="120" y="100" text-anchor="middle" >BAPTISTE</text><text class="jd" x="120" y="186" text-anchor="middle">27</text></svg><div><h3>Noa Baptiste</h3><p class="pcard-meta"><span class="club draft">Moncton juniors</span> Defence</p><p>17. Draft eligible next June. Four clubs have already asked about him.</p></div></li>
+      </ul>
+      <p class="fine center">An illustration of the league in its fifth season. Every name is invented.</p>
+    </section>
+
+    <!-- 5. Fan-run: the wire, and a members' vote to cast. Fictional, and said so. -->
+    <section id="fans">
+      <div class="shead">
+        <h2 class="display">You are the front office.</h2>
+        <p class="lead">Each club belongs to its members. The general manager makes the case. The members make the call: the first-round pick, the deadline trade, the coach, the sweater.</p>
+      </div>
+      <div class="office rv">
+        <ul class="wire" aria-label="The league wire">
+          <li class="wire-new" id="wire-new" hidden><span class="tg t-trade">Trade</span><p>Saskatoon members send Reinholt to Montréal</p></li>
+          <li><span class="tg t-fired">Fired</span><p>Atlanta fires head coach Dunmore after a 2-9 start</p></li>
+          <li><span class="tg t-inj">Injury</span><p>Hamilton rookie Arsenault out six weeks</p></li>
+          <li><span class="tg t-rum">Rumour</span><p>Montréal calls Saskatoon about Reinholt</p></li>
+        </ul>
+        <div class="vote" id="vote">
+          <p class="vote-club"><span class="club harvest">Saskatoon Harvest</span> Members' vote at the trade deadline</p>
+          <h3 class="display">Trade Reinholt to Montréal for two first-round picks?</h3>
+          <blockquote class="vote-gm"><p>He walks for nothing this summer. Two firsts rebuild us.</p><cite>Priya Adler, general manager, an AI voice. She recommends yes.</cite></blockquote>
+          <div class="vote-btns"><button type="button" class="btn btn-ice" data-vote="yes">Accept</button><button type="button" class="btn btn-ghost" data-vote="no">Reject</button></div>
+          <div class="vote-bars" id="vote-bars">
+            <div class="vb yes"><span>Accept</span><i><u style="--w:58"></u></i><b>58%</b></div>
+            <div class="vb no"><span>Reject</span><i><u style="--w:42"></u></i><b>42%</b></div>
+          </div>
+          <p class="vote-foot" id="vote-foot">23,481 members voted. The trade went through.</p>
+        </div>
+      </div>
+      <p class="fine center">An illustration. The clubs' members are not voting yet, and every name is invented.</p>
+    </section>
+
+    <div class="rinkline red" aria-hidden="true"></div>
+
+    <!-- 6. One season a year: it opens the week the NHL stops -->
+    <section id="season">
+      <div class="shead">
+        <h2 class="display">We start when they stop.</h2>
+        <p class="lead">One season a year. It opens in June, the week the NHL goes dark, and it plays through the summer with the rink to itself.</p>
+      </div>
+      <div class="szn rv" role="img" aria-label="A calendar from June to May. The NHL plays its final in June, has no games from late June to early October, then plays its season and playoffs. The Super Hockey League plays its regular season from late June to January, its playoffs from February to April, then holds its draft with promotion and relegation in May.">
+        <div class="szn-months" aria-hidden="true"><span>Jun</span><span>Jul</span><span>Aug</span><span>Sep</span><span>Oct</span><span>Nov</span><span>Dec</span><span>Jan</span><span>Feb</span><span>Mar</span><span>Apr</span><span>May</span></div>
+        <div class="szn-row is-nhl" aria-hidden="true">
+          <b class="szn-who">NHL</b>
+          <div class="szn-track">
+            <span class="sbar fin" style="--a:0;--b:.6"></span>
+            <span class="sbar dark" style="--a:.6;--b:4.2"><em>No games</em></span>
+            <span class="sbar reg" style="--a:4.2;--b:12"><em>Season and playoffs</em></span>
+          </div>
+        </div>
+        <div class="szn-row is-shl" aria-hidden="true">
+          <b class="szn-who"><span class="shl-mark sm">SHL</span></b>
+          <div class="szn-track">
+            <span class="sbar reg" style="--a:.6;--b:7.9"><em>Regular season</em></span>
+            <span class="sbar po" style="--a:8;--b:10.4"><em>Playoffs</em></span>
+            <span class="sbar dr" style="--a:10.5;--b:12"><em>Draft</em></span>
+          </div>
+        </div>
+      </div>
+      <p class="season-line display">82 games. 16 clubs in the playoffs. One champion.</p>
+      <p class="fine center">Then the draft, and promotion and relegation. The target for the first puck drop is June 2027.</p>
+    </section>
+
+    <!-- 7. Game night: free to watch, with pools on Super Pools -->
+    <section id="night">
+      <div class="shead">
+        <h2 class="display">Free to watch. Free to play.</h2>
+        <p class="lead">Every game is free to watch, called by two AI voices who never miss a night. Pools and fantasy run on Super Pools from the first puck drop: Supercoins, never money.</p>
+      </div>
+      <div class="night rv">
+        <figure class="cast">
+          <img src="./img/shl/arena.webp" width="1600" height="600" alt="" loading="lazy" decoding="async" />
+          <div class="bug" aria-hidden="true"><span class="shl-mark sm">SHL</span><span class="tm">QUE <b>2</b></span><span class="tm hfx">HFX <b>3</b></span><span class="per">3rd <b>4:12</b></span></div>
+          <div class="onair" aria-hidden="true"><span>Free to watch</span><span class="dot">Live</span></div>
+          <figcaption><small>Cal Renner, play-by-play</small>Okafor scores. Halifax leads with four minutes left.</figcaption>
+        </figure>
+        <div class="picks">
+          <p class="picks-top"><b>Tonight's picks</b><span>Gales supporters, week 6</span></p>
+          <ul>
+            <li><span>QUE at HFX</span><b class="gales">HFX</b></li>
+            <li><span>HAM at TOR</span><b>HAM</b></li>
+            <li><span>SAS at HOU</span><b>HOU</b></li>
+            <li><span>ATL at MTL</span><b>ATL</b></li>
+          </ul>
+          <p class="picks-lock"><svg class="ico" aria-hidden="true" focusable="false"><use href="./icons.svg#i-check"/></svg>Picks locked at puck drop</p>
+          <a class="textlink" href="./hockey-pools.html">How hockey pools work today</a>
+        </div>
+      </div>
+      <p class="fine center">An illustration: a drawn arena, an invented game and an invented pool.</p>
+    </section>
+
+    <!-- 8. Unscripted: a game sealed, played and opened in the page (shl.js). A toy, and said so. -->
+    <section id="fair">
+      <div class="shead">
+        <h2 class="display">Nobody knows the score.</h2>
+        <p class="lead">Not the league, not the clubs, not us. Every game runs once, from a random seed sealed before puck drop. After the horn the seal is opened, and anyone can run the game again and get the same score.</p>
+      </div>
+      <div class="seal rv" id="seal">
+        <ol class="seal-steps">
+          <li data-step="1"><b>Before puck drop</b><span>A fingerprint of the game's random seed is published.</span></li>
+          <li data-step="2"><b>The game plays once</b><span>The engine runs from the sealed seed. No replays, no edits.</span></li>
+          <li data-step="3"><b>After the horn</b><span>The seed is revealed. The fingerprint has to match.</span></li>
+        </ol>
+        <div class="seal-screen" aria-live="polite">
+          <p class="seal-row"><span>Seal</span><code id="seal-hash">Not sealed yet</code></p>
+          <div class="seal-score" id="seal-score"><span class="tm">QUE <b>0</b></span><span class="tm hfx">HFX <b>0</b></span><span class="per">Before the game</span></div>
+          <ul class="seal-log" id="seal-log"><li>Seal a game to start.</li></ul>
+          <p class="seal-row"><span>Seed</span><code id="seal-seed">Hidden until the horn</code></p>
+          <p class="seal-ok" id="seal-ok" hidden><svg class="ico" aria-hidden="true" focusable="false"><use href="./icons.svg#i-check"/></svg><span>The seed matches the seal. Run it again and the score is the same.</span></p>
+        </div>
+        <div class="seal-act"><button type="button" class="btn btn-ice" id="seal-btn">Seal a game</button><button type="button" class="btn btn-ghost" id="seal-again" hidden>Run it again</button></div>
+      </div>
+      <p class="fine center">A toy version that runs in your browser. The league's engine plays every shift from the players' ratings, fatigue and lines.</p>
+    </section>
+
+    <div class="rinkline blue" aria-hidden="true"></div>
+
+    <!-- 9. How a game gets made, in the order it happens -->
+    <section id="made">
+      <div class="shead">
+        <h2 class="display">How a game gets made.</h2>
+        <p class="lead">No arenas, no charter flights, no hundred-million-dollar payroll. A league that runs on software can put a club in any city.</p>
+      </div>
+      <ol class="made rv">
+        <li><b>The seed is sealed</b><span>Its fingerprint is published before puck drop.</span></li>
+        <li><b>The engine plays it</b><span>Every shift, from ratings, fatigue, injuries and the coach's lines.</span></li>
+        <li><b>The broadcast draws it</b><span>Full games in 3D, called live by AI commentators.</span></li>
+        <li><b>The highlights go photoreal</b><span>Goals, interviews and press conferences, always labelled digital.</span></li>
+        <li><b>The wire writes it up</b><span>Injuries, rumours, trades and the morning column.</span></li>
+      </ol>
+      <p class="fine center">Photoreal video comes in short clips today, so full games are drawn in 3D and the photoreal work goes where it counts.</p>
+    </section>
+
+    <!-- 10. The plan, as targets -->
+    <section id="plan">
+      <div class="shead">
+        <h2 class="display">First puck drop: June 2027.</h2>
+        <p class="lead">A target, not a promise. Hockey is first; the same engine fits every sport with a closed door.</p>
+      </div>
+      <ol class="road rv">
+        <li><b>To spring 2027</b><strong>Build</strong><span>The engine, the broadcast and the first 32 clubs.</span></li>
+        <li><b>June 2027</b><strong>The Founding Draft</strong><span>Members make the first picks.</span></li>
+        <li class="now"><b>June 2027</b><strong>Season One opens</strong><span>The week the NHL goes dark.</span></li>
+        <li><b>Spring 2028</b><strong>The first champion</strong><span>Then promotion, relegation and the second division.</span></li>
+        <li><b>After that</b><strong>The next sport</strong><span>Basketball, football, baseball, soccer.</span></li>
+      </ol>
+    </section>
+
+    <!-- 11. The questions -->
+    <section class="faq" id="faq">
+      <div class="shead">
+        <h2 class="display">Before you ask.</h2>
+      </div>
+      <details><summary>Is this real hockey?</summary><p>It is a real league: a schedule, standings, a playoff and one champion a year. The players are digital athletes, and every game is simulated, drawn and called as it happens. Nobody laces up.</p></details>
+      <details><summary>Are the players real people?</summary><p>No. Every player, coach, manager and commentator is fictional and made with AI. Each one is labelled digital on every card and every clip.</p></details>
+      <details><summary>Is there any real money in it?</summary><p>No. Watching is free, and pools and fantasy run on Supercoins: never bought, never sold, never turned into money.</p></details>
+      <details><summary>How do you know a game is not fixed?</summary><p>Each game runs once, from a random seed that is sealed before puck drop and opened after the horn. Anyone can run the game again from that seed and check the score.</p></details>
+      <details><summary>How does my city get a club?</summary><p>The 32 top-division cities are set for Season One. Second-division places go to the cities with the most founding members, and the best of them win promotion. Tell us your city and we count it.</p></details>
+      <details><summary>When does it start?</summary><p>The target is June 2027. Today the Super Hockey League is a concept: the film shows the idea, and the names and dates on this page can change.</p></details>
+      <details><summary>Is it affiliated with the NHL?</summary><p>No. The Super Hockey League is an independent concept from Planetterrian Ventures, the company behind Super Pools. It is not affiliated with the NHL or any of its clubs.</p></details>
+    </section>
+
+    <!-- 12. The closer: count my city -->
+    <section id="join">
+      <div class="closer rv">
+        <h2 class="display">Put your city on the ice.</h2>
+        <p>Tell us where you are. The cities with the most founding members get the first second-division clubs.</p>
+        <div class="cta2">
+          <a class="btn btn-gold btn-lg" data-gold href="mailto:hello@superpoolsai.com?subject=Super%20Hockey%20League%3A%20count%20my%20city&body=My%20city%3A%20">Count my city</a>
+          <a class="textlink" href="mailto:patrick@planetterrian.com?subject=Super%20Hockey%20League%3A%20the%20brief">Partners and investors: ask for the brief</a>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer class="site-foot">
+    <div class="cols">
+      <div><h2>Play</h2><ul><li><a href="./fantasy-hockey.html">Fantasy league</a></li><li><a href="./hockey-pools.html">Hockey pools</a></li><li><a href="./football-pools.html">NFL pools</a></li><li><a href="./basketball-pools.html">NBA pools</a></li><li><a href="./soccer-pools.html">Soccer pools</a></li><li><a href="./together.html">Show pools</a></li></ul></div>
+      <div><h2>Look around</h2><ul><li><a href="./fans.html">Fan zones</a></li><li><a href="./example-pool.html">An example pool</a></li><li><a href="./pricing.html">Pricing</a></li><li><a href="./changelog.html">Changelog</a></li></ul></div>
+      <div><h2>Your pools</h2><ul><li><a href="https://app.superpoolsai.com/#/?src=shl">Sign in</a></li><li><a href="mailto:hello@superpoolsai.com">hello@superpoolsai.com</a></li></ul></div>
+      <div><h2>The fine print</h2><ul><li><a href="https://app.superpoolsai.com/#/privacy?src=shl">Privacy</a></li><li><a href="https://app.superpoolsai.com/#/terms?src=shl">Terms</a></li><li><button type="button" class="linkbtn" data-cookie-settings>Cookie settings</button></li></ul></div>
+    </div>
+    <div class="base"><span>© 2026 Super Pools · superpoolsai.com · Supercoins, never money</span><span>Planetterrian Ventures · 963 8th Ave W, Vancouver, BC V5Z 1E4, Canada</span><span>The Super Hockey League is a concept. Its players, clubs and games are digital and fictional. It is not affiliated with the NHL or any league or club.</span></div>
+  </footer>
+
+  <div class="stickybar" id="sticky"><a class="btn btn-gold" data-film href="#film">Watch the film</a></div>
+  <script src="./site.js"></script>
+  <script src="./shl.js" defer></script>
+</body>
+</html>
