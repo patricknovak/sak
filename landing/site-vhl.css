@@ -1,36 +1,42 @@
-/* The Super Hockey League concept page (shl.html). Linked after site.css by that page only.
+/* The vHL (V Hockey League) concept page (vhl.html). Linked after site.css by that page only.
    The page keeps the site's tokens and its one-gold rule, and adds the league's own voice: display type in italic
    capitals, as on a sweater, and the rink's own lines as the page's dividers (red for what is closed, blue for what is
    open). Club colours are content, used only on that club's name and chips. Every picture of a person is AI-generated and is
    labelled on or beside the picture.
-   Sections: 1 type and the mark, 2 the hero and the film, 3 the ledger, 4 rink lines, 5 the map, 6 the players (faces),
+   Sections: 1 type and the mark, 2 the hero and the film, 3 the ledger, 3b what the V is for, 4 rink lines, 5 the map, 6 the players (faces),
    7 the front office (wire and vote), 8 the season calendar, 9 game night, 10 the sealed game, 11 how a game gets made
    and the road, 12 motion. */
 
 /* 1. Type and the mark */
-body.shl { --gales: #1fb6a6; --gales-hi: #3fd9c9; --givre: #b9d6ff; --harvest: #f29a5c; --blueline: #2f6fe0; }
-.shl h1.display, .shl h2.display, .shl h3.display { font-style: italic; text-transform: uppercase; }
-.shl h2.display { font-size: clamp(40px, 9.6vw, 76px); line-height: .9; text-wrap: balance; }
-.shl .shead { max-width: 760px; }
-.shl .fine { margin: 14px 0 0; font-size: 13px; line-height: 1.5; color: var(--dim); max-width: 62ch; }
-.shl .fine.center { margin: 18px auto 0; text-align: center; }
-/* the league's mark: three letters in ice, a pass streaking under them, the puck at the end of it */
-.shl-mark { position: relative; display: inline-block; font: italic 900 44px/1 'Barlow Condensed', 'Arial Narrow', sans-serif; letter-spacing: .03em; padding: 0 .14em .17em 0;
-  background: linear-gradient(180deg, #fff 16%, #dff5ff 50%, var(--ice) 100%); -webkit-background-clip: text; background-clip: text; color: transparent; -webkit-text-fill-color: transparent; }
-.shl-mark::after { content: ''; position: absolute; left: -.1em; right: .1em; bottom: .05em; height: .07em; background: linear-gradient(90deg, rgba(56,189,248,0), var(--ice) 60%, #fff); clip-path: polygon(0 50%, 100% 0, 100% 100%); transform-origin: left center; }
-.shl-mark::before { content: ''; position: absolute; right: -.16em; bottom: 0; width: .25em; height: .13em; border-radius: 50%; background: #0a1220; box-shadow: 0 0 0 .025em #fff; }
-.shl-mark.sm { font-size: 22px; }
+body.vhl { --gales: #1fb6a6; --gales-hi: #3fd9c9; --givre: #b9d6ff; --harvest: #f29a5c; --blueline: #2f6fe0; }
+.vhl h1.display, .vhl h2.display, .vhl h3.display { font-style: italic; text-transform: uppercase; }
+.vhl h2.display { font-size: clamp(40px, 9.6vw, 76px); line-height: .9; text-wrap: balance; }
+.vhl .shead { max-width: 760px; }
+.vhl .fine { margin: 14px 0 0; font-size: 13px; line-height: 1.5; color: var(--dim); max-width: 62ch; }
+.vhl .fine.center { margin: 18px auto 0; text-align: center; }
+/* the league's mark: the family's v in ice blue (every vLeagues league starts with it), the league's own letters in
+   white, a pass streaking under them and the puck at the end of it */
+.vhl-mark { position: relative; display: inline-block; font: italic 900 44px/1 'Barlow Condensed', 'Arial Narrow', sans-serif; letter-spacing: .03em; padding: 0 .14em .17em 0;
+  background: linear-gradient(180deg, #fff 20%, #eaf8ff 60%, #bfe6fa 100%); -webkit-background-clip: text; background-clip: text; color: transparent; -webkit-text-fill-color: transparent; }
+.vhl-mark i { font-style: inherit; color: var(--ice); -webkit-text-fill-color: var(--ice); }
+.vhl-mark::after { content: ''; position: absolute; left: -.1em; right: .1em; bottom: .05em; height: .07em; background: linear-gradient(90deg, rgba(56,189,248,0), var(--ice) 60%, #fff); clip-path: polygon(0 50%, 100% 0, 100% 100%); transform-origin: left center; }
+.vhl-mark::before { content: ''; position: absolute; right: -.16em; bottom: 0; width: .25em; height: .13em; border-radius: 50%; background: #0a1220; box-shadow: 0 0 0 .025em #fff; }
+.vhl-mark.sm { font-size: 22px; }
 .club { font: 700 14px/1.2 'Barlow Condensed', sans-serif; letter-spacing: .07em; text-transform: uppercase; margin-right: 8px; white-space: nowrap; }
 .club.gales { color: var(--gales-hi); } .club.givre { color: var(--givre); } .club.harvest { color: var(--harvest); } .club.draft { color: var(--ice); }
 
 /* 2. The hero: the three words, the line under them and the one gold button, then the film across the column */
-.shl-hero { display: grid; gap: 20px; margin-top: 16px; }
-.shl-kicker { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 14px; margin: 0 0 14px; }
-.shl-name { font: 700 16px/1 'Barlow Condensed', sans-serif; letter-spacing: .3em; text-transform: uppercase; color: var(--soft); }
-.shl-tag { font-size: 12.5px; font-weight: 600; line-height: 1; color: var(--ice); border: 1px solid rgba(56,189,248,.45); border-radius: 999px; padding: 5px 10px; }
-.shl-hero h1 { margin: 0; font-size: clamp(50px, 16.4vw, 96px); line-height: .84; letter-spacing: 0; }
-.shl-hero h1 span { display: block; }
-.shl-hero .shl-sub { margin: 0 0 18px; font-size: 17px; line-height: 1.5; color: var(--soft); max-width: 46ch; }
+.vhl-hero { display: grid; gap: 20px; margin-top: 16px; }
+.vhl-kicker { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 14px; margin: 0 0 14px; }
+/* the name takes a line of its own, so the V can take its turns (vhl.js: virtual, vibrant, valiant, vivacious, V)
+   without moving anything around it */
+.vhl-name { flex-basis: 100%; white-space: nowrap; font: 700 16px/1 'Barlow Condensed', sans-serif; letter-spacing: .3em; text-transform: uppercase; color: var(--soft); }
+.vflip { display: inline-block; font-weight: inherit; color: var(--ice); transform-origin: 50% 55%; transition: transform .15s ease-in, opacity .15s ease-in; }
+.vflip.out { transform: scaleY(0); opacity: 0; }
+.vhl-tag { font-size: 12.5px; font-weight: 600; line-height: 1; color: var(--ice); border: 1px solid rgba(56,189,248,.45); border-radius: 999px; padding: 5px 10px; }
+.vhl-hero h1 { margin: 0; font-size: clamp(50px, 16.4vw, 96px); line-height: .84; letter-spacing: 0; }
+.vhl-hero h1 span { display: block; }
+.vhl-hero .vhl-sub { margin: 0 0 18px; font-size: 17px; line-height: 1.5; color: var(--soft); max-width: 46ch; }
 .film { margin: 4px 0 0; }
 .film-stage { position: relative; aspect-ratio: 16 / 9; border-radius: 16px; overflow: hidden; background: #050912; border: 1px solid var(--line2);
   box-shadow: 0 0 0 1px rgba(56,189,248,.07), 0 50px 110px -50px rgba(56,189,248,.5); }
@@ -45,17 +51,17 @@ body.shl { --gales: #1fb6a6; --gales-hi: #3fd9c9; --givre: #b9d6ff; --harvest: #
 .film-label small { display: block; margin-top: 3px; font-size: 12.5px; color: var(--soft); }
 .film figcaption { margin-top: 10px; font-size: 13px; line-height: 1.45; color: var(--dim); max-width: 70ch; }
 @media (min-width: 900px) {
-  .shl-hero { grid-template-columns: minmax(0, 1.3fr) minmax(0, .7fr); gap: 26px 44px; align-items: end; margin-top: 26px; }
-  .shl-hero h1 { font-size: clamp(98px, 10.6vw, 126px); }
-  .shl-hero .shl-sub { font-size: 18px; margin-bottom: 22px; }
-  .shl-hero-side { padding-bottom: 8px; }
-  .shl-hero .cta2 { flex-direction: column; align-items: flex-start; gap: 6px; }
+  .vhl-hero { grid-template-columns: minmax(0, 1.3fr) minmax(0, .7fr); gap: 26px 44px; align-items: end; margin-top: 26px; }
+  .vhl-hero h1 { font-size: clamp(98px, 10.6vw, 126px); }
+  .vhl-hero .vhl-sub { font-size: 18px; margin-bottom: 22px; }
+  .vhl-hero-side { padding-bottom: 8px; }
+  .vhl-hero .cta2 { flex-direction: column; align-items: flex-start; gap: 6px; }
   .film { grid-column: 1 / -1; margin-top: 10px; }
   .film-stage { border-radius: 22px; }
   .film-play { padding: 30px; gap: 18px; }
   .film-ring { width: 76px; height: 76px; } .film-ring svg { width: 34px; height: 34px; }
   .film-label b { font-size: 34px; } .film-label small { font-size: 14px; }
-  .shl-mark { font-size: 54px; } .shl-mark.sm { font-size: 24px; }
+  .vhl-mark { font-size: 54px; } .vhl-mark.sm { font-size: 24px; }
 }
 
 /* 3. The ledger: one row for each thing the NHL keeps closed. Red marks the closed side, blue the open one. */
@@ -80,6 +86,23 @@ body.shl { --gales: #1fb6a6; --gales-hi: #3fd9c9; --givre: #b9d6ff; --harvest: #
   .ledger td:nth-child(3) { font-size: 25px; }
 }
 
+/* 3b. What the V is for: seven words down the page, each one a door to the section that earns it. The V is the
+   mark's own blue; the rows are ruled like the plan's. */
+.vwords { list-style: none; margin: 0; padding: 0; border-top: 1px solid var(--line2); }
+.vwords li { border-bottom: 1px solid var(--line2); }
+.vwords a { display: grid; gap: 5px; padding: 15px 0 16px; color: inherit; text-decoration: none; }
+.vwords b { font: italic 900 clamp(40px, 12vw, 48px)/.88 'Barlow Condensed', sans-serif; text-transform: uppercase; color: var(--ink); transition: transform .2s cubic-bezier(.2,.8,.2,1); }
+.vwords b i { font-style: inherit; color: var(--ice); }
+.vwords span { font-size: 15.5px; line-height: 1.4; color: var(--soft); }
+.vwords a:hover b { transform: translateX(8px); }
+.vwords a:hover span, .vwords a:focus-visible span { color: var(--ink); }
+.vwords a:focus-visible { outline-offset: 2px; border-radius: 6px; }
+@media (min-width: 900px) {
+  .vwords a { grid-template-columns: 340px minmax(0, 1fr); align-items: baseline; gap: 28px; padding: 16px 0 18px; }
+  .vwords b { font-size: 64px; }
+  .vwords span { font-size: 17.5px; }
+}
+
 /* 4. Rink lines: a blue line into each zone, the red line and its circle at centre ice */
 .rinkline { position: relative; left: 50%; width: 100vw; height: 8px; margin-top: 84px; transform: translateX(-50%); }
 .rinkline + section { margin-top: 84px; }
@@ -89,7 +112,7 @@ body.shl { --gales: #1fb6a6; --gales-hi: #3fd9c9; --givre: #b9d6ff; --harvest: #
 .rinkline.red::after { content: ''; position: absolute; left: 50%; top: 50%; width: 16px; height: 16px; margin: -8px 0 0 -8px; border-radius: 50%; background: var(--blueline); box-shadow: 0 0 0 4px var(--night); }
 @media (min-width: 900px) { .rinkline { height: 10px; margin-top: 104px; } .rinkline + section { margin-top: 104px; } }
 
-/* 5. The map: the dotted continent is a picture (img/shl/map.svg), the cities are drawn over it */
+/* 5. The map: the dotted continent is a picture (img/vhl/map.svg), the cities are drawn over it */
 .mapwrap { display: grid; gap: 14px; padding: 16px; border-radius: 26px; border: 1px solid var(--line2); background: var(--panel); }
 .map { display: block; width: 100%; height: auto; overflow: visible; }
 .map .city { transition: opacity .25s; }
@@ -230,33 +253,33 @@ body.shl { --gales: #1fb6a6; --gales-hi: #3fd9c9; --givre: #b9d6ff; --harvest: #
   .vote-btns { max-width: 420px; }
 }
 
-/* 8. The season: twelve months from June, the NHL's year over the SHL's (is-nhl, is-shl: body.shl is the page) */
+/* 8. The season: twelve months from June, the NHL's year over the vHL's (is-nhl, is-vhl: body.vhl is the page) */
 .szn { --who: 42px; padding: 16px 12px 18px; border-radius: 26px; border: 1px solid var(--line2); background: var(--panel); }
 .szn-months { display: grid; grid-template-columns: repeat(12, minmax(0, 1fr)); margin-left: var(--who); font: 700 11px/1 'Barlow Condensed', sans-serif; letter-spacing: .05em; text-transform: uppercase; color: var(--dim); }
 .szn-months span { padding: 0 0 9px 3px; border-left: 1px solid var(--line); }
 .szn-row { display: grid; grid-template-columns: var(--who) minmax(0, 1fr); align-items: center; margin-top: 10px; }
 .szn-who { font: 900 20px/1 'Barlow Condensed', sans-serif; color: var(--mute); }
-.szn-who .shl-mark.sm { font-size: 20px; }
+.szn-who .vhl-mark.sm { font-size: 20px; }
 .szn-track { position: relative; height: 38px; }
-.szn-row.is-shl .szn-track { height: 56px; }
+.szn-row.is-vhl .szn-track { height: 56px; }
 .sbar { position: absolute; top: 0; bottom: 0; left: calc(var(--a) / 12 * 100%); width: calc((var(--b) - var(--a)) / 12 * 100% - 3px); display: flex; align-items: center; padding: 0 8px; border-radius: 8px; overflow: hidden; white-space: nowrap; }
 .sbar em { font: 700 12.5px/1 'Barlow Condensed', sans-serif; letter-spacing: .04em; text-transform: uppercase; }
 .is-nhl .sbar.fin, .is-nhl .sbar.reg { background: rgba(255,255,255,.08); color: var(--mute); }
 .is-nhl .sbar.dark { justify-content: center; padding: 0 2px; border: 1.5px dashed rgba(239,42,79,.8); color: var(--red-text); }
-.is-shl .sbar em { font-weight: 900; font-style: italic; font-size: 15px; }
-.is-shl .sbar.reg { background: linear-gradient(90deg, #1d8fd6, var(--ice)); color: #04121c; box-shadow: 0 0 34px rgba(56,189,248,.35); }
-.is-shl .sbar.po { justify-content: center; padding: 0 3px; background: var(--ink); color: var(--night); }
-.is-shl .sbar.dr { justify-content: center; padding: 0 2px; border: 1.5px solid var(--ice); color: var(--ice); }
-.is-shl .sbar.po em, .is-shl .sbar.dr em { font-size: 11.5px; letter-spacing: 0; }
+.is-vhl .sbar em { font-weight: 900; font-style: italic; font-size: 15px; }
+.is-vhl .sbar.reg { background: linear-gradient(90deg, #1d8fd6, var(--ice)); color: #04121c; box-shadow: 0 0 34px rgba(56,189,248,.35); }
+.is-vhl .sbar.po { justify-content: center; padding: 0 3px; background: var(--ink); color: var(--night); }
+.is-vhl .sbar.dr { justify-content: center; padding: 0 2px; border: 1.5px solid var(--ice); color: var(--ice); }
+.is-vhl .sbar.po em, .is-vhl .sbar.dr em { font-size: 11.5px; letter-spacing: 0; }
 .season-line { margin: 30px auto 0; max-width: 16em; font-size: clamp(31px, 7.2vw, 62px); line-height: .94; font-style: italic; text-transform: uppercase; text-align: center; text-wrap: balance; }
 @media (min-width: 760px) {
   .szn { --who: 74px; padding: 26px 28px 30px; }
   .szn-months { font-size: 13px; letter-spacing: .1em; } .szn-months span { padding-left: 8px; }
-  .szn-who { font-size: 30px; } .szn-who .shl-mark.sm { font-size: 30px; }
-  .szn-track { height: 46px; } .szn-row.is-shl .szn-track { height: 76px; } .szn-row { margin-top: 14px; }
+  .szn-who { font-size: 30px; } .szn-who .vhl-mark.sm { font-size: 30px; }
+  .szn-track { height: 46px; } .szn-row.is-vhl .szn-track { height: 76px; } .szn-row { margin-top: 14px; }
   .sbar { padding: 0 16px; border-radius: 10px; } .sbar em { font-size: 14px; letter-spacing: .08em; }
-  .is-shl .sbar em, .is-shl .sbar.po em, .is-shl .sbar.dr em { font-size: 24px; letter-spacing: .01em; }
-  .is-shl .sbar.dr em { font-size: 20px; }
+  .is-vhl .sbar em, .is-vhl .sbar.po em, .is-vhl .sbar.dr em { font-size: 24px; letter-spacing: .01em; }
+  .is-vhl .sbar.dr em { font-size: 20px; }
 }
 
 /* 9. Game night: an AI-generated picture under a score bug, beside tonight's picks, with the booth below */
@@ -266,8 +289,8 @@ body.shl { --gales: #1fb6a6; --gales-hi: #3fd9c9; --givre: #b9d6ff; --harvest: #
 .cast::after { content: ''; position: absolute; inset: 0; background: linear-gradient(180deg, rgba(5,9,18,.55), rgba(5,9,18,0) 30%, rgba(5,9,18,0) 44%, rgba(5,9,18,.93) 76%); }
 .bug { position: absolute; z-index: 1; left: 12px; top: 12px; display: flex; align-items: stretch; border-radius: 10px; overflow: hidden; background: rgba(7,12,23,.93); font: 700 17px/1 'Barlow Condensed', sans-serif; letter-spacing: .03em; }
 .bug > span { display: flex; align-items: center; gap: 8px; padding: 8px 10px; }
-.bug .shl-mark.sm { font-size: 19px; padding: 8px 14px 10px 10px; -webkit-text-fill-color: transparent; }
-.bug .shl-mark.sm::after { left: .3em; bottom: .32em; } .bug .shl-mark.sm::before { right: .34em; bottom: .26em; }
+.bug .vhl-mark.sm { display: block; font-size: 19px; padding: 8px 14px 10px 10px; -webkit-text-fill-color: transparent; }   /* a block, so the v and its letters stay one word inside the bug's flex row */
+.bug .vhl-mark.sm::after { left: .3em; bottom: .32em; } .bug .vhl-mark.sm::before { right: .34em; bottom: .26em; }
 .bug .tm, .seal-score .tm { border-left: 4px solid #eef2ff; } .bug .tm.hfx, .seal-score .tm.hfx { border-left-color: var(--gales); }
 .bug .tm b { font-size: 22px; font-variant-numeric: tabular-nums; }
 .bug .per { color: var(--ice); } .bug .per b { color: var(--ink); font-variant-numeric: tabular-nums; }
@@ -296,7 +319,7 @@ body.shl { --gales: #1fb6a6; --gales-hi: #3fd9c9; --givre: #b9d6ff; --harvest: #
 @media (min-width: 900px) {
   .night { grid-template-columns: minmax(0, 1.62fr) minmax(0, .88fr); gap: 18px; }
   .cast { min-height: 400px; }
-  .bug { left: 20px; top: 20px; font-size: 22px; } .bug > span { padding: 10px 14px; } .bug .tm b { font-size: 28px; } .bug .shl-mark.sm { font-size: 25px; }
+  .bug { left: 20px; top: 20px; font-size: 22px; } .bug > span { padding: 10px 14px; } .bug .tm b { font-size: 28px; } .bug .vhl-mark.sm { font-size: 25px; }
   .onair { right: 20px; top: 20px; }
   .cast figcaption { left: 24px; right: 24px; bottom: 22px; font-size: 20px; }
   .picks { padding: 24px; }
@@ -368,21 +391,22 @@ body.shl { --gales: #1fb6a6; --gales-hi: #3fd9c9; --givre: #b9d6ff; --harvest: #
 }
 
 /* 12. Motion: one moment on arrival (the pass under the mark), and three graphics that switch on when they are seen */
-@keyframes shl-streak { from { transform: scaleX(0); } to { transform: scaleX(1); } }
-@keyframes shl-puck { from { transform: translateX(-2.1em); opacity: 0; } 20% { opacity: 1; } to { transform: none; opacity: 1; } }
-@keyframes shl-grow { from { transform: scaleX(0); } to { transform: scaleX(1); } }
-@keyframes shl-in { from { opacity: 0; transform: translateY(-8px); } to { opacity: 1; transform: none; } }
-.shl-kicker .shl-mark::after { animation: shl-streak .8s .3s cubic-bezier(.2,.8,.2,1) both; }
-.shl-kicker .shl-mark::before { animation: shl-puck .8s .3s cubic-bezier(.2,.8,.2,1) both; }
+@keyframes vhl-streak { from { transform: scaleX(0); } to { transform: scaleX(1); } }
+@keyframes vhl-puck { from { transform: translateX(-2.1em); opacity: 0; } 20% { opacity: 1; } to { transform: none; opacity: 1; } }
+@keyframes vhl-grow { from { transform: scaleX(0); } to { transform: scaleX(1); } }
+@keyframes vhl-in { from { opacity: 0; transform: translateY(-8px); } to { opacity: 1; transform: none; } }
+.vhl-kicker .vhl-mark::after { animation: vhl-streak .8s .3s cubic-bezier(.2,.8,.2,1) both; }
+.vhl-kicker .vhl-mark::before { animation: vhl-puck .8s .3s cubic-bezier(.2,.8,.2,1) both; }
 .js .pcard.rv .rate i::after { transform: scaleX(0); transition: transform .9s .25s cubic-bezier(.2,.8,.2,1); }
 .js .pcard.rv.in .rate i::after { transform: none; }
-.js .szn.rv .is-shl .sbar { clip-path: inset(0 100% 0 0); transition: clip-path .9s .2s cubic-bezier(.2,.8,.2,1); }
-.js .szn.rv .is-shl .sbar.po { transition-delay: .75s; } .js .szn.rv .is-shl .sbar.dr { transition-delay: 1.1s; }
-.js .szn.rv.in .is-shl .sbar { clip-path: inset(0 0 0 0); }
-.vote.done .vb u { animation: shl-grow .9s cubic-bezier(.2,.8,.2,1) both; }
-.wire .wire-new { animation: shl-in .45s ease both; }
+.js .szn.rv .is-vhl .sbar { clip-path: inset(0 100% 0 0); transition: clip-path .9s .2s cubic-bezier(.2,.8,.2,1); }
+.js .szn.rv .is-vhl .sbar.po { transition-delay: .75s; } .js .szn.rv .is-vhl .sbar.dr { transition-delay: 1.1s; }
+.js .szn.rv.in .is-vhl .sbar { clip-path: inset(0 0 0 0); }
+.vote.done .vb u { animation: vhl-grow .9s cubic-bezier(.2,.8,.2,1) both; }
+.wire .wire-new { animation: vhl-in .45s ease both; }
 @media (prefers-reduced-motion: reduce) {
-  .shl-kicker .shl-mark::after, .shl-kicker .shl-mark::before, .vote.done .vb u, .wire .wire-new { animation: none; }
-  .js .pcard.rv .rate i::after, .js .szn.rv .is-shl .sbar { transition: none; transform: none; clip-path: none; }
+  .vhl-kicker .vhl-mark::after, .vhl-kicker .vhl-mark::before, .vote.done .vb u, .wire .wire-new { animation: none; }
+  .vflip, .vwords b { transition: none; } .vwords a:hover b { transform: none; }
+  .js .pcard.rv .rate i::after, .js .szn.rv .is-vhl .sbar { transition: none; transform: none; clip-path: none; }
   .film-ring, .map .mk, .map .halo, .map .pip { transition: none; }
 }

@@ -17,7 +17,7 @@ const pages = [
   'football-pools.html',
   'basketball-pools.html',
   'hockey-pools.html',
-  'shl.html',
+  'vhl.html',
 ];
 
 {
