@@ -124,7 +124,7 @@ export function DeleteAccountSheet({ plan, bot, open, onClose }: { plan: DeleteP
         <div className="grid gap-2 text-xs leading-snug sm:grid-cols-2">
           <div className="rounded-2xl border border-white/[.08] bg-white/[.03] p-3">
             <div className="mb-1 font-semibold text-red-200">Deleted</div>
-            <p className="text-mute">Your sign-in and email, {plan.posts > 0 ? `your ${plan.posts.toLocaleString()} chat ${plan.posts === 1 ? 'post' : 'posts'} and photos` : 'your chat posts and photos'}, lounge and fan zone posts, alerts, {bot}’s notes on you, a Yahoo link, a waitlist entry on your email.</p>
+            <p className="text-mute">Your sign-in and email, {plan.posts > 0 ? `your ${plan.posts.toLocaleString()} chat ${plan.posts === 1 ? 'post' : 'posts'} and photos` : 'your chat posts and photos'}, lounge and fan zone posts, alerts, what {bot} remembers about you, a Yahoo link, a waitlist entry on your email.</p>
           </div>
           <div className="rounded-2xl border border-white/[.08] bg-white/[.03] p-3">
             <div className="mb-1 font-semibold text-slate-200">Kept, without your name</div>
