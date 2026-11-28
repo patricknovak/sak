@@ -1,4 +1,4 @@
-// The Super Hockey League concept page (shl.html), after site.js: the film's play button, the lead player's living
+// The vHL (V Hockey League) concept page (vhl.html), after site.js: the V's turn in the name, the film's play button, the lead player's living
 // portrait, the map, the members' vote and the sealed game. Every demo is fictional and drawn in the page; each part checks its element exists, and without this
 // script the page still reads whole (the film keeps its own controls, the vote shows its result).
 (function () {
@@ -7,10 +7,26 @@
   var $ = function (id) { return document.getElementById(id); };
   var each = function (sel, fn, root) { Array.prototype.forEach.call((root || document).querySelectorAll(sel), fn); };
 
+  // 0. The name. On arrival the V takes its turns (virtual, vibrant, valiant, vivacious) and lands back on V: once,
+  // and not at all for anyone who asked for less motion. A screen reader gets "V Hockey League" throughout.
+  (function () {
+    var el = $('vflip');
+    if (!el || still) return;
+    var words = ['Virtual', 'Vibrant', 'Valiant', 'Vivacious', 'V'], i = -1;
+    var turn = function () {
+      el.classList.add('out');
+      setTimeout(function () {
+        i += 1; el.textContent = words[i]; el.classList.remove('out');
+        if (i < words.length - 1) setTimeout(turn, 740);
+      }, 160);
+    };
+    setTimeout(turn, 1300);
+  })();
+
   // 1. The film. The poster carries one large button; the player's own controls take over once it starts. Nothing is
   // downloaded until someone asks for it (preload="none").
   (function () {
-    var film = $('shl-film'), play = $('film-play'), box = $('film');
+    var film = $('vhl-film'), play = $('film-play'), box = $('film');
     if (!film || !play || !box) return;
     film.removeAttribute('controls');
     play.hidden = false;
